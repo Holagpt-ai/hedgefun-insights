@@ -45,6 +45,13 @@ const translations: Translations = {
   preMarket: { en: "Pre-Market", es: "Pre-apertura" },
   afterHours: { en: "After-Hours", es: "Post-cierre" },
   advertisement: { en: "Advertisement", es: "Publicidad" },
+  stockExchanges: { en: "Stock Exchanges", es: "Bolsas de valores" },
+  comparisonTool: { en: "Comparison Tool", es: "Herramienta de comparación" },
+  byIndustry: { en: "By Industry", es: "Por industria" },
+  stockLists: { en: "Stock Lists", es: "Listas de acciones" },
+  topAnalysts: { en: "Top Analysts", es: "Mejores analistas" },
+  topStocks: { en: "Top Stocks", es: "Mejores acciones" },
+  corporateActions: { en: "Corporate Actions", es: "Acciones corporativas" },
 };
 
 interface LanguageContextValue {
