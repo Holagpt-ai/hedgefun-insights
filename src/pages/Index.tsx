@@ -1,11 +1,21 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import Disclaimer from '@/components/layout/Disclaimer';
 
 const Index = () => {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center">
-        <h1 className="mb-4 text-4xl font-bold">Welcome to Your Blank App</h1>
-        <p className="text-xl text-muted-foreground">Start building your amazing project here!</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
+      <div className="text-center max-w-lg">
+        <h1 className="text-4xl font-display tracking-tight text-foreground">
+          HedgeFun
+        </h1>
+        <p className="mt-2 text-lg text-text-secondary">
+          Your Edge In Every Market
+        </p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Foundation loaded. UI coming in Part 2.
+        </p>
+        <div className="mt-8">
+          <Disclaimer />
+        </div>
       </div>
     </div>
   );
