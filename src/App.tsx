@@ -33,6 +33,7 @@ import StockExchangesPage from "./pages/stocks/StockExchangesPage";
 import StockComparePage from "./pages/stocks/StockComparePage";
 import IndustryPage from "./pages/stocks/IndustryPage";
 import StockListsPage from "./pages/stocks/StockListsPage";
+import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
 
 const queryClient = new QueryClient();
 
