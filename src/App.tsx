@@ -31,6 +31,7 @@ import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import StubPage from "./pages/stubs/StubPage";
 import StockExchangesPage from "./pages/stocks/StockExchangesPage";
 import StockComparePage from "./pages/stocks/StockComparePage";
+import IndustryPage from "./pages/stocks/IndustryPage";
 
 const queryClient = new QueryClient();
 
