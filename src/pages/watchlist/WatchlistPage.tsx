@@ -374,10 +374,6 @@ const WatchlistPage = () => {
     <div>
       {/* Page title */}
       <title>My Watchlist | HedgeFun</title>
-
-      {/* Top ad banner */}
-      <AdBanner />
-
       {/* Index sparklines */}
       <IndexSparklineCards />
 
