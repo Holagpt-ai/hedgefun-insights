@@ -66,6 +66,7 @@ const App = () => (
                   <Route path="/stocks/compare" element={<StockComparePage />} />
                   <Route path="/stocks/industry" element={<IndustryPage />} />
                   <Route path="/stocks/lists" element={<StockListsPage />} />
+                  <Route path="/stocks/analysts" element={<TopAnalystsPage />} />
 
                   {/* Stub pages */}
                   <Route path="/dividends" element={<StubPage title="Dividend Tracker" description="Track dividend yields, payout dates, and dividend history for any stock." />} />
