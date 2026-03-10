@@ -30,6 +30,7 @@ import AdminAlertsPage from "./pages/admin/AdminAlertsPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import StubPage from "./pages/stubs/StubPage";
 import StockExchangesPage from "./pages/stocks/StockExchangesPage";
+import StockComparePage from "./pages/stocks/StockComparePage";
 
 const queryClient = new QueryClient();
 
@@ -59,6 +60,7 @@ const App = () => (
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/news" element={<NewsPage />} />
                   <Route path="/stocks/exchanges" element={<StockExchangesPage />} />
+                  <Route path="/stocks/compare" element={<StockComparePage />} />
 
                   {/* Stub pages */}
                   <Route path="/dividends" element={<StubPage title="Dividend Tracker" description="Track dividend yields, payout dates, and dividend history for any stock." />} />
