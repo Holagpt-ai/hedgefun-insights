@@ -29,6 +29,7 @@ import AdminSeoPage from "./pages/admin/AdminSeoPage";
 import AdminAlertsPage from "./pages/admin/AdminAlertsPage";
 import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import StubPage from "./pages/stubs/StubPage";
+import StockExchangesPage from "./pages/stocks/StockExchangesPage";
 
 const queryClient = new QueryClient();
 
