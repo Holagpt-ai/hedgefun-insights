@@ -35,6 +35,7 @@ import IndustryPage from "./pages/stocks/IndustryPage";
 import StockListsPage from "./pages/stocks/StockListsPage";
 import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
 import TopStocksPage from "./pages/stocks/TopStocksPage";
+import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
 
 const queryClient = new QueryClient();
 
@@ -69,6 +70,7 @@ const App = () => (
                   <Route path="/stocks/lists" element={<StockListsPage />} />
                   <Route path="/stocks/analysts" element={<TopAnalystsPage />} />
                   <Route path="/stocks/top-stocks" element={<TopStocksPage />} />
+                  <Route path="/stocks/corporate-actions" element={<CorporateActionsPage />} />
 
                   {/* Stub pages */}
                   <Route path="/dividends" element={<StubPage title="Dividend Tracker" description="Track dividend yields, payout dates, and dividend history for any stock." />} />
