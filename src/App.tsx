@@ -77,6 +77,14 @@ const App = () => (
                 {/* Admin routes */}
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/admin/users" element={<AdminUsersPage />} />
+                  <Route path="/admin/subscriptions" element={<AdminSubscriptionsPage />} />
+                  <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
+                  <Route path="/admin/news" element={<AdminNewsPage />} />
+                  <Route path="/admin/market" element={<AdminMarketPage />} />
+                  <Route path="/admin/seo" element={<AdminSeoPage />} />
+                  <Route path="/admin/alerts" element={<AdminAlertsPage />} />
+                  <Route path="/admin/settings" element={<AdminSettingsPage />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
