@@ -34,6 +34,7 @@ import StockComparePage from "./pages/stocks/StockComparePage";
 import IndustryPage from "./pages/stocks/IndustryPage";
 import StockListsPage from "./pages/stocks/StockListsPage";
 import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
+import TopStocksPage from "./pages/stocks/TopStocksPage";
 
 const queryClient = new QueryClient();
 
