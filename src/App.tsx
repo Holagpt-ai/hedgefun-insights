@@ -20,6 +20,14 @@ import ProPage from "./pages/pro/ProPage";
 import AccountPage from "./pages/account/AccountPage";
 import NewsPage from "./pages/news/NewsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
+import AdminUsersPage from "./pages/admin/AdminUsersPage";
+import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
+import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
+import AdminNewsPage from "./pages/admin/AdminNewsPage";
+import AdminMarketPage from "./pages/admin/AdminMarketPage";
+import AdminSeoPage from "./pages/admin/AdminSeoPage";
+import AdminAlertsPage from "./pages/admin/AdminAlertsPage";
+import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import StubPage from "./pages/stubs/StubPage";
 
 const queryClient = new QueryClient();
