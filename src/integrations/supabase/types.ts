@@ -14,7 +14,429 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      agentic_seo_log: {
+        Row: {
+          audit_passed: boolean | null
+          audit_score: number | null
+          auditor_model: string | null
+          created_at: string | null
+          cts_composite_score: number | null
+          generated_content: Json | null
+          generator_model: string | null
+          id: string
+          page_type: string
+          symbol: string
+          tier: string | null
+        }
+        Insert: {
+          audit_passed?: boolean | null
+          audit_score?: number | null
+          auditor_model?: string | null
+          created_at?: string | null
+          cts_composite_score?: number | null
+          generated_content?: Json | null
+          generator_model?: string | null
+          id?: string
+          page_type: string
+          symbol: string
+          tier?: string | null
+        }
+        Update: {
+          audit_passed?: boolean | null
+          audit_score?: number | null
+          auditor_model?: string | null
+          created_at?: string | null
+          cts_composite_score?: number | null
+          generated_content?: Json | null
+          generator_model?: string | null
+          id?: string
+          page_type?: string
+          symbol?: string
+          tier?: string | null
+        }
+        Relationships: []
+      }
+      chatbot_sessions: {
+        Row: {
+          created_at: string | null
+          id: string
+          last_active_at: string | null
+          messages: Json | null
+          session_token: string
+          total_tokens_used: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          last_active_at?: string | null
+          messages?: Json | null
+          session_token: string
+          total_tokens_used?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          last_active_at?: string | null
+          messages?: Json | null
+          session_token?: string
+          total_tokens_used?: number | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      earnings_calendar: {
+        Row: {
+          actual_eps: number | null
+          company_name: string
+          created_at: string | null
+          estimate_eps: number | null
+          id: string
+          report_date: string
+          surprise_percent: number | null
+          symbol: string
+          time_of_day: string | null
+        }
+        Insert: {
+          actual_eps?: number | null
+          company_name: string
+          created_at?: string | null
+          estimate_eps?: number | null
+          id?: string
+          report_date: string
+          surprise_percent?: number | null
+          symbol: string
+          time_of_day?: string | null
+        }
+        Update: {
+          actual_eps?: number | null
+          company_name?: string
+          created_at?: string | null
+          estimate_eps?: number | null
+          id?: string
+          report_date?: string
+          surprise_percent?: number | null
+          symbol?: string
+          time_of_day?: string | null
+        }
+        Relationships: []
+      }
+      ipo_list: {
+        Row: {
+          created_at: string | null
+          exchange: string | null
+          id: string
+          ipo_date: string
+          name: string
+          offer_price: number | null
+          price_range: string | null
+          status: string | null
+          symbol: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          exchange?: string | null
+          id?: string
+          ipo_date: string
+          name: string
+          offer_price?: number | null
+          price_range?: string | null
+          status?: string | null
+          symbol?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          exchange?: string | null
+          id?: string
+          ipo_date?: string
+          name?: string
+          offer_price?: number | null
+          price_range?: string | null
+          status?: string | null
+          symbol?: string | null
+        }
+        Relationships: []
+      }
+      market_indexes: {
+        Row: {
+          change_amount: number | null
+          change_percent: number | null
+          current_value: number | null
+          id: string
+          name: string
+          sparkline_data: Json | null
+          symbol: string
+          updated_at: string | null
+        }
+        Insert: {
+          change_amount?: number | null
+          change_percent?: number | null
+          current_value?: number | null
+          id?: string
+          name: string
+          sparkline_data?: Json | null
+          symbol: string
+          updated_at?: string | null
+        }
+        Update: {
+          change_amount?: number | null
+          change_percent?: number | null
+          current_value?: number | null
+          id?: string
+          name?: string
+          sparkline_data?: Json | null
+          symbol?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      market_movers: {
+        Row: {
+          change_percent: number | null
+          id: string
+          name: string
+          price: number | null
+          session_date: string | null
+          symbol: string
+          type: string | null
+          updated_at: string | null
+          volume: number | null
+        }
+        Insert: {
+          change_percent?: number | null
+          id?: string
+          name: string
+          price?: number | null
+          session_date?: string | null
+          symbol: string
+          type?: string | null
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Update: {
+          change_percent?: number | null
+          id?: string
+          name?: string
+          price?: number | null
+          session_date?: string | null
+          symbol?: string
+          type?: string | null
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Relationships: []
+      }
+      market_news: {
+        Row: {
+          category: string | null
+          headline: string
+          id: string
+          published_at: string | null
+          source: string | null
+          url: string | null
+        }
+        Insert: {
+          category?: string | null
+          headline: string
+          id?: string
+          published_at?: string | null
+          source?: string | null
+          url?: string | null
+        }
+        Update: {
+          category?: string | null
+          headline?: string
+          id?: string
+          published_at?: string | null
+          source?: string | null
+          url?: string | null
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          current_period_end: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          plan: string | null
+          preferred_language: string | null
+          preferred_theme: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          subscription_status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          plan?: string | null
+          preferred_language?: string | null
+          preferred_theme?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          current_period_end?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          plan?: string | null
+          preferred_language?: string | null
+          preferred_theme?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          subscription_status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      stocks: {
+        Row: {
+          beta: number | null
+          change_amount: number | null
+          change_percent: number | null
+          description: string | null
+          eps: number | null
+          exchange: string | null
+          id: string
+          industry: string | null
+          logo_url: string | null
+          market_cap: number | null
+          name: string
+          pe_ratio: number | null
+          price: number | null
+          revenue: number | null
+          sector: string | null
+          symbol: string
+          updated_at: string | null
+          volume: number | null
+          website: string | null
+          week_52_high: number | null
+          week_52_low: number | null
+        }
+        Insert: {
+          beta?: number | null
+          change_amount?: number | null
+          change_percent?: number | null
+          description?: string | null
+          eps?: number | null
+          exchange?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          market_cap?: number | null
+          name: string
+          pe_ratio?: number | null
+          price?: number | null
+          revenue?: number | null
+          sector?: string | null
+          symbol: string
+          updated_at?: string | null
+          volume?: number | null
+          website?: string | null
+          week_52_high?: number | null
+          week_52_low?: number | null
+        }
+        Update: {
+          beta?: number | null
+          change_amount?: number | null
+          change_percent?: number | null
+          description?: string | null
+          eps?: number | null
+          exchange?: string | null
+          id?: string
+          industry?: string | null
+          logo_url?: string | null
+          market_cap?: number | null
+          name?: string
+          pe_ratio?: number | null
+          price?: number | null
+          revenue?: number | null
+          sector?: string | null
+          symbol?: string
+          updated_at?: string | null
+          volume?: number | null
+          website?: string | null
+          week_52_high?: number | null
+          week_52_low?: number | null
+        }
+        Relationships: []
+      }
+      subscriptions: {
+        Row: {
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          plan: string | null
+          status: string | null
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan?: string | null
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          plan?: string | null
+          status?: string | null
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      watchlists: {
+        Row: {
+          added_at: string | null
+          id: string
+          symbol: string
+          user_id: string | null
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          symbol: string
+          user_id?: string | null
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          symbol?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
