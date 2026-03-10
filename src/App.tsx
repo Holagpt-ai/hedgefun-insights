@@ -32,6 +32,7 @@ import StubPage from "./pages/stubs/StubPage";
 import StockExchangesPage from "./pages/stocks/StockExchangesPage";
 import StockComparePage from "./pages/stocks/StockComparePage";
 import IndustryPage from "./pages/stocks/IndustryPage";
+import StockListsPage from "./pages/stocks/StockListsPage";
 
 const queryClient = new QueryClient();
 
