@@ -23,10 +23,14 @@ const navItems: NavItem[] = [
     labelKey: "stocks", icon: BarChart2, route: "/stocks",
     children: [
       { labelKey: "stockScreener", route: "/screener" },
+      { labelKey: "stockExchanges", route: "/stocks/exchanges" },
+      { labelKey: "comparisonTool", route: "/stocks/compare" },
       { labelKey: "earningsCalendar", route: "/earnings" },
-      { labelKey: "dividends", route: "/dividends" },
-      { labelKey: "ipoList", route: "/ipos" },
-      { labelKey: "splitHistory", route: "/splits" },
+      { labelKey: "byIndustry", route: "/stocks/industry" },
+      { labelKey: "stockLists", route: "/stocks/lists" },
+      { labelKey: "topAnalysts", route: "/stocks/analysts" },
+      { labelKey: "topStocks", route: "/stocks/top-stocks" },
+      { labelKey: "corporateActions", route: "/stocks/corporate-actions" },
     ],
   },
   {
