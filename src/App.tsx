@@ -16,6 +16,7 @@ import MoversPage from "./pages/movers/MoversPage";
 import { RecentIposPage, UpcomingIposPage } from "./pages/ipos/IpoPages";
 import IpoStatisticsPage from "./pages/ipos/IpoStatisticsPage";
 import IpoNewsPage from "./pages/ipos/IpoNewsPage";
+import IpoScreenerPage from "./pages/ipos/IpoScreenerPage";
 import EarningsPage from "./pages/earnings/EarningsPage";
 import WatchlistPage from "./pages/watchlist/WatchlistPage";
 import ProPage from "./pages/pro/ProPage";
@@ -62,6 +63,7 @@ const App = () => (
                   <Route path="/ipos/calendar" element={<UpcomingIposPage />} />
                   <Route path="/ipos/statistics" element={<IpoStatisticsPage />} />
                   <Route path="/ipos/news" element={<IpoNewsPage />} />
+                  <Route path="/ipos/screener" element={<IpoScreenerPage />} />
                   <Route path="/ipos/upcoming" element={<UpcomingIposPage />} />
                   <Route path="/ipos" element={<RecentIposPage />} />
                   <Route path="/earnings" element={<EarningsPage />} />
