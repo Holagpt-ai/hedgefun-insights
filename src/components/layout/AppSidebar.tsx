@@ -46,9 +46,10 @@ const navItems: NavItem[] = [
   {
     labelKey: "etfs", icon: Archive, route: "/etfs",
     children: [
-      { labelKey: "etfScreener", route: "/etfs/screener" },
-      { labelKey: "topEtfs", route: "/etfs/top" },
-      { labelKey: "etfCompare", route: "/etfs/compare" },
+      { labelKey: "etfScreener", route: "/etf/screener" },
+      { labelKey: "comparisonTool", route: "/etf/compare" },
+      { labelKey: "newLaunches", route: "/etf/list/new" },
+      { labelKey: "etfProviders", route: "/etf/provider" },
     ],
   },
   { labelKey: "news", icon: Newspaper, route: "/news" },
