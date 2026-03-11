@@ -9,9 +9,11 @@ import {
   createColumnHelper,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowUpDown, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowUpDown, TrendingUp, TrendingDown, ArrowUpRight, Info, Search, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IpoTabBar } from "@/components/ipos/IpoTabBar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AdBanner } from "@/components/layout/AdBanner";
 import {
   Breadcrumb,
@@ -372,13 +374,252 @@ export function RecentIposPage() {
   );
 }
 
+/* ── IPO Calendar Types & Data ──────────────────── */
+interface CalendarIpo {
+  ipoDate: string;
+  symbol: string;
+  company: string;
+  exchange: string;
+  priceRange: string;
+  sharesOffered: number;
+  dealSize: string;
+  marketCap: string;
+  revenue: string;
+}
+
+const THIS_WEEK_IPOS: CalendarIpo[] = [
+  { ipoDate: "2026-03-12", symbol: "PAYP", company: "PayPay Corporation", exchange: "NASDAQ", priceRange: "$17.00 - $20.00", sharesOffered: 54987214, dealSize: "1.02B", marketCap: "12.37B", revenue: "2.33B" },
+];
+
+const calendarColumnHelper = createColumnHelper<CalendarIpo>();
+
+const CALENDAR_SUB_TABS = ["Upcoming", "Filings", "Withdrawn"] as const;
+const VIEW_TABS = ["Overview", "Financials", "Margins", "Profile"] as const;
+
+const IPO_RESOURCES = [
+  { title: "Recent IPOs", description: "The 200 most recently launched IPOs", route: "/ipos/recent" },
+  { title: "Filings", description: "All companies that have filed for an initial public offering", route: "/ipos/calendar?tab=filings" },
+  { title: "Statistics", description: "IPO launches by year and month", route: "/ipos/statistics" },
+  { title: "News", description: "News about initial public offerings", route: "/ipos/news" },
+];
+
 export function UpcomingIposPage() {
+  const navigate = useNavigate();
+  const [subTab, setSubTab] = useState<(typeof CALENDAR_SUB_TABS)[number]>("Upcoming");
+  const [viewTab, setViewTab] = useState<(typeof VIEW_TABS)[number]>("Overview");
+  const [sorting, setSorting] = useState<SortingState>([{ id: "ipoDate", desc: false }]);
+  const [search, setSearch] = useState("");
+
+  const columns = useMemo(() => [
+    calendarColumnHelper.accessor("ipoDate", {
+      header: ({ column }) => (
+        <button className="flex items-center gap-1" onClick={() => column.toggleSorting()}>
+          IPO Date <ArrowUpDown className="h-3 w-3" />
+        </button>
+      ),
+      cell: (info) => (
+        <span className="text-foreground text-sm tabular-nums whitespace-nowrap">
+          {new Date(info.getValue()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        </span>
+      ),
+    }),
+    calendarColumnHelper.accessor("symbol", {
+      header: "Symbol",
+      cell: (info) => (
+        <button onClick={() => navigate(`/stocks/${info.getValue().toLowerCase()}`)} className="font-semibold text-accent-blue hover:underline text-sm">
+          {info.getValue()}
+        </button>
+      ),
+    }),
+    calendarColumnHelper.accessor("company", {
+      header: "Company Name",
+      cell: (info) => <span className="text-foreground text-sm">{info.getValue()}</span>,
+    }),
+    calendarColumnHelper.accessor("exchange", {
+      header: "Exchange",
+      cell: (info) => <span className="text-foreground text-sm">{info.getValue()}</span>,
+    }),
+    calendarColumnHelper.accessor("priceRange", {
+      header: "Price Range",
+      cell: (info) => <span className="text-foreground text-sm tabular-nums">{info.getValue()}</span>,
+    }),
+    calendarColumnHelper.accessor("sharesOffered", {
+      header: () => <span className="text-right block">Shares Offered</span>,
+      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue().toLocaleString()}</span>,
+    }),
+    calendarColumnHelper.accessor("dealSize", {
+      header: () => <span className="text-right block">Deal Size</span>,
+      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
+    }),
+    calendarColumnHelper.accessor("marketCap", {
+      header: () => <span className="text-right block">Market Cap</span>,
+      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
+    }),
+    calendarColumnHelper.accessor("revenue", {
+      header: () => <span className="text-right block">Revenue</span>,
+      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
+    }),
+  ], [navigate]);
+
+  const table = useReactTable({
+    data: THIS_WEEK_IPOS,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+  });
+
   return (
     <div>
       <IpoTabBar />
+
       <div className="p-4">
-        <h1 className="text-lg font-bold text-foreground mb-4">Upcoming IPOs</h1>
-        <p className="text-muted-foreground text-sm">IPO Calendar page coming soon.</p>
+        <Breadcrumb className="mb-3">
+          <BreadcrumbList>
+            <BreadcrumbItem><BreadcrumbLink href="/">Home</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem><BreadcrumbLink href="/ipos/recent">IPOs</BreadcrumbLink></BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem><BreadcrumbPage>Calendar</BreadcrumbPage></BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+
+        <h1 className="text-[1.75rem] font-bold text-foreground mb-4">IPO Calendar</h1>
+
+        {/* Sub-tabs */}
+        <div className="flex gap-1 mb-6">
+          {CALENDAR_SUB_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setSubTab(tab)}
+              className={cn(
+                "px-4 py-1.5 rounded-md text-sm font-medium transition-colors",
+                subTab === tab
+                  ? "bg-accent-blue text-primary-foreground"
+                  : "text-text-secondary hover:text-foreground"
+              )}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
+
+        {/* This Week */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+            <h2 className="text-[1.25rem] font-bold text-foreground">
+              This Week · {THIS_WEEK_IPOS.length} IPO{THIS_WEEK_IPOS.length !== 1 ? "s" : ""}
+            </h2>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Find..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-8 h-8 w-[120px] text-sm"
+                />
+              </div>
+              <Button variant="outline" size="sm" className="text-xs">Indicators ▾</Button>
+              <Button size="sm" className="text-xs bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground">Screener →</Button>
+              <Button variant="outline" size="sm" className="text-xs">Download ▾</Button>
+              <Button variant="outline" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
+            </div>
+          </div>
+
+          {/* View tabs */}
+          <div className="flex gap-0 border-b border-border mb-0">
+            {VIEW_TABS.map((vt) => (
+              <button
+                key={vt}
+                onClick={() => setViewTab(vt)}
+                className={cn(
+                  "px-4 py-2 text-sm font-medium transition-colors relative",
+                  viewTab === vt ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {vt}
+                {viewTab === vt && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
+              </button>
+            ))}
+            <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">+ Add View</button>
+            <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">✎ Edit View</button>
+          </div>
+
+          {/* Table */}
+          <div className="border border-border rounded-b-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  {table.getHeaderGroups().map((hg) => (
+                    <tr key={hg.id} className="border-b border-border bg-surface">
+                      {hg.headers.map((header) => (
+                        <th key={header.id} className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id} className="border-b border-border-subtle hover:bg-surface transition-colors">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-3 py-2">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Next Week */}
+        <div className="mb-8">
+          <h2 className="text-[1.25rem] font-bold text-foreground mb-2">Next Week · 0 IPOs</h2>
+          <p className="text-muted-foreground text-sm">There are no IPOs scheduled for next week.</p>
+        </div>
+
+        {/* After Next Week */}
+        <div className="mb-8">
+          <h2 className="text-[1.25rem] font-bold text-foreground mb-3">After Next Week</h2>
+          <div className="border-l-4 border-accent-blue bg-accent-blue-light rounded-lg px-4 py-3 flex items-start gap-3">
+            <Info className="h-5 w-5 text-accent-blue shrink-0 mt-0.5" />
+            <p className="text-sm text-foreground leading-relaxed">
+              No IPOs have been scheduled after next week. The reason is that IPO dates are rarely set more than 7–10 days in advance.{" "}
+              <button onClick={() => navigate("/ipos/calendar?tab=filings")} className="text-accent-blue hover:underline font-medium">
+                View unscheduled IPOs.
+              </button>
+            </p>
+          </div>
+        </div>
+
+        {/* Sources */}
+        <p className="text-[0.8125rem] text-muted-foreground mb-10 leading-relaxed">
+          <strong>Sources:</strong> Most data is sourced from the S-1 filings that companies submit to the U.S. Securities and Exchange Commission (SEC). IPO dates are sourced from SEC filings, press releases, roadshow presentations, NASDAQ, NYSE and others. IPO dates are estimated and may change, and in some cases companies postpone or withdraw their plans.
+        </p>
+
+        {/* More IPO Resources */}
+        <div className="mb-8">
+          <h2 className="text-[1.25rem] font-bold text-foreground mb-4">More IPO Resources</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {IPO_RESOURCES.map((res) => (
+              <button
+                key={res.title}
+                onClick={() => navigate(res.route)}
+                className="border border-border rounded-lg p-4 text-left hover:border-accent-blue transition-colors group relative"
+              >
+                <ArrowUpRight className="absolute top-3 right-3 h-4 w-4 text-muted-foreground group-hover:text-accent-blue transition-colors" />
+                <h3 className="text-sm font-bold text-foreground mb-1">{res.title}</h3>
+                <p className="text-xs text-muted-foreground leading-snug">{res.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
