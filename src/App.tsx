@@ -42,6 +42,7 @@ import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
 import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
 import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
+import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
 
 const queryClient = new QueryClient();
 
