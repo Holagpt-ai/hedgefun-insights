@@ -16,6 +16,7 @@ import MoversPage from "./pages/movers/MoversPage";
 import { RecentIposPage, UpcomingIposPage } from "./pages/ipos/IpoPages";
 import IpoStatisticsPage from "./pages/ipos/IpoStatisticsPage";
 import IpoNewsPage from "./pages/ipos/IpoNewsPage";
+import IpoScreenerPage from "./pages/ipos/IpoScreenerPage";
 import EarningsPage from "./pages/earnings/EarningsPage";
 import WatchlistPage from "./pages/watchlist/WatchlistPage";
 import ProPage from "./pages/pro/ProPage";
