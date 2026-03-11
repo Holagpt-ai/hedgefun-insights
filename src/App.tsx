@@ -61,6 +61,7 @@ const App = () => (
                   <Route path="/ipos/recent" element={<RecentIposPage />} />
                   <Route path="/ipos/calendar" element={<UpcomingIposPage />} />
                   <Route path="/ipos/statistics" element={<IpoStatisticsPage />} />
+                  <Route path="/ipos/news" element={<IpoNewsPage />} />
                   <Route path="/ipos/upcoming" element={<UpcomingIposPage />} />
                   <Route path="/ipos" element={<RecentIposPage />} />
                   <Route path="/earnings" element={<EarningsPage />} />
