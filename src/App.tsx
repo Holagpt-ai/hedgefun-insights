@@ -94,7 +94,7 @@ const App = () => (
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
                   <Route path="/etfs/top" element={<StubPage title="Top ETFs" description="The highest-performing ETFs ranked by returns, volume, and assets under management." />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
-                  <Route path="/trending" element={<StubPage title="Trending Stocks" description="The most searched and discussed stocks on HedgeFun right now." />} />
+                  <Route path="/trending" element={<TrendingPage />} />
                   <Route path="/articles" element={<StubPage title="Market Articles" description="In-depth analysis, commentary, and research from the HedgeFun team." />} />
                   <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
                   <Route path="/newsletter" element={<StubPage title="Market Newsletter" description="Subscribe to daily market news delivered in bullet point format every morning." />} />
