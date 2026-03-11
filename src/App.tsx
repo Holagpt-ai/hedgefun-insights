@@ -39,6 +39,7 @@ import StockListsPage from "./pages/stocks/StockListsPage";
 import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
 import TopStocksPage from "./pages/stocks/TopStocksPage";
 import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
+import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
 
 const queryClient = new QueryClient();
 
@@ -83,7 +84,7 @@ const App = () => (
                   <Route path="/dividends" element={<StubPage title="Dividend Tracker" description="Track dividend yields, payout dates, and dividend history for any stock." />} />
                   <Route path="/splits" element={<StubPage title="Stock Split History" description="View historical and upcoming stock splits across all exchanges." />} />
                   <Route path="/etfs" element={<StubPage title="ETF Explorer" description="Discover, compare, and screen thousands of ETFs by category and performance." />} />
-                  <Route path="/etfs/screener" element={<StubPage title="ETF Screener" description="Filter ETFs by asset class, expense ratio, performance, and more." />} />
+                  <Route path="/etf/screener" element={<EtfScreenerPage />} />
                   <Route path="/etfs/top" element={<StubPage title="Top ETFs" description="The highest-performing ETFs ranked by returns, volume, and assets under management." />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<StubPage title="Trending Stocks" description="The most searched and discussed stocks on HedgeFun right now." />} />
