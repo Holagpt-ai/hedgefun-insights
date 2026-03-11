@@ -40,6 +40,7 @@ import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
 import TopStocksPage from "./pages/stocks/TopStocksPage";
 import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
 import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
+import EtfComparePage from "./pages/etf/EtfComparePage";
 
 const queryClient = new QueryClient();
 
