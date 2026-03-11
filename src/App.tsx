@@ -14,6 +14,7 @@ import StockDetail from "./pages/stocks/StockDetail";
 import Screener from "./pages/Screener";
 import MoversPage from "./pages/movers/MoversPage";
 import { RecentIposPage, UpcomingIposPage } from "./pages/ipos/IpoPages";
+import IpoStatisticsPage from "./pages/ipos/IpoStatisticsPage";
 import EarningsPage from "./pages/earnings/EarningsPage";
 import WatchlistPage from "./pages/watchlist/WatchlistPage";
 import ProPage from "./pages/pro/ProPage";
