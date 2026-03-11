@@ -90,6 +90,7 @@ const App = () => (
                   <Route path="/etf/screener" element={<EtfScreenerPage />} />
                   <Route path="/etf/compare" element={<EtfComparePage />} />
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
+                  <Route path="/etf/provider" element={<EtfProvidersPage />} />
                   <Route path="/etfs/top" element={<StubPage title="Top ETFs" description="The highest-performing ETFs ranked by returns, volume, and assets under management." />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<StubPage title="Trending Stocks" description="The most searched and discussed stocks on HedgeFun right now." />} />
