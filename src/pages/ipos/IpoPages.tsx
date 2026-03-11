@@ -9,9 +9,11 @@ import {
   createColumnHelper,
   type SortingState,
 } from "@tanstack/react-table";
-import { ArrowUpDown, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowUpDown, TrendingUp, TrendingDown, ArrowUpRight, Info, Search, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IpoTabBar } from "@/components/ipos/IpoTabBar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { AdBanner } from "@/components/layout/AdBanner";
 import {
   Breadcrumb,
