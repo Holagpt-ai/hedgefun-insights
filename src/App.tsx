@@ -43,6 +43,7 @@ import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
 import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
 import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
+import TrendingPage from "./pages/trending/TrendingPage";
 
 const queryClient = new QueryClient();
 
