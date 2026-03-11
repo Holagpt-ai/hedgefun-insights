@@ -37,8 +37,10 @@ const navItems: NavItem[] = [
     labelKey: "ipos", icon: Calendar, route: "/ipos",
     children: [
       { labelKey: "recentIpos", route: "/ipos/recent" },
-      { labelKey: "upcomingIpos", route: "/ipos/upcoming" },
-      { labelKey: "spacList", route: "/ipos/spac" },
+      { labelKey: "ipoCalendar", route: "/ipos/calendar" },
+      { labelKey: "ipoStatistics", route: "/ipos/statistics" },
+      { labelKey: "ipoNews", route: "/ipos/news" },
+      { labelKey: "ipoScreener", route: "/ipos/screener" },
     ],
   },
   {
