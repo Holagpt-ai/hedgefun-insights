@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   useReactTable,
   getCoreRowModel,
-  getSortingRowModel,
+  getSortedRowModel,
   getPaginationRowModel,
   flexRender,
   type ColumnDef,
