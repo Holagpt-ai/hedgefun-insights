@@ -58,6 +58,8 @@ const App = () => (
                   <Route path="/movers/:type" element={<MoversPage />} />
                   <Route path="/movers" element={<MoversPage />} />
                   <Route path="/ipos/recent" element={<RecentIposPage />} />
+                  <Route path="/ipos/calendar" element={<UpcomingIposPage />} />
+                  <Route path="/ipos/statistics" element={<IpoStatisticsPage />} />
                   <Route path="/ipos/upcoming" element={<UpcomingIposPage />} />
                   <Route path="/ipos" element={<RecentIposPage />} />
                   <Route path="/earnings" element={<EarningsPage />} />
