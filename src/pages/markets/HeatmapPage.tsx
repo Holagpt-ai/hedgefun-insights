@@ -1,5 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
-import { Helmet } from "react-helmet";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { Footer } from "@/components/layout/Footer";
