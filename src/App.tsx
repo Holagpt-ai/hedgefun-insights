@@ -50,6 +50,7 @@ import LosersPage from "./pages/markets/LosersPage";
 import ActivePage from "./pages/markets/ActivePage";
 import PremarketPage from "./pages/markets/PremarketPage";
 import AfterHoursPage from "./pages/markets/AfterHoursPage";
+import HeatmapPage from "./pages/markets/HeatmapPage";
 
 const queryClient = new QueryClient();
 
