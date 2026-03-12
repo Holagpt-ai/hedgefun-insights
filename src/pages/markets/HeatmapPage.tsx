@@ -256,14 +256,12 @@ function HeatmapPage() {
     setHoveredStock(null);
   }, []);
 
+  useEffect(() => {
+    document.title = "Market Heatmap | HedgeFun";
+  }, []);
+
   return (
     <>
-      <Helmet>
-        <title>Market Heatmap | HedgeFun</title>
-        <meta name="description" content="S&P 500 stock performance heatmap by sector and industry. Size represents market cap, color represents relative performance." />
-      </Helmet>
-
-      <div className="w-full max-w-7xl mx-auto px-4">
         <MarketMoversTabBar />
 
         {/* Header */}
