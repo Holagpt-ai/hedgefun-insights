@@ -99,6 +99,7 @@ const App = () => (
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<TrendingPage />} />
                   <Route path="/markets/gainers" element={<GainersPage />} />
+                  <Route path="/markets/losers" element={<LosersPage />} />
                   <Route path="/articles" element={<StubPage title="Market Articles" description="In-depth analysis, commentary, and research from the HedgeFun team." />} />
                   <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
                   <Route path="/newsletter" element={<StubPage title="Market Newsletter" description="Subscribe to daily market news delivered in bullet point format every morning." />} />
