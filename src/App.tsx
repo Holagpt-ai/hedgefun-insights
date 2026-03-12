@@ -52,6 +52,7 @@ import PremarketPage from "./pages/markets/PremarketPage";
 import AfterHoursPage from "./pages/markets/AfterHoursPage";
 import HeatmapPage from "./pages/markets/HeatmapPage";
 import NewsletterPage from "./pages/newsletter/NewsletterPage";
+import ToolsPage from "./pages/tools/ToolsPage";
 
 const queryClient = new QueryClient();
 
