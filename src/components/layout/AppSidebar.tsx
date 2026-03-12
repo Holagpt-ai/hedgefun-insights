@@ -103,20 +103,27 @@ export function AppSidebar({ className }: { className?: string }) {
         {navItems.map((item) =>
           item.children && !collapsed ? (
             <Collapsible key={item.labelKey} defaultOpen={isParentActive(item)}>
-              <CollapsibleTrigger className="w-full">
-                <div
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors group",
-                    isParentActive(item)
-                      ? "bg-accent-blue-light border-l-[3px] border-accent-blue text-accent-blue"
-                      : "text-sidebar-foreground hover:bg-accent"
-                  )}
+              <div
+                className={cn(
+                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors group",
+                  isParentActive(item)
+                    ? "bg-accent-blue-light border-l-[3px] border-accent-blue text-accent-blue"
+                    : "text-sidebar-foreground hover:bg-accent"
+                )}
+              >
+                <button
+                  onClick={() => navigate(item.route)}
+                  className="flex items-center gap-3 flex-1 text-left cursor-pointer"
                 >
                   <item.icon className="h-4 w-4 shrink-0" />
                   <span className="flex-1 text-left">{t(item.labelKey)}</span>
-                  <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-90" />
-                </div>
-              </CollapsibleTrigger>
+                </button>
+                <CollapsibleTrigger asChild>
+                  <button className="p-0.5 rounded hover:bg-accent cursor-pointer">
+                    <ChevronRight className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-90" />
+                  </button>
+                </CollapsibleTrigger>
+              </div>
               <CollapsibleContent>
                 <div className="ml-8 space-y-0.5 py-1">
                   {item.children.map((child) => (
