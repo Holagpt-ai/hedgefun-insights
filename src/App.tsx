@@ -121,6 +121,9 @@ const App = () => (
                 <Route path="/chart" element={<ChartPage />} />
                 <Route path="/chart/:ticker" element={<ChartPage />} />
 
+                {/* Newsletter — standalone layout */}
+                <Route path="/newsletter" element={<NewsletterPage />} />
+
                 {/* Admin routes */}
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminDashboard />} />
