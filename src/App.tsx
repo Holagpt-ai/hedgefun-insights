@@ -11,6 +11,7 @@ import AdminLayout from "@/layouts/AdminLayout";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
+import AllStocksPage from "./pages/stocks/AllStocksPage";
 import Screener from "./pages/Screener";
 import MoversPage from "./pages/movers/MoversPage";
 import { RecentIposPage, UpcomingIposPage } from "./pages/ipos/IpoPages";
