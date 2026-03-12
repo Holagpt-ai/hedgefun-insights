@@ -54,6 +54,8 @@ import AfterHoursPage from "./pages/markets/AfterHoursPage";
 import HeatmapPage from "./pages/markets/HeatmapPage";
 import NewsletterPage from "./pages/newsletter/NewsletterPage";
 import ToolsPage from "./pages/tools/ToolsPage";
+import AboutPage from "./pages/static/AboutPage";
+import ContactPage from "./pages/static/ContactPage";
 
 const queryClient = new QueryClient();
 
