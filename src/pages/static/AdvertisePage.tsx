@@ -144,5 +144,6 @@ export default function AdvertisePage() {
 
     </div>
     <Footer />
+    </>
   );
 }

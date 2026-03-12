@@ -52,5 +52,6 @@ export default function DisclaimerPage() {
 
     </div>
     <Footer />
+    </>
   );
 }
