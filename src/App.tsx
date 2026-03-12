@@ -46,6 +46,7 @@ import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
 import TrendingPage from "./pages/trending/TrendingPage";
 import ChartPage from "./pages/chart/ChartPage";
 import GainersPage from "./pages/markets/GainersPage";
+import LosersPage from "./pages/markets/LosersPage";
 
 const queryClient = new QueryClient();
 
