@@ -64,9 +64,7 @@ export default function SupportPage() {
         </p>
       </div>
 
-      <div className="mt-16">
-        <Footer />
-      </div>
     </div>
+    <Footer />
   );
 }

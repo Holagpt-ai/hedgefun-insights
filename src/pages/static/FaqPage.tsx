@@ -74,9 +74,7 @@ export default function FaqPage() {
         ))}
       </Accordion>
 
-      <div className="mt-16">
-        <Footer />
-      </div>
     </div>
+    <Footer />
   );
 }

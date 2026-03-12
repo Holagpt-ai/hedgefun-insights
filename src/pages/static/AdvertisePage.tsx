@@ -141,9 +141,7 @@ export default function AdvertisePage() {
         )}
       </div>
 
-      <div className="mt-16">
-        <Footer />
-      </div>
     </div>
+    <Footer />
   );
 }

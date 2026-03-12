@@ -48,9 +48,7 @@ export default function AboutPage() {
         </p>
       </div>
 
-      <div className="mt-16">
-        <Footer />
-      </div>
     </div>
+    <Footer />
   );
 }

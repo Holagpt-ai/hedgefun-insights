@@ -154,9 +154,7 @@ export default function ContactPage() {
         </div>
       )}
 
-      <div className="mt-16">
-        <Footer />
-      </div>
     </div>
+    <Footer />
   );
 }
