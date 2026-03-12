@@ -44,6 +44,7 @@ import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
 import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
 import TrendingPage from "./pages/trending/TrendingPage";
+import ChartPage from "./pages/chart/ChartPage";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,10 @@ const App = () => (
                   <Route path="/ipos/spac" element={<StubPage title="SPAC List" description="Track all active SPACs, their targets, and merger status." />} />
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                 </Route>
+
+                {/* Chart routes — standalone layout */}
+                <Route path="/chart" element={<ChartPage />} />
+                <Route path="/chart/:ticker" element={<ChartPage />} />
 
                 {/* Admin routes */}
                 <Route element={<AdminLayout />}>
