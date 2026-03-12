@@ -70,6 +70,7 @@ const App = () => (
                 {/* Public routes */}
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<Index />} />
+                  <Route path="/stocks" element={<AllStocksPage />} />
                   <Route path="/stocks/:ticker" element={<StockDetail />} />
                   <Route path="/screener" element={<Screener />} />
                   <Route path="/movers/:type" element={<MoversPage />} />
