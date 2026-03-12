@@ -130,6 +130,14 @@ const App = () => (
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/faq" element={<FaqPage />} />
+                  <Route path="/advertise" element={<AdvertisePage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/disclaimer" element={<DisclaimerPage />} />
+                  <Route path="/affiliates" element={<AffiliatesPage />} />
+                  <Route path="/support" element={<SupportPage />} />
+                  <Route path="/sitemap" element={<SitemapPage />} />
                 </Route>
 
                 {/* Chart routes — standalone layout */}
