@@ -48,6 +48,7 @@ import ChartPage from "./pages/chart/ChartPage";
 import GainersPage from "./pages/markets/GainersPage";
 import LosersPage from "./pages/markets/LosersPage";
 import ActivePage from "./pages/markets/ActivePage";
+import PremarketPage from "./pages/markets/PremarketPage";
 
 const queryClient = new QueryClient();
 
@@ -102,6 +103,7 @@ const App = () => (
                   <Route path="/markets/gainers" element={<GainersPage />} />
                   <Route path="/markets/losers" element={<LosersPage />} />
                   <Route path="/markets/active" element={<ActivePage />} />
+                  <Route path="/markets/premarket" element={<PremarketPage />} />
                   <Route path="/articles" element={<StubPage title="Market Articles" description="In-depth analysis, commentary, and research from the HedgeFun team." />} />
                   <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
                   <Route path="/newsletter" element={<StubPage title="Market Newsletter" description="Subscribe to daily market news delivered in bullet point format every morning." />} />
