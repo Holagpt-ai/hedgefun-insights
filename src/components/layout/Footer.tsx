@@ -4,14 +4,15 @@ import { Facebook, Twitter, Instagram, Linkedin, Youtube, Sun, Moon } from "luci
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
+import { AuthModals } from "@/components/auth/AuthModals";
 
 const LINK_SECTIONS = [
   {
     title: "SECTIONS",
     links: [
       { label: "Stocks", to: "/stocks" },
-      { label: "IPOs", to: "/ipos" },
-      { label: "ETFs", to: "/etfs" },
+      { label: "IPOs", to: "/ipos/recent" },
+      { label: "ETFs", to: "/etf/screener" },
       { label: "Blog", to: "/articles" },
     ],
   },
@@ -27,9 +28,8 @@ const LINK_SECTIONS = [
   {
     title: "WEBSITE",
     links: [
-      { label: "Login", to: "/login" },
-      { label: "Create Account", to: "/signup" },
-      { label: "Changelog", to: "/changelog" },
+      { label: "Login", to: "__auth_login__" },
+      { label: "Create Account", to: "__auth_signup__" },
       { label: "Sitemap", to: "/sitemap" },
       { label: "Advertise", to: "/advertise" },
       { label: "FAQ", to: "/faq" },
@@ -60,6 +60,17 @@ export function Footer() {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState("");
+  const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+
+  const handleLinkClick = (to: string) => {
+    if (to === "__auth_login__") {
+      setAuthMode("login");
+    } else if (to === "__auth_signup__") {
+      setAuthMode("signup");
+    } else {
+      navigate(to);
+    }
+  };
 
   return (
     <footer className="bg-footer-bg text-footer-text w-full">
@@ -73,9 +84,9 @@ export function Footer() {
               </h4>
               <ul className="space-y-2">
                 {section.links.map((link) => (
-                  <li key={link.to}>
+                  <li key={link.label}>
                     <button
-                      onClick={() => navigate(link.to)}
+                      onClick={() => handleLinkClick(link.to)}
                       className="text-sm text-footer-text hover:text-white transition-colors"
                     >
                       {link.label}
@@ -89,7 +100,6 @@ export function Footer() {
 
         {/* Brand + Newsletter row */}
         <div className="grid md:grid-cols-2 gap-8 pb-8 border-b border-white/10">
-          {/* Brand block */}
           <div>
             <div className="flex items-center gap-2 mb-3">
               <div className="h-8 w-8 rounded-md bg-accent-blue flex items-center justify-center">
@@ -106,7 +116,6 @@ export function Footer() {
             </p>
           </div>
 
-          {/* Newsletter */}
           <div>
             <p className="text-xs font-semibold tracking-wider text-footer-text/70 mb-1">
               MARKET NEWSLETTER
@@ -169,6 +178,12 @@ export function Footer() {
           </button>
         </div>
       </div>
+
+      <AuthModals
+        mode={authMode}
+        onClose={() => setAuthMode(null)}
+        onSwitch={setAuthMode}
+      />
     </footer>
   );
 }
