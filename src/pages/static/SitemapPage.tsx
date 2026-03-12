@@ -70,6 +70,7 @@ export default function SitemapPage() {
   }, []);
 
   return (
+    <>
     <div className="max-w-[800px] mx-auto px-6 py-12">
       <h1 className="text-[1.75rem] font-bold text-foreground border-b-2 border-border pb-3 mb-8">
         Sitemap
@@ -107,9 +108,8 @@ export default function SitemapPage() {
         </p>
       </div>
 
-      <div className="mt-16">
-        <Footer />
-      </div>
     </div>
+    <Footer />
+    </>
   );
 }
