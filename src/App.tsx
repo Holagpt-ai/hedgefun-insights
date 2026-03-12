@@ -56,6 +56,14 @@ import NewsletterPage from "./pages/newsletter/NewsletterPage";
 import ToolsPage from "./pages/tools/ToolsPage";
 import AboutPage from "./pages/static/AboutPage";
 import ContactPage from "./pages/static/ContactPage";
+import FaqPage from "./pages/static/FaqPage";
+import AdvertisePage from "./pages/static/AdvertisePage";
+import TermsPage from "./pages/static/TermsPage";
+import PrivacyPage from "./pages/static/PrivacyPage";
+import DisclaimerPage from "./pages/static/DisclaimerPage";
+import AffiliatesPage from "./pages/static/AffiliatesPage";
+import SupportPage from "./pages/static/SupportPage";
+import SitemapPage from "./pages/static/SitemapPage";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +130,14 @@ const App = () => (
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/contact" element={<ContactPage />} />
+                  <Route path="/faq" element={<FaqPage />} />
+                  <Route path="/advertise" element={<AdvertisePage />} />
+                  <Route path="/terms" element={<TermsPage />} />
+                  <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/disclaimer" element={<DisclaimerPage />} />
+                  <Route path="/affiliates" element={<AffiliatesPage />} />
+                  <Route path="/support" element={<SupportPage />} />
+                  <Route path="/sitemap" element={<SitemapPage />} />
                 </Route>
 
                 {/* Chart routes — standalone layout */}

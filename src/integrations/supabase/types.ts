@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      affiliate_applications: {
+        Row: {
+          audience_size: string | null
+          email: string
+          id: string
+          name: string
+          promotion_plan: string | null
+          submitted_at: string | null
+          website_url: string | null
+        }
+        Insert: {
+          audience_size?: string | null
+          email: string
+          id?: string
+          name: string
+          promotion_plan?: string | null
+          submitted_at?: string | null
+          website_url?: string | null
+        }
+        Update: {
+          audience_size?: string | null
+          email?: string
+          id?: string
+          name?: string
+          promotion_plan?: string | null
+          submitted_at?: string | null
+          website_url?: string | null
+        }
+        Relationships: []
+      }
       agentic_seo_log: {
         Row: {
           audit_passed: boolean | null
