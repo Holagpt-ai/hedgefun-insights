@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import {
   Home, Star, BarChart2, Calendar, Archive, Newspaper, TrendingUp,
   BookOpen, LineChart, Activity, Mail, UserPlus, Wrench, ChevronRight,
+  ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -77,6 +79,14 @@ export function AppSidebar({ className }: { className?: string }) {
   const { t } = useLanguage();
   const { user, signOut } = useAuth();
 
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem("sidebarCollapsed") === "true"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    try { localStorage.setItem("sidebarCollapsed", String(collapsed)); } catch {}
+  }, [collapsed]);
+
   const isActive = (route: string) => location.pathname === route;
   const isParentActive = (item: NavItem) =>
     isActive(item.route) || item.children?.some((c) => isActive(c.route));
@@ -84,13 +94,14 @@ export function AppSidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "hidden md:flex flex-col w-sidebar h-[calc(100vh-var(--header-height))] sticky top-header overflow-y-auto border-r border-border bg-surface-card",
+        "hidden md:flex flex-col h-[calc(100vh-var(--header-height))] sticky top-header overflow-y-auto border-r border-border bg-surface-card transition-[width] duration-200 ease-in-out",
         className
       )}
+      style={{ width: collapsed ? 52 : 240 }}
     >
       <nav className="flex-1 py-2 px-2 space-y-0.5">
         {navItems.map((item) =>
-          item.children ? (
+          item.children && !collapsed ? (
             <Collapsible key={item.labelKey} defaultOpen={isParentActive(item)}>
               <CollapsibleTrigger className="w-full">
                 <div
@@ -129,42 +140,64 @@ export function AppSidebar({ className }: { className?: string }) {
             <button
               key={item.labelKey}
               onClick={() => navigate(item.route)}
+              title={collapsed ? t(item.labelKey) : undefined}
               className={cn(
-                "flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm font-medium transition-colors",
-                isActive(item.route)
+                "flex items-center w-full rounded-md text-sm font-medium transition-colors",
+                collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+                isActive(item.route) || (item.children && isParentActive(item))
                   ? "bg-accent-blue-light border-l-[3px] border-accent-blue text-accent-blue"
                   : "text-sidebar-foreground hover:bg-accent"
               )}
             >
               <item.icon className="h-4 w-4 shrink-0" />
-              <span>{t(item.labelKey)}</span>
+              {!collapsed && <span>{t(item.labelKey)}</span>}
             </button>
           )
         )}
       </nav>
 
       {/* Bottom auth buttons */}
-      <div className="p-3 border-t border-border space-y-2">
-        {user ? (
-          <>
-            <Button variant="outline" className="w-full justify-start" size="sm" onClick={() => navigate("/account")}>
-              {t("myAccount")}
-            </Button>
-            <Button variant="ghost" className="w-full justify-start text-muted-foreground" size="sm" onClick={signOut}>
-              {t("signOut")}
-            </Button>
-          </>
+      {!collapsed && (
+        <div className="p-3 border-t border-border space-y-2">
+          {user ? (
+            <>
+              <Button variant="outline" className="w-full justify-start" size="sm" onClick={() => navigate("/account")}>
+                {t("myAccount")}
+              </Button>
+              <Button variant="ghost" className="w-full justify-start text-muted-foreground" size="sm" onClick={signOut}>
+                {t("signOut")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button className="w-full bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground" size="sm" onClick={() => navigate("/signup")}>
+                {t("signUp")}
+              </Button>
+              <Button variant="outline" className="w-full" size="sm" onClick={() => navigate("/login")}>
+                {t("logIn")}
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Collapse toggle */}
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className={cn(
+          "flex items-center border-t border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer",
+          collapsed ? "justify-center px-3 py-3" : "gap-2 px-4 py-3"
+        )}
+      >
+        {collapsed ? (
+          <ChevronsRight className="h-4 w-4 shrink-0" />
         ) : (
           <>
-            <Button className="w-full bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground" size="sm" onClick={() => navigate("/signup")}>
-              {t("signUp")}
-            </Button>
-            <Button variant="outline" className="w-full" size="sm" onClick={() => navigate("/login")}>
-              {t("logIn")}
-            </Button>
+            <ChevronsLeft className="h-4 w-4 shrink-0" />
+            <span className="text-sm">Collapse</span>
           </>
         )}
-      </div>
+      </button>
     </aside>
   );
 }
