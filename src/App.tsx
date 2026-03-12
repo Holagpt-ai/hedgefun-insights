@@ -47,6 +47,7 @@ import TrendingPage from "./pages/trending/TrendingPage";
 import ChartPage from "./pages/chart/ChartPage";
 import GainersPage from "./pages/markets/GainersPage";
 import LosersPage from "./pages/markets/LosersPage";
+import ActivePage from "./pages/markets/ActivePage";
 
 const queryClient = new QueryClient();
 
