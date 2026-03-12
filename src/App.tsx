@@ -113,7 +113,7 @@ const App = () => (
                   <Route path="/articles" element={<StubPage title="Market Articles" description="In-depth analysis, commentary, and research from the HedgeFun team." />} />
                   <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
                   
-                  <Route path="/tools" element={<StubPage title="Investor Tools" description="A collection of calculators, converters, and analysis tools for every investor." />} />
+                  <Route path="/tools" element={<ToolsPage />} />
                   <Route path="/ipos/spac" element={<StubPage title="SPAC List" description="Track all active SPACs, their targets, and merger status." />} />
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                 </Route>
