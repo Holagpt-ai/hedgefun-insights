@@ -46,6 +46,7 @@ interface StockRow {
 }
 
 export default function AllStocksPage() {
+  useEffect(() => { document.title = "All Stock Symbols | HedgeFun"; }, []);
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeLetter = searchParams.get("letter") || "All";
