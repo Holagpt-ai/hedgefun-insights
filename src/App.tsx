@@ -56,6 +56,14 @@ import NewsletterPage from "./pages/newsletter/NewsletterPage";
 import ToolsPage from "./pages/tools/ToolsPage";
 import AboutPage from "./pages/static/AboutPage";
 import ContactPage from "./pages/static/ContactPage";
+import FaqPage from "./pages/static/FaqPage";
+import AdvertisePage from "./pages/static/AdvertisePage";
+import TermsPage from "./pages/static/TermsPage";
+import PrivacyPage from "./pages/static/PrivacyPage";
+import DisclaimerPage from "./pages/static/DisclaimerPage";
+import AffiliatesPage from "./pages/static/AffiliatesPage";
+import SupportPage from "./pages/static/SupportPage";
+import SitemapPage from "./pages/static/SitemapPage";
 
 const queryClient = new QueryClient();
 
