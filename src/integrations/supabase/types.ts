@@ -86,6 +86,33 @@ export type Database = {
         }
         Relationships: []
       }
+      contact_submissions: {
+        Row: {
+          email: string | null
+          id: string
+          message: string | null
+          name: string | null
+          subject: string | null
+          submitted_at: string | null
+        }
+        Insert: {
+          email?: string | null
+          id?: string
+          message?: string | null
+          name?: string | null
+          subject?: string | null
+          submitted_at?: string | null
+        }
+        Update: {
+          email?: string | null
+          id?: string
+          message?: string | null
+          name?: string | null
+          subject?: string | null
+          submitted_at?: string | null
+        }
+        Relationships: []
+      }
       earnings_calendar: {
         Row: {
           actual_eps: number | null
