@@ -104,6 +104,10 @@ const App = () => (
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                 </Route>
 
+                {/* Chart routes — standalone layout */}
+                <Route path="/chart" element={<ChartPage />} />
+                <Route path="/chart/:ticker" element={<ChartPage />} />
+
                 {/* Admin routes */}
                 <Route element={<AdminLayout />}>
                   <Route path="/admin" element={<AdminDashboard />} />
