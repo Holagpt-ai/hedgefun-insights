@@ -79,6 +79,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
     navigate(`/stocks/${r.symbol.toLowerCase()}`);
   };
 
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
   const initials = profile?.full_name
     ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() ?? "U";
