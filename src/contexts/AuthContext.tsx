@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     supabase
       .from("profiles")
-      .select("full_name, plan, email")
+      .select("full_name, plan, email, avatar_url")
       .eq("id", user.id)
       .single()
       .then(({ data }) => setProfile(data));
