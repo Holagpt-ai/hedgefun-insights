@@ -79,6 +79,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
     navigate(`/stocks/${r.symbol.toLowerCase()}`);
   };
 
+  const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
   const initials = profile?.full_name
     ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : user?.email?.[0]?.toUpperCase() ?? "U";
@@ -141,9 +142,15 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="h-8 w-8 rounded-full bg-gradient-to-br from-accent-blue to-accent-blue-hover flex items-center justify-center text-xs font-bold text-primary-foreground">
-                  {initials}
-                </button>
+                {avatarUrl ? (
+                  <button className="h-8 w-8 rounded-full overflow-hidden ring-2 ring-border">
+                    <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
+                  </button>
+                ) : (
+                  <button className="h-8 w-8 rounded-full bg-gradient-to-br from-accent-blue to-accent-blue-hover flex items-center justify-center text-xs font-bold text-primary-foreground">
+                    {initials}
+                  </button>
+                )}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem onClick={() => navigate("/watchlist")}>

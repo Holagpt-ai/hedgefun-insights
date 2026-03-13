@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  profile: { full_name: string | null; plan: string | null; email: string | null } | null;
+  profile: { full_name: string | null; plan: string | null; email: string | null; avatar_url: string | null } | null;
   signOut: () => Promise<void>;
 }
 
@@ -17,13 +17,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Handle OAuth redirect — extract session from URL hash
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
+      // Clean URL after OAuth redirect
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     });
 
+    // Listen for auth state changes (sign-in, sign-out, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
+      // Clean URL after OAuth redirect
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -36,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     supabase
       .from("profiles")
-      .select("full_name, plan, email")
+      .select("full_name, plan, email, avatar_url")
       .eq("id", user.id)
       .single()
       .then(({ data }) => setProfile(data));
