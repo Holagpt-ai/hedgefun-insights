@@ -139,7 +139,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
             {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
           </Button>
 
-          {user ? (
+          {user !== null ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 {avatarUrl ? (
