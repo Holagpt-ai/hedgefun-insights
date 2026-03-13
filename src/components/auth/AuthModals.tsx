@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
+
 import { trackEvent } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
 
@@ -79,14 +79,13 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
   };
 
   const handleGoogle = async () => {
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://www.hedgefun.fun',
+      },
     });
-    if (error) toast({ title: String(error), variant: "destructive" });
-    else {
-      trackEvent("signup_complete");
-      onSuccess();
-    }
+    if (error) toast({ title: error.message, variant: "destructive" });
   };
 
   return (
@@ -142,14 +141,13 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
   };
 
   const handleGoogle = async () => {
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://www.hedgefun.fun',
+      },
     });
-    if (error) toast({ title: String(error), variant: "destructive" });
-    else {
-      trackEvent("login_success");
-      onSuccess();
-    }
+    if (error) toast({ title: error.message, variant: "destructive" });
   };
 
   const handleForgot = async () => {
