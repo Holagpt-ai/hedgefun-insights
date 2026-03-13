@@ -17,21 +17,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Handle OAuth redirect — extract session from URL hash
+    // First: set up the listener BEFORE getting session
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth event:', event, session?.user?.email);
+        setUser(session?.user ?? null);
+        setLoading(false);
+
+        // Clean URL hash after OAuth redirect
+        if (window.location.hash.includes('access_token')) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      }
+    );
+
+    // Second: check for existing session (handles page refresh + OAuth redirect)
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
-      // Clean URL after OAuth redirect
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    });
 
-    // Listen for auth state changes (sign-in, sign-out, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      // Clean URL after OAuth redirect
-      if (window.location.hash && window.location.hash.includes('access_token')) {
+      // Clean URL hash after OAuth redirect
+      if (window.location.hash.includes('access_token')) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     });
