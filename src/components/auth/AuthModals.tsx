@@ -141,14 +141,13 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
   };
 
   const handleGoogle = async () => {
-    const { error } = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: 'https://www.hedgefun.fun',
+      },
     });
-    if (error) toast({ title: String(error), variant: "destructive" });
-    else {
-      trackEvent("login_success");
-      onSuccess();
-    }
+    if (error) toast({ title: error.message, variant: "destructive" });
   };
 
   const handleForgot = async () => {
