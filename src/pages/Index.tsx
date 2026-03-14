@@ -4,7 +4,6 @@ import { ToolGrid } from "@/components/home/ToolGrid";
 import { TopGainersTable, TopLosersTable } from "@/components/home/MoversTable";
 import { MarketNews } from "@/components/home/MarketNews";
 import { RecentIpos, UpcomingIpos } from "@/components/home/IpoTables";
-import { Footer } from "@/components/layout/Footer";
 import Disclaimer from "@/components/layout/Disclaimer";
 
 const Index = () => {
@@ -40,9 +39,6 @@ const Index = () => {
       <div className="px-4 py-6">
         <Disclaimer />
       </div>
-
-      {/* Footer */}
-      <Footer />
     </div>
   );
 };

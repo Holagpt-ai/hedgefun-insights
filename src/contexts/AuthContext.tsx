@@ -21,23 +21,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth event:', event, session?.user?.email);
-        setUser(session?.user ?? null);
-        setLoading(false);
+
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
+
+        if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setLoading(false);
+        }
+
+        if (event === 'INITIAL_SESSION') {
+          setUser(session?.user ?? null);
+          setLoading(false);
+        }
 
         // Clean URL hash after OAuth redirect
-        if (window.location.hash.includes('access_token')) {
+        if (window.location.hash && (
+          window.location.hash.includes('access_token') ||
+          window.location.hash.includes('error')
+        )) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       }
     );
 
     // Second: check for existing session (handles page refresh + OAuth redirect)
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) console.error('getSession error:', error);
+      console.log('getSession result:', session?.user?.email ?? 'no session');
       setUser(session?.user ?? null);
       setLoading(false);
 
       // Clean URL hash after OAuth redirect
-      if (window.location.hash.includes('access_token')) {
+      if (window.location.hash && (
+        window.location.hash.includes('access_token') ||
+        window.location.hash.includes('error')
+      )) {
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     });
