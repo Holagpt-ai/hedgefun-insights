@@ -150,6 +150,11 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
       provider: 'google',
       options: {
         redirectTo: 'https://www.hedgefun.fun',
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+        skipBrowserRedirect: false,
       },
     });
     if (error) toast({ title: error.message, variant: "destructive" });
