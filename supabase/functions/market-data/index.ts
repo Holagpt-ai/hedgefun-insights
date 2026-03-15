@@ -29,6 +29,8 @@ serve(async (req) => {
     return new Response("ok", { headers: getCorsHeaders(req) });
   }
 
+  const cors = getCorsHeaders(req);
+
   try {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type");
@@ -50,14 +52,14 @@ serve(async (req) => {
         break;
       }
       case "snapshot": {
-        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const res = await fetch(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`));
         const json = await res.json();
         data = json.ticker ?? null;
         break;
       }
       case "details": {
-        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const res = await fetch(polyUrl(`/v3/reference/tickers/${ticker}`));
         const json = await res.json();
         data = json.results ?? null;
@@ -74,36 +76,36 @@ serve(async (req) => {
         break;
       }
       case "aggregates": {
-        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const multiplier = searchParams.get("multiplier") ?? "1";
         const timespan = searchParams.get("timespan") ?? "day";
         const from = searchParams.get("from") ?? "";
         const to = searchParams.get("to") ?? "";
-        if (!from || !to) return new Response(JSON.stringify({ error: "from and to required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (!from || !to) return new Response(JSON.stringify({ error: "from and to required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const res = await fetch(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit: "365" }));
         const json = await res.json();
         data = json.results ?? [];
         break;
       }
       case "prev-close": {
-        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const res = await fetch(polyUrl(`/v2/aggs/ticker/${ticker}/prev`));
         const json = await res.json();
         data = json.results?.[0] ?? null;
         break;
       }
       default:
-        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close" }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify(data), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("market-data error:", e);
     return new Response(JSON.stringify({ error: "Market data unavailable" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...cors, "Content-Type": "application/json" },
     });
   }
 });
