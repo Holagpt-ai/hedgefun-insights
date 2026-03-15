@@ -65,7 +65,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: 'https://www.hedgefun.fun',
       },
     });
     setLoading(false);
@@ -166,7 +166,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: 'https://www.hedgefun.fun/reset-password',
     });
     if (error) toast({ title: error.message, variant: "destructive" });
     else toast({ title: "Password reset email sent." });
