@@ -22,6 +22,7 @@ import EarningsPage from "./pages/earnings/EarningsPage";
 import WatchlistPage from "./pages/watchlist/WatchlistPage";
 import ProPage from "./pages/pro/ProPage";
 import AccountPage from "./pages/account/AccountPage";
+import BillingPage from "./pages/account/BillingPage";
 import NewsPage from "./pages/news/NewsPage";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import AdminUsersPage from "./pages/admin/AdminUsersPage";
@@ -96,6 +97,7 @@ const App = () => (
                   <Route path="/watchlist" element={<WatchlistPage />} />
                   <Route path="/pro" element={<ProPage />} />
                   <Route path="/account" element={<AccountPage />} />
+                  <Route path="/account/billing" element={<BillingPage />} />
                   <Route path="/news" element={<NewsPage />} />
                   <Route path="/stocks/exchanges" element={<StockExchangesPage />} />
                   <Route path="/stocks/compare" element={<StockComparePage />} />
