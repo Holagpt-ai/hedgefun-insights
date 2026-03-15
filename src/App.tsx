@@ -97,6 +97,7 @@ const App = () => (
                   <Route path="/watchlist" element={<WatchlistPage />} />
                   <Route path="/pro" element={<ProPage />} />
                   <Route path="/account" element={<AccountPage />} />
+                  <Route path="/account/billing" element={<BillingPage />} />
                   <Route path="/news" element={<NewsPage />} />
                   <Route path="/stocks/exchanges" element={<StockExchangesPage />} />
                   <Route path="/stocks/compare" element={<StockComparePage />} />

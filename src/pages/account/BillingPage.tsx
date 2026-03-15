@@ -45,8 +45,9 @@ const BillingPage = () => {
     }
   };
 
-  const formattedEndDate = profile?.current_period_end
-    ? new Date(profile.current_period_end).toLocaleDateString("en-US", {
+  // current_period_end may exist on the DB row but isn't in the typed profile context
+  const formattedEndDate = (profile as any)?.current_period_end
+    ? new Date((profile as any).current_period_end).toLocaleDateString("en-US", {
         month: "long",
         day: "numeric",
         year: "numeric",
