@@ -26,7 +26,7 @@ function polyUrl(path: string, params: Record<string, string> = {}): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { headers: getCorsHeaders(req) });
   }
 
   try {
