@@ -159,7 +159,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
                 <DropdownMenuItem onClick={() => navigate("/account")}>
                   <Settings className="mr-2 h-4 w-4" /> Account Settings
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => navigate("/account")}>
+                <DropdownMenuItem onClick={() => navigate("/account/billing")}>
                   <CreditCard className="mr-2 h-4 w-4" /> Manage Billing
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
