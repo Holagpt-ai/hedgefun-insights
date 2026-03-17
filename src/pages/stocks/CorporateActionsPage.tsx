@@ -7,7 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 
 type ActionType = "Dividend" | "Split" | "Merger" | "Spinoff";
 
