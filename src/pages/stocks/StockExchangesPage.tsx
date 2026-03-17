@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Info, ChevronUp, ChevronDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 import {
   useReactTable,
   getCoreRowModel,
