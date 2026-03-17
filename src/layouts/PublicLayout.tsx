@@ -16,7 +16,7 @@ export default function PublicLayout() {
       <AdBanner />
       <div className="flex">
         <AppSidebar />
-        <main className="flex-1 min-w-0 overflow-y-auto pb-16 md:pb-0">
+        <main className="flex-1 min-w-0 pb-16 md:pb-0">
           <Outlet />
         </main>
       </div>
