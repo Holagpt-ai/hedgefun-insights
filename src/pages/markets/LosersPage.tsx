@@ -14,7 +14,7 @@ import { Search, Info, MoreVertical, Download } from "lucide-react";
 import { getTopLosers } from "@/lib/polygon";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
-import { Footer } from "@/components/layout/Footer";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
