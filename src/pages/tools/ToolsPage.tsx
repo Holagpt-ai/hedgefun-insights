@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
-import { Footer } from "@/components/layout/Footer";
+
 
 function ToolCard({ title, description, route }: { title: string; description: string; route: string }) {
   return (
