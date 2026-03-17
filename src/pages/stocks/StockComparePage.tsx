@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 import { tickerToSlug } from "@/lib/ticker-utils";
 
 const CHART_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899"];
@@ -230,7 +230,7 @@ export default function StockComparePage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }

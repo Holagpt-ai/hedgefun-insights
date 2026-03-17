@@ -8,7 +8,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { tickerToSlug } from "@/lib/ticker-utils";
-import { Footer } from "@/components/layout/Footer";
+
 
 const TOP_STOCKS = [
   { rank: 50, symbol: "VMC", name: "Vulcan Materials Company", analysts: 9, pt: 327.78, upside: 20.51, marketCap: "35.5B" },
@@ -145,7 +145,7 @@ export default function TopStocksPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

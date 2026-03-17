@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Footer } from "@/components/layout/Footer";
+
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -156,7 +156,7 @@ export default function AffiliatesPage() {
       </div>
 
     </div>
-    <Footer />
+    
     </>
   );
 }

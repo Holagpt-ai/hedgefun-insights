@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { cn } from "@/lib/utils";
 
@@ -354,7 +354,7 @@ export default function AllStocksPage() {
           </aside>
         </div>
       </div>
-      <Footer />
+      
     </>
   );
 }

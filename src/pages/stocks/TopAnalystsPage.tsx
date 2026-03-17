@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
-import { Footer } from "@/components/layout/Footer";
+
 
 const ANALYSTS = [
   { rank: 100, name: "Matthew Akers", rating: 4.79, company: "Wells Fargo", sector: "Industrials", success: 69.13, avgReturn: 19.65, ratings: 252, lastRating: "Jun 4, 2025" },
@@ -135,7 +135,7 @@ export default function TopAnalystsPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

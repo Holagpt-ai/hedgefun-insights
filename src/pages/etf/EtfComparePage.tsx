@@ -10,7 +10,7 @@ import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Footer } from "@/components/layout/Footer";
+
 
 const CHART_COLORS = ["#2563eb", "#dc2626", "#16a34a", "#f59e0b", "#8b5cf6", "#ec4899"];
 
@@ -221,7 +221,7 @@ export default function EtfComparePage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

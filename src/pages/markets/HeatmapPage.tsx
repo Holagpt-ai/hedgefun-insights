@@ -1,7 +1,7 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 import { Lock, ChevronDown } from "lucide-react";
 
 const TIMEFRAMES = ["1D", "1W", "1M", "YTD", "1Y"] as const;
@@ -434,7 +434,7 @@ function HeatmapPage() {
         <AdBanner />
       </div>
 
-      <Footer />
+      
     </>
   );
 }

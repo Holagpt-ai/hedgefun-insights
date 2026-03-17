@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 
 function abbreviateNumber(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -228,7 +228,7 @@ export default function IndustryPage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }

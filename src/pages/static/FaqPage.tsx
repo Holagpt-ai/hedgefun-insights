@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Footer } from "@/components/layout/Footer";
+
 import {
   Accordion,
   AccordionContent,
@@ -76,7 +76,7 @@ export default function FaqPage() {
       </Accordion>
 
     </div>
-    <Footer />
+    
     </>
   );
 }

@@ -7,7 +7,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 
 interface Provider {
   name: string;
@@ -166,7 +166,7 @@ export default function EtfProvidersPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

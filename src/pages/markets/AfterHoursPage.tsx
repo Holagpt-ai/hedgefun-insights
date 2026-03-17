@@ -11,7 +11,7 @@ import {
 import { Search, MoreVertical, Download } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
-import { Footer } from "@/components/layout/Footer";
+
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
 
@@ -173,7 +173,7 @@ export default function AfterHoursPage() {
         <div className="my-6 border-t border-border" />
         <AfterHoursTable title="After Hours Losers" data={LOSERS_SEED} type="losers" />
       </div>
-      <Footer />
+      
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { Footer } from "@/components/layout/Footer";
+
 
 const SECTIONS = [
   {
@@ -51,7 +51,7 @@ export default function DisclaimerPage() {
       </div>
 
     </div>
-    <Footer />
+    
     </>
   );
 }

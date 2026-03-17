@@ -7,7 +7,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem,
 } from "@/components/ui/dropdown-menu";
@@ -261,7 +261,7 @@ export default function EtfNewLaunchesPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

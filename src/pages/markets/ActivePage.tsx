@@ -13,7 +13,7 @@ import {
 import { Search, MoreVertical, Download } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
-import { Footer } from "@/components/layout/Footer";
+
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
@@ -366,7 +366,7 @@ export default function ActivePage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

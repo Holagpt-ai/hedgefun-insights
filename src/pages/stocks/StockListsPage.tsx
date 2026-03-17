@@ -7,7 +7,7 @@ import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { AdBanner } from "@/components/layout/AdBanner";
-import { Footer } from "@/components/layout/Footer";
+
 
 interface LinkSection {
   title: string;
@@ -271,7 +271,7 @@ export default function StockListsPage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }
