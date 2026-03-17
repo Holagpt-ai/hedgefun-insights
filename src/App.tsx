@@ -132,6 +132,8 @@ const App = () => (
                   <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
+                  <Route path="/tools/cagr-calculator" element={<CagrCalculatorPage />} />
+                  <Route path="/tools/dividend-calculator" element={<DividendCalculatorPage />} />
                   <Route path="/ipos/spac" element={<StubPage title="SPAC List" description="Track all active SPACs, their targets, and merger status." />} />
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                   <Route path="/about" element={<AboutPage />} />
