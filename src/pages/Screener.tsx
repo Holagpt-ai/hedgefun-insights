@@ -481,7 +481,7 @@ const Screener = () => {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 };

@@ -135,7 +135,7 @@ export default function TopAnalystsPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

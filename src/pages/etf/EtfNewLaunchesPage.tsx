@@ -261,7 +261,7 @@ export default function EtfNewLaunchesPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

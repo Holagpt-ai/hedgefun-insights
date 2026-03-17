@@ -173,7 +173,7 @@ export default function AfterHoursPage() {
         <div className="my-6 border-t border-border" />
         <AfterHoursTable title="After Hours Losers" data={LOSERS_SEED} type="losers" />
       </div>
-      <Footer />
+      
     </div>
   );
 }

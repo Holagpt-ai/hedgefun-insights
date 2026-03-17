@@ -297,7 +297,7 @@ const EarningsPage = () => {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 };

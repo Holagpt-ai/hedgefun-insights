@@ -289,7 +289,7 @@ export default function PremarketPage() {
         <PremarketTable title="Premarket Losers" data={LOSERS_SEED} type="losers" />
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

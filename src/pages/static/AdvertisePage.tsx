@@ -143,7 +143,7 @@ export default function AdvertisePage() {
       </div>
 
     </div>
-    <Footer />
+    
     </>
   );
 }

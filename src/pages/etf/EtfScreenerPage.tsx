@@ -475,7 +475,7 @@ export default function EtfScreenerPage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }

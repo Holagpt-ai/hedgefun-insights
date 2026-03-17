@@ -166,7 +166,7 @@ export default function EtfProvidersPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

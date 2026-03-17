@@ -406,7 +406,7 @@ export default function GainersPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

@@ -146,7 +146,7 @@ export default function CorporateActionsPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

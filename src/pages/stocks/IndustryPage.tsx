@@ -228,7 +228,7 @@ export default function IndustryPage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }

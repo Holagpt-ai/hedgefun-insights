@@ -145,7 +145,7 @@ export default function TopStocksPage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

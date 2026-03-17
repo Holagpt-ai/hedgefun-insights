@@ -221,7 +221,7 @@ export default function EtfComparePage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

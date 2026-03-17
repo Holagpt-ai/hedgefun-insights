@@ -109,7 +109,7 @@ export default function SitemapPage() {
       </div>
 
     </div>
-    <Footer />
+    
     </>
   );
 }

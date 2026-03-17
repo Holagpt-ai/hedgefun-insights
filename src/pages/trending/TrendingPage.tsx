@@ -418,7 +418,7 @@ export default function TrendingPage() {
       {/* Ad banner above footer */}
       <AdBanner />
 
-      <Footer />
+      
     </div>
   );
 }

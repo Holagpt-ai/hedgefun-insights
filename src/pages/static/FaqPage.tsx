@@ -76,7 +76,7 @@ export default function FaqPage() {
       </Accordion>
 
     </div>
-    <Footer />
+    
     </>
   );
 }

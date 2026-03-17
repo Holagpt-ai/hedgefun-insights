@@ -255,7 +255,7 @@ export default function StockExchangesPage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }

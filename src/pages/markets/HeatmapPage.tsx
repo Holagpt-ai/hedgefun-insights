@@ -434,7 +434,7 @@ function HeatmapPage() {
         <AdBanner />
       </div>
 
-      <Footer />
+      
     </>
   );
 }

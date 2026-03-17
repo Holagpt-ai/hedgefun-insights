@@ -271,7 +271,7 @@ export default function StockListsPage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }

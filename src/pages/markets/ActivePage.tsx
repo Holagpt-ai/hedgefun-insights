@@ -366,7 +366,7 @@ export default function ActivePage() {
         </div>
       </div>
 
-      <Footer />
+      
     </div>
   );
 }

@@ -230,7 +230,7 @@ export default function StockComparePage() {
       </div>
 
       <AdBanner />
-      <Footer />
+      
     </div>
   );
 }

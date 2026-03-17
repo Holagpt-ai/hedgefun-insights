@@ -396,8 +396,6 @@ export default function LosersPage() {
           </Button>
         </div>
       </div>
-
-      <Footer />
     </div>
   );
 }

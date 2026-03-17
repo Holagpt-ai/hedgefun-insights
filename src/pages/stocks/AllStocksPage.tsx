@@ -354,7 +354,7 @@ export default function AllStocksPage() {
           </aside>
         </div>
       </div>
-      <Footer />
+      
     </>
   );
 }
