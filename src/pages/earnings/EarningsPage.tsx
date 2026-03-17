@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { tickerToSlug } from "@/lib/ticker-utils";
-import { Footer } from "@/components/layout/Footer";
+
 
 function getWeekDates(refDate: Date): Date[] {
   const d = new Date(refDate);
