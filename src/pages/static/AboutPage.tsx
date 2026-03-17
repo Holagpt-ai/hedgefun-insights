@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
-import { Footer } from "@/components/layout/Footer";
+
 
 export default function AboutPage() {
   useEffect(() => {
