@@ -65,6 +65,9 @@ import DisclaimerPage from "./pages/static/DisclaimerPage";
 import AffiliatesPage from "./pages/static/AffiliatesPage";
 import SupportPage from "./pages/static/SupportPage";
 import SitemapPage from "./pages/static/SitemapPage";
+import CagrCalculatorPage from "./pages/tools/CagrCalculatorPage";
+import DividendCalculatorPage from "./pages/tools/DividendCalculatorPage";
+import ScrollToTop from "./components/utils/ScrollToTop";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +80,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <ScrollToTop />
               <Routes>
                 {/* Public routes */}
                 <Route element={<PublicLayout />}>
@@ -128,6 +132,8 @@ const App = () => (
                   <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
+                  <Route path="/tools/cagr-calculator" element={<CagrCalculatorPage />} />
+                  <Route path="/tools/dividend-calculator" element={<DividendCalculatorPage />} />
                   <Route path="/ipos/spac" element={<StubPage title="SPAC List" description="Track all active SPACs, their targets, and merger status." />} />
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                   <Route path="/about" element={<AboutPage />} />

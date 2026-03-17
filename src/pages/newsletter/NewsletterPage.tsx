@@ -38,7 +38,7 @@ export default function NewsletterPage() {
       {/* Minimal header */}
       <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0">
         <Link to="/" className="flex items-center gap-2 font-bold text-lg text-foreground">
-          <img src="/logo.svg" alt="HedgeFun" className="h-7 w-7" />
+          <img src="/logo.svg" alt="HedgeFun" className="h-8 w-auto" />
           <span>HedgeFun</span>
         </Link>
         <button
