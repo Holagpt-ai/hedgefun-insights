@@ -6,6 +6,7 @@ import { AppSidebar } from "@/components/layout/AppSidebar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { MobileSidebarDrawer } from "@/components/layout/MobileSidebarDrawer";
 import { ChatWidget } from "@/components/chatbot/ChatWidget";
+import { Footer } from "@/components/layout/Footer";
 
 export default function PublicLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -20,6 +21,7 @@ export default function PublicLayout() {
           <Outlet />
         </main>
       </div>
+      <Footer />
       <MobileBottomNav />
       <MobileSidebarDrawer open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
       <ChatWidget />
