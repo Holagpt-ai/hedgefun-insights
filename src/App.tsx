@@ -157,7 +157,6 @@ const App = () => (
                 </Route>
 
                 {/* Chart routes — standalone layout */}
-                <Route path="/chart" element={<ChartPage />} />
                 <Route path="/chart/:ticker" element={<ChartPage />} />
 
                 {/* Newsletter — standalone layout */}
