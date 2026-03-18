@@ -1,6 +1,11 @@
 import { useNavigate } from "react-router-dom";
-import { Rocket, Flame, TrendingUp, Cpu, Zap } from "lucide-react";
 import { usePageSeo } from "@/hooks/usePageSeo";
+
+import starlinkImg from "@/assets/articles/starlink-ipo.jpg";
+import oilImg from "@/assets/articles/rising-oil-prices.jpg";
+import fiboImg from "@/assets/articles/fibonacci-retracement.jpg";
+import aiImg from "@/assets/articles/ai-infrastructure.jpg";
+import energyImg from "@/assets/articles/energy-stocks-grid.jpg";
 
 /* ── Types ──────────────────────────────────────── */
 export interface Article {
@@ -8,8 +13,7 @@ export interface Article {
   title: string;
   excerpt: string;
   date: string;
-  icon: React.ReactNode;
-  gradient: string;
+  image: string;
 }
 
 /* ── Seed Data ──────────────────────────────────── */
@@ -20,8 +24,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "SpaceX's Starlink division is one of the most anticipated IPOs in years. Here's what the financials look like and how to position before it launches.",
     date: "Jan 15, 2026",
-    icon: <Rocket className="h-10 w-10 text-white/80" />,
-    gradient: "from-blue-600 to-indigo-800",
+    image: starlinkImg,
   },
   {
     slug: "rising-oil-prices-whats-driving-the-surge",
@@ -29,8 +32,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "Crude oil has been climbing steadily. We break down the macro forces at play and the energy stocks best positioned to capitalize.",
     date: "Feb 3, 2026",
-    icon: <Flame className="h-10 w-10 text-white/80" />,
-    gradient: "from-orange-500 to-red-700",
+    image: oilImg,
   },
   {
     slug: "the-perfect-retracement-setup-a-trade-breakdown",
@@ -38,8 +40,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "One of the cleanest technical setups in trading is the Fibonacci retracement. Here's a real example with entry, stop, and target levels.",
     date: "Feb 18, 2026",
-    icon: <TrendingUp className="h-10 w-10 text-white/80" />,
-    gradient: "from-emerald-500 to-teal-700",
+    image: fiboImg,
   },
   {
     slug: "ai-infrastructure-the-mega-scalers-building-the-future",
@@ -47,8 +48,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "Microsoft, Google, Amazon, and Meta are spending hundreds of billions on AI infrastructure. Here's what that means for investors and which picks stand out.",
     date: "Mar 1, 2026",
-    icon: <Cpu className="h-10 w-10 text-white/80" />,
-    gradient: "from-violet-500 to-purple-800",
+    image: aiImg,
   },
   {
     slug: "energy-stocks-to-watch-as-the-grid-demands-more-power",
@@ -56,8 +56,7 @@ export const ARTICLES: Article[] = [
     excerpt:
       "The AI boom is driving unprecedented electricity demand. We look at the energy companies best positioned to power the next decade of growth.",
     date: "Mar 10, 2026",
-    icon: <Zap className="h-10 w-10 text-white/80" />,
-    gradient: "from-amber-500 to-yellow-700",
+    image: energyImg,
   },
 ];
 
@@ -81,6 +80,7 @@ export default function ArticlesPage() {
       },
     },
   });
+
   return (
     <div className="max-w-[960px] mx-auto px-4 py-10">
       {/* Header */}
@@ -101,11 +101,14 @@ export default function ArticlesPage() {
             onClick={() => navigate(`/articles/${article.slug}`)}
             className="text-left border border-border rounded-md overflow-hidden hover:border-accent-blue transition-colors group bg-surface-card"
           >
-            {/* Cover placeholder */}
-            <div
-              className={`h-[160px] bg-gradient-to-br ${article.gradient} flex items-center justify-center`}
-            >
-              {article.icon}
+            {/* Cover image */}
+            <div className="h-[160px] overflow-hidden">
+              <img
+                src={article.image}
+                alt={article.title}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                loading="lazy"
+              />
             </div>
 
             {/* Content */}
