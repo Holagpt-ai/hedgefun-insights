@@ -133,12 +133,9 @@ export default function ChartLandingPage() {
 
       {/* Auth modals */}
       <AuthModals
-        showLogin={authModal === "login"}
-        showSignup={authModal === "signup"}
-        onCloseLogin={() => setAuthModal(null)}
-        onCloseSignup={() => setAuthModal(null)}
-        onSwitchToSignup={() => setAuthModal("signup")}
-        onSwitchToLogin={() => setAuthModal("login")}
+        mode={authModal}
+        onClose={() => setAuthModal(null)}
+        onSwitch={setAuthModal}
       />
     </div>
   );
