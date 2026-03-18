@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Search } from "lucide-react";
+import { Search, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -12,62 +13,64 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 
-const SEED_DATA: { symbol: string; name: string; type: "Stock" | "ETF" }[] = [
-  { symbol: "AAPL", name: "Apple Inc.", type: "Stock" },
-  { symbol: "MSFT", name: "Microsoft Corporation", type: "Stock" },
-  { symbol: "NVDA", name: "NVIDIA Corporation", type: "Stock" },
-  { symbol: "GOOGL", name: "Alphabet Inc.", type: "Stock" },
-  { symbol: "AMZN", name: "Amazon.com Inc.", type: "Stock" },
-  { symbol: "META", name: "Meta Platforms Inc.", type: "Stock" },
-  { symbol: "TSLA", name: "Tesla Inc.", type: "Stock" },
-  { symbol: "JPM", name: "JPMorgan Chase & Co.", type: "Stock" },
-  { symbol: "V", name: "Visa Inc.", type: "Stock" },
-  { symbol: "JNJ", name: "Johnson & Johnson", type: "Stock" },
-  { symbol: "WMT", name: "Walmart Inc.", type: "Stock" },
-  { symbol: "BAC", name: "Bank of America Corporation", type: "Stock" },
-  { symbol: "XOM", name: "Exxon Mobil Corporation", type: "Stock" },
-  { symbol: "COST", name: "Costco Wholesale Corporation", type: "Stock" },
-  { symbol: "HD", name: "The Home Depot Inc.", type: "Stock" },
-  { symbol: "PG", name: "Procter & Gamble Co.", type: "Stock" },
-  { symbol: "KO", name: "The Coca-Cola Company", type: "Stock" },
-  { symbol: "PEP", name: "PepsiCo Inc.", type: "Stock" },
-  { symbol: "MCD", name: "McDonald's Corporation", type: "Stock" },
-  { symbol: "NFLX", name: "Netflix Inc.", type: "Stock" },
-  { symbol: "AMD", name: "Advanced Micro Devices Inc.", type: "Stock" },
-  { symbol: "INTC", name: "Intel Corporation", type: "Stock" },
-  { symbol: "DIS", name: "The Walt Disney Company", type: "Stock" },
-  { symbol: "CSCO", name: "Cisco Systems Inc.", type: "Stock" },
-  { symbol: "ORCL", name: "Oracle Corporation", type: "Stock" },
-  { symbol: "VTI", name: "Vanguard Total Stock Market ETF", type: "ETF" },
-  { symbol: "VOO", name: "Vanguard S&P 500 ETF", type: "ETF" },
-  { symbol: "QQQ", name: "Invesco QQQ Trust", type: "ETF" },
-  { symbol: "SPY", name: "SPDR S&P 500 ETF Trust", type: "ETF" },
-  { symbol: "IVV", name: "iShares Core S&P 500 ETF", type: "ETF" },
-  { symbol: "BND", name: "Vanguard Total Bond Market ETF", type: "ETF" },
-  { symbol: "GLD", name: "SPDR Gold Shares", type: "ETF" },
-  { symbol: "SLV", name: "iShares Silver Trust", type: "ETF" },
-  { symbol: "ARKK", name: "ARK Innovation ETF", type: "ETF" },
-  { symbol: "IEMG", name: "iShares Core MSCI Emerging Markets ETF", type: "ETF" },
-  { symbol: "AGG", name: "iShares Core U.S. Aggregate Bond ETF", type: "ETF" },
-];
+type StockResult = { symbol: string; name: string; sector: string | null };
 
 export default function SymbolLookupPage() {
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<StockResult[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searched, setSearched] = useState(false);
   const navigate = useNavigate();
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const results = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return SEED_DATA;
-    return SEED_DATA.filter(
-      (item) =>
-        item.symbol.toLowerCase().includes(q) ||
-        item.name.toLowerCase().includes(q)
-    );
+  const fetchStocks = async (q: string) => {
+    setLoading(true);
+    const trimmed = q.trim();
+    let query$ = supabase
+      .from("stocks")
+      .select("symbol, name, sector")
+      .order("symbol", { ascending: true })
+      .limit(50);
+
+    if (trimmed) {
+      query$ = query$.or(
+        `symbol.ilike.%${trimmed}%,name.ilike.%${trimmed}%`
+      );
+    }
+
+    const { data, error } = await query$;
+    if (!error && data) {
+      setResults(data);
+    }
+    setLoading(false);
+    setSearched(true);
+  };
+
+  // Initial load
+  useEffect(() => {
+    fetchStocks("");
+  }, []);
+
+  // Debounced search
+  useEffect(() => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => {
+      fetchStocks(query);
+    }, 300);
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [query]);
+
+  const getType = (sector: string | null) => {
+    if (!sector) return "Stock";
+    const s = sector.toLowerCase();
+    if (s.includes("etf") || s.includes("fund")) return "ETF";
+    return "Stock";
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Ad slot */}
       <div
         className="ad-slot-leaderboard w-full bg-surface border border-border rounded flex items-center justify-center mb-6"
         style={{ minHeight: "90px" }}
@@ -98,7 +101,6 @@ export default function SymbolLookupPage() {
         Search for a ticker symbol by company name, ETF name, or fund name.
       </p>
 
-      {/* Search input */}
       <div className="relative mb-6">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -109,10 +111,13 @@ export default function SymbolLookupPage() {
         />
       </div>
 
-      {/* Results */}
       <Card className="fintech-card">
         <CardContent className="p-0">
-          {results.length > 0 ? (
+          {loading ? (
+            <div className="px-4 py-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+            </div>
+          ) : results.length > 0 ? (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border">
@@ -122,36 +127,39 @@ export default function SymbolLookupPage() {
                 </tr>
               </thead>
               <tbody>
-                {results.map((item) => (
-                  <tr
-                    key={item.symbol}
-                    className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                    onClick={() => navigate(`/stocks/${item.symbol}`)}
-                  >
-                    <td className="table-cell px-4 py-2.5 font-semibold text-primary">
-                      {item.symbol}
-                    </td>
-                    <td className="table-cell px-4 py-2.5 text-foreground">{item.name}</td>
-                    <td className="table-cell px-4 py-2.5">
-                      <span
-                        className={`text-xs font-medium px-2 py-0.5 rounded ${
-                          item.type === "ETF"
-                            ? "bg-accent/50 text-accent-foreground"
-                            : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {item.type}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                {results.map((item) => {
+                  const type = getType(item.sector);
+                  return (
+                    <tr
+                      key={item.symbol}
+                      className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/stocks/${item.symbol}`)}
+                    >
+                      <td className="table-cell px-4 py-2.5 font-semibold text-primary">
+                        {item.symbol}
+                      </td>
+                      <td className="table-cell px-4 py-2.5 text-foreground">{item.name}</td>
+                      <td className="table-cell px-4 py-2.5">
+                        <span
+                          className={`text-xs font-medium px-2 py-0.5 rounded ${
+                            type === "ETF"
+                              ? "bg-accent/50 text-accent-foreground"
+                              : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {type}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
-          ) : (
+          ) : searched ? (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
               No results found for '{query}'. Try a different name or ticker.
             </div>
-          )}
+          ) : null}
         </CardContent>
       </Card>
     </div>
