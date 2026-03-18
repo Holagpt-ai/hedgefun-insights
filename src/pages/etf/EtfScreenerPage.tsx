@@ -3,9 +3,10 @@ import { useNavigate, Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, Search, Download, Plus, Star, HelpCircle, X, ChevronRight, MoreVertical, Lock } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Download, Plus, Star, X, ChevronRight, MoreVertical, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
 
 import {
   useReactTable,
@@ -201,10 +202,7 @@ export default function EtfScreenerPage() {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <h1 className="text-[1.375rem] font-bold text-foreground">ETF Screener</h1>
-            <button className="flex items-center gap-1 text-accent-blue text-sm hover:underline">
-              <HelpCircle className="h-3.5 w-3.5" />
-              Screener Tutorial
-            </button>
+            <ScreenerTutorialButton variant="etf" />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-muted-foreground">Exchange Country</div>

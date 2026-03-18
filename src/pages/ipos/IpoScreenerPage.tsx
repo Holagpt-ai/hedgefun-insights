@@ -4,10 +4,11 @@ import {
   useReactTable, getCoreRowModel, getSortedRowModel, getPaginationRowModel,
   flexRender, createColumnHelper, type SortingState,
 } from "@tanstack/react-table";
-import { Search, Plus, Lock, MoreHorizontal, ChevronDown, ChevronUp, HelpCircle, ArrowUp } from "lucide-react";
+import { Search, Plus, Lock, MoreHorizontal, ChevronDown, ChevronUp, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IpoTabBar } from "@/components/ipos/IpoTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -125,9 +126,7 @@ export default function IpoScreenerPage() {
         <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <h1 className="text-[1.75rem] font-bold text-foreground">IPO Screener</h1>
-            <button className="flex items-center gap-1 text-sm text-accent-blue hover:underline">
-              <HelpCircle className="h-4 w-4" /> Screener Tutorial
-            </button>
+            <ScreenerTutorialButton variant="ipo" />
           </div>
           <div className="flex items-center gap-3">
             <div>

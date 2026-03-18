@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, Search, Download, Plus, Star, ArrowUpRight, HelpCircle, X, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Download, Plus, Star, ArrowUpRight, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
 
 import {
   useReactTable,
@@ -208,10 +209,7 @@ const Screener = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
           <div className="flex items-center gap-3">
             <h1 className="text-[1.375rem] font-bold text-foreground">Stock Screener</h1>
-            <button className="flex items-center gap-1 text-accent-blue text-sm hover:underline">
-              <HelpCircle className="h-3.5 w-3.5" />
-              Screener Tutorial
-            </button>
+            <ScreenerTutorialButton variant="stock" />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-muted-foreground">Exchange Country</div>
