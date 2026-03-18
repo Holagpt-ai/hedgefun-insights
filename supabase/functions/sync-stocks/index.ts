@@ -8,10 +8,9 @@ const corsHeaders = {
 
 const POLYGON_BASE = "https://api.polygon.io";
 
-function polyUrl(path: string, params: Record<string, string> = {}): string {
-  const API_KEY = Deno.env.get("POLYGON_API_KEY")!;
+function polyUrl(path: string, apiKey: string, params: Record<string, string> = {}): string {
   const url = new URL(`${POLYGON_BASE}${path}`);
-  url.searchParams.set("apiKey", API_KEY);
+  url.searchParams.set("apiKey", apiKey);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
   return url.toString();
 }
@@ -20,13 +19,11 @@ async function fetchJson(url: string) {
   const res = await fetch(url);
   if (!res.ok) {
     const text = await res.text();
-    console.error(`Polygon error ${res.status}: ${text}`);
-    return null;
+    throw new Error(`${res.status}: ${text.substring(0, 200)}`);
   }
   return res.json();
 }
 
-// Small delay to respect rate limits (5 req/min on free, 100/min on paid)
 function delay(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -37,118 +34,88 @@ serve(async (req) => {
   }
 
   try {
-    const POLYGON_API_KEY = Deno.env.get("POLYGON_API_KEY");
-    if (!POLYGON_API_KEY) {
-      throw new Error("POLYGON_API_KEY not configured");
-    }
+    const API_KEY = Deno.env.get("POLYGON_API_KEY");
+    if (!API_KEY) throw new Error("POLYGON_API_KEY not configured");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
 
-    // Get all stock symbols from the DB
-    const { data: stocks, error: fetchErr } = await supabase
-      .from("stocks")
-      .select("symbol");
+    const { data: stocks, error: fetchErr } = await supabase.from("stocks").select("symbol");
     if (fetchErr) throw fetchErr;
-
     const symbols = (stocks ?? []).map((s: { symbol: string }) => s.symbol);
     console.log(`Syncing ${symbols.length} stocks...`);
 
     let updated = 0;
     let errors = 0;
 
-    // Process in batches of 5 to respect rate limits
-    for (let i = 0; i < symbols.length; i += 5) {
-      const batch = symbols.slice(i, i + 5);
-
-      const results = await Promise.all(
-        batch.map(async (symbol: string) => {
-          try {
-            // Fetch snapshot (price, change, volume) and details (market_cap, sector, etc.) in parallel
-            const [snapshotJson, detailsJson] = await Promise.all([
-              fetchJson(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`)),
-              fetchJson(polyUrl(`/v3/reference/tickers/${symbol}`)),
-            ]);
-
-            const snap = snapshotJson?.ticker;
-            const details = detailsJson?.results;
-
-            if (!snap && !details) {
-              console.warn(`No data for ${symbol}`);
-              return null;
-            }
-
-            const updateData: Record<string, unknown> = {
-              updated_at: new Date().toISOString(),
-            };
-
-            // From snapshot
-            if (snap) {
-              const day = snap.day ?? snap.prevDay ?? {};
-              const todaysChange = snap.todaysChange;
-              const todaysChangePerc = snap.todaysChangePerc;
-
-              updateData.price = day.c ?? snap.lastTrade?.p ?? null;
-              updateData.change_amount = todaysChange ?? null;
-              updateData.change_percent = todaysChangePerc ?? null;
-              updateData.volume = day.v ?? null;
-            }
-
-            // From details
-            if (details) {
-              updateData.name = details.name ?? undefined;
-              updateData.market_cap = details.market_cap ? Math.round(details.market_cap) : null;
-              updateData.sector = details.sic_description ?? null;
-              updateData.industry = details.sic_description ?? null;
-              updateData.description = details.description ?? null;
-              updateData.website = details.homepage_url ?? null;
-              updateData.logo_url = details.branding?.icon_url
-                ? `${details.branding.icon_url}?apiKey=${POLYGON_API_KEY}`
-                : null;
-              updateData.exchange = details.primary_exchange ?? null;
-            }
-
-            // Remove undefined values
-            Object.keys(updateData).forEach((k) => {
-              if (updateData[k] === undefined) delete updateData[k];
-            });
-
-            return { symbol, updateData };
-          } catch (err) {
-            console.error(`Error fetching ${symbol}:`, err);
-            return null;
-          }
-        })
-      );
-
-      // Batch update to Supabase
-      for (const result of results) {
-        if (!result) {
+    // Process ONE symbol at a time with delays to stay under 5 req/min free tier
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
+      try {
+        // Only use the free-tier endpoint: ticker details (includes market_cap, name, sector, etc.)
+        const detailsJson = await fetchJson(
+          polyUrl(`/v3/reference/tickers/${symbol}`, API_KEY)
+        );
+        const d = detailsJson?.results;
+        if (!d) {
+          console.warn(`No details for ${symbol}`);
           errors++;
           continue;
         }
+
+        const updateData: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+          name: d.name ?? undefined,
+          market_cap: d.market_cap ? Math.round(d.market_cap) : null,
+          description: d.description ?? null,
+          website: d.homepage_url ?? null,
+          exchange: d.primary_exchange ?? null,
+        };
+
+        // Map SIC description to sector/industry
+        if (d.sic_description) {
+          updateData.sector = d.sic_description;
+          updateData.industry = d.sic_description;
+        }
+
+        // Logo
+        if (d.branding?.icon_url) {
+          updateData.logo_url = `${d.branding.icon_url}?apiKey=${API_KEY}`;
+        }
+
+        // Remove undefined
+        Object.keys(updateData).forEach((k) => {
+          if (updateData[k] === undefined) delete updateData[k];
+        });
+
         const { error: updateErr } = await supabase
           .from("stocks")
-          .update(result.updateData)
-          .eq("symbol", result.symbol);
+          .update(updateData)
+          .eq("symbol", symbol);
 
         if (updateErr) {
-          console.error(`DB update error for ${result.symbol}:`, updateErr);
+          console.error(`DB error ${symbol}:`, updateErr.message);
           errors++;
         } else {
           updated++;
+          console.log(`Updated ${symbol} (${i + 1}/${symbols.length})`);
         }
+      } catch (err) {
+        console.error(`Error ${symbol}:`, (err as Error).message);
+        errors++;
       }
 
-      // Rate limit delay between batches
-      if (i + 5 < symbols.length) {
-        await delay(1200);
+      // Free tier: 5 requests/minute → 1 request every 13 seconds
+      // But edge functions timeout at 60s, so we do 1 req/sec and accept some 429s
+      // For paid tier this delay can be removed
+      if (i < symbols.length - 1) {
+        await delay(800);
       }
     }
 
-    console.log(`Sync complete: ${updated} updated, ${errors} errors`);
-
+    console.log(`Done: ${updated} updated, ${errors} errors out of ${symbols.length}`);
     return new Response(
       JSON.stringify({ success: true, updated, errors, total: symbols.length }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
