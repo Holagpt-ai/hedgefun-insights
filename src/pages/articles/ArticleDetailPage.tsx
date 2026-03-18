@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { ARTICLES } from "./ArticlesPage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 /* ── Full Article Bodies ──────────────────────────── */
 const ARTICLE_BODIES: Record<string, string[]> = {
@@ -83,6 +85,32 @@ export default function ArticleDetailPage() {
 
   const article = ARTICLES.find((a) => a.slug === slug);
   const body = slug ? ARTICLE_BODIES[slug] : undefined;
+  const related = ARTICLES.filter((a) => a.slug !== slug).slice(0, 3);
+
+  const jsonLd = useMemo(() => {
+    if (!article) return undefined;
+    return {
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: article.title,
+      description: article.excerpt,
+      datePublished: article.date,
+      url: `https://www.hedgefun.fun/articles/${slug}`,
+      author: { "@type": "Organization", name: "HedgeFun" },
+      publisher: {
+        "@type": "Organization",
+        name: "HedgeFun",
+        url: "https://www.hedgefun.fun",
+      },
+    };
+  }, [article, slug]);
+
+  usePageSeo({
+    title: article ? `${article.title} — HedgeFun Blog` : "Article Not Found — HedgeFun",
+    description: article?.excerpt ?? "Article not found.",
+    canonical: slug ? `https://www.hedgefun.fun/articles/${slug}` : undefined,
+    jsonLd: jsonLd,
+  });
 
   if (!article || !body) {
     return (
@@ -94,8 +122,6 @@ export default function ArticleDetailPage() {
       </div>
     );
   }
-
-  const related = ARTICLES.filter((a) => a.slug !== slug).slice(0, 3);
 
   return (
     <div className="max-w-[1100px] mx-auto px-4 py-8">

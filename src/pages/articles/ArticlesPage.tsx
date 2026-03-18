@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Rocket, Flame, TrendingUp, Cpu, Zap } from "lucide-react";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 /* ── Types ──────────────────────────────────────── */
 export interface Article {
@@ -63,6 +64,23 @@ export const ARTICLES: Article[] = [
 export default function ArticlesPage() {
   const navigate = useNavigate();
 
+  usePageSeo({
+    title: "HedgeFun Blog — Latest Articles on Stocks, Finance & Investing",
+    description: "Read in-depth articles on stocks, ETFs, IPOs, market analysis, and investing strategies from the HedgeFun team.",
+    canonical: "https://www.hedgefun.fun/articles",
+    jsonLd: {
+      "@context": "https://schema.org",
+      "@type": "Blog",
+      name: "HedgeFun Blog",
+      description: "Latest articles on stocks, finance, and investing.",
+      url: "https://www.hedgefun.fun/articles",
+      publisher: {
+        "@type": "Organization",
+        name: "HedgeFun",
+        url: "https://www.hedgefun.fun",
+      },
+    },
+  });
   return (
     <div className="max-w-[960px] mx-auto px-4 py-10">
       {/* Header */}
