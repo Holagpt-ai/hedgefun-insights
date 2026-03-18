@@ -412,12 +412,16 @@ const FILINGS_SEED: FilingIpo[] = [
   { company: "Orbis Financial Group", filedDate: "2026-02-20", amount: "$450M", exchange: "NYSE" },
 ];
 
-const WITHDRAWN_SEED: FilingIpo[] = [
-  { company: "Luxora Beauty Holdings", filedDate: "2026-03-06", amount: "$180M", exchange: "NASDAQ" },
-  { company: "TerraVolt Motors Inc.", filedDate: "2026-02-18", amount: "$720M", exchange: "NYSE" },
-  { company: "PeakSignal Analytics", filedDate: "2026-02-10", amount: "$65M", exchange: "NASDAQ" },
-  { company: "BlueFin Aquaculture", filedDate: "2026-01-28", amount: "$140M", exchange: "NYSE" },
-  { company: "QuantumLeap Semiconductors", filedDate: "2026-01-15", amount: "$390M", exchange: "NASDAQ" },
+interface WithdrawnIpo extends FilingIpo {
+  withdrawnDate: string;
+}
+
+const WITHDRAWN_SEED: WithdrawnIpo[] = [
+  { company: "Luxora Beauty Holdings", filedDate: "2026-01-12", withdrawnDate: "2026-03-06", amount: "$180M", exchange: "NASDAQ" },
+  { company: "TerraVolt Motors Inc.", filedDate: "2025-11-30", withdrawnDate: "2026-02-18", amount: "$720M", exchange: "NYSE" },
+  { company: "PeakSignal Analytics", filedDate: "2025-12-05", withdrawnDate: "2026-02-10", amount: "$65M", exchange: "NASDAQ" },
+  { company: "BlueFin Aquaculture", filedDate: "2025-10-20", withdrawnDate: "2026-01-28", amount: "$140M", exchange: "NYSE" },
+  { company: "QuantumLeap Semiconductors", filedDate: "2025-09-15", withdrawnDate: "2026-01-15", amount: "$390M", exchange: "NASDAQ" },
 ];
 
 const IPO_RESOURCES = [
@@ -582,6 +586,7 @@ export function UpcomingIposPage() {
                     <tr className="border-b border-border bg-surface">
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Name</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filed Date</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Withdrawn Date</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Exchange</th>
                     </tr>
@@ -591,6 +596,7 @@ export function UpcomingIposPage() {
                       <tr key={f.company} className="border-b border-border-subtle hover:bg-surface transition-colors">
                         <td className="px-3 py-2 text-foreground">{f.company}</td>
                         <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.filedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                        <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.withdrawnDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                         <td className="px-3 py-2 text-foreground tabular-nums text-right">{f.amount}</td>
                         <td className="px-3 py-2 text-foreground">{f.exchange}</td>
                       </tr>
