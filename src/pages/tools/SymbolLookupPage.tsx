@@ -155,11 +155,13 @@ export default function SymbolLookupPage() {
                 })}
               </tbody>
             </table>
-          ) : searched ? (
+          ) : (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              No results found for '{query}'. Try a different name or ticker.
+              {query.trim()
+                ? `No results found for '${query}'. Try a different name or ticker.`
+                : "No stocks available. Check back later."}
             </div>
-          ) : null}
+          )}
         </CardContent>
       </Card>
     </div>
