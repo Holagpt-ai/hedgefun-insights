@@ -157,6 +157,7 @@ const App = () => (
                   <Route path="/affiliates" element={<AffiliatesPage />} />
                   <Route path="/support" element={<SupportPage />} />
                   <Route path="/sitemap" element={<SitemapPage />} />
+                  <Route path="/reset-password" element={<ResetPasswordPage />} />
                 </Route>
 
                 {/* Chart routes — standalone layout */}
