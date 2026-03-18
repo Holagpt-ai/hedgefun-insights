@@ -390,7 +390,7 @@ export default function DividendCalculatorPage() {
         <Card className="fintech-card">
           <CardContent className="py-4 px-4">
             <p className="text-sm font-semibold text-center text-foreground mb-2">Yield on Cost (%)</p>
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="h-[240px] w-full">
               <LineChart data={rows}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2 }} />
