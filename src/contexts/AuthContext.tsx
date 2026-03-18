@@ -5,7 +5,7 @@ import type { User } from "@supabase/supabase-js";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  profile: { full_name: string | null; plan: string | null; email: string | null; avatar_url: string | null } | null;
+  profile: { full_name: string | null; plan: string | null; email: string | null; avatar_url: string | null; preferred_theme: string | null } | null;
   signOut: () => Promise<void>;
 }
 
