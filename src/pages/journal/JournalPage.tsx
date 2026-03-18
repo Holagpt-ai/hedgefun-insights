@@ -10,12 +10,13 @@ import {
 } from "@/components/ui/breadcrumb";
 import { TradeLogTable } from "@/components/journal/TradeLogTable";
 import { JournalAnalytics } from "@/components/journal/JournalAnalytics";
+import { JournalCalendar } from "@/components/journal/JournalCalendar";
 import { AddTradeDialog } from "@/components/journal/AddTradeDialog";
 import { ManageTagsDialog } from "@/components/journal/ManageTagsDialog";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { cn } from "@/lib/utils";
 
-const TABS = ["Trade Log", "Analytics"] as const;
+const TABS = ["Trade Log", "Calendar", "Analytics"] as const;
 
 export default function JournalPage() {
   const navigate = useNavigate();
@@ -98,6 +99,8 @@ function JournalContent({ tab, setTab, addOpen, setAddOpen, tagsOpen, setTagsOpe
         </div>
       ) : tab === "Trade Log" ? (
         <TradeLogTable trades={trades} tags={tags} tagAssignments={tagAssignments} onDelete={(id) => deleteTrade.mutate(id)} />
+      ) : tab === "Calendar" ? (
+        <JournalCalendar trades={trades} />
       ) : (
         <JournalAnalytics trades={trades} tags={tags} tagAssignments={tagAssignments} />
       )}
