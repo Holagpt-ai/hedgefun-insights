@@ -255,7 +255,7 @@ export default function EtfNewLaunchesPage() {
                 <span className="text-amber-500">Top Monthly Dividends</span>
               </h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">Monthly Dividend ETF with enhanced dividends.</p>
-              <button className="text-[0.8125rem] text-primary hover:underline font-medium">Learn More ›</button>
+              <button onClick={() => navigate("/etf/screener")} className="text-[0.8125rem] text-primary hover:underline font-medium">Learn More ›</button>
             </div>
           </aside>
         </div>
