@@ -16,6 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AuthContextValue["profile"]>(null);
   const [loading, setLoading] = useState(true);
+  const { setThemeFromProfile } = useTheme();
 
   useEffect(() => {
     // First: set up the listener BEFORE getting session
