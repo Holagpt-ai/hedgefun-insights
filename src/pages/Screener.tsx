@@ -10,6 +10,7 @@ import { ChevronDown, ChevronUp, Search, Download, Plus, Star, ArrowUpRight, Hel
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
 
 import {
   useReactTable,

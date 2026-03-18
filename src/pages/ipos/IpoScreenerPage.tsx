@@ -8,6 +8,7 @@ import { Search, Plus, Lock, MoreHorizontal, ChevronDown, ChevronUp, HelpCircle,
 import { cn } from "@/lib/utils";
 import { IpoTabBar } from "@/components/ipos/IpoTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {

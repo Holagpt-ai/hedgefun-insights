@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ChevronDown, ChevronUp, Search, Download, Plus, Star, HelpCircle, X, ChevronRight, MoreVertical, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
 
 import {
   useReactTable,
