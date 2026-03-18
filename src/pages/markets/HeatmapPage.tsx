@@ -318,7 +318,7 @@ function HeatmapPage() {
               )}
             </div>
 
-            <button className="flex items-center gap-1.5 text-[0.875rem] px-3 py-1.5 rounded border border-border" style={{ color: "hsl(var(--text-muted))" }}>
+            <button onClick={() => navigate("/pro")} className="flex items-center gap-1.5 text-[0.875rem] px-3 py-1.5 rounded border border-border" style={{ color: "hsl(var(--text-muted))" }}>
               Full Width <Lock className="h-3.5 w-3.5" />
             </button>
           </div>
