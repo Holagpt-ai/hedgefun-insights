@@ -9,7 +9,7 @@ const EXAMPLE_TICKERS = ["NVDA", "AAPL", "SPY", "QQQ"];
 
 export default function ChartLandingPage() {
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const [query, setQuery] = useState("");
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
