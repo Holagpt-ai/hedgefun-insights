@@ -638,7 +638,6 @@ export function UpcomingIposPage() {
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
 
         {/* Next Week */}
@@ -660,6 +659,7 @@ export function UpcomingIposPage() {
             </p>
           </div>
         </div>
+        </div>}
 
         {/* Sources */}
         <p className="text-[0.8125rem] text-muted-foreground mb-10 leading-relaxed">
