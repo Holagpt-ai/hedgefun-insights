@@ -73,6 +73,7 @@ import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
 import ArticlesPage from "./pages/articles/ArticlesPage";
 import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
+import JournalPage from "./pages/journal/JournalPage";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,7 @@ const App = () => (
                   <Route path="/ipos" element={<RecentIposPage />} />
                   <Route path="/earnings" element={<EarningsPage />} />
                   <Route path="/watchlist" element={<WatchlistPage />} />
+                  <Route path="/journal" element={<JournalPage />} />
                   <Route path="/pro" element={<ProPage />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/account/billing" element={<BillingPage />} />

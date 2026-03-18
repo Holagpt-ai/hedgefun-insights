@@ -29,6 +29,7 @@ const translations: Translations = {
   manageBilling: { en: "Manage Billing", es: "Facturación" },
   searchPlaceholder: { en: "Search stocks...", es: "Buscar acciones..." },
   stockScreener: { en: "Stock Screener", es: "Filtro de acciones" },
+  stockJournal: { en: "Stock Journal", es: "Diario de operaciones" },
   earningsCalendar: { en: "Earnings Calendar", es: "Calendario de ganancias" },
   dividends: { en: "Dividends", es: "Dividendos" },
   ipoList: { en: "IPO List", es: "Lista de OPV" },
