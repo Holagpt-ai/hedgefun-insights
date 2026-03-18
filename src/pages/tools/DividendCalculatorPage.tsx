@@ -331,7 +331,6 @@ export default function DividendCalculatorPage() {
               </>
             );
           })()}
-          </div>
         </CardContent>
       </Card>
 
