@@ -1,7 +1,12 @@
+import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 
 export function AdBanner() {
   const { t } = useLanguage();
+  const { profile } = useAuth();
+
+  // Hide ads for Pro subscribers
+  if (profile?.plan === "pro") return null;
 
   return (
     <div

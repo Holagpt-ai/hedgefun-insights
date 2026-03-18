@@ -67,6 +67,7 @@ import SupportPage from "./pages/static/SupportPage";
 import SitemapPage from "./pages/static/SitemapPage";
 import CagrCalculatorPage from "./pages/tools/CagrCalculatorPage";
 import DividendCalculatorPage from "./pages/tools/DividendCalculatorPage";
+import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
 
 const queryClient = new QueryClient();
@@ -134,6 +135,7 @@ const App = () => (
                   <Route path="/tools" element={<ToolsPage />} />
                   <Route path="/tools/cagr-calculator" element={<CagrCalculatorPage />} />
                   <Route path="/tools/dividend-calculator" element={<DividendCalculatorPage />} />
+                  <Route path="/tools/symbol-lookup" element={<SymbolLookupPage />} />
                   <Route path="/ipos/spac" element={<StubPage title="SPAC List" description="Track all active SPACs, their targets, and merger status." />} />
                   <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
                   <Route path="/about" element={<AboutPage />} />
