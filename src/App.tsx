@@ -45,6 +45,7 @@ import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
 import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
 import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
+import EtfMainPage from "./pages/etf/EtfMainPage";
 import TrendingPage from "./pages/trending/TrendingPage";
 import ChartPage from "./pages/chart/ChartPage";
 import GainersPage from "./pages/markets/GainersPage";
@@ -115,7 +116,7 @@ const App = () => (
                   {/* Stub pages */}
                   <Route path="/dividends" element={<StubPage title="Dividend Tracker" description="Track dividend yields, payout dates, and dividend history for any stock." />} />
                   <Route path="/splits" element={<StubPage title="Stock Split History" description="View historical and upcoming stock splits across all exchanges." />} />
-                  <Route path="/etfs" element={<StubPage title="ETF Explorer" description="Discover, compare, and screen thousands of ETFs by category and performance." />} />
+                  <Route path="/etfs" element={<EtfMainPage />} />
                   <Route path="/etf/screener" element={<EtfScreenerPage />} />
                   <Route path="/etfs/screener" element={<EtfScreenerPage />} />
                   <Route path="/etf/compare" element={<EtfComparePage />} />
