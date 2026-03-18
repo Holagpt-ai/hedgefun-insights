@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Rocket, Flame, TrendingUp, Cpu, Zap } from "lucide-react";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 /* ── Types ──────────────────────────────────────── */
 export interface Article {
