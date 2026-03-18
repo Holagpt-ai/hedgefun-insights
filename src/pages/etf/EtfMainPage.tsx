@@ -163,7 +163,7 @@ export default function EtfMainPage() {
       {/* Title row */}
       <div className="flex items-start justify-between mb-5">
         <h1 className="text-[1.75rem] font-bold text-foreground leading-tight">All ETF Symbols</h1>
-        <button className="flex items-center gap-1.5 text-[0.875rem] text-muted-foreground mt-1">
+        <button onClick={() => navigate("/pro")} className="flex items-center gap-1.5 text-[0.875rem] text-muted-foreground mt-1">
           Full Width <Lock className="h-3.5 w-3.5" />
         </button>
       </div>

@@ -38,7 +38,7 @@ export function IpoTabBar() {
           </button>
         ))}
       </div>
-      <Button variant="outline" size="sm" className="text-xs gap-1.5 mr-2">
+      <Button variant="outline" size="sm" className="text-xs gap-1.5 mr-2" onClick={() => navigate("/pro")}>
         <Lock className="h-3 w-3" />
         Full Width
       </Button>

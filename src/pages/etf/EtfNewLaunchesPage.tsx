@@ -219,7 +219,7 @@ export default function EtfNewLaunchesPage() {
             <div className="border border-border rounded-[var(--radius)] p-4">
               <h3 className="text-[1rem] font-bold text-foreground mb-2">Stock Analysis Pro</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">Upgrade now for unlimited access to all data and tools.</p>
-              <Button size="sm" className="w-full">Sign Up Today</Button>
+              <Button size="sm" className="w-full" onClick={() => navigate("/pro")}>Sign Up Today</Button>
             </div>
 
             {/* Newsletter */}
