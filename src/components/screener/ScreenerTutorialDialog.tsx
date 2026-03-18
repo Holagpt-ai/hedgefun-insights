@@ -28,7 +28,7 @@ const STEPS = [
     icon: Star,
     title: "Save to Watchlist",
     description:
-      "Spot something interesting? Hit "+ Watchlist" to track it. You can also save an entire filter configuration as a Saved Screen for quick access later.",
+      'Spot something interesting? Hit "+ Watchlist" to track it. You can also save an entire filter configuration as a Saved Screen for quick access later.',
   },
   {
     icon: Download,
