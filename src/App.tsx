@@ -136,7 +136,7 @@ const App = () => (
                   <Route path="/markets/heatmap" element={<HeatmapPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
                   <Route path="/articles/:slug" element={<ArticleDetailPage />} />
-                  <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
+                  <Route path="/chart" element={<ChartLandingPage />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
                   <Route path="/tools/cagr-calculator" element={<CagrCalculatorPage />} />
