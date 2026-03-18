@@ -41,6 +41,7 @@ import StockListsPage from "./pages/stocks/StockListsPage";
 import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
 import TopStocksPage from "./pages/stocks/TopStocksPage";
 import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
+import StockListDetailPage from "./pages/stocks/StockListDetailPage";
 import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
 import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
@@ -115,6 +116,7 @@ const App = () => (
                   <Route path="/stocks/compare" element={<StockComparePage />} />
                   <Route path="/stocks/industry" element={<IndustryPage />} />
                   <Route path="/stocks/lists" element={<StockListsPage />} />
+                  <Route path="/stocks/lists/:slug" element={<StockListDetailPage />} />
                   <Route path="/stocks/analysts" element={<TopAnalystsPage />} />
                   <Route path="/stocks/top-stocks" element={<TopStocksPage />} />
                   <Route path="/stocks/corporate-actions" element={<CorporateActionsPage />} />
@@ -129,6 +131,7 @@ const App = () => (
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
                   <Route path="/etfs/top" element={<StubPage title="Top ETFs" description="The highest-performing ETFs ranked by returns, volume, and assets under management." />} />
+                  <Route path="/etfs/:slug" element={<StubPage title="ETF List" description="This ETF list is coming soon." />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<TrendingPage />} />
                   <Route path="/markets/gainers" element={<GainersPage />} />
