@@ -78,7 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .select("full_name, plan, email, avatar_url, preferred_theme")
       .eq("id", user.id)
       .single()
-      .then(({ data }) => setProfile(data));
+      .then(({ data }) => {
+        setProfile(data);
+        if (data?.preferred_theme) setThemeFromProfile(data.preferred_theme);
+      });
   }, [user]);
 
   const signOut = async () => {
