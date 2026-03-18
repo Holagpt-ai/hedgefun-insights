@@ -137,10 +137,12 @@ export default function ArticleDetailPage() {
         {/* Main content */}
         <article className="flex-1 min-w-0">
           {/* Cover */}
-          <div
-            className={`h-[280px] md:h-[340px] rounded-lg bg-gradient-to-br ${article.gradient} flex items-center justify-center mb-6`}
-          >
-            <div className="scale-[2.5] opacity-60">{article.icon}</div>
+          <div className="h-[280px] md:h-[340px] rounded-lg overflow-hidden mb-6">
+            <img
+              src={article.image}
+              alt={article.title}
+              className="w-full h-full object-cover"
+            />
           </div>
 
           <h1 className="text-[1.5rem] md:text-[1.75rem] font-bold text-foreground leading-tight mb-4">
