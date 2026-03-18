@@ -37,9 +37,8 @@ export default function NewsletterPage() {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Minimal header */}
       <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0">
-        <Link to="/" className="flex items-center gap-2 font-bold text-lg text-foreground">
+        <Link to="/" className="flex items-center font-bold text-lg text-foreground">
           <img src="/logo.svg" alt="HedgeFun" className="h-8 w-auto" />
-          <span>HedgeFun</span>
         </Link>
         <button
           onClick={() => setAuthMode("login")}
