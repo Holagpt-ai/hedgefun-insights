@@ -90,9 +90,15 @@ export function ChatWidget() {
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-6 right-6 z-50 h-[52px] w-[52px] rounded-full bg-gradient-to-br from-accent-blue to-accent-blue-hover shadow-lg flex items-center justify-center text-primary-foreground transition-transform hover:scale-105",
+          "fixed bottom-6 right-6 z-50 h-[52px] w-[52px] rounded-full bg-gradient-to-br from-accent-blue to-accent-blue-hover shadow-lg flex items-center justify-center text-primary-foreground hover:scale-105",
           !pulsed && "animate-pulse"
         )}
+        style={{
+          boxShadow: "0 0 12px 3px rgba(59, 130, 246, 0.25)",
+          transition: "box-shadow 0.2s ease, transform 0.2s ease",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.boxShadow = "0 0 12px 3px rgba(59, 130, 246, 0.45)")}
+        onMouseLeave={(e) => (e.currentTarget.style.boxShadow = "0 0 12px 3px rgba(59, 130, 246, 0.25)")}
         aria-label="Open chat"
       >
         <MessageCircle className="h-6 w-6" />
