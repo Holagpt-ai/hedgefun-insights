@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Home, Star, BarChart2, Calendar, Archive, Newspaper, TrendingUp,
   BookOpen, LineChart, Activity, Mail, UserPlus, Wrench, ChevronRight,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, BookMarked,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
