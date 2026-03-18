@@ -116,6 +116,7 @@ const App = () => (
                   <Route path="/stocks/compare" element={<StockComparePage />} />
                   <Route path="/stocks/industry" element={<IndustryPage />} />
                   <Route path="/stocks/lists" element={<StockListsPage />} />
+                  <Route path="/stocks/lists/:slug" element={<StockListDetailPage />} />
                   <Route path="/stocks/analysts" element={<TopAnalystsPage />} />
                   <Route path="/stocks/top-stocks" element={<TopStocksPage />} />
                   <Route path="/stocks/corporate-actions" element={<CorporateActionsPage />} />
