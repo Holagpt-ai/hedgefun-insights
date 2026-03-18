@@ -73,6 +73,7 @@ import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
 import ArticlesPage from "./pages/articles/ArticlesPage";
 import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
+import JournalPage from "./pages/journal/JournalPage";
 
 const queryClient = new QueryClient();
 
