@@ -3,6 +3,78 @@ import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModals } from "@/components/auth/AuthModals";
 
+function IPhoneMockup() {
+  return (
+    <div className="hidden md:flex items-center justify-center">
+      {/* Phone frame */}
+      <div
+        className="relative w-[272px] rounded-[40px] border-[6px] border-gray-800 bg-background shadow-2xl overflow-hidden"
+        style={{ height: "560px" }}
+      >
+        {/* Notch */}
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-gray-800 rounded-b-2xl z-10" />
+
+        {/* Screen content */}
+        <div className="relative h-full pt-[36px] px-3 pb-0 overflow-hidden">
+          {/* Date */}
+          <p className="text-[9px] text-muted-foreground text-center mb-2">Monday — March 17, 2026</p>
+
+          {/* Logo */}
+          <div className="flex items-center justify-center gap-1.5 mb-3">
+            <div className="h-6 w-6 rounded bg-accent-blue flex items-center justify-center">
+              <span className="text-[8px] font-bold text-white">HF</span>
+            </div>
+            <span className="font-bold text-[11px] text-foreground">HedgeFun</span>
+          </div>
+
+          {/* Market Overview */}
+          <div className="border border-border rounded-md p-2 mb-3">
+            <p className="text-[9px] font-bold text-foreground mb-1.5">Market Overview</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { name: "S&P 500", val: "+1.45%" },
+                { name: "Nasdaq", val: "+1.07%" },
+                { name: "Dow", val: "+2.12%" },
+              ].map((idx) => (
+                <div key={idx.name} className="text-center">
+                  <p className="text-[8px] text-muted-foreground">{idx.name}</p>
+                  <p className="text-[10px] font-bold text-green-600">{idx.val}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* News */}
+          <div className="border border-border rounded-md p-2">
+            <p className="text-[9px] font-bold text-foreground mb-1.5">Stock & Market News</p>
+            <ul className="space-y-2 text-[8px] leading-[1.4] text-foreground">
+              <li>
+                <span className="font-bold text-primary">NVDA:</span> Nvidia reports record data center revenue, beating analyst expectations.{" "}
+                <span className="text-muted-foreground">Source: Reuters</span>
+              </li>
+              <li>
+                <span className="font-bold text-primary">AAPL:</span> Apple announces new AI features for iPhone at developer conference.{" "}
+                <span className="text-muted-foreground">Source: WSJ</span>
+              </li>
+              <li>
+                <span className="font-bold text-primary">Fed:</span> Federal Reserve holds rates steady at current levels, signals caution.{" "}
+                <span className="text-muted-foreground">Source: Bloomberg</span>
+              </li>
+              <li>
+                <span className="font-bold text-primary">TSLA:</span> Tesla deliveries rise 15% in Q1, exceeding Wall Street forecasts.{" "}
+                <span className="text-muted-foreground">Source: CNBC</span>
+              </li>
+            </ul>
+          </div>
+
+          {/* Fade overlay at bottom */}
+          <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-background to-transparent pointer-events-none" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function NewsletterPage() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "success" | "duplicate" | "error" | "invalid">("idle");
@@ -48,79 +120,87 @@ export default function NewsletterPage() {
         </button>
       </header>
 
-      {/* Centered content */}
-      <main className="flex-1 w-full max-w-[560px] mx-auto px-6 pt-16 pb-12">
-        <h1 className="text-[2rem] font-bold text-foreground text-center mb-6">
-          Stay informed in just 2 minutes
-        </h1>
+      {/* Two-column content */}
+      <main className="flex-1 w-full max-w-5xl mx-auto px-6 pt-16 pb-12">
+        <div className="grid md:grid-cols-[1fr_auto] gap-12 items-start">
+          {/* Left column — existing content */}
+          <div className="max-w-[560px]">
+            <h1 className="text-[2rem] font-bold text-foreground text-center md:text-left mb-6">
+              Stay informed in just 2 minutes
+            </h1>
 
-        <div className="text-base text-foreground leading-relaxed space-y-4">
-          <p>
-            HedgeFun Market Bullets is a free newsletter that makes it super easy to keep up
-            with financial markets.
-          </p>
-          <p>
-            Our summaries are presented in short, bullet-point format, so reading this
-            newsletter will never feel like a chore.
-          </p>
-          <p>
-            Let us read the news for you and filter out the noise, then we'll send you
-            the bullet points. Here's what you'll get:
-          </p>
+            <div className="text-base text-foreground leading-relaxed space-y-4">
+              <p>
+                HedgeFun Market Bullets is a free newsletter that makes it super easy to keep up
+                with financial markets.
+              </p>
+              <p>
+                Our summaries are presented in short, bullet-point format, so reading this
+                newsletter will never feel like a chore.
+              </p>
+              <p>
+                Let us read the news for you and filter out the noise, then we'll send you
+                the bullet points. Here's what you'll get:
+              </p>
+            </div>
+
+            <ul className="list-disc pl-5 my-4 text-base text-foreground leading-[1.7] space-y-2">
+              <li>A quick overview of the market indexes.</li>
+              <li>
+                Short, scannable bullet points covering top market moving news and events,
+                major earnings, today's IPOs, and more.
+              </li>
+              <li>
+                We only use accurate, up-to-date info from the highest-quality sources (no
+                clickbait).
+              </li>
+            </ul>
+
+            <p className="text-base text-foreground leading-relaxed">
+              The newsletter is completely free, delivered to your inbox every morning before
+              the market opens, Monday to Friday.
+            </p>
+
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => { setEmail(e.target.value); setStatus("idle"); }}
+              placeholder="Enter your email"
+              className="w-full h-12 border border-border rounded-md px-4 text-base bg-background text-foreground placeholder:text-muted-foreground mt-6 focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="w-full h-12 bg-primary text-primary-foreground text-base font-semibold rounded-md mt-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              {loading ? "Subscribing..." : "Join Free"}
+            </button>
+
+            {status === "success" && (
+              <p className="text-sm text-green-600 mt-2">✓ You're subscribed! Check your inbox for a confirmation.</p>
+            )}
+            {status === "duplicate" && (
+              <p className="text-sm text-yellow-600 mt-2">You're already subscribed!</p>
+            )}
+            {status === "invalid" && (
+              <p className="text-sm text-destructive mt-2">Please enter a valid email address.</p>
+            )}
+            {status === "error" && (
+              <p className="text-sm text-destructive mt-2">Something went wrong. Please try again.</p>
+            )}
+
+            <p className="text-sm text-muted-foreground text-center mt-3">
+              Trusted by 218,783+ investors.
+            </p>
+            <p className="text-sm text-muted-foreground text-center mt-2">
+              <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
+            </p>
+          </div>
+
+          {/* Right column — iPhone mockup */}
+          <IPhoneMockup />
         </div>
-
-        <ul className="list-disc pl-5 my-4 text-base text-foreground leading-[1.7] space-y-2">
-          <li>A quick overview of the market indexes.</li>
-          <li>
-            Short, scannable bullet points covering top market moving news and events,
-            major earnings, today's IPOs, and more.
-          </li>
-          <li>
-            We only use accurate, up-to-date info from the highest-quality sources (no
-            clickbait).
-          </li>
-        </ul>
-
-        <p className="text-base text-foreground leading-relaxed">
-          The newsletter is completely free, delivered to your inbox every morning before
-          the market opens, Monday to Friday.
-        </p>
-
-        <input
-          type="email"
-          value={email}
-          onChange={(e) => { setEmail(e.target.value); setStatus("idle"); }}
-          placeholder="Enter your email"
-          className="w-full h-12 border border-border rounded-md px-4 text-base bg-background text-foreground placeholder:text-muted-foreground mt-6 focus:outline-none focus:ring-2 focus:ring-ring"
-        />
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full h-12 bg-primary text-primary-foreground text-base font-semibold rounded-md mt-2 hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          {loading ? "Subscribing..." : "Join Free"}
-        </button>
-
-        {status === "success" && (
-          <p className="text-sm text-green-600 mt-2">✓ You're subscribed! Check your inbox for a confirmation.</p>
-        )}
-        {status === "duplicate" && (
-          <p className="text-sm text-yellow-600 mt-2">You're already subscribed!</p>
-        )}
-        {status === "invalid" && (
-          <p className="text-sm text-destructive mt-2">Please enter a valid email address.</p>
-        )}
-        {status === "error" && (
-          <p className="text-sm text-destructive mt-2">Something went wrong. Please try again.</p>
-        )}
-
-        <p className="text-sm text-muted-foreground text-center mt-3">
-          Trusted by 218,783+ investors.
-        </p>
-        <p className="text-sm text-muted-foreground text-center mt-2">
-          <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
-        </p>
       </main>
 
       {/* Bottom bar */}
