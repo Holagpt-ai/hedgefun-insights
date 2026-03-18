@@ -16,7 +16,7 @@ import { ManageTagsDialog } from "@/components/journal/ManageTagsDialog";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { cn } from "@/lib/utils";
 
-const TABS = ["Trade Log", "Analytics"] as const;
+const TABS = ["Trade Log", "Calendar", "Analytics"] as const;
 
 export default function JournalPage() {
   const navigate = useNavigate();
