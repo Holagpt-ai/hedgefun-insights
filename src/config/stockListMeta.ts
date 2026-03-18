@@ -1,8 +1,24 @@
+export interface ListFilter {
+  /** Filter by market_cap range */
+  marketCapMin?: number;
+  marketCapMax?: number;
+  /** Filter by exchange name (case-insensitive ilike) */
+  exchange?: string;
+  /** Filter by sector (case-insensitive ilike) */
+  sector?: string;
+  /** Filter by industry */
+  industry?: string;
+  /** Filter by max price */
+  priceMax?: number;
+  /** Only include these specific symbols */
+  symbols?: string[];
+}
+
 export interface ListMeta {
   title: string;
   description: string;
   columns: string[];
-  filter?: Record<string, any>;
+  filter?: ListFilter;
 }
 
 const MARKET_CAP_COLS = ["symbol", "name", "price", "changePercent", "marketCap", "peRatio", "volume"];
