@@ -44,6 +44,7 @@ const ALL_SYMBOLS = Object.keys(SEED_ETFS);
 
 export default function EtfComparePage() {
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState("");
   const [showResults, setShowResults] = useState(false);
 
