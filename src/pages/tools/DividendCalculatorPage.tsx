@@ -297,37 +297,40 @@ export default function DividendCalculatorPage() {
             ${fmt(lastRow.portfolioValue)} <span className="text-sm font-semibold text-green-600">(+{fmtPct(portfolioGainPct)})</span>
           </p>
           {/* Stacked bar */}
-          <div className="flex h-6 rounded overflow-hidden mt-3 mb-3">
-            {[
+          {(() => {
+            const segments = [
               { value: inv, color: "bg-primary", label: "Initial Investment" },
               { value: totalContributions - inv, color: "bg-orange-500", label: "Additional Investments" },
               { value: totalDividends > 0 ? totalDividends : 0, color: "bg-green-500", label: "Dividends" },
               { value: priceGrowthAmount > 0 ? priceGrowthAmount : 0, color: "bg-blue-800", label: "Stock Price Growth" },
-            ].map((seg, i) => {
-              const total = lastRow.portfolioValue;
-              const pct = total > 0 ? (seg.value / total) * 100 : 0;
-              return pct > 0 ? <div key={i} className={`${seg.color}`} style={{ width: `${pct}%` }} title={seg.label} /> : null;
-            })}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            {[
-              { label: "Initial Investment", value: inv, color: "bg-primary" },
-              { label: "Additional Investments", value: totalContributions - inv, color: "bg-orange-500" },
-              { label: "Dividends", value: totalDividends, color: "bg-green-500" },
-              { label: "Stock Price Growth", value: priceGrowthAmount > 0 ? priceGrowthAmount : 0, color: "bg-blue-800" },
-            ].map((seg, i) => {
-              const pct = lastRow.portfolioValue > 0 ? (seg.value / lastRow.portfolioValue) * 100 : 0;
-              return (
-                <div key={i} className="flex items-center gap-1.5">
-                  <div className={`h-2.5 w-2.5 rounded-sm ${seg.color}`} />
-                  <div>
-                    <span className="text-primary font-medium">{seg.label}</span>
-                    <p className="text-muted-foreground">${fmt(seg.value)}</p>
-                    <p className="text-muted-foreground">{fmtPct(pct)}</p>
-                  </div>
+            ].filter((seg) => seg.value > 0);
+            const total = lastRow.portfolioValue;
+            return (
+              <>
+                <div className="flex h-6 rounded overflow-hidden mt-3 mb-4">
+                  {segments.map((seg, i) => {
+                    const pct = total > 0 ? (seg.value / total) * 100 : 0;
+                    return <div key={i} className={seg.color} style={{ width: `${pct}%` }} title={seg.label} />;
+                  })}
                 </div>
-              );
-            })}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  {segments.map((seg, i) => {
+                    const pct = total > 0 ? (seg.value / total) * 100 : 0;
+                    return (
+                      <div key={i} className="flex items-start gap-2">
+                        <div className={`h-3 w-3 rounded-sm shrink-0 mt-0.5 ${seg.color}`} />
+                        <div>
+                          <span className="font-medium text-foreground">{seg.label}</span>
+                          <p className="text-muted-foreground text-sm">${fmt(seg.value)}</p>
+                          <p className="text-muted-foreground text-sm">{fmtPct(pct)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
           </div>
         </CardContent>
       </Card>
