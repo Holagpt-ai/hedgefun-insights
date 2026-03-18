@@ -108,7 +108,7 @@ export default function ChartLandingPage() {
           <span className="text-sm font-medium text-foreground">Theme</span>
           <div className="flex rounded-md overflow-hidden border border-border text-sm">
             <button
-              onClick={() => setTheme("light")}
+              onClick={() => theme !== "light" && toggleTheme()}
               className={`flex items-center gap-1 px-3 py-1.5 ${
                 theme === "light"
                   ? "bg-accent-blue text-white"
@@ -118,7 +118,7 @@ export default function ChartLandingPage() {
               <Sun className="h-3.5 w-3.5" /> Light
             </button>
             <button
-              onClick={() => setTheme("dark")}
+              onClick={() => theme !== "dark" && toggleTheme()}
               className={`flex items-center gap-1 px-3 py-1.5 ${
                 theme === "dark"
                   ? "bg-accent-blue text-white"
