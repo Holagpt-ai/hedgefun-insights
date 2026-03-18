@@ -20,15 +20,13 @@ const TABS = ["Trade Log", "Analytics"] as const;
 export default function JournalPage() {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
-  // TODO: Re-enable Pro gate before launch
-  const isPro = true; // profile?.plan === "pro" || profile?.plan === "unlimited";
+  const isPro = profile?.plan === "pro" || profile?.plan === "unlimited";
   const [tab, setTab] = useState<string>("Trade Log");
   const [addOpen, setAddOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
 
-  // TODO: Re-enable Pro gate before launch — bypassed for testing
-  // if (!authLoading && (!user || !isPro)) {
-  if (false) {
+  // If not logged in or not pro, show gate
+  if (!authLoading && (!user || !isPro)) {
     return (
       <div className="p-4">
         <div className="max-w-md mx-auto text-center py-20">
