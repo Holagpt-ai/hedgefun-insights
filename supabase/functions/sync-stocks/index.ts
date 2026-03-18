@@ -33,8 +33,11 @@ serve(async (req) => {
     if (!API_KEY) throw new Error("POLYGON_API_KEY not configured");
 
     const { searchParams } = new URL(req.url);
+    // offset/limit let you page through stocks across multiple calls
     const offset = parseInt(searchParams.get("offset") ?? "0", 10);
-    const limit = parseInt(searchParams.get("limit") ?? "5", 10);
+    const batchSize = parseInt(searchParams.get("limit") ?? "10", 10);
+    // delayMs: 200 for paid (100 req/min), 13000 for free (5 req/min)
+    const delayMs = parseInt(searchParams.get("delay") ?? "200", 10);
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -45,17 +48,17 @@ serve(async (req) => {
       .from("stocks")
       .select("symbol")
       .order("symbol")
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + batchSize - 1);
 
     const symbols = (stocks ?? []).map((s: { symbol: string }) => s.symbol);
     if (symbols.length === 0) {
       return new Response(
-        JSON.stringify({ success: true, message: "No more stocks", updated: 0, errors: 0 }),
+        JSON.stringify({ success: true, message: "No more stocks to sync", updated: 0 }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log(`Batch ${offset}-${offset + symbols.length - 1}: ${symbols.join(", ")}`);
+    console.log(`Syncing batch: offset=${offset}, symbols=${symbols.join(",")}`);
 
     let updated = 0;
     let errors = 0;
@@ -63,40 +66,66 @@ serve(async (req) => {
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
-        const json = await fetchJson(polyUrl(`/v3/reference/tickers/${symbol}`, API_KEY));
-        const d = json?.results;
-        if (!d) { errors++; continue; }
+        // Fetch ticker details (free tier) and snapshot (paid tier)
+        let detailsData = null;
+        let snapData = null;
+
+        try {
+          const dJson = await fetchJson(polyUrl(`/v3/reference/tickers/${symbol}`, API_KEY));
+          detailsData = dJson?.results;
+        } catch (e) {
+          console.warn(`Details failed for ${symbol}: ${(e as Error).message}`);
+        }
+
+        try {
+          const sJson = await fetchJson(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, API_KEY));
+          snapData = sJson?.ticker;
+        } catch {
+          // Snapshot requires paid plan, silently skip
+        }
+
+        if (!detailsData && !snapData) { errors++; continue; }
 
         const updateData: Record<string, unknown> = {
           updated_at: new Date().toISOString(),
-          market_cap: d.market_cap ? Math.round(d.market_cap) : null,
-          description: d.description ?? null,
-          website: d.homepage_url ?? null,
-          exchange: d.primary_exchange ?? null,
         };
-        if (d.name) updateData.name = d.name;
-        if (d.sic_description) {
-          updateData.sector = d.sic_description;
-          updateData.industry = d.sic_description;
+
+        if (detailsData) {
+          if (detailsData.name) updateData.name = detailsData.name;
+          updateData.market_cap = detailsData.market_cap ? Math.round(detailsData.market_cap) : null;
+          updateData.description = detailsData.description ?? null;
+          updateData.website = detailsData.homepage_url ?? null;
+          updateData.exchange = detailsData.primary_exchange ?? null;
+          if (detailsData.sic_description) {
+            updateData.sector = detailsData.sic_description;
+            updateData.industry = detailsData.sic_description;
+          }
+          if (detailsData.branding?.icon_url) {
+            updateData.logo_url = `${detailsData.branding.icon_url}?apiKey=${API_KEY}`;
+          }
         }
-        if (d.branding?.icon_url) {
-          updateData.logo_url = `${d.branding.icon_url}?apiKey=${API_KEY}`;
+
+        if (snapData) {
+          const day = snapData.day ?? snapData.prevDay ?? {};
+          updateData.price = day.c ?? snapData.lastTrade?.p ?? null;
+          updateData.change_amount = snapData.todaysChange ?? null;
+          updateData.change_percent = snapData.todaysChangePerc ?? null;
+          updateData.volume = day.v ?? null;
         }
 
         const { error: ue } = await supabase.from("stocks").update(updateData).eq("symbol", symbol);
         if (ue) { console.error(`DB err ${symbol}:`, ue.message); errors++; }
-        else { updated++; console.log(`✓ ${symbol}`); }
+        else { updated++; }
       } catch (err) {
-        console.error(`✗ ${symbol}:`, (err as Error).message);
+        console.error(`${symbol}:`, (err as Error).message);
         errors++;
       }
 
-      // Wait between requests to avoid rate limits
-      if (i < symbols.length - 1) await delay(13000);
+      if (i < symbols.length - 1) await delay(delayMs);
     }
 
     return new Response(
-      JSON.stringify({ success: true, updated, errors, symbols, nextOffset: offset + limit }),
+      JSON.stringify({ success: true, updated, errors, total: symbols.length, nextOffset: offset + batchSize }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
