@@ -48,6 +48,7 @@ import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
 import EtfMainPage from "./pages/etf/EtfMainPage";
 import TrendingPage from "./pages/trending/TrendingPage";
 import ChartPage from "./pages/chart/ChartPage";
+import ChartLandingPage from "./pages/chart/ChartLandingPage";
 import GainersPage from "./pages/markets/GainersPage";
 import LosersPage from "./pages/markets/LosersPage";
 import ActivePage from "./pages/markets/ActivePage";
@@ -135,7 +136,7 @@ const App = () => (
                   <Route path="/markets/heatmap" element={<HeatmapPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
                   <Route path="/articles/:slug" element={<ArticleDetailPage />} />
-                  <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
+                  <Route path="/chart" element={<ChartLandingPage />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
                   <Route path="/tools/cagr-calculator" element={<CagrCalculatorPage />} />
@@ -156,7 +157,6 @@ const App = () => (
                 </Route>
 
                 {/* Chart routes — standalone layout */}
-                <Route path="/chart" element={<ChartPage />} />
                 <Route path="/chart/:ticker" element={<ChartPage />} />
 
                 {/* Newsletter — standalone layout */}
