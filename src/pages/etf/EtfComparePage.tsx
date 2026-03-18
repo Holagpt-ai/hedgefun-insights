@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { Search, Lock, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -43,6 +44,7 @@ const ALL_SYMBOLS = Object.keys(SEED_ETFS);
 
 export default function EtfComparePage() {
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
+  const navigate = useNavigate();
   const [searchValue, setSearchValue] = useState("");
   const [showResults, setShowResults] = useState(false);
 
@@ -93,7 +95,7 @@ export default function EtfComparePage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-[1.375rem] font-bold text-foreground">Compare ETFs</h1>
-          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground">
+          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => navigate("/pro")}>
             Full Width <Lock className="h-3.5 w-3.5" />
           </Button>
         </div>

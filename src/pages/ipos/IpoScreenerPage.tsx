@@ -177,7 +177,7 @@ export default function IpoScreenerPage() {
               <span className="absolute -top-1.5 -right-1.5 bg-green text-primary-foreground text-[0.625rem] px-1 rounded-full font-bold leading-tight">New</span>
             </Button>
             <Button variant="outline" size="sm" className="text-xs">Indicators ▾</Button>
-            <Button variant="outline" size="sm" className="text-xs gap-1"><Lock className="h-3 w-3" /> Full Width</Button>
+            <Button variant="outline" size="sm" className="text-xs gap-1" onClick={() => navigate("/pro")}><Lock className="h-3 w-3" /> Full Width</Button>
             <Button variant="outline" size="icon" className="h-8 w-8"><MoreHorizontal className="h-4 w-4" /></Button>
           </div>
         </div>

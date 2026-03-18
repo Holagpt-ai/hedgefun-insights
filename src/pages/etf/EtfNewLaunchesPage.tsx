@@ -133,7 +133,7 @@ export default function EtfNewLaunchesPage() {
         {/* Header */}
         <div className="flex items-center justify-between mb-1">
           <h1 className="text-[1.375rem] font-bold text-foreground">New ETFs</h1>
-          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground">
+          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => navigate("/pro")}>
             Full Width <Lock className="h-3.5 w-3.5" />
           </Button>
         </div>
@@ -219,7 +219,7 @@ export default function EtfNewLaunchesPage() {
             <div className="border border-border rounded-[var(--radius)] p-4">
               <h3 className="text-[1rem] font-bold text-foreground mb-2">Stock Analysis Pro</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">Upgrade now for unlimited access to all data and tools.</p>
-              <Button size="sm" className="w-full">Sign Up Today</Button>
+              <Button size="sm" className="w-full" onClick={() => navigate("/pro")}>Sign Up Today</Button>
             </div>
 
             {/* Newsletter */}
@@ -255,7 +255,7 @@ export default function EtfNewLaunchesPage() {
                 <span className="text-amber-500">Top Monthly Dividends</span>
               </h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">Monthly Dividend ETF with enhanced dividends.</p>
-              <button className="text-[0.8125rem] text-primary hover:underline font-medium">Learn More ›</button>
+              <button onClick={() => navigate("/etf/screener")} className="text-[0.8125rem] text-primary hover:underline font-medium">Learn More ›</button>
             </div>
           </aside>
         </div>

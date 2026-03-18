@@ -143,7 +143,7 @@ export default function EtfProvidersPage() {
             <div className="border border-border rounded-[var(--radius)] p-4">
               <h3 className="text-[1rem] font-bold text-foreground mb-2">Stock Analysis Pro</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">Upgrade now for unlimited access to all data and tools.</p>
-              <Button size="sm" className="w-full">Sign Up Today</Button>
+              <Button size="sm" className="w-full" onClick={() => navigate("/pro")}>Sign Up Today</Button>
             </div>
 
             <div className="border border-border rounded-[var(--radius)] p-4">
@@ -160,7 +160,7 @@ export default function EtfProvidersPage() {
             <div className="border border-border rounded-[var(--radius)] p-4">
               <h3 className="text-[1rem] font-bold text-foreground mb-2">Learn More</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">Explore detailed ETF provider data including fund counts, total assets under management, and performance metrics.</p>
-              <Button variant="outline" size="sm" className="text-primary border-primary">Learn More</Button>
+              <Button variant="outline" size="sm" className="text-primary border-primary" onClick={() => navigate("/etf/screener")}>Learn More</Button>
             </div>
           </aside>
         </div>
