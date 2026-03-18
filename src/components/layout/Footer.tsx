@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Facebook, Twitter, Instagram, Linkedin, Youtube, Sun, Moon } from "lucide-react";
+import { Facebook, Twitter, Instagram, Linkedin, Youtube, Sun, Moon, Apple, Play } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -74,9 +74,9 @@ export function Footer() {
 
   return (
     <footer className="bg-footer-bg text-footer-text w-full">
-      <div className="max-w-7xl mx-auto px-4 py-10">
-        {/* Link Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+      <div className="max-w-7xl mx-auto px-4 py-7">
+        {/* Row 1 — Link columns + right column (Google sign-in + newsletter) */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-8 mb-7">
           {LINK_SECTIONS.map((section) => (
             <div key={section.title}>
               <h4 className="text-xs font-semibold tracking-wider text-footer-text/70 mb-3">
@@ -96,27 +96,19 @@ export function Footer() {
               </ul>
             </div>
           ))}
-        </div>
 
-        {/* Brand + Newsletter row */}
-        <div className="grid md:grid-cols-2 gap-8 pb-8 border-b border-white/10">
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <div className="h-8 w-8 rounded-md bg-accent-blue flex items-center justify-center">
-                <span className="text-sm font-bold text-white">HF</span>
-              </div>
-              <span className="font-display text-lg text-white font-bold">HedgeFun</span>
-            </div>
-            <p className="text-sm text-footer-text mb-2">Your edge in every market.</p>
-            <p className="text-xs text-footer-text/60 leading-relaxed">
-              1631 Del Prado Blvd S. #1124, Cape Coral, FL 33990
-            </p>
-            <p className="text-xs text-footer-text/60">
-              Email: info@hedgefun.fun
-            </p>
-          </div>
+          {/* Right column — spans 2 cols on md+ */}
+          <div className="col-span-2">
+            {/* Google sign-in button */}
+            <button
+              onClick={() => setAuthMode("login")}
+              className="w-full flex items-center justify-center gap-2.5 h-10 rounded-full border border-white/20 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors mb-5"
+            >
+              <span className="text-base font-bold" style={{ color: "#4285F4" }}>G</span>
+              Sign in with Google
+            </button>
 
-          <div>
+            {/* Newsletter */}
             <p className="text-xs font-semibold tracking-wider text-footer-text/70 mb-1">
               MARKET NEWSLETTER
             </p>
@@ -138,8 +130,14 @@ export function Footer() {
           </div>
         </div>
 
-        {/* Social + Theme row */}
-        <div className="flex items-center justify-between py-6 border-b border-white/10">
+        {/* Row 2 — Single compact bottom bar */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-white/10">
+          {/* Left — copyright */}
+          <span className="text-xs text-footer-text/50 shrink-0">
+            © 2026 HedgeFun.fun. All rights reserved.
+          </span>
+
+          {/* Center — social icons */}
           <div className="flex items-center gap-2">
             {SOCIAL_LINKS.map((social) => (
               <a
@@ -156,26 +154,34 @@ export function Footer() {
             ))}
           </div>
 
-          <button
-            onClick={toggleTheme}
-            className="flex items-center gap-1.5 text-xs text-footer-text rounded-full px-3 py-1.5"
-            style={{ background: "rgba(255,255,255,0.08)" }}
-          >
-            <Sun className="h-3.5 w-3.5" />
-            <span>{theme === "light" ? "Light" : "Dark"}</span>
-            <Moon className="h-3.5 w-3.5" />
-          </button>
-        </div>
-
-        {/* Bottom bar */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-2 pt-6 text-xs text-footer-text/50">
-          <span>© 2026 HedgeFun.fun. All rights reserved.</span>
-          <button
-            onClick={() => navigate("/privacy")}
-            className="hover:text-footer-text transition-colors"
-          >
-            Do Not Sell or Share My Information
-          </button>
+          {/* Right — app badges + theme toggle */}
+          <div className="flex items-center gap-2 shrink-0">
+            <a
+              href="#"
+              className="flex items-center gap-1.5 text-xs text-footer-text rounded-full px-3 py-1.5"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            >
+              <Apple className="h-3.5 w-3.5" />
+              <span>App Store</span>
+            </a>
+            <a
+              href="#"
+              className="flex items-center gap-1.5 text-xs text-footer-text rounded-full px-3 py-1.5"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            >
+              <Play className="h-3.5 w-3.5" />
+              <span>Google Play</span>
+            </a>
+            <button
+              onClick={toggleTheme}
+              className="flex items-center gap-1.5 text-xs text-footer-text rounded-full px-3 py-1.5"
+              style={{ background: "rgba(255,255,255,0.08)" }}
+            >
+              <Sun className="h-3.5 w-3.5" />
+              <span>{theme === "light" ? "Light" : "Dark"}</span>
+              <Moon className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
