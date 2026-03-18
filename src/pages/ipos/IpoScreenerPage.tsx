@@ -4,7 +4,7 @@ import {
   useReactTable, getCoreRowModel, getSortedRowModel, getPaginationRowModel,
   flexRender, createColumnHelper, type SortingState,
 } from "@tanstack/react-table";
-import { Search, Plus, Lock, MoreHorizontal, ChevronDown, ChevronUp, HelpCircle, ArrowUp } from "lucide-react";
+import { Search, Plus, Lock, MoreHorizontal, ChevronDown, ChevronUp, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { IpoTabBar } from "@/components/ipos/IpoTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";

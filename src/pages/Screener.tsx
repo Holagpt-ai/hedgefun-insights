@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ChevronDown, ChevronUp, Search, Download, Plus, Star, ArrowUpRight, HelpCircle, X, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronUp, Search, Download, Plus, Star, ArrowUpRight, X, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { AdBanner } from "@/components/layout/AdBanner";
