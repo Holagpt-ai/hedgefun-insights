@@ -117,6 +117,7 @@ const App = () => (
                   <Route path="/splits" element={<StubPage title="Stock Split History" description="View historical and upcoming stock splits across all exchanges." />} />
                   <Route path="/etfs" element={<StubPage title="ETF Explorer" description="Discover, compare, and screen thousands of ETFs by category and performance." />} />
                   <Route path="/etf/screener" element={<EtfScreenerPage />} />
+                  <Route path="/etfs/screener" element={<EtfScreenerPage />} />
                   <Route path="/etf/compare" element={<EtfComparePage />} />
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />

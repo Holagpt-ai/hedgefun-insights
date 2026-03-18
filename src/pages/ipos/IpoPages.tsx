@@ -1,5 +1,5 @@
-import { useState, useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   useReactTable,
   getCoreRowModel,
@@ -396,6 +396,22 @@ const calendarColumnHelper = createColumnHelper<CalendarIpo>();
 const CALENDAR_SUB_TABS = ["Upcoming", "Filings", "Withdrawn"] as const;
 const VIEW_TABS = ["Overview", "Financials", "Margins", "Profile"] as const;
 
+interface FilingIpo {
+  company: string;
+  filedDate: string;
+  amount: string;
+  exchange: string;
+}
+
+const FILINGS_SEED: FilingIpo[] = [
+  { company: "NovaGen Therapeutics", filedDate: "2026-03-10", amount: "$240M", exchange: "NASDAQ" },
+  { company: "Aether Robotics Inc.", filedDate: "2026-03-08", amount: "$580M", exchange: "NYSE" },
+  { company: "CloudSail Technologies", filedDate: "2026-03-05", amount: "$120M", exchange: "NASDAQ" },
+  { company: "GreenPulse Energy", filedDate: "2026-02-28", amount: "$310M", exchange: "NYSE" },
+  { company: "Meridian Data Systems", filedDate: "2026-02-25", amount: "$95M", exchange: "NASDAQ" },
+  { company: "Orbis Financial Group", filedDate: "2026-02-20", amount: "$450M", exchange: "NYSE" },
+];
+
 const IPO_RESOURCES = [
   { title: "Recent IPOs", description: "The 200 most recently launched IPOs", route: "/ipos/recent" },
   { title: "Filings", description: "All companies that have filed for an initial public offering", route: "/ipos/calendar?tab=filings" },
@@ -405,7 +421,14 @@ const IPO_RESOURCES = [
 
 export function UpcomingIposPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [subTab, setSubTab] = useState<(typeof CALENDAR_SUB_TABS)[number]>("Upcoming");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "filings") setSubTab("Filings");
+    else if (tab === "withdrawn") setSubTab("Withdrawn");
+  }, [searchParams]);
   const [viewTab, setViewTab] = useState<(typeof VIEW_TABS)[number]>("Overview");
   const [sorting, setSorting] = useState<SortingState>([{ id: "ipoDate", desc: false }]);
   const [search, setSearch] = useState("");
@@ -505,8 +528,48 @@ export function UpcomingIposPage() {
           ))}
         </div>
 
-        {/* This Week */}
-        <div className="mb-8">
+        {/* Filings tab content */}
+        {subTab === "Filings" && (
+          <div className="mb-8">
+            <h2 className="text-[1.25rem] font-bold text-foreground mb-3">
+              IPO Filings · {FILINGS_SEED.length} Companies
+            </h2>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-surface">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Name</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filed Date</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Exchange</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {FILINGS_SEED.map((f) => (
+                      <tr key={f.company} className="border-b border-border-subtle hover:bg-surface transition-colors">
+                        <td className="px-3 py-2 text-foreground">{f.company}</td>
+                        <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.filedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                        <td className="px-3 py-2 text-foreground tabular-nums text-right">{f.amount}</td>
+                        <td className="px-3 py-2 text-foreground">{f.exchange}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Withdrawn tab placeholder */}
+        {subTab === "Withdrawn" && (
+          <div className="mb-8">
+            <p className="text-muted-foreground text-sm">No withdrawn IPOs to display.</p>
+          </div>
+        )}
+
+        {/* This Week (Upcoming tab) */}
+        {subTab === "Upcoming" && <div className="mb-8">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h2 className="text-[1.25rem] font-bold text-foreground">
               This Week · {THIS_WEEK_IPOS.length} IPO{THIS_WEEK_IPOS.length !== 1 ? "s" : ""}
@@ -575,7 +638,6 @@ export function UpcomingIposPage() {
                 </tbody>
               </table>
             </div>
-          </div>
         </div>
 
         {/* Next Week */}
@@ -597,6 +659,7 @@ export function UpcomingIposPage() {
             </p>
           </div>
         </div>
+        </div>}
 
         {/* Sources */}
         <p className="text-[0.8125rem] text-muted-foreground mb-10 leading-relaxed">
