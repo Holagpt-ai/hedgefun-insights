@@ -8,11 +8,8 @@ const corsHeaders = {
 
 const POLYGON_BASE = "https://api.polygon.io";
 
-function polyUrl(path: string, apiKey: string, params: Record<string, string> = {}): string {
-  const url = new URL(`${POLYGON_BASE}${path}`);
-  url.searchParams.set("apiKey", apiKey);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  return url.toString();
+function polyUrl(path: string, apiKey: string): string {
+  return `${POLYGON_BASE}${path}?apiKey=${apiKey}`;
 }
 
 async function fetchJson(url: string) {
@@ -24,9 +21,7 @@ async function fetchJson(url: string) {
   return res.json();
 }
 
-function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -37,87 +32,71 @@ serve(async (req) => {
     const API_KEY = Deno.env.get("POLYGON_API_KEY");
     if (!API_KEY) throw new Error("POLYGON_API_KEY not configured");
 
+    const { searchParams } = new URL(req.url);
+    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const limit = parseInt(searchParams.get("limit") ?? "5", 10);
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: stocks, error: fetchErr } = await supabase.from("stocks").select("symbol");
-    if (fetchErr) throw fetchErr;
+    const { data: stocks } = await supabase
+      .from("stocks")
+      .select("symbol")
+      .order("symbol")
+      .range(offset, offset + limit - 1);
+
     const symbols = (stocks ?? []).map((s: { symbol: string }) => s.symbol);
-    console.log(`Syncing ${symbols.length} stocks...`);
+    if (symbols.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: "No more stocks", updated: 0, errors: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Batch ${offset}-${offset + symbols.length - 1}: ${symbols.join(", ")}`);
 
     let updated = 0;
     let errors = 0;
 
-    // Process ONE symbol at a time with delays to stay under 5 req/min free tier
     for (let i = 0; i < symbols.length; i++) {
       const symbol = symbols[i];
       try {
-        // Only use the free-tier endpoint: ticker details (includes market_cap, name, sector, etc.)
-        const detailsJson = await fetchJson(
-          polyUrl(`/v3/reference/tickers/${symbol}`, API_KEY)
-        );
-        const d = detailsJson?.results;
-        if (!d) {
-          console.warn(`No details for ${symbol}`);
-          errors++;
-          continue;
-        }
+        const json = await fetchJson(polyUrl(`/v3/reference/tickers/${symbol}`, API_KEY));
+        const d = json?.results;
+        if (!d) { errors++; continue; }
 
         const updateData: Record<string, unknown> = {
           updated_at: new Date().toISOString(),
-          name: d.name ?? undefined,
           market_cap: d.market_cap ? Math.round(d.market_cap) : null,
           description: d.description ?? null,
           website: d.homepage_url ?? null,
           exchange: d.primary_exchange ?? null,
         };
-
-        // Map SIC description to sector/industry
+        if (d.name) updateData.name = d.name;
         if (d.sic_description) {
           updateData.sector = d.sic_description;
           updateData.industry = d.sic_description;
         }
-
-        // Logo
         if (d.branding?.icon_url) {
           updateData.logo_url = `${d.branding.icon_url}?apiKey=${API_KEY}`;
         }
 
-        // Remove undefined
-        Object.keys(updateData).forEach((k) => {
-          if (updateData[k] === undefined) delete updateData[k];
-        });
-
-        const { error: updateErr } = await supabase
-          .from("stocks")
-          .update(updateData)
-          .eq("symbol", symbol);
-
-        if (updateErr) {
-          console.error(`DB error ${symbol}:`, updateErr.message);
-          errors++;
-        } else {
-          updated++;
-          console.log(`Updated ${symbol} (${i + 1}/${symbols.length})`);
-        }
+        const { error: ue } = await supabase.from("stocks").update(updateData).eq("symbol", symbol);
+        if (ue) { console.error(`DB err ${symbol}:`, ue.message); errors++; }
+        else { updated++; console.log(`✓ ${symbol}`); }
       } catch (err) {
-        console.error(`Error ${symbol}:`, (err as Error).message);
+        console.error(`✗ ${symbol}:`, (err as Error).message);
         errors++;
       }
 
-      // Free tier: 5 requests/minute → 1 request every 13 seconds
-      // But edge functions timeout at 60s, so we do 1 req/sec and accept some 429s
-      // For paid tier this delay can be removed
-      if (i < symbols.length - 1) {
-        await delay(800);
-      }
+      // Wait between requests to avoid rate limits
+      if (i < symbols.length - 1) await delay(13000);
     }
 
-    console.log(`Done: ${updated} updated, ${errors} errors out of ${symbols.length}`);
     return new Response(
-      JSON.stringify({ success: true, updated, errors, total: symbols.length }),
+      JSON.stringify({ success: true, updated, errors, symbols, nextOffset: offset + limit }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
