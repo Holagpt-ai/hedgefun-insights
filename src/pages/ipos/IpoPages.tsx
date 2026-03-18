@@ -396,6 +396,22 @@ const calendarColumnHelper = createColumnHelper<CalendarIpo>();
 const CALENDAR_SUB_TABS = ["Upcoming", "Filings", "Withdrawn"] as const;
 const VIEW_TABS = ["Overview", "Financials", "Margins", "Profile"] as const;
 
+interface FilingIpo {
+  company: string;
+  filedDate: string;
+  amount: string;
+  exchange: string;
+}
+
+const FILINGS_SEED: FilingIpo[] = [
+  { company: "NovaGen Therapeutics", filedDate: "2026-03-10", amount: "$240M", exchange: "NASDAQ" },
+  { company: "Aether Robotics Inc.", filedDate: "2026-03-08", amount: "$580M", exchange: "NYSE" },
+  { company: "CloudSail Technologies", filedDate: "2026-03-05", amount: "$120M", exchange: "NASDAQ" },
+  { company: "GreenPulse Energy", filedDate: "2026-02-28", amount: "$310M", exchange: "NYSE" },
+  { company: "Meridian Data Systems", filedDate: "2026-02-25", amount: "$95M", exchange: "NASDAQ" },
+  { company: "Orbis Financial Group", filedDate: "2026-02-20", amount: "$450M", exchange: "NYSE" },
+];
+
 const IPO_RESOURCES = [
   { title: "Recent IPOs", description: "The 200 most recently launched IPOs", route: "/ipos/recent" },
   { title: "Filings", description: "All companies that have filed for an initial public offering", route: "/ipos/calendar?tab=filings" },
