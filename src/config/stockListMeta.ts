@@ -26,12 +26,17 @@ const EXCHANGE_COLS = ["symbol", "name", "price", "changePercent", "marketCap", 
 const THEME_COLS = ["symbol", "name", "price", "changePercent", "marketCap", "peRatio", "sector"];
 const INTL_COLS = ["symbol", "name", "exchange", "price", "changePercent", "marketCap"];
 
-function themeList(title: string): ListMeta {
-  return { title, description: `${title} ranked by market capitalization.`, columns: THEME_COLS };
+function themeList(title: string, sector?: string, industry?: string): ListMeta {
+  return {
+    title,
+    description: `${title} ranked by market capitalization.`,
+    columns: THEME_COLS,
+    filter: { ...(sector ? { sector } : {}), ...(industry ? { industry } : {}) },
+  };
 }
 
 function intlExchange(name: string): ListMeta {
-  return { title: `${name} Stocks`, description: `Stocks listed on the ${name}.`, columns: INTL_COLS };
+  return { title: `${name} Stocks`, description: `Stocks listed on the ${name}.`, columns: INTL_COLS, filter: { exchange: name } };
 }
 
 export const LIST_METADATA: Record<string, ListMeta> = {
