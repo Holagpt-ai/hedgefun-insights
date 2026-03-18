@@ -251,9 +251,9 @@ export default function DividendCalculatorPage() {
 
       {/* Results header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-foreground">Results After {yr} Years</h2>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="reinvest-toggle" className="text-sm text-muted-foreground">Reinvest Dividends</Label>
+        <h2 className="text-lg font-bold text-foreground leading-none">Results After {yr} Years</h2>
+        <div className="flex items-center gap-2.5">
+          <Label htmlFor="reinvest-toggle" className="text-sm text-muted-foreground leading-none">Reinvest Dividends</Label>
           <Switch id="reinvest-toggle" checked={reinvest} onCheckedChange={setReinvest} />
         </div>
       </div>
