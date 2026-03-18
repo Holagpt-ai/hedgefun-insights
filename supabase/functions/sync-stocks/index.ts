@@ -8,28 +8,20 @@ const corsHeaders = {
 
 const POLYGON_BASE = "https://api.polygon.io";
 
-function polyUrl(path: string, params: Record<string, string> = {}): string {
-  const API_KEY = Deno.env.get("POLYGON_API_KEY")!;
-  const url = new URL(`${POLYGON_BASE}${path}`);
-  url.searchParams.set("apiKey", API_KEY);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-  return url.toString();
+function polyUrl(path: string, apiKey: string): string {
+  return `${POLYGON_BASE}${path}?apiKey=${apiKey}`;
 }
 
 async function fetchJson(url: string) {
   const res = await fetch(url);
   if (!res.ok) {
     const text = await res.text();
-    console.error(`Polygon error ${res.status}: ${text}`);
-    return null;
+    throw new Error(`${res.status}: ${text.substring(0, 200)}`);
   }
   return res.json();
 }
 
-// Small delay to respect rate limits (5 req/min on free, 100/min on paid)
-function delay(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
+const delay = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -37,120 +29,103 @@ serve(async (req) => {
   }
 
   try {
-    const POLYGON_API_KEY = Deno.env.get("POLYGON_API_KEY");
-    if (!POLYGON_API_KEY) {
-      throw new Error("POLYGON_API_KEY not configured");
-    }
+    const API_KEY = Deno.env.get("POLYGON_API_KEY");
+    if (!API_KEY) throw new Error("POLYGON_API_KEY not configured");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const { searchParams } = new URL(req.url);
+    // offset/limit let you page through stocks across multiple calls
+    const offset = parseInt(searchParams.get("offset") ?? "0", 10);
+    const batchSize = parseInt(searchParams.get("limit") ?? "10", 10);
+    // delayMs: 200 for paid (100 req/min), 13000 for free (5 req/min)
+    const delayMs = parseInt(searchParams.get("delay") ?? "200", 10);
 
-    // Get all stock symbols from the DB
-    const { data: stocks, error: fetchErr } = await supabase
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+    );
+
+    const { data: stocks } = await supabase
       .from("stocks")
-      .select("symbol");
-    if (fetchErr) throw fetchErr;
+      .select("symbol")
+      .order("symbol")
+      .range(offset, offset + batchSize - 1);
 
     const symbols = (stocks ?? []).map((s: { symbol: string }) => s.symbol);
-    console.log(`Syncing ${symbols.length} stocks...`);
+    if (symbols.length === 0) {
+      return new Response(
+        JSON.stringify({ success: true, message: "No more stocks to sync", updated: 0 }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    console.log(`Syncing batch: offset=${offset}, symbols=${symbols.join(",")}`);
 
     let updated = 0;
     let errors = 0;
 
-    // Process in batches of 5 to respect rate limits
-    for (let i = 0; i < symbols.length; i += 5) {
-      const batch = symbols.slice(i, i + 5);
+    for (let i = 0; i < symbols.length; i++) {
+      const symbol = symbols[i];
+      try {
+        // Fetch ticker details (free tier) and snapshot (paid tier)
+        let detailsData = null;
+        let snapData = null;
 
-      const results = await Promise.all(
-        batch.map(async (symbol: string) => {
-          try {
-            // Fetch snapshot (price, change, volume) and details (market_cap, sector, etc.) in parallel
-            const [snapshotJson, detailsJson] = await Promise.all([
-              fetchJson(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`)),
-              fetchJson(polyUrl(`/v3/reference/tickers/${symbol}`)),
-            ]);
+        try {
+          const dJson = await fetchJson(polyUrl(`/v3/reference/tickers/${symbol}`, API_KEY));
+          detailsData = dJson?.results;
+        } catch (e) {
+          console.warn(`Details failed for ${symbol}: ${(e as Error).message}`);
+        }
 
-            const snap = snapshotJson?.ticker;
-            const details = detailsJson?.results;
+        try {
+          const sJson = await fetchJson(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${symbol}`, API_KEY));
+          snapData = sJson?.ticker;
+        } catch {
+          // Snapshot requires paid plan, silently skip
+        }
 
-            if (!snap && !details) {
-              console.warn(`No data for ${symbol}`);
-              return null;
-            }
+        if (!detailsData && !snapData) { errors++; continue; }
 
-            const updateData: Record<string, unknown> = {
-              updated_at: new Date().toISOString(),
-            };
+        const updateData: Record<string, unknown> = {
+          updated_at: new Date().toISOString(),
+        };
 
-            // From snapshot
-            if (snap) {
-              const day = snap.day ?? snap.prevDay ?? {};
-              const todaysChange = snap.todaysChange;
-              const todaysChangePerc = snap.todaysChangePerc;
-
-              updateData.price = day.c ?? snap.lastTrade?.p ?? null;
-              updateData.change_amount = todaysChange ?? null;
-              updateData.change_percent = todaysChangePerc ?? null;
-              updateData.volume = day.v ?? null;
-            }
-
-            // From details
-            if (details) {
-              updateData.name = details.name ?? undefined;
-              updateData.market_cap = details.market_cap ? Math.round(details.market_cap) : null;
-              updateData.sector = details.sic_description ?? null;
-              updateData.industry = details.sic_description ?? null;
-              updateData.description = details.description ?? null;
-              updateData.website = details.homepage_url ?? null;
-              updateData.logo_url = details.branding?.icon_url
-                ? `${details.branding.icon_url}?apiKey=${POLYGON_API_KEY}`
-                : null;
-              updateData.exchange = details.primary_exchange ?? null;
-            }
-
-            // Remove undefined values
-            Object.keys(updateData).forEach((k) => {
-              if (updateData[k] === undefined) delete updateData[k];
-            });
-
-            return { symbol, updateData };
-          } catch (err) {
-            console.error(`Error fetching ${symbol}:`, err);
-            return null;
+        if (detailsData) {
+          if (detailsData.name) updateData.name = detailsData.name;
+          updateData.market_cap = detailsData.market_cap ? Math.round(detailsData.market_cap) : null;
+          updateData.description = detailsData.description ?? null;
+          updateData.website = detailsData.homepage_url ?? null;
+          updateData.exchange = detailsData.primary_exchange ?? null;
+          if (detailsData.sic_description) {
+            updateData.sector = detailsData.sic_description;
+            updateData.industry = detailsData.sic_description;
           }
-        })
-      );
-
-      // Batch update to Supabase
-      for (const result of results) {
-        if (!result) {
-          errors++;
-          continue;
+          if (detailsData.branding?.icon_url) {
+            updateData.logo_url = `${detailsData.branding.icon_url}?apiKey=${API_KEY}`;
+          }
         }
-        const { error: updateErr } = await supabase
-          .from("stocks")
-          .update(result.updateData)
-          .eq("symbol", result.symbol);
 
-        if (updateErr) {
-          console.error(`DB update error for ${result.symbol}:`, updateErr);
-          errors++;
-        } else {
-          updated++;
+        if (snapData) {
+          const day = snapData.day ?? snapData.prevDay ?? {};
+          updateData.price = day.c ?? snapData.lastTrade?.p ?? null;
+          updateData.change_amount = snapData.todaysChange ?? null;
+          updateData.change_percent = snapData.todaysChangePerc ?? null;
+          updateData.volume = day.v ?? null;
         }
+
+        const { error: ue } = await supabase.from("stocks").update(updateData).eq("symbol", symbol);
+        if (ue) { console.error(`DB err ${symbol}:`, ue.message); errors++; }
+        else { updated++; }
+      } catch (err) {
+        console.error(`${symbol}:`, (err as Error).message);
+        errors++;
       }
 
-      // Rate limit delay between batches
-      if (i + 5 < symbols.length) {
-        await delay(1200);
-      }
+      if (i < symbols.length - 1) await delay(delayMs);
     }
 
-    console.log(`Sync complete: ${updated} updated, ${errors} errors`);
-
     return new Response(
-      JSON.stringify({ success: true, updated, errors, total: symbols.length }),
+      JSON.stringify({ success: true, updated, errors, total: symbols.length, nextOffset: offset + batchSize }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (e) {
