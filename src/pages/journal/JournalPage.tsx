@@ -99,6 +99,8 @@ function JournalContent({ tab, setTab, addOpen, setAddOpen, tagsOpen, setTagsOpe
         </div>
       ) : tab === "Trade Log" ? (
         <TradeLogTable trades={trades} tags={tags} tagAssignments={tagAssignments} onDelete={(id) => deleteTrade.mutate(id)} />
+      ) : tab === "Calendar" ? (
+        <JournalCalendar trades={trades} />
       ) : (
         <JournalAnalytics trades={trades} tags={tags} tagAssignments={tagAssignments} />
       )}
