@@ -197,10 +197,6 @@ export default function DividendCalculatorPage() {
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-6">
-      {/* Ad slot */}
-      <div className="w-full bg-surface border border-border rounded flex items-center justify-center mb-6" style={{ minHeight: "90px" }} aria-label="Advertisement">
-        <span className="text-xs text-muted-foreground">Advertisement</span>
-      </div>
 
       {/* Breadcrumb */}
       <Breadcrumb className="mb-4">
@@ -255,9 +251,9 @@ export default function DividendCalculatorPage() {
 
       {/* Results header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-bold text-foreground">Results After {yr} Years</h2>
-        <div className="flex items-center gap-2">
-          <Label htmlFor="reinvest-toggle" className="text-sm text-muted-foreground">Reinvest Dividends</Label>
+        <h2 className="text-lg font-bold text-foreground leading-none">Results After {yr} Years</h2>
+        <div className="flex items-center gap-2.5">
+          <Label htmlFor="reinvest-toggle" className="text-sm text-muted-foreground leading-none">Reinvest Dividends</Label>
           <Switch id="reinvest-toggle" checked={reinvest} onCheckedChange={setReinvest} />
         </div>
       </div>
@@ -301,38 +297,40 @@ export default function DividendCalculatorPage() {
             ${fmt(lastRow.portfolioValue)} <span className="text-sm font-semibold text-green-600">(+{fmtPct(portfolioGainPct)})</span>
           </p>
           {/* Stacked bar */}
-          <div className="flex h-6 rounded overflow-hidden mt-3 mb-3">
-            {[
+          {(() => {
+            const segments = [
               { value: inv, color: "bg-primary", label: "Initial Investment" },
               { value: totalContributions - inv, color: "bg-orange-500", label: "Additional Investments" },
               { value: totalDividends > 0 ? totalDividends : 0, color: "bg-green-500", label: "Dividends" },
               { value: priceGrowthAmount > 0 ? priceGrowthAmount : 0, color: "bg-blue-800", label: "Stock Price Growth" },
-            ].map((seg, i) => {
-              const total = lastRow.portfolioValue;
-              const pct = total > 0 ? (seg.value / total) * 100 : 0;
-              return pct > 0 ? <div key={i} className={`${seg.color}`} style={{ width: `${pct}%` }} title={seg.label} /> : null;
-            })}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-            {[
-              { label: "Initial Investment", value: inv, color: "bg-primary" },
-              { label: "Additional Investments", value: totalContributions - inv, color: "bg-orange-500" },
-              { label: "Dividends", value: totalDividends, color: "bg-green-500" },
-              { label: "Stock Price Growth", value: priceGrowthAmount > 0 ? priceGrowthAmount : 0, color: "bg-blue-800" },
-            ].map((seg, i) => {
-              const pct = lastRow.portfolioValue > 0 ? (seg.value / lastRow.portfolioValue) * 100 : 0;
-              return (
-                <div key={i} className="flex items-center gap-1.5">
-                  <div className={`h-2.5 w-2.5 rounded-sm ${seg.color}`} />
-                  <div>
-                    <span className="text-primary font-medium">{seg.label}</span>
-                    <p className="text-muted-foreground">${fmt(seg.value)}</p>
-                    <p className="text-muted-foreground">{fmtPct(pct)}</p>
-                  </div>
+            ].filter((seg) => seg.value > 0);
+            const total = lastRow.portfolioValue;
+            return (
+              <>
+                <div className="flex h-6 rounded overflow-hidden mt-3 mb-4">
+                  {segments.map((seg, i) => {
+                    const pct = total > 0 ? (seg.value / total) * 100 : 0;
+                    return <div key={i} className={seg.color} style={{ width: `${pct}%` }} title={seg.label} />;
+                  })}
                 </div>
-              );
-            })}
-          </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                  {segments.map((seg, i) => {
+                    const pct = total > 0 ? (seg.value / total) * 100 : 0;
+                    return (
+                      <div key={i} className="flex items-start gap-2">
+                        <div className={`h-3 w-3 rounded-sm shrink-0 mt-0.5 ${seg.color}`} />
+                        <div>
+                          <span className="font-medium text-foreground">{seg.label}</span>
+                          <p className="text-muted-foreground text-sm">${fmt(seg.value)}</p>
+                          <p className="text-muted-foreground text-sm">{fmtPct(pct)}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </CardContent>
       </Card>
 
@@ -343,7 +341,7 @@ export default function DividendCalculatorPage() {
         <Card className="fintech-card">
           <CardContent className="py-4 px-4">
             <p className="text-sm font-semibold text-center text-foreground mb-2">Total Portfolio Value ($)</p>
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="h-[240px] w-full">
               <LineChart data={rows}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2 }} />
@@ -359,7 +357,7 @@ export default function DividendCalculatorPage() {
         <Card className="fintech-card">
           <CardContent className="py-4 px-4">
             <p className="text-sm font-semibold text-center text-foreground mb-2">Annual Dividend Income ($)</p>
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="h-[240px] w-full">
               <BarChart data={rows.filter((r) => r.year > 0)}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2 }} />
@@ -375,7 +373,7 @@ export default function DividendCalculatorPage() {
         <Card className="fintech-card">
           <CardContent className="py-4 px-4">
             <p className="text-sm font-semibold text-center text-foreground mb-2">Monthly Dividend Income ($)</p>
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="h-[240px] w-full">
               <BarChart data={rows.filter((r) => r.year > 0).map((r) => ({ ...r, monthlyDiv: r.annualDividend / 12 }))}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2 }} />
@@ -391,7 +389,7 @@ export default function DividendCalculatorPage() {
         <Card className="fintech-card">
           <CardContent className="py-4 px-4">
             <p className="text-sm font-semibold text-center text-foreground mb-2">Yield on Cost (%)</p>
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="h-[240px] w-full">
               <LineChart data={rows}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2 }} />
@@ -437,7 +435,7 @@ export default function DividendCalculatorPage() {
       </Card>
 
       {/* Bottom ad slot */}
-      <div className="w-full bg-surface border border-border rounded flex items-center justify-center" style={{ minHeight: "250px", maxWidth: "300px", margin: "0 auto" }} aria-label="Advertisement">
+      <div className="w-full bg-surface border border-border rounded flex items-center justify-center" style={{ minHeight: "90px" }} aria-label="Advertisement">
         <span className="text-xs text-muted-foreground">Advertisement</span>
       </div>
     </div>
