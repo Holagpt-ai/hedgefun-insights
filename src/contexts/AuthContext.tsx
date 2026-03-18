@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useTheme } from "@/contexts/ThemeContext";
 import type { User } from "@supabase/supabase-js";
 
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  profile: { full_name: string | null; plan: string | null; email: string | null; avatar_url: string | null } | null;
+  profile: { full_name: string | null; plan: string | null; email: string | null; avatar_url: string | null; preferred_theme: string | null } | null;
   signOut: () => Promise<void>;
 }
 
@@ -15,6 +16,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<AuthContextValue["profile"]>(null);
   const [loading, setLoading] = useState(true);
+  const { setThemeFromProfile } = useTheme();
 
   useEffect(() => {
     // First: set up the listener BEFORE getting session
@@ -73,10 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     supabase
       .from("profiles")
-      .select("full_name, plan, email, avatar_url")
+      .select("full_name, plan, email, avatar_url, preferred_theme")
       .eq("id", user.id)
       .single()
-      .then(({ data }) => setProfile(data));
+      .then(({ data }) => {
+        setProfile(data);
+        if (data?.preferred_theme) setThemeFromProfile(data.preferred_theme);
+      });
   }, [user]);
 
   const signOut = async () => {
