@@ -74,6 +74,7 @@ import ArticlesPage from "./pages/articles/ArticlesPage";
 import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
 import JournalPage from "./pages/journal/JournalPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 
 const queryClient = new QueryClient();
 

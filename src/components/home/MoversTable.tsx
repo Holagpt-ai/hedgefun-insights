@@ -138,7 +138,7 @@ export function TopLosersTable() {
   return (
     <MoversTable
       title="Top Losers"
-      linkTo="/movers/losers"
+      linkTo="/markets/losers"
       data={data}
       isLoading={isLoading}
       type="losers"
