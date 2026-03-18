@@ -1,0 +1,127 @@
+import { useNavigate } from "react-router-dom";
+import { Rocket, Flame, TrendingUp, Cpu, Zap } from "lucide-react";
+
+/* ── Types ──────────────────────────────────────── */
+export interface Article {
+  slug: string;
+  title: string;
+  excerpt: string;
+  date: string;
+  icon: React.ReactNode;
+  gradient: string;
+}
+
+/* ── Seed Data ──────────────────────────────────── */
+export const ARTICLES: Article[] = [
+  {
+    slug: "starlink-ipo-what-investors-need-to-know",
+    title: "Starlink IPO: What Investors Need to Know Before It Goes Public",
+    excerpt:
+      "SpaceX's Starlink division is one of the most anticipated IPOs in years. Here's what the financials look like and how to position before it launches.",
+    date: "Jan 15, 2026",
+    icon: <Rocket className="h-10 w-10 text-white/80" />,
+    gradient: "from-blue-600 to-indigo-800",
+  },
+  {
+    slug: "rising-oil-prices-whats-driving-the-surge",
+    title: "Rising Oil Prices: What's Driving the Surge and Who Benefits",
+    excerpt:
+      "Crude oil has been climbing steadily. We break down the macro forces at play and the energy stocks best positioned to capitalize.",
+    date: "Feb 3, 2026",
+    icon: <Flame className="h-10 w-10 text-white/80" />,
+    gradient: "from-orange-500 to-red-700",
+  },
+  {
+    slug: "the-perfect-retracement-setup-a-trade-breakdown",
+    title: "The Perfect Retracement Setup: A Trade Breakdown",
+    excerpt:
+      "One of the cleanest technical setups in trading is the Fibonacci retracement. Here's a real example with entry, stop, and target levels.",
+    date: "Feb 18, 2026",
+    icon: <TrendingUp className="h-10 w-10 text-white/80" />,
+    gradient: "from-emerald-500 to-teal-700",
+  },
+  {
+    slug: "ai-infrastructure-the-mega-scalers-building-the-future",
+    title: "AI Infrastructure: The Mega Scalers Building the Future",
+    excerpt:
+      "Microsoft, Google, Amazon, and Meta are spending hundreds of billions on AI infrastructure. Here's what that means for investors and which picks stand out.",
+    date: "Mar 1, 2026",
+    icon: <Cpu className="h-10 w-10 text-white/80" />,
+    gradient: "from-violet-500 to-purple-800",
+  },
+  {
+    slug: "energy-stocks-to-watch-as-the-grid-demands-more-power",
+    title: "Energy Stocks to Watch as the Grid Demands More Power",
+    excerpt:
+      "The AI boom is driving unprecedented electricity demand. We look at the energy companies best positioned to power the next decade of growth.",
+    date: "Mar 10, 2026",
+    icon: <Zap className="h-10 w-10 text-white/80" />,
+    gradient: "from-amber-500 to-yellow-700",
+  },
+];
+
+export default function ArticlesPage() {
+  const navigate = useNavigate();
+
+  return (
+    <div className="max-w-[960px] mx-auto px-4 py-10">
+      {/* Header */}
+      <div className="text-center mb-10">
+        <h1 className="text-[1.75rem] md:text-[2rem] font-bold text-foreground mb-2">
+          HedgeFun Blog
+        </h1>
+        <p className="text-muted-foreground text-[0.9375rem]">
+          Latest articles on stocks, finance, and investing.
+        </p>
+      </div>
+
+      {/* Card Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+        {ARTICLES.map((article) => (
+          <button
+            key={article.slug}
+            onClick={() => navigate(`/articles/${article.slug}`)}
+            className="text-left border border-border rounded-md overflow-hidden hover:border-accent-blue transition-colors group bg-surface-card"
+          >
+            {/* Cover placeholder */}
+            <div
+              className={`h-[160px] bg-gradient-to-br ${article.gradient} flex items-center justify-center`}
+            >
+              {article.icon}
+            </div>
+
+            {/* Content */}
+            <div className="p-4">
+              <h2 className="text-[0.9375rem] font-bold text-foreground leading-snug mb-2 group-hover:text-accent-blue transition-colors line-clamp-2">
+                {article.title}
+              </h2>
+              <p className="text-xs text-muted-foreground leading-relaxed line-clamp-2 mb-4">
+                {article.excerpt}
+              </p>
+
+              {/* Author row */}
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
+                  <span className="text-[0.5rem] font-bold text-primary-foreground">HF</span>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-accent-blue leading-none">
+                    HedgeFun Team
+                  </p>
+                  <p className="text-[0.625rem] text-muted-foreground mt-0.5">{article.date}</p>
+                </div>
+              </div>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {/* Pagination */}
+      <div className="flex justify-end">
+        <button className="text-sm text-accent-blue hover:underline font-medium">
+          Next →
+        </button>
+      </div>
+    </div>
+  );
+}
