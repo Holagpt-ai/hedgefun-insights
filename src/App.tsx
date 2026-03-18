@@ -133,7 +133,8 @@ const App = () => (
                   <Route path="/markets/premarket" element={<PremarketPage />} />
                   <Route path="/markets/after-hours" element={<AfterHoursPage />} />
                   <Route path="/markets/heatmap" element={<HeatmapPage />} />
-                  <Route path="/articles" element={<StubPage title="Market Articles" description="In-depth analysis, commentary, and research from the HedgeFun team." />} />
+                  <Route path="/articles" element={<ArticlesPage />} />
+                  <Route path="/articles/:slug" element={<ArticleDetailPage />} />
                   <Route path="/chart" element={<StubPage title="Technical Chart" description="Advanced charting with technical indicators, drawing tools, and multiple timeframes." />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
