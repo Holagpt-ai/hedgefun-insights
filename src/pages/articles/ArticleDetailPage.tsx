@@ -1,8 +1,10 @@
+import { useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowUpRight } from "lucide-react";
 import { ARTICLES } from "./ArticlesPage";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 /* ── Full Article Bodies ──────────────────────────── */
 const ARTICLE_BODIES: Record<string, string[]> = {
