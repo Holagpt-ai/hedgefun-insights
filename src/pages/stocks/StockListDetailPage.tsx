@@ -13,7 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronUp, Download, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getListMeta } from "@/config/stockListMeta";
+import { getListMeta, type ListFilter } from "@/config/stockListMeta";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
@@ -102,9 +102,32 @@ export default function StockListDetailPage() {
   const { data: stocks = [], isLoading } = useQuery({
     queryKey: ["stock-list", slug],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const f: ListFilter | undefined = meta.filter;
+
+      // If filtering by specific symbols, use .in()
+      if (f?.symbols && f.symbols.length > 0) {
+        const { data, error } = await supabase
+          .from("stocks")
+          .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, revenue, sector, industry, exchange, eps, beta")
+          .in("symbol", f.symbols)
+          .order("market_cap", { ascending: false, nullsFirst: false });
+        if (error) throw error;
+        return (data ?? []) as StockRow[];
+      }
+
+      // Build query with filters
+      let query = supabase
         .from("stocks")
-        .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, revenue, sector, industry, exchange, eps, beta")
+        .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, revenue, sector, industry, exchange, eps, beta");
+
+      if (f?.marketCapMin != null) query = query.gte("market_cap", f.marketCapMin);
+      if (f?.marketCapMax != null) query = query.lt("market_cap", f.marketCapMax);
+      if (f?.exchange) query = query.ilike("exchange", `%${f.exchange}%`);
+      if (f?.sector) query = query.ilike("sector", `%${f.sector}%`);
+      if (f?.industry) query = query.ilike("industry", `%${f.industry}%`);
+      if (f?.priceMax != null) query = query.lte("price", f.priceMax);
+
+      const { data, error } = await query
         .order("market_cap", { ascending: false, nullsFirst: false })
         .limit(500);
       if (error) throw error;
