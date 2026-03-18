@@ -13,7 +13,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronUp, Download, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { getListMeta } from "@/config/stockListMeta";
+import { getListMeta, type ListFilter } from "@/config/stockListMeta";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
