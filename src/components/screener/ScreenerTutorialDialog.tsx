@@ -10,7 +10,7 @@ const STEPS = [
     icon: Filter,
     title: "Add & Combine Filters",
     description:
-      "Click "Add Filters" to choose from dozens of criteria — market cap, sector, P/E ratio, and more. Combine multiple filters to narrow results to exactly what you're looking for.",
+      'Click "Add Filters" to choose from dozens of criteria — market cap, sector, P/E ratio, and more. Combine multiple filters to narrow results to exactly what you\'re looking for.',
   },
   {
     icon: ArrowUpDown,
