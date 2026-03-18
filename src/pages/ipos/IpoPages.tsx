@@ -412,6 +412,14 @@ const FILINGS_SEED: FilingIpo[] = [
   { company: "Orbis Financial Group", filedDate: "2026-02-20", amount: "$450M", exchange: "NYSE" },
 ];
 
+const WITHDRAWN_SEED: FilingIpo[] = [
+  { company: "Luxora Beauty Holdings", filedDate: "2026-03-06", amount: "$180M", exchange: "NASDAQ" },
+  { company: "TerraVolt Motors Inc.", filedDate: "2026-02-18", amount: "$720M", exchange: "NYSE" },
+  { company: "PeakSignal Analytics", filedDate: "2026-02-10", amount: "$65M", exchange: "NASDAQ" },
+  { company: "BlueFin Aquaculture", filedDate: "2026-01-28", amount: "$140M", exchange: "NYSE" },
+  { company: "QuantumLeap Semiconductors", filedDate: "2026-01-15", amount: "$390M", exchange: "NASDAQ" },
+];
+
 const IPO_RESOURCES = [
   { title: "Recent IPOs", description: "The 200 most recently launched IPOs", route: "/ipos/recent" },
   { title: "Filings", description: "All companies that have filed for an initial public offering", route: "/ipos/calendar?tab=filings" },
@@ -561,10 +569,36 @@ export function UpcomingIposPage() {
           </div>
         )}
 
-        {/* Withdrawn tab placeholder */}
+        {/* Withdrawn tab content */}
         {subTab === "Withdrawn" && (
           <div className="mb-8">
-            <p className="text-muted-foreground text-sm">No withdrawn IPOs to display.</p>
+            <h2 className="text-[1.25rem] font-bold text-foreground mb-3">
+              Withdrawn IPOs · {WITHDRAWN_SEED.length} Companies
+            </h2>
+            <div className="border border-border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-surface">
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Name</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filed Date</th>
+                      <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Exchange</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {WITHDRAWN_SEED.map((f) => (
+                      <tr key={f.company} className="border-b border-border-subtle hover:bg-surface transition-colors">
+                        <td className="px-3 py-2 text-foreground">{f.company}</td>
+                        <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.filedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                        <td className="px-3 py-2 text-foreground tabular-nums text-right">{f.amount}</td>
+                        <td className="px-3 py-2 text-foreground">{f.exchange}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
