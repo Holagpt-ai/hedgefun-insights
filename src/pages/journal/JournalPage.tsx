@@ -20,8 +20,7 @@ const TABS = ["Trade Log", "Analytics"] as const;
 export default function JournalPage() {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
-  // TODO: Re-enable Pro gate before launch
-  const isPro = true; // profile?.plan === "pro" || profile?.plan === "unlimited";
+  const isPro = profile?.plan === "pro" || profile?.plan === "unlimited";
   const [tab, setTab] = useState<string>("Trade Log");
   const [addOpen, setAddOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
