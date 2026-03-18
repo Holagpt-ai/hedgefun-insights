@@ -421,7 +421,14 @@ const IPO_RESOURCES = [
 
 export function UpcomingIposPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [subTab, setSubTab] = useState<(typeof CALENDAR_SUB_TABS)[number]>("Upcoming");
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "filings") setSubTab("Filings");
+    else if (tab === "withdrawn") setSubTab("Withdrawn");
+  }, [searchParams]);
   const [viewTab, setViewTab] = useState<(typeof VIEW_TABS)[number]>("Overview");
   const [sorting, setSorting] = useState<SortingState>([{ id: "ipoDate", desc: false }]);
   const [search, setSearch] = useState("");
