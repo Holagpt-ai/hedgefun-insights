@@ -120,7 +120,7 @@ export function TopGainersTable() {
   return (
     <MoversTable
       title="Top Gainers"
-      linkTo="/movers/gainers"
+      linkTo="/markets/gainers"
       data={data}
       isLoading={isLoading}
       type="gainers"
