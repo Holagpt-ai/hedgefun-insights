@@ -436,7 +436,7 @@ export default function DividendCalculatorPage() {
       </Card>
 
       {/* Bottom ad slot */}
-      <div className="w-full bg-surface border border-border rounded flex items-center justify-center" style={{ minHeight: "250px", maxWidth: "300px", margin: "0 auto" }} aria-label="Advertisement">
+      <div className="w-full bg-surface border border-border rounded flex items-center justify-center" style={{ minHeight: "90px" }} aria-label="Advertisement">
         <span className="text-xs text-muted-foreground">Advertisement</span>
       </div>
     </div>

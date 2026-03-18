@@ -50,15 +50,7 @@ export default function CagrCalculatorPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto px-4 py-6">
-      {/* Ad slot */}
-      <div
-        className="ad-slot-leaderboard w-full bg-surface border border-border rounded flex items-center justify-center mb-6"
-        style={{ minHeight: "90px" }}
-        aria-label="Advertisement"
-      >
-        <span className="text-xs text-muted-foreground">Advertisement</span>
-      </div>
+    <div className="max-w-6xl mx-auto px-4 py-6">
 
       {/* Breadcrumb */}
       <Breadcrumb className="mb-4">
