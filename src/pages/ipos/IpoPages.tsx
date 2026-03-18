@@ -586,6 +586,7 @@ export function UpcomingIposPage() {
                     <tr className="border-b border-border bg-surface">
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Name</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filed Date</th>
+                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Withdrawn Date</th>
                       <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
                       <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Exchange</th>
                     </tr>
@@ -595,6 +596,7 @@ export function UpcomingIposPage() {
                       <tr key={f.company} className="border-b border-border-subtle hover:bg-surface transition-colors">
                         <td className="px-3 py-2 text-foreground">{f.company}</td>
                         <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.filedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
+                        <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.withdrawnDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
                         <td className="px-3 py-2 text-foreground tabular-nums text-right">{f.amount}</td>
                         <td className="px-3 py-2 text-foreground">{f.exchange}</td>
                       </tr>
