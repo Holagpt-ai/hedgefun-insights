@@ -69,6 +69,8 @@ import SitemapPage from "./pages/static/SitemapPage";
 import CagrCalculatorPage from "./pages/tools/CagrCalculatorPage";
 import DividendCalculatorPage from "./pages/tools/DividendCalculatorPage";
 import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
+import ArticlesPage from "./pages/articles/ArticlesPage";
+import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
 
 const queryClient = new QueryClient();
