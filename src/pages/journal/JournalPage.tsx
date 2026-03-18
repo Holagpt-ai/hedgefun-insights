@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { TradeLogTable } from "@/components/journal/TradeLogTable";
 import { JournalAnalytics } from "@/components/journal/JournalAnalytics";
+import { JournalCalendar } from "@/components/journal/JournalCalendar";
 import { AddTradeDialog } from "@/components/journal/AddTradeDialog";
 import { ManageTagsDialog } from "@/components/journal/ManageTagsDialog";
 import { AdBanner } from "@/components/layout/AdBanner";
