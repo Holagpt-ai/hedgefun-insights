@@ -21,6 +21,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { labelKey: "home", icon: Home, route: "/" },
   { labelKey: "watchlist", icon: Star, route: "/watchlist" },
+  { labelKey: "stockJournal", icon: BookMarked, route: "/journal" },
   {
     labelKey: "stocks", icon: BarChart2, route: "/stocks",
     children: [
