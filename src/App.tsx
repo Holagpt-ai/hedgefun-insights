@@ -45,7 +45,7 @@ import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
 import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
 import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
-import TrendingPage from "./pages/trending/TrendingPage";
+import EtfMainPage from "./pages/etf/EtfMainPage";
 import ChartPage from "./pages/chart/ChartPage";
 import GainersPage from "./pages/markets/GainersPage";
 import LosersPage from "./pages/markets/LosersPage";
