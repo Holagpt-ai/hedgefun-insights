@@ -8,7 +8,7 @@ function IPhoneMockup() {
     <div className="hidden md:flex items-center justify-center">
       {/* Phone frame */}
       <div
-        className="relative w-[272px] rounded-[40px] border-[6px] border-gray-800 bg-background shadow-2xl overflow-hidden"
+        className="relative w-[272px] rounded-[40px] border-[6px] border-gray-800 bg-background rotate-2 shadow-[0_20px_60px_-10px_rgba(0,0,0,0.3)] overflow-hidden"
         style={{ height: "560px" }}
       >
         {/* Notch */}
