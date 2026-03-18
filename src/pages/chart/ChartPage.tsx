@@ -471,7 +471,7 @@ function ChartHeader({
         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-muted px-1 py-0.5 rounded border border-border">/</span>
       </form>
       <div className="flex items-center gap-2 shrink-0">
-        <button onClick={() => navigate("/")} className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+        <button onClick={() => navigate("/chart")} className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" /> Exit Chart View
         </button>
         {!user && (
