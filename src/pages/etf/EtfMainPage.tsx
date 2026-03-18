@@ -254,7 +254,7 @@ export default function EtfMainPage() {
         <div className="flex gap-6 mt-0">
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            <AdBanner className="mb-4 mt-4" />
+            <AdBanner />
 
             {/* Table */}
             <div className="border border-border rounded-lg overflow-hidden">
