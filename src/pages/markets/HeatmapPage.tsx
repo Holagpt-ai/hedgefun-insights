@@ -240,6 +240,7 @@ function getAllTiles() {
 }
 
 function HeatmapPage() {
+  const navigate = useNavigate();
   const [timeframe, setTimeframe] = useState<string>("1D");
   const [tfOpen, setTfOpen] = useState(false);
   const [dlOpen, setDlOpen] = useState(false);
