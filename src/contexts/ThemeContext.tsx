@@ -1,10 +1,12 @@
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useContext, useState, useEffect, useRef } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 type Theme = "light" | "dark";
 
 interface ThemeContextValue {
   theme: Theme;
   toggleTheme: () => void;
+  setThemeFromProfile: (preferred: string | null) => void;
 }
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -16,6 +18,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }
     return "light";
   });
+  const profileLoaded = useRef(false);
 
   useEffect(() => {
     const root = document.documentElement;
@@ -27,10 +30,28 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("hedgefun-theme", theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme((t) => (t === "light" ? "dark" : "light"));
+  const setThemeFromProfile = (preferred: string | null) => {
+    if (!profileLoaded.current && preferred && (preferred === "light" || preferred === "dark")) {
+      setTheme(preferred);
+      profileLoaded.current = true;
+    }
+  };
+
+  const toggleTheme = () => {
+    setTheme((t) => {
+      const next = t === "light" ? "dark" : "light";
+      // Fire-and-forget sync to database
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          supabase.from("profiles").update({ preferred_theme: next }).eq("id", user.id).then(() => {});
+        }
+      });
+      return next;
+    });
+  };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <ThemeContext.Provider value={{ theme, toggleTheme, setThemeFromProfile }}>
       {children}
     </ThemeContext.Provider>
   );
