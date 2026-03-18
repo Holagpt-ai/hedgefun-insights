@@ -374,7 +374,7 @@ export default function DividendCalculatorPage() {
         <Card className="fintech-card">
           <CardContent className="py-4 px-4">
             <p className="text-sm font-semibold text-center text-foreground mb-2">Monthly Dividend Income ($)</p>
-            <ChartContainer config={chartConfig} className="h-[200px] w-full">
+            <ChartContainer config={chartConfig} className="h-[240px] w-full">
               <BarChart data={rows.filter((r) => r.year > 0).map((r) => ({ ...r, monthlyDiv: r.annualDividend / 12 }))}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="year" label={{ value: "Year", position: "insideBottom", offset: -2 }} />
