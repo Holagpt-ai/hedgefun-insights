@@ -25,9 +25,8 @@ export default function JournalPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);
 
-  // TODO: Re-enable Pro gate before launch — bypassed for testing
-  // if (!authLoading && (!user || !isPro)) {
-  if (false) {
+  // If not logged in or not pro, show gate
+  if (!authLoading && (!user || !isPro)) {
     return (
       <div className="p-4">
         <div className="max-w-md mx-auto text-center py-20">
