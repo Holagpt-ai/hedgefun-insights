@@ -317,7 +317,7 @@ const Screener = () => {
               </span>
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs">Indicators</Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs">Full Width 🔒</Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => navigate("/pro")}>Full Width 🔒</Button>
           </div>
         </div>
 

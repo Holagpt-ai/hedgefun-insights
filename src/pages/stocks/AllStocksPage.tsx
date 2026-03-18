@@ -192,7 +192,7 @@ export default function AllStocksPage() {
         {/* Header */}
         <div className="flex items-center justify-between border-b-2 border-border pb-3 mb-4">
           <h1 className="text-[1.75rem] font-bold text-foreground">All Stock Symbols</h1>
-          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground">
+          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground" onClick={() => navigate("/pro")}>
             <Lock className="h-3.5 w-3.5" /> Full Width
           </Button>
         </div>

@@ -49,7 +49,7 @@ export default function TopStocksPage() {
             <h1 className="text-[1.375rem] font-bold text-foreground">Top 50 Strong Buy Stocks</h1>
             <p className="text-sm text-muted-foreground">The top 50 "Strong Buy" stocks according to the best performing Wall Street analysts.</p>
           </div>
-          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground shrink-0">
+          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground shrink-0" onClick={() => navigate("/pro")}>
             Full Width <Lock className="h-3.5 w-3.5" />
           </Button>
         </div>

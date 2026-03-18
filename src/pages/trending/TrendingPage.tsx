@@ -222,7 +222,7 @@ export default function TrendingPage() {
         {/* Page header */}
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-[1.75rem] font-bold text-foreground">Trending Today</h1>
-          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground shrink-0">
+          <Button variant="outline" size="sm" className="gap-1.5 text-muted-foreground shrink-0" onClick={() => navigate("/pro")}>
             Full Width <Lock className="h-3.5 w-3.5" />
           </Button>
         </div>

@@ -310,7 +310,7 @@ export default function EtfScreenerPage() {
               </span>
             </Button>
             <Button variant="outline" size="sm" className="h-8 text-xs">Indicators</Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => navigate("/pro")}>
               Full Width
               <Lock className="h-3 w-3 ml-1" />
             </Button>

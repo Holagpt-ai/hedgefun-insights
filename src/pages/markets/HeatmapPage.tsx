@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
 
