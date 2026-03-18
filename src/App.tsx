@@ -41,6 +41,7 @@ import StockListsPage from "./pages/stocks/StockListsPage";
 import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
 import TopStocksPage from "./pages/stocks/TopStocksPage";
 import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
+import StockListDetailPage from "./pages/stocks/StockListDetailPage";
 import EtfScreenerPage from "./pages/etf/EtfScreenerPage";
 import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
