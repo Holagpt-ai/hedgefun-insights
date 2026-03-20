@@ -6,7 +6,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const POLYGON_BASE = "https://api.polygon.io";
+const POLYGON_BASE = "https://api.massive.com";
 
 function polyUrl(path: string, apiKey: string): string {
   return `${POLYGON_BASE}${path}?apiKey=${apiKey}`;
