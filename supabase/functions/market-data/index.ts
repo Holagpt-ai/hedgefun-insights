@@ -14,7 +14,7 @@ function getCorsHeaders(req: Request) {
   };
 }
 
-const POLYGON_BASE = "https://api.polygon.io";
+const POLYGON_BASE = "https://api.massive.com";
 
 function polyUrl(path: string, params: Record<string, string> = {}): string {
   const API_KEY = Deno.env.get("POLYGON_API_KEY")!;
