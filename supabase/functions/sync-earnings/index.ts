@@ -135,8 +135,13 @@ serve(async () => {
       .select("symbol, name")
       .in("symbol", majorTickers);
     
+    // Use stock table names only if they're real names (not just ticker symbols)
     const nameMap: Record<string, string> = { ...FALLBACK_NAMES };
-    for (const s of stockNames ?? []) nameMap[s.symbol] = s.name;
+    for (const s of stockNames ?? []) {
+      if (s.name && s.name !== s.symbol && s.name.length > 5) {
+        nameMap[s.symbol] = s.name;
+      }
+    }
 
     // Distribute tickers across upcoming dates
     let dateIdx = 0;
