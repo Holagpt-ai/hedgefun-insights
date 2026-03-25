@@ -5,6 +5,11 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight } from "lucide-react";
 
+const INDEX_TO_ETF: Record<string, string> = {
+  SPX: "spy", NDX: "qqq", DJI: "dia", RUT: "iwm",
+  SPY: "spy", QQQ: "qqq", "^GSPC": "spy", "^IXIC": "qqq", "^DJI": "dia", "^RUT": "iwm",
+};
+
 export function IndexSparklines() {
   const { data: indexes, isLoading } = useQuery({
     queryKey: ["market-indexes-sparkline"],
