@@ -24,6 +24,35 @@ interface Exchange {
   stocks: number;
 }
 
+const EXCHANGE_WEBSITES: Record<string, string> = {
+  "Bombay Stock Exchange": "https://www.bseindia.com",
+  "Tokyo Stock Exchange": "https://www.jpx.co.jp/english",
+  "NASDAQ": "https://www.nasdaq.com",
+  "New York Stock Exchange": "https://www.nyse.com",
+  "London Stock Exchange": "https://www.londonstockexchange.com",
+  "Shanghai Stock Exchange": "https://english.sse.com.cn",
+  "Shenzhen Stock Exchange": "https://www.szse.cn/English",
+  "Hong Kong Stock Exchange": "https://www.hkex.com.hk",
+  "Euronext Paris": "https://www.euronext.com",
+  "Euronext Amsterdam": "https://www.euronext.com",
+  "Toronto Stock Exchange": "https://www.tsx.com",
+  "Frankfurt Stock Exchange": "https://www.boerse-frankfurt.de/en",
+  "National Stock Exchange of India": "https://www.nseindia.com",
+  "Korea Exchange": "https://global.krx.co.kr",
+  "Australian Securities Exchange": "https://www.asx.com.au",
+  "SIX Swiss Exchange": "https://www.six-group.com",
+  "Stockholm Stock Exchange": "https://www.nasdaqomxnordic.com",
+  "Singapore Exchange": "https://www.sgx.com",
+  "B3 — Brasil Bolsa Balcão": "https://www.b3.com.br/en_us",
+  "Borsa Italiana": "https://www.borsaitaliana.it/homepage/homepage.en.htm",
+  "Johannesburg Stock Exchange": "https://www.jse.co.za",
+  "Taiwan Stock Exchange": "https://www.twse.com.tw/en",
+  "Tel Aviv Stock Exchange": "https://www.tase.co.il/en",
+  "Saudi Stock Exchange": "https://www.saudiexchange.sa/wps/portal/saudiexchange",
+  "Istanbul Stock Exchange": "https://www.borsaistanbul.com/en",
+  "Warsaw Stock Exchange": "https://www.gpw.pl/en-home",
+};
+
 const EXCHANGES: Exchange[] = [
   { name: "New York Stock Exchange", country: "United States", flag: "🇺🇸", code: "NYSE", currency: "USD", stocks: 2272 },
   { name: "NASDAQ", country: "United States", flag: "🇺🇸", code: "NASDAQ", currency: "USD", stocks: 3553 },
