@@ -184,6 +184,45 @@ export default function ArticlesPage() {
         </p>
       </div>
 
+      {/* Search & Tag Filter */}
+      <div className="mb-8 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => updateSearch(e.target.value)}
+            placeholder="Search articles…"
+            className="w-full pl-9 pr-4 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => updateTag(null)}
+            className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${
+              !activeTag
+                ? "bg-accent-blue text-white border-accent-blue"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
+          {ALL_TAGS.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => updateTag(activeTag === tag ? null : tag)}
+              className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${
+                activeTag === tag
+                  ? "bg-accent-blue text-white border-accent-blue"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* Card Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
         {paginatedArticles.map((article) => (
