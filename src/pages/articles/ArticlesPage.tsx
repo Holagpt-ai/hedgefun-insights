@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Search } from "lucide-react";
 import { usePageSeo } from "@/hooks/usePageSeo";
 
 import starlinkImg from "@/assets/articles/starlink-ipo.jpg";
@@ -116,15 +117,42 @@ export function getReadTime(wordCount: number): string {
 
 const ARTICLES_PER_PAGE = 6;
 
+// Collect unique tags
+const ALL_TAGS = Array.from(
+  new Set(ARTICLES.flatMap((a) => a.tags ?? []))
+).sort();
+
 export default function ArticlesPage() {
   const navigate = useNavigate();
   const [page, setPage] = useState(1);
+  const [search, setSearch] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  const totalPages = Math.ceil(ARTICLES.length / ARTICLES_PER_PAGE);
-  const paginatedArticles = ARTICLES.slice(
+  const filtered = useMemo(() => {
+    let result = ARTICLES;
+    if (activeTag) {
+      result = result.filter((a) => a.tags?.includes(activeTag));
+    }
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      result = result.filter(
+        (a) =>
+          a.title.toLowerCase().includes(q) ||
+          a.excerpt.toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [search, activeTag]);
+
+  const totalPages = Math.ceil(filtered.length / ARTICLES_PER_PAGE);
+  const paginatedArticles = filtered.slice(
     (page - 1) * ARTICLES_PER_PAGE,
     page * ARTICLES_PER_PAGE
   );
+
+  // Reset to page 1 when filters change
+  const updateSearch = (v: string) => { setSearch(v); setPage(1); };
+  const updateTag = (t: string | null) => { setActiveTag(t); setPage(1); };
 
   usePageSeo({
     title: "HedgeFun Blog — Latest Articles on Stocks, Finance & Investing",
@@ -154,6 +182,45 @@ export default function ArticlesPage() {
         <p className="text-muted-foreground text-[0.9375rem]">
           Latest articles on stocks, finance, and investing.
         </p>
+      </div>
+
+      {/* Search & Tag Filter */}
+      <div className="mb-8 space-y-3">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => updateSearch(e.target.value)}
+            placeholder="Search articles…"
+            className="w-full pl-9 pr-4 py-2 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
+          />
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => updateTag(null)}
+            className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${
+              !activeTag
+                ? "bg-accent-blue text-white border-accent-blue"
+                : "border-border text-muted-foreground hover:text-foreground"
+            }`}
+          >
+            All
+          </button>
+          {ALL_TAGS.map((tag) => (
+            <button
+              key={tag}
+              onClick={() => updateTag(activeTag === tag ? null : tag)}
+              className={`text-xs font-medium px-3 py-1 rounded-full border transition-colors ${
+                activeTag === tag
+                  ? "bg-accent-blue text-white border-accent-blue"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Card Grid */}
