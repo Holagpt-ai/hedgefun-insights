@@ -18,10 +18,10 @@ function polyUrl(path: string, params: Record<string, string> = {}): string {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: getCorsHeaders(req) });
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  const cors = getCorsHeaders(req);
+  const cors = corsHeaders;
 
   try {
     const { searchParams } = new URL(req.url);
