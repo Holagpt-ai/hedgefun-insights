@@ -10,11 +10,13 @@ const POLYGON_BASE = "https://api.massive.com";
 
 const NAME_SUFFIXES = [
   /\s+Common\s+Stock$/i, /\s+Common\s+Shares$/i, /\s+Ordinary\s+Shares?$/i,
-  /\s+Class\s+[A-Z]\d?\s+.*(?:Shares?|Stock)$/i, /\s+Warrants?$/i, /\s+Warrant$/i,
+  /\s+Class\s+[A-Z]\d?\s+.*$/i, /\s+Warrants?$/i, /\s+Warrant$/i,
   /\s+Rights?\s*\(.*?\)$/i, /\s+Rights?$/i, /\s+Units?$/i,
   /\s+American\s+Depositary\s+Shares?$/i, /\s+Depositary\s+Shares?$/i,
+  /\s+Subordinate\s+Voting\s+Shares?$/i, /\s+Multiple\s+Voting\s+Shares?$/i,
+  /\s+Trust$/i,
   /,?\s+Inc\.?$/i, /,?\s+Corp\.?$/i, /,?\s+Ltd\.?$/i, /,?\s+LLC$/i,
-  /,?\s+plc$/i, /,?\s+N\.?V\.?$/i, /,?\s+S\.?A\.?$/i,
+  /,?\s+plc$/i, /,?\s+N\.?V\.?$/i, /,?\s+S\.?A\.?$/i, /,?\s+Co\.?$/i,
   /\s+\(.*?\)\s*$/,
 ];
 
