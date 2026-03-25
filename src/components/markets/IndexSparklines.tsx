@@ -5,6 +5,11 @@ import { LineChart, Line, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight } from "lucide-react";
 
+const INDEX_TO_ETF: Record<string, string> = {
+  SPX: "spy", NDX: "qqq", DJI: "dia", RUT: "iwm",
+  SPY: "spy", QQQ: "qqq", "^GSPC": "spy", "^IXIC": "qqq", "^DJI": "dia", "^RUT": "iwm",
+};
+
 export function IndexSparklines() {
   const { data: indexes, isLoading } = useQuery({
     queryKey: ["market-indexes-sparkline"],
@@ -47,7 +52,7 @@ export function IndexSparklines() {
                 : [{ v: 0, i: 0 }];
 
               return (
-                <Link key={idx.symbol} to={`/etf/${(idx.symbol as string).toLowerCase()}`} className="flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors duration-200 relative hover:border-primary/50" style={{ border: "1px solid hsl(var(--border))" }}>
+                <Link key={idx.symbol} to={`/etf/${INDEX_TO_ETF[idx.symbol as string] ?? (idx.symbol as string).toLowerCase()}`} className="flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors duration-200 relative hover:border-primary/50" style={{ border: "1px solid hsl(var(--border))" }}>
                   <ArrowUpRight className="absolute top-2 right-2 h-3 w-3" style={{ color: "hsl(var(--text-muted))" }} />
                   <div className="flex-1 min-w-0">
                     <p className="text-[0.8125rem] font-bold truncate" style={{ color: "hsl(var(--text-primary))" }}>{idx.name}</p>
