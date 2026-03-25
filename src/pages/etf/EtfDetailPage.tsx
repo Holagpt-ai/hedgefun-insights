@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { EtfSectorBreakdown } from "@/components/etf/EtfSectorBreakdown";
+import { EtfFundOverview } from "@/components/etf/EtfFundOverview";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 
