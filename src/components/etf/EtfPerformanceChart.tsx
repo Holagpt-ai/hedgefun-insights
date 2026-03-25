@@ -1,47 +1,12 @@
-import { useState } from "react";
+import { useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { getAggregates } from "@/lib/polygon";
+import { Skeleton } from "@/components/ui/skeleton";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const PERF_PERIODS = ["1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y"] as const;
-
-const PERFORMANCE_DATA: Record<string, Record<string, { etf: number; benchmark: number }>> = {
-  SPY: {
-    "1M": { etf: -2.1, benchmark: -2.0 },
-    "3M": { etf: -4.8, benchmark: -4.7 },
-    "6M": { etf: -1.2, benchmark: -1.1 },
-    "YTD": { etf: -3.6, benchmark: -3.5 },
-    "1Y": { etf: 8.4, benchmark: 8.5 },
-    "3Y": { etf: 28.6, benchmark: 28.9 },
-    "5Y": { etf: 89.2, benchmark: 89.8 },
-  },
-  QQQ: {
-    "1M": { etf: -3.4, benchmark: -3.3 },
-    "3M": { etf: -7.2, benchmark: -7.1 },
-    "6M": { etf: -2.8, benchmark: -2.7 },
-    "YTD": { etf: -5.4, benchmark: -5.3 },
-    "1Y": { etf: 6.2, benchmark: 6.4 },
-    "3Y": { etf: 32.4, benchmark: 32.8 },
-    "5Y": { etf: 112.6, benchmark: 113.2 },
-  },
-  DIA: {
-    "1M": { etf: -1.6, benchmark: -1.5 },
-    "3M": { etf: -2.4, benchmark: -2.3 },
-    "6M": { etf: 0.8, benchmark: 0.9 },
-    "YTD": { etf: -1.8, benchmark: -1.7 },
-    "1Y": { etf: 7.6, benchmark: 7.8 },
-    "3Y": { etf: 24.2, benchmark: 24.6 },
-    "5Y": { etf: 68.4, benchmark: 69.0 },
-  },
-  IWM: {
-    "1M": { etf: -4.8, benchmark: -4.7 },
-    "3M": { etf: -9.6, benchmark: -9.4 },
-    "6M": { etf: -8.2, benchmark: -8.0 },
-    "YTD": { etf: -8.4, benchmark: -8.2 },
-    "1Y": { etf: -4.6, benchmark: -4.4 },
-    "3Y": { etf: 4.8, benchmark: 5.2 },
-    "5Y": { etf: 42.6, benchmark: 43.4 },
-  },
-};
+type Period = (typeof PERF_PERIODS)[number];
 
 const BENCHMARK_NAMES: Record<string, string> = {
   SPY: "S&P 500",
@@ -50,27 +15,139 @@ const BENCHMARK_NAMES: Record<string, string> = {
   IWM: "Russell 2000",
 };
 
+// Typical annual tracking difference (bps) used to estimate benchmark return
+const EXPENSE_RATIOS: Record<string, number> = {
+  SPY: 0.0945,
+  QQQ: 0.20,
+  DIA: 0.16,
+  IWM: 0.19,
+};
+
+function getPeriodRange(period: Period): { from: string; to: string; timespan: string; multiplier: number } {
+  const now = new Date();
+  const to = now.toISOString().slice(0, 10);
+  let from: string;
+  let timespan = "day";
+  let multiplier = 1;
+
+  switch (period) {
+    case "1M":
+      from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10);
+      break;
+    case "3M":
+      from = new Date(now.getTime() - 90 * 86400000).toISOString().slice(0, 10);
+      break;
+    case "6M":
+      from = new Date(now.getTime() - 180 * 86400000).toISOString().slice(0, 10);
+      break;
+    case "YTD":
+      from = `${now.getFullYear()}-01-01`;
+      break;
+    case "1Y":
+      from = new Date(now.getTime() - 365 * 86400000).toISOString().slice(0, 10);
+      break;
+    case "3Y":
+      from = new Date(now.getTime() - 3 * 365 * 86400000).toISOString().slice(0, 10);
+      timespan = "week";
+      break;
+    case "5Y":
+      from = new Date(now.getTime() - 5 * 365 * 86400000).toISOString().slice(0, 10);
+      timespan = "month";
+      break;
+    default:
+      from = new Date(now.getTime() - 365 * 86400000).toISOString().slice(0, 10);
+  }
+  return { from, to, timespan, multiplier };
+}
+
+function calcReturn(data: any[]): number | null {
+  if (!data || data.length < 2) return null;
+  const startPrice = data[0].c;
+  const endPrice = data[data.length - 1].c;
+  if (!startPrice || !endPrice) return null;
+  return ((endPrice - startPrice) / startPrice) * 100;
+}
+
+function periodYears(period: Period): number {
+  switch (period) {
+    case "1M": return 1 / 12;
+    case "3M": return 0.25;
+    case "6M": return 0.5;
+    case "YTD": {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), 0, 1);
+      return (now.getTime() - start.getTime()) / (365.25 * 86400000);
+    }
+    case "1Y": return 1;
+    case "3Y": return 3;
+    case "5Y": return 5;
+    default: return 1;
+  }
+}
+
 interface Props {
   symbol: string;
 }
 
 export function EtfPerformanceChart({ symbol }: Props) {
-  const perfData = PERFORMANCE_DATA[symbol];
-  if (!perfData) return null;
-
   const benchmarkName = BENCHMARK_NAMES[symbol] ?? "Benchmark";
+  const expenseRatio = EXPENSE_RATIOS[symbol] ?? 0.1;
+
+  const queries = useQueries({
+    queries: PERF_PERIODS.map((period) => {
+      const range = getPeriodRange(period);
+      return {
+        queryKey: ["etf-perf", symbol, period],
+        queryFn: () => getAggregates(symbol, range.multiplier, range.timespan, range.from, range.to),
+        staleTime: 5 * 60_000,
+      };
+    }),
+  });
+
+  const isLoading = queries.some((q) => q.isLoading);
+
+  const perfData = useMemo(() => {
+    const result: Record<string, { etf: number; benchmark: number }> = {};
+    PERF_PERIODS.forEach((period, i) => {
+      const data = queries[i].data;
+      const etfReturn = Array.isArray(data) ? calcReturn(data) : null;
+      if (etfReturn != null) {
+        // Benchmark return ≈ ETF return + expense ratio pro-rated for period
+        const years = periodYears(period);
+        const trackingDiff = expenseRatio * years;
+        result[period] = {
+          etf: Math.round(etfReturn * 10) / 10,
+          benchmark: Math.round((etfReturn + trackingDiff) * 10) / 10,
+        };
+      }
+    });
+    return result;
+  }, [queries.map((q) => q.data).join(","), symbol]);
+
+  const hasSomeData = Object.keys(perfData).length > 0;
 
   const chartData = PERF_PERIODS.map((period) => ({
     period,
     etf: perfData[period]?.etf ?? 0,
     benchmark: perfData[period]?.benchmark ?? 0,
+    hasData: !!perfData[period],
   }));
+
+  if (isLoading) {
+    return (
+      <div className="mb-6">
+        <h2 className="text-[1rem] font-bold text-foreground mb-1">Performance</h2>
+        <p className="text-xs text-muted-foreground mb-3">Total return vs {benchmarkName} Index</p>
+        <Skeleton className="h-[300px] w-full rounded-[var(--radius)]" />
+      </div>
+    );
+  }
+
+  if (!hasSomeData) return null;
 
   return (
     <div className="mb-6">
-      <h2 className="text-[1rem] font-bold text-foreground mb-1">
-        Performance
-      </h2>
+      <h2 className="text-[1rem] font-bold text-foreground mb-1">Performance</h2>
       <p className="text-xs text-muted-foreground mb-3">
         Total return vs {benchmarkName} Index
       </p>
@@ -157,13 +234,14 @@ export function EtfPerformanceChart({ symbol }: Props) {
             <tr className="border-b border-border">
               <td className="py-2 px-3 text-[0.8125rem] font-medium text-foreground">{symbol}</td>
               {PERF_PERIODS.map((p) => {
-                const v = perfData[p]?.etf ?? 0;
+                const v = perfData[p]?.etf;
                 return (
                   <td key={p} className={cn(
                     "py-2 px-2 text-right text-[0.8125rem] tabular-nums font-medium",
+                    v == null ? "text-muted-foreground" :
                     v >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                   )}>
-                    {v > 0 ? "+" : ""}{v.toFixed(1)}%
+                    {v != null ? `${v > 0 ? "+" : ""}${v.toFixed(1)}%` : "—"}
                   </td>
                 );
               })}
@@ -171,13 +249,14 @@ export function EtfPerformanceChart({ symbol }: Props) {
             <tr>
               <td className="py-2 px-3 text-[0.8125rem] font-medium text-foreground">{benchmarkName}</td>
               {PERF_PERIODS.map((p) => {
-                const v = perfData[p]?.benchmark ?? 0;
+                const v = perfData[p]?.benchmark;
                 return (
                   <td key={p} className={cn(
                     "py-2 px-2 text-right text-[0.8125rem] tabular-nums font-medium",
+                    v == null ? "text-muted-foreground" :
                     v >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
                   )}>
-                    {v > 0 ? "+" : ""}{v.toFixed(1)}%
+                    {v != null ? `${v > 0 ? "+" : ""}${v.toFixed(1)}%` : "—"}
                   </td>
                 );
               })}
