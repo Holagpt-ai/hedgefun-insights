@@ -216,6 +216,17 @@ export default function ArticleDetailPage() {
 
   return (
     <div>
+      {/* Back to Articles */}
+      <div className="max-w-[720px] mx-auto px-4 pt-4 pb-2">
+        <Link
+          to="/articles"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-accent-blue transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to all Articles
+        </Link>
+      </div>
+
       {/* Hero Image */}
       <div className="relative w-full h-[280px] sm:h-[400px] overflow-hidden">
         <img
