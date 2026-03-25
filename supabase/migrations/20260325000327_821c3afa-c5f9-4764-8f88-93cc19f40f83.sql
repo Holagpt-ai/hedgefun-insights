@@ -1,0 +1,1 @@
+ALTER TABLE public.market_news ADD CONSTRAINT market_news_url_unique UNIQUE (url);
