@@ -156,22 +156,22 @@ export function Footer() {
 
           {/* Right — app badges + theme toggle */}
           <div className="flex items-center gap-2 shrink-0">
-            <a
-              href="#"
+            <button
+              onClick={() => navigate("/download")}
               className="flex items-center gap-1.5 text-xs text-footer-text rounded-full px-3 py-1.5"
               style={{ background: "rgba(255,255,255,0.08)" }}
             >
               <Apple className="h-3.5 w-3.5" />
               <span>App Store</span>
-            </a>
-            <a
-              href="#"
+            </button>
+            <button
+              onClick={() => navigate("/download")}
               className="flex items-center gap-1.5 text-xs text-footer-text rounded-full px-3 py-1.5"
               style={{ background: "rgba(255,255,255,0.08)" }}
             >
               <Play className="h-3.5 w-3.5" />
               <span>Google Play</span>
-            </a>
+            </button>
             <button
               onClick={toggleTheme}
               className="flex items-center gap-1.5 text-xs text-footer-text rounded-full px-3 py-1.5"

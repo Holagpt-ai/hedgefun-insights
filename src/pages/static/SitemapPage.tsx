@@ -50,8 +50,8 @@ const SECTIONS = [
     links: [
       ["Stock Screener", "/screener"], ["ETF Screener", "/etf/screener"],
       ["IPO Screener", "/ipos/screener"], ["Stock Comparison Tool", "/stocks/compare"],
-      ["ETF Comparison Tool", "/etf/compare"], ["CAGR Calculator", "/tools"],
-      ["Dividend Calculator", "/tools"], ["Symbol Lookup", "/tools"],
+      ["ETF Comparison Tool", "/etf/compare"], ["CAGR Calculator", "/tools/cagr-calculator"],
+      ["Dividend Calculator", "/tools/dividend-calculator"], ["Symbol Lookup", "/tools/symbol-lookup"],
     ],
   },
 ];
