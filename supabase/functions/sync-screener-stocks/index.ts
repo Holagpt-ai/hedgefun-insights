@@ -135,23 +135,33 @@ serve(async (req) => {
       if (i + CHUNK_SIZE < SP500_TICKERS.length) await delay(250);
     }
 
-    // --- Step 2: Fetch reference details (name, market_cap) paginated ---
-    let nextUrl: string | null =
-      `https://api.massive.com/v3/reference/tickers?market=stocks&active=true&limit=1000&apiKey=${API_KEY}`;
-    const sp500Set = new Set(SP500_TICKERS);
+    // --- Step 2: Fetch reference details per-ticker for stocks missing market_cap ---
+    const { data: missingStocks } = await supabase
+      .from("stocks")
+      .select("symbol")
+      .is("market_cap", null)
+      .in("symbol", SP500_TICKERS);
 
-    while (nextUrl) {
-      try {
-        const res = await fetch(nextUrl);
-        if (!res.ok) {
-          console.error(`Reference fetch failed: ${res.status}`);
-          break;
-        }
-        const json = await res.json();
-        const results = json.results ?? [];
+    const tickersToFetch = (missingStocks ?? []).map((s) => s.symbol);
+    console.log(`Fetching details for ${tickersToFetch.length} stocks missing market_cap`);
 
-        for (const r of results) {
-          if (!sp500Set.has(r.ticker)) continue;
+    const DETAIL_BATCH = 5;
+    for (let i = 0; i < tickersToFetch.length; i += DETAIL_BATCH) {
+      const batch = tickersToFetch.slice(i, i + DETAIL_BATCH);
+      const fetches = batch.map(async (ticker) => {
+        try {
+          const res = await fetch(
+            `https://api.massive.com/v3/reference/tickers/${ticker}?apiKey=${API_KEY}`
+          );
+          if (!res.ok) {
+            console.error(`Detail ${ticker}: ${res.status}`);
+            errors++;
+            return;
+          }
+          const json = await res.json();
+          const r = json.results;
+          if (!r) return;
+
           const updateData: Record<string, unknown> = {};
           if (r.name) updateData.name = r.name;
           if (r.market_cap) updateData.market_cap = Math.round(r.market_cap);
@@ -160,25 +170,21 @@ serve(async (req) => {
             const { error } = await supabase
               .from("stocks")
               .update(updateData)
-              .eq("symbol", r.ticker);
+              .eq("symbol", ticker);
             if (error) {
-              console.error(`Update details ${r.ticker}:`, error.message);
+              console.error(`Update details ${ticker}:`, error.message);
               errors++;
             } else {
               updatedDetails++;
             }
           }
+        } catch (e) {
+          console.error(`Detail ${ticker} error:`, (e as Error).message);
+          errors++;
         }
-
-        nextUrl = json.next_url
-          ? `${json.next_url}&apiKey=${API_KEY}`
-          : null;
-        if (nextUrl) await delay(250);
-      } catch (e) {
-        console.error(`Reference page error:`, (e as Error).message);
-        errors++;
-        break;
-      }
+      });
+      await Promise.all(fetches);
+      if (i + DETAIL_BATCH < tickersToFetch.length) await delay(13000);
     }
 
     return new Response(
