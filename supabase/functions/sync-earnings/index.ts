@@ -105,14 +105,43 @@ serve(async () => {
       }
     }
 
-    // Fetch company names from stocks table
+    // Fetch company names from stocks table + fallback names
+    const FALLBACK_NAMES: Record<string, string> = {
+      "AAPL": "Apple", "MSFT": "Microsoft", "GOOGL": "Alphabet", "AMZN": "Amazon", "NVDA": "NVIDIA",
+      "META": "Meta Platforms", "TSLA": "Tesla", "BRK.B": "Berkshire Hathaway", "JPM": "JPMorgan Chase", "V": "Visa",
+      "UNH": "UnitedHealth", "XOM": "Exxon Mobil", "JNJ": "Johnson & Johnson", "WMT": "Walmart", "MA": "Mastercard",
+      "PG": "Procter & Gamble", "HD": "Home Depot", "CVX": "Chevron", "MRK": "Merck", "ABBV": "AbbVie",
+      "KO": "Coca-Cola", "PEP": "PepsiCo", "COST": "Costco", "LLY": "Eli Lilly", "AVGO": "Broadcom",
+      "TMO": "Thermo Fisher", "MCD": "McDonald's", "CSCO": "Cisco", "ACN": "Accenture", "ABT": "Abbott Labs",
+      "DHR": "Danaher", "NKE": "Nike", "NEE": "NextEra Energy", "TXN": "Texas Instruments", "UPS": "UPS",
+      "PM": "Philip Morris", "MS": "Morgan Stanley", "INTC": "Intel", "AMD": "AMD", "QCOM": "Qualcomm",
+      "LOW": "Lowe's", "HON": "Honeywell", "AMGN": "Amgen", "BA": "Boeing", "CAT": "Caterpillar",
+      "IBM": "IBM", "GE": "GE Aerospace", "RTX": "RTX", "SBUX": "Starbucks", "GS": "Goldman Sachs",
+      "BLK": "BlackRock", "ISRG": "Intuitive Surgical", "MDT": "Medtronic", "GILD": "Gilead Sciences",
+      "ADP": "ADP", "SYK": "Stryker", "BKNG": "Booking Holdings", "VRTX": "Vertex Pharma", "REGN": "Regeneron",
+      "PLD": "Prologis", "CRM": "Salesforce", "NOW": "ServiceNow", "PANW": "Palo Alto Networks",
+      "SNOW": "Snowflake", "UBER": "Uber", "ABNB": "Airbnb", "DDOG": "Datadog", "ZS": "Zscaler",
+      "CRWD": "CrowdStrike", "NET": "Cloudflare", "COIN": "Coinbase", "RIVN": "Rivian", "LCID": "Lucid",
+      "PLTR": "Palantir", "SOFI": "SoFi", "HOOD": "Robinhood", "RBLX": "Roblox", "ROKU": "Roku",
+      "SQ": "Block", "SHOP": "Shopify", "CL": "Colgate-Palmolive", "MMM": "3M", "GM": "General Motors",
+      "F": "Ford", "DIS": "Walt Disney", "NFLX": "Netflix", "PYPL": "PayPal", "ADBE": "Adobe",
+      "ORCL": "Oracle", "SAP": "SAP", "T": "AT&T", "VZ": "Verizon", "CMCSA": "Comcast",
+      "CHTR": "Charter Comm", "TMUS": "T-Mobile", "LMT": "Lockheed Martin", "NOC": "Northrop Grumman",
+      "GD": "General Dynamics", "HII": "HII", "BAH": "Booz Allen Hamilton",
+    };
+
     const { data: stockNames } = await sb
       .from("stocks")
       .select("symbol, name")
       .in("symbol", majorTickers);
     
-    const nameMap: Record<string, string> = {};
-    for (const s of stockNames ?? []) nameMap[s.symbol] = s.name;
+    // Use stock table names only if they're real names (not just ticker symbols)
+    const nameMap: Record<string, string> = { ...FALLBACK_NAMES };
+    for (const s of stockNames ?? []) {
+      if (s.name && s.name !== s.symbol && s.name.length > 5) {
+        nameMap[s.symbol] = s.name;
+      }
+    }
 
     // Distribute tickers across upcoming dates
     let dateIdx = 0;
