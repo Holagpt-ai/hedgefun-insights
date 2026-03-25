@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePageSeo } from "@/hooks/usePageSeo";
 
@@ -113,8 +114,17 @@ export function getReadTime(wordCount: number): string {
   return `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
 }
 
+const ARTICLES_PER_PAGE = 6;
+
 export default function ArticlesPage() {
   const navigate = useNavigate();
+  const [page, setPage] = useState(1);
+
+  const totalPages = Math.ceil(ARTICLES.length / ARTICLES_PER_PAGE);
+  const paginatedArticles = ARTICLES.slice(
+    (page - 1) * ARTICLES_PER_PAGE,
+    page * ARTICLES_PER_PAGE
+  );
 
   usePageSeo({
     title: "HedgeFun Blog — Latest Articles on Stocks, Finance & Investing",
@@ -148,7 +158,7 @@ export default function ArticlesPage() {
 
       {/* Card Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
-        {ARTICLES.map((article) => (
+        {paginatedArticles.map((article) => (
           <button
             key={article.slug}
             onClick={() => navigate(`/articles/${article.slug}`)}
@@ -191,11 +201,39 @@ export default function ArticlesPage() {
       </div>
 
       {/* Pagination */}
-      <div className="flex justify-end">
-        <button className="text-sm text-accent-blue hover:underline font-medium">
-          Next →
-        </button>
-      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-2">
+          <button
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page === 1}
+            className="text-sm font-medium text-accent-blue hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+          >
+            ← Previous
+          </button>
+
+          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+            <button
+              key={p}
+              onClick={() => setPage(p)}
+              className={`h-8 w-8 rounded text-sm font-medium transition-colors ${
+                p === page
+                  ? "bg-accent-blue text-white"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {p}
+            </button>
+          ))}
+
+          <button
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            className="text-sm font-medium text-accent-blue hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 }
