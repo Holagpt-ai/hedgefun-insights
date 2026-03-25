@@ -104,7 +104,8 @@ const EarningsPage = () => {
   const dayEarnings = useMemo(() => {
     let items = (weekEarnings || []).filter((e) => e.report_date === fmtDate(selectedDate));
     if (timeFilter !== "All") {
-      items = items.filter((e) => e.time_of_day === timeFilter);
+      const dbVal = timeFilter === "Before Open" ? "before_open" : "after_close";
+      items = items.filter((e) => e.time_of_day === dbVal);
     }
     if (searchValue) {
       const q = searchValue.toLowerCase();
