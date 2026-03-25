@@ -294,20 +294,42 @@ export default function ChartPage() {
                     </span>
                   </div>
                   {displayPoint && (
-                    <div className="flex gap-4 text-[0.8125rem]">
-                      <span><span className="text-muted-foreground">Price:</span> <span className="text-foreground">{displayPoint.close.toFixed(2)}</span></span>
-                      <span><span className="text-muted-foreground">Open:</span> <span className="text-foreground">{displayPoint.open.toFixed(2)}</span></span>
-                      <span><span className="text-muted-foreground">Close:</span> <span className="text-foreground">{displayPoint.close.toFixed(2)}</span></span>
-                      <span><span className="text-muted-foreground">Change:</span> <span className="text-foreground">{(displayPoint.close - displayPoint.open).toFixed(2)}</span></span>
-                    </div>
-                  )}
-                  {displayPoint && (
-                    <div className="flex gap-4 text-[0.8125rem]">
-                      <span><span className="text-muted-foreground">Vol:</span> <span className="text-foreground">{abbr(displayPoint.volume)}</span></span>
-                      <span><span className="text-muted-foreground">High:</span> <span className="text-foreground">{displayPoint.high.toFixed(2)}</span></span>
-                      <span><span className="text-muted-foreground">Low:</span> <span className="text-foreground">{displayPoint.low.toFixed(2)}</span></span>
-                      <span><span className="text-muted-foreground">Chg.%:</span> <span className="text-foreground">{((displayPoint.close - displayPoint.open) / displayPoint.open * 100).toFixed(2)}%</span></span>
-                    </div>
+                    <>
+                      {/* Desktop: inline rows */}
+                      <div className="hidden sm:block">
+                        <div className="flex gap-4 text-[0.8125rem]">
+                          <span><span className="text-muted-foreground">Price:</span> <span className="text-foreground">{displayPoint.close.toFixed(2)}</span></span>
+                          <span><span className="text-muted-foreground">Open:</span> <span className="text-foreground">{displayPoint.open.toFixed(2)}</span></span>
+                          <span><span className="text-muted-foreground">Close:</span> <span className="text-foreground">{displayPoint.close.toFixed(2)}</span></span>
+                          <span><span className="text-muted-foreground">Change:</span> <span className="text-foreground">{(displayPoint.close - displayPoint.open).toFixed(2)}</span></span>
+                        </div>
+                        <div className="flex gap-4 text-[0.8125rem]">
+                          <span><span className="text-muted-foreground">Vol:</span> <span className="text-foreground">{abbr(displayPoint.volume)}</span></span>
+                          <span><span className="text-muted-foreground">High:</span> <span className="text-foreground">{displayPoint.high.toFixed(2)}</span></span>
+                          <span><span className="text-muted-foreground">Low:</span> <span className="text-foreground">{displayPoint.low.toFixed(2)}</span></span>
+                          <span><span className="text-muted-foreground">Chg.%:</span> <span className="text-foreground">{((displayPoint.close - displayPoint.open) / displayPoint.open * 100).toFixed(2)}%</span></span>
+                        </div>
+                      </div>
+                      {/* Mobile: 2-col grid */}
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:hidden">
+                        {[
+                          { label: "Price", value: displayPoint.close.toFixed(2) },
+                          { label: "Open", value: displayPoint.open.toFixed(2) },
+                          { label: "Close", value: displayPoint.close.toFixed(2) },
+                          { label: "Change", value: (displayPoint.close - displayPoint.open).toFixed(2) },
+                          { label: "Vol", value: abbr(displayPoint.volume) },
+                          { label: "High", value: displayPoint.high.toFixed(2) },
+                          { label: "Low", value: displayPoint.low.toFixed(2) },
+                          { label: "Chg.%", value: `${((displayPoint.close - displayPoint.open) / displayPoint.open * 100).toFixed(2)}%` },
+                        ].map((s) => (
+                          <div key={s.label} className="overflow-hidden text-ellipsis whitespace-nowrap">
+                            <span className="text-[0.6875rem] text-muted-foreground">{s.label}</span>
+                            <br />
+                            <span className="text-[0.8125rem] font-medium text-foreground">{s.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
 
