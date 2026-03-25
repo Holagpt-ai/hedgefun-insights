@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,7 +12,9 @@ import {
 import { Search, MoreVertical, Download } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
+import { getTopGainers, getTopLosers } from "@/lib/polygon";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
 
@@ -25,31 +28,17 @@ interface PremarketRow {
   marketCap: number;
 }
 
-const GAINERS_SEED: PremarketRow[] = [
-  { rank: 1, symbol: "WLDS", name: "Wearable Devices Ltd.", changePercent: 179.41, price: 1.90, volume: 1414, marketCap: 5160000 },
-  { rank: 2, symbol: "SCNX", name: "Scienture Holdings, Inc.", changePercent: 55.86, price: 0.61, volume: 56711913, marketCap: 18860000 },
-  { rank: 3, symbol: "KALA", name: "KALA BIO, Inc.", changePercent: 53.45, price: 0.45, volume: 108747945, marketCap: 10310000 },
-  { rank: 4, symbol: "DOMO", name: "Domo, Inc.", changePercent: 42.92, price: 6.26, volume: 8206987, marketCap: 207740000 },
-  { rank: 5, symbol: "WORX", name: "SCWorx Corp.", changePercent: 33.25, price: 0.17, volume: 61188001, marketCap: 2310000 },
-  { rank: 6, symbol: "DXST", name: "Decent Holding Inc.", changePercent: 25.41, price: 0.50, volume: 21410979, marketCap: 20060000 },
-  { rank: 7, symbol: "CYN", name: "Cyngn Inc.", changePercent: 23.13, price: 1.97, volume: 26859775, marketCap: 15310000 },
-  { rank: 8, symbol: "ASNS", name: "Actelis Networks, Inc.", changePercent: 22.79, price: 0.46, volume: 26554577, marketCap: 4860000 },
-  { rank: 9, symbol: "SGN", name: "Signing Day Sports, Inc.", changePercent: 21.91, price: 0.78, volume: 46010838, marketCap: 9870000 },
-  { rank: 10, symbol: "CVGI", name: "Commercial Vehicle Group, Inc.", changePercent: 21.61, price: 1.97, volume: 1120719, marketCap: 69860000 },
-];
-
-const LOSERS_SEED: PremarketRow[] = [
-  { rank: 1, symbol: "KITT", name: "Nauticus Robotics, Inc.", changePercent: -26.58, price: 0.75, volume: 4470372, marketCap: 21970000 },
-  { rank: 2, symbol: "KOS", name: "Kosmos Energy Ltd.", changePercent: -18.67, price: 1.96, volume: 18293351, marketCap: 966860000 },
-  { rank: 3, symbol: "MI", name: "NFT Limited", changePercent: -17.85, price: 0.58, volume: 1347145, marketCap: 2840000 },
-  { rank: 4, symbol: "SKYE", name: "Skye Bioscience, Inc.", changePercent: -15.62, price: 0.67, volume: 324189, marketCap: 23120000 },
-  { rank: 5, symbol: "FCUV", name: "Focus Universal Inc.", changePercent: -14.79, price: 4.76, volume: 7067, marketCap: 4340000 },
-  { rank: 6, symbol: "TBMC", name: "Trailblazer Holdings, Inc.", changePercent: -14.73, price: 10.07, volume: 3174, marketCap: 26360000 },
-  { rank: 7, symbol: "EJH", name: "E-Home Household Service Holdings Limited", changePercent: -14.49, price: 0.13, volume: 2532669, marketCap: 9220000 },
-  { rank: 8, symbol: "OIO", name: "ESGL Holdings Limited", changePercent: -14.29, price: 3.30, volume: 7240, marketCap: 158540000 },
-  { rank: 9, symbol: "INKT", name: "MiNK Therapeutics, Inc.", changePercent: -14.14, price: 11.60, volume: 85634, marketCap: 52480000 },
-  { rank: 10, symbol: "ELPW", name: "Elong Power Holding Limited", changePercent: -13.03, price: 0.06, volume: 34059836, marketCap: 5930000 },
-];
+function mapApiToRows(data: any[]): PremarketRow[] {
+  return data.map((t: any, i: number) => ({
+    rank: i + 1,
+    symbol: t.ticker || t.symbol || "",
+    name: t.name || t.ticker || "",
+    changePercent: t.todaysChangePerc ?? 0,
+    price: t.day?.c ?? 0,
+    volume: t.day?.v ?? 0,
+    marketCap: 0,
+  }));
+}
 
 function abbr(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -68,10 +57,12 @@ function PremarketTable({
   title,
   data,
   type,
+  isLoading,
 }: {
   title: string;
   data: PremarketRow[];
   type: "gainers" | "losers";
+  isLoading: boolean;
 }) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -158,11 +149,14 @@ function PremarketTable({
         accessorKey: "marketCap",
         header: "Market Cap",
         size: 100,
-        cell: ({ getValue }) => (
-          <span className="text-[0.875rem] tabular-nums text-right block" style={{ color: "hsl(var(--text-primary))" }}>
-            {abbr(getValue<number>())}
-          </span>
-        ),
+        cell: ({ getValue }) => {
+          const v = getValue<number>();
+          return (
+            <span className="text-[0.875rem] tabular-nums text-right block" style={{ color: "hsl(var(--text-primary))" }}>
+              {v ? abbr(v) : "—"}
+            </span>
+          );
+        },
       },
     ],
     [navigate]
@@ -181,7 +175,6 @@ function PremarketTable({
 
   return (
     <div>
-      {/* Section Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2">
           <h2 className="text-[1.125rem] font-bold" style={{ color: "hsl(var(--text-primary))" }}>{title}</h2>
@@ -199,7 +192,6 @@ function PremarketTable({
         </div>
       </div>
 
-      {/* View Tab Bar */}
       <div className="flex items-center gap-0 border-b border-border mb-0">
         {VIEW_TABS.map((t, i) => (
           <button key={t} className="px-3 py-2 text-[0.875rem] transition-colors relative" style={{ fontWeight: i === 0 ? 600 : 400, color: i === 0 ? "hsl(var(--accent-blue))" : "hsl(var(--text-secondary))" }}>
@@ -211,49 +203,68 @@ function PremarketTable({
         <button className="px-3 py-2 text-[0.8125rem]" style={{ color: "hsl(var(--text-secondary))" }}>Edit View</button>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} style={{ background: "hsl(var(--surface))", borderBottom: "2px solid hsl(var(--border))" }}>
-                {hg.headers.map((header) => {
-                  const isRight = ["changePercent", "price", "volume", "marketCap"].includes(header.id);
-                  const isRank = header.id === "rank";
-                  return (
-                    <th key={header.id} className="table-header px-3 py-2.5 cursor-pointer select-none" style={{ textAlign: isRight || isRank ? "right" : "left", width: header.getSize() !== 150 ? header.getSize() : undefined }} onClick={header.column.getToggleSortingHandler()}>
-                      <span className="inline-flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() === "desc" && " ↓"}
-                        {header.column.getIsSorted() === "asc" && " ↑"}
-                      </span>
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="transition-colors" style={{ borderBottom: "1px solid hsl(var(--border-subtle))" }} onMouseEnter={(e) => (e.currentTarget.style.background = "hsl(var(--surface))")} onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
-                {row.getVisibleCells().map((cell) => {
-                  const isRight = ["changePercent", "price", "volume", "marketCap", "rank"].includes(cell.column.id);
-                  return (
-                    <td key={cell.id} className="px-3 py-2.5" style={{ textAlign: isRight ? "right" : "left" }}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </td>
-                  );
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {isLoading ? (
+        <div className="space-y-2 py-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded" />
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              {table.getHeaderGroups().map((hg) => (
+                <tr key={hg.id} style={{ background: "hsl(var(--surface))", borderBottom: "2px solid hsl(var(--border))" }}>
+                  {hg.headers.map((header) => {
+                    const isRight = ["changePercent", "price", "volume", "marketCap"].includes(header.id);
+                    const isRank = header.id === "rank";
+                    return (
+                      <th key={header.id} className="table-header px-3 py-2.5 cursor-pointer select-none" style={{ textAlign: isRight || isRank ? "right" : "left", width: header.getSize() !== 150 ? header.getSize() : undefined }} onClick={header.column.getToggleSortingHandler()}>
+                        <span className="inline-flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getIsSorted() === "desc" && " ↓"}
+                          {header.column.getIsSorted() === "asc" && " ↑"}
+                        </span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className="transition-colors" style={{ borderBottom: "1px solid hsl(var(--border-subtle))" }} onMouseEnter={(e) => (e.currentTarget.style.background = "hsl(var(--surface))")} onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
+                  {row.getVisibleCells().map((cell) => {
+                    const isRight = ["changePercent", "price", "volume", "marketCap", "rank"].includes(cell.column.id);
+                    return (
+                      <td key={cell.id} className="px-3 py-2.5" style={{ textAlign: isRight ? "right" : "left" }}>
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function PremarketPage() {
+  const { data: gainersData, isLoading: gainersLoading } = useQuery({
+    queryKey: ["premarket-gainers"],
+    queryFn: async () => mapApiToRows(await getTopGainers()),
+    staleTime: 60_000,
+  });
+
+  const { data: losersData, isLoading: losersLoading } = useQuery({
+    queryKey: ["premarket-losers"],
+    queryFn: async () => mapApiToRows(await getTopLosers()),
+    staleTime: 60_000,
+  });
+
   return (
     <div className="w-full">
       <MarketMoversTabBar />
@@ -263,7 +274,6 @@ export default function PremarketPage() {
           Market Movers
         </h1>
 
-        {/* Sub-Tab Bar */}
         <div className="flex items-center gap-0 mb-6">
           {SUB_TABS.map((t, i) => (
             <button
@@ -282,14 +292,12 @@ export default function PremarketPage() {
 
         <IndexSparklines />
 
-        <PremarketTable title="Premarket Gainers" data={GAINERS_SEED} type="gainers" />
+        <PremarketTable title="Premarket Gainers" data={gainersData ?? []} type="gainers" isLoading={gainersLoading} />
 
         <div className="my-6 border-t border-border" />
 
-        <PremarketTable title="Premarket Losers" data={LOSERS_SEED} type="losers" />
+        <PremarketTable title="Premarket Losers" data={losersData ?? []} type="losers" isLoading={losersLoading} />
       </div>
-
-      
     </div>
   );
 }

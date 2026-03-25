@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   useReactTable,
   getCoreRowModel,
@@ -11,7 +12,9 @@ import {
 import { Search, MoreVertical, Download } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
+import { getTopGainers, getTopLosers } from "@/lib/polygon";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
 
@@ -25,31 +28,17 @@ interface AfterHoursRow {
   marketCap: number;
 }
 
-const GAINERS_SEED: AfterHoursRow[] = [
-  { rank: 1, symbol: "TLYS", name: "Tilly's, Inc.", changePercent: 80.90, afterhrPrice: 2.95, afterhrClose: 1.63, marketCap: 49670000 },
-  { rank: 2, symbol: "CDXS", name: "Codexis, Inc.", changePercent: 37.80, afterhrPrice: 1.75, afterhrClose: 1.27, marketCap: 114710000 },
-  { rank: 3, symbol: "TURB", name: "Turbo Energy, S.A.", changePercent: 36.36, afterhrPrice: 5.10, afterhrClose: 3.74, marketCap: 41200000 },
-  { rank: 4, symbol: "LWLG", name: "Lightwave Logic, Inc.", changePercent: 29.88, afterhrPrice: 6.52, afterhrClose: 5.02, marketCap: 730060000 },
-  { rank: 5, symbol: "BMBL", name: "Bumble Inc.", changePercent: 21.83, afterhrPrice: 3.46, afterhrClose: 2.84, marketCap: 427570000 },
-  { rank: 6, symbol: "DAIC", name: "CID HoldCo, Inc.", changePercent: 15.17, afterhrPrice: 0.29, afterhrClose: 0.25, marketCap: 6990000 },
-  { rank: 7, symbol: "XHLD", name: "TEN Holdings, Inc.", changePercent: 13.33, afterhrPrice: 1.70, afterhrClose: 1.50, marketCap: 4480000 },
-  { rank: 8, symbol: "NOTV", name: "Inotiv, Inc.", changePercent: 11.66, afterhrPrice: 0.44, afterhrClose: 0.39, marketCap: 13420000 },
-  { rank: 9, symbol: "HKPD", name: "Cellyan Biotechnology Co., Ltd", changePercent: 10.37, afterhrPrice: 0.69, afterhrClose: 0.63, marketCap: 6910000 },
-  { rank: 10, symbol: "TTGT", name: "TechTarget, Inc.", changePercent: 10.28, afterhrPrice: 4.29, afterhrClose: 3.89, marketCap: 280690000 },
-];
-
-const LOSERS_SEED: AfterHoursRow[] = [
-  { rank: 1, symbol: "NTSK", name: "Netskope, Inc.", changePercent: -17.07, afterhrPrice: 10.06, afterhrClose: 12.13, marketCap: 4770000000 },
-  { rank: 2, symbol: "YJ", name: "Yunji Inc.", changePercent: -16.58, afterhrPrice: 1.51, afterhrClose: 1.81, marketCap: 8920000 },
-  { rank: 3, symbol: "TANH", name: "Tantech Holdings Ltd", changePercent: -15.53, afterhrPrice: 0.87, afterhrClose: 1.03, marketCap: 6320000 },
-  { rank: 4, symbol: "GDTC", name: "CytoMed Therapeutics Limited", changePercent: -14.29, afterhrPrice: 0.90, afterhrClose: 1.05, marketCap: 12120000 },
-  { rank: 5, symbol: "KEQU", name: "Kewaunee Scientific Corporation", changePercent: -13.98, afterhrPrice: 35.25, afterhrClose: 40.98, marketCap: 117460000 },
-  { rank: 6, symbol: "VSA", name: "VisionSys AI Inc.", changePercent: -13.39, afterhrPrice: 1.10, afterhrClose: 1.27, marketCap: 1330000 },
-  { rank: 7, symbol: "RDAC", name: "Rising Dragon Acquisition Corp.", changePercent: -12.48, afterhrPrice: 5.12, afterhrClose: 5.85, marketCap: 43870000 },
-  { rank: 8, symbol: "CULP", name: "Culp, Inc.", changePercent: -11.88, afterhrPrice: 2.67, afterhrClose: 3.03, marketCap: 38370000 },
-  { rank: 9, symbol: "LGVN", name: "Longeveron Inc.", changePercent: -11.79, afterhrPrice: 0.72, afterhrClose: 0.81, marketCap: 17330000 },
-  { rank: 10, symbol: "WORX", name: "SCWorx Corp.", changePercent: -11.78, afterhrPrice: 0.13, afterhrClose: 0.15, marketCap: 2310000 },
-];
+function mapApiToRows(data: any[]): AfterHoursRow[] {
+  return data.map((t: any, i: number) => ({
+    rank: i + 1,
+    symbol: t.ticker || t.symbol || "",
+    name: t.name || t.ticker || "",
+    changePercent: t.todaysChangePerc ?? 0,
+    afterhrPrice: t.day?.c ?? 0,
+    afterhrClose: t.prevDay?.c ?? 0,
+    marketCap: 0,
+  }));
+}
 
 function abbr(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -64,7 +53,17 @@ function abbr(n: number | null | undefined): string {
 const VIEW_TABS = ["Overview", "Performance", "Price", "Profile", "Financials", "Technicals"];
 const SUB_TABS = ["Movers", "Gainers", "Losers"];
 
-function AfterHoursTable({ title, data, type }: { title: string; data: AfterHoursRow[]; type: "gainers" | "losers" }) {
+function AfterHoursTable({
+  title,
+  data,
+  type,
+  isLoading,
+}: {
+  title: string;
+  data: AfterHoursRow[];
+  type: "gainers" | "losers";
+  isLoading: boolean;
+}) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [sorting, setSorting] = useState<SortingState>([{ id: "changePercent", desc: type === "gainers" }]);
@@ -82,8 +81,8 @@ function AfterHoursTable({ title, data, type }: { title: string; data: AfterHour
       { accessorKey: "name", header: "Company Name", cell: ({ getValue }) => <span className="text-[0.875rem]" style={{ color: "hsl(var(--text-primary))" }}>{getValue<string>()}</span> },
       { accessorKey: "changePercent", header: "% Change", size: 100, cell: ({ getValue }) => { const v = getValue<number>(); return <span className="text-[0.875rem] font-medium tabular-nums text-right block" style={{ color: v >= 0 ? "hsl(var(--green))" : "hsl(var(--red))" }}>{v.toFixed(2)}%</span>; } },
       { accessorKey: "afterhrPrice", header: "Afterhr. Price", size: 100, cell: ({ getValue }) => <span className="text-[0.875rem] tabular-nums text-right block" style={{ color: "hsl(var(--text-primary))" }}>{getValue<number>().toFixed(2)}</span> },
-      { accessorKey: "afterhrClose", header: "Afterhr. Close", size: 100, cell: ({ getValue }) => <span className="text-[0.875rem] tabular-nums text-right block" style={{ color: "hsl(var(--text-primary))" }}>{getValue<number>().toFixed(2)}</span> },
-      { accessorKey: "marketCap", header: "Market Cap", size: 100, cell: ({ getValue }) => <span className="text-[0.875rem] tabular-nums text-right block" style={{ color: "hsl(var(--text-primary))" }}>{abbr(getValue<number>())}</span> },
+      { accessorKey: "afterhrClose", header: "Prev. Close", size: 100, cell: ({ getValue }) => <span className="text-[0.875rem] tabular-nums text-right block" style={{ color: "hsl(var(--text-primary))" }}>{getValue<number>().toFixed(2)}</span> },
+      { accessorKey: "marketCap", header: "Market Cap", size: 100, cell: ({ getValue }) => { const v = getValue<number>(); return <span className="text-[0.875rem] tabular-nums text-right block" style={{ color: "hsl(var(--text-primary))" }}>{v ? abbr(v) : "—"}</span>; } },
     ],
     [navigate]
   );
@@ -118,44 +117,64 @@ function AfterHoursTable({ title, data, type }: { title: string; data: AfterHour
         <button className="px-3 py-2 text-[0.8125rem] border border-border rounded ml-2" style={{ color: "hsl(var(--text-secondary))" }}>+ Add View</button>
         <button className="px-3 py-2 text-[0.8125rem]" style={{ color: "hsl(var(--text-secondary))" }}>Edit View</button>
       </div>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            {table.getHeaderGroups().map((hg) => (
-              <tr key={hg.id} style={{ background: "hsl(var(--surface))", borderBottom: "2px solid hsl(var(--border))" }}>
-                {hg.headers.map((header) => {
-                  const isRight = ["changePercent", "afterhrPrice", "afterhrClose", "marketCap"].includes(header.id);
-                  const isRank = header.id === "rank";
-                  return (
-                    <th key={header.id} className="table-header px-3 py-2.5 cursor-pointer select-none" style={{ textAlign: isRight || isRank ? "right" : "left", width: header.getSize() !== 150 ? header.getSize() : undefined }} onClick={header.column.getToggleSortingHandler()}>
-                      <span className="inline-flex items-center gap-1">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getIsSorted() === "desc" && " ↓"}
-                        {header.column.getIsSorted() === "asc" && " ↑"}
-                      </span>
-                    </th>
-                  );
-                })}
-              </tr>
-            ))}
-          </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <tr key={row.id} className="transition-colors" style={{ borderBottom: "1px solid hsl(var(--border-subtle))" }} onMouseEnter={(e) => (e.currentTarget.style.background = "hsl(var(--surface))")} onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
-                {row.getVisibleCells().map((cell) => {
-                  const isRight = ["changePercent", "afterhrPrice", "afterhrClose", "marketCap", "rank"].includes(cell.column.id);
-                  return <td key={cell.id} className="px-3 py-2.5" style={{ textAlign: isRight ? "right" : "left" }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {isLoading ? (
+        <div className="space-y-2 py-4">
+          {Array.from({ length: 10 }).map((_, i) => (
+            <Skeleton key={i} className="h-10 w-full rounded" />
+          ))}
+        </div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              {table.getHeaderGroups().map((hg) => (
+                <tr key={hg.id} style={{ background: "hsl(var(--surface))", borderBottom: "2px solid hsl(var(--border))" }}>
+                  {hg.headers.map((header) => {
+                    const isRight = ["changePercent", "afterhrPrice", "afterhrClose", "marketCap"].includes(header.id);
+                    const isRank = header.id === "rank";
+                    return (
+                      <th key={header.id} className="table-header px-3 py-2.5 cursor-pointer select-none" style={{ textAlign: isRight || isRank ? "right" : "left", width: header.getSize() !== 150 ? header.getSize() : undefined }} onClick={header.column.getToggleSortingHandler()}>
+                        <span className="inline-flex items-center gap-1">
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getIsSorted() === "desc" && " ↓"}
+                          {header.column.getIsSorted() === "asc" && " ↑"}
+                        </span>
+                      </th>
+                    );
+                  })}
+                </tr>
+              ))}
+            </thead>
+            <tbody>
+              {table.getRowModel().rows.map((row) => (
+                <tr key={row.id} className="transition-colors" style={{ borderBottom: "1px solid hsl(var(--border-subtle))" }} onMouseEnter={(e) => (e.currentTarget.style.background = "hsl(var(--surface))")} onMouseLeave={(e) => (e.currentTarget.style.background = "")}>
+                  {row.getVisibleCells().map((cell) => {
+                    const isRight = ["changePercent", "afterhrPrice", "afterhrClose", "marketCap", "rank"].includes(cell.column.id);
+                    return <td key={cell.id} className="px-3 py-2.5" style={{ textAlign: isRight ? "right" : "left" }}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</td>;
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
 export default function AfterHoursPage() {
+  const { data: gainersData, isLoading: gainersLoading } = useQuery({
+    queryKey: ["afterhours-gainers"],
+    queryFn: async () => mapApiToRows(await getTopGainers()),
+    staleTime: 60_000,
+  });
+
+  const { data: losersData, isLoading: losersLoading } = useQuery({
+    queryKey: ["afterhours-losers"],
+    queryFn: async () => mapApiToRows(await getTopLosers()),
+    staleTime: 60_000,
+  });
+
   return (
     <div className="w-full">
       <MarketMoversTabBar />
@@ -169,11 +188,10 @@ export default function AfterHoursPage() {
           ))}
         </div>
         <IndexSparklines />
-        <AfterHoursTable title="After Hours Gainers" data={GAINERS_SEED} type="gainers" />
+        <AfterHoursTable title="After Hours Gainers" data={gainersData ?? []} type="gainers" isLoading={gainersLoading} />
         <div className="my-6 border-t border-border" />
-        <AfterHoursTable title="After Hours Losers" data={LOSERS_SEED} type="losers" />
+        <AfterHoursTable title="After Hours Losers" data={losersData ?? []} type="losers" isLoading={losersLoading} />
       </div>
-      
     </div>
   );
 }

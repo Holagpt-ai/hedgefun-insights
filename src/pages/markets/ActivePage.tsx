@@ -13,6 +13,7 @@ import {
 import { Search, MoreVertical, Download } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
+import { supabase } from "@/integrations/supabase/client";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -27,29 +28,6 @@ interface ActiveRow {
   changePercent: number;
   marketCap: number;
 }
-
-const SEED: ActiveRow[] = [
-  { rank: 1, symbol: "ASNS", name: "Actelis Networks, Inc.", volume: 380034166, price: 0.555, changePercent: 47.57, marketCap: 4860000 },
-  { rank: 2, symbol: "KALA", name: "KALA BIO, Inc.", volume: 291099810, price: 0.365, changePercent: 24.16, marketCap: 10310000 },
-  { rank: 3, symbol: "NVDA", name: "NVIDIA Corporation", volume: 145251625, price: 186.03, changePercent: 0.69, marketCap: 4520000000000 },
-  { rank: 4, symbol: "SCNX", name: "Scienture Holdings, Inc.", volume: 143013800, price: 0.464, changePercent: 19.46, marketCap: 18860000 },
-  { rank: 5, symbol: "SAFX", name: "XCF Global, Inc.", volume: 127799140, price: 0.498, changePercent: 74.50, marketCap: 115920000 },
-  { rank: 6, symbol: "DXST", name: "Decent Holding Inc.", volume: 127029691, price: 0.442, changePercent: 10.91, marketCap: 20060000 },
-  { rank: 7, symbol: "PATH", name: "UiPath, Inc.", volume: 120191583, price: 12.38, changePercent: 6.82, marketCap: 6620000000 },
-  { rank: 8, symbol: "KOS", name: "Kosmos Energy Ltd.", volume: 116400575, price: 2.01, changePercent: -16.60, marketCap: 966860000 },
-  { rank: 9, symbol: "HIMS", name: "Hims & Hers Health, Inc.", volume: 111773002, price: 25.88, changePercent: 10.27, marketCap: 5900000000 },
-  { rank: 10, symbol: "ACXP", name: "Acurx Pharmaceuticals, Inc.", volume: 107076910, price: 6.03, changePercent: 107.93, marketCap: 15360000 },
-  { rank: 11, symbol: "WORX", name: "SCWorx Corp.", volume: 94008938, price: 0.146, changePercent: 15.32, marketCap: 2310000 },
-  { rank: 12, symbol: "AAL", name: "American Airlines Group Inc.", volume: 90955060, price: 11.04, changePercent: -0.63, marketCap: 7290000000 },
-  { rank: 13, symbol: "ONDS", name: "Ondas Inc.", volume: 88354210, price: 9.83, changePercent: -1.80, marketCap: 4420000000 },
-  { rank: 14, symbol: "ELPW", name: "Elong Power Holding Limited", volume: 87853828, price: 0.0523, changePercent: -17.90, marketCap: 5930000 },
-  { rank: 15, symbol: "GSUN", name: "Golden Sun Technology Group Limited", volume: 84655265, price: 0.569, changePercent: 12.33, marketCap: 4970000 },
-  { rank: 16, symbol: "ORCL", name: "Oracle Corporation", volume: 83294053, price: 163.12, changePercent: 9.18, marketCap: 469140000000 },
-  { rank: 17, symbol: "SGN", name: "Signing Day Sports, Inc.", volume: 78510016, price: 0.720, changePercent: 12.61, marketCap: 9870000 },
-  { rank: 18, symbol: "NIO", name: "NIO Inc.", volume: 78323659, price: 5.47, changePercent: -4.04, marketCap: 13830000000 },
-  { rank: 19, symbol: "INTC", name: "Intel Corporation", volume: 72474401, price: 47.98, changePercent: 2.57, marketCap: 239660000000 },
-  { rank: 20, symbol: "PLUG", name: "Plug Power Inc.", volume: 67391084, price: 2.23, changePercent: 5.19, marketCap: 3110000000 },
-];
 
 function abbr(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -71,13 +49,27 @@ export default function ActivePage() {
   const { data: apiData, isLoading } = useQuery({
     queryKey: ["most-active-page"],
     queryFn: async () => {
-      // No dedicated Polygon endpoint for most active yet — use seed
-      return null;
+      const { data, error } = await supabase
+        .from("stocks")
+        .select("symbol, name, volume, price, change_percent, market_cap")
+        .not("volume", "is", null)
+        .order("volume", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return (data ?? []).map((r: any, i: number) => ({
+        rank: i + 1,
+        symbol: r.symbol,
+        name: r.name,
+        volume: r.volume ?? 0,
+        price: r.price ?? 0,
+        changePercent: r.change_percent ?? 0,
+        marketCap: r.market_cap ?? 0,
+      })) as ActiveRow[];
     },
     staleTime: 60_000,
   });
 
-  const rows = apiData ?? SEED;
+  const rows = apiData ?? [];
   const filtered = useMemo(() => {
     if (!search) return rows;
     const q = search.toLowerCase();
@@ -200,8 +192,6 @@ export default function ActivePage() {
         <h1 className="text-[1.75rem] font-bold mb-4" style={{ color: "hsl(var(--text-primary))" }}>
           Market Movers
         </h1>
-
-        {/* No time tab bar for Most Active */}
 
         <IndexSparklines />
 
@@ -365,8 +355,6 @@ export default function ActivePage() {
           </Button>
         </div>
       </div>
-
-      
     </div>
   );
 }
