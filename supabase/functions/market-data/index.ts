@@ -36,9 +36,9 @@ serve(async (req) => {
         const endpoint = type === "gainers" ? "gainers" : "losers";
         const res = await fetch(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
         const json = await res.json();
-        const tickers = json.tickers ?? [];
+        const tickers = (json.tickers ?? []).slice(0, 20);
 
-        // Enrich with company names from stocks table
+        // Enrich with company names from stocks table first
         const symbols = tickers.map((t: any) => t.ticker).filter(Boolean);
         const supabase = createClient(
           Deno.env.get("SUPABASE_URL")!,
@@ -49,6 +49,21 @@ serve(async (req) => {
           .select("symbol, name")
           .in("symbol", symbols);
         const nameMap = new Map((stockRows ?? []).map((r: any) => [r.symbol, r.name]));
+
+        // For tickers not in DB, batch-fetch names from Massive reference API
+        const missing = symbols.filter((s: string) => !nameMap.has(s));
+        if (missing.length > 0) {
+          const fetches = missing.slice(0, 10).map(async (sym: string) => {
+            try {
+              const r = await fetch(polyUrl(`/v3/reference/tickers/${sym}`));
+              if (r.ok) {
+                const j = await r.json();
+                if (j.results?.name) nameMap.set(sym, j.results.name);
+              }
+            } catch {}
+          });
+          await Promise.all(fetches);
+        }
 
         data = tickers.map((t: any) => ({
           ...t,
