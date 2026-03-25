@@ -30,7 +30,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Tech", "Analysis"],
   },
   {
     slug: "china-manus-meta-deal-review",
@@ -39,7 +39,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Markets", "Tech"],
   },
   {
     slug: "oil-prices-fall-iran-ceasefire",
@@ -48,7 +48,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Energy", "Markets"],
   },
   {
     slug: "500-million-oil-bet-trump-statement",
@@ -57,7 +57,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Energy", "Markets"],
   },
   {
     slug: "market-volatility-tariff-uncertainty-2026",
