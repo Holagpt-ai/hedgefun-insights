@@ -103,6 +103,7 @@ export const ARTICLES: Article[] = [
       "Microsoft, Google, Amazon, and Meta are spending hundreds of billions on AI infrastructure. Here's what that means for investors and which picks stand out.",
     date: "Mar 1, 2026",
     image: aiImg,
+    tags: ["Tech", "Analysis"],
   },
   {
     slug: "energy-stocks-to-watch-as-the-grid-demands-more-power",
