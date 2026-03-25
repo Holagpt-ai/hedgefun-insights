@@ -251,8 +251,8 @@ const EarningsPage = () => {
               <tbody>
                 {dayEarnings.map((e) => {
                   const stock = stocksMap?.[e.symbol];
-                  const isAfterClose = e.time_of_day === "After Close";
-                  const isBeforeOpen = e.time_of_day === "Before Open";
+                  const isAfterClose = e.time_of_day === "after_close";
+                  const isBeforeOpen = e.time_of_day === "before_open";
                   return (
                     <tr key={e.id} className="border-b border-border hover:bg-surface transition-colors">
                       <td className="py-2 px-3">
