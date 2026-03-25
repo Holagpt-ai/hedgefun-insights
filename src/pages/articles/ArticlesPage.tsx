@@ -76,6 +76,7 @@ export const ARTICLES: Article[] = [
       "SpaceX's Starlink division is one of the most anticipated IPOs in years. Here's what the financials look like and how to position before it launches.",
     date: "Jan 15, 2026",
     image: starlinkImg,
+    tags: ["IPO", "Tech"],
   },
   {
     slug: "rising-oil-prices-whats-driving-the-surge",
