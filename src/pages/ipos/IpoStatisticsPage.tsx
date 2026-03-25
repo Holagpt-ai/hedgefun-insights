@@ -1,4 +1,6 @@
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { IpoTabBar } from "@/components/ipos/IpoTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
@@ -7,7 +9,7 @@ import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 
-/* ── Annual data 2000–2026 ─────────────────────── */
+/* ── Historical annual data (reference/static) ─── */
 const ANNUAL_DATA = [
   { year: 2000, count: 406 }, { year: 2001, count: 79 }, { year: 2002, count: 66 }, { year: 2003, count: 68 },
   { year: 2004, count: 233 }, { year: 2005, count: 194 }, { year: 2006, count: 198 }, { year: 2007, count: 213 },
@@ -18,7 +20,6 @@ const ANNUAL_DATA = [
   { year: 2024, count: 223 }, { year: 2025, count: 247 }, { year: 2026, count: 38 },
 ];
 
-/* ── Monthly breakdowns 2019–2025 ─────────────── */
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 interface YearlyBreakdown { year: number; total: number; months: number[]; best: string; bestCount: number; worst: string; worstCount: number; }
@@ -29,35 +30,50 @@ const YEARLY: YearlyBreakdown[] = [
   { year: 2023, total: 154, months: [11, 8, 19, 14, 15, 16, 18, 12, 10, 13, 11, 7], best: "March", bestCount: 19, worst: "December", worstCount: 7 },
   { year: 2022, total: 181, months: [34, 16, 18, 14, 12, 11, 17, 13, 10, 11, 9, 16], best: "January", bestCount: 34, worst: "November", worstCount: 9 },
   { year: 2021, total: 1035, months: [117, 107, 151, 67, 76, 69, 97, 101, 68, 87, 53, 42], best: "March", bestCount: 151, worst: "August", worstCount: 42 },
-  { year: 2020, total: 486, months: [22, 18, 5, 12, 28, 36, 44, 42, 56, 67, 45, 41, 30], best: "October", bestCount: 67, worst: "March", worstCount: 5 },
+  { year: 2020, total: 486, months: [22, 18, 5, 12, 28, 36, 44, 42, 56, 67, 45, 41], best: "October", bestCount: 67, worst: "March", worstCount: 5 },
   { year: 2019, total: 232, months: [10, 15, 32, 22, 32, 28, 32, 17, 24, 27, 15, 10], best: "May and July", bestCount: 32, worst: "January", worstCount: 10 },
 ];
 
-/* ── Sidebar data ──────────────────────────────── */
-const LATEST_IPOS = [
-  { date: "Mar 12, 2026", symbol: "PAYP", company: "PayPay Corporation" },
-  { date: "Mar 7, 2026", symbol: "RDDT", company: "Reddit Inc." },
-  { date: "Mar 5, 2026", symbol: "ALAB", company: "Astera Labs Inc." },
-  { date: "Mar 4, 2026", symbol: "VRT", company: "Vertiv Holdings Co." },
-  { date: "Mar 3, 2026", symbol: "CART", company: "Maplebear Inc." },
-];
-
-const IPO_NEWS_ITEMS = [
-  { time: "2 hours ago", headline: "Cantor Fitzgerald IPO plans gaining momentum after SPAC talks falter" },
-  { time: "3 hours ago", headline: "European tech IPOs surge as venture capital seeks exits" },
-  { time: "5 hours ago", headline: "Stripe reportedly reconsidering direct listing for 2026" },
-  { time: "6 hours ago", headline: "Medline Industries adds banks for potential $50B IPO" },
-  { time: "8 hours ago", headline: "Databricks sets sights on IPO as AI revenue doubles" },
-  { time: "10 hours ago", headline: "Chinese IPOs in the US face new regulatory scrutiny" },
-  { time: "12 hours ago", headline: "StockX exploring IPO after shelving 2022 plans" },
-  { time: "1 day ago", headline: "Private equity firms rush portfolio companies toward Q2 listings" },
-  { time: "1 day ago", headline: "Fanatics sports betting unit considered for separate IPO" },
-  { time: "2 days ago", headline: "ServiceTitan stock surges 42% in first day of trading" },
-];
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
 /* ── Component ─────────────────────────────────── */
 export default function IpoStatisticsPage() {
   const navigate = useNavigate();
+
+  const { data: latestIpos } = useQuery({
+    queryKey: ["ipo-latest-sidebar"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ipo_list")
+        .select("*")
+        .eq("status", "recent")
+        .order("ipo_date", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ipoNews } = useQuery({
+    queryKey: ["ipo-news-stats-sidebar"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("market_news")
+        .select("*")
+        .eq("category", "ipo")
+        .order("published_at", { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const totalIpos = ANNUAL_DATA.reduce((s, d) => s + d.count, 0);
 
@@ -83,7 +99,6 @@ export default function IpoStatisticsPage() {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Main */}
           <div className="flex-1 min-w-0">
-            {/* Annual overview */}
             <h2 className="text-[1.125rem] font-bold text-foreground mb-2">Number of IPOs by Year</h2>
             <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
               There have been {totalIpos.toLocaleString()} IPOs between 2000 and 2026. The best was in 2021 with 1,035 IPOs. The worst was in 2008 with only 62. The full year 2021 was an all-time record, beating the previous record of 486 in the year 2020.
@@ -104,7 +119,6 @@ export default function IpoStatisticsPage() {
               </BarChart>
             </ResponsiveContainer>
 
-            {/* Per-year monthly breakdowns */}
             {YEARLY.map((yd) => {
               const monthlyData = MONTHS.map((m, i) => ({ month: m, count: yd.months[i] ?? 0 }));
               return (
@@ -140,14 +154,20 @@ export default function IpoStatisticsPage() {
             {/* Latest IPOs */}
             <div className="border border-border rounded-lg p-4">
               <h2 className="text-base font-bold text-foreground mb-3">Latest IPOs</h2>
-              {LATEST_IPOS.map((ipo, i) => (
-                <div key={ipo.symbol} className={cn("py-2.5", i < LATEST_IPOS.length - 1 && "border-b border-border-subtle")}>
-                  <div className="text-xs text-muted-foreground">{ipo.date}</div>
+              {(latestIpos ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No recent IPO data.</p>
+              ) : (latestIpos ?? []).map((ipo, i) => (
+                <div key={ipo.id} className={cn("py-2.5", i < (latestIpos?.length ?? 0) - 1 && "border-b border-border-subtle")}>
+                  <div className="text-xs text-muted-foreground">
+                    {new Date(ipo.ipo_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <button onClick={() => navigate(`/stocks/${ipo.symbol.toLowerCase()}`)} className="text-sm font-semibold text-accent-blue hover:underline">
-                      {ipo.symbol}
-                    </button>
-                    <span className="text-sm text-foreground truncate">{ipo.company}</span>
+                    {ipo.symbol && (
+                      <button onClick={() => navigate(`/stocks/${ipo.symbol!.toLowerCase()}`)} className="text-sm font-semibold text-accent-blue hover:underline">
+                        {ipo.symbol}
+                      </button>
+                    )}
+                    <span className="text-sm text-foreground truncate">{ipo.name}</span>
                   </div>
                 </div>
               ))}
@@ -167,10 +187,21 @@ export default function IpoStatisticsPage() {
             {/* IPO News */}
             <div className="border border-border rounded-lg p-4">
               <h2 className="text-base font-bold text-foreground mb-3">IPO News</h2>
-              {IPO_NEWS_ITEMS.map((news, i) => (
-                <div key={i} className={cn("py-2.5", i < IPO_NEWS_ITEMS.length - 1 && "border-b border-border-subtle")}>
-                  <div className="text-xs text-muted-foreground mb-0.5">{news.time}</div>
-                  <button className="text-sm text-accent-blue hover:underline text-left leading-snug">{news.headline}</button>
+              {(ipoNews ?? []).length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2">No IPO news available.</p>
+              ) : (ipoNews ?? []).map((news, i) => (
+                <div key={news.id} className={cn("py-2.5", i < (ipoNews?.length ?? 0) - 1 && "border-b border-border-subtle")}>
+                  <div className="text-xs text-muted-foreground mb-0.5">
+                    {news.published_at ? timeAgo(news.published_at) : ""}
+                  </div>
+                  <a
+                    href={news.url ?? "#"}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-accent-blue hover:underline text-left leading-snug"
+                  >
+                    {news.headline}
+                  </a>
                 </div>
               ))}
               <button onClick={() => navigate("/ipos/news")} className="mt-3 text-sm font-medium text-accent-blue hover:underline">

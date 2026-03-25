@@ -1,5 +1,7 @@
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useReactTable, getCoreRowModel, getSortedRowModel, getPaginationRowModel,
   flexRender, createColumnHelper, type SortingState,
@@ -11,6 +13,7 @@ import { AdBanner } from "@/components/layout/AdBanner";
 import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -18,36 +21,11 @@ import {
 interface ScreenerIpo {
   symbol: string;
   company: string;
-  marketCap: string;
-  marketCapNum: number;
-  industry: string;
+  exchange: string;
   priceRange: string;
-  dealSize: string;
-  revenue: string;
+  offerPrice: number;
+  ipoDate: string;
 }
-
-const SEED: ScreenerIpo[] = [
-  { symbol: "PAYP", company: "PayPay Corporation", marketCap: "12.37B", marketCapNum: 12370, industry: "Credit Services", priceRange: "$17.00 - $20.00", dealSize: "1.02B", revenue: "2.33B" },
-  { symbol: "PHCC", company: "Preston Hollow Community Capital,...", marketCap: "2.26B", marketCapNum: 2260, industry: "Finance Services", priceRange: "$18.00 - $20.00", dealSize: "200.00M", revenue: "150.18M" },
-  { symbol: "ZSSY", company: "Diamond Water Origin Supply Chai...", marketCap: "1.37B", marketCapNum: 1370, industry: "Shell Companies", priceRange: "$26.88", dealSize: "25.0M", revenue: "–" },
-  { symbol: "EOCO", company: "Elliott Opportunity I Corp.", marketCap: "1.25B", marketCapNum: 1250, industry: "Shell Companies", priceRange: "$10.00", dealSize: "1.00B", revenue: "–" },
-  { symbol: "NGIO", company: "NuGenerex Immuno-oncology, Inc.", marketCap: "952.70M", marketCapNum: 952, industry: "Pharmaceutical Preparations", priceRange: "$8.50 - $9.50", dealSize: "50.00M", revenue: "–" },
-  { symbol: "TKVA", company: "Salspera Inc.", marketCap: "938.08M", marketCapNum: 938, industry: "Biotechnology", priceRange: "$14.00 - $16.00", dealSize: "85.00M", revenue: "–" },
-  { symbol: "TACQ", company: "Tetragon Acquisition Corporation I", marketCap: "625.00M", marketCapNum: 625, industry: "Shell Companies", priceRange: "$10.00", dealSize: "500.00M", revenue: "–" },
-  { symbol: "GGI", company: "Guggenheim Special Purpose Acqui...", marketCap: "625.00M", marketCapNum: 625, industry: "Shell Companies", priceRange: "$10.00", dealSize: "500.00M", revenue: "–" },
-  { symbol: "RADD", company: "Corner Growth Acquisition Corp. 3", marketCap: "562.50M", marketCapNum: 562, industry: "Shell Companies", priceRange: "$10.00", dealSize: "450.00M", revenue: "–" },
-  { symbol: "MWC", company: "Micware Co., Ltd.", marketCap: "479.14M", marketCapNum: 479, industry: "Information Technology Services", priceRange: "$7.00 - $9.00", dealSize: "30.00M", revenue: "148.75M" },
-  { symbol: "AXY", company: "Wise Ocean Group Inc", marketCap: "470.00M", marketCapNum: 470, industry: "Software - Application", priceRange: "$5.00", dealSize: "20.00M", revenue: "–" },
-  { symbol: "ACAM", company: "Acamar Partners Acquisition Corp. II", marketCap: "437.50M", marketCapNum: 437, industry: "Shell Companies", priceRange: "$10.00", dealSize: "350.00M", revenue: "–" },
-  { symbol: "MTNE", company: "CH4 Natural Solutions Corporation", marketCap: "402.00M", marketCapNum: 402, industry: "Shell Companies", priceRange: "$10.00", dealSize: "300.00M", revenue: "–" },
-  { symbol: "PPHC", company: "Public Policy Holding Company, Inc.", marketCap: "401.77M", marketCapNum: 401, industry: "Specialty Business Services", priceRange: "$14.08", dealSize: "58.43M", revenue: "166.33M" },
-  { symbol: "SBMT", company: "Silver Bow Mining Corp.", marketCap: "375.94M", marketCapNum: 375, industry: "Other Precious Metals & Mining", priceRange: "$12.00 - $15.00", dealSize: "50.00M", revenue: "–" },
-  { symbol: "DGC", company: "Delphi Growth Capital Corp.", marketCap: "375.00M", marketCapNum: 375, industry: "Shell Companies", priceRange: "$10.00", dealSize: "300.00M", revenue: "–" },
-  { symbol: "ASPX", company: "Aspirational Consumer Lifestyle Cor...", marketCap: "375.00M", marketCapNum: 375, industry: "Shell Companies", priceRange: "$10.00", dealSize: "300.00M", revenue: "–" },
-  { symbol: "BTVC", company: "Tribe Capital Growth Corp. II", marketCap: "375.00M", marketCapNum: 375, industry: "Shell Companies", priceRange: "$10.00", dealSize: "300.00M", revenue: "–" },
-  { symbol: "PRDT", company: "Peridot Acquisition Corp. III", marketCap: "375.00M", marketCapNum: 375, industry: "Shell Companies", priceRange: "$10.00", dealSize: "300.00M", revenue: "–" },
-  { symbol: "SVNI", company: "Seven Islands, Inc.", marketCap: "375.00M", marketCapNum: 375, industry: "Shell Companies", priceRange: "$10.00", dealSize: "300.00M", revenue: "–" },
-];
 
 const VIEW_TABS = ["General", "Filters", "Company", "Income", "Balance Sheet", "Cash Flow"] as const;
 
@@ -55,47 +33,80 @@ const col = createColumnHelper<ScreenerIpo>();
 
 export default function IpoScreenerPage() {
   const navigate = useNavigate();
-  const [sorting, setSorting] = useState<SortingState>([{ id: "marketCapNum", desc: true }]);
+  const [sorting, setSorting] = useState<SortingState>([]);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [viewTab, setViewTab] = useState<string>("General");
+
+  const { data: dbData, isLoading } = useQuery({
+    queryKey: ["ipo-screener"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ipo_list")
+        .select("*")
+        .order("ipo_date", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const tableData: ScreenerIpo[] = useMemo(() => {
+    if (!dbData) return [];
+    return dbData.map((ipo) => ({
+      symbol: ipo.symbol ?? "TBD",
+      company: ipo.name,
+      exchange: ipo.exchange ?? "–",
+      priceRange: ipo.price_range ?? "–",
+      offerPrice: ipo.offer_price ?? 0,
+      ipoDate: ipo.ipo_date,
+    }));
+  }, [dbData]);
 
   const columns = useMemo(() => [
     col.accessor("symbol", {
       header: "Symbol",
-      cell: (info) => (
-        <button onClick={() => navigate(`/stocks/${info.getValue().toLowerCase()}`)} className="font-semibold text-accent-blue hover:underline text-sm">
-          {info.getValue()}
-        </button>
-      ),
+      cell: (info) => {
+        const val = info.getValue();
+        return val && val !== "TBD" ? (
+          <button onClick={() => navigate(`/stocks/${val.toLowerCase()}`)} className="font-semibold text-accent-blue hover:underline text-sm">
+            {val}
+          </button>
+        ) : (
+          <span className="text-muted-foreground text-xs">TBD</span>
+        );
+      },
     }),
     col.accessor("company", {
       header: "Company Name",
       cell: (info) => <span className="text-foreground text-sm">{info.getValue()}</span>,
     }),
-    col.accessor("marketCapNum", {
-      header: () => <span className="text-right block">Market Cap</span>,
-      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.row.original.marketCap}</span>,
+    col.accessor("ipoDate", {
+      header: "IPO Date",
+      cell: (info) => (
+        <span className="text-muted-foreground text-sm tabular-nums">
+          {new Date(info.getValue()).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        </span>
+      ),
     }),
-    col.accessor("industry", {
-      header: "Industry",
+    col.accessor("exchange", {
+      header: "Exchange",
       cell: (info) => <span className="text-foreground text-sm">{info.getValue()}</span>,
     }),
     col.accessor("priceRange", {
       header: () => <span className="text-right block">Price Range</span>,
       cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
     }),
-    col.accessor("dealSize", {
-      header: () => <span className="text-right block">Deal Size</span>,
-      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
-    }),
-    col.accessor("revenue", {
-      header: () => <span className="text-right block">Revenue</span>,
-      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
+    col.accessor("offerPrice", {
+      header: () => <span className="text-right block">Offer Price</span>,
+      cell: (info) => {
+        const val = info.getValue();
+        return <span className="text-foreground text-sm tabular-nums text-right block">{val ? `$${val.toFixed(2)}` : "–"}</span>;
+      },
     }),
   ], [navigate]);
 
   const table = useReactTable({
-    data: SEED,
+    data: tableData,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
@@ -164,7 +175,7 @@ export default function IpoScreenerPage() {
 
         {/* Results header */}
         <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
-          <span className="text-sm font-semibold text-foreground">{SEED.length} Stocks</span>
+          <span className="text-sm font-semibold text-foreground">{tableData.length} IPOs</span>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -202,52 +213,64 @@ export default function IpoScreenerPage() {
         </div>
 
         {/* Table */}
-        <div className="border border-border rounded-b-lg overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                {table.getHeaderGroups().map((hg) => (
-                  <tr key={hg.id} className="border-b border-border bg-surface">
-                    {hg.headers.map((header) => (
-                      <th
-                        key={header.id}
-                        className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer"
-                        onClick={header.column.getToggleSortingHandler()}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
-                    ))}
-                  </tr>
-                ))}
-              </thead>
-              <tbody>
-                {table.getRowModel().rows.map((row) => (
-                  <tr key={row.id} className="border-b border-border-subtle hover:bg-surface transition-colors">
-                    {row.getVisibleCells().map((cell) => (
-                      <td key={cell.id} className="px-3 py-2">
-                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {isLoading ? (
+          <div className="space-y-2 mt-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="h-10 w-full rounded" />
+            ))}
           </div>
-        </div>
+        ) : tableData.length === 0 ? (
+          <p className="text-muted-foreground text-sm py-8 text-center">No IPO data available yet.</p>
+        ) : (
+          <div className="border border-border rounded-b-lg overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  {table.getHeaderGroups().map((hg) => (
+                    <tr key={hg.id} className="border-b border-border bg-surface">
+                      {hg.headers.map((header) => (
+                        <th
+                          key={header.id}
+                          className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider cursor-pointer"
+                          onClick={header.column.getToggleSortingHandler()}
+                        >
+                          {flexRender(header.column.columnDef.header, header.getContext())}
+                        </th>
+                      ))}
+                    </tr>
+                  ))}
+                </thead>
+                <tbody>
+                  {table.getRowModel().rows.map((row) => (
+                    <tr key={row.id} className="border-b border-border-subtle hover:bg-surface transition-colors">
+                      {row.getVisibleCells().map((cell) => (
+                        <td key={cell.id} className="px-3 py-2">
+                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Pagination */}
-        <div className="flex items-center justify-between mt-4">
-          <Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()} className="text-xs gap-1">
-            ← Previous
-          </Button>
-          <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Page {pageIndex + 1} of {pageCount}</span>
-            <Button variant="outline" size="sm" className="text-xs">20 Rows ▾</Button>
+        {tableData.length > 0 && (
+          <div className="flex items-center justify-between mt-4">
+            <Button variant="outline" size="sm" disabled={!table.getCanPreviousPage()} onClick={() => table.previousPage()} className="text-xs gap-1">
+              ← Previous
+            </Button>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-muted-foreground">Page {pageIndex + 1} of {pageCount}</span>
+              <Button variant="outline" size="sm" className="text-xs">20 Rows ▾</Button>
+            </div>
+            <Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onClick={() => table.nextPage()} className="text-xs gap-1">
+              Next →
+            </Button>
           </div>
-          <Button variant="outline" size="sm" disabled={!table.getCanNextPage()} onClick={() => table.nextPage()} className="text-xs gap-1">
-            Next →
-          </Button>
-        </div>
+        )}
 
         {/* Back to top */}
         <div className="text-center mt-4 mb-6">
