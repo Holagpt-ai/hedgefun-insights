@@ -14,10 +14,59 @@ export interface Article {
   excerpt: string;
   date: string;
   image: string;
+  author?: string;
+  tags?: string[];
 }
 
 /* ── Seed Data ──────────────────────────────────── */
 export const ARTICLES: Article[] = [
+  // ── New articles (March 25 2026) ──
+  {
+    slug: "jensen-huang-agi-achieved",
+    title: "Jensen Huang Says AGI Has Been Achieved — What It Means for Nvidia and the Market",
+    excerpt: "Nvidia's CEO made a bold claim about artificial general intelligence. Here's what it means for NVDA stock, the semiconductor industry, and investors.",
+    date: "Mar 25, 2026",
+    image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
+    author: "HedgeFun Editorial Team",
+    tags: ["Markets", "Analysis"],
+  },
+  {
+    slug: "china-manus-meta-deal-review",
+    title: "China Reviews Manus-Meta Deal: All Founders Barred From Leaving the Country",
+    excerpt: "Beijing has placed travel restrictions on Manus founders amid its regulatory review of the Meta acquisition deal. What this means for US-China tech relations.",
+    date: "Mar 25, 2026",
+    image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
+    author: "HedgeFun Editorial Team",
+    tags: ["Markets", "Analysis"],
+  },
+  {
+    slug: "oil-prices-fall-iran-ceasefire",
+    title: "Oil Prices Fall on Reports of U.S. Ceasefire Proposal With Iran — Will Oil Hit $200?",
+    excerpt: "Crude oil dropped sharply on ceasefire reports. We analyze whether $200 oil is realistic and which energy stocks are most affected.",
+    date: "Mar 25, 2026",
+    image: "https://images.unsplash.com/photo-1601370552761-5b0df7c9a4b6?w=1200&q=80",
+    author: "HedgeFun Editorial Team",
+    tags: ["Markets", "Analysis"],
+  },
+  {
+    slug: "500-million-oil-bet-trump-statement",
+    title: "$500 Million Oil Trade Made Minutes Before Trump's Iran Energy Strike Statement",
+    excerpt: "A massive oil options trade placed just before a presidential announcement has drawn SEC scrutiny and market manipulation concerns.",
+    date: "Mar 25, 2026",
+    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+    author: "HedgeFun Editorial Team",
+    tags: ["Markets", "Analysis"],
+  },
+  {
+    slug: "market-volatility-tariff-uncertainty-2026",
+    title: "Market Volatility Surges as Tariff Uncertainty Keeps Investors on Edge in 2026",
+    excerpt: "The VIX is elevated and S&P 500 swings are widening. We break down what's driving 2026 market volatility and how to position your portfolio.",
+    date: "Mar 25, 2026",
+    image: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
+    author: "HedgeFun Editorial Team",
+    tags: ["Markets", "Analysis"],
+  },
+  // ── Original articles ──
   {
     slug: "starlink-ipo-what-investors-need-to-know",
     title: "Starlink IPO: What Investors Need to Know Before It Goes Public",
@@ -59,6 +108,10 @@ export const ARTICLES: Article[] = [
     image: energyImg,
   },
 ];
+
+export function getReadTime(wordCount: number): string {
+  return `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
+}
 
 export default function ArticlesPage() {
   const navigate = useNavigate();
@@ -102,7 +155,7 @@ export default function ArticlesPage() {
             className="text-left border border-border rounded-md overflow-hidden hover:border-accent-blue transition-colors group bg-surface-card"
           >
             {/* Cover image */}
-            <div className="h-[160px] overflow-hidden">
+            <div className="aspect-video overflow-hidden">
               <img
                 src={article.image}
                 alt={article.title}
@@ -127,7 +180,7 @@ export default function ArticlesPage() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-accent-blue leading-none">
-                    HedgeFun Team
+                    {article.author ?? "HedgeFun Team"}
                   </p>
                   <p className="text-[0.625rem] text-muted-foreground mt-0.5">{article.date}</p>
                 </div>
