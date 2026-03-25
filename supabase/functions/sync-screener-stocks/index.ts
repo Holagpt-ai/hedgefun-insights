@@ -111,6 +111,7 @@ serve(async (req) => {
           if (!symbol) continue;
           const row = {
             symbol,
+            name: symbol,
             price: t.day?.c ?? t.lastTrade?.p ?? null,
             change_amount: t.todaysChange ?? null,
             change_percent: t.todaysChangePerc ?? null,
