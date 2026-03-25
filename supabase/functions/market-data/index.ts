@@ -67,7 +67,7 @@ serve(async (req) => {
 
         data = tickers.map((t: any) => ({
           ...t,
-          name: nameMap.get(t.ticker) || t.ticker,
+          name: cleanName(nameMap.get(t.ticker) || t.ticker),
         }));
         break;
       }
