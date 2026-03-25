@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
@@ -31,16 +31,44 @@ serve(async (req) => {
     let data: unknown;
 
     switch (type) {
-      case "gainers": {
-        const res = await fetch(polyUrl("/v2/snapshot/locale/us/markets/stocks/gainers"));
-        const json = await res.json();
-        data = json.tickers ?? [];
-        break;
-      }
+      case "gainers":
       case "losers": {
-        const res = await fetch(polyUrl("/v2/snapshot/locale/us/markets/stocks/losers"));
+        const endpoint = type === "gainers" ? "gainers" : "losers";
+        const res = await fetch(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
         const json = await res.json();
-        data = json.tickers ?? [];
+        const tickers = (json.tickers ?? []).slice(0, 20);
+
+        // Enrich with company names from stocks table first
+        const symbols = tickers.map((t: any) => t.ticker).filter(Boolean);
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        const { data: stockRows } = await supabase
+          .from("stocks")
+          .select("symbol, name")
+          .in("symbol", symbols);
+        const nameMap = new Map((stockRows ?? []).map((r: any) => [r.symbol, r.name]));
+
+        // For tickers not in DB, batch-fetch names from Massive reference API
+        const missing = symbols.filter((s: string) => !nameMap.has(s));
+        if (missing.length > 0) {
+          const fetches = missing.slice(0, 10).map(async (sym: string) => {
+            try {
+              const r = await fetch(polyUrl(`/v3/reference/tickers/${sym}`));
+              if (r.ok) {
+                const j = await r.json();
+                if (j.results?.name) nameMap.set(sym, j.results.name);
+              }
+            } catch {}
+          });
+          await Promise.all(fetches);
+        }
+
+        data = tickers.map((t: any) => ({
+          ...t,
+          name: nameMap.get(t.ticker) || t.ticker,
+        }));
         break;
       }
       case "snapshot": {
