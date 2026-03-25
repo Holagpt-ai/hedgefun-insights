@@ -1,8 +1,10 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
-
+import { Skeleton } from "@/components/ui/skeleton";
 import { Lock, ChevronDown } from "lucide-react";
 
 const TIMEFRAMES = ["1D", "1W", "1M", "YTD", "1Y"] as const;
@@ -11,7 +13,7 @@ interface StockTile {
   ticker: string;
   name: string;
   change: number;
-  mcap: number; // relative weight
+  mcap: number;
   price: number;
 }
 
@@ -25,196 +27,70 @@ interface Sector {
   industries: Industry[];
 }
 
-const SECTORS: Sector[] = [
-  {
-    name: "Technology",
-    industries: [
-      {
-        name: "Semiconductors",
-        stocks: [
-          { ticker: "NVDA", name: "NVIDIA Corp", change: 0.69, mcap: 28, price: 878.37 },
-          { ticker: "AVGO", name: "Broadcom Inc", change: -0.29, mcap: 14, price: 168.52 },
-          { ticker: "AMD", name: "Advanced Micro Devices", change: 0.79, mcap: 8, price: 101.23 },
-          { ticker: "MU", name: "Micron Technology", change: 3.86, mcap: 5, price: 95.81 },
-          { ticker: "INTC", name: "Intel Corp", change: -1.74, mcap: 4, price: 23.41 },
-          { ticker: "TXN", name: "Texas Instruments", change: 0.31, mcap: 4, price: 185.20 },
-          { ticker: "AMAT", name: "Applied Materials", change: -0.52, mcap: 3, price: 156.78 },
-          { ticker: "KLAC", name: "KLA Corp", change: 0.18, mcap: 2, price: 642.50 },
-          { ticker: "MRVL", name: "Marvell Technology", change: -0.93, mcap: 2, price: 62.15 },
-        ],
-      },
-      {
-        name: "Software - Infrastructure",
-        stocks: [
-          { ticker: "MSFT", name: "Microsoft Corp", change: -0.22, mcap: 26, price: 388.47 },
-          { ticker: "ORCL", name: "Oracle Corp", change: 9.18, mcap: 10, price: 163.82 },
-          { ticker: "PLTR", name: "Palantir Technologies", change: 0.37, mcap: 4, price: 82.15 },
-          { ticker: "CRM", name: "Salesforce Inc", change: -0.4, mcap: 6, price: 267.90 },
-          { ticker: "PANW", name: "Palo Alto Networks", change: -0.61, mcap: 3, price: 175.42 },
-        ],
-      },
-      {
-        name: "Consumer Electronics",
-        stocks: [
-          { ticker: "AAPL", name: "Apple Inc", change: -0.01, mcap: 30, price: 227.48 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Financials",
-    industries: [
-      {
-        name: "Banks - Diversified",
-        stocks: [
-          { ticker: "JPM", name: "JPMorgan Chase", change: -0.42, mcap: 10, price: 236.15 },
-          { ticker: "BAC", name: "Bank of America", change: -0.08, mcap: 6, price: 41.82 },
-        ],
-      },
-      {
-        name: "Insurance - Diversified",
-        stocks: [
-          { ticker: "BRK.B", name: "Berkshire Hathaway", change: -0.12, mcap: 12, price: 518.30 },
-        ],
-      },
-      {
-        name: "Capital Markets",
-        stocks: [
-          { ticker: "WFC", name: "Wells Fargo", change: -2.01, mcap: 4, price: 67.25 },
-        ],
-      },
-      {
-        name: "Credit Services",
-        stocks: [
-          { ticker: "MA", name: "Mastercard Inc", change: -2.08, mcap: 7, price: 532.18 },
-          { ticker: "V", name: "Visa Inc", change: -1.74, mcap: 8, price: 312.45 },
-          { ticker: "AXP", name: "American Express", change: -0.54, mcap: 3, price: 268.90 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Consumer Discretionary",
-    industries: [
-      {
-        name: "Auto Manufacturers",
-        stocks: [
-          { ticker: "TSLA", name: "Tesla Inc", change: 2.15, mcap: 14, price: 251.72 },
-        ],
-      },
-      {
-        name: "Internet Retail",
-        stocks: [
-          { ticker: "AMZN", name: "Amazon.com Inc", change: -0.78, mcap: 16, price: 197.83 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Industrials",
-    industries: [
-      {
-        name: "Aerospace & Defense",
-        stocks: [
-          { ticker: "GE", name: "GE Aerospace", change: -0.42, mcap: 5, price: 189.25 },
-          { ticker: "RTX", name: "RTX Corp", change: 0.28, mcap: 4, price: 128.60 },
-          { ticker: "HON", name: "Honeywell Intl", change: -0.35, mcap: 4, price: 202.15 },
-          { ticker: "LMT", name: "Lockheed Martin", change: 0.15, mcap: 3, price: 468.30 },
-          { ticker: "UNP", name: "Union Pacific", change: -0.61, mcap: 3, price: 235.80 },
-          { ticker: "UPS", name: "United Parcel Service", change: -1.12, mcap: 2, price: 128.45 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Communication Services",
-    industries: [
-      {
-        name: "Internet Content & Information",
-        stocks: [
-          { ticker: "GOOGL", name: "Alphabet Inc", change: 0.54, mcap: 18, price: 167.42 },
-          { ticker: "META", name: "Meta Platforms", change: 0.12, mcap: 14, price: 585.30 },
-        ],
-      },
-      {
-        name: "Entertainment",
-        stocks: [
-          { ticker: "NFLX", name: "Netflix Inc", change: -2.11, mcap: 5, price: 892.15 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Healthcare",
-    industries: [
-      {
-        name: "Drug Manufacturers - General",
-        stocks: [
-          { ticker: "LLY", name: "Eli Lilly", change: -0.15, mcap: 12, price: 782.40 },
-          { ticker: "JNJ", name: "Johnson & Johnson", change: -0.3, mcap: 8, price: 155.82 },
-          { ticker: "ABBV", name: "AbbVie Inc", change: 0.3, mcap: 6, price: 192.65 },
-          { ticker: "MRK", name: "Merck & Co", change: -0.75, mcap: 5, price: 86.30 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Consumer Staples",
-    industries: [
-      {
-        name: "Discount Stores",
-        stocks: [
-          { ticker: "WMT", name: "Walmart Inc", change: -1.3, mcap: 8, price: 85.42 },
-          { ticker: "COST", name: "Costco Wholesale", change: -0.51, mcap: 6, price: 892.30 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Energy",
-    industries: [
-      {
-        name: "Oil & Gas Integrated",
-        stocks: [
-          { ticker: "XOM", name: "Exxon Mobil", change: 2.33, mcap: 8, price: 108.92 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Utilities",
-    industries: [
-      {
-        name: "Regulated Electric",
-        stocks: [
-          { ticker: "NEE", name: "NextEra Energy", change: -0.82, mcap: 3, price: 72.45 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Real Estate",
-    industries: [
-      {
-        name: "REIT - Diversified",
-        stocks: [
-          { ticker: "PLD", name: "Prologis Inc", change: -0.45, mcap: 2, price: 112.30 },
-        ],
-      },
-    ],
-  },
-  {
-    name: "Materials",
-    industries: [
-      {
-        name: "Specialty Chemicals",
-        stocks: [
-          { ticker: "LIN", name: "Linde PLC", change: 0.22, mcap: 3, price: 452.80 },
-        ],
-      },
-    ],
-  },
+const SECTOR_ORDER = [
+  "Technology", "Financials", "Consumer Discretionary", "Communication Services",
+  "Healthcare", "Industrials", "Consumer Staples", "Energy",
+  "Utilities", "Real Estate", "Materials",
 ];
+
+function buildSectors(rows: any[]): Sector[] {
+  const sectorMap = new Map<string, Map<string, StockTile[]>>();
+
+  for (const row of rows) {
+    const sector = row.sector || "Other";
+    const industry = row.industry || "Other";
+    if (!sectorMap.has(sector)) sectorMap.set(sector, new Map());
+    const indMap = sectorMap.get(sector)!;
+    if (!indMap.has(industry)) indMap.set(industry, []);
+    indMap.get(industry)!.push({
+      ticker: row.symbol,
+      name: row.name,
+      change: row.change_percent ?? 0,
+      mcap: row.market_cap ?? 0,
+      price: row.price ?? 0,
+    });
+  }
+
+  // Sort stocks within each industry by market cap descending
+  for (const indMap of sectorMap.values()) {
+    for (const stocks of indMap.values()) {
+      stocks.sort((a, b) => b.mcap - a.mcap);
+    }
+  }
+
+  // Build sectors in preferred order, then any remaining
+  const result: Sector[] = [];
+  const handled = new Set<string>();
+
+  for (const sectorName of SECTOR_ORDER) {
+    const indMap = sectorMap.get(sectorName);
+    if (!indMap) continue;
+    handled.add(sectorName);
+    const industries: Industry[] = [];
+    for (const [indName, stocks] of indMap) {
+      industries.push({ name: indName, stocks });
+    }
+    // Sort industries by total mcap descending
+    industries.sort((a, b) =>
+      b.stocks.reduce((s, st) => s + st.mcap, 0) - a.stocks.reduce((s, st) => s + st.mcap, 0)
+    );
+    result.push({ name: sectorName, industries });
+  }
+
+  for (const [sectorName, indMap] of sectorMap) {
+    if (handled.has(sectorName)) continue;
+    const industries: Industry[] = [];
+    for (const [indName, stocks] of indMap) {
+      industries.push({ name: indName, stocks });
+    }
+    industries.sort((a, b) =>
+      b.stocks.reduce((s, st) => s + st.mcap, 0) - a.stocks.reduce((s, st) => s + st.mcap, 0)
+    );
+    result.push({ name: sectorName, industries });
+  }
+
+  return result;
+}
 
 function getColor(change: number): string {
   if (change > 2) return "#1a7a3c";
@@ -226,19 +102,6 @@ function getColor(change: number): string {
   return "#8b0000";
 }
 
-// Flatten all stocks with sector info for layout
-function getAllTiles() {
-  const tiles: { sector: string; industry: string; stock: StockTile }[] = [];
-  for (const sector of SECTORS) {
-    for (const industry of sector.industries) {
-      for (const stock of industry.stocks) {
-        tiles.push({ sector: sector.name, industry: industry.name, stock });
-      }
-    }
-  }
-  return tiles;
-}
-
 function HeatmapPage() {
   const navigate = useNavigate();
   const [timeframe, setTimeframe] = useState<string>("1D");
@@ -246,9 +109,28 @@ function HeatmapPage() {
   const [dlOpen, setDlOpen] = useState(false);
   const [hoveredStock, setHoveredStock] = useState<{ stock: StockTile; x: number; y: number } | null>(null);
 
+  const { data: stockRows, isLoading } = useQuery({
+    queryKey: ["heatmap-stocks"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stocks")
+        .select("symbol, name, price, change_percent, market_cap, sector, industry")
+        .not("sector", "is", null)
+        .not("market_cap", "is", null)
+        .gt("market_cap", 0)
+        .order("market_cap", { ascending: false })
+        .limit(1000);
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
+
+  const sectors = useMemo(() => buildSectors(stockRows ?? []), [stockRows]);
+
   const totalMcap = useMemo(() => {
-    return SECTORS.reduce((sum, s) => s.industries.reduce((s2, i) => s2 + i.stocks.reduce((s3, st) => s3 + st.mcap, 0), sum), 0);
-  }, []);
+    return sectors.reduce((sum, s) => s.industries.reduce((s2, i) => s2 + i.stocks.reduce((s3, st) => s3 + st.mcap, 0), sum), 0);
+  }, [sectors]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent, stock: StockTile) => {
     setHoveredStock({ stock, x: e.clientX, y: e.clientY });
@@ -326,81 +208,99 @@ function HeatmapPage() {
 
         {/* Treemap */}
         <div className="rounded overflow-hidden" style={{ minHeight: 500, background: "#1a1a2e" }}>
-          {/* Sector header + CSS grid treemap */}
-          <div className="w-full h-full" style={{ minHeight: 500 }}>
-            {SECTORS.map((sector) => {
-              const sectorMcap = sector.industries.reduce((s, i) => s + i.stocks.reduce((s2, st) => s2 + st.mcap, 0), 0);
-              const sectorPct = (sectorMcap / totalMcap) * 100;
-              if (sectorPct < 1) return null;
-
-              return (
-                <div key={sector.name} className="mb-px">
-                  {/* Sector label */}
-                  <div className="px-2 py-0.5" style={{ background: "rgba(255,255,255,0.12)" }}>
-                    <span className="text-[0.8125rem] font-semibold text-white uppercase tracking-wide">{sector.name}</span>
-                  </div>
-                  {/* Industries */}
-                  <div className="flex flex-wrap">
-                    {sector.industries.map((industry) => {
-                      const indMcap = industry.stocks.reduce((s, st) => s + st.mcap, 0);
-                      const indPct = (indMcap / sectorMcap) * 100;
-
-                      return (
-                        <div key={industry.name} style={{ width: `${indPct}%`, minWidth: 0 }}>
-                          {/* Industry label */}
-                          <div className="px-1 py-px overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                            <span className="text-[0.625rem] text-white/60 truncate block">{industry.name}</span>
-                          </div>
-                          {/* Stock tiles */}
-                          <div className="flex flex-wrap">
-                            {industry.stocks.map((stock) => {
-                              const stockPct = (stock.mcap / indMcap) * 100;
-                              const bg = getColor(stock.change);
-                              const minH = stock.mcap >= 10 ? 80 : stock.mcap >= 5 ? 60 : 40;
-
-                              return (
-                                <div
-                                  key={stock.ticker}
-                                  className="flex flex-col items-center justify-center cursor-pointer border border-black/20 select-none"
-                                  style={{
-                                    width: `${stockPct}%`,
-                                    minWidth: 36,
-                                    minHeight: minH,
-                                    background: bg,
-                                  }}
-                                  onMouseMove={(e) => handleMouseMove(e, stock)}
-                                  onMouseLeave={handleMouseLeave}
-                                >
-                                  <span className="text-[0.875rem] font-bold text-white leading-tight">{stock.ticker}</span>
-                                  <span className="text-[0.75rem] text-white/90 leading-tight">
-                                    {stock.change >= 0 ? "+" : ""}{stock.change.toFixed(2)}%
-                                  </span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
-
-            {/* Small sectors row */}
-            <div className="flex">
-              {SECTORS.filter((s) => {
-                const sm = s.industries.reduce((a, i) => a + i.stocks.reduce((b, st) => b + st.mcap, 0), 0);
-                return (sm / totalMcap) * 100 < 1;
-              }).map((sector) => (
-                <div key={sector.name} className="flex-1 min-w-0">
-                  <div className="px-1 py-px" style={{ background: "rgba(255,255,255,0.12)" }}>
-                    <span className="text-[0.5rem] text-white/60 truncate block">{sector.name}</span>
-                  </div>
-                </div>
-              ))}
+          {isLoading ? (
+            <div className="flex items-center justify-center h-[500px]">
+              <div className="space-y-3 w-full px-4">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-40 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-32 w-full" />
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
             </div>
-          </div>
+          ) : sectors.length === 0 ? (
+            <div className="flex items-center justify-center h-[500px] text-muted-foreground text-sm">
+              No stock data available. Run the stock sync to populate sector and industry data.
+            </div>
+          ) : (
+            <div className="w-full h-full" style={{ minHeight: 500 }}>
+              {sectors.map((sector) => {
+                const sectorMcap = sector.industries.reduce((s, i) => s + i.stocks.reduce((s2, st) => s2 + st.mcap, 0), 0);
+                const sectorPct = (sectorMcap / totalMcap) * 100;
+                if (sectorPct < 1) return null;
+
+                return (
+                  <div key={sector.name} className="mb-px">
+                    {/* Sector label */}
+                    <div className="px-2 py-0.5" style={{ background: "rgba(255,255,255,0.12)" }}>
+                      <span className="text-[0.8125rem] font-semibold text-white uppercase tracking-wide">{sector.name}</span>
+                    </div>
+                    {/* Industries */}
+                    <div className="flex flex-wrap">
+                      {sector.industries.map((industry) => {
+                        const indMcap = industry.stocks.reduce((s, st) => s + st.mcap, 0);
+                        const indPct = (indMcap / sectorMcap) * 100;
+
+                        return (
+                          <div key={industry.name} style={{ width: `${indPct}%`, minWidth: 0 }}>
+                            {/* Industry label */}
+                            <div className="px-1 py-px overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                              <span className="text-[0.625rem] text-white/60 truncate block">{industry.name}</span>
+                            </div>
+                            {/* Stock tiles */}
+                            <div className="flex flex-wrap">
+                              {industry.stocks.map((stock) => {
+                                const stockPct = (stock.mcap / indMcap) * 100;
+                                const bg = getColor(stock.change);
+                                const mcapB = stock.mcap / 1e9;
+                                const minH = mcapB >= 500 ? 80 : mcapB >= 100 ? 60 : 40;
+
+                                return (
+                                  <div
+                                    key={stock.ticker}
+                                    className="flex flex-col items-center justify-center cursor-pointer border border-black/20 select-none"
+                                    style={{
+                                      width: `${stockPct}%`,
+                                      minWidth: 36,
+                                      minHeight: minH,
+                                      background: bg,
+                                    }}
+                                    onMouseMove={(e) => handleMouseMove(e, stock)}
+                                    onMouseLeave={handleMouseLeave}
+                                    onClick={() => navigate(`/stocks/${stock.ticker.toLowerCase()}`)}
+                                  >
+                                    <span className="text-[0.875rem] font-bold text-white leading-tight">{stock.ticker}</span>
+                                    <span className="text-[0.75rem] text-white/90 leading-tight">
+                                      {stock.change >= 0 ? "+" : ""}{stock.change.toFixed(2)}%
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Small sectors row */}
+              <div className="flex">
+                {sectors.filter((s) => {
+                  const sm = s.industries.reduce((a, i) => a + i.stocks.reduce((b, st) => b + st.mcap, 0), 0);
+                  return (sm / totalMcap) * 100 < 1;
+                }).map((sector) => (
+                  <div key={sector.name} className="flex-1 min-w-0">
+                    <div className="px-1 py-px" style={{ background: "rgba(255,255,255,0.12)" }}>
+                      <span className="text-[0.5rem] text-white/60 truncate block">{sector.name}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Tooltip */}
@@ -435,8 +335,6 @@ function HeatmapPage() {
         {/* Ad Banner */}
         <AdBanner />
       </div>
-
-      
     </>
   );
 }
