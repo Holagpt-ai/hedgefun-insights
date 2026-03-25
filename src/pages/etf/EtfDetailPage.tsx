@@ -286,6 +286,13 @@ export default function EtfDetailPage() {
               </table>
             </div>
 
+
+            {/* Sector breakdown */}
+            <EtfSectorBreakdown symbol={symbol} />
+
+            {/* Fund overview & details */}
+            <EtfFundOverview symbol={symbol} />
+
             {/* News section */}
             <div className="mb-6">
               <h2 className="text-[1rem] font-bold text-foreground mb-3">Recent News</h2>
