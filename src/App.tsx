@@ -164,6 +164,10 @@ const App = () => (
                   <Route path="/support" element={<SupportPage />} />
                   <Route path="/sitemap" element={<SitemapPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  <Route path="/signup" element={<AuthRoutePage defaultMode="signup" />} />
+                  <Route path="/login" element={<AuthRoutePage defaultMode="login" />} />
+                  <Route path="/register" element={<Navigate to="/signup" replace />} />
+                  <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
                 </Route>
 
                 {/* Chart routes — standalone layout */}
