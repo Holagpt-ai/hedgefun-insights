@@ -262,6 +262,9 @@ export default function EtfDetailPage() {
               ))}
             </div>
 
+            {/* Performance comparison */}
+            <EtfPerformanceChart symbol={symbol} />
+
             {/* Holdings table */}
             <div className="mb-6">
               <h2 className="text-[1rem] font-bold text-foreground mb-2">Top Holdings <span className="text-xs text-muted-foreground font-normal">(as of last update)</span></h2>
