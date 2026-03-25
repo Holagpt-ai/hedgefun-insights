@@ -24,5 +24,8 @@ verify_jwt = false
 [functions.sync-screener-stocks]
 verify_jwt = false
 
+[functions.backfill-sectors]
+verify_jwt = false
+
 [functions.sync-news]
 verify_jwt = false
