@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -77,6 +77,7 @@ import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
 import JournalPage from "./pages/journal/JournalPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
+import AuthRoutePage from "./pages/auth/AuthRoutePage";
 
 const queryClient = new QueryClient();
 
@@ -163,6 +164,10 @@ const App = () => (
                   <Route path="/support" element={<SupportPage />} />
                   <Route path="/sitemap" element={<SitemapPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
+                  <Route path="/signup" element={<AuthRoutePage defaultMode="signup" />} />
+                  <Route path="/login" element={<AuthRoutePage defaultMode="login" />} />
+                  <Route path="/register" element={<Navigate to="/signup" replace />} />
+                  <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
                 </Route>
 
                 {/* Chart routes — standalone layout */}
