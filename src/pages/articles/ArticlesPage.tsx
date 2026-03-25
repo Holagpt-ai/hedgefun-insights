@@ -94,6 +94,7 @@ export const ARTICLES: Article[] = [
       "One of the cleanest technical setups in trading is the Fibonacci retracement. Here's a real example with entry, stop, and target levels.",
     date: "Feb 18, 2026",
     image: fiboImg,
+    tags: ["Analysis", "Trading"],
   },
   {
     slug: "ai-infrastructure-the-mega-scalers-building-the-future",
