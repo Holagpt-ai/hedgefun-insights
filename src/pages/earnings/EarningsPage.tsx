@@ -274,7 +274,7 @@ const EarningsPage = () => {
                               !isAfterClose && !isBeforeOpen && "text-muted-foreground"
                             )}
                           >
-                            {e.time_of_day}
+                            {e.time_of_day === "before_open" ? "Before Open" : e.time_of_day === "after_close" ? "After Close" : e.time_of_day}
                           </span>
                         ) : (
                           <span className="text-muted-foreground text-[0.75rem]">—</span>
