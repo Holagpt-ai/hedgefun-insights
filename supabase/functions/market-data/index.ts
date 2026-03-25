@@ -31,16 +31,29 @@ serve(async (req) => {
     let data: unknown;
 
     switch (type) {
-      case "gainers": {
-        const res = await fetch(polyUrl("/v2/snapshot/locale/us/markets/stocks/gainers"));
-        const json = await res.json();
-        data = json.tickers ?? [];
-        break;
-      }
+      case "gainers":
       case "losers": {
-        const res = await fetch(polyUrl("/v2/snapshot/locale/us/markets/stocks/losers"));
+        const endpoint = type === "gainers" ? "gainers" : "losers";
+        const res = await fetch(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
         const json = await res.json();
-        data = json.tickers ?? [];
+        const tickers = json.tickers ?? [];
+
+        // Enrich with company names from stocks table
+        const symbols = tickers.map((t: any) => t.ticker).filter(Boolean);
+        const supabase = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+        const { data: stockRows } = await supabase
+          .from("stocks")
+          .select("symbol, name")
+          .in("symbol", symbols);
+        const nameMap = new Map((stockRows ?? []).map((r: any) => [r.symbol, r.name]));
+
+        data = tickers.map((t: any) => ({
+          ...t,
+          name: nameMap.get(t.ticker) || t.ticker,
+        }));
         break;
       }
       case "snapshot": {
