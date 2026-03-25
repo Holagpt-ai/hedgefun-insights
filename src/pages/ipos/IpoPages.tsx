@@ -1,5 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   useReactTable,
   getCoreRowModel,
@@ -14,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { IpoTabBar } from "@/components/ipos/IpoTabBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AdBanner } from "@/components/layout/AdBanner";
 import {
   Breadcrumb,
@@ -30,83 +33,11 @@ interface RecentIpo {
   symbol: string;
   company: string;
   exchange: string;
-  followers: number;
   price: number;
   changePct: number;
 }
 
-/* ── Seed Data ─────────────────────────────────── */
-const SEED_DATA: RecentIpo[] = [
-  { date: "2026-03-07", symbol: "RDDT", company: "Reddit Inc.", exchange: "NYSE", followers: 14280, price: 168.42, changePct: 12.5 },
-  { date: "2026-03-06", symbol: "IBKR", company: "Interactive Brokers Group", exchange: "NASDAQ", followers: 8920, price: 142.30, changePct: -3.2 },
-  { date: "2026-03-05", symbol: "ALAB", company: "Astera Labs Inc.", exchange: "NASDAQ", followers: 11340, price: 72.18, changePct: 42.8 },
-  { date: "2026-03-04", symbol: "VRT", company: "Vertiv Holdings Co.", exchange: "NYSE", followers: 6780, price: 88.54, changePct: 8.1 },
-  { date: "2026-03-03", symbol: "CART", company: "Maplebear Inc. (Instacart)", exchange: "NASDAQ", followers: 19450, price: 32.90, changePct: -12.4 },
-  { date: "2026-02-28", symbol: "BIRK", company: "Birkenstock Holding plc", exchange: "NYSE", followers: 7650, price: 56.72, changePct: -5.8 },
-  { date: "2026-02-27", symbol: "ARM", company: "Arm Holdings plc", exchange: "NASDAQ", followers: 22100, price: 164.00, changePct: 24.7 },
-  { date: "2026-02-26", symbol: "KVYO", company: "Klaviyo Inc.", exchange: "NYSE", followers: 5430, price: 31.80, changePct: -8.9 },
-  { date: "2026-02-25", symbol: "CAVA", company: "CAVA Group Inc.", exchange: "NYSE", followers: 16200, price: 48.72, changePct: 98.3 },
-  { date: "2026-02-24", symbol: "LLY", company: "Lilly (Eli) & Co.", exchange: "NYSE", followers: 34500, price: 842.15, changePct: 5.2 },
-  { date: "2026-02-21", symbol: "TOST", company: "Toast Inc.", exchange: "NYSE", followers: 4890, price: 27.40, changePct: -15.6 },
-  { date: "2026-02-20", symbol: "ONON", company: "On Holding AG", exchange: "NYSE", followers: 9120, price: 34.28, changePct: 17.3 },
-  { date: "2026-02-19", symbol: "KOKN", company: "Koken Holdings Inc.", exchange: "NASDAQ", followers: 2340, price: 18.50, changePct: 6.4 },
-  { date: "2026-02-18", symbol: "MNDY", company: "monday.com Ltd.", exchange: "NASDAQ", followers: 7890, price: 182.60, changePct: -2.1 },
-  { date: "2026-02-14", symbol: "IONQ", company: "IonQ Inc.", exchange: "NYSE", followers: 15600, price: 12.80, changePct: -22.4 },
-  { date: "2026-02-13", symbol: "DUOL", company: "Duolingo Inc.", exchange: "NASDAQ", followers: 18200, price: 218.90, changePct: 36.5 },
-  { date: "2026-02-12", symbol: "GLNG", company: "Golar LNG Limited", exchange: "NASDAQ", followers: 3210, price: 24.60, changePct: 1.8 },
-  { date: "2026-02-11", symbol: "KRYS", company: "Krystal Biotech Inc.", exchange: "NASDAQ", followers: 4100, price: 156.30, changePct: 11.2 },
-  { date: "2026-02-10", symbol: "VZIO", company: "VIZIO Holding Corp.", exchange: "NYSE", followers: 6540, price: 11.20, changePct: -7.3 },
-  { date: "2026-02-07", symbol: "IREN", company: "Iris Energy Limited", exchange: "NASDAQ", followers: 8900, price: 8.42, changePct: -31.5 },
-  { date: "2026-02-06", symbol: "CPNG", company: "Coupang Inc.", exchange: "NYSE", followers: 11200, price: 18.90, changePct: 14.6 },
-  { date: "2026-02-05", symbol: "SOUN", company: "SoundHound AI Inc.", exchange: "NASDAQ", followers: 21400, price: 6.82, changePct: -18.9 },
-  { date: "2026-02-04", symbol: "ASTS", company: "AST SpaceMobile Inc.", exchange: "NASDAQ", followers: 16800, price: 14.50, changePct: 45.2 },
-  { date: "2026-02-03", symbol: "RXRX", company: "Recursion Pharmaceuticals", exchange: "NASDAQ", followers: 5670, price: 8.12, changePct: -9.4 },
-  { date: "2026-01-31", symbol: "CLBT", company: "Cellebrite DI Ltd.", exchange: "NASDAQ", followers: 3890, price: 12.40, changePct: 7.8 },
-  { date: "2026-01-30", symbol: "NUVB", company: "Nuvation Bio Inc.", exchange: "NYSE", followers: 2780, price: 4.68, changePct: -14.2 },
-  { date: "2026-01-29", symbol: "SMR", company: "NuScale Power Corp.", exchange: "NYSE", followers: 19800, price: 10.90, changePct: 28.6 },
-  { date: "2026-01-28", symbol: "FLNC", company: "Fluence Energy Inc.", exchange: "NASDAQ", followers: 7230, price: 22.50, changePct: -6.1 },
-  { date: "2026-01-27", symbol: "JOBY", company: "Joby Aviation Inc.", exchange: "NYSE", followers: 14300, price: 6.24, changePct: -42.8 },
-  { date: "2026-01-24", symbol: "APLS", company: "Apellis Pharmaceuticals", exchange: "NASDAQ", followers: 4560, price: 38.70, changePct: 3.2 },
-  { date: "2026-01-23", symbol: "RKLB", company: "Rocket Lab USA Inc.", exchange: "NASDAQ", followers: 25600, price: 18.20, changePct: 62.4 },
-  { date: "2026-01-22", symbol: "DNA", company: "Ginkgo Bioworks Holdings", exchange: "NYSE", followers: 8450, price: 1.84, changePct: -78.2 },
-  { date: "2026-01-21", symbol: "PSNY", company: "Polestar Automotive", exchange: "NASDAQ", followers: 6120, price: 2.10, changePct: -55.6 },
-  { date: "2026-01-17", symbol: "LUNR", company: "Intuitive Machines Inc.", exchange: "NASDAQ", followers: 13400, price: 7.80, changePct: 34.1 },
-  { date: "2026-01-16", symbol: "GBTG", company: "Global Business Travel", exchange: "NYSE", followers: 2890, price: 7.42, changePct: -4.8 },
-  { date: "2026-01-15", symbol: "VFS", company: "VinFast Auto Ltd.", exchange: "NASDAQ", followers: 9800, price: 4.62, changePct: -68.4 },
-  { date: "2026-01-14", symbol: "TALK", company: "Talkspace Inc.", exchange: "NASDAQ", followers: 3450, price: 2.80, changePct: -24.1 },
-  { date: "2026-01-13", symbol: "BRZE", company: "Braze Inc.", exchange: "NASDAQ", followers: 5670, price: 52.40, changePct: 8.6 },
-  { date: "2026-01-10", symbol: "GTLB", company: "GitLab Inc.", exchange: "NASDAQ", followers: 12800, price: 62.80, changePct: 18.4 },
-  { date: "2026-01-09", symbol: "CFLT", company: "Confluent Inc.", exchange: "NASDAQ", followers: 6780, price: 28.90, changePct: -11.2 },
-  { date: "2026-01-08", symbol: "FROG", company: "JFrog Ltd.", exchange: "NASDAQ", followers: 4320, price: 34.50, changePct: 5.9 },
-  { date: "2025-12-31", symbol: "PCVX", company: "Vaxcyte Inc.", exchange: "NASDAQ", followers: 7890, price: 72.30, changePct: 22.1 },
-  { date: "2025-12-30", symbol: "NTRA", company: "Natera Inc.", exchange: "NASDAQ", followers: 11500, price: 88.40, changePct: 31.7 },
-  { date: "2025-12-29", symbol: "ANET", company: "Arista Networks Inc.", exchange: "NYSE", followers: 18900, price: 248.60, changePct: 14.3 },
-  { date: "2025-12-22", symbol: "CELH", company: "Celsius Holdings Inc.", exchange: "NASDAQ", followers: 22400, price: 52.80, changePct: -8.6 },
-  { date: "2025-12-19", symbol: "RELY", company: "Remitly Global Inc.", exchange: "NASDAQ", followers: 3560, price: 22.40, changePct: -16.8 },
-  { date: "2025-12-18", symbol: "KTOS", company: "Kratos Defense & Security", exchange: "NASDAQ", followers: 8900, price: 18.60, changePct: 9.4 },
-  { date: "2025-12-17", symbol: "LAZR", company: "Luminar Technologies", exchange: "NASDAQ", followers: 14200, price: 3.40, changePct: -72.1 },
-  { date: "2025-12-16", symbol: "ARQT", company: "Arcus Biosciences Inc.", exchange: "NYSE", followers: 2340, price: 22.10, changePct: 6.8 },
-  { date: "2025-12-15", symbol: "ENVX", company: "Enovis Corporation", exchange: "NYSE", followers: 5670, price: 16.80, changePct: -21.4 },
-];
-
 const YEARS = ["All", "2026", "2025", "2024", "2023", "2022", "2021"];
-
-/* ── Upcoming IPOs sidebar seed ─────────────────── */
-const UPCOMING_IPOS = [
-  { date: "Mar 14, 2026", company: "Nextera Robotics Inc.", symbol: "NXTR", exchange: "NASDAQ" },
-  { date: "Mar 17, 2026", company: "Verdant Energy Corp.", symbol: "VRDN", exchange: "NYSE" },
-  { date: "Mar 19, 2026", company: "Athena AI Holdings", symbol: "ATAI", exchange: "NASDAQ" },
-  { date: "Mar 21, 2026", company: "Pulse Health Systems", symbol: "PLSH", exchange: "NYSE" },
-  { date: "Mar 24, 2026", company: "Orbit Space Tech Ltd.", symbol: "ORBT", exchange: "NASDAQ" },
-];
-
-const IPO_NEWS = [
-  { headline: "Nextera Robotics prices IPO at $22, above expected range", source: "Reuters", time: "2h ago" },
-  { headline: "Record Q1 IPO pipeline signals market confidence", source: "Bloomberg", time: "5h ago" },
-  { headline: "Verdant Energy postpones listing amid oil volatility", source: "CNBC", time: "8h ago" },
-  { headline: "SPAC mergers decline 40% YoY as traditional IPOs surge", source: "WSJ", time: "12h ago" },
-  { headline: "Athena AI sets terms for $1.2B IPO next week", source: "MarketWatch", time: "1d ago" },
-];
 
 /* ── Column helper ────────────────────────────── */
 const columnHelper = createColumnHelper<RecentIpo>();
@@ -117,10 +48,64 @@ export function RecentIposPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [yearFilter, setYearFilter] = useState("All");
 
+  const { data: dbData, isLoading } = useQuery({
+    queryKey: ["ipo-recent"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ipo_list")
+        .select("*")
+        .eq("status", "recent")
+        .order("ipo_date", { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: upcomingIpos } = useQuery({
+    queryKey: ["ipo-upcoming-sidebar"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ipo_list")
+        .select("*")
+        .eq("status", "upcoming")
+        .order("ipo_date", { ascending: true })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: ipoNews } = useQuery({
+    queryKey: ["ipo-news-sidebar"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("market_news")
+        .select("*")
+        .eq("category", "ipo")
+        .order("published_at", { ascending: false })
+        .limit(5);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const tableData: RecentIpo[] = useMemo(() => {
+    if (!dbData) return [];
+    return dbData.map((ipo) => ({
+      date: ipo.ipo_date,
+      symbol: ipo.symbol ?? "TBD",
+      company: ipo.name,
+      exchange: ipo.exchange ?? "–",
+      price: ipo.offer_price ?? 0,
+      changePct: 0,
+    }));
+  }, [dbData]);
+
   const filteredData = useMemo(() => {
-    if (yearFilter === "All") return SEED_DATA;
-    return SEED_DATA.filter((d) => d.date.startsWith(yearFilter));
-  }, [yearFilter]);
+    if (yearFilter === "All") return tableData;
+    return tableData.filter((d) => d.date.startsWith(yearFilter));
+  }, [yearFilter, tableData]);
 
   const columns = useMemo(() => [
     columnHelper.accessor("date", {
@@ -133,14 +118,19 @@ export function RecentIposPage() {
     }),
     columnHelper.accessor("symbol", {
       header: "Symbol",
-      cell: (info) => (
-        <button
-          onClick={() => navigate(`/stocks/${info.getValue().toLowerCase()}`)}
-          className="font-semibold text-accent-blue hover:underline text-sm"
-        >
-          {info.getValue()}
-        </button>
-      ),
+      cell: (info) => {
+        const val = info.getValue();
+        return val && val !== "TBD" ? (
+          <button
+            onClick={() => navigate(`/stocks/${val.toLowerCase()}`)}
+            className="font-semibold text-accent-blue hover:underline text-sm"
+          >
+            {val}
+          </button>
+        ) : (
+          <span className="text-muted-foreground text-xs">TBD</span>
+        );
+      },
     }),
     columnHelper.accessor("company", {
       header: "Company Name",
@@ -154,38 +144,13 @@ export function RecentIposPage() {
         </span>
       ),
     }),
-    columnHelper.accessor("followers", {
-      header: "Followers",
-      cell: (info) => (
-        <span className="text-muted-foreground text-sm tabular-nums">
-          {info.getValue().toLocaleString()}
-        </span>
-      ),
-    }),
     columnHelper.accessor("price", {
-      header: () => <span className="w-full text-right block">Price</span>,
-      cell: (info) => (
-        <span className="text-foreground text-sm tabular-nums text-right block">
-          ${info.getValue().toFixed(2)}
-        </span>
-      ),
-    }),
-    columnHelper.accessor("changePct", {
-      header: ({ column }) => (
-        <button
-          className="flex items-center gap-1 ml-auto text-right"
-          onClick={() => column.toggleSorting()}
-        >
-          Change % <ArrowUpDown className="h-3 w-3" />
-        </button>
-      ),
+      header: () => <span className="w-full text-right block">Offer Price</span>,
       cell: (info) => {
         const val = info.getValue();
-        const positive = val >= 0;
         return (
-          <span className={cn("text-sm tabular-nums flex items-center justify-end gap-0.5", positive ? "text-green" : "text-red")}>
-            {positive ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {positive ? "+" : ""}{val.toFixed(1)}%
+          <span className="text-foreground text-sm tabular-nums text-right block">
+            {val ? `$${val.toFixed(2)}` : "–"}
           </span>
         );
       },
@@ -202,6 +167,15 @@ export function RecentIposPage() {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize: 50 } },
   });
+
+  function timeAgo(dateStr: string) {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 60) return `${mins}m ago`;
+    const hrs = Math.floor(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.floor(hrs / 24)}d ago`;
+  }
 
   return (
     <div>
@@ -241,43 +215,51 @@ export function RecentIposPage() {
               ))}
             </div>
 
-            {/* Table */}
-            <div className="border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    {table.getHeaderGroups().map((hg) => (
-                      <tr key={hg.id} className="border-b border-border bg-surface">
-                        {hg.headers.map((header) => (
-                          <th
-                            key={header.id}
-                            className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                          >
-                            {flexRender(header.column.columnDef.header, header.getContext())}
-                          </th>
-                        ))}
-                      </tr>
-                    ))}
-                  </thead>
-                  <tbody>
-                    {table.getRowModel().rows.map((row) => (
-                      <tr
-                        key={row.id}
-                        className="border-b border-border-subtle hover:bg-surface transition-colors"
-                      >
-                        {row.getVisibleCells().map((cell) => (
-                          <td key={cell.id} className="px-3 py-2">
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </td>
-                        ))}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+            {isLoading ? (
+              <div className="space-y-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-10 w-full rounded" />
+                ))}
               </div>
-            </div>
+            ) : filteredData.length === 0 ? (
+              <p className="text-muted-foreground text-sm py-8 text-center">No recent IPOs found.</p>
+            ) : (
+              <div className="border border-border rounded-lg overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      {table.getHeaderGroups().map((hg) => (
+                        <tr key={hg.id} className="border-b border-border bg-surface">
+                          {hg.headers.map((header) => (
+                            <th
+                              key={header.id}
+                              className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
+                            >
+                              {flexRender(header.column.columnDef.header, header.getContext())}
+                            </th>
+                          ))}
+                        </tr>
+                      ))}
+                    </thead>
+                    <tbody>
+                      {table.getRowModel().rows.map((row) => (
+                        <tr
+                          key={row.id}
+                          className="border-b border-border-subtle hover:bg-surface transition-colors"
+                        >
+                          {row.getVisibleCells().map((cell) => (
+                            <td key={cell.id} className="px-3 py-2">
+                              {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
-            {/* Ad banner below table */}
             <div className="mt-6">
               <AdBanner />
             </div>
@@ -297,26 +279,34 @@ export function RecentIposPage() {
                 </button>
               </div>
               <div className="space-y-0">
-                {UPCOMING_IPOS.map((ipo, i) => (
+                {(upcomingIpos ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">No upcoming IPOs scheduled.</p>
+                ) : (upcomingIpos ?? []).map((ipo, i) => (
                   <div
-                    key={ipo.symbol}
+                    key={ipo.id}
                     className={cn(
                       "py-2.5",
-                      i < UPCOMING_IPOS.length - 1 && "border-b border-border-subtle"
+                      i < (upcomingIpos?.length ?? 0) - 1 && "border-b border-border-subtle"
                     )}
                   >
-                    <div className="text-xs text-muted-foreground mb-0.5">{ipo.date}</div>
+                    <div className="text-xs text-muted-foreground mb-0.5">
+                      {new Date(ipo.ipo_date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                    </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-foreground flex-1 truncate">{ipo.company}</span>
-                      <button
-                        onClick={() => navigate(`/stocks/${ipo.symbol.toLowerCase()}`)}
-                        className="text-xs font-semibold text-accent-blue hover:underline"
-                      >
-                        {ipo.symbol}
-                      </button>
-                      <span className="text-[0.6875rem] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
-                        {ipo.exchange}
-                      </span>
+                      <span className="text-sm font-semibold text-foreground flex-1 truncate">{ipo.name}</span>
+                      {ipo.symbol && (
+                        <button
+                          onClick={() => navigate(`/stocks/${ipo.symbol!.toLowerCase()}`)}
+                          className="text-xs font-semibold text-accent-blue hover:underline"
+                        >
+                          {ipo.symbol}
+                        </button>
+                      )}
+                      {ipo.exchange && (
+                        <span className="text-[0.6875rem] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">
+                          {ipo.exchange}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -338,19 +328,26 @@ export function RecentIposPage() {
             <div className="border border-border rounded-lg p-4">
               <h2 className="text-base font-bold text-foreground mb-3">IPO News</h2>
               <div className="space-y-0">
-                {IPO_NEWS.map((news, i) => (
+                {(ipoNews ?? []).length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-2">No IPO news available.</p>
+                ) : (ipoNews ?? []).map((news, i) => (
                   <div
-                    key={i}
+                    key={news.id}
                     className={cn(
                       "py-2.5",
-                      i < IPO_NEWS.length - 1 && "border-b border-border-subtle"
+                      i < (ipoNews?.length ?? 0) - 1 && "border-b border-border-subtle"
                     )}
                   >
-                    <button className="text-sm text-accent-blue hover:underline text-left leading-snug">
+                    <a
+                      href={news.url ?? "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-sm text-accent-blue hover:underline text-left leading-snug block"
+                    >
                       {news.headline}
-                    </button>
+                    </a>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {news.source} · {news.time}
+                      {news.source ?? "HedgeFun"} · {news.published_at ? timeAgo(news.published_at) : ""}
                     </div>
                   </div>
                 ))}
@@ -374,55 +371,20 @@ export function RecentIposPage() {
   );
 }
 
-/* ── IPO Calendar Types & Data ──────────────────── */
+/* ── IPO Calendar ──────────────────────────────── */
 interface CalendarIpo {
   ipoDate: string;
   symbol: string;
   company: string;
   exchange: string;
   priceRange: string;
-  sharesOffered: number;
-  dealSize: string;
-  marketCap: string;
-  revenue: string;
+  offerPrice: number;
 }
-
-const THIS_WEEK_IPOS: CalendarIpo[] = [
-  { ipoDate: "2026-03-12", symbol: "PAYP", company: "PayPay Corporation", exchange: "NASDAQ", priceRange: "$17.00 - $20.00", sharesOffered: 54987214, dealSize: "1.02B", marketCap: "12.37B", revenue: "2.33B" },
-];
 
 const calendarColumnHelper = createColumnHelper<CalendarIpo>();
 
 const CALENDAR_SUB_TABS = ["Upcoming", "Filings", "Withdrawn"] as const;
 const VIEW_TABS = ["Overview", "Financials", "Margins", "Profile"] as const;
-
-interface FilingIpo {
-  company: string;
-  filedDate: string;
-  amount: string;
-  exchange: string;
-}
-
-const FILINGS_SEED: FilingIpo[] = [
-  { company: "NovaGen Therapeutics", filedDate: "2026-03-10", amount: "$240M", exchange: "NASDAQ" },
-  { company: "Aether Robotics Inc.", filedDate: "2026-03-08", amount: "$580M", exchange: "NYSE" },
-  { company: "CloudSail Technologies", filedDate: "2026-03-05", amount: "$120M", exchange: "NASDAQ" },
-  { company: "GreenPulse Energy", filedDate: "2026-02-28", amount: "$310M", exchange: "NYSE" },
-  { company: "Meridian Data Systems", filedDate: "2026-02-25", amount: "$95M", exchange: "NASDAQ" },
-  { company: "Orbis Financial Group", filedDate: "2026-02-20", amount: "$450M", exchange: "NYSE" },
-];
-
-interface WithdrawnIpo extends FilingIpo {
-  withdrawnDate: string;
-}
-
-const WITHDRAWN_SEED: WithdrawnIpo[] = [
-  { company: "Luxora Beauty Holdings", filedDate: "2026-01-12", withdrawnDate: "2026-03-06", amount: "$180M", exchange: "NASDAQ" },
-  { company: "TerraVolt Motors Inc.", filedDate: "2025-11-30", withdrawnDate: "2026-02-18", amount: "$720M", exchange: "NYSE" },
-  { company: "PeakSignal Analytics", filedDate: "2025-12-05", withdrawnDate: "2026-02-10", amount: "$65M", exchange: "NASDAQ" },
-  { company: "BlueFin Aquaculture", filedDate: "2025-10-20", withdrawnDate: "2026-01-28", amount: "$140M", exchange: "NYSE" },
-  { company: "QuantumLeap Semiconductors", filedDate: "2025-09-15", withdrawnDate: "2026-01-15", amount: "$390M", exchange: "NASDAQ" },
-];
 
 const IPO_RESOURCES = [
   { title: "Recent IPOs", description: "The 200 most recently launched IPOs", route: "/ipos/recent" },
@@ -445,6 +407,32 @@ export function UpcomingIposPage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: "ipoDate", desc: false }]);
   const [search, setSearch] = useState("");
 
+  const { data: upcomingData, isLoading } = useQuery({
+    queryKey: ["ipo-calendar-upcoming"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("ipo_list")
+        .select("*")
+        .eq("status", "upcoming")
+        .order("ipo_date", { ascending: true })
+        .limit(50);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const calendarRows: CalendarIpo[] = useMemo(() => {
+    if (!upcomingData) return [];
+    return upcomingData.map((ipo) => ({
+      ipoDate: ipo.ipo_date,
+      symbol: ipo.symbol ?? "TBD",
+      company: ipo.name,
+      exchange: ipo.exchange ?? "–",
+      priceRange: ipo.price_range ?? "–",
+      offerPrice: ipo.offer_price ?? 0,
+    }));
+  }, [upcomingData]);
+
   const columns = useMemo(() => [
     calendarColumnHelper.accessor("ipoDate", {
       header: ({ column }) => (
@@ -460,11 +448,16 @@ export function UpcomingIposPage() {
     }),
     calendarColumnHelper.accessor("symbol", {
       header: "Symbol",
-      cell: (info) => (
-        <button onClick={() => navigate(`/stocks/${info.getValue().toLowerCase()}`)} className="font-semibold text-accent-blue hover:underline text-sm">
-          {info.getValue()}
-        </button>
-      ),
+      cell: (info) => {
+        const val = info.getValue();
+        return val && val !== "TBD" ? (
+          <button onClick={() => navigate(`/stocks/${val.toLowerCase()}`)} className="font-semibold text-accent-blue hover:underline text-sm">
+            {val}
+          </button>
+        ) : (
+          <span className="text-muted-foreground text-xs">TBD</span>
+        );
+      },
     }),
     calendarColumnHelper.accessor("company", {
       header: "Company Name",
@@ -478,26 +471,10 @@ export function UpcomingIposPage() {
       header: "Price Range",
       cell: (info) => <span className="text-foreground text-sm tabular-nums">{info.getValue()}</span>,
     }),
-    calendarColumnHelper.accessor("sharesOffered", {
-      header: () => <span className="text-right block">Shares Offered</span>,
-      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue().toLocaleString()}</span>,
-    }),
-    calendarColumnHelper.accessor("dealSize", {
-      header: () => <span className="text-right block">Deal Size</span>,
-      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
-    }),
-    calendarColumnHelper.accessor("marketCap", {
-      header: () => <span className="text-right block">Market Cap</span>,
-      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
-    }),
-    calendarColumnHelper.accessor("revenue", {
-      header: () => <span className="text-right block">Revenue</span>,
-      cell: (info) => <span className="text-foreground text-sm tabular-nums text-right block">{info.getValue()}</span>,
-    }),
   ], [navigate]);
 
   const table = useReactTable({
-    data: THIS_WEEK_IPOS,
+    data: calendarRows,
     columns,
     state: { sorting },
     onSortingChange: setSorting,
@@ -540,79 +517,27 @@ export function UpcomingIposPage() {
           ))}
         </div>
 
-        {/* Filings tab content */}
+        {/* Filings tab */}
         {subTab === "Filings" && (
           <div className="mb-8">
-            <h2 className="text-[1.25rem] font-bold text-foreground mb-3">
-              IPO Filings · {FILINGS_SEED.length} Companies
-            </h2>
-            <div className="border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface">
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Name</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filed Date</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Exchange</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {FILINGS_SEED.map((f) => (
-                      <tr key={f.company} className="border-b border-border-subtle hover:bg-surface transition-colors">
-                        <td className="px-3 py-2 text-foreground">{f.company}</td>
-                        <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.filedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                        <td className="px-3 py-2 text-foreground tabular-nums text-right">{f.amount}</td>
-                        <td className="px-3 py-2 text-foreground">{f.exchange}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <h2 className="text-[1.25rem] font-bold text-foreground mb-3">IPO Filings</h2>
+            <p className="text-muted-foreground text-sm py-4">Filing data will be available once the IPO sync is populated.</p>
           </div>
         )}
 
-        {/* Withdrawn tab content */}
+        {/* Withdrawn tab */}
         {subTab === "Withdrawn" && (
           <div className="mb-8">
-            <h2 className="text-[1.25rem] font-bold text-foreground mb-3">
-              Withdrawn IPOs · {WITHDRAWN_SEED.length} Companies
-            </h2>
-            <div className="border border-border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface">
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Name</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Filed Date</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Withdrawn Date</th>
-                      <th className="text-right px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Amount</th>
-                      <th className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Exchange</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {WITHDRAWN_SEED.map((f) => (
-                      <tr key={f.company} className="border-b border-border-subtle hover:bg-surface transition-colors">
-                        <td className="px-3 py-2 text-foreground">{f.company}</td>
-                        <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.filedDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                        <td className="px-3 py-2 text-foreground tabular-nums">{new Date(f.withdrawnDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}</td>
-                        <td className="px-3 py-2 text-foreground tabular-nums text-right">{f.amount}</td>
-                        <td className="px-3 py-2 text-foreground">{f.exchange}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <h2 className="text-[1.25rem] font-bold text-foreground mb-3">Withdrawn IPOs</h2>
+            <p className="text-muted-foreground text-sm py-4">Withdrawn IPO data will be available once the IPO sync is populated.</p>
           </div>
         )}
 
-        {/* This Week (Upcoming tab) */}
+        {/* Upcoming tab */}
         {subTab === "Upcoming" && <div className="mb-8">
           <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
             <h2 className="text-[1.25rem] font-bold text-foreground">
-              This Week · {THIS_WEEK_IPOS.length} IPO{THIS_WEEK_IPOS.length !== 1 ? "s" : ""}
+              Upcoming IPOs · {calendarRows.length} IPO{calendarRows.length !== 1 ? "s" : ""}
             </h2>
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -646,59 +571,47 @@ export function UpcomingIposPage() {
                 {viewTab === vt && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
               </button>
             ))}
-            <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">+ Add View</button>
-            <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">✎ Edit View</button>
           </div>
 
           {/* Table */}
-          <div className="border border-border rounded-b-lg overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  {table.getHeaderGroups().map((hg) => (
-                    <tr key={hg.id} className="border-b border-border bg-surface">
-                      {hg.headers.map((header) => (
-                        <th key={header.id} className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                          {flexRender(header.column.columnDef.header, header.getContext())}
-                        </th>
-                      ))}
-                    </tr>
-                  ))}
-                </thead>
-                <tbody>
-                  {table.getRowModel().rows.map((row) => (
-                    <tr key={row.id} className="border-b border-border-subtle hover:bg-surface transition-colors">
-                      {row.getVisibleCells().map((cell) => (
-                        <td key={cell.id} className="px-3 py-2">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          {isLoading ? (
+            <div className="space-y-2 mt-4">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full rounded" />
+              ))}
             </div>
-        </div>
-
-        {/* Next Week */}
-        <div className="mb-8">
-          <h2 className="text-[1.25rem] font-bold text-foreground mb-2">Next Week · 0 IPOs</h2>
-          <p className="text-muted-foreground text-sm">There are no IPOs scheduled for next week.</p>
-        </div>
-
-        {/* After Next Week */}
-        <div className="mb-8">
-          <h2 className="text-[1.25rem] font-bold text-foreground mb-3">After Next Week</h2>
-          <div className="border-l-4 border-accent-blue bg-accent-blue-light rounded-lg px-4 py-3 flex items-start gap-3">
-            <Info className="h-5 w-5 text-accent-blue shrink-0 mt-0.5" />
-            <p className="text-sm text-foreground leading-relaxed">
-              No IPOs have been scheduled after next week. The reason is that IPO dates are rarely set more than 7–10 days in advance.{" "}
-              <button onClick={() => navigate("/ipos/calendar?tab=filings")} className="text-accent-blue hover:underline font-medium">
-                View unscheduled IPOs.
-              </button>
-            </p>
-          </div>
-        </div>
+          ) : calendarRows.length === 0 ? (
+            <p className="text-muted-foreground text-sm py-8 text-center">No upcoming IPOs scheduled.</p>
+          ) : (
+            <div className="border border-border rounded-b-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    {table.getHeaderGroups().map((hg) => (
+                      <tr key={hg.id} className="border-b border-border bg-surface">
+                        {hg.headers.map((header) => (
+                          <th key={header.id} className="text-left px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                            {flexRender(header.column.columnDef.header, header.getContext())}
+                          </th>
+                        ))}
+                      </tr>
+                    ))}
+                  </thead>
+                  <tbody>
+                    {table.getRowModel().rows.map((row) => (
+                      <tr key={row.id} className="border-b border-border-subtle hover:bg-surface transition-colors">
+                        {row.getVisibleCells().map((cell) => (
+                          <td key={cell.id} className="px-3 py-2">
+                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>}
 
         {/* Sources */}
