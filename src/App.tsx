@@ -47,6 +47,7 @@ import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
 import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
 import EtfMainPage from "./pages/etf/EtfMainPage";
+import EtfDetailPage from "./pages/etf/EtfDetailPage";
 import TrendingPage from "./pages/trending/TrendingPage";
 import ChartPage from "./pages/chart/ChartPage";
 import ChartLandingPage from "./pages/chart/ChartLandingPage";
@@ -130,6 +131,7 @@ const App = () => (
                   <Route path="/etf/compare" element={<EtfComparePage />} />
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
+                  <Route path="/etf/:symbol" element={<EtfDetailPage />} />
                   <Route path="/etfs/top" element={<StubPage title="Top ETFs" description="The highest-performing ETFs ranked by returns, volume, and assets under management." />} />
                   <Route path="/etfs/:slug" element={<StubPage title="ETF List" description="This ETF list is coming soon." />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
