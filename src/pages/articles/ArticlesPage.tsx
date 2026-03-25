@@ -30,7 +30,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Tech", "Analysis"],
   },
   {
     slug: "china-manus-meta-deal-review",
@@ -39,7 +39,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Markets", "Tech"],
   },
   {
     slug: "oil-prices-fall-iran-ceasefire",
@@ -48,7 +48,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Energy", "Markets"],
   },
   {
     slug: "500-million-oil-bet-trump-statement",
@@ -57,7 +57,7 @@ export const ARTICLES: Article[] = [
     date: "Mar 25, 2026",
     image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
     author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
+    tags: ["Energy", "Markets"],
   },
   {
     slug: "market-volatility-tariff-uncertainty-2026",
@@ -76,6 +76,7 @@ export const ARTICLES: Article[] = [
       "SpaceX's Starlink division is one of the most anticipated IPOs in years. Here's what the financials look like and how to position before it launches.",
     date: "Jan 15, 2026",
     image: starlinkImg,
+    tags: ["IPO", "Tech"],
   },
   {
     slug: "rising-oil-prices-whats-driving-the-surge",
@@ -84,6 +85,7 @@ export const ARTICLES: Article[] = [
       "Crude oil has been climbing steadily. We break down the macro forces at play and the energy stocks best positioned to capitalize.",
     date: "Feb 3, 2026",
     image: oilImg,
+    tags: ["Energy", "Markets"],
   },
   {
     slug: "the-perfect-retracement-setup-a-trade-breakdown",
@@ -92,6 +94,7 @@ export const ARTICLES: Article[] = [
       "One of the cleanest technical setups in trading is the Fibonacci retracement. Here's a real example with entry, stop, and target levels.",
     date: "Feb 18, 2026",
     image: fiboImg,
+    tags: ["Analysis", "Trading"],
   },
   {
     slug: "ai-infrastructure-the-mega-scalers-building-the-future",
@@ -100,6 +103,7 @@ export const ARTICLES: Article[] = [
       "Microsoft, Google, Amazon, and Meta are spending hundreds of billions on AI infrastructure. Here's what that means for investors and which picks stand out.",
     date: "Mar 1, 2026",
     image: aiImg,
+    tags: ["Tech", "Analysis"],
   },
   {
     slug: "energy-stocks-to-watch-as-the-grid-demands-more-power",
@@ -108,6 +112,7 @@ export const ARTICLES: Article[] = [
       "The AI boom is driving unprecedented electricity demand. We look at the energy companies best positioned to power the next decade of growth.",
     date: "Mar 10, 2026",
     image: energyImg,
+    tags: ["Energy", "Markets"],
   },
 ];
 
