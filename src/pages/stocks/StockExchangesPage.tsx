@@ -110,11 +110,20 @@ const columns: ColumnDef<Exchange, any>[] = [
   {
     accessorKey: "name",
     header: "Exchange Name",
-    cell: ({ row }) => (
-      <span className="text-accent-blue font-medium cursor-pointer hover:underline text-[0.875rem]">
-        {row.original.name}
-      </span>
-    ),
+    cell: ({ row }) => {
+      const name = row.original.name;
+      const url = EXCHANGE_WEBSITES[name] ?? `https://www.google.com/search?q=${encodeURIComponent(name + " stock exchange official site")}`;
+      return (
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-accent-blue font-medium cursor-pointer hover:underline text-[0.875rem]"
+        >
+          {name}
+        </a>
+      );
+    },
   },
   {
     accessorKey: "country",
