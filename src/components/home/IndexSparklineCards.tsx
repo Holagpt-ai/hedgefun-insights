@@ -101,7 +101,7 @@ export function IndexSparklineCards() {
                   </ResponsiveContainer>
                 )}
               </div>
-            </div>
+            </Link>
           );
         })}
       </div>

@@ -131,6 +131,7 @@ const App = () => (
                   <Route path="/etf/compare" element={<EtfComparePage />} />
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
+                  <Route path="/etf/:symbol" element={<EtfDetailPage />} />
                   <Route path="/etfs/top" element={<StubPage title="Top ETFs" description="The highest-performing ETFs ranked by returns, volume, and assets under management." />} />
                   <Route path="/etfs/:slug" element={<StubPage title="ETF List" description="This ETF list is coming soon." />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
