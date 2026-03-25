@@ -85,6 +85,7 @@ export const ARTICLES: Article[] = [
       "Crude oil has been climbing steadily. We break down the macro forces at play and the energy stocks best positioned to capitalize.",
     date: "Feb 3, 2026",
     image: oilImg,
+    tags: ["Energy", "Markets"],
   },
   {
     slug: "the-perfect-retracement-setup-a-trade-breakdown",
