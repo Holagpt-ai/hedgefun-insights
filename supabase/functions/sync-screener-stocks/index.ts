@@ -135,15 +135,29 @@ serve(async (req) => {
       if (i + CHUNK_SIZE < SP500_TICKERS.length) await delay(250);
     }
 
-    // --- Step 2: Fetch reference details per-ticker for stocks missing market_cap ---
+    // --- Step 2: Fetch reference details for stocks missing market_cap, sector, or industry ---
     const { data: missingStocks } = await supabase
       .from("stocks")
-      .select("symbol")
-      .is("market_cap", null)
-      .in("symbol", SP500_TICKERS);
+      .select("symbol, market_cap, sector, industry")
+      .in("symbol", SP500_TICKERS)
+      .or("market_cap.is.null,sector.is.null,industry.is.null");
 
     const tickersToFetch = (missingStocks ?? []).map((s) => s.symbol);
-    console.log(`Fetching details for ${tickersToFetch.length} stocks missing market_cap`);
+    console.log(`Fetching details for ${tickersToFetch.length} stocks missing market_cap/sector/industry`);
+
+    const SIC_TO_SECTOR: Record<string, string> = {
+      "Technology": "Technology",
+      "Consumer Cyclical": "Consumer Discretionary",
+      "Consumer Defensive": "Consumer Staples",
+      "Financial Services": "Financials",
+      "Healthcare": "Healthcare",
+      "Industrials": "Industrials",
+      "Communication Services": "Communication Services",
+      "Energy": "Energy",
+      "Utilities": "Utilities",
+      "Real Estate": "Real Estate",
+      "Basic Materials": "Materials",
+    };
 
     const DETAIL_BATCH = 5;
     for (let i = 0; i < tickersToFetch.length; i += DETAIL_BATCH) {
@@ -165,6 +179,12 @@ serve(async (req) => {
           const updateData: Record<string, unknown> = {};
           if (r.name) updateData.name = r.name;
           if (r.market_cap) updateData.market_cap = Math.round(r.market_cap);
+          if (r.sic_description) updateData.industry = r.sic_description;
+          // Map sector from Massive's type or sic_description
+          const rawSector = r.sector || "";
+          if (rawSector) {
+            updateData.sector = SIC_TO_SECTOR[rawSector] || rawSector;
+          }
 
           if (Object.keys(updateData).length > 0) {
             const { error } = await supabase
