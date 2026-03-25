@@ -56,10 +56,12 @@ export function IndexSparklineCards() {
           const color = positive ? "hsl(var(--green))" : "hsl(var(--red))";
 
           return (
-            <div
+            <Link
               key={idx.symbol}
-              className="fintech-card px-3 py-2.5 flex flex-col gap-1"
+              to={`/etf/${idx.symbol.toLowerCase()}`}
+              className="fintech-card px-3 py-2.5 flex flex-col gap-1 cursor-pointer hover:border-primary/50 transition-colors duration-200 relative"
             >
+              <ArrowUpRight className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
               <div className="flex items-baseline justify-between">
                 <span className="text-xs font-semibold text-foreground">{idx.name}</span>
               </div>
