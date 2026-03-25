@@ -179,6 +179,57 @@ export type Database = {
         }
         Relationships: []
       }
+      etfs: {
+        Row: {
+          asset_class: string | null
+          change_percent: number | null
+          expense_ratio: number | null
+          holdings: number | null
+          id: string
+          inception_date: string | null
+          name: string
+          price: number | null
+          provider: string | null
+          symbol: string
+          total_assets: number | null
+          updated_at: string | null
+          volume: number | null
+          ytd_return: number | null
+        }
+        Insert: {
+          asset_class?: string | null
+          change_percent?: number | null
+          expense_ratio?: number | null
+          holdings?: number | null
+          id?: string
+          inception_date?: string | null
+          name: string
+          price?: number | null
+          provider?: string | null
+          symbol: string
+          total_assets?: number | null
+          updated_at?: string | null
+          volume?: number | null
+          ytd_return?: number | null
+        }
+        Update: {
+          asset_class?: string | null
+          change_percent?: number | null
+          expense_ratio?: number | null
+          holdings?: number | null
+          id?: string
+          inception_date?: string | null
+          name?: string
+          price?: number | null
+          provider?: string | null
+          symbol?: string
+          total_assets?: number | null
+          updated_at?: string | null
+          volume?: number | null
+          ytd_return?: number | null
+        }
+        Relationships: []
+      }
       ipo_list: {
         Row: {
           created_at: string | null
