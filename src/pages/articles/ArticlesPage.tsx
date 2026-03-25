@@ -44,7 +44,7 @@ export const ARTICLES: Article[] = [
     title: "Oil Prices Fall on Reports of U.S. Ceasefire Proposal With Iran — Will Oil Hit $200?",
     excerpt: "Crude oil dropped sharply on ceasefire reports. We analyze whether $200 oil is realistic and which energy stocks are most affected.",
     date: "Mar 25, 2026",
-    image: "https://images.unsplash.com/photo-1601370552761-5b0df7c9a4b6?w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
     author: "HedgeFun Editorial Team",
     tags: ["Markets", "Analysis"],
   },
