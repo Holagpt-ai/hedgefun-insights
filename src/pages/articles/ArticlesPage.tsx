@@ -112,6 +112,7 @@ export const ARTICLES: Article[] = [
       "The AI boom is driving unprecedented electricity demand. We look at the energy companies best positioned to power the next decade of growth.",
     date: "Mar 10, 2026",
     image: energyImg,
+    tags: ["Energy", "Markets"],
   },
 ];
 
