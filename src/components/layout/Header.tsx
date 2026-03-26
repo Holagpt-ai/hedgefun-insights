@@ -130,7 +130,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
             onFocus={() => results.length > 0 && setShowResults(true)}
             onKeyDown={handleKeyDown}
             placeholder={t("searchPlaceholder")}
-            className="pl-9 h-9 bg-surface border-border text-sm"
+            className="pl-9 pr-8 h-9 bg-surface border border-border text-sm rounded-full focus:ring-2 focus:ring-accent-blue/20 focus:border-accent-blue placeholder:text-muted-foreground transition-all duration-200 w-full"
           />
           {showResults && results.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
