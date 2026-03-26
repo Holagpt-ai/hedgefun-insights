@@ -132,6 +132,11 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
             placeholder={t("searchPlaceholder")}
             className="pl-9 pr-8 h-9 bg-surface border border-border text-sm rounded-full focus:ring-2 focus:ring-accent-blue/20 focus:border-accent-blue placeholder:text-muted-foreground transition-all duration-200 w-full"
           />
+          {query.length === 0 && (
+            <kbd className="absolute right-3 top-1/2 -translate-y-1/2 hidden sm:flex items-center text-[0.625rem] font-medium text-muted-foreground bg-surface border border-border rounded px-1.5 py-0.5 pointer-events-none">
+              /
+            </kbd>
+          )}
           {showResults && results.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
               {results.map((r, index) => (
