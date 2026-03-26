@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS ipo_list_symbol_unique ON public.ipo_list (symbol) WHERE symbol IS NOT NULL;
