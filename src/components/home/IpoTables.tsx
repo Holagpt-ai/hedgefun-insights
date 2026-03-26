@@ -2,6 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+
+const EDGE = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data`;
 
 function IpoTable({ title, linkTo, status }: { title: string; linkTo: string; status: string }) {
   const navigate = useNavigate();
@@ -15,9 +18,20 @@ function IpoTable({ title, linkTo, status }: { title: string; linkTo: string; st
         .order("ipo_date", { ascending: status === "upcoming" })
         .limit(8);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      // Fallback to live API
+      const ipoStatus = status === "upcoming" ? "pending" : "history";
+      const res = await fetch(`${EDGE}?type=ipos&ipoStatus=${ipoStatus}&limit=8`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
+
+  const isWithin7Days = (dateStr: string) => {
+    const diff = new Date(dateStr).getTime() - Date.now();
+    return diff > 0 && diff < 7 * 24 * 60 * 60 * 1000;
+  };
 
   return (
     <div>
@@ -43,10 +57,21 @@ function IpoTable({ title, linkTo, status }: { title: string; linkTo: string; st
               </tr>
             </thead>
             <tbody>
-              {(data ?? []).map((ipo) => (
-                <tr key={ipo.id} className="border-b border-border last:border-b-0">
-                  <td className="px-3 py-2 text-muted-foreground tabular-nums text-xs">
-                    {new Date(ipo.ipo_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+              {(data ?? []).map((ipo: any, idx: number) => (
+                <tr key={ipo.id ?? idx} className="border-b border-border last:border-b-0">
+                  <td className="px-3 py-2 text-muted-foreground tabular-nums text-xs whitespace-nowrap">
+                    {ipo.ipo_date ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        {new Date(ipo.ipo_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        {status === "upcoming" && isWithin7Days(ipo.ipo_date) && (
+                          <Badge variant="outline" className="text-[0.6rem] px-1 py-0 border-orange-400 text-orange-500 font-semibold">
+                            Soon
+                          </Badge>
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">TBD</span>
+                    )}
                   </td>
                   <td className="px-3 py-2">
                     {ipo.symbol ? (
