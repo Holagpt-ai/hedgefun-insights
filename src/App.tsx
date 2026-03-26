@@ -70,6 +70,7 @@ import DisclaimerPage from "./pages/static/DisclaimerPage";
 import AffiliatesPage from "./pages/static/AffiliatesPage";
 import SupportPage from "./pages/static/SupportPage";
 import SitemapPage from "./pages/static/SitemapPage";
+import DownloadPage from "./pages/static/DownloadPage";
 import CagrCalculatorPage from "./pages/tools/CagrCalculatorPage";
 import DividendCalculatorPage from "./pages/tools/DividendCalculatorPage";
 import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
