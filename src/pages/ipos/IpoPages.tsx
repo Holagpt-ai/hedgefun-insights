@@ -79,8 +79,13 @@ export function RecentIposPage() {
         .order("ipo_date", { ascending: true })
         .limit(5);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      // Fallback to live API
+      const res = await fetch(`${EDGE}?type=ipos&ipoStatus=pending&limit=5`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
 
   const { data: ipoNews } = useQuery({
