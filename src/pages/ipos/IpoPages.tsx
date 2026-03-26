@@ -419,6 +419,8 @@ export function UpcomingIposPage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: "ipoDate", desc: false }]);
   const [search, setSearch] = useState("");
 
+  const EDGE_CAL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data`;
+
   const { data: upcomingData, isLoading } = useQuery({
     queryKey: ["ipo-calendar-upcoming"],
     queryFn: async () => {
@@ -429,8 +431,12 @@ export function UpcomingIposPage() {
         .order("ipo_date", { ascending: true })
         .limit(50);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      const res = await fetch(`${EDGE_CAL}?type=ipos&ipoStatus=pending&limit=50`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
 
   const calendarRows: CalendarIpo[] = useMemo(() => {

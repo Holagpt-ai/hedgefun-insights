@@ -37,6 +37,8 @@ export default function IpoScreenerPage() {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [viewTab, setViewTab] = useState<string>("General");
 
+  const EDGE = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data`;
+
   const { data: dbData, isLoading } = useQuery({
     queryKey: ["ipo-screener"],
     queryFn: async () => {
@@ -46,8 +48,12 @@ export default function IpoScreenerPage() {
         .order("ipo_date", { ascending: false })
         .limit(100);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      const res = await fetch(`${EDGE}?type=ipos&ipoStatus=history&limit=50`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
 
   const tableData: ScreenerIpo[] = useMemo(() => {
