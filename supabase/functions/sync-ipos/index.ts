@@ -97,7 +97,9 @@ serve(async () => {
       ? `$${r.lowest_offer_price} - $${r.highest_offer_price}`
       : null,
     offer_price: r.final_issue_price ?? r.highest_offer_price ?? null,
-    status,
+    status: r.ipo_status === 'pending' || r.ipo_status === 'rumor'
+      ? 'upcoming'
+      : status,
     exchange: r.primary_exchange ?? null,
   });
 

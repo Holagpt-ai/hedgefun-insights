@@ -25,9 +25,10 @@ interface Props {
   details: any;
   loading: boolean;
   ticker: string;
+  isPreIPO?: boolean;
 }
 
-export default function StockHeader({ snapshot, details, loading, ticker }: Props) {
+export default function StockHeader({ snapshot, details, loading, ticker, isPreIPO }: Props) {
   if (loading) {
     return (
       <div className="px-4 pt-4 pb-2 space-y-2">
@@ -46,6 +47,10 @@ export default function StockHeader({ snapshot, details, loading, ticker }: Prop
   const exchange = details?.primary_exchange ?? "";
   const exchangeLabel = EXCHANGE_MAP[exchange] || exchange;
 
+  const displayPrice = isPreIPO && details?.offer_price
+    ? details.offer_price
+    : price;
+
   const afterHours = isAfterHours();
   const ahPrice = snapshot?.lastTrade?.p ?? snapshot?.lastQuote?.P ?? snapshot?.prevDay?.c ?? null;
   const ahChange = ahPrice != null && price ? ahPrice - price : null;
@@ -62,15 +67,29 @@ export default function StockHeader({ snapshot, details, loading, ticker }: Prop
         )}
       </div>
       <div className="flex items-baseline gap-2 mt-1">
-        <span className="text-2xl font-bold text-foreground tabular-nums">${price.toFixed(2)}</span>
-        <span className={cn("text-sm font-medium tabular-nums", positive ? "price-positive" : "price-negative")}>
-          {positive ? "+" : ""}{change.toFixed(2)} ({positive ? "+" : ""}{changePct.toFixed(2)}%)
+        <span className="text-2xl font-bold text-foreground tabular-nums">
+          {isPreIPO && details?.offer_price ? `$${displayPrice.toFixed(2)}` : `$${displayPrice.toFixed(2)}`}
         </span>
+        {isPreIPO && details?.offer_price ? (
+          <span className="text-sm text-muted-foreground">Expected offer price</span>
+        ) : (
+          <span className={cn("text-sm font-medium tabular-nums", positive ? "price-positive" : "price-negative")}>
+            {positive ? "+" : ""}{change.toFixed(2)} ({positive ? "+" : ""}{changePct.toFixed(2)}%)
+          </span>
+        )}
       </div>
-      <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
-        At close: {estDate()}, 4:00 PM EDT
-      </p>
-      {afterHours && ahPrice != null && ahChange != null && ahChangePct != null && (
+      {isPreIPO && (
+        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-muted border border-border text-[0.75rem] text-muted-foreground mt-2">
+          <span className="w-1.5 h-1.5 rounded-full bg-yellow-500 inline-block" />
+          IPO Filed — Not Yet Trading
+        </div>
+      )}
+      {!isPreIPO && (
+        <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
+          At close: {estDate()}, 4:00 PM EDT
+        </p>
+      )}
+      {!isPreIPO && afterHours && ahPrice != null && ahChange != null && ahChangePct != null && (
         <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
           <span className="tabular-nums font-medium text-foreground">${ahPrice.toFixed(2)}</span>
           <span className={cn("tabular-nums font-medium", ahPositive ? "price-positive" : "price-negative")}>
