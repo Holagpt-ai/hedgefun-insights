@@ -60,3 +60,7 @@ export async function getAggregates(
 export async function getPrevClose(ticker: string) {
   return fetchMarketData({ type: "prev-close", ticker });
 }
+
+export async function getDividends(ticker: string, limit = 4) {
+  return fetchMarketData({ type: "dividends", ticker, limit: String(limit) });
+}
