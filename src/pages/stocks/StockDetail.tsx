@@ -15,6 +15,7 @@ import StockStatisticsTab from "@/components/stock/StockStatisticsTab";
 import StockForecastTab from "@/components/stock/StockForecastTab";
 import StockDividendsTab from "@/components/stock/StockDividendsTab";
 import StockSplitsTab from "@/components/stock/StockSplitsTab";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 const TABS = ["Overview", "Financials", "Statistics", "Forecast", "Chart", "News", "Dividends", "Splits"];
 
@@ -175,6 +176,9 @@ const StockDetail = () => {
           <StockSplitsTab splits={splits} loading={splitsLoading} ticker={ticker} />
         </div>
       )}
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </div>
   );
 };

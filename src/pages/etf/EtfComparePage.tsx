@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 const CHART_COLORS = [
   "hsl(var(--primary))",
@@ -373,6 +374,9 @@ export default function EtfComparePage() {
             ))}
           </div>
         </div>
+      </div>
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
       </div>
     </div>
   );

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle } from "lucide-react";
 import { z } from "zod";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -157,6 +158,9 @@ export default function ContactPage() {
 
     </div>
     
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </>
   );
 }
