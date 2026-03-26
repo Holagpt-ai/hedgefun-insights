@@ -10,14 +10,15 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { Search, MoreVertical, Download } from "lucide-react";
+import { Search, MoreVertical, Download, RefreshCw } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
-import { supabase } from "@/integrations/supabase/client";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
+
+const EDGE = "https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/market-data";
 
 interface ActiveRow {
   rank: number;
@@ -46,27 +47,34 @@ export default function ActivePage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: "volume", desc: true }]);
   const [search, setSearch] = useState("");
 
-  const { data: apiData, isLoading } = useQuery({
-    queryKey: ["most-active-page"],
+  const { data: apiData, isLoading, refetch } = useQuery({
+    queryKey: ["most-active"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("stocks")
-        .select("symbol, name, volume, price, change_percent, market_cap")
-        .not("volume", "is", null)
-        .order("volume", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data ?? []).map((r: any, i: number) => ({
-        rank: i + 1,
-        symbol: r.symbol,
-        name: r.name,
-        volume: r.volume ?? 0,
-        price: r.price ?? 0,
-        changePercent: r.change_percent ?? 0,
-        marketCap: r.market_cap ?? 0,
-      })) as ActiveRow[];
+      const [gainersRes, losersRes] = await Promise.all([
+        fetch(`${EDGE}?type=gainers`),
+        fetch(`${EDGE}?type=losers`),
+      ]);
+      const gainersJson = await gainersRes.json();
+      const losersJson = await losersRes.json();
+      const gainers = Array.isArray(gainersJson) ? gainersJson : (gainersJson.tickers ?? []);
+      const losers = Array.isArray(losersJson) ? losersJson : (losersJson.tickers ?? []);
+      const combined = [...gainers, ...losers];
+      return combined
+        .sort((a: any, b: any) => (b.day?.v ?? 0) - (a.day?.v ?? 0))
+        .slice(0, 20)
+        .map((t: any, i: number) => ({
+          rank: i + 1,
+          symbol: t.ticker || t.symbol || "",
+          name: t.name || t.ticker || "",
+          changePercent: t.todaysChangePerc ?? 0,
+          price: t?.lastTrade?.p || t?.lastQuote?.P || t?.day?.c || t?.prevDay?.c || 0,
+          volume: t.day?.v ?? 0,
+          marketCap: 0,
+        })) as ActiveRow[];
     },
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: 2000,
   });
 
   const rows = apiData ?? [];
@@ -263,6 +271,13 @@ export default function ActivePage() {
               <Skeleton key={i} className="h-10 w-full rounded" />
             ))}
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-muted-foreground mb-3">Market data is refreshing…</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+              <RefreshCw className="h-3.5 w-3.5" /> Try again
+            </Button>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -321,6 +336,9 @@ export default function ActivePage() {
           </div>
         )}
 
+        <p className="text-xs text-muted-foreground mt-2">
+          Data reflects latest available market activity.
+        </p>
         {/* Pagination */}
         <div className="flex items-center justify-between py-4 border-t border-border">
           <Button
