@@ -376,7 +376,9 @@ const WatchlistPage = () => {
       <title>My Watchlist | HedgeFun</title>
       {/* Index sparklines */}
       <IndexSparklineCards />
-
+      <div className="w-full flex flex-col items-center border-b border-border bg-surface py-1">
+        <AdBanner slot="top" />
+      </div>
       {/* Main content */}
       <div className="px-4 py-4 max-w-[1200px]">
         {/* ── Watchlist header ────────────────────── */}
@@ -694,8 +696,9 @@ const WatchlistPage = () => {
         </div>
       </div>
 
-      {/* Bottom ad banner */}
-      <AdBanner />
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </div>
   );
 };
