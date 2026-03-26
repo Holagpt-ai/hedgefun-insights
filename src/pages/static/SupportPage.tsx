@@ -1,25 +1,31 @@
-import { useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, MessageCircle, Star, BarChart3, ClipboardList, Newspaper, Shield } from "lucide-react";
 
 const CATEGORIES = [
-  { icon: MessageCircle, title: "Getting Started", description: "Account setup, signing in, and navigating HedgeFun", to: "/faq" },
-  { icon: Star, title: "HedgeFun Pro", description: "Billing, subscription management, and Pro features", to: "/faq" },
-  { icon: BarChart3, title: "Data & Charts", description: "Understanding market data, charts, and indicators", to: "/faq" },
-  { icon: ClipboardList, title: "Watchlist", description: "Adding stocks, managing your watchlist", to: "/faq" },
-  { icon: Newspaper, title: "Market Newsletter", description: "Subscribing, unsubscribing, delivery issues", to: "/faq" },
-  { icon: Shield, title: "Privacy & Security", description: "Account security, data privacy, and permissions", to: "/faq" },
+  { icon: MessageCircle, title: "Getting Started", description: "Account setup, signing in, and navigating HedgeFun", to: "/faq#getting-started" },
+  { icon: Star, title: "HedgeFun Pro", description: "Billing, subscription management, and Pro features", to: "/faq#pro" },
+  { icon: BarChart3, title: "Data & Charts", description: "Understanding market data, charts, and indicators", to: "/faq#data" },
+  { icon: ClipboardList, title: "Watchlist", description: "Adding stocks, managing your watchlist", to: "/faq#getting-started" },
+  { icon: Newspaper, title: "Market Newsletter", description: "Subscribing, unsubscribing, delivery issues", to: "/faq#getting-started" },
+  { icon: Shield, title: "Privacy & Security", description: "Account security, data privacy, and permissions", to: "/faq#technical" },
 ];
 
 export default function SupportPage() {
-  const navigate = useNavigate();
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     document.title = "Get Support | HedgeFun";
   }, []);
+
+  const filtered = CATEGORIES.filter(
+    (cat) =>
+      cat.title.toLowerCase().includes(search.toLowerCase()) ||
+      cat.description.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <>
@@ -31,23 +37,34 @@ export default function SupportPage() {
       {/* Search bar */}
       <div className="max-w-[600px] mx-auto mb-10 relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Search for help..." className="pl-10" disabled />
+        <Input
+          placeholder="Search for help..."
+          className="pl-10"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
       {/* Help categories */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
-        {CATEGORIES.map((cat, i) => (
-          <Link
-            key={i}
-            to={cat.to}
-            className="border border-border rounded-md p-5 text-center hover:border-primary transition-colors"
-          >
-            <cat.icon className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
-            <h3 className="text-base font-bold mb-1">{cat.title}</h3>
-            <p className="text-sm text-muted-foreground">{cat.description}</p>
-          </Link>
-        ))}
-      </div>
+      {filtered.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-12">
+          {filtered.map((cat, i) => (
+            <Link
+              key={i}
+              to={cat.to}
+              className="border border-border rounded-md p-5 text-center hover:border-primary transition-colors"
+            >
+              <cat.icon className="h-12 w-12 mx-auto mb-3 text-muted-foreground" />
+              <h3 className="text-base font-bold mb-1">{cat.title}</h3>
+              <p className="text-sm text-muted-foreground">{cat.description}</p>
+            </Link>
+          ))}
+        </div>
+      ) : (
+        <p className="text-center text-muted-foreground mb-12">
+          No results found — try a different search term
+        </p>
+      )}
 
       {/* Still need help */}
       <div className="text-center py-8 border-t border-border">

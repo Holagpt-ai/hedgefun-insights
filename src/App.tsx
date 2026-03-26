@@ -70,6 +70,7 @@ import DisclaimerPage from "./pages/static/DisclaimerPage";
 import AffiliatesPage from "./pages/static/AffiliatesPage";
 import SupportPage from "./pages/static/SupportPage";
 import SitemapPage from "./pages/static/SitemapPage";
+import DownloadPage from "./pages/static/DownloadPage";
 import CagrCalculatorPage from "./pages/tools/CagrCalculatorPage";
 import DividendCalculatorPage from "./pages/tools/DividendCalculatorPage";
 import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
@@ -154,7 +155,7 @@ const App = () => (
                   <Route path="/tools/dividend-calculator" element={<DividendCalculatorPage />} />
                   <Route path="/tools/symbol-lookup" element={<SymbolLookupPage />} />
                   <Route path="/ipos/spac" element={<StubPage title="SPAC List" description="Track all active SPACs, their targets, and merger status." />} />
-                  <Route path="/download" element={<StubPage title="Download HedgeFun" description="HedgeFun mobile app — coming soon to iOS and Android." />} />
+                  <Route path="/download" element={<DownloadPage />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/contact" element={<ContactPage />} />
                   <Route path="/faq" element={<FaqPage />} />
