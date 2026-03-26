@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { slugToTicker } from "@/lib/ticker-utils";
-import { getTickerSnapshot, getTickerDetails, getTickerNews, getAggregates, getDividends } from "@/lib/polygon";
+import { getTickerSnapshot, getTickerDetails, getTickerNews, getAggregates, getDividends, getSplits } from "@/lib/polygon";
 import { cn } from "@/lib/utils";
 import StockHeader from "@/components/stock/StockHeader";
 import StockStatsTable from "@/components/stock/StockStatsTable";
@@ -10,6 +10,11 @@ import StockChart from "@/components/stock/StockChart";
 import StockCtaButtons from "@/components/stock/StockCtaButtons";
 import StockAbout from "@/components/stock/StockAbout";
 import StockNews from "@/components/stock/StockNews";
+import StockFinancialsTab from "@/components/stock/StockFinancialsTab";
+import StockStatisticsTab from "@/components/stock/StockStatisticsTab";
+import StockForecastTab from "@/components/stock/StockForecastTab";
+import StockDividendsTab from "@/components/stock/StockDividendsTab";
+import StockSplitsTab from "@/components/stock/StockSplitsTab";
 
 const TABS = ["Overview", "Financials", "Statistics", "Forecast", "Chart", "News", "Dividends", "Splits"];
 
@@ -37,7 +42,6 @@ const StockDetail = () => {
   const [activeTab, setActiveTab] = useState("Overview");
   const [timeRange, setTimeRange] = useState("1M");
 
-  // All queries fire in parallel
   const { data: snapshot, isLoading: snapLoading } = useQuery({
     queryKey: ["snapshot", ticker],
     queryFn: () => getTickerSnapshot(ticker),
@@ -56,13 +60,18 @@ const StockDetail = () => {
     enabled: !!ticker,
   });
 
-  const { data: dividends } = useQuery({
+  const { data: dividends, isLoading: dividendsLoading } = useQuery({
     queryKey: ["dividends", ticker],
-    queryFn: () => getDividends(ticker),
+    queryFn: () => getDividends(ticker, 20),
     enabled: !!ticker,
   });
 
-  // Separate 1Y aggregates for 52-week range (independent of chart timeRange)
+  const { data: splits, isLoading: splitsLoading } = useQuery({
+    queryKey: ["splits", ticker],
+    queryFn: () => getSplits(ticker, 20),
+    enabled: !!ticker,
+  });
+
   const yearRange = getDateRange("1Y");
   const { data: yearAggs } = useQuery({
     queryKey: ["year-aggs", ticker],
@@ -70,7 +79,6 @@ const StockDetail = () => {
     enabled: !!ticker,
   });
 
-  // Chart aggregates (changes with timeRange)
   const dateRange = getDateRange(timeRange);
   const { data: chartData, isLoading: chartLoading } = useQuery({
     queryKey: ["aggregates", ticker, timeRange],
@@ -80,12 +88,12 @@ const StockDetail = () => {
 
   const positive = (snapshot?.todaysChangePerc ?? 0) >= 0;
   const prevClose = snapshot?.prevDay?.c ?? null;
+  const currentPrice = snapshot?.day?.c ?? snapshot?.prevDay?.c ?? null;
 
   return (
     <div className="flex flex-col">
       <StockHeader snapshot={snapshot} details={details} loading={snapLoading} ticker={ticker} />
 
-      {/* Tab Bar */}
       <div className="border-b-2 border-border sticky top-header z-10 bg-surface-card px-4 overflow-x-auto">
         <div className="flex gap-0 min-w-max">
           {TABS.map((tab) => (
@@ -106,30 +114,53 @@ const StockDetail = () => {
 
       {activeTab === "Overview" && (
         <div className="px-4 py-4 space-y-6">
-          <StockStatsTable
-            snapshot={snapshot}
-            details={details}
-            dividends={dividends}
-            yearAggs={yearAggs}
-            loading={snapLoading || detailsLoading}
-          />
-          <StockChart
-            chartData={chartData}
-            chartLoading={chartLoading}
-            timeRange={timeRange}
-            setTimeRange={setTimeRange}
-            positive={positive}
-            prevClose={prevClose}
-          />
+          <StockStatsTable snapshot={snapshot} details={details} dividends={dividends} yearAggs={yearAggs} loading={snapLoading || detailsLoading} />
+          <StockChart chartData={chartData} chartLoading={chartLoading} timeRange={timeRange} setTimeRange={setTimeRange} positive={positive} prevClose={prevClose} />
           <StockCtaButtons ticker={ticker} />
           <StockAbout details={details} ticker={ticker} />
           <StockNews news={news} />
         </div>
       )}
 
-      {activeTab !== "Overview" && (
-        <div className="px-4 py-8 text-center">
-          <p className="text-sm text-muted-foreground">{activeTab} tab — coming soon.</p>
+      {activeTab === "Financials" && (
+        <div className="px-4 py-4">
+          <StockFinancialsTab />
+        </div>
+      )}
+
+      {activeTab === "Statistics" && (
+        <div className="px-4 py-4">
+          <StockStatisticsTab />
+        </div>
+      )}
+
+      {activeTab === "Forecast" && (
+        <div className="px-4 py-4">
+          <StockForecastTab />
+        </div>
+      )}
+
+      {activeTab === "Chart" && (
+        <div className="px-4 py-4 space-y-6">
+          <StockChart chartData={chartData} chartLoading={chartLoading} timeRange={timeRange} setTimeRange={setTimeRange} positive={positive} prevClose={prevClose} />
+        </div>
+      )}
+
+      {activeTab === "News" && (
+        <div className="px-4 py-4">
+          <StockNews news={news} />
+        </div>
+      )}
+
+      {activeTab === "Dividends" && (
+        <div className="px-4 py-4">
+          <StockDividendsTab dividends={dividends} loading={dividendsLoading} ticker={ticker} currentPrice={currentPrice} />
+        </div>
+      )}
+
+      {activeTab === "Splits" && (
+        <div className="px-4 py-4">
+          <StockSplitsTab splits={splits} loading={splitsLoading} ticker={ticker} />
         </div>
       )}
     </div>
