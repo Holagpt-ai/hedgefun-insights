@@ -137,8 +137,16 @@ serve(async (req) => {
       }
       case "dividends": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const divLimit = searchParams.get("limit") ?? "4";
+        const divLimit = searchParams.get("limit") ?? "20";
         const res = await fetch(polyUrl(`/v3/reference/dividends`, { ticker, limit: divLimit, order: "desc" }));
+        const json = await res.json();
+        data = json.results ?? [];
+        break;
+      }
+      case "splits": {
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        const splitsLimit = searchParams.get("limit") ?? "20";
+        const res = await fetch(polyUrl(`/v3/reference/splits`, { ticker, limit: splitsLimit, order: "desc" }));
         const json = await res.json();
         data = json.results ?? [];
         break;
