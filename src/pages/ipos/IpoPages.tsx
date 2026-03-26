@@ -48,6 +48,8 @@ export function RecentIposPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [yearFilter, setYearFilter] = useState("All");
 
+  const EDGE = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data`;
+
   const { data: dbData, isLoading } = useQuery({
     queryKey: ["ipo-recent"],
     queryFn: async () => {
@@ -58,8 +60,13 @@ export function RecentIposPage() {
         .order("ipo_date", { ascending: false })
         .limit(200);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      // Fallback to live API
+      const res = await fetch(`${EDGE}?type=ipos&ipoStatus=history&limit=30`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
 
   const { data: upcomingIpos } = useQuery({
@@ -72,8 +79,13 @@ export function RecentIposPage() {
         .order("ipo_date", { ascending: true })
         .limit(5);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      // Fallback to live API
+      const res = await fetch(`${EDGE}?type=ipos&ipoStatus=pending&limit=5`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
 
   const { data: ipoNews } = useQuery({
@@ -407,6 +419,8 @@ export function UpcomingIposPage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: "ipoDate", desc: false }]);
   const [search, setSearch] = useState("");
 
+  const EDGE_CAL = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data`;
+
   const { data: upcomingData, isLoading } = useQuery({
     queryKey: ["ipo-calendar-upcoming"],
     queryFn: async () => {
@@ -417,8 +431,12 @@ export function UpcomingIposPage() {
         .order("ipo_date", { ascending: true })
         .limit(50);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      const res = await fetch(`${EDGE_CAL}?type=ipos&ipoStatus=pending&limit=50`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
 
   const calendarRows: CalendarIpo[] = useMemo(() => {
