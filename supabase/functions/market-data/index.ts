@@ -135,8 +135,16 @@ serve(async (req) => {
         data = json.results?.[0] ?? null;
         break;
       }
+      case "dividends": {
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        const divLimit = searchParams.get("limit") ?? "4";
+        const res = await fetch(polyUrl(`/v3/reference/dividends`, { ticker, limit: divLimit, order: "desc" }));
+        const json = await res.json();
+        data = json.results ?? [];
+        break;
+      }
       default:
-        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close, dividends" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify(data), {
