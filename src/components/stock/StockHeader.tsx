@@ -25,6 +25,7 @@ interface Props {
   details: any;
   loading: boolean;
   ticker: string;
+  isPreIPO?: boolean;
 }
 
 export default function StockHeader({ snapshot, details, loading, ticker }: Props) {
