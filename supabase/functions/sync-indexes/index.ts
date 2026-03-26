@@ -29,46 +29,42 @@ serve(async (req) => {
 
     const results = [];
 
+    const today = new Date().toISOString().split("T")[0];
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .split("T")[0];
+
     for (const idx of INDEXES) {
       try {
-        const res = await fetch(
-          `https://api.massive.com/v2/snapshot/locale/us/markets/stocks/tickers/${idx.ticker}?apiKey=${API_KEY}`
+        // Fetch snapshot for current price + change
+        const snapRes = await fetch(
+          `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${idx.ticker}?apiKey=${API_KEY}`
         );
-        const json = await res.json();
-        const t = json?.ticker;
-        if (!t) {
-          console.warn(`No data for ${idx.ticker}`);
-          continue;
-        }
+        const snapJson = await snapRes.json();
+        const t = snapJson?.ticker;
 
-        // Build sparkline from min data if available, otherwise use recent values
-        let sparkline: number[] = [];
-        if (t.min && typeof t.min.c === "number") {
-          sparkline = [t.min.c];
-        }
-        // Try to build a small sparkline from available data points
-        const dayClose = t.day?.c ?? t.prevDay?.c ?? null;
-        const prevClose = t.prevDay?.c ?? null;
-        if (prevClose && dayClose) {
-          const mid = (prevClose + dayClose) / 2;
-          sparkline = [
-            prevClose * 0.998,
-            prevClose,
-            mid,
-            dayClose * 0.999,
-            dayClose,
-          ];
-        }
+        // Fetch 30-day daily aggregates for sparkline (gives ~20 trading days)
+        const aggRes = await fetch(
+          `https://api.polygon.io/v2/aggs/ticker/${idx.ticker}/range/1/day/${thirtyDaysAgo}/${today}?adjusted=true&sort=asc&limit=50&apiKey=${API_KEY}`
+        );
+        const aggJson = await aggRes.json();
+        const aggResults = aggJson?.results ?? [];
+
+        const sparklineData = aggResults.map((r: any) => r.c).filter((v: any) => typeof v === "number");
+
+        const currentValue = t?.day?.c ?? t?.lastTrade?.p ?? (sparklineData.length > 0 ? sparklineData[sparklineData.length - 1] : null);
 
         const row = {
           symbol: idx.ticker,
           name: idx.name,
-          current_value: t.day?.c ?? t.lastTrade?.p ?? null,
-          change_amount: t.todaysChange ?? null,
-          change_percent: t.todaysChangePerc ?? null,
-          sparkline_data: sparkline.length > 0 ? sparkline : null,
+          current_value: currentValue,
+          change_amount: t?.todaysChange ?? null,
+          change_percent: t?.todaysChangePerc ?? null,
+          sparkline_data: sparklineData.length > 0 ? sparklineData : null,
           updated_at: new Date().toISOString(),
         };
+
+        console.log(`${idx.ticker}: sparkline points=${sparklineData.length}, value=${currentValue}`);
 
         const { error } = await supabase
           .from("market_indexes")
@@ -78,7 +74,7 @@ serve(async (req) => {
           console.error(`Upsert error for ${idx.ticker}:`, error.message);
           results.push({ ticker: idx.ticker, status: "error", message: error.message });
         } else {
-          results.push({ ticker: idx.ticker, status: "ok" });
+          results.push({ ticker: idx.ticker, status: "ok", points: sparklineData.length });
         }
       } catch (e) {
         console.error(`Fetch error for ${idx.ticker}:`, (e as Error).message);
