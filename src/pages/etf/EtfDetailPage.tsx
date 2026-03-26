@@ -157,6 +157,35 @@ export default function EtfDetailPage() {
     staleTime: 120_000,
   });
 
+  // Fetch snapshot for avg volume
+  const { data: snapshot } = useQuery({
+    queryKey: ["etf-snapshot", symbol],
+    queryFn: () => getTickerSnapshot(symbol),
+    staleTime: 60_000,
+  });
+
+  // Fetch details for inception date
+  const { data: etfDetails } = useQuery({
+    queryKey: ["etf-details", symbol],
+    queryFn: () => getTickerDetails(symbol),
+    staleTime: 300_000,
+  });
+
+  // Fetch 1Y aggregates for 52W high/low
+  const yearRange = useMemo(() => {
+    const now = new Date();
+    return {
+      from: new Date(now.getTime() - 365 * 86400000).toISOString().slice(0, 10),
+      to: now.toISOString().slice(0, 10),
+    };
+  }, []);
+
+  const { data: yearAggs } = useQuery({
+    queryKey: ["etf-year-aggs", symbol],
+    queryFn: () => getAggregates(symbol, 1, "day", yearRange.from, yearRange.to),
+    staleTime: 300_000,
+  });
+
   const chartPoints = useMemo(() => {
     if (!Array.isArray(chartData)) return [];
     return chartData.map((d: any) => ({
@@ -165,20 +194,58 @@ export default function EtfDetailPage() {
     }));
   }, [chartData]);
 
+  // Compute derived stats from API data
+  const derivedStats = useMemo(() => {
+    const aggs = Array.isArray(yearAggs) ? yearAggs : [];
+
+    const high52w = aggs.length > 0
+      ? Math.max(...aggs.map((r: any) => r.h)).toFixed(2)
+      : null;
+    const low52w = aggs.length > 0
+      ? Math.min(...aggs.map((r: any) => r.l)).toFixed(2)
+      : null;
+
+    const jan1 = `${new Date().getFullYear()}-01-01`;
+    const jan1Time = new Date(jan1).getTime();
+    const jan1Bar = aggs.find((r: any) => r.t >= jan1Time);
+    const latestBar = aggs.length > 0 ? aggs[aggs.length - 1] : null;
+    const ytdReturn = jan1Bar && latestBar
+      ? (((latestBar.c - jan1Bar.c) / jan1Bar.c) * 100).toFixed(2)
+      : null;
+
+    const inceptionDate = etfDetails?.list_date
+      ? new Date(etfDetails.list_date + "T00:00:00").toLocaleDateString("en-US", {
+          month: "short", day: "numeric", year: "numeric",
+        })
+      : etfRow?.inception_date ?? null;
+
+    const avgVolume = snapshot?.min?.av ?? null;
+
+    return { high52w, low52w, ytdReturn, inceptionDate, avgVolume };
+  }, [yearAggs, etfDetails, snapshot, etfRow]);
+
   const price = etfRow?.price ?? null;
   const changePct = etfRow?.change_percent ?? 0;
   const changeAmt = price && changePct ? (price * changePct / (100 + changePct)) : 0;
   const positive = changePct >= 0;
 
-  const stats = [
+  const stats: { label: string; value: string; color?: string }[] = [
     { label: "AUM", value: abbr(etfRow?.total_assets) },
     { label: "Expense Ratio", value: etfRow?.expense_ratio != null ? `${etfRow.expense_ratio.toFixed(2)}%` : "—" },
-    { label: "52W High", value: "—" },
-    { label: "52W Low", value: "—" },
+    { label: "52W High", value: derivedStats.high52w ? `$${derivedStats.high52w}` : "—" },
+    { label: "52W Low", value: derivedStats.low52w ? `$${derivedStats.low52w}` : "—" },
     { label: "Volume", value: etfRow?.volume ? etfRow.volume.toLocaleString() : "—" },
-    { label: "Avg Volume", value: "—" },
-    { label: "YTD Return", value: etfRow?.ytd_return != null ? `${etfRow.ytd_return.toFixed(2)}%` : "—" },
-    { label: "Inception Date", value: etfRow?.inception_date ?? "—" },
+    { label: "Avg Volume", value: abbrVol(derivedStats.avgVolume) },
+    {
+      label: "YTD Return",
+      value: derivedStats.ytdReturn
+        ? `${parseFloat(derivedStats.ytdReturn) >= 0 ? "+" : ""}${derivedStats.ytdReturn}%`
+        : "—",
+      color: derivedStats.ytdReturn
+        ? parseFloat(derivedStats.ytdReturn) >= 0 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+        : undefined,
+    },
+    { label: "Inception Date", value: derivedStats.inceptionDate ?? "—" },
   ];
 
   const holdings = HOLDINGS[symbol] ?? [];
