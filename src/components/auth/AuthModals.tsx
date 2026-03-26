@@ -90,7 +90,10 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
         skipBrowserRedirect: false,
       },
     });
-    if (error) toast({ title: error.message, variant: "destructive" });
+    if (error) {
+      console.error('Google OAuth error:', error.message);
+      toast({ title: error.message, variant: "destructive" });
+    }
   };
 
   return (
