@@ -205,8 +205,59 @@ serve(async (req) => {
         data = json.results ?? [];
         break;
       }
+      case "search": {
+        const query = searchParams.get("query")?.trim() ?? "";
+        if (!query || query.length < 1) { data = []; break; }
+
+        const supabaseSearch = createClient(
+          Deno.env.get("SUPABASE_URL")!,
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
+        );
+
+        const upperQuery = query.toUpperCase();
+
+        const [exactMatch, prefixMatch, nameMatch] = await Promise.all([
+          supabaseSearch
+            .from("ticker_search")
+            .select("symbol, name, exchange, type")
+            .eq("symbol", upperQuery)
+            .eq("active", true)
+            .limit(1),
+          supabaseSearch
+            .from("ticker_search")
+            .select("symbol, name, exchange, type")
+            .ilike("symbol", `${upperQuery}%`)
+            .eq("active", true)
+            .neq("symbol", upperQuery)
+            .order("symbol")
+            .limit(5),
+          supabaseSearch
+            .from("ticker_search")
+            .select("symbol, name, exchange, type")
+            .ilike("name", `%${query}%`)
+            .eq("active", true)
+            .order("symbol")
+            .limit(5),
+        ]);
+
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        const addResult = (r: any) => {
+          if (!seen.has(r.symbol)) {
+            seen.add(r.symbol);
+            merged.push({ ticker: r.symbol, name: r.name, exchange: r.exchange, type: r.type });
+          }
+        };
+
+        (exactMatch.data ?? []).forEach(addResult);
+        (prefixMatch.data ?? []).forEach(addResult);
+        (nameMatch.data ?? []).forEach(addResult);
+
+        data = merged.slice(0, 8);
+        break;
+      }
       default:
-        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close, dividends, splits" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close, dividends, splits, search" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify(data), {

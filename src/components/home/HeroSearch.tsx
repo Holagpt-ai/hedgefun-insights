@@ -2,9 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { supabase } from "@/integrations/supabase/client";
 import { trackEvent } from "@/lib/analytics";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
 
 const TRENDING = [
   { symbol: "NVDA", label: "NVDA" },
@@ -17,8 +17,9 @@ export function HeroSearch() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<{ symbol: string; name: string; exchange: string | null }[]>([]);
+  const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -33,23 +34,21 @@ export function HeroSearch() {
   const handleSearch = useCallback((value: string) => {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!value.trim()) { setResults([]); setShowResults(false); return; }
+    if (!value.trim()) { setResults([]); setShowResults(false); setIsSearching(false); return; }
+    setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
-      const { data } = await supabase
-        .from("stocks")
-        .select("symbol, name, exchange")
-        .or(`symbol.ilike.%${value}%,name.ilike.%${value}%`)
-        .limit(8);
-      setResults(data ?? []);
+      const data = await searchTickers(value);
+      setResults(data);
       setShowResults(true);
+      setIsSearching(false);
     }, 200);
   }, []);
 
-  const select = (symbol: string) => {
-    trackEvent("stock_search", { ticker: symbol });
+  const select = (ticker: string) => {
+    trackEvent("stock_search", { ticker });
     setShowResults(false);
     setQuery("");
-    navigate(`/stocks/${symbol}`);
+    navigate(`/stocks/${ticker.toLowerCase()}`);
   };
 
   return (
@@ -74,17 +73,30 @@ export function HeroSearch() {
           <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
             {results.map((r) => (
               <button
-                key={r.symbol}
-                onClick={() => select(r.symbol)}
-                className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-accent transition-colors text-left"
+                key={r.ticker}
+                onClick={() => select(r.ticker)}
+                className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-accent transition-colors text-left border-b border-border last:border-0"
               >
-                <span className="ticker-symbol text-accent-blue text-sm">{r.symbol}</span>
+                <span className="ticker-symbol text-accent-blue text-sm font-semibold">{r.ticker}</span>
                 <span className="text-sm text-foreground truncate flex-1">{r.name}</span>
-                {r.exchange && (
-                  <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{r.exchange}</span>
-                )}
+                <span className="text-[0.6875rem] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  {EXCHANGE_LABELS[r.exchange ?? ""] ?? r.exchange ?? "—"}
+                </span>
+                <span className="text-[0.6875rem] text-muted-foreground">
+                  {TYPE_LABELS[r.type ?? ""] ?? r.type ?? "Stock"}
+                </span>
               </button>
             ))}
+          </div>
+        )}
+        {showResults && results.length === 0 && query.trim().length >= 1 && !isSearching && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+            No results for "{query}"
+          </div>
+        )}
+        {isSearching && query.trim().length >= 1 && (
+          <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+            Searching...
           </div>
         )}
       </div>

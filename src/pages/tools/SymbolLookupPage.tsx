@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Search, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -13,71 +12,87 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-
-type StockResult = { symbol: string; name: string; sector: string | null };
+import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
+import { supabase } from "@/integrations/supabase/client";
 
 const PAGE_SIZE = 25;
+type BrowseRow = { symbol: string; name: string; exchange: string | null; type: string | null };
 
 export default function SymbolLookupPage() {
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<StockResult[]>([]);
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [browseResults, setBrowseResults] = useState<BrowseRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isSearching, setIsSearching] = useState(false);
   const [page, setPage] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const navigate = useNavigate();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const fetchStocks = useCallback(async (q: string, p: number) => {
+  // Browse mode: paginated list from ticker_search table
+  const fetchBrowse = async (p: number) => {
     setLoading(true);
-    const trimmed = q.trim();
     const from = p * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-
-    let query$ = supabase
-      .from("stocks")
-      .select("symbol, name, sector", { count: "exact" })
+    const { data, count } = await supabase
+      .from("ticker_search" as any)
+      .select("symbol, name, exchange, type", { count: "exact" })
+      .eq("active", true)
       .order("symbol", { ascending: true })
       .range(from, to);
-
-    if (trimmed) {
-      query$ = query$.or(
-        `symbol.ilike.%${trimmed}%,name.ilike.%${trimmed}%`
-      );
-    }
-
-    const { data, error, count } = await query$;
-    if (!error && data) {
-      setResults(data);
-      setTotalCount(count ?? 0);
-    }
+    setBrowseResults((data as any) ?? []);
+    setTotalCount(count ?? 0);
     setLoading(false);
-  }, []);
+  };
 
-  // Reset page on query change + debounce
+  // On mount, load browse
+  useEffect(() => { fetchBrowse(0); }, []);
+
+  // On page change
+  useEffect(() => { if (page > 0) fetchBrowse(page); }, [page]);
+
+  // Search mode: debounced edge function search
   useEffect(() => {
-    setPage(0);
+    if (!query.trim()) {
+      setSearchResults([]);
+      setIsSearching(false);
+      return;
+    }
+    setIsSearching(true);
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      fetchStocks(query, 0);
-    }, 300);
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, [query, fetchStocks]);
+    timerRef.current = setTimeout(async () => {
+      const data = await searchTickers(query);
+      setSearchResults(data);
+      setIsSearching(false);
+    }, 200);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, [query]);
 
-  // Fetch on page change (not on query change — that's handled above)
-  useEffect(() => {
-    if (page > 0) fetchStocks(query, page);
-  }, [page, fetchStocks]);
-
+  const isSearchMode = query.trim().length > 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const getType = (sector: string | null) => {
-    if (!sector) return "Stock";
-    const s = sector.toLowerCase();
-    if (s.includes("etf") || s.includes("fund")) return "ETF";
-    return "Stock";
-  };
+  const renderRow = (symbol: string, name: string, exchange: string | null, type: string | null) => (
+    <tr
+      key={symbol}
+      className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
+      onClick={() => navigate(`/stocks/${symbol.toLowerCase()}`)}
+    >
+      <td className="table-cell px-4 py-2.5 font-semibold text-primary">{symbol}</td>
+      <td className="table-cell px-4 py-2.5 text-foreground">{name}</td>
+      <td className="table-cell px-4 py-2.5">
+        <span className="text-xs text-muted-foreground">
+          {EXCHANGE_LABELS[exchange ?? ""] ?? exchange ?? "—"}
+        </span>
+      </td>
+      <td className="table-cell px-4 py-2.5">
+        <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+          (type === "ETF" || type === "FUND") ? "bg-accent/50 text-accent-foreground" : "bg-muted text-muted-foreground"
+        }`}>
+          {TYPE_LABELS[type ?? ""] ?? type ?? "Stock"}
+        </span>
+      </td>
+    </tr>
+  );
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">
@@ -117,83 +132,63 @@ export default function SymbolLookupPage() {
           placeholder="Search by company name, e.g. Apple, Vanguard, iShares..."
           className="pl-9 h-11"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => { setQuery(e.target.value); setPage(0); }}
         />
       </div>
 
       <Card className="fintech-card">
         <CardContent className="p-0">
-          {loading ? (
+          {(loading && !isSearchMode) || isSearching ? (
             <div className="px-4 py-8 flex items-center justify-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" /> Loading...
+              <Loader2 className="h-4 w-4 animate-spin" /> {isSearching ? "Searching..." : "Loading..."}
             </div>
-          ) : results.length > 0 ? (
+          ) : isSearchMode ? (
+            searchResults.length > 0 ? (
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="table-header px-4 py-2.5 text-left">Symbol</th>
+                    <th className="table-header px-4 py-2.5 text-left">Name</th>
+                    <th className="table-header px-4 py-2.5 text-left">Exchange</th>
+                    <th className="table-header px-4 py-2.5 text-left">Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {searchResults.map((r) => renderRow(r.ticker, r.name, r.exchange, r.type))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                No results found for '{query}'. Try a different name or ticker.
+              </div>
+            )
+          ) : browseResults.length > 0 ? (
             <>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
                     <th className="table-header px-4 py-2.5 text-left">Symbol</th>
                     <th className="table-header px-4 py-2.5 text-left">Name</th>
+                    <th className="table-header px-4 py-2.5 text-left">Exchange</th>
                     <th className="table-header px-4 py-2.5 text-left">Type</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {results.map((item) => {
-                    const type = getType(item.sector);
-                    return (
-                      <tr
-                        key={item.symbol}
-                        className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
-                        onClick={() => navigate(`/stocks/${item.symbol}`)}
-                      >
-                        <td className="table-cell px-4 py-2.5 font-semibold text-primary">
-                          {item.symbol}
-                        </td>
-                        <td className="table-cell px-4 py-2.5 text-foreground">{item.name}</td>
-                        <td className="table-cell px-4 py-2.5">
-                          <span
-                            className={`text-xs font-medium px-2 py-0.5 rounded ${
-                              type === "ETF"
-                                ? "bg-accent/50 text-accent-foreground"
-                                : "bg-muted text-muted-foreground"
-                            }`}
-                          >
-                            {type}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {browseResults.map((r) => renderRow(r.symbol, r.name, r.exchange, r.type))}
                 </tbody>
               </table>
-
-              {/* Pagination */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between px-4 py-3 border-t border-border">
                   <span className="text-xs text-muted-foreground">
-                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+                    Showing {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount.toLocaleString()}
                   </span>
                   <div className="flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={page === 0}
-                      onClick={() => setPage((p) => p - 1)}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                      Prev
+                    <Button variant="ghost" size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+                      <ChevronLeft className="h-4 w-4" /> Prev
                     </Button>
-                    <span className="text-xs text-muted-foreground px-2">
-                      Page {page + 1} of {totalPages}
-                    </span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={page >= totalPages - 1}
-                      onClick={() => setPage((p) => p + 1)}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4" />
+                    <span className="text-xs text-muted-foreground px-2">Page {page + 1} of {totalPages}</span>
+                    <Button variant="ghost" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage((p) => p + 1)}>
+                      Next <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
@@ -201,9 +196,7 @@ export default function SymbolLookupPage() {
             </>
           ) : (
             <div className="px-4 py-8 text-center text-sm text-muted-foreground">
-              {query.trim()
-                ? `No results found for '${query}'. Try a different name or ticker.`
-                : "No stocks available. Check back later."}
+              No stocks available. Check back later.
             </div>
           )}
         </CardContent>
