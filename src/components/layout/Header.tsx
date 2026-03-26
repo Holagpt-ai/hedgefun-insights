@@ -114,14 +114,14 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
           <Menu className="h-5 w-5 text-foreground" />
         </button>
 
-        <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => navigate("/")}>
+        <div className="flex items-center gap-2 shrink-0 md:w-[var(--sidebar-width)] cursor-pointer" onClick={() => navigate("/")}>
           <div className="h-8 w-8 rounded-md bg-accent-blue flex items-center justify-center">
             <span className="text-sm font-bold text-primary-foreground">HF</span>
           </div>
           <span className="hidden md:block font-display text-lg text-foreground">HedgeFun</span>
         </div>
 
-        <div ref={searchRef} className="relative flex-1 max-w-full md:max-w-[480px] mx-auto">
+        <div ref={searchRef} className="relative flex-1 max-w-full md:max-w-[480px] mr-auto">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             ref={inputRef}
