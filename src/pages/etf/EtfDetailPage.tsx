@@ -2,7 +2,7 @@ import { useState, useMemo } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { getAggregates, getTickerNews } from "@/lib/polygon";
+import { getAggregates, getTickerNews, getTickerSnapshot, getTickerDetails } from "@/lib/polygon";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { AreaChart, Area, ResponsiveContainer, XAxis, Tooltip } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
