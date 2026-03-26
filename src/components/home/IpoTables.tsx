@@ -40,24 +40,48 @@ function IpoTable({ title, linkTo, status }: { title: string; linkTo: string; st
         <button onClick={() => navigate(linkTo)} className="text-base text-muted-foreground hover:text-accent-blue">›</button>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-8 w-full rounded" />
-          ))}
-        </div>
-      ) : (
-        <div className="fintech-card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="table-header text-left px-3 py-2">Date</th>
-                <th className="table-header text-left px-3 py-2">Symbol</th>
-                <th className="table-header text-left px-3 py-2">Company Name</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(data ?? []).map((ipo: any, idx: number) => (
+      {(() => {
+        const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+        const now = new Date();
+        const filtered = (data ?? []).filter((ipo: any) => {
+          if (status === "recent") {
+            if (!ipo.ipo_date) return false;
+            const d = new Date(ipo.ipo_date);
+            return d >= ninetyDaysAgo && d <= now;
+          }
+          if (status === "upcoming") {
+            if (!ipo.ipo_date) return true;
+            return new Date(ipo.ipo_date) > now;
+          }
+          return true;
+        });
+
+        if (isLoading) return (
+          <div className="space-y-2">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full rounded" />
+            ))}
+          </div>
+        );
+
+        return (
+          <div className="fintech-card overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="table-header text-left px-3 py-2">Date</th>
+                  <th className="table-header text-left px-3 py-2">Symbol</th>
+                  <th className="table-header text-left px-3 py-2">Company Name</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={3} className="py-6 text-center text-[0.875rem] text-muted-foreground">
+                      {status === "recent" ? "No recent IPOs in the last 90 days." : "No upcoming IPOs scheduled."}
+                    </td>
+                  </tr>
+                ) : filtered.map((ipo: any, idx: number) => (
                 <tr key={ipo.id ?? idx} className="border-b border-border last:border-b-0">
                   <td className="px-3 py-2 text-muted-foreground tabular-nums text-xs whitespace-nowrap">
                     {ipo.ipo_date ? (
