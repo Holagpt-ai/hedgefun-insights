@@ -42,14 +42,14 @@ serve(async () => {
   // Fetch all IPO categories in parallel
   const [upcomingJson, rumorJson, recentJson, newJson] = await Promise.all([
     fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "pending", limit: "50", order: "asc", sort: "ipo_date",
+      status: "pending", limit: "50", order: "asc", sort: "listing_date",
     })),
     fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "rumor", limit: "50", order: "asc", sort: "ipo_date",
+      status: "rumor", limit: "50", order: "asc", sort: "listing_date",
     })),
     fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "history", ipo_date_gte: ninetyDaysAgoStr,
-      limit: "50", order: "desc", sort: "ipo_date",
+      status: "history", listing_date_gte: ninetyDaysAgoStr,
+      limit: "50", order: "desc", sort: "listing_date",
     })),
     fetchSafe(polyUrl("/vX/reference/ipos", {
       status: "new", limit: "20",
@@ -61,40 +61,46 @@ serve(async () => {
   const recentResults = recentJson.results ?? [];
   const newResults = newJson.results ?? [];
 
-  // STRICT client-side date filtering — do NOT rely on API alone
+  // STRICT client-side date filtering using listing_date
+  const getDate = (r: any) => r.listing_date ?? r.announced_date ?? null;
+
   const validUpcomingResults = upcomingResults.filter((r: any) => {
-    if (!r.ipo_date) return true; // Keep TBD dates
-    return new Date(r.ipo_date) > today;
+    const d = getDate(r);
+    if (!d) return true;
+    return new Date(d) > today;
   });
 
   const validRumorResults = rumorResults.filter((r: any) => {
-    if (!r.ipo_date) return true; // Keep TBD rumor dates
-    return new Date(r.ipo_date) > today;
+    const d = getDate(r);
+    if (!d) return true;
+    return new Date(d) > today;
   });
 
   const validRecentResults = recentResults.filter((r: any) => {
-    if (!r.ipo_date) return false;
-    const ipoDate = new Date(r.ipo_date);
+    const d = getDate(r);
+    if (!d) return false;
+    const ipoDate = new Date(d);
     return ipoDate >= ninetyDaysAgo && ipoDate <= today;
   });
 
   const validNewResults = newResults.filter((r: any) => {
-    if (!r.ipo_date) return false;
-    const ipoDate = new Date(r.ipo_date);
+    const d = getDate(r);
+    if (!d) return false;
+    const ipoDate = new Date(d);
     return ipoDate >= ninetyDaysAgo && ipoDate <= today;
   });
 
-  // Map all results to ipo_list table format
+  // Map using correct Massive field names
   const mapIPO = (r: any, status: string) => ({
     symbol: r.ticker ?? null,
-    name: r.name ?? r.issuer_name ?? "Unknown",
-    ipo_date: r.ipo_date ?? new Date().toISOString().split("T")[0],
+    name: r.issuer_name ?? r.name ?? "Unknown",
+    ipo_date: r.listing_date ?? r.announced_date ?? todayStr,
     price_range: r.lowest_offer_price && r.highest_offer_price
       ? `$${r.lowest_offer_price} - $${r.highest_offer_price}`
       : null,
     offer_price: r.final_issue_price ?? r.highest_offer_price ?? null,
     status,
-    exchange: r.primary_mic_code ?? r.listing_exchange ?? null,
+    exchange: r.primary_exchange ?? null,
   });
 
   const rows = [
@@ -104,7 +110,6 @@ serve(async () => {
     ...validRecentResults.map((r: any) => mapIPO(r, "recent")),
   ].filter(r => r.name && r.name !== "Unknown");
 
-  // Upsert into ipo_list table
   if (rows.length > 0) {
     const withSymbol = rows.filter(r => r.symbol);
     const withoutSymbol = rows.filter(r => !r.symbol);
@@ -126,27 +131,12 @@ serve(async () => {
     totalSynced = rows.length;
   }
 
-  // Cleanup: remove stale records
-  await supabase
-    .from("ipo_list")
-    .delete()
-    .eq("status", "recent")
-    .lt("ipo_date", ninetyDaysAgoStr);
+  // Cleanup stale records
+  await supabase.from("ipo_list").delete().eq("status", "recent").lt("ipo_date", ninetyDaysAgoStr);
+  await supabase.from("ipo_list").delete().eq("status", "upcoming").lt("ipo_date", todayStr).not("ipo_date", "is", null);
 
-  await supabase
-    .from("ipo_list")
-    .delete()
-    .eq("status", "upcoming")
-    .lt("ipo_date", todayStr)
-    .not("ipo_date", "is", null);
-
-  // Remove known bad tickers
   const BAD_TICKERS = ["RDDT", "CRWV", "CBRS", "DBX2", "STRP", "NOTI", "ICRT", "EPIC"];
-  await supabase
-    .from("ipo_list")
-    .delete()
-    .in("symbol", BAD_TICKERS)
-    .eq("status", "recent");
+  await supabase.from("ipo_list").delete().in("symbol", BAD_TICKERS).eq("status", "recent");
 
   return new Response(
     JSON.stringify({
