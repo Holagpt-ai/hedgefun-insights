@@ -47,27 +47,34 @@ export default function ActivePage() {
   const [sorting, setSorting] = useState<SortingState>([{ id: "volume", desc: true }]);
   const [search, setSearch] = useState("");
 
-  const { data: apiData, isLoading } = useQuery({
-    queryKey: ["most-active-page"],
+  const { data: apiData, isLoading, refetch } = useQuery({
+    queryKey: ["most-active"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("stocks")
-        .select("symbol, name, volume, price, change_percent, market_cap")
-        .not("volume", "is", null)
-        .order("volume", { ascending: false })
-        .limit(100);
-      if (error) throw error;
-      return (data ?? []).map((r: any, i: number) => ({
-        rank: i + 1,
-        symbol: r.symbol,
-        name: r.name,
-        volume: r.volume ?? 0,
-        price: r.price ?? 0,
-        changePercent: r.change_percent ?? 0,
-        marketCap: r.market_cap ?? 0,
-      })) as ActiveRow[];
+      const [gainersRes, losersRes] = await Promise.all([
+        fetch(`${EDGE}?type=gainers`),
+        fetch(`${EDGE}?type=losers`),
+      ]);
+      const gainersJson = await gainersRes.json();
+      const losersJson = await losersRes.json();
+      const gainers = Array.isArray(gainersJson) ? gainersJson : (gainersJson.tickers ?? []);
+      const losers = Array.isArray(losersJson) ? losersJson : (losersJson.tickers ?? []);
+      const combined = [...gainers, ...losers];
+      return combined
+        .sort((a: any, b: any) => (b.day?.v ?? 0) - (a.day?.v ?? 0))
+        .slice(0, 20)
+        .map((t: any, i: number) => ({
+          rank: i + 1,
+          symbol: t.ticker || t.symbol || "",
+          name: t.name || t.ticker || "",
+          changePercent: t.todaysChangePerc ?? 0,
+          price: t?.lastTrade?.p || t?.lastQuote?.P || t?.day?.c || t?.prevDay?.c || 0,
+          volume: t.day?.v ?? 0,
+          marketCap: 0,
+        })) as ActiveRow[];
     },
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: 2000,
   });
 
   const rows = apiData ?? [];
