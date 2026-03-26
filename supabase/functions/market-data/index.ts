@@ -212,24 +212,24 @@ serve(async (req) => {
           status: ipoStatus,
           limit: ipoLimit,
           order: ipoStatus === "pending" ? "asc" : "desc",
-          sort: "ipo_date",
+          sort: "listing_date",
         };
         if (ipoStatus === "history") {
           const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
-          ipoParams.ipo_date_gte = ninetyDaysAgo;
+          ipoParams.listing_date_gte = ninetyDaysAgo;
         }
         const ipoRes = await fetchWithRetry(polyUrl("/vX/reference/ipos", ipoParams));
         const ipoJson = await ipoRes.json();
         data = (ipoJson.results ?? []).map((r: any) => ({
           symbol: r.ticker ?? null,
-          name: r.name ?? r.issuer_name ?? null,
-          ipo_date: r.ipo_date ?? null,
+          name: r.issuer_name ?? r.name ?? null,
+          ipo_date: r.listing_date ?? r.announced_date ?? null,
           offer_price: r.final_issue_price ?? r.highest_offer_price ?? null,
           price_range: r.lowest_offer_price && r.highest_offer_price
             ? `$${r.lowest_offer_price} - $${r.highest_offer_price}` : null,
           status: ipoStatus === "pending" ? "upcoming" : "recent",
-          exchange: r.primary_mic_code ?? null,
-          shares_offered: r.total_offer_quantity ?? null,
+          exchange: r.primary_exchange ?? null,
+          shares_offered: r.max_shares_offered ?? null,
           total_raised: r.total_offer_size ?? null,
         }));
         break;
