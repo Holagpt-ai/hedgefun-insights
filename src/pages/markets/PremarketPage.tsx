@@ -9,14 +9,15 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { Search, MoreVertical, Download } from "lucide-react";
+import { Search, MoreVertical, Download, RefreshCw } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
-import { getTopGainers, getTopLosers } from "@/lib/polygon";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
+
+const EDGE = `https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/market-data`;
 
 interface PremarketRow {
   rank: number;
@@ -28,13 +29,13 @@ interface PremarketRow {
   marketCap: number;
 }
 
-function mapApiToRows(data: any[]): PremarketRow[] {
-  return data.map((t: any, i: number) => ({
+function mapApiToRows(tickers: any[]): PremarketRow[] {
+  return tickers.map((t: any, i: number) => ({
     rank: i + 1,
     symbol: t.ticker || t.symbol || "",
     name: t.name || t.ticker || "",
     changePercent: t.todaysChangePerc ?? 0,
-    price: t.day?.c ?? 0,
+    price: t?.lastTrade?.p || t?.lastQuote?.P || t?.day?.c || t?.prevDay?.c || 0,
     volume: t.day?.v ?? 0,
     marketCap: 0,
   }));
@@ -58,11 +59,13 @@ function PremarketTable({
   data,
   type,
   isLoading,
+  refetch,
 }: {
   title: string;
   data: PremarketRow[];
   type: "gainers" | "losers";
   isLoading: boolean;
+  refetch?: () => void;
 }) {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
@@ -209,6 +212,17 @@ function PremarketTable({
             <Skeleton key={i} className="h-10 w-full rounded" />
           ))}
         </div>
+      ) : filtered.length === 0 ? (
+        <div className="py-12 text-center">
+          <p className="text-[0.9375rem] mb-3" style={{ color: "hsl(var(--text-muted))" }}>
+            Market data is refreshing...
+          </p>
+          {refetch && (
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5" /> Try again
+            </Button>
+          )}
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -253,16 +267,30 @@ function PremarketTable({
 }
 
 export default function PremarketPage() {
-  const { data: gainersData, isLoading: gainersLoading } = useQuery({
+  const { data: gainersData, isLoading: gainersLoading, refetch: refetchGainers } = useQuery({
     queryKey: ["premarket-gainers"],
-    queryFn: async () => mapApiToRows(await getTopGainers()),
+    queryFn: async () => {
+      const res = await fetch(`${EDGE}?type=gainers`);
+      const json = await res.json();
+      const tickers = Array.isArray(json) ? json : (json.tickers ?? []);
+      return mapApiToRows(tickers);
+    },
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: 2000,
   });
 
-  const { data: losersData, isLoading: losersLoading } = useQuery({
+  const { data: losersData, isLoading: losersLoading, refetch: refetchLosers } = useQuery({
     queryKey: ["premarket-losers"],
-    queryFn: async () => mapApiToRows(await getTopLosers()),
+    queryFn: async () => {
+      const res = await fetch(`${EDGE}?type=losers`);
+      const json = await res.json();
+      const tickers = Array.isArray(json) ? json : (json.tickers ?? []);
+      return mapApiToRows(tickers);
+    },
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: 2000,
   });
 
   return (
@@ -292,11 +320,15 @@ export default function PremarketPage() {
 
         <IndexSparklines />
 
-        <PremarketTable title="Premarket Gainers" data={gainersData ?? []} type="gainers" isLoading={gainersLoading} />
+        <PremarketTable title="Premarket Gainers" data={gainersData ?? []} type="gainers" isLoading={gainersLoading} refetch={refetchGainers} />
 
         <div className="my-6 border-t border-border" />
 
-        <PremarketTable title="Premarket Losers" data={losersData ?? []} type="losers" isLoading={losersLoading} />
+        <PremarketTable title="Premarket Losers" data={losersData ?? []} type="losers" isLoading={losersLoading} refetch={refetchLosers} />
+
+        <p className="text-[0.75rem] mt-4" style={{ color: "hsl(var(--text-muted))" }}>
+          Data reflects latest available market activity. Dedicated premarket data requires an upgraded data plan.
+        </p>
       </div>
     </div>
   );
