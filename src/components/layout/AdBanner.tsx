@@ -11,9 +11,6 @@ export function AdBanner({ slot = "top", className = "" }: AdBannerProps) {
   const [loaded, setLoaded] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
-  // Hide ads for Pro subscribers
-  if (profile?.plan === "pro") return null;
-
   useEffect(() => {
     const timer = setTimeout(() => {
       if (ref.current && ref.current.innerHTML.trim().length > 0) {
@@ -22,6 +19,9 @@ export function AdBanner({ slot = "top", className = "" }: AdBannerProps) {
     }, 1500);
     return () => clearTimeout(timer);
   }, []);
+
+  // Hide ads for Pro subscribers
+  if (profile?.plan === "pro") return null;
 
   if (slot === "sidebar") {
     return (
@@ -41,7 +41,6 @@ export function AdBanner({ slot = "top", className = "" }: AdBannerProps) {
             Advertisement
           </p>
         )}
-        {/* 300x250 Medium Rectangle ad tag here */}
       </div>
     );
   }
