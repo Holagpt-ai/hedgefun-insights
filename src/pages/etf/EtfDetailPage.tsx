@@ -332,7 +332,7 @@ export default function EtfDetailPage() {
               {stats.map((s) => (
                 <div key={s.label} className="border border-border rounded-[var(--radius)] px-3 py-2.5">
                   <p className="text-xs text-muted-foreground">{s.label}</p>
-                  <p className="text-sm font-semibold text-foreground tabular-nums">{s.value}</p>
+                  <p className={cn("text-sm font-semibold tabular-nums", s.color ?? "text-foreground")}>{s.value}</p>
                 </div>
               ))}
             </div>
