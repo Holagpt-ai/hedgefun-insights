@@ -238,7 +238,9 @@ export default function GainersPage() {
 
         {/* Index Sparklines */}
         <IndexSparklines />
-
+        <div className="w-full flex flex-col items-center border-b border-border bg-surface py-1">
+          <AdBanner slot="top" />
+        </div>
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
           <div className="flex items-center gap-2">
