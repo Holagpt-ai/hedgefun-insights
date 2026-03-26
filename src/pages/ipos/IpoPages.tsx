@@ -48,6 +48,8 @@ export function RecentIposPage() {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [yearFilter, setYearFilter] = useState("All");
 
+  const EDGE = `https://${import.meta.env.VITE_SUPABASE_PROJECT_ID}.supabase.co/functions/v1/market-data`;
+
   const { data: dbData, isLoading } = useQuery({
     queryKey: ["ipo-recent"],
     queryFn: async () => {
@@ -58,8 +60,13 @@ export function RecentIposPage() {
         .order("ipo_date", { ascending: false })
         .limit(200);
       if (error) throw error;
-      return data;
+      if (data && data.length > 0) return data;
+      // Fallback to live API
+      const res = await fetch(`${EDGE}?type=ipos&ipoStatus=history&limit=30`);
+      return await res.json();
     },
+    staleTime: 300_000,
+    retry: 2,
   });
 
   const { data: upcomingIpos } = useQuery({
