@@ -30,7 +30,7 @@ serve(async (req) => {
     const results = [];
 
     const today = new Date().toISOString().split("T")[0];
-    const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
       .toISOString()
       .split("T")[0];
 
@@ -43,9 +43,9 @@ serve(async (req) => {
         const snapJson = await snapRes.json();
         const t = snapJson?.ticker;
 
-        // Fetch 5-day 30-min aggregates for sparkline
+        // Fetch 30-day daily aggregates for sparkline (gives ~20 trading days)
         const aggRes = await fetch(
-          `https://api.polygon.io/v2/aggs/ticker/${idx.ticker}/range/30/minute/${fiveDaysAgo}/${today}?adjusted=true&sort=asc&limit=100&apiKey=${API_KEY}`
+          `https://api.polygon.io/v2/aggs/ticker/${idx.ticker}/range/1/day/${thirtyDaysAgo}/${today}?adjusted=true&sort=asc&limit=50&apiKey=${API_KEY}`
         );
         const aggJson = await aggRes.json();
         const aggResults = aggJson?.results ?? [];
