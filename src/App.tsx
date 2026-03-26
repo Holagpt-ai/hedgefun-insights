@@ -39,6 +39,7 @@ import StockComparePage from "./pages/stocks/StockComparePage";
 import IndustryPage from "./pages/stocks/IndustryPage";
 import StockListsPage from "./pages/stocks/StockListsPage";
 import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
+import AnalystProfilePage from "./pages/stocks/AnalystProfilePage";
 import TopStocksPage from "./pages/stocks/TopStocksPage";
 import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
 import StockListDetailPage from "./pages/stocks/StockListDetailPage";
@@ -119,6 +120,7 @@ const App = () => (
                   <Route path="/stocks/industry" element={<IndustryPage />} />
                   <Route path="/stocks/lists" element={<StockListsPage />} />
                   <Route path="/stocks/lists/:slug" element={<StockListDetailPage />} />
+                  <Route path="/stocks/analysts/:slug" element={<AnalystProfilePage />} />
                   <Route path="/stocks/analysts" element={<TopAnalystsPage />} />
                   <Route path="/stocks/top-stocks" element={<TopStocksPage />} />
                   <Route path="/stocks/corporate-actions" element={<CorporateActionsPage />} />
