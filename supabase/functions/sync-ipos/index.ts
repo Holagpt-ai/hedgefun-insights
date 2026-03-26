@@ -64,17 +64,8 @@ serve(async () => {
   // STRICT client-side date filtering using listing_date
   const getDate = (r: any) => r.listing_date ?? r.announced_date ?? null;
 
-  const validUpcomingResults = upcomingResults.filter((r: any) => {
-    const d = getDate(r);
-    if (!d) return true;
-    return new Date(d) > today;
-  });
-
-  const validRumorResults = rumorResults.filter((r: any) => {
-    const d = getDate(r);
-    if (!d) return true;
-    return new Date(d) > today;
-  });
+  const validUpcomingResults = upcomingResults;
+  const validRumorResults = rumorResults;
 
   const validRecentResults = recentResults.filter((r: any) => {
     const d = getDate(r);
