@@ -4,6 +4,7 @@ import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
+import { RefreshCw } from "lucide-react";
 
 interface Mover {
   ticker: string;
@@ -23,12 +24,14 @@ function MoversTable({
   data,
   isLoading,
   type,
+  refetch,
 }: {
   title: string;
   linkTo: string;
   data: Mover[] | undefined;
   isLoading: boolean;
   type: "gainers" | "losers";
+  refetch?: () => void;
 }) {
   const navigate = useNavigate();
   const positive = type === "gainers";
@@ -37,6 +40,8 @@ function MoversTable({
     trackEvent("stock_search", { ticker });
     navigate(`/stocks/${ticker}`);
   };
+
+  const rows = data ?? [];
 
   return (
     <div>
@@ -56,6 +61,23 @@ function MoversTable({
             <Skeleton key={i} className="h-10 w-full rounded" />
           ))}
         </div>
+      ) : rows.length === 0 ? (
+        <div className="flex items-center justify-center py-8 text-center">
+          <div>
+            <RefreshCw className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
+            <p className="text-[0.875rem] text-muted-foreground">
+              Market data is refreshing...
+            </p>
+            {refetch && (
+              <button
+                onClick={() => refetch()}
+                className="mt-2 text-[0.8125rem] text-accent-blue hover:underline"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        </div>
       ) : (
         <div className="fintech-card overflow-hidden">
           <table className="w-full text-sm">
@@ -68,7 +90,7 @@ function MoversTable({
               </tr>
             </thead>
             <tbody>
-              {(data ?? []).slice(0, 10).map((m, i) => {
+              {rows.slice(0, 10).map((m, i) => {
                 const ticker = m.ticker || m.symbol || "";
                 const price = m.day?.c ?? m.price ?? 0;
                 const changePct = m.todaysChangePerc ?? m.change_percent ?? 0;
@@ -111,10 +133,12 @@ function MoversTable({
 }
 
 export function TopGainersTable() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["top-gainers"],
     queryFn: getTopGainers,
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: 2000,
   });
 
   return (
@@ -124,15 +148,18 @@ export function TopGainersTable() {
       data={data}
       isLoading={isLoading}
       type="gainers"
+      refetch={refetch}
     />
   );
 }
 
 export function TopLosersTable() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["top-losers"],
     queryFn: getTopLosers,
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: 2000,
   });
 
   return (
@@ -142,6 +169,7 @@ export function TopLosersTable() {
       data={data}
       isLoading={isLoading}
       type="losers"
+      refetch={refetch}
     />
   );
 }

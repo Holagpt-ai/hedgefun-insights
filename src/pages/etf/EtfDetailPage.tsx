@@ -148,6 +148,7 @@ export default function EtfDetailPage() {
     queryKey: ["etf-chart", symbol, timeRange],
     queryFn: () => getAggregates(symbol, dateRange.multiplier, dateRange.timespan, dateRange.from, dateRange.to),
     staleTime: 60_000,
+    retry: 3, retryDelay: 2000,
   });
 
   // Fetch news
@@ -155,6 +156,7 @@ export default function EtfDetailPage() {
     queryKey: ["etf-news", symbol],
     queryFn: () => getTickerNews(symbol, 5),
     staleTime: 120_000,
+    retry: 3, retryDelay: 2000,
   });
 
   // Fetch snapshot for avg volume
@@ -162,6 +164,7 @@ export default function EtfDetailPage() {
     queryKey: ["etf-snapshot", symbol],
     queryFn: () => getTickerSnapshot(symbol),
     staleTime: 60_000,
+    retry: 3, retryDelay: 2000,
   });
 
   // Fetch details for inception date
@@ -169,6 +172,7 @@ export default function EtfDetailPage() {
     queryKey: ["etf-details", symbol],
     queryFn: () => getTickerDetails(symbol),
     staleTime: 300_000,
+    retry: 3, retryDelay: 2000,
   });
 
   // Fetch 1Y aggregates for 52W high/low
@@ -184,6 +188,7 @@ export default function EtfDetailPage() {
     queryKey: ["etf-year-aggs", symbol],
     queryFn: () => getAggregates(symbol, 1, "day", yearRange.from, yearRange.to),
     staleTime: 300_000,
+    retry: 3, retryDelay: 2000,
   });
 
   const chartPoints = useMemo(() => {
