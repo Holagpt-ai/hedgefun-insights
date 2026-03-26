@@ -1,10 +1,23 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { AreaChart, Area, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function useSessionLabel() {
+  const now = new Date();
+  const day = now.getDay();
+  const hour = now.getHours();
+  const isWeekend = day === 0 || day === 6;
+  const isPreMarket = !isWeekend && hour >= 4 && hour < 9;
+  const isAfterHours = !isWeekend && (hour >= 16 || hour < 4);
+
+  if (isWeekend || isAfterHours) return { label: "After-hours", color: "bg-muted-foreground" };
+  if (isPreMarket) return { label: "Pre-market", color: "bg-orange-500" };
+  return { label: "Live", color: "bg-green-500" };
+}
 
 export function IndexSparklineCards() {
   const { data: indexes, isLoading } = useQuery({
@@ -24,6 +37,8 @@ export function IndexSparklineCards() {
     day: "numeric",
     year: "numeric",
   });
+
+  const session = useSessionLabel();
 
   if (isLoading) {
     return (
@@ -45,7 +60,13 @@ export function IndexSparklineCards() {
 
   return (
     <div className="bg-surface px-4 py-3">
-      <p className="text-xs text-muted-foreground mb-2">Stock Indexes — {today}</p>
+      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-2">
+        Stock Indexes — {today}
+        <span className="inline-flex items-center gap-1 text-[0.6875rem]">
+          <span className={cn("w-1.5 h-1.5 rounded-full inline-block", session.color)} />
+          {session.label}
+        </span>
+      </p>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {sorted.map((idx) => {
           if (!idx) return null;
@@ -67,7 +88,7 @@ export function IndexSparklineCards() {
               </div>
               <div className="flex items-baseline gap-1.5">
                 <span className="text-sm font-semibold text-foreground tabular-nums">
-                  {idx.current_value?.toLocaleString()}
+                  {idx.current_value?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span
                   className={cn(
@@ -82,6 +103,7 @@ export function IndexSparklineCards() {
                 {sparkData.length > 1 && (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={sparkData}>
+                      <YAxis domain={["auto", "auto"]} hide />
                       <defs>
                         <linearGradient id={`fill-${idx.symbol}`} x1="0" y1="0" x2="0" y2="1">
                           <stop offset="0%" stopColor={color} stopOpacity={0.15} />
