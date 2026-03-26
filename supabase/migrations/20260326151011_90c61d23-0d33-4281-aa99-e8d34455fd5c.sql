@@ -1,0 +1,1 @@
+ALTER TABLE public.ipo_list ADD CONSTRAINT ipo_list_symbol_key UNIQUE (symbol);

@@ -31,6 +31,9 @@ async function fetchSafe(url: string): Promise<any> {
 }
 
 serve(async () => {
+  console.log('SUPABASE_URL:', SUPABASE_URL);
+  console.log('SERVICE_KEY exists:', !!SUPABASE_SERVICE_KEY);
+
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   let totalSynced = 0;
 
@@ -60,6 +63,8 @@ serve(async () => {
   const rumorResults = rumorJson.results ?? [];
   const recentResults = recentJson.results ?? [];
   const newResults = newJson.results ?? [];
+
+  console.log('API results - upcoming:', upcomingResults.length, 'rumor:', rumorResults.length, 'recent:', recentResults.length, 'new:', newResults.length);
 
   // STRICT client-side date filtering using listing_date
   const getDate = (r: any) => r.listing_date ?? r.announced_date ?? null;
@@ -103,25 +108,46 @@ serve(async () => {
     ...validRecentResults.map((r: any) => mapIPO(r, "recent")),
   ].filter(r => r.name && r.name !== "Unknown");
 
+  console.log('Rows prepared:', rows.length);
+
   if (rows.length > 0) {
     const withSymbol = rows.filter(r => r.symbol);
     const withoutSymbol = rows.filter(r => !r.symbol);
+    console.log('Rows with symbol:', withSymbol.length, 'without:', withoutSymbol.length);
 
-    if (withSymbol.length > 0) {
+    let inserted = 0;
+    let errors = 0;
+
+    // Row-by-row upsert for rows with symbol
+    for (const row of withSymbol) {
       const { error } = await supabase
-        .from("ipo_list")
-        .upsert(withSymbol, { onConflict: "symbol", ignoreDuplicates: false });
-      if (error) console.error("Upsert error (with symbol):", error);
+        .from('ipo_list')
+        .upsert(row, { onConflict: 'symbol' });
+
+      if (error) {
+        console.error('Row error:', row.symbol, error.message, error.code);
+        errors++;
+      } else {
+        inserted++;
+      }
     }
 
-    if (withoutSymbol.length > 0) {
+    // Insert rows without symbol
+    for (const row of withoutSymbol) {
       const { error } = await supabase
-        .from("ipo_list")
-        .insert(withoutSymbol);
-      if (error) console.error("Insert error (without symbol):", error);
+        .from('ipo_list')
+        .insert(row);
+
+      if (error) {
+        console.error('Insert error (no symbol):', row.name, error.message);
+        errors++;
+      } else {
+        inserted++;
+      }
     }
 
-    totalSynced = rows.length;
+    console.log('Inserted:', inserted, 'Errors:', errors);
+    totalSynced = inserted;
   }
 
   // Cleanup stale records
