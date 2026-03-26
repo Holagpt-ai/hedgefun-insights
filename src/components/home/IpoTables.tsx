@@ -111,11 +111,12 @@ function IpoTable({ title, linkTo, status }: { title: string; linkTo: string; st
                   </td>
                   <td className="px-3 py-2 text-foreground truncate max-w-[200px]">{ipo.name}</td>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
     </div>
   );
 }
