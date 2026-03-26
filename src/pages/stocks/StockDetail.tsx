@@ -97,9 +97,14 @@ const StockDetail = () => {
   const prevClose = snapshot?.prevDay?.c ?? null;
   const currentPrice = snapshot?.day?.c ?? snapshot?.prevDay?.c ?? null;
 
+  const isPreIPO = (
+    (!snapshot || (snapshot?.day?.c === 0 && snapshot?.day?.v === 0)) &&
+    (!details?.list_date || new Date(details.list_date) > new Date())
+  );
+
   return (
     <div className="flex flex-col">
-      <StockHeader snapshot={snapshot} details={details} loading={snapLoading} ticker={ticker} />
+      <StockHeader snapshot={snapshot} details={details} loading={snapLoading} ticker={ticker} isPreIPO={isPreIPO} />
 
       <div className="border-b-2 border-border sticky top-header z-10 bg-surface-card px-4 overflow-x-auto">
         <div className="flex gap-0 min-w-max">
