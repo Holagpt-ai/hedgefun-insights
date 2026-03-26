@@ -29,6 +29,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const [showResults, setShowResults] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
@@ -52,6 +53,10 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [results]);
+
   const handleSearch = useCallback((value: string) => {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -69,7 +74,32 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
     trackEvent("stock_search", { ticker: r.ticker });
     setShowResults(false);
     setQuery("");
+    setHighlightedIndex(-1);
     navigate(`/stocks/${r.ticker.toLowerCase()}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showResults || results.length === 0) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightedIndex((i) => (i < results.length - 1 ? i + 1 : 0));
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightedIndex((i) => (i > 0 ? i - 1 : results.length - 1));
+        break;
+      case "Enter":
+        e.preventDefault();
+        if (highlightedIndex >= 0 && results[highlightedIndex]) {
+          selectResult(results[highlightedIndex]);
+        }
+        break;
+      case "Escape":
+        setShowResults(false);
+        setHighlightedIndex(-1);
+        break;
+    }
   };
 
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
@@ -98,16 +128,19 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
             onFocus={() => results.length > 0 && setShowResults(true)}
+            onKeyDown={handleKeyDown}
             placeholder={t("searchPlaceholder")}
             className="pl-9 h-9 bg-surface border-border text-sm"
           />
           {showResults && results.length > 0 && (
             <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
-              {results.map((r) => (
+              {results.map((r, index) => (
                 <button
                   key={r.ticker}
                   onClick={() => selectResult(r)}
-                  className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-accent transition-colors text-left border-b border-border last:border-0"
+                  className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors text-left border-b border-border last:border-0 ${
+                    index === highlightedIndex ? "bg-accent" : "hover:bg-accent"
+                  }`}
                 >
                   <span className="ticker-symbol text-accent-blue text-sm font-semibold">{r.ticker}</span>
                   <span className="text-sm text-foreground truncate flex-1">{r.name}</span>

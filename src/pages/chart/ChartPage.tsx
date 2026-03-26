@@ -11,6 +11,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, ReferenceLine
 } from "recharts";
+import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
 
 const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
 
@@ -85,6 +86,14 @@ export default function ChartPage() {
   const [watchlist, setWatchlist] = useState<{ symbol: string }[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
 
+  // Search dropdown state
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [isSearchingTickers, setIsSearchingTickers] = useState(false);
+  const [searchHighlight, setSearchHighlight] = useState(-1);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     localStorage.setItem("chartPanelCollapsed", String(panelCollapsed));
   }, [panelCollapsed]);
@@ -96,6 +105,20 @@ export default function ChartPage() {
       document.title = "Technical Chart | HedgeFun";
     }
   }, [ticker]);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
+        setShowSearchResults(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    setSearchHighlight(-1);
+  }, [searchResults]);
 
   // Fetch watchlist
   useEffect(() => {
@@ -170,9 +193,62 @@ export default function ChartPage() {
     });
   }, [ticker]);
 
+  const handleSearchInput = useCallback((value: string) => {
+    setSearchQuery(value);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    if (!value.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      setIsSearchingTickers(false);
+      return;
+    }
+    setIsSearchingTickers(true);
+    searchDebounceRef.current = setTimeout(async () => {
+      const data = await searchTickers(value);
+      setSearchResults(data);
+      setShowSearchResults(true);
+      setIsSearchingTickers(false);
+    }, 200);
+  }, []);
+
+  const selectSearchResult = (r: SearchResult) => {
+    setShowSearchResults(false);
+    setSearchQuery("");
+    setSearchHighlight(-1);
+    navigate(`/chart/${r.ticker.toUpperCase()}`);
+  };
+
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (searchHighlight >= 0 && searchResults[searchHighlight]) {
+      selectSearchResult(searchResults[searchHighlight]);
+      return;
+    }
     if (searchQuery.trim()) navigate(`/chart/${searchQuery.trim().toUpperCase()}`);
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!showSearchResults || searchResults.length === 0) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setSearchHighlight((i) => (i < searchResults.length - 1 ? i + 1 : 0));
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setSearchHighlight((i) => (i > 0 ? i - 1 : searchResults.length - 1));
+        break;
+      case "Enter":
+        if (searchHighlight >= 0 && searchResults[searchHighlight]) {
+          e.preventDefault();
+          selectSearchResult(searchResults[searchHighlight]);
+        }
+        break;
+      case "Escape":
+        setShowSearchResults(false);
+        setSearchHighlight(-1);
+        break;
+    }
   };
 
   const lastPoint = chartData[chartData.length - 1];
@@ -182,14 +258,51 @@ export default function ChartPage() {
   const pctChange = firstPoint?.open ? (priceChange / firstPoint.open) * 100 : 0;
   const displayPoint = hoveredPoint || lastPoint;
 
+  const searchDropdown = (
+    <>
+      {showSearchResults && searchResults.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
+          {searchResults.map((r, index) => (
+            <button
+              key={r.ticker}
+              onClick={() => selectSearchResult(r)}
+              className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors text-left border-b border-border last:border-0 ${
+                index === searchHighlight ? "bg-accent" : "hover:bg-accent"
+              }`}
+            >
+              <span className="text-sm font-semibold text-accent-blue">{r.ticker}</span>
+              <span className="text-sm text-foreground truncate flex-1">{r.name}</span>
+              <span className="text-[0.6875rem] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                {EXCHANGE_LABELS[r.exchange ?? ""] ?? r.exchange ?? "—"}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+      {showSearchResults && searchResults.length === 0 && searchQuery.trim().length >= 1 && !isSearchingTickers && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+          No results for "{searchQuery}"
+        </div>
+      )}
+      {isSearchingTickers && searchQuery.trim().length >= 1 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+          Searching...
+        </div>
+      )}
+    </>
+  );
+
   // LANDING STATE
   if (!ticker) {
     return (
       <div className="h-screen flex flex-col bg-background">
         <ChartHeader
           searchQuery={searchQuery}
-          setSearchQuery={setSearchQuery}
+          setSearchQuery={handleSearchInput}
           onSearchSubmit={handleSearchSubmit}
+          onSearchKeyDown={handleSearchKeyDown}
+          searchDropdown={searchDropdown}
+          searchContainerRef={searchContainerRef}
           onAuthMode={setAuthMode}
           user={user}
         />
@@ -200,16 +313,21 @@ export default function ChartPage() {
               <p className="text-base text-muted-foreground mb-8">
                 Search for a stock symbol to view an interactive chart with technical indicators, drawing tools, and comparison features.
               </p>
-              <form onSubmit={handleSearchSubmit} className="relative mb-3">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Change symbol..."
-                  className="w-full h-12 pl-11 pr-10 border border-border rounded-[var(--radius)] bg-background text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue"
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">/</span>
-              </form>
+              <div ref={searchContainerRef} className="relative mb-3">
+                <form onSubmit={handleSearchSubmit}>
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <input
+                    value={searchQuery}
+                    onChange={(e) => handleSearchInput(e.target.value)}
+                    onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder="Change symbol..."
+                    className="w-full h-12 pl-11 pr-10 border border-border rounded-[var(--radius)] bg-background text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded border border-border">/</span>
+                </form>
+                {searchDropdown}
+              </div>
               <p className="text-sm text-muted-foreground">
                 Examples:{" "}
                 {["NVDA", "AAPL", "SPY", "QQQ"].map((t, i) => (
@@ -241,8 +359,11 @@ export default function ChartPage() {
     <div className="h-screen flex flex-col bg-background">
       <ChartHeader
         searchQuery={searchQuery}
-        setSearchQuery={setSearchQuery}
+        setSearchQuery={handleSearchInput}
         onSearchSubmit={handleSearchSubmit}
+        onSearchKeyDown={handleSearchKeyDown}
+        searchDropdown={searchDropdown}
+        searchContainerRef={searchContainerRef}
         onAuthMode={setAuthMode}
         user={user}
       />
@@ -365,81 +486,57 @@ export default function ChartPage() {
                         tickLine={false}
                         tickFormatter={(v) => v.toFixed(2)}
                       />
-                      <ReferenceLine y={currentPrice} stroke="hsl(var(--border))" strokeDasharray="4 4" />
-                      <Tooltip
-                        content={({ active, payload }) => {
-                          if (!active || !payload?.length) return null;
-                          const p = payload[0].payload as ChartPoint;
-                          return (
-                            <div className="bg-surface-card border border-border rounded-[var(--radius)] p-2 text-xs shadow-lg">
-                              <div className="font-medium text-foreground mb-1">{new Date(p.date).toLocaleDateString()}</div>
-                              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground">
-                                <span>O: {p.open.toFixed(2)}</span><span>H: {p.high.toFixed(2)}</span>
-                                <span>L: {p.low.toFixed(2)}</span><span>C: {p.close.toFixed(2)}</span>
-                              </div>
-                              <div className="text-muted-foreground mt-0.5">Vol: {abbr(p.volume)}</div>
-                            </div>
-                          );
-                        }}
+                      <Tooltip content={() => null} />
+                      <Area
+                        type="monotone"
+                        dataKey="close"
+                        stroke="hsl(var(--accent-blue))"
+                        strokeWidth={1.5}
+                        fill="url(#areaFill)"
+                        dot={false}
+                        activeDot={{ r: 3, fill: "hsl(var(--accent-blue))" }}
                       />
-                      <Area type="monotone" dataKey="close" stroke="hsl(var(--accent-blue))" strokeWidth={1.5} fill="url(#areaFill)" dot={false} />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
 
-                {/* Current price badge */}
-                {currentPrice > 0 && (
-                  <div className="absolute right-[52px] z-10 bg-green text-white text-xs font-semibold px-2 py-0.5 rounded"
-                    style={{ top: "50%" }}>
-                    {currentPrice.toFixed(2)}
-                  </div>
-                )}
-
                 {/* Volume Chart */}
-                <div className="h-[120px] border-t border-border shrink-0">
-                  <div className="px-3 pt-1">
-                    <span className="text-xs font-semibold text-muted-foreground">▶ Plots</span>
-                  </div>
-                  <ResponsiveContainer width="100%" height="90%">
+                <div className="h-[80px] shrink-0 border-t border-border">
+                  <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={chartData} syncId="chart" margin={{ top: 4, right: 60, left: 0, bottom: 0 }}>
                       <XAxis dataKey="date" hide />
                       <YAxis
                         orientation="right"
-                        tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }}
+                        tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                         axisLine={false}
                         tickLine={false}
                         tickFormatter={(v) => abbr(v)}
+                        width={55}
                       />
-                      <Bar
-                        dataKey="volume"
-                        shape={(props: any) => {
-                          const { x, y, width, height, payload } = props;
-                          const color = payload.close >= payload.open ? "#4CAF50" : "#F44336";
-                          return <rect x={x} y={y} width={width} height={height} fill={color} />;
-                        }}
-                      />
+                      <Tooltip content={() => null} />
+                      <Bar dataKey="volume" fill="hsl(var(--muted-foreground))" opacity={0.3} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
+
+                {/* Time Range Selector */}
+                <div className="h-10 flex items-center justify-center gap-1 border-t border-border shrink-0 px-2 overflow-x-auto">
+                  {TIME_RANGES.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setTimeRange(r)}
+                      className={`px-2.5 py-1 text-[0.8125rem] rounded-[var(--radius)] transition-colors ${
+                        timeRange === r
+                          ? "bg-accent-blue text-primary-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
-          </div>
-
-          {/* Time Range Bar */}
-          <div className="h-10 flex items-center justify-center gap-1 border-t border-border shrink-0 px-2">
-            {TIME_RANGES.map((r) => (
-              <button
-                key={r}
-                onClick={() => setTimeRange(r)}
-                className={`px-2.5 py-1 text-[0.8125rem] rounded-[var(--radius)] transition-colors ${
-                  timeRange === r
-                    ? "bg-accent-blue text-white font-semibold"
-                    : "text-muted-foreground hover:bg-accent"
-                }`}
-              >
-                {r}
-              </button>
-            ))}
           </div>
         </div>
 
@@ -461,10 +558,13 @@ export default function ChartPage() {
 // --- Sub-components ---
 
 function ChartHeader({
-  searchQuery, setSearchQuery, onSearchSubmit, onAuthMode, user,
+  searchQuery, setSearchQuery, onSearchSubmit, onSearchKeyDown, searchDropdown, searchContainerRef, onAuthMode, user,
 }: {
   searchQuery: string; setSearchQuery: (v: string) => void;
   onSearchSubmit: (e: React.FormEvent) => void;
+  onSearchKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  searchDropdown: React.ReactNode;
+  searchContainerRef: React.RefObject<HTMLDivElement>;
   onAuthMode: (m: "login" | "signup") => void; user: any;
 }) {
   const navigate = useNavigate();
@@ -482,16 +582,21 @@ function ChartHeader({
         </div>
         <span className="hidden sm:block font-display text-base text-foreground font-semibold">HedgeFun</span>
       </div>
-      <form onSubmit={onSearchSubmit} className="relative flex-1 max-w-[600px]">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Change symbol..."
-          className="w-full h-8 pl-9 pr-8 border border-border rounded-[var(--radius)] bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
-        />
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-muted px-1 py-0.5 rounded border border-border">/</span>
-      </form>
+      <div ref={searchContainerRef} className="relative flex-1 max-w-[600px]">
+        <form onSubmit={onSearchSubmit}>
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => {}}
+            onKeyDown={onSearchKeyDown}
+            placeholder="Change symbol..."
+            className="w-full h-8 pl-9 pr-8 border border-border rounded-[var(--radius)] bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+          />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-muted-foreground bg-muted px-1 py-0.5 rounded border border-border">/</span>
+        </form>
+        {searchDropdown}
+      </div>
       <div className="flex items-center gap-2 shrink-0">
         <button onClick={() => navigate("/chart")} className="hidden sm:flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
           <X className="h-4 w-4" /> Exit Chart View
