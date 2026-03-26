@@ -1,9 +1,10 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Search, Sun, Moon, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { useTheme } from "@/contexts/ThemeContext";
+import { searchTickers, EXCHANGE_LABELS, type SearchResult } from "@/lib/search-tickers";
 
 const EXAMPLE_TICKERS = ["NVDA", "AAPL", "SPY", "QQQ"];
 
@@ -13,6 +14,13 @@ export default function ChartLandingPage() {
   const [query, setQuery] = useState("");
   const [authModal, setAuthModal] = useState<"login" | "signup" | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [showResults, setShowResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   /* Global "/" shortcut */
   useEffect(() => {
@@ -26,9 +34,68 @@ export default function ChartLandingPage() {
     return () => window.removeEventListener("keydown", handler);
   }, []);
 
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setShowResults(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  useEffect(() => {
+    setHighlightedIndex(-1);
+  }, [results]);
+
+  const handleSearch = useCallback((value: string) => {
+    setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (!value.trim()) { setResults([]); setShowResults(false); setIsSearching(false); return; }
+    setIsSearching(true);
+    debounceRef.current = setTimeout(async () => {
+      const data = await searchTickers(value);
+      setResults(data);
+      setShowResults(true);
+      setIsSearching(false);
+    }, 200);
+  }, []);
+
+  const selectResult = (r: SearchResult) => {
+    setShowResults(false);
+    setQuery("");
+    setHighlightedIndex(-1);
+    navigate(`/chart/${r.ticker.toUpperCase()}`);
+  };
+
   const handleSubmit = () => {
+    if (highlightedIndex >= 0 && results[highlightedIndex]) {
+      selectResult(results[highlightedIndex]);
+      return;
+    }
     const symbol = query.trim().toUpperCase();
     if (symbol) navigate(`/chart/${symbol}`);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit();
+      return;
+    }
+    if (!showResults || results.length === 0) return;
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        setHighlightedIndex((i) => (i < results.length - 1 ? i + 1 : 0));
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        setHighlightedIndex((i) => (i > 0 ? i - 1 : results.length - 1));
+        break;
+      case "Escape":
+        setShowResults(false);
+        setHighlightedIndex(-1);
+        break;
+    }
   };
 
   return (
@@ -44,19 +111,50 @@ export default function ChartLandingPage() {
         </p>
 
         {/* Search input */}
-        <div className="relative w-full max-w-xl mb-4">
+        <div ref={containerRef} className="relative w-full max-w-xl mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             ref={inputRef}
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+            onChange={(e) => handleSearch(e.target.value)}
+            onFocus={() => results.length > 0 && setShowResults(true)}
+            onKeyDown={handleKeyDown}
             placeholder="Change symbol..."
             className="w-full h-11 pl-9 pr-10 rounded-md border border-border bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue/40"
           />
           <kbd className="absolute right-3 top-1/2 -translate-y-1/2 text-[0.6875rem] text-muted-foreground border border-border rounded px-1.5 py-0.5 font-mono bg-muted/60">
             /
           </kbd>
+
+          {showResults && results.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
+              {results.map((r, index) => (
+                <button
+                  key={r.ticker}
+                  onClick={() => selectResult(r)}
+                  className={`w-full px-4 py-2.5 flex items-center gap-3 transition-colors text-left border-b border-border last:border-0 ${
+                    index === highlightedIndex ? "bg-accent" : "hover:bg-accent"
+                  }`}
+                >
+                  <span className="text-sm font-semibold text-accent-blue">{r.ticker}</span>
+                  <span className="text-sm text-foreground truncate flex-1">{r.name}</span>
+                  <span className="text-[0.6875rem] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {EXCHANGE_LABELS[r.exchange ?? ""] ?? r.exchange ?? "—"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+          {showResults && results.length === 0 && query.trim().length >= 1 && !isSearching && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+              No results for "{query}"
+            </div>
+          )}
+          {isSearching && query.trim().length >= 1 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+              Searching...
+            </div>
+          )}
         </div>
 
         {/* Example tickers */}
