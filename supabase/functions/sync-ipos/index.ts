@@ -64,17 +64,8 @@ serve(async () => {
   // STRICT client-side date filtering using listing_date
   const getDate = (r: any) => r.listing_date ?? r.announced_date ?? null;
 
-  const validUpcomingResults = upcomingResults.filter((r: any) => {
-    const d = getDate(r);
-    if (!d) return true;
-    return new Date(d) > today;
-  });
-
-  const validRumorResults = rumorResults.filter((r: any) => {
-    const d = getDate(r);
-    if (!d) return true;
-    return new Date(d) > today;
-  });
+  const validUpcomingResults = upcomingResults;
+  const validRumorResults = rumorResults;
 
   const validRecentResults = recentResults.filter((r: any) => {
     const d = getDate(r);
@@ -94,7 +85,9 @@ serve(async () => {
   const mapIPO = (r: any, status: string) => ({
     symbol: r.ticker ?? null,
     name: r.issuer_name ?? r.name ?? "Unknown",
-    ipo_date: r.listing_date ?? r.announced_date ?? todayStr,
+    ipo_date: status === "upcoming"
+      ? (r.listing_date ?? null)
+      : (r.listing_date ?? r.announced_date ?? null),
     price_range: r.lowest_offer_price && r.highest_offer_price
       ? `$${r.lowest_offer_price} - $${r.highest_offer_price}`
       : null,
