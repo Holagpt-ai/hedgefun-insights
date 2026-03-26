@@ -46,30 +46,35 @@ const StockDetail = () => {
     queryKey: ["snapshot", ticker],
     queryFn: () => getTickerSnapshot(ticker),
     enabled: !!ticker,
+    retry: 3, retryDelay: 2000,
   });
 
   const { data: details, isLoading: detailsLoading } = useQuery({
     queryKey: ["details", ticker],
     queryFn: () => getTickerDetails(ticker),
     enabled: !!ticker,
+    retry: 3, retryDelay: 2000,
   });
 
   const { data: news } = useQuery({
     queryKey: ["ticker-news", ticker],
     queryFn: () => getTickerNews(ticker, 10),
     enabled: !!ticker,
+    retry: 3, retryDelay: 2000,
   });
 
   const { data: dividends, isLoading: dividendsLoading } = useQuery({
     queryKey: ["dividends", ticker],
     queryFn: () => getDividends(ticker, 20),
     enabled: !!ticker,
+    retry: 3, retryDelay: 2000,
   });
 
   const { data: splits, isLoading: splitsLoading } = useQuery({
     queryKey: ["splits", ticker],
     queryFn: () => getSplits(ticker, 20),
     enabled: !!ticker,
+    retry: 3, retryDelay: 2000,
   });
 
   const yearRange = getDateRange("1Y");
@@ -77,6 +82,7 @@ const StockDetail = () => {
     queryKey: ["year-aggs", ticker],
     queryFn: () => getAggregates(ticker, 1, "day", yearRange.from, yearRange.to),
     enabled: !!ticker,
+    retry: 3, retryDelay: 2000,
   });
 
   const dateRange = getDateRange(timeRange);
@@ -84,6 +90,7 @@ const StockDetail = () => {
     queryKey: ["aggregates", ticker, timeRange],
     queryFn: () => getAggregates(ticker, dateRange.multiplier, dateRange.timespan, dateRange.from, dateRange.to),
     enabled: !!ticker,
+    retry: 3, retryDelay: 2000,
   });
 
   const positive = (snapshot?.todaysChangePerc ?? 0) >= 0;

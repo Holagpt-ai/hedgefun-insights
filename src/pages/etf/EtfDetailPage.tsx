@@ -188,6 +188,7 @@ export default function EtfDetailPage() {
     queryKey: ["etf-year-aggs", symbol],
     queryFn: () => getAggregates(symbol, 1, "day", yearRange.from, yearRange.to),
     staleTime: 300_000,
+    retry: 3, retryDelay: 2000,
   });
 
   const chartPoints = useMemo(() => {
