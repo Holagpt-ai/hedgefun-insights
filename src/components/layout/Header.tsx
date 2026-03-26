@@ -10,19 +10,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { trackEvent } from "@/lib/analytics";
 import { useEffect, useRef, useCallback } from "react";
-
-interface SearchResult {
-  symbol: string;
-  name: string;
-  exchange: string | null;
-}
+import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
 
 export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const navigate = useNavigate();
@@ -33,6 +27,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
   const searchRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -60,23 +55,21 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const handleSearch = useCallback((value: string) => {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (!value.trim()) { setResults([]); setShowResults(false); return; }
+    if (!value.trim()) { setResults([]); setShowResults(false); setIsSearching(false); return; }
+    setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
-      const { data } = await supabase
-        .from("stocks")
-        .select("symbol, name, exchange")
-        .or(`symbol.ilike.%${value}%,name.ilike.%${value}%`)
-        .limit(8);
-      setResults(data ?? []);
+      const data = await searchTickers(value);
+      setResults(data);
       setShowResults(true);
+      setIsSearching(false);
     }, 200);
   }, []);
 
   const selectResult = (r: SearchResult) => {
-    trackEvent("stock_search", { ticker: r.symbol });
+    trackEvent("stock_search", { ticker: r.ticker });
     setShowResults(false);
     setQuery("");
-    navigate(`/stocks/${r.symbol.toLowerCase()}`);
+    navigate(`/stocks/${r.ticker.toLowerCase()}`);
   };
 
   const avatarUrl = profile?.avatar_url || user?.user_metadata?.avatar_url;
@@ -112,17 +105,30 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
             <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
               {results.map((r) => (
                 <button
-                  key={r.symbol}
+                  key={r.ticker}
                   onClick={() => selectResult(r)}
-                  className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-accent transition-colors text-left"
+                  className="w-full px-4 py-2.5 flex items-center gap-3 hover:bg-accent transition-colors text-left border-b border-border last:border-0"
                 >
-                  <span className="ticker-symbol text-accent-blue text-sm">{r.symbol}</span>
+                  <span className="ticker-symbol text-accent-blue text-sm font-semibold">{r.ticker}</span>
                   <span className="text-sm text-foreground truncate flex-1">{r.name}</span>
-                  {r.exchange && (
-                    <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">{r.exchange}</span>
-                  )}
+                  <span className="text-[0.6875rem] text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                    {EXCHANGE_LABELS[r.exchange ?? ""] ?? r.exchange ?? "—"}
+                  </span>
+                  <span className="text-[0.6875rem] text-muted-foreground">
+                    {TYPE_LABELS[r.type ?? ""] ?? r.type ?? "Stock"}
+                  </span>
                 </button>
               ))}
+            </div>
+          )}
+          {showResults && results.length === 0 && query.trim().length >= 1 && !isSearching && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+              No results for "{query}"
+            </div>
+          )}
+          {isSearching && query.trim().length >= 1 && (
+            <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-4 py-3 text-sm text-muted-foreground">
+              Searching...
             </div>
           )}
         </div>

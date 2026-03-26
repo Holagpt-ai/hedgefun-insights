@@ -32,3 +32,6 @@ verify_jwt = false
 
 [functions.sync-ipo-news]
 verify_jwt = false
+
+[functions.sync-ticker-search]
+verify_jwt = false

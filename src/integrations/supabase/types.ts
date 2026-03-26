@@ -545,6 +545,39 @@ export type Database = {
         }
         Relationships: []
       }
+      ticker_search: {
+        Row: {
+          active: boolean | null
+          exchange: string | null
+          id: string
+          market: string | null
+          name: string
+          symbol: string
+          type: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          exchange?: string | null
+          id?: string
+          market?: string | null
+          name: string
+          symbol: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          exchange?: string | null
+          id?: string
+          market?: string | null
+          name?: string
+          symbol?: string
+          type?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       trade_tag_assignments: {
         Row: {
           id: string
