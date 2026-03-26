@@ -34,14 +34,10 @@ serve(async () => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
   let totalSynced = 0;
 
-  // Massive IPO status values:
-  // "pending"  = upcoming IPO, date announced
-  // "rumor"    = rumored IPO, no confirmed date
-  // "new"      = IPO'd today (listing day)
-  // "history"  = already listed (historical)
-
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
-    .toISOString().split("T")[0];
+  const today = new Date();
+  const todayStr = today.toISOString().split("T")[0];
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
 
   // Fetch all IPO categories in parallel
   const [upcomingJson, rumorJson, recentJson, newJson] = await Promise.all([
@@ -52,7 +48,7 @@ serve(async () => {
       status: "rumor", limit: "50", order: "asc", sort: "ipo_date",
     })),
     fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "history", ipo_date_gte: ninetyDaysAgo,
+      status: "history", ipo_date_gte: ninetyDaysAgoStr,
       limit: "50", order: "desc", sort: "ipo_date",
     })),
     fetchSafe(polyUrl("/vX/reference/ipos", {
@@ -64,6 +60,29 @@ serve(async () => {
   const rumorResults = rumorJson.results ?? [];
   const recentResults = recentJson.results ?? [];
   const newResults = newJson.results ?? [];
+
+  // STRICT client-side date filtering — do NOT rely on API alone
+  const validUpcomingResults = upcomingResults.filter((r: any) => {
+    if (!r.ipo_date) return true; // Keep TBD dates
+    return new Date(r.ipo_date) > today;
+  });
+
+  const validRumorResults = rumorResults.filter((r: any) => {
+    if (!r.ipo_date) return true; // Keep TBD rumor dates
+    return new Date(r.ipo_date) > today;
+  });
+
+  const validRecentResults = recentResults.filter((r: any) => {
+    if (!r.ipo_date) return false;
+    const ipoDate = new Date(r.ipo_date);
+    return ipoDate >= ninetyDaysAgo && ipoDate <= today;
+  });
+
+  const validNewResults = newResults.filter((r: any) => {
+    if (!r.ipo_date) return false;
+    const ipoDate = new Date(r.ipo_date);
+    return ipoDate >= ninetyDaysAgo && ipoDate <= today;
+  });
 
   // Map all results to ipo_list table format
   const mapIPO = (r: any, status: string) => ({
@@ -79,15 +98,14 @@ serve(async () => {
   });
 
   const rows = [
-    ...upcomingResults.map((r: any) => mapIPO(r, "upcoming")),
-    ...rumorResults.map((r: any) => mapIPO(r, "upcoming")),
-    ...newResults.map((r: any) => mapIPO(r, "recent")),
-    ...recentResults.map((r: any) => mapIPO(r, "recent")),
+    ...validUpcomingResults.map((r: any) => mapIPO(r, "upcoming")),
+    ...validRumorResults.map((r: any) => mapIPO(r, "upcoming")),
+    ...validNewResults.map((r: any) => mapIPO(r, "recent")),
+    ...validRecentResults.map((r: any) => mapIPO(r, "recent")),
   ].filter(r => r.name && r.name !== "Unknown");
 
-  // Upsert into ipo_list table — use symbol as conflict key for rows that have one
+  // Upsert into ipo_list table
   if (rows.length > 0) {
-    // Split into rows with symbols (can upsert) and without (insert only)
     const withSymbol = rows.filter(r => r.symbol);
     const withoutSymbol = rows.filter(r => !r.symbol);
 
@@ -108,18 +126,33 @@ serve(async () => {
     totalSynced = rows.length;
   }
 
-  // Mark old "upcoming" records with past dates
+  // Cleanup: remove stale records
   await supabase
     .from("ipo_list")
-    .update({ status: "recent" })
+    .delete()
+    .eq("status", "recent")
+    .lt("ipo_date", ninetyDaysAgoStr);
+
+  await supabase
+    .from("ipo_list")
+    .delete()
     .eq("status", "upcoming")
-    .lt("ipo_date", new Date().toISOString().split("T")[0]);
+    .lt("ipo_date", todayStr)
+    .not("ipo_date", "is", null);
+
+  // Remove known bad tickers
+  const BAD_TICKERS = ["RDDT", "CRWV", "CBRS", "DBX2", "STRP", "NOTI", "ICRT", "EPIC"];
+  await supabase
+    .from("ipo_list")
+    .delete()
+    .in("symbol", BAD_TICKERS)
+    .eq("status", "recent");
 
   return new Response(
     JSON.stringify({
       synced: totalSynced,
-      upcoming: upcomingResults.length + rumorResults.length,
-      recent: recentResults.length + newResults.length,
+      upcoming: validUpcomingResults.length + validRumorResults.length,
+      recent: validRecentResults.length + validNewResults.length,
     }),
     { headers: { "Content-Type": "application/json" } }
   );
