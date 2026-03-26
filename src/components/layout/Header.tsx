@@ -121,7 +121,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
           <span className="hidden md:block font-display text-lg text-foreground">HedgeFun</span>
         </div>
 
-        <div ref={searchRef} className="relative flex-1 max-w-full md:max-w-[480px] mx-auto">
+        <div ref={searchRef} className="relative flex-1 max-w-full md:max-w-[420px] ml-2 md:ml-6">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             ref={inputRef}
