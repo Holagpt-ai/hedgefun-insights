@@ -271,6 +271,13 @@ export default function ActivePage() {
               <Skeleton key={i} className="h-10 w-full rounded" />
             ))}
           </div>
+        ) : filtered.length === 0 ? (
+          <div className="py-12 text-center">
+            <p className="text-muted-foreground mb-3">Market data is refreshing…</p>
+            <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+              <RefreshCw className="h-3.5 w-3.5" /> Try again
+            </Button>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -329,6 +336,9 @@ export default function ActivePage() {
           </div>
         )}
 
+        <p className="text-xs text-muted-foreground mt-2">
+          Data reflects latest available market activity.
+        </p>
         {/* Pagination */}
         <div className="flex items-center justify-between py-4 border-t border-border">
           <Button
