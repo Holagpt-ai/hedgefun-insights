@@ -39,6 +39,7 @@ import StockComparePage from "./pages/stocks/StockComparePage";
 import IndustryPage from "./pages/stocks/IndustryPage";
 import StockListsPage from "./pages/stocks/StockListsPage";
 import TopAnalystsPage from "./pages/stocks/TopAnalystsPage";
+import AnalystProfilePage from "./pages/stocks/AnalystProfilePage";
 import TopStocksPage from "./pages/stocks/TopStocksPage";
 import CorporateActionsPage from "./pages/stocks/CorporateActionsPage";
 import StockListDetailPage from "./pages/stocks/StockListDetailPage";
