@@ -10,14 +10,15 @@ import {
   type ColumnDef,
   type SortingState,
 } from "@tanstack/react-table";
-import { Search, MoreVertical, Download } from "lucide-react";
+import { Search, MoreVertical, Download, RefreshCw } from "lucide-react";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
-import { supabase } from "@/integrations/supabase/client";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
+
+const EDGE = "https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/market-data";
 
 interface ActiveRow {
   rank: number;
