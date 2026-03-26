@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { tickerToSlug } from "@/lib/ticker-utils";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 
 function getWeekDates(refDate: Date): Date[] {
@@ -299,6 +300,9 @@ const EarningsPage = () => {
       </div>
 
       
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </div>
   );
 };

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 
 function ToolCard({ title, description, route }: { title: string; description: string; route: string }) {
@@ -59,6 +60,9 @@ export default function ToolsPage() {
         </section>
       </div>
       
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </>
   );
 }

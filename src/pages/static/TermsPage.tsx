@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 
 const SECTIONS = [
@@ -60,6 +61,9 @@ export default function TermsPage() {
 
     </div>
     
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </>
   );
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthModals } from "@/components/auth/AuthModals";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 function IPhoneMockup() {
   return (
@@ -211,6 +212,9 @@ export default function NewsletterPage() {
       </div>
 
       <AuthModals mode={authMode} onClose={() => setAuthMode(null)} onSwitch={setAuthMode} />
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </div>
   );
 }

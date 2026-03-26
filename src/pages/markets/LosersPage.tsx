@@ -18,6 +18,7 @@ import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 interface LoserRow {
   rank: number;
@@ -234,6 +235,9 @@ export default function LosersPage() {
         </div>
 
         <IndexSparklines />
+        <div className="w-full flex flex-col items-center border-b border-border bg-surface py-1">
+          <AdBanner slot="top" />
+        </div>
 
         {/* Section Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
@@ -396,6 +400,9 @@ export default function LosersPage() {
           </Button>
         </div>
       </div>
+        <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+          <AdBanner slot="bottom" />
+        </div>
     </div>
   );
 }

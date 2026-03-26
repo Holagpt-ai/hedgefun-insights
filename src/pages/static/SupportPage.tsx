@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, MessageCircle, Star, BarChart3, ClipboardList, Newspaper, Shield } from "lucide-react";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 const CATEGORIES = [
   { icon: MessageCircle, title: "Getting Started", description: "Account setup, signing in, and navigating HedgeFun", to: "/faq#getting-started" },
@@ -89,6 +90,9 @@ export default function SupportPage() {
 
     </div>
     
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </>
   );
 }

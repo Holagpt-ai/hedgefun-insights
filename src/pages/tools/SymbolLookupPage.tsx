@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
 import { supabase } from "@/integrations/supabase/client";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 const PAGE_SIZE = 25;
 type BrowseRow = { symbol: string; name: string; exchange: string | null; type: string | null };
@@ -201,6 +202,9 @@ export default function SymbolLookupPage() {
           )}
         </CardContent>
       </Card>
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </div>
   );
 }

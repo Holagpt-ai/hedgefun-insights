@@ -16,6 +16,7 @@ import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 const EDGE = `https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/market-data`;
 
@@ -319,6 +320,9 @@ export default function PremarketPage() {
         </div>
 
         <IndexSparklines />
+        <div className="w-full flex flex-col items-center border-b border-border bg-surface py-1">
+          <AdBanner slot="top" />
+        </div>
 
         <PremarketTable title="Premarket Gainers" data={gainersData ?? []} type="gainers" isLoading={gainersLoading} refetch={refetchGainers} />
 
@@ -330,6 +334,9 @@ export default function PremarketPage() {
           Data reflects latest available market activity. Dedicated premarket data requires an upgraded data plan.
         </p>
       </div>
+        <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+          <AdBanner slot="bottom" />
+        </div>
     </div>
   );
 }

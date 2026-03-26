@@ -22,6 +22,7 @@ import {
   CartesianGrid,
   ResponsiveContainer,
 } from "recharts";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 type PayoutFreq = "annually" | "semi-annually" | "quarterly" | "monthly";
 const FREQ_MAP: Record<PayoutFreq, number> = { annually: 1, "semi-annually": 2, quarterly: 4, monthly: 12 };
@@ -434,9 +435,8 @@ export default function DividendCalculatorPage() {
         </CardContent>
       </Card>
 
-      {/* Bottom ad slot */}
-      <div className="w-full bg-surface border border-border rounded flex items-center justify-center" style={{ minHeight: "90px" }} aria-label="Advertisement">
-        <span className="text-xs text-muted-foreground">Advertisement</span>
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
       </div>
     </div>
   );

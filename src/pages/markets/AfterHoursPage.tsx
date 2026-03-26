@@ -16,6 +16,7 @@ import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
+import { AdBanner } from "@/components/layout/AdBanner";
 
 const EDGE = `https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/market-data`;
 
@@ -216,6 +217,9 @@ export default function AfterHoursPage() {
           ))}
         </div>
         <IndexSparklines />
+        <div className="w-full flex flex-col items-center border-b border-border bg-surface py-1">
+          <AdBanner slot="top" />
+        </div>
         <AfterHoursTable title="After Hours Gainers" data={gainersData ?? []} type="gainers" isLoading={gainersLoading} refetch={refetchGainers} />
         <div className="my-6 border-t border-border" />
         <AfterHoursTable title="After Hours Losers" data={losersData ?? []} type="losers" isLoading={losersLoading} refetch={refetchLosers} />
@@ -223,6 +227,9 @@ export default function AfterHoursPage() {
           Data reflects latest available market activity. Dedicated after-hours data requires an upgraded data plan.
         </p>
       </div>
+        <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+          <AdBanner slot="bottom" />
+        </div>
     </div>
   );
 }
