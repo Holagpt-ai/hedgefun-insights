@@ -400,9 +400,8 @@ export default function GainersPage() {
           </Button>
         </div>
 
-        {/* Ad Banner above footer */}
-        <div className="mt-6">
-          <AdBanner />
+        <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+          <AdBanner slot="bottom" />
         </div>
       </div>
 

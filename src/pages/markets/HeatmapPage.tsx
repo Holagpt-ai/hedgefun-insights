@@ -332,8 +332,9 @@ function HeatmapPage() {
           S&P500 stock performance by sector and industry. Size represents market cap, color represents relative performance.
         </p>
 
-        {/* Ad Banner */}
-        <AdBanner />
+        <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+          <AdBanner slot="bottom" />
+        </div>
       </div>
     </>
   );

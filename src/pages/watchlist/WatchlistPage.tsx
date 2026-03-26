@@ -694,8 +694,9 @@ const WatchlistPage = () => {
         </div>
       </div>
 
-      {/* Bottom ad banner */}
-      <AdBanner />
+      <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
+        <AdBanner slot="bottom" />
+      </div>
     </div>
   );
 };
