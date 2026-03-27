@@ -292,49 +292,9 @@ export default function EtfDetailPage() {
               <p className="text-xs text-muted-foreground mt-1">Powered by Massive</p>
             </div>
 
-            {/* Time range selector */}
-            <div className="flex gap-1 mb-4">
-              {TIME_RANGES.map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setTimeRange(r)}
-                  className={cn(
-                    "px-3 py-1 text-xs font-medium rounded-full transition-colors",
-                    timeRange === r
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {r}
-                </button>
-              ))}
-            </div>
-
-            {/* Price chart */}
-            <div className="h-[280px] w-full mb-6 border border-border rounded-[var(--radius)] p-3">
-              {chartLoading ? (
-                <Skeleton className="h-full w-full" />
-              ) : chartPoints.length > 1 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartPoints}>
-                    <defs>
-                      <linearGradient id="etfChartFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.15} />
-                        <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis dataKey="date" tick={{ fontSize: 10 }} stroke="hsl(var(--muted-foreground))" tickLine={false} axisLine={false} interval="preserveStartEnd" />
-                    <Tooltip
-                      contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: "var(--radius)", fontSize: 12 }}
-                      labelStyle={{ color: "hsl(var(--foreground))" }}
-                      formatter={(v: number) => [`$${v.toFixed(2)}`, "Price"]}
-                    />
-                    <Area type="monotone" dataKey="price" stroke="hsl(var(--primary))" strokeWidth={1.5} fill="url(#etfChartFill)" dot={false} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-muted-foreground text-sm">No chart data available</div>
-              )}
+            {/* Chart */}
+            <div className="mb-6">
+              <TradingViewChart data={ohlcvData} ticker={symbol} isPositive={positive} height={380} loading={chartLoading} />
             </div>
 
             {/* Key stats grid */}
