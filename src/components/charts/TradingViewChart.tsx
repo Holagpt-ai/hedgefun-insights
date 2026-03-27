@@ -157,15 +157,15 @@ export default function TradingViewChart({
     }
 
     if (activeIndicators.has('sma20')) {
-      const s = chart.addLineSeries({ color: '#f59e0b', lineWidth: 1, title: 'SMA 20' });
+      const s = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1, title: 'SMA 20' });
       s.setData(calcSMA(data, 20) as any);
     }
     if (activeIndicators.has('sma50')) {
-      const s = chart.addLineSeries({ color: '#8b5cf6', lineWidth: 1, title: 'SMA 50' });
+      const s = chart.addSeries(LineSeries, { color: '#8b5cf6', lineWidth: 1, title: 'SMA 50' });
       s.setData(calcSMA(data, 50) as any);
     }
     if (activeIndicators.has('sma200')) {
-      const s = chart.addLineSeries({ color: '#ec4899', lineWidth: 1, title: 'SMA 200' });
+      const s = chart.addSeries(LineSeries, { color: '#ec4899', lineWidth: 1, title: 'SMA 200' });
       s.setData(calcSMA(data, 200) as any);
     }
 
