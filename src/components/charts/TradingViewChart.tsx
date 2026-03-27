@@ -143,7 +143,7 @@ export default function TradingViewChart({
     }
 
     if (activeIndicators.has('volume')) {
-      const volSeries = chart.addHistogramSeries({
+      const volSeries = chart.addSeries(HistogramSeries, {
         color: '#94a3b826',
         priceFormat: { type: 'volume' },
         priceScaleId: 'volume',
