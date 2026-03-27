@@ -6,7 +6,8 @@ import { getTickerSnapshot, getTickerDetails, getTickerNews, getAggregates, getD
 import { cn } from "@/lib/utils";
 import StockHeader from "@/components/stock/StockHeader";
 import StockStatsTable from "@/components/stock/StockStatsTable";
-import StockChart from "@/components/stock/StockChart";
+import TradingViewChart from "@/components/charts/TradingViewChart";
+import type { OHLCVData } from "@/components/charts/TradingViewChart";
 import StockCtaButtons from "@/components/stock/StockCtaButtons";
 import StockAbout from "@/components/stock/StockAbout";
 import StockNews from "@/components/stock/StockNews";
