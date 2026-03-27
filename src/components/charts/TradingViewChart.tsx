@@ -3,6 +3,10 @@ import {
   createChart,
   ColorType,
   CrosshairMode,
+  CandlestickSeries,
+  LineSeries,
+  AreaSeries,
+  HistogramSeries,
 } from 'lightweight-charts';
 import type { IChartApi } from 'lightweight-charts';
 import { Skeleton } from '@/components/ui/skeleton';
