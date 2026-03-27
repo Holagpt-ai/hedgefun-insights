@@ -6,7 +6,8 @@ import { getTickerSnapshot, getTickerDetails, getTickerNews, getAggregates, getD
 import { cn } from "@/lib/utils";
 import StockHeader from "@/components/stock/StockHeader";
 import StockStatsTable from "@/components/stock/StockStatsTable";
-import StockChart from "@/components/stock/StockChart";
+import TradingViewChart from "@/components/charts/TradingViewChart";
+import type { OHLCVData } from "@/components/charts/TradingViewChart";
 import StockCtaButtons from "@/components/stock/StockCtaButtons";
 import StockAbout from "@/components/stock/StockAbout";
 import StockNews from "@/components/stock/StockNews";
@@ -98,6 +99,15 @@ const StockDetail = () => {
   const prevClose = snapshot?.prevDay?.c ?? null;
   const currentPrice = snapshot?.day?.c ?? snapshot?.prevDay?.c ?? null;
 
+  const ohlcvData: OHLCVData[] = (chartData ?? []).map((d: any) => ({
+    time: new Date(d.t).toISOString().split('T')[0],
+    open: d.o,
+    high: d.h,
+    low: d.l,
+    close: d.c,
+    volume: d.v,
+  }));
+
   const isPreIPO = (
     (!snapshot || (snapshot?.day?.c === 0 && snapshot?.day?.v === 0)) &&
     (!details?.list_date || new Date(details.list_date) > new Date())
@@ -128,7 +138,7 @@ const StockDetail = () => {
       {activeTab === "Overview" && (
         <div className="px-4 py-4 space-y-6">
           <StockStatsTable snapshot={snapshot} details={details} dividends={dividends} yearAggs={yearAggs} loading={snapLoading || detailsLoading} />
-          <StockChart chartData={chartData} chartLoading={chartLoading} timeRange={timeRange} setTimeRange={setTimeRange} positive={positive} prevClose={prevClose} />
+          <TradingViewChart data={ohlcvData} ticker={ticker} isPositive={positive} height={380} loading={chartLoading} />
           <StockCtaButtons ticker={ticker} />
           <StockAbout details={details} ticker={ticker} />
           <StockNews news={news} />
@@ -155,7 +165,7 @@ const StockDetail = () => {
 
       {activeTab === "Chart" && (
         <div className="px-4 py-4 space-y-6">
-          <StockChart chartData={chartData} chartLoading={chartLoading} timeRange={timeRange} setTimeRange={setTimeRange} positive={positive} prevClose={prevClose} />
+          <TradingViewChart data={ohlcvData} ticker={ticker} isPositive={positive} height={480} loading={chartLoading} />
         </div>
       )}
 
