@@ -165,7 +165,7 @@ const StockDetail = () => {
 
       {activeTab === "Chart" && (
         <div className="px-4 py-4 space-y-6">
-          <StockChart chartData={chartData} chartLoading={chartLoading} timeRange={timeRange} setTimeRange={setTimeRange} positive={positive} prevClose={prevClose} />
+          <TradingViewChart data={ohlcvData} ticker={ticker} isPositive={positive} height={480} loading={chartLoading} />
         </div>
       )}
 
