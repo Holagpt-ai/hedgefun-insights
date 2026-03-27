@@ -99,6 +99,15 @@ const StockDetail = () => {
   const prevClose = snapshot?.prevDay?.c ?? null;
   const currentPrice = snapshot?.day?.c ?? snapshot?.prevDay?.c ?? null;
 
+  const ohlcvData: OHLCVData[] = (chartData ?? []).map((d: any) => ({
+    time: new Date(d.t).toISOString().split('T')[0],
+    open: d.o,
+    high: d.h,
+    low: d.l,
+    close: d.c,
+    volume: d.v,
+  }));
+
   const isPreIPO = (
     (!snapshot || (snapshot?.day?.c === 0 && snapshot?.day?.v === 0)) &&
     (!details?.list_date || new Date(details.list_date) > new Date())
