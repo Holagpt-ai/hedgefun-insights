@@ -117,7 +117,7 @@ export default function TradingViewChart({
     chartRef.current = chart;
 
     if (chartType === 'candlestick' || chartType === 'heikinashi') {
-      const series = chart.addCandlestickSeries({
+      const series = chart.addSeries(CandlestickSeries, {
         upColor,
         downColor,
         borderUpColor: upColor,
@@ -130,10 +130,10 @@ export default function TradingViewChart({
       }));
       series.setData(seriesData as any);
     } else if (chartType === 'line') {
-      const series = chart.addLineSeries({ color: accentColor, lineWidth: 2 });
+      const series = chart.addSeries(LineSeries, { color: accentColor, lineWidth: 2 });
       series.setData(data.map(d => ({ time: d.time, value: d.close })) as any);
     } else {
-      const series = chart.addAreaSeries({
+      const series = chart.addSeries(AreaSeries, {
         lineColor: accentColor,
         topColor: accentColor + '40',
         bottomColor: accentColor + '00',
