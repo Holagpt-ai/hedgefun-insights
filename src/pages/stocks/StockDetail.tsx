@@ -138,7 +138,7 @@ const StockDetail = () => {
       {activeTab === "Overview" && (
         <div className="px-4 py-4 space-y-6">
           <StockStatsTable snapshot={snapshot} details={details} dividends={dividends} yearAggs={yearAggs} loading={snapLoading || detailsLoading} />
-          <StockChart chartData={chartData} chartLoading={chartLoading} timeRange={timeRange} setTimeRange={setTimeRange} positive={positive} prevClose={prevClose} />
+          <TradingViewChart data={ohlcvData} ticker={ticker} isPositive={positive} height={380} loading={chartLoading} />
           <StockCtaButtons ticker={ticker} />
           <StockAbout details={details} ticker={ticker} />
           <StockNews news={news} />
