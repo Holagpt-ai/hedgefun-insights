@@ -192,11 +192,15 @@ export default function EtfDetailPage() {
     retry: 3, retryDelay: 2000,
   });
 
-  const chartPoints = useMemo(() => {
+  const ohlcvData: OHLCVData[] = useMemo(() => {
     if (!Array.isArray(chartData)) return [];
     return chartData.map((d: any) => ({
-      date: new Date(d.t).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-      price: d.c,
+      time: new Date(d.t).toISOString().split('T')[0],
+      open: d.o,
+      high: d.h,
+      low: d.l,
+      close: d.c,
+      volume: d.v,
     }));
   }, [chartData]);
 
