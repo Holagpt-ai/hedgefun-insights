@@ -98,7 +98,7 @@ export function IndexSparklineCards() {
                 </span>
               </div>
               <div style={{ width: '60%', borderTop: '1.5px dotted #a1a1aa' }}>
-                <div className="h-10 w-full pt-1">
+                <div className="h-10 w-full" style={{ margin: 0, paddingTop: 0 }}>
                   {sparkData.length > 1 && (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={sparkData}>
