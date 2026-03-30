@@ -100,6 +100,7 @@ export function IndexSparklineCards() {
                   {positive ? "↑" : "↓"} {Math.abs(idx.change_percent ?? 0).toFixed(2)}%
                 </span>
               </div>
+              <hr style={{ border: 'none', borderTop: '1.5px dotted #71717a', margin: '6px 0', width: '100%' }} />
               <div className="h-10 w-full">
                 {sparkData.length > 1 && (
                   <ResponsiveContainer width="100%" height="100%">
