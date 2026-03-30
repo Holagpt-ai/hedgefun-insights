@@ -80,13 +80,11 @@ export function IndexSparklineCards() {
             <Link
               key={idx.symbol}
               to={`/etf/${idx.symbol.toLowerCase()}`}
-              className="fintech-card px-3 py-2.5 flex flex-col gap-1 cursor-pointer hover:border-primary/50 transition-colors duration-200 relative"
+              className="fintech-card px-3 py-2.5 flex flex-row items-center gap-2 cursor-pointer hover:border-primary/50 transition-colors duration-200 relative"
             >
               <ArrowUpRight className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
-              <div className="flex items-baseline justify-between">
-                <span className="text-xs font-semibold text-foreground">{idx.name}</span>
-              </div>
-              <div className="flex items-baseline gap-1.5">
+              <div className="flex flex-col justify-center" style={{ width: '40%' }}>
+                <span className="text-xs text-muted-foreground">{idx.name}</span>
                 <span className="text-sm font-semibold text-foreground tabular-nums">
                   {idx.current_value?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
@@ -99,30 +97,31 @@ export function IndexSparklineCards() {
                   {positive ? "↑" : "↓"} {Math.abs(idx.change_percent ?? 0).toFixed(2)}%
                 </span>
               </div>
-              <hr style={{ border: 'none', borderTop: '1.5px dotted #71717a', margin: '6px 0', width: '100%' }} />
-              <div className="h-10 w-full">
-                {sparkData.length > 1 && (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sparkData}>
-                      <YAxis domain={["auto", "auto"]} hide />
-                      <defs>
-                        <linearGradient id={`fill-${idx.symbol}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={color} stopOpacity={0.15} />
-                          <stop offset="100%" stopColor={color} stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <Area
-                        type="monotone"
-                        dataKey="v"
-                        stroke={color}
-                        strokeWidth={1.5}
-                        fill={`url(#fill-${idx.symbol})`}
-                        dot={false}
-                        isAnimationActive={false}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                )}
+              <div style={{ width: '60%', borderTop: '1.5px dotted #a1a1aa' }}>
+                <div className="h-10 w-full pt-1">
+                  {sparkData.length > 1 && (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={sparkData}>
+                        <YAxis domain={["auto", "auto"]} hide />
+                        <defs>
+                          <linearGradient id={`fill-${idx.symbol}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity={0.15} />
+                            <stop offset="100%" stopColor={color} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <Area
+                          type="monotone"
+                          dataKey="v"
+                          stroke={color}
+                          strokeWidth={1.5}
+                          fill={`url(#fill-${idx.symbol})`}
+                          dot={false}
+                          isAnimationActive={false}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
               </div>
             </Link>
           );
