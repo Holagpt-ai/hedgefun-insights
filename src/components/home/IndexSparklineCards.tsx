@@ -80,7 +80,7 @@ export function IndexSparklineCards() {
             <Link
               key={idx.symbol}
               to={`/etf/${idx.symbol.toLowerCase()}`}
-              className="fintech-card px-3 py-2.5 flex flex-col gap-1 cursor-pointer hover:border-primary/50 transition-colors duration-200 relative"
+              className="fintech-card px-3 py-2.5 flex flex-col gap-1 cursor-pointer hover:border-primary/50 transition-colors duration-200 relative border-t border-dotted border-zinc-300 dark:border-zinc-600"
             >
               <ArrowUpRight className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
               <div className="flex items-baseline justify-between">
