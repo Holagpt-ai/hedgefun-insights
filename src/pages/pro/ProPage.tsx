@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { cn } from "@/lib/utils";
+import { createCheckoutSession } from "@/lib/stripe";
+import { toast } from "@/hooks/use-toast";
 import {
   Breadcrumb,
   BreadcrumbItem,
