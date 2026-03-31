@@ -131,6 +131,24 @@ const ProPage = () => {
 
       {/* ── Pricing cards ── */}
       <div className="max-w-5xl mx-auto px-4 py-12">
+        {/* Billing toggle */}
+        <div className="flex justify-center mb-8 gap-2">
+          <Button
+            variant={billing === "monthly" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setBilling("monthly")}
+          >
+            Monthly
+          </Button>
+          <Button
+            variant={billing === "annual" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setBilling("annual")}
+          >
+            Annual
+          </Button>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-6 items-start mb-16">
           {/* Free */}
           <PricingCard
@@ -146,12 +164,13 @@ const ProPage = () => {
           <PricingCard
             title="Pro"
             badge="Most Popular"
-            price="$5"
-            priceSubtext="$49/year — save 2 months free"
+            price={billing === "monthly" ? "$5" : "$50"}
+            pricePeriod={billing === "monthly" ? "/month" : "/year"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : "$50/year — save 2 months free"}
             features={PRO_FEATURES}
             ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
             ctaVariant="default"
-            onCta={handleCheckout}
+            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.pro_monthly : STRIPE_PRICES.pro_annual)}
             ctaDisabled={isPro}
             highlighted
             guarantee
@@ -160,11 +179,15 @@ const ProPage = () => {
           {/* Unlimited */}
           <PricingCard
             title="Unlimited"
-            price="$12"
+            badge="Best Value"
+            badgeColor="green"
+            price={billing === "monthly" ? "$10" : "$80"}
+            pricePeriod={billing === "monthly" ? "/month" : "/year"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : "$80/year — save 2 months free"}
             features={UNLIMITED_FEATURES}
             ctaLabel="Choose Plan"
             ctaVariant="outline"
-            onCta={handleCheckout}
+            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.unlimited_monthly : STRIPE_PRICES.unlimited_annual)}
             guarantee
           />
         </div>
