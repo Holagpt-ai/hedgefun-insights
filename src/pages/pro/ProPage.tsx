@@ -286,7 +286,7 @@ function PricingCard({
       {badge && (
         <span className={cn(
           "absolute -top-3 right-4 text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded",
-          badgeColor === "green" ? "bg-green-600" : "bg-accent-blue"
+          badgeColor === "green" ? "bg-[hsl(142,71%,35%)]" : "bg-accent-blue"
         )}>
           {badge}
         </span>
