@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { cn } from "@/lib/utils";
+import { createCheckoutSession } from "@/lib/stripe";
+import { toast } from "@/hooks/use-toast";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -44,6 +46,13 @@ const UNLIMITED_FEATURES = [
   "Dedicated support channel",
 ];
 
+const STRIPE_PRICES = {
+  pro_monthly: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY || "pro_monthly",
+  pro_annual: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_ANNUAL || "pro_annual",
+  unlimited_monthly: import.meta.env.VITE_STRIPE_PRICE_ID_UNLIMITED_MONTHLY || "unlimited_monthly",
+  unlimited_annual: import.meta.env.VITE_STRIPE_PRICE_ID_UNLIMITED_ANNUAL || "unlimited_annual",
+};
+
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Is there an annual option?",
@@ -81,9 +90,19 @@ const ProPage = () => {
   const { user, profile } = useAuth();
   const isPro = profile?.plan === "pro";
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
-  const handleCheckout = () => {
-    console.log("Stripe checkout");
+  const handleCheckout = async (priceId: string) => {
+    if (!user) {
+      setAuthMode("signup");
+      return;
+    }
+    try {
+      const { url } = await createCheckoutSession(priceId);
+      if (url) window.location.href = url;
+    } catch {
+      toast({ title: "Unable to start checkout", variant: "destructive" });
+    }
   };
 
   return (
@@ -112,6 +131,24 @@ const ProPage = () => {
 
       {/* ── Pricing cards ── */}
       <div className="max-w-5xl mx-auto px-4 py-12">
+        {/* Billing toggle */}
+        <div className="flex justify-center mb-8 gap-2">
+          <Button
+            variant={billing === "monthly" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setBilling("monthly")}
+          >
+            Monthly
+          </Button>
+          <Button
+            variant={billing === "annual" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setBilling("annual")}
+          >
+            Annual
+          </Button>
+        </div>
+
         <div className="grid md:grid-cols-3 gap-6 items-start mb-16">
           {/* Free */}
           <PricingCard
@@ -127,12 +164,13 @@ const ProPage = () => {
           <PricingCard
             title="Pro"
             badge="Most Popular"
-            price="$5"
-            priceSubtext="$49/year — save 2 months free"
+            price={billing === "monthly" ? "$5" : "$50"}
+            pricePeriod={billing === "monthly" ? "/month" : "/year"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : "$50/year — save 2 months free"}
             features={PRO_FEATURES}
             ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
             ctaVariant="default"
-            onCta={handleCheckout}
+            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.pro_monthly : STRIPE_PRICES.pro_annual)}
             ctaDisabled={isPro}
             highlighted
             guarantee
@@ -141,11 +179,15 @@ const ProPage = () => {
           {/* Unlimited */}
           <PricingCard
             title="Unlimited"
-            price="$12"
+            badge="Best Value"
+            badgeColor="green"
+            price={billing === "monthly" ? "$10" : "$80"}
+            pricePeriod={billing === "monthly" ? "/month" : "/year"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : "$80/year — save 2 months free"}
             features={UNLIMITED_FEATURES}
             ctaLabel="Choose Plan"
             ctaVariant="outline"
-            onCta={handleCheckout}
+            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.unlimited_monthly : STRIPE_PRICES.unlimited_annual)}
             guarantee
           />
         </div>
@@ -183,7 +225,7 @@ const ProPage = () => {
         <Button
           size="lg"
           className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground px-10"
-          onClick={handleCheckout}
+          onClick={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.pro_monthly : STRIPE_PRICES.pro_annual)}
         >
           Get Started Now
         </Button>
@@ -206,7 +248,9 @@ export default ProPage;
 function PricingCard({
   title,
   badge,
+  badgeColor,
   price,
+  pricePeriod,
   priceSubtext,
   features,
   ctaLabel,
@@ -218,7 +262,9 @@ function PricingCard({
 }: {
   title: string;
   badge?: string;
+  badgeColor?: "blue" | "green";
   price: string;
+  pricePeriod?: string;
   priceSubtext?: string;
   features: string[];
   ctaLabel: string;
@@ -231,14 +277,17 @@ function PricingCard({
   return (
     <div
       className={cn(
-        "border rounded-md bg-background flex flex-col",
+        "border rounded-md bg-background flex flex-col relative",
         highlighted
-          ? "border-2 border-accent-blue relative shadow-sm"
+          ? "border-2 border-accent-blue shadow-sm"
           : "border-border"
       )}
     >
       {badge && (
-        <span className="absolute -top-3 right-4 bg-accent-blue text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded">
+        <span className={cn(
+          "absolute -top-3 right-4 text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded",
+          badgeColor === "green" ? "bg-[hsl(142,71%,35%)]" : "bg-accent-blue"
+        )}>
           {badge}
         </span>
       )}
@@ -246,7 +295,7 @@ function PricingCard({
       <div className="p-6 flex flex-col flex-1">
         <h3 className="text-base font-bold text-foreground mb-4">{title}</h3>
 
-        {/* Feature list — plain text rows */}
+        {/* Feature list */}
         <div className="flex-1 space-y-0">
           {features.map((f, i) => (
             <div
@@ -258,17 +307,15 @@ function PricingCard({
           ))}
         </div>
 
-        {/* Price + subtext */}
-        {priceSubtext && (
-          <p className="text-sm text-muted-foreground mt-4 mb-1">
-            {priceSubtext}
-          </p>
-        )}
+        {/* Price */}
+        <p className="text-2xl font-bold text-foreground mt-4">
+          {price}
+          {pricePeriod && <span className="text-sm font-normal text-muted-foreground">{pricePeriod}</span>}
+        </p>
 
-        {/* Price row */}
-        {!highlighted && (
-          <p className="text-sm text-muted-foreground mt-4 mb-4">
-            {price === "$0" ? "" : `${price} / month`}
+        {priceSubtext && (
+          <p className="text-sm text-muted-foreground mt-1 mb-1">
+            {priceSubtext}
           </p>
         )}
 
