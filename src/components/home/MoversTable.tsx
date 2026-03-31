@@ -11,6 +11,8 @@ interface Mover {
   todaysChangePerc?: number;
   todaysChange?: number;
   day?: { c?: number; v?: number };
+  min?: { c?: number };
+  prevDay?: { c?: number };
   // Fallback fields from some Polygon responses
   symbol?: string;
   name?: string;
