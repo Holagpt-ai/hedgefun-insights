@@ -141,6 +141,7 @@ serve(async (req) => {
         data = tickers.map((t: any) => ({
           ...t,
           name: cleanName(nameMap.get(t.ticker) || t.ticker),
+          price: t.day?.c > 0 ? t.day.c : (t.min?.c ?? t.prevDay?.c ?? 0),
         }));
 
         if ((data as any[]).length > 0) setCache(cacheKey, data);
