@@ -248,7 +248,9 @@ export default ProPage;
 function PricingCard({
   title,
   badge,
+  badgeColor,
   price,
+  pricePeriod,
   priceSubtext,
   features,
   ctaLabel,
@@ -260,7 +262,9 @@ function PricingCard({
 }: {
   title: string;
   badge?: string;
+  badgeColor?: "blue" | "green";
   price: string;
+  pricePeriod?: string;
   priceSubtext?: string;
   features: string[];
   ctaLabel: string;
@@ -273,14 +277,17 @@ function PricingCard({
   return (
     <div
       className={cn(
-        "border rounded-md bg-background flex flex-col",
+        "border rounded-md bg-background flex flex-col relative",
         highlighted
-          ? "border-2 border-accent-blue relative shadow-sm"
+          ? "border-2 border-accent-blue shadow-sm"
           : "border-border"
       )}
     >
       {badge && (
-        <span className="absolute -top-3 right-4 bg-accent-blue text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded">
+        <span className={cn(
+          "absolute -top-3 right-4 text-primary-foreground text-xs font-semibold px-3 py-0.5 rounded",
+          badgeColor === "green" ? "bg-green-600" : "bg-accent-blue"
+        )}>
           {badge}
         </span>
       )}
@@ -288,7 +295,7 @@ function PricingCard({
       <div className="p-6 flex flex-col flex-1">
         <h3 className="text-base font-bold text-foreground mb-4">{title}</h3>
 
-        {/* Feature list — plain text rows */}
+        {/* Feature list */}
         <div className="flex-1 space-y-0">
           {features.map((f, i) => (
             <div
@@ -300,17 +307,15 @@ function PricingCard({
           ))}
         </div>
 
-        {/* Price + subtext */}
-        {priceSubtext && (
-          <p className="text-sm text-muted-foreground mt-4 mb-1">
-            {priceSubtext}
-          </p>
-        )}
+        {/* Price */}
+        <p className="text-2xl font-bold text-foreground mt-4">
+          {price}
+          {pricePeriod && <span className="text-sm font-normal text-muted-foreground">{pricePeriod}</span>}
+        </p>
 
-        {/* Price row */}
-        {!highlighted && (
-          <p className="text-sm text-muted-foreground mt-4 mb-4">
-            {price === "$0" ? "" : `${price} / month`}
+        {priceSubtext && (
+          <p className="text-sm text-muted-foreground mt-1 mb-1">
+            {priceSubtext}
           </p>
         )}
 
