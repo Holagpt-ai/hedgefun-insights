@@ -46,6 +46,13 @@ const UNLIMITED_FEATURES = [
   "Dedicated support channel",
 ];
 
+const STRIPE_PRICES = {
+  pro_monthly: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY || "pro_monthly",
+  pro_annual: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_ANNUAL || "pro_annual",
+  unlimited_monthly: import.meta.env.VITE_STRIPE_PRICE_ID_UNLIMITED_MONTHLY || "unlimited_monthly",
+  unlimited_annual: import.meta.env.VITE_STRIPE_PRICE_ID_UNLIMITED_ANNUAL || "unlimited_annual",
+};
+
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Is there an annual option?",
