@@ -65,7 +65,7 @@ const MoversPage = () => {
             <tbody>
               {(data ?? []).slice(0, 50).map((m: any, i: number) => {
                 const ticker = m.ticker || m.symbol || "";
-                const price = m.day?.c ?? m.price ?? 0;
+                const price = m.price ?? (m.day?.c > 0 ? m.day.c : (m.min?.c ?? m.prevDay?.c ?? 0));
                 const changePct = m.todaysChangePerc ?? m.change_percent ?? 0;
                 return (
                   <tr key={i} className="border-b border-border last:border-b-0 hover:bg-accent/50">
