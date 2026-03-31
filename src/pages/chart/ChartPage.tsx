@@ -527,7 +527,7 @@ export default function ChartPage() {
                   data={ohlcvData}
                   ticker={ticker}
                   isPositive={priceChange >= 0}
-                  height={undefined as any}
+                  height={600}
                   loading={false}
                 />
               </div>
