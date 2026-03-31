@@ -86,7 +86,7 @@ export function IndexSparklineCards() {
               <div className="flex flex-col justify-center" style={{ width: '40%' }}>
                 <span className="text-xs text-muted-foreground">{idx.name}</span>
                 <span className="text-sm font-semibold text-foreground tabular-nums">
-                  {idx.current_value?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {((idx.current_value && Number(idx.current_value) > 0) ? Number(idx.current_value) : (sparkData.length > 0 ? sparkData[sparkData.length - 1].v : 0)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
                 <span
                   className={cn(
