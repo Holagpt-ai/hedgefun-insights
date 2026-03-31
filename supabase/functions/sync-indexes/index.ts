@@ -52,7 +52,8 @@ serve(async (req) => {
 
         const sparklineData = aggResults.map((r: any) => r.c).filter((v: any) => typeof v === "number");
 
-        const currentValue = t?.day?.c ?? t?.lastTrade?.p ?? (sparklineData.length > 0 ? sparklineData[sparklineData.length - 1] : null);
+        const dayClose = t?.day?.c;
+        const currentValue = (dayClose && dayClose > 0) ? dayClose : (t?.min?.c || t?.lastTrade?.p || (sparklineData.length > 0 ? sparklineData[sparklineData.length - 1] : null));
 
         const row = {
           symbol: idx.ticker,
