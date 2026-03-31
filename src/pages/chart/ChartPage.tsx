@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Search, ChevronLeft, Menu, X, TrendingUp, Pencil, Plus, Type, ChevronDown, Settings, Download, Sun, Lock, PanelRightClose, PanelRightOpen } from "lucide-react";
+import { Search, ChevronLeft, Menu, X, TrendingUp, Pencil, Plus, Type, ChevronDown, Settings, Download, Lock, PanelRightClose, PanelRightOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { useAuth } from "@/contexts/AuthContext";
@@ -9,9 +9,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, ReferenceLine
+  Tooltip, ResponsiveContainer,
 } from "recharts";
-import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
+import { searchTickers, EXCHANGE_LABELS, type SearchResult } from "@/lib/search-tickers";
+import { toast } from "sonner";
+import TradingViewChart, { type OHLCVData } from "@/components/charts/TradingViewChart";
 
 const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
 
@@ -25,6 +27,9 @@ interface ChartPoint {
 }
 
 const TIME_RANGES = ["1D", "2D", "5D", "1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "All"] as const;
+
+type ChartViewMode = "recharts" | "tradingview";
+type TVChartType = "area" | "line" | "candlestick" | "heikinashi";
 
 function getDateRange(range: string) {
   const now = new Date();
@@ -68,6 +73,22 @@ function formatXLabel(dateStr: string, range: string): string {
   return d.toLocaleDateString("en-US", { month: "short", year: range === "6M" || range === "YTD" || range === "1Y" ? undefined : "2-digit" });
 }
 
+function downloadCSV(data: ChartPoint[], ticker: string) {
+  if (!data.length) return;
+  const header = "Date,Open,High,Low,Close,Volume";
+  const rows = data.map((d) =>
+    `${d.date},${d.open},${d.high},${d.low},${d.close},${d.volume}`
+  );
+  const csv = [header, ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${ticker}_chart_data.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ChartPage() {
   const { ticker: rawTicker } = useParams<{ ticker?: string }>();
   const ticker = rawTicker?.toUpperCase() || "";
@@ -85,6 +106,12 @@ export default function ChartPage() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [watchlist, setWatchlist] = useState<{ symbol: string }[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
+
+  // Chart view mode
+  const [chartViewMode, setChartViewMode] = useState<ChartViewMode>("recharts");
+  const [tvChartType, setTvChartType] = useState<TVChartType>("area");
+  const [showViewsDropdown, setShowViewsDropdown] = useState(false);
+  const viewsRef = useRef<HTMLDivElement>(null);
 
   // Search dropdown state
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
@@ -106,10 +133,14 @@ export default function ChartPage() {
     }
   }, [ticker]);
 
+  // Close dropdowns on outside click
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) {
         setShowSearchResults(false);
+      }
+      if (viewsRef.current && !viewsRef.current.contains(e.target as Node)) {
+        setShowViewsDropdown(false);
       }
     };
     document.addEventListener("mousedown", handler);
@@ -152,7 +183,7 @@ export default function ChartPage() {
       .then((data) => {
         const results = data?.results || data || [];
         if (!Array.isArray(results) || results.length === 0) {
-          setError(`Unable to load chart data for ${ticker}. Please check the symbol and try again.`);
+          setError("Chart data temporarily unavailable. Please try again shortly.");
           setChartData([]);
         } else {
           setChartData(
@@ -167,7 +198,7 @@ export default function ChartPage() {
           );
         }
       })
-      .catch(() => setError(`Unable to load chart data for ${ticker}. Please check the symbol and try again.`))
+      .catch(() => setError("Chart data temporarily unavailable. Please try again shortly."))
       .finally(() => setLoading(false));
   }, [ticker, timeRange]);
 
@@ -257,6 +288,25 @@ export default function ChartPage() {
   const priceChange = lastPoint && firstPoint ? lastPoint.close - firstPoint.open : 0;
   const pctChange = firstPoint?.open ? (priceChange / firstPoint.open) * 100 : 0;
   const displayPoint = hoveredPoint || lastPoint;
+
+  // Convert chartData to OHLCVData for TradingViewChart
+  const ohlcvData: OHLCVData[] = chartData.map((d) => ({
+    time: d.date.split("T")[0],
+    open: d.open,
+    high: d.high,
+    low: d.low,
+    close: d.close,
+    volume: d.volume,
+  }));
+
+  const VIEW_OPTIONS: { type: TVChartType; label: string }[] = [
+    { type: "area", label: "Area" },
+    { type: "line", label: "Line" },
+    { type: "candlestick", label: "Candlestick" },
+    { type: "heikinashi", label: "Heikin-Ashi" },
+  ];
+
+  const currentViewLabel = VIEW_OPTIONS.find((v) => v.type === tvChartType)?.label ?? "Area";
 
   const searchDropdown = (
     <>
@@ -379,13 +429,81 @@ export default function ChartPage() {
             </div>
             <div className="flex-1" />
             <div className="flex items-center gap-1">
-              <ToolbarBtn label="▲ Area" />
-              <ToolbarBtn label="1D" />
-              <ToolbarBtn label="Views" hasChevron />
-              <ToolbarBtn label="Studies" hasChevron />
-              <ToolbarBtn label="Signals" hasChevron />
-              <ToolbarBtn label="Events" hasChevron />
-              <ToolbarBtn label="Download" hasChevron />
+              {/* Views dropdown */}
+              <div ref={viewsRef} className="relative">
+                <button
+                  onClick={() => setShowViewsDropdown((v) => !v)}
+                  className="h-8 px-2.5 flex items-center gap-1 border border-border rounded-[var(--radius)] text-[0.8125rem] text-foreground hover:bg-accent transition-colors"
+                >
+                  <span>▲ {currentViewLabel}</span>
+                  <ChevronDown className="h-3 w-3 text-muted-foreground" />
+                </button>
+                {showViewsDropdown && (
+                  <div className="absolute top-full right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50 min-w-[160px]">
+                    {VIEW_OPTIONS.map(({ type, label }) => (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          setTvChartType(type);
+                          setChartViewMode("tradingview");
+                          setShowViewsDropdown(false);
+                        }}
+                        className={`w-full px-4 py-2 text-sm text-left transition-colors ${
+                          tvChartType === type && chartViewMode === "tradingview"
+                            ? "bg-accent text-accent-blue font-medium"
+                            : "text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                    <div className="border-t border-border">
+                      <button
+                        onClick={() => {
+                          setChartViewMode("recharts");
+                          setShowViewsDropdown(false);
+                        }}
+                        className={`w-full px-4 py-2 text-sm text-left transition-colors ${
+                          chartViewMode === "recharts"
+                            ? "bg-accent text-accent-blue font-medium"
+                            : "text-foreground hover:bg-accent"
+                        }`}
+                      >
+                        Default (Area)
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <ToolbarBtn label={timeRange} />
+              <ToolbarBtn
+                label="Studies"
+                hasChevron
+                onClick={() => toast.info("Studies — Coming Soon", { description: "Technical studies will be available in a future update." })}
+              />
+              <ToolbarBtn
+                label="Signals"
+                hasChevron
+                onClick={() => toast.info("Signals — Coming Soon", { description: "Trading signals will be available in a future update." })}
+              />
+              <ToolbarBtn
+                label="Events"
+                hasChevron
+                onClick={() => toast.info("Events — Coming Soon", { description: "Market events overlay will be available in a future update." })}
+              />
+              <ToolbarBtn
+                label="Download"
+                hasChevron
+                onClick={() => {
+                  if (!chartData.length) {
+                    toast.error("No chart data to download.");
+                    return;
+                  }
+                  downloadCSV(chartData, ticker);
+                  toast.success(`Downloaded ${ticker} chart data as CSV.`);
+                }}
+              />
               <ToolbarBtn icon={<Settings className="h-4 w-4" />} hasChevron />
             </div>
           </div>
@@ -403,6 +521,16 @@ export default function ChartPage() {
               <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-muted-foreground max-w-md text-center">{error}</p>
               </div>
+            ) : chartViewMode === "tradingview" ? (
+              <div className="h-full p-2">
+                <TradingViewChart
+                  data={ohlcvData}
+                  ticker={ticker}
+                  isPositive={priceChange >= 0}
+                  height={600}
+                  loading={false}
+                />
+              </div>
             ) : (
               <div className="h-full flex flex-col">
                 {/* OHLCV Overlay */}
@@ -416,7 +544,6 @@ export default function ChartPage() {
                   </div>
                   {displayPoint && (
                     <>
-                      {/* Desktop: inline rows */}
                       <div className="hidden sm:block">
                         <div className="flex gap-4 text-[0.8125rem]">
                           <span><span className="text-muted-foreground">Price:</span> <span className="text-foreground">{displayPoint.close.toFixed(2)}</span></span>
@@ -431,7 +558,6 @@ export default function ChartPage() {
                           <span><span className="text-muted-foreground">Chg.%:</span> <span className="text-foreground">{((displayPoint.close - displayPoint.open) / displayPoint.open * 100).toFixed(2)}%</span></span>
                         </div>
                       </div>
-                      {/* Mobile: 2-col grid */}
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 sm:hidden">
                         {[
                           { label: "Price", value: displayPoint.close.toFixed(2) },
@@ -619,6 +745,23 @@ function RightPanel({
   watchlist: { symbol: string }[]; onTickerClick: (t: string) => void;
   onAuthMode: (m: "login" | "signup") => void; theme: string;
 }) {
+  const [panelSearch, setPanelSearch] = useState("");
+  const [panelResults, setPanelResults] = useState<SearchResult[]>([]);
+  const [isPanelSearching, setIsPanelSearching] = useState(false);
+  const panelDebounceRef = useRef<ReturnType<typeof setTimeout>>();
+
+  const handlePanelSearch = useCallback((value: string) => {
+    setPanelSearch(value);
+    if (panelDebounceRef.current) clearTimeout(panelDebounceRef.current);
+    if (!value.trim()) { setPanelResults([]); setIsPanelSearching(false); return; }
+    setIsPanelSearching(true);
+    panelDebounceRef.current = setTimeout(async () => {
+      const data = await searchTickers(value);
+      setPanelResults(data);
+      setIsPanelSearching(false);
+    }, 200);
+  }, []);
+
   return (
     <div
       className={`border-l border-border bg-surface-card shrink-0 flex flex-col transition-all duration-200 ease-in-out overflow-hidden ${
@@ -631,6 +774,39 @@ function RightPanel({
             {user ? (
               <div className="p-4">
                 <h3 className="text-sm font-semibold text-foreground mb-3">Watchlist</h3>
+                {/* Panel ticker search */}
+                <div className="relative mb-3">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <input
+                    value={panelSearch}
+                    onChange={(e) => handlePanelSearch(e.target.value)}
+                    placeholder="Search ticker..."
+                    className="w-full h-8 pl-8 pr-3 border border-border rounded-[var(--radius)] bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent-blue"
+                  />
+                  {panelResults.length > 0 && panelSearch.trim() && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg overflow-hidden z-50 max-h-[200px] overflow-y-auto">
+                      {panelResults.map((r) => (
+                        <button
+                          key={r.ticker}
+                          onClick={() => {
+                            onTickerClick(r.ticker.toUpperCase());
+                            setPanelSearch("");
+                            setPanelResults([]);
+                          }}
+                          className="w-full px-3 py-2 flex items-center gap-2 text-left hover:bg-accent transition-colors border-b border-border last:border-0"
+                        >
+                          <span className="text-sm font-semibold text-accent-blue">{r.ticker}</span>
+                          <span className="text-xs text-muted-foreground truncate flex-1">{r.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  {isPanelSearching && panelSearch.trim() && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-surface-card border border-border rounded-lg shadow-lg z-50 px-3 py-2 text-xs text-muted-foreground">
+                      Searching...
+                    </div>
+                  )}
+                </div>
                 {watchlist.length === 0 ? (
                   <p className="text-sm text-muted-foreground">No tickers in your watchlist.</p>
                 ) : (
@@ -686,9 +862,12 @@ function RightPanel({
   );
 }
 
-function ToolbarBtn({ icon, label, hasChevron }: { icon?: React.ReactNode; label?: string; hasChevron?: boolean }) {
+function ToolbarBtn({ icon, label, hasChevron, onClick }: { icon?: React.ReactNode; label?: string; hasChevron?: boolean; onClick?: () => void }) {
   return (
-    <button className="h-8 px-2.5 flex items-center gap-1 border border-border rounded-[var(--radius)] text-[0.8125rem] text-foreground hover:bg-accent transition-colors">
+    <button
+      onClick={onClick}
+      className="h-8 px-2.5 flex items-center gap-1 border border-border rounded-[var(--radius)] text-[0.8125rem] text-foreground hover:bg-accent transition-colors"
+    >
       {icon}
       {label && <span>{label}</span>}
       {hasChevron && <ChevronDown className="h-3 w-3 text-muted-foreground" />}
