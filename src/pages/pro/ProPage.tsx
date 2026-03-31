@@ -90,9 +90,19 @@ const ProPage = () => {
   const { user, profile } = useAuth();
   const isPro = profile?.plan === "pro";
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
-  const handleCheckout = () => {
-    console.log("Stripe checkout");
+  const handleCheckout = async (priceId: string) => {
+    if (!user) {
+      setAuthMode("signup");
+      return;
+    }
+    try {
+      const { url } = await createCheckoutSession(priceId);
+      if (url) window.location.href = url;
+    } catch {
+      toast({ title: "Unable to start checkout", variant: "destructive" });
+    }
   };
 
   return (
