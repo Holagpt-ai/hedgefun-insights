@@ -134,7 +134,7 @@ function MoversTable({
   );
 }
 
-export function TopGainersTable() {
+export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["top-gainers"],
     queryFn: getTopGainers,
@@ -145,7 +145,7 @@ export function TopGainersTable() {
 
   return (
     <MoversTable
-      title="Top Gainers"
+      title={title}
       linkTo="/markets/gainers"
       data={data}
       isLoading={isLoading}
@@ -155,7 +155,7 @@ export function TopGainersTable() {
   );
 }
 
-export function TopLosersTable() {
+export function TopLosersTable({ title = "Top Losers" }: { title?: string }) {
   const { data, isLoading, refetch } = useQuery({
     queryKey: ["top-losers"],
     queryFn: getTopLosers,
@@ -166,7 +166,7 @@ export function TopLosersTable() {
 
   return (
     <MoversTable
-      title="Top Losers"
+      title={title}
       linkTo="/markets/losers"
       data={data}
       isLoading={isLoading}
