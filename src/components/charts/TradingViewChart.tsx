@@ -231,8 +231,8 @@ export default function TradingViewChart({
   ];
 
   return (
-    <div className="border border-border rounded-[var(--radius)] overflow-hidden">
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/30">
+    <div className={hideToolbar ? "" : "border border-border rounded-[var(--radius)] overflow-hidden"}>
+      {!hideToolbar && <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/30">
         <span className="text-[0.6875rem] font-semibold text-muted-foreground mr-1">Type:</span>
         {CHART_TYPES.map(({ type, label }) => (
           <button
