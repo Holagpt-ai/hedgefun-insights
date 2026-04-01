@@ -185,7 +185,7 @@ const WatchlistPage = () => {
       return {
         id: entry.id,
         symbol: entry.symbol,
-        name,
+        name: cleanCompanyName(name),
         price,
         change,
         changePct,
