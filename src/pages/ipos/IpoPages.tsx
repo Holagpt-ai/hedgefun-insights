@@ -116,7 +116,7 @@ export function RecentIposPage() {
 
   const filteredData = useMemo(() => {
     if (yearFilter === "All") return tableData;
-    return tableData.filter((d) => d.date.startsWith(yearFilter));
+    return tableData.filter((d) => d.date && d.date.startsWith(yearFilter));
   }, [yearFilter, tableData]);
 
   const columns = useMemo(() => [
@@ -177,6 +177,7 @@ export function RecentIposPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: true,
     initialState: { pagination: { pageSize: 50 } },
   });
 
@@ -207,7 +208,9 @@ export function RecentIposPage() {
         <div className="flex flex-col md:flex-row gap-6">
           {/* Main content */}
           <div className="flex-1 min-w-0">
-            <h1 className="text-[1.75rem] font-bold text-foreground mb-3">Last 200 IPOs</h1>
+            <h1 className="text-[1.75rem] font-bold text-foreground mb-3">
+              Last {tableData.length} IPOs{yearFilter !== "All" ? ` (${filteredData.length} shown)` : ""}
+            </h1>
 
             {/* Year sub-tabs */}
             <div className="flex gap-1.5 mb-4 flex-wrap">
