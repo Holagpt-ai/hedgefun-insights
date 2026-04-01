@@ -5,11 +5,16 @@ const EXCHANGE_MAP: Record<string, string> = {
   XNAS: "NASDAQ", XNYS: "NYSE", XASE: "NYSE American", ARCX: "NYSE Arca", BATS: "CBOE BZX",
 };
 
-function isAfterHours(): boolean {
+type MarketSession = "premarket" | "regular" | "afterhours";
+
+function getMarketSession(): MarketSession {
   const est = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
   const day = est.getDay();
-  if (day === 0 || day === 6) return true;
-  return est.getHours() * 60 + est.getMinutes() >= 960;
+  const mins = est.getHours() * 60 + est.getMinutes();
+  if (day === 0 || day === 6) return "afterhours";
+  if (mins < 570) return "premarket"; // before 9:30
+  if (mins >= 960) return "afterhours"; // after 16:00
+  return "regular";
 }
 
 function estDate(): string {
@@ -18,6 +23,11 @@ function estDate(): string {
 
 function estTime(): string {
   return new Date().toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit", hour12: true });
+}
+
+function resolvePrice(snapshot: any): number {
+  const day = snapshot?.day;
+  return (day?.c > 0 ? day.c : null) ?? snapshot?.min?.c ?? snapshot?.lastTrade?.p ?? snapshot?.prevDay?.c ?? 0;
 }
 
 interface Props {
