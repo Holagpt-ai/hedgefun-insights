@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
+import { resolveCurrentPrice } from "@/lib/price-utils";
 
 interface Mover {
   ticker: string;
