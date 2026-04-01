@@ -4,6 +4,7 @@ import { resolveCurrentPrice } from "@/lib/price-utils";
 import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMoversLayout";
 
 function mapRows(tickers: any[]): MoverRow[] {
+  if (!Array.isArray(tickers) || tickers.length === 0) return [];
   return tickers.map((t: any) => ({
     symbol: t.ticker || t.symbol || "",
     name: t.name || t.details?.name || t.ticker || t.symbol || "",

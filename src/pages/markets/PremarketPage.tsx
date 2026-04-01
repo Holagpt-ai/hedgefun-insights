@@ -11,6 +11,7 @@ import { toast } from "@/hooks/use-toast";
 const TIME_TABS = ["Today", "Week", "Month", "YTD", "Year", "3 Years", "5 Years"];
 
 function mapRows(tickers: any[]): MoverRow[] {
+  if (!Array.isArray(tickers) || tickers.length === 0) return [];
   return tickers.map((t: any) => ({
     symbol: t.ticker || t.symbol || "",
     name: t.name || t.details?.name || t.ticker || t.symbol || "",

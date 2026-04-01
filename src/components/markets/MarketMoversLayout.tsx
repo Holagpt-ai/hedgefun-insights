@@ -240,7 +240,9 @@ export function MoversTable({
         </div>
       ) : filtered.length === 0 ? (
         <div className="py-12 text-center">
-          <p className="text-muted-foreground mb-3">Market data is refreshing…</p>
+          <p className="text-muted-foreground mb-3">
+            {search ? "No results match your search." : "No market data available right now. Data may be limited outside regular trading hours (9:30 AM – 4:00 PM ET)."}
+          </p>
           {refetch && (
             <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
               <RefreshCw className="h-3.5 w-3.5" /> Try again
