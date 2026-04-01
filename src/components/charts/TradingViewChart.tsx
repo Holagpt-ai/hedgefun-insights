@@ -92,6 +92,12 @@ export default function TradingViewChart({
   useEffect(() => {
     if (!chartContainerRef.current || !data.length) return;
 
+    // Remove previous chart instance if it exists
+    if (chartRef.current) {
+      chartRef.current.remove();
+      chartRef.current = null;
+    }
+
     const bg = isDark ? '#1e293b' : '#ffffff';
     const textColor = isDark ? '#94a3b8' : '#64748b';
     const gridColor = isDark ? '#334155' : '#f1f5f9';
@@ -127,6 +133,7 @@ export default function TradingViewChart({
 
     chartRef.current = chart;
 
+    // Add main series based on chart type
     if (chartType === 'candlestick' || chartType === 'heikinashi') {
       const series = chart.addSeries(CandlestickSeries, {
         upColor,
@@ -136,14 +143,15 @@ export default function TradingViewChart({
         wickUpColor: upColor,
         wickDownColor: downColor,
       });
-      const seriesData = chartType === 'heikinashi' ? calcHeikinAshi(data) : data.map(d => ({
-        time: d.time, open: d.open, high: d.high, low: d.low, close: d.close,
-      }));
+      const seriesData = chartType === 'heikinashi'
+        ? calcHeikinAshi(data)
+        : data.map(d => ({ time: d.time, open: d.open, high: d.high, low: d.low, close: d.close }));
       series.setData(seriesData as any);
     } else if (chartType === 'line') {
       const series = chart.addSeries(LineSeries, { color: accentColor, lineWidth: 2 });
       series.setData(data.map(d => ({ time: d.time, value: d.close })) as any);
     } else {
+      // area (default)
       const series = chart.addSeries(AreaSeries, {
         lineColor: accentColor,
         topColor: accentColor + '40',
@@ -153,6 +161,7 @@ export default function TradingViewChart({
       series.setData(data.map(d => ({ time: d.time, value: d.close })) as any);
     }
 
+    // Volume overlay
     if (activeIndicators.has('volume')) {
       const volSeries = chart.addSeries(HistogramSeries, {
         color: '#94a3b826',
@@ -167,6 +176,7 @@ export default function TradingViewChart({
       })) as any);
     }
 
+    // SMA overlays
     if (activeIndicators.has('sma20')) {
       const s = chart.addSeries(LineSeries, { color: '#f59e0b', lineWidth: 1, title: 'SMA 20' });
       s.setData(calcSMA(data, 20) as any);
@@ -192,6 +202,7 @@ export default function TradingViewChart({
     return () => {
       resizeObserver.disconnect();
       chart.remove();
+      chartRef.current = null;
     };
   }, [data, chartType, activeIndicators, isDark, isPositive, height]);
 
@@ -210,7 +221,10 @@ export default function TradingViewChart({
 
   if (!data.length) {
     return (
-      <div className="flex items-center justify-center text-sm text-muted-foreground border border-border rounded-[var(--radius)]" style={{ height }}>
+      <div
+        className="flex items-center justify-center text-sm text-muted-foreground border border-border rounded-[var(--radius)]"
+        style={{ height }}
+      >
         No chart data available
       </div>
     );
