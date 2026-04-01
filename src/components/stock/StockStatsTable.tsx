@@ -60,8 +60,11 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     );
   }
 
+  // Resolve price with fallback chain
+  const resolvedPrice = (snapshot?.day?.c > 0 ? snapshot.day.c : null) ?? snapshot?.min?.c ?? snapshot?.lastTrade?.p ?? snapshot?.prevDay?.c ?? 0;
+
   // Market cap with fallback
-  const mcRaw = details?.market_cap || (snapshot?.day?.c && details?.share_class_shares_outstanding ? snapshot.day.c * details.share_class_shares_outstanding : null);
+  const mcRaw = details?.market_cap || (resolvedPrice && details?.share_class_shares_outstanding ? resolvedPrice * details.share_class_shares_outstanding : null);
 
   // 52-week range from year aggregates
   let week52High: number | null = null;
@@ -78,12 +81,15 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     : "n/a";
   const exDivDate = divArray.length > 0 ? formatDate(divArray[0]?.ex_dividend_date) : "n/a";
 
-  // Day range
-  const dayLow = snapshot?.day?.l;
-  const dayHigh = snapshot?.day?.h;
+  // Day range with fallbacks
+  const dayLow = (snapshot?.day?.l > 0 ? snapshot.day.l : null) ?? snapshot?.min?.l ?? snapshot?.prevDay?.l ?? null;
+  const dayHigh = (snapshot?.day?.h > 0 ? snapshot.day.h : null) ?? snapshot?.min?.h ?? snapshot?.prevDay?.h ?? null;
   const dayRange = dayLow != null && dayHigh != null
     ? `$${dayLow.toFixed(2)} - $${dayHigh.toFixed(2)}`
     : "n/a";
+
+  // Open with fallback
+  const openPrice = (snapshot?.day?.o > 0 ? snapshot.day.o : null) ?? snapshot?.prevDay?.o ?? null;
 
   const week52Range = week52High != null && week52Low != null
     ? `$${week52Low.toFixed(2)} - $${week52High.toFixed(2)}`
