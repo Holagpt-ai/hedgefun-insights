@@ -113,16 +113,13 @@ const WatchlistPage = () => {
       await Promise.all(
         symbols.map(async (sym) => {
           try {
-            const { data, error } = await supabase.functions.invoke(
-              `${MARKET_DATA_FUNCTION}?type=snapshot&ticker=${encodeURIComponent(sym)}`,
-              { method: "GET" },
-            );
+            const { data, error } = await supabase.functions.invoke("get-watchlist-data", {
+              body: { ticker: sym },
+            });
             if (error) throw error;
-            const snap = data?.ticker ?? data;
-            results[sym] = snap;
+            results[sym] = data;
           } catch (err) {
-            console.error(`[watchlist] snapshot failed for ${sym}:`, err);
-            toast.error(`Could not load data for ${sym}`);
+            console.error(`[watchlist] failed for ${sym}:`, err);
           }
         })
       );
