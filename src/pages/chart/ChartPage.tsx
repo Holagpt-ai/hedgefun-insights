@@ -26,31 +26,76 @@ interface ChartPoint {
   volume: number;
 }
 
-const TIME_RANGES = ["1D", "2D", "5D", "1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "All"] as const;
+const TIME_RANGES = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y"] as const;
 
 type ChartViewMode = "recharts" | "tradingview";
 type TVChartType = "area" | "line" | "candlestick" | "heikinashi";
 
+function fmtDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
 function getDateRange(range: string) {
   const now = new Date();
-  const to = now.toISOString().split("T")[0];
+  const to = fmtDate(now);
   let from: string;
   let multiplier = 1;
   let timespan = "day";
 
   switch (range) {
-    case "1D": from = to; multiplier = 5; timespan = "minute"; break;
-    case "2D": { const d = new Date(now); d.setDate(d.getDate() - 2); from = d.toISOString().split("T")[0]; multiplier = 5; timespan = "minute"; break; }
-    case "5D": { const d = new Date(now); d.setDate(d.getDate() - 5); from = d.toISOString().split("T")[0]; multiplier = 15; timespan = "minute"; break; }
-    case "1M": { const d = new Date(now); d.setMonth(d.getMonth() - 1); from = d.toISOString().split("T")[0]; break; }
-    case "3M": { const d = new Date(now); d.setMonth(d.getMonth() - 3); from = d.toISOString().split("T")[0]; break; }
-    case "6M": { const d = new Date(now); d.setMonth(d.getMonth() - 6); from = d.toISOString().split("T")[0]; break; }
+    case "1D": {
+      from = to;
+      multiplier = 5;
+      timespan = "minute";
+      break;
+    }
+    case "1W": {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      from = fmtDate(d);
+      multiplier = 30;
+      timespan = "minute";
+      break;
+    }
+    case "1M": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 1);
+      from = fmtDate(d);
+      multiplier = 1;
+      timespan = "hour";
+      break;
+    }
+    case "3M": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 3);
+      from = fmtDate(d);
+      break;
+    }
+    case "6M": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 6);
+      from = fmtDate(d);
+      break;
+    }
     case "YTD": from = `${now.getFullYear()}-01-01`; break;
-    case "1Y": { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); from = d.toISOString().split("T")[0]; break; }
-    case "3Y": { const d = new Date(now); d.setFullYear(d.getFullYear() - 3); from = d.toISOString().split("T")[0]; timespan = "week"; break; }
-    case "5Y": { const d = new Date(now); d.setFullYear(d.getFullYear() - 5); from = d.toISOString().split("T")[0]; timespan = "week"; break; }
-    case "All": { const d = new Date(now); d.setFullYear(d.getFullYear() - 10); from = d.toISOString().split("T")[0]; timespan = "month"; break; }
-    default: { const d = new Date(now); d.setMonth(d.getMonth() - 6); from = d.toISOString().split("T")[0]; }
+    case "1Y": {
+      const d = new Date(now);
+      d.setFullYear(d.getFullYear() - 1);
+      from = fmtDate(d);
+      break;
+    }
+    case "5Y": {
+      const d = new Date(now);
+      d.setFullYear(d.getFullYear() - 5);
+      from = fmtDate(d);
+      timespan = "week";
+      break;
+    }
+    default: {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 6);
+      from = fmtDate(d);
+    }
   }
   return { from, to, multiplier, timespan };
 }
@@ -64,7 +109,7 @@ function abbr(n: number): string {
 
 function formatXLabel(dateStr: string, range: string): string {
   const d = new Date(dateStr);
-  if (["1D", "2D", "5D"].includes(range)) {
+  if (["1D", "1W"].includes(range)) {
     return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
   if (["1M", "3M"].includes(range)) {
@@ -171,35 +216,46 @@ export default function ChartPage() {
     setLoading(true);
     setHoveredPoint(null);
 
-    const { from, to, multiplier, timespan } = getDateRange(timeRange);
-    const url = new URL(MARKET_DATA_URL);
-    url.searchParams.set("type", "aggregates");
-    url.searchParams.set("ticker", ticker);
-    url.searchParams.set("multiplier", String(multiplier));
-    url.searchParams.set("timespan", timespan);
-    url.searchParams.set("from", from);
-    url.searchParams.set("to", to);
+    const fetchHeaders = {
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      "Content-Type": "application/json",
+    };
 
-    console.log(`[ChartPage] Fetching chart data: ${url.toString()}`);
+    async function doFetch(fromDate: string, toDate: string, mult: number, ts: string) {
+      const url = new URL(MARKET_DATA_URL);
+      url.searchParams.set("type", "aggregates");
+      url.searchParams.set("ticker", ticker!);
+      url.searchParams.set("multiplier", String(mult));
+      url.searchParams.set("timespan", ts);
+      url.searchParams.set("from", fromDate);
+      url.searchParams.set("to", toDate);
+      console.log(`[ChartPage] Fetching chart data: ${url.toString()}`);
+      const r = await fetch(url.toString(), { signal: abortController.signal, headers: fetchHeaders });
+      if (!r.ok) throw new Error(`Error ${r.status}`);
+      const json = await r.json();
+      return json?.results || json || [];
+    }
 
-    fetch(url.toString(), {
-      signal: abortController.signal,
-      headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        "Content-Type": "application/json",
-      },
-    })
-      .then(async (r) => {
-        if (!r.ok) {
-          const statusText = `Error ${r.status}`;
-          console.error(`[ChartPage] API error for ${ticker}: ${statusText}`);
-          throw new Error(statusText);
+    (async () => {
+      try {
+        const { from, to, multiplier, timespan } = getDateRange(timeRange);
+        let results = await doFetch(from, to, multiplier, timespan);
+
+        // 1D fallback: if no data today (pre-market/weekend), try previous trading day
+        if (timeRange === "1D" && (!Array.isArray(results) || results.length === 0)) {
+          const yesterday = new Date();
+          // Go back up to 4 days to skip weekends
+          for (let i = 1; i <= 4; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const fallbackDate = fmtDate(d);
+            console.log(`[ChartPage] 1D fallback: trying ${fallbackDate}`);
+            results = await doFetch(fallbackDate, fallbackDate, 5, "minute");
+            if (Array.isArray(results) && results.length > 0) break;
+          }
         }
-        return r.json();
-      })
-      .then((data) => {
+
         if (abortController.signal.aborted) return;
-        const results = data?.results || data || [];
         if (!Array.isArray(results) || results.length === 0) {
           setError("Chart data temporarily unavailable. Please try again shortly.");
           setChartData([]);
@@ -215,15 +271,14 @@ export default function ChartPage() {
             }))
           );
         }
-      })
-      .catch((err) => {
+      } catch (err: any) {
         if (err.name === "AbortError") return;
         console.error(`[ChartPage] Fetch failed for ${ticker}:`, err.message);
         setError(`Unable to load chart data for ${ticker}. ${err.message}`);
-      })
-      .finally(() => {
+      } finally {
         if (!abortController.signal.aborted) setLoading(false);
-      });
+      }
+    })();
 
     return () => abortController.abort();
   }, [ticker, timeRange]);
