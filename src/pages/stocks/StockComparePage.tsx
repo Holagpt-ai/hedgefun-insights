@@ -70,29 +70,14 @@ export default function StockComparePage() {
       const toDate = format(today, "yyyy-MM-dd");
       const results: Record<string, { t: number; c: number }[]> = {};
 
-      const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
-
       await Promise.all(
         selectedTickers.map(async (ticker) => {
           try {
-            const params = new URLSearchParams({
-              type: "aggregates",
-              ticker,
-              multiplier: "1",
-              timespan: "day",
-              from: fromDate,
-              to: toDate,
+            const { data, error } = await supabase.functions.invoke("get-stock-history", {
+              body: { ticker, from: fromDate, to: toDate },
             });
-            const res = await fetch(`${baseUrl}?${params}`, {
-              headers: {
-                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-              },
-            });
-            if (!res.ok) return;
-            const json = await res.json();
-            const aggs = json?.data ?? json?.results ?? json;
-            if (Array.isArray(aggs) && aggs.length > 0) {
-              results[ticker] = aggs.map((r: any) => ({ t: r.t, c: r.c }));
+            if (!error && Array.isArray(data) && data.length > 0) {
+              results[ticker] = data.map((r: any) => ({ t: r.t, c: r.c }));
             }
           } catch {
             // skip ticker on error
