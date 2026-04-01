@@ -94,7 +94,7 @@ export function IndexSparklineCards() {
                 </span>
               </div>
               <div style={{ width: '60%' }}>
-                <div className="h-10 w-full" style={{ borderTop: '1.5px dotted #a1a1aa', paddingTop: '2px' }}>
+                <div className="h-10 w-full">
                   {sparkData.length > 1 && (
                     <ResponsiveContainer width="100%" height="100%">
                       <AreaChart data={sparkData}>
@@ -105,6 +105,7 @@ export function IndexSparklineCards() {
                             <stop offset="100%" stopColor={color} stopOpacity={0} />
                           </linearGradient>
                         </defs>
+                        <ReferenceLine y={prevDayClose} stroke="#a1a1aa" strokeDasharray="3 3" strokeWidth={1} />
                         <Area
                           type="monotone"
                           dataKey="v"
