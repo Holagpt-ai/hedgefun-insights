@@ -235,10 +235,13 @@ export default function EtfDetailPage() {
     return { high52w, low52w, ytdReturn, inceptionDate, avgVolume };
   }, [yearAggs, etfDetails, snapshot, etfRow]);
 
-  const price = etfRow?.price ?? null;
-  const changePct = etfRow?.change_percent ?? 0;
-  const changeAmt = price && changePct ? (price * changePct / (100 + changePct)) : 0;
+  // Use snapshot-based price with shared fallback, fall back to DB row
+  const snapshotPrice = resolveCurrentPrice(snapshot);
+  const price = snapshotPrice > 0 ? snapshotPrice : (etfRow?.price ?? null);
+  const changePct = snapshot?.todaysChangePerc ?? etfRow?.change_percent ?? 0;
+  const changeAmt = snapshot?.todaysChange ?? (price && changePct ? (price * changePct / (100 + changePct)) : 0);
   const positive = changePct >= 0;
+  const session = resolveMarketSession();
 
   const stats: { label: string; value: string; color?: string }[] = [
     { label: "AUM", value: abbr(etfRow?.total_assets) },
