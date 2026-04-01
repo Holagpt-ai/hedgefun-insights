@@ -70,7 +70,7 @@ const TABS = [
   "Fundamentals",
 ] as const;
 
-const EDGE_URL = `https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/market-data`;
+const MARKET_DATA_FUNCTION = "market-data";
 
 // ═════════════════════════════════════════════════════════
 // COMPONENT
@@ -113,18 +113,15 @@ const WatchlistPage = () => {
       await Promise.all(
         symbols.map(async (sym) => {
           try {
-            const res = await fetch(`${EDGE_URL}?type=snapshot&ticker=${sym}`, {
-              headers: {
-                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-                "Content-Type": "application/json",
-              },
-            });
-            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-            const json = await res.json();
-            // Edge function returns the inner ticker object directly
-            results[sym] = json;
+            const { data, error } = await supabase.functions.invoke(
+              `${MARKET_DATA_FUNCTION}?type=snapshot&ticker=${encodeURIComponent(sym)}`,
+              { method: "GET" },
+            );
+            if (error) throw error;
+            const snap = data?.ticker ?? data;
+            results[sym] = snap;
           } catch (err) {
-            console.error(`[watchlist] snapshot fetch failed for ${sym}:`, err);
+            console.error(`[watchlist] snapshot failed for ${sym}:`, err);
             toast.error(`Could not load data for ${sym}`);
           }
         })
