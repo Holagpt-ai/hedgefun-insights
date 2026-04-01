@@ -206,22 +206,27 @@ const WatchlistPage = () => {
   // ── mutations ──────────────────────────────────────────
   const addMutation = useMutation({
     mutationFn: async (symbol: string) => {
-      console.log("[watchlist-add] inserting symbol:", symbol, "user:", user?.id);
       const { error } = await supabase
         .from("watchlists")
         .insert({ symbol: symbol.toUpperCase(), user_id: user!.id });
-      if (error) {
-        console.error("[watchlist-add] insert error:", error);
-        throw error;
-      }
+      if (error) throw error;
     },
-    onSuccess: (_d, symbol) => {
+    onSuccess: async (_d, symbol) => {
       queryClient.invalidateQueries({ queryKey: ["watchlist"] });
       trackEvent("watchlist_add", { ticker: symbol });
       toast.success(`${symbol.toUpperCase()} added to watchlist`);
+      // Cache company name from ticker_search
+      const { data } = await supabase
+        .from("ticker_search")
+        .select("name")
+        .eq("symbol", symbol.toUpperCase())
+        .limit(1)
+        .maybeSingle();
+      if (data?.name) {
+        setTickerNames((prev) => ({ ...prev, [symbol.toUpperCase()]: data.name }));
+      }
     },
     onError: (err: any, symbol) => {
-      console.error("[watchlist-add] mutation error:", err);
       if (err?.code === "23505") {
         toast.info(`${symbol.toUpperCase()} is already in your watchlist`);
       } else {
