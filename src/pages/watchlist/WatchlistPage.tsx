@@ -221,9 +221,35 @@ const WatchlistPage = () => {
     }
     setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
-      const data = await searchTickers(value);
-      setSearchResults(data);
-      setShowSearchResults(true);
+      console.log("[watchlist-search] querying:", value);
+      try {
+        let data = await searchTickers(value);
+        console.log("[watchlist-search] searchTickers returned:", data?.length, "results");
+        // Fallback to direct Supabase query if edge function returns nothing
+        if (!data || data.length === 0) {
+          console.log("[watchlist-search] falling back to direct Supabase query");
+          const { data: rows } = await supabase
+            .from("ticker_search")
+            .select("symbol, name, exchange, type")
+            .or(`symbol.ilike.${value.toUpperCase()}%,name.ilike.%${value}%`)
+            .eq("active", true)
+            .order("symbol")
+            .limit(10);
+          data = (rows ?? []).map((r) => ({
+            ticker: r.symbol,
+            name: r.name,
+            exchange: r.exchange,
+            type: r.type,
+          }));
+          console.log("[watchlist-search] fallback returned:", data.length, "results");
+        }
+        setSearchResults(data);
+        setShowSearchResults(true);
+      } catch (err) {
+        console.error("[watchlist-search] error:", err);
+        setSearchResults([]);
+        setShowSearchResults(true);
+      }
       setIsSearching(false);
     }, 200);
   }, []);
