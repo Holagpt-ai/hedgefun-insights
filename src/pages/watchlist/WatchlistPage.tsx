@@ -86,6 +86,7 @@ const WatchlistPage = () => {
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const searchRef = useRef<HTMLDivElement>(null);
+  const [tickerNames, setTickerNames] = useState<Record<string, string>>({});
 
   // ── watchlist symbols from DB ─────────────────────────
   const { data: watchlistEntries, isLoading: wlLoading } = useQuery({
