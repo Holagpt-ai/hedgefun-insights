@@ -161,11 +161,12 @@ export default function EtfDetailPage() {
     retry: 3, retryDelay: 2000,
   });
 
-  // Fetch snapshot for avg volume
+  // Fetch LIVE snapshot for current price + session data
   const { data: snapshot } = useQuery({
     queryKey: ["etf-snapshot", symbol],
     queryFn: () => getTickerSnapshot(symbol),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
     retry: 3, retryDelay: 2000,
   });
 
@@ -297,7 +298,7 @@ export default function EtfDetailPage() {
                 <p className="text-xs text-muted-foreground mt-1">At close: {estDate()}, 4:00 PM EDT</p>
               ) : (session === "pre-market" || session === "after-hours") && price != null ? (
                 <p className="text-xs text-muted-foreground mt-1">
-                  {resolveSessionLabel(session, price, changeAmt, changePct)}
+                  {session === "pre-market" ? "☀️" : "🌙"} {resolveSessionLabel(session, price, changeAmt, changePct)}
                 </p>
               ) : null}
               <p className="text-xs text-muted-foreground mt-1">Powered by Massive</p>
