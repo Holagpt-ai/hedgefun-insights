@@ -1,4 +1,5 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import { resolveCurrentPrice } from "@/lib/price-utils";
 
 function formatMarketCap(val: number | null): string {
   if (!val || val === 0) return "n/a";
