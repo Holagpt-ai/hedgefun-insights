@@ -31,6 +31,13 @@ import {
 import { format, parseISO, isToday, isYesterday } from "date-fns";
 
 // ── helpers ──────────────────────────────────────────────
+function cleanCompanyName(name: string): string {
+  return name
+    .replace(/\s+(Common Stock|Class A|Class B|Class C|Ordinary Shares?|American Depositary Shares?|ADS|ADR|Inc\.|Corp\.|Ltd\.|LLC|ETF|Trust|Fund).*$/i, '')
+    .replace(/,\s*$/, '')
+    .trim();
+}
+
 function abbreviateNumber(n: number | null | undefined): string {
   if (n == null) return "—";
   if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
@@ -178,7 +185,7 @@ const WatchlistPage = () => {
       return {
         id: entry.id,
         symbol: entry.symbol,
-        name,
+        name: cleanCompanyName(name),
         price,
         change,
         changePct,
