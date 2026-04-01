@@ -236,13 +236,28 @@ export default function EtfDetailPage() {
     return { high52w, low52w, ytdReturn, inceptionDate, avgVolume };
   }, [yearAggs, etfDetails, snapshot, etfRow]);
 
-  // Use snapshot-based price with shared fallback, fall back to DB row
-  const snapshotPrice = resolveCurrentPrice(snapshot);
-  const price = snapshotPrice > 0 ? snapshotPrice : (etfRow?.price ?? null);
-  const changePct = snapshot?.todaysChangePerc ?? etfRow?.change_percent ?? 0;
-  const changeAmt = snapshot?.todaysChange ?? (price && changePct ? (price * changePct / (100 + changePct)) : 0);
-  const positive = changePct >= 0;
   const session = resolveMarketSession();
+  const prevClose = snapshot?.prevDay?.c ?? 0;
+  const dayClose = snapshot?.day?.c > 0 ? snapshot.day.c : 0;
+  const livePrice = snapshot?.min?.c > 0 ? snapshot.min.c : (snapshot?.lastTrade?.p > 0 ? snapshot.lastTrade.p : 0);
+  const fallbackPrice = resolveCurrentPrice(snapshot);
+
+  let mainPrice: number | null;
+  if (session === "pre-market") {
+    mainPrice = prevClose > 0 ? prevClose : (fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null));
+  } else {
+    mainPrice = fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null);
+  }
+  const changePct = snapshot?.todaysChangePerc ?? etfRow?.change_percent ?? 0;
+  const changeAmt = snapshot?.todaysChange ?? (mainPrice && changePct ? (mainPrice * changePct / (100 + changePct)) : 0);
+  const positive = changePct >= 0;
+
+  // Extended-hours secondary line
+  const refPrice = session === "pre-market" ? prevClose : dayClose;
+  const ahPrice = livePrice > 0 ? livePrice : null;
+  const ahChange = ahPrice != null && refPrice > 0 ? ahPrice - refPrice : null;
+  const ahChangePct = ahChange != null && refPrice > 0 ? (ahChange / refPrice) * 100 : null;
+  const ahPositive = (ahChange ?? 0) >= 0;
 
   const stats: { label: string; value: string; color?: string }[] = [
     { label: "AUM", value: abbr(etfRow?.total_assets) },
