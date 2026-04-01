@@ -86,10 +86,10 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
       )}
       {!isPreIPO && (session === "pre-market" || session === "after-hours") && ahPrice != null && ahChange != null && ahChangePct != null && (
         <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
-          <span className="text-muted-foreground">{session === "pre-market" ? "☀️" : "🌙"} {sessionLabel}:</span>
+          <span className="text-muted-foreground">{session === "pre-market" ? "☀️ Pre-market:" : "🌙 After-hours:"}</span>
           <span className="tabular-nums font-medium text-foreground">${ahPrice.toFixed(2)}</span>
           <span className={cn("tabular-nums font-medium", ahPositive ? "price-positive" : "price-negative")}>
-            {ahPositive ? "▲" : "▼"} {ahPositive ? "+" : ""}{ahChange.toFixed(2)} ({ahPositive ? "+" : ""}{ahChangePct.toFixed(2)}%)
+            {ahPositive ? "+" : ""}{ahChange.toFixed(2)} ({ahPositive ? "+" : ""}{ahChangePct.toFixed(2)}%)
           </span>
           <span className="text-muted-foreground">· {estDate()}, {estTime()} EDT</span>
         </div>
