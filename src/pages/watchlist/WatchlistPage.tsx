@@ -123,6 +123,7 @@ const WatchlistPage = () => {
           }
         })
       );
+      console.log('[watchlist-snapshot] raw result for first symbol:', JSON.stringify(Object.values(results)[0]));
       return results;
     },
     enabled: symbols.length > 0,
