@@ -95,7 +95,7 @@ function MoversTable({
             <tbody>
               {rows.slice(0, 10).map((m, i) => {
                 const ticker = m.ticker || m.symbol || "";
-                const price = m.price ?? (m.day?.c > 0 ? m.day.c : (m.min?.c ?? m.prevDay?.c ?? 0));
+                const price = m.price ?? resolveCurrentPrice(m);
                 const changePct = m.todaysChangePerc ?? m.change_percent ?? 0;
                 return (
                   <tr

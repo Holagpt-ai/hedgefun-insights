@@ -61,8 +61,8 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     );
   }
 
-  // Resolve price with fallback chain
-  const resolvedPrice = (snapshot?.day?.c > 0 ? snapshot.day.c : null) ?? snapshot?.min?.c ?? snapshot?.lastTrade?.p ?? snapshot?.prevDay?.c ?? 0;
+  // Resolve price with shared fallback chain
+  const resolvedPrice = resolveCurrentPrice(snapshot);
 
   // Market cap with fallback
   const mcRaw = details?.market_cap || (resolvedPrice && details?.share_class_shares_outstanding ? resolvedPrice * details.share_class_shares_outstanding : null);

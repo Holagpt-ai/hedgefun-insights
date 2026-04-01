@@ -16,6 +16,7 @@ import { EtfFundOverview } from "@/components/etf/EtfFundOverview";
 import { EtfPerformanceChart } from "@/components/etf/EtfPerformanceChart";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveCurrentPrice, resolveMarketSession, resolveSessionLabel, estDate } from "@/lib/price-utils";
 
 const TIME_RANGES = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
 
