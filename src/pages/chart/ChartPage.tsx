@@ -109,7 +109,7 @@ function abbr(n: number): string {
 
 function formatXLabel(dateStr: string, range: string): string {
   const d = new Date(dateStr);
-  if (["1D", "2D", "5D"].includes(range)) {
+  if (["1D", "1W"].includes(range)) {
     return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
   }
   if (["1M", "3M"].includes(range)) {
