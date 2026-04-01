@@ -69,7 +69,7 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
           <span className="text-sm text-muted-foreground">Expected offer price</span>
         ) : (
           <span className={cn("text-sm font-medium tabular-nums", positive ? "price-positive" : "price-negative")}>
-            {positive ? "+" : ""}{change.toFixed(2)} ({positive ? "+" : ""}{changePct.toFixed(2)}%)
+            {positive ? "+" : ""}{mainChange.toFixed(2)} ({positive ? "+" : ""}{mainChangePct.toFixed(2)}%)
           </span>
         )}
       </div>
