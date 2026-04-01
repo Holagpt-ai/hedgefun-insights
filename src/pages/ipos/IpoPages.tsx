@@ -116,7 +116,7 @@ export function RecentIposPage() {
 
   const filteredData = useMemo(() => {
     if (yearFilter === "All") return tableData;
-    return tableData.filter((d) => d.date.startsWith(yearFilter));
+    return tableData.filter((d) => d.date && d.date.startsWith(yearFilter));
   }, [yearFilter, tableData]);
 
   const columns = useMemo(() => [
