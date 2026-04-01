@@ -25,25 +25,32 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
     );
   }
 
-  const price = resolveCurrentPrice(snapshot);
-  const change = snapshot?.todaysChange ?? 0;
-  const changePct = snapshot?.todaysChangePerc ?? 0;
-  const positive = change >= 0;
-  const companyName = details?.name ?? ticker;
-  const exchange = details?.primary_exchange ?? "";
-  const exchangeLabel = EXCHANGE_MAP[exchange] || exchange;
-
-  const displayPrice = isPreIPO && details?.offer_price
-    ? details.offer_price
-    : price;
-
   const session = resolveMarketSession();
-  const ahPrice = snapshot?.lastTrade?.p ?? snapshot?.lastQuote?.P ?? snapshot?.prevDay?.c ?? null;
-  const ahChange = ahPrice != null && price ? ahPrice - price : null;
-  const ahChangePct = ahChange != null && price ? (ahChange / price) * 100 : null;
-  const ahPositive = (ahChange ?? 0) >= 0;
+  const prevClose = snapshot?.prevDay?.c ?? 0;
+  const dayClose = snapshot?.day?.c > 0 ? snapshot.day.c : 0;
+  const livePrice = snapshot?.min?.c > 0 ? snapshot.min.c : (snapshot?.lastTrade?.p > 0 ? snapshot.lastTrade.p : 0);
 
-  const sessionLabel = session === "pre-market" ? "Pre-market" : "After-hours";
+  // Main (large) price depends on session
+  let mainPrice: number;
+  let mainChange: number;
+  let mainChangePct: number;
+  if (session === "pre-market") {
+    mainPrice = prevClose > 0 ? prevClose : resolveCurrentPrice(snapshot);
+    mainChange = snapshot?.todaysChange ?? 0;
+    mainChangePct = snapshot?.todaysChangePerc ?? 0;
+  } else {
+    mainPrice = resolveCurrentPrice(snapshot);
+    mainChange = snapshot?.todaysChange ?? 0;
+    mainChangePct = snapshot?.todaysChangePerc ?? 0;
+  }
+  const positive = mainChange >= 0;
+
+  // Extended-hours secondary line
+  const refPrice = session === "pre-market" ? prevClose : dayClose;
+  const ahPrice = livePrice > 0 ? livePrice : null;
+  const ahChange = ahPrice != null && refPrice > 0 ? ahPrice - refPrice : null;
+  const ahChangePct = ahChange != null && refPrice > 0 ? (ahChange / refPrice) * 100 : null;
+  const ahPositive = (ahChange ?? 0) >= 0;
 
   return (
     <div className="px-4 pt-4 pb-2">
