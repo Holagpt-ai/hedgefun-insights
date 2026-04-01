@@ -49,7 +49,7 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
     );
   }
 
-  const price = snapshot?.day?.c ?? snapshot?.lastTrade?.p ?? 0;
+  const price = resolvePrice(snapshot);
   const change = snapshot?.todaysChange ?? 0;
   const changePct = snapshot?.todaysChangePerc ?? 0;
   const positive = change >= 0;
@@ -61,11 +61,13 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
     ? details.offer_price
     : price;
 
-  const afterHours = isAfterHours();
+  const session = getMarketSession();
   const ahPrice = snapshot?.lastTrade?.p ?? snapshot?.lastQuote?.P ?? snapshot?.prevDay?.c ?? null;
   const ahChange = ahPrice != null && price ? ahPrice - price : null;
   const ahChangePct = ahChange != null && price ? (ahChange / price) * 100 : null;
   const ahPositive = (ahChange ?? 0) >= 0;
+
+  const sessionLabel = session === "premarket" ? "Pre-market" : "After-hours";
 
   return (
     <div className="px-4 pt-4 pb-2">
@@ -78,7 +80,7 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
       </div>
       <div className="flex items-baseline gap-2 mt-1">
         <span className="text-2xl font-bold text-foreground tabular-nums">
-          {isPreIPO && details?.offer_price ? `$${displayPrice.toFixed(2)}` : `$${displayPrice.toFixed(2)}`}
+          ${displayPrice.toFixed(2)}
         </span>
         {isPreIPO && details?.offer_price ? (
           <span className="text-sm text-muted-foreground">Expected offer price</span>
@@ -94,18 +96,19 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
           IPO Filed — Not Yet Trading
         </div>
       )}
-      {!isPreIPO && (
+      {!isPreIPO && session === "regular" && (
         <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
           At close: {estDate()}, 4:00 PM EDT
         </p>
       )}
-      {!isPreIPO && afterHours && ahPrice != null && ahChange != null && ahChangePct != null && (
+      {!isPreIPO && session !== "regular" && ahPrice != null && ahChange != null && ahChangePct != null && (
         <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
+          <span className="text-muted-foreground">{session === "premarket" ? "☀️" : "🌙"} {sessionLabel}:</span>
           <span className="tabular-nums font-medium text-foreground">${ahPrice.toFixed(2)}</span>
           <span className={cn("tabular-nums font-medium", ahPositive ? "price-positive" : "price-negative")}>
             {ahPositive ? "▲" : "▼"} {ahPositive ? "+" : ""}{ahChange.toFixed(2)} ({ahPositive ? "+" : ""}{ahChangePct.toFixed(2)}%)
           </span>
-          <span className="text-muted-foreground">🌙 After-hours · {estDate()}, {estTime()} EDT</span>
+          <span className="text-muted-foreground">· {estDate()}, {estTime()} EDT</span>
         </div>
       )}
       <span className="text-xs text-muted-foreground">Powered by Massive</span>
