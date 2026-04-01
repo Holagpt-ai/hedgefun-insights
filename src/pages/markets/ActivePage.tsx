@@ -28,7 +28,8 @@ export default function ActivePage() {
         seen.add(sym);
         return true;
       });
-      unique.sort((a: any, b: any) => (b.day?.v ?? 0) - (a.day?.v ?? 0));
+      const vol = (t: any) => t.day?.v > 0 ? t.day.v : (t.min?.av ?? t.min?.v ?? 0);
+      unique.sort((a: any, b: any) => vol(b) - vol(a));
       return mapRows(unique.slice(0, 30));
     },
     staleTime: 60_000,
