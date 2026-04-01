@@ -31,7 +31,7 @@ export function resolveMarketSession(): "pre-market" | "market" | "after-hours" 
 
   if (mins >= 240 && mins < 570) return "pre-market";
   if (mins >= 570 && mins <= 960) return "market";
-  if (mins > 960 && mins <= 1200) return "after-hours";
+  if (mins >= 961 && mins <= 1200) return "after-hours";
   return "closed";
 }
 
