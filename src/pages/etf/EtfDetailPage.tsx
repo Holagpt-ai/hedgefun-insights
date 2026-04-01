@@ -16,7 +16,7 @@ import { EtfFundOverview } from "@/components/etf/EtfFundOverview";
 import { EtfPerformanceChart } from "@/components/etf/EtfPerformanceChart";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveCurrentPrice, resolveMarketSession, resolveSessionLabel, estDate } from "@/lib/price-utils";
+import { resolveCurrentPrice, resolveMarketSession, estDate, estTime } from "@/lib/price-utils";
 
 const TIME_RANGES = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
 
@@ -236,13 +236,28 @@ export default function EtfDetailPage() {
     return { high52w, low52w, ytdReturn, inceptionDate, avgVolume };
   }, [yearAggs, etfDetails, snapshot, etfRow]);
 
-  // Use snapshot-based price with shared fallback, fall back to DB row
-  const snapshotPrice = resolveCurrentPrice(snapshot);
-  const price = snapshotPrice > 0 ? snapshotPrice : (etfRow?.price ?? null);
-  const changePct = snapshot?.todaysChangePerc ?? etfRow?.change_percent ?? 0;
-  const changeAmt = snapshot?.todaysChange ?? (price && changePct ? (price * changePct / (100 + changePct)) : 0);
-  const positive = changePct >= 0;
   const session = resolveMarketSession();
+  const prevClose = snapshot?.prevDay?.c ?? 0;
+  const dayClose = snapshot?.day?.c > 0 ? snapshot.day.c : 0;
+  const livePrice = snapshot?.min?.c > 0 ? snapshot.min.c : (snapshot?.lastTrade?.p > 0 ? snapshot.lastTrade.p : 0);
+  const fallbackPrice = resolveCurrentPrice(snapshot);
+
+  let mainPrice: number | null;
+  if (session === "pre-market") {
+    mainPrice = prevClose > 0 ? prevClose : (fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null));
+  } else {
+    mainPrice = fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null);
+  }
+  const changePct = snapshot?.todaysChangePerc ?? etfRow?.change_percent ?? 0;
+  const changeAmt = snapshot?.todaysChange ?? (mainPrice && changePct ? (mainPrice * changePct / (100 + changePct)) : 0);
+  const positive = changePct >= 0;
+
+  // Extended-hours secondary line
+  const refPrice = session === "pre-market" ? prevClose : dayClose;
+  const ahPrice = livePrice > 0 ? livePrice : null;
+  const ahChange = ahPrice != null && refPrice > 0 ? ahPrice - refPrice : null;
+  const ahChangePct = ahChange != null && refPrice > 0 ? (ahChange / refPrice) * 100 : null;
+  const ahPositive = (ahChange ?? 0) >= 0;
 
   const stats: { label: string; value: string; color?: string }[] = [
     { label: "AUM", value: abbr(etfRow?.total_assets) },
@@ -281,9 +296,9 @@ export default function EtfDetailPage() {
               </div>
               <div className="flex items-baseline gap-2">
                 <span className="text-[2rem] font-bold text-foreground tabular-nums">
-                  {price != null ? `$${price.toFixed(2)}` : "—"}
+                  {mainPrice != null ? `$${mainPrice.toFixed(2)}` : "—"}
                 </span>
-                {price != null && (
+                {mainPrice != null && (
                   <>
                     <span className={cn("text-sm font-semibold tabular-nums", positive ? "text-green" : "text-red")}>
                       {positive ? "+" : ""}{changeAmt.toFixed(2)}
@@ -296,10 +311,15 @@ export default function EtfDetailPage() {
               </div>
               {session === "market" ? (
                 <p className="text-xs text-muted-foreground mt-1">At close: {estDate()}, 4:00 PM EDT</p>
-              ) : (session === "pre-market" || session === "after-hours") && price != null ? (
-                <p className="text-xs text-muted-foreground mt-1">
-                  {session === "pre-market" ? "☀️" : "🌙"} {resolveSessionLabel(session, price, changeAmt, changePct)}
-                </p>
+              ) : (session === "pre-market" || session === "after-hours") && ahPrice != null && ahChange != null && ahChangePct != null ? (
+                <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
+                  <span className="text-muted-foreground">{session === "pre-market" ? "☀️ Pre-market:" : "🌙 After-hours:"}</span>
+                  <span className="tabular-nums font-medium text-foreground">${ahPrice.toFixed(2)}</span>
+                  <span className={cn("tabular-nums font-medium", ahPositive ? "price-positive" : "price-negative")}>
+                    {ahPositive ? "+" : ""}{ahChange.toFixed(2)} ({ahPositive ? "+" : ""}{ahChangePct.toFixed(2)}%)
+                  </span>
+                  <span className="text-muted-foreground">· {estDate()}, {estTime()} EDT</span>
+                </div>
               ) : null}
               <p className="text-xs text-muted-foreground mt-1">Powered by Massive</p>
             </div>

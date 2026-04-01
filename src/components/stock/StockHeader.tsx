@@ -25,25 +25,36 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
     );
   }
 
-  const price = resolveCurrentPrice(snapshot);
-  const change = snapshot?.todaysChange ?? 0;
-  const changePct = snapshot?.todaysChangePerc ?? 0;
-  const positive = change >= 0;
   const companyName = details?.name ?? ticker;
   const exchange = details?.primary_exchange ?? "";
   const exchangeLabel = EXCHANGE_MAP[exchange] || exchange;
 
-  const displayPrice = isPreIPO && details?.offer_price
-    ? details.offer_price
-    : price;
-
   const session = resolveMarketSession();
-  const ahPrice = snapshot?.lastTrade?.p ?? snapshot?.lastQuote?.P ?? snapshot?.prevDay?.c ?? null;
-  const ahChange = ahPrice != null && price ? ahPrice - price : null;
-  const ahChangePct = ahChange != null && price ? (ahChange / price) * 100 : null;
-  const ahPositive = (ahChange ?? 0) >= 0;
+  const prevClose = snapshot?.prevDay?.c ?? 0;
+  const dayClose = snapshot?.day?.c > 0 ? snapshot.day.c : 0;
+  const livePrice = snapshot?.min?.c > 0 ? snapshot.min.c : (snapshot?.lastTrade?.p > 0 ? snapshot.lastTrade.p : 0);
 
-  const sessionLabel = session === "pre-market" ? "Pre-market" : "After-hours";
+  // Main (large) price depends on session
+  let mainPrice: number;
+  let mainChange: number;
+  let mainChangePct: number;
+  if (session === "pre-market") {
+    mainPrice = prevClose > 0 ? prevClose : resolveCurrentPrice(snapshot);
+    mainChange = snapshot?.todaysChange ?? 0;
+    mainChangePct = snapshot?.todaysChangePerc ?? 0;
+  } else {
+    mainPrice = resolveCurrentPrice(snapshot);
+    mainChange = snapshot?.todaysChange ?? 0;
+    mainChangePct = snapshot?.todaysChangePerc ?? 0;
+  }
+  const positive = mainChange >= 0;
+
+  // Extended-hours secondary line
+  const refPrice = session === "pre-market" ? prevClose : dayClose;
+  const ahPrice = livePrice > 0 ? livePrice : null;
+  const ahChange = ahPrice != null && refPrice > 0 ? ahPrice - refPrice : null;
+  const ahChangePct = ahChange != null && refPrice > 0 ? (ahChange / refPrice) * 100 : null;
+  const ahPositive = (ahChange ?? 0) >= 0;
 
   return (
     <div className="px-4 pt-4 pb-2">
@@ -56,13 +67,13 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
       </div>
       <div className="flex items-baseline gap-2 mt-1">
         <span className="text-2xl font-bold text-foreground tabular-nums">
-          ${displayPrice.toFixed(2)}
+          ${(isPreIPO && details?.offer_price ? details.offer_price : mainPrice).toFixed(2)}
         </span>
         {isPreIPO && details?.offer_price ? (
           <span className="text-sm text-muted-foreground">Expected offer price</span>
         ) : (
           <span className={cn("text-sm font-medium tabular-nums", positive ? "price-positive" : "price-negative")}>
-            {positive ? "+" : ""}{change.toFixed(2)} ({positive ? "+" : ""}{changePct.toFixed(2)}%)
+            {positive ? "+" : ""}{mainChange.toFixed(2)} ({positive ? "+" : ""}{mainChangePct.toFixed(2)}%)
           </span>
         )}
       </div>
@@ -79,10 +90,10 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
       )}
       {!isPreIPO && (session === "pre-market" || session === "after-hours") && ahPrice != null && ahChange != null && ahChangePct != null && (
         <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
-          <span className="text-muted-foreground">{session === "pre-market" ? "☀️" : "🌙"} {sessionLabel}:</span>
+          <span className="text-muted-foreground">{session === "pre-market" ? "☀️ Pre-market:" : "🌙 After-hours:"}</span>
           <span className="tabular-nums font-medium text-foreground">${ahPrice.toFixed(2)}</span>
           <span className={cn("tabular-nums font-medium", ahPositive ? "price-positive" : "price-negative")}>
-            {ahPositive ? "▲" : "▼"} {ahPositive ? "+" : ""}{ahChange.toFixed(2)} ({ahPositive ? "+" : ""}{ahChangePct.toFixed(2)}%)
+            {ahPositive ? "+" : ""}{ahChange.toFixed(2)} ({ahPositive ? "+" : ""}{ahChangePct.toFixed(2)}%)
           </span>
           <span className="text-muted-foreground">· {estDate()}, {estTime()} EDT</span>
         </div>
