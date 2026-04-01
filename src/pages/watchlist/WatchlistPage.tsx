@@ -113,11 +113,19 @@ const WatchlistPage = () => {
       await Promise.all(
         symbols.map(async (sym) => {
           try {
-            const res = await fetch(`${EDGE_URL}?type=snapshot&ticker=${sym}`);
+            const res = await fetch(`${EDGE_URL}?type=snapshot&ticker=${sym}`, {
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                "Content-Type": "application/json",
+              },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
-            results[sym] = json?.ticker ?? json;
-          } catch {
-            // skip failures
+            // Edge function returns the inner ticker object directly
+            results[sym] = json;
+          } catch (err) {
+            console.error(`[watchlist] snapshot fetch failed for ${sym}:`, err);
+            toast.error(`Could not load data for ${sym}`);
           }
         })
       );
