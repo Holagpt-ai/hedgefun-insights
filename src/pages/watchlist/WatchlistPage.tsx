@@ -131,13 +131,27 @@ const WatchlistPage = () => {
   });
 
   // ── build table rows from entries + snapshots ─────────
+  // ── fetch company names from ticker_search table ───────
+  const { data: nameMap } = useQuery({
+    queryKey: ["watchlist-names", symbols],
+    queryFn: async () => {
+      if (symbols.length === 0) return {};
+      const { data } = await supabase
+        .from("ticker_search")
+        .select("symbol, name")
+        .in("symbol", symbols);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r) => { map[r.symbol] = r.name; });
+      return map;
+    },
+    enabled: symbols.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
   const watchlistRows: WatchlistRow[] = useMemo(() => {
     if (!watchlistEntries) return [];
     return watchlistEntries.map((entry) => {
       const snap = snapshotData?.[entry.symbol];
-
-      // Debug log
-      console.log(`[watchlist-row] ${entry.symbol} snap:`, JSON.stringify(snap));
 
       // Price fallback chain for all sessions
       const dayClose = snap?.day?.c;
@@ -153,10 +167,9 @@ const WatchlistPage = () => {
       // Volume fallback
       const volume = snap?.day?.v > 0 ? snap.day.v : (snap?.min?.av ?? snap?.min?.v ?? 0);
 
-      // Name from multiple possible fields
-      const name = snap?.name
-        || snap?.details?.name
-        || (typeof snap?.ticker === 'string' ? snap.ticker : null)
+      // Name from ticker_search table, then snapshot fallbacks
+      const name = nameMap?.[entry.symbol]
+        || tickerNames[entry.symbol]
         || entry.symbol;
 
       const change = snap?.todaysChange ?? 0;
@@ -173,7 +186,7 @@ const WatchlistPage = () => {
         marketCap: 0,
       };
     });
-  }, [watchlistEntries, snapshotData]);
+  }, [watchlistEntries, snapshotData, nameMap, tickerNames]);
 
   // ── news ───────────────────────────────────────────────
   const [newsLimit, setNewsLimit] = useState(20);
