@@ -66,10 +66,18 @@ export default function TradingViewChart({
   isPositive = true,
   height = 400,
   loading = false,
+  chartType: controlledChartType,
+  onChartTypeChange,
+  hideToolbar = false,
 }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const [chartType, setChartType] = useState<ChartType>('area');
+  const [internalChartType, setInternalChartType] = useState<ChartType>(controlledChartType ?? 'area');
+  const chartType = controlledChartType ?? internalChartType;
+  const setChartType = (type: ChartType) => {
+    setInternalChartType(type);
+    onChartTypeChange?.(type);
+  };
   const [activeIndicators, setActiveIndicators] = useState<Set<Indicator>>(new Set(['volume']));
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
 
