@@ -42,6 +42,10 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
     mainPrice = prevClose > 0 ? prevClose : resolveCurrentPrice(snapshot);
     mainChange = snapshot?.todaysChange ?? 0;
     mainChangePct = snapshot?.todaysChangePerc ?? 0;
+  } else if (session === "market" && dayClose === 0) {
+    mainPrice = resolveCurrentPrice(snapshot);
+    mainChange = snapshot?.todaysChange ?? 0;
+    mainChangePct = snapshot?.todaysChangePerc ?? 0;
   } else {
     mainPrice = resolveCurrentPrice(snapshot);
     mainChange = snapshot?.todaysChange ?? 0;

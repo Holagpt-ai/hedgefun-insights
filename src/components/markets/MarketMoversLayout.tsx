@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { resolveMarketSession } from "@/lib/price-utils";
 import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
@@ -238,18 +239,22 @@ export function MoversTable({
             <Skeleton key={i} className="h-10 w-full rounded" />
           ))}
         </div>
-      ) : filtered.length === 0 ? (
-        <div className="py-12 text-center">
-          <p className="text-muted-foreground mb-3">
-            {search ? "No results match your search." : "No market data available right now. Data may be limited outside regular trading hours (9:30 AM – 4:00 PM ET)."}
-          </p>
-          {refetch && (
-            <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
-              <RefreshCw className="h-3.5 w-3.5" /> Try again
-            </Button>
-          )}
-        </div>
-      ) : (
+      ) : filtered.length === 0 ? (() => {
+        const s = resolveMarketSession();
+        const showEmpty = s === "closed";
+        return (
+          <div className="py-12 text-center">
+            <p className="text-muted-foreground mb-3">
+              {search ? "No results match your search." : showEmpty ? "Markets are currently closed. Data will be available when markets reopen." : "Loading market data…"}
+            </p>
+            {refetch && (
+              <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
+                <RefreshCw className="h-3.5 w-3.5" /> Try again
+              </Button>
+            )}
+          </div>
+        );
+      })() : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
