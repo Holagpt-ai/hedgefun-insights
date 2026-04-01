@@ -26,7 +26,7 @@ interface ChartPoint {
   volume: number;
 }
 
-const TIME_RANGES = ["1D", "2D", "5D", "1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y", "All"] as const;
+const TIME_RANGES = ["1D", "1W", "1M", "3M", "6M", "YTD", "1Y", "5Y"] as const;
 
 type ChartViewMode = "recharts" | "tradingview";
 type TVChartType = "area" | "line" | "candlestick" | "heikinashi";
