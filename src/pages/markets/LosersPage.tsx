@@ -6,11 +6,11 @@ import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMove
 function mapRows(tickers: any[]): MoverRow[] {
   return tickers.map((t: any) => ({
     symbol: t.ticker || t.symbol || "",
-    name: t.name || t.ticker || "",
+    name: t.name || t.details?.name || t.ticker || t.symbol || "",
     price: resolveCurrentPrice(t),
     change: t.todaysChange ?? 0,
     changePercent: t.todaysChangePerc ?? 0,
-    volume: t.day?.v ?? t.volume ?? 0,
+    volume: t.day?.v > 0 ? t.day.v : (t.min?.av ?? t.min?.v ?? 0),
   }));
 }
 
