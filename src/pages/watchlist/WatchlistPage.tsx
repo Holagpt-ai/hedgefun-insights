@@ -113,11 +113,19 @@ const WatchlistPage = () => {
       await Promise.all(
         symbols.map(async (sym) => {
           try {
-            const res = await fetch(`${EDGE_URL}?type=snapshot&ticker=${sym}`);
+            const res = await fetch(`${EDGE_URL}?type=snapshot&ticker=${sym}`, {
+              headers: {
+                Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+                "Content-Type": "application/json",
+              },
+            });
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
             const json = await res.json();
-            results[sym] = json?.ticker ?? json;
-          } catch {
-            // skip failures
+            // Edge function returns the inner ticker object directly
+            results[sym] = json;
+          } catch (err) {
+            console.error(`[watchlist] snapshot fetch failed for ${sym}:`, err);
+            toast.error(`Could not load data for ${sym}`);
           }
         })
       );
@@ -131,23 +139,25 @@ const WatchlistPage = () => {
   const watchlistRows: WatchlistRow[] = useMemo(() => {
     if (!watchlistEntries) return [];
     return watchlistEntries.map((entry) => {
-      const snap = snapshotData?.[entry.symbol];
+      const raw = snapshotData?.[entry.symbol];
+      // Edge function may return the inner ticker object or wrapped { ticker: ... }
+      const snap = raw?.ticker ?? raw;
       const price = snap ? resolveCurrentPrice(snap) : 0;
       const change = snap?.todaysChange ?? 0;
       const changePct = snap?.todaysChangePerc ?? 0;
-      const volume = snap?.day?.v > 0 ? snap.day.v : (snap?.min?.av ?? snap?.min?.v ?? 0);
-      const mc = snap?.day?.c > 0 && snap?.prevDay?.c > 0
-        ? 0 // market cap not in snapshot directly
-        : 0;
+      const volume = snap?.day?.v > 0
+        ? snap.day.v
+        : (snap?.min?.av ?? snap?.min?.v ?? 0);
+      const name = snap?.name || raw?.name || (typeof snap?.ticker === "string" ? snap.ticker : null) || entry.symbol;
       return {
         id: entry.id,
         symbol: entry.symbol,
-        name: snap?.name || snap?.ticker || entry.symbol,
+        name,
         price,
         change,
         changePct,
         volume,
-        marketCap: mc,
+        marketCap: 0,
       };
     });
   }, [watchlistEntries, snapshotData]);
