@@ -119,12 +119,11 @@ const WatchlistPage = () => {
             });
             if (error) throw error;
             results[sym] = data;
-          } catch (err) {
-            console.error(`[watchlist] failed for ${sym}:`, err);
+          } catch {
+            // silently skip failed snapshots
           }
         })
       );
-      console.log('[watchlist-snapshot] raw result for first symbol:', JSON.stringify(Object.values(results)[0]));
       return results;
     },
     enabled: symbols.length > 0,
