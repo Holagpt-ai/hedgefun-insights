@@ -65,10 +65,14 @@ export function IndexSparklineCards() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {sorted.map((idx) => {
           if (!idx) return null;
-          const positive = (idx.change_percent ?? 0) >= 0;
-          const sparkData = Array.isArray(idx.sparkline_data)
-            ? (idx.sparkline_data as number[]).map((v, i) => ({ v, i }))
+          const rawSparkline = Array.isArray(idx.sparkline_data)
+            ? (idx.sparkline_data as number[])
             : [];
+          const sparkData = rawSparkline.map((v, i) => ({ v, i }));
+          const prevDayClose = rawSparkline.length >= 2
+            ? rawSparkline[rawSparkline.length - 2]
+            : rawSparkline[0] ?? 0;
+          const positive = (idx.current_value ?? 0) > prevDayClose;
           const color = positive ? "hsl(var(--green))" : "hsl(var(--red))";
 
           return (
