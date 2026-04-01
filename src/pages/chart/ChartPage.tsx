@@ -31,26 +31,71 @@ const TIME_RANGES = ["1D", "2D", "5D", "1M", "3M", "6M", "YTD", "1Y", "3Y", "5Y"
 type ChartViewMode = "recharts" | "tradingview";
 type TVChartType = "area" | "line" | "candlestick" | "heikinashi";
 
+function fmtDate(d: Date): string {
+  return d.toISOString().split("T")[0];
+}
+
 function getDateRange(range: string) {
   const now = new Date();
-  const to = now.toISOString().split("T")[0];
+  const to = fmtDate(now);
   let from: string;
   let multiplier = 1;
   let timespan = "day";
 
   switch (range) {
-    case "1D": from = to; multiplier = 5; timespan = "minute"; break;
-    case "2D": { const d = new Date(now); d.setDate(d.getDate() - 2); from = d.toISOString().split("T")[0]; multiplier = 5; timespan = "minute"; break; }
-    case "5D": { const d = new Date(now); d.setDate(d.getDate() - 5); from = d.toISOString().split("T")[0]; multiplier = 15; timespan = "minute"; break; }
-    case "1M": { const d = new Date(now); d.setMonth(d.getMonth() - 1); from = d.toISOString().split("T")[0]; break; }
-    case "3M": { const d = new Date(now); d.setMonth(d.getMonth() - 3); from = d.toISOString().split("T")[0]; break; }
-    case "6M": { const d = new Date(now); d.setMonth(d.getMonth() - 6); from = d.toISOString().split("T")[0]; break; }
+    case "1D": {
+      from = to;
+      multiplier = 5;
+      timespan = "minute";
+      break;
+    }
+    case "1W": {
+      const d = new Date(now);
+      d.setDate(d.getDate() - 7);
+      from = fmtDate(d);
+      multiplier = 30;
+      timespan = "minute";
+      break;
+    }
+    case "1M": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 1);
+      from = fmtDate(d);
+      multiplier = 1;
+      timespan = "hour";
+      break;
+    }
+    case "3M": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 3);
+      from = fmtDate(d);
+      break;
+    }
+    case "6M": {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 6);
+      from = fmtDate(d);
+      break;
+    }
     case "YTD": from = `${now.getFullYear()}-01-01`; break;
-    case "1Y": { const d = new Date(now); d.setFullYear(d.getFullYear() - 1); from = d.toISOString().split("T")[0]; break; }
-    case "3Y": { const d = new Date(now); d.setFullYear(d.getFullYear() - 3); from = d.toISOString().split("T")[0]; timespan = "week"; break; }
-    case "5Y": { const d = new Date(now); d.setFullYear(d.getFullYear() - 5); from = d.toISOString().split("T")[0]; timespan = "week"; break; }
-    case "All": { const d = new Date(now); d.setFullYear(d.getFullYear() - 10); from = d.toISOString().split("T")[0]; timespan = "month"; break; }
-    default: { const d = new Date(now); d.setMonth(d.getMonth() - 6); from = d.toISOString().split("T")[0]; }
+    case "1Y": {
+      const d = new Date(now);
+      d.setFullYear(d.getFullYear() - 1);
+      from = fmtDate(d);
+      break;
+    }
+    case "5Y": {
+      const d = new Date(now);
+      d.setFullYear(d.getFullYear() - 5);
+      from = fmtDate(d);
+      timespan = "week";
+      break;
+    }
+    default: {
+      const d = new Date(now);
+      d.setMonth(d.getMonth() - 6);
+      from = fmtDate(d);
+    }
   }
   return { from, to, multiplier, timespan };
 }
