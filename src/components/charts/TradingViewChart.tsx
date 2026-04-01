@@ -232,37 +232,39 @@ export default function TradingViewChart({
 
   return (
     <div className={hideToolbar ? "" : "border border-border rounded-[var(--radius)] overflow-hidden"}>
-      {!hideToolbar && <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/30">
-        <span className="text-[0.6875rem] font-semibold text-muted-foreground mr-1">Type:</span>
-        {CHART_TYPES.map(({ type, label }) => (
-          <button
-            key={type}
-            onClick={() => setChartType(type)}
-            className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
-              chartType === type
-                ? 'bg-accent-blue text-primary-foreground border-accent-blue'
-                : 'border-border text-muted-foreground hover:border-accent-blue hover:text-accent-blue'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-        <span className="text-[0.6875rem] font-semibold text-muted-foreground ml-2 mr-1">Indicators:</span>
-        {INDICATORS.map(({ ind, label, color }) => (
-          <button
-            key={ind}
-            onClick={() => toggleIndicator(ind)}
-            className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
-              activeIndicators.has(ind)
-                ? 'text-white border-transparent'
-                : 'border-border text-muted-foreground hover:border-accent-blue'
-            }`}
-            style={activeIndicators.has(ind) ? { backgroundColor: color } : {}}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {!hideToolbar && (
+        <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/30">
+          <span className="text-[0.6875rem] font-semibold text-muted-foreground mr-1">Type:</span>
+          {CHART_TYPES.map(({ type, label }) => (
+            <button
+              key={type}
+              onClick={() => setChartType(type)}
+              className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
+                chartType === type
+                  ? 'bg-accent-blue text-primary-foreground border-accent-blue'
+                  : 'border-border text-muted-foreground hover:border-accent-blue hover:text-accent-blue'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <span className="text-[0.6875rem] font-semibold text-muted-foreground ml-2 mr-1">Indicators:</span>
+          {INDICATORS.map(({ ind, label, color }) => (
+            <button
+              key={ind}
+              onClick={() => toggleIndicator(ind)}
+              className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
+                activeIndicators.has(ind)
+                  ? 'text-white border-transparent'
+                  : 'border-border text-muted-foreground hover:border-accent-blue'
+              }`}
+              style={activeIndicators.has(ind) ? { backgroundColor: color } : {}}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
       <div ref={chartContainerRef} style={{ height }} />
     </div>
   );
