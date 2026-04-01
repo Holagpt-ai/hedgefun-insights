@@ -224,8 +224,8 @@ export default function StockComparePage() {
             <div className="w-full h-[350px] p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
                   <Tooltip />
                   <Legend />
                   {selectedTickers.map((t, i) => (
