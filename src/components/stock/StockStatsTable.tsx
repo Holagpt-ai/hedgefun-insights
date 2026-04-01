@@ -110,7 +110,7 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
 
   const rightCol = [
     { label: "Volume", value: formatVolume(snapshot?.day?.v) },
-    { label: "Open", value: formatPrice(snapshot?.day?.o) },
+    { label: "Open", value: formatPrice(openPrice) },
     { label: "Previous Close", value: formatPrice(snapshot?.prevDay?.c) },
     { label: "Day's Range", value: dayRange },
     { label: "52-Week Range", value: week52Range },
