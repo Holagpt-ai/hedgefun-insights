@@ -89,7 +89,7 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
       )}
       {!isPreIPO && session === "market" && (
         <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
-          At close: {estDate()}, 4:00 PM EDT
+          {estDate()}, {estTime()} EDT · Market open
         </p>
       )}
       {!isPreIPO && (session === "pre-market" || session === "after-hours") && ahPrice != null && ahChange != null && ahChangePct != null && (

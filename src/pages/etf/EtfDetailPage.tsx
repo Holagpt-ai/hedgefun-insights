@@ -312,7 +312,7 @@ export default function EtfDetailPage() {
                 )}
               </div>
               {session === "market" ? (
-                <p className="text-xs text-muted-foreground mt-1">At close: {estDate()}, 4:00 PM EDT</p>
+                <p className="text-xs text-muted-foreground mt-1">{estDate()}, {estTime()} EDT · Market open</p>
               ) : (session === "pre-market" || session === "after-hours") && ahPrice != null && ahChange != null && ahChangePct != null ? (
                 <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
                   <span className="text-muted-foreground">{session === "pre-market" ? "☀️ Pre-market:" : "🌙 After-hours:"}</span>
