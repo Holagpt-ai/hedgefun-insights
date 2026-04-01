@@ -610,6 +610,9 @@ export default function ChartPage() {
                   isPositive={priceChange >= 0}
                   height={600}
                   loading={false}
+                  chartType={tvChartType}
+                  onChartTypeChange={setTvChartType}
+                  hideToolbar
                 />
               </div>
             ) : (
