@@ -245,6 +245,8 @@ export default function EtfDetailPage() {
   let mainPrice: number | null;
   if (session === "pre-market") {
     mainPrice = prevClose > 0 ? prevClose : (fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null));
+  } else if (session === "market" && dayClose === 0) {
+    mainPrice = fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null);
   } else {
     mainPrice = fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null);
   }
