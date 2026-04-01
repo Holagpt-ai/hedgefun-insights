@@ -16,6 +16,7 @@ import { EtfFundOverview } from "@/components/etf/EtfFundOverview";
 import { EtfPerformanceChart } from "@/components/etf/EtfPerformanceChart";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveCurrentPrice, resolveMarketSession, resolveSessionLabel, estDate } from "@/lib/price-utils";
 
 const TIME_RANGES = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
 
@@ -234,10 +235,13 @@ export default function EtfDetailPage() {
     return { high52w, low52w, ytdReturn, inceptionDate, avgVolume };
   }, [yearAggs, etfDetails, snapshot, etfRow]);
 
-  const price = etfRow?.price ?? null;
-  const changePct = etfRow?.change_percent ?? 0;
-  const changeAmt = price && changePct ? (price * changePct / (100 + changePct)) : 0;
+  // Use snapshot-based price with shared fallback, fall back to DB row
+  const snapshotPrice = resolveCurrentPrice(snapshot);
+  const price = snapshotPrice > 0 ? snapshotPrice : (etfRow?.price ?? null);
+  const changePct = snapshot?.todaysChangePerc ?? etfRow?.change_percent ?? 0;
+  const changeAmt = snapshot?.todaysChange ?? (price && changePct ? (price * changePct / (100 + changePct)) : 0);
   const positive = changePct >= 0;
+  const session = resolveMarketSession();
 
   const stats: { label: string; value: string; color?: string }[] = [
     { label: "AUM", value: abbr(etfRow?.total_assets) },
@@ -289,6 +293,13 @@ export default function EtfDetailPage() {
                   </>
                 )}
               </div>
+              {session === "market" ? (
+                <p className="text-xs text-muted-foreground mt-1">At close: {estDate()}, 4:00 PM EDT</p>
+              ) : (session === "pre-market" || session === "after-hours") && price != null ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {resolveSessionLabel(session, price, changeAmt, changePct)}
+                </p>
+              ) : null}
               <p className="text-xs text-muted-foreground mt-1">Powered by Massive</p>
             </div>
 

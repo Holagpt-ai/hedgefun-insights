@@ -52,6 +52,7 @@ serve(async (req) => {
 
         const sparklineData = aggResults.map((r: any) => r.c).filter((v: any) => typeof v === "number");
 
+        // Resolve current value with fallback chain (mirrors resolveCurrentPrice)
         const dayClose = t?.day?.c;
         const currentValue = (dayClose && dayClose > 0) ? dayClose : (t?.min?.c || t?.lastTrade?.p || (sparklineData.length > 0 ? sparklineData[sparklineData.length - 1] : null));
 

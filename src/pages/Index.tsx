@@ -5,16 +5,13 @@ import { TopGainersTable, TopLosersTable } from "@/components/home/MoversTable";
 import { MarketNews } from "@/components/home/MarketNews";
 import { RecentIpos, UpcomingIpos } from "@/components/home/IpoTables";
 import Disclaimer from "@/components/layout/Disclaimer";
+import { resolveMarketSession } from "@/lib/price-utils";
 
 function useSessionMoversLabels() {
-  const now = new Date();
-  const etStr = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: "2-digit", minute: "2-digit" });
-  const [h, m] = etStr.split(":").map(Number);
-  const mins = h * 60 + m;
-
-  if (mins >= 240 && mins < 570) return { gainers: "Pre-Market Gainers", losers: "Pre-Market Losers" };
-  if (mins >= 570 && mins <= 960) return { gainers: "Top Gainers", losers: "Top Losers" };
-  if (mins > 960 && mins <= 1200) return { gainers: "After-Hours Gainers", losers: "After-Hours Losers" };
+  const session = resolveMarketSession();
+  if (session === "pre-market") return { gainers: "Pre-Market Gainers", losers: "Pre-Market Losers" };
+  if (session === "market") return { gainers: "Top Gainers", losers: "Top Losers" };
+  if (session === "after-hours") return { gainers: "After-Hours Gainers", losers: "After-Hours Losers" };
   return { gainers: "Top Gainers", losers: "Top Losers" };
 }
 

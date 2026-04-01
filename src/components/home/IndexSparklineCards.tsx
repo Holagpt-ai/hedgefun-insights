@@ -5,18 +5,13 @@ import { AreaChart, Area, ResponsiveContainer, YAxis } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { resolveMarketSession } from "@/lib/price-utils";
 
 function useSessionLabel() {
-  const now = new Date();
-  const day = now.getDay();
-  const hour = now.getHours();
-  const isWeekend = day === 0 || day === 6;
-  const isPreMarket = !isWeekend && hour >= 4 && hour < 9;
-  const isAfterHours = !isWeekend && (hour >= 16 || hour < 4);
-
-  if (isWeekend || isAfterHours) return { label: "After-hours", color: "bg-muted-foreground" };
-  if (isPreMarket) return { label: "Pre-market", color: "bg-orange-500" };
-  return { label: "Live", color: "bg-green-500" };
+  const session = resolveMarketSession();
+  if (session === "pre-market") return { label: "Pre-market", color: "bg-orange-500" };
+  if (session === "market") return { label: "Live", color: "bg-green-500" };
+  return { label: "After-hours", color: "bg-muted-foreground" };
 }
 
 export function IndexSparklineCards() {
