@@ -177,6 +177,7 @@ export function RecentIposPage() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    autoResetPageIndex: true,
     initialState: { pagination: { pageSize: 50 } },
   });
 
