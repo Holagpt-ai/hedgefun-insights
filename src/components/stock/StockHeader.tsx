@@ -63,7 +63,7 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
       </div>
       <div className="flex items-baseline gap-2 mt-1">
         <span className="text-2xl font-bold text-foreground tabular-nums">
-          ${displayPrice.toFixed(2)}
+          ${(isPreIPO && details?.offer_price ? details.offer_price : mainPrice).toFixed(2)}
         </span>
         {isPreIPO && details?.offer_price ? (
           <span className="text-sm text-muted-foreground">Expected offer price</span>
