@@ -159,11 +159,18 @@ export default function ChartPage() {
     });
   }, [user]);
 
-  // Fetch chart data
+  // Fetch chart data with AbortController for proper cleanup on ticker change
   useEffect(() => {
     if (!ticker) return;
-    setLoading(true);
+
+    const abortController = new AbortController();
+
+    // Reset all chart state for the new ticker
+    setChartData([]);
     setError("");
+    setLoading(true);
+    setHoveredPoint(null);
+
     const { from, to, multiplier, timespan } = getDateRange(timeRange);
     const url = new URL(MARKET_DATA_URL);
     url.searchParams.set("type", "aggregates");
@@ -173,14 +180,25 @@ export default function ChartPage() {
     url.searchParams.set("from", from);
     url.searchParams.set("to", to);
 
+    console.log(`[ChartPage] Fetching chart data: ${url.toString()}`);
+
     fetch(url.toString(), {
+      signal: abortController.signal,
       headers: {
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
         "Content-Type": "application/json",
       },
     })
-      .then((r) => r.json())
+      .then(async (r) => {
+        if (!r.ok) {
+          const statusText = `Error ${r.status}`;
+          console.error(`[ChartPage] API error for ${ticker}: ${statusText}`);
+          throw new Error(statusText);
+        }
+        return r.json();
+      })
       .then((data) => {
+        if (abortController.signal.aborted) return;
         const results = data?.results || data || [];
         if (!Array.isArray(results) || results.length === 0) {
           setError("Chart data temporarily unavailable. Please try again shortly.");
@@ -198,8 +216,16 @@ export default function ChartPage() {
           );
         }
       })
-      .catch(() => setError("Chart data temporarily unavailable. Please try again shortly."))
-      .finally(() => setLoading(false));
+      .catch((err) => {
+        if (err.name === "AbortError") return;
+        console.error(`[ChartPage] Fetch failed for ${ticker}:`, err.message);
+        setError(`Unable to load chart data for ${ticker}. ${err.message}`);
+      })
+      .finally(() => {
+        if (!abortController.signal.aborted) setLoading(false);
+      });
+
+    return () => abortController.abort();
   }, [ticker, timeRange]);
 
   // Fetch snapshot + details
