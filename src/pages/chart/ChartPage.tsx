@@ -216,35 +216,46 @@ export default function ChartPage() {
     setLoading(true);
     setHoveredPoint(null);
 
-    const { from, to, multiplier, timespan } = getDateRange(timeRange);
-    const url = new URL(MARKET_DATA_URL);
-    url.searchParams.set("type", "aggregates");
-    url.searchParams.set("ticker", ticker);
-    url.searchParams.set("multiplier", String(multiplier));
-    url.searchParams.set("timespan", timespan);
-    url.searchParams.set("from", from);
-    url.searchParams.set("to", to);
+    const fetchHeaders = {
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      "Content-Type": "application/json",
+    };
 
-    console.log(`[ChartPage] Fetching chart data: ${url.toString()}`);
+    async function doFetch(fromDate: string, toDate: string, mult: number, ts: string) {
+      const url = new URL(MARKET_DATA_URL);
+      url.searchParams.set("type", "aggregates");
+      url.searchParams.set("ticker", ticker!);
+      url.searchParams.set("multiplier", String(mult));
+      url.searchParams.set("timespan", ts);
+      url.searchParams.set("from", fromDate);
+      url.searchParams.set("to", toDate);
+      console.log(`[ChartPage] Fetching chart data: ${url.toString()}`);
+      const r = await fetch(url.toString(), { signal: abortController.signal, headers: fetchHeaders });
+      if (!r.ok) throw new Error(`Error ${r.status}`);
+      const json = await r.json();
+      return json?.results || json || [];
+    }
 
-    fetch(url.toString(), {
-      signal: abortController.signal,
-      headers: {
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-        "Content-Type": "application/json",
-      },
-    })
-      .then(async (r) => {
-        if (!r.ok) {
-          const statusText = `Error ${r.status}`;
-          console.error(`[ChartPage] API error for ${ticker}: ${statusText}`);
-          throw new Error(statusText);
+    (async () => {
+      try {
+        const { from, to, multiplier, timespan } = getDateRange(timeRange);
+        let results = await doFetch(from, to, multiplier, timespan);
+
+        // 1D fallback: if no data today (pre-market/weekend), try previous trading day
+        if (timeRange === "1D" && (!Array.isArray(results) || results.length === 0)) {
+          const yesterday = new Date();
+          // Go back up to 4 days to skip weekends
+          for (let i = 1; i <= 4; i++) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            const fallbackDate = fmtDate(d);
+            console.log(`[ChartPage] 1D fallback: trying ${fallbackDate}`);
+            results = await doFetch(fallbackDate, fallbackDate, 5, "minute");
+            if (Array.isArray(results) && results.length > 0) break;
+          }
         }
-        return r.json();
-      })
-      .then((data) => {
+
         if (abortController.signal.aborted) return;
-        const results = data?.results || data || [];
         if (!Array.isArray(results) || results.length === 0) {
           setError("Chart data temporarily unavailable. Please try again shortly.");
           setChartData([]);
@@ -260,15 +271,14 @@ export default function ChartPage() {
             }))
           );
         }
-      })
-      .catch((err) => {
+      } catch (err: any) {
         if (err.name === "AbortError") return;
         console.error(`[ChartPage] Fetch failed for ${ticker}:`, err.message);
         setError(`Unable to load chart data for ${ticker}. ${err.message}`);
-      })
-      .finally(() => {
+      } finally {
         if (!abortController.signal.aborted) setLoading(false);
-      });
+      }
+    })();
 
     return () => abortController.abort();
   }, [ticker, timeRange]);
