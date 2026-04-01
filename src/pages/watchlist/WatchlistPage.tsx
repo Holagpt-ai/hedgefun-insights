@@ -123,6 +123,7 @@ const WatchlistPage = () => {
           }
         })
       );
+      console.log('[watchlist-snapshot] raw result for first symbol:', JSON.stringify(Object.values(results)[0]));
       return results;
     },
     enabled: symbols.length > 0,
@@ -133,16 +134,34 @@ const WatchlistPage = () => {
   const watchlistRows: WatchlistRow[] = useMemo(() => {
     if (!watchlistEntries) return [];
     return watchlistEntries.map((entry) => {
-      const raw = snapshotData?.[entry.symbol];
-      // Edge function may return the inner ticker object or wrapped { ticker: ... }
-      const snap = raw?.ticker ?? raw;
-      const price = snap ? resolveCurrentPrice(snap) : 0;
+      const snap = snapshotData?.[entry.symbol];
+
+      // Debug log
+      console.log(`[watchlist-row] ${entry.symbol} snap:`, JSON.stringify(snap));
+
+      // Price fallback chain for all sessions
+      const dayClose = snap?.day?.c;
+      const minClose = snap?.min?.c;
+      const lastTrade = snap?.lastTrade?.p;
+      const prevClose = snap?.prevDay?.c;
+      const price = (dayClose && dayClose > 0) ? dayClose
+        : (minClose && minClose > 0) ? minClose
+        : (lastTrade && lastTrade > 0) ? lastTrade
+        : (prevClose && prevClose > 0) ? prevClose
+        : 0;
+
+      // Volume fallback
+      const volume = snap?.day?.v > 0 ? snap.day.v : (snap?.min?.av ?? snap?.min?.v ?? 0);
+
+      // Name from multiple possible fields
+      const name = snap?.name
+        || snap?.details?.name
+        || (typeof snap?.ticker === 'string' ? snap.ticker : null)
+        || entry.symbol;
+
       const change = snap?.todaysChange ?? 0;
       const changePct = snap?.todaysChangePerc ?? 0;
-      const volume = snap?.day?.v > 0
-        ? snap.day.v
-        : (snap?.min?.av ?? snap?.min?.v ?? 0);
-      const name = snap?.name || raw?.name || (typeof snap?.ticker === "string" ? snap.ticker : null) || entry.symbol;
+
       return {
         id: entry.id,
         symbol: entry.symbol,
