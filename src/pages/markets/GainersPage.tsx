@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { getTopGainers } from "@/lib/polygon";
 import { resolveCurrentPrice, resolveMarketSession } from "@/lib/price-utils";
-import { MarketMoversLayout, type MoverRow } from "@/components/markets/MarketMoversLayout";
+import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMoversLayout";
 
 function mapRows(tickers: any[]): MoverRow[] {
   return tickers.map((t: any) => ({
@@ -14,11 +14,11 @@ function mapRows(tickers: any[]): MoverRow[] {
   }));
 }
 
-function getTitle(): string {
+function getTitle(): { page: string; section: string } {
   const session = resolveMarketSession();
-  if (session === "pre-market") return "Pre-Market Gainers Today";
-  if (session === "after-hours") return "After-Hours Gainers Today";
-  return "Top Gainers Today";
+  if (session === "pre-market") return { page: "Market Movers", section: "Pre-Market Gainers Today" };
+  if (session === "after-hours") return { page: "Market Movers", section: "After-Hours Gainers Today" };
+  return { page: "Market Movers", section: "Top Gainers Today" };
 }
 
 export default function GainersPage() {
@@ -34,9 +34,12 @@ export default function GainersPage() {
     retryDelay: 2000,
   });
 
+  const titles = getTitle();
+
   return (
-    <MarketMoversLayout
-      sectionTitle={getTitle()}
+    <MarketMoversPage
+      pageTitle={titles.page}
+      sectionTitle={titles.section}
       rows={data ?? []}
       isLoading={isLoading}
       refetch={refetch}
