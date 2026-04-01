@@ -33,8 +33,8 @@ import { format, parseISO, isToday, isYesterday } from "date-fns";
 // ── helpers ──────────────────────────────────────────────
 function cleanCompanyName(name: string): string {
   return name
-    .replace(/\s+(Common Stock|Class A|Class B|Class C|Ordinary Shares?|American Depositary Shares?|ADS|ADR|Inc\.|Corp\.|Ltd\.|LLC|ETF|Trust|Fund).*$/i, '')
-    .replace(/,\s*$/, '')
+    .replace(/,?\s*(Common Stock|Ordinary Shares?|American Depositary Shares?|Depositary Shares?|Class [A-Z]( Common Stock)?|Series [A-Z]|ADS|ADR|Units?|Warrants?|Rights?).*$/gi, '')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
