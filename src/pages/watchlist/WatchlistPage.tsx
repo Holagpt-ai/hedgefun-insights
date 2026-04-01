@@ -86,6 +86,7 @@ const WatchlistPage = () => {
   const [isSearching, setIsSearching] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
   const searchRef = useRef<HTMLDivElement>(null);
+  const [tickerNames, setTickerNames] = useState<Record<string, string>>({});
 
   // ── watchlist symbols from DB ─────────────────────────
   const { data: watchlistEntries, isLoading: wlLoading } = useQuery({
@@ -118,12 +119,11 @@ const WatchlistPage = () => {
             });
             if (error) throw error;
             results[sym] = data;
-          } catch (err) {
-            console.error(`[watchlist] failed for ${sym}:`, err);
+          } catch {
+            // silently skip failed snapshots
           }
         })
       );
-      console.log('[watchlist-snapshot] raw result for first symbol:', JSON.stringify(Object.values(results)[0]));
       return results;
     },
     enabled: symbols.length > 0,
@@ -131,13 +131,27 @@ const WatchlistPage = () => {
   });
 
   // ── build table rows from entries + snapshots ─────────
+  // ── fetch company names from ticker_search table ───────
+  const { data: nameMap } = useQuery({
+    queryKey: ["watchlist-names", symbols],
+    queryFn: async () => {
+      if (symbols.length === 0) return {};
+      const { data } = await supabase
+        .from("ticker_search")
+        .select("symbol, name")
+        .in("symbol", symbols);
+      const map: Record<string, string> = {};
+      (data ?? []).forEach((r) => { map[r.symbol] = r.name; });
+      return map;
+    },
+    enabled: symbols.length > 0,
+    staleTime: 5 * 60_000,
+  });
+
   const watchlistRows: WatchlistRow[] = useMemo(() => {
     if (!watchlistEntries) return [];
     return watchlistEntries.map((entry) => {
       const snap = snapshotData?.[entry.symbol];
-
-      // Debug log
-      console.log(`[watchlist-row] ${entry.symbol} snap:`, JSON.stringify(snap));
 
       // Price fallback chain for all sessions
       const dayClose = snap?.day?.c;
@@ -153,10 +167,9 @@ const WatchlistPage = () => {
       // Volume fallback
       const volume = snap?.day?.v > 0 ? snap.day.v : (snap?.min?.av ?? snap?.min?.v ?? 0);
 
-      // Name from multiple possible fields
-      const name = snap?.name
-        || snap?.details?.name
-        || (typeof snap?.ticker === 'string' ? snap.ticker : null)
+      // Name from ticker_search table, then snapshot fallbacks
+      const name = nameMap?.[entry.symbol]
+        || tickerNames[entry.symbol]
         || entry.symbol;
 
       const change = snap?.todaysChange ?? 0;
@@ -173,7 +186,7 @@ const WatchlistPage = () => {
         marketCap: 0,
       };
     });
-  }, [watchlistEntries, snapshotData]);
+  }, [watchlistEntries, snapshotData, nameMap, tickerNames]);
 
   // ── news ───────────────────────────────────────────────
   const [newsLimit, setNewsLimit] = useState(20);
@@ -193,22 +206,27 @@ const WatchlistPage = () => {
   // ── mutations ──────────────────────────────────────────
   const addMutation = useMutation({
     mutationFn: async (symbol: string) => {
-      console.log("[watchlist-add] inserting symbol:", symbol, "user:", user?.id);
       const { error } = await supabase
         .from("watchlists")
         .insert({ symbol: symbol.toUpperCase(), user_id: user!.id });
-      if (error) {
-        console.error("[watchlist-add] insert error:", error);
-        throw error;
-      }
+      if (error) throw error;
     },
-    onSuccess: (_d, symbol) => {
+    onSuccess: async (_d, symbol) => {
       queryClient.invalidateQueries({ queryKey: ["watchlist"] });
       trackEvent("watchlist_add", { ticker: symbol });
       toast.success(`${symbol.toUpperCase()} added to watchlist`);
+      // Cache company name from ticker_search
+      const { data } = await supabase
+        .from("ticker_search")
+        .select("name")
+        .eq("symbol", symbol.toUpperCase())
+        .limit(1)
+        .maybeSingle();
+      if (data?.name) {
+        setTickerNames((prev) => ({ ...prev, [symbol.toUpperCase()]: data.name }));
+      }
     },
     onError: (err: any, symbol) => {
-      console.error("[watchlist-add] mutation error:", err);
       if (err?.code === "23505") {
         toast.info(`${symbol.toUpperCase()} is already in your watchlist`);
       } else {
@@ -257,13 +275,10 @@ const WatchlistPage = () => {
     }
     setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
-      console.log("[watchlist-search] querying:", value);
       try {
         let data = await searchTickers(value);
-        console.log("[watchlist-search] searchTickers returned:", data?.length, "results");
         // Fallback to direct Supabase query if edge function returns nothing
         if (!data || data.length === 0) {
-          console.log("[watchlist-search] falling back to direct Supabase query");
           const { data: rows } = await supabase
             .from("ticker_search")
             .select("symbol, name, exchange, type")
@@ -277,12 +292,10 @@ const WatchlistPage = () => {
             exchange: r.exchange,
             type: r.type,
           }));
-          console.log("[watchlist-search] fallback returned:", data.length, "results");
         }
         setSearchResults(data);
         setShowSearchResults(true);
-      } catch (err) {
-        console.error("[watchlist-search] error:", err);
+      } catch {
         setSearchResults([]);
         setShowSearchResults(true);
       }
