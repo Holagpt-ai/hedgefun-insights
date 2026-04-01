@@ -293,6 +293,13 @@ export default function EtfDetailPage() {
                   </>
                 )}
               </div>
+              {session === "market" ? (
+                <p className="text-xs text-muted-foreground mt-1">At close: {estDate()}, 4:00 PM EDT</p>
+              ) : (session === "pre-market" || session === "after-hours") && price != null ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {resolveSessionLabel(session, price, changeAmt, changePct)}
+                </p>
+              ) : null}
               <p className="text-xs text-muted-foreground mt-1">Powered by Massive</p>
             </div>
 
