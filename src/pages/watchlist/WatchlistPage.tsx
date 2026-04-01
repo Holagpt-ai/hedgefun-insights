@@ -170,14 +170,27 @@ const WatchlistPage = () => {
   // ── mutations ──────────────────────────────────────────
   const addMutation = useMutation({
     mutationFn: async (symbol: string) => {
+      console.log("[watchlist-add] inserting symbol:", symbol, "user:", user?.id);
       const { error } = await supabase
         .from("watchlists")
         .insert({ symbol: symbol.toUpperCase(), user_id: user!.id });
-      if (error) throw error;
+      if (error) {
+        console.error("[watchlist-add] insert error:", error);
+        throw error;
+      }
     },
     onSuccess: (_d, symbol) => {
       queryClient.invalidateQueries({ queryKey: ["watchlist"] });
       trackEvent("watchlist_add", { ticker: symbol });
+      toast.success(`${symbol.toUpperCase()} added to watchlist`);
+    },
+    onError: (err: any, symbol) => {
+      console.error("[watchlist-add] mutation error:", err);
+      if (err?.code === "23505") {
+        toast.info(`${symbol.toUpperCase()} is already in your watchlist`);
+      } else {
+        toast.error("Failed to add to watchlist", { description: err?.message });
+      }
     },
   });
 
@@ -221,9 +234,35 @@ const WatchlistPage = () => {
     }
     setIsSearching(true);
     debounceRef.current = setTimeout(async () => {
-      const data = await searchTickers(value);
-      setSearchResults(data);
-      setShowSearchResults(true);
+      console.log("[watchlist-search] querying:", value);
+      try {
+        let data = await searchTickers(value);
+        console.log("[watchlist-search] searchTickers returned:", data?.length, "results");
+        // Fallback to direct Supabase query if edge function returns nothing
+        if (!data || data.length === 0) {
+          console.log("[watchlist-search] falling back to direct Supabase query");
+          const { data: rows } = await supabase
+            .from("ticker_search")
+            .select("symbol, name, exchange, type")
+            .or(`symbol.ilike.${value.toUpperCase()}%,name.ilike.%${value}%`)
+            .eq("active", true)
+            .order("symbol")
+            .limit(10);
+          data = (rows ?? []).map((r) => ({
+            ticker: r.symbol,
+            name: r.name,
+            exchange: r.exchange,
+            type: r.type,
+          }));
+          console.log("[watchlist-search] fallback returned:", data.length, "results");
+        }
+        setSearchResults(data);
+        setShowSearchResults(true);
+      } catch (err) {
+        console.error("[watchlist-search] error:", err);
+        setSearchResults([]);
+        setShowSearchResults(true);
+      }
       setIsSearching(false);
     }, 200);
   }, []);
