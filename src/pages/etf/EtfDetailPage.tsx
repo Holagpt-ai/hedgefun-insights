@@ -161,11 +161,12 @@ export default function EtfDetailPage() {
     retry: 3, retryDelay: 2000,
   });
 
-  // Fetch snapshot for avg volume
+  // Fetch LIVE snapshot for current price + session data
   const { data: snapshot } = useQuery({
     queryKey: ["etf-snapshot", symbol],
     queryFn: () => getTickerSnapshot(symbol),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
     retry: 3, retryDelay: 2000,
   });
 
