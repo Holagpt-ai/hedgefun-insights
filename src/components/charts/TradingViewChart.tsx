@@ -29,6 +29,9 @@ interface TradingViewChartProps {
   isPositive?: boolean;
   height?: number;
   loading?: boolean;
+  chartType?: ChartType;
+  onChartTypeChange?: (type: ChartType) => void;
+  hideToolbar?: boolean;
 }
 
 function calcSMA(data: OHLCVData[], period: number) {
