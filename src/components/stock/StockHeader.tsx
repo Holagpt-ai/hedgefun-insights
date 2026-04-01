@@ -25,6 +25,10 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
     );
   }
 
+  const companyName = details?.name ?? ticker;
+  const exchange = details?.primary_exchange ?? "";
+  const exchangeLabel = EXCHANGE_MAP[exchange] || exchange;
+
   const session = resolveMarketSession();
   const prevClose = snapshot?.prevDay?.c ?? 0;
   const dayClose = snapshot?.day?.c > 0 ? snapshot.day.c : 0;
