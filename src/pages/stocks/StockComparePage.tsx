@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, Lock, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { format, subYears } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +60,50 @@ export default function StockComparePage() {
     enabled: selectedTickers.length > 0,
   });
 
+  // Fetch 1-year historical daily data for each ticker
+  const { data: histData } = useQuery({
+    queryKey: ["compare-history", selectedTickers],
+    queryFn: async () => {
+      if (selectedTickers.length === 0) return {};
+      const today = new Date();
+      const fromDate = format(subYears(today, 1), "yyyy-MM-dd");
+      const toDate = format(today, "yyyy-MM-dd");
+      const results: Record<string, { t: number; c: number }[]> = {};
+
+      const baseUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
+
+      await Promise.all(
+        selectedTickers.map(async (ticker) => {
+          try {
+            const params = new URLSearchParams({
+              type: "aggregates",
+              ticker,
+              multiplier: "1",
+              timespan: "day",
+              from: fromDate,
+              to: toDate,
+            });
+            const res = await fetch(`${baseUrl}?${params}`, {
+              headers: {
+                apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+              },
+            });
+            if (!res.ok) return;
+            const json = await res.json();
+            const aggs = json?.data ?? json?.results ?? json;
+            if (Array.isArray(aggs) && aggs.length > 0) {
+              results[ticker] = aggs.map((r: any) => ({ t: r.t, c: r.c }));
+            }
+          } catch {
+            // skip ticker on error
+          }
+        })
+      );
+      return results;
+    },
+    enabled: selectedTickers.length > 0,
+  });
+
   const addTicker = (symbol: string) => {
     if (!selectedTickers.includes(symbol) && selectedTickers.length < 6) {
       setSelectedTickers((prev) => [...prev, symbol]);
@@ -71,14 +116,38 @@ export default function StockComparePage() {
     setSelectedTickers((prev) => prev.filter((t) => t !== symbol));
   };
 
+  // Normalize all series to % change from first data point
   const chartData = useMemo(() => {
-    if (!stockData || stockData.length === 0) return [];
-    // Simple single-point chart placeholder — normalize to 100 base
-    return [
-      { name: "Current", ...Object.fromEntries(stockData.map((s) => [s.symbol, 100])) },
-      { name: "+Change", ...Object.fromEntries(stockData.map((s) => [s.symbol, 100 + (s.change_percent || 0)])) },
-    ];
-  }, [stockData]);
+    if (!histData || selectedTickers.length === 0) return [];
+
+    const tsSet = new Set<number>();
+    selectedTickers.forEach((t) => histData[t]?.forEach((d) => tsSet.add(d.t)));
+    const sortedTs = Array.from(tsSet).sort((a, b) => a - b);
+    if (sortedTs.length === 0) return [];
+
+    const firstPrice: Record<string, number> = {};
+    selectedTickers.forEach((t) => {
+      const series = histData[t];
+      if (series && series.length > 0) firstPrice[t] = series[0].c;
+    });
+
+    const byTs: Record<string, Record<number, number>> = {};
+    selectedTickers.forEach((t) => {
+      byTs[t] = {};
+      histData[t]?.forEach((d) => { byTs[t][d.t] = d.c; });
+    });
+
+    return sortedTs.map((ts) => {
+      const row: Record<string, any> = { date: format(new Date(ts), "MMM d") };
+      selectedTickers.forEach((t) => {
+        const price = byTs[t]?.[ts];
+        if (price != null && firstPrice[t]) {
+          row[t] = Number((((price - firstPrice[t]) / firstPrice[t]) * 100).toFixed(2));
+        }
+      });
+      return row;
+    });
+  }, [histData, selectedTickers]);
 
   return (
     <div className="min-w-0">
@@ -163,8 +232,8 @@ export default function StockComparePage() {
             <div className="w-full h-[350px] p-4">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} interval="preserveStartEnd" />
+                  <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `${v}%`} />
                   <Tooltip />
                   <Legend />
                   {selectedTickers.map((t, i) => (
