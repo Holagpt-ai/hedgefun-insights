@@ -92,9 +92,9 @@ export const LIST_METADATA: Record<string, ListMeta> = {
   "otc": { title: "Stocks Listed on OTC Markets", description: "Stocks traded on OTC markets outside major exchanges.", columns: EXCHANGE_COLS, filter: { exchange: "OTC" } },
 
   // In Index (hardcoded symbol lists for well-known indexes)
-  "sp-500": { title: "S&P 500 Companies", description: "All 500 companies currently in the S&P 500 index.", columns: MARKET_CAP_COLS },
-  "nasdaq-100": { title: "NASDAQ 100 Companies", description: "All 100 companies in the NASDAQ 100 index.", columns: MARKET_CAP_COLS },
-  "dow-jones": { title: "Dow Jones Companies", description: "The 30 companies that make up the Dow Jones Industrial Average.", columns: MARKET_CAP_COLS, filter: { symbols: ["AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW","GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM","MRK","MSFT","NKE","PG","SHW","TRV","UNH","V","VZ","WMT"] } },
+  "sp-500": { title: "S&P 500 Companies", description: "Companies currently in the S&P 500 index.", columns: MARKET_CAP_COLS },
+  "nasdaq-100": { title: "NASDAQ 100 Companies", description: "Companies in the NASDAQ 100 index.", columns: MARKET_CAP_COLS },
+  "dow-jones": { title: "Dow Jones Companies", description: "Companies that make up the Dow Jones Industrial Average.", columns: MARKET_CAP_COLS, filter: { symbols: ["AAPL","AMGN","AXP","BA","CAT","CRM","CSCO","CVX","DIS","DOW","GS","HD","HON","IBM","INTC","JNJ","JPM","KO","MCD","MMM","MRK","MSFT","NKE","PG","SHW","TRV","UNH","V","VZ","WMT"] } },
 
   // Other Lists
   "faang": { title: "FAANG Stocks", description: "Meta, Apple, Amazon, Netflix, and Alphabet — the original FAANG tech giants.", columns: ["symbol", "name", "price", "changePercent", "marketCap", "peRatio", "revenue"], filter: { symbols: ["META","AAPL","AMZN","NFLX","GOOGL"] } },

@@ -93,7 +93,7 @@ const BillingPage = () => {
               className={`mt-2 font-semibold ${isPro ? "text-green" : "text-muted-foreground"}`}
               style={{ fontSize: "1rem" }}
             >
-              {isPro ? "$9.99 / month" : "$0 / month"}
+              {isPro ? `$${PRICING.pro.monthly} / month` : `$${PRICING.free.monthly} / month`}
             </p>
             <ul className="mt-3 space-y-1">
               {(isPro ? PRO_FEATURES : FREE_FEATURES).map((f) => (

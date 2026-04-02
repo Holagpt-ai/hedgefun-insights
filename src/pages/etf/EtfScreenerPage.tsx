@@ -195,7 +195,7 @@ export default function EtfScreenerPage() {
               <Button variant="outline" size="sm" className="border-accent-blue text-accent-blue hover:bg-accent-blue-light"><Plus className="h-3.5 w-3.5 mr-1" />Add Filters</Button>
               <div className="relative flex-1 max-w-[280px]">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder="Search 106 filters..." className="h-8 pl-8 text-xs" />
+                <Input value={filterSearch} onChange={(e) => setFilterSearch(e.target.value)} placeholder="Search filters..." className="h-8 pl-8 text-xs" />
               </div>
             </div>
             {activeFilters.length > 0 && (

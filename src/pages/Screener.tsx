@@ -346,7 +346,7 @@ const Screener = () => {
                 <Input
                   value={filterSearch}
                   onChange={(e) => setFilterSearch(e.target.value)}
-                  placeholder="Search 297 filters..."
+                  placeholder="Search filters..."
                   className="h-8 pl-8 text-xs"
                 />
               </div>

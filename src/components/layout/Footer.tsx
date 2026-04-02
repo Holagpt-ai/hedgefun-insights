@@ -134,7 +134,7 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-white/10">
           {/* Left — copyright */}
           <span className="text-xs text-footer-text/50 shrink-0">
-            © 2026 HedgeFun.fun. All rights reserved.
+            © {new Date().getFullYear()} HedgeFun.fun. All rights reserved.
           </span>
 
           {/* Center — social icons */}
