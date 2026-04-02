@@ -403,7 +403,7 @@ const Screener = () => {
           {VIEW_TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { if (tab === "General") { setActiveTab(tab); } else { comingSoon(); } }}
               className={cn(
                 "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeTab === tab
@@ -412,17 +412,12 @@ const Screener = () => {
               )}
             >
               {tab}
-              {tab === "Filters" && activeFilters.length > 0 && (
-                <span className="ml-1 bg-accent-blue text-primary-foreground text-[0.625rem] px-1.5 rounded-full">
-                  {activeFilters.length}
-                </span>
-              )}
             </button>
           ))}
-          <button className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
+          <button onClick={comingSoon} className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
             + Add View
           </button>
-          <button className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
+          <button onClick={comingSoon} className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
             ✏️ Edit View
           </button>
         </div>
