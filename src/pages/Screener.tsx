@@ -58,6 +58,7 @@ type StockRow = {
 
 const Screener = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterSearch, setFilterSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState<{ key: string; label: string; value: string }[]>([]);
@@ -67,6 +68,7 @@ const Screener = () => {
   const [pageSize, setPageSize] = useState(20);
   const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
   const fetchedRef = useRef<Set<string>>(new Set());
+  const [marketCapFilter, setMarketCapFilter] = useState("none");
 
   const { data: stocks, isLoading } = useQuery({
     queryKey: ["screener-stocks"],
