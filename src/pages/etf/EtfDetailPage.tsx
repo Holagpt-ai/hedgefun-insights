@@ -384,7 +384,7 @@ export default function EtfDetailPage() {
                   {newsItems.slice(0, 5).map((n: any, i: number) => (
                     <a key={i} href={n.article_url} target="_blank" rel="noopener noreferrer" className="flex gap-3 group">
                       {n.image_url && (
-                        <img src={n.image_url} alt="" className="w-20 h-14 rounded object-cover flex-shrink-0" />
+                        <img src={n.image_url} alt="" width={80} height={56} className="w-20 h-14 rounded object-cover flex-shrink-0" loading="lazy" style={{ backgroundColor: '#f4f4f5' }} onError={(e) => { e.currentTarget.style.display = 'none' }} />
                       )}
                       <div className="min-w-0 flex-1">
                         <p className="text-[0.8125rem] font-semibold text-foreground group-hover:text-primary line-clamp-2">{n.title}</p>

@@ -308,12 +308,15 @@ export default function ArticleDetailPage() {
                 onClick={() => navigate(`/articles/${r.slug}`)}
                 className="text-left border border-border rounded-md overflow-hidden hover:border-accent-blue transition-colors group bg-surface-card"
               >
-                <div className="aspect-video overflow-hidden">
+                <div className="aspect-video overflow-hidden" style={{ backgroundColor: '#f4f4f5' }}>
                   <img
                     src={r.image}
                     alt={r.title}
+                    width={400}
+                    height={225}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                 </div>
                 <div className="p-4">
