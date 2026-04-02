@@ -171,7 +171,7 @@ const Screener = () => {
         meta: { align: "right" },
       },
     ],
-    [navigate],
+    [navigate, livePrices],
   );
 
   const table = useReactTable({
