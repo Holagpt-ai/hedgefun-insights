@@ -34,6 +34,14 @@ function abbreviateNumber(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
+function formatMarketCapScreener(n: number | null): string {
+  if (!n) return "—";
+  if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  return n.toLocaleString();
+}
+
 const RELATED_TOOLS = [
   { title: "ETF Screener", description: "Like the stock screener, but for exchange-traded funds (ETFs)", route: "/etfs/screener" },
   { title: "Comparison Tool", description: "Compare two or more stocks, with tables and charts", route: "/stocks/compare" },
@@ -66,7 +74,7 @@ const Screener = () => {
   const [activeTab, setActiveTab] = useState("General");
   const [findSearch, setFindSearch] = useState("");
   const [pageSize, setPageSize] = useState(20);
-  const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
+  const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number; marketCap: number | null }>>({});
   const fetchedRef = useRef<Set<string>>(new Set());
   const [marketCapFilter, setMarketCapFilter] = useState("none");
 
@@ -105,20 +113,21 @@ const Screener = () => {
       const q = findSearch.trim().toLowerCase();
       list = list.filter((s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     }
-    // Market cap filters only apply to rows that have live market_cap data
+    // Market cap filters use live data from livePrices
     if (hasMarketCapFilter) {
-      const withMc = list.filter((s) => s.market_cap != null);
+      const getMc = (s: StockRow) => livePrices[s.symbol]?.marketCap ?? s.market_cap;
+      const withMc = list.filter((s) => getMc(s) != null);
       if (withMc.length > 0) {
-        if (marketCapFilter === "mega-cap") list = withMc.filter((s) => (s.market_cap ?? 0) >= 200_000_000_000);
-        else if (marketCapFilter === "large-cap") list = withMc.filter((s) => (s.market_cap ?? 0) >= 10_000_000_000);
-        else if (marketCapFilter === "mid-cap") list = withMc.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 2_000_000_000 && mc < 10_000_000_000; });
-        else if (marketCapFilter === "small-cap") list = withMc.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 300_000_000 && mc < 2_000_000_000; });
-        else if (marketCapFilter === "micro-cap") list = withMc.filter((s) => (s.market_cap ?? 0) < 300_000_000);
+        if (marketCapFilter === "mega-cap") list = withMc.filter((s) => (getMc(s) ?? 0) >= 200_000_000_000);
+        else if (marketCapFilter === "large-cap") list = withMc.filter((s) => (getMc(s) ?? 0) >= 10_000_000_000);
+        else if (marketCapFilter === "mid-cap") list = withMc.filter((s) => { const mc = getMc(s) ?? 0; return mc >= 2_000_000_000 && mc < 10_000_000_000; });
+        else if (marketCapFilter === "small-cap") list = withMc.filter((s) => { const mc = getMc(s) ?? 0; return mc >= 300_000_000 && mc < 2_000_000_000; });
+        else if (marketCapFilter === "micro-cap") list = withMc.filter((s) => (getMc(s) ?? 0) < 300_000_000);
       }
       // If no rows have market_cap data, show all (with toast warning handled in render)
     }
     return list;
-  }, [stocks, findSearch, marketCapFilter, hasMarketCapFilter]);
+  }, [stocks, findSearch, marketCapFilter, hasMarketCapFilter, livePrices]);
 
   const columns = useMemo<ColumnDef<StockRow, any>[]>(
     () => [
@@ -149,7 +158,16 @@ const Screener = () => {
       {
         accessorKey: "market_cap",
         header: "Market Cap",
-        cell: ({ row }) => abbreviateNumber(row.original.market_cap),
+        cell: ({ row }) => {
+          const live = livePrices[row.original.symbol];
+          const mc = live?.marketCap ?? row.original.market_cap;
+          return formatMarketCapScreener(mc);
+        },
+        sortingFn: (rowA, rowB) => {
+          const mcA = livePrices[rowA.original.symbol]?.marketCap ?? rowA.original.market_cap ?? 0;
+          const mcB = livePrices[rowB.original.symbol]?.marketCap ?? rowB.original.market_cap ?? 0;
+          return mcA - mcB;
+        },
         meta: { align: "right" },
       },
       {
@@ -235,7 +253,8 @@ const Screener = () => {
           const prevClose = data?.prevDay?.c ?? 0;
           const change = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
           const vol = data?.day?.v > 0 ? data.day.v : (data?.min?.av ?? 0);
-          setLivePrices((prev) => ({ ...prev, [symbol]: { price, change, volume: vol } }));
+          const mc = data?.market_cap ?? data?.details?.market_cap ?? null;
+          setLivePrices((prev) => ({ ...prev, [symbol]: { price, change, volume: vol, marketCap: mc } }));
         } catch { /* ignore individual failures */ }
       })
     );
@@ -268,7 +287,8 @@ const Screener = () => {
       const price = live?.price ?? s.price;
       const change = live?.change ?? s.change_percent;
       const vol = live?.volume ?? s.volume;
-      return `${s.symbol},"${(s.name ?? "").replace(/"/g, '""')}",${s.market_cap ?? ""},${price != null ? price.toFixed(2) : ""},${change != null ? change.toFixed(2) : ""},${vol ?? ""},${s.pe_ratio != null ? s.pe_ratio.toFixed(2) : ""}`;
+      const mc = live?.marketCap ?? s.market_cap;
+      return `${s.symbol},"${(s.name ?? "").replace(/"/g, '""')}",${mc ?? ""},${price != null ? price.toFixed(2) : ""},${change != null ? change.toFixed(2) : ""},${vol ?? ""},${s.pe_ratio != null ? s.pe_ratio.toFixed(2) : ""}`;
     });
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
