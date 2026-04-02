@@ -382,19 +382,19 @@ const Screener = () => {
                 className="h-8 pl-7 text-xs w-[120px]"
               />
             </div>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleDownloadCsv}>
               <Download className="h-3.5 w-3.5 mr-1" />
               Download
             </Button>
-            <Button size="sm" className="h-8 text-xs bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground relative">
+            <Button size="sm" className="h-8 text-xs bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground relative" onClick={() => navigate(user ? "/watchlist" : "/auth")}>
               <Star className="h-3.5 w-3.5 mr-1" />
               Watchlist
               <span className="absolute -top-1.5 -right-1.5 bg-green text-primary-foreground text-[0.625rem] px-1.5 py-0 rounded-full leading-4 font-semibold">
                 New
               </span>
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs">Indicators</Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => navigate("/pro")}>Full Width 🔒</Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={comingSoon}>Indicators</Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => toast("Pro Feature", { description: "Full Width view is available for HedgeFun Pro subscribers.", action: { label: "Upgrade", onClick: () => navigate("/pro") } })}>Full Width 🔒</Button>
           </div>
         </div>
 
