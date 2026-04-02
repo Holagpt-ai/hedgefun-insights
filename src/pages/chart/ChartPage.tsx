@@ -151,7 +151,7 @@ export default function ChartPage() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [watchlist, setWatchlist] = useState<{ symbol: string }[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
-
+  const chartCacheRef = useRef<Map<string, { data: ChartPoint[]; ts: number }>>(new Map());
   // Chart view mode
   const [chartViewMode, setChartViewMode] = useState<ChartViewMode>("recharts");
   const [tvChartType, setTvChartType] = useState<TVChartType>("area");
