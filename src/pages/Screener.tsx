@@ -149,7 +149,16 @@ const Screener = () => {
       {
         accessorKey: "market_cap",
         header: "Market Cap",
-        cell: ({ row }) => abbreviateNumber(row.original.market_cap),
+        cell: ({ row }) => {
+          const live = livePrices[row.original.symbol];
+          const mc = live?.marketCap ?? row.original.market_cap;
+          return formatMarketCapScreener(mc);
+        },
+        sortingFn: (rowA, rowB) => {
+          const mcA = livePrices[rowA.original.symbol]?.marketCap ?? rowA.original.market_cap ?? 0;
+          const mcB = livePrices[rowB.original.symbol]?.marketCap ?? rowB.original.market_cap ?? 0;
+          return mcA - mcB;
+        },
         meta: { align: "right" },
       },
       {
