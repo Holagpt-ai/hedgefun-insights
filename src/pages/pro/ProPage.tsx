@@ -6,6 +6,7 @@ import { AuthModals } from "@/components/auth/AuthModals";
 import { cn } from "@/lib/utils";
 import { createCheckoutSession } from "@/lib/stripe";
 import { toast } from "@/hooks/use-toast";
+import { PRICING } from "@/config/pricing";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -56,7 +57,7 @@ const STRIPE_PRICES = {
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Is there an annual option?",
-    a: "Yes. The annual plan is $49/year, equivalent to getting 2 months free compared to monthly billing.",
+    a: `Yes. The annual plan is $${PRICING.pro.annual}/year, equivalent to getting 2 months free compared to monthly billing.`,
   },
   {
     q: "What is the Stock Journal?",
@@ -164,9 +165,9 @@ const ProPage = () => {
           <PricingCard
             title="Pro"
             badge="Most Popular"
-            price={billing === "monthly" ? "$5" : "$50"}
+            price={billing === "monthly" ? `$${PRICING.pro.monthly}` : `$${PRICING.pro.annual}`}
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
-            priceSubtext={billing === "annual" ? "save 2 months free" : "$50/year — save 2 months free"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.pro.annual}/year — save 2 months free`}
             features={PRO_FEATURES}
             ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
             ctaVariant="default"
@@ -181,9 +182,9 @@ const ProPage = () => {
             title="Unlimited"
             badge="Best Value"
             badgeColor="green"
-            price={billing === "monthly" ? "$10" : "$80"}
+            price={billing === "monthly" ? `$${PRICING.unlimited.monthly}` : `$${PRICING.unlimited.annual}`}
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
-            priceSubtext={billing === "annual" ? "save 2 months free" : "$80/year — save 2 months free"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.unlimited.annual}/year — save 2 months free`}
             features={UNLIMITED_FEATURES}
             ctaLabel="Choose Plan"
             ctaVariant="outline"
