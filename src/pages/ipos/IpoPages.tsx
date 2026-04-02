@@ -37,7 +37,7 @@ interface RecentIpo {
   changePct: number;
 }
 
-const YEARS = ["All", "2026", "2025", "2024", "2023", "2022", "2021"];
+const YEARS = ["All", "2026", "2025"];
 
 /* ── Column helper ────────────────────────────── */
 const columnHelper = createColumnHelper<RecentIpo>();
