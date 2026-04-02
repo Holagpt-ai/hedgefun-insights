@@ -30,20 +30,25 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY");
+
+    if (!supabaseUrl || !supabaseServiceKey || !supabaseAnonKey) {
+      throw new Error("Missing required Supabase environment variables");
+    }
+
     // Auth check (optional - anonymous users allowed with limits)
     const authHeader = req.headers.get("Authorization");
     let user: { id: string } | null = null;
     let userPlan = "free";
 
-    const adminSupabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
-    );
+    const adminSupabase = createClient(supabaseUrl, supabaseServiceKey);
 
     if (authHeader) {
       const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!,
+        supabaseUrl,
+        supabaseAnonKey,
         { global: { headers: { Authorization: authHeader } } }
       );
       const { data: { user: authUser } } = await supabase.auth.getUser();
