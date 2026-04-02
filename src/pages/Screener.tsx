@@ -71,17 +71,33 @@ const Screener = () => {
   const [marketCapFilter, setMarketCapFilter] = useState("none");
 
   const { data: stocks, isLoading } = useQuery({
-    queryKey: ["screener-stocks"],
+    queryKey: ["screener-tickers"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("stocks")
-        .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, sector, industry, exchange")
-        .order("market_cap", { ascending: false, nullsFirst: false })
-        .limit(1000);
+        .from("ticker_search")
+        .select("symbol, name, exchange, type")
+        .eq("active", true)
+        .order("symbol", { ascending: true })
+        .limit(5000);
       if (error) throw error;
-      return data as StockRow[];
+      return (data ?? []).map((r) => ({
+        symbol: r.symbol,
+        name: r.name,
+        exchange: r.exchange,
+        type: r.type,
+        market_cap: null as number | null,
+        price: null as number | null,
+        change_percent: null as number | null,
+        volume: null as number | null,
+        pe_ratio: null as number | null,
+        industry: null as string | null,
+        sector: null as string | null,
+      }));
     },
+    staleTime: 5 * 60_000,
   });
+
+  const hasMarketCapFilter = ["mega-cap", "large-cap", "mid-cap", "small-cap", "micro-cap"].includes(marketCapFilter);
 
   const filteredData = useMemo(() => {
     let list = stocks ?? [];
@@ -89,14 +105,20 @@ const Screener = () => {
       const q = findSearch.trim().toLowerCase();
       list = list.filter((s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     }
-    // Market cap filter
-    if (marketCapFilter === "mega-cap") list = list.filter((s) => (s.market_cap ?? 0) >= 200_000_000_000);
-    else if (marketCapFilter === "large-cap") list = list.filter((s) => (s.market_cap ?? 0) >= 10_000_000_000);
-    else if (marketCapFilter === "mid-cap") list = list.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 2_000_000_000 && mc < 10_000_000_000; });
-    else if (marketCapFilter === "small-cap") list = list.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 300_000_000 && mc < 2_000_000_000; });
-    else if (marketCapFilter === "micro-cap") list = list.filter((s) => (s.market_cap ?? 0) < 300_000_000);
+    // Market cap filters only apply to rows that have live market_cap data
+    if (hasMarketCapFilter) {
+      const withMc = list.filter((s) => s.market_cap != null);
+      if (withMc.length > 0) {
+        if (marketCapFilter === "mega-cap") list = withMc.filter((s) => (s.market_cap ?? 0) >= 200_000_000_000);
+        else if (marketCapFilter === "large-cap") list = withMc.filter((s) => (s.market_cap ?? 0) >= 10_000_000_000);
+        else if (marketCapFilter === "mid-cap") list = withMc.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 2_000_000_000 && mc < 10_000_000_000; });
+        else if (marketCapFilter === "small-cap") list = withMc.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 300_000_000 && mc < 2_000_000_000; });
+        else if (marketCapFilter === "micro-cap") list = withMc.filter((s) => (s.market_cap ?? 0) < 300_000_000);
+      }
+      // If no rows have market_cap data, show all (with toast warning handled in render)
+    }
     return list;
-  }, [stocks, findSearch, marketCapFilter]);
+  }, [stocks, findSearch, marketCapFilter, hasMarketCapFilter]);
 
   const columns = useMemo<ColumnDef<StockRow, any>[]>(
     () => [
@@ -371,7 +393,12 @@ const Screener = () => {
 
         {/* Results Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-          <span className="text-sm font-semibold text-foreground">100,000+ Stocks &amp; ETFs</span>
+          <span className="text-sm font-semibold text-foreground">
+            {findSearch.trim() || hasMarketCapFilter ? `${filteredData.length} results` : "12,000+ Stocks & ETFs"}
+          </span>
+          {hasMarketCapFilter && filteredData.length === (stocks ?? []).length && (
+            <span className="text-xs text-muted-foreground ml-2">Market cap filter requires live data — showing all results</span>
+          )}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
