@@ -557,7 +557,6 @@ export default function ChartPage() {
                 )}
               </div>
 
-              <ToolbarBtn label={timeRange} />
               <ToolbarBtn
                 label="Studies"
                 hasChevron
