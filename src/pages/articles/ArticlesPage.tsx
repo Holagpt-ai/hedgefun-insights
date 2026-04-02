@@ -275,37 +275,14 @@ export default function ArticlesPage() {
         ))}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
+      {/* Load More */}
+      {page * ARTICLES_PER_PAGE < filtered.length && (
+        <div className="flex justify-center">
           <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="text-sm font-medium text-accent-blue hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+            onClick={() => setPage((p) => p + 1)}
+            className="px-6 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
           >
-            ← Previous
-          </button>
-
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`h-8 w-8 rounded text-sm font-medium transition-colors ${
-                p === page
-                  ? "bg-accent-blue text-white"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="text-sm font-medium text-accent-blue hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
-          >
-            Next →
+            Load More
           </button>
         </div>
       )}
