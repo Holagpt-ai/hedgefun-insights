@@ -113,20 +113,21 @@ const Screener = () => {
       const q = findSearch.trim().toLowerCase();
       list = list.filter((s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     }
-    // Market cap filters only apply to rows that have live market_cap data
+    // Market cap filters use live data from livePrices
     if (hasMarketCapFilter) {
-      const withMc = list.filter((s) => s.market_cap != null);
+      const getMc = (s: StockRow) => livePrices[s.symbol]?.marketCap ?? s.market_cap;
+      const withMc = list.filter((s) => getMc(s) != null);
       if (withMc.length > 0) {
-        if (marketCapFilter === "mega-cap") list = withMc.filter((s) => (s.market_cap ?? 0) >= 200_000_000_000);
-        else if (marketCapFilter === "large-cap") list = withMc.filter((s) => (s.market_cap ?? 0) >= 10_000_000_000);
-        else if (marketCapFilter === "mid-cap") list = withMc.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 2_000_000_000 && mc < 10_000_000_000; });
-        else if (marketCapFilter === "small-cap") list = withMc.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 300_000_000 && mc < 2_000_000_000; });
-        else if (marketCapFilter === "micro-cap") list = withMc.filter((s) => (s.market_cap ?? 0) < 300_000_000);
+        if (marketCapFilter === "mega-cap") list = withMc.filter((s) => (getMc(s) ?? 0) >= 200_000_000_000);
+        else if (marketCapFilter === "large-cap") list = withMc.filter((s) => (getMc(s) ?? 0) >= 10_000_000_000);
+        else if (marketCapFilter === "mid-cap") list = withMc.filter((s) => { const mc = getMc(s) ?? 0; return mc >= 2_000_000_000 && mc < 10_000_000_000; });
+        else if (marketCapFilter === "small-cap") list = withMc.filter((s) => { const mc = getMc(s) ?? 0; return mc >= 300_000_000 && mc < 2_000_000_000; });
+        else if (marketCapFilter === "micro-cap") list = withMc.filter((s) => (getMc(s) ?? 0) < 300_000_000);
       }
       // If no rows have market_cap data, show all (with toast warning handled in render)
     }
     return list;
-  }, [stocks, findSearch, marketCapFilter, hasMarketCapFilter]);
+  }, [stocks, findSearch, marketCapFilter, hasMarketCapFilter, livePrices]);
 
   const columns = useMemo<ColumnDef<StockRow, any>[]>(
     () => [
