@@ -176,6 +176,30 @@ const Screener = () => {
     initialState: { pagination: { pageSize } },
   });
 
+  // Fetch live prices for visible rows
+  const visibleSymbols = table.getRowModel().rows.map((r) => r.original.symbol);
+  useEffect(() => {
+    const toFetch = visibleSymbols.filter((s) => !fetchedRef.current.has(s));
+    if (toFetch.length === 0) return;
+    toFetch.forEach((s) => fetchedRef.current.add(s));
+
+    Promise.allSettled(
+      toFetch.map(async (symbol) => {
+        try {
+          const { data } = await supabase.functions.invoke("get-watchlist-data", {
+            body: { ticker: symbol },
+          });
+          if (!data) return;
+          const price = resolveCurrentPrice(data);
+          const prevClose = data?.prevDay?.c ?? 0;
+          const change = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+          const vol = data?.day?.v > 0 ? data.day.v : (data?.min?.av ?? 0);
+          setLivePrices((prev) => ({ ...prev, [symbol]: { price, change, volume: vol } }));
+        } catch { /* ignore individual failures */ }
+      })
+    );
+  }, [visibleSymbols.join(",")]);
+
   // Sync pageSize changes
   const handlePageSizeChange = useCallback(
     (val: string) => {
