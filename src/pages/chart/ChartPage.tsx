@@ -271,16 +271,16 @@ export default function ChartPage() {
           setError("Chart data temporarily unavailable. Please try again shortly.");
           setChartData([]);
         } else {
-          setChartData(
-            results.map((r: any) => ({
-              date: new Date(r.t).toISOString(),
-              close: r.c,
-              open: r.o,
-              high: r.h,
-              low: r.l,
-              volume: r.v,
-            }))
-          );
+          const mapped = results.map((r: any) => ({
+            date: new Date(r.t).toISOString(),
+            close: r.c,
+            open: r.o,
+            high: r.h,
+            low: r.l,
+            volume: r.v,
+          }));
+          chartCacheRef.current.set(cacheKey, { data: mapped, ts: Date.now() });
+          setChartData(mapped);
         }
       } catch (err: any) {
         if (err.name === "AbortError") return;
