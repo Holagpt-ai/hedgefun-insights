@@ -71,16 +71,30 @@ const Screener = () => {
   const [marketCapFilter, setMarketCapFilter] = useState("none");
 
   const { data: stocks, isLoading } = useQuery({
-    queryKey: ["screener-stocks"],
+    queryKey: ["screener-tickers"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("stocks")
-        .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, sector, industry, exchange")
-        .order("market_cap", { ascending: false, nullsFirst: false })
-        .limit(1000);
+        .from("ticker_search")
+        .select("symbol, name, exchange, type")
+        .eq("active", true)
+        .order("symbol", { ascending: true })
+        .limit(5000);
       if (error) throw error;
-      return data as StockRow[];
+      return (data ?? []).map((r) => ({
+        symbol: r.symbol,
+        name: r.name,
+        exchange: r.exchange,
+        type: r.type,
+        market_cap: null as number | null,
+        price: null as number | null,
+        change_percent: null as number | null,
+        volume: null as number | null,
+        pe_ratio: null as number | null,
+        industry: null as string | null,
+        sector: null as string | null,
+      }));
     },
+    staleTime: 5 * 60_000,
   });
 
   const filteredData = useMemo(() => {
