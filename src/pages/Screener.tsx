@@ -235,7 +235,8 @@ const Screener = () => {
           const prevClose = data?.prevDay?.c ?? 0;
           const change = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
           const vol = data?.day?.v > 0 ? data.day.v : (data?.min?.av ?? 0);
-          setLivePrices((prev) => ({ ...prev, [symbol]: { price, change, volume: vol } }));
+          const mc = data?.market_cap ?? data?.details?.market_cap ?? null;
+          setLivePrices((prev) => ({ ...prev, [symbol]: { price, change, volume: vol, marketCap: mc } }));
         } catch { /* ignore individual failures */ }
       })
     );
