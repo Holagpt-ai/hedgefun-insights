@@ -165,9 +165,9 @@ const ProPage = () => {
           <PricingCard
             title="Pro"
             badge="Most Popular"
-            price={billing === "monthly" ? "$5" : "$50"}
+            price={billing === "monthly" ? `$${PRICING.pro.monthly}` : `$${PRICING.pro.annual}`}
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
-            priceSubtext={billing === "annual" ? "save 2 months free" : "$50/year — save 2 months free"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.pro.annual}/year — save 2 months free`}
             features={PRO_FEATURES}
             ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
             ctaVariant="default"
