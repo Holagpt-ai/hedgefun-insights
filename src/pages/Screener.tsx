@@ -134,11 +134,12 @@ const Screener = () => {
         accessorKey: "change_percent",
         header: "% Change",
         cell: ({ row }) => {
-          const v = row.original.change_percent;
+          const live = livePrices[row.original.symbol];
+          const v = live?.change ?? row.original.change_percent;
           if (v == null) return "—";
           return (
             <span className={v >= 0 ? "price-positive" : "price-negative"}>
-              {v >= 0 ? "" : ""}{v.toFixed(2)}%
+              {v.toFixed(2)}%
             </span>
           );
         },
