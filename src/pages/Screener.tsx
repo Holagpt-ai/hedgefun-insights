@@ -63,6 +63,8 @@ const Screener = () => {
   const [activeTab, setActiveTab] = useState("General");
   const [findSearch, setFindSearch] = useState("");
   const [pageSize, setPageSize] = useState(20);
+  const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
+  const fetchedRef = useRef<Set<string>>(new Set());
 
   const { data: stocks, isLoading } = useQuery({
     queryKey: ["screener-stocks"],
