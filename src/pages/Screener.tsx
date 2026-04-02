@@ -287,7 +287,8 @@ const Screener = () => {
       const price = live?.price ?? s.price;
       const change = live?.change ?? s.change_percent;
       const vol = live?.volume ?? s.volume;
-      return `${s.symbol},"${(s.name ?? "").replace(/"/g, '""')}",${s.market_cap ?? ""},${price != null ? price.toFixed(2) : ""},${change != null ? change.toFixed(2) : ""},${vol ?? ""},${s.pe_ratio != null ? s.pe_ratio.toFixed(2) : ""}`;
+      const mc = live?.marketCap ?? s.market_cap;
+      return `${s.symbol},"${(s.name ?? "").replace(/"/g, '""')}",${mc ?? ""},${price != null ? price.toFixed(2) : ""},${change != null ? change.toFixed(2) : ""},${vol ?? ""},${s.pe_ratio != null ? s.pe_ratio.toFixed(2) : ""}`;
     });
     const csv = [header, ...csvRows].join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
