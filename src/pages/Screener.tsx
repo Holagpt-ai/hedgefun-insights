@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { ScreenerTutorialButton } from "@/components/screener/ScreenerTutorialDialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 
 import {
   useReactTable,
@@ -56,6 +58,7 @@ type StockRow = {
 
 const Screener = () => {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterSearch, setFilterSearch] = useState("");
   const [activeFilters, setActiveFilters] = useState<{ key: string; label: string; value: string }[]>([]);
@@ -65,6 +68,7 @@ const Screener = () => {
   const [pageSize, setPageSize] = useState(20);
   const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
   const fetchedRef = useRef<Set<string>>(new Set());
+  const [marketCapFilter, setMarketCapFilter] = useState("none");
 
   const { data: stocks, isLoading } = useQuery({
     queryKey: ["screener-stocks"],
@@ -85,8 +89,14 @@ const Screener = () => {
       const q = findSearch.trim().toLowerCase();
       list = list.filter((s) => s.symbol.toLowerCase().includes(q) || s.name.toLowerCase().includes(q));
     }
+    // Market cap filter
+    if (marketCapFilter === "mega-cap") list = list.filter((s) => (s.market_cap ?? 0) >= 200_000_000_000);
+    else if (marketCapFilter === "large-cap") list = list.filter((s) => (s.market_cap ?? 0) >= 10_000_000_000);
+    else if (marketCapFilter === "mid-cap") list = list.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 2_000_000_000 && mc < 10_000_000_000; });
+    else if (marketCapFilter === "small-cap") list = list.filter((s) => { const mc = s.market_cap ?? 0; return mc >= 300_000_000 && mc < 2_000_000_000; });
+    else if (marketCapFilter === "micro-cap") list = list.filter((s) => (s.market_cap ?? 0) < 300_000_000);
     return list;
-  }, [stocks, findSearch]);
+  }, [stocks, findSearch, marketCapFilter]);
 
   const columns = useMemo<ColumnDef<StockRow, any>[]>(
     () => [
@@ -225,6 +235,30 @@ const Screener = () => {
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
+  const comingSoon = () => toast("Coming Soon", { description: "This view will be available in a future update." });
+
+  const handleDownloadCsv = () => {
+    const rows = table.getRowModel().rows.map((r) => r.original);
+    if (!rows.length) return;
+    const header = "Symbol,Company Name,Market Cap,Stock Price,% Change,Volume,PE Ratio";
+    const csvRows = rows.map((s) => {
+      const live = livePrices[s.symbol];
+      const price = live?.price ?? s.price;
+      const change = live?.change ?? s.change_percent;
+      const vol = live?.volume ?? s.volume;
+      return `${s.symbol},"${(s.name ?? "").replace(/"/g, '""')}",${s.market_cap ?? ""},${price != null ? price.toFixed(2) : ""},${change != null ? change.toFixed(2) : ""},${vol ?? ""},${s.pe_ratio != null ? s.pe_ratio.toFixed(2) : ""}`;
+    });
+    const csv = [header, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "screener_results.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Downloaded screener results as CSV.");
+  };
+
   const totalStocks = filteredData.length;
   const pageIndex = table.getState().pagination.pageIndex;
   const totalPages = table.getPageCount();
@@ -249,28 +283,37 @@ const Screener = () => {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-muted-foreground">Exchange Country</div>
-            <Select defaultValue="us">
+            <Select defaultValue="us" onValueChange={(v) => { if (v !== "us") toast("Coming Soon", { description: "International markets coming soon." }); }}>
               <SelectTrigger className="h-8 text-xs w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="us">🇺🇸 United States</SelectItem>
-                <SelectItem value="ca">🇨🇦 Canada</SelectItem>
                 <SelectItem value="gb">🇬🇧 United Kingdom</SelectItem>
+                <SelectItem value="ca">🇨🇦 Canada</SelectItem>
+                <SelectItem value="de">🇩🇪 Germany</SelectItem>
+                <SelectItem value="jp">🇯🇵 Japan</SelectItem>
+                <SelectItem value="au">🇦🇺 Australia</SelectItem>
+                <SelectItem value="fr">🇫🇷 France</SelectItem>
+                <SelectItem value="cn">🇨🇳 China</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="none">
+            <Select value={marketCapFilter} onValueChange={(v) => { setMarketCapFilter(v); if (v === "high-dividend" || v === "growth") comingSoon(); }}>
               <SelectTrigger className="h-8 text-xs w-[140px]">
                 <SelectValue placeholder="Popular Screens" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Select popular</SelectItem>
                 <SelectItem value="mega-cap">Mega Cap</SelectItem>
+                <SelectItem value="large-cap">Large Cap</SelectItem>
+                <SelectItem value="mid-cap">Mid Cap</SelectItem>
+                <SelectItem value="small-cap">Small Cap</SelectItem>
+                <SelectItem value="micro-cap">Micro Cap</SelectItem>
                 <SelectItem value="high-dividend">High Dividend</SelectItem>
                 <SelectItem value="growth">Growth Stocks</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="none">
+            <Select defaultValue="none" onValueChange={(v) => { if (v !== "none") comingSoon(); }}>
               <SelectTrigger className="h-8 text-xs w-[130px]">
                 <SelectValue placeholder="Saved Screens" />
               </SelectTrigger>
@@ -339,19 +382,19 @@ const Screener = () => {
                 className="h-8 pl-7 text-xs w-[120px]"
               />
             </div>
-            <Button variant="outline" size="sm" className="h-8 text-xs">
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={handleDownloadCsv}>
               <Download className="h-3.5 w-3.5 mr-1" />
               Download
             </Button>
-            <Button size="sm" className="h-8 text-xs bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground relative">
+            <Button size="sm" className="h-8 text-xs bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground relative" onClick={() => navigate(user ? "/watchlist" : "/auth")}>
               <Star className="h-3.5 w-3.5 mr-1" />
               Watchlist
               <span className="absolute -top-1.5 -right-1.5 bg-green text-primary-foreground text-[0.625rem] px-1.5 py-0 rounded-full leading-4 font-semibold">
                 New
               </span>
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs">Indicators</Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => navigate("/pro")}>Full Width 🔒</Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={comingSoon}>Indicators</Button>
+            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => toast("Pro Feature", { description: "Full Width view is available for HedgeFun Pro subscribers.", action: { label: "Upgrade", onClick: () => navigate("/pro") } })}>Full Width 🔒</Button>
           </div>
         </div>
 
@@ -360,7 +403,7 @@ const Screener = () => {
           {VIEW_TABS.map((tab) => (
             <button
               key={tab}
-              onClick={() => setActiveTab(tab)}
+              onClick={() => { if (tab === "General") { setActiveTab(tab); } else { comingSoon(); } }}
               className={cn(
                 "px-3 py-2 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
                 activeTab === tab
@@ -369,17 +412,12 @@ const Screener = () => {
               )}
             >
               {tab}
-              {tab === "Filters" && activeFilters.length > 0 && (
-                <span className="ml-1 bg-accent-blue text-primary-foreground text-[0.625rem] px-1.5 rounded-full">
-                  {activeFilters.length}
-                </span>
-              )}
             </button>
           ))}
-          <button className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
+          <button onClick={comingSoon} className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
             + Add View
           </button>
-          <button className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
+          <button onClick={comingSoon} className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
             ✏️ Edit View
           </button>
         </div>
