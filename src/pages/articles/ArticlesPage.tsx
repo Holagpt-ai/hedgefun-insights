@@ -120,7 +120,7 @@ export function getReadTime(wordCount: number): string {
   return `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
 }
 
-const ARTICLES_PER_PAGE = 6;
+const ARTICLES_PER_PAGE = 20;
 
 // Collect unique tags
 const ALL_TAGS = Array.from(
@@ -149,11 +149,8 @@ export default function ArticlesPage() {
     return result;
   }, [search, activeTag]);
 
-  const totalPages = Math.ceil(filtered.length / ARTICLES_PER_PAGE);
-  const paginatedArticles = filtered.slice(
-    (page - 1) * ARTICLES_PER_PAGE,
-    page * ARTICLES_PER_PAGE
-  );
+  
+  const paginatedArticles = filtered.slice(0, page * ARTICLES_PER_PAGE);
 
   // Reset to page 1 when filters change
   const updateSearch = (v: string) => { setSearch(v); setPage(1); };
@@ -236,13 +233,16 @@ export default function ArticlesPage() {
             onClick={() => navigate(`/articles/${article.slug}`)}
             className="text-left border border-border rounded-md overflow-hidden hover:border-accent-blue transition-colors group bg-surface-card"
           >
-            {/* Cover image */}
-            <div className="aspect-video overflow-hidden">
+             {/* Cover image */}
+            <div className="aspect-video overflow-hidden" style={{ backgroundColor: '#f4f4f5' }}>
               <img
                 src={article.image}
                 alt={article.title}
+                width={400}
+                height={225}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 loading="lazy"
+                onError={(e) => { e.currentTarget.style.display = 'none' }}
               />
             </div>
 
@@ -272,37 +272,14 @@ export default function ArticlesPage() {
         ))}
       </div>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-center gap-2">
+      {/* Load More */}
+      {page * ARTICLES_PER_PAGE < filtered.length && (
+        <div className="flex justify-center">
           <button
-            onClick={() => setPage((p) => Math.max(1, p - 1))}
-            disabled={page === 1}
-            className="text-sm font-medium text-accent-blue hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+            onClick={() => setPage((p) => p + 1)}
+            className="px-6 py-2 rounded-md border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors"
           >
-            ← Previous
-          </button>
-
-          {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-            <button
-              key={p}
-              onClick={() => setPage(p)}
-              className={`h-8 w-8 rounded text-sm font-medium transition-colors ${
-                p === page
-                  ? "bg-accent-blue text-white"
-                  : "text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {p}
-            </button>
-          ))}
-
-          <button
-            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            disabled={page === totalPages}
-            className="text-sm font-medium text-accent-blue hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
-          >
-            Next →
+            Load More
           </button>
         </div>
       )}

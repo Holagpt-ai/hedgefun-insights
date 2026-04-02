@@ -228,11 +228,15 @@ export default function ArticleDetailPage() {
       </div>
 
       {/* Hero Image */}
-      <div className="relative w-full h-[280px] sm:h-[400px] overflow-hidden">
+      <div className="relative w-full h-[280px] sm:h-[400px] overflow-hidden" style={{ backgroundColor: '#f4f4f5' }}>
         <img
           src={article.image}
           alt={article.title}
+          width={1200}
+          height={400}
           className="w-full h-full object-cover"
+          loading="eager"
+          onError={(e) => { e.currentTarget.style.display = 'none' }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10 max-w-[720px] mx-auto">
@@ -304,12 +308,15 @@ export default function ArticleDetailPage() {
                 onClick={() => navigate(`/articles/${r.slug}`)}
                 className="text-left border border-border rounded-md overflow-hidden hover:border-accent-blue transition-colors group bg-surface-card"
               >
-                <div className="aspect-video overflow-hidden">
+                <div className="aspect-video overflow-hidden" style={{ backgroundColor: '#f4f4f5' }}>
                   <img
                     src={r.image}
                     alt={r.title}
+                    width={400}
+                    height={225}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
+                    onError={(e) => { e.currentTarget.style.display = 'none' }}
                   />
                 </div>
                 <div className="p-4">
