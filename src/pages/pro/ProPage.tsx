@@ -57,7 +57,7 @@ const STRIPE_PRICES = {
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Is there an annual option?",
-    a: "Yes. The annual plan is $49/year, equivalent to getting 2 months free compared to monthly billing.",
+    a: `Yes. The annual plan is $${PRICING.pro.annual}/year, equivalent to getting 2 months free compared to monthly billing.`,
   },
   {
     q: "What is the Stock Journal?",
