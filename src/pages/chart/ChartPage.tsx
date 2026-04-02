@@ -151,7 +151,7 @@ export default function ChartPage() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [watchlist, setWatchlist] = useState<{ symbol: string }[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
-
+  const chartCacheRef = useRef<Map<string, { data: ChartPoint[]; ts: number }>>(new Map());
   // Chart view mode
   const [chartViewMode, setChartViewMode] = useState<ChartViewMode>("recharts");
   const [tvChartType, setTvChartType] = useState<TVChartType>("area");
@@ -208,6 +208,17 @@ export default function ChartPage() {
   useEffect(() => {
     if (!ticker) return;
 
+    const cacheKey = `${ticker}:${timeRange}`;
+    const cached = chartCacheRef.current.get(cacheKey);
+    const STALE_MS = 5 * 60_000;
+    if (cached && Date.now() - cached.ts < STALE_MS) {
+      setChartData(cached.data);
+      setError("");
+      setLoading(false);
+      setHoveredPoint(null);
+      return;
+    }
+
     const abortController = new AbortController();
 
     // Reset all chart state for the new ticker
@@ -260,16 +271,16 @@ export default function ChartPage() {
           setError("Chart data temporarily unavailable. Please try again shortly.");
           setChartData([]);
         } else {
-          setChartData(
-            results.map((r: any) => ({
-              date: new Date(r.t).toISOString(),
-              close: r.c,
-              open: r.o,
-              high: r.h,
-              low: r.l,
-              volume: r.v,
-            }))
-          );
+          const mapped = results.map((r: any) => ({
+            date: new Date(r.t).toISOString(),
+            close: r.c,
+            open: r.o,
+            high: r.h,
+            low: r.l,
+            volume: r.v,
+          }));
+          chartCacheRef.current.set(cacheKey, { data: mapped, ts: Date.now() });
+          setChartData(mapped);
         }
       } catch (err: any) {
         if (err.name === "AbortError") return;
@@ -557,7 +568,6 @@ export default function ChartPage() {
                 )}
               </div>
 
-              <ToolbarBtn label={timeRange} />
               <ToolbarBtn
                 label="Studies"
                 hasChevron
@@ -585,35 +595,63 @@ export default function ChartPage() {
                   toast.success(`Downloaded ${ticker} chart data as CSV.`);
                 }}
               />
-              <ToolbarBtn icon={<Settings className="h-4 w-4" />} hasChevron />
+              <ToolbarBtn
+                icon={<Settings className="h-4 w-4" />}
+                onClick={() => toast.info("Settings — Coming Soon", { description: "Chart settings will be available in a future update." })}
+              />
             </div>
           </div>
 
           {/* Chart Area */}
           <div className="flex-1 relative min-h-0">
+            {/* Ticker watermark */}
+            {ticker && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 select-none">
+                <span className="text-[120px] font-bold text-foreground" style={{ opacity: 0.08, lineHeight: 1 }}>
+                  {ticker}
+                </span>
+              </div>
+            )}
             {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Skeleton className="w-full h-64 mb-4 mx-auto max-w-2xl" />
-                  <p className="text-sm text-muted-foreground">Loading chart data...</p>
-                </div>
+              <div className="flex flex-col h-full p-4 gap-3">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="flex-1 w-full rounded-[var(--radius)]" />
+                <Skeleton className="h-[80px] w-full rounded-[var(--radius)]" />
+                <Skeleton className="h-10 w-64 mx-auto" />
               </div>
             ) : error ? (
               <div className="flex items-center justify-center h-full">
                 <p className="text-sm text-muted-foreground max-w-md text-center">{error}</p>
               </div>
             ) : chartViewMode === "tradingview" ? (
-              <div className="h-full p-2">
-                <TradingViewChart
-                  data={ohlcvData}
-                  ticker={ticker}
-                  isPositive={priceChange >= 0}
-                  height={600}
-                  loading={false}
-                  chartType={tvChartType}
-                  onChartTypeChange={setTvChartType}
-                  hideToolbar
-                />
+              <div className="h-full flex flex-col">
+                <div className="flex-1 min-h-0 p-2">
+                  <TradingViewChart
+                    data={ohlcvData}
+                    ticker={ticker}
+                    isPositive={priceChange >= 0}
+                    height={600}
+                    loading={false}
+                    chartType={tvChartType}
+                    onChartTypeChange={setTvChartType}
+                    hideToolbar
+                  />
+                </div>
+                <div className="h-10 flex items-center justify-center gap-1 border-t border-border shrink-0 px-2 overflow-x-auto">
+                  {TIME_RANGES.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setTimeRange(r)}
+                      className={`px-2.5 py-1 text-[0.8125rem] rounded-[var(--radius)] transition-colors ${
+                        timeRange === r
+                          ? "bg-accent-blue text-primary-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="h-full flex flex-col">
