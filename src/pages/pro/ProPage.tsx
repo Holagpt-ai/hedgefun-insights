@@ -182,9 +182,9 @@ const ProPage = () => {
             title="Unlimited"
             badge="Best Value"
             badgeColor="green"
-            price={billing === "monthly" ? "$10" : "$80"}
+            price={billing === "monthly" ? `$${PRICING.unlimited.monthly}` : `$${PRICING.unlimited.annual}`}
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
-            priceSubtext={billing === "annual" ? "save 2 months free" : "$80/year — save 2 months free"}
+            priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.unlimited.annual}/year — save 2 months free`}
             features={UNLIMITED_FEATURES}
             ctaLabel="Choose Plan"
             ctaVariant="outline"
