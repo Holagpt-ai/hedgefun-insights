@@ -613,17 +613,34 @@ export default function ChartPage() {
                 <p className="text-sm text-muted-foreground max-w-md text-center">{error}</p>
               </div>
             ) : chartViewMode === "tradingview" ? (
-              <div className="h-full p-2">
-                <TradingViewChart
-                  data={ohlcvData}
-                  ticker={ticker}
-                  isPositive={priceChange >= 0}
-                  height={600}
-                  loading={false}
-                  chartType={tvChartType}
-                  onChartTypeChange={setTvChartType}
-                  hideToolbar
-                />
+              <div className="h-full flex flex-col">
+                <div className="flex-1 min-h-0 p-2">
+                  <TradingViewChart
+                    data={ohlcvData}
+                    ticker={ticker}
+                    isPositive={priceChange >= 0}
+                    height={600}
+                    loading={false}
+                    chartType={tvChartType}
+                    onChartTypeChange={setTvChartType}
+                    hideToolbar
+                  />
+                </div>
+                <div className="h-10 flex items-center justify-center gap-1 border-t border-border shrink-0 px-2 overflow-x-auto">
+                  {TIME_RANGES.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => setTimeRange(r)}
+                      className={`px-2.5 py-1 text-[0.8125rem] rounded-[var(--radius)] transition-colors ${
+                        timeRange === r
+                          ? "bg-accent-blue text-primary-foreground font-medium"
+                          : "text-muted-foreground hover:text-foreground hover:bg-accent"
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="h-full flex flex-col">
