@@ -208,6 +208,17 @@ export default function ChartPage() {
   useEffect(() => {
     if (!ticker) return;
 
+    const cacheKey = `${ticker}:${timeRange}`;
+    const cached = chartCacheRef.current.get(cacheKey);
+    const STALE_MS = 5 * 60_000;
+    if (cached && Date.now() - cached.ts < STALE_MS) {
+      setChartData(cached.data);
+      setError("");
+      setLoading(false);
+      setHoveredPoint(null);
+      return;
+    }
+
     const abortController = new AbortController();
 
     // Reset all chart state for the new ticker
