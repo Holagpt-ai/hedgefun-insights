@@ -1,7 +1,8 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { resolveCurrentPrice } from "@/lib/price-utils";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -62,6 +63,8 @@ const Screener = () => {
   const [activeTab, setActiveTab] = useState("General");
   const [findSearch, setFindSearch] = useState("");
   const [pageSize, setPageSize] = useState(20);
+  const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
+  const fetchedRef = useRef<Set<string>>(new Set());
 
   const { data: stocks, isLoading } = useQuery({
     queryKey: ["screener-stocks"],
@@ -120,18 +123,23 @@ const Screener = () => {
       {
         accessorKey: "price",
         header: "Stock Price",
-        cell: ({ row }) => (row.original.price != null ? `$${row.original.price.toFixed(2)}` : "—"),
+        cell: ({ row }) => {
+          const live = livePrices[row.original.symbol];
+          const p = live?.price ?? row.original.price;
+          return p != null && p > 0 ? `$${p.toFixed(2)}` : "—";
+        },
         meta: { align: "right" },
       },
       {
         accessorKey: "change_percent",
         header: "% Change",
         cell: ({ row }) => {
-          const v = row.original.change_percent;
+          const live = livePrices[row.original.symbol];
+          const v = live?.change ?? row.original.change_percent;
           if (v == null) return "—";
           return (
             <span className={v >= 0 ? "price-positive" : "price-negative"}>
-              {v >= 0 ? "" : ""}{v.toFixed(2)}%
+              {v.toFixed(2)}%
             </span>
           );
         },
@@ -149,7 +157,11 @@ const Screener = () => {
       {
         accessorKey: "volume",
         header: "Volume",
-        cell: ({ row }) => (row.original.volume != null ? row.original.volume.toLocaleString() : "—"),
+        cell: ({ row }) => {
+          const live = livePrices[row.original.symbol];
+          const v = live?.volume ?? row.original.volume;
+          return v != null && v > 0 ? v.toLocaleString() : "—";
+        },
         meta: { align: "right" },
       },
       {
@@ -159,7 +171,7 @@ const Screener = () => {
         meta: { align: "right" },
       },
     ],
-    [navigate],
+    [navigate, livePrices],
   );
 
   const table = useReactTable({
@@ -172,6 +184,30 @@ const Screener = () => {
     getPaginationRowModel: getPaginationRowModel(),
     initialState: { pagination: { pageSize } },
   });
+
+  // Fetch live prices for visible rows
+  const visibleSymbols = table.getRowModel().rows.map((r) => r.original.symbol);
+  useEffect(() => {
+    const toFetch = visibleSymbols.filter((s) => !fetchedRef.current.has(s));
+    if (toFetch.length === 0) return;
+    toFetch.forEach((s) => fetchedRef.current.add(s));
+
+    Promise.allSettled(
+      toFetch.map(async (symbol) => {
+        try {
+          const { data } = await supabase.functions.invoke("get-watchlist-data", {
+            body: { ticker: symbol },
+          });
+          if (!data) return;
+          const price = resolveCurrentPrice(data);
+          const prevClose = data?.prevDay?.c ?? 0;
+          const change = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+          const vol = data?.day?.v > 0 ? data.day.v : (data?.min?.av ?? 0);
+          setLivePrices((prev) => ({ ...prev, [symbol]: { price, change, volume: vol } }));
+        } catch { /* ignore individual failures */ }
+      })
+    );
+  }, [visibleSymbols.join(",")]);
 
   // Sync pageSize changes
   const handlePageSizeChange = useCallback(
@@ -292,7 +328,7 @@ const Screener = () => {
 
         {/* Results Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
-          <span className="text-sm font-semibold text-foreground">{totalStocks.toLocaleString()} Stocks</span>
+          <span className="text-sm font-semibold text-foreground">100,000+ Stocks &amp; ETFs</span>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="relative">
               <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
