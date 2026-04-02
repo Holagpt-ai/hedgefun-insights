@@ -149,7 +149,7 @@ export default function ArticlesPage() {
     return result;
   }, [search, activeTag]);
 
-  const totalPages = Math.ceil(filtered.length / ARTICLES_PER_PAGE);
+  
   const paginatedArticles = filtered.slice(0, page * ARTICLES_PER_PAGE);
 
   // Reset to page 1 when filters change
