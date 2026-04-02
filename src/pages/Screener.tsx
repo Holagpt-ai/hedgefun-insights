@@ -283,28 +283,37 @@ const Screener = () => {
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <div className="text-xs text-muted-foreground">Exchange Country</div>
-            <Select defaultValue="us">
+            <Select defaultValue="us" onValueChange={(v) => { if (v !== "us") toast("Coming Soon", { description: "International markets coming soon." }); }}>
               <SelectTrigger className="h-8 text-xs w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="us">🇺🇸 United States</SelectItem>
-                <SelectItem value="ca">🇨🇦 Canada</SelectItem>
                 <SelectItem value="gb">🇬🇧 United Kingdom</SelectItem>
+                <SelectItem value="ca">🇨🇦 Canada</SelectItem>
+                <SelectItem value="de">🇩🇪 Germany</SelectItem>
+                <SelectItem value="jp">🇯🇵 Japan</SelectItem>
+                <SelectItem value="au">🇦🇺 Australia</SelectItem>
+                <SelectItem value="fr">🇫🇷 France</SelectItem>
+                <SelectItem value="cn">🇨🇳 China</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="none">
+            <Select value={marketCapFilter} onValueChange={(v) => { setMarketCapFilter(v); if (v === "high-dividend" || v === "growth") comingSoon(); }}>
               <SelectTrigger className="h-8 text-xs w-[140px]">
                 <SelectValue placeholder="Popular Screens" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Select popular</SelectItem>
                 <SelectItem value="mega-cap">Mega Cap</SelectItem>
+                <SelectItem value="large-cap">Large Cap</SelectItem>
+                <SelectItem value="mid-cap">Mid Cap</SelectItem>
+                <SelectItem value="small-cap">Small Cap</SelectItem>
+                <SelectItem value="micro-cap">Micro Cap</SelectItem>
                 <SelectItem value="high-dividend">High Dividend</SelectItem>
                 <SelectItem value="growth">Growth Stocks</SelectItem>
               </SelectContent>
             </Select>
-            <Select defaultValue="none">
+            <Select defaultValue="none" onValueChange={(v) => { if (v !== "none") comingSoon(); }}>
               <SelectTrigger className="h-8 text-xs w-[130px]">
                 <SelectValue placeholder="Saved Screens" />
               </SelectTrigger>
