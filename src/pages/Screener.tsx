@@ -123,7 +123,11 @@ const Screener = () => {
       {
         accessorKey: "price",
         header: "Stock Price",
-        cell: ({ row }) => (row.original.price != null ? `$${row.original.price.toFixed(2)}` : "—"),
+        cell: ({ row }) => {
+          const live = livePrices[row.original.symbol];
+          const p = live?.price ?? row.original.price;
+          return p != null && p > 0 ? `$${p.toFixed(2)}` : "—";
+        },
         meta: { align: "right" },
       },
       {
