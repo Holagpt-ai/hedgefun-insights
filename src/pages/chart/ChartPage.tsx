@@ -584,7 +584,10 @@ export default function ChartPage() {
                   toast.success(`Downloaded ${ticker} chart data as CSV.`);
                 }}
               />
-              <ToolbarBtn icon={<Settings className="h-4 w-4" />} hasChevron />
+              <ToolbarBtn
+                icon={<Settings className="h-4 w-4" />}
+                onClick={() => toast.info("Settings — Coming Soon", { description: "Chart settings will be available in a future update." })}
+              />
             </div>
           </div>
 
