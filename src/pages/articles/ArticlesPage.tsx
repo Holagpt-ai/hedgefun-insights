@@ -120,7 +120,7 @@ export function getReadTime(wordCount: number): string {
   return `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
 }
 
-const ARTICLES_PER_PAGE = 6;
+const ARTICLES_PER_PAGE = 20;
 
 // Collect unique tags
 const ALL_TAGS = Array.from(
