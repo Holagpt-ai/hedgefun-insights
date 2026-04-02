@@ -34,6 +34,14 @@ function abbreviateNumber(n: number | null | undefined): string {
   return n.toLocaleString();
 }
 
+function formatMarketCapScreener(n: number | null): string {
+  if (!n) return "—";
+  if (n >= 1e12) return `${(n / 1e12).toFixed(2)}T`;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  return n.toLocaleString();
+}
+
 const RELATED_TOOLS = [
   { title: "ETF Screener", description: "Like the stock screener, but for exchange-traded funds (ETFs)", route: "/etfs/screener" },
   { title: "Comparison Tool", description: "Compare two or more stocks, with tables and charts", route: "/stocks/compare" },
