@@ -593,12 +593,20 @@ export default function ChartPage() {
 
           {/* Chart Area */}
           <div className="flex-1 relative min-h-0">
+            {/* Ticker watermark */}
+            {ticker && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 select-none">
+                <span className="text-[120px] font-bold text-foreground" style={{ opacity: 0.08, lineHeight: 1 }}>
+                  {ticker}
+                </span>
+              </div>
+            )}
             {loading ? (
-              <div className="flex items-center justify-center h-full">
-                <div className="text-center">
-                  <Skeleton className="w-full h-64 mb-4 mx-auto max-w-2xl" />
-                  <p className="text-sm text-muted-foreground">Loading chart data...</p>
-                </div>
+              <div className="flex flex-col h-full p-4 gap-3">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="flex-1 w-full rounded-[var(--radius)]" />
+                <Skeleton className="h-[80px] w-full rounded-[var(--radius)]" />
+                <Skeleton className="h-10 w-64 mx-auto" />
               </div>
             ) : error ? (
               <div className="flex items-center justify-center h-full">
