@@ -157,7 +157,11 @@ const Screener = () => {
       {
         accessorKey: "volume",
         header: "Volume",
-        cell: ({ row }) => (row.original.volume != null ? row.original.volume.toLocaleString() : "—"),
+        cell: ({ row }) => {
+          const live = livePrices[row.original.symbol];
+          const v = live?.volume ?? row.original.volume;
+          return v != null && v > 0 ? v.toLocaleString() : "—";
+        },
         meta: { align: "right" },
       },
       {
