@@ -235,6 +235,30 @@ const Screener = () => {
 
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
+  const comingSoon = () => toast("Coming Soon", { description: "This view will be available in a future update." });
+
+  const handleDownloadCsv = () => {
+    const rows = table.getRowModel().rows.map((r) => r.original);
+    if (!rows.length) return;
+    const header = "Symbol,Company Name,Market Cap,Stock Price,% Change,Volume,PE Ratio";
+    const csvRows = rows.map((s) => {
+      const live = livePrices[s.symbol];
+      const price = live?.price ?? s.price;
+      const change = live?.change ?? s.change_percent;
+      const vol = live?.volume ?? s.volume;
+      return `${s.symbol},"${(s.name ?? "").replace(/"/g, '""')}",${s.market_cap ?? ""},${price != null ? price.toFixed(2) : ""},${change != null ? change.toFixed(2) : ""},${vol ?? ""},${s.pe_ratio != null ? s.pe_ratio.toFixed(2) : ""}`;
+    });
+    const csv = [header, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "screener_results.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Downloaded screener results as CSV.");
+  };
+
   const totalStocks = filteredData.length;
   const pageIndex = table.getState().pagination.pageIndex;
   const totalPages = table.getPageCount();
