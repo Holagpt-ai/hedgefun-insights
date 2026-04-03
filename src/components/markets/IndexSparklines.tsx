@@ -37,12 +37,20 @@ export function IndexSparklines() {
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 rounded" />)
           : items.map((idx: any) => {
-              const pct = idx.change_percent ?? 0;
-              const positive = pct >= 0;
-              const color = positive ? "hsl(var(--green))" : "hsl(var(--red))";
-              const sparkData = Array.isArray(idx.sparkline_data)
+              const rawSparkline = Array.isArray(idx.sparkline_data)
                 ? idx.sparkline_data.map((v: number, i: number) => ({ v, i }))
                 : [];
+              const sparkArr = Array.isArray(idx.sparkline_data) ? idx.sparkline_data as number[] : [];
+              const lastVal = sparkArr.length > 0 ? sparkArr[sparkArr.length - 1] : 0;
+              const prevVal = sparkArr.length >= 2 ? sparkArr[sparkArr.length - 2] : sparkArr[0] ?? 0;
+              const rawPct = idx.change_percent ?? 0;
+              const computedPct = prevVal > 0 && lastVal > 0
+                ? ((lastVal - prevVal) / prevVal) * 100
+                : 0;
+              const pct = rawPct !== 0 ? rawPct : computedPct;
+              const positive = pct >= 0;
+              const color = positive ? "hsl(var(--green))" : "hsl(var(--red))";
+              const sparkData = rawSparkline;
 
               return (
                 <Link key={idx.symbol} to={`/etf/${INDEX_TO_ETF[idx.symbol as string] ?? (idx.symbol as string).toLowerCase()}`} className="flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors duration-200 relative hover:border-primary/50 border border-border">

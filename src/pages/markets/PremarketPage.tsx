@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { resolveCurrentPrice } from "@/lib/price-utils";
@@ -48,6 +48,21 @@ export default function PremarketPage() {
     retry: 3,
     retryDelay: 2000,
   });
+
+  // Auto-retry once after 2s if initial fetch returns empty
+  useEffect(() => {
+    if (!gLoad && gainersData && gainersData.length === 0) {
+      const t = setTimeout(() => gRefetch(), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [gLoad, gainersData, gRefetch]);
+
+  useEffect(() => {
+    if (!lLoad && losersData && losersData.length === 0) {
+      const t = setTimeout(() => lRefetch(), 2000);
+      return () => clearTimeout(t);
+    }
+  }, [lLoad, losersData, lRefetch]);
 
   const handleTimeTab = (t: string) => {
     if (t !== "Today") {
