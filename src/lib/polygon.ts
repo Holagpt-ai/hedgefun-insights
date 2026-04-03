@@ -1,5 +1,6 @@
 // Client-side helpers to call market-data edge function
-const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
+const SUPABASE_BASE = import.meta.env.VITE_SUPABASE_URL || 'https://zcjptaolpumhtlwhlemq.supabase.co';
+const MARKET_DATA_URL = `${SUPABASE_BASE}/functions/v1/market-data`;
 
 async function fetchMarketData(params: Record<string, string>) {
   const url = new URL(MARKET_DATA_URL);
