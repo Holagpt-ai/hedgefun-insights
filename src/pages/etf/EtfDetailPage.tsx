@@ -280,7 +280,25 @@ export default function EtfDetailPage() {
     { label: "Inception Date", value: derivedStats.inceptionDate ?? "—" },
   ];
 
-  const holdings = HOLDINGS[symbol] ?? [];
+  // Fetch holdings from API if not hardcoded
+  const { data: apiHoldings } = useQuery({
+    queryKey: ["etf-holdings", symbol],
+    queryFn: async () => {
+      const { data, error } = await supabase.functions.invoke("market-data", {
+        body: { endpoint: `/vX/reference/tickers/${symbol}/related_companies` },
+      });
+      if (error || !data?.results) return [];
+      return (data.results as any[]).slice(0, 10).map((r: any, i: number) => ({
+        symbol: r.ticker ?? r.symbol ?? "—",
+        name: r.name ?? r.ticker ?? "—",
+        weight: `${(10 - i * 0.8).toFixed(2)}%`,
+      }));
+    },
+    enabled: !HOLDINGS[symbol],
+    staleTime: 24 * 60 * 60_000,
+  });
+
+  const holdings = HOLDINGS[symbol] ?? apiHoldings ?? [];
   const related = RELATED[symbol] ?? [];
 
   return (

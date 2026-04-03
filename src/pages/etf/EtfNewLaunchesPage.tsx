@@ -34,15 +34,31 @@ export default function EtfNewLaunchesPage() {
   const { data: dbData, isLoading } = useQuery({
     queryKey: ["etfs-new-launches"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Try fetching ETFs with inception dates first
+      const { data: withDate, error: err1 } = await supabase
         .from("etfs")
         .select("symbol, name, inception_date, price, change_percent")
         .not("inception_date", "is", null)
         .order("inception_date", { ascending: false })
         .limit(100);
+      if (!err1 && withDate && withDate.length > 0) {
+        return withDate.map((r: any) => ({
+          inception: r.inception_date,
+          symbol: r.symbol,
+          name: r.name,
+          price: r.price,
+          change: r.change_percent,
+        })) as NewEtf[];
+      }
+      // Fallback: show all ETFs sorted by name
+      const { data, error } = await supabase
+        .from("etfs")
+        .select("symbol, name, inception_date, price, change_percent")
+        .order("symbol", { ascending: true })
+        .limit(100);
       if (error) throw error;
       return (data ?? []).map((r: any) => ({
-        inception: r.inception_date,
+        inception: r.inception_date ?? "",
         symbol: r.symbol,
         name: r.name,
         price: r.price,

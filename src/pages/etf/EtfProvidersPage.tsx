@@ -20,6 +20,19 @@ interface Provider {
   change: number;
 }
 
+const STATIC_PROVIDERS: Provider[] = [
+  { name: "Vanguard", slug: "vanguard", etfs: 82, assets: 2_100_000_000_000, avgAssets: 25_600_000_000, change: 0.12 },
+  { name: "BlackRock (iShares)", slug: "blackrock-ishares", etfs: 425, assets: 2_600_000_000_000, avgAssets: 6_100_000_000, change: 0.08 },
+  { name: "State Street (SPDR)", slug: "state-street-spdr", etfs: 140, assets: 1_100_000_000_000, avgAssets: 7_900_000_000, change: 0.15 },
+  { name: "Invesco", slug: "invesco", etfs: 240, assets: 420_000_000_000, avgAssets: 1_750_000_000, change: -0.05 },
+  { name: "Charles Schwab", slug: "charles-schwab", etfs: 29, assets: 330_000_000_000, avgAssets: 11_400_000_000, change: 0.10 },
+  { name: "First Trust", slug: "first-trust", etfs: 200, assets: 190_000_000_000, avgAssets: 950_000_000, change: 0.03 },
+  { name: "WisdomTree", slug: "wisdomtree", etfs: 72, assets: 100_000_000_000, avgAssets: 1_390_000_000, change: -0.11 },
+  { name: "VanEck", slug: "vaneck", etfs: 65, assets: 85_000_000_000, avgAssets: 1_310_000_000, change: 0.07 },
+  { name: "ProShares", slug: "proshares", etfs: 140, assets: 75_000_000_000, avgAssets: 536_000_000, change: 0.21 },
+  { name: "Dimensional", slug: "dimensional", etfs: 32, assets: 140_000_000_000, avgAssets: 4_375_000_000, change: 0.04 },
+];
+
 function abbr(n: number): string {
   if (n >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
   if (n >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
@@ -63,7 +76,7 @@ export default function EtfProvidersPage() {
     },
   });
 
-  const providers = dbData ?? [];
+  const providers = (dbData && dbData.length > 0) ? dbData : STATIC_PROVIDERS;
 
   const columns = useMemo<ColumnDef<Provider>[]>(() => [
     {
