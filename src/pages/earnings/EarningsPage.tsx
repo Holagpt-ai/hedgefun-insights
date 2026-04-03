@@ -242,17 +242,9 @@ const EarningsPage = () => {
             {selectedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {dayCount} Earnings
           </h2>
           <div className="flex items-center gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> Download
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>CSV</DropdownMenuItem>
-                <DropdownMenuItem>Excel</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}>
+              <Download className="h-3.5 w-3.5" /> Download
+            </Button>
             <button onClick={() => navigate("/screener")} className="text-sm text-primary hover:underline">
               Screener →
             </button>
