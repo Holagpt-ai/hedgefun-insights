@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
-
+import { toast } from "sonner";
 
 function getWeekDates(refDate: Date): Date[] {
   const d = new Date(refDate);
