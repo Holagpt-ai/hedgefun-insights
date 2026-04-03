@@ -109,10 +109,15 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     { label: "Ex-Dividend Date", value: exDivDate },
   ];
 
+  // Volume with fallback chain
+  const volume = (snapshot?.day?.v > 0 ? snapshot.day.v : null) ?? snapshot?.min?.av ?? snapshot?.min?.v ?? 0;
+
   const rightCol = [
-    { label: "Volume", value: formatVolume(snapshot?.day?.v) },
-    { label: "Open", value: formatPrice(openPrice) },
+    { label: "Volume", value: formatVolume(volume || null) },
+    { label: "Open", value: formatPrice(snapshot?.day?.o ?? null) },
     { label: "Previous Close", value: formatPrice(snapshot?.prevDay?.c) },
+    { label: "High", value: formatPrice(snapshot?.day?.h ?? null) },
+    { label: "Low", value: formatPrice(snapshot?.day?.l ?? null) },
     { label: "Day's Range", value: dayRange },
     { label: "52-Week Range", value: week52Range },
     { label: "Beta", value: "n/a", pro: true },
