@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { resolveCurrentPrice } from "@/lib/price-utils";
