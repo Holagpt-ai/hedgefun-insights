@@ -265,11 +265,16 @@ export default function TrendingPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8">
                   <Download className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground">⋮</Button>
-              </div>
-            </div>
-
-            {/* Tab bar */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground">⋮</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => searchRef.current?.focus()}>Find...</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toast("Coming Soon", { description: "Indicators will be available in a future update." })}>Indicators</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/screener")}>Screener</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
             <div className="flex items-center gap-0 border-b border-border mb-4 overflow-x-auto">
               {TABS.map((tab) => (
                 <button
