@@ -300,6 +300,11 @@ const Screener = () => {
     setActiveFilters((f) => f.filter((x) => x.key !== key));
   };
 
+  const clearIndustryFilter = () => {
+    searchParams.delete("industry");
+    setSearchParams(searchParams);
+  };
+
   const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   const comingSoon = () => toast("Coming Soon", { description: "This view will be available in a future update." });
