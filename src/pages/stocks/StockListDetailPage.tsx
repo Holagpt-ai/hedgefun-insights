@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -27,6 +27,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import { toast } from "@/hooks/use-toast";
 
 /* ── helpers ── */
 function abbr(n: number | null | undefined): string {
@@ -42,6 +43,14 @@ function abbr(n: number | null | undefined): string {
 function pct(n: number | null | undefined): string {
   if (n == null) return "—";
   return `${n >= 0 ? "+" : ""}${n.toFixed(2)}%`;
+}
+
+function formatVolume(val: number | null | undefined): string {
+  if (val == null || val === 0) return "—";
+  if (val >= 1e9) return `${(val / 1e9).toFixed(1)}B`;
+  if (val >= 1e6) return `${(val / 1e6).toFixed(1)}M`;
+  if (val >= 1e3) return `${(val / 1e3).toFixed(1)}K`;
+  return val.toLocaleString();
 }
 
 /* Column label map */
@@ -90,21 +99,24 @@ const DB_KEY: Record<string, string> = {
 
 type StockRow = Record<string, any>;
 
+const COMING_SOON_TABS = ["Performance", "Dividends", "Price", "Profile", "+ Add View", "Edit View"];
+
 export default function StockListDetailPage() {
   const { slug = "" } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const meta = getListMeta(slug);
 
+  const [activeTab, setActiveTab] = useState("Overview");
   const [sorting, setSorting] = useState<SortingState>([{ id: "market_cap", desc: true }]);
   const [globalFilter, setGlobalFilter] = useState("");
   const [pageSize, setPageSize] = useState(25);
+  const [livePrices, setLivePrices] = useState<Record<string, any>>({});
 
   const { data: stocks = [], isLoading } = useQuery({
     queryKey: ["stock-list", slug],
     queryFn: async () => {
       const f: ListFilter | undefined = meta.filter;
 
-      // If filtering by specific symbols, use .in()
       if (f?.symbols && f.symbols.length > 0) {
         const { data, error } = await supabase
           .from("stocks")
@@ -115,7 +127,6 @@ export default function StockListDetailPage() {
         return (data ?? []) as StockRow[];
       }
 
-      // Build query with filters
       let query = supabase
         .from("stocks")
         .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, revenue, sector, industry, exchange, eps, beta");
@@ -135,8 +146,45 @@ export default function StockListDetailPage() {
     },
   });
 
+  // Fetch live prices for visible rows
+  const fetchLivePrices = useCallback(async (symbols: string[]) => {
+    if (symbols.length === 0) return;
+    try {
+      const { data, error } = await supabase.functions.invoke("get-watchlist-data", {
+        body: { symbols },
+      });
+      if (error || !data?.results) return;
+      const updated: Record<string, any> = {};
+      for (const snap of data.results) {
+        const sym = snap.ticker;
+        const price = snap?.day?.c > 0 ? snap.day.c : (snap?.min?.c > 0 ? snap.min.c : (snap?.lastTrade?.p ?? snap?.prevDay?.c ?? null));
+        const prevClose = snap?.prevDay?.c ?? null;
+        const change = price && prevClose ? ((price - prevClose) / prevClose) * 100 : null;
+        const volume = (snap?.day?.v > 0 ? snap.day.v : null) ?? snap?.min?.av ?? snap?.min?.v ?? null;
+        const marketCap = snap?.market_cap ?? null;
+        updated[sym] = { price, change, volume, marketCap };
+      }
+      setLivePrices(prev => ({ ...prev, ...updated }));
+    } catch { /* silent */ }
+  }, []);
+
+  // Build enriched data: merge DB rows with live prices
+  const enrichedStocks = useMemo(() => {
+    return stocks.map(row => {
+      const live = livePrices[row.symbol];
+      if (!live) return row;
+      return {
+        ...row,
+        price: live.price ?? row.price,
+        change_percent: live.change ?? row.change_percent,
+        volume: live.volume ?? row.volume,
+        market_cap: live.marketCap ?? row.market_cap,
+      };
+    });
+  }, [stocks, livePrices]);
+
   const columns = useMemo<ColumnDef<StockRow>[]>(() => {
-    return meta.columns.map((col, idx) => {
+    return meta.columns.map((col) => {
       const dbKey = DB_KEY[col] ?? col;
       const label = COL_LABELS[col] ?? col;
       const hasData = !!DB_KEY[col];
@@ -150,14 +198,12 @@ export default function StockListDetailPage() {
               No. <span className="font-semibold">{label}</span> <ArrowUpDown className="h-3 w-3" />
             </button>
           ),
-          cell: ({ row, table }: any) => {
-            const rowIndex = table.getSortedRowModel().rows.indexOf(row);
-            const pageIndex = table.getState().pagination.pageIndex;
-            const pSize = table.getState().pagination.pageSize;
-            const rank = pageIndex * pSize + rowIndex + 1;
+          cell: ({ row }: any) => {
+            const pageIndex = row.table?.getState().pagination.pageIndex ?? 0;
+            const pSize = row.table?.getState().pagination.pageSize ?? 25;
             return (
               <div className="flex items-center gap-3">
-                <span className="text-muted-foreground text-xs w-6 text-right">{rank}</span>
+                <span className="text-muted-foreground text-xs w-6 text-right">{pageIndex * pSize + row.index + 1}</span>
                 <Link
                   to={`/stocks/${tickerToSlug(row.original.symbol)}`}
                   className="font-semibold text-accent-blue hover:underline"
@@ -244,15 +290,13 @@ export default function StockListDetailPage() {
               {label} <ArrowUpDown className="h-3 w-3" />
             </button>
           ),
-          cell: ({ row }: any) => {
-            const v = row.original.volume;
-            if (v == null) return <div className="text-right">—</div>;
-            return <div className="text-right tabular-nums">{Number(v).toLocaleString()}</div>;
-          },
+          cell: ({ row }: any) => (
+            <div className="text-right tabular-nums">{formatVolume(row.original.volume)}</div>
+          ),
         };
       }
 
-      // Generic text / numeric column
+      // Generic column
       return {
         id: dbKey,
         accessorKey: hasData ? dbKey : undefined,
@@ -273,7 +317,7 @@ export default function StockListDetailPage() {
   }, [meta.columns]);
 
   const table = useReactTable({
-    data: stocks,
+    data: enrichedStocks,
     columns,
     state: { sorting, globalFilter, pagination: { pageIndex: 0, pageSize } },
     onSortingChange: setSorting,
@@ -284,7 +328,24 @@ export default function StockListDetailPage() {
     getFilteredRowModel: getFilteredRowModel(),
   });
 
+  // Fetch live data for visible rows
+  useEffect(() => {
+    const visibleRows = table.getRowModel().rows;
+    const symbols = visibleRows.map(r => r.original.symbol).filter(Boolean);
+    if (symbols.length > 0) {
+      fetchLivePrices(symbols);
+    }
+  }, [table.getRowModel().rows.map(r => r.original.symbol).join(","), fetchLivePrices]);
+
   const totalStocks = table.getFilteredRowModel().rows.length;
+
+  const handleTabClick = (tab: string) => {
+    if (COMING_SOON_TABS.includes(tab)) {
+      toast({ title: "Coming Soon", description: `${tab} tab is coming soon.` });
+      return;
+    }
+    setActiveTab(tab);
+  };
 
   return (
     <div className="min-w-0">
@@ -312,16 +373,17 @@ export default function StockListDetailPage() {
 
             {/* Stats bar */}
             <div className="flex items-center gap-6 mb-4 text-sm">
-              <span className="font-semibold text-foreground">{totalStocks} Stocks</span>
+              <span className="font-semibold text-foreground">{totalStocks} {totalStocks === 1 ? "Stock" : "Stocks"}</span>
             </div>
 
             {/* Tabs */}
             <div className="flex items-center gap-0 border-b border-border mb-4 overflow-x-auto">
-              {["Overview", "Performance", "Dividends", "Price", "Profile"].map((tab, i) => (
+              {["Overview", "Performance", "Dividends", "Price", "Profile"].map((tab) => (
                 <button
                   key={tab}
+                  onClick={() => handleTabClick(tab)}
                   className={`px-4 py-2 text-[0.8125rem] font-medium whitespace-nowrap transition-colors ${
-                    i === 0
+                    activeTab === tab
                       ? "border-b-2 border-accent-blue text-accent-blue"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
