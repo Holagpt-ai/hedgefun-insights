@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -23,7 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
-
+import { toast } from "sonner";
 
 /* ── seed data (used if DB returns nothing) ── */
 const SEED: TrendingStock[] = [
@@ -72,6 +72,7 @@ const TABS = ["Overview", "Performance", "Dividends", "Price", "Profile"];
 export default function TrendingPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Overview");
   const [sorting, setSorting] = useState<SortingState>([{ id: "views", desc: true }]);
 
@@ -237,10 +238,11 @@ export default function TrendingPage() {
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                  <Input
-                    placeholder="Find..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
+                   <Input
+                     ref={searchRef}
+                     placeholder="Find..."
+                     value={search}
+                     onChange={(e) => setSearch(e.target.value)}
                     className="pl-8 h-8 w-[140px] text-sm"
                   />
                 </div>
@@ -263,7 +265,16 @@ export default function TrendingPage() {
                 <Button variant="outline" size="icon" className="h-8 w-8">
                   <Download className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground">⋮</Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" className="h-8 w-8 text-muted-foreground">⋮</Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => searchRef.current?.focus()}>Find...</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => toast("Coming Soon", { description: "Indicators will be available in a future update." })}>Indicators</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => navigate("/screener")}>Screener</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -272,7 +283,13 @@ export default function TrendingPage() {
               {TABS.map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    if (tab !== "Overview") {
+                      toast("Coming Soon", { description: `${tab} tab will be available in a future update.` });
+                      return;
+                    }
+                    setActiveTab(tab);
+                  }}
                   className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
                     activeTab === tab
                       ? "text-primary border-b-2 border-primary"
@@ -282,10 +299,16 @@ export default function TrendingPage() {
                   {tab}
                 </button>
               ))}
-              <button className="px-4 py-2 text-sm text-muted-foreground border border-border rounded-md ml-2 mb-1 hover:text-foreground">
+              <button
+                className="px-4 py-2 text-sm text-muted-foreground border border-border rounded-md ml-2 mb-1 hover:text-foreground"
+                onClick={() => toast("Coming Soon", { description: "Add View will be available in a future update." })}
+              >
                 + Add View
               </button>
-              <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground ml-1">
+              <button
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground ml-1"
+                onClick={() => toast("Coming Soon", { description: "Edit View will be available in a future update." })}
+              >
                 Edit View
               </button>
             </div>
