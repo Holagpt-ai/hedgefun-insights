@@ -97,7 +97,7 @@ export function IndexSparklineCards() {
                     positive ? "price-positive" : "price-negative"
                   )}
                 >
-                  {positive ? "↑" : "↓"} {Math.abs(idx.change_percent ?? 0).toFixed(2)}%
+                  {positive ? "↑" : "↓"} {Math.abs(changePct).toFixed(2)}%
                 </span>
               </div>
               <div style={{ width: '60%' }}>
