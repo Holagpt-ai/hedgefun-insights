@@ -92,17 +92,16 @@ const ProPage = () => {
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
-  const handleCheckout = async (priceId: string) => {
+  const handleCheckout = () => {
     if (!user) {
       setAuthMode("signup");
       return;
     }
-    try {
-      const { url } = await createCheckoutSession(priceId);
-      if (url) window.location.href = url;
-    } catch {
-      toast({ title: "Unable to start checkout", variant: "destructive" });
-    }
+    toast({
+      title: "Upgrade Coming Soon",
+      description: "We are finalizing our payment processor. Please check back shortly or contact us at info@hedgefun.fun to get early Pro access.",
+      duration: 6000,
+    });
   };
 
   return (
