@@ -23,7 +23,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
-
+import { toast } from "sonner";
 
 /* ── seed data (used if DB returns nothing) ── */
 const SEED: TrendingStock[] = [
