@@ -32,9 +32,9 @@ export default function PremarketPage() {
       const tickers = Array.isArray(res) ? res : (res?.tickers ?? []);
       return mapRows(tickers);
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
     retry: 3,
-    retryDelay: 2000,
+    retryDelay: 3000,
   });
 
   const { data: losersData, isLoading: lLoad, refetch: lRefetch } = useQuery({
@@ -44,9 +44,9 @@ export default function PremarketPage() {
       const tickers = Array.isArray(res) ? res : (res?.tickers ?? []);
       return mapRows(tickers);
     },
-    staleTime: 60_000,
+    staleTime: 30_000,
     retry: 3,
-    retryDelay: 2000,
+    retryDelay: 3000,
   });
 
   // Auto-retry once after 2s if initial fetch returns empty
