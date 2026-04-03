@@ -69,12 +69,19 @@ export function IndexSparklineCards() {
             ? (idx.sparkline_data as number[])
             : [];
           const sparkData = rawSparkline.map((v, i) => ({ v, i }));
+          const lastSparkValue = rawSparkline.length > 0 ? rawSparkline[rawSparkline.length - 1] : 0;
           const prevDayClose = rawSparkline.length >= 2
             ? rawSparkline[rawSparkline.length - 2]
             : rawSparkline[0] ?? 0;
-          const positive = (idx.current_value ?? 0) > prevDayClose;
+          // Fallback: if change_percent is 0 but we have sparkline data, compute from sparkline
+          const rawPct = idx.change_percent ?? 0;
+          const computedPct = prevDayClose > 0 && lastSparkValue > 0
+            ? ((lastSparkValue - prevDayClose) / prevDayClose) * 100
+            : 0;
+          const changePct = rawPct !== 0 ? rawPct : computedPct;
+          const currentVal = (idx.current_value && idx.current_value > 0) ? idx.current_value : lastSparkValue;
+          const positive = currentVal > prevDayClose;
           const color = positive ? "hsl(var(--green))" : "hsl(var(--red))";
-
           return (
             <Link
               key={idx.symbol}
