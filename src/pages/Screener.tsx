@@ -66,6 +66,8 @@ type StockRow = {
 
 const Screener = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const industryParam = searchParams.get("industry");
   const { user } = useAuth();
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [filterSearch, setFilterSearch] = useState("");
