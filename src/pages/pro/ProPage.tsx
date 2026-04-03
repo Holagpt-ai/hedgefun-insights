@@ -169,7 +169,7 @@ const ProPage = () => {
             features={PRO_FEATURES}
             ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
             ctaVariant="default"
-            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.pro_monthly : STRIPE_PRICES.pro_annual)}
+            onCta={() => handleCheckout()}
             ctaDisabled={isPro}
             highlighted
             guarantee
