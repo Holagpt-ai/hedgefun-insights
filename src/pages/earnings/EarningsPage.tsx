@@ -12,7 +12,7 @@ import {
 import { cn } from "@/lib/utils";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
-
+import { toast } from "sonner";
 
 function getWeekDates(refDate: Date): Date[] {
   const d = new Date(refDate);
@@ -128,6 +128,36 @@ const EarningsPage = () => {
   };
 
   const selectedDateStr = fmtDate(selectedDate);
+
+  const handleDownload = () => {
+    const rows = dayEarnings;
+    if (!rows.length) {
+      toast("No data to download");
+      return;
+    }
+    const header = "Date,Symbol,Company Name,EPS Estimate,EPS Actual,Revenue Estimate,Revenue Actual,Time";
+    const csvRows = rows.map((e) =>
+      [
+        e.report_date ?? "",
+        e.symbol ?? "",
+        `"${(e.company_name ?? "").replace(/"/g, '""')}"`,
+        e.estimate_eps ?? "",
+        e.actual_eps ?? "",
+        "",
+        "",
+        e.time_of_day ?? "",
+      ].join(",")
+    );
+    const csv = [header, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `earnings_${fmtDate(selectedDate)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Earnings data downloaded successfully.");
+  };
   const dayCount = countByDate[selectedDateStr] || 0;
 
   return (
@@ -212,17 +242,9 @@ const EarningsPage = () => {
             {selectedDate.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {dayCount} Earnings
           </h2>
           <div className="flex items-center gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5">
-                  <Download className="h-3.5 w-3.5" /> Download
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>CSV</DropdownMenuItem>
-                <DropdownMenuItem>Excel</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button variant="outline" size="sm" className="gap-1.5" onClick={handleDownload}>
+              <Download className="h-3.5 w-3.5" /> Download
+            </Button>
             <button onClick={() => navigate("/screener")} className="text-sm text-primary hover:underline">
               Screener →
             </button>
