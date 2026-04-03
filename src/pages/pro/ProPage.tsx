@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { cn } from "@/lib/utils";
-import { createCheckoutSession } from "@/lib/stripe";
 import { toast } from "@/hooks/use-toast";
 import { PRICING } from "@/config/pricing";
 import {
@@ -47,12 +46,6 @@ const UNLIMITED_FEATURES = [
   "Dedicated support channel",
 ];
 
-const STRIPE_PRICES = {
-  pro_monthly: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_MONTHLY || "pro_monthly",
-  pro_annual: import.meta.env.VITE_STRIPE_PRICE_ID_PRO_ANNUAL || "pro_annual",
-  unlimited_monthly: import.meta.env.VITE_STRIPE_PRICE_ID_UNLIMITED_MONTHLY || "unlimited_monthly",
-  unlimited_annual: import.meta.env.VITE_STRIPE_PRICE_ID_UNLIMITED_ANNUAL || "unlimited_annual",
-};
 
 const FAQ_ITEMS: { q: string; a: string }[] = [
   {
@@ -93,17 +86,16 @@ const ProPage = () => {
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
-  const handleCheckout = async (priceId: string) => {
+  const handleCheckout = () => {
     if (!user) {
       setAuthMode("signup");
       return;
     }
-    try {
-      const { url } = await createCheckoutSession(priceId);
-      if (url) window.location.href = url;
-    } catch {
-      toast({ title: "Unable to start checkout", variant: "destructive" });
-    }
+    toast({
+      title: "Upgrade Coming Soon",
+      description: "We are finalizing our payment processor. Please check back shortly or contact us at info@hedgefun.fun to get early Pro access.",
+      duration: 6000,
+    });
   };
 
   return (
@@ -171,7 +163,7 @@ const ProPage = () => {
             features={PRO_FEATURES}
             ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
             ctaVariant="default"
-            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.pro_monthly : STRIPE_PRICES.pro_annual)}
+            onCta={() => handleCheckout()}
             ctaDisabled={isPro}
             highlighted
             guarantee
@@ -188,7 +180,7 @@ const ProPage = () => {
             features={UNLIMITED_FEATURES}
             ctaLabel="Choose Plan"
             ctaVariant="outline"
-            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.unlimited_monthly : STRIPE_PRICES.unlimited_annual)}
+            onCta={() => handleCheckout()}
             guarantee
           />
         </div>
@@ -226,7 +218,7 @@ const ProPage = () => {
         <Button
           size="lg"
           className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground px-10"
-          onClick={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.pro_monthly : STRIPE_PRICES.pro_annual)}
+          onClick={() => handleCheckout()}
         >
           Get Started Now
         </Button>

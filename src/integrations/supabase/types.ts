@@ -503,6 +503,51 @@ export type Database = {
         }
         Relationships: []
       }
+      subscribers: {
+        Row: {
+          created_at: string | null
+          email: string
+          id: string
+          payment_customer_id: string | null
+          payment_price_id: string | null
+          payment_provider: string | null
+          payment_subscription_id: string | null
+          plan: string | null
+          plan_period_end: string | null
+          plan_status: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          id?: string
+          payment_customer_id?: string | null
+          payment_price_id?: string | null
+          payment_provider?: string | null
+          payment_subscription_id?: string | null
+          plan?: string | null
+          plan_period_end?: string | null
+          plan_status?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          id?: string
+          payment_customer_id?: string | null
+          payment_price_id?: string | null
+          payment_provider?: string | null
+          payment_subscription_id?: string | null
+          plan?: string | null
+          plan_period_end?: string | null
+          plan_status?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
