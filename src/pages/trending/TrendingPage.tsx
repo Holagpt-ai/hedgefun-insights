@@ -72,6 +72,7 @@ const TABS = ["Overview", "Performance", "Dividends", "Price", "Profile"];
 export default function TrendingPage() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Overview");
   const [sorting, setSorting] = useState<SortingState>([{ id: "views", desc: true }]);
 
