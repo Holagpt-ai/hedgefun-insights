@@ -81,8 +81,32 @@ const Screener = () => {
   const [marketCapFilter, setMarketCapFilter] = useState("none");
 
   const { data: stocks, isLoading } = useQuery({
-    queryKey: ["screener-tickers"],
+    queryKey: ["screener-tickers", industryParam],
     queryFn: async () => {
+      // When industry filter is active, query stocks table which has industry data
+      if (industryParam) {
+        const { data, error } = await supabase
+          .from("stocks")
+          .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, sector, industry, exchange")
+          .ilike("industry", industryParam)
+          .order("market_cap", { ascending: false, nullsFirst: false })
+          .limit(500);
+        if (error) throw error;
+        return (data ?? []).map((r) => ({
+          symbol: r.symbol,
+          name: r.name,
+          exchange: r.exchange,
+          type: null as string | null,
+          market_cap: r.market_cap as number | null,
+          price: r.price as number | null,
+          change_percent: r.change_percent as number | null,
+          volume: r.volume as number | null,
+          pe_ratio: r.pe_ratio as number | null,
+          industry: r.industry as string | null,
+          sector: r.sector as string | null,
+        }));
+      }
+
       const { data, error } = await supabase
         .from("ticker_search")
         .select("symbol, name, exchange, type")
