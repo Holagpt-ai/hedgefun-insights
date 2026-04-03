@@ -186,7 +186,7 @@ const ProPage = () => {
             features={UNLIMITED_FEATURES}
             ctaLabel="Choose Plan"
             ctaVariant="outline"
-            onCta={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.unlimited_monthly : STRIPE_PRICES.unlimited_annual)}
+            onCta={() => handleCheckout()}
             guarantee
           />
         </div>
