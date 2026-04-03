@@ -76,7 +76,7 @@ export default function EtfProvidersPage() {
     },
   });
 
-  const providers = dbData ?? [];
+  const providers = (dbData && dbData.length > 0) ? dbData : STATIC_PROVIDERS;
 
   const columns = useMemo<ColumnDef<Provider>[]>(() => [
     {
