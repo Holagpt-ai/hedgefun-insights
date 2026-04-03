@@ -45,13 +45,12 @@ const BillingPage = () => {
       })
     : null;
 
-  const handleUpgrade = async () => {
-    try {
-      const { url } = await createCheckoutSession("pro_monthly");
-      if (url) window.location.href = url;
-    } catch {
-      toast({ title: "Unable to start checkout", variant: "destructive" });
-    }
+  const handleUpgrade = () => {
+    toast({
+      title: "Upgrade Coming Soon",
+      description: "We are finalizing our payment processor. Please check back shortly or contact us at info@hedgefun.fun to get early Pro access.",
+      duration: 6000,
+    });
   };
 
   const handlePortal = async () => {

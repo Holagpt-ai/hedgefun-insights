@@ -224,7 +224,7 @@ const ProPage = () => {
         <Button
           size="lg"
           className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground px-10"
-          onClick={() => handleCheckout(billing === "monthly" ? STRIPE_PRICES.pro_monthly : STRIPE_PRICES.pro_annual)}
+          onClick={() => handleCheckout()}
         >
           Get Started Now
         </Button>
