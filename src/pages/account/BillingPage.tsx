@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { createCheckoutSession, createPortalSession } from "@/lib/stripe";
+import { createPortalSession } from "@/lib/stripe";
 import { PRICING } from "@/config/pricing";
 import { toast } from "@/hooks/use-toast";
 import { CreditCard, Receipt } from "lucide-react";
