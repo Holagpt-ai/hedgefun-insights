@@ -442,10 +442,22 @@ const Screener = () => {
           </div>
         )}
 
+        {/* Industry filter badge */}
+        {industryParam && (
+          <div className="flex items-center gap-2 mb-3">
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-accent-blue-light text-accent-blue text-xs font-medium">
+              Industry: {industryParam}
+              <button onClick={clearIndustryFilter}>
+                <X className="h-3 w-3" />
+              </button>
+            </span>
+          </div>
+        )}
+
         {/* Results Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
           <span className="text-sm font-semibold text-foreground">
-            {findSearch.trim() || hasMarketCapFilter ? `${filteredData.length} results` : "12,000+ Stocks & ETFs"}
+            {industryParam || findSearch.trim() || hasMarketCapFilter ? `${filteredData.length} results` : "12,000+ Stocks & ETFs"}
           </span>
           {hasMarketCapFilter && filteredData.length === (stocks ?? []).length && (
             <span className="text-xs text-muted-foreground ml-2">Market cap filter requires live data — showing all results</span>
