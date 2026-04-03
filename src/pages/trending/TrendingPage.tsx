@@ -275,11 +275,21 @@ export default function TrendingPage() {
                     <DropdownMenuItem onClick={() => navigate("/screener")}>Screener</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
+              </div>
+            </div>
+
+            {/* Tab bar */}
             <div className="flex items-center gap-0 border-b border-border mb-4 overflow-x-auto">
               {TABS.map((tab) => (
                 <button
                   key={tab}
-                  onClick={() => setActiveTab(tab)}
+                  onClick={() => {
+                    if (tab !== "Overview") {
+                      toast("Coming Soon", { description: `${tab} tab will be available in a future update.` });
+                      return;
+                    }
+                    setActiveTab(tab);
+                  }}
                   className={`px-4 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
                     activeTab === tab
                       ? "text-primary border-b-2 border-primary"
@@ -289,10 +299,16 @@ export default function TrendingPage() {
                   {tab}
                 </button>
               ))}
-              <button className="px-4 py-2 text-sm text-muted-foreground border border-border rounded-md ml-2 mb-1 hover:text-foreground">
+              <button
+                className="px-4 py-2 text-sm text-muted-foreground border border-border rounded-md ml-2 mb-1 hover:text-foreground"
+                onClick={() => toast("Coming Soon", { description: "Add View will be available in a future update." })}
+              >
                 + Add View
               </button>
-              <button className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground ml-1">
+              <button
+                className="px-4 py-2 text-sm text-muted-foreground hover:text-foreground ml-1"
+                onClick={() => toast("Coming Soon", { description: "Edit View will be available in a future update." })}
+              >
                 Edit View
               </button>
             </div>
