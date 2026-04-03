@@ -128,6 +128,36 @@ const EarningsPage = () => {
   };
 
   const selectedDateStr = fmtDate(selectedDate);
+
+  const handleDownload = () => {
+    const rows = dayEarnings;
+    if (!rows.length) {
+      toast("No data to download");
+      return;
+    }
+    const header = "Date,Symbol,Company Name,EPS Estimate,EPS Actual,Revenue Estimate,Revenue Actual,Time";
+    const csvRows = rows.map((e) =>
+      [
+        e.report_date ?? "",
+        e.symbol ?? "",
+        `"${(e.company_name ?? "").replace(/"/g, '""')}"`,
+        e.estimate_eps ?? "",
+        e.actual_eps ?? "",
+        "",
+        "",
+        e.time_of_day ?? "",
+      ].join(",")
+    );
+    const csv = [header, ...csvRows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `earnings_${fmtDate(selectedDate)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("Earnings data downloaded successfully.");
+  };
   const dayCount = countByDate[selectedDateStr] || 0;
 
   return (
