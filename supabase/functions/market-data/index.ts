@@ -102,6 +102,8 @@ serve(async (req) => {
     const type = searchParams.get("type");
     const ticker = searchParams.get("ticker")?.toUpperCase();
 
+    console.log("[market-data] type:", type, "POLYGON_KEY:", Deno.env.get("POLYGON_API_KEY") ? "KEY_PRESENT" : "KEY_MISSING");
+
     let data: unknown;
 
     switch (type) {
