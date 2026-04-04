@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getTopGainers } from "@/lib/polygon";
 import { resolveCurrentPrice, resolveMarketSession } from "@/lib/price-utils";
 import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMoversLayout";
+import { supabase } from "@/integrations/supabase/client";
 
 function mapRows(tickers: any[]): MoverRow[] {
   if (!Array.isArray(tickers) || tickers.length === 0) return [];
@@ -28,6 +29,26 @@ export default function GainersPage() {
     queryFn: async () => {
       const res = await getTopGainers();
       const tickers = Array.isArray(res) ? res : (res?.tickers ?? []);
+      if (tickers.length === 0) {
+        const { data: cached } = await supabase
+          .from("market_movers")
+          .select("*")
+          .eq("type", "gainer")
+          .order("session_date", { ascending: false })
+          .order("change_percent", { ascending: false })
+          .limit(20);
+        if (cached && cached.length > 0) {
+          return cached.map((r: any) => ({
+            symbol: r.symbol,
+            name: r.name,
+            price: r.price,
+            change: 0,
+            changePercent: r.change_percent,
+            volume: r.volume,
+          }));
+        }
+        return [];
+      }
       return mapRows(tickers);
     },
     staleTime: 60_000,

@@ -155,6 +155,27 @@ serve(async (req) => {
           price: t.day?.c > 0 ? t.day.c : (t.min?.c ?? t.prevDay?.c ?? 0),
         }));
 
+        // Write to market_movers table for weekend/off-hours fallback
+        if (tickers.length > 0) {
+          const sessionDate = new Date().toISOString().split("T")[0];
+          const rows = tickers.map((t: any) => ({
+            symbol: t.ticker,
+            name: cleanName(nameMap.get(t.ticker) || t.ticker),
+            price: t.day?.c || t.prevDay?.c || 0,
+            change_percent: t.todaysChangePerc ?? 0,
+            volume: t.day?.v || t.min?.av || 0,
+            type: type === "gainers" ? "gainer" : "loser",
+            session_date: sessionDate,
+            updated_at: new Date().toISOString(),
+          }));
+          await supabase
+            .from("market_movers")
+            .upsert(rows, {
+              onConflict: "symbol,type,session_date",
+              ignoreDuplicates: false,
+            });
+        }
+
         if ((data as any[]).length > 0) setCache(cacheKey, data);
         break;
       }
