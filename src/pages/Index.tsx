@@ -1,4 +1,5 @@
 import { IndexSparklineCards } from "@/components/home/IndexSparklineCards";
+import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { ToolGrid } from "@/components/home/ToolGrid";
 import { TopGainersTable, TopLosersTable } from "@/components/home/MoversTable";
@@ -21,6 +22,9 @@ const Index = () => {
     <div className="flex flex-col">
       {/* 14A — Index Sparkline Cards */}
       <IndexSparklineCards />
+
+      {/* 14A2 — Global Market Clocks */}
+      <GlobalMarketClocks />
 
       {/* 14B — Hero Search */}
       <HeroSearch />
