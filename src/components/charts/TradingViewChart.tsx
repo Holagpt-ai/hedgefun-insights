@@ -225,7 +225,7 @@ color: "rgba(150, 150, 150, 0.35)",
         fontSize: 48,
         horzAlign: "center",
         vertAlign: "center",
-        color: "rgba(180, 180, 180, 0.10)",
+color: "rgba(150, 150, 150, 0.35)",
         text: ticker,
       },
     });
