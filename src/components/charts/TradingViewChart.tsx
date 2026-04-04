@@ -133,13 +133,13 @@ export default function TradingViewChart({
 
     chartRef.current = chart;
 
-    (chart as any).applyOptions({
+    chart.applyOptions({
       watermark: {
         visible: true,
-        fontSize: 52,
+        fontSize: 48,
         horzAlign: "center",
         vertAlign: "center",
-        color: "rgba(150, 150, 150, 0.12)",
+        color: "rgba(180, 180, 180, 0.10)",
         text: ticker,
       },
     });
