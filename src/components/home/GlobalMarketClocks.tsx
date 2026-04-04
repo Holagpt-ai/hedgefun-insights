@@ -124,7 +124,7 @@ export function GlobalMarketClocks() {
   const localTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   const localDate = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-  const cardH = 116;
+  const cardH = 136;
 
   return (
     <>
