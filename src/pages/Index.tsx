@@ -1,4 +1,5 @@
 import { IndexSparklineCards } from "@/components/home/IndexSparklineCards";
+import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { ToolGrid } from "@/components/home/ToolGrid";
 import { TopGainersTable, TopLosersTable } from "@/components/home/MoversTable";
