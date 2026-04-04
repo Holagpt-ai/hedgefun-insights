@@ -217,6 +217,20 @@ export default function TradingViewChart({
     };
   }, [data, chartType, activeIndicators, isDark, isPositive, height, ticker]);
 
+  useEffect(() => {
+    if (!chartRef.current) return;
+    chartRef.current.applyOptions({
+      watermark: {
+        visible: true,
+        fontSize: 48,
+        horzAlign: "center",
+        vertAlign: "center",
+        color: "rgba(180, 180, 180, 0.10)",
+        text: ticker,
+      },
+    });
+  }, [ticker]);
+
   const toggleIndicator = (ind: Indicator) => {
     setActiveIndicators(prev => {
       const next = new Set(prev);
