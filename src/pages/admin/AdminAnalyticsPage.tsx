@@ -1,6 +1,6 @@
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
-const card: React.CSSProperties = { background: "#0a1628", border: "1px solid #1e293b", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 const pageViewData = Array.from({ length: 30 }, (_, i) => ({
   day: `${i + 1}`,
@@ -24,9 +24,9 @@ export default function AdminAnalyticsPage() {
         <p className="text-sm font-semibold mb-4">Page Views (Last 30 Days)</p>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={pageViewData}>
-            <XAxis dataKey="day" tick={{ fill: "#64748b", fontSize: 10 }} axisLine={false} tickLine={false} />
-            <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", color: "#e2e8f0", borderRadius: 6 }} />
+            <XAxis dataKey="day" tick={{ fill: "#94a3b8", fontSize: 10 }} axisLine={false} tickLine={false} />
+            <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: "#334155", border: "1px solid #334155", color: "#e2e8f0", borderRadius: 6 }} />
             <Line type="monotone" dataKey="views" stroke="#2563eb" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -36,12 +36,12 @@ export default function AdminAnalyticsPage() {
         <div style={card}>
           <p className="text-sm font-semibold mb-3">Top Ticker Pages</p>
           <table className="w-full text-sm">
-            <thead><tr style={{ borderBottom: "1px solid #1e293b" }}>
-              {["Ticker", "Views", "Unique"].map((h) => <th key={h} className="text-left py-2 font-medium" style={{ color: "#64748b" }}>{h}</th>)}
+            <thead><tr style={{ borderBottom: "1px solid #334155" }}>
+              {["Ticker", "Views", "Unique"].map((h) => <th key={h} className="text-left py-2 font-medium" style={{ color: "#94a3b8" }}>{h}</th>)}
             </tr></thead>
             <tbody>
               {topTickers.map((t) => (
-                <tr key={t.ticker} style={{ borderBottom: "1px solid #1e293b" }}>
+                <tr key={t.ticker} style={{ borderBottom: "1px solid #334155" }}>
                   <td className="py-2 font-semibold" style={{ color: "#60a5fa" }}>{t.ticker}</td>
                   <td className="py-2" style={{ color: "#94a3b8" }}>{t.views.toLocaleString()}</td>
                   <td className="py-2" style={{ color: "#94a3b8" }}>{t.unique.toLocaleString()}</td>
@@ -60,12 +60,12 @@ export default function AdminAnalyticsPage() {
               { label: "Avg Response Time", value: "1.2s" },
             ].map((s) => (
               <div key={s.label}>
-                <p className="text-xs" style={{ color: "#64748b" }}>{s.label}</p>
+                <p className="text-xs" style={{ color: "#94a3b8" }}>{s.label}</p>
                 <p className="text-lg font-bold">{s.value}</p>
               </div>
             ))}
             <div>
-              <p className="text-xs mb-2" style={{ color: "#64748b" }}>Top Questions</p>
+              <p className="text-xs mb-2" style={{ color: "#94a3b8" }}>Top Questions</p>
               {["What is a P/E ratio?", "Best stocks to buy now?", "How to read earnings?"].map((q) => (
                 <p key={q} className="text-xs py-1" style={{ color: "#94a3b8" }}>• {q}</p>
               ))}

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const cardStyle: React.CSSProperties = { background: "#0a1628", border: "1px solid #1e293b", borderRadius: 8 };
+const cardStyle: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8 };
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -29,20 +29,20 @@ export default function AdminUsersPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
-        style={{ background: "#0f172a", borderColor: "#1e293b", color: "#e2e8f0" }}
+        style={{ background: "#334155", borderColor: "#334155", color: "#e2e8f0" }}
       />
       <div style={cardStyle} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: "1px solid #1e293b" }}>
+            <tr style={{ borderBottom: "1px solid #334155" }}>
               {["User", "Email", "Plan", "Joined", "Status", "Actions"].map((h) => (
-                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#64748b" }}>{h}</th>
+                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#94a3b8" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="transition-colors" style={{ borderBottom: "1px solid #1e293b" }}
+              <tr key={u.id} className="transition-colors" style={{ borderBottom: "1px solid #334155" }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = "#0f1f3d")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
@@ -58,7 +58,7 @@ export default function AdminUsersPage() {
                     {u.plan || "free"}
                   </span>
                 </td>
-                <td className="px-4 py-3" style={{ color: "#64748b" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3" style={{ color: "#94a3b8" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                 <td className="px-4 py-3">
                   <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(22,163,106,0.2)", color: "#4ade80" }}>
                     {u.subscription_status === "active" ? "Active" : "Inactive"}
@@ -66,7 +66,7 @@ export default function AdminUsersPage() {
                 </td>
                 <td className="px-4 py-3">
                   <button className="text-xs mr-2" style={{ color: "#60a5fa" }}>View</button>
-                  <button className="text-xs" style={{ color: "#64748b" }}>Edit</button>
+                  <button className="text-xs" style={{ color: "#94a3b8" }}>Edit</button>
                 </td>
               </tr>
             ))}

@@ -27,13 +27,13 @@ function AdminSidebar({ collapsed, setCollapsed }: { collapsed: boolean; setColl
       className="hidden md:flex flex-col shrink-0 transition-all duration-200 border-r"
       style={{
         width: collapsed ? 48 : 220,
-        background: "#0a1628",
-        borderColor: "#1e293b",
+        background: "#334155",
+        borderColor: "#334155",
       }}
     >
-      <div className="flex items-center justify-between p-3" style={{ borderBottom: "1px solid #1e293b" }}>
+      <div className="flex items-center justify-between p-3" style={{ borderBottom: "1px solid #334155" }}>
         {!collapsed && <span className="font-bold text-sm" style={{ color: "#e2e8f0" }}>HedgeFun Admin</span>}
-        <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-white/5" style={{ color: "#64748b" }}>
+        <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-white/5" style={{ color: "#94a3b8" }}>
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
@@ -69,9 +69,9 @@ function AdminHeader() {
   const initials = profile?.full_name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "AD";
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 border-b" style={{ borderColor: "#1e293b", background: "#0a1628" }}>
+    <header className="h-14 flex items-center justify-between px-6 border-b" style={{ borderColor: "#334155", background: "#334155" }}>
       <div className="flex items-center gap-2 text-sm" style={{ color: "#94a3b8" }}>
-        <Link to="/admin" style={{ color: "#64748b" }}>Admin</Link>
+        <Link to="/admin" style={{ color: "#94a3b8" }}>Admin</Link>
         {currentNav && currentNav.path !== "/admin" && (
           <>
             <span style={{ color: "#475569" }}>/</span>
@@ -85,7 +85,7 @@ function AdminHeader() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#16a34a" }} />
             <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#16a34a" }} />
           </span>
-          <span className="text-xs" style={{ color: "#64748b" }}>System Online</span>
+          <span className="text-xs" style={{ color: "#94a3b8" }}>System Online</span>
         </div>
         <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: "#2563eb", color: "#fff" }}>
           {initials}
@@ -100,7 +100,7 @@ export default function AdminLayout() {
 
   return (
     <AdminGuard>
-      <div className="flex min-h-screen" style={{ background: "#020617", color: "#e2e8f0" }}>
+      <div className="flex min-h-screen" style={{ background: "#334155", color: "#e2e8f0" }}>
         <AdminSidebar collapsed={collapsed} setCollapsed={setCollapsed} />
         <div className="flex-1 flex flex-col min-w-0">
           <AdminHeader />
