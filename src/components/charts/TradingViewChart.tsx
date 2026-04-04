@@ -133,6 +133,17 @@ export default function TradingViewChart({
 
     chartRef.current = chart;
 
+    chart.applyOptions({
+      watermark: {
+        visible: true,
+        fontSize: 52,
+        horzAlign: "center",
+        vertAlign: "center",
+        color: "rgba(150, 150, 150, 0.12)",
+        text: ticker,
+      },
+    });
+
     // Add main series based on chart type
     if (chartType === 'candlestick' || chartType === 'heikinashi') {
       const series = chart.addSeries(CandlestickSeries, {
