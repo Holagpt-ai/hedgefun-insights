@@ -1,7 +1,8 @@
-import { Outlet, useLocation, Link } from "react-router-dom";
+import { Outlet, useLocation, Link, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, Users, CreditCard, BarChart2, Newspaper,
   TrendingUp, Bot, Bell, Settings, ChevronLeft, ChevronRight,
+  LogOut, Home, User,
 } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
