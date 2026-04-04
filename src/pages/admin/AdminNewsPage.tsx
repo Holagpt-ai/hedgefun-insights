@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#0a1628", border: "1px solid #1e293b", borderRadius: 8 };
-const inputStyle: React.CSSProperties = { background: "#0f172a", borderColor: "#1e293b", color: "#e2e8f0" };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8 };
+const inputStyle: React.CSSProperties = { background: "#1e293b", borderColor: "#334155", color: "#e2e8f0" };
 
 export default function AdminNewsPage() {
   const [news, setNews] = useState<any[]>([]);
@@ -56,21 +56,21 @@ export default function AdminNewsPage() {
       <div style={card} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: "1px solid #1e293b" }}>
+            <tr style={{ borderBottom: "1px solid #334155" }}>
               {["Headline", "Source", "Category", "Published", "Actions"].map((h) => (
-                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#64748b" }}>{h}</th>
+                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#94a3b8" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {news.map((n) => (
-              <tr key={n.id} style={{ borderBottom: "1px solid #1e293b" }}>
+              <tr key={n.id} style={{ borderBottom: "1px solid #334155" }}>
                 <td className="px-4 py-3 max-w-xs truncate">{n.headline}</td>
                 <td className="px-4 py-3" style={{ color: "#94a3b8" }}>{n.source}</td>
                 <td className="px-4 py-3">
                   <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(37,99,235,0.15)", color: "#60a5fa" }}>{n.category}</span>
                 </td>
-                <td className="px-4 py-3" style={{ color: "#64748b" }}>{n.published_at ? new Date(n.published_at).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3" style={{ color: "#94a3b8" }}>{n.published_at ? new Date(n.published_at).toLocaleDateString() : "—"}</td>
                 <td className="px-4 py-3">
                   <button className="text-xs mr-2" style={{ color: "#60a5fa" }}>Edit</button>
                   <button className="text-xs" style={{ color: "#f87171" }} onClick={() => handleDelete(n.id)}>Delete</button>

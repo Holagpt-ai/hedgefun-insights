@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#0a1628", border: "1px solid #1e293b", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 export default function AdminSeoPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -43,7 +43,7 @@ export default function AdminSeoPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((s) => (
           <div key={s.label} style={card}>
-            <p className="text-xs" style={{ color: "#64748b" }}>{s.label}</p>
+            <p className="text-xs" style={{ color: "#94a3b8" }}>{s.label}</p>
             <p className="text-2xl font-bold mt-1">{s.value}</p>
           </div>
         ))}
@@ -61,19 +61,19 @@ export default function AdminSeoPage() {
       <div style={{ ...card, padding: 0 }} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: "1px solid #1e293b" }}>
+            <tr style={{ borderBottom: "1px solid #334155" }}>
               {["Ticker", "Page Type", "Generator", "Auditor", "Score", "Status", "Time"].map((h) => (
-                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#64748b" }}>{h}</th>
+                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#94a3b8" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {logs.map((l) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid #1e293b" }}>
+              <tr key={l.id} style={{ borderBottom: "1px solid #334155" }}>
                 <td className="px-4 py-3 font-semibold" style={{ color: "#60a5fa" }}>{l.symbol}</td>
                 <td className="px-4 py-3" style={{ color: "#94a3b8" }}>{l.page_type}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#64748b" }}>{l.generator_model || "—"}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#64748b" }}>{l.auditor_model || "—"}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>{l.generator_model || "—"}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>{l.auditor_model || "—"}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <div className="w-16 h-1.5 rounded-full" style={{ background: "#1e293b" }}>
@@ -87,7 +87,7 @@ export default function AdminSeoPage() {
                     {l.audit_passed ? "Passed" : "Failed"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#64748b" }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : "—"}</td>
               </tr>
             ))}
           </tbody>

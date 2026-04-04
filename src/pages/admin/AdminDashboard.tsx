@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
 const statCardStyle = {
-  background: "#0a1628",
-  border: "1px solid #1e293b",
+  background: "#1e293b",
+  border: "1px solid #334155",
   borderRadius: 8,
   padding: "20px",
 };
@@ -43,7 +43,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {cards.map((c) => (
           <div key={c.label} style={statCardStyle}>
-            <p className="text-xs" style={{ color: "#64748b" }}>{c.label}</p>
+            <p className="text-xs" style={{ color: "#94a3b8" }}>{c.label}</p>
             <p className="text-2xl font-bold mt-1">{c.value}</p>
             <span className="text-xs" style={{ color: c.change.startsWith("-") ? "#dc2626" : "#16a34a" }}>{c.change} vs last month</span>
           </div>
@@ -55,8 +55,8 @@ export default function AdminDashboard() {
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={revenueData}>
             <XAxis dataKey="day" tick={false} axisLine={false} />
-            <YAxis tick={{ fill: "#64748b", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #1e293b", color: "#e2e8f0", borderRadius: 6 }} />
+            <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
+            <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", color: "#e2e8f0", borderRadius: 6 }} />
             <Bar dataKey="revenue" fill="#2563eb" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -65,14 +65,14 @@ export default function AdminDashboard() {
       <div style={statCardStyle}>
         <p className="text-sm font-semibold mb-3">Plan Distribution</p>
         {[
-          { label: "Free", pct: 68, color: "#64748b" },
+          { label: "Free", pct: 68, color: "#94a3b8" },
           { label: "Pro Monthly", pct: 24, color: "#2563eb" },
           { label: "Pro Annual", pct: 8, color: "#16a34a" },
         ].map((p) => (
           <div key={p.label} className="mb-3">
             <div className="flex justify-between text-xs mb-1">
               <span>{p.label}</span>
-              <span style={{ color: "#64748b" }}>{p.pct}%</span>
+              <span style={{ color: "#94a3b8" }}>{p.pct}%</span>
             </div>
             <div className="h-2 rounded-full" style={{ background: "#1e293b" }}>
               <div className="h-2 rounded-full" style={{ width: `${p.pct}%`, background: p.color }} />
@@ -86,16 +86,16 @@ export default function AdminDashboard() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr style={{ borderBottom: "1px solid #1e293b" }}>
-                <th className="text-left py-2 font-medium" style={{ color: "#64748b" }}>User</th>
-                <th className="text-left py-2 font-medium" style={{ color: "#64748b" }}>Email</th>
-                <th className="text-left py-2 font-medium" style={{ color: "#64748b" }}>Plan</th>
-                <th className="text-left py-2 font-medium" style={{ color: "#64748b" }}>Joined</th>
+              <tr style={{ borderBottom: "1px solid #334155" }}>
+                <th className="text-left py-2 font-medium" style={{ color: "#94a3b8" }}>User</th>
+                <th className="text-left py-2 font-medium" style={{ color: "#94a3b8" }}>Email</th>
+                <th className="text-left py-2 font-medium" style={{ color: "#94a3b8" }}>Plan</th>
+                <th className="text-left py-2 font-medium" style={{ color: "#94a3b8" }}>Joined</th>
               </tr>
             </thead>
             <tbody>
               {recentUsers.map((u) => (
-                <tr key={u.id} style={{ borderBottom: "1px solid #1e293b" }}>
+                <tr key={u.id} style={{ borderBottom: "1px solid #334155" }}>
                   <td className="py-2 flex items-center gap-2">
                     <div className="h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: `hsl(${(u.full_name || "U").charCodeAt(0) * 5 % 360}, 60%, 50%)`, color: "#fff" }}>
                       {(u.full_name || "U")[0].toUpperCase()}
@@ -106,7 +106,7 @@ export default function AdminDashboard() {
                   <td className="py-2">
                     <span className="text-xs px-2 py-0.5 rounded" style={{ background: u.plan === "pro" ? "rgba(37,99,235,0.2)" : "rgba(100,116,139,0.2)", color: u.plan === "pro" ? "#60a5fa" : "#94a3b8" }}>{u.plan || "free"}</span>
                   </td>
-                  <td className="py-2" style={{ color: "#64748b" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                  <td className="py-2" style={{ color: "#94a3b8" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                 </tr>
               ))}
             </tbody>

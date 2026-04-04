@@ -1,4 +1,4 @@
-const card: React.CSSProperties = { background: "#0a1628", border: "1px solid #1e293b", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 const alerts = [
   { type: "info", msg: "Market data sync completed successfully", time: "2 min ago" },
@@ -25,7 +25,7 @@ export default function AdminAlertsPage() {
               <span className="text-xs px-2 py-0.5 rounded" style={{ background: colors[a.type].bg, color: colors[a.type].text }}>{a.type}</span>
               <span className="text-sm">{a.msg}</span>
             </div>
-            <span className="text-xs" style={{ color: "#64748b" }}>{a.time}</span>
+            <span className="text-xs" style={{ color: "#94a3b8" }}>{a.time}</span>
           </div>
         </div>
       ))}
