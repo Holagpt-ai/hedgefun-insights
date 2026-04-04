@@ -136,10 +136,10 @@ export default function TradingViewChart({
     (chart as any).applyOptions({
       watermark: {
         visible: true,
-        fontSize: 52,
+        fontSize: 48,
         horzAlign: "center",
         vertAlign: "center",
-        color: "rgba(150, 150, 150, 0.12)",
+        color: "rgba(180, 180, 180, 0.10)",
         text: ticker,
       },
     });
@@ -216,6 +216,20 @@ export default function TradingViewChart({
       chartRef.current = null;
     };
   }, [data, chartType, activeIndicators, isDark, isPositive, height, ticker]);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+    (chartRef.current as any).applyOptions({
+      watermark: {
+        visible: true,
+        fontSize: 48,
+        horzAlign: "center",
+        vertAlign: "center",
+        color: "rgba(180, 180, 180, 0.10)",
+        text: ticker,
+      },
+    });
+  }, [ticker]);
 
   const toggleIndicator = (ind: Indicator) => {
     setActiveIndicators(prev => {
