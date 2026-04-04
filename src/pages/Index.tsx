@@ -23,6 +23,9 @@ const Index = () => {
       {/* 14A — Index Sparkline Cards */}
       <IndexSparklineCards />
 
+      {/* 14A2 — Global Market Clocks */}
+      <GlobalMarketClocks />
+
       {/* 14B — Hero Search */}
       <HeroSearch />
 
