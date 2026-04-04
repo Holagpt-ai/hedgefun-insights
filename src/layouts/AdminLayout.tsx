@@ -65,9 +65,16 @@ function AdminSidebar({ collapsed, setCollapsed }: { collapsed: boolean; setColl
 
 function AdminHeader() {
   const location = useLocation();
-  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
+  const [menuOpen, setMenuOpen] = useState(false);
   const currentNav = navItems.find((n) => location.pathname === n.path || (n.path !== "/admin" && location.pathname.startsWith(n.path)));
   const initials = profile?.full_name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "AD";
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate("/");
+  };
 
   return (
     <header className="h-14 flex items-center justify-between px-6 border-b" style={{ borderColor: "#334155", background: "#1e293b" }}>
@@ -88,8 +95,46 @@ function AdminHeader() {
           </span>
           <span className="text-xs" style={{ color: "#94a3b8" }}>System Online</span>
         </div>
-        <div className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold" style={{ background: "#2563eb", color: "#fff" }}>
-          {initials}
+        <div className="relative">
+          <div
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold cursor-pointer"
+            style={{ background: "#2563eb", color: "#fff" }}
+          >
+            {initials}
+          </div>
+          {menuOpen && (
+            <div
+              className="absolute right-0 top-10 w-48 rounded-lg shadow-lg border z-50 py-1"
+              style={{ background: "#1e293b", borderColor: "#334155" }}
+            >
+              <button
+                onClick={() => { navigate("/"); setMenuOpen(false); }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                style={{ color: "#e2e8f0" }}
+              >
+                <Home size={14} />
+                View Site
+              </button>
+              <button
+                onClick={() => { navigate("/account"); setMenuOpen(false); }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                style={{ color: "#e2e8f0" }}
+              >
+                <User size={14} />
+                Account
+              </button>
+              <div style={{ borderTop: "1px solid #334155", margin: "4px 0" }} />
+              <button
+                onClick={handleSignOut}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                style={{ color: "#f87171" }}
+              >
+                <LogOut size={14} />
+                Sign Out
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </header>
