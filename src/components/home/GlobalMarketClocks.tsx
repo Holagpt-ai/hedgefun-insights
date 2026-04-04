@@ -38,15 +38,39 @@ function getTimeInTz(tz: string, now: Date) {
   return { h, m, s };
 }
 
-const STATUS_STYLES: Record<MarketStatus, { bg: string; color: string; label: string }> = {
-  open: { bg: "rgba(22,163,74,0.12)", color: "#16a34a", label: "Open" },
-  closed: { bg: "rgba(100,116,139,0.12)", color: "#64748b", label: "Closed" },
-  "pre-market": { bg: "rgba(234,179,8,0.12)", color: "#ca8a04", label: "Pre-Market" },
-  "after-hours": { bg: "rgba(249,115,22,0.12)", color: "#ea580c", label: "After-Hours" },
+const STATUS_STYLES: Record<MarketStatus, { bg: string; color: string; border: string; shadow: string; label: string }> = {
+  open: {
+    bg: "rgba(22,163,74,0.12)",
+    color: "#16a34a",
+    border: "1px solid rgba(22,163,74,0.25)",
+    shadow: "0 0 6px rgba(22,163,74,0.2), 0 0 12px rgba(22,163,74,0.08)",
+    label: "Open",
+  },
+  closed: {
+    bg: "rgba(239,68,68,0.1)",
+    color: "#dc2626",
+    border: "1px solid rgba(239,68,68,0.2)",
+    shadow: "0 0 6px rgba(239,68,68,0.15), 0 0 10px rgba(239,68,68,0.06)",
+    label: "Closed",
+  },
+  "pre-market": {
+    bg: "rgba(234,179,8,0.1)",
+    color: "#ca8a04",
+    border: "1px solid rgba(234,179,8,0.2)",
+    shadow: "0 0 6px rgba(234,179,8,0.15), 0 0 10px rgba(234,179,8,0.06)",
+    label: "Pre-Market",
+  },
+  "after-hours": {
+    bg: "rgba(249,115,22,0.1)",
+    color: "#ea580c",
+    border: "1px solid rgba(249,115,22,0.2)",
+    shadow: "0 0 6px rgba(249,115,22,0.15), 0 0 10px rgba(249,115,22,0.06)",
+    label: "After-Hours",
+  },
 };
 
 function AnalogClock({ h, m, s }: { h: number; m: number; s: number }) {
-  const cx = 27, cy = 27, r = 24;
+  const cx = 28, cy = 28, r = 26;
   const secondAngle = s * 6;
   const minuteAngle = m * 6 + s * 0.1;
   const hourAngle = (h % 12) * 30 + m * 0.5;
@@ -68,12 +92,12 @@ function AnalogClock({ h, m, s }: { h: number; m: number; s: number }) {
   };
 
   return (
-    <svg width="54" height="54" viewBox="0 0 54 54">
+    <svg width="56" height="56" viewBox="0 0 56 56">
       <circle cx={cx} cy={cy} r={r} fill="hsl(var(--surface-card))" stroke="hsl(var(--border))" strokeWidth={1.5} />
       {[0, 90, 180, 270].map(a => <g key={a}>{tick(a)}</g>)}
       {hand(hourAngle, r * 0.32, "hsl(var(--text-primary))", 2.5)}
       {hand(minuteAngle, r * 0.44, "hsl(var(--text-primary))", 1.8)}
-      {hand(secondAngle, r * 0.48, "#2563eb", 1.5)}
+      {hand(secondAngle, r * 0.48, "#2563eb", 1.2)}
       <circle cx={cx} cy={cy} r={2.5} fill="hsl(var(--text-primary))" />
     </svg>
   );
@@ -90,7 +114,7 @@ function BrandedGlobe() {
         background: "#2563eb",
         position: "relative",
         overflow: "hidden",
-        animation: "globeSpin 4s ease-in-out infinite",
+        animation: "globeSpin 8s linear infinite",
       }}
     >
       <svg
@@ -140,11 +164,11 @@ export function GlobalMarketClocks() {
     <>
       <style>{`
         @keyframes globeSpin {
-          0%   { box-shadow: inset -8px 0 12px rgba(0,0,0,0.3); }
-          25%  { box-shadow: inset 0px 0 12px rgba(0,0,0,0.1); }
-          50%  { box-shadow: inset 8px 0 12px rgba(0,0,0,0.3); }
-          75%  { box-shadow: inset 0px 0 12px rgba(0,0,0,0.1); }
-          100% { box-shadow: inset -8px 0 12px rgba(0,0,0,0.3); }
+          0%   { box-shadow: inset -10px 0 16px rgba(0,0,0,0.35), inset 4px 0 8px rgba(255,255,255,0.08); }
+          25%  { box-shadow: inset -2px 0 8px rgba(0,0,0,0.1), inset 2px 0 8px rgba(255,255,255,0.12); }
+          50%  { box-shadow: inset 10px 0 16px rgba(0,0,0,0.35), inset -4px 0 8px rgba(255,255,255,0.08); }
+          75%  { box-shadow: inset 2px 0 8px rgba(0,0,0,0.1), inset -2px 0 8px rgba(255,255,255,0.12); }
+          100% { box-shadow: inset -10px 0 16px rgba(0,0,0,0.35), inset 4px 0 8px rgba(255,255,255,0.08); }
         }
         .global-clocks-row::-webkit-scrollbar { display: none; }
       `}</style>
@@ -183,7 +207,20 @@ export function GlobalMarketClocks() {
                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4 }}>{ex.city}</span>
                 <span style={{ fontSize: "0.6rem", color: "hsl(var(--text-muted))", textAlign: "center" }}>{ex.exchange}</span>
                 <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
-                <span style={{ fontSize: "0.55rem", fontWeight: 600, padding: "1px 6px", borderRadius: 9999, textTransform: "uppercase", letterSpacing: "0.03em", background: style.bg, color: style.color }}>{style.label}</span>
+                <span style={{
+                  fontSize: "0.55rem",
+                  fontWeight: 700,
+                  padding: "2px 7px",
+                  borderRadius: 9999,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  display: "inline-block",
+                  marginTop: 3,
+                  background: style.bg,
+                  color: style.color,
+                  border: style.border,
+                  boxShadow: style.shadow,
+                }}>{style.label}</span>
               </div>
             );
           })}
