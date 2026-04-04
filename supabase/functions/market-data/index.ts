@@ -102,6 +102,8 @@ serve(async (req) => {
     const type = searchParams.get("type");
     const ticker = searchParams.get("ticker")?.toUpperCase();
 
+    console.log("[market-data] type:", type, "POLYGON_KEY:", Deno.env.get("POLYGON_API_KEY") ? "KEY_PRESENT" : "KEY_MISSING");
+
     let data: unknown;
 
     switch (type) {
@@ -117,6 +119,7 @@ serve(async (req) => {
         const endpoint = type === "gainers" ? "gainers" : "losers";
         const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
         const json = await res.json();
+        console.log("[market-data] polygon response status:", res.status, "tickers count:", json.tickers?.length ?? 0);
         const tickers = (json.tickers ?? []).slice(0, 20);
 
         // Enrich with company names from stocks table first
