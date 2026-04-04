@@ -81,7 +81,7 @@ const Screener = () => {
   const [marketCapFilter, setMarketCapFilter] = useState("none");
 
   const { data: stocks, isLoading } = useQuery({
-    queryKey: ["screener-tickers", industryParam],
+    queryKey: ["screener-tickers", industryParam, marketCapFilter],
     queryFn: async () => {
       // When industry filter is active, query stocks table which has industry data
       if (industryParam) {
@@ -91,6 +91,44 @@ const Screener = () => {
           .ilike("industry", industryParam)
           .order("market_cap", { ascending: false, nullsFirst: false })
           .limit(500);
+        if (error) throw error;
+        return (data ?? []).map((r) => ({
+          symbol: r.symbol,
+          name: r.name,
+          exchange: r.exchange,
+          type: null as string | null,
+          market_cap: r.market_cap as number | null,
+          price: r.price as number | null,
+          change_percent: r.change_percent as number | null,
+          volume: r.volume as number | null,
+          pe_ratio: r.pe_ratio as number | null,
+          industry: r.industry as string | null,
+          sector: r.sector as string | null,
+        }));
+      }
+
+      // When a market cap filter is active, query stocks table which has market_cap data
+      if (hasMarketCapFilter) {
+        let query = supabase
+          .from("stocks")
+          .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, sector, industry, exchange")
+          .not("market_cap", "is", null);
+
+        if (marketCapFilter === "mega-cap") {
+          query = query.gte("market_cap", 200_000_000_000);
+        } else if (marketCapFilter === "large-cap") {
+          query = query.gte("market_cap", 10_000_000_000).lt("market_cap", 200_000_000_000);
+        } else if (marketCapFilter === "mid-cap") {
+          query = query.gte("market_cap", 2_000_000_000).lt("market_cap", 10_000_000_000);
+        } else if (marketCapFilter === "small-cap") {
+          query = query.gte("market_cap", 300_000_000).lt("market_cap", 2_000_000_000);
+        } else if (marketCapFilter === "micro-cap") {
+          query = query.lt("market_cap", 300_000_000).gte("market_cap", 50_000_000);
+        }
+
+        const { data, error } = await query
+          .order("market_cap", { ascending: false, nullsFirst: false })
+          .limit(1000);
         if (error) throw error;
         return (data ?? []).map((r) => ({
           symbol: r.symbol,
