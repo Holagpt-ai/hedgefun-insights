@@ -133,7 +133,7 @@ export default function TradingViewChart({
 
     chartRef.current = chart;
 
-    chart.applyOptions({
+    (chart as any).applyOptions({
       watermark: {
         visible: true,
         fontSize: 48,
