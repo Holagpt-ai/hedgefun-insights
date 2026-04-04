@@ -124,7 +124,7 @@ export function GlobalMarketClocks() {
   const localTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   const localDate = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-  const cardH = 116;
+  const cardH = 136;
 
   return (
     <>
@@ -206,7 +206,7 @@ export function GlobalMarketClocks() {
               <div
                 key={ex.city}
                 className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
-                style={{ flex: 1, minWidth: 88, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4 }}
+                style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4 }}
               >
                 <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
                 <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.city}</span>
