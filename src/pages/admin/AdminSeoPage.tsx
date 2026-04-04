@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 };
 
 export default function AdminSeoPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -43,7 +43,7 @@ export default function AdminSeoPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {statCards.map((s) => (
           <div key={s.label} style={card}>
-            <p className="text-xs" style={{ color: "#94a3b8" }}>{s.label}</p>
+            <p className="text-xs" style={{ color: "#64748b" }}>{s.label}</p>
             <p className="text-2xl font-bold mt-1">{s.value}</p>
           </div>
         ))}
@@ -54,40 +54,40 @@ export default function AdminSeoPage() {
           <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#16a34a" }} />
           <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#16a34a" }} />
         </span>
-        <span className="text-sm" style={{ color: "#4ade80" }}>Engine Running</span>
+        <span className="text-sm" style={{ color: "#16a34a" }}>Engine Running</span>
         <Button size="sm" className="ml-auto" style={{ background: "#2563eb" }}>▶ Run Manual Batch</Button>
       </div>
 
       <div style={{ ...card, padding: 0 }} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: "1px solid #334155" }}>
+            <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
               {["Ticker", "Page Type", "Generator", "Auditor", "Score", "Status", "Time"].map((h) => (
-                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#94a3b8" }}>{h}</th>
+                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#64748b" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {logs.map((l) => (
-              <tr key={l.id} style={{ borderBottom: "1px solid #334155" }}>
-                <td className="px-4 py-3 font-semibold" style={{ color: "#60a5fa" }}>{l.symbol}</td>
-                <td className="px-4 py-3" style={{ color: "#94a3b8" }}>{l.page_type}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>{l.generator_model || "—"}</td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>{l.auditor_model || "—"}</td>
+              <tr key={l.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                <td className="px-4 py-3 font-semibold" style={{ color: "#2563eb" }}>{l.symbol}</td>
+                <td className="px-4 py-3" style={{ color: "#64748b" }}>{l.page_type}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "#64748b" }}>{l.generator_model || "—"}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "#64748b" }}>{l.auditor_model || "—"}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-16 h-1.5 rounded-full" style={{ background: "#1e293b" }}>
+                    <div className="w-16 h-1.5 rounded-full" style={{ background: "#f1f5f9" }}>
                       <div className="h-1.5 rounded-full" style={{ width: `${l.audit_score || 0}%`, background: (l.audit_score || 0) >= 80 ? "#16a34a" : "#dc2626" }} />
                     </div>
-                    <span className="text-xs" style={{ color: (l.audit_score || 0) >= 80 ? "#4ade80" : "#f87171" }}>{l.audit_score}</span>
+                    <span className="text-xs" style={{ color: (l.audit_score || 0) >= 80 ? "#16a34a" : "#dc2626" }}>{l.audit_score}</span>
                   </div>
                 </td>
                 <td className="px-4 py-3">
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: l.audit_passed ? "rgba(22,163,106,0.2)" : "rgba(220,38,38,0.2)", color: l.audit_passed ? "#4ade80" : "#f87171" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: l.audit_passed ? "rgba(22,163,106,0.1)" : "rgba(220,38,38,0.1)", color: l.audit_passed ? "#16a34a" : "#dc2626" }}>
                     {l.audit_passed ? "Passed" : "Failed"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3 text-xs" style={{ color: "#64748b" }}>{l.created_at ? new Date(l.created_at).toLocaleDateString() : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -99,9 +99,9 @@ export default function AdminSeoPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {sitemaps.map((s) => (
             <div key={s.name} style={card}>
-              <p className="text-xs font-mono" style={{ color: "#94a3b8" }}>{s.name}</p>
+              <p className="text-xs font-mono" style={{ color: "#64748b" }}>{s.name}</p>
               <p className="text-lg font-bold mt-1">{s.pages} pages</p>
-              <span className="text-xs px-2 py-0.5 rounded mt-2 inline-block" style={{ background: s.status === "Healthy" ? "rgba(22,163,106,0.2)" : "rgba(100,116,139,0.2)", color: s.status === "Healthy" ? "#4ade80" : "#94a3b8" }}>
+              <span className="text-xs px-2 py-0.5 rounded mt-2 inline-block" style={{ background: s.status === "Healthy" ? "rgba(22,163,106,0.1)" : "rgba(100,116,139,0.1)", color: s.status === "Healthy" ? "#16a34a" : "#64748b" }}>
                 {s.status}
               </span>
             </div>

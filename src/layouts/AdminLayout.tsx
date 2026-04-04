@@ -25,16 +25,16 @@ function AdminSidebar({ collapsed, setCollapsed }: { collapsed: boolean; setColl
 
   return (
     <aside
-      className="hidden md:flex flex-col shrink-0 transition-all duration-200 border-r"
+      className="hidden md:flex flex-col shrink-0 transition-all duration-200"
       style={{
         width: collapsed ? 48 : 220,
-        background: "#1e293b",
-        borderColor: "#334155",
+        background: "#ffffff",
+        boxShadow: "1px 0 0 #e2e8f0",
       }}
     >
-      <div className="flex items-center justify-between p-3" style={{ borderBottom: "1px solid #334155" }}>
-        {!collapsed && <span className="font-bold text-sm" style={{ color: "#e2e8f0" }}>HedgeFun Admin</span>}
-        <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-white/5" style={{ color: "#94a3b8" }}>
+      <div className="flex items-center justify-between p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
+        {!collapsed && <span className="font-bold text-sm" style={{ color: "#0f172a" }}>HedgeFun Admin</span>}
+        <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-black/5" style={{ color: "#64748b" }}>
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
       </div>
@@ -47,8 +47,8 @@ function AdminSidebar({ collapsed, setCollapsed }: { collapsed: boolean; setColl
               to={item.path}
               className="flex items-center gap-3 px-3 py-2 text-sm transition-colors"
               style={{
-                color: active ? "#60a5fa" : "#94a3b8",
-                background: active ? "rgba(37,99,235,0.15)" : "transparent",
+                color: active ? "#2563eb" : "#64748b",
+                background: active ? "rgba(37,99,235,0.08)" : "transparent",
                 borderLeft: active ? "3px solid #2563eb" : "3px solid transparent",
               }}
               title={collapsed ? item.label : undefined}
@@ -77,13 +77,13 @@ function AdminHeader() {
   };
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 border-b" style={{ borderColor: "#334155", background: "#1e293b" }}>
-      <div className="flex items-center gap-2 text-sm" style={{ color: "#94a3b8" }}>
-        <Link to="/admin" style={{ color: "#94a3b8" }}>Admin</Link>
+    <header className="h-14 flex items-center justify-between px-6" style={{ boxShadow: "0 1px 0 #e2e8f0", background: "#ffffff" }}>
+      <div className="flex items-center gap-2 text-sm" style={{ color: "#64748b" }}>
+        <Link to="/admin" style={{ color: "#64748b" }}>Admin</Link>
         {currentNav && currentNav.path !== "/admin" && (
           <>
-            <span style={{ color: "#475569" }}>/</span>
-            <span style={{ color: "#e2e8f0" }}>{currentNav.label}</span>
+            <span style={{ color: "#94a3b8" }}>/</span>
+            <span style={{ color: "#0f172a" }}>{currentNav.label}</span>
           </>
         )}
       </div>
@@ -93,7 +93,7 @@ function AdminHeader() {
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#16a34a" }} />
             <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#16a34a" }} />
           </span>
-          <span className="text-xs" style={{ color: "#94a3b8" }}>System Online</span>
+          <span className="text-xs" style={{ color: "#64748b" }}>System Online</span>
         </div>
         <div className="relative">
           <div
@@ -106,28 +106,28 @@ function AdminHeader() {
           {menuOpen && (
             <div
               className="absolute right-0 top-10 w-48 rounded-lg shadow-lg border z-50 py-1"
-              style={{ background: "#1e293b", borderColor: "#334155" }}
+              style={{ background: "#ffffff", borderColor: "#e2e8f0" }}
             >
               <button
                 onClick={() => { navigate("/"); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
-                style={{ color: "#e2e8f0" }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-black/5 transition-colors"
+                style={{ color: "#0f172a" }}
               >
                 <Home size={14} />
                 View Site
               </button>
               <button
                 onClick={() => { navigate("/account"); setMenuOpen(false); }}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
-                style={{ color: "#e2e8f0" }}
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-black/5 transition-colors"
+                style={{ color: "#0f172a" }}
               >
                 <User size={14} />
                 Account
               </button>
-              <div style={{ borderTop: "1px solid #334155", margin: "4px 0" }} />
+              <div style={{ borderTop: "1px solid #e2e8f0", margin: "4px 0" }} />
               <button
                 onClick={handleSignOut}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-white/5 transition-colors"
+                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm hover:bg-black/5 transition-colors"
                 style={{ color: "#f87171" }}
               >
                 <LogOut size={14} />
@@ -146,7 +146,7 @@ export default function AdminLayout() {
 
   return (
     <AdminGuard>
-      <div className="flex min-h-screen" style={{ background: "#0f172a", color: "#e2e8f0" }}>
+      <div className="flex min-h-screen" style={{ background: "#f8fafc", color: "#0f172a" }}>
         <AdminSidebar collapsed={collapsed} setCollapsed={setCollapsed} />
         <div className="flex-1 flex flex-col min-w-0">
           <AdminHeader />
