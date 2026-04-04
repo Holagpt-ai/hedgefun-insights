@@ -38,112 +38,78 @@ function getTimeInTz(tz: string, now: Date) {
   return { h, m, s };
 }
 
-const STATUS_STYLES: Record<MarketStatus, { bg: string; color: string; border: string; shadow: string; label: string }> = {
+const PILL_STYLES: Record<MarketStatus, { background: string; color: string; border: string; boxShadow: string; label: string }> = {
   open: {
-    bg: "rgba(22,163,74,0.12)",
+    background: "rgba(22,163,74,0.1)",
     color: "#16a34a",
     border: "1px solid rgba(22,163,74,0.25)",
-    shadow: "0 0 6px rgba(22,163,74,0.2), 0 0 12px rgba(22,163,74,0.08)",
+    boxShadow: "0 0 8px rgba(22,163,74,0.2)",
     label: "Open",
   },
   closed: {
-    bg: "rgba(239,68,68,0.1)",
+    background: "rgba(239,68,68,0.1)",
     color: "#dc2626",
     border: "1px solid rgba(239,68,68,0.2)",
-    shadow: "0 0 6px rgba(239,68,68,0.15), 0 0 10px rgba(239,68,68,0.06)",
+    boxShadow: "0 0 8px rgba(239,68,68,0.15)",
     label: "Closed",
   },
   "pre-market": {
-    bg: "rgba(234,179,8,0.1)",
+    background: "rgba(234,179,8,0.1)",
     color: "#ca8a04",
     border: "1px solid rgba(234,179,8,0.2)",
-    shadow: "0 0 6px rgba(234,179,8,0.15), 0 0 10px rgba(234,179,8,0.06)",
+    boxShadow: "0 0 8px rgba(234,179,8,0.15)",
     label: "Pre-Market",
   },
   "after-hours": {
-    bg: "rgba(249,115,22,0.1)",
+    background: "rgba(249,115,22,0.1)",
     color: "#ea580c",
     border: "1px solid rgba(249,115,22,0.2)",
-    shadow: "0 0 6px rgba(249,115,22,0.15), 0 0 10px rgba(249,115,22,0.06)",
+    boxShadow: "0 0 8px rgba(249,115,22,0.15)",
     label: "After-Hours",
   },
 };
 
-function AnalogClock({ h, m, s }: { h: number; m: number; s: number }) {
-  const cx = 28, cy = 28, r = 26;
-  const secondAngle = s * 6;
-  const minuteAngle = m * 6 + s * 0.1;
-  const hourAngle = (h % 12) * 30 + m * 0.5;
+function ClockFace({ hours, minutes, seconds }: { hours: number; minutes: number; seconds: number }) {
+  const cx = 28;
+  const cy = 28;
+  const r = 24;
 
-  const hand = (angle: number, len: number, stroke: string, width: number) => {
-    const rad = ((angle - 90) * Math.PI) / 180;
-    const x2 = cx + len * Math.cos(rad);
-    const y2 = cy + len * Math.sin(rad);
-    return <line x1={cx} y1={cy} x2={x2} y2={y2} stroke={stroke} strokeWidth={width} strokeLinecap="round" />;
-  };
+  const secDeg = seconds * 6;
+  const minDeg = minutes * 6 + seconds * 0.1;
+  const hrDeg = (hours % 12) * 30 + minutes * 0.5;
 
-  const tick = (angle: number) => {
-    const rad = ((angle - 90) * Math.PI) / 180;
-    const x1 = cx + (r - 3) * Math.cos(rad);
-    const y1 = cy + (r - 3) * Math.sin(rad);
-    const x2 = cx + r * Math.cos(rad);
-    const y2 = cy + r * Math.sin(rad);
-    return <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="hsl(var(--text-muted))" strokeWidth={1.5} />;
-  };
+  const toRad = (deg: number) => ((deg - 90) * Math.PI) / 180;
+
+  const hrX = cx + 14 * Math.cos(toRad(hrDeg));
+  const hrY = cy + 14 * Math.sin(toRad(hrDeg));
+  const minX = cx + 19 * Math.cos(toRad(minDeg));
+  const minY = cy + 19 * Math.sin(toRad(minDeg));
+  const secX = cx + 21 * Math.cos(toRad(secDeg));
+  const secY = cy + 21 * Math.sin(toRad(secDeg));
+
+  const ticks = [0, 90, 180, 270].map((deg) => {
+    const inner = 20;
+    const outer = 23;
+    const rad = toRad(deg);
+    return {
+      x1: cx + inner * Math.cos(rad),
+      y1: cy + inner * Math.sin(rad),
+      x2: cx + outer * Math.cos(rad),
+      y2: cy + outer * Math.sin(rad),
+    };
+  });
 
   return (
     <svg width="56" height="56" viewBox="0 0 56 56">
       <circle cx={cx} cy={cy} r={r} fill="hsl(var(--surface-card))" stroke="hsl(var(--border))" strokeWidth={1.5} />
-      {[0, 90, 180, 270].map(a => <g key={a}>{tick(a)}</g>)}
-      {hand(hourAngle, r * 0.32, "hsl(var(--text-primary))", 2.5)}
-      {hand(minuteAngle, r * 0.44, "hsl(var(--text-primary))", 1.8)}
-      {hand(secondAngle, r * 0.48, "#2563eb", 1.2)}
+      {ticks.map((t, i) => (
+        <line key={i} x1={t.x1} y1={t.y1} x2={t.x2} y2={t.y2} stroke="hsl(var(--text-muted))" strokeWidth={1.5} />
+      ))}
+      <line x1={cx} y1={cy} x2={hrX} y2={hrY} stroke="hsl(var(--text-primary))" strokeWidth={2.5} strokeLinecap="round" />
+      <line x1={cx} y1={cy} x2={minX} y2={minY} stroke="hsl(var(--text-primary))" strokeWidth={1.8} strokeLinecap="round" />
+      <line x1={cx} y1={cy} x2={secX} y2={secY} stroke="#2563eb" strokeWidth={1.2} strokeLinecap="round" />
       <circle cx={cx} cy={cy} r={2.5} fill="hsl(var(--text-primary))" />
     </svg>
-  );
-}
-
-function BrandedGlobe() {
-  return (
-    <div
-      className="flex-shrink-0"
-      style={{
-        width: 40,
-        height: 40,
-        borderRadius: "50%",
-        background: "#2563eb",
-        position: "relative",
-        overflow: "hidden",
-        animation: "globeSpin 8s linear infinite",
-      }}
-    >
-      <svg
-        width="40"
-        height="40"
-        viewBox="0 0 40 40"
-        style={{ position: "absolute", top: 0, left: 0, opacity: 0.45 }}
-      >
-        <line x1="0" y1="13" x2="40" y2="13" stroke="white" strokeWidth={0.8} />
-        <line x1="0" y1="27" x2="40" y2="27" stroke="white" strokeWidth={0.8} />
-        <ellipse cx="20" cy="20" rx="8" ry="19" fill="none" stroke="white" strokeWidth={0.8} />
-      </svg>
-      <span
-        style={{
-          position: "absolute",
-          top: "50%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          color: "#fff",
-          fontWeight: 900,
-          fontSize: "0.8rem",
-          letterSpacing: "0.04em",
-          zIndex: 2,
-          userSelect: "none",
-        }}
-      >
-        HF
-      </span>
-    </div>
   );
 }
 
@@ -163,12 +129,12 @@ export function GlobalMarketClocks() {
   return (
     <>
       <style>{`
-        @keyframes globeSpin {
-          0%   { box-shadow: inset -10px 0 16px rgba(0,0,0,0.35), inset 4px 0 8px rgba(255,255,255,0.08); }
-          25%  { box-shadow: inset -2px 0 8px rgba(0,0,0,0.1), inset 2px 0 8px rgba(255,255,255,0.12); }
-          50%  { box-shadow: inset 10px 0 16px rgba(0,0,0,0.35), inset -4px 0 8px rgba(255,255,255,0.08); }
-          75%  { box-shadow: inset 2px 0 8px rgba(0,0,0,0.1), inset -2px 0 8px rgba(255,255,255,0.12); }
-          100% { box-shadow: inset -10px 0 16px rgba(0,0,0,0.35), inset 4px 0 8px rgba(255,255,255,0.08); }
+        @keyframes hfGlobeSpin {
+          0%   { box-shadow: inset -12px 0 20px rgba(0,0,0,0.4), inset 5px 0 10px rgba(255,255,255,0.1); }
+          25%  { box-shadow: inset -3px 0 10px rgba(0,0,0,0.15), inset 3px 0 10px rgba(255,255,255,0.15); }
+          50%  { box-shadow: inset 12px 0 20px rgba(0,0,0,0.4), inset -5px 0 10px rgba(255,255,255,0.1); }
+          75%  { box-shadow: inset 3px 0 10px rgba(0,0,0,0.15), inset -3px 0 10px rgba(255,255,255,0.15); }
+          100% { box-shadow: inset -12px 0 20px rgba(0,0,0,0.4), inset 5px 0 10px rgba(255,255,255,0.1); }
         }
         .global-clocks-row::-webkit-scrollbar { display: none; }
       `}</style>
@@ -182,7 +148,45 @@ export function GlobalMarketClocks() {
             className="fintech-card flex-shrink-0 flex items-center gap-2.5"
             style={{ minWidth: 140, height: cardH, minHeight: cardH, padding: "12px 16px" }}
           >
-            <BrandedGlobe />
+            <div
+              className="flex-shrink-0"
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: "50%",
+                background: "#2563eb",
+                position: "relative",
+                overflow: "hidden",
+                animation: "hfGlobeSpin 8s linear infinite",
+              }}
+            >
+              <svg
+                width="52"
+                height="52"
+                viewBox="0 0 52 52"
+                style={{ position: "absolute", top: 0, left: 0, opacity: 0.45 }}
+              >
+                <line x1="0" y1="17" x2="52" y2="17" stroke="white" strokeWidth={0.8} />
+                <line x1="0" y1="35" x2="52" y2="35" stroke="white" strokeWidth={0.8} />
+                <ellipse cx="26" cy="26" rx="10" ry="25" fill="none" stroke="white" strokeWidth={0.8} />
+              </svg>
+              <span
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  left: "50%",
+                  transform: "translate(-50%, -50%)",
+                  color: "#fff",
+                  fontWeight: 900,
+                  fontSize: "1rem",
+                  letterSpacing: "0.04em",
+                  zIndex: 2,
+                  userSelect: "none",
+                }}
+              >
+                HF
+              </span>
+            </div>
             <div className="flex flex-col min-w-0">
               <span style={{ fontSize: "1.05rem", fontWeight: 800, color: "hsl(var(--text-primary))" }}>{localTime}</span>
               <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-secondary))" }} className="truncate">{localDate}</span>
@@ -194,7 +198,7 @@ export function GlobalMarketClocks() {
           {EXCHANGES.map((ex) => {
             const t = getTimeInTz(ex.timezone, now);
             const status = getMarketStatus(ex, now);
-            const style = STATUS_STYLES[status];
+            const pill = PILL_STYLES[status];
             const digital = new Intl.DateTimeFormat("en-US", { timeZone: ex.timezone, hour: "numeric", minute: "2-digit", hour12: true }).format(now);
 
             return (
@@ -203,24 +207,24 @@ export function GlobalMarketClocks() {
                 className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
                 style={{ flex: "1 1 0%", minWidth: 80, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4 }}
               >
-                <AnalogClock h={t.h} m={t.m} s={t.s} />
+                <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4 }}>{ex.city}</span>
                 <span style={{ fontSize: "0.6rem", color: "hsl(var(--text-muted))", textAlign: "center" }}>{ex.exchange}</span>
                 <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
                 <span style={{
                   fontSize: "0.55rem",
                   fontWeight: 700,
-                  padding: "2px 7px",
+                  padding: "2px 8px",
                   borderRadius: 9999,
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
                   display: "inline-block",
                   marginTop: 3,
-                  background: style.bg,
-                  color: style.color,
-                  border: style.border,
-                  boxShadow: style.shadow,
-                }}>{style.label}</span>
+                  background: pill.background,
+                  color: pill.color,
+                  border: pill.border,
+                  boxShadow: pill.boxShadow,
+                }}>{pill.label}</span>
               </div>
             );
           })}
