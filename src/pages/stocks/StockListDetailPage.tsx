@@ -198,12 +198,12 @@ export default function StockListDetailPage() {
               No. <span className="font-semibold">{label}</span> <ArrowUpDown className="h-3 w-3" />
             </button>
           ),
-          cell: ({ row }: any) => {
-            const pageIndex = row.table?.getState().pagination.pageIndex ?? 0;
-            const pSize = row.table?.getState().pagination.pageSize ?? 25;
+          cell: ({ row, table }: any) => {
+            const pageIndex = table.getState().pagination.pageIndex;
+            const pageSize = table.getState().pagination.pageSize;
             return (
               <div className="flex items-center gap-3">
-                <span className="text-muted-foreground text-xs w-6 text-right">{pageIndex * pSize + row.index + 1}</span>
+                <span className="text-muted-foreground tabular-nums text-sm w-6 text-right">{pageIndex * pageSize + row.index + 1}</span>
                 <Link
                   to={`/stocks/${tickerToSlug(row.original.symbol)}`}
                   className="font-semibold text-accent-blue hover:underline"
