@@ -7,7 +7,7 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 };
 
-const POLYGON_BASE = "https://api.massive.com";
+const POLYGON_BASE = "https://api.polygon.io";
 
 const NAME_SUFFIXES = [
   /\s+Common\s+Stock$/i, /\s+Common\s+Shares$/i, /\s+Ordinary\s+Shares?$/i,

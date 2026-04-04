@@ -7,7 +7,7 @@ async function fetchMarketData(params: Record<string, string>) {
 
   const res = await fetch(url.toString(), {
     headers: {
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
       "Content-Type": "application/json",
     },
   });
