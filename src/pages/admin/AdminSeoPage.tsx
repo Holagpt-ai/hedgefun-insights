@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 export default function AdminSeoPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -76,7 +76,7 @@ export default function AdminSeoPage() {
                 <td className="px-4 py-3 text-xs" style={{ color: "#94a3b8" }}>{l.auditor_model || "—"}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
-                    <div className="w-16 h-1.5 rounded-full" style={{ background: "#334155" }}>
+                    <div className="w-16 h-1.5 rounded-full" style={{ background: "#1e293b" }}>
                       <div className="h-1.5 rounded-full" style={{ width: `${l.audit_score || 0}%`, background: (l.audit_score || 0) >= 80 ? "#16a34a" : "#dc2626" }} />
                     </div>
                     <span className="text-xs" style={{ color: (l.audit_score || 0) >= 80 ? "#4ade80" : "#f87171" }}>{l.audit_score}</span>

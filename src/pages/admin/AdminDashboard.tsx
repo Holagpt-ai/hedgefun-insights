@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
 const statCardStyle = {
-  background: "#334155",
+  background: "#1e293b",
   border: "1px solid #334155",
   borderRadius: 8,
   padding: "20px",
@@ -56,7 +56,7 @@ export default function AdminDashboard() {
           <BarChart data={revenueData}>
             <XAxis dataKey="day" tick={false} axisLine={false} />
             <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background: "#334155", border: "1px solid #334155", color: "#e2e8f0", borderRadius: 6 }} />
+            <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", color: "#e2e8f0", borderRadius: 6 }} />
             <Bar dataKey="revenue" fill="#2563eb" radius={[3, 3, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -74,7 +74,7 @@ export default function AdminDashboard() {
               <span>{p.label}</span>
               <span style={{ color: "#94a3b8" }}>{p.pct}%</span>
             </div>
-            <div className="h-2 rounded-full" style={{ background: "#334155" }}>
+            <div className="h-2 rounded-full" style={{ background: "#1e293b" }}>
               <div className="h-2 rounded-full" style={{ width: `${p.pct}%`, background: p.color }} />
             </div>
           </div>

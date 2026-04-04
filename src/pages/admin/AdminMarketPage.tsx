@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 const dataTypes = [
   { name: "Stocks", lastSync: "2 min ago", status: "ok" },
@@ -25,7 +25,7 @@ export default function AdminMarketPage() {
         </div>
         <div className="flex items-center gap-2 text-xs" style={{ color: "#94a3b8" }}>
           <span>API Quota:</span>
-          <div className="w-40 h-2 rounded-full" style={{ background: "#334155" }}>
+          <div className="w-40 h-2 rounded-full" style={{ background: "#1e293b" }}>
             <div className="h-2 rounded-full" style={{ width: "35%", background: "#2563eb" }} />
           </div>
           <span>350 / 1,000 requests today</span>

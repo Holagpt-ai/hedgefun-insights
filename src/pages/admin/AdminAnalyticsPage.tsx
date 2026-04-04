@@ -1,6 +1,6 @@
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 
-const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 const pageViewData = Array.from({ length: 30 }, (_, i) => ({
   day: `${i + 1}`,
@@ -26,7 +26,7 @@ export default function AdminAnalyticsPage() {
           <LineChart data={pageViewData}>
             <XAxis dataKey="day" tick={{ fill: "#94a3b8", fontSize: 10 }} axisLine={false} tickLine={false} />
             <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} axisLine={false} tickLine={false} />
-            <Tooltip contentStyle={{ background: "#334155", border: "1px solid #334155", color: "#e2e8f0", borderRadius: 6 }} />
+            <Tooltip contentStyle={{ background: "#1e293b", border: "1px solid #334155", color: "#e2e8f0", borderRadius: 6 }} />
             <Line type="monotone" dataKey="views" stroke="#2563eb" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>

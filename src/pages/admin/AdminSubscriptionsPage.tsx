@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 export default function AdminSubscriptionsPage() {
   const [subs, setSubs] = useState<any[]>([]);
@@ -64,7 +64,7 @@ export default function AdminSubscriptionsPage() {
             <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#16a34a" }} />
           </span>
           <span className="text-sm">Stripe Webhook</span>
-          <code className="text-xs px-2 py-0.5 rounded" style={{ background: "#334155", color: "#94a3b8" }}>hedgefun.fun/api/stripe/webhook</code>
+          <code className="text-xs px-2 py-0.5 rounded" style={{ background: "#1e293b", color: "#94a3b8" }}>hedgefun.fun/api/stripe/webhook</code>
           <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(22,163,106,0.2)", color: "#4ade80" }}>Connected</span>
         </div>
       </div>

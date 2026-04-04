@@ -1,4 +1,4 @@
-const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
 
 const alerts = [
   { type: "info", msg: "Market data sync completed successfully", time: "2 min ago" },

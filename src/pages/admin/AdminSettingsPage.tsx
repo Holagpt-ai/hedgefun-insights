@@ -3,8 +3,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8, padding: 20 };
-const inputStyle: React.CSSProperties = { background: "#334155", borderColor: "#334155", color: "#e2e8f0" };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const inputStyle: React.CSSProperties = { background: "#1e293b", borderColor: "#334155", color: "#e2e8f0" };
 const labelStyle: React.CSSProperties = { color: "#94a3b8", fontSize: "0.75rem", marginBottom: 4, display: "block" };
 
 export default function AdminSettingsPage() {

@@ -27,7 +27,7 @@ function AdminSidebar({ collapsed, setCollapsed }: { collapsed: boolean; setColl
       className="hidden md:flex flex-col shrink-0 transition-all duration-200 border-r"
       style={{
         width: collapsed ? 48 : 220,
-        background: "#334155",
+        background: "#1e293b",
         borderColor: "#334155",
       }}
     >
@@ -69,7 +69,7 @@ function AdminHeader() {
   const initials = profile?.full_name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "AD";
 
   return (
-    <header className="h-14 flex items-center justify-between px-6 border-b" style={{ borderColor: "#334155", background: "#334155" }}>
+    <header className="h-14 flex items-center justify-between px-6 border-b" style={{ borderColor: "#334155", background: "#1e293b" }}>
       <div className="flex items-center gap-2 text-sm" style={{ color: "#94a3b8" }}>
         <Link to="/admin" style={{ color: "#94a3b8" }}>Admin</Link>
         {currentNav && currentNav.path !== "/admin" && (
@@ -100,7 +100,7 @@ export default function AdminLayout() {
 
   return (
     <AdminGuard>
-      <div className="flex min-h-screen" style={{ background: "#334155", color: "#e2e8f0" }}>
+      <div className="flex min-h-screen" style={{ background: "#1e293b", color: "#e2e8f0" }}>
         <AdminSidebar collapsed={collapsed} setCollapsed={setCollapsed} />
         <div className="flex-1 flex flex-col min-w-0">
           <AdminHeader />

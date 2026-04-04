@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const cardStyle: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8 };
+const cardStyle: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8 };
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -29,7 +29,7 @@ export default function AdminUsersPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
-        style={{ background: "#334155", borderColor: "#334155", color: "#e2e8f0" }}
+        style={{ background: "#1e293b", borderColor: "#334155", color: "#e2e8f0" }}
       />
       <div style={cardStyle} className="overflow-x-auto">
         <table className="w-full text-sm">

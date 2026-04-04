@@ -3,8 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#334155", border: "1px solid #334155", borderRadius: 8 };
-const inputStyle: React.CSSProperties = { background: "#334155", borderColor: "#334155", color: "#e2e8f0" };
+const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8 };
+const inputStyle: React.CSSProperties = { background: "#1e293b", borderColor: "#334155", color: "#e2e8f0" };
 
 export default function AdminNewsPage() {
   const [news, setNews] = useState<any[]>([]);
