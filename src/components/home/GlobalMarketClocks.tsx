@@ -206,11 +206,11 @@ export function GlobalMarketClocks() {
               <div
                 key={ex.city}
                 className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
-                style={{ flex: "1 1 0%", minWidth: 80, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4 }}
+                style={{ width: 80, minWidth: 80, maxWidth: 90, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4 }}
               >
                 <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
-                <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4 }}>{ex.city}</span>
-                <span style={{ fontSize: "0.6rem", color: "hsl(var(--text-muted))", textAlign: "center" }}>{ex.exchange}</span>
+                <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.city}</span>
+                <span style={{ fontSize: "0.5rem", color: "hsl(var(--text-muted))", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.exchange}</span>
                 <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
                 <span style={{
                   fontSize: "0.55rem",
