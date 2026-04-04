@@ -46,7 +46,7 @@ const STATUS_STYLES: Record<MarketStatus, { bg: string; color: string; label: st
 };
 
 function AnalogClock({ h, m, s }: { h: number; m: number; s: number }) {
-  const cx = 22, cy = 22, r = 19;
+  const cx = 27, cy = 27, r = 24;
   const secondAngle = s * 6;
   const minuteAngle = m * 6 + s * 0.1;
   const hourAngle = (h % 12) * 30 + m * 0.5;
@@ -68,31 +68,57 @@ function AnalogClock({ h, m, s }: { h: number; m: number; s: number }) {
   };
 
   return (
-    <svg width="44" height="44" viewBox="0 0 44 44">
+    <svg width="54" height="54" viewBox="0 0 54 54">
       <circle cx={cx} cy={cy} r={r} fill="hsl(var(--surface-card))" stroke="hsl(var(--border))" strokeWidth={1.5} />
       {[0, 90, 180, 270].map(a => <g key={a}>{tick(a)}</g>)}
-      {hand(hourAngle, r * 0.28, "hsl(var(--text-primary))", 2)}
-      {hand(minuteAngle, r * 0.4, "hsl(var(--text-primary))", 1.5)}
-      {hand(secondAngle, r * 0.45, "#2563eb", 1)}
-      <circle cx={cx} cy={cy} r={2} fill="hsl(var(--text-primary))" />
+      {hand(hourAngle, r * 0.32, "hsl(var(--text-primary))", 2.5)}
+      {hand(minuteAngle, r * 0.44, "hsl(var(--text-primary))", 1.8)}
+      {hand(secondAngle, r * 0.48, "#2563eb", 1.5)}
+      <circle cx={cx} cy={cy} r={2.5} fill="hsl(var(--text-primary))" />
     </svg>
   );
 }
 
-function RotatingGlobe() {
+function BrandedGlobe() {
   return (
-    <div className="flex-shrink-0" style={{ width: 36, height: 36, borderRadius: "50%", overflow: "hidden", perspective: 200 }}>
+    <div
+      className="flex-shrink-0"
+      style={{
+        width: 40,
+        height: 40,
+        borderRadius: "50%",
+        background: "#2563eb",
+        position: "relative",
+        overflow: "hidden",
+        animation: "globeSpin 4s ease-in-out infinite",
+      }}
+    >
       <svg
-        width="36" height="36" viewBox="0 0 36 36"
-        style={{ animation: "globe-spin 8s linear infinite" }}
+        width="40"
+        height="40"
+        viewBox="0 0 40 40"
+        style={{ position: "absolute", top: 0, left: 0, opacity: 0.45 }}
       >
-        <circle cx="18" cy="18" r="17" fill="#2563eb" />
-        <ellipse cx="18" cy="18" rx="8" ry="17" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth={1} />
-        <ellipse cx="18" cy="18" rx="14" ry="17" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth={1} />
-        <ellipse cx="18" cy="18" rx="3" ry="17" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth={1} />
-        <ellipse cx="18" cy="11" rx="16" ry="4" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth={1} />
-        <ellipse cx="18" cy="25" rx="16" ry="4" fill="none" stroke="rgba(255,255,255,0.6)" strokeWidth={1} />
+        <line x1="0" y1="13" x2="40" y2="13" stroke="white" strokeWidth={0.8} />
+        <line x1="0" y1="27" x2="40" y2="27" stroke="white" strokeWidth={0.8} />
+        <ellipse cx="20" cy="20" rx="8" ry="19" fill="none" stroke="white" strokeWidth={0.8} />
       </svg>
+      <span
+        style={{
+          position: "absolute",
+          top: "50%",
+          left: "50%",
+          transform: "translate(-50%, -50%)",
+          color: "#fff",
+          fontWeight: 900,
+          fontSize: "0.8rem",
+          letterSpacing: "0.04em",
+          zIndex: 2,
+          userSelect: "none",
+        }}
+      >
+        HF
+      </span>
     </div>
   );
 }
@@ -108,25 +134,35 @@ export function GlobalMarketClocks() {
   const localTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   const localDate = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
+  const cardH = 116;
+
   return (
     <>
-      <style>{`@keyframes globe-spin { 0% { transform: rotateY(0deg) } 100% { transform: rotateY(360deg) } }`}</style>
+      <style>{`
+        @keyframes globeSpin {
+          0%   { box-shadow: inset -8px 0 12px rgba(0,0,0,0.3); }
+          25%  { box-shadow: inset 0px 0 12px rgba(0,0,0,0.1); }
+          50%  { box-shadow: inset 8px 0 12px rgba(0,0,0,0.3); }
+          75%  { box-shadow: inset 0px 0 12px rgba(0,0,0,0.1); }
+          100% { box-shadow: inset -8px 0 12px rgba(0,0,0,0.3); }
+        }
+        .global-clocks-row::-webkit-scrollbar { display: none; }
+      `}</style>
       <div className="px-4 mt-2 mb-4">
         <div
-          className="flex gap-3 overflow-x-auto"
-          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+          className="flex global-clocks-row"
+          style={{ gap: 10, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none" as any }}
         >
-          <style>{`.global-clocks-row::-webkit-scrollbar { display: none; }`}</style>
           {/* Globe Card */}
           <div
             className="fintech-card flex-shrink-0 flex items-center gap-2.5"
-            style={{ minWidth: 140, height: 120, padding: "12px 16px" }}
+            style={{ minWidth: 140, height: cardH, minHeight: cardH, padding: "12px 16px" }}
           >
-            <RotatingGlobe />
+            <BrandedGlobe />
             <div className="flex flex-col min-w-0">
-              <span style={{ fontSize: "1rem", fontWeight: 700, color: "hsl(var(--text-primary))" }}>{localTime}</span>
-              <span style={{ fontSize: "0.75rem", color: "hsl(var(--text-secondary))" }} className="truncate">{localDate}</span>
-              <span style={{ fontSize: "0.65rem", color: "hsl(var(--text-muted))", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Local Time</span>
+              <span style={{ fontSize: "1.05rem", fontWeight: 800, color: "hsl(var(--text-primary))" }}>{localTime}</span>
+              <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-secondary))" }} className="truncate">{localDate}</span>
+              <span style={{ fontSize: "0.6rem", color: "hsl(var(--text-muted))", textTransform: "uppercase", letterSpacing: "0.05em", marginTop: 2 }}>Local Time</span>
             </div>
           </div>
 
@@ -141,7 +177,7 @@ export function GlobalMarketClocks() {
               <div
                 key={ex.city}
                 className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
-                style={{ flex: "1 1 0%", minWidth: 80, height: 120, padding: "10px 8px", gap: 4 }}
+                style={{ flex: "1 1 0%", minWidth: 80, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4 }}
               >
                 <AnalogClock h={t.h} m={t.m} s={t.s} />
                 <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4 }}>{ex.city}</span>
