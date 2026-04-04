@@ -137,6 +137,7 @@ export function GlobalMarketClocks() {
           100% { box-shadow: inset -12px 0 20px rgba(0,0,0,0.4), inset 5px 0 10px rgba(255,255,255,0.1); }
         }
         .global-clocks-row::-webkit-scrollbar { display: none; }
+        .clock-row::-webkit-scrollbar { display: none; }
       `}</style>
       <div className="px-4 mt-2 mb-4">
         <div
