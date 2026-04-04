@@ -17,64 +17,49 @@ serve(async (req) => {
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-  // Get 100 tickers that have no market_cap yet
-  const { data: tickers, error } = await supabase
-    .from("ticker_search")
-    .select("symbol")
-    .is("market_cap", null)
-    .eq("active", true)
-    .order("symbol", { ascending: true })
-    .limit(100);
-
-  if (error || !tickers?.length) {
-    return new Response(
-      JSON.stringify({ message: "No tickers to update", error }),
-      {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+  // Parse optional cursor from request body for pagination
+  let nextUrl: string | null = null;
+  try {
+    const body = await req.json();
+    nextUrl = body?.next_url || null;
+  } catch {
+    // No body, start from beginning
   }
+
+  // Use Polygon reference tickers endpoint which returns market_cap directly
+  // Fetch 1000 tickers per call with pagination support
+  const url = nextUrl ||
+    `https://api.polygon.io/v3/reference/tickers?market=stocks&active=true&order=asc&limit=1000&sort=ticker&apiKey=${POLYGON_API_KEY}`;
+
+  const res = await fetch(url);
+  const json = await res.json();
+  const results = json?.results ?? [];
+  const polygonNextUrl = json?.next_url
+    ? `${json.next_url}&apiKey=${POLYGON_API_KEY}`
+    : null;
 
   let updated = 0;
-  const errors: string[] = [];
+  let skipped = 0;
 
-  // Fetch market_cap from Polygon reference tickers endpoint (one per ticker)
-  // Process in parallel batches of 10 to stay within rate limits
-  const batchSize = 10;
-  for (let i = 0; i < tickers.length; i += batchSize) {
-    const batch = tickers.slice(i, i + batchSize);
-    const results = await Promise.allSettled(
-      batch.map(async ({ symbol }) => {
-        try {
-          const url = `https://api.polygon.io/v3/reference/tickers/${symbol}?apiKey=${POLYGON_API_KEY}`;
-          const res = await fetch(url);
-          if (!res.ok) return null;
-          const json = await res.json();
-          const market_cap = json?.results?.market_cap;
-          if (market_cap && market_cap > 0) {
-            await supabase
-              .from("ticker_search")
-              .update({ market_cap: Math.round(market_cap) })
-              .eq("symbol", symbol);
-            return true;
-          }
-          return null;
-        } catch (e) {
-          errors.push(`${symbol}: ${e.message}`);
-          return null;
-        }
-      })
-    );
-    for (const r of results) {
-      if (r.status === "fulfilled" && r.value === true) updated++;
+  // Batch upsert market caps
+  for (const ticker of results) {
+    const symbol = ticker.ticker;
+    const market_cap = ticker.market_cap;
+
+    if (!symbol || !market_cap || market_cap <= 0) {
+      skipped++;
+      continue;
     }
-    // Small delay between batches to respect rate limits
-    if (i + batchSize < tickers.length) {
-      await new Promise((r) => setTimeout(r, 1000));
-    }
+
+    const { error } = await supabase
+      .from("ticker_search")
+      .update({ market_cap: Math.round(market_cap) })
+      .eq("symbol", symbol);
+
+    if (!error) updated++;
   }
 
-  // Count remaining
+  // Count remaining nulls
   const { count } = await supabase
     .from("ticker_search")
     .select("symbol", { count: "exact", head: true })
@@ -84,9 +69,11 @@ serve(async (req) => {
   return new Response(
     JSON.stringify({
       updated,
-      remaining: count,
-      processed: tickers.length,
-      errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
+      skipped,
+      fetched: results.length,
+      remaining_null: count,
+      has_more: !!polygonNextUrl,
+      next_url: polygonNextUrl,
     }),
     {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
