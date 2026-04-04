@@ -30,42 +30,47 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ message: "No tickers to update", error }),
       {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
       }
     );
   }
 
-  const symbols = tickers.map((t) => t.symbol).join(",");
-
-  // Fetch snapshot for all 100 tickers in one API call
-  const url =
-    `https://api.polygon.io/v2/snapshot/locale/us/` +
-    `markets/stocks/tickers?tickers=${symbols}` +
-    `&apiKey=${POLYGON_API_KEY}`;
-
-  const res = await fetch(url);
-  const json = await res.json();
-  const snaps = json?.tickers ?? [];
-
   let updated = 0;
+  const errors: string[] = [];
 
-  for (const snap of snaps) {
-    const symbol = snap.ticker;
-    // market_cap = shares outstanding * current price
-    const price = snap?.day?.c || snap?.prevDay?.c || 0;
-    const shares = snap?.shareClassSharesOutstanding || 0;
-    const market_cap =
-      price > 0 && shares > 0 ? Math.round(price * shares) : null;
-
-    if (market_cap && market_cap > 0) {
-      await supabase
-        .from("ticker_search")
-        .update({ market_cap })
-        .eq("symbol", symbol);
-      updated++;
+  // Fetch market_cap from Polygon reference tickers endpoint (one per ticker)
+  // Process in parallel batches of 10 to stay within rate limits
+  const batchSize = 10;
+  for (let i = 0; i < tickers.length; i += batchSize) {
+    const batch = tickers.slice(i, i + batchSize);
+    const results = await Promise.allSettled(
+      batch.map(async ({ symbol }) => {
+        try {
+          const url = `https://api.polygon.io/v3/reference/tickers/${symbol}?apiKey=${POLYGON_API_KEY}`;
+          const res = await fetch(url);
+          if (!res.ok) return null;
+          const json = await res.json();
+          const market_cap = json?.results?.market_cap;
+          if (market_cap && market_cap > 0) {
+            await supabase
+              .from("ticker_search")
+              .update({ market_cap: Math.round(market_cap) })
+              .eq("symbol", symbol);
+            return true;
+          }
+          return null;
+        } catch (e) {
+          errors.push(`${symbol}: ${e.message}`);
+          return null;
+        }
+      })
+    );
+    for (const r of results) {
+      if (r.status === "fulfilled" && r.value === true) updated++;
+    }
+    // Small delay between batches to respect rate limits
+    if (i + batchSize < tickers.length) {
+      await new Promise((r) => setTimeout(r, 1000));
     }
   }
 
@@ -81,12 +86,10 @@ serve(async (req) => {
       updated,
       remaining: count,
       processed: tickers.length,
+      errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
     }),
     {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     }
   );
 });
