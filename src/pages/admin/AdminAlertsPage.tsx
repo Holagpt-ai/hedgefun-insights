@@ -1,4 +1,4 @@
-const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
+const card: React.CSSProperties = { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 };
 
 const alerts = [
   { type: "info", msg: "Market data sync completed successfully", time: "2 min ago" },
@@ -8,10 +8,10 @@ const alerts = [
 ];
 
 const colors: Record<string, { bg: string; text: string }> = {
-  info: { bg: "rgba(37,99,235,0.15)", text: "#60a5fa" },
-  warning: { bg: "rgba(234,179,8,0.15)", text: "#facc15" },
-  success: { bg: "rgba(22,163,106,0.15)", text: "#4ade80" },
-  error: { bg: "rgba(220,38,38,0.15)", text: "#f87171" },
+  info: { bg: "rgba(37,99,235,0.08)", text: "#2563eb" },
+  warning: { bg: "rgba(234,179,8,0.08)", text: "#ca8a04" },
+  success: { bg: "rgba(22,163,106,0.08)", text: "#16a34a" },
+  error: { bg: "rgba(220,38,38,0.08)", text: "#dc2626" },
 };
 
 export default function AdminAlertsPage() {
@@ -25,7 +25,7 @@ export default function AdminAlertsPage() {
               <span className="text-xs px-2 py-0.5 rounded" style={{ background: colors[a.type].bg, color: colors[a.type].text }}>{a.type}</span>
               <span className="text-sm">{a.msg}</span>
             </div>
-            <span className="text-xs" style={{ color: "#94a3b8" }}>{a.time}</span>
+            <span className="text-xs" style={{ color: "#64748b" }}>{a.time}</span>
           </div>
         </div>
       ))}

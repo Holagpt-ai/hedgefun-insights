@@ -3,9 +3,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
-const card: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8, padding: 20 };
-const inputStyle: React.CSSProperties = { background: "#1e293b", borderColor: "#334155", color: "#e2e8f0" };
-const labelStyle: React.CSSProperties = { color: "#94a3b8", fontSize: "0.75rem", marginBottom: 4, display: "block" };
+const card: React.CSSProperties = { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 };
+const inputStyle: React.CSSProperties = { background: "#ffffff", borderColor: "#e2e8f0", color: "#0f172a" };
+const labelStyle: React.CSSProperties = { color: "#64748b", fontSize: "0.75rem", marginBottom: 4, display: "block" };
 
 export default function AdminSettingsPage() {
   const [site, setSite] = useState({ name: "HedgeFun", tagline: "Your edge in every market.", email: "info@hedgefun.fun", address: "1631 Del Prado Blvd S. #1124, Cape Coral, FL 33990" });
@@ -61,7 +61,7 @@ export default function AdminSettingsPage() {
 
       <div style={card} className="space-y-4">
         <p className="text-sm font-semibold">Admin Role Management</p>
-        <p className="text-xs" style={{ color: "#94a3b8" }}>Users with admin plan can access this console.</p>
+        <p className="text-xs" style={{ color: "#64748b" }}>Users with admin plan can access this console.</p>
         <div className="flex gap-2">
           <Input placeholder="Enter email to grant admin access" style={inputStyle} className="max-w-sm" />
           <Button size="sm" style={{ background: "#2563eb" }}>Add Admin</Button>

@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
-const cardStyle: React.CSSProperties = { background: "#1e293b", border: "1px solid #334155", borderRadius: 8 };
+const cardStyle: React.CSSProperties = { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8 };
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -29,21 +29,21 @@ export default function AdminUsersPage() {
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         className="max-w-sm"
-        style={{ background: "#1e293b", borderColor: "#334155", color: "#e2e8f0" }}
+        style={{ background: "#ffffff", borderColor: "#e2e8f0", color: "#0f172a" }}
       />
       <div style={cardStyle} className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr style={{ borderBottom: "1px solid #334155" }}>
+            <tr style={{ borderBottom: "1px solid #e2e8f0" }}>
               {["User", "Email", "Plan", "Joined", "Status", "Actions"].map((h) => (
-                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#94a3b8" }}>{h}</th>
+                <th key={h} className="text-left px-4 py-3 font-medium" style={{ color: "#64748b" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id} className="transition-colors" style={{ borderBottom: "1px solid #334155" }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = "#0f1f3d")}
+              <tr key={u.id} className="transition-colors" style={{ borderBottom: "1px solid #e2e8f0" }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                 onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
               >
                 <td className="px-4 py-3 flex items-center gap-2">
@@ -52,21 +52,21 @@ export default function AdminUsersPage() {
                   </div>
                   <span className="truncate">{u.full_name || "—"}</span>
                 </td>
-                <td className="px-4 py-3" style={{ color: "#94a3b8" }}>{u.email}</td>
+                <td className="px-4 py-3" style={{ color: "#64748b" }}>{u.email}</td>
                 <td className="px-4 py-3">
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: u.plan === "admin" ? "rgba(220,38,38,0.2)" : u.plan === "pro" ? "rgba(37,99,235,0.2)" : "rgba(100,116,139,0.2)", color: u.plan === "admin" ? "#f87171" : u.plan === "pro" ? "#60a5fa" : "#94a3b8" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: u.plan === "admin" ? "rgba(220,38,38,0.1)" : u.plan === "pro" ? "rgba(37,99,235,0.1)" : "rgba(100,116,139,0.1)", color: u.plan === "admin" ? "#dc2626" : u.plan === "pro" ? "#2563eb" : "#64748b" }}>
                     {u.plan || "free"}
                   </span>
                 </td>
-                <td className="px-4 py-3" style={{ color: "#94a3b8" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
+                <td className="px-4 py-3" style={{ color: "#64748b" }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : "—"}</td>
                 <td className="px-4 py-3">
-                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(22,163,106,0.2)", color: "#4ade80" }}>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(22,163,106,0.1)", color: "#16a34a" }}>
                     {u.subscription_status === "active" ? "Active" : "Inactive"}
                   </span>
                 </td>
                 <td className="px-4 py-3">
-                  <button className="text-xs mr-2" style={{ color: "#60a5fa" }}>View</button>
-                  <button className="text-xs" style={{ color: "#94a3b8" }}>Edit</button>
+                  <button className="text-xs mr-2" style={{ color: "#2563eb" }}>View</button>
+                  <button className="text-xs" style={{ color: "#64748b" }}>Edit</button>
                 </td>
               </tr>
             ))}
