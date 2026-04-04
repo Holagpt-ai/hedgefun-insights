@@ -141,8 +141,8 @@ export function GlobalMarketClocks() {
       `}</style>
       <div className="px-4 mt-2 mb-4">
         <div
-          className="flex global-clocks-row"
-          style={{ gap: 10, overflowX: "auto", scrollbarWidth: "none", msOverflowStyle: "none" as any }}
+          className="flex global-clocks-row clock-row"
+          style={{ gap: 10, overflowX: "auto", overflowY: "visible", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", msOverflowStyle: "none" as any }}
         >
           {/* Globe Card */}
           <div
