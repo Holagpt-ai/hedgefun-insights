@@ -596,6 +596,7 @@ export type Database = {
           exchange: string | null
           id: string
           market: string | null
+          market_cap: number | null
           name: string
           symbol: string
           type: string | null
@@ -606,6 +607,7 @@ export type Database = {
           exchange?: string | null
           id?: string
           market?: string | null
+          market_cap?: number | null
           name: string
           symbol: string
           type?: string | null
@@ -616,6 +618,7 @@ export type Database = {
           exchange?: string | null
           id?: string
           market?: string | null
+          market_cap?: number | null
           name?: string
           symbol?: string
           type?: string | null

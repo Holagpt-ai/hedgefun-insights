@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.sync-historical-ipos]
 verify_jwt = false
+
+[functions.sync-market-caps]
+verify_jwt = false
