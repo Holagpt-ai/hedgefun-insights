@@ -219,7 +219,7 @@ export default function TradingViewChart({
 
   useEffect(() => {
     if (!chartRef.current) return;
-    chartRef.current.applyOptions({
+    (chartRef.current as any).applyOptions({
       watermark: {
         visible: true,
         fontSize: 48,
