@@ -107,12 +107,14 @@ const Screener = () => {
         }));
       }
 
-      // When a market cap filter is active, query stocks table which has market_cap data
-      if (hasMarketCapFilter) {
+      // When a market cap filter is active, query ticker_search which has market_cap data
+      const hasFilter = ["mega-cap", "large-cap", "mid-cap", "small-cap", "micro-cap"].includes(marketCapFilter);
+      if (hasFilter) {
         let query = supabase
-          .from("stocks")
-          .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, sector, industry, exchange")
-          .not("market_cap", "is", null);
+          .from("ticker_search")
+          .select("symbol, name, exchange, type, market_cap")
+          .not("market_cap", "is", null)
+          .eq("active", true);
 
         if (marketCapFilter === "mega-cap") {
           query = query.gte("market_cap", 200_000_000_000);
@@ -123,25 +125,25 @@ const Screener = () => {
         } else if (marketCapFilter === "small-cap") {
           query = query.gte("market_cap", 300_000_000).lt("market_cap", 2_000_000_000);
         } else if (marketCapFilter === "micro-cap") {
-          query = query.lt("market_cap", 300_000_000).gte("market_cap", 50_000_000);
+          query = query.gte("market_cap", 50_000_000).lt("market_cap", 300_000_000);
         }
 
         const { data, error } = await query
-          .order("market_cap", { ascending: false, nullsFirst: false })
+          .order("market_cap", { ascending: false })
           .limit(1000);
         if (error) throw error;
         return (data ?? []).map((r) => ({
           symbol: r.symbol,
           name: r.name,
           exchange: r.exchange,
-          type: null as string | null,
+          type: r.type as string | null,
           market_cap: r.market_cap as number | null,
-          price: r.price as number | null,
-          change_percent: r.change_percent as number | null,
-          volume: r.volume as number | null,
-          pe_ratio: r.pe_ratio as number | null,
-          industry: r.industry as string | null,
-          sector: r.sector as string | null,
+          price: null as number | null,
+          change_percent: null as number | null,
+          volume: null as number | null,
+          pe_ratio: null as number | null,
+          industry: null as string | null,
+          sector: null as string | null,
         }));
       }
 
