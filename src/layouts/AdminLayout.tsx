@@ -100,7 +100,7 @@ export default function AdminLayout() {
 
   return (
     <AdminGuard>
-      <div className="flex min-h-screen" style={{ background: "#1e293b", color: "#e2e8f0" }}>
+      <div className="flex min-h-screen" style={{ background: "#0f172a", color: "#e2e8f0" }}>
         <AdminSidebar collapsed={collapsed} setCollapsed={setCollapsed} />
         <div className="flex-1 flex flex-col min-w-0">
           <AdminHeader />
