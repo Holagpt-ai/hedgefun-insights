@@ -190,17 +190,19 @@ export default function TradingViewChart({
       s.setData(calcSMA(data, 200) as any);
     }
 
-    (chart as any).applyOptions({
-      watermark: {
-        visible: true,
-        fontSize: 48,
-        horzAlign: "center",
-        vertAlign: "center",
-        color: "rgba(150,150,150,0.18)",
-        text: ticker,
-      },
-    });
-    console.log('[watermark-debug] applied for ticker:', ticker, 'chart options:', (chartRef.current as any)?.options?.());
+    setTimeout(() => {
+      if (!chartRef.current) return;
+      (chartRef.current as any).applyOptions({
+        watermark: {
+          visible: true,
+          fontSize: 32,
+          horzAlign: "center",
+          vertAlign: "center",
+          color: "rgba(150, 150, 150, 0.18)",
+          text: ticker,
+        },
+      });
+    }, 150);
 
     chart.timeScale().fitContent();
 
