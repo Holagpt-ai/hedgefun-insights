@@ -190,30 +190,26 @@ export default function TradingViewChart({
       s.setData(calcSMA(data, 200) as any);
     }
 
-    setTimeout(() => {
-      if (!chartRef.current) return;
-      const currentWidth = chartContainerRef.current
-        ?.clientWidth ?? 0;
-      const fontSize = currentWidth > 300 ? 42 
-        : currentWidth > 150 ? 28 
-        : 18;
-      (chartRef.current as any).applyOptions({
-        watermark: {
-          visible: true,
-          fontSize,
-          horzAlign: "center",
-          vertAlign: "center",
-          color: "rgba(150, 150, 150, 0.18)",
-          text: ticker,
-        },
-      });
-    }, 500);
-
     chart.timeScale().fitContent();
 
+    let watermarkApplied = false;
     const resizeObserver = new ResizeObserver(() => {
       if (chartContainerRef.current) {
-        chart.applyOptions({ width: chartContainerRef.current.clientWidth });
+        const newWidth = chartContainerRef.current.clientWidth;
+        chart.applyOptions({ width: newWidth });
+        if (!watermarkApplied && newWidth > 100) {
+          watermarkApplied = true;
+          (chart as any).applyOptions({
+            watermark: {
+              visible: true,
+              fontSize: 36,
+              horzAlign: "center",
+              vertAlign: "center",
+              color: "rgba(150, 150, 150, 0.18)",
+              text: ticker,
+            },
+          });
+        }
       }
     });
     resizeObserver.observe(chartContainerRef.current);
