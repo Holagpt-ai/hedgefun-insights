@@ -52,21 +52,37 @@ serve(async (req) => {
 
         const sparklineData = aggResults.map((r: any) => r.c).filter((v: any) => typeof v === "number");
 
-        // Resolve current value with fallback chain (mirrors resolveCurrentPrice)
+        // Resolve current price with fallback chain (mirrors resolveCurrentPrice)
         const dayClose = t?.day?.c;
-        const currentValue = (dayClose && dayClose > 0) ? dayClose : (t?.min?.c || t?.lastTrade?.p || (sparklineData.length > 0 ? sparklineData[sparklineData.length - 1] : null));
+        const minClose = t?.min?.c;
+        const lastTrade = t?.lastTrade?.p;
+        const prevClose = t?.prevDay?.c;
+
+        const currentPrice =
+          (dayClose && dayClose > 0) ? dayClose
+          : (minClose && minClose > 0) ? minClose
+          : (lastTrade && lastTrade > 0) ? lastTrade
+          : (prevClose && prevClose > 0) ? prevClose
+          : null;
+
+        const changeAmount = (currentPrice && prevClose)
+          ? currentPrice - prevClose
+          : null;
+        const changePercent = (currentPrice && prevClose && prevClose > 0)
+          ? ((currentPrice - prevClose) / prevClose) * 100
+          : null;
 
         const row = {
           symbol: idx.ticker,
           name: idx.name,
-          current_value: currentValue,
-          change_amount: t?.todaysChange ?? null,
-          change_percent: t?.todaysChangePerc ?? null,
+          current_value: currentPrice,
+          change_amount: changeAmount,
+          change_percent: changePercent,
           sparkline_data: sparklineData.length > 0 ? sparklineData : null,
           updated_at: new Date().toISOString(),
         };
 
-        console.log(`${idx.ticker}: sparkline points=${sparklineData.length}, value=${currentValue}`);
+        console.log(`${idx.ticker}: sparkline points=${sparklineData.length}, value=${currentPrice}`);
 
         const { error } = await supabase
           .from("market_indexes")
