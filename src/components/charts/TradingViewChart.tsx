@@ -200,6 +200,7 @@ export default function TradingViewChart({
         text: ticker,
       },
     });
+    console.log('[watermark-debug] applied for ticker:', ticker, 'chart options:', (chartRef.current as any)?.options?.());
 
     chart.timeScale().fitContent();
 
