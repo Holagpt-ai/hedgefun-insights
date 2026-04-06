@@ -192,17 +192,22 @@ export default function TradingViewChart({
 
     setTimeout(() => {
       if (!chartRef.current) return;
+      const currentWidth = chartContainerRef.current
+        ?.clientWidth ?? 0;
+      const fontSize = currentWidth > 300 ? 42 
+        : currentWidth > 150 ? 28 
+        : 18;
       (chartRef.current as any).applyOptions({
         watermark: {
           visible: true,
-          fontSize: 32,
+          fontSize,
           horzAlign: "center",
           vertAlign: "center",
           color: "rgba(150, 150, 150, 0.18)",
           text: ticker,
         },
       });
-    }, 150);
+    }, 500);
 
     chart.timeScale().fitContent();
 
