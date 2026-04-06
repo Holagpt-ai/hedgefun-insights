@@ -98,8 +98,8 @@ const tools = [
             <stop offset="100%" stopColor="#ef4444"/>
           </linearGradient>
         </defs>
-        <polyline points="4,34 14,22 22,28 34,12 44,12" stroke="url(#grad-trending)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-        <polyline points="36,12 44,12 44,20" stroke="url(#grad-trending)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <polyline points="4,36 14,26 22,30 34,16 42,10" stroke="url(#grad-trending)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <polyline points="34,10 42,10 42,18" stroke="url(#grad-trending)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
       </svg>
     ),
   },
