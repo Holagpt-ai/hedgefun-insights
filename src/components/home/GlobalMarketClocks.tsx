@@ -1,13 +1,13 @@
 import { useState, useEffect } from "react";
 
 const EXCHANGES = [
-  { city: "New York", exchange: "NYSE · NASDAQ", timezone: "America/New_York", openHour: 9, openMinute: 30, closeHour: 16, closeMinute: 0, preMarketStart: 4, afterHoursEnd: 20 },
-  { city: "London", exchange: "LSE", timezone: "Europe/London", openHour: 8, openMinute: 0, closeHour: 16, closeMinute: 30, preMarketStart: 7, afterHoursEnd: 17 },
-  { city: "Frankfurt", exchange: "XETRA", timezone: "Europe/Berlin", openHour: 9, openMinute: 0, closeHour: 17, closeMinute: 30, preMarketStart: 8, afterHoursEnd: 20 },
-  { city: "Shanghai", exchange: "SSE", timezone: "Asia/Shanghai", openHour: 9, openMinute: 30, closeHour: 15, closeMinute: 0, preMarketStart: 9, afterHoursEnd: 15 },
-  { city: "Hong Kong", exchange: "HKEX", timezone: "Asia/Hong_Kong", openHour: 9, openMinute: 30, closeHour: 16, closeMinute: 0, preMarketStart: 9, afterHoursEnd: 16 },
-  { city: "Tokyo", exchange: "TSE", timezone: "Asia/Tokyo", openHour: 9, openMinute: 0, closeHour: 15, closeMinute: 30, preMarketStart: 8, afterHoursEnd: 16 },
-  { city: "Sydney", exchange: "ASX", timezone: "Australia/Sydney", openHour: 10, openMinute: 0, closeHour: 16, closeMinute: 0, preMarketStart: 7, afterHoursEnd: 17 },
+  { city: "New York", exchange: "NYSE · NASDAQ", timezone: "America/New_York", openHour: 9, openMinute: 30, closeHour: 16, closeMinute: 0, preMarketStart: 4, afterHoursEnd: 20, url: "https://www.nyse.com" },
+  { city: "London", exchange: "LSE", timezone: "Europe/London", openHour: 8, openMinute: 0, closeHour: 16, closeMinute: 30, preMarketStart: 7, afterHoursEnd: 17, url: "https://www.londonstockexchange.com" },
+  { city: "Frankfurt", exchange: "XETRA", timezone: "Europe/Berlin", openHour: 9, openMinute: 0, closeHour: 17, closeMinute: 30, preMarketStart: 8, afterHoursEnd: 20, url: "https://www.xetra.com" },
+  { city: "Shanghai", exchange: "SSE", timezone: "Asia/Shanghai", openHour: 9, openMinute: 30, closeHour: 15, closeMinute: 0, preMarketStart: 9, afterHoursEnd: 15, url: "https://english.sse.com.cn" },
+  { city: "Hong Kong", exchange: "HKEX", timezone: "Asia/Hong_Kong", openHour: 9, openMinute: 30, closeHour: 16, closeMinute: 0, preMarketStart: 9, afterHoursEnd: 16, url: "https://www.hkex.com.hk" },
+  { city: "Tokyo", exchange: "TSE", timezone: "Asia/Tokyo", openHour: 9, openMinute: 0, closeHour: 15, closeMinute: 30, preMarketStart: 8, afterHoursEnd: 16, url: "https://www.jpx.co.jp/english" },
+  { city: "Sydney", exchange: "ASX", timezone: "Australia/Sydney", openHour: 10, openMinute: 0, closeHour: 16, closeMinute: 0, preMarketStart: 7, afterHoursEnd: 17, url: "https://www.asx.com.au" },
 ];
 
 type MarketStatus = "open" | "closed" | "pre-market" | "after-hours";
@@ -203,30 +203,50 @@ export function GlobalMarketClocks() {
             const digital = new Intl.DateTimeFormat("en-US", { timeZone: ex.timezone, hour: "numeric", minute: "2-digit", hour12: true }).format(now);
 
             return (
-              <div
+              <a
                 key={ex.city}
-                className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
-                style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4 }}
+                href={ex.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ textDecoration: "none", display: "contents" }}
               >
-                <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
-                <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.city}</span>
-                <span style={{ fontSize: "0.5rem", color: "hsl(var(--text-muted))", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.exchange}</span>
-                <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
-                <span style={{
-                  fontSize: "0.55rem",
-                  fontWeight: 700,
-                  padding: "2px 8px",
-                  borderRadius: 9999,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  display: "inline-block",
-                  marginTop: 3,
-                  background: pill.background,
-                  color: pill.color,
-                  border: pill.border,
-                  boxShadow: pill.boxShadow,
-                }}>{pill.label}</span>
-              </div>
+                <div
+                  className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
+                  style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4, transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease" }}
+                  onMouseEnter={(e) => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.transform = "translateY(-3px)";
+                    el.style.boxShadow = "0 6px 20px rgba(37,99,235,0.12)";
+                    el.style.borderColor = "rgba(37,99,235,0.3)";
+                    el.style.cursor = "pointer";
+                  }}
+                  onMouseLeave={(e) => {
+                    const el = e.currentTarget as HTMLElement;
+                    el.style.transform = "translateY(0)";
+                    el.style.boxShadow = "none";
+                    el.style.borderColor = "hsl(var(--border))";
+                  }}
+                >
+                  <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
+                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.city}</span>
+                  <span style={{ fontSize: "0.5rem", color: "hsl(var(--text-muted))", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.exchange}</span>
+                  <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
+                  <span style={{
+                    fontSize: "0.55rem",
+                    fontWeight: 700,
+                    padding: "2px 8px",
+                    borderRadius: 9999,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    display: "inline-block",
+                    marginTop: 3,
+                    background: pill.background,
+                    color: pill.color,
+                    border: pill.border,
+                    boxShadow: pill.boxShadow,
+                  }}>{pill.label}</span>
+                </div>
+              </a>
             );
           })}
         </div>
