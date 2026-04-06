@@ -199,7 +199,7 @@ export default function TradingViewChart({
         chart.applyOptions({ width: newWidth });
         if (!watermarkApplied && newWidth > 100) {
           watermarkApplied = true;
-          chart.applyOptions({
+          (chart as any).applyOptions({
             watermark: {
               visible: true,
               fontSize: 36,
