@@ -1,6 +1,15 @@
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
 
+const toolAnimations: Record<string, string> = {
+  watchlist: "star-pulse 0.5s ease",
+  stockScreener: "sliders-slide 0.4s ease",
+  marketMovers: "pulse-wave 0.5s ease",
+  earningsCalendar: "calendar-bounce 0.5s ease",
+  trending: "trend-shoot 0.4s ease",
+  hedgefunPro: "pro-glow 0.6s ease infinite",
+};
+
 const tools = [
   {
     labelKey: "watchlist",
@@ -119,6 +128,34 @@ export function ToolGrid() {
 
   return (
     <div className="px-4 py-4">
+      <style>{`
+        @keyframes star-pulse {
+          0%, 100% { transform: scale(1) rotate(0deg); }
+          50% { transform: scale(1.2) rotate(15deg); }
+        }
+        @keyframes sliders-slide {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        @keyframes pulse-wave {
+          0%, 100% { transform: scaleY(1); }
+          50% { transform: scaleY(1.15); }
+        }
+        @keyframes calendar-bounce {
+          0%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-4px); }
+          60% { transform: translateY(-2px); }
+        }
+        @keyframes trend-shoot {
+          0% { transform: translate(0, 0); }
+          50% { transform: translate(3px, -3px); }
+          100% { transform: translate(0, 0); }
+        }
+        @keyframes pro-glow {
+          0%, 100% { filter: drop-shadow(0 0 2px rgba(99,102,241,0.4)); }
+          50% { filter: drop-shadow(0 0 8px rgba(99,102,241,0.8)); }
+        }
+      `}</style>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {tools.map((tool) => (
           <button
@@ -130,11 +167,15 @@ export function ToolGrid() {
               const el = e.currentTarget as HTMLElement;
               el.style.transform = "translateY(-2px)";
               el.style.boxShadow = "0 8px 24px rgba(0,0,0,0.08)";
+              const svg = el.querySelector("svg") as SVGElement | null;
+              if (svg) svg.style.animation = toolAnimations[tool.labelKey] || "none";
             }}
             onMouseLeave={(e) => {
               const el = e.currentTarget as HTMLElement;
               el.style.transform = "translateY(0)";
               el.style.boxShadow = "none";
+              const svg = el.querySelector("svg") as SVGElement | null;
+              if (svg) svg.style.animation = "none";
             }}
           >
             {tool.svg}
