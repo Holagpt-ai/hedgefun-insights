@@ -208,6 +208,8 @@ export function AppSidebar({ className }: { className?: string }) {
               key={item.labelKey}
               onClick={() => navigate(item.route)}
               title={collapsed ? t(item.labelKey) : undefined}
+              onMouseEnter={(e) => handleIconHover(e, item.labelKey)}
+              onMouseLeave={handleIconLeave}
               className={cn(
                 "flex items-center w-full rounded-md text-sm font-medium transition-colors",
                 collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
