@@ -133,17 +133,6 @@ export default function TradingViewChart({
 
     chartRef.current = chart;
 
-    (chart as any).applyOptions({
-      watermark: {
-        visible: true,
-        fontSize: 48,
-        horzAlign: "center",
-        vertAlign: "center",
-color: "rgba(150, 150, 150, 0.35)",
-        text: ticker,
-      },
-    });
-
     // Add main series based on chart type
     if (chartType === 'candlestick' || chartType === 'heikinashi') {
       const series = chart.addSeries(CandlestickSeries, {
@@ -201,6 +190,17 @@ color: "rgba(150, 150, 150, 0.35)",
       s.setData(calcSMA(data, 200) as any);
     }
 
+    (chart as any).applyOptions({
+      watermark: {
+        visible: true,
+        fontSize: 48,
+        horzAlign: "center",
+        vertAlign: "center",
+        color: "rgba(150,150,150,0.18)",
+        text: ticker,
+      },
+    });
+
     chart.timeScale().fitContent();
 
     const resizeObserver = new ResizeObserver(() => {
@@ -217,19 +217,6 @@ color: "rgba(150, 150, 150, 0.35)",
     };
   }, [data, chartType, activeIndicators, isDark, isPositive, height, ticker]);
 
-  useEffect(() => {
-    if (!chartRef.current) return;
-    (chartRef.current as any).applyOptions({
-      watermark: {
-        visible: true,
-        fontSize: 48,
-        horzAlign: "center",
-        vertAlign: "center",
-color: "rgba(150, 150, 150, 0.35)",
-        text: ticker,
-      },
-    });
-  }, [ticker]);
 
   const toggleIndicator = (ind: Indicator) => {
     setActiveIndicators(prev => {
