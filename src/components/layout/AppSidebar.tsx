@@ -74,6 +74,17 @@ const navItems: NavItem[] = [
   { labelKey: "tools", icon: Wrench, route: "/tools" },
 ];
 
+const sidebarAnimations: Record<string, string> = {
+  home: "sidebar-home-bounce 0.4s ease",
+  watchlist: "sidebar-star-spin 0.5s ease",
+  stockJournal: "sidebar-book-flip 0.4s ease",
+  stocks: "sidebar-bars-dance 0.5s ease",
+  trending: "sidebar-chart-rise 0.4s ease",
+  marketMovers: "sidebar-activity-pulse 0.4s ease",
+  marketNewsletter: "sidebar-mail-shake 0.4s ease",
+  tools: "sidebar-tool-spin 0.3s ease",
+};
+
 export function AppSidebar({ className }: { className?: string }) {
   const location = useLocation();
   const navigate = useNavigate();
@@ -92,6 +103,15 @@ export function AppSidebar({ className }: { className?: string }) {
   const isParentActive = (item: NavItem) =>
     isActive(item.route) || item.children?.some((c) => isActive(c.route));
 
+  const handleIconHover = (e: React.MouseEvent, labelKey: string) => {
+    const svg = e.currentTarget.querySelector("svg") as SVGElement | null;
+    if (svg) svg.style.animation = sidebarAnimations[labelKey] || "none";
+  };
+  const handleIconLeave = (e: React.MouseEvent) => {
+    const svg = e.currentTarget.querySelector("svg") as SVGElement | null;
+    if (svg) svg.style.animation = "none";
+  };
+
   return (
     <aside
       className={cn(
@@ -100,6 +120,43 @@ export function AppSidebar({ className }: { className?: string }) {
       )}
       style={{ width: collapsed ? 52 : 240 }}
     >
+      <style>{`
+        @keyframes sidebar-home-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-3px); }
+        }
+        @keyframes sidebar-star-spin {
+          0% { transform: rotate(0deg) scale(1); }
+          50% { transform: rotate(20deg) scale(1.1); }
+          100% { transform: rotate(0deg) scale(1); }
+        }
+        @keyframes sidebar-book-flip {
+          0%, 100% { transform: rotateY(0deg); }
+          50% { transform: rotateY(20deg); }
+        }
+        @keyframes sidebar-bars-dance {
+          0%, 100% { transform: scaleY(1); }
+          33% { transform: scaleY(1.2); }
+          66% { transform: scaleY(0.9); }
+        }
+        @keyframes sidebar-chart-rise {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(-3px) rotate(-5deg); }
+        }
+        @keyframes sidebar-activity-pulse {
+          0%, 100% { transform: scaleX(1); }
+          50% { transform: scaleX(1.1); }
+        }
+        @keyframes sidebar-mail-shake {
+          0%, 100% { transform: rotate(0deg); }
+          25% { transform: rotate(-8deg); }
+          75% { transform: rotate(8deg); }
+        }
+        @keyframes sidebar-tool-spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(20deg); }
+        }
+      `}</style>
       <nav className="flex-1 py-2 px-2 space-y-0.5">
         {navItems.map((item) =>
           item.children && !collapsed ? (
