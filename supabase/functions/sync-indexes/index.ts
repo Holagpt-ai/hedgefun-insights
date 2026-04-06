@@ -82,7 +82,7 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         };
 
-        console.log(`${idx.ticker}: sparkline points=${sparklineData.length}, value=${currentValue}`);
+        console.log(`${idx.ticker}: sparkline points=${sparklineData.length}, value=${currentPrice}`);
 
         const { error } = await supabase
           .from("market_indexes")
