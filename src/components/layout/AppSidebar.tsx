@@ -162,6 +162,8 @@ export function AppSidebar({ className }: { className?: string }) {
           item.children && !collapsed ? (
             <Collapsible key={item.labelKey} defaultOpen={isParentActive(item)}>
               <div
+                onMouseEnter={(e) => handleIconHover(e, item.labelKey)}
+                onMouseLeave={handleIconLeave}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors group",
                   isParentActive(item)
