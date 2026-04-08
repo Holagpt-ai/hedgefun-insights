@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.sitemap]
 verify_jwt = false
+
+[functions.refresh-market-data]
+verify_jwt = true
