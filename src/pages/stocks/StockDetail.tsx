@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { slugToTicker } from "@/lib/ticker-utils";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import { generateMetaTitle, generateMetaDescription } from "@/lib/agentic-seo";
 import { getTickerSnapshot, getTickerDetails, getTickerNews, getAggregates, getDividends, getSplits } from "@/lib/polygon";
 import { cn } from "@/lib/utils";
 import StockHeader from "@/components/stock/StockHeader";
