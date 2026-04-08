@@ -46,6 +46,9 @@ const StockDetail = () => {
   const [activeTab, setActiveTab] = useState("Overview");
   const [timeRange, setTimeRange] = useState("1M");
 
+  const companyName = undefined as string | undefined; // populated after details fetch below
+
+
   const { data: snapshot, isLoading: snapLoading } = useQuery({
     queryKey: ["snapshot", ticker],
     queryFn: () => getTickerSnapshot(ticker),
