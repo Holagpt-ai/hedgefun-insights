@@ -26,6 +26,7 @@ export interface OHLCVData {
 interface TradingViewChartProps {
   data: OHLCVData[];
   ticker: string;
+  companyName?: string;
   isPositive?: boolean;
   height?: number;
   loading?: boolean;
@@ -63,6 +64,7 @@ function calcHeikinAshi(data: OHLCVData[]) {
 export default function TradingViewChart({
   data,
   ticker,
+  companyName,
   isPositive = true,
   height = 400,
   loading = false,
@@ -72,6 +74,8 @@ export default function TradingViewChart({
 }: TradingViewChartProps) {
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
+  const [inView, setInView] = useState(false);
   const [internalChartType, setInternalChartType] = useState<ChartType>(controlledChartType ?? 'area');
   const chartType = controlledChartType ?? internalChartType;
   const setChartType = (type: ChartType) => {
@@ -80,6 +84,22 @@ export default function TradingViewChart({
   };
   const [activeIndicators, setActiveIndicators] = useState<Set<Indicator>>(new Set(['volume']));
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
+
+  const seoTitle = companyName
+    ? `${companyName} (${ticker}) Real-Time Analysis & Probability Forecast Chart | Hedgefun`
+    : `${ticker} Technical Analysis Chart | Hedgefun`;
+
+  // Intersection observer for lazy loading
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const io = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) { setInView(true); io.disconnect(); } },
+      { rootMargin: '200px' }
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
 
   useEffect(() => {
     const observer = new MutationObserver(() => {
@@ -232,7 +252,7 @@ export default function TradingViewChart({
   };
 
   if (loading) {
-    return <Skeleton className="w-full rounded-[var(--radius)]" style={{ height }} />;
+    return <Skeleton className="w-full rounded-[var(--radius)]" style={{ height }} aria-label={seoTitle} />;
   }
 
   if (!data.length) {
@@ -240,6 +260,9 @@ export default function TradingViewChart({
       <div
         className="flex items-center justify-center text-sm text-muted-foreground border border-border rounded-[var(--radius)]"
         style={{ height }}
+        aria-label={seoTitle}
+        role="img"
+        title={seoTitle}
       >
         No chart data available
       </div>
@@ -261,41 +284,53 @@ export default function TradingViewChart({
   ];
 
   return (
-    <div className={hideToolbar ? "" : "border border-border rounded-[var(--radius)] overflow-hidden"}>
-      {!hideToolbar && (
-        <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/30">
-          <span className="text-[0.6875rem] font-semibold text-muted-foreground mr-1">Type:</span>
-          {CHART_TYPES.map(({ type, label }) => (
-            <button
-              key={type}
-              onClick={() => setChartType(type)}
-              className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
-                chartType === type
-                  ? 'bg-accent-blue text-primary-foreground border-accent-blue'
-                  : 'border-border text-muted-foreground hover:border-accent-blue hover:text-accent-blue'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          <span className="text-[0.6875rem] font-semibold text-muted-foreground ml-2 mr-1">Indicators:</span>
-          {INDICATORS.map(({ ind, label, color }) => (
-            <button
-              key={ind}
-              onClick={() => toggleIndicator(ind)}
-              className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
-                activeIndicators.has(ind)
-                  ? 'text-white border-transparent'
-                  : 'border-border text-muted-foreground hover:border-accent-blue'
-              }`}
-              style={activeIndicators.has(ind) ? { backgroundColor: color } : {}}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+    <div
+      ref={sentinelRef}
+      className={hideToolbar ? "" : "border border-border rounded-[var(--radius)] overflow-hidden"}
+      aria-label={seoTitle}
+      title={seoTitle}
+      role="img"
+    >
+      {!inView ? (
+        <div className="animate-pulse bg-muted rounded-[var(--radius)]" style={{ height }} />
+      ) : (
+        <>
+          {!hideToolbar && (
+            <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-border bg-muted/30">
+              <span className="text-[0.6875rem] font-semibold text-muted-foreground mr-1">Type:</span>
+              {CHART_TYPES.map(({ type, label }) => (
+                <button
+                  key={type}
+                  onClick={() => setChartType(type)}
+                  className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
+                    chartType === type
+                      ? 'bg-accent-blue text-primary-foreground border-accent-blue'
+                      : 'border-border text-muted-foreground hover:border-accent-blue hover:text-accent-blue'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className="text-[0.6875rem] font-semibold text-muted-foreground ml-2 mr-1">Indicators:</span>
+              {INDICATORS.map(({ ind, label, color }) => (
+                <button
+                  key={ind}
+                  onClick={() => toggleIndicator(ind)}
+                  className={`px-2.5 py-1 text-[0.75rem] rounded border transition-colors ${
+                    activeIndicators.has(ind)
+                      ? 'text-white border-transparent'
+                      : 'border-border text-muted-foreground hover:border-accent-blue'
+                  }`}
+                  style={activeIndicators.has(ind) ? { backgroundColor: color } : {}}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+          <div ref={chartContainerRef} style={{ height }} />
+        </>
       )}
-      <div ref={chartContainerRef} style={{ height }} />
     </div>
   );
 }
