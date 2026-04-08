@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.sync-market-caps]
 verify_jwt = false
+
+[functions.sitemap]
+verify_jwt = false
