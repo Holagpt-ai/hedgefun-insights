@@ -239,7 +239,7 @@ export default function TradingViewChart({
       chart.remove();
       chartRef.current = null;
     };
-  }, [data, chartType, activeIndicators, isDark, isPositive, height, ticker]);
+  }, [inView, data, chartType, activeIndicators, isDark, isPositive, height, ticker]);
 
 
   const toggleIndicator = (ind: Indicator) => {
