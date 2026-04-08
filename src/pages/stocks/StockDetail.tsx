@@ -148,7 +148,7 @@ const StockDetail = () => {
       {activeTab === "Overview" && (
         <div className="px-4 py-4 space-y-6">
           <StockStatsTable snapshot={snapshot} details={details} dividends={dividends} yearAggs={yearAggs} loading={snapLoading || detailsLoading} />
-          <TradingViewChart data={ohlcvData} ticker={ticker} isPositive={positive} height={380} loading={chartLoading} />
+          <TradingViewChart data={ohlcvData} ticker={ticker} companyName={details?.name} isPositive={positive} height={380} loading={chartLoading} />
           <StockCtaButtons ticker={ticker} />
           <StockAbout details={details} ticker={ticker} />
           <StockNews news={news} />
@@ -175,7 +175,7 @@ const StockDetail = () => {
 
       {activeTab === "Chart" && (
         <div className="px-4 py-4 space-y-6">
-          <TradingViewChart data={ohlcvData} ticker={ticker} isPositive={positive} height={480} loading={chartLoading} />
+          <TradingViewChart data={ohlcvData} ticker={ticker} companyName={details?.name} isPositive={positive} height={480} loading={chartLoading} />
         </div>
       )}
 
