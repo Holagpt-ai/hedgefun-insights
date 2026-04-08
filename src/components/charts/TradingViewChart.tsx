@@ -110,7 +110,7 @@ export default function TradingViewChart({
   }, []);
 
   useEffect(() => {
-    if (!chartContainerRef.current || !data.length) return;
+    if (!inView || !chartContainerRef.current || !data.length) return;
 
     // Remove previous chart instance if it exists
     if (chartRef.current) {
