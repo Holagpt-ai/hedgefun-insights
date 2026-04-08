@@ -1,4 +1,7 @@
 User-agent: *
 Allow: /
+Disallow: /admin/
+Disallow: /account/
+Disallow: /auth/
 
-Sitemap: https://hedgefun.fun/sitemap.xml
+Sitemap: https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/sitemap
