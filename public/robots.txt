@@ -4,4 +4,4 @@ Disallow: /admin/
 Disallow: /account/
 Disallow: /auth/
 
-Sitemap: https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/sitemap
+Sitemap: https://hedgefun.fun/sitemap.xml
