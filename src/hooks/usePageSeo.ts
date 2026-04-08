@@ -55,6 +55,18 @@ export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) 
       el.content = content;
     });
 
+    const createdTwitterElements: HTMLMetaElement[] = [];
+    twitterTags.forEach(({ name, content }) => {
+      let el = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("name", name);
+        document.head.appendChild(el);
+        createdTwitterElements.push(el);
+      }
+      el.content = content;
+    });
+
     // Canonical
     let canonicalEl = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     const prevCanonical = canonicalEl?.href;
@@ -82,6 +94,7 @@ export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) 
       if (canonicalEl && prevCanonical !== undefined) canonicalEl.href = prevCanonical;
       if (scriptEl) scriptEl.remove();
       createdOgElements.forEach((el) => el.remove());
+      createdTwitterElements.forEach((el) => el.remove());
     };
   }, [title, description, canonical, jsonLd]);
 }
