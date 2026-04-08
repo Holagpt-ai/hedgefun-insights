@@ -346,7 +346,7 @@ export default function EtfDetailPage() {
 
             {/* Chart */}
             <div className="mb-6">
-              <TradingViewChart data={ohlcvData} ticker={symbol} isPositive={positive} height={380} loading={chartLoading} />
+              <TradingViewChart data={ohlcvData} ticker={symbol} companyName={etfRow?.name ?? meta.name} isPositive={positive} height={380} loading={chartLoading} />
             </div>
 
             {/* Key stats grid */}
