@@ -63,6 +63,11 @@ const StockDetail = () => {
     retry: 3, retryDelay: 2000,
   });
 
+  usePageSeo({
+    title: generateMetaTitle(ticker, details?.name),
+    description: generateMetaDescription(ticker, details?.name),
+  });
+
   const { data: news } = useQuery({
     queryKey: ["ticker-news", ticker],
     queryFn: () => getTickerNews(ticker, 10),
