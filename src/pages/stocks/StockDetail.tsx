@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { slugToTicker } from "@/lib/ticker-utils";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import { generateMetaTitle, generateMetaDescription } from "@/lib/agentic-seo";
 import { getTickerSnapshot, getTickerDetails, getTickerNews, getAggregates, getDividends, getSplits } from "@/lib/polygon";
 import { cn } from "@/lib/utils";
 import StockHeader from "@/components/stock/StockHeader";
@@ -44,6 +46,9 @@ const StockDetail = () => {
   const [activeTab, setActiveTab] = useState("Overview");
   const [timeRange, setTimeRange] = useState("1M");
 
+  const companyName = undefined as string | undefined; // populated after details fetch below
+
+
   const { data: snapshot, isLoading: snapLoading } = useQuery({
     queryKey: ["snapshot", ticker],
     queryFn: () => getTickerSnapshot(ticker),
@@ -56,6 +61,11 @@ const StockDetail = () => {
     queryFn: () => getTickerDetails(ticker),
     enabled: !!ticker,
     retry: 3, retryDelay: 2000,
+  });
+
+  usePageSeo({
+    title: generateMetaTitle(ticker, details?.name),
+    description: generateMetaDescription(ticker, details?.name),
   });
 
   const { data: news } = useQuery({

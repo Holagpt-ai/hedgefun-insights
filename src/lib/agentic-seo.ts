@@ -34,6 +34,17 @@ export interface SitemapConfig {
   reviews: string[];
 }
 
+export function generateMetaTitle(ticker: string, companyName?: string): string {
+  return companyName
+    ? `${companyName} (${ticker}) Analysis & Probability Forecast | Hedgefun`
+    : `${ticker} Analysis & Probability Forecast | Hedgefun`;
+}
+
+export function generateMetaDescription(ticker: string, companyName?: string): string {
+  const name = companyName ? `${companyName} (${ticker})` : ticker;
+  return `Get institutional-grade algorithmic analysis, probability forecasts, and high-probability setups for ${name} powered by Hedgefun's Socratic AI.`;
+}
+
 // STUBBED — do not implement generation logic in V1
 export async function generateTickerContent(signal: CTSSignal): Promise<AgenticSEOPage | null> {
   if (signal.compositeScore < 0.65 && signal.tier !== 'T1') return null;
