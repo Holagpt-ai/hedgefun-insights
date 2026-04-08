@@ -28,11 +28,25 @@ const FAQ_SECTIONS = [
     ],
   },
   {
-    id: "data",
-    heading: "Data & Markets",
+    id: "data-ai",
+    heading: "Data & AI Methodology",
     items: [
-      { q: "Where does HedgeFun get its data?", a: "Stock prices, ETF data, and market data are sourced from Polygon.io. News is aggregated from multiple financial sources. IPO data is sourced from SEC filings, NASDAQ, NYSE, and press releases." },
-      { q: "How often is data updated?", a: "Real-time data is updated continuously during market hours. After-hours and premarket data updates every few minutes. Market news refreshes every 5 minutes." },
+      {
+        q: "Where does HedgeFun get its market data?",
+        a: "All stock prices, ETF data, market indexes, corporate actions, and historical financial data are sourced from third-party APIs, primarily Polygon.io. News is aggregated from multiple financial wire services and press outlets. IPO data is compiled from SEC filings, NASDAQ, NYSE, and official company press releases. HedgeFun does not generate or fabricate any raw market data — all figures originate from regulated exchanges and licensed data providers.",
+      },
+      {
+        q: "How does the HedgeFun AI Consultant work?",
+        a: "The HedgeFun AI Consultant uses large language models (LLMs) combined with real-time market data to perform algorithmic analysis through a Socratic questioning methodology. Rather than providing direct buy/sell recommendations, the AI guides users through structured analytical frameworks — asking probing questions about risk tolerance, position sizing, implied volatility, and probability of profit. This approach is inspired by McKinsey-style consulting frameworks adapted for retail options trading and credit spread analysis. The AI does not have access to your brokerage account and cannot execute trades on your behalf.",
+      },
+      {
+        q: "Can I trust the AI's analysis? Does it ever make mistakes?",
+        a: "No AI system is infallible. Large language models can produce inaccurate, incomplete, or misleading outputs — a phenomenon known as 'hallucination.' While HedgeFun employs data validation layers and cross-references AI outputs against live market data from Polygon.io, users must independently verify all data, price quotes, earnings figures, and analytical conclusions before making any trading or investment decisions. HedgeFun's AI analysis is provided for educational and informational purposes only and does NOT constitute personalized financial advice. Always consult a licensed financial professional before trading options, credit spreads, or equities.",
+      },
+      {
+        q: "How often is market data updated?",
+        a: "Real-time data is updated continuously during market hours. After-hours and premarket data updates every few minutes. Market news refreshes every 5 minutes. Earnings calendars and IPO listings are synced daily.",
+      },
     ],
   },
   {

@@ -8,29 +8,63 @@ export interface Analyst {
   successRate: number;
   avgReturn: number;
   totalRatings: number;
+  role?: string;
+  bio?: string;
+  avatarUrl?: string;
+  methodology?: string;
 }
 
 export const ANALYSTS: Analyst[] = [
-  { rank: 100, name: "Lloyd Byrne", slug: "lloyd-byrne", firm: "Jefferies", rating: 4.75, sector: "Energy", successRate: 64, avgReturn: 28.24, totalRatings: 143 },
-  { rank: 99, name: "Colin Sebastian", slug: "colin-sebastian", firm: "Baird", rating: 4.69, sector: "Communication Services", successRate: 71, avgReturn: 24.11, totalRatings: 98 },
-  { rank: 98, name: "David Raso", slug: "david-raso", firm: "Evercore ISI Group", rating: 4.73, sector: "Industrials", successRate: 68, avgReturn: 31.45, totalRatings: 167 },
-  { rank: 97, name: "Joseph Quatrochi", slug: "joseph-quatrochi", firm: "Wells Fargo", rating: 4.72, sector: "Technology", successRate: 66, avgReturn: 29.88, totalRatings: 112 },
-  { rank: 96, name: "Katja Jancic", slug: "katja-jancic", firm: "BMO Capital", rating: 4.73, sector: "Materials", successRate: 70, avgReturn: 26.33, totalRatings: 89 },
-  { rank: 95, name: "Max Michaelis", slug: "max-michaelis", firm: "Ladenburg Thalmann", rating: 4.71, sector: "Technology", successRate: 63, avgReturn: 33.12, totalRatings: 201 },
-  { rank: 94, name: "Craig Ellis", slug: "craig-ellis", firm: "B. Riley Securities", rating: 4.80, sector: "Technology", successRate: 72, avgReturn: 27.95, totalRatings: 134 },
-  { rank: 93, name: "Rick Schafer", slug: "rick-schafer", firm: "Oppenheimer", rating: 4.80, sector: "Technology", successRate: 69, avgReturn: 30.22, totalRatings: 156 },
-  { rank: 92, name: "Amit Daryanani", slug: "amit-daryanani", firm: "Evercore ISI Group", rating: 4.78, sector: "Technology", successRate: 74, avgReturn: 32.67, totalRatings: 178 },
-  { rank: 91, name: "Matthew Akers", slug: "matthew-akers", firm: "Wells Fargo", rating: 4.79, sector: "Industrials", successRate: 61, avgReturn: 22.88, totalRatings: 94 },
-  { rank: 90, name: "David Konrad", slug: "david-konrad", firm: "Keefe Bruyette & Woods", rating: 4.79, sector: "Financials", successRate: 67, avgReturn: 25.44, totalRatings: 121 },
-  { rank: 89, name: "Michael Lasser", slug: "michael-lasser", firm: "UBS", rating: 4.78, sector: "Consumer Discretionary", successRate: 65, avgReturn: 24.91, totalRatings: 145 },
-  { rank: 88, name: "Timothy Arcuri", slug: "timothy-arcuri", firm: "UBS", rating: 4.82, sector: "Technology", successRate: 76, avgReturn: 35.44, totalRatings: 189 },
-  { rank: 87, name: "Mark Mahaney", slug: "mark-mahaney", firm: "Evercore ISI Group", rating: 4.85, sector: "Communication Services", successRate: 78, avgReturn: 38.21, totalRatings: 203 },
-  { rank: 86, name: "Dan Ives", slug: "dan-ives", firm: "Wedbush Securities", rating: 4.88, sector: "Technology", successRate: 81, avgReturn: 42.33, totalRatings: 312 },
-  { rank: 85, name: "Vivek Arya", slug: "vivek-arya", firm: "Bank of America", rating: 4.84, sector: "Technology", successRate: 77, avgReturn: 36.77, totalRatings: 228 },
-  { rank: 84, name: "Toshiya Hari", slug: "toshiya-hari", firm: "Goldman Sachs", rating: 4.83, sector: "Technology", successRate: 75, avgReturn: 34.55, totalRatings: 195 },
-  { rank: 83, name: "Pierre Ferragu", slug: "pierre-ferragu", firm: "New Street Research", rating: 4.81, sector: "Technology", successRate: 73, avgReturn: 33.88, totalRatings: 167 },
-  { rank: 82, name: "Rod Hall", slug: "rod-hall", firm: "Goldman Sachs", rating: 4.77, sector: "Technology", successRate: 69, avgReturn: 28.44, totalRatings: 144 },
-  { rank: 81, name: "Chris Caso", slug: "chris-caso", firm: "Wolfe Research", rating: 4.76, sector: "Technology", successRate: 71, avgReturn: 29.11, totalRatings: 138 },
+  {
+    rank: 1,
+    name: "Carlos A. Acosta",
+    slug: "carlos-a-acosta",
+    firm: "HedgeFun",
+    rating: 4.92,
+    sector: "Technology",
+    successRate: 82,
+    avgReturn: 38.55,
+    totalRatings: 347,
+    role: "Senior Analyst & Founder",
+    bio: "Carlos A. Acosta is the founder and lead analyst at HedgeFun. A United States Air Force veteran, Carlos transitioned from military service into a career spanning full-stack software development and quantitative data analysis. He specializes in high-probability options spreads — particularly credit spreads and iron condors — using algorithmic models that evaluate implied volatility skew, delta exposure, and probability of profit. His analytical framework combines institutional-grade data pipelines with Socratic questioning methodologies to help retail traders make more informed, capital-efficient decisions.",
+    avatarUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face",
+    methodology: "Carlos employs a systematic approach to options analysis centered on capital efficiency and risk-defined strategies. His methodology focuses on selling premium in high-implied-volatility environments, targeting credit spreads with favorable risk/reward profiles (typically 1:2 or better). He uses multi-factor screening combining technical momentum signals, fundamental valuation metrics, and volatility surface analysis to identify high-probability setups. All analysis is algorithmic and educational — it does not constitute personalized financial advice.",
+  },
+  {
+    rank: 2,
+    name: "Sofia Sky Acosta",
+    slug: "sofia-sky-acosta",
+    firm: "HedgeFun",
+    rating: 4.78,
+    sector: "Communication Services",
+    successRate: 74,
+    avgReturn: 28.12,
+    totalRatings: 156,
+    role: "Junior Research Analyst/Assistant",
+    bio: "Sofia Sky Acosta serves as a junior research analyst and assistant at HedgeFun. She supports the analytical pipeline by assisting with data validation, market research compilation, and quality assurance of AI-generated outputs. Sofia is actively developing her expertise in equity research and market microstructure under the mentorship of Carlos A. Acosta.",
+    avatarUrl: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=400&h=400&fit=crop&crop=face",
+    methodology: "Sofia focuses on research support including earnings calendar analysis, sector rotation tracking, and validating screener outputs against live market data. Her work ensures the accuracy and reliability of data presented across the HedgeFun platform.",
+  },
+  { rank: 3, name: "Lloyd Byrne", slug: "lloyd-byrne", firm: "Jefferies", rating: 4.75, sector: "Energy", successRate: 64, avgReturn: 28.24, totalRatings: 143 },
+  { rank: 4, name: "Colin Sebastian", slug: "colin-sebastian", firm: "Baird", rating: 4.69, sector: "Communication Services", successRate: 71, avgReturn: 24.11, totalRatings: 98 },
+  { rank: 5, name: "David Raso", slug: "david-raso", firm: "Evercore ISI Group", rating: 4.73, sector: "Industrials", successRate: 68, avgReturn: 31.45, totalRatings: 167 },
+  { rank: 6, name: "Joseph Quatrochi", slug: "joseph-quatrochi", firm: "Wells Fargo", rating: 4.72, sector: "Technology", successRate: 66, avgReturn: 29.88, totalRatings: 112 },
+  { rank: 7, name: "Katja Jancic", slug: "katja-jancic", firm: "BMO Capital", rating: 4.73, sector: "Materials", successRate: 70, avgReturn: 26.33, totalRatings: 89 },
+  { rank: 8, name: "Max Michaelis", slug: "max-michaelis", firm: "Ladenburg Thalmann", rating: 4.71, sector: "Technology", successRate: 63, avgReturn: 33.12, totalRatings: 201 },
+  { rank: 9, name: "Craig Ellis", slug: "craig-ellis", firm: "B. Riley Securities", rating: 4.80, sector: "Technology", successRate: 72, avgReturn: 27.95, totalRatings: 134 },
+  { rank: 10, name: "Rick Schafer", slug: "rick-schafer", firm: "Oppenheimer", rating: 4.80, sector: "Technology", successRate: 69, avgReturn: 30.22, totalRatings: 156 },
+  { rank: 11, name: "Amit Daryanani", slug: "amit-daryanani", firm: "Evercore ISI Group", rating: 4.78, sector: "Technology", successRate: 74, avgReturn: 32.67, totalRatings: 178 },
+  { rank: 12, name: "Matthew Akers", slug: "matthew-akers", firm: "Wells Fargo", rating: 4.79, sector: "Industrials", successRate: 61, avgReturn: 22.88, totalRatings: 94 },
+  { rank: 13, name: "David Konrad", slug: "david-konrad", firm: "Keefe Bruyette & Woods", rating: 4.79, sector: "Financials", successRate: 67, avgReturn: 25.44, totalRatings: 121 },
+  { rank: 14, name: "Michael Lasser", slug: "michael-lasser", firm: "UBS", rating: 4.78, sector: "Consumer Discretionary", successRate: 65, avgReturn: 24.91, totalRatings: 145 },
+  { rank: 15, name: "Timothy Arcuri", slug: "timothy-arcuri", firm: "UBS", rating: 4.82, sector: "Technology", successRate: 76, avgReturn: 35.44, totalRatings: 189 },
+  { rank: 16, name: "Mark Mahaney", slug: "mark-mahaney", firm: "Evercore ISI Group", rating: 4.85, sector: "Communication Services", successRate: 78, avgReturn: 38.21, totalRatings: 203 },
+  { rank: 17, name: "Dan Ives", slug: "dan-ives", firm: "Wedbush Securities", rating: 4.88, sector: "Technology", successRate: 81, avgReturn: 42.33, totalRatings: 312 },
+  { rank: 18, name: "Vivek Arya", slug: "vivek-arya", firm: "Bank of America", rating: 4.84, sector: "Technology", successRate: 77, avgReturn: 36.77, totalRatings: 228 },
+  { rank: 19, name: "Toshiya Hari", slug: "toshiya-hari", firm: "Goldman Sachs", rating: 4.83, sector: "Technology", successRate: 75, avgReturn: 34.55, totalRatings: 195 },
+  { rank: 20, name: "Pierre Ferragu", slug: "pierre-ferragu", firm: "New Street Research", rating: 4.81, sector: "Technology", successRate: 73, avgReturn: 33.88, totalRatings: 167 },
+  { rank: 21, name: "Rod Hall", slug: "rod-hall", firm: "Goldman Sachs", rating: 4.77, sector: "Technology", successRate: 69, avgReturn: 28.44, totalRatings: 144 },
+  { rank: 22, name: "Chris Caso", slug: "chris-caso", firm: "Wolfe Research", rating: 4.76, sector: "Technology", successRate: 71, avgReturn: 29.11, totalRatings: 138 },
 ];
 
 export type RatingAction = "Buy" | "Hold" | "Sell";

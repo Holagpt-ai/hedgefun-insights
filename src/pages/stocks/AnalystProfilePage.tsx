@@ -1,8 +1,9 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { Star, CheckCircle, BarChart3, Hash, ChevronDown, ChevronUp } from "lucide-react";
+import { Star, CheckCircle, ChevronDown, ChevronUp, AlertTriangle, Shield } from "lucide-react";
 import { useState } from "react";
 import { AreaChart, Area, XAxis, YAxis, ResponsiveContainer, ReferenceDot } from "recharts";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -42,7 +43,6 @@ function StockRatingCard({ rating }: { rating: StockRating }) {
 
   return (
     <div className="border border-border rounded-lg overflow-hidden">
-      {/* Header */}
       <div className="px-4 py-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
@@ -74,7 +74,6 @@ function StockRatingCard({ rating }: { rating: StockRating }) {
         <span className="text-xs text-muted-foreground shrink-0">{rating.date}</span>
       </div>
 
-      {/* Toggle */}
       <button
         onClick={() => setExpanded((e) => !e)}
         className="w-full flex items-center justify-center gap-1 py-2 border-t border-border text-xs text-muted-foreground hover:bg-muted/30 transition-colors"
@@ -84,7 +83,6 @@ function StockRatingCard({ rating }: { rating: StockRating }) {
         <span>{expanded ? "Hide" : "View All"}</span>
       </button>
 
-      {/* Chart */}
       {expanded && (
         <div className="px-2 pb-3">
           <ResponsiveContainer width="100%" height={120}>
@@ -137,9 +135,9 @@ export default function AnalystProfilePage() {
   const analyst = getAnalystBySlug(slug ?? "");
 
   usePageSeo({
-    title: analyst ? `${analyst.name} - Stock Analyst | HedgeFun` : "Analyst | HedgeFun",
+    title: analyst ? `${analyst.name} - ${analyst.role ?? "Stock Analyst"} | HedgeFun` : "Analyst | HedgeFun",
     description: analyst
-      ? `${analyst.name} is a stock analyst at ${analyst.firm}. See ratings, success rate, and average return.`
+      ? `${analyst.name} is ${analyst.role ?? "a stock analyst"} at ${analyst.firm}. See ratings, success rate, and average return.`
       : "Analyst profile on HedgeFun.",
   });
 
@@ -152,6 +150,8 @@ export default function AnalystProfilePage() {
     .map((w) => w[0])
     .join("")
     .slice(0, 2);
+
+  const isHedgeFunTeam = analyst.firm === "HedgeFun";
 
   return (
     <div className="min-w-0">
@@ -169,22 +169,57 @@ export default function AnalystProfilePage() {
 
         {/* Header */}
         <div className="flex items-center gap-4 mb-2">
-          <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-xl font-bold text-muted-foreground shrink-0">
-            {initials}
-          </div>
+          {analyst.avatarUrl ? (
+            <img
+              src={analyst.avatarUrl}
+              alt={analyst.name}
+              className="h-16 w-16 rounded-full object-cover shrink-0 border-2 border-border"
+            />
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center text-xl font-bold text-muted-foreground shrink-0">
+              {initials}
+            </div>
+          )}
           <div>
             <h1 className="text-2xl font-bold text-foreground">{analyst.name}</h1>
-            <p className="text-sm text-muted-foreground">Stock Analyst at {analyst.firm}</p>
+            <p className="text-sm text-muted-foreground">{analyst.role ?? "Stock Analyst"} at {analyst.firm}</p>
             <StarRating value={analyst.rating} />
           </div>
         </div>
         <div className="h-0.5 bg-accent-blue rounded mb-6" />
 
+        {/* Bio Card — only for HedgeFun team members */}
+        {isHedgeFunTeam && analyst.bio && (
+          <Card className="border border-border mb-6">
+            <CardContent className="p-5">
+              <h2 className="font-semibold text-sm mb-2 flex items-center gap-2">
+                <Shield className="h-4 w-4 text-accent-blue" />
+                About {analyst.name}
+              </h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {analyst.bio}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Methodology Card — only for HedgeFun team members */}
+        {isHedgeFunTeam && analyst.methodology && (
+          <Card className="border border-border mb-6">
+            <CardContent className="p-5">
+              <h2 className="font-semibold text-sm mb-2">Investment Methodology</h2>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {analyst.methodology}
+              </p>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats grid */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <div className="border border-border rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-foreground">#{analyst.rank}</p>
-            <p className="text-xs text-muted-foreground mt-1">Out of 5,174 analysts</p>
+            <p className="text-xs text-muted-foreground mt-1">Analyst Rank</p>
           </div>
           <div className="border border-border rounded-lg p-4 text-center">
             <p className="text-2xl font-bold text-foreground">{analyst.totalRatings}</p>
@@ -201,21 +236,38 @@ export default function AnalystProfilePage() {
         </div>
 
         {/* Sectors & Industries */}
-        <div className="border border-border rounded-lg p-5 mb-8">
-          <h2 className="font-semibold text-sm mb-3">Sectors & Industries</h2>
-          <div className="mb-3">
-            <span className="text-xs text-muted-foreground mr-2">Main Sectors:</span>
-            <Badge variant="outline" className="border-accent-blue text-accent-blue">{analyst.sector}</Badge>
-          </div>
-          <div>
-            <span className="text-xs text-muted-foreground mr-2">Top Industries:</span>
-            <div className="inline-flex flex-wrap gap-1.5 mt-1">
-              {industries.map((ind) => (
-                <span key={ind} className="text-xs text-accent-blue hover:underline cursor-default">{ind}</span>
-              ))}
+        <Card className="border border-border mb-8">
+          <CardContent className="p-5">
+            <h2 className="font-semibold text-sm mb-3">Sectors & Industries</h2>
+            <div className="mb-3">
+              <span className="text-xs text-muted-foreground mr-2">Main Sectors:</span>
+              <Badge variant="outline" className="border-accent-blue text-accent-blue">{analyst.sector}</Badge>
             </div>
-          </div>
-        </div>
+            <div>
+              <span className="text-xs text-muted-foreground mr-2">Top Industries:</span>
+              <div className="inline-flex flex-wrap gap-1.5 mt-1">
+                {industries.map((ind) => (
+                  <span key={ind} className="text-xs text-accent-blue hover:underline cursor-default">{ind}</span>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Educational Disclaimer */}
+        <Card className="border border-border mb-8 bg-muted/30">
+          <CardContent className="p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+              <div>
+                <h2 className="font-semibold text-sm mb-1">Educational Disclaimer</h2>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  All analysis provided by {analyst.name} is algorithmic and educational in nature. It does <strong>NOT</strong> constitute personalized financial advice, a recommendation to buy or sell any security, or a solicitation of any kind. HedgeFun is not a registered broker-dealer or investment advisor. Past performance metrics shown above are based on historical data and are not indicative of future results. Trading options, credit spreads, and equities involves substantial risk of loss. Always consult a licensed financial professional before making investment decisions.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Stock Ratings */}
         <h2 className="text-lg font-bold mb-4">Stocks Rated by {analyst.name}</h2>
@@ -226,37 +278,39 @@ export default function AnalystProfilePage() {
         </div>
 
         {/* Pro upsell */}
-        <div className="border border-border rounded-lg p-6 mb-6">
-          <h2 className="text-lg font-bold mb-1">Upgrade to Pro</h2>
-          <p className="text-sm text-muted-foreground mb-4">
-            Get stock forecasts from Wall Street's highest rated professionals
-          </p>
-          <p className="font-semibold text-sm mb-3">Get much more with HedgeFun Pro</p>
-          <ul className="space-y-1.5 text-sm mb-5">
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green shrink-0" />
-              Investment ideas from the top Wall Street analysts
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green shrink-0" />
-              Advanced analyst filtering and sorting options
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green shrink-0" />
-              Unlimited access to all data and tools
-            </li>
-            <li className="flex items-center gap-2">
-              <CheckCircle className="h-4 w-4 text-green shrink-0" />
-              Up to 30 years financial history
-            </li>
-          </ul>
-          <Button
-            onClick={() => navigate("/pro")}
-            className="w-full bg-accent-blue hover:bg-accent-blue-hover text-white"
-          >
-            Sign Up Today
-          </Button>
-        </div>
+        <Card className="border border-border mb-6">
+          <CardContent className="p-6">
+            <h2 className="text-lg font-bold mb-1">Upgrade to Pro</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Get stock forecasts from Wall Street's highest rated professionals
+            </p>
+            <p className="font-semibold text-sm mb-3">Get much more with HedgeFun Pro</p>
+            <ul className="space-y-1.5 text-sm mb-5">
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green shrink-0" />
+                Investment ideas from the top Wall Street analysts
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green shrink-0" />
+                Advanced analyst filtering and sorting options
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green shrink-0" />
+                Unlimited access to all data and tools
+              </li>
+              <li className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green shrink-0" />
+                Up to 30 years financial history
+              </li>
+            </ul>
+            <Button
+              onClick={() => navigate("/pro")}
+              className="w-full bg-accent-blue hover:bg-accent-blue-hover text-white"
+            >
+              Sign Up Today
+            </Button>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
