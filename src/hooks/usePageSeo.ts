@@ -28,12 +28,20 @@ export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) 
     metaDesc.content = description;
 
     // OG tags
+    const currentUrl = canonical || window.location.href;
     const ogTags: { property: string; content: string }[] = [
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:type", content: jsonLd?.["@type"] === "Article" ? "article" : "website" },
+      { property: "og:url", content: currentUrl },
+      { property: "og:image:alt", content: `Real-time probability forecast and volatility analysis for ${title.split("|")[0].trim()} on Hedgefun.` },
     ];
-    if (canonical) ogTags.push({ property: "og:url", content: canonical });
+
+    // Twitter parity
+    const twitterTags: { name: string; content: string }[] = [
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
+    ];
 
     const createdOgElements: HTMLMetaElement[] = [];
     ogTags.forEach(({ property, content }) => {
@@ -43,6 +51,18 @@ export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) 
         el.setAttribute("property", property);
         document.head.appendChild(el);
         createdOgElements.push(el);
+      }
+      el.content = content;
+    });
+
+    const createdTwitterElements: HTMLMetaElement[] = [];
+    twitterTags.forEach(({ name, content }) => {
+      let el = document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement | null;
+      if (!el) {
+        el = document.createElement("meta");
+        el.setAttribute("name", name);
+        document.head.appendChild(el);
+        createdTwitterElements.push(el);
       }
       el.content = content;
     });
@@ -74,6 +94,7 @@ export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) 
       if (canonicalEl && prevCanonical !== undefined) canonicalEl.href = prevCanonical;
       if (scriptEl) scriptEl.remove();
       createdOgElements.forEach((el) => el.remove());
+      createdTwitterElements.forEach((el) => el.remove());
     };
   }, [title, description, canonical, jsonLd]);
 }
