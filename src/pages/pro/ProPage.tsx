@@ -92,9 +92,8 @@ const ProPage = () => {
       return;
     }
     toast({
-      title: "Upgrade Coming Soon",
-      description: "We are finalizing our payment processor. Please check back shortly or contact us at info@hedgefun.fun to get early Pro access.",
-      duration: 6000,
+      title: "Coming Soon",
+      description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
     });
   };
 

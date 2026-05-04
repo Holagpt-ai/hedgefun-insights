@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
-import { createPortalSession } from "@/lib/stripe";
+
 import { PRICING } from "@/config/pricing";
 import { toast } from "@/hooks/use-toast";
 import { CreditCard, Receipt } from "lucide-react";
@@ -47,19 +47,9 @@ const BillingPage = () => {
 
   const handleUpgrade = () => {
     toast({
-      title: "Upgrade Coming Soon",
-      description: "We are finalizing our payment processor. Please check back shortly or contact us at info@hedgefun.fun to get early Pro access.",
-      duration: 6000,
+      title: "Coming Soon",
+      description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
     });
-  };
-
-  const handlePortal = async () => {
-    try {
-      const { url } = await createPortalSession();
-      if (url) window.location.href = url;
-    } catch {
-      toast({ title: "Unable to open billing portal", variant: "destructive" });
-    }
   };
 
   return (
@@ -114,10 +104,9 @@ const BillingPage = () => {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="border-destructive text-destructive hover:bg-destructive/10"
-                  onClick={handlePortal}
+                  disabled
                 >
-                  Cancel Subscription
+                  Billing Portal Coming Soon
                 </Button>
               </>
             ) : (
@@ -137,7 +126,7 @@ const BillingPage = () => {
         <div className="flex items-center gap-3">
           <CreditCard className="h-5 w-5 text-muted-foreground" />
           <span className={`${isPro ? "text-secondary-foreground" : "text-muted-foreground"}`} style={{ fontSize: "0.875rem" }}>
-            {isPro ? "Card on file — managed securely by Stripe" : "No payment method on file"}
+            {isPro ? "Payment method managed securely" : "No payment method on file"}
           </span>
         </div>
       </div>
@@ -184,8 +173,8 @@ const BillingPage = () => {
         <p className="text-secondary-foreground mb-4" style={{ fontSize: "0.875rem" }}>
           Billing history, invoices, and receipts are managed securely through Stripe.
         </p>
-        <Button variant="outline" onClick={handlePortal}>
-          Open Billing Portal
+        <Button variant="outline" disabled>
+          Billing Portal Coming Soon
         </Button>
       </div>
     </div>

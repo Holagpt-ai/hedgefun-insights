@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { Button } from "@/components/ui/button";
-import { createPortalSession } from "@/lib/stripe";
+
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -32,13 +32,11 @@ const AccountPage = () => {
     ? profile.full_name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)
     : user.email?.[0]?.toUpperCase() ?? "U";
 
-  const handleBilling = async () => {
-    try {
-      const { url } = await createPortalSession();
-      if (url) window.location.href = url;
-    } catch (e) {
-      toast({ title: "Unable to open billing portal", variant: "destructive" });
-    }
+  const handleBilling = () => {
+    toast({
+      title: "Coming Soon",
+      description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
+    });
   };
 
   const handleLanguageChange = async (lang: "en" | "es") => {
