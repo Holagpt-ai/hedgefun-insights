@@ -15,6 +15,9 @@ const INDEXES = [
 
 serve(async (req) => {
 
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
+  }
   // Restrict to service role / cron only
   const __auth = req.headers.get("Authorization") ?? "";
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
