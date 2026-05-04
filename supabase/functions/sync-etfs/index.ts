@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const MASSIVE_BASE = "https://api.massive.com";
+const MASSIVE_BASE = "https://api.polygon.io";
 
 const ETF_TICKERS = [
   "VOO","IVV","SPY","VTI","QQQ","BND","VEA","VUG","VTV","AGG",

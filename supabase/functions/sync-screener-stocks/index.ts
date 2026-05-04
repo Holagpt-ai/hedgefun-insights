@@ -96,7 +96,7 @@ serve(async (req) => {
       const tickersParam = chunk.join(",");
       try {
         const res = await fetch(
-          `https://api.massive.com/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickersParam}&apiKey=${API_KEY}`
+          `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickersParam}&apiKey=${API_KEY}`
         );
         if (!res.ok) {
           console.error(`Snapshot chunk ${i} failed: ${res.status}`);
@@ -165,7 +165,7 @@ serve(async (req) => {
       const fetches = batch.map(async (ticker) => {
         try {
           const res = await fetch(
-            `https://api.massive.com/v3/reference/tickers/${ticker}?apiKey=${API_KEY}`
+            `https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${API_KEY}`
           );
           if (!res.ok) {
             console.error(`Detail ${ticker}: ${res.status}`);
