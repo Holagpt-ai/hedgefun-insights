@@ -30,7 +30,14 @@ async function fetchSafe(url: string): Promise<any> {
   }
 }
 
-serve(async () => {
+serve(async (req) => {
+
+  // Restrict to service role / cron only
+  const __auth = req.headers.get("Authorization") ?? "";
+  const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!__srk || __auth !== `Bearer ${__srk}`) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+  }
   console.log('SUPABASE_URL:', SUPABASE_URL);
   console.log('SERVICE_KEY exists:', !!SUPABASE_SERVICE_KEY);
 

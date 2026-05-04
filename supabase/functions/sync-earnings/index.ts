@@ -3,7 +3,14 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const MASSIVE_BASE = "https://api.polygon.io";
 
-serve(async () => {
+serve(async (req) => {
+
+  // Restrict to service role / cron only
+  const __auth = req.headers.get("Authorization") ?? "";
+  const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!__srk || __auth !== `Bearer ${__srk}`) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+  }
   try {
     const POLYGON_API_KEY = Deno.env.get("POLYGON_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;

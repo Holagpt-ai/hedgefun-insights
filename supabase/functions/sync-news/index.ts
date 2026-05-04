@@ -7,6 +7,13 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+
+  // Restrict to service role / cron only
+  const __auth = req.headers.get("Authorization") ?? "";
+  const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!__srk || __auth !== `Bearer ${__srk}`) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+  }
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
