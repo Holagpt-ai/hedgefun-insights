@@ -181,7 +181,7 @@ serve(async (req) => {
     const fetches = batch.map(async (ticker) => {
       try {
         const res = await fetch(
-          `https://api.massive.com/v3/reference/tickers/${ticker}?apiKey=${API_KEY}`
+          `https://api.polygon.io/v3/reference/tickers/${ticker}?apiKey=${API_KEY}`
         );
         if (!res.ok) { errors++; return; }
         const json = await res.json();

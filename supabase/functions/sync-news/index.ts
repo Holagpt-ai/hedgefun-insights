@@ -21,7 +21,7 @@ serve(async (req) => {
     );
 
     const res = await fetch(
-      `https://api.massive.com/v2/reference/news?limit=20&order=desc&apiKey=${API_KEY}`
+      `https://api.polygon.io/v2/reference/news?limit=20&order=desc&apiKey=${API_KEY}`
     );
     const json = await res.json();
     const articles = json?.results ?? [];
