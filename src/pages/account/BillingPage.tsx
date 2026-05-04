@@ -47,8 +47,6 @@ const BillingPage = () => {
 
   const handleUpgrade = () => {
     toast({
-  const handleUpgrade = () => {
-    toast({
       title: "Coming Soon",
       description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
     });
