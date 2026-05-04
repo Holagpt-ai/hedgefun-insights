@@ -47,7 +47,17 @@ async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
   return fetch(url); // unreachable but satisfies TS
 }
 
-serve(async () => {
+serve(async (req) => {
+
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
+  }
+  // Restrict to service role / cron only
+  const __auth = req.headers.get("Authorization") ?? "";
+  const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!__srk || __auth !== `Bearer ${__srk}`) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+  }
   try {
     const POLYGON_API_KEY = Deno.env.get("POLYGON_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
