@@ -51,9 +51,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-  const __auth = req.headers.get("Authorization") ?? "";
-  if (!SUPABASE_SERVICE_KEY || __auth !== `Bearer ${SUPABASE_SERVICE_KEY}`) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  // Auth: accept service role key OR anon key (dashboard + cron compatible)
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const serviceKey = SUPABASE_SERVICE_KEY;
+  if (
+    authHeader !== `Bearer ${serviceKey}` &&
+    authHeader !== `Bearer ${anonKey}`
+  ) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);

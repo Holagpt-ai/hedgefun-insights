@@ -23,11 +23,18 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-  // Restrict to service role / cron only
-  const __auth = req.headers.get("Authorization") ?? "";
-  const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!__srk || __auth !== `Bearer ${__srk}`) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  // Auth: accept service role key OR anon key (dashboard + cron compatible)
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (
+    authHeader !== `Bearer ${serviceKey}` &&
+    authHeader !== `Bearer ${anonKey}`
+  ) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
