@@ -29,7 +29,6 @@ serve(async (req) => {
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
   const pubKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  console.log("AUTH DEBUG token.len:", token.length, "anon.len:", anonKey.length, "pub.len:", pubKey.length, "svc.len:", serviceKey.length, "tokenHead:", token.slice(0, 20), "anonHead:", anonKey.slice(0, 20));
   if (!token || (token !== serviceKey && token !== anonKey && token !== pubKey)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
