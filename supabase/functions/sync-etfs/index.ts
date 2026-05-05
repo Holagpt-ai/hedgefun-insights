@@ -1,20 +1,12 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const MASSIVE_BASE = "https://api.polygon.io";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-const ETF_TICKERS = [
-  "VOO","IVV","SPY","VTI","QQQ","BND","VEA","VUG","VTV","AGG",
-  "IEMG","VIG","XLK","VXUS","IWM","GLD","VNQ","BNDX","SCHD","EFA",
-  "RSP","TLT","VCIT","XLF","QUAL","XLV","XLE","JEPI","LQD","DIA",
-  "IAU","SHY","IBIT","XLI","HYG","SOXX","SLV","FBTC","SCHH","ARKK",
-  "XLRE","PDBC","IYR","USO","BITO","VGT","VO","IWF","VWO","IJH",
-  "IEFA","ITOT","JEPQ","QYLD","QQQM","VT","TQQQ","VOOG",
-  "XLC","XLU","XLP","XLY","XLB","VTIP","VCSH","VMBS","BSV","BIV",
-  "VBR","VBK","MDY","IWD","IWN","IWO","IWP","DVY","HDV","VYM",
-  "DGRO","NOBL","SDY","FVD","DGRW","FTEC","FHLC","FDIS","FREL","FENY",
-  "GDX","GDXJ","EEM","EWJ","EWZ","FXI","INDA","KRE","XBI","IBB"
-];
+const POLYGON_BASE = "https://api.polygon.io";
 
 // Well-known expense ratios for major ETFs (these change very rarely)
 const EXPENSE_RATIOS: Record<string, number> = {
@@ -32,32 +24,35 @@ const EXPENSE_RATIOS: Record<string, number> = {
 
 function cleanName(raw: string): string {
   return raw
-    .replace(/\s*(Common Stock|Ordinary Shares|Class [A-Z]|Units|Warrant|Rights|Depositary Shares).*$/i, "")
-    .replace(/,?\s*(Inc\.?|Corp\.?|Ltd\.?|LLC|LP|PLC|Co\.?|N\.V\.?|S\.A\.?)$/i, "")
+    .replace(/\s*-\s*(ETF|Exchange Traded Fund|Fund).*$/i, "")
+    .replace(/\s+ETF$/i, "")
     .trim();
 }
 
-async function fetchWithRetry(url: string, retries = 2): Promise<Response> {
-  for (let i = 0; i <= retries; i++) {
-    const res = await fetch(url);
-    if (res.ok || i === retries) return res;
-    await res.text(); // consume body
-    await new Promise((r) => setTimeout(r, 2000));
+async function fetchJson(url: string): Promise<any> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
+    if (!res.ok) {
+      console.error(`Fetch ${res.status}`);
+      return null;
+    }
+    return await res.json();
+  } catch (e) {
+    console.error("fetch error:", e);
+    return null;
   }
-  return fetch(url); // unreachable but satisfies TS
 }
 
 serve(async (req) => {
-
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
+    return new Response("ok", { headers: corsHeaders });
   }
-  // Restrict to service role / cron only
   const __auth = req.headers.get("Authorization") ?? "";
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   if (!__srk || __auth !== `Bearer ${__srk}`) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
+
   try {
     const POLYGON_API_KEY = Deno.env.get("POLYGON_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -66,134 +61,85 @@ serve(async (req) => {
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Step 1: Fetch snapshots in batches of 50
-    const allSnapshots: Record<string, any> = {};
-    const batchSize = 50;
-    for (let i = 0; i < ETF_TICKERS.length; i += batchSize) {
-      const batch = ETF_TICKERS.slice(i, i + batchSize);
-      const url = `${MASSIVE_BASE}/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${batch.join(",")}&apiKey=${POLYGON_API_KEY}`;
-      const res = await fetch(url);
-      if (res.ok) {
-        const json = await res.json();
-        for (const t of json.tickers ?? []) {
-          allSnapshots[t.ticker] = t;
-        }
-      } else {
-        await res.text();
-      }
-      if (i + batchSize < ETF_TICKERS.length) {
-        await new Promise((r) => setTimeout(r, 1000));
-      }
-    }
+    const { searchParams } = new URL(req.url);
+    const maxPages = parseInt(searchParams.get("maxPages") ?? "10", 10);
 
-    // Step 2: Fetch reference data for names
+    // Step 1: Paginate all active ETFs from reference/tickers
     const refMap: Record<string, any> = {};
-    let nextUrl: string | null = `${MASSIVE_BASE}/v3/reference/tickers?type=ETF&market=stocks&active=true&limit=1000&apiKey=${POLYGON_API_KEY}`;
-    while (nextUrl) {
-      const res = await fetch(nextUrl);
-      if (!res.ok) { await res.text(); break; }
-      const json = await res.json();
+    let nextUrl: string | null = `${POLYGON_BASE}/v3/reference/tickers?type=ETF&market=stocks&active=true&limit=1000&apiKey=${POLYGON_API_KEY}`;
+    let pages = 0;
+    while (nextUrl && pages < maxPages) {
+      pages++;
+      const json = await fetchJson(nextUrl);
+      if (!json) break;
       for (const r of json.results ?? []) {
-        refMap[r.ticker] = r;
+        if (r.ticker) refMap[r.ticker] = r;
       }
       nextUrl = json.next_url ? `${json.next_url}&apiKey=${POLYGON_API_KEY}` : null;
-      if (nextUrl) await new Promise((r) => setTimeout(r, 1000));
+      if (nextUrl) await new Promise((r) => setTimeout(r, 300));
     }
 
-    // Step 3: Fetch detailed ticker info for total_assets (market_cap) per ETF
-    // Process in small batches to respect rate limits
-    const detailMap: Record<string, any> = {};
-    const detailBatchSize = 5;
-    for (let i = 0; i < ETF_TICKERS.length; i += detailBatchSize) {
-      const batch = ETF_TICKERS.slice(i, i + detailBatchSize);
-      const results = await Promise.all(
-        batch.map(async (sym) => {
-          try {
-            const url = `${MASSIVE_BASE}/v3/reference/tickers/${sym}?apiKey=${POLYGON_API_KEY}`;
-            const res = await fetchWithRetry(url);
-            if (res.ok) {
-              const json = await res.json();
-              return { sym, data: json.results };
-            }
-            await res.text();
-          } catch { /* skip */ }
-          return { sym, data: null };
-        })
-      );
-      for (const { sym, data } of results) {
-        if (data) detailMap[sym] = data;
+    const allTickers = Object.keys(refMap);
+    console.log(`Fetched ${allTickers.length} ETFs across ${pages} pages`);
+
+    // Step 2: Snapshot pricing for all tickers in batches of 250
+    const snapMap: Record<string, any> = {};
+    const batchSize = 250;
+    for (let i = 0; i < allTickers.length; i += batchSize) {
+      const batch = allTickers.slice(i, i + batchSize);
+      const url = `${POLYGON_BASE}/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${batch.join(",")}&apiKey=${POLYGON_API_KEY}`;
+      const json = await fetchJson(url);
+      if (json) {
+        for (const t of json.tickers ?? []) {
+          if (t.ticker) snapMap[t.ticker] = t;
+        }
       }
-      if (i + detailBatchSize < ETF_TICKERS.length) {
-        await new Promise((r) => setTimeout(r, 13000)); // respect free-tier rate limits
-      }
+      if (i + batchSize < allTickers.length) await new Promise((r) => setTimeout(r, 300));
     }
 
-    // Step 4: Try to fetch holdings count from ETF Global constituents endpoint
-    const holdingsCountMap: Record<string, number> = {};
-    for (let i = 0; i < ETF_TICKERS.length; i += detailBatchSize) {
-      const batch = ETF_TICKERS.slice(i, i + detailBatchSize);
-      const results = await Promise.all(
-        batch.map(async (sym) => {
-          try {
-            const url = `${MASSIVE_BASE}/vX/reference/tickers/${sym}/constituents?limit=1&apiKey=${POLYGON_API_KEY}`;
-            const res = await fetch(url);
-            if (res.ok) {
-              const json = await res.json();
-              // The count field tells us total holdings
-              if (json.count) return { sym, count: json.count };
-            } else {
-              await res.text();
-            }
-          } catch { /* skip */ }
-          return { sym, count: null };
-        })
-      );
-      for (const { sym, count } of results) {
-        if (count) holdingsCountMap[sym] = count;
-      }
-      if (i + detailBatchSize < ETF_TICKERS.length) {
-        await new Promise((r) => setTimeout(r, 13000));
-      }
-    }
+    console.log(`Snapshots fetched for ${Object.keys(snapMap).length} ETFs`);
 
-    // Step 5: Build rows with enriched data
-    const rows = ETF_TICKERS.map((sym) => {
-      const snap = allSnapshots[sym];
+    // Step 3: Build rows
+    const rows = allTickers.map((sym) => {
       const ref = refMap[sym];
-      const detail = detailMap[sym];
-
-      // For ETFs, market_cap from detail endpoint represents AUM/total_assets
-      const totalAssets = detail?.market_cap ?? ref?.market_cap ?? null;
-      const holdingsCount = holdingsCountMap[sym] ?? null;
-      const expenseRatio = EXPENSE_RATIOS[sym] ?? null;
-
+      const snap = snapMap[sym];
       return {
         symbol: sym,
-        name: ref?.name ? cleanName(ref.name) : (snap?.ticker ? sym : sym),
-        asset_class: detail?.sic_description ?? null,
-        total_assets: totalAssets,
-        price: snap?.day?.c ?? snap?.prevDay?.c ?? null,
+        name: ref?.name ? cleanName(ref.name) : sym,
+        asset_class: ref?.sic_description ?? null,
+        total_assets: ref?.market_cap ? Math.round(ref.market_cap) : null,
+        price: snap?.day?.c ?? snap?.prevDay?.c ?? snap?.lastTrade?.p ?? null,
         change_percent: snap?.todaysChangePerc ?? null,
         volume: snap?.day?.v ?? null,
-        holdings: holdingsCount,
-        expense_ratio: expenseRatio,
+        holdings: null,
+        expense_ratio: EXPENSE_RATIOS[sym] ?? null,
         provider: null,
-        inception_date: detail?.list_date ?? null,
+        inception_date: ref?.list_date ?? null,
         ytd_return: null,
         updated_at: new Date().toISOString(),
       };
     });
 
-    // Step 6: Upsert
-    const { error } = await sb.from("etfs").upsert(rows, { onConflict: "symbol" });
-    if (error) throw error;
+    // Step 4: Bulk upsert in chunks
+    let upserted = 0;
+    let errors = 0;
+    for (let i = 0; i < rows.length; i += 500) {
+      const chunk = rows.slice(i, i + 500);
+      const { error } = await sb.from("etfs").upsert(chunk, { onConflict: "symbol" });
+      if (error) {
+        console.error("Upsert error:", error.message);
+        errors++;
+      } else {
+        upserted += chunk.length;
+      }
+    }
 
-    const enriched = rows.filter((r) => r.total_assets || r.holdings || r.expense_ratio).length;
-    return new Response(JSON.stringify({ ok: true, synced: rows.length, enriched }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ ok: true, total: allTickers.length, upserted, withSnapshot: Object.keys(snapMap).length, pages, errors }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   } catch (e) {
     console.error("sync-etfs error:", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });
