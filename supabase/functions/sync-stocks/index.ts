@@ -23,19 +23,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-  // Auth: accept service role key OR anon/publishable key (dashboard + cron compatible)
-  const authHeader = req.headers.get("Authorization") ?? "";
-  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
-  const pubKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!token || (token !== serviceKey && token !== anonKey && token !== pubKey)) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   try {
     const API_KEY = Deno.env.get("POLYGON_API_KEY");
     if (!API_KEY) throw new Error("POLYGON_API_KEY not configured");
