@@ -51,14 +51,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-  // Auth: accept service role key OR anon key (dashboard + cron compatible)
+  // Auth: accept service role key OR anon/publishable key (dashboard + cron compatible)
   const authHeader = req.headers.get("Authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const pubKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
   const serviceKey = SUPABASE_SERVICE_KEY;
-  if (
-    authHeader !== `Bearer ${serviceKey}` &&
-    authHeader !== `Bearer ${anonKey}`
-  ) {
+  if (!token || (token !== serviceKey && token !== anonKey && token !== pubKey)) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {
       status: 403,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
