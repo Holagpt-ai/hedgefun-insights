@@ -23,11 +23,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
-  // Restrict to service role / cron only
-  const __auth = req.headers.get("Authorization") ?? "";
-  const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!__srk || __auth !== `Bearer ${__srk}`) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+  // Auth: accept service role key OR anon/publishable key (dashboard + cron compatible)
+  const authHeader = req.headers.get("Authorization") ?? "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const pubKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (!token || (token !== serviceKey && token !== anonKey && token !== pubKey)) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 
   try {
@@ -35,7 +41,7 @@ serve(async (req) => {
     if (!API_KEY) throw new Error("POLYGON_API_KEY not configured");
 
     const { searchParams } = new URL(req.url);
-    const maxPages = parseInt(searchParams.get("maxPages") ?? "20", 10); // 20 * 1000 = 20k tickers cap
+    const maxPages = parseInt(searchParams.get("maxPages") ?? "20", 10);
     const pageDelayMs = parseInt(searchParams.get("delay") ?? "300", 10);
 
     const supabase = createClient(
@@ -63,8 +69,6 @@ serve(async (req) => {
       const results: any[] = json.results ?? [];
       if (results.length === 0) break;
 
-      // Map only fields available from the listing endpoint and present in our schema.
-      // Per-symbol enrichment (market_cap, description, sic) is handled by sync-market-caps / backfill-sectors.
       const rows = results
         .filter((r) => r.ticker && r.name)
         .map((r) => ({
@@ -74,7 +78,6 @@ serve(async (req) => {
           updated_at: new Date().toISOString(),
         }));
 
-      // Upsert in chunks of 500 to keep payload sane
       for (let i = 0; i < rows.length; i += 500) {
         const chunk = rows.slice(i, i + 500);
         const { error } = await supabase.from("stocks").upsert(chunk, { onConflict: "symbol" });
