@@ -1,15 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 const POLYGON_BASE = "https://api.polygon.io";
 const API_KEY = Deno.env.get("POLYGON_API_KEY")!;
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-function polyUrl(
-  path: string,
-  params: Record<string, string> = {}
-): string {
+function polyUrl(path: string, params: Record<string, string> = {}): string {
   const url = new URL(`${POLYGON_BASE}${path}`);
   url.searchParams.set("apiKey", API_KEY);
   Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
@@ -18,152 +20,124 @@ function polyUrl(
 
 async function fetchSafe(url: string): Promise<any> {
   try {
-    const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    const res = await fetch(url, { signal: AbortSignal.timeout(20000) });
     if (!res.ok) {
-      console.error(`Fetch failed ${res.status} for ${url}`);
+      console.error(`Fetch failed ${res.status}`);
       return { results: [] };
     }
     return await res.json();
   } catch (err) {
-    console.error(`Fetch error for ${url}:`, err);
+    console.error(`Fetch error:`, err);
     return { results: [] };
   }
 }
 
-serve(async (req) => {
+async function fetchAllPages(initialUrl: string, maxPages = 10): Promise<any[]> {
+  const all: any[] = [];
+  let url: string | null = initialUrl;
+  let pages = 0;
+  while (url && pages < maxPages) {
+    pages++;
+    const json = await fetchSafe(url);
+    const results = json.results ?? [];
+    all.push(...results);
+    url = json.next_url ? `${json.next_url}&apiKey=${API_KEY}` : null;
+    if (url) await new Promise((r) => setTimeout(r, 300));
+  }
+  return all;
+}
 
+serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
+    return new Response("ok", { headers: corsHeaders });
   }
-  // Restrict to service role / cron only
   const __auth = req.headers.get("Authorization") ?? "";
-  const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!__srk || __auth !== `Bearer ${__srk}`) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+  if (!SUPABASE_SERVICE_KEY || __auth !== `Bearer ${SUPABASE_SERVICE_KEY}`) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
-  console.log('SUPABASE_URL:', SUPABASE_URL);
-  console.log('SERVICE_KEY exists:', !!SUPABASE_SERVICE_KEY);
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-  let totalSynced = 0;
 
   const today = new Date();
   const todayStr = today.toISOString().split("T")[0];
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
-  const ninetyDaysAgoStr = ninetyDaysAgo.toISOString().split("T")[0];
+  const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000);
+  const oneYearAgoStr = oneYearAgo.toISOString().split("T")[0];
 
-  // Fetch all IPO categories in parallel
-  const [upcomingJson, rumorJson, recentJson, newJson] = await Promise.all([
-    fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "pending", limit: "50", order: "asc", sort: "listing_date",
-    })),
-    fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "rumor", limit: "50", order: "asc", sort: "listing_date",
-    })),
-    fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "history", listing_date_gte: ninetyDaysAgoStr,
-      limit: "50", order: "desc", sort: "listing_date",
-    })),
-    fetchSafe(polyUrl("/vX/reference/ipos", {
-      status: "new", limit: "20",
-    })),
+  // Fetch all IPO statuses with pagination
+  const [pendingResults, newResults, historyResults, rumorResults, withdrawnResults] = await Promise.all([
+    fetchAllPages(polyUrl("/vX/reference/ipos", { ipo_status: "pending", limit: "250", order: "asc", sort: "listing_date" }), 5),
+    fetchAllPages(polyUrl("/vX/reference/ipos", { ipo_status: "new", limit: "250", order: "desc", sort: "listing_date" }), 5),
+    fetchAllPages(polyUrl("/vX/reference/ipos", { ipo_status: "history", listing_date_gte: oneYearAgoStr, limit: "250", order: "desc", sort: "listing_date" }), 10),
+    fetchAllPages(polyUrl("/vX/reference/ipos", { ipo_status: "rumor", limit: "250", order: "asc", sort: "listing_date" }), 5),
+    fetchAllPages(polyUrl("/vX/reference/ipos", { ipo_status: "withdrawn", limit: "250", order: "desc", sort: "listing_date" }), 5),
   ]);
 
-  const upcomingResults = upcomingJson.results ?? [];
-  const rumorResults = rumorJson.results ?? [];
-  const recentResults = recentJson.results ?? [];
-  const newResults = newJson.results ?? [];
+  console.log("API counts - pending:", pendingResults.length, "new:", newResults.length, "history:", historyResults.length, "rumor:", rumorResults.length, "withdrawn:", withdrawnResults.length);
 
-  console.log('API results - upcoming:', upcomingResults.length, 'rumor:', rumorResults.length, 'recent:', recentResults.length, 'new:', newResults.length);
+  const mapStatus = (s: string): string => {
+    if (s === "pending" || s === "rumor") return "upcoming";
+    if (s === "new" || s === "history") return "recent";
+    if (s === "withdrawn") return "withdrawn";
+    return s;
+  };
 
-  // STRICT client-side date filtering using listing_date
-  const getDate = (r: any) => r.listing_date ?? r.announced_date ?? null;
+  const mapIPO = (r: any) => {
+    const status = mapStatus(r.ipo_status ?? "");
+    return {
+      symbol: r.ticker ?? null,
+      name: r.issuer_name ?? r.name ?? "Unknown",
+      ipo_date: r.listing_date ?? r.announced_date ?? null,
+      price_range:
+        r.lowest_offer_price && r.highest_offer_price
+          ? `$${r.lowest_offer_price} - $${r.highest_offer_price}`
+          : null,
+      offer_price: r.final_issue_price ?? r.highest_offer_price ?? null,
+      status,
+      exchange: r.primary_exchange ?? null,
+    };
+  };
 
-  const validUpcomingResults = upcomingResults;
-  const validRumorResults = rumorResults;
+  const allRaw = [...pendingResults, ...rumorResults, ...newResults, ...historyResults, ...withdrawnResults];
 
-  const validRecentResults = recentResults.filter((r: any) => {
-    const d = getDate(r);
-    if (!d) return false;
-    const ipoDate = new Date(d);
-    return ipoDate >= ninetyDaysAgo && ipoDate <= today;
-  });
+  // Deduplicate by ticker (keep first occurrence — pending/rumor priority over history)
+  const seen = new Set<string>();
+  const rows = allRaw
+    .map(mapIPO)
+    .filter((r) => r.name && r.name !== "Unknown" && r.ipo_date)
+    .filter((r) => {
+      if (!r.symbol) return true; // keep all symbol-less
+      if (seen.has(r.symbol)) return false;
+      seen.add(r.symbol);
+      return true;
+    });
 
-  const validNewResults = newResults.filter((r: any) => {
-    const d = getDate(r);
-    if (!d) return false;
-    const ipoDate = new Date(d);
-    return ipoDate >= ninetyDaysAgo && ipoDate <= today;
-  });
+  console.log("Rows prepared:", rows.length);
 
-  // Map using correct Massive field names
-  const mapIPO = (r: any, status: string) => ({
-    symbol: r.ticker ?? null,
-    name: r.issuer_name ?? r.name ?? "Unknown",
-    ipo_date: status === "upcoming"
-      ? (r.listing_date ?? null)
-      : (r.listing_date ?? r.announced_date ?? null),
-    price_range: r.lowest_offer_price && r.highest_offer_price
-      ? `$${r.lowest_offer_price} - $${r.highest_offer_price}`
-      : null,
-    offer_price: r.final_issue_price ?? r.highest_offer_price ?? null,
-    status: r.ipo_status === 'pending' || r.ipo_status === 'rumor'
-      ? 'upcoming'
-      : status,
-    exchange: r.primary_exchange ?? null,
-  });
+  let inserted = 0;
+  let errors = 0;
 
-  const rows = [
-    ...validUpcomingResults.map((r: any) => mapIPO(r, "upcoming")),
-    ...validRumorResults.map((r: any) => mapIPO(r, "upcoming")),
-    ...validNewResults.map((r: any) => mapIPO(r, "recent")),
-    ...validRecentResults.map((r: any) => mapIPO(r, "recent")),
-  ].filter(r => r.name && r.name !== "Unknown");
+  const withSymbol = rows.filter((r) => r.symbol);
+  const withoutSymbol = rows.filter((r) => !r.symbol);
 
-  console.log('Rows prepared:', rows.length);
-
-  if (rows.length > 0) {
-    const withSymbol = rows.filter(r => r.symbol);
-    const withoutSymbol = rows.filter(r => !r.symbol);
-    console.log('Rows with symbol:', withSymbol.length, 'without:', withoutSymbol.length);
-
-    let inserted = 0;
-    let errors = 0;
-
-    // Row-by-row upsert for rows with symbol
-    for (const row of withSymbol) {
-      const { error } = await supabase
-        .from('ipo_list')
-        .upsert(row, { onConflict: 'symbol' });
-
-      if (error) {
-        console.error('Row error:', row.symbol, error.message, error.code);
-        errors++;
-      } else {
-        inserted++;
-      }
+  // Bulk upsert in chunks for symbol rows
+  for (let i = 0; i < withSymbol.length; i += 200) {
+    const chunk = withSymbol.slice(i, i + 200);
+    const { error } = await supabase.from("ipo_list").upsert(chunk, { onConflict: "symbol" });
+    if (error) {
+      console.error("Bulk upsert error:", error.message);
+      errors += chunk.length;
+    } else {
+      inserted += chunk.length;
     }
-
-    // Insert rows without symbol
-    for (const row of withoutSymbol) {
-      const { error } = await supabase
-        .from('ipo_list')
-        .insert(row);
-
-      if (error) {
-        console.error('Insert error (no symbol):', row.name, error.message);
-        errors++;
-      } else {
-        inserted++;
-      }
-    }
-
-    console.log('Inserted:', inserted, 'Errors:', errors);
-    totalSynced = inserted;
   }
 
-  // Cleanup stale records
-  await supabase.from("ipo_list").delete().eq("status", "recent").lt("ipo_date", ninetyDaysAgoStr);
+  for (const row of withoutSymbol) {
+    const { error } = await supabase.from("ipo_list").insert(row);
+    if (error) errors++;
+    else inserted++;
+  }
+
+  // Cleanup: only purge upcoming rows that are now in the past (their date passed without being relisted)
   await supabase.from("ipo_list").delete().eq("status", "upcoming").lt("ipo_date", todayStr).not("ipo_date", "is", null);
 
   const BAD_TICKERS = ["RDDT", "CRWV", "CBRS", "DBX2", "STRP", "NOTI", "ICRT", "EPIC"];
@@ -171,10 +145,16 @@ serve(async (req) => {
 
   return new Response(
     JSON.stringify({
-      synced: totalSynced,
-      upcoming: validUpcomingResults.length + validRumorResults.length,
-      recent: validRecentResults.length + validNewResults.length,
+      synced: inserted,
+      errors,
+      counts: {
+        pending: pendingResults.length,
+        rumor: rumorResults.length,
+        new: newResults.length,
+        history: historyResults.length,
+        withdrawn: withdrawnResults.length,
+      },
     }),
-    { headers: { "Content-Type": "application/json" } }
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 });
