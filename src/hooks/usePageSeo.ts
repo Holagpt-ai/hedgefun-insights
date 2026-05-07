@@ -5,13 +5,14 @@ interface SeoProps {
   description: string;
   canonical?: string;
   jsonLd?: Record<string, unknown>;
+  image?: string;
 }
 
 /**
  * Sets document title, meta description, canonical link, and JSON-LD structured data.
  * Cleans up on unmount.
  */
-export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) {
+export function usePageSeo({ title, description, canonical, jsonLd, image }: SeoProps) {
   useEffect(() => {
     // Title
     const prevTitle = document.title;
@@ -34,6 +35,7 @@ export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) 
       { property: "og:description", content: description },
       { property: "og:type", content: jsonLd?.["@type"] === "Article" ? "article" : "website" },
       { property: "og:url", content: currentUrl },
+      { property: "og:image", content: image || "https://hedgefun.fun/og-share-card.png" },
       { property: "og:image:alt", content: `Real-time probability forecast and volatility analysis for ${title.split("|")[0].trim()} on Hedgefun.` },
     ];
 
@@ -41,6 +43,7 @@ export function usePageSeo({ title, description, canonical, jsonLd }: SeoProps) 
     const twitterTags: { name: string; content: string }[] = [
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
+      { name: "twitter:image", content: image || "https://hedgefun.fun/og-share-card.png" },
     ];
 
     const createdOgElements: HTMLMetaElement[] = [];
