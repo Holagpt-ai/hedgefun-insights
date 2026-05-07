@@ -1,4 +1,5 @@
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useEffect } from "react";
 
 interface StubProps {
   titleKey?: string;
@@ -7,6 +8,14 @@ interface StubProps {
 }
 
 export default function StubPage({ title, description }: StubProps) {
+  useEffect(() => {
+    const meta = document.createElement("meta");
+    meta.name = "robots";
+    meta.content = "noindex, nofollow";
+    document.head.appendChild(meta);
+    return () => { meta.remove(); };
+  }, []);
+
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-2">
