@@ -80,6 +80,7 @@ import ScrollToTop from "./components/utils/ScrollToTop";
 import JournalPage from "./pages/journal/JournalPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import AuthRoutePage from "./pages/auth/AuthRoutePage";
+import { RouteChangeTracker } from "@/components/analytics/RouteChangeTracker";
 
 const queryClient = new QueryClient();
 
@@ -92,6 +93,7 @@ const App = () => (
             <Toaster />
             <Sonner />
             <BrowserRouter>
+              <RouteChangeTracker />
               <ScrollToTop />
               <Routes>
                 {/* Public routes */}
@@ -130,7 +132,7 @@ const App = () => (
                   <Route path="/dividends" element={<StubPage title="Dividend Tracker" description="Track dividend yields, payout dates, and dividend history for any stock." />} />
                   <Route path="/splits" element={<StubPage title="Stock Split History" description="View historical and upcoming stock splits across all exchanges." />} />
                   <Route path="/etfs" element={<EtfMainPage />} />
-                  <Route path="/etf/screener" element={<EtfScreenerPage />} />
+                  <Route path="/etf/screener" element={<Navigate to="/etfs/screener" replace />} />
                   <Route path="/etfs/screener" element={<EtfScreenerPage />} />
                   <Route path="/etf/compare" element={<EtfComparePage />} />
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
@@ -162,6 +164,9 @@ const App = () => (
                   <Route path="/advertise" element={<AdvertisePage />} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
+                  <Route path="/privacy-policy" element={<Navigate to="/privacy" replace />} />
+                  <Route path="/terms-of-service" element={<Navigate to="/terms" replace />} />
+                  <Route path="/terms-and-conditions" element={<Navigate to="/terms" replace />} />
                   <Route path="/disclaimer" element={<DisclaimerPage />} />
                   <Route path="/affiliates" element={<AffiliatesPage />} />
                   <Route path="/support" element={<SupportPage />} />
