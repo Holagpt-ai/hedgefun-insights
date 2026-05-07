@@ -12,7 +12,7 @@ const LINK_SECTIONS = [
     links: [
       { label: "Stocks", to: "/stocks" },
       { label: "IPOs", to: "/ipos/recent" },
-      { label: "ETFs", to: "/etf/screener" },
+      { label: "ETFs", to: "/etfs" },
       { label: "Blog", to: "/articles" },
     ],
   },
