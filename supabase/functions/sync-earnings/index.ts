@@ -22,189 +22,119 @@ serve(async (req) => {
 
     const sb = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Fetch earnings for next 2 weeks and past 1 week
-    const now = new Date();
-    const from = new Date(now);
-    from.setDate(from.getDate() - 7);
-    const to = new Date(now);
-    to.setDate(to.getDate() + 14);
+    const fmt = (d: Date) => d.toISOString().split("T")[0];
+    const today = new Date();
+    const todayStr = fmt(today);
 
-    const fromStr = from.toISOString().split("T")[0];
-    const toStr = to.toISOString().split("T")[0];
+    const upcomingTo = new Date(today);
+    upcomingTo.setDate(upcomingTo.getDate() + 14);
+    const upcomingToStr = fmt(upcomingTo);
 
-    // Polygon/Massive doesn't have a direct earnings endpoint in v2/v3 reference,
-    // but we can use the stock financials or ticker events endpoint.
-    // The most reliable approach: use /v3/reference/tickers with type=CS to get S&P 500 tickers,
-    // then check each for upcoming earnings via snapshot or vX endpoints.
-    
-    // Alternative: Use the Polygon vX experimental earnings endpoint
-    // GET /vX/reference/financials?timeframe=quarterly&order=desc&limit=100&sort=filing_date
-    
-    // Let's try the stock financials endpoint for recent filings
-    const url = `${MASSIVE_BASE}/vX/reference/financials?timeframe=quarterly&order=desc&limit=100&sort=filing_date&filing_date.gte=${fromStr}&apiKey=${POLYGON_API_KEY}`;
-    const res = await fetch(url);
-    
-    let financialRows: any[] = [];
-    if (res.ok) {
-      const json = await res.json();
-      financialRows = json.results ?? [];
-    } else {
-      await res.text();
-    }
+    const recentFrom = new Date(today);
+    recentFrom.setDate(recentFrom.getDate() - 7);
+    const recentFromStr = fmt(recentFrom);
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = fmt(yesterday);
 
-    // Also try to get tickers with upcoming earnings from snapshot data
-    // We'll use the well-known S&P 500 tickers and check for earnings dates
-    const majorTickers = [
-      "AAPL","MSFT","GOOGL","AMZN","NVDA","META","TSLA","BRK.B","JPM","V",
-      "UNH","XOM","JNJ","WMT","MA","PG","HD","CVX","MRK","ABBV",
-      "KO","PEP","COST","LLY","AVGO","TMO","MCD","CSCO","ACN","ABT",
-      "DHR","NKE","NEE","TXN","UPS","PM","MS","INTC","AMD","QCOM",
-      "LOW","HON","AMGN","BA","CAT","IBM","GE","RTX","SBUX","GS",
-      "BLK","ISRG","MDT","GILD","ADP","SYK","BKNG","VRTX","REGN","PLD",
-      "CRM","NOW","PANW","SNOW","UBER","ABNB","DDOG","ZS","CRWD","NET",
-      "COIN","RIVN","LCID","PLTR","SOFI","HOOD","RBLX","ROKU","SQ","SHOP",
-      "CL","MMM","GM","F","DIS","NFLX","PYPL","ADBE","ORCL","SAP",
-      "T","VZ","CMCSA","CHTR","TMUS","LMT","NOC","GD","HII","BAH"
-    ];
-
-    // Build earnings rows from financial filings
-    const earningsRows: any[] = [];
-    const seen = new Set<string>();
-
-    for (const item of financialRows) {
-      const ticker = item.tickers?.[0] ?? item.ticker;
-      if (!ticker) continue;
-      const filingDate = item.filing_date;
-      const fiscalPeriod = item.fiscal_period;
-      
-      // Extract EPS from financials
-      const eps = item.financials?.income_statement?.basic_earnings_per_share?.value ?? null;
-      const revenue = item.financials?.income_statement?.revenues?.value ?? null;
-      
-      const key = `${ticker}-${filingDate}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
-
-      earningsRows.push({
-        symbol: ticker,
-        company_name: item.company_name ?? ticker,
-        report_date: filingDate,
-        estimate_eps: null,
-        actual_eps: eps,
-        surprise_percent: null,
-        time_of_day: null,
-      });
-    }
-
-    // If we got financial data, also generate some upcoming "expected" earnings
-    // based on quarterly patterns (companies report ~90 days after quarter end)
-    const currentQuarterEnd = new Date(now.getFullYear(), Math.floor(now.getMonth() / 3) * 3 + 3, 0);
-    const expectedReportStart = new Date(currentQuarterEnd);
-    expectedReportStart.setDate(expectedReportStart.getDate() + 14);
-    const expectedReportEnd = new Date(currentQuarterEnd);
-    expectedReportEnd.setDate(expectedReportEnd.getDate() + 60);
-
-    // Generate plausible upcoming earnings dates for major tickers
-    // Spread across weekdays in the upcoming weeks
-    const upcomingDates: string[] = [];
-    const d = new Date(now);
-    for (let i = 0; i < 21; i++) {
-      d.setDate(d.getDate() + 1);
-      if (d.getDay() >= 1 && d.getDay() <= 5) {
-        upcomingDates.push(d.toISOString().split("T")[0]);
-      }
-    }
-
-    // Fetch company names from stocks table + fallback names
-    const FALLBACK_NAMES: Record<string, string> = {
-      "AAPL": "Apple", "MSFT": "Microsoft", "GOOGL": "Alphabet", "AMZN": "Amazon", "NVDA": "NVIDIA",
-      "META": "Meta Platforms", "TSLA": "Tesla", "BRK.B": "Berkshire Hathaway", "JPM": "JPMorgan Chase", "V": "Visa",
-      "UNH": "UnitedHealth", "XOM": "Exxon Mobil", "JNJ": "Johnson & Johnson", "WMT": "Walmart", "MA": "Mastercard",
-      "PG": "Procter & Gamble", "HD": "Home Depot", "CVX": "Chevron", "MRK": "Merck", "ABBV": "AbbVie",
-      "KO": "Coca-Cola", "PEP": "PepsiCo", "COST": "Costco", "LLY": "Eli Lilly", "AVGO": "Broadcom",
-      "TMO": "Thermo Fisher", "MCD": "McDonald's", "CSCO": "Cisco", "ACN": "Accenture", "ABT": "Abbott Labs",
-      "DHR": "Danaher", "NKE": "Nike", "NEE": "NextEra Energy", "TXN": "Texas Instruments", "UPS": "UPS",
-      "PM": "Philip Morris", "MS": "Morgan Stanley", "INTC": "Intel", "AMD": "AMD", "QCOM": "Qualcomm",
-      "LOW": "Lowe's", "HON": "Honeywell", "AMGN": "Amgen", "BA": "Boeing", "CAT": "Caterpillar",
-      "IBM": "IBM", "GE": "GE Aerospace", "RTX": "RTX", "SBUX": "Starbucks", "GS": "Goldman Sachs",
-      "BLK": "BlackRock", "ISRG": "Intuitive Surgical", "MDT": "Medtronic", "GILD": "Gilead Sciences",
-      "ADP": "ADP", "SYK": "Stryker", "BKNG": "Booking Holdings", "VRTX": "Vertex Pharma", "REGN": "Regeneron",
-      "PLD": "Prologis", "CRM": "Salesforce", "NOW": "ServiceNow", "PANW": "Palo Alto Networks",
-      "SNOW": "Snowflake", "UBER": "Uber", "ABNB": "Airbnb", "DDOG": "Datadog", "ZS": "Zscaler",
-      "CRWD": "CrowdStrike", "NET": "Cloudflare", "COIN": "Coinbase", "RIVN": "Rivian", "LCID": "Lucid",
-      "PLTR": "Palantir", "SOFI": "SoFi", "HOOD": "Robinhood", "RBLX": "Roblox", "ROKU": "Roku",
-      "SQ": "Block", "SHOP": "Shopify", "CL": "Colgate-Palmolive", "MMM": "3M", "GM": "General Motors",
-      "F": "Ford", "DIS": "Walt Disney", "NFLX": "Netflix", "PYPL": "PayPal", "ADBE": "Adobe",
-      "ORCL": "Oracle", "SAP": "SAP", "T": "AT&T", "VZ": "Verizon", "CMCSA": "Comcast",
-      "CHTR": "Charter Comm", "TMUS": "T-Mobile", "LMT": "Lockheed Martin", "NOC": "Northrop Grumman",
-      "GD": "General Dynamics", "HII": "HII", "BAH": "Booz Allen Hamilton",
+    const mapTime = (t: any): string | null => {
+      if (t === "before_market") return "before_open";
+      if (t === "after_market") return "after_close";
+      return null;
     };
 
-    const { data: stockNames } = await sb
-      .from("stocks")
-      .select("symbol, name")
-      .in("symbol", majorTickers);
-    
-    // Use stock table names only if they're real names (not just ticker symbols)
-    const nameMap: Record<string, string> = { ...FALLBACK_NAMES };
-    for (const s of stockNames ?? []) {
-      if (s.name && s.name !== s.symbol && s.name.length > 5) {
-        nameMap[s.symbol] = s.name;
+    const fetchAll = async (initialUrl: string): Promise<any[]> => {
+      const out: any[] = [];
+      let url: string | null = initialUrl;
+      let safety = 0;
+      while (url && safety < 50) {
+        safety++;
+        const res = await fetch(url);
+        if (!res.ok) {
+          await res.text();
+          break;
+        }
+        const json: any = await res.json();
+        const results: any[] = json.results ?? [];
+        if (results.length === 0) break;
+        out.push(...results);
+        if (json.next_url) {
+          url = `${json.next_url}&apiKey=${POLYGON_API_KEY}`;
+        } else {
+          url = null;
+        }
       }
-    }
+      return out;
+    };
 
-    // Distribute tickers across upcoming dates
-    let dateIdx = 0;
-    const timesOfDay = ["before_open", "after_close"];
-    for (const ticker of majorTickers) {
-      if (dateIdx >= upcomingDates.length) break;
-      const key = `${ticker}-${upcomingDates[dateIdx]}`;
-      if (seen.has(key)) continue;
-      seen.add(key);
+    // PASS 1: upcoming estimates
+    const upcomingUrl = `${MASSIVE_BASE}/benzinga/v1/earnings?date.gte=${todayStr}&date.lte=${upcomingToStr}&limit=1000&apiKey=${POLYGON_API_KEY}`;
+    const upcomingResults = await fetchAll(upcomingUrl);
 
-      earningsRows.push({
-        symbol: ticker,
-        company_name: nameMap[ticker] ?? ticker,
-        report_date: upcomingDates[dateIdx],
-        estimate_eps: parseFloat((Math.random() * 3 + 0.5).toFixed(2)),
-        actual_eps: null,
-        surprise_percent: null,
-        time_of_day: timesOfDay[Math.floor(Math.random() * 2)],
-      });
+    // PASS 2: recent actuals
+    const recentUrl = `${MASSIVE_BASE}/benzinga/v1/earnings?date.gte=${recentFromStr}&date.lte=${yesterdayStr}&limit=1000&apiKey=${POLYGON_API_KEY}`;
+    const recentResults = await fetchAll(recentUrl);
 
-      // 3-8 companies per day
-      if (Math.random() > 0.7 || earningsRows.filter(r => r.report_date === upcomingDates[dateIdx]).length >= 8) {
-        dateIdx++;
+    const merged = new Map<string, any>();
+
+    const ingest = (item: any) => {
+      const symbol = item.ticker ?? item.T;
+      const report_date = item.date;
+      if (!symbol || !report_date) return;
+      const company_name = item.name ?? item.companyName ?? symbol;
+      const key = `${symbol}-${report_date}`;
+      const row = {
+        symbol,
+        company_name,
+        report_date,
+        estimate_eps: item.eps_estimate ?? null,
+        actual_eps: item.eps ?? null,
+        surprise_percent: item.eps_surprise_percent ?? null,
+        time_of_day: mapTime(item.time),
+      };
+      const existing = merged.get(key);
+      if (!existing) {
+        merged.set(key, row);
+      } else {
+        merged.set(key, {
+          symbol,
+          company_name: existing.company_name ?? company_name,
+          report_date,
+          estimate_eps: row.estimate_eps ?? existing.estimate_eps,
+          actual_eps: row.actual_eps ?? existing.actual_eps,
+          surprise_percent: row.surprise_percent ?? existing.surprise_percent,
+          time_of_day: row.time_of_day ?? existing.time_of_day,
+        });
       }
-    }
+    };
 
-    if (earningsRows.length === 0) {
-      return new Response(JSON.stringify({ ok: true, synced: 0, note: "no data" }), {
-        headers: { "Content-Type": "application/json" },
-      });
-    }
+    for (const r of upcomingResults) ingest(r);
+    for (const r of recentResults) ingest(r);
 
-    // Upsert - use symbol + report_date as natural key
-    // Since there's no unique constraint on symbol+report_date, we'll delete and re-insert
-    const dateRange = earningsRows.map(r => r.report_date);
-    const minDate = dateRange.sort()[0];
-    const maxDate = dateRange.sort().reverse()[0];
+    const rows = Array.from(merged.values());
 
-    await sb.from("earnings_calendar").delete().gte("report_date", minDate).lte("report_date", maxDate);
-    
-    // Insert in batches
+    let upserted = 0;
     const batchSize = 50;
-    for (let i = 0; i < earningsRows.length; i += batchSize) {
-      const batch = earningsRows.slice(i, i + batchSize);
-      const { error } = await sb.from("earnings_calendar").insert(batch);
+    for (let i = 0; i < rows.length; i += batchSize) {
+      const batch = rows.slice(i, i + batchSize);
+      const { error } = await sb
+        .from("earnings_calendar")
+        .upsert(batch, { onConflict: "symbol,report_date" });
       if (error) throw error;
+      upserted += batch.length;
     }
 
-    return new Response(JSON.stringify({ ok: true, synced: earningsRows.length }), {
-      headers: { "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        upcoming: upcomingResults.length,
+        actuals: recentResults.length,
+        upserted,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   } catch (e) {
     console.error("sync-earnings error:", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500 });
   }
 });
