@@ -79,9 +79,21 @@ serve(async (req) => {
     }
 
     if (type === "stocks") {
-      const { data, error } = await sb.from("stocks").select("symbol, updated_at").order("symbol");
-      if (error) throw error;
-      const urls = (data || []).map((r) =>
+      let stocks: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await sb
+          .from("stocks")
+          .select("symbol, updated_at")
+          .not("symbol", "is", null)
+          .range(from, from + batchSize - 1);
+        if (error || !data || data.length === 0) break;
+        stocks = stocks.concat(data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      const urls = stocks.map((r) =>
         urlEntry(`${BASE}/stocks/${esc(r.symbol)}`, r.updated_at?.substring(0, 10), "daily", "0.7")
       );
       const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
@@ -89,9 +101,21 @@ serve(async (req) => {
     }
 
     if (type === "etfs") {
-      const { data, error } = await sb.from("etfs").select("symbol, updated_at").order("symbol");
-      if (error) throw error;
-      const urls = (data || []).map((r) =>
+      let etfs: any[] = [];
+      let from = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await sb
+          .from("etfs")
+          .select("symbol, updated_at")
+          .not("symbol", "is", null)
+          .range(from, from + batchSize - 1);
+        if (error || !data || data.length === 0) break;
+        etfs = etfs.concat(data);
+        if (data.length < batchSize) break;
+        from += batchSize;
+      }
+      const urls = etfs.map((r) =>
         urlEntry(`${BASE}/etf/${esc(r.symbol)}`, r.updated_at?.substring(0, 10), "weekly", "0.6")
       );
       const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
