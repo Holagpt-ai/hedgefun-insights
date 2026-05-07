@@ -35,6 +35,7 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
       { property: "og:description", content: description },
       { property: "og:type", content: jsonLd?.["@type"] === "Article" ? "article" : "website" },
       { property: "og:url", content: currentUrl },
+      { property: "og:image", content: image || "https://hedgefun.fun/og-share-card.png" },
       { property: "og:image:alt", content: `Real-time probability forecast and volatility analysis for ${title.split("|")[0].trim()} on Hedgefun.` },
     ];
 
