@@ -29,7 +29,7 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_ANON_KEY")!,
   );
 
-  const fnUrl = `${Deno.env.get("SUPABASE_URL")}/functions/v1/sitemap`;
+  const fnUrl = "https://hedgefun.fun/sitemap.xml";
 
   try {
     if (type === "index") {
