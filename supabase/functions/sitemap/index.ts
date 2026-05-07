@@ -126,7 +126,7 @@ serve(async (req) => {
       const { data, error } = await sb.from("ipo_list").select("symbol, created_at").not("symbol", "is", null).order("ipo_date", { ascending: false });
       if (error) throw error;
       const urls = (data || []).filter((r) => r.symbol).map((r) =>
-        urlEntry(`${BASE}/stocks/${esc(r.symbol!)}`, r.created_at?.substring(0, 10), "monthly", "0.4")
+        urlEntry(`${BASE}/ipos/${esc(r.symbol!)}`, r.created_at?.substring(0, 10), "monthly", "0.4")
       );
       const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
       return new Response(body, { headers: HEADERS });
