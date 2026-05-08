@@ -129,6 +129,11 @@ export default function EtfMainPage() {
     table.setPageSize(size);
   };
 
+  usePageSeo({
+    title: "ETF List — All ETF Symbols & Prices | HedgeFun",
+    description: "Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on HedgeFun.",
+  });
+
   return (
     <div className="p-4">
       <div className="flex items-start justify-between mb-5">
