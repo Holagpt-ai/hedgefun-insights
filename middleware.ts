@@ -1,6 +1,3 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
-
 export const config = {
   matcher: [
     "/stocks/:ticker*",
@@ -55,37 +52,19 @@ function injectMeta(html: string, title: string, description: string): string {
   const ogImage = "https://hedgefun.fun/og-share-card.png";
 
   html = html.replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
-
-  html = html.replace(
-    /<meta property="og:title"[^>]*>/,
-    `<meta property="og:title" content="${title}">`
-  );
-  html = html.replace(
-    /<meta property="og:description"[^>]*>/,
-    `<meta property="og:description" content="${description}">`
-  );
-  html = html.replace(
-    /<meta property="og:image"[^>]*>/,
-    `<meta property="og:image" content="${ogImage}">`
-  );
-  html = html.replace(
-    /<meta name="description"[^>]*>/,
-    `<meta name="description" content="${description}">`
-  );
-  html = html.replace(
-    /<meta name="twitter:title"[^>]*>/,
-    `<meta name="twitter:title" content="${title}">`
-  );
-  html = html.replace(
-    /<meta name="twitter:description"[^>]*>/,
-    `<meta name="twitter:description" content="${description}">`
-  );
+  html = html.replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}">`);
+  html = html.replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}">`);
+  html = html.replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${ogImage}">`);
+  html = html.replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${description}">`);
+  html = html.replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}">`);
+  html = html.replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}">`);
 
   return html;
 }
 
-export default async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl;
+export default async function middleware(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const pathname = url.pathname;
 
   let meta: { title: string; description: string } | null = null;
 
@@ -99,16 +78,15 @@ export default async function middleware(request: NextRequest) {
     meta = STATIC_META[pathname] ?? null;
   }
 
-  if (!meta) return NextResponse.next();
+  if (!meta) return new Response(null, { status: 200 });
 
   try {
-    const url = request.nextUrl.clone();
-    url.pathname = "/";
-    const response = await fetch(url.toString());
+    const indexUrl = new URL("/", request.url).toString();
+    const response = await fetch(indexUrl);
     let html = await response.text();
     html = injectMeta(html, meta.title, meta.description);
 
-    return new NextResponse(html, {
+    return new Response(html, {
       status: 200,
       headers: {
         "content-type": "text/html; charset=utf-8",
@@ -116,6 +94,6 @@ export default async function middleware(request: NextRequest) {
       },
     });
   } catch {
-    return NextResponse.next();
+    return new Response(null, { status: 200 });
   }
 }
