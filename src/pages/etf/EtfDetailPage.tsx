@@ -130,9 +130,9 @@ export default function EtfDetailPage() {
   const [timeRange, setTimeRange] = useState<string>("1Y");
 
   usePageSeo({
-    title: `${symbol} ETF Stock Price & Overview | HedgeFun`,
-    description: `Get the latest ${symbol} ETF price, performance, holdings, and news on HedgeFun.`,
-    canonical: `https://hedge-fun-analysis.lovable.app/etf/${symbol.toLowerCase()}`,
+    title: `${symbol} ETF — ${meta.name} Price & Holdings | HedgeFun`,
+    description: `Get the latest ${symbol} ETF price, performance, holdings, sector breakdown, and news on HedgeFun.`,
+    canonical: `https://hedgefun.fun/etf/${symbol.toLowerCase()}`,
   });
 
   // Fetch ETF row from DB
