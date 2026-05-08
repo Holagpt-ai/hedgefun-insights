@@ -7,7 +7,7 @@ import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
 import { AdBanner } from "@/components/layout/AdBanner";
-
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 interface LinkSection {
   title: string;

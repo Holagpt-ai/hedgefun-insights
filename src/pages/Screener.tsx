@@ -24,6 +24,7 @@ import {
   type SortingState,
   flexRender,
 } from "@tanstack/react-table";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 function abbreviateNumber(n: number | null | undefined): string {
   if (n == null) return "—";

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 interface NewEtf {
   inception: string;

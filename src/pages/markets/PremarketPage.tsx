@@ -7,6 +7,7 @@ import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "@/hooks/use-toast";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 const TIME_TABS = ["Today", "Week", "Month", "YTD", "Year", "3 Years", "5 Years"];
 

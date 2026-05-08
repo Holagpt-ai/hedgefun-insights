@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { resolveCurrentPrice } from "@/lib/price-utils";
 import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMoversLayout";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 function mapRows(tickers: any[]): MoverRow[] {
   if (!Array.isArray(tickers) || tickers.length === 0) return [];

@@ -26,6 +26,7 @@ import {
   BreadcrumbSeparator,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 /* ── Types ─────────────────────────────────────── */
 interface RecentIpo {

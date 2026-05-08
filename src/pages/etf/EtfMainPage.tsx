@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 interface EtfRow {
   symbol: string;

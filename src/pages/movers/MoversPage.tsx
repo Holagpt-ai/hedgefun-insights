@@ -4,6 +4,7 @@ import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 const TYPE_MAP: Record<string, { title: string; fetcher?: () => Promise<any> }> = {
   gainers: { title: "Top Gainers", fetcher: getTopGainers },
