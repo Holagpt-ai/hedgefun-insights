@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 interface EtfRow {
   symbol: string;
@@ -127,6 +128,11 @@ export default function EtfMainPage() {
     setPageSize(size);
     table.setPageSize(size);
   };
+
+  usePageSeo({
+    title: "ETF List — All ETF Symbols & Prices | HedgeFun",
+    description: "Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on HedgeFun.",
+  });
 
   return (
     <div className="p-4">

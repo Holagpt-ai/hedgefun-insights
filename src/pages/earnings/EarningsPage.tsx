@@ -13,6 +13,7 @@ import { cn } from "@/lib/utils";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "sonner";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 function getWeekDates(refDate: Date): Date[] {
   const d = new Date(refDate);
@@ -159,6 +160,11 @@ const EarningsPage = () => {
     toast.success("Earnings data downloaded successfully.");
   };
   const dayCount = countByDate[selectedDateStr] || 0;
+
+  usePageSeo({
+    title: "Earnings Calendar — Upcoming & Recent Reports | HedgeFun",
+    description: "Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on HedgeFun.",
+  });
 
   return (
     <div className="min-w-0">

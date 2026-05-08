@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { formatDistanceToNow, format } from "date-fns";
 import { Newspaper, Play } from "lucide-react";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
 const PAGE_SIZE = 20;
@@ -319,7 +320,6 @@ const NewsPage = () => {
   }, []);
 
   useEffect(() => {
-    document.title = "Financial News | HedgeFun";
     fetchNews();
     intervalRef.current = setInterval(fetchNews, 300000);
     return () => clearInterval(intervalRef.current);
@@ -349,10 +349,16 @@ const NewsPage = () => {
   const featured = visibleArticles[0];
   const rest = visibleArticles.slice(1);
 
+  usePageSeo({
+    title: "Stock Market News & Financial Analysis | HedgeFun",
+    description: "Get the latest stock market news, earnings coverage, economic updates, and financial analysis on HedgeFun.",
+  });
+
   return (
     <div className="flex gap-6 p-4 max-w-full">
       {/* Main feed */}
       <div className="flex-1 min-w-0">
+        <h1 className="text-[1.75rem] font-bold mb-4 text-foreground">Market News</h1>
         {/* Last updated */}
         {lastUpdated && (
           <div className="flex justify-end mb-2">

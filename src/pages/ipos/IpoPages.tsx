@@ -26,6 +26,7 @@ import {
   BreadcrumbSeparator,
   BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 /* ── Types ─────────────────────────────────────── */
 interface RecentIpo {
@@ -189,6 +190,11 @@ export function RecentIposPage() {
     if (hrs < 24) return `${hrs}h ago`;
     return `${Math.floor(hrs / 24)}d ago`;
   }
+
+  usePageSeo({
+    title: "IPO Calendar 2026 — Upcoming & Recent IPOs | HedgeFun",
+    description: "Track upcoming and recent IPOs, expected offer prices, listing dates, and post-IPO performance on HedgeFun.",
+  });
 
   return (
     <div>

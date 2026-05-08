@@ -24,6 +24,7 @@ import {
   type SortingState,
   flexRender,
 } from "@tanstack/react-table";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 function abbreviateNumber(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -362,6 +363,11 @@ const Screener = () => {
   const totalStocks = filteredData.length;
   const pageIndex = table.getState().pagination.pageIndex;
   const totalPages = table.getPageCount();
+
+  usePageSeo({
+    title: "Stock Screener — Filter & Find Stocks | HedgeFun",
+    description: "Screen and filter thousands of stocks by price, volume, market cap, sector, and more on HedgeFun.",
+  });
 
   return (
     <div className="flex flex-col min-h-screen">

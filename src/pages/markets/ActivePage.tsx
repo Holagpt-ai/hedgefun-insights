@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { resolveCurrentPrice } from "@/lib/price-utils";
 import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMoversLayout";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 function mapRows(tickers: any[]): MoverRow[] {
   if (!Array.isArray(tickers) || tickers.length === 0) return [];
@@ -36,6 +37,11 @@ export default function ActivePage() {
     staleTime: 60_000,
     retry: 3,
     retryDelay: 2000,
+  });
+
+  usePageSeo({
+    title: "Most Active Stocks Today | HedgeFun",
+    description: "See today's most actively traded stocks by volume with real-time data on HedgeFun.",
   });
 
   return (

@@ -3,6 +3,7 @@ import { getTopGainers } from "@/lib/polygon";
 import { resolveCurrentPrice, resolveMarketSession } from "@/lib/price-utils";
 import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMoversLayout";
 import { supabase } from "@/integrations/supabase/client";
+import { usePageSeo } from "@/hooks/usePageSeo";
 
 function mapRows(tickers: any[]): MoverRow[] {
   if (!Array.isArray(tickers) || tickers.length === 0) return [];
@@ -57,6 +58,11 @@ export default function GainersPage() {
   });
 
   const titles = getTitle();
+
+  usePageSeo({
+    title: "Top Stock Gainers Today | HedgeFun",
+    description: "See today's top gaining stocks with real-time price and percentage change data on HedgeFun.",
+  });
 
   return (
     <MarketMoversPage
