@@ -144,6 +144,11 @@ export default function EtfScreenerPage() {
   const pageIndex = table.getState().pagination.pageIndex;
   const totalPages = table.getPageCount();
 
+  usePageSeo({
+    title: "ETF Screener — Filter & Compare ETFs | HedgeFun",
+    description: "Screen and filter ETFs by asset class, expense ratio, performance, and issuer on HedgeFun.",
+  });
+
   return (
     <div className="flex flex-col min-h-screen">
       <div className="flex-1 max-w-[1280px] w-full mx-auto px-4 py-4">

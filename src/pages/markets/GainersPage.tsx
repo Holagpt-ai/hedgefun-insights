@@ -59,6 +59,11 @@ export default function GainersPage() {
 
   const titles = getTitle();
 
+  usePageSeo({
+    title: "Top Stock Gainers Today | HedgeFun",
+    description: "See today's top gaining stocks with real-time price and percentage change data on HedgeFun.",
+  });
+
   return (
     <MarketMoversPage
       pageTitle={titles.page}

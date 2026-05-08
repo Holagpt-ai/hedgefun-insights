@@ -58,6 +58,11 @@ export default function AfterHoursPage() {
     setActiveTime(t);
   };
 
+  usePageSeo({
+    title: "After-Hours Stock Movers | HedgeFun",
+    description: "Track after-hours stock price movements and extended trading activity on HedgeFun.",
+  });
+
   return (
     <div className="w-full">
       <MarketMoversTabBar />

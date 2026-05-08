@@ -29,6 +29,11 @@ const MoversPage = () => {
 
   const positive = type === "gainers";
 
+  usePageSeo({
+    title: "Stock Market Movers — Top Gainers & Losers | HedgeFun",
+    description: "See today's top stock market movers including gainers, losers, and most active stocks on HedgeFun.",
+  });
+
   return (
     <div className="p-4">
       <h1 className="text-lg font-bold text-foreground mb-3">{config.title}</h1>

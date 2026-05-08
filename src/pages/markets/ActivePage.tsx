@@ -39,6 +39,11 @@ export default function ActivePage() {
     retryDelay: 2000,
   });
 
+  usePageSeo({
+    title: "Most Active Stocks Today | HedgeFun",
+    description: "See today's most actively traded stocks by volume with real-time data on HedgeFun.",
+  });
+
   return (
     <MarketMoversPage
       pageTitle="Market Movers"

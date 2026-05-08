@@ -163,6 +163,11 @@ export default function StockListsPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
 
+  usePageSeo({
+    title: "Stock Lists — Curated Stock Collections | HedgeFun",
+    description: "Browse curated stock lists including top performers, dividend payers, growth stocks, and more on HedgeFun.",
+  });
+
   return (
     <div className="min-w-0">
       <div className="max-w-7xl mx-auto px-4 py-6">

@@ -119,6 +119,11 @@ export default function EtfNewLaunchesPage() {
 
   const tabs = ["Overview", "Price", "Profile"];
 
+  usePageSeo({
+    title: "New ETF Launches — Recently Listed ETFs | HedgeFun",
+    description: "Discover recently launched ETFs with fund details, asset class, and early performance data on HedgeFun.",
+  });
+
   return (
     <div className="min-w-0">
       <div className="max-w-7xl mx-auto px-4 py-6">

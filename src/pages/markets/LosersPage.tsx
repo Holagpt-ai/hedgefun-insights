@@ -59,6 +59,11 @@ export default function LosersPage() {
 
   const titles = getTitle();
 
+  usePageSeo({
+    title: "Top Stock Losers Today | HedgeFun",
+    description: "See today's biggest losing stocks with real-time price and percentage change data on HedgeFun.",
+  });
+
   return (
     <MarketMoversPage
       pageTitle={titles.page}

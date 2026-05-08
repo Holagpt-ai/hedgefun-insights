@@ -218,6 +218,11 @@ export default function TrendingPage() {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
+  usePageSeo({
+    title: "Trending Stocks — Most Searched & Watched | HedgeFun",
+    description: "See which stocks investors are searching and watching most on HedgeFun right now.",
+  });
+
   return (
     <div className="min-w-0">
       <div className="max-w-7xl mx-auto px-4 py-6">

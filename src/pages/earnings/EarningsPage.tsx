@@ -161,6 +161,11 @@ const EarningsPage = () => {
   };
   const dayCount = countByDate[selectedDateStr] || 0;
 
+  usePageSeo({
+    title: "Earnings Calendar — Upcoming & Recent Reports | HedgeFun",
+    description: "Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on HedgeFun.",
+  });
+
   return (
     <div className="min-w-0">
       <div className="max-w-7xl mx-auto px-4 py-6">
