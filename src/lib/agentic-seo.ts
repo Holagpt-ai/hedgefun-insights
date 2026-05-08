@@ -36,13 +36,13 @@ export interface SitemapConfig {
 
 export function generateMetaTitle(ticker: string, companyName?: string): string {
   return companyName
-    ? `${companyName} (${ticker}) Analysis & Probability Forecast | Hedgefun`
-    : `${ticker} Analysis & Probability Forecast | Hedgefun`;
+    ? `${companyName} (${ticker}) Stock Price, News & Analysis | HedgeFun`
+    : `${ticker} Stock Price, News & Analysis | HedgeFun`;
 }
 
 export function generateMetaDescription(ticker: string, companyName?: string): string {
   const name = companyName ? `${companyName} (${ticker})` : ticker;
-  return `Get institutional-grade algorithmic analysis, probability forecasts, and high-probability setups for ${name} powered by Hedgefun's Socratic AI.`;
+  return `Get the latest ${name} stock price, news, financials, analyst ratings, and market analysis on HedgeFun.`;
 }
 
 // STUBBED — do not implement generation logic in V1
