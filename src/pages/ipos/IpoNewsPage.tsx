@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Newspaper } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -81,22 +82,9 @@ export default function IpoNewsPage() {
             ) : (
               visible.map((item: any) => (
                 <div key={item.id} className="flex gap-4 py-4 border-b border-border-subtle">
-                  {item.image_url ? (
-                    <img
-                      src={item.image_url}
-                      alt=""
-                      style={{ width: 120, height: 80, objectFit: "cover" }}
-                      className="shrink-0 rounded-md overflow-hidden bg-muted"
-                      onError={(e) => {
-                        const img = e.currentTarget;
-                        const fallback = document.createElement("div");
-                        fallback.className = "w-[120px] h-[80px] shrink-0 rounded-md overflow-hidden bg-muted";
-                        img.replaceWith(fallback);
-                      }}
-                    />
-                  ) : (
-                    <div className="w-[120px] h-[80px] shrink-0 rounded-md overflow-hidden bg-muted" />
-                  )}
+                  <div className="w-[120px] h-[80px] shrink-0 rounded-md overflow-hidden bg-muted flex items-center justify-center">
+                    <Newspaper className="h-6 w-6 text-muted-foreground" />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <a
                       href={item.url ?? "#"}
