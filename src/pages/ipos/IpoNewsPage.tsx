@@ -79,7 +79,7 @@ export default function IpoNewsPage() {
             ) : visible.length === 0 ? (
               <p className="text-muted-foreground text-sm py-8 text-center">No IPO news available yet.</p>
             ) : (
-              visible.map((item) => (
+              visible.map((item: any) => (
                 <div key={item.id} className="flex gap-4 py-4 border-b border-border-subtle">
                   {item.image_url ? (
                     <img
