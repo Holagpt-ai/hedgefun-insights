@@ -33,7 +33,6 @@ const STATIC_META: Record<string, { title: string; description: string }> = {
   },
 };
 
-// --- UPDATED: accepts optional companyName ---
 function buildStockMeta(ticker: string, companyName: string | null) {
   const t = ticker.toUpperCase();
   const label = companyName ? `${companyName} (${t})` : t;
@@ -43,7 +42,6 @@ function buildStockMeta(ticker: string, companyName: string | null) {
   };
 }
 
-// --- UPDATED: accepts optional companyName ---
 function buildEtfMeta(ticker: string, companyName: string | null) {
   const t = ticker.toUpperCase();
   const label = companyName ? `${companyName} (${t})` : t;
@@ -69,9 +67,8 @@ async function getAssets(origin: string): Promise<{ js: string; css: string }> {
   };
 }
 
-// --- NEW: Supabase ticker_search lookup ---
 async function getCompanyName(ticker: string): Promise<string | null> {
-  const supabaseKey = process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
   if (!supabaseKey) return null;
 
   try {
@@ -137,7 +134,6 @@ export default async function middleware(request: Request): Promise<Response> {
   if (pathname.startsWith("/stocks/")) {
     const ticker = pathname.replace("/stocks/", "").split("/")[0];
     if (ticker) {
-      // --- UPDATED: parallel fetch assets + company name ---
       const [{ js, css }, companyName] = await Promise.all([
         getAssets(url.origin),
         getCompanyName(ticker.toUpperCase()),
@@ -155,7 +151,6 @@ export default async function middleware(request: Request): Promise<Response> {
   } else if (pathname.startsWith("/etf/") && pathname.length > 5) {
     const ticker = pathname.replace("/etf/", "").split("/")[0];
     if (ticker) {
-      // --- UPDATED: parallel fetch assets + company name ---
       const [{ js, css }, companyName] = await Promise.all([
         getAssets(url.origin),
         getCompanyName(ticker.toUpperCase()),
