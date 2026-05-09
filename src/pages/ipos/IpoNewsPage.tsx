@@ -81,7 +81,22 @@ export default function IpoNewsPage() {
             ) : (
               visible.map((item) => (
                 <div key={item.id} className="flex gap-4 py-4 border-b border-border-subtle">
-                  <div className="w-[120px] h-[80px] shrink-0 rounded-md overflow-hidden bg-muted" />
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt=""
+                      style={{ width: 120, height: 80, objectFit: "cover" }}
+                      className="shrink-0 rounded-md overflow-hidden bg-muted"
+                      onError={(e) => {
+                        const img = e.currentTarget;
+                        const fallback = document.createElement("div");
+                        fallback.className = "w-[120px] h-[80px] shrink-0 rounded-md overflow-hidden bg-muted";
+                        img.replaceWith(fallback);
+                      }}
+                    />
+                  ) : (
+                    <div className="w-[120px] h-[80px] shrink-0 rounded-md overflow-hidden bg-muted" />
+                  )}
                   <div className="flex-1 min-w-0">
                     <a
                       href={item.url ?? "#"}
