@@ -48,7 +48,29 @@ function buildEtfMeta(ticker: string) {
   };
 }
 
-function buildHtml(title: string, description: string, canonicalUrl: string): string {
+async function getAssets(origin: string): Promise<{ js: string; css: string }> {
+  try {
+    const res = await fetch(`${origin}/asset-manifest.json`);
+    if (res.ok) {
+      const data = await res.json() as { js: string; css: string };
+      if (data.js && data.css) return data;
+    }
+  } catch {
+    // fall through to defaults
+  }
+  return {
+    js: "/assets/index-CvPywv0l.js",
+    css: "/assets/index-KAwZanpy.css",
+  };
+}
+
+function buildHtml(
+  title: string,
+  description: string,
+  canonicalUrl: string,
+  js: string,
+  css: string
+): string {
   const ogImage = "https://hedgefun.fun/og-share-card.png";
   return `<!DOCTYPE html>
 <html lang="en">
@@ -67,8 +89,8 @@ function buildHtml(title: string, description: string, canonicalUrl: string): st
     <meta name="twitter:description" content="${description}" />
     <meta name="twitter:image" content="${ogImage}" />
     <link rel="canonical" href="${canonicalUrl}" />
-    <script type="module" crossorigin src="/assets/index-CvPywv0l.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-KAwZanpy.css" />
+    <script type="module" crossorigin src="${js}"></script>
+    <link rel="stylesheet" crossorigin href="${css}" />
   </head>
   <body>
     <div id="root"></div>
@@ -95,7 +117,8 @@ export default async function middleware(request: Request): Promise<Response> {
 
   if (!meta) return new Response(null, { status: 200 });
 
-  const html = buildHtml(meta.title, meta.description, canonicalUrl);
+  const { js, css } = await getAssets(url.origin);
+  const html = buildHtml(meta.title, meta.description, canonicalUrl, js, css);
 
   return new Response(html, {
     status: 200,
