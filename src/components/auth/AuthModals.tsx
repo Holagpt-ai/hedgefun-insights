@@ -205,7 +205,12 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
             Forgot password?
           </button>
         </div>
-        <Input id="login-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <div className="relative">
+          <Input id="login-pw" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className="pr-10" />
+          <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
       <Button type="submit" className="w-full bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground" disabled={loading}>
         {loading ? "Logging in..." : "Log In"}
