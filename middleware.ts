@@ -48,23 +48,38 @@ function buildEtfMeta(ticker: string) {
   };
 }
 
-function injectMeta(html: string, title: string, description: string): string {
+function buildHtml(title: string, description: string, canonicalUrl: string): string {
   const ogImage = "https://hedgefun.fun/og-share-card.png";
-
-  html = html.replace(/<title>[^<]*<\/title>/, `<title>${title}</title>`);
-  html = html.replace(/<meta property="og:title"[^>]*>/, `<meta property="og:title" content="${title}">`);
-  html = html.replace(/<meta property="og:description"[^>]*>/, `<meta property="og:description" content="${description}">`);
-  html = html.replace(/<meta property="og:image"[^>]*>/, `<meta property="og:image" content="${ogImage}">`);
-  html = html.replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${description}">`);
-  html = html.replace(/<meta name="twitter:title"[^>]*>/, `<meta name="twitter:title" content="${title}">`);
-  html = html.replace(/<meta name="twitter:description"[^>]*>/, `<meta name="twitter:description" content="${description}">`);
-
-  return html;
+  return `<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${title}</title>
+    <meta name="description" content="${description}" />
+    <meta property="og:title" content="${title}" />
+    <meta property="og:description" content="${description}" />
+    <meta property="og:image" content="${ogImage}" />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="${canonicalUrl}" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="${title}" />
+    <meta name="twitter:description" content="${description}" />
+    <meta name="twitter:image" content="${ogImage}" />
+    <link rel="canonical" href="${canonicalUrl}" />
+    <script type="module" crossorigin src="/assets/index-CvPywv0l.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-KAwZanpy.css" />
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`;
 }
 
 export default async function middleware(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
+  const canonicalUrl = `https://hedgefun.fun${pathname}`;
 
   let meta: { title: string; description: string } | null = null;
 
@@ -80,20 +95,13 @@ export default async function middleware(request: Request): Promise<Response> {
 
   if (!meta) return new Response(null, { status: 200 });
 
-  try {
-    const indexUrl = new URL("/", request.url).toString();
-    const response = await fetch(indexUrl);
-    let html = await response.text();
-    html = injectMeta(html, meta.title, meta.description);
+  const html = buildHtml(meta.title, meta.description, canonicalUrl);
 
-    return new Response(html, {
-      status: 200,
-      headers: {
-        "content-type": "text/html; charset=utf-8",
-        "cache-control": "public, max-age=3600, s-maxage=3600",
-      },
-    });
-  } catch {
-    return new Response(null, { status: 200 });
-  }
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "public, max-age=3600, s-maxage=3600",
+    },
+  });
 }
