@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -52,6 +53,8 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,11 +111,21 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
       </div>
       <div className="space-y-2">
         <Label htmlFor="signup-pw">Password</Label>
-        <Input id="signup-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} />
+        <div className="relative">
+          <Input id="signup-pw" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} className="pr-10" />
+          <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="signup-confirm">Confirm Password</Label>
-        <Input id="signup-confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required />
+        <div className="relative">
+          <Input id="signup-confirm" type={showConfirm ? "text" : "password"} value={confirm} onChange={(e) => setConfirm(e.target.value)} required className="pr-10" />
+          <button type="button" onClick={() => setShowConfirm((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showConfirm ? "Hide password" : "Show password"}>
+            {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
       <Button type="submit" className="w-full bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground" disabled={loading}>
         {loading ? "Creating..." : "Create Account"}
@@ -134,6 +147,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +205,12 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
             Forgot password?
           </button>
         </div>
-        <Input id="login-pw" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        <div className="relative">
+          <Input id="login-pw" type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} required className="pr-10" />
+          <button type="button" onClick={() => setShowPassword((s) => !s)} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground" aria-label={showPassword ? "Hide password" : "Show password"}>
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
       <Button type="submit" className="w-full bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground" disabled={loading}>
         {loading ? "Logging in..." : "Log In"}
