@@ -7,82 +7,64 @@ const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
-
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
-  }
-
-
-  if (req.method === "OPTIONS")
     return new Response("ok", { headers: corsHeaders });
+  }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
 
-  // Parse optional cursor from request body for pagination
-  let nextUrl: string | null = null;
-  try {
-    const body = await req.json();
-    nextUrl = body?.next_url || null;
-  } catch {
-    // No body, start from beginning
+  // Fetch 50 tickers with null market_cap
+  const { data: tickers, error } = await supabase
+    .from("ticker_search")
+    .select("symbol")
+    .is("market_cap", null)
+    .limit(50);
+
+  if (error || !tickers || tickers.length === 0) {
+    return new Response(JSON.stringify({ message: "No tickers to update", updated: 0 }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
-
-  // Use Polygon reference tickers endpoint which returns market_cap directly
-  // Fetch 1000 tickers per call with pagination support
-  const url = nextUrl ||
-    `https://api.polygon.io/v3/reference/tickers?market=stocks&active=true&order=asc&limit=1000&sort=ticker&apiKey=${POLYGON_API_KEY}`;
-
-  const res = await fetch(url);
-  const json = await res.json();
-  const results = json?.results ?? [];
-  const polygonNextUrl = json?.next_url
-    ? `${json.next_url}&apiKey=${POLYGON_API_KEY}`
-    : null;
 
   let updated = 0;
   let skipped = 0;
 
-  // Batch upsert market caps
-  for (const ticker of results) {
-    const symbol = ticker.ticker;
-    const market_cap = ticker.market_cap;
+  for (const { symbol } of tickers) {
+    try {
+      const res = await fetch(
+        `https://api.polygon.io/v3/reference/tickers/${symbol}?apiKey=${POLYGON_API_KEY}`
+      );
+      const json = await res.json();
+      const market_cap = json?.results?.market_cap;
 
-    if (!symbol || !market_cap || market_cap <= 0) {
+      if (!market_cap || market_cap <= 0) {
+        await supabase.from("ticker_search").update({ market_cap: null }).eq("symbol", symbol);
+        skipped++;
+        continue;
+      }
+
+      const { error: updateError } = await supabase
+        .from("ticker_search")
+        .update({ market_cap: Math.round(market_cap) })
+        .eq("symbol", symbol);
+
+      if (!updateError) updated++;
+    } catch {
       skipped++;
-      continue;
     }
-
-    const { error } = await supabase
-      .from("ticker_search")
-      .update({ market_cap: Math.round(market_cap) })
-      .eq("symbol", symbol);
-
-    if (!error) updated++;
   }
 
-  // Count remaining nulls
   const { count } = await supabase
     .from("ticker_search")
     .select("symbol", { count: "exact", head: true })
-    .is("market_cap", null)
-    .eq("active", true);
+    .is("market_cap", null);
 
   return new Response(
-    JSON.stringify({
-      updated,
-      skipped,
-      fetched: results.length,
-      remaining_null: count,
-      has_more: !!polygonNextUrl,
-      next_url: polygonNextUrl,
-    }),
-    {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    }
+    JSON.stringify({ updated, skipped, remaining_null: count, has_more: (count ?? 0) > 0 }),
+    { headers: { ...corsHeaders, "Content-Type": "application/json" } }
   );
 });
