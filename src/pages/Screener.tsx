@@ -99,7 +99,7 @@ const Screener = () => {
           exchange: r.exchange,
           type: null as string | null,
           market_cap: r.market_cap as number | null,
-          price: r.price as number | null,
+          price: null as number | null,
           change_percent: r.change_percent as number | null,
           volume: r.volume as number | null,
           pe_ratio: r.pe_ratio as number | null,
