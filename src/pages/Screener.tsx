@@ -114,7 +114,7 @@ const Screener = () => {
         let query = supabase
           .from("ticker_search")
           .select("symbol, name, exchange, type, market_cap")
-          .not("market_cap", "is", null)
+          .gt("market_cap", 0)
           .eq("active", true);
 
         if (marketCapFilter === "mega-cap") {
