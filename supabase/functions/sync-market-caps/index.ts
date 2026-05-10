@@ -42,7 +42,7 @@ serve(async (req) => {
       const market_cap = json?.results?.market_cap;
 
       if (!market_cap || market_cap <= 0) {
-        await supabase.from("ticker_search").update({ market_cap: null }).eq("symbol", symbol);
+        await supabase.from("ticker_search").update({ market_cap: -1 }).eq("symbol", symbol);
         skipped++;
         continue;
       }
