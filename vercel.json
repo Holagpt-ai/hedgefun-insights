@@ -1,38 +1,6 @@
 {
   "rewrites": [
     {
-      "source": "/stocks/:ticker",
-      "destination": "https://hedgefun-seo.vercel.app/stocks/:ticker"
-    },
-    {
-      "source": "/etf/:ticker",
-      "destination": "https://hedgefun-seo.vercel.app/etf/:ticker"
-    },
-    {
-      "source": "/ipos/:ticker",
-      "destination": "https://hedgefun-seo.vercel.app/ipos/:ticker"
-    },
-    {
-      "source": "/sitemap-index",
-      "destination": "https://hedgefun-seo.vercel.app/sitemap-index"
-    },
-    {
-      "source": "/sitemap-stocks/:path*",
-      "destination": "https://hedgefun-seo.vercel.app/sitemap-stocks/:path*"
-    },
-    {
-      "source": "/sitemap-etfs/:path*",
-      "destination": "https://hedgefun-seo.vercel.app/sitemap-etfs/:path*"
-    },
-    {
-      "source": "/sitemap-ipos/:path*",
-      "destination": "https://hedgefun-seo.vercel.app/sitemap-ipos/:path*"
-    },
-    {
-      "source": "/sitemap-static",
-      "destination": "https://hedgefun-seo.vercel.app/sitemap-static"
-    },
-    {
       "source": "/sitemap.xml",
       "destination": "https://qrsmjctuhikoxgzxouhf.supabase.co/functions/v1/sitemap"
     },
