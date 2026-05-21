@@ -75,6 +75,7 @@ export default function TradingViewChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [inView, setInView] = useState(false);
   const [internalChartType, setInternalChartType] = useState<ChartType>(controlledChartType ?? 'area');
   const chartType = controlledChartType ?? internalChartType;
@@ -126,8 +127,9 @@ export default function TradingViewChart({
     const downColor = '#dc2626';
     const accentColor = isPositive ? upColor : downColor;
 
+    const containerWidth = chartContainerRef.current.clientWidth || chartContainerRef.current.getBoundingClientRect().width || 600;
     const chart = createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
+      width: containerWidth,
       height,
       layout: {
         background: { type: ColorType.Solid, color: bg },
@@ -285,12 +287,12 @@ export default function TradingViewChart({
 
   return (
     <div
-      ref={sentinelRef}
       className={hideToolbar ? "" : "border border-border rounded-[var(--radius)] overflow-hidden"}
       aria-label={seoTitle}
       title={seoTitle}
       role="img"
     >
+      <div ref={sentinelRef} style={{ height: 0, overflow: "hidden" }} />
       {!inView ? (
         <div className="animate-pulse bg-muted rounded-[var(--radius)]" style={{ height }} />
       ) : (
