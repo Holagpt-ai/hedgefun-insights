@@ -278,7 +278,7 @@ export default function ArticlesPage() {
         title: row.headline,
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
         date: formatDate(row.published_at),
-        image: getCategoryImage(row.category, index, row.headline),
+        
         author: row.source ?? "HedgeFun News",
         tags: row.category ? [row.category] : ["Markets"],
         externalUrl: row.url,
