@@ -147,9 +147,46 @@ const StockDetail = () => {
 
       {activeTab === "Overview" && (
         <div className="px-4 py-4 space-y-6">
-          <StockStatsTable snapshot={snapshot} details={details} dividends={dividends} yearAggs={yearAggs} loading={snapLoading || detailsLoading} />
-          <TradingViewChart data={ohlcvData} ticker={ticker} companyName={details?.name} isPositive={positive} height={380} loading={chartLoading} />
-          <StockCtaButtons ticker={ticker} />
+          {/* Two-column layout: stats left, chart right */}
+          <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-6 items-start">
+            {/* Left: Stats Table */}
+            <div>
+              <StockStatsTable snapshot={snapshot} details={details} dividends={dividends} yearAggs={yearAggs} loading={snapLoading || detailsLoading} />
+            </div>
+            {/* Right: Time range + Chart + CTA buttons */}
+            <div className="flex flex-col gap-3">
+              {/* Time range selector */}
+              <div className="flex items-center gap-1 flex-wrap">
+                {["1D","5D","1M","3M","6M","YTD","1Y","5Y","MAX"].map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setTimeRange(r)}
+                    className={cn(
+                      "px-2.5 py-1 text-xs font-medium rounded border transition-colors",
+                      timeRange === r
+                        ? "bg-accent-blue text-white border-accent-blue"
+                        : "border-border text-muted-foreground hover:border-accent-blue hover:text-accent-blue"
+                    )}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              {/* Chart */}
+              <TradingViewChart
+                data={ohlcvData}
+                ticker={ticker}
+                companyName={details?.name}
+                isPositive={positive}
+                height={320}
+                loading={chartLoading}
+                hideToolbar={false}
+              />
+              {/* CTA buttons below chart */}
+              <StockCtaButtons ticker={ticker} />
+            </div>
+          </div>
+          {/* Full-width sections below */}
           <StockAbout details={details} ticker={ticker} />
           <StockNews news={news} />
         </div>
