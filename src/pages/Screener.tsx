@@ -388,22 +388,6 @@ const Screener = () => {
             <ScreenerTutorialButton variant="stock" />
           </div>
           <div className="flex items-center gap-2 flex-wrap">
-            <div className="text-xs text-muted-foreground">Exchange Country</div>
-            <Select defaultValue="us" onValueChange={(v) => { if (v !== "us") toast("Coming Soon", { description: "International markets coming soon." }); }}>
-              <SelectTrigger className="h-8 text-xs w-[150px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="us">🇺🇸 United States</SelectItem>
-                <SelectItem value="gb">🇬🇧 United Kingdom</SelectItem>
-                <SelectItem value="ca">🇨🇦 Canada</SelectItem>
-                <SelectItem value="de">🇩🇪 Germany</SelectItem>
-                <SelectItem value="jp">🇯🇵 Japan</SelectItem>
-                <SelectItem value="au">🇦🇺 Australia</SelectItem>
-                <SelectItem value="fr">🇫🇷 France</SelectItem>
-                <SelectItem value="cn">🇨🇳 China</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={marketCapFilter} onValueChange={(v) => { setMarketCapFilter(v); if (v === "high-dividend" || v === "growth") comingSoon(); }}>
               <SelectTrigger className="h-8 text-xs w-[140px]">
                 <SelectValue placeholder="Popular Screens" />
@@ -516,7 +500,7 @@ const Screener = () => {
                 New
               </span>
             </Button>
-            <Button variant="outline" size="sm" className="h-8 text-xs" onClick={comingSoon}>Indicators</Button>
+            
             <Button variant="outline" size="sm" className="h-8 text-xs" onClick={() => toast("Pro Feature", { description: "Full Width view is available for HedgeFun Pro subscribers.", action: { label: "Upgrade", onClick: () => navigate("/pro") } })}>Full Width 🔒</Button>
           </div>
         </div>
@@ -537,12 +521,6 @@ const Screener = () => {
               {tab}
             </button>
           ))}
-          <button onClick={comingSoon} className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
-            + Add View
-          </button>
-          <button onClick={comingSoon} className="px-3 py-2 text-sm text-muted-foreground border-b-2 border-transparent hover:text-foreground whitespace-nowrap">
-            ✏️ Edit View
-          </button>
         </div>
 
         {/* Table */}
