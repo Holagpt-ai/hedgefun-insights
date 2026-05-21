@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Facebook, Twitter, Instagram, Linkedin, Youtube, Sun, Moon, Apple, Play } from "lucide-react";
+import { Linkedin, Youtube, Sun, Moon, Apple, Play } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -49,9 +49,6 @@ const LINK_SECTIONS = [
 ];
 
 const SOCIAL_LINKS = [
-  { icon: Facebook, url: "https://facebook.com/hedgefun", label: "Facebook" },
-  { icon: Twitter, url: "https://twitter.com/hedgefun", label: "Twitter" },
-  { icon: Instagram, url: "https://instagram.com/hedgefun", label: "Instagram" },
   { icon: Linkedin, url: "https://linkedin.com/company/hedgefun", label: "LinkedIn" },
   { icon: Youtube, url: "https://youtube.com/@hedgefun", label: "YouTube" },
 ];
