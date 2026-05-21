@@ -72,17 +72,28 @@ const FALLBACK_ARTICLES: Article[] = [
 
 export const ARTICLES = FALLBACK_ARTICLES;
 
-function getCategoryImage(category: string | null): string {
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+  "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
+  "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
+  "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
+  "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
+  "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80",
+  "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=1200&q=80",
+  "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200&q=80",
+];
+
+function getCategoryImage(category: string | null, index: number): string {
   const map: Record<string, string> = {
     ipo: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
-    markets: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
     tech: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
     energy: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
     earnings: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
-    economy: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
+    economy: "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80",
   };
-  const key = (category ?? "markets").toLowerCase();
-  return map[key] ?? "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80";
+  const key = (category ?? "").toLowerCase();
+  if (map[key]) return map[key];
+  return FALLBACK_IMAGES[index % FALLBACK_IMAGES.length];
 }
 
 export function getReadTime(wordCount: number): string {
@@ -128,12 +139,12 @@ export default function ArticlesPage() {
         .order("published_at", { ascending: false })
         .limit(100);
       if (error) return [];
-      return (data ?? []).map((row: any) => ({
+      return (data ?? []).map((row: any, index: any) => ({
         slug: slugify(row.headline ?? row.id),
         title: row.headline,
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
         date: formatDate(row.published_at),
-        image: getCategoryImage(row.category),
+        image: getCategoryImage(row.category, index),
         author: row.source ?? "HedgeFun News",
         tags: row.category ? [row.category] : ["Markets"],
         externalUrl: row.url,
