@@ -9,7 +9,7 @@ import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "@/hooks/use-toast";
 import { usePageSeo } from "@/hooks/usePageSeo";
 
-const TIME_TABS = ["Today", "Week", "Month", "YTD", "Year", "3 Years", "5 Years"];
+const TIME_TABS = ["Today"];
 
 function mapRows(tickers: any[]): MoverRow[] {
   if (!Array.isArray(tickers) || tickers.length === 0) return [];

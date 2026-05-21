@@ -99,7 +99,7 @@ const DB_KEY: Record<string, string> = {
 
 type StockRow = Record<string, any>;
 
-const COMING_SOON_TABS = ["Performance", "Dividends", "Price", "Profile", "+ Add View", "Edit View"];
+const COMING_SOON_TABS: string[] = [];
 
 export default function StockListDetailPage() {
   const { slug = "" } = useParams<{ slug: string }>();

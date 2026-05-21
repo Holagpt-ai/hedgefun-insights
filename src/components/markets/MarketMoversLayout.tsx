@@ -28,8 +28,8 @@ export interface MoverRow {
   volume: number;
 }
 
-const TIME_TABS = ["Today", "Week", "Month", "YTD", "Year", "3 Years", "5 Years"];
-const VIEW_TABS = ["Overview", "Performance", "Price", "Profile", "Financials"];
+const TIME_TABS = ["Today"];
+const VIEW_TABS = ["Overview"];
 
 interface TableProps {
   sectionTitle: string;
