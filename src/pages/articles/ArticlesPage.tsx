@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { usePageSeo } from "@/hooks/usePageSeo";
 
 import starlinkImg from "@/assets/articles/starlink-ipo.jpg";
@@ -9,7 +11,6 @@ import fiboImg from "@/assets/articles/fibonacci-retracement.jpg";
 import aiImg from "@/assets/articles/ai-infrastructure.jpg";
 import energyImg from "@/assets/articles/energy-stocks-grid.jpg";
 
-/* ── Types ──────────────────────────────────────── */
 export interface Article {
   slug: string;
   title: string;
@@ -18,57 +19,10 @@ export interface Article {
   image: string;
   author?: string;
   tags?: string[];
+  externalUrl?: string;
 }
 
-/* ── Seed Data ──────────────────────────────────── */
-export const ARTICLES: Article[] = [
-  // ── New articles (March 25 2026) ──
-  {
-    slug: "jensen-huang-agi-achieved",
-    title: "Jensen Huang Says AGI Has Been Achieved — What It Means for Nvidia and the Market",
-    excerpt: "Nvidia's CEO made a bold claim about artificial general intelligence. Here's what it means for NVDA stock, the semiconductor industry, and investors.",
-    date: "Mar 25, 2026",
-    image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
-    author: "HedgeFun Editorial Team",
-    tags: ["Tech", "Analysis"],
-  },
-  {
-    slug: "china-manus-meta-deal-review",
-    title: "China Reviews Manus-Meta Deal: All Founders Barred From Leaving the Country",
-    excerpt: "Beijing has placed travel restrictions on Manus founders amid its regulatory review of the Meta acquisition deal. What this means for US-China tech relations.",
-    date: "Mar 25, 2026",
-    image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
-    author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Tech"],
-  },
-  {
-    slug: "oil-prices-fall-iran-ceasefire",
-    title: "Oil Prices Fall on Reports of U.S. Ceasefire Proposal With Iran — Will Oil Hit $200?",
-    excerpt: "Crude oil dropped sharply on ceasefire reports. We analyze whether $200 oil is realistic and which energy stocks are most affected.",
-    date: "Mar 25, 2026",
-    image: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
-    author: "HedgeFun Editorial Team",
-    tags: ["Energy", "Markets"],
-  },
-  {
-    slug: "500-million-oil-bet-trump-statement",
-    title: "$500 Million Oil Trade Made Minutes Before Trump's Iran Energy Strike Statement",
-    excerpt: "A massive oil options trade placed just before a presidential announcement has drawn SEC scrutiny and market manipulation concerns.",
-    date: "Mar 25, 2026",
-    image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
-    author: "HedgeFun Editorial Team",
-    tags: ["Energy", "Markets"],
-  },
-  {
-    slug: "market-volatility-tariff-uncertainty-2026",
-    title: "Market Volatility Surges as Tariff Uncertainty Keeps Investors on Edge in 2026",
-    excerpt: "The VIX is elevated and S&P 500 swings are widening. We break down what's driving 2026 market volatility and how to position your portfolio.",
-    date: "Mar 25, 2026",
-    image: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
-    author: "HedgeFun Editorial Team",
-    tags: ["Markets", "Analysis"],
-  },
-  // ── Original articles ──
+const FALLBACK_ARTICLES: Article[] = [
   {
     slug: "starlink-ipo-what-investors-need-to-know",
     title: "Starlink IPO: What Investors Need to Know Before It Goes Public",
@@ -116,16 +70,35 @@ export const ARTICLES: Article[] = [
   },
 ];
 
+export const ARTICLES = FALLBACK_ARTICLES;
+
 export function getReadTime(wordCount: number): string {
   return `${Math.max(1, Math.ceil(wordCount / 200))} min read`;
 }
 
 const ARTICLES_PER_PAGE = 20;
 
-// Collect unique tags
-const ALL_TAGS = Array.from(
-  new Set(ARTICLES.flatMap((a) => a.tags ?? []))
-).sort();
+function formatDate(dateStr: string | null): string {
+  if (!dateStr) return "";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  } catch {
+    return dateStr;
+  }
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
 
 export default function ArticlesPage() {
   const navigate = useNavigate();
@@ -133,11 +106,39 @@ export default function ArticlesPage() {
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
+  const { data: dbNews = [] } = useQuery<Article[]>({
+    queryKey: ["market-news-articles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("market_news")
+        .select("id, headline, source, url, published_at, category")
+        .order("published_at", { ascending: false })
+        .limit(100);
+      if (error) return [];
+      return (data ?? []).map((row: any) => ({
+        slug: slugify(row.headline ?? row.id),
+        title: row.headline,
+        excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
+        date: formatDate(row.published_at),
+        image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+        author: row.source ?? "HedgeFun News",
+        tags: row.category ? [row.category] : ["Markets"],
+        externalUrl: row.url,
+      }));
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const articles: Article[] = dbNews.length > 0 ? dbNews : FALLBACK_ARTICLES;
+
+  const ALL_TAGS = useMemo(
+    () => Array.from(new Set(articles.flatMap((a) => a.tags ?? []))).sort(),
+    [articles]
+  );
+
   const filtered = useMemo(() => {
-    let result = ARTICLES;
-    if (activeTag) {
-      result = result.filter((a) => a.tags?.includes(activeTag));
-    }
+    let result = articles;
+    if (activeTag) result = result.filter((a) => a.tags?.includes(activeTag));
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       result = result.filter(
@@ -147,18 +148,31 @@ export default function ArticlesPage() {
       );
     }
     return result;
-  }, [search, activeTag]);
+  }, [search, activeTag, articles]);
 
-  
   const paginatedArticles = filtered.slice(0, page * ARTICLES_PER_PAGE);
 
-  // Reset to page 1 when filters change
-  const updateSearch = (v: string) => { setSearch(v); setPage(1); };
-  const updateTag = (t: string | null) => { setActiveTag(t); setPage(1); };
+  const updateSearch = (v: string) => {
+    setSearch(v);
+    setPage(1);
+  };
+  const updateTag = (t: string | null) => {
+    setActiveTag(t);
+    setPage(1);
+  };
+
+  const handleArticleClick = (article: Article) => {
+    if (article.externalUrl) {
+      window.open(article.externalUrl, "_blank", "noopener,noreferrer");
+    } else {
+      navigate(`/articles/${article.slug}`);
+    }
+  };
 
   usePageSeo({
     title: "HedgeFun Blog — Latest Articles on Stocks, Finance & Investing",
-    description: "Read in-depth articles on stocks, ETFs, IPOs, market analysis, and investing strategies from the HedgeFun team.",
+    description:
+      "Read in-depth articles on stocks, ETFs, IPOs, market analysis, and investing strategies from the HedgeFun team.",
     canonical: "https://www.hedgefun.fun/articles",
     jsonLd: {
       "@context": "https://schema.org",
@@ -176,7 +190,6 @@ export default function ArticlesPage() {
 
   return (
     <div className="max-w-[960px] mx-auto px-4 py-10">
-      {/* Header */}
       <div className="text-center mb-10">
         <h1 className="text-[1.75rem] md:text-[2rem] font-bold text-foreground mb-2">
           HedgeFun Blog
@@ -186,7 +199,6 @@ export default function ArticlesPage() {
         </p>
       </div>
 
-      {/* Search & Tag Filter */}
       <div className="mb-8 space-y-3">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -225,16 +237,17 @@ export default function ArticlesPage() {
         </div>
       </div>
 
-      {/* Card Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
         {paginatedArticles.map((article) => (
           <button
             key={article.slug}
-            onClick={() => navigate(`/articles/${article.slug}`)}
+            onClick={() => handleArticleClick(article)}
             className="text-left border border-border rounded-md overflow-hidden hover:border-accent-blue transition-colors group bg-surface-card"
           >
-             {/* Cover image */}
-            <div className="aspect-video overflow-hidden" style={{ backgroundColor: '#f4f4f5' }}>
+            <div
+              className="aspect-video overflow-hidden"
+              style={{ backgroundColor: "#f4f4f5" }}
+            >
               <img
                 src={article.image}
                 alt={article.title}
@@ -242,11 +255,12 @@ export default function ArticlesPage() {
                 height={225}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                 loading="lazy"
-                onError={(e) => { e.currentTarget.style.display = 'none' }}
+                onError={(e) => {
+                  e.currentTarget.style.display = "none";
+                }}
               />
             </div>
 
-            {/* Content */}
             <div className="p-4">
               <h2 className="text-[0.9375rem] font-bold text-foreground leading-snug mb-2 group-hover:text-accent-blue transition-colors line-clamp-2">
                 {article.title}
@@ -255,16 +269,19 @@ export default function ArticlesPage() {
                 {article.excerpt}
               </p>
 
-              {/* Author row */}
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
-                  <span className="text-[0.5rem] font-bold text-primary-foreground">HF</span>
+                  <span className="text-[0.5rem] font-bold text-primary-foreground">
+                    HF
+                  </span>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-accent-blue leading-none">
                     {article.author ?? "HedgeFun Team"}
                   </p>
-                  <p className="text-[0.625rem] text-muted-foreground mt-0.5">{article.date}</p>
+                  <p className="text-[0.625rem] text-muted-foreground mt-0.5">
+                    {article.date}
+                  </p>
                 </div>
               </div>
             </div>
@@ -272,7 +289,6 @@ export default function ArticlesPage() {
         ))}
       </div>
 
-      {/* Load More */}
       {page * ARTICLES_PER_PAGE < filtered.length && (
         <div className="flex justify-center">
           <button
