@@ -75,7 +75,6 @@ export default function TradingViewChart({
   const chartContainerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const [inView, setInView] = useState(false);
   const [internalChartType, setInternalChartType] = useState<ChartType>(controlledChartType ?? 'area');
   const chartType = controlledChartType ?? internalChartType;
@@ -92,14 +91,8 @@ export default function TradingViewChart({
 
   // Intersection observer for lazy loading
   useEffect(() => {
-    const el = sentinelRef.current;
-    if (!el) return;
-    const io = new IntersectionObserver(
-      ([entry]) => { if (entry.isIntersecting) { setInView(true); io.disconnect(); } },
-      { rootMargin: '200px' }
-    );
-    io.observe(el);
-    return () => io.disconnect();
+    const timer = setTimeout(() => setInView(true), 50);
+    return () => clearTimeout(timer);
   }, []);
 
   useEffect(() => {
@@ -287,12 +280,12 @@ export default function TradingViewChart({
 
   return (
     <div
+      ref={sentinelRef}
       className={hideToolbar ? "" : "border border-border rounded-[var(--radius)] overflow-hidden"}
       aria-label={seoTitle}
       title={seoTitle}
       role="img"
     >
-      <div ref={sentinelRef} style={{ height: 0, overflow: "hidden" }} />
       {!inView ? (
         <div className="animate-pulse bg-muted rounded-[var(--radius)]" style={{ height }} />
       ) : (
