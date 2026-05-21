@@ -120,7 +120,7 @@ export default function ArticlesPage() {
         title: row.headline,
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
         date: formatDate(row.published_at),
-        image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+        image: getCategoryImage(row.category),
         author: row.source ?? "HedgeFun News",
         tags: row.category ? [row.category] : ["Markets"],
         externalUrl: row.url,
