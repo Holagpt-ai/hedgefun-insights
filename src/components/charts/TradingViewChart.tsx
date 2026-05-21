@@ -207,18 +207,6 @@ export default function TradingViewChart({
 
     chart.timeScale().fitContent();
 
-    // Apply watermark immediately after chart creation
-    (chart as any).applyOptions({
-      watermark: {
-        visible: true,
-        fontSize: 36,
-        horzAlign: "center",
-        vertAlign: "center",
-        color: "rgba(150, 150, 150, 0.18)",
-        text: ticker,
-      },
-    });
-
     const resizeObserver = new ResizeObserver(() => {
       if (chartContainerRef.current) {
         const newWidth = chartContainerRef.current.clientWidth;
@@ -323,7 +311,26 @@ export default function TradingViewChart({
               ))}
             </div>
           )}
-          <div ref={chartContainerRef} style={{ height }} />
+          <div style={{ position: "relative" }}>
+            <div ref={chartContainerRef} style={{ height }} />
+            <div
+              style={{
+                position: "absolute",
+                top: "50%",
+                left: "50%",
+                transform: "translate(-50%, -50%)",
+                fontSize: "clamp(24px, 5vw, 48px)",
+                fontWeight: 700,
+                color: "rgba(150, 150, 150, 0.15)",
+                pointerEvents: "none",
+                userSelect: "none",
+                letterSpacing: "0.05em",
+                whiteSpace: "nowrap",
+              }}
+            >
+              {ticker}
+            </div>
+          </div>
         </>
       )}
     </div>
