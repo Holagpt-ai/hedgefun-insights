@@ -180,7 +180,7 @@ const StockDetail = () => {
                 isPositive={positive}
                 height={320}
                 loading={chartLoading}
-                hideToolbar={false}
+                hideToolbar={true}
               />
               {/* CTA buttons below chart */}
               <StockCtaButtons ticker={ticker} />
