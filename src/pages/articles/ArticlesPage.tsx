@@ -72,22 +72,121 @@ const FALLBACK_ARTICLES: Article[] = [
 
 export const ARTICLES = FALLBACK_ARTICLES;
 
-const TOPIC_IMAGES: Array<{ keywords: string[]; image: string }> = [
-  { keywords: ["oil", "crude", "energy", "gas", "pipeline", "opec", "fuel"], image: "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80" },
-  { keywords: ["nvidia", "chip", "semiconductor", "ai", "artificial intelligence", "gpu", "intel", "amd"], image: "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80" },
-  { keywords: ["ipo", "listing", "public offering", "spac", "debut"], image: "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80" },
-  { keywords: ["fed", "interest rate", "federal reserve", "inflation", "cpi", "gdp", "economy", "recession"], image: "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80" },
-  { keywords: ["gold", "silver", "commodity", "metal", "mining"], image: "https://images.unsplash.com/photo-1610375461369-d613b564f4c4?w=1200&q=80" },
-  { keywords: ["bank", "finance", "jpmorgan", "goldman", "wells fargo", "credit", "loan", "mortgage"], image: "https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=1200&q=80" },
-  { keywords: ["tesla", "ev", "electric vehicle", "automotive", "car", "ford", "gm", "rivian"], image: "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&q=80" },
-  { keywords: ["real estate", "reit", "housing", "mortgage", "property"], image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80" },
-  { keywords: ["earnings", "revenue", "profit", "quarterly", "results", "eps", "guidance"], image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80" },
-  { keywords: ["lawsuit", "class action", "sec", "fraud", "investigation", "legal", "court"], image: "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1200&q=80" },
-  { keywords: ["crypto", "bitcoin", "ethereum", "blockchain", "defi", "token"], image: "https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=1200&q=80" },
-  { keywords: ["pharma", "drug", "fda", "biotech", "clinical", "therapeutics", "health", "medical"], image: "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&q=80" },
-  { keywords: ["market", "stock", "index", "s&p", "nasdaq", "dow", "rally", "selloff", "volatility"], image: "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80" },
-  { keywords: ["merger", "acquisition", "deal", "buyout", "takeover"], image: "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200&q=80" },
-  { keywords: ["dividend", "yield", "payout", "income"], image: "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=1200&q=80" },
+const TOPIC_IMAGES: Array<{ keywords: string[]; images: string[] }> = [
+  {
+    keywords: ["oil", "crude", "energy", "gas", "pipeline", "opec", "fuel"],
+    images: [
+      "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
+      "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1200&q=80",
+      "https://images.unsplash.com/photo-1548337138-e87d889cc369?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["nvidia", "chip", "semiconductor", "ai", "artificial intelligence", "gpu", "intel", "amd", "technology", "tech"],
+    images: [
+      "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
+      "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&q=80",
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["ipo", "listing", "public offering", "spac", "debut"],
+    images: [
+      "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
+      "https://images.unsplash.com/photo-1560472355-536de3962603?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["fed", "interest rate", "federal reserve", "inflation", "cpi", "gdp", "economy", "recession"],
+    images: [
+      "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
+      "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&q=80",
+      "https://images.unsplash.com/photo-1607944024060-0450380ddd33?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["gold", "silver", "commodity", "metal", "mining", "copper"],
+    images: [
+      "https://images.unsplash.com/photo-1610375461369-d613b564f4c4?w=1200&q=80",
+      "https://images.unsplash.com/photo-1618044733300-9472054094ee?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["bank", "finance", "jpmorgan", "goldman", "wells fargo", "credit", "loan", "mortgage"],
+    images: [
+      "https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=1200&q=80",
+      "https://images.unsplash.com/photo-1601597111158-2fceff292cdc?w=1200&q=80",
+      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["tesla", "ev", "electric vehicle", "automotive", "car", "ford", "gm", "rivian", "vehicle"],
+    images: [
+      "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&q=80",
+      "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&q=80",
+      "https://images.unsplash.com/photo-1571987502227-9231b837d92a?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["real estate", "reit", "housing", "mortgage", "property"],
+    images: [
+      "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80",
+      "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["earnings", "revenue", "profit", "quarterly", "results", "eps", "guidance", "quarter"],
+    images: [
+      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+      "https://images.unsplash.com/photo-1543286386-713bdd548da4?w=1200&q=80",
+      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["lawsuit", "class action", "sec", "fraud", "investigation", "legal", "court", "deadline", "reminder", "alert", "investors to contact"],
+    images: [
+      "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1200&q=80",
+      "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=1200&q=80",
+      "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["crypto", "bitcoin", "ethereum", "blockchain", "defi", "token"],
+    images: [
+      "https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=1200&q=80",
+      "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["pharma", "drug", "fda", "biotech", "clinical", "therapeutics", "health", "medical", "bioscience"],
+    images: [
+      "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&q=80",
+      "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1200&q=80",
+      "https://images.unsplash.com/photo-1576671081837-49000212a370?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["merger", "acquisition", "deal", "buyout", "takeover"],
+    images: [
+      "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200&q=80",
+      "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["dividend", "yield", "payout", "income"],
+    images: [
+      "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=1200&q=80",
+      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+    ],
+  },
+  {
+    keywords: ["market", "stock", "index", "s&p", "nasdaq", "dow", "rally", "selloff", "volatility", "trading"],
+    images: [
+      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+      "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
+      "https://images.unsplash.com/photo-1543286386-713bdd548da4?w=1200&q=80",
+    ],
+  },
 ];
 
 const GENERIC_IMAGES = [
@@ -96,6 +195,9 @@ const GENERIC_IMAGES = [
   "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80",
   "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=1200&q=80",
+  "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&q=80",
+  "https://images.unsplash.com/photo-1543286386-713bdd548da4?w=1200&q=80",
+  "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
 ];
 
 function hashString(str: string): number {
@@ -107,15 +209,25 @@ function hashString(str: string): number {
   return Math.abs(hash);
 }
 
-function getCategoryImage(category: string | null, index: number, headline?: string): string {
-  const text = ((headline ?? "") + " " + (category ?? "")).toLowerCase();
-  for (const topic of TOPIC_IMAGES) {
-    if (topic.keywords.some((kw) => text.includes(kw))) {
-      return topic.image;
+function assignArticleImages(articles: any[]): any[] {
+  const usedImages = new Set<string>();
+  return articles.map((article) => {
+    const text = ((article.title ?? "") + " " + (article.tags?.join(" ") ?? "")).toLowerCase();
+    for (const topic of TOPIC_IMAGES) {
+      if (topic.keywords.some((kw) => text.includes(kw))) {
+        const available = topic.images.filter((img) => !usedImages.has(img));
+        const pool = available.length > 0 ? available : topic.images;
+        const picked = pool[hashString(article.slug ?? article.title ?? "") % pool.length];
+        usedImages.add(picked);
+        return { ...article, image: picked };
+      }
     }
-  }
-  const slug = headline ?? String(index);
-  return GENERIC_IMAGES[hashString(slug) % GENERIC_IMAGES.length];
+    const available = GENERIC_IMAGES.filter((img) => !usedImages.has(img));
+    const pool = available.length > 0 ? available : GENERIC_IMAGES;
+    const picked = pool[hashString(article.slug ?? article.title ?? "") % pool.length];
+    usedImages.add(picked);
+    return { ...article, image: picked };
+  });
 }
 
 export function getReadTime(wordCount: number): string {
@@ -152,7 +264,7 @@ export default function ArticlesPage() {
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  const { data: dbNews = [] } = useQuery<Article[]>({
+  const { data: dbNews = [] } = useQuery<any[]>({
     queryKey: ["market-news-articles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -166,7 +278,7 @@ export default function ArticlesPage() {
         title: row.headline,
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
         date: formatDate(row.published_at),
-        image: getCategoryImage(row.category, index, row.headline),
+        
         author: row.source ?? "HedgeFun News",
         tags: row.category ? [row.category] : ["Markets"],
         externalUrl: row.url,
@@ -175,7 +287,7 @@ export default function ArticlesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const articles: Article[] = dbNews.length > 0 ? dbNews : FALLBACK_ARTICLES;
+  const articles: Article[] = assignArticleImages(dbNews.length > 0 ? dbNews : FALLBACK_ARTICLES);
 
   const ALL_TAGS = useMemo(
     () => Array.from(new Set(articles.flatMap((a) => a.tags ?? []))).sort(),
