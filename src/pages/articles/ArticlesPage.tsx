@@ -264,7 +264,7 @@ export default function ArticlesPage() {
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
-  const { data: dbNews = [] } = useQuery<Article[]>({
+  const { data: dbNews = [] } = useQuery<any[]>({
     queryKey: ["market-news-articles"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -287,7 +287,7 @@ export default function ArticlesPage() {
     staleTime: 5 * 60 * 1000,
   });
 
-  const articles: Article[] = dbNews.length > 0 ? dbNews : FALLBACK_ARTICLES;
+  const articles: Article[] = assignArticleImages(dbNews.length > 0 ? dbNews : FALLBACK_ARTICLES);
 
   const ALL_TAGS = useMemo(
     () => Array.from(new Set(articles.flatMap((a) => a.tags ?? []))).sort(),
