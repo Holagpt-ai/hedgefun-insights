@@ -81,6 +81,11 @@ import JournalPage from "./pages/journal/JournalPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import AuthRoutePage from "./pages/auth/AuthRoutePage";
 import { RouteChangeTracker } from "@/components/analytics/RouteChangeTracker";
+import MethodologyPage from "./pages/static/MethodologyPage";
+import DividendsPage from "./pages/stocks/DividendsPage";
+import StockSplitsPage from "./pages/stocks/StockSplitsPage";
+import EtfTopPage from "./pages/etf/EtfTopPage";
+import SpacPage from "./pages/ipos/SpacPage";
 
 const queryClient = new QueryClient();
 
@@ -129,8 +134,8 @@ const App = () => (
                   <Route path="/stocks/corporate-actions" element={<CorporateActionsPage />} />
 
                   {/* Stub pages */}
-                  <Route path="/dividends" element={<StubPage title="Dividend Tracker" description="Track dividend yields, payout dates, and dividend history for any stock." />} />
-                  <Route path="/splits" element={<StubPage title="Stock Split History" description="View historical and upcoming stock splits across all exchanges." />} />
+                  <Route path="/dividends" element={<DividendsPage />} />
+                  <Route path="/splits" element={<StockSplitsPage />} />
                   <Route path="/etfs" element={<EtfMainPage />} />
                   <Route path="/etf/screener" element={<Navigate to="/etfs/screener" replace />} />
                   <Route path="/etfs/screener" element={<EtfScreenerPage />} />
@@ -138,7 +143,7 @@ const App = () => (
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
                   <Route path="/etf/:symbol" element={<EtfDetailPage />} />
-                  <Route path="/etfs/top" element={<StubPage title="Top ETFs" description="The highest-performing ETFs ranked by returns, volume, and assets under management." />} />
+                  <Route path="/etfs/top" element={<EtfTopPage />} />
                   <Route path="/etfs/:slug" element={<StubPage title="ETF List" description="This ETF list is coming soon." />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<TrendingPage />} />
@@ -156,11 +161,12 @@ const App = () => (
                   <Route path="/tools/cagr-calculator" element={<CagrCalculatorPage />} />
                   <Route path="/tools/dividend-calculator" element={<DividendCalculatorPage />} />
                   <Route path="/tools/symbol-lookup" element={<SymbolLookupPage />} />
-                  <Route path="/ipos/spac" element={<StubPage title="SPAC List" description="Track all active SPACs, their targets, and merger status." />} />
+                  <Route path="/ipos/spac" element={<SpacPage />} />
                   <Route path="/download" element={<DownloadPage />} />
                   <Route path="/about" element={<AboutPage />} />
                   <Route path="/contact" element={<ContactPage />} />
                   <Route path="/faq" element={<FaqPage />} />
+                  <Route path="/methodology" element={<MethodologyPage />} />
                   <Route path="/advertise" element={<AdvertisePage />} />
                   <Route path="/terms" element={<TermsPage />} />
                   <Route path="/privacy" element={<PrivacyPage />} />
