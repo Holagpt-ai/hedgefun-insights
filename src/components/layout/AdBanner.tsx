@@ -1,5 +1,12 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+
+const PUB = "ca-pub-4855396891178044";
+const SLOTS = {
+  top: "6473449165",
+  bottom: "4996715969",
+  sidebar: "6521550620",
+};
 
 interface AdBannerProps {
   slot?: "top" | "bottom" | "sidebar";
@@ -8,39 +15,32 @@ interface AdBannerProps {
 
 export function AdBanner({ slot = "top", className = "" }: AdBannerProps) {
   const { profile } = useAuth();
-  const [loaded, setLoaded] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (ref.current && ref.current.innerHTML.trim().length > 0) {
-        setLoaded(true);
-      }
-    }, 1500);
-    return () => clearTimeout(timer);
+    try {
+      ((window as any).adsbygoogle = (window as any).adsbygoogle || []).push({});
+    } catch (e) {
+      console.error("AdSense push error:", e);
+    }
   }, []);
 
-  // Hide ads for Pro subscribers
   if (profile?.plan === "pro") return null;
 
   if (slot === "sidebar") {
     return (
       <div
-        ref={ref}
         className={`flex flex-col items-center ${className}`}
-        style={{
-          width: 300,
-          minHeight: loaded ? 250 : 0,
-          height: loaded ? 250 : 0,
-          overflow: "hidden",
-          transition: "height 0.2s ease, min-height 0.2s ease",
-        }}
+        style={{ width: 300, minHeight: 250 }}
       >
-        {loaded && (
-          <p className="text-[0.5rem] text-center uppercase tracking-widest text-muted-foreground mb-0.5">
-            Advertisement
-          </p>
-        )}
+        <p className="text-[0.5rem] text-center uppercase tracking-widest text-muted-foreground mb-0.5">
+          Advertisement
+        </p>
+        <ins
+          className="adsbygoogle"
+          style={{ display: "inline-block", width: 300, height: 250 }}
+          data-ad-client={PUB}
+          data-ad-slot={SLOTS.sidebar}
+        ></ins>
       </div>
     );
   }
@@ -48,31 +48,22 @@ export function AdBanner({ slot = "top", className = "" }: AdBannerProps) {
   return (
     <div
       className={`w-full flex flex-col items-center justify-center ${className}`}
-      style={{
-        minHeight: loaded ? "auto" : 0,
-        height: loaded ? "auto" : 0,
-        overflow: "hidden",
-        transition: "height 0.2s ease",
-      }}
     >
-      {loaded && (
-        <p className="text-[0.5rem] text-center uppercase tracking-widest text-muted-foreground py-0.5">
-          Advertisement
-        </p>
-      )}
+      <p className="text-[0.5rem] text-center uppercase tracking-widest text-muted-foreground py-1">
+        Advertisement
+      </p>
       <div
-        ref={ref}
         className="flex items-center justify-center w-full"
-        style={{
-          width: "100%",
-          maxWidth: 970,
-          height: loaded ? undefined : 0,
-          minHeight: loaded ? 90 : 0,
-        }}
+        style={{ width: "100%", maxWidth: 970, minHeight: 90 }}
       >
-        <div className="w-[320px] h-[50px] md:w-[728px] md:h-[90px] lg:w-[970px] lg:h-[90px] flex items-center justify-center">
-          {/* Ad network tag goes here */}
-        </div>
+        <ins
+          className="adsbygoogle"
+          style={{ display: "block", width: "100%", maxWidth: 970, minHeight: 90 }}
+          data-ad-client={PUB}
+          data-ad-slot={SLOTS[slot]}
+          data-ad-format="auto"
+          data-full-width-responsive="true"
+        ></ins>
       </div>
     </div>
   );
