@@ -27,39 +27,85 @@ export function MarketNews() {
       </div>
 
       {isLoading ? (
-        <div className="space-y-2">
+        <div className="divide-y divide-border">
           {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-8 w-full rounded" />
+            <div key={i} className="flex gap-3 py-3">
+              <Skeleton className="w-20 h-20 sm:w-24 sm:h-24 rounded flex-shrink-0" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-3 w-3/4" />
+              </div>
+            </div>
           ))}
         </div>
       ) : (
-        <div className="space-y-0">
-          {(news ?? []).map((item) => {
+        <div className="divide-y divide-border">
+          {(news ?? []).map((item: any) => {
             const timeAgo = item.published_at
               ? formatDistanceToNow(new Date(item.published_at), { addSuffix: false })
               : "";
             return (
-              <div
+              <a
                 key={item.id}
-                className="flex items-start gap-3 py-2 border-b border-border last:border-b-0"
+                href={item.url ?? "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex gap-3 py-3 group hover:bg-muted/30 transition-colors duration-200 rounded px-2 -mx-2"
               >
-                <span className="text-xs text-muted-foreground w-[60px] shrink-0 pt-0.5 tabular-nums">
-                  {timeAgo}
-                </span>
-                <div className="flex-1 min-w-0">
-                  <a
-                    href={item.url ?? "#"}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-accent-blue hover:underline leading-snug line-clamp-2"
+                <div className="flex-shrink-0 w-20 h-20 sm:w-24 sm:h-24 rounded overflow-hidden bg-muted flex items-center justify-center">
+                  {item.image_url ? (
+                    <img
+                      src={item.image_url}
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        target.style.display = "none";
+                        const fallback = target.nextElementSibling as HTMLElement | null;
+                        if (fallback) fallback.style.display = "flex";
+                      }}
+                    />
+                  ) : null}
+                  <div
+                    className="w-full h-full items-center justify-center text-xs text-muted-foreground"
+                    style={{ display: item.image_url ? "none" : "flex" }}
                   >
+                    {item.publisher_favicon ? (
+                      <img src={item.publisher_favicon} alt="" className="w-6 h-6" />
+                    ) : (
+                      <span>{(item.source ?? "?").charAt(0)}</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 mb-1 text-xs text-muted-foreground">
+                    {item.publisher_favicon && (
+                      <img src={item.publisher_favicon} alt="" className="w-3.5 h-3.5" />
+                    )}
+                    {item.source && <span className="font-medium">{item.source}</span>}
+                    {timeAgo && (
+                      <>
+                        <span>·</span>
+                        <span>{timeAgo} ago</span>
+                      </>
+                    )}
+                  </div>
+
+                  <h4 className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-accent-blue transition-colors mb-1">
                     {item.headline}
-                  </a>
-                  {item.source && (
-                    <span className="text-xs text-muted-foreground ml-1">— {item.source}</span>
+                  </h4>
+
+                  {item.description && (
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {item.description}
+                    </p>
                   )}
                 </div>
-              </div>
+              </a>
             );
           })}
         </div>
