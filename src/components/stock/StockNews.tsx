@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NEWS_FILTERS = ["All", "Videos", "Press", "Conversation"] as const;
