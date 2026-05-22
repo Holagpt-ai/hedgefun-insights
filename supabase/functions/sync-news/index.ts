@@ -53,6 +53,9 @@ serve(async (req) => {
         url: article.article_url ?? null,
         category: "markets",
         published_at: article.published_utc ?? new Date().toISOString(),
+        image_url: article.image_url ?? null,
+        description: article.description ?? null,
+        publisher_favicon: article.publisher?.favicon_url ?? null,
       };
 
       if (!row.url) {
