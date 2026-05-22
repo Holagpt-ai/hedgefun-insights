@@ -338,25 +338,34 @@ export type Database = {
       market_news: {
         Row: {
           category: string | null
+          description: string | null
           headline: string
           id: string
+          image_url: string | null
           published_at: string | null
+          publisher_favicon: string | null
           source: string | null
           url: string | null
         }
         Insert: {
           category?: string | null
+          description?: string | null
           headline: string
           id?: string
+          image_url?: string | null
           published_at?: string | null
+          publisher_favicon?: string | null
           source?: string | null
           url?: string | null
         }
         Update: {
           category?: string | null
+          description?: string | null
           headline?: string
           id?: string
+          image_url?: string | null
           published_at?: string | null
+          publisher_favicon?: string | null
           source?: string | null
           url?: string | null
         }
