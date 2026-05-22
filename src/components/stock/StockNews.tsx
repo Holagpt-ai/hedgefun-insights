@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Video } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const NEWS_FILTERS = ["All", "Videos", "Press", "Conversation"] as const;
@@ -63,7 +64,17 @@ export default function StockNews({ news }: Props) {
         ))}
       </div>
 
-      {filtered.length > 0 ? (
+      {filter === "Videos" ? (
+        <div className="flex flex-col items-center justify-center text-center py-12 px-4 border border-border rounded-[var(--radius)] bg-muted/20">
+          <Video className="w-8 h-8 text-muted-foreground mb-3" strokeWidth={1.5} />
+          <h4 className="text-sm font-semibold text-foreground mb-1">
+            Videos Coming Soon
+          </h4>
+          <p className="text-xs text-muted-foreground max-w-xs">
+            Video coverage will be available in a future update.
+          </p>
+        </div>
+      ) : filtered.length > 0 ? (
         <div className="divide-y divide-border">
           {filtered.map((n: any, i: number) => (
             <a
@@ -142,7 +153,7 @@ export default function StockNews({ news }: Props) {
         </div>
       ) : (
         <p className="text-sm text-muted-foreground">
-          {filter === "Videos" ? "No video content available" : `No ${filter.toLowerCase()} articles found`}
+          {`No ${filter.toLowerCase()} articles found`}
         </p>
       )}
     </div>
