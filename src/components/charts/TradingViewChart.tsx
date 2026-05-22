@@ -311,21 +311,21 @@ export default function TradingViewChart({
               ))}
             </div>
           )}
-          <div style={{ position: "relative" }}>
-            <div ref={chartContainerRef} style={{ height }} />
+          <div ref={chartContainerRef} style={{ height, position: "relative" }}>
             <div
               style={{
                 position: "absolute",
                 top: "50%",
                 left: "50%",
                 transform: "translate(-50%, -50%)",
-                fontSize: "clamp(24px, 5vw, 48px)",
+                fontSize: "clamp(32px, 6vw, 56px)",
                 fontWeight: 700,
-                color: "rgba(150, 150, 150, 0.15)",
+                color: isDark ? "rgba(255, 255, 255, 0.07)" : "rgba(15, 23, 42, 0.09)",
                 pointerEvents: "none",
                 userSelect: "none",
                 letterSpacing: "0.05em",
                 whiteSpace: "nowrap",
+                zIndex: 2,
               }}
             >
               {ticker}
