@@ -11,10 +11,17 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
   }
-  // Restrict to service role / cron only
+  // Restrict to service role / cron only — accept either Bearer SRK or x-sync-secret header
   const __auth = req.headers.get("Authorization") ?? "";
+  const __syncSecretHeader = req.headers.get("x-sync-secret") ?? "";
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-  if (!__srk || __auth !== `Bearer ${__srk}`) {
+  const __syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
+  if (!__srk && !__syncSecret) {
+    return new Response(JSON.stringify({ error: "Server auth not configured" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  }
+  const __bearerOk = __srk !== "" && __auth === `Bearer ${__srk}`;
+  const __syncOk = __syncSecret !== "" && __syncSecretHeader === __syncSecret;
+  if (!__bearerOk && !__syncOk) {
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
   }
   if (req.method === "OPTIONS") {
