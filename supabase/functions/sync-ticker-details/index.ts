@@ -56,7 +56,8 @@ Deno.serve(async (req) => {
   const { data: rows, error: fetchError } = await supabase
     .from("stocks")
     .select("symbol")
-    .or("sector.is.null,industry.is.null");
+    .or("sector.is.null,industry.is.null")
+    .limit(100);
 
   if (fetchError) {
     return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 });
