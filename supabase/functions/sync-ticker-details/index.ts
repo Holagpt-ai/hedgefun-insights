@@ -55,14 +55,14 @@ Deno.serve(async (req) => {
 
   const { data: rows, error: fetchError } = await supabase
     .from("stocks")
-    .select("ticker")
+    .select("symbol")
     .or("sector.is.null,industry.is.null");
 
   if (fetchError) {
     return new Response(JSON.stringify({ error: fetchError.message }), { status: 500 });
   }
 
-  const tickers = (rows ?? []).map((r) => r.ticker);
+  const tickers = (rows ?? []).map((r) => r.symbol);
   const total = tickers.length;
   let processed = 0;
   const errors = [];
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
           const { error: updateError } = await supabase
             .from("stocks")
             .update(updatePayload)
-            .eq("ticker", ticker)
+            .eq("symbol", ticker)
             .is("sector", null);
 
           if (updateError) {
