@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import {
   Home, Star, BarChart2, Calendar, Archive, Newspaper, TrendingUp,
   BookOpen, LineChart, Activity, Mail, UserPlus, Wrench, ChevronRight,
-  ChevronsLeft, ChevronsRight, BookMarked,
+  ChevronsLeft, ChevronsRight, BookMarked, Globe,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -88,7 +88,7 @@ const sidebarAnimations: Record<string, string> = {
 export function AppSidebar({ className }: { className?: string }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { language, setLanguage, t } = useLanguage();
   const { user, signOut } = useAuth();
 
   const [collapsed, setCollapsed] = useState(() => {
@@ -228,6 +228,15 @@ export function AppSidebar({ className }: { className?: string }) {
       {/* Bottom auth buttons */}
       {!collapsed && (
         <div className="p-3 border-t border-border space-y-2">
+          <button
+            onClick={() => setLanguage(language === "en" ? "es" : "en")}
+            className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground hover:bg-accent transition-colors"
+          >
+            <Globe className="h-4 w-4 shrink-0" />
+            <span className={language === "en" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>EN</span>
+            <span className="text-muted-foreground">|</span>
+            <span className={language === "es" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>ES</span>
+          </button>
           {user ? (
             <>
               <Button variant="outline" className="w-full justify-start" size="sm" onClick={() => navigate("/account")}>
