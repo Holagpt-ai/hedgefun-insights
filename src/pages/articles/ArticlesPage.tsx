@@ -211,21 +211,24 @@ function hashString(str: string): number {
 
 function assignArticleImages(articles: any[]): any[] {
   const usedImages = new Set<string>();
-  return articles.map((article) => {
+  return articles.map((article, index) => {
     const text = ((article.title ?? "") + " " + (article.tags?.join(" ") ?? "")).toLowerCase();
     for (const topic of TOPIC_IMAGES) {
       if (topic.keywords.some((kw) => text.includes(kw))) {
         const available = topic.images.filter((img) => !usedImages.has(img));
         const pool = available.length > 0 ? available : topic.images;
-        const picked = pool[hashString(article.slug ?? article.title ?? "") % pool.length];
+        const picked = pool[hashString(article.id ?? article.slug ?? article.title ?? "") % pool.length];
         usedImages.add(picked);
         return { ...article, image: picked };
       }
     }
     const available = GENERIC_IMAGES.filter((img) => !usedImages.has(img));
-    const pool = available.length > 0 ? available : GENERIC_IMAGES;
-    const picked = pool[hashString(article.slug ?? article.title ?? "") % pool.length];
-    usedImages.add(picked);
+    if (available.length > 0) {
+      const picked = available[index % available.length];
+      usedImages.add(picked);
+      return { ...article, image: picked };
+    }
+    const picked = GENERIC_IMAGES[index % GENERIC_IMAGES.length];
     return { ...article, image: picked };
   });
 }
