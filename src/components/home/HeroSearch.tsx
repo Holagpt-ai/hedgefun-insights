@@ -15,7 +15,7 @@ const TRENDING = [
 
 export function HeroSearch() {
   const navigate = useNavigate();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [showResults, setShowResults] = useState(false);
@@ -84,10 +84,10 @@ export function HeroSearch() {
   return (
     <div className="bg-surface px-4 py-8 md:py-10 text-center">
       <h2 className="text-[1.375rem] md:text-[1.75rem] font-bold text-foreground leading-tight">
-        Search for a stock to start your analysis
+        {t("heroTitle")}
       </h2>
       <p className="mt-2 text-sm text-text-secondary max-w-[520px] mx-auto">
-        Get real-time prices, financials, news, and analysis for any stock.
+        {t("heroSubtitle")}
       </p>
 
       <div ref={ref} className="relative max-w-[560px] mx-auto mt-5">
@@ -135,7 +135,7 @@ export function HeroSearch() {
       </div>
 
       <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
-        <span className="text-xs text-muted-foreground">Trending:</span>
+        <span className="text-xs text-muted-foreground">{t("trendingLabel")}</span>
         {TRENDING.map((t) => (
           <button
             key={t.symbol}
