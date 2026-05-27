@@ -22,7 +22,7 @@ export function Footer() {
 
   const LINK_SECTIONS = [
     {
-      title: "SECTIONS",
+      title: t("footerSections"),
       links: [
         { label: t("stocks"), to: "/stocks" },
         { label: t("ipos"), to: "/ipos/recent" },
@@ -31,7 +31,7 @@ export function Footer() {
       ],
     },
     {
-      title: "SERVICES",
+      title: t("footerServices"),
       links: [
         { label: t("hedgefunPro"), to: "/pro" },
         { label: t("freeNewsletter"), to: "/newsletter" },
@@ -40,7 +40,7 @@ export function Footer() {
       ],
     },
     {
-      title: "WEBSITE",
+      title: t("footerWebsite"),
       links: [
         { label: t("logIn"), to: "__auth_login__" },
         { label: t("createAccount"), to: "__auth_signup__" },
@@ -50,7 +50,7 @@ export function Footer() {
       ],
     },
     {
-      title: "COMPANY",
+      title: t("footerCompany"),
       links: [
         { label: t("about"), to: "/about" },
         { label: t("contactUs"), to: "/contact" },
