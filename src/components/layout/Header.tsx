@@ -113,6 +113,12 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
         <button onClick={onMenuToggle} className="md:hidden flex items-center justify-center" aria-label="Menu">
           <Menu className="h-5 w-5 text-foreground" />
         </button>
+        <button
+          onClick={() => setLanguage(language === "en" ? "es" : "en")}
+          className="md:hidden text-xs font-medium text-muted-foreground hover:text-foreground bg-muted rounded-full px-2.5 py-1 transition-colors"
+        >
+          {language === "en" ? "ES" : "EN"}
+        </button>
 
         <div className="flex items-center gap-2 shrink-0 md:w-[var(--sidebar-width)] cursor-pointer" onClick={() => navigate("/")}>
           <div className="h-8 w-8 rounded-md bg-accent-blue flex items-center justify-center">
