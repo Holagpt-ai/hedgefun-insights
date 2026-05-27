@@ -273,7 +273,14 @@ export default function ArticlesPage() {
         .order("published_at", { ascending: false })
         .limit(100);
       if (error) return [];
-      return (data ?? []).map((row: any, index: any) => ({
+      const seen = new Set<string>();
+      const deduped = (data ?? []).filter((row: any) => {
+        const key = (row.headline ?? "").toLowerCase().trim().slice(0, 60);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+      return deduped.map((row: any, index: any) => ({
         slug: slugify(row.headline ?? row.id),
         title: row.headline,
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
