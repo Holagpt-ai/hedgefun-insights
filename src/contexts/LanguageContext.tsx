@@ -78,6 +78,10 @@ const translations: Translations = {
   privacyPolicy: { en: "Privacy Policy", es: "Política de privacidad" },
   dataDisclaimer: { en: "Data Disclaimer", es: "Aviso de datos" },
   affiliateProgram: { en: "Affiliate Program", es: "Programa de afiliados" },
+  footerSections: { en: "SECTIONS", es: "SECCIONES" },
+  footerServices: { en: "SERVICES", es: "SERVICIOS" },
+  footerWebsite: { en: "WEBSITE", es: "SITIO WEB" },
+  footerCompany: { en: "COMPANY", es: "EMPRESA" },
 };
 
 interface LanguageContextValue {
