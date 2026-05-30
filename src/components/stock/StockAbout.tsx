@@ -2,6 +2,15 @@ import { useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExternalLink } from "lucide-react";
 
+function toTitleCase(str: string): string {
+  if (!str) return str;
+  return str
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 const EXCHANGE_MAP: Record<string, string> = {
   XNAS: "NASDAQ", XNYS: "NYSE", XASE: "NYSE American", ARCX: "NYSE Arca", BATS: "CBOE BZX",
 };
@@ -61,7 +70,7 @@ export default function StockAbout({ details, ticker }: Props) {
   const { short, full, needsMore } = truncateDescription(desc);
 
   const meta = [
-    { label: "Industry", value: details.sic_description ?? "n/a" },
+    { label: "Industry", value: details.sic_description ? toTitleCase(details.sic_description) : "n/a" },
     { label: "Sector", value: sicToSector(details.sic_code) },
     { label: "IPO Date", value: formatDate(details.list_date) },
     { label: "Country", value: LOCALE_MAP[(details.locale ?? "").toLowerCase()] ?? details.locale ?? "n/a" },
