@@ -318,6 +318,24 @@ serve(async (req) => {
         data = merged.slice(0, 8);
         break;
       }
+      case "all-dividends": {
+        const limit = searchParams.get("limit") ?? "50";
+        const url = `https://api.polygon.io/vX/reference/dividends?limit=${limit}&sort=ex_dividend_date&order=desc&apiKey=${POLYGON_API_KEY}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        const json = await res.json();
+        return new Response(JSON.stringify(json.results ?? []), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      case "all-splits": {
+        const limit = searchParams.get("limit") ?? "50";
+        const url = `https://api.polygon.io/vX/reference/splits?limit=${limit}&sort=execution_date&order=desc&apiKey=${POLYGON_API_KEY}`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        const json = await res.json();
+        return new Response(JSON.stringify(json.results ?? []), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
       default:
         return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close, dividends, splits, ipos, search" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
