@@ -64,6 +64,8 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
 
   return (
     <div className="px-4 pt-4 pb-2">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col min-w-0">
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-xl font-bold text-foreground">{companyName}</h1>
         <span className="text-accent-blue text-sm font-semibold">({ticker})</span>
@@ -105,11 +107,13 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
         </div>
       )}
       <span className="text-xs text-muted-foreground">Powered by Massive</span>
-      {!loading && (
-        <div className="mt-3">
-          <StockCtaButtons ticker={ticker} />
         </div>
-      )}
+        {!loading && (
+          <div className="flex gap-2 shrink-0 pt-1">
+            <StockCtaButtons ticker={ticker} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

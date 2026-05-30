@@ -46,9 +46,8 @@ export default function StockCtaButtons({ ticker }: Props) {
   };
 
   return (
-    <div className="flex flex-col sm:flex-row gap-2">
+    <div className="flex flex-row gap-2">
       <Button
-        className="flex-1"
         onClick={() => navigate(`/chart/${ticker}`)}
       >
         <ExternalLink className="w-4 h-4 mr-1.5" />
@@ -56,7 +55,7 @@ export default function StockCtaButtons({ ticker }: Props) {
       </Button>
       <Button
         variant="outline"
-        className="flex-1 border-accent-blue text-accent-blue hover:bg-accent-blue/10"
+        className="border-accent-blue text-accent-blue hover:bg-accent-blue/10"
         onClick={handleAddToWatchlist}
       >
         <Plus className="w-4 h-4 mr-1.5" />
@@ -64,7 +63,7 @@ export default function StockCtaButtons({ ticker }: Props) {
       </Button>
       <Button
         variant="outline"
-        className="flex-1 border-accent-blue text-accent-blue hover:bg-accent-blue/10"
+        className="border-accent-blue text-accent-blue hover:bg-accent-blue/10"
         onClick={() => navigate(`/stocks/compare?tickers=${ticker}`)}
       >
         <Copy className="w-4 h-4 mr-1.5" />
