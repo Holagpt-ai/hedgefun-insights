@@ -63,11 +63,12 @@ export default function CorporateActionsPage() {
   const { data: dividends, isLoading: loadingDiv } = useQuery({
     queryKey: ["corporate-actions-dividends"],
     queryFn: async () => {
-      const res = await fetch("https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/get-corporate-actions?type=dividends");
+      const res = await fetch(
+        `https://api.polygon.io/vX/reference/dividends?limit=50&sort=ex_dividend_date&order=desc&apiKey=${import.meta.env.VITE_POLYGON_API_KEY}`
+      );
       if (!res.ok) return [];
-      const data = await res.json();
-      if (!Array.isArray(data)) return [];
-      return mapDividends(data);
+      const json = await res.json();
+      return mapDividends(json.results ?? []);
     },
     staleTime: 0,
     retry: 2,
@@ -76,11 +77,12 @@ export default function CorporateActionsPage() {
   const { data: splits, isLoading: loadingSplits } = useQuery({
     queryKey: ["corporate-actions-splits"],
     queryFn: async () => {
-      const res = await fetch("https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/get-corporate-actions?type=splits");
+      const res = await fetch(
+        `https://api.polygon.io/vX/reference/splits?limit=50&sort=execution_date&order=desc&apiKey=${import.meta.env.VITE_POLYGON_API_KEY}`
+      );
       if (!res.ok) return [];
-      const data = await res.json();
-      if (!Array.isArray(data)) return [];
-      return mapSplits(data);
+      const json = await res.json();
+      return mapSplits(json.results ?? []);
     },
     staleTime: 0,
     retry: 2,
