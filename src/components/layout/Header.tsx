@@ -176,7 +176,9 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
             onClick={() => setLanguage(language === "en" ? "es" : "en")}
             className="text-xs font-medium text-muted-foreground hover:text-foreground bg-muted rounded-full px-2.5 py-1 transition-colors"
           >
-            {language === "en" ? "EN" : "ES"} | {language === "en" ? "ES" : "EN"}
+            <span className={language === "en" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>EN</span>
+            <span className="text-muted-foreground mx-0.5">|</span>
+            <span className={language === "es" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>ES</span>
           </button>
 
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">

@@ -230,7 +230,7 @@ export function AppSidebar({ className }: { className?: string }) {
         <div className="p-3 border-t border-border space-y-2">
           <button
             onClick={() => setLanguage(language === "en" ? "es" : "en")}
-            className="flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground hover:bg-accent transition-colors"
+            className="md:hidden flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground hover:bg-accent transition-colors"
           >
             <Globe className="h-4 w-4 shrink-0" />
             <span className={language === "en" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>EN</span>
