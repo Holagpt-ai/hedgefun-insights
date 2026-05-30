@@ -69,7 +69,7 @@ export default function CorporateActionsPage() {
       if (error || !Array.isArray(data)) return [];
       return mapDividends(data);
     },
-    staleTime: 60 * 60_000,
+    staleTime: 0,
     retry: 2,
   });
 
@@ -82,7 +82,7 @@ export default function CorporateActionsPage() {
       if (error || !Array.isArray(data)) return [];
       return mapSplits(data);
     },
-    staleTime: 60 * 60_000,
+    staleTime: 0,
     retry: 2,
   });
 
