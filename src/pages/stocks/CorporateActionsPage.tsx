@@ -76,10 +76,10 @@ export default function CorporateActionsPage() {
   const { data: splits, isLoading: loadingSplits } = useQuery({
     queryKey: ["corporate-actions-splits"],
     queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke("get-corporate-actions", {
-        body: { type: "splits" },
-      });
-      if (error || !Array.isArray(data)) return [];
+      const res = await fetch("https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/get-corporate-actions?type=splits");
+      if (!res.ok) return [];
+      const data = await res.json();
+      if (!Array.isArray(data)) return [];
       return mapSplits(data);
     },
     staleTime: 0,
