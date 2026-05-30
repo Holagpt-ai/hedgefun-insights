@@ -10,7 +10,7 @@ import StockHeader from "@/components/stock/StockHeader";
 import StockStatsTable from "@/components/stock/StockStatsTable";
 import TradingViewChart from "@/components/charts/TradingViewChart";
 import type { OHLCVData } from "@/components/charts/TradingViewChart";
-import StockCtaButtons from "@/components/stock/StockCtaButtons";
+
 import StockAbout from "@/components/stock/StockAbout";
 import StockNews from "@/components/stock/StockNews";
 import StockFinancialsTab from "@/components/stock/StockFinancialsTab";
@@ -182,8 +182,6 @@ const StockDetail = () => {
                 loading={chartLoading}
                 hideToolbar={true}
               />
-              {/* CTA buttons below chart */}
-              <StockCtaButtons ticker={ticker} />
             </div>
           </div>
           {/* Full-width sections below */}
