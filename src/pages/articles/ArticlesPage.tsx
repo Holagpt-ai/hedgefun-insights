@@ -72,141 +72,14 @@ const FALLBACK_ARTICLES: Article[] = [
 
 export const ARTICLES = FALLBACK_ARTICLES;
 
-const TOPIC_IMAGES: Array<{ keywords: string[]; images: string[] }> = [
-  {
-    keywords: ["oil", "crude", "energy", "gas", "pipeline", "opec", "fuel"],
-    images: [
-      "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
-      "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1200&q=80",
-      "https://images.unsplash.com/photo-1548337138-e87d889cc369?w=1200&q=80",
-      "https://images.unsplash.com/photo-1586374579358-9d19d632b6d7?w=1200&q=80",
-      "https://images.unsplash.com/photo-1473341304170-971dccb5ac1e?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["nvidia", "chip", "semiconductor", "ai", "artificial intelligence", "gpu", "intel", "amd", "technology", "tech"],
-    images: [
-      "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
-      "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&q=80",
-      "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80",
-      "https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1200&q=80",
-      "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["ipo", "listing", "public offering", "spac", "debut"],
-    images: [
-      "https://images.unsplash.com/photo-1560472355-536de3962603?w=1200&q=80",
-      "https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?w=1200&q=80",
-      "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["fed", "interest rate", "federal reserve", "inflation", "cpi", "gdp", "economy", "recession"],
-    images: [
-      "https://images.unsplash.com/photo-1607944024060-0450380ddd33?w=1200&q=80",
-      "https://images.unsplash.com/photo-1565514020179-026b92b84bb6?w=1200&q=80",
-      "https://images.unsplash.com/photo-1642543492481-44e81e3914a7?w=1200&q=80",
-      "https://images.unsplash.com/photo-1621761191319-c6fb62004040?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["gold", "silver", "commodity", "metal", "mining", "copper"],
-    images: [
-      "https://images.unsplash.com/photo-1610375461369-d613b564f4c4?w=1200&q=80",
-      "https://images.unsplash.com/photo-1618044733300-9472054094ee?w=1200&q=80",
-      "https://images.unsplash.com/photo-1624365169198-38255ba54160?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["bank", "finance", "jpmorgan", "goldman", "wells fargo", "credit", "loan", "mortgage"],
-    images: [
-      "https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=1200&q=80",
-      "https://images.unsplash.com/photo-1601597111158-2fceff292cdc?w=1200&q=80",
-      "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80",
-      "https://images.unsplash.com/photo-1556742111-a301076d9d18?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["tesla", "ev", "electric vehicle", "automotive", "car", "ford", "gm", "rivian", "vehicle"],
-    images: [
-      "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&q=80",
-      "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&q=80",
-      "https://images.unsplash.com/photo-1571987502227-9231b837d92a?w=1200&q=80",
-      "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["real estate", "reit", "housing", "property"],
-    images: [
-      "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80",
-      "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=1200&q=80",
-      "https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["earnings", "revenue", "profit", "quarterly", "results", "eps", "guidance", "quarter"],
-    images: [
-      "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
-      "https://images.unsplash.com/photo-1543286386-713bdd548da4?w=1200&q=80",
-      "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
-      "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["lawsuit", "class action", "sec", "fraud", "investigation", "legal", "court", "deadline", "reminder", "alert", "investors to contact"],
-    images: [
-      "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1200&q=80",
-      "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=1200&q=80",
-      "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=1200&q=80",
-      "https://images.unsplash.com/photo-1575505586569-646b2ca898fc?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["crypto", "bitcoin", "ethereum", "blockchain", "defi", "token"],
-    images: [
-      "https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=1200&q=80",
-      "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=1200&q=80",
-      "https://images.unsplash.com/photo-1605792657660-596af9009e82?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["pharma", "drug", "fda", "biotech", "clinical", "therapeutics", "health", "medical", "bioscience"],
-    images: [
-      "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&q=80",
-      "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1200&q=80",
-      "https://images.unsplash.com/photo-1576671081837-49000212a370?w=1200&q=80",
-      "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["merger", "acquisition", "deal", "buyout", "takeover"],
-    images: [
-      "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200&q=80",
-      "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200&q=80",
-      "https://images.unsplash.com/photo-1573164713988-8665fc963095?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["dividend", "yield", "payout", "income"],
-    images: [
-      "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=1200&q=80",
-      "https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf?w=1200&q=80",
-      "https://images.unsplash.com/photo-1638913662180-afc4334cf422?w=1200&q=80",
-    ],
-  },
-  {
-    keywords: ["market", "stock", "index", "s&p", "nasdaq", "dow", "rally", "selloff", "volatility", "trading"],
-    images: [
-      "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
-      "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
-      "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&q=80",
-      "https://images.unsplash.com/photo-1611974789856-9c2a0a7236b4?w=1200&q=80",
-    ],
-  },
-];
-
-const GENERIC_IMAGES = [
+const MASTER_IMAGE_POOL = [
+  "https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?w=1200&q=80",
+  "https://images.unsplash.com/photo-1590283603385-17ffb3a7f29f?w=1200&q=80",
+  "https://images.unsplash.com/photo-1543286386-713bdd548da4?w=1200&q=80",
+  "https://images.unsplash.com/photo-1551288049-bebda4e38f71?w=1200&q=80",
+  "https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&q=80",
+  "https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?w=1200&q=80",
+  "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=1200&q=80",
   "https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80",
   "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=1200&q=80",
   "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1200&q=80",
@@ -214,44 +87,58 @@ const GENERIC_IMAGES = [
   "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=1200&q=80",
   "https://images.unsplash.com/photo-1521791136064-7986c2920216?w=1200&q=80",
   "https://images.unsplash.com/photo-1553729459-efe14ef6055d?w=1200&q=80",
-  "https://images.unsplash.com/photo-1444653614773-995cb1ef9efa?w=1200&q=80",
   "https://images.unsplash.com/photo-1568992688065-536aad8a12f6?w=1200&q=80",
   "https://images.unsplash.com/photo-1507679799987-c73779587ccf?w=1200&q=80",
   "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=1200&q=80",
   "https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&q=80",
+  "https://images.unsplash.com/photo-1513828583688-c52646db42da?w=1200&q=80",
+  "https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=1200&q=80",
+  "https://images.unsplash.com/photo-1548337138-e87d889cc369?w=1200&q=80",
+  "https://images.unsplash.com/photo-1677442135703-1787eea5ce01?w=1200&q=80",
+  "https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&q=80",
+  "https://images.unsplash.com/photo-1518770660439-4636190af475?w=1200&q=80",
+  "https://images.unsplash.com/photo-1531297484001-80022131f5a1?w=1200&q=80",
+  "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?w=1200&q=80",
+  "https://images.unsplash.com/photo-1560472355-536de3962603?w=1200&q=80",
+  "https://images.unsplash.com/photo-1508739773434-c26b3d09e071?w=1200&q=80",
+  "https://images.unsplash.com/photo-1607944024060-0450380ddd33?w=1200&q=80",
+  "https://images.unsplash.com/photo-1565514020179-026b92b84bb6?w=1200&q=80",
+  "https://images.unsplash.com/photo-1610375461369-d613b564f4c4?w=1200&q=80",
+  "https://images.unsplash.com/photo-1618044733300-9472054094ee?w=1200&q=80",
+  "https://images.unsplash.com/photo-1541354329998-f4d9a9f9297f?w=1200&q=80",
+  "https://images.unsplash.com/photo-1601597111158-2fceff292cdc?w=1200&q=80",
+  "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&q=80",
+  "https://images.unsplash.com/photo-1556742111-a301076d9d18?w=1200&q=80",
+  "https://images.unsplash.com/photo-1617788138017-80ad40651399?w=1200&q=80",
+  "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200&q=80",
+  "https://images.unsplash.com/photo-1571987502227-9231b837d92a?w=1200&q=80",
+  "https://images.unsplash.com/photo-1486262715619-67b85e0b08d3?w=1200&q=80",
+  "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1200&q=80",
+  "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=1200&q=80",
+  "https://images.unsplash.com/photo-1448630360428-65456885c650?w=1200&q=80",
+  "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=1200&q=80",
+  "https://images.unsplash.com/photo-1521587760476-6c12a4b040da?w=1200&q=80",
+  "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?w=1200&q=80",
+  "https://images.unsplash.com/photo-1640340434855-6084b1f4901c?w=1200&q=80",
+  "https://images.unsplash.com/photo-1518546305927-5a555bb7020d?w=1200&q=80",
+  "https://images.unsplash.com/photo-1605792657660-596af9009e82?w=1200&q=80",
+  "https://images.unsplash.com/photo-1559757148-5c350d0d3c56?w=1200&q=80",
+  "https://images.unsplash.com/photo-1532187863486-abf9dbad1b69?w=1200&q=80",
+  "https://images.unsplash.com/photo-1576671081837-49000212a370?w=1200&q=80",
+  "https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=1200&q=80",
+  "https://images.unsplash.com/photo-1560472354-b33ff0c44a43?w=1200&q=80",
+  "https://images.unsplash.com/photo-1504868584819-f8e8b4b6d7e3?w=1200&q=80",
+  "https://images.unsplash.com/photo-1573164713988-8665fc963095?w=1200&q=80",
+  "https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=1200&q=80",
+  "https://images.unsplash.com/photo-1638913662180-afc4334cf422?w=1200&q=80",
+  "https://images.unsplash.com/photo-1633158829585-23ba8f7c8caf?w=1200&q=80",
 ];
 
-function hashString(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = (hash << 5) - hash + str.charCodeAt(i);
-    hash |= 0;
-  }
-  return Math.abs(hash);
-}
-
 function assignArticleImages(articles: any[]): any[] {
-  const usedImages = new Set<string>();
-  return articles.map((article, index) => {
-    const text = ((article.title ?? "") + " " + (article.tags?.join(" ") ?? "")).toLowerCase();
-    for (const topic of TOPIC_IMAGES) {
-      if (topic.keywords.some((kw) => text.includes(kw))) {
-        const available = topic.images.filter((img) => !usedImages.has(img));
-        const pool = available.length > 0 ? available : topic.images;
-        const picked = pool[hashString(article.id ?? article.slug ?? article.title ?? "") % pool.length];
-        usedImages.add(picked);
-        return { ...article, image: picked };
-      }
-    }
-    const available = GENERIC_IMAGES.filter((img) => !usedImages.has(img));
-    if (available.length > 0) {
-      const picked = available[index % available.length];
-      usedImages.add(picked);
-      return { ...article, image: picked };
-    }
-    const picked = GENERIC_IMAGES[index % GENERIC_IMAGES.length];
-    return { ...article, image: picked };
-  });
+  return articles.map((article, index) => ({
+    ...article,
+    image: MASTER_IMAGE_POOL[index % MASTER_IMAGE_POOL.length],
+  }));
 }
 
 export function getReadTime(wordCount: number): string {
