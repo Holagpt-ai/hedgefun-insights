@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { resolveCurrentPrice, resolveMarketSession, resolveSessionLabel, estDate, estTime } from "@/lib/price-utils";
+import StockCtaButtons from "@/components/stock/StockCtaButtons";
+
 
 const EXCHANGE_MAP: Record<string, string> = {
   XNAS: "NASDAQ", XNYS: "NYSE", XASE: "NYSE American", ARCX: "NYSE Arca", BATS: "CBOE BZX",
@@ -103,6 +105,11 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
         </div>
       )}
       <span className="text-xs text-muted-foreground">Powered by Massive</span>
+      {!loading && (
+        <div className="mt-3">
+          <StockCtaButtons ticker={ticker} />
+        </div>
+      )}
     </div>
   );
 }
