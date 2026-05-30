@@ -15,7 +15,9 @@ serve(async (req) => {
   }
 
   try {
-    const { type } = await req.json();
+    const bodyText = await req.text();
+    const body = bodyText ? JSON.parse(bodyText) : {};
+    const { type } = body;
 
     let url = "";
     if (type === "dividends") {
