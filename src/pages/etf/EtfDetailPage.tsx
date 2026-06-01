@@ -28,8 +28,8 @@ function getDateRange(range: string) {
   let timespan = "day";
 
   switch (range) {
-    case "1D": multiplier = 30; timespan = "minute"; from = new Date(now.getTime() - 4 * 86400000).toISOString().slice(0, 10); break;
-    case "5D": multiplier = 60; timespan = "minute"; from = new Date(now.getTime() - 7 * 86400000).toISOString().slice(0, 10); break;
+    case "1D": from = new Date(now.getTime() - 5 * 86400000).toISOString().slice(0, 10); break;
+    case "5D": from = new Date(now.getTime() - 14 * 86400000).toISOString().slice(0, 10); break;
     case "1M": from = new Date(now.getTime() - 30 * 86400000).toISOString().slice(0, 10); break;
     case "6M": from = new Date(now.getTime() - 180 * 86400000).toISOString().slice(0, 10); break;
     case "YTD": from = `${now.getFullYear()}-01-01`; break;
