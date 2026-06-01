@@ -143,7 +143,7 @@ export default function TradingViewChart({
       },
       timeScale: {
         borderColor,
-        timeVisible: true,
+        timeVisible: false,
         secondsVisible: false,
       },
     });

@@ -183,7 +183,7 @@ const StockDetail = () => {
               </div>
               {/* Chart */}
               <TradingViewChart
-                data={ohlcvYearData}
+                data={ohlcvData}
                 ticker={ticker}
                 companyName={details?.name}
                 isPositive={positive}
@@ -219,6 +219,22 @@ const StockDetail = () => {
 
       {activeTab === "Chart" && (
         <div className="px-4 py-4 space-y-6">
+          <div className="flex items-center gap-1 flex-wrap">
+            {["1D","5D","1M","3M","6M","YTD","1Y","5Y","MAX"].map((r) => (
+              <button
+                key={r}
+                onClick={() => setTimeRange(r)}
+                className={cn(
+                  "px-2.5 py-1 text-xs font-medium rounded border transition-colors",
+                  timeRange === r
+                    ? "bg-accent-blue text-white border-accent-blue"
+                    : "border-border text-muted-foreground hover:border-accent-blue hover:text-accent-blue"
+                )}
+              >
+                {r}
+              </button>
+            ))}
+          </div>
           <TradingViewChart data={ohlcvData} ticker={ticker} companyName={details?.name} isPositive={positive} height={480} loading={chartLoading} />
         </div>
       )}
