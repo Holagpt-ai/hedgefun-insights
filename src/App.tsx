@@ -144,7 +144,7 @@ const App = () => (
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
                   <Route path="/etf/:symbol" element={<EtfDetailPage />} />
                   <Route path="/etfs/top" element={<EtfTopPage />} />
-                  <Route path="/etfs/:slug" element={<EtfDetailPage />} />
+                  <Route path="/etfs/:symbol" element={<EtfDetailPage />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<TrendingPage />} />
                   <Route path="/markets/gainers" element={<GainersPage />} />
