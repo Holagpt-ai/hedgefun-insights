@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { resolveCurrentPrice } from "@/lib/price-utils";
 
 function formatMarketCap(val: number | null): string {
-  if (!val || val === 0) return "n/a";
+  if (!val || val <= 0) return "n/a";
   if (val >= 1e12) return `$${(val / 1e12).toFixed(2)}T`;
   if (val >= 1e9) return `$${(val / 1e9).toFixed(2)}B`;
   if (val >= 1e6) return `$${(val / 1e6).toFixed(2)}M`;
