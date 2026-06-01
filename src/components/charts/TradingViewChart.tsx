@@ -120,7 +120,9 @@ export default function TradingViewChart({
     const downColor = '#dc2626';
     const accentColor = isPositive ? upColor : downColor;
 
-    const containerWidth = chartContainerRef.current.clientWidth || chartContainerRef.current.getBoundingClientRect().width || 600;
+    const rect = chartContainerRef.current.getBoundingClientRect();
+    const containerWidth = rect.width > 0 ? rect.width : (chartContainerRef.current.clientWidth > 0 ? chartContainerRef.current.clientWidth : 600);
+    if (containerWidth <= 0) return;
     const chart = createChart(chartContainerRef.current, {
       width: containerWidth,
       height,
@@ -147,6 +149,7 @@ export default function TradingViewChart({
     });
 
     chartRef.current = chart;
+    if (!chartRef.current) return;
 
     // Add main series based on chart type
     if (chartType === 'candlestick' || chartType === 'heikinashi') {
