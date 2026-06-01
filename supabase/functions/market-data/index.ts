@@ -200,7 +200,10 @@ serve(async (req) => {
         if (newsTicker) params.ticker = newsTicker;
         const res = await fetchWithRetry(polyUrl("/v2/reference/news", params));
         const json = await res.json();
-        data = json.results ?? [];
+        data = (json.results ?? []).map((article: any) => ({
+          ...article,
+          image_url: article.image_url || null,
+        }));
         break;
       }
       case "aggregates": {
