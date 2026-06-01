@@ -118,6 +118,15 @@ const StockDetail = () => {
     volume: d.v,
   }));
 
+  const ohlcvYearData: OHLCVData[] = (yearAggs ?? []).map((d: any) => ({
+    time: new Date(d.t).toISOString().split('T')[0],
+    open: d.o,
+    high: d.h,
+    low: d.l,
+    close: d.c,
+    volume: d.v,
+  }));
+
   const isPreIPO = (
     (!snapshot || (snapshot?.day?.c === 0 && snapshot?.day?.v === 0)) &&
     (!details?.list_date || new Date(details.list_date) > new Date())
@@ -174,7 +183,7 @@ const StockDetail = () => {
               </div>
               {/* Chart */}
               <TradingViewChart
-                data={ohlcvData}
+                data={ohlcvYearData}
                 ticker={ticker}
                 companyName={details?.name}
                 isPositive={positive}
