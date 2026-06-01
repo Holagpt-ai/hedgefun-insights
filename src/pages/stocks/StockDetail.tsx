@@ -27,8 +27,8 @@ function getDateRange(range: string) {
   const toStr = to.toISOString().split("T")[0];
   const d = new Date(to);
   switch (range) {
-    case "1D": d.setDate(d.getDate() - 2); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 5, timespan: "minute" };
-    case "5D": d.setDate(d.getDate() - 7); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 15, timespan: "minute" };
+    case "1D": d.setDate(d.getDate() - 4); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 30, timespan: "minute" };
+    case "5D": d.setDate(d.getDate() - 7); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 60, timespan: "minute" };
     case "1M": d.setMonth(d.getMonth() - 1); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
     case "3M": d.setMonth(d.getMonth() - 3); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
     case "6M": d.setMonth(d.getMonth() - 6); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
