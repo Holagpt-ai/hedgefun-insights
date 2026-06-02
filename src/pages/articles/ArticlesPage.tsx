@@ -137,7 +137,9 @@ const MASTER_IMAGE_POOL = [
 function assignArticleImages(articles: any[]): any[] {
   return articles.map((article, index) => ({
     ...article,
-    image: MASTER_IMAGE_POOL[index % MASTER_IMAGE_POOL.length],
+    image: article.image && article.image.trim() !== ""
+      ? article.image
+      : MASTER_IMAGE_POOL[index % MASTER_IMAGE_POOL.length],
   }));
 }
 
@@ -180,7 +182,7 @@ export default function ArticlesPage() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("market_news")
-        .select("id, headline, source, url, published_at, category")
+        .select("id, headline, source, url, published_at, category, image_url")
         .order("published_at", { ascending: false })
         .limit(100);
       if (error) return [];
@@ -196,7 +198,7 @@ export default function ArticlesPage() {
         title: row.headline,
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
         date: formatDate(row.published_at),
-        
+        image: row.image_url ?? "",
         author: row.source ?? "HedgeFun News",
         tags: row.category ? [row.category] : ["Markets"],
         externalUrl: row.url,
