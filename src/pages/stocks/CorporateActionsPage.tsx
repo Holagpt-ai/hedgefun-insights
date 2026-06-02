@@ -28,19 +28,13 @@ const BADGE_STYLES: Record<ActionType, string> = {
   Spinoff: "bg-[#fdf4ff] text-[#9333ea]",
 };
 
-const FALLBACK_ACTIONS: CorporateAction[] = [
-  { date: "2026-03-10", symbol: "AAPL", name: "Apple Inc.", type: "Dividend", details: "$0.25 per share, ex-date Mar 10" },
-  { date: "2026-03-10", symbol: "MSFT", name: "Microsoft Corporation", type: "Dividend", details: "$0.75 per share, ex-date Mar 10" },
-  { date: "2026-03-09", symbol: "GOOGL", name: "Alphabet Inc.", type: "Dividend", details: "$0.20 per share, ex-date Mar 9" },
-];
-
 function mapDividends(raw: any[]): CorporateAction[] {
   return raw.map((d) => ({
     date: d.ex_dividend_date ?? d.pay_date ?? "",
     symbol: d.ticker ?? "",
     name: d.ticker ?? "",
     type: "Dividend" as ActionType,
-    details: `$${Number(d.cash_amount ?? 0).toFixed(4)} per share${d.frequency ? `, ${d.frequency === 1 ? "annual" : d.frequency === 2 ? "semi-annual" : d.frequency === 4 ? "quarterly" : d.frequency === 12 ? "monthly" : ""} payout` : ""}`,
+    details: `$${Number(d.cash_amount ?? 0).toFixed(4)} per share${d.frequency ? `, ${d.frequency === 1 ? "annual" : d.frequency === 2 ? "semi-annual" : d.frequency === 4 ? "quarterly" : d.frequency === 12 ? "monthly" : "special"} payout` : ""}`,
   }));
 }
 
@@ -94,9 +88,31 @@ export default function CorporateActionsPage() {
     const divs = dividends ?? [];
     const spls = splits ?? [];
     const combined = [...divs, ...spls];
-    if (combined.length === 0) return FALLBACK_ACTIONS;
+    if (combined.length === 0) return [];
     return combined.sort((a, b) => b.date.localeCompare(a.date));
   }, [dividends, splits]);
+
+  const tickers = useMemo(() => {
+    return [...new Set(actions.map((a) => a.symbol).filter(Boolean))];
+  }, [actions]);
+
+  const { data: stockNames } = useQuery({
+    queryKey: ["corporate-actions-names", tickers],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("stocks").select("symbol, name").in("symbol", tickers);
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: tickers.length > 0,
+  });
+
+  const nameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const row of stockNames ?? []) {
+      if (row.symbol && row.name) map[row.symbol] = row.name;
+    }
+    return map;
+  }, [stockNames]);
 
   const totalPages = Math.ceil(actions.length / PAGE_SIZE);
   const pageData = actions.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
@@ -143,19 +159,27 @@ export default function CorporateActionsPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {pageData.map((a, i) => (
-                      <tr key={`${a.symbol}-${a.date}-${i}`} className="border-b border-border-subtle hover:bg-surface transition-colors">
-                        <td className="py-2 px-3 text-[0.875rem] text-muted-foreground tabular-nums whitespace-nowrap">{a.date}</td>
-                        <td className="py-2 px-3">
-                          <button onClick={() => navigate(`/stocks/${tickerToSlug(a.symbol)}`)} className="text-primary font-semibold hover:underline text-[0.875rem]">{a.symbol}</button>
+                    {actions.length === 0 ? (
+                      <tr>
+                        <td colSpan={5} className="py-8 text-center text-[0.875rem] text-muted-foreground">
+                          No corporate actions found.
                         </td>
-                        <td className="py-2 px-3 text-[0.875rem] text-foreground">{a.name}</td>
-                        <td className="py-2 px-3">
-                          <span className={cn("inline-block text-[0.75rem] px-1.5 py-0.5 rounded font-medium", BADGE_STYLES[a.type])}>{a.type}</span>
-                        </td>
-                        <td className="py-2 px-3 text-[0.875rem] text-muted-foreground">{a.details}</td>
                       </tr>
-                    ))}
+                    ) : (
+                      pageData.map((a, i) => (
+                        <tr key={`${a.symbol}-${a.date}-${i}`} className="border-b border-border-subtle hover:bg-surface transition-colors">
+                          <td className="py-2 px-3 text-[0.875rem] text-muted-foreground tabular-nums whitespace-nowrap">{a.date}</td>
+                          <td className="py-2 px-3">
+                            <button onClick={() => navigate(`/stocks/${tickerToSlug(a.symbol)}`)} className="text-primary font-semibold hover:underline text-[0.875rem]">{a.symbol}</button>
+                          </td>
+                          <td className="py-2 px-3 text-[0.875rem] text-foreground">{nameMap[a.symbol] ?? a.symbol}</td>
+                          <td className="py-2 px-3">
+                            <span className={cn("inline-block text-[0.75rem] px-1.5 py-0.5 rounded font-medium", BADGE_STYLES[a.type])}>{a.type}</span>
+                          </td>
+                          <td className="py-2 px-3 text-[0.875rem] text-muted-foreground">{a.details}</td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
