@@ -226,7 +226,17 @@ function ArticleSkeleton() {
 /* ─── Sidebar ─── */
 function NewsSidebar() {
   const [email, setEmail] = useState("");
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlStatus, setNlStatus] = useState<"idle" | "success" | "duplicate" | "invalid" | "error">("idle");
   const navigate = useNavigate();
+
+  const handleSubscribe = async () => {
+    setNlLoading(true);
+    setNlStatus("idle");
+    const result = await subscribeToNewsletter(email, "news_sidebar");
+    setNlStatus(result.status);
+    setNlLoading(false);
+  };
 
   const { data: trending } = useQuery({
     queryKey: ["trending-tickers"],
