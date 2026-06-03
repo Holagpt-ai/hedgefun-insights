@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     <a href="https://hedgefun.fun" style="display:inline-block;background:#1d4ed8;color:#fff;font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;text-decoration:none;">Open HedgeFun →</a>
   </div>
   <div style="padding:16px 32px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 8px 8px;background:#f8fafc;">
-    <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">You're receiving this because you subscribed at hedgefun.fun.<br>© 2026 HedgeFun.fun · <a href="https://hedgefun.fun/newsletter" style="color:#94a3b8;">Unsubscribe</a></p>
+    <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">You're receiving this because you subscribed at hedgefun.fun.<br>© 2026 HedgeFun.fun · <a href="https://hedgefun.fun/unsubscribe?email=${encodeURIComponent(email)}" style="color:#94a3b8;">Unsubscribe</a></p>
   </div>
 </div>
 </body>
