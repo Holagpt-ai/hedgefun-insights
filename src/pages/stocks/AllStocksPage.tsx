@@ -378,10 +378,19 @@ export default function AllStocksPage() {
                   onChange={(e) => setNlEmail(e.target.value)}
                   className="h-9 text-sm"
                 />
-                <Button size="sm" className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground shrink-0">
-                  Subscribe
+                <Button
+                  size="sm"
+                  onClick={handleNlSubscribe}
+                  disabled={nlLoading}
+                  className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground shrink-0 disabled:opacity-50"
+                >
+                  {nlLoading ? "..." : "Subscribe"}
                 </Button>
               </div>
+              {nlStatus === "success" && <p className="text-xs text-green-600 mt-2">✓ Subscribed!</p>}
+              {nlStatus === "duplicate" && <p className="text-xs text-yellow-600 mt-2">Already subscribed</p>}
+              {nlStatus === "invalid" && <p className="text-xs text-destructive mt-2">Enter a valid email</p>}
+              {nlStatus === "error" && <p className="text-xs text-destructive mt-2">Try again</p>}
             </div>
           </aside>
         </div>
