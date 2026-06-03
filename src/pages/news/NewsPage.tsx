@@ -9,6 +9,7 @@ import { AdBanner } from "@/components/layout/AdBanner";
 import { formatDistanceToNow, format } from "date-fns";
 import { Newspaper, Play } from "lucide-react";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { subscribeToNewsletter } from "@/lib/newsletter";
 
 const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
 const PAGE_SIZE = 20;
