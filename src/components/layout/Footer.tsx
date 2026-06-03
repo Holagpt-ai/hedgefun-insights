@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { subscribeToNewsletter } from "@/lib/newsletter";
 
 
 const SOCIAL_LINKS = [
