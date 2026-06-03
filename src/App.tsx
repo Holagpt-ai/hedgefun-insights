@@ -59,6 +59,7 @@ import PremarketPage from "./pages/markets/PremarketPage";
 import AfterHoursPage from "./pages/markets/AfterHoursPage";
 import HeatmapPage from "./pages/markets/HeatmapPage";
 import NewsletterPage from "./pages/newsletter/NewsletterPage";
+import UnsubscribePage from "@/pages/newsletter/UnsubscribePage";
 import ToolsPage from "./pages/tools/ToolsPage";
 import AboutPage from "./pages/static/AboutPage";
 import ContactPage from "./pages/static/ContactPage";
@@ -189,6 +190,7 @@ const App = () => (
 
                 {/* Newsletter — standalone layout */}
                 <Route path="/newsletter" element={<NewsletterPage />} />
+                <Route path="/unsubscribe" element={<UnsubscribePage />} />
 
                 {/* Admin routes */}
                 <Route element={<AdminLayout />}>
