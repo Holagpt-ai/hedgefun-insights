@@ -239,6 +239,7 @@ export function GlobalMarketClocks() {
                     textTransform: "uppercase",
                     letterSpacing: "0.04em",
                     display: "inline-block",
+                    whiteSpace: "nowrap",
                     marginTop: 3,
                     background: pill.background,
                     color: pill.color,
