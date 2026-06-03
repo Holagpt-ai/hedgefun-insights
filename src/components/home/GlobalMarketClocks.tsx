@@ -124,7 +124,7 @@ export function GlobalMarketClocks() {
   const localTime = now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
   const localDate = now.toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" });
 
-  const cardH = 136;
+  const cardH = 152;
 
   return (
     <>
@@ -212,7 +212,7 @@ export function GlobalMarketClocks() {
               >
                 <div
                   className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
-                  style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4, transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease" }}
+                  style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "12px 8px", gap: 4, transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease" }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget as HTMLElement;
                     el.style.transform = "translateY(-3px)";
@@ -228,7 +228,7 @@ export function GlobalMarketClocks() {
                   }}
                 >
                   <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
-                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.city}</span>
+                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "visible", width: "100%", textAlign: "center" }}>{ex.city}</span>
                   <span style={{ fontSize: "0.5rem", color: "hsl(var(--text-muted))", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.exchange}</span>
                   <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
                   <span style={{
