@@ -266,6 +266,7 @@ HedgeFun · New Subscriber
         to: [email],
         subject: "You're in — HedgeFun Market Bullets starts tomorrow 📈",
         html: welcomeHtml,
+        text: `Welcome to HedgeFun Market Bullets!\n\nEvery weekday morning, before the market opens, we'll send you a free 2-minute brief that cuts through the noise.\n\nWhat you'll get:\n→ A quick snapshot of the major market indexes\n→ The top market-moving stories, in bullet points\n→ Key earnings reports and IPOs to watch\n→ Only high-quality sources — zero clickbait\n\nOpen HedgeFun: https://hedgefun.fun\n\nYou're receiving this because you subscribed at hedgefun.fun.\n© 2026 HedgeFun.fun\nUnsubscribe: https://hedgefun.fun/newsletter`,
       }),
     });
 
