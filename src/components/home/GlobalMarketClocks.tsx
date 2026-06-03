@@ -228,7 +228,7 @@ export function GlobalMarketClocks() {
                   }}
                 >
                   <ClockFace hours={t.h} minutes={t.m} seconds={t.s} />
-                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.city}</span>
+                  <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "hsl(var(--text-primary))", textTransform: "uppercase", letterSpacing: "0.04em", marginTop: 4, whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "visible", width: "100%", textAlign: "center" }}>{ex.city}</span>
                   <span style={{ fontSize: "0.5rem", color: "hsl(var(--text-muted))", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>{ex.exchange}</span>
                   <span style={{ fontSize: "0.65rem", fontWeight: 600, color: "hsl(var(--text-secondary))", fontVariantNumeric: "tabular-nums" }}>{digital}</span>
                   <span style={{
