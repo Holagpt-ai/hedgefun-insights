@@ -26,193 +26,33 @@ Deno.serve(async (req) => {
       });
     }
 
-    const welcomeHtml = `
-
-
-  
-
-
-  
-
-
-    
-      
-        
-
-
-
-          
-          
-            
-              
-
-
-                HedgeFun.
-              
-
-
-              
-
-
-                Market Intelligence
-              
-
-
-            
-          
-
-          
-          
-            
-
-              
-
-
-                You're in. Welcome to Market Bullets.
-              
-
-
-
-              
-
-
-                Every weekday morning, before the market opens, we'll send you a free 2-minute brief that cuts through the noise.
-              
-
-
-
-              
-              
-
-
-                What you'll get
-              
-
-
-
-              
-              
-
-
-                
-                  
-                    
-
-
-                      
-                        
-                          →
-                        
-                        
-                          A quick snapshot of the major market indexes
-                        
-                      
-                    
-
-
-                  
-                
-                
-                  
-                    
-
-
-                      
-                        
-                          →
-                        
-                        
-                          The top market-moving stories, in bullet points
-                        
-                      
-                    
-
-
-                  
-                
-                
-                  
-                    
-
-
-                      
-                        
-                          →
-                        
-                        
-                          Key earnings reports and IPOs to watch
-                        
-                      
-                    
-
-
-                  
-                
-                
-                  
-                    
-
-
-                      
-                        
-                          →
-                        
-                        
-                          Only high-quality sources — zero clickbait
-                        
-                      
-                    
-
-
-                  
-                
-              
-
-
-
-              
-              
-
-
-                
-                  
-                    
-                      Open HedgeFun →
-                    
-                  
-                
-              
-
-
-
-            
-          
-
-          
-          
-            
-              
-
-
-                You're receiving this because you subscribed at hedgefun.fun.
-
-                © 2026 HedgeFun.fun  · 
-                Unsubscribe
-              
-
-
-            
-          
-
-        
-
-
-      
-    
-
-
-
-`;
+    const welcomeHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+</head>
+<body style="margin:0;padding:0;background:#f8fafc;">
+<div style="max-width:560px;margin:40px auto;font-family:Arial,sans-serif;">
+  <div style="background:#0f172a;padding:24px 32px;border-radius:8px 8px 0 0;">
+    <span style="font-size:20px;font-weight:700;color:#fff;">HedgeFun<span style="color:#1d4ed8;">.</span></span>
+  </div>
+  <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:0;">
+    <h1 style="margin:0 0 16px;font-size:22px;color:#0f172a;">You're in. Welcome to Market Bullets.</h1>
+    <p style="margin:0 0 20px;font-size:15px;color:#475569;line-height:1.6;">Every weekday morning, before the market opens, we'll send you a free 2-minute brief that cuts through the noise.</p>
+    <p style="margin:0 0 12px;font-size:13px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:1px;">What you'll get</p>
+    <p style="margin:0 0 8px;font-size:15px;color:#334155;"><span style="color:#1d4ed8;font-weight:700;">→</span> A quick snapshot of the major market indexes</p>
+    <p style="margin:0 0 8px;font-size:15px;color:#334155;"><span style="color:#1d4ed8;font-weight:700;">→</span> The top market-moving stories, in bullet points</p>
+    <p style="margin:0 0 8px;font-size:15px;color:#334155;"><span style="color:#1d4ed8;font-weight:700;">→</span> Key earnings reports and IPOs to watch</p>
+    <p style="margin:0 0 28px;font-size:15px;color:#334155;"><span style="color:#1d4ed8;font-weight:700;">→</span> Only high-quality sources — zero clickbait</p>
+    <a href="https://hedgefun.fun" style="display:inline-block;background:#1d4ed8;color:#fff;font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;text-decoration:none;">Open HedgeFun →</a>
+  </div>
+  <div style="padding:16px 32px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 8px 8px;background:#f8fafc;">
+    <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">You're receiving this because you subscribed at hedgefun.fun.<br>© 2026 HedgeFun.fun · <a href="https://hedgefun.fun/newsletter" style="color:#94a3b8;">Unsubscribe</a></p>
+  </div>
+</div>
+</body>
+</html>`;
 
     const adminHtml = `
 
