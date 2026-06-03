@@ -53,6 +53,16 @@ export default function AllStocksPage() {
   const activeLetter = searchParams.get("letter") || "All";
   const [sorting, setSorting] = useState<SortingState>([{ id: "market_cap", desc: true }]);
   const [nlEmail, setNlEmail] = useState("");
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlStatus, setNlStatus] = useState<"idle" | "success" | "duplicate" | "invalid" | "error">("idle");
+
+  const handleNlSubscribe = async () => {
+    setNlLoading(true);
+    setNlStatus("idle");
+    const result = await subscribeToNewsletter(nlEmail, "all_stocks_sidebar");
+    setNlStatus(result.status);
+    setNlLoading(false);
+  };
 
   const { data: stocks, isLoading } = useQuery({
     queryKey: ["all-stocks", activeLetter],
