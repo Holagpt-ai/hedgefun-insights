@@ -262,7 +262,7 @@ HedgeFun · New Subscriber
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "HedgeFun @send.hedgefun.fun>",
+        from: "HedgeFun <newsletter@send.hedgefun.fun>",
         to: [email],
         subject: "You're in — HedgeFun Market Bullets starts tomorrow 📈",
         html: welcomeHtml,
