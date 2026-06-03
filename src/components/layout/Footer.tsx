@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { subscribeToNewsletter } from "@/lib/newsletter";
 
 
 const SOCIAL_LINKS = [
@@ -19,6 +20,16 @@ export function Footer() {
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [footerStatus, setFooterStatus] = useState<"idle" | "success" | "duplicate" | "invalid" | "error">("idle");
+
+  const handleSubscribe = async () => {
+    setLoading(true);
+    setFooterStatus("idle");
+    const result = await subscribeToNewsletter(email, "footer");
+    setFooterStatus(result.status);
+    setLoading(false);
+  };
 
   const LINK_SECTIONS = [
     {
@@ -123,9 +134,25 @@ export function Footer() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-10 bg-white text-foreground border-0"
               />
-              <Button className="w-full bg-accent-blue hover:bg-accent-blue-hover text-white h-10">
-                {t("subscribe")}
+              <Button
+                onClick={handleSubscribe}
+                disabled={loading}
+                className="w-full bg-accent-blue hover:bg-accent-blue-hover text-white h-10 disabled:opacity-50"
+              >
+                {loading ? "Subscribing..." : t("subscribe")}
               </Button>
+              {footerStatus === "success" && (
+                <p className="text-xs text-green-500">✓ Subscribed!</p>
+              )}
+              {footerStatus === "duplicate" && (
+                <p className="text-xs text-yellow-500">Already subscribed</p>
+              )}
+              {footerStatus === "invalid" && (
+                <p className="text-xs text-red-400">Enter a valid email</p>
+              )}
+              {footerStatus === "error" && (
+                <p className="text-xs text-red-400">Try again</p>
+              )}
             </div>
           </div>
         </div>

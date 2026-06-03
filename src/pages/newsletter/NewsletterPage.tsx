@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+import { subscribeToNewsletter } from "@/lib/newsletter";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { AdBanner } from "@/components/layout/AdBanner";
 
@@ -83,27 +83,11 @@ export default function NewsletterPage() {
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
 
   const handleSubmit = async () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      setStatus("invalid");
-      return;
-    }
     setLoading(true);
     setStatus("idle");
-    const { error } = await supabase.from("newsletter_subscribers" as any).insert({
-      email: email.trim().toLowerCase(),
-      source: "newsletter_page",
-    } as any);
+    const result = await subscribeToNewsletter(email, "newsletter_page");
     setLoading(false);
-    if (error) {
-      if (error.code === "23505") {
-        setStatus("duplicate");
-      } else {
-        setStatus("error");
-      }
-    } else {
-      setStatus("success");
-    }
+    setStatus(result.status);
   };
 
   return (

@@ -9,6 +9,7 @@ import { AdBanner } from "@/components/layout/AdBanner";
 import { formatDistanceToNow, format } from "date-fns";
 import { Newspaper, Play } from "lucide-react";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { subscribeToNewsletter } from "@/lib/newsletter";
 
 const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
 const PAGE_SIZE = 20;
@@ -225,7 +226,17 @@ function ArticleSkeleton() {
 /* ─── Sidebar ─── */
 function NewsSidebar() {
   const [email, setEmail] = useState("");
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlStatus, setNlStatus] = useState<"idle" | "success" | "duplicate" | "invalid" | "error">("idle");
   const navigate = useNavigate();
+
+  const handleSubscribe = async () => {
+    setNlLoading(true);
+    setNlStatus("idle");
+    const result = await subscribeToNewsletter(email, "news_sidebar");
+    setNlStatus(result.status);
+    setNlLoading(false);
+  };
 
   const { data: trending } = useQuery({
     queryKey: ["trending-tickers"],
@@ -257,7 +268,18 @@ function NewsSidebar() {
           placeholder="Enter your email"
           className="mb-2"
         />
-        <Button className="w-full" style={{ background: "hsl(var(--accent-blue))", color: "#fff" }}>Subscribe</Button>
+        <Button
+          onClick={handleSubscribe}
+          disabled={nlLoading}
+          className="w-full disabled:opacity-50"
+          style={{ background: "hsl(var(--accent-blue))", color: "#fff" }}
+        >
+          {nlLoading ? "Subscribing..." : "Subscribe"}
+        </Button>
+        {nlStatus === "success" && <p className="text-xs text-green-600 mt-2">✓ Subscribed!</p>}
+        {nlStatus === "duplicate" && <p className="text-xs text-yellow-600 mt-2">Already subscribed</p>}
+        {nlStatus === "invalid" && <p className="text-xs text-destructive mt-2">Enter a valid email</p>}
+        {nlStatus === "error" && <p className="text-xs text-destructive mt-2">Try again</p>}
       </div>
 
       {/* Ad mid */}
