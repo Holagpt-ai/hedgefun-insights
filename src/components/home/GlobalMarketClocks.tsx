@@ -212,7 +212,7 @@ export function GlobalMarketClocks() {
               >
                 <div
                   className="fintech-card flex-shrink-0 flex flex-col items-center justify-center"
-                  style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "10px 8px", gap: 4, transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease" }}
+                  style={{ flex: 1, minWidth: 100, height: cardH, minHeight: cardH, padding: "12px 8px", gap: 4, transition: "transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease" }}
                   onMouseEnter={(e) => {
                     const el = e.currentTarget as HTMLElement;
                     el.style.transform = "translateY(-3px)";
