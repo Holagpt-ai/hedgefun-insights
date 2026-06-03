@@ -20,6 +20,16 @@ export function Footer() {
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [footerStatus, setFooterStatus] = useState<"idle" | "success" | "duplicate" | "invalid" | "error">("idle");
+
+  const handleSubscribe = async () => {
+    setLoading(true);
+    setFooterStatus("idle");
+    const result = await subscribeToNewsletter(email, "footer");
+    setFooterStatus(result.status);
+    setLoading(false);
+  };
 
   const LINK_SECTIONS = [
     {
