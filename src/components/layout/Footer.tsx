@@ -134,9 +134,25 @@ export function Footer() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="h-10 bg-white text-foreground border-0"
               />
-              <Button className="w-full bg-accent-blue hover:bg-accent-blue-hover text-white h-10">
-                {t("subscribe")}
+              <Button
+                onClick={handleSubscribe}
+                disabled={loading}
+                className="w-full bg-accent-blue hover:bg-accent-blue-hover text-white h-10 disabled:opacity-50"
+              >
+                {loading ? "Subscribing..." : t("subscribe")}
               </Button>
+              {footerStatus === "success" && (
+                <p className="text-xs text-green-500">✓ Subscribed!</p>
+              )}
+              {footerStatus === "duplicate" && (
+                <p className="text-xs text-yellow-500">Already subscribed</p>
+              )}
+              {footerStatus === "invalid" && (
+                <p className="text-xs text-red-400">Enter a valid email</p>
+              )}
+              {footerStatus === "error" && (
+                <p className="text-xs text-red-400">Try again</p>
+              )}
             </div>
           </div>
         </div>
