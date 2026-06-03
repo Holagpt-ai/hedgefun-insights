@@ -377,18 +377,21 @@ export type Database = {
           id: string
           source: string | null
           subscribed_at: string | null
+          unsubscribed_at: string | null
         }
         Insert: {
           email: string
           id?: string
           source?: string | null
           subscribed_at?: string | null
+          unsubscribed_at?: string | null
         }
         Update: {
           email?: string
           id?: string
           source?: string | null
           subscribed_at?: string | null
+          unsubscribed_at?: string | null
         }
         Relationships: []
       }
