@@ -106,7 +106,7 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
           <span className="text-muted-foreground">· {estDate()}, {estTime()} EDT</span>
         </div>
       )}
-      <span className="text-xs text-muted-foreground">Powered by Massive</span>
+      
         </div>
         {!loading && (
           <div className="flex gap-2 shrink-0 pt-1">
