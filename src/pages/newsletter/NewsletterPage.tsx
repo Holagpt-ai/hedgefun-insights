@@ -195,7 +195,7 @@ export default function NewsletterPage() {
             )}
 
             <p className="text-sm text-muted-foreground text-center mt-3">
-              Trusted by 218,783+ investors.
+              Trusted by {displayCount} Traders.
             </p>
             <p className="text-sm text-muted-foreground text-center mt-2">
               <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
