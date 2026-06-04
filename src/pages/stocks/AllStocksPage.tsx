@@ -24,7 +24,7 @@ import { cn } from "@/lib/utils";
 const LETTERS = ["All", ..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("")];
 
 function abbr(n: number | null | undefined): string {
-  if (n == null) return "—";
+  if (n == null || n <= 0) return "—";
   const abs = Math.abs(n);
   if (abs >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
   if (abs >= 1e9) return `$${(n / 1e9).toFixed(2)}B`;
