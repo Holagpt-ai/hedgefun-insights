@@ -84,6 +84,23 @@ export default function NewsletterPage() {
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
 
+  const { data: subCountData } = useQuery({
+    queryKey: ["subscriber-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("newsletter_subscribers")
+        .select("*", { count: "exact", head: true })
+        .is("unsubscribed_at", null);
+      return count ?? 0;
+    },
+  });
+
+  const displayCount = subCountData
+    ? `${(Math.floor(subCountData / 100) * 100).toLocaleString()}+`
+    : "21,200+";
+
+
+
   const handleSubmit = async () => {
     setLoading(true);
     setStatus("idle");
