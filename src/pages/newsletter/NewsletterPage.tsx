@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { subscribeToNewsletter } from "@/lib/newsletter";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { AdBanner } from "@/components/layout/AdBanner";
@@ -18,7 +20,7 @@ function IPhoneMockup() {
         {/* Screen content */}
         <div className="relative h-full pt-[36px] px-3 pb-0 overflow-hidden">
           {/* Date */}
-          <p className="text-[9px] text-muted-foreground text-center mb-2">Monday — March 17, 2026</p>
+          <p className="text-[9px] text-muted-foreground text-center mb-2">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
 
           {/* Logo */}
           <div className="flex items-center justify-center gap-1.5 mb-3">
@@ -81,6 +83,23 @@ export default function NewsletterPage() {
   const [status, setStatus] = useState<"idle" | "success" | "duplicate" | "error" | "invalid">("idle");
   const [loading, setLoading] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
+
+  const { data: subCountData } = useQuery({
+    queryKey: ["subscriber-count"],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("newsletter_subscribers")
+        .select("*", { count: "exact", head: true })
+        .is("unsubscribed_at", null);
+      return count ?? 0;
+    },
+  });
+
+  const displayCount = subCountData
+    ? `${(Math.floor(subCountData / 100) * 100).toLocaleString()}+`
+    : "21,200+";
+
+
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -163,7 +182,7 @@ export default function NewsletterPage() {
             </button>
 
             {status === "success" && (
-              <p className="text-sm text-green-600 mt-2">✓ You're subscribed! Check your inbox for a confirmation.</p>
+              <p className="text-sm text-green-600 mt-2">✓ You're subscribed! Welcome email on its way.</p>
             )}
             {status === "duplicate" && (
               <p className="text-sm text-yellow-600 mt-2">You're already subscribed!</p>
@@ -176,7 +195,7 @@ export default function NewsletterPage() {
             )}
 
             <p className="text-sm text-muted-foreground text-center mt-3">
-              Trusted by 218,783+ investors.
+              Trusted by {displayCount} Traders.
             </p>
             <p className="text-sm text-muted-foreground text-center mt-2">
               <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
