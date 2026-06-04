@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { subscribeToNewsletter } from "@/lib/newsletter";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { AdBanner } from "@/components/layout/AdBanner";
