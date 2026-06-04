@@ -50,9 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
     // Second: check for existing session (handles page refresh + OAuth redirect)
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) console.error('getSession error:', error);
-      
+    supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       setLoading(false);
 
