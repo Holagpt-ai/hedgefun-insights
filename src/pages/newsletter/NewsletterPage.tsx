@@ -182,7 +182,7 @@ export default function NewsletterPage() {
             </button>
 
             {status === "success" && (
-              <p className="text-sm text-green-600 mt-2">✓ You're subscribed! Check your inbox for a confirmation.</p>
+              <p className="text-sm text-green-600 mt-2">✓ You're subscribed! Welcome email on its way.</p>
             )}
             {status === "duplicate" && (
               <p className="text-sm text-yellow-600 mt-2">You're already subscribed!</p>
