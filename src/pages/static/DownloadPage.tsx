@@ -35,12 +35,7 @@ export default function DownloadPage() {
           <p className="text-sm text-muted-foreground mb-4">
             Available on Android phones and tablets. Full market data and portfolio tracking at your fingertips.
           </p>
-          <Button variant="outline" className="w-full mb-2" asChild>
-            <a href="https://play.google.com" target="_blank" rel="noopener noreferrer">
-              Get it on Google Play
-            </a>
-          </Button>
-          <p className="text-xs text-muted-foreground">Coming soon to Google Play</p>
+          <p className="text-xs text-muted-foreground">Coming Soon to Google Play</p>
         </div>
       </div>
 
