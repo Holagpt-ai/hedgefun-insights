@@ -20,7 +20,7 @@ function IPhoneMockup() {
         {/* Screen content */}
         <div className="relative h-full pt-[36px] px-3 pb-0 overflow-hidden">
           {/* Date */}
-          <p className="text-[9px] text-muted-foreground text-center mb-2">Monday — March 17, 2026</p>
+          <p className="text-[9px] text-muted-foreground text-center mb-2">{new Date().toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" })}</p>
 
           {/* Logo */}
           <div className="flex items-center justify-center gap-1.5 mb-3">
