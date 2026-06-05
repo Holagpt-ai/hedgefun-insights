@@ -6,6 +6,73 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const KEYWORD_CATEGORY_MAP: Record<string, string> = {
+  "earnings": "Earnings",
+  "earnings report": "Earnings",
+  "earnings per share": "Earnings",
+  "eps": "Earnings",
+  "quarterly results": "Earnings",
+  "ipo": "IPO",
+  "initial public offering": "IPO",
+  "spac": "IPO",
+  "direct listing": "IPO",
+  "technology": "Tech",
+  "tech": "Tech",
+  "ai": "Tech",
+  "artificial intelligence": "Tech",
+  "semiconductor": "Tech",
+  "software": "Tech",
+  "cloud computing": "Tech",
+  "cybersecurity": "Tech",
+  "energy": "Energy",
+  "oil": "Energy",
+  "natural gas": "Energy",
+  "crude": "Energy",
+  "renewable energy": "Energy",
+  "solar": "Energy",
+  "utilities": "Energy",
+  "crypto": "Crypto",
+  "bitcoin": "Crypto",
+  "ethereum": "Crypto",
+  "cryptocurrency": "Crypto",
+  "blockchain": "Crypto",
+  "defi": "Crypto",
+  "federal reserve": "Economy",
+  "fed": "Economy",
+  "inflation": "Economy",
+  "interest rate": "Economy",
+  "gdp": "Economy",
+  "recession": "Economy",
+  "jobs report": "Economy",
+  "unemployment": "Economy",
+  "healthcare": "Healthcare",
+  "biotech": "Healthcare",
+  "pharmaceutical": "Healthcare",
+  "fda": "Healthcare",
+  "drug approval": "Healthcare",
+  "clinical trial": "Healthcare",
+  "finance": "Finance",
+  "banking": "Finance",
+  "mergers": "Finance",
+  "acquisitions": "Finance",
+  "m&a": "Finance",
+  "hedge fund": "Finance",
+  "real estate": "Real Estate",
+  "reit": "Real Estate",
+  "housing": "Real Estate",
+  "mortgage": "Real Estate",
+};
+
+function deriveCategory(article: Record<string, any>): string {
+  const keywords: string[] = (article.keywords ?? []).map((k: string) =>
+    k.toLowerCase().trim()
+  );
+  for (const kw of keywords) {
+    if (KEYWORD_CATEGORY_MAP[kw]) return KEYWORD_CATEGORY_MAP[kw];
+  }
+  return "Markets";
+}
+
 serve(async (req) => {
 
   if (req.method === "OPTIONS") {
@@ -58,7 +125,7 @@ serve(async (req) => {
         headline: article.title ?? "Untitled",
         source: article.publisher?.name ?? null,
         url: article.article_url ?? null,
-        category: "markets",
+        category: deriveCategory(article),
         published_at: article.published_utc ?? new Date().toISOString(),
         image_url: article.image_url ?? null,
         description: article.description ?? null,
