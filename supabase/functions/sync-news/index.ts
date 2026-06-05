@@ -6,69 +6,51 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const KEYWORD_CATEGORY_MAP: Record<string, string> = {
-  "earnings": "Earnings",
-  "earnings report": "Earnings",
-  "earnings per share": "Earnings",
-  "eps": "Earnings",
-  "quarterly results": "Earnings",
-  "ipo": "IPO",
-  "initial public offering": "IPO",
-  "spac": "IPO",
-  "direct listing": "IPO",
-  "technology": "Tech",
-  "tech": "Tech",
-  "ai": "Tech",
-  "artificial intelligence": "Tech",
-  "semiconductor": "Tech",
-  "software": "Tech",
-  "cloud computing": "Tech",
-  "cybersecurity": "Tech",
-  "energy": "Energy",
-  "oil": "Energy",
-  "natural gas": "Energy",
-  "crude": "Energy",
-  "renewable energy": "Energy",
-  "solar": "Energy",
-  "utilities": "Energy",
-  "crypto": "Crypto",
-  "bitcoin": "Crypto",
-  "ethereum": "Crypto",
-  "cryptocurrency": "Crypto",
-  "blockchain": "Crypto",
-  "defi": "Crypto",
-  "federal reserve": "Economy",
-  "fed": "Economy",
-  "inflation": "Economy",
-  "interest rate": "Economy",
-  "gdp": "Economy",
-  "recession": "Economy",
-  "jobs report": "Economy",
-  "unemployment": "Economy",
-  "healthcare": "Healthcare",
-  "biotech": "Healthcare",
-  "pharmaceutical": "Healthcare",
-  "fda": "Healthcare",
-  "drug approval": "Healthcare",
-  "clinical trial": "Healthcare",
-  "finance": "Finance",
-  "banking": "Finance",
-  "mergers": "Finance",
-  "acquisitions": "Finance",
-  "m&a": "Finance",
-  "hedge fund": "Finance",
-  "real estate": "Real Estate",
-  "reit": "Real Estate",
-  "housing": "Real Estate",
-  "mortgage": "Real Estate",
-};
+const HEADLINE_CATEGORY_RULES: Array<{ patterns: string[]; category: string }> = [
+  {
+    category: "Earnings",
+    patterns: ["earnings", "eps", "quarterly results", "revenue beat", "revenue miss", "profit", "net income", "fiscal quarter", "q1", "q2", "q3", "q4", "full year results"],
+  },
+  {
+    category: "IPO",
+    patterns: ["ipo", "initial public offering", "spac", "direct listing", "goes public", "trading debut", "prospectus", "s-1"],
+  },
+  {
+    category: "Tech",
+    patterns: ["nvidia", "artificial intelligence", " ai ", "semiconductor", "software", "cloud", "cybersecurity", "microsoft", "google", "apple", "meta ", "amazon", "chip", "data center", "machine learning"],
+  },
+  {
+    category: "Healthcare",
+    patterns: ["fda", "drug", "biotech", "pharmaceutical", "clinical trial", "health", "medicare", "medicaid", "cancer", "vaccine", "therapy", "medical"],
+  },
+  {
+    category: "Energy",
+    patterns: ["oil", "crude", "natural gas", "energy", "solar", "renewable", "chevron", "exxon", "opec", "refinery", "petroleum", "wind power", "electric vehicle", "ev "],
+  },
+  {
+    category: "Crypto",
+    patterns: ["bitcoin", "ethereum", "crypto", "blockchain", "defi", "nft", "digital asset", "coinbase", "binance", "stablecoin"],
+  },
+  {
+    category: "Economy",
+    patterns: ["federal reserve", "fed rate", "inflation", "interest rate", "gdp", "recession", "unemployment", "jobs report", "treasury yield", "cpi", "fomc", "jerome powell", "tariff", "trade war"],
+  },
+  {
+    category: "Finance",
+    patterns: ["merger", "acquisition", "buyout", "hedge fund", "private equity", "ipo", "bond", "debt", "bank", "goldman", "jpmorgan", "morgan stanley", "credit", "loan", "dividend"],
+  },
+  {
+    category: "Real Estate",
+    patterns: ["real estate", "reit", "housing", "mortgage", "home sales", "property", "commercial real estate"],
+  },
+];
 
-function deriveCategory(article: Record<string, any>): string {
-  const keywords: string[] = (article.keywords ?? []).map((k: string) =>
-    k.toLowerCase().trim()
-  );
-  for (const kw of keywords) {
-    if (KEYWORD_CATEGORY_MAP[kw]) return KEYWORD_CATEGORY_MAP[kw];
+function deriveCategory(title: string): string {
+  const lower = ` ${title.toLowerCase()} `;
+  for (const rule of HEADLINE_CATEGORY_RULES) {
+    for (const pattern of rule.patterns) {
+      if (lower.includes(pattern)) return rule.category;
+    }
   }
   return "Markets";
 }
@@ -78,7 +60,6 @@ serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" } });
   }
-  // Restrict to service role / cron only — accept either Bearer SRK or x-sync-secret header
   const __auth = req.headers.get("Authorization") ?? "";
   const __syncSecretHeader = req.headers.get("x-sync-secret") ?? "";
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -90,9 +71,6 @@ serve(async (req) => {
   const __syncOk = __syncSecret !== "" && __syncSecretHeader === __syncSecret;
   if (!__bearerOk && !__syncOk) {
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
-  }
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
@@ -121,11 +99,12 @@ serve(async (req) => {
     let errors = 0;
 
     for (const article of articles) {
+      const title = article.title ?? "Untitled";
       const row = {
-        headline: article.title ?? "Untitled",
+        headline: title,
         source: article.publisher?.name ?? null,
         url: article.article_url ?? null,
-        category: deriveCategory(article),
+        category: deriveCategory(title),
         published_at: article.published_utc ?? new Date().toISOString(),
         image_url: article.image_url ?? null,
         description: article.description ?? null,
