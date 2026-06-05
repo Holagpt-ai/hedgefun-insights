@@ -100,7 +100,7 @@ export function useScreenerQuery({
 
       // ── ACTIVE CONFIG-DRIVEN FILTERS ─────────────────────────────────────
       if (hasActiveFilters) {
-        let query = supabase
+        let query: any = supabase
           .from("stocks")
           .select("symbol, name, price, change_percent, market_cap, pe_ratio, volume, sector, industry, exchange, dividend_yield")
           .order("market_cap", { ascending: false, nullsFirst: false })
