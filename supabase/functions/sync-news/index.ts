@@ -8,39 +8,39 @@ const corsHeaders = {
 
 const HEADLINE_CATEGORY_RULES: Array<{ patterns: string[]; category: string }> = [
   {
-    category: "Earnings",
+    category: "earnings",
     patterns: ["earnings", "eps", "quarterly results", "revenue beat", "revenue miss", "profit", "net income", "fiscal quarter", "q1", "q2", "q3", "q4", "full year results"],
   },
   {
-    category: "IPO",
+    category: "ipo",
     patterns: ["ipo", "initial public offering", "spac", "direct listing", "goes public", "trading debut", "prospectus", "s-1"],
   },
   {
-    category: "Tech",
+    category: "tech",
     patterns: ["nvidia", "artificial intelligence", " ai ", "semiconductor", "software", "cloud", "cybersecurity", "microsoft", "google", "apple", "meta ", "amazon", "chip", "data center", "machine learning"],
   },
   {
-    category: "Healthcare",
+    category: "healthcare",
     patterns: ["fda", "drug", "biotech", "pharmaceutical", "clinical trial", "health", "medicare", "medicaid", "cancer", "vaccine", "therapy", "medical"],
   },
   {
-    category: "Energy",
+    category: "energy",
     patterns: ["oil", "crude", "natural gas", "energy", "solar", "renewable", "chevron", "exxon", "opec", "refinery", "petroleum", "wind power", "electric vehicle", "ev "],
   },
   {
-    category: "Crypto",
+    category: "crypto",
     patterns: ["bitcoin", "ethereum", "crypto", "blockchain", "defi", "nft", "digital asset", "coinbase", "binance", "stablecoin"],
   },
   {
-    category: "Economy",
+    category: "economy",
     patterns: ["federal reserve", "fed rate", "inflation", "interest rate", "gdp", "recession", "unemployment", "jobs report", "treasury yield", "cpi", "fomc", "jerome powell", "tariff", "trade war"],
   },
   {
-    category: "Finance",
+    category: "finance",
     patterns: ["merger", "acquisition", "buyout", "hedge fund", "private equity", "ipo", "bond", "debt", "bank", "goldman", "jpmorgan", "morgan stanley", "credit", "loan", "dividend"],
   },
   {
-    category: "Real Estate",
+    category: "real-estate",
     patterns: ["real estate", "reit", "housing", "mortgage", "home sales", "property", "commercial real estate"],
   },
 ];
@@ -52,7 +52,7 @@ function deriveCategory(title: string): string {
       if (lower.includes(pattern)) return rule.category;
     }
   }
-  return "Markets";
+  return "markets";
 }
 
 serve(async (req) => {
