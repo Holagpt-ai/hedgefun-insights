@@ -321,7 +321,7 @@ const Screener = () => {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setFilterModalOpen(true)}
-            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md border border-border bg-background hover:bg-muted text-xs font-medium transition-colors"
+            className="inline-flex items-center gap-1.5 h-9 px-3 rounded-md bg-accent-blue hover:bg-accent-blue-hover text-white text-xs font-medium transition-colors shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
             Add Filters
