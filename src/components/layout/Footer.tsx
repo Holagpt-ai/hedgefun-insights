@@ -28,6 +28,7 @@ export function Footer() {
     setFooterStatus("idle");
     const result = await subscribeToNewsletter(email, "footer");
     setFooterStatus(result.status);
+    if (result.status === "success") setEmail("");
     setLoading(false);
   };
 
