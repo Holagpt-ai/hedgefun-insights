@@ -100,6 +100,24 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return "en";
   });
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem("hedgefun-lang")) return;
+    const SPANISH_COUNTRIES = new Set([
+      "MX","GT","SV","HN","NI","CR","PA","CU","DO","PR",
+      "CO","VE","EC","PE","BO","CL","PY","UY","AR","GQ"
+    ]);
+    fetch("https://ipapi.co/json/", { signal: AbortSignal.timeout(4000) })
+      .then((r) => r.json())
+      .then((data) => {
+        if (SPANISH_COUNTRIES.has(data?.country_code)) {
+          setLanguageState("es");
+          localStorage.setItem("hedgefun-lang", "es");
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
     localStorage.setItem("hedgefun-lang", lang);
