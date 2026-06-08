@@ -134,6 +134,42 @@ HedgeFun · New Subscriber
       }),
     }).catch((err) => console.error("Admin notification error:", err));
 
+    // Sync contact to Resend Audience — non-blocking
+    (async () => {
+      try {
+        const audienceRes = await fetch("https://api.resend.com/audiences", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+        });
+        if (!audienceRes.ok) {
+          console.error("Resend audience fetch failed:", await audienceRes.text());
+          return;
+        }
+        const audienceData = await audienceRes.json();
+        const audienceId = audienceData?.data?.[0]?.id;
+        if (!audienceId) {
+          console.error("No Resend audience ID found");
+          return;
+        }
+        const contactRes = await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ email, unsubscribed: false }),
+        });
+        if (!contactRes.ok) {
+          console.error("Resend contact sync failed:", await contactRes.text());
+        }
+      } catch (err) {
+        console.error("Resend audience sync error:", err);
+      }
+    })();
+
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
