@@ -8,6 +8,8 @@ import { ThemeProvider } from "@/contexts/ThemeContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import PublicLayout from "@/layouts/PublicLayout";
 import AdminLayout from "@/layouts/AdminLayout";
+import DashboardLayout from "@/layouts/DashboardLayout";
+import DashboardHome from "@/pages/dashboard/DashboardHome";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -184,6 +186,13 @@ const App = () => (
                   <Route path="/register" element={<Navigate to="/signup" replace />} />
                   <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
                 </Route>
+
+                {/* Dashboard routes */}
+                <Route element={<DashboardLayout />}>
+                  <Route path="/dashboard" element={<DashboardHome />} />
+                </Route>
+
+
 
                 {/* Chart routes — standalone layout */}
                 <Route path="/chart/:ticker" element={<ChartPage />} />
