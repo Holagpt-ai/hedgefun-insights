@@ -64,8 +64,8 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
 
   return (
     <div className="px-4 pt-4 pb-2">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex flex-col min-w-0">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="flex flex-col min-w-0 flex-1">
       <div className="flex items-center gap-2 flex-wrap">
         <h1 className="text-xl font-bold text-foreground">{companyName}</h1>
         <span className="text-accent-blue text-sm font-semibold">({ticker})</span>
