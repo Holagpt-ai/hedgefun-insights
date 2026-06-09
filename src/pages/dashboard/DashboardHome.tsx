@@ -1,6 +1,11 @@
+import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
+
 export default function DashboardHome() {
   return (
     <div className="max-w-5xl mx-auto px-6 py-10">
+      <div className="mb-6">
+        <DashboardIndexCards />
+      </div>
       <h1 className="text-3xl font-semibold text-foreground">Dashboard</h1>
       <p className="text-muted-foreground mt-1">Your command center</p>
       <p className="text-sm text-muted-foreground mt-6">
