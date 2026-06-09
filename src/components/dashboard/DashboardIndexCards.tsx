@@ -8,7 +8,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 // Add more symbols here as they are seeded into market_indexes
-const CARD_ORDER = ["SPY", "QQQ", "DIA", "IWM"];
+const CARD_ORDER = [
+  "SPY",   // S&P 500
+  "QQQ",   // Nasdaq 100
+  "DIA",   // Dow Jones
+  "IWM",   // Russell 2000
+  "VIXY",  // VIX
+  "GLD",   // Gold
+  "SLV",   // Silver
+  "IBIT",  // Bitcoin
+  "BNO",   // Brent Crude
+  "UNG",   // Nat Gas
+  "TLT",   // 20Y Treasury
+  "UUP",   // US Dollar
+];
 
 export default function DashboardIndexCards() {
   const scrollRef = useRef<HTMLDivElement>(null);
