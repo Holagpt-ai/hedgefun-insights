@@ -1,3 +1,4 @@
+import MarketTicker from "@/components/layout/MarketTicker";
 import { IndexSparklineCards } from "@/components/home/IndexSparklineCards";
 import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
 import { HeroSearch } from "@/components/home/HeroSearch";
@@ -20,6 +21,7 @@ const Index = () => {
   const labels = useSessionMoversLabels();
   return (
     <div className="flex flex-col">
+      <MarketTicker />
       {/* 14A — Index Sparkline Cards */}
       <IndexSparklineCards />
 

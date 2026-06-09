@@ -1,5 +1,6 @@
 import { Outlet, Navigate } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
+import MarketTicker from "@/components/layout/MarketTicker";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -21,6 +22,7 @@ export default function DashboardLayout() {
   return (
     <>
       <Header onMenuToggle={() => {}} />
+      <MarketTicker />
       <div className="flex">
         <DashboardSidebar />
         <main className="flex-1 min-w-0">
