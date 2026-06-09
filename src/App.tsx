@@ -10,6 +10,8 @@ import PublicLayout from "@/layouts/PublicLayout";
 import AdminLayout from "@/layouts/AdminLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import DashboardHome from "@/pages/dashboard/DashboardHome";
+import AMInbox from "@/pages/dashboard/AMInbox";
+import PMInbox from "@/pages/dashboard/PMInbox";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -190,6 +192,8 @@ const App = () => (
                 {/* Dashboard routes */}
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={<DashboardHome />} />
+                  <Route path="/dashboard/am" element={<AMInbox />} />
+                  <Route path="/dashboard/pm" element={<PMInbox />} />
                 </Route>
 
 
