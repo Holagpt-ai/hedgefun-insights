@@ -320,8 +320,7 @@ serve(async (req) => {
       }
       case "all-dividends": {
         const limit = searchParams.get("limit") ?? "50";
-        const url = `https://api.polygon.io/vX/reference/dividends?limit=${limit}&sort=ex_dividend_date&order=desc&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        const res = await fetchWithRetry(polyUrl(`/vX/reference/dividends`, { limit, sort: "ex_dividend_date", order: "desc" }));
         const json = await res.json();
         return new Response(JSON.stringify(json.results ?? []), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -329,8 +328,7 @@ serve(async (req) => {
       }
       case "all-splits": {
         const limit = searchParams.get("limit") ?? "50";
-        const url = `https://api.polygon.io/vX/reference/splits?limit=${limit}&sort=execution_date&order=desc&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+        const res = await fetchWithRetry(polyUrl(`/vX/reference/splits`, { limit, sort: "execution_date", order: "desc" }));
         const json = await res.json();
         return new Response(JSON.stringify(json.results ?? []), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
