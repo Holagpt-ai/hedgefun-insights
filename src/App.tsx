@@ -12,6 +12,7 @@ import DashboardLayout from "@/layouts/DashboardLayout";
 import DashboardHome from "@/pages/dashboard/DashboardHome";
 import AMInbox from "@/pages/dashboard/AMInbox";
 import PMInbox from "@/pages/dashboard/PMInbox";
+import Screeners from "@/pages/dashboard/Screeners";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -194,6 +195,7 @@ const App = () => (
                   <Route path="/dashboard" element={<DashboardHome />} />
                   <Route path="/dashboard/am" element={<AMInbox />} />
                   <Route path="/dashboard/pm" element={<PMInbox />} />
+                  <Route path="/dashboard/screeners" element={<Screeners />} />
                 </Route>
 
 
