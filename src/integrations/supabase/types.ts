@@ -86,6 +86,99 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_conversation_sessions: {
+        Row: {
+          id: string
+          last_active_at: string
+          message_count: number
+          metadata: Json
+          session_token: string
+          started_at: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          last_active_at?: string
+          message_count?: number
+          metadata?: Json
+          session_token: string
+          started_at?: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          last_active_at?: string
+          message_count?: number
+          metadata?: Json
+          session_token?: string
+          started_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_daily_logs: {
+        Row: {
+          created_at: string
+          entry_type: string
+          id: number
+          log_date: string
+          payload: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_type: string
+          id?: number
+          log_date?: string
+          payload?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_type?: string
+          id?: number
+          log_date?: string
+          payload?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_user_memory: {
+        Row: {
+          extensions: Json
+          goals: Json
+          recurring_observations: Json
+          risk_tolerance: Json
+          skill_patterns: Json
+          tickers_of_interest: Json
+          trading_style: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          extensions?: Json
+          goals?: Json
+          recurring_observations?: Json
+          risk_tolerance?: Json
+          skill_patterns?: Json
+          tickers_of_interest?: Json
+          trading_style?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          extensions?: Json
+          goals?: Json
+          recurring_observations?: Json
+          risk_tolerance?: Json
+          skill_patterns?: Json
+          tickers_of_interest?: Json
+          trading_style?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chatbot_sessions: {
         Row: {
           created_at: string | null
