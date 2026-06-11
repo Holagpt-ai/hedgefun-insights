@@ -78,7 +78,7 @@ export default function PMInbox() {
           </button>
         </div>
       ) : (
-        <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} />
+        <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
       )}
     </div>
   );
