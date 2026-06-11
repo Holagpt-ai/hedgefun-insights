@@ -6,12 +6,14 @@ export type ChatMessage = { role: "user" | "assistant"; content: string };
 export async function streamChat({
   messages,
   sessionToken,
+  accessToken,
   onDelta,
   onDone,
   onError,
 }: {
   messages: ChatMessage[];
   sessionToken: string;
+  accessToken?: string;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError?: (error: string) => void;
@@ -20,7 +22,7 @@ export async function streamChat({
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({ messages, sessionToken }),
   });
