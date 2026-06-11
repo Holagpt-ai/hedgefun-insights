@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
+import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
 import {
   Dialog,
   DialogContent,
@@ -78,7 +79,10 @@ export default function PMInbox() {
           </button>
         </div>
       ) : (
-        <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
+        <>
+          <EarningsCardsGrid briefType="pm" />
+          <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
+        </>
       )}
     </div>
   );
