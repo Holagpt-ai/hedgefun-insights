@@ -236,6 +236,33 @@ export type Database = {
         }
         Relationships: []
       }
+      daily_briefs: {
+        Row: {
+          brief_date: string
+          brief_type: string
+          content: string
+          generated_at: string
+          id: string
+          market_snapshot: Json
+        }
+        Insert: {
+          brief_date?: string
+          brief_type: string
+          content: string
+          generated_at?: string
+          id?: string
+          market_snapshot?: Json
+        }
+        Update: {
+          brief_date?: string
+          brief_type?: string
+          content?: string
+          generated_at?: string
+          id?: string
+          market_snapshot?: Json
+        }
+        Relationships: []
+      }
       earnings_calendar: {
         Row: {
           actual_eps: number | null
