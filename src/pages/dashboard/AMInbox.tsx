@@ -1,6 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
+import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
 import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
 import { AM_INBOX_CONFIG, CATALYST_PILLS } from "@/config/inbox.config";
 import { estDate } from "@/lib/price-utils";
@@ -44,6 +45,8 @@ export default function AMInbox() {
           </span>
         )}
       </div>
+
+      <EarningsCardsGrid briefType="am" />
 
       <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
     </div>
