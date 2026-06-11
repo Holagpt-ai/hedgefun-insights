@@ -45,7 +45,7 @@ export default function AMInbox() {
         )}
       </div>
 
-      <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} />
+      <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
     </div>
   );
 }
