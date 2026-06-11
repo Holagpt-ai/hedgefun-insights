@@ -205,7 +205,103 @@ serve(async (req) => {
             messages: [...messages, { role: "assistant", content: fullContent }],
             last_active_at: new Date().toISOString(),
           }, { onConflict: "session_token" });
+
+          // PRO/admin: persistent memory + daily logs + Claude Haiku extraction
+          if (user && isProOrAdmin) {
+            try {
+              // 3a. Upsert conversation session
+              await adminSupabase.from("ai_conversation_sessions").upsert({
+                user_id: user.id,
+                session_token: sessionToken,
+                last_active_at: new Date().toISOString(),
+              }, { onConflict: "session_token" });
+
+              await adminSupabase
+                .rpc("increment_session_message_count", { p_session_token: sessionToken })
+                .then(() => {}, () => {});
+
+              // 3b. Log raw event
+              const lastUserMessage = messages[messages.length - 1]?.content ?? "";
+              await adminSupabase.from("ai_daily_logs").insert({
+                user_id: user.id,
+                entry_type: "chat_message",
+                payload: {
+                  user_message: lastUserMessage,
+                  assistant_response: fullContent,
+                  session_token: sessionToken,
+                },
+              });
+
+              // 3c. Extract memory via Claude Haiku (fire-and-forget)
+              const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+              if (ANTHROPIC_API_KEY) {
+                (async () => {
+                  try {
+                    const extractionPrompt = `You are a memory-extraction system for a trading app. Given this exchange, extract any NEW facts about the user's trading interests, style, risk tolerance, or goals. Respond ONLY with a JSON object (no markdown, no preamble) with these optional keys: tickers_of_interest (array of strings), trading_style (object), risk_tolerance (object), goals (array of strings). If nothing new was learned, respond with {}.
+
+User message: ${lastUserMessage}
+Assistant response: ${fullContent}`;
+
+                    const haikuRes = await fetch("https://api.anthropic.com/v1/messages", {
+                      method: "POST",
+                      headers: {
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        model: "claude-haiku-4-5-20251001",
+                        max_tokens: 500,
+                        messages: [{ role: "user", content: extractionPrompt }],
+                      }),
+                    });
+
+                    if (!haikuRes.ok) return;
+
+                    const haikuData = await haikuRes.json();
+                    const textBlock = haikuData.content?.find((b: { type: string }) => b.type === "text");
+                    if (!textBlock?.text) return;
+
+                    const cleaned = textBlock.text.replace(/```json|```/g, "").trim();
+                    const extracted = JSON.parse(cleaned);
+
+                    if (Object.keys(extracted).length === 0) return;
+
+                    const { data: existing } = await adminSupabase
+                      .from("ai_user_memory")
+                      .select("*")
+                      .eq("user_id", user.id)
+                      .maybeSingle();
+
+                    const mergedTickers = Array.from(new Set([
+                      ...(existing?.tickers_of_interest ?? []),
+                      ...(extracted.tickers_of_interest ?? []),
+                    ]));
+
+                    const mergedGoals = Array.from(new Set([
+                      ...(existing?.goals ?? []),
+                      ...(extracted.goals ?? []),
+                    ]));
+
+                    await adminSupabase.from("ai_user_memory").upsert({
+                      user_id: user.id,
+                      tickers_of_interest: mergedTickers,
+                      trading_style: { ...(existing?.trading_style ?? {}), ...(extracted.trading_style ?? {}) },
+                      risk_tolerance: { ...(existing?.risk_tolerance ?? {}), ...(extracted.risk_tolerance ?? {}) },
+                      goals: mergedGoals,
+                      updated_at: new Date().toISOString(),
+                    }, { onConflict: "user_id" });
+                  } catch (e) {
+                    console.error("Memory extraction error:", e);
+                  }
+                })();
+              }
+            } catch (e) {
+              console.error("PRO memory/log error:", e);
+            }
+          }
         }
+
       })();
 
       // Don't await - let it save in background
