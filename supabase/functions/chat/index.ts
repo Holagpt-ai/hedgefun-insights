@@ -63,6 +63,33 @@ serve(async (req) => {
       }
     }
 
+    // Memory context (PRO/admin only)
+    let memoryContext = "";
+    const isProOrAdmin = userPlan === "pro" || userPlan === "admin";
+
+    if (user && isProOrAdmin) {
+      try {
+        const { data: memory } = await adminSupabase
+          .from("ai_user_memory")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (memory) {
+          memoryContext = `\n\nKNOWN CONTEXT ABOUT THIS USER (use naturally, don't repeat back verbatim):
+- Tickers of interest: ${JSON.stringify(memory.tickers_of_interest ?? [])}
+- Trading style: ${JSON.stringify(memory.trading_style ?? {})}
+- Risk tolerance: ${JSON.stringify(memory.risk_tolerance ?? {})}
+- Goals: ${JSON.stringify(memory.goals ?? [])}
+- Recurring patterns observed: ${JSON.stringify(memory.recurring_observations ?? [])}`;
+        }
+      } catch (e) {
+        console.error("Memory read error:", e);
+      }
+    }
+
+
+
     const today = new Date().toISOString().split("T")[0];
 
     // Rate limiting
