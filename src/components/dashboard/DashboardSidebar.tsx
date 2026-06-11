@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Gamepad2,
   Bell, Newspaper, MessageSquare, Settings, CreditCard, LifeBuoy,
+  ChevronsLeft, ChevronsRight,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -46,18 +47,28 @@ export default function DashboardSidebar() {
   const { pathname } = useLocation();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
+  const [collapsed, setCollapsed] = useState(() => {
+    try { return localStorage.getItem("dashboardSidebarCollapsed") === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("dashboardSidebarCollapsed", String(collapsed)); } catch {}
+  }, [collapsed]);
+
   const isPro = profile?.plan === "pro" || profile?.plan === "unlimited" || profile?.plan === "admin";
 
   const openUpgrade = () => setUpgradeOpen(true);
 
   return (
     <aside
-      className="w-[220px] shrink-0 border-r border-border bg-surface-card overflow-y-auto"
-      style={{ minHeight: "calc(100vh - 64px)" }}
+      className="shrink-0 border-r border-border bg-surface-card overflow-y-auto transition-[width] duration-200 ease-in-out flex flex-col"
+      style={{ width: collapsed ? 52 : 220, minHeight: "calc(100vh - 64px)" }}
     >
       <nav className="py-4 px-2 space-y-1">
         {NAV.map((entry, i) => {
           if ("section" in entry) {
+            if (collapsed) {
+              return <div key={`s-${i}`} className="h-2" aria-hidden />;
+            }
             return (
               <div
                 key={`s-${i}`}
@@ -73,7 +84,8 @@ export default function DashboardSidebar() {
           const requiresUpgrade = entry.plan === "pro" && !isPro;
 
           const baseClass = cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+            "flex items-center rounded-md text-sm transition-colors",
+            collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
             active
               ? "bg-accent-blue-light border-l-[3px] border-accent-blue text-accent-blue font-medium"
               : "text-foreground hover:bg-muted/50",
@@ -83,23 +95,29 @@ export default function DashboardSidebar() {
           const content = (
             <>
               <span className="flex-shrink-0">{entry.icon}</span>
-              <span className="flex-1 truncate">{entry.label}</span>
-              {isLocked && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  Soon
-                </span>
-              )}
-              {requiresUpgrade && !isLocked && (
-                <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent-blue text-primary-foreground">
-                  PRO
-                </span>
+              {!collapsed && (
+                <>
+                  <span className="flex-1 truncate">{entry.label}</span>
+                  {isLocked && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                      Soon
+                    </span>
+                  )}
+                  {requiresUpgrade && !isLocked && (
+                    <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-accent-blue text-primary-foreground">
+                      PRO
+                    </span>
+                  )}
+                </>
               )}
             </>
           );
 
+          const tooltip = collapsed ? entry.label : undefined;
+
           if (isLocked) {
             return (
-              <div key={entry.label} className={baseClass}>
+              <div key={entry.label} className={baseClass} title={tooltip}>
                 {content}
               </div>
             );
@@ -111,6 +129,7 @@ export default function DashboardSidebar() {
                 key={entry.label}
                 type="button"
                 onClick={openUpgrade}
+                title={tooltip}
                 className={cn(baseClass, "w-full text-left")}
               >
                 {content}
@@ -119,13 +138,13 @@ export default function DashboardSidebar() {
           }
 
           return (
-            <NavLink key={entry.label} to={entry.route!} className={baseClass}>
+            <NavLink key={entry.label} to={entry.route!} className={baseClass} title={tooltip}>
               {content}
             </NavLink>
           );
         })}
 
-        {!isPro && (
+        {!isPro && !collapsed && (
           <div className="mt-6 mx-2 p-3 rounded-lg border border-border bg-accent-blue-light/40">
             <p className="text-xs text-foreground mb-2 leading-snug">
               Unlock AM/PM Inbox, AI Analyst, Stock Journal and more.
@@ -165,6 +184,24 @@ export default function DashboardSidebar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Collapse toggle */}
+      <button
+        onClick={() => setCollapsed((c) => !c)}
+        className={cn(
+          "mt-auto flex items-center border-t border-border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors cursor-pointer",
+          collapsed ? "justify-center px-3 py-3" : "gap-2 px-4 py-3"
+        )}
+      >
+        {collapsed ? (
+          <ChevronsRight className="h-4 w-4 shrink-0" />
+        ) : (
+          <>
+            <ChevronsLeft className="h-4 w-4 shrink-0" />
+            <span className="text-sm">Collapse</span>
+          </>
+        )}
+      </button>
     </aside>
   );
 }
