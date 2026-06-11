@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.refresh-market-data]
 verify_jwt = true
+
+[functions.generate-daily-brief]
+verify_jwt = false
