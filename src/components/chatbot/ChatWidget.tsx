@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { streamChat, type ChatMessage } from "@/lib/chat";
 import { trackEvent } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const WELCOME_MSG =
@@ -66,9 +67,12 @@ export function ChatWidget() {
       let assistantContent = "";
       setMessages([...newMessages, { role: "assistant", content: "" }]);
 
+      const { data: { session } } = await supabase.auth.getSession();
+
       await streamChat({
         messages: newMessages,
         sessionToken: getSessionToken(),
+        accessToken: session?.access_token,
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages([...newMessages, { role: "assistant", content: assistantContent }]);
