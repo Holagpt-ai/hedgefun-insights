@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import PublicLayout from "@/layouts/PublicLayout";
 import AdminLayout from "@/layouts/AdminLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
+import SmartLayout from "@/layouts/SmartLayout";
 import DashboardHome from "@/pages/dashboard/DashboardHome";
 import AMInbox from "@/pages/dashboard/AMInbox";
 import PMInbox from "@/pages/dashboard/PMInbox";
@@ -123,11 +124,7 @@ const App = () => (
                   <Route path="/ipos/upcoming" element={<UpcomingIposPage />} />
                   <Route path="/ipos" element={<RecentIposPage />} />
                   <Route path="/earnings" element={<EarningsPage />} />
-                  <Route path="/watchlist" element={<WatchlistPage />} />
-                  <Route path="/journal" element={<JournalPage />} />
                   <Route path="/pro" element={<ProPage />} />
-                  <Route path="/account" element={<AccountPage />} />
-                  <Route path="/account/billing" element={<BillingPage />} />
                   <Route path="/news" element={<NewsPage />} />
                   <Route path="/stocks/exchanges" element={<StockExchangesPage />} />
                   <Route path="/stocks/compare" element={<StockComparePage />} />
@@ -181,7 +178,7 @@ const App = () => (
                   <Route path="/terms-and-conditions" element={<Navigate to="/terms" replace />} />
                   <Route path="/disclaimer" element={<DisclaimerPage />} />
                   <Route path="/affiliates" element={<AffiliatesPage />} />
-                  <Route path="/support" element={<SupportPage />} />
+                  
                   <Route path="/sitemap" element={<SitemapPage />} />
                   <Route path="/reset-password" element={<ResetPasswordPage />} />
                   <Route path="/signup" element={<AuthRoutePage defaultMode="signup" />} />
@@ -198,7 +195,14 @@ const App = () => (
                   <Route path="/dashboard/screeners" element={<Screeners />} />
                 </Route>
 
-
+                {/* Smart routes — dashboard chrome if authed, public chrome if not */}
+                <Route element={<SmartLayout />}>
+                  <Route path="/watchlist" element={<WatchlistPage />} />
+                  <Route path="/journal" element={<JournalPage />} />
+                  <Route path="/account" element={<AccountPage />} />
+                  <Route path="/account/billing" element={<BillingPage />} />
+                  <Route path="/support" element={<SupportPage />} />
+                </Route>
 
                 {/* Chart routes — standalone layout */}
                 <Route path="/chart/:ticker" element={<ChartPage />} />
