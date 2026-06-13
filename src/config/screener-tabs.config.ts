@@ -53,7 +53,22 @@ export interface ScreenerTabConfig {
   };
   columns: ColumnDef[];
   placeholderRows: ScreenerRow[];
+  /** legacy/optional fields used by older renderers */
+  featured?: boolean;
+  freeRowLimit?: number;
+  rows?: ScreenerRow[];
+  criteria?: string[];
+  tier?: "free" | "pro";
+  badge?: "live" | "delayed";
 }
+
+/** Legacy type alias */
+export type ScreenerTab = ScreenerTabConfig;
+
+export const DEFAULT_SCREENER_TAB_ID = "day_trade_radar";
+
+export const getScreenerTabById = (id: string): ScreenerTabConfig | undefined =>
+  SCREENER_TABS.find((t) => t.id === id);
 
 const DATA_SOURCE = {
   providers: ["fiscal_ai", "sp_global"],
