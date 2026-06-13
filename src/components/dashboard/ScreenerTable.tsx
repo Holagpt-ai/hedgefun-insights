@@ -1,3 +1,4 @@
+import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ScreenerTab, ColumnFormat } from "@/config/screener-tabs.config";
 
@@ -40,9 +41,37 @@ function percentClass(value: number): string {
 
 export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
   const navigate = useNavigate();
-  const rows = tab.rows;
+  const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+
+  const handleSortClick = (key: string) => {
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, direction: "desc" };
+      if (prev.direction === "desc") return { key, direction: "asc" };
+      return null;
+    });
+  };
+
+  const sortedRows = useMemo(() => {
+    if (!sort) return tab.rows;
+    const col = tab.columns.find((c) => c.key === sort.key);
+    if (!col) return tab.rows;
+    const dir = sort.direction === "asc" ? 1 : -1;
+    const isText = col.format === "text";
+    return [...tab.rows].sort((a, b) => {
+      const av = a[sort.key];
+      const bv = b[sort.key];
+      const aNull = av === null || av === undefined || av === "";
+      const bNull = bv === null || bv === undefined || bv === "";
+      if (aNull && bNull) return 0;
+      if (aNull) return 1;
+      if (bNull) return -1;
+      if (isText) return String(av).localeCompare(String(bv)) * dir;
+      return (Number(av) - Number(bv)) * dir;
+    });
+  }, [sort, tab.rows, tab.columns]);
+
   const isFullGate = !isPro && tab.freeRowLimit === 0;
-  const visibleCount = isPro ? rows.length : tab.freeRowLimit;
+  const visibleCount = isPro ? sortedRows.length : tab.freeRowLimit;
 
   return (
     <div className="space-y-3">
@@ -72,20 +101,26 @@ export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
           <table className="w-full text-[13px]">
             <thead className="bg-muted/50">
               <tr>
-                {tab.columns.map((col) => (
-                  <th
-                    key={col.key}
-                    className={`px-3 py-2 font-semibold text-muted-foreground text-[11px] uppercase tracking-wide ${
-                      col.align === "right" ? "text-right" : "text-left"
-                    }`}
-                  >
-                    {col.label}
-                  </th>
-                ))}
+                {tab.columns.map((col) => {
+                  const active = sort?.key === col.key;
+                  const indicator = active ? (sort!.direction === "asc" ? " ▲" : " ▼") : "";
+                  return (
+                    <th
+                      key={col.key}
+                      onClick={() => handleSortClick(col.key)}
+                      className={`px-3 py-2 font-semibold text-[11px] uppercase tracking-wide cursor-pointer select-none hover:text-foreground transition-colors ${
+                        active ? "text-foreground" : "text-muted-foreground"
+                      } ${col.align === "right" ? "text-right" : "text-left"}`}
+                    >
+                      {col.label}
+                      <span className="text-accent-blue">{indicator}</span>
+                    </th>
+                  );
+                })}
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => {
+              {sortedRows.map((row, idx) => {
                 const blurred = !isPro && idx >= visibleCount;
                 return (
                   <tr
@@ -147,13 +182,13 @@ export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
       </div>
 
       {/* Partial gate prompt */}
-      {!isPro && !isFullGate && rows.length > tab.freeRowLimit && (
+      {!isPro && !isFullGate && sortedRows.length > tab.freeRowLimit && (
         <div className="text-center pt-1">
           <button
             onClick={() => navigate("/pro")}
             className="text-[12px] font-semibold text-accent-blue hover:underline"
           >
-            Unlock all {rows.length} results with PRO — $29/month →
+            Unlock all {sortedRows.length} results with PRO — $29/month →
           </button>
         </div>
       )}
