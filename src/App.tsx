@@ -194,6 +194,7 @@ const App = () => (
                   <Route path="/dashboard/am" element={<AMInbox />} />
                   <Route path="/dashboard/pm" element={<PMInbox />} />
                   <Route path="/dashboard/screeners" element={<Screeners />} />
+                  <Route path="/dashboard/ai" element={<AIAnalyst />} />
                 </Route>
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
