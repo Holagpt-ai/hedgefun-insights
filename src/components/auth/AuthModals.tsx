@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export function AuthModals({ mode, onClose, onSwitch }: AuthModalsProps) {
 }
 
 function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onSwitchToLogin: () => void }) {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -68,7 +70,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: 'https://www.hedgefun.fun',
+        emailRedirectTo: 'https://www.hedgefun.fun/dashboard',
       },
     });
     setLoading(false);
@@ -85,7 +87,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://www.hedgefun.fun',
+        redirectTo: 'https://www.hedgefun.fun/dashboard',
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -144,6 +146,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
 }
 
 function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onSwitchToSignup: () => void }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -159,6 +162,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
     } else {
       trackEvent("login_success");
       onSuccess();
+      navigate("/dashboard");
     }
   };
 
@@ -166,7 +170,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://www.hedgefun.fun',
+        redirectTo: 'https://www.hedgefun.fun/dashboard',
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
