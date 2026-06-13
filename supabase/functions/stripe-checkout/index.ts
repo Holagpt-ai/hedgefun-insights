@@ -49,7 +49,7 @@ serve(async (req) => {
     const sessionParams: Record<string, unknown> = {
       line_items: [{ price: priceId, quantity: 1 }],
       mode: "subscription",
-      success_url: `https://hedgefun.fun/account?success=true`,
+      success_url: `https://hedgefun.fun/dashboard?welcome=true`,
       cancel_url: `https://hedgefun.fun/pro?canceled=true`,
       metadata: { userId: user.id },
       subscription_data: { trial_period_days: 7 },
