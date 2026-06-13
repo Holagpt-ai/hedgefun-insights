@@ -4,12 +4,16 @@
 
 export type ScreenerDataType = "string" | "number" | "percent" | "currency" | "shares";
 
+export type ColumnFormat = ScreenerDataType | "text" | "volume" | "multiplier" | "shares" | "price" | "percent";
+
 export interface ColumnDef {
   key: string;
   label: string;
   dataType: ScreenerDataType;
   sortable: boolean;
   align?: "left" | "right" | "center";
+  /** legacy alias for older table renderers */
+  format?: ColumnFormat;
 }
 
 export type FilterOperator = "gte" | "lte" | "gt" | "lt" | "eq" | "between";
