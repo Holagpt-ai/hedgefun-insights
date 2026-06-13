@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Gamepad2,
+  Compass, Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Gamepad2,
   Bell, Newspaper, MessageSquare, Settings, CreditCard, LifeBuoy,
   ChevronsLeft, ChevronsRight,
 } from "lucide-react";
