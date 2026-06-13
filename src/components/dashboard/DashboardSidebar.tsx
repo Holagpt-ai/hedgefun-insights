@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
-  Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Gamepad2,
+  Compass, Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Gamepad2,
   Bell, Newspaper, MessageSquare, Settings, CreditCard, LifeBuoy,
   ChevronsLeft, ChevronsRight,
 } from "lucide-react";
@@ -23,6 +23,7 @@ type NavEntry =
     };
 
 const NAV: NavEntry[] = [
+  { label: "Browse Stocks", icon: <Compass className="h-4 w-4" />, route: "/", plan: "free" },
   { section: "Main" },
   { label: "AM Inbox",      icon: <Sun className="h-4 w-4" />,        route: "/dashboard/am",        plan: "pro" },
   { label: "PM Inbox",      icon: <Moon className="h-4 w-4" />,       route: "/dashboard/pm",        plan: "pro" },
