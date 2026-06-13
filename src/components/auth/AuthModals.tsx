@@ -70,7 +70,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: 'https://www.hedgefun.fun',
+        emailRedirectTo: 'https://www.hedgefun.fun/dashboard',
       },
     });
     setLoading(false);
