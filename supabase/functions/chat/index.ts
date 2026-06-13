@@ -7,28 +7,32 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are HedgeFun AI, a specialized stock market assistant for HedgeFun.fun.
+const SYSTEM_PROMPT = `You are HedgeFun AI, an elite stock market analyst and trading assistant for HedgeFun.fun. You have deep expertise in technical analysis, momentum trading, and market structure.
 
 STRICT SCOPE RULES:
-- ONLY answer questions about: stocks, ETFs, market analysis, financial metrics (P/E ratio, EPS, market cap, revenue, etc.), trading strategies, market news, IPOs, earnings, dividends, economic indicators, and investment concepts.
+- ONLY answer questions about: stocks, ETFs, options, market analysis, financial metrics (P/E, EPS, market cap, revenue, RVOL, float, short interest), trading strategies, market news, IPOs, earnings, dividends, economic indicators, and investment concepts.
 - NEVER discuss anything outside of financial markets and investing.
 - If asked anything unrelated, respond: "I'm HedgeFun AI — I can only help with stock market and investing questions. What would you like to know about the markets?"
 
-RESPONSE STYLE:
-- Be concise, data-focused, and professional. Under 250 words unless detail is explicitly requested.
-- Always include ticker symbol in parentheses e.g. Apple (AAPL).
-- Format: use $, %, B for billions, M for millions.
-- End every response with: "This is not financial advice — always do your own research."
+TRADING EXPERTISE:
+- You are familiar with momentum and day trading setups including: Flat Top Breakout, Bottom Bouncer, Flat Base Breakout, and Breakout/Pullback to Support.
+- When discussing price action, reference these setups where relevant.
+- You understand RVOL, float rotation, short squeezes, gap-and-go patterns.
 
-CAPABILITIES: Explain financial metrics, discuss market trends, trading concepts (options, DCA, short selling), macro factors, earnings reports, IPO filings.`;
+RESPONSE STYLE:
+- Be concise, data-focused, and professional. Under 300 words unless detail is explicitly requested.
+- Always include ticker symbol in parentheses e.g. Apple (AAPL).
+- Format numbers: use $, %, B for billions, M for millions.
+- Structure longer responses with clear sections.
+- End every response with: "⚠️ Not financial advice — always do your own research."
+
+CAPABILITIES: Technical analysis, financial metrics, market trends, trading concepts, macro factors, earnings analysis, IPO filings, sector rotation, risk management.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
     const { messages, sessionToken } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -133,50 +137,93 @@ serve(async (req) => {
       }
     }
 
-    // Call Lovable AI Gateway (Gemini)
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // Call Anthropic Claude API
+    const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+
+    const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "x-api-key": ANTHROPIC_API_KEY,
+        "anthropic-version": "2023-06-01",
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT + memoryContext },
-          ...messages,
-        ],
+        model: "claude-sonnet-4-6",
+        max_tokens: 1024,
+        system: SYSTEM_PROMPT + memoryContext,
+        messages: messages,
         stream: true,
       }),
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
+    if (!anthropicResponse.ok) {
+      if (anthropicResponse.status === 429) {
         return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      if (response.status === 402) {
-        return new Response(JSON.stringify({ error: "AI service temporarily unavailable." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const t = await response.text();
-      console.error("AI gateway error:", response.status, t);
+      const t = await anthropicResponse.text();
+      console.error("Anthropic API error:", anthropicResponse.status, t);
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
+    // Convert Anthropic SSE format to OpenAI-compatible format for src/lib/chat.ts
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
+
+    (async () => {
+      const reader = anthropicResponse.body!.getReader();
+      const decoder = new TextDecoder();
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          const text = decoder.decode(value, { stream: true });
+          for (const line of text.split("\n")) {
+            if (!line.startsWith("data: ")) continue;
+            const jsonStr = line.slice(6).trim();
+            if (jsonStr === "[DONE]") {
+              await writer.write(encoder.encode("data: [DONE]\n\n"));
+              break;
+            }
+            try {
+              const parsed = JSON.parse(jsonStr);
+              // Anthropic streams content_block_delta events
+              if (parsed.type === "content_block_delta" && parsed.delta?.text) {
+                const openAIChunk = {
+                  choices: [{ delta: { content: parsed.delta.text } }],
+                };
+                await writer.write(
+                  encoder.encode(`data: ${JSON.stringify(openAIChunk)}\n\n`)
+                );
+              }
+              // Forward stream_end as [DONE]
+              if (parsed.type === "message_stop") {
+                await writer.write(encoder.encode("data: [DONE]\n\n"));
+              }
+            } catch { /* partial JSON, skip */ }
+          }
+        }
+      } finally {
+        writer.close();
+      }
+    })();
+
+    const response = readable;
+
     // For session tracking, we need to collect the full response
     // But we also want to stream to the client
     // Solution: tee the stream - one for client, one for session saving
     if (sessionToken) {
       // Collect full response for session saving while streaming
-      const [clientStream, saveStream] = response.body!.tee();
+      const [clientStream, saveStream] = response.tee();
 
       // Save session in background
       const savePromise = (async () => {
@@ -233,7 +280,6 @@ serve(async (req) => {
               });
 
               // 3c. Extract memory via Claude Haiku (fire-and-forget)
-              const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
               if (ANTHROPIC_API_KEY) {
                 (async () => {
                   try {
@@ -312,7 +358,7 @@ Assistant response: ${fullContent}`;
       });
     }
 
-    return new Response(response.body, {
+    return new Response(response, {
       headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
     });
   } catch (e) {
