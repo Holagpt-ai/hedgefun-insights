@@ -49,6 +49,7 @@ export function AuthModals({ mode, onClose, onSwitch }: AuthModalsProps) {
 }
 
 function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onSwitchToLogin: () => void }) {
+  const navigate = useNavigate();
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
