@@ -146,6 +146,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
 }
 
 function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onSwitchToSignup: () => void }) {
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -161,6 +162,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
     } else {
       trackEvent("login_success");
       onSuccess();
+      navigate("/dashboard");
     }
   };
 
