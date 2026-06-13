@@ -170,7 +170,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://www.hedgefun.fun',
+        redirectTo: 'https://www.hedgefun.fun/dashboard',
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
