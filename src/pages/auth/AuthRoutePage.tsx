@@ -14,7 +14,7 @@ export default function AuthRoutePage({ defaultMode }: AuthRoutePageProps) {
 
   if (loading) return null;
   if (user) return <Navigate to="/dashboard" replace />;
-  if (closed) return <Navigate to="/dashboard" replace />;
+  if (closed) return <Navigate to="/" replace />;
 
   return (
     <AuthModals
