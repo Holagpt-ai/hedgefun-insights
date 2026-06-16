@@ -68,7 +68,7 @@ function relativeTime(dateStr: string): string {
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
 interface ActivityEntry {
-  id: string;
+  id: number | string;
   entry_type: string;
   payload: Record<string, any> | null;
   created_at: string;
