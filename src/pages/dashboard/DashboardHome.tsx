@@ -121,7 +121,7 @@ export default function DashboardHome() {
           .in("entry_type", TRACKED_ENTRY_TYPES)
           .order("created_at", { ascending: false })
           .limit(ACTIVITY_LIMIT);
-        setActivity((data as ActivityEntry[] | null) ?? []);
+        setActivity((data as unknown as ActivityEntry[] | null) ?? []);
       } catch {
         // silent fail — empty state handles it
       } finally {
