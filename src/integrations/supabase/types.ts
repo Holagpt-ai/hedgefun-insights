@@ -386,6 +386,221 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_equity_snapshots: {
+        Row: {
+          created_at: string
+          cumulative_pnl: number
+          id: string
+          snapshot_date: string
+          trade_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cumulative_pnl?: number
+          id?: string
+          snapshot_date: string
+          trade_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cumulative_pnl?: number
+          id?: string
+          snapshot_date?: string
+          trade_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_imports: {
+        Row: {
+          broker: string | null
+          error_message: string | null
+          filename: string | null
+          id: string
+          imported_at: string
+          row_count: number | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          broker?: string | null
+          error_message?: string | null
+          filename?: string | null
+          id?: string
+          imported_at?: string
+          row_count?: number | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          broker?: string | null
+          error_message?: string | null
+          filename?: string | null
+          id?: string
+          imported_at?: string
+          row_count?: number | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_notes: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          note_type: string
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          note_type?: string
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_notes_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_stats_cache: {
+        Row: {
+          avg_loss_dollars: number | null
+          avg_win_dollars: number | null
+          id: string
+          largest_loss: number | null
+          largest_win: number | null
+          losses: number
+          period_end: string | null
+          period_start: string | null
+          total_pnl: number | null
+          total_trades: number
+          updated_at: string
+          user_id: string
+          wash_trades: number
+          win_rate: number | null
+          wins: number
+        }
+        Insert: {
+          avg_loss_dollars?: number | null
+          avg_win_dollars?: number | null
+          id?: string
+          largest_loss?: number | null
+          largest_win?: number | null
+          losses?: number
+          period_end?: string | null
+          period_start?: string | null
+          total_pnl?: number | null
+          total_trades?: number
+          updated_at?: string
+          user_id: string
+          wash_trades?: number
+          win_rate?: number | null
+          wins?: number
+        }
+        Update: {
+          avg_loss_dollars?: number | null
+          avg_win_dollars?: number | null
+          id?: string
+          largest_loss?: number | null
+          largest_win?: number | null
+          losses?: number
+          period_end?: string | null
+          period_start?: string | null
+          total_pnl?: number | null
+          total_trades?: number
+          updated_at?: string
+          user_id?: string
+          wash_trades?: number
+          win_rate?: number | null
+          wins?: number
+        }
+        Relationships: []
+      }
+      journal_trades: {
+        Row: {
+          created_at: string
+          entry_date: string
+          entry_price: number
+          exit_date: string | null
+          exit_price: number | null
+          hold_duration_minutes: number | null
+          id: string
+          is_wash: boolean
+          qty: number
+          return_dollars: number | null
+          return_pct: number | null
+          setup_tag: string | null
+          side: string
+          status: string
+          stop_price: number | null
+          symbol: string
+          target_price: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          entry_date: string
+          entry_price: number
+          exit_date?: string | null
+          exit_price?: number | null
+          hold_duration_minutes?: number | null
+          id?: string
+          is_wash?: boolean
+          qty: number
+          return_dollars?: number | null
+          return_pct?: number | null
+          setup_tag?: string | null
+          side: string
+          status?: string
+          stop_price?: number | null
+          symbol: string
+          target_price?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          entry_date?: string
+          entry_price?: number
+          exit_date?: string | null
+          exit_price?: number | null
+          hold_duration_minutes?: number | null
+          id?: string
+          is_wash?: boolean
+          qty?: number
+          return_dollars?: number | null
+          return_pct?: number | null
+          setup_tag?: string | null
+          side?: string
+          status?: string
+          stop_price?: number | null
+          symbol?: string
+          target_price?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       market_indexes: {
         Row: {
           change_amount: number | null
@@ -929,6 +1144,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
