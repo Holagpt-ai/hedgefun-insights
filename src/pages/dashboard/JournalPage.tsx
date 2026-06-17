@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Lock } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -5,11 +6,15 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import StatsStrip from "@/components/journal/StatsStrip";
 import EquityCurve from "@/components/journal/EquityCurve";
-import EmptyJournalState from "@/components/journal/EmptyJournalState";
+import TradeTable, { type Trade } from "@/components/journal/TradeTable";
+import TradeDrawer from "@/components/journal/TradeDrawer";
 
 export default function JournalPage() {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
   const isPro =
     profile?.plan === "pro" ||
     profile?.plan === "admin" ||
@@ -63,7 +68,10 @@ export default function JournalPage() {
               <TooltipContent>Coming Soon</TooltipContent>
             </Tooltip>
             <button
-              onClick={() => {}}
+              onClick={() => {
+                setEditingTrade(null);
+                setDrawerOpen(true);
+              }}
               className="bg-accent-blue text-primary-foreground text-sm font-semibold px-4 py-2 rounded-lg hover:opacity-90 transition-opacity"
             >
               + Log Trade
@@ -99,12 +107,38 @@ export default function JournalPage() {
             </Tooltip>
           </TabsList>
           <TabsContent value="all">
-            <EmptyJournalState />
+            {user && (
+              <TradeTable
+                userId={user.id}
+                onEdit={(t) => {
+                  setEditingTrade(t);
+                  setDrawerOpen(true);
+                }}
+                refreshKey={refreshKey}
+              />
+            )}
           </TabsContent>
           <TabsContent value="open">
-            <EmptyJournalState />
+            {user && (
+              <TradeTable
+                userId={user.id}
+                filterStatus="open"
+                onEdit={(t) => {
+                  setEditingTrade(t);
+                  setDrawerOpen(true);
+                }}
+                refreshKey={refreshKey}
+              />
+            )}
           </TabsContent>
         </Tabs>
+
+        <TradeDrawer
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          trade={editingTrade}
+          onSaved={() => setRefreshKey((k) => k + 1)}
+        />
       </div>
     </TooltipProvider>
   );
