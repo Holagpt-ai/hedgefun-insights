@@ -25,7 +25,7 @@ const fmtUsd = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
-export default function EquityCurve() {
+export default function EquityCurve({ refreshKey = 0 }: { refreshKey?: number }) {
   const [data, setData] = useState<Snap[]>([]);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<Range>("ALL");
@@ -59,7 +59,7 @@ export default function EquityCurve() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   const filtered = useMemo(() => {
     if (range === "ALL" || data.length === 0) return data;

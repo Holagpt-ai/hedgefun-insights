@@ -27,7 +27,7 @@ const fmtCurrency = (n: number) =>
     maximumFractionDigits: 0,
   }).format(n);
 
-export default function StatsStrip() {
+export default function StatsStrip({ refreshKey = 0 }: { refreshKey?: number }) {
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,7 +67,7 @@ export default function StatsStrip() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [refreshKey]);
 
   if (loading) {
     return (
