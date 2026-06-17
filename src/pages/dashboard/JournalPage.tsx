@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,6 +8,7 @@ import StatsStrip from "@/components/journal/StatsStrip";
 import EquityCurve from "@/components/journal/EquityCurve";
 import TradeTable, { type Trade } from "@/components/journal/TradeTable";
 import TradeDrawer from "@/components/journal/TradeDrawer";
+import JournalAIPanel from "@/components/journal/JournalAIPanel";
 
 export default function JournalPage() {
   const { user, profile } = useAuth();
