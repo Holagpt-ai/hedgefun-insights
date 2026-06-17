@@ -92,10 +92,10 @@ export default function JournalPage() {
         </div>
 
         {/* Stats */}
-        <StatsStrip />
+        <StatsStrip refreshKey={refreshKey} />
 
         {/* Equity curve */}
-        <EquityCurve />
+        <EquityCurve refreshKey={refreshKey} />
 
         {/* Tabs */}
         <Tabs defaultValue="all" className="w-full">
