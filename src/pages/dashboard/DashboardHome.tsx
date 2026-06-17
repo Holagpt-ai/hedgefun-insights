@@ -40,14 +40,14 @@ export default function DashboardHome() {
   useEffect(() => {
     if (!user?.id) return;
     (async () => {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("ai_daily_logs")
         .select("created_at,type")
         .eq("user_id", user.id)
         .in("type", ["section_view", "ai_turn"])
         .order("created_at", { ascending: false })
         .limit(7);
-      if (data) setActivity(data as ActivityRow[]);
+      if (data) setActivity(data as unknown as ActivityRow[]);
     })();
   }, [user]);
 
