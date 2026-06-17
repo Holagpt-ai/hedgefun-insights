@@ -15,6 +15,7 @@ import AMInbox from "@/pages/dashboard/AMInbox";
 import PMInbox from "@/pages/dashboard/PMInbox";
 import Screeners from "@/pages/dashboard/Screeners";
 import AIAnalyst from "@/pages/dashboard/AIAnalyst";
+import DashboardJournalPage from "@/pages/dashboard/JournalPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -195,6 +196,7 @@ const App = () => (
                   <Route path="/dashboard/pm" element={<PMInbox />} />
                   <Route path="/dashboard/screeners" element={<Screeners />} />
                   <Route path="/dashboard/ai" element={<AIAnalyst />} />
+                  <Route path="/dashboard/journal" element={<DashboardJournalPage />} />
                 </Route>
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
