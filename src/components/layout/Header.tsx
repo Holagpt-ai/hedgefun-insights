@@ -209,7 +209,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
                   <CreditCard className="mr-2 h-4 w-4" /> Manage Billing
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={signOut}>
+                <DropdownMenuItem onClick={async () => { await signOut(); navigate("/"); }}>
                   <LogOut className="mr-2 h-4 w-4" /> Sign Out
                 </DropdownMenuItem>
               </DropdownMenuContent>
