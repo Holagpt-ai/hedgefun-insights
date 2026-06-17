@@ -154,15 +154,23 @@ export default function TradeDrawer({ open, onClose, trade, onSaved }: Props) {
       }
 
       if (notes.trim() && tradeId) {
-        await supabase.from("journal_notes").insert({
+        const { error: noteErr } = await supabase.from("journal_notes").insert({
           user_id: userId,
           trade_id: tradeId,
           note_type: "general",
           body: notes.trim(),
         });
+        if (noteErr) console.error("journal_notes insert error:", noteErr);
       }
 
-      await supabase.rpc("refresh_journal_stats", { p_user_id: userId });
+      const { data: { session } } = await supabase.auth.getSession();
+      const sessionUserId = session?.user?.id ?? userId;
+      if (sessionUserId) {
+        const { error: rpcErr } = await supabase.rpc("refresh_journal_stats", {
+          p_user_id: sessionUserId,
+        });
+        if (rpcErr) console.error("refresh_journal_stats RPC error:", rpcErr);
+      }
 
       toast.success(isEdit ? "Trade updated." : "Trade logged.");
       onSaved();
