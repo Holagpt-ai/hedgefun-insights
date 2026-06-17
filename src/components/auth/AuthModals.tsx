@@ -160,8 +160,8 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
       toast({ title: error.message, variant: "destructive" });
     } else {
       trackEvent("login_success");
-      onSuccess();
       navigate("/dashboard");
+      onSuccess();
     }
   };
 
