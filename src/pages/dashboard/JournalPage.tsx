@@ -70,6 +70,13 @@ export default function JournalPage() {
               <TooltipContent>Coming Soon</TooltipContent>
             </Tooltip>
             <button
+              onClick={() => setAiPanelOpen(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg border border-border bg-surface-card text-foreground hover:bg-muted transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              Ask AI
+            </button>
+            <button
               onClick={() => {
                 setEditingTrade(null);
                 setDrawerOpen(true);
