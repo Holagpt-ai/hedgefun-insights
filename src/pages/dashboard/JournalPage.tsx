@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Lock } from "lucide-react";
+import { Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -8,6 +8,7 @@ import StatsStrip from "@/components/journal/StatsStrip";
 import EquityCurve from "@/components/journal/EquityCurve";
 import TradeTable, { type Trade } from "@/components/journal/TradeTable";
 import TradeDrawer from "@/components/journal/TradeDrawer";
+import JournalAIPanel from "@/components/journal/JournalAIPanel";
 
 export default function JournalPage() {
   const { user, profile } = useAuth();
@@ -15,6 +16,7 @@ export default function JournalPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const isPro =
     profile?.plan === "pro" ||
     profile?.plan === "admin" ||
@@ -44,7 +46,7 @@ export default function JournalPage() {
 
   return (
     <TooltipProvider>
-      <div className="p-6 max-w-6xl mx-auto space-y-6">
+      <div className={`p-6 max-w-6xl mx-auto space-y-6 transition-all duration-300 ${aiPanelOpen ? "pr-80" : ""}`}>
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
@@ -67,6 +69,13 @@ export default function JournalPage() {
               </TooltipTrigger>
               <TooltipContent>Coming Soon</TooltipContent>
             </Tooltip>
+            <button
+              onClick={() => setAiPanelOpen(true)}
+              className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-lg border border-border bg-surface-card text-foreground hover:bg-muted transition-colors"
+            >
+              <Sparkles className="w-4 h-4" />
+              Ask AI
+            </button>
             <button
               onClick={() => {
                 setEditingTrade(null);
@@ -140,6 +149,11 @@ export default function JournalPage() {
           onSaved={() => setRefreshKey((k) => k + 1)}
         />
       </div>
+      <JournalAIPanel
+        open={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+        userId={user?.id ?? ""}
+      />
     </TooltipProvider>
   );
 }
