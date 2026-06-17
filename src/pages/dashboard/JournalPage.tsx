@@ -149,6 +149,11 @@ export default function JournalPage() {
           onSaved={() => setRefreshKey((k) => k + 1)}
         />
       </div>
+      <JournalAIPanel
+        open={aiPanelOpen}
+        onClose={() => setAiPanelOpen(false)}
+        userId={user?.id ?? ""}
+      />
     </TooltipProvider>
   );
 }
