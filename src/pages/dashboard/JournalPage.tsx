@@ -37,8 +37,11 @@ export default function JournalPage() {
             onClick={() => navigate("/pro")}
             className="bg-accent-blue text-primary-foreground text-sm font-semibold px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity duration-200"
           >
-            Unlock PRO — $29/month
+            Unlock PRO — $5/month
           </button>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Or unlock everything with Unlimited for just $10/month.
+          </p>
         </div>
       </div>
     );

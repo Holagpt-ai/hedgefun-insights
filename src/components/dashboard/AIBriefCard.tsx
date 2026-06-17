@@ -110,8 +110,11 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             onClick={() => navigate("/pro")}
             className="mt-1 bg-accent-blue text-white text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
           >
-            {config.upgradeCta ?? "Unlock PRO — $29/month"}
+            {config.upgradeCta ?? "Unlock PRO — $5/month"}
           </button>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Or unlock everything with Unlimited for just $10/month.
+          </p>
           {config.upgradeLink && (
             <button
               onClick={() => navigate("/pro")}
