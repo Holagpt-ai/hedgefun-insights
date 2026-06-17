@@ -93,7 +93,7 @@ export const AM_INBOX_CONFIG = {
   aiCardPlaceholderText:
     "Markets are showing resilience this morning as futures point slightly higher. The Fed's latest commentary suggests a dovish pivot may be closer than expected, with bond yields pulling back from recent highs. NVDA earnings after close are the key catalyst to watch — options pricing implies an 8.2% move. CPI data at 8:30 AM ET could be a volatility trigger.",
   aiCardTimestampLabel: "Generated at",
-  upgradeCta: "Unlock PRO — $29/month",
+  upgradeCta: "Unlock PRO — $5/month",
   upgradeLink: "View all PRO features →",
 } satisfies AIBriefConfig & {
   title: string;
@@ -115,7 +115,7 @@ export const PM_INBOX_CONFIG = {
   aiCardGateHeading: "PM Inbox — PRO Feature",
   aiCardGateBody:
     "Upgrade to access your daily post-market AI briefing, recap, and after-hours movers. Available on PRO.",
-  upgradeCta: "Unlock PRO — $29/month",
+  upgradeCta: "Unlock PRO — $5/month",
   aiCardTitle: "✦ AI Evening Brief",
   aiCardPlaceholderText:
     "In the live product, your AI-generated post-market briefing appears here after 3:00 PM ET.",

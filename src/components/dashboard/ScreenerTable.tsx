@@ -175,8 +175,11 @@ export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
               onClick={() => navigate("/pro")}
               className="mt-1 bg-accent-blue text-white text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
             >
-              Unlock PRO — $29/month
+              Unlock PRO — $5/month
             </button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Or unlock everything with Unlimited for just $10/month.
+            </p>
           </div>
         )}
       </div>
@@ -188,8 +191,11 @@ export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
             onClick={() => navigate("/pro")}
             className="text-[12px] font-semibold text-accent-blue hover:underline"
           >
-            Unlock all {sortedRows.length} results with PRO — $29/month →
+            Unlock all {sortedRows.length} results with PRO — $5/month →
           </button>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Or unlock everything with Unlimited for just $10/month.
+          </p>
         </div>
       )}
     </div>

@@ -43,7 +43,7 @@ export default function AdminSubscriptionsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { name: "Free", price: "$0", count: "—", features: ["Basic stock data", "10 AI queries/day", "Watchlist (5 stocks)"] },
-          { name: "Pro Monthly", price: "$29/mo", count: counts.monthly, features: ["Real-time data", "Unlimited AI", "Full screener", "Unlimited watchlist"] },
+          { name: "Pro Monthly", price: "$5/mo", count: counts.monthly, features: ["Real-time data", "Unlimited AI", "Full screener", "Unlimited watchlist"] },
           { name: "Pro Annual", price: "$240/yr", count: counts.annual, features: ["Everything in Monthly", "17% savings", "Priority support"] },
         ].map((p) => (
           <div key={p.name} style={card}>
@@ -84,7 +84,7 @@ export default function AdminSubscriptionsPage() {
               <tr key={s.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
                 <td className="py-2" style={{ color: "#64748b" }}>{s.stripe_customer_id || "—"}</td>
                 <td className="py-2">{s.plan || "free"}</td>
-                <td className="py-2">{s.plan === "pro_annual" ? "$240" : s.plan === "pro_monthly" ? "$29" : "$0"}</td>
+                <td className="py-2">{s.plan === "pro_annual" ? "$240" : s.plan === "pro_monthly" ? "$5" : "$0"}</td>
                 <td className="py-2" style={{ color: "#64748b" }}>{s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}</td>
                 <td className="py-2">
                   <span className="text-xs px-2 py-0.5 rounded" style={{ background: s.status === "active" ? "rgba(22,163,106,0.1)" : "rgba(220,38,38,0.1)", color: s.status === "active" ? "#16a34a" : "#dc2626" }}>

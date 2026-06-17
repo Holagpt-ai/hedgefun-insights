@@ -166,7 +166,7 @@ export default function DashboardSidebar() {
           <DialogHeader>
             <DialogTitle>Unlock HedgeFun PRO</DialogTitle>
             <DialogDescription>
-              Get the AM/PM Inbox, AI Analyst, Stock Journal, and the full PRO toolkit for $29/month.
+              Get the AM/PM Inbox, AI Analyst, Stock Journal, and the full PRO toolkit for $5/month.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -183,6 +183,9 @@ export default function DashboardSidebar() {
               See PRO plans
             </Button>
           </DialogFooter>
+          <p className="text-xs text-muted-foreground text-center mt-2">
+            Or unlock everything with Unlimited for just $10/month.
+          </p>
         </DialogContent>
       </Dialog>
 
