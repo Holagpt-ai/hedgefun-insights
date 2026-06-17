@@ -16,6 +16,7 @@ export default function JournalPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const isPro =
     profile?.plan === "pro" ||
     profile?.plan === "admin" ||
