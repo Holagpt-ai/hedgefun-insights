@@ -30,7 +30,7 @@ const NAV: NavEntry[] = [
   { label: "Screeners",     icon: <BarChart2 className="h-4 w-4" />,  route: "/dashboard/screeners", plan: "free" },
   { label: "AI Analyst",    icon: <Sparkles className="h-4 w-4" />,   route: "/dashboard/ai",        plan: "pro" },
   { label: "My Watchlist",  icon: <Star className="h-4 w-4" />,       route: "/watchlist",           plan: "free" },
-  { label: "Stock Journal", icon: <BookOpen className="h-4 w-4" />,   route: "/journal",             plan: "pro" },
+  { label: "Stock Journal", icon: <BookOpen className="h-4 w-4" />,   route: "/dashboard/journal",   plan: "pro" },
   { label: "HedgeFun Game", icon: <Gamepad2 className="h-4 w-4" />,   route: "/dashboard/game",      plan: "free" },
   { section: "Phase 2" },
   { label: "Price Alerts",  icon: <Bell className="h-4 w-4" />,        route: null, locked: "soon" },
