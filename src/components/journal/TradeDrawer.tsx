@@ -163,15 +163,46 @@ export default function TradeDrawer({ open, onClose, trade, onSaved }: Props) {
         if (noteErr) console.error("journal_notes insert error:", noteErr);
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      const sessionUserId = session?.user?.id ?? userId;
+      // STEP 1: Get session
+      const { data: sessionData } = await supabase.auth.getSession();
+      const sessionUserId = sessionData?.session?.user?.id ?? userId;
+
+      // STEP 2: Refresh stats cache
       if (sessionUserId) {
-        const { error: rpcErr } = await supabase.rpc("refresh_journal_stats", {
+        const { error: rpcError } = await supabase.rpc("refresh_journal_stats", {
           p_user_id: sessionUserId,
         });
-        if (rpcErr) console.error("refresh_journal_stats RPC error:", rpcErr);
+        if (rpcError) console.error("refresh_journal_stats error:", rpcError);
       }
 
+      // STEP 3: Upsert equity snapshot for today (only if trade is closed)
+      if (sessionUserId && exitNum !== null) {
+        const { data: statsRow, error: statsErr } = await supabase
+          .from("journal_stats_cache")
+          .select("total_pnl, total_trades")
+          .eq("user_id", sessionUserId)
+          .maybeSingle();
+        if (statsErr) console.error("journal_stats_cache fetch error:", statsErr);
+
+        const cumulativePnl = Number(statsRow?.total_pnl ?? 0);
+        const tradeCount = Number(statsRow?.total_trades ?? 0);
+        const snapshotDate = new Date().toISOString().split("T")[0];
+
+        const { error: snapErr } = await supabase
+          .from("journal_equity_snapshots")
+          .upsert(
+            {
+              user_id: sessionUserId,
+              snapshot_date: snapshotDate,
+              cumulative_pnl: cumulativePnl,
+              trade_count: tradeCount,
+            },
+            { onConflict: "user_id,snapshot_date" }
+          );
+        if (snapErr) console.error("journal_equity_snapshots upsert error:", snapErr);
+      }
+
+      // STEP 4: Notify caller
       toast.success(isEdit ? "Trade updated." : "Trade logged.");
       onSaved();
       onClose();
