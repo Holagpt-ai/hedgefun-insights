@@ -11,6 +11,7 @@ export async function streamChat({
   accessToken,
   model,
   attachment,
+  systemContext,
   onDelta,
   onDone,
   onError,
@@ -20,6 +21,7 @@ export async function streamChat({
   accessToken?: string;
   model?: string;
   attachment?: ChatAttachment;
+  systemContext?: string;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError?: (error: string) => void;
@@ -30,7 +32,7 @@ export async function streamChat({
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ messages, sessionToken, model, attachment }),
+    body: JSON.stringify({ messages, sessionToken, model, attachment, systemContext }),
   });
 
   if (!resp.ok) {
