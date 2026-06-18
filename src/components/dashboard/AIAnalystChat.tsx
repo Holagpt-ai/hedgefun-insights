@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Sparkles, Lock as LockIcon } from "lucide-react";
+import { Send, Loader2, Sparkles, Lock as LockIcon, Paperclip, X } from "lucide-react";
+import { toast } from "sonner";
 import { streamChat, ChatMessage } from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
