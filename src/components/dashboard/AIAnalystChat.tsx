@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Sparkles } from "lucide-react";
+import { Send, Loader2, Sparkles, Lock as LockIcon } from "lucide-react";
 import { streamChat, ChatMessage } from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,16 +14,24 @@ const QUICK_PROMPTS = [
   { label: "Market Mood", prompt: "What is the overall market mood right now? Breadth, sentiment, and key macro factors driving the tape." },
 ];
 
+const MODEL_OPTIONS = [
+  { label: "Fast", value: "claude-haiku-4-5-20251001", minPlan: "free" },
+  { label: "Standard", value: "claude-sonnet-4-6", minPlan: "pro" },
+  { label: "Deep Analysis", value: "claude-opus-4-6", minPlan: "unlimited" },
+];
+
 interface AIAnalystChatProps {
   isPro: boolean;
   userName?: string;
+  userPlan: string;
 }
 
-export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
+export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("claude-haiku-4-5-20251001");
   const [sessionToken] = useState(() => {
     const key = "hedgefun-analyst-session";
     let token = sessionStorage.getItem(key);
@@ -40,6 +48,13 @@ export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  const canUseModel = (minPlan: string) => {
+    if (minPlan === "free") return true;
+    if (minPlan === "pro") return userPlan === "pro" || userPlan === "admin" || userPlan === "unlimited";
+    if (minPlan === "unlimited") return userPlan === "unlimited" || userPlan === "admin";
+    return false;
+  };
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || streaming) return;
@@ -52,13 +67,13 @@ export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
       let assistantContent = "";
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
-      // Grab fresh access token (auto-refreshed by supabase client)
       const { data: { session } } = await supabase.auth.getSession();
 
       await streamChat({
         messages: newMessages,
         sessionToken,
         accessToken: session?.access_token,
+        model: selectedModel,
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
@@ -78,7 +93,7 @@ export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
         },
       });
     },
-    [messages, streaming, sessionToken]
+    [messages, streaming, sessionToken, selectedModel]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -94,7 +109,6 @@ export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
 
   return (
     <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 py-6">
-      {/* Header greeting — only when no messages */}
       {messages.length === 0 && (
         <div className="flex-1 flex flex-col justify-center">
           <div className="flex items-center gap-2 mb-3 text-accent-blue">
@@ -108,7 +122,6 @@ export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
             Your AI-powered trading analyst. Ask about setups, market conditions, earnings, or your watchlist.
           </p>
 
-          {/* Quick prompt cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
             {QUICK_PROMPTS.map((qp) => (
               <button
@@ -128,7 +141,6 @@ export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
         </div>
       )}
 
-      {/* Messages */}
       {messages.length > 0 && (
         <div className="flex-1 overflow-y-auto space-y-4 pb-4">
           {messages.map((msg, i) => (
@@ -156,6 +168,34 @@ export function AIAnalystChat({ isPro, userName }: AIAnalystChatProps) {
           <div ref={bottomRef} />
         </div>
       )}
+
+      {/* Model selector segmented control */}
+      <div className="flex gap-2 mb-3 justify-center">
+        {MODEL_OPTIONS.map((opt) => {
+          const accessible = canUseModel(opt.minPlan);
+          const active = selectedModel === opt.value;
+          return (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                if (accessible) setSelectedModel(opt.value);
+              }}
+              disabled={!accessible}
+              className={cn(
+                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200",
+                active
+                  ? "bg-accent-blue text-primary-foreground"
+                  : "bg-card border border-border text-foreground hover:bg-muted",
+                !accessible && "opacity-50 cursor-not-allowed hover:bg-card"
+              )}
+            >
+              {opt.label}
+              {!accessible && <LockIcon className="h-3 w-3" />}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Input area */}
       <div className="border-t border-border pt-4 mt-auto">

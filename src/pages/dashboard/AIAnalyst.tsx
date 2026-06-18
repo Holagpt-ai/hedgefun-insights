@@ -52,7 +52,7 @@ export default function AIAnalyst() {
         </div>
       )}
 
-      <AIAnalystChat isPro={isPro} userName={profile?.full_name ?? undefined} />
+      <AIAnalystChat isPro={isPro} userName={profile?.full_name ?? undefined} userPlan={profile?.plan ?? "free"} />
     </div>
   );
 }
