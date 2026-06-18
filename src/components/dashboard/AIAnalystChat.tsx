@@ -44,6 +44,35 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   });
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 5MB.", variant: "destructive" });
+      return;
+    }
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/");
+    if (!isPdf && !isImage) {
+      toast({ title: "Unsupported file type", description: "Only PDF and image files are supported.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      setAttachment({
+        type: isPdf ? "pdf" : "image",
+        data: base64,
+        mediaType: file.type,
+        fileName: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -75,6 +104,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         sessionToken,
         accessToken: session?.access_token,
         model: selectedModel,
+        attachment: attachment ?? undefined,
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
@@ -83,7 +113,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             return updated;
           });
         },
-        onDone: () => setStreaming(false),
+        onDone: () => {
+          setStreaming(false);
+          setAttachment(null);
+        },
         onError: (err) => {
           setMessages((prev) => {
             const updated = [...prev];
@@ -94,7 +127,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         },
       });
     },
-    [messages, streaming, sessionToken, selectedModel]
+    [messages, streaming, sessionToken, selectedModel, attachment]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
