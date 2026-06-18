@@ -299,8 +299,8 @@ serve(async (req) => {
           if (user) {
             await adminSupabase.from("ai_daily_logs").insert({
               user_id: user.id,
-              type: "ai_turn",
-              metadata: { model: resolvedModel, plan: userPlan },
+              entry_type: "ai_turn",
+              payload: { model: resolvedModel, plan: userPlan },
             });
           }
 
