@@ -85,9 +85,61 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     return false;
   };
 
+  const fetchDashboardContext = async (): Promise<string> => {
+    if (!user) return "";
+    try {
+      const [tradesRes, watchlistRes, activityRes] = await Promise.all([
+        supabase
+          .from("journal_trades")
+          .select("symbol, side, status, setup_tag, return_dollars, entry_date")
+          .eq("user_id", user.id)
+          .order("entry_date", { ascending: false })
+          .limit(3),
+        supabase
+          .from("watchlists")
+          .select("symbol")
+          .eq("user_id", user.id)
+          .limit(20),
+        supabase
+          .from("ai_daily_logs")
+          .select("payload")
+          .eq("user_id", user.id)
+          .eq("entry_type", "section_view")
+          .order("created_at", { ascending: false })
+          .limit(1),
+      ]);
+
+      const parts: string[] = [];
+
+      if (tradesRes.data && tradesRes.data.length > 0) {
+        const tradeLines = tradesRes.data.map((t: any) =>
+          `${t.symbol} ${t.side} ${t.status} setup:${t.setup_tag ?? "none"} pnl:${t.return_dollars ?? "open"}`
+        );
+        parts.push(`Recent trades:\n${tradeLines.join("\n")}`);
+      }
+
+      if (watchlistRes.data && watchlistRes.data.length > 0) {
+        const symbols = watchlistRes.data.map((w: any) => w.symbol).join(", ");
+        parts.push(`Watchlist: ${symbols}`);
+      }
+
+      if (activityRes.data && activityRes.data.length > 0) {
+        const section = (activityRes.data[0]?.payload as any)?.section;
+        if (section) parts.push(`Last viewed section: ${section}`);
+      }
+
+      return parts.length > 0 ? parts.join("\n\n") : "";
+    } catch {
+      return "";
+    }
+  };
+
   const sendMessage = useCallback(
     async (content: string) => {
       if (!content.trim() || streaming) return;
+
+      const systemContext = await fetchDashboardContext();
+
       const userMessage: ChatMessage = { role: "user", content: content.trim() };
       const newMessages = [...messages, userMessage];
       setMessages(newMessages);
@@ -105,6 +157,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         accessToken: session?.access_token,
         model: selectedModel,
         attachment: attachment ?? undefined,
+        systemContext: systemContext || undefined,
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
@@ -127,7 +180,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         },
       });
     },
-    [messages, streaming, sessionToken, selectedModel, attachment]
+    [messages, streaming, sessionToken, selectedModel, attachment, user]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
