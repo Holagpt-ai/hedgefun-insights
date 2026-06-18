@@ -82,18 +82,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (deepLinkFiredRef.current) return;
-    const prompt = searchParams.get("prompt");
-    if (!prompt || !isPro) return;
-    deepLinkFiredRef.current = true;
-    setInput(decodeURIComponent(prompt));
-    setSearchParams({}, { replace: true });
-    const timer = setTimeout(() => {
-      sendMessage(decodeURIComponent(prompt));
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [isPro, searchParams, setSearchParams, sendMessage]);
+  // deep-link useEffect moved below sendMessage definition to avoid TDZ
+
 
 
   const canUseModel = (minPlan: string) => {
