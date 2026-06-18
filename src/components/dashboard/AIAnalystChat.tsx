@@ -191,6 +191,21 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     [messages, streaming, sessionToken, selectedModel, attachment, user]
   );
 
+  useEffect(() => {
+    if (deepLinkFiredRef.current) return;
+    const prompt = searchParams.get("prompt");
+    if (!prompt || !isPro) return;
+    deepLinkFiredRef.current = true;
+    setInput(decodeURIComponent(prompt));
+    setSearchParams({}, { replace: true });
+    const timer = setTimeout(() => {
+      sendMessage(decodeURIComponent(prompt));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [isPro, searchParams, setSearchParams, sendMessage]);
+
+
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
