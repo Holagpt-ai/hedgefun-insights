@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Loader2, Sparkles, Lock as LockIcon } from "lucide-react";
+import { Send, Loader2, Sparkles, Lock as LockIcon, Paperclip, X } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 import { streamChat, ChatMessage } from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -43,6 +44,35 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   });
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
+
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ title: "File too large", description: "Maximum file size is 5MB.", variant: "destructive" });
+      return;
+    }
+    const isPdf = file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/");
+    if (!isPdf && !isImage) {
+      toast({ title: "Unsupported file type", description: "Only PDF and image files are supported.", variant: "destructive" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64 = (reader.result as string).split(",")[1];
+      setAttachment({
+        type: isPdf ? "pdf" : "image",
+        data: base64,
+        mediaType: file.type,
+        fileName: file.name,
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -74,6 +104,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         sessionToken,
         accessToken: session?.access_token,
         model: selectedModel,
+        attachment: attachment ?? undefined,
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
@@ -82,7 +113,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             return updated;
           });
         },
-        onDone: () => setStreaming(false),
+        onDone: () => {
+          setStreaming(false);
+          setAttachment(null);
+        },
         onError: (err) => {
           setMessages((prev) => {
             const updated = [...prev];
@@ -93,7 +127,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         },
       });
     },
-    [messages, streaming, sessionToken, selectedModel]
+    [messages, streaming, sessionToken, selectedModel, attachment]
   );
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -204,7 +238,38 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             PRO feature — Upgrade to unlock AI Analyst
           </div>
         )}
+        {attachment && (
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-xs text-muted-foreground truncate max-w-[200px]">{attachment.fileName}</span>
+            <button
+              type="button"
+              onClick={() => setAttachment(null)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,image/*"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
         <div className="flex gap-2 items-end">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isPro || streaming}
+            className={cn(
+              "shrink-0 h-11 w-11 rounded-lg border border-border bg-card text-muted-foreground",
+              "flex items-center justify-center transition-colors duration-200 hover:bg-muted",
+              (!isPro || streaming) && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
           <textarea
             ref={textareaRef}
             value={input}
