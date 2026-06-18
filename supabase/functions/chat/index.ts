@@ -295,6 +295,15 @@ serve(async (req) => {
             last_active_at: new Date().toISOString(),
           }, { onConflict: "session_token" });
 
+          // Log ai_turn for authenticated users (used for rate limiting & opus quotas)
+          if (user) {
+            await adminSupabase.from("ai_daily_logs").insert({
+              user_id: user.id,
+              type: "ai_turn",
+              metadata: { model: resolvedModel, plan: userPlan },
+            });
+          }
+
           // PRO/admin: persistent memory + daily logs + Claude Haiku extraction
           if (user && isProOrAdmin) {
             try {
