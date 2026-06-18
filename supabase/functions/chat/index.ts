@@ -103,7 +103,7 @@ serve(async (req) => {
           .from("ai_daily_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
-          .eq("type", "ai_turn")
+          .eq("entry_type", "ai_turn")
           .gte("created_at", today);
 
         if ((turnsToday ?? 0) >= 5) {
