@@ -32,7 +32,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { messages, sessionToken } = await req.json();
+    const { messages, sessionToken, model, systemContext, attachment } = await req.json();
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -99,25 +99,21 @@ serve(async (req) => {
     // Rate limiting
     if (user) {
       if (userPlan === "free") {
-        const { data: todaySessions } = await adminSupabase
-          .from("chatbot_sessions")
-          .select("messages")
+        const { count: turnsToday } = await adminSupabase
+          .from("ai_daily_logs")
+          .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
-          .gte("last_active_at", today);
+          .eq("type", "ai_turn")
+          .gte("created_at", today);
 
-        const totalUserMessages = (todaySessions ?? []).reduce((acc: number, s: { messages: unknown }) => {
-          const msgs = (s.messages as Array<{ role: string }>) ?? [];
-          return acc + msgs.filter((m) => m.role === "user").length;
-        }, 0);
-
-        if (totalUserMessages >= 10) {
+        if ((turnsToday ?? 0) >= 5) {
           return new Response(
-            JSON.stringify({ error: "Daily limit reached. Upgrade to HedgeFun Pro for unlimited AI queries." }),
+            JSON.stringify({ error: "daily_limit_reached" }),
             { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
       }
-      // Pro users: unlimited
+      // pro / admin / unlimited: unlimited
     } else if (sessionToken) {
       // Anonymous: 3 queries per session
       const { data: anonSession } = await adminSupabase
@@ -131,28 +127,74 @@ serve(async (req) => {
 
       if (anonMessages >= 3) {
         return new Response(
-          JSON.stringify({ error: "Sign up for free to get 10 daily AI queries. No credit card required." }),
+          JSON.stringify({ error: "Sign up for free to get more daily AI queries. No credit card required." }),
           { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
     }
 
+    // Model enforcement
+    const requestedModel: string = model ?? "claude-haiku-4-5-20251001";
+    let resolvedModel: string;
+    if (userPlan === "unlimited" || userPlan === "admin") {
+      if (requestedModel === "claude-opus-4-6") {
+        const { count: opusCount } = await adminSupabase
+          .from("ai_daily_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user!.id)
+          .eq("type", "ai_turn")
+          .eq("metadata->>model", "claude-opus-4-6")
+          .gte("created_at", today);
+        resolvedModel = (opusCount ?? 0) >= 20 ? "claude-sonnet-4-6" : "claude-opus-4-6";
+      } else {
+        resolvedModel = requestedModel;
+      }
+    } else if (userPlan === "pro") {
+      resolvedModel = requestedModel === "claude-opus-4-6" ? "claude-sonnet-4-6" : requestedModel;
+    } else {
+      resolvedModel = "claude-haiku-4-5-20251001";
+    }
+
     // Call Anthropic Claude API
     const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
-    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY is not configured");
+    if (!ANTHROPIC_API_KEY) throw new Error("ANTHROPIC_API_KEY not configured");
+
+    // Build messages with optional attachment on the last user message
+    const builtMessages = messages.map((m: { role: string; content: unknown }) => ({ ...m }));
+    if (attachment && builtMessages.length > 0) {
+      const lastIdx = builtMessages.length - 1;
+      const last = builtMessages[lastIdx];
+      if (last.role === "user") {
+        const textContent = typeof last.content === "string" ? last.content : "";
+        if (attachment.type === "image") {
+          last.content = [
+            { type: "image", source: { type: "base64", media_type: attachment.mediaType, data: attachment.data } },
+            { type: "text", text: textContent },
+          ];
+        } else if (attachment.type === "pdf") {
+          last.content = [
+            { type: "document", source: { type: "base64", media_type: "application/pdf", data: attachment.data } },
+            { type: "text", text: textContent },
+          ];
+        }
+      }
+    }
+
+    const baseSystem = SYSTEM_PROMPT + memoryContext;
+    const systemPrompt = systemContext ? baseSystem + "\n\n" + systemContext : baseSystem;
 
     const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
         "x-api-key": ANTHROPIC_API_KEY,
         "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: resolvedModel,
         max_tokens: 1024,
-        system: SYSTEM_PROMPT + memoryContext,
-        messages: messages,
+        system: systemPrompt,
+        messages: builtMessages,
         stream: true,
       }),
     });
@@ -252,6 +294,15 @@ serve(async (req) => {
             messages: [...messages, { role: "assistant", content: fullContent }],
             last_active_at: new Date().toISOString(),
           }, { onConflict: "session_token" });
+
+          // Log ai_turn for authenticated users (used for rate limiting & opus quotas)
+          if (user) {
+            await adminSupabase.from("ai_daily_logs").insert({
+              user_id: user.id,
+              type: "ai_turn",
+              metadata: { model: resolvedModel, plan: userPlan },
+            });
+          }
 
           // PRO/admin: persistent memory + daily logs + Claude Haiku extraction
           if (user && isProOrAdmin) {
