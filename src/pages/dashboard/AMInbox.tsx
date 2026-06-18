@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
@@ -8,7 +9,8 @@ import { estDate } from "@/lib/price-utils";
 
 export default function AMInbox() {
   const { profile } = useAuth();
-  const isPro = profile?.plan === "pro" || profile?.plan === "admin";
+  const navigate = useNavigate();
+  const isPro = profile?.plan === "pro" || profile?.plan === "admin" || profile?.plan === "unlimited";
   const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
 
   const freePills = CATALYST_PILLS.filter((p) => p.tier === "free");
@@ -49,6 +51,19 @@ export default function AMInbox() {
       <EarningsCardsGrid briefType="am" />
 
       <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
+
+      <div>
+        <button
+          onClick={() =>
+            navigate(
+              "/dashboard/ai?prompt=Give%20me%20a%20deeper%20breakdown%20of%20this%20morning%27s%20AM%20brief%20and%20key%20catalysts%20to%20watch%20today."
+            )
+          }
+          className="text-xs text-accent-blue hover:underline transition-colors duration-200"
+        >
+          Discuss in AI Analyst →
+        </button>
+      </div>
     </div>
   );
 }

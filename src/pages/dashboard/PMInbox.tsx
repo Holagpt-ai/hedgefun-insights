@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
+import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +14,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { PM_INBOX_CONFIG, PM_GATE_THRESHOLD_MINS } from "@/config/inbox.config";
+import { PM_INBOX_CONFIG, PM_GATE_THRESHOLD_MINS, PM_CATALYST_PILLS } from "@/config/inbox.config";
 import { estDate } from "@/lib/price-utils";
 
 function isBeforePMWindow(): boolean {
@@ -24,7 +25,7 @@ function isBeforePMWindow(): boolean {
 export default function PMInbox() {
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const isPro = profile?.plan === "pro" || profile?.plan === "admin";
+  const isPro = profile?.plan === "pro" || profile?.plan === "admin" || profile?.plan === "unlimited";
   const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
 
   const timeGated = isBeforePMWindow();
@@ -80,8 +81,43 @@ export default function PMInbox() {
         </div>
       ) : (
         <>
+          <DashboardIndexCards />
+          {(() => {
+            const freePills = PM_CATALYST_PILLS.filter((p) => p.tier === "free");
+            const proPills = PM_CATALYST_PILLS.filter((p) => p.tier === "pro");
+            const visiblePills = isPro ? PM_CATALYST_PILLS : freePills;
+            return (
+              <div className="flex flex-wrap gap-2">
+                {visiblePills.map((pill) => (
+                  <span
+                    key={pill.label}
+                    className="text-xs px-3 py-1.5 rounded-full border border-border bg-card text-foreground/80"
+                  >
+                    {pill.label}
+                  </span>
+                ))}
+                {!isPro && proPills.length > 0 && (
+                  <span className="text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground">
+                    + {proPills.length} more catalysts — PRO
+                  </span>
+                )}
+              </div>
+            );
+          })()}
           <EarningsCardsGrid briefType="pm" />
           <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
+          <div>
+            <button
+              onClick={() =>
+                navigate(
+                  "/dashboard/ai?prompt=Give%20me%20a%20deeper%20breakdown%20of%20today%27s%20PM%20brief%20and%20what%20to%20watch%20for%20tomorrow."
+                )
+              }
+              className="text-xs text-accent-blue hover:underline transition-colors duration-200"
+            >
+              Discuss in AI Analyst →
+            </button>
+          </div>
         </>
       )}
     </div>
