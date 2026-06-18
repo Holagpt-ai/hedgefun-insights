@@ -24,7 +24,7 @@ export function AdBanner({ slot = "top", className = "" }: AdBannerProps) {
     }
   }, []);
 
-  if (profile?.plan === "pro") return null;
+  if (profile?.plan === "pro" || profile?.plan === "admin" || profile?.plan === "unlimited") return null;
 
   if (slot === "sidebar") {
     return (

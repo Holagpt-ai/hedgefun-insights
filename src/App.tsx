@@ -15,6 +15,7 @@ import AMInbox from "@/pages/dashboard/AMInbox";
 import PMInbox from "@/pages/dashboard/PMInbox";
 import Screeners from "@/pages/dashboard/Screeners";
 import AIAnalyst from "@/pages/dashboard/AIAnalyst";
+import DashboardWatchlistPage from "@/pages/dashboard/DashboardWatchlistPage";
 import DashboardJournalPage from "@/pages/dashboard/JournalPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -196,6 +197,7 @@ const App = () => (
                   <Route path="/dashboard/pm" element={<PMInbox />} />
                   <Route path="/dashboard/screeners" element={<Screeners />} />
                   <Route path="/dashboard/ai" element={<AIAnalyst />} />
+                  <Route path="/dashboard/watchlist" element={<DashboardWatchlistPage />} />
                   <Route path="/dashboard/journal" element={<DashboardJournalPage />} />
                 </Route>
 
