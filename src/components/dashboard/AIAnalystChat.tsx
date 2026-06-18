@@ -82,6 +82,20 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  useEffect(() => {
+    if (deepLinkFiredRef.current) return;
+    const prompt = searchParams.get("prompt");
+    if (!prompt || !isPro) return;
+    deepLinkFiredRef.current = true;
+    setInput(decodeURIComponent(prompt));
+    setSearchParams({}, { replace: true });
+    const timer = setTimeout(() => {
+      sendMessage(decodeURIComponent(prompt));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [isPro, searchParams, setSearchParams, sendMessage]);
+
+
   const canUseModel = (minPlan: string) => {
     if (minPlan === "free") return true;
     if (minPlan === "pro") return userPlan === "pro" || userPlan === "admin" || userPlan === "unlimited";
