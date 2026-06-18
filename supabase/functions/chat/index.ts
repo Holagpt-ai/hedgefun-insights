@@ -103,7 +103,7 @@ serve(async (req) => {
           .from("ai_daily_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
-          .eq("type", "ai_turn")
+          .eq("entry_type", "ai_turn")
           .gte("created_at", today);
 
         if ((turnsToday ?? 0) >= 5) {
@@ -142,8 +142,8 @@ serve(async (req) => {
           .from("ai_daily_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user!.id)
-          .eq("type", "ai_turn")
-          .eq("metadata->>model", "claude-opus-4-6")
+          .eq("entry_type", "ai_turn")
+          .eq("payload->>model", "claude-opus-4-6")
           .gte("created_at", today);
         resolvedModel = (opusCount ?? 0) >= 20 ? "claude-sonnet-4-6" : "claude-opus-4-6";
       } else {
@@ -299,8 +299,8 @@ serve(async (req) => {
           if (user) {
             await adminSupabase.from("ai_daily_logs").insert({
               user_id: user.id,
-              type: "ai_turn",
-              metadata: { model: resolvedModel, plan: userPlan },
+              entry_type: "ai_turn",
+              payload: { model: resolvedModel, plan: userPlan },
             });
           }
 
