@@ -3,11 +3,14 @@ const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
+export type ChatAttachment = { type: "pdf" | "image"; data: string; mediaType: string; fileName: string };
+
 export async function streamChat({
   messages,
   sessionToken,
   accessToken,
   model,
+  attachment,
   onDelta,
   onDone,
   onError,
@@ -16,6 +19,7 @@ export async function streamChat({
   sessionToken: string;
   accessToken?: string;
   model?: string;
+  attachment?: ChatAttachment;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError?: (error: string) => void;
@@ -26,7 +30,7 @@ export async function streamChat({
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ messages, sessionToken, model }),
+    body: JSON.stringify({ messages, sessionToken, model, attachment }),
   });
 
   if (!resp.ok) {
