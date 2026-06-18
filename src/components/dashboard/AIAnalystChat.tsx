@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Send, Loader2, Sparkles, Lock as LockIcon, Paperclip, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { streamChat, ChatMessage } from "@/lib/chat";
