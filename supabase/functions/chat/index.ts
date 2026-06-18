@@ -142,8 +142,8 @@ serve(async (req) => {
           .from("ai_daily_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user!.id)
-          .eq("type", "ai_turn")
-          .eq("metadata->>model", "claude-opus-4-6")
+          .eq("entry_type", "ai_turn")
+          .eq("payload->>model", "claude-opus-4-6")
           .gte("created_at", today);
         resolvedModel = (opusCount ?? 0) >= 20 ? "claude-sonnet-4-6" : "claude-opus-4-6";
       } else {
