@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Send, Loader2, Sparkles, Lock as LockIcon, Paperclip, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { streamChat, ChatMessage } from "@/lib/chat";
@@ -46,6 +47,9 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkFiredRef = useRef(false);
+
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,6 +81,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // deep-link useEffect moved below sendMessage definition to avoid TDZ
+
+
 
   const canUseModel = (minPlan: string) => {
     if (minPlan === "free") return true;
@@ -182,6 +190,21 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     },
     [messages, streaming, sessionToken, selectedModel, attachment, user]
   );
+
+  useEffect(() => {
+    if (deepLinkFiredRef.current) return;
+    const prompt = searchParams.get("prompt");
+    if (!prompt || !isPro) return;
+    deepLinkFiredRef.current = true;
+    setInput(decodeURIComponent(prompt));
+    setSearchParams({}, { replace: true });
+    const timer = setTimeout(() => {
+      sendMessage(decodeURIComponent(prompt));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [isPro, searchParams, setSearchParams, sendMessage]);
+
+
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
