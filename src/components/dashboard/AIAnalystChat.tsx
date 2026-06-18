@@ -47,6 +47,9 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkFiredRef = useRef(false);
+
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
