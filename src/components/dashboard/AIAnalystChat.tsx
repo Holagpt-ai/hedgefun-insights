@@ -238,7 +238,38 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             PRO feature — Upgrade to unlock AI Analyst
           </div>
         )}
+        {attachment && (
+          <div className="flex items-center gap-2 mb-2 px-1">
+            <span className="text-xs text-muted-foreground truncate max-w-[200px]">{attachment.fileName}</span>
+            <button
+              type="button"
+              onClick={() => setAttachment(null)}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,image/*"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
         <div className="flex gap-2 items-end">
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={!isPro || streaming}
+            className={cn(
+              "shrink-0 h-11 w-11 rounded-lg border border-border bg-card text-muted-foreground",
+              "flex items-center justify-center transition-colors duration-200 hover:bg-muted",
+              (!isPro || streaming) && "opacity-50 cursor-not-allowed"
+            )}
+          >
+            <Paperclip className="h-4 w-4" />
+          </button>
           <textarea
             ref={textareaRef}
             value={input}
