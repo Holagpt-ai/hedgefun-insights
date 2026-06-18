@@ -73,6 +73,14 @@ export const CATALYST_PILLS: CatalystPill[] = [
   { label: "Options expiry — NVDA", tier: "pro" },
 ];
 
+export const PM_CATALYST_PILLS: CatalystPill[] = [
+  { label: "After-hours movers loading", tier: "free" },
+  { label: "Today's market recap", tier: "free" },
+  { label: "Tomorrow's economic calendar", tier: "pro" },
+  { label: "Sector rotation recap", tier: "pro" },
+  { label: "After-hours options flow", tier: "pro" },
+];
+
 export interface AIBriefConfig {
   aiCardTitle: string;
   aiCardGateHeading: string;
