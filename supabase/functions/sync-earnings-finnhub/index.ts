@@ -46,9 +46,11 @@ serve(async (req) => {
       return "during";
     };
 
-    const rows = items
-      .filter((i) => i.symbol && i.date)
-      .map((i) => ({
+    const dedupMap = new Map<string, any>();
+    for (const i of items) {
+      if (!i.symbol || !i.date) continue;
+      const key = `${i.symbol}-${i.date}`;
+      const row = {
         symbol: i.symbol,
         company_name: i.company ?? i.symbol,
         report_date: i.date,
@@ -61,7 +63,14 @@ serve(async (req) => {
               )
             : null,
         time_of_day: mapTime(i.hour),
-      }));
+      };
+      // Keep the row with more complete data (prefer actuals over estimates-only)
+      const existing = dedupMap.get(key);
+      if (!existing || (row.actual_eps !== null && existing.actual_eps === null)) {
+        dedupMap.set(key, row);
+      }
+    }
+    const rows = Array.from(dedupMap.values());
 
     let upserted = 0;
     const batchSize = 50;
