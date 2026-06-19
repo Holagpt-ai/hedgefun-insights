@@ -49,11 +49,11 @@ export default function AMInbox() {
         )}
       </div>
 
+      <NewsSection isPro={isPro} />
+
       <EarningsCardsGrid briefType="am" />
 
       <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
-
-      <NewsSection isPro={isPro} />
 
       <div>
         <button
