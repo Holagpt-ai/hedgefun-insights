@@ -49,7 +49,23 @@ export function EarningsCardsGrid({ briefType }: EarningsCardsGridProps) {
     fetchEarnings();
   }, [user, briefType]);
 
-  if (loading || earnings.length === 0) return null;
+  if (loading) {
+    return (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-24 rounded-lg border border-border bg-card animate-pulse" />
+        ))}
+      </div>
+    );
+  }
+
+  if (earnings.length === 0) {
+    return (
+      <div className="rounded-lg border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
+        No earnings scheduled for {briefType === "am" ? "this morning" : "this afternoon"}.
+      </div>
+    );
+  }
 
   const getEarningsStatus = (event: EarningsEvent) => {
     if (event.actual_eps === null) {

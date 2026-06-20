@@ -14,6 +14,7 @@ interface NewsItem {
 
 interface NewsSectionProps {
   isPro: boolean;
+  contained?: boolean;
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
@@ -32,7 +33,7 @@ function timeAgo(iso: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-export function NewsSection({ isPro }: NewsSectionProps) {
+export function NewsSection({ isPro, contained = false }: NewsSectionProps) {
   const { user } = useAuth();
   const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -68,7 +69,51 @@ export function NewsSection({ isPro }: NewsSectionProps) {
     );
   }
 
-  if (news.length === 0) return null;
+  if (news.length === 0) {
+    return (
+      <div className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold tracking-tight">Market News</h2>
+        <div className="rounded-lg border border-border bg-card px-4 py-6 text-center text-sm text-muted-foreground">
+          No news available right now.
+        </div>
+      </div>
+    );
+  }
+
+  const newsList = (
+    <div className="flex flex-col gap-2">
+      {news.map((item) => (
+        <a
+          key={item.id}
+          href={item.url ?? "#"}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-accent-blue/40 hover:bg-card/80 transition-colors duration-200"
+        >
+          <div className="flex flex-col gap-1 min-w-0">
+            <span className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-accent-blue transition-colors">
+              {item.headline}
+            </span>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+              {item.category && (
+                <span
+                  className={`px-2 py-0.5 rounded-full border ${
+                    CATEGORY_COLORS[item.category.toLowerCase()] ?? CATEGORY_COLORS.general
+                  }`}
+                >
+                  {item.category}
+                </span>
+              )}
+              {item.source && <span>{item.source}</span>}
+              <span>·</span>
+              <span>{timeAgo(item.published_at)}</span>
+            </div>
+          </div>
+          <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5 group-hover:text-accent-blue transition-colors" />
+        </a>
+      ))}
+    </div>
+  );
 
   return (
     <div className="flex flex-col gap-3">
@@ -81,38 +126,13 @@ export function NewsSection({ isPro }: NewsSectionProps) {
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
-        {news.map((item) => (
-          <a
-            key={item.id}
-            href={item.url ?? "#"}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="group flex items-start justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3 hover:border-accent-blue/40 hover:bg-card/80 transition-colors duration-200"
-          >
-            <div className="flex flex-col gap-1 min-w-0">
-              <span className="text-sm font-medium text-foreground line-clamp-2 group-hover:text-accent-blue transition-colors">
-                {item.headline}
-              </span>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
-                {item.category && (
-                  <span
-                    className={`px-2 py-0.5 rounded-full border ${
-                      CATEGORY_COLORS[item.category.toLowerCase()] ?? CATEGORY_COLORS.general
-                    }`}
-                  >
-                    {item.category}
-                  </span>
-                )}
-                {item.source && <span>{item.source}</span>}
-                <span>·</span>
-                <span>{timeAgo(item.published_at)}</span>
-              </div>
-            </div>
-            <ExternalLink className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5 group-hover:text-accent-blue transition-colors" />
-          </a>
-        ))}
-      </div>
+      {contained ? (
+        <div className="max-h-[420px] overflow-y-auto pr-1 rounded-lg border border-border/50 p-2">
+          {newsList}
+        </div>
+      ) : (
+        newsList
+      )}
 
       {!isPro && (
         <p className="text-xs text-muted-foreground italic pt-1">
