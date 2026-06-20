@@ -21,6 +21,7 @@ serve(async (req) => {
     if (!res.ok) throw new Error(`Finnhub IPO error: ${res.status}`);
     const json = await res.json();
     const items: any[] = json.ipoCalendar ?? [];
+
     const mapStatus = (s: string | undefined): "recent" | "upcoming" | "spac" => {
       if (!s) return "upcoming";
       const lower = s.toLowerCase();
@@ -28,6 +29,7 @@ serve(async (req) => {
       if (lower.includes("spac") || lower.includes("blank check")) return "spac";
       return "upcoming";
     };
+
     const rows = items
       .filter((i) => i.name && i.date)
       .map((i) => ({
@@ -39,11 +41,37 @@ serve(async (req) => {
         status: mapStatus(i.status),
         exchange: i.exchange ?? null,
       }));
+
+    // Dedup: Finnhub can return multiple rows for the same symbol+ipo_date
+    // (e.g. a listing revised from "upcoming" to "recent"). Postgres upsert
+    // fails if the same conflict key appears twice in one batch. Collapse to
+    // one row per key, preferring "recent" > "spac" > "upcoming", then a
+    // non-null offer_price as tiebreaker.
+    const statusScore = (s: string) => (s === "recent" ? 2 : s === "spac" ? 1 : 0);
+    const dedupMap = new Map<string, (typeof rows)[number]>();
+    for (const row of rows) {
+      const key = `${row.symbol ?? "null"}-${row.ipo_date}`;
+      const existing = dedupMap.get(key);
+      if (!existing) {
+        dedupMap.set(key, row);
+        continue;
+      }
+      const existingScore = statusScore(existing.status);
+      const newScore = statusScore(row.status);
+      if (
+        newScore > existingScore ||
+        (newScore === existingScore && row.offer_price !== null && existing.offer_price === null)
+      ) {
+        dedupMap.set(key, row);
+      }
+    }
+    const dedupedRows = Array.from(dedupMap.values());
+
     let upserted = 0;
     const errors: string[] = [];
     const batchSize = 50;
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize);
+    for (let i = 0; i < dedupedRows.length; i += batchSize) {
+      const batch = dedupedRows.slice(i, i + batchSize);
       const { error } = await sb
         .from("ipo_list")
         .upsert(batch, { onConflict: "symbol,ipo_date" });
@@ -54,9 +82,17 @@ serve(async (req) => {
       }
       upserted += batch.length;
     }
-    return new Response(JSON.stringify({ ok: true, fetched: items.length, upserted, errors }), {
-      headers: { "Content-Type": "application/json" },
-    });
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        fetched: items.length,
+        deduped: dedupedRows.length,
+        upserted,
+        errors,
+      }),
+      { headers: { "Content-Type": "application/json" } }
+    );
   } catch (e) {
     console.error("sync-ipo-calendar error:", e);
     return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500 });
