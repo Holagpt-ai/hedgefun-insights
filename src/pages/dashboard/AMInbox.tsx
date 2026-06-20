@@ -4,6 +4,7 @@ import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownCloc
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
 import { NewsSection } from "@/components/dashboard/NewsSection";
+import { InboxTabs } from "@/components/dashboard/InboxTabs";
 import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
 import { AM_INBOX_CONFIG, CATALYST_PILLS } from "@/config/inbox.config";
 import { estDate } from "@/lib/price-utils";
@@ -17,6 +18,14 @@ export default function AMInbox() {
   const freePills = CATALYST_PILLS.filter((p) => p.tier === "free");
   const proPills = CATALYST_PILLS.filter((p) => p.tier === "pro");
   const visiblePills = isPro ? CATALYST_PILLS : freePills;
+
+  const inboxTabs = [
+    {
+      id: "earnings",
+      label: "Earnings",
+      content: <EarningsCardsGrid briefType="am" />,
+    },
+  ];
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -49,11 +58,11 @@ export default function AMInbox() {
         )}
       </div>
 
-      <NewsSection isPro={isPro} />
-
-      <EarningsCardsGrid briefType="am" />
-
       <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
+
+      <NewsSection isPro={isPro} contained />
+
+      <InboxTabs tabs={inboxTabs} />
 
       <div>
         <button
