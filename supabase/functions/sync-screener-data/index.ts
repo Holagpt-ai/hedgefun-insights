@@ -10,17 +10,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    const { data: secretData } = await sb
-      .from("vault.decrypted_secrets")
-      .select("decrypted_secret")
-      .eq("name", "SYNC_SECRET")
-      .single();
-    const SYNC_SECRET = secretData?.decrypted_secret ?? "";
-
-    const authHeader = req.headers.get("Authorization") ?? "";
-    if (authHeader !== `Bearer ${SYNC_SECRET}`) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-    }
 
     const { data: keyData } = await sb
       .from("vault.decrypted_secrets")
