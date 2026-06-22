@@ -60,6 +60,12 @@ export const MARKET_SESSIONS: MarketSession[] = [
 /** Minutes from midnight ET at which PM Inbox unlocks. */
 export const PM_GATE_THRESHOLD_MINS = 900; // 3:00 PM ET
 
+/** Minutes from midnight ET at which the AM Brief is considered stale. */
+export const AM_BRIEF_STALE_MINS = 900; // 3:00 PM ET
+
+/** Minutes from midnight ET at which the PM Brief is considered stale. */
+export const PM_BRIEF_STALE_MINS = 1440; // midnight ET
+
 export interface CatalystPill {
   label: string;
   tier: "free" | "pro";
