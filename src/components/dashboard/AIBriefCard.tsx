@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { AM_BRIEF_STALE_MINS, PM_BRIEF_STALE_MINS } from "@/config/inbox.config";
 
 interface AIBriefCardProps {
   isPro: boolean;
@@ -23,6 +24,19 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   const [timestamp, setTimestamp] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const isStale = (() => {
+    const et = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const mins = et.getHours() * 60 + et.getMinutes();
+    return briefType === "am"
+      ? mins >= AM_BRIEF_STALE_MINS
+      : mins >= PM_BRIEF_STALE_MINS;
+  })();
+
+  const staleBannerText =
+    briefType === "am"
+      ? `Today's AM Brief was generated at ${timestamp}. Your PM Brief arrives at 3:00 PM ET.`
+      : `Today's PM Brief was generated at ${timestamp}. Your next AM Brief arrives before market open.`;
 
   useEffect(() => {
     const fetchBrief = async () => {
@@ -53,7 +67,6 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           new Date().toLocaleTimeString("en-US", {
             hour: "2-digit",
             minute: "2-digit",
-            second: "2-digit",
             timeZone: "America/New_York",
           })
         );
@@ -86,6 +99,13 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           </span>
         )}
       </div>
+
+      {isPro && isStale && content && (
+        <div className="mb-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[12px] text-amber-400">
+          <span className="mt-0.5">⏱</span>
+          <span>{staleBannerText}</span>
+        </div>
+      )}
 
       <p
         className={`text-sm leading-relaxed text-foreground/80 ${
