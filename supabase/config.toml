@@ -53,3 +53,6 @@ verify_jwt = true
 
 [functions.generate-daily-brief]
 verify_jwt = false
+
+[functions.sync-screener-data]
+verify_jwt = false
