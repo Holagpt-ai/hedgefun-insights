@@ -82,7 +82,6 @@ export default function PMInbox() {
         </div>
       ) : (
         <>
-          <DashboardIndexCards />
           {(() => {
             const freePills = PM_CATALYST_PILLS.filter((p) => p.tier === "free");
             const proPills = PM_CATALYST_PILLS.filter((p) => p.tier === "pro");
@@ -105,8 +104,17 @@ export default function PMInbox() {
               </div>
             );
           })()}
-          <EarningsCardsGrid briefType="pm" />
           <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
+          <NewsSection isPro={isPro} contained />
+          <InboxTabs
+            tabs={[
+              {
+                id: "earnings",
+                label: "Earnings",
+                content: <EarningsCardsGrid briefType="pm" />,
+              },
+            ]}
+          />
           <div>
             <button
               onClick={() =>
