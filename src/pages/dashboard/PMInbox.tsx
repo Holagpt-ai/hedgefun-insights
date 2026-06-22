@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
-import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
+import { NewsSection } from "@/components/dashboard/NewsSection";
+import { InboxTabs } from "@/components/dashboard/InboxTabs";
 import {
   Dialog,
   DialogContent,
@@ -81,7 +82,6 @@ export default function PMInbox() {
         </div>
       ) : (
         <>
-          <DashboardIndexCards />
           {(() => {
             const freePills = PM_CATALYST_PILLS.filter((p) => p.tier === "free");
             const proPills = PM_CATALYST_PILLS.filter((p) => p.tier === "pro");
@@ -104,8 +104,17 @@ export default function PMInbox() {
               </div>
             );
           })()}
-          <EarningsCardsGrid briefType="pm" />
           <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
+          <NewsSection isPro={isPro} contained />
+          <InboxTabs
+            tabs={[
+              {
+                id: "earnings",
+                label: "Earnings",
+                content: <EarningsCardsGrid briefType="pm" />,
+              },
+            ]}
+          />
           <div>
             <button
               onClick={() =>
