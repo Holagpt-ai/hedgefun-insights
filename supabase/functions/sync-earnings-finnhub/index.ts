@@ -52,7 +52,7 @@ serve(async (req) => {
       const key = `${i.symbol}-${i.date}`;
       const row = {
         symbol: i.symbol,
-        company_name: i.company ?? i.symbol,
+        company_name: i.symbol,
         report_date: i.date,
         estimate_eps: i.epsEstimate ?? null,
         actual_eps: i.epsActual ?? null,
@@ -72,10 +72,25 @@ serve(async (req) => {
     }
     const rows = Array.from(dedupMap.values());
 
+    // Batch-fetch company names from stocks table
+    const symbols = rows.map((r) => r.symbol);
+    const { data: stockRows } = await sb
+      .from("stocks")
+      .select("symbol, name")
+      .in("symbol", symbols);
+    const stockNames = new Map<string, string>(
+      (stockRows ?? []).map((s: { symbol: string; name: string }) => [s.symbol, s.name])
+    );
+
+    const namedRows = rows.map((r) => ({
+      ...r,
+      company_name: stockNames.get(r.symbol) ?? r.symbol,
+    }));
+
     let upserted = 0;
     const batchSize = 50;
-    for (let i = 0; i < rows.length; i += batchSize) {
-      const batch = rows.slice(i, i + batchSize);
+    for (let i = 0; i < namedRows.length; i += batchSize) {
+      const batch = namedRows.slice(i, i + batchSize);
       const { error } = await sb
         .from("earnings_calendar")
         .upsert(batch, { onConflict: "symbol,report_date" });
