@@ -52,7 +52,7 @@ serve(async (req) => {
       const key = `${i.symbol}-${i.date}`;
       const row = {
         symbol: i.symbol,
-        company_name: i.company ?? i.symbol,
+        company_name: i.symbol,
         report_date: i.date,
         estimate_eps: i.epsEstimate ?? null,
         actual_eps: i.epsActual ?? null,
