@@ -11,12 +11,8 @@ serve(async (req) => {
     );
 
 
-    const { data: keyData } = await sb
-      .from("vault.decrypted_secrets")
-      .select("decrypted_secret")
-      .eq("name", "POLYGON_API_KEY")
-      .single();
-    const API_KEY = keyData?.decrypted_secret ?? "";
+    const { data: keyRows } = await sb.rpc("get_secret", { name: "POLYGON_API_KEY" });
+    const API_KEY = Array.isArray(keyRows) ? (keyRows[0]?.secret ?? keyRows[0]?.decrypted_secret ?? "") : (keyRows ?? "");
 
     const headers = { "Authorization": `Bearer ${API_KEY}` };
 
