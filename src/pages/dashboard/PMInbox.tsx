@@ -4,7 +4,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
-import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
+import { NewsSection } from "@/components/dashboard/NewsSection";
+import { InboxTabs } from "@/components/dashboard/InboxTabs";
 import {
   Dialog,
   DialogContent,
