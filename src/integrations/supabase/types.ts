@@ -778,6 +778,60 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_results: {
+        Row: {
+          avg_volume: number | null
+          change_percent: number | null
+          company_name: string | null
+          float_shares: number | null
+          gap_percent: number | null
+          high_52w: number | null
+          id: string
+          low_52w: number | null
+          market_cap: number | null
+          price: number | null
+          rvol: number | null
+          symbol: string
+          tab_id: string
+          updated_at: string | null
+          volume: number | null
+        }
+        Insert: {
+          avg_volume?: number | null
+          change_percent?: number | null
+          company_name?: string | null
+          float_shares?: number | null
+          gap_percent?: number | null
+          high_52w?: number | null
+          id?: string
+          low_52w?: number | null
+          market_cap?: number | null
+          price?: number | null
+          rvol?: number | null
+          symbol: string
+          tab_id: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Update: {
+          avg_volume?: number | null
+          change_percent?: number | null
+          company_name?: string | null
+          float_shares?: number | null
+          gap_percent?: number | null
+          high_52w?: number | null
+          id?: string
+          low_52w?: number | null
+          market_cap?: number | null
+          price?: number | null
+          rvol?: number | null
+          symbol?: string
+          tab_id?: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Relationships: []
+      }
       stocks: {
         Row: {
           beta: number | null
