@@ -71,17 +71,19 @@ export function EarningsCardsGrid({ briefType }: EarningsCardsGridProps) {
     if (event.actual_eps === null) {
       return { label: "TBD", textColor: "text-[#ffaa00]", bgColor: "bg-[#332200]" };
     }
-    if ((event.surprise_percent ?? 0) > 0) {
+    const pct = event.surprise_percent;
+    const showPct = pct !== null && Math.abs(pct) <= 500;
+    if ((pct ?? 0) > 0) {
       return {
-        label: `Beat +${event.surprise_percent!.toFixed(1)}%`,
-        textColor: "text-[#22cc66]",
-        bgColor: "bg-[#0a2014]",
+        label: showPct ? `BEAT +${pct!.toFixed(1)}%` : "BEAT",
+        textColor: "text-green-400",
+        bgColor: "bg-green-950",
       };
     }
     return {
-      label: `Miss ${event.surprise_percent!.toFixed(1)}%`,
-      textColor: "text-[#ff4466]",
-      bgColor: "bg-[#200a10]",
+      label: showPct ? `MISS ${pct!.toFixed(1)}%` : "MISS",
+      textColor: "text-red-400",
+      bgColor: "bg-red-950",
     };
   };
 
