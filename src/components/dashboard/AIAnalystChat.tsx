@@ -94,49 +94,98 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   };
 
   const fetchDashboardContext = async (): Promise<string> => {
-    if (!user) return "";
     try {
-      const [tradesRes, watchlistRes, activityRes] = await Promise.all([
-        supabase
-          .from("journal_trades")
-          .select("symbol, side, status, setup_tag, return_dollars, entry_date")
-          .eq("user_id", user.id)
-          .order("entry_date", { ascending: false })
-          .limit(3),
-        supabase
-          .from("watchlists")
-          .select("symbol")
-          .eq("user_id", user.id)
-          .limit(20),
-        supabase
-          .from("ai_daily_logs")
-          .select("payload")
-          .eq("user_id", user.id)
-          .eq("entry_type", "section_view")
-          .order("created_at", { ascending: false })
-          .limit(1),
-      ]);
-
       const parts: string[] = [];
 
-      if (tradesRes.data && tradesRes.data.length > 0) {
-        const tradeLines = tradesRes.data.map((t: any) =>
-          `${t.symbol} ${t.side} ${t.status} setup:${t.setup_tag ?? "none"} pnl:${t.return_dollars ?? "open"}`
+      // ── Market data (public — no auth required) ──────────────────────────
+      const [gappersRes, radarRes, gainersRes, earningsRes] = await Promise.all([
+        supabase
+          .from("screener_results")
+          .select("symbol, company_name, price, change_percent, gap_percent, volume")
+          .eq("tab_id", "gappers")
+          .order("gap_percent", { ascending: false })
+          .limit(5),
+        supabase
+          .from("screener_results")
+          .select("symbol, company_name, price, change_percent, rvol, volume")
+          .eq("tab_id", "day_trade_radar")
+          .order("rvol", { ascending: false })
+          .limit(5),
+        supabase
+          .from("screener_results")
+          .select("symbol, company_name, price, change_percent, volume")
+          .eq("tab_id", "gainers_losers")
+          .order("change_percent", { ascending: false })
+          .limit(5),
+        supabase
+          .from("earnings_calendar")
+          .select("symbol, company_name, report_date, time_of_day, estimate_eps, actual_eps, surprise_percent")
+          .gte("report_date", new Date().toISOString().split("T")[0])
+          .order("report_date", { ascending: true })
+          .limit(8),
+      ]);
+
+      if (gappersRes.data && gappersRes.data.length > 0) {
+        const lines = gappersRes.data.map((r: any) =>
+          `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} gap ${r.gap_percent?.toFixed(1) ?? "—"}% vol ${r.volume ? (r.volume / 1_000_000).toFixed(1) + "M" : "—"}`
         );
-        parts.push(`Recent trades:\n${tradeLines.join("\n")}`);
+        parts.push(`TODAY'S TOP GAPPERS (live screener data):\n${lines.join("\n")}`);
       }
 
-      if (watchlistRes.data && watchlistRes.data.length > 0) {
-        const symbols = watchlistRes.data.map((w: any) => w.symbol).join(", ");
-        parts.push(`Watchlist: ${symbols}`);
+      if (radarRes.data && radarRes.data.length > 0) {
+        const lines = radarRes.data.map((r: any) =>
+          `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} chg ${r.change_percent?.toFixed(1) ?? "—"}% RVOL ${r.rvol?.toFixed(1) ?? "—"}x vol ${r.volume ? (r.volume / 1_000_000).toFixed(1) + "M" : "—"}`
+        );
+        parts.push(`DAY TRADE RADAR (live screener data):\n${lines.join("\n")}`);
       }
 
-      if (activityRes.data && activityRes.data.length > 0) {
-        const section = (activityRes.data[0]?.payload as any)?.section;
-        if (section) parts.push(`Last viewed section: ${section}`);
+      if (gainersRes.data && gainersRes.data.length > 0) {
+        const lines = gainersRes.data.map((r: any) =>
+          `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} chg ${r.change_percent?.toFixed(1) ?? "—"}%`
+        );
+        parts.push(`TOP GAINERS TODAY (live screener data):\n${lines.join("\n")}`);
       }
 
-      return parts.length > 0 ? parts.join("\n\n") : "";
+      if (earningsRes.data && earningsRes.data.length > 0) {
+        const lines = earningsRes.data.map((r: any) => {
+          const beat = r.surprise_percent != null
+            ? ` surprise ${r.surprise_percent > 0 ? "+" : ""}${r.surprise_percent.toFixed(1)}%`
+            : "";
+          return `${r.symbol} (${r.company_name ?? r.symbol}): ${r.report_date} ${r.time_of_day ?? ""} est EPS ${r.estimate_eps ?? "—"} actual ${r.actual_eps ?? "TBD"}${beat}`;
+        });
+        parts.push(`UPCOMING EARNINGS:\n${lines.join("\n")}`);
+      }
+
+      // ── User-specific data (auth required) ───────────────────────────────
+      if (user) {
+        const [tradesRes, watchlistRes] = await Promise.all([
+          supabase
+            .from("journal_trades")
+            .select("symbol, side, status, setup_tag, return_dollars, entry_date")
+            .eq("user_id", user.id)
+            .order("entry_date", { ascending: false })
+            .limit(5),
+          supabase
+            .from("watchlists")
+            .select("symbol")
+            .eq("user_id", user.id)
+            .limit(20),
+        ]);
+
+        if (tradesRes.data && tradesRes.data.length > 0) {
+          const lines = tradesRes.data.map((t: any) =>
+            `${t.symbol} ${t.side} ${t.status} setup:${t.setup_tag ?? "none"} pnl:${t.return_dollars ?? "open"}`
+          );
+          parts.push(`YOUR RECENT TRADES:\n${lines.join("\n")}`);
+        }
+
+        if (watchlistRes.data && watchlistRes.data.length > 0) {
+          const symbols = watchlistRes.data.map((w: any) => w.symbol).join(", ");
+          parts.push(`YOUR WATCHLIST: ${symbols}`);
+        }
+      }
+
+      return parts.join("\n\n");
     } catch {
       return "";
     }
