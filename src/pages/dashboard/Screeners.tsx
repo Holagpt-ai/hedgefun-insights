@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScreenerTable } from "@/components/dashboard/ScreenerTable";
+import { useScreenerData } from "@/hooks/useScreenerData";
 import {
   SCREENER_TABS,
   DEFAULT_SCREENER_TAB_ID,
@@ -9,10 +10,14 @@ import {
 
 export default function Screeners() {
   const { profile } = useAuth();
-  const isPro = profile?.plan === "pro" || profile?.plan === "admin";
+  const isPro =
+    profile?.plan === "pro" ||
+    profile?.plan === "admin" ||
+    profile?.plan === "unlimited";
 
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
+  const { rows, loading, lastUpdated } = useScreenerData(activeTabId);
 
   return (
     <div className="space-y-4">
@@ -45,7 +50,13 @@ export default function Screeners() {
 
       <p className="text-[13px] text-muted-foreground">{activeTab.description}</p>
 
-      <ScreenerTable tab={activeTab} isPro={isPro} />
+      <ScreenerTable
+        tab={activeTab}
+        isPro={isPro}
+        liveRows={rows}
+        loading={loading}
+        lastUpdated={lastUpdated}
+      />
     </div>
   );
 }
