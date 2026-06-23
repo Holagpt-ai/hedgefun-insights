@@ -11,14 +11,8 @@ serve(async (req) => {
     );
 
 
-    const { data: secretRows, error: vaultErr } = await sb
-      .schema("vault")
-      .from("decrypted_secrets")
-      .select("decrypted_secret")
-      .eq("name", "POLYGON_API_KEY")
-      .limit(1);
-    const API_KEY = secretRows?.[0]?.decrypted_secret ?? "";
-    if (!API_KEY) throw new Error("POLYGON_API_KEY not in Vault");
+    const API_KEY = Deno.env.get("POLYGON_API_KEY") ?? "";
+    if (!API_KEY) throw new Error("POLYGON_API_KEY not configured");
 
     const headers = { "Authorization": `Bearer ${API_KEY}` };
 
