@@ -47,6 +47,28 @@ serve(async (req) => {
     for (const s of stockRows ?? []) {
       if (s.symbol && s.name) nameMap[s.symbol] = s.name;
     }
+    // ── Bulk reference lookup for symbols not in stocks table ──────────────
+    const missingSymbols = allSymbols.filter((s) => !nameMap[s]);
+    if (missingSymbols.length > 0) {
+      const CHUNK = 50;
+      for (let i = 0; i < missingSymbols.length; i += CHUNK) {
+        const chunk = missingSymbols.slice(i, i + CHUNK);
+        try {
+          const refRes = await fetch(
+            `${BASE}/v3/reference/tickers?ticker=${chunk.join(",")}&limit=50&apiKey=${API_KEY}`
+          );
+          if (refRes.ok) {
+            const refJson = await refRes.json();
+            for (const r of refJson.results ?? []) {
+              if (r.ticker && r.name) nameMap[r.ticker] = r.name;
+            }
+          }
+        } catch (_) {
+          // best-effort fallback
+        }
+      }
+    }
+
     const getName = (ticker: string): string => nameMap[ticker] ?? ticker;
 
     // ── Helper: safe numeric ───────────────────────────────────────────────
