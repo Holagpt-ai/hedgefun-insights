@@ -100,7 +100,7 @@ serve(async (req) => {
         company_name: t.ticker,
         price: n(t?.day?.c ?? t?.lastTrade?.p),
         change_percent: n(t?.todaysChangePerc),
-        volume: n(t?.day?.v),
+        volume: t?.day?.v != null ? Math.round(t.day.v) : null,
         avg_volume: null,
         rvol: null,
         float_shares: null,
