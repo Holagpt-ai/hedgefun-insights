@@ -5,6 +5,9 @@ import { ScreenerTab, ColumnFormat } from "@/config/screener-tabs.config";
 interface ScreenerTableProps {
   tab: ScreenerTab;
   isPro: boolean;
+  liveRows?: any[];
+  loading?: boolean;
+  lastUpdated?: string | null;
 }
 
 function formatCell(value: string | number, format: ColumnFormat): string {
