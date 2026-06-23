@@ -101,7 +101,16 @@ export function ScreenerTable({ tab, isPro, liveRows, loading = false, lastUpdat
         </span>
       </div>
 
+      {loading && (
+        <div className="rounded-lg border border-border bg-card p-4 space-y-2">
+          {[...Array(8)].map((_, i) => (
+            <div key={i} className="h-8 rounded bg-muted/50 animate-pulse" />
+          ))}
+        </div>
+      )}
+
       {/* Table */}
+      {!loading && (
       <div className="relative rounded-lg border border-border overflow-hidden bg-card">
         <div className="overflow-x-auto">
           <table className="w-full text-[13px]">
