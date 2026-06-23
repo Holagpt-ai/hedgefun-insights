@@ -42,7 +42,7 @@ function percentClass(value: number): string {
   return "text-foreground";
 }
 
-export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
+export function ScreenerTable({ tab, isPro, liveRows, loading = false, lastUpdated }: ScreenerTableProps) {
   const navigate = useNavigate();
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
@@ -55,12 +55,13 @@ export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
   };
 
   const sortedRows = useMemo(() => {
-    if (!sort) return tab.rows;
+    const baseRows = liveRows && liveRows.length > 0 ? liveRows : tab.rows;
+    if (!sort) return baseRows;
     const col = tab.columns.find((c) => c.key === sort.key);
-    if (!col) return tab.rows;
+    if (!col) return baseRows;
     const dir = sort.direction === "asc" ? 1 : -1;
     const isText = col.format === "text";
-    return [...tab.rows].sort((a, b) => {
+    return [...baseRows].sort((a, b) => {
       const av = a[sort.key];
       const bv = b[sort.key];
       const aNull = av === null || av === undefined || av === "";
@@ -71,7 +72,8 @@ export function ScreenerTable({ tab, isPro }: ScreenerTableProps) {
       if (isText) return String(av).localeCompare(String(bv)) * dir;
       return (Number(av) - Number(bv)) * dir;
     });
-  }, [sort, tab.rows, tab.columns]);
+  }, [sort, tab.rows, tab.columns, liveRows]);
+
 
   const isFullGate = !isPro && tab.freeRowLimit === 0;
   const visibleCount = isPro ? sortedRows.length : tab.freeRowLimit;
