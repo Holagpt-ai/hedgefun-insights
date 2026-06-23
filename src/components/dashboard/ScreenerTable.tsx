@@ -198,6 +198,7 @@ export function ScreenerTable({ tab, isPro, liveRows, loading = false, lastUpdat
           </div>
         )}
       </div>
+      )}
 
       {/* Partial gate prompt */}
       {!isPro && !isFullGate && sortedRows.length > tab.freeRowLimit && (
