@@ -91,12 +91,13 @@ export function ScreenerTable({ tab, isPro, liveRows, loading = false, lastUpdat
           </span>
         ))}
         <span className="ml-auto inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          <span
-            className={`h-1.5 w-1.5 rounded-full ${
-              isPro ? "bg-green-500 animate-pulse" : "bg-amber-500"
-            }`}
-          />
-          {isPro ? "LIVE DATA" : "DELAYED DATA"}
+          <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+          15-MIN DELAYED
+          {lastUpdated && (
+            <span className="normal-case font-normal text-muted-foreground">
+              · updated {new Date(lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
         </span>
       </div>
 
