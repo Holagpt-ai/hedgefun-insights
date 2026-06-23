@@ -88,7 +88,7 @@ serve(async (req) => {
       .map((t) => ({
         tab_id: "day_trade_radar",
         symbol: t.ticker,
-        company_name: t.ticker,
+        company_name: getName(t.ticker),
         price: n(t?.day?.c ?? t?.lastTrade?.p),
         change_percent: n(t?.todaysChangePerc),
         volume: t?.day?.v != null ? Math.round(t.day.v) : null,
@@ -113,7 +113,7 @@ serve(async (req) => {
       .map((t) => ({
         tab_id: "gappers",
         symbol: t.ticker,
-        company_name: t.ticker,
+        company_name: getName(t.ticker),
         price: n(t?.day?.c ?? t?.lastTrade?.p),
         change_percent: n(t?.todaysChangePerc),
         volume: t?.day?.v != null ? Math.round(t.day.v) : null,
@@ -138,7 +138,7 @@ serve(async (req) => {
       .map((t) => ({
         tab_id: "volume_spikes",
         symbol: t.ticker,
-        company_name: t.ticker,
+        company_name: getName(t.ticker),
         price: null,
         change_percent: n(t?.todaysChangePerc),
         volume: t?.day?.v != null ? Math.round(t.day.v) : null,
@@ -156,7 +156,7 @@ serve(async (req) => {
     const gainersLosersRows = [...gainers, ...losers].map((t) => ({
       tab_id: "gainers_losers",
       symbol: t.ticker,
-      company_name: t.ticker,
+      company_name: getName(t.ticker),
       price: n(t?.day?.c ?? t?.lastTrade?.p),
       change_percent: n(t?.todaysChangePerc),
       volume: t?.day?.v != null ? Math.round(t.day.v) : null,
@@ -181,7 +181,7 @@ serve(async (req) => {
       .map((t) => ({
         tab_id: "unusual_volume",
         symbol: t.ticker,
-        company_name: t.ticker,
+        company_name: getName(t.ticker),
         price: null,
         change_percent: null,
         volume: t?.day?.v != null ? Math.round(t.day.v) : null,
