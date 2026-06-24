@@ -78,20 +78,23 @@ export default function DashboardWatchlistPage() {
     queryKey: ["watchlist-snapshots", symbols],
     queryFn: async () => {
       if (!symbols.length) return {} as Record<string, any>;
-      const res = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data?type=snapshots&tickers=${symbols.join(",")}`,
-        {
-          headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? import.meta.env.VITE_SUPABASE_ANON_KEY,
-          },
-        }
+      const results: Record<string, any> = {};
+      await Promise.all(
+        symbols.map(async (sym: string) => {
+          try {
+            const { data, error } = await supabase.functions.invoke("get-watchlist-data", {
+              body: { ticker: sym },
+            });
+            if (!error && data) results[sym] = data;
+          } catch {
+            // skip failed symbols silently
+          }
+        })
       );
-      if (!res.ok) return {} as Record<string, any>;
-      return res.json();
+      return results;
     },
     enabled: symbols.length > 0,
-    refetchInterval: 60000,
+    refetchInterval: 60_000,
   });
 
   const watchlistRows: WatchlistRow[] = useMemo(() => {
@@ -102,7 +105,7 @@ export default function DashboardWatchlistPage() {
       const change = snap?.todaysChange ?? 0;
       const changePct = snap?.todaysChangePerc ?? 0;
       const volume = snap?.day?.v ?? 0;
-      const marketCap = snap?.details?.market_cap ?? 0;
+      const marketCap = snap?.market_cap ?? 0;
       return {
         id: entry.id,
         symbol: entry.symbol,
