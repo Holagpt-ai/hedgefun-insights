@@ -11,7 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
+
 import { searchTickers, EXCHANGE_LABELS, type SearchResult } from "@/lib/search-tickers";
 import { resolveCurrentPrice, estDate } from "@/lib/price-utils";
 import { toast } from "sonner";
@@ -285,14 +285,6 @@ export default function DashboardWatchlistPage() {
         </p>
       </div>
 
-      {/* Index cards */}
-      <DashboardIndexCards />
-
-      {/* Date + plan strip */}
-      <div className="text-xs text-muted-foreground uppercase tracking-wider">
-        {estDate()} · {planLabel}
-      </div>
-
       {/* PRO gate */}
       {!isPro && (
         <div className="flex flex-col items-center justify-center text-center py-16 px-6 border border-border rounded-xl bg-surface space-y-3">
@@ -354,6 +346,12 @@ export default function DashboardWatchlistPage() {
               </div>
             )}
           </div>
+
+          {/* Date + plan strip */}
+          <div className="text-xs text-muted-foreground uppercase tracking-wider">
+            {estDate()} · {planLabel}
+          </div>
+
 
           {/* Loading */}
           {(wlLoading || snapsLoading) && (
