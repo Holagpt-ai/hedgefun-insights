@@ -105,7 +105,7 @@ export default function DashboardWatchlistPage() {
       const change = snap?.todaysChange ?? 0;
       const changePct = snap?.todaysChangePerc ?? 0;
       const volume = snap?.day?.v ?? 0;
-      const marketCap = snap?.details?.market_cap ?? 0;
+      const marketCap = snap?.market_cap ?? 0;
       return {
         id: entry.id,
         symbol: entry.symbol,
