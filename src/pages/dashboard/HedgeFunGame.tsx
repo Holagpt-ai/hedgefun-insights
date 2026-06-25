@@ -620,6 +620,29 @@ export default function HedgeFunGame() {
             </div>
           ) : (
             <>
+              {portfolio.display_name && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Your Portfolio
+                    </p>
+                    <h2 className="text-xl font-bold text-foreground">
+                      Welcome back, {portfolio.display_name} 👋
+                    </h2>
+                  </div>
+                  {portfolio.rank && (
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                        Current Rank
+                      </p>
+                      <p className="text-2xl font-bold text-accent-blue">
+                        #{portfolio.rank}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── STAT BAR ── */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-lg border border-border p-4">
