@@ -17,6 +17,9 @@ import { searchTickers } from "@/lib/search-tickers";
 
 const SEASON_ID = "f324285d-8619-4188-9255-c1666b21ccb9";
 
+// Easy to edit — change tickers or remove array to hide quick add pills
+const QUICK_ADD_TICKERS = ["AAPL", "NVDA", "TSLA", "AMZN", "MSFT", "META", "GOOGL", "SPY"];
+
 interface Season {
   id: string;
   name: string;
