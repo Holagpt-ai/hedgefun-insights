@@ -128,6 +128,10 @@ export default function HedgeFunGame() {
 
   const buyDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Onboarding tour
+  // (tourStep null = not showing, 1/2/3 = step, 0 = done)
+  const [tourStep, setTourStep] = useState<number | null>(null);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
