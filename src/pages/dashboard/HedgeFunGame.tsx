@@ -658,7 +658,7 @@ export default function HedgeFunGame() {
                                   </td>
                                 </tr>
                               )}
-                            </>
+                            </FragmentWithKey>
                           );
                         })}
                       </tbody>
