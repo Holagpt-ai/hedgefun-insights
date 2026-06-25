@@ -694,9 +694,9 @@ export default function HedgeFunGame() {
                         <span className="text-muted-foreground">Today's Balance</span>
                         <span className="tabular-nums">{fmtFull(portfolio.total_value)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex items-center justify-between px-4 py-3 text-sm">
                         <span className="text-muted-foreground">Growth</span>
-                        <span className={`tabular-nums font-medium ${growthPct >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                        <span className={`font-black tabular-nums text-3xl leading-none ${totalPnl >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
                           {growthPct >= 0 ? "+" : ""}{growthPct.toFixed(2)}%
                         </span>
                       </div>
