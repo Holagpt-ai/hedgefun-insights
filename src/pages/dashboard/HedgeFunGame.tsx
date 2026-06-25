@@ -724,6 +724,23 @@ export default function HedgeFunGame() {
                       </div>
                     )}
                   </div>
+                  {/* Quick Add pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground self-center">Quick add:</span>
+                    {QUICK_ADD_TICKERS.map((ticker) => (
+                      <button
+                        key={ticker}
+                        onClick={() => {
+                          setSelectedBuyTicker(ticker);
+                          setBuyQuery(ticker);
+                          setShowBuyResults(false);
+                        }}
+                        className="text-xs px-2.5 py-1 rounded-full border border-border bg-muted hover:border-accent-blue hover:text-accent-blue transition-colors font-medium"
+                      >
+                        {ticker}
+                      </button>
+                    ))}
+                  </div>
                   {selectedBuyTicker && (
                     <div className="flex flex-wrap items-center gap-3">
                       <Input
