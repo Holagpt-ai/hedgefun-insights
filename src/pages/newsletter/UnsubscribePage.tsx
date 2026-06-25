@@ -7,9 +7,10 @@ export default function UnsubscribePage() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<Status>("loading");
   const email = searchParams.get("email");
+  const token = searchParams.get("token");
 
   useEffect(() => {
-    if (!email) {
+    if (!email || !token) {
       setStatus("missing");
       return;
     }
@@ -20,8 +21,11 @@ export default function UnsubscribePage() {
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/newsletter-unsubscribe`,
           {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ email }),
+            headers: {
+              "Content-Type": "application/json",
+              apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+            },
+            body: JSON.stringify({ email, token }),
           }
         );
         if (res.ok) {
@@ -35,7 +39,7 @@ export default function UnsubscribePage() {
     };
 
     run();
-  }, [email]);
+  }, [email, token]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
