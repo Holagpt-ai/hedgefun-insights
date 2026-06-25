@@ -605,7 +605,7 @@ export default function HedgeFunGame() {
                               ? "text-[hsl(var(--green))]"
                               : "text-[hsl(var(--red))]";
                           return (
-                            <FragmentWithKey key={pos.id}>
+                            <Fragment key={pos.id}>
                               <tr className="border-t border-border">
                                 <td className="px-4 py-3 font-semibold">{pos.symbol}</td>
                                 <td className="px-4 py-3 text-right tabular-nums">{pos.shares.toLocaleString()}</td>
@@ -658,7 +658,7 @@ export default function HedgeFunGame() {
                                   </td>
                                 </tr>
                               )}
-                            </FragmentWithKey>
+                            </Fragment>
                           );
                         })}
                       </tbody>
