@@ -200,6 +200,7 @@ const App = () => (
                   <Route path="/dashboard/ai" element={<AIAnalyst />} />
                   <Route path="/dashboard/watchlist" element={<DashboardWatchlistPage />} />
                   <Route path="/dashboard/journal" element={<DashboardJournalPage />} />
+                  <Route path="/dashboard/game" element={<HedgeFunGame />} />
                 </Route>
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
