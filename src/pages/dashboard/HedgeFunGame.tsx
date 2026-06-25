@@ -229,6 +229,91 @@ export default function HedgeFunGame() {
     setJoining(false);
   }
 
+  async function loadPortfolioData() {
+    if (!user) return;
+    setPositionsLoading(true);
+    const [{ data: pos }, { data: tr }] = await Promise.all([
+      supabase
+        .from("game_positions")
+        .select("id, symbol, shares, avg_cost_price, current_price, market_value, unrealized_pnl")
+        .eq("season_id", SEASON_ID)
+        .eq("user_id", user.id)
+        .gt("shares", 0),
+      supabase
+        .from("game_trades")
+        .select("id, action, symbol, shares, price_at_execution, total_value, executed_at")
+        .eq("season_id", SEASON_ID)
+        .eq("user_id", user.id)
+        .order("executed_at", { ascending: false })
+        .limit(50),
+    ]);
+    setPositions((pos as Position[] | null) ?? []);
+    setTrades((tr as GameTrade[] | null) ?? []);
+    setPositionsLoading(false);
+  }
+
+  useEffect(() => {
+    if (view === "portfolio" && portfolio) {
+      loadPortfolioData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, portfolio?.id]);
+
+  const handleBuySearch = useCallback((value: string) => {
+    setBuyQuery(value);
+    setSelectedBuyTicker(null);
+    if (buyDebounceRef.current) clearTimeout(buyDebounceRef.current);
+    if (!value.trim()) {
+      setBuyResults([]);
+      setShowBuyResults(false);
+      return;
+    }
+    setBuySearching(true);
+    buyDebounceRef.current = setTimeout(async () => {
+      const data = await searchTickers(value);
+      setBuyResults(data as TickerSearchResult[]);
+      setShowBuyResults(true);
+      setBuySearching(false);
+    }, 200);
+  }, []);
+
+  async function handleTrade(action: "buy" | "sell", symbol: string, sharesRaw: string) {
+    if (!user) return;
+    const shares = parseInt(sharesRaw, 10);
+    if (isNaN(shares) || shares < 100) {
+      toast.error("Minimum 100 shares per trade");
+      return;
+    }
+    setTradeLoading(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const { data, error } = await supabase.functions.invoke("game-trade", {
+      body: { action, symbol: symbol.toUpperCase(), shares, season_id: SEASON_ID },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (error || (data as any)?.error) {
+      toast.error((data as any)?.error ?? "Trade failed. Try again.");
+      setTradeLoading(false);
+      return;
+    }
+    toast.success(`${action === "buy" ? "Bought" : "Sold"} ${shares} shares of ${symbol.toUpperCase()}`);
+    const { data: p } = await supabase
+      .from("game_portfolios")
+      .select("id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at")
+      .eq("season_id", SEASON_ID)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    setPortfolio((p as Portfolio | null) ?? null);
+    await loadPortfolioData();
+    setSelectedBuyTicker(null);
+    setBuyQuery("");
+    setBuyShares("");
+    setSellSymbol(null);
+    setSellShares("");
+    setTradeLoading(false);
+  }
+
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
