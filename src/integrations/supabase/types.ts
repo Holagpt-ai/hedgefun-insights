@@ -350,6 +350,347 @@ export type Database = {
         }
         Relationships: []
       }
+      game_config: {
+        Row: {
+          id: string
+          key: string
+          season_id: string | null
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          season_id?: string | null
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          season_id?: string | null
+          updated_at?: string
+          value?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_config_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_leaderboard: {
+        Row: {
+          cash_balance: number
+          display_name: string
+          id: string
+          pnl_pct: number
+          position_count: number
+          rank: number | null
+          season_id: string
+          total_pnl: number
+          total_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cash_balance?: number
+          display_name: string
+          id?: string
+          pnl_pct?: number
+          position_count?: number
+          rank?: number | null
+          season_id: string
+          total_pnl?: number
+          total_value?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cash_balance?: number
+          display_name?: string
+          id?: string
+          pnl_pct?: number
+          position_count?: number
+          rank?: number | null
+          season_id?: string
+          total_pnl?: number
+          total_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_leaderboard_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_portfolios: {
+        Row: {
+          cash_balance: number
+          display_name: string
+          id: string
+          joined_at: string
+          rank: number | null
+          realized_pnl: number
+          season_id: string
+          total_value: number
+          unrealized_pnl: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cash_balance?: number
+          display_name: string
+          id?: string
+          joined_at?: string
+          rank?: number | null
+          realized_pnl?: number
+          season_id: string
+          total_value?: number
+          unrealized_pnl?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cash_balance?: number
+          display_name?: string
+          id?: string
+          joined_at?: string
+          rank?: number | null
+          realized_pnl?: number
+          season_id?: string
+          total_value?: number
+          unrealized_pnl?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_portfolios_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_positions: {
+        Row: {
+          avg_cost_price: number
+          current_price: number
+          id: string
+          market_value: number
+          opened_at: string
+          portfolio_id: string
+          season_id: string
+          shares: number
+          symbol: string
+          unrealized_pnl: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_cost_price?: number
+          current_price?: number
+          id?: string
+          market_value?: number
+          opened_at?: string
+          portfolio_id: string
+          season_id: string
+          shares?: number
+          symbol: string
+          unrealized_pnl?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_cost_price?: number
+          current_price?: number
+          id?: string
+          market_value?: number
+          opened_at?: string
+          portfolio_id?: string
+          season_id?: string
+          shares?: number
+          symbol?: string
+          unrealized_pnl?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_positions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "game_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_positions_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_season_results: {
+        Row: {
+          created_at: string
+          display_name: string
+          final_pnl: number
+          final_pnl_pct: number
+          final_rank: number
+          final_total_value: number
+          id: string
+          prize_eligible: boolean
+          prize_status: string
+          season_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name: string
+          final_pnl: number
+          final_pnl_pct: number
+          final_rank: number
+          final_total_value: number
+          id?: string
+          prize_eligible?: boolean
+          prize_status?: string
+          season_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          final_pnl?: number
+          final_pnl_pct?: number
+          final_rank?: number
+          final_total_value?: number
+          id?: string
+          prize_eligible?: boolean
+          prize_status?: string
+          season_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_season_results_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      game_seasons: {
+        Row: {
+          created_at: string
+          ends_at: string
+          id: string
+          invite_code: string | null
+          name: string
+          prize_description: string | null
+          room_type: string
+          starts_at: string
+          status: string
+          winner_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          ends_at: string
+          id?: string
+          invite_code?: string | null
+          name: string
+          prize_description?: string | null
+          room_type?: string
+          starts_at: string
+          status?: string
+          winner_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          ends_at?: string
+          id?: string
+          invite_code?: string | null
+          name?: string
+          prize_description?: string | null
+          room_type?: string
+          starts_at?: string
+          status?: string
+          winner_user_id?: string | null
+        }
+        Relationships: []
+      }
+      game_trades: {
+        Row: {
+          action: string
+          cash_after: number
+          cash_before: number
+          executed_at: string
+          id: string
+          portfolio_id: string
+          price_at_execution: number
+          season_id: string
+          shares: number
+          symbol: string
+          total_value: number
+          user_id: string
+        }
+        Insert: {
+          action: string
+          cash_after: number
+          cash_before: number
+          executed_at?: string
+          id?: string
+          portfolio_id: string
+          price_at_execution: number
+          season_id: string
+          shares: number
+          symbol: string
+          total_value: number
+          user_id: string
+        }
+        Update: {
+          action?: string
+          cash_after?: number
+          cash_before?: number
+          executed_at?: string
+          id?: string
+          portfolio_id?: string
+          price_at_execution?: number
+          season_id?: string
+          shares?: number
+          symbol?: string
+          total_value?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_trades_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "game_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "game_trades_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ipo_list: {
         Row: {
           created_at: string | null
