@@ -37,6 +37,7 @@ interface Portfolio {
   unrealized_pnl: number;
   rank: number | null;
   joined_at: string;
+  display_name: string;
 }
 
 interface LeaderboardEntry {
