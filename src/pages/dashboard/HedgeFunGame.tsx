@@ -44,6 +44,33 @@ interface LeaderboardEntry {
   user_id: string;
 }
 
+interface Position {
+  id: string;
+  symbol: string;
+  shares: number;
+  avg_cost_price: number;
+  current_price: number;
+  market_value: number;
+  unrealized_pnl: number;
+}
+
+interface GameTrade {
+  id: string;
+  action: "buy" | "sell";
+  symbol: string;
+  shares: number;
+  price_at_execution: number;
+  total_value: number;
+  executed_at: string;
+}
+
+interface TickerSearchResult {
+  ticker: string;
+  name: string;
+  exchange: string | null;
+  type: string | null;
+}
+
 type View = "lobby" | "portfolio" | "leaderboard";
 
 const fmt = (n: number) =>
