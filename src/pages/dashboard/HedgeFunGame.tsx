@@ -104,6 +104,25 @@ export default function HedgeFunGame() {
   const [displayName, setDisplayName] = useState("");
   const [joining, setJoining] = useState(false);
 
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [trades, setTrades] = useState<GameTrade[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
+
+  // Buy interface state
+  const [buyQuery, setBuyQuery] = useState("");
+  const [buyResults, setBuyResults] = useState<TickerSearchResult[]>([]);
+  const [buySearching, setBuySearching] = useState(false);
+  const [selectedBuyTicker, setSelectedBuyTicker] = useState<string | null>(null);
+  const [buyShares, setBuyShares] = useState("");
+  const [tradeLoading, setTradeLoading] = useState(false);
+  const [showBuyResults, setShowBuyResults] = useState(false);
+
+  // Sell interface state
+  const [sellSymbol, setSellSymbol] = useState<string | null>(null);
+  const [sellShares, setSellShares] = useState("");
+
+  const buyDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
