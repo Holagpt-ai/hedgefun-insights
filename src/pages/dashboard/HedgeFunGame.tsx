@@ -152,7 +152,7 @@ export default function HedgeFunGame() {
       const { data: p } = await supabase
         .from("game_portfolios")
         .select(
-          "id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at"
+          "id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at, display_name"
         )
         .eq("season_id", SEASON_ID)
         .eq("user_id", user!.id)
