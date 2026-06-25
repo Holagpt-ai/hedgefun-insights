@@ -271,6 +271,28 @@ export default function HedgeFunGame() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, portfolio?.id]);
 
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, started: false });
+  useEffect(() => {
+    function tick() {
+      const target = season ? new Date(season.starts_at).getTime() : 0;
+      const now = Date.now();
+      const diff = target - now;
+      if (!season) return;
+      if (diff <= 0 || season.status === "active") {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0, started: true });
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setCountdown({ days, hours, minutes, seconds, started: false });
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [season]);
+
   const handleBuySearch = useCallback((value: string) => {
     setBuyQuery(value);
     setSelectedBuyTicker(null);
