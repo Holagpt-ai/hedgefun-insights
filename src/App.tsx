@@ -17,6 +17,7 @@ import Screeners from "@/pages/dashboard/Screeners";
 import AIAnalyst from "@/pages/dashboard/AIAnalyst";
 import DashboardWatchlistPage from "@/pages/dashboard/DashboardWatchlistPage";
 import DashboardJournalPage from "@/pages/dashboard/JournalPage";
+import HedgeFunGame from "@/pages/dashboard/HedgeFunGame";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -199,6 +200,7 @@ const App = () => (
                   <Route path="/dashboard/ai" element={<AIAnalyst />} />
                   <Route path="/dashboard/watchlist" element={<DashboardWatchlistPage />} />
                   <Route path="/dashboard/journal" element={<DashboardJournalPage />} />
+                  <Route path="/dashboard/game" element={<HedgeFunGame />} />
                 </Route>
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
