@@ -1529,7 +1529,50 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      game_leaderboard_public: {
+        Row: {
+          display_name: string | null
+          id: string | null
+          pnl_pct: number | null
+          position_count: number | null
+          rank: number | null
+          season_id: string | null
+          total_pnl: number | null
+          total_value: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          display_name?: string | null
+          id?: string | null
+          pnl_pct?: number | null
+          position_count?: number | null
+          rank?: number | null
+          season_id?: string | null
+          total_pnl?: number | null
+          total_value?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          display_name?: string | null
+          id?: string | null
+          pnl_pct?: number | null
+          position_count?: number | null
+          rank?: number | null
+          season_id?: string | null
+          total_pnl?: number | null
+          total_value?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_leaderboard_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: false
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
