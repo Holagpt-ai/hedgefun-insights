@@ -224,6 +224,9 @@ export default function HedgeFunGame() {
       return;
     }
     toast.success("You're in! Good luck 🎯");
+    if (!localStorage.getItem("hf_game_tour_seen")) {
+      setTourStep(1);
+    }
     const { data: p } = await supabase
       .from("game_portfolios")
       .select(
