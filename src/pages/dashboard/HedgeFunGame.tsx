@@ -331,7 +331,16 @@ export default function HedgeFunGame() {
       setTradeLoading(false);
       return;
     }
-    toast.success(`${action === "buy" ? "Bought" : "Sold"} ${shares} shares of ${symbol.toUpperCase()}`);
+    const newCash = (data as any)?.portfolio?.cash_balance;
+    toast.success(
+      `${action === "buy" ? "✅ Bought" : "✅ Sold"} ${shares.toLocaleString()} shares of ${symbol.toUpperCase()}`,
+      {
+        description: newCash != null
+          ? `New cash balance: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(newCash)}`
+          : undefined,
+        duration: 4000,
+      }
+    );
     const { data: p } = await supabase
       .from("game_portfolios")
       .select("id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at, display_name")
