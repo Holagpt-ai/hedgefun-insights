@@ -1537,8 +1537,6 @@ export type Database = {
           position_count: number | null
           rank: number | null
           season_id: string | null
-          total_pnl: number | null
-          total_value: number | null
           updated_at: string | null
         }
         Insert: {
@@ -1548,8 +1546,6 @@ export type Database = {
           position_count?: number | null
           rank?: number | null
           season_id?: string | null
-          total_pnl?: number | null
-          total_value?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -1559,8 +1555,6 @@ export type Database = {
           position_count?: number | null
           rank?: number | null
           season_id?: string | null
-          total_pnl?: number | null
-          total_value?: number | null
           updated_at?: string | null
         }
         Relationships: [
