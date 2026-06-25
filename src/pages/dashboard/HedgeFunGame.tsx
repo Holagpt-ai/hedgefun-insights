@@ -898,6 +898,77 @@ export default function HedgeFunGame() {
           currentUserId={user.id}
         />
       )}
+
+      {/* ── ONBOARDING TOUR ── */}
+      {tourStep !== null && tourStep > 0 && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-center gap-1.5 mb-4">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= tourStep ? "bg-accent-blue" : "bg-border"}`} />
+              ))}
+            </div>
+            {tourStep === 1 && (
+              <>
+                <div className="text-3xl mb-3">🎯</div>
+                <h3 className="text-base font-bold text-foreground mb-2">Welcome to HedgeFun Game</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  You start with a virtual <strong>$5,000,000</strong>. Pick stocks, grow your portfolio,
+                  and outperform every other player by July 31. Winner takes <strong>$500</strong>.
+                </p>
+              </>
+            )}
+            {tourStep === 2 && (
+              <>
+                <div className="text-3xl mb-3">📈</div>
+                <h3 className="text-base font-bold text-foreground mb-2">How to Trade</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Go to <strong>My Portfolio</strong> and search any stock symbol to buy.
+                  Minimum <strong>100 shares</strong> per trade, stocks must be above <strong>$5</strong>,
+                  and no more than <strong>20%</strong> of your portfolio in any one ticker.
+                </p>
+              </>
+            )}
+            {tourStep === 3 && (
+              <>
+                <div className="text-3xl mb-3">🏆</div>
+                <h3 className="text-base font-bold text-foreground mb-2">Watch Your Rank</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Check the <strong>Leaderboard</strong> tab anytime to see where you stand.
+                  Rankings update every 5 minutes during market hours.
+                  Season ends <strong>July 31</strong> — good luck.
+                </p>
+              </>
+            )}
+            <div className="flex items-center justify-between mt-5">
+              <button
+                onClick={() => {
+                  localStorage.setItem("hf_game_tour_seen", "1");
+                  setTourStep(null);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Skip
+              </button>
+              <Button
+                size="sm"
+                className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground"
+                onClick={() => {
+                  if (tourStep < 3) {
+                    setTourStep(tourStep + 1);
+                  } else {
+                    localStorage.setItem("hf_game_tour_seen", "1");
+                    setTourStep(null);
+                    setView("portfolio");
+                  }
+                }}
+              >
+                {tourStep < 3 ? "Next →" : "Let's Trade →"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
