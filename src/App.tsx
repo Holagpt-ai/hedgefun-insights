@@ -17,6 +17,7 @@ import Screeners from "@/pages/dashboard/Screeners";
 import AIAnalyst from "@/pages/dashboard/AIAnalyst";
 import DashboardWatchlistPage from "@/pages/dashboard/DashboardWatchlistPage";
 import DashboardJournalPage from "@/pages/dashboard/JournalPage";
+import HedgeFunGame from "@/pages/dashboard/HedgeFunGame";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
