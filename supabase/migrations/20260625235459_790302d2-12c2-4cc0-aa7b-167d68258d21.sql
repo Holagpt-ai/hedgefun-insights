@@ -1,0 +1,1 @@
+ALTER VIEW public.game_leaderboard_public SET (security_invoker = on);
