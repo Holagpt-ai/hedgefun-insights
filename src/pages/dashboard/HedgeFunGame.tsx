@@ -37,6 +37,7 @@ interface Portfolio {
   unrealized_pnl: number;
   rank: number | null;
   joined_at: string;
+  display_name: string;
 }
 
 interface LeaderboardEntry {
@@ -151,7 +152,7 @@ export default function HedgeFunGame() {
       const { data: p } = await supabase
         .from("game_portfolios")
         .select(
-          "id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at"
+          "id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at, display_name"
         )
         .eq("season_id", SEASON_ID)
         .eq("user_id", user!.id)
@@ -330,10 +331,19 @@ export default function HedgeFunGame() {
       setTradeLoading(false);
       return;
     }
-    toast.success(`${action === "buy" ? "Bought" : "Sold"} ${shares} shares of ${symbol.toUpperCase()}`);
+    const newCash = (data as any)?.portfolio?.cash_balance;
+    toast.success(
+      `${action === "buy" ? "✅ Bought" : "✅ Sold"} ${shares.toLocaleString()} shares of ${symbol.toUpperCase()}`,
+      {
+        description: newCash != null
+          ? `New cash balance: ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(newCash)}`
+          : undefined,
+        duration: 4000,
+      }
+    );
     const { data: p } = await supabase
       .from("game_portfolios")
-      .select("id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at")
+      .select("id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at, display_name")
       .eq("season_id", SEASON_ID)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -610,6 +620,29 @@ export default function HedgeFunGame() {
             </div>
           ) : (
             <>
+              {portfolio.display_name && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                      Your Portfolio
+                    </p>
+                    <h2 className="text-xl font-bold text-foreground">
+                      Welcome back, {portfolio.display_name} 👋
+                    </h2>
+                  </div>
+                  {portfolio.rank && (
+                    <div className="text-right">
+                      <p className="text-xs text-muted-foreground uppercase tracking-wider mb-0.5">
+                        Current Rank
+                      </p>
+                      <p className="text-2xl font-bold text-accent-blue">
+                        #{portfolio.rank}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── STAT BAR ── */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <div className="rounded-lg border border-border p-4">
@@ -661,9 +694,9 @@ export default function HedgeFunGame() {
                         <span className="text-muted-foreground">Today's Balance</span>
                         <span className="tabular-nums">{fmtFull(portfolio.total_value)}</span>
                       </div>
-                      <div className="flex justify-between">
+                      <div className="flex items-center justify-between px-4 py-3 text-sm">
                         <span className="text-muted-foreground">Growth</span>
-                        <span className={`tabular-nums font-medium ${growthPct >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                        <span className={`font-black tabular-nums text-3xl leading-none ${totalPnl >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
                           {growthPct >= 0 ? "+" : ""}{growthPct.toFixed(2)}%
                         </span>
                       </div>
@@ -892,11 +925,139 @@ export default function HedgeFunGame() {
 
 
       {view === "leaderboard" && (
-        <LeaderboardView
-          season={season}
-          leaderboard={leaderboard}
-          currentUserId={user.id}
-        />
+        <div className="space-y-4">
+          {/* Season + prize header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-foreground">{season.name} Leaderboard</h2>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                🏆 {season.prize_description} · Rankings update every 5 min
+              </p>
+            </div>
+            <span className={`text-xs px-2 py-1 rounded-full font-medium ${
+              season.status === "active" ? "bg-green-500/10 text-green-600" :
+              season.status === "upcoming" ? "bg-amber-500/10 text-amber-600" :
+              "bg-muted text-muted-foreground"
+            }`}>
+              {season.status === "active" ? "● Live" : season.status === "upcoming" ? "Upcoming" : "Closed"}
+            </span>
+          </div>
+
+          {/* Your position callout */}
+          {portfolio && (() => {
+            const myEntry = leaderboard.find((e) => e.user_id === user?.id);
+            if (!myEntry) return null;
+            const above = leaderboard.find((e) => e.rank === (myEntry.rank ?? 0) - 1);
+            const below = leaderboard.find((e) => e.rank === (myEntry.rank ?? 0) + 1);
+            return (
+              <div className="border border-accent-blue/30 bg-accent-blue/5 rounded-lg px-4 py-3 text-sm">
+                <div className="flex items-center justify-between flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-accent-blue font-bold text-lg">
+                      {myEntry.rank ? `#${myEntry.rank}` : "Unranked"}
+                    </span>
+                    <span className="text-foreground font-medium">{myEntry.display_name}</span>
+                    <span className="text-xs text-muted-foreground bg-accent-blue/10 px-1.5 py-0.5 rounded">you</span>
+                  </div>
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                    {above && (
+                      <span>
+                        <span className="text-red-500">▲ ${Math.abs(above.total_value - myEntry.total_value).toLocaleString()}</span>
+                        {" "}behind #{above.rank}
+                      </span>
+                    )}
+                    {below && (
+                      <span>
+                        <span className="text-green-600">▼ ${Math.abs(myEntry.total_value - below.total_value).toLocaleString()}</span>
+                        {" "}ahead of #{below.rank}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+
+          {/* Full leaderboard table */}
+          <div className="border border-border rounded-lg bg-card overflow-hidden">
+            {leaderboard.length === 0 ? (
+              <div className="text-center py-12 text-sm text-muted-foreground">
+                No players yet. Be the first to join!
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border bg-muted/20">
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Rank</th>
+                      <th className="text-left px-4 py-2.5 text-xs font-medium text-muted-foreground">Player</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Portfolio Value</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">P&L ($)</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">P&L (%)</th>
+                      <th className="text-right px-4 py-2.5 text-xs font-medium text-muted-foreground">Positions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {leaderboard.map((entry) => {
+                      const isMe = entry.user_id === user?.id;
+                      const isPodium1 = entry.rank === 1;
+                      const isPodium2 = entry.rank === 2;
+                      const isPodium3 = entry.rank === 3;
+                      return (
+                        <tr
+                          key={entry.user_id}
+                          className={`transition-colors ${
+                            isMe ? "bg-accent-blue/5 border-l-2 border-l-accent-blue" :
+                            isPodium1 ? "bg-yellow-50/60 dark:bg-yellow-950/20" :
+                            isPodium2 ? "bg-slate-50/60 dark:bg-slate-800/20" :
+                            isPodium3 ? "bg-orange-50/60 dark:bg-orange-950/20" :
+                            "hover:bg-muted/20"
+                          }`}
+                        >
+                          <td className="px-4 py-3">
+                            <span className={`font-bold text-sm ${
+                              isPodium1 ? "text-yellow-500" :
+                              isPodium2 ? "text-slate-400" :
+                              isPodium3 ? "text-orange-400" :
+                              "text-muted-foreground"
+                            }`}>
+                              {isPodium1 ? "🥇" : isPodium2 ? "🥈" : isPodium3 ? "🥉" : entry.rank ? `#${entry.rank}` : "—"}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`font-medium ${isMe ? "text-accent-blue" : "text-foreground"}`}>
+                                {entry.display_name}
+                              </span>
+                              {isMe && (
+                                <span className="text-[10px] text-accent-blue bg-accent-blue/10 px-1.5 py-0.5 rounded font-medium">
+                                  you
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-foreground font-medium">
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(entry.total_value)}
+                          </td>
+                          <td className={`px-4 py-3 text-right tabular-nums font-medium ${entry.total_pnl >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                            {entry.total_pnl >= 0 ? "+" : ""}
+                            {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(entry.total_pnl)}
+                          </td>
+                          <td className={`px-4 py-3 text-right tabular-nums font-medium ${entry.pnl_pct >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                            {entry.pnl_pct >= 0 ? "+" : ""}{entry.pnl_pct.toFixed(2)}%
+                          </td>
+                          <td className="px-4 py-3 text-right tabular-nums text-muted-foreground">
+                            {entry.position_count}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* ── ONBOARDING TOUR ── */}
