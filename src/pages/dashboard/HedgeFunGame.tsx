@@ -6,6 +6,8 @@ import {
   Trophy,
   Loader2,
   Search,
+  Users,
+  DollarSign,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -14,6 +16,9 @@ import { Input } from "@/components/ui/input";
 import { searchTickers } from "@/lib/search-tickers";
 
 const SEASON_ID = "f324285d-8619-4188-9255-c1666b21ccb9";
+
+// Easy to edit — change tickers or remove array to hide quick add pills
+const QUICK_ADD_TICKERS = ["AAPL", "NVDA", "TSLA", "AMZN", "MSFT", "META", "GOOGL", "SPY"];
 
 interface Season {
   id: string;
@@ -123,6 +128,10 @@ export default function HedgeFunGame() {
 
   const buyDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
+  // Onboarding tour
+  // (tourStep null = not showing, 1/2/3 = step, 0 = done)
+  const [tourStep, setTourStep] = useState<number | null>(null);
+
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
@@ -215,6 +224,9 @@ export default function HedgeFunGame() {
       return;
     }
     toast.success("You're in! Good luck 🎯");
+    if (!localStorage.getItem("hf_game_tour_seen")) {
+      setTourStep(1);
+    }
     const { data: p } = await supabase
       .from("game_portfolios")
       .select(
@@ -258,6 +270,28 @@ export default function HedgeFunGame() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, portfolio?.id]);
+
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0, started: false });
+  useEffect(() => {
+    function tick() {
+      const target = season ? new Date(season.starts_at).getTime() : 0;
+      const now = Date.now();
+      const diff = target - now;
+      if (!season) return;
+      if (diff <= 0 || season.status === "active") {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0, started: true });
+        return;
+      }
+      const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+      setCountdown({ days, hours, minutes, seconds, started: false });
+    }
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [season]);
 
   const handleBuySearch = useCallback((value: string) => {
     setBuyQuery(value);
@@ -396,19 +430,173 @@ export default function HedgeFunGame() {
       </div>
 
       {view === "lobby" && (
-        <LobbyView
-          season={season}
-          portfolio={portfolio}
-          playerCount={playerCount}
-          leaderboard={leaderboard}
-          displayName={displayName}
-          setDisplayName={setDisplayName}
-          joining={joining}
-          handleJoin={handleJoin}
-          onViewPortfolio={() => setView("portfolio")}
-          onViewLeaderboard={() => setView("leaderboard")}
-          currentUserId={user.id}
-        />
+        <div className="space-y-5">
+          {/* ── HERO BANNER ── */}
+          <div className="rounded-xl overflow-hidden"
+            style={{ background: "linear-gradient(135deg, hsl(var(--accent-blue)) 0%, #1e3a5f 60%, #0f172a 100%)" }}>
+            <div className="px-6 py-8 md:py-10">
+              <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-2">
+                HedgeFun Game · {season.name}
+              </p>
+              <h2 className="text-white text-2xl md:text-3xl font-bold mb-1 leading-tight">
+                Pick Stocks. Beat the Market.
+              </h2>
+              <h2 className="text-2xl md:text-3xl font-bold mb-5 leading-tight"
+                style={{ color: "#FFD700" }}>
+                Win $500.
+              </h2>
+
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-2">
+                  <Trophy className="h-4 w-4 text-yellow-400 shrink-0" />
+                  <span className="text-white text-sm font-semibold">{season.prize_description}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-2">
+                  <Users className="h-4 w-4 text-white/70 shrink-0" />
+                  <span className="text-white/90 text-sm">
+                    {playerCount === 0 ? "Be the first to join" : `${playerCount} player${playerCount === 1 ? "" : "s"} competing`}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 bg-white/10 border border-white/20 rounded-lg px-3 py-2">
+                  <DollarSign className="h-4 w-4 text-white/70 shrink-0" />
+                  <span className="text-white/90 text-sm">$5,000,000 virtual AUM · Everyone starts equal</span>
+                </div>
+              </div>
+
+              {season.status === "upcoming" && !countdown.started && (
+                <div className="mb-6">
+                  <p className="text-white/60 text-xs mb-2 uppercase tracking-wider">Season starts in</p>
+                  <div className="flex items-end gap-3">
+                    {[
+                      { value: countdown.days, label: "Days" },
+                      { value: countdown.hours, label: "Hours" },
+                      { value: countdown.minutes, label: "Min" },
+                      { value: countdown.seconds, label: "Sec" },
+                    ].map(({ value, label }) => (
+                      <div key={label} className="text-center">
+                        <div className="bg-white/15 border border-white/20 rounded-lg px-3 py-2 min-w-[52px]">
+                          <span className="text-white text-2xl font-bold tabular-nums">
+                            {String(value).padStart(2, "0")}
+                          </span>
+                        </div>
+                        <p className="text-white/50 text-[10px] mt-1 uppercase tracking-wider">{label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {season.status === "active" && (
+                <div className="mb-6 flex items-center gap-2">
+                  <span className="inline-block w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  <span className="text-green-300 text-sm font-semibold">Season is live — trading open now</span>
+                </div>
+              )}
+
+              {season.status !== "closed" && (
+                portfolio ? (
+                  <div className="flex items-center gap-3">
+                    <Button
+                      onClick={() => setView("portfolio")}
+                      className="bg-white text-slate-900 hover:bg-white/90 font-semibold"
+                    >
+                      View My Portfolio →
+                    </Button>
+                    <span className="text-white/60 text-sm">You're already in this season</span>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-w-sm">
+                    <p className="text-white/80 text-sm font-medium">Choose your display name</p>
+                    <div className="flex gap-2">
+                      <Input
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder="e.g. TradingWolf99"
+                        className="bg-white/10 border-white/20 text-white placeholder:text-white/40 h-10"
+                        onKeyDown={(e) => e.key === "Enter" && handleJoin()}
+                      />
+                      <Button
+                        onClick={handleJoin}
+                        disabled={joining || !displayName.trim()}
+                        className="bg-yellow-400 hover:bg-yellow-300 text-slate-900 font-bold h-10 px-5 shrink-0"
+                      >
+                        {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : "Join Now"}
+                      </Button>
+                    </div>
+                    <p className="text-white/40 text-xs">2–20 chars · letters, numbers, spaces, underscores</p>
+                  </div>
+                )
+              )}
+
+              {season.status === "closed" && (
+                <p className="text-white/60 text-sm">This season has ended. Results are final.</p>
+              )}
+            </div>
+          </div>
+
+          {/* ── TWO COLUMN: Rules + Leaderboard Preview ── */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-border rounded-lg bg-card p-4 space-y-2">
+              <p className="text-sm font-semibold text-foreground mb-3">How It Works</p>
+              {[
+                "Virtual $5,000,000 starting balance — everyone equal",
+                "Buy any stock above $5 · minimum 100 shares per trade",
+                "Max 20% of your portfolio in any single stock",
+                "Prices delayed 15 min · same data for all players",
+                "Ranked by total portfolio value at season end",
+                "Season resets monthly · new chance every month",
+              ].map((rule, i) => (
+                <div key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                  <span className="text-accent-blue font-bold shrink-0">{i + 1}.</span>
+                  <span>{rule}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="border border-border rounded-lg bg-card p-4">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-semibold text-foreground">Current Standings</p>
+                <button
+                  onClick={() => setView("leaderboard")}
+                  className="text-xs text-accent-blue hover:underline"
+                >
+                  View Full →
+                </button>
+              </div>
+              {leaderboard.length === 0 ? (
+                <div className="text-center py-6 text-sm text-muted-foreground">
+                  Be the first to join!
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 5).map((entry) => (
+                    <div
+                      key={entry.user_id}
+                      className={`flex items-center justify-between py-1.5 px-2 rounded text-sm ${
+                        entry.rank === 1 ? "bg-yellow-50 dark:bg-yellow-950/20" :
+                        entry.rank === 2 ? "bg-slate-50 dark:bg-slate-800/30" :
+                        entry.rank === 3 ? "bg-orange-50 dark:bg-orange-950/20" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold text-xs w-5 ${
+                          entry.rank === 1 ? "text-yellow-500" :
+                          entry.rank === 2 ? "text-slate-400" :
+                          entry.rank === 3 ? "text-orange-400" : "text-muted-foreground"
+                        }`}>#{entry.rank}</span>
+                        <span className="text-foreground font-medium">{entry.display_name}</span>
+                      </div>
+                      <span className={`tabular-nums text-xs font-medium ${entry.total_pnl >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                        {entry.total_pnl >= 0 ? "+" : ""}
+                        {new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(entry.total_pnl)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {view === "portfolio" && (
@@ -535,6 +723,23 @@ export default function HedgeFunGame() {
                         Searching...
                       </div>
                     )}
+                  </div>
+                  {/* Quick Add pills */}
+                  <div className="flex flex-wrap gap-1.5">
+                    <span className="text-xs text-muted-foreground self-center">Quick add:</span>
+                    {QUICK_ADD_TICKERS.map((ticker) => (
+                      <button
+                        key={ticker}
+                        onClick={() => {
+                          setSelectedBuyTicker(ticker);
+                          setBuyQuery(ticker);
+                          setShowBuyResults(false);
+                        }}
+                        className="text-xs px-2.5 py-1 rounded-full border border-border bg-muted hover:border-accent-blue hover:text-accent-blue transition-colors font-medium"
+                      >
+                        {ticker}
+                      </button>
+                    ))}
                   </div>
                   {selectedBuyTicker && (
                     <div className="flex flex-wrap items-center gap-3">
@@ -692,6 +897,77 @@ export default function HedgeFunGame() {
           leaderboard={leaderboard}
           currentUserId={user.id}
         />
+      )}
+
+      {/* ── ONBOARDING TOUR ── */}
+      {tourStep !== null && tourStep > 0 && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-xl shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-center gap-1.5 mb-4">
+              {[1, 2, 3].map((s) => (
+                <div key={s} className={`h-1.5 flex-1 rounded-full transition-colors ${s <= tourStep ? "bg-accent-blue" : "bg-border"}`} />
+              ))}
+            </div>
+            {tourStep === 1 && (
+              <>
+                <div className="text-3xl mb-3">🎯</div>
+                <h3 className="text-base font-bold text-foreground mb-2">Welcome to HedgeFun Game</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  You start with a virtual <strong>$5,000,000</strong>. Pick stocks, grow your portfolio,
+                  and outperform every other player by July 31. Winner takes <strong>$500</strong>.
+                </p>
+              </>
+            )}
+            {tourStep === 2 && (
+              <>
+                <div className="text-3xl mb-3">📈</div>
+                <h3 className="text-base font-bold text-foreground mb-2">How to Trade</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Go to <strong>My Portfolio</strong> and search any stock symbol to buy.
+                  Minimum <strong>100 shares</strong> per trade, stocks must be above <strong>$5</strong>,
+                  and no more than <strong>20%</strong> of your portfolio in any one ticker.
+                </p>
+              </>
+            )}
+            {tourStep === 3 && (
+              <>
+                <div className="text-3xl mb-3">🏆</div>
+                <h3 className="text-base font-bold text-foreground mb-2">Watch Your Rank</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  Check the <strong>Leaderboard</strong> tab anytime to see where you stand.
+                  Rankings update every 5 minutes during market hours.
+                  Season ends <strong>July 31</strong> — good luck.
+                </p>
+              </>
+            )}
+            <div className="flex items-center justify-between mt-5">
+              <button
+                onClick={() => {
+                  localStorage.setItem("hf_game_tour_seen", "1");
+                  setTourStep(null);
+                }}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Skip
+              </button>
+              <Button
+                size="sm"
+                className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground"
+                onClick={() => {
+                  if (tourStep < 3) {
+                    setTourStep(tourStep + 1);
+                  } else {
+                    localStorage.setItem("hf_game_tour_seen", "1");
+                    setTourStep(null);
+                    setView("portfolio");
+                  }
+                }}
+              >
+                {tourStep < 3 ? "Next →" : "Let's Trade →"}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
