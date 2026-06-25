@@ -1,15 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback, Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Gamepad2,
   Trophy,
   Loader2,
+  Search,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { searchTickers } from "@/lib/search-tickers";
 
 const SEASON_ID = "f324285d-8619-4188-9255-c1666b21ccb9";
 
@@ -40,6 +42,33 @@ interface LeaderboardEntry {
   pnl_pct: number;
   position_count: number;
   user_id: string;
+}
+
+interface Position {
+  id: string;
+  symbol: string;
+  shares: number;
+  avg_cost_price: number;
+  current_price: number;
+  market_value: number;
+  unrealized_pnl: number;
+}
+
+interface GameTrade {
+  id: string;
+  action: "buy" | "sell";
+  symbol: string;
+  shares: number;
+  price_at_execution: number;
+  total_value: number;
+  executed_at: string;
+}
+
+interface TickerSearchResult {
+  ticker: string;
+  name: string;
+  exchange: string | null;
+  type: string | null;
 }
 
 type View = "lobby" | "portfolio" | "leaderboard";
@@ -74,6 +103,25 @@ export default function HedgeFunGame() {
 
   const [displayName, setDisplayName] = useState("");
   const [joining, setJoining] = useState(false);
+
+  const [positions, setPositions] = useState<Position[]>([]);
+  const [trades, setTrades] = useState<GameTrade[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
+
+  // Buy interface state
+  const [buyQuery, setBuyQuery] = useState("");
+  const [buyResults, setBuyResults] = useState<TickerSearchResult[]>([]);
+  const [buySearching, setBuySearching] = useState(false);
+  const [selectedBuyTicker, setSelectedBuyTicker] = useState<string | null>(null);
+  const [buyShares, setBuyShares] = useState("");
+  const [tradeLoading, setTradeLoading] = useState(false);
+  const [showBuyResults, setShowBuyResults] = useState(false);
+
+  // Sell interface state
+  const [sellSymbol, setSellSymbol] = useState<string | null>(null);
+  const [sellShares, setSellShares] = useState("");
+
+  const buyDebounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     if (!user) return;
@@ -181,6 +229,91 @@ export default function HedgeFunGame() {
     setJoining(false);
   }
 
+  async function loadPortfolioData() {
+    if (!user) return;
+    setPositionsLoading(true);
+    const [{ data: pos }, { data: tr }] = await Promise.all([
+      supabase
+        .from("game_positions")
+        .select("id, symbol, shares, avg_cost_price, current_price, market_value, unrealized_pnl")
+        .eq("season_id", SEASON_ID)
+        .eq("user_id", user.id)
+        .gt("shares", 0),
+      supabase
+        .from("game_trades")
+        .select("id, action, symbol, shares, price_at_execution, total_value, executed_at")
+        .eq("season_id", SEASON_ID)
+        .eq("user_id", user.id)
+        .order("executed_at", { ascending: false })
+        .limit(50),
+    ]);
+    setPositions((pos as Position[] | null) ?? []);
+    setTrades((tr as GameTrade[] | null) ?? []);
+    setPositionsLoading(false);
+  }
+
+  useEffect(() => {
+    if (view === "portfolio" && portfolio) {
+      loadPortfolioData();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, portfolio?.id]);
+
+  const handleBuySearch = useCallback((value: string) => {
+    setBuyQuery(value);
+    setSelectedBuyTicker(null);
+    if (buyDebounceRef.current) clearTimeout(buyDebounceRef.current);
+    if (!value.trim()) {
+      setBuyResults([]);
+      setShowBuyResults(false);
+      return;
+    }
+    setBuySearching(true);
+    buyDebounceRef.current = setTimeout(async () => {
+      const data = await searchTickers(value);
+      setBuyResults(data as TickerSearchResult[]);
+      setShowBuyResults(true);
+      setBuySearching(false);
+    }, 200);
+  }, []);
+
+  async function handleTrade(action: "buy" | "sell", symbol: string, sharesRaw: string) {
+    if (!user) return;
+    const shares = parseInt(sharesRaw, 10);
+    if (isNaN(shares) || shares < 100) {
+      toast.error("Minimum 100 shares per trade");
+      return;
+    }
+    setTradeLoading(true);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    const { data, error } = await supabase.functions.invoke("game-trade", {
+      body: { action, symbol: symbol.toUpperCase(), shares, season_id: SEASON_ID },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (error || (data as any)?.error) {
+      toast.error((data as any)?.error ?? "Trade failed. Try again.");
+      setTradeLoading(false);
+      return;
+    }
+    toast.success(`${action === "buy" ? "Bought" : "Sold"} ${shares} shares of ${symbol.toUpperCase()}`);
+    const { data: p } = await supabase
+      .from("game_portfolios")
+      .select("id, cash_balance, total_value, realized_pnl, unrealized_pnl, rank, joined_at")
+      .eq("season_id", SEASON_ID)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    setPortfolio((p as Portfolio | null) ?? null);
+    await loadPortfolioData();
+    setSelectedBuyTicker(null);
+    setBuyQuery("");
+    setBuyShares("");
+    setSellSymbol(null);
+    setSellShares("");
+    setTradeLoading(false);
+  }
+
+
   if (!user) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
@@ -279,21 +412,279 @@ export default function HedgeFunGame() {
       )}
 
       {view === "portfolio" && (
-        <>
-          {portfolio ? (
-            <div className="rounded-lg border border-border p-8 text-center text-muted-foreground">
-              <p>Portfolio view coming in next prompt</p>
-            </div>
-          ) : (
+        <div className="space-y-6">
+          {!portfolio ? (
             <div className="rounded-lg border border-border p-8 text-center space-y-4">
               <p className="text-muted-foreground">
                 You haven't joined this season yet.
               </p>
               <Button onClick={() => setView("lobby")}>Join Now →</Button>
             </div>
+          ) : (
+            <>
+              {/* ── STAT BAR ── */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Total Value</p>
+                  <p className="text-xl font-semibold mt-1 tabular-nums">{fmt(portfolio.total_value)}</p>
+                </div>
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Cash Available</p>
+                  <p className="text-xl font-semibold mt-1 tabular-nums">{fmt(portfolio.cash_balance)}</p>
+                </div>
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Unrealized P&amp;L</p>
+                  <p className={`text-xl font-semibold mt-1 tabular-nums ${portfolio.unrealized_pnl >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                    {portfolio.unrealized_pnl >= 0 ? "+" : ""}
+                    {fmt(portfolio.unrealized_pnl)}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-border p-4">
+                  <p className="text-xs uppercase tracking-wide text-muted-foreground">Rank</p>
+                  <p className="text-xl font-semibold mt-1">{portfolio.rank ? `#${portfolio.rank}` : "—"}</p>
+                </div>
+              </div>
+
+              {/* ── SINCE DAY 1 GROWTH CARD ── */}
+              {(() => {
+                const STARTING_AUM = 5_000_000;
+                const totalPnl = portfolio.total_value - STARTING_AUM;
+                const growthPct = (totalPnl / STARTING_AUM) * 100;
+                const totalTrades = trades.length;
+                const buyCount = trades.filter((t) => t.action === "buy").length;
+                const sellCount = trades.filter((t) => t.action === "sell").length;
+                const daysElapsed = Math.max(
+                  1,
+                  Math.floor((Date.now() - new Date(portfolio.joined_at).getTime()) / (1000 * 60 * 60 * 24))
+                );
+                const avgDailyPnl = totalPnl / daysElapsed;
+                const fmtSigned = (n: number) =>
+                  `${n >= 0 ? "+" : ""}${fmtFull(n)}`;
+
+                return (
+                  <div className="rounded-lg border border-border p-5 space-y-3">
+                    <h3 className="text-base font-semibold">Account Growth Since Day 1</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Day 1 Starting Balance</span>
+                        <span className="tabular-nums">$5,000,000</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Today's Balance</span>
+                        <span className="tabular-nums">{fmtFull(portfolio.total_value)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Growth</span>
+                        <span className={`tabular-nums font-medium ${growthPct >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                          {growthPct >= 0 ? "+" : ""}{growthPct.toFixed(2)}%
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Number of Trades</span>
+                        <span className="tabular-nums">{totalTrades} ({buyCount} buys · {sellCount} sells)</span>
+                      </div>
+                      <div className="flex justify-between sm:col-span-2">
+                        <span className="text-muted-foreground">Avg Daily Gain/Loss</span>
+                        <span className={`tabular-nums ${avgDailyPnl >= 0 ? "text-[hsl(var(--green))]" : "text-[hsl(var(--red))]"}`}>
+                          {fmtSigned(avgDailyPnl)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* ── PRICE DELAY BADGE ── */}
+              <div className="text-xs text-muted-foreground">
+                ⏱ Prices delayed 15 min (Polygon Starter) · All players on same data
+              </div>
+
+              {/* ── BUY INTERFACE ── */}
+              {season?.status === "active" && (
+                <div className="rounded-lg border border-border p-5 space-y-3">
+                  <h3 className="text-base font-semibold">Buy a Stock</h3>
+                  <div className="relative">
+                    <Search className="h-4 w-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      value={buyQuery}
+                      onChange={(e) => handleBuySearch(e.target.value)}
+                      placeholder="Search ticker or company name..."
+                      className="pl-8 h-9 text-sm"
+                    />
+                    {showBuyResults && buyResults.length > 0 && (
+                      <div className="absolute top-full left-0 right-0 mt-1 max-h-64 overflow-y-auto rounded-md border border-border bg-popover z-10 shadow-md">
+                        {buyResults.map((r) => (
+                          <button
+                            key={r.ticker}
+                            type="button"
+                            onClick={() => {
+                              setSelectedBuyTicker(r.ticker);
+                              setBuyQuery(r.ticker);
+                              setShowBuyResults(false);
+                            }}
+                            className="w-full px-3 py-2 flex items-center gap-2 hover:bg-accent text-left text-sm"
+                          >
+                            <span className="font-semibold">{r.ticker}</span>
+                            <span className="text-muted-foreground truncate">{r.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    {buySearching && (
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                        Searching...
+                      </div>
+                    )}
+                  </div>
+                  {selectedBuyTicker && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Input
+                        type="number"
+                        value={buyShares}
+                        onChange={(e) => setBuyShares(e.target.value)}
+                        placeholder="Shares (min 100)"
+                        className="h-9 text-sm w-[160px]"
+                      />
+                      <Button
+                        size="sm"
+                        disabled={tradeLoading}
+                        onClick={() => handleTrade("buy", selectedBuyTicker, buyShares)}
+                      >
+                        {tradeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : `Buy ${selectedBuyTicker}`}
+                      </Button>
+                      <p className="text-xs text-muted-foreground">
+                        Min 100 shares · $5 price floor · 20% max per position
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {season?.status === "upcoming" && (
+                <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
+                  Trading opens when the season goes live on {new Date(season.starts_at).toLocaleDateString("en-US", { month: "long", day: "numeric" })}.
+                </div>
+              )}
+
+              {/* ── HOLDINGS TABLE ── */}
+              <div className="rounded-lg border border-border">
+                <div className="px-5 py-4 border-b border-border">
+                  <h3 className="text-base font-semibold">Holdings</h3>
+                </div>
+                {positionsLoading ? (
+                  <div className="p-8 flex items-center justify-center">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  </div>
+                ) : positions.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No open positions. Use the search above to buy your first stock.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-xs uppercase tracking-wide text-muted-foreground">
+                        <tr>
+                          <th className="text-left px-4 py-3">Symbol</th>
+                          <th className="text-right px-4 py-3">Shares</th>
+                          <th className="text-right px-4 py-3">Avg Cost</th>
+                          <th className="text-right px-4 py-3">Current</th>
+                          <th className="text-right px-4 py-3">Mkt Value</th>
+                          <th className="text-right px-4 py-3">P&amp;L</th>
+                          <th className="text-right px-4 py-3">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {positions.map((pos) => {
+                          const pnlPct =
+                            pos.avg_cost_price > 0
+                              ? ((pos.current_price - pos.avg_cost_price) / pos.avg_cost_price) * 100
+                              : 0;
+                          const isSelling = sellSymbol === pos.symbol;
+                          const pnlClass =
+                            pos.unrealized_pnl >= 0
+                              ? "text-[hsl(var(--green))]"
+                              : "text-[hsl(var(--red))]";
+                          return (
+                            <Fragment key={pos.id}>
+                              <tr className="border-t border-border">
+                                <td className="px-4 py-3 font-semibold">{pos.symbol}</td>
+                                <td className="px-4 py-3 text-right tabular-nums">{pos.shares.toLocaleString()}</td>
+                                <td className="px-4 py-3 text-right tabular-nums">${pos.avg_cost_price.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right tabular-nums">${pos.current_price.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right tabular-nums">{fmt(pos.market_value)}</td>
+                                <td className={`px-4 py-3 text-right tabular-nums ${pnlClass}`}>
+                                  {pos.unrealized_pnl >= 0 ? "+" : ""}
+                                  {fmt(pos.unrealized_pnl)}{" "}
+                                  <span className="text-xs">
+                                    ({pnlPct >= 0 ? "+" : ""}
+                                    {pnlPct.toFixed(1)}%)
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-right">
+                                  {season?.status === "active" && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setSellSymbol(isSelling ? null : pos.symbol);
+                                        setSellShares("");
+                                      }}
+                                    >
+                                      {isSelling ? "Cancel" : "Sell"}
+                                    </Button>
+                                  )}
+                                </td>
+                              </tr>
+                              {isSelling && (
+                                <tr key={`${pos.id}-sell`} className="bg-muted/20 border-t border-border">
+                                  <td colSpan={7} className="px-4 py-3">
+                                    <div className="flex flex-wrap items-center gap-3">
+                                      <Input
+                                        type="number"
+                                        value={sellShares}
+                                        onChange={(e) => setSellShares(e.target.value)}
+                                        placeholder={`Shares to sell (max ${pos.shares.toLocaleString()})`}
+                                        className="h-8 text-sm w-[220px]"
+                                      />
+                                      <Button
+                                        size="sm"
+                                        disabled={tradeLoading}
+                                        onClick={() => handleTrade("sell", pos.symbol, sellShares)}
+                                      >
+                                        {tradeLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Sell"}
+                                      </Button>
+                                      <p className="text-xs text-muted-foreground">Min 100 shares</p>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* ── AI ANALYST DEEP LINK ── */}
+              <button
+                type="button"
+                onClick={() => navigate("/dashboard/ai")}
+                className="w-full border border-border rounded-lg p-4 text-left hover:border-accent-blue transition-colors group"
+              >
+                <p className="text-sm font-medium">
+                  Discuss your portfolio in AI Analyst →
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Ask about your holdings, market conditions, or trade ideas.
+                </p>
+              </button>
+            </>
           )}
-        </>
+        </div>
       )}
+
 
       {view === "leaderboard" && (
         <LeaderboardView
