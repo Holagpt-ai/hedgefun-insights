@@ -9,29 +9,25 @@ export async function subscribeToNewsletter(
     return { status: "invalid" };
   }
 
-  const { error } = await supabase.from("newsletter_subscribers" as any).insert({
-    email: email.trim().toLowerCase(),
-    source,
-  } as any);
-
-  if (error) {
-    if (error.code === "23505") return { status: "duplicate" };
-    return { status: "error" };
-  }
-
-  // Fire welcome email — non-blocking
   try {
-    await fetch(
+    const res = await fetch(
       `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/newsletter-welcome`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+        headers: {
+          "Content-Type": "application/json",
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({ email: email.trim().toLowerCase(), source }),
       }
     );
-  } catch (_) {
-    // Welcome email failure does not affect subscription success
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && json?.success) return { status: "success" };
+    if (res.ok && json?.status === "duplicate") return { status: "duplicate" };
+    return { status: "error" };
+  } catch {
+    return { status: "error" };
   }
-
-  return { status: "success" };
+  // supabase import retained for potential future authenticated reads
+  void supabase;
 }
