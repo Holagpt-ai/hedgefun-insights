@@ -10,6 +10,19 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
+    // Restrict to server-side/cron callers only.
+    // Accept either the service-role key or SYNC_SECRET as a bearer token.
+    const authHeader = req.headers.get("Authorization") ?? "";
+    const presented = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+    const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
+    if (!presented || (presented !== serviceRoleKey && (!syncSecret || presented !== syncSecret))) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { briefType } = await req.json(); // "am" | "pm"
     if (!briefType || !["am", "pm"].includes(briefType)) {
       return new Response(JSON.stringify({ error: "Invalid briefType" }), {
