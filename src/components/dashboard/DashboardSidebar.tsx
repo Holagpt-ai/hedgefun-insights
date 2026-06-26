@@ -28,7 +28,7 @@ const NAV: NavEntry[] = [
   { label: "AM Inbox",      icon: <Sun className="h-4 w-4" />,        route: "/dashboard/am",        plan: "pro" },
   { label: "PM Inbox",      icon: <Moon className="h-4 w-4" />,       route: "/dashboard/pm",        plan: "pro" },
   { label: "Screeners",     icon: <BarChart2 className="h-4 w-4" />,  route: "/dashboard/screeners", plan: "free" },
-  { label: "AI Analyst",    icon: <Sparkles className="h-4 w-4" />,   route: "/dashboard/ai",        plan: "pro" },
+  { label: "AI Analyst",    icon: <Sparkles className="h-4 w-4" />,   route: "/dashboard/ai",        plan: "free" },
   { label: "My Watchlist",  icon: <Star className="h-4 w-4" />,       route: "/dashboard/watchlist",           plan: "free" },
   { label: "Stock Journal", icon: <BookOpen className="h-4 w-4" />,   route: "/dashboard/journal",   plan: "pro" },
   { label: "HedgeFun Game", icon: <Gamepad2 className="h-4 w-4" />,   route: "/dashboard/game",      plan: "free" },
@@ -148,7 +148,7 @@ export default function DashboardSidebar() {
         {!isPro && !collapsed && (
           <div className="mt-6 mx-2 p-3 rounded-lg border border-border bg-accent-blue-light/40">
             <p className="text-xs text-foreground mb-2 leading-snug">
-              Unlock AM/PM Inbox, AI Analyst, Stock Journal and more.
+              Unlock AM/PM Inbox, Stock Journal and more.
             </p>
             <Button
               size="sm"
@@ -166,7 +166,7 @@ export default function DashboardSidebar() {
           <DialogHeader>
             <DialogTitle>Unlock HedgeFun PRO</DialogTitle>
             <DialogDescription>
-              Get the AM/PM Inbox, AI Analyst, Stock Journal, and the full PRO toolkit for $5/month.
+              Get the AM/PM Inbox, Stock Journal, and the full PRO toolkit for $5/month.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

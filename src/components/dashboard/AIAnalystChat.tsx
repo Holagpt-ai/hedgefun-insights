@@ -407,11 +407,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             </div>
           </div>
         )}
-        {!isPro && !limitReached && (
-          <div className="mb-2 text-xs text-center text-muted-foreground">
-            Free plan — Fast model only. Upgrade to PRO for Standard & Deep Analysis.
-          </div>
-        )}
         {attachment && (
           <div className="flex items-center gap-2 mb-2 px-1">
             <span className="text-xs text-muted-foreground truncate max-w-[200px]">{attachment.fileName}</span>
