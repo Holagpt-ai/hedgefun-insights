@@ -1,12 +1,10 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { AIAnalystChat } from "@/components/dashboard/AIAnalystChat";
 import { supabase } from "@/integrations/supabase/client";
 
 export default function AIAnalyst() {
   const { user, profile } = useAuth();
-  const navigate = useNavigate();
   const isPro =
     profile?.plan === "pro" ||
     profile?.plan === "admin" ||
