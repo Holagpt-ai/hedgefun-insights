@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { Send, Loader2, Sparkles, Lock as LockIcon, Paperclip, X } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { streamChat, ChatMessage } from "@/lib/chat";
@@ -17,10 +17,12 @@ const QUICK_PROMPTS = [
 ];
 
 const MODEL_OPTIONS = [
-  { label: "Fast", value: "claude-haiku-4-5-20251001", minPlan: "free" },
-  { label: "Standard", value: "claude-sonnet-4-6", minPlan: "pro" },
-  { label: "Deep Analysis", value: "claude-opus-4-6", minPlan: "unlimited" },
+  { label: "Fast", value: "fast" as const, minPlan: "free" },
+  { label: "Standard", value: "standard" as const, minPlan: "pro" },
+  { label: "Deep Analysis", value: "deep" as const, minPlan: "unlimited" },
 ];
+
+type ModelTier = "fast" | "standard" | "deep";
 
 interface AIAnalystChatProps {
   isPro: boolean;
@@ -30,10 +32,12 @@ interface AIAnalystChatProps {
 
 export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("claude-haiku-4-5-20251001");
+  const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
+  const [limitReached, setLimitReached] = useState(false);
   const [sessionToken] = useState(() => {
     const key = "hedgefun-analyst-session";
     let token = sessionStorage.getItem(key);
@@ -228,6 +232,25 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           setAttachment(null);
         },
         onError: (err) => {
+          if (err === "DAILY_LIMIT_REACHED") {
+            // Remove the empty assistant placeholder; show inline upgrade popup instead.
+            setMessages((prev) => prev.slice(0, -1));
+            setLimitReached(true);
+            setStreaming(false);
+            return;
+          }
+          if (err === "SIGNUP_PROMPT") {
+            setMessages((prev) => {
+              const updated = [...prev];
+              updated[updated.length - 1] = {
+                role: "assistant",
+                content: "Sign up for free to get more daily AI queries. No credit card required.",
+              };
+              return updated;
+            });
+            setStreaming(false);
+            return;
+          }
           setMessages((prev) => {
             const updated = [...prev];
             updated[updated.length - 1] = { role: "assistant", content: `Error: ${err}` };
@@ -286,11 +309,11 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               <button
                 key={qp.label}
                 onClick={() => sendMessage(qp.prompt)}
-                disabled={!isPro || streaming}
+                disabled={streaming}
                 className={cn(
                   "text-left px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
                   "text-sm font-medium text-foreground",
-                  (!isPro || streaming) && "opacity-50 cursor-not-allowed"
+                  streaming && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {qp.label}
@@ -338,15 +361,18 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               key={opt.value}
               type="button"
               onClick={() => {
-                if (accessible) setSelectedModel(opt.value);
+                if (accessible) {
+                  setSelectedModel(opt.value);
+                } else {
+                  navigate("/pro");
+                }
               }}
-              disabled={!accessible}
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200",
                 active
                   ? "bg-accent-blue text-primary-foreground"
                   : "bg-card border border-border text-foreground hover:bg-muted",
-                !accessible && "opacity-50 cursor-not-allowed hover:bg-card"
+                !accessible && "opacity-60 hover:bg-card"
               )}
             >
               {opt.label}
@@ -358,9 +384,32 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
 
       {/* Input area */}
       <div className="border-t border-border pt-4 mt-auto">
-        {!isPro && (
+        {limitReached && (
+          <div className="mb-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-4 py-3">
+            <p className="text-sm text-foreground mb-2">
+              You've reached your daily limit of 5 messages. Your messages reset tomorrow — or upgrade to PRO for unlimited access.
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => navigate("/pro")}
+                className="text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity"
+              >
+                Upgrade to PRO
+              </button>
+              <button
+                type="button"
+                onClick={() => setLimitReached(false)}
+                className="text-xs font-medium px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-muted transition-colors"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+        {!isPro && !limitReached && (
           <div className="mb-2 text-xs text-center text-muted-foreground">
-            PRO feature — Upgrade to unlock AI Analyst
+            Free plan — Fast model only. Upgrade to PRO for Standard & Deep Analysis.
           </div>
         )}
         {attachment && (
@@ -385,12 +434,13 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         <div className="flex gap-2 items-end">
           <button
             type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={!isPro || streaming}
+            onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
+            disabled={streaming}
             className={cn(
               "shrink-0 h-11 w-11 rounded-lg border border-border bg-card text-muted-foreground",
               "flex items-center justify-center transition-colors duration-200 hover:bg-muted",
-              (!isPro || streaming) && "opacity-50 cursor-not-allowed"
+              (!isPro || streaming) && "opacity-60",
+              streaming && "cursor-not-allowed"
             )}
           >
             <Paperclip className="h-4 w-4" />
@@ -400,23 +450,23 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={!isPro || streaming}
-            placeholder={isPro ? "Ask about a setup, ticker, or market condition..." : "Upgrade to PRO to use AI Analyst"}
+            disabled={streaming || limitReached}
+            placeholder="Ask about a setup, ticker, or market condition..."
             rows={1}
             className={cn(
               "flex-1 resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm",
               "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
               "transition-colors duration-200 min-h-[44px] max-h-[120px]",
-              (!isPro || streaming) && "opacity-60 cursor-not-allowed"
+              (streaming || limitReached) && "opacity-60 cursor-not-allowed"
             )}
           />
           <button
             onClick={() => sendMessage(input)}
-            disabled={!isPro || streaming || !input.trim()}
+            disabled={streaming || !input.trim() || limitReached}
             className={cn(
               "shrink-0 h-11 w-11 rounded-lg bg-accent-blue text-primary-foreground",
               "flex items-center justify-center transition-opacity duration-200",
-              (!isPro || streaming || !input.trim()) && "opacity-50 cursor-not-allowed"
+              (streaming || !input.trim() || limitReached) && "opacity-50 cursor-not-allowed"
             )}
           >
             {streaming ? (

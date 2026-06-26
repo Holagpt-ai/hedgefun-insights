@@ -28,6 +28,35 @@ RESPONSE STYLE:
 
 CAPABILITIES: Technical analysis, financial metrics, market trends, trading concepts, macro factors, earnings analysis, IPO filings, sector rotation, risk management.`;
 
+const MODEL_HAIKU = "claude-haiku-4-5-20251001";
+const MODEL_SONNET = "claude-sonnet-4-6";
+const MODEL_OPUS = "claude-opus-4-8";
+
+type Tier = "fast" | "standard" | "deep";
+
+function tierFromRequest(model: unknown): Tier {
+  if (model === "fast" || model === "standard" || model === "deep") return model;
+  return "fast";
+}
+
+function maxTokensFor(modelId: string): number {
+  if (modelId === MODEL_OPUS) return 4096;
+  if (modelId === MODEL_SONNET) return 2048;
+  return 1024;
+}
+
+/**
+ * Resolves the actual Anthropic model id from the requested tier and the user plan,
+ * enforcing tier gating. Opus cap enforcement for PRO happens separately.
+ */
+function resolveModel(tier: Tier, plan: string): string {
+  // Free / anonymous: always Haiku.
+  if (plan !== "pro" && plan !== "admin" && plan !== "unlimited") return MODEL_HAIKU;
+  if (tier === "fast") return MODEL_HAIKU;
+  if (tier === "standard") return MODEL_SONNET;
+  return MODEL_OPUS;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -67,9 +96,9 @@ serve(async (req) => {
       }
     }
 
-    // Memory context (PRO/admin only)
+    // Memory context (PRO/admin/unlimited only)
     let memoryContext = "";
-    const isProOrAdmin = userPlan === "pro" || userPlan === "admin";
+    const isProOrAdmin = userPlan === "pro" || userPlan === "admin" || userPlan === "unlimited";
 
     if (user && isProOrAdmin) {
       try {
@@ -92,30 +121,45 @@ serve(async (req) => {
       }
     }
 
-
-
     const today = new Date().toISOString().split("T")[0];
 
-    // Rate limiting
+
+    // Resolve tier and model
+    const tier = tierFromRequest(model);
+    let resolvedModel = resolveModel(tier, userPlan);
+
+    // Rate limiting + Opus cap (all keyed on ai_daily_logs.entry_type='ai_message', log_date=today)
     if (user) {
       if (userPlan === "free") {
-        const { count: turnsToday } = await adminSupabase
+        const { count: msgsToday } = await adminSupabase
           .from("ai_daily_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
-          .eq("entry_type", "ai_turn")
-          .gte("created_at", today);
+          .eq("entry_type", "ai_message")
+          .eq("log_date", today);
 
-        if ((turnsToday ?? 0) >= 5) {
+        if ((msgsToday ?? 0) >= 5) {
           return new Response(
-            JSON.stringify({ error: "daily_limit_reached" }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({ error: "DAILY_LIMIT_REACHED", limit: 5 }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+      } else if (userPlan === "pro" && resolvedModel === MODEL_OPUS) {
+        // PRO Opus cap: 20/day, silent fallback to Sonnet on overflow
+        const { count: opusCount } = await adminSupabase
+          .from("ai_daily_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("entry_type", "ai_message")
+          .eq("payload->>model", MODEL_OPUS)
+          .eq("log_date", today);
+        if ((opusCount ?? 0) >= 20) {
+          resolvedModel = MODEL_SONNET;
+        }
       }
-      // pro / admin / unlimited: unlimited
+      // unlimited / admin: no caps
     } else if (sessionToken) {
-      // Anonymous: 3 queries per session
+      // Anonymous: 3 queries per session — return 200 with SIGNUP_PROMPT
       const { data: anonSession } = await adminSupabase
         .from("chatbot_sessions")
         .select("messages")
@@ -127,32 +171,10 @@ serve(async (req) => {
 
       if (anonMessages >= 3) {
         return new Response(
-          JSON.stringify({ error: "Sign up for free to get more daily AI queries. No credit card required." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "SIGNUP_PROMPT" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-    }
-
-    // Model enforcement
-    const requestedModel: string = model ?? "claude-haiku-4-5-20251001";
-    let resolvedModel: string;
-    if (userPlan === "unlimited" || userPlan === "admin") {
-      if (requestedModel === "claude-opus-4-6") {
-        const { count: opusCount } = await adminSupabase
-          .from("ai_daily_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user!.id)
-          .eq("entry_type", "ai_turn")
-          .eq("payload->>model", "claude-opus-4-6")
-          .gte("created_at", today);
-        resolvedModel = (opusCount ?? 0) >= 20 ? "claude-sonnet-4-6" : "claude-opus-4-6";
-      } else {
-        resolvedModel = requestedModel;
-      }
-    } else if (userPlan === "pro") {
-      resolvedModel = requestedModel === "claude-opus-4-6" ? "claude-sonnet-4-6" : requestedModel;
-    } else {
-      resolvedModel = "claude-haiku-4-5-20251001";
     }
 
     // Call Anthropic Claude API
@@ -203,7 +225,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: resolvedModel,
-        max_tokens: 1024,
+        max_tokens: maxTokensFor(resolvedModel),
         system: systemPrompt,
         messages: builtMessages,
         stream: true,
@@ -306,12 +328,12 @@ serve(async (req) => {
             last_active_at: new Date().toISOString(),
           }, { onConflict: "session_token" });
 
-          // Log ai_turn for authenticated users (used for rate limiting & opus quotas)
+          // Log ai_message for authenticated users (used for rate limiting & opus quotas)
           if (user) {
             await adminSupabase.from("ai_daily_logs").insert({
               user_id: user.id,
-              entry_type: "ai_turn",
-              payload: { model: resolvedModel, plan: userPlan },
+              entry_type: "ai_message",
+              payload: { model: resolvedModel, plan: userPlan, tier },
             });
           }
 
