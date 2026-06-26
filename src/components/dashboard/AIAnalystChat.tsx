@@ -361,15 +361,18 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               key={opt.value}
               type="button"
               onClick={() => {
-                if (accessible) setSelectedModel(opt.value);
+                if (accessible) {
+                  setSelectedModel(opt.value);
+                } else {
+                  navigate("/pro");
+                }
               }}
-              disabled={!accessible}
               className={cn(
                 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200",
                 active
                   ? "bg-accent-blue text-primary-foreground"
                   : "bg-card border border-border text-foreground hover:bg-muted",
-                !accessible && "opacity-50 cursor-not-allowed hover:bg-card"
+                !accessible && "opacity-60 hover:bg-card"
               )}
             >
               {opt.label}
