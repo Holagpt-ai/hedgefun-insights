@@ -41,6 +41,15 @@ export async function streamChat({
     return;
   }
 
+  // Tier-gated errors (DAILY_LIMIT_REACHED, SIGNUP_PROMPT) now come back as HTTP 200
+  // with a JSON body instead of an SSE stream. Detect by content-type and surface via onError.
+  const contentType = resp.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const errorData = await resp.json().catch(() => ({ error: "Chat failed" }));
+    onError?.(errorData.error || "Chat failed");
+    return;
+  }
+
   if (!resp.body) {
     onError?.("No response body");
     return;
