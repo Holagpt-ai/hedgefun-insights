@@ -32,10 +32,12 @@ interface AIAnalystChatProps {
 
 export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("claude-haiku-4-5-20251001");
+  const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
+  const [limitReached, setLimitReached] = useState(false);
   const [sessionToken] = useState(() => {
     const key = "hedgefun-analyst-session";
     let token = sessionStorage.getItem(key);
