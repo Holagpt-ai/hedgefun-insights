@@ -225,7 +225,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: resolvedModel,
-        max_tokens: 1024,
+        max_tokens: maxTokensFor(resolvedModel),
         system: systemPrompt,
         messages: builtMessages,
         stream: true,
