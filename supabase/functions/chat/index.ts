@@ -125,26 +125,47 @@ serve(async (req) => {
 
     const today = new Date().toISOString().split("T")[0];
 
-    // Rate limiting
+    // Memory context (PRO/admin/unlimited only)
+    // (isProOrAdmin already computed above with unlimited support)
+
+    const today = new Date().toISOString().split("T")[0];
+
+    // Resolve tier and model
+    const tier = tierFromRequest(model);
+    let resolvedModel = resolveModel(tier, userPlan);
+
+    // Rate limiting + Opus cap (all keyed on ai_daily_logs.entry_type='ai_message', log_date=today)
     if (user) {
       if (userPlan === "free") {
-        const { count: turnsToday } = await adminSupabase
+        const { count: msgsToday } = await adminSupabase
           .from("ai_daily_logs")
           .select("id", { count: "exact", head: true })
           .eq("user_id", user.id)
-          .eq("entry_type", "ai_turn")
-          .gte("created_at", today);
+          .eq("entry_type", "ai_message")
+          .eq("log_date", today);
 
-        if ((turnsToday ?? 0) >= 5) {
+        if ((msgsToday ?? 0) >= 5) {
           return new Response(
-            JSON.stringify({ error: "daily_limit_reached" }),
-            { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            JSON.stringify({ error: "DAILY_LIMIT_REACHED", limit: 5 }),
+            { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
+      } else if (userPlan === "pro" && resolvedModel === MODEL_OPUS) {
+        // PRO Opus cap: 20/day, silent fallback to Sonnet on overflow
+        const { count: opusCount } = await adminSupabase
+          .from("ai_daily_logs")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", user.id)
+          .eq("entry_type", "ai_message")
+          .eq("payload->>model", MODEL_OPUS)
+          .eq("log_date", today);
+        if ((opusCount ?? 0) >= 20) {
+          resolvedModel = MODEL_SONNET;
+        }
       }
-      // pro / admin / unlimited: unlimited
+      // unlimited / admin: no caps
     } else if (sessionToken) {
-      // Anonymous: 3 queries per session
+      // Anonymous: 3 queries per session — return 200 with SIGNUP_PROMPT
       const { data: anonSession } = await adminSupabase
         .from("chatbot_sessions")
         .select("messages")
@@ -156,32 +177,10 @@ serve(async (req) => {
 
       if (anonMessages >= 3) {
         return new Response(
-          JSON.stringify({ error: "Sign up for free to get more daily AI queries. No credit card required." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          JSON.stringify({ error: "SIGNUP_PROMPT" }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
-    }
-
-    // Model enforcement
-    const requestedModel: string = model ?? "claude-haiku-4-5-20251001";
-    let resolvedModel: string;
-    if (userPlan === "unlimited" || userPlan === "admin") {
-      if (requestedModel === "claude-opus-4-6") {
-        const { count: opusCount } = await adminSupabase
-          .from("ai_daily_logs")
-          .select("id", { count: "exact", head: true })
-          .eq("user_id", user!.id)
-          .eq("entry_type", "ai_turn")
-          .eq("payload->>model", "claude-opus-4-6")
-          .gte("created_at", today);
-        resolvedModel = (opusCount ?? 0) >= 20 ? "claude-sonnet-4-6" : "claude-opus-4-6";
-      } else {
-        resolvedModel = requestedModel;
-      }
-    } else if (userPlan === "pro") {
-      resolvedModel = requestedModel === "claude-opus-4-6" ? "claude-sonnet-4-6" : requestedModel;
-    } else {
-      resolvedModel = "claude-haiku-4-5-20251001";
     }
 
     // Call Anthropic Claude API
