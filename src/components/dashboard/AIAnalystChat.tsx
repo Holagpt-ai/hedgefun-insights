@@ -17,10 +17,12 @@ const QUICK_PROMPTS = [
 ];
 
 const MODEL_OPTIONS = [
-  { label: "Fast", value: "claude-haiku-4-5-20251001", minPlan: "free" },
-  { label: "Standard", value: "claude-sonnet-4-6", minPlan: "pro" },
-  { label: "Deep Analysis", value: "claude-opus-4-6", minPlan: "unlimited" },
+  { label: "Fast", value: "fast" as const, minPlan: "free" },
+  { label: "Standard", value: "standard" as const, minPlan: "pro" },
+  { label: "Deep Analysis", value: "deep" as const, minPlan: "unlimited" },
 ];
+
+type ModelTier = "fast" | "standard" | "deep";
 
 interface AIAnalystChatProps {
   isPro: boolean;
