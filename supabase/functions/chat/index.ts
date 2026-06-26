@@ -96,9 +96,9 @@ serve(async (req) => {
       }
     }
 
-    // Memory context (PRO/admin only)
+    // Memory context (PRO/admin/unlimited only)
     let memoryContext = "";
-    const isProOrAdmin = userPlan === "pro" || userPlan === "admin";
+    const isProOrAdmin = userPlan === "pro" || userPlan === "admin" || userPlan === "unlimited";
 
     if (user && isProOrAdmin) {
       try {
@@ -121,14 +121,8 @@ serve(async (req) => {
       }
     }
 
-
-
     const today = new Date().toISOString().split("T")[0];
 
-    // Memory context (PRO/admin/unlimited only)
-    // (isProOrAdmin already computed above with unlimited support)
-
-    const today = new Date().toISOString().split("T")[0];
 
     // Resolve tier and model
     const tier = tierFromRequest(model);
