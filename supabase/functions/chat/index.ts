@@ -342,14 +342,7 @@ serve(async (req) => {
             last_active_at: new Date().toISOString(),
           }, { onConflict: "session_token" });
 
-          // Log ai_message for authenticated users (used for rate limiting & opus quotas)
-          if (user) {
-            await adminSupabase.from("ai_daily_logs").insert({
-              user_id: user.id,
-              entry_type: "ai_message",
-              payload: { model: resolvedModel, plan: userPlan, tier },
-            });
-          }
+
 
           // PRO/admin: persistent memory + daily logs + Claude Haiku extraction
           if (user && isProOrAdmin) {
