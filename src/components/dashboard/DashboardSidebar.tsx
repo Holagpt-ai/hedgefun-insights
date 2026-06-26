@@ -166,7 +166,7 @@ export default function DashboardSidebar() {
           <DialogHeader>
             <DialogTitle>Unlock HedgeFun PRO</DialogTitle>
             <DialogDescription>
-              Get the AM/PM Inbox, AI Analyst, Stock Journal, and the full PRO toolkit for $5/month.
+              Get the AM/PM Inbox, Stock Journal, and the full PRO toolkit for $5/month.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
