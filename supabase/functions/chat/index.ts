@@ -158,7 +158,21 @@ serve(async (req) => {
         }
       }
       // unlimited / admin: no caps
-    } else if (sessionToken) {
+    }
+
+    // Log ai_message immediately after limit checks pass and resolvedModel is final
+    // (including Opus→Sonnet fallback). This prevents race conditions on rapid sends
+    // and ensures the cap is enforced even if the stream is interrupted.
+    if (user) {
+      await adminSupabase.from("ai_daily_logs").insert({
+        user_id: user.id,
+        entry_type: "ai_message",
+        payload: { model: resolvedModel, plan: userPlan, tier },
+      });
+    }
+
+    if (!user && sessionToken) {
+
       // Anonymous: 3 queries per session — return 200 with SIGNUP_PROMPT
       const { data: anonSession } = await adminSupabase
         .from("chatbot_sessions")
