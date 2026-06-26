@@ -28,6 +28,35 @@ RESPONSE STYLE:
 
 CAPABILITIES: Technical analysis, financial metrics, market trends, trading concepts, macro factors, earnings analysis, IPO filings, sector rotation, risk management.`;
 
+const MODEL_HAIKU = "claude-haiku-4-5-20251001";
+const MODEL_SONNET = "claude-sonnet-4-6";
+const MODEL_OPUS = "claude-opus-4-8";
+
+type Tier = "fast" | "standard" | "deep";
+
+function tierFromRequest(model: unknown): Tier {
+  if (model === "fast" || model === "standard" || model === "deep") return model;
+  return "fast";
+}
+
+function maxTokensFor(modelId: string): number {
+  if (modelId === MODEL_OPUS) return 4096;
+  if (modelId === MODEL_SONNET) return 2048;
+  return 1024;
+}
+
+/**
+ * Resolves the actual Anthropic model id from the requested tier and the user plan,
+ * enforcing tier gating. Opus cap enforcement for PRO happens separately.
+ */
+function resolveModel(tier: Tier, plan: string): string {
+  // Free / anonymous: always Haiku.
+  if (plan !== "pro" && plan !== "admin" && plan !== "unlimited") return MODEL_HAIKU;
+  if (tier === "fast") return MODEL_HAIKU;
+  if (tier === "standard") return MODEL_SONNET;
+  return MODEL_OPUS;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
