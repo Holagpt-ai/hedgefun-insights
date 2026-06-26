@@ -327,7 +327,8 @@ export default function HedgeFunGame() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (error || (data as any)?.error) {
-      toast.error((data as any)?.error ?? "Trade failed. Try again.");
+      const msg = (data as any)?.error ?? error?.message ?? "Trade failed. Try again.";
+      toast.error(msg, { duration: 5000 });
       setTradeLoading(false);
       return;
     }
