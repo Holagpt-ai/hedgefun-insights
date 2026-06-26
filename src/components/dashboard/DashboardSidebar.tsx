@@ -148,7 +148,7 @@ export default function DashboardSidebar() {
         {!isPro && !collapsed && (
           <div className="mt-6 mx-2 p-3 rounded-lg border border-border bg-accent-blue-light/40">
             <p className="text-xs text-foreground mb-2 leading-snug">
-              Unlock AM/PM Inbox, AI Analyst, Stock Journal and more.
+              Unlock AM/PM Inbox, Stock Journal and more.
             </p>
             <Button
               size="sm"
