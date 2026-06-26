@@ -38,7 +38,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 200);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
@@ -52,25 +52,25 @@ serve(async (req) => {
   );
 
   const { data: { user }, error: authError } = await anonClient.auth.getUser();
-  if (authError || !user) return json({ error: "Unauthorized" }, 401);
+  if (authError || !user) return json({ error: "Unauthorized" }, 200);
 
   let body: { action: string; symbol: string; shares: number; season_id: string };
   try {
     body = await req.json();
   } catch {
-    return json({ error: "Invalid request body" }, 400);
+    return json({ error: "Invalid request body" }, 200);
   }
 
   const { action, symbol, shares, season_id } = body;
 
   if (!action || !symbol || !shares || !season_id) {
-    return json({ error: "Missing required fields: action, symbol, shares, season_id" }, 400);
+    return json({ error: "Missing required fields: action, symbol, shares, season_id" }, 200);
   }
 
   const sym = symbol.toUpperCase().trim();
 
   if (!["buy", "sell"].includes(action)) {
-    return json({ error: "action must be 'buy' or 'sell'" }, 400);
+    return json({ error: "action must be 'buy' or 'sell'" }, 200);
   }
 
   const { data: configRows } = await supabase
@@ -93,8 +93,8 @@ serve(async (req) => {
     .eq("id", season_id)
     .single();
 
-  if (seasonError || !season) return json({ error: "Season not found" }, 404);
-  if (season.status !== "active") return json({ error: "Season is not active" }, 400);
+  if (seasonError || !season) return json({ error: "Season not found" }, 200);
+  if (season.status !== "active") return json({ error: "Season is not active" }, 200);
 
   const { data: portfolio, error: portfolioError } = await supabase
     .from("game_portfolios")
@@ -104,19 +104,19 @@ serve(async (req) => {
     .single();
 
   if (portfolioError || !portfolio) {
-    return json({ error: "You have not joined this season yet" }, 400);
+    return json({ error: "You have not joined this season yet" }, 200);
   }
 
   if (typeof shares !== "number" || shares < MIN_SHARES || shares % 1 !== 0) {
-    return json({ error: `Minimum ${MIN_SHARES} shares per trade. Shares must be a whole number.` }, 400);
+    return json({ error: `Minimum ${MIN_SHARES} shares per trade. Shares must be a whole number.` }, 200);
   }
 
   const POLYGON_API_KEY = Deno.env.get("POLYGON_API_KEY");
-  if (!POLYGON_API_KEY) return json({ error: "Price service unavailable" }, 500);
+  if (!POLYGON_API_KEY) return json({ error: "Price service unavailable" }, 200);
 
   const currentPrice = await getPolygonPrice(sym, POLYGON_API_KEY);
   if (!currentPrice || currentPrice <= 0) {
-    return json({ error: `Unable to fetch price for ${sym}. Try again.` }, 400);
+    return json({ error: `Unable to fetch price for ${sym}. Try again.` }, 200);
   }
 
   const { data: existingPosition } = await supabase
@@ -128,7 +128,7 @@ serve(async (req) => {
 
   if (action === "buy") {
     if (currentPrice < MIN_PRICE) {
-      return json({ error: `${sym} price $${currentPrice.toFixed(2)} is below the $${MIN_PRICE} minimum.` }, 400);
+      return json({ error: `${sym} price $${currentPrice.toFixed(2)} is below the $${MIN_PRICE} minimum.` }, 200);
     }
 
     const totalCost = shares * currentPrice;
@@ -136,7 +136,7 @@ serve(async (req) => {
     if (portfolio.cash_balance < totalCost) {
       return json({
         error: `Insufficient cash. Cost: $${totalCost.toLocaleString()} — Available: $${portfolio.cash_balance.toLocaleString()}`,
-      }, 400);
+      }, 200);
     }
 
     const existingValue = existingPosition ? existingPosition.market_value : 0;
@@ -147,7 +147,7 @@ serve(async (req) => {
       const maxAllowed = Math.floor((STARTING_AUM * MAX_POSITION_PCT - existingValue) / currentPrice);
       return json({
         error: `Concentration limit: max ${MAX_POSITION_PCT * 100}% of AUM per ticker. Max additional shares: ${maxAllowed}.`,
-      }, 400);
+      }, 200);
     }
 
     if (!existingPosition) {
@@ -157,7 +157,7 @@ serve(async (req) => {
         .eq("portfolio_id", portfolio.id);
 
       if ((count ?? 0) >= MAX_POSITIONS) {
-        return json({ error: `Maximum ${MAX_POSITIONS} positions allowed per portfolio.` }, 400);
+        return json({ error: `Maximum ${MAX_POSITIONS} positions allowed per portfolio.` }, 200);
       }
     }
 
@@ -236,11 +236,11 @@ serve(async (req) => {
 
   if (action === "sell") {
     if (!existingPosition) {
-      return json({ error: `No position found for ${sym}` }, 400);
+      return json({ error: `No position found for ${sym}` }, 200);
     }
 
     if (shares > existingPosition.shares) {
-      return json({ error: `Cannot sell ${shares} shares — you only hold ${existingPosition.shares}` }, 400);
+      return json({ error: `Cannot sell ${shares} shares — you only hold ${existingPosition.shares}` }, 200);
     }
 
     const proceeds = shares * currentPrice;
@@ -307,7 +307,7 @@ serve(async (req) => {
     });
   }
 
-  return json({ error: "Invalid action" }, 400);
+  return json({ error: "Invalid action" }, 200);
 });
 
 async function getTotalPositionsValue(supabase: any, portfolioId: string): Promise<number> {
