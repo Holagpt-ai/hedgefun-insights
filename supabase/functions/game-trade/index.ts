@@ -38,7 +38,7 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 401);
+  if (!authHeader?.startsWith("Bearer ")) return json({ error: "Unauthorized" }, 200);
 
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL")!,
