@@ -30,29 +30,11 @@ export default function AIAnalyst() {
 
   return (
     <div className="relative h-[calc(100vh-8rem)] w-full">
-      {/* PRO gate overlay */}
-      {!isPro && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 bg-background/80 backdrop-blur-sm">
-          <div className="text-4xl mb-3">⚡</div>
-          <h2 className="text-2xl font-semibold text-foreground mb-2">
-            AI Analyst — PRO Feature
-          </h2>
-          <p className="text-sm text-muted-foreground max-w-md mb-6">
-            Your personal AI-powered trading analyst. Get market briefs, setup analysis, earnings breakdowns, and more — all personalized to your trading style.
-          </p>
-          <button
-            onClick={() => navigate("/pro")}
-            className="bg-accent-blue text-primary-foreground text-sm font-semibold px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity duration-200"
-          >
-            Unlock PRO — $5/month
-          </button>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Or unlock everything with Unlimited for just $10/month.
-          </p>
-        </div>
-      )}
-
-      <AIAnalystChat isPro={isPro} userName={profile?.full_name ?? undefined} userPlan={profile?.plan ?? "free"} />
+      <AIAnalystChat
+        isPro={isPro}
+        userName={profile?.full_name ?? undefined}
+        userPlan={profile?.plan ?? "free"}
+      />
     </div>
   );
 }
