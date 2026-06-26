@@ -309,11 +309,11 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               <button
                 key={qp.label}
                 onClick={() => sendMessage(qp.prompt)}
-                disabled={!isPro || streaming}
+                disabled={streaming}
                 className={cn(
                   "text-left px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
                   "text-sm font-medium text-foreground",
-                  (!isPro || streaming) && "opacity-50 cursor-not-allowed"
+                  streaming && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {qp.label}
