@@ -248,7 +248,6 @@ serve(async (req) => {
           "x-api-key": ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
           "content-type": "application/json",
-          ...(useNativeSearch ? { "anthropic-beta": "web-search-20250305" } : {}),
         },
         body: JSON.stringify({
           model: resolvedModel,
