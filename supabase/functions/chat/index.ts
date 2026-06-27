@@ -28,7 +28,9 @@ RESPONSE STYLE:
 - Structure longer responses with clear sections.
 - End every response with: "⚠️ Not financial advice — always do your own research."
 
-CAPABILITIES: Technical analysis, financial metrics, market trends, trading concepts, macro factors, earnings analysis, IPO filings, sector rotation, risk management.`;
+CAPABILITIES: Technical analysis, financial metrics, market trends, trading concepts, macro factors, earnings analysis, IPO filings, sector rotation, risk management.
+
+WEB SEARCH: For questions about current regulations (PDT rules, margin requirements, wash sale rules), broker-specific policies, recent market news, or any factual detail that may have changed recently — use the web_search tool and cite your sources. Always add "verify with your broker" for regulatory or broker-specific answers.`;
 
 const MODEL_HAIKU = "claude-haiku-4-5-20251001";
 const MODEL_SONNET = "claude-sonnet-4-6";
@@ -104,6 +106,7 @@ serve(async (req) => {
     const capabilities = getCapabilities(userPlan);
     const allowedTools = capabilities.tools;
     const toolDefinitions = getToolDefinitions(allowedTools);
+    const useNativeSearch = allowedTools.includes("web_search") && !!user;
 
     if (user && isProOrAdmin) {
       try {
@@ -246,6 +249,7 @@ serve(async (req) => {
           "x-api-key": ANTHROPIC_API_KEY,
           "anthropic-version": "2023-06-01",
           "content-type": "application/json",
+          ...(useNativeSearch ? { "anthropic-beta": "web-search-20250305" } : {}),
         },
         body: JSON.stringify({
           model: resolvedModel,
@@ -275,10 +279,15 @@ serve(async (req) => {
       );
 
       if (toolUseBlocks.length > 0) {
-        // Execute each tool and collect results
+        // web_search is handled natively by Anthropic — skip manual execution for those blocks
+        const toolsToExecute = toolUseBlocks.filter(
+          (b: { name: string }) => b.name !== "web_search"
+        );
+
+        // Execute each non-search tool and collect results
         const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = [];
 
-        for (const toolBlock of toolUseBlocks) {
+        for (const toolBlock of toolsToExecute) {
           const result = await executeTool(
             toolBlock.name,
             user.id,
