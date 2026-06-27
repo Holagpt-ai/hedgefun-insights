@@ -101,6 +101,9 @@ serve(async (req) => {
     // Memory context (PRO/admin/unlimited only)
     let memoryContext = "";
     const isProOrAdmin = userPlan === "pro" || userPlan === "admin" || userPlan === "unlimited";
+    const capabilities = getCapabilities(userPlan);
+    const allowedTools = capabilities.tools;
+    const toolDefinitions = getToolDefinitions(allowedTools);
 
     if (user && isProOrAdmin) {
       try {
