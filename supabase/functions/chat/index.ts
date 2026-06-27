@@ -283,47 +283,7 @@ serve(async (req) => {
           (b: { name: string }) => b.name !== "web_search"
         );
 
-        const onlyNativeSearch = toolsToExecute.length === 0;
-
-        if (onlyNativeSearch) {
-          // First-pass already contains the complete answer with search results.
-          // Stream it directly to the client instead of making a second call.
-          const textBlocks = firstPassContent.filter(
-            (b: { type: string }) => b.type === "text"
-          );
-          const fullText = textBlocks.map((b: { text: string }) => b.text).join("");
-
-          const encoder2 = new TextEncoder();
-          const stream = new ReadableStream({
-            start(controller) {
-              const chunk = JSON.stringify({ choices: [{ delta: { content: fullText } }] });
-              controller.enqueue(encoder2.encode(`data: ${chunk}\n\n`));
-              controller.enqueue(encoder2.encode("data: [DONE]\n\n"));
-              controller.close();
-            },
-          });
-
-          if (sessionToken) {
-            // Save session in background
-            const savePromise2 = (async () => {
-              if (fullText) {
-                await adminSupabase.from("chatbot_sessions").upsert({
-                  session_token: sessionToken,
-                  user_id: user?.id ?? null,
-                  messages: [...messages, { role: "assistant", content: fullText }],
-                  last_active_at: new Date().toISOString(),
-                }, { onConflict: "session_token" });
-              }
-            })();
-            savePromise2.catch((e) => console.error("Search session save error:", e));
-          }
-
-          return new Response(stream, {
-            headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
-          });
-        }
-
-        // Non-native tools: execute and build second-pass messages as before
+        // Execute tools and build second-pass messages
         const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = [];
 
         for (const toolBlock of toolsToExecute) {
