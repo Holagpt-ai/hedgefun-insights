@@ -423,6 +423,91 @@ serve(async (req) => {
         }
 
         if (fullContent) {
+          // A-2: Conversation history persistence (all authenticated users)
+          if (user) {
+            // Create conversation row if this is a new thread
+            if (!activeConversationId) {
+              const { data: newConv } = await adminSupabase
+                .from("ai_conversations")
+                .insert({
+                  user_id: user.id,
+                  surface: "analyst",
+                  title: "New Chat",
+                  metadata: {},
+                })
+                .select("id")
+                .single();
+              activeConversationId = newConv?.id ?? null;
+            }
+
+            if (activeConversationId) {
+              // Insert user message + assistant message
+              const lastUserMessage = messages[messages.length - 1]?.content ?? "";
+              const toolNames = toolUseBlocks?.map((b: { name: string }) => b.name) ?? [];
+
+              await adminSupabase.from("ai_messages").insert([
+                {
+                  conversation_id: activeConversationId,
+                  role: "user",
+                  content: typeof lastUserMessage === "string" ? lastUserMessage : JSON.stringify(lastUserMessage),
+                  model: null,
+                  tool_calls: [],
+                  metadata: {},
+                },
+                {
+                  conversation_id: activeConversationId,
+                  role: "assistant",
+                  content: fullContent,
+                  model: resolvedModel,
+                  tool_calls: toolNames,
+                  metadata: {},
+                },
+              ]);
+
+              // Update conversation updated_at
+              await adminSupabase
+                .from("ai_conversations")
+                .update({ updated_at: new Date().toISOString() })
+                .eq("id", activeConversationId);
+
+              // Auto-title: fire-and-forget Haiku call on first turn only
+              if (isFirstTurn && ANTHROPIC_API_KEY) {
+                (async () => {
+                  try {
+                    const userMsg = typeof lastUserMessage === "string" ? lastUserMessage : JSON.stringify(lastUserMessage);
+                    const titleRes = await fetch("https://api.anthropic.com/v1/messages", {
+                      method: "POST",
+                      headers: {
+                        "x-api-key": ANTHROPIC_API_KEY,
+                        "anthropic-version": "2023-06-01",
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        model: "claude-haiku-4-5-20251001",
+                        max_tokens: 20,
+                        messages: [{
+                          role: "user",
+                          content: `Generate a 4-6 word title for a trading conversation where the user asked: "${userMsg.slice(0, 200)}". Respond with only the title, no punctuation, no quotes.`,
+                        }],
+                      }),
+                    });
+                    if (!titleRes.ok) return;
+                    const titleData = await titleRes.json();
+                    const titleText = titleData.content?.find((b: { type: string }) => b.type === "text")?.text?.trim();
+                    if (titleText) {
+                      await adminSupabase
+                        .from("ai_conversations")
+                        .update({ title: titleText, updated_at: new Date().toISOString() })
+                        .eq("id", activeConversationId);
+                    }
+                  } catch (e) {
+                    console.error("Auto-title error:", e);
+                  }
+                })();
+              }
+            }
+          }
+
           await adminSupabase.from("chatbot_sessions").upsert({
             session_token: sessionToken,
             user_id: user?.id ?? null,
