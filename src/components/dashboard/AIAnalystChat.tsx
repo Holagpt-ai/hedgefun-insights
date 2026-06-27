@@ -61,6 +61,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [sessionToken] = useState(() => {
     const key = "hedgefun-analyst-session";
     let token = sessionStorage.getItem(key);
