@@ -492,9 +492,28 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                       : "bg-card border border-border text-foreground"
                   )}
                 >
-                  {msg.content || (streaming && i === messages.length - 1 ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : "")}
+                  {msg.role === "assistant" ? (
+                    msg.content ? (
+                      <ReactMarkdown
+                        className="prose prose-sm max-w-none text-foreground
+                          prose-headings:text-foreground prose-headings:font-semibold
+                          prose-strong:text-foreground prose-strong:font-semibold
+                          prose-p:my-1 prose-headings:my-2
+                          prose-ul:my-1 prose-ol:my-1 prose-li:my-0
+                          prose-hr:border-border prose-hr:my-3
+                          prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
+                          prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                    ) : (
+                      streaming && i === messages.length - 1 ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : ""
+                    )
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             ))}
