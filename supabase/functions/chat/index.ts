@@ -277,13 +277,8 @@ serve(async (req) => {
       );
 
       if (toolUseBlocks.length > 0) {
-        // web_search is a native Anthropic server tool — Anthropic executes it and
-        // returns the final answer in the first-pass response itself. No second call needed.
-        const toolsToExecute = toolUseBlocks.filter(
-          (b: { name: string }) => b.name !== "web_search"
-        );
-
         // Execute tools and build second-pass messages
+        const toolsToExecute = toolUseBlocks;
         const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = [];
 
         for (const toolBlock of toolsToExecute) {
