@@ -494,9 +494,9 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               >
                 <div
                   className={cn(
-                    "max-w-[85%] rounded-lg px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed",
+                    "max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed",
                     msg.role === "user"
-                      ? "bg-accent-blue text-primary-foreground"
+                      ? "bg-accent-blue text-primary-foreground whitespace-pre-wrap"
                       : "bg-card border border-border text-foreground"
                   )}
                 >
