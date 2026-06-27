@@ -24,14 +24,14 @@ const TIER_CAPABILITIES: Record<string, TierCapabilities> = {
   },
   unlimited: {
     memory: true,
-    webSearch: false,
-    tools: ["get_journal_stats", "get_recent_trades"],
+    webSearch: true,
+    tools: ["get_journal_stats", "get_recent_trades", "web_search"],
     models: [MODEL_HAIKU, MODEL_SONNET, MODEL_OPUS],
   },
   admin: {
     memory: true,
-    webSearch: false,
-    tools: ["get_journal_stats", "get_recent_trades"],
+    webSearch: true,
+    tools: ["get_journal_stats", "get_recent_trades", "web_search"],
     models: [MODEL_HAIKU, MODEL_SONNET, MODEL_OPUS],
   },
 };
