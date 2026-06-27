@@ -241,6 +241,7 @@ serve(async (req) => {
     // first pass so Claude can call tools. Free/anonymous skip straight to streaming.
     let streamingMessages = [...builtMessages];
     const isFirstTurn = !incomingConversationId;
+    let activeConversationId: string | null = incomingConversationId ?? null;
     let toolUseBlocks: Array<{ type: string; name: string; id: string; input: Record<string, unknown> }> = [];
 
     if (toolDefinitions.length > 0 && user) {
