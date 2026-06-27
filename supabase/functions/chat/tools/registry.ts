@@ -6,6 +6,7 @@ import {
   getRecentTradesDefinition,
   getRecentTradesHandler,
 } from "./journal.ts";
+import { webSearchDefinition, webSearchHandler } from "./web_search.ts";
 
 export const TOOL_REGISTRY: Record<string, RegisteredTool> = {
   get_journal_stats: {
@@ -15,6 +16,10 @@ export const TOOL_REGISTRY: Record<string, RegisteredTool> = {
   get_recent_trades: {
     definition: getRecentTradesDefinition,
     handler: getRecentTradesHandler,
+  },
+  web_search: {
+    definition: webSearchDefinition,
+    handler: webSearchHandler,
   },
 };
 
