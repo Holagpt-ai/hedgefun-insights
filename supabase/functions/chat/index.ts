@@ -1,5 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { getCapabilities } from "./capabilities.ts";
+import { getToolDefinitions, executeTool } from "./tools/registry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -99,6 +101,9 @@ serve(async (req) => {
     // Memory context (PRO/admin/unlimited only)
     let memoryContext = "";
     const isProOrAdmin = userPlan === "pro" || userPlan === "admin" || userPlan === "unlimited";
+    const capabilities = getCapabilities(userPlan);
+    const allowedTools = capabilities.tools;
+    const toolDefinitions = getToolDefinitions(allowedTools);
 
     if (user && isProOrAdmin) {
       try {
@@ -230,6 +235,76 @@ serve(async (req) => {
         "\n</user_dashboard_context>"
       : baseSystem;
 
+    // Agentic tool loop — PRO/admin/unlimited users with tools get a non-streaming
+    // first pass so Claude can call tools. Free/anonymous skip straight to streaming.
+    let streamingMessages = [...builtMessages];
+
+    if (toolDefinitions.length > 0 && user) {
+      const firstPassResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": ANTHROPIC_API_KEY,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          model: resolvedModel,
+          max_tokens: maxTokensFor(resolvedModel),
+          system: systemPrompt,
+          messages: builtMessages,
+          tools: toolDefinitions,
+          tool_choice: { type: "auto" },
+        }),
+      });
+
+      if (!firstPassResponse.ok) {
+        const t = await firstPassResponse.text();
+        console.error("Anthropic first-pass error:", firstPassResponse.status, t);
+        return new Response(JSON.stringify({ error: "AI service error" }), {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const firstPassData = await firstPassResponse.json();
+      const firstPassContent = firstPassData.content ?? [];
+
+      // Check if Claude wants to use any tools
+      const toolUseBlocks = firstPassContent.filter(
+        (block: { type: string }) => block.type === "tool_use"
+      );
+
+      if (toolUseBlocks.length > 0) {
+        // Execute each tool and collect results
+        const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = [];
+
+        for (const toolBlock of toolUseBlocks) {
+          const result = await executeTool(
+            toolBlock.name,
+            user.id,
+            adminSupabase,
+            toolBlock.input ?? {}
+          );
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: toolBlock.id,
+            content: result.content,
+          });
+        }
+
+        // Append assistant tool-use turn + tool results to messages for second pass
+        streamingMessages = [
+          ...builtMessages,
+          { role: "assistant", content: firstPassContent },
+          { role: "user", content: toolResults },
+        ];
+      }
+      // If no tool_use blocks, streamingMessages stays as builtMessages — Claude
+      // decided no tool was needed; stream directly with original messages.
+    }
+
+    // Final streaming call — uses streamingMessages (may include tool results or
+    // may be identical to builtMessages for Free/anonymous/no-tool-needed paths).
     const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -241,7 +316,7 @@ serve(async (req) => {
         model: resolvedModel,
         max_tokens: maxTokensFor(resolvedModel),
         system: systemPrompt,
-        messages: builtMessages,
+        messages: streamingMessages,
         stream: true,
       }),
     });
