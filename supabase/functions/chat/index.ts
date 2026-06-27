@@ -240,6 +240,8 @@ serve(async (req) => {
     // Agentic tool loop — PRO/admin/unlimited users with tools get a non-streaming
     // first pass so Claude can call tools. Free/anonymous skip straight to streaming.
     let streamingMessages = [...builtMessages];
+    const isFirstTurn = !incomingConversationId;
+    let toolUseBlocks: Array<{ type: string; name: string; id: string; input: Record<string, unknown> }> = [];
 
     if (toolDefinitions.length > 0 && user) {
       const firstPassResponse = await fetch("https://api.anthropic.com/v1/messages", {
@@ -272,9 +274,10 @@ serve(async (req) => {
       const firstPassContent = firstPassData.content ?? [];
 
       // Check if Claude wants to use any tools
-      const toolUseBlocks = firstPassContent.filter(
+      toolUseBlocks = firstPassContent.filter(
         (block: { type: string }) => block.type === "tool_use"
       );
+
 
       if (toolUseBlocks.length > 0) {
         // Execute tools and build second-pass messages
