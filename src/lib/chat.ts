@@ -12,9 +12,11 @@ export async function streamChat({
   model,
   attachment,
   systemContext,
+  conversationId,
   onDelta,
   onDone,
   onError,
+  onConversationId,
 }: {
   messages: ChatMessage[];
   sessionToken: string;
@@ -22,9 +24,11 @@ export async function streamChat({
   model?: string;
   attachment?: ChatAttachment;
   systemContext?: string;
+  conversationId?: string;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError?: (error: string) => void;
+  onConversationId?: (id: string) => void;
 }) {
   const resp = await fetch(CHAT_URL, {
     method: "POST",
@@ -32,7 +36,7 @@ export async function streamChat({
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
-    body: JSON.stringify({ messages, sessionToken, model, attachment, systemContext }),
+    body: JSON.stringify({ messages, sessionToken, model, attachment, systemContext, conversationId }),
   });
 
   if (!resp.ok) {
@@ -81,6 +85,11 @@ export async function streamChat({
 
       try {
         const parsed = JSON.parse(jsonStr);
+        // A-2: capture conversation id emitted by edge function
+        if (parsed?.type === "conversation_id" && parsed.id) {
+          onConversationId?.(parsed.id);
+          continue;
+        }
         const content = parsed.choices?.[0]?.delta?.content as string | undefined;
         if (content) onDelta(content);
       } catch {
