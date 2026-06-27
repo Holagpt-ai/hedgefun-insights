@@ -374,10 +374,16 @@ serve(async (req) => {
                   encoder.encode(`data: ${JSON.stringify(openAIChunk)}\n\n`)
                 );
               }
-              // Forward stream_end as [DONE]
+              if (parsed.type === "message_start") {
+                if (activeConversationId) {
+                  const idEvent = { type: "conversation_id", id: activeConversationId };
+                  await writer.write(encoder.encode(`data: ${JSON.stringify(idEvent)}\n\n`));
+                }
+              }
               if (parsed.type === "message_stop") {
                 await writer.write(encoder.encode("data: [DONE]\n\n"));
               }
+
             } catch { /* partial JSON, skip */ }
           }
         }
