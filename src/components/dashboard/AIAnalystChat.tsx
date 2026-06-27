@@ -18,6 +18,7 @@ import { streamChat, ChatMessage } from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 const QUICK_PROMPTS = [
   { label: "Today's Gappers", prompt: "What are the top gappers today and what's driving them?" },
@@ -60,6 +61,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [sessionToken] = useState(() => {
     const key = "hedgefun-analyst-session";
     let token = sessionStorage.getItem(key);
@@ -270,6 +272,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       setMessages(newMessages);
       setInput("");
       setStreaming(true);
+      setToolStatus("Thinking...");
 
       let assistantContent = "";
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -284,7 +287,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         attachment: attachment ?? undefined,
         systemContext: systemContext || undefined,
         conversationId: conversationId ?? undefined,
-        onConversationId: (id) => setConversationId(id),
+        onConversationId: (id) => {
+          setConversationId(id);
+          setToolStatus(null);
+        },
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
@@ -296,8 +302,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         onDone: () => {
           setStreaming(false);
           setAttachment(null);
+          setToolStatus(null);
         },
         onError: (err) => {
+          setToolStatus(null);
           if (err === "DAILY_LIMIT_REACHED") {
             // Remove the empty assistant placeholder; show inline upgrade popup instead.
             setMessages((prev) => prev.slice(0, -1));
@@ -463,6 +471,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                 </button>
               ))}
             </div>
+            {toolStatus && (
+              <div className="flex justify-start mt-4">
+                <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {toolStatus}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -484,12 +500,39 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                       : "bg-card border border-border text-foreground"
                   )}
                 >
-                  {msg.content || (streaming && i === messages.length - 1 ? (
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  ) : "")}
+                  {msg.role === "assistant" ? (
+                    msg.content ? (
+                      <div
+                        className="prose prose-sm max-w-none text-foreground
+                          prose-headings:text-foreground prose-headings:font-semibold
+                          prose-strong:text-foreground prose-strong:font-semibold
+                          prose-p:my-1 prose-headings:my-2
+                          prose-ul:my-1 prose-ol:my-1 prose-li:my-0
+                          prose-hr:border-border prose-hr:my-3
+                          prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
+                          prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
+                      >
+                        <ReactMarkdown>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      streaming && i === messages.length - 1 ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                      ) : ""
+                    )
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             ))}
+            {toolStatus && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {toolStatus}
+                </div>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
         )}
