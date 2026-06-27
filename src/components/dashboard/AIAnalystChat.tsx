@@ -517,6 +517,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                 </div>
               </div>
             ))}
+            {toolStatus && (
+              <div className="flex justify-start">
+                <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  {toolStatus}
+                </div>
+              </div>
+            )}
             <div ref={bottomRef} />
           </div>
         )}
