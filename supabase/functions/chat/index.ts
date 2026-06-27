@@ -106,7 +106,6 @@ serve(async (req) => {
     const capabilities = getCapabilities(userPlan);
     const allowedTools = capabilities.tools;
     const toolDefinitions = getToolDefinitions(allowedTools);
-    const useNativeSearch = allowedTools.includes("web_search") && !!user;
 
     if (user && isProOrAdmin) {
       try {
