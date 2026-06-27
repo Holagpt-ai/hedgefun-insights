@@ -18,6 +18,7 @@ import { streamChat, ChatMessage } from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
 
 const QUICK_PROMPTS = [
   { label: "Today's Gappers", prompt: "What are the top gappers today and what's driving them?" },
