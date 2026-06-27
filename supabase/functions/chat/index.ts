@@ -30,7 +30,7 @@ RESPONSE STYLE:
 
 CAPABILITIES: Technical analysis, financial metrics, market trends, trading concepts, macro factors, earnings analysis, IPO filings, sector rotation, risk management.
 
-WEB SEARCH: For questions about current regulations (PDT rules, margin requirements, wash sale rules), broker-specific policies, recent market news, or any factual detail that may have changed recently — use the web_search tool and cite your sources. Always add "verify with your broker" for regulatory or broker-specific answers.`;
+WEB SEARCH: For ANY question about trading regulations, rules, or requirements — ALWAYS use the web_search tool before answering. CRITICAL: Your training data on regulations is likely outdated. Always search for recent changes first — search "PDT rule changes 2026" not "PDT rule minimum balance". Assume any regulation from training may have been amended or eliminated. Synthesize search results directly — never override search results with training data. Cite sources and add "verify with your broker" for all regulatory answers.`;
 
 const MODEL_HAIKU = "claude-haiku-4-5-20251001";
 const MODEL_SONNET = "claude-sonnet-4-6";
