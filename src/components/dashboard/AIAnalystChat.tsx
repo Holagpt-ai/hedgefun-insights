@@ -1,6 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { Send, Loader2, Sparkles, Lock as LockIcon, Paperclip, X } from "lucide-react";
+import {
+  Send,
+  Loader2,
+  Sparkles,
+  Lock as LockIcon,
+  Paperclip,
+  X,
+  MessageSquare,
+  PlusCircle,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+} from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { streamChat, ChatMessage } from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,6 +36,12 @@ const MODEL_OPTIONS = [
 
 type ModelTier = "fast" | "standard" | "deep";
 
+type Conversation = {
+  id: string;
+  title: string;
+  updated_at: string;
+};
+
 interface AIAnalystChatProps {
   isPro: boolean;
   userName?: string;
@@ -38,6 +56,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [streaming, setStreaming] = useState(false);
   const [selectedModel, setSelectedModel] = useState<ModelTier>("fast");
   const [limitReached, setLimitReached] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [sessionToken] = useState(() => {
     const key = "hedgefun-analyst-session";
     let token = sessionStorage.getItem(key);
@@ -54,6 +76,48 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkFiredRef = useRef(false);
 
+  const fetchConversations = async () => {
+    if (!user?.id) return;
+    setHistoryLoading(true);
+    const { data } = await supabase
+      .from("ai_conversations")
+      .select("id, title, updated_at")
+      .eq("user_id", user.id)
+      .eq("surface", "analyst")
+      .order("updated_at", { ascending: false })
+      .limit(50);
+    setConversations((data as Conversation[]) ?? []);
+    setHistoryLoading(false);
+  };
+
+  const loadConversation = async (conv: Conversation) => {
+    const { data } = await supabase
+      .from("ai_messages")
+      .select("role, content")
+      .eq("conversation_id", conv.id)
+      .order("created_at", { ascending: true });
+    if (data) {
+      setMessages(
+        data.map((m: { role: string; content: string }) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }))
+      );
+      setConversationId(conv.id);
+      setHistoryOpen(false);
+    }
+  };
+
+  const startNewChat = () => {
+    setMessages([]);
+    setConversationId(null);
+    setHistoryOpen(false);
+  };
+
+  useEffect(() => {
+    if (historyOpen) fetchConversations();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [historyOpen, user?.id]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -219,6 +283,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         model: selectedModel,
         attachment: attachment ?? undefined,
         systemContext: systemContext || undefined,
+        conversationId: conversationId ?? undefined,
+        onConversationId: (id) => setConversationId(id),
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
@@ -260,7 +326,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         },
       });
     },
-    [messages, streaming, sessionToken, selectedModel, attachment, user]
+    [messages, streaming, sessionToken, selectedModel, attachment, user, conversationId]
   );
 
   useEffect(() => {
@@ -290,190 +356,268 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const displayName = userName?.split(" ")[0] ?? "Trader";
 
   return (
-    <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 py-6">
-      {messages.length === 0 && (
-        <div className="flex-1 flex flex-col justify-center">
-          <div className="flex items-center gap-2 mb-3 text-accent-blue">
-            <Sparkles className="h-5 w-5" />
-            <span className="text-sm font-medium uppercase tracking-wide">AI Analyst</span>
-          </div>
-          <h1 className="text-3xl font-semibold text-foreground mb-2">
-            {greeting}, {displayName}.
-          </h1>
-          <p className="text-base text-muted-foreground mb-8">
-            Your AI-powered trading analyst. Ask about setups, market conditions, earnings, or your watchlist.
-          </p>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
-            {QUICK_PROMPTS.map((qp) => (
-              <button
-                key={qp.label}
-                onClick={() => sendMessage(qp.prompt)}
-                disabled={streaming}
-                className={cn(
-                  "text-left px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
-                  "text-sm font-medium text-foreground",
-                  streaming && "opacity-50 cursor-not-allowed"
-                )}
-              >
-                {qp.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {messages.length > 0 && (
-        <div className="flex-1 overflow-y-auto space-y-4 pb-4">
-          {messages.map((msg, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex",
-                msg.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              <div
-                className={cn(
-                  "max-w-[85%] rounded-lg px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed",
-                  msg.role === "user"
-                    ? "bg-accent-blue text-primary-foreground"
-                    : "bg-card border border-border text-foreground"
-                )}
-              >
-                {msg.content || (streaming && i === messages.length - 1 ? (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                ) : "")}
-              </div>
-            </div>
-          ))}
-          <div ref={bottomRef} />
-        </div>
-      )}
-
-      {/* Model selector segmented control */}
-      <div className="flex gap-2 mb-3 justify-center">
-        {MODEL_OPTIONS.map((opt) => {
-          const accessible = canUseModel(opt.minPlan);
-          const active = selectedModel === opt.value;
-          return (
+    <div className="flex h-full w-full">
+      {/* History Sidebar */}
+      {historyOpen && (
+        <aside className="w-72 shrink-0 border-r border-border bg-card flex flex-col">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+            <h2 className="text-sm font-semibold text-foreground">Chat History</h2>
             <button
-              key={opt.value}
-              type="button"
-              onClick={() => {
-                if (accessible) {
-                  setSelectedModel(opt.value);
-                } else {
-                  navigate("/pro");
-                }
-              }}
-              className={cn(
-                "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200",
-                active
-                  ? "bg-accent-blue text-primary-foreground"
-                  : "bg-card border border-border text-foreground hover:bg-muted",
-                !accessible && "opacity-60 hover:bg-card"
-              )}
-            >
-              {opt.label}
-              {!accessible && <LockIcon className="h-3 w-3" />}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Input area */}
-      <div className="border-t border-border pt-4 mt-auto">
-        {limitReached && (
-          <div className="mb-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-4 py-3">
-            <p className="text-sm text-foreground mb-2">
-              You've reached your daily limit of 5 messages. Your messages reset tomorrow — or upgrade to PRO for unlimited access.
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => navigate("/pro")}
-                className="text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity"
-              >
-                Upgrade to PRO
-              </button>
-              <button
-                type="button"
-                onClick={() => setLimitReached(false)}
-                className="text-xs font-medium px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-muted transition-colors"
-              >
-                Dismiss
-              </button>
-            </div>
-          </div>
-        )}
-        {attachment && (
-          <div className="flex items-center gap-2 mb-2 px-1">
-            <span className="text-xs text-muted-foreground truncate max-w-[200px]">{attachment.fileName}</span>
-            <button
-              type="button"
-              onClick={() => setAttachment(null)}
+              onClick={() => setHistoryOpen(false)}
               className="text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Close history"
             >
-              <X className="h-3 w-3" />
+              <ChevronLeft className="h-4 w-4" />
             </button>
           </div>
-        )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,image/*"
-          className="hidden"
-          onChange={handleFileSelect}
-        />
-        <div className="flex gap-2 items-end">
+          <button
+            onClick={startNewChat}
+            className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <PlusCircle className="h-4 w-4" />
+            New Chat
+          </button>
+          <div className="flex-1 overflow-y-auto px-2 py-2">
+            {historyLoading ? (
+              <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
+            ) : conversations.length === 0 ? (
+              <p className="text-xs text-muted-foreground text-center py-4">No conversations yet</p>
+            ) : (
+              conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => loadConversation(conv)}
+                  className={cn(
+                    "w-full text-left px-3 py-2 rounded-lg mb-1 text-sm transition-colors hover:bg-muted",
+                    conversationId === conv.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
+                  )}
+                >
+                  <div className="flex items-start gap-2">
+                    <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate">{conv.title}</p>
+                      <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        {new Date(conv.updated_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))
+            )}
+          </div>
+        </aside>
+      )}
+
+      {/* Main Chat Area */}
+      <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 py-6">
+        {/* History toggle bar */}
+        <div className="flex items-center justify-between mb-3">
           <button
             type="button"
-            onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
-            disabled={streaming}
-            className={cn(
-              "shrink-0 h-11 w-11 rounded-lg border border-border bg-card text-muted-foreground",
-              "flex items-center justify-center transition-colors duration-200 hover:bg-muted",
-              (!isPro || streaming) && "opacity-60",
-              streaming && "cursor-not-allowed"
-            )}
+            onClick={() => setHistoryOpen(!historyOpen)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            <Paperclip className="h-4 w-4" />
+            {historyOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            <MessageSquare className="h-3.5 w-3.5" />
+            History
           </button>
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            disabled={streaming || limitReached}
-            placeholder="Ask about a setup, ticker, or market condition..."
-            rows={1}
-            className={cn(
-              "flex-1 resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm",
-              "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
-              "transition-colors duration-200 min-h-[44px] max-h-[120px]",
-              (streaming || limitReached) && "opacity-60 cursor-not-allowed"
-            )}
-          />
-          <button
-            onClick={() => sendMessage(input)}
-            disabled={streaming || !input.trim() || limitReached}
-            className={cn(
-              "shrink-0 h-11 w-11 rounded-lg bg-accent-blue text-primary-foreground",
-              "flex items-center justify-center transition-opacity duration-200",
-              (streaming || !input.trim() || limitReached) && "opacity-50 cursor-not-allowed"
-            )}
-          >
-            {streaming ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </button>
+          {conversationId && (
+            <button
+              type="button"
+              onClick={startNewChat}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <PlusCircle className="h-3.5 w-3.5" />
+              New Chat
+            </button>
+          )}
         </div>
-        <p className="text-[11px] text-muted-foreground text-center mt-2">
-          HedgeFun AI • Powered by Claude • Not financial advice
-        </p>
+
+        {messages.length === 0 && (
+          <div className="flex-1 flex flex-col justify-center">
+            <div className="flex items-center gap-2 mb-3 text-accent-blue">
+              <Sparkles className="h-5 w-5" />
+              <span className="text-sm font-medium uppercase tracking-wide">AI Analyst</span>
+            </div>
+            <h1 className="text-3xl font-semibold text-foreground mb-2">
+              {greeting}, {displayName}.
+            </h1>
+            <p className="text-base text-muted-foreground mb-8">
+              Your AI-powered trading analyst. Ask about setups, market conditions, earnings, or your watchlist.
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
+              {QUICK_PROMPTS.map((qp) => (
+                <button
+                  key={qp.label}
+                  onClick={() => sendMessage(qp.prompt)}
+                  disabled={streaming}
+                  className={cn(
+                    "text-left px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
+                    "text-sm font-medium text-foreground",
+                    streaming && "opacity-50 cursor-not-allowed"
+                  )}
+                >
+                  {qp.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {messages.length > 0 && (
+          <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+            {messages.map((msg, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex",
+                  msg.role === "user" ? "justify-end" : "justify-start"
+                )}
+              >
+                <div
+                  className={cn(
+                    "max-w-[85%] rounded-lg px-4 py-3 text-sm whitespace-pre-wrap leading-relaxed",
+                    msg.role === "user"
+                      ? "bg-accent-blue text-primary-foreground"
+                      : "bg-card border border-border text-foreground"
+                  )}
+                >
+                  {msg.content || (streaming && i === messages.length - 1 ? (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  ) : "")}
+                </div>
+              </div>
+            ))}
+            <div ref={bottomRef} />
+          </div>
+        )}
+
+        {/* Model selector segmented control */}
+        <div className="flex gap-2 mb-3 justify-center">
+          {MODEL_OPTIONS.map((opt) => {
+            const accessible = canUseModel(opt.minPlan);
+            const active = selectedModel === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  if (accessible) {
+                    setSelectedModel(opt.value);
+                  } else {
+                    navigate("/pro");
+                  }
+                }}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200",
+                  active
+                    ? "bg-accent-blue text-primary-foreground"
+                    : "bg-card border border-border text-foreground hover:bg-muted",
+                  !accessible && "opacity-60 hover:bg-card"
+                )}
+              >
+                {opt.label}
+                {!accessible && <LockIcon className="h-3 w-3" />}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Input area */}
+        <div className="border-t border-border pt-4 mt-auto">
+          {limitReached && (
+            <div className="mb-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-4 py-3">
+              <p className="text-sm text-foreground mb-2">
+                You've reached your daily limit of 5 messages. Your messages reset tomorrow — or upgrade to PRO for unlimited access.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/pro")}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity"
+                >
+                  Upgrade to PRO
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLimitReached(false)}
+                  className="text-xs font-medium px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-muted transition-colors"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+          {attachment && (
+            <div className="flex items-center gap-2 mb-2 px-1">
+              <span className="text-xs text-muted-foreground truncate max-w-[200px]">{attachment.fileName}</span>
+              <button
+                type="button"
+                onClick={() => setAttachment(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".pdf,image/*"
+            className="hidden"
+            onChange={handleFileSelect}
+          />
+          <div className="flex gap-2 items-end">
+            <button
+              type="button"
+              onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
+              disabled={streaming}
+              className={cn(
+                "shrink-0 h-11 w-11 rounded-lg border border-border bg-card text-muted-foreground",
+                "flex items-center justify-center transition-colors duration-200 hover:bg-muted",
+                (!isPro || streaming) && "opacity-60",
+                streaming && "cursor-not-allowed"
+              )}
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={streaming || limitReached}
+              placeholder="Ask about a setup, ticker, or market condition..."
+              rows={1}
+              className={cn(
+                "flex-1 resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm",
+                "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
+                "transition-colors duration-200 min-h-[44px] max-h-[120px]",
+                (streaming || limitReached) && "opacity-60 cursor-not-allowed"
+              )}
+            />
+            <button
+              onClick={() => sendMessage(input)}
+              disabled={streaming || !input.trim() || limitReached}
+              className={cn(
+                "shrink-0 h-11 w-11 rounded-lg bg-accent-blue text-primary-foreground",
+                "flex items-center justify-center transition-opacity duration-200",
+                (streaming || !input.trim() || limitReached) && "opacity-50 cursor-not-allowed"
+              )}
+            >
+              {streaming ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+          <p className="text-[11px] text-muted-foreground text-center mt-2">
+            HedgeFun AI • Powered by Claude • Not financial advice
+          </p>
+        </div>
       </div>
     </div>
   );
