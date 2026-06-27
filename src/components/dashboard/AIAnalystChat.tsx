@@ -272,6 +272,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       setMessages(newMessages);
       setInput("");
       setStreaming(true);
+      setToolStatus("Thinking...");
 
       let assistantContent = "";
       setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
@@ -286,7 +287,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         attachment: attachment ?? undefined,
         systemContext: systemContext || undefined,
         conversationId: conversationId ?? undefined,
-        onConversationId: (id) => setConversationId(id),
+        onConversationId: (id) => {
+          setConversationId(id);
+          setToolStatus(null);
+        },
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
@@ -298,8 +302,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         onDone: () => {
           setStreaming(false);
           setAttachment(null);
+          setToolStatus(null);
         },
         onError: (err) => {
+          setToolStatus(null);
           if (err === "DAILY_LIMIT_REACHED") {
             // Remove the empty assistant placeholder; show inline upgrade popup instead.
             setMessages((prev) => prev.slice(0, -1));
