@@ -275,7 +275,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       setToolStatus("Thinking...");
 
       let assistantContent = "";
-      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
 
       const { data: { session } } = await supabase.auth.getSession();
 
@@ -294,9 +293,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         onDelta: (delta) => {
           assistantContent += delta;
           setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = { role: "assistant", content: assistantContent };
-            return updated;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") {
+              const updated = [...prev];
+              updated[updated.length - 1] = { role: "assistant", content: assistantContent };
+              return updated;
+            }
+            // First delta — add the assistant bubble now
+            return [...prev, { role: "assistant", content: assistantContent }];
           });
         },
         onDone: () => {
