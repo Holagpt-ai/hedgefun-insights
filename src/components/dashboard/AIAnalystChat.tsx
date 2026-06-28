@@ -311,29 +311,19 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         onError: (err) => {
           setToolStatus(null);
           if (err === "DAILY_LIMIT_REACHED") {
-            // Remove the empty assistant placeholder; show inline upgrade popup instead.
-            setMessages((prev) => prev.slice(0, -1));
             setLimitReached(true);
             setStreaming(false);
             return;
           }
           if (err === "SIGNUP_PROMPT") {
-            setMessages((prev) => {
-              const updated = [...prev];
-              updated[updated.length - 1] = {
-                role: "assistant",
-                content: "Sign up for free to get more daily AI queries. No credit card required.",
-              };
-              return updated;
-            });
+            setMessages((prev) => [
+              ...prev,
+              { role: "assistant", content: "Sign up for free to get more daily AI queries. No credit card required." },
+            ]);
             setStreaming(false);
             return;
           }
-          setMessages((prev) => {
-            const updated = [...prev];
-            updated[updated.length - 1] = { role: "assistant", content: `Error: ${err}` };
-            return updated;
-          });
+          setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${err}` }]);
           setStreaming(false);
         },
       });
