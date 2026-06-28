@@ -149,7 +149,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg?.role === "assistant" && lastMsg.content) {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
   }, [messages]);
 
   // deep-link useEffect moved below sendMessage definition to avoid TDZ
@@ -519,15 +522,17 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                 </div>
               </div>
             ))}
-            {toolStatus && (
+            {toolStatus ? (
               <div className="flex justify-start">
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   {toolStatus}
                 </div>
+                <div ref={bottomRef} />
               </div>
+            ) : (
+              <div ref={bottomRef} />
             )}
-            <div ref={bottomRef} />
           </div>
         )}
 
