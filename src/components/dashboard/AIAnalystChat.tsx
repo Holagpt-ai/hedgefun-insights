@@ -481,7 +481,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         )}
 
         {messages.length > 0 && (
-          <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-4 pb-4">
+
             {messages.map((msg, i) => (
               <div
                 key={i}
