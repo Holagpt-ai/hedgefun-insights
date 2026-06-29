@@ -153,8 +153,12 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
 
   useEffect(() => {
     const last = messages[messages.length - 1];
-    if (last?.role === "user") {
-      lastUserMsgRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
+    const container = scrollContainerRef.current;
+    const userMsg = lastUserMsgRef.current;
+    if (last?.role === "user" && container && userMsg) {
+      const cRect = container.getBoundingClientRect();
+      const mRect = userMsg.getBoundingClientRect();
+      container.scrollTop += mRect.top - cRect.top;
     }
   }, [messages]);
 
