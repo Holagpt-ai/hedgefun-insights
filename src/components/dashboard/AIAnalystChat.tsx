@@ -149,12 +149,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     e.target.value = "";
   };
 
+  const lastUserMsgRef = useRef<HTMLDivElement | null>(null);
+
   useEffect(() => {
-    const el = scrollContainerRef.current;
-    if (el) {
-      el.scrollTop = el.scrollHeight;
+    const last = messages[messages.length - 1];
+    if (last?.role === "user") {
+      lastUserMsgRef.current?.scrollIntoView({ block: "start", behavior: "smooth" });
     }
-  }, [messages, streaming]);
+  }, [messages]);
 
   // deep-link useEffect moved below sendMessage definition to avoid TDZ
 
