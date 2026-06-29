@@ -149,11 +149,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   };
 
   useEffect(() => {
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg?.role === "assistant" && lastMsg.content) {
+    if (streaming) {
       bottomRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages]);
+  }, [messages, streaming]);
 
   // deep-link useEffect moved below sendMessage definition to avoid TDZ
 
