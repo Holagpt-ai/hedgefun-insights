@@ -150,7 +150,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, streaming]);
 
   // deep-link useEffect moved below sendMessage definition to avoid TDZ
