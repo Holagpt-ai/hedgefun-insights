@@ -488,8 +488,9 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             {messages.map((msg, i) => (
               <div
                 key={i}
+                ref={msg.role === "user" && i === messages.length - 1 ? lastUserMsgRef : undefined}
                 className={cn(
-                  "flex",
+                  "flex scroll-mt-2",
                   msg.role === "user" ? "justify-end" : "justify-start"
                 )}
               >
