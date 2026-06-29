@@ -72,6 +72,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     return token;
   });
   const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
@@ -149,7 +150,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    const el = scrollContainerRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [messages, streaming]);
 
   // deep-link useEffect moved below sendMessage definition to avoid TDZ
@@ -477,7 +481,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         )}
 
         {messages.length > 0 && (
-          <div className="flex-1 overflow-y-auto space-y-4 pb-4">
+          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-4 pb-4">
+
             {messages.map((msg, i) => (
               <div
                 key={i}
