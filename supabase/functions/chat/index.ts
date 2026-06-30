@@ -286,6 +286,7 @@ serve(async (req) => {
         const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = [];
 
         for (const toolBlock of toolsToExecute) {
+          console.log("[chat] tool_use:", toolBlock.name, JSON.stringify(toolBlock.input));
           const result = await executeTool(
             toolBlock.name,
             user.id,

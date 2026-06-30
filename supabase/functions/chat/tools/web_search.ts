@@ -22,6 +22,7 @@ export const webSearchHandler: ToolHandler = async (
   params: Record<string, unknown>
 ): Promise<ToolResult> => {
   const query = typeof params.query === "string" ? params.query : "";
+  console.log("[web_search] query:", query);
   if (!query) return { content: "No search query provided.", isError: true };
 
   const apiKey = Deno.env.get("BRAVE_API_KEY");
@@ -43,6 +44,7 @@ export const webSearchHandler: ToolHandler = async (
     }
 
     const json = await res.json();
+    console.log("[web_search] brave raw:", JSON.stringify(json).slice(0, 2000));
     const hits = json?.web?.results ?? [];
     if (hits.length === 0) return { content: "No results found." };
 
