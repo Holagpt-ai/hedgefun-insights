@@ -44,6 +44,7 @@ export const webSearchHandler: ToolHandler = async (
     }
 
     const json = await res.json();
+    console.log("[web_search] brave raw:", JSON.stringify(json).slice(0, 2000));
     const hits = json?.web?.results ?? [];
     if (hits.length === 0) return { content: "No results found." };
 
