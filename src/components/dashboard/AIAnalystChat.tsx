@@ -12,6 +12,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Mic,
+  AudioLines,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { streamChat, ChatMessage } from "@/lib/chat";
@@ -19,6 +21,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
+import { useVoiceInput } from "@/hooks/useVoiceInput";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 const QUICK_PROMPTS = [
   { label: "Today's Gappers", prompt: "What are the top gappers today and what's driving them?" },
@@ -78,6 +82,33 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkFiredRef = useRef(false);
+
+  const { language } = useLanguage();
+  const [voiceError, setVoiceError] = useState<string | null>(null);
+  const {
+    isSupported: voiceSupported,
+    isListening,
+    error: voiceHookError,
+    startListening,
+    stopListening,
+  } = useVoiceInput({
+    language,
+    onTranscript: (text) => setInput(text),
+  });
+
+  useEffect(() => {
+    if (voiceHookError) {
+      if (voiceHookError === "not-allowed") {
+        setVoiceError(
+          "Microphone access was denied. Please allow microphone access in your browser settings to use voice input."
+        );
+      } else {
+        setVoiceError(
+          "Voice input isn't working in this browser. For the most reliable results, use Chrome, Microsoft Edge, or Safari (14.1+ on Mac, 14.5+ on iOS). Some Chromium-based browsers like Opera or Brave may show the mic icon but fail to actually transcribe."
+        );
+      }
+    }
+  }, [voiceHookError]);
 
   const fetchConversations = async () => {
     if (!user?.id) return;
@@ -611,6 +642,19 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               </button>
             </div>
           )}
+          {voiceError && (
+            <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-lg border border-border bg-muted/40">
+              <p className="text-xs text-muted-foreground flex-1">{voiceError}</p>
+              <button
+                type="button"
+                onClick={() => setVoiceError(null)}
+                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                aria-label="Dismiss"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
           <input
             ref={fileInputRef}
             type="file"
@@ -619,6 +663,23 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             onChange={handleFileSelect}
           />
           <div className="flex gap-2 items-end">
+            {voiceSupported && (
+              <button
+                type="button"
+                onClick={() => (isListening ? stopListening() : startListening())}
+                disabled={streaming}
+                aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                className={cn(
+                  "shrink-0 h-11 w-11 rounded-full flex items-center justify-center transition-all duration-200",
+                  isListening
+                    ? "bg-green-500 text-white animate-pulse"
+                    : "border border-border bg-card text-muted-foreground hover:bg-muted",
+                  streaming && "opacity-60 cursor-not-allowed"
+                )}
+              >
+                {isListening ? <AudioLines className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
+            )}
             <button
               type="button"
               onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
