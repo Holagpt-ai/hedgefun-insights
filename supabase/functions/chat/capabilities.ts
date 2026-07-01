@@ -13,25 +13,25 @@ const TIER_CAPABILITIES: Record<string, TierCapabilities> = {
   free: {
     memory: false,
     webSearch: false,
-    tools: [],
+    tools: ["get_quote"],
     models: [MODEL_HAIKU],
   },
   pro: {
     memory: true,
     webSearch: false,
-    tools: ["get_journal_stats", "get_recent_trades"],
+    tools: ["get_journal_stats", "get_recent_trades", "get_quote"],
     models: [MODEL_HAIKU, MODEL_SONNET],
   },
   unlimited: {
     memory: true,
     webSearch: true,
-    tools: ["get_journal_stats", "get_recent_trades", "web_search"],
+    tools: ["get_journal_stats", "get_recent_trades", "web_search", "get_quote"],
     models: [MODEL_HAIKU, MODEL_SONNET, MODEL_OPUS],
   },
   admin: {
     memory: true,
     webSearch: true,
-    tools: ["get_journal_stats", "get_recent_trades", "web_search"],
+    tools: ["get_journal_stats", "get_recent_trades", "web_search", "get_quote"],
     models: [MODEL_HAIKU, MODEL_SONNET, MODEL_OPUS],
   },
 };
