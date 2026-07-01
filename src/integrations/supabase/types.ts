@@ -146,6 +146,36 @@ export type Database = {
         }
         Relationships: []
       }
+      ai_daily_briefings: {
+        Row: {
+          briefing_date: string
+          briefing_text: string
+          generated_at: string
+          highlights: Json
+          id: string
+          stats: Json
+          user_id: string
+        }
+        Insert: {
+          briefing_date?: string
+          briefing_text: string
+          generated_at?: string
+          highlights?: Json
+          id?: string
+          stats?: Json
+          user_id: string
+        }
+        Update: {
+          briefing_date?: string
+          briefing_text?: string
+          generated_at?: string
+          highlights?: Json
+          id?: string
+          stats?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_daily_logs: {
         Row: {
           created_at: string
@@ -1574,6 +1604,96 @@ export type Database = {
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
+        }
+        Relationships: []
+      }
+      watchlist_ai_alerts: {
+        Row: {
+          alert_type: string
+          confidence: number | null
+          created_at: string
+          id: string
+          reason: string
+          reasoning: Json
+          score_from: number | null
+          score_to: number | null
+          sentiment_from: string | null
+          sentiment_to: string | null
+          ticker: string
+        }
+        Insert: {
+          alert_type: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          reason: string
+          reasoning?: Json
+          score_from?: number | null
+          score_to?: number | null
+          sentiment_from?: string | null
+          sentiment_to?: string | null
+          ticker: string
+        }
+        Update: {
+          alert_type?: string
+          confidence?: number | null
+          created_at?: string
+          id?: string
+          reason?: string
+          reasoning?: Json
+          score_from?: number | null
+          score_to?: number | null
+          sentiment_from?: string | null
+          sentiment_to?: string | null
+          ticker?: string
+        }
+        Relationships: []
+      }
+      watchlist_ai_analysis: {
+        Row: {
+          analyzed_at: string
+          confidence: number
+          hf_score: number
+          hf_score_prev: number | null
+          prev_analyzed_at: string | null
+          reasoning: Json
+          score_delta: number | null
+          sentiment: string
+          sentiment_prev: string | null
+          signals: Json
+          smart_tags: Json
+          summary: string
+          ticker: string
+        }
+        Insert: {
+          analyzed_at?: string
+          confidence: number
+          hf_score: number
+          hf_score_prev?: number | null
+          prev_analyzed_at?: string | null
+          reasoning?: Json
+          score_delta?: number | null
+          sentiment: string
+          sentiment_prev?: string | null
+          signals?: Json
+          smart_tags?: Json
+          summary: string
+          ticker: string
+        }
+        Update: {
+          analyzed_at?: string
+          confidence?: number
+          hf_score?: number
+          hf_score_prev?: number | null
+          prev_analyzed_at?: string | null
+          reasoning?: Json
+          score_delta?: number | null
+          sentiment?: string
+          sentiment_prev?: string | null
+          signals?: Json
+          smart_tags?: Json
+          summary?: string
+          ticker?: string
         }
         Relationships: []
       }
