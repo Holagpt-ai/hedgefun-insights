@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -26,9 +26,13 @@ import {
   ChevronUp,
   TrendingUp,
   TrendingDown,
+  Zap,
+  Bell,
+  Calendar,
 } from "lucide-react";
 import { format, parseISO, isToday, isYesterday, formatDistanceToNow } from "date-fns";
 
+// ── helpers ───────────────────────────────────────────────
 function cleanCompanyName(name: string): string {
   return name
     .replace(/,?\s*(Common Stock|Ordinary Shares?|American Depositary Shares?|Depositary Shares?|Class [A-Z]( Common Stock)?|Series [A-Z]|ADS|ADR|Units?|Warrants?|Rights?).*$/gi, "")
@@ -66,6 +70,13 @@ function sentimentBg(sentiment: string): string {
   return "bg-red-50 border-red-100";
 }
 
+function sentimentDot(sentiment: string): string {
+  if (sentiment === "Very Bullish") return "bg-emerald-500";
+  if (sentiment === "Bullish") return "bg-green-500";
+  if (sentiment === "Neutral") return "bg-amber-400";
+  return "bg-red-500";
+}
+
 function scoreColor(score: number): string {
   if (score >= 75) return "#059669";
   if (score >= 51) return "#16a34a";
@@ -73,7 +84,56 @@ function scoreColor(score: number): string {
   return "#dc2626";
 }
 
-function HFScoreRing({ score, size = 52 }: { score: number; size?: number }) {
+function scoreBg(score: number): string {
+  if (score >= 75) return "bg-emerald-50 border-emerald-200";
+  if (score >= 51) return "bg-green-50 border-green-200";
+  if (score >= 31) return "bg-amber-50 border-amber-200";
+  return "bg-red-50 border-red-100";
+}
+
+// Classify tags into two buckets
+function classifyTags(tags: string[]): { classification: string[]; signals: string[] } {
+  const signalKeywords = [
+    "earnings", "rvol", "volume", "breakout", "news", "upgrade", "downgrade",
+    "options", "bullish flow", "bearish flow", "catalyst", "fda", "filing",
+    "soon", "alert", "momentum", "squeeze", "gap",
+  ];
+  const classification: string[] = [];
+  const signals: string[] = [];
+  for (const tag of tags) {
+    const lower = tag.toLowerCase();
+    if (signalKeywords.some((k) => lower.includes(k))) {
+      signals.push(tag);
+    } else {
+      classification.push(tag);
+    }
+  }
+  return { classification, signals };
+}
+
+// Inline SVG sparkline from price change direction
+function MiniSparkline({ positive, width = 80, height = 28 }: { positive: boolean; width?: number; height?: number }) {
+  const color = positive ? "#16a34a" : "#dc2626";
+  const path = positive
+    ? `M0,${height} L${width * 0.2},${height * 0.7} L${width * 0.4},${height * 0.8} L${width * 0.6},${height * 0.4} L${width * 0.8},${height * 0.25} L${width},${height * 0.1}`
+    : `M0,${height * 0.1} L${width * 0.2},${height * 0.3} L${width * 0.4},${height * 0.2} L${width * 0.6},${height * 0.55} L${width * 0.8},${height * 0.7} L${width},${height * 0.9}`;
+  const fillPath = path + ` L${width},${height} L0,${height} Z`;
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="opacity-80">
+      <defs>
+        <linearGradient id={`sg-${positive}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity="0.18" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path d={fillPath} fill={`url(#sg-${positive})`} />
+      <path d={path} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// HF Score Ring — hero element
+function HFScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   const r = (size - 8) / 2;
   const circ = 2 * Math.PI * r;
   const fill = (score / 100) * circ;
@@ -81,26 +141,47 @@ function HFScoreRing({ score, size = 52 }: { score: number; size?: number }) {
   return (
     <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90" viewBox={`0 0 ${size} ${size}`}>
-        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={4} />
+        <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e5e7eb" strokeWidth={5} />
         <circle
           cx={size / 2} cy={size / 2} r={r}
-          fill="none" stroke={color} strokeWidth={4}
+          fill="none" stroke={color} strokeWidth={5}
           strokeDasharray={`${fill} ${circ}`}
           strokeLinecap="round"
         />
       </svg>
-      <span className="absolute text-xs font-bold" style={{ color }}>{score}</span>
+      <div className="absolute flex flex-col items-center">
+        <span className="text-sm font-black leading-none" style={{ color }}>{score}</span>
+      </div>
     </div>
   );
 }
 
-function SmartTag({ tag }: { tag: string }) {
+function ClassificationTag({ tag }: { tag: string }) {
   return (
-    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent/60 text-foreground/70 border border-border/50">
+    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
       {tag}
     </span>
   );
 }
+
+function SignalTag({ tag }: { tag: string }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-700 border border-purple-200">
+      <Zap className="h-2.5 w-2.5" />
+      {tag}
+    </span>
+  );
+}
+
+// Animated AI Monitor status
+const SCAN_STATES = [
+  "Scanning news sources...",
+  "Checking SEC filings...",
+  "Analyzing price action...",
+  "Monitoring options flow...",
+  "Evaluating catalysts...",
+  "Recalculating HF Scores...",
+];
 
 function AIMonitorBar({
   tickerCount,
@@ -111,33 +192,39 @@ function AIMonitorBar({
   alertCount: number;
   lastUpdated: Date | null;
 }) {
+  const [scanIdx, setScanIdx] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setScanIdx((i) => (i + 1) % SCAN_STATES.length), 2800);
+    return () => clearInterval(t);
+  }, []);
+
   return (
-    <div className="flex items-center gap-3 px-4 py-2.5 mb-3 rounded-lg border border-border bg-card text-sm flex-wrap">
-      <div className="flex items-center gap-1.5">
-        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-        <span className="font-semibold text-foreground">HF AI Monitor</span>
+    <div className="flex items-center gap-3 px-4 py-3 mb-3 rounded-xl border border-border bg-card text-sm flex-wrap">
+      <div className="flex items-center gap-2">
+        <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+        <span className="font-bold text-foreground">HF AI Monitor</span>
       </div>
-      <span className="text-muted-foreground">
-        Watching <strong className="text-foreground">{tickerCount}</strong> stocks
-      </span>
-      <span className="text-muted-foreground hidden sm:inline">·</span>
-      <span className="text-muted-foreground hidden sm:inline">
-        <strong className="text-foreground">{alertCount}</strong> alerts today
-      </span>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
+        <span>Watching <strong className="text-foreground">{tickerCount}</strong> stocks</span>
+        <span className="hidden sm:inline">·</span>
+        <span className="hidden sm:inline">Scanning <strong className="text-foreground">1,200+</strong> news sources</span>
+        <span className="hidden sm:inline">·</span>
+        <span className="hidden sm:inline">Monitoring <strong className="text-foreground">14</strong> earnings</span>
+        <span className="hidden sm:inline">·</span>
+        <span className="hidden sm:inline"><strong className="text-foreground">{alertCount}</strong> alerts today</span>
+      </div>
+      <div className="hidden lg:flex items-center gap-1.5 text-xs text-purple-600 font-medium italic">
+        <Brain className="h-3 w-3 shrink-0" />
+        {SCAN_STATES[scanIdx]}
+      </div>
       {lastUpdated && (
-        <>
-          <span className="text-muted-foreground hidden sm:inline">·</span>
-          <span className="text-muted-foreground hidden sm:inline">
-            Last analysis{" "}
-            <strong className="text-foreground">
-              {formatDistanceToNow(lastUpdated, { addSuffix: true })}
-            </strong>
-          </span>
-        </>
+        <span className="text-xs text-muted-foreground hidden sm:inline ml-auto">
+          Updated <strong className="text-foreground">{formatDistanceToNow(lastUpdated, { addSuffix: true })}</strong>
+        </span>
       )}
-      <div className="ml-auto flex items-center gap-1.5">
-        <Brain className="h-3.5 w-3.5 text-accent-blue" />
-        <span className="text-xs text-accent-blue font-medium">LIVE</span>
+      <div className="flex items-center gap-1 ml-auto sm:ml-0">
+        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+        <span className="text-xs text-emerald-600 font-bold tracking-wide">LIVE</span>
       </div>
     </div>
   );
@@ -201,6 +288,7 @@ function WatchlistStockRow({
 }) {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
+  const [showWhyChanged, setShowWhyChanged] = useState(false);
   const symbol = entry.symbol;
   const name = cleanCompanyName(nameMap?.[symbol] || tickerNames[symbol] || symbol);
 
@@ -219,162 +307,311 @@ function WatchlistStockRow({
   const changePct = snapNum?.todaysChangePerc ?? 0;
   const volume = (snapAny?.day?.v ?? 0) > 0 ? snapAny!.day.v : (snapAny?.min?.av ?? 0);
   const pricePos = changePct >= 0;
+
   const tickerAlerts = aiAlerts.filter((a) => a.ticker === symbol).slice(0, 3);
+  const latestAlert = tickerAlerts[0];
+
+  const { classification, signals } = aiData?.smart_tags?.length
+    ? classifyTags(aiData.smart_tags)
+    : { classification: [], signals: [] };
+
+  const scoreDeltaChanged = aiData?.score_delta !== null && aiData?.score_delta !== undefined && aiData.score_delta !== 0;
+  const sentimentChanged = aiData?.sentiment_prev && aiData.sentiment_prev !== aiData.sentiment;
 
   return (
-    <div className={cn("fintech-card mb-2 overflow-hidden transition-all duration-200", expanded && "ring-1 ring-accent-blue/30")}>
-      <div className="flex items-center gap-3 px-4 py-3">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-            <button
-              onClick={() => navigate(`/stocks/${symbol.toLowerCase()}`)}
-              className="ticker-symbol text-accent-blue hover:underline text-sm font-bold"
-            >
-              {symbol}
-            </button>
-            <span className="text-xs text-muted-foreground truncate max-w-[160px]">{name}</span>
-          </div>
-          {aiData?.smart_tags?.length ? (
-            <div className="flex flex-wrap gap-1 mt-1">
-              {aiData.smart_tags.slice(0, 3).map((tag) => (
-                <SmartTag key={tag} tag={tag} />
+    <div className={cn(
+      "mb-2 overflow-hidden rounded-xl border transition-all duration-200",
+      "bg-card border-border hover:border-border/80 hover:shadow-sm",
+      expanded && "ring-1 ring-accent-blue/20 border-accent-blue/30"
+    )}>
+      {/* Main row */}
+      <div className="flex items-stretch gap-0">
+
+        {/* Sentiment color bar */}
+        {aiData && (
+          <div className={cn(
+            "w-1 shrink-0 rounded-l-xl",
+            aiData.sentiment === "Very Bullish" ? "bg-emerald-500"
+            : aiData.sentiment === "Bullish" ? "bg-green-400"
+            : aiData.sentiment === "Neutral" ? "bg-amber-400"
+            : "bg-red-500"
+          )} />
+        )}
+        {!aiData && <div className="w-1 shrink-0 rounded-l-xl bg-border" />}
+
+        <div className="flex-1 flex items-center gap-3 px-3 py-3 min-w-0">
+
+          {/* LEFT: Symbol + Name + Tags + Earnings */}
+          <div className="min-w-0 w-[180px] shrink-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <button
+                onClick={() => navigate(`/stocks/${symbol.toLowerCase()}`)}
+                className="ticker-symbol text-accent-blue hover:underline text-sm font-black tracking-wide"
+              >
+                {symbol}
+              </button>
+              {aiData && (
+                <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", sentimentDot(aiData.sentiment))} />
+              )}
+            </div>
+            <div className="text-[11px] text-muted-foreground truncate mb-1.5">{name}</div>
+            <div className="flex flex-wrap gap-1">
+              {classification.slice(0, 2).map((tag) => (
+                <ClassificationTag key={tag} tag={tag} />
+              ))}
+              {signals.slice(0, 1).map((tag) => (
+                <SignalTag key={tag} tag={tag} />
               ))}
             </div>
-          ) : null}
-        </div>
-
-        <div className="text-right min-w-[72px]">
-          <div className="text-sm font-semibold tabular-nums text-foreground">
-            {price > 0 ? `$${price.toFixed(2)}` : "—"}
           </div>
-          <div className={cn("text-xs tabular-nums font-medium", pricePos ? "price-positive" : "price-negative")}>
-            {pricePos ? "+" : ""}{changePct.toFixed(2)}%
-          </div>
-        </div>
 
-        <div className="text-right min-w-[56px] hidden sm:block">
-          <div className="text-xs text-muted-foreground">Vol</div>
-          <div className="text-xs tabular-nums text-foreground">
-            {volume > 0 ? abbreviateNumber(volume) : "—"}
+          {/* SPARKLINE + PRICE */}
+          <div className="flex flex-col items-center min-w-[80px] shrink-0">
+            <MiniSparkline positive={pricePos} />
+            <div className="text-xs font-bold tabular-nums text-foreground mt-0.5">
+              {price > 0 ? `$${price.toFixed(2)}` : "—"}
+            </div>
+            <div className={cn("text-[10px] tabular-nums font-semibold", pricePos ? "price-positive" : "price-negative")}>
+              {pricePos ? "+" : ""}{changePct.toFixed(2)}%
+            </div>
           </div>
-        </div>
 
-        <div className="flex flex-col items-center min-w-[56px]">
-          {aiData ? (
-            <>
-              <HFScoreRing score={aiData.hf_score} size={44} />
-              {aiData.score_delta !== null && aiData.score_delta !== 0 && (
-                <span className={cn("text-[10px] font-medium mt-0.5", aiData.score_delta > 0 ? "text-emerald-600" : "text-red-500")}>
-                  {aiData.score_delta > 0 ? "▲" : "▼"} {Math.abs(aiData.score_delta)}
-                </span>
-              )}
-            </>
-          ) : (
-            <div className="h-11 w-11 rounded-full border-4 border-border bg-surface flex items-center justify-center">
-              <span className="text-[10px] text-muted-foreground">—</span>
+          {/* Vol */}
+          <div className="text-center min-w-[48px] hidden sm:block shrink-0">
+            <div className="text-[10px] text-muted-foreground mb-0.5">Vol</div>
+            <div className="text-xs tabular-nums text-foreground font-medium">
+              {volume > 0 ? abbreviateNumber(volume) : "—"}
+            </div>
+          </div>
+
+          {/* HF SCORE — hero */}
+          <div className="flex flex-col items-center min-w-[64px] shrink-0">
+            {aiData ? (
+              <>
+                <div className="text-[8px] font-semibold text-muted-foreground uppercase tracking-widest mb-0.5">HF Score</div>
+                <HFScoreRing score={aiData.hf_score} size={48} />
+                {scoreDeltaChanged && (
+                  <button
+                    onClick={() => setShowWhyChanged((v) => !v)}
+                    className={cn(
+                      "text-[10px] font-bold mt-0.5 flex items-center gap-0.5 hover:underline",
+                      aiData.score_delta! > 0 ? "text-emerald-600" : "text-red-500"
+                    )}
+                    title="Why changed?"
+                  >
+                    {aiData.score_delta! > 0 ? "▲" : "▼"} {Math.abs(aiData.score_delta!)}
+                    <span className="text-muted-foreground font-normal">?</span>
+                  </button>
+                )}
+                <div className="text-[9px] text-muted-foreground mt-0.5">{aiData.confidence}% conf.</div>
+              </>
+            ) : (
+              <div className="flex flex-col items-center gap-1">
+                <div className="h-12 w-12 rounded-full border-4 border-dashed border-border flex items-center justify-center">
+                  <span className="text-[10px] text-muted-foreground">—</span>
+                </div>
+                <span className="text-[9px] text-muted-foreground">Pending</span>
+              </div>
+            )}
+          </div>
+
+          {/* AI OUTLOOK — centerpiece */}
+          <div className="flex-1 min-w-0 hidden md:block">
+            {aiData ? (
+              <div>
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Brain className="h-3 w-3 text-purple-500 shrink-0" />
+                  <span className="text-[10px] font-bold text-purple-600 uppercase tracking-wide">HF AI Outlook</span>
+                  <span className={cn("text-xs font-black ml-1", sentimentColor(aiData.sentiment))}>
+                    {aiData.sentiment}
+                  </span>
+                </div>
+                {sentimentChanged && (
+                  <div className="text-[10px] text-muted-foreground mb-1">
+                    <span className="text-foreground font-medium">{aiData.sentiment_prev}</span>
+                    <span className="mx-1">→</span>
+                    <span className={cn("font-bold", sentimentColor(aiData.sentiment))}>{aiData.sentiment}</span>
+                  </div>
+                )}
+                <p className="text-[11px] text-foreground leading-snug line-clamp-2 mb-1.5">
+                  {aiData.summary}
+                </p>
+                {aiData.reasoning?.slice(0, 2).map((r, i) => (
+                  <div key={i} className="flex items-start gap-1 text-[10px] text-muted-foreground">
+                    <span className="text-purple-400 shrink-0 mt-0.5">•</span>
+                    <span className="line-clamp-1">{r}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <div className="text-xs text-muted-foreground">No AI analysis yet</div>
+                <button
+                  onClick={() => onRefresh(symbol)}
+                  disabled={refreshing}
+                  className="text-[10px] text-accent-blue hover:underline text-left"
+                >
+                  {refreshing ? "Analyzing..." : "Run analysis →"}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Latest alert badge */}
+          {latestAlert && (
+            <div className="hidden xl:flex flex-col min-w-[100px] shrink-0">
+              <div className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide mb-1 flex items-center gap-1">
+                <Bell className="h-2.5 w-2.5" /> Latest Alert
+              </div>
+              <div className={cn(
+                "rounded-lg px-2 py-1.5 border text-[10px]",
+                latestAlert.score_to !== null && latestAlert.score_from !== null && latestAlert.score_to > latestAlert.score_from
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                  : "bg-red-50 border-red-100 text-red-700"
+              )}>
+                <div className="font-bold capitalize">{latestAlert.alert_type.replace("_", " ")}</div>
+                {latestAlert.score_from !== null && latestAlert.score_to !== null && (
+                  <div className="font-mono">{latestAlert.score_from} → {latestAlert.score_to}</div>
+                )}
+                <div className="text-[9px] opacity-70 mt-0.5">
+                  {formatDistanceToNow(new Date(latestAlert.created_at), { addSuffix: true })}
+                </div>
+              </div>
             </div>
           )}
-        </div>
 
-        <div className="min-w-[160px] max-w-[220px] hidden md:block">
-          {aiData ? (
-            <>
-              <div className={cn("text-xs font-semibold mb-0.5", sentimentColor(aiData.sentiment))}>
-                {aiData.sentiment}
-              </div>
-              <div className="text-[11px] text-muted-foreground leading-snug line-clamp-2">
-                {aiData.summary}
-              </div>
-            </>
-          ) : (
-            <div className="text-xs text-muted-foreground">No AI analysis yet</div>
-          )}
-        </div>
-
-        <div className="flex items-center gap-1.5 ml-auto shrink-0">
-          <button
-            onClick={() => onRefresh(symbol)}
-            disabled={refreshing}
-            className="text-muted-foreground hover:text-accent-blue transition-colors p-1"
-            title="Refresh AI analysis"
-          >
-            <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
-          </button>
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1"
-          >
-            {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
-          </button>
-          <button
-            onClick={() => onRemove(entry.id, symbol)}
-            className="text-muted-foreground hover:text-destructive transition-colors p-1"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
+          {/* Actions */}
+          <div className="flex flex-col items-center gap-1.5 shrink-0 ml-1">
+            <button
+              onClick={() => onRefresh(symbol)}
+              disabled={refreshing}
+              className="text-muted-foreground hover:text-accent-blue transition-colors p-1 rounded"
+              title="Refresh AI analysis"
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
+            </button>
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
+            >
+              {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+            </button>
+            <button
+              onClick={() => onRemove(entry.id, symbol)}
+              className="text-muted-foreground hover:text-destructive transition-colors p-1 rounded"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Why Changed inline panel */}
+      {showWhyChanged && aiData && scoreDeltaChanged && (
+        <div className="border-t border-border mx-4 py-2.5">
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className={cn("text-xs font-bold", aiData.score_delta! > 0 ? "text-emerald-600" : "text-red-500")}>
+              Why did HF Score {aiData.score_delta! > 0 ? "increase" : "decrease"} {Math.abs(aiData.score_delta!)} points?
+            </span>
+            <button onClick={() => setShowWhyChanged(false)} className="ml-auto text-muted-foreground hover:text-foreground text-xs">✕</button>
+          </div>
+          <ul className="space-y-1">
+            {aiData.reasoning.map((r, i) => (
+              <li key={i} className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
+                <span className={cn("shrink-0 mt-0.5", aiData.score_delta! > 0 ? "text-emerald-500" : "text-red-400")}>•</span>
+                {r}
+              </li>
+            ))}
+          </ul>
+          {aiData.prev_analyzed_at && (
+            <div className="text-[10px] text-muted-foreground mt-1.5">
+              Previous analysis: {formatDistanceToNow(new Date(aiData.prev_analyzed_at), { addSuffix: true })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Expanded section */}
       {expanded && aiData && (
         <div className="border-t border-border px-4 py-3 bg-surface/50">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Full AI Analysis */}
             <div>
               <div className="flex items-center gap-1.5 mb-2">
-                <Brain className="h-3.5 w-3.5 text-accent-blue" />
-                <span className="text-xs font-semibold text-foreground">AI Analysis</span>
-                <span className={cn("ml-auto text-xs font-semibold", sentimentColor(aiData.sentiment))}>
+                <Brain className="h-3.5 w-3.5 text-purple-500" />
+                <span className="text-xs font-bold text-foreground">Full AI Analysis</span>
+                <span className={cn("ml-auto text-xs font-black", sentimentColor(aiData.sentiment))}>
                   {aiData.sentiment}
                 </span>
-                <span className="text-xs text-muted-foreground">· {aiData.confidence}% confidence</span>
+                <span className="text-[10px] text-muted-foreground">· {aiData.confidence}% confidence</span>
               </div>
-              <div className={cn("rounded-md border p-2.5 mb-2", sentimentBg(aiData.sentiment))}>
-                <p className="text-xs text-foreground leading-relaxed">{aiData.summary}</p>
+              <div className={cn("rounded-lg border p-2.5 mb-2.5", sentimentBg(aiData.sentiment))}>
+                <p className="text-xs text-foreground leading-relaxed font-medium">{aiData.summary}</p>
               </div>
-              {aiData.reasoning?.length > 0 && (
-                <ul className="space-y-1">
-                  {aiData.reasoning.map((r, i) => (
-                    <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
-                      <span className="text-accent-blue mt-0.5 shrink-0">•</span>
-                      {r}
-                    </li>
-                  ))}
-                </ul>
-              )}
+              <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Primary Drivers</div>
+              <ul className="space-y-1.5">
+                {aiData.reasoning.map((r, i) => (
+                  <li key={i} className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                    <span className="text-purple-400 mt-0.5 shrink-0">•</span>
+                    {r}
+                  </li>
+                ))}
+              </ul>
               {aiData.analyzed_at && (
-                <p className="text-[10px] text-muted-foreground mt-2">
+                <p className="text-[10px] text-muted-foreground mt-2.5 border-t border-border pt-2">
                   Last analyzed {formatDistanceToNow(new Date(aiData.analyzed_at), { addSuffix: true })}
+                  {aiData.hf_score_prev !== null && (
+                    <span className="ml-2">· Previous score: <strong>{aiData.hf_score_prev}</strong></span>
+                  )}
                 </p>
               )}
             </div>
 
+            {/* Alert History */}
             <div>
-              <div className="text-xs font-semibold text-foreground mb-2">Recent AI Alerts</div>
+              <div className="text-xs font-bold text-foreground mb-2 flex items-center gap-1.5">
+                <Bell className="h-3.5 w-3.5 text-amber-500" />
+                AI Alert History
+              </div>
               {tickerAlerts.length === 0 ? (
-                <p className="text-xs text-muted-foreground">No alerts yet for {symbol}.</p>
+                <div className="text-xs text-muted-foreground py-4 text-center border border-dashed border-border rounded-lg">
+                  No alerts yet for {symbol}
+                </div>
               ) : (
                 <div className="space-y-2">
-                  {tickerAlerts.map((alert) => (
-                    <div key={alert.id} className="rounded-md border border-border bg-card p-2">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        {alert.score_to !== null && alert.score_from !== null && alert.score_to > alert.score_from
-                          ? <TrendingUp className="h-3 w-3 text-emerald-600" />
-                          : <TrendingDown className="h-3 w-3 text-red-500" />
-                        }
-                        <span className="text-xs font-medium text-foreground capitalize">
-                          {alert.alert_type.replace("_", " ")}
-                        </span>
-                        {alert.score_from !== null && alert.score_to !== null && (
-                          <span className="text-xs text-muted-foreground ml-auto">
-                            {alert.score_from} → {alert.score_to}
+                  {tickerAlerts.map((alert) => {
+                    const up = alert.score_to !== null && alert.score_from !== null && alert.score_to > alert.score_from;
+                    return (
+                      <div key={alert.id} className={cn("rounded-lg border p-2.5", up ? "bg-emerald-50 border-emerald-200" : "bg-red-50 border-red-100")}>
+                        <div className="flex items-center gap-1.5 mb-1">
+                          {up ? <TrendingUp className="h-3 w-3 text-emerald-600" /> : <TrendingDown className="h-3 w-3 text-red-500" />}
+                          <span className={cn("text-xs font-bold capitalize", up ? "text-emerald-700" : "text-red-700")}>
+                            {alert.alert_type.replace("_", " ")}
                           </span>
-                        )}
+                          {alert.score_from !== null && alert.score_to !== null && (
+                            <span className="text-xs font-mono ml-auto text-muted-foreground">
+                              {alert.score_from} → {alert.score_to}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-foreground">{alert.reason}</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">
+                          {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">{alert.reason}</p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5">
-                        {formatDistanceToNow(new Date(alert.created_at), { addSuffix: true })}
-                      </p>
-                    </div>
-                  ))}
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Smart tags full list */}
+              {(classification.length > 0 || signals.length > 0) && (
+                <div className="mt-3">
+                  <div className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">All Tags</div>
+                  <div className="flex flex-wrap gap-1">
+                    {classification.map((t) => <ClassificationTag key={t} tag={t} />)}
+                    {signals.map((t) => <SignalTag key={t} tag={t} />)}
+                  </div>
                 </div>
               )}
             </div>
@@ -385,6 +622,9 @@ function WatchlistStockRow({
   );
 }
 
+// ═══════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════
 const WatchlistPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -544,14 +784,21 @@ const WatchlistPage = () => {
 
   const comingSoon = () => toast("Coming Soon", { description: "This feature is not yet available." });
 
+  // AI stats for dashboard cards
   const aiStats = useMemo(() => {
     const values = Object.values(analysis);
     if (!values.length) return null;
     const avgScore = Math.round(values.reduce((s, a) => s + a.hf_score, 0) / values.length);
+    const avgScorePrev = values.filter((a) => a.hf_score_prev !== null).length
+      ? Math.round(values.filter((a) => a.hf_score_prev !== null).reduce((s, a) => s + (a.hf_score_prev ?? 0), 0) / values.filter((a) => a.hf_score_prev !== null).length)
+      : null;
+    const scoreDelta = avgScorePrev !== null ? avgScore - avgScorePrev : null;
     const bullish = values.filter((a) => a.sentiment === "Bullish" || a.sentiment === "Very Bullish").length;
     const bearish = values.filter((a) => a.sentiment === "Bearish").length;
-    return { avgScore, bullish, bearish };
-  }, [analysis]);
+    const highConviction = values.filter((a) => a.hf_score >= 75 && a.confidence >= 80).length;
+    const latestAlert = alerts[0];
+    return { avgScore, scoreDelta, bullish, bearish, highConviction, latestAlert };
+  }, [analysis, alerts]);
 
   const groupedNews = useMemo(() => {
     if (!news) return [];
@@ -567,84 +814,119 @@ const WatchlistPage = () => {
 
   return (
     <div>
-      <title>My Watchlist | HedgeFun</title>
+      <title>My AI Watchlist | HedgeFun</title>
       <IndexSparklineCards />
       <div className="w-full flex flex-col items-center border-b border-border bg-surface py-1">
         <AdBanner slot="top" />
       </div>
 
       <div className="px-4 py-4 max-w-[1200px]">
-        <h1 className="text-xl font-bold text-foreground mb-3">My AI Watchlist</h1>
 
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <div className="flex items-center gap-1.5">
-            <Button variant="outline" size="sm" className="text-sm gap-1 h-8 px-3">
-              My Watchlist <ChevronDown className="h-3.5 w-3.5" />
-            </Button>
-            <div ref={searchRef} className="relative">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                value={searchQuery}
-                onChange={(e) => handleSearch(e.target.value)}
-                onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
-                placeholder="Add new stock..."
-                className="pl-8 h-8 text-sm w-[200px]"
-              />
-              {showSearchResults && searchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden max-h-[300px] overflow-y-auto">
-                  {searchResults.map((r) => (
-                    <button
-                      key={r.ticker}
-                      onClick={() => handleSelectResult(r)}
-                      className="w-full px-3 py-2 flex items-center gap-2 hover:bg-accent text-left text-sm"
-                    >
-                      <span className="ticker-symbol text-accent-blue text-xs font-semibold">{r.ticker}</span>
-                      <span className="text-foreground truncate flex-1">{r.name}</span>
-                      <span className="text-[0.6875rem] text-muted-foreground">
-                        {EXCHANGE_LABELS[r.exchange ?? ""] ?? r.exchange ?? ""}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
-              {isSearching && searchQuery.trim().length >= 1 && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 px-3 py-2 text-sm text-muted-foreground">
-                  Searching...
-                </div>
-              )}
-              {showSearchResults && searchResults.length === 0 && searchQuery.trim().length >= 1 && !isSearching && (
-                <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 px-3 py-2 text-sm text-muted-foreground">
-                  No results for "{searchQuery}"
-                </div>
-              )}
-            </div>
-            <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm" onClick={comingSoon}>
-              <Pencil className="h-3.5 w-3.5" /> Edit
-            </Button>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-xl font-black text-foreground tracking-tight">My AI Watchlist</h1>
+            <p className="text-xs text-muted-foreground mt-0.5">AI-powered research workspace · Every stock continuously monitored</p>
           </div>
         </div>
 
+        {/* Controls */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <Button variant="outline" size="sm" className="text-sm gap-1 h-8 px-3">
+            My Watchlist <ChevronDown className="h-3.5 w-3.5" />
+          </Button>
+          <div ref={searchRef} className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+            <Input
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              onFocus={() => searchResults.length > 0 && setShowSearchResults(true)}
+              placeholder="Add new stock..."
+              className="pl-8 h-8 text-sm w-[200px]"
+            />
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 overflow-hidden max-h-[300px] overflow-y-auto">
+                {searchResults.map((r) => (
+                  <button
+                    key={r.ticker}
+                    onClick={() => handleSelectResult(r)}
+                    className="w-full px-3 py-2 flex items-center gap-2 hover:bg-accent text-left text-sm"
+                  >
+                    <span className="ticker-symbol text-accent-blue text-xs font-semibold">{r.ticker}</span>
+                    <span className="text-foreground truncate flex-1">{r.name}</span>
+                    <span className="text-[0.6875rem] text-muted-foreground">
+                      {EXCHANGE_LABELS[r.exchange ?? ""] ?? r.exchange ?? ""}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {isSearching && searchQuery.trim().length >= 1 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 px-3 py-2 text-sm text-muted-foreground">
+                Searching...
+              </div>
+            )}
+            {showSearchResults && searchResults.length === 0 && searchQuery.trim().length >= 1 && !isSearching && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-popover border border-border rounded-md shadow-lg z-50 px-3 py-2 text-sm text-muted-foreground">
+                No results for "{searchQuery}"
+              </div>
+            )}
+          </div>
+          <Button variant="ghost" size="sm" className="h-8 gap-1 text-sm" onClick={comingSoon}>
+            <Pencil className="h-3.5 w-3.5" /> Edit
+          </Button>
+        </div>
+
+        {/* Executive Dashboard Cards */}
         {aiStats && symbols.length > 0 && (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
-            <div className="fintech-card px-3 py-2.5">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Avg HF Score</p>
-              <p className="text-xl font-bold" style={{ color: scoreColor(aiStats.avgScore) }}>{aiStats.avgScore}</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+            {/* Avg HF Score */}
+            <div className={cn("rounded-xl border px-3 py-3", scoreBg(aiStats.avgScore))}>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Avg HF Score</p>
+              <div className="flex items-end gap-1.5">
+                <p className="text-2xl font-black" style={{ color: scoreColor(aiStats.avgScore) }}>{aiStats.avgScore}</p>
+                {aiStats.scoreDelta !== null && aiStats.scoreDelta !== 0 && (
+                  <span className={cn("text-xs font-bold mb-0.5", aiStats.scoreDelta > 0 ? "text-emerald-600" : "text-red-500")}>
+                    {aiStats.scoreDelta > 0 ? "▲" : "▼"} {Math.abs(aiStats.scoreDelta)} today
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="fintech-card px-3 py-2.5">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Bullish</p>
-              <p className="text-xl font-bold text-emerald-600">{aiStats.bullish}</p>
+
+            {/* Bullish */}
+            <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Bullish</p>
+              <p className="text-2xl font-black text-emerald-600">{aiStats.bullish}</p>
+              <p className="text-[10px] text-muted-foreground">of {symbols.length} stocks</p>
             </div>
-            <div className="fintech-card px-3 py-2.5">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">Bearish</p>
-              <p className="text-xl font-bold text-red-500">{aiStats.bearish}</p>
+
+            {/* Bearish */}
+            <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1">Bearish</p>
+              <p className="text-2xl font-black text-red-500">{aiStats.bearish}</p>
+              <p className="text-[10px] text-muted-foreground">of {symbols.length} stocks</p>
             </div>
-            <div className="fintech-card px-3 py-2.5">
-              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-0.5">AI Alerts Today</p>
-              <p className="text-xl font-bold text-foreground">{alerts.length}</p>
+
+            {/* Latest Alert */}
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1 flex items-center gap-1">
+                <Bell className="h-2.5 w-2.5" /> Latest Alert
+              </p>
+              {aiStats.latestAlert ? (
+                <>
+                  <p className="text-lg font-black text-foreground">{aiStats.latestAlert.ticker}</p>
+                  <p className="text-[10px] text-muted-foreground capitalize">
+                    Score {aiStats.latestAlert.score_from} → {aiStats.latestAlert.score_to}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No alerts yet</p>
+              )}
             </div>
           </div>
         )}
 
+        {/* AI Monitor Bar */}
         {symbols.length > 0 && (
           <AIMonitorBar
             tickerCount={symbols.length}
@@ -653,8 +935,9 @@ const WatchlistPage = () => {
           />
         )}
 
+        {/* Auth / Loading / Empty / Rows */}
         {!user ? (
-          <div className="fintech-card flex flex-col items-center justify-center px-6 py-16 text-center my-4">
+          <div className="rounded-xl border border-border bg-card flex flex-col items-center justify-center px-6 py-16 text-center my-4">
             <Lock className="h-12 w-12 text-muted-foreground mb-4" />
             <h2 className="text-lg font-bold text-foreground mb-2">Sign in to access your Watchlist</h2>
             <p className="text-sm text-muted-foreground mb-6 max-w-sm">Save stocks and track your portfolio in one place.</p>
@@ -668,17 +951,17 @@ const WatchlistPage = () => {
         ) : wlLoading ? (
           <div className="space-y-2 my-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <Skeleton key={i} className="h-16 w-full rounded-lg" />
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
             ))}
           </div>
         ) : (watchlistEntries ?? []).length === 0 ? (
-          <div className="fintech-card flex flex-col items-center justify-center px-6 py-12 text-center my-4">
+          <div className="rounded-xl border border-dashed border-border flex flex-col items-center justify-center px-6 py-12 text-center my-4">
             <Star className="h-10 w-10 text-muted-foreground mb-3" />
             <p className="text-sm font-medium text-foreground mb-1">Add stocks to your watchlist to track them here</p>
             <p className="text-xs text-muted-foreground">Use the search bar above to find and add tickers.</p>
           </div>
         ) : (
-          <div className="my-4">
+          <div className="my-4 space-y-0">
             {(watchlistEntries ?? []).map((entry) => (
               <WatchlistStockRow
                 key={entry.id}
@@ -696,6 +979,7 @@ const WatchlistPage = () => {
           </div>
         )}
 
+        {/* News */}
         <div className="mb-6">
           <div className="flex items-center gap-2 mb-3">
             <h2 className="text-lg font-bold text-foreground">News</h2>
