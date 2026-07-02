@@ -63,7 +63,8 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const ticker = typeof body.ticker === "string" ? body.ticker.trim().toUpperCase() : null;
+    const rawTicker = body.ticker ?? body.record?.symbol;
+    const ticker = typeof rawTicker === "string" ? rawTicker.trim().toUpperCase() : null;
     if (!ticker) {
       return new Response(JSON.stringify({ error: "ticker required" }), {
         status: 400,
