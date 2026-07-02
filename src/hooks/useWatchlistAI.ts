@@ -151,22 +151,9 @@ export function useWatchlistAI(tickers: string[]): UseWatchlistAIReturn {
   const refreshTicker = useCallback(async (ticker: string) => {
     setRefreshing((prev) => ({ ...prev, [ticker]: true }));
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return;
-
-      await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-watchlist-tickers`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ ticker }),
-        }
-      );
+      await supabase.functions.invoke("analyze-watchlist-tickers", {
+        body: { ticker },
+      });
     } finally {
       setRefreshing((prev) => ({ ...prev, [ticker]: false }));
     }
