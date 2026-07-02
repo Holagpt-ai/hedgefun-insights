@@ -810,6 +810,10 @@ const WatchlistPage = () => {
       toast.success(`${symbol.toUpperCase()} added to watchlist`);
       const { data } = await supabase.from("ticker_search").select("name").eq("symbol", symbol.toUpperCase()).limit(1).maybeSingle();
       if (data?.name) setTickerNames((prev) => ({ ...prev, [symbol.toUpperCase()]: data.name }));
+      // Trigger immediate AI analysis for newly added ticker
+      supabase.functions.invoke("analyze-watchlist-tickers", {
+        body: { ticker: symbol.toUpperCase() },
+      }).catch(() => {/* non-blocking, fail silently */});
     },
     onError: (err: unknown, symbol) => {
       const e = err as { code?: string; message?: string };
