@@ -28,11 +28,34 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Auth via SYNC_SECRET
+    // Auth via SYNC_SECRET or valid Supabase user JWT
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace("Bearer ", "").trim();
     const syncSecret = Deno.env.get("SYNC_SECRET");
-    if (!syncSecret || token !== syncSecret) {
+
+    let authorized = false;
+
+    // Check SYNC_SECRET first
+    if (syncSecret && token === syncSecret) {
+      authorized = true;
+    }
+
+    // Fall back to validating user JWT
+    if (!authorized) {
+      try {
+        const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+        const authCheck = await fetch(`${supabaseUrl}/auth/v1/user`, {
+          headers: {
+            "Authorization": `Bearer ${token}`,
+            "apikey": anonKey,
+          },
+        });
+        if (authCheck.ok) authorized = true;
+      } catch { /* fall through */ }
+    }
+
+    if (!authorized) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
