@@ -62,7 +62,13 @@ serve(async (req) => {
       });
     }
 
-    const body = await req.json();
+    const rawBody = await req.text();
+    let body: any = {};
+    try {
+      body = rawBody ? JSON.parse(rawBody) : {};
+    } catch {
+      body = {};
+    }
     const rawTicker = body.ticker ?? body.record?.symbol;
     const ticker = typeof rawTicker === "string" ? rawTicker.trim().toUpperCase() : null;
     if (!ticker) {
