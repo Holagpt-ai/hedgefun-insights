@@ -63,36 +63,15 @@ serve(async (req) => {
     }
 
     const rawBody = await req.text();
+
     let body: any = {};
-    let parseError: string | null = null;
     try {
       body = rawBody ? JSON.parse(rawBody) : {};
-    } catch (e) {
-      parseError = e instanceof Error ? e.message : String(e);
+    } catch {
       body = {};
     }
     const rawTicker = body.ticker ?? body.record?.symbol;
     const ticker = typeof rawTicker === "string" ? rawTicker.trim().toUpperCase() : null;
-
-    // ── TEMP DIAGNOSTIC — remove after debugging ─────────────────────────
-    return new Response(
-      JSON.stringify({
-        _diagnostic: true,
-        method: req.method,
-        contentType: req.headers.get("content-type"),
-        contentLength: req.headers.get("content-length"),
-        rawBodyLength: rawBody.length,
-        rawBodyPreview: rawBody.slice(0, 500),
-        parseError,
-        parsedBodyKeys: Object.keys(body ?? {}),
-        parsedBody: body,
-        resolvedTicker: ticker,
-        headers: Object.fromEntries(req.headers.entries()),
-      }, null, 2),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-    // ── END DIAGNOSTIC ────────────────────────────────────────────────────
-
     if (!ticker) {
       return new Response(JSON.stringify({ error: "ticker required" }), {
         status: 400,
