@@ -108,7 +108,6 @@ export function useWatchlistAI(tickers: string[]): UseWatchlistAIReturn {
         { event: "*", schema: "public", table: "watchlist_ai_analysis" },
         (payload) => {
           const row = payload.new as WatchlistAIAnalysis;
-          if (!tickers.includes(row.ticker)) return;
           setAnalysis((prev) => ({
             ...prev,
             [row.ticker]: {
@@ -130,7 +129,6 @@ export function useWatchlistAI(tickers: string[]): UseWatchlistAIReturn {
         { event: "INSERT", schema: "public", table: "watchlist_ai_alerts" },
         (payload) => {
           const row = payload.new as WatchlistAIAlert;
-          if (!tickers.includes(row.ticker)) return;
           setAlerts((prev) =>
             [
               { ...row, reasoning: Array.isArray(row.reasoning) ? row.reasoning : [] },
