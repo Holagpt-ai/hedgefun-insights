@@ -1,6 +1,7 @@
 export const BRAND = {
   name: "HedgeFun",
   domain: "hedgefun.fun",
+  displayDomain: "HedgeFun.fun",
   url: "https://hedgefun.fun",
   initials: "HF",
   tagline: "Your Edge In Every Market",
@@ -10,6 +11,7 @@ export const BRAND = {
 
   futureName: "Stocksist",
   futureDomain: "stocksist.com",
+  futureDisplayDomain: "Stocksist.com",
   futureUrl: "https://stocksist.com",
   futureInitials: "SS",
   futureSupportEmail: "info@stocksist.com",
