@@ -17,6 +17,7 @@ import { AuthModals } from "@/components/auth/AuthModals";
 import { trackEvent } from "@/lib/analytics";
 import { useEffect, useRef, useCallback } from "react";
 import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
+import { BRAND } from "@/config/brand";
 
 export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const navigate = useNavigate();
