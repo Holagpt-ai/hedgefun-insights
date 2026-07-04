@@ -183,6 +183,52 @@ export default function ActionCenter() {
           ))}
         </ul>
       </section>
+
+      {/* Top Catalyst Signals */}
+      <section>
+        <div className="flex items-center justify-between mb-3 gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold">Top Catalyst Signals</h2>
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-accent-blue-light text-accent-blue">
+              <Sparkles className="h-3 w-3" />
+              Linked to Catalyst
+            </span>
+          </div>
+          <button
+            onClick={() => navigate("/dashboard/catalyst")}
+            className="text-xs font-medium text-accent-blue hover:underline inline-flex items-center gap-1"
+          >
+            Open Catalyst <ArrowRight className="h-3 w-3" />
+          </button>
+        </div>
+        <ul className="rounded-xl border bg-card divide-y">
+          {CATALYST_SIGNALS.map((c) => (
+            <li
+              key={c.symbol}
+              className="flex flex-col sm:flex-row sm:items-center gap-3 px-4 py-3"
+            >
+              <div className="flex items-center gap-3 sm:w-40 shrink-0">
+                <span className="font-bold text-sm">{c.symbol}</span>
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${priorityBadge(c.priority)}`}
+                >
+                  {c.priority}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium truncate">{c.title}</div>
+              </div>
+              <button
+                onClick={() => navigate("/dashboard/catalyst")}
+                className="text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:bg-accent-blue/90 inline-flex items-center gap-1 self-start sm:self-auto"
+              >
+                View Catalyst Brief <ArrowRight className="h-3 w-3" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
+
   );
 }
