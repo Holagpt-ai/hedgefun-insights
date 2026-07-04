@@ -47,7 +47,8 @@ export default function DashboardLayout() {
             if (target.closest("a")) setMobileNavOpen(false);
           }}
         >
-          <DashboardSidebar />
+          <DashboardSidebar forceExpanded />
+
         </SheetContent>
       </Sheet>
     </>
