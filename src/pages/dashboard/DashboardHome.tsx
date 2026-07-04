@@ -33,7 +33,7 @@ export default function DashboardHome() {
     localStorage.setItem(`hf_greeted_${today}`, "1");
 
     if (searchParams.get("welcome") === "true") {
-      toast("Welcome to HedgeFun! 🎉");
+      toast(`Welcome to ${BRAND.name}! 🎉`);
       navigate("/dashboard", { replace: true });
     }
   }, []);
