@@ -202,6 +202,7 @@ const App = () => (
                   <Route path="/dashboard/watchlist" element={<DashboardWatchlistPage />} />
                   <Route path="/dashboard/journal" element={<DashboardJournalPage />} />
                   <Route path="/dashboard/game" element={<HedgeFunGame />} />
+                  <Route path="/dashboard/action-center" element={<ActionCenter />} />
                 </Route>
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
