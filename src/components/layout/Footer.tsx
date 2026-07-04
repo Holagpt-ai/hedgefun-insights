@@ -7,6 +7,7 @@ import { useTheme } from "@/contexts/ThemeContext";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { subscribeToNewsletter } from "@/lib/newsletter";
+import { BRAND } from "@/config/brand";
 
 
 const SOCIAL_LINKS = [
@@ -162,7 +163,7 @@ export function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-6 border-t border-white/10">
           {/* Left — copyright */}
           <span className="text-xs text-footer-text/50 shrink-0">
-            © {new Date().getFullYear()} HedgeFun.fun. {t("allRightsReserved")}
+            © {new Date().getFullYear()} {BRAND.displayDomain}. {t("allRightsReserved")}
           </span>
 
           {/* Center — social icons */}
