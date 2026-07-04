@@ -600,62 +600,7 @@ function WatchlistStockRow({
                     <span className="text-foreground font-medium">{aiData.sentiment_prev}</span>
                     <span className="mx-1">→</span>
                     <span className={cn("font-bold", sentimentColor(aiData.sentiment))}>{aiData.sentiment}</span>
-      </div>
-
-      {/* Watchlist Intelligence Overlay strip (mock, frontend-only) */}
-      {(() => {
-        const ov = WATCHLIST_OVERLAY[symbol];
-        return (
-          <div className="border-t border-border px-3 py-2 bg-surface/40 flex flex-wrap items-center gap-2">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Preview overlay</span>
-            {ov ? (
-              <>
-                <div className="flex flex-wrap gap-1">
-                  {ov.badges.map((b) => (
-                    <span
-                      key={b}
-                      className={cn("inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold", badgeClass(b))}
-                    >
-                      {b}
-                    </span>
-                  ))}
-                </div>
-                <span
-                  className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold", exposureClass(ov.exposure))}
-                  title="Mock catalyst exposure"
-                >
-                  {ov.exposure}
-                </span>
-                {ov.note && (
-                  <span className="text-[10px] text-muted-foreground truncate max-w-[240px] hidden sm:inline">
-                    {ov.note}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-[10px] text-muted-foreground italic">No overlay data</span>
-            )}
-            <div className="ml-auto flex items-center gap-1">
-              <button
-                onClick={() => navigate("/dashboard/catalyst")}
-                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
-                title="View Catalyst"
-              >
-                View Catalyst
-              </button>
-              <span className="text-muted-foreground text-[10px]">·</span>
-              <button
-                onClick={() => navigate("/dashboard/action-center")}
-                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
-                title="Open Action Center"
-              >
-                Open Action Center
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
+                  </div>
                 )}
                 <p className="text-[11px] text-foreground leading-snug line-clamp-2 mb-1.5">
                   {aiData.summary}
