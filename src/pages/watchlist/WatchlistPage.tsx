@@ -1149,6 +1149,34 @@ const WatchlistPage = () => {
           </div>
         )}
 
+        {/* Watchlist Intelligence Summary (mock overlay only) */}
+        {symbols.length > 0 && (() => {
+          const covered = symbols.filter((s) => WATCHLIST_OVERLAY[s]);
+          if (covered.length === 0) return null;
+          const catalystCount = covered.filter((s) => WATCHLIST_OVERLAY[s].badges.includes("Catalyst")).length;
+          const momentumCount = covered.filter((s) => WATCHLIST_OVERLAY[s].badges.includes("Momentum")).length;
+          const riskWindowCount = covered.filter((s) => WATCHLIST_OVERLAY[s].exposure === "Risk window").length;
+          return (
+            <div className="mb-3 rounded-lg border border-border bg-accent-blue-light/40 px-3 py-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-accent-blue">Preview overlay</span>
+              <span className="text-muted-foreground">
+                {catalystCount} catalyst-tagged {catalystCount === 1 ? "name" : "names"},{" "}
+                {momentumCount} momentum {momentumCount === 1 ? "name" : "names"},{" "}
+                {riskWindowCount} risk-window {riskWindowCount === 1 ? "flag" : "flags"}.
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <button onClick={() => navigate("/dashboard/catalyst")} className="text-[11px] font-semibold text-accent-blue hover:underline">
+                  View Catalyst
+                </button>
+                <span className="text-muted-foreground">·</span>
+                <button onClick={() => navigate("/dashboard/action-center")} className="text-[11px] font-semibold text-accent-blue hover:underline">
+                  Open Action Center
+                </button>
+              </div>
+            </div>
+          );
+        })()}
+
         {/* AI Monitor Bar */}
         {symbols.length > 0 && (
           <AIMonitorBar
