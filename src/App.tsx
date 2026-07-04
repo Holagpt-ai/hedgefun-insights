@@ -19,6 +19,7 @@ import DashboardWatchlistPage from "@/pages/dashboard/DashboardWatchlistPage";
 import DashboardJournalPage from "@/pages/dashboard/JournalPage";
 import HedgeFunGame from "@/pages/dashboard/HedgeFunGame";
 import ActionCenter from "@/pages/dashboard/ActionCenter";
+import Catalyst from "@/pages/dashboard/Catalyst";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -203,6 +204,7 @@ const App = () => (
                   <Route path="/dashboard/journal" element={<DashboardJournalPage />} />
                   <Route path="/dashboard/game" element={<HedgeFunGame />} />
                   <Route path="/dashboard/action-center" element={<ActionCenter />} />
+                  <Route path="/dashboard/catalyst" element={<Catalyst />} />
                 </Route>
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
