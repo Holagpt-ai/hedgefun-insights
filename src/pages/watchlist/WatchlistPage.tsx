@@ -555,6 +555,15 @@ function WatchlistStockRow({
                   </button>
                 )}
                 <div className="text-[9px] text-muted-foreground mt-0.5">{aiData.confidence}% conf.</div>
+                <span
+                  className={cn(
+                    "mt-1 inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide",
+                    priorityClass(derivePriorityFromScore(aiData.hf_score))
+                  )}
+                  title="Signal Priority derived from HF Score"
+                >
+                  {derivePriorityFromScore(aiData.hf_score)}
+                </span>
               </>
             ) : (
               <div className="flex flex-col items-center gap-1">
@@ -562,6 +571,15 @@ function WatchlistStockRow({
                   <span className="text-[10px] text-muted-foreground">—</span>
                 </div>
                 <span className="text-[9px] text-muted-foreground">Pending</span>
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide",
+                    priorityClass("Pending")
+                  )}
+                  title="Signal Priority — awaiting HF Score"
+                >
+                  Pending
+                </span>
               </div>
             )}
           </div>
