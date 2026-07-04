@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { BRAND } from "@/config/brand";
 
 const NAV_CARDS = [
   { label: "AM Inbox", path: "/dashboard/am-inbox", pro: true, icon: "☀️", desc: "Pre-market briefs & movers" },
@@ -32,7 +33,7 @@ export default function DashboardHome() {
     localStorage.setItem(`hf_greeted_${today}`, "1");
 
     if (searchParams.get("welcome") === "true") {
-      toast("Welcome to HedgeFun! 🎉");
+      toast(`Welcome to ${BRAND.name}! 🎉`);
       navigate("/dashboard", { replace: true });
     }
   }, []);

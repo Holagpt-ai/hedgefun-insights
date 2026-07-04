@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { BRAND } from "@/config/brand";
 
 type NavEntry =
   | { section: string }
@@ -164,7 +165,7 @@ export default function DashboardSidebar() {
       <Dialog open={upgradeOpen} onOpenChange={setUpgradeOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Unlock HedgeFun PRO</DialogTitle>
+            <DialogTitle>{`Unlock ${BRAND.name} PRO`}</DialogTitle>
             <DialogDescription>
               Get the AM/PM Inbox, Stock Journal, and the full PRO toolkit for $5/month.
             </DialogDescription>
