@@ -156,6 +156,60 @@ function HFScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   );
 }
 
+// ── Watchlist Intelligence Overlay (mock, frontend-only) ────
+// Local inline overlay map — NOT sourced from Supabase, AI, or any live data.
+// Purely illustrative frontend badges layered on top of the existing live UI.
+type OverlayExposure = "Catalyst active" | "No near-term catalyst" | "Risk window";
+interface OverlayEntry {
+  badges: string[]; // e.g. Catalyst, Momentum, Risk, Earnings, Volume, Technical
+  exposure: OverlayExposure;
+  note?: string;
+}
+const WATCHLIST_OVERLAY: Record<string, OverlayEntry> = {
+  NVDA: { badges: ["Catalyst", "Momentum", "Volume"], exposure: "Catalyst active", note: "Post-earnings drift; volume expansion." },
+  PLTR: { badges: ["Momentum", "Technical"], exposure: "Catalyst active", note: "RS line at new highs." },
+  SMCI: { badges: ["Technical", "Volume"], exposure: "No near-term catalyst", note: "Base tightening under resistance." },
+  IOVA: { badges: ["Catalyst", "Risk"], exposure: "Risk window", note: "PDUFA window open this week." },
+  MSTR: { badges: ["Risk", "Momentum"], exposure: "Risk window", note: "BTC vol bleeding into shares." },
+  QQQ:  { badges: ["Technical"], exposure: "No near-term catalyst", note: "Quarter-end rebalance flows." },
+  TSLA: { badges: ["Momentum", "Volume", "Risk"], exposure: "Catalyst active", note: "IV rank climbing; bullish flow." },
+  AAPL: { badges: ["Risk", "Technical"], exposure: "Risk window", note: "Weak RS vs QQQ, 5 sessions." },
+};
+
+type SignalPriority = "High" | "Medium" | "Watch" | "Low/Risk" | "Pending";
+function derivePriorityFromScore(score: number | null | undefined): SignalPriority {
+  if (score == null || Number.isNaN(score as number)) return "Pending";
+  if (score >= 75) return "High";
+  if (score >= 51) return "Medium";
+  if (score >= 31) return "Watch";
+  return "Low/Risk";
+}
+function priorityClass(p: SignalPriority): string {
+  switch (p) {
+    case "High": return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    case "Medium": return "bg-green-100 text-green-700 border-green-200";
+    case "Watch": return "bg-amber-100 text-amber-800 border-amber-200";
+    case "Low/Risk": return "bg-red-100 text-red-700 border-red-200";
+    case "Pending": return "bg-muted text-muted-foreground border-border";
+  }
+}
+function badgeClass(b: string): string {
+  const map: Record<string, string> = {
+    Catalyst: "bg-blue-50 text-blue-700 border-blue-200",
+    Momentum: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Risk: "bg-red-50 text-red-700 border-red-100",
+    Earnings: "bg-purple-50 text-purple-700 border-purple-200",
+    Volume: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    Technical: "bg-slate-50 text-slate-700 border-slate-200",
+  };
+  return map[b] ?? "bg-muted text-muted-foreground border-border";
+}
+function exposureClass(e: OverlayExposure): string {
+  if (e === "Catalyst active") return "bg-blue-50 text-blue-700 border-blue-200";
+  if (e === "Risk window") return "bg-red-50 text-red-700 border-red-100";
+  return "bg-muted text-muted-foreground border-border";
+}
+
 function ClassificationTag({ tag }: { tag: string }) {
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
