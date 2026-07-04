@@ -82,6 +82,13 @@ const SUMMARY = [
   { label: "Risk Flags", value: 1, icon: AlertTriangle, tone: "text-orange-600" },
 ];
 
+const CATALYST_SIGNALS: { symbol: string; title: string; priority: Priority }[] = [
+  { symbol: "NVDA", title: "Earnings momentum watch", priority: "High" },
+  { symbol: "IOVA", title: "FDA decision window", priority: "High" },
+  { symbol: "MSTR", title: "Bitcoin correlation risk", priority: "Medium" },
+  { symbol: "QQQ", title: "Rebalance flow sensitivity", priority: "Low" },
+];
+
 function priorityBadge(p: Priority) {
   const map: Record<Priority, string> = {
     High: "bg-red-100 text-red-700",
