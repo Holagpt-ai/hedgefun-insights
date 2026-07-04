@@ -117,9 +117,9 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
 
         <div className="flex items-center gap-2 shrink-0 md:w-[var(--sidebar-width)] cursor-pointer" onClick={() => navigate("/")}>
           <div className="h-8 w-8 rounded-md bg-accent-blue flex items-center justify-center">
-            <span className="text-sm font-bold text-primary-foreground">HF</span>
+            <span className="text-sm font-bold text-primary-foreground">{BRAND.initials}</span>
           </div>
-          <span className="hidden md:block font-display text-lg text-foreground">HedgeFun</span>
+          <span className="hidden md:block font-display text-lg text-foreground">{BRAND.name}</span>
         </div>
 
         <div ref={searchRef} className="relative flex-1 max-w-full md:max-w-[480px] mr-auto">
