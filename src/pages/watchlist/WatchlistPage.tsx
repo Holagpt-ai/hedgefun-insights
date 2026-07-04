@@ -156,6 +156,60 @@ function HFScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   );
 }
 
+// ── Watchlist Intelligence Overlay (mock, frontend-only) ────
+// Local inline overlay map — NOT sourced from Supabase, AI, or any live data.
+// Purely illustrative frontend badges layered on top of the existing live UI.
+type OverlayExposure = "Catalyst active" | "No near-term catalyst" | "Risk window";
+interface OverlayEntry {
+  badges: string[]; // e.g. Catalyst, Momentum, Risk, Earnings, Volume, Technical
+  exposure: OverlayExposure;
+  note?: string;
+}
+const WATCHLIST_OVERLAY: Record<string, OverlayEntry> = {
+  NVDA: { badges: ["Catalyst", "Momentum", "Volume"], exposure: "Catalyst active", note: "Post-earnings drift; volume expansion." },
+  PLTR: { badges: ["Momentum", "Technical"], exposure: "Catalyst active", note: "RS line at new highs." },
+  SMCI: { badges: ["Technical", "Volume"], exposure: "No near-term catalyst", note: "Base tightening under resistance." },
+  IOVA: { badges: ["Catalyst", "Risk"], exposure: "Risk window", note: "PDUFA window open this week." },
+  MSTR: { badges: ["Risk", "Momentum"], exposure: "Risk window", note: "BTC vol bleeding into shares." },
+  QQQ:  { badges: ["Technical"], exposure: "No near-term catalyst", note: "Quarter-end rebalance flows." },
+  TSLA: { badges: ["Momentum", "Volume", "Risk"], exposure: "Catalyst active", note: "IV rank climbing; bullish flow." },
+  AAPL: { badges: ["Risk", "Technical"], exposure: "Risk window", note: "Weak RS vs QQQ, 5 sessions." },
+};
+
+type SignalPriority = "High" | "Medium" | "Watch" | "Low/Risk" | "Pending";
+function derivePriorityFromScore(score: number | null | undefined): SignalPriority {
+  if (score == null || Number.isNaN(score as number)) return "Pending";
+  if (score >= 75) return "High";
+  if (score >= 51) return "Medium";
+  if (score >= 31) return "Watch";
+  return "Low/Risk";
+}
+function priorityClass(p: SignalPriority): string {
+  switch (p) {
+    case "High": return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    case "Medium": return "bg-green-100 text-green-700 border-green-200";
+    case "Watch": return "bg-amber-100 text-amber-800 border-amber-200";
+    case "Low/Risk": return "bg-red-100 text-red-700 border-red-200";
+    case "Pending": return "bg-muted text-muted-foreground border-border";
+  }
+}
+function badgeClass(b: string): string {
+  const map: Record<string, string> = {
+    Catalyst: "bg-blue-50 text-blue-700 border-blue-200",
+    Momentum: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    Risk: "bg-red-50 text-red-700 border-red-100",
+    Earnings: "bg-purple-50 text-purple-700 border-purple-200",
+    Volume: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    Technical: "bg-slate-50 text-slate-700 border-slate-200",
+  };
+  return map[b] ?? "bg-muted text-muted-foreground border-border";
+}
+function exposureClass(e: OverlayExposure): string {
+  if (e === "Catalyst active") return "bg-blue-50 text-blue-700 border-blue-200";
+  if (e === "Risk window") return "bg-red-50 text-red-700 border-red-100";
+  return "bg-muted text-muted-foreground border-border";
+}
+
 function ClassificationTag({ tag }: { tag: string }) {
   return (
     <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
@@ -501,6 +555,15 @@ function WatchlistStockRow({
                   </button>
                 )}
                 <div className="text-[9px] text-muted-foreground mt-0.5">{aiData.confidence}% conf.</div>
+                <span
+                  className={cn(
+                    "mt-1 inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide",
+                    priorityClass(derivePriorityFromScore(aiData.hf_score))
+                  )}
+                  title="Signal Priority derived from HF Score"
+                >
+                  {derivePriorityFromScore(aiData.hf_score)}
+                </span>
               </>
             ) : (
               <div className="flex flex-col items-center gap-1">
@@ -508,6 +571,15 @@ function WatchlistStockRow({
                   <span className="text-[10px] text-muted-foreground">—</span>
                 </div>
                 <span className="text-[9px] text-muted-foreground">Pending</span>
+                <span
+                  className={cn(
+                    "inline-flex items-center rounded-full border px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide",
+                    priorityClass("Pending")
+                  )}
+                  title="Signal Priority — awaiting HF Score"
+                >
+                  Pending
+                </span>
               </div>
             )}
           </div>
@@ -602,6 +674,59 @@ function WatchlistStockRow({
           </div>
         </div>
       </div>
+
+      {/* Watchlist Intelligence Overlay strip (mock, frontend-only) */}
+      {(() => {
+        const ov = WATCHLIST_OVERLAY[symbol];
+        return (
+          <div className="border-t border-border px-3 py-2 bg-surface/40 flex flex-wrap items-center gap-2">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Preview overlay</span>
+            {ov ? (
+              <>
+                <div className="flex flex-wrap gap-1">
+                  {ov.badges.map((b) => (
+                    <span
+                      key={b}
+                      className={cn("inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold", badgeClass(b))}
+                    >
+                      {b}
+                    </span>
+                  ))}
+                </div>
+                <span
+                  className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold", exposureClass(ov.exposure))}
+                  title="Mock catalyst exposure"
+                >
+                  {ov.exposure}
+                </span>
+                {ov.note && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[240px] hidden sm:inline">
+                    {ov.note}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-[10px] text-muted-foreground italic">No overlay data for {symbol}</span>
+            )}
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                onClick={() => navigate("/dashboard/catalyst")}
+                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
+              >
+                View Catalyst
+              </button>
+              <span className="text-muted-foreground text-[10px]">·</span>
+              <button
+                onClick={() => navigate("/dashboard/action-center")}
+                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
+              >
+                Open Action Center
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
 
       {/* Why Changed inline panel */}
       {showWhyChanged && aiData && scoreDeltaChanged && (
@@ -1023,6 +1148,34 @@ const WatchlistPage = () => {
             </div>
           </div>
         )}
+
+        {/* Watchlist Intelligence Summary (mock overlay only) */}
+        {symbols.length > 0 && (() => {
+          const covered = symbols.filter((s) => WATCHLIST_OVERLAY[s]);
+          if (covered.length === 0) return null;
+          const catalystCount = covered.filter((s) => WATCHLIST_OVERLAY[s].badges.includes("Catalyst")).length;
+          const momentumCount = covered.filter((s) => WATCHLIST_OVERLAY[s].badges.includes("Momentum")).length;
+          const riskWindowCount = covered.filter((s) => WATCHLIST_OVERLAY[s].exposure === "Risk window").length;
+          return (
+            <div className="mb-3 rounded-lg border border-border bg-accent-blue-light/40 px-3 py-2 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-[9px] font-bold uppercase tracking-widest text-accent-blue">Preview overlay</span>
+              <span className="text-muted-foreground">
+                {catalystCount} catalyst-tagged {catalystCount === 1 ? "name" : "names"},{" "}
+                {momentumCount} momentum {momentumCount === 1 ? "name" : "names"},{" "}
+                {riskWindowCount} risk-window {riskWindowCount === 1 ? "flag" : "flags"}.
+              </span>
+              <div className="ml-auto flex items-center gap-2">
+                <button onClick={() => navigate("/dashboard/catalyst")} className="text-[11px] font-semibold text-accent-blue hover:underline">
+                  View Catalyst
+                </button>
+                <span className="text-muted-foreground">·</span>
+                <button onClick={() => navigate("/dashboard/action-center")} className="text-[11px] font-semibold text-accent-blue hover:underline">
+                  Open Action Center
+                </button>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* AI Monitor Bar */}
         {symbols.length > 0 && (
