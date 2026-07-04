@@ -1,4 +1,5 @@
-import { AlertTriangle, Bell, Flag, Target } from "lucide-react";
+import { AlertTriangle, ArrowRight, Bell, Flag, Sparkles, Target } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 type Priority = "High" | "Medium" | "Low";
 type Status = "Watch" | "Review" | "Act";
