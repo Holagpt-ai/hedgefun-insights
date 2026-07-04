@@ -1474,16 +1474,19 @@ export type Database = {
           id: string
           tag_id: string
           trade_id: string
+          user_id: string
         }
         Insert: {
           id?: string
           tag_id: string
           trade_id: string
+          user_id: string
         }
         Update: {
           id?: string
           tag_id?: string
           trade_id?: string
+          user_id?: string
         }
         Relationships: [
           {
