@@ -67,7 +67,11 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
   return (
     <aside
       className="shrink-0 border-r border-border bg-surface-card overflow-y-auto transition-[width] duration-200 ease-in-out flex flex-col"
-      style={{ width: collapsed ? 52 : 220, minHeight: "calc(100vh - 64px)" }}
+      style={
+        forceExpanded
+          ? { width: 220, height: "100%" }
+          : { width: collapsed ? 52 : 220, minHeight: "calc(100vh - 64px)" }
+      }
     >
       <nav className="py-4 px-2 space-y-1">
         {NAV.map((entry, i) => {

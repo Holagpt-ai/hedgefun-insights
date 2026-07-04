@@ -40,15 +40,15 @@ export default function DashboardLayout() {
       <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <SheetContent
           side="left"
-          className="p-0 w-[260px] md:hidden"
+          className="p-0 w-[260px] md:hidden h-dvh flex flex-col overflow-y-auto overscroll-contain [&>button]:z-10"
           onClick={(e) => {
-            // Close drawer when a nav link inside is tapped
             const target = e.target as HTMLElement;
             if (target.closest("a")) setMobileNavOpen(false);
           }}
         >
-          <DashboardSidebar forceExpanded />
-
+          <div className="flex-1 min-h-0 pb-[env(safe-area-inset-bottom)]">
+            <DashboardSidebar forceExpanded />
+          </div>
         </SheetContent>
       </Sheet>
     </>
