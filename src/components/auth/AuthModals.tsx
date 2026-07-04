@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { BRAND } from "@/config/brand";
 
 import { trackEvent } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
@@ -29,7 +30,7 @@ export function AuthModals({ mode, onClose, onSwitch }: AuthModalsProps) {
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Create Account</DialogTitle>
-            <DialogDescription>Join HedgeFun to track stocks and get AI insights.</DialogDescription>
+            <DialogDescription>{`Join ${BRAND.name} to track stocks and get AI insights.`}</DialogDescription>
           </DialogHeader>
           <SignUpForm onSuccess={onClose} onSwitchToLogin={() => onSwitch("login")} />
         </DialogContent>
@@ -39,7 +40,7 @@ export function AuthModals({ mode, onClose, onSwitch }: AuthModalsProps) {
         <DialogContent className="sm:max-w-[420px]">
           <DialogHeader>
             <DialogTitle>Log In</DialogTitle>
-            <DialogDescription>Welcome back to HedgeFun.</DialogDescription>
+            <DialogDescription>{`Welcome back to ${BRAND.name}.`}</DialogDescription>
           </DialogHeader>
           <LoginForm onSuccess={onClose} onSwitchToSignup={() => onSwitch("signup")} />
         </DialogContent>
