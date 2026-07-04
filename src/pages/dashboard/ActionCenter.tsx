@@ -108,8 +108,10 @@ function statusBadge(s: Status) {
 }
 
 export default function ActionCenter() {
+  const navigate = useNavigate();
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-8">
+
       <div>
         <h1 className="text-2xl font-bold text-foreground">Action Center</h1>
         <p className="text-sm text-muted-foreground mt-1">
