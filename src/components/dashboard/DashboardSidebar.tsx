@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Compass, Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Gamepad2,
   Bell, Newspaper, MessageSquare, Settings, CreditCard, LifeBuoy,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, Target,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
