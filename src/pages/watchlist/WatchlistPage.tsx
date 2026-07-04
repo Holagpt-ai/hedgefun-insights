@@ -675,6 +675,59 @@ function WatchlistStockRow({
         </div>
       </div>
 
+      {/* Watchlist Intelligence Overlay strip (mock, frontend-only) */}
+      {(() => {
+        const ov = WATCHLIST_OVERLAY[symbol];
+        return (
+          <div className="border-t border-border px-3 py-2 bg-surface/40 flex flex-wrap items-center gap-2">
+            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Preview overlay</span>
+            {ov ? (
+              <>
+                <div className="flex flex-wrap gap-1">
+                  {ov.badges.map((b) => (
+                    <span
+                      key={b}
+                      className={cn("inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold", badgeClass(b))}
+                    >
+                      {b}
+                    </span>
+                  ))}
+                </div>
+                <span
+                  className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold", exposureClass(ov.exposure))}
+                  title="Mock catalyst exposure"
+                >
+                  {ov.exposure}
+                </span>
+                {ov.note && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[240px] hidden sm:inline">
+                    {ov.note}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span className="text-[10px] text-muted-foreground italic">No overlay data for {symbol}</span>
+            )}
+            <div className="ml-auto flex items-center gap-1">
+              <button
+                onClick={() => navigate("/dashboard/catalyst")}
+                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
+              >
+                View Catalyst
+              </button>
+              <span className="text-muted-foreground text-[10px]">·</span>
+              <button
+                onClick={() => navigate("/dashboard/action-center")}
+                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
+              >
+                Open Action Center
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+
       {/* Why Changed inline panel */}
       {showWhyChanged && aiData && scoreDeltaChanged && (
         <div className="border-t border-border mx-4 py-2.5">
