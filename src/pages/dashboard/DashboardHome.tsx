@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { BRAND } from "@/config/brand";
 
 const NAV_CARDS = [
   { label: "AM Inbox", path: "/dashboard/am-inbox", pro: true, icon: "☀️", desc: "Pre-market briefs & movers" },
