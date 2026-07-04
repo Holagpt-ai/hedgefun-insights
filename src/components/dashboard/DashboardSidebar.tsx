@@ -44,18 +44,21 @@ const NAV: NavEntry[] = [
   { label: "Get Support",      icon: <LifeBuoy className="h-4 w-4" />,    route: "/support",         plan: "free" },
 ];
 
-export default function DashboardSidebar() {
+export default function DashboardSidebar({ forceExpanded = false }: { forceExpanded?: boolean } = {}) {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
-  const [collapsed, setCollapsed] = useState(() => {
+  const [collapsedPref, setCollapsedPref] = useState(() => {
     try { return localStorage.getItem("dashboardSidebarCollapsed") === "true"; } catch { return false; }
   });
   useEffect(() => {
-    try { localStorage.setItem("dashboardSidebarCollapsed", String(collapsed)); } catch {}
-  }, [collapsed]);
+    try { localStorage.setItem("dashboardSidebarCollapsed", String(collapsedPref)); } catch {}
+  }, [collapsedPref]);
+
+  const collapsed = forceExpanded ? false : collapsedPref;
+  const setCollapsed = setCollapsedPref;
 
   const isPro = profile?.plan === "pro" || profile?.plan === "unlimited" || profile?.plan === "admin";
 
