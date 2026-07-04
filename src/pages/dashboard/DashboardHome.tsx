@@ -6,7 +6,8 @@ import { toast } from "sonner";
 import { BRAND } from "@/config/brand";
 
 const NAV_CARDS = [
-  { label: "AM Inbox", path: "/dashboard/am-inbox", pro: true, icon: "☀️", desc: "Pre-market briefs & movers" },
+  { label: "AM Inbox", path: "/dashboard/am", pro: true, icon: "☀️", desc: "Pre-market briefs & movers" },
+  { label: "PM Inbox", path: "/dashboard/pm", pro: true, icon: "🌙", desc: "Post-market recap & tomorrow's setup" },
   { label: "Screeners", path: "/dashboard/screeners", pro: false, icon: "🔍", desc: "Day Trade Radar & more" },
   { label: "AI Analyst", path: "/dashboard/ai", pro: true, icon: "🤖", desc: "Ask anything about any stock" },
   { label: "HedgeFun Game", path: "/dashboard/game", pro: false, icon: "🎮", desc: "Virtual $5M stock competition" },

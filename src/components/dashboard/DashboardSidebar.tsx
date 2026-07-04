@@ -3,7 +3,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {
   Compass, Sun, Moon, BarChart2, Sparkles, Star, BookOpen, Gamepad2,
   Bell, Newspaper, MessageSquare, Settings, CreditCard, LifeBuoy,
-  ChevronsLeft, ChevronsRight,
+  ChevronsLeft, ChevronsRight, Target,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
@@ -28,6 +28,7 @@ const NAV: NavEntry[] = [
   { section: "Main" },
   { label: "AM Inbox",      icon: <Sun className="h-4 w-4" />,        route: "/dashboard/am",        plan: "pro" },
   { label: "PM Inbox",      icon: <Moon className="h-4 w-4" />,       route: "/dashboard/pm",        plan: "pro" },
+  { label: "Action Center", icon: <Target className="h-4 w-4" />,     route: "/dashboard/action-center", plan: "free" },
   { label: "Screeners",     icon: <BarChart2 className="h-4 w-4" />,  route: "/dashboard/screeners", plan: "free" },
   { label: "AI Analyst",    icon: <Sparkles className="h-4 w-4" />,   route: "/dashboard/ai",        plan: "free" },
   { label: "My Watchlist",  icon: <Star className="h-4 w-4" />,       route: "/dashboard/watchlist",           plan: "free" },
