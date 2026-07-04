@@ -104,7 +104,7 @@ export function useJournalTrades() {
       if (tag_ids && tag_ids.length > 0) {
         const { error: tagError } = await supabase
           .from("trade_tag_assignments")
-          .insert(tag_ids.map((tag_id) => ({ trade_id: data.id, tag_id })));
+          .insert(tag_ids.map((tag_id) => ({ trade_id: data.id, tag_id, user_id: user!.id })));
         if (tagError) throw tagError;
       }
       return data;
