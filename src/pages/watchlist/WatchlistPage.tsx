@@ -649,8 +649,8 @@ function WatchlistStockRow({
             </div>
           )}
 
-          {/* Actions */}
-          <div className="flex flex-col items-center gap-1.5 shrink-0 ml-1">
+          {/* Actions — desktop/tablet (sm and up) */}
+          <div className="hidden sm:flex flex-col items-center gap-1.5 shrink-0 ml-1">
             <button
               onClick={() => onRefresh(symbol)}
               disabled={refreshing}
@@ -674,6 +674,34 @@ function WatchlistStockRow({
           </div>
         </div>
       </div>
+
+      {/* Actions — mobile only (below sm) */}
+      <div className="flex sm:hidden items-center justify-end gap-1 px-3 py-1.5 border-t border-border bg-surface/30">
+        <button
+          onClick={() => onRefresh(symbol)}
+          disabled={refreshing}
+          className="text-muted-foreground hover:text-accent-blue transition-colors p-2 rounded"
+          title="Refresh AI analysis"
+          aria-label="Refresh AI analysis"
+        >
+          <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+        </button>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded"
+          aria-label={expanded ? "Collapse" : "Expand"}
+        >
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+        </button>
+        <button
+          onClick={() => onRemove(entry.id, symbol)}
+          className="text-muted-foreground hover:text-destructive transition-colors p-2 rounded"
+          aria-label="Remove from watchlist"
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
 
       {/* Watchlist Intelligence Overlay strip (mock, frontend-only) */}
       {(() => {
