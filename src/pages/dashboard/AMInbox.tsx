@@ -1,13 +1,108 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
 import { NewsSection } from "@/components/dashboard/NewsSection";
-import { InboxTabs } from "@/components/dashboard/InboxTabs";
 import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
-import { AM_INBOX_CONFIG, CATALYST_PILLS } from "@/config/inbox.config";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  AM_INBOX_CONFIG,
+  CATALYST_PILLS,
+  AM_OVERNIGHT_MOVERS,
+  AM_RISK_FLAGS,
+  AM_OPENING_BELL_CHECKLIST,
+  type CatalystPill,
+  type StaticInboxItem,
+} from "@/config/inbox.config";
 import { estDate } from "@/lib/price-utils";
+
+function priorityBorder(p?: "High" | "Medium" | "Low"): string {
+  if (p === "High") return "border-l-4 border-l-red-500";
+  if (p === "Medium") return "border-l-4 border-l-amber-500";
+  if (p === "Low") return "border-l-4 border-l-muted";
+  return "border-l-4 border-l-muted";
+}
+
+function priorityBadge(p?: "High" | "Medium" | "Low"): string {
+  if (p === "High") return "bg-red-950 text-red-400";
+  if (p === "Medium") return "bg-amber-950 text-amber-400";
+  return "bg-muted text-muted-foreground";
+}
+
+function SectionHeader({
+  title,
+  subtitle,
+  cta,
+  onCta,
+}: {
+  title: string;
+  subtitle?: string;
+  cta?: string;
+  onCta?: () => void;
+}) {
+  return (
+    <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div>
+        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
+      </div>
+      {cta && onCta && (
+        <button
+          onClick={onCta}
+          className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+        >
+          {cta}
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function CatalystCard({ pill, locked }: { pill: CatalystPill; locked?: boolean }) {
+  return (
+    <div
+      className={`rounded-xl border bg-card p-3 flex flex-col gap-1.5 ${priorityBorder(pill.priority)} ${
+        locked ? "opacity-60" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-sm font-medium leading-snug">{pill.label}</div>
+        {pill.priority && (
+          <span
+            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${priorityBadge(
+              pill.priority,
+            )}`}
+          >
+            {pill.priority}
+          </span>
+        )}
+      </div>
+      {pill.note && (
+        <div className="text-xs text-muted-foreground">{locked ? "PRO — unlock to preview" : pill.note}</div>
+      )}
+    </div>
+  );
+}
+
+function StaticItemCard({ item }: { item: StaticInboxItem }) {
+  return (
+    <div className={`rounded-xl border bg-card p-3 flex flex-col gap-1 ${priorityBorder(item.priority)}`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="text-sm font-semibold">{item.label}</div>
+        {item.badge && (
+          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${priorityBadge(item.priority)}`}>
+            {item.badge}
+          </span>
+        )}
+      </div>
+      <div className="text-xs text-muted-foreground">{item.detail}</div>
+    </div>
+  );
+}
 
 export default function AMInbox() {
   const { profile } = useAuth();
@@ -15,17 +110,7 @@ export default function AMInbox() {
   const isPro = profile?.plan === "pro" || profile?.plan === "admin" || profile?.plan === "unlimited";
   const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
 
-  const freePills = CATALYST_PILLS.filter((p) => p.tier === "free");
-  const proPills = CATALYST_PILLS.filter((p) => p.tier === "pro");
-  const visiblePills = isPro ? CATALYST_PILLS : freePills;
-
-  const inboxTabs = [
-    {
-      id: "earnings",
-      label: "Earnings",
-      content: <EarningsCardsGrid briefType="am" />,
-    },
-  ];
+  const [checked, setChecked] = useState<Record<number, boolean>>({});
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -42,38 +127,130 @@ export default function AMInbox() {
 
       <DashboardIndexCards />
 
-      <div className="flex flex-wrap gap-2">
-        {visiblePills.map((pill) => (
-          <span
-            key={pill.label}
-            className="text-xs px-3 py-1.5 rounded-full border border-border bg-card text-foreground/80"
-          >
-            {pill.label}
-          </span>
-        ))}
-        {!isPro && proPills.length > 0 && (
-          <span className="text-xs px-3 py-1.5 rounded-full border border-dashed border-border text-muted-foreground">
-            + {proPills.length} more catalysts — PRO
-          </span>
+      {/* Pre-Market Command Brief */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title={AM_INBOX_CONFIG.commandBriefHeading}
+          subtitle={AM_INBOX_CONFIG.commandBriefSubtitle}
+        />
+        <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
+      </section>
+
+      {/* Catalyst Watch — Preview Signals */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title={AM_INBOX_CONFIG.catalystWatchHeading}
+          subtitle={AM_INBOX_CONFIG.catalystWatchSubtitle}
+          cta="View Catalyst"
+          onCta={() => navigate("/dashboard/catalyst")}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {CATALYST_PILLS.map((pill) => (
+            <CatalystCard key={pill.label} pill={pill} locked={!isPro && pill.tier === "pro"} />
+          ))}
+        </div>
+      </section>
+
+      {/* Before-Open Earnings */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader title={AM_INBOX_CONFIG.earningsHeading} />
+        <EarningsCardsGrid briefType="am" />
+      </section>
+
+      {/* Overnight Movers / Watchlist Setup */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title={AM_INBOX_CONFIG.overnightMoversHeading}
+          cta="Open Watchlist"
+          onCta={() => navigate("/dashboard/watchlist")}
+        />
+        {AM_OVERNIGHT_MOVERS.length === 0 ? (
+          <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
+            {AM_INBOX_CONFIG.overnightMoversEmpty}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {AM_OVERNIGHT_MOVERS.map((item) => (
+              <StaticItemCard key={item.label} item={item} />
+            ))}
+          </div>
         )}
-      </div>
+      </section>
 
-      <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
+      {/* Risk Flags */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader title={AM_INBOX_CONFIG.riskFlagsHeading} />
+        {AM_RISK_FLAGS.length === 0 ? (
+          <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
+            {AM_INBOX_CONFIG.riskFlagsEmpty}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {AM_RISK_FLAGS.map((item) => (
+              <StaticItemCard key={item.label} item={item} />
+            ))}
+          </div>
+        )}
+      </section>
 
-      <NewsSection isPro={isPro} contained />
+      {/* Opening Bell Checklist */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title={AM_INBOX_CONFIG.checklistHeading}
+          subtitle={AM_INBOX_CONFIG.checklistSubtitle}
+        />
+        <div className="rounded-xl border bg-card p-4 flex flex-col gap-2">
+          {AM_OPENING_BELL_CHECKLIST.map((item, i) => (
+            <label
+              key={i}
+              className="flex items-start gap-3 text-sm cursor-pointer group"
+            >
+              <Checkbox
+                checked={!!checked[i]}
+                onCheckedChange={(v) => setChecked((s) => ({ ...s, [i]: !!v }))}
+                className="mt-0.5"
+              />
+              <span
+                className={`leading-snug ${
+                  checked[i] ? "line-through text-muted-foreground" : "text-foreground"
+                }`}
+              >
+                {item}
+              </span>
+            </label>
+          ))}
+        </div>
+      </section>
 
-      <InboxTabs tabs={inboxTabs} />
+      {/* Market Headlines */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader title={AM_INBOX_CONFIG.newsHeading} />
+        <NewsSection isPro={isPro} contained />
+      </section>
 
-      <div>
+      {/* Footer CTAs */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <button
           onClick={() =>
             navigate(
-              "/dashboard/ai?prompt=Give%20me%20a%20deeper%20breakdown%20of%20this%20morning%27s%20AM%20brief%20and%20key%20catalysts%20to%20watch%20today."
+              "/dashboard/ai?prompt=Give%20me%20a%20deeper%20breakdown%20of%20this%20morning%27s%20AM%20brief%20and%20key%20catalysts%20to%20watch%20today.",
             )
           }
           className="text-xs text-accent-blue hover:underline transition-colors duration-200"
         >
           Discuss in AI Analyst →
+        </button>
+        <button
+          onClick={() => navigate("/dashboard/action-center")}
+          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Open Action Center →
+        </button>
+        <button
+          onClick={() => navigate("/dashboard/watchlist")}
+          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Open Watchlist →
         </button>
       </div>
     </div>
