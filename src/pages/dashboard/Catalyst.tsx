@@ -197,22 +197,25 @@ export default function Catalyst() {
 
       {/* Summary cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {SUMMARY.map((s) => (
-          <Card key={s.label} className="border-border hover:shadow-sm transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{s.label}</span>
-                <div className={cn("h-7 w-7 rounded-md flex items-center justify-center", s.bg)}>
-                  <s.icon className={cn("h-3.5 w-3.5", s.tone)} aria-hidden />
+        {SUMMARY_DEFS.map((s) => {
+          const count = CATALYSTS.filter(s.match).length;
+          return (
+            <Card key={s.label} className="border-border hover:shadow-sm transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{s.label}</span>
+                  <div className={cn("h-7 w-7 rounded-md flex items-center justify-center", s.bg)}>
+                    <s.icon className={cn("h-3.5 w-3.5", s.tone)} aria-hidden />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <div className="text-2xl font-semibold tabular-nums">{s.count}</div>
-                <span className="text-[11px] text-muted-foreground">active</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="mt-2 flex items-baseline gap-2">
+                  <div className="text-2xl font-semibold tabular-nums">{count}</div>
+                  <span className="text-[11px] text-muted-foreground">in preview</span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </section>
 
       {/* Main grid */}
