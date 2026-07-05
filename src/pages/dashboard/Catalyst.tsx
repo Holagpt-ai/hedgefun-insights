@@ -50,12 +50,12 @@ const CATALYSTS: CatalystEntry[] = [
   { symbol: "TSLA", name: "Tesla",                    type: "SEC / Insider",      headline: "Form 4 activity uptick",      signal: "Insider transaction cluster",  note: "Recent Form 4 filings suggest positioning shift; monitor volume follow-through.",       priority: "Medium", status: "Review", sentiment: "Neutral",  window: "This week",  impact: "Medium", horizonDays: 6,  confidence: 63, expectedMove: "±4.5%",       avgReaction: "+2.1%",         related: ["RIVN", "LCID"],        tags: ["SEC / Insider"] },
 ];
 
-const SUMMARY = [
-  { label: "Earnings Watch",         count: 12, icon: Calendar,     tone: "text-accent-blue",   bg: "bg-accent-blue-light" },
-  { label: "FDA / Biotech",          count: 4,  icon: FlaskConical, tone: "text-emerald-600",   bg: "bg-emerald-50 dark:bg-emerald-950/30" },
-  { label: "Index & Rebalance",      count: 3,  icon: Layers,       tone: "text-amber-600",     bg: "bg-amber-50 dark:bg-amber-950/30" },
-  { label: "SEC / Insider Signals",  count: 7,  icon: Shield,       tone: "text-rose-600",      bg: "bg-rose-50 dark:bg-rose-950/30" },
-];
+const SUMMARY_DEFS = [
+  { label: "Earnings Watch",        match: (c: CatalystEntry) => c.type === "Earnings",                                                    icon: Calendar,     tone: "text-accent-blue", bg: "bg-accent-blue-light" },
+  { label: "FDA / Biotech",         match: (c: CatalystEntry) => c.type === "FDA / Biotech",                                               icon: FlaskConical, tone: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+  { label: "Index & Rebalance",     match: (c: CatalystEntry) => c.type === "Index / Flow",                                                icon: Layers,       tone: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-950/30" },
+  { label: "SEC / Insider Signals", match: (c: CatalystEntry) => c.type === "SEC / Insider" || c.tags.includes("SEC / Insider"),           icon: Shield,       tone: "text-rose-600",    bg: "bg-rose-50 dark:bg-rose-950/30" },
+] as const;
 
 const RISK_WINDOWS = [
   { when: "Tue 8:30 ET",  event: "CPI Print",              impact: "High",   note: "Rate-sensitive names at risk; growth beta elevated." },
