@@ -69,22 +69,70 @@ export const PM_BRIEF_STALE_MINS = 1440; // midnight ET
 export interface CatalystPill {
   label: string;
   tier: "free" | "pro";
+  /** Visual-only priority — never used for access control. */
+  priority?: "High" | "Medium" | "Low";
+  note?: string;
 }
 
 export const CATALYST_PILLS: CatalystPill[] = [
-  { label: "NVDA earnings tonight", tier: "free" },
-  { label: "CPI data 8:30 AM", tier: "free" },
-  { label: "FOMC minutes 2:00 PM", tier: "pro" },
-  { label: "Fed Chair speech 10:00 AM", tier: "pro" },
-  { label: "Options expiry — NVDA", tier: "pro" },
+  { label: "NVDA earnings tonight", tier: "free", priority: "High", note: "Options imply 8.2% move" },
+  { label: "CPI data 8:30 AM", tier: "free", priority: "High", note: "Volatility trigger pre-open" },
+  { label: "FOMC minutes 2:00 PM", tier: "pro", priority: "Medium", note: "Rate path guidance" },
+  { label: "Fed Chair speech 10:00 AM", tier: "pro", priority: "Medium", note: "Watch for dovish pivot" },
+  { label: "Options expiry — NVDA", tier: "pro", priority: "Low", note: "Weekly OpEx flow" },
 ];
 
 export const PM_CATALYST_PILLS: CatalystPill[] = [
-  { label: "After-hours movers loading", tier: "free" },
-  { label: "Today's market recap", tier: "free" },
-  { label: "Tomorrow's economic calendar", tier: "pro" },
-  { label: "Sector rotation recap", tier: "pro" },
-  { label: "After-hours options flow", tier: "pro" },
+  { label: "After-hours movers loading", tier: "free", priority: "High", note: "Post-close price action" },
+  { label: "Today's market recap", tier: "free", priority: "Medium", note: "Sector winners/losers" },
+  { label: "Tomorrow's economic calendar", tier: "pro", priority: "High", note: "Setup for next open" },
+  { label: "Sector rotation recap", tier: "pro", priority: "Medium", note: "Flow shifts today" },
+  { label: "After-hours options flow", tier: "pro", priority: "Low", note: "Unusual activity scan" },
+];
+
+export interface StaticInboxItem {
+  label: string;
+  detail: string;
+  priority?: "High" | "Medium" | "Low";
+  badge?: string;
+}
+
+export const AM_OVERNIGHT_MOVERS: StaticInboxItem[] = [
+  { label: "TSLA", detail: "+3.2% overnight · China delivery beat", priority: "High", badge: "Gainer" },
+  { label: "AAPL", detail: "-1.4% overnight · Supply chain note", priority: "Medium", badge: "Decliner" },
+  { label: "NVDA", detail: "+1.1% overnight · Ahead of earnings", priority: "Medium", badge: "Watch" },
+];
+
+export const AM_RISK_FLAGS: StaticInboxItem[] = [
+  { label: "VIX curve steepening", detail: "Front-month VIX +6% pre-open", priority: "High", badge: "Vol" },
+  { label: "10Y yield spike", detail: "Above 4.5% — pressure on growth", priority: "Medium", badge: "Rates" },
+  { label: "USD strength", detail: "DXY at 3-week highs", priority: "Low", badge: "FX" },
+];
+
+export const AM_OPENING_BELL_CHECKLIST: string[] = [
+  "Review overnight news and futures",
+  "Check watchlist gap-ups / gap-downs",
+  "Set alerts on key catalysts",
+  "Confirm risk limits for the day",
+  "Log open orders in journal",
+];
+
+export const PM_TODAYS_KEY_MOVES: StaticInboxItem[] = [
+  { label: "SPY", detail: "Closed +0.6% · Broad rally", priority: "Medium", badge: "Index" },
+  { label: "NVDA", detail: "+4.1% into earnings", priority: "High", badge: "Mover" },
+  { label: "XLE", detail: "-1.8% on crude weakness", priority: "Medium", badge: "Sector" },
+];
+
+export const PM_TOMORROW_SETUP: StaticInboxItem[] = [
+  { label: "Jobless claims 8:30 AM", detail: "Consensus 220k", priority: "Medium", badge: "Macro" },
+  { label: "MSFT earnings AMC", detail: "Cloud growth in focus", priority: "High", badge: "Earnings" },
+  { label: "Powell speech 1:00 PM", detail: "Watch rate commentary", priority: "High", badge: "Fed" },
+];
+
+export const PM_AFTER_HOURS_WATCH: StaticInboxItem[] = [
+  { label: "META", detail: "Guidance call at 5:00 PM", priority: "High", badge: "Live" },
+  { label: "AMZN", detail: "AWS revenue watch", priority: "Medium", badge: "Earnings" },
+  { label: "SNAP", detail: "Ad market read-through", priority: "Low", badge: "Watch" },
 ];
 
 export interface AIBriefConfig {
@@ -109,6 +157,18 @@ export const AM_INBOX_CONFIG = {
   aiCardTimestampLabel: "Generated at",
   upgradeCta: "Unlock PRO — $5/month",
   upgradeLink: "View all PRO features →",
+  commandBriefHeading: "Pre-Market Command Brief",
+  commandBriefSubtitle: "Your morning intelligence, generated fresh before every open",
+  catalystWatchHeading: "Catalyst Watch · Preview Signals",
+  catalystWatchSubtitle: "Static preview — full live catalyst feed in Catalyst module",
+  earningsHeading: "Before-Open Earnings",
+  overnightMoversHeading: "Overnight Movers · Watchlist Setup",
+  overnightMoversEmpty: "No overnight movers flagged.",
+  riskFlagsHeading: "Risk Flags",
+  riskFlagsEmpty: "No elevated risk flags this morning.",
+  checklistHeading: "Opening Bell Checklist",
+  checklistSubtitle: "Local session only — resets on refresh",
+  newsHeading: "Market Headlines",
 } satisfies AIBriefConfig & {
   title: string;
   subtitle: string;
@@ -134,4 +194,16 @@ export const PM_INBOX_CONFIG = {
   aiCardPlaceholderText:
     "In the live product, your AI-generated post-market briefing appears here after 3:00 PM ET.",
   aiCardTimestampLabel: "Generated at",
+  recapHeading: "Post-Market Recap",
+  recapSubtitle: "Today's session distilled — generated after the close",
+  catalystOutcomesHeading: "Catalyst Outcomes · Preview Signals",
+  catalystOutcomesSubtitle: "Static preview — full live catalyst feed in Catalyst module",
+  earningsHeading: "After-Close Earnings",
+  keyMovesHeading: "Today's Key Moves",
+  keyMovesEmpty: "No standout moves today.",
+  tomorrowSetupHeading: "Tomorrow's Setup",
+  tomorrowSetupEmpty: "No scheduled catalysts for tomorrow.",
+  afterHoursHeading: "After-Hours Watch",
+  afterHoursEmpty: "No after-hours events flagged.",
+  newsHeading: "Market Headlines",
 };
