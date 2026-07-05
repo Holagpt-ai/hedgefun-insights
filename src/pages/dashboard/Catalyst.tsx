@@ -50,12 +50,12 @@ const CATALYSTS: CatalystEntry[] = [
   { symbol: "TSLA", name: "Tesla",                    type: "SEC / Insider",      headline: "Form 4 activity uptick",      signal: "Insider transaction cluster",  note: "Recent Form 4 filings suggest positioning shift; monitor volume follow-through.",       priority: "Medium", status: "Review", sentiment: "Neutral",  window: "This week",  impact: "Medium", horizonDays: 6,  confidence: 63, expectedMove: "±4.5%",       avgReaction: "+2.1%",         related: ["RIVN", "LCID"],        tags: ["SEC / Insider"] },
 ];
 
-const SUMMARY = [
-  { label: "Earnings Watch",         count: 12, icon: Calendar,     tone: "text-accent-blue",   bg: "bg-accent-blue-light" },
-  { label: "FDA / Biotech",          count: 4,  icon: FlaskConical, tone: "text-emerald-600",   bg: "bg-emerald-50 dark:bg-emerald-950/30" },
-  { label: "Index & Rebalance",      count: 3,  icon: Layers,       tone: "text-amber-600",     bg: "bg-amber-50 dark:bg-amber-950/30" },
-  { label: "SEC / Insider Signals",  count: 7,  icon: Shield,       tone: "text-rose-600",      bg: "bg-rose-50 dark:bg-rose-950/30" },
-];
+const SUMMARY_DEFS = [
+  { label: "Earnings Watch",        match: (c: CatalystEntry) => c.type === "Earnings",                                                    icon: Calendar,     tone: "text-accent-blue", bg: "bg-accent-blue-light" },
+  { label: "FDA / Biotech",         match: (c: CatalystEntry) => c.type === "FDA / Biotech",                                               icon: FlaskConical, tone: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-950/30" },
+  { label: "Index & Rebalance",     match: (c: CatalystEntry) => c.type === "Index / Flow",                                                icon: Layers,       tone: "text-amber-600",   bg: "bg-amber-50 dark:bg-amber-950/30" },
+  { label: "SEC / Insider Signals", match: (c: CatalystEntry) => c.type === "SEC / Insider" || c.tags.includes("SEC / Insider"),           icon: Shield,       tone: "text-rose-600",    bg: "bg-rose-50 dark:bg-rose-950/30" },
+] as const;
 
 const RISK_WINDOWS = [
   { when: "Tue 8:30 ET",  event: "CPI Print",              impact: "High",   note: "Rate-sensitive names at risk; growth beta elevated." },
@@ -154,11 +154,16 @@ export default function Catalyst() {
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-surface-card">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Live · Updated hourly
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+            Preview · Static demo data
           </span>
         </div>
       </header>
+
+      {/* Preview disclaimer */}
+      <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+        Preview data for workflow demonstration. Live catalyst feeds are not connected yet.
+      </div>
 
       {/* Search + Horizon controls */}
       <section className="flex flex-col md:flex-row md:items-center gap-3">
@@ -192,22 +197,25 @@ export default function Catalyst() {
 
       {/* Summary cards */}
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {SUMMARY.map((s) => (
-          <Card key={s.label} className="border-border hover:shadow-sm transition-shadow">
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{s.label}</span>
-                <div className={cn("h-7 w-7 rounded-md flex items-center justify-center", s.bg)}>
-                  <s.icon className={cn("h-3.5 w-3.5", s.tone)} aria-hidden />
+        {SUMMARY_DEFS.map((s) => {
+          const count = CATALYSTS.filter(s.match).length;
+          return (
+            <Card key={s.label} className="border-border hover:shadow-sm transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">{s.label}</span>
+                  <div className={cn("h-7 w-7 rounded-md flex items-center justify-center", s.bg)}>
+                    <s.icon className={cn("h-3.5 w-3.5", s.tone)} aria-hidden />
+                  </div>
                 </div>
-              </div>
-              <div className="mt-2 flex items-baseline gap-2">
-                <div className="text-2xl font-semibold tabular-nums">{s.count}</div>
-                <span className="text-[11px] text-muted-foreground">active</span>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+                <div className="mt-2 flex items-baseline gap-2">
+                  <div className="text-2xl font-semibold tabular-nums">{count}</div>
+                  <span className="text-[11px] text-muted-foreground">in preview</span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </section>
 
       {/* Main grid */}
