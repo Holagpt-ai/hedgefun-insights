@@ -169,11 +169,6 @@ export const AM_INBOX_CONFIG = {
   checklistHeading: "Opening Bell Checklist",
   checklistSubtitle: "Local session only — resets on refresh",
   newsHeading: "Market Headlines",
-} satisfies AIBriefConfig & {
-  title: string;
-  subtitle: string;
-  upgradeLink: string;
-  [key: string]: unknown;
 };
 
 export const PM_INBOX_CONFIG = {
