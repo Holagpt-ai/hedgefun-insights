@@ -173,6 +173,7 @@ export const AM_INBOX_CONFIG = {
   title: string;
   subtitle: string;
   upgradeLink: string;
+  [key: string]: unknown;
 };
 
 export const PM_INBOX_CONFIG = {
