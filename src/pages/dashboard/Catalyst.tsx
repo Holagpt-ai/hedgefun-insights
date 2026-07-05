@@ -154,11 +154,16 @@ export default function Catalyst() {
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-border bg-surface-card">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Live · Updated hourly
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground/60" />
+            Preview · Static demo data
           </span>
         </div>
       </header>
+
+      {/* Preview disclaimer */}
+      <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+        Preview data for workflow demonstration. Live catalyst feeds are not connected yet.
+      </div>
 
       {/* Search + Horizon controls */}
       <section className="flex flex-col md:flex-row md:items-center gap-3">
