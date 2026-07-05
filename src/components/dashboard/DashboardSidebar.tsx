@@ -26,7 +26,7 @@ type NavEntry =
 const NAV: NavEntry[] = [
   { label: "Browse Stocks", icon: <Compass className="h-4 w-4" />, route: "/", plan: "free" },
   { section: "Main" },
-  { label: "AM Inbox",      icon: <Sun className="h-4 w-4" />,        route: "/dashboard/am",        plan: "pro" },
+  { label: "AM Inbox",      icon: <Sun className="h-4 w-4" />,        route: "/dashboard/am",        plan: "free" },
   { label: "PM Inbox",      icon: <Moon className="h-4 w-4" />,       route: "/dashboard/pm",        plan: "pro" },
   { label: "Action Center", icon: <Target className="h-4 w-4" />,     route: "/dashboard/action-center", plan: "free" },
   { label: "Catalyst",      icon: <Radar className="h-4 w-4" />,      route: "/dashboard/catalyst",  plan: "free" },
@@ -158,7 +158,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
         {!isPro && !collapsed && (
           <div className="mt-6 mx-2 p-3 rounded-lg border border-border bg-accent-blue-light/40">
             <p className="text-xs text-foreground mb-2 leading-snug">
-              Unlock AM/PM Inbox, Stock Journal and more.
+              Unlock PM Inbox, Stock Journal and more.
             </p>
             <Button
               size="sm"
