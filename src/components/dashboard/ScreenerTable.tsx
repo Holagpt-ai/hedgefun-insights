@@ -1,6 +1,8 @@
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Plus, Check, Loader2 } from "lucide-react";
 import { ScreenerTab, ColumnFormat } from "@/config/screener-tabs.config";
+import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
