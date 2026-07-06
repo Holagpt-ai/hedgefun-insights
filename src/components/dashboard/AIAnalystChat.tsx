@@ -23,15 +23,15 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ANALYST_PRESET_GROUPS, ANALYST_CONTEXT_CHIPS } from "@/config/ai-analyst-presets.config";
 
-const QUICK_PROMPTS = [
-  { label: "Today's Gappers", prompt: "What are the top gappers today and what's driving them?" },
-  { label: "AM Prep Brief", prompt: "Give me a pre-market briefing: key levels, catalysts, and what to watch today." },
-  { label: "Scan My Watchlist", prompt: "Based on what you know about my watchlist and trading style, what setups should I be looking at today?" },
-  { label: "Earnings This Week", prompt: "What are the most important earnings reports this week? Summarize key expectations and potential market impact." },
-  { label: "Flat Top Breakout", prompt: "Explain the Flat Top Breakout setup: ideal entry, confirmation signals, stop placement, and target." },
-  { label: "Market Mood", prompt: "What is the overall market mood right now? Breadth, sentiment, and key macro factors driving the tape." },
+const STREAMING_STATUS_MESSAGES = [
+  "Analyzing dashboard context…",
+  "Checking your market setup…",
+  "Reviewing screeners and watchlist…",
+  "Drafting your response…",
 ];
+
 
 const MODEL_OPTIONS = [
   { label: "Fast", value: "fast" as const, minPlan: "free" },
