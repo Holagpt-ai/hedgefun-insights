@@ -17,14 +17,14 @@ export default function Screeners() {
 
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
-  const { rows, loading, lastUpdated } = useScreenerData(activeTabId);
+  const { rows, loading, lastUpdated, error } = useScreenerData(activeTabId);
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Screeners</h1>
         <p className="text-sm text-muted-foreground">
-          Real-time market opportunity discovery
+          Market opportunity discovery — delayed market data and preview screeners
         </p>
       </div>
 
@@ -56,6 +56,7 @@ export default function Screeners() {
         liveRows={rows}
         loading={loading}
         lastUpdated={lastUpdated}
+        error={error}
       />
     </div>
   );
