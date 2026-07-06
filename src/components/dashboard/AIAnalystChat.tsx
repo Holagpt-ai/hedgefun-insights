@@ -398,17 +398,38 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   useEffect(() => {
     if (deepLinkFiredRef.current) return;
     const prompt = searchParams.get("prompt");
-    if (!prompt || !isPro) return;
+    if (!prompt) return;
     deepLinkFiredRef.current = true;
-    setInput(decodeURIComponent(prompt));
+    const decoded = decodeURIComponent(prompt);
+    setInput(decoded);
     setSearchParams({}, { replace: true });
-    const timer = setTimeout(() => {
-      sendMessage(decodeURIComponent(prompt));
-    }, 400);
-    return () => clearTimeout(timer);
+    if (isPro) {
+      const timer = setTimeout(() => {
+        sendMessage(decoded);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+    // Free users: prefill and nudge — do not silently drop the prompt.
+    toast({
+      title: "Prompt loaded",
+      description: "Review and press send when you're ready.",
+    });
+    setTimeout(() => textareaRef.current?.focus(), 0);
   }, [isPro, searchParams, setSearchParams, sendMessage]);
 
+  // Auto-scroll toward the bottom while the assistant streams
+  useEffect(() => {
+    if (!streaming) return;
+    bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [messages, streaming]);
 
+  // Textarea auto-resize (up to max-height set on the element)
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -416,6 +437,28 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       sendMessage(input);
     }
   };
+
+  const retryLastPrompt = () => {
+    const p = lastAttemptedPromptRef.current;
+    if (!p || streaming) return;
+    // Strip the trailing "Error: …" assistant message so retry replaces it
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (last.role === "assistant" && last.content.startsWith("Error:")) {
+        return prev.slice(0, -1);
+      }
+      return prev;
+    });
+    // Also strip the preceding user echo so sendMessage re-adds it cleanly
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.role === "user" && last.content === p) return prev.slice(0, -1);
+      return prev;
+    });
+    setTimeout(() => sendMessage(p), 0);
+  };
+
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
