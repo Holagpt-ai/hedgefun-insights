@@ -339,9 +339,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         conversationId: conversationId ?? undefined,
         onConversationId: (id) => {
           setConversationId(id);
-          setToolStatus(null);
         },
         onDelta: (delta) => {
+          // First delta arrived — stop the rotating status
+          if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+            statusIntervalRef.current = null;
+          }
+          setToolStatus(null);
           assistantContent += delta;
           setMessages((prev) => {
             const last = prev[prev.length - 1];
@@ -355,11 +360,19 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           });
         },
         onDone: () => {
+          if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+            statusIntervalRef.current = null;
+          }
           setStreaming(false);
           setAttachment(null);
           setToolStatus(null);
         },
         onError: (err) => {
+          if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+            statusIntervalRef.current = null;
+          }
           setToolStatus(null);
           if (err === "DAILY_LIMIT_REACHED") {
             setLimitReached(true);
