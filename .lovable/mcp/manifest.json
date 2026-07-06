@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "sdk_version": "0.20.0",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "none"
+  },
+  "mcp": {
+    "server": {
+      "name": "hedgefun-mcp",
+      "version": "0.1.0",
+      "title": "HedgeFun Market Data"
+    },
+    "tools": [
+      {
+        "name": "search_stocks",
+        "title": "Search stocks",
+        "description": "Search HedgeFun's stock database by ticker symbol or company name. Returns up to 20 matches with price, sector, and market cap.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "query": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Ticker symbol or company name fragment, e.g. 'AAPL' or 'apple'."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "description": "Max results, default 10."
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_stock_quote",
+        "title": "Get stock quote",
+        "description": "Fetch the latest cached quote and fundamentals for a single ticker symbol from HedgeFun's stock database.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "symbol": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 10,
+              "description": "Ticker symbol, e.g. 'AAPL'."
+            }
+          },
+          "required": [
+            "symbol"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_market_movers",
+        "title": "Get market movers",
+        "description": "List today's top market movers (gainers, losers, most active, pre-market, or after-hours) from HedgeFun's data.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": [
+                "gainer",
+                "loser",
+                "active",
+                "premarket",
+                "afterhours"
+              ],
+              "description": "Which mover category to return."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Max results, default 10."
+            }
+          },
+          "required": [
+            "type"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_market_news",
+        "title": "Get market news",
+        "description": "Return the most recent market news headlines from HedgeFun, optionally filtered by category.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "enum": [
+                "markets",
+                "stocks",
+                "ipo",
+                "etf",
+                "general"
+              ],
+              "description": "Optional news category filter."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Max headlines, default 15."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
