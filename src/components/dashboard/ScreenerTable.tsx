@@ -70,6 +70,7 @@ export function ScreenerTable({
   error,
 }: ScreenerTableProps) {
   const navigate = useNavigate();
+  const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
   const hasLive = !!liveRows && liveRows.length > 0;
