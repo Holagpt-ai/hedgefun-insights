@@ -82,6 +82,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkFiredRef = useRef(false);
+  const lastAttemptedPromptRef = useRef<string>("");
+  const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { language } = useLanguage();
   const [voiceError, setVoiceError] = useState<string | null>(null);
