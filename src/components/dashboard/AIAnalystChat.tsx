@@ -23,15 +23,15 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { ANALYST_PRESET_GROUPS, ANALYST_CONTEXT_CHIPS } from "@/config/ai-analyst-presets.config";
 
-const QUICK_PROMPTS = [
-  { label: "Today's Gappers", prompt: "What are the top gappers today and what's driving them?" },
-  { label: "AM Prep Brief", prompt: "Give me a pre-market briefing: key levels, catalysts, and what to watch today." },
-  { label: "Scan My Watchlist", prompt: "Based on what you know about my watchlist and trading style, what setups should I be looking at today?" },
-  { label: "Earnings This Week", prompt: "What are the most important earnings reports this week? Summarize key expectations and potential market impact." },
-  { label: "Flat Top Breakout", prompt: "Explain the Flat Top Breakout setup: ideal entry, confirmation signals, stop placement, and target." },
-  { label: "Market Mood", prompt: "What is the overall market mood right now? Breadth, sentiment, and key macro factors driving the tape." },
+const STREAMING_STATUS_MESSAGES = [
+  "Analyzing dashboard context…",
+  "Checking your market setup…",
+  "Reviewing screeners and watchlist…",
+  "Drafting your response…",
 ];
+
 
 const MODEL_OPTIONS = [
   { label: "Fast", value: "fast" as const, minPlan: "free" },
@@ -82,6 +82,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const deepLinkFiredRef = useRef(false);
+  const lastAttemptedPromptRef = useRef<string>("");
+  const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { language } = useLanguage();
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -313,7 +315,15 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       setMessages(newMessages);
       setInput("");
       setStreaming(true);
-      setToolStatus("Thinking...");
+      lastAttemptedPromptRef.current = content.trim();
+      // Rotate friendly status lines while we wait for the first delta
+      let statusIdx = 0;
+      setToolStatus(STREAMING_STATUS_MESSAGES[0]);
+      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = setInterval(() => {
+        statusIdx = (statusIdx + 1) % STREAMING_STATUS_MESSAGES.length;
+        setToolStatus(STREAMING_STATUS_MESSAGES[statusIdx]);
+      }, 2200);
 
       let assistantContent = "";
 
@@ -329,9 +339,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         conversationId: conversationId ?? undefined,
         onConversationId: (id) => {
           setConversationId(id);
-          setToolStatus(null);
         },
         onDelta: (delta) => {
+          // First delta arrived — stop the rotating status
+          if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+            statusIntervalRef.current = null;
+          }
+          setToolStatus(null);
           assistantContent += delta;
           setMessages((prev) => {
             const last = prev[prev.length - 1];
@@ -345,11 +360,19 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           });
         },
         onDone: () => {
+          if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+            statusIntervalRef.current = null;
+          }
           setStreaming(false);
           setAttachment(null);
           setToolStatus(null);
         },
         onError: (err) => {
+          if (statusIntervalRef.current) {
+            clearInterval(statusIntervalRef.current);
+            statusIntervalRef.current = null;
+          }
           setToolStatus(null);
           if (err === "DAILY_LIMIT_REACHED") {
             setLimitReached(true);
@@ -375,17 +398,38 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   useEffect(() => {
     if (deepLinkFiredRef.current) return;
     const prompt = searchParams.get("prompt");
-    if (!prompt || !isPro) return;
+    if (!prompt) return;
     deepLinkFiredRef.current = true;
-    setInput(decodeURIComponent(prompt));
+    const decoded = decodeURIComponent(prompt);
+    setInput(decoded);
     setSearchParams({}, { replace: true });
-    const timer = setTimeout(() => {
-      sendMessage(decodeURIComponent(prompt));
-    }, 400);
-    return () => clearTimeout(timer);
+    if (isPro) {
+      const timer = setTimeout(() => {
+        sendMessage(decoded);
+      }, 400);
+      return () => clearTimeout(timer);
+    }
+    // Free users: prefill and nudge — do not silently drop the prompt.
+    toast({
+      title: "Prompt loaded",
+      description: "Review and press send when you're ready.",
+    });
+    setTimeout(() => textareaRef.current?.focus(), 0);
   }, [isPro, searchParams, setSearchParams, sendMessage]);
 
+  // Auto-scroll toward the bottom while the assistant streams
+  useEffect(() => {
+    if (!streaming) return;
+    bottomRef.current?.scrollIntoView({ block: "end", behavior: "smooth" });
+  }, [messages, streaming]);
 
+  // Textarea auto-resize (up to max-height set on the element)
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`;
+  }, [input]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -394,63 +438,100 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     }
   };
 
+  const retryLastPrompt = () => {
+    const p = lastAttemptedPromptRef.current;
+    if (!p || streaming) return;
+    // Strip the trailing "Error: …" assistant message so retry replaces it
+    setMessages((prev) => {
+      if (prev.length === 0) return prev;
+      const last = prev[prev.length - 1];
+      if (last.role === "assistant" && last.content.startsWith("Error:")) {
+        return prev.slice(0, -1);
+      }
+      return prev;
+    });
+    // Also strip the preceding user echo so sendMessage re-adds it cleanly
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last?.role === "user" && last.content === p) return prev.slice(0, -1);
+      return prev;
+    });
+    setTimeout(() => sendMessage(p), 0);
+  };
+
+
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const displayName = userName?.split(" ")[0] ?? "Trader";
 
   return (
-    <div className="flex h-full w-full">
-      {/* History Sidebar */}
+    <div className="relative flex h-full w-full">
+      {/* History Sidebar — slide-over on mobile, static column on md+ */}
       {historyOpen && (
-        <aside className="w-72 shrink-0 border-r border-border bg-card flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <h2 className="text-sm font-semibold text-foreground">Chat History</h2>
-            <button
-              onClick={() => setHistoryOpen(false)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close history"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </div>
+        <>
           <button
-            onClick={startNewChat}
-            className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            type="button"
+            aria-label="Close history overlay"
+            onClick={() => setHistoryOpen(false)}
+            className="md:hidden fixed inset-0 z-30 bg-black/40"
+          />
+          <aside
+            className={cn(
+              "flex flex-col bg-card border-r border-border",
+              "fixed md:static inset-y-0 left-0 z-40 w-72 shadow-xl md:shadow-none",
+              "md:shrink-0"
+            )}
           >
-            <PlusCircle className="h-4 w-4" />
-            New Chat
-          </button>
-          <div className="flex-1 overflow-y-auto px-2 py-2">
-            {historyLoading ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
-            ) : conversations.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No conversations yet</p>
-            ) : (
-              conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => loadConversation(conv)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg mb-1 text-sm transition-colors hover:bg-muted",
-                    conversationId === conv.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate">{conv.title}</p>
-                      <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {new Date(conv.updated_at).toLocaleDateString()}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Chat History</h2>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Close history"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
+            <button
+              onClick={startNewChat}
+              className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <PlusCircle className="h-4 w-4" />
+              New Chat
+            </button>
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+              {historyLoading ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
+              ) : conversations.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No conversations yet</p>
+              ) : (
+                conversations.map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => loadConversation(conv)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-lg mb-1 text-sm transition-colors hover:bg-muted",
+                      conversationId === conv.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate">{conv.title}</p>
+                        <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {new Date(conv.updated_at).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </aside>
+                  </button>
+                ))
+              )}
+            </div>
+          </aside>
+        </>
       )}
+
 
       {/* Main Chat Area */}
       <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 py-6">
@@ -478,34 +559,57 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         </div>
 
         {messages.length === 0 && (
-          <div className="flex-1 flex flex-col justify-center">
+          <div className="flex-1 overflow-y-auto -mx-1 px-1">
             <div className="flex items-center gap-2 mb-3 text-accent-blue">
               <Sparkles className="h-5 w-5" />
               <span className="text-sm font-medium uppercase tracking-wide">AI Analyst</span>
             </div>
-            <h1 className="text-3xl font-semibold text-foreground mb-2">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2">
               {greeting}, {displayName}.
             </h1>
-            <p className="text-base text-muted-foreground mb-8">
-              Your AI-powered trading analyst. Ask about setups, market conditions, earnings, or your watchlist.
+            <p className="text-sm sm:text-base text-muted-foreground mb-5">
+              Ask HedgeFun AI to turn your dashboard into a trading plan — from AM prep through the post-market wrap.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
-              {QUICK_PROMPTS.map((qp) => (
-                <button
-                  key={qp.label}
-                  onClick={() => sendMessage(qp.prompt)}
-                  disabled={streaming}
-                  className={cn(
-                    "text-left px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
-                    "text-sm font-medium text-foreground",
-                    streaming && "opacity-50 cursor-not-allowed"
-                  )}
+            {/* Context / trust chips */}
+            <div className="flex flex-wrap gap-1.5 mb-6">
+              {ANALYST_CONTEXT_CHIPS.map((chip) => (
+                <span
+                  key={chip}
+                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-muted/30 text-[11px] text-muted-foreground"
                 >
-                  {qp.label}
-                </button>
+                  {chip}
+                </span>
               ))}
             </div>
+
+            {/* Grouped workflow prompt presets */}
+            <div className="space-y-5 mb-6">
+              {ANALYST_PRESET_GROUPS.map((group) => (
+                <div key={group.id}>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    {group.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {group.presets.map((p) => (
+                      <button
+                        key={p.label}
+                        onClick={() => sendMessage(p.prompt)}
+                        disabled={streaming}
+                        className={cn(
+                          "text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
+                          "text-xs sm:text-sm text-foreground",
+                          streaming && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {toolStatus && (
               <div className="flex justify-start mt-4">
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
@@ -517,51 +621,79 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           </div>
         )}
 
+
         {messages.length > 0 && (
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-4 pb-4">
 
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                ref={msg.role === "user" && i === messages.length - 1 ? lastUserMsgRef : undefined}
-                className={cn(
-                  "flex scroll-mt-2",
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
+            {messages.map((msg, i) => {
+              const isErrorMsg =
+                msg.role === "assistant" && msg.content.startsWith("Error:");
+              if (isErrorMsg) {
+                return (
+                  <div key={i} className="flex justify-start scroll-mt-2">
+                    <div className="max-w-[85%] rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+                      <p className="font-medium text-foreground mb-1">Something went wrong</p>
+                      <p className="text-muted-foreground text-xs mb-2 break-words">
+                        {msg.content.replace(/^Error:\s*/, "")}
+                      </p>
+                      {lastAttemptedPromptRef.current && (
+                        <button
+                          type="button"
+                          onClick={retryLastPrompt}
+                          disabled={streaming}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+              return (
                 <div
+                  key={i}
+                  ref={msg.role === "user" && i === messages.length - 1 ? lastUserMsgRef : undefined}
                   className={cn(
-                    "max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed",
-                    msg.role === "user"
-                      ? "bg-accent-blue text-primary-foreground whitespace-pre-wrap"
-                      : "bg-card border border-border text-foreground"
+                    "flex scroll-mt-2",
+                    msg.role === "user" ? "justify-end" : "justify-start"
                   )}
                 >
-                  {msg.role === "assistant" ? (
-                    msg.content ? (
-                      <div
-                        className="prose prose-sm max-w-none text-foreground
-                          prose-headings:text-foreground prose-headings:font-semibold
-                          prose-strong:text-foreground prose-strong:font-semibold
-                          prose-p:my-1 prose-headings:my-2
-                          prose-ul:my-1 prose-ol:my-1 prose-li:my-0
-                          prose-hr:border-border prose-hr:my-3
-                          prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
-                          prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
-                      >
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed",
+                      msg.role === "user"
+                        ? "bg-accent-blue text-primary-foreground whitespace-pre-wrap"
+                        : "bg-card border border-border text-foreground"
+                    )}
+                  >
+                    {msg.role === "assistant" ? (
+                      msg.content ? (
+                        <div
+                          className="prose prose-sm max-w-none text-foreground
+                            prose-headings:text-foreground prose-headings:font-semibold
+                            prose-strong:text-foreground prose-strong:font-semibold
+                            prose-p:my-1 prose-headings:my-2
+                            prose-ul:my-1 prose-ol:my-1 prose-li:my-0
+                            prose-hr:border-border prose-hr:my-3
+                            prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
+                            prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
+                        >
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        streaming && i === messages.length - 1 ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : ""
+                      )
                     ) : (
-                      streaming && i === messages.length - 1 ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : ""
-                    )
-                  ) : (
-                    msg.content
-                  )}
+                      msg.content
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+
             {toolStatus && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
@@ -704,7 +836,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               className={cn(
                 "flex-1 resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm",
                 "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
-                "transition-colors duration-200 min-h-[44px] max-h-[120px]",
+                "transition-colors duration-200 min-h-[44px] max-h-[160px] overflow-y-auto",
                 (streaming || limitReached) && "opacity-60 cursor-not-allowed"
               )}
             />
@@ -724,8 +856,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               )}
             </button>
           </div>
-          <p className="text-[11px] text-muted-foreground text-center mt-2">
+          <p className="text-[11px] text-muted-foreground text-center mt-2 leading-relaxed">
             HedgeFun AI • Powered by Claude • Not financial advice
+            <br />
+            <span className="opacity-80">AI may be wrong. Market data can be delayed. Verify before trading.</span>
           </p>
         </div>
       </div>
