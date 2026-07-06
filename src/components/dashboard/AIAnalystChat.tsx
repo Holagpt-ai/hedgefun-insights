@@ -625,48 +625,75 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         {messages.length > 0 && (
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-4 pb-4">
 
-            {messages.map((msg, i) => (
-              <div
-                key={i}
-                ref={msg.role === "user" && i === messages.length - 1 ? lastUserMsgRef : undefined}
-                className={cn(
-                  "flex scroll-mt-2",
-                  msg.role === "user" ? "justify-end" : "justify-start"
-                )}
-              >
+            {messages.map((msg, i) => {
+              const isErrorMsg =
+                msg.role === "assistant" && msg.content.startsWith("Error:");
+              if (isErrorMsg) {
+                return (
+                  <div key={i} className="flex justify-start scroll-mt-2">
+                    <div className="max-w-[85%] rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
+                      <p className="font-medium text-foreground mb-1">Something went wrong</p>
+                      <p className="text-muted-foreground text-xs mb-2 break-words">
+                        {msg.content.replace(/^Error:\s*/, "")}
+                      </p>
+                      {lastAttemptedPromptRef.current && (
+                        <button
+                          type="button"
+                          onClick={retryLastPrompt}
+                          disabled={streaming}
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          Retry
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              }
+              return (
                 <div
+                  key={i}
+                  ref={msg.role === "user" && i === messages.length - 1 ? lastUserMsgRef : undefined}
                   className={cn(
-                    "max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed",
-                    msg.role === "user"
-                      ? "bg-accent-blue text-primary-foreground whitespace-pre-wrap"
-                      : "bg-card border border-border text-foreground"
+                    "flex scroll-mt-2",
+                    msg.role === "user" ? "justify-end" : "justify-start"
                   )}
                 >
-                  {msg.role === "assistant" ? (
-                    msg.content ? (
-                      <div
-                        className="prose prose-sm max-w-none text-foreground
-                          prose-headings:text-foreground prose-headings:font-semibold
-                          prose-strong:text-foreground prose-strong:font-semibold
-                          prose-p:my-1 prose-headings:my-2
-                          prose-ul:my-1 prose-ol:my-1 prose-li:my-0
-                          prose-hr:border-border prose-hr:my-3
-                          prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
-                          prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
-                      >
-                        <ReactMarkdown>{msg.content}</ReactMarkdown>
-                      </div>
+                  <div
+                    className={cn(
+                      "max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed",
+                      msg.role === "user"
+                        ? "bg-accent-blue text-primary-foreground whitespace-pre-wrap"
+                        : "bg-card border border-border text-foreground"
+                    )}
+                  >
+                    {msg.role === "assistant" ? (
+                      msg.content ? (
+                        <div
+                          className="prose prose-sm max-w-none text-foreground
+                            prose-headings:text-foreground prose-headings:font-semibold
+                            prose-strong:text-foreground prose-strong:font-semibold
+                            prose-p:my-1 prose-headings:my-2
+                            prose-ul:my-1 prose-ol:my-1 prose-li:my-0
+                            prose-hr:border-border prose-hr:my-3
+                            prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
+                            prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
+                        >
+                          <ReactMarkdown>{msg.content}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        streaming && i === messages.length - 1 ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : ""
+                      )
                     ) : (
-                      streaming && i === messages.length - 1 ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : ""
-                    )
-                  ) : (
-                    msg.content
-                  )}
+                      msg.content
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
+
             {toolStatus && (
               <div className="flex justify-start">
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
