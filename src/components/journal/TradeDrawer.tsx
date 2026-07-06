@@ -323,6 +323,31 @@ export default function TradeDrawer({ open, onClose, trade, onSaved }: Props) {
             </div>
           </div>
 
+          {(() => {
+            const q = Number(qty);
+            const e = Number(entryPrice);
+            const x = Number(exitPrice);
+            if (
+              !exitPrice ||
+              !Number.isFinite(q) || q <= 0 ||
+              !Number.isFinite(e) || e <= 0 ||
+              !Number.isFinite(x) || x <= 0
+            ) return null;
+            const dollars = side === "long" ? (x - e) * q : (e - x) * q;
+            const pct = (dollars / (e * q)) * 100;
+            const sign = dollars > 0 ? "+" : dollars < 0 ? "-" : "";
+            const color =
+              dollars > 0 ? "text-emerald-400" : dollars < 0 ? "text-red-400" : "text-muted-foreground";
+            return (
+              <div>
+                <label className="text-xs text-muted-foreground">Estimated P&L</label>
+                <p className={`text-sm font-semibold tabular-nums ${color}`}>
+                  {sign}${Math.abs(dollars).toFixed(2)} ({pct.toFixed(1)}%)
+                </p>
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="text-sm font-medium text-muted-foreground">Target Price</label>

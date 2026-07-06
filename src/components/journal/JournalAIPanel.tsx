@@ -21,7 +21,7 @@ interface JournalAIPanelProps {
 const WELCOME: ChatMessage = {
   role: "assistant",
   content:
-    "I have access to your trade journal. Ask me anything about your performance, patterns, or how to improve.",
+    "I have access to your trade journal. Ask me anything about your performance, patterns, or how to improve.\n\nNot financial advice — for educational and self-review purposes only.",
 };
 
 const SUGGESTED = [

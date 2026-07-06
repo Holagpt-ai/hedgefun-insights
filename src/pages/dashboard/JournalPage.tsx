@@ -126,6 +126,7 @@ export default function JournalPage() {
                   setEditingTrade(t);
                   setDrawerOpen(true);
                 }}
+                onAskAI={() => setAiPanelOpen(true)}
                 refreshKey={refreshKey}
               />
             )}
@@ -139,11 +140,16 @@ export default function JournalPage() {
                   setEditingTrade(t);
                   setDrawerOpen(true);
                 }}
+                onAskAI={() => setAiPanelOpen(true)}
                 refreshKey={refreshKey}
               />
             )}
           </TabsContent>
         </Tabs>
+
+        <p className="text-xs text-muted-foreground text-center pt-4">
+          The Stock Journal is an educational trade-tracking tool. P&amp;L figures are self-reported and for personal review only. Not financial, tax, or legal advice.
+        </p>
 
         <TradeDrawer
           open={drawerOpen}
