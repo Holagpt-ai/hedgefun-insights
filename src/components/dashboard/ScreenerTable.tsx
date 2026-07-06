@@ -227,12 +227,54 @@ export function ScreenerTable({
                             } ${isPct ? percentClass(Number(raw)) : ""}`}
                           >
                             {isSymbol ? (
-                              <Link
-                                to={`/stocks/${raw}`}
-                                className="inline-flex items-center min-h-[36px] font-semibold text-accent-blue hover:underline"
-                              >
-                                {text}
-                              </Link>
+                              <div className="inline-flex items-center gap-1">
+                                <Link
+                                  to={`/stocks/${raw}`}
+                                  className="inline-flex items-center min-h-[36px] font-semibold text-accent-blue hover:underline"
+                                >
+                                  {text}
+                                </Link>
+                                {hasLive && !blurred && (() => {
+                                  const sym = String(raw).toUpperCase();
+                                  const already = isAdded(sym);
+                                  const pending = pendingSymbol === sym;
+                                  return (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        if (already || pending) return;
+                                        addToWatchlist(sym);
+                                      }}
+                                      disabled={already || pending}
+                                      aria-label={
+                                        already
+                                          ? `${sym} is in watchlist`
+                                          : `Add ${sym} to watchlist`
+                                      }
+                                      title={
+                                        already
+                                          ? "In watchlist"
+                                          : `Add ${sym} to watchlist`
+                                      }
+                                      className={`inline-flex items-center justify-center h-8 w-8 rounded-md transition-colors ${
+                                        already
+                                          ? "text-green-600 cursor-default"
+                                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                                      } disabled:opacity-70 disabled:cursor-not-allowed`}
+                                    >
+                                      {pending ? (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                      ) : already ? (
+                                        <Check className="h-4 w-4" />
+                                      ) : (
+                                        <Plus className="h-4 w-4" />
+                                      )}
+                                    </button>
+                                  );
+                                })()}
+                              </div>
                             ) : (
                               text
                             )}
