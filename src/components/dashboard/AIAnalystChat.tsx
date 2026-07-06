@@ -465,58 +465,73 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const displayName = userName?.split(" ")[0] ?? "Trader";
 
   return (
-    <div className="flex h-full w-full">
-      {/* History Sidebar */}
+    <div className="relative flex h-full w-full">
+      {/* History Sidebar — slide-over on mobile, static column on md+ */}
       {historyOpen && (
-        <aside className="w-72 shrink-0 border-r border-border bg-card flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <h2 className="text-sm font-semibold text-foreground">Chat History</h2>
-            <button
-              onClick={() => setHistoryOpen(false)}
-              className="text-muted-foreground hover:text-foreground transition-colors"
-              aria-label="Close history"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-          </div>
+        <>
           <button
-            onClick={startNewChat}
-            className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            type="button"
+            aria-label="Close history overlay"
+            onClick={() => setHistoryOpen(false)}
+            className="md:hidden fixed inset-0 z-30 bg-black/40"
+          />
+          <aside
+            className={cn(
+              "flex flex-col bg-card border-r border-border",
+              "fixed md:static inset-y-0 left-0 z-40 w-72 shadow-xl md:shadow-none",
+              "md:shrink-0"
+            )}
           >
-            <PlusCircle className="h-4 w-4" />
-            New Chat
-          </button>
-          <div className="flex-1 overflow-y-auto px-2 py-2">
-            {historyLoading ? (
-              <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
-            ) : conversations.length === 0 ? (
-              <p className="text-xs text-muted-foreground text-center py-4">No conversations yet</p>
-            ) : (
-              conversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => loadConversation(conv)}
-                  className={cn(
-                    "w-full text-left px-3 py-2 rounded-lg mb-1 text-sm transition-colors hover:bg-muted",
-                    conversationId === conv.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
-                  )}
-                >
-                  <div className="flex items-start gap-2">
-                    <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate">{conv.title}</p>
-                      <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        {new Date(conv.updated_at).toLocaleDateString()}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+              <h2 className="text-sm font-semibold text-foreground">Chat History</h2>
+              <button
+                onClick={() => setHistoryOpen(false)}
+                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Close history"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
+            <button
+              onClick={startNewChat}
+              className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+            >
+              <PlusCircle className="h-4 w-4" />
+              New Chat
+            </button>
+            <div className="flex-1 overflow-y-auto px-2 py-2">
+              {historyLoading ? (
+                <p className="text-xs text-muted-foreground text-center py-4">Loading...</p>
+              ) : conversations.length === 0 ? (
+                <p className="text-xs text-muted-foreground text-center py-4">No conversations yet</p>
+              ) : (
+                conversations.map((conv) => (
+                  <button
+                    key={conv.id}
+                    onClick={() => loadConversation(conv)}
+                    className={cn(
+                      "w-full text-left px-3 py-2 rounded-lg mb-1 text-sm transition-colors hover:bg-muted",
+                      conversationId === conv.id ? "bg-muted font-medium text-foreground" : "text-muted-foreground"
+                    )}
+                  >
+                    <div className="flex items-start gap-2">
+                      <MessageSquare className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate">{conv.title}</p>
+                        <div className="flex items-center gap-1 mt-0.5 text-[11px] text-muted-foreground">
+                          <Clock className="h-3 w-3" />
+                          {new Date(conv.updated_at).toLocaleDateString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </button>
-              ))
-            )}
-          </div>
-        </aside>
+                  </button>
+                ))
+              )}
+            </div>
+          </aside>
+        </>
       )}
+
 
       {/* Main Chat Area */}
       <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 py-6">
