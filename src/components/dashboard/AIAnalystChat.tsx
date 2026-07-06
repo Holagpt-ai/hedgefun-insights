@@ -559,34 +559,57 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         </div>
 
         {messages.length === 0 && (
-          <div className="flex-1 flex flex-col justify-center">
+          <div className="flex-1 overflow-y-auto -mx-1 px-1">
             <div className="flex items-center gap-2 mb-3 text-accent-blue">
               <Sparkles className="h-5 w-5" />
               <span className="text-sm font-medium uppercase tracking-wide">AI Analyst</span>
             </div>
-            <h1 className="text-3xl font-semibold text-foreground mb-2">
+            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2">
               {greeting}, {displayName}.
             </h1>
-            <p className="text-base text-muted-foreground mb-8">
-              Your AI-powered trading analyst. Ask about setups, market conditions, earnings, or your watchlist.
+            <p className="text-sm sm:text-base text-muted-foreground mb-5">
+              Ask HedgeFun AI to turn your dashboard into a trading plan — from AM prep through the post-market wrap.
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-8">
-              {QUICK_PROMPTS.map((qp) => (
-                <button
-                  key={qp.label}
-                  onClick={() => sendMessage(qp.prompt)}
-                  disabled={streaming}
-                  className={cn(
-                    "text-left px-4 py-3 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
-                    "text-sm font-medium text-foreground",
-                    streaming && "opacity-50 cursor-not-allowed"
-                  )}
+            {/* Context / trust chips */}
+            <div className="flex flex-wrap gap-1.5 mb-6">
+              {ANALYST_CONTEXT_CHIPS.map((chip) => (
+                <span
+                  key={chip}
+                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-muted/30 text-[11px] text-muted-foreground"
                 >
-                  {qp.label}
-                </button>
+                  {chip}
+                </span>
               ))}
             </div>
+
+            {/* Grouped workflow prompt presets */}
+            <div className="space-y-5 mb-6">
+              {ANALYST_PRESET_GROUPS.map((group) => (
+                <div key={group.id}>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                    {group.title}
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                    {group.presets.map((p) => (
+                      <button
+                        key={p.label}
+                        onClick={() => sendMessage(p.prompt)}
+                        disabled={streaming}
+                        className={cn(
+                          "text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
+                          "text-xs sm:text-sm text-foreground",
+                          streaming && "opacity-50 cursor-not-allowed"
+                        )}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {toolStatus && (
               <div className="flex justify-start mt-4">
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
@@ -597,6 +620,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             )}
           </div>
         )}
+
 
         {messages.length > 0 && (
           <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-4 pb-4">
