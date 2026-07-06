@@ -6,7 +6,7 @@ import type { User } from "@supabase/supabase-js";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  profile: { full_name: string | null; plan: string | null; email: string | null; avatar_url: string | null; preferred_theme: string | null } | null;
+  profile: { full_name: string | null; plan: string | null; email: string | null; avatar_url: string | null; preferred_theme: string | null; subscription_status: string | null; current_period_end: string | null } | null;
   signOut: () => Promise<void>;
 }
 
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     supabase
       .from("profiles")
-      .select("full_name, plan, email, avatar_url, preferred_theme")
+      .select("full_name, plan, email, avatar_url, preferred_theme, subscription_status, current_period_end")
       .eq("id", user.id)
       .single()
       .then(({ data }) => {

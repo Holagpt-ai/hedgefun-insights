@@ -71,7 +71,7 @@ const AccountPage = () => {
       {/* Subscription */}
       <div className="fintech-card p-4">
         <h2 className="text-sm font-semibold text-foreground mb-3">Subscription</h2>
-        <div className="flex items-center gap-2 mb-3">
+        <div className="flex items-center gap-2 mb-2">
           <span className={cn(
             "text-xs px-2 py-0.5 rounded-full font-medium",
             profile?.plan === "pro" ? "bg-accent-blue text-primary-foreground" : "bg-muted text-muted-foreground"
@@ -79,8 +79,13 @@ const AccountPage = () => {
             {profile?.plan === "pro" ? "Pro" : "Free"}
           </span>
         </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Self-service billing isn't connected yet. If you'd like Pro access before it goes live, email{" "}
+          <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a> and we'll onboard you manually.
+        </p>
         <Button variant="outline" size="sm" onClick={handleBilling}>Manage Billing</Button>
       </div>
+
 
       {/* Preferences */}
       <div className="fintech-card p-4">
@@ -105,10 +110,15 @@ const AccountPage = () => {
       {/* Danger Zone */}
       <div className="fintech-card p-4 border-red/30">
         <h2 className="text-sm font-semibold text-red mb-2">Danger Zone</h2>
-        <Button variant="outline" size="sm" className="border-red/50 text-red hover:bg-red-bg">
-          Delete Account
+        <p className="text-xs text-muted-foreground mb-3">
+          Account deletion isn't available yet. To request deletion, email{" "}
+          <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a>.
+        </p>
+        <Button variant="outline" size="sm" disabled className="border-red/50 text-red">
+          Delete Account (coming soon)
         </Button>
       </div>
+
     </div>
   );
 };

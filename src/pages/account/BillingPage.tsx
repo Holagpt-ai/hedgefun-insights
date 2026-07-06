@@ -37,8 +37,8 @@ const BillingPage = () => {
 
   const isPro = profile?.plan === "pro";
 
-  const formattedEndDate = (profile as any)?.current_period_end
-    ? new Date((profile as any).current_period_end).toLocaleDateString("en-US", {
+  const formattedEndDate = profile?.current_period_end
+    ? new Date(profile.current_period_end).toLocaleDateString("en-US", {
         month: "long",
         day: "numeric",
         year: "numeric",
@@ -98,15 +98,13 @@ const BillingPage = () => {
           <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
             {isPro ? (
               <>
-                {formattedEndDate && (
+                {formattedEndDate ? (
                   <span className="text-xs text-muted-foreground">Next billing: {formattedEndDate}</span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">No active billing period</span>
                 )}
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled
-                >
-                  Billing Portal Coming Soon
+                <Button variant="outline" size="sm" disabled>
+                  Self-service billing coming soon
                 </Button>
               </>
             ) : (
@@ -118,16 +116,23 @@ const BillingPage = () => {
         </div>
       </div>
 
+
       {/* CARD 2 — Payment Method */}
       <div className="fintech-card p-6 mb-4">
         <h2 className="font-bold text-foreground mb-4" style={{ fontSize: "1rem", fontWeight: 700 }}>
           Payment Method
         </h2>
-        <div className="flex items-center gap-3">
-          <CreditCard className="h-5 w-5 text-muted-foreground" />
-          <span className={`${isPro ? "text-secondary-foreground" : "text-muted-foreground"}`} style={{ fontSize: "0.875rem" }}>
-            {isPro ? "Payment method managed securely" : "No payment method on file"}
-          </span>
+        <div className="flex items-start gap-3">
+          <CreditCard className="h-5 w-5 text-muted-foreground mt-0.5 shrink-0" />
+          <div className="space-y-1">
+            <p className="text-secondary-foreground" style={{ fontSize: "0.875rem" }}>
+              Payment method management is not connected yet.
+            </p>
+            <p className="text-muted-foreground" style={{ fontSize: "0.8125rem" }}>
+              If you have manual Pro access, contact{" "}
+              <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a> for changes.
+            </p>
+          </div>
         </div>
       </div>
 
@@ -136,33 +141,15 @@ const BillingPage = () => {
         <h2 className="font-bold text-foreground mb-4" style={{ fontSize: "1rem", fontWeight: 700 }}>
           Billing History
         </h2>
-        <table className="w-full">
-          <thead>
-            <tr style={{ borderBottom: "2px solid hsl(var(--border))" }}>
-              {["Date", "Description", "Amount", "Status"].map((h) => (
-                <th
-                  key={h}
-                  className="text-left text-secondary-foreground pb-2"
-                  style={{ fontSize: "0.8125rem", fontWeight: 600 }}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td colSpan={4} className="text-center" style={{ padding: "32px 0" }}>
-                <div className="flex flex-col items-center gap-2">
-                  <Receipt className="text-muted-foreground" style={{ width: 48, height: 48 }} />
-                  <span className="text-muted-foreground" style={{ fontSize: "0.875rem" }}>
-                    No billing history yet
-                  </span>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div className="flex flex-col items-center text-center" style={{ padding: "24px 0" }}>
+          <Receipt className="text-muted-foreground mb-2" style={{ width: 48, height: 48 }} />
+          <span className="text-secondary-foreground" style={{ fontSize: "0.875rem" }}>
+            No billing history yet.
+          </span>
+          <span className="text-muted-foreground mt-1" style={{ fontSize: "0.8125rem" }}>
+            Receipts and invoices will appear here once self-service billing is connected.
+          </span>
+        </div>
       </div>
 
       {/* CARD 4 — Billing Portal */}
@@ -171,12 +158,14 @@ const BillingPage = () => {
           Invoices & Receipts
         </h2>
         <p className="text-secondary-foreground mb-4" style={{ fontSize: "0.875rem" }}>
-          Billing history, invoices, and receipts are managed securely through Stripe.
+          Self-service billing portal coming soon. For billing help in the meantime, contact{" "}
+          <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a>.
         </p>
         <Button variant="outline" disabled>
           Billing Portal Coming Soon
         </Button>
       </div>
+
     </div>
   );
 };
