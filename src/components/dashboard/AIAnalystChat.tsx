@@ -315,7 +315,15 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       setMessages(newMessages);
       setInput("");
       setStreaming(true);
-      setToolStatus("Thinking...");
+      lastAttemptedPromptRef.current = content.trim();
+      // Rotate friendly status lines while we wait for the first delta
+      let statusIdx = 0;
+      setToolStatus(STREAMING_STATUS_MESSAGES[0]);
+      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = setInterval(() => {
+        statusIdx = (statusIdx + 1) % STREAMING_STATUS_MESSAGES.length;
+        setToolStatus(STREAMING_STATUS_MESSAGES[statusIdx]);
+      }, 2200);
 
       let assistantContent = "";
 
