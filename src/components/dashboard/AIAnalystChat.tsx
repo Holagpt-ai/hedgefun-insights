@@ -856,8 +856,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               )}
             </button>
           </div>
-          <p className="text-[11px] text-muted-foreground text-center mt-2">
+          <p className="text-[11px] text-muted-foreground text-center mt-2 leading-relaxed">
             HedgeFun AI • Powered by Claude • Not financial advice
+            <br />
+            <span className="opacity-80">AI may be wrong. Market data can be delayed. Verify before trading.</span>
           </p>
         </div>
       </div>
