@@ -836,7 +836,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               className={cn(
                 "flex-1 resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm",
                 "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
-                "transition-colors duration-200 min-h-[44px] max-h-[120px]",
+                "transition-colors duration-200 min-h-[44px] max-h-[160px] overflow-y-auto",
                 (streaming || limitReached) && "opacity-60 cursor-not-allowed"
               )}
             />
