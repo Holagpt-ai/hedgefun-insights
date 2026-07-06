@@ -56,6 +56,7 @@ export default function Screeners() {
         liveRows={rows}
         loading={loading}
         lastUpdated={lastUpdated}
+        error={error}
       />
     </div>
   );
