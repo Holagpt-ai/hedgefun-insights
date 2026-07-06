@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Trash2, Sparkles } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyJournalState from "@/components/journal/EmptyJournalState";
@@ -26,6 +27,7 @@ type Props = {
   onEdit: (trade: Trade) => void;
   refreshKey: number;
   filterStatus?: "open" | "closed" | "cancelled";
+  onAskAI?: (trade: Trade) => void;
 };
 
 const fmtDate = (s: string) =>
@@ -33,13 +35,17 @@ const fmtDate = (s: string) =>
 const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default function TradeTable({ userId, onEdit, refreshKey, filterStatus }: Props) {
+export default function TradeTable({ userId, onEdit, refreshKey, filterStatus, onAskAI }: Props) {
   const [trades, setTrades] = useState<Trade[] | null>(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
     (async () => {
       setTrades(null);
+      setFetchError(null);
       let q = supabase
         .from("journal_trades")
         .select("*")
@@ -49,6 +55,7 @@ export default function TradeTable({ userId, onEdit, refreshKey, filterStatus }:
       const { data, error } = await q;
       if (!active) return;
       if (error) {
+        setFetchError(error.message ?? "Fetch failed");
         setTrades([]);
         return;
       }
@@ -59,6 +66,20 @@ export default function TradeTable({ userId, onEdit, refreshKey, filterStatus }:
     };
   }, [userId, refreshKey, filterStatus]);
 
+  const handleDelete = async (trade: Trade) => {
+    setDeletingId(trade.id);
+    const { error } = await supabase.from("journal_trades").delete().eq("id", trade.id);
+    setDeletingId(null);
+    if (error) {
+      toast.error("Failed to delete trade.");
+      return;
+    }
+    // Optimistic removal from local state
+    setTrades((prev) => (prev ? prev.filter((t) => t.id !== trade.id) : prev));
+    setConfirmDeleteId(null);
+    toast.success("Trade deleted.");
+  };
+
   if (trades === null) {
     return (
       <div className="space-y-2">
@@ -66,6 +87,14 @@ export default function TradeTable({ userId, onEdit, refreshKey, filterStatus }:
           <Skeleton key={i} className="h-10 w-full" />
         ))}
       </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <p className="text-sm text-muted-foreground text-center py-8">
+        Unable to load trades. Please try again.
+      </p>
     );
   }
 
@@ -94,6 +123,7 @@ export default function TradeTable({ userId, onEdit, refreshKey, filterStatus }:
             const pct = t.return_pct;
             const isOpen = ret === null;
             const positive = ret !== null && ret >= 0;
+            const isConfirming = confirmDeleteId === t.id;
             return (
               <tr
                 key={t.id}
@@ -147,13 +177,53 @@ export default function TradeTable({ userId, onEdit, refreshKey, filterStatus }:
                   </span>
                 </td>
                 <td className="py-2 px-2 text-right">
-                  <button
-                    onClick={() => onEdit(t)}
-                    className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-                    aria-label="Edit trade"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                  </button>
+                  {isConfirming ? (
+                    <div className="inline-flex items-center gap-2 text-xs">
+                      <span className="text-muted-foreground">Delete?</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(t)}
+                        disabled={deletingId === t.id}
+                        className="text-red-400 hover:text-red-300 font-medium px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                      >
+                        {deletingId === t.id ? "..." : "Yes"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(null)}
+                        disabled={deletingId === t.id}
+                        className="text-muted-foreground hover:text-foreground font-medium px-1.5 py-0.5 rounded transition-colors disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="inline-flex items-center gap-1">
+                      <button
+                        onClick={() => onEdit(t)}
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                        aria-label="Edit trade"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {onAskAI && t.status === "closed" && (
+                        <button
+                          onClick={() => onAskAI(t)}
+                          className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-accent-blue transition-colors"
+                          aria-label="Ask AI about trade"
+                        >
+                          <Sparkles className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setConfirmDeleteId(t.id)}
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-400 transition-colors"
+                        aria-label="Delete trade"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             );
