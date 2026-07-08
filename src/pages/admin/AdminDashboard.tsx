@@ -39,7 +39,7 @@ export default function AdminDashboard() {
     { label: "Total Users", value: stats.totalUsers, change: "+12%" },
     { label: "Pro Members", value: stats.proMembers, change: "+8%" },
     { label: "MRR", value: `$${stats.mrr.toLocaleString()}`, change: "+15%" },
-    { label: "Churn Rate", value: `${stats.churnRate}%`, change: "-0.3%" },
+    { label: "Churn Rate", value: `${stats.churnRate}`, change: "-0.3%" },
   ];
 
   return (
