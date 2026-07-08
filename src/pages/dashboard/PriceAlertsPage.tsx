@@ -38,10 +38,7 @@ export default function PriceAlertsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<PriceAlert | null>(null);
 
-  const isPro =
-    profile?.plan === "pro" ||
-    profile?.plan === "admin" ||
-    profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
 
   useEffect(() => {
     setAlerts(loadAlerts());

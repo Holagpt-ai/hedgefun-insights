@@ -61,7 +61,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
   const collapsed = forceExpanded ? false : collapsedPref;
   const setCollapsed = setCollapsedPref;
 
-  const isPro = profile?.plan === "pro" || profile?.plan === "unlimited" || profile?.plan === "admin";
+  const isPro = hasProAccess(profile?.plan);
 
   const openUpgrade = () => setUpgradeOpen(true);
 

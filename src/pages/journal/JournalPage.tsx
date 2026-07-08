@@ -21,7 +21,7 @@ const TABS = ["Trade Log", "Calendar", "Analytics"] as const;
 export default function JournalPage() {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
-  const isPro = profile?.plan === "pro" || profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
   const [tab, setTab] = useState<string>("Trade Log");
   const [addOpen, setAddOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);

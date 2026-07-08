@@ -7,13 +7,11 @@ import {
   DEFAULT_SCREENER_TAB_ID,
   getScreenerTabById,
 } from "@/config/screener-tabs.config";
+import { hasProAccess } from "@/lib/entitlement";
 
 export default function Screeners() {
   const { profile } = useAuth();
-  const isPro =
-    profile?.plan === "pro" ||
-    profile?.plan === "admin" ||
-    profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
 
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];

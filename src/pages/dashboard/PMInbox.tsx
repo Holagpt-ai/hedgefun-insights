@@ -119,7 +119,7 @@ function StaticItemCard({ item }: { item: StaticInboxItem }) {
 export default function PMInbox() {
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const isPro = profile?.plan === "pro" || profile?.plan === "admin" || profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
   const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
 
   const timeGated = isBeforePMWindow();
