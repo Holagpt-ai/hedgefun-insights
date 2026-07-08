@@ -165,7 +165,7 @@ export default function PMInbox() {
           <p className="text-sm text-muted-foreground max-w-md">{PM_INBOX_CONFIG.aiCardGateBody}</p>
           <button
             onClick={() => navigate("/pro")}
-            className="mt-2 bg-accent-blue text-white text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
+            className="mt-2 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
           >
             {PM_INBOX_CONFIG.upgradeCta}
           </button>
