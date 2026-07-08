@@ -12,6 +12,7 @@ import {
   PRICE_ALERTS_STORAGE_KEY, PRICE_ALERTS_COPY,
   type PriceAlert,
 } from "@/config/price-alerts.config";
+import { PRICING } from "@/config/pricing";
 
 function loadAlerts(): PriceAlert[] {
   try {
