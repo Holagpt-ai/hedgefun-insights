@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { BRAND } from "@/config/brand";
+import { PRICING } from "@/config/pricing";
 
 type NavEntry =
   | { section: string }
