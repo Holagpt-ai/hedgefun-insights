@@ -178,7 +178,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
           <DialogHeader>
             <DialogTitle>{`Unlock ${BRAND.name} PRO`}</DialogTitle>
             <DialogDescription>
-              Get PM Inbox, Stock Journal, and the full PRO toolkit for $5/month.
+              {`Get PM Inbox, Stock Journal, and the full PRO toolkit for $${PRICING.pro.monthly}/month.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
