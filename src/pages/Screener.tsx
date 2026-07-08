@@ -18,6 +18,7 @@ import { useScreenerQuery } from "@/components/screener/useScreenerQuery";
 import { type ActiveFilter } from "@/components/screener/filters.config";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { hasProAccess } from "@/lib/entitlement";
 import { toast } from "sonner";
 
 function formatMarketCapScreener(n: number | null): string {
@@ -59,8 +60,7 @@ const Screener = () => {
   const industryParam = searchParams.get("industry");
   const { user, profile } = useAuth();
 
-  const userTier: "free" | "pro" | "unlimited" =
-    (profile?.plan as "free" | "pro" | "unlimited") ?? "free";
+  const userTier: "free" | "pro" = hasProAccess(profile?.plan) ? "pro" : "free";
 
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
