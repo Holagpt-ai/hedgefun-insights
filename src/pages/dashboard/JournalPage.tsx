@@ -47,7 +47,7 @@ export default function JournalPage() {
 
   return (
     <TooltipProvider>
-      <div className={`p-6 max-w-6xl mx-auto space-y-6 transition-all duration-300 ${aiPanelOpen ? "pr-80" : ""}`}>
+      <div className={`p-6 max-w-6xl mx-auto space-y-6 transition-all duration-300 ${aiPanelOpen ? "lg:pr-80" : ""}`}>
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
