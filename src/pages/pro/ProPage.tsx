@@ -272,7 +272,7 @@ function PricingCard({
       className={cn(
         "border rounded-md bg-background flex flex-col relative",
         highlighted
-          ? "border-2 border-accent-blue shadow-sm"
+          ? "border-2 border-accent-blue shadow-sm mt-3 md:mt-0"
           : "border-border"
       )}
     >
