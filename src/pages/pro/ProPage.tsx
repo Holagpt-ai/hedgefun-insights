@@ -161,7 +161,7 @@ const ProPage = () => {
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
             priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.pro.annual}/year — save 2 months free`}
             features={PRO_FEATURES}
-            ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
+            ctaLabel={isPro ? "You're on Pro" : "Request Early Access"}
             ctaVariant="default"
             onCta={() => handleCheckout()}
             ctaDisabled={isPro}
