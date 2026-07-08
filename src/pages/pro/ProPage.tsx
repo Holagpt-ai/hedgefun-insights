@@ -71,11 +71,11 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "Can I cancel at any time?",
-    a: "Yes. There is a cancel button in your account settings. No fees, no penalties.",
+    a: "Yes. Once billing is live, you will be able to cancel anytime from your account settings with no fees or penalties.",
   },
   {
     q: "What is your refund policy?",
-    a: "We offer a 30-day money back guarantee, no questions asked.",
+    a: "We plan to offer a 30-day money-back guarantee once billing is live. Details will be confirmed when payment processing launches.",
   },
 ];
 
