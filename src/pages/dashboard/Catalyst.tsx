@@ -185,21 +185,23 @@ export default function Catalyst() {
             aria-label="Search catalysts"
           />
         </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto -mx-1 px-1 md:mx-0 md:px-0 md:overflow-visible">
-          {HORIZONS.map((h) => (
-            <button
-              key={h}
-              onClick={() => setHorizon(h)}
-              className={cn(
-                "text-[11px] whitespace-nowrap px-2.5 py-1.5 rounded-md border transition-colors",
-                horizon === h
-                  ? "bg-accent-blue text-primary-foreground border-accent-blue"
-                  : "bg-surface-card text-muted-foreground border-border hover:bg-muted/50",
-              )}
-            >
-              {h}
-            </button>
-          ))}
+        <div className="max-w-full overflow-hidden">
+          <div className="flex items-center gap-1.5 overflow-x-auto px-1 md:px-0 md:overflow-visible">
+            {HORIZONS.map((h) => (
+              <button
+                key={h}
+                onClick={() => setHorizon(h)}
+                className={cn(
+                  "text-[11px] whitespace-nowrap px-2.5 py-1.5 rounded-md border transition-colors",
+                  horizon === h
+                    ? "bg-accent-blue text-primary-foreground border-accent-blue"
+                    : "bg-surface-card text-muted-foreground border-border hover:bg-muted/50",
+                )}
+              >
+                {h}
+              </button>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -241,21 +243,23 @@ export default function Catalyst() {
                 <Filter className="h-3 w-3" aria-hidden /> Filter
               </div>
             </div>
-            <div className="flex flex-nowrap md:flex-wrap gap-1.5 overflow-x-auto -mx-1 px-1 md:mx-0 md:px-0 md:overflow-visible">
-              {FILTERS.map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={cn(
-                    "text-[11px] whitespace-nowrap px-2.5 py-1 rounded-full border transition-colors shrink-0",
-                    filter === f
-                      ? "bg-accent-blue text-primary-foreground border-accent-blue"
-                      : "bg-surface-card text-muted-foreground border-border hover:bg-muted/50",
-                  )}
-                >
-                  {f}
-                </button>
-              ))}
+            <div className="max-w-full overflow-hidden">
+              <div className="flex flex-nowrap md:flex-wrap gap-1.5 overflow-x-auto px-1 md:px-0 md:overflow-visible">
+                {FILTERS.map((f) => (
+                  <button
+                    key={f}
+                    onClick={() => setFilter(f)}
+                    className={cn(
+                      "text-[11px] whitespace-nowrap px-2.5 py-1 rounded-full border transition-colors shrink-0",
+                      filter === f
+                        ? "bg-accent-blue text-primary-foreground border-accent-blue"
+                        : "bg-surface-card text-muted-foreground border-border hover:bg-muted/50",
+                    )}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
