@@ -18,7 +18,12 @@ export default function AdminDashboard() {
     (async () => {
       const { count: totalUsers } = await supabase.from("profiles").select("*", { count: "exact", head: true });
       const { count: proMembers } = await supabase.from("subscriptions").select("*", { count: "exact", head: true }).eq("status", "active");
-      setStats({ totalUsers: totalUsers || 0, proMembers: proMembers || 0, mrr: (proMembers || 0) * 29, churnRate: 2.4 });
+      setStats({
+        totalUsers: totalUsers || 0,
+        proMembers: proMembers || 0,
+        mrr: (proMembers || 0) * PRICING.pro.monthly,
+        churnRate: "—",
+      });
 
       const { data } = await supabase.from("profiles").select("id, full_name, email, plan, created_at").order("created_at", { ascending: false }).limit(10);
       setRecentUsers(data || []);
