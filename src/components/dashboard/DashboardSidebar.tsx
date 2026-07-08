@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useEffect, useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import {

@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 

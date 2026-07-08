@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Tags, Lock } from "lucide-react";
