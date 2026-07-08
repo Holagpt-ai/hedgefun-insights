@@ -60,8 +60,7 @@ const Screener = () => {
   const industryParam = searchParams.get("industry");
   const { user, profile } = useAuth();
 
-  const userTier: "free" | "pro" | "unlimited" =
-    (profile?.plan as "free" | "pro" | "unlimited") ?? "free";
+  const userTier: "free" | "pro" = hasProAccess(profile?.plan) ? "pro" : "free";
 
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [activeFilters, setActiveFilters] = useState<ActiveFilter[]>([]);
