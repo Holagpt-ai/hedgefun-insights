@@ -178,7 +178,7 @@ const ProPage = () => {
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
             priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.unlimited.annual}/year — save 2 months free`}
             features={UNLIMITED_FEATURES}
-            ctaLabel="Choose Plan"
+            ctaLabel="Request Early Access"
             ctaVariant="outline"
             onCta={() => handleCheckout()}
             guarantee
