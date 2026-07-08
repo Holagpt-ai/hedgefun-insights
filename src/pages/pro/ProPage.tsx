@@ -208,19 +208,19 @@ const ProPage = () => {
       {/* ── Bottom CTA ── */}
       <div className="bg-muted/40 border-t border-border py-14 text-center px-4">
         <h2 className="text-[1.5rem] font-bold text-foreground mb-3">
-          Try HedgeFun Pro risk-free for 30 days!
+          Get early access to HedgeFun Pro
         </h2>
         <p className="text-sm text-muted-foreground max-w-lg mx-auto mb-6 leading-relaxed">
           Unlock unlimited access to all financial data and tools so you can
-          trade smarter and grow consistently. 30-day money back guarantee, no
-          questions asked.
+          trade smarter and grow consistently. Early access is available now —
+          email info@hedgefun.fun to get started.
         </p>
         <Button
           size="lg"
           className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground px-10"
           onClick={() => handleCheckout()}
         >
-          Get Started Now
+          Request Early Access
         </Button>
       </div>
 
