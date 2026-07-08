@@ -71,11 +71,11 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "Can I cancel at any time?",
-    a: "Yes. There is a cancel button in your account settings. No fees, no penalties.",
+    a: "Yes. Once billing is live, you will be able to cancel anytime from your account settings with no fees or penalties.",
   },
   {
     q: "What is your refund policy?",
-    a: "We offer a 30-day money back guarantee, no questions asked.",
+    a: "We plan to offer a 30-day money-back guarantee once billing is live. Details will be confirmed when payment processing launches.",
   },
 ];
 
@@ -161,7 +161,7 @@ const ProPage = () => {
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
             priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.pro.annual}/year — save 2 months free`}
             features={PRO_FEATURES}
-            ctaLabel={isPro ? "You're on Pro" : "Get Started Now"}
+            ctaLabel={isPro ? "You're on Pro" : "Request Early Access"}
             ctaVariant="default"
             onCta={() => handleCheckout()}
             ctaDisabled={isPro}
@@ -178,7 +178,7 @@ const ProPage = () => {
             pricePeriod={billing === "monthly" ? "/month" : "/year"}
             priceSubtext={billing === "annual" ? "save 2 months free" : `$${PRICING.unlimited.annual}/year — save 2 months free`}
             features={UNLIMITED_FEATURES}
-            ctaLabel="Choose Plan"
+            ctaLabel="Request Early Access"
             ctaVariant="outline"
             onCta={() => handleCheckout()}
             guarantee
@@ -208,19 +208,19 @@ const ProPage = () => {
       {/* ── Bottom CTA ── */}
       <div className="bg-muted/40 border-t border-border py-14 text-center px-4">
         <h2 className="text-[1.5rem] font-bold text-foreground mb-3">
-          Try HedgeFun Pro risk-free for 30 days!
+          Get early access to HedgeFun Pro
         </h2>
         <p className="text-sm text-muted-foreground max-w-lg mx-auto mb-6 leading-relaxed">
           Unlock unlimited access to all financial data and tools so you can
-          trade smarter and grow consistently. 30-day money back guarantee, no
-          questions asked.
+          trade smarter and grow consistently. Early access is available now —
+          email info@hedgefun.fun to get started.
         </p>
         <Button
           size="lg"
           className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground px-10"
           onClick={() => handleCheckout()}
         >
-          Get Started Now
+          Request Early Access
         </Button>
       </div>
 
