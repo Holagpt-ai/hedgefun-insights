@@ -61,7 +61,7 @@ export default function PriceAlertsPage() {
             onClick={() => navigate("/pro")}
             className="bg-accent-blue text-primary-foreground text-sm font-semibold px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity duration-200"
           >
-            Unlock PRO — $5/month
+            {`Unlock PRO — $${PRICING.pro.monthly}/month`}
           </button>
         </div>
       </div>
