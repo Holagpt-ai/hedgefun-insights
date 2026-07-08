@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,7 +28,7 @@ export default function DashboardHome() {
   const [searchParams] = useSearchParams();
   const [activity, setActivity] = useState<ActivityRow[]>([]);
 
-  const isPro = plan === "pro" || plan === "admin" || plan === "unlimited";
+  const isPro = hasProAccess(plan);
 
   useEffect(() => {
     const today = new Date().toISOString().slice(0, 10);

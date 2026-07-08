@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Plus, Tags, Lock } from "lucide-react";
@@ -21,7 +22,7 @@ const TABS = ["Trade Log", "Calendar", "Analytics"] as const;
 export default function JournalPage() {
   const navigate = useNavigate();
   const { user, profile, loading: authLoading } = useAuth();
-  const isPro = profile?.plan === "pro" || profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
   const [tab, setTab] = useState<string>("Trade Log");
   const [addOpen, setAddOpen] = useState(false);
   const [tagsOpen, setTagsOpen] = useState(false);

@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
@@ -107,7 +108,7 @@ function StaticItemCard({ item }: { item: StaticInboxItem }) {
 export default function AMInbox() {
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const isPro = profile?.plan === "pro" || profile?.plan === "admin" || profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
   const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
 
   const [checked, setChecked] = useState<Record<number, boolean>>({});

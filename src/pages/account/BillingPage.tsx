@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
 import { PRICING } from "@/config/pricing";
+import { hasProAccess } from "@/lib/entitlement";
 import { toast } from "@/hooks/use-toast";
 import { CreditCard, Receipt } from "lucide-react";
 
@@ -35,7 +36,7 @@ const BillingPage = () => {
 
   if (loading || !user) return null;
 
-  const isPro = profile?.plan === "pro";
+  const isPro = hasProAccess(profile?.plan);
 
   const formattedEndDate = profile?.current_period_end
     ? new Date(profile.current_period_end).toLocaleDateString("en-US", {

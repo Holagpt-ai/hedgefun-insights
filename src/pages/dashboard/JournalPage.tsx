@@ -9,6 +9,7 @@ import EquityCurve from "@/components/journal/EquityCurve";
 import TradeTable, { type Trade } from "@/components/journal/TradeTable";
 import TradeDrawer from "@/components/journal/TradeDrawer";
 import JournalAIPanel from "@/components/journal/JournalAIPanel";
+import { hasProAccess } from "@/lib/entitlement";
 
 export default function JournalPage() {
   const { user, profile } = useAuth();
@@ -17,10 +18,7 @@ export default function JournalPage() {
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
-  const isPro =
-    profile?.plan === "pro" ||
-    profile?.plan === "admin" ||
-    profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
 
   if (!isPro) {
     return (

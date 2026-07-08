@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { hasProAccess } from "@/lib/entitlement";
 
 const AccountPage = () => {
   const navigate = useNavigate();
@@ -74,9 +75,9 @@ const AccountPage = () => {
         <div className="flex items-center gap-2 mb-2">
           <span className={cn(
             "text-xs px-2 py-0.5 rounded-full font-medium",
-            profile?.plan === "pro" ? "bg-accent-blue text-primary-foreground" : "bg-muted text-muted-foreground"
+            hasProAccess(profile?.plan) ? "bg-accent-blue text-primary-foreground" : "bg-muted text-muted-foreground"
           )}>
-            {profile?.plan === "pro" ? "Pro" : "Free"}
+            {hasProAccess(profile?.plan) ? "Pro" : "Free"}
           </span>
         </div>
         <p className="text-xs text-muted-foreground mb-3">

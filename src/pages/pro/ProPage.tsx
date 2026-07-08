@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
 
 const ProPage = () => {
   const { user, profile } = useAuth();
-  const isPro = profile?.plan === "pro";
+  const isPro = hasProAccess(profile?.plan);
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 

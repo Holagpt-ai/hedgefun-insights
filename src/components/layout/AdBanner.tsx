@@ -1,3 +1,4 @@
+import { hasProAccess } from "@/lib/entitlement";
 import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -24,7 +25,7 @@ export function AdBanner({ slot = "top", className = "" }: AdBannerProps) {
     }
   }, []);
 
-  if (profile?.plan === "pro" || profile?.plan === "admin" || profile?.plan === "unlimited") return null;
+  if (hasProAccess(profile?.plan)) return null;
 
   if (slot === "sidebar") {
     return (

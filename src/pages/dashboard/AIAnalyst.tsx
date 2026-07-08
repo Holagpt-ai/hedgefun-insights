@@ -2,13 +2,11 @@ import { useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { AIAnalystChat } from "@/components/dashboard/AIAnalystChat";
 import { supabase } from "@/integrations/supabase/client";
+import { hasProAccess } from "@/lib/entitlement";
 
 export default function AIAnalyst() {
   const { user, profile } = useAuth();
-  const isPro =
-    profile?.plan === "pro" ||
-    profile?.plan === "admin" ||
-    profile?.plan === "unlimited";
+  const isPro = hasProAccess(profile?.plan);
 
   // Activity log — fire-and-forget, non-blocking
   useEffect(() => {
