@@ -12,6 +12,7 @@ import {
   PRICE_ALERTS_STORAGE_KEY, PRICE_ALERTS_COPY,
   type PriceAlert,
 } from "@/config/price-alerts.config";
+import { PRICING } from "@/config/pricing";
 
 function loadAlerts(): PriceAlert[] {
   try {
@@ -60,7 +61,7 @@ export default function PriceAlertsPage() {
             onClick={() => navigate("/pro")}
             className="bg-accent-blue text-primary-foreground text-sm font-semibold px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity duration-200"
           >
-            Unlock PRO — $5/month
+            {`Unlock PRO — $${PRICING.pro.monthly}/month`}
           </button>
         </div>
       </div>

@@ -13,6 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { BRAND } from "@/config/brand";
+import { PRICING } from "@/config/pricing";
 
 type NavEntry =
   | { section: string }
@@ -177,7 +178,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
           <DialogHeader>
             <DialogTitle>{`Unlock ${BRAND.name} PRO`}</DialogTitle>
             <DialogDescription>
-              Get PM Inbox, Stock Journal, and the full PRO toolkit for $5/month.
+              {`Get PM Inbox, Stock Journal, and the full PRO toolkit for $${PRICING.pro.monthly}/month.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -195,7 +196,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
             </Button>
           </DialogFooter>
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Or unlock everything with Unlimited for just $10/month.
+            {`Or unlock everything with Unlimited for just $${PRICING.unlimited.monthly}/month.`}
           </p>
         </DialogContent>
       </Dialog>
