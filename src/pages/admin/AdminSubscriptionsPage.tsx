@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { PRICING } from "@/config/pricing";
 
 const card: React.CSSProperties = { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 };
 
@@ -20,12 +21,29 @@ export default function AdminSubscriptionsPage() {
     })();
   }, []);
 
+  // Provider-agnostic pricing — sourced from src/config/pricing.ts.
+  // No provider price IDs are referenced here.
+  const proMonthly = PRICING.pro.monthly;
+  const proAnnual = PRICING.pro.annual;
+
+  // MRR estimate: monthly subs pay monthly price; annual subs amortized to per-month.
+  const mrr = counts.monthly * proMonthly + counts.annual * (proAnnual / 12);
+  const arr = counts.monthly * proMonthly * 12 + counts.annual * proAnnual;
+
+  const fmt = (n: number) => `$${Math.round(n).toLocaleString()}`;
+
   const metrics = [
-    { label: "MRR", value: `$${(counts.monthly * 29 + counts.annual * 20).toLocaleString()}` },
-    { label: "ARR", value: `$${((counts.monthly * 29 + counts.annual * 20) * 12).toLocaleString()}` },
+    { label: "MRR (est.)", value: fmt(mrr) },
+    { label: "ARR (est.)", value: fmt(arr) },
     { label: "Active Subscriptions", value: counts.active },
-    { label: "Churn Rate", value: "2.4%" },
+    { label: "Churn Rate", value: "—" },
   ];
+
+  const priceLabel = (plan: string | null | undefined) => {
+    if (plan === "pro_annual") return fmt(proAnnual);
+    if (plan === "pro_monthly") return fmt(proMonthly);
+    return "$0";
+  };
 
   return (
     <div className="space-y-6">
@@ -42,9 +60,9 @@ export default function AdminSubscriptionsPage() {
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
-          { name: "Free", price: "$0", count: "—", features: ["Basic stock data", "10 AI queries/day", "Watchlist (5 stocks)"] },
-          { name: "Pro Monthly", price: "$5/mo", count: counts.monthly, features: ["Real-time data", "Unlimited AI", "Full screener", "Unlimited watchlist"] },
-          { name: "Pro Annual", price: "$240/yr", count: counts.annual, features: ["Everything in Monthly", "17% savings", "Priority support"] },
+          { name: PRICING.free.label, price: `$${PRICING.free.monthly}`, count: "—", features: ["Basic stock data", "10 AI queries/day", "Watchlist (5 stocks)"] },
+          { name: `${PRICING.pro.label} Monthly`, price: `$${proMonthly}/mo`, count: counts.monthly, features: ["Real-time data", "Unlimited AI", "Full screener", "Unlimited watchlist"] },
+          { name: `${PRICING.pro.label} Annual`, price: `$${proAnnual}/yr`, count: counts.annual, features: ["Everything in Monthly", "Best value", "Priority support"] },
         ].map((p) => (
           <div key={p.name} style={card}>
             <p className="font-semibold">{p.name}</p>
@@ -58,15 +76,18 @@ export default function AdminSubscriptionsPage() {
       </div>
 
       <div style={card}>
-        <div className="flex items-center gap-3 mb-4">
+        <div className="flex items-center gap-3 mb-2 flex-wrap">
           <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#16a34a" }} />
-            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#16a34a" }} />
+            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#94a3b8" }} />
           </span>
-          <span className="text-sm">Stripe Webhook</span>
-          <code className="text-xs px-2 py-0.5 rounded" style={{ background: "#f1f5f9", color: "#64748b" }}>hedgefun.fun/api/stripe/webhook</code>
-          <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(22,163,106,0.1)", color: "#16a34a" }}>Connected</span>
+          <span className="text-sm font-medium">Payment Provider</span>
+          <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(100,116,139,0.1)", color: "#64748b" }}>Not Connected</span>
+          <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(100,116,139,0.1)", color: "#64748b" }}>Provider Integration: Pending</span>
+          <span className="text-xs px-2 py-0.5 rounded" style={{ background: "rgba(100,116,139,0.1)", color: "#64748b" }}>Webhook Status: Not Active</span>
         </div>
+        <p className="text-xs" style={{ color: "#64748b" }}>
+          No payment provider is wired yet. Subscription rows below reflect manual/internal grants only. Pricing and revenue estimates are computed from the app's pricing config.
+        </p>
       </div>
 
       <div style={card}>
@@ -82,9 +103,9 @@ export default function AdminSubscriptionsPage() {
           <tbody>
             {subs.slice(0, 10).map((s) => (
               <tr key={s.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                <td className="py-2" style={{ color: "#64748b" }}>{s.stripe_customer_id || "—"}</td>
+                <td className="py-2" style={{ color: "#64748b" }}>{s.user_id ? String(s.user_id).slice(0, 8) : "—"}</td>
                 <td className="py-2">{s.plan || "free"}</td>
-                <td className="py-2">{s.plan === "pro_annual" ? "$240" : s.plan === "pro_monthly" ? "$5" : "$0"}</td>
+                <td className="py-2">{priceLabel(s.plan)}</td>
                 <td className="py-2" style={{ color: "#64748b" }}>{s.created_at ? new Date(s.created_at).toLocaleDateString() : "—"}</td>
                 <td className="py-2">
                   <span className="text-xs px-2 py-0.5 rounded" style={{ background: s.status === "active" ? "rgba(22,163,106,0.1)" : "rgba(220,38,38,0.1)", color: s.status === "active" ? "#16a34a" : "#dc2626" }}>
