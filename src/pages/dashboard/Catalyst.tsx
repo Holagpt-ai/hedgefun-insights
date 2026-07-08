@@ -130,9 +130,17 @@ export default function Catalyst() {
   }, [filter, horizon, query]);
 
   const onReview = (c: CatalystEntry) =>
-    toast({ title: `Review · ${c.symbol}`, description: c.signal });
+    toast({
+      title: `Review · ${c.symbol}`,
+      description:
+        "Preview action — live review workflows will be available when catalyst feeds are connected.",
+    });
   const onAlert = (c: CatalystEntry) =>
-    toast({ title: `Alert set · ${c.symbol}`, description: `We'll notify you on ${c.window.toLowerCase()} activity.` });
+    toast({
+      title: `Alert · ${c.symbol}`,
+      description:
+        "Preview action — live price alerts will be available when market data is connected.",
+    });
   const onChart = (c: CatalystEntry) => navigate(`/stocks/${c.symbol.toLowerCase()}`);
   const onToggleReviewed = (sym: string) =>
     setReviewed((r) => ({ ...r, [sym]: !r[sym] }));

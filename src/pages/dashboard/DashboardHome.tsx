@@ -1,6 +1,6 @@
 import { hasProAccess } from "@/lib/entitlement";
 import { useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -128,7 +128,33 @@ export default function DashboardHome() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Recent Activity</h2>
         {activity.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No recent activity yet.</p>
+          <div className="text-center py-6 space-y-3">
+            <p className="text-sm font-medium text-foreground">No recent activity yet</p>
+            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
+              Start by opening AM Inbox, running a screener, or asking the AI Analyst
+              for a market read. Your activity will appear here once you get started.
+            </p>
+            <div className="flex justify-center gap-2 flex-wrap pt-1">
+              <Link
+                to="/dashboard/am"
+                className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
+              >
+                AM Inbox
+              </Link>
+              <Link
+                to="/dashboard/screeners"
+                className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
+              >
+                Screeners
+              </Link>
+              <Link
+                to="/dashboard/ai"
+                className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
+              >
+                AI Analyst
+              </Link>
+            </div>
+          </div>
         ) : (
           <ul className="divide-y rounded-xl border bg-card">
             {activity.map((a, i) => (
