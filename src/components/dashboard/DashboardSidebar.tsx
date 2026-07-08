@@ -196,7 +196,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
             </Button>
           </DialogFooter>
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Or unlock everything with Unlimited for just $10/month.
+            {`Or unlock everything with Unlimited for just $${PRICING.unlimited.monthly}/month.`}
           </p>
         </DialogContent>
       </Dialog>
