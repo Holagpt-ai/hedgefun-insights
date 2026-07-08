@@ -38,7 +38,7 @@ const NAV: NavEntry[] = [
   { section: "Phase 2" },
   { label: "Price Alerts",  icon: <Bell className="h-4 w-4" />,        route: "/dashboard/alerts", plan: "pro" },
   { label: "News Feed",     icon: <Newspaper className="h-4 w-4" />,   route: "/dashboard/news", plan: "free" },
-  { label: "Community",     icon: <MessageSquare className="h-4 w-4" />, route: null, locked: "soon" },
+  { label: "Community",     icon: <MessageSquare className="h-4 w-4" />, route: "/dashboard/community", plan: "free" },
   { section: "Account" },
   { label: "Account Settings", icon: <Settings className="h-4 w-4" />,    route: "/account",         plan: "free" },
   { label: "Manage Billing",   icon: <CreditCard className="h-4 w-4" />,  route: "/account/billing", plan: "free" },

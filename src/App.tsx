@@ -22,6 +22,7 @@ import ActionCenter from "@/pages/dashboard/ActionCenter";
 import Catalyst from "@/pages/dashboard/Catalyst";
 import PriceAlertsPage from "@/pages/dashboard/PriceAlertsPage";
 import DashboardNewsPage from "@/pages/dashboard/DashboardNewsPage";
+import CommunityWaitlistPage from "@/pages/dashboard/CommunityWaitlistPage";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -209,6 +210,7 @@ const App = () => (
                   <Route path="/dashboard/catalyst" element={<Catalyst />} />
                   <Route path="/dashboard/alerts" element={<PriceAlertsPage />} />
                   <Route path="/dashboard/news" element={<DashboardNewsPage />} />
+                  <Route path="/dashboard/community" element={<CommunityWaitlistPage />} />
                 </Route>
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
