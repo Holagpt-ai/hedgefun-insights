@@ -11,7 +11,7 @@ const statCardStyle = {
 };
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({ totalUsers: 0, proMembers: 0, mrr: 0, churnRate: 0 });
+  const [stats, setStats] = useState<{ totalUsers: number; proMembers: number; mrr: number; churnRate: string }>({ totalUsers: 0, proMembers: 0, mrr: 0, churnRate: "—" });
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
 
   useEffect(() => {
