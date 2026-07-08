@@ -18,6 +18,7 @@ import { useScreenerQuery } from "@/components/screener/useScreenerQuery";
 import { type ActiveFilter } from "@/components/screener/filters.config";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { hasProAccess } from "@/lib/entitlement";
 import { toast } from "sonner";
 
 function formatMarketCapScreener(n: number | null): string {
