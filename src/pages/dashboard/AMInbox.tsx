@@ -176,6 +176,7 @@ export default function AMInbox() {
           cta="Open Watchlist"
           onCta={() => navigate("/dashboard/watchlist")}
         />
+        <SampleChip />
         {AM_OVERNIGHT_MOVERS.length === 0 ? (
           <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
             {AM_INBOX_CONFIG.overnightMoversEmpty}
@@ -192,6 +193,7 @@ export default function AMInbox() {
       {/* Risk Flags */}
       <section className="flex flex-col gap-3">
         <SectionHeader title={AM_INBOX_CONFIG.riskFlagsHeading} />
+        <SampleChip />
         {AM_RISK_FLAGS.length === 0 ? (
           <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
             {AM_INBOX_CONFIG.riskFlagsEmpty}
@@ -211,6 +213,7 @@ export default function AMInbox() {
           title={AM_INBOX_CONFIG.checklistHeading}
           subtitle={AM_INBOX_CONFIG.checklistSubtitle}
         />
+        <SampleChip />
         <div className="rounded-xl border bg-card p-4 flex flex-col gap-2">
           {AM_OPENING_BELL_CHECKLIST.map((item, i) => (
             <label
@@ -232,6 +235,27 @@ export default function AMInbox() {
             </label>
           ))}
         </div>
+      </section>
+
+      {/* Body-level AI Analyst handoff */}
+      <section className="rounded-xl border bg-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Need a market read?</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Ask AI Analyst to turn this setup into a trade plan.
+          </p>
+        </div>
+        <button
+          onClick={() =>
+            navigate(
+              "/dashboard/ai?prompt=Turn%20this%20morning%27s%20AM%20setup%20into%20a%20concrete%20trade%20plan%20for%20today.",
+            )
+          }
+          className="self-start sm:self-auto inline-flex items-center gap-1 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+        >
+          Ask AI Analyst
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
       </section>
 
       {/* Market Headlines */}
