@@ -129,7 +129,9 @@ export default function PMInbox() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const isPro = hasProAccess(profile?.plan);
-  const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
+  const planLabel = isPro
+    ? "PRO ACCESS — LIVE SECTIONS + SAMPLE WORKFLOWS"
+    : "FREE ACCESS — SAMPLE WORKFLOWS";
 
   const timeGated = isBeforePMWindow();
   const [modalOpen, setModalOpen] = useState(timeGated);
