@@ -147,6 +147,9 @@ export default function AMInbox() {
           cta="View Catalyst"
           onCta={() => navigate("/dashboard/catalyst")}
         />
+        <span className="inline-flex self-start items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          Sample workflow
+        </span>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {CATALYST_PILLS.map((pill) => (
             <CatalystCard key={pill.label} pill={pill} locked={!isPro && pill.tier === "pro"} />
