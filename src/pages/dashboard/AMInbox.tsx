@@ -33,6 +33,14 @@ function priorityBadge(p?: "High" | "Medium" | "Low"): string {
   return "bg-muted text-muted-foreground";
 }
 
+function SampleChip({ label = "Sample workflow" }: { label?: string }) {
+  return (
+    <span className="inline-flex self-start items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+      {label}
+    </span>
+  );
+}
+
 function SectionHeader({
   title,
   subtitle,
@@ -109,12 +117,14 @@ export default function AMInbox() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const isPro = hasProAccess(profile?.plan);
-  const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
+  const planLabel = isPro
+    ? "PRO ACCESS — LIVE SECTIONS + SAMPLE WORKFLOWS"
+    : "FREE ACCESS — SAMPLE WORKFLOWS";
 
   const [checked, setChecked] = useState<Record<number, boolean>>({});
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{AM_INBOX_CONFIG.title}</h1>
         <p className="text-sm text-muted-foreground">{AM_INBOX_CONFIG.subtitle}</p>
@@ -145,6 +155,7 @@ export default function AMInbox() {
           cta="View Catalyst"
           onCta={() => navigate("/dashboard/catalyst")}
         />
+        <SampleChip />
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {CATALYST_PILLS.map((pill) => (
             <CatalystCard key={pill.label} pill={pill} locked={!isPro && pill.tier === "pro"} />
@@ -165,6 +176,7 @@ export default function AMInbox() {
           cta="Open Watchlist"
           onCta={() => navigate("/dashboard/watchlist")}
         />
+        <SampleChip />
         {AM_OVERNIGHT_MOVERS.length === 0 ? (
           <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
             {AM_INBOX_CONFIG.overnightMoversEmpty}
@@ -181,6 +193,7 @@ export default function AMInbox() {
       {/* Risk Flags */}
       <section className="flex flex-col gap-3">
         <SectionHeader title={AM_INBOX_CONFIG.riskFlagsHeading} />
+        <SampleChip />
         {AM_RISK_FLAGS.length === 0 ? (
           <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
             {AM_INBOX_CONFIG.riskFlagsEmpty}
@@ -200,6 +213,7 @@ export default function AMInbox() {
           title={AM_INBOX_CONFIG.checklistHeading}
           subtitle={AM_INBOX_CONFIG.checklistSubtitle}
         />
+        <SampleChip />
         <div className="rounded-xl border bg-card p-4 flex flex-col gap-2">
           {AM_OPENING_BELL_CHECKLIST.map((item, i) => (
             <label
@@ -221,6 +235,27 @@ export default function AMInbox() {
             </label>
           ))}
         </div>
+      </section>
+
+      {/* Body-level AI Analyst handoff */}
+      <section className="rounded-xl border bg-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold">Need a market read?</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Ask AI Analyst to turn this setup into a trade plan.
+          </p>
+        </div>
+        <button
+          onClick={() =>
+            navigate(
+              "/dashboard/ai?prompt=Turn%20this%20morning%27s%20AM%20setup%20into%20a%20concrete%20trade%20plan%20for%20today.",
+            )
+          }
+          className="self-start sm:self-auto inline-flex items-center gap-1 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+        >
+          Ask AI Analyst
+          <ArrowRight className="h-3.5 w-3.5" />
+        </button>
       </section>
 
       {/* Market Headlines */}
