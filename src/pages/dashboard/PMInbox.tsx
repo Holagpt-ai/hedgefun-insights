@@ -137,7 +137,7 @@ export default function PMInbox() {
   const [modalOpen, setModalOpen] = useState(timeGated);
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6">
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent>
           <DialogHeader>
@@ -162,24 +162,86 @@ export default function PMInbox() {
         {estDate()} · {planLabel}
       </div>
 
-      {timeGated ? (
+      {timeGated && isPro ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
           <div className="text-4xl mb-2">{PM_INBOX_CONFIG.lockedCardIcon}</div>
           <h3 className="text-base font-semibold">{PM_INBOX_CONFIG.lockedCardTitle}</h3>
           <p className="text-sm text-muted-foreground">{PM_INBOX_CONFIG.lockedCardBody}</p>
         </div>
-      ) : !isPro ? (
-        <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
-          <div className="text-3xl mb-2">✦</div>
-          <h3 className="text-base font-semibold">{PM_INBOX_CONFIG.aiCardGateHeading}</h3>
-          <p className="text-sm text-muted-foreground max-w-md">{PM_INBOX_CONFIG.aiCardGateBody}</p>
-          <button
-            onClick={() => navigate("/pro")}
-            className="mt-2 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
-          >
-            {PM_INBOX_CONFIG.upgradeCta}
-          </button>
-        </div>
+      ) : timeGated && !isPro ? (
+        <>
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
+            <div className="text-4xl mb-2">{PM_INBOX_CONFIG.lockedCardIcon}</div>
+            <h3 className="text-base font-semibold">{PM_INBOX_CONFIG.lockedCardTitle}</h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              {PM_INBOX_CONFIG.lockedCardBody}
+            </p>
+            <p className="text-xs text-muted-foreground mt-2 max-w-md">
+              Full PM Inbox — post-market recap, catalyst outcomes, and after-hours watch — is a Pro feature.
+            </p>
+            <button
+              onClick={() => navigate("/pro")}
+              className="mt-3 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
+            >
+              Get early access
+            </button>
+          </div>
+
+          {/* Free preview teaser for pre-window non-Pro */}
+          <section className="flex flex-col gap-3">
+            <SectionHeader
+              title="PM Inbox Preview"
+              subtitle="See how HedgeFun turns today's market action into tomorrow's trading plan."
+            />
+            <SampleChip label="Preview data" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {PM_TOMORROW_SETUP.slice(0, 4).map((item) => (
+                <StaticItemCard key={item.label} item={item} />
+              ))}
+            </div>
+          </section>
+        </>
+      ) : !timeGated && !isPro ? (
+        <>
+          <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
+            <div className="text-3xl mb-2">✦</div>
+            <h3 className="text-base font-semibold">PM Inbox Preview</h3>
+            <p className="text-sm text-muted-foreground max-w-md">
+              See how HedgeFun turns today's market action into tomorrow's trading plan. Full post-market recap,
+              catalyst outcomes, and after-hours watch are available with Pro access.
+            </p>
+            <button
+              onClick={() => navigate("/pro")}
+              className="mt-2 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
+            >
+              {PM_INBOX_CONFIG.upgradeCta}
+            </button>
+          </div>
+
+          {/* Free preview teaser section */}
+          <section className="flex flex-col gap-3">
+            <SectionHeader
+              title={PM_INBOX_CONFIG.tomorrowSetupHeading}
+              subtitle="A taste of what a full Pro PM Inbox surfaces."
+            />
+            <SampleChip label="Preview data" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {PM_TOMORROW_SETUP.slice(0, 4).map((item) => (
+                <StaticItemCard key={item.label} item={item} />
+              ))}
+            </div>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <SectionHeader title={PM_INBOX_CONFIG.afterHoursHeading} />
+            <SampleChip label="Preview data" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {PM_AFTER_HOURS_WATCH.slice(0, 3).map((item) => (
+                <StaticItemCard key={item.label} item={item} />
+              ))}
+            </div>
+          </section>
+        </>
       ) : (
         <>
           {/* Post-Market Recap */}
@@ -199,6 +261,7 @@ export default function PMInbox() {
               cta="View Catalyst"
               onCta={() => navigate("/dashboard/catalyst")}
             />
+            <SampleChip />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {PM_CATALYST_PILLS.map((pill) => (
                 <CatalystCard key={pill.label} pill={pill} locked={!isPro && pill.tier === "pro"} />
@@ -215,6 +278,7 @@ export default function PMInbox() {
           {/* Today's Key Moves */}
           <section className="flex flex-col gap-3">
             <SectionHeader title={PM_INBOX_CONFIG.keyMovesHeading} />
+            <SampleChip />
             {PM_TODAYS_KEY_MOVES.length === 0 ? (
               <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
                 {PM_INBOX_CONFIG.keyMovesEmpty}
@@ -235,6 +299,7 @@ export default function PMInbox() {
               cta="Open Watchlist"
               onCta={() => navigate("/dashboard/watchlist")}
             />
+            <SampleChip />
             {PM_TOMORROW_SETUP.length === 0 ? (
               <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
                 {PM_INBOX_CONFIG.tomorrowSetupEmpty}
@@ -251,6 +316,7 @@ export default function PMInbox() {
           {/* After-Hours Watch */}
           <section className="flex flex-col gap-3">
             <SectionHeader title={PM_INBOX_CONFIG.afterHoursHeading} />
+            <SampleChip />
             {PM_AFTER_HOURS_WATCH.length === 0 ? (
               <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
                 {PM_INBOX_CONFIG.afterHoursEmpty}
@@ -262,6 +328,23 @@ export default function PMInbox() {
                 ))}
               </div>
             )}
+          </section>
+
+          {/* Journal handoff */}
+          <section className="rounded-xl border bg-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold">Log today's trades</h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Capture what worked, what failed, and what to watch tomorrow.
+              </p>
+            </div>
+            <button
+              onClick={() => navigate("/dashboard/journal")}
+              className="self-start sm:self-auto inline-flex items-center gap-1 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+            >
+              Open Journal
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
           </section>
 
           {/* Market Headlines */}
@@ -281,6 +364,12 @@ export default function PMInbox() {
               className="text-xs text-accent-blue hover:underline transition-colors duration-200"
             >
               Discuss in AI Analyst →
+            </button>
+            <button
+              onClick={() => navigate("/dashboard/journal")}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Open Journal →
             </button>
             <button
               onClick={() => navigate("/dashboard/action-center")}
