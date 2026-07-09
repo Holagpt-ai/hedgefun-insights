@@ -109,12 +109,14 @@ export default function AMInbox() {
   const { profile } = useAuth();
   const navigate = useNavigate();
   const isPro = hasProAccess(profile?.plan);
-  const planLabel = isPro ? "PRO PLAN — LIVE DATA" : "FREE PLAN — DELAYED DATA";
+  const planLabel = isPro
+    ? "PRO ACCESS — LIVE SECTIONS + SAMPLE WORKFLOWS"
+    : "FREE ACCESS — SAMPLE WORKFLOWS";
 
   const [checked, setChecked] = useState<Record<number, boolean>>({});
 
   return (
-    <div className="flex flex-col gap-6 p-6">
+    <div className="flex flex-col gap-6 p-4 md:p-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{AM_INBOX_CONFIG.title}</h1>
         <p className="text-sm text-muted-foreground">{AM_INBOX_CONFIG.subtitle}</p>
