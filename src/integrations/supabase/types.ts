@@ -643,6 +643,32 @@ export type Database = {
           },
         ]
       }
+      game_season_invite_codes: {
+        Row: {
+          created_at: string
+          invite_code: string
+          season_id: string
+        }
+        Insert: {
+          created_at?: string
+          invite_code: string
+          season_id: string
+        }
+        Update: {
+          created_at?: string
+          invite_code?: string
+          season_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_season_invite_codes_season_id_fkey"
+            columns: ["season_id"]
+            isOneToOne: true
+            referencedRelation: "game_seasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       game_season_results: {
         Row: {
           created_at: string
@@ -698,7 +724,6 @@ export type Database = {
           created_at: string
           ends_at: string
           id: string
-          invite_code: string | null
           name: string
           prize_description: string | null
           room_type: string
@@ -710,7 +735,6 @@ export type Database = {
           created_at?: string
           ends_at: string
           id?: string
-          invite_code?: string | null
           name: string
           prize_description?: string | null
           room_type?: string
@@ -722,7 +746,6 @@ export type Database = {
           created_at?: string
           ends_at?: string
           id?: string
-          invite_code?: string | null
           name?: string
           prize_description?: string | null
           room_type?: string
