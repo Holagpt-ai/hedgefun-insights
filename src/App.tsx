@@ -96,6 +96,8 @@ import ScrollToTop from "./components/utils/ScrollToTop";
 import JournalPage from "./pages/journal/JournalPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import AuthRoutePage from "./pages/auth/AuthRoutePage";
+import OAuthConsent from "./pages/auth/OAuthConsent";
+
 import { RouteChangeTracker } from "@/components/analytics/RouteChangeTracker";
 import MethodologyPage from "./pages/static/MethodologyPage";
 import DividendsPage from "./pages/stocks/DividendsPage";
