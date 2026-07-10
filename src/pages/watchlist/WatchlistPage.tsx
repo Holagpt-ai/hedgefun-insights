@@ -1259,6 +1259,10 @@ const WatchlistPage = () => {
                 <button onClick={() => navigate("/dashboard/action-center")} className="text-[11px] font-semibold text-accent-blue hover:underline">
                   Open Action Center
                 </button>
+                <span className="text-muted-foreground">·</span>
+                <button onClick={() => navigate("/dashboard/ai")} className="text-[11px] font-semibold text-accent-blue hover:underline">
+                  Ask AI
+                </button>
               </div>
             </div>
           );
