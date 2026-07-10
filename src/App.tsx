@@ -96,6 +96,8 @@ import ScrollToTop from "./components/utils/ScrollToTop";
 import JournalPage from "./pages/journal/JournalPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import AuthRoutePage from "./pages/auth/AuthRoutePage";
+import OAuthConsent from "./pages/auth/OAuthConsent";
+
 import { RouteChangeTracker } from "@/components/analytics/RouteChangeTracker";
 import MethodologyPage from "./pages/static/MethodologyPage";
 import DividendsPage from "./pages/stocks/DividendsPage";
@@ -117,7 +119,10 @@ const App = () => (
               <RouteChangeTracker />
               <ScrollToTop />
               <Routes>
+                {/* OAuth consent route — outside PublicLayout so it renders standalone */}
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 {/* Public routes */}
+
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<Index />} />
                   <Route path="/stocks" element={<AllStocksPage />} />
