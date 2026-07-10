@@ -716,6 +716,14 @@ function WatchlistStockRow({
           <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
         </button>
         <button
+          onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
+          className="text-muted-foreground hover:text-purple-600 transition-colors p-2 rounded"
+          title="Ask AI Analyst about this ticker"
+          aria-label={`Ask AI about ${symbol}`}
+        >
+          <Sparkles className="h-4 w-4" />
+        </button>
+        <button
           onClick={() => setExpanded((v) => !v)}
           className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded"
           aria-label={expanded ? "Collapse" : "Expand"}
