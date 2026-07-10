@@ -796,7 +796,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           {limitReached && (
             <div className="mb-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-4 py-3">
               <p className="text-sm text-foreground mb-2">
-                You've reached your daily limit of 5 messages. Your messages reset tomorrow — or upgrade to PRO for unlimited access.
+                You've reached today's free AI message limit. Pro access unlocks expanded AI research limits.
               </p>
               <div className="flex gap-2">
                 <button
@@ -804,7 +804,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                   onClick={() => navigate("/pro")}
                   className="text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity"
                 >
-                  Upgrade to PRO
+                  Request Pro Access
                 </button>
                 <button
                   type="button"
