@@ -287,13 +287,19 @@ function AIMonitorBar({
         <div className="flex items-center gap-2 shrink-0">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-bold text-foreground">HF AI Monitor</span>
+          <span
+            className="inline-flex items-center rounded-full border border-border bg-muted/60 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide text-muted-foreground"
+            title="Illustrative preview workflow — not a live background scan"
+          >
+            Preview
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
           <span>Watching <strong className="text-foreground">{tickerCount}</strong> stocks</span>
           <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">Scanning <strong className="text-foreground">1,200+</strong> news sources</span>
+          <span className="hidden sm:inline">Preview: news workflow across <strong className="text-foreground">1,200+</strong> sources</span>
           <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">Monitoring <strong className="text-foreground">14</strong> earnings</span>
+          <span className="hidden sm:inline">Preview: <strong className="text-foreground">14</strong> earnings on deck</span>
           <span className="hidden sm:inline">·</span>
           <span className="hidden sm:inline"><strong className="text-foreground">{alertCount}</strong> alerts today</span>
         </div>
@@ -307,9 +313,9 @@ function AIMonitorBar({
           </span>
         )}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="text-xs text-emerald-600 font-bold tracking-wide">LIVE</span>
+          <div className="flex items-center gap-1" title="Illustrative preview workflow">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+            <span className="text-xs text-muted-foreground font-bold tracking-wide uppercase">Preview</span>
           </div>
           <span className="text-muted-foreground text-xs">{logOpen ? "▲" : "▼"} Activity Log</span>
         </div>
