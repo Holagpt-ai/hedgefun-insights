@@ -119,7 +119,10 @@ const App = () => (
               <RouteChangeTracker />
               <ScrollToTop />
               <Routes>
+                {/* OAuth consent route — outside PublicLayout so it renders standalone */}
+                <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
                 {/* Public routes */}
+
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<Index />} />
                   <Route path="/stocks" element={<AllStocksPage />} />
