@@ -3,7 +3,7 @@
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/search-stocks.ts
 import { createClient } from "npm:@supabase/supabase-js@^2.108.2";
@@ -121,11 +121,16 @@ var get_market_news_default = defineTool4({
 });
 
 // src/lib/mcp/index.ts
+var projectRef = "zcjptaolpumhtlwhlemq";
 var mcp_default = defineMcp({
   name: "hedgefun-mcp",
   title: "HedgeFun Market Data",
   version: "0.1.0",
-  instructions: "Tools for HedgeFun stock market data. Use `search_stocks` to find tickers by name or symbol, `get_stock_quote` for a single ticker's latest cached quote and fundamentals, `get_market_movers` for today's top gainers/losers/most-active/pre-market/after-hours lists, and `get_market_news` for recent market headlines. All data is cached and public; no authentication required.",
+  instructions: "Tools for HedgeFun stock market data. Use `search_stocks` to find tickers by name or symbol, `get_stock_quote` for a single ticker's latest cached quote and fundamentals, `get_market_movers` for today's top gainers/losers/most-active/pre-market/after-hours lists, and `get_market_news` for recent market headlines. All data is cached market data; sign in with your HedgeFun account to connect.",
+  auth: auth.oauth.issuer({
+    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    acceptedAudiences: "authenticated"
+  }),
   tools: [search_stocks_default, get_stock_quote_default, get_market_movers_default, get_market_news_default]
 });
 
