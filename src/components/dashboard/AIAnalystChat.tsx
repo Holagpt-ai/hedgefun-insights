@@ -84,6 +84,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const deepLinkFiredRef = useRef(false);
   const lastAttemptedPromptRef = useRef<string>("");
   const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [handoffSymbol, setHandoffSymbol] = useState<string | null>(null);
+  const handoffPromptRef = useRef<string>("");
 
   const { language } = useLanguage();
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -148,6 +150,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     setMessages([]);
     setConversationId(null);
     setHistoryOpen(false);
+    setHandoffSymbol(null);
+    handoffPromptRef.current = "";
   };
 
   useEffect(() => {
@@ -242,21 +246,21 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         const lines = gappersRes.data.map((r: any) =>
           `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} gap ${r.gap_percent?.toFixed(1) ?? "—"}% vol ${r.volume ? (r.volume / 1_000_000).toFixed(1) + "M" : "—"}`
         );
-        parts.push(`TODAY'S TOP GAPPERS (live screener data):\n${lines.join("\n")}`);
+        parts.push(`TODAY'S TOP GAPPERS (delayed screener data):\n${lines.join("\n")}`);
       }
 
       if (radarRes.data && radarRes.data.length > 0) {
         const lines = radarRes.data.map((r: any) =>
           `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} chg ${r.change_percent?.toFixed(1) ?? "—"}% RVOL ${r.rvol?.toFixed(1) ?? "—"}x vol ${r.volume ? (r.volume / 1_000_000).toFixed(1) + "M" : "—"}`
         );
-        parts.push(`DAY TRADE RADAR (live screener data):\n${lines.join("\n")}`);
+        parts.push(`DAY TRADE RADAR (delayed screener data):\n${lines.join("\n")}`);
       }
 
       if (gainersRes.data && gainersRes.data.length > 0) {
         const lines = gainersRes.data.map((r: any) =>
           `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} chg ${r.change_percent?.toFixed(1) ?? "—"}%`
         );
-        parts.push(`TOP GAINERS TODAY (live screener data):\n${lines.join("\n")}`);
+        parts.push(`TOP GAINERS TODAY (delayed screener data):\n${lines.join("\n")}`);
       }
 
       if (earningsRes.data && earningsRes.data.length > 0) {
@@ -398,6 +402,30 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   useEffect(() => {
     if (deepLinkFiredRef.current) return;
     const prompt = searchParams.get("prompt");
+    const symbolParam = searchParams.get("symbol");
+
+    if (symbolParam) {
+      const cleaned = symbolParam.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "");
+      if (cleaned) {
+        deepLinkFiredRef.current = true;
+        const synthesized = `Analyze ${cleaned} as a day-trade setup. Focus on price action, RVOL, liquidity, catalyst risk, support/resistance, and what a disciplined trader should watch before entering. This is research only, not financial advice.`;
+        setHandoffSymbol(cleaned);
+        handoffPromptRef.current = synthesized;
+        setInput(synthesized);
+        setSearchParams({}, { replace: true });
+        if (isPro) {
+          const timer = setTimeout(() => sendMessage(synthesized), 400);
+          return () => clearTimeout(timer);
+        }
+        toast({
+          title: `Ticker handoff: ${cleaned}`,
+          description: "Review and press send when you're ready.",
+        });
+        setTimeout(() => textareaRef.current?.focus(), 0);
+        return;
+      }
+    }
+
     if (!prompt) return;
     deepLinkFiredRef.current = true;
     const decoded = decodeURIComponent(prompt);
@@ -416,6 +444,18 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     });
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [isPro, searchParams, setSearchParams, sendMessage]);
+
+  // Clear handoff pill when input diverges from synthesized prompt or a message is sent
+  useEffect(() => {
+    if (!handoffSymbol) return;
+    if (messages.length > 0) {
+      setHandoffSymbol(null);
+      return;
+    }
+    if (handoffPromptRef.current && input !== handoffPromptRef.current) {
+      setHandoffSymbol(null);
+    }
+  }, [input, messages.length, handoffSymbol]);
 
   // Auto-scroll toward the bottom while the assistant streams
   useEffect(() => {
@@ -534,7 +574,20 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
 
 
       {/* Main Chat Area */}
-      <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 py-6">
+      <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 md:px-6 py-6">
+        {/* Access chip + optional handoff pill */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {isPro ? "PRO ACCESS — AI RESEARCH WORKFLOW" : "FREE ACCESS — LIMITED AI RESEARCH"}
+          </span>
+          {handoffSymbol && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-accent-blue/40 bg-accent-blue/10 text-[11px] font-medium text-accent-blue">
+              <Sparkles className="h-3 w-3" />
+              Ticker handoff: {handoffSymbol}
+            </span>
+          )}
+        </div>
+
         {/* History toggle bar */}
         <div className="flex items-center justify-between mb-3">
           <button
@@ -610,6 +663,32 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               ))}
             </div>
 
+            {/* Continue your workflow */}
+            <div className="mb-6">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Continue your workflow
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {[
+                  { label: "Back to Screeners", to: "/dashboard/screeners" },
+                  { label: "Open Watchlist", to: "/dashboard/watchlist" },
+                  { label: "View Catalyst", to: handoffSymbol ? `/dashboard/catalyst?symbol=${handoffSymbol}` : "/dashboard/catalyst" },
+                  { label: "Open Action Center", to: "/dashboard/action-center" },
+                  { label: "Log idea in Journal", to: handoffSymbol ? `/dashboard/journal?symbol=${handoffSymbol}` : "/dashboard/journal" },
+                ].map((link) => (
+                  <button
+                    key={link.to}
+                    type="button"
+                    onClick={() => navigate(link.to)}
+                    className="text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200 text-xs sm:text-sm text-foreground"
+                  >
+                    {link.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+
             {toolStatus && (
               <div className="flex justify-start mt-4">
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
@@ -670,13 +749,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                     {msg.role === "assistant" ? (
                       msg.content ? (
                         <div
-                          className="prose prose-sm max-w-none text-foreground
+                          className="prose prose-sm max-w-full overflow-x-auto text-foreground break-words
                             prose-headings:text-foreground prose-headings:font-semibold
                             prose-strong:text-foreground prose-strong:font-semibold
                             prose-p:my-1 prose-headings:my-2
                             prose-ul:my-1 prose-ol:my-1 prose-li:my-0
                             prose-hr:border-border prose-hr:my-3
                             prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
+                            prose-pre:overflow-x-auto prose-pre:max-w-full
                             prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
                         >
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
@@ -742,7 +822,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           {limitReached && (
             <div className="mb-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-4 py-3">
               <p className="text-sm text-foreground mb-2">
-                You've reached your daily limit of 5 messages. Your messages reset tomorrow — or upgrade to PRO for unlimited access.
+                You've reached today's free AI message limit. Pro access unlocks expanded AI research limits.
               </p>
               <div className="flex gap-2">
                 <button
@@ -750,7 +830,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                   onClick={() => navigate("/pro")}
                   className="text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity"
                 >
-                  Upgrade to PRO
+                  Request Pro Access
                 </button>
                 <button
                   type="button"
