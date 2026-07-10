@@ -859,6 +859,21 @@ function WatchlistStockRow({
                   )}
                 </p>
               )}
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-purple-200 bg-purple-50/60 px-2.5 py-2">
+                <Sparkles className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-bold text-foreground">Analyze with AI</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Open {symbol} in AI Analyst for a fresh research prompt.
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
+                  className="text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors rounded px-2.5 py-1"
+                >
+                  Analyze with AI →
+                </button>
+              </div>
             </div>
 
             {/* Alert History */}
