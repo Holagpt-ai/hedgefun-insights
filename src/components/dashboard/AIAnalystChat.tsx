@@ -723,13 +723,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                     {msg.role === "assistant" ? (
                       msg.content ? (
                         <div
-                          className="prose prose-sm max-w-none text-foreground
+                          className="prose prose-sm max-w-full overflow-x-auto text-foreground break-words
                             prose-headings:text-foreground prose-headings:font-semibold
                             prose-strong:text-foreground prose-strong:font-semibold
                             prose-p:my-1 prose-headings:my-2
                             prose-ul:my-1 prose-ol:my-1 prose-li:my-0
                             prose-hr:border-border prose-hr:my-3
                             prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
+                            prose-pre:overflow-x-auto prose-pre:max-w-full
                             prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
                         >
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
