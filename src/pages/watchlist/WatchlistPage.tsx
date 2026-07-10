@@ -120,7 +120,15 @@ function MiniSparkline({ positive, width = 80, height = 28 }: { positive: boolea
     : `M0,${height * 0.1} L${width * 0.2},${height * 0.3} L${width * 0.4},${height * 0.2} L${width * 0.6},${height * 0.55} L${width * 0.8},${height * 0.7} L${width},${height * 0.9}`;
   const fillPath = path + ` L${width},${height} L0,${height} Z`;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="opacity-80">
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="opacity-80"
+      role="img"
+      aria-label="Directional preview — not a real intraday chart"
+    >
+      <title>Directional preview — derived from price change direction only, not intraday OHLC data.</title>
       <defs>
         <linearGradient id={`sg-${positive}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.18" />
