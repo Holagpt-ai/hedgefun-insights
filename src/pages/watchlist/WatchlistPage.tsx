@@ -787,6 +787,13 @@ function WatchlistStockRow({
               >
                 Open Action Center
               </button>
+              <span className="text-muted-foreground text-[10px]">·</span>
+              <button
+                onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
+                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
+              >
+                Ask AI
+              </button>
             </div>
           </div>
         );
