@@ -29,6 +29,7 @@ import {
   Zap,
   Bell,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { format, parseISO, isToday, isYesterday, formatDistanceToNow } from "date-fns";
 
