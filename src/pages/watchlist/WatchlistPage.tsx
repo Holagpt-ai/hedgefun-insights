@@ -534,6 +534,12 @@ function WatchlistStockRow({
           {/* SPARKLINE + PRICE */}
           <div className="flex flex-col items-center min-w-[80px] shrink-0">
             <MiniSparkline positive={pricePos} />
+            <div
+              className="text-[8px] uppercase tracking-wide text-muted-foreground leading-none mt-0.5"
+              title="Directional preview only — not real intraday OHLC data"
+            >
+              Direction-only
+            </div>
             <div className="text-xs font-bold tabular-nums text-foreground mt-0.5">
               {price > 0 ? `$${price.toFixed(2)}` : "—"}
             </div>
