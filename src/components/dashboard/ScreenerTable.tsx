@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Plus, Check, Loader2 } from "lucide-react";
-import { ScreenerTab, ColumnFormat } from "@/config/screener-tabs.config";
+import { Plus, Check, Loader2, Newspaper, Sparkles } from "lucide-react";
+import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tabs.config";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 
 interface ScreenerTableProps {
@@ -14,7 +14,7 @@ interface ScreenerTableProps {
 }
 
 function formatCell(value: string | number, format: ColumnFormat): string {
-  if (value === null || value === undefined) return "—";
+  if (value === null || value === undefined || value === "") return "—";
   switch (format) {
     case "price":
       return `$${Number(value).toFixed(2)}`;
@@ -45,6 +45,13 @@ function percentClass(value: number): string {
   return "text-foreground";
 }
 
+function rvolBadgeClass(value: number): string {
+  if (!Number.isFinite(value)) return "text-foreground";
+  if (value >= 5) return "text-red-500 font-semibold";
+  if (value >= 3) return "text-amber-500 font-semibold";
+  return "text-foreground";
+}
+
 function formatUpdatedAgo(iso: string | null | undefined): string | null {
   if (!iso) return null;
   const then = new Date(iso).getTime();
@@ -59,6 +66,10 @@ function formatUpdatedAgo(iso: string | null | undefined): string | null {
   const days = Math.floor(hours / 24);
   if (days < 7) return `${days}d ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+function isCompanyEmpty(v: unknown): boolean {
+  return v === null || v === undefined || String(v).trim() === "";
 }
 
 export function ScreenerTable({
@@ -110,6 +121,108 @@ export function ScreenerTable({
 
   const updatedAgo = formatUpdatedAgo(lastUpdated);
 
+  const renderWatchlistButton = (sym: string) => {
+    const already = isAdded(sym);
+    const pending = pendingSymbol === sym;
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (already || pending) return;
+          addToWatchlist(sym);
+        }}
+        disabled={already || pending}
+        aria-label={already ? `${sym} is in watchlist` : `Add ${sym} to watchlist`}
+        title={already ? "In watchlist" : `Add ${sym} to watchlist`}
+        className={`inline-flex items-center justify-center h-8 w-8 rounded-md transition-colors ${
+          already
+            ? "text-green-600 cursor-default"
+            : "text-muted-foreground hover:bg-muted hover:text-foreground"
+        } disabled:opacity-70 disabled:cursor-not-allowed`}
+      >
+        {pending ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : already ? (
+          <Check className="h-4 w-4" />
+        ) : (
+          <Plus className="h-4 w-4" />
+        )}
+      </button>
+    );
+  };
+
+  const renderCatalystButton = (sym: string) => (
+    <Link
+      to={`/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`}
+      aria-label={`View catalysts for ${sym}`}
+      title={`View catalysts for ${sym}`}
+      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Newspaper className="h-4 w-4" />
+    </Link>
+  );
+
+  const renderAiButton = (sym: string) => (
+    <Link
+      to={`/dashboard/ai?symbol=${encodeURIComponent(sym)}`}
+      aria-label={`Ask AI Analyst about ${sym}`}
+      title={`Ask AI Analyst about ${sym}`}
+      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Sparkles className="h-4 w-4" />
+    </Link>
+  );
+
+  const renderCellContent = (row: any, col: ScreenerColumn, blurred: boolean) => {
+    const raw = row[col.key];
+    const sym = String(row["symbol"] ?? "").toUpperCase();
+
+    if (col.key === "symbol") {
+      return (
+        <div className="inline-flex items-center gap-1">
+          <Link
+            to={`/stocks/${raw}`}
+            className="inline-flex items-center min-h-[36px] font-semibold text-accent-blue hover:underline"
+          >
+            {formatCell(raw, col.format)}
+          </Link>
+          {hasLive && !blurred && (
+            <div className="inline-flex items-center gap-0.5">
+              {renderWatchlistButton(sym)}
+              {renderCatalystButton(sym)}
+              {renderAiButton(sym)}
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    if (col.key === "company_name") {
+      if (isCompanyEmpty(raw)) {
+        return (
+          <span className="italic text-muted-foreground">
+            {sym || "—"}
+          </span>
+        );
+      }
+      return String(raw);
+    }
+
+    if (col.format === "multiplier" && col.key === "rvol") {
+      return (
+        <span className={rvolBadgeClass(Number(raw))}>
+          {formatCell(raw, col.format)}
+        </span>
+      );
+    }
+
+    return formatCell(raw, col.format);
+  };
+
   return (
     <div className="space-y-3">
       {/* Criteria pills + data status badge */}
@@ -123,7 +236,6 @@ export function ScreenerTable({
           </span>
         ))}
 
-        {/* Status badge — wraps to its own line on narrow widths */}
         <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold uppercase tracking-wide">
           {hasLive && (
             <>
@@ -167,7 +279,6 @@ export function ScreenerTable({
         </div>
       )}
 
-      {/* Empty state */}
       {!loading && hasNothing && (
         <div className="rounded-lg border border-border bg-card p-8 text-center">
           <div className="text-sm font-semibold text-foreground">
@@ -179,9 +290,9 @@ export function ScreenerTable({
         </div>
       )}
 
-      {/* Table */}
+      {/* Desktop table (md+) */}
       {!loading && !hasNothing && (
-        <div className="relative rounded-lg border border-border overflow-hidden bg-card">
+        <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block">
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
               <thead className="bg-muted/50">
@@ -216,8 +327,6 @@ export function ScreenerTable({
                     >
                       {tab.columns.map((col) => {
                         const raw = row[col.key];
-                        const text = formatCell(raw, col.format);
-                        const isSymbol = col.key === "symbol";
                         const isPct = col.format === "percent";
                         return (
                           <td
@@ -226,58 +335,7 @@ export function ScreenerTable({
                               col.align === "right" ? "text-right" : "text-left"
                             } ${isPct ? percentClass(Number(raw)) : ""}`}
                           >
-                            {isSymbol ? (
-                              <div className="inline-flex items-center gap-1">
-                                <Link
-                                  to={`/stocks/${raw}`}
-                                  className="inline-flex items-center min-h-[36px] font-semibold text-accent-blue hover:underline"
-                                >
-                                  {text}
-                                </Link>
-                                {hasLive && !blurred && (() => {
-                                  const sym = String(raw).toUpperCase();
-                                  const already = isAdded(sym);
-                                  const pending = pendingSymbol === sym;
-                                  return (
-                                    <button
-                                      type="button"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        e.stopPropagation();
-                                        if (already || pending) return;
-                                        addToWatchlist(sym);
-                                      }}
-                                      disabled={already || pending}
-                                      aria-label={
-                                        already
-                                          ? `${sym} is in watchlist`
-                                          : `Add ${sym} to watchlist`
-                                      }
-                                      title={
-                                        already
-                                          ? "In watchlist"
-                                          : `Add ${sym} to watchlist`
-                                      }
-                                      className={`inline-flex items-center justify-center h-8 w-8 rounded-md transition-colors ${
-                                        already
-                                          ? "text-green-600 cursor-default"
-                                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                                      } disabled:opacity-70 disabled:cursor-not-allowed`}
-                                    >
-                                      {pending ? (
-                                        <Loader2 className="h-4 w-4 animate-spin" />
-                                      ) : already ? (
-                                        <Check className="h-4 w-4" />
-                                      ) : (
-                                        <Plus className="h-4 w-4" />
-                                      )}
-                                    </button>
-                                  );
-                                })()}
-                              </div>
-                            ) : (
-                              text
-                            )}
+                            {renderCellContent(row, col, blurred)}
                           </td>
                         );
                       })}
@@ -288,12 +346,11 @@ export function ScreenerTable({
             </table>
           </div>
 
-          {/* Full-table PRO gate overlay */}
           {isFullGate && (
             <div className="absolute inset-0 backdrop-blur-sm bg-background/70 flex flex-col items-center justify-center gap-2 p-6 text-center">
               <div className="text-2xl">⚡</div>
               <div className="text-sm font-semibold text-foreground">
-                {tab.label} — PRO Feature
+                {tab.label} — Pro Feature
               </div>
               <div className="text-[12px] text-muted-foreground max-w-sm">
                 {tab.description}
@@ -302,10 +359,99 @@ export function ScreenerTable({
                 onClick={() => navigate("/pro")}
                 className="mt-1 bg-accent-blue text-white text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
               >
-                Unlock PRO — $5/month
+                Unlock with Pro access
               </button>
               <p className="text-xs text-muted-foreground text-center mt-2">
-                Or unlock everything with Unlimited for just $10/month.
+                Or go Unlimited for full access.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Mobile card view (below md) */}
+      {!loading && !hasNothing && (
+        <div className="relative space-y-2 md:hidden">
+          {sortedRows.map((row, idx) => {
+            const blurred = !isPro && idx >= visibleCount;
+            const sym = String(row["symbol"] ?? "").toUpperCase();
+            const company = row["company_name"];
+            const price = row["price"];
+            const changePct = row["change_percent"] ?? row["gap_percent"];
+            const rvol = row["rvol"];
+            return (
+              <div
+                key={idx}
+                className={`rounded-lg border border-border bg-card p-3 ${
+                  blurred ? "blur-sm select-none pointer-events-none" : ""
+                }`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <Link
+                      to={`/stocks/${sym}`}
+                      className="font-semibold text-accent-blue hover:underline"
+                    >
+                      {sym}
+                    </Link>
+                    <div className="text-[12px] truncate">
+                      {isCompanyEmpty(company) ? (
+                        <span className="italic text-muted-foreground">{sym}</span>
+                      ) : (
+                        <span className="text-muted-foreground">{String(company)}</span>
+                      )}
+                    </div>
+                  </div>
+                  {hasLive && !blurred && (
+                    <div className="inline-flex items-center gap-0.5 shrink-0">
+                      {renderWatchlistButton(sym)}
+                      {renderCatalystButton(sym)}
+                      {renderAiButton(sym)}
+                    </div>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
+                  {price !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Price </span>
+                      <span className="font-medium">{formatCell(price, "price")}</span>
+                    </div>
+                  )}
+                  {changePct !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Chg </span>
+                      <span className={`font-medium ${percentClass(Number(changePct))}`}>
+                        {formatCell(changePct, "percent")}
+                      </span>
+                    </div>
+                  )}
+                  {rvol !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">RVOL </span>
+                      <span className={rvolBadgeClass(Number(rvol))}>
+                        {formatCell(rvol, "multiplier")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {isFullGate && (
+            <div className="absolute inset-0 backdrop-blur-sm bg-background/70 flex flex-col items-center justify-center gap-2 p-6 text-center rounded-lg">
+              <div className="text-2xl">⚡</div>
+              <div className="text-sm font-semibold text-foreground">
+                {tab.label} — Pro Feature
+              </div>
+              <button
+                onClick={() => navigate("/pro")}
+                className="mt-1 bg-accent-blue text-white text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
+              >
+                Unlock with Pro access
+              </button>
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Or go Unlimited for full access.
               </p>
             </div>
           )}
@@ -319,10 +465,10 @@ export function ScreenerTable({
             onClick={() => navigate("/pro")}
             className="text-[12px] font-semibold text-accent-blue hover:underline"
           >
-            Unlock all {sortedRows.length} results with PRO — $5/month →
+            Unlock all {sortedRows.length} results with Pro access →
           </button>
           <p className="text-xs text-muted-foreground text-center mt-2">
-            Or unlock everything with Unlimited for just $10/month.
+            Or go Unlimited for full access.
           </p>
         </div>
       )}
