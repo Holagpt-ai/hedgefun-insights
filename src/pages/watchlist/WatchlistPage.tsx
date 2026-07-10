@@ -29,6 +29,7 @@ import {
   Zap,
   Bell,
   Calendar,
+  Sparkles,
 } from "lucide-react";
 import { format, parseISO, isToday, isYesterday, formatDistanceToNow } from "date-fns";
 
@@ -119,7 +120,15 @@ function MiniSparkline({ positive, width = 80, height = 28 }: { positive: boolea
     : `M0,${height * 0.1} L${width * 0.2},${height * 0.3} L${width * 0.4},${height * 0.2} L${width * 0.6},${height * 0.55} L${width * 0.8},${height * 0.7} L${width},${height * 0.9}`;
   const fillPath = path + ` L${width},${height} L0,${height} Z`;
   return (
-    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="opacity-80">
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      className="opacity-80"
+      role="img"
+      aria-label="Directional preview — not a real intraday chart"
+    >
+      <title>Directional preview — derived from price change direction only, not intraday OHLC data.</title>
       <defs>
         <linearGradient id={`sg-${positive}`} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.18" />
@@ -227,14 +236,14 @@ function SignalTag({ tag }: { tag: string }) {
   );
 }
 
-// Animated AI Monitor status
+// Animated AI Monitor status — illustrative preview strings, not tied to a real background job.
 const SCAN_STATES = [
-  "Scanning news sources...",
-  "Checking SEC filings...",
-  "Analyzing price action...",
-  "Monitoring options flow...",
-  "Evaluating catalysts...",
-  "Recalculating HF Scores...",
+  "Preview: monitoring news workflow…",
+  "Preview: reviewing SEC filings workflow…",
+  "Preview: sample price-action pass…",
+  "Preview: options-flow workflow…",
+  "Preview: catalyst review cycle…",
+  "Preview: HF Score refresh cycle…",
 ];
 
 function AIMonitorBar({
@@ -278,13 +287,19 @@ function AIMonitorBar({
         <div className="flex items-center gap-2 shrink-0">
           <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
           <span className="font-bold text-foreground">HF AI Monitor</span>
+          <span
+            className="inline-flex items-center rounded-full border border-border bg-muted/60 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide text-muted-foreground"
+            title="Illustrative preview workflow — not a live background scan"
+          >
+            Preview
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
           <span>Watching <strong className="text-foreground">{tickerCount}</strong> stocks</span>
           <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">Scanning <strong className="text-foreground">1,200+</strong> news sources</span>
+          <span className="hidden sm:inline">Preview: news workflow across <strong className="text-foreground">1,200+</strong> sources</span>
           <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">Monitoring <strong className="text-foreground">14</strong> earnings</span>
+          <span className="hidden sm:inline">Preview: <strong className="text-foreground">14</strong> earnings on deck</span>
           <span className="hidden sm:inline">·</span>
           <span className="hidden sm:inline"><strong className="text-foreground">{alertCount}</strong> alerts today</span>
         </div>
@@ -298,9 +313,9 @@ function AIMonitorBar({
           </span>
         )}
         <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-            <span className="text-xs text-emerald-600 font-bold tracking-wide">LIVE</span>
+          <div className="flex items-center gap-1" title="Illustrative preview workflow">
+            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+            <span className="text-xs text-muted-foreground font-bold tracking-wide uppercase">Preview</span>
           </div>
           <span className="text-muted-foreground text-xs">{logOpen ? "▲" : "▼"} Activity Log</span>
         </div>
@@ -519,6 +534,12 @@ function WatchlistStockRow({
           {/* SPARKLINE + PRICE */}
           <div className="flex flex-col items-center min-w-[80px] shrink-0">
             <MiniSparkline positive={pricePos} />
+            <div
+              className="text-[8px] uppercase tracking-wide text-muted-foreground leading-none mt-0.5"
+              title="Directional preview only — not real intraday OHLC data"
+            >
+              Direction-only
+            </div>
             <div className="text-xs font-bold tabular-nums text-foreground mt-0.5">
               {price > 0 ? `$${price.toFixed(2)}` : "—"}
             </div>
@@ -660,6 +681,14 @@ function WatchlistStockRow({
               <RefreshCw className={cn("h-3.5 w-3.5", refreshing && "animate-spin")} />
             </button>
             <button
+              onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
+              className="text-muted-foreground hover:text-purple-600 transition-colors p-1 rounded"
+              title="Ask AI Analyst about this ticker"
+              aria-label={`Ask AI about ${symbol}`}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+            </button>
+            <button
               onClick={() => setExpanded((v) => !v)}
               className="text-muted-foreground hover:text-foreground transition-colors p-1 rounded"
             >
@@ -685,6 +714,14 @@ function WatchlistStockRow({
           aria-label="Refresh AI analysis"
         >
           <RefreshCw className={cn("h-4 w-4", refreshing && "animate-spin")} />
+        </button>
+        <button
+          onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
+          className="text-muted-foreground hover:text-purple-600 transition-colors p-2 rounded"
+          title="Ask AI Analyst about this ticker"
+          aria-label={`Ask AI about ${symbol}`}
+        >
+          <Sparkles className="h-4 w-4" />
         </button>
         <button
           onClick={() => setExpanded((v) => !v)}
@@ -749,6 +786,13 @@ function WatchlistStockRow({
                 className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
               >
                 Open Action Center
+              </button>
+              <span className="text-muted-foreground text-[10px]">·</span>
+              <button
+                onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
+                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
+              >
+                Ask AI
               </button>
             </div>
           </div>
@@ -815,6 +859,21 @@ function WatchlistStockRow({
                   )}
                 </p>
               )}
+              <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-purple-200 bg-purple-50/60 px-2.5 py-2">
+                <Sparkles className="h-3.5 w-3.5 text-purple-600 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[11px] font-bold text-foreground">Analyze with AI</div>
+                  <div className="text-[10px] text-muted-foreground">
+                    Open {symbol} in AI Analyst for a fresh research prompt.
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
+                  className="text-[11px] font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors rounded px-2.5 py-1"
+                >
+                  Analyze with AI →
+                </button>
+              </div>
             </div>
 
             {/* Alert History */}
@@ -1199,6 +1258,10 @@ const WatchlistPage = () => {
                 <span className="text-muted-foreground">·</span>
                 <button onClick={() => navigate("/dashboard/action-center")} className="text-[11px] font-semibold text-accent-blue hover:underline">
                   Open Action Center
+                </button>
+                <span className="text-muted-foreground">·</span>
+                <button onClick={() => navigate("/dashboard/ai")} className="text-[11px] font-semibold text-accent-blue hover:underline">
+                  Ask AI
                 </button>
               </div>
             </div>
