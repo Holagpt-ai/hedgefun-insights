@@ -574,7 +574,20 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
 
 
       {/* Main Chat Area */}
-      <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 py-6">
+      <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 md:px-6 py-6">
+        {/* Access chip + optional handoff pill */}
+        <div className="flex flex-wrap items-center gap-2 mb-3">
+          <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {isPro ? "PRO ACCESS — AI RESEARCH WORKFLOW" : "FREE ACCESS — LIMITED AI RESEARCH"}
+          </span>
+          {handoffSymbol && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-accent-blue/40 bg-accent-blue/10 text-[11px] font-medium text-accent-blue">
+              <Sparkles className="h-3 w-3" />
+              Ticker handoff: {handoffSymbol}
+            </span>
+          )}
+        </div>
+
         {/* History toggle bar */}
         <div className="flex items-center justify-between mb-3">
           <button
