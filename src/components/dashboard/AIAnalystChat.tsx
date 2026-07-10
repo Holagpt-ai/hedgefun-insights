@@ -84,6 +84,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const deepLinkFiredRef = useRef(false);
   const lastAttemptedPromptRef = useRef<string>("");
   const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [handoffSymbol, setHandoffSymbol] = useState<string | null>(null);
+  const handoffPromptRef = useRef<string>("");
 
   const { language } = useLanguage();
   const [voiceError, setVoiceError] = useState<string | null>(null);
