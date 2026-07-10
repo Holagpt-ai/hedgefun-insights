@@ -400,6 +400,30 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   useEffect(() => {
     if (deepLinkFiredRef.current) return;
     const prompt = searchParams.get("prompt");
+    const symbolParam = searchParams.get("symbol");
+
+    if (symbolParam) {
+      const cleaned = symbolParam.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "");
+      if (cleaned) {
+        deepLinkFiredRef.current = true;
+        const synthesized = `Analyze ${cleaned} as a day-trade setup. Focus on price action, RVOL, liquidity, catalyst risk, support/resistance, and what a disciplined trader should watch before entering. This is research only, not financial advice.`;
+        setHandoffSymbol(cleaned);
+        handoffPromptRef.current = synthesized;
+        setInput(synthesized);
+        setSearchParams({}, { replace: true });
+        if (isPro) {
+          const timer = setTimeout(() => sendMessage(synthesized), 400);
+          return () => clearTimeout(timer);
+        }
+        toast({
+          title: `Ticker handoff: ${cleaned}`,
+          description: "Review and press send when you're ready.",
+        });
+        setTimeout(() => textareaRef.current?.focus(), 0);
+        return;
+      }
+    }
+
     if (!prompt) return;
     deepLinkFiredRef.current = true;
     const decoded = decodeURIComponent(prompt);
@@ -418,6 +442,18 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     });
     setTimeout(() => textareaRef.current?.focus(), 0);
   }, [isPro, searchParams, setSearchParams, sendMessage]);
+
+  // Clear handoff pill when input diverges from synthesized prompt or a message is sent
+  useEffect(() => {
+    if (!handoffSymbol) return;
+    if (messages.length > 0) {
+      setHandoffSymbol(null);
+      return;
+    }
+    if (handoffPromptRef.current && input !== handoffPromptRef.current) {
+      setHandoffSymbol(null);
+    }
+  }, [input, messages.length, handoffSymbol]);
 
   // Auto-scroll toward the bottom while the assistant streams
   useEffect(() => {
