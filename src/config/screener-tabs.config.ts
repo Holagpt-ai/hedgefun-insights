@@ -29,7 +29,8 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "day_trade_radar",
     label: "Day Trade Radar",
     description:
-      "Small-cap momentum candidates matching the Ross Cameron / Warrior Trading criteria — low float, high relative volume, strong intraday move.",
+      "Low-float momentum names above $2 with high relative volume and strong intraday moves — a starting point for active day-trade setups.",
+
     criteria: ["Price $2–$20", "Float < 10M", "Up > 10%", "RVOL ≥ 5×"],
     featured: true,
     columns: [
