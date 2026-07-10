@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const tabs = [
   { labelKey: "home", icon: Home, route: "/" },
-  { labelKey: "watchlist", icon: Star, route: "/watchlist" },
+  { labelKey: "watchlist", icon: Star, route: "/dashboard/watchlist" },
   { labelKey: "screener", icon: SlidersHorizontal, route: "/screener" },
   { labelKey: "trending", icon: TrendingUp, route: "/trending" },
   { labelKey: "account", icon: User, route: "/account" },
