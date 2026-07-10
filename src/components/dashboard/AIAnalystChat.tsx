@@ -150,6 +150,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     setMessages([]);
     setConversationId(null);
     setHistoryOpen(false);
+    setHandoffSymbol(null);
+    handoffPromptRef.current = "";
   };
 
   useEffect(() => {
