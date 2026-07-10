@@ -663,6 +663,32 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               ))}
             </div>
 
+            {/* Continue your workflow */}
+            <div className="mb-6">
+              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+                Continue your workflow
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                {[
+                  { label: "Back to Screeners", to: "/dashboard/screeners" },
+                  { label: "Open Watchlist", to: "/dashboard/watchlist" },
+                  { label: "View Catalyst", to: handoffSymbol ? `/dashboard/catalyst?symbol=${handoffSymbol}` : "/dashboard/catalyst" },
+                  { label: "Open Action Center", to: "/dashboard/action-center" },
+                  { label: "Log idea in Journal", to: handoffSymbol ? `/dashboard/journal?symbol=${handoffSymbol}` : "/dashboard/journal" },
+                ].map((link) => (
+                  <button
+                    key={link.to}
+                    type="button"
+                    onClick={() => navigate(link.to)}
+                    className="text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200 text-xs sm:text-sm text-foreground"
+                  >
+                    {link.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+
             {toolStatus && (
               <div className="flex justify-start mt-4">
                 <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
