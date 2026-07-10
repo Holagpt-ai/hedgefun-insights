@@ -244,21 +244,21 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         const lines = gappersRes.data.map((r: any) =>
           `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} gap ${r.gap_percent?.toFixed(1) ?? "—"}% vol ${r.volume ? (r.volume / 1_000_000).toFixed(1) + "M" : "—"}`
         );
-        parts.push(`TODAY'S TOP GAPPERS (live screener data):\n${lines.join("\n")}`);
+        parts.push(`TODAY'S TOP GAPPERS (delayed screener data):\n${lines.join("\n")}`);
       }
 
       if (radarRes.data && radarRes.data.length > 0) {
         const lines = radarRes.data.map((r: any) =>
           `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} chg ${r.change_percent?.toFixed(1) ?? "—"}% RVOL ${r.rvol?.toFixed(1) ?? "—"}x vol ${r.volume ? (r.volume / 1_000_000).toFixed(1) + "M" : "—"}`
         );
-        parts.push(`DAY TRADE RADAR (live screener data):\n${lines.join("\n")}`);
+        parts.push(`DAY TRADE RADAR (delayed screener data):\n${lines.join("\n")}`);
       }
 
       if (gainersRes.data && gainersRes.data.length > 0) {
         const lines = gainersRes.data.map((r: any) =>
           `${r.symbol} (${r.company_name ?? r.symbol}): price $${r.price?.toFixed(2) ?? "—"} chg ${r.change_percent?.toFixed(1) ?? "—"}%`
         );
-        parts.push(`TOP GAINERS TODAY (live screener data):\n${lines.join("\n")}`);
+        parts.push(`TOP GAINERS TODAY (delayed screener data):\n${lines.join("\n")}`);
       }
 
       if (earningsRes.data && earningsRes.data.length > 0) {
