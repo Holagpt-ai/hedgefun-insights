@@ -236,14 +236,14 @@ function SignalTag({ tag }: { tag: string }) {
   );
 }
 
-// Animated AI Monitor status
+// Animated AI Monitor status — illustrative preview strings, not tied to a real background job.
 const SCAN_STATES = [
-  "Scanning news sources...",
-  "Checking SEC filings...",
-  "Analyzing price action...",
-  "Monitoring options flow...",
-  "Evaluating catalysts...",
-  "Recalculating HF Scores...",
+  "Preview: monitoring news workflow…",
+  "Preview: reviewing SEC filings workflow…",
+  "Preview: sample price-action pass…",
+  "Preview: options-flow workflow…",
+  "Preview: catalyst review cycle…",
+  "Preview: HF Score refresh cycle…",
 ];
 
 function AIMonitorBar({
