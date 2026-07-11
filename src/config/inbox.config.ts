@@ -155,7 +155,7 @@ export const AM_INBOX_CONFIG = {
   aiCardPlaceholderText:
     "Markets are showing resilience this morning as futures point slightly higher. The Fed's latest commentary suggests a dovish pivot may be closer than expected, with bond yields pulling back from recent highs. NVDA earnings after close are the key catalyst to watch — options pricing implies an 8.2% move. CPI data at 8:30 AM ET could be a volatility trigger.",
   aiCardTimestampLabel: "Generated at",
-  upgradeCta: "Unlock PRO — $5/month",
+  upgradeCta: "Request Pro Access",
   upgradeLink: "View all PRO features →",
   commandBriefHeading: "Pre-Market Command Brief",
   commandBriefSubtitle: "Your morning intelligence, generated fresh before every open",
