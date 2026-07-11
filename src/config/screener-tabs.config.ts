@@ -29,18 +29,18 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "day_trade_radar",
     label: "Day Trade Radar",
     description:
-      "Low-float momentum names above $2 with high relative volume and strong intraday moves — a starting point for active day-trade setups.",
+      "High-volume momentum names with strong relative volume and intraday moves. Volume-ranked — highest-volume movers appear first.",
 
     criteria: ["Price $2–$20", "Float < 10M", "Up > 10%", "RVOL ≥ 5×"],
     featured: true,
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "rvol", label: "RVOL", format: "multiplier", align: "right" },
-      { key: "float_shares", label: "Float", format: "shares", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
