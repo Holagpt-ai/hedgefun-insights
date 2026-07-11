@@ -230,7 +230,7 @@ export default function PMInbox() {
               onClick={() => navigate("/pro")}
               className="mt-3 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-5 py-2 rounded-md hover:opacity-90 transition-opacity duration-200"
             >
-              Get early access
+              Request Pro Access
             </button>
           </div>
 
