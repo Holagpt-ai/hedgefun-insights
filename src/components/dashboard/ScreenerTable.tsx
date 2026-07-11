@@ -85,8 +85,8 @@ export function ScreenerTable({
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
   const hasLive = !!liveRows && liveRows.length > 0;
-  const usingFallback = !hasLive && tab.rows.length > 0;
-  const hasNothing = !hasLive && tab.rows.length === 0;
+  // Product rule: never render tab.rows sample data in production.
+  const hasNothing = !hasLive;
 
   const handleSortClick = (key: string) => {
     setSort((prev) => {
