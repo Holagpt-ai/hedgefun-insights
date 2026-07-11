@@ -109,7 +109,23 @@ function CatalystCard({ pill, locked }: { pill: CatalystPill; locked?: boolean }
   );
 }
 
-function StaticItemCard({ item }: { item: StaticInboxItem }) {
+const TICKER_RE = /^[A-Z]{1,6}(?:[.\-][A-Z]{1,3})?$/;
+
+function StaticItemCard({
+  item,
+  enableSymbolActions = false,
+}: {
+  item: StaticInboxItem;
+  enableSymbolActions?: boolean;
+}) {
+  const navigate = useNavigate();
+  const raw = item.label.trim();
+  const symbol = raw.toUpperCase();
+  const isTicker =
+    enableSymbolActions && raw === symbol && !/\s/.test(raw) && TICKER_RE.test(symbol);
+
+  const encoded = isTicker ? encodeURIComponent(symbol) : "";
+
   return (
     <div className={`rounded-xl border bg-card p-3 flex flex-col gap-1 ${priorityBorder(item.priority)}`}>
       <div className="flex items-start justify-between gap-2">
@@ -121,6 +137,37 @@ function StaticItemCard({ item }: { item: StaticInboxItem }) {
         )}
       </div>
       <div className="text-xs text-muted-foreground">{item.detail}</div>
+      {isTicker && (
+        <div className="mt-1.5 flex items-center gap-1">
+          <button
+            type="button"
+            onClick={() => navigate(`/dashboard/ai?symbol=${encoded}`)}
+            aria-label={`Research ${symbol} in AI Analyst`}
+            title={`Research ${symbol} in AI Analyst`}
+            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors"
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/dashboard/catalyst?symbol=${encoded}`)}
+            aria-label={`Open ${symbol} in Catalyst`}
+            title={`Open ${symbol} in Catalyst`}
+            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors"
+          >
+            <Newspaper className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/dashboard/journal?symbol=${encoded}`)}
+            aria-label={`Log ${symbol} in Journal`}
+            title={`Log ${symbol} in Journal`}
+            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors"
+          >
+            <BookOpen className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }
