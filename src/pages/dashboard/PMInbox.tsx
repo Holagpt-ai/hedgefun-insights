@@ -371,7 +371,7 @@ export default function PMInbox() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {PM_AFTER_HOURS_WATCH.map((item) => (
-                  <StaticItemCard key={item.label} item={item} />
+                  <StaticItemCard key={item.label} item={item} enableSymbolActions />
                 ))}
               </div>
             )}
