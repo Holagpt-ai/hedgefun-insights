@@ -185,7 +185,7 @@ export const PM_INBOX_CONFIG = {
   aiCardGateHeading: "PM Inbox — PRO Feature",
   aiCardGateBody:
     "Upgrade to access your daily post-market AI briefing, recap, and after-hours movers. Available on PRO.",
-  upgradeCta: "Unlock PRO — $5/month",
+  upgradeCta: "Request Pro Access",
   aiCardTitle: "✦ AI Evening Brief",
   aiCardPlaceholderText:
     "In the live product, your AI-generated post-market briefing appears here after 3:00 PM ET.",
