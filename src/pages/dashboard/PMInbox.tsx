@@ -430,6 +430,12 @@ export default function PMInbox() {
             >
               Open Watchlist →
             </button>
+            <button
+              onClick={() => navigate("/dashboard/screeners")}
+              className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+            >
+              Open Screeners →
+            </button>
           </div>
         </>
       )}
