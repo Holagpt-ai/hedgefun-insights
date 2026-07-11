@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Pencil, Trash2, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Pencil, Trash2, Sparkles, Newspaper, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyJournalState from "@/components/journal/EmptyJournalState";
 import SetupTagBadge from "@/components/journal/SetupTagBadge";
+
 
 export type Trade = {
   id: string;
