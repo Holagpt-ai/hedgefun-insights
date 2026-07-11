@@ -212,6 +212,20 @@ export function ScreenerTable({
       return String(raw);
     }
 
+    if (col.key === "day_range") {
+      // TODO: replace with visual range bar when day_high + day_low are available in screener_results
+      return (
+        <span className="text-muted-foreground text-xs">Range unavailable</span>
+      );
+    }
+
+    if (col.key === "catalyst_news") {
+      // TODO: render real headline/catalyst when news_headline is available in screener_results
+      return (
+        <span className="text-muted-foreground text-xs">Catalyst feed pending</span>
+      );
+    }
+
     if (col.format === "multiplier" && col.key === "rvol") {
       return (
         <span className={rvolBadgeClass(Number(raw))}>
