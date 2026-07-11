@@ -187,10 +187,15 @@ export default function JournalPage() {
 
         <TradeDrawer
           open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
+          onClose={() => {
+            setDrawerOpen(false);
+            setPrefillSymbol("");
+          }}
           trade={editingTrade}
+          prefillSymbol={prefillSymbol}
           onSaved={() => setRefreshKey((k) => k + 1)}
         />
+
       </div>
       <JournalAIPanel
         open={aiPanelOpen}
