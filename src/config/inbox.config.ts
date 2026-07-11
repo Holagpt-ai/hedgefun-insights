@@ -83,7 +83,7 @@ export const CATALYST_PILLS: CatalystPill[] = [
 ];
 
 export const PM_CATALYST_PILLS: CatalystPill[] = [
-  { label: "After-hours movers loading", tier: "free", priority: "High", note: "Post-close price action" },
+  { label: "After-hours movers preview", tier: "free", priority: "High", note: "Post-close price action" },
   { label: "Today's market recap", tier: "free", priority: "Medium", note: "Sector winners/losers" },
   { label: "Tomorrow's economic calendar", tier: "pro", priority: "High", note: "Setup for next open" },
   { label: "Sector rotation recap", tier: "pro", priority: "Medium", note: "Flow shifts today" },
