@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -11,14 +11,33 @@ import TradeDrawer from "@/components/journal/TradeDrawer";
 import JournalAIPanel from "@/components/journal/JournalAIPanel";
 import { hasProAccess } from "@/lib/entitlement";
 
+function normalizeSymbol(raw: string | null): string {
+  if (!raw) return "";
+  return raw.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "");
+}
+
 export default function JournalPage() {
   const { user, profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingTrade, setEditingTrade] = useState<Trade | null>(null);
+  const [prefillSymbol, setPrefillSymbol] = useState<string>("");
   const [refreshKey, setRefreshKey] = useState(0);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const isPro = hasProAccess(profile?.plan);
+
+  useEffect(() => {
+    const sym = normalizeSymbol(searchParams.get("symbol"));
+    if (sym) {
+      setEditingTrade(null);
+      setPrefillSymbol(sym);
+      setDrawerOpen(true);
+      setSearchParams({}, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
 
   if (!isPro) {
     return (
