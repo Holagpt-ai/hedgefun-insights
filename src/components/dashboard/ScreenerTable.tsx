@@ -97,7 +97,7 @@ export function ScreenerTable({
   };
 
   const sortedRows = useMemo(() => {
-    const baseRows = hasLive ? (liveRows as any[]) : tab.rows;
+    const baseRows: any[] = hasLive ? (liveRows as any[]) : [];
     if (!sort) return baseRows;
     const col = tab.columns.find((c) => c.key === sort.key);
     if (!col) return baseRows;
