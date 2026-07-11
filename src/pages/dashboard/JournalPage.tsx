@@ -48,17 +48,14 @@ export default function JournalPage() {
             Stock Journal — PRO Feature
           </h2>
           <p className="text-sm text-muted-foreground max-w-md mb-6">
-            Log every trade, track P&amp;L, and learn from your performance with the HedgeFun trading journal.
+            Unlock the Stock Journal and full dashboard workflow.
           </p>
           <button
             onClick={() => navigate("/pro")}
             className="bg-accent-blue text-primary-foreground text-sm font-semibold px-6 py-2.5 rounded-lg hover:opacity-90 transition-opacity duration-200"
           >
-            Unlock PRO — $5/month
+            Request Pro Access
           </button>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Or unlock everything with Unlimited for just $10/month.
-          </p>
         </div>
       </div>
     );
@@ -66,7 +63,27 @@ export default function JournalPage() {
 
   return (
     <TooltipProvider>
-      <div className={`p-6 max-w-6xl mx-auto space-y-6 transition-all duration-300 ${aiPanelOpen ? "lg:pr-80" : ""}`}>
+      <div className={`p-4 md:p-6 max-w-6xl mx-auto space-y-6 transition-all duration-300 ${aiPanelOpen ? "lg:pr-80" : ""}`}>
+        {/* Workflow nav chips */}
+        <div className="flex items-center gap-3 text-xs">
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/screeners")}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Screeners
+          </button>
+          <span className="text-border">·</span>
+          <button
+            type="button"
+            onClick={() => navigate("/dashboard/action-center")}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
+            ← Action Center
+          </button>
+        </div>
+
+
         {/* Header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
