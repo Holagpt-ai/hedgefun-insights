@@ -333,12 +333,7 @@ export default function PMInbox() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                 {PM_TODAYS_KEY_MOVES.map((item) => (
-                  // symbol-aware actions
-                  // eslint-disable-next-line
                   <StaticItemCard key={item.label} item={item} enableSymbolActions />
-                ))}
-                {false && (
-                  <StaticItemCard key={item.label} item={item} />
                 ))}
               </div>
             )}
