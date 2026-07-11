@@ -269,12 +269,12 @@ export function ScreenerTable({
       )}
 
       {!loading && hasNothing && (
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
           <div className="text-sm font-semibold text-foreground">
-            No screener results available yet.
+            No qualifying movers yet
           </div>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Try another screener or check back later.
+            Live data updates on a scheduled feed. Check back during market hours.
           </p>
         </div>
       )}
