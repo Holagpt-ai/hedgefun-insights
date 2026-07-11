@@ -158,14 +158,15 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "unusual_volume",
     label: "Unusual Volume",
     description:
-      "Tickers showing volume significantly above their historical average — early signal of accumulation, distribution, or breaking news.",
+      "Tickers with volume significantly above historical average. Ranked by total volume.",
     criteria: ["RVOL ≥ 4×"],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "avg_volume", label: "Avg Volume", format: "volume", align: "right" },
       { key: "rvol", label: "RVOL", format: "multiplier", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
