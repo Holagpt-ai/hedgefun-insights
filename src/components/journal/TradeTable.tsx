@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { Pencil, Trash2, Sparkles } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { Pencil, Trash2, Sparkles, Newspaper, Star } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyJournalState from "@/components/journal/EmptyJournalState";
 import SetupTagBadge from "@/components/journal/SetupTagBadge";
+
 
 export type Trade = {
   id: string;
@@ -36,6 +38,8 @@ const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function TradeTable({ userId, onEdit, refreshKey, filterStatus, onAskAI }: Props) {
+  const navigate = useNavigate();
+
   const [trades, setTrades] = useState<Trade[] | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -130,9 +134,50 @@ export default function TradeTable({ userId, onEdit, refreshKey, filterStatus, o
                 className="border-b border-border hover:bg-muted/30 transition-colors"
               >
                 <td className="py-2 px-2 text-muted-foreground">{fmtDate(t.entry_date)}</td>
-                <td className="py-2 px-2 font-bold uppercase text-primary cursor-pointer">
-                  {t.symbol}
+                <td className="py-2 px-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold uppercase text-primary">{t.symbol}</span>
+                    <div className="inline-flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/ai?symbol=${encodeURIComponent(t.symbol)}`);
+                        }}
+                        title="Analyze with AI"
+                        aria-label="Analyze with AI"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-accent-blue transition-colors"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/catalyst?symbol=${encodeURIComponent(t.symbol)}`);
+                        }}
+                        title="View Catalyst"
+                        aria-label="View Catalyst"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        <Newspaper className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dashboard/watchlist`);
+                        }}
+                        title="Add to Watchlist"
+                        aria-label="Add to Watchlist"
+                        className="h-7 w-7 inline-flex items-center justify-center rounded hover:bg-muted text-muted-foreground hover:text-yellow-400 transition-colors"
+                      >
+                        <Star className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </td>
+
                 <td className="py-2 px-2">
                   <span
                     className={`text-xs font-medium px-2 py-0.5 rounded-full ${

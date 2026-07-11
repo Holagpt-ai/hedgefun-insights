@@ -17,7 +17,9 @@ type Props = {
   onClose: () => void;
   trade: Trade | null;
   onSaved: () => void;
+  prefillSymbol?: string;
 };
+
 
 const SETUP_OPTIONS = [
   { value: "", label: "Select setup (optional)" },
@@ -30,7 +32,7 @@ const SETUP_OPTIONS = [
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-export default function TradeDrawer({ open, onClose, trade, onSaved }: Props) {
+export default function TradeDrawer({ open, onClose, trade, onSaved, prefillSymbol }: Props) {
   const { user } = useAuth();
   const isEdit = !!trade;
 
@@ -64,7 +66,8 @@ export default function TradeDrawer({ open, onClose, trade, onSaved }: Props) {
       setSetupTag(trade.setup_tag ?? "");
       setNotes("");
     } else {
-      setSymbol("");
+      setSymbol(prefillSymbol ? prefillSymbol.toUpperCase() : "");
+
       setSide("long");
       setQty("");
       setEntryPrice("");
@@ -76,7 +79,7 @@ export default function TradeDrawer({ open, onClose, trade, onSaved }: Props) {
       setSetupTag("");
       setNotes("");
     }
-  }, [open, trade]);
+  }, [open, trade, prefillSymbol]);
 
   const handleSave = async () => {
     setError(null);
