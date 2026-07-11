@@ -130,7 +130,7 @@ export const PM_TOMORROW_SETUP: StaticInboxItem[] = [
 ];
 
 export const PM_AFTER_HOURS_WATCH: StaticInboxItem[] = [
-  { label: "META", detail: "Guidance call at 5:00 PM", priority: "High", badge: "Live" },
+  { label: "META", detail: "Guidance call at 5:00 PM", priority: "High", badge: "Watch" },
   { label: "AMZN", detail: "AWS revenue watch", priority: "Medium", badge: "Earnings" },
   { label: "SNAP", detail: "Ad market read-through", priority: "Low", badge: "Watch" },
 ];
