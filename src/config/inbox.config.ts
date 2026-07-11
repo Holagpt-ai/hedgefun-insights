@@ -83,7 +83,7 @@ export const CATALYST_PILLS: CatalystPill[] = [
 ];
 
 export const PM_CATALYST_PILLS: CatalystPill[] = [
-  { label: "After-hours movers loading", tier: "free", priority: "High", note: "Post-close price action" },
+  { label: "After-hours movers preview", tier: "free", priority: "High", note: "Post-close price action" },
   { label: "Today's market recap", tier: "free", priority: "Medium", note: "Sector winners/losers" },
   { label: "Tomorrow's economic calendar", tier: "pro", priority: "High", note: "Setup for next open" },
   { label: "Sector rotation recap", tier: "pro", priority: "Medium", note: "Flow shifts today" },
@@ -130,7 +130,7 @@ export const PM_TOMORROW_SETUP: StaticInboxItem[] = [
 ];
 
 export const PM_AFTER_HOURS_WATCH: StaticInboxItem[] = [
-  { label: "META", detail: "Guidance call at 5:00 PM", priority: "High", badge: "Live" },
+  { label: "META", detail: "Guidance call at 5:00 PM", priority: "High", badge: "Watch" },
   { label: "AMZN", detail: "AWS revenue watch", priority: "Medium", badge: "Earnings" },
   { label: "SNAP", detail: "Ad market read-through", priority: "Low", badge: "Watch" },
 ];
@@ -155,7 +155,7 @@ export const AM_INBOX_CONFIG = {
   aiCardPlaceholderText:
     "Markets are showing resilience this morning as futures point slightly higher. The Fed's latest commentary suggests a dovish pivot may be closer than expected, with bond yields pulling back from recent highs. NVDA earnings after close are the key catalyst to watch — options pricing implies an 8.2% move. CPI data at 8:30 AM ET could be a volatility trigger.",
   aiCardTimestampLabel: "Generated at",
-  upgradeCta: "Unlock PRO — $5/month",
+  upgradeCta: "Request Pro Access",
   upgradeLink: "View all PRO features →",
   commandBriefHeading: "Pre-Market Command Brief",
   commandBriefSubtitle: "Your morning intelligence, generated fresh before every open",
@@ -185,15 +185,15 @@ export const PM_INBOX_CONFIG = {
   aiCardGateHeading: "PM Inbox — PRO Feature",
   aiCardGateBody:
     "Upgrade to access your daily post-market AI briefing, recap, and after-hours movers. Available on PRO.",
-  upgradeCta: "Unlock PRO — $5/month",
+  upgradeCta: "Request Pro Access",
   aiCardTitle: "✦ AI Evening Brief",
   aiCardPlaceholderText:
     "In the live product, your AI-generated post-market briefing appears here after 3:00 PM ET.",
   aiCardTimestampLabel: "Generated at",
   recapHeading: "Post-Market Recap",
-  recapSubtitle: "Today's session distilled — generated after the close",
+  recapSubtitle: "End-of-day review and planning",
   catalystOutcomesHeading: "Catalyst Outcomes · Preview Signals",
-  catalystOutcomesSubtitle: "Static preview — full live catalyst feed in Catalyst module",
+  catalystOutcomesSubtitle: "Static preview — continue the workflow in the Catalyst module",
   earningsHeading: "After-Close Earnings",
   keyMovesHeading: "Today's Key Moves",
   keyMovesEmpty: "No standout moves today.",
