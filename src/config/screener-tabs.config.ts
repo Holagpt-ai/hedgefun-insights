@@ -56,14 +56,15 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "gappers",
     label: "Gappers",
     description:
-      "Stocks with the largest gap between previous close and current price at the open — common starting point for momentum and reversal setups.",
+      "Stocks gapping from previous close on above-average volume. Volume-ranked.",
     criteria: ["Gap > 5%"],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
       { key: "gap_percent", label: "Gap %", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
