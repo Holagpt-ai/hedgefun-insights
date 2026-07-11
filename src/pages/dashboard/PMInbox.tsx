@@ -177,7 +177,7 @@ export default function PMInbox() {
   const navigate = useNavigate();
   const isPro = hasProAccess(profile?.plan);
   const planLabel = isPro
-    ? "PRO ACCESS — LIVE SECTIONS + SAMPLE WORKFLOWS"
+    ? "PRO ACCESS — MARKET BRIEF + SAMPLE WORKFLOWS"
     : "FREE ACCESS — SAMPLE WORKFLOWS";
 
   const timeGated = isBeforePMWindow();
