@@ -80,15 +80,16 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "volume_spikes",
     label: "Volume Spikes",
     description:
-      "Tickers trading at multiples of their average daily volume — often signals a catalyst, news event, or unusual institutional activity.",
+      "Tickers trading at multiples of average daily volume. Ranked by total volume first, then RVOL.",
     criteria: ["RVOL ≥ 3×"],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "avg_volume", label: "Avg Volume", format: "volume", align: "right" },
       { key: "rvol", label: "RVOL", format: "multiplier", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
