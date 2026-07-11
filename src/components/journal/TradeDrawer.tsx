@@ -32,7 +32,7 @@ const SETUP_OPTIONS = [
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
-export default function TradeDrawer({ open, onClose, trade, onSaved }: Props) {
+export default function TradeDrawer({ open, onClose, trade, onSaved, prefillSymbol }: Props) {
   const { user } = useAuth();
   const isEdit = !!trade;
 
