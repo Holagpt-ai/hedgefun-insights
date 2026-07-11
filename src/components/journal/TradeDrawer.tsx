@@ -79,7 +79,7 @@ export default function TradeDrawer({ open, onClose, trade, onSaved, prefillSymb
       setSetupTag("");
       setNotes("");
     }
-  }, [open, trade]);
+  }, [open, trade, prefillSymbol]);
 
   const handleSave = async () => {
     setError(null);
