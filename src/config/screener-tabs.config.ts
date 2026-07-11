@@ -105,15 +105,16 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "gainers_losers",
     label: "Gainers / Losers",
     description:
-      "The day's biggest movers across the market — top gainers and decliners by percentage change.",
+      "Top movers by price change on the session. Volume-weighted — low-volume moves rank lower.",
     criteria: [],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "market_cap", label: "Market Cap", format: "shares", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
