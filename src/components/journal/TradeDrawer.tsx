@@ -17,7 +17,9 @@ type Props = {
   onClose: () => void;
   trade: Trade | null;
   onSaved: () => void;
+  prefillSymbol?: string;
 };
+
 
 const SETUP_OPTIONS = [
   { value: "", label: "Select setup (optional)" },
