@@ -12,6 +12,8 @@ export interface ScreenerRow {
   float_shares: number | null;
   gap_percent: number | null;
   market_cap: number | null;
+  high_52w: number | null;
+  low_52w: number | null;
   updated_at: string;
 }
 
