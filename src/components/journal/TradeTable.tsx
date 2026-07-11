@@ -38,6 +38,8 @@ const fmtMoney = (n: number) =>
   `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 export default function TradeTable({ userId, onEdit, refreshKey, filterStatus, onAskAI }: Props) {
+  const navigate = useNavigate();
+
   const [trades, setTrades] = useState<Trade[] | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
