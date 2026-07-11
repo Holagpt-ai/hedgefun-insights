@@ -85,8 +85,8 @@ export function ScreenerTable({
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
   const hasLive = !!liveRows && liveRows.length > 0;
-  const usingFallback = !hasLive && tab.rows.length > 0;
-  const hasNothing = !hasLive && tab.rows.length === 0;
+  // Product rule: never render tab.rows sample data in production.
+  const hasNothing = !hasLive;
 
   const handleSortClick = (key: string) => {
     setSort((prev) => {
@@ -97,7 +97,7 @@ export function ScreenerTable({
   };
 
   const sortedRows = useMemo(() => {
-    const baseRows = hasLive ? (liveRows as any[]) : tab.rows;
+    const baseRows: any[] = hasLive ? (liveRows as any[]) : [];
     if (!sort) return baseRows;
     const col = tab.columns.find((c) => c.key === sort.key);
     if (!col) return baseRows;
@@ -212,6 +212,20 @@ export function ScreenerTable({
       return String(raw);
     }
 
+    if (col.key === "day_range") {
+      // TODO: replace with visual range bar when day_high + day_low are available in screener_results
+      return (
+        <span className="text-muted-foreground text-xs">Range unavailable</span>
+      );
+    }
+
+    if (col.key === "catalyst_news") {
+      // TODO: render real headline/catalyst when news_headline is available in screener_results
+      return (
+        <span className="text-muted-foreground text-xs">Catalyst feed pending</span>
+      );
+    }
+
     if (col.format === "multiplier" && col.key === "rvol") {
       return (
         <span className={rvolBadgeClass(Number(raw))}>
@@ -250,24 +264,13 @@ export function ScreenerTable({
               )}
             </>
           )}
-          {usingFallback && (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-              Sample data
-            </span>
-          )}
+          {/* Sample data chip intentionally removed — no fake rows are ever rendered. */}
         </div>
       </div>
 
-      {usingFallback && (
-        <p className="text-[12px] text-muted-foreground">
-          Live rows are not available for this screener yet — showing preview data.
-        </p>
-      )}
-
       {error && (
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
-          Unable to load live screener data. Showing preview rows if available.
+          Unable to load live screener data.
         </div>
       )}
 
@@ -280,12 +283,12 @@ export function ScreenerTable({
       )}
 
       {!loading && hasNothing && (
-        <div className="rounded-lg border border-border bg-card p-8 text-center">
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
           <div className="text-sm font-semibold text-foreground">
-            No screener results available yet.
+            No qualifying movers yet
           </div>
           <p className="mt-1 text-[13px] text-muted-foreground">
-            Try another screener or check back later.
+            Live data updates on a scheduled feed. Check back during market hours.
           </p>
         </div>
       )}

@@ -29,18 +29,18 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "day_trade_radar",
     label: "Day Trade Radar",
     description:
-      "Low-float momentum names above $2 with high relative volume and strong intraday moves — a starting point for active day-trade setups.",
+      "High-volume momentum names with strong relative volume and intraday moves. Volume-ranked — highest-volume movers appear first.",
 
     criteria: ["Price $2–$20", "Float < 10M", "Up > 10%", "RVOL ≥ 5×"],
     featured: true,
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "rvol", label: "RVOL", format: "multiplier", align: "right" },
-      { key: "float_shares", label: "Float", format: "shares", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
@@ -56,14 +56,15 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "gappers",
     label: "Gappers",
     description:
-      "Stocks with the largest gap between previous close and current price at the open — common starting point for momentum and reversal setups.",
+      "Stocks gapping from previous close on above-average volume. Volume-ranked.",
     criteria: ["Gap > 5%"],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
       { key: "gap_percent", label: "Gap %", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
@@ -79,15 +80,16 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "volume_spikes",
     label: "Volume Spikes",
     description:
-      "Tickers trading at multiples of their average daily volume — often signals a catalyst, news event, or unusual institutional activity.",
+      "Tickers trading at multiples of average daily volume. Ranked by total volume first, then RVOL.",
     criteria: ["RVOL ≥ 3×"],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "avg_volume", label: "Avg Volume", format: "volume", align: "right" },
       { key: "rvol", label: "RVOL", format: "multiplier", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
@@ -103,15 +105,16 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "gainers_losers",
     label: "Gainers / Losers",
     description:
-      "The day's biggest movers across the market — top gainers and decliners by percentage change.",
+      "Top movers by price change on the session. Volume-weighted — low-volume moves rank lower.",
     criteria: [],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "market_cap", label: "Market Cap", format: "shares", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
@@ -129,15 +132,17 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "new_highs_lows",
     label: "New Highs / Lows",
     description:
-      "Stocks trading at or near their 52-week high or low — useful for breakout, breakdown, and trend-continuation setups.",
+      "Stocks hitting 52-week highs or lows with confirming volume.",
     criteria: [],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "high_52w", label: "52W High", format: "price", align: "right" },
       { key: "low_52w", label: "52W Low", format: "price", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "volume", label: "Volume", format: "volume", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
@@ -153,14 +158,15 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "unusual_volume",
     label: "Unusual Volume",
     description:
-      "Tickers showing volume significantly above their historical average — early signal of accumulation, distribution, or breaking news.",
+      "Tickers with volume significantly above historical average. Ranked by total volume.",
     criteria: ["RVOL ≥ 4×"],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "avg_volume", label: "Avg Volume", format: "volume", align: "right" },
       { key: "rvol", label: "RVOL", format: "multiplier", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [

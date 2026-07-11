@@ -12,6 +12,8 @@ export interface ScreenerRow {
   float_shares: number | null;
   gap_percent: number | null;
   market_cap: number | null;
+  high_52w: number | null;
+  low_52w: number | null;
   updated_at: string;
 }
 
@@ -30,10 +32,10 @@ export function useScreenerData(tabId: string) {
     supabase
       .from("screener_results")
       .select(
-        "symbol,company_name,price,change_percent,volume,avg_volume,rvol,float_shares,gap_percent,market_cap,updated_at"
+        "symbol,company_name,price,change_percent,volume,avg_volume,rvol,float_shares,gap_percent,market_cap,high_52w,low_52w,updated_at"
       )
       .eq("tab_id", tabId)
-      .order("rvol", { ascending: false })
+      .order("volume", { ascending: false })
       .limit(50)
       .then(({ data, error: qErr }) => {
         if (cancelled) return;
