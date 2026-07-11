@@ -132,15 +132,17 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "new_highs_lows",
     label: "New Highs / Lows",
     description:
-      "Stocks trading at or near their 52-week high or low — useful for breakout, breakdown, and trend-continuation setups.",
+      "Stocks hitting 52-week highs or lows with confirming volume.",
     criteria: [],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "company_name", label: "Company", format: "text", align: "left" },
-      { key: "price", label: "Price", format: "price", align: "right" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "high_52w", label: "52W High", format: "price", align: "right" },
       { key: "low_52w", label: "52W Low", format: "price", align: "right" },
-      { key: "change_percent", label: "% Change", format: "percent", align: "right" },
+      { key: "volume", label: "Volume", format: "volume", align: "right" },
+      { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
     rows: [
