@@ -66,7 +66,8 @@ export default function TradeDrawer({ open, onClose, trade, onSaved, prefillSymb
       setSetupTag(trade.setup_tag ?? "");
       setNotes("");
     } else {
-      setSymbol("");
+      setSymbol(prefillSymbol ? prefillSymbol.toUpperCase() : "");
+
       setSide("long");
       setQty("");
       setEntryPrice("");
