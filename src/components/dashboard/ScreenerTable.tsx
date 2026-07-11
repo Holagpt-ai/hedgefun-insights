@@ -250,24 +250,13 @@ export function ScreenerTable({
               )}
             </>
           )}
-          {usingFallback && (
-            <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-1 text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-              Sample data
-            </span>
-          )}
+          {/* Sample data chip intentionally removed — no fake rows are ever rendered. */}
         </div>
       </div>
 
-      {usingFallback && (
-        <p className="text-[12px] text-muted-foreground">
-          Live rows are not available for this screener yet — showing preview data.
-        </p>
-      )}
-
       {error && (
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
-          Unable to load live screener data. Showing preview rows if available.
+          Unable to load live screener data.
         </div>
       )}
 
