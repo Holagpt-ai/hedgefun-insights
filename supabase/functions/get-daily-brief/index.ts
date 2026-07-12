@@ -15,7 +15,7 @@ const jsonHeaders = {
 
 const PRO_PLANS = new Set(["pro", "unlimited", "admin"]);
 const PM_RELEASE_MIN = 975; // 16*60 + 15 = 4:15 PM ET
-const MAX_WEEKEND_AGE_DAYS = 4;
+
 
 type BriefType = "am" | "pm";
 
@@ -59,14 +59,6 @@ function isWeekend(weekday: string): boolean {
   return weekday === "Sat" || weekday === "Sun";
 }
 
-function daysBetweenIsoDates(a: string, b: string): number {
-  // a and b are YYYY-MM-DD ET calendar dates; compute integer day delta a-b.
-  const [ay, am, ad] = a.split("-").map((x) => parseInt(x, 10));
-  const [by, bm, bd] = b.split("-").map((x) => parseInt(x, 10));
-  const au = Date.UTC(ay, am - 1, ad);
-  const bu = Date.UTC(by, bm - 1, bd);
-  return Math.round((au - bu) / 86400000);
-}
 
 function isValidIsoDate(s: unknown): s is string {
   return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
@@ -191,43 +183,42 @@ serve(async (req) => {
 
     // PM branch
     if (isWeekend(et.weekday)) {
-      // Weekend: newest PM strictly before today, within 4 calendar days.
-      const { data: rows } = await admin
+      // Weekend V1: require the immediately preceding Friday's PM brief.
+      // Saturday -> minus 1 calendar day; Sunday -> minus 2 calendar days.
+      // If Friday was a market holiday, delivery fails closed.
+      // Holiday-aware fallback is deferred until an authoritative trading
+      // calendar is implemented; no older reports are considered.
+      const offset = et.weekday === "Sat" ? 1 : 2;
+      const [ey, em, ed] = et.date.split("-").map((x) => parseInt(x, 10));
+      const friUtc = new Date(Date.UTC(ey, em - 1, ed - offset));
+      const fy = friUtc.getUTCFullYear();
+      const fm = String(friUtc.getUTCMonth() + 1).padStart(2, "0");
+      const fd = String(friUtc.getUTCDate()).padStart(2, "0");
+      const expectedFriday = `${fy}-${fm}-${fd}`;
+
+      const { data: row } = await admin
         .from("daily_briefs")
         .select("id, brief_type, brief_date, content, generated_at, market_snapshot")
         .eq("brief_type", "pm")
-        .lt("brief_date", et.date)
-        .order("brief_date", { ascending: false })
-        .limit(5);
-
-      const candidates = (rows ?? []) as BriefRow[];
-      if (candidates.length === 0) return unavailable("pm", "brief_not_ready");
-
-      for (const row of candidates) {
-        const age = daysBetweenIsoDates(et.date, row.brief_date);
-        if (!Number.isFinite(age) || age <= 0) continue;
-        if (age > MAX_WEEKEND_AGE_DAYS) {
-          return unavailable("pm", "previous_report_too_old");
-        }
-        const v = validateProvenance(row, "pm");
-        if (!v.ok) {
-          return unavailable("pm", "invalid_brief_provenance");
-        }
-        return json(
-          {
-            available: true,
-            brief_type: "pm",
-            brief_date: row.brief_date,
-            generated_at: row.generated_at,
-            content: row.content,
-            previous_trading_day: true,
-            source_checked_at: v.sourceCheckedAt,
-          },
-          200,
-        );
-      }
-      return unavailable("pm", "previous_report_too_old");
+        .eq("brief_date", expectedFriday)
+        .maybeSingle();
+      if (!row) return unavailable("pm", "previous_report_unavailable");
+      const v = validateProvenance(row as BriefRow, "pm");
+      if (!v.ok) return unavailable("pm", "invalid_brief_provenance");
+      return json(
+        {
+          available: true,
+          brief_type: "pm",
+          brief_date: row.brief_date,
+          generated_at: row.generated_at,
+          content: row.content,
+          previous_trading_day: true,
+          source_checked_at: v.sourceCheckedAt,
+        },
+        200,
+      );
     }
+
 
     // Weekday PM
     if (et.minutes < PM_RELEASE_MIN) {
