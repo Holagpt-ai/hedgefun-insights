@@ -1,0 +1,1 @@
+SELECT cron.unschedule('brief-weekend-verify-once');
