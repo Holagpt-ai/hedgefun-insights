@@ -59,14 +59,6 @@ function isWeekend(weekday: string): boolean {
   return weekday === "Sat" || weekday === "Sun";
 }
 
-function daysBetweenIsoDates(a: string, b: string): number {
-  // a and b are YYYY-MM-DD ET calendar dates; compute integer day delta a-b.
-  const [ay, am, ad] = a.split("-").map((x) => parseInt(x, 10));
-  const [by, bm, bd] = b.split("-").map((x) => parseInt(x, 10));
-  const au = Date.UTC(ay, am - 1, ad);
-  const bu = Date.UTC(by, bm - 1, bd);
-  return Math.round((au - bu) / 86400000);
-}
 
 function isValidIsoDate(s: unknown): s is string {
   return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
