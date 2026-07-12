@@ -1,0 +1,1 @@
+SELECT name FROM vault.secrets ORDER BY name;
