@@ -15,7 +15,7 @@ const jsonHeaders = {
 
 const PRO_PLANS = new Set(["pro", "unlimited", "admin"]);
 const PM_RELEASE_MIN = 975; // 16*60 + 15 = 4:15 PM ET
-const MAX_WEEKEND_AGE_DAYS = 4;
+
 
 type BriefType = "am" | "pm";
 
