@@ -421,7 +421,7 @@ serve(async (req) => {
         generated_at: inserted.generated_at,
         content: inserted.content,
         cached: false,
-        source_checked_at: marketSnapshot.source_checked_at,
+        source_checked_at: marketSnapshot.source_checked_at as string,
       },
       200,
     );
