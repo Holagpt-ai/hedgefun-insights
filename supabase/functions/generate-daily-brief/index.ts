@@ -348,11 +348,24 @@ serve(async (req) => {
     }
 
     // 8. Provenance
-    const marketSnapshot = {
+    const marketSnapshot: Record<string, unknown> = {
       symbols: symbolsSnap,
       source: "market_indexes",
       source_checked_at: sourceCheckedAt.toISOString(),
     };
+    if (validatedSchedule) {
+      // Confirm schedule date corresponds to generator ET date.
+      const closeEtDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(validatedSchedule.official_close_at));
+      if (closeEtDate !== etDate) {
+        return json({ error: "Invalid marketSchedule" }, 400);
+      }
+      marketSnapshot.market_schedule = validatedSchedule;
+    }
 
     // 7. Concurrency-safe insert; on unique conflict, read the canonical row.
     const generatedAt = new Date().toISOString();
