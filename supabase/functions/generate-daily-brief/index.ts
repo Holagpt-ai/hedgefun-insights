@@ -117,7 +117,7 @@ serve(async (req) => {
       return json({ error: "Unauthorized" }, 401);
     }
 
-    let payload: { briefType?: string } = {};
+    let payload: { briefType?: string; marketSchedule?: unknown } = {};
     try {
       payload = await req.json();
     } catch {
@@ -126,6 +126,54 @@ serve(async (req) => {
     const briefType = payload.briefType as BriefType | undefined;
     if (!briefType || (briefType !== "am" && briefType !== "pm")) {
       return json({ error: "Invalid briefType" }, 400);
+    }
+
+    // Optional marketSchedule metadata (from dispatcher). Validate strictly if supplied.
+    let validatedSchedule:
+      | {
+          status: "normal" | "early-close";
+          official_close_at: string;
+          release_at: string;
+          source: "polygon_marketstatus";
+          calendar_checked_at: string;
+        }
+      | null = null;
+    if (payload.marketSchedule !== undefined && payload.marketSchedule !== null) {
+      const ms = payload.marketSchedule;
+      if (!ms || typeof ms !== "object" || Array.isArray(ms)) {
+        return json({ error: "Invalid marketSchedule" }, 400);
+      }
+      const s = ms as Record<string, unknown>;
+      const status = s.status;
+      const closeAt = s.official_close_at;
+      const releaseAt = s.release_at;
+      const src = s.source;
+      const cca = s.calendar_checked_at;
+      if (status !== "normal" && status !== "early-close") {
+        return json({ error: "Invalid marketSchedule" }, 400);
+      }
+      if (src !== "polygon_marketstatus") {
+        return json({ error: "Invalid marketSchedule" }, 400);
+      }
+      if (typeof closeAt !== "string" || typeof releaseAt !== "string" || typeof cca !== "string") {
+        return json({ error: "Invalid marketSchedule" }, 400);
+      }
+      const closeMs = Date.parse(closeAt);
+      const releaseMs = Date.parse(releaseAt);
+      const ccaMs = Date.parse(cca);
+      if (!Number.isFinite(closeMs) || !Number.isFinite(releaseMs) || !Number.isFinite(ccaMs)) {
+        return json({ error: "Invalid marketSchedule" }, 400);
+      }
+      if (releaseMs - closeMs !== 15 * 60 * 1000) {
+        return json({ error: "Invalid marketSchedule" }, 400);
+      }
+      validatedSchedule = {
+        status,
+        official_close_at: new Date(closeMs).toISOString(),
+        release_at: new Date(releaseMs).toISOString(),
+        source: "polygon_marketstatus",
+        calendar_checked_at: new Date(ccaMs).toISOString(),
+      };
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
