@@ -209,6 +209,17 @@ export default function PMInbox() {
         {estDate()} · {planLabel}
       </div>
 
+      {/* Post-Market Recap — always rendered; backend states govern display */}
+      <section className="flex flex-col gap-3">
+        <SectionHeader
+          title={PM_INBOX_CONFIG.recapHeading}
+          subtitle={PM_INBOX_CONFIG.recapSubtitle}
+        />
+        <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
+      </section>
+
+
+
       {timeGated && isPro ? (
         <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
           <div className="text-4xl mb-2">{PM_INBOX_CONFIG.lockedCardIcon}</div>
@@ -291,16 +302,8 @@ export default function PMInbox() {
         </>
       ) : (
         <>
-          {/* Post-Market Recap */}
-          <section className="flex flex-col gap-3">
-            <SectionHeader
-              title={PM_INBOX_CONFIG.recapHeading}
-              subtitle={PM_INBOX_CONFIG.recapSubtitle}
-            />
-            <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
-          </section>
-
           {/* Catalyst Outcomes */}
+
           <section className="flex flex-col gap-3">
             <SectionHeader
               title={PM_INBOX_CONFIG.catalystOutcomesHeading}
