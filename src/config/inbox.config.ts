@@ -174,22 +174,24 @@ export const AM_INBOX_CONFIG = {
 
 export const PM_INBOX_CONFIG = {
   title: "PM Inbox",
-  subtitle: "Post-market briefing — available after 3:00 PM ET",
+  subtitle: "AI briefing and post-market workflow",
   gateModalIcon: "🌙",
-  gateModalTitle: "Post-Market Report",
+  gateModalTitle: "PM Workspace",
   gateModalBody:
-    "The PM Inbox is available after 3:00 PM ET. We'll notify you when your post-market briefing is ready.",
+    "Additional PM workspace sections become available at 3:00 PM ET. AI Brief availability follows the official market schedule.",
   gateModalCta: "Got it",
   lockedCardIcon: "🌙",
-  lockedCardTitle: "Available after 3:00 PM ET",
-  lockedCardBody: "Your post-market briefing will be ready after markets close.",
+  lockedCardTitle: "Additional workspace available at 3:00 PM ET",
+  lockedCardBody:
+    "Recap tools, catalyst outcomes, and after-hours watch become available at 3:00 PM ET. The AI Brief follows the official market schedule.",
   aiCardGateHeading: "PM Inbox — PRO Feature",
   aiCardGateBody:
     "Upgrade to access your daily post-market AI briefing, recap, and after-hours movers. Available on PRO.",
   upgradeCta: "Request Pro Access",
   aiCardTitle: "✦ AI Evening Brief",
   aiCardPlaceholderText:
-    "In the live product, your AI-generated post-market briefing appears here after 3:00 PM ET.",
+    "Your post-market brief will appear here when available.",
+
   aiCardTimestampLabel: "Generated at",
   recapHeading: "Post-Market Recap",
   recapSubtitle: "End-of-day review and planning",
