@@ -105,17 +105,26 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       }
       if (resp.status === 200) {
         if (body?.available === true) {
-          setState({
-            kind: "available",
-            content: typeof body.content === "string" ? body.content : "",
-            generatedAtEt: body.generated_at ? formatEt(body.generated_at) : "",
-            previousTradingDay: body.previous_trading_day === true,
-            briefDateDisplay: formatBriefDate(body.brief_date),
-          });
+          const validType = body.brief_type === briefType;
+          const validContent = typeof body.content === "string" && body.content.trim().length > 0;
+          const validGen = typeof body.generated_at === "string" && Number.isFinite(Date.parse(body.generated_at));
+          const validDate = typeof body.brief_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.brief_date);
+          const validPtd = typeof body.previous_trading_day === "boolean";
+          if (validType && validContent && validGen && validDate && validPtd) {
+            setState({
+              kind: "available",
+              content: body.content,
+              generatedAtEt: formatEt(body.generated_at),
+              previousTradingDay: body.previous_trading_day,
+              briefDateDisplay: formatBriefDate(body.brief_date),
+            });
+            return;
+          }
+          setState({ kind: "error", message: "Couldn't load the brief.", refreshable: true });
           return;
         }
-        const code: string = typeof body?.code === "string" ? body.code : "";
-        switch (code) {
+        const reason: string = typeof body?.reason === "string" ? body.reason : "";
+        switch (reason) {
           case "brief_not_ready":
             setState({ kind: "notice", message: "No brief is available yet.", refreshable: true });
             return;
@@ -211,7 +220,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               </div>
             )}
             <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">
-              {state.content || config.aiCardPlaceholderText}
+              {state.content}
             </p>
           </div>
         );
