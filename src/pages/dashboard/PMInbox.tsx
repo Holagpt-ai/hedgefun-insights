@@ -302,16 +302,8 @@ export default function PMInbox() {
         </>
       ) : (
         <>
-          {/* Post-Market Recap */}
-          <section className="flex flex-col gap-3">
-            <SectionHeader
-              title={PM_INBOX_CONFIG.recapHeading}
-              subtitle={PM_INBOX_CONFIG.recapSubtitle}
-            />
-            <AIBriefCard isPro={isPro} config={PM_INBOX_CONFIG as any} briefType="pm" />
-          </section>
-
           {/* Catalyst Outcomes */}
+
           <section className="flex flex-col gap-3">
             <SectionHeader
               title={PM_INBOX_CONFIG.catalystOutcomesHeading}
