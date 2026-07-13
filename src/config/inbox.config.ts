@@ -151,9 +151,10 @@ export const AM_INBOX_CONFIG = {
   aiCardTitle: "✦ AI Morning Brief",
   aiCardGateHeading: "AI Morning Brief — PRO Feature",
   aiCardGateBody:
-    "Daily AI-powered market intelligence personalized to your watchlist. Generated before every open using Opus 4.7.",
+    "A shared AI market brief grounded in SPY, QQQ, DIA, and IWM.",
   aiCardPlaceholderText:
-    "Markets are showing resilience this morning as futures point slightly higher. The Fed's latest commentary suggests a dovish pivot may be closer than expected, with bond yields pulling back from recent highs. NVDA earnings after close are the key catalyst to watch — options pricing implies an 8.2% move. CPI data at 8:30 AM ET could be a volatility trigger.",
+    "Your market brief will appear here when available.",
+
   aiCardTimestampLabel: "Generated at",
   upgradeCta: "Request Pro Access",
   upgradeLink: "View all PRO features →",
