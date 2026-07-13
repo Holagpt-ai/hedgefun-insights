@@ -57,6 +57,9 @@ verify_jwt = false
 [functions.get-daily-brief]
 verify_jwt = false
 
+[functions.brief-dispatch]
+verify_jwt = false
+
 [functions.sync-screener-data]
 verify_jwt = false
 [functions.mcp]
