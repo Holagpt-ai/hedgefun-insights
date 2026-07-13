@@ -220,17 +220,76 @@ serve(async (req) => {
     }
 
 
-    // Weekday PM
-    if (et.minutes < PM_RELEASE_MIN) {
-      return unavailable("pm", "pm_not_released");
-    }
-
+    // Weekday PM: fetch today's PM row so we can consider an early-close override.
     const { data: row } = await admin
       .from("daily_briefs")
       .select("id, brief_type, brief_date, content, generated_at, market_snapshot")
       .eq("brief_type", "pm")
       .eq("brief_date", et.date)
       .maybeSingle();
+
+    // Early-close override: allow serving before 4:15 PM ET only when the stored
+    // market_schedule authoritatively declares an early close and the release has passed.
+    if (et.minutes < PM_RELEASE_MIN) {
+      if (!row) return unavailable("pm", "pm_not_released");
+      const v = validateProvenance(row as BriefRow, "pm");
+      if (!v.ok) return unavailable("pm", "invalid_brief_provenance");
+      const snap = (row as BriefRow).market_snapshot as Record<string, unknown> | null;
+      const sched = snap && typeof snap === "object" ? (snap as Record<string, unknown>).market_schedule : null;
+      if (!sched || typeof sched !== "object" || Array.isArray(sched)) {
+        return unavailable("pm", "pm_not_released");
+      }
+      const s = sched as Record<string, unknown>;
+      if (
+        s.status !== "early-close" ||
+        s.source !== "polygon_marketstatus" ||
+        typeof s.official_close_at !== "string" ||
+        typeof s.release_at !== "string"
+      ) {
+        return unavailable("pm", "pm_not_released");
+      }
+      const closeMs = Date.parse(s.official_close_at as string);
+      const releaseMs = Date.parse(s.release_at as string);
+      if (!Number.isFinite(closeMs) || !Number.isFinite(releaseMs)) {
+        return unavailable("pm", "pm_not_released");
+      }
+      if (releaseMs - closeMs !== 15 * 60 * 1000) {
+        return unavailable("pm", "pm_not_released");
+      }
+      // Schedule dates must correspond to the current ET brief date.
+      const etCloseDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric", month: "2-digit", day: "2-digit",
+      }).format(new Date(closeMs));
+      const etReleaseDate = new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric", month: "2-digit", day: "2-digit",
+      }).format(new Date(releaseMs));
+      if (etCloseDate !== et.date || etReleaseDate !== et.date) {
+        return unavailable("pm", "pm_not_released");
+      }
+      const nowMs = Date.now();
+      if (nowMs < releaseMs) {
+        return unavailable("pm", "pm_not_released");
+      }
+      const genMs = Date.parse((row as BriefRow).generated_at);
+      if (!Number.isFinite(genMs) || genMs < releaseMs) {
+        return unavailable("pm", "pm_not_released");
+      }
+      return json(
+        {
+          available: true,
+          brief_type: "pm",
+          brief_date: row.brief_date,
+          generated_at: row.generated_at,
+          content: row.content,
+          previous_trading_day: false,
+          source_checked_at: v.sourceCheckedAt,
+        },
+        200,
+      );
+    }
+
     if (!row) return unavailable("pm", "brief_not_ready");
     const v = validateProvenance(row as BriefRow, "pm");
     if (!v.ok) return unavailable("pm", "invalid_brief_provenance");
