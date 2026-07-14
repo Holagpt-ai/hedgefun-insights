@@ -70,7 +70,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: 'https://www.hedgefun.fun/dashboard',
+        emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     });
     setLoading(false);
@@ -87,7 +87,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://www.hedgefun.fun/dashboard',
+        redirectTo: `${window.location.origin}/dashboard`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -170,7 +170,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: 'https://www.hedgefun.fun/dashboard',
+        redirectTo: `${window.location.origin}/dashboard`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -190,7 +190,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
       return;
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: 'https://www.hedgefun.fun/reset-password',
+      redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) toast({ title: error.message, variant: "destructive" });
     else toast({ title: "Password reset email sent." });
