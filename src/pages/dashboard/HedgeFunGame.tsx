@@ -363,7 +363,7 @@ export default function HedgeFunGame() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4 text-center">
         <Gamepad2 className="h-10 w-10 text-muted-foreground" />
-        <p className="text-muted-foreground">Sign in to play HedgeFun Game.</p>
+        <p className="text-muted-foreground">Sign in to play Stocksist Game.</p>
         <Button onClick={() => navigate("/")}>Go Home</Button>
       </div>
     );
@@ -407,7 +407,7 @@ export default function HedgeFunGame() {
       <div className="flex items-center gap-3 flex-wrap">
         <Gamepad2 className="h-7 w-7 text-foreground" />
         <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-          HedgeFun Game
+          Stocksist Game
         </h1>
         <span
           className={`text-xs font-medium px-2 py-1 rounded-full ${statusClass}`}
@@ -447,7 +447,7 @@ export default function HedgeFunGame() {
             style={{ background: "linear-gradient(135deg, hsl(var(--accent-blue)) 0%, #1e3a5f 60%, #0f172a 100%)" }}>
             <div className="px-6 py-8 md:py-10">
               <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-2">
-                HedgeFun Game · {season.name}
+                Stocksist Game · {season.name}
               </p>
               <h2 className="text-white text-2xl md:text-3xl font-bold mb-1 leading-tight">
                 Pick Stocks. Beat the Market.
@@ -1073,7 +1073,7 @@ export default function HedgeFunGame() {
             {tourStep === 1 && (
               <>
                 <div className="text-3xl mb-3">🎯</div>
-                <h3 className="text-base font-bold text-foreground mb-2">Welcome to HedgeFun Game</h3>
+                <h3 className="text-base font-bold text-foreground mb-2">Welcome to Stocksist Game</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   You start with a virtual <strong>$5,000,000</strong>. Pick stocks, grow your portfolio,
                   and outperform every other player by July 31. Winner takes <strong>$500</strong>.

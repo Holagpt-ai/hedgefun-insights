@@ -33,7 +33,7 @@ function AdminSidebar({ collapsed, setCollapsed }: { collapsed: boolean; setColl
       }}
     >
       <div className="flex items-center justify-between p-3" style={{ borderBottom: "1px solid #e2e8f0" }}>
-        {!collapsed && <span className="font-bold text-sm" style={{ color: "#0f172a" }}>HedgeFun Admin</span>}
+        {!collapsed && <span className="font-bold text-sm" style={{ color: "#0f172a" }}>Stocksist Admin</span>}
         <button onClick={() => setCollapsed(!collapsed)} className="p-1 rounded hover:bg-black/5" style={{ color: "#64748b" }}>
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>

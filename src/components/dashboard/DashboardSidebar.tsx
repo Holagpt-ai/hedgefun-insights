@@ -36,7 +36,7 @@ const NAV: NavEntry[] = [
   { label: "AI Analyst",    icon: <Sparkles className="h-4 w-4" />,   route: "/dashboard/ai",        plan: "free" },
   { label: "My Watchlist",  icon: <Star className="h-4 w-4" />,       route: "/dashboard/watchlist",           plan: "free" },
   { label: "Stock Journal", icon: <BookOpen className="h-4 w-4" />,   route: "/dashboard/journal",   plan: "pro" },
-  { label: "HedgeFun Game", icon: <Gamepad2 className="h-4 w-4" />,   route: "/dashboard/game",      plan: "free" },
+  { label: "Stocksist Game", icon: <Gamepad2 className="h-4 w-4" />,   route: "/dashboard/game",      plan: "free" },
   { section: "Phase 2" },
   { label: "Price Alerts",  icon: <Bell className="h-4 w-4" />,        route: "/dashboard/alerts", plan: "pro" },
   { label: "News Feed",     icon: <Newspaper className="h-4 w-4" />,   route: "/dashboard/news", plan: "free" },
