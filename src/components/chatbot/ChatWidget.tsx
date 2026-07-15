@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 const WELCOME_MSG =
-  "Hi! I'm HedgeFun AI. Ask me anything about stocks, ETFs, earnings, or market analysis. What's on your radar today?";
+  "Hi! I'm Stocksist AI. Ask me anything about stocks, ETFs, earnings, or market analysis. What's on your radar today?";
 
 const SUGGESTED = [
   "What is a P/E ratio?",
@@ -127,10 +127,10 @@ export function ChatWidget() {
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
         <div className="h-7 w-7 rounded-md bg-accent-blue flex items-center justify-center shrink-0">
-          <span className="text-[0.625rem] font-bold text-primary-foreground">HF</span>
+          <span className="text-[0.625rem] font-bold text-primary-foreground">S</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground leading-none">HedgeFun AI</p>
+          <p className="text-sm font-semibold text-foreground leading-none">Stocksist AI</p>
           <p className="text-[0.625rem] text-muted-foreground">Powered by Gemini</p>
         </div>
         <button onClick={() => setOpen(false)} className="hidden md:block" aria-label="Close">

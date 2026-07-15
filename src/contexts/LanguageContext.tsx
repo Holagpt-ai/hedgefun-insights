@@ -16,7 +16,7 @@ const translations: Translations = {
   technicalChart: { en: "Technical Chart", es: "Gráfico técnico" },
   marketMovers: { en: "Market Movers", es: "Movimientos del mercado" },
   marketNewsletter: { en: "Market Newsletter", es: "Boletín del mercado" },
-  hedgefunPro: { en: "HedgeFun Pro", es: "HedgeFun Pro" },
+  hedgefunPro: { en: "Stocksist Pro", es: "Stocksist Pro" },
   tools: { en: "Tools", es: "Herramientas" },
   screener: { en: "Screener", es: "Buscador" },
   account: { en: "Account", es: "Cuenta" },

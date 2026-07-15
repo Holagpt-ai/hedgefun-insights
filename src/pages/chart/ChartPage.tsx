@@ -172,9 +172,9 @@ export default function ChartPage() {
 
   useEffect(() => {
     if (ticker) {
-      document.title = `${ticker} Stock Chart | HedgeFun`;
+      document.title = `${ticker} Stock Chart | Stocksist`;
     } else {
-      document.title = "Technical Chart | HedgeFun";
+      document.title = "Technical Chart | Stocksist";
     }
   }, [ticker]);
 
@@ -826,9 +826,9 @@ function ChartHeader({
       </button>
       <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => navigate("/")}>
         <div className="h-7 w-7 rounded-md bg-accent-blue flex items-center justify-center">
-          <span className="text-xs font-bold text-primary-foreground">HF</span>
+          <span className="text-xs font-bold text-primary-foreground">S</span>
         </div>
-        <span className="hidden sm:block font-display text-base text-foreground font-semibold">HedgeFun</span>
+        <span className="hidden sm:block font-display text-base text-foreground font-semibold">Stocksist</span>
       </div>
       <div ref={searchContainerRef} className="relative flex-1 max-w-[600px]">
         <form onSubmit={onSearchSubmit}>

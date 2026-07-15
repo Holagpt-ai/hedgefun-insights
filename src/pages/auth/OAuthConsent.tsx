@@ -114,10 +114,10 @@ export default function OAuthConsent() {
       <div className="max-w-md w-full rounded-lg border border-border bg-card p-6 space-y-4">
         <div>
           <h1 className="text-xl font-semibold text-foreground">
-            Connect {clientName} to HedgeFun
+            Connect {clientName} to Stocksist
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {clientName} will be able to call HedgeFun&apos;s enabled tools while
+            {clientName} will be able to call Stocksist&apos;s enabled tools while
             you are signed in.
           </p>
         </div>
@@ -142,7 +142,7 @@ export default function OAuthConsent() {
         )}
 
         <p className="text-xs text-muted-foreground">
-          This does not bypass HedgeFun&apos;s permissions or backend policies.
+          This does not bypass Stocksist&apos;s permissions or backend policies.
         </p>
 
         <div className="flex gap-2 pt-2">

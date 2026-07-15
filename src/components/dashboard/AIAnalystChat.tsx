@@ -621,7 +621,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               {greeting}, {displayName}.
             </h1>
             <p className="text-sm sm:text-base text-muted-foreground mb-5">
-              Ask HedgeFun AI to turn your dashboard into a trading plan — from AM prep through the post-market wrap.
+              Ask Stocksist AI to turn your dashboard into a trading plan — from AM prep through the post-market wrap.
             </p>
 
             {/* Context / trust chips */}
@@ -937,7 +937,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             </button>
           </div>
           <p className="text-[11px] text-muted-foreground text-center mt-2 leading-relaxed">
-            HedgeFun AI • Powered by Claude • Not financial advice
+            Stocksist AI • Powered by Claude • Not financial advice
             <br />
             <span className="opacity-80">AI may be wrong. Market data can be delayed. Verify before trading.</span>
           </p>

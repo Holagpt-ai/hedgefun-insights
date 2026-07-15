@@ -11,7 +11,7 @@ const NAV_CARDS = [
   { label: "PM Inbox", path: "/dashboard/pm", pro: true, icon: "🌙", desc: "Post-market recap & tomorrow's setup" },
   { label: "Screeners", path: "/dashboard/screeners", pro: false, icon: "🔍", desc: "Day Trade Radar & more" },
   { label: "AI Analyst", path: "/dashboard/ai", pro: false, icon: "🤖", desc: "Ask anything about any stock" },
-  { label: "HedgeFun Game", path: "/dashboard/game", pro: false, icon: "🎮", desc: "Virtual $5M stock competition" },
+  { label: "Stocksist Game", path: "/dashboard/game", pro: false, icon: "🎮", desc: "Virtual $5M stock competition" },
 ];
 
 const WHATS_NEW = [
