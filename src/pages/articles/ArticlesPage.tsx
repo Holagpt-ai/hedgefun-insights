@@ -351,12 +351,12 @@ export default function ArticlesPage() {
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
                   <span className="text-[0.5rem] font-bold text-primary-foreground">
-                    HF
+                    {BRAND.initials}
                   </span>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-accent-blue leading-none">
-                    {article.author ?? "HedgeFun Team"}
+                    {article.author ?? "Stocksist Team"}
                   </p>
                   <p className="text-[0.625rem] text-muted-foreground mt-0.5">
                     {article.date}
