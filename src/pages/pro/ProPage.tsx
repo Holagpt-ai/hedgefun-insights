@@ -87,6 +87,10 @@ const ProPage = () => {
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
+  useEffect(() => {
+    document.title = "Stocksist Pro | Stocksist";
+  }, []);
+
   const handleCheckout = () => {
     if (!user) {
       setAuthMode("signup");
@@ -94,7 +98,7 @@ const ProPage = () => {
     }
     toast({
       title: "Coming Soon",
-      description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
+      description: "Payment processing is being set up. Contact info@stocksist.com for early Pro access.",
     });
   };
 
