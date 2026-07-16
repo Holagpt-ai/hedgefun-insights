@@ -271,7 +271,7 @@ export default function ArticlesPage() {
     <div className="max-w-[960px] mx-auto px-4 py-10">
       <div className="text-center mb-10">
         <h1 className="text-[1.75rem] md:text-[2rem] font-bold text-foreground mb-2">
-          HedgeFun Blog
+          Stocksist Blog
         </h1>
         <p className="text-muted-foreground text-[0.9375rem]">
           Latest articles on stocks, finance, and investing.
