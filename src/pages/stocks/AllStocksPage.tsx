@@ -342,7 +342,7 @@ export default function AllStocksPage() {
               className="relative border border-border rounded-md p-5 text-left hover:border-accent-blue transition-colors cursor-pointer bg-card"
             >
               <ArrowUpRight className="absolute top-4 right-4 h-4 w-4 text-muted-foreground" />
-              <h3 className="text-base font-bold text-foreground">HedgeFun Pro</h3>
+              <h3 className="text-base font-bold text-foreground">Stocksist Pro</h3>
               <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
                 Upgrade now for unlimited access to all data and tools.
               </p>
