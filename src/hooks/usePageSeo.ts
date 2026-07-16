@@ -36,15 +36,15 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
       { property: "og:description", content: description },
       { property: "og:type", content: jsonLd?.["@type"] === "Article" ? "article" : "website" },
       { property: "og:url", content: currentUrl },
-      { property: "og:image", content: image || "https://hedgefun.fun/og-share-card.png" },
-      { property: "og:image:alt", content: `Real-time probability forecast and volatility analysis for ${title.split("|")[0].trim()} on Hedgefun.` },
+      { property: "og:image", content: image || `${BRAND.url}/og-share-card.png` },
+      { property: "og:image:alt", content: "Stocksist — Most traders never do this math. Illustrative arithmetic across 252 trading days; not a promise of results." },
     ];
 
     // Twitter parity
     const twitterTags: { name: string; content: string }[] = [
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
-      { name: "twitter:image", content: image || "https://hedgefun.fun/og-share-card.png" },
+      { name: "twitter:image", content: image || `${BRAND.url}/og-share-card.png` },
     ];
 
     const createdOgElements: HTMLMetaElement[] = [];
