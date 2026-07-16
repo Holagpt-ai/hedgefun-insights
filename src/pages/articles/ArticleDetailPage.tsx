@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { toast } from "@/hooks/use-toast";
+import { BRAND } from "@/config/brand";
 
 /* ── Full Article Bodies ──────────────────────────── */
 const ARTICLE_BODIES: Record<string, string[]> = {
