@@ -269,7 +269,7 @@ export default function ArticleDetailPage() {
           {/* Share buttons */}
           <div className="flex items-center gap-1.5">
             <a
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(`https://www.hedgefun.fun/articles/${slug}`)}`}
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(`${BRAND.url}/articles/${slug}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
