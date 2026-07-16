@@ -110,12 +110,16 @@ export default function NewsletterPage() {
     setStatus(result.status);
   };
 
+  useEffect(() => {
+    document.title = "Stocksist Market Bullets | Stocksist";
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Minimal header */}
       <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0">
         <Link to="/" className="flex items-center font-bold text-lg text-foreground">
-          <img src="/logo.svg" alt="HedgeFun" className="h-8 w-auto" />
+          <img src="/logo.svg" alt="Stocksist" className="h-8 w-auto" />
         </Link>
         <button
           onClick={() => setAuthMode("login")}
