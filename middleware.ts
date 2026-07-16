@@ -10,26 +10,30 @@ export const config = {
   ],
 };
 
+const BRAND_NAME = "Stocksist";
+const SITE_URL = "https://stocksist.com";
+const OG_IMAGE_URL = "https://stocksist.com/og-share-card.png";
+
 const STATIC_META: Record<string, { title: string; description: string }> = {
   "/screener": {
-    title: "Stock Screener — Filter & Find Stocks | HedgeFun",
-    description: "Screen and filter thousands of stocks by price, volume, market cap, sector, and more on HedgeFun.",
+    title: `Stock Screener — Filter & Find Stocks | ${BRAND_NAME}`,
+    description: `Screen and filter thousands of stocks by price, volume, market cap, sector, and more on ${BRAND_NAME}.`,
   },
   "/earnings": {
-    title: "Earnings Calendar — Upcoming & Recent Reports | HedgeFun",
-    description: "Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on HedgeFun.",
+    title: `Earnings Calendar — Upcoming & Recent Reports | ${BRAND_NAME}`,
+    description: `Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on ${BRAND_NAME}.`,
   },
   "/ipos": {
-    title: "IPO Calendar 2026 — Upcoming & Recent IPOs | HedgeFun",
-    description: "Track upcoming and recent IPOs, expected offer prices, listing dates, and post-IPO performance on HedgeFun.",
+    title: `IPO Calendar 2026 — Upcoming & Recent IPOs | ${BRAND_NAME}`,
+    description: `Track upcoming and recent IPOs, expected offer prices, listing dates, and post-IPO performance on ${BRAND_NAME}.`,
   },
   "/news": {
-    title: "Stock Market News & Financial Analysis | HedgeFun",
-    description: "Get the latest stock market news, earnings coverage, economic updates, and financial analysis on HedgeFun.",
+    title: `Stock Market News & Financial Analysis | ${BRAND_NAME}`,
+    description: `Get the latest stock market news, earnings coverage, economic updates, and financial analysis on ${BRAND_NAME}.`,
   },
   "/etf": {
-    title: "ETF List — All ETF Symbols & Prices | HedgeFun",
-    description: "Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on HedgeFun.",
+    title: `ETF List — All ETF Symbols & Prices | ${BRAND_NAME}`,
+    description: `Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on ${BRAND_NAME}.`,
   },
 };
 
@@ -37,8 +41,8 @@ function buildStockMeta(ticker: string, companyName: string | null) {
   const t = ticker.toUpperCase();
   const label = companyName ? `${companyName} (${t})` : t;
   return {
-    title: `${label} Stock Price, News & Analysis | HedgeFun`,
-    description: `Get the latest ${label} stock price, news, financials, analyst ratings, and market analysis on HedgeFun.`,
+    title: `${label} Stock Price, News & Analysis | ${BRAND_NAME}`,
+    description: `Get the latest ${label} stock price, news, financials, analyst ratings, and market analysis on ${BRAND_NAME}.`,
   };
 }
 
@@ -46,8 +50,8 @@ function buildEtfMeta(ticker: string, companyName: string | null) {
   const t = ticker.toUpperCase();
   const label = companyName ? `${companyName} (${t})` : t;
   return {
-    title: `${label} ETF — Price & Holdings | HedgeFun`,
-    description: `Get the latest ${label} ETF price, performance, holdings, sector breakdown, and news on HedgeFun.`,
+    title: `${label} ETF — Price & Holdings | ${BRAND_NAME}`,
+    description: `Get the latest ${label} ETF price, performance, holdings, sector breakdown, and news on ${BRAND_NAME}.`,
   };
 }
 
@@ -97,7 +101,7 @@ function buildHtml(
   js: string,
   css: string
 ): string {
-  const ogImage = "https://hedgefun.fun/og-share-card.png";
+  const ogImage = OG_IMAGE_URL;
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -127,7 +131,7 @@ function buildHtml(
 export default async function middleware(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
-  const canonicalUrl = `https://hedgefun.fun${pathname}`;
+  const canonicalUrl = `${SITE_URL}${pathname}`;
 
   let meta: { title: string; description: string } | null = null;
 
