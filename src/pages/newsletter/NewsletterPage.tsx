@@ -26,9 +26,9 @@ function IPhoneMockup() {
           {/* Logo */}
           <div className="flex items-center justify-center gap-1.5 mb-3">
             <div className="h-6 w-6 rounded bg-accent-blue flex items-center justify-center">
-              <span className="text-[8px] font-bold text-white">HF</span>
+              <span className="text-[8px] font-bold text-white">{BRAND.initials}</span>
             </div>
-            <span className="font-bold text-[11px] text-foreground">HedgeFun</span>
+            <span className="font-bold text-[11px] text-foreground">{BRAND.name}</span>
           </div>
 
           {/* Market Overview */}
