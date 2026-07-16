@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { BRAND } from "@/config/brand";
 
 interface SeoProps {
   title: string;
