@@ -118,7 +118,7 @@ const ProPage = () => {
           </BreadcrumbList>
         </Breadcrumb>
         <h1 className="text-[2rem] md:text-[2.5rem] font-bold text-foreground mb-3">
-          HedgeFun Pro
+          Stocksist Pro
         </h1>
         <p className="text-muted-foreground max-w-xl mx-auto text-[0.9375rem] leading-relaxed">
           Get unlimited access to all financial data and tools while supporting
