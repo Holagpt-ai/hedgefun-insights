@@ -263,8 +263,8 @@ const Screener = () => {
   const totalPages = table.getPageCount();
 
   usePageSeo({
-    title: "Stock Screener — Filter & Find Stocks | HedgeFun",
-    description: "Screen and filter thousands of stocks by price, volume, market cap, sector, and more on HedgeFun.",
+    title: "Stock Screener — Filter & Find Stocks | Stocksist",
+    description: "Screen and filter thousands of stocks by price, volume, market cap, sector, and more on Stocksist.",
   });
 
   return (
@@ -396,7 +396,7 @@ const Screener = () => {
               className="h-8 text-xs"
               onClick={() =>
                 toast("Pro Feature", {
-                  description: "Full Width view is available for HedgeFun Pro subscribers.",
+                  description: "Full Width view is available for Stocksist Pro subscribers.",
                   action: { label: "Upgrade", onClick: () => navigate("/pro") },
                 })
               }

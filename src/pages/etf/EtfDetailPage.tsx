@@ -130,9 +130,9 @@ export default function EtfDetailPage() {
   const [timeRange, setTimeRange] = useState<string>("1Y");
 
   usePageSeo({
-    title: `${symbol} ETF — ${meta.name} Price & Holdings | HedgeFun`,
-    description: `Get the latest ${symbol} ETF price, performance, holdings, sector breakdown, and news on HedgeFun.`,
-    canonical: `https://hedgefun.fun/etf/${symbol.toLowerCase()}`,
+    title: `${symbol} ETF — ${meta.name} Price & Holdings | Stocksist`,
+    description: `Get the latest ${symbol} ETF price, performance, holdings, sector breakdown, and news on Stocksist.`,
+    canonical: `https://stocksist.com/etf/${symbol.toLowerCase()}`,
   });
 
   // Fetch ETF row from DB
@@ -423,7 +423,7 @@ export default function EtfDetailPage() {
           {/* Sidebar */}
           <aside className="hidden lg:flex flex-col gap-4 w-[280px] shrink-0">
             <div className="border border-border rounded-[var(--radius)] p-4">
-              <h3 className="text-[1rem] font-bold text-foreground mb-2">HedgeFun Pro</h3>
+              <h3 className="text-[1rem] font-bold text-foreground mb-2">Stocksist Pro</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">Upgrade for unlimited access to all data and tools.</p>
               <Button size="sm" className="w-full" onClick={() => navigate("/pro")}>
                 Sign Up Today <ArrowUpRight className="h-3.5 w-3.5 ml-1" />
