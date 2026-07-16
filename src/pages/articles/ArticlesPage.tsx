@@ -200,7 +200,7 @@ export default function ArticlesPage() {
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
         date: formatDate(row.published_at),
         image: row.image_url ?? "",
-        author: row.source ?? "HedgeFun News",
+        author: row.source ?? "Stocksist News",
         tags: row.category ? [row.category] : ["Markets"],
         externalUrl: row.url,
       }));
