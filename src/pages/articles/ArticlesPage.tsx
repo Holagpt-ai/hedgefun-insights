@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 import starlinkImg from "@/assets/articles/starlink-ipo.jpg";
 import oilImg from "@/assets/articles/rising-oil-prices.jpg";
