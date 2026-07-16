@@ -178,25 +178,25 @@ export default function ArticleDetailPage() {
       headline: article.title,
       description: article.excerpt,
       datePublished: article.date,
-      url: `https://www.hedgefun.fun/articles/${slug}`,
-      author: { "@type": "Organization", name: article.author ?? "HedgeFun" },
+      url: `${BRAND.url}/articles/${slug}`,
+      author: { "@type": "Organization", name: article.author ?? BRAND.name },
       publisher: {
         "@type": "Organization",
-        name: "HedgeFun",
-        url: "https://www.hedgefun.fun",
+        name: BRAND.name,
+        url: BRAND.url,
       },
     };
   }, [article, slug]);
 
   usePageSeo({
-    title: article ? `${article.title} — HedgeFun Blog` : "Article Not Found — HedgeFun",
+    title: article ? `${article.title} — Stocksist Blog` : "Article Not Found — Stocksist",
     description: article?.excerpt ?? "Article not found.",
-    canonical: slug ? `https://www.hedgefun.fun/articles/${slug}` : undefined,
+    canonical: slug ? `${BRAND.url}/articles/${slug}` : undefined,
     jsonLd: jsonLd,
   });
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://www.hedgefun.fun/articles/${slug}`);
+    navigator.clipboard.writeText(`${BRAND.url}/articles/${slug}`);
     setCopied(true);
     toast({ title: "Link copied to clipboard" });
     setTimeout(() => setCopied(false), 2000);
