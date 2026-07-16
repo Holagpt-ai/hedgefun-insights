@@ -55,7 +55,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "What is the Stock Journal?",
-    a: "A private trade log where you record entries, exits, notes, and tags. View performance analytics over time — similar to TradeZella but built into HedgeFun.",
+    a: "A private trade log where you record entries, exits, notes, and tags. View performance analytics over time — similar to TradeZella but built into Stocksist.",
   },
   {
     q: "What are the webinars and workshops?",
