@@ -5,13 +5,13 @@ import { Button } from "@/components/ui/button";
 
 export default function DownloadPage() {
   useEffect(() => {
-    document.title = "Download HedgeFun App | HedgeFun";
+    document.title = "Download Stocksist App | Stocksist";
   }, []);
 
   return (
     <div className="max-w-[800px] mx-auto px-6 py-12">
       <h1 className="text-[1.75rem] font-bold text-foreground border-b-2 border-border pb-3 mb-8">
-        Get HedgeFun on Any Device
+        Get Stocksist on Any Device
       </h1>
       <p className="text-muted-foreground mb-8">
         Access real-time market data, watchlists, and analysis wherever you go.
@@ -41,9 +41,9 @@ export default function DownloadPage() {
 
       {/* Web App */}
       <div className="border border-border rounded-lg p-6 text-center">
-        <h2 className="text-lg font-bold mb-2">Use HedgeFun in Your Browser</h2>
+        <h2 className="text-lg font-bold mb-2">Use Stocksist in Your Browser</h2>
         <p className="text-sm text-muted-foreground mb-4">
-          No download required. Access all features instantly at hedgefun.fun on any device.
+          No download required. Access all features instantly at stocksist.com on any device.
         </p>
         <Button asChild className="bg-accent-blue hover:bg-accent-blue-hover text-primary-foreground">
           <Link to="/">Open Web App</Link>

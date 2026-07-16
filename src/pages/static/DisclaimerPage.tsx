@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export default function DisclaimerPage() {
   useEffect(() => {
-    document.title = "Data Disclaimer & Risk Disclosure | HedgeFun";
+    document.title = "Data Disclaimer & Risk Disclosure | Stocksist";
   }, []);
 
   return (
@@ -20,7 +20,7 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">1. General Disclaimer</h2>
             <p>
-              HedgeFun ("<strong>hedgefun.fun</strong>," "we," "us," or "our") is an independent financial data
+              Stocksist ("<strong>stocksist.com</strong>," "we," "us," or "our") is an independent financial data
               aggregation and educational technology platform. All content published on this website — including but
               not limited to stock quotes, charts, analyst ratings, earnings calendars, IPO data, screener results,
               AI-generated analysis, and editorial commentary — is provided strictly for <strong>informational and
@@ -35,10 +35,10 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">2. Not a Registered Financial Professional</h2>
             <p>
-              HedgeFun is <strong>NOT</strong> a registered broker-dealer, investment advisor, financial planner,
+              Stocksist is <strong>NOT</strong> a registered broker-dealer, investment advisor, financial planner,
               Commodity Trading Advisor (CTA), or Registered Investment Advisor (RIA) with the U.S. Securities and
               Exchange Commission (SEC), the Financial Industry Regulatory Authority (FINRA), the Commodity Futures
-              Trading Commission (CFTC), or any state securities regulatory authority. HedgeFun does not manage
+              Trading Commission (CFTC), or any state securities regulatory authority. Stocksist does not manage
               client assets, execute trades on behalf of users, or provide personalized portfolio recommendations.
               Any data, scores, ratings, or analytical outputs presented on this platform are algorithmic in nature
               and do not account for your individual financial situation, risk tolerance, investment objectives, or
@@ -61,12 +61,12 @@ export default function DisclaimerPage() {
               </p>
             </div>
             <p>
-              Past performance of any strategy, algorithm, or analytical tool presented on HedgeFun is not
+              Past performance of any strategy, algorithm, or analytical tool presented on Stocksist is not
               indicative of future results. Simulated or backtested results do not represent actual trading and may
               not account for slippage, commissions, market impact, or liquidity constraints. The complexity and
               leverage inherent in options trading magnify both gains and losses. You should only trade options with
               capital you can afford to lose entirely, and you must fully understand the mechanics and risks of each
-              strategy before entering any position. HedgeFun strongly recommends that you consult with a licensed
+              strategy before entering any position. Stocksist strongly recommends that you consult with a licensed
               financial professional before engaging in options trading of any kind.
             </p>
           </section>
@@ -75,7 +75,7 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">4. AI &amp; Data Methodology Disclosure</h2>
             <p>
-              HedgeFun utilizes artificial intelligence (AI) models, including large language models (LLMs) and
+              Stocksist utilizes artificial intelligence (AI) models, including large language models (LLMs) and
               proprietary Socratic reasoning agents, to generate analytical summaries, sentiment scores, earnings
               commentary, and other data-driven insights. These AI systems are designed to assist with research and
               education; however, they are subject to significant limitations:
@@ -114,7 +114,7 @@ export default function DisclaimerPage() {
               IPO dates, pricing ranges, and related details are sourced from SEC filings, press releases, and
               third-party data providers. All IPO dates are <strong>estimates</strong> and subject to change without
               notice. Companies may postpone, withdraw, or modify their IPO plans at any time. Earnings report
-              dates and estimated EPS figures are similarly subject to revision. HedgeFun is not responsible for any
+              dates and estimated EPS figures are similarly subject to revision. Stocksist is not responsible for any
               decisions made based on preliminary or estimated IPO or earnings data.
             </p>
           </section>
@@ -123,10 +123,10 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">6. Analyst Ratings &amp; Price Targets</h2>
             <p>
-              Analyst ratings, consensus price targets, and recommendation summaries displayed on HedgeFun are
+              Analyst ratings, consensus price targets, and recommendation summaries displayed on Stocksist are
               aggregated from third-party research providers and represent the opinions of individual analysts or
               firms. These ratings do <strong>not</strong> represent the views, recommendations, or endorsements of
-              HedgeFun. Analyst opinions can change rapidly and without notice, and historical accuracy of analyst
+              Stocksist. Analyst opinions can change rapidly and without notice, and historical accuracy of analyst
               predictions varies significantly. You should not rely solely on analyst ratings when making investment
               decisions.
             </p>
@@ -136,7 +136,7 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">7. No Guarantee of Availability</h2>
             <p>
-              HedgeFun makes no guarantee that the website, its data feeds, or any associated services will be
+              Stocksist makes no guarantee that the website, its data feeds, or any associated services will be
               available without interruption. We reserve the right to modify, suspend, or discontinue any feature
               or service at any time without prior notice. Data outages, API rate limits, and third-party service
               disruptions may affect the availability and accuracy of information displayed on the platform.
@@ -147,11 +147,11 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">8. Limitation of Liability</h2>
             <p>
-              To the fullest extent permitted by applicable law, HedgeFun, its owners, officers, employees,
+              To the fullest extent permitted by applicable law, Stocksist, its owners, officers, employees,
               affiliates, and data providers shall not be liable for any direct, indirect, incidental, special,
               consequential, or punitive damages — including but not limited to loss of profits, loss of data,
               trading losses, or business interruption — arising out of or in connection with your use of, or
-              inability to use, this website or any information contained herein, even if HedgeFun has been advised
+              inability to use, this website or any information contained herein, even if Stocksist has been advised
               of the possibility of such damages. Your use of this website and reliance on any information provided
               is entirely at your own risk.
             </p>
@@ -162,7 +162,7 @@ export default function DisclaimerPage() {
             <h2 className="text-[1.125rem] font-bold mb-2">Questions About This Disclaimer</h2>
             <p>
               If you have any questions regarding this disclaimer or our data practices, please contact us at{" "}
-              <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">info@hedgefun.fun</a> or
+              <a href="mailto:info@stocksist.com" className="text-primary hover:underline">info@stocksist.com</a> or
               visit our{" "}
               <Link to="/contact" className="text-primary hover:underline">Contact Us</Link> page.
             </p>

@@ -3,7 +3,7 @@ import { AdBanner } from "@/components/layout/AdBanner";
 
 export default function PrivacyPage() {
   useEffect(() => {
-    document.title = "Privacy Policy | HedgeFun";
+    document.title = "Privacy Policy | Stocksist";
   }, []);
 
   return (
@@ -19,11 +19,11 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">1. Introduction</h2>
             <p>
-              HedgeFun ("<strong>hedgefun.fun</strong>," "we," "us," or "our") operates a financial data
+              Stocksist ("<strong>stocksist.com</strong>," "we," "us," or "our") operates a financial data
               aggregation, algorithmic analysis, and educational technology platform. This Privacy Policy
               explains how we collect, use, store, share, and protect your personal information when you
-              access our website, use our services, interact with the <strong>HedgeFun AI Consultant</strong>
-              chatbot, or subscribe to our newsletter and premium plans. By using HedgeFun, you consent to
+              access our website, use our services, interact with the <strong>Stocksist AI</strong>
+              chatbot, or subscribe to our newsletter and premium plans. By using Stocksist, you consent to
               the data practices described in this policy. If you do not agree, please discontinue use of
               the platform immediately.
             </p>
@@ -44,7 +44,7 @@ export default function PrivacyPage() {
                 your name, email address, and profile photo from Google.
               </li>
               <li>
-                <strong>Payment Information:</strong> When you subscribe to HedgeFun Pro, payment details
+                <strong>Payment Information:</strong> When you subscribe to Stocksist Pro, payment details
                 (credit card number, billing address) are collected and processed exclusively by our
                 third-party payment processor, <strong>Stripe, Inc.</strong> We do not store your full
                 credit card number on our servers.
@@ -67,7 +67,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>
                 <strong>Chat Prompts &amp; Interactions:</strong> When you interact with the
-                <strong> HedgeFun AI Consultant</strong>, we collect and store the full text of your
+                <strong> Stocksist AI</strong>, we collect and store the full text of your
                 prompts, questions, and the AI-generated responses. This data is associated with your
                 session token (and your user ID if you are logged in).
               </li>
@@ -129,11 +129,11 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>
                 Third-party vendors, including Google, use cookies to serve ads based on your prior visits
-                to HedgeFun and other websites on the internet.
+                to Stocksist and other websites on the internet.
               </li>
               <li>
                 Google's use of the DoubleClick cookie enables it and its partners to serve ads based on
-                your visit to HedgeFun and/or other sites on the internet.
+                your visit to Stocksist and/or other sites on the internet.
               </li>
               <li>
                 You may opt out of personalized advertising by visiting{" "}
@@ -154,7 +154,7 @@ export default function PrivacyPage() {
             <p>
               You can control cookies through your browser settings. Most browsers allow you to block or
               delete cookies. However, disabling cookies may impair the functionality of certain features
-              on HedgeFun, including authentication and personalized settings.
+              on Stocksist, including authentication and personalized settings.
             </p>
           </section>
 
@@ -162,10 +162,10 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">4. How We Use Your Information</h2>
             <ul className="list-disc pl-6 space-y-2">
-              <li>To provide, operate, and maintain the HedgeFun platform and its features.</li>
-              <li>To process and manage your HedgeFun Pro subscription.</li>
+              <li>To provide, operate, and maintain the Stocksist platform and its features.</li>
+              <li>To process and manage your Stocksist Pro subscription.</li>
               <li>To deliver the daily market newsletter to subscribers.</li>
-              <li>To power the HedgeFun AI Consultant chatbot and enforce per-user rate limits.</li>
+              <li>To power the Stocksist AI chatbot and enforce per-user rate limits.</li>
               <li>To analyze usage patterns and improve our algorithms, user interface, and content.</li>
               <li>To display relevant advertisements via Google AdSense.</li>
               <li>To detect, prevent, and address fraud, abuse, and security incidents.</li>
@@ -188,14 +188,14 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong>Large Language Model (LLM) Providers:</strong> Chat prompts and contextual data
-                submitted to the HedgeFun AI Consultant may be transmitted to third-party LLM
+                submitted to the Stocksist AI may be transmitted to third-party LLM
                 infrastructure providers (such as Google Gemini or OpenAI) for processing. These
                 providers process data per their own privacy policies. We do not send your email address,
                 payment details, or other personally identifiable information to LLM providers — only the
                 chat prompt content and relevant financial context.
               </li>
               <li>
-                <strong>Stripe, Inc.:</strong> Payment processing for HedgeFun Pro subscriptions. Stripe
+                <strong>Stripe, Inc.:</strong> Payment processing for Stocksist Pro subscriptions. Stripe
                 collects and processes payment information pursuant to its own{" "}
                 <a href="https://stripe.com/privacy" className="text-primary hover:underline" target="_blank" rel="noopener noreferrer">
                   Privacy Policy
@@ -274,7 +274,7 @@ export default function PrivacyPage() {
             </ul>
             <p>
               To exercise any of these rights, contact us at{" "}
-              <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">info@hedgefun.fun</a>.
+              <a href="mailto:info@stocksist.com" className="text-primary hover:underline">info@stocksist.com</a>.
               We will respond within 30 days.
             </p>
           </section>
@@ -295,7 +295,7 @@ export default function PrivacyPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">9. Children's Privacy</h2>
             <p>
-              HedgeFun is not directed to individuals under the age of 18. We do not knowingly collect
+              Stocksist is not directed to individuals under the age of 18. We do not knowingly collect
               personal information from children. If we become aware that a child under 18 has provided
               us with personal data, we will take steps to delete such information promptly.
             </p>
@@ -307,7 +307,7 @@ export default function PrivacyPage() {
             <p>
               Your data may be transferred to and processed in countries other than your country of
               residence, including the United States, where our servers and third-party service providers
-              are located. By using HedgeFun, you consent to the transfer of your data to these
+              are located. By using Stocksist, you consent to the transfer of your data to these
               jurisdictions, which may have different data protection laws than your home country.
             </p>
           </section>
@@ -318,7 +318,7 @@ export default function PrivacyPage() {
             <p>
               We may update this Privacy Policy from time to time. When we make material changes, we will
               update the "Last updated" date at the top of this page and, where required by law, notify
-              you via email or a prominent notice on the platform. Your continued use of HedgeFun after
+              you via email or a prominent notice on the platform. Your continued use of Stocksist after
               any changes constitutes acceptance of the revised policy.
             </p>
           </section>
@@ -329,7 +329,7 @@ export default function PrivacyPage() {
             <p>
               If you have any questions about this Privacy Policy or wish to exercise your data rights,
               please contact us at{" "}
-              <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">info@hedgefun.fun</a>{" "}
+              <a href="mailto:info@stocksist.com" className="text-primary hover:underline">info@stocksist.com</a>{" "}
               or write to us at: 1631 Del Prado Blvd, Cape Coral, FL 33990.
             </p>
           </section>

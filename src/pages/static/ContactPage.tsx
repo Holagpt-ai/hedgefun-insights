@@ -25,7 +25,7 @@ export default function ContactPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    document.title = "Contact Us | HedgeFun";
+    document.title = "Contact Us | Stocksist";
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,8 +110,8 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <p className="font-semibold text-foreground text-sm">Email</p>
-                    <a href="mailto:info@hedgefun.fun" className="text-sm text-primary hover:underline">
-                      info@hedgefun.fun
+                    <a href="mailto:info@stocksist.com" className="text-sm text-primary hover:underline">
+                      info@stocksist.com
                     </a>
                   </div>
                 </CardContent>
@@ -121,7 +121,7 @@ export default function ContactPage() {
             {/* Google Map */}
             <div className="rounded-lg overflow-hidden border border-border">
               <iframe
-                title="HedgeFun Office Location — Cape Coral, FL"
+                title="Stocksist Office Location — Cape Coral, FL"
                 src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3580.4!2d-81.9495!3d26.5629!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88db427a09fb1c25%3A0x0!2s1631+Del+Prado+Blvd+S+Cape+Coral+FL+33990!5e0!3m2!1sen!2sus!4v1680000000000"
                 width="100%"
                 height="260"
@@ -155,7 +155,7 @@ export default function ContactPage() {
                     {status === "error" && (
                       <p className="text-destructive mb-4 text-sm">
                         Something went wrong. Please email us directly at{" "}
-                        <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a>
+                        <a href="mailto:info@stocksist.com" className="underline">info@stocksist.com</a>
                       </p>
                     )}
 

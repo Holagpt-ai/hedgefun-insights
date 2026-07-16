@@ -8,7 +8,7 @@ const TEAM = [
   {
     name: "Carlos A. Acosta",
     role: "Senior Analyst & Founder",
-    bio: "U.S. Army veteran, full-stack developer, and data analyst with over a decade of experience building algorithmic trading systems and financial data pipelines. Carlos founded HedgeFun to democratize institutional-grade market intelligence for everyday investors.",
+    bio: "U.S. Army veteran, full-stack developer, and data analyst with over a decade of experience building algorithmic trading systems and financial data pipelines. Carlos founded Stocksist to democratize institutional-grade market intelligence for everyday investors.",
     image: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face",
   },
   {
@@ -44,7 +44,7 @@ const PILLARS = [
 
 export default function AboutPage() {
   useEffect(() => {
-    document.title = "About HedgeFun | HedgeFun";
+    document.title = "About Stocksist | Stocksist";
   }, []);
 
   return (
@@ -52,7 +52,7 @@ export default function AboutPage() {
       <div className="max-w-[1000px] mx-auto px-6 py-12">
         {/* Hero */}
         <h1 className="text-[1.75rem] font-bold text-foreground border-b-2 border-border pb-3 mb-8">
-          About HedgeFun
+          About Stocksist
         </h1>
 
         {/* Hero image */}
@@ -70,7 +70,7 @@ export default function AboutPage() {
           <h2 className="text-xl font-bold text-foreground mb-4">Our Mission</h2>
           <div className="text-base leading-[1.8] text-foreground space-y-4">
             <p>
-              HedgeFun exists to bridge the gap between <strong>institutional-grade algorithmic analysis</strong>{" "}
+              Stocksist exists to bridge the gap between <strong>institutional-grade algorithmic analysis</strong>{" "}
               and the everyday retail trader. For decades, sophisticated quantitative tools, real-time data feeds,
               and AI-driven research were locked behind six-figure terminal subscriptions and hedge fund paywalls.
               We believe that access to high-quality financial intelligence is not a luxury — it is a necessity for
@@ -80,12 +80,12 @@ export default function AboutPage() {
               Our platform leverages <strong>McKinsey-style Socratic AI agents</strong> — reasoning systems that
               don't just summarize data, but actively challenge assumptions, stress-test theses, and surface
               non-obvious risk factors that traditional screeners miss. Combined with real-time market data from
-              Polygon.io, SEC filings, and proprietary analytical pipelines, HedgeFun delivers the depth of a
+              Polygon.io, SEC filings, and proprietary analytical pipelines, Stocksist delivers the depth of a
               professional research desk in an interface designed for clarity and speed.
             </p>
             <p>
               Whether you're tracking pre-market movers, screening for undervalued small-caps, analyzing earnings
-              surprises, or evaluating IPO filings, HedgeFun provides the tools and context you need to make
+              surprises, or evaluating IPO filings, Stocksist provides the tools and context you need to make
               better-informed decisions — while always reminding you that no tool replaces independent judgment and
               professional financial counsel.
             </p>
@@ -121,7 +121,7 @@ export default function AboutPage() {
                 <div className="flex flex-col items-center pt-6 pb-2">
                   <img
                     src={member.image}
-                    alt={`${member.name}, ${member.role} at HedgeFun`}
+                    alt={`${member.name}, ${member.role} at Stocksist`}
                     className="w-28 h-28 rounded-full object-cover border-2 border-border"
                     loading="lazy"
                   />
@@ -157,7 +157,7 @@ export default function AboutPage() {
             <li>Technical charting with drawing tools and indicators</li>
             <li>AI-powered Socratic research agents for earnings and sentiment analysis</li>
             <li>Daily market newsletter delivered every morning before the open</li>
-            <li>HedgeFun Pro for unlimited access to all data and tools</li>
+            <li>Stocksist Pro for unlimited access to all data and tools</li>
           </ul>
         </section>
 
@@ -168,10 +168,10 @@ export default function AboutPage() {
             For inquiries, partnerships, or press requests, visit our{" "}
             <Link to="/contact" className="text-primary hover:underline">Contact Us</Link>{" "}
             page or email us at{" "}
-            <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">info@hedgefun.fun</a>.
+            <a href="mailto:info@stocksist.com" className="text-primary hover:underline">info@stocksist.com</a>.
           </p>
           <p className="text-muted-foreground text-sm mt-2">
-            HedgeFun · 1631 Del Prado Blvd S. #1124 · Cape Coral, FL 33990
+            Stocksist · 1631 Del Prado Blvd S. #1124 · Cape Coral, FL 33990
           </p>
         </section>
       </div>

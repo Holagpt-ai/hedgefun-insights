@@ -25,7 +25,7 @@ export default function AdvertisePage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    document.title = "Advertise | HedgeFun";
+    document.title = "Advertise | Stocksist";
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,12 +61,12 @@ export default function AdvertisePage() {
     <>
     <div className="max-w-[800px] mx-auto px-6 py-12">
       <h1 className="text-[1.75rem] font-bold text-foreground border-b-2 border-border pb-3 mb-8">
-        Advertise on HedgeFun
+        Advertise on Stocksist
       </h1>
 
       <div className="text-base leading-[1.6] text-foreground">
         <p className="mb-4">
-          Reach a highly engaged audience of active investors and traders. HedgeFun serves financial data to thousands of investors daily — people actively researching stocks, ETFs, and market opportunities.
+          Reach a highly engaged audience of active investors and traders. Stocksist serves financial data to thousands of investors daily — people actively researching stocks, ETFs, and market opportunities.
         </p>
 
         <h2 className="text-[1.125rem] font-bold mb-3 mt-6">Why Advertise With Us?</h2>
@@ -88,7 +88,7 @@ export default function AdvertisePage() {
         <h2 className="text-[1.125rem] font-bold mb-3">Get In Touch</h2>
         <p className="mb-1">To discuss advertising opportunities, pricing, and availability, contact us at:</p>
         <p className="mb-6">
-          Email: <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">info@hedgefun.fun</a>
+          Email: <a href="mailto:info@stocksist.com" className="text-primary hover:underline">info@stocksist.com</a>
           <br />Subject line: Advertising Inquiry
         </p>
 
@@ -108,7 +108,7 @@ export default function AdvertisePage() {
             {status === "error" && (
               <p className="text-destructive mb-4 text-sm">
                 Something went wrong. Please email us directly at{" "}
-                <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a>
+                <a href="mailto:info@stocksist.com" className="underline">info@stocksist.com</a>
               </p>
             )}
 

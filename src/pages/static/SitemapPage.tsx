@@ -9,7 +9,7 @@ const SECTIONS = [
     links: [
       ["Home", "/"], ["Watchlist", "/watchlist"], ["News", "/news"], ["Trending", "/trending"],
       ["Articles", "/articles"], ["Technical Chart", "/chart"], ["Market Newsletter", "/newsletter"],
-      ["HedgeFun Pro", "/pro"], ["Tools", "/tools"], ["About", "/about"], ["Contact", "/contact"],
+      ["Stocksist Pro", "/pro"], ["Tools", "/tools"], ["About", "/about"], ["Contact", "/contact"],
       ["FAQ", "/faq"], ["Advertise", "/advertise"], ["Affiliate Program", "/affiliates"],
       ["Terms of Use", "/terms"], ["Privacy Policy", "/privacy"], ["Data Disclaimer", "/disclaimer"],
       ["Support", "/support"],
@@ -67,7 +67,7 @@ const POPULAR_TICKERS = [
 
 export default function SitemapPage() {
   useEffect(() => {
-    document.title = "Sitemap | HedgeFun";
+    document.title = "Sitemap | Stocksist";
   }, []);
 
   return (
@@ -105,7 +105,7 @@ export default function SitemapPage() {
           ))}
         </div>
         <p className="text-sm text-muted-foreground mt-4">
-          This sitemap shows a representative sample. HedgeFun covers 5,000+ individual stock pages, 5,000+ ETF pages, and 500+ IPO pages.
+          This sitemap shows a representative sample. Stocksist covers 5,000+ individual stock pages, 5,000+ ETF pages, and 500+ IPO pages.
         </p>
       </div>
 
