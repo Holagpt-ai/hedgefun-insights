@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BRAND } from "@/config/brand";
 
 const EXCHANGES = [
   { city: "New York", exchange: "NYSE · NASDAQ", timezone: "America/New_York", openHour: 9, openMinute: 30, closeHour: 16, closeMinute: 0, preMarketStart: 4, afterHoursEnd: 20, url: "https://www.nyse.com" },
@@ -185,7 +186,7 @@ export function GlobalMarketClocks() {
                   userSelect: "none",
                 }}
               >
-                HF
+                {BRAND.initials}
               </span>
             </div>
             <div className="flex flex-col min-w-0">
