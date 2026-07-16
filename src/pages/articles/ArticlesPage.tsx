@@ -249,20 +249,20 @@ export default function ArticlesPage() {
   };
 
   usePageSeo({
-    title: "HedgeFun Blog — Latest Articles on Stocks, Finance & Investing",
+    title: "Stocksist Blog — Latest Articles on Stocks, Finance & Investing",
     description:
-      "Read in-depth articles on stocks, ETFs, IPOs, market analysis, and investing strategies from the HedgeFun team.",
-    canonical: "https://www.hedgefun.fun/articles",
+      "Read in-depth articles on stocks, ETFs, IPOs, market analysis, and investing strategies from the Stocksist team.",
+    canonical: `${BRAND.url}/articles`,
     jsonLd: {
       "@context": "https://schema.org",
       "@type": "Blog",
-      name: "HedgeFun Blog",
+      name: "Stocksist Blog",
       description: "Latest articles on stocks, finance, and investing.",
-      url: "https://www.hedgefun.fun/articles",
+      url: `${BRAND.url}/articles`,
       publisher: {
         "@type": "Organization",
-        name: "HedgeFun",
-        url: "https://www.hedgefun.fun",
+        name: BRAND.name,
+        url: BRAND.url,
       },
     },
   });
