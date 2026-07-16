@@ -1,5 +1,5 @@
 import { hasProAccess } from "@/lib/entitlement";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
@@ -55,7 +55,7 @@ const FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "What is the Stock Journal?",
-    a: "A private trade log where you record entries, exits, notes, and tags. View performance analytics over time — similar to TradeZella but built into HedgeFun.",
+    a: "A private trade log where you record entries, exits, notes, and tags. View performance analytics over time — similar to TradeZella but built into Stocksist.",
   },
   {
     q: "What are the webinars and workshops?",
@@ -87,6 +87,10 @@ const ProPage = () => {
   const [authMode, setAuthMode] = useState<"login" | "signup" | null>(null);
   const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
 
+  useEffect(() => {
+    document.title = "Stocksist Pro | Stocksist";
+  }, []);
+
   const handleCheckout = () => {
     if (!user) {
       setAuthMode("signup");
@@ -94,7 +98,7 @@ const ProPage = () => {
     }
     toast({
       title: "Coming Soon",
-      description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
+      description: "Payment processing is being set up. Contact info@stocksist.com for early Pro access.",
     });
   };
 
@@ -114,7 +118,7 @@ const ProPage = () => {
           </BreadcrumbList>
         </Breadcrumb>
         <h1 className="text-[2rem] md:text-[2.5rem] font-bold text-foreground mb-3">
-          HedgeFun Pro
+          Stocksist Pro
         </h1>
         <p className="text-muted-foreground max-w-xl mx-auto text-[0.9375rem] leading-relaxed">
           Get unlimited access to all financial data and tools while supporting
@@ -208,12 +212,12 @@ const ProPage = () => {
       {/* ── Bottom CTA ── */}
       <div className="bg-muted/40 border-t border-border py-14 text-center px-4">
         <h2 className="text-[1.5rem] font-bold text-foreground mb-3">
-          Get early access to HedgeFun Pro
+          Get early access to Stocksist Pro
         </h2>
         <p className="text-sm text-muted-foreground max-w-lg mx-auto mb-6 leading-relaxed">
           Unlock unlimited access to all financial data and tools so you can
           trade smarter and grow consistently. Early access is available now —
-          email info@hedgefun.fun to get started.
+          email info@stocksist.com to get started.
         </p>
         <Button
           size="lg"

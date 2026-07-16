@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { toast } from "@/hooks/use-toast";
+import { BRAND } from "@/config/brand";
 
 /* ── Full Article Bodies ──────────────────────────── */
 const ARTICLE_BODIES: Record<string, string[]> = {
@@ -177,25 +178,25 @@ export default function ArticleDetailPage() {
       headline: article.title,
       description: article.excerpt,
       datePublished: article.date,
-      url: `https://www.hedgefun.fun/articles/${slug}`,
-      author: { "@type": "Organization", name: article.author ?? "HedgeFun" },
+      url: `${BRAND.url}/articles/${slug}`,
+      author: { "@type": "Organization", name: article.author ?? BRAND.name },
       publisher: {
         "@type": "Organization",
-        name: "HedgeFun",
-        url: "https://www.hedgefun.fun",
+        name: BRAND.name,
+        url: BRAND.url,
       },
     };
   }, [article, slug]);
 
   usePageSeo({
-    title: article ? `${article.title} — HedgeFun Blog` : "Article Not Found — HedgeFun",
+    title: article ? `${article.title} — Stocksist Blog` : "Article Not Found — Stocksist",
     description: article?.excerpt ?? "Article not found.",
-    canonical: slug ? `https://www.hedgefun.fun/articles/${slug}` : undefined,
+    canonical: slug ? `${BRAND.url}/articles/${slug}` : undefined,
     jsonLd: jsonLd,
   });
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(`https://www.hedgefun.fun/articles/${slug}`);
+    navigator.clipboard.writeText(`${BRAND.url}/articles/${slug}`);
     setCopied(true);
     toast({ title: "Link copied to clipboard" });
     setTimeout(() => setCopied(false), 2000);
@@ -259,16 +260,16 @@ export default function ArticleDetailPage() {
         {/* Author + date + read time */}
         <div className="flex items-center gap-3 mb-8 pb-6 border-b border-border">
           <div className="h-9 w-9 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-primary-foreground">HF</span>
+            <span className="text-xs font-bold text-primary-foreground">{BRAND.initials}</span>
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">{article.author ?? "HedgeFun Team"}</p>
+            <p className="text-sm font-medium text-foreground">{article.author ?? "Stocksist Team"}</p>
             <p className="text-xs text-muted-foreground">{article.date} · {readTime}</p>
           </div>
           {/* Share buttons */}
           <div className="flex items-center gap-1.5">
             <a
-              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(`https://www.hedgefun.fun/articles/${slug}`)}`}
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(article.title)}&url=${encodeURIComponent(`${BRAND.url}/articles/${slug}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
@@ -277,7 +278,7 @@ export default function ArticleDetailPage() {
               <Twitter className="h-4 w-4" />
             </a>
             <a
-              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://www.hedgefun.fun/articles/${slug}`)}`}
+              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${BRAND.url}/articles/${slug}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"

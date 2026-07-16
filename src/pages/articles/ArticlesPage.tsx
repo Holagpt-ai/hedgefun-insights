@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 import starlinkImg from "@/assets/articles/starlink-ipo.jpg";
 import oilImg from "@/assets/articles/rising-oil-prices.jpg";
@@ -199,7 +200,7 @@ export default function ArticlesPage() {
         excerpt: `${row.source ? row.source + " — " : ""}Read the full story on the original source.`,
         date: formatDate(row.published_at),
         image: row.image_url ?? "",
-        author: row.source ?? "HedgeFun News",
+        author: row.source ?? "Stocksist News",
         tags: row.category ? [row.category] : ["Markets"],
         externalUrl: row.url,
       }));
@@ -248,20 +249,20 @@ export default function ArticlesPage() {
   };
 
   usePageSeo({
-    title: "HedgeFun Blog — Latest Articles on Stocks, Finance & Investing",
+    title: "Stocksist Blog — Latest Articles on Stocks, Finance & Investing",
     description:
-      "Read in-depth articles on stocks, ETFs, IPOs, market analysis, and investing strategies from the HedgeFun team.",
-    canonical: "https://www.hedgefun.fun/articles",
+      "Read in-depth articles on stocks, ETFs, IPOs, market analysis, and investing strategies from the Stocksist team.",
+    canonical: `${BRAND.url}/articles`,
     jsonLd: {
       "@context": "https://schema.org",
       "@type": "Blog",
-      name: "HedgeFun Blog",
+      name: "Stocksist Blog",
       description: "Latest articles on stocks, finance, and investing.",
-      url: "https://www.hedgefun.fun/articles",
+      url: `${BRAND.url}/articles`,
       publisher: {
         "@type": "Organization",
-        name: "HedgeFun",
-        url: "https://www.hedgefun.fun",
+        name: BRAND.name,
+        url: BRAND.url,
       },
     },
   });
@@ -270,7 +271,7 @@ export default function ArticlesPage() {
     <div className="max-w-[960px] mx-auto px-4 py-10">
       <div className="text-center mb-10">
         <h1 className="text-[1.75rem] md:text-[2rem] font-bold text-foreground mb-2">
-          HedgeFun Blog
+          Stocksist Blog
         </h1>
         <p className="text-muted-foreground text-[0.9375rem]">
           Latest articles on stocks, finance, and investing.
@@ -350,12 +351,12 @@ export default function ArticlesPage() {
               <div className="flex items-center gap-2">
                 <div className="h-7 w-7 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
                   <span className="text-[0.5rem] font-bold text-primary-foreground">
-                    HF
+                    {BRAND.initials}
                   </span>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-accent-blue leading-none">
-                    {article.author ?? "HedgeFun Team"}
+                    {article.author ?? "Stocksist Team"}
                   </p>
                   <p className="text-[0.625rem] text-muted-foreground mt-0.5">
                     {article.date}

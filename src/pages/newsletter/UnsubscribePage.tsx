@@ -10,6 +10,10 @@ export default function UnsubscribePage() {
   const token = searchParams.get("token");
 
   useEffect(() => {
+    document.title = "Unsubscribe | Stocksist";
+  }, []);
+
+  useEffect(() => {
     if (!email || !token) {
       setStatus("missing");
       return;
@@ -47,7 +51,7 @@ export default function UnsubscribePage() {
         {/* Header */}
         <div className="bg-[#0f172a] px-8 py-6">
           <span className="text-xl font-bold text-white">
-            HedgeFun<span className="text-[#1d4ed8]">.</span>
+            Stocksist<span className="text-[#1d4ed8]">.</span>
           </span>
         </div>
 
@@ -63,7 +67,7 @@ export default function UnsubscribePage() {
             <>
               <h1 className="text-xl font-bold text-foreground mb-2">You've been unsubscribed.</h1>
               <p className="text-sm text-muted-foreground mb-6">
-                You won't receive any more emails from HedgeFun Market Bullets. Changed your mind?
+                You won't receive any more emails from Stocksist Market Bullets. Changed your mind?
               </p>
               <Link
                 to="/newsletter"
@@ -83,7 +87,7 @@ export default function UnsubscribePage() {
                 to="/"
                 className="inline-block bg-primary text-primary-foreground text-sm font-semibold px-5 py-2.5 rounded-md hover:bg-primary/90 transition-colors"
               >
-                Go to HedgeFun
+                Go to Stocksist
               </Link>
             </>
           )}
@@ -97,7 +101,7 @@ export default function UnsubscribePage() {
                 to="/"
                 className="inline-block bg-primary text-primary-foreground text-sm font-semibold px-5 py-2.5 rounded-md hover:bg-primary/90 transition-colors"
               >
-                Go to HedgeFun
+                Go to Stocksist
               </Link>
             </>
           )}
@@ -105,7 +109,7 @@ export default function UnsubscribePage() {
 
         {/* Footer */}
         <div className="px-8 py-4 border-t border-border bg-muted/30">
-          <p className="text-xs text-muted-foreground text-center">© 2026 HedgeFun.fun</p>
+          <p className="text-xs text-muted-foreground text-center">© 2026 Stocksist.com</p>
         </div>
       </div>
     </div>

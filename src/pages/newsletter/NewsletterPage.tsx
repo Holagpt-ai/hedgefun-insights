@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { subscribeToNewsletter } from "@/lib/newsletter";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BRAND } from "@/config/brand";
 
 function IPhoneMockup() {
   return (
@@ -25,9 +26,9 @@ function IPhoneMockup() {
           {/* Logo */}
           <div className="flex items-center justify-center gap-1.5 mb-3">
             <div className="h-6 w-6 rounded bg-accent-blue flex items-center justify-center">
-              <span className="text-[8px] font-bold text-white">HF</span>
+              <span className="text-[8px] font-bold text-white">{BRAND.initials}</span>
             </div>
-            <span className="font-bold text-[11px] text-foreground">HedgeFun</span>
+            <span className="font-bold text-[11px] text-foreground">{BRAND.name}</span>
           </div>
 
           {/* Market Overview */}
@@ -109,12 +110,16 @@ export default function NewsletterPage() {
     setStatus(result.status);
   };
 
+  useEffect(() => {
+    document.title = "Stocksist Market Bullets | Stocksist";
+  }, []);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       {/* Minimal header */}
       <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0">
         <Link to="/" className="flex items-center font-bold text-lg text-foreground">
-          <img src="/logo.svg" alt="HedgeFun" className="h-8 w-auto" />
+          <img src="/logo.svg" alt="Stocksist" className="h-8 w-auto" />
         </Link>
         <button
           onClick={() => setAuthMode("login")}
@@ -135,7 +140,7 @@ export default function NewsletterPage() {
 
             <div className="text-base text-foreground leading-relaxed space-y-4">
               <p>
-                HedgeFun Market Bullets is a free newsletter that makes it super easy to keep up
+                Stocksist Market Bullets is a free newsletter that makes it super easy to keep up
                 with financial markets.
               </p>
               <p>
