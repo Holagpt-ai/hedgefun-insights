@@ -82,10 +82,6 @@ export default function SupportPage() {
             info@stocksist.com
           </a>
         </p>
-        <div className="flex items-center justify-center gap-4 mt-4">
-          <a href="https://facebook.com/hedgefun" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Facebook</a>
-          <a href="https://twitter.com/hedgefun" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Twitter</a>
-        </div>
       </div>
 
     </div>
