@@ -212,12 +212,12 @@ const ProPage = () => {
       {/* ── Bottom CTA ── */}
       <div className="bg-muted/40 border-t border-border py-14 text-center px-4">
         <h2 className="text-[1.5rem] font-bold text-foreground mb-3">
-          Get early access to HedgeFun Pro
+          Get early access to Stocksist Pro
         </h2>
         <p className="text-sm text-muted-foreground max-w-lg mx-auto mb-6 leading-relaxed">
           Unlock unlimited access to all financial data and tools so you can
           trade smarter and grow consistently. Early access is available now —
-          email info@hedgefun.fun to get started.
+          email info@stocksist.com to get started.
         </p>
         <Button
           size="lg"
