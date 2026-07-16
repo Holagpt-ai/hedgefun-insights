@@ -101,7 +101,7 @@ function buildHtml(
   js: string,
   css: string
 ): string {
-  const ogImage = "https://hedgefun.fun/og-share-card.png";
+  const ogImage = OG_IMAGE_URL;
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -131,7 +131,7 @@ function buildHtml(
 export default async function middleware(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
-  const canonicalUrl = `https://hedgefun.fun${pathname}`;
+  const canonicalUrl = `${SITE_URL}${pathname}`;
 
   let meta: { title: string; description: string } | null = null;
 
