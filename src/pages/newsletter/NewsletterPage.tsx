@@ -140,7 +140,7 @@ export default function NewsletterPage() {
 
             <div className="text-base text-foreground leading-relaxed space-y-4">
               <p>
-                HedgeFun Market Bullets is a free newsletter that makes it super easy to keep up
+                Stocksist Market Bullets is a free newsletter that makes it super easy to keep up
                 with financial markets.
               </p>
               <p>
