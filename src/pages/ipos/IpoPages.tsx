@@ -192,8 +192,8 @@ export function RecentIposPage() {
   }
 
   usePageSeo({
-    title: "IPO Calendar 2026 — Upcoming & Recent IPOs | HedgeFun",
-    description: "Track upcoming and recent IPOs, expected offer prices, listing dates, and post-IPO performance on HedgeFun.",
+    title: "IPO Calendar 2026 — Upcoming & Recent IPOs | Stocksist",
+    description: "Track upcoming and recent IPOs, expected offer prices, listing dates, and post-IPO performance on Stocksist.",
   });
 
   return (
@@ -368,7 +368,7 @@ export function RecentIposPage() {
                       {news.headline}
                     </a>
                     <div className="text-xs text-muted-foreground mt-0.5">
-                      {news.source ?? "HedgeFun"} · {news.published_at ? timeAgo(news.published_at) : ""}
+                      {news.source ?? "Source unavailable"} · {news.published_at ? timeAgo(news.published_at) : ""}
                     </div>
                   </div>
                 ))}

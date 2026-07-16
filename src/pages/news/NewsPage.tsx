@@ -58,7 +58,7 @@ function normalizeSupa(item: any, idx: number): NormalizedArticle {
   return {
     id: item.id,
     headline: item.headline,
-    source: item.source ?? "HedgeFun",
+    source: item.source ?? "Source unavailable",
     published_at: item.published_at,
     url: item.url ?? "#",
     image_url: undefined,
@@ -372,8 +372,8 @@ const NewsPage = () => {
   const rest = visibleArticles.slice(1);
 
   usePageSeo({
-    title: "Stock Market News & Financial Analysis | HedgeFun",
-    description: "Get the latest stock market news, earnings coverage, economic updates, and financial analysis on HedgeFun.",
+    title: "Stock Market News & Financial Analysis | Stocksist",
+    description: "Get the latest stock market news, earnings coverage, economic updates, and financial analysis on Stocksist.",
   });
 
   return (

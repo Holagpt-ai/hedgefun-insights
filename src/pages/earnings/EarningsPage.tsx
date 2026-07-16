@@ -162,8 +162,8 @@ const EarningsPage = () => {
   const dayCount = countByDate[selectedDateStr] || 0;
 
   usePageSeo({
-    title: "Earnings Calendar — Upcoming & Recent Reports | HedgeFun",
-    description: "Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on HedgeFun.",
+    title: "Earnings Calendar — Upcoming & Recent Reports | Stocksist",
+    description: "Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on Stocksist.",
   });
 
   return (

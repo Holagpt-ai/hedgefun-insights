@@ -1,4 +1,4 @@
-// HedgeFun Agentic SEO Engine — Ghost Protocol v1
+// Stocksist Agentic SEO Engine — Ghost Protocol v1
 // Generator: Gemini 2.0 Flash | Auditor: Claude Haiku
 // CTS 4-Signal trigger (price/volume/analyst/search, threshold 0.65)
 // NOTE: Generation logic is intentionally stubbed — V2 implementation pending.
@@ -36,13 +36,13 @@ export interface SitemapConfig {
 
 export function generateMetaTitle(ticker: string, companyName?: string): string {
   return companyName
-    ? `${companyName} (${ticker}) Stock Price, News & Analysis | HedgeFun`
-    : `${ticker} Stock Price, News & Analysis | HedgeFun`;
+    ? `${companyName} (${ticker}) Stock Price, News & Analysis | Stocksist`
+    : `${ticker} Stock Price, News & Analysis | Stocksist`;
 }
 
 export function generateMetaDescription(ticker: string, companyName?: string): string {
   const name = companyName ? `${companyName} (${ticker})` : ticker;
-  return `Get the latest ${name} stock price, news, financials, analyst ratings, and market analysis on HedgeFun.`;
+  return `Get the latest ${name} stock price, news, financials, analyst ratings, and market analysis on Stocksist.`;
 }
 
 // STUBBED — do not implement generation logic in V1
