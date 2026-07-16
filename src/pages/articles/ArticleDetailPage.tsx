@@ -260,10 +260,10 @@ export default function ArticleDetailPage() {
         {/* Author + date + read time */}
         <div className="flex items-center gap-3 mb-8 pb-6 border-b border-border">
           <div className="h-9 w-9 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-primary-foreground">HF</span>
+            <span className="text-xs font-bold text-primary-foreground">{BRAND.initials}</span>
           </div>
           <div className="flex-1">
-            <p className="text-sm font-medium text-foreground">{article.author ?? "HedgeFun Team"}</p>
+            <p className="text-sm font-medium text-foreground">{article.author ?? "Stocksist Team"}</p>
             <p className="text-xs text-muted-foreground">{article.date} · {readTime}</p>
           </div>
           {/* Share buttons */}
