@@ -278,7 +278,7 @@ export default function ArticleDetailPage() {
               <Twitter className="h-4 w-4" />
             </a>
             <a
-              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://www.hedgefun.fun/articles/${slug}`)}`}
+              href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`${BRAND.url}/articles/${slug}`)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="h-8 w-8 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
