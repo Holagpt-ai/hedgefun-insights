@@ -7,8 +7,8 @@ import { Search, MessageCircle, Star, BarChart3, ClipboardList, Newspaper, Shiel
 import { AdBanner } from "@/components/layout/AdBanner";
 
 const CATEGORIES = [
-  { icon: MessageCircle, title: "Getting Started", description: "Account setup, signing in, and navigating HedgeFun", to: "/faq#getting-started" },
-  { icon: Star, title: "HedgeFun Pro", description: "Billing, subscription management, and Pro features", to: "/faq#pro" },
+  { icon: MessageCircle, title: "Getting Started", description: "Account setup, signing in, and navigating Stocksist", to: "/faq#getting-started" },
+  { icon: Star, title: "Stocksist Pro", description: "Billing, subscription management, and Pro features", to: "/faq#pro" },
   { icon: BarChart3, title: "Data & Charts", description: "Understanding market data, charts, and indicators", to: "/faq#data" },
   { icon: ClipboardList, title: "Watchlist", description: "Adding stocks, managing your watchlist", to: "/faq#getting-started" },
   { icon: Newspaper, title: "Market Newsletter", description: "Subscribing, unsubscribing, delivery issues", to: "/faq#getting-started" },
@@ -19,7 +19,7 @@ export default function SupportPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    document.title = "Get Support | HedgeFun";
+    document.title = "Get Support | Stocksist";
   }, []);
 
   const filtered = CATEGORIES.filter(
@@ -78,14 +78,10 @@ export default function SupportPage() {
         </Button>
         <p className="text-sm text-muted-foreground">
           Or email us at{" "}
-          <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">
-            info@hedgefun.fun
+          <a href="mailto:info@stocksist.com" className="text-primary hover:underline">
+            info@stocksist.com
           </a>
         </p>
-        <div className="flex items-center justify-center gap-4 mt-4">
-          <a href="https://facebook.com/hedgefun" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Facebook</a>
-          <a href="https://twitter.com/hedgefun" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">Twitter</a>
-        </div>
       </div>
 
     </div>

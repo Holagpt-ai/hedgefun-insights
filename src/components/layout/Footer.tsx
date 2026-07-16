@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Linkedin, Youtube, Sun, Moon, Apple, Play } from "lucide-react";
+import { Sun, Moon, Apple, Play } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/contexts/ThemeContext";
@@ -10,10 +10,6 @@ import { subscribeToNewsletter } from "@/lib/newsletter";
 import { BRAND } from "@/config/brand";
 
 
-const SOCIAL_LINKS = [
-  { icon: Linkedin, url: "https://linkedin.com/company/hedgefun", label: "LinkedIn" },
-  { icon: Youtube, url: "https://youtube.com/@hedgefun", label: "YouTube" },
-];
 
 export function Footer() {
   const navigate = useNavigate();
@@ -166,22 +162,6 @@ export function Footer() {
             © {new Date().getFullYear()} {BRAND.displayDomain}. {t("allRightsReserved")}
           </span>
 
-          {/* Center — social icons */}
-          <div className="flex items-center gap-2">
-            {SOCIAL_LINKS.map((social) => (
-              <a
-                key={social.label}
-                href={social.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="h-9 w-9 rounded-full flex items-center justify-center text-white transition-colors"
-                style={{ background: "rgba(255,255,255,0.08)" }}
-                aria-label={social.label}
-              >
-                <social.icon className="h-4 w-4" />
-              </a>
-            ))}
-          </div>
 
           {/* Right — app badges + theme toggle */}
           <div className="flex items-center gap-2 shrink-0">

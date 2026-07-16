@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 
 export default function TermsPage() {
   useEffect(() => {
-    document.title = "Terms of Service | HedgeFun";
+    document.title = "Terms of Service | Stocksist";
   }, []);
 
   return (
@@ -20,7 +20,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">1. Acceptance of Terms</h2>
             <p>
-              By accessing, browsing, or using HedgeFun ("<strong>hedgefun.fun</strong>," "we," "us," or
+              By accessing, browsing, or using Stocksist ("<strong>stocksist.com</strong>," "we," "us," or
               "our"), you acknowledge that you have read, understood, and agree to be bound by these Terms
               of Service ("Terms"), our{" "}
               <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>, and our{" "}
@@ -35,10 +35,10 @@ export default function TermsPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">2. Description of Service</h2>
             <p>
-              HedgeFun is an independent financial data aggregation and educational technology platform.
+              Stocksist is an independent financial data aggregation and educational technology platform.
               We provide stock market data, charts, screeners, analyst ratings, IPO calendars, earnings
               data, AI-powered market analysis, and related tools. The platform includes a free tier and
-              a premium subscription tier ("HedgeFun Pro"). All data and analysis are delivered for
+              a premium subscription tier ("Stocksist Pro"). All data and analysis are delivered for
               <strong> informational and educational purposes only</strong>.
             </p>
           </section>
@@ -49,15 +49,15 @@ export default function TermsPage() {
             <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-4 mb-3">
               <p className="font-semibold text-destructive mb-2">⚠ IMPORTANT NOTICE</p>
               <p>
-                HedgeFun provides <strong>algorithmic and AI-driven data analysis</strong>. We are
-                <strong> NOT</strong> providing personalized, licensed financial advice. HedgeFun is not a
+                Stocksist provides <strong>algorithmic and AI-driven data analysis</strong>. We are
+                <strong> NOT</strong> providing personalized, licensed financial advice. Stocksist is not a
                 registered broker-dealer, investment advisor, Commodity Trading Advisor (CTA), Registered
                 Investment Advisor (RIA), or financial planner with the SEC, FINRA, CFTC, or any state
                 securities regulatory authority.
               </p>
             </div>
             <p>
-              No content on HedgeFun — including AI-generated summaries, analyst consensus data, screener
+              No content on Stocksist — including AI-generated summaries, analyst consensus data, screener
               results, earnings analysis, or chatbot interactions — constitutes a recommendation,
               endorsement, or solicitation to buy, sell, or hold any security, option, or financial
               instrument. All algorithmic outputs, sentiment scores, and AI commentary are generated
@@ -74,23 +74,23 @@ export default function TermsPage() {
 
             <h3 className="font-semibold mb-1">4.1 Limitation of Liability</h3>
             <p className="mb-4">
-              To the maximum extent permitted by applicable law, HedgeFun, its owners, officers,
+              To the maximum extent permitted by applicable law, Stocksist, its owners, officers,
               employees, affiliates, contractors, and data providers shall <strong>not be liable</strong>{" "}
               for any direct, indirect, incidental, special, consequential, or punitive damages —
               including but not limited to loss of profits, loss of capital, trading losses, loss of data,
               or business interruption — arising out of or in connection with your use of, or inability to
               use, this platform or any information, data, AI-generated content, or analysis contained
-              herein, even if HedgeFun has been advised of the possibility of such damages.
+              herein, even if Stocksist has been advised of the possibility of such damages.
             </p>
 
             <h3 className="font-semibold mb-1">4.2 Indemnification</h3>
             <p>
-              You agree to indemnify, defend, and hold harmless HedgeFun, its founder Carlos A. Acosta,
+              You agree to indemnify, defend, and hold harmless Stocksist, its founder Carlos A. Acosta,
               its team members, affiliates, licensors, and service providers from and against any and all
               claims, liabilities, damages, judgments, awards, losses, costs, expenses, or fees (including
               reasonable attorneys' fees) arising out of or relating to: (a) your use of the platform;
               (b) any trading or investment decisions you make based on data, analysis, AI commentary, or
-              any other content obtained from HedgeFun; (c) your violation of these Terms; (d) your
+              any other content obtained from Stocksist; (c) your violation of these Terms; (d) your
               violation of any applicable law or regulation; or (e) any financial losses you incur from
               trading options, credit spreads, equities, ETFs, or any other financial instruments after
               viewing, reading, or interacting with content on this platform.
@@ -109,7 +109,7 @@ export default function TermsPage() {
               </li>
               <li>
                 You must notify us immediately at{" "}
-                <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">info@hedgefun.fun</a>{" "}
+                <a href="mailto:info@stocksist.com" className="text-primary hover:underline">info@stocksist.com</a>{" "}
                 of any unauthorized access to or use of your account.
               </li>
               <li>
@@ -122,14 +122,14 @@ export default function TermsPage() {
             </ul>
           </section>
 
-          {/* ── 6. HedgeFun Pro Subscription ── */}
+          {/* ── 6. Stocksist Pro Subscription ── */}
           <section>
-            <h2 className="text-[1.125rem] font-bold mb-2">6. HedgeFun Pro — Subscription Terms</h2>
+            <h2 className="text-[1.125rem] font-bold mb-2">6. Stocksist Pro — Subscription Terms</h2>
 
             <h3 className="font-semibold mb-1">6.1 Billing &amp; Renewal</h3>
             <ul className="list-disc pl-6 space-y-2 mb-4">
               <li>
-                HedgeFun Pro is offered as a recurring subscription billed on a monthly or annual basis
+                Stocksist Pro is offered as a recurring subscription billed on a monthly or annual basis
                 through our payment processor, <strong>Stripe</strong>.
               </li>
               <li>
@@ -147,7 +147,7 @@ export default function TermsPage() {
 
             <h3 className="font-semibold mb-1">6.2 Account Sharing</h3>
             <p className="mb-4">
-              HedgeFun Pro subscriptions are <strong>single-user licenses</strong>. Each subscription is
+              Stocksist Pro subscriptions are <strong>single-user licenses</strong>. Each subscription is
               intended for use by the individual who purchased it. You may not share, transfer, or
               sublicense your account credentials to any other person or entity. We reserve the right to
               monitor for abnormal login patterns and terminate accounts that appear to be sharing access.
@@ -175,7 +175,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">7. Acceptable Use Policy</h2>
             <p className="mb-3">
-              You agree that you will <strong>NOT</strong> use HedgeFun to:
+              You agree that you will <strong>NOT</strong> use Stocksist to:
             </p>
             <ul className="list-disc pl-6 space-y-2">
               <li>
@@ -184,13 +184,13 @@ export default function TermsPage() {
                 our express written consent.
               </li>
               <li>
-                <strong>Reverse-engineer, decompile, or disassemble</strong> any aspect of the HedgeFun
+                <strong>Reverse-engineer, decompile, or disassemble</strong> any aspect of the Stocksist
                 platform, including but not limited to our proprietary AI algorithms, Socratic reasoning
                 agents, scoring models, or analytical pipelines.
               </li>
               <li>
                 <strong>Redistribute, republish, or commercially exploit</strong> any data, charts,
-                analysis, or AI-generated content from HedgeFun without written permission.
+                analysis, or AI-generated content from Stocksist without written permission.
               </li>
               <li>
                 <strong>Engage in market manipulation</strong>, including but not limited to using
@@ -221,11 +221,11 @@ export default function TermsPage() {
             <h2 className="text-[1.125rem] font-bold mb-2">8. Intellectual Property</h2>
             <p>
               All content, design, code, data visualizations, algorithms, AI models, branding, logos, and
-              documentation on HedgeFun are the proprietary intellectual property of HedgeFun and its
+              documentation on Stocksist are the proprietary intellectual property of Stocksist and its
               licensors. You are granted a limited, non-exclusive, non-transferable, revocable license to
               access and use the platform for personal, non-commercial purposes in accordance with these
               Terms. You may not reproduce, distribute, modify, create derivative works from, publicly
-              display, or commercially exploit any content from HedgeFun without our prior written consent.
+              display, or commercially exploit any content from Stocksist without our prior written consent.
             </p>
           </section>
 
@@ -233,12 +233,12 @@ export default function TermsPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">9. AI-Generated Content</h2>
             <p>
-              HedgeFun utilizes artificial intelligence, including large language models, to generate
+              Stocksist utilizes artificial intelligence, including large language models, to generate
               analytical summaries, market commentary, and conversational responses via the AI Consultant.
               AI-generated content may contain errors, inaccuracies, or "hallucinations." Such content
               is provided "as is" without any warranty of accuracy, completeness, or reliability. You
               must independently verify all AI-generated information before making any decisions based
-              on it. HedgeFun disclaims all liability for any actions taken in reliance on AI-generated
+              on it. Stocksist disclaims all liability for any actions taken in reliance on AI-generated
               content.
             </p>
           </section>
@@ -247,7 +247,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">10. Third-Party Links &amp; Data</h2>
             <p>
-              HedgeFun may contain links to third-party websites and integrates data from third-party
+              Stocksist may contain links to third-party websites and integrates data from third-party
               providers including Polygon.io, SEC EDGAR, Google Analytics, and Google AdSense. We are not
               responsible for the content, accuracy, privacy practices, or availability of any third-party
               services. Your interaction with third-party services is governed by their respective terms
@@ -259,7 +259,7 @@ export default function TermsPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">11. Disclaimer of Warranties</h2>
             <p>
-              HedgeFun is provided on an "<strong>AS IS</strong>" and "<strong>AS AVAILABLE</strong>"
+              Stocksist is provided on an "<strong>AS IS</strong>" and "<strong>AS AVAILABLE</strong>"
               basis without warranties of any kind, either express or implied, including but not limited
               to implied warranties of merchantability, fitness for a particular purpose, accuracy, and
               non-infringement. We do not warrant that the platform will be uninterrupted, error-free,
@@ -296,7 +296,7 @@ export default function TermsPage() {
             <h2 className="text-[1.125rem] font-bold mb-2">Contact Us</h2>
             <p>
               If you have any questions about these Terms of Service, please contact us at{" "}
-              <a href="mailto:info@hedgefun.fun" className="text-primary hover:underline">info@hedgefun.fun</a>{" "}
+              <a href="mailto:info@stocksist.com" className="text-primary hover:underline">info@stocksist.com</a>{" "}
               or write to us at: 1631 Del Prado Blvd, Cape Coral, FL 33990. You may also visit our{" "}
               <Link to="/contact" className="text-primary hover:underline">Contact Us</Link> page.
             </p>

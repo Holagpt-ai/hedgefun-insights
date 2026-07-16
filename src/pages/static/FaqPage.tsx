@@ -14,7 +14,7 @@ const FAQ_SECTIONS = [
     id: "getting-started",
     heading: "Getting Started",
     items: [
-      { q: "What is HedgeFun?", a: "HedgeFun is a financial data platform providing real-time stock quotes, ETF data, IPO tracking, market movers, earnings calendars, screening tools, and more for everyday investors." },
+      { q: "What is Stocksist?", a: "Stocksist is a financial data platform providing real-time stock quotes, ETF data, IPO tracking, market movers, earnings calendars, screening tools, and more for everyday investors." },
       { q: "How do I create an account?", a: 'Click "Sign Up" in the top right corner. You can register with your email address. It\'s free.' },
       { q: "How do I add stocks to my Watchlist?", a: 'Sign in to your account, navigate to the Watchlist page, and use the "Add new stock..." search to find and add any ticker.' },
     ],
@@ -23,7 +23,7 @@ const FAQ_SECTIONS = [
     id: "billing",
     heading: "Account & Billing",
     items: [
-      { q: "Is HedgeFun free to use?", a: "Yes. Most features are free. HedgeFun Pro unlocks unlimited access to all data, advanced screener filters, analyst data, and up to 30 years of financial history." },
+      { q: "Is Stocksist free to use?", a: "Yes. Most features are free. Stocksist Pro unlocks unlimited access to all data, advanced screener filters, analyst data, and up to 30 years of financial history." },
       { q: "How do I cancel my Pro subscription?", a: "You can cancel anytime from your Account Settings page. You'll retain Pro access until the end of your billing period." },
     ],
   },
@@ -32,16 +32,16 @@ const FAQ_SECTIONS = [
     heading: "Data & AI Methodology",
     items: [
       {
-        q: "Where does HedgeFun get its market data?",
-        a: "All stock prices, ETF data, market indexes, corporate actions, and historical financial data are sourced from third-party APIs, primarily Polygon.io. News is aggregated from multiple financial wire services and press outlets. IPO data is compiled from SEC filings, NASDAQ, NYSE, and official company press releases. HedgeFun does not generate or fabricate any raw market data — all figures originate from regulated exchanges and licensed data providers.",
+        q: "Where does Stocksist get its market data?",
+        a: "All stock prices, ETF data, market indexes, corporate actions, and historical financial data are sourced from third-party APIs, primarily Polygon.io. News is aggregated from multiple financial wire services and press outlets. IPO data is compiled from SEC filings, NASDAQ, NYSE, and official company press releases. Stocksist does not generate or fabricate any raw market data — all figures originate from regulated exchanges and licensed data providers.",
       },
       {
-        q: "How does the HedgeFun AI Consultant work?",
-        a: "The HedgeFun AI Consultant uses large language models (LLMs) combined with real-time market data to perform algorithmic analysis through a Socratic questioning methodology. Rather than providing direct buy/sell recommendations, the AI guides users through structured analytical frameworks — asking probing questions about risk tolerance, position sizing, implied volatility, and probability of profit. This approach is inspired by McKinsey-style consulting frameworks adapted for retail options trading and credit spread analysis. The AI does not have access to your brokerage account and cannot execute trades on your behalf.",
+        q: "How does the Stocksist AI work?",
+        a: "The Stocksist AI uses large language models (LLMs) combined with real-time market data to perform algorithmic analysis through a Socratic questioning methodology. Rather than providing direct buy/sell recommendations, the AI guides users through structured analytical frameworks — asking probing questions about risk tolerance, position sizing, implied volatility, and probability of profit. This approach is inspired by McKinsey-style consulting frameworks adapted for retail options trading and credit spread analysis. The AI does not have access to your brokerage account and cannot execute trades on your behalf.",
       },
       {
         q: "Can I trust the AI's analysis? Does it ever make mistakes?",
-        a: "No AI system is infallible. Large language models can produce inaccurate, incomplete, or misleading outputs — a phenomenon known as 'hallucination.' While HedgeFun employs data validation layers and cross-references AI outputs against live market data from Polygon.io, users must independently verify all data, price quotes, earnings figures, and analytical conclusions before making any trading or investment decisions. HedgeFun's AI analysis is provided for educational and informational purposes only and does NOT constitute personalized financial advice. Always consult a licensed financial professional before trading options, credit spreads, or equities.",
+        a: "No AI system is infallible. Large language models can produce inaccurate, incomplete, or misleading outputs — a phenomenon known as 'hallucination.' While Stocksist employs data validation layers and cross-references AI outputs against live market data from Polygon.io, users must independently verify all data, price quotes, earnings figures, and analytical conclusions before making any trading or investment decisions. Stocksist's AI analysis is provided for educational and informational purposes only and does NOT constitute personalized financial advice. Always consult a licensed financial professional before trading options, credit spreads, or equities.",
       },
       {
         q: "How often is market data updated?",
@@ -51,9 +51,9 @@ const FAQ_SECTIONS = [
   },
   {
     id: "pro",
-    heading: "HedgeFun Pro",
+    heading: "Stocksist Pro",
     items: [
-      { q: "What is HedgeFun Pro?", a: "HedgeFun Pro is our premium subscription that gives you unlimited access to all data, analyst ratings, top stock picks, advanced filtering, and extended historical data. Visit our Pro page for pricing." },
+      { q: "What is Stocksist Pro?", a: "Stocksist Pro is our premium subscription that gives you unlimited access to all data, analyst ratings, top stock picks, advanced filtering, and extended historical data. Visit our Pro page for pricing." },
     ],
   },
   {
@@ -61,7 +61,7 @@ const FAQ_SECTIONS = [
     heading: "Technical & Security",
     items: [
       { q: "Is my data secure?", a: "Yes. We use industry-standard secure authentication and data storage. We never sell your personal data to third parties." },
-      { q: "How do I advertise on HedgeFun?", a: "Visit our Advertise page or email info@hedgefun.fun for advertising inquiries." },
+      { q: "How do I advertise on Stocksist?", a: "Visit our Advertise page or email info@stocksist.com for advertising inquiries." },
     ],
   },
 ];
@@ -70,7 +70,7 @@ export default function FaqPage() {
   const { hash } = useLocation();
 
   useEffect(() => {
-    document.title = "FAQ | HedgeFun";
+    document.title = "FAQ | Stocksist";
   }, []);
 
   useEffect(() => {
