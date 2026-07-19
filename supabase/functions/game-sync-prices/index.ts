@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { timingSafeMatchAny } from "../_shared/timing-safe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -20,7 +21,12 @@ serve(async (req) => {
   // ── Auth — SYNC_SECRET only ───────────────────────────
   const authHeader = req.headers.get("Authorization") ?? "";
   const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-  if (!syncSecret || authHeader !== `Bearer ${syncSecret}`) {
+  const syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
+  const okAuth = await timingSafeMatchAny(authHeader, [
+    syncSecret ? `Bearer ${syncSecret}` : "",
+    syncSecretNext ? `Bearer ${syncSecretNext}` : "",
+  ]);
+  if (!okAuth) {
     return json({ error: "Forbidden" }, 403);
   }
 
