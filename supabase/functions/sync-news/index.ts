@@ -65,13 +65,25 @@ serve(async (req) => {
   const __syncSecretHeader = req.headers.get("x-sync-secret") ?? "";
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const __syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-  if (!__srk && !__syncSecret) {
-    return new Response(JSON.stringify({ error: "Server auth not configured" }), { status: 500, headers: { "Content-Type": "application/json" } });
+  const __syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
+  if (!__srk && !__syncSecret && !__syncSecretNext) {
+    return new Response(
+      JSON.stringify({ error: "Server auth not configured" }),
+      { status: 500, headers: { "Content-Type": "application/json" } },
+    );
   }
-  const __bearerOk = __srk !== "" && __auth === `Bearer ${__srk}`;
-  const __syncOk = __syncSecret !== "" && __syncSecretHeader === __syncSecret;
+  const [__bearerOk, __syncOk] = await Promise.all([
+    timingSafeMatch(__auth, __srk ? `Bearer ${__srk}` : ""),
+    timingSafeMatchAny(__syncSecretHeader, [
+      __syncSecret,
+      __syncSecretNext,
+    ]),
+  ]);
   if (!__bearerOk && !__syncOk) {
-    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
+    return new Response(
+      JSON.stringify({ error: "Forbidden" }),
+      { status: 403, headers: { "Content-Type": "application/json" } },
+    );
   }
 
   try {
