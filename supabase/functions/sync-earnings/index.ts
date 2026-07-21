@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { timingSafeMatch, timingSafeMatchAny } from "../_shared/timing-safe.ts";
+import { timingSafeMatch } from "../_shared/timing-safe.ts";
 
 const MASSIVE_BASE = "https://api.polygon.io";
 
