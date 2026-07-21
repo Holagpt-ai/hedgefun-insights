@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { timingSafeMatchAny } from "../_shared/timing-safe.ts";
+import { timingSafeMatch } from "../_shared/timing-safe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -177,12 +177,11 @@ serve(async (req) => {
 
   // Authenticate: SYNC_SECRET only.
   const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-  const syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
   const authHeader = req.headers.get("Authorization") ?? "";
   const m = authHeader.match(/^Bearer\s+(.+)$/i);
   const presented = m ? m[1].trim() : "";
   const okAuth = !!presented &&
-    (await timingSafeMatchAny(presented, [syncSecret, syncSecretNext]));
+    (await timingSafeMatch(presented, syncSecret));
   if (!okAuth) {
     return json({ error: "Unauthorized" }, 401);
   }
