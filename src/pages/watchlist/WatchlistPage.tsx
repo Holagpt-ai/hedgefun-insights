@@ -165,25 +165,6 @@ function HFScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   );
 }
 
-// ── Watchlist Intelligence Overlay (mock, frontend-only) ────
-// Local inline overlay map — NOT sourced from Supabase, AI, or any live data.
-// Purely illustrative frontend badges layered on top of the existing live UI.
-type OverlayExposure = "Catalyst active" | "No near-term catalyst" | "Risk window";
-interface OverlayEntry {
-  badges: string[]; // e.g. Catalyst, Momentum, Risk, Earnings, Volume, Technical
-  exposure: OverlayExposure;
-  note?: string;
-}
-const WATCHLIST_OVERLAY: Record<string, OverlayEntry> = {
-  NVDA: { badges: ["Catalyst", "Momentum", "Volume"], exposure: "Catalyst active", note: "Post-earnings drift; volume expansion." },
-  PLTR: { badges: ["Momentum", "Technical"], exposure: "Catalyst active", note: "RS line at new highs." },
-  SMCI: { badges: ["Technical", "Volume"], exposure: "No near-term catalyst", note: "Base tightening under resistance." },
-  IOVA: { badges: ["Catalyst", "Risk"], exposure: "Risk window", note: "PDUFA window open this week." },
-  MSTR: { badges: ["Risk", "Momentum"], exposure: "Risk window", note: "BTC vol bleeding into shares." },
-  QQQ:  { badges: ["Technical"], exposure: "No near-term catalyst", note: "Quarter-end rebalance flows." },
-  TSLA: { badges: ["Momentum", "Volume", "Risk"], exposure: "Catalyst active", note: "IV rank climbing; bullish flow." },
-  AAPL: { badges: ["Risk", "Technical"], exposure: "Risk window", note: "Weak RS vs QQQ, 5 sessions." },
-};
 
 type SignalPriority = "High" | "Medium" | "Watch" | "Low/Risk" | "Pending";
 function derivePriorityFromScore(score: number | null | undefined): SignalPriority {
