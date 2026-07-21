@@ -96,7 +96,7 @@ function scoreBg(score: number): string {
 function classifyTags(tags: string[]): { classification: string[]; signals: string[] } {
   const signalKeywords = [
     "earnings", "rvol", "volume", "breakout", "news", "upgrade", "downgrade",
-    "options", "bullish flow", "bearish flow", "catalyst", "fda", "filing",
+    "options", "bullish", "bearish", "catalyst", "fda", "filing",
     "soon", "alert", "momentum", "squeeze", "gap",
   ];
   const classification: string[] = [];
