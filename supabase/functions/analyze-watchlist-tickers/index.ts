@@ -33,12 +33,11 @@ serve(async (req) => {
     const authHeader = req.headers.get("Authorization") ?? "";
     const token = authHeader.replace("Bearer ", "").trim();
     const syncSecret = Deno.env.get("SYNC_SECRET");
-    const syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT");
 
     let authorized = false;
 
-    // Check SYNC_SECRET (canonical or rotation NEXT) first — constant-time
-    if (await timingSafeMatchAny(token, [syncSecret, syncSecretNext])) {
+    // Check canonical SYNC_SECRET first — constant-time
+    if (await timingSafeMatch(token, syncSecret)) {
       authorized = true;
     }
 
