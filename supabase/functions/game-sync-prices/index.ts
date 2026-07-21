@@ -21,11 +21,10 @@ serve(async (req) => {
   // ── Auth — SYNC_SECRET only ───────────────────────────
   const authHeader = req.headers.get("Authorization") ?? "";
   const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-  const syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
-  const okAuth = await timingSafeMatchAny(authHeader, [
+  const okAuth = await timingSafeMatch(
+    authHeader,
     syncSecret ? `Bearer ${syncSecret}` : "",
-    syncSecretNext ? `Bearer ${syncSecretNext}` : "",
-  ]);
+  );
   if (!okAuth) {
     return json({ error: "Forbidden" }, 403);
   }
