@@ -1794,10 +1794,6 @@ export type Database = {
         Returns: boolean
       }
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
-      w2r1_promote_vault_canonical: {
-        Args: { p_secret: string }
-        Returns: boolean
-      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
