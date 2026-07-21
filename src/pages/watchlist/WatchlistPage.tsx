@@ -710,7 +710,7 @@ const WatchlistPage = () => {
 
   const symbols = useMemo(() => (watchlistEntries ?? []).map((e) => e.symbol), [watchlistEntries]);
 
-  const { analysis, alerts, lastUpdated, refreshTicker, refreshing } = useWatchlistAI(symbols);
+  const { analysis, alerts, refreshTicker, refreshing } = useWatchlistAI(symbols);
 
   const { data: snapshotData } = useQuery({
     queryKey: ["watchlist-snapshots", symbols],
