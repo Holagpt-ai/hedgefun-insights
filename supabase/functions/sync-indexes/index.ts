@@ -30,11 +30,9 @@ serve(async (req) => {
   const auth = req.headers.get("Authorization") ?? "";
   const srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-  const syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
   const okAuth = await timingSafeMatchAny(auth, [
     srk ? `Bearer ${srk}` : "",
     syncSecret ? `Bearer ${syncSecret}` : "",
-    syncSecretNext ? `Bearer ${syncSecretNext}` : "",
   ]);
   if (!okAuth) {
     return new Response(JSON.stringify({ error: "Forbidden" }), {

@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { timingSafeMatch, timingSafeMatchAny } from "../_shared/timing-safe.ts";
+import { timingSafeMatch } from "../_shared/timing-safe.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,8 +65,7 @@ serve(async (req) => {
   const __syncSecretHeader = req.headers.get("x-sync-secret") ?? "";
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const __syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-  const __syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
-  if (!__srk && !__syncSecret && !__syncSecretNext) {
+  if (!__srk && !__syncSecret) {
     return new Response(
       JSON.stringify({ error: "Server auth not configured" }),
       { status: 500, headers: { "Content-Type": "application/json" } },
@@ -74,10 +73,7 @@ serve(async (req) => {
   }
   const [__bearerOk, __syncOk] = await Promise.all([
     timingSafeMatch(__auth, __srk ? `Bearer ${__srk}` : ""),
-    timingSafeMatchAny(__syncSecretHeader, [
-      __syncSecret,
-      __syncSecretNext,
-    ]),
+    timingSafeMatch(__syncSecretHeader, __syncSecret),
   ]);
   if (!__bearerOk && !__syncOk) {
     return new Response(

@@ -16,13 +16,12 @@ serve(async (req) => {
 
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-  const __secretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
   const __allowed = __secret
-    ? await timingSafeMatchAny(__auth, [
-        `Bearer ${__secret}`,
-        __secretNext ? `Bearer ${__secretNext}` : "",
-      ])
-    : await timingSafeMatch(__auth, __srk ? `Bearer ${__srk}` : "");
+    ? await timingSafeMatch(__auth, `Bearer ${__secret}`)
+    : await timingSafeMatch(
+        __auth,
+        __srk ? `Bearer ${__srk}` : "",
+      );
 
   if (!__allowed) {
 
