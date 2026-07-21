@@ -183,22 +183,6 @@ function priorityClass(p: SignalPriority): string {
     case "Pending": return "bg-muted text-muted-foreground border-border";
   }
 }
-function badgeClass(b: string): string {
-  const map: Record<string, string> = {
-    Catalyst: "bg-blue-50 text-blue-700 border-blue-200",
-    Momentum: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    Risk: "bg-red-50 text-red-700 border-red-100",
-    Earnings: "bg-purple-50 text-purple-700 border-purple-200",
-    Volume: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    Technical: "bg-slate-50 text-slate-700 border-slate-200",
-  };
-  return map[b] ?? "bg-muted text-muted-foreground border-border";
-}
-function exposureClass(e: OverlayExposure): string {
-  if (e === "Catalyst active") return "bg-blue-50 text-blue-700 border-blue-200";
-  if (e === "Risk window") return "bg-red-50 text-red-700 border-red-100";
-  return "bg-muted text-muted-foreground border-border";
-}
 
 function ClassificationTag({ tag }: { tag: string }) {
   return (
