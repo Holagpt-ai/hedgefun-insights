@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -96,7 +96,7 @@ function scoreBg(score: number): string {
 function classifyTags(tags: string[]): { classification: string[]; signals: string[] } {
   const signalKeywords = [
     "earnings", "rvol", "volume", "breakout", "news", "upgrade", "downgrade",
-    "options", "bullish flow", "bearish flow", "catalyst", "fda", "filing",
+    "options", "bullish", "bearish", "catalyst", "fda", "filing",
     "soon", "alert", "momentum", "squeeze", "gap",
   ];
   const classification: string[] = [];
@@ -165,25 +165,6 @@ function HFScoreRing({ score, size = 56 }: { score: number; size?: number }) {
   );
 }
 
-// ── Watchlist Intelligence Overlay (mock, frontend-only) ────
-// Local inline overlay map — NOT sourced from Supabase, AI, or any live data.
-// Purely illustrative frontend badges layered on top of the existing live UI.
-type OverlayExposure = "Catalyst active" | "No near-term catalyst" | "Risk window";
-interface OverlayEntry {
-  badges: string[]; // e.g. Catalyst, Momentum, Risk, Earnings, Volume, Technical
-  exposure: OverlayExposure;
-  note?: string;
-}
-const WATCHLIST_OVERLAY: Record<string, OverlayEntry> = {
-  NVDA: { badges: ["Catalyst", "Momentum", "Volume"], exposure: "Catalyst active", note: "Post-earnings drift; volume expansion." },
-  PLTR: { badges: ["Momentum", "Technical"], exposure: "Catalyst active", note: "RS line at new highs." },
-  SMCI: { badges: ["Technical", "Volume"], exposure: "No near-term catalyst", note: "Base tightening under resistance." },
-  IOVA: { badges: ["Catalyst", "Risk"], exposure: "Risk window", note: "PDUFA window open this week." },
-  MSTR: { badges: ["Risk", "Momentum"], exposure: "Risk window", note: "BTC vol bleeding into shares." },
-  QQQ:  { badges: ["Technical"], exposure: "No near-term catalyst", note: "Quarter-end rebalance flows." },
-  TSLA: { badges: ["Momentum", "Volume", "Risk"], exposure: "Catalyst active", note: "IV rank climbing; bullish flow." },
-  AAPL: { badges: ["Risk", "Technical"], exposure: "Risk window", note: "Weak RS vs QQQ, 5 sessions." },
-};
 
 type SignalPriority = "High" | "Medium" | "Watch" | "Low/Risk" | "Pending";
 function derivePriorityFromScore(score: number | null | undefined): SignalPriority {
@@ -201,22 +182,6 @@ function priorityClass(p: SignalPriority): string {
     case "Low/Risk": return "bg-red-100 text-red-700 border-red-200";
     case "Pending": return "bg-muted text-muted-foreground border-border";
   }
-}
-function badgeClass(b: string): string {
-  const map: Record<string, string> = {
-    Catalyst: "bg-blue-50 text-blue-700 border-blue-200",
-    Momentum: "bg-emerald-50 text-emerald-700 border-emerald-200",
-    Risk: "bg-red-50 text-red-700 border-red-100",
-    Earnings: "bg-purple-50 text-purple-700 border-purple-200",
-    Volume: "bg-indigo-50 text-indigo-700 border-indigo-200",
-    Technical: "bg-slate-50 text-slate-700 border-slate-200",
-  };
-  return map[b] ?? "bg-muted text-muted-foreground border-border";
-}
-function exposureClass(e: OverlayExposure): string {
-  if (e === "Catalyst active") return "bg-blue-50 text-blue-700 border-blue-200";
-  if (e === "Risk window") return "bg-red-50 text-red-700 border-red-100";
-  return "bg-muted text-muted-foreground border-border";
 }
 
 function ClassificationTag({ tag }: { tag: string }) {
@@ -236,165 +201,6 @@ function SignalTag({ tag }: { tag: string }) {
   );
 }
 
-// Animated AI Monitor status — illustrative preview strings, not tied to a real background job.
-const SCAN_STATES = [
-  "Preview: monitoring news workflow…",
-  "Preview: reviewing SEC filings workflow…",
-  "Preview: sample price-action pass…",
-  "Preview: options-flow workflow…",
-  "Preview: catalyst review cycle…",
-  "Preview: HF Score refresh cycle…",
-];
-
-function AIMonitorBar({
-  tickerCount,
-  alertCount,
-  lastUpdated,
-  alerts,
-}: {
-  tickerCount: number;
-  alertCount: number;
-  lastUpdated: Date | null;
-  alerts: AIAlertType[];
-}) {
-  const [scanIdx, setScanIdx] = useState(0);
-  const [logOpen, setLogOpen] = useState(false);
-
-  useEffect(() => {
-    const t = setInterval(() => setScanIdx((i) => (i + 1) % SCAN_STATES.length), 2800);
-    return () => clearInterval(t);
-  }, []);
-
-  const alertTypeLabel: Record<string, string> = {
-    score_change: "Score updated",
-    sentiment_change: "Sentiment changed",
-    catalyst: "Catalyst detected",
-    unusual_options: "Unusual options activity",
-    volume_spike: "Volume spike detected",
-    price_move: "Price movement",
-    news_break: "Breaking news",
-    earnings: "Earnings event",
-    analyst_action: "Analyst action",
-  };
-
-  return (
-    <div className="mb-3 rounded-xl border border-border bg-card overflow-hidden">
-      {/* Bar */}
-      <button
-        onClick={() => setLogOpen((v) => !v)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-muted/30 transition-colors text-left"
-      >
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="font-bold text-foreground">HF AI Monitor</span>
-          <span
-            className="inline-flex items-center rounded-full border border-border bg-muted/60 px-1.5 py-0 text-[9px] font-bold uppercase tracking-wide text-muted-foreground"
-            title="Illustrative preview workflow — not a live background scan"
-          >
-            Preview
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-          <span>Watching <strong className="text-foreground">{tickerCount}</strong> stocks</span>
-          <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">Preview: news workflow across <strong className="text-foreground">1,200+</strong> sources</span>
-          <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline">Preview: <strong className="text-foreground">14</strong> earnings on deck</span>
-          <span className="hidden sm:inline">·</span>
-          <span className="hidden sm:inline"><strong className="text-foreground">{alertCount}</strong> alerts today</span>
-        </div>
-        <div className="hidden lg:flex items-center gap-1.5 text-xs text-purple-600 font-medium italic">
-          <Brain className="h-3 w-3 shrink-0" />
-          {SCAN_STATES[scanIdx]}
-        </div>
-        {lastUpdated && (
-          <span className="text-xs text-muted-foreground hidden sm:inline ml-auto">
-            Updated <strong className="text-foreground">{formatDistanceToNow(lastUpdated, { addSuffix: true })}</strong>
-          </span>
-        )}
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="flex items-center gap-1" title="Illustrative preview workflow">
-            <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
-            <span className="text-xs text-muted-foreground font-bold tracking-wide uppercase">Preview</span>
-          </div>
-          <span className="text-muted-foreground text-xs">{logOpen ? "▲" : "▼"} Activity Log</span>
-        </div>
-      </button>
-
-      {/* Activity Log Panel */}
-      {logOpen && (
-        <div className="border-t border-border bg-surface/60 px-4 py-3 max-h-[320px] overflow-y-auto">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-foreground flex items-center gap-1.5">
-              <Brain className="h-3.5 w-3.5 text-purple-500" />
-              HF AI Activity Log
-            </span>
-            <span className="text-[10px] text-muted-foreground">{alerts.length} events recorded</span>
-          </div>
-
-          {alerts.length === 0 ? (
-            <div className="py-6 text-center">
-              <div className="text-xs text-muted-foreground mb-1">No activity yet</div>
-              <div className="text-[11px] text-muted-foreground">
-                AI will log updates here as it monitors your stocks.
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-0">
-              {alerts.map((alert, idx) => {
-                const up = alert.score_to !== null && alert.score_from !== null && alert.score_to > alert.score_from;
-                const isLast = idx === alerts.length - 1;
-                return (
-                  <div key={alert.id} className="flex gap-3 py-2">
-                    {/* Timeline spine */}
-                    <div className="flex flex-col items-center shrink-0 w-4">
-                      <div className={cn(
-                        "h-2.5 w-2.5 rounded-full border-2 shrink-0 mt-0.5",
-                        up ? "bg-emerald-500 border-emerald-400" : "bg-red-500 border-red-400"
-                      )} />
-                      {!isLast && <div className="w-px flex-1 bg-border mt-1" />}
-                    </div>
-                    {/* Content */}
-                    <div className="flex-1 min-w-0 pb-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-black text-accent-blue">{alert.ticker}</span>
-                        <span className="text-[10px] text-muted-foreground">·</span>
-                        <span className="text-[11px] font-semibold text-foreground">
-                          {alertTypeLabel[alert.alert_type] ?? alert.alert_type.replace("_", " ")}
-                        </span>
-                        {alert.score_from !== null && alert.score_to !== null && (
-                          <span className={cn(
-                            "text-[10px] font-mono font-bold px-1.5 py-0.5 rounded",
-                            up ? "bg-emerald-100 text-emerald-700" : "bg-red-100 text-red-700"
-                          )}>
-                            {alert.score_from} → {alert.score_to}
-                          </span>
-                        )}
-                        <span className="text-[10px] text-muted-foreground ml-auto shrink-0">
-                          {format(new Date(alert.created_at), "h:mm a")}
-                        </span>
-                      </div>
-                      <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{alert.reason}</p>
-                      {alert.reasoning?.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {alert.reasoning.slice(0, 2).map((r, i) => (
-                            <span key={i} className="text-[10px] text-muted-foreground bg-muted/60 rounded px-1.5 py-0.5 line-clamp-1 max-w-[200px]">
-                              {r}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface WatchlistEntryType {
   id: string;
@@ -740,65 +546,6 @@ function WatchlistStockRow({
       </div>
 
 
-      {/* Watchlist Intelligence Overlay strip (mock, frontend-only) */}
-      {(() => {
-        const ov = WATCHLIST_OVERLAY[symbol];
-        return (
-          <div className="border-t border-border px-3 py-2 bg-surface/40 flex flex-wrap items-center gap-2">
-            <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">Preview overlay</span>
-            {ov ? (
-              <>
-                <div className="flex flex-wrap gap-1">
-                  {ov.badges.map((b) => (
-                    <span
-                      key={b}
-                      className={cn("inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-semibold", badgeClass(b))}
-                    >
-                      {b}
-                    </span>
-                  ))}
-                </div>
-                <span
-                  className={cn("inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold", exposureClass(ov.exposure))}
-                  title="Mock catalyst exposure"
-                >
-                  {ov.exposure}
-                </span>
-                {ov.note && (
-                  <span className="text-[10px] text-muted-foreground truncate max-w-[240px] hidden sm:inline">
-                    {ov.note}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-[10px] text-muted-foreground italic">No overlay data for {symbol}</span>
-            )}
-            <div className="ml-auto flex items-center gap-1">
-              <button
-                onClick={() => navigate("/dashboard/catalyst")}
-                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
-              >
-                View Catalyst
-              </button>
-              <span className="text-muted-foreground text-[10px]">·</span>
-              <button
-                onClick={() => navigate("/dashboard/action-center")}
-                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
-              >
-                Open Action Center
-              </button>
-              <span className="text-muted-foreground text-[10px]">·</span>
-              <button
-                onClick={() => navigate(`/dashboard/ai?symbol=${symbol}`)}
-                className="text-[10px] font-semibold text-accent-blue hover:underline px-1.5 py-0.5"
-              >
-                Ask AI
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
 
       {/* Why Changed inline panel */}
       {showWhyChanged && aiData && scoreDeltaChanged && (
@@ -963,7 +710,7 @@ const WatchlistPage = () => {
 
   const symbols = useMemo(() => (watchlistEntries ?? []).map((e) => e.symbol), [watchlistEntries]);
 
-  const { analysis, alerts, lastUpdated, refreshTicker, refreshing } = useWatchlistAI(symbols);
+  const { analysis, alerts, refreshTicker, refreshing } = useWatchlistAI(symbols);
 
   const { data: snapshotData } = useQuery({
     queryKey: ["watchlist-snapshots", symbols],
@@ -1236,47 +983,6 @@ const WatchlistPage = () => {
           </div>
         )}
 
-        {/* Watchlist Intelligence Summary (mock overlay only) */}
-        {symbols.length > 0 && (() => {
-          const covered = symbols.filter((s) => WATCHLIST_OVERLAY[s]);
-          if (covered.length === 0) return null;
-          const catalystCount = covered.filter((s) => WATCHLIST_OVERLAY[s].badges.includes("Catalyst")).length;
-          const momentumCount = covered.filter((s) => WATCHLIST_OVERLAY[s].badges.includes("Momentum")).length;
-          const riskWindowCount = covered.filter((s) => WATCHLIST_OVERLAY[s].exposure === "Risk window").length;
-          return (
-            <div className="mb-3 rounded-lg border border-border bg-accent-blue-light/40 px-3 py-2 flex flex-wrap items-center gap-2 text-xs">
-              <span className="text-[9px] font-bold uppercase tracking-widest text-accent-blue">Preview overlay</span>
-              <span className="text-muted-foreground">
-                {catalystCount} catalyst-tagged {catalystCount === 1 ? "name" : "names"},{" "}
-                {momentumCount} momentum {momentumCount === 1 ? "name" : "names"},{" "}
-                {riskWindowCount} risk-window {riskWindowCount === 1 ? "flag" : "flags"}.
-              </span>
-              <div className="ml-auto flex items-center gap-2">
-                <button onClick={() => navigate("/dashboard/catalyst")} className="text-[11px] font-semibold text-accent-blue hover:underline">
-                  View Catalyst
-                </button>
-                <span className="text-muted-foreground">·</span>
-                <button onClick={() => navigate("/dashboard/action-center")} className="text-[11px] font-semibold text-accent-blue hover:underline">
-                  Open Action Center
-                </button>
-                <span className="text-muted-foreground">·</span>
-                <button onClick={() => navigate("/dashboard/ai")} className="text-[11px] font-semibold text-accent-blue hover:underline">
-                  Ask AI
-                </button>
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* AI Monitor Bar */}
-        {symbols.length > 0 && (
-          <AIMonitorBar
-            tickerCount={symbols.length}
-            alertCount={alerts.length}
-            lastUpdated={lastUpdated}
-            alerts={alerts}
-          />
-        )}
 
         {/* Auth / Loading / Empty / Rows */}
         {!user ? (
