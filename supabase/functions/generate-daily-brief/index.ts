@@ -110,10 +110,9 @@ serve(async (req) => {
     const presented = authHeader.replace(/^Bearer\s+/i, "").trim();
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-    const syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
     const okAuth =
       !!presented &&
-      (await timingSafeMatchAny(presented, [serviceRoleKey, syncSecret, syncSecretNext]));
+      (await timingSafeMatchAny(presented, [serviceRoleKey, syncSecret]));
     if (!okAuth) {
       return json({ error: "Unauthorized" }, 401);
     }
