@@ -160,11 +160,9 @@ serve(async (req) => {
   const __auth = req.headers.get("Authorization") ?? "";
   const __srk = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const __syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
-  const __syncSecretNext = Deno.env.get("SYNC_SECRET_NEXT") ?? "";
   const validAuth = await timingSafeMatchAny(__auth, [
     __srk ? `Bearer ${__srk}` : "",
     __syncSecret ? `Bearer ${__syncSecret}` : "",
-    __syncSecretNext ? `Bearer ${__syncSecretNext}` : "",
   ]);
   if (!validAuth) {
     return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } });
