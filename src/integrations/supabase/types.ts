@@ -1723,6 +1723,39 @@ export type Database = {
         }
         Relationships: []
       }
+      watchlist_analysis_requests: {
+        Row: {
+          completed_at: string | null
+          error_code: string | null
+          id: string
+          requested_at: string
+          source: string
+          status: string
+          ticker: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          error_code?: string | null
+          id?: string
+          requested_at?: string
+          source: string
+          status?: string
+          ticker: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          error_code?: string | null
+          id?: string
+          requested_at?: string
+          source?: string
+          status?: string
+          ticker?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       watchlists: {
         Row: {
           added_at: string | null
