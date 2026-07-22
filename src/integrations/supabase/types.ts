@@ -1723,6 +1723,86 @@ export type Database = {
         }
         Relationships: []
       }
+      watchlist_alerts_v2: {
+        Row: {
+          alert_type: string
+          created_at: string
+          dedupe_key: string
+          event_time: string
+          facts: Json
+          id: string
+          reason: string
+          session_date: string | null
+          ticker: string
+        }
+        Insert: {
+          alert_type: string
+          created_at?: string
+          dedupe_key: string
+          event_time?: string
+          facts?: Json
+          id?: string
+          reason: string
+          session_date?: string | null
+          ticker: string
+        }
+        Update: {
+          alert_type?: string
+          created_at?: string
+          dedupe_key?: string
+          event_time?: string
+          facts?: Json
+          id?: string
+          reason?: string
+          session_date?: string | null
+          ticker?: string
+        }
+        Relationships: []
+      }
+      watchlist_analysis_history: {
+        Row: {
+          analyzed_at: string
+          direction: Database["public"]["Enums"]["watchlist_direction"]
+          explanation: string
+          id: string
+          market_signals: Json
+          run_id: string | null
+          session_date: string
+          session_type: Database["public"]["Enums"]["watchlist_session"]
+          ticker: string
+        }
+        Insert: {
+          analyzed_at?: string
+          direction: Database["public"]["Enums"]["watchlist_direction"]
+          explanation: string
+          id?: string
+          market_signals?: Json
+          run_id?: string | null
+          session_date: string
+          session_type: Database["public"]["Enums"]["watchlist_session"]
+          ticker: string
+        }
+        Update: {
+          analyzed_at?: string
+          direction?: Database["public"]["Enums"]["watchlist_direction"]
+          explanation?: string
+          id?: string
+          market_signals?: Json
+          run_id?: string | null
+          session_date?: string
+          session_type?: Database["public"]["Enums"]["watchlist_session"]
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_analysis_history_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "watchlist_analysis_runs"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
       watchlist_analysis_requests: {
         Row: {
           completed_at: string | null
@@ -1753,6 +1833,158 @@ export type Database = {
           status?: string
           ticker?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      watchlist_analysis_runs: {
+        Row: {
+          cursor_end: string | null
+          cursor_start: string | null
+          finished_at: string | null
+          mode: string
+          reason_codes: Json
+          run_id: string
+          session_type: Database["public"]["Enums"]["watchlist_session"] | null
+          started_at: string
+          status: string
+          tickers_error: number
+          tickers_ok: number
+          tickers_total: number
+          tickers_unavailable: number
+        }
+        Insert: {
+          cursor_end?: string | null
+          cursor_start?: string | null
+          finished_at?: string | null
+          mode: string
+          reason_codes?: Json
+          run_id?: string
+          session_type?: Database["public"]["Enums"]["watchlist_session"] | null
+          started_at?: string
+          status: string
+          tickers_error?: number
+          tickers_ok?: number
+          tickers_total?: number
+          tickers_unavailable?: number
+        }
+        Update: {
+          cursor_end?: string | null
+          cursor_start?: string | null
+          finished_at?: string | null
+          mode?: string
+          reason_codes?: Json
+          run_id?: string
+          session_type?: Database["public"]["Enums"]["watchlist_session"] | null
+          started_at?: string
+          status?: string
+          tickers_error?: number
+          tickers_ok?: number
+          tickers_total?: number
+          tickers_unavailable?: number
+        }
+        Relationships: []
+      }
+      watchlist_analysis_v2: {
+        Row: {
+          analyzed_at: string
+          change_pct: number | null
+          contract_version: number
+          direction: Database["public"]["Enums"]["watchlist_direction"]
+          driver_ids: Json
+          explanation: string
+          failure_reason: string | null
+          inputs_quality: Json
+          intraday: Json
+          key_levels: Json
+          market_signals: Json
+          price: number | null
+          recent_events: Json
+          run_id: string | null
+          rvol: number | null
+          rvol_class: string | null
+          session_date: string
+          session_type: Database["public"]["Enums"]["watchlist_session"]
+          ticker: string
+          valid_through: string
+          volume: number | null
+        }
+        Insert: {
+          analyzed_at?: string
+          change_pct?: number | null
+          contract_version?: number
+          direction: Database["public"]["Enums"]["watchlist_direction"]
+          driver_ids?: Json
+          explanation: string
+          failure_reason?: string | null
+          inputs_quality?: Json
+          intraday?: Json
+          key_levels?: Json
+          market_signals?: Json
+          price?: number | null
+          recent_events?: Json
+          run_id?: string | null
+          rvol?: number | null
+          rvol_class?: string | null
+          session_date: string
+          session_type: Database["public"]["Enums"]["watchlist_session"]
+          ticker: string
+          valid_through: string
+          volume?: number | null
+        }
+        Update: {
+          analyzed_at?: string
+          change_pct?: number | null
+          contract_version?: number
+          direction?: Database["public"]["Enums"]["watchlist_direction"]
+          driver_ids?: Json
+          explanation?: string
+          failure_reason?: string | null
+          inputs_quality?: Json
+          intraday?: Json
+          key_levels?: Json
+          market_signals?: Json
+          price?: number | null
+          recent_events?: Json
+          run_id?: string | null
+          rvol?: number | null
+          rvol_class?: string | null
+          session_date?: string
+          session_type?: Database["public"]["Enums"]["watchlist_session"]
+          ticker?: string
+          valid_through?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "watchlist_analysis_v2_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "watchlist_analysis_runs"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
+      watchlist_rvol_baseline: {
+        Row: {
+          baseline_date: string
+          computed_at: string
+          curve: Json
+          sessions_used: number
+          ticker: string
+        }
+        Insert: {
+          baseline_date: string
+          computed_at?: string
+          curve: Json
+          sessions_used: number
+          ticker: string
+        }
+        Update: {
+          baseline_date?: string
+          computed_at?: string
+          curve?: Json
+          sessions_used?: number
+          ticker?: string
         }
         Relationships: []
       }
@@ -1830,6 +2062,12 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      watchlist_direction:
+        | "bullish"
+        | "bearish"
+        | "neutral"
+        | "data_unavailable"
+      watchlist_session: "premarket" | "rth" | "postclose"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1958,6 +2196,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      watchlist_direction: [
+        "bullish",
+        "bearish",
+        "neutral",
+        "data_unavailable",
+      ],
+      watchlist_session: ["premarket", "rth", "postclose"],
     },
   },
 } as const
