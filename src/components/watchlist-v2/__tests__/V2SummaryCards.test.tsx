@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { V2SummaryCards } from "@/components/watchlist-v2/V2SummaryCards";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import { parseKeyLevels } from "@/lib/watchlist-v2/parsers";
