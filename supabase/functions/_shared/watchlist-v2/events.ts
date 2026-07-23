@@ -47,7 +47,12 @@ export function mapNewsEvents(
     const source = isNonEmptyStr(r.source) ? r.source : "Unknown source";
     const urlRaw = r.url;
     const url = isNonEmptyStr(urlRaw) && urlRaw.startsWith("https://") ? urlRaw : null;
-    const id = isNonEmptyStr(r.id) ? r.id : sanitize(headline).slice(0, 40) + ":" + ms;
+    const idRaw = r.id;
+    const id = isNonEmptyStr(idRaw)
+      ? idRaw
+      : (typeof idRaw === "number" && Number.isFinite(idRaw))
+        ? String(idRaw)
+        : sanitize(headline).slice(0, 40) + ":" + ms;
 
     const key = `${(headline as string).toLowerCase()}|${source.toLowerCase()}`;
     const existing = dedup.get(key);
