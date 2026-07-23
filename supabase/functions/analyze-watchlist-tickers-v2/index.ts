@@ -3,6 +3,7 @@
 // Ordering: authN → validate body → verify ownership → validate run_id → resolve session → INSERT request row → fetch → compute → AI → finalize.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+// deno-lint-ignore-file no-explicit-any
 import { createClient, type SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { timingSafeMatch } from "../_shared/timing-safe.ts";
 
@@ -24,7 +25,7 @@ import { mapNewsEvents } from "../_shared/watchlist-v2/events.ts";
 import { evaluateSufficiency } from "../_shared/watchlist-v2/sufficiency.ts";
 import { buildAiPrompt, makeAnthropicCaller, type AiCaller } from "../_shared/watchlist-v2/ai-read.ts";
 
-export type ServiceClient = SupabaseClient<never, "public", never>;
+export type ServiceClient = SupabaseClient<any, any, any>;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
