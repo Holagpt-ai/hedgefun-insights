@@ -68,3 +68,9 @@ verify_jwt = false
 
 [functions.analyze-watchlist-tickers-v2]
 verify_jwt = false
+
+[functions.run-watchlist-analysis-v2-batch]
+verify_jwt = false
+
+[functions.build-watchlist-rvol-baselines-v2]
+verify_jwt = false

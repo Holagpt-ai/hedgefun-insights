@@ -2052,6 +2052,21 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
+      checkpoint_wl_v2_cursor: {
+        Args: { p_cursor: string; p_run_id: string }
+        Returns: undefined
+      }
+      claim_wl_v2_worker: {
+        Args: { p_lease_seconds: number; p_scope: string; p_worker: string }
+        Returns: {
+          cursor_start: string
+          run_id: string
+        }[]
+      }
+      complete_wl_v2_run: {
+        Args: { p_cursor_end: string; p_run_id: string; p_status: string }
+        Returns: undefined
+      }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
         Returns: Json
@@ -2073,6 +2088,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      record_wl_v2_baseline_written: {
+        Args: { p_run_id: string; p_ticker: string }
+        Returns: undefined
+      }
+      record_wl_v2_run_error: {
+        Args: { p_code: string; p_run_id: string; p_ticker: string }
+        Returns: undefined
       }
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
     }
