@@ -1,0 +1,1 @@
+GRANT ALL ON public.watchlist_rvol_baseline TO service_role;
