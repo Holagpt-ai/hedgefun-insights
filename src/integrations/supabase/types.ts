@@ -2051,6 +2051,7 @@ export type Database = {
       }
     }
     Functions: {
+      _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
         Returns: Json
