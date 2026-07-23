@@ -474,7 +474,7 @@ async function failAndRespond(
 ): Promise<Response> {
   const { error } = await supabase.rpc("fail_watchlist_analysis_v2", {
     p_request_id: requestId, p_user_id: null, p_error_code: code,
-  } as unknown as Record<string, unknown>);
+  });
   if (error) console.error(`${LOG_PREFIX} fail rpc error`);
   return jsonResponse(200, { status: "failed", request_id: requestId, error_code: code });
 }
