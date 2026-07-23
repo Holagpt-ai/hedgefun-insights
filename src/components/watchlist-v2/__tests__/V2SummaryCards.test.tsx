@@ -62,7 +62,7 @@ describe("V2SummaryCards", () => {
     expect(getByText("Bearish")).toBeInTheDocument();
     expect(getByText("Unusual Activity")).toBeInTheDocument();
     expect(getByText("Recent News & Events")).toBeInTheDocument();
-    const vals = Array.from(container.querySelectorAll(".text-2xl")).map(
+    const vals = Array.from(container.querySelectorAll<HTMLElement>(".text-2xl")).map(
       (el) => el.textContent,
     );
     expect(vals).toEqual(["2", "1", "2", "1"]);
