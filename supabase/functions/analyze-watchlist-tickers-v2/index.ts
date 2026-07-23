@@ -97,7 +97,7 @@ export function extractRunId(body: unknown): string | null {
 
 // ── Request handler ────────────────────────────────────────────────────────
 
-serve(async (req) => {
+export async function handleRequest(req: Request): Promise<Response> {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   // Step 1: extract token (never log)
@@ -417,7 +417,9 @@ serve(async (req) => {
   };
   if (direction === "data_unavailable") respBody.failure_reason = failureReason;
   return jsonResponse(200, respBody);
-});
+}
+
+if (import.meta.main) serve(handleRequest);
 
 function mapTransportErr(code: string): ErrorCode {
   if (code === "RATE_LIMITED") return "RATE_LIMITED";
