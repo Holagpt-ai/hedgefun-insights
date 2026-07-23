@@ -2052,8 +2052,8 @@ export type Database = {
     }
     Functions: {
       fail_watchlist_analysis_v2: {
-        Args: { p_error_code: string; p_request_id: string; p_run_id: string }
-        Returns: undefined
+        Args: { p_error_code: string; p_request_id: string; p_user_id: string }
+        Returns: Json
       }
       finalize_watchlist_analysis_v2: {
         Args: {
@@ -2061,8 +2061,10 @@ export type Database = {
           p_payload: Json
           p_request_id: string
           p_run_id: string
+          p_ticker: string
+          p_user_id: string
         }
-        Returns: undefined
+        Returns: Json
       }
       has_role: {
         Args: {
