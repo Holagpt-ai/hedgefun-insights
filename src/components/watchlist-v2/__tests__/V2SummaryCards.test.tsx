@@ -57,16 +57,14 @@ describe("V2SummaryCards", () => {
       }),
       row({ ticker: "F", hasV2: false }),
     ];
-    render(<V2SummaryCards rows={rows} />);
-    // Labels present
-    expect(screen.getByText("Bullish")).toBeInTheDocument();
-    expect(screen.getByText("Bearish")).toBeInTheDocument();
-    expect(screen.getByText("Unusual Activity")).toBeInTheDocument();
-    expect(screen.getByText("Recent News & Events")).toBeInTheDocument();
-    // Counts: bullish=2 bearish=1 unusual=2 events=1
-    const vals = screen
-      .getAllByText(/^\d+$/)
-      .map((el) => el.textContent);
+    const { getByText, container } = render(<V2SummaryCards rows={rows} />);
+    expect(getByText("Bullish")).toBeInTheDocument();
+    expect(getByText("Bearish")).toBeInTheDocument();
+    expect(getByText("Unusual Activity")).toBeInTheDocument();
+    expect(getByText("Recent News & Events")).toBeInTheDocument();
+    const vals = Array.from(container.querySelectorAll(".text-2xl")).map(
+      (el) => el.textContent,
+    );
     expect(vals).toEqual(["2", "1", "2", "1"]);
   });
 });
