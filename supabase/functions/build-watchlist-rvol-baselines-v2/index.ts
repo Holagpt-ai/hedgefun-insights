@@ -165,7 +165,7 @@ async function runBaselineWorker(
             curve: built.curve,
             sessions_used: built.sessions_used,
             computed_at: new Date().toISOString(),
-          }, { onConflict: "ticker" });
+          }, { onConflict: "ticker,baseline_date" });
           if (up.error) {
             failed++;
             await supabase.rpc("record_wl_v2_run_error", {
