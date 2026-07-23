@@ -15,13 +15,13 @@ import { fetchWithOutcome } from "../_shared/watchlist-v2/market-data.ts";
 import { applyCursor, deriveUniqueTickers } from "../_shared/watchlist-v2/batch.ts";
 import { buildBaselineFromBars, MIN_SESSIONS } from "../_shared/watchlist-v2/baseline.ts";
 
-const MAX_TICKERS_PER_INVOCATION = 25;
-const MAX_CONCURRENCY = 5;
-const BUDGET_MS = 55_000;
-const LEASE_SECONDS = 8 * 60;
+const MAX_TICKERS_PER_INVOCATION = 5;
+const MAX_CONCURRENCY = 2;
+const BUDGET_MS = 20_000;
+const LEASE_SECONDS = 3 * 60;
 // 30 calendar-day history window ≈ ~20 trading sessions.
 const HISTORY_DAYS = 30;
-const AGG_TIMEOUT_MS = 15_000;
+const AGG_TIMEOUT_MS = 12_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
