@@ -1,15 +1,18 @@
-// Deterministic state + transition signal emission.
-// Signals never invent numbers; every fact is derived from validated inputs.
+// Watchlist V2 — closed-set deterministic market signals.
+// Every signal_id is a literal string from the authorized closed set.
+// No composites, tallies, weights, or scores.
+//
+// State signals use published key_levels (hod/lod/vwap).
+// Transition signals use excluded-current levels + previous_bar_close.
 
 import type {
-  IntradayBar, KeyLevels, MarketSignal, RvolClass, SessionType, SignalCategory,
-  SignalDirection, SignalKind,
+  IntradayBar, KeyLevels, MarketSignal, RvolClass, SessionType,
 } from "./contract.ts";
 import type { TransitionLevels } from "./levels.ts";
 
 const RULE_VERSION = "w2b1c.1" as const;
 
-interface EmitInput {
+export interface EmitInput {
   bars: IntradayBar[];
   keyLevels: KeyLevels;
   transitionLevels: TransitionLevels;
@@ -20,146 +23,168 @@ interface EmitInput {
   analyzedAt: string;
 }
 
-function mkSignal(
-  signal_id: string,
-  label: string,
-  category: SignalCategory,
-  kind: SignalKind,
-  direction: SignalDirection,
-  facts: Record<string, number | string | boolean>,
-  inputs: string[],
-  observed_at: string,
-): MarketSignal {
-  return { signal_id, label, category, kind, direction, facts, inputs, observed_at, rule_version: RULE_VERSION };
-}
-
 function round(n: number, dp = 4): number {
   return Math.round(n * 10 ** dp) / 10 ** dp;
 }
 
 export function emitMarketSignals(input: EmitInput): MarketSignal[] {
   const out: MarketSignal[] = [];
-  const { bars, keyLevels, transitionLevels: tr, price, rvol, rvolClass, sessionType, analyzedAt } = input;
-  if (bars.length === 0 || price === null) return out;
-  const lastBar = bars[bars.length - 1];
+  const { keyLevels: kl, transitionLevels: tr, price, rvol, rvolClass, analyzedAt } = input;
+  if (input.bars.length === 0 || price === null) return out;
 
-  // ── State: above/below/near VWAP ──
-  if (keyLevels.vwap !== null) {
-    const vwap = keyLevels.vwap;
-    const dist = (price - vwap) / vwap;
-    const absDist = Math.abs(dist);
-    if (absDist <= 0.001) {
-      out.push(mkSignal(
-        "state.price_vs_vwap.near", "Price near VWAP", "level", "state", "neutral",
-        { price, vwap: round(vwap), distance_pct: round(dist * 100) },
-        ["bars", "vwap"], analyzedAt,
-      ));
-    } else if (dist > 0) {
-      out.push(mkSignal(
-        "state.price_vs_vwap.above", "Price above VWAP", "level", "state", "bullish",
-        { price, vwap: round(vwap), distance_pct: round(dist * 100) },
-        ["bars", "vwap"], analyzedAt,
-      ));
-    } else {
-      out.push(mkSignal(
-        "state.price_vs_vwap.below", "Price below VWAP", "level", "state", "bearish",
-        { price, vwap: round(vwap), distance_pct: round(dist * 100) },
-        ["bars", "vwap"], analyzedAt,
-      ));
+  // ── State signals ───────────────────────────────────────────────────────
+
+  // price_above_vwap / price_below_vwap
+  if (kl.vwap !== null) {
+    if (price > kl.vwap) {
+      out.push({
+        signal_id: "price_above_vwap",
+        label: "Price above VWAP",
+        category: "trend", kind: "state", direction: "bullish",
+        facts: { price: round(price), vwap: round(kl.vwap) },
+        inputs: ["price", "vwap"],
+        observed_at: analyzedAt, rule_version: RULE_VERSION,
+      });
+    } else if (price < kl.vwap) {
+      out.push({
+        signal_id: "price_below_vwap",
+        label: "Price below VWAP",
+        category: "trend", kind: "state", direction: "bearish",
+        facts: { price: round(price), vwap: round(kl.vwap) },
+        inputs: ["price", "vwap"],
+        observed_at: analyzedAt, rule_version: RULE_VERSION,
+      });
     }
   }
 
-  // ── State: near HOD / LOD (within 0.25%) ──
-  if (keyLevels.hod !== null) {
-    const d = (keyLevels.hod - price) / keyLevels.hod;
-    if (d >= 0 && d <= 0.0025) {
-      out.push(mkSignal(
-        "state.near_hod", "Price at intraday high", "level", "state", "bullish",
-        { price, hod: round(keyLevels.hod), distance_pct: round(d * 100) },
-        ["bars", "hod"], analyzedAt,
-      ));
-    }
-  }
-  if (keyLevels.lod !== null) {
-    const d = (price - keyLevels.lod) / keyLevels.lod;
-    if (d >= 0 && d <= 0.0025) {
-      out.push(mkSignal(
-        "state.near_lod", "Price at intraday low", "level", "state", "bearish",
-        { price, lod: round(keyLevels.lod), distance_pct: round(d * 100) },
-        ["bars", "lod"], analyzedAt,
-      ));
+  // range_position_high / range_position_low (published hod/lod)
+  if (kl.hod !== null && kl.lod !== null && kl.hod > kl.lod) {
+    const pos = (price - kl.lod) / (kl.hod - kl.lod);
+    if (pos >= 0.8) {
+      out.push({
+        signal_id: "range_position_high",
+        label: "Price in upper 20% of intraday range",
+        category: "range", kind: "state", direction: "bullish",
+        facts: { price: round(price), hod: round(kl.hod), lod: round(kl.lod), position: round(pos) },
+        inputs: ["price", "hod", "lod"],
+        observed_at: analyzedAt, rule_version: RULE_VERSION,
+      });
+    } else if (pos <= 0.2) {
+      out.push({
+        signal_id: "range_position_low",
+        label: "Price in lower 20% of intraday range",
+        category: "range", kind: "state", direction: "bearish",
+        facts: { price: round(price), hod: round(kl.hod), lod: round(kl.lod), position: round(pos) },
+        inputs: ["price", "hod", "lod"],
+        observed_at: analyzedAt, rule_version: RULE_VERSION,
+      });
     }
   }
 
-  // ── State: RVOL class ──
-  if (rvol !== null && rvolClass !== null) {
-    const dir: SignalDirection = rvolClass === "normal" ? "neutral" : rvolClass === "elevated" ? "neutral" : "bullish";
-    out.push(mkSignal(
-      `state.rvol.${rvolClass}`, `Relative volume ${rvolClass}`, "volume", "state", dir,
-      { rvol, rvol_class: rvolClass },
-      ["cum_volume", "baseline_curve"], analyzedAt,
-    ));
+  // unusual_time_adjusted_volume
+  if (rvol !== null && rvolClass === "unusual") {
+    out.push({
+      signal_id: "unusual_time_adjusted_volume",
+      label: "Unusual time-adjusted volume",
+      category: "volume", kind: "state", direction: "neutral",
+      facts: { rvol, rvol_class: rvolClass },
+      inputs: ["rvol", "rvol_class"],
+      observed_at: analyzedAt, rule_version: RULE_VERSION,
+    });
   }
 
-  // ── Transition: VWAP cross ──
+  // ── Transition signals ─ require previous_bar_close ─────────────────────
+  const pbc = tr.previous_bar_close;
+  if (pbc === null) return out;
+
+  // hod_break
+  if (tr.hod_excl_current !== null && pbc < tr.hod_excl_current && price >= tr.hod_excl_current) {
+    out.push({
+      signal_id: "hod_break",
+      label: "Broke prior intraday high",
+      category: "level", kind: "transition", direction: "bullish",
+      facts: { previous_bar_close: round(pbc), hod_excl_current: round(tr.hod_excl_current), price: round(price) },
+      inputs: ["previous_bar_close", "hod_excl_current"],
+      observed_at: analyzedAt, rule_version: RULE_VERSION,
+    });
+  }
+  // lod_break
+  if (tr.lod_excl_current !== null && pbc > tr.lod_excl_current && price <= tr.lod_excl_current) {
+    out.push({
+      signal_id: "lod_break",
+      label: "Broke prior intraday low",
+      category: "level", kind: "transition", direction: "bearish",
+      facts: { previous_bar_close: round(pbc), lod_excl_current: round(tr.lod_excl_current), price: round(price) },
+      inputs: ["previous_bar_close", "lod_excl_current"],
+      observed_at: analyzedAt, rule_version: RULE_VERSION,
+    });
+  }
+  // premarket_high_break
   if (
-    keyLevels.vwap !== null && tr.previous_bar_close !== null && bars.length >= 2
+    tr.premarket_high_excl_current !== null &&
+    pbc <= tr.premarket_high_excl_current &&
+    price > tr.premarket_high_excl_current
   ) {
-    const prev = tr.previous_bar_close;
-    const vwap = keyLevels.vwap;
-    if (prev <= vwap && price > vwap) {
-      out.push(mkSignal(
-        "transition.vwap_cross.up", "Crossed above VWAP", "level", "transition", "bullish",
-        { previous_close: prev, price, vwap: round(vwap) },
-        ["bars", "vwap"], analyzedAt,
-      ));
-    } else if (prev >= vwap && price < vwap) {
-      out.push(mkSignal(
-        "transition.vwap_cross.down", "Crossed below VWAP", "level", "transition", "bearish",
-        { previous_close: prev, price, vwap: round(vwap) },
-        ["bars", "vwap"], analyzedAt,
-      ));
-    }
+    out.push({
+      signal_id: "premarket_high_break",
+      label: "Broke premarket high",
+      category: "level", kind: "transition", direction: "bullish",
+      facts: {
+        previous_bar_close: round(pbc),
+        premarket_high_excl_current: round(tr.premarket_high_excl_current),
+        price: round(price),
+      },
+      inputs: ["previous_bar_close", "premarket_high_excl_current"],
+      observed_at: analyzedAt, rule_version: RULE_VERSION,
+    });
   }
-
-  // ── Transition: HOD break ──
-  if (tr.hod_excl_current !== null && lastBar.h > tr.hod_excl_current) {
-    out.push(mkSignal(
-      "transition.hod_break", "Broke prior intraday high", "level", "transition", "bullish",
-      { prior_hod: round(tr.hod_excl_current), new_high: round(lastBar.h) },
-      ["bars"], analyzedAt,
-    ));
-  }
-  // ── Transition: LOD break ──
-  if (tr.lod_excl_current !== null && lastBar.l < tr.lod_excl_current) {
-    out.push(mkSignal(
-      "transition.lod_break", "Broke prior intraday low", "level", "transition", "bearish",
-      { prior_lod: round(tr.lod_excl_current), new_low: round(lastBar.l) },
-      ["bars"], analyzedAt,
-    ));
-  }
-
-  // ── Transition: premarket-high break during RTH ──
+  // premarket_low_break
   if (
-    sessionType === "rth" && keyLevels.premarket_high !== null &&
-    lastBar.h > keyLevels.premarket_high
+    tr.premarket_low_excl_current !== null &&
+    pbc >= tr.premarket_low_excl_current &&
+    price < tr.premarket_low_excl_current
   ) {
-    out.push(mkSignal(
-      "transition.pmh_break", "Broke premarket high", "level", "transition", "bullish",
-      { premarket_high: round(keyLevels.premarket_high), new_high: round(lastBar.h) },
-      ["bars", "premarket_high"], analyzedAt,
-    ));
+    out.push({
+      signal_id: "premarket_low_break",
+      label: "Broke premarket low",
+      category: "level", kind: "transition", direction: "bearish",
+      facts: {
+        previous_bar_close: round(pbc),
+        premarket_low_excl_current: round(tr.premarket_low_excl_current),
+        price: round(price),
+      },
+      inputs: ["previous_bar_close", "premarket_low_excl_current"],
+      observed_at: analyzedAt, rule_version: RULE_VERSION,
+    });
   }
-  if (
-    sessionType === "rth" && keyLevels.premarket_low !== null &&
-    lastBar.l < keyLevels.premarket_low
-  ) {
-    out.push(mkSignal(
-      "transition.pml_break", "Broke premarket low", "level", "transition", "bearish",
-      { premarket_low: round(keyLevels.premarket_low), new_low: round(lastBar.l) },
-      ["bars", "premarket_low"], analyzedAt,
-    ));
+  // prior_close_reclaim
+  if (kl.prior_close !== null && pbc <= kl.prior_close && price > kl.prior_close) {
+    out.push({
+      signal_id: "prior_close_reclaim",
+      label: "Reclaimed prior close",
+      category: "level", kind: "transition", direction: "bullish",
+      facts: { previous_bar_close: round(pbc), prior_close: round(kl.prior_close), price: round(price) },
+      inputs: ["previous_bar_close", "prior_close"],
+      observed_at: analyzedAt, rule_version: RULE_VERSION,
+    });
+  }
+  // prior_close_loss
+  if (kl.prior_close !== null && pbc >= kl.prior_close && price < kl.prior_close) {
+    out.push({
+      signal_id: "prior_close_loss",
+      label: "Lost prior close",
+      category: "level", kind: "transition", direction: "bearish",
+      facts: { previous_bar_close: round(pbc), prior_close: round(kl.prior_close), price: round(price) },
+      inputs: ["previous_bar_close", "prior_close"],
+      observed_at: analyzedAt, rule_version: RULE_VERSION,
+    });
   }
 
   return out;
 }
+
+export const TRANSITION_ALERT_SIGNAL_IDS = new Set([
+  "hod_break", "lod_break",
+  "premarket_high_break", "premarket_low_break",
+  "prior_close_loss", "prior_close_reclaim",
+]);
