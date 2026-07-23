@@ -96,7 +96,14 @@ export function parseMarketSignals(raw: unknown): MarketSignal[] {
     if (kind !== "state" && kind !== "transition") continue;
     if (dir !== null && dir !== "bullish" && dir !== "bearish" && dir !== "neutral") continue;
     if (!isStr(obs) || !Number.isFinite(Date.parse(obs))) continue;
-    out.push({ signal_id: id, label, category: cat, kind, direction: dir, observed_at: obs });
+    out.push({
+      signal_id: id,
+      label,
+      category: cat,
+      kind,
+      direction: dir as MarketSignal["direction"],
+      observed_at: obs,
+    });
   }
   return out;
 }
