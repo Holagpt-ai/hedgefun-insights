@@ -11,8 +11,8 @@ import { LOG_PREFIX, sanitize } from "../_shared/watchlist-v2/sanitize.ts";
 import {
   containsForbiddenKey, CONTRACT_VERSION, normalizeTicker,
   validateAnalysisV2Payload,
-  type AlertCandidate, type AnalysisV2Payload, type InputsQuality,
-  type MarketSignal, type RecentEvent,
+  type AlertCandidate, type AnalysisV2Payload, type Direction, type InputsQuality,
+  type MarketSignal, type RecentEvent, type SessionType,
 } from "../_shared/watchlist-v2/contract.ts";
 import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import {
@@ -22,17 +22,30 @@ import { computeKeyLevels, computeTransitionLevels } from "../_shared/watchlist-
 import { computeRvol, type Baseline } from "../_shared/watchlist-v2/rvol.ts";
 import { emitMarketSignals, TRANSITION_ALERT_SIGNAL_IDS } from "../_shared/watchlist-v2/signals.ts";
 import { mapNewsEvents } from "../_shared/watchlist-v2/events.ts";
-import { evaluateSufficiency } from "../_shared/watchlist-v2/sufficiency.ts";
-import { buildAiPrompt, makeAnthropicCaller, type AiCaller } from "../_shared/watchlist-v2/ai-read.ts";
+import {
+  evaluateSufficiency, MIN_BARS_FOR_AI, type SufficiencyCode,
+} from "../_shared/watchlist-v2/sufficiency.ts";
+import {
+  buildAiPrompt, buildEvidenceCatalog, makeAnthropicCaller, type AiCaller,
+} from "../_shared/watchlist-v2/ai-read.ts";
 
 export type ServiceClient = SupabaseClient<any, any, any>;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// TTL: RTH 10min, off-hours 30min
+const TTL_MIN_RTH = 10;
+const TTL_MIN_OFFHOURS = 30;
+// Company-event alert cutoff
+const EVENT_ALERT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
+// Earnings horizon
+const EARNINGS_HORIZON_DAYS = 3;
 
 type ErrorCode =
   | "RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_ERROR"
@@ -86,19 +99,125 @@ export function parseManualBody(body: unknown): ManualParse {
   return { ok: true, ticker };
 }
 
-export function extractRunId(body: unknown): string | null {
-  if (!body || typeof body !== "object") return null;
+export type RunIdParse =
+  | { kind: "absent" }
+  | { kind: "valid"; value: string }
+  | { kind: "malformed" };
+
+/** Discriminates absent, valid uuid, and malformed supplied run_id. */
+export function parseRunId(body: unknown): RunIdParse {
+  if (!body || typeof body !== "object") return { kind: "absent" };
   const b = body as Record<string, unknown>;
+  if (!("run_id" in b)) return { kind: "absent" };
   const v = b.run_id;
-  if (typeof v !== "string") return null;
+  if (v === null || v === undefined) return { kind: "absent" };
+  if (typeof v !== "string") return { kind: "malformed" };
   const t = v.trim();
-  return UUID_RE.test(t) ? t : null;
+  if (t.length === 0) return { kind: "absent" };
+  if (!UUID_RE.test(t)) return { kind: "malformed" };
+  return { kind: "valid", value: t };
+}
+
+// ── Alert builder (pure) ──────────────────────────────────────────────────
+
+export interface AlertBuildInput {
+  ticker: string;
+  sessionDate: string;
+  sessionType: SessionType;
+  analyzedAtIso: string;
+  analyzedAtMs: number;
+  marketSignals: MarketSignal[];
+  recentEvents: RecentEvent[];
+  rvol: number | null;
+  rvolClass: string | null;
+  direction: Direction;
+  priorDirection: Direction | null;
+  earningsDate: string | null; // YYYY-MM-DD or null
+}
+
+/** Deterministic alert candidate builder. Never emits key_level. */
+export function buildAlerts(input: AlertBuildInput): AlertCandidate[] {
+  const out: AlertCandidate[] = [];
+  const {
+    ticker, sessionDate, sessionType, analyzedAtIso, analyzedAtMs,
+    marketSignals, recentEvents, rvol, rvolClass,
+    direction, priorDirection, earningsDate,
+  } = input;
+
+  // direction_change
+  if (priorDirection && priorDirection !== "data_unavailable"
+      && direction !== "data_unavailable" && priorDirection !== direction) {
+    out.push({
+      ticker, alert_type: "direction_change",
+      reason: `Direction changed from ${priorDirection} to ${direction}`,
+      facts: { from: priorDirection, to: direction, session_type: sessionType },
+      event_time: analyzedAtIso, session_date: sessionDate,
+      dedupe_key: `v2:direction_change:${ticker}:${sessionDate}:${priorDirection}->${direction}`,
+    });
+  }
+
+  // unusual_volume
+  if (rvolClass === "unusual" && rvol !== null) {
+    out.push({
+      ticker, alert_type: "unusual_volume",
+      reason: `Unusual volume: ${rvol}x baseline`,
+      facts: { rvol, session_type: sessionType },
+      event_time: analyzedAtIso, session_date: sessionDate,
+      dedupe_key: `v2:unusual_volume:${ticker}:${sessionDate}`,
+    });
+  }
+
+  // market_signal (transitions from approved set only)
+  for (const s of marketSignals) {
+    if (s.kind !== "transition") continue;
+    if (!TRANSITION_ALERT_SIGNAL_IDS.has(s.signal_id)) continue;
+    out.push({
+      ticker, alert_type: "market_signal", reason: s.label,
+      facts: { signal_id: s.signal_id, ...s.facts },
+      event_time: s.observed_at, session_date: sessionDate,
+      dedupe_key: `v2:market_signal:${ticker}:${sessionDate}:${s.signal_id}`,
+    });
+  }
+
+  // company_event (only within last 6 hours)
+  for (const e of recentEvents) {
+    const evMs = Date.parse(e.event_time);
+    if (!Number.isFinite(evMs)) continue;
+    if (analyzedAtMs - evMs > EVENT_ALERT_MAX_AGE_MS) continue;
+    out.push({
+      ticker, alert_type: "company_event", reason: e.title,
+      facts: { source: e.source_name, event_id: e.event_id },
+      event_time: e.event_time, session_date: sessionDate,
+      dedupe_key: `v2:company_event:${ticker}:${sessionDate}:${e.event_id}`,
+    });
+  }
+
+  // earnings_upcoming
+  if (earningsDate) {
+    const et = Date.parse(`${earningsDate}T00:00:00Z`);
+    const st = Date.parse(`${sessionDate}T00:00:00Z`);
+    if (Number.isFinite(et) && Number.isFinite(st)) {
+      const days = Math.round((et - st) / (24 * 3600 * 1000));
+      if (days >= 0 && days <= EARNINGS_HORIZON_DAYS) {
+        out.push({
+          ticker, alert_type: "earnings_upcoming",
+          reason: `Earnings in ${days} day(s)`,
+          facts: { report_date: earningsDate, days_out: days },
+          event_time: analyzedAtIso, session_date: sessionDate,
+          dedupe_key: `v2:earnings_upcoming:${ticker}:${sessionDate}:${earningsDate}`,
+        });
+      }
+    }
+  }
+
+  return out;
 }
 
 // ── Request handler ────────────────────────────────────────────────────────
 
 export async function handleRequest(req: Request): Promise<Response> {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method !== "POST") return jsonResponse(405, { error: "method_not_allowed" });
 
   // Step 1: extract token (never log)
   const authHeader = req.headers.get("Authorization") ?? "";
@@ -112,6 +231,11 @@ export async function handleRequest(req: Request): Promise<Response> {
   let body: unknown = {};
   try { body = bodyRaw ? JSON.parse(bodyRaw) : {}; }
   catch { return jsonResponse(400, { error: "invalid_json" }); }
+
+  // Validate run_id BEFORE any auth-consuming work
+  const runIdParsed = parseRunId(body);
+  if (runIdParsed.kind === "malformed") return jsonResponse(400, { error: "invalid_run_id" });
+  const runId: string | null = runIdParsed.kind === "valid" ? runIdParsed.value : null;
 
   const mode = selectMode(body);
   if (mode === "ambiguous") return jsonResponse(400, { error: "ambiguous_mode" });
@@ -128,7 +252,6 @@ export async function handleRequest(req: Request): Promise<Response> {
     if (!p.ok) return jsonResponse(400, { error: p.error });
     ticker = p.ticker; owner = p.owner; source = "trigger";
   } else {
-    // manual JWT
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
     let uid: string | null = null;
@@ -150,15 +273,12 @@ export async function handleRequest(req: Request): Promise<Response> {
     ticker = p.ticker; owner = uid; source = "manual";
   }
 
-  const runId = extractRunId(body);
-
-  // Service client
   const supabase: ServiceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
   ) as unknown as ServiceClient;
 
-  // Step 3: ownership verification
+  // Step 3: ownership verification (BEFORE run_id existence check, session resolution, or request row)
   {
     const { data: owned, error: ownErr } = await supabase
       .from("watchlists")
@@ -175,7 +295,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
   }
 
-  // Step 4: validate run_id if provided
+  // Step 4: validate run_id existence + running state
   if (runId !== null) {
     const { data: runRow, error: runErr } = await supabase
       .from("watchlist_analysis_runs")
@@ -190,6 +310,7 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   // Step 5: resolve session (before any request row)
   const analyzedAt = new Date();
+  const analyzedAtMs = analyzedAt.getTime();
   const analyzedAtIso = analyzedAt.toISOString();
   const polygonKey = Deno.env.get("POLYGON_API_KEY") ?? "";
   const finnhubKey = Deno.env.get("FINNHUB_API_KEY") ?? "";
@@ -237,8 +358,8 @@ export async function handleRequest(req: Request): Promise<Response> {
   // Step 7: fetch providers
   const snapshotUrl = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${polygonKey}`;
   const barsUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/minute/${sessionDate}/${sessionDate}?adjusted=true&sort=asc&limit=5000&apiKey=${polygonKey}`;
-  const newsFrom = new Date(analyzedAt.getTime() - 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const newsTo = analyzedAt.toISOString().slice(0, 10);
+  const newsFrom = new Date(analyzedAtMs - 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const newsTo = analyzedAtIso.slice(0, 10);
   const newsUrl = `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${newsFrom}&to=${newsTo}&token=${finnhubKey}`;
 
   const [snapshotR, barsR, newsR] = await Promise.all([
@@ -247,17 +368,16 @@ export async function handleRequest(req: Request): Promise<Response> {
     fetchWithOutcome(newsUrl, 8000),
   ]);
 
-  // Hard-fail on required-provider issues
   if (snapshotR.kind === "transport_failure") {
-    return await failAndRespond(supabase, requestId, mapTransportErr(snapshotR.code));
+    return await failAndRespond(supabase, requestId, owner, mapTransportErr(snapshotR.code));
   }
   if (barsR.kind === "transport_failure") {
-    return await failAndRespond(supabase, requestId, mapTransportErr(barsR.code));
+    return await failAndRespond(supabase, requestId, owner, mapTransportErr(barsR.code));
   }
 
-  // Parse
   const snapshot = assessSnapshot(snapshotR.body, analyzedAt);
-  const barsBody = barsR.body as { results?: unknown };
+  const barsBody = barsR.body as { results?: unknown; resultsCount?: unknown };
+  const rawBarsCount = Array.isArray(barsBody?.results) ? (barsBody.results as unknown[]).length : 0;
   const barsNorm = normalizeBars(barsBody?.results, sessionDate, analyzedAt);
   const bars = barsNorm.bars;
 
@@ -296,13 +416,16 @@ export async function handleRequest(req: Request): Promise<Response> {
     : { events: [] as RecentEvent[], quality: "missing" as const };
   const recentEvents: RecentEvent[] = eventsResult.events;
 
-  // Inputs quality
+  // Bars quality: distinguish malformed (raw provided, all rejected) from missing
+  let barsQuality: InputsQuality["bars"];
+  if (bars.length === 0 && rawBarsCount > 0 && barsNorm.rejected_count > 0) barsQuality = "malformed";
+  else if (bars.length === 0) barsQuality = "missing";
+  else if (bars.length < MIN_BARS_FOR_AI) barsQuality = "insufficient";
+  else barsQuality = "ok";
+
   const reasonCodes: string[] = [];
-  const barsQuality: InputsQuality["bars"] =
-    bars.length === 0 ? "missing"
-      : bars.length < 3 ? "insufficient"
-        : barsNorm.rejected_count > bars.length ? "malformed" : "ok";
   if (newsR.kind === "transport_failure") reasonCodes.push(`news_${newsR.code.toLowerCase()}`);
+
   const inputsQuality: InputsQuality = {
     snapshot: snapshot.quality,
     bars: barsQuality,
@@ -315,20 +438,67 @@ export async function handleRequest(req: Request): Promise<Response> {
     reason_codes: reasonCodes,
   };
 
-  const sufficiency = evaluateSufficiency(inputsQuality);
+  const sufficiency = evaluateSufficiency({
+    quality: inputsQuality,
+    price: basis.price,
+    priorClose,
+    volume: basis.volume,
+  });
 
-  let direction: AnalysisV2Payload["direction"];
+  // Prior direction (for direction_change eligibility) — read BEFORE finalize
+  let priorDirection: Direction | null = null;
+  {
+    const { data: prev } = await supabase
+      .from("watchlist_analysis_v2")
+      .select("direction")
+      .eq("ticker", ticker)
+      .maybeSingle();
+    const d = (prev as { direction?: unknown } | null)?.direction;
+    if (d === "bullish" || d === "bearish" || d === "neutral" || d === "data_unavailable") {
+      priorDirection = d;
+    }
+  }
+
+  // Earnings date within horizon (source of truth for earnings_upcoming)
+  let earningsDate: string | null = null;
+  {
+    const horizonDate = new Date(analyzedAtMs + EARNINGS_HORIZON_DAYS * 24 * 3600 * 1000)
+      .toISOString().slice(0, 10);
+    const { data: er } = await supabase
+      .from("earnings_calendar")
+      .select("report_date")
+      .eq("symbol", ticker)
+      .gte("report_date", sessionDate)
+      .lte("report_date", horizonDate)
+      .order("report_date", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    const rd = (er as { report_date?: unknown } | null)?.report_date;
+    if (typeof rd === "string") earningsDate = rd.slice(0, 10);
+  }
+
+  let direction: Direction;
   let explanation: string;
   let driverIds: string[] = [];
   let failureReason: string | null = null;
 
   if (!sufficiency.ok) {
+    const code = sufficiency.failure_code as SufficiencyCode;
     direction = "data_unavailable";
-    explanation = sufficiency.failure_reason ?? "Data unavailable.";
-    failureReason = sufficiency.failure_reason ?? "Data unavailable.";
+    failureReason = code;
+    explanation = sufficiency.explanation ?? "Data unavailable.";
   } else if (!anthropicKey) {
-    return await failAndRespond(supabase, requestId, "UPSTREAM_ERROR");
+    return await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR");
   } else {
+    const catalog = buildEvidenceCatalog({
+      market_signals: marketSignals,
+      recent_events: recentEvents,
+      key_levels: keyLevels,
+      metrics: [
+        ...(rvolRes.rvol !== null ? ["rvol"] : []),
+        ...(basis.change_pct !== null ? ["change_pct"] : []),
+      ],
+    });
     const caller: AiCaller = makeAnthropicCaller(anthropicKey);
     const prompt = buildAiPrompt({
       ticker, session_type: sessionType, session_date: sessionDate,
@@ -336,29 +506,26 @@ export async function handleRequest(req: Request): Promise<Response> {
       rvol: rvolRes.rvol, rvol_class: rvolRes.rvol_class,
       key_levels: keyLevels, market_signals: marketSignals, recent_events: recentEvents,
       reason_codes: reasonCodes,
-    });
-    const outcome = await caller.call(prompt);
+    }, catalog);
+    const outcome = await caller.call(prompt, catalog);
     if (outcome.kind === "ok") {
       direction = outcome.value.direction;
       explanation = outcome.value.explanation;
-      const allowed = new Set<string>([
-        ...marketSignals.map((s) => s.signal_id),
-        ...recentEvents.map((e) => e.event_id),
-      ]);
-      driverIds = outcome.value.driver_ids.filter((id) => allowed.has(id));
+      driverIds = outcome.value.driver_ids; // no silent filtering
     } else if (outcome.kind === "transport_failure") {
       return await failAndRespond(
-        supabase, requestId,
+        supabase, requestId, owner,
         outcome.code === "RATE_LIMITED" ? "RATE_LIMITED"
           : outcome.code === "PROVIDER_TIMEOUT" ? "PROVIDER_TIMEOUT" : "PROVIDER_ERROR",
       );
     } else {
-      return await failAndRespond(supabase, requestId, "AI_VALIDATION_FAILED");
+      return await failAndRespond(supabase, requestId, owner, "AI_VALIDATION_FAILED");
     }
   }
 
   // Build payload
-  const validThrough = new Date(analyzedAt.getTime() + 5 * 60 * 1000).toISOString();
+  const ttlMin = sessionType === "rth" ? TTL_MIN_RTH : TTL_MIN_OFFHOURS;
+  const validThrough = new Date(analyzedAtMs + ttlMin * 60 * 1000).toISOString();
   const payload: AnalysisV2Payload = {
     ticker, contract_version: CONTRACT_VERSION,
     session_date: sessionDate, session_type: sessionType, valid_through: validThrough,
@@ -375,19 +542,19 @@ export async function handleRequest(req: Request): Promise<Response> {
   const forbidden = containsForbiddenKey(payload);
   if (forbidden) {
     console.error(`${LOG_PREFIX} forbidden key blocked: ${sanitize(forbidden)}`);
-    return await failAndRespond(supabase, requestId, "UPSTREAM_ERROR");
+    return await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR");
   }
   const validated = validateAnalysisV2Payload(payload);
   if (!validated.ok) {
     console.error(`${LOG_PREFIX} payload validation failed`);
-    return await failAndRespond(supabase, requestId, "UNKNOWN");
+    return await failAndRespond(supabase, requestId, owner, "UNKNOWN");
   }
 
-  // Alerts (transition signals only + unusual_volume + company_event)
   const alerts: AlertCandidate[] = buildAlerts({
-    ticker, sessionDate, sessionType, analyzedAtIso,
+    ticker, sessionDate, sessionType, analyzedAtIso, analyzedAtMs,
     marketSignals, recentEvents,
     rvol: rvolRes.rvol, rvolClass: rvolRes.rvol_class,
+    direction, priorDirection, earningsDate,
   });
 
   // Finalize
@@ -398,12 +565,11 @@ export async function handleRequest(req: Request): Promise<Response> {
       p_payload: payload, p_alerts: alerts, p_run_id: runId,
     });
   } catch {
-    // Uncertain network outcome — reread
     return await rereadRequest(supabase, requestId);
   }
   if (rpcResp.error) {
     console.error(`${LOG_PREFIX} finalize rpc failed`);
-    return await failAndRespond(supabase, requestId, "UPSTREAM_ERROR");
+    return await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR");
   }
 
   const rpcData = (rpcResp.data ?? {}) as { status?: string; alerts_created?: number };
@@ -415,7 +581,10 @@ export async function handleRequest(req: Request): Promise<Response> {
     session_type: sessionType, session_date: sessionDate,
     alerts_created: alertsCreated, replayed,
   };
-  if (direction === "data_unavailable") respBody.failure_reason = failureReason;
+  if (direction === "data_unavailable") {
+    respBody.failure_reason = failureReason;
+    respBody.explanation = explanation;
+  }
   return jsonResponse(200, respBody);
 }
 
@@ -427,55 +596,11 @@ function mapTransportErr(code: string): ErrorCode {
   return "PROVIDER_ERROR";
 }
 
-interface AlertBuildInput {
-  ticker: string;
-  sessionDate: string;
-  sessionType: string;
-  analyzedAtIso: string;
-  marketSignals: MarketSignal[];
-  recentEvents: RecentEvent[];
-  rvol: number | null;
-  rvolClass: string | null;
-}
-
-function buildAlerts(input: AlertBuildInput): AlertCandidate[] {
-  const out: AlertCandidate[] = [];
-  const { ticker, sessionDate, sessionType, analyzedAtIso, marketSignals, recentEvents, rvol, rvolClass } = input;
-  for (const s of marketSignals) {
-    if (s.kind !== "transition") continue;
-    if (!TRANSITION_ALERT_SIGNAL_IDS.has(s.signal_id)) continue;
-    out.push({
-      ticker, alert_type: "market_signal", reason: s.label,
-      facts: { signal_id: s.signal_id, ...s.facts },
-      event_time: s.observed_at, session_date: sessionDate,
-      dedupe_key: `${ticker}|${sessionDate}|${s.signal_id}`,
-    });
-  }
-  if (rvolClass === "unusual" && rvol !== null) {
-    out.push({
-      ticker, alert_type: "unusual_volume",
-      reason: `Unusual volume: ${rvol}x baseline`,
-      facts: { rvol, session_type: sessionType },
-      event_time: analyzedAtIso, session_date: sessionDate,
-      dedupe_key: `${ticker}|${sessionDate}|unusual_volume`,
-    });
-  }
-  for (const e of recentEvents) {
-    out.push({
-      ticker, alert_type: "company_event", reason: e.title,
-      facts: { source: e.source_name, event_id: e.event_id },
-      event_time: e.event_time, session_date: sessionDate,
-      dedupe_key: `${ticker}|company_event|${e.event_id}`,
-    });
-  }
-  return out;
-}
-
 async function failAndRespond(
-  supabase: ServiceClient, requestId: string, code: ErrorCode,
+  supabase: ServiceClient, requestId: string, owner: string, code: ErrorCode,
 ): Promise<Response> {
   const { error } = await supabase.rpc("fail_watchlist_analysis_v2", {
-    p_request_id: requestId, p_user_id: null, p_error_code: code,
+    p_request_id: requestId, p_user_id: owner, p_error_code: code,
   });
   if (error) console.error(`${LOG_PREFIX} fail rpc error`);
   return jsonResponse(200, { status: "failed", request_id: requestId, error_code: code });
