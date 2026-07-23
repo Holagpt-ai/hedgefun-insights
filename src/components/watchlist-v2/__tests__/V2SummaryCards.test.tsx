@@ -57,14 +57,17 @@ describe("V2SummaryCards", () => {
       }),
       row({ ticker: "F", hasV2: false }),
     ];
-    const { getByText, container } = render(<V2SummaryCards rows={rows} />);
-    expect(getByText("Bullish")).toBeInTheDocument();
-    expect(getByText("Bearish")).toBeInTheDocument();
-    expect(getByText("Unusual Activity")).toBeInTheDocument();
-    expect(getByText("Recent News & Events")).toBeInTheDocument();
-    const vals = Array.from(container.querySelectorAll<HTMLElement>(".text-2xl")).map(
-      (el) => el.textContent,
-    );
+    const result = render(<V2SummaryCards rows={rows} />) as unknown as {
+      getByText: (t: string) => HTMLElement;
+      container: HTMLElement;
+    };
+    expect(result.getByText("Bullish")).toBeInTheDocument();
+    expect(result.getByText("Bearish")).toBeInTheDocument();
+    expect(result.getByText("Unusual Activity")).toBeInTheDocument();
+    expect(result.getByText("Recent News & Events")).toBeInTheDocument();
+    const vals = Array.from(
+      result.container.querySelectorAll<HTMLElement>(".text-2xl"),
+    ).map((el) => el.textContent);
     expect(vals).toEqual(["2", "1", "2", "1"]);
   });
 });
