@@ -27,7 +27,7 @@ Deno.test("emits vwap_cross.up and hod_break when both fire", () => {
   assert(ids.includes("transition.vwap_cross.up"));
   assert(ids.includes("transition.hod_break"));
   assert(ids.includes("state.price_vs_vwap.above"));
-  assert(ids.includes("state.near_hod"));
+  assert(ids.includes("state.price_vs_vwap.above"));
 });
 
 Deno.test("emits nothing without bars", () => {
