@@ -2051,6 +2051,19 @@ export type Database = {
       }
     }
     Functions: {
+      fail_watchlist_analysis_v2: {
+        Args: { p_error_code: string; p_request_id: string; p_run_id: string }
+        Returns: undefined
+      }
+      finalize_watchlist_analysis_v2: {
+        Args: {
+          p_alerts: Json
+          p_payload: Json
+          p_request_id: string
+          p_run_id: string
+        }
+        Returns: undefined
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
