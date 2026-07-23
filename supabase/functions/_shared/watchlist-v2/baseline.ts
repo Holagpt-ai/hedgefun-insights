@@ -4,7 +4,38 @@
 // Never fabricates a bar or a price; a missing minute is treated as
 // zero new reported volume (cumulative forward-fill).
 
-import { etParts } from "./session.ts";
+// Fast ET conversion (no Intl in hot loop). Handles US DST since 2007:
+// EDT (UTC-4) starts 2nd Sunday of March 07:00 UTC, ends 1st Sunday of November 06:00 UTC.
+const DST_CACHE = new Map<number, { start: number; end: number }>();
+function dstBoundsUtcMs(year: number) {
+  let b = DST_CACHE.get(year);
+  if (b) return b;
+  // 2nd Sunday of March: find first Sunday, add 7 days.
+  const march1 = Date.UTC(year, 2, 1);
+  const marchDow = new Date(march1).getUTCDay(); // 0=Sun
+  const march2ndSun = Date.UTC(year, 2, 1 + ((7 - marchDow) % 7) + 7);
+  const start = march2ndSun + 7 * 3600 * 1000;
+  const nov1 = Date.UTC(year, 10, 1);
+  const novDow = new Date(nov1).getUTCDay();
+  const nov1stSun = Date.UTC(year, 10, 1 + ((7 - novDow) % 7));
+  const end = nov1stSun + 6 * 3600 * 1000;
+  b = { start, end };
+  DST_CACHE.set(year, b);
+  return b;
+}
+function etDateAndMinute(tMs: number): { date: string; minutes: number } {
+  const year = new Date(tMs).getUTCFullYear();
+  const { start, end } = dstBoundsUtcMs(year);
+  const offsetHours = tMs >= start && tMs < end ? 4 : 5;
+  const etMs = tMs - offsetHours * 3600 * 1000;
+  const d = new Date(etMs);
+  const yyyy = d.getUTCFullYear();
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  const minutes = d.getUTCHours() * 60 + d.getUTCMinutes();
+  return { date: `${yyyy}-${mm}-${dd}`, minutes };
+}
+
 
 export interface RawBar {
   t?: unknown; o?: unknown; h?: unknown; l?: unknown; c?: unknown; v?: unknown;
@@ -51,7 +82,7 @@ export function groupBarsByEtDate(
     const b = validateBar(r as RawBar);
     if (!b) continue;
     if (b.t > nowMs) continue;
-    const et = etParts(new Date(b.t));
+    const et = etDateAndMinute(b.t);
     if (et.minutes < RTH_START_MIN || et.minutes > RTH_END_MIN) continue;
     let day = out.get(et.date);
     if (!day) { day = new Map(); out.set(et.date, day); }
