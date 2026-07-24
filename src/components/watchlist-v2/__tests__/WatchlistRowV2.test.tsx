@@ -76,4 +76,28 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
     if (toggle) fireEvent.click(toggle);
     expect(container.innerHTML).toContain("Above VWAP");
   });
+
+  it("never renders raw driver_ids or evidence hashes, even when directional", () => {
+    const { container } = renderRow(
+      row({
+        direction: "bullish",
+        failureReason: null,
+        explanation: "ok",
+        driverIds: [
+          "event:2b1c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c",
+          "signal:above_vwap",
+          "level:vwap",
+          "metric:rvol",
+        ],
+      }),
+    );
+    const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
+    if (toggle) fireEvent.click(toggle);
+    const html = container.innerHTML;
+    expect(html).not.toMatch(/event:[a-f0-9]/i);
+    expect(html).not.toContain("signal:above_vwap");
+    expect(html).not.toContain("level:vwap");
+    expect(html).not.toContain("metric:rvol");
+    expect(html).not.toMatch(/AI Read evidence/i);
+  });
 });
