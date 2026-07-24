@@ -2056,6 +2056,17 @@ export type Database = {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
       }
+      claim_wl_v2_analysis_cycle: {
+        Args: {
+          p_lease_seconds: number
+          p_scope: string
+          p_session_type: Database["public"]["Enums"]["watchlist_session"]
+        }
+        Returns: {
+          cursor_start: string
+          run_id: string
+        }[]
+      }
       claim_wl_v2_worker: {
         Args: { p_lease_seconds: number; p_scope: string; p_worker: string }
         Returns: {
