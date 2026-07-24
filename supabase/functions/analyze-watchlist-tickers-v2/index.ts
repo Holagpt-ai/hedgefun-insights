@@ -559,10 +559,11 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   const alerts: AlertCandidate[] = buildAlerts({
     ticker, sessionDate, sessionType, analyzedAtIso, analyzedAtMs,
-    marketSignals, recentEvents,
+    marketSignals: payloadMarketSignals, recentEvents,
     rvol: rvolRes.rvol, rvolClass: rvolRes.rvol_class,
     direction, priorDirection, earningsDate,
   });
+
 
   // Finalize
   let rpcResp: { data: unknown; error: { message: string } | null };
