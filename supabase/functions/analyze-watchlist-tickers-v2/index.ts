@@ -523,21 +523,28 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
   }
 
+  // Contract: data_unavailable must never carry AI drivers or market signals.
+  // Independently validated fields (price, bars, volume, events, key levels) are preserved.
+  const isUnavailable = direction === "data_unavailable";
+  const payloadDriverIds = isUnavailable ? [] : driverIds;
+  const payloadMarketSignals = isUnavailable ? [] : marketSignals;
+
   // Build payload
   const ttlMin = sessionType === "rth" ? TTL_MIN_RTH : TTL_MIN_OFFHOURS;
   const validThrough = new Date(analyzedAtMs + ttlMin * 60 * 1000).toISOString();
   const payload: AnalysisV2Payload = {
     ticker, contract_version: CONTRACT_VERSION,
     session_date: sessionDate, session_type: sessionType, valid_through: validThrough,
-    direction, explanation, driver_ids: driverIds, failure_reason: failureReason,
+    direction, explanation, driver_ids: payloadDriverIds, failure_reason: failureReason,
     price: basis.price, change_pct: basis.change_pct,
     intraday: bars,
     volume: basis.volume !== null ? Math.round(basis.volume) : null,
     rvol: rvolRes.rvol, rvol_class: rvolRes.rvol_class,
-    market_signals: marketSignals, recent_events: recentEvents,
+    market_signals: payloadMarketSignals, recent_events: recentEvents,
     key_levels: keyLevels, inputs_quality: inputsQuality,
     analyzed_at: analyzedAtIso, run_id: runId,
   };
+
 
   const forbidden = containsForbiddenKey(payload);
   if (forbidden) {
