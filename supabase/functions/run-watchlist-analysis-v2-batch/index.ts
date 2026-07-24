@@ -12,7 +12,7 @@ import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import { LOG_PREFIX, sanitize } from "../_shared/watchlist-v2/sanitize.ts";
 import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import { fetchWithOutcome } from "../_shared/watchlist-v2/market-data.ts";
-import { applyCursor, deriveUniqueTickers, type UniqueTicker } from "../_shared/watchlist-v2/batch.ts";
+import { applyCursor, buildAnalysisScope, deriveUniqueTickers, type UniqueTicker } from "../_shared/watchlist-v2/batch.ts";
 
 const MAX_TICKERS_PER_INVOCATION = 25;
 const MAX_CONCURRENCY = 5;
@@ -111,14 +111,15 @@ async function runBatch(
     });
   }
 
-  const scope = session.session_date;
+  const scope = buildAnalysisScope(session.session_date, session.session_type);
 
-  // 2. Claim lease
-  const claim = await supabase.rpc("claim_wl_v2_worker", {
-    p_worker: "batch-analysis",
+  // 2. Claim lease — session-isolated cycle so premarket/RTH/postclose never share a cursor.
+  const claim = await supabase.rpc("claim_wl_v2_analysis_cycle", {
     p_scope: scope,
+    p_session_type: session.session_type,
     p_lease_seconds: LEASE_SECONDS,
   });
+
   if (claim.error) {
     console.error(`${LOG_PREFIX} claim rpc error`);
     return jsonResponse(500, { status: "failed", reason: "CLAIM_FAILED" });

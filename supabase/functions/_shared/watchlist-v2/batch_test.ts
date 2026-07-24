@@ -1,5 +1,6 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { applyCursor, deriveUniqueTickers } from "./batch.ts";
+import { assert, assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { applyCursor, buildAnalysisScope, deriveUniqueTickers } from "./batch.ts";
+
 
 const U1 = "11111111-1111-1111-1111-111111111111";
 const U2 = "22222222-2222-2222-2222-222222222222";
@@ -41,4 +42,23 @@ Deno.test("applyCursor resumes strictly after prior ticker", () => {
   assertEquals(applyCursor(items, "AAPL").map((x) => x.ticker), ["MSFT", "NVDA"]);
   assertEquals(applyCursor(items, "MSFT").map((x) => x.ticker), ["NVDA"]);
   assertEquals(applyCursor(items, "ZZZZ").length, 0);
+});
+
+Deno.test("buildAnalysisScope isolates premarket, RTH and postclose", () => {
+  assertEquals(buildAnalysisScope("2026-07-24", "premarket"), "2026-07-24:premarket");
+  assertEquals(buildAnalysisScope("2026-07-24", "rth"), "2026-07-24:rth");
+  assertEquals(buildAnalysisScope("2026-07-24", "postclose"), "2026-07-24:postclose");
+  assert(
+    buildAnalysisScope("2026-07-24", "premarket") !== buildAnalysisScope("2026-07-24", "rth"),
+  );
+  assert(
+    buildAnalysisScope("2026-07-24", "rth") !== buildAnalysisScope("2026-07-24", "postclose"),
+  );
+});
+
+Deno.test("buildAnalysisScope rejects malformed date or session", () => {
+  assertThrows(() => buildAnalysisScope("2026/07/24", "rth"), Error, "invalid_session_date");
+  assertThrows(() => buildAnalysisScope("bad", "rth"), Error, "invalid_session_date");
+  assertThrows(() => buildAnalysisScope("2026-07-24", "afterhours"), Error, "invalid_session_type");
+  assertThrows(() => buildAnalysisScope("2026-07-24", ""), Error, "invalid_session_type");
 });
