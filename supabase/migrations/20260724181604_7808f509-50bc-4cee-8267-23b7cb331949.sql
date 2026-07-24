@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public._tmp_invoke_v2(text,uuid) TO service_role, postgres;
