@@ -1,5 +1,6 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { applyCursor, deriveUniqueTickers } from "./batch.ts";
+import { assert, assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { applyCursor, buildAnalysisScope, deriveUniqueTickers } from "./batch.ts";
+
 
 const U1 = "11111111-1111-1111-1111-111111111111";
 const U2 = "22222222-2222-2222-2222-222222222222";
