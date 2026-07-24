@@ -204,8 +204,10 @@ const App = () => (
                 {/* Dashboard routes */}
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={<DashboardHome />} />
-                  <Route path="/dashboard/am" element={<AMInbox />} />
-                  <Route path="/dashboard/pm" element={<PMInbox />} />
+                  <Route path="/dashboard/pre-market" element={<AMInbox />} />
+                  <Route path="/dashboard/after-hours" element={<PMInbox />} />
+                  <Route path="/dashboard/am" element={<Navigate to="/dashboard/pre-market" replace />} />
+                  <Route path="/dashboard/pm" element={<Navigate to="/dashboard/after-hours" replace />} />
                   <Route path="/dashboard/screeners" element={<Screeners />} />
                   <Route path="/dashboard/ai" element={<AIAnalyst />} />
                   <Route path="/dashboard/watchlist" element={<DashboardWatchlistPage />} />
