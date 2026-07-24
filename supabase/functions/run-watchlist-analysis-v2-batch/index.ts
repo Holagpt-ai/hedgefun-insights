@@ -12,7 +12,7 @@ import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import { LOG_PREFIX, sanitize } from "../_shared/watchlist-v2/sanitize.ts";
 import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import { fetchWithOutcome } from "../_shared/watchlist-v2/market-data.ts";
-import { applyCursor, deriveUniqueTickers, type UniqueTicker } from "../_shared/watchlist-v2/batch.ts";
+import { applyCursor, buildAnalysisScope, deriveUniqueTickers, type UniqueTicker } from "../_shared/watchlist-v2/batch.ts";
 
 const MAX_TICKERS_PER_INVOCATION = 25;
 const MAX_CONCURRENCY = 5;
