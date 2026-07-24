@@ -208,14 +208,22 @@ export function humanFailureReason(code: string | null | undefined): string {
   if (!code) return "Analysis unavailable.";
   const map: Record<string, string> = {
     SNAPSHOT_MISSING: "Live market snapshot unavailable.",
+    SNAPSHOT_STALE: "Market snapshot too stale to analyze.",
+    SNAPSHOT_MALFORMED: "Market snapshot data malformed.",
+    PRICE_UNAVAILABLE: "Current price unavailable.",
+    PRIOR_CLOSE_UNAVAILABLE: "Prior close unavailable.",
     BARS_MISSING: "Intraday bars unavailable.",
     BARS_INSUFFICIENT: "Not enough intraday bars for a reliable read.",
-    PRIOR_CLOSE_MISSING: "Prior close unavailable.",
+    BARS_MALFORMED: "Intraday bar data malformed.",
+    VOLUME_UNAVAILABLE: "Session volume unavailable.",
+    PROVIDER_UNAVAILABLE: "Market data provider unavailable.",
     PROVIDER_TIMEOUT: "Market data provider timed out.",
     PROVIDER_ERROR: "Market data provider error.",
     RATE_LIMITED: "Rate limited by data provider.",
     AI_VALIDATION_FAILED: "AI response failed validation.",
     UPSTREAM_ERROR: "Upstream service error.",
+    UNKNOWN: "Analysis unavailable.",
   };
   return map[code] ?? "Analysis unavailable.";
 }
+
