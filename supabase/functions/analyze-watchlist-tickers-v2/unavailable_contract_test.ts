@@ -11,8 +11,12 @@ const sig: MarketSignal = {
   category: "level",
   kind: "state",
   direction: "bullish",
+  facts: {},
+  inputs: ["vwap"],
   observed_at: "2026-07-24T19:00:00Z",
+  rule_version: "w2b1c.1",
 };
+
 
 Deno.test("data_unavailable strips drivers and market signals", () => {
   const out = sanitizeUnavailableEvidence({
