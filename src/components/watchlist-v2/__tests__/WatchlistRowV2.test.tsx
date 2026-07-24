@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render } from "@testing-library/react";
+import { render, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { WatchlistRowV2 } from "@/components/watchlist-v2/WatchlistRowV2";
 import type { V2Row } from "@/hooks/useWatchlistV2";
