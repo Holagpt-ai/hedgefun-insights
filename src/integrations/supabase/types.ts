@@ -2051,6 +2051,10 @@ export type Database = {
       }
     }
     Functions: {
+      _tmp_invoke_v2: {
+        Args: { p_symbol: string; p_user_id: string }
+        Returns: number
+      }
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
       checkpoint_wl_v2_cursor: {
         Args: { p_cursor: string; p_run_id: string }
