@@ -43,3 +43,22 @@ Deno.test("applyCursor resumes strictly after prior ticker", () => {
   assertEquals(applyCursor(items, "MSFT").map((x) => x.ticker), ["NVDA"]);
   assertEquals(applyCursor(items, "ZZZZ").length, 0);
 });
+
+Deno.test("buildAnalysisScope isolates premarket, RTH and postclose", () => {
+  assertEquals(buildAnalysisScope("2026-07-24", "premarket"), "2026-07-24:premarket");
+  assertEquals(buildAnalysisScope("2026-07-24", "rth"), "2026-07-24:rth");
+  assertEquals(buildAnalysisScope("2026-07-24", "postclose"), "2026-07-24:postclose");
+  assert(
+    buildAnalysisScope("2026-07-24", "premarket") !== buildAnalysisScope("2026-07-24", "rth"),
+  );
+  assert(
+    buildAnalysisScope("2026-07-24", "rth") !== buildAnalysisScope("2026-07-24", "postclose"),
+  );
+});
+
+Deno.test("buildAnalysisScope rejects malformed date or session", () => {
+  assertThrows(() => buildAnalysisScope("2026/07/24", "rth"), Error, "invalid_session_date");
+  assertThrows(() => buildAnalysisScope("bad", "rth"), Error, "invalid_session_date");
+  assertThrows(() => buildAnalysisScope("2026-07-24", "afterhours"), Error, "invalid_session_type");
+  assertThrows(() => buildAnalysisScope("2026-07-24", ""), Error, "invalid_session_type");
+});
