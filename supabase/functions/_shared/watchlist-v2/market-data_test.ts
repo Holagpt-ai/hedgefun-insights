@@ -46,6 +46,64 @@ Deno.test("assessSnapshot returns missing when no ticker", () => {
   assertEquals(assessSnapshot({}, now).quality, "missing");
 });
 
+Deno.test("assessSnapshot: fresh lastTrade timestamp passes", () => {
+  const body = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastTrade: { t: now.getTime() - 60_000 } } };
+  assertEquals(assessSnapshot(body, now).quality, "ok");
+});
+
+Deno.test("assessSnapshot: fresh lastQuote timestamp passes", () => {
+  const body = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastQuote: { t: now.getTime() - 60_000 } } };
+  assertEquals(assessSnapshot(body, now).quality, "ok");
+});
+
+Deno.test("assessSnapshot: fresh ticker.updated (ns) passes without trade/quote", () => {
+  const body = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, updated: (now.getTime() - 60_000) * 1e6 } };
+  const a = assessSnapshot(body, now);
+  assertEquals(a.quality, "ok");
+  assert(a.lastTradeTs !== null && Math.abs(a.lastTradeTs - (now.getTime() - 60_000)) < 5);
+});
+
+Deno.test("assessSnapshot: fresh min.t (ms) passes without trade/quote", () => {
+  const body = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, min: { t: now.getTime() - 30_000 } } };
+  assertEquals(assessSnapshot(body, now).quality, "ok");
+});
+
+Deno.test("assessSnapshot: newest valid candidate wins", () => {
+  const body = {
+    ticker: {
+      prevDay: { c: 100 }, day: { c: 101, v: 1 },
+      lastTrade: { t: now.getTime() - 40 * 60 * 1000 },
+      min: { t: now.getTime() - 60_000 },
+    },
+  };
+  const a = assessSnapshot(body, now);
+  assertEquals(a.quality, "ok");
+  assert(a.lastTradeTs !== null && a.lastTradeTs >= now.getTime() - 60_000 - 5);
+});
+
+Deno.test("assessSnapshot: 44min age passes; 46min is stale", () => {
+  const ok = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastTrade: { t: now.getTime() - 44 * 60 * 1000 } } };
+  const stale = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastTrade: { t: now.getTime() - 46 * 60 * 1000 } } };
+  assertEquals(assessSnapshot(ok, now).quality, "ok");
+  assertEquals(assessSnapshot(stale, now).quality, "stale");
+});
+
+Deno.test("assessSnapshot: future timestamp (>5min) is rejected", () => {
+  const body = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastTrade: { t: now.getTime() + 10 * 60 * 1000 } } };
+  assertEquals(assessSnapshot(body, now).quality, "missing");
+});
+
+Deno.test("assessSnapshot: malformed timestamps rejected", () => {
+  const body = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastTrade: { t: "nope" }, min: { t: -1 }, updated: NaN } };
+  assertEquals(assessSnapshot(body, now).quality, "missing");
+});
+
+Deno.test("assessSnapshot: no permitted timestamp remains missing (SNAPSHOT_MISSING)", () => {
+  const body = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 } } };
+  assertEquals(assessSnapshot(body, now).quality, "missing");
+});
+
+
 Deno.test("computeBasis uses last bar price and cumulative volume", () => {
   const bars = [
     { t: t930, o: 100, h: 101, l: 99, c: 100.5, v: 1000 },
