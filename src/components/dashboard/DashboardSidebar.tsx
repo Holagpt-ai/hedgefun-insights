@@ -160,7 +160,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
         {!isPro && !collapsed && (
           <div className="mt-6 mx-2 p-3 rounded-lg border border-border bg-accent-blue-light/40">
             <p className="text-xs text-foreground mb-2 leading-snug">
-              Unlock PM Inbox, Stock Journal and more.
+              Unlock After-Hours, Stock Journal and more.
             </p>
             <Button
               size="sm"
