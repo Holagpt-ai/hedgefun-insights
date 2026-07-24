@@ -85,7 +85,6 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
   // even if stale/client state persists them. Backend also enforces this.
   const isUnavailable = row.direction === "data_unavailable";
   const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
-  const shownDriverIds = isUnavailable ? [] : row.driverIds;
 
   const latestEvent = row.recentEvents[0] ?? null;
 
@@ -247,23 +246,6 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
                   );
                 })}
               </ul>
-            )}
-            {shownDriverIds.length > 0 && (
-              <div className="mt-3">
-                <div className="text-[11px] uppercase text-muted-foreground mb-1">
-                  AI Read evidence
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {shownDriverIds.map((d) => (
-                    <span
-                      key={d}
-                      className="text-[11px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground"
-                    >
-                      {d}
-                    </span>
-                  ))}
-                </div>
-              </div>
             )}
           </div>
 
