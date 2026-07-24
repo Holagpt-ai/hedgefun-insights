@@ -22,7 +22,6 @@ const translations: Translations = {
   tools: { en: "Tools", es: "Herramientas" },
   screener: { en: "Screener", es: "Buscador" },
   account: { en: "Account", es: "Cuenta" },
-  logIn: { en: "Log In", es: "Iniciar sesión" },
   signUp: { en: "Sign Up", es: "Registrarse" },
   signOut: { en: "Sign Out", es: "Cerrar sesión" },
   myAccount: { en: "My Account", es: "Mi cuenta" },
