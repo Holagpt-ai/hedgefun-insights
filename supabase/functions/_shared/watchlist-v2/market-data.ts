@@ -106,16 +106,32 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
   const day = isPlainObject(tick.day) ? tick.day : {};
   const lastTrade = isPlainObject(tick.lastTrade) ? tick.lastTrade : {};
   const lastQuote = isPlainObject(tick.lastQuote) ? tick.lastQuote : {};
+  const min = isPlainObject(tick.min) ? tick.min : {};
 
-  // Polygon timestamps are nanoseconds; sniff and normalize to ms.
-  const rawTs =
-    (typeof lastTrade.t === "number" && Number.isFinite(lastTrade.t) ? lastTrade.t : null) ??
-    (typeof lastQuote.t === "number" && Number.isFinite(lastQuote.t) ? lastQuote.t : null);
-  let tsMs: number | null = null;
-  if (typeof rawTs === "number") {
-    tsMs = rawTs > 1e14 ? Math.round(rawTs / 1e6) : rawTs;
-    if (!Number.isFinite(tsMs)) tsMs = null;
-  }
+  // Permitted freshness candidates. Polygon documents lastTrade/lastQuote as
+  // optional on delayed plans; ticker.updated (ns) and ticker.min.t (ms) are
+  // valid fallbacks. Aggregate bars are NOT used here.
+  const nowMs = now.getTime();
+  const futureCapMs = nowMs + 5 * 60 * 1000;
+
+  const normalizeCandidate = (v: unknown, unit: "auto" | "ms"): number | null => {
+    if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return null;
+    // Auto-detect ns vs ms: values > 1e14 look like nanoseconds.
+    let ms = unit === "ms" ? v : (v > 1e14 ? Math.round(v / 1e6) : v);
+    if (!Number.isFinite(ms) || ms <= 0) return null;
+    // Reject implausibly old (< year 2001) and >5min future timestamps.
+    if (ms < 1_000_000_000_000) return null;
+    if (ms > futureCapMs) return null;
+    return ms;
+  };
+
+  const candidates: number[] = [];
+  const c1 = normalizeCandidate(lastTrade.t, "auto"); if (c1 !== null) candidates.push(c1);
+  const c2 = normalizeCandidate(lastQuote.t, "auto"); if (c2 !== null) candidates.push(c2);
+  const c3 = normalizeCandidate((tick as Record<string, unknown>).updated, "auto"); if (c3 !== null) candidates.push(c3);
+  const c4 = normalizeCandidate(min.t, "ms"); if (c4 !== null) candidates.push(c4);
+
+  const tsMs = candidates.length ? Math.max(...candidates) : null;
 
   const priorC = typeof prevDay.c === "number" && Number.isFinite(prevDay.c) && prevDay.c > 0 ? prevDay.c : null;
   const dayC = typeof day.c === "number" && Number.isFinite(day.c) && day.c > 0 ? day.c : null;
@@ -123,11 +139,12 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
 
   let quality: SnapshotAssessment["quality"];
   if (tsMs === null) quality = "missing";
-  else if (now.getTime() - tsMs > STALE_MS) quality = "stale";
+  else if (nowMs - tsMs > STALE_MS) quality = "stale";
   else quality = "ok";
 
   return { quality, lastTradeTs: tsMs, priorClose: priorC, dayClose: dayC, dayVolume: dayV };
 }
+
 
 // ── Price/change/volume basis ────────────────────────────────────────────
 export interface BasisComputation {
