@@ -560,10 +560,11 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   const alerts: AlertCandidate[] = buildAlerts({
     ticker, sessionDate, sessionType, analyzedAtIso, analyzedAtMs,
-    marketSignals: payloadMarketSignals, recentEvents,
+    marketSignals: sanitized.marketSignals, recentEvents,
     rvol: rvolRes.rvol, rvolClass: rvolRes.rvol_class,
     direction, priorDirection, earningsDate,
   });
+
 
 
   // Finalize
