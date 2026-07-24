@@ -71,7 +71,7 @@ const FEED: FeedItem[] = [
 ];
 
 const FOCUS = [
-  "Review AM Inbox pre-market setup before the open",
+  "Review the Pre-Market setup before the open",
   "Confirm position sizing against your own risk limits",
   "Set alerts on levels you're tracking manually",
   "Log yesterday's closed trades in Stock Journal",
@@ -161,12 +161,13 @@ interface WorkflowLink {
 }
 
 const WORKFLOW_LINKS: WorkflowLink[] = [
-  { title: "AM Inbox", desc: "Start the session with your pre-market setup.", route: "/dashboard/am" },
-  { title: "PM Inbox", desc: "Review the close and prepare tomorrow's plan.", route: "/dashboard/pm" },
+  { title: "Pre-Market", desc: "Start the session with your pre-market setup.", route: "/dashboard/pre-market" },
+  { title: "Screeners", desc: "Run day-trade and swing screeners.", route: "/dashboard/screeners" },
+  { title: "Catalyst", desc: "Scan upcoming catalysts across your names.", route: "/dashboard/catalyst" },
   { title: "Watchlist", desc: "Check the names you are actively tracking.", route: "/dashboard/watchlist" },
   { title: "AI Analyst", desc: "Turn signals into a market read.", route: "/dashboard/ai" },
   { title: "Journal", desc: "Log what worked and what to improve.", route: "/dashboard/journal" },
-  { title: "Catalyst", desc: "Scan upcoming catalysts across your names.", route: "/dashboard/catalyst" },
+  { title: "After-Hours", desc: "Review the close and prepare tomorrow's plan.", route: "/dashboard/after-hours" },
 ];
 
 export default function ActionCenter() {

@@ -6,6 +6,8 @@ type Translations = Record<string, Record<Language, string>>;
 
 const translations: Translations = {
   home: { en: "Home", es: "Inicio" },
+  dashboard: { en: "Dashboard", es: "Panel" },
+  logIn: { en: "Log In", es: "Iniciar sesión" },
   watchlist: { en: "Watchlist", es: "Lista de seguimiento" },
   stocks: { en: "Stocks", es: "Acciones" },
   ipos: { en: "IPOs", es: "OPVs" },
@@ -20,7 +22,6 @@ const translations: Translations = {
   tools: { en: "Tools", es: "Herramientas" },
   screener: { en: "Screener", es: "Buscador" },
   account: { en: "Account", es: "Cuenta" },
-  logIn: { en: "Log In", es: "Iniciar sesión" },
   signUp: { en: "Sign Up", es: "Registrarse" },
   signOut: { en: "Sign Out", es: "Cerrar sesión" },
   myAccount: { en: "My Account", es: "Mi cuenta" },

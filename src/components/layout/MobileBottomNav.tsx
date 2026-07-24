@@ -1,20 +1,27 @@
-import { Home, Star, SlidersHorizontal, TrendingUp, User } from "lucide-react";
+import { Home, Star, SlidersHorizontal, TrendingUp, User, LayoutDashboard } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
-const tabs = [
+const baseTabs = [
   { labelKey: "home", icon: Home, route: "/" },
   { labelKey: "watchlist", icon: Star, route: "/dashboard/watchlist" },
   { labelKey: "screener", icon: SlidersHorizontal, route: "/screener" },
   { labelKey: "trending", icon: TrendingUp, route: "/trending" },
-  { labelKey: "account", icon: User, route: "/account" },
 ];
 
 export function MobileBottomNav() {
   const navigate = useNavigate();
   const location = useLocation();
   const { t } = useLanguage();
+  const { user } = useAuth();
+
+  const finalTab = user
+    ? { labelKey: "dashboard", icon: LayoutDashboard, route: "/dashboard" }
+    : { labelKey: "logIn", icon: User, route: "/login" };
+
+  const tabs = [...baseTabs, finalTab];
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 h-14 border-t border-border bg-surface-card flex items-center">

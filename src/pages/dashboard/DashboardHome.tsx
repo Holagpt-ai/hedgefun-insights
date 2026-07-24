@@ -7,16 +7,19 @@ import { toast } from "sonner";
 import { BRAND } from "@/config/brand";
 
 const NAV_CARDS = [
-  { label: "AM Inbox", path: "/dashboard/am", pro: false, icon: "☀️", desc: "Pre-market briefs & movers" },
-  { label: "PM Inbox", path: "/dashboard/pm", pro: true, icon: "🌙", desc: "Post-market recap & tomorrow's setup" },
+  { label: "Pre-Market", path: "/dashboard/pre-market", pro: false, icon: "☀️", desc: "Pre-market briefs & movers" },
   { label: "Screeners", path: "/dashboard/screeners", pro: false, icon: "🔍", desc: "Day Trade Radar & more" },
+  { label: "Catalyst", path: "/dashboard/catalyst", pro: false, icon: "📡", desc: "Upcoming catalysts across your names" },
+  { label: "My Watchlist", path: "/dashboard/watchlist", pro: false, icon: "⭐", desc: "Names you are actively tracking" },
   { label: "AI Analyst", path: "/dashboard/ai", pro: false, icon: "🤖", desc: "Ask anything about any stock" },
-  { label: "Stocksist Game", path: "/dashboard/game", pro: false, icon: "🎮", desc: "Virtual $5M stock competition" },
+  { label: "Action Center", path: "/dashboard/action-center", pro: false, icon: "🎯", desc: "Command hub for daily workflow" },
+  { label: "Stock Journal", path: "/dashboard/journal", pro: true, icon: "📓", desc: "Log trades and review performance" },
+  { label: "After-Hours", path: "/dashboard/after-hours", pro: true, icon: "🌙", desc: "Post-market recap & tomorrow's setup" },
 ];
 
 const WHATS_NEW = [
   { date: "Jun 16 2026", text: "AI Analyst persistent memory" },
-  { date: "Jun 10 2026", text: "PM Inbox launched" },
+  { date: "Jun 10 2026", text: "After-Hours launched" },
   { date: "Jun 2 2026", text: "Day Trade Radar screener live" },
 ];
 
@@ -90,6 +93,7 @@ export default function DashboardHome() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Quick Access</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+{/* rendered from NAV_CARDS below */}
           {NAV_CARDS.map((card) => (
             <button
               key={card.path}
@@ -131,15 +135,15 @@ export default function DashboardHome() {
           <div className="text-center py-6 space-y-3">
             <p className="text-sm font-medium text-foreground">No recent activity yet</p>
             <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              Start by opening AM Inbox, running a screener, or asking the AI Analyst
+              Start by opening Pre-Market, running a screener, or asking the AI Analyst
               for a market read. Your activity will appear here once you get started.
             </p>
             <div className="flex justify-center gap-2 flex-wrap pt-1">
               <Link
-                to="/dashboard/am"
+                to="/dashboard/pre-market"
                 className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
               >
-                AM Inbox
+                Pre-Market
               </Link>
               <Link
                 to="/dashboard/screeners"

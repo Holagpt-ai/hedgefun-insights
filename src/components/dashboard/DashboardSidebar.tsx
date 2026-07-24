@@ -28,19 +28,19 @@ type NavEntry =
 const NAV: NavEntry[] = [
   { label: "Browse Stocks", icon: <Compass className="h-4 w-4" />, route: "/", plan: "free" },
   { section: "Main" },
-  { label: "AM Inbox",      icon: <Sun className="h-4 w-4" />,        route: "/dashboard/am",        plan: "free" },
-  { label: "PM Inbox",      icon: <Moon className="h-4 w-4" />,       route: "/dashboard/pm",        plan: "pro" },
-  { label: "Action Center", icon: <Target className="h-4 w-4" />,     route: "/dashboard/action-center", plan: "free" },
-  { label: "Catalyst",      icon: <Radar className="h-4 w-4" />,      route: "/dashboard/catalyst",  plan: "free" },
+  { label: "Pre-Market",    icon: <Sun className="h-4 w-4" />,        route: "/dashboard/pre-market", plan: "free" },
   { label: "Screeners",     icon: <BarChart2 className="h-4 w-4" />,  route: "/dashboard/screeners", plan: "free" },
+  { label: "Catalyst",      icon: <Radar className="h-4 w-4" />,      route: "/dashboard/catalyst",  plan: "free" },
+  { label: "My Watchlist",  icon: <Star className="h-4 w-4" />,       route: "/dashboard/watchlist", plan: "free" },
   { label: "AI Analyst",    icon: <Sparkles className="h-4 w-4" />,   route: "/dashboard/ai",        plan: "free" },
-  { label: "My Watchlist",  icon: <Star className="h-4 w-4" />,       route: "/dashboard/watchlist",           plan: "free" },
+  { label: "Action Center", icon: <Target className="h-4 w-4" />,     route: "/dashboard/action-center", plan: "free" },
   { label: "Stock Journal", icon: <BookOpen className="h-4 w-4" />,   route: "/dashboard/journal",   plan: "pro" },
-  { label: "Stocksist Game", icon: <Gamepad2 className="h-4 w-4" />,   route: "/dashboard/game",      plan: "free" },
+  { label: "After-Hours",   icon: <Moon className="h-4 w-4" />,       route: "/dashboard/after-hours", plan: "pro" },
   { section: "Phase 2" },
   { label: "Price Alerts",  icon: <Bell className="h-4 w-4" />,        route: "/dashboard/alerts", plan: "pro" },
   { label: "News Feed",     icon: <Newspaper className="h-4 w-4" />,   route: "/dashboard/news", plan: "free" },
   { label: "Community",     icon: <MessageSquare className="h-4 w-4" />, route: "/dashboard/community", plan: "free" },
+  { label: "Stocksist Game", icon: <Gamepad2 className="h-4 w-4" />,   route: "/dashboard/game",      plan: "free" },
   { section: "Account" },
   { label: "Account Settings", icon: <Settings className="h-4 w-4" />,    route: "/account",         plan: "free" },
   { label: "Manage Billing",   icon: <CreditCard className="h-4 w-4" />,  route: "/account/billing", plan: "free" },
@@ -160,7 +160,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
         {!isPro && !collapsed && (
           <div className="mt-6 mx-2 p-3 rounded-lg border border-border bg-accent-blue-light/40">
             <p className="text-xs text-foreground mb-2 leading-snug">
-              Unlock PM Inbox, Stock Journal and more.
+              Unlock After-Hours, Stock Journal and more.
             </p>
             <Button
               size="sm"
@@ -178,7 +178,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
           <DialogHeader>
             <DialogTitle>{`Unlock ${BRAND.name} PRO`}</DialogTitle>
             <DialogDescription>
-              {`Get PM Inbox, Stock Journal, and the full PRO toolkit for $${PRICING.pro.monthly}/month.`}
+              {`Get After-Hours, Stock Journal, and the full PRO toolkit for $${PRICING.pro.monthly}/month.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

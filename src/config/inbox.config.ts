@@ -146,7 +146,7 @@ export interface AIBriefConfig {
 }
 
 export const AM_INBOX_CONFIG = {
-  title: "AM Inbox",
+  title: "Pre-Market",
   subtitle: "Pre-market briefing — updated before every open",
   aiCardTitle: "✦ AI Morning Brief",
   aiCardGateHeading: "AI Morning Brief — PRO Feature",
@@ -173,18 +173,18 @@ export const AM_INBOX_CONFIG = {
 };
 
 export const PM_INBOX_CONFIG = {
-  title: "PM Inbox",
+  title: "After-Hours",
   subtitle: "AI briefing and post-market workflow",
   gateModalIcon: "🌙",
-  gateModalTitle: "PM Workspace",
+  gateModalTitle: "After-Hours Workspace",
   gateModalBody:
-    "Additional PM workspace sections become available at 3:00 PM ET. AI Brief availability follows the official market schedule.",
+    "Additional After-Hours workspace sections become available at 3:00 PM ET. AI Brief availability follows the official market schedule.",
   gateModalCta: "Got it",
   lockedCardIcon: "🌙",
   lockedCardTitle: "Additional workspace available at 3:00 PM ET",
   lockedCardBody:
     "Recap tools, catalyst outcomes, and after-hours watch become available at 3:00 PM ET. The AI Brief follows the official market schedule.",
-  aiCardGateHeading: "PM Inbox — PRO Feature",
+  aiCardGateHeading: "After-Hours — PRO Feature",
   aiCardGateBody:
     "Upgrade to access your daily post-market AI briefing, recap, and after-hours movers. Available on PRO.",
   upgradeCta: "Request Pro Access",

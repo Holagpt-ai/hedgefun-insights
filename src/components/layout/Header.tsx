@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, Menu, Sun, Moon, User, LogOut, Settings, Star, CreditCard } from "lucide-react";
+import { Search, Menu, Sun, Moon, User, LogOut, Settings, Star, CreditCard, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -200,7 +200,10 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
                 )}
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuItem onClick={() => navigate("/watchlist")}>
+                <DropdownMenuItem onClick={() => navigate("/dashboard")}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/dashboard/watchlist")}>
                   <Star className="mr-2 h-4 w-4" /> My Watchlist
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => navigate("/account")}>
