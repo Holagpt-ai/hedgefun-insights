@@ -213,6 +213,23 @@ export function buildAlerts(input: AlertBuildInput): AlertCandidate[] {
   return out;
 }
 
+/**
+ * Contract enforcement: when direction=data_unavailable, the persisted payload
+ * MUST NOT carry AI-generated drivers or market signals. Pure helper so the
+ * invariant can be regression-tested in isolation.
+ */
+export function sanitizeUnavailableEvidence(input: {
+  direction: Direction;
+  driverIds: string[];
+  marketSignals: MarketSignal[];
+}): { driverIds: string[]; marketSignals: MarketSignal[] } {
+  if (input.direction === "data_unavailable") {
+    return { driverIds: [], marketSignals: [] };
+  }
+  return { driverIds: input.driverIds, marketSignals: input.marketSignals };
+}
+
+
 // ── Request handler ────────────────────────────────────────────────────────
 
 export async function handleRequest(req: Request): Promise<Response> {
