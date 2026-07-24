@@ -239,8 +239,8 @@ export function AppSidebar({ className }: { className?: string }) {
           </button>
           {user ? (
             <>
-              <Button variant="outline" className="w-full justify-start" size="sm" onClick={() => navigate("/account")}>
-                {t("myAccount")}
+              <Button variant="outline" className="w-full justify-start" size="sm" onClick={() => navigate("/dashboard")}>
+                {t("dashboard")}
               </Button>
               <Button variant="ghost" className="w-full justify-start text-muted-foreground" size="sm" onClick={signOut}>
                 {t("signOut")}
