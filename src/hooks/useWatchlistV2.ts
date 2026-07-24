@@ -296,14 +296,7 @@ export function useWatchlistV2() {
         .from("watchlists")
         .insert({ user_id: userId, symbol: upper });
       if (error) throw error;
-      // Kick off V2 analysis honestly — don't rely on V1 trigger for V2.
-      try {
-        await supabase.functions.invoke("analyze-watchlist-tickers-v2", {
-          body: { ticker: upper },
-        });
-      } catch {
-        // Non-fatal: row will show "Analysis pending" until next batch.
-      }
+      // V2 trigger (public.trigger_watchlist_analysis) owns automatic analysis on insert.
       return upper;
     },
     onSuccess: (upper) => {
