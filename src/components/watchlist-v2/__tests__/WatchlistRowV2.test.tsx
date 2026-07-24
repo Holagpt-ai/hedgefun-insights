@@ -61,7 +61,7 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
     const { container } = renderRow(row({}));
     // Header is not expanded by default; force expand by clicking the toggle.
     const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
-    if (toggle) toggle.click();
+    if (toggle) fireEvent.click(toggle);
     // Even expanded, the sanitized empty state must show.
     const html = container.innerHTML;
     expect(html).not.toContain("Above VWAP");
@@ -73,7 +73,7 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
       row({ direction: "bullish", failureReason: null, explanation: "ok" }),
     );
     const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
-    if (toggle) toggle.click();
+    if (toggle) fireEvent.click(toggle);
     expect(container.innerHTML).toContain("Above VWAP");
   });
 });
