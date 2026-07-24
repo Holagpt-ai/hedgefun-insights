@@ -226,11 +226,11 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
             <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
               Market Signals
             </div>
-            {row.marketSignals.length === 0 ? (
+            {shownMarketSignals.length === 0 ? (
               <div className="text-xs text-muted-foreground">No signals recorded.</div>
             ) : (
               <ul className="space-y-1.5">
-                {row.marketSignals.map((s) => {
+                {shownMarketSignals.map((s) => {
                   const cls =
                     s.direction === "bullish"
                       ? "text-emerald-600"
@@ -248,13 +248,13 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
                 })}
               </ul>
             )}
-            {row.driverIds.length > 0 && (
+            {shownDriverIds.length > 0 && (
               <div className="mt-3">
                 <div className="text-[11px] uppercase text-muted-foreground mb-1">
                   AI Read evidence
                 </div>
                 <div className="flex flex-wrap gap-1">
-                  {row.driverIds.map((d) => (
+                  {shownDriverIds.map((d) => (
                     <span
                       key={d}
                       className="text-[11px] px-1.5 py-0.5 rounded bg-secondary text-secondary-foreground"
