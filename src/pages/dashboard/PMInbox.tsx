@@ -235,7 +235,7 @@ export default function PMInbox() {
               {PM_INBOX_CONFIG.lockedCardBody}
             </p>
             <p className="text-xs text-muted-foreground mt-2 max-w-md">
-              Full PM Inbox — post-market recap, catalyst outcomes, and after-hours watch — is a Pro feature.
+              Full After-Hours — post-market recap, catalyst outcomes, and after-hours watch — is a Pro feature.
             </p>
             <button
               onClick={() => navigate("/pro")}
@@ -248,8 +248,8 @@ export default function PMInbox() {
           {/* Free preview teaser for pre-window non-Pro */}
           <section className="flex flex-col gap-3">
             <SectionHeader
-              title="PM Inbox Preview"
-              subtitle="See how HedgeFun turns today's market action into tomorrow's trading plan."
+              title="After-Hours Preview"
+              subtitle={`See how ${BRAND.name} turns today's market action into tomorrow's trading plan.`}
             />
             <SampleChip label="Preview data" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -263,9 +263,9 @@ export default function PMInbox() {
         <>
           <div className="flex flex-col items-center justify-center gap-2 rounded-xl border bg-card p-10 text-center">
             <div className="text-3xl mb-2">✦</div>
-            <h3 className="text-base font-semibold">PM Inbox Preview</h3>
+            <h3 className="text-base font-semibold">After-Hours Preview</h3>
             <p className="text-sm text-muted-foreground max-w-md">
-              See how HedgeFun turns today's market action into tomorrow's trading plan. Full post-market recap,
+              See how {BRAND.name} turns today's market action into tomorrow's trading plan. Full post-market recap,
               catalyst outcomes, and after-hours watch are available with Pro access.
             </p>
             <button
@@ -280,7 +280,7 @@ export default function PMInbox() {
           <section className="flex flex-col gap-3">
             <SectionHeader
               title={PM_INBOX_CONFIG.tomorrowSetupHeading}
-              subtitle="A taste of what a full Pro PM Inbox surfaces."
+              subtitle="A taste of what a full Pro After-Hours workspace surfaces."
             />
             <SampleChip label="Preview data" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
