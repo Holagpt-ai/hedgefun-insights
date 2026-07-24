@@ -81,7 +81,14 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
   const changeColor =
     change === null ? "text-muted-foreground" : change >= 0 ? "text-emerald-600" : "text-red-600";
 
+  // Contract guard: data_unavailable must never surface AI drivers or market signals,
+  // even if stale/client state persists them. Backend also enforces this.
+  const isUnavailable = row.direction === "data_unavailable";
+  const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
+  const shownDriverIds = isUnavailable ? [] : row.driverIds;
+
   const latestEvent = row.recentEvents[0] ?? null;
+
 
   const rvolUnavailableReason = (() => {
     const r = row.inputsQuality.rvol;
