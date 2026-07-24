@@ -39,3 +39,22 @@ export function applyCursor(items: UniqueTicker[], cursor: string): UniqueTicker
   if (!cursor) return items;
   return items.filter((x) => x.ticker.localeCompare(cursor) > 0);
 }
+
+const SESSION_TYPE_RE = /^(premarket|rth|postclose)$/;
+const SESSION_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Build the session-specific worker scope for the V2 batch analyzer.
+ * Format: `YYYY-MM-DD:<session_type>` — keeps premarket, RTH and postclose
+ * cursors isolated so one session never resumes another's cursor.
+ */
+export function buildAnalysisScope(session_date: string, session_type: string): string {
+  if (!SESSION_DATE_RE.test(session_date)) {
+    throw new Error("invalid_session_date");
+  }
+  if (!SESSION_TYPE_RE.test(session_type)) {
+    throw new Error("invalid_session_type");
+  }
+  return `${session_date}:${session_type}`;
+}
+
