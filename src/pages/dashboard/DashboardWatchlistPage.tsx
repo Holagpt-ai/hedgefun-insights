@@ -1,5 +1,5 @@
-import WatchlistPage from "@/pages/watchlist/WatchlistPage";
+import WatchlistV2Page from "@/pages/watchlist/WatchlistV2Page";
 
 export default function DashboardWatchlistPage() {
-  return <WatchlistPage />;
+  return <WatchlistV2Page />;
 }

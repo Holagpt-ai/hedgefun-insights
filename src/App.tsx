@@ -34,7 +34,7 @@ import IpoStatisticsPage from "./pages/ipos/IpoStatisticsPage";
 import IpoNewsPage from "./pages/ipos/IpoNewsPage";
 import IpoScreenerPage from "./pages/ipos/IpoScreenerPage";
 import EarningsPage from "./pages/earnings/EarningsPage";
-import WatchlistPage from "./pages/watchlist/WatchlistPage";
+import WatchlistPage from "./pages/watchlist/WatchlistV2Page";
 import ProPage from "./pages/pro/ProPage";
 import AccountPage from "./pages/account/AccountPage";
 import BillingPage from "./pages/account/BillingPage";
