@@ -80,6 +80,41 @@ export function etMidnightMs(dateStr: string): number | null {
 }
 
 /**
+ * ET calendar start-of-day (midnight America/New_York) for the ET day that
+ * contains `nowMs`. Independent of the runtime's local timezone.
+ */
+export function etStartOfDayMs(nowMs: number): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(new Date(nowMs));
+  const y = parts.find((p) => p.type === "year")?.value ?? "1970";
+  const mo = parts.find((p) => p.type === "month")?.value ?? "01";
+  const d = parts.find((p) => p.type === "day")?.value ?? "01";
+  return etMidnightMs(`${y}-${mo}-${d}`) ?? 0;
+}
+
+/**
+ * Scheduled moment for catalysts: explicit event_time when present,
+ * otherwise ET midnight of event_date. Never falls back to published_at,
+ * so a date-only earnings on today's ET calendar day is always scheduled.
+ */
+export function scheduledMomentMs(row: {
+  event_time?: string | null;
+  event_date?: string | null;
+}): number | null {
+  if (row.event_time) {
+    const t = Date.parse(row.event_time);
+    if (Number.isFinite(t)) return t;
+  }
+  if (row.event_date) {
+    const et = etMidnightMs(row.event_date);
+    if (et !== null) return et;
+  }
+  return null;
+}
+
+/**
  * Returns the effective moment (ms) of an event for sort/window purposes.
  * Prefers explicit event_time, then published_at, then ET midnight of
  * event_date (date-only earnings/catalysts are ET calendar dates).
