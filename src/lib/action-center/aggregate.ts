@@ -80,14 +80,19 @@ export function summaryCounts(input: {
   }
 
   const seenEventIds = new Set<string>();
+  const todayStart = etStartOfDayMs(nowMs);
+  const upcomingEnd = todayStart + 8 * DAY; // today + next 7 ET calendar days
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
-    const m = eventMomentMs(e);
-    if (m === null) continue;
-    const isUpcoming = m >= nowMs && m <= nowMs + 7 * DAY;
-    const isRecent = m < nowMs && m >= nowMs - 72 * HOUR;
-    if (!isUpcoming && !isRecent) continue;
     if (seenEventIds.has(e.id)) continue;
+    const s = scheduledMomentMs(e);
+    const isScheduled = s !== null && s >= todayStart && s < upcomingEnd;
+    let isRecent = false;
+    if (!isScheduled) {
+      const p = eventMomentMs(e);
+      isRecent = p !== null && p < nowMs && p >= nowMs - 72 * HOUR;
+    }
+    if (!isScheduled && !isRecent) continue;
     seenEventIds.add(e.id);
   }
 
