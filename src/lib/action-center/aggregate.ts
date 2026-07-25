@@ -287,14 +287,20 @@ export function buildFocusTasks(input: {
 /** Group upcoming (nearest first) + recent (newest first) for Catalyst Watch, cap N. */
 export function catalystWatchList(events: CatalystEvent[], nowMs: number, limit = 6): CatalystEvent[] {
   const provider = events.filter((e) => e.verification_state === "provider_reported");
+  const todayStart = etStartOfDayMs(nowMs);
+  const upcomingEnd = todayStart + 8 * DAY;
   const upcoming = provider
     .filter((e) => {
-      const m = eventMomentMs(e); return m !== null && m >= nowMs && m <= nowMs + 7 * DAY;
+      const s = scheduledMomentMs(e);
+      return s !== null && s >= todayStart && s < upcomingEnd;
     })
-    .sort((a, b) => (eventMomentMs(a) ?? 0) - (eventMomentMs(b) ?? 0));
+    .sort((a, b) => (scheduledMomentMs(a) ?? 0) - (scheduledMomentMs(b) ?? 0));
+  const upcomingIds = new Set(upcoming.map((e) => e.id));
   const recent = provider
     .filter((e) => {
-      const m = eventMomentMs(e); return m !== null && m < nowMs && m >= nowMs - 72 * HOUR;
+      if (upcomingIds.has(e.id)) return false;
+      const m = eventMomentMs(e);
+      return m !== null && m < nowMs && m >= nowMs - 72 * HOUR;
     })
     .sort((a, b) => (eventMomentMs(b) ?? 0) - (eventMomentMs(a) ?? 0));
   const seen = new Set<string>();
