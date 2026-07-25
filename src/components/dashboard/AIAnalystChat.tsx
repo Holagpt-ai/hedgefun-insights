@@ -312,6 +312,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             supabase
               .from("catalyst_events")
               .select("symbol, event_type, event_date, time_of_day, title")
+              .eq("verification_state", "provider_reported")
               .gte("event_date", today)
               .lte("event_date", in14)
               .order("event_date", { ascending: true })
@@ -319,6 +320,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             supabase
               .from("catalyst_events")
               .select("symbol, event_type, published_at, title, source_name")
+              .eq("verification_state", "provider_reported")
               .gte("published_at", from72h)
               .order("published_at", { ascending: false })
               .limit(10),
