@@ -220,4 +220,28 @@ describe("action-center aggregate", () => {
     );
     expect(n).toBe(1);
   });
+
+  it("21. date-only earnings event_date is resolved as ET midnight (not UTC midnight)", async () => {
+    const { eventMomentMs, etMidnightMs } = await import("@/lib/catalyst/parsers");
+    // 2026-03-16 in ET (EDT, UTC-4) → 04:00 UTC
+    expect(etMidnightMs("2026-03-16")).toBe(Date.UTC(2026, 2, 16, 4, 0, 0));
+    // Winter (EST, UTC-5) → 05:00 UTC
+    expect(etMidnightMs("2026-01-15")).toBe(Date.UTC(2026, 0, 15, 5, 0, 0));
+    const m = eventMomentMs({ event_date: "2026-03-16", event_time: null, published_at: null });
+    expect(m).toBe(Date.UTC(2026, 2, 16, 4, 0, 0));
+    expect(m).not.toBe(Date.parse("2026-03-16T00:00:00Z"));
+  });
+
+  it("22. open-trade feed titles use long/short semantics from journal_trades (never buy/sell)", () => {
+    const feed = buildActionFeed({
+      alerts: [], catalyst: [], savedEventIds: new Set(), reviewedEventIds: new Set(),
+      openTrades: [trade({ side: "long", qty: 100, stop_price: 9, target_price: 12 })],
+      nowMs: NOW,
+    });
+    expect(feed).toHaveLength(1);
+    expect(feed[0].title).toContain("Long 100 @ 10");
+    expect(feed[0].title).not.toMatch(/buy|sell/i);
+    expect(feed[0].detail).toContain("Stop 9");
+    expect(feed[0].detail).toContain("Target 12");
+  });
 });
