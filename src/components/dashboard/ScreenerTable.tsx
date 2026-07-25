@@ -119,7 +119,14 @@ export function ScreenerTable({
     });
   }, [sort, tab.rows, tab.columns, liveRows, hasLive]);
 
+  const enrichmentSymbols = useMemo(
+    () => sortedRows.map((r: any) => String(r?.symbol ?? "").toUpperCase()).filter(Boolean),
+    [sortedRows],
+  );
+  const { data: catalystMap } = useCatalystEnrichmentForSymbols(enrichmentSymbols);
+
   const isFullGate = !isPro && tab.freeRowLimit === 0;
+
   const visibleCount = isPro ? sortedRows.length : tab.freeRowLimit;
 
   const updatedAgo = formatUpdatedAgo(lastUpdated);
