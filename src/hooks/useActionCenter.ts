@@ -93,7 +93,7 @@ export function useActionCenter() {
   const catalystQ = useCatalystEvents({ recentDays: 3, upcomingDays: 7, limit: 200 });
   const userStateQ = useCatalystUserState();
 
-  // 5. Open journal trades — owner is the authenticated session.
+  // 5. Open journal trades — owner is the authenticated session (RLS scoped).
   const tradesQ = useQuery({
     queryKey: ["ac", "open-trades", userId],
     enabled: !!userId,
@@ -102,13 +102,13 @@ export function useActionCenter() {
     refetchInterval: REFRESH_MS,
     queryFn: async (): Promise<OpenTradeRow[]> => {
       const { data, error } = await supabase
-        .from("trades")
-        .select("id, symbol, side, quantity, entry_price, entry_date, status")
+        .from("journal_trades")
+        .select("id, symbol, side, qty, entry_price, entry_date, stop_price, target_price, status")
         .eq("user_id", userId!)
         .eq("status", "open")
         .order("entry_date", { ascending: false });
       if (error) throw error;
-      return ((data ?? []) as OpenTradeRow[]);
+      return ((data ?? []) as unknown) as OpenTradeRow[];
     },
   });
 
