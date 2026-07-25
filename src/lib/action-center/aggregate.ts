@@ -175,15 +175,23 @@ export function buildActionFeed(input: {
     });
   }
 
+  const todayStart = etStartOfDayMs(nowMs);
+  const upcomingEnd = todayStart + 8 * DAY;
+
   // Saved-but-unreviewed catalyst events
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
     if (!savedEventIds.has(e.id) || reviewedEventIds.has(e.id)) continue;
-    const ms = eventMomentMs(e);
-    if (ms === null) continue;
-    const isUpcoming = ms >= nowMs && ms <= nowMs + 7 * DAY;
-    const isRecent = ms < nowMs && ms >= nowMs - 72 * HOUR;
-    if (!isUpcoming && !isRecent) continue;
+    const s = scheduledMomentMs(e);
+    const isUpcoming = s !== null && s >= todayStart && s < upcomingEnd;
+    let ms = s;
+    let isRecent = false;
+    if (!isUpcoming) {
+      const p = eventMomentMs(e);
+      isRecent = p !== null && p < nowMs && p >= nowMs - 72 * HOUR;
+      if (isRecent) ms = p;
+    }
+    if ((!isUpcoming && !isRecent) || ms === null) continue;
     items.push({
       key: `saved:${e.id}`,
       bucket: pickBucket(ms, nowMs, isUpcoming ? "upcoming" : "recent"),
@@ -199,22 +207,22 @@ export function buildActionFeed(input: {
     });
   }
 
-  // Upcoming catalyst (7d) — de-dup with saved
+  // Upcoming catalyst (today + next 7 ET days) — de-dup with saved
   const savedKeys = new Set(items.filter((i) => i.source === "catalyst_saved").map((i) => i.eventId));
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
     if (savedKeys.has(e.id)) continue;
-    const ms = eventMomentMs(e);
-    if (ms === null) continue;
-    if (ms < nowMs || ms > nowMs + 7 * DAY) continue;
+    const s = scheduledMomentMs(e);
+    if (s === null) continue;
+    if (s < todayStart || s >= upcomingEnd) continue;
     items.push({
       key: `upcoming:${e.id}`,
-      bucket: pickBucket(ms, nowMs, "upcoming"),
+      bucket: pickBucket(s, nowMs, "upcoming"),
       source: "catalyst_upcoming",
       symbol: e.symbol.toUpperCase(),
       title: e.title,
       detail: e.source_name || null,
-      timestampMs: ms,
+      timestampMs: s,
       timestampLabel: fmtEtDate(e.event_date),
       sourceLabel: "Catalyst · Upcoming",
       eventId: e.id,
