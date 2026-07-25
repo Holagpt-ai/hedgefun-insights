@@ -11,6 +11,7 @@ import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import {
   type CatalystEventRow,
   earningsDedupeKey,
+  earningsDisplayTitle,
   isFiniteNumber,
   isHttpsUrl,
   isValidTicker,
