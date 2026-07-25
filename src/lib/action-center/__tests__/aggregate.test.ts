@@ -87,13 +87,14 @@ describe("action-center aggregate", () => {
     expect(snap.neutral).toBe(0);
   });
 
-  it("5. Data Unavailable signals/drivers never render (contract: feed builder ignores unavailable market signals)", () => {
-    // The feed does not include analysis rows at all, only alerts.
+  it("5. Data Unavailable analyses never produce feed items (builder only consumes alerts/catalyst/trades)", () => {
     const feed = buildActionFeed({
       alerts: [], catalyst: [], savedEventIds: new Set(), reviewedEventIds: new Set(),
       openTrades: [], nowMs: NOW,
     });
-    expect(feed.every((f) => f.source !== "watchlist_alert" || true)).toBe(true);
+    // Real assertion: unavailable analyses cannot leak in because the builder has no analyses input.
+    expect(feed).toHaveLength(0);
+    expect(feed.some((f) => f.source === "watchlist_alert")).toBe(false);
   });
 
   it("6. unusual activity counts distinct tickers only", () => {
