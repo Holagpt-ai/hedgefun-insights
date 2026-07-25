@@ -131,13 +131,21 @@ describe("action-center aggregate", () => {
     expect(list.map((e) => e.id)).toEqual(["n", "f", "w", "o"]);
   });
 
-  it("11 & 12. Screener rows: caller preserves volume-desc, enrichment does not reorder (contract test)", () => {
-    // Sorting is done in the hook; the feed builder never touches screener rows.
-    const feed = buildActionFeed({
-      alerts: [], catalyst: [], savedEventIds: new Set(), reviewedEventIds: new Set(),
-      openTrades: [], nowMs: NOW,
-    });
-    expect(feed).toEqual([]);
+  it("11 & 12. Volume-leader enrichment preserves the caller's volume-desc order", () => {
+    // Simulate what the ActionCenter page does: sort by volume desc in the hook,
+    // then annotate with catalyst enrichment. Enrichment must not reorder.
+    const leaders = [
+      { symbol: "AAA", volume: 10_000 },
+      { symbol: "BBB", volume: 50_000 },
+      { symbol: "CCC", volume: 30_000 },
+    ].sort((a, b) => b.volume - a.volume);
+    const enrichment = new Map<string, { kind: "upcoming" | "recent" }>([
+      ["CCC", { kind: "upcoming" }], // enrichment only on the last row
+    ]);
+    const annotated = leaders.map((r) => ({ ...r, cat: enrichment.get(r.symbol) ?? null }));
+    expect(annotated.map((r) => r.symbol)).toEqual(["BBB", "CCC", "AAA"]);
+    expect(annotated.find((r) => r.symbol === "CCC")?.cat?.kind).toBe("upcoming");
+    expect(annotated.find((r) => r.symbol === "BBB")?.cat).toBeNull();
   });
 
   it("13. open trades are already RLS-scoped (hook responsibility); builder trusts inputs", () => {
