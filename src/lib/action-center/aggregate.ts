@@ -59,6 +59,29 @@ export function watchlistSnapshot(
   return snap;
 }
 
+/**
+ * Classify a catalyst event against the current ET clock.
+ * - Date-only events on today's ET calendar day remain "scheduled" for the
+ *   entire ET day (independent of runtime timezone / UTC crossings).
+ * - Timed events (event_time) are "scheduled" only while still in the future.
+ * - Otherwise a published event within the past 72h is "recent".
+ */
+export function classifyCatalyst(
+  e: { event_time?: string | null; event_date?: string | null; published_at?: string | null },
+  nowMs: number,
+): { kind: "scheduled" | "recent"; ms: number } | null {
+  const todayStart = etStartOfDayMs(nowMs);
+  const upcomingEnd = todayStart + 8 * DAY; // today + next 7 ET calendar days
+  const s = scheduledMomentMs(e);
+  if (s !== null) {
+    const lower = e.event_time ? nowMs : todayStart;
+    if (s >= lower && s < upcomingEnd) return { kind: "scheduled", ms: s };
+  }
+  const p = eventMomentMs(e);
+  if (p !== null && p < nowMs && p >= nowMs - 72 * HOUR) return { kind: "recent", ms: p };
+  return null;
+}
+
 export function summaryCounts(input: {
   alerts: WatchlistAlertRow[];
   analyses: WatchlistAnalysisRow[];
@@ -80,19 +103,10 @@ export function summaryCounts(input: {
   }
 
   const seenEventIds = new Set<string>();
-  const todayStart = etStartOfDayMs(nowMs);
-  const upcomingEnd = todayStart + 8 * DAY; // today + next 7 ET calendar days
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
     if (seenEventIds.has(e.id)) continue;
-    const s = scheduledMomentMs(e);
-    const isScheduled = s !== null && s >= todayStart && s < upcomingEnd;
-    let isRecent = false;
-    if (!isScheduled) {
-      const p = eventMomentMs(e);
-      isRecent = p !== null && p < nowMs && p >= nowMs - 72 * HOUR;
-    }
-    if (!isScheduled && !isRecent) continue;
+    if (!classifyCatalyst(e, nowMs)) continue;
     seenEventIds.add(e.id);
   }
 
