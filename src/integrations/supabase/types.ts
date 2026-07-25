@@ -352,28 +352,28 @@ export type Database = {
       catalyst_user_state: {
         Row: {
           created_at: string
-          dismissed_at: string | null
           event_id: string
           id: string
-          read_at: string | null
+          reviewed_at: string | null
+          saved_at: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
           created_at?: string
-          dismissed_at?: string | null
           event_id: string
           id?: string
-          read_at?: string | null
+          reviewed_at?: string | null
+          saved_at?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
           created_at?: string
-          dismissed_at?: string | null
           event_id?: string
           id?: string
-          read_at?: string | null
+          reviewed_at?: string | null
+          saved_at?: string | null
           updated_at?: string
           user_id?: string
         }
