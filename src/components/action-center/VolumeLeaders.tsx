@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Calendar } from "lucide-react";
 import type { ScreenerLeader } from "@/types/action-center";
+import type { CatalystEnrichmentEntry } from "@/hooks/useCatalystEnrichmentForSymbols";
 import { SymbolActions } from "./SymbolActions";
 
 function ageLabel(iso: string): string {
