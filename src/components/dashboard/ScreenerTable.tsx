@@ -3,6 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Plus, Check, Loader2, Newspaper, Sparkles } from "lucide-react";
 import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tabs.config";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
+import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { EVENT_TYPE_LABEL } from "@/lib/catalyst/parsers";
+
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
