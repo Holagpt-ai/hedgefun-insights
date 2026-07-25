@@ -53,7 +53,8 @@ function event(over: Partial<CatalystEvent>): CatalystEvent {
 
 function trade(over: Partial<OpenTradeRow>): OpenTradeRow {
   return {
-    id: "t1", symbol: "AAA", side: "buy", quantity: 100, entry_price: 10,
+    id: "t1", symbol: "AAA", side: "long", qty: 100, entry_price: 10,
+    stop_price: null, target_price: null,
     entry_date: new Date(NOW - 3 * 86400_000).toISOString(), status: "open", ...over,
   };
 }
