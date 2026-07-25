@@ -31,6 +31,7 @@ export function useCatalystEnrichmentForSymbols(symbols: string[]) {
         .select(
           "id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, description, source_name, source_url, provider, related_symbols, facts, published_at",
         )
+        .eq("verification_state", "provider_reported")
         .in("symbol", key)
         .or(
           `and(published_at.gte.${recentFrom}),and(event_date.gte.${upcomingFrom},event_date.lte.${upcomingTo})`,

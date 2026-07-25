@@ -11,7 +11,7 @@ export type CatalystEventType =
   | "product_contract"
   | "company_news";
 
-export type CatalystVerificationState = "provider_reported" | "unverified";
+export type CatalystVerificationState = "provider_reported";
 
 export type CatalystTimeOfDay =
   | "before_open"
@@ -26,10 +26,10 @@ export interface CatalystEvent {
   company_name: string | null;
   event_type: CatalystEventType;
   verification_state: CatalystVerificationState;
-  event_date: string | null;
+  event_date: string;
   event_time: string | null;
   time_of_day: CatalystTimeOfDay | null;
-  title: string | null;
+  title: string;
   description: string | null;
   source_name: string;
   source_url: string | null;

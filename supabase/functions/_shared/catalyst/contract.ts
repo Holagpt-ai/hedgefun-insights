@@ -24,7 +24,7 @@ export const CATALYST_EVENT_TYPES: readonly CatalystEventType[] = [
   "company_news",
 ] as const;
 
-export type VerificationState = "provider_reported" | "unverified";
+export type VerificationState = "provider_reported";
 export type TimeOfDay = "before_open" | "after_close" | "during" | "unknown";
 
 export interface CatalystEventRow {
@@ -33,10 +33,10 @@ export interface CatalystEventRow {
   company_name: string | null;
   event_type: CatalystEventType;
   verification_state: VerificationState;
-  event_date: string | null; // YYYY-MM-DD
+  event_date: string; // YYYY-MM-DD, required
   event_time: string | null; // ISO timestamp or null
   time_of_day: TimeOfDay | null;
-  title: string | null;
+  title: string; // required, nonempty
   description: string | null;
   source_name: string;
   source_url: string | null;
@@ -45,6 +45,17 @@ export interface CatalystEventRow {
   related_symbols: string[];
   facts: Record<string, unknown>;
   published_at: string | null;
+}
+
+/** Deterministic earnings display label — never a provider headline. */
+export function earningsDisplayTitle(
+  companyName: string | null,
+  symbol: string,
+): string {
+  const base = (companyName && companyName.trim().length > 0)
+    ? companyName.trim()
+    : symbol;
+  return `${base} earnings`;
 }
 
 export const TICKER_REGEX = /^[A-Z][A-Z0-9.-]{0,14}$/;

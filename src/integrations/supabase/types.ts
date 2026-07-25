@@ -286,7 +286,7 @@ export type Database = {
           created_at: string
           dedupe_key: string
           description: string | null
-          event_date: string | null
+          event_date: string
           event_time: string | null
           event_type: string
           facts: Json
@@ -299,7 +299,7 @@ export type Database = {
           source_url: string | null
           symbol: string
           time_of_day: string | null
-          title: string | null
+          title: string
           updated_at: string
           verification_state: string
         }
@@ -308,7 +308,7 @@ export type Database = {
           created_at?: string
           dedupe_key: string
           description?: string | null
-          event_date?: string | null
+          event_date: string
           event_time?: string | null
           event_type: string
           facts?: Json
@@ -321,7 +321,7 @@ export type Database = {
           source_url?: string | null
           symbol: string
           time_of_day?: string | null
-          title?: string | null
+          title: string
           updated_at?: string
           verification_state?: string
         }
@@ -330,7 +330,7 @@ export type Database = {
           created_at?: string
           dedupe_key?: string
           description?: string | null
-          event_date?: string | null
+          event_date?: string
           event_time?: string | null
           event_type?: string
           facts?: Json
@@ -343,7 +343,7 @@ export type Database = {
           source_url?: string | null
           symbol?: string
           time_of_day?: string | null
-          title?: string | null
+          title?: string
           updated_at?: string
           verification_state?: string
         }
