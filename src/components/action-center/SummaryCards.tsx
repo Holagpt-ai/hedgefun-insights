@@ -1,7 +1,7 @@
 import { Bell, Activity, Calendar, BookOpen } from "lucide-react";
 import type { SummaryCounts } from "@/types/action-center";
 
-export function SummaryCards({ counts }: { counts: SummaryCounts }) {
+export function SummaryCards({ counts, loading = false }: { counts: SummaryCounts; loading?: boolean }) {
   const items = [
     { label: "Watchlist Alerts", value: counts.watchlistAlerts, icon: Bell, tone: "text-accent-blue" },
     { label: "Unusual Activity", value: counts.unusualActivity, icon: Activity, tone: "text-amber-600" },
@@ -18,7 +18,11 @@ export function SummaryCards({ counts }: { counts: SummaryCounts }) {
               <Icon className="h-5 w-5" />
             </div>
             <div>
-              <div className="text-2xl font-bold">{s.value}</div>
+              {loading ? (
+                <div className="h-7 w-8 rounded bg-muted animate-pulse" aria-label={`${s.label} loading`} />
+              ) : (
+                <div className="text-2xl font-bold">{s.value}</div>
+              )}
               <div className="text-xs text-muted-foreground">{s.label}</div>
             </div>
           </div>

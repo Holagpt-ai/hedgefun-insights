@@ -244,4 +244,72 @@ describe("action-center aggregate", () => {
     expect(feed[0].detail).toContain("Stop 9");
     expect(feed[0].detail).toContain("Target 12");
   });
+
+  describe("ET date-only earnings classification (P1-R1 patch)", () => {
+    // Today (ET): 2026-03-15. ET midnight = 2026-03-15T04:00Z (EDT).
+    const NOON_ET = Date.parse("2026-03-15T16:00:00Z"); // 12:00 ET
+    const LATE_ET = Date.parse("2026-03-16T02:30:00Z"); // 22:30 ET on 3/15
+    const UTC_CROSSED = Date.parse("2026-03-16T03:00:00Z"); // 23:00 ET on 3/15 (UTC day already 3/16)
+
+    const todayDateOnly = event({
+      id: "today", event_date: "2026-03-15", event_time: null, published_at: null,
+    });
+    const tomorrowDateOnly = event({
+      id: "tmrw", event_date: "2026-03-16", event_time: null, published_at: null,
+    });
+
+    it("23. today's date-only earnings at noon ET counts as Today in summary and feed", () => {
+      const s = summaryCounts({
+        alerts: [], analyses: [], openTrades: [], catalyst: [todayDateOnly], nowMs: NOON_ET,
+      });
+      expect(s.catalystEvents).toBe(1);
+      const feed = buildActionFeed({
+        alerts: [], catalyst: [todayDateOnly],
+        savedEventIds: new Set(), reviewedEventIds: new Set(),
+        openTrades: [], nowMs: NOON_ET,
+      });
+      expect(feed).toHaveLength(1);
+      expect(feed[0].source).toBe("catalyst_upcoming");
+      expect(feed[0].bucket).toBe("today");
+    });
+
+    it("24. today's date-only earnings late evening ET is still Today (not recent)", () => {
+      const feed = buildActionFeed({
+        alerts: [], catalyst: [todayDateOnly],
+        savedEventIds: new Set(), reviewedEventIds: new Set(),
+        openTrades: [], nowMs: LATE_ET,
+      });
+      expect(feed).toHaveLength(1);
+      expect(feed[0].bucket).toBe("today");
+      const watch = catalystWatchList([todayDateOnly], LATE_ET, 6);
+      expect(watch).toHaveLength(1);
+      expect(watch[0].id).toBe("today");
+    });
+
+    it("25. tomorrow's date-only earnings is Upcoming", () => {
+      const feed = buildActionFeed({
+        alerts: [], catalyst: [tomorrowDateOnly],
+        savedEventIds: new Set(), reviewedEventIds: new Set(),
+        openTrades: [], nowMs: NOON_ET,
+      });
+      expect(feed).toHaveLength(1);
+      expect(feed[0].bucket).toBe("upcoming");
+    });
+
+    it("26. UTC date crossing does not reclassify the ET calendar day", () => {
+      // At 23:00 ET on 3/15 the UTC clock reads 03:00 on 3/16, but the ET day
+      // is still 3/15 — today's date-only earnings must remain scheduled.
+      const s = summaryCounts({
+        alerts: [], analyses: [], openTrades: [], catalyst: [todayDateOnly], nowMs: UTC_CROSSED,
+      });
+      expect(s.catalystEvents).toBe(1);
+      const feed = buildActionFeed({
+        alerts: [], catalyst: [todayDateOnly],
+        savedEventIds: new Set(), reviewedEventIds: new Set(),
+        openTrades: [], nowMs: UTC_CROSSED,
+      });
+      expect(feed).toHaveLength(1);
+      expect(feed[0].bucket).toBe("today");
+    });
+  });
 });

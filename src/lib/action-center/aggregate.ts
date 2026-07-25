@@ -10,7 +10,7 @@ import type {
   WatchlistSnapshot,
 } from "@/types/action-center";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
-import { eventMomentMs } from "@/lib/catalyst/parsers";
+import { eventMomentMs, etStartOfDayMs, scheduledMomentMs } from "@/lib/catalyst/parsers";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -59,6 +59,29 @@ export function watchlistSnapshot(
   return snap;
 }
 
+/**
+ * Classify a catalyst event against the current ET clock.
+ * - Date-only events on today's ET calendar day remain "scheduled" for the
+ *   entire ET day (independent of runtime timezone / UTC crossings).
+ * - Timed events (event_time) are "scheduled" only while still in the future.
+ * - Otherwise a published event within the past 72h is "recent".
+ */
+export function classifyCatalyst(
+  e: { event_time?: string | null; event_date?: string | null; published_at?: string | null },
+  nowMs: number,
+): { kind: "scheduled" | "recent"; ms: number } | null {
+  const todayStart = etStartOfDayMs(nowMs);
+  const upcomingEnd = todayStart + 8 * DAY; // today + next 7 ET calendar days
+  const s = scheduledMomentMs(e);
+  if (s !== null) {
+    const lower = e.event_time ? nowMs : todayStart;
+    if (s >= lower && s < upcomingEnd) return { kind: "scheduled", ms: s };
+  }
+  const p = eventMomentMs(e);
+  if (p !== null && p < nowMs && p >= nowMs - 72 * HOUR) return { kind: "recent", ms: p };
+  return null;
+}
+
 export function summaryCounts(input: {
   alerts: WatchlistAlertRow[];
   analyses: WatchlistAnalysisRow[];
@@ -82,12 +105,8 @@ export function summaryCounts(input: {
   const seenEventIds = new Set<string>();
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
-    const m = eventMomentMs(e);
-    if (m === null) continue;
-    const isUpcoming = m >= nowMs && m <= nowMs + 7 * DAY;
-    const isRecent = m < nowMs && m >= nowMs - 72 * HOUR;
-    if (!isUpcoming && !isRecent) continue;
     if (seenEventIds.has(e.id)) continue;
+    if (!classifyCatalyst(e, nowMs)) continue;
     seenEventIds.add(e.id);
   }
 
@@ -130,19 +149,15 @@ function fmtEtDate(iso: string): string {
 
 function pickBucket(ms: number, nowMs: number, source: "recent" | "upcoming" | "open"): FeedBucket {
   if (source === "open") return "open_position";
-  const et = new Date(new Date(nowMs).toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const startOfEtDay = Date.UTC(et.getFullYear(), et.getMonth(), et.getDate())
-    - et.getTimezoneOffset() * 60_000;
-  const isToday = ms >= startOfEtDay && ms <= startOfEtDay + DAY;
+  const todayStart = etStartOfDayMs(nowMs);
+  const isTodayEt = ms >= todayStart && ms < todayStart + DAY;
 
   if (source === "recent") {
     if (Math.abs(nowMs - ms) <= 6 * HOUR) return "now";
-    if (nowMs - ms <= DAY) return "today";
     return "today";
   }
-  // upcoming
-  if (isToday) return "now";
-  if (ms - nowMs <= DAY) return "today";
+  // upcoming (scheduled catalyst)
+  if (isTodayEt) return "today";
   return "upcoming";
 }
 
@@ -178,42 +193,39 @@ export function buildActionFeed(input: {
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
     if (!savedEventIds.has(e.id) || reviewedEventIds.has(e.id)) continue;
-    const ms = eventMomentMs(e);
-    if (ms === null) continue;
-    const isUpcoming = ms >= nowMs && ms <= nowMs + 7 * DAY;
-    const isRecent = ms < nowMs && ms >= nowMs - 72 * HOUR;
-    if (!isUpcoming && !isRecent) continue;
+    const c = classifyCatalyst(e, nowMs);
+    if (!c) continue;
+    const isUpcoming = c.kind === "scheduled";
     items.push({
       key: `saved:${e.id}`,
-      bucket: pickBucket(ms, nowMs, isUpcoming ? "upcoming" : "recent"),
+      bucket: pickBucket(c.ms, nowMs, isUpcoming ? "upcoming" : "recent"),
       source: "catalyst_saved",
       symbol: e.symbol.toUpperCase(),
       title: `Saved: ${e.title}`,
       detail: e.source_name ? `${e.source_name}` : null,
-      timestampMs: ms,
-      timestampLabel: isUpcoming ? fmtEtDate(e.event_date) : fmtEt(e.published_at ?? new Date(ms).toISOString()),
+      timestampMs: c.ms,
+      timestampLabel: isUpcoming ? fmtEtDate(e.event_date) : fmtEt(e.published_at ?? new Date(c.ms).toISOString()),
       sourceLabel: "Catalyst · Saved",
       eventId: e.id,
       sourceUrl: e.source_url,
     });
   }
 
-  // Upcoming catalyst (7d) — de-dup with saved
+  // Upcoming catalyst (today + next 7 ET days) — de-dup with saved
   const savedKeys = new Set(items.filter((i) => i.source === "catalyst_saved").map((i) => i.eventId));
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
     if (savedKeys.has(e.id)) continue;
-    const ms = eventMomentMs(e);
-    if (ms === null) continue;
-    if (ms < nowMs || ms > nowMs + 7 * DAY) continue;
+    const c = classifyCatalyst(e, nowMs);
+    if (!c || c.kind !== "scheduled") continue;
     items.push({
       key: `upcoming:${e.id}`,
-      bucket: pickBucket(ms, nowMs, "upcoming"),
+      bucket: pickBucket(c.ms, nowMs, "upcoming"),
       source: "catalyst_upcoming",
       symbol: e.symbol.toUpperCase(),
       title: e.title,
       detail: e.source_name || null,
-      timestampMs: ms,
+      timestampMs: c.ms,
       timestampLabel: fmtEtDate(e.event_date),
       sourceLabel: "Catalyst · Upcoming",
       eventId: e.id,
@@ -278,22 +290,20 @@ export function buildFocusTasks(input: {
 /** Group upcoming (nearest first) + recent (newest first) for Catalyst Watch, cap N. */
 export function catalystWatchList(events: CatalystEvent[], nowMs: number, limit = 6): CatalystEvent[] {
   const provider = events.filter((e) => e.verification_state === "provider_reported");
-  const upcoming = provider
-    .filter((e) => {
-      const m = eventMomentMs(e); return m !== null && m >= nowMs && m <= nowMs + 7 * DAY;
-    })
-    .sort((a, b) => (eventMomentMs(a) ?? 0) - (eventMomentMs(b) ?? 0));
-  const recent = provider
-    .filter((e) => {
-      const m = eventMomentMs(e); return m !== null && m < nowMs && m >= nowMs - 72 * HOUR;
-    })
-    .sort((a, b) => (eventMomentMs(b) ?? 0) - (eventMomentMs(a) ?? 0));
+  const classified = provider
+    .map((e) => ({ e, c: classifyCatalyst(e, nowMs) }))
+    .filter((x): x is { e: CatalystEvent; c: { kind: "scheduled" | "recent"; ms: number } } => x.c !== null);
+  const upcoming = classified.filter((x) => x.c.kind === "scheduled").sort((a, b) => a.c.ms - b.c.ms);
+  const upcomingIds = new Set(upcoming.map((x) => x.e.id));
+  const recent = classified
+    .filter((x) => x.c.kind === "recent" && !upcomingIds.has(x.e.id))
+    .sort((a, b) => b.c.ms - a.c.ms);
   const seen = new Set<string>();
   const out: CatalystEvent[] = [];
-  for (const e of [...upcoming, ...recent]) {
-    if (seen.has(e.id)) continue;
-    seen.add(e.id);
-    out.push(e);
+  for (const x of [...upcoming, ...recent]) {
+    if (seen.has(x.e.id)) continue;
+    seen.add(x.e.id);
+    out.push(x.e);
     if (out.length >= limit) break;
   }
   return out;

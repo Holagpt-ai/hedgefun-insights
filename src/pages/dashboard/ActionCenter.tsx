@@ -81,7 +81,12 @@ export default function ActionCenter() {
       {/* SECTION 2 — Live Summary */}
       <section aria-label="Live Summary">
         <h2 className="text-lg font-semibold mb-3">Live Summary</h2>
-        <SummaryCards counts={ac.summary} />
+        <SummaryCards
+          counts={ac.summary}
+          loading={
+            ac.loading.alerts || ac.loading.analyses || ac.loading.catalyst || ac.loading.trades
+          }
+        />
       </section>
 
       {/* SECTION 3 — Action Feed */}
@@ -102,7 +107,10 @@ export default function ActionCenter() {
       {/* SECTION 4 — Today's Focus */}
       <section aria-label="Today's Focus">
         <h2 className="text-lg font-semibold mb-3">Today's Focus</h2>
-        <TodaysFocus tasks={ac.tasks} />
+        <TodaysFocus
+          tasks={ac.tasks}
+          loading={ac.loading.alerts || ac.loading.analyses || ac.loading.catalyst || ac.loading.trades}
+        />
       </section>
 
       {/* SECTION 5 — Volume Leaders */}
@@ -129,6 +137,7 @@ export default function ActionCenter() {
           events={ac.catalystWatch}
           savedEventIds={ac.savedEventIds}
           reviewedEventIds={ac.reviewedEventIds}
+          loading={ac.loading.catalyst}
         />
       </section>
 
@@ -136,7 +145,7 @@ export default function ActionCenter() {
       <section aria-label="Watchlist Snapshot">
         <h2 className="text-lg font-semibold mb-3">Watchlist Snapshot</h2>
         {ac.errors.analyses && <SectionError label="Watchlist analyses are" />}
-        <WatchlistSnapshot snapshot={ac.snapshot} />
+        <WatchlistSnapshot snapshot={ac.snapshot} loading={ac.loading.analyses} />
       </section>
 
       {/* SECTION 8 — Continue Workflow */}

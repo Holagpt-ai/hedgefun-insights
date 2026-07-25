@@ -1,7 +1,14 @@
 import { Link } from "react-router-dom";
 import type { WatchlistSnapshot as Snap } from "@/types/action-center";
 
-export function WatchlistSnapshot({ snapshot }: { snapshot: Snap }) {
+export function WatchlistSnapshot({ snapshot, loading = false }: { snapshot: Snap; loading?: boolean }) {
+  if (loading) {
+    return (
+      <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground animate-pulse">
+        Loading watchlist snapshot…
+      </div>
+    );
+  }
   const items = [
     { label: "Bullish", value: snapshot.bullish, tone: "text-emerald-600" },
     { label: "Bearish", value: snapshot.bearish, tone: "text-red-600" },

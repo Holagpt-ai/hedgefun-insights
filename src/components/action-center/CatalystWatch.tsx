@@ -15,9 +15,17 @@ interface Props {
   events: CatalystEvent[];
   savedEventIds: Set<string>;
   reviewedEventIds: Set<string>;
+  loading?: boolean;
 }
 
-export function CatalystWatch({ events, savedEventIds, reviewedEventIds }: Props) {
+export function CatalystWatch({ events, savedEventIds, reviewedEventIds, loading = false }: Props) {
+  if (loading) {
+    return (
+      <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground animate-pulse">
+        Loading catalyst watch…
+      </div>
+    );
+  }
   if (events.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
