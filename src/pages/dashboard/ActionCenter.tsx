@@ -36,6 +36,12 @@ export default function ActionCenter() {
   const isPro = hasProAccess(profile?.plan);
   const ac = useActionCenter();
 
+  const leaderSymbols = useMemo(
+    () => ac.leaders.map((l) => l.symbol.toUpperCase()),
+    [ac.leaders],
+  );
+  const enrichmentQ = useCatalystEnrichmentForSymbols(leaderSymbols);
+
   const briefLabel = ac.briefType === "am" ? "Pre-Market" : "After-Hours";
 
   return (
