@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasProAccess } from "@/lib/entitlement";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { useActionCenter } from "@/hooks/useActionCenter";
+import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
 import { SummaryCards } from "@/components/action-center/SummaryCards";
 import { ActionFeed } from "@/components/action-center/ActionFeed";
 import { TodaysFocus } from "@/components/action-center/TodaysFocus";
