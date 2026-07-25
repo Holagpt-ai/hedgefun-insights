@@ -36,7 +36,7 @@ const AccountPage = () => {
   const handleBilling = () => {
     toast({
       title: "Coming Soon",
-      description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
+      description: "Payment processing is being set up. Contact info@stocksist.com for early Pro access.",
     });
   };
 
@@ -82,7 +82,7 @@ const AccountPage = () => {
         </div>
         <p className="text-xs text-muted-foreground mb-3">
           Self-service billing isn't connected yet. If you'd like Pro access before it goes live, email{" "}
-          <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a> and we'll onboard you manually.
+          <a href="mailto:info@stocksist.com" className="underline">info@stocksist.com</a> and we'll onboard you manually.
         </p>
         <Button variant="outline" size="sm" onClick={handleBilling}>Manage Billing</Button>
       </div>
@@ -113,7 +113,7 @@ const AccountPage = () => {
         <h2 className="text-sm font-semibold text-red mb-2">Danger Zone</h2>
         <p className="text-xs text-muted-foreground mb-3">
           Account deletion isn't available yet. To request deletion, email{" "}
-          <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a>.
+          <a href="mailto:info@stocksist.com" className="underline">info@stocksist.com</a>.
         </p>
         <Button variant="outline" size="sm" disabled className="border-red/50 text-red">
           Delete Account (coming soon)

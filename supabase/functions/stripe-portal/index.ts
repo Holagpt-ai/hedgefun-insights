@@ -47,7 +47,7 @@ serve(async (req) => {
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, { apiVersion: "2024-06-20" });
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
-      return_url: "https://hedgefun.fun/account",
+      return_url: "https://stocksist.com/account",
     });
 
     return new Response(JSON.stringify({ url: session.url }), {

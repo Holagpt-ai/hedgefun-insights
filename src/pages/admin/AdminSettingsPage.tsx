@@ -8,7 +8,7 @@ const inputStyle: React.CSSProperties = { background: "#ffffff", borderColor: "#
 const labelStyle: React.CSSProperties = { color: "#64748b", fontSize: "0.75rem", marginBottom: 4, display: "block" };
 
 export default function AdminSettingsPage() {
-  const [site, setSite] = useState({ name: "HedgeFun", tagline: "Your edge in every market.", email: "info@hedgefun.fun", address: "1631 Del Prado Blvd S. #1124, Cape Coral, FL 33990" });
+  const [site, setSite] = useState({ name: "Stocksist", tagline: "Your Edge In Every Market", email: "info@stocksist.com", address: "1631 Del Prado Blvd S. #1124, Cape Coral, FL 33990" });
   const [limits, setLimits] = useState({ freeDaily: 10, anonSession: 3 });
 
   return (
