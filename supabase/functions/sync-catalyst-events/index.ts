@@ -130,16 +130,17 @@ async function ingestEarnings(
 
     const tod = normalizeTimeOfDay(r.time_of_day);
 
+    const companyName = nonEmptyTrimmed(r.company_name);
     rows.push({
       dedupe_key: key,
       symbol,
-      company_name: nonEmptyTrimmed(r.company_name),
+      company_name: companyName,
       event_type: "earnings",
       verification_state: "provider_reported",
       event_date: reportDate,
       event_time: null,
       time_of_day: tod,
-      title: null,
+      title: earningsDisplayTitle(companyName, symbol),
       description: null,
       source_name: "Earnings Calendar",
       source_url: null,
