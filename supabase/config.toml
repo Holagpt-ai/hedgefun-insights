@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.build-watchlist-rvol-baselines-v2]
 verify_jwt = false
+
+[functions.sync-catalyst-events]
+verify_jwt = false

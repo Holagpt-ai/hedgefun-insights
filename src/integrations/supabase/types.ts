@@ -280,6 +280,113 @@ export type Database = {
         }
         Relationships: []
       }
+      catalyst_events: {
+        Row: {
+          company_name: string | null
+          created_at: string
+          dedupe_key: string
+          description: string | null
+          event_date: string | null
+          event_time: string | null
+          event_type: string
+          facts: Json
+          id: string
+          provider: string
+          provider_article_id: string | null
+          published_at: string | null
+          related_symbols: string[]
+          source_name: string
+          source_url: string | null
+          symbol: string
+          time_of_day: string | null
+          title: string | null
+          updated_at: string
+          verification_state: string
+        }
+        Insert: {
+          company_name?: string | null
+          created_at?: string
+          dedupe_key: string
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          event_type: string
+          facts?: Json
+          id?: string
+          provider: string
+          provider_article_id?: string | null
+          published_at?: string | null
+          related_symbols?: string[]
+          source_name: string
+          source_url?: string | null
+          symbol: string
+          time_of_day?: string | null
+          title?: string | null
+          updated_at?: string
+          verification_state?: string
+        }
+        Update: {
+          company_name?: string | null
+          created_at?: string
+          dedupe_key?: string
+          description?: string | null
+          event_date?: string | null
+          event_time?: string | null
+          event_type?: string
+          facts?: Json
+          id?: string
+          provider?: string
+          provider_article_id?: string | null
+          published_at?: string | null
+          related_symbols?: string[]
+          source_name?: string
+          source_url?: string | null
+          symbol?: string
+          time_of_day?: string | null
+          title?: string | null
+          updated_at?: string
+          verification_state?: string
+        }
+        Relationships: []
+      }
+      catalyst_user_state: {
+        Row: {
+          created_at: string
+          dismissed_at: string | null
+          event_id: string
+          id: string
+          read_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dismissed_at?: string | null
+          event_id: string
+          id?: string
+          read_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dismissed_at?: string | null
+          event_id?: string
+          id?: string
+          read_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalyst_user_state_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chatbot_sessions: {
         Row: {
           created_at: string | null
