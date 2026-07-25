@@ -60,7 +60,7 @@ export default function ActionCenter() {
           isPro={isPro}
           briefType={ac.briefType}
           config={{
-            aiCardTitle: ac.briefType === "am" ? "✦ AI Morning Brief" : "✦ AI Evening Brief",
+            aiCardTitle: ac.briefType === "am" ? "✦ AI Pre-Market Brief" : "✦ AI After-Hours Brief",
             aiCardPlaceholderText: "Your market brief will appear here when available.",
             aiCardTimestampLabel: "Generated at",
             aiCardGateHeading: `${briefLabel} Brief — PRO Feature`,
