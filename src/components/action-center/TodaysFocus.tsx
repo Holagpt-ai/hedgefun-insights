@@ -2,7 +2,14 @@ import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import type { FocusTask } from "@/types/action-center";
 
-export function TodaysFocus({ tasks }: { tasks: FocusTask[] }) {
+export function TodaysFocus({ tasks, loading = false }: { tasks: FocusTask[]; loading?: boolean }) {
+  if (loading) {
+    return (
+      <div className="rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground animate-pulse">
+        Loading focus items…
+      </div>
+    );
+  }
   if (tasks.length === 0) {
     return (
       <div className="rounded-xl border bg-card px-4 py-3 text-sm text-muted-foreground">
