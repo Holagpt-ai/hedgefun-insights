@@ -45,6 +45,7 @@ export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
       let q = supabase
         .from("catalyst_events")
         .select(CATALYST_SELECT)
+        .eq("verification_state", "provider_reported")
         .or(
           `and(published_at.gte.${recentFrom}),and(event_date.gte.${upcomingFrom},event_date.lte.${upcomingTo})`,
         )
