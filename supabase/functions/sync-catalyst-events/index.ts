@@ -3,6 +3,7 @@
 // Reads earnings_calendar (-7 to +30 days) and Polygon reference news,
 // classifies deterministically, and upserts into public.catalyst_events
 // idempotently by dedupe_key. Never mutates upstream tables.
+// Logs only sanitized aggregate counts under [catalyst-sync].
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -27,6 +28,16 @@ import {
   sanitizeSummary,
 } from "../_shared/catalyst/sanitize.ts";
 
+type ReasonCode =
+  | "AUTH_FAILED"
+  | "METHOD_NOT_ALLOWED"
+  | "PROVIDER_TIMEOUT"
+  | "PROVIDER_RATE_LIMITED"
+  | "PROVIDER_ERROR"
+  | "DATABASE_ERROR"
+  | "VALIDATION_ERROR"
+  | "UNKNOWN";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
@@ -36,8 +47,23 @@ const corsHeaders = {
 
 const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
 
-function respond(status: number, body: unknown): Response {
+function respondJson(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+}
+
+function respondError(status: number, code: ReasonCode): Response {
+  return respondJson(status, { error: code });
+}
+
+function log(code: ReasonCode | "OK", counts?: Partial<CatalystSummary>): void {
+  const safe = counts ? sanitizeSummary({ ...makeEmptySummary(), ...counts }) : undefined;
+  if (safe) {
+    console.log(
+      `[catalyst-sync] ${code} earnings_read=${safe.earnings_read} news_read=${safe.news_read} validated=${safe.events_validated} upserted=${safe.events_upserted} rejected=${safe.events_rejected}`,
+    );
+  } else {
+    console.log(`[catalyst-sync] ${code}`);
+  }
 }
 
 function normalizeTimeOfDay(x: unknown): TimeOfDay | null {
@@ -66,7 +92,7 @@ function addDaysUTC(d: Date, days: number): Date {
 async function ingestEarnings(
   supabase: ReturnType<typeof createClient>,
   summary: CatalystSummary,
-): Promise<CatalystEventRow[]> {
+): Promise<{ rows: CatalystEventRow[]; ok: boolean }> {
   const today = new Date();
   const from = ymdUTC(addDaysUTC(today, -7));
   const to = ymdUTC(addDaysUTC(today, 30));
@@ -79,10 +105,7 @@ async function ingestEarnings(
     .gte("report_date", from)
     .lte("report_date", to);
 
-  if (error) {
-    console.error("earnings_calendar read failed");
-    return [];
-  }
+  if (error) return { rows: [], ok: false };
 
   const rows: CatalystEventRow[] = [];
   const seen = new Set<string>();
@@ -102,9 +125,7 @@ async function ingestEarnings(
     const facts: Record<string, unknown> = {};
     if (isFiniteNumber(r.estimate_eps)) facts.estimate_eps = r.estimate_eps;
     if (isFiniteNumber(r.actual_eps)) facts.actual_eps = r.actual_eps;
-    if (isFiniteNumber(r.surprise_percent)) {
-      facts.surprise_percent = r.surprise_percent;
-    }
+    if (isFiniteNumber(r.surprise_percent)) facts.surprise_percent = r.surprise_percent;
 
     const tod = normalizeTimeOfDay(r.time_of_day);
 
@@ -129,7 +150,7 @@ async function ingestEarnings(
     });
     summary.events_validated += 1;
   }
-  return rows;
+  return { rows, ok: true };
 }
 
 interface PolygonNewsItem {
@@ -142,7 +163,12 @@ interface PolygonNewsItem {
   publisher?: unknown;
 }
 
-async function fetchPolygonNews(apiKey: string): Promise<PolygonNewsItem[] | null> {
+interface PolygonFetchResult {
+  items: PolygonNewsItem[] | null;
+  reason: ReasonCode | null;
+}
+
+async function fetchPolygonNews(apiKey: string): Promise<PolygonFetchResult> {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), 8000);
   try {
@@ -150,19 +176,24 @@ async function fetchPolygonNews(apiKey: string): Promise<PolygonNewsItem[] | nul
       `https://api.polygon.io/v2/reference/news?limit=100&order=desc&sort=published_utc&apiKey=${apiKey}`,
       { signal: controller.signal },
     );
+    // Always drain body without inspection.
+    let bodyText = "";
+    try { bodyText = await res.text(); } catch { /* ignore */ }
     if (!res.ok) {
-      console.error(`polygon news http ${res.status}`);
-      // Drain body without inspection
-      try { await res.text(); } catch { /* ignore */ }
-      return null;
+      if (res.status === 429) return { items: null, reason: "PROVIDER_RATE_LIMITED" };
+      return { items: null, reason: "PROVIDER_ERROR" };
     }
-    const json = await res.json().catch(() => null) as unknown;
-    if (!json || typeof json !== "object") return null;
+    let json: unknown = null;
+    try { json = JSON.parse(bodyText); } catch { return { items: null, reason: "PROVIDER_ERROR" }; }
+    if (!json || typeof json !== "object") return { items: null, reason: "PROVIDER_ERROR" };
     const results = (json as { results?: unknown }).results;
-    if (!Array.isArray(results)) return null;
-    return results as PolygonNewsItem[];
-  } catch {
-    return null;
+    if (!Array.isArray(results)) return { items: null, reason: "PROVIDER_ERROR" };
+    return { items: results as PolygonNewsItem[], reason: null };
+  } catch (e) {
+    if (e instanceof Error && e.name === "AbortError") {
+      return { items: null, reason: "PROVIDER_TIMEOUT" };
+    }
+    return { items: null, reason: "PROVIDER_ERROR" };
   } finally {
     clearTimeout(t);
   }
@@ -193,11 +224,10 @@ async function ingestPolygonNews(
   supabase: ReturnType<typeof createClient>,
   apiKey: string,
   summary: CatalystSummary,
-): Promise<CatalystEventRow[]> {
-  const raw = await fetchPolygonNews(apiKey);
-  if (raw === null) return [];
+): Promise<{ rows: CatalystEventRow[]; reason: ReasonCode | null }> {
+  const fetched = await fetchPolygonNews(apiKey);
+  if (fetched.items === null) return { rows: [], reason: fetched.reason };
 
-  // First pass: validate items and collect tickers.
   interface ValidatedItem {
     title: string;
     description: string | null;
@@ -210,7 +240,7 @@ async function ingestPolygonNews(
   const validated: ValidatedItem[] = [];
   const allSymbols = new Set<string>();
 
-  for (const item of raw) {
+  for (const item of fetched.items) {
     summary.news_read += 1;
     const title = nonEmptyTrimmed(item.title);
     if (!title) { summary.events_rejected += 1; continue; }
@@ -252,7 +282,6 @@ async function ingestPolygonNews(
 
   const nameMap = await enrichCompanyNames(supabase, allSymbols);
 
-  // Second pass: expand to one row per ticker.
   const rows: CatalystEventRow[] = [];
   const seen = new Set<string>();
   for (const v of validated) {
@@ -293,29 +322,30 @@ async function ingestPolygonNews(
       summary.events_validated += 1;
     }
   }
-  return rows;
+  return { rows, reason: null };
 }
 
 async function upsertEvents(
   supabase: ReturnType<typeof createClient>,
   rows: CatalystEventRow[],
   summary: CatalystSummary,
-): Promise<void> {
-  if (rows.length === 0) return;
-  // Chunk to keep payload sizes bounded.
+): Promise<boolean> {
+  if (rows.length === 0) return true;
   const CHUNK = 200;
+  let anyErr = false;
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK);
     const { error, count } = await supabase
       .from("catalyst_events")
       .upsert(chunk, { onConflict: "dedupe_key", count: "exact" });
     if (error) {
-      console.error(`catalyst_events upsert failed size=${chunk.length}`);
+      anyErr = true;
       summary.events_rejected += chunk.length;
       continue;
     }
     summary.events_upserted += typeof count === "number" ? count : chunk.length;
   }
+  return !anyErr;
 }
 
 serve(async (req) => {
@@ -323,24 +353,28 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
   if (req.method !== "POST") {
-    return respond(405, { error: "method_not_allowed" });
+    log("METHOD_NOT_ALLOWED");
+    return respondError(405, "METHOD_NOT_ALLOWED");
   }
 
   const auth = req.headers.get("Authorization") ?? "";
   const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
   if (!syncSecret) {
-    return respond(500, { error: "server_auth_not_configured" });
+    log("AUTH_FAILED");
+    return respondError(500, "AUTH_FAILED");
   }
   const ok = await timingSafeMatch(auth, `Bearer ${syncSecret}`);
   if (!ok) {
-    return respond(403, { error: "forbidden" });
+    log("AUTH_FAILED");
+    return respondError(403, "AUTH_FAILED");
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const polygonKey = Deno.env.get("POLYGON_API_KEY") ?? "";
   if (!supabaseUrl || !serviceRole) {
-    return respond(500, { error: "server_config_missing" });
+    log("VALIDATION_ERROR");
+    return respondError(500, "VALIDATION_ERROR");
   }
 
   const supabase = createClient(supabaseUrl, serviceRole, {
@@ -350,16 +384,32 @@ serve(async (req) => {
   const summary = makeEmptySummary();
 
   try {
-    const earningsRows = await ingestEarnings(supabase, summary);
-    const newsRows = polygonKey
-      ? await ingestPolygonNews(supabase, polygonKey, summary)
-      : [];
-    await upsertEvents(supabase, [...earningsRows, ...newsRows], summary);
-  } catch (_e) {
-    // Never leak provider bodies or stack details.
-    console.error("sync-catalyst-events fatal");
-    return respond(500, { error: "internal_error" });
+    const earnings = await ingestEarnings(supabase, summary);
+    if (!earnings.ok) {
+      log("DATABASE_ERROR", summary);
+      return respondError(500, "DATABASE_ERROR");
+    }
+    let newsRows: CatalystEventRow[] = [];
+    if (polygonKey) {
+      const news = await ingestPolygonNews(supabase, polygonKey, summary);
+      newsRows = news.rows;
+      if (news.reason) {
+        // Provider failure — never delete prior legitimate events; still upsert
+        // earnings rows, then log the reason and return sanitized failure.
+        await upsertEvents(supabase, earnings.rows, summary);
+        log(news.reason, summary);
+        return respondError(502, news.reason);
+      }
+    }
+    const ok = await upsertEvents(supabase, [...earnings.rows, ...newsRows], summary);
+    if (!ok) {
+      log("DATABASE_ERROR", summary);
+      return respondError(500, "DATABASE_ERROR");
+    }
+    log("OK", summary);
+    return respondJson(200, sanitizeSummary(summary));
+  } catch {
+    log("UNKNOWN", summary);
+    return respondError(500, "UNKNOWN");
   }
-
-  return respond(200, sanitizeSummary(summary));
 });

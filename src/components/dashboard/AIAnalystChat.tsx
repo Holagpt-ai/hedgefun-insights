@@ -300,7 +300,50 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           const symbols = watchlistRes.data.map((w: any) => w.symbol).join(", ");
           parts.push(`YOUR WATCHLIST: ${symbols}`);
         }
+
+        // ── Catalyst context (RLS scoped; provider-reported only) ──────────
+        try {
+          const nowIso = new Date().toISOString();
+          const in14 = new Date(Date.now() + 14 * 86_400_000).toISOString().slice(0, 10);
+          const from72h = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
+          const today = new Date().toISOString().slice(0, 10);
+
+          const [upcomingRes, recentRes] = await Promise.all([
+            supabase
+              .from("catalyst_events")
+              .select("symbol, event_type, event_date, time_of_day, title")
+              .gte("event_date", today)
+              .lte("event_date", in14)
+              .order("event_date", { ascending: true })
+              .limit(10),
+            supabase
+              .from("catalyst_events")
+              .select("symbol, event_type, published_at, title, source_name")
+              .gte("published_at", from72h)
+              .order("published_at", { ascending: false })
+              .limit(10),
+          ]);
+
+          if (upcomingRes.data && upcomingRes.data.length > 0) {
+            const lines = upcomingRes.data.map((r: any) =>
+              `${r.symbol} [${r.event_type}]: ${r.event_date}${r.time_of_day ? ` ${r.time_of_day}` : ""} — ${r.title ?? ""}`.trim(),
+            );
+            parts.push(`UPCOMING CATALYSTS (next 14 days, provider-reported):\n${lines.join("\n")}`);
+          }
+          if (recentRes.data && recentRes.data.length > 0) {
+            const lines = recentRes.data.map((r: any) =>
+              `${r.symbol} [${r.event_type}]: ${r.title ?? ""} (source: ${r.source_name ?? "provider"})`.trim(),
+            );
+            parts.push(`RECENT CATALYSTS (last 72h, provider-reported):\n${lines.join("\n")}`);
+          }
+          if (upcomingRes.data?.length || recentRes.data?.length) {
+            parts.push(`(Catalyst data snapshot at ${nowIso}. Provider-reported only.)`);
+          }
+        } catch {
+          // Non-fatal: context is best-effort.
+        }
       }
+
 
       return parts.join("\n\n");
     } catch {

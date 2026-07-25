@@ -3,6 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Plus, Check, Loader2, Newspaper, Sparkles } from "lucide-react";
 import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tabs.config";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
+import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { EVENT_TYPE_LABEL } from "@/lib/catalyst/parsers";
+
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -116,7 +119,14 @@ export function ScreenerTable({
     });
   }, [sort, tab.rows, tab.columns, liveRows, hasLive]);
 
+  const enrichmentSymbols = useMemo(
+    () => sortedRows.map((r: any) => String(r?.symbol ?? "").toUpperCase()).filter(Boolean),
+    [sortedRows],
+  );
+  const { data: catalystMap } = useCatalystEnrichmentForSymbols(enrichmentSymbols);
+
   const isFullGate = !isPro && tab.freeRowLimit === 0;
+
   const visibleCount = isPro ? sortedRows.length : tab.freeRowLimit;
 
   const updatedAgo = formatUpdatedAgo(lastUpdated);
@@ -220,11 +230,29 @@ export function ScreenerTable({
     }
 
     if (col.key === "catalyst_news") {
-      // TODO: render real headline/catalyst when news_headline is available in screener_results
+      const entry = catalystMap?.get(sym);
+      if (!entry) {
+        return <span className="text-muted-foreground text-xs">No recent catalyst</span>;
+      }
+      const label = EVENT_TYPE_LABEL[entry.event.event_type];
+      const kindLabel = entry.kind === "upcoming" ? "Upcoming" : "Recent";
       return (
-        <span className="text-muted-foreground text-xs">Catalyst feed pending</span>
+        <Link
+          to={`/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex flex-col items-start gap-0.5 max-w-[220px] hover:underline"
+          title={entry.event.title ?? label}
+        >
+          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+            {kindLabel} · {label}
+          </span>
+          <span className="text-[12px] text-foreground truncate max-w-full">
+            {entry.event.title ?? entry.event.company_name ?? sym}
+          </span>
+        </Link>
       );
     }
+
 
     if (col.format === "multiplier" && col.key === "rvol") {
       return (
