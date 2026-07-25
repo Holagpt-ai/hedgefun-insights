@@ -10,7 +10,7 @@ import type {
   WatchlistSnapshot,
 } from "@/types/action-center";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
-import { eventMomentMs } from "@/lib/catalyst/parsers";
+import { eventMomentMs, etStartOfDayMs, scheduledMomentMs } from "@/lib/catalyst/parsers";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
