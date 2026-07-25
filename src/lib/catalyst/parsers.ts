@@ -60,8 +60,29 @@ export function timeOfDayLabel(v: string | null | undefined): string | null {
 }
 
 /**
+ * Convert a YYYY-MM-DD (interpreted as an America/New_York calendar date)
+ * to the ms of ET midnight for that day. Handles EST/EDT via Intl offset.
+ */
+export function etMidnightMs(dateStr: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateStr);
+  if (!m) return null;
+  const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
+  const utcNoon = Date.UTC(y, mo - 1, d, 12);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    timeZoneName: "shortOffset",
+  }).formatToParts(new Date(utcNoon));
+  const tz = parts.find((p) => p.type === "timeZoneName")?.value ?? "GMT-5";
+  const match = /GMT([+-]\d+)(?::?(\d+))?/.exec(tz);
+  const hrs = match ? Number(match[1]) : -5;
+  const mins = match && match[2] ? Number(match[2]) * Math.sign(hrs || -1) : 0;
+  return Date.UTC(y, mo - 1, d, -hrs, -mins, 0);
+}
+
+/**
  * Returns the effective moment (ms) of an event for sort/window purposes.
- * Prefers explicit event_time, then published_at, then start of event_date (UTC).
+ * Prefers explicit event_time, then published_at, then ET midnight of
+ * event_date (date-only earnings/catalysts are ET calendar dates).
  */
 export function eventMomentMs(row: {
   event_time?: string | null;
@@ -77,6 +98,8 @@ export function eventMomentMs(row: {
     if (Number.isFinite(t)) return t;
   }
   if (row.event_date) {
+    const et = etMidnightMs(row.event_date);
+    if (et !== null) return et;
     const t = Date.parse(`${row.event_date}T00:00:00Z`);
     if (Number.isFinite(t)) return t;
   }
