@@ -35,9 +35,10 @@ describe("eventMomentMs", () => {
     expect(
       eventMomentMs({ event_time: null, published_at: "2026-01-01T00:00:00Z" }),
     ).toBe(Date.parse("2026-01-01T00:00:00Z"));
+    // Date-only earnings resolve to ET midnight (EST/UTC-5 on Jan 1 = 05:00Z).
     expect(
       eventMomentMs({ event_date: "2026-01-01" }),
-    ).toBe(Date.parse("2026-01-01T00:00:00Z"));
+    ).toBe(Date.UTC(2026, 0, 1, 5, 0, 0));
     expect(eventMomentMs({})).toBeNull();
   });
 });
