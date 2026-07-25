@@ -53,7 +53,8 @@ function event(over: Partial<CatalystEvent>): CatalystEvent {
 
 function trade(over: Partial<OpenTradeRow>): OpenTradeRow {
   return {
-    id: "t1", symbol: "AAA", side: "buy", quantity: 100, entry_price: 10,
+    id: "t1", symbol: "AAA", side: "long", qty: 100, entry_price: 10,
+    stop_price: null, target_price: null,
     entry_date: new Date(NOW - 3 * 86400_000).toISOString(), status: "open", ...over,
   };
 }
@@ -86,13 +87,14 @@ describe("action-center aggregate", () => {
     expect(snap.neutral).toBe(0);
   });
 
-  it("5. Data Unavailable signals/drivers never render (contract: feed builder ignores unavailable market signals)", () => {
-    // The feed does not include analysis rows at all, only alerts.
+  it("5. Data Unavailable analyses never produce feed items (builder only consumes alerts/catalyst/trades)", () => {
     const feed = buildActionFeed({
       alerts: [], catalyst: [], savedEventIds: new Set(), reviewedEventIds: new Set(),
       openTrades: [], nowMs: NOW,
     });
-    expect(feed.every((f) => f.source !== "watchlist_alert" || true)).toBe(true);
+    // Real assertion: unavailable analyses cannot leak in because the builder has no analyses input.
+    expect(feed).toHaveLength(0);
+    expect(feed.some((f) => f.source === "watchlist_alert")).toBe(false);
   });
 
   it("6. unusual activity counts distinct tickers only", () => {
@@ -129,13 +131,21 @@ describe("action-center aggregate", () => {
     expect(list.map((e) => e.id)).toEqual(["n", "f", "w", "o"]);
   });
 
-  it("11 & 12. Screener rows: caller preserves volume-desc, enrichment does not reorder (contract test)", () => {
-    // Sorting is done in the hook; the feed builder never touches screener rows.
-    const feed = buildActionFeed({
-      alerts: [], catalyst: [], savedEventIds: new Set(), reviewedEventIds: new Set(),
-      openTrades: [], nowMs: NOW,
-    });
-    expect(feed).toEqual([]);
+  it("11 & 12. Volume-leader enrichment preserves the caller's volume-desc order", () => {
+    // Simulate what the ActionCenter page does: sort by volume desc in the hook,
+    // then annotate with catalyst enrichment. Enrichment must not reorder.
+    const leaders = [
+      { symbol: "AAA", volume: 10_000 },
+      { symbol: "BBB", volume: 50_000 },
+      { symbol: "CCC", volume: 30_000 },
+    ].sort((a, b) => b.volume - a.volume);
+    const enrichment = new Map<string, { kind: "upcoming" | "recent" }>([
+      ["CCC", { kind: "upcoming" }], // enrichment only on the last row
+    ]);
+    const annotated = leaders.map((r) => ({ ...r, cat: enrichment.get(r.symbol) ?? null }));
+    expect(annotated.map((r) => r.symbol)).toEqual(["BBB", "CCC", "AAA"]);
+    expect(annotated.find((r) => r.symbol === "CCC")?.cat?.kind).toBe("upcoming");
+    expect(annotated.find((r) => r.symbol === "BBB")?.cat).toBeNull();
   });
 
   it("13. open trades are already RLS-scoped (hook responsibility); builder trusts inputs", () => {
@@ -209,5 +219,29 @@ describe("action-center aggregate", () => {
       ],
     );
     expect(n).toBe(1);
+  });
+
+  it("21. date-only earnings event_date is resolved as ET midnight (not UTC midnight)", async () => {
+    const { eventMomentMs, etMidnightMs } = await import("@/lib/catalyst/parsers");
+    // 2026-03-16 in ET (EDT, UTC-4) → 04:00 UTC
+    expect(etMidnightMs("2026-03-16")).toBe(Date.UTC(2026, 2, 16, 4, 0, 0));
+    // Winter (EST, UTC-5) → 05:00 UTC
+    expect(etMidnightMs("2026-01-15")).toBe(Date.UTC(2026, 0, 15, 5, 0, 0));
+    const m = eventMomentMs({ event_date: "2026-03-16", event_time: null, published_at: null });
+    expect(m).toBe(Date.UTC(2026, 2, 16, 4, 0, 0));
+    expect(m).not.toBe(Date.parse("2026-03-16T00:00:00Z"));
+  });
+
+  it("22. open-trade feed titles use long/short semantics from journal_trades (never buy/sell)", () => {
+    const feed = buildActionFeed({
+      alerts: [], catalyst: [], savedEventIds: new Set(), reviewedEventIds: new Set(),
+      openTrades: [trade({ side: "long", qty: 100, stop_price: 9, target_price: 12 })],
+      nowMs: NOW,
+    });
+    expect(feed).toHaveLength(1);
+    expect(feed[0].title).toContain("Long 100 @ 10");
+    expect(feed[0].title).not.toMatch(/buy|sell/i);
+    expect(feed[0].detail).toContain("Stop 9");
+    expect(feed[0].detail).toContain("Target 12");
   });
 });

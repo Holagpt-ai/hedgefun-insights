@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasProAccess } from "@/lib/entitlement";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { useActionCenter } from "@/hooks/useActionCenter";
+import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
 import { SummaryCards } from "@/components/action-center/SummaryCards";
 import { ActionFeed } from "@/components/action-center/ActionFeed";
 import { TodaysFocus } from "@/components/action-center/TodaysFocus";
@@ -33,6 +35,12 @@ export default function ActionCenter() {
   const { profile } = useAuth();
   const isPro = hasProAccess(profile?.plan);
   const ac = useActionCenter();
+
+  const leaderSymbols = useMemo(
+    () => ac.leaders.map((l) => l.symbol.toUpperCase()),
+    [ac.leaders],
+  );
+  const enrichmentQ = useCatalystEnrichmentForSymbols(leaderSymbols);
 
   const briefLabel = ac.briefType === "am" ? "Pre-Market" : "After-Hours";
 
@@ -82,7 +90,13 @@ export default function ActionCenter() {
         {(ac.errors.alerts || ac.errors.catalyst || ac.errors.trades) && (
           <SectionError label="Some feed sources are" />
         )}
-        <ActionFeed items={ac.feed} />
+        {(ac.loading.alerts || ac.loading.catalyst || ac.loading.trades) && ac.feed.length === 0 ? (
+          <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground animate-pulse">
+            Loading feed…
+          </div>
+        ) : (
+          <ActionFeed items={ac.feed} />
+        )}
       </section>
 
       {/* SECTION 4 — Today's Focus */}
@@ -95,7 +109,11 @@ export default function ActionCenter() {
       <section aria-label="Volume Leaders">
         <h2 className="text-lg font-semibold mb-3">Volume Leaders</h2>
         {ac.errors.leaders && <SectionError label="Volume leaders are" />}
-        <VolumeLeaders rows={ac.leaders} />
+        <VolumeLeaders
+          rows={ac.leaders}
+          loading={ac.loading.leaders}
+          enrichment={enrichmentQ.data}
+        />
       </section>
 
       {/* SECTION 6 — Catalyst Watch */}

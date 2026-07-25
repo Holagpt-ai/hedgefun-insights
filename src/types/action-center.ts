@@ -48,10 +48,12 @@ export interface WatchlistAnalysisRow {
 export interface OpenTradeRow {
   id: string;
   symbol: string;
-  side: "buy" | "sell";
-  quantity: number;
+  side: "long" | "short";
+  qty: number;
   entry_price: number;
   entry_date: string;
+  stop_price: number | null;
+  target_price: number | null;
   status: "open" | "closed";
 }
 
