@@ -135,19 +135,15 @@ function fmtEtDate(iso: string): string {
 
 function pickBucket(ms: number, nowMs: number, source: "recent" | "upcoming" | "open"): FeedBucket {
   if (source === "open") return "open_position";
-  const et = new Date(new Date(nowMs).toLocaleString("en-US", { timeZone: "America/New_York" }));
-  const startOfEtDay = Date.UTC(et.getFullYear(), et.getMonth(), et.getDate())
-    - et.getTimezoneOffset() * 60_000;
-  const isToday = ms >= startOfEtDay && ms <= startOfEtDay + DAY;
+  const todayStart = etStartOfDayMs(nowMs);
+  const isTodayEt = ms >= todayStart && ms < todayStart + DAY;
 
   if (source === "recent") {
     if (Math.abs(nowMs - ms) <= 6 * HOUR) return "now";
-    if (nowMs - ms <= DAY) return "today";
     return "today";
   }
-  // upcoming
-  if (isToday) return "now";
-  if (ms - nowMs <= DAY) return "today";
+  // upcoming (scheduled catalyst)
+  if (isTodayEt) return "today";
   return "upcoming";
 }
 
