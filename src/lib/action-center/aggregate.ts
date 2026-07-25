@@ -189,32 +189,22 @@ export function buildActionFeed(input: {
     });
   }
 
-  const todayStart = etStartOfDayMs(nowMs);
-  const upcomingEnd = todayStart + 8 * DAY;
-
   // Saved-but-unreviewed catalyst events
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
     if (!savedEventIds.has(e.id) || reviewedEventIds.has(e.id)) continue;
-    const s = scheduledMomentMs(e);
-    const isUpcoming = s !== null && s >= todayStart && s < upcomingEnd;
-    let ms = s;
-    let isRecent = false;
-    if (!isUpcoming) {
-      const p = eventMomentMs(e);
-      isRecent = p !== null && p < nowMs && p >= nowMs - 72 * HOUR;
-      if (isRecent) ms = p;
-    }
-    if ((!isUpcoming && !isRecent) || ms === null) continue;
+    const c = classifyCatalyst(e, nowMs);
+    if (!c) continue;
+    const isUpcoming = c.kind === "scheduled";
     items.push({
       key: `saved:${e.id}`,
-      bucket: pickBucket(ms, nowMs, isUpcoming ? "upcoming" : "recent"),
+      bucket: pickBucket(c.ms, nowMs, isUpcoming ? "upcoming" : "recent"),
       source: "catalyst_saved",
       symbol: e.symbol.toUpperCase(),
       title: `Saved: ${e.title}`,
       detail: e.source_name ? `${e.source_name}` : null,
-      timestampMs: ms,
-      timestampLabel: isUpcoming ? fmtEtDate(e.event_date) : fmtEt(e.published_at ?? new Date(ms).toISOString()),
+      timestampMs: c.ms,
+      timestampLabel: isUpcoming ? fmtEtDate(e.event_date) : fmtEt(e.published_at ?? new Date(c.ms).toISOString()),
       sourceLabel: "Catalyst · Saved",
       eventId: e.id,
       sourceUrl: e.source_url,
@@ -226,17 +216,16 @@ export function buildActionFeed(input: {
   for (const e of catalyst) {
     if (e.verification_state !== "provider_reported") continue;
     if (savedKeys.has(e.id)) continue;
-    const s = scheduledMomentMs(e);
-    if (s === null) continue;
-    if (s < todayStart || s >= upcomingEnd) continue;
+    const c = classifyCatalyst(e, nowMs);
+    if (!c || c.kind !== "scheduled") continue;
     items.push({
       key: `upcoming:${e.id}`,
-      bucket: pickBucket(s, nowMs, "upcoming"),
+      bucket: pickBucket(c.ms, nowMs, "upcoming"),
       source: "catalyst_upcoming",
       symbol: e.symbol.toUpperCase(),
       title: e.title,
       detail: e.source_name || null,
-      timestampMs: s,
+      timestampMs: c.ms,
       timestampLabel: fmtEtDate(e.event_date),
       sourceLabel: "Catalyst · Upcoming",
       eventId: e.id,
