@@ -1,7 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const BASE = "https://hedgefun.fun";
+const BASE = "https://stocksist.com";
 const HEADERS = {
   "Content-Type": "application/xml; charset=utf-8",
   "Access-Control-Allow-Origin": "*",
@@ -29,7 +29,7 @@ serve(async (req) => {
     Deno.env.get("SUPABASE_PUBLISHABLE_KEY")!,
   );
 
-  const fnUrl = "https://hedgefun.fun/sitemap.xml";
+  const fnUrl = "https://stocksist.com/sitemap.xml";
 
   try {
     if (type === "index") {

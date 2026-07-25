@@ -49,7 +49,7 @@ const BillingPage = () => {
   const handleUpgrade = () => {
     toast({
       title: "Coming Soon",
-      description: "Payment processing is being set up. Contact info@hedgefun.fun for early Pro access.",
+      description: "Payment processing is being set up. Contact info@stocksist.com for early Pro access.",
     });
   };
 
@@ -131,7 +131,7 @@ const BillingPage = () => {
             </p>
             <p className="text-muted-foreground" style={{ fontSize: "0.8125rem" }}>
               If you have manual Pro access, contact{" "}
-              <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a> for changes.
+              <a href="mailto:info@stocksist.com" className="underline">info@stocksist.com</a> for changes.
             </p>
           </div>
         </div>
@@ -160,7 +160,7 @@ const BillingPage = () => {
         </h2>
         <p className="text-secondary-foreground mb-4" style={{ fontSize: "0.875rem" }}>
           Self-service billing portal coming soon. For billing help in the meantime, contact{" "}
-          <a href="mailto:info@hedgefun.fun" className="underline">info@hedgefun.fun</a>.
+          <a href="mailto:info@stocksist.com" className="underline">info@stocksist.com</a>.
         </p>
         <Button variant="outline" disabled>
           Billing Portal Coming Soon

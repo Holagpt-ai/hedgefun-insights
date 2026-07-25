@@ -73,7 +73,7 @@ Deno.serve(async (req) => {
     }
 
     const token = await hmacToken(email);
-    const unsubscribeUrl = `https://hedgefun.fun/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
+    const unsubscribeUrl = `https://stocksist.com/unsubscribe?email=${encodeURIComponent(email)}&token=${token}`;
 
     const welcomeHtml = `<!DOCTYPE html>
 <html lang="en">
@@ -84,7 +84,7 @@ Deno.serve(async (req) => {
 <body style="margin:0;padding:0;background:#f8fafc;">
 <div style="max-width:560px;margin:40px auto;font-family:Arial,sans-serif;">
   <div style="background:#0f172a;padding:24px 32px;border-radius:8px 8px 0 0;">
-    <span style="font-size:20px;font-weight:700;color:#fff;">HedgeFun<span style="color:#1d4ed8;">.</span></span>
+    <span style="font-size:20px;font-weight:700;color:#fff;">Stocksist<span style="color:#1d4ed8;">.</span></span>
   </div>
   <div style="background:#fff;padding:32px;border:1px solid #e2e8f0;border-top:0;">
     <h1 style="margin:0 0 16px;font-size:22px;color:#0f172a;">You're in. Welcome to Market Bullets.</h1>
@@ -94,10 +94,10 @@ Deno.serve(async (req) => {
     <p style="margin:0 0 8px;font-size:15px;color:#334155;"><span style="color:#1d4ed8;font-weight:700;">→</span> The top market-moving stories, in bullet points</p>
     <p style="margin:0 0 8px;font-size:15px;color:#334155;"><span style="color:#1d4ed8;font-weight:700;">→</span> Key earnings reports and IPOs to watch</p>
     <p style="margin:0 0 28px;font-size:15px;color:#334155;"><span style="color:#1d4ed8;font-weight:700;">→</span> Only high-quality sources — zero clickbait</p>
-    <a href="https://hedgefun.fun" style="display:inline-block;background:#1d4ed8;color:#fff;font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;text-decoration:none;">Open HedgeFun →</a>
+    <a href="https://stocksist.com" style="display:inline-block;background:#1d4ed8;color:#fff;font-size:15px;font-weight:600;padding:12px 28px;border-radius:6px;text-decoration:none;">Open Stocksist →</a>
   </div>
   <div style="padding:16px 32px;border:1px solid #e2e8f0;border-top:0;border-radius:0 0 8px 8px;background:#f8fafc;">
-    <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">You're receiving this because you subscribed at hedgefun.fun.<br>© 2026 HedgeFun.fun · <a href="${unsubscribeUrl}" style="color:#94a3b8;">Unsubscribe</a></p>
+    <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">You're receiving this because you subscribed at stocksist.com.<br>© 2026 Stocksist · <a href="${unsubscribeUrl}" style="color:#94a3b8;">Unsubscribe</a></p>
   </div>
 </div>
 </body>
@@ -114,9 +114,9 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         from: "HedgeFun <newsletter@send.hedgefun.fun>",
         to: [email],
-        subject: "You're in — HedgeFun Market Bullets starts tomorrow 📈",
+        subject: "You're in — Stocksist Market Bullets starts tomorrow 📈",
         html: welcomeHtml,
-        text: `Welcome to HedgeFun Market Bullets!\n\nUnsubscribe: ${unsubscribeUrl}`,
+        text: `Welcome to Stocksist Market Bullets!\n\nUnsubscribe: ${unsubscribeUrl}`,
       }),
     });
 

@@ -1,8 +1,28 @@
 {
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "hedgefun.fun" }],
+      "destination": "https://stocksist.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.hedgefun.fun" }],
+      "destination": "https://stocksist.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [{ "type": "host", "value": "www.stocksist.com" }],
+      "destination": "https://stocksist.com/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/sitemap.xml",
-      "destination": "https://qrsmjctuhikoxgzxouhf.supabase.co/functions/v1/sitemap"
+      "destination": "https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/sitemap"
     },
     {
       "source": "/(.*)",
@@ -13,23 +33,14 @@
     {
       "source": "/sitemap.xml",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "application/xml; charset=utf-8"
-        },
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=3600, s-maxage=3600"
-        }
+        { "key": "Content-Type", "value": "application/xml; charset=utf-8" },
+        { "key": "Cache-Control", "value": "public, max-age=3600, s-maxage=3600" }
       ]
     },
     {
       "source": "/ads.txt",
       "headers": [
-        {
-          "key": "Content-Type",
-          "value": "text/plain"
-        }
+        { "key": "Content-Type", "value": "text/plain" }
       ]
     }
   ]
