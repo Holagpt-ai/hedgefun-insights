@@ -26,7 +26,7 @@ import { HeadlinesList } from "@/components/pre-market/HeadlinesList";
 import { etTimestampLabel, relativeAge } from "@/lib/pre-market/builders";
 
 export default function AMInbox() {
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const isPro = hasProAccess(profile?.plan);
 
