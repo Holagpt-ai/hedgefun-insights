@@ -1,5 +1,17 @@
 // Pure, dependency-free helpers for the Pre-Market workspace aggregator.
 // No network, no Supabase, no Deno APIs → fully unit-testable.
+//
+// Session/calendar hardening reuses the locked Watchlist V2 implementation
+// (`_shared/watchlist-v2/session.ts`) read-only; it is never modified here.
+
+import {
+  classifyToday,
+  extractEtOffset,
+  type UpcomingRow,
+} from "../watchlist-v2/session.ts";
+
+export type { UpcomingRow };
+
 
 export type SectionStatus = "available" | "empty" | "stale" | "unavailable";
 
