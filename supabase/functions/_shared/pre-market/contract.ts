@@ -350,7 +350,7 @@ export function buildChecklist(s: ChecklistSource): ChecklistItem[] {
   push("watchlist_premarket", s.watchlistPremarketCount,
     (n) => `Review ${n} current Watchlist Pre-Market ${n === 1 ? "name" : "names"}`, "/dashboard/watchlist");
   push("catalysts_today", s.catalystTodayCount,
-    (n) => `Review ${n} provider-reported ${n === 1 ? "catalyst" : "catalysts"} scheduled today`, "/dashboard/catalyst");
+    (n) => `Review ${n} provider-reported catalyst ${n === 1 ? "item" : "items"} dated today`, "/dashboard/catalyst");
   push("earnings_before_open", s.beforeOpenEarningsCount,
     (n) => `Review ${n} before-open ${n === 1 ? "earnings event" : "earnings events"}`, "/dashboard/catalyst");
   push("awaiting_refresh", s.awaitingRefreshCount,
