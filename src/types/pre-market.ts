@@ -166,6 +166,8 @@ export interface PreMarketWorkspaceResponse {
   contract_version: 1;
   server_now: string;
   market_context: MarketContext;
+  /** Total CONFIRMED before-open earnings-calendar events for the ET date. */
+  earnings_confirmed_total: number;
   /** Lifecycle state for watchlist symbols excluded from the current session view. */
   watchlist_lifecycle: PreMarketLifecycleEntry[];
   /** False when the alerts query failed — derived sections must fail closed. */
