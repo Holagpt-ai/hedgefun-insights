@@ -495,12 +495,15 @@ function unresolvedContext(reason: string): MarketContextResolution {
  * Resolve market context from provider evidence only.
  * Missing, malformed, partial or contradictory evidence → `unavailable`,
  * and the provider is never reported as the confirmed source.
+ * A session is confirmed only when the COMPLETE current-status payload
+ * validates (usable ET clock + exact market/NYSE/NASDAQ agreement).
  */
 export function resolveMarketContext(a: {
   nowBody: unknown;
   calendarBody: unknown;
   etDate: string;
   etWeekday: string;
+  nowMs: number;
 }): MarketContextResolution {
   const cal = validateCalendarRows(a.calendarBody);
   if (!cal.ok) return unresolvedContext(cal.reason);
@@ -511,19 +514,11 @@ export function resolveMarketContext(a: {
   const cls = classifyToday(cal.rows, a.etDate);
   if (cls.kind === "conflict") return unresolvedContext("CALENDAR_CONTRADICTORY");
 
-  if (!a.nowBody || typeof a.nowBody !== "object" || Array.isArray(a.nowBody)) {
-    return unresolvedContext("CALENDAR_UNAVAILABLE");
-  }
-  if (!extractEtOffset((a.nowBody as { serverTime?: unknown }).serverTime)) {
-    return unresolvedContext("PROVIDER_TIME_INVALID");
-  }
+  const verdict = validateProviderStatus(a.nowBody, { etDate: a.etDate, nowMs: a.nowMs });
+  if (!verdict.ok) return unresolvedContext(verdict.reason);
 
-  const holiday = cls.kind === "full_holiday";
-  const status = mapMarketStatus(a.nowBody, {
-    weekday: a.etWeekday,
-    upcomingClosedToday: holiday,
-  });
-  if (status === "unavailable") return unresolvedContext("CALENDAR_UNAVAILABLE");
+  const nonTrading = cls.kind === "full_holiday" || isWeekend(a.etWeekday);
+  const status: MarketContextStatus = nonTrading ? "non_trading_day" : verdict.session;
 
   const todayNyse = cal.rows.find((r) => r.date === a.etDate && r.exchange === "NYSE");
   return {
