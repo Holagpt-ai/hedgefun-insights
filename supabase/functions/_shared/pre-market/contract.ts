@@ -162,27 +162,75 @@ export interface MarketNowResponse {
   earlyHours?: boolean;
   afterHours?: boolean;
   serverTime?: string;
+  exchanges?: { nyse?: string; nasdaq?: string; otc?: string };
 }
 
+/** Maximum tolerated difference between our clock and the provider clock. */
+export const PROVIDER_TIME_MAX_SKEW_MS = 5 * 60_000;
+
+export type ProviderSession = "premarket" | "regular" | "afterhours" | "closed";
+
+export type ProviderStatusVerdict =
+  | { ok: true; session: ProviderSession }
+  | { ok: false; reason: "PROVIDER_TIME_INVALID" | "MARKET_STATUS_CONTRADICTORY" };
+
+const ET_OFFSETS = new Set(["-04:00", "-05:00"]);
+
 /**
- * Map a Polygon /v1/marketstatus/now payload to our closed status set.
- * Fails closed to "unavailable" for malformed data.
+ * Validate the COMPLETE Polygon current-status payload before any session may
+ * be confirmed. A session is never derived from `market`/`earlyHours` alone:
+ * the provider clock must be a usable ET reference for today, and the
+ * top-level market state must agree exactly with BOTH NYSE and NASDAQ.
  */
-export function mapMarketStatus(
+export function validateProviderStatus(
   body: unknown,
-  opts: { weekday: string; upcomingClosedToday: boolean },
-): MarketContextStatus {
-  if (opts.upcomingClosedToday) return "non_trading_day";
-  if (isWeekend(opts.weekday)) return "non_trading_day";
-  if (!body || typeof body !== "object" || Array.isArray(body)) return "unavailable";
-  const b = body as MarketNowResponse;
-  const market = typeof b.market === "string" ? b.market.toLowerCase() : null;
-  if (market === null) return "unavailable";
-  if (b.earlyHours === true) return "premarket";
-  if (b.afterHours === true) return "afterhours";
-  if (market === "open") return "regular";
-  if (market === "closed" || market === "extended-hours") return "closed";
-  return "unavailable";
+  opts: { etDate: string; nowMs: number },
+): ProviderStatusVerdict {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  }
+  const b = body as Record<string, unknown>;
+
+  // ---- provider clock ------------------------------------------------
+  const serverTime = typeof b.serverTime === "string" ? b.serverTime.trim() : "";
+  if (!serverTime) return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  const offset = serverTime.slice(-6);
+  if (!ET_OFFSETS.has(offset)) return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  const providerMs = Date.parse(serverTime);
+  if (!Number.isFinite(providerMs)) return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  if (Math.abs(opts.nowMs - providerMs) > PROVIDER_TIME_MAX_SKEW_MS) {
+    return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  }
+  if (etParts(new Date(providerMs)).date !== opts.etDate) {
+    return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  }
+
+  // ---- exchange agreement --------------------------------------------
+  const ex = b.exchanges && typeof b.exchanges === "object" && !Array.isArray(b.exchanges)
+    ? (b.exchanges as Record<string, unknown>)
+    : null;
+  if (!ex) return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  const nyse = typeof ex.nyse === "string" ? ex.nyse.trim().toLowerCase() : "";
+  const nasdaq = typeof ex.nasdaq === "string" ? ex.nasdaq.trim().toLowerCase() : "";
+  if (!nyse || !nasdaq || nyse !== nasdaq) {
+    return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  }
+
+  const market = typeof b.market === "string" ? b.market.trim().toLowerCase() : "";
+  if (market !== nyse) return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+
+  const early = b.earlyHours === true;
+  const after = b.afterHours === true;
+  if (early && after) return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+
+  if (market === "extended-hours") {
+    if (early) return { ok: true, session: "premarket" };
+    if (after) return { ok: true, session: "afterhours" };
+    return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  }
+  if (market === "open" && !early && !after) return { ok: true, session: "regular" };
+  if (market === "closed" && !early && !after) return { ok: true, session: "closed" };
+  return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
 }
 
 // --------------------------------------------------------- watchlist gating
