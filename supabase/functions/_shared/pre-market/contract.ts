@@ -428,9 +428,10 @@ export function validateCalendarRows(body: unknown): CalendarEvidence {
 }
 
 /**
- * Every exception date must be reported by BOTH NYSE and NASDAQ and the two
- * rows must agree. A single-exchange date, a status conflict or a close-time
- * conflict is contradictory evidence and fails closed.
+ * Every exception date must be reported by EXACTLY ONE NYSE row and EXACTLY
+ * ONE NASDAQ row, and the two rows must agree. A single-exchange date,
+ * duplicate rows for a venue, a status conflict or a close-time conflict is
+ * contradictory evidence and fails closed.
  */
 export function validateExchangeAgreement(rows: UpcomingRow[]): CalendarEvidence {
   const byDate = new Map<string, UpcomingRow[]>();
@@ -442,10 +443,16 @@ export function validateExchangeAgreement(rows: UpcomingRow[]): CalendarEvidence
     byDate.set(d, list);
   }
   for (const list of byDate.values()) {
-    const nyse = list.find((r) => r.exchange === "NYSE");
-    const nasdaq = list.find((r) => r.exchange === "NASDAQ");
-    if (!nyse || !nasdaq) return calFail("CALENDAR_CONTRADICTORY");
+    const nyseRows = list.filter((r) => r.exchange === "NYSE");
+    const nasdaqRows = list.filter((r) => r.exchange === "NASDAQ");
+    if (nyseRows.length !== 1 || nasdaqRows.length !== 1) return calFail("CALENDAR_CONTRADICTORY");
+    const [nyse] = nyseRows;
+    const [nasdaq] = nasdaqRows;
     if (nyse.status !== nasdaq.status) return calFail("CALENDAR_CONTRADICTORY");
+    const openA = isoOrNull(nyse.open);
+    const openB = isoOrNull(nasdaq.open);
+    if ((openA === null) !== (openB === null)) return calFail("CALENDAR_CONTRADICTORY");
+    if (openA && openB && Date.parse(openA) !== Date.parse(openB)) return calFail("CALENDAR_CONTRADICTORY");
     if (nyse.status === "early-close") {
       const a = isoOrNull(nyse.close);
       const b = isoOrNull(nasdaq.close);
