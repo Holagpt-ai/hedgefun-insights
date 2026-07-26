@@ -178,6 +178,13 @@ describe("P1-R1 client guards", () => {
   it("renders no signals for data unavailable rows", () => {
     expect(renderableSignals([FULL_SIGNAL], { unavailable: true })).toEqual([]);
   });
+
+  it("drops over-long signal labels instead of truncating them", () => {
+    const long = "z".repeat(81);
+    expect(renderableSignals([{ ...FULL_SIGNAL, label: long }], { unavailable: false })).toEqual([]);
+    const exact = "z".repeat(80);
+    expect(renderableSignals([{ ...FULL_SIGNAL, label: exact }], { unavailable: false })[0].label).toBe(exact);
+  });
 });
 
 describe("P1-R2 complete signal contract", () => {
