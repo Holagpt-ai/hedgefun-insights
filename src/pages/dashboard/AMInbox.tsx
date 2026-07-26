@@ -1,293 +1,280 @@
-import { hasProAccess } from "@/lib/entitlement";
-import { useState } from "react";
+import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
-import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
+import { hasProAccess } from "@/lib/entitlement";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
-import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
-import { NewsSection } from "@/components/dashboard/NewsSection";
-import DashboardIndexCards from "@/components/dashboard/DashboardIndexCards";
-import { Checkbox } from "@/components/ui/checkbox";
+import { usePreMarketWorkspace } from "@/hooks/usePreMarketWorkspace";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import { AM_INBOX_CONFIG } from "@/config/inbox.config";
 import {
-  AM_INBOX_CONFIG,
-  CATALYST_PILLS,
-  AM_OVERNIGHT_MOVERS,
-  AM_RISK_FLAGS,
-  AM_OPENING_BELL_CHECKLIST,
-  type CatalystPill,
-  type StaticInboxItem,
-} from "@/config/inbox.config";
-import { estDate } from "@/lib/price-utils";
-
-function priorityBorder(p?: "High" | "Medium" | "Low"): string {
-  if (p === "High") return "border-l-4 border-l-red-500";
-  if (p === "Medium") return "border-l-4 border-l-amber-500";
-  if (p === "Low") return "border-l-4 border-l-muted";
-  return "border-l-4 border-l-muted";
-}
-
-function priorityBadge(p?: "High" | "Medium" | "Low"): string {
-  if (p === "High") return "bg-red-950 text-red-400";
-  if (p === "Medium") return "bg-amber-950 text-amber-400";
-  return "bg-muted text-muted-foreground";
-}
-
-function SampleChip({ label = "Sample workflow" }: { label?: string }) {
-  return (
-    <span className="inline-flex self-start items-center rounded-full border border-border/60 bg-muted/40 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-      {label}
-    </span>
-  );
-}
-
-function SectionHeader({
-  title,
-  subtitle,
-  cta,
-  onCta,
-}: {
-  title: string;
-  subtitle?: string;
-  cta?: string;
-  onCta?: () => void;
-}) {
-  return (
-    <div className="flex items-end justify-between gap-3 flex-wrap">
-      <div>
-        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
-        {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-      </div>
-      {cta && onCta && (
-        <button
-          onClick={onCta}
-          className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
-        >
-          {cta}
-          <ArrowRight className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function CatalystCard({ pill, locked }: { pill: CatalystPill; locked?: boolean }) {
-  return (
-    <div
-      className={`rounded-xl border bg-card p-3 flex flex-col gap-1.5 ${priorityBorder(pill.priority)} ${
-        locked ? "opacity-60" : ""
-      }`}
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-medium leading-snug">{pill.label}</div>
-        {pill.priority && (
-          <span
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${priorityBadge(
-              pill.priority,
-            )}`}
-          >
-            {pill.priority}
-          </span>
-        )}
-      </div>
-      {pill.note && (
-        <div className="text-xs text-muted-foreground">{locked ? "PRO — unlock to preview" : pill.note}</div>
-      )}
-    </div>
-  );
-}
-
-function StaticItemCard({ item }: { item: StaticInboxItem }) {
-  return (
-    <div className={`rounded-xl border bg-card p-3 flex flex-col gap-1 ${priorityBorder(item.priority)}`}>
-      <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-semibold">{item.label}</div>
-        {item.badge && (
-          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${priorityBadge(item.priority)}`}>
-            {item.badge}
-          </span>
-        )}
-      </div>
-      <div className="text-xs text-muted-foreground">{item.detail}</div>
-    </div>
-  );
-}
+  SectionShell,
+  SectionHeading,
+  SectionEmpty,
+  SectionLoading,
+  SectionUnavailable,
+} from "@/components/pre-market/SectionShell";
+import { SessionBanner } from "@/components/pre-market/SessionBanner";
+import { IndexCards } from "@/components/pre-market/IndexCards";
+import { CatalystWatchList } from "@/components/pre-market/CatalystWatchList";
+import { EarningsList } from "@/components/pre-market/EarningsList";
+import { WatchlistActivityList } from "@/components/pre-market/WatchlistActivityList";
+import { VolumeLeaderList } from "@/components/pre-market/VolumeLeaderList";
+import { RiskAttentionList } from "@/components/pre-market/RiskAttentionList";
+import { OpeningBellChecklist } from "@/components/pre-market/OpeningBellChecklist";
+import { HeadlinesList } from "@/components/pre-market/HeadlinesList";
+import { etTimestampLabel, relativeAge } from "@/lib/pre-market/builders";
 
 export default function AMInbox() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const navigate = useNavigate();
   const isPro = hasProAccess(profile?.plan);
-  const planLabel = isPro
-    ? "PRO ACCESS — LIVE SECTIONS + SAMPLE WORKFLOWS"
-    : "FREE ACCESS — SAMPLE WORKFLOWS";
 
-  const [checked, setChecked] = useState<Record<number, boolean>>({});
+  usePageSeo({
+    title: "Pre-Market Workspace · Stocksist",
+    description:
+      "Pre-market workspace with provider-reported catalysts, before-open earnings, watchlist activity and market headlines.",
+  });
+
+  const ws = usePreMarketWorkspace();
+  const data = ws.data;
+  const loading = ws.isLoading;
+  const etDate = data?.market_context.et_date ?? "";
+
+  const catalysts = useMemo(() => data?.catalyst_watch.data ?? [], [data]);
+
+  if (!ws.isAuthenticated) {
+    return (
+      <div className="p-4 md:p-6">
+        <div className="rounded-xl border bg-card p-8 text-center">
+          <h1 className="text-xl font-semibold">Sign in to open your Pre-Market workspace</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            This workspace reads only your authenticated account data.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">{AM_INBOX_CONFIG.title}</h1>
-        <p className="text-sm text-muted-foreground">{AM_INBOX_CONFIG.subtitle}</p>
-      </div>
-
-      <MarketCountdownClock />
-
-      <div className="text-xs text-muted-foreground">
-        {estDate()} · {planLabel}
-      </div>
-
-      <DashboardIndexCards />
-
-      {/* Pre-Market Command Brief */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader
-          title={AM_INBOX_CONFIG.commandBriefHeading}
-          subtitle={AM_INBOX_CONFIG.commandBriefSubtitle}
-        />
-        <AIBriefCard isPro={isPro} config={AM_INBOX_CONFIG} briefType="am" />
-      </section>
-
-      {/* Catalyst Watch — Preview Signals */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader
-          title={AM_INBOX_CONFIG.catalystWatchHeading}
-          subtitle={AM_INBOX_CONFIG.catalystWatchSubtitle}
-          cta="View Catalyst"
-          onCta={() => navigate("/dashboard/catalyst")}
-        />
-        <SampleChip />
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {CATALYST_PILLS.map((pill) => (
-            <CatalystCard key={pill.label} pill={pill} locked={!isPro && pill.tier === "pro"} />
-          ))}
-        </div>
-      </section>
-
-      {/* Before-Open Earnings */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title={AM_INBOX_CONFIG.earningsHeading} />
-        <EarningsCardsGrid briefType="am" />
-      </section>
-
-      {/* Overnight Movers / Watchlist Setup */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader
-          title={AM_INBOX_CONFIG.overnightMoversHeading}
-          cta="Open Watchlist"
-          onCta={() => navigate("/dashboard/watchlist")}
-        />
-        <SampleChip />
-        {AM_OVERNIGHT_MOVERS.length === 0 ? (
-          <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
-            {AM_INBOX_CONFIG.overnightMoversEmpty}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {AM_OVERNIGHT_MOVERS.map((item) => (
-              <StaticItemCard key={item.label} item={item} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Risk Flags */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title={AM_INBOX_CONFIG.riskFlagsHeading} />
-        <SampleChip />
-        {AM_RISK_FLAGS.length === 0 ? (
-          <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
-            {AM_INBOX_CONFIG.riskFlagsEmpty}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-            {AM_RISK_FLAGS.map((item) => (
-              <StaticItemCard key={item.label} item={item} />
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Opening Bell Checklist */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader
-          title={AM_INBOX_CONFIG.checklistHeading}
-          subtitle={AM_INBOX_CONFIG.checklistSubtitle}
-        />
-        <SampleChip />
-        <div className="rounded-xl border bg-card p-4 flex flex-col gap-2">
-          {AM_OPENING_BELL_CHECKLIST.map((item, i) => (
-            <label
-              key={i}
-              className="flex items-start gap-3 text-sm cursor-pointer group"
-            >
-              <Checkbox
-                checked={!!checked[i]}
-                onCheckedChange={(v) => setChecked((s) => ({ ...s, [i]: !!v }))}
-                className="mt-0.5"
-              />
-              <span
-                className={`leading-snug ${
-                  checked[i] ? "line-through text-muted-foreground" : "text-foreground"
-                }`}
-              >
-                {item}
-              </span>
-            </label>
-          ))}
-        </div>
-      </section>
-
-      {/* Body-level AI Analyst handoff */}
-      <section className="rounded-xl border bg-card p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold">Need a market read?</h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Ask AI Analyst to turn this setup into a trade plan.
+    <div className="flex w-full max-w-full flex-col gap-6 overflow-x-hidden p-4 md:p-6">
+      {/* 1 — Title + honest data labeling */}
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight">Pre-Market</h1>
+          <p className="text-sm text-muted-foreground">
+            Production workspace · 15-minute delayed market data
           </p>
         </div>
         <button
-          onClick={() =>
-            navigate(
-              "/dashboard/ai?prompt=Turn%20this%20morning%27s%20AM%20setup%20into%20a%20concrete%20trade%20plan%20for%20today.",
-            )
-          }
-          className="self-start sm:self-auto inline-flex items-center gap-1 bg-accent-blue text-primary-foreground text-[13px] font-semibold px-4 py-2 rounded-md hover:opacity-90 transition-opacity"
+          onClick={ws.retry}
+          className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
         >
-          Ask AI Analyst
-          <ArrowRight className="h-3.5 w-3.5" />
+          <RefreshCw className={`h-3.5 w-3.5 ${ws.isFetching ? "animate-spin" : ""}`} />
+          Refresh
         </button>
-      </section>
+      </header>
 
-      {/* Market Headlines */}
-      <section className="flex flex-col gap-3">
-        <SectionHeader title={AM_INBOX_CONFIG.newsHeading} />
-        <NewsSection isPro={isPro} contained />
-      </section>
+      {ws.isStaleUpdateFailed && (
+        <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+          Update failed — showing the last successful workspace from{" "}
+          {etTimestampLabel(ws.dataAsOf)} ({relativeAge(ws.dataAsOf)}).
+        </div>
+      )}
 
-      {/* Footer CTAs */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <button
-          onClick={() =>
-            navigate(
-              "/dashboard/ai?prompt=Give%20me%20a%20deeper%20breakdown%20of%20this%20morning%27s%20AM%20brief%20and%20key%20catalysts%20to%20watch%20today.",
-            )
-          }
-          className="text-xs text-accent-blue hover:underline transition-colors duration-200"
-        >
-          Discuss in AI Analyst →
-        </button>
+      {ws.isUnavailable ? (
+        <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
+      ) : (
+        <>
+          {/* 2 — Authoritative ET session banner */}
+          <SessionBanner context={data?.market_context ?? null} loading={loading} />
+
+          {data && (
+            <p className="text-[11px] text-muted-foreground">
+              Workspace as of {etTimestampLabel(data.server_now)} · {relativeAge(data.server_now)}
+            </p>
+          )}
+
+          {/* 3 — Index cards */}
+          <SectionShell
+            title="Market Indexes"
+            subtitle="SPY · QQQ · DIA · IWM — 15-minute delayed"
+            section={data?.indexes ?? null}
+            loading={loading}
+            emptyMessage="No index values met validation."
+            onRetry={ws.retry}
+          >
+            <IndexCards rows={data?.indexes.data ?? []} />
+          </SectionShell>
+
+          {/* 4 — AI Pre-Market Brief (existing entitlement-enforced flow) */}
+          <section className="flex flex-col gap-3">
+            <SectionHeading
+              title="AI Pre-Market Brief"
+              subtitle="Server-generated brief — entitlement enforced by the backend"
+            />
+            <AIBriefCard
+              isPro={isPro}
+              config={{ ...AM_INBOX_CONFIG, aiCardTitle: "✦ AI Pre-Market Brief" }}
+              briefType="am"
+            />
+          </section>
+
+          {/* 5 — Catalyst Watch */}
+          <SectionShell
+            title="Catalyst Watch"
+            subtitle="Provider-reported events · today and the recent 48-hour window"
+            section={data?.catalyst_watch ?? null}
+            loading={loading}
+            emptyMessage="No provider-reported catalysts in the current window."
+            onRetry={ws.retry}
+            action={
+              <button
+                onClick={() => navigate("/dashboard/catalyst")}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+              >
+                View Catalyst <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            }
+          >
+            <CatalystWatchList rows={catalysts} etDate={etDate} />
+          </SectionShell>
+
+          {/* 6 — Before-Open Earnings */}
+          <SectionShell
+            title="Before-Open Earnings"
+            subtitle="Current ET date · provider-reported earnings events"
+            section={data?.earnings ?? null}
+            loading={loading}
+            emptyMessage="No before-open earnings reported for today."
+            onRetry={ws.retry}
+          >
+            <EarningsList rows={data?.earnings.data ?? []} />
+          </SectionShell>
+
+          {/* 7 — Watchlist Pre-Market Activity */}
+          <SectionShell
+            title="Watchlist Pre-Market Activity"
+            subtitle="Scoreless · current pre-market analyses only · sorted by volume"
+            section={data?.watchlist_activity ?? null}
+            loading={loading}
+            emptyMessage="No current pre-market analysis for your watchlist symbols."
+            onRetry={ws.retry}
+            action={
+              <button
+                onClick={() => navigate("/dashboard/watchlist")}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+              >
+                Open Watchlist <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            }
+          >
+            <WatchlistActivityList rows={data?.watchlist_activity.data ?? []} />
+          </SectionShell>
+
+          {/* 8 — Day-Trade Radar volume leaders */}
+          <SectionShell
+            title="Day-Trade Radar · sorted by volume"
+            subtitle="Screener results · 15-minute delayed · not session-attributed"
+            section={data?.volume_leaders ?? null}
+            loading={loading}
+            emptyMessage="No qualifying screener rows."
+            onRetry={ws.retry}
+            action={
+              <button
+                onClick={() => navigate("/dashboard/screeners")}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+              >
+                Open Screeners <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            }
+          >
+            <VolumeLeaderList rows={data?.volume_leaders.data ?? []} catalysts={catalysts} />
+          </SectionShell>
+
+          {/* 9 — Risk & Attention Flags */}
+          <SectionShell
+            title="Risk & Attention Flags"
+            subtitle="Derived only from your watchlist signals, alerts, provider events and open journal trades"
+            section={data?.risk_attention ?? null}
+            loading={loading}
+            emptyMessage="No attention items from currently available data."
+            onRetry={ws.retry}
+          >
+            <RiskAttentionList items={data?.risk_attention.data ?? []} />
+          </SectionShell>
+
+          {/* 10 — Journal readiness + data-derived checklist */}
+          <section className="flex flex-col gap-3">
+            <SectionHeading
+              title="Opening Bell Checklist"
+              subtitle="Generated from the data returned above · local session state"
+            />
+            {loading ? (
+              <SectionLoading rows={1} />
+            ) : !data || data.checklist.status === "unavailable" ? (
+              <SectionUnavailable reason={data?.checklist.reason_code ?? "QUERY_FAILED"} onRetry={ws.retry} />
+            ) : (
+              <OpeningBellChecklist items={data.checklist.data} etDate={etDate} />
+            )}
+
+            {!loading && data && (
+              data.journal_readiness.status === "unavailable" ? (
+                <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
+              ) : (
+                <div className="rounded-xl border bg-card p-3 text-xs text-muted-foreground">
+                  Journal readiness · {data.journal_readiness.data.open_trades} open{" "}
+                  {data.journal_readiness.data.open_trades === 1 ? "trade" : "trades"} ·{" "}
+                  {data.journal_readiness.data.missing_stop} missing a recorded stop ·{" "}
+                  {data.journal_readiness.data.missing_target} missing a recorded target
+                </div>
+              )
+            )}
+          </section>
+
+          {/* 11 — Market headlines */}
+          <SectionShell
+            title="Market Headlines"
+            subtitle="Ordered by publication time — publication times only, no sync heartbeat available"
+            section={data?.headlines ?? null}
+            loading={loading}
+            emptyMessage="No headlines available."
+            onRetry={ws.retry}
+          >
+            <HeadlinesList rows={data?.headlines.data ?? []} />
+          </SectionShell>
+
+          {!loading && !data && <SectionEmpty message="Workspace data is not available yet." />}
+        </>
+      )}
+
+      {/* 12 — Workflow footer */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
         <button
           onClick={() => navigate("/dashboard/action-center")}
-          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline"
         >
           Open Action Center →
         </button>
         <button
-          onClick={() => navigate("/dashboard/watchlist")}
-          className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+          onClick={() => navigate("/dashboard/catalyst")}
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline"
         >
-          Open Watchlist →
+          Open Catalyst →
         </button>
+        <button
+          onClick={() => navigate("/dashboard/screeners")}
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground hover:underline"
+        >
+          Open Screeners →
+        </button>
+        <button
+          onClick={() => navigate("/dashboard/ai")}
+          className="text-xs text-accent-blue transition-colors hover:underline"
+        >
+          Discuss in AI Analyst →
+        </button>
+        {user?.email ? null : null}
       </div>
     </div>
   );
