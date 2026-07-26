@@ -17,11 +17,20 @@ interface SectionShellProps<T> {
   renderWhenEmpty?: boolean;
 }
 
-const REASON_TEXT: Record<string, string> = {
+export const REASON_TEXT: Record<string, string> = {
   NO_QUALIFYING_DATA: "No qualifying records in the current data.",
   SOURCE_STALE: "Source data is older than the freshness threshold.",
   QUERY_FAILED: "This section could not be loaded.",
-  CALENDAR_UNAVAILABLE: "Market calendar data is unavailable.",
+  CALENDAR_UNAVAILABLE:
+    "The market session cannot be confirmed — market calendar data is unavailable.",
+  CALENDAR_CONTRADICTORY:
+    "The market session cannot be confirmed — NYSE and NASDAQ calendar data disagree.",
+  PROVIDER_TIME_INVALID:
+    "The market session cannot be confirmed — the provider returned an unusable Eastern Time reference.",
+  INCOMPLETE_COVERAGE:
+    "Some required records failed validation, so this section is withheld rather than shown incomplete.",
+  SOURCE_UNVERIFIABLE:
+    "Matching records exist but none carry a verifiable source timestamp, so nothing is shown.",
   NON_TRADING_DAY: "No trading session today.",
   OUTSIDE_PREMARKET: "No current Pre-Market session.",
   WATCHLIST_EMPTY: "Your watchlist has no symbols yet.",

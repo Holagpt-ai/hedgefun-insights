@@ -42,11 +42,17 @@ export interface PreMarketIndex {
   stale: boolean;
 }
 
-/** Validated, authorized Watchlist V2 signal. */
+/** Validated, authorized Watchlist V2 signal (complete contract). */
 export interface PreMarketSignal {
   signal_id: string;
   label: string;
-  direction: "bullish" | "bearish" | "neutral";
+  category: "trend" | "level" | "volume" | "range";
+  kind: "state" | "transition";
+  direction: "bullish" | "bearish" | "neutral" | null;
+  facts: Record<string, number | string | boolean>;
+  inputs: string[];
+  observed_at: string;
+  rule_version: "w2b1c.1";
 }
 
 export interface PreMarketWatchlistRow {

@@ -78,9 +78,37 @@ export const AUTHORIZED_SIGNAL_IDS: ReadonlySet<string> = new Set([
   "prior_close_loss",
 ]);
 
+const SIGNAL_CATEGORIES = new Set(["trend", "level", "volume", "range"]);
+const SIGNAL_KINDS = new Set(["state", "transition"]);
+/** The single authorized Watchlist V2 signal rule version. */
+export const AUTHORIZED_SIGNAL_RULE_VERSION = "w2b1c.1";
+
+function validFacts(v: unknown): Record<string, number | string | boolean> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const out: Record<string, number | string | boolean> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof val === "string" || typeof val === "boolean") out[k] = val;
+    else if (typeof val === "number" && Number.isFinite(val)) out[k] = val;
+    else return null;
+  }
+  return out;
+}
+
+function validInputs(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: string[] = [];
+  for (const i of v) {
+    if (typeof i !== "string" || !i.trim()) return null;
+    out.push(i);
+  }
+  return out;
+}
+
 /**
- * Client-side guard: renderable signals must carry an authorized `signal_id`,
- * a human label and a valid direction. Data Unavailable rows render none.
+ * Client-side guard enforcing the COMPLETE Watchlist V2 signal contract:
+ * authorized `signal_id`, label, category, kind, direction, well-formed
+ * facts/inputs, valid `observed_at` and the exact authorized rule version.
+ * Deduped by `signal_id`. Data Unavailable rows render none.
  */
 export function renderableSignals(
   raw: unknown,
@@ -93,13 +121,38 @@ export function renderableSignals(
     if (!s || typeof s !== "object" || Array.isArray(s)) continue;
     const o = s as Record<string, unknown>;
     const id = typeof o.signal_id === "string" ? o.signal_id : "";
+    if (!id || !AUTHORIZED_SIGNAL_IDS.has(id) || seen.has(id)) continue;
     const label = typeof o.label === "string" ? o.label.trim() : "";
+    if (!label) continue;
+    if (typeof o.category !== "string" || !SIGNAL_CATEGORIES.has(o.category)) continue;
+    if (typeof o.kind !== "string" || !SIGNAL_KINDS.has(o.kind)) continue;
     const dir = o.direction === "bullish" || o.direction === "bearish" || o.direction === "neutral"
       ? o.direction
+      : o.direction === null
+        ? null
+        : undefined;
+    if (dir === undefined) continue;
+    const facts = validFacts(o.facts);
+    if (facts === null) continue;
+    const inputs = validInputs(o.inputs);
+    if (inputs === null) continue;
+    const observed = typeof o.observed_at === "string" && Number.isFinite(Date.parse(o.observed_at))
+      ? o.observed_at
       : null;
-    if (!id || !AUTHORIZED_SIGNAL_IDS.has(id) || seen.has(id) || !label || !dir) continue;
+    if (!observed) continue;
+    if (o.rule_version !== AUTHORIZED_SIGNAL_RULE_VERSION) continue;
     seen.add(id);
-    out.push({ signal_id: id, label, direction: dir });
+    out.push({
+      signal_id: id,
+      label,
+      category: o.category as PreMarketSignal["category"],
+      kind: o.kind as PreMarketSignal["kind"],
+      direction: dir,
+      facts,
+      inputs,
+      observed_at: observed,
+      rule_version: "w2b1c.1",
+    });
   }
   return out;
 }

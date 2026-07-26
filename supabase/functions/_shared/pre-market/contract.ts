@@ -327,42 +327,88 @@ export function etDateShift(etDate: string, days: number): string {
 
 export type CalendarEvidence =
   | { ok: true; rows: UpcomingRow[] }
-  | { ok: false; reason: "CALENDAR_UNAVAILABLE" };
+  | { ok: false; reason: "CALENDAR_UNAVAILABLE" | "CALENDAR_CONTRADICTORY" };
+
+/** Only these venues may influence the resolved market context. */
+export const CALENDAR_EXCHANGES: ReadonlySet<string> = new Set(["NYSE", "NASDAQ"]);
+/** Supported Polygon exception statuses. Anything else is unusable evidence. */
+export const CALENDAR_STATUSES: ReadonlySet<string> = new Set(["open", "closed", "early-close"]);
+
+function calFail(reason: "CALENDAR_UNAVAILABLE" | "CALENDAR_CONTRADICTORY"): CalendarEvidence {
+  return { ok: false, reason };
+}
+
+function optionalIso(v: unknown): { ok: boolean; value: string | null } {
+  if (v === null || v === undefined) return { ok: true, value: null };
+  const iso = isoOrNull(v);
+  return iso === null ? { ok: false, value: null } : { ok: true, value: iso };
+}
 
 /**
  * Validate a Polygon /v1/marketstatus/upcoming payload.
- * Any missing/malformed/partial row invalidates the whole calendar (fail closed).
+ *
+ * The endpoint is an *exception* calendar, not a schedule of future sessions.
+ * Rows for other venues are ignored entirely; NYSE/NASDAQ rows must carry a
+ * valid date, a supported status and valid timestamps or the whole calendar
+ * is rejected (fail closed).
  */
 export function validateCalendarRows(body: unknown): CalendarEvidence {
-  if (!Array.isArray(body)) return { ok: false, reason: "CALENDAR_UNAVAILABLE" };
+  if (!Array.isArray(body)) return calFail("CALENDAR_UNAVAILABLE");
   const rows: UpcomingRow[] = [];
   for (const r of body) {
-    if (!r || typeof r !== "object" || Array.isArray(r)) return { ok: false, reason: "CALENDAR_UNAVAILABLE" };
+    if (!r || typeof r !== "object" || Array.isArray(r)) return calFail("CALENDAR_UNAVAILABLE");
     const o = r as Record<string, unknown>;
-    if (!isIsoDate(o.date)) return { ok: false, reason: "CALENDAR_UNAVAILABLE" };
-    if (typeof o.status !== "string" || !o.status.trim()) return { ok: false, reason: "CALENDAR_UNAVAILABLE" };
-    if (typeof o.exchange !== "string" || !o.exchange.trim()) return { ok: false, reason: "CALENDAR_UNAVAILABLE" };
-    rows.push({
-      date: o.date,
-      status: o.status,
-      exchange: o.exchange,
-      open: typeof o.open === "string" ? o.open : null,
-      close: typeof o.close === "string" ? o.close : null,
-    });
+    if (typeof o.exchange !== "string" || !o.exchange.trim()) return calFail("CALENDAR_UNAVAILABLE");
+    const exchange = o.exchange.trim().toUpperCase();
+    if (!CALENDAR_EXCHANGES.has(exchange)) continue;
+    if (!isIsoDate(o.date)) return calFail("CALENDAR_UNAVAILABLE");
+    if (typeof o.status !== "string") return calFail("CALENDAR_UNAVAILABLE");
+    const status = o.status.trim().toLowerCase();
+    if (!CALENDAR_STATUSES.has(status)) return calFail("CALENDAR_UNAVAILABLE");
+    const open = optionalIso(o.open);
+    const close = optionalIso(o.close);
+    if (!open.ok || !close.ok) return calFail("CALENDAR_UNAVAILABLE");
+    if (status === "early-close" && close.value === null) return calFail("CALENDAR_UNAVAILABLE");
+    rows.push({ date: o.date, status, exchange, open: open.value, close: close.value });
   }
   return { ok: true, rows };
 }
 
-/** Next known session open, derived only from validated future exchange rows. */
-export function nextKnownSessionFrom(rows: UpcomingRow[], etDate: string): string | null {
-  const future = rows
-    .filter((r) =>
-      isIsoDate(r.date) && (r.date as string) > etDate &&
-      String(r.status ?? "").toLowerCase() !== "closed" &&
-      isoOrNull(r.open) !== null
-    )
-    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-  return future.length > 0 ? isoOrNull(future[0].open) : null;
+/**
+ * Every exception date must be reported by BOTH NYSE and NASDAQ and the two
+ * rows must agree. A single-exchange date, a status conflict or a close-time
+ * conflict is contradictory evidence and fails closed.
+ */
+export function validateExchangeAgreement(rows: UpcomingRow[]): CalendarEvidence {
+  const byDate = new Map<string, UpcomingRow[]>();
+  for (const r of rows) {
+    const d = typeof r.date === "string" ? r.date : "";
+    if (!d) return calFail("CALENDAR_UNAVAILABLE");
+    const list = byDate.get(d) ?? [];
+    list.push(r);
+    byDate.set(d, list);
+  }
+  for (const list of byDate.values()) {
+    const nyse = list.find((r) => r.exchange === "NYSE");
+    const nasdaq = list.find((r) => r.exchange === "NASDAQ");
+    if (!nyse || !nasdaq) return calFail("CALENDAR_CONTRADICTORY");
+    if (nyse.status !== nasdaq.status) return calFail("CALENDAR_CONTRADICTORY");
+    if (nyse.status === "early-close") {
+      const a = isoOrNull(nyse.close);
+      const b = isoOrNull(nasdaq.close);
+      if (!a || !b || Date.parse(a) !== Date.parse(b)) return calFail("CALENDAR_CONTRADICTORY");
+    }
+  }
+  return { ok: true, rows };
+}
+
+/**
+ * The exception calendar cannot authoritatively supply the next *normal*
+ * trading session opening — a future holiday/early-close row is an exception,
+ * not the next session. Without an authoritative source this stays null.
+ */
+export function nextKnownSessionFrom(_rows: UpcomingRow[], _etDate: string): string | null {
+  return null;
 }
 
 export interface MarketContextResolution {
@@ -399,6 +445,9 @@ export function resolveMarketContext(a: {
   const cal = validateCalendarRows(a.calendarBody);
   if (!cal.ok) return unresolvedContext(cal.reason);
 
+  const agreed = validateExchangeAgreement(cal.rows);
+  if (!agreed.ok) return unresolvedContext(agreed.reason);
+
   const cls = classifyToday(cal.rows, a.etDate);
   if (cls.kind === "conflict") return unresolvedContext("CALENDAR_CONTRADICTORY");
 
@@ -431,6 +480,7 @@ export function resolveMarketContext(a: {
   };
 }
 
+
 // ------------------------------------------------- Watchlist V2 evidence
 
 export type PreMarketDirection = "bullish" | "bearish" | "neutral" | "data_unavailable";
@@ -455,14 +505,48 @@ export const AUTHORIZED_SIGNAL_IDS: ReadonlySet<string> = new Set([
   "prior_close_loss",
 ]);
 
+export const SIGNAL_CATEGORIES: ReadonlySet<string> = new Set(["trend", "level", "volume", "range"]);
+export const SIGNAL_KINDS: ReadonlySet<string> = new Set(["state", "transition"]);
+/** The single authorized Watchlist V2 signal rule version. */
+export const AUTHORIZED_SIGNAL_RULE_VERSION = "w2b1c.1" as const;
+
 export interface PreMarketSignal {
   signal_id: string;
   label: string;
-  direction: "bullish" | "bearish" | "neutral";
+  category: "trend" | "level" | "volume" | "range";
+  kind: "state" | "transition";
+  direction: "bullish" | "bearish" | "neutral" | null;
+  facts: Record<string, number | string | boolean>;
+  inputs: string[];
+  observed_at: string;
+  rule_version: typeof AUTHORIZED_SIGNAL_RULE_VERSION;
+}
+
+function validFacts(v: unknown): Record<string, number | string | boolean> | null {
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const out: Record<string, number | string | boolean> = {};
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof val === "string" || typeof val === "boolean") out[k] = val;
+    else if (typeof val === "number" && Number.isFinite(val)) out[k] = val;
+    else return null;
+  }
+  return out;
+}
+
+function validInputs(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null;
+  const out: string[] = [];
+  for (const i of v) {
+    if (typeof i !== "string" || !i.trim()) return null;
+    out.push(i);
+  }
+  return out;
 }
 
 /**
- * Keep only validated, authorized signals keyed by `signal_id`.
+ * Keep only signals that satisfy the COMPLETE Watchlist V2 signal contract:
+ * authorized id, label, category, kind, direction, well-formed facts/inputs,
+ * a valid observed_at and the exact authorized rule version. Deduped by id.
  * Data Unavailable rows expose no signals at all.
  */
 export function sanitizeMarketSignals(raw: unknown, opts: { unavailable: boolean }): PreMarketSignal[] {
@@ -475,12 +559,34 @@ export function sanitizeMarketSignals(raw: unknown, opts: { unavailable: boolean
     const id = typeof o.signal_id === "string" ? o.signal_id : null;
     if (!id || !AUTHORIZED_SIGNAL_IDS.has(id) || seen.has(id)) continue;
     const label = typeof o.label === "string" ? o.label.trim() : "";
+    if (!label) continue;
+    if (typeof o.category !== "string" || !SIGNAL_CATEGORIES.has(o.category)) continue;
+    if (typeof o.kind !== "string" || !SIGNAL_KINDS.has(o.kind)) continue;
     const dir = o.direction === "bullish" || o.direction === "bearish" || o.direction === "neutral"
       ? o.direction
-      : null;
-    if (!label || !dir) continue;
+      : o.direction === null
+        ? null
+        : undefined;
+    if (dir === undefined) continue;
+    const facts = validFacts(o.facts);
+    if (facts === null) continue;
+    const inputs = validInputs(o.inputs);
+    if (inputs === null) continue;
+    const observed = isoOrNull(o.observed_at);
+    if (!observed) continue;
+    if (o.rule_version !== AUTHORIZED_SIGNAL_RULE_VERSION) continue;
     seen.add(id);
-    out.push({ signal_id: id, label, direction: dir });
+    out.push({
+      signal_id: id,
+      label,
+      category: o.category as PreMarketSignal["category"],
+      kind: o.kind as PreMarketSignal["kind"],
+      direction: dir,
+      facts,
+      inputs,
+      observed_at: observed,
+      rule_version: AUTHORIZED_SIGNAL_RULE_VERSION,
+    });
   }
   return out;
 }
@@ -494,25 +600,36 @@ export function normalizeRequestStatus(v: unknown): RequestStatus | null {
 }
 
 export interface RequestState {
+  /** Real schema column on public.watchlist_analysis_requests. */
+  requested_at: string | null;
   status: RequestStatus;
-  created_at: string | null;
   error_code: string | null;
 }
 
 /** Latest real request row per ticker — lifecycle is never inferred from absence. */
 export function latestRequestByTicker(rows: Array<Record<string, unknown>>): Map<string, RequestState> {
   const out = new Map<string, RequestState>();
+  const at = (iso: string | null): number | null => {
+    if (!iso) return null;
+    const t = Date.parse(iso);
+    return Number.isFinite(t) ? t : null;
+  };
   for (const r of rows) {
     const t = normalizeSymbol(r.ticker);
     const status = normalizeRequestStatus(r.status);
     if (!t || !status) continue;
-    const created = isoOrNull(r.created_at);
+    const requested = isoOrNull(r.requested_at);
     const prev = out.get(t);
-    if (prev && prev.created_at && created && prev.created_at >= created) continue;
-    if (prev && !created) continue;
+    if (prev) {
+      const prevMs = at(prev.requested_at);
+      const curMs = at(requested);
+      // A timestamped row always beats an untimestamped one; otherwise newest wins.
+      if (curMs === null) continue;
+      if (prevMs !== null && prevMs >= curMs) continue;
+    }
     out.set(t, {
+      requested_at: requested,
       status,
-      created_at: created,
       error_code: typeof r.error_code === "string" ? r.error_code : null,
     });
   }
@@ -607,4 +724,51 @@ export interface RawVolumeRow {
 /** Only rows with a valid positive volume AND an establishable timestamp survive. */
 export function isUsableVolumeRow(r: RawVolumeRow): boolean {
   return r.symbol !== null && r.volume !== null && r.volume > 0 && r.updated_at !== null;
+}
+
+export interface VolumeVerdict<T> {
+  status: SectionStatus;
+  rows: T[];
+  as_of: string | null;
+  reason_code: ReasonCode | null;
+}
+
+/**
+ * Volume-leader freshness, closed edge case:
+ * positive-volume candidates are tracked separately from invalid-volume rows,
+ * so a timestamp belonging to an unusable row can never make a usable row look
+ * verifiable. Every displayed row carries its own valid timestamp.
+ */
+export function selectVolumeLeaders<T extends { volume: number | null; updated_at: string | null; change_percent?: number | null }>(
+  candidates: T[],
+  opts: { positiveVolumeCandidates: number; limit: number; nowMs: number; active: boolean; staleMinutes: number },
+): VolumeVerdict<T> {
+  const verifiable = candidates.filter((r) => r.volume !== null && r.volume > 0 && isoOrNull(r.updated_at) !== null);
+  if (verifiable.length === 0) {
+    return opts.positiveVolumeCandidates > 0
+      ? { status: "unavailable", rows: [], as_of: null, reason_code: "SOURCE_UNVERIFIABLE" }
+      : { status: "empty", rows: [], as_of: null, reason_code: "NO_QUALIFYING_DATA" };
+  }
+  const sorted = [...verifiable].sort((a, b) =>
+    compareByVolumeDesc(
+      { volume: a.volume, change_pct: a.change_percent ?? null },
+      { volume: b.volume, change_pct: b.change_percent ?? null },
+    )
+  );
+  const rows = sorted.slice(0, opts.limit);
+  const newest = rows.reduce<string | null>(
+    (acc, r) => (r.updated_at && (!acc || r.updated_at > acc) ? r.updated_at : acc),
+    null,
+  );
+  // Any DISPLAYED row past the threshold makes the section stale.
+  const stale = opts.active && rows.some((r) => {
+    const age = ageMinutes(r.updated_at, opts.nowMs);
+    return age !== null && age > opts.staleMinutes;
+  });
+  return {
+    status: stale ? "stale" : "available",
+    rows,
+    as_of: newest,
+    reason_code: stale ? "SOURCE_STALE" : null,
+  };
 }

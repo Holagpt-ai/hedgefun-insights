@@ -6,7 +6,7 @@ import {
   SCREENER_STALE_MINUTES,
   ageMinutes,
   buildChecklist,
-  compareByVolumeDesc,
+  
   dedupeCatalyst,
   derivedSectionStatus,
   emptySection,
@@ -33,7 +33,9 @@ import {
   resolveMarketContext,
   sanitizeAlerts,
   sanitizeMarketSignals,
+  selectVolumeLeaders,
   sortByVolumeDesc,
+
   unavailableSection,
   type PreMarketSignal,
   type RequestState,
@@ -287,8 +289,15 @@ serve(async (req) => {
   let alerts: ReturnType<typeof sanitizeAlerts> = [];
   const lifecycle: Array<{ ticker: string; label: string }> = [];
 
-  if (wlRaw === null) {
+  if (marketStatus === "unavailable") {
+    // The session itself is unknown — we cannot claim "no pre-market activity".
+    watchlist_activity = unavailableSection<WlOut[]>(
+      [],
+      (ctx.reason_code as never) ?? "CALENDAR_UNAVAILABLE",
+    );
+  } else if (wlRaw === null) {
     watchlist_activity = unavailableSection<WlOut[]>([], "QUERY_FAILED");
+
   } else if (symbols.length === 0) {
     watchlist_activity = emptySection<WlOut[]>([], "WATCHLIST_EMPTY");
     alertsOk = true;
@@ -298,11 +307,12 @@ serve(async (req) => {
       userClient.from("watchlist_analysis_v2").select("*").in("ticker", symbols),
       userClient.from("ticker_search").select("symbol, name").in("symbol", symbols),
       userClient.from("watchlist_analysis_requests")
-        .select("ticker, status, created_at, error_code")
+        .select("ticker, status, requested_at, error_code")
         .eq("user_id", userId)
         .in("ticker", symbols)
-        .order("created_at", { ascending: false })
+        .order("requested_at", { ascending: false })
         .limit(400),
+
       userClient.from("watchlist_alerts_v2")
         .select("ticker, alert_type, reason, event_time, session_date, dedupe_key")
         .in("ticker", symbols)
@@ -376,13 +386,16 @@ serve(async (req) => {
         (acc, r) => (r.analyzed_at && (!acc || r.analyzed_at > acc) ? r.analyzed_at : acc),
         null,
       );
+      // `empty` here always means a CONFIRMED outside-pre-market or
+      // non-trading state — an unknown session already failed closed above.
       watchlist_activity = sorted.length === 0
         ? emptySection<WlOut[]>(
           [],
           !inPremarket
-            ? (marketStatus === "unavailable" ? "CALENDAR_UNAVAILABLE" : "OUTSIDE_PREMARKET")
+            ? (marketStatus === "non_trading_day" ? "NON_TRADING_DAY" : "OUTSIDE_PREMARKET")
             : "ANALYSIS_AWAITING_REFRESH",
         )
+
         : envelope("available", sorted, newest, null);
     }
   }
@@ -493,19 +506,18 @@ serve(async (req) => {
   if (scrRaw === null) {
     volume_leaders = unavailableSection<VolOut[]>([], "QUERY_FAILED");
   } else {
-    let sawRow = false;
-    let sawTimestamp = false;
-    const rows: VolOut[] = [];
+    // Positive-volume candidates are tracked separately from invalid-volume
+    // rows so an unusable row's timestamp can never vouch for a usable row.
+    let positiveVolumeCandidates = 0;
+    const candidates: VolOut[] = [];
     for (const r of scrRaw) {
       const symbol = normalizeSymbol(r.symbol);
       const volume = positiveOrNull(r.volume);
+      if (!symbol || volume === null) continue;
+      positiveVolumeCandidates += 1;
       const updated = isoOrNull(r.updated_at);
-      if (!symbol) continue;
-      sawRow = true;
-      if (updated) sawTimestamp = true;
-      // Honest integrity: no positive volume or no establishable freshness → excluded.
-      if (volume === null || !updated) continue;
-      rows.push({
+      if (!updated) continue; // no own freshness → never displayed
+      candidates.push({
         symbol,
         company_name: typeof r.company_name === "string" ? r.company_name : null,
         price: positiveOrNull(r.price),
@@ -515,23 +527,14 @@ serve(async (req) => {
         updated_at: updated,
       });
     }
-    // Strict volume-descending order after validation.
-    rows.sort((a, b) => compareByVolumeDesc(
-      { volume: a.volume, change_pct: a.change_percent },
-      { volume: b.volume, change_pct: b.change_percent },
-    ));
-    const limited = rows.slice(0, VOLUME_LEADER_LIMIT);
-    const newest = limited.reduce<string | null>(
-      (acc, r) => (r.updated_at && (!acc || r.updated_at > acc) ? r.updated_at : acc),
-      null,
-    );
-    const age = ageMinutes(newest, nowMs);
-    const stale = active && age !== null && age > SCREENER_STALE_MINUTES;
-    volume_leaders = limited.length === 0
-      ? (sawRow && !sawTimestamp
-        ? unavailableSection<VolOut[]>([], "SOURCE_UNVERIFIABLE")
-        : emptySection<VolOut[]>([], "NO_QUALIFYING_DATA"))
-      : envelope(stale ? "stale" : "available", limited, newest, stale ? "SOURCE_STALE" : null);
+    const verdict = selectVolumeLeaders(candidates, {
+      positiveVolumeCandidates,
+      limit: VOLUME_LEADER_LIMIT,
+      nowMs,
+      active,
+      staleMinutes: SCREENER_STALE_MINUTES,
+    });
+    volume_leaders = envelope(verdict.status, verdict.rows, verdict.as_of, verdict.reason_code);
   }
 
   // ------------------------------------------------------ 6. journal readiness
@@ -539,14 +542,12 @@ serve(async (req) => {
     open_trades: number; missing_stop: number; missing_target: number;
     symbols: Array<{ symbol: string; side: string; qty: number | null; missing_stop: boolean; missing_target: boolean }>;
   }
+  const EMPTY_JOURNAL: JournalReadiness = { open_trades: 0, missing_stop: 0, missing_target: 0, symbols: [] };
   const jrnRaw = ok<Array<Record<string, unknown>>>(jrnRes as never);
   let journal_readiness: SectionEnvelope<JournalReadiness>;
   let journalMissingRiskCount = 0;
   if (jrnRaw === null) {
-    journal_readiness = unavailableSection<JournalReadiness>(
-      { open_trades: 0, missing_stop: 0, missing_target: 0, symbols: [] },
-      "QUERY_FAILED",
-    );
+    journal_readiness = unavailableSection<JournalReadiness>(EMPTY_JOURNAL, "QUERY_FAILED");
   } else {
     let malformed = 0;
     const rows = jrnRaw
@@ -567,17 +568,23 @@ serve(async (req) => {
         };
       })
       .filter((r): r is NonNullable<typeof r> => r !== null);
-    const data: JournalReadiness = {
-      open_trades: rows.length,
-      missing_stop: rows.filter((r) => r.missing_stop).length,
-      missing_target: rows.filter((r) => r.missing_target).length,
-      symbols: rows,
-    };
-    journalMissingRiskCount = rows.filter((r) => r.missing_stop || r.missing_target).length;
-    journal_readiness = rows.length === 0
-      ? envelope("empty", data, null, malformed > 0 ? "INCOMPLETE_COVERAGE" : "NO_QUALIFYING_DATA")
-      : envelope("available", data, null, malformed > 0 ? "INCOMPLETE_COVERAGE" : null);
+    if (malformed > 0) {
+      // Coverage is incomplete — never undercount open risk silently.
+      journal_readiness = unavailableSection<JournalReadiness>(EMPTY_JOURNAL, "INCOMPLETE_COVERAGE");
+    } else {
+      const data: JournalReadiness = {
+        open_trades: rows.length,
+        missing_stop: rows.filter((r) => r.missing_stop).length,
+        missing_target: rows.filter((r) => r.missing_target).length,
+        symbols: rows,
+      };
+      journalMissingRiskCount = rows.filter((r) => r.missing_stop || r.missing_target).length;
+      journal_readiness = rows.length === 0
+        ? envelope("empty", data, null, "NO_QUALIFYING_DATA")
+        : envelope("available", data, null, null);
+    }
   }
+
 
   // ------------------------------------------------------------ 7. headlines
   interface NewsOut { id: string; headline: string; source: string | null; url: string | null; published_at: string }

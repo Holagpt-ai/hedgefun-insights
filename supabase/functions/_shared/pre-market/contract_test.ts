@@ -199,12 +199,16 @@ import {
   resolveMarketContext,
   sanitizeAlerts,
   sanitizeMarketSignals,
+  selectVolumeLeaders,
   validateCalendarRows,
+  validateExchangeAgreement,
 } from "./contract.ts";
 
 // /marketstatus/upcoming lists only special days; a normal session has no row for today.
+// Every exception date must be reported by BOTH NYSE and NASDAQ.
 const CAL_OK = [
   { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
+  { date: "2026-07-28", status: "early-close", exchange: "NASDAQ", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
 ];
 const NOW_OK = { market: "extended-hours", earlyHours: true, serverTime: "2026-07-27T08:00:00-04:00" };
 
@@ -218,6 +222,66 @@ Deno.test("calendar validation fails closed on partial rows", () => {
   assertEquals(validateCalendarRows([{ date: "2026-07-27", status: "open" }]).ok, false);
   assertEquals(validateCalendarRows([{ date: "bad", status: "open", exchange: "NYSE" }]).ok, false);
   assertEquals(validateCalendarRows(CAL_OK).ok, true);
+});
+
+Deno.test("unsupported calendar status fails closed", () => {
+  const r = validateCalendarRows([{ date: "2026-07-28", status: "half-day", exchange: "NYSE" }]);
+  assertEquals(r.ok, false);
+  assertEquals(r.ok === false && r.reason, "CALENDAR_UNAVAILABLE");
+});
+
+Deno.test("non NYSE/NASDAQ exchanges never influence the calendar", () => {
+  const r = validateCalendarRows([
+    { date: "2026-07-28", status: "closed", exchange: "OTC" },
+    { date: "2026-07-28", status: "weird-status", exchange: "CRYPTO" },
+  ]);
+  assertEquals(r.ok, true);
+  assertEquals(r.ok === true && r.rows.length, 0);
+});
+
+Deno.test("early-close row without a close timestamp fails closed", () => {
+  assertEquals(
+    validateCalendarRows([{ date: "2026-07-28", status: "early-close", exchange: "NYSE", close: null }]).ok,
+    false,
+  );
+});
+
+Deno.test("malformed timestamps fail closed", () => {
+  assertEquals(
+    validateCalendarRows([{ date: "2026-07-28", status: "closed", exchange: "NYSE", open: "not-a-time" }]).ok,
+    false,
+  );
+});
+
+Deno.test("a single-exchange future exception is not sufficient evidence", () => {
+  const cal = [{ date: "2026-07-28", status: "closed", exchange: "NYSE", open: null, close: null }];
+  const v = validateCalendarRows(cal);
+  assertEquals(v.ok, true);
+  const agreed = validateExchangeAgreement(v.ok === true ? v.rows : []);
+  assertEquals(agreed.ok, false);
+  assertEquals(agreed.ok === false && agreed.reason, "CALENDAR_CONTRADICTORY");
+  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  assertEquals(r.status, "unavailable");
+  assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
+});
+
+Deno.test("conflicting future exchange rows fail closed", () => {
+  const cal = [
+    { date: "2026-07-28", status: "closed", exchange: "NYSE", open: null, close: null },
+    { date: "2026-07-28", status: "open", exchange: "NASDAQ", open: null, close: null },
+  ];
+  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  assertEquals(r.status, "unavailable");
+  assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
+});
+
+Deno.test("conflicting future early-close times fail closed", () => {
+  const cal = [
+    { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: null, close: "2026-07-28T17:00:00Z" },
+    { date: "2026-07-28", status: "early-close", exchange: "NASDAQ", open: null, close: "2026-07-28T18:00:00Z" },
+  ];
+  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
 });
 
 Deno.test("missing calendar never yields a session", () => {
@@ -248,13 +312,14 @@ Deno.test("provider serverTime without ET offset fails closed", () => {
   assertEquals(r.reason_code, "PROVIDER_TIME_INVALID");
 });
 
-Deno.test("valid evidence resolves premarket and next known session", () => {
+Deno.test("valid evidence resolves premarket without inventing a next session", () => {
   const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: CAL_OK, etDate: "2026-07-27", etWeekday: "Mon" });
   assertEquals(r.status, "premarket");
   assertEquals(r.reason_code, null);
   assertEquals(r.source, "polygon_marketstatus");
   assertEquals(r.official_open_at, null);
-  assertEquals(r.next_known_session_at, "2026-07-28T13:30:00Z");
+  // The exception calendar is NOT a schedule of future sessions.
+  assertEquals(r.next_known_session_at, null);
 });
 
 Deno.test("non-premarket sessions are labeled OUTSIDE_PREMARKET", () => {
@@ -268,27 +333,75 @@ Deno.test("non-premarket sessions are labeled OUTSIDE_PREMARKET", () => {
   assertEquals(r.reason_code, "OUTSIDE_PREMARKET");
 });
 
-Deno.test("next known session ignores closed and open-less rows", () => {
-  assertEquals(nextKnownSessionFrom([{ date: "2026-07-28", status: "closed", exchange: "NYSE", open: "x", close: null }], "2026-07-27"), null);
+Deno.test("a future exception row is never called the next trading session", () => {
+  assertEquals(nextKnownSessionFrom([
+    { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
+  ], "2026-07-27"), null);
+  assertEquals(nextKnownSessionFrom([], "2026-07-27"), null);
 });
 
-Deno.test("only authorized signals with labels render", () => {
-  const out = sanitizeMarketSignals([
-    { signal_id: "hod_break", label: "New session high", direction: "bullish" },
-    { signal_id: "hod_break", label: "dupe", direction: "bullish" },
-    { signal_id: "made_up", label: "Nope", direction: "bullish" },
-    { signal_id: "lod_break", label: "", direction: "bearish" },
-    { signal_id: "lod_break", label: "Session low", direction: "sideways" },
-  ], { unavailable: false });
+// ------------------------------------------------- signal contract (complete)
+
+const FULL_SIGNAL = {
+  signal_id: "hod_break",
+  label: "New session high",
+  category: "level",
+  kind: "transition",
+  direction: "bullish",
+  facts: { price: 10.5, hod: 10.4 },
+  inputs: ["price", "hod"],
+  observed_at: "2026-07-27T12:00:00Z",
+  rule_version: "w2b1c.1",
+};
+
+Deno.test("a complete authorized signal is accepted and deduped", () => {
+  const out = sanitizeMarketSignals(
+    [FULL_SIGNAL, { ...FULL_SIGNAL, label: "dupe" }],
+    { unavailable: false },
+  );
   assertEquals(out.length, 1);
   assertEquals(out[0].signal_id, "hod_break");
+  assertEquals(out[0].category, "level");
+});
+
+Deno.test("unauthorized ids and empty labels are excluded", () => {
+  assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, signal_id: "made_up" }], { unavailable: false }).length, 0);
+  assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, label: "   " }], { unavailable: false }).length, 0);
+});
+
+Deno.test("signals missing category, kind or rule version are excluded", () => {
+  const drop = (patch: Record<string, unknown>) =>
+    sanitizeMarketSignals([{ ...FULL_SIGNAL, ...patch }], { unavailable: false }).length;
+  assertEquals(drop({ category: undefined }), 0);
+  assertEquals(drop({ category: "momentum" }), 0);
+  assertEquals(drop({ kind: undefined }), 0);
+  assertEquals(drop({ kind: "guess" }), 0);
+  assertEquals(drop({ rule_version: "w2b1c.0" }), 0);
+  assertEquals(drop({ rule_version: undefined }), 0);
+});
+
+Deno.test("signals with malformed facts, inputs or observed time are excluded", () => {
+  const drop = (patch: Record<string, unknown>) =>
+    sanitizeMarketSignals([{ ...FULL_SIGNAL, ...patch }], { unavailable: false }).length;
+  assertEquals(drop({ facts: undefined }), 0);
+  assertEquals(drop({ facts: [] }), 0);
+  assertEquals(drop({ facts: { nested: { a: 1 } } }), 0);
+  assertEquals(drop({ facts: { bad: Number.NaN } }), 0);
+  assertEquals(drop({ inputs: undefined }), 0);
+  assertEquals(drop({ inputs: "price" }), 0);
+  assertEquals(drop({ inputs: [1, 2] }), 0);
+  assertEquals(drop({ observed_at: undefined }), 0);
+  assertEquals(drop({ observed_at: "nonsense" }), 0);
+});
+
+Deno.test("an explicit null direction is authorized, an unknown one is not", () => {
+  assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, direction: null }], { unavailable: false })[0].direction, null);
+  assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, direction: "sideways" }], { unavailable: false }).length, 0);
+  assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, direction: undefined }], { unavailable: false }).length, 0);
 });
 
 Deno.test("data unavailable rows expose no signals", () => {
-  assertEquals(
-    sanitizeMarketSignals([{ signal_id: "hod_break", label: "x", direction: "bullish" }], { unavailable: true }).length,
-    0,
-  );
+  assertEquals(sanitizeMarketSignals([FULL_SIGNAL], { unavailable: true }).length, 0);
 });
 
 Deno.test("unknown direction becomes data_unavailable", () => {
@@ -296,16 +409,33 @@ Deno.test("unknown direction becomes data_unavailable", () => {
   assertEquals(normalizeDirection("bearish"), "bearish");
 });
 
-Deno.test("request lifecycle uses the newest real row", () => {
+// ------------------------------------------------ request lifecycle (schema)
+
+Deno.test("request lifecycle reads the real requested_at column", () => {
   const m = latestRequestByTicker([
-    { ticker: "AAPL", status: "failed", created_at: "2026-07-27T10:00:00Z", error_code: "PROVIDER_ERROR" },
-    { ticker: "AAPL", status: "pending", created_at: "2026-07-27T11:00:00Z" },
-    { ticker: "MSFT", status: "bogus", created_at: "2026-07-27T11:00:00Z" },
+    { ticker: "AAPL", status: "failed", requested_at: "2026-07-27T10:00:00Z", error_code: "PROVIDER_ERROR" },
+    { ticker: "AAPL", status: "pending", requested_at: "2026-07-27T11:00:00Z" },
+    { ticker: "MSFT", status: "bogus", requested_at: "2026-07-27T11:00:00Z" },
   ]);
   assertEquals(m.get("AAPL")?.status, "pending");
+  assertEquals(m.get("AAPL")?.requested_at, "2026-07-27T11:00:00Z");
   assertEquals(m.has("MSFT"), false);
   assertEquals(lifecycleLabel(undefined), "No analysis request on record");
   assertEquals(lifecycleLabel(m.get("AAPL")), "Analysis pending");
+});
+
+Deno.test("latest request wins regardless of row order", () => {
+  const rows = [
+    { ticker: "AAPL", status: "pending", requested_at: "2026-07-27T11:00:00Z" },
+    { ticker: "AAPL", status: "succeeded", requested_at: "2026-07-27T09:00:00Z" },
+  ];
+  assertEquals(latestRequestByTicker(rows).get("AAPL")?.status, "pending");
+  assertEquals(latestRequestByTicker([...rows].reverse()).get("AAPL")?.status, "pending");
+});
+
+Deno.test("a legacy created_at row carries no lifecycle timestamp", () => {
+  const m = latestRequestByTicker([{ ticker: "AAPL", status: "pending", created_at: "2026-07-27T11:00:00Z" }]);
+  assertEquals(m.get("AAPL")?.requested_at, null);
 });
 
 Deno.test("journal side is never coerced", () => {
@@ -340,3 +470,59 @@ Deno.test("volume rows without freshness are unusable", () => {
   assertEquals(isUsableVolumeRow({ symbol: "AAPL", volume: 0, updated_at: "2026-07-27T12:00:00Z" }), false);
   assertEquals(isUsableVolumeRow({ symbol: "AAPL", volume: 10, updated_at: "2026-07-27T12:00:00Z" }), true);
 });
+
+// -------------------------------------------------- volume freshness closure
+
+const VOL_NOW = Date.parse("2026-07-27T13:00:00Z");
+const volOpts = { limit: 6, nowMs: VOL_NOW, active: true, staleMinutes: 30 };
+
+Deno.test("an unverifiable row's timestamp never vouches for another row", () => {
+  // One positive-volume row has no timestamp; the timestamped row has no volume.
+  const v = selectVolumeLeaders<{ volume: number | null; updated_at: string | null; change_percent?: number | null }>(
+    [],
+    { ...volOpts, positiveVolumeCandidates: 2 },
+  );
+  assertEquals(v.status, "unavailable");
+  assertEquals(v.reason_code, "SOURCE_UNVERIFIABLE");
+});
+
+Deno.test("no positive-volume candidates at all is empty, not unavailable", () => {
+  const v = selectVolumeLeaders([], { ...volOpts, positiveVolumeCandidates: 0 });
+  assertEquals(v.status, "empty");
+  assertEquals(v.reason_code, "NO_QUALIFYING_DATA");
+});
+
+Deno.test("mixed verifiable and unverifiable rows display only verifiable ones", () => {
+  const v = selectVolumeLeaders(
+    [
+      { symbol: "A", volume: 100, updated_at: "2026-07-27T12:55:00Z", change_percent: 1 },
+      { symbol: "B", volume: 900, updated_at: "2026-07-27T12:50:00Z", change_percent: 1 },
+    ],
+    { ...volOpts, positiveVolumeCandidates: 3 },
+  );
+  assertEquals(v.status, "available");
+  assertEquals(v.rows.map((r) => (r as { symbol: string }).symbol), ["B", "A"]);
+});
+
+Deno.test("any displayed stale row makes the whole section stale", () => {
+  const v = selectVolumeLeaders(
+    [
+      { symbol: "A", volume: 900, updated_at: "2026-07-27T12:55:00Z" },
+      { symbol: "B", volume: 800, updated_at: "2026-07-27T11:00:00Z" },
+    ],
+    { ...volOpts, positiveVolumeCandidates: 2 },
+  );
+  assertEquals(v.status, "stale");
+  assertEquals(v.reason_code, "SOURCE_STALE");
+  // newest displayed timestamp is disclosed as "last available"
+  assertEquals(v.as_of, "2026-07-27T12:55:00Z");
+});
+
+Deno.test("freshness is not applied outside an active session", () => {
+  const v = selectVolumeLeaders(
+    [{ symbol: "A", volume: 900, updated_at: "2026-07-26T12:00:00Z" }],
+    { ...volOpts, active: false, positiveVolumeCandidates: 1 },
+  );
+  assertEquals(v.status, "available");
+});
+
