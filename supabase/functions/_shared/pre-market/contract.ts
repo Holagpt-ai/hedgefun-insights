@@ -564,6 +564,8 @@ export const SIGNAL_CATEGORIES: ReadonlySet<string> = new Set(["trend", "level",
 export const SIGNAL_KINDS: ReadonlySet<string> = new Set(["state", "transition"]);
 /** The single authorized Watchlist V2 signal rule version. */
 export const AUTHORIZED_SIGNAL_RULE_VERSION = "w2b1c.1" as const;
+/** Maximum length of a displayable signal label. */
+export const SIGNAL_LABEL_MAX_LENGTH = 80;
 
 export interface PreMarketSignal {
   signal_id: string;
