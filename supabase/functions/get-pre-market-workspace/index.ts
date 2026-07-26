@@ -157,6 +157,7 @@ serve(async (req) => {
         calendarBody,
         etDate: et.date,
         etWeekday: et.weekday,
+        nowMs,
       });
     }
   }
