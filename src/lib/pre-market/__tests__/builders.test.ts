@@ -8,6 +8,7 @@ import {
   normalizeSymbol,
   numberOrDash,
   relativeAge,
+  renderableSignals,
   symbolRoutes,
   timeOfDayLabel,
   validateSection,
@@ -114,5 +115,38 @@ describe("honest labeling", () => {
   it("formats volume compactly", () => {
     expect(formatVolume(2_400_000)).toBe("2.4M");
     expect(formatVolume(12_000)).toBe("12K");
+  });
+});
+
+describe("P1-R1 client guards", () => {
+  it("requires watchlist_lifecycle and alerts_included to be honest", () => {
+    const ws = validateWorkspace(baseWorkspace({ watchlist_lifecycle: "nope" }));
+    expect(ws?.watchlist_lifecycle).toEqual([]);
+    expect(ws?.alerts_included).toBe(false);
+    const ok = validateWorkspace(baseWorkspace({
+      watchlist_lifecycle: [{ ticker: "aapl", label: "Analysis pending" }, { ticker: "1BAD", label: "x" }, { ticker: "MSFT", label: "" }],
+      alerts_included: true,
+    }));
+    expect(ok?.watchlist_lifecycle).toEqual([{ ticker: "AAPL", label: "Analysis pending" }]);
+    expect(ok?.alerts_included).toBe(true);
+  });
+
+  it("renders only authorized, labeled, deduped signals", () => {
+    const out = renderableSignals(
+      [
+        { signal_id: "hod_break", label: "New high", direction: "bullish" },
+        { signal_id: "hod_break", label: "dupe", direction: "bullish" },
+        { signal_id: "hacked", label: "Evil", direction: "bullish" },
+        { signal_id: "lod_break", label: "  ", direction: "bearish" },
+      ],
+      { unavailable: false },
+    );
+    expect(out).toEqual([{ signal_id: "hod_break", label: "New high", direction: "bullish" }]);
+  });
+
+  it("renders no signals for data unavailable rows", () => {
+    expect(
+      renderableSignals([{ signal_id: "hod_break", label: "New high", direction: "bullish" }], { unavailable: true }),
+    ).toEqual([]);
   });
 });
