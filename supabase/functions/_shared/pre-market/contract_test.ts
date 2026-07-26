@@ -202,10 +202,9 @@ import {
   validateCalendarRows,
 } from "./contract.ts";
 
+// /marketstatus/upcoming lists only special days; a normal session has no row for today.
 const CAL_OK = [
-  { date: "2026-07-27", status: "open", exchange: "NYSE", open: "2026-07-27T13:30:00Z", close: "2026-07-27T20:00:00Z" },
-  { date: "2026-07-27", status: "open", exchange: "NASDAQ", open: "2026-07-27T13:30:00Z", close: "2026-07-27T20:00:00Z" },
-  { date: "2026-07-28", status: "open", exchange: "NYSE", open: "2026-07-28T13:30:00Z", close: null },
+  { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
 ];
 const NOW_OK = { market: "extended-hours", earlyHours: true, serverTime: "2026-07-27T08:00:00-04:00" };
 
@@ -217,6 +216,7 @@ Deno.test("ET date shift is calendar-accurate across month end", () => {
 Deno.test("calendar validation fails closed on partial rows", () => {
   assertEquals(validateCalendarRows(null).ok, false);
   assertEquals(validateCalendarRows([{ date: "2026-07-27", status: "open" }]).ok, false);
+  assertEquals(validateCalendarRows([{ date: "bad", status: "open", exchange: "NYSE" }]).ok, false);
   assertEquals(validateCalendarRows(CAL_OK).ok, true);
 });
 
@@ -253,7 +253,7 @@ Deno.test("valid evidence resolves premarket and next known session", () => {
   assertEquals(r.status, "premarket");
   assertEquals(r.reason_code, null);
   assertEquals(r.source, "polygon_marketstatus");
-  assertEquals(r.official_open_at, "2026-07-27T13:30:00Z");
+  assertEquals(r.official_open_at, null);
   assertEquals(r.next_known_session_at, "2026-07-28T13:30:00Z");
 });
 
