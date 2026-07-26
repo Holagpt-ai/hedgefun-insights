@@ -173,6 +173,78 @@ function validateLifecycle(raw: unknown): PreMarketLifecycleEntry[] {
   return out;
 }
 
+// ------------------------------------------------- earnings semantic integrity
+
+/** The only provider that persists scheduled earnings-calendar records. */
+export const EARNINGS_CALENDAR_PROVIDER = "earnings_calendar";
+/** Maximum number of before-open earnings cards rendered on the page. */
+export const EARNINGS_DISPLAY_LIMIT = 20;
+
+interface CatalystLike {
+  provider?: unknown;
+  verification_state?: unknown;
+  event_type?: unknown;
+  symbol?: unknown;
+  event_date?: unknown;
+  time_of_day?: unknown;
+}
+
+/**
+ * A confirmed scheduled earnings-calendar record. Discriminated ONLY by the
+ * persisted `provider` field — never by `source_name` or title keywords.
+ * Provider news classified as `earnings` is earnings-related news, not a
+ * scheduled calendar event.
+ */
+export function isConfirmedEarningsCalendarEvent(row: CatalystLike): boolean {
+  if (row.verification_state !== "provider_reported") return false;
+  if (row.provider !== EARNINGS_CALENDAR_PROVIDER) return false;
+  if (row.event_type !== undefined && row.event_type !== "earnings") return false;
+  if (normalizeSymbol(row.symbol) === null) return false;
+  return typeof row.event_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.event_date);
+}
+
+/** Confirmed earnings-calendar record, dated today ET, explicitly before open. */
+export function isConfirmedBeforeOpenEarnings(row: CatalystLike, etDate: string): boolean {
+  if (!isConfirmedEarningsCalendarEvent(row)) return false;
+  if (row.event_date !== etDate) return false;
+  return row.time_of_day === "before_open";
+}
+
+/**
+ * Deterministic bounded selection: no scores, no ranking. Server ordering
+ * (watchlist symbols first) is preserved; only the cap is applied here.
+ */
+export function selectDisplayEarnings<T extends CatalystLike>(
+  rows: T[],
+  opts: { etDate: string; limit?: number },
+): T[] {
+  if (!Array.isArray(rows)) return [];
+  const limit = opts.limit ?? EARNINGS_DISPLAY_LIMIT;
+  return rows
+    .filter((r) => isConfirmedBeforeOpenEarnings(r, opts.etDate))
+    .slice(0, Math.max(0, limit));
+}
+
+/** Honest Catalyst label derived from the persisted provider, not wording. */
+export function catalystTypeLabel(row: { event_type: string; provider: string }): string {
+  if (row.event_type === "earnings") {
+    return row.provider === EARNINGS_CALENDAR_PROVIDER
+      ? "Earnings Calendar"
+      : "Earnings-Related News";
+  }
+  return CATALYST_TYPE_LABEL[row.event_type] ?? "Company News";
+}
+
+export const CATALYST_TYPE_LABEL: Record<string, string> = {
+  fda_biotech: "FDA / Biotech",
+  merger_acquisition: "M&A",
+  analyst_action: "Analyst Action",
+  sec_filing_news: "SEC / Filing News",
+  corporate_action: "Corporate Action",
+  product_contract: "Product / Contract",
+  company_news: "Company News",
+};
+
 /**
  * Validate a whole workspace payload. Returns null when the envelope itself
  * is unusable (wrong contract version / not an object). Individual malformed
