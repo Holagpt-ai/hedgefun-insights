@@ -84,7 +84,8 @@ Deno.test("extended-hours without a session flag is contradictory", () => {
 Deno.test("a provider clock without an ET offset is unusable", () => {
   const bad = (t: unknown) =>
     validateProviderStatus({ ...PREMARKET_BODY, serverTime: t }, statusOpts);
-  assertEquals(bad(undefined).ok === false && bad(undefined).reason, "PROVIDER_TIME_INVALID");
+  const v = bad(undefined);
+  assertEquals(v.ok === false && v.reason, "PROVIDER_TIME_INVALID");
   assertEquals(bad("2026-07-27T12:00:00Z").ok, false);
   assertEquals(bad("2026-07-27T08:00:00+02:00").ok, false);
   assertEquals(bad("garbage-04:00").ok, false);
