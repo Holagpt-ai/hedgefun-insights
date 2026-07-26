@@ -155,10 +155,14 @@ export default function AMInbox() {
           {/* 7 — Watchlist Pre-Market Activity */}
           <SectionShell
             title="Watchlist Pre-Market Activity"
-            subtitle="Scoreless · current pre-market analyses only · sorted by volume"
+            subtitle="Scoreless · shown only during a confirmed pre-market session · sorted by volume"
             section={data?.watchlist_activity ?? null}
             loading={loading}
-            emptyMessage="No current pre-market analysis for your watchlist symbols."
+            emptyMessage={
+              data?.market_context.status === "premarket"
+                ? "No current pre-market analysis for your watchlist symbols."
+                : "No pre-market session is active, so no pre-market analysis is shown."
+            }
             onRetry={ws.retry}
             action={
               <button
@@ -171,6 +175,25 @@ export default function AMInbox() {
           >
             <WatchlistActivityList rows={data?.watchlist_activity.data ?? []} />
           </SectionShell>
+
+          {/* 7b — Honest lifecycle disclosure for excluded symbols */}
+          {!loading && data && data.watchlist_lifecycle.length > 0 && (
+            <div className="rounded-xl border border-dashed bg-card p-3">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Watchlist symbols without a current pre-market analysis
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {data.watchlist_lifecycle.map((l) => (
+                  <span
+                    key={l.ticker}
+                    className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
+                  >
+                    {l.ticker} · {l.label}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* 8 — Day-Trade Radar volume leaders */}
           <SectionShell
