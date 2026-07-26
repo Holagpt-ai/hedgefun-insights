@@ -315,8 +315,9 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
   const earningsConfirmedTotal = earningsDropped
     ? 0
     : totalValid
-      ? Math.max(confirmedEarnings.length, rawTotal)
-      : confirmedEarnings.length;
+      ? Math.max(validEarnings.length, rawTotal)
+      : validEarnings.length;
+
 
   return {
     contract_version: 1,
