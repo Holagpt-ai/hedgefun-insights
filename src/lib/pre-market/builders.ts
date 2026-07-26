@@ -4,6 +4,8 @@
 import type {
   JournalReadiness,
   MarketContextStatus,
+  PreMarketLifecycleEntry,
+  PreMarketSignal,
   PreMarketWorkspaceResponse,
   SectionEnvelope,
   SectionStatus,
