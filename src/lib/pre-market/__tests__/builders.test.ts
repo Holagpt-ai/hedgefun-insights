@@ -14,6 +14,7 @@ import {
   validateSection,
   validateWorkspace,
 } from "@/lib/pre-market/builders";
+import { REASON_TEXT } from "@/components/pre-market/SectionShell";
 
 function baseWorkspace(overrides: Record<string, unknown> = {}) {
   const section = (data: unknown) => ({ status: "available", data, as_of: null, reason_code: null });
