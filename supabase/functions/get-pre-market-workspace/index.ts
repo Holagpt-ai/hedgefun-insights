@@ -403,7 +403,8 @@ serve(async (req) => {
 
   // ------------------------------------------------------------- 3. catalyst
   interface CatOut {
-    id: string; symbol: string; company_name: string | null; event_type: string;
+    id: string; symbol: string; company_name: string | null; provider: string;
+    event_type: string; verification_state: string;
     event_date: string; event_time: string | null; time_of_day: string | null;
     title: string; source_name: string | null; source_url: string | null;
     published_at: string | null; updated_at: string | null; facts: unknown;
