@@ -187,20 +187,32 @@ interface CatalystLike {
   symbol?: unknown;
   event_date?: unknown;
   time_of_day?: unknown;
+  updated_at?: unknown;
+  published_at?: unknown;
+}
+
+/** A non-empty, parseable ISO timestamp, or null. */
+function isoOrNull(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  return Number.isFinite(Date.parse(raw)) ? raw : null;
 }
 
 /**
  * A confirmed scheduled earnings-calendar record. Discriminated ONLY by the
  * persisted `provider` field — never by `source_name` or title keywords.
  * Provider news classified as `earnings` is earnings-related news, not a
- * scheduled calendar event.
+ * scheduled calendar event. Missing `event_type` and missing timestamp
+ * evidence both fail closed.
  */
 export function isConfirmedEarningsCalendarEvent(row: CatalystLike): boolean {
   if (row.verification_state !== "provider_reported") return false;
   if (row.provider !== EARNINGS_CALENDAR_PROVIDER) return false;
-  if (row.event_type !== undefined && row.event_type !== "earnings") return false;
+  if (row.event_type !== "earnings") return false;
   if (normalizeSymbol(row.symbol) === null) return false;
-  return typeof row.event_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.event_date);
+  if (typeof row.event_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.event_date)) return false;
+  // Real persisted freshness evidence is mandatory.
+  if (isoOrNull(row.updated_at) === null && isoOrNull(row.published_at) === null) return false;
+  return true;
 }
 
 /** Confirmed earnings-calendar record, dated today ET, explicitly before open. */
@@ -224,6 +236,7 @@ export function selectDisplayEarnings<T extends CatalystLike>(
     .filter((r) => isConfirmedBeforeOpenEarnings(r, opts.etDate))
     .slice(0, Math.max(0, limit));
 }
+
 
 /** Honest Catalyst label derived from the persisted provider, not wording. */
 export function catalystTypeLabel(row: { event_type: string; provider: string }): string {
