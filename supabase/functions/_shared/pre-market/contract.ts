@@ -35,6 +35,7 @@ export type ReasonCode =
   | "ANALYSIS_AWAITING_REFRESH"
   | "NEWS_FEED_EMPTY"
   | "INCOMPLETE_COVERAGE"
+  | "MARKET_STATUS_CONTRADICTORY"
   | "SOURCE_UNVERIFIABLE";
 
 export type MarketContextStatus =
