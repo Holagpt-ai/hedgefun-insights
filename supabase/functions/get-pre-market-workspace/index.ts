@@ -478,7 +478,8 @@ serve(async (req) => {
   // before-open report time qualify. Provider-classified earnings NEWS
   // (provider === "polygon") is never presented as a scheduled earnings event.
   interface EarnOut {
-    id: string; symbol: string; company_name: string | null; event_date: string;
+    id: string; symbol: string; company_name: string | null; provider: string;
+    verification_state: string; event_date: string;
     time_of_day: string | null; title: string; estimate_eps: number | null;
     actual_eps: number | null; surprise_percent: number | null;
     source_name: string | null; source_url: string | null;
@@ -502,6 +503,8 @@ serve(async (req) => {
         id: c.id,
         symbol: c.symbol,
         company_name: c.company_name,
+        provider: c.provider,
+        verification_state: c.verification_state,
         event_date: c.event_date,
         time_of_day: c.time_of_day,
         title: c.title,
