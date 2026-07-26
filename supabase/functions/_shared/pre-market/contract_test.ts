@@ -458,6 +458,15 @@ Deno.test("unauthorized ids and empty labels are excluded", () => {
   assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, label: "   " }], { unavailable: false }).length, 0);
 });
 
+Deno.test("over-long signal labels are excluded, never truncated", () => {
+  const long = "x".repeat(81);
+  assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, label: long }], { unavailable: false }).length, 0);
+  const exact = "y".repeat(80);
+  const out = sanitizeMarketSignals([{ ...FULL_SIGNAL, label: exact }], { unavailable: false });
+  assertEquals(out.length, 1);
+  assertEquals(out[0].label, exact);
+});
+
 Deno.test("signals missing category, kind or rule version are excluded", () => {
   const drop = (patch: Record<string, unknown>) =>
     sanitizeMarketSignals([{ ...FULL_SIGNAL, ...patch }], { unavailable: false }).length;
