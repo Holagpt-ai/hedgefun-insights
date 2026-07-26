@@ -411,6 +411,7 @@ serve(async (req) => {
   }
   const catRaw = ok<Array<Record<string, unknown>>>(catRes as never);
   const catalystRows: CatOut[] = [];
+  let displayedCatalysts: CatOut[] = [];
   let catalyst_watch: SectionEnvelope<CatOut[]>;
   const newestSourceTs = (rows: CatOut[]): string | null =>
     rows.reduce<string | null>((acc, r) => {
