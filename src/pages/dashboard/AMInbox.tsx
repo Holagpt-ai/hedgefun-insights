@@ -123,7 +123,7 @@ export default function AMInbox() {
           {/* 5 — Catalyst Watch */}
           <SectionShell
             title="Catalyst Watch"
-            subtitle="Provider-reported events · today and the recent 48-hour window"
+            subtitle="Provider-reported events · today and the previous two ET calendar dates"
             section={data?.catalyst_watch ?? null}
             loading={loading}
             emptyMessage="No provider-reported catalysts in the current window."
