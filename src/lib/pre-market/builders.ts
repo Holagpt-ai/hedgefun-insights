@@ -80,6 +80,8 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
   return {
     contract_version: 1,
     server_now: r.server_now,
+    watchlist_lifecycle: validateLifecycle(r.watchlist_lifecycle),
+    alerts_included: r.alerts_included === true,
     market_context: {
       status,
       et_date: typeof mcRaw.et_date === "string" ? mcRaw.et_date : "",
