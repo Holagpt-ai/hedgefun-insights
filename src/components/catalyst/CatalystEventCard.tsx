@@ -233,7 +233,9 @@ export function CatalystEventCard({
           </Link>
         </Button>
         <Button asChild variant="ghost" size="sm" className="gap-1">
-          <Link to="/dashboard/watchlist">Open Watchlist</Link>
+          <Link to={`/dashboard/watchlist?symbol=${encodeURIComponent(event.symbol)}`}>
+            Open Watchlist
+          </Link>
         </Button>
         <Button asChild variant="ghost" size="sm" className="gap-1">
           <Link to={`/dashboard/journal?symbol=${encodeURIComponent(event.symbol)}`}>
