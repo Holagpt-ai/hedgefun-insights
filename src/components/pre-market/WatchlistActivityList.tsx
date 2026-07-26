@@ -1,5 +1,12 @@
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
-import { directionLabel, formatPercent, formatPrice, formatVolume, numberOrDash } from "@/lib/pre-market/builders";
+import {
+  directionLabel,
+  formatPercent,
+  formatPrice,
+  formatVolume,
+  numberOrDash,
+  renderableSignals,
+} from "@/lib/pre-market/builders";
 import type { PreMarketWatchlistRow } from "@/types/pre-market";
 
 function DirectionBadge({ direction }: { direction: string }) {
