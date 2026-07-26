@@ -293,13 +293,17 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
 
   const earningsSection = validateSection<PreMarketWorkspaceResponse["earnings"]["data"]>(r.earnings, [], true);
   const etDate = typeof mcRaw.et_date === "string" ? mcRaw.et_date : "";
-  const confirmedEarnings = selectDisplayEarnings(earningsSection.data, { etDate });
+  // Validity first; the display cap is applied afterwards so a bounded subset
+  // is never mistaken for dropped-malformed rows.
+  const validEarnings = earningsSection.data.filter((row) => isConfirmedBeforeOpenEarnings(row, etDate));
+  const confirmedEarnings = validEarnings.slice(0, EARNINGS_DISPLAY_LIMIT);
   // If a presented payload contained rows client validation had to remove, the
   // remainder is not a trustworthy view — disclose incompleteness, never an
   // empty state that reads as "no earnings today".
   const earningsDropped =
     (earningsSection.status === "available" || earningsSection.status === "stale") &&
-    confirmedEarnings.length < earningsSection.data.length;
+    validEarnings.length < earningsSection.data.length;
+
   const earnings: PreMarketWorkspaceResponse["earnings"] = earningsDropped
     ? { status: "unavailable", data: [], as_of: null, reason_code: "INCOMPLETE_COVERAGE" }
     : { ...earningsSection, data: confirmedEarnings };
