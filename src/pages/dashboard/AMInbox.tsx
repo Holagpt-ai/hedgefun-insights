@@ -143,13 +143,35 @@ export default function AMInbox() {
           {/* 6 — Before-Open Earnings */}
           <SectionShell
             title="Before-Open Earnings"
-            subtitle="Current ET date · provider-reported earnings events"
+            subtitle="Confirmed earnings-calendar records only · current ET date · reporting before the open"
             section={data?.earnings ?? null}
             loading={loading}
-            emptyMessage="No before-open earnings reported for today."
+            emptyMessage="No confirmed before-open earnings-calendar events for today. Earnings-related news appears under Catalyst Watch."
             onRetry={ws.retry}
+            action={
+              <button
+                onClick={() => navigate("/dashboard/catalyst")}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+              >
+                Open Catalyst for the full calendar <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            }
           >
-            <EarningsList rows={data?.earnings.data ?? []} />
+            <div className="flex flex-col gap-2">
+              <EarningsList rows={data?.earnings.data ?? []} />
+              {!!data && data.earnings_confirmed_total > (data.earnings.data.length ?? 0) && (
+                <p className="text-[11px] text-muted-foreground">
+                  Showing {data.earnings.data.length} of {data.earnings_confirmed_total} confirmed
+                  before-open earnings events ·{" "}
+                  <button
+                    onClick={() => navigate("/dashboard/catalyst")}
+                    className="text-accent-blue hover:underline"
+                  >
+                    open Catalyst for the full calendar
+                  </button>
+                </p>
+              )}
+            </div>
           </SectionShell>
 
           {/* 7 — Watchlist Pre-Market Activity */}

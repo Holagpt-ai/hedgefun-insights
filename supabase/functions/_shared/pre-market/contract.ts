@@ -350,7 +350,7 @@ export function buildChecklist(s: ChecklistSource): ChecklistItem[] {
   push("watchlist_premarket", s.watchlistPremarketCount,
     (n) => `Review ${n} current Watchlist Pre-Market ${n === 1 ? "name" : "names"}`, "/dashboard/watchlist");
   push("catalysts_today", s.catalystTodayCount,
-    (n) => `Review ${n} provider-reported ${n === 1 ? "catalyst" : "catalysts"} scheduled today`, "/dashboard/catalyst");
+    (n) => `Review ${n} provider-reported catalyst ${n === 1 ? "item" : "items"} dated today`, "/dashboard/catalyst");
   push("earnings_before_open", s.beforeOpenEarningsCount,
     (n) => `Review ${n} before-open ${n === 1 ? "earnings event" : "earnings events"}`, "/dashboard/catalyst");
   push("awaiting_refresh", s.awaitingRefreshCount,
@@ -828,4 +828,101 @@ export function selectVolumeLeaders<T extends { volume: number | null; updated_a
     as_of: newest,
     reason_code: stale ? "SOURCE_STALE" : null,
   };
+}
+
+// ==========================================================================
+// P1-R4 — earnings semantic integrity
+// ==========================================================================
+
+/** The only provider that persists scheduled earnings-calendar records. */
+export const EARNINGS_CALENDAR_PROVIDER = "earnings_calendar";
+
+/** Maximum number of before-open earnings cards rendered on the page. */
+export const EARNINGS_DISPLAY_LIMIT = 20;
+
+export interface CatalystLike {
+  provider?: unknown;
+  verification_state?: unknown;
+  event_type?: unknown;
+  symbol?: unknown;
+  event_date?: unknown;
+  time_of_day?: unknown;
+  updated_at?: unknown;
+  published_at?: unknown;
+}
+
+/**
+ * A confirmed scheduled earnings-calendar record. The discriminator is the
+ * persisted `provider` field — never `source_name`, never title keywords.
+ * Polygon news classified as `earnings` is earnings-RELATED news, not a
+ * scheduled calendar event, and always returns false here.
+ */
+export function isConfirmedEarningsCalendarEvent(row: CatalystLike): boolean {
+  if (row.verification_state !== "provider_reported") return false;
+  if (row.provider !== EARNINGS_CALENDAR_PROVIDER) return false;
+  if (row.event_type !== "earnings") return false;
+  if (normalizeSymbol(row.symbol) === null) return false;
+  if (!isIsoDate(row.event_date)) return false;
+  // Real persisted freshness evidence is mandatory.
+  if (isoOrNull(row.updated_at) === null && isoOrNull(row.published_at) === null) return false;
+  return true;
+}
+
+/** Confirmed earnings-calendar record, dated today ET, explicitly before open. */
+export function isConfirmedBeforeOpenEarnings(row: CatalystLike, etDate: string): boolean {
+  if (!isConfirmedEarningsCalendarEvent(row)) return false;
+  if (row.event_date !== etDate) return false;
+  return normalizeTimeOfDay(row.time_of_day) === "before_open";
+}
+
+/** Only the persisted ingestion fact keys are read. Nothing is synthesized. */
+export function readEarningsFacts(facts: unknown): {
+  estimate_eps: number | null;
+  actual_eps: number | null;
+  surprise_percent: number | null;
+} {
+  const f = (facts && typeof facts === "object" && !Array.isArray(facts))
+    ? facts as Record<string, unknown>
+    : {};
+  return {
+    estimate_eps: finiteOrNull(f.estimate_eps),
+    actual_eps: finiteOrNull(f.actual_eps),
+    surprise_percent: finiteOrNull(f.surprise_percent),
+  };
+}
+
+/**
+ * Deterministic selection: watchlist symbols first, then alphabetical ticker.
+ * No scoring, no ranking. Returns the bounded page plus the true total.
+ */
+export function selectBeforeOpenEarnings<T extends CatalystLike & { symbol: string }>(
+  rows: T[],
+  opts: { etDate: string; owned: ReadonlySet<string>; limit?: number },
+): { rows: T[]; total: number } {
+  const limit = opts.limit ?? EARNINGS_DISPLAY_LIMIT;
+  const qualifying = rows.filter((r) => isConfirmedBeforeOpenEarnings(r, opts.etDate));
+  const sorted = [...qualifying].sort((a, b) => {
+    const aw = opts.owned.has(a.symbol) ? 0 : 1;
+    const bw = opts.owned.has(b.symbol) ? 0 : 1;
+    if (aw !== bw) return aw - bw;
+    return a.symbol.localeCompare(b.symbol);
+  });
+  return { rows: sorted.slice(0, Math.max(0, limit)), total: qualifying.length };
+}
+
+/**
+ * The Catalyst checklist may only count rows actually selected for display
+ * and dated today — never every hidden database row.
+ */
+export function catalystDisplayTodayCount(
+  displayed: Array<{ event_date?: unknown }>,
+  etDate: string,
+): number {
+  return displayed.filter((r) => r.event_date === etDate).length;
+}
+
+/** Honest Catalyst label derived from the persisted provider, not wording. */
+export function catalystEarningsLabel(row: CatalystLike): "earnings_calendar" | "earnings_news" | null {
+  if (row.event_type !== "earnings") return null;
+  return row.provider === EARNINGS_CALENDAR_PROVIDER ? "earnings_calendar" : "earnings_news";
 }

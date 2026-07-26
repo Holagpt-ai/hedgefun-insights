@@ -238,3 +238,108 @@ describe("P1-R2 controlled reason messages", () => {
   });
 });
 
+
+// ---------------------------------------------- P1-R4 earnings integrity
+import {
+  catalystTypeLabel,
+  isConfirmedBeforeOpenEarnings,
+  isConfirmedEarningsCalendarEvent,
+  selectDisplayEarnings,
+} from "@/lib/pre-market/builders";
+
+const ET = "2026-07-26";
+const earn = (o: Record<string, unknown> = {}) => ({
+  id: String(Math.random()),
+  symbol: "AAPL",
+  provider: "earnings_calendar",
+  verification_state: "provider_reported",
+  event_type: "earnings",
+  event_date: ET,
+  time_of_day: "before_open",
+  title: "Apple Inc. earnings",
+  estimate_eps: null,
+  actual_eps: null,
+  surprise_percent: null,
+  source_name: null,
+  source_url: null,
+  company_name: null,
+  ...o,
+});
+
+describe("before-open earnings integrity", () => {
+  it("excludes provider news whose title mentions earnings", () => {
+    const row = earn({ provider: "polygon", title: "AAPL earnings beat estimates" });
+    expect(isConfirmedEarningsCalendarEvent(row)).toBe(false);
+    expect(isConfirmedBeforeOpenEarnings(row, ET)).toBe(false);
+  });
+
+  it("excludes a spoofed source_name with provider polygon", () => {
+    const row = earn({ provider: "polygon", source_name: "Earnings Calendar" });
+    expect(selectDisplayEarnings([row], { etDate: ET })).toHaveLength(0);
+  });
+
+  it("includes earnings_calendar + before_open + today", () => {
+    expect(selectDisplayEarnings([earn()], { etDate: ET })).toHaveLength(1);
+  });
+
+  it("excludes null and after_close report times", () => {
+    expect(selectDisplayEarnings([earn({ time_of_day: null })], { etDate: ET })).toHaveLength(0);
+    expect(selectDisplayEarnings([earn({ time_of_day: "after_close" })], { etDate: ET })).toHaveLength(0);
+  });
+
+  it("100 provider earnings-news rows produce zero before-open rows", () => {
+    const rows = Array.from({ length: 100 }, (_, i) => earn({ provider: "polygon", symbol: `SYM${i}` }));
+    expect(selectDisplayEarnings(rows, { etDate: ET })).toHaveLength(0);
+  });
+
+  it("caps display at 20 while the workspace discloses the real total", () => {
+    const rows = Array.from({ length: 27 }, (_, i) => earn({ symbol: `AA${i}` }));
+    expect(selectDisplayEarnings(rows, { etDate: ET })).toHaveLength(20);
+    const ws = validateWorkspace(baseWorkspace({
+      market_context: { status: "premarket", et_date: ET, et_time: "08:00" },
+      earnings: { status: "available", data: rows, as_of: null, reason_code: null },
+      earnings_confirmed_total: 27,
+    }));
+    expect(ws!.earnings.data).toHaveLength(20);
+    expect(ws!.earnings_confirmed_total).toBe(27);
+  });
+
+  it("preserves server watchlist-first order without any score field", () => {
+    const rows = [earn({ symbol: "ZZZ" }), earn({ symbol: "AAA" })];
+    const out = selectDisplayEarnings(rows, { etDate: ET });
+    expect(out.map((r) => r.symbol)).toEqual(["ZZZ", "AAA"]);
+    expect(JSON.stringify(out)).not.toMatch(/score|confidence|rank/i);
+  });
+
+  it("renders the persisted EPS fact keys", () => {
+    const row = earn({ estimate_eps: 1.25, actual_eps: 1.4, surprise_percent: 12 });
+    const out = selectDisplayEarnings([row], { etDate: ET })[0];
+    expect(out.estimate_eps).toBe(1.25);
+    expect(out.actual_eps).toBe(1.4);
+    expect(out.surprise_percent).toBe(12);
+  });
+
+  it("workspace validation strips provider earnings news from the section", () => {
+    const ws = validateWorkspace(baseWorkspace({
+      market_context: { status: "premarket", et_date: ET, et_time: "08:00" },
+      earnings: {
+        status: "available",
+        data: [earn({ provider: "polygon" }), earn({ symbol: "MSFT" })],
+        as_of: null,
+        reason_code: null,
+      },
+    }));
+    expect(ws!.earnings.data.map((r) => r.symbol)).toEqual(["MSFT"]);
+  });
+});
+
+describe("catalyst earnings labeling", () => {
+  it("labels calendar records and news distinctly", () => {
+    expect(catalystTypeLabel({ event_type: "earnings", provider: "earnings_calendar" }))
+      .toBe("Earnings Calendar");
+    expect(catalystTypeLabel({ event_type: "earnings", provider: "polygon" }))
+      .toBe("Earnings-Related News");
+    expect(catalystTypeLabel({ event_type: "merger_acquisition", provider: "polygon" }))
+      .toBe("M&A");
+  });
+});

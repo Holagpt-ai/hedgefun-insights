@@ -1,18 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
-import { etTimestampLabel, timeOfDayLabel } from "@/lib/pre-market/builders";
+import { catalystTypeLabel, etTimestampLabel, timeOfDayLabel } from "@/lib/pre-market/builders";
 import type { PreMarketCatalyst } from "@/types/pre-market";
-
-const TYPE_LABEL: Record<string, string> = {
-  earnings: "Earnings",
-  fda_biotech: "FDA / Biotech",
-  merger_acquisition: "M&A",
-  analyst_action: "Analyst Action",
-  sec_filing_news: "SEC / Filing News",
-  corporate_action: "Corporate Action",
-  product_contract: "Product / Contract",
-  company_news: "Company News",
-};
 
 export function CatalystWatchList({ rows, etDate }: { rows: PreMarketCatalyst[]; etDate: string }) {
   return (
@@ -22,7 +11,7 @@ export function CatalystWatchList({ rows, etDate }: { rows: PreMarketCatalyst[];
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold">{c.symbol}</span>
             <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {TYPE_LABEL[c.event_type] ?? "Company News"}
+              {catalystTypeLabel(c)}
             </span>
             <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
               Provider reported

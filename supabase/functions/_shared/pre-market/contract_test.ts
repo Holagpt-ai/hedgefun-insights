@@ -625,3 +625,136 @@ Deno.test("freshness is not applied outside an active session", () => {
   assertEquals(v.status, "available");
 });
 
+
+// ==========================================================================
+// P1-R4 — earnings semantic integrity
+// ==========================================================================
+
+import {
+  catalystDisplayTodayCount,
+  catalystEarningsLabel,
+  isConfirmedBeforeOpenEarnings,
+  isConfirmedEarningsCalendarEvent,
+  readEarningsFacts,
+  selectBeforeOpenEarnings,
+} from "./contract.ts";
+
+const ET = "2026-07-27";
+const base = (o: Record<string, unknown> = {}) => ({
+  symbol: "AAPL",
+  provider: "earnings_calendar",
+  verification_state: "provider_reported",
+  event_type: "earnings",
+  event_date: ET,
+  time_of_day: "before_open",
+  updated_at: "2026-07-27T08:00:00Z",
+  published_at: null,
+  facts: {},
+  ...o,
+});
+
+Deno.test("earnings: polygon news with 'earnings' title is not a calendar event", () => {
+  const row = base({ provider: "polygon", title: "Apple earnings beat expectations" });
+  assertEquals(isConfirmedEarningsCalendarEvent(row), false);
+  assertEquals(isConfirmedBeforeOpenEarnings(row, ET), false);
+});
+
+Deno.test("earnings: spoofed source_name cannot pass the provider discriminator", () => {
+  const row = base({ provider: "polygon", source_name: "Earnings Calendar" });
+  assertEquals(isConfirmedBeforeOpenEarnings(row, ET), false);
+});
+
+Deno.test("earnings: calendar + before_open + today is included", () => {
+  assertEquals(isConfirmedBeforeOpenEarnings(base(), ET), true);
+});
+
+Deno.test("earnings: null time_of_day is excluded from before-open", () => {
+  assertEquals(isConfirmedBeforeOpenEarnings(base({ time_of_day: null }), ET), false);
+  assertEquals(isConfirmedEarningsCalendarEvent(base({ time_of_day: null })), true);
+});
+
+Deno.test("earnings: after_close and during are excluded from before-open", () => {
+  assertEquals(isConfirmedBeforeOpenEarnings(base({ time_of_day: "after_close" }), ET), false);
+  assertEquals(isConfirmedBeforeOpenEarnings(base({ time_of_day: "during" }), ET), false);
+});
+
+Deno.test("earnings: other ET dates are excluded", () => {
+  assertEquals(isConfirmedBeforeOpenEarnings(base({ event_date: "2026-07-26" }), ET), false);
+});
+
+Deno.test("earnings: missing timestamp evidence is excluded", () => {
+  assertEquals(
+    isConfirmedEarningsCalendarEvent(base({ updated_at: null, published_at: null })),
+    false,
+  );
+});
+
+Deno.test("earnings: persisted fact keys are read, wrong keys are not", () => {
+  const f = readEarningsFacts({ estimate_eps: 1.25, actual_eps: 1.4, surprise_percent: 12 });
+  assertEquals(f.estimate_eps, 1.25);
+  assertEquals(f.actual_eps, 1.4);
+  assertEquals(f.surprise_percent, 12);
+  const wrong = readEarningsFacts({ eps_estimate: 1.25, eps_actual: 1.4 });
+  assertEquals(wrong.estimate_eps, null);
+  assertEquals(wrong.actual_eps, null);
+});
+
+Deno.test("earnings: 100 polygon earnings-news rows produce zero before-open rows", () => {
+  const rows = Array.from({ length: 100 }, (_, i) =>
+    base({ provider: "polygon", symbol: `SYM${i}`, title: "Q2 earnings preview" }));
+  const sel = selectBeforeOpenEarnings(rows as never, { etDate: ET, owned: new Set() });
+  assertEquals(sel.total, 0);
+  assertEquals(sel.rows.length, 0);
+});
+
+Deno.test("earnings: more than 20 confirmed events display 20 and disclose the total", () => {
+  const rows = Array.from({ length: 27 }, (_, i) =>
+    base({ symbol: `AA${String(i).padStart(2, "0")}` }));
+  const sel = selectBeforeOpenEarnings(rows as never, { etDate: ET, owned: new Set() });
+  assertEquals(sel.total, 27);
+  assertEquals(sel.rows.length, 20);
+});
+
+Deno.test("earnings: watchlist symbols sort first, then deterministic ticker order", () => {
+  const rows = [base({ symbol: "ZZZ" }), base({ symbol: "AAA" }), base({ symbol: "MMM" })];
+  const sel = selectBeforeOpenEarnings(rows as never, { etDate: ET, owned: new Set(["ZZZ"]) });
+  assertEquals(sel.rows.map((r) => r.symbol), ["ZZZ", "AAA", "MMM"]);
+});
+
+Deno.test("catalyst: display count uses only displayed rows dated today", () => {
+  const displayed = [{ event_date: ET }, { event_date: ET }, { event_date: "2026-07-25" }];
+  assertEquals(catalystDisplayTodayCount(displayed, ET), 2);
+});
+
+Deno.test("catalyst: earnings label distinguishes calendar from news", () => {
+  assertEquals(catalystEarningsLabel(base()), "earnings_calendar");
+  assertEquals(catalystEarningsLabel(base({ provider: "polygon" })), "earnings_news");
+  assertEquals(catalystEarningsLabel(base({ event_type: "company_news" })), null);
+});
+
+Deno.test("checklist: catalyst wording makes no false 'scheduled' claim", () => {
+  const items = buildChecklist({
+    watchlistPremarketCount: 0,
+    catalystTodayCount: 3,
+    beforeOpenEarningsCount: 0,
+    awaitingRefreshCount: 0,
+    journalMissingRiskCount: 0,
+    volumeLeaderCount: 0,
+  });
+  assertEquals(items.length, 1);
+  assertEquals(items[0].label, "Review 3 provider-reported catalyst items dated today");
+});
+
+Deno.test("checklist: polygon earnings news cannot increment before-open count", () => {
+  const rows = Array.from({ length: 5 }, () => base({ provider: "polygon" }));
+  const sel = selectBeforeOpenEarnings(rows as never, { etDate: ET, owned: new Set() });
+  const items = buildChecklist({
+    watchlistPremarketCount: 0,
+    catalystTodayCount: 0,
+    beforeOpenEarningsCount: sel.total,
+    awaitingRefreshCount: 0,
+    journalMissingRiskCount: 0,
+    volumeLeaderCount: 0,
+  });
+  assertEquals(items.length, 0);
+});
