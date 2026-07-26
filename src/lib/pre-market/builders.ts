@@ -187,20 +187,32 @@ interface CatalystLike {
   symbol?: unknown;
   event_date?: unknown;
   time_of_day?: unknown;
+  updated_at?: unknown;
+  published_at?: unknown;
+}
+
+/** A non-empty, parseable ISO timestamp, or null. */
+function isoOrNull(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.trim() === "") return null;
+  return Number.isFinite(Date.parse(raw)) ? raw : null;
 }
 
 /**
  * A confirmed scheduled earnings-calendar record. Discriminated ONLY by the
  * persisted `provider` field — never by `source_name` or title keywords.
  * Provider news classified as `earnings` is earnings-related news, not a
- * scheduled calendar event.
+ * scheduled calendar event. Missing `event_type` and missing timestamp
+ * evidence both fail closed.
  */
 export function isConfirmedEarningsCalendarEvent(row: CatalystLike): boolean {
   if (row.verification_state !== "provider_reported") return false;
   if (row.provider !== EARNINGS_CALENDAR_PROVIDER) return false;
-  if (row.event_type !== undefined && row.event_type !== "earnings") return false;
+  if (row.event_type !== "earnings") return false;
   if (normalizeSymbol(row.symbol) === null) return false;
-  return typeof row.event_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(row.event_date);
+  if (typeof row.event_date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.event_date)) return false;
+  // Real persisted freshness evidence is mandatory.
+  if (isoOrNull(row.updated_at) === null && isoOrNull(row.published_at) === null) return false;
+  return true;
 }
 
 /** Confirmed earnings-calendar record, dated today ET, explicitly before open. */
@@ -224,6 +236,7 @@ export function selectDisplayEarnings<T extends CatalystLike>(
     .filter((r) => isConfirmedBeforeOpenEarnings(r, opts.etDate))
     .slice(0, Math.max(0, limit));
 }
+
 
 /** Honest Catalyst label derived from the persisted provider, not wording. */
 export function catalystTypeLabel(row: { event_type: string; provider: string }): string {
@@ -279,16 +292,38 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
   };
 
   const earningsSection = validateSection<PreMarketWorkspaceResponse["earnings"]["data"]>(r.earnings, [], true);
-  const confirmedEarnings = selectDisplayEarnings(earningsSection.data, {
-    etDate: typeof mcRaw.et_date === "string" ? mcRaw.et_date : "",
-  });
+  const etDate = typeof mcRaw.et_date === "string" ? mcRaw.et_date : "";
+  // Validity first; the display cap is applied afterwards so a bounded subset
+  // is never mistaken for dropped-malformed rows.
+  const validEarnings = earningsSection.data.filter((row) => isConfirmedBeforeOpenEarnings(row, etDate));
+  const confirmedEarnings = validEarnings.slice(0, EARNINGS_DISPLAY_LIMIT);
+  // If a presented payload contained rows client validation had to remove, the
+  // remainder is not a trustworthy view — disclose incompleteness, never an
+  // empty state that reads as "no earnings today".
+  const earningsDropped =
+    (earningsSection.status === "available" || earningsSection.status === "stale") &&
+    validEarnings.length < earningsSection.data.length;
+
+  const earnings: PreMarketWorkspaceResponse["earnings"] = earningsDropped
+    ? { status: "unavailable", data: [], as_of: null, reason_code: "INCOMPLETE_COVERAGE" }
+    : { ...earningsSection, data: confirmedEarnings };
+
+  // A nonnegative integer only; never allowed to imply more coverage than the
+  // rows that actually survived validation.
+  const rawTotal = r.earnings_confirmed_total;
+  const totalValid = typeof rawTotal === "number" && Number.isInteger(rawTotal) && rawTotal >= 0;
+  const earningsConfirmedTotal = earningsDropped
+    ? 0
+    : totalValid
+      ? Math.max(validEarnings.length, rawTotal)
+      : validEarnings.length;
+
 
   return {
     contract_version: 1,
     server_now: r.server_now,
-    earnings_confirmed_total: Number.isFinite(r.earnings_confirmed_total as number)
-      ? Math.max(confirmedEarnings.length, Number(r.earnings_confirmed_total))
-      : confirmedEarnings.length,
+    earnings_confirmed_total: earningsConfirmedTotal,
+
     watchlist_lifecycle: validateLifecycle(r.watchlist_lifecycle),
     alerts_included: r.alerts_included === true,
     market_context: {
@@ -307,7 +342,7 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
     risk_attention: sessionDependent<PreMarketWorkspaceResponse["risk_attention"]["data"]>(r.risk_attention, []),
     catalyst_watch: validateSection(r.catalyst_watch, [], true),
     // Defense in depth: only confirmed before-open earnings-calendar rows.
-    earnings: { ...earningsSection, data: confirmedEarnings },
+    earnings,
     volume_leaders: validateSection(r.volume_leaders, [], true),
     journal_readiness: validateSection(r.journal_readiness, EMPTY_JOURNAL, false),
     headlines: validateSection(r.headlines, [], true),

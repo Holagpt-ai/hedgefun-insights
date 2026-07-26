@@ -263,8 +263,11 @@ const earn = (o: Record<string, unknown> = {}) => ({
   source_name: null,
   source_url: null,
   company_name: null,
+  updated_at: "2026-07-26T11:00:00.000Z",
+  published_at: null,
   ...o,
 });
+
 
 describe("before-open earnings integrity", () => {
   it("excludes provider news whose title mentions earnings", () => {
@@ -319,7 +322,7 @@ describe("before-open earnings integrity", () => {
     expect(out.surprise_percent).toBe(12);
   });
 
-  it("workspace validation strips provider earnings news from the section", () => {
+  it("workspace validation fails closed when the section carried provider news", () => {
     const ws = validateWorkspace(baseWorkspace({
       market_context: { status: "premarket", et_date: ET, et_time: "08:00" },
       earnings: {
@@ -329,11 +332,72 @@ describe("before-open earnings integrity", () => {
         reason_code: null,
       },
     }));
-    expect(ws!.earnings.data.map((r) => r.symbol)).toEqual(["MSFT"]);
+    expect(ws!.earnings.status).toBe("unavailable");
+    expect(ws!.earnings.reason_code).toBe("INCOMPLETE_COVERAGE");
+    expect(ws!.earnings.data).toHaveLength(0);
+    expect(ws!.earnings_confirmed_total).toBe(0);
+  });
+});
+
+// ------------------------------------- P1-R4-R1 defense-in-depth completion
+
+describe("earnings defense-in-depth contract", () => {
+  const wsWith = (rows: unknown[], total?: unknown) =>
+    validateWorkspace(baseWorkspace({
+      market_context: { status: "premarket", et_date: ET, et_time: "08:00" },
+      earnings: { status: "available", data: rows, as_of: null, reason_code: null },
+      ...(total === undefined ? {} : { earnings_confirmed_total: total }),
+    }));
+
+  it("fails closed when event_type is missing", () => {
+    const row = earn();
+    delete (row as Record<string, unknown>).event_type;
+    expect(isConfirmedEarningsCalendarEvent(row)).toBe(false);
+    expect(selectDisplayEarnings([row], { etDate: ET })).toHaveLength(0);
+  });
+
+  it("fails closed on a wrong event_type", () => {
+    const row = earn({ event_type: "company_news" });
+    expect(isConfirmedEarningsCalendarEvent(row)).toBe(false);
+  });
+
+  it("fails closed when both timestamps are missing", () => {
+    expect(isConfirmedEarningsCalendarEvent(earn({ updated_at: null, published_at: null }))).toBe(false);
+  });
+
+  it("fails closed on a malformed timestamp", () => {
+    expect(isConfirmedEarningsCalendarEvent(earn({ updated_at: "not-a-date", published_at: "" }))).toBe(false);
+  });
+
+  it("accepts published_at as the sole timestamp evidence", () => {
+    expect(isConfirmedEarningsCalendarEvent(
+      earn({ updated_at: null, published_at: "2026-07-26T10:00:00.000Z" }),
+    )).toBe(true);
+  });
+
+  it("mixed valid/malformed rows fail the whole section closed", () => {
+    const ws = wsWith([earn(), earn({ symbol: "MSFT", event_type: undefined })]);
+    expect(ws!.earnings.status).toBe("unavailable");
+    expect(ws!.earnings.reason_code).toBe("INCOMPLETE_COVERAGE");
+  });
+
+  it("a fully valid section stays available", () => {
+    const ws = wsWith([earn()], 1);
+    expect(ws!.earnings.status).toBe("available");
+    expect(ws!.earnings.data).toHaveLength(1);
+    expect(ws!.earnings_confirmed_total).toBe(1);
+  });
+
+  it("rejects non-integer, negative and non-numeric totals", () => {
+    expect(wsWith([earn()], 3.5)!.earnings_confirmed_total).toBe(1);
+    expect(wsWith([earn()], -4)!.earnings_confirmed_total).toBe(1);
+    expect(wsWith([earn()], "27")!.earnings_confirmed_total).toBe(1);
+    expect(wsWith([earn()])!.earnings_confirmed_total).toBe(1);
   });
 });
 
 describe("catalyst earnings labeling", () => {
+
   it("labels calendar records and news distinctly", () => {
     expect(catalystTypeLabel({ event_type: "earnings", provider: "earnings_calendar" }))
       .toBe("Earnings Calendar");
