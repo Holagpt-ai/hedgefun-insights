@@ -479,10 +479,11 @@ serve(async (req) => {
   // (provider === "polygon") is never presented as a scheduled earnings event.
   interface EarnOut {
     id: string; symbol: string; company_name: string | null; provider: string;
-    verification_state: string; event_date: string;
+    verification_state: string; event_type: string; event_date: string;
     time_of_day: string | null; title: string; estimate_eps: number | null;
     actual_eps: number | null; surprise_percent: number | null;
     source_name: string | null; source_url: string | null;
+    updated_at: string | null; published_at: string | null;
   }
   let earnings: SectionEnvelope<EarnOut[]>;
   let beforeOpenCount = 0;
@@ -505,6 +506,7 @@ serve(async (req) => {
         company_name: c.company_name,
         provider: c.provider,
         verification_state: c.verification_state,
+        event_type: c.event_type,
         event_date: c.event_date,
         time_of_day: c.time_of_day,
         title: c.title,
@@ -513,8 +515,11 @@ serve(async (req) => {
         surprise_percent: f.surprise_percent,
         source_name: c.source_name,
         source_url: c.source_url,
+        updated_at: c.updated_at ?? null,
+        published_at: c.published_at ?? null,
       };
     });
+
     earnings = out.length === 0
       ? emptySection<EarnOut[]>([], "NO_QUALIFYING_DATA")
       : envelope("available", out, newestSourceTs(selection.rows), null);
