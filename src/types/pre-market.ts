@@ -152,6 +152,10 @@ export interface PreMarketWorkspaceResponse {
   contract_version: 1;
   server_now: string;
   market_context: MarketContext;
+  /** Lifecycle state for watchlist symbols excluded from the current session view. */
+  watchlist_lifecycle: PreMarketLifecycleEntry[];
+  /** False when the alerts query failed — derived sections must fail closed. */
+  alerts_included: boolean;
   indexes: SectionEnvelope<PreMarketIndex[]>;
   watchlist_activity: SectionEnvelope<PreMarketWatchlistRow[]>;
   risk_attention: SectionEnvelope<PreMarketAttentionItem[]>;
