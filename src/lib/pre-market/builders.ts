@@ -123,7 +123,7 @@ export function renderableSignals(
     const id = typeof o.signal_id === "string" ? o.signal_id : "";
     if (!id || !AUTHORIZED_SIGNAL_IDS.has(id) || seen.has(id)) continue;
     const label = typeof o.label === "string" ? o.label.trim() : "";
-    if (!label) continue;
+    if (!label || label.length > SIGNAL_LABEL_MAX_LENGTH) continue;
     if (typeof o.category !== "string" || !SIGNAL_CATEGORIES.has(o.category)) continue;
     if (typeof o.kind !== "string" || !SIGNAL_KINDS.has(o.kind)) continue;
     const dir = o.direction === "bullish" || o.direction === "bearish" || o.direction === "neutral"
