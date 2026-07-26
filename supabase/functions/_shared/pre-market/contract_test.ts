@@ -9,13 +9,24 @@ import {
   isCurrentPremarketAnalysis,
   isHttpsUrl,
   isProviderReported,
-  mapMarketStatus,
   normalizeSymbol,
   normalizeTimeOfDay,
   positiveOrNull,
   sortByVolumeDesc,
   unavailableSection,
+  validateProviderStatus,
 } from "./contract.ts";
+
+const PROVIDER_NOW = "2026-07-27T08:00:00-04:00";
+const PROVIDER_NOW_MS = Date.parse(PROVIDER_NOW);
+const PREMARKET_BODY = {
+  market: "extended-hours",
+  earlyHours: true,
+  afterHours: false,
+  serverTime: PROVIDER_NOW,
+  exchanges: { nyse: "extended-hours", nasdaq: "extended-hours", otc: "closed" },
+};
+const statusOpts = { etDate: "2026-07-27", nowMs: PROVIDER_NOW_MS };
 
 Deno.test("ET date is correct across UTC midnight", () => {
   // 2026-07-27T02:30:00Z is still 2026-07-26 in ET
