@@ -118,6 +118,18 @@ describe("honest labeling", () => {
   });
 });
 
+const FULL_SIGNAL = {
+  signal_id: "hod_break",
+  label: "New high",
+  category: "level",
+  kind: "transition",
+  direction: "bullish",
+  facts: { price: 10.5 },
+  inputs: ["price"],
+  observed_at: "2026-07-26T13:00:00.000Z",
+  rule_version: "w2b1c.1",
+};
+
 describe("P1-R1 client guards", () => {
   it("requires watchlist_lifecycle and alerts_included to be honest", () => {
     const ws = validateWorkspace(baseWorkspace({ watchlist_lifecycle: "nope" }));
@@ -134,19 +146,71 @@ describe("P1-R1 client guards", () => {
   it("renders only authorized, labeled, deduped signals", () => {
     const out = renderableSignals(
       [
-        { signal_id: "hod_break", label: "New high", direction: "bullish" },
-        { signal_id: "hod_break", label: "dupe", direction: "bullish" },
-        { signal_id: "hacked", label: "Evil", direction: "bullish" },
-        { signal_id: "lod_break", label: "  ", direction: "bearish" },
+        FULL_SIGNAL,
+        { ...FULL_SIGNAL, label: "dupe" },
+        { ...FULL_SIGNAL, signal_id: "hacked" },
+        { ...FULL_SIGNAL, signal_id: "lod_break", label: "  " },
       ],
       { unavailable: false },
     );
-    expect(out).toEqual([{ signal_id: "hod_break", label: "New high", direction: "bullish" }]);
+    expect(out).toHaveLength(1);
+    expect(out[0].signal_id).toBe("hod_break");
+    expect(out[0].label).toBe("New high");
   });
 
   it("renders no signals for data unavailable rows", () => {
-    expect(
-      renderableSignals([{ signal_id: "hod_break", label: "New high", direction: "bullish" }], { unavailable: true }),
-    ).toEqual([]);
+    expect(renderableSignals([FULL_SIGNAL], { unavailable: true })).toEqual([]);
   });
 });
+
+describe("P1-R2 complete signal contract", () => {
+  const drop = (patch: Record<string, unknown>) =>
+    renderableSignals([{ ...FULL_SIGNAL, ...patch }], { unavailable: false }).length;
+
+  it("excludes signals missing category, kind or rule version", () => {
+    expect(drop({ category: undefined })).toBe(0);
+    expect(drop({ category: "momentum" })).toBe(0);
+    expect(drop({ kind: undefined })).toBe(0);
+    expect(drop({ kind: "guess" })).toBe(0);
+    expect(drop({ rule_version: "w2b1c.0" })).toBe(0);
+    expect(drop({ rule_version: undefined })).toBe(0);
+  });
+
+  it("excludes signals with malformed facts, inputs or observed time", () => {
+    expect(drop({ facts: undefined })).toBe(0);
+    expect(drop({ facts: [] })).toBe(0);
+    expect(drop({ facts: { nested: { a: 1 } } })).toBe(0);
+    expect(drop({ facts: { bad: Number.NaN } })).toBe(0);
+    expect(drop({ inputs: undefined })).toBe(0);
+    expect(drop({ inputs: "price" })).toBe(0);
+    expect(drop({ inputs: [1] })).toBe(0);
+    expect(drop({ observed_at: undefined })).toBe(0);
+    expect(drop({ observed_at: "nonsense" })).toBe(0);
+  });
+
+  it("accepts an explicit null direction but not an unknown one", () => {
+    expect(renderableSignals([{ ...FULL_SIGNAL, direction: null }], { unavailable: false })[0].direction).toBeNull();
+    expect(drop({ direction: "sideways" })).toBe(0);
+    expect(drop({ direction: undefined })).toBe(0);
+  });
+});
+
+describe("P1-R2 controlled reason messages", () => {
+  it("explains every controlled reason instead of a vague error", () => {
+    for (const code of [
+      "CALENDAR_UNAVAILABLE",
+      "CALENDAR_CONTRADICTORY",
+      "PROVIDER_TIME_INVALID",
+      "INCOMPLETE_COVERAGE",
+      "SOURCE_UNVERIFIABLE",
+    ]) {
+      expect(REASON_TEXT[code]).toBeTruthy();
+      expect(REASON_TEXT[code].length).toBeGreaterThan(20);
+    }
+    expect(REASON_TEXT.CALENDAR_CONTRADICTORY).toContain("cannot be confirmed");
+    expect(REASON_TEXT.PROVIDER_TIME_INVALID).toContain("cannot be confirmed");
+    expect(REASON_TEXT.SOURCE_UNVERIFIABLE).toContain("timestamp");
+    expect(REASON_TEXT.INCOMPLETE_COVERAGE).toContain("withheld");
+  });
+});
+
