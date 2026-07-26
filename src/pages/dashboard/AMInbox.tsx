@@ -161,8 +161,11 @@ export default function AMInbox() {
             emptyMessage={
               data?.market_context.status === "premarket"
                 ? "No current pre-market analysis for your watchlist symbols."
-                : "No pre-market session is active, so no pre-market analysis is shown."
+                : data?.market_context.status === "unavailable"
+                  ? "The market session cannot be confirmed, so no pre-market analysis is shown."
+                  : "No pre-market session is active, so no pre-market analysis is shown."
             }
+
             onRetry={ws.retry}
             action={
               <button
@@ -243,7 +246,11 @@ export default function AMInbox() {
 
             {!loading && data && (
               data.journal_readiness.status === "unavailable" ? (
-                <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
+                <SectionUnavailable
+                  reason={data.journal_readiness.reason_code ?? "QUERY_FAILED"}
+                  onRetry={ws.retry}
+                />
+
               ) : (
                 <div className="rounded-xl border bg-card p-3 text-xs text-muted-foreground">
                   Journal readiness · {data.journal_readiness.data.open_trades} open{" "}
