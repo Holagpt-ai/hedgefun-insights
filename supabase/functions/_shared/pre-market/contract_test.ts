@@ -41,32 +41,71 @@ Deno.test("DST does not shift the ET calendar date", () => {
   assertEquals(etParts(new Date("2026-01-15T03:30:00Z")).date, "2026-01-14");
 });
 
-Deno.test("weekend returns non_trading_day", () => {
+Deno.test("a complete agreeing payload confirms the session", () => {
+  const v = validateProviderStatus(PREMARKET_BODY, statusOpts);
+  assertEquals(v.ok && v.session, "premarket");
   assertEquals(
-    mapMarketStatus({ market: "closed" }, { weekday: "Sat", upcomingClosedToday: false }),
-    "non_trading_day",
+    validateProviderStatus({
+      market: "open",
+      serverTime: "2026-07-27T10:00:00-04:00",
+      exchanges: { nyse: "open", nasdaq: "open" },
+    }, { etDate: "2026-07-27", nowMs: Date.parse("2026-07-27T10:00:00-04:00") }).ok,
+    true,
   );
 });
 
-Deno.test("full holiday fails closed to non_trading_day", () => {
+Deno.test("a session is never derived from flags alone", () => {
+  // No exchanges block at all.
+  const v = validateProviderStatus({ market: "extended-hours", earlyHours: true, serverTime: PROVIDER_NOW }, statusOpts);
+  assertEquals(v.ok, false);
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("market state disagreeing with an exchange fails closed", () => {
+  const v = validateProviderStatus(
+    { ...PREMARKET_BODY, exchanges: { nyse: "extended-hours", nasdaq: "closed" } },
+    statusOpts,
+  );
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+  const v2 = validateProviderStatus({ ...PREMARKET_BODY, market: "open" }, statusOpts);
+  assertEquals(v2.ok === false && v2.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("both extended-hours flags set at once is contradictory", () => {
+  const v = validateProviderStatus({ ...PREMARKET_BODY, afterHours: true }, statusOpts);
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("extended-hours without a session flag is contradictory", () => {
+  const v = validateProviderStatus({ ...PREMARKET_BODY, earlyHours: false }, statusOpts);
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("a provider clock without an ET offset is unusable", () => {
+  const bad = (t: unknown) =>
+    validateProviderStatus({ ...PREMARKET_BODY, serverTime: t }, statusOpts);
+  assertEquals(bad(undefined).ok === false && bad(undefined).reason, "PROVIDER_TIME_INVALID");
+  assertEquals(bad("2026-07-27T12:00:00Z").ok, false);
+  assertEquals(bad("2026-07-27T08:00:00+02:00").ok, false);
+  assertEquals(bad("garbage-04:00").ok, false);
+});
+
+Deno.test("a skewed provider clock is unusable", () => {
+  const v = validateProviderStatus(PREMARKET_BODY, {
+    etDate: "2026-07-27",
+    nowMs: PROVIDER_NOW_MS + 6 * 60_000,
+  });
+  assertEquals(v.ok === false && v.reason, "PROVIDER_TIME_INVALID");
+  // A provider clock in the future is equally unusable.
   assertEquals(
-    mapMarketStatus({ market: "open" }, { weekday: "Thu", upcomingClosedToday: true }),
-    "non_trading_day",
+    validateProviderStatus(PREMARKET_BODY, { etDate: "2026-07-27", nowMs: PROVIDER_NOW_MS - 6 * 60_000 }).ok,
+    false,
   );
 });
 
-Deno.test("ambiguous provider payload returns unavailable", () => {
-  assertEquals(mapMarketStatus(null, { weekday: "Thu", upcomingClosedToday: false }), "unavailable");
-  assertEquals(mapMarketStatus({}, { weekday: "Thu", upcomingClosedToday: false }), "unavailable");
-  assertEquals(mapMarketStatus({ market: "weird" }, { weekday: "Thu", upcomingClosedToday: false }), "unavailable");
-});
-
-Deno.test("premarket / regular / afterhours map correctly", () => {
-  const w = { weekday: "Thu", upcomingClosedToday: false };
-  assertEquals(mapMarketStatus({ market: "extended-hours", earlyHours: true }, w), "premarket");
-  assertEquals(mapMarketStatus({ market: "open" }, w), "regular");
-  assertEquals(mapMarketStatus({ market: "extended-hours", afterHours: true }, w), "afterhours");
-  assertEquals(mapMarketStatus({ market: "closed" }, w), "closed");
+Deno.test("a provider clock on the wrong ET date is unusable", () => {
+  const v = validateProviderStatus(PREMARKET_BODY, { etDate: "2026-07-28", nowMs: PROVIDER_NOW_MS });
+  assertEquals(v.ok === false && v.reason, "PROVIDER_TIME_INVALID");
 });
 
 Deno.test("only current premarket analyses qualify", () => {
