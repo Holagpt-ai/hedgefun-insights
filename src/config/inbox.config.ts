@@ -74,13 +74,9 @@ export interface CatalystPill {
   note?: string;
 }
 
-export const CATALYST_PILLS: CatalystPill[] = [
-  { label: "NVDA earnings tonight", tier: "free", priority: "High", note: "Options imply 8.2% move" },
-  { label: "CPI data 8:30 AM", tier: "free", priority: "High", note: "Volatility trigger pre-open" },
-  { label: "FOMC minutes 2:00 PM", tier: "pro", priority: "Medium", note: "Rate path guidance" },
-  { label: "Fed Chair speech 10:00 AM", tier: "pro", priority: "Medium", note: "Watch for dovish pivot" },
-  { label: "Options expiry — NVDA", tier: "pro", priority: "Low", note: "Weekly OpEx flow" },
-];
+// NOTE: AM (Pre-Market) fabricated preview constants were removed when the
+// Pre-Market page became a production data workspace. PM/After-Hours constants
+// below remain until After-Hours is rebuilt in its own sprint.
 
 export const PM_CATALYST_PILLS: CatalystPill[] = [
   { label: "After-hours movers preview", tier: "free", priority: "High", note: "Post-close price action" },
@@ -97,25 +93,6 @@ export interface StaticInboxItem {
   badge?: string;
 }
 
-export const AM_OVERNIGHT_MOVERS: StaticInboxItem[] = [
-  { label: "TSLA", detail: "+3.2% overnight · China delivery beat", priority: "High", badge: "Gainer" },
-  { label: "AAPL", detail: "-1.4% overnight · Supply chain note", priority: "Medium", badge: "Decliner" },
-  { label: "NVDA", detail: "+1.1% overnight · Ahead of earnings", priority: "Medium", badge: "Watch" },
-];
-
-export const AM_RISK_FLAGS: StaticInboxItem[] = [
-  { label: "VIX curve steepening", detail: "Front-month VIX +6% pre-open", priority: "High", badge: "Vol" },
-  { label: "10Y yield spike", detail: "Above 4.5% — pressure on growth", priority: "Medium", badge: "Rates" },
-  { label: "USD strength", detail: "DXY at 3-week highs", priority: "Low", badge: "FX" },
-];
-
-export const AM_OPENING_BELL_CHECKLIST: string[] = [
-  "Review overnight news and futures",
-  "Check watchlist gap-ups / gap-downs",
-  "Set alerts on key catalysts",
-  "Confirm risk limits for the day",
-  "Log open orders in journal",
-];
 
 export const PM_TODAYS_KEY_MOVES: StaticInboxItem[] = [
   { label: "SPY", detail: "Closed +0.6% · Broad rally", priority: "Medium", badge: "Index" },
