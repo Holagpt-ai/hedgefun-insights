@@ -44,7 +44,7 @@ export function validateSection<T>(raw: unknown, empty: T, isArray: boolean): Se
   const r = raw as Record<string, unknown>;
   if (typeof r.status !== "string" || !STATUSES.includes(r.status as SectionStatus)) return failClosed(empty);
   if (isArray && !Array.isArray(r.data)) return failClosed(empty);
-  if (!isArray && (!r.data || typeof r.data !== "object")) return failClosed(empty);
+  if (!isArray && (!r.data || typeof r.data !== "object" || Array.isArray(r.data))) return failClosed(empty);
   return {
     status: r.status as SectionStatus,
     data: r.data as T,
