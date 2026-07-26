@@ -82,6 +82,8 @@ const SIGNAL_CATEGORIES = new Set(["trend", "level", "volume", "range"]);
 const SIGNAL_KINDS = new Set(["state", "transition"]);
 /** The single authorized Watchlist V2 signal rule version. */
 export const AUTHORIZED_SIGNAL_RULE_VERSION = "w2b1c.1";
+/** Maximum length of a displayable signal label. */
+export const SIGNAL_LABEL_MAX_LENGTH = 80;
 
 function validFacts(v: unknown): Record<string, number | string | boolean> | null {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
