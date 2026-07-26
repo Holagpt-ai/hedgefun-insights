@@ -292,16 +292,33 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
   };
 
   const earningsSection = validateSection<PreMarketWorkspaceResponse["earnings"]["data"]>(r.earnings, [], true);
-  const confirmedEarnings = selectDisplayEarnings(earningsSection.data, {
-    etDate: typeof mcRaw.et_date === "string" ? mcRaw.et_date : "",
-  });
+  const etDate = typeof mcRaw.et_date === "string" ? mcRaw.et_date : "";
+  const confirmedEarnings = selectDisplayEarnings(earningsSection.data, { etDate });
+  // If a presented payload contained rows client validation had to remove, the
+  // remainder is not a trustworthy view — disclose incompleteness, never an
+  // empty state that reads as "no earnings today".
+  const earningsDropped =
+    (earningsSection.status === "available" || earningsSection.status === "stale") &&
+    confirmedEarnings.length < earningsSection.data.length;
+  const earnings: PreMarketWorkspaceResponse["earnings"] = earningsDropped
+    ? { status: "unavailable", data: [], as_of: null, reason_code: "INCOMPLETE_COVERAGE" }
+    : { ...earningsSection, data: confirmedEarnings };
+
+  // A nonnegative integer only; never allowed to imply more coverage than the
+  // rows that actually survived validation.
+  const rawTotal = r.earnings_confirmed_total;
+  const totalValid = typeof rawTotal === "number" && Number.isInteger(rawTotal) && rawTotal >= 0;
+  const earningsConfirmedTotal = earningsDropped
+    ? 0
+    : totalValid
+      ? Math.max(confirmedEarnings.length, rawTotal)
+      : confirmedEarnings.length;
 
   return {
     contract_version: 1,
     server_now: r.server_now,
-    earnings_confirmed_total: Number.isFinite(r.earnings_confirmed_total as number)
-      ? Math.max(confirmedEarnings.length, Number(r.earnings_confirmed_total))
-      : confirmedEarnings.length,
+    earnings_confirmed_total: earningsConfirmedTotal,
+
     watchlist_lifecycle: validateLifecycle(r.watchlist_lifecycle),
     alerts_included: r.alerts_included === true,
     market_context: {
