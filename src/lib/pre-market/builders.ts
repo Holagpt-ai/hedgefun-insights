@@ -206,9 +206,17 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
     };
   };
 
+  const earningsSection = validateSection<PreMarketWorkspaceResponse["earnings"]["data"]>(r.earnings, [], true);
+  const confirmedEarnings = selectDisplayEarnings(earningsSection.data, {
+    etDate: typeof mcRaw.et_date === "string" ? mcRaw.et_date : "",
+  });
+
   return {
     contract_version: 1,
     server_now: r.server_now,
+    earnings_confirmed_total: Number.isFinite(r.earnings_confirmed_total as number)
+      ? Math.max(confirmedEarnings.length, Number(r.earnings_confirmed_total))
+      : confirmedEarnings.length,
     watchlist_lifecycle: validateLifecycle(r.watchlist_lifecycle),
     alerts_included: r.alerts_included === true,
     market_context: {
