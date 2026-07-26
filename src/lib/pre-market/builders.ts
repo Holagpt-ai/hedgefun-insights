@@ -61,6 +61,61 @@ const EMPTY_JOURNAL: JournalReadiness = {
   open_trades: 0, missing_stop: 0, missing_target: 0, symbols: [],
 };
 
+/** Authorized closed set of Watchlist V2 signal ids (mirrors the backend contract). */
+export const AUTHORIZED_SIGNAL_IDS: ReadonlySet<string> = new Set([
+  "price_above_vwap",
+  "price_below_vwap",
+  "range_position_high",
+  "range_position_low",
+  "unusual_time_adjusted_volume",
+  "hod_break",
+  "lod_break",
+  "premarket_high_break",
+  "premarket_low_break",
+  "prior_close_reclaim",
+  "prior_close_loss",
+]);
+
+/**
+ * Client-side guard: renderable signals must carry an authorized `signal_id`,
+ * a human label and a valid direction. Data Unavailable rows render none.
+ */
+export function renderableSignals(
+  raw: unknown,
+  opts: { unavailable: boolean },
+): PreMarketSignal[] {
+  if (opts.unavailable || !Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: PreMarketSignal[] = [];
+  for (const s of raw) {
+    if (!s || typeof s !== "object" || Array.isArray(s)) continue;
+    const o = s as Record<string, unknown>;
+    const id = typeof o.signal_id === "string" ? o.signal_id : "";
+    const label = typeof o.label === "string" ? o.label.trim() : "";
+    const dir = o.direction === "bullish" || o.direction === "bearish" || o.direction === "neutral"
+      ? o.direction
+      : null;
+    if (!id || !AUTHORIZED_SIGNAL_IDS.has(id) || seen.has(id) || !label || !dir) continue;
+    seen.add(id);
+    out.push({ signal_id: id, label, direction: dir });
+  }
+  return out;
+}
+
+function validateLifecycle(raw: unknown): PreMarketLifecycleEntry[] {
+  if (!Array.isArray(raw)) return [];
+  const out: PreMarketLifecycleEntry[] = [];
+  for (const r of raw) {
+    if (!r || typeof r !== "object" || Array.isArray(r)) continue;
+    const o = r as Record<string, unknown>;
+    const ticker = normalizeSymbol(o.ticker);
+    const label = typeof o.label === "string" ? o.label.trim() : "";
+    if (!ticker || !label) continue;
+    out.push({ ticker, label });
+  }
+  return out;
+}
+
 /**
  * Validate a whole workspace payload. Returns null when the envelope itself
  * is unusable (wrong contract version / not an object). Individual malformed
