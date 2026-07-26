@@ -263,8 +263,11 @@ const earn = (o: Record<string, unknown> = {}) => ({
   source_name: null,
   source_url: null,
   company_name: null,
+  updated_at: "2026-07-26T11:00:00.000Z",
+  published_at: null,
   ...o,
 });
+
 
 describe("before-open earnings integrity", () => {
   it("excludes provider news whose title mentions earnings", () => {
