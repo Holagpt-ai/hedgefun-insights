@@ -174,7 +174,7 @@ serve(async (req) => {
       .in("symbol", INDEX_SYMBOLS as unknown as string[]),
     userClient.from("watchlists").select("symbol").eq("user_id", userId),
     userClient.from("catalyst_events")
-      .select("id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts")
+      .select("id, dedupe_key, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts")
       .eq("verification_state", "provider_reported")
       .gte("event_date", catalystFrom)
       .lte("event_date", et.date)
