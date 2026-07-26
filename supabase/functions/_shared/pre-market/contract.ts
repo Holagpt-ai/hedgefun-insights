@@ -380,8 +380,12 @@ export type CalendarEvidence =
 
 /** Only these venues may influence the resolved market context. */
 export const CALENDAR_EXCHANGES: ReadonlySet<string> = new Set(["NYSE", "NASDAQ"]);
-/** Supported Polygon exception statuses. Anything else is unusable evidence. */
-export const CALENDAR_STATUSES: ReadonlySet<string> = new Set(["open", "closed", "early-close"]);
+/**
+ * Supported Polygon exception statuses. The endpoint lists only exceptions, so
+ * a normal-session marker is not usable evidence — anything outside this set
+ * fails closed.
+ */
+export const CALENDAR_STATUSES: ReadonlySet<string> = new Set(["closed", "early-close"]);
 
 function calFail(reason: "CALENDAR_UNAVAILABLE" | "CALENDAR_CONTRADICTORY"): CalendarEvidence {
   return { ok: false, reason };
