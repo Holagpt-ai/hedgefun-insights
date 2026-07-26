@@ -6,6 +6,11 @@ import {
   SCREENER_STALE_MINUTES,
   ageMinutes,
   buildChecklist,
+  EARNINGS_DISPLAY_LIMIT,
+  catalystDisplayTodayCount,
+  isConfirmedEarningsCalendarEvent,
+  readEarningsFacts,
+  selectBeforeOpenEarnings,
   
   dedupeCatalyst,
   derivedSectionStatus,
@@ -57,6 +62,7 @@ const jsonHeaders = {
 const INDEX_SYMBOLS = ["SPY", "QQQ", "DIA", "IWM"] as const;
 const VOLUME_LEADER_LIMIT = 6;
 const HEADLINE_LIMIT = 8;
+const CATALYST_DISPLAY_LIMIT = 12;
 /** Catalyst/earnings window: today plus the previous two ET calendar dates. */
 const CATALYST_LOOKBACK_DAYS = 2;
 const ALERT_LOOKBACK_HOURS = 24;
@@ -666,10 +672,19 @@ serve(async (req) => {
     if (awaitingRefreshCount > 0 && watchlist_activity.status !== "unavailable") {
       attention.push({ id: "awaiting_refresh", symbol: null, kind: "awaiting_refresh", label: "Analysis awaiting refresh", detail: `${awaitingRefreshCount} watchlist ${awaitingRefreshCount === 1 ? "symbol has" : "symbols have"} no current pre-market analysis`, route: "/dashboard/watchlist" });
     }
+    // Only a CONFIRMED earnings-calendar record dated today may raise this
+    // flag. Provider earnings-related news never creates "Earnings today".
     for (const c of catalystRows) {
-      if (c.event_type === "earnings" && c.event_date === et.date && ownedSet.has(c.symbol)) {
-        attention.push({ id: `earn:${c.id}`, symbol: c.symbol, kind: "earnings_today", label: "Earnings today", detail: c.title, route: `/dashboard/catalyst?symbol=${encodeURIComponent(c.symbol)}` });
-      }
+      if (!isConfirmedEarningsCalendarEvent(c)) continue;
+      if (c.event_date !== et.date || !ownedSet.has(c.symbol)) continue;
+      const detail = c.time_of_day === "before_open"
+        ? "Reports before the open"
+        : c.time_of_day === "after_close"
+          ? "Reports after the close"
+          : c.time_of_day === "during"
+            ? "Reports during market hours"
+            : "Report time unavailable";
+      attention.push({ id: `earn:${c.id}`, symbol: c.symbol, kind: "earnings_today", label: "Earnings today", detail, route: `/dashboard/catalyst?symbol=${encodeURIComponent(c.symbol)}` });
     }
     for (const t of (journal_readiness.data as JournalReadiness).symbols) {
       if (t.missing_stop || t.missing_target) {
@@ -700,7 +715,7 @@ serve(async (req) => {
   const checklistItems = checklistInputsComplete
     ? buildChecklist({
       watchlistPremarketCount: (watchlist_activity.data as WlOut[]).length,
-      catalystTodayCount: catalystRows.filter((c) => c.event_date === et.date).length,
+      catalystTodayCount: catalystDisplayTodayCount(displayedCatalysts, et.date),
       beforeOpenEarningsCount: beforeOpenCount,
       awaitingRefreshCount,
       journalMissingRiskCount,
@@ -730,6 +745,7 @@ serve(async (req) => {
       next_known_session_at: ctx.next_known_session_at,
     },
     watchlist_lifecycle: lifecycle,
+    earnings_confirmed_total: earningsConfirmedTotal,
     alerts_included: alertsOk,
     indexes,
     watchlist_activity,
