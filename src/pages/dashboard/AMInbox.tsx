@@ -274,7 +274,6 @@ export default function AMInbox() {
         >
           Discuss in AI Analyst →
         </button>
-        {user?.email ? null : null}
       </div>
     </div>
   );
