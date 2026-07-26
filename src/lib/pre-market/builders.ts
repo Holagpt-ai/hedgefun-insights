@@ -234,7 +234,8 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
     watchlist_activity: sessionDependent<PreMarketWorkspaceResponse["watchlist_activity"]["data"]>(r.watchlist_activity, []),
     risk_attention: sessionDependent<PreMarketWorkspaceResponse["risk_attention"]["data"]>(r.risk_attention, []),
     catalyst_watch: validateSection(r.catalyst_watch, [], true),
-    earnings: validateSection(r.earnings, [], true),
+    // Defense in depth: only confirmed before-open earnings-calendar rows.
+    earnings: { ...earningsSection, data: confirmedEarnings },
     volume_leaders: validateSection(r.volume_leaders, [], true),
     journal_readiness: validateSection(r.journal_readiness, EMPTY_JOURNAL, false),
     headlines: validateSection(r.headlines, [], true),
