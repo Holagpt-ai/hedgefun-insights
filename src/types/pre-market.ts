@@ -113,6 +113,8 @@ export interface PreMarketEarnings {
   /** Must be "earnings_calendar" for a confirmed scheduled earnings event. */
   provider: string;
   verification_state: string;
+  /** Persisted classification. Must be "earnings"; missing fails closed. */
+  event_type: string;
   event_date: string;
   time_of_day: "before_open" | "after_close" | "during" | null;
   title: string;
@@ -122,7 +124,11 @@ export interface PreMarketEarnings {
   surprise_percent: number | null;
   source_name: string | null;
   source_url: string | null;
+  /** Timestamp evidence — at least one must be a valid ISO string. */
+  updated_at: string | null;
+  published_at: string | null;
 }
+
 
 export interface PreMarketVolumeLeader {
   symbol: string;
