@@ -93,6 +93,9 @@ export interface PreMarketCatalyst {
   id: string;
   symbol: string;
   company_name: string | null;
+  /** Persisted ingestion provider — the ONLY earnings-calendar discriminator. */
+  provider: string;
+  verification_state: string;
   event_type: string;
   event_date: string;
   event_time: string | null;
@@ -107,11 +110,16 @@ export interface PreMarketEarnings {
   id: string;
   symbol: string;
   company_name: string | null;
+  /** Must be "earnings_calendar" for a confirmed scheduled earnings event. */
+  provider: string;
+  verification_state: string;
   event_date: string;
   time_of_day: "before_open" | "after_close" | "during" | null;
   title: string;
-  eps_estimate: number | null;
-  eps_actual: number | null;
+  /** Persisted ingestion fact keys. Never synthesized. */
+  estimate_eps: number | null;
+  actual_eps: number | null;
+  surprise_percent: number | null;
   source_name: string | null;
   source_url: string | null;
 }
