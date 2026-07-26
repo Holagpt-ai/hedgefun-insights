@@ -30,6 +30,7 @@ export function WatchlistActivityList({ rows }: { rows: PreMarketWatchlistRow[] 
     <div className="flex flex-col gap-3">
       {rows.map((r) => {
         const unavailable = r.direction === "data_unavailable";
+        const signals = renderableSignals(r.market_signals, { unavailable });
         return (
           <div key={r.ticker} className="flex flex-col gap-2 rounded-xl border bg-card p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
