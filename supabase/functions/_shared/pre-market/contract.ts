@@ -35,6 +35,7 @@ export type ReasonCode =
   | "ANALYSIS_AWAITING_REFRESH"
   | "NEWS_FEED_EMPTY"
   | "INCOMPLETE_COVERAGE"
+  | "MARKET_STATUS_CONTRADICTORY"
   | "SOURCE_UNVERIFIABLE";
 
 export type MarketContextStatus =
@@ -161,27 +162,75 @@ export interface MarketNowResponse {
   earlyHours?: boolean;
   afterHours?: boolean;
   serverTime?: string;
+  exchanges?: { nyse?: string; nasdaq?: string; otc?: string };
 }
 
+/** Maximum tolerated difference between our clock and the provider clock. */
+export const PROVIDER_TIME_MAX_SKEW_MS = 5 * 60_000;
+
+export type ProviderSession = "premarket" | "regular" | "afterhours" | "closed";
+
+export type ProviderStatusVerdict =
+  | { ok: true; session: ProviderSession }
+  | { ok: false; reason: "PROVIDER_TIME_INVALID" | "MARKET_STATUS_CONTRADICTORY" };
+
+const ET_OFFSETS = new Set(["-04:00", "-05:00"]);
+
 /**
- * Map a Polygon /v1/marketstatus/now payload to our closed status set.
- * Fails closed to "unavailable" for malformed data.
+ * Validate the COMPLETE Polygon current-status payload before any session may
+ * be confirmed. A session is never derived from `market`/`earlyHours` alone:
+ * the provider clock must be a usable ET reference for today, and the
+ * top-level market state must agree exactly with BOTH NYSE and NASDAQ.
  */
-export function mapMarketStatus(
+export function validateProviderStatus(
   body: unknown,
-  opts: { weekday: string; upcomingClosedToday: boolean },
-): MarketContextStatus {
-  if (opts.upcomingClosedToday) return "non_trading_day";
-  if (isWeekend(opts.weekday)) return "non_trading_day";
-  if (!body || typeof body !== "object" || Array.isArray(body)) return "unavailable";
-  const b = body as MarketNowResponse;
-  const market = typeof b.market === "string" ? b.market.toLowerCase() : null;
-  if (market === null) return "unavailable";
-  if (b.earlyHours === true) return "premarket";
-  if (b.afterHours === true) return "afterhours";
-  if (market === "open") return "regular";
-  if (market === "closed" || market === "extended-hours") return "closed";
-  return "unavailable";
+  opts: { etDate: string; nowMs: number },
+): ProviderStatusVerdict {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  }
+  const b = body as Record<string, unknown>;
+
+  // ---- provider clock ------------------------------------------------
+  const serverTime = typeof b.serverTime === "string" ? b.serverTime.trim() : "";
+  if (!serverTime) return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  const offset = serverTime.slice(-6);
+  if (!ET_OFFSETS.has(offset)) return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  const providerMs = Date.parse(serverTime);
+  if (!Number.isFinite(providerMs)) return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  if (Math.abs(opts.nowMs - providerMs) > PROVIDER_TIME_MAX_SKEW_MS) {
+    return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  }
+  if (etParts(new Date(providerMs)).date !== opts.etDate) {
+    return { ok: false, reason: "PROVIDER_TIME_INVALID" };
+  }
+
+  // ---- exchange agreement --------------------------------------------
+  const ex = b.exchanges && typeof b.exchanges === "object" && !Array.isArray(b.exchanges)
+    ? (b.exchanges as Record<string, unknown>)
+    : null;
+  if (!ex) return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  const nyse = typeof ex.nyse === "string" ? ex.nyse.trim().toLowerCase() : "";
+  const nasdaq = typeof ex.nasdaq === "string" ? ex.nasdaq.trim().toLowerCase() : "";
+  if (!nyse || !nasdaq || nyse !== nasdaq) {
+    return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  }
+
+  const market = typeof b.market === "string" ? b.market.trim().toLowerCase() : "";
+  if (market !== nyse) return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+
+  const early = b.earlyHours === true;
+  const after = b.afterHours === true;
+  if (early && after) return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+
+  if (market === "extended-hours") {
+    if (early) return { ok: true, session: "premarket" };
+    if (after) return { ok: true, session: "afterhours" };
+    return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
+  }
+  if (market === "open" && !early && !after) return { ok: true, session: "regular" };
+  if (market === "closed" && !early && !after) return { ok: true, session: "closed" };
+  return { ok: false, reason: "MARKET_STATUS_CONTRADICTORY" };
 }
 
 // --------------------------------------------------------- watchlist gating
@@ -331,8 +380,12 @@ export type CalendarEvidence =
 
 /** Only these venues may influence the resolved market context. */
 export const CALENDAR_EXCHANGES: ReadonlySet<string> = new Set(["NYSE", "NASDAQ"]);
-/** Supported Polygon exception statuses. Anything else is unusable evidence. */
-export const CALENDAR_STATUSES: ReadonlySet<string> = new Set(["open", "closed", "early-close"]);
+/**
+ * Supported Polygon exception statuses. The endpoint lists only exceptions, so
+ * a normal-session marker is not usable evidence — anything outside this set
+ * fails closed.
+ */
+export const CALENDAR_STATUSES: ReadonlySet<string> = new Set(["closed", "early-close"]);
 
 function calFail(reason: "CALENDAR_UNAVAILABLE" | "CALENDAR_CONTRADICTORY"): CalendarEvidence {
   return { ok: false, reason };
@@ -375,9 +428,10 @@ export function validateCalendarRows(body: unknown): CalendarEvidence {
 }
 
 /**
- * Every exception date must be reported by BOTH NYSE and NASDAQ and the two
- * rows must agree. A single-exchange date, a status conflict or a close-time
- * conflict is contradictory evidence and fails closed.
+ * Every exception date must be reported by EXACTLY ONE NYSE row and EXACTLY
+ * ONE NASDAQ row, and the two rows must agree. A single-exchange date,
+ * duplicate rows for a venue, a status conflict or a close-time conflict is
+ * contradictory evidence and fails closed.
  */
 export function validateExchangeAgreement(rows: UpcomingRow[]): CalendarEvidence {
   const byDate = new Map<string, UpcomingRow[]>();
@@ -389,10 +443,16 @@ export function validateExchangeAgreement(rows: UpcomingRow[]): CalendarEvidence
     byDate.set(d, list);
   }
   for (const list of byDate.values()) {
-    const nyse = list.find((r) => r.exchange === "NYSE");
-    const nasdaq = list.find((r) => r.exchange === "NASDAQ");
-    if (!nyse || !nasdaq) return calFail("CALENDAR_CONTRADICTORY");
+    const nyseRows = list.filter((r) => r.exchange === "NYSE");
+    const nasdaqRows = list.filter((r) => r.exchange === "NASDAQ");
+    if (nyseRows.length !== 1 || nasdaqRows.length !== 1) return calFail("CALENDAR_CONTRADICTORY");
+    const [nyse] = nyseRows;
+    const [nasdaq] = nasdaqRows;
     if (nyse.status !== nasdaq.status) return calFail("CALENDAR_CONTRADICTORY");
+    const openA = isoOrNull(nyse.open);
+    const openB = isoOrNull(nasdaq.open);
+    if ((openA === null) !== (openB === null)) return calFail("CALENDAR_CONTRADICTORY");
+    if (openA && openB && Date.parse(openA) !== Date.parse(openB)) return calFail("CALENDAR_CONTRADICTORY");
     if (nyse.status === "early-close") {
       const a = isoOrNull(nyse.close);
       const b = isoOrNull(nasdaq.close);
@@ -435,12 +495,15 @@ function unresolvedContext(reason: string): MarketContextResolution {
  * Resolve market context from provider evidence only.
  * Missing, malformed, partial or contradictory evidence → `unavailable`,
  * and the provider is never reported as the confirmed source.
+ * A session is confirmed only when the COMPLETE current-status payload
+ * validates (usable ET clock + exact market/NYSE/NASDAQ agreement).
  */
 export function resolveMarketContext(a: {
   nowBody: unknown;
   calendarBody: unknown;
   etDate: string;
   etWeekday: string;
+  nowMs: number;
 }): MarketContextResolution {
   const cal = validateCalendarRows(a.calendarBody);
   if (!cal.ok) return unresolvedContext(cal.reason);
@@ -451,19 +514,11 @@ export function resolveMarketContext(a: {
   const cls = classifyToday(cal.rows, a.etDate);
   if (cls.kind === "conflict") return unresolvedContext("CALENDAR_CONTRADICTORY");
 
-  if (!a.nowBody || typeof a.nowBody !== "object" || Array.isArray(a.nowBody)) {
-    return unresolvedContext("CALENDAR_UNAVAILABLE");
-  }
-  if (!extractEtOffset((a.nowBody as { serverTime?: unknown }).serverTime)) {
-    return unresolvedContext("PROVIDER_TIME_INVALID");
-  }
+  const verdict = validateProviderStatus(a.nowBody, { etDate: a.etDate, nowMs: a.nowMs });
+  if (!verdict.ok) return unresolvedContext(verdict.reason);
 
-  const holiday = cls.kind === "full_holiday";
-  const status = mapMarketStatus(a.nowBody, {
-    weekday: a.etWeekday,
-    upcomingClosedToday: holiday,
-  });
-  if (status === "unavailable") return unresolvedContext("CALENDAR_UNAVAILABLE");
+  const nonTrading = cls.kind === "full_holiday" || isWeekend(a.etWeekday);
+  const status: MarketContextStatus = nonTrading ? "non_trading_day" : verdict.session;
 
   const todayNyse = cal.rows.find((r) => r.date === a.etDate && r.exchange === "NYSE");
   return {
@@ -509,6 +564,8 @@ export const SIGNAL_CATEGORIES: ReadonlySet<string> = new Set(["trend", "level",
 export const SIGNAL_KINDS: ReadonlySet<string> = new Set(["state", "transition"]);
 /** The single authorized Watchlist V2 signal rule version. */
 export const AUTHORIZED_SIGNAL_RULE_VERSION = "w2b1c.1" as const;
+/** Maximum length of a displayable signal label. */
+export const SIGNAL_LABEL_MAX_LENGTH = 80;
 
 export interface PreMarketSignal {
   signal_id: string;
@@ -559,7 +616,7 @@ export function sanitizeMarketSignals(raw: unknown, opts: { unavailable: boolean
     const id = typeof o.signal_id === "string" ? o.signal_id : null;
     if (!id || !AUTHORIZED_SIGNAL_IDS.has(id) || seen.has(id)) continue;
     const label = typeof o.label === "string" ? o.label.trim() : "";
-    if (!label) continue;
+    if (!label || label.length > SIGNAL_LABEL_MAX_LENGTH) continue;
     if (typeof o.category !== "string" || !SIGNAL_CATEGORIES.has(o.category)) continue;
     if (typeof o.kind !== "string" || !SIGNAL_KINDS.has(o.kind)) continue;
     const dir = o.direction === "bullish" || o.direction === "bearish" || o.direction === "neutral"

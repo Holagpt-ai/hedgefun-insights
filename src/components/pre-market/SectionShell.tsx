@@ -27,6 +27,8 @@ export const REASON_TEXT: Record<string, string> = {
     "The market session cannot be confirmed — NYSE and NASDAQ calendar data disagree.",
   PROVIDER_TIME_INVALID:
     "The market session cannot be confirmed — the provider returned an unusable Eastern Time reference.",
+  MARKET_STATUS_CONTRADICTORY:
+    "The market session cannot be confirmed — the provider's overall market state disagrees with the NYSE and NASDAQ states.",
   INCOMPLETE_COVERAGE:
     "Some required records failed validation, so this section is withheld rather than shown incomplete.",
   SOURCE_UNVERIFIABLE:

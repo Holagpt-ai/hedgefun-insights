@@ -74,6 +74,22 @@ describe("contract validation fails closed", () => {
     expect(marketContextLabel(ws!.market_context.status)).toBe("Market session unavailable");
   });
 
+  it("fails session-dependent sections closed when the session is unconfirmed", () => {
+    const ws = validateWorkspace(baseWorkspace({
+      market_context: { status: "unavailable", reason_code: "MARKET_STATUS_CONTRADICTORY" },
+      watchlist_activity: { status: "available", data: [{ ticker: "AAPL" }], as_of: null, reason_code: null },
+      risk_attention: { status: "empty", data: [], as_of: null, reason_code: "NO_QUALIFYING_DATA" },
+      checklist: { status: "available", data: [{ id: "x", label: "y", count: 1 }], as_of: null, reason_code: null },
+    }));
+    for (const s of [ws!.watchlist_activity, ws!.risk_attention, ws!.checklist]) {
+      expect(s.status).toBe("unavailable");
+      expect(s.reason_code).toBe("MARKET_STATUS_CONTRADICTORY");
+      expect(s.data).toEqual([]);
+    }
+    // Sections that do not depend on a confirmed session are untouched.
+    expect(ws!.catalyst_watch.status).toBe("available");
+  });
+
   it("validateSection rejects array/object shape mismatches", () => {
     expect(validateSection({ status: "available", data: {} }, [], true).status).toBe("unavailable");
     expect(validateSection({ status: "available", data: [] }, {}, false).status).toBe("unavailable");
@@ -161,6 +177,13 @@ describe("P1-R1 client guards", () => {
 
   it("renders no signals for data unavailable rows", () => {
     expect(renderableSignals([FULL_SIGNAL], { unavailable: true })).toEqual([]);
+  });
+
+  it("drops over-long signal labels instead of truncating them", () => {
+    const long = "z".repeat(81);
+    expect(renderableSignals([{ ...FULL_SIGNAL, label: long }], { unavailable: false })).toEqual([]);
+    const exact = "z".repeat(80);
+    expect(renderableSignals([{ ...FULL_SIGNAL, label: exact }], { unavailable: false })[0].label).toBe(exact);
   });
 });
 

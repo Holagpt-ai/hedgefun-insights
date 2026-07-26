@@ -9,13 +9,24 @@ import {
   isCurrentPremarketAnalysis,
   isHttpsUrl,
   isProviderReported,
-  mapMarketStatus,
   normalizeSymbol,
   normalizeTimeOfDay,
   positiveOrNull,
   sortByVolumeDesc,
   unavailableSection,
+  validateProviderStatus,
 } from "./contract.ts";
+
+const PROVIDER_NOW = "2026-07-27T08:00:00-04:00";
+const PROVIDER_NOW_MS = Date.parse(PROVIDER_NOW);
+const PREMARKET_BODY = {
+  market: "extended-hours",
+  earlyHours: true,
+  afterHours: false,
+  serverTime: PROVIDER_NOW,
+  exchanges: { nyse: "extended-hours", nasdaq: "extended-hours", otc: "closed" },
+};
+const statusOpts = { etDate: "2026-07-27", nowMs: PROVIDER_NOW_MS };
 
 Deno.test("ET date is correct across UTC midnight", () => {
   // 2026-07-27T02:30:00Z is still 2026-07-26 in ET
@@ -30,32 +41,72 @@ Deno.test("DST does not shift the ET calendar date", () => {
   assertEquals(etParts(new Date("2026-01-15T03:30:00Z")).date, "2026-01-14");
 });
 
-Deno.test("weekend returns non_trading_day", () => {
+Deno.test("a complete agreeing payload confirms the session", () => {
+  const v = validateProviderStatus(PREMARKET_BODY, statusOpts);
+  assertEquals(v.ok && v.session, "premarket");
   assertEquals(
-    mapMarketStatus({ market: "closed" }, { weekday: "Sat", upcomingClosedToday: false }),
-    "non_trading_day",
+    validateProviderStatus({
+      market: "open",
+      serverTime: "2026-07-27T10:00:00-04:00",
+      exchanges: { nyse: "open", nasdaq: "open" },
+    }, { etDate: "2026-07-27", nowMs: Date.parse("2026-07-27T10:00:00-04:00") }).ok,
+    true,
   );
 });
 
-Deno.test("full holiday fails closed to non_trading_day", () => {
+Deno.test("a session is never derived from flags alone", () => {
+  // No exchanges block at all.
+  const v = validateProviderStatus({ market: "extended-hours", earlyHours: true, serverTime: PROVIDER_NOW }, statusOpts);
+  assertEquals(v.ok, false);
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("market state disagreeing with an exchange fails closed", () => {
+  const v = validateProviderStatus(
+    { ...PREMARKET_BODY, exchanges: { nyse: "extended-hours", nasdaq: "closed" } },
+    statusOpts,
+  );
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+  const v2 = validateProviderStatus({ ...PREMARKET_BODY, market: "open" }, statusOpts);
+  assertEquals(v2.ok === false && v2.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("both extended-hours flags set at once is contradictory", () => {
+  const v = validateProviderStatus({ ...PREMARKET_BODY, afterHours: true }, statusOpts);
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("extended-hours without a session flag is contradictory", () => {
+  const v = validateProviderStatus({ ...PREMARKET_BODY, earlyHours: false }, statusOpts);
+  assertEquals(v.ok === false && v.reason, "MARKET_STATUS_CONTRADICTORY");
+});
+
+Deno.test("a provider clock without an ET offset is unusable", () => {
+  const bad = (t: unknown) =>
+    validateProviderStatus({ ...PREMARKET_BODY, serverTime: t }, statusOpts);
+  const v = bad(undefined);
+  assertEquals(v.ok === false && v.reason, "PROVIDER_TIME_INVALID");
+  assertEquals(bad("2026-07-27T12:00:00Z").ok, false);
+  assertEquals(bad("2026-07-27T08:00:00+02:00").ok, false);
+  assertEquals(bad("garbage-04:00").ok, false);
+});
+
+Deno.test("a skewed provider clock is unusable", () => {
+  const v = validateProviderStatus(PREMARKET_BODY, {
+    etDate: "2026-07-27",
+    nowMs: PROVIDER_NOW_MS + 6 * 60_000,
+  });
+  assertEquals(v.ok === false && v.reason, "PROVIDER_TIME_INVALID");
+  // A provider clock in the future is equally unusable.
   assertEquals(
-    mapMarketStatus({ market: "open" }, { weekday: "Thu", upcomingClosedToday: true }),
-    "non_trading_day",
+    validateProviderStatus(PREMARKET_BODY, { etDate: "2026-07-27", nowMs: PROVIDER_NOW_MS - 6 * 60_000 }).ok,
+    false,
   );
 });
 
-Deno.test("ambiguous provider payload returns unavailable", () => {
-  assertEquals(mapMarketStatus(null, { weekday: "Thu", upcomingClosedToday: false }), "unavailable");
-  assertEquals(mapMarketStatus({}, { weekday: "Thu", upcomingClosedToday: false }), "unavailable");
-  assertEquals(mapMarketStatus({ market: "weird" }, { weekday: "Thu", upcomingClosedToday: false }), "unavailable");
-});
-
-Deno.test("premarket / regular / afterhours map correctly", () => {
-  const w = { weekday: "Thu", upcomingClosedToday: false };
-  assertEquals(mapMarketStatus({ market: "extended-hours", earlyHours: true }, w), "premarket");
-  assertEquals(mapMarketStatus({ market: "open" }, w), "regular");
-  assertEquals(mapMarketStatus({ market: "extended-hours", afterHours: true }, w), "afterhours");
-  assertEquals(mapMarketStatus({ market: "closed" }, w), "closed");
+Deno.test("a provider clock on the wrong ET date is unusable", () => {
+  const v = validateProviderStatus(PREMARKET_BODY, { etDate: "2026-07-28", nowMs: PROVIDER_NOW_MS });
+  assertEquals(v.ok === false && v.reason, "PROVIDER_TIME_INVALID");
 });
 
 Deno.test("only current premarket analyses qualify", () => {
@@ -205,12 +256,13 @@ import {
 } from "./contract.ts";
 
 // /marketstatus/upcoming lists only special days; a normal session has no row for today.
-// Every exception date must be reported by BOTH NYSE and NASDAQ.
+// Every exception date must be reported by exactly one NYSE and one NASDAQ row.
 const CAL_OK = [
   { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
   { date: "2026-07-28", status: "early-close", exchange: "NASDAQ", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
 ];
-const NOW_OK = { market: "extended-hours", earlyHours: true, serverTime: "2026-07-27T08:00:00-04:00" };
+const NOW_OK = PREMARKET_BODY;
+const CTX_BASE = { etDate: "2026-07-27", etWeekday: "Mon", nowMs: PROVIDER_NOW_MS };
 
 Deno.test("ET date shift is calendar-accurate across month end", () => {
   assertEquals(etDateShift("2026-08-01", -2), "2026-07-30");
@@ -219,9 +271,15 @@ Deno.test("ET date shift is calendar-accurate across month end", () => {
 
 Deno.test("calendar validation fails closed on partial rows", () => {
   assertEquals(validateCalendarRows(null).ok, false);
-  assertEquals(validateCalendarRows([{ date: "2026-07-27", status: "open" }]).ok, false);
-  assertEquals(validateCalendarRows([{ date: "bad", status: "open", exchange: "NYSE" }]).ok, false);
+  assertEquals(validateCalendarRows([{ date: "2026-07-27", status: "closed" }]).ok, false);
+  assertEquals(validateCalendarRows([{ date: "bad", status: "closed", exchange: "NYSE" }]).ok, false);
   assertEquals(validateCalendarRows(CAL_OK).ok, true);
+});
+
+Deno.test("an exception calendar row claiming a normal session is unusable", () => {
+  const r = validateCalendarRows([{ date: "2026-07-28", status: "open", exchange: "NYSE" }]);
+  assertEquals(r.ok, false);
+  assertEquals(r.ok === false && r.reason, "CALENDAR_UNAVAILABLE");
 });
 
 Deno.test("unsupported calendar status fails closed", () => {
@@ -260,7 +318,17 @@ Deno.test("a single-exchange future exception is not sufficient evidence", () =>
   const agreed = validateExchangeAgreement(v.ok === true ? v.rows : []);
   assertEquals(agreed.ok, false);
   assertEquals(agreed.ok === false && agreed.reason, "CALENDAR_CONTRADICTORY");
-  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  const r = resolveMarketContext({ ...CTX_BASE, nowBody: NOW_OK, calendarBody: cal });
+  assertEquals(r.status, "unavailable");
+  assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
+});
+
+Deno.test("duplicate rows for one exchange on a date fail closed", () => {
+  const cal = [
+    ...CAL_OK,
+    { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
+  ];
+  const r = resolveMarketContext({ ...CTX_BASE, nowBody: NOW_OK, calendarBody: cal });
   assertEquals(r.status, "unavailable");
   assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
 });
@@ -268,9 +336,9 @@ Deno.test("a single-exchange future exception is not sufficient evidence", () =>
 Deno.test("conflicting future exchange rows fail closed", () => {
   const cal = [
     { date: "2026-07-28", status: "closed", exchange: "NYSE", open: null, close: null },
-    { date: "2026-07-28", status: "open", exchange: "NASDAQ", open: null, close: null },
+    { date: "2026-07-28", status: "early-close", exchange: "NASDAQ", open: null, close: "2026-07-28T17:00:00Z" },
   ];
-  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  const r = resolveMarketContext({ ...CTX_BASE, nowBody: NOW_OK, calendarBody: cal });
   assertEquals(r.status, "unavailable");
   assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
 });
@@ -280,12 +348,12 @@ Deno.test("conflicting future early-close times fail closed", () => {
     { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: null, close: "2026-07-28T17:00:00Z" },
     { date: "2026-07-28", status: "early-close", exchange: "NASDAQ", open: null, close: "2026-07-28T18:00:00Z" },
   ];
-  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  const r = resolveMarketContext({ ...CTX_BASE, nowBody: NOW_OK, calendarBody: cal });
   assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
 });
 
 Deno.test("missing calendar never yields a session", () => {
-  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: null, etDate: "2026-07-27", etWeekday: "Mon" });
+  const r = resolveMarketContext({ ...CTX_BASE, nowBody: NOW_OK, calendarBody: null });
   assertEquals(r.status, "unavailable");
   assertEquals(r.reason_code, "CALENDAR_UNAVAILABLE");
   assertEquals(r.source, null);
@@ -293,27 +361,37 @@ Deno.test("missing calendar never yields a session", () => {
 
 Deno.test("contradictory exchange rows fail closed", () => {
   const cal = [
-    { date: "2026-07-27", status: "open", exchange: "NYSE", open: null, close: null },
+    { date: "2026-07-27", status: "early-close", exchange: "NYSE", open: null, close: "2026-07-27T17:00:00Z" },
     { date: "2026-07-27", status: "closed", exchange: "NASDAQ", open: null, close: null },
   ];
-  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  const r = resolveMarketContext({ ...CTX_BASE, nowBody: NOW_OK, calendarBody: cal });
   assertEquals(r.status, "unavailable");
   assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
 });
 
 Deno.test("provider serverTime without ET offset fails closed", () => {
   const r = resolveMarketContext({
-    nowBody: { market: "open", serverTime: "not-a-time" },
+    ...CTX_BASE,
+    nowBody: { market: "open", serverTime: "not-a-time", exchanges: { nyse: "open", nasdaq: "open" } },
     calendarBody: CAL_OK,
-    etDate: "2026-07-27",
-    etWeekday: "Mon",
   });
   assertEquals(r.status, "unavailable");
   assertEquals(r.reason_code, "PROVIDER_TIME_INVALID");
 });
 
+Deno.test("a contradictory current status never confirms a session", () => {
+  const r = resolveMarketContext({
+    ...CTX_BASE,
+    nowBody: { ...PREMARKET_BODY, exchanges: { nyse: "extended-hours", nasdaq: "open" } },
+    calendarBody: CAL_OK,
+  });
+  assertEquals(r.status, "unavailable");
+  assertEquals(r.reason_code, "MARKET_STATUS_CONTRADICTORY");
+  assertEquals(r.source, null);
+});
+
 Deno.test("valid evidence resolves premarket without inventing a next session", () => {
-  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: CAL_OK, etDate: "2026-07-27", etWeekday: "Mon" });
+  const r = resolveMarketContext({ ...CTX_BASE, nowBody: NOW_OK, calendarBody: CAL_OK });
   assertEquals(r.status, "premarket");
   assertEquals(r.reason_code, null);
   assertEquals(r.source, "polygon_marketstatus");
@@ -322,12 +400,24 @@ Deno.test("valid evidence resolves premarket without inventing a next session", 
   assertEquals(r.next_known_session_at, null);
 });
 
-Deno.test("non-premarket sessions are labeled OUTSIDE_PREMARKET", () => {
+Deno.test("a weekend is a non-trading day even with a valid payload", () => {
   const r = resolveMarketContext({
-    nowBody: { market: "open", serverTime: "2026-07-27T10:00:00-04:00" },
+    ...CTX_BASE,
+    etWeekday: "Sat",
+    nowBody: { market: "closed", serverTime: PROVIDER_NOW, exchanges: { nyse: "closed", nasdaq: "closed" } },
     calendarBody: CAL_OK,
-    etDate: "2026-07-27",
-    etWeekday: "Mon",
+  });
+  assertEquals(r.status, "non_trading_day");
+  assertEquals(r.reason_code, "NON_TRADING_DAY");
+});
+
+Deno.test("non-premarket sessions are labeled OUTSIDE_PREMARKET", () => {
+  const t = "2026-07-27T10:00:00-04:00";
+  const r = resolveMarketContext({
+    ...CTX_BASE,
+    nowMs: Date.parse(t),
+    nowBody: { market: "open", serverTime: t, exchanges: { nyse: "open", nasdaq: "open" } },
+    calendarBody: CAL_OK,
   });
   assertEquals(r.status, "regular");
   assertEquals(r.reason_code, "OUTSIDE_PREMARKET");
@@ -367,6 +457,15 @@ Deno.test("a complete authorized signal is accepted and deduped", () => {
 Deno.test("unauthorized ids and empty labels are excluded", () => {
   assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, signal_id: "made_up" }], { unavailable: false }).length, 0);
   assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, label: "   " }], { unavailable: false }).length, 0);
+});
+
+Deno.test("over-long signal labels are excluded, never truncated", () => {
+  const long = "x".repeat(81);
+  assertEquals(sanitizeMarketSignals([{ ...FULL_SIGNAL, label: long }], { unavailable: false }).length, 0);
+  const exact = "y".repeat(80);
+  const out = sanitizeMarketSignals([{ ...FULL_SIGNAL, label: exact }], { unavailable: false });
+  assertEquals(out.length, 1);
+  assertEquals(out[0].label, exact);
 });
 
 Deno.test("signals missing category, kind or rule version are excluded", () => {

@@ -82,6 +82,8 @@ const SIGNAL_CATEGORIES = new Set(["trend", "level", "volume", "range"]);
 const SIGNAL_KINDS = new Set(["state", "transition"]);
 /** The single authorized Watchlist V2 signal rule version. */
 export const AUTHORIZED_SIGNAL_RULE_VERSION = "w2b1c.1";
+/** Maximum length of a displayable signal label. */
+export const SIGNAL_LABEL_MAX_LENGTH = 80;
 
 function validFacts(v: unknown): Record<string, number | string | boolean> | null {
   if (!v || typeof v !== "object" || Array.isArray(v)) return null;
@@ -123,7 +125,7 @@ export function renderableSignals(
     const id = typeof o.signal_id === "string" ? o.signal_id : "";
     if (!id || !AUTHORIZED_SIGNAL_IDS.has(id) || seen.has(id)) continue;
     const label = typeof o.label === "string" ? o.label.trim() : "";
-    if (!label) continue;
+    if (!label || label.length > SIGNAL_LABEL_MAX_LENGTH) continue;
     if (typeof o.category !== "string" || !SIGNAL_CATEGORIES.has(o.category)) continue;
     if (typeof o.kind !== "string" || !SIGNAL_KINDS.has(o.kind)) continue;
     const dir = o.direction === "bullish" || o.direction === "bearish" || o.direction === "neutral"
@@ -187,6 +189,23 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
     ? (mcRaw.status as MarketContextStatus)
     : "unavailable";
 
+  const mcReason = typeof mcRaw.reason_code === "string" ? mcRaw.reason_code : null;
+
+  /**
+   * Defense in depth: sections that depend on a confirmed session may never
+   * present as available/empty when the market session itself is unconfirmed.
+   */
+  const sessionDependent = <T,>(raw: unknown, empty: T): SectionEnvelope<T> => {
+    const s = validateSection<T>(raw, empty, true);
+    if (status !== "unavailable") return s;
+    return {
+      status: "unavailable",
+      data: empty,
+      as_of: null,
+      reason_code: mcReason ?? "CALENDAR_UNAVAILABLE",
+    };
+  };
+
   return {
     contract_version: 1,
     server_now: r.server_now,
@@ -198,20 +217,20 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
       et_time: typeof mcRaw.et_time === "string" ? mcRaw.et_time : "",
       checked_at: typeof mcRaw.checked_at === "string" ? mcRaw.checked_at : r.server_now,
       source: mcRaw.source === "polygon_marketstatus" ? "polygon_marketstatus" : null,
-      reason_code: typeof mcRaw.reason_code === "string" ? mcRaw.reason_code : null,
+      reason_code: mcReason,
       official_open_at: typeof mcRaw.official_open_at === "string" ? mcRaw.official_open_at : null,
       official_close_at: typeof mcRaw.official_close_at === "string" ? mcRaw.official_close_at : null,
       next_known_session_at: typeof mcRaw.next_known_session_at === "string" ? mcRaw.next_known_session_at : null,
     },
     indexes: validateSection(r.indexes, [], true),
-    watchlist_activity: validateSection(r.watchlist_activity, [], true),
-    risk_attention: validateSection(r.risk_attention, [], true),
+    watchlist_activity: sessionDependent<PreMarketWorkspaceResponse["watchlist_activity"]["data"]>(r.watchlist_activity, []),
+    risk_attention: sessionDependent<PreMarketWorkspaceResponse["risk_attention"]["data"]>(r.risk_attention, []),
     catalyst_watch: validateSection(r.catalyst_watch, [], true),
     earnings: validateSection(r.earnings, [], true),
     volume_leaders: validateSection(r.volume_leaders, [], true),
     journal_readiness: validateSection(r.journal_readiness, EMPTY_JOURNAL, false),
     headlines: validateSection(r.headlines, [], true),
-    checklist: validateSection(r.checklist, [], true),
+    checklist: sessionDependent<PreMarketWorkspaceResponse["checklist"]["data"]>(r.checklist, []),
   };
 }
 
