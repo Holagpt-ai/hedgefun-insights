@@ -435,7 +435,9 @@ serve(async (req) => {
         id: String(r.id),
         symbol,
         company_name: typeof r.company_name === "string" ? r.company_name : null,
+        provider: typeof r.provider === "string" ? r.provider : "",
         event_type: typeof r.event_type === "string" ? r.event_type : "company_news",
+        verification_state: "provider_reported",
         event_date: r.event_date as string,
         event_time: isoOrNull(r.event_time),
         time_of_day: normalizeTimeOfDay(r.time_of_day),
@@ -457,27 +459,38 @@ serve(async (req) => {
         if (at !== bt) return at - bt;
         return b.event_date.localeCompare(a.event_date);
       })
-      .slice(0, 12);
+      .slice(0, CATALYST_DISPLAY_LIMIT);
+    displayedCatalysts = scored;
     catalyst_watch = scored.length === 0
       ? emptySection<CatOut[]>([], "NO_QUALIFYING_DATA")
       : envelope("available", scored, newestSourceTs(scored), null);
   }
 
   // ------------------------------------------------------------- 4. earnings
+  // Only CONFIRMED earnings-calendar records dated today with an explicit
+  // before-open report time qualify. Provider-classified earnings NEWS
+  // (provider === "polygon") is never presented as a scheduled earnings event.
   interface EarnOut {
     id: string; symbol: string; company_name: string | null; event_date: string;
-    time_of_day: string | null; title: string; eps_estimate: number | null;
-    eps_actual: number | null; source_name: string | null; source_url: string | null;
+    time_of_day: string | null; title: string; estimate_eps: number | null;
+    actual_eps: number | null; surprise_percent: number | null;
+    source_name: string | null; source_url: string | null;
   }
   let earnings: SectionEnvelope<EarnOut[]>;
   let beforeOpenCount = 0;
+  let earningsConfirmedTotal = 0;
   if (catRaw === null) {
     earnings = unavailableSection<EarnOut[]>([], "QUERY_FAILED");
   } else {
-    const todays = catalystRows.filter((c) => c.event_type === "earnings" && c.event_date === et.date);
-    const source = todays.filter((c) => c.time_of_day === "before_open" || c.time_of_day === null);
-    const out: EarnOut[] = source.map((c) => {
-      const facts = (c.facts && typeof c.facts === "object" ? c.facts : {}) as Record<string, unknown>;
+    const selection = selectBeforeOpenEarnings(catalystRows, {
+      etDate: et.date,
+      owned: ownedSet,
+      limit: EARNINGS_DISPLAY_LIMIT,
+    });
+    earningsConfirmedTotal = selection.total;
+    beforeOpenCount = selection.total;
+    const out: EarnOut[] = selection.rows.map((c) => {
+      const f = readEarningsFacts(c.facts);
       return {
         id: c.id,
         symbol: c.symbol,
@@ -485,16 +498,16 @@ serve(async (req) => {
         event_date: c.event_date,
         time_of_day: c.time_of_day,
         title: c.title,
-        eps_estimate: finiteOrNull(facts.eps_estimate),
-        eps_actual: finiteOrNull(facts.eps_actual),
+        estimate_eps: f.estimate_eps,
+        actual_eps: f.actual_eps,
+        surprise_percent: f.surprise_percent,
         source_name: c.source_name,
         source_url: c.source_url,
       };
     });
-    beforeOpenCount = out.filter((e) => e.time_of_day === "before_open").length;
     earnings = out.length === 0
       ? emptySection<EarnOut[]>([], "NO_QUALIFYING_DATA")
-      : envelope("available", out, newestSourceTs(source), null);
+      : envelope("available", out, newestSourceTs(selection.rows), null);
   }
 
   // -------------------------------------------------------- 5. volume leaders
