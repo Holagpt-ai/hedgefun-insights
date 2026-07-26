@@ -1,5 +1,12 @@
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
-import { directionLabel, formatPercent, formatPrice, formatVolume, numberOrDash } from "@/lib/pre-market/builders";
+import {
+  directionLabel,
+  formatPercent,
+  formatPrice,
+  formatVolume,
+  numberOrDash,
+  renderableSignals,
+} from "@/lib/pre-market/builders";
 import type { PreMarketWatchlistRow } from "@/types/pre-market";
 
 function DirectionBadge({ direction }: { direction: string }) {
@@ -23,6 +30,7 @@ export function WatchlistActivityList({ rows }: { rows: PreMarketWatchlistRow[] 
     <div className="flex flex-col gap-3">
       {rows.map((r) => {
         const unavailable = r.direction === "data_unavailable";
+        const signals = renderableSignals(r.market_signals, { unavailable });
         return (
           <div key={r.ticker} className="flex flex-col gap-2 rounded-xl border bg-card p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -60,22 +68,20 @@ export function WatchlistActivityList({ rows }: { rows: PreMarketWatchlistRow[] 
             ) : (
               <>
                 {r.explanation && <p className="break-words text-xs text-muted-foreground">{r.explanation}</p>}
-                {r.market_signals.length > 0 && (
+                {signals.length > 0 && (
                   <div className="rounded-lg border border-border/60 bg-background/50 p-2">
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                       Market Signals · deterministic
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      {r.market_signals
-                        .filter((s) => typeof s.label === "string" && s.label.length > 0)
-                        .map((s, i) => (
-                          <span
-                            key={`${r.ticker}-sig-${i}`}
-                            className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
-                          >
-                            {s.label}
-                          </span>
-                        ))}
+                      {signals.map((s) => (
+                        <span
+                          key={`${r.ticker}-${s.signal_id}`}
+                          className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          {s.label}
+                        </span>
+                      ))}
                     </div>
                   </div>
                 )}

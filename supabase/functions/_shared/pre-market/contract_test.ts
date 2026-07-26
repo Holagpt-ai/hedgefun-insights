@@ -183,3 +183,160 @@ Deno.test("only https source URLs are accepted", () => {
   assertEquals(isHttpsUrl("javascript:alert(1)"), false);
   assertEquals(isHttpsUrl(null), false);
 });
+
+// ---------------------------------------------------------------- P1-R1
+
+import {
+  derivedSectionStatus,
+  etDateShift,
+  isUsableVolumeRow,
+  lifecycleLabel,
+  latestRequestByTicker,
+  missingSymbols,
+  nextKnownSessionFrom,
+  normalizeDirection,
+  normalizeSide,
+  resolveMarketContext,
+  sanitizeAlerts,
+  sanitizeMarketSignals,
+  validateCalendarRows,
+} from "./contract.ts";
+
+// /marketstatus/upcoming lists only special days; a normal session has no row for today.
+const CAL_OK = [
+  { date: "2026-07-28", status: "early-close", exchange: "NYSE", open: "2026-07-28T13:30:00Z", close: "2026-07-28T17:00:00Z" },
+];
+const NOW_OK = { market: "extended-hours", earlyHours: true, serverTime: "2026-07-27T08:00:00-04:00" };
+
+Deno.test("ET date shift is calendar-accurate across month end", () => {
+  assertEquals(etDateShift("2026-08-01", -2), "2026-07-30");
+  assertEquals(etDateShift("garbage", -1), "garbage");
+});
+
+Deno.test("calendar validation fails closed on partial rows", () => {
+  assertEquals(validateCalendarRows(null).ok, false);
+  assertEquals(validateCalendarRows([{ date: "2026-07-27", status: "open" }]).ok, false);
+  assertEquals(validateCalendarRows([{ date: "bad", status: "open", exchange: "NYSE" }]).ok, false);
+  assertEquals(validateCalendarRows(CAL_OK).ok, true);
+});
+
+Deno.test("missing calendar never yields a session", () => {
+  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: null, etDate: "2026-07-27", etWeekday: "Mon" });
+  assertEquals(r.status, "unavailable");
+  assertEquals(r.reason_code, "CALENDAR_UNAVAILABLE");
+  assertEquals(r.source, null);
+});
+
+Deno.test("contradictory exchange rows fail closed", () => {
+  const cal = [
+    { date: "2026-07-27", status: "open", exchange: "NYSE", open: null, close: null },
+    { date: "2026-07-27", status: "closed", exchange: "NASDAQ", open: null, close: null },
+  ];
+  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: cal, etDate: "2026-07-27", etWeekday: "Mon" });
+  assertEquals(r.status, "unavailable");
+  assertEquals(r.reason_code, "CALENDAR_CONTRADICTORY");
+});
+
+Deno.test("provider serverTime without ET offset fails closed", () => {
+  const r = resolveMarketContext({
+    nowBody: { market: "open", serverTime: "not-a-time" },
+    calendarBody: CAL_OK,
+    etDate: "2026-07-27",
+    etWeekday: "Mon",
+  });
+  assertEquals(r.status, "unavailable");
+  assertEquals(r.reason_code, "PROVIDER_TIME_INVALID");
+});
+
+Deno.test("valid evidence resolves premarket and next known session", () => {
+  const r = resolveMarketContext({ nowBody: NOW_OK, calendarBody: CAL_OK, etDate: "2026-07-27", etWeekday: "Mon" });
+  assertEquals(r.status, "premarket");
+  assertEquals(r.reason_code, null);
+  assertEquals(r.source, "polygon_marketstatus");
+  assertEquals(r.official_open_at, null);
+  assertEquals(r.next_known_session_at, "2026-07-28T13:30:00Z");
+});
+
+Deno.test("non-premarket sessions are labeled OUTSIDE_PREMARKET", () => {
+  const r = resolveMarketContext({
+    nowBody: { market: "open", serverTime: "2026-07-27T10:00:00-04:00" },
+    calendarBody: CAL_OK,
+    etDate: "2026-07-27",
+    etWeekday: "Mon",
+  });
+  assertEquals(r.status, "regular");
+  assertEquals(r.reason_code, "OUTSIDE_PREMARKET");
+});
+
+Deno.test("next known session ignores closed and open-less rows", () => {
+  assertEquals(nextKnownSessionFrom([{ date: "2026-07-28", status: "closed", exchange: "NYSE", open: "x", close: null }], "2026-07-27"), null);
+});
+
+Deno.test("only authorized signals with labels render", () => {
+  const out = sanitizeMarketSignals([
+    { signal_id: "hod_break", label: "New session high", direction: "bullish" },
+    { signal_id: "hod_break", label: "dupe", direction: "bullish" },
+    { signal_id: "made_up", label: "Nope", direction: "bullish" },
+    { signal_id: "lod_break", label: "", direction: "bearish" },
+    { signal_id: "lod_break", label: "Session low", direction: "sideways" },
+  ], { unavailable: false });
+  assertEquals(out.length, 1);
+  assertEquals(out[0].signal_id, "hod_break");
+});
+
+Deno.test("data unavailable rows expose no signals", () => {
+  assertEquals(
+    sanitizeMarketSignals([{ signal_id: "hod_break", label: "x", direction: "bullish" }], { unavailable: true }).length,
+    0,
+  );
+});
+
+Deno.test("unknown direction becomes data_unavailable", () => {
+  assertEquals(normalizeDirection("moon"), "data_unavailable");
+  assertEquals(normalizeDirection("bearish"), "bearish");
+});
+
+Deno.test("request lifecycle uses the newest real row", () => {
+  const m = latestRequestByTicker([
+    { ticker: "AAPL", status: "failed", created_at: "2026-07-27T10:00:00Z", error_code: "PROVIDER_ERROR" },
+    { ticker: "AAPL", status: "pending", created_at: "2026-07-27T11:00:00Z" },
+    { ticker: "MSFT", status: "bogus", created_at: "2026-07-27T11:00:00Z" },
+  ]);
+  assertEquals(m.get("AAPL")?.status, "pending");
+  assertEquals(m.has("MSFT"), false);
+  assertEquals(lifecycleLabel(undefined), "No analysis request on record");
+  assertEquals(lifecycleLabel(m.get("AAPL")), "Analysis pending");
+});
+
+Deno.test("journal side is never coerced", () => {
+  assertEquals(normalizeSide("long"), "long");
+  assertEquals(normalizeSide("buy"), null);
+  assertEquals(normalizeSide(undefined), null);
+});
+
+Deno.test("index coverage gaps are detectable", () => {
+  assertEquals(missingSymbols(["SPY", "QQQ", "DIA", "IWM"], ["SPY", "QQQ"]), ["DIA", "IWM"]);
+});
+
+Deno.test("derived sections fail closed when an input failed", () => {
+  assertEquals(derivedSectionStatus(false, 5).status, "unavailable");
+  assertEquals(derivedSectionStatus(true, 0).status, "empty");
+  assertEquals(derivedSectionStatus(true, 2).status, "available");
+});
+
+Deno.test("alerts are ownership-scoped, validated and deduped", () => {
+  const out = sanitizeAlerts([
+    { ticker: "AAPL", alert_type: "unusual_volume", reason: "RVOL spike", event_time: "2026-07-27T11:00:00Z", dedupe_key: "k1" },
+    { ticker: "AAPL", alert_type: "unusual_volume", reason: "dupe", event_time: "2026-07-27T12:00:00Z", dedupe_key: "k1" },
+    { ticker: "TSLA", alert_type: "unusual_volume", reason: "not owned", event_time: "2026-07-27T12:00:00Z", dedupe_key: "k2" },
+    { ticker: "AAPL", alert_type: "key_level", reason: "banned", event_time: "2026-07-27T12:00:00Z", dedupe_key: "k3" },
+  ], new Set(["AAPL"]));
+  assertEquals(out.length, 1);
+  assertEquals(out[0].dedupe_key, "k1");
+});
+
+Deno.test("volume rows without freshness are unusable", () => {
+  assertEquals(isUsableVolumeRow({ symbol: "AAPL", volume: 10, updated_at: null }), false);
+  assertEquals(isUsableVolumeRow({ symbol: "AAPL", volume: 0, updated_at: "2026-07-27T12:00:00Z" }), false);
+  assertEquals(isUsableVolumeRow({ symbol: "AAPL", volume: 10, updated_at: "2026-07-27T12:00:00Z" }), true);
+});

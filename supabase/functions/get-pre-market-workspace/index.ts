@@ -6,9 +6,12 @@ import {
   SCREENER_STALE_MINUTES,
   ageMinutes,
   buildChecklist,
+  compareByVolumeDesc,
   dedupeCatalyst,
+  derivedSectionStatus,
   emptySection,
   envelope,
+  etDateShift,
   etParts,
   etTimeLabel,
   finiteOrNull,
@@ -17,15 +20,23 @@ import {
   isHttpsUrl,
   isIsoDate,
   isProviderReported,
-  isWeekend,
   isoOrNull,
-  mapMarketStatus,
+  latestRequestByTicker,
+  lifecycleLabel,
+  missingSymbols,
+  normalizeDirection,
+  normalizeRequestStatus,
+  normalizeSide,
   normalizeSymbol,
   normalizeTimeOfDay,
   positiveOrNull,
+  resolveMarketContext,
+  sanitizeAlerts,
+  sanitizeMarketSignals,
   sortByVolumeDesc,
   unavailableSection,
-  type MarketContextStatus,
+  type PreMarketSignal,
+  type RequestState,
   type SectionEnvelope,
 } from "../_shared/pre-market/contract.ts";
 
@@ -41,37 +52,48 @@ const jsonHeaders = {
   "Cache-Control": "private, no-store",
 };
 
-const INDEX_SYMBOLS = ["SPY", "QQQ", "DIA", "IWM"];
+const INDEX_SYMBOLS = ["SPY", "QQQ", "DIA", "IWM"] as const;
 const VOLUME_LEADER_LIMIT = 6;
 const HEADLINE_LIMIT = 8;
-const CATALYST_RECENT_HOURS = 48;
+/** Catalyst/earnings window: today plus the previous two ET calendar dates. */
+const CATALYST_LOOKBACK_DAYS = 2;
+const ALERT_LOOKBACK_HOURS = 24;
+const PROVIDER_TIMEOUT_MS = 4_000;
 
 function json(body: unknown, status: number): Response {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
 }
 
-// ---- in-process market status cache -----------------------------------
+// ---- bounded provider fetches (fail closed, never swallowed) -------------
 const NOW_TTL_MS = 60_000;
 const UPCOMING_TTL_MS = 15 * 60_000;
 let nowCache: { at: number; body: unknown } | null = null;
-let upcomingCache: { at: number; rows: Array<Record<string, unknown>> } | null = null;
+let upcomingCache: { at: number; body: unknown } | null = null;
+
+async function fetchJsonBounded(url: string): Promise<unknown> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), PROVIDER_TIMEOUT_MS);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    if (!res.ok) throw new Error("provider_non_ok");
+    return await res.json();
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function fetchMarketNow(apiKey: string): Promise<unknown> {
   if (nowCache && Date.now() - nowCache.at <= NOW_TTL_MS) return nowCache.body;
-  const res = await fetch(`https://api.polygon.io/v1/marketstatus/now?apiKey=${apiKey}`);
-  if (!res.ok) throw new Error("status_non_ok");
-  const body = await res.json();
+  const body = await fetchJsonBounded(`https://api.polygon.io/v1/marketstatus/now?apiKey=${apiKey}`);
   nowCache = { at: Date.now(), body };
   return body;
 }
 
-async function fetchUpcoming(apiKey: string): Promise<Array<Record<string, unknown>>> {
-  if (upcomingCache && Date.now() - upcomingCache.at <= UPCOMING_TTL_MS) return upcomingCache.rows;
-  const res = await fetch(`https://api.polygon.io/v1/marketstatus/upcoming?apiKey=${apiKey}`);
-  if (!res.ok) throw new Error("upcoming_non_ok");
-  const body = await res.json();
+async function fetchUpcoming(apiKey: string): Promise<unknown> {
+  if (upcomingCache && Date.now() - upcomingCache.at <= UPCOMING_TTL_MS) return upcomingCache.body;
+  const body = await fetchJsonBounded(`https://api.polygon.io/v1/marketstatus/upcoming?apiKey=${apiKey}`);
   if (!Array.isArray(body)) throw new Error("upcoming_malformed");
-  upcomingCache = { at: Date.now(), rows: body };
+  upcomingCache = { at: Date.now(), body };
   return body;
 }
 
@@ -103,71 +125,63 @@ serve(async (req) => {
   const et = etParts(now);
 
   // ---------------------------------------------------------- market context
-  let marketStatus: MarketContextStatus = "unavailable";
-  let marketReason: string | null = "CALENDAR_UNAVAILABLE";
-  let marketSource: "polygon_marketstatus" | null = null;
-  let officialOpenAt: string | null = null;
-  let officialCloseAt: string | null = null;
-  let nextKnownSessionAt: string | null = null;
+  // Fail closed: both provider requests must succeed and validate.
+  let ctx = {
+    status: "unavailable" as const,
+    reason_code: "CALENDAR_UNAVAILABLE" as string | null,
+    source: null as "polygon_marketstatus" | null,
+    official_open_at: null as string | null,
+    official_close_at: null as string | null,
+    next_known_session_at: null as string | null,
+  } as ReturnType<typeof resolveMarketContext>;
 
   const polygonKey = Deno.env.get("POLYGON_API_KEY");
   if (polygonKey) {
+    let nowBody: unknown = null;
+    let calendarBody: unknown = null;
+    let providerOk = true;
     try {
-      const [nowBody, upcoming] = await Promise.all([
+      [nowBody, calendarBody] = await Promise.all([
         fetchMarketNow(polygonKey),
-        fetchUpcoming(polygonKey).catch(() => [] as Array<Record<string, unknown>>),
+        fetchUpcoming(polygonKey),
       ]);
-      const todayRows = upcoming.filter((r) => r.date === et.date);
-      const closedToday = todayRows.some((r) => String(r.status ?? "").toLowerCase() === "closed");
-      const earlyRow = todayRows.find((r) => typeof r.close === "string" && r.close);
-      marketStatus = mapMarketStatus(nowBody, { weekday: et.weekday, upcomingClosedToday: closedToday });
-      marketSource = "polygon_marketstatus";
-      marketReason = marketStatus === "non_trading_day"
-        ? "NON_TRADING_DAY"
-        : marketStatus === "unavailable"
-          ? "CALENDAR_UNAVAILABLE"
-          : marketStatus === "premarket"
-            ? null
-            : "OUTSIDE_PREMARKET";
-      if (earlyRow) {
-        officialOpenAt = isoOrNull(earlyRow.open) ?? null;
-        officialCloseAt = isoOrNull(earlyRow.close) ?? null;
-      }
-      const future = upcoming
-        .filter((r) => isIsoDate(r.date) && (r.date as string) > et.date && String(r.status ?? "").toLowerCase() !== "closed")
-        .sort((a, b) => String(a.date).localeCompare(String(b.date)));
-      const nextOpen = future.find((r) => typeof r.open === "string");
-      nextKnownSessionAt = nextOpen ? isoOrNull(nextOpen.open) : null;
     } catch (_e) {
-      console.error("get-pre-market-workspace: market status unavailable");
-      marketStatus = isWeekend(et.weekday) ? "non_trading_day" : "unavailable";
-      marketReason = marketStatus === "non_trading_day" ? "NON_TRADING_DAY" : "CALENDAR_UNAVAILABLE";
-      marketSource = null;
+      providerOk = false;
+      console.error("get-pre-market-workspace: market calendar request failed");
     }
-  } else if (isWeekend(et.weekday)) {
-    marketStatus = "non_trading_day";
-    marketReason = "NON_TRADING_DAY";
+    if (providerOk) {
+      ctx = resolveMarketContext({
+        nowBody,
+        calendarBody,
+        etDate: et.date,
+        etWeekday: et.weekday,
+      });
+    }
   }
 
+  const marketStatus = ctx.status;
   const active = isActiveSession(marketStatus);
   const inPremarket = marketStatus === "premarket";
 
   // ------------------------------------------------------------- section IO
+  const catalystFrom = etDateShift(et.date, -CATALYST_LOOKBACK_DAYS);
   const results = await Promise.allSettled([
-    userClient.from("market_indexes").select("symbol, name, current_value, change_amount, change_percent, updated_at").in("symbol", INDEX_SYMBOLS),
+    userClient.from("market_indexes")
+      .select("symbol, name, current_value, change_amount, change_percent, updated_at")
+      .in("symbol", INDEX_SYMBOLS as unknown as string[]),
     userClient.from("watchlists").select("symbol").eq("user_id", userId),
     userClient.from("catalyst_events")
-      .select("id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, facts")
+      .select("id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts")
       .eq("verification_state", "provider_reported")
-      .gte("event_date", new Date(nowMs - CATALYST_RECENT_HOURS * 3600_000).toISOString().slice(0, 10))
-      .lte("event_date", new Date(nowMs + 7 * 86400_000).toISOString().slice(0, 10))
-      .order("event_date", { ascending: true })
+      .gte("event_date", catalystFrom)
+      .lte("event_date", et.date)
+      .order("event_date", { ascending: false })
       .limit(400),
     userClient.from("screener_results")
       .select("symbol, company_name, price, change_percent, volume, rvol, updated_at")
       .eq("tab_id", "day_trade_radar")
       .order("volume", { ascending: false, nullsFirst: false })
-      .limit(VOLUME_LEADER_LIMIT),
+      .limit(VOLUME_LEADER_LIMIT * 4),
     userClient.from("journal_trades")
       .select("id, symbol, side, qty, entry_price, stop_price, target_price, status")
       .eq("user_id", userId)
@@ -184,14 +198,23 @@ serve(async (req) => {
     r.status === "fulfilled" && !r.value.error ? (r.value.data ?? ([] as unknown as T)) : null;
 
   // ------------------------------------------------------------- 1. indexes
-  interface IndexOut { symbol: string; name: string | null; value: number; change_percent: number; change_amount: number | null; updated_at: string; stale: boolean }
+  interface IndexOut {
+    symbol: string;
+    status: "available" | "unavailable";
+    name: string | null;
+    value: number | null;
+    change_percent: number | null;
+    change_amount: number | null;
+    updated_at: string | null;
+    stale: boolean;
+  }
   let indexes: SectionEnvelope<IndexOut[]>;
   {
     const raw = ok<Array<Record<string, unknown>>>(idxRes as never);
     if (raw === null) {
       indexes = unavailableSection<IndexOut[]>([], "QUERY_FAILED");
     } else {
-      const rows: IndexOut[] = [];
+      const valid = new Map<string, IndexOut>();
       for (const r of raw) {
         const symbol = normalizeSymbol(r.symbol);
         const value = positiveOrNull(r.current_value);
@@ -199,8 +222,9 @@ serve(async (req) => {
         const ts = isoOrNull(r.updated_at);
         if (!symbol || value === null || cp === null || !ts) continue;
         const age = ageMinutes(ts, nowMs) ?? Infinity;
-        rows.push({
+        valid.set(symbol, {
           symbol,
+          status: "available",
           name: typeof r.name === "string" ? r.name : null,
           value,
           change_percent: cp,
@@ -209,12 +233,33 @@ serve(async (req) => {
           stale: active && age > INDEX_STALE_MINUTES,
         });
       }
-      rows.sort((a, b) => INDEX_SYMBOLS.indexOf(a.symbol) - INDEX_SYMBOLS.indexOf(b.symbol));
-      const newest = rows.reduce<string | null>((acc, r) => (!acc || r.updated_at > acc ? r.updated_at : acc), null);
+      // Always account for every expected index symbol.
+      const rows: IndexOut[] = INDEX_SYMBOLS.map((s) =>
+        valid.get(s) ?? {
+          symbol: s,
+          status: "unavailable" as const,
+          name: null,
+          value: null,
+          change_percent: null,
+          change_amount: null,
+          updated_at: null,
+          stale: false,
+        }
+      );
+      const missing = missingSymbols(INDEX_SYMBOLS, valid.keys());
+      const newest = rows.reduce<string | null>(
+        (acc, r) => (r.updated_at && (!acc || r.updated_at > acc) ? r.updated_at : acc),
+        null,
+      );
       const anyStale = rows.some((r) => r.stale);
-      indexes = rows.length === 0
-        ? emptySection<IndexOut[]>([], "NO_QUALIFYING_DATA")
-        : envelope(anyStale ? "stale" : "available", rows, newest, anyStale ? "SOURCE_STALE" : null);
+      indexes = valid.size === 0
+        ? unavailableSection<IndexOut[]>(rows, "NO_QUALIFYING_DATA")
+        : envelope(
+          anyStale ? "stale" : "available",
+          rows,
+          newest,
+          anyStale ? "SOURCE_STALE" : missing.length > 0 ? "INCOMPLETE_COVERAGE" : null,
+        );
     }
   }
 
@@ -223,39 +268,68 @@ serve(async (req) => {
   const symbols = (wlRaw ?? [])
     .map((r) => normalizeSymbol(r.symbol))
     .filter((s): s is string => !!s);
+  const ownedSet = new Set(symbols);
 
   interface WlOut {
     ticker: string; company_name: string | null; direction: string;
     explanation: string; failure_reason: string | null;
     price: number | null; change_pct: number | null; volume: number | null;
     rvol: number | null; rvol_class: string | null;
-    market_signals: unknown[]; session_date: string | null; analyzed_at: string | null;
+    market_signals: PreMarketSignal[]; session_date: string | null; analyzed_at: string | null;
     valid_through: string | null; awaiting_refresh: boolean;
+    request_status: string | null;
   }
   let watchlist_activity: SectionEnvelope<WlOut[]>;
   let awaitingRefreshCount = 0;
-  let analysisRows: Array<Record<string, unknown>> = [];
+  let pendingCount = 0;
+  let failedCount = 0;
+  let alertsOk = false;
+  let alerts: ReturnType<typeof sanitizeAlerts> = [];
+  const lifecycle: Array<{ ticker: string; label: string }> = [];
 
   if (wlRaw === null) {
     watchlist_activity = unavailableSection<WlOut[]>([], "QUERY_FAILED");
   } else if (symbols.length === 0) {
     watchlist_activity = emptySection<WlOut[]>([], "WATCHLIST_EMPTY");
+    alertsOk = true;
   } else {
-    const [aRes, nRes] = await Promise.allSettled([
+    const alertSince = new Date(nowMs - ALERT_LOOKBACK_HOURS * 3600_000).toISOString();
+    const [aRes, nRes, rRes, alRes] = await Promise.allSettled([
       userClient.from("watchlist_analysis_v2").select("*").in("ticker", symbols),
       userClient.from("ticker_search").select("symbol, name").in("symbol", symbols),
+      userClient.from("watchlist_analysis_requests")
+        .select("ticker, status, created_at, error_code")
+        .eq("user_id", userId)
+        .in("ticker", symbols)
+        .order("created_at", { ascending: false })
+        .limit(400),
+      userClient.from("watchlist_alerts_v2")
+        .select("ticker, alert_type, reason, event_time, session_date, dedupe_key")
+        .in("ticker", symbols)
+        .gte("event_time", alertSince)
+        .order("event_time", { ascending: false })
+        .limit(100),
     ]);
     const analysis = ok<Array<Record<string, unknown>>>(aRes as never);
     const names = ok<Array<Record<string, unknown>>>(nRes as never) ?? [];
+    const requestsRaw = ok<Array<Record<string, unknown>>>(rRes as never);
+    const alertsRaw = ok<Array<Record<string, unknown>>>(alRes as never);
+
+    alertsOk = alertsRaw !== null;
+    if (alertsRaw) alerts = sanitizeAlerts(alertsRaw, ownedSet);
+
     const nameMap: Record<string, string> = {};
     for (const n of names) {
       const s = normalizeSymbol(n.symbol);
       if (s && typeof n.name === "string") nameMap[s] = n.name;
     }
-    if (analysis === null) {
+
+    const requestsFailed = requestsRaw === null;
+    const requestStates: Map<string, RequestState> = latestRequestByTicker(requestsRaw ?? []);
+
+    if (analysis === null || requestsFailed) {
       watchlist_activity = unavailableSection<WlOut[]>([], "QUERY_FAILED");
     } else {
-      analysisRows = analysis;
       const byTicker = new Map<string, Record<string, unknown>>();
       for (const a of analysis) {
         const t = normalizeSymbol(a.ticker);
@@ -264,34 +338,51 @@ serve(async (req) => {
       const current: WlOut[] = [];
       for (const sym of symbols) {
         const a = byTicker.get(sym);
-        if (!a || !isCurrentPremarketAnalysis(a, et.date, nowMs)) {
-          awaitingRefreshCount += 1;
+        const state = requestStates.get(sym);
+        // Pre-Market rows may only be presented as current during pre-market.
+        const isCurrent = inPremarket && !!a && isCurrentPremarketAnalysis(a, et.date, nowMs);
+        if (!isCurrent) {
+          lifecycle.push({ ticker: sym, label: lifecycleLabel(state) });
+          if (state?.status === "pending") pendingCount += 1;
+          else if (state?.status === "failed") failedCount += 1;
+          else if (inPremarket) awaitingRefreshCount += 1;
           continue;
         }
-        const direction = typeof a.direction === "string" ? a.direction : "data_unavailable";
+        const direction = normalizeDirection(a!.direction);
         const unavailable = direction === "data_unavailable";
         current.push({
           ticker: sym,
           company_name: nameMap[sym] ?? null,
           direction,
-          explanation: typeof a.explanation === "string" ? a.explanation : "",
-          failure_reason: typeof a.failure_reason === "string" ? a.failure_reason : null,
-          price: positiveOrNull(a.price),
-          change_pct: finiteOrNull(a.change_pct),
-          volume: finiteOrNull(a.volume),
-          rvol: finiteOrNull(a.rvol),
-          rvol_class: typeof a.rvol_class === "string" ? a.rvol_class : null,
-          market_signals: unavailable ? [] : (Array.isArray(a.market_signals) ? a.market_signals : []),
-          session_date: isIsoDate(a.session_date) ? a.session_date : null,
-          analyzed_at: isoOrNull(a.analyzed_at),
-          valid_through: isoOrNull(a.valid_through),
+          explanation: typeof a!.explanation === "string" ? a!.explanation : "",
+          failure_reason: unavailable
+            ? (typeof a!.failure_reason === "string" ? a!.failure_reason : "Analysis could not be validated")
+            : null,
+          price: positiveOrNull(a!.price),
+          change_pct: finiteOrNull(a!.change_pct),
+          volume: positiveOrNull(a!.volume),
+          rvol: finiteOrNull(a!.rvol),
+          rvol_class: typeof a!.rvol_class === "string" ? a!.rvol_class : null,
+          market_signals: sanitizeMarketSignals(a!.market_signals, { unavailable }),
+          session_date: isIsoDate(a!.session_date) ? a!.session_date : null,
+          analyzed_at: isoOrNull(a!.analyzed_at),
+          valid_through: isoOrNull(a!.valid_through),
           awaiting_refresh: false,
+          request_status: normalizeRequestStatus(state?.status) ?? null,
         });
       }
       const sorted = sortByVolumeDesc(current);
-      const newest = sorted.reduce<string | null>((acc, r) => (r.analyzed_at && (!acc || r.analyzed_at > acc) ? r.analyzed_at : acc), null);
+      const newest = sorted.reduce<string | null>(
+        (acc, r) => (r.analyzed_at && (!acc || r.analyzed_at > acc) ? r.analyzed_at : acc),
+        null,
+      );
       watchlist_activity = sorted.length === 0
-        ? emptySection<WlOut[]>([], inPremarket ? "ANALYSIS_AWAITING_REFRESH" : "OUTSIDE_PREMARKET")
+        ? emptySection<WlOut[]>(
+          [],
+          !inPremarket
+            ? (marketStatus === "unavailable" ? "CALENDAR_UNAVAILABLE" : "OUTSIDE_PREMARKET")
+            : "ANALYSIS_AWAITING_REFRESH",
+        )
         : envelope("available", sorted, newest, null);
     }
   }
@@ -301,11 +392,17 @@ serve(async (req) => {
     id: string; symbol: string; company_name: string | null; event_type: string;
     event_date: string; event_time: string | null; time_of_day: string | null;
     title: string; source_name: string | null; source_url: string | null;
-    published_at: string | null; facts: unknown;
+    published_at: string | null; updated_at: string | null; facts: unknown;
   }
   const catRaw = ok<Array<Record<string, unknown>>>(catRes as never);
-  let catalystRows: CatOut[] = [];
+  const catalystRows: CatOut[] = [];
   let catalyst_watch: SectionEnvelope<CatOut[]>;
+  const newestSourceTs = (rows: CatOut[]): string | null =>
+    rows.reduce<string | null>((acc, r) => {
+      const ts = r.updated_at ?? r.published_at;
+      return ts && (!acc || ts > acc) ? ts : acc;
+    }, null);
+
   if (catRaw === null) {
     catalyst_watch = unavailableSection<CatOut[]>([], "QUERY_FAILED");
   } else {
@@ -314,6 +411,11 @@ serve(async (req) => {
       const symbol = normalizeSymbol(r.symbol);
       const title = typeof r.title === "string" ? r.title.trim() : "";
       if (!symbol || !title || !isIsoDate(r.event_date)) continue;
+      // ET calendar window only — today and the previous two ET dates.
+      if (r.event_date < catalystFrom || r.event_date > et.date) continue;
+      const updated = isoOrNull(r.updated_at);
+      const published = isoOrNull(r.published_at);
+      if (!updated && !published) continue; // untimestamped events are excluded
       catalystRows.push({
         id: String(r.id),
         symbol,
@@ -325,26 +427,25 @@ serve(async (req) => {
         title,
         source_name: typeof r.source_name === "string" ? r.source_name : null,
         source_url: isHttpsUrl(r.source_url) ? r.source_url : null,
-        published_at: isoOrNull(r.published_at),
+        published_at: published,
+        updated_at: updated,
         facts: r.facts ?? null,
       });
     }
-    const wlSet = new Set(symbols);
-    const scored = catalystRows
-      .filter((c) => c.event_date >= new Date(nowMs - CATALYST_RECENT_HOURS * 3600_000).toISOString().slice(0, 10))
+    const scored = [...catalystRows]
       .sort((a, b) => {
-        const aw = wlSet.has(a.symbol) ? 0 : 1;
-        const bw = wlSet.has(b.symbol) ? 0 : 1;
+        const aw = ownedSet.has(a.symbol) ? 0 : 1;
+        const bw = ownedSet.has(b.symbol) ? 0 : 1;
         if (aw !== bw) return aw - bw;
         const at = a.event_date === et.date ? 0 : 1;
         const bt = b.event_date === et.date ? 0 : 1;
         if (at !== bt) return at - bt;
-        return a.event_date.localeCompare(b.event_date);
+        return b.event_date.localeCompare(a.event_date);
       })
       .slice(0, 12);
     catalyst_watch = scored.length === 0
       ? emptySection<CatOut[]>([], "NO_QUALIFYING_DATA")
-      : envelope("available", scored, now.toISOString(), null);
+      : envelope("available", scored, newestSourceTs(scored), null);
   }
 
   // ------------------------------------------------------------- 4. earnings
@@ -359,27 +460,26 @@ serve(async (req) => {
     earnings = unavailableSection<EarnOut[]>([], "QUERY_FAILED");
   } else {
     const todays = catalystRows.filter((c) => c.event_type === "earnings" && c.event_date === et.date);
-    const out: EarnOut[] = todays
-      .filter((c) => c.time_of_day === "before_open" || c.time_of_day === null)
-      .map((c) => {
-        const facts = (c.facts && typeof c.facts === "object" ? c.facts : {}) as Record<string, unknown>;
-        return {
-          id: c.id,
-          symbol: c.symbol,
-          company_name: c.company_name,
-          event_date: c.event_date,
-          time_of_day: c.time_of_day,
-          title: c.title,
-          eps_estimate: finiteOrNull(facts.eps_estimate),
-          eps_actual: finiteOrNull(facts.eps_actual),
-          source_name: c.source_name,
-          source_url: c.source_url,
-        };
-      });
+    const source = todays.filter((c) => c.time_of_day === "before_open" || c.time_of_day === null);
+    const out: EarnOut[] = source.map((c) => {
+      const facts = (c.facts && typeof c.facts === "object" ? c.facts : {}) as Record<string, unknown>;
+      return {
+        id: c.id,
+        symbol: c.symbol,
+        company_name: c.company_name,
+        event_date: c.event_date,
+        time_of_day: c.time_of_day,
+        title: c.title,
+        eps_estimate: finiteOrNull(facts.eps_estimate),
+        eps_actual: finiteOrNull(facts.eps_actual),
+        source_name: c.source_name,
+        source_url: c.source_url,
+      };
+    });
     beforeOpenCount = out.filter((e) => e.time_of_day === "before_open").length;
     earnings = out.length === 0
       ? emptySection<EarnOut[]>([], "NO_QUALIFYING_DATA")
-      : envelope("available", out, now.toISOString(), null);
+      : envelope("available", out, newestSourceTs(source), null);
   }
 
   // -------------------------------------------------------- 5. volume leaders
@@ -393,26 +493,45 @@ serve(async (req) => {
   if (scrRaw === null) {
     volume_leaders = unavailableSection<VolOut[]>([], "QUERY_FAILED");
   } else {
+    let sawRow = false;
+    let sawTimestamp = false;
     const rows: VolOut[] = [];
     for (const r of scrRaw) {
       const symbol = normalizeSymbol(r.symbol);
+      const volume = positiveOrNull(r.volume);
+      const updated = isoOrNull(r.updated_at);
       if (!symbol) continue;
+      sawRow = true;
+      if (updated) sawTimestamp = true;
+      // Honest integrity: no positive volume or no establishable freshness → excluded.
+      if (volume === null || !updated) continue;
       rows.push({
         symbol,
         company_name: typeof r.company_name === "string" ? r.company_name : null,
         price: positiveOrNull(r.price),
         change_percent: finiteOrNull(r.change_percent),
-        volume: finiteOrNull(r.volume),
+        volume,
         rvol: finiteOrNull(r.rvol),
-        updated_at: isoOrNull(r.updated_at),
+        updated_at: updated,
       });
     }
-    const newest = rows.reduce<string | null>((acc, r) => (r.updated_at && (!acc || r.updated_at > acc) ? r.updated_at : acc), null);
+    // Strict volume-descending order after validation.
+    rows.sort((a, b) => compareByVolumeDesc(
+      { volume: a.volume, change_pct: a.change_percent },
+      { volume: b.volume, change_pct: b.change_percent },
+    ));
+    const limited = rows.slice(0, VOLUME_LEADER_LIMIT);
+    const newest = limited.reduce<string | null>(
+      (acc, r) => (r.updated_at && (!acc || r.updated_at > acc) ? r.updated_at : acc),
+      null,
+    );
     const age = ageMinutes(newest, nowMs);
     const stale = active && age !== null && age > SCREENER_STALE_MINUTES;
-    volume_leaders = rows.length === 0
-      ? emptySection<VolOut[]>([], "NO_QUALIFYING_DATA")
-      : envelope(stale ? "stale" : "available", rows, newest, stale ? "SOURCE_STALE" : null);
+    volume_leaders = limited.length === 0
+      ? (sawRow && !sawTimestamp
+        ? unavailableSection<VolOut[]>([], "SOURCE_UNVERIFIABLE")
+        : emptySection<VolOut[]>([], "NO_QUALIFYING_DATA"))
+      : envelope(stale ? "stale" : "available", limited, newest, stale ? "SOURCE_STALE" : null);
   }
 
   // ------------------------------------------------------ 6. journal readiness
@@ -424,17 +543,25 @@ serve(async (req) => {
   let journal_readiness: SectionEnvelope<JournalReadiness>;
   let journalMissingRiskCount = 0;
   if (jrnRaw === null) {
-    journal_readiness = unavailableSection<JournalReadiness>({ open_trades: 0, missing_stop: 0, missing_target: 0, symbols: [] }, "QUERY_FAILED");
+    journal_readiness = unavailableSection<JournalReadiness>(
+      { open_trades: 0, missing_stop: 0, missing_target: 0, symbols: [] },
+      "QUERY_FAILED",
+    );
   } else {
+    let malformed = 0;
     const rows = jrnRaw
       .map((r) => {
         const symbol = normalizeSymbol(r.symbol);
-        if (!symbol) return null;
-        const side = r.side === "long" || r.side === "short" ? r.side : "long";
+        const side = normalizeSide(r.side);
+        // Never coerce an invalid or missing side into "long".
+        if (!symbol || side === null) {
+          malformed += 1;
+          return null;
+        }
         return {
           symbol,
           side,
-          qty: finiteOrNull(r.qty),
+          qty: positiveOrNull(r.qty),
           missing_stop: positiveOrNull(r.stop_price) === null,
           missing_target: positiveOrNull(r.target_price) === null,
         };
@@ -448,8 +575,8 @@ serve(async (req) => {
     };
     journalMissingRiskCount = rows.filter((r) => r.missing_stop || r.missing_target).length;
     journal_readiness = rows.length === 0
-      ? envelope("empty", data, now.toISOString(), "NO_QUALIFYING_DATA")
-      : envelope("available", data, now.toISOString(), null);
+      ? envelope("empty", data, null, malformed > 0 ? "INCOMPLETE_COVERAGE" : "NO_QUALIFYING_DATA")
+      : envelope("available", data, null, malformed > 0 ? "INCOMPLETE_COVERAGE" : null);
   }
 
   // ------------------------------------------------------------ 7. headlines
@@ -480,33 +607,44 @@ serve(async (req) => {
 
   // ------------------------------------------------------ 8. risk & attention
   interface AttentionItem { id: string; symbol: string | null; kind: string; label: string; detail: string | null; route: string | null }
+  const wlRoute = (s: string) => `/dashboard/watchlist?symbol=${encodeURIComponent(s)}`;
   const attention: AttentionItem[] = [];
   {
     for (const row of watchlist_activity.data as WlOut[]) {
       if (row.direction === "data_unavailable") {
-        attention.push({ id: `unavail:${row.ticker}`, symbol: row.ticker, kind: "data_unavailable", label: "Data unavailable", detail: row.failure_reason, route: `/dashboard/watchlist?symbol=${encodeURIComponent(row.ticker)}` });
+        attention.push({ id: `unavail:${row.ticker}`, symbol: row.ticker, kind: "data_unavailable", label: "Data unavailable", detail: row.failure_reason, route: wlRoute(row.ticker) });
         continue;
       }
       for (const s of row.market_signals) {
-        const sig = (s && typeof s === "object" ? s : {}) as Record<string, unknown>;
-        const dir = typeof sig.direction === "string" ? sig.direction : null;
-        const label = typeof sig.label === "string" ? sig.label : typeof sig.id === "string" ? null : null;
-        if (dir === "bearish") {
-          attention.push({ id: `sig:${row.ticker}:${String(sig.id ?? "b")}`, symbol: row.ticker, kind: "bearish_signal", label: "Bearish market signal", detail: label, route: `/dashboard/watchlist?symbol=${encodeURIComponent(row.ticker)}` });
-        } else if (dir === "bullish") {
-          attention.push({ id: `sig:${row.ticker}:${String(sig.id ?? "u")}`, symbol: row.ticker, kind: "bullish_signal", label: "Bullish market signal", detail: label, route: `/dashboard/watchlist?symbol=${encodeURIComponent(row.ticker)}` });
+        if (s.direction === "bearish" || s.direction === "bullish") {
+          attention.push({
+            id: `sig:${row.ticker}:${s.signal_id}`,
+            symbol: row.ticker,
+            kind: s.direction === "bearish" ? "bearish_signal" : "bullish_signal",
+            label: s.direction === "bearish" ? "Bearish market signal" : "Bullish market signal",
+            detail: s.label,
+            route: wlRoute(row.ticker),
+          });
         }
       }
       if (row.rvol_class === "unusual" || row.rvol_class === "extreme") {
-        attention.push({ id: `rvol:${row.ticker}`, symbol: row.ticker, kind: "unusual_volume", label: "Unusual time-adjusted volume", detail: row.rvol !== null ? `RVOL ${row.rvol.toFixed(2)}` : null, route: `/dashboard/watchlist?symbol=${encodeURIComponent(row.ticker)}` });
+        attention.push({ id: `rvol:${row.ticker}`, symbol: row.ticker, kind: "unusual_volume", label: "Unusual time-adjusted volume", detail: row.rvol !== null ? `RVOL ${row.rvol.toFixed(2)}` : null, route: wlRoute(row.ticker) });
       }
+    }
+    for (const a of alerts) {
+      attention.push({ id: `alert:${a.dedupe_key}`, symbol: a.ticker, kind: `alert_${a.alert_type}`, label: "Watchlist alert", detail: a.reason, route: wlRoute(a.ticker) });
+    }
+    if (pendingCount > 0) {
+      attention.push({ id: "requests_pending", symbol: null, kind: "analysis_pending", label: "Analysis pending", detail: `${pendingCount} watchlist ${pendingCount === 1 ? "symbol has" : "symbols have"} an in-flight analysis request`, route: "/dashboard/watchlist" });
+    }
+    if (failedCount > 0) {
+      attention.push({ id: "requests_failed", symbol: null, kind: "analysis_failed", label: "Analysis request failed", detail: `${failedCount} watchlist ${failedCount === 1 ? "symbol's" : "symbols'"} last analysis request failed`, route: "/dashboard/watchlist" });
     }
     if (awaitingRefreshCount > 0 && watchlist_activity.status !== "unavailable") {
       attention.push({ id: "awaiting_refresh", symbol: null, kind: "awaiting_refresh", label: "Analysis awaiting refresh", detail: `${awaitingRefreshCount} watchlist ${awaitingRefreshCount === 1 ? "symbol has" : "symbols have"} no current pre-market analysis`, route: "/dashboard/watchlist" });
     }
-    const wlSet = new Set(symbols);
     for (const c of catalystRows) {
-      if (c.event_type === "earnings" && c.event_date === et.date && wlSet.has(c.symbol)) {
+      if (c.event_type === "earnings" && c.event_date === et.date && ownedSet.has(c.symbol)) {
         attention.push({ id: `earn:${c.id}`, symbol: c.symbol, kind: "earnings_today", label: "Earnings today", detail: c.title, route: `/dashboard/catalyst?symbol=${encodeURIComponent(c.symbol)}` });
       }
     }
@@ -517,26 +655,42 @@ serve(async (req) => {
       }
     }
   }
-  const anyAttentionSourceFailed =
-    watchlist_activity.status === "unavailable" || journal_readiness.status === "unavailable" || catalyst_watch.status === "unavailable";
-  const risk_attention: SectionEnvelope<AttentionItem[]> = attention.length > 0
-    ? envelope("available", attention, now.toISOString(), null)
-    : anyAttentionSourceFailed
-      ? unavailableSection<AttentionItem[]>([], "QUERY_FAILED")
-      : emptySection<AttentionItem[]>([], "NO_QUALIFYING_DATA");
+
+  // A derived section may only claim available/empty when every required input succeeded.
+  const derivedInputsComplete =
+    watchlist_activity.status !== "unavailable" &&
+    journal_readiness.status !== "unavailable" &&
+    catalyst_watch.status !== "unavailable" &&
+    alertsOk;
+
+  const riskVerdict = derivedSectionStatus(derivedInputsComplete, attention.length);
+  const risk_attention: SectionEnvelope<AttentionItem[]> = envelope(
+    riskVerdict.status,
+    riskVerdict.status === "unavailable" ? [] : attention,
+    riskVerdict.status === "available" ? now.toISOString() : null,
+    riskVerdict.reason_code,
+  );
 
   // ------------------------------------------------------------- 9. checklist
-  const checklistItems = buildChecklist({
-    watchlistPremarketCount: (watchlist_activity.data as WlOut[]).length,
-    catalystTodayCount: catalystRows.filter((c) => c.event_date === et.date).length,
-    beforeOpenEarningsCount: beforeOpenCount,
-    awaitingRefreshCount,
-    journalMissingRiskCount,
-    volumeLeaderCount: (volume_leaders.data as VolOut[]).length,
-  });
-  const checklist = checklistItems.length === 0
-    ? emptySection(checklistItems, "NO_QUALIFYING_DATA")
-    : envelope("available", checklistItems, now.toISOString(), null);
+  const checklistInputsComplete =
+    derivedInputsComplete && volume_leaders.status !== "unavailable" && indexes.status !== "unavailable";
+  const checklistItems = checklistInputsComplete
+    ? buildChecklist({
+      watchlistPremarketCount: (watchlist_activity.data as WlOut[]).length,
+      catalystTodayCount: catalystRows.filter((c) => c.event_date === et.date).length,
+      beforeOpenEarningsCount: beforeOpenCount,
+      awaitingRefreshCount,
+      journalMissingRiskCount,
+      volumeLeaderCount: (volume_leaders.data as VolOut[]).length,
+    })
+    : [];
+  const checklistVerdict = derivedSectionStatus(checklistInputsComplete, checklistItems.length);
+  const checklist = envelope(
+    checklistVerdict.status,
+    checklistItems,
+    checklistVerdict.status === "available" ? now.toISOString() : null,
+    checklistVerdict.reason_code,
+  );
 
   return json({
     contract_version: CONTRACT_VERSION,
@@ -546,12 +700,14 @@ serve(async (req) => {
       et_date: et.date,
       et_time: etTimeLabel(et),
       checked_at: now.toISOString(),
-      source: marketSource,
-      reason_code: marketReason,
-      official_open_at: officialOpenAt,
-      official_close_at: officialCloseAt,
-      next_known_session_at: nextKnownSessionAt,
+      source: ctx.source,
+      reason_code: ctx.reason_code,
+      official_open_at: ctx.official_open_at,
+      official_close_at: ctx.official_close_at,
+      next_known_session_at: ctx.next_known_session_at,
     },
+    watchlist_lifecycle: lifecycle,
+    alerts_included: alertsOk,
     indexes,
     watchlist_activity,
     risk_attention,

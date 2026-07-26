@@ -32,12 +32,21 @@ export interface MarketContext {
 
 export interface PreMarketIndex {
   symbol: string;
+  /** Per-symbol availability — an absent index is disclosed, never omitted. */
+  status: "available" | "unavailable";
   name: string | null;
-  value: number;
-  change_percent: number;
+  value: number | null;
+  change_percent: number | null;
   change_amount: number | null;
-  updated_at: string;
+  updated_at: string | null;
   stale: boolean;
+}
+
+/** Validated, authorized Watchlist V2 signal. */
+export interface PreMarketSignal {
+  signal_id: string;
+  label: string;
+  direction: "bullish" | "bearish" | "neutral";
 }
 
 export interface PreMarketWatchlistRow {
@@ -51,11 +60,18 @@ export interface PreMarketWatchlistRow {
   volume: number | null;
   rvol: number | null;
   rvol_class: string | null;
-  market_signals: Array<{ id?: string; label?: string; direction?: string }>;
+  market_signals: PreMarketSignal[];
   session_date: string | null;
   analyzed_at: string | null;
   valid_through: string | null;
   awaiting_refresh: boolean;
+  request_status: "pending" | "succeeded" | "failed" | null;
+}
+
+/** Honest lifecycle disclosure for watchlist symbols without a current analysis. */
+export interface PreMarketLifecycleEntry {
+  ticker: string;
+  label: string;
 }
 
 export interface PreMarketAttentionItem {
@@ -136,6 +152,10 @@ export interface PreMarketWorkspaceResponse {
   contract_version: 1;
   server_now: string;
   market_context: MarketContext;
+  /** Lifecycle state for watchlist symbols excluded from the current session view. */
+  watchlist_lifecycle: PreMarketLifecycleEntry[];
+  /** False when the alerts query failed — derived sections must fail closed. */
+  alerts_included: boolean;
   indexes: SectionEnvelope<PreMarketIndex[]>;
   watchlist_activity: SectionEnvelope<PreMarketWatchlistRow[]>;
   risk_attention: SectionEnvelope<PreMarketAttentionItem[]>;
