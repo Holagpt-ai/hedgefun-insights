@@ -1,0 +1,171 @@
+// Volume-first Screener selection contract.
+// Qualify → require symbol + positive volume → dedupe → volume desc / symbol asc → limit.
+
+export const SCREENER_ROW_LIMIT = 20;
+
+export type PolygonTicker = {
+  ticker?: unknown;
+  todaysChangePerc?: unknown;
+  day?: { c?: unknown; o?: unknown; v?: unknown; h?: unknown; l?: unknown };
+  prevDay?: { c?: unknown; v?: unknown };
+  lastTrade?: { p?: unknown };
+  [key: string]: unknown;
+};
+
+/** Normalize a ticker symbol; returns null when missing/invalid. */
+export function normalizeSymbol(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const s = raw.trim().toUpperCase();
+  if (!s || s.length > 12) return null;
+  // Allow common equity symbols (letters, digits, ., -).
+  if (!/^[A-Z][A-Z0-9.\-]*$/.test(s)) return null;
+  return s;
+}
+
+/** Session day volume from a Polygon snapshot ticker. */
+export function dayVolume(t: PolygonTicker): number | null {
+  const v = t?.day?.v;
+  if (v === undefined || v === null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
+export function safeNumber(v: unknown): number | null {
+  if (v === undefined || v === null) return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** RVOL = today volume / prior-day volume (unchanged formula). */
+export function rvol(t: PolygonTicker): number | null {
+  const dayVol = t?.day?.v;
+  const prevVol = t?.prevDay?.v;
+  if (dayVol === undefined || dayVol === null) return null;
+  if (prevVol === undefined || prevVol === null) return null;
+  const d = Number(dayVol);
+  const p = Number(prevVol);
+  if (!Number.isFinite(d) || !Number.isFinite(p) || p === 0) return null;
+  return Math.round((d / p) * 10) / 10;
+}
+
+/** Gap % = (today open - prev close) / prev close * 100. */
+export function gapPercent(t: PolygonTicker): number | null {
+  const open = t?.day?.o;
+  const prevClose = t?.prevDay?.c;
+  if (open === undefined || open === null) return null;
+  if (prevClose === undefined || prevClose === null) return null;
+  const o = Number(open);
+  const c = Number(prevClose);
+  if (!Number.isFinite(o) || !Number.isFinite(c) || c === 0) return null;
+  return Math.round(((o - c) / c) * 1000) / 10;
+}
+
+export function lastPrice(t: PolygonTicker): number | null {
+  return safeNumber(t?.day?.c ?? t?.lastTrade?.p);
+}
+
+/**
+ * Shared volume-first selection:
+ * 1. Reject invalid/missing symbol and non-positive volume
+ * 2. Deduplicate by symbol (keep higher volume; symbol tie-break)
+ * 3. Sort volume desc, symbol asc
+ * 4. Slice to limit
+ */
+export function selectVolumeFirst(
+  candidates: PolygonTicker[],
+  limit: number = SCREENER_ROW_LIMIT,
+): PolygonTicker[] {
+  const bySymbol = new Map<string, PolygonTicker>();
+
+  for (const t of candidates) {
+    const sym = normalizeSymbol(t?.ticker);
+    if (!sym) continue;
+    const vol = dayVolume(t);
+    if (vol === null || !(vol > 0)) continue;
+
+    const normalized: PolygonTicker = { ...t, ticker: sym };
+    const prev = bySymbol.get(sym);
+    if (!prev) {
+      bySymbol.set(sym, normalized);
+      continue;
+    }
+    const prevVol = dayVolume(prev)!;
+    if (vol > prevVol) {
+      bySymbol.set(sym, normalized);
+    }
+    // Equal volume: keep whichever was stored first (symbol identical).
+  }
+
+  return [...bySymbol.values()]
+    .sort((a, b) => {
+      const va = dayVolume(a)!;
+      const vb = dayVolume(b)!;
+      if (vb !== va) return vb - va;
+      const sa = normalizeSymbol(a.ticker)!;
+      const sb = normalizeSymbol(b.ticker)!;
+      return sa < sb ? -1 : sa > sb ? 1 : 0;
+    })
+    .slice(0, Math.max(0, limit));
+}
+
+// ── Tab qualification predicates (existing criteria; float still not enforced) ──
+
+export function qualifiesDayTradeRadar(t: PolygonTicker): boolean {
+  const price = lastPrice(t);
+  const chg = safeNumber(t?.todaysChangePerc);
+  const rv = rvol(t);
+  if (price === null || chg === null || rv === null) return false;
+  return price >= 2 && price <= 20 && chg >= 10 && rv >= 5;
+}
+
+export function qualifiesGappers(t: PolygonTicker): boolean {
+  const g = gapPercent(t);
+  return g !== null && Math.abs(g) >= 5;
+}
+
+export function qualifiesVolumeSpikes(t: PolygonTicker): boolean {
+  const rv = rvol(t);
+  return rv !== null && rv >= 3;
+}
+
+export function qualifiesUnusualVolume(t: PolygonTicker): boolean {
+  const rv = rvol(t);
+  return rv !== null && rv >= 4;
+}
+
+/** Provider-list membership is the only extra qualifier for gainers/losers. */
+export function qualifiesGainersLosers(_t: PolygonTicker): boolean {
+  return true;
+}
+
+export type ScreenerTabId =
+  | "day_trade_radar"
+  | "gappers"
+  | "volume_spikes"
+  | "gainers_losers"
+  | "unusual_volume";
+
+export const TAB_QUALIFIERS: Record<
+  Exclude<ScreenerTabId, never>,
+  (t: PolygonTicker) => boolean
+> = {
+  day_trade_radar: qualifiesDayTradeRadar,
+  gappers: qualifiesGappers,
+  volume_spikes: qualifiesVolumeSpikes,
+  gainers_losers: qualifiesGainersLosers,
+  unusual_volume: qualifiesUnusualVolume,
+};
+
+/**
+ * Apply tab qualification then the shared volume-first selection contract.
+ */
+export function selectForTab(
+  tabId: ScreenerTabId,
+  universe: PolygonTicker[],
+  limit: number = SCREENER_ROW_LIMIT,
+): PolygonTicker[] {
+  const qualify = TAB_QUALIFIERS[tabId];
+  const qualified = universe.filter(qualify);
+  return selectVolumeFirst(qualified, limit);
+}
