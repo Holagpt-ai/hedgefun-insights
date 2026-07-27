@@ -11,6 +11,7 @@ import {
   ProviderUnavailableError,
 } from "../_shared/screeners/provider.ts";
 import {
+  normalizeSymbol,
   type PolygonTicker,
   selectForTab,
 } from "../_shared/screeners/selection.ts";
@@ -63,11 +64,10 @@ function json(data: unknown, status = 200): Response {
   });
 }
 
-async function loadNameMap(
+/** Load company names from stocks for the bounded selected-symbol set only. */
+async function loadNameMapFromStocks(
   sb: DbClient,
   symbols: string[],
-  apiKey: string,
-  fetchImpl: FetchLike,
 ): Promise<Record<string, string>> {
   const nameMap: Record<string, string> = {};
   if (symbols.length === 0) return nameMap;
@@ -79,31 +79,20 @@ async function loadNameMap(
   for (const s of stockRows ?? []) {
     if (s.symbol && s.name) nameMap[s.symbol] = s.name;
   }
+  return nameMap;
+}
 
-  const missing = symbols.filter((s) => !nameMap[s]);
-  const CHUNK = 50;
-  for (let i = 0; i < missing.length; i += CHUNK) {
-    const chunk = missing.slice(i, i + CHUNK);
-    try {
-      const body = await fetchJsonBounded(
-        `${BASE}/v3/reference/tickers?ticker=${
-          chunk.join(",")
-        }&limit=50&apiKey=${apiKey}`,
-        {},
-        { fetchImpl },
-      );
-      const results =
-        (body as { results?: Array<{ ticker?: string; name?: string }> })
-          ?.results;
-      if (!Array.isArray(results)) continue;
-      for (const r of results) {
-        if (r.ticker && r.name) nameMap[r.ticker] = r.name;
-      }
-    } catch {
-      // Best-effort name enrichment only — never fails the sync.
+function selectedSymbolUnion(
+  ...groups: PolygonTicker[][]
+): string[] {
+  const set = new Set<string>();
+  for (const group of groups) {
+    for (const t of group) {
+      const s = normalizeSymbol(t?.ticker);
+      if (s) set.add(s);
     }
   }
-  return nameMap;
+  return [...set].sort();
 }
 
 /**
@@ -171,20 +160,7 @@ export async function handleSyncScreenerData(
     return json({ error: "provider_unavailable" }, 503);
   }
 
-  // ── Database work begins only after required provider evidence succeeded ─
-  const sb = deps.createClient(supabaseUrl, serviceRole);
-  const updatedAt = deps.nowIso();
-
-  const symbolSet = new Set<string>();
-  for (const t of [...allTickers, ...gainers, ...losers]) {
-    const s = typeof t?.ticker === "string"
-      ? t.ticker.trim().toUpperCase()
-      : "";
-    if (s) symbolSet.add(s);
-  }
-  const nameMap = await loadNameMap(sb, [...symbolSet], apiKey, deps.fetch);
-  const getName = (ticker: string) => nameMap[ticker] ?? ticker;
-
+  // ── Volume-first tab selection before any company-name enrichment ───────
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
   const gapperSelected = selectForTab("gappers", allTickers);
   const volumeSpikeSelected = selectForTab("volume_spikes", allTickers);
@@ -193,6 +169,20 @@ export async function handleSyncScreenerData(
     ...losers,
   ]);
   const unusualSelected = selectForTab("unusual_volume", allTickers);
+
+  const selectedSymbols = selectedSymbolUnion(
+    dayTradeSelected,
+    gapperSelected,
+    volumeSpikeSelected,
+    gainersLosersSelected,
+    unusualSelected,
+  );
+
+  // ── Database work: stocks name lookup for selected symbols only ─────────
+  const sb = deps.createClient(supabaseUrl, serviceRole);
+  const updatedAt = deps.nowIso();
+  const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
+  const getName = (ticker: string) => nameMap[ticker] ?? ticker;
 
   const dayTradeRows = mapTabRows(
     "day_trade_radar",
