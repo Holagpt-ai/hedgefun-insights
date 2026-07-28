@@ -266,6 +266,15 @@ export async function handleSyncScreenerData(
     console.error("[sync-screener-data] replace generation failed");
     return json({ error: "database_error" }, 500);
   }
+  if (
+    typeof rowsInserted !== "number" ||
+    !Number.isInteger(rowsInserted) ||
+    rowsInserted < 0 ||
+    rowsInserted !== allRows.length
+  ) {
+    console.error("[sync-screener-data] replace generation count mismatch");
+    return json({ error: "database_error" }, 500);
+  }
 
   const bounds = providerAsOfBounds(allRows);
 
@@ -273,7 +282,7 @@ export async function handleSyncScreenerData(
     ok: true,
     sync_run_id: syncRunId,
     tickers_scanned: allTickers.length,
-    rows_inserted: rowsInserted ?? allRows.length,
+    rows_inserted: rowsInserted,
     tabs: {
       day_trade_radar: dayTradeRows.length,
       gappers: gapperRows.length,

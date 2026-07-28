@@ -379,3 +379,62 @@ Deno.test("freshness: older closed-market timestamps are accepted", () => {
     new Date(oldMs).toISOString(),
   );
 });
+
+Deno.test("freshness: extremely long digit string returns null", () => {
+  const huge = "9".repeat(10_000);
+  assertEquals(parseProviderAsOf(huge, NOW_MS), null);
+});
+
+Deno.test("freshness: out-of-range Date value returns null", () => {
+  // Milliseconds beyond the JS Date range; nowMs aligned so future-skew is not
+  // the rejecting branch — Invalid Date must still yield null.
+  const beyondMs = 8.65e15;
+  assertEquals(
+    parseProviderAsOf(beyondMs * 1_000_000, beyondMs),
+    null,
+  );
+});
+
+Deno.test("freshness: invalid nowMs returns null", () => {
+  const ns = NOW_MS * 1_000_000;
+  assertEquals(parseProviderAsOf(ns, Number.NaN), null);
+  assertEquals(parseProviderAsOf(ns, Number.POSITIVE_INFINITY), null);
+  assertEquals(parseProviderAsOf(ns, Number.NEGATIVE_INFINITY), null);
+});
+
+Deno.test("freshness: never throws on adversarial inputs", () => {
+  const inputs: unknown[] = [
+    undefined,
+    null,
+    "",
+    "abc",
+    "9".repeat(50_000),
+    -1,
+    0,
+    1.5,
+    Number.MAX_VALUE,
+    {},
+    [],
+    true,
+    Symbol("x"),
+  ];
+  for (const raw of inputs) {
+    let threw = false;
+    let result: string | null = "sentinel";
+    try {
+      result = parseProviderAsOf(raw as never, NOW_MS);
+    } catch {
+      threw = true;
+    }
+    assertEquals(threw, false);
+    assertEquals(result === null || typeof result === "string", true);
+  }
+  // Invalid nowMs must also never throw.
+  let threwNow = false;
+  try {
+    assertEquals(parseProviderAsOf(NOW_MS * 1_000_000, Number.NaN), null);
+  } catch {
+    threwNow = true;
+  }
+  assertEquals(threwNow, false);
+});

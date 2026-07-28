@@ -20,36 +20,47 @@ export const PROVIDER_FUTURE_SKEW_MS = 5 * 60_000;
 /**
  * Parse Polygon snapshot `updated` (nanoseconds) to an ISO UTC timestamp.
  * Never substitutes the sync execution time.
- * Returns null when missing, malformed, nonpositive, unparseable,
- * or more than five minutes in the future relative to `nowMs`.
+ * Always returns an ISO string or null — never throws.
  */
 export function parseProviderAsOf(
   raw: unknown,
   nowMs: number,
 ): string | null {
-  if (raw === undefined || raw === null) return null;
+  try {
+    if (!Number.isFinite(nowMs)) return null;
+    if (raw === undefined || raw === null) return null;
 
-  let nanos: number;
-  if (typeof raw === "number") {
-    if (!Number.isFinite(raw) || !Number.isInteger(raw)) return null;
-    nanos = raw;
-  } else if (typeof raw === "string") {
-    const trimmed = raw.trim();
-    if (!trimmed || !/^\d+$/.test(trimmed)) return null;
-    nanos = Number(trimmed);
-    if (!Number.isFinite(nanos)) return null;
-  } else {
+    let nanos: number;
+    if (typeof raw === "number") {
+      if (!Number.isFinite(raw) || !Number.isInteger(raw)) return null;
+      nanos = raw;
+    } else if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      // Bound digit length so enormous strings never coerce to Infinity/throw.
+      if (!trimmed || trimmed.length > 22 || !/^\d+$/.test(trimmed)) {
+        return null;
+      }
+      nanos = Number(trimmed);
+      if (!Number.isFinite(nanos)) return null;
+    } else {
+      return null;
+    }
+
+    if (!(nanos > 0)) return null;
+
+    // Polygon publishes nanoseconds; convert to milliseconds.
+    const ms = Math.trunc(nanos / 1_000_000);
+    if (!(ms > 0) || !Number.isFinite(ms)) return null;
+    if (ms > nowMs + PROVIDER_FUTURE_SKEW_MS) return null;
+
+    const observed = new Date(ms);
+    const observedMs = observed.getTime();
+    if (!Number.isFinite(observedMs)) return null;
+
+    return observed.toISOString();
+  } catch {
     return null;
   }
-
-  if (!(nanos > 0)) return null;
-
-  // Polygon publishes nanoseconds; convert to milliseconds.
-  const ms = Math.trunc(nanos / 1_000_000);
-  if (!(ms > 0) || !Number.isFinite(ms)) return null;
-  if (ms > nowMs + PROVIDER_FUTURE_SKEW_MS) return null;
-
-  return new Date(ms).toISOString();
 }
 
 /** True when every ticker carries a valid provider observation timestamp. */

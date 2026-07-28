@@ -446,6 +446,11 @@ Deno.test("handler: empty qualifying results still invoke empty replacement", as
     deps,
   );
   assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.ok, true);
+  assertEquals(body.rows_inserted, 0);
+  assertEquals(body.provider_as_of_min, null);
+  assertEquals(body.provider_as_of_max, null);
   const rpcs = mutations.filter((m) => m.kind === "rpc") as Array<{
     kind: "rpc";
     args: { p_rows: ScreenerResultRow[] };
@@ -461,6 +466,53 @@ Deno.test("handler: RPC failure returns database_error", async () => {
     mutations,
     marketFetch([mk("B", 8_000_000, 1_500_000)]),
     { rpcError: { message: "boom" } },
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 500);
+  assertEquals((await res.json()).error, "database_error");
+});
+
+Deno.test("handler: null RPC count returns database_error", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([mk("B", 8_000_000, 1_500_000)]),
+    { rpcData: null as unknown as number },
+  );
+  // Force mock to return data: null without error.
+  const forced: SyncDeps = {
+    ...deps,
+    createClient: () => ({
+      from: mockDb(mutations).from,
+      rpc: async (fn, args) => {
+        mutations.push({ kind: "rpc", fn, args });
+        return { data: null, error: null };
+      },
+    }),
+  };
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    forced,
+  );
+  assertEquals(res.status, 500);
+  assertEquals((await res.json()).error, "database_error");
+});
+
+Deno.test("handler: mismatched RPC count returns database_error", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([mk("B", 8_000_000, 1_500_000)]),
+    { rpcData: 99 },
   );
   const res = await handleSyncScreenerData(
     new Request("https://example.test/sync", {
