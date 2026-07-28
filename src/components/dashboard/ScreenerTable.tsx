@@ -5,18 +5,21 @@ import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tab
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
 import { EVENT_TYPE_LABEL } from "@/lib/catalyst/parsers";
-
+import {
+  formatDayRange,
+  volumeRatioBadgeClass,
+  type ScreenerResultRow,
+  type ScreenerUiStatus,
+} from "@/lib/screeners/contract";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
   isPro: boolean;
-  liveRows?: any[];
-  loading?: boolean;
-  lastUpdated?: string | null;
-  error?: string | null;
+  rows?: ScreenerResultRow[];
+  status?: ScreenerUiStatus;
 }
 
-function formatCell(value: string | number, format: ColumnFormat): string {
+function formatCell(value: string | number | null | undefined, format: ColumnFormat): string {
   if (value === null || value === undefined || value === "") return "—";
   switch (format) {
     case "price":
@@ -48,29 +51,6 @@ function percentClass(value: number): string {
   return "text-foreground";
 }
 
-function rvolBadgeClass(value: number): string {
-  if (!Number.isFinite(value)) return "text-foreground";
-  if (value >= 5) return "text-red-500 font-semibold";
-  if (value >= 3) return "text-amber-500 font-semibold";
-  return "text-foreground";
-}
-
-function formatUpdatedAgo(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  const then = new Date(iso).getTime();
-  if (Number.isNaN(then)) return null;
-  const diffMs = Date.now() - then;
-  if (diffMs < 0) return "just now";
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString();
-}
-
 function isCompanyEmpty(v: unknown): boolean {
   return v === null || v === undefined || String(v).trim() === "";
 }
@@ -78,18 +58,16 @@ function isCompanyEmpty(v: unknown): boolean {
 export function ScreenerTable({
   tab,
   isPro,
-  liveRows,
-  loading = false,
-  lastUpdated,
-  error,
+  rows = [],
+  status = "loading",
 }: ScreenerTableProps) {
   const navigate = useNavigate();
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
-  const hasLive = !!liveRows && liveRows.length > 0;
-  // Product rule: never render tab.rows sample data in production.
-  const hasNothing = !hasLive;
+  const loading = status === "loading";
+  const showRows = status === "available" || status === "stale";
+  const hasVerifiedRows = showRows && rows.length > 0;
 
   const handleSortClick = (key: string) => {
     setSort((prev) => {
@@ -100,15 +78,15 @@ export function ScreenerTable({
   };
 
   const sortedRows = useMemo(() => {
-    const baseRows: any[] = hasLive ? (liveRows as any[]) : [];
+    const baseRows = hasVerifiedRows ? rows : [];
     if (!sort) return baseRows;
     const col = tab.columns.find((c) => c.key === sort.key);
     if (!col) return baseRows;
     const dir = sort.direction === "asc" ? 1 : -1;
     const isText = col.format === "text";
     return [...baseRows].sort((a, b) => {
-      const av = a[sort.key];
-      const bv = b[sort.key];
+      const av = (a as Record<string, unknown>)[sort.key];
+      const bv = (b as Record<string, unknown>)[sort.key];
       const aNull = av === null || av === undefined || av === "";
       const bNull = bv === null || bv === undefined || bv === "";
       if (aNull && bNull) return 0;
@@ -117,19 +95,20 @@ export function ScreenerTable({
       if (isText) return String(av).localeCompare(String(bv)) * dir;
       return (Number(av) - Number(bv)) * dir;
     });
-  }, [sort, tab.rows, tab.columns, liveRows, hasLive]);
+  }, [sort, tab.columns, rows, hasVerifiedRows]);
 
   const enrichmentSymbols = useMemo(
-    () => sortedRows.map((r: any) => String(r?.symbol ?? "").toUpperCase()).filter(Boolean),
+    () => sortedRows.map((r) => String(r?.symbol ?? "").toUpperCase()).filter(Boolean),
     [sortedRows],
   );
-  const { data: catalystMap } = useCatalystEnrichmentForSymbols(enrichmentSymbols);
+  const {
+    data: catalystMap,
+    isLoading: catalystLoading,
+    isError: catalystError,
+  } = useCatalystEnrichmentForSymbols(enrichmentSymbols);
 
   const isFullGate = !isPro && tab.freeRowLimit === 0;
-
   const visibleCount = isPro ? sortedRows.length : tab.freeRowLimit;
-
-  const updatedAgo = formatUpdatedAgo(lastUpdated);
 
   const renderWatchlistButton = (sym: string) => {
     const already = isAdded(sym);
@@ -187,9 +166,43 @@ export function ScreenerTable({
     </Link>
   );
 
-  const renderCellContent = (row: any, col: ScreenerColumn, blurred: boolean) => {
-    const raw = row[col.key];
-    const sym = String(row["symbol"] ?? "").toUpperCase();
+  const renderCatalystCell = (sym: string) => {
+    if (catalystLoading) {
+      return <span className="text-muted-foreground text-xs">Catalyst check pending</span>;
+    }
+    if (catalystError) {
+      return <span className="text-muted-foreground text-xs">Catalyst unavailable</span>;
+    }
+    const entry = catalystMap?.get(sym);
+    if (!entry) {
+      return (
+        <span className="text-muted-foreground text-xs">
+          No provider-reported catalyst found
+        </span>
+      );
+    }
+    const label = EVENT_TYPE_LABEL[entry.event.event_type];
+    const kindLabel = entry.kind === "upcoming" ? "Upcoming" : "Recent";
+    return (
+      <Link
+        to={`/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`}
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex flex-col items-start gap-0.5 max-w-[220px] hover:underline"
+        title={entry.event.title ?? label}
+      >
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+          {kindLabel} · {label}
+        </span>
+        <span className="text-[12px] text-foreground truncate max-w-full">
+          {entry.event.title ?? entry.event.company_name ?? sym}
+        </span>
+      </Link>
+    );
+  };
+
+  const renderCellContent = (row: ScreenerResultRow, col: ScreenerColumn, blurred: boolean) => {
+    const raw = (row as Record<string, unknown>)[col.key];
+    const sym = String(row.symbol ?? "").toUpperCase();
 
     if (col.key === "symbol") {
       return (
@@ -198,9 +211,9 @@ export function ScreenerTable({
             to={`/stocks/${raw}`}
             className="inline-flex items-center min-h-[36px] font-semibold text-accent-blue hover:underline"
           >
-            {formatCell(raw, col.format)}
+            {formatCell(raw as string, col.format)}
           </Link>
-          {hasLive && !blurred && (
+          {hasVerifiedRows && !blurred && (
             <div className="inline-flex items-center gap-0.5">
               {renderWatchlistButton(sym)}
               {renderCatalystButton(sym)}
@@ -213,61 +226,36 @@ export function ScreenerTable({
 
     if (col.key === "company_name") {
       if (isCompanyEmpty(raw)) {
-        return (
-          <span className="italic text-muted-foreground">
-            {sym || "—"}
-          </span>
-        );
+        return <span className="italic text-muted-foreground">{sym || "—"}</span>;
       }
       return String(raw);
     }
 
     if (col.key === "day_range") {
-      // TODO: replace with visual range bar when day_high + day_low are available in screener_results
       return (
-        <span className="text-muted-foreground text-xs">Range unavailable</span>
-      );
-    }
-
-    if (col.key === "catalyst_news") {
-      const entry = catalystMap?.get(sym);
-      if (!entry) {
-        return <span className="text-muted-foreground text-xs">No recent catalyst</span>;
-      }
-      const label = EVENT_TYPE_LABEL[entry.event.event_type];
-      const kindLabel = entry.kind === "upcoming" ? "Upcoming" : "Recent";
-      return (
-        <Link
-          to={`/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex flex-col items-start gap-0.5 max-w-[220px] hover:underline"
-          title={entry.event.title ?? label}
-        >
-          <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-            {kindLabel} · {label}
-          </span>
-          <span className="text-[12px] text-foreground truncate max-w-full">
-            {entry.event.title ?? entry.event.company_name ?? sym}
-          </span>
-        </Link>
-      );
-    }
-
-
-    if (col.format === "multiplier" && col.key === "rvol") {
-      return (
-        <span className={rvolBadgeClass(Number(raw))}>
-          {formatCell(raw, col.format)}
+        <span className="text-muted-foreground text-xs">
+          {formatDayRange(row.day_low, row.day_high)}
         </span>
       );
     }
 
-    return formatCell(raw, col.format);
+    if (col.key === "catalyst_news") {
+      return renderCatalystCell(sym);
+    }
+
+    if (col.key === "volume_ratio_prior_session" && col.format === "multiplier") {
+      return (
+        <span className={volumeRatioBadgeClass(Number(raw))}>
+          {formatCell(raw as number, col.format)}
+        </span>
+      );
+    }
+
+    return formatCell(raw as string | number | null | undefined, col.format);
   };
 
   return (
     <div className="space-y-3">
-      {/* Criteria pills + data status badge */}
       <div className="flex flex-wrap items-center gap-2">
         {tab.criteria.map((c) => (
           <span
@@ -277,30 +265,7 @@ export function ScreenerTable({
             {c}
           </span>
         ))}
-
-        <div className="w-full sm:w-auto sm:ml-auto flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold uppercase tracking-wide">
-          {hasLive && (
-            <>
-              <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
-                Market feed · delayed
-              </span>
-              {updatedAgo && (
-                <span className="normal-case font-normal text-muted-foreground">
-                  · Updated {updatedAgo}
-                </span>
-              )}
-            </>
-          )}
-          {/* Sample data chip intentionally removed — no fake rows are ever rendered. */}
-        </div>
       </div>
-
-      {error && (
-        <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-[12px] text-muted-foreground">
-          Unable to load live screener data.
-        </div>
-      )}
 
       {loading && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-2">
@@ -310,19 +275,32 @@ export function ScreenerTable({
         </div>
       )}
 
-      {!loading && hasNothing && (
+      {!loading && status === "unavailable" && (
         <div className="rounded-lg border border-border bg-card p-10 text-center">
           <div className="text-sm font-semibold text-foreground">
-            No qualifying movers yet
+            Screener data is temporarily unavailable. No unverified rows are being shown.
           </div>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Live data updates on a scheduled feed. Check back during market hours.
-          </p>
         </div>
       )}
 
-      {/* Desktop table (md+) */}
-      {!loading && !hasNothing && (
+      {!loading && status === "unimplemented" && (
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
+          <div className="text-sm font-semibold text-foreground">
+            New Highs / Lows is unavailable because a validated 52-week baseline is not
+            connected yet. No securities are being inferred.
+          </div>
+        </div>
+      )}
+
+      {!loading && status === "empty" && (
+        <div className="rounded-lg border border-border bg-card p-10 text-center">
+          <div className="text-sm font-semibold text-foreground">
+            No securities met this screener’s criteria in the latest validated generation.
+          </div>
+        </div>
+      )}
+
+      {!loading && hasVerifiedRows && (
         <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block">
           <div className="overflow-x-auto">
             <table className="w-full text-[13px]">
@@ -351,13 +329,13 @@ export function ScreenerTable({
                   const blurred = !isPro && idx >= visibleCount;
                   return (
                     <tr
-                      key={idx}
+                      key={`${row.tab_id}-${row.symbol}`}
                       className={`border-t border-border ${
                         blurred ? "blur-sm select-none pointer-events-none" : ""
                       }`}
                     >
                       {tab.columns.map((col) => {
-                        const raw = row[col.key];
+                        const raw = (row as Record<string, unknown>)[col.key];
                         const isPct = col.format === "percent";
                         return (
                           <td
@@ -400,19 +378,19 @@ export function ScreenerTable({
         </div>
       )}
 
-      {/* Mobile card view (below md) */}
-      {!loading && !hasNothing && (
+      {!loading && hasVerifiedRows && (
         <div className="relative space-y-2 md:hidden">
           {sortedRows.map((row, idx) => {
             const blurred = !isPro && idx >= visibleCount;
-            const sym = String(row["symbol"] ?? "").toUpperCase();
-            const company = row["company_name"];
-            const price = row["price"];
-            const changePct = row["change_percent"] ?? row["gap_percent"];
-            const rvol = row["rvol"];
+            const sym = String(row.symbol ?? "").toUpperCase();
+            const company = row.company_name;
+            const price = row.price;
+            const changePct = row.change_percent ?? row.gap_percent;
+            const volRatio = row.volume_ratio_prior_session;
+            const priorVol = row.prior_session_volume;
             return (
               <div
-                key={idx}
+                key={`${row.tab_id}-${row.symbol}`}
                 className={`rounded-lg border border-border bg-card p-3 ${
                   blurred ? "blur-sm select-none pointer-events-none" : ""
                 }`}
@@ -433,7 +411,7 @@ export function ScreenerTable({
                       )}
                     </div>
                   </div>
-                  {hasLive && !blurred && (
+                  {hasVerifiedRows && !blurred && (
                     <div className="inline-flex items-center gap-0.5 shrink-0">
                       {renderWatchlistButton(sym)}
                       {renderCatalystButton(sym)}
@@ -442,13 +420,13 @@ export function ScreenerTable({
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
-                  {price !== undefined && (
+                  {price !== null && price !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Price </span>
                       <span className="font-medium">{formatCell(price, "price")}</span>
                     </div>
                   )}
-                  {changePct !== undefined && (
+                  {changePct !== null && changePct !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Chg </span>
                       <span className={`font-medium ${percentClass(Number(changePct))}`}>
@@ -456,15 +434,28 @@ export function ScreenerTable({
                       </span>
                     </div>
                   )}
-                  {rvol !== undefined && (
+                  {priorVol !== null && priorVol !== undefined && (
                     <div>
-                      <span className="text-muted-foreground">RVOL </span>
-                      <span className={rvolBadgeClass(Number(rvol))}>
-                        {formatCell(rvol, "multiplier")}
+                      <span className="text-muted-foreground">Prior Vol </span>
+                      <span className="font-medium">{formatCell(priorVol, "volume")}</span>
+                    </div>
+                  )}
+                  {volRatio !== null && volRatio !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Vol / Prior </span>
+                      <span className={volumeRatioBadgeClass(Number(volRatio))}>
+                        {formatCell(volRatio, "multiplier")}
                       </span>
                     </div>
                   )}
+                  <div>
+                    <span className="text-muted-foreground">Range </span>
+                    <span className="font-medium">
+                      {formatDayRange(row.day_low, row.day_high)}
+                    </span>
+                  </div>
                 </div>
+                <div className="mt-2 text-[12px]">{renderCatalystCell(sym)}</div>
               </div>
             );
           })}
@@ -489,20 +480,23 @@ export function ScreenerTable({
         </div>
       )}
 
-      {/* Partial gate prompt */}
-      {!loading && !hasNothing && !isPro && !isFullGate && sortedRows.length > tab.freeRowLimit && (
-        <div className="text-center pt-1">
-          <button
-            onClick={() => navigate("/pro")}
-            className="text-[12px] font-semibold text-accent-blue hover:underline"
-          >
-            Unlock all {sortedRows.length} results with Pro access →
-          </button>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Or go Unlimited for full access.
-          </p>
-        </div>
-      )}
+      {!loading &&
+        hasVerifiedRows &&
+        !isPro &&
+        !isFullGate &&
+        sortedRows.length > tab.freeRowLimit && (
+          <div className="text-center pt-1">
+            <button
+              onClick={() => navigate("/pro")}
+              className="text-[12px] font-semibold text-accent-blue hover:underline"
+            >
+              Unlock all {sortedRows.length} results with Pro access →
+            </button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Or go Unlimited for full access.
+            </p>
+          </div>
+        )}
     </div>
   );
 }

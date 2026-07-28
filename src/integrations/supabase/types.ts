@@ -1350,11 +1350,49 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_feed_state: {
+        Row: {
+          provider_as_of_max: string | null
+          provider_as_of_min: string | null
+          rows_inserted: number
+          state_key: string
+          status: string
+          sync_run_id: string
+          synced_at: string
+          tab_counts: Json
+          updated_at: string
+        }
+        Insert: {
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          rows_inserted: number
+          state_key: string
+          status: string
+          sync_run_id: string
+          synced_at: string
+          tab_counts: Json
+          updated_at: string
+        }
+        Update: {
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          rows_inserted?: number
+          state_key?: string
+          status?: string
+          sync_run_id?: string
+          synced_at?: string
+          tab_counts?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       screener_results: {
         Row: {
           avg_volume: number | null
           change_percent: number | null
           company_name: string | null
+          day_high: number | null
+          day_low: number | null
           float_shares: number | null
           gap_percent: number | null
           high_52w: number | null
@@ -1362,16 +1400,22 @@ export type Database = {
           low_52w: number | null
           market_cap: number | null
           price: number | null
+          prior_session_volume: number | null
+          provider_as_of: string | null
           rvol: number | null
           symbol: string
+          sync_run_id: string | null
           tab_id: string
           updated_at: string | null
           volume: number | null
+          volume_ratio_prior_session: number | null
         }
         Insert: {
           avg_volume?: number | null
           change_percent?: number | null
           company_name?: string | null
+          day_high?: number | null
+          day_low?: number | null
           float_shares?: number | null
           gap_percent?: number | null
           high_52w?: number | null
@@ -1379,16 +1423,22 @@ export type Database = {
           low_52w?: number | null
           market_cap?: number | null
           price?: number | null
+          prior_session_volume?: number | null
+          provider_as_of?: string | null
           rvol?: number | null
           symbol: string
+          sync_run_id?: string | null
           tab_id: string
           updated_at?: string | null
           volume?: number | null
+          volume_ratio_prior_session?: number | null
         }
         Update: {
           avg_volume?: number | null
           change_percent?: number | null
           company_name?: string | null
+          day_high?: number | null
+          day_low?: number | null
           float_shares?: number | null
           gap_percent?: number | null
           high_52w?: number | null
@@ -1396,11 +1446,15 @@ export type Database = {
           low_52w?: number | null
           market_cap?: number | null
           price?: number | null
+          prior_session_volume?: number | null
+          provider_as_of?: string | null
           rvol?: number | null
           symbol?: string
+          sync_run_id?: string | null
           tab_id?: string
           updated_at?: string | null
           volume?: number | null
+          volume_ratio_prior_session?: number | null
         }
         Relationships: []
       }

@@ -38,7 +38,7 @@ export function useCatalystEnrichmentForSymbols(symbols: string[]) {
         )
         .limit(1000);
 
-      if (error) return new Map();
+      if (error) throw error;
       const bySym = new Map<string, CatalystEnrichmentEntry>();
       for (const raw of (data ?? []) as CatalystEvent[]) {
         const m = eventMomentMs(raw);
