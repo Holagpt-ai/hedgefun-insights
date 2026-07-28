@@ -113,7 +113,7 @@ export function priorSessionVolume(t: PolygonTicker): number | null {
 
 /**
  * current session cumulative volume ÷ previous session total volume.
- * Not time-adjusted average RVOL — prior-session volume ratio only.
+ * Prior-session volume ratio only — not an average-based or time-adjusted metric.
  */
 export function volumeRatioPriorSession(t: PolygonTicker): number | null {
   const dayVol = dayVolume(t);
