@@ -370,6 +370,19 @@ export function isGenerationStale(syncedAt: string, nowMs: number): boolean {
   return nowMs - syncedMs > SCREENER_STALE_AFTER_MS;
 }
 
+/**
+ * Milliseconds until a validated generation must flip to stale under the
+ * strict rule `nowMs - syncedAtMs > SCREENER_STALE_AFTER_MS`.
+ * Returns null for an invalid timestamp.
+ */
+export function msUntilStaleTransition(syncedAt: string, nowMs: number): number | null {
+  const syncedMs = parseTimestampMs(syncedAt);
+  if (syncedMs === null) return null;
+  const age = nowMs - syncedMs;
+  if (age > SCREENER_STALE_AFTER_MS) return 0;
+  return SCREENER_STALE_AFTER_MS - age + 1;
+}
+
 export function viewForActiveTab(
   generation: ValidatedGeneration,
   activeTabId: string,

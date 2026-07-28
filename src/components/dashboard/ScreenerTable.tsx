@@ -384,10 +384,21 @@ export function ScreenerTable({
             const blurred = !isPro && idx >= visibleCount;
             const sym = String(row.symbol ?? "").toUpperCase();
             const company = row.company_name;
-            const price = row.price;
-            const changePct = row.change_percent ?? row.gap_percent;
-            const volRatio = row.volume_ratio_prior_session;
-            const priorVol = row.prior_session_volume;
+            const colKeys = new Set(tab.columns.map((c) => c.key));
+            const showPrice = colKeys.has("price");
+            const showVolume = colKeys.has("volume");
+            const showPriorVol = colKeys.has("prior_session_volume");
+            const showVolRatio = colKeys.has("volume_ratio_prior_session");
+            const showDayRange = colKeys.has("day_range");
+            const showCatalyst = colKeys.has("catalyst_news");
+            const useGap = colKeys.has("gap_percent");
+            const useMove = colKeys.has("change_percent");
+            const movementValue = useGap
+              ? row.gap_percent
+              : useMove
+                ? row.change_percent
+                : null;
+            const movementLabel = useGap ? "Gap" : useMove ? "Move" : null;
             return (
               <div
                 key={`${row.tab_id}-${row.symbol}`}
@@ -420,42 +431,60 @@ export function ScreenerTable({
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
-                  {price !== null && price !== undefined && (
+                  {showPrice && row.price !== null && row.price !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Price </span>
-                      <span className="font-medium">{formatCell(price, "price")}</span>
+                      <span className="font-medium">{formatCell(row.price, "price")}</span>
                     </div>
                   )}
-                  {changePct !== null && changePct !== undefined && (
+                  {movementLabel &&
+                    movementValue !== null &&
+                    movementValue !== undefined && (
+                      <div>
+                        <span className="text-muted-foreground">{movementLabel} </span>
+                        <span className={`font-medium ${percentClass(Number(movementValue))}`}>
+                          {formatCell(movementValue, "percent")}
+                        </span>
+                      </div>
+                    )}
+                  {showVolume && row.volume !== null && row.volume !== undefined && (
                     <div>
-                      <span className="text-muted-foreground">Chg </span>
-                      <span className={`font-medium ${percentClass(Number(changePct))}`}>
-                        {formatCell(changePct, "percent")}
+                      <span className="text-muted-foreground">Volume </span>
+                      <span className="font-medium">{formatCell(row.volume, "volume")}</span>
+                    </div>
+                  )}
+                  {showPriorVol &&
+                    row.prior_session_volume !== null &&
+                    row.prior_session_volume !== undefined && (
+                      <div>
+                        <span className="text-muted-foreground">Prior Vol </span>
+                        <span className="font-medium">
+                          {formatCell(row.prior_session_volume, "volume")}
+                        </span>
+                      </div>
+                    )}
+                  {showVolRatio &&
+                    row.volume_ratio_prior_session !== null &&
+                    row.volume_ratio_prior_session !== undefined && (
+                      <div>
+                        <span className="text-muted-foreground">Vol / Prior </span>
+                        <span className={volumeRatioBadgeClass(Number(row.volume_ratio_prior_session))}>
+                          {formatCell(row.volume_ratio_prior_session, "multiplier")}
+                        </span>
+                      </div>
+                    )}
+                  {showDayRange && (
+                    <div>
+                      <span className="text-muted-foreground">Range </span>
+                      <span className="font-medium">
+                        {formatDayRange(row.day_low, row.day_high)}
                       </span>
                     </div>
                   )}
-                  {priorVol !== null && priorVol !== undefined && (
-                    <div>
-                      <span className="text-muted-foreground">Prior Vol </span>
-                      <span className="font-medium">{formatCell(priorVol, "volume")}</span>
-                    </div>
-                  )}
-                  {volRatio !== null && volRatio !== undefined && (
-                    <div>
-                      <span className="text-muted-foreground">Vol / Prior </span>
-                      <span className={volumeRatioBadgeClass(Number(volRatio))}>
-                        {formatCell(volRatio, "multiplier")}
-                      </span>
-                    </div>
-                  )}
-                  <div>
-                    <span className="text-muted-foreground">Range </span>
-                    <span className="font-medium">
-                      {formatDayRange(row.day_low, row.day_high)}
-                    </span>
-                  </div>
                 </div>
-                <div className="mt-2 text-[12px]">{renderCatalystCell(sym)}</div>
+                {showCatalyst && (
+                  <div className="mt-2 text-[12px]">{renderCatalystCell(sym)}</div>
+                )}
               </div>
             );
           })}

@@ -6,6 +6,7 @@ import {
   isGenerationStale,
   loadVerifiedScreenerGeneration,
   MANAGED_TAB_IDS,
+  msUntilStaleTransition,
   SCREENER_STALE_AFTER_MS,
   validateGeneration,
   viewForActiveTab,
@@ -138,6 +139,21 @@ describe("screeners verified generation contract", () => {
     const view = viewForActiveTab(out.generation, "day_trade_radar", NOW, 1);
     expect(view.status).toBe("stale");
     expect(view.rows).toHaveLength(1);
+  });
+
+  it("4b. msUntilStaleTransition matches the strict > 20-minute rule", () => {
+    const freshSynced = new Date(NOW - 60_000).toISOString();
+    expect(msUntilStaleTransition(freshSynced, NOW)).toBe(
+      SCREENER_STALE_AFTER_MS - 60_000 + 1,
+    );
+
+    const exactlyThreshold = new Date(NOW - SCREENER_STALE_AFTER_MS).toISOString();
+    expect(msUntilStaleTransition(exactlyThreshold, NOW)).toBe(1);
+
+    const alreadyStale = new Date(NOW - SCREENER_STALE_AFTER_MS - 1).toISOString();
+    expect(msUntilStaleTransition(alreadyStale, NOW)).toBe(0);
+
+    expect(msUntilStaleTransition("not-a-timestamp", NOW)).toBeNull();
   });
 
   it("5. old provider timestamp alone does not invalidate a fresh pipeline generation", () => {

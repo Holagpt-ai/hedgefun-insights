@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import {
   loadVerifiedScreenerGeneration,
   MAX_ROWS_FETCH,
+  msUntilStaleTransition,
   type ScreenerFeedState,
   type ScreenerResultRow,
   type ScreenerTabView,
@@ -74,6 +75,7 @@ export function useScreenerData(tabId: string) {
   useEffect(() => {
     if (!tabId) return;
     let cancelled = false;
+    let staleTimer: ReturnType<typeof setTimeout> | null = null;
     setStatus("loading");
     setRows([]);
     setSyncedAt(null);
@@ -89,10 +91,28 @@ export function useScreenerData(tabId: string) {
       setRows(view.rows);
       setSyncedAt(view.synced_at);
       setProviderAsOfMax(view.provider_as_of_max);
+
+      if (
+        (view.status === "available" || view.status === "empty") &&
+        view.synced_at
+      ) {
+        const delay = msUntilStaleTransition(view.synced_at, Date.now());
+        if (delay !== null) {
+          staleTimer = setTimeout(() => {
+            if (cancelled) return;
+            setStatus("stale");
+          }, delay);
+          if (cancelled) {
+            clearTimeout(staleTimer);
+            staleTimer = null;
+          }
+        }
+      }
     })();
 
     return () => {
       cancelled = true;
+      if (staleTimer !== null) clearTimeout(staleTimer);
     };
   }, [tabId]);
 
