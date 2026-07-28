@@ -1,16 +1,19 @@
 // Map volume-first Polygon tickers to screener_results row shapes.
-// Field formulas intentionally unchanged from prior sync (RVOL/avg_volume/float).
+// Legacy rvol / avg_volume are always null — use volume_ratio_prior_session /
+// prior_session_volume instead. Float / market_cap / 52w remain unavailable.
 
 import {
+  dayHighLow,
   dayVolume,
   gapPercent,
   lastPrice,
   normalizeSymbol,
   parseProviderAsOf,
   type PolygonTicker,
-  rvol,
+  priorSessionVolume,
   safeNumber,
   type ScreenerTabId,
+  volumeRatioPriorSession,
 } from "./selection.ts";
 
 export type ScreenerResultRow = {
@@ -20,13 +23,19 @@ export type ScreenerResultRow = {
   price: number | null;
   change_percent: number | null;
   volume: number | null;
-  avg_volume: number | null;
-  rvol: number | null;
+  /** Legacy — always null in new generations. */
+  avg_volume: null;
+  /** Legacy — always null in new generations. */
+  rvol: null;
   float_shares: null;
   gap_percent: number | null;
   high_52w: null;
   low_52w: null;
   market_cap: null;
+  prior_session_volume: number | null;
+  volume_ratio_prior_session: number | null;
+  day_high: number | null;
+  day_low: number | null;
   provider_as_of: string;
   sync_run_id: string;
   updated_at: string;
@@ -48,6 +57,9 @@ function baseRow(
 ): ScreenerResultRow {
   const sym = normalizeSymbol(t.ticker)!;
   const vol = dayVolume(t);
+  const priorVol = priorSessionVolume(t);
+  const ratio = volumeRatioPriorSession(t);
+  const range = dayHighLow(t);
   const providerAsOf = parseProviderAsOf(t.updated, meta.nowMs);
   if (providerAsOf === null) {
     throw new Error("provider_freshness_unavailable");
@@ -59,15 +71,17 @@ function baseRow(
     price: lastPrice(t),
     change_percent: safeNumber(t.todaysChangePerc),
     volume: vol !== null ? Math.round(vol) : null,
-    avg_volume: t?.prevDay?.v != null && Number.isFinite(Number(t.prevDay.v))
-      ? Math.round(Number(t.prevDay.v))
-      : null,
-    rvol: rvol(t),
+    avg_volume: null,
+    rvol: null,
     float_shares: null,
     gap_percent: gapPercent(t),
     high_52w: null,
     low_52w: null,
     market_cap: null,
+    prior_session_volume: priorVol !== null ? Math.round(priorVol) : null,
+    volume_ratio_prior_session: ratio,
+    day_high: range.high,
+    day_low: range.low,
     provider_as_of: providerAsOf,
     sync_run_id: meta.syncRunId,
     updated_at: meta.syncedAt,
@@ -92,7 +106,7 @@ export function mapGappers(
 ): ScreenerResultRow[] {
   return selected.map((t) => {
     const row = baseRow("gappers", t, getName, meta);
-    return { ...row, avg_volume: null, rvol: null, gap_percent: gapPercent(t) };
+    return { ...row, gap_percent: gapPercent(t) };
   });
 }
 
@@ -103,7 +117,7 @@ export function mapVolumeSpikes(
 ): ScreenerResultRow[] {
   return selected.map((t) => {
     const row = baseRow("volume_spikes", t, getName, meta);
-    return { ...row, price: null, gap_percent: null };
+    return { ...row, gap_percent: null };
   });
 }
 
@@ -114,7 +128,7 @@ export function mapGainersLosers(
 ): ScreenerResultRow[] {
   return selected.map((t) => {
     const row = baseRow("gainers_losers", t, getName, meta);
-    return { ...row, avg_volume: null, rvol: null, gap_percent: null };
+    return { ...row, gap_percent: null };
   });
 }
 
@@ -125,7 +139,7 @@ export function mapUnusualVolume(
 ): ScreenerResultRow[] {
   return selected.map((t) => {
     const row = baseRow("unusual_volume", t, getName, meta);
-    return { ...row, price: null, change_percent: null, gap_percent: null };
+    return { ...row, gap_percent: null };
   });
 }
 

@@ -9,8 +9,10 @@ import {
   ProviderUnavailableError,
 } from "./provider.ts";
 import {
+  dayHighLow,
   parseProviderAsOf,
   type PolygonTicker,
+  priorSessionVolume,
   PROVIDER_FUTURE_SKEW_MS,
   qualifiesDayTradeRadar,
   qualifiesGappers,
@@ -19,6 +21,7 @@ import {
   SCREENER_ROW_LIMIT,
   selectForTab,
   selectVolumeFirst,
+  volumeRatioPriorSession,
 } from "./selection.ts";
 
 // ── Fixtures ──────────────────────────────────────────────────────────────
@@ -31,6 +34,8 @@ function ticker(partial: {
   prevVol?: number;
   open?: number;
   prevClose?: number;
+  high?: number;
+  low?: number;
 }): PolygonTicker {
   const price = partial.price ?? 10;
   const prevVol = partial.prevVol ?? 1_000_000;
@@ -41,6 +46,8 @@ function ticker(partial: {
       c: price,
       o: partial.open ?? price,
       v: partial.volume,
+      h: partial.high ?? price * 1.05,
+      l: partial.low ?? price * 0.95,
     },
     prevDay: {
       c: partial.prevClose ?? price * 0.9,
@@ -171,7 +178,7 @@ Deno.test("selection: more than 20 qualifiers sliced by volume", () => {
         volume: (i + 1) * 1000,
         price: 5,
         change: 12,
-        prevVol: 100, // RVOL huge
+        prevVol: 100, // huge prior-session volume ratio
       }),
     );
   }
@@ -181,28 +188,28 @@ Deno.test("selection: more than 20 qualifiers sliced by volume", () => {
   assertEquals(selected[19].ticker, "T05"); // volume 6000
 });
 
-Deno.test("selection: higher volume outranks lower RVOL", () => {
-  const lowRvolHighVol = ticker({
+Deno.test("selection: higher volume outranks lower prior-session ratio", () => {
+  const lowRatioHighVol = ticker({
     ticker: "HIGHVOL",
     volume: 10_000_000,
     price: 5,
     change: 12,
-    prevVol: 2_000_000, // RVOL 5.0
+    prevVol: 2_000_000, // ratio 5.0
   });
-  const highRvolLowVol = ticker({
-    ticker: "HIGHRVOL",
+  const highRatioLowVol = ticker({
+    ticker: "HIGHRATIO",
     volume: 1_000_000,
     price: 5,
     change: 12,
-    prevVol: 50_000, // RVOL 20
+    prevVol: 50_000, // ratio 20
   });
-  assertEquals(qualifiesDayTradeRadar(lowRvolHighVol), true);
-  assertEquals(qualifiesDayTradeRadar(highRvolLowVol), true);
+  assertEquals(qualifiesDayTradeRadar(lowRatioHighVol), true);
+  assertEquals(qualifiesDayTradeRadar(highRatioLowVol), true);
   const selected = selectForTab("day_trade_radar", [
-    highRvolLowVol,
-    lowRvolHighVol,
+    highRatioLowVol,
+    lowRatioHighVol,
   ]);
-  assertEquals(selected.map((t) => t.ticker), ["HIGHVOL", "HIGHRVOL"]);
+  assertEquals(selected.map((t) => t.ticker), ["HIGHVOL", "HIGHRATIO"]);
 });
 
 Deno.test("selection: higher volume outranks higher absolute gap", () => {
@@ -276,10 +283,10 @@ Deno.test("selection: all five implemented tabs use volume-first contract", () =
       prevClose: opts.prevClose ?? 10,
     });
 
-  // Universe where volume order differs from RVOL/gap/change order.
+  // Universe where volume order differs from prior-session ratio/gap/change order.
   const universe = [
-    mk("A", 1_000_000, { prevVol: 50_000 }), // high RVOL, low vol
-    mk("B", 8_000_000, { prevVol: 1_500_000 }), // lower RVOL, high vol
+    mk("A", 1_000_000, { prevVol: 50_000 }), // high ratio, low vol
+    mk("B", 8_000_000, { prevVol: 1_500_000 }), // lower ratio, high vol
     mk("C", 3_000_000, { prevVol: 400_000 }),
   ];
 
@@ -323,15 +330,120 @@ Deno.test("selection: all five implemented tabs use volume-first contract", () =
   assertEquals(
     qualifiesVolumeSpikes(mk("X", 9_000_000, { prevVol: 8_000_000 })),
     false,
-  ); // RVOL < 3
+  ); // ratio < 3
   assertEquals(
     qualifiesUnusualVolume(mk("X", 9_000_000, { prevVol: 3_000_000 })),
     false,
-  ); // RVOL = 3
+  ); // ratio = 3
   assertEquals(
     qualifiesGappers(mk("X", 9_000_000, { open: 10.1, prevClose: 10 })),
     false,
   );
+});
+
+// ── Honest prior-session volume metrics ───────────────────────────────────
+
+Deno.test("metrics: prior_session_volume maps prevDay.v", () => {
+  const t = ticker({ ticker: "A", volume: 5_000_000, prevVol: 1_234_567 });
+  assertEquals(priorSessionVolume(t), 1_234_567);
+});
+
+Deno.test("metrics: volume_ratio_prior_session calculation and rounding", () => {
+  const t = ticker({
+    ticker: "A",
+    volume: 12_345_678,
+    prevVol: 1_000_000,
+  });
+  // 12.345678 → 12.3
+  assertEquals(volumeRatioPriorSession(t), 12.3);
+});
+
+Deno.test("metrics: missing/zero/negative prior volume yields unavailable ratio", () => {
+  assertEquals(
+    volumeRatioPriorSession(
+      ticker({ ticker: "A", volume: 1_000_000, prevVol: 0 }),
+    ),
+    null,
+  );
+  assertEquals(
+    volumeRatioPriorSession(
+      ticker({ ticker: "A", volume: 1_000_000, prevVol: -5 }),
+    ),
+    null,
+  );
+  const missingPrior: PolygonTicker = {
+    ticker: "A",
+    day: { c: 5, v: 1_000_000 },
+    prevDay: { c: 5 },
+  };
+  assertEquals(priorSessionVolume(missingPrior), null);
+  assertEquals(volumeRatioPriorSession(missingPrior), null);
+});
+
+Deno.test("metrics: qualification thresholds use volume_ratio_prior_session", () => {
+  // Day trade: ratio 4.9 fails, 5.0 passes (other criteria ok).
+  assertEquals(
+    qualifiesDayTradeRadar(
+      ticker({
+        ticker: "A",
+        volume: 4_900_000,
+        prevVol: 1_000_000,
+        price: 5,
+        change: 12,
+      }),
+    ),
+    false,
+  );
+  assertEquals(
+    qualifiesDayTradeRadar(
+      ticker({
+        ticker: "A",
+        volume: 5_000_000,
+        prevVol: 1_000_000,
+        price: 5,
+        change: 12,
+      }),
+    ),
+    true,
+  );
+  assertEquals(
+    qualifiesVolumeSpikes(
+      ticker({ ticker: "A", volume: 2_900_000, prevVol: 1_000_000 }),
+    ),
+    false,
+  );
+  assertEquals(
+    qualifiesVolumeSpikes(
+      ticker({ ticker: "A", volume: 3_000_000, prevVol: 1_000_000 }),
+    ),
+    true,
+  );
+  assertEquals(
+    qualifiesUnusualVolume(
+      ticker({ ticker: "A", volume: 3_900_000, prevVol: 1_000_000 }),
+    ),
+    false,
+  );
+  assertEquals(
+    qualifiesUnusualVolume(
+      ticker({ ticker: "A", volume: 4_000_000, prevVol: 1_000_000 }),
+    ),
+    true,
+  );
+});
+
+Deno.test("metrics: day high/low both valid or both null", () => {
+  const ok = ticker({ ticker: "A", volume: 1_000_000, high: 12, low: 9 });
+  assertEquals(dayHighLow(ok), { high: 12, low: 9 });
+
+  const inverted = ticker({ ticker: "A", volume: 1_000_000, high: 8, low: 10 });
+  assertEquals(dayHighLow(inverted), { high: null, low: null });
+
+  const missingHigh: PolygonTicker = {
+    ticker: "A",
+    day: { c: 10, v: 1_000_000, l: 9 },
+  };
+  assertEquals(dayHighLow(missingHigh), { high: null, low: null });
 });
 
 // ── Provider freshness parser ─────────────────────────────────────────────

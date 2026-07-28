@@ -87,6 +87,8 @@ function mk(
     price?: number;
     open?: number;
     prevClose?: number;
+    high?: number;
+    low?: number;
     updated?: number | string | null;
   } = {},
 ) {
@@ -95,7 +97,13 @@ function mk(
   const row: Record<string, unknown> = {
     ticker: sym,
     todaysChangePerc: opts.change ?? 15,
-    day: { c: price, o: opts.open ?? 5.5, v: vol },
+    day: {
+      c: price,
+      o: opts.open ?? 5.5,
+      v: vol,
+      h: opts.high ?? price + 1,
+      l: opts.low ?? price - 1,
+    },
     prevDay: { c: opts.prevClose ?? 5, v: prevVol },
     lastTrade: { p: price },
   };
@@ -362,6 +370,24 @@ Deno.test("handler: happy path volume-first + single replacement RPC", async () 
     assertEquals(r.sync_run_id, RUN_ID);
     assertEquals(r.updated_at, FIXED_ISO);
     assertEquals(r.provider_as_of, FIXED_ISO);
+    assertEquals(r.rvol, null);
+    assertEquals(r.avg_volume, null);
+    assertEquals(r.float_shares, null);
+    assertEquals(r.market_cap, null);
+    assertEquals(typeof r.price === "number", true);
+    assertEquals(typeof r.change_percent === "number", true);
+    assertEquals(typeof r.day_high === "number", true);
+    assertEquals(typeof r.day_low === "number", true);
+    assertEquals(r.day_low! <= r.day_high!, true);
+  }
+
+  const spikes = rows.filter((r) => r.tab_id === "volume_spikes");
+  const unusual = rows.filter((r) => r.tab_id === "unusual_volume");
+  for (const r of [...spikes, ...unusual]) {
+    assertEquals(typeof r.price === "number", true);
+    assertEquals(typeof r.change_percent === "number", true);
+    assertEquals(typeof r.prior_session_volume === "number", true);
+    assertEquals(typeof r.volume_ratio_prior_session === "number", true);
   }
 });
 
@@ -676,4 +702,31 @@ Deno.test("handler: missing company names fall back to normalized symbol", async
   for (const row of dayTrade) {
     assertEquals(row.company_name, row.symbol);
   }
+});
+
+Deno.test("handler: contradictory day range becomes null/null", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([
+      mk("B", 8_000_000, 1_500_000, { high: 4, low: 9, price: 5 }),
+    ]),
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const rpc = mutations.find((m) => m.kind === "rpc") as {
+    kind: "rpc";
+    args: { p_rows: ScreenerResultRow[] };
+  };
+  const row = rpc.args.p_rows.find((r) => r.symbol === "B")!;
+  assertEquals(row.day_high, null);
+  assertEquals(row.day_low, null);
+  assertEquals(row.rvol, null);
+  assertEquals(row.avg_volume, null);
 });

@@ -99,16 +99,27 @@ export function safeNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** RVOL = today volume / prior-day volume (unchanged formula). */
-export function rvol(t: PolygonTicker): number | null {
-  const dayVol = t?.day?.v;
-  const prevVol = t?.prevDay?.v;
-  if (dayVol === undefined || dayVol === null) return null;
-  if (prevVol === undefined || prevVol === null) return null;
-  const d = Number(dayVol);
-  const p = Number(prevVol);
-  if (!Number.isFinite(d) || !Number.isFinite(p) || p === 0) return null;
-  return Math.round((d / p) * 10) / 10;
+/**
+ * Previous session total volume from Polygon prevDay.v.
+ * Requires a finite positive value.
+ */
+export function priorSessionVolume(t: PolygonTicker): number | null {
+  const v = t?.prevDay?.v;
+  if (v === undefined || v === null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || !(n > 0)) return null;
+  return n;
+}
+
+/**
+ * current session cumulative volume ÷ previous session total volume.
+ * Not time-adjusted average RVOL — prior-session volume ratio only.
+ */
+export function volumeRatioPriorSession(t: PolygonTicker): number | null {
+  const dayVol = dayVolume(t);
+  const priorVol = priorSessionVolume(t);
+  if (dayVol === null || !(dayVol > 0) || priorVol === null) return null;
+  return Math.round((dayVol / priorVol) * 10) / 10;
 }
 
 /** Gap % = (today open - prev close) / prev close * 100. */
@@ -125,6 +136,20 @@ export function gapPercent(t: PolygonTicker): number | null {
 
 export function lastPrice(t: PolygonTicker): number | null {
   return safeNumber(t?.day?.c ?? t?.lastTrade?.p);
+}
+
+/**
+ * Day high/low from Polygon day.h / day.l.
+ * Both valid with low <= high, or both null — never invent partial ranges.
+ */
+export function dayHighLow(
+  t: PolygonTicker,
+): { high: number | null; low: number | null } {
+  const high = safeNumber(t?.day?.h);
+  const low = safeNumber(t?.day?.l);
+  if (high === null || low === null) return { high: null, low: null };
+  if (!(low <= high)) return { high: null, low: null };
+  return { high, low };
 }
 
 /**
@@ -171,14 +196,14 @@ export function selectVolumeFirst(
     .slice(0, Math.max(0, limit));
 }
 
-// ── Tab qualification predicates (existing criteria; float still not enforced) ──
+// ── Tab qualification (honest prior-session volume ratio thresholds) ──────
 
 export function qualifiesDayTradeRadar(t: PolygonTicker): boolean {
   const price = lastPrice(t);
   const chg = safeNumber(t?.todaysChangePerc);
-  const rv = rvol(t);
-  if (price === null || chg === null || rv === null) return false;
-  return price >= 2 && price <= 20 && chg >= 10 && rv >= 5;
+  const ratio = volumeRatioPriorSession(t);
+  if (price === null || chg === null || ratio === null) return false;
+  return price >= 2 && price <= 20 && chg >= 10 && ratio >= 5;
 }
 
 export function qualifiesGappers(t: PolygonTicker): boolean {
@@ -187,13 +212,13 @@ export function qualifiesGappers(t: PolygonTicker): boolean {
 }
 
 export function qualifiesVolumeSpikes(t: PolygonTicker): boolean {
-  const rv = rvol(t);
-  return rv !== null && rv >= 3;
+  const ratio = volumeRatioPriorSession(t);
+  return ratio !== null && ratio >= 3;
 }
 
 export function qualifiesUnusualVolume(t: PolygonTicker): boolean {
-  const rv = rvol(t);
-  return rv !== null && rv >= 4;
+  const ratio = volumeRatioPriorSession(t);
+  return ratio !== null && ratio >= 4;
 }
 
 /** Provider-list membership is the only extra qualifier for gainers/losers. */
