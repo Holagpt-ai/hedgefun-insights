@@ -112,14 +112,27 @@ export function priorSessionVolume(t: PolygonTicker): number | null {
 }
 
 /**
- * current session cumulative volume ÷ previous session total volume.
- * Prior-session volume ratio only — not an average-based or time-adjusted metric.
+ * Raw (unrounded) current session volume ÷ prior-session volume.
+ * Used for qualification thresholds only.
  */
-export function volumeRatioPriorSession(t: PolygonTicker): number | null {
+function rawVolumeRatioPriorSession(t: PolygonTicker): number | null {
   const dayVol = dayVolume(t);
   const priorVol = priorSessionVolume(t);
   if (dayVol === null || !(dayVol > 0) || priorVol === null) return null;
-  return Math.round((dayVol / priorVol) * 10) / 10;
+  const ratio = dayVol / priorVol;
+  if (!Number.isFinite(ratio) || !(ratio > 0)) return null;
+  return ratio;
+}
+
+/**
+ * current session cumulative volume ÷ previous session total volume.
+ * Prior-session volume ratio only — not an average-based or time-adjusted metric.
+ * Rounded to one decimal for storage/display; qualification uses the raw ratio.
+ */
+export function volumeRatioPriorSession(t: PolygonTicker): number | null {
+  const ratio = rawVolumeRatioPriorSession(t);
+  if (ratio === null) return null;
+  return Math.round(ratio * 10) / 10;
 }
 
 /** Gap % = (today open - prev close) / prev close * 100. */
@@ -201,7 +214,7 @@ export function selectVolumeFirst(
 export function qualifiesDayTradeRadar(t: PolygonTicker): boolean {
   const price = lastPrice(t);
   const chg = safeNumber(t?.todaysChangePerc);
-  const ratio = volumeRatioPriorSession(t);
+  const ratio = rawVolumeRatioPriorSession(t);
   if (price === null || chg === null || ratio === null) return false;
   return price >= 2 && price <= 20 && chg >= 10 && ratio >= 5;
 }
@@ -212,12 +225,12 @@ export function qualifiesGappers(t: PolygonTicker): boolean {
 }
 
 export function qualifiesVolumeSpikes(t: PolygonTicker): boolean {
-  const ratio = volumeRatioPriorSession(t);
+  const ratio = rawVolumeRatioPriorSession(t);
   return ratio !== null && ratio >= 3;
 }
 
 export function qualifiesUnusualVolume(t: PolygonTicker): boolean {
-  const ratio = volumeRatioPriorSession(t);
+  const ratio = rawVolumeRatioPriorSession(t);
   return ratio !== null && ratio >= 4;
 }
 

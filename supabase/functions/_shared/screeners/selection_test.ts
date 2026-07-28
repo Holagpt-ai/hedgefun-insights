@@ -432,6 +432,61 @@ Deno.test("metrics: qualification thresholds use volume_ratio_prior_session", ()
   );
 });
 
+Deno.test("metrics: qualification uses unrounded ratio at display-rounding boundaries", () => {
+  // 4.999999 rounds to 5.0 for display but must fail Day Trade Radar (>= 5).
+  const justUnderDayTrade = ticker({
+    ticker: "A",
+    volume: 4_999_999,
+    prevVol: 1_000_000,
+    price: 5,
+    change: 12,
+  });
+  assertEquals(volumeRatioPriorSession(justUnderDayTrade), 5.0);
+  assertEquals(qualifiesDayTradeRadar(justUnderDayTrade), false);
+  assertEquals(
+    qualifiesDayTradeRadar(
+      ticker({
+        ticker: "A",
+        volume: 5_000_000,
+        prevVol: 1_000_000,
+        price: 5,
+        change: 12,
+      }),
+    ),
+    true,
+  );
+
+  // 2.999999 rounds to 3.0 for display but must fail Volume Spikes (>= 3).
+  const justUnderSpikes = ticker({
+    ticker: "A",
+    volume: 2_999_999,
+    prevVol: 1_000_000,
+  });
+  assertEquals(volumeRatioPriorSession(justUnderSpikes), 3.0);
+  assertEquals(qualifiesVolumeSpikes(justUnderSpikes), false);
+  assertEquals(
+    qualifiesVolumeSpikes(
+      ticker({ ticker: "A", volume: 3_000_000, prevVol: 1_000_000 }),
+    ),
+    true,
+  );
+
+  // 3.999999 rounds to 4.0 for display but must fail Unusual Volume (>= 4).
+  const justUnderUnusual = ticker({
+    ticker: "A",
+    volume: 3_999_999,
+    prevVol: 1_000_000,
+  });
+  assertEquals(volumeRatioPriorSession(justUnderUnusual), 4.0);
+  assertEquals(qualifiesUnusualVolume(justUnderUnusual), false);
+  assertEquals(
+    qualifiesUnusualVolume(
+      ticker({ ticker: "A", volume: 4_000_000, prevVol: 1_000_000 }),
+    ),
+    true,
+  );
+});
+
 Deno.test("metrics: day high/low both valid or both null", () => {
   const ok = ticker({ ticker: "A", volume: 1_000_000, high: 12, low: 9 });
   assertEquals(dayHighLow(ok), { high: 12, low: 9 });
