@@ -9,7 +9,9 @@ import {
   ProviderUnavailableError,
 } from "./provider.ts";
 import {
+  parseProviderAsOf,
   type PolygonTicker,
+  PROVIDER_FUTURE_SKEW_MS,
   qualifiesDayTradeRadar,
   qualifiesGappers,
   qualifiesUnusualVolume,
@@ -329,5 +331,51 @@ Deno.test("selection: all five implemented tabs use volume-first contract", () =
   assertEquals(
     qualifiesGappers(mk("X", 9_000_000, { open: 10.1, prevClose: 10 })),
     false,
+  );
+});
+
+// ── Provider freshness parser ─────────────────────────────────────────────
+
+const NOW_ISO = "2026-07-27T20:00:00.000Z";
+const NOW_MS = Date.parse(NOW_ISO);
+
+Deno.test("freshness: nanosecond number parses correctly", () => {
+  const ns = NOW_MS * 1_000_000;
+  assertEquals(parseProviderAsOf(ns, NOW_MS), NOW_ISO);
+});
+
+Deno.test("freshness: nanosecond string parses correctly", () => {
+  const ns = String(NOW_MS * 1_000_000);
+  assertEquals(parseProviderAsOf(ns, NOW_MS), NOW_ISO);
+});
+
+Deno.test("freshness: missing/malformed/nonpositive timestamp rejected", () => {
+  assertEquals(parseProviderAsOf(undefined, NOW_MS), null);
+  assertEquals(parseProviderAsOf(null, NOW_MS), null);
+  assertEquals(parseProviderAsOf("", NOW_MS), null);
+  assertEquals(parseProviderAsOf("not-a-number", NOW_MS), null);
+  assertEquals(parseProviderAsOf(12.5, NOW_MS), null);
+  assertEquals(parseProviderAsOf(0, NOW_MS), null);
+  assertEquals(parseProviderAsOf(-5, NOW_MS), null);
+  assertEquals(parseProviderAsOf("-1", NOW_MS), null);
+  assertEquals(parseProviderAsOf({}, NOW_MS), null);
+});
+
+Deno.test("freshness: future timestamp beyond five minutes rejected", () => {
+  const tooFarMs = NOW_MS + PROVIDER_FUTURE_SKEW_MS + 1_000;
+  assertEquals(parseProviderAsOf(tooFarMs * 1_000_000, NOW_MS), null);
+  // Within skew is accepted.
+  const okMs = NOW_MS + PROVIDER_FUTURE_SKEW_MS - 1_000;
+  assertEquals(
+    parseProviderAsOf(okMs * 1_000_000, NOW_MS),
+    new Date(okMs).toISOString(),
+  );
+});
+
+Deno.test("freshness: older closed-market timestamps are accepted", () => {
+  const oldMs = NOW_MS - 36 * 60 * 60 * 1000;
+  assertEquals(
+    parseProviderAsOf(oldMs * 1_000_000, NOW_MS),
+    new Date(oldMs).toISOString(),
   );
 });

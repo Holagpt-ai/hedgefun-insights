@@ -11,16 +11,19 @@ import {
   ProviderUnavailableError,
 } from "../_shared/screeners/provider.ts";
 import {
+  allHaveProviderAsOf,
   normalizeSymbol,
   type PolygonTicker,
   selectForTab,
 } from "../_shared/screeners/selection.ts";
 import {
+  type GenerationMeta,
   mapTabRows,
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
 
 const BASE = "https://api.polygon.io";
+export const REPLACE_GENERATION_RPC = "replace_screener_results_generation_v1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,17 +40,15 @@ export type DbClient = {
         values: string[],
       ) => Promise<{ data: Array<{ symbol: string; name: string }> | null }>;
     };
-    upsert: (
-      rows: ScreenerResultRow[],
-      opts: { onConflict: string },
-    ) => Promise<{ error: { message: string } | null }>;
-    delete: () => {
-      lt: (
-        col: string,
-        value: string,
-      ) => Promise<{ error: { message: string } | null }>;
-    };
   };
+  rpc: (
+    fn: string,
+    args: {
+      p_rows: ScreenerResultRow[];
+      p_sync_run_id: string;
+      p_synced_at: string;
+    },
+  ) => Promise<{ data: number | null; error: { message: string } | null }>;
 };
 
 export type SyncDeps = {
@@ -55,6 +56,10 @@ export type SyncDeps = {
   fetch: FetchLike;
   createClient: (url: string, key: string) => DbClient;
   nowIso: () => string;
+  /** Injectable for deterministic tests; defaults to Date.now(). */
+  nowMs?: () => number;
+  /** Injectable for deterministic tests; defaults to crypto.randomUUID(). */
+  newSyncRunId?: () => string;
 };
 
 function json(data: unknown, status = 200): Response {
@@ -82,9 +87,7 @@ async function loadNameMapFromStocks(
   return nameMap;
 }
 
-function selectedSymbolUnion(
-  ...groups: PolygonTicker[][]
-): string[] {
+function selectedSymbolUnion(...groups: PolygonTicker[][]): string[] {
   const set = new Set<string>();
   for (const group of groups) {
     for (const t of group) {
@@ -95,10 +98,24 @@ function selectedSymbolUnion(
   return [...set].sort();
 }
 
+function providerAsOfBounds(
+  rows: ScreenerResultRow[],
+): { min: string | null; max: string | null } {
+  if (rows.length === 0) return { min: null, max: null };
+  let min = rows[0].provider_as_of;
+  let max = rows[0].provider_as_of;
+  for (const r of rows) {
+    if (r.provider_as_of < min) min = r.provider_as_of;
+    if (r.provider_as_of > max) max = r.provider_as_of;
+  }
+  return { min, max };
+}
+
 /**
  * Full Screener sync request handler with injectable dependencies.
  * Auth runs before any provider or database work.
- * Required provider evidence must succeed before any mutation.
+ * Required provider evidence + selected-row freshness must succeed
+ * before any database read or mutation.
  */
 export async function handleSyncScreenerData(
   req: Request,
@@ -128,7 +145,7 @@ export async function handleSyncScreenerData(
 
   const headers = { Authorization: `Bearer ${apiKey}` };
 
-  // ── Required provider evidence (fail closed — zero DB mutations) ────────
+  // ── Required provider evidence (fail closed — zero DB work) ─────────────
   let allTickers: PolygonTicker[];
   let gainers: PolygonTicker[];
   let losers: PolygonTicker[];
@@ -160,7 +177,7 @@ export async function handleSyncScreenerData(
     return json({ error: "provider_unavailable" }, 503);
   }
 
-  // ── Volume-first tab selection before any company-name enrichment ───────
+  // ── Volume-first tab selection before enrichment / freshness / DB ───────
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
   const gapperSelected = selectForTab("gappers", allTickers);
   const volumeSpikeSelected = selectForTab("volume_spikes", allTickers);
@@ -170,6 +187,23 @@ export async function handleSyncScreenerData(
   ]);
   const unusualSelected = selectForTab("unusual_volume", allTickers);
 
+  const selectedAll = [
+    ...dayTradeSelected,
+    ...gapperSelected,
+    ...volumeSpikeSelected,
+    ...gainersLosersSelected,
+    ...unusualSelected,
+  ];
+
+  const nowMs = (deps.nowMs ?? (() => Date.now()))();
+  const syncedAt = deps.nowIso();
+  const syncRunId = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
+
+  // Selected rows must carry verifiable Polygon observation timestamps.
+  if (!allHaveProviderAsOf(selectedAll, nowMs)) {
+    return json({ error: "provider_freshness_unavailable" }, 503);
+  }
+
   const selectedSymbols = selectedSymbolUnion(
     dayTradeSelected,
     gapperSelected,
@@ -178,74 +212,68 @@ export async function handleSyncScreenerData(
     unusualSelected,
   );
 
-  // ── Database work: stocks name lookup for selected symbols only ─────────
+  // ── Database work begins only after freshness evidence is verified ──────
   const sb = deps.createClient(supabaseUrl, serviceRole);
-  const updatedAt = deps.nowIso();
   const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
   const getName = (ticker: string) => nameMap[ticker] ?? ticker;
+
+  const meta: GenerationMeta = { syncedAt, syncRunId, nowMs };
 
   const dayTradeRows = mapTabRows(
     "day_trade_radar",
     dayTradeSelected,
     getName,
-    updatedAt,
+    meta,
   );
-  const gapperRows = mapTabRows("gappers", gapperSelected, getName, updatedAt);
+  const gapperRows = mapTabRows("gappers", gapperSelected, getName, meta);
   const volumeSpikeRows = mapTabRows(
     "volume_spikes",
     volumeSpikeSelected,
     getName,
-    updatedAt,
+    meta,
   );
   const gainersLosersRows = mapTabRows(
     "gainers_losers",
     gainersLosersSelected,
     getName,
-    updatedAt,
+    meta,
   );
   const unusualVolumeRows = mapTabRows(
     "unusual_volume",
     unusualSelected,
     getName,
-    updatedAt,
+    meta,
   );
 
-  // New Highs/Lows: intentionally unimplemented this sprint.
-  const newHighsLowsRows: ScreenerResultRow[] = [];
-
+  // New Highs/Lows remains intentionally empty; RPC still clears that tab.
   const allRows = [
     ...dayTradeRows,
     ...gapperRows,
     ...volumeSpikeRows,
     ...gainersLosersRows,
     ...unusualVolumeRows,
-    ...newHighsLowsRows,
   ];
 
-  let upserted = 0;
-  const batchSize = 100;
-  for (let i = 0; i < allRows.length; i += batchSize) {
-    const batch = allRows.slice(i, i + batchSize);
-    const { error } = await sb
-      .from("screener_results")
-      .upsert(batch, { onConflict: "tab_id,symbol" });
-    if (error) {
-      console.error("[sync-screener-data] upsert failed");
-      return json({ error: "database_error" }, 500);
-    }
-    upserted += batch.length;
+  const { data: rowsInserted, error: rpcError } = await sb.rpc(
+    REPLACE_GENERATION_RPC,
+    {
+      p_rows: allRows,
+      p_sync_run_id: syncRunId,
+      p_synced_at: syncedAt,
+    },
+  );
+  if (rpcError) {
+    console.error("[sync-screener-data] replace generation failed");
+    return json({ error: "database_error" }, 500);
   }
 
-  // Existing 30-minute stale cleanup — intentionally unchanged this sprint.
-  await sb
-    .from("screener_results")
-    .delete()
-    .lt("updated_at", new Date(Date.now() - 30 * 60 * 1000).toISOString());
+  const bounds = providerAsOfBounds(allRows);
 
   return json({
     ok: true,
+    sync_run_id: syncRunId,
     tickers_scanned: allTickers.length,
-    upserted,
+    rows_inserted: rowsInserted ?? allRows.length,
     tabs: {
       day_trade_radar: dayTradeRows.length,
       gappers: gapperRows.length,
@@ -253,5 +281,8 @@ export async function handleSyncScreenerData(
       gainers_losers: gainersLosersRows.length,
       unusual_volume: unusualVolumeRows.length,
     },
+    provider_as_of_min: bounds.min,
+    provider_as_of_max: bounds.max,
+    synced_at: syncedAt,
   });
 }

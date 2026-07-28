@@ -5,12 +5,63 @@ export const SCREENER_ROW_LIMIT = 20;
 
 export type PolygonTicker = {
   ticker?: unknown;
+  /** Polygon snapshot observation time in nanoseconds. */
+  updated?: unknown;
   todaysChangePerc?: unknown;
   day?: { c?: unknown; o?: unknown; v?: unknown; h?: unknown; l?: unknown };
   prevDay?: { c?: unknown; v?: unknown };
   lastTrade?: { p?: unknown };
   [key: string]: unknown;
 };
+
+/** Reject provider timestamps more than 5 minutes ahead of sync wall-clock. */
+export const PROVIDER_FUTURE_SKEW_MS = 5 * 60_000;
+
+/**
+ * Parse Polygon snapshot `updated` (nanoseconds) to an ISO UTC timestamp.
+ * Never substitutes the sync execution time.
+ * Returns null when missing, malformed, nonpositive, unparseable,
+ * or more than five minutes in the future relative to `nowMs`.
+ */
+export function parseProviderAsOf(
+  raw: unknown,
+  nowMs: number,
+): string | null {
+  if (raw === undefined || raw === null) return null;
+
+  let nanos: number;
+  if (typeof raw === "number") {
+    if (!Number.isFinite(raw) || !Number.isInteger(raw)) return null;
+    nanos = raw;
+  } else if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed || !/^\d+$/.test(trimmed)) return null;
+    nanos = Number(trimmed);
+    if (!Number.isFinite(nanos)) return null;
+  } else {
+    return null;
+  }
+
+  if (!(nanos > 0)) return null;
+
+  // Polygon publishes nanoseconds; convert to milliseconds.
+  const ms = Math.trunc(nanos / 1_000_000);
+  if (!(ms > 0) || !Number.isFinite(ms)) return null;
+  if (ms > nowMs + PROVIDER_FUTURE_SKEW_MS) return null;
+
+  return new Date(ms).toISOString();
+}
+
+/** True when every ticker carries a valid provider observation timestamp. */
+export function allHaveProviderAsOf(
+  tickers: PolygonTicker[],
+  nowMs: number,
+): boolean {
+  for (const t of tickers) {
+    if (parseProviderAsOf(t.updated, nowMs) === null) return false;
+  }
+  return true;
+}
 
 /** Normalize a ticker symbol; returns null when missing/invalid. */
 export function normalizeSymbol(raw: unknown): string | null {

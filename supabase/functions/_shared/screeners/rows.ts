@@ -6,6 +6,7 @@ import {
   gapPercent,
   lastPrice,
   normalizeSymbol,
+  parseProviderAsOf,
   type PolygonTicker,
   rvol,
   safeNumber,
@@ -26,30 +27,31 @@ export type ScreenerResultRow = {
   high_52w: null;
   low_52w: null;
   market_cap: null;
+  provider_as_of: string;
+  sync_run_id: string;
   updated_at: string;
 };
 
 export type NameLookup = (symbol: string) => string;
 
+export type GenerationMeta = {
+  syncedAt: string;
+  syncRunId: string;
+  nowMs: number;
+};
+
 function baseRow(
   tabId: ScreenerTabId,
   t: PolygonTicker,
   getName: NameLookup,
-  updatedAt: string,
-):
-  & Omit<
-    ScreenerResultRow,
-    "price" | "change_percent" | "avg_volume" | "rvol" | "gap_percent"
-  >
-  & {
-    price: number | null;
-    change_percent: number | null;
-    avg_volume: number | null;
-    rvol: number | null;
-    gap_percent: number | null;
-  } {
+  meta: GenerationMeta,
+): ScreenerResultRow {
   const sym = normalizeSymbol(t.ticker)!;
   const vol = dayVolume(t);
+  const providerAsOf = parseProviderAsOf(t.updated, meta.nowMs);
+  if (providerAsOf === null) {
+    throw new Error("provider_freshness_unavailable");
+  }
   return {
     tab_id: tabId,
     symbol: sym,
@@ -66,17 +68,19 @@ function baseRow(
     high_52w: null,
     low_52w: null,
     market_cap: null,
-    updated_at: updatedAt,
+    provider_as_of: providerAsOf,
+    sync_run_id: meta.syncRunId,
+    updated_at: meta.syncedAt,
   };
 }
 
 export function mapDayTradeRadar(
   selected: PolygonTicker[],
   getName: NameLookup,
-  updatedAt: string,
+  meta: GenerationMeta,
 ): ScreenerResultRow[] {
   return selected.map((t) => {
-    const row = baseRow("day_trade_radar", t, getName, updatedAt);
+    const row = baseRow("day_trade_radar", t, getName, meta);
     return { ...row, gap_percent: null };
   });
 }
@@ -84,10 +88,10 @@ export function mapDayTradeRadar(
 export function mapGappers(
   selected: PolygonTicker[],
   getName: NameLookup,
-  updatedAt: string,
+  meta: GenerationMeta,
 ): ScreenerResultRow[] {
   return selected.map((t) => {
-    const row = baseRow("gappers", t, getName, updatedAt);
+    const row = baseRow("gappers", t, getName, meta);
     return { ...row, avg_volume: null, rvol: null, gap_percent: gapPercent(t) };
   });
 }
@@ -95,10 +99,10 @@ export function mapGappers(
 export function mapVolumeSpikes(
   selected: PolygonTicker[],
   getName: NameLookup,
-  updatedAt: string,
+  meta: GenerationMeta,
 ): ScreenerResultRow[] {
   return selected.map((t) => {
-    const row = baseRow("volume_spikes", t, getName, updatedAt);
+    const row = baseRow("volume_spikes", t, getName, meta);
     return { ...row, price: null, gap_percent: null };
   });
 }
@@ -106,10 +110,10 @@ export function mapVolumeSpikes(
 export function mapGainersLosers(
   selected: PolygonTicker[],
   getName: NameLookup,
-  updatedAt: string,
+  meta: GenerationMeta,
 ): ScreenerResultRow[] {
   return selected.map((t) => {
-    const row = baseRow("gainers_losers", t, getName, updatedAt);
+    const row = baseRow("gainers_losers", t, getName, meta);
     return { ...row, avg_volume: null, rvol: null, gap_percent: null };
   });
 }
@@ -117,10 +121,10 @@ export function mapGainersLosers(
 export function mapUnusualVolume(
   selected: PolygonTicker[],
   getName: NameLookup,
-  updatedAt: string,
+  meta: GenerationMeta,
 ): ScreenerResultRow[] {
   return selected.map((t) => {
-    const row = baseRow("unusual_volume", t, getName, updatedAt);
+    const row = baseRow("unusual_volume", t, getName, meta);
     return { ...row, price: null, change_percent: null, gap_percent: null };
   });
 }
@@ -129,18 +133,18 @@ export function mapTabRows(
   tabId: ScreenerTabId,
   selected: PolygonTicker[],
   getName: NameLookup,
-  updatedAt: string,
+  meta: GenerationMeta,
 ): ScreenerResultRow[] {
   switch (tabId) {
     case "day_trade_radar":
-      return mapDayTradeRadar(selected, getName, updatedAt);
+      return mapDayTradeRadar(selected, getName, meta);
     case "gappers":
-      return mapGappers(selected, getName, updatedAt);
+      return mapGappers(selected, getName, meta);
     case "volume_spikes":
-      return mapVolumeSpikes(selected, getName, updatedAt);
+      return mapVolumeSpikes(selected, getName, meta);
     case "gainers_losers":
-      return mapGainersLosers(selected, getName, updatedAt);
+      return mapGainersLosers(selected, getName, meta);
     case "unusual_volume":
-      return mapUnusualVolume(selected, getName, updatedAt);
+      return mapUnusualVolume(selected, getName, meta);
   }
 }
