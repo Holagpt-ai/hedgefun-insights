@@ -1350,6 +1350,42 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_feed_state: {
+        Row: {
+          provider_as_of_max: string | null
+          provider_as_of_min: string | null
+          rows_inserted: number
+          state_key: string
+          status: string
+          sync_run_id: string
+          synced_at: string
+          tab_counts: Json
+          updated_at: string
+        }
+        Insert: {
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          rows_inserted: number
+          state_key: string
+          status: string
+          sync_run_id: string
+          synced_at: string
+          tab_counts: Json
+          updated_at: string
+        }
+        Update: {
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          rows_inserted?: number
+          state_key?: string
+          status?: string
+          sync_run_id?: string
+          synced_at?: string
+          tab_counts?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
       screener_results: {
         Row: {
           avg_volume: number | null
@@ -1362,8 +1398,10 @@ export type Database = {
           low_52w: number | null
           market_cap: number | null
           price: number | null
+          provider_as_of: string | null
           rvol: number | null
           symbol: string
+          sync_run_id: string | null
           tab_id: string
           updated_at: string | null
           volume: number | null
@@ -1379,8 +1417,10 @@ export type Database = {
           low_52w?: number | null
           market_cap?: number | null
           price?: number | null
+          provider_as_of?: string | null
           rvol?: number | null
           symbol: string
+          sync_run_id?: string | null
           tab_id: string
           updated_at?: string | null
           volume?: number | null
@@ -1396,8 +1436,10 @@ export type Database = {
           low_52w?: number | null
           market_cap?: number | null
           price?: number | null
+          provider_as_of?: string | null
           rvol?: number | null
           symbol?: string
+          sync_run_id?: string | null
           tab_id?: string
           updated_at?: string | null
           volume?: number | null
@@ -2216,6 +2258,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
+      replace_screener_results_generation_v1: {
+        Args: { p_rows: Json; p_sync_run_id: string; p_synced_at: string }
+        Returns: number
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
