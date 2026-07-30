@@ -5,62 +5,108 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { CatalystEvent } from "@/types/catalyst";
-import { eventMomentMs } from "@/lib/catalyst/parsers";
+import {
+  batchHitRowLimit,
+  chunkSymbols,
+  ENRICHMENT_BATCH_ROW_LIMIT,
+  ENRICHMENT_RECENT_MS,
+  ENRICHMENT_UPCOMING_MS,
+  normalizeEnrichmentSymbols,
+  selectEnrichmentEntries,
+  symbolsMissingFromPayload,
+  type CatalystEnrichmentEntry,
+} from "@/lib/catalyst/enrichment";
 
-export interface CatalystEnrichmentEntry {
-  event: CatalystEvent;
-  kind: "upcoming" | "recent";
+export type { CatalystEnrichmentEntry };
+
+const CATALYST_SELECT =
+  "id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, description, source_name, source_url, provider, related_symbols, facts, published_at";
+
+async function fetchCatalystRowsForSymbols(
+  symbols: string[],
+  recentFrom: string,
+  upcomingFrom: string,
+  upcomingTo: string,
+  limit: number,
+): Promise<CatalystEvent[]> {
+  if (symbols.length === 0) return [];
+  const { data, error } = await supabase
+    .from("catalyst_events")
+    .select(CATALYST_SELECT)
+    .eq("verification_state", "provider_reported")
+    .in("symbol", symbols)
+    .or(
+      `and(published_at.gte.${recentFrom}),and(event_date.gte.${upcomingFrom},event_date.lte.${upcomingTo})`,
+    )
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []) as CatalystEvent[];
+}
+
+/** Exported for focused tests — network boundary only. */
+export async function fetchCatalystEventsForEnrichment(
+  symbols: string[],
+  nowMs: number = Date.now(),
+): Promise<CatalystEvent[]> {
+  const key = normalizeEnrichmentSymbols(symbols);
+  if (key.length === 0) return [];
+
+  const recentFrom = new Date(nowMs - ENRICHMENT_RECENT_MS).toISOString();
+  const upcomingTo = new Date(nowMs + ENRICHMENT_UPCOMING_MS)
+    .toISOString()
+    .slice(0, 10);
+  const upcomingFrom = new Date(nowMs).toISOString().slice(0, 10);
+
+  const collected: CatalystEvent[] = [];
+  const seenIds = new Set<string>();
+
+  const pushAll = (rows: CatalystEvent[]) => {
+    for (const row of rows) {
+      if (seenIds.has(row.id)) continue;
+      seenIds.add(row.id);
+      collected.push(row);
+    }
+  };
+
+  for (const batch of chunkSymbols(key)) {
+    const rows = await fetchCatalystRowsForSymbols(
+      batch,
+      recentFrom,
+      upcomingFrom,
+      upcomingTo,
+      ENRICHMENT_BATCH_ROW_LIMIT,
+    );
+    pushAll(rows);
+
+    // Truncation guard: a full batch may have excluded symbols that still
+    // have qualifying events. Re-query absentees one symbol at a time.
+    if (batchHitRowLimit(rows.length)) {
+      for (const missing of symbolsMissingFromPayload(batch, rows)) {
+        const solo = await fetchCatalystRowsForSymbols(
+          [missing],
+          recentFrom,
+          upcomingFrom,
+          upcomingTo,
+          ENRICHMENT_BATCH_ROW_LIMIT,
+        );
+        pushAll(solo);
+      }
+    }
+  }
+
+  return collected;
 }
 
 export function useCatalystEnrichmentForSymbols(symbols: string[]) {
-  const key = [...new Set(symbols.map((s) => s.toUpperCase()))].sort();
+  const key = normalizeEnrichmentSymbols(symbols);
   return useQuery<Map<string, CatalystEnrichmentEntry>>({
     queryKey: ["catalyst_enrichment", key],
     enabled: key.length > 0,
     staleTime: 60_000,
     queryFn: async () => {
       const nowMs = Date.now();
-      const recentFrom = new Date(nowMs - 72 * 60 * 60 * 1000).toISOString();
-      const upcomingTo = new Date(nowMs + 30 * 86_400_000)
-        .toISOString()
-        .slice(0, 10);
-      const upcomingFrom = new Date(nowMs).toISOString().slice(0, 10);
-
-      const { data, error } = await supabase
-        .from("catalyst_events")
-        .select(
-          "id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, description, source_name, source_url, provider, related_symbols, facts, published_at",
-        )
-        .eq("verification_state", "provider_reported")
-        .in("symbol", key)
-        .or(
-          `and(published_at.gte.${recentFrom}),and(event_date.gte.${upcomingFrom},event_date.lte.${upcomingTo})`,
-        )
-        .limit(1000);
-
-      if (error) throw error;
-      const bySym = new Map<string, CatalystEnrichmentEntry>();
-      for (const raw of (data ?? []) as CatalystEvent[]) {
-        const m = eventMomentMs(raw);
-        if (m === null) continue;
-        const kind: "upcoming" | "recent" = m >= nowMs ? "upcoming" : "recent";
-        const prev = bySym.get(raw.symbol);
-        if (!prev) {
-          bySym.set(raw.symbol, { event: raw, kind });
-          continue;
-        }
-        // Priority: upcoming (nearest first) beats recent (newest first).
-        const prevM = eventMomentMs(prev.event)!;
-        if (prev.kind === "upcoming" && kind === "upcoming") {
-          if (m < prevM) bySym.set(raw.symbol, { event: raw, kind });
-        } else if (prev.kind === "recent" && kind === "upcoming") {
-          bySym.set(raw.symbol, { event: raw, kind });
-        } else if (prev.kind === "recent" && kind === "recent") {
-          if (m > prevM) bySym.set(raw.symbol, { event: raw, kind });
-        }
-        // If prev.kind === "upcoming" && kind === "recent": keep prev.
-      }
-      return bySym;
+      const rows = await fetchCatalystEventsForEnrichment(key, nowMs);
+      return selectEnrichmentEntries(rows, key, nowMs);
     },
   });
 }

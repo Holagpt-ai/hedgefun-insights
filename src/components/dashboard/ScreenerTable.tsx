@@ -4,7 +4,8 @@ import { Plus, Check, Loader2, Newspaper, Sparkles } from "lucide-react";
 import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tabs.config";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
-import { EVENT_TYPE_LABEL } from "@/lib/catalyst/parsers";
+import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
+import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
   formatDayRange,
   volumeRatioBadgeClass,
@@ -97,15 +98,24 @@ export function ScreenerTable({
     });
   }, [sort, tab.columns, rows, hasVerifiedRows]);
 
-  const enrichmentSymbols = useMemo(
-    () => sortedRows.map((r) => String(r?.symbol ?? "").toUpperCase()).filter(Boolean),
-    [sortedRows],
-  );
+  const enrichmentSymbols = useMemo(() => {
+    const out: string[] = [];
+    for (const r of sortedRows) {
+      const s = normalizeSymbol(r?.symbol);
+      if (s) out.push(s);
+    }
+    return out;
+  }, [sortedRows]);
   const {
     data: catalystMap,
-    isLoading: catalystLoading,
+    isPending: catalystPending,
+    isFetching: catalystFetching,
     isError: catalystError,
   } = useCatalystEnrichmentForSymbols(enrichmentSymbols);
+  // Never conflate in-flight enrichment with verified-empty.
+  const catalystCheckPending =
+    enrichmentSymbols.length > 0 &&
+    (catalystPending || (catalystFetching && !catalystMap));
 
   const isFullGate = !isPro && tab.freeRowLimit === 0;
   const visibleCount = isPro ? sortedRows.length : tab.freeRowLimit;
@@ -142,17 +152,21 @@ export function ScreenerTable({
     );
   };
 
-  const renderCatalystButton = (sym: string) => (
-    <Link
-      to={`/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`}
-      aria-label={`View catalysts for ${sym}`}
-      title={`View catalysts for ${sym}`}
-      className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <Newspaper className="h-4 w-4" />
-    </Link>
-  );
+  const renderCatalystButton = (sym: string) => {
+    const href = catalystSymbolHref(sym);
+    if (!href) return null;
+    return (
+      <Link
+        to={href}
+        aria-label={`View catalysts for ${sym}`}
+        title={`View catalysts for ${sym}`}
+        className="inline-flex items-center justify-center h-8 w-8 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <Newspaper className="h-4 w-4" />
+      </Link>
+    );
+  };
 
   const renderAiButton = (sym: string) => (
     <Link
@@ -167,7 +181,7 @@ export function ScreenerTable({
   );
 
   const renderCatalystCell = (sym: string) => {
-    if (catalystLoading) {
+    if (catalystCheckPending) {
       return <span className="text-muted-foreground text-xs">Catalyst check pending</span>;
     }
     if (catalystError) {
@@ -183,9 +197,10 @@ export function ScreenerTable({
     }
     const label = EVENT_TYPE_LABEL[entry.event.event_type];
     const kindLabel = entry.kind === "upcoming" ? "Upcoming" : "Recent";
+    const href = catalystSymbolHref(sym) ?? `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`;
     return (
       <Link
-        to={`/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`}
+        to={href}
         onClick={(e) => e.stopPropagation()}
         className="inline-flex flex-col items-start gap-0.5 max-w-[220px] hover:underline"
         title={entry.event.title ?? label}
@@ -202,7 +217,7 @@ export function ScreenerTable({
 
   const renderCellContent = (row: ScreenerResultRow, col: ScreenerColumn, blurred: boolean) => {
     const raw = (row as Record<string, unknown>)[col.key];
-    const sym = String(row.symbol ?? "").toUpperCase();
+    const sym = normalizeSymbol(row.symbol) ?? String(row.symbol ?? "").toUpperCase();
 
     if (col.key === "symbol") {
       return (
