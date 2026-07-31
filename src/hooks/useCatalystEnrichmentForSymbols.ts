@@ -9,8 +9,7 @@ import {
   batchHitRowLimit,
   chunkSymbols,
   ENRICHMENT_BATCH_ROW_LIMIT,
-  ENRICHMENT_RECENT_MS,
-  ENRICHMENT_UPCOMING_MS,
+  enrichmentFetchWindow,
   normalizeEnrichmentSymbols,
   selectEnrichmentEntries,
   symbolsMissingFromPayload,
@@ -25,7 +24,7 @@ const CATALYST_SELECT =
 async function fetchCatalystRowsForSymbols(
   symbols: string[],
   recentFrom: string,
-  upcomingFrom: string,
+  eventDateFrom: string,
   upcomingTo: string,
   limit: number,
 ): Promise<CatalystEvent[]> {
@@ -36,7 +35,10 @@ async function fetchCatalystRowsForSymbols(
     .eq("verification_state", "provider_reported")
     .in("symbol", symbols)
     .or(
-      `and(published_at.gte.${recentFrom}),and(event_date.gte.${upcomingFrom},event_date.lte.${upcomingTo})`,
+      // Recent news by published_at, OR scheduled events whose event_date falls
+      // in [now-72h … now+30d] so date-only earnings survive UTC midnight even
+      // when announcement published_at is older than the recent window.
+      `and(published_at.gte.${recentFrom}),and(event_date.gte.${eventDateFrom},event_date.lte.${upcomingTo})`,
     )
     .limit(limit);
   if (error) throw error;
@@ -51,11 +53,8 @@ export async function fetchCatalystEventsForEnrichment(
   const key = normalizeEnrichmentSymbols(symbols);
   if (key.length === 0) return [];
 
-  const recentFrom = new Date(nowMs - ENRICHMENT_RECENT_MS).toISOString();
-  const upcomingTo = new Date(nowMs + ENRICHMENT_UPCOMING_MS)
-    .toISOString()
-    .slice(0, 10);
-  const upcomingFrom = new Date(nowMs).toISOString().slice(0, 10);
+  const { recentFromIso, eventDateFrom, upcomingTo } =
+    enrichmentFetchWindow(nowMs);
 
   const collected: CatalystEvent[] = [];
   const seenIds = new Set<string>();
@@ -71,8 +70,8 @@ export async function fetchCatalystEventsForEnrichment(
   for (const batch of chunkSymbols(key)) {
     const rows = await fetchCatalystRowsForSymbols(
       batch,
-      recentFrom,
-      upcomingFrom,
+      recentFromIso,
+      eventDateFrom,
       upcomingTo,
       ENRICHMENT_BATCH_ROW_LIMIT,
     );
@@ -84,8 +83,8 @@ export async function fetchCatalystEventsForEnrichment(
       for (const missing of symbolsMissingFromPayload(batch, rows)) {
         const solo = await fetchCatalystRowsForSymbols(
           [missing],
-          recentFrom,
-          upcomingFrom,
+          recentFromIso,
+          eventDateFrom,
           upcomingTo,
           ENRICHMENT_BATCH_ROW_LIMIT,
         );

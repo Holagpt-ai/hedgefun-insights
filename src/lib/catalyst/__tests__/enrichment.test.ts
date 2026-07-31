@@ -6,13 +6,33 @@ import {
   chunkSymbols,
   classifyEnrichmentEvent,
   ENRICHMENT_BATCH_ROW_LIMIT,
+  ENRICHMENT_RECENT_MS,
   ENRICHMENT_SYMBOL_BATCH_SIZE,
+  enrichmentFetchWindow,
+  eventDateInFetchWindow,
   normalizeEnrichmentSymbols,
   selectEnrichmentEntries,
   symbolsMissingFromPayload,
 } from "@/lib/catalyst/enrichment";
+import { scheduledMomentMs } from "@/lib/catalyst/parsers";
 
 const NOW = Date.parse("2026-07-30T16:00:00.000Z");
+
+/** Production-shaped XRX earnings row (date-only, older announcement published_at). */
+function xrxEarnings(): CatalystEvent {
+  return evt({
+    id: "xrx-earn-2026-07-30",
+    symbol: "XRX",
+    event_type: "earnings",
+    event_date: "2026-07-30",
+    event_time: null,
+    title: "Xerox Holdings Corporation Common Stock earnings",
+    source_name: "Earnings Calendar",
+    source_url: null,
+    published_at: "2026-07-01T12:00:00.000Z",
+    company_name: "Xerox Holdings Corporation Common Stock",
+  });
+}
 
 function evt(overrides: Partial<CatalystEvent> & Pick<CatalystEvent, "id" | "symbol">): CatalystEvent {
   return {
@@ -172,18 +192,21 @@ describe("selectEnrichmentEntries", () => {
         evt({
           id: "old",
           symbol: "ABC",
+          event_date: "2026-07-28",
           published_at: "2026-07-28T12:00:00.000Z",
           title: "Older",
         }),
         evt({
           id: "new",
           symbol: "ABC",
+          event_date: "2026-07-30",
           published_at: "2026-07-30T12:00:00.000Z",
           title: "Newer",
         }),
         evt({
           id: "mid",
           symbol: "ABC",
+          event_date: "2026-07-29",
           published_at: "2026-07-29T12:00:00.000Z",
           title: "Middle",
         }),
@@ -245,5 +268,89 @@ describe("loading versus verified-empty contract", () => {
     expect(completedEmpty.get("ZZZ")).toBeUndefined();
     // Callers must gate on pending/fetching before reading this absence as
     // "no catalyst". The selection layer only models completed results.
+  });
+});
+
+describe("XRX date-boundary: retain recent scheduled earnings", () => {
+  const xrx = xrxEarnings();
+  const scheduled = scheduledMomentMs(xrx)!;
+  const beforeUtcMidnight = Date.parse("2026-07-30T23:59:59.000Z");
+  const afterUtcMidnight = Date.parse("2026-07-31T00:00:01.000Z");
+
+  it("qualifies immediately before UTC midnight on the event date", () => {
+    expect(eventDateInFetchWindow(xrx.event_date, beforeUtcMidnight)).toBe(true);
+    const classified = classifyEnrichmentEvent(xrx, beforeUtcMidnight);
+    expect(classified).not.toBeNull();
+    // After ET midnight the scheduled moment is past → recent; before that, upcoming.
+    expect(["upcoming", "recent"]).toContain(classified!.kind);
+    const map = selectEnrichmentEntries([xrx], ["XRX"], beforeUtcMidnight);
+    expect(map.get("XRX")?.event.title).toBe(
+      "Xerox Holdings Corporation Common Stock earnings",
+    );
+    expect(map.get("XRX")?.event.source_name).toBe("Earnings Calendar");
+  });
+
+  it("remains eligible immediately after UTC rolls to the next calendar day", () => {
+    // Prior bug: upcomingFrom became 2026-07-31 and dropped event_date 2026-07-30,
+    // while old published_at also failed the recent published_at filter.
+    const window = enrichmentFetchWindow(afterUtcMidnight);
+    expect(window.eventDateFrom <= "2026-07-30").toBe(true);
+    expect(eventDateInFetchWindow("2026-07-30", afterUtcMidnight)).toBe(true);
+    expect(classifyEnrichmentEvent(xrx, afterUtcMidnight)?.kind).toBe("recent");
+    expect(selectEnrichmentEntries([xrx], ["XRX"], afterUtcMidnight).has("XRX")).toBe(
+      true,
+    );
+  });
+
+  it("remains eligible throughout the approved 72h recent window", () => {
+    const nearExpiry = scheduled + ENRICHMENT_RECENT_MS - 1;
+    expect(classifyEnrichmentEvent(xrx, nearExpiry)?.kind).toBe("recent");
+    expect(selectEnrichmentEntries([xrx], ["XRX"], nearExpiry).has("XRX")).toBe(true);
+  });
+
+  it("expires after the approved recent window", () => {
+    const expired = scheduled + ENRICHMENT_RECENT_MS + 1;
+    expect(classifyEnrichmentEvent(xrx, expired)).toBeNull();
+    expect(selectEnrichmentEntries([xrx], ["XRX"], expired).has("XRX")).toBe(false);
+  });
+
+  it("does not let an older published_at eliminate a valid scheduled event", () => {
+    expect(xrx.published_at).toBe("2026-07-01T12:00:00.000Z");
+    expect(classifyEnrichmentEvent(xrx, afterUtcMidnight)).not.toBeNull();
+  });
+
+  it("NUWE/BHC-style symbols with no rows remain verified-empty", () => {
+    const map = selectEnrichmentEntries([xrx], ["NUWE", "BHC", "XRX"], afterUtcMidnight);
+    expect(map.has("XRX")).toBe(true);
+    expect(map.has("NUWE")).toBe(false);
+    expect(map.has("BHC")).toBe(false);
+  });
+
+  it("USEA-style multiple scheduled events still select the nearest upcoming", () => {
+    const useaNear = evt({
+      id: "usea-near",
+      symbol: "USEA",
+      event_type: "earnings",
+      event_date: "2026-08-02",
+      published_at: "2026-07-01T00:00:00.000Z",
+      title: "USEA near earnings",
+      source_name: "Earnings Calendar",
+    });
+    const useaFar = evt({
+      id: "usea-far",
+      symbol: "USEA",
+      event_type: "earnings",
+      event_date: "2026-08-20",
+      published_at: "2026-07-01T00:00:00.000Z",
+      title: "USEA far earnings",
+      source_name: "Earnings Calendar",
+    });
+    const map = selectEnrichmentEntries(
+      [useaFar, useaNear],
+      ["USEA"],
+      afterUtcMidnight,
+    );
+    expect(map.get("USEA")?.kind).toBe("upcoming");
+    expect(map.get("USEA")?.event.title).toBe("USEA near earnings");
   });
 });

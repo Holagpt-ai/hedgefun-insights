@@ -11,6 +11,8 @@ import {
 export interface CatalystEnrichmentEntry {
   event: CatalystEvent;
   kind: "upcoming" | "recent";
+  /** Deterministic ordering key used during selection. */
+  sortMs: number;
 }
 
 /** Max symbols per PostgREST `.in()` request (keeps URL size safe). */
@@ -55,7 +57,7 @@ export function catalystSymbolHref(symbol: string): string | null {
   return `/dashboard/catalyst?symbol=${encodeURIComponent(s)}`;
 }
 
-function recentSortMs(row: {
+function publishedRecentSortMs(row: {
   published_at?: string | null;
   event_time?: string | null;
   event_date?: string | null;
@@ -67,17 +69,42 @@ function recentSortMs(row: {
   return eventMomentMs(row);
 }
 
-function entrySortMs(entry: CatalystEnrichmentEntry): number | null {
-  return entry.kind === "upcoming"
-    ? scheduledMomentMs(entry.event)
-    : recentSortMs(entry.event);
+/**
+ * PostgREST fetch bounds for screener enrichment.
+ * `eventDateFrom` looks back through the recent window so date-only scheduled
+ * events remain retrievable after UTC midnight even when `published_at` is an
+ * older announcement timestamp.
+ */
+export function enrichmentFetchWindow(nowMs: number): {
+  recentFromIso: string;
+  eventDateFrom: string;
+  upcomingTo: string;
+} {
+  return {
+    recentFromIso: new Date(nowMs - ENRICHMENT_RECENT_MS).toISOString(),
+    eventDateFrom: new Date(nowMs - ENRICHMENT_RECENT_MS).toISOString().slice(0, 10),
+    upcomingTo: new Date(nowMs + ENRICHMENT_UPCOMING_MS).toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * True when a provider event_date string falls inside the fetch window that
+ * covers both recently completed scheduled events and the upcoming horizon.
+ */
+export function eventDateInFetchWindow(
+  eventDate: string,
+  nowMs: number,
+): boolean {
+  const { eventDateFrom, upcomingTo } = enrichmentFetchWindow(nowMs);
+  return eventDate >= eventDateFrom && eventDate <= upcomingTo;
 }
 
 /**
  * Classify a provider-reported event for screener enrichment.
- * Upcoming uses the scheduled moment (event_time / event_date) — never
- * published_at — so a future earnings row is not demoted by an older
- * announcement timestamp.
+ * Scheduled eligibility uses event_time / event_date only — never
+ * published_at — so an older announcement timestamp cannot demote or drop a
+ * valid earnings row. Recently completed scheduled events stay eligible for
+ * the approved 72h recent window.
  */
 export function classifyEnrichmentEvent(
   row: {
@@ -88,15 +115,16 @@ export function classifyEnrichmentEvent(
   nowMs: number,
 ): { kind: "upcoming" | "recent"; sortMs: number } | null {
   const scheduled = scheduledMomentMs(row);
-  if (
-    scheduled !== null &&
-    scheduled >= nowMs &&
-    scheduled <= nowMs + ENRICHMENT_UPCOMING_MS
-  ) {
-    return { kind: "upcoming", sortMs: scheduled };
+  if (scheduled !== null) {
+    if (scheduled >= nowMs && scheduled <= nowMs + ENRICHMENT_UPCOMING_MS) {
+      return { kind: "upcoming", sortMs: scheduled };
+    }
+    if (scheduled < nowMs && scheduled >= nowMs - ENRICHMENT_RECENT_MS) {
+      return { kind: "recent", sortMs: scheduled };
+    }
   }
 
-  const recent = recentSortMs(row);
+  const recent = publishedRecentSortMs(row);
   if (
     recent !== null &&
     recent <= nowMs &&
@@ -113,16 +141,13 @@ function shouldReplace(
   nextSortMs: number,
   nextId: string,
 ): boolean {
-  const prevSort = entrySortMs(prev);
-  if (prevSort === null) return true;
-
   if (prev.kind === "upcoming" && nextKind === "upcoming") {
-    if (nextSortMs !== prevSort) return nextSortMs < prevSort;
+    if (nextSortMs !== prev.sortMs) return nextSortMs < prev.sortMs;
     return nextId < prev.event.id;
   }
   if (prev.kind === "recent" && nextKind === "upcoming") return true;
   if (prev.kind === "recent" && nextKind === "recent") {
-    if (nextSortMs !== prevSort) return nextSortMs > prevSort;
+    if (nextSortMs !== prev.sortMs) return nextSortMs > prev.sortMs;
     return nextId < prev.event.id;
   }
   // prev upcoming + next recent → keep upcoming
@@ -154,7 +179,11 @@ export function selectEnrichmentEntries(
       !prev ||
       shouldReplace(prev, classified.kind, classified.sortMs, raw.id)
     ) {
-      bySym.set(sym, { event: raw, kind: classified.kind });
+      bySym.set(sym, {
+        event: raw,
+        kind: classified.kind,
+        sortMs: classified.sortMs,
+      });
     }
   }
   return bySym;
