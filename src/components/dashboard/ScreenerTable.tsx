@@ -86,8 +86,8 @@ export function ScreenerTable({
     const dir = sort.direction === "asc" ? 1 : -1;
     const isText = col.format === "text";
     return [...baseRows].sort((a, b) => {
-      const av = (a as Record<string, unknown>)[sort.key];
-      const bv = (b as Record<string, unknown>)[sort.key];
+      const av = (a as unknown as Record<string, unknown>)[sort.key];
+      const bv = (b as unknown as Record<string, unknown>)[sort.key];
       const aNull = av === null || av === undefined || av === "";
       const bNull = bv === null || bv === undefined || bv === "";
       if (aNull && bNull) return 0;
@@ -216,7 +216,7 @@ export function ScreenerTable({
   };
 
   const renderCellContent = (row: ScreenerResultRow, col: ScreenerColumn, blurred: boolean) => {
-    const raw = (row as Record<string, unknown>)[col.key];
+    const raw = (row as unknown as Record<string, unknown>)[col.key];
     const sym = normalizeSymbol(row.symbol) ?? String(row.symbol ?? "").toUpperCase();
 
     if (col.key === "symbol") {
@@ -350,7 +350,7 @@ export function ScreenerTable({
                       }`}
                     >
                       {tab.columns.map((col) => {
-                        const raw = (row as Record<string, unknown>)[col.key];
+                        const raw = (row as unknown as Record<string, unknown>)[col.key];
                         const isPct = col.format === "percent";
                         return (
                           <td

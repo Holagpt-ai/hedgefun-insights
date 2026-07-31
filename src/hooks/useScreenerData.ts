@@ -60,7 +60,7 @@ async function fetchGenerationOnce() {
 
   return {
     stateRows: (stateRes.data ?? null) as ScreenerFeedState[] | null,
-    resultRows: (rowsRes.data ?? null) as ScreenerResultRow[] | null,
+    resultRows: (rowsRes.data ?? null) as unknown as ScreenerResultRow[] | null,
     stateError: stateRes.error,
     resultError: rowsRes.error,
   };
