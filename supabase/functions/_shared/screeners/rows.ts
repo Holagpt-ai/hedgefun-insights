@@ -13,7 +13,6 @@ import {
   priorSessionVolume,
   safeNumber,
   type ScreenerTabId,
-  volumeRatioPriorSession,
 } from "./selection.ts";
 
 export type ScreenerResultRow = {
@@ -49,6 +48,35 @@ export type GenerationMeta = {
   nowMs: number;
 };
 
+/** Volume columns persist as integers. */
+function persistedVolume(value: number | null): number | null {
+  return value === null ? null : Math.round(value);
+}
+
+/**
+ * Prior-session volume keeps the positive-value requirement after rounding so
+ * the prior/ratio pair is never half-populated.
+ */
+function persistedPriorVolume(value: number | null): number | null {
+  const rounded = persistedVolume(value);
+  return rounded !== null && rounded > 0 ? rounded : null;
+}
+
+/**
+ * Derived from the persisted integer volumes rather than the raw provider
+ * values, so a reader recomputing the ratio from the stored volume columns
+ * gets the same number back. Same rounding as the raw metric: one decimal.
+ */
+function persistedVolumeRatio(
+  volume: number | null,
+  prior: number | null,
+): number | null {
+  if (volume === null || !(volume > 0) || prior === null) return null;
+  const ratio = volume / prior;
+  if (!Number.isFinite(ratio) || !(ratio > 0)) return null;
+  return Math.round(ratio * 10) / 10;
+}
+
 function baseRow(
   tabId: ScreenerTabId,
   t: PolygonTicker,
@@ -56,9 +84,9 @@ function baseRow(
   meta: GenerationMeta,
 ): ScreenerResultRow {
   const sym = normalizeSymbol(t.ticker)!;
-  const vol = dayVolume(t);
-  const priorVol = priorSessionVolume(t);
-  const ratio = volumeRatioPriorSession(t);
+  const vol = persistedVolume(dayVolume(t));
+  const priorVol = persistedPriorVolume(priorSessionVolume(t));
+  const ratio = persistedVolumeRatio(vol, priorVol);
   const range = dayHighLow(t);
   const providerAsOf = parseProviderAsOf(t.updated, meta.nowMs);
   if (providerAsOf === null) {
@@ -70,7 +98,7 @@ function baseRow(
     company_name: getName(sym),
     price: lastPrice(t),
     change_percent: safeNumber(t.todaysChangePerc),
-    volume: vol !== null ? Math.round(vol) : null,
+    volume: vol,
     avg_volume: null,
     rvol: null,
     float_shares: null,
@@ -78,7 +106,7 @@ function baseRow(
     high_52w: null,
     low_52w: null,
     market_cap: null,
-    prior_session_volume: priorVol !== null ? Math.round(priorVol) : null,
+    prior_session_volume: priorVol,
     volume_ratio_prior_session: ratio,
     day_high: range.high,
     day_low: range.low,
