@@ -166,15 +166,54 @@ export function horizonWindow(h: HorizonFilter, nowMs: number): HorizonWindow {
   }
 }
 
+/**
+ * Moment used for horizon membership.
+ * Prefers `scheduledMomentMs` (event_time / event_date — never published_at),
+ * matching Screener enrichment P1-R2, so an older announcement timestamp cannot
+ * demote a recent or upcoming scheduled earnings date. Falls back to
+ * `eventMomentMs` only when no scheduled moment exists (non-scheduled news).
+ */
+export function horizonMomentMs(
+  row: Parameters<typeof eventMomentMs>[0],
+): number | null {
+  const scheduled = scheduledMomentMs(row);
+  if (scheduled !== null) return scheduled;
+  return eventMomentMs(row);
+}
+
 export function isWithinHorizon(
   row: Parameters<typeof eventMomentMs>[0],
   h: HorizonFilter,
   nowMs: number,
 ): boolean {
-  const m = eventMomentMs(row);
+  const m = horizonMomentMs(row);
   if (m === null) return false;
   const w = horizonWindow(h, nowMs);
   return m >= w.fromMs && m <= w.toMs;
+}
+
+/**
+ * PostgREST fetch bounds for the standalone Catalyst page.
+ * Mirrors enrichment `enrichmentFetchWindow`: `eventDateFrom` looks back through
+ * the recent window so date-only scheduled events remain retrievable after UTC
+ * midnight even when announcement `published_at` is older than the recent window.
+ */
+export function catalystEventsFetchWindow(
+  nowMs: number,
+  recentDays: number,
+  upcomingDays: number,
+): {
+  recentFromIso: string;
+  eventDateFrom: string;
+  upcomingTo: string;
+} {
+  const recentMs = recentDays * 86_400_000;
+  const upcomingMs = upcomingDays * 86_400_000;
+  return {
+    recentFromIso: new Date(nowMs - recentMs).toISOString(),
+    eventDateFrom: new Date(nowMs - recentMs).toISOString().slice(0, 10),
+    upcomingTo: new Date(nowMs + upcomingMs).toISOString().slice(0, 10),
+  };
 }
 
 /**

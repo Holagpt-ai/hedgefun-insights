@@ -4,14 +4,18 @@ import { describe, it, expect } from "vitest";
 import {
   normalizeSymbol,
   eventMomentMs,
+  scheduledMomentMs,
   horizonWindow,
+  horizonMomentMs,
   isWithinHorizon,
   makeComparator,
   isFuture,
   isRecent,
+  catalystEventsFetchWindow,
   EVENT_TYPE_LABEL,
   EVENT_TYPE_ORDER,
 } from "@/lib/catalyst/parsers";
+import { enrichmentFetchWindow } from "@/lib/catalyst/enrichment";
 
 describe("normalizeSymbol", () => {
   it("accepts valid tickers, uppercased", () => {
@@ -104,5 +108,105 @@ describe("event type labels", () => {
       expect(typeof EVENT_TYPE_LABEL[t]).toBe("string");
       expect(EVENT_TYPE_LABEL[t].length).toBeGreaterThan(0);
     }
+  });
+});
+
+/** Production-shaped XRX earnings row (date-only, older announcement published_at). */
+function xrxEarnings() {
+  return {
+    symbol: "XRX",
+    event_type: "earnings" as const,
+    event_date: "2026-07-30",
+    event_time: null as string | null,
+    title: "Xerox Holdings Corporation Common Stock earnings",
+    source_name: "Earnings Calendar",
+    published_at: "2026-07-01T12:00:00.000Z",
+    company_name: "Xerox Holdings Corporation Common Stock",
+  };
+}
+
+describe("catalystEventsFetchWindow (page P1-R2 parity)", () => {
+  const afterUtcMidnight = Date.parse("2026-07-31T00:00:01.000Z");
+
+  it("derives event_date lower bound from now − recentDays, not UTC today", () => {
+    const w = catalystEventsFetchWindow(afterUtcMidnight, 3, 30);
+    expect(w.eventDateFrom).toBe("2026-07-28");
+    expect(w.eventDateFrom).not.toBe("2026-07-31");
+    expect(w.upcomingTo).toBe("2026-08-30");
+    expect(w.recentFromIso).toBe(
+      new Date(afterUtcMidnight - 3 * 86_400_000).toISOString(),
+    );
+  });
+
+  it("matches enrichmentFetchWindow for the default 3d / 30d page window", () => {
+    const page = catalystEventsFetchWindow(afterUtcMidnight, 3, 30);
+    const enrich = enrichmentFetchWindow(afterUtcMidnight);
+    expect(page.recentFromIso).toBe(enrich.recentFromIso);
+    expect(page.eventDateFrom).toBe(enrich.eventDateFrom);
+    expect(page.upcomingTo).toBe(enrich.upcomingTo);
+  });
+
+  it("includes XRX event_date 2026-07-30 in the fetched set on July 31", () => {
+    const w = catalystEventsFetchWindow(afterUtcMidnight, 3, 30);
+    const xrx = xrxEarnings();
+    const publishedOk = xrx.published_at >= w.recentFromIso;
+    const eventDateOk =
+      xrx.event_date >= w.eventDateFrom && xrx.event_date <= w.upcomingTo;
+    expect(publishedOk).toBe(false);
+    expect(eventDateOk).toBe(true);
+  });
+});
+
+describe("XRX July 30→31 page recent-window regression", () => {
+  const now = Date.parse("2026-07-31T16:00:00.000Z");
+  const xrx = xrxEarnings();
+
+  it("uses scheduledMomentMs so older published_at cannot demote the earnings date", () => {
+    expect(scheduledMomentMs(xrx)).not.toBeNull();
+    expect(horizonMomentMs(xrx)).toBe(scheduledMomentMs(xrx));
+    expect(horizonMomentMs(xrx)).not.toBe(eventMomentMs(xrx));
+  });
+
+  it("includes XRX under Recent 72 Hours on July 31", () => {
+    expect(isWithinHorizon(xrx, "recent_72h", now)).toBe(true);
+  });
+
+  it("does not treat XRX as upcoming under Next 7 Days on July 31", () => {
+    expect(isWithinHorizon(xrx, "next_7_days", now)).toBe(false);
+    expect(isWithinHorizon(xrx, "next_30_days", now)).toBe(false);
+  });
+
+  it("keeps a future scheduled earnings in Next 7 Days but not Recent 72 Hours", () => {
+    const future = {
+      symbol: "USEA",
+      event_type: "earnings" as const,
+      event_date: "2026-08-02",
+      event_time: null as string | null,
+      published_at: "2026-07-01T00:00:00.000Z",
+      title: "USEA near earnings",
+      source_name: "Earnings Calendar",
+    };
+    expect(isWithinHorizon(future, "next_7_days", now)).toBe(true);
+    expect(isWithinHorizon(future, "recent_72h", now)).toBe(false);
+  });
+
+  it("retains published_at precedence for non-scheduled news without event_date", () => {
+    const news = {
+      published_at: "2026-07-30T18:00:00.000Z",
+      event_time: null as string | null,
+      event_date: null as string | null,
+    };
+    expect(horizonMomentMs(news)).toBe(Date.parse(news.published_at));
+    expect(isWithinHorizon(news, "recent_72h", now)).toBe(true);
+  });
+
+  it("prefers explicit event_time over announcement published_at for scheduled rows", () => {
+    const timed = {
+      ...xrx,
+      event_time: "2026-07-30T20:00:00.000Z",
+      published_at: "2026-07-01T12:00:00.000Z",
+    };
+    expect(horizonMomentMs(timed)).toBe(Date.parse("2026-07-30T20:00:00.000Z"));
+    expect(isWithinHorizon(timed, "recent_72h", now)).toBe(true);
   });
 });

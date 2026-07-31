@@ -7,6 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
 import { useAuth } from "@/contexts/AuthContext";
+import { catalystEventsFetchWindow } from "@/lib/catalyst/parsers";
 
 const CATALYST_SELECT =
   "id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, description, source_name, source_url, provider, related_symbols, facts, published_at";
@@ -34,20 +35,21 @@ export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
     enabled,
     staleTime: 60_000,
     queryFn: async () => {
-      const now = new Date();
-      const recentFrom = new Date(now.getTime() - recentDays * 86_400_000).toISOString();
-      const upcomingTo = new Date(now.getTime() + upcomingDays * 86_400_000)
-        .toISOString()
-        .slice(0, 10);
-      const upcomingFrom = now.toISOString().slice(0, 10);
+      const nowMs = Date.now();
+      // P1-R2 parity: event_date looks back through the recent window so
+      // date-only scheduled earnings survive UTC midnight when published_at
+      // is an older announcement timestamp.
+      const { recentFromIso, eventDateFrom, upcomingTo } =
+        catalystEventsFetchWindow(nowMs, recentDays, upcomingDays);
 
-      // Two OR'd windows: recent by published_at OR upcoming by event_date.
+      // Two OR'd windows: recent by published_at OR scheduled by event_date
+      // in [now−recentDays … now+upcomingDays].
       let q = supabase
         .from("catalyst_events")
         .select(CATALYST_SELECT)
         .eq("verification_state", "provider_reported")
         .or(
-          `and(published_at.gte.${recentFrom}),and(event_date.gte.${upcomingFrom},event_date.lte.${upcomingTo})`,
+          `and(published_at.gte.${recentFromIso}),and(event_date.gte.${eventDateFrom},event_date.lte.${upcomingTo})`,
         )
         .order("event_date", { ascending: true })
         .limit(limit);
