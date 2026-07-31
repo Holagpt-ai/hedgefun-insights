@@ -1,7 +1,17 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
 import type { V2Row } from "@/hooks/useWatchlistV2";
+import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
 import { humanFailureReason, isExpired } from "@/lib/watchlist-v2/parsers";
+import {
+  densityTokens,
+  dollarMove,
+  dollarVolume,
+  rangePosition,
+  rvolIntensityTier,
+  vwapDistance,
+  type WatchlistDensity,
+} from "@/lib/watchlist-v2/metrics";
 import { V2IntradayChart } from "./V2IntradayChart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,17 +26,25 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  TrendingDown,
+  TrendingUp,
+  Minus,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Props {
   row: V2Row;
   onRefresh: (t: string) => void;
   onRemove: (t: string) => void;
   isRefreshing: boolean;
+  density?: WatchlistDensity;
+  earnings?: EarningsBadge | null;
 }
 
 const num = (n: number | null, digits = 2) =>
-  n === null ? "—" : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  n === null
+    ? "—"
+    : n.toLocaleString(undefined, { minimumFractionDigits: digits, maximumFractionDigits: digits });
 
 const compactVol = (n: number | null) => {
   if (n === null) return "—";
@@ -37,27 +55,35 @@ const compactVol = (n: number | null) => {
 };
 
 const sessionLabel = (s: V2Row["sessionType"]) =>
-  s === "premarket" ? "Pre-market" : s === "postclose" ? "Post-close" : "Regular hours";
+  s === "premarket" ? "Pre-market" : s === "postclose" ? "Post-close" : "RTH";
 
 const directionBadge = (d: V2Row["direction"]) => {
-  const map: Record<V2Row["direction"], { label: string; className: string }> = {
-    bullish: { label: "Bullish", className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300" },
-    bearish: { label: "Bearish", className: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300" },
-    neutral: { label: "Neutral", className: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200" },
-    data_unavailable: { label: "Data Unavailable", className: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300" },
+  const map: Record<
+    V2Row["direction"],
+    { label: string; className: string; Icon: typeof TrendingUp }
+  > = {
+    bullish: {
+      label: "Bullish",
+      className: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/35 dark:text-emerald-300",
+      Icon: TrendingUp,
+    },
+    bearish: {
+      label: "Bearish",
+      className: "bg-red-100 text-red-800 dark:bg-red-900/35 dark:text-red-300",
+      Icon: TrendingDown,
+    },
+    neutral: {
+      label: "Neutral",
+      className: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
+      Icon: Minus,
+    },
+    data_unavailable: {
+      label: "Data Unavailable",
+      className: "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-300",
+      Icon: Minus,
+    },
   };
   return map[d];
-};
-
-const rvolBadge = (c: V2Row["rvolClass"]) => {
-  if (!c) return null;
-  const map = {
-    normal: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-    elevated: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
-    unusual: "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300",
-  } as const;
-  const label = c === "normal" ? "Normal" : c === "elevated" ? "Elevated" : "Unusual";
-  return { label, className: map[c] };
 };
 
 function formatRelative(iso: string): string {
@@ -71,177 +97,380 @@ function formatRelative(iso: string): string {
   return `${Math.floor(diff / 86400)}d ago`;
 }
 
-export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props) {
+function RvolMeter({ rvol, tier }: { rvol: number | null; tier: ReturnType<typeof rvolIntensityTier> }) {
+  const pct = rvol === null ? 0 : Math.min(100, Math.max(0, (rvol / 4) * 100));
+  const bar =
+    tier === "unusual"
+      ? "bg-amber-500"
+      : tier === "elevated"
+        ? "bg-cyan-500"
+        : tier === "normal"
+          ? "bg-slate-400"
+          : "bg-transparent";
+  return (
+    <div
+      className="h-1 w-full max-w-[72px] rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden mt-1"
+      role="meter"
+      aria-label={rvol === null ? "RVOL unavailable" : `RVOL ${rvol.toFixed(2)} times`}
+      aria-valuenow={rvol ?? undefined}
+      aria-valuemin={0}
+      aria-valuemax={4}
+    >
+      <div
+        className={cn("h-full rounded-full motion-safe:transition-[width] motion-safe:duration-150", bar)}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
+  );
+}
+
+function RangeBar({ pos }: { pos: number | null }) {
+  if (pos === null) {
+    return <span className="text-[10px] text-muted-foreground">Range unavailable</span>;
+  }
+  const clamped = Math.min(1, Math.max(0, pos));
+  return (
+    <div className="flex items-center gap-1.5 min-w-[72px]" aria-label={`Range position ${Math.round(clamped * 100)} percent`}>
+      <span className="text-[9px] text-muted-foreground">L</span>
+      <div className="relative h-1 flex-1 rounded-full bg-slate-200 dark:bg-slate-700">
+        <div
+          className="absolute top-1/2 -translate-y-1/2 h-2 w-2 rounded-full bg-slate-700 dark:bg-slate-200"
+          style={{ left: `calc(${clamped * 100}% - 4px)` }}
+        />
+      </div>
+      <span className="text-[9px] text-muted-foreground">H</span>
+    </div>
+  );
+}
+
+export function WatchlistRowV2({
+  row,
+  onRefresh,
+  onRemove,
+  isRefreshing,
+  density = "compact",
+  earnings = null,
+}: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [showDiag, setShowDiag] = useState(false);
+  const tokens = densityTokens(density);
   const dir = directionBadge(row.direction);
-  const rvol = rvolBadge(row.rvolClass);
+  const DirIcon = dir.Icon;
   const expired = row.hasV2 && isExpired(row.validThrough);
-  const freshness = !row.hasV2 ? "" : expired ? "Update pending" : "Current";
   const change = row.changePct;
   const changeColor =
-    change === null ? "text-muted-foreground" : change >= 0 ? "text-emerald-600" : "text-red-600";
+    change === null
+      ? "text-muted-foreground"
+      : change >= 0
+        ? "text-emerald-600 dark:text-emerald-400"
+        : "text-red-600 dark:text-red-400";
 
-  // Contract guard: data_unavailable must never surface AI drivers or market signals,
-  // even if stale/client state persists them. Backend also enforces this.
   const isUnavailable = row.direction === "data_unavailable";
   const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
-
   const latestEvent = row.recentEvents[0] ?? null;
+  const primarySignal = shownMarketSignals[0] ?? null;
 
+  const dMove = dollarMove(row);
+  const vwapDist = vwapDistance(row);
+  const rangePos = rangePosition(row);
+  const dVol = dollarVolume(row);
+  const tier = rvolIntensityTier(row.rvol);
 
-  const rvolUnavailableReason = (() => {
+  const rvolStatus = (() => {
     const r = row.inputsQuality.rvol;
-    if (r === "no_baseline") return "RVOL baseline unavailable";
-    if (r === "baseline_invalid") return "RVOL baseline invalid";
-    if (r === "baseline_incompatible") return "RVOL baseline incompatible";
-    if (r === "not_applicable_session") return "RVOL not applicable this session";
-    return "RVOL unavailable";
+    if (row.rvol !== null) return null;
+    if (r === "not_applicable_session") return "Not applicable";
+    if (r === "no_baseline" || r === "baseline_invalid" || r === "baseline_incompatible") {
+      return "RVOL pending";
+    }
+    if (row.requestStatus === "pending") return "RVOL pending";
+    return "Unavailable";
   })();
 
+  const statusLine = (() => {
+    if (row.requestStatus === "pending") return { text: "Analysis pending", tone: "text-amber-700 dark:text-amber-400" };
+    if (row.requestStatus === "failed") return { text: "Update failed", tone: "text-red-600 dark:text-red-400" };
+    if (!row.hasV2) return { text: "Awaiting first analysis", tone: "text-muted-foreground" };
+    if (expired) return { text: "Snapshot stale", tone: "text-amber-700 dark:text-amber-400" };
+    return { text: "Current", tone: "text-muted-foreground" };
+  })();
+
+  const earningsUrgent = earnings?.kind === "upcoming";
+
   return (
-    <div className="border rounded-lg bg-card overflow-hidden">
-      {/* HEADER ROW */}
-      <div className="p-4 grid grid-cols-1 md:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.2fr)_auto] gap-4 items-center">
-        {/* Stock */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <Link
-              to={`/stocks/${row.ticker}`}
-              className="font-semibold text-base hover:underline"
-            >
-              {row.ticker}
-            </Link>
-            <Badge variant="outline" className="text-[10px]">{sessionLabel(row.sessionType)}</Badge>
-            {row.hasV2 && (
-              <span
-                className={`text-[10px] ${expired ? "text-amber-600" : "text-muted-foreground"}`}
+    <div
+      className={cn(
+        "border border-slate-200 dark:border-slate-700/80 rounded-md bg-white dark:bg-slate-900 overflow-hidden",
+        "motion-safe:transition-shadow motion-safe:duration-150",
+      )}
+    >
+      {/* COLLAPSED — mobile stacked / desktop aligned domains */}
+      <div
+        className={cn(
+          tokens.rowPad,
+          tokens.rowGap,
+          "grid grid-cols-1",
+          // Tablet: 2-col reflow without shrinking type below readable
+          "md:grid-cols-2",
+          // Desktop: aligned scan columns
+          "lg:grid-cols-[minmax(0,1.3fr)_minmax(0,0.95fr)_minmax(96px,0.65fr)_minmax(0,0.8fr)_minmax(0,1.1fr)_auto]",
+          "lg:items-center",
+        )}
+      >
+        {/* 1. Identity */}
+        <div className="min-w-0 flex items-start justify-between gap-2 lg:block">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <Link
+                to={`/stocks/${row.ticker.toLowerCase()}`}
+                className={cn(
+                  "font-semibold tracking-wide hover:underline text-slate-900 dark:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 rounded-sm",
+                  tokens.tickerClass,
+                )}
               >
-                {freshness}
+                {row.ticker}
+              </Link>
+              <Badge variant="outline" className="text-[10px] h-5 font-normal border-slate-300 dark:border-slate-600">
+                {sessionLabel(row.sessionType)}
+              </Badge>
+              {earnings && (
+                <span
+                  className={cn(
+                    "text-[10px] px-1.5 py-0.5 rounded border font-medium",
+                    earningsUrgent
+                      ? "bg-amber-50 text-amber-900 border-amber-200 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800"
+                      : "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600",
+                  )}
+                >
+                  {earnings.label}
+                </span>
+              )}
+              {!earnings && latestEvent && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-900 border border-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-800">
+                  Catalyst
+                </span>
+              )}
+            </div>
+            {row.companyName && (
+              <div className="text-xs text-slate-500 dark:text-slate-400 truncate mt-0.5 pr-2">
+                {row.companyName}
+              </div>
+            )}
+          </div>
+
+          {/* Mobile primary expand */}
+          <div className="flex items-center gap-1 shrink-0 lg:hidden">
+            <Button
+              size="sm"
+              variant="outline"
+              className={cn(tokens.controlSize, "p-0")}
+              onClick={() => onRefresh(row.ticker)}
+              disabled={isRefreshing}
+              title="Refresh analysis"
+              aria-label={`Refresh ${row.ticker}`}
+            >
+              <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn(tokens.controlSize, "p-0")}
+              onClick={() => setExpanded((v) => !v)}
+              title={expanded ? "Collapse" : "Expand"}
+              aria-expanded={expanded}
+              aria-label={expanded ? `Collapse ${row.ticker}` : `Expand ${row.ticker}`}
+            >
+              {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className={cn(tokens.controlSize, "p-0")}
+              onClick={() => onRemove(row.ticker)}
+              title="Remove from watchlist"
+              aria-label={`Remove ${row.ticker}`}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+
+        {/* 2. Price action */}
+        <div className="min-w-0">
+          <div className="flex items-baseline gap-2 flex-wrap">
+            <span className={cn("font-semibold tabular-nums text-slate-900 dark:text-slate-50", tokens.priceClass)}>
+              ${num(row.price)}
+            </span>
+            <span className={cn("tabular-nums font-medium", tokens.changeClass, changeColor)}>
+              {change === null ? "—" : `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`}
+            </span>
+            {tokens.showDollarMove && dMove !== null && (
+              <span className={cn("text-xs tabular-nums", changeColor)}>
+                {dMove >= 0 ? "+" : ""}${num(dMove)}
               </span>
             )}
           </div>
-          {row.companyName && (
-            <div className="text-xs text-muted-foreground truncate">{row.companyName}</div>
-          )}
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-lg font-semibold tabular-nums">${num(row.price)}</span>
-            <span className={`text-sm tabular-nums ${changeColor}`}>
-              {change === null ? "—" : `${change >= 0 ? "+" : ""}${change.toFixed(2)}%`}
-            </span>
-          </div>
-          {row.analyzedAt && (
-            <div className="text-[10px] text-muted-foreground mt-0.5">
-              Analyzed {formatRelative(row.analyzedAt)}
+          {tokens.showSecondaryMeta && (
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[10px] text-slate-500 dark:text-slate-400">
+              {vwapDist ? (
+                <span className="tabular-nums text-cyan-800 dark:text-cyan-300/90">
+                  VWAP {vwapDist.dollars >= 0 ? "+" : ""}${num(vwapDist.dollars)} (
+                  {vwapDist.pct >= 0 ? "+" : ""}
+                  {vwapDist.pct.toFixed(2)}%)
+                </span>
+              ) : (
+                <span>VWAP —</span>
+              )}
+              <RangeBar pos={rangePos} />
             </div>
           )}
         </div>
 
-        {/* Chart */}
-        <div className="min-w-0">
-          <V2IntradayChart bars={row.intraday} />
+        {/* 3. Micro-chart — always on mobile stack; aligned on desktop */}
+        <div className="min-w-0 w-full">
+          <V2IntradayChart
+            bars={row.intraday}
+            height={tokens.chartH}
+            vwap={row.keyLevels.vwap}
+            priorClose={row.keyLevels.prior_close}
+          />
         </div>
 
-        {/* Volume / RVOL */}
+        {/* 4. Volume / RVOL */}
         <div className="min-w-0 text-sm">
           <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs">Vol</span>
-            <span className="tabular-nums">{compactVol(row.volume)}</span>
+            <span className="text-[10px] uppercase tracking-wide text-slate-500 dark:text-slate-400">Vol</span>
+            <span className="tabular-nums text-xs font-medium text-slate-800 dark:text-slate-100">
+              {compactVol(row.volume)}
+            </span>
           </div>
-          <div className="flex items-center gap-2 mt-1">
-            {row.rvol !== null ? (
-              <>
-                <span className="text-muted-foreground text-xs">RVOL</span>
-                <span className="tabular-nums">{row.rvol.toFixed(2)}×</span>
-                {rvol && (
-                  <span className={`text-[10px] px-1.5 py-0.5 rounded ${rvol.className}`}>
-                    {rvol.label}
-                  </span>
-                )}
-              </>
-            ) : (
-              <span className="text-xs text-muted-foreground">{rvolUnavailableReason}</span>
-            )}
-          </div>
-          <div className="text-[10px] text-muted-foreground mt-1">
-            Market feed is 15-minute delayed
-          </div>
-        </div>
-
-        {/* AI Read */}
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className={`text-xs px-2 py-0.5 rounded ${dir.className}`}>{dir.label}</span>
-          </div>
-          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-            {row.direction === "data_unavailable"
-              ? humanFailureReason(row.failureReason)
-              : row.explanation || "—"}
-          </p>
-          {row.requestStatus === "pending" && (
-            <div className="text-[10px] text-amber-600 mt-1">Analysis pending</div>
-          )}
-          {row.requestStatus === "failed" && (
-            <div className="text-[10px] text-red-600 mt-1">
-              Update failed{row.requestError ? ` — ${row.requestError}` : ""}
+          {tokens.showSecondaryMeta && (
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums mt-0.5">
+              $Vol {dVol === null ? "—" : compactVol(dVol)}
             </div>
           )}
+          {row.rvol !== null ? (
+            <div className="mt-1">
+              <div className="flex items-center gap-1.5">
+                <span className="text-[10px] text-slate-500 dark:text-slate-400">RVOL</span>
+                <span className="tabular-nums text-xs font-medium">{row.rvol.toFixed(2)}×</span>
+              </div>
+              {tokens.showRvolMeter && <RvolMeter rvol={row.rvol} tier={tier} />}
+            </div>
+          ) : (
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1">{rvolStatus}</div>
+          )}
         </div>
 
-        {/* Actions */}
-        <div className="flex md:flex-col gap-1 justify-end">
+        {/* 5. Intelligence */}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span
+              className={cn(
+                "inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded font-medium",
+                dir.className,
+              )}
+            >
+              <DirIcon className="h-3 w-3" aria-hidden />
+              {dir.label}
+            </span>
+            {primarySignal && tokens.showSecondaryMeta && (
+              <span className="text-[10px] text-slate-500 dark:text-slate-400 truncate max-w-[140px]">
+                {primarySignal.label}
+              </span>
+            )}
+          </div>
+          {tokens.showSecondaryMeta && (
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-1 truncate">
+              {earnings
+                ? earnings.label
+                : latestEvent
+                  ? latestEvent.title
+                  : "No qualifying recent event"}
+            </div>
+          )}
+          {tokens.showUpdatedLine && (
+            <div className="flex items-center gap-2 mt-1 text-[10px] tabular-nums">
+              {row.analyzedAt && (
+                <span className="text-slate-500 dark:text-slate-400">
+                  Updated {formatRelative(row.analyzedAt)}
+                </span>
+              )}
+              <span className={statusLine.tone}>{statusLine.text}</span>
+            </div>
+          )}
+          {!tokens.showUpdatedLine && statusLine.text !== "Current" && (
+            <div className={cn("text-[10px] mt-0.5", statusLine.tone)}>{statusLine.text}</div>
+          )}
+        </div>
+
+        {/* 6. Desktop controls */}
+        <div className="hidden lg:flex flex-col gap-1 justify-end items-center">
           <Button
             size="sm"
             variant="outline"
+            className={cn(tokens.controlSize, "p-0")}
             onClick={() => onRefresh(row.ticker)}
             disabled={isRefreshing}
-            title="Refresh V2 analysis"
+            title="Refresh analysis"
+            aria-label={`Refresh ${row.ticker}`}
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? "animate-spin" : ""}`} />
+            <RefreshCw className={cn("h-3.5 w-3.5", isRefreshing && "animate-spin")} />
           </Button>
           <Button
             size="sm"
             variant="ghost"
+            className={cn(tokens.controlSize, "p-0")}
             onClick={() => setExpanded((v) => !v)}
             title={expanded ? "Collapse" : "Expand"}
+            aria-expanded={expanded}
+            aria-label={expanded ? `Collapse ${row.ticker}` : `Expand ${row.ticker}`}
           >
             {expanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
           </Button>
           <Button
             size="sm"
             variant="ghost"
+            className={cn(tokens.controlSize, "p-0")}
             onClick={() => onRemove(row.ticker)}
             title="Remove from watchlist"
+            aria-label={`Remove ${row.ticker}`}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
         </div>
       </div>
 
-      {/* EXPANDED EVIDENCE */}
+      {/* EXPANDED DRAWER — full width beneath row; no layout shift of siblings */}
       {expanded && (
-        <div className="border-t bg-muted/30 p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-          {/* Market Signals */}
+        <div
+          className={cn(
+            "border-t border-slate-200 dark:border-slate-700/80 bg-slate-50 dark:bg-slate-950/80",
+            tokens.drawerPad,
+            "grid grid-cols-1 md:grid-cols-3",
+            tokens.drawerGap,
+            "text-sm",
+          )}
+        >
           <div>
-            <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
-              Market Signals
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+              Deterministic Market Signals
             </div>
             {shownMarketSignals.length === 0 ? (
-              <div className="text-xs text-muted-foreground">No signals recorded.</div>
+              <div className="text-xs text-muted-foreground">No signals recorded</div>
             ) : (
               <ul className="space-y-1.5">
                 {shownMarketSignals.map((s) => {
                   const cls =
                     s.direction === "bullish"
-                      ? "text-emerald-600"
+                      ? "text-emerald-600 dark:text-emerald-400"
                       : s.direction === "bearish"
-                      ? "text-red-600"
-                      : "text-muted-foreground";
+                        ? "text-red-600 dark:text-red-400"
+                        : "text-muted-foreground";
                   return (
-                    <li key={s.signal_id} className="flex items-center justify-between gap-2">
+                    <li key={s.signal_id} className="flex items-center justify-between gap-2 text-xs">
                       <span>{s.label}</span>
-                      <span className={`text-[11px] ${cls}`}>
-                        {s.direction ?? "neutral"}
-                      </span>
+                      <span className={cn("text-[11px]", cls)}>{s.direction ?? "neutral"}</span>
                     </li>
                   );
                 })}
@@ -249,13 +478,12 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
             )}
           </div>
 
-          {/* Recent Event */}
           <div>
-            <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
               Verified Recent Event
             </div>
             {!latestEvent ? (
-              <div className="text-xs text-muted-foreground">No qualifying recent event.</div>
+              <div className="text-xs text-muted-foreground">No qualifying recent event</div>
             ) : (
               <div>
                 {latestEvent.source_url ? (
@@ -263,7 +491,7 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
                     href={latestEvent.source_url}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-sm font-medium hover:underline inline-flex items-center gap-1"
+                    className="text-sm font-medium hover:underline inline-flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 rounded-sm"
                   >
                     {latestEvent.title}
                     <ExternalLink className="h-3 w-3" aria-hidden />
@@ -271,16 +499,26 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
                 ) : (
                   <div className="text-sm font-medium">{latestEvent.title}</div>
                 )}
-                <div className="text-[11px] text-muted-foreground mt-1">
+                <div className="text-[11px] text-muted-foreground mt-1 tabular-nums">
                   {latestEvent.source_name} · {formatRelative(latestEvent.event_time)} · Provider reported
+                </div>
+              </div>
+            )}
+            {earnings && (
+              <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700/60">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                  Upcoming / Recent Earnings
+                </div>
+                <div className="text-xs font-medium">{earnings.label}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  {earnings.event.title} · Provider reported
                 </div>
               </div>
             )}
           </div>
 
-          {/* Key Levels */}
           <div>
-            <div className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
               Objective Key Levels
             </div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
@@ -295,37 +533,69 @@ export function WatchlistRowV2({ row, onRefresh, onRemove, isRefreshing }: Props
                 ] as const
               ).map(([label, v]) => (
                 <div key={label} className="flex justify-between">
-                  <dt className="text-muted-foreground">{label}</dt>
+                  <dt className={cn("text-muted-foreground", label === "VWAP" && "text-cyan-800 dark:text-cyan-300/90")}>
+                    {label}
+                  </dt>
                   <dd className="tabular-nums">{v === null ? "—" : `$${num(v)}`}</dd>
                 </div>
               ))}
             </dl>
+            {row.rvol === null && (
+              <div className="text-[11px] text-muted-foreground mt-2">
+                {rvolStatus === "Not applicable"
+                  ? "RVOL not applicable this session"
+                  : rvolStatus === "RVOL pending"
+                    ? "RVOL pending"
+                    : "RVOL unavailable"}
+              </div>
+            )}
           </div>
 
-          {/* Row actions */}
-          <div className="md:col-span-3 flex flex-wrap gap-2 pt-2 border-t">
-            <Button asChild size="sm" variant="outline">
+          {(isUnavailable || row.requestStatus === "failed" || row.failureReason) && (
+            <div className="md:col-span-3 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+              <button
+                type="button"
+                className="text-[11px] text-muted-foreground hover:text-foreground underline-offset-2 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 rounded-sm"
+                onClick={() => setShowDiag((v) => !v)}
+              >
+                {showDiag ? "Hide provider diagnostics" : "Show provider diagnostics"}
+              </button>
+              {showDiag && (
+                <div className="mt-2 text-xs text-red-700 dark:text-red-400 space-y-1">
+                  {row.failureReason && <p>{humanFailureReason(row.failureReason)}</p>}
+                  {row.requestError && <p>{row.requestError}</p>}
+                  {isUnavailable && !row.failureReason && (
+                    <p>{humanFailureReason(row.failureReason)}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Workflow actions — primary on mobile live in drawer when dense */}
+          <div className="md:col-span-3 flex flex-wrap gap-2 pt-2 border-t border-slate-200 dark:border-slate-700/60">
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
               <Link to={`/dashboard/ai?symbol=${row.ticker}`}>
                 <BrainCircuit className="h-3.5 w-3.5 mr-1.5" /> AI Analyst
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
               <Link to={`/dashboard/catalyst?symbol=${row.ticker}`}>
                 <Flame className="h-3.5 w-3.5 mr-1.5" /> Catalyst
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
               <Link to={`/dashboard/journal?symbol=${row.ticker}`}>
                 <BookOpen className="h-3.5 w-3.5 mr-1.5" /> Journal
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
               <Link to={`/chart/${row.ticker}`}>
                 <LineChart className="h-3.5 w-3.5 mr-1.5" /> Chart
               </Link>
             </Button>
-            <Button asChild size="sm" variant="outline">
-              <Link to={`/stocks/${row.ticker}`}>
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
+              <Link to={`/stocks/${row.ticker.toLowerCase()}`}>
                 <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Stock page
               </Link>
             </Button>

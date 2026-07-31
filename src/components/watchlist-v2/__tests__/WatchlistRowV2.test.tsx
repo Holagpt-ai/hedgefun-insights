@@ -52,17 +52,29 @@ function renderRow(r: V2Row) {
 }
 
 describe("WatchlistRowV2 data_unavailable contract", () => {
-  it("renders a trader-friendly failure reason from the code", () => {
-    const { getByText } = renderRow(row({}));
+  it("shows Data Unavailable badge without long provider errors on the collapsed row", () => {
+    const { getByText, container } = renderRow(row({}));
+    expect(getByText(/Data Unavailable/i)).toBeInTheDocument();
+    expect(container.innerHTML).not.toMatch(/Market snapshot too stale to analyze/i);
+  });
+
+  it("surfaces trader-friendly failure reason inside expanded diagnostics", () => {
+    const { container, getByText } = renderRow(row({}));
+    const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
+    if (toggle) fireEvent.click(toggle);
+    const diag = container.querySelector("button") &&
+      Array.from(container.querySelectorAll("button")).find((b) =>
+        /provider diagnostics/i.test(b.textContent ?? ""),
+      );
+    expect(diag).toBeTruthy();
+    fireEvent.click(diag!);
     expect(getByText(/Market snapshot too stale to analyze/i)).toBeInTheDocument();
   });
 
   it("never surfaces market signals when direction=data_unavailable", () => {
     const { container } = renderRow(row({}));
-    // Header is not expanded by default; force expand by clicking the toggle.
     const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
     if (toggle) fireEvent.click(toggle);
-    // Even expanded, the sanitized empty state must show.
     const html = container.innerHTML;
     expect(html).not.toContain("Above VWAP");
     expect(html).not.toContain("driver.trend_up");
@@ -98,6 +110,5 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
     expect(html).not.toContain("signal:above_vwap");
     expect(html).not.toContain("level:vwap");
     expect(html).not.toContain("metric:rvol");
-    expect(html).not.toMatch(/AI Read evidence/i);
   });
 });

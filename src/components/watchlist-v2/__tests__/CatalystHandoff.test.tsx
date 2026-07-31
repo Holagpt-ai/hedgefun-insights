@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, fireEvent, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { V2AddSymbol } from "@/components/watchlist-v2/V2AddSymbol";
-import { normalizeHandoffSymbol } from "@/pages/watchlist/WatchlistV2Page";
+import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import { CatalystEventCard } from "@/components/catalyst/CatalystEventCard";
 import type { CatalystEvent } from "@/types/catalyst";
 
@@ -119,10 +119,50 @@ describe("V2AddSymbol handoff behavior", () => {
 // when the ticker is not on the watchlist. We stub the hook and route.
 vi.mock("@/hooks/usePageSeo", () => ({ usePageSeo: () => {} }));
 
+vi.mock("@/hooks/useCatalystEnrichmentForSymbols", () => ({
+  fetchCatalystEventsForEnrichment: async () => [],
+  useCatalystEnrichmentForSymbols: () => ({ data: new Map(), isLoading: false }),
+}));
+
 const hookState: {
-  rows: Array<{ ticker: string }>;
+  rows: Array<{ ticker: string; companyName?: string | null; changePct?: number | null; hasV2?: boolean; direction?: string; volume?: number | null; rvol?: number | null; rvolClass?: string | null; recentEvents?: unknown[]; keyLevels?: Record<string, number | null>; inputsQuality?: Record<string, unknown>; sessionType?: string; analyzedAt?: string; validThrough?: string; requestStatus?: string; requestError?: string | null; price?: number | null; intraday?: unknown[]; marketSignals?: unknown[]; failureReason?: string | null; explanation?: string; driverIds?: string[]; sessionDate?: string }>;
   addSymbol: ReturnType<typeof vi.fn>;
 } = { rows: [], addSymbol: vi.fn() };
+
+function stubRow(ticker: string) {
+  return {
+    ticker,
+    companyName: null,
+    direction: "neutral",
+    explanation: "",
+    failureReason: null,
+    price: 100,
+    changePct: 0,
+    volume: 1_000_000,
+    rvol: 1,
+    rvolClass: "normal",
+    sessionType: "rth",
+    sessionDate: "2026-07-31",
+    analyzedAt: "2026-07-31T15:00:00Z",
+    validThrough: "2026-07-31T16:00:00Z",
+    intraday: [],
+    driverIds: [],
+    marketSignals: [],
+    recentEvents: [],
+    keyLevels: {
+      vwap: null,
+      hod: null,
+      lod: null,
+      premarket_high: null,
+      premarket_low: null,
+      prior_close: null,
+    },
+    inputsQuality: {},
+    requestStatus: "succeeded",
+    requestError: null,
+    hasV2: true,
+  };
+}
 
 vi.mock("@/hooks/useWatchlistV2", () => ({
   useWatchlistV2: () => ({
@@ -143,26 +183,29 @@ vi.mock("@/components/watchlist-v2/WatchlistRowV2", () => ({
   ),
 }));
 
-vi.mock("@/components/watchlist-v2/V2SummaryCards", () => ({
-  V2SummaryCards: () => <div>summary</div>,
-}));
-
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import WatchlistV2Page from "@/pages/watchlist/WatchlistV2Page";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 function renderPage(url: string) {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter initialEntries={[url]}>
-      <Routes>
-        <Route path="/dashboard/watchlist" element={<WatchlistV2Page />} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={qc}>
+      <MemoryRouter initialEntries={[url]}>
+        <Routes>
+          <Route path="/dashboard/watchlist" element={<WatchlistV2Page />} />
+          <Route path="/watchlist" element={<WatchlistV2Page />} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
 describe("WatchlistV2Page handoff", () => {
   it("existing ticker: highlights the row and does not prefill or duplicate", () => {
-    hookState.rows = [{ ticker: "AAPL" }];
+    hookState.rows = [stubRow("AAPL")];
     hookState.addSymbol = vi.fn();
 
     const { container } = renderPage("/dashboard/watchlist?symbol=AAPL");
@@ -176,7 +219,7 @@ describe("WatchlistV2Page handoff", () => {
   });
 
   it("missing ticker: prefills the Add input but does not auto-add", () => {
-    hookState.rows = [{ ticker: "MSFT" }];
+    hookState.rows = [stubRow("MSFT")];
     hookState.addSymbol = vi.fn();
 
     renderPage("/dashboard/watchlist?symbol=NVDA");
@@ -186,7 +229,7 @@ describe("WatchlistV2Page handoff", () => {
   });
 
   it("invalid symbol: ignored — no prefill, no highlight, no add", () => {
-    hookState.rows = [{ ticker: "AAPL" }];
+    hookState.rows = [stubRow("AAPL")];
     hookState.addSymbol = vi.fn();
 
     const { container } = renderPage("/dashboard/watchlist?symbol=%3Cscript%3E");

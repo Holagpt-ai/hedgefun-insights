@@ -199,6 +199,8 @@ const App = () => (
                   <Route path="/login" element={<AuthRoutePage defaultMode="login" />} />
                   <Route path="/register" element={<Navigate to="/signup" replace />} />
                   <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
+                  {/* Public Watchlist shell — never dashboard sidebar */}
+                  <Route path="/watchlist" element={<WatchlistPage />} />
                 </Route>
 
                 {/* Dashboard routes */}
@@ -222,7 +224,6 @@ const App = () => (
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
                 <Route element={<SmartLayout />}>
-                  <Route path="/watchlist" element={<WatchlistPage />} />
                   <Route path="/journal" element={<JournalPage />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/account/billing" element={<BillingPage />} />

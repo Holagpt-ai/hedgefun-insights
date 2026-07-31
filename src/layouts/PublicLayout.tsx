@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Header } from "@/components/layout/Header";
+import MarketTicker from "@/components/layout/MarketTicker";
 import { AppSidebar } from "@/components/layout/AppSidebar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { MobileSidebarDrawer } from "@/components/layout/MobileSidebarDrawer";
@@ -9,10 +10,13 @@ import { Footer } from "@/components/layout/Footer";
 
 export default function PublicLayout() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  const showTicker = pathname === "/watchlist" || pathname.startsWith("/watchlist/");
 
   return (
     <>
       <Header onMenuToggle={() => setMobileMenuOpen(true)} />
+      {showTicker && <MarketTicker />}
       <div className="flex">
         <AppSidebar />
         <main className="flex-1 min-w-0 pb-16 md:pb-0">
