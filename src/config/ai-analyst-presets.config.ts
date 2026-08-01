@@ -1,89 +1,127 @@
-// Workflow-grouped quick prompts for the AI Analyst empty state.
-// Each prompt is dispatched through the existing sendMessage flow —
-// no backend/model/tier logic lives here.
+// Trading-intent workflow configuration for the AI Analyst command center.
+//
+// These are editable prompt templates only. Selecting a workflow never submits
+// an analysis, and nothing here changes backend, model, or entitlement logic.
+//
+// Every prompt is written to stay inside what the analysis path can actually
+// see: the Stocksist context attached to the request. No preset may ask for
+// live news, filings, open positions, or external web research.
 
-export interface AnalystPreset {
+export type AnalystWorkflowId =
+  | "quick-scan"
+  | "trade-thesis"
+  | "catalyst-review"
+  | "risk-check"
+  | "journal-review"
+  | "deep-research";
+
+export type AnalystWorkflowIcon =
+  | "zap"
+  | "scale"
+  | "calendar"
+  | "shield"
+  | "book"
+  | "microscope";
+
+export interface AnalystWorkflow {
+  id: AnalystWorkflowId;
+  /** Short control label. */
+  name: string;
+  /** Compact "best for" description shown under the name. */
+  bestFor: string;
+  icon: AnalystWorkflowIcon;
+  /** Builds an editable draft. `symbol` is already normalized, or null. */
+  buildPrompt: (symbol: string | null) => string;
+}
+
+/** Shared honesty clause so no workflow implies unavailable data sources. */
+const ONLY_AVAILABLE = "Use only the Stocksist context available in this request and say plainly when something isn't available.";
+
+const subject = (symbol: string | null) => (symbol ? symbol : "the current market setup");
+
+export const ANALYST_WORKFLOWS: AnalystWorkflow[] = [
+  {
+    id: "quick-scan",
+    name: "Quick Scan",
+    bestFor: "Fast read on what stands out",
+    icon: "zap",
+    buildPrompt: (symbol) =>
+      `Give me a rapid synthesis of ${subject(symbol)}: what stands out, what is unclear, and what I should confirm myself before acting. ${ONLY_AVAILABLE}`,
+  },
+  {
+    id: "trade-thesis",
+    name: "Trade Thesis",
+    bestFor: "Bull case, bear case, invalidation",
+    icon: "scale",
+    buildPrompt: (symbol) =>
+      `Build a balanced trade thesis for ${subject(symbol)}: the bull case, the bear case, what would invalidate the idea, and any relevant levels the context supports. ${ONLY_AVAILABLE}`,
+  },
+  {
+    id: "catalyst-review",
+    name: "Catalyst Review",
+    bestFor: "Event impact, timing, missing evidence",
+    icon: "calendar",
+    buildPrompt: (symbol) =>
+      `Review the verified catalyst context for ${subject(symbol)}: what the event is, its likely impact, its timing, and which evidence is missing. ${ONLY_AVAILABLE}`,
+  },
+  {
+    id: "risk-check",
+    name: "Risk Check",
+    bestFor: "Downside, liquidity, volatility, events",
+    icon: "shield",
+    buildPrompt: (symbol) =>
+      `Pressure-test the risk in ${subject(symbol)}: downside, liquidity, volatility, event risk, and the conditions that would invalidate the setup. ${ONLY_AVAILABLE}`,
+  },
+  {
+    id: "journal-review",
+    name: "Journal Review",
+    bestFor: "Patterns in the trades provided",
+    icon: "book",
+    buildPrompt: (symbol) =>
+      symbol
+        ? `Review any trade or journal context provided for ${symbol} and highlight patterns worth acting on. Do not assume trades that were not included. ${ONLY_AVAILABLE}`
+        : `Review any trade or journal context provided and highlight patterns worth acting on. Do not assume trades that were not included. ${ONLY_AVAILABLE}`,
+  },
+  {
+    id: "deep-research",
+    name: "Deep Research",
+    bestFor: "Highest-detail supported review",
+    icon: "microscope",
+    buildPrompt: (symbol) =>
+      `Work through ${subject(symbol)} in the highest detail this analysis path supports: setup quality, competing interpretations, risk, and what would change the conclusion. Flag every assumption and every gap. ${ONLY_AVAILABLE}`,
+  },
+];
+
+export const DEFAULT_ANALYST_WORKFLOW_ID: AnalystWorkflowId = "quick-scan";
+
+export function getAnalystWorkflow(id: AnalystWorkflowId): AnalystWorkflow {
+  return ANALYST_WORKFLOWS.find((w) => w.id === id) ?? ANALYST_WORKFLOWS[0];
+}
+
+/**
+ * Outcome-oriented depth presentation.
+ *
+ * `value` and `minPlan` are the existing backend tier identifiers and access
+ * rules — unchanged. Only the user-facing wording is outcome-oriented, and no
+ * provider or model name is exposed.
+ */
+export interface AnalysisDepthOption {
   label: string;
-  prompt: string;
+  description: string;
+  value: "fast" | "standard" | "deep";
+  minPlan: "free" | "pro" | "unlimited";
 }
 
-export interface AnalystPresetGroup {
-  id: string;
-  title: string;
-  presets: AnalystPreset[];
-}
-
-export const ANALYST_PRESET_GROUPS: AnalystPresetGroup[] = [
-  {
-    id: "market-prep",
-    title: "Market Prep",
-    presets: [
-      { label: "Build my AM trading plan", prompt: "Build my AM trading plan for today using pre-market gappers, key catalysts, and risk to watch." },
-      { label: "What should I watch at the open?", prompt: "What should I watch at the open today? Focus on levels, volume, and setup quality." },
-      { label: "Today's gappers & risk", prompt: "Summarize today's top gappers and the risk around them — dilution, news quality, and float." },
-    ],
-  },
-  {
-    id: "screeners",
-    title: "Screeners",
-    presets: [
-      { label: "Strongest screener names", prompt: "Explain the strongest screener names right now and why they stand out." },
-      { label: "Most actionable tickers", prompt: "Which screener tickers look most actionable today for a swing or day trade?" },
-      { label: "High-RVOL names", prompt: "Find high-RVOL names worth watching and explain what's driving the volume." },
-    ],
-  },
-  {
-    id: "watchlist",
-    title: "Watchlist",
-    presets: [
-      { label: "Scan my watchlist for setups", prompt: "Scan my watchlist for setups worth trading today and rank them by quality." },
-      { label: "Strongest catalysts", prompt: "Which watchlist names have the strongest catalysts this week?" },
-      { label: "What to avoid today", prompt: "Which of my watchlist names should I avoid or remove today, and why?" },
-    ],
-  },
-  {
-    id: "catalyst",
-    title: "Catalyst",
-    presets: [
-      { label: "Today's biggest catalysts", prompt: "Summarize today's biggest catalysts and which tickers they affect." },
-      { label: "Catalysts this week", prompt: "Which catalysts could move stocks this week — earnings, FDA, macro, or index flows?" },
-      { label: "FDA / earnings / index risk", prompt: "Explain FDA, earnings, and index-flow risk for names on my radar right now." },
-    ],
-  },
-  {
-    id: "action-center",
-    title: "Action Center",
-    presets: [
-      { label: "Turn data into a priority list", prompt: "Turn today's dashboard data into a prioritized action list for me." },
-      { label: "My top 3 actions right now", prompt: "What are my top 3 actions right now based on the market and my watchlist?" },
-      { label: "Trading checklist for today", prompt: "Build a trading checklist for today covering prep, execution, and risk." },
-    ],
-  },
-  {
-    id: "post-market",
-    title: "Post-Market",
-    presets: [
-      { label: "Summarize today's tape", prompt: "Summarize today's tape — breadth, leaders, laggards, and sector rotation." },
-      { label: "Prepare for tomorrow", prompt: "What should I prepare for tomorrow based on today's close and after-hours moves?" },
-      { label: "Review today's watchlist & risk", prompt: "Review today's watchlist and the risk I took on — what worked, what didn't?" },
-    ],
-  },
-  {
-    id: "journal-education",
-    title: "Journal / Education",
-    presets: [
-      { label: "Review my recent trades", prompt: "Review my recent trades and highlight patterns in my performance." },
-      { label: "Mistake patterns to watch", prompt: "What mistake patterns should I watch for based on my recent trading?" },
-      { label: "Coach me on this setup", prompt: "Explain this setup like a trading coach — entry, confirmation, stop, and target." },
-    ],
-  },
+export const ANALYSIS_DEPTH_OPTIONS: AnalysisDepthOption[] = [
+  { label: "Quick", description: "Rapid synthesis", value: "fast", minPlan: "free" },
+  { label: "Standard", description: "Balanced trading analysis", value: "standard", minPlan: "pro" },
+  { label: "Deep", description: "Highest-detail supported reasoning", value: "deep", minPlan: "unlimited" },
 ];
 
-export const ANALYST_CONTEXT_CHIPS: string[] = [
-  "Dashboard context",
-  "Watchlist symbols",
-  "Screener data",
-  "Earnings calendar",
-  "Journal context",
-  "Delayed market data",
-];
+/** Access-tier display names, keyed by the normalized plan string. */
+export const ACCESS_TIER_LABELS: Record<string, string> = {
+  free: "Free",
+  pro: "Pro",
+  unlimited: "Unlimited",
+  admin: "Admin",
+};

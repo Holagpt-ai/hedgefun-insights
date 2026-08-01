@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor, fireEvent, cleanup } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { AIAnalystChat } from "@/components/dashboard/AIAnalystChat";
+import { ANALYST_WORKFLOWS } from "@/config/ai-analyst-presets.config";
 import { streamChat } from "@/lib/chat";
 
 // ── Module boundaries stubbed so the tests exercise the analysis lifecycle only ──
@@ -56,14 +57,22 @@ type StreamChatArgs = Parameters<typeof streamChat>[0];
 const streamChatMock = vi.mocked(streamChat);
 
 /** Keeps the component mounted while the route query string changes. */
-function Harness({ isPro, nextUrl }: { isPro: boolean; nextUrl: string }) {
+function Harness({
+  isPro,
+  plan,
+  nextUrl,
+}: {
+  isPro: boolean;
+  plan: string;
+  nextUrl: string;
+}) {
   const navigate = useNavigate();
   return (
     <>
       <button type="button" onClick={() => navigate(nextUrl)}>
         harness-navigate
       </button>
-      <AIAnalystChat isPro={isPro} userPlan={isPro ? "pro" : "free"} userName="Ada Trader" />
+      <AIAnalystChat isPro={isPro} userPlan={plan} userName="Ada Trader" />
     </>
   );
 }
@@ -71,12 +80,20 @@ function Harness({ isPro, nextUrl }: { isPro: boolean; nextUrl: string }) {
 function renderChat({
   url = "/dashboard/ai",
   isPro = true,
+  plan,
   nextUrl = "/dashboard/ai?symbol=BBB",
-}: { url?: string; isPro?: boolean; nextUrl?: string } = {}) {
+}: { url?: string; isPro?: boolean; plan?: string; nextUrl?: string } = {}) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
-        <Route path="/dashboard/ai" element={<Harness isPro={isPro} nextUrl={nextUrl} />} />
+        <Route
+          path="/dashboard/ai"
+          element={
+            <Harness isPro={isPro} plan={plan ?? (isPro ? "pro" : "free")} nextUrl={nextUrl} />
+          }
+        />
+        {/* Provider-neutral upgrade destination, so gated clicks are observable. */}
+        <Route path="/pro" element={<div>upgrade-route</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -84,6 +101,8 @@ function renderChat({
 
 const textarea = () =>
   screen.getByPlaceholderText(/ask about a setup/i) as HTMLTextAreaElement;
+
+const workflowButton = (name: RegExp) => screen.getByRole("button", { name });
 
 async function typeAndSend(text: string) {
   fireEvent.change(textarea(), { target: { value: text } });
@@ -142,7 +161,7 @@ describe("AI Analyst — request lifecycle", () => {
 
     // Analyzing state is fully released.
     expect(textarea()).not.toBeDisabled();
-    expect(screen.queryByText(/analyzing dashboard context/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/analyzing available stocksist context/i)).not.toBeInTheDocument();
 
     // No transport detail leaks into the UI.
     expect(document.body.textContent).not.toMatch(/supabase\.co/);
@@ -170,7 +189,7 @@ describe("AI Analyst — request lifecycle", () => {
     });
 
     expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/analyzing dashboard context/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/analyzing available stocksist context/i)).not.toBeInTheDocument();
     expect(textarea()).not.toBeDisabled();
   });
 
@@ -299,7 +318,7 @@ describe("AI Analyst — ticker handoff", () => {
 
     expect(screen.queryByText(/AAA is extending above VWAP/)).not.toBeInTheDocument();
     expect(screen.getByText(/Analyze BBB/)).toBeInTheDocument();
-    expect(screen.getByText(/Ticker handoff: BBB/)).toBeInTheDocument();
+    expect(screen.getByText(/Ticker · BBB/)).toBeInTheDocument();
 
     // The superseded request also loses its conversation association.
     const second = streamChatMock.mock.calls[1][0] as StreamChatArgs;
@@ -329,7 +348,222 @@ describe("AI Analyst — ticker handoff", () => {
     });
 
     expect(screen.queryByText(/STALE AAA OUTPUT/)).not.toBeInTheDocument();
-    expect(screen.getByText(/Ticker handoff: BBB/)).toBeInTheDocument();
+    expect(screen.getByText(/Ticker · BBB/)).toBeInTheDocument();
+  });
+});
+
+describe("AI Analyst — trading workflows", () => {
+  it("renders all six trading workflows", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+
+    expect(ANALYST_WORKFLOWS).toHaveLength(6);
+    for (const w of ANALYST_WORKFLOWS) {
+      expect(screen.getByRole("button", { name: new RegExp(w.name, "i") })).toBeInTheDocument();
+    }
+    // Each option carries its compact "best for" description.
+    expect(screen.getByText(/bull case, bear case, invalidation/i)).toBeInTheDocument();
+  });
+
+  it("selecting a workflow never submits an analysis", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+
+    for (const w of ANALYST_WORKFLOWS) {
+      await act(async () => {
+        fireEvent.click(workflowButton(new RegExp(w.name, "i")));
+      });
+    }
+    await flush();
+
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("a workflow prefills an empty composer and uses the active ticker", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ url: "/dashboard/ai?symbol=aaa", isPro: false });
+    await flush();
+
+    // Clear the handoff draft, then pick a workflow.
+    fireEvent.change(textarea(), { target: { value: "" } });
+    await act(async () => {
+      fireEvent.click(workflowButton(/trade thesis/i));
+    });
+
+    expect(textarea().value).toMatch(/balanced trade thesis for AAA/i);
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("falls back to a valid generic prompt when no ticker exists", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: false });
+
+    await act(async () => {
+      fireEvent.click(workflowButton(/risk check/i));
+    });
+
+    expect(textarea().value).toMatch(/the current market setup/i);
+    expect(textarea().value).not.toMatch(/null|undefined/);
+  });
+
+  it("does not overwrite a manually edited prompt, but does replace an untouched draft", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: false });
+
+    // Untouched generated draft is replaceable.
+    await act(async () => {
+      fireEvent.click(workflowButton(/quick scan/i));
+    });
+    const generated = textarea().value;
+    expect(generated).toMatch(/rapid synthesis/i);
+
+    await act(async () => {
+      fireEvent.click(workflowButton(/catalyst review/i));
+    });
+    expect(textarea().value).not.toBe(generated);
+    expect(textarea().value).toMatch(/verified catalyst context/i);
+
+    // Manual edits are preserved.
+    fireEvent.change(textarea(), { target: { value: "my own hand-written prompt" } });
+    await act(async () => {
+      fireEvent.click(workflowButton(/risk check/i));
+    });
+
+    expect(textarea().value).toBe("my own hand-written prompt");
+    expect(screen.getByText(/your edited prompt was kept/i)).toBeInTheDocument();
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("AI Analyst — honest context and neutral positioning", () => {
+  it("shows the active ticker only when a valid symbol exists", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+
+    renderChat({ isPro: false });
+    expect(screen.queryByText(/Ticker ·/)).not.toBeInTheDocument();
+
+    cleanup();
+    renderChat({ url: "/dashboard/ai?symbol=aaa", isPro: false });
+    await flush();
+    expect(screen.getByText(/Ticker · AAA/)).toBeInTheDocument();
+  });
+
+  it("does not fabricate context before a request proves it", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: false });
+
+    // Nothing is claimed about dashboard data until a request returns.
+    expect(screen.queryByText(/dashboard context attached/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no dashboard context returned/i)).not.toBeInTheDocument();
+
+    // No fabricated freshness or source counts anywhere on the page.
+    const body = document.body.textContent ?? "";
+    expect(body).not.toMatch(/\d+\s+sources?\b/i);
+    expect(body).not.toMatch(/updated\s+\d/i);
+    expect(body).not.toMatch(/\b\d+\s*(seconds?|minutes?)\s+ago\b/i);
+  });
+
+  it("reports context availability only from the completed request path", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: true });
+
+    await typeAndSend("Check the tape");
+    await flush();
+
+    // The stubbed data layer returns no rows, so the honest result is "none".
+    expect(await screen.findByText(/no dashboard context returned/i)).toBeInTheDocument();
+    expect(screen.queryByText(/dashboard context attached/i)).not.toBeInTheDocument();
+    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
+    expect(sent.systemContext).toBeUndefined();
+  });
+
+  it("shows the real access tier rather than a blanket Pro label", () => {
+    streamChatMock.mockResolvedValue(undefined);
+
+    renderChat({ isPro: false, plan: "free" });
+    expect(screen.getByText(/free access/i)).toBeInTheDocument();
+    expect(screen.queryByText(/pro access/i)).not.toBeInTheDocument();
+
+    cleanup();
+    renderChat({ isPro: true, plan: "unlimited" });
+    expect(screen.getByText(/unlimited access/i)).toBeInTheDocument();
+  });
+
+  it("exposes no provider, vendor, or model branding", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ url: "/dashboard/ai?symbol=aaa", isPro: false });
+    await flush();
+
+    const surface = `${document.body.textContent ?? ""} ${textarea().value}`;
+    for (const banned of [
+      /claude/i,
+      /anthropic/i,
+      /qwen/i,
+      /kimi/i,
+      /perplexity/i,
+      /openai/i,
+      /\bgpt-?\d/i,
+      /gemini/i,
+      /llama/i,
+      /powered by/i,
+    ]) {
+      expect(surface).not.toMatch(banned);
+    }
+    expect(screen.getAllByText(/stocksist intelligence/i).length).toBeGreaterThan(0);
+  });
+});
+
+describe("AI Analyst — analysis depth", () => {
+  it("keeps the existing tier identifiers behind the outcome-oriented labels", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: true, plan: "pro" });
+
+    // Default depth maps to the existing "fast" tier.
+    await typeAndSend("First question");
+    await flush();
+    expect((streamChatMock.mock.calls[0][0] as StreamChatArgs).model).toBe("fast");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /standard — balanced trading analysis/i }));
+    });
+    await typeAndSend("Second question");
+    await flush();
+    expect((streamChatMock.mock.calls[1][0] as StreamChatArgs).model).toBe("standard");
+  });
+
+  it("preserves entitlement gating for locked depths", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: false, plan: "free" });
+
+    const standard = screen.getByRole("button", { name: /standard — balanced trading analysis/i });
+    const deep = screen.getByRole("button", { name: /deep — highest-detail supported reasoning/i });
+    expect(standard).toHaveAttribute("aria-pressed", "false");
+    expect(deep).toHaveAttribute("aria-pressed", "false");
+
+    // Only the free tier is selected, and it stays selected.
+    expect(
+      screen.getByRole("button", { name: /quick — rapid synthesis/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    // Gated depths route to the provider-neutral upgrade page instead of selecting.
+    await act(async () => {
+      fireEvent.click(standard);
+    });
+    expect(screen.getByText("upgrade-route")).toBeInTheDocument();
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("unlocks every depth for an unlimited plan", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: true, plan: "unlimited" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /deep — highest-detail supported reasoning/i }));
+    });
+    await typeAndSend("Deep question");
+    await flush();
+
+    expect((streamChatMock.mock.calls[0][0] as StreamChatArgs).model).toBe("deep");
   });
 });
 
@@ -406,18 +640,23 @@ describe("AI Analyst — persistent workflow navigation", () => {
     renderChat({ url: "/dashboard/ai?symbol=AAA", isPro: true });
     await flush();
     await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(1));
-    expect(screen.getByText(/Ticker handoff: AAA/)).toBeInTheDocument();
+    expect(screen.getByText(/Ticker · AAA/)).toBeInTheDocument();
 
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: /new analysis/i }));
     });
 
-    expect(screen.queryByText(/Ticker handoff: AAA/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ticker · AAA/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Analyze AAA/)).not.toBeInTheDocument();
     expect(textarea().value).toBe("");
     expect(screen.getByRole("link", { name: /view catalyst/i })).toHaveAttribute(
       "href",
       "/dashboard/catalyst",
+    );
+    // The workflow selection returns to the default too.
+    expect(screen.getByRole("button", { name: /quick scan/i })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
   });
 });

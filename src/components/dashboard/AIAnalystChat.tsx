@@ -3,7 +3,6 @@ import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
   Send,
   Loader2,
-  Sparkles,
   Lock as LockIcon,
   Paperclip,
   X,
@@ -14,6 +13,15 @@ import {
   Clock,
   Mic,
   AudioLines,
+  Radar,
+  Zap,
+  Scale,
+  CalendarClock,
+  ShieldAlert,
+  BookOpen,
+  Microscope,
+  Target,
+  Terminal,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { streamChat, ChatMessage } from "@/lib/chat";
@@ -23,14 +31,21 @@ import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { ANALYST_PRESET_GROUPS, ANALYST_CONTEXT_CHIPS } from "@/config/ai-analyst-presets.config";
+import {
+  ANALYST_WORKFLOWS,
+  ANALYSIS_DEPTH_OPTIONS,
+  ACCESS_TIER_LABELS,
+  DEFAULT_ANALYST_WORKFLOW_ID,
+  getAnalystWorkflow,
+  type AnalystWorkflowIcon,
+  type AnalystWorkflowId,
+} from "@/config/ai-analyst-presets.config";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 
+// Only wording that the request path can actually stand behind.
 const STREAMING_STATUS_MESSAGES = [
-  "Analyzing dashboard context…",
-  "Checking your market setup…",
-  "Reviewing screeners and watchlist…",
-  "Drafting your response…",
+  "Analyzing available Stocksist context…",
+  "Structuring your analysis…",
 ];
 
 // Transport failures are surfaced as a single fixed sentence so no URL, header,
@@ -51,12 +66,14 @@ function isAbortLike(error: unknown): boolean {
   );
 }
 
-
-const MODEL_OPTIONS = [
-  { label: "Fast", value: "fast" as const, minPlan: "free" },
-  { label: "Standard", value: "standard" as const, minPlan: "pro" },
-  { label: "Deep Analysis", value: "deep" as const, minPlan: "unlimited" },
-];
+const WORKFLOW_ICONS: Record<AnalystWorkflowIcon, typeof Zap> = {
+  zap: Zap,
+  scale: Scale,
+  calendar: CalendarClock,
+  shield: ShieldAlert,
+  book: BookOpen,
+  microscope: Microscope,
+};
 
 type ModelTier = "fast" | "standard" | "deep";
 
@@ -72,6 +89,15 @@ interface AIAnalystChatProps {
   isPro: boolean;
   userName?: string;
   userPlan: string;
+}
+
+/** Compact, provider-neutral context chip. */
+function ContextChip({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground">
+      {children}
+    </span>
+  );
 }
 
 export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps) {
@@ -120,6 +146,16 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
   const unmountedRef = useRef(false);
+
+  // Workflow selection is presentation only — it never submits an analysis.
+  const [selectedWorkflowId, setSelectedWorkflowId] =
+    useState<AnalystWorkflowId>(DEFAULT_ANALYST_WORKFLOW_ID);
+  // The exact draft a workflow last wrote. Anything else in the composer is the
+  // user's own text and must not be overwritten.
+  const presetDraftRef = useRef<string>("");
+  const [promptKept, setPromptKept] = useState(false);
+  // null until a request proves whether dashboard context was actually returned.
+  const [contextAttached, setContextAttached] = useState<boolean | null>(null);
 
   const commitMessages = useCallback((next: ChatMessage[]) => {
     messagesRef.current = next;
@@ -250,6 +286,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     lastAttemptedPromptRef.current = "";
     setInput("");
     applyAttachment(null);
+    presetDraftRef.current = "";
+    setPromptKept(false);
+    setSelectedWorkflowId(DEFAULT_ANALYST_WORKFLOW_ID);
+    setContextAttached(null);
   }, [
     cancelActiveRequest,
     commitMessages,
@@ -304,8 +344,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   }, [messages]);
 
   // deep-link useEffect moved below sendMessage definition to avoid TDZ
-
-
 
   const canUseModel = (minPlan: string) => {
     if (minPlan === "free") return true;
@@ -472,6 +510,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
 
       commitMessages([...messagesRef.current, { role: "user", content: trimmed }]);
       setInput("");
+      setPromptKept(false);
+      presetDraftRef.current = "";
       setStreaming(true);
       lastAttemptedPromptRef.current = trimmed;
 
@@ -493,6 +533,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       try {
         const systemContext = await fetchDashboardContext();
         if (!isCurrent()) return;
+        // Only ever reports what this request path actually produced.
+        setContextAttached(systemContext.trim().length > 0);
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!isCurrent()) return;
@@ -597,6 +639,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         applyConversationId(null);
         applyAttachment(null);
         lastAttemptedPromptRef.current = "";
+        setContextAttached(null);
       }
       setActiveWorkflowSymbol(symbol);
 
@@ -608,6 +651,9 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       }
       // Free users: prefill and nudge — do not silently drop the handoff.
       setInput(synthesized);
+      // Treated as a generated draft, so choosing a workflow may replace it.
+      presetDraftRef.current = synthesized;
+      setPromptKept(false);
       toast({
         title: `Ticker handoff: ${symbol}`,
         description: "Review and press send when you're ready.",
@@ -629,6 +675,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     }
     // Free users: prefill and nudge — do not silently drop the prompt.
     setInput(decoded);
+    presetDraftRef.current = decoded;
+    setPromptKept(false);
     toast({
       title: "Prompt loaded",
       description: "Review and press send when you're ready.",
@@ -685,10 +733,33 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     void sendMessage(p);
   };
 
+  /**
+   * Selecting a workflow only ever prepares an editable draft. It replaces an
+   * empty composer or an untouched generated draft, and otherwise keeps the
+   * user's own text.
+   */
+  const selectWorkflow = (id: AnalystWorkflowId) => {
+    setSelectedWorkflowId(id);
+    const draft = getAnalystWorkflow(id).buildPrompt(activeSymbol);
+    const isReplaceable = input.trim() === "" || input === presetDraftRef.current;
+    if (isReplaceable) {
+      presetDraftRef.current = draft;
+      setInput(draft);
+      setPromptKept(false);
+      textareaRef.current?.focus();
+      return;
+    }
+    setPromptKept(true);
+  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const displayName = userName?.split(" ")[0] ?? "Trader";
+
+  const accessTierLabel = ACCESS_TIER_LABELS[(userPlan ?? "").trim().toLowerCase()] ?? "Free";
+  const activeWorkflow = getAnalystWorkflow(selectedWorkflowId);
+  const activeDepth =
+    ANALYSIS_DEPTH_OPTIONS.find((d) => d.value === selectedModel) ?? ANALYSIS_DEPTH_OPTIONS[0];
 
   // Catalyst and Journal already consume `?symbol=`; the other destinations do not.
   const symbolQuery = activeSymbol ? `?symbol=${encodeURIComponent(activeSymbol)}` : "";
@@ -700,8 +771,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     { label: "Log idea in Journal", to: `/dashboard/journal${symbolQuery}` },
   ];
 
+  const composerDisabled = streaming || limitReached;
+
   return (
-    <div className="relative flex h-full w-full">
+    <div className="relative flex h-full w-full overflow-hidden">
       {/* History Sidebar — slide-over on mobile, static column on md+ */}
       {historyOpen && (
         <>
@@ -719,7 +792,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             )}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h2 className="text-sm font-semibold text-foreground">Chat History</h2>
+              <h2 className="text-sm font-semibold text-foreground">Analysis History</h2>
               <button
                 onClick={() => setHistoryOpen(false)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
@@ -733,7 +806,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <PlusCircle className="h-4 w-4" />
-              New Chat
+              Start new
             </button>
             <div className="flex-1 overflow-y-auto px-2 py-2">
               {historyLoading ? (
@@ -768,24 +841,83 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         </>
       )}
 
+      {/* Command center column. It scrolls as a whole on short viewports so the
+          composer can never be clipped, while the working area scrolls on its own
+          whenever there is room. */}
+      <div className="flex h-full w-full min-w-0 max-w-5xl mx-auto flex-col overflow-y-auto overflow-x-hidden px-3 sm:px-5 py-3 sm:py-4">
+        {/* ── A. Premium command header ─────────────────────────────────── */}
+        <header className="relative shrink-0 overflow-hidden rounded-xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-3 py-3 sm:px-5 sm:py-4">
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 opacity-[0.06]"
+            style={{
+              backgroundImage:
+                "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
+              backgroundSize: "24px 24px",
+            }}
+          />
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl"
+          />
+          <div className="relative flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2.5">
+                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-500/15 ring-1 ring-inset ring-indigo-400/30">
+                  <Radar className="h-4 w-4 text-indigo-300" />
+                </span>
+                <div className="min-w-0">
+                  <h1 className="truncate text-base sm:text-xl font-semibold tracking-tight text-white">
+                    AI Analyst
+                  </h1>
+                  <p className="truncate text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.16em] text-indigo-300/80">
+                    Stocksist Intelligence
+                  </p>
+                </div>
+              </div>
+              <p className="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-300">
+                Research, validate, and pressure-test trading setups using available Stocksist
+                market context.
+              </p>
+            </div>
 
-      {/* Main Chat Area */}
-      <div className="flex flex-col h-full w-full max-w-4xl mx-auto px-4 md:px-6 py-6">
-        {/* Access chip + optional handoff pill */}
-        <div className="flex flex-wrap items-center gap-2 mb-3">
-          <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {isPro ? "PRO ACCESS — AI RESEARCH WORKFLOW" : "FREE ACCESS — LIMITED AI RESEARCH"}
-          </span>
+            <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-slate-200 ring-1 ring-inset ring-white/10">
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    streaming ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
+                  )}
+                />
+                {streaming ? "Analyzing" : "Ready"}
+              </span>
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-indigo-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-200 ring-1 ring-inset ring-indigo-400/25">
+                {accessTierLabel} access
+              </span>
+            </div>
+          </div>
+        </header>
+
+        {/* ── B. Honest context ribbon ──────────────────────────────────── */}
+        <div className="mt-2 flex shrink-0 flex-wrap items-center gap-1.5">
           {activeSymbol && (
-            <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-accent-blue/40 bg-accent-blue/10 text-[11px] font-medium text-accent-blue">
-              <Sparkles className="h-3 w-3" />
-              Ticker handoff: {activeSymbol}
+            <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-accent-blue/40 bg-accent-blue/10 px-2 py-1 text-[11px] font-semibold text-accent-blue">
+              <Target className="h-3 w-3 shrink-0" />
+              <span className="truncate">Ticker · {activeSymbol}</span>
             </span>
           )}
+          <ContextChip>Workflow · {activeWorkflow.name}</ContextChip>
+          <ContextChip>Depth · {activeDepth.label}</ContextChip>
+          <ContextChip>Access · {accessTierLabel}</ContextChip>
+          {contextAttached === true && <ContextChip>Dashboard context attached</ContextChip>}
+          {contextAttached === false && <ContextChip>No dashboard context returned</ContextChip>}
+          <span className="text-[10px] leading-tight text-muted-foreground">
+            Coverage varies by symbol and session.
+          </span>
         </div>
 
-        {/* History toggle bar */}
-        <div className="flex items-center justify-between mb-3">
+        {/* History toggle */}
+        <div className="mt-2 flex shrink-0 items-center justify-between">
           <button
             type="button"
             onClick={() => setHistoryOpen(!historyOpen)}
@@ -795,94 +927,84 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             <MessageSquare className="h-3.5 w-3.5" />
             History
           </button>
-          {conversationId && (
-            <button
-              type="button"
-              onClick={startNewAnalysis}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <PlusCircle className="h-3.5 w-3.5" />
-              New Chat
-            </button>
-          )}
+          <span className="hidden text-[11px] text-muted-foreground sm:inline">
+            {greeting}, {displayName}.
+          </span>
         </div>
 
-        {messages.length === 0 && (
-          <div className="flex-1 overflow-y-auto -mx-1 px-1">
-            <div className="flex items-center gap-2 mb-3 text-accent-blue">
-              <Sparkles className="h-5 w-5" />
-              <span className="text-sm font-medium uppercase tracking-wide">AI Analyst</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-semibold text-foreground mb-2">
-              {greeting}, {displayName}.
-            </h1>
-            <p className="text-sm sm:text-base text-muted-foreground mb-5">
-              Ask Stocksist AI to turn your dashboard into a trading plan — from AM prep through the post-market wrap.
-            </p>
-
-            {/* Context / trust chips */}
-            <div className="flex flex-wrap gap-1.5 mb-6">
-              {ANALYST_CONTEXT_CHIPS.map((chip) => (
-                <span
-                  key={chip}
-                  className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-muted/30 text-[11px] text-muted-foreground"
-                >
-                  {chip}
-                </span>
-              ))}
-            </div>
-
-            {/* Grouped workflow prompt presets */}
-            <div className="space-y-5 mb-6">
-              {ANALYST_PRESET_GROUPS.map((group) => (
-                <div key={group.id}>
-                  <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                    {group.title}
-                  </h3>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {group.presets.map((p) => (
-                      <button
-                        key={p.label}
-                        onClick={() => sendMessage(p.prompt)}
-                        disabled={streaming}
+        {/* ── Scrollable working area ───────────────────────────────────── */}
+        <div
+          ref={scrollContainerRef}
+          className="mt-2 min-h-[10rem] flex-1 overflow-y-auto overflow-x-hidden -mx-1 px-1"
+        >
+          {messages.length === 0 ? (
+            <div className="pb-2">
+              {/* C. Trading-intent workflow selector */}
+              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Choose a trading workflow
+              </h2>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                {ANALYST_WORKFLOWS.map((w) => {
+                  const Icon = WORKFLOW_ICONS[w.icon];
+                  const selected = w.id === selectedWorkflowId;
+                  return (
+                    <button
+                      key={w.id}
+                      type="button"
+                      onClick={() => selectWorkflow(w.id)}
+                      aria-pressed={selected}
+                      className={cn(
+                        "group flex min-w-0 items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors duration-200",
+                        selected
+                          ? "border-accent-blue/60 bg-accent-blue/10"
+                          : "border-border bg-card hover:bg-muted/50"
+                      )}
+                    >
+                      <span
                         className={cn(
-                          "text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200",
-                          "text-xs sm:text-sm text-foreground",
-                          streaming && "opacity-50 cursor-not-allowed"
+                          "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md ring-1 ring-inset transition-colors",
+                          selected
+                            ? "bg-accent-blue/15 text-accent-blue ring-accent-blue/30"
+                            : "bg-muted/60 text-muted-foreground ring-border"
                         )}
                       >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-medium text-foreground">
+                          {w.name}
+                        </span>
+                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                          {w.bestFor}
+                        </span>
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Selecting a workflow prepares an editable prompt. Nothing is sent until you
+                analyze.
+              </p>
 
-            {toolStatus && (
-              <div className="flex justify-start mt-4">
-                <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
+              {toolStatus && (
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   {toolStatus}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-
-
-        {messages.length > 0 && (
-          <div ref={scrollContainerRef} className="flex-1 overflow-y-auto space-y-4 pb-4">
-
-            {messages.map((msg, i) => {
-              const isErrorMsg =
-                msg.role === "assistant" && msg.content.startsWith("Error:");
-              if (isErrorMsg) {
-                return (
-                  <div key={i} className="flex justify-start scroll-mt-2">
-                    <div className="max-w-[85%] rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm">
-                      <p className="font-medium text-foreground mb-1">Something went wrong</p>
-                      <p className="text-muted-foreground text-xs mb-2 break-words">
+              )}
+            </div>
+          ) : (
+            /* ── G. Premium conversation workspace ────────────────────── */
+            <div className="space-y-3 pb-2">
+              {messages.map((msg, i) => {
+                const isErrorMsg =
+                  msg.role === "assistant" && msg.content.startsWith("Error:");
+                if (isErrorMsg) {
+                  return (
+                    <div key={i} className="scroll-mt-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3">
+                      <p className="mb-1 text-sm font-medium text-foreground">Something went wrong</p>
+                      <p className="mb-2 break-words text-xs text-muted-foreground">
                         {msg.content.replace(/^Error:\s*/, "")}
                       </p>
                       {lastAttemptedPromptRef.current && (
@@ -890,83 +1012,93 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                           type="button"
                           onClick={retryLastPrompt}
                           disabled={streaming}
-                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-50"
+                          className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
                         >
                           Retry
                         </button>
                       )}
                     </div>
-                  </div>
-                );
-              }
-              return (
-                <div
-                  key={i}
-                  ref={msg.role === "user" && i === messages.length - 1 ? lastUserMsgRef : undefined}
-                  className={cn(
-                    "flex scroll-mt-2",
-                    msg.role === "user" ? "justify-end" : "justify-start"
-                  )}
-                >
-                  <div
-                    className={cn(
-                      "max-w-[85%] rounded-lg px-4 py-3 text-sm leading-relaxed",
-                      msg.role === "user"
-                        ? "bg-accent-blue text-primary-foreground whitespace-pre-wrap"
-                        : "bg-card border border-border text-foreground"
-                    )}
+                  );
+                }
+
+                if (msg.role === "user") {
+                  return (
+                    <div
+                      key={i}
+                      ref={i === messages.length - 1 ? lastUserMsgRef : undefined}
+                      className="flex scroll-mt-2 justify-end"
+                    >
+                      <div className="max-w-[85%] min-w-0 whitespace-pre-wrap break-words rounded-lg rounded-br-sm bg-accent-blue px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+                        {msg.content}
+                      </div>
+                    </div>
+                  );
+                }
+
+                return (
+                  <article
+                    key={i}
+                    className="scroll-mt-2 overflow-hidden rounded-lg border border-border bg-card"
                   >
-                    {msg.role === "assistant" ? (
-                      msg.content ? (
+                    <div className="flex items-center gap-1.5 border-b border-border/70 bg-muted/30 px-3 py-1.5">
+                      <Terminal className="h-3 w-3 text-accent-blue" />
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                        Analyst Response
+                      </span>
+                    </div>
+                    <div className="min-w-0 px-3 py-3 sm:px-4">
+                      {msg.content ? (
                         <div
-                          className="prose prose-sm max-w-full overflow-x-auto text-foreground break-words
-                            prose-headings:text-foreground prose-headings:font-semibold
+                          className="prose prose-sm max-w-none overflow-x-auto break-words text-foreground
+                            prose-headings:text-foreground prose-headings:font-semibold prose-headings:tracking-tight
+                            prose-h1:text-base prose-h2:text-sm prose-h3:text-sm
                             prose-strong:text-foreground prose-strong:font-semibold
-                            prose-p:my-1 prose-headings:my-2
-                            prose-ul:my-1 prose-ol:my-1 prose-li:my-0
+                            prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5
+                            prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:leading-relaxed
                             prose-hr:border-border prose-hr:my-3
-                            prose-table:text-sm prose-td:px-2 prose-td:py-1 prose-th:px-2 prose-th:py-1
-                            prose-pre:overflow-x-auto prose-pre:max-w-full
-                            prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded"
+                            prose-a:text-accent-blue prose-a:break-words prose-a:underline-offset-2
+                            prose-blockquote:border-l-accent-blue/40 prose-blockquote:text-muted-foreground
+                            prose-table:text-xs prose-table:my-2
+                            prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:font-semibold
+                            prose-td:px-2 prose-td:py-1 prose-td:align-top
+                            prose-pre:overflow-x-auto prose-pre:max-w-full prose-pre:text-xs
+                            prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:break-words"
                         >
                           <ReactMarkdown>{msg.content}</ReactMarkdown>
                         </div>
                       ) : (
-                        streaming && i === messages.length - 1 ? (
+                        streaming && i === messages.length - 1 && (
                           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        ) : ""
-                      )
-                    ) : (
-                      msg.content
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                        )
+                      )}
+                    </div>
+                  </article>
+                );
+              })}
 
-            {toolStatus && (
-              <div className="flex justify-start">
-                <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-card border border-border text-muted-foreground text-sm">
+              {/* F. Honest analyzing state */}
+              {toolStatus && (
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                   {toolStatus}
                 </div>
-              </div>
-            )}
-            <div ref={bottomRef} />
-          </div>
-        )}
+              )}
+              <div ref={bottomRef} />
+            </div>
+          )}
+        </div>
 
-        {/* Continue your workflow — stays available before, during, and after an analysis */}
-        <div className="mt-4 mb-3">
-          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-            Continue your workflow
-          </h3>
-          <div className="flex flex-wrap gap-2">
+        {/* ── H. Persistent workflow action bar ─────────────────────────── */}
+        <nav aria-label="Continue your workflow" className="mt-2 shrink-0">
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+            <span className="shrink-0 pr-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Continue
+            </span>
             {workflowLinks.map((link) => (
               <Link
                 key={link.to}
                 to={link.to}
-                className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200 text-xs text-foreground"
+                className="shrink-0 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground transition-colors duration-200 hover:bg-muted/60"
               >
                 {link.label}
               </Link>
@@ -974,94 +1106,149 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             <button
               type="button"
               onClick={startNewAnalysis}
-              className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200 text-xs text-foreground"
+              className="shrink-0 whitespace-nowrap rounded-md border border-accent-blue/40 bg-accent-blue/10 px-2.5 py-1.5 text-xs font-medium text-accent-blue transition-colors duration-200 hover:bg-accent-blue/20"
             >
               New Analysis
             </button>
           </div>
-        </div>
+        </nav>
 
-        {/* Model selector segmented control */}
-        <div className="flex gap-2 mb-3 justify-center">
-          {MODEL_OPTIONS.map((opt) => {
-            const accessible = canUseModel(opt.minPlan);
-            const active = selectedModel === opt.value;
-            return (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => {
-                  if (accessible) {
-                    setSelectedModel(opt.value);
-                  } else {
-                    navigate("/pro");
-                  }
-                }}
-                className={cn(
-                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors duration-200",
-                  active
-                    ? "bg-accent-blue text-primary-foreground"
-                    : "bg-card border border-border text-foreground hover:bg-muted",
-                  !accessible && "opacity-60 hover:bg-card"
-                )}
-              >
-                {opt.label}
-                {!accessible && <LockIcon className="h-3 w-3" />}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Input area */}
-        <div className="border-t border-border pt-4 mt-auto">
+        {/* ── E. Premium composer ───────────────────────────────────────── */}
+        <div className="mt-2 shrink-0 rounded-xl border border-border bg-card/70 p-2.5 sm:p-3">
           {limitReached && (
-            <div className="mb-3 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-4 py-3">
-              <p className="text-sm text-foreground mb-2">
+            <div className="mb-2.5 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-3 py-2.5">
+              <p className="mb-2 text-sm text-foreground">
                 You've reached today's free AI message limit. Pro access unlocks expanded AI research limits.
               </p>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
                   onClick={() => navigate("/pro")}
-                  className="text-xs font-semibold px-3 py-1.5 rounded-md bg-accent-blue text-primary-foreground hover:opacity-90 transition-opacity"
+                  className="rounded-md bg-accent-blue px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
                 >
                   Request Pro Access
                 </button>
                 <button
                   type="button"
                   onClick={() => setLimitReached(false)}
-                  className="text-xs font-medium px-3 py-1.5 rounded-md border border-border text-foreground hover:bg-muted transition-colors"
+                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                 >
                   Dismiss
                 </button>
               </div>
             </div>
           )}
+
+          {/* Workflow indication when the selector grid is scrolled away */}
+          {messages.length > 0 && (
+            <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1">
+              {ANALYST_WORKFLOWS.map((w) => {
+                const Icon = WORKFLOW_ICONS[w.icon];
+                const selected = w.id === selectedWorkflowId;
+                return (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => selectWorkflow(w.id)}
+                    aria-pressed={selected}
+                    aria-label={`${w.name} — ${w.bestFor}`}
+                    title={w.bestFor}
+                    className={cn(
+                      "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors duration-200",
+                      selected
+                        ? "border-accent-blue/60 bg-accent-blue/10 font-medium text-accent-blue"
+                        : "border-border bg-card text-muted-foreground hover:bg-muted/60"
+                    )}
+                  >
+                    <Icon className="h-3.5 w-3.5" />
+                    {w.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Selected workflow + D. analysis-depth control */}
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+              <span className="font-semibold uppercase tracking-wide">Workflow</span>
+              <span className="truncate text-foreground">{activeWorkflow.name}</span>
+            </span>
+            <div
+              role="group"
+              aria-label="Analysis depth"
+              className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5"
+            >
+              {ANALYSIS_DEPTH_OPTIONS.map((opt) => {
+                const accessible = canUseModel(opt.minPlan);
+                const active = selectedModel === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    aria-pressed={active}
+                    aria-label={`${opt.label} — ${opt.description}`}
+                    title={opt.description}
+                    onClick={() => {
+                      if (accessible) {
+                        setSelectedModel(opt.value);
+                      } else {
+                        navigate("/pro");
+                      }
+                    }}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200",
+                      active
+                        ? "bg-accent-blue text-primary-foreground"
+                        : "text-muted-foreground hover:bg-muted",
+                      !accessible && "opacity-60"
+                    )}
+                  >
+                    {opt.label}
+                    {!accessible && <LockIcon className="h-3 w-3" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {attachment && (
-            <div className="flex items-center gap-2 mb-2 px-1">
-              <span className="text-xs text-muted-foreground truncate max-w-[200px]">{attachment.fileName}</span>
+            <div className="mb-2 flex items-center gap-2 px-0.5">
+              <span className="max-w-[220px] truncate text-xs text-muted-foreground">
+                {attachment.fileName}
+              </span>
               <button
                 type="button"
                 onClick={() => applyAttachment(null)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                aria-label="Remove attachment"
+                className="text-muted-foreground transition-colors hover:text-foreground"
               >
                 <X className="h-3 w-3" />
               </button>
             </div>
           )}
+
+          {promptKept && (
+            <p className="mb-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+              Workflow switched. Your edited prompt was kept — clear the box to load the new
+              template.
+            </p>
+          )}
+
           {voiceError && (
-            <div className="flex items-start gap-2 mb-2 px-3 py-2 rounded-lg border border-border bg-muted/40">
-              <p className="text-xs text-muted-foreground flex-1">{voiceError}</p>
+            <div className="mb-2 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
+              <p className="flex-1 text-xs text-muted-foreground">{voiceError}</p>
               <button
                 type="button"
                 onClick={() => setVoiceError(null)}
-                className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
                 aria-label="Dismiss"
               >
                 <X className="h-3 w-3" />
               </button>
             </div>
           )}
+
           <input
             ref={fileInputRef}
             type="file"
@@ -1069,72 +1256,97 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             className="hidden"
             onChange={handleFileSelect}
           />
-          <div className="flex gap-2 items-end">
-            {voiceSupported && (
+
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => {
+              setInput(e.target.value);
+              if (promptKept) setPromptKept(false);
+            }}
+            onKeyDown={handleKeyDown}
+            disabled={composerDisabled}
+            aria-label="Analysis prompt"
+            placeholder="Ask about a setup, ticker, or market condition..."
+            rows={1}
+            className={cn(
+              "w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm",
+              "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
+              "min-h-[44px] max-h-[160px] overflow-y-auto transition-colors duration-200",
+              composerDisabled && "cursor-not-allowed opacity-60"
+            )}
+          />
+
+          <div className="mt-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              {voiceSupported && (
+                <button
+                  type="button"
+                  onClick={() => (isListening ? stopListening() : startListening())}
+                  disabled={streaming}
+                  aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                  className={cn(
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
+                    isListening
+                      ? "animate-pulse bg-green-500 text-white"
+                      : "border border-border bg-card text-muted-foreground hover:bg-muted",
+                    streaming && "cursor-not-allowed opacity-60"
+                  )}
+                >
+                  {isListening ? <AudioLines className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={() => (isListening ? stopListening() : startListening())}
+                onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
                 disabled={streaming}
-                aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                aria-label="Attach a PDF or image"
                 className={cn(
-                  "shrink-0 h-11 w-11 rounded-full flex items-center justify-center transition-all duration-200",
-                  isListening
-                    ? "bg-green-500 text-white animate-pulse"
-                    : "border border-border bg-card text-muted-foreground hover:bg-muted",
-                  streaming && "opacity-60 cursor-not-allowed"
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground",
+                  "transition-colors duration-200 hover:bg-muted",
+                  (!isPro || streaming) && "opacity-60",
+                  streaming && "cursor-not-allowed"
                 )}
               >
-                {isListening ? <AudioLines className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+                <Paperclip className="h-4 w-4" />
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
-              disabled={streaming}
-              className={cn(
-                "shrink-0 h-11 w-11 rounded-lg border border-border bg-card text-muted-foreground",
-                "flex items-center justify-center transition-colors duration-200 hover:bg-muted",
-                (!isPro || streaming) && "opacity-60",
-                streaming && "cursor-not-allowed"
-              )}
-            >
-              <Paperclip className="h-4 w-4" />
-            </button>
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={streaming || limitReached}
-              placeholder="Ask about a setup, ticker, or market condition..."
-              rows={1}
-              className={cn(
-                "flex-1 resize-none rounded-lg border border-border bg-card px-4 py-3 text-sm",
-                "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
-                "transition-colors duration-200 min-h-[44px] max-h-[160px] overflow-y-auto",
-                (streaming || limitReached) && "opacity-60 cursor-not-allowed"
-              )}
-            />
-            <button
-              onClick={() => sendMessage(input)}
-              disabled={streaming || !input.trim() || limitReached}
-              className={cn(
-                "shrink-0 h-11 w-11 rounded-lg bg-accent-blue text-primary-foreground",
-                "flex items-center justify-center transition-opacity duration-200",
-                (streaming || !input.trim() || limitReached) && "opacity-50 cursor-not-allowed"
-              )}
-            >
-              {streaming ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </button>
+            </div>
+
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">
+                Enter to analyze · Shift+Enter for a new line
+              </span>
+              <button
+                type="button"
+                onClick={() => sendMessage(input)}
+                disabled={composerDisabled || !input.trim()}
+                className={cn(
+                  "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-accent-blue px-4 text-sm font-semibold text-primary-foreground",
+                  "transition-opacity duration-200 hover:opacity-90",
+                  (composerDisabled || !input.trim()) && "cursor-not-allowed opacity-50"
+                )}
+              >
+                {streaming ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Analyzing
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4" />
+                    Analyze
+                  </>
+                )}
+              </button>
+            </div>
           </div>
-          <p className="text-[11px] text-muted-foreground text-center mt-2 leading-relaxed">
-            Stocksist AI • Powered by Claude • Not financial advice
+
+          <p className="mt-2 text-center text-[11px] leading-relaxed text-muted-foreground">
+            Stocksist Intelligence • Not financial advice
             <br />
-            <span className="opacity-80">AI may be wrong. Market data can be delayed. Verify before trading.</span>
+            <span className="opacity-80">
+              AI may be wrong. Market data can be delayed. Verify before trading.
+            </span>
           </p>
         </div>
       </div>
