@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, waitFor, fireEvent, cleanup } from "@testing-library/react";
+import { act, render, screen, waitFor, fireEvent, cleanup, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { AIAnalystChat } from "@/components/dashboard/AIAnalystChat";
 import { ANALYST_WORKFLOWS } from "@/config/ai-analyst-presets.config";
@@ -60,10 +60,12 @@ const streamChatMock = vi.mocked(streamChat);
 function Harness({
   isPro,
   plan,
+  userName,
   nextUrl,
 }: {
   isPro: boolean;
   plan: string;
+  userName?: string;
   nextUrl: string;
 }) {
   const navigate = useNavigate();
@@ -72,7 +74,7 @@ function Harness({
       <button type="button" onClick={() => navigate(nextUrl)}>
         harness-navigate
       </button>
-      <AIAnalystChat isPro={isPro} userPlan={plan} userName="Ada Trader" />
+      <AIAnalystChat isPro={isPro} userPlan={plan} userName={userName} />
     </>
   );
 }
@@ -81,15 +83,27 @@ function renderChat({
   url = "/dashboard/ai",
   isPro = true,
   plan,
+  userName = "Ada Trader",
   nextUrl = "/dashboard/ai?symbol=BBB",
-}: { url?: string; isPro?: boolean; plan?: string; nextUrl?: string } = {}) {
+}: {
+  url?: string;
+  isPro?: boolean;
+  plan?: string;
+  userName?: string;
+  nextUrl?: string;
+} = {}) {
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
         <Route
           path="/dashboard/ai"
           element={
-            <Harness isPro={isPro} plan={plan ?? (isPro ? "pro" : "free")} nextUrl={nextUrl} />
+            <Harness
+              isPro={isPro}
+              plan={plan ?? (isPro ? "pro" : "free")}
+              userName={userName}
+              nextUrl={nextUrl}
+            />
           }
         />
         {/* Provider-neutral upgrade destination, so gated clicks are observable. */}
@@ -435,6 +449,83 @@ describe("AI Analyst — trading workflows", () => {
   });
 });
 
+describe("AI Analyst — simplified layout", () => {
+  it("uses the supplied registered-user display name", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ userName: "Maria Santos" });
+
+    expect(screen.getByRole("heading", { name: "Hello, Maria" })).toBeInTheDocument();
+    expect(screen.getByText(/what would you like to analyze today/i)).toBeInTheDocument();
+  });
+
+  it("does not hardcode a person's name", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ userName: "Carlos Rivera" });
+
+    expect(screen.getByRole("heading", { name: "Hello, Carlos" })).toBeInTheDocument();
+    expect(screen.queryByText(/hello, ada/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/hello, maria/i)).not.toBeInTheDocument();
+  });
+
+  it("uses the neutral greeting fallback when no supported name exists", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ userName: "" });
+
+    expect(screen.getByRole("heading", { name: "Hello" })).toBeInTheDocument();
+    expect(screen.queryByText(/hello, trader/i)).not.toBeInTheDocument();
+  });
+
+  it("does not render the oversized command banner", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+
+    expect(screen.queryByRole("heading", { name: /^ai analyst$/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/^ready$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/research, validate, and pressure-test/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps all six workflows rendered after conversation messages exist", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+    await typeAndSend("Keep the workflows visible");
+    await flush();
+
+    expect(screen.getByText(/keep the workflows visible/i)).toBeInTheDocument();
+    for (const workflow of ANALYST_WORKFLOWS) {
+      expect(
+        screen.getByRole("button", { name: new RegExp(workflow.name, "i") }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("has no workflow carousel controls", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+
+    expect(screen.queryByRole("button", { name: /previous workflow/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /next workflow/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /show more/i })).not.toBeInTheDocument();
+  });
+
+  it("opens History as an overlay dialog without replacing the workspace", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ userName: "Ada Trader" });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^history$/i }));
+    });
+
+    expect(screen.getByRole("dialog", { name: /analysis history/i })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /hello, ada/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /quick scan/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "Escape" });
+    });
+    expect(screen.queryByRole("dialog", { name: /analysis history/i })).not.toBeInTheDocument();
+  });
+});
+
 describe("AI Analyst — honest context and neutral positioning", () => {
   it("shows the active ticker only when a valid symbol exists", async () => {
     streamChatMock.mockResolvedValue(undefined);
@@ -470,9 +561,9 @@ describe("AI Analyst — honest context and neutral positioning", () => {
     await typeAndSend("Check the tape");
     await flush();
 
-    // The stubbed data layer returns no rows, so the honest result is "none".
-    expect(await screen.findByText(/no dashboard context returned/i)).toBeInTheDocument();
+    // Context is passed honestly to the request but no redundant ribbon is shown.
     expect(screen.queryByText(/dashboard context attached/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no dashboard context returned/i)).not.toBeInTheDocument();
     const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
     expect(sent.systemContext).toBeUndefined();
   });
@@ -487,6 +578,22 @@ describe("AI Analyst — honest context and neutral positioning", () => {
     cleanup();
     renderChat({ isPro: true, plan: "unlimited" });
     expect(screen.getByText(/unlimited access/i)).toBeInTheDocument();
+  });
+
+  it("presents an admin entitlement as Unlimited Access", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ isPro: true, plan: "admin", userName: "Admin" });
+
+    expect(screen.getByText(/^hello$/i)).toBeInTheDocument();
+    expect(screen.getByText(/unlimited access/i)).toBeInTheDocument();
+    expect(screen.queryByText(/admin access/i)).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /deep — highest-detail supported reasoning/i }));
+    });
+    await typeAndSend("Admin depth check");
+    await flush();
+    expect((streamChatMock.mock.calls[0][0] as StreamChatArgs).model).toBe("deep");
   });
 
   it("exposes no provider, vendor, or model branding", async () => {
@@ -569,12 +676,30 @@ describe("AI Analyst — analysis depth", () => {
 
 describe("AI Analyst — persistent workflow navigation", () => {
   const destinations = [
-    /back to screeners/i,
-    /open watchlist/i,
-    /view catalyst/i,
-    /open action center/i,
-    /log idea in journal/i,
+    /^screeners$/i,
+    /^my watchlist$/i,
+    /^catalyst$/i,
+    /^action center$/i,
+    /^stock journal$/i,
   ];
+
+  it("shows exactly the five approved destinations under Related Tools", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+
+    const relatedTools = screen.getByRole("navigation", { name: /related tools/i });
+    const links = within(relatedTools).getAllByRole("link");
+    expect(links).toHaveLength(5);
+    expect(links.map((link) => link.textContent)).toEqual([
+      "Screeners",
+      "My Watchlist",
+      "Catalyst",
+      "Action Center",
+      "Stock Journal",
+    ]);
+    expect(within(relatedTools).queryByRole("button", { name: /new analysis/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /new analysis/i })).toBeInTheDocument();
+  });
 
   it("keeps the workflow controls available before and after messages exist", async () => {
     streamChatMock.mockResolvedValue(undefined);
@@ -615,20 +740,20 @@ describe("AI Analyst — persistent workflow navigation", () => {
     await flush();
     await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(1));
 
-    expect(screen.getByRole("link", { name: /view catalyst/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^catalyst$/i })).toHaveAttribute(
       "href",
       "/dashboard/catalyst?symbol=AAA",
     );
-    expect(screen.getByRole("link", { name: /log idea in journal/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^stock journal$/i })).toHaveAttribute(
       "href",
       "/dashboard/journal?symbol=AAA",
     );
     // Destinations that do not consume a ticker keep a bare route.
-    expect(screen.getByRole("link", { name: /open watchlist/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^my watchlist$/i })).toHaveAttribute(
       "href",
       "/dashboard/watchlist",
     );
-    expect(screen.getByRole("link", { name: /open action center/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^action center$/i })).toHaveAttribute(
       "href",
       "/dashboard/action-center",
     );
@@ -649,7 +774,7 @@ describe("AI Analyst — persistent workflow navigation", () => {
     expect(screen.queryByText(/Ticker · AAA/)).not.toBeInTheDocument();
     expect(screen.queryByText(/Analyze AAA/)).not.toBeInTheDocument();
     expect(textarea().value).toBe("");
-    expect(screen.getByRole("link", { name: /view catalyst/i })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: /^catalyst$/i })).toHaveAttribute(
       "href",
       "/dashboard/catalyst",
     );

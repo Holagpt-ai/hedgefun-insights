@@ -8,12 +8,9 @@ import {
   X,
   MessageSquare,
   PlusCircle,
-  ChevronLeft,
-  ChevronRight,
   Clock,
   Mic,
   AudioLines,
-  Radar,
   Zap,
   Scale,
   CalendarClock,
@@ -91,15 +88,6 @@ interface AIAnalystChatProps {
   userPlan: string;
 }
 
-/** Compact, provider-neutral context chip. */
-function ContextChip({ children }: { children: React.ReactNode }) {
-  return (
-    <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] text-muted-foreground">
-      {children}
-    </span>
-  );
-}
-
 export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -154,8 +142,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   // user's own text and must not be overwritten.
   const presetDraftRef = useRef<string>("");
   const [promptKept, setPromptKept] = useState(false);
-  // null until a request proves whether dashboard context was actually returned.
-  const [contextAttached, setContextAttached] = useState<boolean | null>(null);
 
   const commitMessages = useCallback((next: ChatMessage[]) => {
     messagesRef.current = next;
@@ -289,7 +275,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     presetDraftRef.current = "";
     setPromptKept(false);
     setSelectedWorkflowId(DEFAULT_ANALYST_WORKFLOW_ID);
-    setContextAttached(null);
   }, [
     cancelActiveRequest,
     commitMessages,
@@ -302,6 +287,15 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     if (historyOpen) fetchConversations();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [historyOpen, user?.id]);
+
+  useEffect(() => {
+    if (!historyOpen) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setHistoryOpen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [historyOpen]);
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -533,8 +527,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       try {
         const systemContext = await fetchDashboardContext();
         if (!isCurrent()) return;
-        // Only ever reports what this request path actually produced.
-        setContextAttached(systemContext.trim().length > 0);
 
         const { data: { session } } = await supabase.auth.getSession();
         if (!isCurrent()) return;
@@ -639,7 +631,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         applyConversationId(null);
         applyAttachment(null);
         lastAttemptedPromptRef.current = "";
-        setContextAttached(null);
       }
       setActiveWorkflowSymbol(symbol);
 
@@ -752,56 +743,61 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     setPromptKept(true);
   };
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
-  const displayName = userName?.split(" ")[0] ?? "Trader";
-
-  const accessTierLabel = ACCESS_TIER_LABELS[(userPlan ?? "").trim().toLowerCase()] ?? "Free";
+  const normalizedPlan = (userPlan ?? "").trim().toLowerCase();
+  const registeredName = userName?.trim();
+  const displayName =
+    registeredName && registeredName.toLowerCase() !== "admin"
+      ? registeredName.split(/\s+/)[0]
+      : null;
+  const accessTierLabel =
+    normalizedPlan === "admin"
+      ? "Unlimited"
+      : ACCESS_TIER_LABELS[normalizedPlan] ?? "Free";
   const activeWorkflow = getAnalystWorkflow(selectedWorkflowId);
-  const activeDepth =
-    ANALYSIS_DEPTH_OPTIONS.find((d) => d.value === selectedModel) ?? ANALYSIS_DEPTH_OPTIONS[0];
 
   // Catalyst and Journal already consume `?symbol=`; the other destinations do not.
   const symbolQuery = activeSymbol ? `?symbol=${encodeURIComponent(activeSymbol)}` : "";
   const workflowLinks = [
-    { label: "Back to Screeners", to: "/dashboard/screeners" },
-    { label: "Open Watchlist", to: "/dashboard/watchlist" },
-    { label: "View Catalyst", to: `/dashboard/catalyst${symbolQuery}` },
-    { label: "Open Action Center", to: "/dashboard/action-center" },
-    { label: "Log idea in Journal", to: `/dashboard/journal${symbolQuery}` },
+    { label: "Screeners", to: "/dashboard/screeners" },
+    { label: "My Watchlist", to: "/dashboard/watchlist" },
+    { label: "Catalyst", to: `/dashboard/catalyst${symbolQuery}` },
+    { label: "Action Center", to: "/dashboard/action-center" },
+    { label: "Stock Journal", to: `/dashboard/journal${symbolQuery}` },
   ];
 
   const composerDisabled = streaming || limitReached;
 
   return (
-    <div className="relative flex h-full w-full overflow-hidden">
-      {/* History Sidebar — slide-over on mobile, static column on md+ */}
+    <div className="relative mx-auto w-full min-w-0 max-w-5xl px-3 py-3 sm:px-5 sm:py-4">
+      {/* History is always an overlay, so opening it never changes workspace width. */}
       {historyOpen && (
         <>
-          <button
-            type="button"
-            aria-label="Close history overlay"
+          <div
+            aria-hidden="true"
             onClick={() => setHistoryOpen(false)}
-            className="md:hidden fixed inset-0 z-30 bg-black/40"
+            className="fixed inset-0 z-40 bg-black/35"
           />
           <aside
-            className={cn(
-              "flex flex-col bg-card border-r border-border",
-              "fixed md:static inset-y-0 left-0 z-40 w-72 shadow-xl md:shadow-none",
-              "md:shrink-0"
-            )}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="analysis-history-title"
+            className="fixed inset-y-0 right-0 z-50 flex w-[min(92vw,22rem)] flex-col border-l border-border bg-card shadow-xl"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-              <h2 className="text-sm font-semibold text-foreground">Analysis History</h2>
+              <h2 id="analysis-history-title" className="text-sm font-semibold text-foreground">
+                Analysis History
+              </h2>
               <button
+                type="button"
                 onClick={() => setHistoryOpen(false)}
-                className="text-muted-foreground hover:text-foreground transition-colors"
+                className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 aria-label="Close history"
               >
-                <ChevronLeft className="h-4 w-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
             <button
+              type="button"
               onClick={startNewAnalysis}
               className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
@@ -841,515 +837,425 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         </>
       )}
 
-      {/* Command center column. It scrolls as a whole on short viewports so the
-          composer can never be clipped, while the working area scrolls on its own
-          whenever there is room. */}
-      <div className="flex h-full w-full min-w-0 max-w-5xl mx-auto flex-col overflow-y-auto overflow-x-hidden px-3 sm:px-5 py-3 sm:py-4">
-        {/* ── A. Premium command header ─────────────────────────────────── */}
-        <header className="relative shrink-0 overflow-hidden rounded-xl border border-slate-800 bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-3 py-3 sm:px-5 sm:py-4">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-[0.06]"
-            style={{
-              backgroundImage:
-                "linear-gradient(to right, #fff 1px, transparent 1px), linear-gradient(to bottom, #fff 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-            }}
-          />
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute -right-16 -top-20 h-44 w-44 rounded-full bg-indigo-500/20 blur-3xl"
-          />
-          <div className="relative flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2.5">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-500/15 ring-1 ring-inset ring-indigo-400/30">
-                  <Radar className="h-4 w-4 text-indigo-300" />
-                </span>
-                <div className="min-w-0">
-                  <h1 className="truncate text-base sm:text-xl font-semibold tracking-tight text-white">
-                    AI Analyst
-                  </h1>
-                  <p className="truncate text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.16em] text-indigo-300/80">
-                    Stocksist Intelligence
-                  </p>
-                </div>
-              </div>
-              <p className="mt-2 max-w-2xl text-xs sm:text-sm leading-relaxed text-slate-300">
-                Research, validate, and pressure-test trading setups using available Stocksist
-                market context.
-              </p>
-            </div>
-
-            <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-white/5 px-2 py-1 text-[11px] font-medium text-slate-200 ring-1 ring-inset ring-white/10">
-                <span
-                  className={cn(
-                    "h-1.5 w-1.5 rounded-full",
-                    streaming ? "bg-amber-400 animate-pulse" : "bg-emerald-400"
-                  )}
-                />
-                {streaming ? "Analyzing" : "Ready"}
-              </span>
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-indigo-500/10 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-indigo-200 ring-1 ring-inset ring-indigo-400/25">
-                {accessTierLabel} access
-              </span>
-            </div>
-          </div>
-        </header>
-
-        {/* ── B. Honest context ribbon ──────────────────────────────────── */}
-        <div className="mt-2 flex shrink-0 flex-wrap items-center gap-1.5">
-          {activeSymbol && (
-            <span className="inline-flex max-w-full items-center gap-1 truncate rounded-md border border-accent-blue/40 bg-accent-blue/10 px-2 py-1 text-[11px] font-semibold text-accent-blue">
-              <Target className="h-3 w-3 shrink-0" />
-              <span className="truncate">Ticker · {activeSymbol}</span>
+      {/* Compact personalized greeting */}
+      <header className="flex min-h-14 flex-wrap items-center justify-between gap-x-4 gap-y-2 border-b border-border/70 pb-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-lg font-semibold tracking-tight text-foreground sm:text-xl">
+              {displayName ? `Hello, ${displayName}` : "Hello"}
+            </h1>
+            <span className="rounded-full bg-accent-blue/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-blue">
+              {accessTierLabel} Access
             </span>
-          )}
-          <ContextChip>Workflow · {activeWorkflow.name}</ContextChip>
-          <ContextChip>Depth · {activeDepth.label}</ContextChip>
-          <ContextChip>Access · {accessTierLabel}</ContextChip>
-          {contextAttached === true && <ContextChip>Dashboard context attached</ContextChip>}
-          {contextAttached === false && <ContextChip>No dashboard context returned</ContextChip>}
-          <span className="text-[10px] leading-tight text-muted-foreground">
-            Coverage varies by symbol and session.
-          </span>
+          </div>
+          <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
+            What would you like to analyze today?
+          </p>
         </div>
-
-        {/* History toggle */}
-        <div className="mt-2 flex shrink-0 items-center justify-between">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => setHistoryOpen(!historyOpen)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            aria-haspopup="dialog"
+            aria-expanded={historyOpen}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            {historyOpen ? <ChevronLeft className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
             <MessageSquare className="h-3.5 w-3.5" />
             History
           </button>
-          <span className="hidden text-[11px] text-muted-foreground sm:inline">
-            {greeting}, {displayName}.
+          <button
+            type="button"
+            onClick={startNewAnalysis}
+            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-border bg-card px-3 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <PlusCircle className="h-3.5 w-3.5" />
+            New Analysis
+          </button>
+        </div>
+      </header>
+
+      {activeSymbol && (
+        <div className="mt-3">
+          <span className="inline-flex max-w-full items-center gap-1 rounded-md bg-accent-blue/10 px-2 py-1 text-[11px] font-semibold text-accent-blue">
+            <Target className="h-3 w-3 shrink-0" />
+            <span className="truncate">Ticker · {activeSymbol}</span>
           </span>
         </div>
+      )}
 
-        {/* ── Scrollable working area ───────────────────────────────────── */}
-        <div
-          ref={scrollContainerRef}
-          className="mt-2 min-h-[10rem] flex-1 overflow-y-auto overflow-x-hidden -mx-1 px-1"
+      {/* All six workflows remain directly visible in every conversation state. */}
+      <section aria-labelledby="workflow-heading" className="mt-5">
+        <h2
+          id="workflow-heading"
+          className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
         >
-          {messages.length === 0 ? (
-            <div className="pb-2">
-              {/* C. Trading-intent workflow selector */}
-              <h2 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Choose a trading workflow
-              </h2>
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {ANALYST_WORKFLOWS.map((w) => {
-                  const Icon = WORKFLOW_ICONS[w.icon];
-                  const selected = w.id === selectedWorkflowId;
-                  return (
-                    <button
-                      key={w.id}
-                      type="button"
-                      onClick={() => selectWorkflow(w.id)}
-                      aria-pressed={selected}
-                      className={cn(
-                        "group flex min-w-0 items-start gap-2.5 rounded-lg border px-3 py-2.5 text-left transition-colors duration-200",
-                        selected
-                          ? "border-accent-blue/60 bg-accent-blue/10"
-                          : "border-border bg-card hover:bg-muted/50"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md ring-1 ring-inset transition-colors",
-                          selected
-                            ? "bg-accent-blue/15 text-accent-blue ring-accent-blue/30"
-                            : "bg-muted/60 text-muted-foreground ring-border"
-                        )}
-                      >
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                      <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium text-foreground">
-                          {w.name}
-                        </span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
-                          {w.bestFor}
-                        </span>
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                Selecting a workflow prepares an editable prompt. Nothing is sent until you
-                analyze.
-              </p>
-
-              {toolStatus && (
-                <div className="mt-4 flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {toolStatus}
-                </div>
-              )}
-            </div>
-          ) : (
-            /* ── G. Premium conversation workspace ────────────────────── */
-            <div className="space-y-3 pb-2">
-              {messages.map((msg, i) => {
-                const isErrorMsg =
-                  msg.role === "assistant" && msg.content.startsWith("Error:");
-                if (isErrorMsg) {
-                  return (
-                    <div key={i} className="scroll-mt-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3">
-                      <p className="mb-1 text-sm font-medium text-foreground">Something went wrong</p>
-                      <p className="mb-2 break-words text-xs text-muted-foreground">
-                        {msg.content.replace(/^Error:\s*/, "")}
-                      </p>
-                      {lastAttemptedPromptRef.current && (
-                        <button
-                          type="button"
-                          onClick={retryLastPrompt}
-                          disabled={streaming}
-                          className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-                        >
-                          Retry
-                        </button>
-                      )}
-                    </div>
-                  );
-                }
-
-                if (msg.role === "user") {
-                  return (
-                    <div
-                      key={i}
-                      ref={i === messages.length - 1 ? lastUserMsgRef : undefined}
-                      className="flex scroll-mt-2 justify-end"
-                    >
-                      <div className="max-w-[85%] min-w-0 whitespace-pre-wrap break-words rounded-lg rounded-br-sm bg-accent-blue px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
-                        {msg.content}
-                      </div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <article
-                    key={i}
-                    className="scroll-mt-2 overflow-hidden rounded-lg border border-border bg-card"
-                  >
-                    <div className="flex items-center gap-1.5 border-b border-border/70 bg-muted/30 px-3 py-1.5">
-                      <Terminal className="h-3 w-3 text-accent-blue" />
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Analyst Response
-                      </span>
-                    </div>
-                    <div className="min-w-0 px-3 py-3 sm:px-4">
-                      {msg.content ? (
-                        <div
-                          className="prose prose-sm max-w-none overflow-x-auto break-words text-foreground
-                            prose-headings:text-foreground prose-headings:font-semibold prose-headings:tracking-tight
-                            prose-h1:text-base prose-h2:text-sm prose-h3:text-sm
-                            prose-strong:text-foreground prose-strong:font-semibold
-                            prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5
-                            prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:leading-relaxed
-                            prose-hr:border-border prose-hr:my-3
-                            prose-a:text-accent-blue prose-a:break-words prose-a:underline-offset-2
-                            prose-blockquote:border-l-accent-blue/40 prose-blockquote:text-muted-foreground
-                            prose-table:text-xs prose-table:my-2
-                            prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:font-semibold
-                            prose-td:px-2 prose-td:py-1 prose-td:align-top
-                            prose-pre:overflow-x-auto prose-pre:max-w-full prose-pre:text-xs
-                            prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:break-words"
-                        >
-                          <ReactMarkdown>{msg.content}</ReactMarkdown>
-                        </div>
-                      ) : (
-                        streaming && i === messages.length - 1 && (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        )
-                      )}
-                    </div>
-                  </article>
-                );
-              })}
-
-              {/* F. Honest analyzing state */}
-              {toolStatus && (
-                <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-3 text-sm text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  {toolStatus}
-                </div>
-              )}
-              <div ref={bottomRef} />
-            </div>
-          )}
-        </div>
-
-        {/* ── H. Persistent workflow action bar ─────────────────────────── */}
-        <nav aria-label="Continue your workflow" className="mt-2 shrink-0">
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
-            <span className="shrink-0 pr-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Continue
-            </span>
-            {workflowLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className="shrink-0 whitespace-nowrap rounded-md border border-border bg-card px-2.5 py-1.5 text-xs text-foreground transition-colors duration-200 hover:bg-muted/60"
-              >
-                {link.label}
-              </Link>
-            ))}
-            <button
-              type="button"
-              onClick={startNewAnalysis}
-              className="shrink-0 whitespace-nowrap rounded-md border border-accent-blue/40 bg-accent-blue/10 px-2.5 py-1.5 text-xs font-medium text-accent-blue transition-colors duration-200 hover:bg-accent-blue/20"
-            >
-              New Analysis
-            </button>
-          </div>
-        </nav>
-
-        {/* ── E. Premium composer ───────────────────────────────────────── */}
-        <div className="mt-2 shrink-0 rounded-xl border border-border bg-card/70 p-2.5 sm:p-3">
-          {limitReached && (
-            <div className="mb-2.5 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-3 py-2.5">
-              <p className="mb-2 text-sm text-foreground">
-                You've reached today's free AI message limit. Pro access unlocks expanded AI research limits.
-              </p>
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => navigate("/pro")}
-                  className="rounded-md bg-accent-blue px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
-                >
-                  Request Pro Access
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setLimitReached(false)}
-                  className="rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* Workflow indication when the selector grid is scrolled away */}
-          {messages.length > 0 && (
-            <div className="mb-2 flex items-center gap-1.5 overflow-x-auto pb-1">
-              {ANALYST_WORKFLOWS.map((w) => {
-                const Icon = WORKFLOW_ICONS[w.icon];
-                const selected = w.id === selectedWorkflowId;
-                return (
-                  <button
-                    key={w.id}
-                    type="button"
-                    onClick={() => selectWorkflow(w.id)}
-                    aria-pressed={selected}
-                    aria-label={`${w.name} — ${w.bestFor}`}
-                    title={w.bestFor}
-                    className={cn(
-                      "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border px-2.5 py-1.5 text-xs transition-colors duration-200",
-                      selected
-                        ? "border-accent-blue/60 bg-accent-blue/10 font-medium text-accent-blue"
-                        : "border-border bg-card text-muted-foreground hover:bg-muted/60"
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {w.name}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Selected workflow + D. analysis-depth control */}
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
-              <span className="font-semibold uppercase tracking-wide">Workflow</span>
-              <span className="truncate text-foreground">{activeWorkflow.name}</span>
-            </span>
-            <div
-              role="group"
-              aria-label="Analysis depth"
-              className="flex items-center gap-1 rounded-lg border border-border bg-muted/30 p-0.5"
-            >
-              {ANALYSIS_DEPTH_OPTIONS.map((opt) => {
-                const accessible = canUseModel(opt.minPlan);
-                const active = selectedModel === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    aria-pressed={active}
-                    aria-label={`${opt.label} — ${opt.description}`}
-                    title={opt.description}
-                    onClick={() => {
-                      if (accessible) {
-                        setSelectedModel(opt.value);
-                      } else {
-                        navigate("/pro");
-                      }
-                    }}
-                    className={cn(
-                      "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200",
-                      active
-                        ? "bg-accent-blue text-primary-foreground"
-                        : "text-muted-foreground hover:bg-muted",
-                      !accessible && "opacity-60"
-                    )}
-                  >
-                    {opt.label}
-                    {!accessible && <LockIcon className="h-3 w-3" />}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {attachment && (
-            <div className="mb-2 flex items-center gap-2 px-0.5">
-              <span className="max-w-[220px] truncate text-xs text-muted-foreground">
-                {attachment.fileName}
-              </span>
+          Choose a trading workflow
+        </h2>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {ANALYST_WORKFLOWS.map((workflow) => {
+            const Icon = WORKFLOW_ICONS[workflow.icon];
+            const selected = workflow.id === selectedWorkflowId;
+            return (
               <button
+                key={workflow.id}
                 type="button"
-                onClick={() => applyAttachment(null)}
-                aria-label="Remove attachment"
-                className="text-muted-foreground transition-colors hover:text-foreground"
+                onClick={() => selectWorkflow(workflow.id)}
+                aria-pressed={selected}
+                className={cn(
+                  "flex min-w-0 items-start gap-2 rounded-lg px-3 py-2 text-left transition-colors duration-200",
+                  selected
+                    ? "bg-accent-blue/10 ring-1 ring-inset ring-accent-blue/50"
+                    : "bg-card hover:bg-muted/60"
+                )}
               >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-
-          {promptKept && (
-            <p className="mb-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-[11px] text-muted-foreground">
-              Workflow switched. Your edited prompt was kept — clear the box to load the new
-              template.
-            </p>
-          )}
-
-          {voiceError && (
-            <div className="mb-2 flex items-start gap-2 rounded-lg border border-border bg-muted/40 px-3 py-2">
-              <p className="flex-1 text-xs text-muted-foreground">{voiceError}</p>
-              <button
-                type="button"
-                onClick={() => setVoiceError(null)}
-                className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="Dismiss"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".pdf,image/*"
-            className="hidden"
-            onChange={handleFileSelect}
-          />
-
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => {
-              setInput(e.target.value);
-              if (promptKept) setPromptKept(false);
-            }}
-            onKeyDown={handleKeyDown}
-            disabled={composerDisabled}
-            aria-label="Analysis prompt"
-            placeholder="Ask about a setup, ticker, or market condition..."
-            rows={1}
-            className={cn(
-              "w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm",
-              "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
-              "min-h-[44px] max-h-[160px] overflow-y-auto transition-colors duration-200",
-              composerDisabled && "cursor-not-allowed opacity-60"
-            )}
-          />
-
-          <div className="mt-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5">
-              {voiceSupported && (
-                <button
-                  type="button"
-                  onClick={() => (isListening ? stopListening() : startListening())}
-                  disabled={streaming}
-                  aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                <span
                   className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
-                    isListening
-                      ? "animate-pulse bg-green-500 text-white"
-                      : "border border-border bg-card text-muted-foreground hover:bg-muted",
-                    streaming && "cursor-not-allowed opacity-60"
+                    "mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md",
+                    selected
+                      ? "bg-accent-blue/15 text-accent-blue"
+                      : "bg-muted text-muted-foreground"
                   )}
                 >
-                  {isListening ? <AudioLines className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
-                disabled={streaming}
-                aria-label="Attach a PDF or image"
-                className={cn(
-                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground",
-                  "transition-colors duration-200 hover:bg-muted",
-                  (!isPro || streaming) && "opacity-60",
-                  streaming && "cursor-not-allowed"
-                )}
-              >
-                <Paperclip className="h-4 w-4" />
+                  <Icon className="h-3.5 w-3.5" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium text-foreground">
+                    {workflow.name}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] leading-snug text-muted-foreground">
+                    {workflow.bestFor}
+                  </span>
+                </span>
               </button>
-            </div>
+            );
+          })}
+        </div>
+      </section>
 
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">
-                Enter to analyze · Shift+Enter for a new line
-              </span>
+      {/* Composer follows the workflow decision in normal document flow. */}
+      <section aria-label="Analysis composer" className="mt-4 rounded-xl bg-card p-3 shadow-sm">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <span className="inline-flex min-w-0 items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span className="font-semibold uppercase tracking-wide">Workflow</span>
+            <span className="truncate text-foreground">{activeWorkflow.name}</span>
+          </span>
+          <div
+            role="group"
+            aria-label="Analysis depth"
+            className="flex items-center gap-1 rounded-lg bg-muted/50 p-0.5"
+          >
+            {ANALYSIS_DEPTH_OPTIONS.map((option) => {
+              const accessible = canUseModel(option.minPlan);
+              const active = selectedModel === option.value;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  aria-pressed={active}
+                  aria-label={`${option.label} — ${option.description}`}
+                  title={option.description}
+                  onClick={() => {
+                    if (accessible) {
+                      setSelectedModel(option.value);
+                    } else {
+                      navigate("/pro");
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors duration-200",
+                    active
+                      ? "bg-accent-blue text-primary-foreground"
+                      : "text-muted-foreground hover:bg-muted",
+                    !accessible && "opacity-60"
+                  )}
+                >
+                  {option.label}
+                  {!accessible && <LockIcon className="h-3 w-3" />}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {limitReached && (
+          <div className="mb-2.5 rounded-lg border border-accent-blue/40 bg-accent-blue/5 px-3 py-2.5">
+            <p className="mb-2 text-sm text-foreground">
+              You've reached today's free AI message limit. Pro access unlocks expanded AI research limits.
+            </p>
+            <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={() => sendMessage(input)}
-                disabled={composerDisabled || !input.trim()}
-                className={cn(
-                  "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-accent-blue px-4 text-sm font-semibold text-primary-foreground",
-                  "transition-opacity duration-200 hover:opacity-90",
-                  (composerDisabled || !input.trim()) && "cursor-not-allowed opacity-50"
-                )}
+                onClick={() => navigate("/pro")}
+                className="rounded-md bg-accent-blue px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90"
               >
-                {streaming ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Analyzing
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4" />
-                    Analyze
-                  </>
-                )}
+                Request Pro Access
+              </button>
+              <button
+                type="button"
+                onClick={() => setLimitReached(false)}
+                className="rounded-md px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                Dismiss
               </button>
             </div>
           </div>
+        )}
 
-          <p className="mt-2 text-center text-[11px] leading-relaxed text-muted-foreground">
-            Stocksist Intelligence • Not financial advice
-            <br />
-            <span className="opacity-80">
-              AI may be wrong. Market data can be delayed. Verify before trading.
+        {attachment && (
+          <div className="mb-2 flex items-center gap-2 px-0.5">
+            <span className="max-w-[220px] truncate text-xs text-muted-foreground">
+              {attachment.fileName}
             </span>
+            <button
+              type="button"
+              onClick={() => applyAttachment(null)}
+              aria-label="Remove attachment"
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
+        {promptKept && (
+          <p className="mb-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-[11px] text-muted-foreground">
+            Workflow switched. Your edited prompt was kept — clear the box to load the new
+            template.
           </p>
+        )}
+
+        {voiceError && (
+          <div className="mb-2 flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2">
+            <p className="flex-1 text-xs text-muted-foreground">{voiceError}</p>
+            <button
+              type="button"
+              onClick={() => setVoiceError(null)}
+              className="shrink-0 text-muted-foreground transition-colors hover:text-foreground"
+              aria-label="Dismiss"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf,image/*"
+          className="hidden"
+          onChange={handleFileSelect}
+        />
+
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(event) => {
+            setInput(event.target.value);
+            if (promptKept) setPromptKept(false);
+          }}
+          onKeyDown={handleKeyDown}
+          disabled={composerDisabled}
+          aria-label="Analysis prompt"
+          placeholder="Ask about a setup, ticker, or market condition..."
+          rows={1}
+          className={cn(
+            "min-h-[44px] max-h-[160px] w-full resize-none overflow-y-auto rounded-lg border border-border bg-background px-3 py-2.5 text-sm",
+            "placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent-blue",
+            "transition-colors duration-200",
+            composerDisabled && "cursor-not-allowed opacity-60"
+          )}
+        />
+
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5">
+            {voiceSupported && (
+              <button
+                type="button"
+                onClick={() => (isListening ? stopListening() : startListening())}
+                disabled={streaming}
+                aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                className={cn(
+                  "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-all duration-200",
+                  isListening
+                    ? "animate-pulse bg-green-500 text-white"
+                    : "text-muted-foreground hover:bg-muted",
+                  streaming && "cursor-not-allowed opacity-60"
+                )}
+              >
+                {isListening ? <AudioLines className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => (isPro ? fileInputRef.current?.click() : navigate("/pro"))}
+              disabled={streaming}
+              aria-label="Attach a PDF or image"
+              className={cn(
+                "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 hover:bg-muted",
+                (!isPro || streaming) && "opacity-60",
+                streaming && "cursor-not-allowed"
+              )}
+            >
+              <Paperclip className="h-4 w-4" />
+            </button>
+          </div>
+
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="hidden truncate text-[11px] text-muted-foreground sm:inline">
+              Enter to analyze · Shift+Enter for a new line
+            </span>
+            <button
+              type="button"
+              onClick={() => sendMessage(input)}
+              disabled={composerDisabled || !input.trim()}
+              className={cn(
+                "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-accent-blue px-4 text-sm font-semibold text-primary-foreground",
+                "transition-opacity duration-200 hover:opacity-90",
+                (composerDisabled || !input.trim()) && "cursor-not-allowed opacity-50"
+              )}
+            >
+              {streaming ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Analyzing
+                </>
+              ) : (
+                <>
+                  <Send className="h-4 w-4" />
+                  Analyze
+                </>
+              )}
+            </button>
+          </div>
         </div>
-      </div>
+      </section>
+
+      {/* Related destinations are visible together and never horizontally scroll. */}
+      <nav aria-labelledby="related-tools-heading" className="mt-5">
+        <h2
+          id="related-tools-heading"
+          className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground"
+        >
+          Related Tools
+        </h2>
+        <div className="flex flex-wrap gap-2">
+          {workflowLinks.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              className="rounded-md bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              {link.label}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      {/* Conversation follows tools in normal document flow. */}
+      <section
+        ref={scrollContainerRef}
+        aria-label="Analysis conversation"
+        className="mt-6 space-y-3 pb-8"
+      >
+        {messages.map((message, index) => {
+          const isErrorMessage =
+            message.role === "assistant" && message.content.startsWith("Error:");
+          if (isErrorMessage) {
+            return (
+              <div
+                key={index}
+                className="scroll-mt-2 rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3"
+              >
+                <p className="mb-1 text-sm font-medium text-foreground">Something went wrong</p>
+                <p className="mb-2 break-words text-xs text-muted-foreground">
+                  {message.content.replace(/^Error:\s*/, "")}
+                </p>
+                {lastAttemptedPromptRef.current && (
+                  <button
+                    type="button"
+                    onClick={retryLastPrompt}
+                    disabled={streaming}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue px-3 py-1.5 text-xs font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  >
+                    Retry
+                  </button>
+                )}
+              </div>
+            );
+          }
+
+          if (message.role === "user") {
+            return (
+              <div
+                key={index}
+                ref={index === messages.length - 1 ? lastUserMsgRef : undefined}
+                className="flex scroll-mt-2 justify-end"
+              >
+                <div className="max-w-[85%] min-w-0 whitespace-pre-wrap break-words rounded-lg rounded-br-sm bg-accent-blue px-4 py-2.5 text-sm leading-relaxed text-primary-foreground">
+                  {message.content}
+                </div>
+              </div>
+            );
+          }
+
+          return (
+            <article
+              key={index}
+              className="scroll-mt-2 overflow-hidden rounded-lg bg-card shadow-sm"
+            >
+              <div className="flex items-center gap-1.5 border-b border-border/60 bg-muted/30 px-3 py-1.5">
+                <Terminal className="h-3 w-3 text-accent-blue" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Analyst Response
+                </span>
+              </div>
+              <div className="min-w-0 px-3 py-3 sm:px-4">
+                {message.content ? (
+                  <div
+                    className="prose prose-sm max-w-none overflow-x-auto break-words text-foreground
+                      prose-headings:text-foreground prose-headings:font-semibold prose-headings:tracking-tight
+                      prose-h1:text-base prose-h2:text-sm prose-h3:text-sm
+                      prose-strong:text-foreground prose-strong:font-semibold
+                      prose-p:my-1.5 prose-p:leading-relaxed prose-headings:mt-3 prose-headings:mb-1.5
+                      prose-ul:my-1.5 prose-ol:my-1.5 prose-li:my-0.5 prose-li:leading-relaxed
+                      prose-hr:border-border prose-hr:my-3
+                      prose-a:text-accent-blue prose-a:break-words prose-a:underline-offset-2
+                      prose-blockquote:border-l-accent-blue/40 prose-blockquote:text-muted-foreground
+                      prose-table:text-xs prose-table:my-2
+                      prose-th:px-2 prose-th:py-1 prose-th:text-left prose-th:font-semibold
+                      prose-td:px-2 prose-td:py-1 prose-td:align-top
+                      prose-pre:overflow-x-auto prose-pre:max-w-full prose-pre:text-xs
+                      prose-code:text-accent-blue prose-code:bg-muted prose-code:px-1 prose-code:rounded prose-code:break-words"
+                  >
+                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                  </div>
+                ) : (
+                  streaming &&
+                  index === messages.length - 1 && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )
+                )}
+              </div>
+            </article>
+          );
+        })}
+
+        {toolStatus && (
+          <div className="flex items-center gap-2 rounded-lg bg-card px-4 py-3 text-sm text-muted-foreground shadow-sm">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            {toolStatus}
+          </div>
+        )}
+        <div ref={bottomRef} />
+      </section>
+
+      <p className="pb-4 text-center text-[11px] leading-relaxed text-muted-foreground">
+        Stocksist Intelligence • Not financial advice
+        <br />
+        <span className="opacity-80">
+          AI may be wrong. Market data can be delayed. Verify before trading.
+        </span>
+      </p>
     </div>
   );
 }
