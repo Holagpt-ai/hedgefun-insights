@@ -13,6 +13,7 @@ export async function streamChat({
   attachment,
   systemContext,
   conversationId,
+  signal,
   onDelta,
   onDone,
   onError,
@@ -25,6 +26,7 @@ export async function streamChat({
   attachment?: ChatAttachment;
   systemContext?: string;
   conversationId?: string;
+  signal?: AbortSignal;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError?: (error: string) => void;
@@ -37,6 +39,7 @@ export async function streamChat({
       Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
     },
     body: JSON.stringify({ messages, sessionToken, model, attachment, systemContext, conversationId }),
+    signal,
   });
 
   if (!resp.ok) {
@@ -63,41 +66,46 @@ export async function streamChat({
   const decoder = new TextDecoder();
   let textBuffer = "";
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    textBuffer += decoder.decode(value, { stream: true });
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      textBuffer += decoder.decode(value, { stream: true });
 
-    let newlineIndex: number;
-    while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-      let line = textBuffer.slice(0, newlineIndex);
-      textBuffer = textBuffer.slice(newlineIndex + 1);
+      let newlineIndex: number;
+      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+        let line = textBuffer.slice(0, newlineIndex);
+        textBuffer = textBuffer.slice(newlineIndex + 1);
 
-      if (line.endsWith("\r")) line = line.slice(0, -1);
-      if (line.startsWith(":") || line.trim() === "") continue;
-      if (!line.startsWith("data: ")) continue;
+        if (line.endsWith("\r")) line = line.slice(0, -1);
+        if (line.startsWith(":") || line.trim() === "") continue;
+        if (!line.startsWith("data: ")) continue;
 
-      const jsonStr = line.slice(6).trim();
-      if (jsonStr === "[DONE]") {
-        onDone();
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(jsonStr);
-        // A-2: capture conversation id emitted by edge function
-        if (parsed?.type === "conversation_id" && parsed.id) {
-          onConversationId?.(parsed.id);
-          continue;
+        const jsonStr = line.slice(6).trim();
+        if (jsonStr === "[DONE]") {
+          onDone();
+          return;
         }
-        const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-        if (content) onDelta(content);
-      } catch {
-        textBuffer = line + "\n" + textBuffer;
-        break;
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+          // A-2: capture conversation id emitted by edge function
+          if (parsed?.type === "conversation_id" && parsed.id) {
+            onConversationId?.(parsed.id);
+            continue;
+          }
+          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+          if (content) onDelta(content);
+        } catch {
+          textBuffer = line + "\n" + textBuffer;
+          break;
+        }
       }
     }
-  }
 
-  onDone();
+    onDone();
+  } finally {
+    // Release the stream on every exit path: completion, abort, or read failure.
+    void reader.cancel().catch(() => {});
+  }
 }

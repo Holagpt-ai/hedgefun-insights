@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import {
   Send,
   Loader2,
@@ -24,6 +24,7 @@ import ReactMarkdown from "react-markdown";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { ANALYST_PRESET_GROUPS, ANALYST_CONTEXT_CHIPS } from "@/config/ai-analyst-presets.config";
+import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 
 const STREAMING_STATUS_MESSAGES = [
   "Analyzing dashboard context…",
@@ -31,6 +32,24 @@ const STREAMING_STATUS_MESSAGES = [
   "Reviewing screeners and watchlist…",
   "Drafting your response…",
 ];
+
+// Transport failures are surfaced as a single fixed sentence so no URL, header,
+// token, response body, prompt, or provider detail can reach the screen.
+const GENERIC_FAILURE_MESSAGE = "The analysis couldn't be completed. Please try again.";
+
+const SIGNUP_PROMPT_MESSAGE = "Sign up for free to get more daily AI queries. No credit card required.";
+
+const buildSymbolPrompt = (symbol: string) =>
+  `Analyze ${symbol} as a day-trade setup. Focus on price action, RVOL, liquidity, catalyst risk, support/resistance, and what a disciplined trader should watch before entering. This is research only, not financial advice.`;
+
+/** Distinguishes an intentional cancellation from a genuine failure. */
+function isAbortLike(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    (error as { name?: string }).name === "AbortError"
+  );
+}
 
 
 const MODEL_OPTIONS = [
@@ -40,6 +59,8 @@ const MODEL_OPTIONS = [
 ];
 
 type ModelTier = "fast" | "standard" | "deep";
+
+type Attachment = { type: "pdf" | "image"; data: string; mediaType: string; fileName: string };
 
 type Conversation = {
   id: string;
@@ -79,13 +100,84 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [attachment, setAttachment] = useState<{ type: 'pdf' | 'image'; data: string; mediaType: string; fileName: string } | null>(null);
+  const [attachment, setAttachment] = useState<Attachment | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
-  const deepLinkFiredRef = useRef(false);
   const lastAttemptedPromptRef = useRef<string>("");
   const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [handoffSymbol, setHandoffSymbol] = useState<string | null>(null);
-  const handoffPromptRef = useRef<string>("");
+  const [activeSymbol, setActiveSymbol] = useState<string | null>(null);
+  const activeSymbolRef = useRef<string | null>(null);
+  // Tracks the exact deep-link params already consumed. It resets as soon as the
+  // URL is clean again, so a later ticker handoff is still processed.
+  const handoffTokenRef = useRef<string | null>(null);
+  // Mirror of `messages` so request payloads and stream updates never read a
+  // stale render closure.
+  const messagesRef = useRef<ChatMessage[]>([]);
+  // Mirrors of the values a request payload depends on, so a request started in
+  // the same tick as a reset cannot inherit the previous ticker's context.
+  const conversationIdRef = useRef<string | null>(null);
+  const attachmentRef = useRef<Attachment | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
+  const requestIdRef = useRef(0);
+  const inFlightRef = useRef(false);
+  const unmountedRef = useRef(false);
+
+  const commitMessages = useCallback((next: ChatMessage[]) => {
+    messagesRef.current = next;
+    setMessages(next);
+  }, []);
+
+  const applyConversationId = useCallback((id: string | null) => {
+    conversationIdRef.current = id;
+    setConversationId(id);
+  }, []);
+
+  const applyAttachment = useCallback((next: Attachment | null) => {
+    attachmentRef.current = next;
+    setAttachment(next);
+  }, []);
+
+  const clearStatusRotation = useCallback(() => {
+    if (statusIntervalRef.current) {
+      clearInterval(statusIntervalRef.current);
+      statusIntervalRef.current = null;
+    }
+  }, []);
+
+  /**
+   * Ends the active request: aborts the transport, bumps the request id so any
+   * late callback is ignored, and returns the UI to a non-analyzing state.
+   */
+  const cancelActiveRequest = useCallback(() => {
+    requestIdRef.current += 1;
+    inFlightRef.current = false;
+    abortRef.current?.abort();
+    abortRef.current = null;
+    clearStatusRotation();
+    if (!unmountedRef.current) {
+      setStreaming(false);
+      setToolStatus(null);
+    }
+  }, [clearStatusRotation]);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      requestIdRef.current += 1;
+      inFlightRef.current = false;
+      abortRef.current?.abort();
+      abortRef.current = null;
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current);
+        statusIntervalRef.current = null;
+      }
+    };
+  }, []);
+
+  const setActiveWorkflowSymbol = useCallback((symbol: string | null) => {
+    activeSymbolRef.current = symbol;
+    setActiveSymbol(symbol);
+  }, []);
 
   const { language } = useLanguage();
   const [voiceError, setVoiceError] = useState<string | null>(null);
@@ -135,24 +227,36 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       .eq("conversation_id", conv.id)
       .order("created_at", { ascending: true });
     if (data) {
-      setMessages(
+      cancelActiveRequest();
+      commitMessages(
         data.map((m: { role: string; content: string }) => ({
           role: m.role as "user" | "assistant",
           content: m.content,
         }))
       );
-      setConversationId(conv.id);
+      applyConversationId(conv.id);
       setHistoryOpen(false);
     }
   };
 
-  const startNewChat = () => {
-    setMessages([]);
-    setConversationId(null);
+  /** Cancels the active request and returns the page to a clean input state. */
+  const startNewAnalysis = useCallback(() => {
+    cancelActiveRequest();
+    commitMessages([]);
+    applyConversationId(null);
     setHistoryOpen(false);
-    setHandoffSymbol(null);
-    handoffPromptRef.current = "";
-  };
+    setActiveWorkflowSymbol(null);
+    handoffTokenRef.current = null;
+    lastAttemptedPromptRef.current = "";
+    setInput("");
+    applyAttachment(null);
+  }, [
+    cancelActiveRequest,
+    commitMessages,
+    applyConversationId,
+    applyAttachment,
+    setActiveWorkflowSymbol,
+  ]);
 
   useEffect(() => {
     if (historyOpen) fetchConversations();
@@ -175,7 +279,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     const reader = new FileReader();
     reader.onload = () => {
       const base64 = (reader.result as string).split(",")[1];
-      setAttachment({
+      applyAttachment({
         type: isPdf ? "pdf" : "image",
         data: base64,
         mediaType: file.type,
@@ -210,7 +314,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     return false;
   };
 
-  const fetchDashboardContext = async (): Promise<string> => {
+  const fetchDashboardContext = useCallback(async (): Promise<string> => {
     try {
       const parts: string[] = [];
 
@@ -351,156 +455,196 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     } catch {
       return "";
     }
-  };
+  }, [user]);
 
   const sendMessage = useCallback(
     async (content: string) => {
-      if (!content.trim() || streaming) return;
+      const trimmed = content.trim();
+      if (!trimmed || inFlightRef.current) return;
 
-      const systemContext = await fetchDashboardContext();
+      const requestId = ++requestIdRef.current;
+      const controller = new AbortController();
+      abortRef.current = controller;
+      inFlightRef.current = true;
 
-      const userMessage: ChatMessage = { role: "user", content: content.trim() };
-      const newMessages = [...messages, userMessage];
-      setMessages(newMessages);
+      // A superseded or unmounted request may no longer write to the screen.
+      const isCurrent = () => requestIdRef.current === requestId && !unmountedRef.current;
+
+      commitMessages([...messagesRef.current, { role: "user", content: trimmed }]);
       setInput("");
       setStreaming(true);
-      lastAttemptedPromptRef.current = content.trim();
+      lastAttemptedPromptRef.current = trimmed;
+
       // Rotate friendly status lines while we wait for the first delta
       let statusIdx = 0;
+      clearStatusRotation();
       setToolStatus(STREAMING_STATUS_MESSAGES[0]);
-      if (statusIntervalRef.current) clearInterval(statusIntervalRef.current);
       statusIntervalRef.current = setInterval(() => {
+        if (!isCurrent()) return;
         statusIdx = (statusIdx + 1) % STREAMING_STATUS_MESSAGES.length;
         setToolStatus(STREAMING_STATUS_MESSAGES[statusIdx]);
       }, 2200);
 
-      let assistantContent = "";
+      const appendAssistant = (text: string) => {
+        if (!isCurrent()) return;
+        commitMessages([...messagesRef.current, { role: "assistant", content: text }]);
+      };
 
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const systemContext = await fetchDashboardContext();
+        if (!isCurrent()) return;
 
-      await streamChat({
-        messages: newMessages,
-        sessionToken,
-        accessToken: session?.access_token,
-        model: selectedModel,
-        attachment: attachment ?? undefined,
-        systemContext: systemContext || undefined,
-        conversationId: conversationId ?? undefined,
-        onConversationId: (id) => {
-          setConversationId(id);
-        },
-        onDelta: (delta) => {
-          // First delta arrived — stop the rotating status
-          if (statusIntervalRef.current) {
-            clearInterval(statusIntervalRef.current);
-            statusIntervalRef.current = null;
-          }
-          setToolStatus(null);
-          assistantContent += delta;
-          setMessages((prev) => {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isCurrent()) return;
+
+        let assistantContent = "";
+
+        await streamChat({
+          messages: messagesRef.current,
+          sessionToken,
+          accessToken: session?.access_token,
+          model: selectedModel,
+          attachment: attachmentRef.current ?? undefined,
+          systemContext: systemContext || undefined,
+          conversationId: conversationIdRef.current ?? undefined,
+          signal: controller.signal,
+          onConversationId: (id) => {
+            if (!isCurrent()) return;
+            applyConversationId(id);
+          },
+          onDelta: (delta) => {
+            if (!isCurrent()) return;
+            // First delta arrived — stop the rotating status
+            clearStatusRotation();
+            setToolStatus(null);
+            assistantContent += delta;
+            const prev = messagesRef.current;
             const last = prev[prev.length - 1];
-            if (last?.role === "assistant") {
-              const updated = [...prev];
-              updated[updated.length - 1] = { role: "assistant", content: assistantContent };
-              return updated;
+            const bubble: ChatMessage = { role: "assistant", content: assistantContent };
+            commitMessages(
+              last?.role === "assistant" ? [...prev.slice(0, -1), bubble] : [...prev, bubble]
+            );
+          },
+          onDone: () => {
+            if (!isCurrent()) return;
+            applyAttachment(null);
+          },
+          onError: (code) => {
+            if (!isCurrent()) return;
+            if (code === "DAILY_LIMIT_REACHED") {
+              setLimitReached(true);
+              return;
             }
-            // First delta — add the assistant bubble now
-            return [...prev, { role: "assistant", content: assistantContent }];
-          });
-        },
-        onDone: () => {
-          if (statusIntervalRef.current) {
-            clearInterval(statusIntervalRef.current);
-            statusIntervalRef.current = null;
-          }
-          setStreaming(false);
-          setAttachment(null);
-          setToolStatus(null);
-        },
-        onError: (err) => {
-          if (statusIntervalRef.current) {
-            clearInterval(statusIntervalRef.current);
-            statusIntervalRef.current = null;
-          }
-          setToolStatus(null);
-          if (err === "DAILY_LIMIT_REACHED") {
-            setLimitReached(true);
+            if (code === "SIGNUP_PROMPT") {
+              appendAssistant(SIGNUP_PROMPT_MESSAGE);
+              return;
+            }
+            appendAssistant(`Error: ${GENERIC_FAILURE_MESSAGE}`);
+          },
+        });
+      } catch (err) {
+        // An abort is an intentional cancellation, never a failure to report.
+        if (!isAbortLike(err)) appendAssistant(`Error: ${GENERIC_FAILURE_MESSAGE}`);
+      } finally {
+        if (requestIdRef.current === requestId) {
+          inFlightRef.current = false;
+          abortRef.current = null;
+          clearStatusRotation();
+          if (!unmountedRef.current) {
             setStreaming(false);
-            return;
+            setToolStatus(null);
           }
-          if (err === "SIGNUP_PROMPT") {
-            setMessages((prev) => [
-              ...prev,
-              { role: "assistant", content: "Sign up for free to get more daily AI queries. No credit card required." },
-            ]);
-            setStreaming(false);
-            return;
-          }
-          setMessages((prev) => [...prev, { role: "assistant", content: `Error: ${err}` }]);
-          setStreaming(false);
-        },
-      });
+        }
+      }
     },
-    [messages, streaming, sessionToken, selectedModel, attachment, user, conversationId]
+    [
+      sessionToken,
+      selectedModel,
+      commitMessages,
+      clearStatusRotation,
+      fetchDashboardContext,
+      applyConversationId,
+      applyAttachment,
+    ]
   );
 
   useEffect(() => {
-    if (deepLinkFiredRef.current) return;
-    const prompt = searchParams.get("prompt");
-    const symbolParam = searchParams.get("symbol");
+    const rawSymbol = searchParams.get("symbol");
+    const rawPrompt = searchParams.get("prompt");
 
-    if (symbolParam) {
-      const cleaned = symbolParam.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "");
-      if (cleaned) {
-        deepLinkFiredRef.current = true;
-        const synthesized = `Analyze ${cleaned} as a day-trade setup. Focus on price action, RVOL, liquidity, catalyst risk, support/resistance, and what a disciplined trader should watch before entering. This is research only, not financial advice.`;
-        setHandoffSymbol(cleaned);
-        handoffPromptRef.current = synthesized;
-        setInput(synthesized);
-        setSearchParams({}, { replace: true });
-        if (isPro) {
-          const timer = setTimeout(() => sendMessage(synthesized), 400);
-          return () => clearTimeout(timer);
-        }
-        toast({
-          title: `Ticker handoff: ${cleaned}`,
-          description: "Review and press send when you're ready.",
-        });
-        setTimeout(() => textareaRef.current?.focus(), 0);
+    if (rawSymbol === null && rawPrompt === null) {
+      // URL is clean again — the next handoff is a genuinely new one.
+      handoffTokenRef.current = null;
+      return;
+    }
+
+    // Guards against effect rerenders replaying the same handoff. It is not a
+    // permanent latch: it is released above once the params are gone.
+    const token = `s:${rawSymbol ?? ""}|p:${rawPrompt ?? ""}`;
+    if (handoffTokenRef.current === token) return;
+    handoffTokenRef.current = token;
+
+    if (rawSymbol !== null) {
+      const symbol = normalizeHandoffSymbol(rawSymbol);
+      setSearchParams({}, { replace: true });
+      // Invalid or empty symbols never produce an analysis request.
+      if (!symbol) return;
+
+      // A different ticker becomes a clean analysis context.
+      if (activeSymbolRef.current && activeSymbolRef.current !== symbol) {
+        cancelActiveRequest();
+        commitMessages([]);
+        applyConversationId(null);
+        applyAttachment(null);
+        lastAttemptedPromptRef.current = "";
+      }
+      setActiveWorkflowSymbol(symbol);
+
+      const synthesized = buildSymbolPrompt(symbol);
+
+      if (isPro) {
+        void sendMessage(synthesized);
         return;
       }
+      // Free users: prefill and nudge — do not silently drop the handoff.
+      setInput(synthesized);
+      toast({
+        title: `Ticker handoff: ${symbol}`,
+        description: "Review and press send when you're ready.",
+      });
+      textareaRef.current?.focus();
+      return;
     }
 
-    if (!prompt) return;
-    deepLinkFiredRef.current = true;
-    const decoded = decodeURIComponent(prompt);
-    setInput(decoded);
+    let decoded = rawPrompt as string;
+    try {
+      decoded = decodeURIComponent(decoded);
+    } catch {
+      // Malformed encoding — fall back to the raw value.
+    }
     setSearchParams({}, { replace: true });
     if (isPro) {
-      const timer = setTimeout(() => {
-        sendMessage(decoded);
-      }, 400);
-      return () => clearTimeout(timer);
+      void sendMessage(decoded);
+      return;
     }
     // Free users: prefill and nudge — do not silently drop the prompt.
+    setInput(decoded);
     toast({
       title: "Prompt loaded",
       description: "Review and press send when you're ready.",
     });
-    setTimeout(() => textareaRef.current?.focus(), 0);
-  }, [isPro, searchParams, setSearchParams, sendMessage]);
-
-  // Clear handoff pill when input diverges from synthesized prompt or a message is sent
-  useEffect(() => {
-    if (!handoffSymbol) return;
-    if (messages.length > 0) {
-      setHandoffSymbol(null);
-      return;
-    }
-    if (handoffPromptRef.current && input !== handoffPromptRef.current) {
-      setHandoffSymbol(null);
-    }
-  }, [input, messages.length, handoffSymbol]);
+    textareaRef.current?.focus();
+  }, [
+    isPro,
+    searchParams,
+    setSearchParams,
+    sendMessage,
+    cancelActiveRequest,
+    commitMessages,
+    applyConversationId,
+    applyAttachment,
+    setActiveWorkflowSymbol,
+  ]);
 
   // Auto-scroll toward the bottom while the assistant streams
   useEffect(() => {
@@ -525,29 +669,36 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
 
   const retryLastPrompt = () => {
     const p = lastAttemptedPromptRef.current;
-    if (!p || streaming) return;
+    if (!p || inFlightRef.current) return;
+    let next = messagesRef.current;
     // Strip the trailing "Error: …" assistant message so retry replaces it
-    setMessages((prev) => {
-      if (prev.length === 0) return prev;
-      const last = prev[prev.length - 1];
-      if (last.role === "assistant" && last.content.startsWith("Error:")) {
-        return prev.slice(0, -1);
-      }
-      return prev;
-    });
+    const last = next[next.length - 1];
+    if (last?.role === "assistant" && last.content.startsWith("Error:")) {
+      next = next.slice(0, -1);
+    }
     // Also strip the preceding user echo so sendMessage re-adds it cleanly
-    setMessages((prev) => {
-      const last = prev[prev.length - 1];
-      if (last?.role === "user" && last.content === p) return prev.slice(0, -1);
-      return prev;
-    });
-    setTimeout(() => sendMessage(p), 0);
+    const echo = next[next.length - 1];
+    if (echo?.role === "user" && echo.content === p) {
+      next = next.slice(0, -1);
+    }
+    commitMessages(next);
+    void sendMessage(p);
   };
 
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const displayName = userName?.split(" ")[0] ?? "Trader";
+
+  // Catalyst and Journal already consume `?symbol=`; the other destinations do not.
+  const symbolQuery = activeSymbol ? `?symbol=${encodeURIComponent(activeSymbol)}` : "";
+  const workflowLinks = [
+    { label: "Back to Screeners", to: "/dashboard/screeners" },
+    { label: "Open Watchlist", to: "/dashboard/watchlist" },
+    { label: "View Catalyst", to: `/dashboard/catalyst${symbolQuery}` },
+    { label: "Open Action Center", to: "/dashboard/action-center" },
+    { label: "Log idea in Journal", to: `/dashboard/journal${symbolQuery}` },
+  ];
 
   return (
     <div className="relative flex h-full w-full">
@@ -578,7 +729,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               </button>
             </div>
             <button
-              onClick={startNewChat}
+              onClick={startNewAnalysis}
               className="mx-3 mt-3 mb-2 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-accent-blue text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
             >
               <PlusCircle className="h-4 w-4" />
@@ -625,10 +776,10 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           <span className="inline-flex items-center px-2.5 py-1 rounded-full border border-border bg-muted/40 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
             {isPro ? "PRO ACCESS — AI RESEARCH WORKFLOW" : "FREE ACCESS — LIMITED AI RESEARCH"}
           </span>
-          {handoffSymbol && (
+          {activeSymbol && (
             <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-accent-blue/40 bg-accent-blue/10 text-[11px] font-medium text-accent-blue">
               <Sparkles className="h-3 w-3" />
-              Ticker handoff: {handoffSymbol}
+              Ticker handoff: {activeSymbol}
             </span>
           )}
         </div>
@@ -647,7 +798,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           {conversationId && (
             <button
               type="button"
-              onClick={startNewChat}
+              onClick={startNewAnalysis}
               className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <PlusCircle className="h-3.5 w-3.5" />
@@ -707,32 +858,6 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                 </div>
               ))}
             </div>
-
-            {/* Continue your workflow */}
-            <div className="mb-6">
-              <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Continue your workflow
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {[
-                  { label: "Back to Screeners", to: "/dashboard/screeners" },
-                  { label: "Open Watchlist", to: "/dashboard/watchlist" },
-                  { label: "View Catalyst", to: handoffSymbol ? `/dashboard/catalyst?symbol=${handoffSymbol}` : "/dashboard/catalyst" },
-                  { label: "Open Action Center", to: "/dashboard/action-center" },
-                  { label: "Log idea in Journal", to: handoffSymbol ? `/dashboard/journal?symbol=${handoffSymbol}` : "/dashboard/journal" },
-                ].map((link) => (
-                  <button
-                    key={link.to}
-                    type="button"
-                    onClick={() => navigate(link.to)}
-                    className="text-left px-3 py-2.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200 text-xs sm:text-sm text-foreground"
-                  >
-                    {link.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
 
             {toolStatus && (
               <div className="flex justify-start mt-4">
@@ -831,6 +956,31 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           </div>
         )}
 
+        {/* Continue your workflow — stays available before, during, and after an analysis */}
+        <div className="mt-4 mb-3">
+          <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+            Continue your workflow
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {workflowLinks.map((link) => (
+              <Link
+                key={link.to}
+                to={link.to}
+                className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200 text-xs text-foreground"
+              >
+                {link.label}
+              </Link>
+            ))}
+            <button
+              type="button"
+              onClick={startNewAnalysis}
+              className="px-3 py-1.5 rounded-lg border border-border bg-card hover:bg-muted/50 transition-colors duration-200 text-xs text-foreground"
+            >
+              New Analysis
+            </button>
+          </div>
+        </div>
+
         {/* Model selector segmented control */}
         <div className="flex gap-2 mb-3 justify-center">
           {MODEL_OPTIONS.map((opt) => {
@@ -892,7 +1042,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               <span className="text-xs text-muted-foreground truncate max-w-[200px]">{attachment.fileName}</span>
               <button
                 type="button"
-                onClick={() => setAttachment(null)}
+                onClick={() => applyAttachment(null)}
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <X className="h-3 w-3" />
