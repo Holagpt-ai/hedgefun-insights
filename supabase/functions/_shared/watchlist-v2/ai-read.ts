@@ -4,6 +4,7 @@
 
 import type { Direction, KeyLevels, MarketSignal, RecentEvent } from "./contract.ts";
 import { containsForbiddenKey } from "./contract.ts";
+import { classifyFetchFailure, type ProviderTransportFailure } from "./market-data.ts";
 import { sanitize } from "./sanitize.ts";
 
 export interface EvidenceCatalog {
@@ -34,7 +35,7 @@ export interface AiReadResult {
 
 export type AiReadOutcome =
   | { kind: "ok"; value: AiReadResult }
-  | { kind: "transport_failure"; code: "RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_ERROR" }
+  | ProviderTransportFailure
   | { kind: "validation_failed"; reason: string };
 
 export interface AiCaller {
@@ -184,21 +185,41 @@ export function makeAnthropicCaller(apiKey: string): AiCaller {
         });
       } catch (e) {
         console.warn("[wl-v2] anthropic transport error:", sanitize(e));
-        return { kind: "transport_failure", code: "PROVIDER_TIMEOUT" };
+        return {
+          kind: "transport_failure",
+          code: "PROVIDER_TIMEOUT",
+          http_status: null,
+          failure_kind: classifyFetchFailure(e),
+        };
       }
       if (res.status === 429) {
         try { await res.body?.cancel(); } catch { /* noop */ }
-        return { kind: "transport_failure", code: "RATE_LIMITED" };
+        return {
+          kind: "transport_failure",
+          code: "RATE_LIMITED",
+          http_status: 429,
+          failure_kind: "http_error",
+        };
       }
       if (!res.ok) {
         try { await res.body?.cancel(); } catch { /* noop */ }
-        return { kind: "transport_failure", code: "PROVIDER_ERROR" };
+        return {
+          kind: "transport_failure",
+          code: "PROVIDER_ERROR",
+          http_status: res.status,
+          failure_kind: "http_error",
+        };
       }
       let body: unknown;
       try {
         body = await res.json();
       } catch {
-        return { kind: "transport_failure", code: "PROVIDER_ERROR" };
+        return {
+          kind: "transport_failure",
+          code: "PROVIDER_ERROR",
+          http_status: res.status,
+          failure_kind: "invalid_json",
+        };
       }
       const b = body as { content?: Array<{ text?: unknown }> } | null;
       const rawText = b?.content?.[0]?.text;

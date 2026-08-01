@@ -1,5 +1,7 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { assessSnapshot, computeBasis, normalizeBars } from "./market-data.ts";
+import {
+  assessSnapshot, classifyFetchFailure, computeBasis, fetchWithOutcome, normalizeBars,
+} from "./market-data.ts";
 
 const sessionDate = "2026-07-23";
 // 10:00 ET → 14:00 UTC for a weekday in summer
@@ -103,6 +105,104 @@ Deno.test("assessSnapshot: no permitted timestamp remains missing (SNAPSHOT_MISS
   assertEquals(assessSnapshot(body, now).quality, "missing");
 });
 
+
+// ── Transport failure diagnostics ────────────────────────────────────────
+
+const PROVIDER_URL = "https://api.polygon.io/v2/aggs/ticker/AAPL?apiKey=SECRET_KEY_VALUE";
+
+async function withFetch<T>(
+  impl: () => Promise<Response>,
+  run: () => Promise<T>,
+): Promise<T> {
+  const original = globalThis.fetch;
+  globalThis.fetch = (() => impl()) as typeof fetch;
+  try {
+    return await run();
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+Deno.test("fetchWithOutcome: 429 keeps RATE_LIMITED with status 429", async () => {
+  const r = await withFetch(
+    () => Promise.resolve(new Response("rate limited", { status: 429 })),
+    () => fetchWithOutcome(PROVIDER_URL, 1000),
+  );
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "RATE_LIMITED");
+  assertEquals(r.http_status, 429);
+  assertEquals(r.failure_kind, "http_error");
+});
+
+for (const status of [401, 403, 404, 500]) {
+  Deno.test(`fetchWithOutcome: HTTP ${status} keeps PROVIDER_ERROR and reports status`, async () => {
+    const r = await withFetch(
+      () => Promise.resolve(new Response("upstream body", { status })),
+      () => fetchWithOutcome(PROVIDER_URL, 1000),
+    );
+    assertEquals(r.kind, "transport_failure");
+    if (r.kind !== "transport_failure") return;
+    assertEquals(r.code, "PROVIDER_ERROR");
+    assertEquals(r.http_status, status);
+    assertEquals(r.failure_kind, "http_error");
+  });
+}
+
+Deno.test("fetchWithOutcome: 200 with invalid JSON is PROVIDER_ERROR/200/invalid_json", async () => {
+  const r = await withFetch(
+    () => Promise.resolve(new Response("<html>not json</html>", { status: 200 })),
+    () => fetchWithOutcome(PROVIDER_URL, 1000),
+  );
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "PROVIDER_ERROR");
+  assertEquals(r.http_status, 200);
+  assertEquals(r.failure_kind, "invalid_json");
+});
+
+Deno.test("fetchWithOutcome: timeout keeps PROVIDER_TIMEOUT and fabricates no status", async () => {
+  const r = await withFetch(
+    () => Promise.reject(new DOMException("Signal timed out.", "TimeoutError")),
+    () => fetchWithOutcome(PROVIDER_URL, 1000),
+  );
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "PROVIDER_TIMEOUT");
+  assertEquals(r.http_status, null);
+  assertEquals(r.failure_kind, "timeout");
+});
+
+Deno.test("fetchWithOutcome: non-timeout fetch failure keeps PROVIDER_TIMEOUT but reads fetch_error", async () => {
+  const r = await withFetch(
+    () => Promise.reject(new TypeError("error sending request")),
+    () => fetchWithOutcome(PROVIDER_URL, 1000),
+  );
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "PROVIDER_TIMEOUT");
+  assertEquals(r.http_status, null);
+  assertEquals(r.failure_kind, "fetch_error");
+});
+
+Deno.test("classifyFetchFailure distinguishes timeout from other fetch errors", () => {
+  assertEquals(classifyFetchFailure(new DOMException("t", "TimeoutError")), "timeout");
+  assertEquals(classifyFetchFailure(new DOMException("a", "AbortError")), "fetch_error");
+  assertEquals(classifyFetchFailure(new TypeError("boom")), "fetch_error");
+  assertEquals(classifyFetchFailure(null), "fetch_error");
+});
+
+Deno.test("transport failure carries no url, key, or response body", async () => {
+  const r = await withFetch(
+    () => Promise.resolve(new Response("SECRET_BODY apiKey=SECRET_KEY_VALUE", { status: 500 })),
+    () => fetchWithOutcome(PROVIDER_URL, 1000),
+  );
+  assertEquals(Object.keys(r).sort(), ["code", "failure_kind", "http_status", "kind"]);
+  const serialized = JSON.stringify(r);
+  for (const forbidden of ["SECRET_KEY_VALUE", "SECRET_BODY", "apiKey", "http://", "https://", "polygon"]) {
+    assert(!serialized.includes(forbidden), `leaked ${forbidden}`);
+  }
+});
 
 Deno.test("computeBasis uses last bar price and cumulative volume", () => {
   const bars = [

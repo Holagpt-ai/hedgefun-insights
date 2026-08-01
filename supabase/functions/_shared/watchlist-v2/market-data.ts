@@ -6,9 +6,32 @@ import type { IntradayBar } from "./contract.ts";
 import { etParts } from "./session.ts";
 import { sanitize } from "./sanitize.ts";
 
+/** Persisted error-code vocabulary. Unchanged. */
+export type ProviderErrorCode = "RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_ERROR";
+
+/** Diagnostic-only classification of how the transport failed. Never persisted. */
+export type ProviderFailureKind = "http_error" | "invalid_json" | "timeout" | "fetch_error";
+
+export interface ProviderTransportFailure {
+  kind: "transport_failure";
+  code: ProviderErrorCode;
+  /** Upstream HTTP status when a response was received, else null. */
+  http_status: number | null;
+  failure_kind: ProviderFailureKind;
+}
+
 export type ProviderOutcome<T = unknown> =
   | { kind: "ok"; body: T }
-  | { kind: "transport_failure"; code: "RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_ERROR" };
+  | ProviderTransportFailure;
+
+/**
+ * A timed-out fetch and any other rejected fetch both keep PROVIDER_TIMEOUT so
+ * persisted codes are unchanged; only the diagnostic kind distinguishes them.
+ */
+export function classifyFetchFailure(e: unknown): "timeout" | "fetch_error" {
+  const name = (e as { name?: unknown } | null)?.name;
+  return name === "TimeoutError" ? "timeout" : "fetch_error";
+}
 
 export async function fetchWithOutcome(
   url: string,
@@ -19,21 +42,41 @@ export async function fetchWithOutcome(
     res = await fetch(url, { signal: AbortSignal.timeout(timeoutMs) });
   } catch (e) {
     console.warn("[wl-v2] provider fetch error:", sanitize(e));
-    return { kind: "transport_failure", code: "PROVIDER_TIMEOUT" };
+    return {
+      kind: "transport_failure",
+      code: "PROVIDER_TIMEOUT",
+      http_status: null,
+      failure_kind: classifyFetchFailure(e),
+    };
   }
   if (res.status === 429) {
     try { await res.body?.cancel(); } catch { /* noop */ }
-    return { kind: "transport_failure", code: "RATE_LIMITED" };
+    return {
+      kind: "transport_failure",
+      code: "RATE_LIMITED",
+      http_status: 429,
+      failure_kind: "http_error",
+    };
   }
   if (!res.ok) {
     try { await res.body?.cancel(); } catch { /* noop */ }
-    return { kind: "transport_failure", code: "PROVIDER_ERROR" };
+    return {
+      kind: "transport_failure",
+      code: "PROVIDER_ERROR",
+      http_status: res.status,
+      failure_kind: "http_error",
+    };
   }
   let body: unknown;
   try {
     body = await res.json();
   } catch {
-    return { kind: "transport_failure", code: "PROVIDER_ERROR" };
+    return {
+      kind: "transport_failure",
+      code: "PROVIDER_ERROR",
+      http_status: res.status,
+      failure_kind: "invalid_json",
+    };
   }
   return { kind: "ok", body };
 }

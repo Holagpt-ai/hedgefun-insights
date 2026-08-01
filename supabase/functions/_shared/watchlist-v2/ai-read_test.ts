@@ -1,6 +1,6 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
-  buildAiPrompt, buildEvidenceCatalog, EVIDENCE_PREFIXES, validateAiOutput,
+  buildAiPrompt, buildEvidenceCatalog, EVIDENCE_PREFIXES, makeAnthropicCaller, validateAiOutput,
 } from "./ai-read.ts";
 
 const catalog = buildEvidenceCatalog({
@@ -142,4 +142,77 @@ Deno.test("rejects duplicate driver ids", () => {
   );
   assertEquals(r.kind, "validation_failed");
   if (r.kind === "validation_failed") assertEquals(r.reason, "duplicate_driver_id");
+});
+
+// ── Anthropic transport diagnostics ──────────────────────────────────────
+
+const API_KEY = "sk-ant-SECRET_KEY_VALUE";
+const PROMPT = "SECRET_PROMPT_TEXT";
+
+async function callWithFetch(impl: () => Promise<Response>) {
+  const original = globalThis.fetch;
+  globalThis.fetch = (() => impl()) as typeof fetch;
+  try {
+    return await makeAnthropicCaller(API_KEY).call(PROMPT, catalog);
+  } finally {
+    globalThis.fetch = original;
+  }
+}
+
+Deno.test("anthropic: 429 keeps RATE_LIMITED with status 429", async () => {
+  const r = await callWithFetch(() => Promise.resolve(new Response("slow down", { status: 429 })));
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "RATE_LIMITED");
+  assertEquals(r.http_status, 429);
+  assertEquals(r.failure_kind, "http_error");
+});
+
+for (const status of [401, 403, 404, 500]) {
+  Deno.test(`anthropic: HTTP ${status} keeps PROVIDER_ERROR and reports status`, async () => {
+    const r = await callWithFetch(() => Promise.resolve(new Response("upstream body", { status })));
+    assertEquals(r.kind, "transport_failure");
+    if (r.kind !== "transport_failure") return;
+    assertEquals(r.code, "PROVIDER_ERROR");
+    assertEquals(r.http_status, status);
+    assertEquals(r.failure_kind, "http_error");
+  });
+}
+
+Deno.test("anthropic: 200 with invalid JSON is PROVIDER_ERROR/200/invalid_json", async () => {
+  const r = await callWithFetch(() => Promise.resolve(new Response("not json", { status: 200 })));
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "PROVIDER_ERROR");
+  assertEquals(r.http_status, 200);
+  assertEquals(r.failure_kind, "invalid_json");
+});
+
+Deno.test("anthropic: timeout keeps PROVIDER_TIMEOUT and fabricates no status", async () => {
+  const r = await callWithFetch(() => Promise.reject(new DOMException("Signal timed out.", "TimeoutError")));
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "PROVIDER_TIMEOUT");
+  assertEquals(r.http_status, null);
+  assertEquals(r.failure_kind, "timeout");
+});
+
+Deno.test("anthropic: non-timeout fetch failure keeps PROVIDER_TIMEOUT but reads fetch_error", async () => {
+  const r = await callWithFetch(() => Promise.reject(new TypeError("error sending request")));
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "PROVIDER_TIMEOUT");
+  assertEquals(r.http_status, null);
+  assertEquals(r.failure_kind, "fetch_error");
+});
+
+Deno.test("anthropic transport failure carries no key, prompt, url, or body", async () => {
+  const r = await callWithFetch(() =>
+    Promise.resolve(new Response("SECRET_BODY", { status: 500 }))
+  );
+  assertEquals(Object.keys(r).sort(), ["code", "failure_kind", "http_status", "kind"]);
+  const serialized = JSON.stringify(r);
+  for (const forbidden of ["SECRET_KEY_VALUE", "SECRET_PROMPT_TEXT", "SECRET_BODY", "x-api-key", "anthropic", "https://"]) {
+    assert(!serialized.includes(forbidden), `leaked ${forbidden}`);
+  }
 });

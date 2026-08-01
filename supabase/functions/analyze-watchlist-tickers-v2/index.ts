@@ -17,6 +17,7 @@ import {
 import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import {
   assessSnapshot, computeBasis, fetchWithOutcome, normalizeBars,
+  type ProviderFailureKind, type ProviderTransportFailure,
 } from "../_shared/watchlist-v2/market-data.ts";
 import { computeKeyLevels, computeTransitionLevels } from "../_shared/watchlist-v2/levels.ts";
 import { computeRvol, type Baseline } from "../_shared/watchlist-v2/rvol.ts";
@@ -213,6 +214,50 @@ export function buildAlerts(input: AlertBuildInput): AlertCandidate[] {
   return out;
 }
 
+// ── Provider stage diagnostics (pure) ─────────────────────────────────────
+
+export type ProviderStage = "polygon_snapshot" | "polygon_bars" | "anthropic_ai";
+
+/**
+ * Sanitized, log-only view of a transport failure. Carries no URL, credential,
+ * header, prompt or response body — only the fields below are ever populated.
+ */
+export interface ProviderFailureDiagnostic {
+  ticker: string;
+  provider_stage: ProviderStage;
+  error_code: ErrorCode;
+  http_status: number | null;
+  failure_kind: ProviderFailureKind;
+}
+
+export function buildProviderFailureDiagnostic(
+  ticker: string,
+  stage: ProviderStage,
+  failure: ProviderTransportFailure,
+): ProviderFailureDiagnostic {
+  return {
+    ticker: normalizeTicker(ticker) ?? "",
+    provider_stage: stage,
+    error_code: mapTransportErr(failure.code),
+    http_status: typeof failure.http_status === "number" ? failure.http_status : null,
+    failure_kind: failure.failure_kind,
+  };
+}
+
+export function formatProviderFailureLog(d: ProviderFailureDiagnostic): string {
+  return `${LOG_PREFIX} provider stage failure ${sanitize(JSON.stringify(d))}`;
+}
+
+function logProviderFailure(
+  ticker: string,
+  stage: ProviderStage,
+  failure: ProviderTransportFailure,
+): ErrorCode {
+  const diagnostic = buildProviderFailureDiagnostic(ticker, stage, failure);
+  console.error(formatProviderFailureLog(diagnostic));
+  return diagnostic.error_code;
+}
+
 /**
  * Contract enforcement: when direction=data_unavailable, the persisted payload
  * MUST NOT carry AI-generated drivers or market signals. Pure helper so the
@@ -386,10 +431,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   ]);
 
   if (snapshotR.kind === "transport_failure") {
-    return await failAndRespond(supabase, requestId, owner, mapTransportErr(snapshotR.code));
+    const code = logProviderFailure(ticker, "polygon_snapshot", snapshotR);
+    return await failAndRespond(supabase, requestId, owner, code);
   }
   if (barsR.kind === "transport_failure") {
-    return await failAndRespond(supabase, requestId, owner, mapTransportErr(barsR.code));
+    const code = logProviderFailure(ticker, "polygon_bars", barsR);
+    return await failAndRespond(supabase, requestId, owner, code);
   }
 
   const snapshot = assessSnapshot(snapshotR.body, analyzedAt);
@@ -530,11 +577,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       explanation = outcome.value.explanation;
       driverIds = outcome.value.driver_ids; // no silent filtering
     } else if (outcome.kind === "transport_failure") {
-      return await failAndRespond(
-        supabase, requestId, owner,
-        outcome.code === "RATE_LIMITED" ? "RATE_LIMITED"
-          : outcome.code === "PROVIDER_TIMEOUT" ? "PROVIDER_TIMEOUT" : "PROVIDER_ERROR",
-      );
+      const code = logProviderFailure(ticker, "anthropic_ai", outcome);
+      return await failAndRespond(supabase, requestId, owner, code);
     } else {
       return await failAndRespond(supabase, requestId, owner, "AI_VALIDATION_FAILED");
     }
