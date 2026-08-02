@@ -339,7 +339,8 @@ export default function PMInbox() {
           {/* Today's Key Moves */}
           <section className="flex flex-col gap-3">
             <SectionHeader title={PM_INBOX_CONFIG.keyMovesHeading} />
-            <SampleChip />
+            <WorkflowDisclosure />
+            <SampleChip label="Workflow guidance" />
             {PM_TODAYS_KEY_MOVES.length === 0 ? (
               <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
                 {PM_INBOX_CONFIG.keyMovesEmpty}
