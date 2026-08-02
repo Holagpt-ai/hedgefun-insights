@@ -166,7 +166,13 @@ export default function TradeTable({ userId, onEdit, refreshKey, filterStatus, o
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/dashboard/watchlist`);
+                          const sym = normalizeHandoffSymbol(t.symbol);
+                          navigate(
+                            sym
+                              ? `/dashboard/watchlist?symbol=${encodeURIComponent(sym)}`
+                              : `/dashboard/watchlist`,
+                          );
+
                         }}
                         title="Add to Watchlist"
                         aria-label="Add to Watchlist"
