@@ -360,7 +360,8 @@ export default function PMInbox() {
               cta="Open Watchlist"
               onCta={() => navigate("/dashboard/watchlist")}
             />
-            <SampleChip />
+            <WorkflowDisclosure />
+            <SampleChip label="Workflow guidance" />
             {PM_TOMORROW_SETUP.length === 0 ? (
               <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
                 {PM_INBOX_CONFIG.tomorrowSetupEmpty}
