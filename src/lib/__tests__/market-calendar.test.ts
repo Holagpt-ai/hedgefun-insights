@@ -53,7 +53,7 @@ describe("market calendar", () => {
   });
 
   it("Friday evening rolls to the next trading day, not tomorrow", () => {
-    const s = resolveMarketClock(et("2026-08-07T23:30:00Z")); // Fri 19:30 ET
+    const s = resolveMarketClock(et("2026-08-08T01:30:00Z")); // Fri 21:30 ET
     expect(s.sessionId).toBe("closed");
     expect(s.subLabel).toContain("Mon, Aug 10");
   });
