@@ -168,7 +168,9 @@ export function EarningsCardsGrid({ briefType }: EarningsCardsGridProps) {
             <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
               <span>Est EPS: ${event.estimate_eps?.toFixed(2) ?? "—"}</span>
               <span>Actual: ${event.actual_eps?.toFixed(2) ?? "TBD"}</span>
-              <span className="text-[11px] opacity-70">{getTimeLabel(event)}</span>
+              <span className="text-[11px] opacity-70 break-words">
+                {getTimeLabel(event) ?? "Date unavailable"}
+              </span>
             </div>
           </div>
         );
