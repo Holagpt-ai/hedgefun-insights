@@ -93,23 +93,47 @@ export interface StaticInboxItem {
   badge?: string;
 }
 
+// NOTE: The three lists below are workflow scaffolding only. They must never
+// contain ticker-specific prices, percentage moves, volumes, rankings, or
+// named catalysts — no market claim may originate from this file.
 
 export const PM_TODAYS_KEY_MOVES: StaticInboxItem[] = [
-  { label: "SPY", detail: "Closed +0.6% · Broad rally", priority: "Medium", badge: "Index" },
-  { label: "NVDA", detail: "+4.1% into earnings", priority: "High", badge: "Mover" },
-  { label: "XLE", detail: "-1.8% on crude weakness", priority: "Medium", badge: "Sector" },
+  {
+    label: "Review the session's biggest moves",
+    detail: "Open Screeners or Action Center for provider-backed movers. No market results are shown here.",
+    badge: "Workflow",
+  },
+  {
+    label: "Tag what mattered",
+    detail: "Send any symbol you reviewed to AI Analyst, Catalyst, Watchlist, or Journal.",
+    badge: "Workflow",
+  },
 ];
 
 export const PM_TOMORROW_SETUP: StaticInboxItem[] = [
-  { label: "Jobless claims 8:30 AM", detail: "Consensus 220k", priority: "Medium", badge: "Macro" },
-  { label: "MSFT earnings AMC", detail: "Cloud growth in focus", priority: "High", badge: "Earnings" },
-  { label: "Powell speech 1:00 PM", detail: "Watch rate commentary", priority: "High", badge: "Fed" },
+  {
+    label: "Check the next session's scheduled events",
+    detail: "Use Catalyst and the earnings section above for dated, provider-supplied events.",
+    badge: "Workflow",
+  },
+  {
+    label: "Shortlist the symbols you'll watch",
+    detail: "Add candidates to your Watchlist so they're ready before the next open.",
+    badge: "Workflow",
+  },
 ];
 
 export const PM_AFTER_HOURS_WATCH: StaticInboxItem[] = [
-  { label: "META", detail: "Guidance call at 5:00 PM", priority: "High", badge: "Watch" },
-  { label: "AMZN", detail: "AWS revenue watch", priority: "Medium", badge: "Earnings" },
-  { label: "SNAP", detail: "Ad market read-through", priority: "Low", badge: "Watch" },
+  {
+    label: "Follow up on after-hours reporters",
+    detail: "Confirm reported results in Catalyst once the provider publishes them.",
+    badge: "Workflow",
+  },
+  {
+    label: "Write down the plan, not the outcome",
+    detail: "Log your reasoning in Stock Journal while the session is still fresh.",
+    badge: "Workflow",
+  },
 ];
 
 export interface AIBriefConfig {
@@ -174,12 +198,14 @@ export const PM_INBOX_CONFIG = {
   recapSubtitle: "End-of-day review and planning",
   catalystOutcomesHeading: "Catalyst Outcomes · Preview Signals",
   catalystOutcomesSubtitle: "Static preview — continue the workflow in the Catalyst module",
-  earningsHeading: "After-Close Earnings",
-  keyMovesHeading: "Today's Key Moves",
-  keyMovesEmpty: "No standout moves today.",
-  tomorrowSetupHeading: "Tomorrow's Setup",
-  tomorrowSetupEmpty: "No scheduled catalysts for tomorrow.",
-  afterHoursHeading: "After-Hours Watch",
-  afterHoursEmpty: "No after-hours events flagged.",
+  earningsHeading: "Upcoming After-Close Earnings",
+  keyMovesHeading: "Session Review Workflow",
+  keyMovesEmpty: "No workflow steps configured.",
+  tomorrowSetupHeading: "Next-Session Preparation Workflow",
+  tomorrowSetupEmpty: "No workflow steps configured.",
+  afterHoursHeading: "After-Hours Follow-Up Workflow",
+  afterHoursEmpty: "No workflow steps configured.",
+  previewDisclosure:
+    "Workflow guidance only — no provider-backed market results are displayed in this section.",
   newsHeading: "Market Headlines",
 };
