@@ -107,31 +107,39 @@ export default function MarketTicker() {
   };
 
   return (
-    <div className="w-full bg-surface-card border-b border-border h-[36px] overflow-hidden flex items-center">
-      {/* width controlled here — adjust px / max-w if alignment needs tuning */}
-      <div className="w-full px-4 overflow-hidden">
-        <style>{`
-          @keyframes hf-ticker-scroll {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-          .hf-ticker-scroll {
-            display: inline-flex;
-            white-space: nowrap;
-            animation: hf-ticker-scroll 60s linear infinite;
-            will-change: transform;
-          }
-          .hf-ticker-scroll:hover { animation-play-state: paused; }
-        `}</style>
-        <div className="hf-ticker-scroll">
-          <div className="inline-flex items-center">
-            {rows.map((r, i) => renderItem(r, i))}
-          </div>
-          <div className="inline-flex items-center" aria-hidden="true">
-            {rows.map((r, i) => renderItem(r, i + rows.length))}
+    <div className="w-full border-b border-border">
+      <div className="w-full bg-surface-card h-[36px] overflow-hidden flex items-center">
+        {/* width controlled here — adjust px / max-w if alignment needs tuning */}
+        <div className="w-full px-4 overflow-hidden">
+          <style>{`
+            @keyframes hf-ticker-scroll {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+            .hf-ticker-scroll {
+              display: inline-flex;
+              white-space: nowrap;
+              animation: hf-ticker-scroll 60s linear infinite;
+              will-change: transform;
+            }
+            .hf-ticker-scroll:hover { animation-play-state: paused; }
+          `}</style>
+          <div className="hf-ticker-scroll">
+            <div className="inline-flex items-center">
+              {rows.map((r, i) => renderItem(r, i))}
+            </div>
+            <div className="inline-flex items-center" aria-hidden="true">
+              {rows.map((r, i) => renderItem(r, i + rows.length))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
+      <p
+        className="w-full bg-surface-card px-4 py-1 text-[0.6875rem] leading-tight text-muted-foreground break-words"
+        aria-label={freshness}
+      >
+        {freshness}
+      </p>
+    </div>​
   );
 }
