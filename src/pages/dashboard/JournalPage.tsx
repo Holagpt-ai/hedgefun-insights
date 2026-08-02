@@ -10,11 +10,8 @@ import TradeTable, { type Trade } from "@/components/journal/TradeTable";
 import TradeDrawer from "@/components/journal/TradeDrawer";
 import JournalAIPanel from "@/components/journal/JournalAIPanel";
 import { hasProAccess } from "@/lib/entitlement";
+import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 
-function normalizeSymbol(raw: string | null): string {
-  if (!raw) return "";
-  return raw.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "");
-}
 
 export default function JournalPage() {
   const { user, profile } = useAuth();
