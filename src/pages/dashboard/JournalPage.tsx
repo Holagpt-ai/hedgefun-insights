@@ -10,11 +10,8 @@ import TradeTable, { type Trade } from "@/components/journal/TradeTable";
 import TradeDrawer from "@/components/journal/TradeDrawer";
 import JournalAIPanel from "@/components/journal/JournalAIPanel";
 import { hasProAccess } from "@/lib/entitlement";
+import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 
-function normalizeSymbol(raw: string | null): string {
-  if (!raw) return "";
-  return raw.trim().toUpperCase().replace(/[^A-Z0-9.\-]/g, "");
-}
 
 export default function JournalPage() {
   const { user, profile } = useAuth();
@@ -28,15 +25,19 @@ export default function JournalPage() {
   const isPro = hasProAccess(profile?.plan);
 
   useEffect(() => {
-    const sym = normalizeSymbol(searchParams.get("symbol"));
+    const raw = searchParams.get("symbol");
+    if (raw === null) return;
+    const sym = normalizeHandoffSymbol(raw);
     if (sym) {
       setEditingTrade(null);
       setPrefillSymbol(sym);
       setDrawerOpen(true);
-      setSearchParams({}, { replace: true });
     }
+    // Always clear the consumed parameter, valid or not.
+    setSearchParams({}, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
 
   if (!isPro) {
