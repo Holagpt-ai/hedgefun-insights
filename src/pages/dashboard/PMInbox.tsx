@@ -182,9 +182,6 @@ function StaticItemCard({
     </div>
   );
 }
-    </div>
-  );
-}
 
 export default function PMInbox() {
   const { profile } = useAuth();
