@@ -140,6 +140,6 @@ export default function MarketTicker() {
       >
         {freshness}
       </p>
-    </div>​
+    </div>
   );
 }
