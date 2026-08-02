@@ -268,7 +268,8 @@ export default function PMInbox() {
               title="After-Hours Preview"
               subtitle={`See how ${BRAND.name} turns today's market action into tomorrow's trading plan.`}
             />
-            <SampleChip label="Preview data" />
+            <WorkflowDisclosure />
+            <SampleChip label="Workflow guidance" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {PM_TOMORROW_SETUP.slice(0, 4).map((item) => (
                 <StaticItemCard key={item.label} item={item} />
@@ -299,7 +300,8 @@ export default function PMInbox() {
               title={PM_INBOX_CONFIG.tomorrowSetupHeading}
               subtitle="A taste of what a full Pro After-Hours workspace surfaces."
             />
-            <SampleChip label="Preview data" />
+            <WorkflowDisclosure />
+            <SampleChip label="Workflow guidance" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {PM_TOMORROW_SETUP.slice(0, 4).map((item) => (
                 <StaticItemCard key={item.label} item={item} />
@@ -309,7 +311,8 @@ export default function PMInbox() {
 
           <section className="flex flex-col gap-3">
             <SectionHeader title={PM_INBOX_CONFIG.afterHoursHeading} />
-            <SampleChip label="Preview data" />
+            <WorkflowDisclosure />
+            <SampleChip label="Workflow guidance" />
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {PM_AFTER_HOURS_WATCH.slice(0, 3).map((item) => (
                 <StaticItemCard key={item.label} item={item} />
