@@ -111,8 +111,6 @@ function CatalystCard({ pill, locked }: { pill: CatalystPill; locked?: boolean }
   );
 }
 
-const TICKER_RE = /^[A-Z]{1,6}(?:[.\-][A-Z]{1,3})?$/;
-
 function StaticItemCard({
   item,
   enableSymbolActions = false,
@@ -122,11 +120,13 @@ function StaticItemCard({
 }) {
   const navigate = useNavigate();
   const raw = item.label.trim();
-  const symbol = raw.toUpperCase();
-  const isTicker =
-    enableSymbolActions && raw === symbol && !/\s/.test(raw) && TICKER_RE.test(symbol);
+  const normalized = enableSymbolActions && !/\s/.test(raw) ? normalizeHandoffSymbol(raw) : null;
+  const symbol = normalized ?? "";
+  const isTicker = normalized !== null;
 
   const encoded = isTicker ? encodeURIComponent(symbol) : "";
+  const btn =
+    "inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors";
 
   return (
     <div className={`rounded-xl border bg-card p-3 flex flex-col gap-1 ${priorityBorder(item.priority)}`}>
@@ -146,7 +146,7 @@ function StaticItemCard({
             onClick={() => navigate(`/dashboard/ai?symbol=${encoded}`)}
             aria-label={`Research ${symbol} in AI Analyst`}
             title={`Research ${symbol} in AI Analyst`}
-            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors"
+            className={btn}
           >
             <Sparkles className="h-3.5 w-3.5" />
           </button>
@@ -155,7 +155,7 @@ function StaticItemCard({
             onClick={() => navigate(`/dashboard/catalyst?symbol=${encoded}`)}
             aria-label={`Open ${symbol} in Catalyst`}
             title={`Open ${symbol} in Catalyst`}
-            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors"
+            className={btn}
           >
             <Newspaper className="h-3.5 w-3.5" />
           </button>
@@ -164,12 +164,24 @@ function StaticItemCard({
             onClick={() => navigate(`/dashboard/journal?symbol=${encoded}`)}
             aria-label={`Log ${symbol} in Journal`}
             title={`Log ${symbol} in Journal`}
-            className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors"
+            className={btn}
           >
             <BookOpen className="h-3.5 w-3.5" />
           </button>
+          <button
+            type="button"
+            onClick={() => navigate(`/dashboard/watchlist?symbol=${encoded}`)}
+            aria-label={`Open ${symbol} in Watchlist`}
+            title={`Open ${symbol} in Watchlist`}
+            className={btn}
+          >
+            <Star className="h-3.5 w-3.5" />
+          </button>
         </div>
       )}
+    </div>
+  );
+}
     </div>
   );
 }
