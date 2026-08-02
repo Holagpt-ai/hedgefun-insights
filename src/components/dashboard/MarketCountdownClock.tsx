@@ -1,59 +1,8 @@
 import { useEffect, useState } from "react";
-import { MARKET_SESSIONS, MarketSession, DotColor } from "@/config/inbox.config";
+import { resolveMarketClock, type MarketClockState } from "@/lib/market-calendar";
 
-interface ClockState {
-  label: string;
-  dot: DotColor;
-  countdown: string;
-  subLabel: string;
-  etTimeStr: string;
-}
-
-function pad(n: number): string {
-  return n < 10 ? "0" + n : String(n);
-}
-
-function getETDate(): Date {
-  return new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
-}
-
-function findActiveSession(totalMins: number): MarketSession {
-  for (const sess of MARKET_SESSIONS) {
-    if (
-      sess.rangeStart !== null &&
-      sess.rangeEnd !== null &&
-      totalMins >= sess.rangeStart &&
-      totalMins <= sess.rangeEnd
-    ) {
-      return sess;
-    }
-  }
-  return MARKET_SESSIONS[MARKET_SESSIONS.length - 1];
-}
-
-function computeClockState(): ClockState {
-  const et = getETDate();
-  const h = et.getHours();
-  const m = et.getMinutes();
-  const s = et.getSeconds();
-  const totalMins = h * 60 + m;
-  const etTimeStr = `${pad(h)}:${pad(m)}:${pad(s)}`;
-
-  const active = findActiveSession(totalMins);
-
-  let countdown = "--:--:--";
-  if (active.countdownTargetMins !== null) {
-    const totalSecs = Math.max(
-      (active.countdownTargetMins - totalMins) * 60 - s,
-      0
-    );
-    const dh = Math.floor(totalSecs / 3600);
-    const dm = Math.floor((totalSecs % 3600) / 60);
-    const ds = totalSecs % 60;
-    countdown = `${pad(dh)}:${pad(dm)}:${pad(ds)}`;
-  }
-
-  return { label: active.label, dot: active.dot, countdown, subLabel: active.subLabel, etTimeStr };
+function computeClockState(): MarketClockState {
+  return resolveMarketClock(new Date());
 }
 
 export function MarketCountdownClock() {
