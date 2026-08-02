@@ -377,7 +377,8 @@ export default function PMInbox() {
           {/* After-Hours Watch */}
           <section className="flex flex-col gap-3">
             <SectionHeader title={PM_INBOX_CONFIG.afterHoursHeading} />
-            <SampleChip />
+            <WorkflowDisclosure />
+            <SampleChip label="Workflow guidance" />
             {PM_AFTER_HOURS_WATCH.length === 0 ? (
               <div className="rounded-xl border bg-card p-4 text-xs text-muted-foreground">
                 {PM_INBOX_CONFIG.afterHoursEmpty}
