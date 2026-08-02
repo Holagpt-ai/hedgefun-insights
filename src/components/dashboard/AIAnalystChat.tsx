@@ -275,6 +275,11 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     presetDraftRef.current = "";
     setPromptKept(false);
     setSelectedWorkflowId(DEFAULT_ANALYST_WORKFLOW_ID);
+    textareaRef.current?.focus();
+    toast({
+      title: "New analysis ready",
+      description: "Choose a workflow or enter your request.",
+    });
   }, [
     cancelActiveRequest,
     commitMessages,
@@ -489,10 +494,19 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     }
   }, [user]);
 
+  const resolveSubmissionPrompt = useCallback(
+    (content: string) => {
+      if (content.trim()) return content;
+      if (!attachmentRef.current) return "";
+      return getAnalystWorkflow(selectedWorkflowId).buildPrompt(activeSymbolRef.current);
+    },
+    [selectedWorkflowId]
+  );
+
   const sendMessage = useCallback(
     async (content: string) => {
-      const trimmed = content.trim();
-      if (!trimmed || inFlightRef.current) return;
+      const effectivePrompt = resolveSubmissionPrompt(content);
+      if (!effectivePrompt.trim() || inFlightRef.current) return;
 
       const requestId = ++requestIdRef.current;
       const controller = new AbortController();
@@ -502,12 +516,12 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       // A superseded or unmounted request may no longer write to the screen.
       const isCurrent = () => requestIdRef.current === requestId && !unmountedRef.current;
 
-      commitMessages([...messagesRef.current, { role: "user", content: trimmed }]);
+      commitMessages([...messagesRef.current, { role: "user", content: effectivePrompt }]);
       setInput("");
       setPromptKept(false);
       presetDraftRef.current = "";
       setStreaming(true);
-      lastAttemptedPromptRef.current = trimmed;
+      lastAttemptedPromptRef.current = effectivePrompt;
 
       // Rotate friendly status lines while we wait for the first delta
       let statusIdx = 0;
@@ -599,6 +613,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       fetchDashboardContext,
       applyConversationId,
       applyAttachment,
+      resolveSubmissionPrompt,
     ]
   );
 
@@ -766,6 +781,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   ];
 
   const composerDisabled = streaming || limitReached;
+  const hasSubmissionInput = input.trim().length > 0 || attachment !== null;
 
   return (
     <div className="relative mx-auto w-full min-w-0 max-w-5xl px-3 py-3 sm:px-5 sm:py-4">
@@ -1107,11 +1123,11 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
             <button
               type="button"
               onClick={() => sendMessage(input)}
-              disabled={composerDisabled || !input.trim()}
+              disabled={composerDisabled || !hasSubmissionInput}
               className={cn(
                 "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg bg-accent-blue px-4 text-sm font-semibold text-primary-foreground",
                 "transition-opacity duration-200 hover:opacity-90",
-                (composerDisabled || !input.trim()) && "cursor-not-allowed opacity-50"
+                (composerDisabled || !hasSubmissionInput) && "cursor-not-allowed opacity-50"
               )}
             >
               {streaming ? (

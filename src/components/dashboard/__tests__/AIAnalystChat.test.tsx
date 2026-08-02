@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { AIAnalystChat } from "@/components/dashboard/AIAnalystChat";
 import { ANALYST_WORKFLOWS } from "@/config/ai-analyst-presets.config";
 import { streamChat } from "@/lib/chat";
+import { toast } from "@/hooks/use-toast";
 
 // ── Module boundaries stubbed so the tests exercise the analysis lifecycle only ──
 
@@ -55,6 +56,7 @@ vi.mock("@/integrations/supabase/client", () => ({
 
 type StreamChatArgs = Parameters<typeof streamChat>[0];
 const streamChatMock = vi.mocked(streamChat);
+const toastMock = vi.mocked(toast);
 
 /** Keeps the component mounted while the route query string changes. */
 function Harness({
@@ -118,6 +120,16 @@ const textarea = () =>
 
 const workflowButton = (name: RegExp) => screen.getByRole("button", { name });
 
+const analyzeButton = () => screen.getByRole("button", { name: /^analyze$/i });
+
+const fileInput = () => document.querySelector('input[type="file"]') as HTMLInputElement;
+
+async function attachFile(file = new File(["chart"], "chart.png", { type: "image/png" })) {
+  fireEvent.change(fileInput(), { target: { files: [file] } });
+  await waitFor(() => expect(screen.getByText(file.name)).toBeInTheDocument());
+  return file;
+}
+
 async function typeAndSend(text: string) {
   fireEvent.change(textarea(), { target: { value: text } });
   await act(async () => {
@@ -142,6 +154,7 @@ function abortError() {
 
 beforeEach(() => {
   streamChatMock.mockReset();
+  toastMock.mockReset();
   sessionStorage.clear();
   // jsdom implements neither of these; the component only uses them cosmetically.
   if (!Element.prototype.scrollIntoView) {
@@ -449,6 +462,155 @@ describe("AI Analyst — trading workflows", () => {
   });
 });
 
+describe("AI Analyst — attachment submission", () => {
+  it("enables Analyze for a valid attachment without auto-submitting", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+
+    expect(analyzeButton()).toBeDisabled();
+    await attachFile();
+
+    expect(analyzeButton()).toBeEnabled();
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("submits an attachment exactly once with the selected workflow prompt", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+    const file = await attachFile();
+    const quickScan = ANALYST_WORKFLOWS.find((workflow) => workflow.name === "Quick Scan")!;
+    const expectedPrompt = quickScan.buildPrompt(null);
+
+    await act(async () => {
+      fireEvent.click(analyzeButton());
+    });
+    await flush();
+
+    expect(streamChatMock).toHaveBeenCalledTimes(1);
+    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
+    expect(sent.messages[sent.messages.length - 1].content).toBe(expectedPrompt);
+    expect(screen.getByText(expectedPrompt)).toBeInTheDocument();
+    expect(sent.attachment).toMatchObject({
+      type: "image",
+      mediaType: file.type,
+      fileName: file.name,
+      data: expect.any(String),
+    });
+  });
+
+  it("uses the existing Journal Review prompt for attachment-only analysis", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+    await act(async () => {
+      fireEvent.click(workflowButton(/journal review/i));
+    });
+    fireEvent.change(textarea(), { target: { value: "" } });
+    await attachFile(new File(["journal"], "journal.pdf", { type: "application/pdf" }));
+    const journal = ANALYST_WORKFLOWS.find((workflow) => workflow.name === "Journal Review")!;
+
+    await act(async () => {
+      fireEvent.click(analyzeButton());
+    });
+    await flush();
+
+    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
+    expect(sent.messages[sent.messages.length - 1].content).toBe(journal.buildPrompt(null));
+  });
+
+  it("retains the active normalized ticker in the attachment fallback prompt", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat({ url: "/dashboard/ai?symbol=aaa", isPro: false });
+    await flush();
+    fireEvent.change(textarea(), { target: { value: "" } });
+    await attachFile();
+    const quickScan = ANALYST_WORKFLOWS.find((workflow) => workflow.name === "Quick Scan")!;
+
+    await act(async () => {
+      fireEvent.keyDown(textarea(), { key: "Enter", shiftKey: false });
+    });
+    await flush();
+
+    expect(streamChatMock).toHaveBeenCalledTimes(1);
+    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
+    expect(sent.messages[sent.messages.length - 1].content).toBe(quickScan.buildPrompt("AAA"));
+  });
+
+  it("gives manually entered text precedence over the workflow fallback", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+    await attachFile();
+    fireEvent.change(textarea(), { target: { value: "  Review only my stated setup  " } });
+
+    await act(async () => {
+      fireEvent.click(analyzeButton());
+    });
+    await flush();
+
+    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
+    expect(sent.messages[sent.messages.length - 1].content).toBe(
+      "  Review only my stated setup  ",
+    );
+  });
+
+  it("disables Analyze after the only attachment is removed", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+    await attachFile();
+    expect(analyzeButton()).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /remove attachment/i }));
+
+    expect(analyzeButton()).toBeDisabled();
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("continues to reject invalid and oversized files", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+    const invalid = new File(["text"], "notes.txt", { type: "text/plain" });
+    fireEvent.change(fileInput(), { target: { files: [invalid] } });
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "Unsupported file type", variant: "destructive" }),
+    );
+    expect(analyzeButton()).toBeDisabled();
+
+    const oversized = new File(["x"], "large.pdf", { type: "application/pdf" });
+    Object.defineProperty(oversized, "size", { value: 5 * 1024 * 1024 + 1 });
+    fireEvent.change(fileInput(), { target: { files: [oversized] } });
+
+    expect(toastMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: "File too large", variant: "destructive" }),
+    );
+    expect(screen.queryByText("notes.txt")).not.toBeInTheDocument();
+    expect(screen.queryByText("large.pdf")).not.toBeInTheDocument();
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("preserves an attachment after failure and clears it on successful completion", async () => {
+    streamChatMock.mockRejectedValueOnce(new Error("failed"));
+    renderChat();
+    await attachFile();
+
+    await act(async () => {
+      fireEvent.click(analyzeButton());
+    });
+    await flush();
+    expect(screen.getByText("chart.png")).toBeInTheDocument();
+
+    streamChatMock.mockImplementationOnce(async (args) => {
+      args.onDone?.();
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^retry$/i }));
+    });
+    await flush();
+
+    expect(streamChatMock).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("chart.png")).not.toBeInTheDocument();
+  });
+});
+
 describe("AI Analyst — simplified layout", () => {
   it("uses the supplied registered-user display name", () => {
     streamChatMock.mockResolvedValue(undefined);
@@ -523,6 +685,94 @@ describe("AI Analyst — simplified layout", () => {
       fireEvent.keyDown(window, { key: "Escape" });
     });
     expect(screen.queryByRole("dialog", { name: /analysis history/i })).not.toBeInTheDocument();
+  });
+});
+
+describe("AI Analyst — New Analysis reset", () => {
+  it("fully resets approved workspace state without changing analysis depth", async () => {
+    streamChatMock
+      .mockImplementationOnce(async (args) => {
+        args.onConversationId?.("conversation-1");
+      })
+      .mockRejectedValueOnce(new Error("failed"));
+    renderChat({ url: "/dashboard/ai?symbol=aaa", isPro: true, plan: "pro" });
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /standard — balanced trading analysis/i }),
+    );
+    fireEvent.click(workflowButton(/journal review/i));
+    fireEvent.change(textarea(), { target: { value: "Review this journal entry" } });
+    await attachFile(new File(["journal"], "journal.pdf", { type: "application/pdf" }));
+    fireEvent.click(analyzeButton());
+    await flush();
+    expect(await screen.findByRole("button", { name: /^retry$/i })).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^history$/i }));
+      await Promise.resolve();
+    });
+    expect(screen.getByRole("dialog", { name: /analysis history/i })).toBeInTheDocument();
+    const callsBeforeReset = streamChatMock.mock.calls.length;
+
+    fireEvent.click(screen.getByRole("button", { name: /^new analysis$/i }));
+
+    expect(streamChatMock).toHaveBeenCalledTimes(callsBeforeReset);
+    expect(screen.queryByRole("dialog", { name: /analysis history/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Ticker · AAA/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Review this journal entry")).not.toBeInTheDocument();
+    expect(screen.queryByText("journal.pdf")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^retry$/i })).not.toBeInTheDocument();
+    expect(textarea()).toHaveValue("");
+    expect(textarea()).toHaveFocus();
+    expect(workflowButton(/quick scan/i)).toHaveAttribute("aria-pressed", "true");
+    expect(
+      screen.getByRole("button", { name: /standard — balanced trading analysis/i }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(toastMock).toHaveBeenCalledWith({
+      title: "New analysis ready",
+      description: "Choose a workflow or enter your request.",
+    });
+  });
+
+  it("focuses the textarea and confirms readiness from an already-clean workspace", () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+
+    fireEvent.click(screen.getByRole("button", { name: /^new analysis$/i }));
+
+    expect(textarea()).toHaveFocus();
+    expect(toastMock).toHaveBeenCalledWith({
+      title: "New analysis ready",
+      description: "Choose a workflow or enter your request.",
+    });
+    expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("History Start new uses the same reset path and closes the drawer", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+    renderChat();
+    fireEvent.change(textarea(), { target: { value: "Unsaved request" } });
+    await attachFile();
+    fireEvent.click(workflowButton(/trade thesis/i));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /^history$/i }));
+      await Promise.resolve();
+    });
+    const dialog = screen.getByRole("dialog", { name: /analysis history/i });
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /^start new$/i }));
+
+    expect(screen.queryByRole("dialog", { name: /analysis history/i })).not.toBeInTheDocument();
+    expect(textarea()).toHaveValue("");
+    expect(textarea()).toHaveFocus();
+    expect(screen.queryByText("chart.png")).not.toBeInTheDocument();
+    expect(workflowButton(/quick scan/i)).toHaveAttribute("aria-pressed", "true");
+    expect(toastMock).toHaveBeenCalledWith({
+      title: "New analysis ready",
+      description: "Choose a workflow or enter your request.",
+    });
+    expect(streamChatMock).not.toHaveBeenCalled();
   });
 });
 
