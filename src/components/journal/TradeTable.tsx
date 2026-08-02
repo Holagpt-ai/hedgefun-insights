@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import EmptyJournalState from "@/components/journal/EmptyJournalState";
 import SetupTagBadge from "@/components/journal/SetupTagBadge";
+import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
+
 
 
 export type Trade = {
