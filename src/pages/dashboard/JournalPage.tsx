@@ -25,15 +25,19 @@ export default function JournalPage() {
   const isPro = hasProAccess(profile?.plan);
 
   useEffect(() => {
-    const sym = normalizeSymbol(searchParams.get("symbol"));
+    const raw = searchParams.get("symbol");
+    if (raw === null) return;
+    const sym = normalizeHandoffSymbol(raw);
     if (sym) {
       setEditingTrade(null);
       setPrefillSymbol(sym);
       setDrawerOpen(true);
-      setSearchParams({}, { replace: true });
     }
+    // Always clear the consumed parameter, valid or not.
+    setSearchParams({}, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
 
   if (!isPro) {
