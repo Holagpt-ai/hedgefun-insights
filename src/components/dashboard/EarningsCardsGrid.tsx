@@ -17,6 +17,58 @@ interface EarningsCardsGridProps {
   briefType: "am" | "pm";
 }
 
+/**
+ * Absolute, calendar-anchored label for an earnings card.
+ *
+ * `report_date` is a date-only U.S. market calendar value ("YYYY-MM-DD"); it is
+ * formatted via UTC so the browser timezone can never shift the day. The data
+ * contract exposes only a session (`time_of_day`), never an exact clock time,
+ * so no specific event time is invented.
+ *
+ * Returns null for missing/invalid dates so the caller can render an honest
+ * unavailable state instead of a guessed date.
+ */
+export function formatEarningsEventLabel(
+  reportDate: string | null | undefined,
+  timeOfDay: EarningsEvent["time_of_day"] | null | undefined,
+): string | null {
+  if (typeof reportDate !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(reportDate.trim());
+  if (!match) return null;
+
+  const [, y, m, d] = match;
+  const year = Number(y);
+  const month = Number(m);
+  const day = Number(d);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  if (
+    Number.isNaN(utc.getTime()) ||
+    utc.getUTCFullYear() !== year ||
+    utc.getUTCMonth() !== month - 1 ||
+    utc.getUTCDate() !== day
+  ) {
+    return null;
+  }
+
+  const datePart = new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(utc);
+
+  const sessionPart =
+    timeOfDay === "before_open"
+      ? "Before open ET"
+      : timeOfDay === "after_close"
+        ? "After close ET"
+        : timeOfDay === "during"
+          ? "During market hours ET"
+          : "Session TBD ET";
+
+  return `${datePart} · ${sessionPart}`;
+}
+
 export function EarningsCardsGrid({ briefType }: EarningsCardsGridProps) {
   const { user } = useAuth();
   const [earnings, setEarnings] = useState<EarningsEvent[]>([]);
@@ -87,14 +139,9 @@ export function EarningsCardsGrid({ briefType }: EarningsCardsGridProps) {
     };
   };
 
-  const getTimeLabel = (event: EarningsEvent) => {
-    const [year, month, day] = event.report_date.split("-");
-    const dateObj = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-    const isToday =
-      dateObj.toISOString().split("T")[0] === new Date().toISOString().split("T")[0];
-    if (briefType === "am") return isToday ? "Today 9:30am" : "Tomorrow 9:30am";
-    return isToday ? "Today 4:00pm" : "Tomorrow 4:00pm";
-  };
+  const getTimeLabel = (event: EarningsEvent) =>
+    formatEarningsEventLabel(event.report_date, event.time_of_day);
+
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
