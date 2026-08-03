@@ -1,14 +1,25 @@
+import { useState } from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { act, render, screen, waitFor, fireEvent, cleanup, within } from "@testing-library/react";
-import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import { AIAnalystChat } from "@/components/dashboard/AIAnalystChat";
 import { ANALYST_WORKFLOWS } from "@/config/ai-analyst-presets.config";
-import { streamChat } from "@/lib/chat";
+import {
+  streamChat,
+  CHAT_REQUEST_TIMEOUT_MS,
+  CHAT_REQUEST_TIMEOUT_ERROR,
+} from "@/lib/chat";
 import { toast } from "@/hooks/use-toast";
 
 // ── Module boundaries stubbed so the tests exercise the analysis lifecycle only ──
 
-vi.mock("@/lib/chat", () => ({ streamChat: vi.fn() }));
+vi.mock("@/lib/chat", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/chat")>();
+  return {
+    ...actual,
+    streamChat: vi.fn(),
+  };
+});
 
 vi.mock("react-markdown", () => ({
   default: ({ children }: { children?: React.ReactNode }) => <div>{children}</div>,
@@ -16,8 +27,40 @@ vi.mock("react-markdown", () => ({
 
 vi.mock("@/hooks/use-toast", () => ({ toast: vi.fn() }));
 
+type AuthProfile = {
+  full_name: string | null;
+  plan: string | null;
+  email: string | null;
+  avatar_url: string | null;
+  preferred_theme: string | null;
+  subscription_status: string | null;
+  current_period_end: string | null;
+};
+
+function makeProfile(plan: string, fullName: string | null = "Ada Trader"): AuthProfile {
+  return {
+    full_name: fullName,
+    plan,
+    email: null,
+    avatar_url: null,
+    preferred_theme: null,
+    subscription_status: null,
+    current_period_end: null,
+  };
+}
+
+let authValue: {
+  user: { id: string } | null;
+  loading: boolean;
+  profile: AuthProfile | null;
+} = {
+  user: { id: "user-1" },
+  loading: false,
+  profile: makeProfile("pro"),
+};
+
 vi.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { id: "user-1" } }),
+  useAuth: () => authValue,
 }));
 
 vi.mock("@/contexts/LanguageContext", () => ({
@@ -81,6 +124,67 @@ function Harness({
   );
 }
 
+/** Observes whether the handoff query is still present (not yet consumed). */
+function SymbolParamProbe() {
+  const [params] = useSearchParams();
+  return <div data-testid="symbol-param">{params.get("symbol") ?? ""}</div>;
+}
+
+/**
+ * Lets a test resolve entitlement after mount (profile null → plan known) while
+ * keeping the same MemoryRouter entry so ?symbol= is not lost.
+ */
+function EntitlementHarness({
+  userName = "Ada Trader",
+  nextUrl = "/dashboard/ai?symbol=BBB",
+}: {
+  userName?: string;
+  nextUrl?: string;
+}) {
+  const navigate = useNavigate();
+  const [isPro, setIsPro] = useState(false);
+  // Bumps even when isPro stays false so Free resolution re-renders after profile arrives.
+  const [, setEntitlementEpoch] = useState(0);
+  const plan = isPro ? "pro" : "free";
+  return (
+    <>
+      <SymbolParamProbe />
+      <button type="button" onClick={() => navigate(nextUrl)}>
+        harness-navigate
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          authValue = {
+            user: { id: "user-1" },
+            loading: false,
+            profile: makeProfile("pro", userName),
+          };
+          setIsPro(true);
+          setEntitlementEpoch((n) => n + 1);
+        }}
+      >
+        resolve-entitlement-pro
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          authValue = {
+            user: { id: "user-1" },
+            loading: false,
+            profile: makeProfile("free", userName),
+          };
+          setIsPro(false);
+          setEntitlementEpoch((n) => n + 1);
+        }}
+      >
+        resolve-entitlement-free
+      </button>
+      <AIAnalystChat isPro={isPro} userPlan={plan} userName={userName} />
+    </>
+  );
+}
+
 function renderChat({
   url = "/dashboard/ai",
   isPro = true,
@@ -94,6 +198,12 @@ function renderChat({
   userName?: string;
   nextUrl?: string;
 } = {}) {
+  const resolvedPlan = plan ?? (isPro ? "pro" : "free");
+  authValue = {
+    user: { id: "user-1" },
+    loading: false,
+    profile: makeProfile(resolvedPlan, userName),
+  };
   return render(
     <MemoryRouter initialEntries={[url]}>
       <Routes>
@@ -102,13 +212,38 @@ function renderChat({
           element={
             <Harness
               isPro={isPro}
-              plan={plan ?? (isPro ? "pro" : "free")}
+              plan={resolvedPlan}
               userName={userName}
               nextUrl={nextUrl}
             />
           }
         />
         {/* Provider-neutral upgrade destination, so gated clicks are observable. */}
+        <Route path="/pro" element={<div>upgrade-route</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+function renderChatPendingEntitlement({
+  url = "/dashboard/ai?symbol=AAA",
+  userName = "Ada Trader",
+}: {
+  url?: string;
+  userName?: string;
+} = {}) {
+  authValue = {
+    user: { id: "user-1" },
+    loading: false,
+    profile: null,
+  };
+  return render(
+    <MemoryRouter initialEntries={[url]}>
+      <Routes>
+        <Route
+          path="/dashboard/ai"
+          element={<EntitlementHarness userName={userName} />}
+        />
         <Route path="/pro" element={<div>upgrade-route</div>} />
       </Routes>
     </MemoryRouter>,
@@ -156,6 +291,11 @@ beforeEach(() => {
   streamChatMock.mockReset();
   toastMock.mockReset();
   sessionStorage.clear();
+  authValue = {
+    user: { id: "user-1" },
+    loading: false,
+    profile: makeProfile("pro"),
+  };
   // jsdom implements neither of these; the component only uses them cosmetically.
   if (!Element.prototype.scrollIntoView) {
     Element.prototype.scrollIntoView = () => {};
@@ -253,6 +393,115 @@ describe("AI Analyst — request lifecycle", () => {
     expect(errorSpy).not.toHaveBeenCalled();
     errorSpy.mockRestore();
   });
+
+  it("timeout clears the analyzing state when REQUEST_TIMEOUT is surfaced", async () => {
+    streamChatMock.mockImplementation(async (args) => {
+      args.onError?.(CHAT_REQUEST_TIMEOUT_ERROR);
+    });
+
+    renderChat();
+    await typeAndSend("Hung analysis");
+    await flush();
+
+    expect(await screen.findByText(/analysis took too long/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeEnabled();
+    expect(textarea()).not.toBeDisabled();
+    expect(screen.queryByText(/analyzing available stocksist context/i)).not.toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/REQUEST_TIMEOUT/);
+  });
+
+  it("manual cancellation still works independently of timeout", async () => {
+    let rejectStream: (reason: unknown) => void = () => {};
+    streamChatMock.mockImplementation(
+      () => new Promise((_resolve, reject) => { rejectStream = reject; }),
+    );
+
+    renderChat();
+    await typeAndSend("Cancel me");
+    await flush();
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /new analysis/i }));
+    });
+    await act(async () => {
+      rejectStream(abortError());
+      await Promise.resolve();
+    });
+
+    expect(screen.queryByText(/took too long/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+    expect(textarea()).not.toBeDisabled();
+  });
+});
+
+describe("streamChat — client timeout", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("aborts a never-settling request after CHAT_REQUEST_TIMEOUT_MS", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/chat")>("@/lib/chat");
+    vi.useFakeTimers();
+
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        signal.addEventListener("abort", () => {
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const onError = vi.fn();
+    const onDone = vi.fn();
+    const pending = actual.streamChat({
+      messages: [{ role: "user", content: "hi" }],
+      sessionToken: "session",
+      onDelta: () => {},
+      onDone,
+      onError,
+    });
+
+    await vi.advanceTimersByTimeAsync(CHAT_REQUEST_TIMEOUT_MS);
+    await pending;
+
+    expect(onError).toHaveBeenCalledWith(CHAT_REQUEST_TIMEOUT_ERROR);
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it("caller abort is not reported as REQUEST_TIMEOUT", async () => {
+    const actual = await vi.importActual<typeof import("@/lib/chat")>("@/lib/chat");
+    vi.useFakeTimers();
+
+    const fetchMock = vi.fn((_url: string, init?: RequestInit) => {
+      return new Promise<Response>((_resolve, reject) => {
+        const signal = init?.signal;
+        if (!signal) return;
+        signal.addEventListener("abort", () => {
+          reject(new DOMException("Aborted", "AbortError"));
+        });
+      });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const controller = new AbortController();
+    const onError = vi.fn();
+    const pending = actual.streamChat({
+      messages: [{ role: "user", content: "hi" }],
+      sessionToken: "session",
+      signal: controller.signal,
+      onDelta: () => {},
+      onDone: () => {},
+      onError,
+    });
+
+    controller.abort();
+    await expect(pending).rejects.toMatchObject({ name: "AbortError" });
+    expect(onError).not.toHaveBeenCalledWith(CHAT_REQUEST_TIMEOUT_ERROR);
+  });
 });
 
 describe("AI Analyst — ticker handoff", () => {
@@ -275,6 +524,54 @@ describe("AI Analyst — ticker handoff", () => {
 
     expect(textarea().value).toContain("Analyze AAA");
     expect(streamChatMock).not.toHaveBeenCalled();
+  });
+
+  it("does not consume the symbol or submit while entitlement is unresolved", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+
+    renderChatPendingEntitlement({ url: "/dashboard/ai?symbol=XYZ" });
+    await flush();
+
+    expect(streamChatMock).not.toHaveBeenCalled();
+    expect(textarea().value).toBe("");
+    expect(screen.getByTestId("symbol-param")).toHaveTextContent("XYZ");
+  });
+
+  it("Pro handoff waits for entitlement resolution then submits exactly once", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+
+    renderChatPendingEntitlement({ url: "/dashboard/ai?symbol=XYZ" });
+    await flush();
+    expect(streamChatMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("symbol-param")).toHaveTextContent("XYZ");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /resolve-entitlement-pro/i }));
+    });
+    await flush();
+
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(1));
+    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
+    expect(sent.messages[sent.messages.length - 1].content).toContain("Analyze XYZ");
+    expect(screen.getByTestId("symbol-param")).toHaveTextContent("");
+  });
+
+  it("Free handoff after entitlement resolution prefills without submitting", async () => {
+    streamChatMock.mockResolvedValue(undefined);
+
+    renderChatPendingEntitlement({ url: "/dashboard/ai?symbol=XYZ" });
+    await flush();
+    expect(streamChatMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("symbol-param")).toHaveTextContent("XYZ");
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /resolve-entitlement-free/i }));
+    });
+    await flush();
+
+    expect(textarea().value).toContain("Analyze XYZ");
+    expect(streamChatMock).not.toHaveBeenCalled();
+    expect(screen.getByTestId("symbol-param")).toHaveTextContent("");
   });
 
   it("an invalid symbol never produces an analysis request", async () => {
@@ -929,26 +1226,33 @@ describe("AI Analyst — persistent workflow navigation", () => {
     /^screeners$/i,
     /^my watchlist$/i,
     /^catalyst$/i,
+    /^chart$/i,
     /^action center$/i,
     /^stock journal$/i,
   ];
 
-  it("shows exactly the five approved destinations under Related Tools", () => {
+  it("shows the approved destinations under Related Tools including Chart", () => {
     streamChatMock.mockResolvedValue(undefined);
     renderChat();
 
     const relatedTools = screen.getByRole("navigation", { name: /related tools/i });
     const links = within(relatedTools).getAllByRole("link");
-    expect(links).toHaveLength(5);
+    expect(links).toHaveLength(6);
     expect(links.map((link) => link.textContent)).toEqual([
       "Screeners",
       "My Watchlist",
       "Catalyst",
+      "Chart",
       "Action Center",
       "Stock Journal",
     ]);
     expect(within(relatedTools).queryByRole("button", { name: /new analysis/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /new analysis/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /^chart$/i })).toHaveAttribute("href", "/chart");
+    expect(screen.getByRole("link", { name: /^my watchlist$/i })).toHaveAttribute(
+      "href",
+      "/dashboard/watchlist",
+    );
   });
 
   it("keeps the workflow controls available before and after messages exist", async () => {
@@ -970,6 +1274,41 @@ describe("AI Analyst — persistent workflow navigation", () => {
     expect(screen.getByRole("button", { name: /new analysis/i })).toBeInTheDocument();
   });
 
+  it("keeps Related Tools visible while analyzing, after success, and after failure", async () => {
+    let finish: (() => void) | undefined;
+    streamChatMock.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          finish = resolve;
+        }),
+    );
+
+    renderChat();
+    await typeAndSend("In flight");
+    await flush();
+
+    expect(screen.getByText(/analyzing available stocksist context/i)).toBeInTheDocument();
+    for (const name of destinations) {
+      expect(screen.getByRole("link", { name })).toBeInTheDocument();
+    }
+
+    await act(async () => {
+      finish?.();
+      await Promise.resolve();
+    });
+    for (const name of destinations) {
+      expect(screen.getByRole("link", { name })).toBeInTheDocument();
+    }
+
+    streamChatMock.mockRejectedValueOnce(new Error("nope"));
+    await typeAndSend("Then fail");
+    await flush();
+    expect(await screen.findByText(/something went wrong/i)).toBeInTheDocument();
+    for (const name of destinations) {
+      expect(screen.getByRole("link", { name })).toBeInTheDocument();
+    }
+  });
+
   it("keeps the workflow controls available after a failure", async () => {
     streamChatMock.mockRejectedValue(new Error("nope"));
 
@@ -983,7 +1322,7 @@ describe("AI Analyst — persistent workflow navigation", () => {
     }
   });
 
-  it("Catalyst and Journal keep the normalized active ticker once messages exist", async () => {
+  it("Chart and Watchlist keep the normalized active ticker once messages exist", async () => {
     streamChatMock.mockResolvedValue(undefined);
 
     renderChat({ url: "/dashboard/ai?symbol=aaa", isPro: true });
@@ -998,10 +1337,13 @@ describe("AI Analyst — persistent workflow navigation", () => {
       "href",
       "/dashboard/journal?symbol=AAA",
     );
-    // Destinations that do not consume a ticker keep a bare route.
     expect(screen.getByRole("link", { name: /^my watchlist$/i })).toHaveAttribute(
       "href",
-      "/dashboard/watchlist",
+      "/dashboard/watchlist?symbol=AAA",
+    );
+    expect(screen.getByRole("link", { name: /^chart$/i })).toHaveAttribute(
+      "href",
+      "/chart/AAA",
     );
     expect(screen.getByRole("link", { name: /^action center$/i })).toHaveAttribute(
       "href",

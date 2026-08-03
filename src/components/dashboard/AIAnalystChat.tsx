@@ -21,7 +21,7 @@ import {
   Terminal,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { streamChat, ChatMessage } from "@/lib/chat";
+import { streamChat, ChatMessage, CHAT_REQUEST_TIMEOUT_ERROR } from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -48,6 +48,8 @@ const STREAMING_STATUS_MESSAGES = [
 // Transport failures are surfaced as a single fixed sentence so no URL, header,
 // token, response body, prompt, or provider detail can reach the screen.
 const GENERIC_FAILURE_MESSAGE = "The analysis couldn't be completed. Please try again.";
+
+const TIMEOUT_FAILURE_MESSAGE = "The analysis took too long. Please try again.";
 
 const SIGNUP_PROMPT_MESSAGE = "Sign up for free to get more daily AI queries. No credit card required.";
 
@@ -89,7 +91,10 @@ interface AIAnalystChatProps {
 }
 
 export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps) {
-  const { user } = useAuth();
+  const { user, loading: authLoading, profile } = useAuth();
+  // Session may resolve before the profile/plan row arrives — do not consume
+  // ticker handoffs while Pro vs Free is still unknown.
+  const entitlementPending = authLoading || (user != null && profile == null);
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
@@ -587,11 +592,16 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               appendAssistant(SIGNUP_PROMPT_MESSAGE);
               return;
             }
+            if (code === CHAT_REQUEST_TIMEOUT_ERROR) {
+              appendAssistant(`Error: ${TIMEOUT_FAILURE_MESSAGE}`);
+              return;
+            }
             appendAssistant(`Error: ${GENERIC_FAILURE_MESSAGE}`);
           },
         });
       } catch (err) {
         // An abort is an intentional cancellation, never a failure to report.
+        // Timeouts are surfaced via onError(REQUEST_TIMEOUT), not this path.
         if (!isAbortLike(err)) appendAssistant(`Error: ${GENERIC_FAILURE_MESSAGE}`);
       } finally {
         if (requestIdRef.current === requestId) {
@@ -627,17 +637,24 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       return;
     }
 
+    // Keep ?symbol= / ?prompt= until Pro vs Free is definitive.
+    if (entitlementPending) return;
+
     // Guards against effect rerenders replaying the same handoff. It is not a
     // permanent latch: it is released above once the params are gone.
     const token = `s:${rawSymbol ?? ""}|p:${rawPrompt ?? ""}`;
     if (handoffTokenRef.current === token) return;
+    // Claim before clearing the URL or submitting so Strict Mode / dep churn
+    // cannot double-consume the same handoff.
     handoffTokenRef.current = token;
 
     if (rawSymbol !== null) {
       const symbol = normalizeHandoffSymbol(rawSymbol);
-      setSearchParams({}, { replace: true });
       // Invalid or empty symbols never produce an analysis request.
-      if (!symbol) return;
+      if (!symbol) {
+        setSearchParams({}, { replace: true });
+        return;
+      }
 
       // A different ticker becomes a clean analysis context.
       if (activeSymbolRef.current && activeSymbolRef.current !== symbol) {
@@ -650,6 +667,9 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       setActiveWorkflowSymbol(symbol);
 
       const synthesized = buildSymbolPrompt(symbol);
+
+      // Remove the param only after the handoff is safely claimed.
+      setSearchParams({}, { replace: true });
 
       if (isPro) {
         void sendMessage(synthesized);
@@ -690,6 +710,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     textareaRef.current?.focus();
   }, [
     isPro,
+    entitlementPending,
     searchParams,
     setSearchParams,
     sendMessage,
@@ -770,12 +791,14 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       : ACCESS_TIER_LABELS[normalizedPlan] ?? "Free";
   const activeWorkflow = getAnalystWorkflow(selectedWorkflowId);
 
-  // Catalyst and Journal already consume `?symbol=`; the other destinations do not.
+  // Catalyst, Journal, and Watchlist consume `?symbol=`. Chart uses the canonical
+  // `/chart/:ticker` path (see App.tsx); bare `/chart` when no ticker is active.
   const symbolQuery = activeSymbol ? `?symbol=${encodeURIComponent(activeSymbol)}` : "";
   const workflowLinks = [
     { label: "Screeners", to: "/dashboard/screeners" },
-    { label: "My Watchlist", to: "/dashboard/watchlist" },
+    { label: "My Watchlist", to: `/dashboard/watchlist${symbolQuery}` },
     { label: "Catalyst", to: `/dashboard/catalyst${symbolQuery}` },
+    { label: "Chart", to: activeSymbol ? `/chart/${encodeURIComponent(activeSymbol)}` : "/chart" },
     { label: "Action Center", to: "/dashboard/action-center" },
     { label: "Stock Journal", to: `/dashboard/journal${symbolQuery}` },
   ];

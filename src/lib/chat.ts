@@ -1,6 +1,12 @@
 // Client-side streaming chat helper for HedgeFun AI
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+/** Client-side ceiling for a single streamed analysis request (fetch + SSE body). */
+export const CHAT_REQUEST_TIMEOUT_MS = 90_000;
+
+/** Surfaced via onError when the client timeout fires (not a provider code). */
+export const CHAT_REQUEST_TIMEOUT_ERROR = "REQUEST_TIMEOUT";
+
 export type ChatMessage = { role: "user" | "assistant"; content: string };
 
 export type ChatAttachment = { type: "pdf" | "image"; data: string; mediaType: string; fileName: string };
@@ -32,80 +38,110 @@ export async function streamChat({
   onError?: (error: string) => void;
   onConversationId?: (id: string) => void;
 }) {
-  const resp = await fetch(CHAT_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
-    },
-    body: JSON.stringify({ messages, sessionToken, model, attachment, systemContext, conversationId }),
-    signal,
-  });
+  const timeoutController = new AbortController();
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    timeoutController.abort();
+  }, CHAT_REQUEST_TIMEOUT_MS);
 
-  if (!resp.ok) {
-    const errorData = await resp.json().catch(() => ({ error: "Chat failed" }));
-    onError?.(errorData.error || "Chat failed");
-    return;
+  const forwardCallerAbort = () => {
+    timeoutController.abort();
+  };
+
+  if (signal) {
+    if (signal.aborted) {
+      clearTimeout(timeoutId);
+      throw new DOMException("Aborted", "AbortError");
+    }
+    signal.addEventListener("abort", forwardCallerAbort);
   }
-
-  // Tier-gated errors (DAILY_LIMIT_REACHED, SIGNUP_PROMPT) now come back as HTTP 200
-  // with a JSON body instead of an SSE stream. Detect by content-type and surface via onError.
-  const contentType = resp.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    const errorData = await resp.json().catch(() => ({ error: "Chat failed" }));
-    onError?.(errorData.error || "Chat failed");
-    return;
-  }
-
-  if (!resp.body) {
-    onError?.("No response body");
-    return;
-  }
-
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let textBuffer = "";
 
   try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      textBuffer += decoder.decode(value, { stream: true });
+    const resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages, sessionToken, model, attachment, systemContext, conversationId }),
+      signal: timeoutController.signal,
+    });
 
-      let newlineIndex: number;
-      while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
-        let line = textBuffer.slice(0, newlineIndex);
-        textBuffer = textBuffer.slice(newlineIndex + 1);
-
-        if (line.endsWith("\r")) line = line.slice(0, -1);
-        if (line.startsWith(":") || line.trim() === "") continue;
-        if (!line.startsWith("data: ")) continue;
-
-        const jsonStr = line.slice(6).trim();
-        if (jsonStr === "[DONE]") {
-          onDone();
-          return;
-        }
-
-        try {
-          const parsed = JSON.parse(jsonStr);
-          // A-2: capture conversation id emitted by edge function
-          if (parsed?.type === "conversation_id" && parsed.id) {
-            onConversationId?.(parsed.id);
-            continue;
-          }
-          const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-          if (content) onDelta(content);
-        } catch {
-          textBuffer = line + "\n" + textBuffer;
-          break;
-        }
-      }
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({ error: "Chat failed" }));
+      onError?.(errorData.error || "Chat failed");
+      return;
     }
 
-    onDone();
+    // Tier-gated errors (DAILY_LIMIT_REACHED, SIGNUP_PROMPT) now come back as HTTP 200
+    // with a JSON body instead of an SSE stream. Detect by content-type and surface via onError.
+    const contentType = resp.headers.get("content-type") ?? "";
+    if (contentType.includes("application/json")) {
+      const errorData = await resp.json().catch(() => ({ error: "Chat failed" }));
+      onError?.(errorData.error || "Chat failed");
+      return;
+    }
+
+    if (!resp.body) {
+      onError?.("No response body");
+      return;
+    }
+
+    const reader = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let textBuffer = "";
+
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        textBuffer += decoder.decode(value, { stream: true });
+
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") {
+            onDone();
+            return;
+          }
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            // A-2: capture conversation id emitted by edge function
+            if (parsed?.type === "conversation_id" && parsed.id) {
+              onConversationId?.(parsed.id);
+              continue;
+            }
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) onDelta(content);
+          } catch {
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+
+      onDone();
+    } finally {
+      // Release the stream on every exit path: completion, abort, or read failure.
+      void reader.cancel().catch(() => {});
+    }
+  } catch (err) {
+    if (timedOut) {
+      onError?.(CHAT_REQUEST_TIMEOUT_ERROR);
+      return;
+    }
+    throw err;
   } finally {
-    // Release the stream on every exit path: completion, abort, or read failure.
-    void reader.cancel().catch(() => {});
+    clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", forwardCallerAbort);
   }
 }
