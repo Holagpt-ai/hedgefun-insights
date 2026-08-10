@@ -189,3 +189,109 @@ Deno.test("static: forbidden scope — no cron, delivery, replay rebuild, or DEL
     assert(!new RegExp(`\\b${term}\\b`, "i").test(sql), `delivery: ${term}`);
   }
 });
+
+Deno.test("static R1: genesis race returns exact duplicate_evaluation no-op", async () => {
+  const body = functionBody(await loadMigration());
+  assertIncludes(body, "pg_advisory_xact_lock(", "lock before genesis");
+  const lockIdx = body.indexOf("pg_advisory_xact_lock(");
+  const genesisIdx = body.indexOf("p_expected_revision = 0");
+  assert(lockIdx >= 0 && genesisIdx > lockIdx, "lock precedes genesis branch");
+  assertIncludes(body, "v_gen.reason IS DISTINCT FROM 'genesis'", "genesis reason");
+  assertIncludes(body, "v_state.revision IS DISTINCT FROM 1", "revision 1");
+  assertIncludes(body, "'duplicate_evaluation'", "duplicate_evaluation outcome");
+  assertIncludes(
+    body,
+    "v_existing_eval.calculated_at IS NOT DISTINCT FROM p_calculated_at",
+    "eval calculated_at equivalence",
+  );
+});
+
+Deno.test("static R1: full duplicate equivalence before mutation", async () => {
+  const body = functionBody(await loadMigration());
+  assertIncludes(
+    body,
+    "Duplicate detection BEFORE any mutation",
+    "duplicate-before-mutation marker",
+  );
+  const dupIdx = body.indexOf("Duplicate detection BEFORE any mutation");
+  const insertEvalIdx = body.lastIndexOf(
+    "INSERT INTO public.market_stage_weekly_evaluations",
+  );
+  assert(dupIdx >= 0 && insertEvalIdx > dupIdx, "dup check before eval insert");
+
+  assertIncludes(
+    body,
+    "v_existing_eval.generation_id IS NOT DISTINCT FROM v_gen_id",
+    "eval generation_id",
+  );
+  assertIncludes(
+    body,
+    "v_state.confirmed_effective_week_end",
+    "state confirmed_effective",
+  );
+  assertIncludes(
+    body,
+    "v_existing_tr.calculated_at IS NOT DISTINCT FROM v_tr_calculated_at",
+    "transition calculated_at",
+  );
+  assertIncludes(
+    body,
+    "v_existing_tr.supersedes_event_id IS NULL",
+    "untouched supersedes",
+  );
+  assertIncludes(
+    body,
+    "v_existing_tr.superseded_by_event_id IS NULL",
+    "untouched superseded_by",
+  );
+  assertIncludes(
+    body,
+    "v_existing_tr.withdrawn_reason IS NULL",
+    "untouched withdrawn",
+  );
+  assertIncludes(
+    body,
+    "v_existing_tr.alert_eligible IS NOT DISTINCT FROM false",
+    "alert_eligible false",
+  );
+});
+
+Deno.test("static R1: unexpected/missing transition fails closed; conflict before write", async () => {
+  const body = functionBody(await loadMigration());
+  assertIncludes(
+    body,
+    "t.confirmed_week_end = p_effective_week_end",
+    "unexpected transition week check",
+  );
+  assertIncludes(
+    body,
+    "RAISE EXCEPTION 'market_stages_forward_transition_conflict'",
+    "transition conflict raise",
+  );
+
+  // New-write path must raise on preexisting transition identity before inserts.
+  const newWriteMarker = body.indexOf(
+    "New write path: refuse if evaluation already exists",
+  );
+  assert(newWriteMarker >= 0, "new write marker");
+  const conflictBeforeInsert = body.indexOf(
+    "RAISE EXCEPTION 'market_stages_forward_transition_conflict'",
+    newWriteMarker,
+  );
+  const evalInsertAfter = body.indexOf(
+    "INSERT INTO public.market_stage_weekly_evaluations",
+    newWriteMarker,
+  );
+  assert(
+    conflictBeforeInsert >= 0 &&
+      evalInsertAfter > conflictBeforeInsert,
+    "conflict raise precedes evaluation insert on new-write path",
+  );
+
+  // Applied path must not assign duplicate_transition after mutation.
+  const appliedReturn = body.slice(evalInsertAfter);
+  assert(
+    !/v_outcome\s*:=\s*'duplicate_transition'/.test(appliedReturn),
+    "must not report duplicate_transition after writes",
+  );
+});

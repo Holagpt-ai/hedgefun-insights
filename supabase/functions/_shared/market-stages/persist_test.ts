@@ -676,3 +676,393 @@ Deno.test("adapter failure outcomes omit fingerprint from status fields", async 
   assertEquals(String(r.status).includes("super-secret-fingerprint"), false);
   assertEquals(String(r.resultCode).includes("super-secret-fingerprint"), false);
 });
+Deno.test("R1-1. exact concurrent genesis retry maps to successful no-op", async () => {
+  const calls: Call[] = [];
+  const db = mockDb(calls, {
+    generation: null,
+    state: null,
+    rpcData: {
+      ok: true,
+      outcome: "duplicate_evaluation",
+      generation_id: GEN,
+      revision: 1,
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W1, okClassification("stage_2"), "fp-w1"),
+  );
+
+  assertEquals(r.status, "no_op");
+  assertEquals(r.resultCode, "duplicate_evaluation");
+  assertEquals(r.wrote, false);
+  assertEquals(r.generationId, GEN);
+  assertEquals(r.revision, 1);
+  assertEquals(rpcCalls(calls).length, 1);
+  assertEquals(rpcCalls(calls)[0].args.p_expected_revision, 0);
+});
+
+Deno.test("R1-2. mismatched concurrent genesis retry is not success", async () => {
+  const db = mockDb([], {
+    generation: null,
+    state: null,
+    rpcData: {
+      ok: false,
+      outcome: "stale_revision",
+      current_revision: 1,
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W1, okClassification("stage_3"), "fp-other"),
+  );
+
+  assertEquals(r.status, "stale_revision");
+  assertEquals(r.wrote, false);
+  assert(r.status !== "applied");
+  assert(r.status !== "no_op");
+});
+
+Deno.test("R1-3. RPC duplicate_evaluation maps to no_op wrote=false", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: null,
+    confirmedEffectiveWeekEnd: null,
+    confirmedAtWeekEnd: null,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W1,
+    latestProcessedWeekEnd: W1,
+    latestInputFingerprint: "fp-w1",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W1,
+    latestDataEffectiveWeekEnd: W1,
+    revision: 1,
+  };
+  const db = mockDb([], {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcData: {
+      ok: true,
+      outcome: "duplicate_evaluation",
+      generation_id: GEN,
+      revision: 2,
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W2, okClassification("stage_2"), "fp-w2"),
+  );
+
+  assertEquals(r.reduce?.resultCode, "confirmed_initial");
+  assertEquals(r.status, "no_op");
+  assertEquals(r.resultCode, "duplicate_evaluation");
+  assertEquals(r.wrote, false);
+  assertEquals(r.generationId, GEN);
+  assertEquals(r.revision, 2);
+});
+
+Deno.test("R1-4. exact existing-generation retry without transition is no-op", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: null,
+    confirmedEffectiveWeekEnd: null,
+    confirmedAtWeekEnd: null,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W1,
+    latestProcessedWeekEnd: W1,
+    latestInputFingerprint: "fp-w1",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W1,
+    latestDataEffectiveWeekEnd: W1,
+    revision: 1,
+  };
+  const calls: Call[] = [];
+  const db = mockDb(calls, {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcHandler: (args) => {
+      assertEquals(args.p_transition, null);
+      return {
+        ok: true,
+        outcome: "duplicate_evaluation",
+        generation_id: GEN,
+        revision: args.p_next_revision,
+      };
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W2, okClassification("stage_2"), "fp-w2"),
+  );
+
+  assertEquals(r.status, "no_op");
+  assertEquals(r.resultCode, "duplicate_evaluation");
+  assertEquals(r.wrote, false);
+});
+
+Deno.test("R1-5. exact existing-generation retry with transition is no-op", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: "stage_1",
+    confirmedEffectiveWeekEnd: W1,
+    confirmedAtWeekEnd: W2,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W3,
+    latestProcessedWeekEnd: W3,
+    latestInputFingerprint: "fp-w3",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W3,
+    latestDataEffectiveWeekEnd: W3,
+    revision: 3,
+  };
+  const db = mockDb([], {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcData: {
+      ok: true,
+      outcome: "duplicate_transition",
+      generation_id: GEN,
+      revision: 4,
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W4, okClassification("stage_2"), "fp-w4"),
+  );
+
+  assertEquals(r.status, "no_op");
+  assertEquals(r.resultCode, "duplicate_transition");
+  assertEquals(r.wrote, false);
+});
+
+Deno.test("R1-6. state-field mismatch is not accepted as duplicate", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: null,
+    confirmedEffectiveWeekEnd: null,
+    confirmedAtWeekEnd: null,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W1,
+    latestProcessedWeekEnd: W1,
+    latestInputFingerprint: "fp-w1",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W1,
+    latestDataEffectiveWeekEnd: W1,
+    revision: 1,
+  };
+  const db = mockDb([], {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcData: {
+      ok: false,
+      outcome: "stale_revision",
+      current_revision: 2,
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W2, okClassification("stage_2"), "fp-w2"),
+  );
+
+  assertEquals(r.status, "stale_revision");
+  assertEquals(r.wrote, false);
+  assert(r.status !== "no_op");
+});
+
+Deno.test("R1-7. evaluation calculated_at mismatch is not accepted", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: null,
+    confirmedEffectiveWeekEnd: null,
+    confirmedAtWeekEnd: null,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W1,
+    latestProcessedWeekEnd: W1,
+    latestInputFingerprint: "fp-w1",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W1,
+    latestDataEffectiveWeekEnd: W1,
+    revision: 1,
+  };
+  const db = mockDb([], {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcData: {
+      ok: false,
+      outcome: "stale_revision",
+      current_revision: 2,
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W2, okClassification("stage_2"), "fp-w2"),
+  );
+
+  assertEquals(r.status, "stale_revision");
+  assertEquals(r.wrote, false);
+});
+
+Deno.test("R1-8. transition calculated_at mismatch fails closed", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: "stage_1",
+    confirmedEffectiveWeekEnd: W1,
+    confirmedAtWeekEnd: W2,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W3,
+    latestProcessedWeekEnd: W3,
+    latestInputFingerprint: "fp-w3",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W3,
+    latestDataEffectiveWeekEnd: W3,
+    revision: 3,
+  };
+  const db = mockDb([], {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcError: { message: "market_stages_forward_transition_conflict" },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W4, okClassification("stage_2"), "fp-w4"),
+  );
+
+  assertEquals(r.status, "transition_conflict");
+  assertEquals(r.wrote, false);
+});
+
+Deno.test("R1-9. missing expected transition fails closed", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: "stage_1",
+    confirmedEffectiveWeekEnd: W1,
+    confirmedAtWeekEnd: W2,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W3,
+    latestProcessedWeekEnd: W3,
+    latestInputFingerprint: "fp-w3",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W3,
+    latestDataEffectiveWeekEnd: W3,
+    revision: 3,
+  };
+  const db = mockDb([], {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcData: {
+      ok: false,
+      outcome: "stale_revision",
+      current_revision: 4,
+    },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W4, okClassification("stage_2"), "fp-w4"),
+  );
+
+  assertEquals(r.status, "stale_revision");
+  assertEquals(r.wrote, false);
+  assert(r.status !== "no_op");
+});
+
+Deno.test("R1-10. unexpected transition when payload null fails closed", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: null,
+    confirmedEffectiveWeekEnd: null,
+    confirmedAtWeekEnd: null,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W1,
+    latestProcessedWeekEnd: W1,
+    latestInputFingerprint: "fp-w1",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W1,
+    latestDataEffectiveWeekEnd: W1,
+    revision: 1,
+  };
+  const calls: Call[] = [];
+  const db = mockDb(calls, {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcError: { message: "market_stages_forward_transition_conflict" },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W2, okClassification("stage_2"), "fp-w2"),
+  );
+
+  assertEquals(rpcCalls(calls).length, 1);
+  assertEquals(rpcCalls(calls)[0].args.p_transition, null);
+  assertEquals(r.status, "transition_conflict");
+  assertEquals(r.wrote, false);
+  assertEquals(r.reduce?.event, null);
+});
+
+Deno.test("R1-11. conflicting transition identity cannot report write success", async () => {
+  const prior: TransitionState = {
+    symbol: SYM,
+    algorithmId: ALGORITHM_ID,
+    confirmedStage: "stage_1",
+    confirmedEffectiveWeekEnd: W1,
+    confirmedAtWeekEnd: W2,
+    pendingStage: "stage_2",
+    pendingCount: 1,
+    pendingStartWeekEnd: W3,
+    latestProcessedWeekEnd: W3,
+    latestInputFingerprint: "fp-w3",
+    latestEvaluationStatus: "ok",
+    latestValidCandidate: "stage_2",
+    latestValidCandidateWeekEnd: W3,
+    latestDataEffectiveWeekEnd: W3,
+    revision: 3,
+  };
+  const db = mockDb([], {
+    generation: { id: GEN, status: "active" },
+    state: stateRow(prior),
+    rpcError: { message: "market_stages_forward_transition_conflict" },
+  });
+
+  const r = await persistMarketStageForward(
+    db,
+    evaluation(W4, okClassification("stage_2"), "fp-w4"),
+  );
+
+  assertEquals(r.status, "transition_conflict");
+  assertEquals(r.wrote, false);
+  assert(r.status !== "applied");
+  assert(r.status !== "no_op");
+});

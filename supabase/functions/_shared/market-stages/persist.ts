@@ -333,13 +333,23 @@ function mapRpcOutcome(
       wrote: true,
     });
   }
-  if (payload.ok === true && payload.outcome === "duplicate_transition") {
-    return persistResult("no_op", "duplicate_transition", {
-      reduce,
-      generationId: payload.generation_id ?? null,
-      revision: typeof payload.revision === "number" ? payload.revision : null,
-      wrote: false,
-    });
+  if (
+    payload.ok === true &&
+    (payload.outcome === "duplicate_transition" ||
+      payload.outcome === "duplicate_evaluation")
+  ) {
+    return persistResult(
+      "no_op",
+      payload.outcome === "duplicate_transition"
+        ? "duplicate_transition"
+        : "duplicate_evaluation",
+      {
+        reduce,
+        generationId: payload.generation_id ?? null,
+        revision: typeof payload.revision === "number" ? payload.revision : null,
+        wrote: false,
+      },
+    );
   }
   if (payload.ok === false && payload.outcome === "stale_revision") {
     return persistResult("stale_revision", "stale_revision", {
