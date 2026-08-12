@@ -66,7 +66,21 @@ async function fetchGenerationOnce() {
   };
 }
 
-export function useScreenerData(tabId: string) {
+export interface UseScreenerDataOptions {
+  /**
+   * Optional background refresh interval (ms). Only Day Trade Radar enables this.
+   * Other tabs keep the default one-shot load.
+   */
+  refreshIntervalMs?: number;
+  /** When true (default), pause polling while the document is hidden. */
+  pauseWhenHidden?: boolean;
+}
+
+export function useScreenerData(
+  tabId: string,
+  options: UseScreenerDataOptions = {},
+) {
+  const { refreshIntervalMs, pauseWhenHidden = true } = options;
   const [status, setStatus] = useState<ScreenerUiStatus>("loading");
   const [rows, setRows] = useState<ScreenerResultRow[]>([]);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
@@ -76,22 +90,44 @@ export function useScreenerData(tabId: string) {
     if (!tabId) return;
     let cancelled = false;
     let staleTimer: ReturnType<typeof setTimeout> | null = null;
-    setStatus("loading");
-    setRows([]);
-    setSyncedAt(null);
-    setProviderAsOfMax(null);
+    let pollTimer: ReturnType<typeof setInterval> | null = null;
+    let hasLoadedOnce = false;
 
-    void (async () => {
-      const view: ScreenerTabView = await loadVerifiedScreenerGeneration(
-        fetchGenerationOnce,
-        { nowMs: Date.now(), activeTabId: tabId },
-      );
+    const clearStaleTimer = () => {
+      if (staleTimer !== null) {
+        clearTimeout(staleTimer);
+        staleTimer = null;
+      }
+    };
+
+    const applyView = (view: ScreenerTabView, soft: boolean) => {
       if (cancelled) return;
+      // Never wipe rows on a failed background refresh.
+      if (
+        soft &&
+        view.status === "unavailable" &&
+        hasLoadedOnce
+      ) {
+        return;
+      }
       setStatus(view.status);
-      setRows(view.rows);
-      setSyncedAt(view.synced_at);
-      setProviderAsOfMax(view.provider_as_of_max);
+      if (
+        view.status === "available" ||
+        view.status === "stale" ||
+        view.status === "empty" ||
+        view.status === "unimplemented"
+      ) {
+        setRows(view.rows);
+        setSyncedAt(view.synced_at);
+        setProviderAsOfMax(view.provider_as_of_max);
+        hasLoadedOnce = true;
+      } else if (!soft) {
+        setRows(view.rows);
+        setSyncedAt(view.synced_at);
+        setProviderAsOfMax(view.provider_as_of_max);
+      }
 
+      clearStaleTimer();
       if (
         (view.status === "available" || view.status === "empty") &&
         view.synced_at
@@ -102,19 +138,46 @@ export function useScreenerData(tabId: string) {
             if (cancelled) return;
             setStatus("stale");
           }, delay);
-          if (cancelled) {
-            clearTimeout(staleTimer);
-            staleTimer = null;
-          }
         }
       }
-    })();
+    };
+
+    const load = async (soft: boolean) => {
+      if (!soft) {
+        setStatus("loading");
+        setRows([]);
+        setSyncedAt(null);
+        setProviderAsOfMax(null);
+        hasLoadedOnce = false;
+      }
+      const view: ScreenerTabView = await loadVerifiedScreenerGeneration(
+        fetchGenerationOnce,
+        { nowMs: Date.now(), activeTabId: tabId },
+      );
+      applyView(view, soft);
+    };
+
+    void load(false);
+
+    if (
+      typeof refreshIntervalMs === "number" &&
+      refreshIntervalMs > 0
+    ) {
+      pollTimer = setInterval(() => {
+        if (cancelled) return;
+        if (pauseWhenHidden && typeof document !== "undefined" && document.hidden) {
+          return;
+        }
+        void load(true);
+      }, refreshIntervalMs);
+    }
 
     return () => {
       cancelled = true;
-      if (staleTimer !== null) clearTimeout(staleTimer);
+      clearStaleTimer();
+      if (pollTimer !== null) clearInterval(pollTimer);
     };
-  }, [tabId]);
+  }, [tabId, refreshIntervalMs, pauseWhenHidden]);
 
   return { status, rows, syncedAt, providerAsOfMax };
 }

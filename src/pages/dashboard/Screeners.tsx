@@ -9,6 +9,9 @@ import {
 } from "@/config/screener-tabs.config";
 import { hasProAccess } from "@/lib/entitlement";
 import { parseTimestampMs } from "@/lib/screeners/contract";
+import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
+
+const DAY_TRADE_RADAR_REFRESH_MS = 60_000;
 
 function formatPipelineAge(iso: string | null): string | null {
   if (!iso) return null;
@@ -37,7 +40,12 @@ export default function Screeners() {
 
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
-  const { status, rows, syncedAt, providerAsOfMax } = useScreenerData(activeTabId);
+  const isDayTradeRadar = activeTabId === "day_trade_radar";
+
+  const { status, rows, syncedAt, providerAsOfMax } = useScreenerData(activeTabId, {
+    refreshIntervalMs: isDayTradeRadar ? DAY_TRADE_RADAR_REFRESH_MS : undefined,
+    pauseWhenHidden: true,
+  });
 
   const accessLabel = isPro
     ? "PRO ACCESS — 15-MINUTE DELAYED MARKET FEED"
@@ -46,7 +54,8 @@ export default function Screeners() {
   const providerLabel = formatProviderAsOf(providerAsOfMax);
   const pipelineAge = formatPipelineAge(syncedAt);
   const showFreshness =
-    status === "available" || status === "stale" || status === "empty";
+    !isDayTradeRadar &&
+    (status === "available" || status === "stale" || status === "empty");
 
   return (
     <div className="p-4 md:p-6 space-y-4">
@@ -84,7 +93,7 @@ export default function Screeners() {
 
       <p className="text-[13px] text-muted-foreground">{activeTab.description}</p>
 
-      {status === "stale" && (
+      {status === "stale" && !isDayTradeRadar && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground">
           <div className="font-semibold">Stale delayed snapshot</div>
           <p className="mt-0.5 text-muted-foreground">
@@ -102,12 +111,23 @@ export default function Screeners() {
         </div>
       )}
 
-      <ScreenerTable
-        tab={activeTab}
-        isPro={isPro}
-        rows={rows}
-        status={status}
-      />
+      {isDayTradeRadar ? (
+        <DayTradeRadarV2
+          rows={rows}
+          status={status}
+          isPro={isPro}
+          syncedAt={syncedAt}
+          providerAsOfMax={providerAsOfMax}
+          freeRowLimit={activeTab.freeRowLimit}
+        />
+      ) : (
+        <ScreenerTable
+          tab={activeTab}
+          isPro={isPro}
+          rows={rows}
+          status={status}
+        />
+      )}
     </div>
   );
 }

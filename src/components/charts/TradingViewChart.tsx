@@ -14,13 +14,22 @@ import { Skeleton } from '@/components/ui/skeleton';
 type ChartType = 'area' | 'line' | 'candlestick' | 'heikinashi';
 type Indicator = 'volume' | 'sma20' | 'sma50' | 'sma200';
 
+/**
+ * Chart bar time for lightweight-charts.
+ * - `YYYY-MM-DD` string: daily / business-day series (existing callers)
+ * - UTC unix seconds (number): intraday bars — must stay distinct within a day
+ */
 export interface OHLCVData {
-  time: string;
+  time: string | number;
   open: number;
   high: number;
   low: number;
   close: number;
   volume: number;
+}
+
+function seriesUsesIntradayTimestamps(data: OHLCVData[]): boolean {
+  return data.some((d) => typeof d.time === "number");
 }
 
 interface TradingViewChartProps {
@@ -43,11 +52,11 @@ function calcSMA(data: OHLCVData[], period: number) {
       const avg = slice.reduce((s, x) => s + x.close, 0) / period;
       return { time: d.time, value: avg };
     })
-    .filter(Boolean) as { time: string; value: number }[];
+    .filter(Boolean) as { time: string | number; value: number }[];
 }
 
 function calcHeikinAshi(data: OHLCVData[]) {
-  const result: { time: string; open: number; high: number; low: number; close: number }[] = [];
+  const result: { time: string | number; open: number; high: number; low: number; close: number }[] = [];
   for (let i = 0; i < data.length; i++) {
     const d = data[i];
     const haClose = (d.open + d.high + d.low + d.close) / 4;
@@ -143,7 +152,9 @@ export default function TradingViewChart({
       },
       timeScale: {
         borderColor,
-        timeVisible: false,
+        // Intraday (numeric UTCTimestamp) needs visible clock times.
+        // Daily business-day strings keep the prior date-only axis.
+        timeVisible: seriesUsesIntradayTimestamps(data),
         secondsVisible: false,
       },
     });
