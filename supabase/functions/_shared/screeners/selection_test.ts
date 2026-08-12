@@ -279,8 +279,9 @@ Deno.test("selection: all five implemented tabs use volume-first contract", () =
       price: opts.price ?? 8,
       change: opts.change ?? 15,
       prevVol: opts.prevVol ?? 100_000,
-      open: opts.open ?? 10.8,
-      prevClose: opts.prevClose ?? 10,
+      // Regular-session move must be ≥10% for Day Trade Radar (not todaysChangePerc).
+      open: opts.open ?? 8.5,
+      prevClose: opts.prevClose ?? 7,
     });
 
   // Universe where volume order differs from prior-session ratio/gap/change order.

@@ -7,10 +7,12 @@ export type PolygonTicker = {
   ticker?: unknown;
   /** Polygon snapshot observation time in nanoseconds. */
   updated?: unknown;
+  /** Provider day-change vs previous close (may use extended last). Do not pair with day.c. */
   todaysChangePerc?: unknown;
   day?: { c?: unknown; o?: unknown; v?: unknown; h?: unknown; l?: unknown };
   prevDay?: { c?: unknown; v?: unknown };
-  lastTrade?: { p?: unknown };
+  lastTrade?: { p?: unknown; t?: unknown };
+  min?: { c?: unknown; t?: unknown; v?: unknown; av?: unknown };
   [key: string]: unknown;
 };
 
@@ -147,8 +149,45 @@ export function gapPercent(t: PolygonTicker): number | null {
   return Math.round(((o - c) / c) * 1000) / 10;
 }
 
+/**
+ * Regular-session close from Polygon day.c only.
+ * Never substitutes lastTrade / min / todaysChange fields.
+ */
+export function regularClose(t: PolygonTicker): number | null {
+  const c = safeNumber(t?.day?.c);
+  if (c === null || !(c > 0)) return null;
+  return c;
+}
+
+/**
+ * Previous regular-session close from Polygon prevDay.c only.
+ */
+export function previousRegularClose(t: PolygonTicker): number | null {
+  const c = safeNumber(t?.prevDay?.c);
+  if (c === null || !(c > 0)) return null;
+  return c;
+}
+
+/**
+ * Regular-session move:
+ * (day.c - prevDay.c) / prevDay.c × 100
+ * Returns null when either input is missing/invalid — never uses todaysChangePerc.
+ */
+export function regularChangePercent(t: PolygonTicker): number | null {
+  const close = regularClose(t);
+  const prev = previousRegularClose(t);
+  if (close === null || prev === null || prev === 0) return null;
+  const pct = ((close - prev) / prev) * 100;
+  if (!Number.isFinite(pct)) return null;
+  return pct;
+}
+
+/**
+ * @deprecated Prefer regularClose for day-session rows. Kept as an alias so
+ * call sites that mean "regular last" stay explicit.
+ */
 export function lastPrice(t: PolygonTicker): number | null {
-  return safeNumber(t?.day?.c ?? t?.lastTrade?.p);
+  return regularClose(t);
 }
 
 /**
@@ -212,8 +251,8 @@ export function selectVolumeFirst(
 // ── Tab qualification (honest prior-session volume ratio thresholds) ──────
 
 export function qualifiesDayTradeRadar(t: PolygonTicker): boolean {
-  const price = lastPrice(t);
-  const chg = safeNumber(t?.todaysChangePerc);
+  const price = regularClose(t);
+  const chg = regularChangePercent(t);
   const ratio = rawVolumeRatioPriorSession(t);
   if (price === null || chg === null || ratio === null) return false;
   return price >= 2 && price <= 20 && chg >= 10 && ratio >= 5;

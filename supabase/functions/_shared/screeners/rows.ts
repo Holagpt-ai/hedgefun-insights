@@ -6,12 +6,12 @@ import {
   dayHighLow,
   dayVolume,
   gapPercent,
-  lastPrice,
   normalizeSymbol,
   parseProviderAsOf,
   type PolygonTicker,
   priorSessionVolume,
-  safeNumber,
+  regularChangePercent,
+  regularClose,
   type ScreenerTabId,
 } from "./selection.ts";
 
@@ -92,12 +92,14 @@ function baseRow(
   if (providerAsOf === null) {
     throw new Error("provider_freshness_unavailable");
   }
+  // Day-session contract: price and change_percent both from regular session.
+  // Never pair day.c with todaysChangePerc.
   return {
     tab_id: tabId,
     symbol: sym,
     company_name: getName(sym),
-    price: lastPrice(t),
-    change_percent: safeNumber(t.todaysChangePerc),
+    price: regularClose(t),
+    change_percent: regularChangePercent(t),
     volume: vol,
     avg_volume: null,
     rvol: null,

@@ -104,7 +104,8 @@ function mk(
       h: opts.high ?? price + 1,
       l: opts.low ?? price - 1,
     },
-    prevDay: { c: opts.prevClose ?? 5, v: prevVol },
+    // Regular-session move (day.c vs prevDay.c) drives qualification — not todaysChangePerc.
+    prevDay: { c: opts.prevClose ?? 4, v: prevVol },
     lastTrade: { p: price },
   };
   if (updated !== null) row.updated = updated;

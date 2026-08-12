@@ -159,9 +159,9 @@ export function RadarDetailPanel({
             className={moveClass(row.change_percent)}
           />
           <Metric label="Volume" value={formatRadarVolume(row.volume)} />
-          <Metric label="Prior Vol" value={formatRadarVolume(row.prior_session_volume)} />
+          <Metric label="Prior Day Vol" value={formatRadarVolume(row.prior_session_volume)} />
           <Metric
-            label="Vol / Prior"
+            label="Vol / Prior Day"
             value={formatRadarMultiplier(row.volume_ratio_prior_session)}
             className={volumeRatioClass(row.volume_ratio_prior_session)}
           />

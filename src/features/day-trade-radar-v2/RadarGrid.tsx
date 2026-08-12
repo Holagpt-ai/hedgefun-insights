@@ -116,8 +116,8 @@ export function RadarGrid({
                 "Day Range",
                 "HOD Dist",
                 "Volume",
-                "Prior Vol",
-                "Vol / Prior",
+                "Prior Day Vol",
+                "Vol / Prior Day",
                 "PR / Catalyst",
                 "Actions",
               ].map((label) => (
