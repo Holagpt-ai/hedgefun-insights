@@ -20,10 +20,14 @@ export const RATIO_TAB_IDS = new Set<ManagedTabId>([
 
 export const SCREENER_STALE_AFTER_MS = 20 * 60_000;
 export const PROVIDER_FUTURE_SLACK_MS = 5 * 60_000;
-export const MAX_GENERATION_ROWS = 100;
+export const MAX_GENERATION_ROWS = 120;
 export const MAX_TAB_ROWS = 20;
-export const MAX_ROWS_FETCH = 101;
-export const UNIMPLEMENTED_TAB_ID: ManagedTabId = "new_highs_lows";
+export const MAX_ROWS_FETCH = 121;
+export const NHL_TAB_ID: ManagedTabId = "new_highs_lows";
+export const RANGE_EVENTS = ["new_high", "new_low", "both"] as const;
+export type RangeEvent = (typeof RANGE_EVENTS)[number];
+export const NHL_BASELINE_STATUSES = ["available", "initializing", "unavailable"] as const;
+export type NhlBaselineStatus = (typeof NHL_BASELINE_STATUSES)[number];
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,7 +39,7 @@ export type ScreenerUiStatus =
   | "empty"
   | "stale"
   | "unavailable"
-  | "unimplemented";
+  | "initializing";
 
 export interface ScreenerFeedState {
   state_key: string;
@@ -46,6 +50,7 @@ export interface ScreenerFeedState {
   provider_as_of_max: string | null;
   rows_inserted: number;
   tab_counts: unknown;
+  nhl_baseline_status?: unknown;
   updated_at: string;
 }
 
@@ -62,6 +67,7 @@ export interface ScreenerResultRow {
   gap_percent: number | null;
   high_52w: number | null;
   low_52w: number | null;
+  range_event: RangeEvent | null;
   market_cap: number | null;
   prior_session_volume: number | null;
   volume_ratio_prior_session: number | null;
@@ -145,6 +151,24 @@ function emptyTabCounts(): Record<ManagedTabId, number> {
   };
 }
 
+export function parseNhlBaselineStatus(raw: unknown): NhlBaselineStatus {
+  if (raw === "available" || raw === "initializing" || raw === "unavailable") {
+    return raw;
+  }
+  return "initializing";
+}
+
+export function isRangeEvent(value: unknown): value is RangeEvent {
+  return typeof value === "string" && (RANGE_EVENTS as readonly string[]).includes(value);
+}
+
+export function formatRangeEvent(value: RangeEvent | null | undefined): string {
+  if (value === "new_high") return "New High";
+  if (value === "new_low") return "New Low";
+  if (value === "both") return "Both";
+  return "—";
+}
+
 export function parseTabCounts(raw: unknown): Record<ManagedTabId, number> | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const obj = raw as Record<string, unknown>;
@@ -205,6 +229,10 @@ export function validateGeneration(
 
   const tabCounts = parseTabCounts(state.tab_counts);
   if (!tabCounts) return fail("invalid_tab_counts");
+  const nhlBaselineStatus = parseNhlBaselineStatus(state.nhl_baseline_status);
+  if (nhlBaselineStatus !== "available" && tabCounts.new_highs_lows > 0) {
+    return fail("nhl_rows_without_available_baseline");
+  }
 
   const countSum = MANAGED_TAB_IDS.reduce((sum, id) => sum + tabCounts[id], 0);
   if (countSum !== state.rows_inserted) return fail("tab_counts_sum_mismatch");
@@ -256,7 +284,6 @@ export function validateGeneration(
 
   for (const row of resultRows) {
     if (!isManagedTabId(row.tab_id)) return fail("unmanaged_tab_id");
-    if (row.tab_id === UNIMPLEMENTED_TAB_ID) return fail("unimplemented_tab_has_rows");
     if (row.sync_run_id !== state.sync_run_id) return fail("row_sync_run_id_mismatch");
     if (!sameInstant(row.updated_at, state.synced_at)) {
       return fail("row_updated_at_mismatch");
@@ -281,8 +308,21 @@ export function validateGeneration(
     if (row.rvol !== null) return fail("legacy_rvol_present");
     if (row.float_shares !== null) return fail("float_shares_present");
     if (row.market_cap !== null) return fail("market_cap_present");
-    if (row.high_52w !== null) return fail("high_52w_present");
-    if (row.low_52w !== null) return fail("low_52w_present");
+
+    if (row.tab_id === NHL_TAB_ID) {
+      if (!isPositiveFinite(row.high_52w) || !isPositiveFinite(row.low_52w)) {
+        return fail("nhl_52w_required");
+      }
+      if (row.low_52w > row.high_52w) return fail("nhl_52w_inverted");
+      if (!isRangeEvent(row.range_event)) return fail("nhl_range_event_required");
+      if (row.day_high === null || row.day_low === null) {
+        return fail("nhl_day_range_required");
+      }
+    } else {
+      if (row.high_52w !== null) return fail("high_52w_present");
+      if (row.low_52w !== null) return fail("low_52w_present");
+      if (row.range_event !== null) return fail("range_event_present");
+    }
 
     const prior = row.prior_session_volume;
     const ratio = row.volume_ratio_prior_session;
@@ -389,14 +429,26 @@ export function viewForActiveTab(
   nowMs: number,
   attempts: number,
 ): ScreenerTabView {
-  if (activeTabId === UNIMPLEMENTED_TAB_ID) {
-    return {
-      status: "unimplemented",
-      rows: [],
-      synced_at: generation.synced_at,
-      provider_as_of_max: generation.provider_as_of_max,
-      attempts,
-    };
+  if (activeTabId === NHL_TAB_ID) {
+    const nhlStatus = parseNhlBaselineStatus(generation.state.nhl_baseline_status);
+    if (nhlStatus === "initializing") {
+      return {
+        status: "initializing",
+        rows: [],
+        synced_at: generation.synced_at,
+        provider_as_of_max: generation.provider_as_of_max,
+        attempts,
+      };
+    }
+    if (nhlStatus === "unavailable") {
+      return {
+        status: "unavailable",
+        rows: [],
+        synced_at: generation.synced_at,
+        provider_as_of_max: generation.provider_as_of_max,
+        attempts,
+      };
+    }
   }
 
   const tabRows = generation.rows.filter((r) => r.tab_id === activeTabId);

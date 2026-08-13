@@ -1360,6 +1360,7 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
+          nhl_baseline_status: string | null
           updated_at: string
         }
         Insert: {
@@ -1371,6 +1372,7 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
+          nhl_baseline_status?: string | null
           updated_at: string
         }
         Update: {
@@ -1382,6 +1384,7 @@ export type Database = {
           sync_run_id?: string
           synced_at?: string
           tab_counts?: Json
+          nhl_baseline_status?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1402,6 +1405,7 @@ export type Database = {
           price: number | null
           prior_session_volume: number | null
           provider_as_of: string | null
+          range_event: string | null
           rvol: number | null
           symbol: string
           sync_run_id: string | null
@@ -1425,6 +1429,7 @@ export type Database = {
           price?: number | null
           prior_session_volume?: number | null
           provider_as_of?: string | null
+          range_event?: string | null
           rvol?: number | null
           symbol: string
           sync_run_id?: string | null
@@ -1448,6 +1453,7 @@ export type Database = {
           price?: number | null
           prior_session_volume?: number | null
           provider_as_of?: string | null
+          range_event?: string | null
           rvol?: number | null
           symbol?: string
           sync_run_id?: string | null

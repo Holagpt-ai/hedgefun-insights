@@ -1,6 +1,8 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   type DbClient,
+  type DbQuery,
+  type DbSelectResult,
   handleSyncScreenerData,
   REPLACE_GENERATION_RPC,
   type SyncDeps,
@@ -17,6 +19,8 @@ const RUN_ID = "11111111-2222-3333-4444-555555555555";
 
 type Mutation =
   | { kind: "select"; symbols: string[] }
+  | { kind: "baseline_state" }
+  | { kind: "baseline_quotes" }
   | {
     kind: "rpc";
     fn: string;
@@ -24,10 +28,27 @@ type Mutation =
       p_rows: ScreenerResultRow[];
       p_sync_run_id: string;
       p_synced_at: string;
+      p_nhl_baseline_status: string;
     };
   };
 
 type FetchCall = { url: string; auth: string | null };
+
+function thenableQuery(
+  execute: () => Promise<DbSelectResult>,
+): DbQuery {
+  const builder: DbQuery = {
+    eq: (_col: string, _value: string) => builder,
+    in: (_col: string, _values: string[]) => builder,
+    limit: (_n: number) => builder,
+    range: (_from: number, _to: number) => builder,
+    then: (
+      onFulfilled?: ((value: DbSelectResult) => unknown) | null,
+      onRejected?: ((reason: unknown) => unknown) | null,
+    ) => execute().then(onFulfilled ?? undefined, onRejected ?? undefined),
+  };
+  return builder;
+}
 
 function mockDb(
   mutations: Mutation[],
@@ -35,19 +56,57 @@ function mockDb(
     nameRows?: Array<{ symbol: string; name: string }>;
     rpcError?: { message: string } | null;
     rpcData?: number;
+    baselineState?: Array<Record<string, unknown>>;
+    baselineQuotes?: Array<Record<string, unknown>>;
+    baselineStateError?: { message: string };
+    baselineQuotesError?: { message: string };
   } = {},
 ): DbClient {
   return {
-    from: (_table: string) => ({
-      select: (_cols: string) => ({
-        in: async (_col: string, values: string[]) => {
-          mutations.push({ kind: "select", symbols: [...values] });
-          const wanted = new Set(values);
-          return {
-            data: (opts.nameRows ?? []).filter((r) => wanted.has(r.symbol)),
-          };
-        },
-      }),
+    from: (table: string) => ({
+      select: (cols: string) => {
+        let inValues: string[] | null = null;
+        let usedRange = false;
+        const execute = async () => {
+          if (table === "stocks") {
+            mutations.push({ kind: "select", symbols: [...(inValues ?? [])] });
+            const wanted = new Set(inValues ?? []);
+            return {
+              data: (opts.nameRows ?? []).filter((r) => wanted.has(r.symbol)),
+              error: null,
+            };
+          }
+          if (table === "screener_52w_baseline_state") {
+            mutations.push({ kind: "baseline_state" });
+            if (opts.baselineStateError) {
+              return { data: null, error: opts.baselineStateError };
+            }
+            return { data: opts.baselineState ?? [], error: null };
+          }
+          if (table === "screener_52w_baselines") {
+            mutations.push({ kind: "baseline_quotes" });
+            if (opts.baselineQuotesError) {
+              return { data: null, error: opts.baselineQuotesError };
+            }
+            return { data: opts.baselineQuotes ?? [], error: null };
+          }
+          void cols;
+          void usedRange;
+          return { data: [], error: null };
+        };
+        const builder = thenableQuery(execute);
+        const originalIn = builder.in;
+        const originalRange = builder.range;
+        builder.in = (col: string, values: string[]) => {
+          inValues = [...values];
+          return originalIn(col, values);
+        };
+        builder.range = (from: number, to: number) => {
+          usedRange = true;
+          return originalRange(from, to);
+        };
+        return builder;
+      },
     }),
     rpc: async (fn, args) => {
       mutations.push({ kind: "rpc", fn, args });
@@ -840,3 +899,87 @@ Deno.test(
     }
   },
 );
+
+Deno.test("handler: verified new highs/lows rows use the prior 52w baseline", async () => {
+  const mutations: Mutation[] = [];
+  const highHit = mk("NEWHI", 4_000_000, 500_000, {
+    price: 12,
+    high: 20,
+    low: 10,
+  });
+  const lowHit = mk("NEWLO", 3_000_000, 500_000, { price: 6, high: 8, low: 5 });
+  const bothHit = mk("BOTH", 5_000_000, 500_000, {
+    price: 10,
+    high: 20,
+    low: 5,
+  });
+  const miss = mk("MISS", 9_000_000, 500_000, { price: 10, high: 12, low: 8 });
+  const deps = depsWith(
+    mutations,
+    marketFetch([highHit, lowHit, bothHit, miss]),
+    {
+      baselineState: [{
+        current_generation_id: RUN_ID,
+        status: "available",
+      }],
+      baselineQuotes: [
+        { symbol: "NEWHI", high_52w: 20, low_52w: 4, sessions_observed: 200 },
+        { symbol: "NEWLO", high_52w: 20, low_52w: 5, sessions_observed: 200 },
+        { symbol: "BOTH", high_52w: 20, low_52w: 5, sessions_observed: 200 },
+        { symbol: "MISS", high_52w: 20, low_52w: 5, sessions_observed: 200 },
+      ],
+    },
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.nhl_baseline_status, "available");
+  const rpc = mutations.find((m) => m.kind === "rpc") as {
+    kind: "rpc";
+    args: { p_rows: ScreenerResultRow[]; p_nhl_baseline_status: string };
+  };
+  assertEquals(rpc.args.p_nhl_baseline_status, "available");
+  const nhl = rpc.args.p_rows.filter((r) => r.tab_id === "new_highs_lows");
+  assertEquals(nhl.map((r) => r.symbol), ["BOTH", "NEWHI", "NEWLO"]);
+  assertEquals(nhl[0].range_event, "both");
+  assertEquals(nhl[0].high_52w, 20);
+  assertEquals(nhl[0].low_52w, 5);
+  assertEquals(nhl[1].range_event, "new_high");
+  assertEquals(nhl[2].range_event, "new_low");
+  assertEquals(nhl.some((r) => r.symbol === "MISS"), false);
+});
+
+Deno.test("handler: initializing baseline omits NHL rows and records status", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([
+      mk("NEWHI", 4_000_000, 500_000, { price: 12, high: 20, low: 10 }),
+    ]),
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.nhl_baseline_status, "initializing");
+  const rpc = mutations.find((m) => m.kind === "rpc") as {
+    kind: "rpc";
+    args: { p_rows: ScreenerResultRow[]; p_nhl_baseline_status: string };
+  };
+  assertEquals(rpc.args.p_nhl_baseline_status, "initializing");
+  assertEquals(
+    rpc.args.p_rows.some((r) => r.tab_id === "new_highs_lows"),
+    false,
+  );
+});

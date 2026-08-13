@@ -32,6 +32,7 @@ function row(
     gap_percent: null,
     high_52w: null,
     low_52w: null,
+    range_event: null,
     market_cap: null,
     prior_session_volume: prior,
     volume_ratio_prior_session:

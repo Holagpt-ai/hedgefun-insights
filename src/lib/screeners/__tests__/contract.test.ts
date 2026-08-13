@@ -42,6 +42,7 @@ function state(overrides: Partial<ScreenerFeedState> = {}): ScreenerFeedState {
     provider_as_of_max: PROVIDER,
     rows_inserted: 1,
     tab_counts: { ...emptyCounts(), day_trade_radar: 1 },
+    nhl_baseline_status: "available",
     updated_at: SYNCED,
     ...overrides,
   };
@@ -69,6 +70,7 @@ function row(overrides: Partial<ScreenerResultRow> = {}): ScreenerResultRow {
     gap_percent: null,
     high_52w: null,
     low_52w: null,
+    range_event: null,
     market_cap: null,
     prior_session_volume: prior,
     volume_ratio_prior_session: ratio,
@@ -327,12 +329,13 @@ describe("screeners verified generation contract", () => {
     expect(validateGeneration([s], [row({ avg_volume: 1000 })], NOW).ok).toBe(false);
   });
 
-  it("20. non-null float, market cap, or 52-week fields fail", () => {
+  it("20. non-null float or market cap fails; 52-week fields fail off NHL", () => {
     const { state: s } = validAvailable();
     expect(validateGeneration([s], [row({ float_shares: 1 })], NOW).ok).toBe(false);
     expect(validateGeneration([s], [row({ market_cap: 1 })], NOW).ok).toBe(false);
     expect(validateGeneration([s], [row({ high_52w: 1 })], NOW).ok).toBe(false);
     expect(validateGeneration([s], [row({ low_52w: 1 })], NOW).ok).toBe(false);
+    expect(validateGeneration([s], [row({ range_event: "new_high" })], NOW).ok).toBe(false);
   });
 
   it("21. ratio tabs require prior-session metrics", () => {
@@ -382,16 +385,26 @@ describe("screeners verified generation contract", () => {
     ).toBe(false);
   });
 
-  it("26. New Highs/Lows rows fail as unimplemented", () => {
+  it("26. New Highs/Lows verified rows are accepted; initializing shows honest state", () => {
     const r = row({
       tab_id: "new_highs_lows",
       prior_session_volume: null,
       volume_ratio_prior_session: null,
+      high_52w: 20,
+      low_52w: 5,
+      range_event: "new_high",
+      day_high: 21,
+      day_low: 9,
     });
     const s = state({
       tab_counts: { ...emptyCounts(), new_highs_lows: 1 },
+      nhl_baseline_status: "available",
     });
-    expect(validateGeneration([s], [r], NOW).ok).toBe(false);
+    const out = validateGeneration([s], [r], NOW);
+    expect(out.ok).toBe(true);
+    if (!out.ok) return;
+    expect(viewForActiveTab(out.generation, "new_highs_lows", NOW, 1).status).toBe("available");
+    expect(viewForActiveTab(out.generation, "new_highs_lows", NOW, 1).rows).toHaveLength(1);
 
     const emptyGen: ValidatedGeneration = {
       status: "empty",
@@ -401,13 +414,88 @@ describe("screeners verified generation contract", () => {
         tab_counts: emptyCounts(),
         provider_as_of_min: null,
         provider_as_of_max: null,
+        nhl_baseline_status: "initializing",
       }),
       rows: [],
       synced_at: SYNCED,
       provider_as_of_max: null,
       provider_as_of_min: null,
     };
-    expect(viewForActiveTab(emptyGen, "new_highs_lows", NOW, 1).status).toBe("unimplemented");
+    expect(viewForActiveTab(emptyGen, "new_highs_lows", NOW, 1).status).toBe("initializing");
+    expect(viewForActiveTab(emptyGen, "gappers", NOW, 1).status).toBe("empty");
+
+    const unavailableNhl: ValidatedGeneration = {
+      ...emptyGen,
+      state: {
+        ...emptyGen.state,
+        nhl_baseline_status: "unavailable",
+      },
+    };
+    expect(viewForActiveTab(unavailableNhl, "new_highs_lows", NOW, 1).status).toBe("unavailable");
+  });
+
+  it("26b. 120-row generation with six implemented tabs is valid", () => {
+    const tabs = [
+      "day_trade_radar",
+      "gappers",
+      "volume_spikes",
+      "gainers_losers",
+      "unusual_volume",
+      "new_highs_lows",
+    ] as const;
+    const rows: ScreenerResultRow[] = [];
+    for (const tab of tabs) {
+      for (let i = 0; i < 20; i++) {
+        const volume = 100_000 - i;
+        const isNhl = tab === "new_highs_lows";
+        const isRatio = tab === "day_trade_radar" || tab === "volume_spikes" || tab === "unusual_volume";
+        rows.push(
+          row({
+            tab_id: tab,
+            symbol: `S${tab.slice(0, 2).toUpperCase()}${String(i).padStart(2, "0")}`,
+            volume,
+            prior_session_volume: isRatio ? 10_000 : null,
+            volume_ratio_prior_session: isRatio ? expectedVolumeRatio(volume, 10_000) : null,
+            high_52w: isNhl ? 20 : null,
+            low_52w: isNhl ? 5 : null,
+            range_event: isNhl ? "new_high" : null,
+            day_high: 12,
+            day_low: 8,
+          }),
+        );
+      }
+    }
+    const s = state({
+      rows_inserted: 120,
+      tab_counts: {
+        day_trade_radar: 20,
+        gappers: 20,
+        volume_spikes: 20,
+        gainers_losers: 20,
+        unusual_volume: 20,
+        new_highs_lows: 20,
+      },
+      nhl_baseline_status: "available",
+    });
+    const out = validateGeneration([s], rows, NOW);
+    expect(out.ok).toBe(true);
+  });
+
+  it("26c. 121-row generation fails", () => {
+    const rows = Array.from({ length: 21 }, (_, i) =>
+      row({
+        symbol: `A${String(i).padStart(2, "0")}`,
+        volume: 1000 - i,
+        tab_id: "gappers",
+        prior_session_volume: null,
+        volume_ratio_prior_session: null,
+      }),
+    );
+    const s = state({
+      rows_inserted: 21,
+      tab_counts: { ...emptyCounts(), gappers: 21 },
+    });
+    expect(validateGeneration([s], rows, NOW).ok).toBe(false);
   });
 
   it("27. config contains no sample rows", () => {

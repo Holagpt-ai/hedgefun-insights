@@ -18,9 +18,16 @@ import {
 } from "../_shared/screeners/selection.ts";
 import {
   type GenerationMeta,
+  mapNewHighsLows,
   mapTabRows,
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
+import {
+  isValidBaselineQuote,
+  type NhlBaselineQuote,
+  type NhlBaselineStatus,
+  selectNewHighsLows,
+} from "../_shared/screeners/new-highs-lows.ts";
 
 const BASE = "https://api.polygon.io";
 export const REPLACE_GENERATION_RPC = "replace_screener_results_generation_v1";
@@ -32,14 +39,25 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+export type DbSelectResult = {
+  data: Array<Record<string, unknown>> | null;
+  error: { message: string } | null;
+};
+
+export type DbQuery = {
+  eq: (col: string, value: string) => DbQuery;
+  in: (col: string, values: string[]) => DbQuery;
+  limit: (n: number) => DbQuery;
+  range: (from: number, to: number) => DbQuery;
+  then: (
+    onfulfilled?: ((value: DbSelectResult) => unknown) | null,
+    onrejected?: ((reason: unknown) => unknown) | null,
+  ) => Promise<unknown>;
+};
+
 export type DbClient = {
   from: (table: string) => {
-    select: (cols: string) => {
-      in: (
-        col: string,
-        values: string[],
-      ) => Promise<{ data: Array<{ symbol: string; name: string }> | null }>;
-    };
+    select: (cols: string) => DbQuery;
   };
   rpc: (
     fn: string,
@@ -47,6 +65,7 @@ export type DbClient = {
       p_rows: ScreenerResultRow[];
       p_sync_run_id: string;
       p_synced_at: string;
+      p_nhl_baseline_status: NhlBaselineStatus;
     },
   ) => Promise<{ data: number | null; error: { message: string } | null }>;
 };
@@ -82,9 +101,73 @@ async function loadNameMapFromStocks(
     .select("symbol, name")
     .in("symbol", symbols);
   for (const s of stockRows ?? []) {
-    if (s.symbol && s.name) nameMap[s.symbol] = s.name;
+    const symbol = typeof s.symbol === "string" ? s.symbol : "";
+    const name = typeof s.name === "string" ? s.name : "";
+    if (symbol && name) nameMap[symbol] = name;
   }
   return nameMap;
+}
+
+const BASELINE_PAGE = 1000;
+
+async function loadNhlBaseline(sb: DbClient): Promise<{
+  status: NhlBaselineStatus;
+  quotes: Map<string, NhlBaselineQuote>;
+}> {
+  try {
+    const stateRes = await sb
+      .from("screener_52w_baseline_state")
+      .select("current_generation_id,status")
+      .eq("state_key", "current")
+      .limit(1);
+    if (stateRes.error || !stateRes.data || stateRes.data.length === 0) {
+      return { status: "initializing", quotes: new Map() };
+    }
+    const row = stateRes.data[0];
+    const status = row.status;
+    const generationId = row.current_generation_id;
+    if (status === "unavailable") {
+      return { status: "unavailable", quotes: new Map() };
+    }
+    if (status === "empty") {
+      return { status: "available", quotes: new Map() };
+    }
+    if (
+      status !== "available" || typeof generationId !== "string" ||
+      !generationId
+    ) {
+      return { status: "initializing", quotes: new Map() };
+    }
+
+    const quotes = new Map<string, NhlBaselineQuote>();
+    let from = 0;
+    while (true) {
+      const page = await sb
+        .from("screener_52w_baselines")
+        .select("symbol,high_52w,low_52w,sessions_observed")
+        .eq("generation_id", generationId)
+        .range(from, from + BASELINE_PAGE - 1);
+      if (page.error || !page.data) {
+        return { status: "unavailable", quotes: new Map() };
+      }
+      for (const item of page.data) {
+        const candidate: NhlBaselineQuote = {
+          symbol: typeof item.symbol === "string" ? item.symbol : "",
+          high_52w: Number(item.high_52w),
+          low_52w: Number(item.low_52w),
+          sessions_observed: Number(item.sessions_observed),
+        };
+        if (!isValidBaselineQuote(candidate)) continue;
+        const sym = candidate.symbol;
+        quotes.set(sym, candidate);
+      }
+      if (page.data.length < BASELINE_PAGE) break;
+      from += BASELINE_PAGE;
+    }
+    return { status: "available", quotes };
+  } catch {
+    return { status: "unavailable", quotes: new Map() };
+  }
 }
 
 function selectedSymbolUnion(...groups: PolygonTicker[][]): string[] {
@@ -204,16 +287,26 @@ export async function handleSyncScreenerData(
     return json({ error: "provider_freshness_unavailable" }, 503);
   }
 
+  // ── Database reads begin only after freshness evidence is verified ──────
+  const sb = deps.createClient(supabaseUrl, serviceRole);
+  const nhlBaseline = await loadNhlBaseline(sb);
+  const nhlSelected = nhlBaseline.status === "available"
+    ? selectNewHighsLows(allTickers, nhlBaseline.quotes)
+    : [];
+  const nhlTickers = nhlSelected.map((item) => item.ticker);
+  if (!allHaveProviderAsOf(nhlTickers, nowMs)) {
+    return json({ error: "provider_freshness_unavailable" }, 503);
+  }
+
   const selectedSymbols = selectedSymbolUnion(
     dayTradeSelected,
     gapperSelected,
     volumeSpikeSelected,
     gainersLosersSelected,
     unusualSelected,
+    nhlTickers,
   );
 
-  // ── Database work begins only after freshness evidence is verified ──────
-  const sb = deps.createClient(supabaseUrl, serviceRole);
   const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
   const getName = (ticker: string) => nameMap[ticker] ?? ticker;
 
@@ -244,14 +337,15 @@ export async function handleSyncScreenerData(
     getName,
     meta,
   );
+  const nhlRows = mapNewHighsLows(nhlSelected, getName, meta);
 
-  // New Highs/Lows remains intentionally empty; RPC still clears that tab.
   const allRows = [
     ...dayTradeRows,
     ...gapperRows,
     ...volumeSpikeRows,
     ...gainersLosersRows,
     ...unusualVolumeRows,
+    ...nhlRows,
   ];
 
   const { data: rowsInserted, error: rpcError } = await sb.rpc(
@@ -260,6 +354,7 @@ export async function handleSyncScreenerData(
       p_rows: allRows,
       p_sync_run_id: syncRunId,
       p_synced_at: syncedAt,
+      p_nhl_baseline_status: nhlBaseline.status,
     },
   );
   if (rpcError) {
@@ -283,12 +378,14 @@ export async function handleSyncScreenerData(
     sync_run_id: syncRunId,
     tickers_scanned: allTickers.length,
     rows_inserted: rowsInserted,
+    nhl_baseline_status: nhlBaseline.status,
     tabs: {
       day_trade_radar: dayTradeRows.length,
       gappers: gapperRows.length,
       volume_spikes: volumeSpikeRows.length,
       gainers_losers: gainersLosersRows.length,
       unusual_volume: unusualVolumeRows.length,
+      new_highs_lows: nhlRows.length,
     },
     provider_as_of_min: bounds.min,
     provider_as_of_max: bounds.max,

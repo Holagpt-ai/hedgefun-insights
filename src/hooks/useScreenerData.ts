@@ -13,7 +13,7 @@ import {
 export type { ScreenerResultRow, ScreenerUiStatus };
 
 const STATE_SELECT =
-  "state_key,sync_run_id,status,synced_at,provider_as_of_min,provider_as_of_max,rows_inserted,tab_counts,updated_at";
+  "state_key,sync_run_id,status,synced_at,provider_as_of_min,provider_as_of_max,rows_inserted,tab_counts,nhl_baseline_status,updated_at";
 
 const ROW_SELECT = [
   "tab_id",
@@ -33,6 +33,7 @@ const ROW_SELECT = [
   "volume_ratio_prior_session",
   "day_high",
   "day_low",
+  "range_event",
   "provider_as_of",
   "sync_run_id",
   "updated_at",
@@ -115,7 +116,7 @@ export function useScreenerData(
         view.status === "available" ||
         view.status === "stale" ||
         view.status === "empty" ||
-        view.status === "unimplemented"
+        view.status === "initializing"
       ) {
         setRows(view.rows);
         setSyncedAt(view.synced_at);

@@ -8,6 +8,7 @@ import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
   formatDayRange,
+  formatRangeEvent,
   volumeRatioBadgeClass,
   type ScreenerResultRow,
   type ScreenerUiStatus,
@@ -220,6 +221,7 @@ export function ScreenerTable({
     const sym = normalizeSymbol(row.symbol) ?? String(row.symbol ?? "").toUpperCase();
 
     if (col.key === "symbol") {
+      const showInlineActions = tab.columns.every((c) => c.key !== "actions");
       return (
         <div className="inline-flex items-center gap-1">
           <Link
@@ -228,7 +230,7 @@ export function ScreenerTable({
           >
             {formatCell(raw as string, col.format)}
           </Link>
-          {hasVerifiedRows && !blurred && (
+          {hasVerifiedRows && !blurred && showInlineActions && (
             <div className="inline-flex items-center gap-0.5">
               {renderWatchlistButton(sym)}
               {renderCatalystButton(sym)}
@@ -237,6 +239,21 @@ export function ScreenerTable({
           )}
         </div>
       );
+    }
+
+    if (col.key === "actions") {
+      if (!hasVerifiedRows || blurred) return "—";
+      return (
+        <div className="inline-flex items-center gap-0.5">
+          {renderWatchlistButton(sym)}
+          {renderCatalystButton(sym)}
+          {renderAiButton(sym)}
+        </div>
+      );
+    }
+
+    if (col.key === "range_event") {
+      return formatRangeEvent(row.range_event);
     }
 
     if (col.key === "company_name") {
@@ -293,16 +310,17 @@ export function ScreenerTable({
       {!loading && status === "unavailable" && (
         <div className="rounded-lg border border-border bg-card p-10 text-center">
           <div className="text-sm font-semibold text-foreground">
-            Screener data is temporarily unavailable. No unverified rows are being shown.
+            {tab.id === "new_highs_lows"
+              ? "New Highs / Lows is unavailable because a validated 52-week baseline could not be loaded. No securities are being inferred."
+              : "Screener data is temporarily unavailable. No unverified rows are being shown."}
           </div>
         </div>
       )}
 
-      {!loading && status === "unimplemented" && (
+      {!loading && status === "initializing" && (
         <div className="rounded-lg border border-border bg-card p-10 text-center">
           <div className="text-sm font-semibold text-foreground">
-            New Highs / Lows is unavailable because a validated 52-week baseline is not
-            connected yet. No securities are being inferred.
+            New Highs / Lows is initializing a validated prior 52-week baseline. No securities are being inferred.
           </div>
         </div>
       )}
@@ -406,6 +424,9 @@ export function ScreenerTable({
             const showVolRatio = colKeys.has("volume_ratio_prior_session");
             const showDayRange = colKeys.has("day_range");
             const showCatalyst = colKeys.has("catalyst_news");
+            const showEvent = colKeys.has("range_event");
+            const showHigh52 = colKeys.has("high_52w");
+            const showLow52 = colKeys.has("low_52w");
             const useGap = colKeys.has("gap_percent");
             const useMove = colKeys.has("change_percent");
             const movementValue = useGap
@@ -446,6 +467,12 @@ export function ScreenerTable({
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
+                  {showEvent && (
+                    <div>
+                      <span className="text-muted-foreground">Event </span>
+                      <span className="font-medium">{formatRangeEvent(row.range_event)}</span>
+                    </div>
+                  )}
                   {showPrice && row.price !== null && row.price !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Price </span>
@@ -494,6 +521,18 @@ export function ScreenerTable({
                       <span className="font-medium">
                         {formatDayRange(row.day_low, row.day_high)}
                       </span>
+                    </div>
+                  )}
+                  {showHigh52 && row.high_52w !== null && row.high_52w !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Prior 52W High </span>
+                      <span className="font-medium">{formatCell(row.high_52w, "price")}</span>
+                    </div>
+                  )}
+                  {showLow52 && row.low_52w !== null && row.low_52w !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Prior 52W Low </span>
+                      <span className="font-medium">{formatCell(row.low_52w, "price")}</span>
                     </div>
                   )}
                 </div>

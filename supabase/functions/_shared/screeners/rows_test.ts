@@ -1,7 +1,7 @@
 // Write-side row mapping: persisted volumes and the ratio derived from them.
 
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { mapTabRows } from "./rows.ts";
+import { mapNewHighsLows, mapTabRows } from "./rows.ts";
 import type { GenerationMeta } from "./rows.ts";
 import {
   type PolygonTicker,
@@ -246,5 +246,35 @@ Deno.test("rows: volume-first ordering survives mapping", () => {
     "FRAC",
     "LOW",
   ]);
+  assertFrontendRatioInvariant(rows);
+});
+
+Deno.test("rows: new highs/lows persist verified 52w fields and range_event", () => {
+  const t = ticker({
+    ticker: "NHL1",
+    volume: 2_000_000,
+    prevVol: 500_000,
+    price: 12,
+  });
+  t.day = {
+    c: 12,
+    o: 12,
+    v: 2_000_000,
+    h: 20,
+    l: 8,
+  };
+  const rows = mapNewHighsLows(
+    [{ ticker: t, range_event: "new_high", high_52w: 19.5, low_52w: 4 }],
+    getName,
+    META,
+  );
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0].tab_id, "new_highs_lows");
+  assertEquals(rows[0].symbol, "NHL1");
+  assertEquals(rows[0].high_52w, 19.5);
+  assertEquals(rows[0].low_52w, 4);
+  assertEquals(rows[0].range_event, "new_high");
+  assertEquals(rows[0].day_high, 20);
+  assertEquals(rows[0].day_low, 8);
   assertFrontendRatioInvariant(rows);
 });

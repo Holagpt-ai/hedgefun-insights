@@ -1,6 +1,7 @@
 // Map volume-first Polygon tickers to screener_results row shapes.
 // Legacy rvol / avg_volume are always null — use volume_ratio_prior_session /
-// prior_session_volume instead. Float / market_cap / 52w remain unavailable.
+// prior_session_volume instead. Float / market_cap remain unavailable.
+// 52-week fields and range_event are populated only for New Highs/Lows.
 
 import {
   dayHighLow,
@@ -14,6 +15,7 @@ import {
   regularClose,
   type ScreenerTabId,
 } from "./selection.ts";
+import type { NhlClassification, RangeEvent } from "./new-highs-lows.ts";
 
 export type ScreenerResultRow = {
   tab_id: string;
@@ -28,8 +30,9 @@ export type ScreenerResultRow = {
   rvol: null;
   float_shares: null;
   gap_percent: number | null;
-  high_52w: null;
-  low_52w: null;
+  high_52w: number | null;
+  low_52w: number | null;
+  range_event: RangeEvent | null;
   market_cap: null;
   prior_session_volume: number | null;
   volume_ratio_prior_session: number | null;
@@ -96,7 +99,7 @@ function persistedPriorRatioPair(
 }
 
 function baseRow(
-  tabId: ScreenerTabId,
+  tabId: ScreenerTabId | "new_highs_lows",
   t: PolygonTicker,
   getName: NameLookup,
   meta: GenerationMeta,
@@ -125,6 +128,7 @@ function baseRow(
     gap_percent: gapPercent(t),
     high_52w: null,
     low_52w: null,
+    range_event: null,
     market_cap: null,
     prior_session_volume,
     volume_ratio_prior_session,
@@ -188,6 +192,23 @@ export function mapUnusualVolume(
   return selected.map((t) => {
     const row = baseRow("unusual_volume", t, getName, meta);
     return { ...row, gap_percent: null };
+  });
+}
+
+export function mapNewHighsLows(
+  selected: NhlClassification[],
+  getName: NameLookup,
+  meta: GenerationMeta,
+): ScreenerResultRow[] {
+  return selected.map((item) => {
+    const row = baseRow("new_highs_lows", item.ticker, getName, meta);
+    return {
+      ...row,
+      gap_percent: null,
+      high_52w: item.high_52w,
+      low_52w: item.low_52w,
+      range_event: item.range_event,
+    };
   });
 }
 
