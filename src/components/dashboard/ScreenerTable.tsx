@@ -334,9 +334,9 @@ export function ScreenerTable({
       )}
 
       {!loading && hasVerifiedRows && (
-        <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block">
-          <div className="overflow-x-auto">
-            <table className="w-full text-[13px]">
+        <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0">
+          <div className="min-w-0">
+            <table className="w-full table-fixed text-[12px]">
               <thead className="bg-muted/50">
                 <tr>
                   {tab.columns.map((col) => {
@@ -346,7 +346,7 @@ export function ScreenerTable({
                       <th
                         key={col.key}
                         onClick={() => handleSortClick(col.key)}
-                        className={`px-3 py-3 min-h-[44px] font-semibold text-[11px] uppercase tracking-wide cursor-pointer select-none hover:text-foreground transition-colors ${
+                        className={`px-2 py-2 font-semibold text-[10px] uppercase tracking-wide cursor-pointer select-none hover:text-foreground transition-colors ${
                           active ? "text-foreground" : "text-muted-foreground"
                         } ${col.align === "right" ? "text-right" : "text-left"}`}
                       >
@@ -373,7 +373,7 @@ export function ScreenerTable({
                         return (
                           <td
                             key={col.key}
-                            className={`px-3 py-3 tabular-nums ${
+                            className={`px-2 py-2 tabular-nums ${
                               col.align === "right" ? "text-right" : "text-left"
                             } ${isPct ? percentClass(Number(raw)) : ""}`}
                           >

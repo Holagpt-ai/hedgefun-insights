@@ -83,7 +83,7 @@ export function DayTradeRadarV2({
   }, [status, boardVisible, ranked.length]);
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <RadarStatusRail
         status={status}
         qualifyingCount={boardVisible ? ranked.length : 0}
