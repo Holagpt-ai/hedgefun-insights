@@ -1,48 +1,37 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { getTopGainers, getTopLosers } from "@/lib/polygon";
-import { classifyTrackedAfterHoursMovers } from "@/lib/market-session";
 import { MoversTable, type MoverRow } from "@/components/markets/MarketMoversLayout";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "@/hooks/use-toast";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { useAfterHoursFeed } from "@/hooks/useAfterHoursFeed";
+import { parseTimestampMs } from "@/lib/screeners/contract";
+import type { AfterHoursMoverResult } from "@/lib/after-hours-feed";
 
 const TIME_TABS = ["Today"];
 
-function asMoverRows(
-  rows: ReturnType<typeof classifyTrackedAfterHoursMovers>["gainers"],
-): MoverRow[] {
+function asMoverRows(rows: AfterHoursMoverResult[]): MoverRow[] {
   return rows.map((r) => ({
     symbol: r.symbol,
-    name: r.name,
-    price: r.price,
-    change: r.change,
-    changePercent: r.changePercent,
-    volume: r.volume,
+    name: r.company_name?.trim() || r.symbol,
+    price: r.extended_last,
+    change: r.change_amount,
+    changePercent: r.change_percent,
+    volume: r.volume ?? 0,
   }));
+}
+
+function formatTs(iso: string | null): string | null {
+  if (!iso) return null;
+  const ms = parseTimestampMs(iso);
+  if (ms === null) return null;
+  return new Date(ms).toLocaleString();
 }
 
 export default function AfterHoursPage() {
   const [activeTime, setActiveTime] = useState("Today");
-
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["tracked-afterhours-movers"],
-    queryFn: async () => {
-      const [gainRes, lossRes] = await Promise.all([getTopGainers(), getTopLosers()]);
-      const gainers = Array.isArray(gainRes) ? gainRes : (gainRes?.tickers ?? []);
-      const losers = Array.isArray(lossRes) ? lossRes : (lossRes?.tickers ?? []);
-      const classified = classifyTrackedAfterHoursMovers([...gainers, ...losers]);
-      return {
-        gainers: asMoverRows(classified.gainers),
-        losers: asMoverRows(classified.losers),
-      };
-    },
-    staleTime: 60_000,
-    retry: 3,
-    retryDelay: 2000,
-  });
+  const view = useAfterHoursFeed();
 
   const handleTimeTab = (t: string) => {
     if (t !== "Today") {
@@ -54,8 +43,21 @@ export default function AfterHoursPage() {
 
   usePageSeo({
     title: "After-Hours Stock Movers | HedgeFun",
-    description: "Track after-hours stock price movements and extended trading activity on HedgeFun.",
+    description: "Track after-hours stock price movements classified from the full-market provider snapshot on HedgeFun.",
   });
+
+  const providerLabel = formatTs(view.providerAsOfMax);
+  const isLoading = view.status === "loading";
+  const statusLabel =
+    view.status === "available"
+      ? "Available"
+      : view.status === "empty"
+        ? "Empty — no verified after-hours movers for this session"
+        : view.status === "stale"
+          ? "Stale — last validated generation is being shown"
+          : view.status === "unavailable"
+            ? "Unavailable — no unverified movers are being shown"
+            : "Loading";
 
   return (
     <div className="w-full">
@@ -86,11 +88,16 @@ export default function AfterHoursPage() {
           <AdBanner slot="top" />
         </div>
 
+        <div className="mb-4 text-[13px] text-muted-foreground space-y-0.5">
+          <div>Status: {statusLabel}</div>
+          {view.sessionDate && <div>Session date: {view.sessionDate}</div>}
+          {providerLabel && <div>Provider data as of {providerLabel}</div>}
+        </div>
+
         <MoversTable
-          sectionTitle="Tracked After-Hours Gainers"
-          rows={data?.gainers ?? []}
+          sectionTitle="After-Hours Gainers"
+          rows={asMoverRows(view.gainers)}
           isLoading={isLoading}
-          refetch={refetch}
           defaultSortDesc={true}
           colorMode="green"
         />
@@ -98,18 +105,17 @@ export default function AfterHoursPage() {
         <div className="my-6 border-t border-border" />
 
         <MoversTable
-          sectionTitle="Tracked After-Hours Losers"
-          rows={data?.losers ?? []}
+          sectionTitle="After-Hours Losers"
+          rows={asMoverRows(view.losers)}
           isLoading={isLoading}
-          refetch={refetch}
           defaultSortDesc={false}
           colorMode="red"
         />
 
         <p className="text-xs text-muted-foreground mt-4">
-          Tracked results use available provider mover candidates and reclassify each name by
-          after-hours last versus regular close. This is not a full-market after-hours scan.
-          Dedicated after-hours coverage requires an upgraded data plan.
+          Results are classified from the full-market U.S. equities snapshot. After-hours last is
+          the newest independently paired last-trade or minute close versus that session’s regular
+          close. This page never fabricates movers and does not use provider day-change percentages.
         </p>
 
         <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">
