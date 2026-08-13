@@ -61,9 +61,17 @@ function assertFrontendRatioInvariant(
     const ratio = row.volume_ratio_prior_session;
     assertEquals(prior === null, ratio === null);
     if (prior === null || ratio === null) continue;
+    assertEquals(Number.isFinite(ratio) && ratio > 0, true);
     assertEquals(expectedVolumeRatio(row.volume as number, prior), ratio);
   }
 }
+
+// Tiny positive quotient that rounds to 0.0 at one decimal (40_000 / 1_000_000).
+const TINY_VOLUME = 40_000;
+const TINY_PRIOR = 1_000_000;
+// Boundary quotient that rounds to 0.1 (50_000 / 1_000_000 = 0.05 → 0.1).
+const BOUNDARY_01_VOLUME = 50_000;
+const BOUNDARY_01_PRIOR = 1_000_000;
 
 // ── Regression: ratio must come from the persisted volumes ────────────────
 
@@ -90,7 +98,10 @@ Deno.test("rows: fractional provider volumes still yield a ratio consistent with
   assertEquals(row.prior_session_volume, 1_000_000);
   assertEquals(row.volume_ratio_prior_session, 5.5);
   assertEquals(
-    expectedVolumeRatio(row.volume as number, row.prior_session_volume as number),
+    expectedVolumeRatio(
+      row.volume as number,
+      row.prior_session_volume as number,
+    ),
     row.volume_ratio_prior_session,
   );
   assertFrontendRatioInvariant([row]);
@@ -134,6 +145,79 @@ Deno.test("rows: zero prior-session volume leaves prior and ratio null", () => {
   assertEquals(row.volume_ratio_prior_session, null);
   assertFrontendRatioInvariant([row]);
 });
+
+Deno.test(
+  "rows: tiny positive gapper ratio that rounds to 0.0 persists null/null",
+  () => {
+    const t = ticker({
+      ticker: "TINYGAP",
+      volume: TINY_VOLUME,
+      prevVol: TINY_PRIOR,
+    });
+    // Raw quotient is positive but below the 0.05 one-decimal boundary.
+    assertEquals(volumeRatioPriorSession(t), 0.0);
+    assertEquals(
+      expectedVolumeRatio(TINY_VOLUME, TINY_PRIOR),
+      0.0,
+    );
+
+    const [row] = mapTabRows("gappers", [t], getName, META);
+
+    assertEquals(row.volume, TINY_VOLUME);
+    assertEquals(row.prior_session_volume, null);
+    assertEquals(row.volume_ratio_prior_session, null);
+    assertFrontendRatioInvariant([row]);
+  },
+);
+
+Deno.test(
+  "rows: tiny positive gainers_losers ratio that rounds to 0.0 persists null/null",
+  () => {
+    const t = ticker({
+      ticker: "TINYGL",
+      volume: TINY_VOLUME,
+      prevVol: TINY_PRIOR,
+    });
+    assertEquals(volumeRatioPriorSession(t), 0.0);
+
+    const [row] = mapTabRows("gainers_losers", [t], getName, META);
+
+    assertEquals(row.volume, TINY_VOLUME);
+    assertEquals(row.prior_session_volume, null);
+    assertEquals(row.volume_ratio_prior_session, null);
+    assertFrontendRatioInvariant([row]);
+  },
+);
+
+Deno.test(
+  "rows: quotient that rounds to 0.1 retains a consistent prior/ratio pair",
+  () => {
+    const t = ticker({
+      ticker: "BOUND01",
+      volume: BOUNDARY_01_VOLUME,
+      prevVol: BOUNDARY_01_PRIOR,
+    });
+    assertEquals(volumeRatioPriorSession(t), 0.1);
+    assertEquals(
+      expectedVolumeRatio(BOUNDARY_01_VOLUME, BOUNDARY_01_PRIOR),
+      0.1,
+    );
+
+    const [row] = mapTabRows("gappers", [t], getName, META);
+
+    assertEquals(row.volume, BOUNDARY_01_VOLUME);
+    assertEquals(row.prior_session_volume, BOUNDARY_01_PRIOR);
+    assertEquals(row.volume_ratio_prior_session, 0.1);
+    assertEquals(
+      expectedVolumeRatio(
+        row.volume as number,
+        row.prior_session_volume as number,
+      ),
+      row.volume_ratio_prior_session,
+    );
+    assertFrontendRatioInvariant([row]);
+  },
+);
 
 Deno.test("rows: volume-first ordering survives mapping", () => {
   const universe = [

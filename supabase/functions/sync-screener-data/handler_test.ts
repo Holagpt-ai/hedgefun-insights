@@ -731,3 +731,112 @@ Deno.test("handler: contradictory day range becomes null/null", async () => {
   assertEquals(row.rvol, null);
   assertEquals(row.avg_volume, null);
 });
+
+Deno.test(
+  "handler: tiny positive optional ratios omit null/null and keep atomic replace",
+  async () => {
+    const mutations: Mutation[] = [];
+    // Tiny quotient 40_000 / 1_000_000 = 0.04 → one-decimal 0.0.
+    const tinyGapper = mk("TINYGAP", 40_000, 1_000_000, {
+      open: 5.5,
+      prevClose: 4,
+      price: 5,
+    });
+    const tinyLoser = mk("TINYGL", 40_000, 1_000_000, {
+      price: 5,
+      prevClose: 4,
+      change: -12,
+    });
+    // Ratio-qualified normals (≥5× day-trade / ≥3× spikes / ≥4× unusual).
+    const normalDtr = mk("DTRHI", 8_000_000, 1_500_000, {
+      price: 5,
+      prevClose: 4,
+    });
+    const normalSpike = mk("SPIKE", 4_500_000, 1_000_000, {
+      price: 5,
+      prevClose: 4,
+    });
+    const deps = depsWith(
+      mutations,
+      marketFetch(
+        [tinyGapper, normalDtr, normalSpike],
+        [],
+        [tinyLoser],
+      ),
+    );
+    const res = await handleSyncScreenerData(
+      new Request("https://example.test/sync", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+      }),
+      deps,
+    );
+    assertEquals(res.status, 200);
+
+    const rpcs = mutations.filter((m) => m.kind === "rpc") as Array<{
+      kind: "rpc";
+      fn: string;
+      args: { p_rows: ScreenerResultRow[] };
+    }>;
+    assertEquals(rpcs.length, 1);
+    assertEquals(rpcs[0].fn, REPLACE_GENERATION_RPC);
+    assertEquals(
+      mutations.some((m) => (m as { kind: string }).kind === "upsert"),
+      false,
+    );
+    assertEquals(
+      mutations.some((m) => (m as { kind: string }).kind === "delete"),
+      false,
+    );
+
+    const rows = rpcs[0].args.p_rows;
+    assertEquals(
+      rows.some((r) => r.tab_id === "new_highs_lows"),
+      false,
+    );
+
+    for (const r of rows) {
+      const prior = r.prior_session_volume;
+      const ratio = r.volume_ratio_prior_session;
+      assertEquals(prior === null, ratio === null);
+      if (ratio !== null) {
+        assertEquals(Number.isFinite(ratio) && ratio > 0, true);
+      }
+    }
+
+    const gapper = rows.find(
+      (r) => r.tab_id === "gappers" && r.symbol === "TINYGAP",
+    )!;
+    assertEquals(gapper.prior_session_volume, null);
+    assertEquals(gapper.volume_ratio_prior_session, null);
+
+    const gl = rows.find(
+      (r) => r.tab_id === "gainers_losers" && r.symbol === "TINYGL",
+    )!;
+    assertEquals(gl.prior_session_volume, null);
+    assertEquals(gl.volume_ratio_prior_session, null);
+
+    const dayTrade = rows.filter((r) => r.tab_id === "day_trade_radar");
+    assertEquals(dayTrade.map((r) => r.symbol), ["DTRHI"]);
+    for (const r of dayTrade) {
+      assertEquals(typeof r.prior_session_volume === "number", true);
+      assertEquals(r.prior_session_volume! > 0, true);
+      assertEquals(typeof r.volume_ratio_prior_session === "number", true);
+      assertEquals(r.volume_ratio_prior_session! > 0, true);
+    }
+
+    const spikes = rows.filter((r) => r.tab_id === "volume_spikes");
+    assertEquals(spikes.map((r) => r.symbol), ["DTRHI", "SPIKE"]);
+    for (const r of spikes) {
+      assertEquals(r.volume_ratio_prior_session! > 0, true);
+      assertEquals(r.prior_session_volume! > 0, true);
+    }
+
+    const unusual = rows.filter((r) => r.tab_id === "unusual_volume");
+    assertEquals(unusual.map((r) => r.symbol), ["DTRHI", "SPIKE"]);
+    for (const r of unusual) {
+      assertEquals(r.volume_ratio_prior_session! > 0, true);
+      assertEquals(r.prior_session_volume! > 0, true);
+    }
+  },
+);

@@ -63,18 +63,36 @@ function persistedPriorVolume(value: number | null): number | null {
 }
 
 /**
- * Derived from the persisted integer volumes rather than the raw provider
- * values, so a reader recomputing the ratio from the stored volume columns
- * gets the same number back. Same rounding as the raw metric: one decimal.
+ * Persist prior volume and one-decimal ratio as one optional pair.
+ * Derived from persisted integer volumes so a reader recomputing the ratio
+ * from the stored volume columns gets the same number back.
+ *
+ * A tiny positive quotient that rounds to 0.0 is omitted entirely (null/null)
+ * rather than writing a zero ratio the database rejects. Never clamp to 0.1.
  */
-function persistedVolumeRatio(
+function persistedPriorRatioPair(
   volume: number | null,
-  prior: number | null,
-): number | null {
-  if (volume === null || !(volume > 0) || prior === null) return null;
+  rawPrior: number | null,
+): {
+  prior_session_volume: number | null;
+  volume_ratio_prior_session: number | null;
+} {
+  const prior = persistedPriorVolume(rawPrior);
+  if (volume === null || !(volume > 0) || prior === null) {
+    return { prior_session_volume: null, volume_ratio_prior_session: null };
+  }
   const ratio = volume / prior;
-  if (!Number.isFinite(ratio) || !(ratio > 0)) return null;
-  return Math.round(ratio * 10) / 10;
+  if (!Number.isFinite(ratio) || !(ratio > 0)) {
+    return { prior_session_volume: null, volume_ratio_prior_session: null };
+  }
+  const rounded = Math.round(ratio * 10) / 10;
+  if (!(rounded > 0)) {
+    return { prior_session_volume: null, volume_ratio_prior_session: null };
+  }
+  return {
+    prior_session_volume: prior,
+    volume_ratio_prior_session: rounded,
+  };
 }
 
 function baseRow(
@@ -85,8 +103,8 @@ function baseRow(
 ): ScreenerResultRow {
   const sym = normalizeSymbol(t.ticker)!;
   const vol = persistedVolume(dayVolume(t));
-  const priorVol = persistedPriorVolume(priorSessionVolume(t));
-  const ratio = persistedVolumeRatio(vol, priorVol);
+  const { prior_session_volume, volume_ratio_prior_session } =
+    persistedPriorRatioPair(vol, priorSessionVolume(t));
   const range = dayHighLow(t);
   const providerAsOf = parseProviderAsOf(t.updated, meta.nowMs);
   if (providerAsOf === null) {
@@ -108,8 +126,8 @@ function baseRow(
     high_52w: null,
     low_52w: null,
     market_cap: null,
-    prior_session_volume: priorVol,
-    volume_ratio_prior_session: ratio,
+    prior_session_volume,
+    volume_ratio_prior_session,
     day_high: range.high,
     day_low: range.low,
     provider_as_of: providerAsOf,
