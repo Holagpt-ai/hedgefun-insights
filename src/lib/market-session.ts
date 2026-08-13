@@ -3,7 +3,21 @@
  * Day-session surfaces must pair regular_close with regular_change_pct.
  * After-hours surfaces must pair extended_last with after_hours_change_pct.
  * Never pair day.c with todaysChangePerc.
+ *
+ * Session windows come from a resolved U.S. equities schedule. When that
+ * schedule is unavailable, readers fall back to 09:30 / 16:00 / 20:00 ET.
  */
+
+import {
+  fallbackOpenSchedule,
+  isWithinAfterHoursWindow,
+  NORMAL_AFTER_HOURS_END_MS,
+  NORMAL_REGULAR_CLOSE_MS,
+  sessionKindAtMsOfDay,
+  type ResolvedSessionSchedule,
+} from "@/lib/equities-session-calendar";
+
+export type { ResolvedSessionSchedule };
 
 export type SnapshotTicker = {
   ticker?: string;
@@ -37,11 +51,11 @@ export type SessionMetrics = {
  * Normal full-session after-hours window (America/New_York):
  * strictly after 16:00:00.000 ET through 20:00:00.000 ET inclusive.
  *
- * Early-close calendar support is deferred — this module assumes a normal
- * 9:30–16:00 ET regular session and does not shorten the AH open on early-close days.
+ * Callers with a resolved schedule (including early-close / holiday rows)
+ * should pass that schedule rather than relying on these fallback constants.
  */
-export const AFTER_HOURS_OPEN_EXCLUSIVE_MS = 16 * 60 * 60 * 1000;
-export const AFTER_HOURS_END_INCLUSIVE_MS = 20 * 60 * 60 * 1000;
+export const AFTER_HOURS_OPEN_EXCLUSIVE_MS = NORMAL_REGULAR_CLOSE_MS;
+export const AFTER_HOURS_END_INCLUSIVE_MS = NORMAL_AFTER_HOURS_END_MS;
 
 /** Tie-break when two AH candidates share the same normalized timestamp. */
 export const AFTER_HOURS_TIE_BREAK = "lastTrade" as const;
@@ -108,21 +122,51 @@ export type EasternWallClock = {
   mins: number;
 };
 
+/**
+ * Intl.DateTimeFormatOptions in TypeScript 5.8 + ES2020 lib omits
+ * fractionalSecondDigits. Intersect the documented runtime option rather than
+ * dropping millisecond precision or using `any`.
+ */
+type EasternDateTimeFormatOptions = Intl.DateTimeFormatOptions & {
+  fractionalSecondDigits: 1 | 2 | 3;
+};
+
+const EASTERN_FORMAT_OPTIONS: EasternDateTimeFormatOptions = {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+  fractionalSecondDigits: 3,
+  hour12: false,
+};
+
+const easternFormatter = new Intl.DateTimeFormat("en-US", EASTERN_FORMAT_OPTIONS);
+
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
+}
+
+function easternDateFromParts(parts: EasternWallClock): string {
+  return `${parts.year}-${pad2(parts.month)}-${pad2(parts.day)}`;
+}
+
+function scheduleOrFallback(
+  referenceMs: number,
+  schedule: ResolvedSessionSchedule | null | undefined,
+): ResolvedSessionSchedule | null {
+  if (schedule) return schedule;
+  const parts = easternParts(referenceMs);
+  if (!parts) return null;
+  return fallbackOpenSchedule(easternDateFromParts(parts));
+}
+
 /** Eastern-time wall clock for a UTC epoch ms (America/New_York). */
 export function easternParts(ms: number): EasternWallClock | null {
   if (!Number.isFinite(ms)) return null;
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    fractionalSecondDigits: 3,
-    hour12: false,
-  });
-  const parts = fmt.formatToParts(new Date(ms));
+  const parts = easternFormatter.formatToParts(new Date(ms));
   const get = (type: string) => parts.find((p) => p.type === type)?.value;
   const year = Number(get("year"));
   const month = Number(get("month"));
@@ -159,25 +203,21 @@ export function easternParts(ms: number): EasternWallClock | null {
 export function isAfterHoursTimestamp(
   rawTs: unknown,
   referenceMs: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): boolean {
   const tradeMs = providerTimestampMs(rawTs);
   if (tradeMs === null) return false;
   const trade = easternParts(tradeMs);
   const ref = easternParts(referenceMs);
   if (!trade || !ref) return false;
-  // Must be the same Eastern calendar day as the observation reference.
-  if (
-    trade.year !== ref.year ||
-    trade.month !== ref.month ||
-    trade.day !== ref.day
-  ) {
+  const resolved = scheduleOrFallback(referenceMs, schedule);
+  if (!resolved) return false;
+  const tradeDate = easternDateFromParts(trade);
+  const refDate = easternDateFromParts(ref);
+  if (tradeDate !== refDate || tradeDate !== resolved.sessionDate) {
     return false;
   }
-  // Strictly after 16:00:00.000 ET; through 20:00:00.000 ET inclusive.
-  return (
-    trade.msOfDay > AFTER_HOURS_OPEN_EXCLUSIVE_MS &&
-    trade.msOfDay <= AFTER_HOURS_END_INCLUSIVE_MS
-  );
+  return isWithinAfterHoursWindow(trade.msOfDay, resolved);
 }
 
 type AfterHoursCandidate = {
@@ -191,10 +231,11 @@ function afterHoursCandidate(
   tsRaw: unknown,
   source: "lastTrade" | "min",
   referenceMs: number,
+  schedule?: ResolvedSessionSchedule | null,
 ): AfterHoursCandidate | null {
   const price = finitePositive(priceRaw);
   if (price === null) return null;
-  if (!isAfterHoursTimestamp(tsRaw, referenceMs)) return null;
+  if (!isAfterHoursTimestamp(tsRaw, referenceMs, schedule)) return null;
   const ms = providerTimestampMs(tsRaw);
   if (ms === null) return null;
   return { price, ms, source };
@@ -208,6 +249,7 @@ function afterHoursCandidate(
 export function selectNewestAfterHoursCandidate(
   t: SnapshotTicker,
   referenceMs: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): AfterHoursCandidate | null {
   const candidates: AfterHoursCandidate[] = [];
   const last = afterHoursCandidate(
@@ -215,9 +257,16 @@ export function selectNewestAfterHoursCandidate(
     t?.lastTrade?.t,
     "lastTrade",
     referenceMs,
+    schedule,
   );
   if (last) candidates.push(last);
-  const min = afterHoursCandidate(t?.min?.c, t?.min?.t, "min", referenceMs);
+  const min = afterHoursCandidate(
+    t?.min?.c,
+    t?.min?.t,
+    "min",
+    referenceMs,
+    schedule,
+  );
   if (min) candidates.push(min);
   if (candidates.length === 0) return null;
 
@@ -257,15 +306,17 @@ export function regularChangePercent(t: SnapshotTicker): number | null {
 export function extendedLast(
   t: SnapshotTicker,
   referenceMs: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): number | null {
-  return selectNewestAfterHoursCandidate(t, referenceMs)?.price ?? null;
+  return selectNewestAfterHoursCandidate(t, referenceMs, schedule)?.price ?? null;
 }
 
 export function afterHoursChangePercent(
   t: SnapshotTicker,
   referenceMs: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): number | null {
-  const last = extendedLast(t, referenceMs);
+  const last = extendedLast(t, referenceMs, schedule);
   const close = regularClose(t);
   if (last === null || close === null) return null;
   const pct = ((last - close) / close) * 100;
@@ -275,8 +326,9 @@ export function afterHoursChangePercent(
 export function extendedTotalChangePercent(
   t: SnapshotTicker,
   referenceMs: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): number | null {
-  const last = extendedLast(t, referenceMs);
+  const last = extendedLast(t, referenceMs, schedule);
   const prev = previousRegularClose(t);
   if (last === null || prev === null) return null;
   const pct = ((last - prev) / prev) * 100;
@@ -295,30 +347,31 @@ export function providerPreviousDayVolume(t: SnapshotTicker): number | null {
 
 export function resolveMarketSessionAt(
   ms: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): SessionMetrics["market_session"] {
   const parts = easternParts(ms);
   if (!parts) return "closed";
-  const { mins } = parts;
-  if (mins >= 240 && mins < 570) return "pre-market";
-  if (mins >= 570 && mins <= 960) return "market";
-  if (mins >= 961 && mins <= 1200) return "after-hours";
-  return "closed";
+  const resolved = scheduleOrFallback(ms, schedule);
+  if (!resolved) return "closed";
+  if (easternDateFromParts(parts) !== resolved.sessionDate) return "closed";
+  return sessionKindAtMsOfDay(parts.msOfDay, resolved);
 }
 
 export function sessionMetrics(
   t: SnapshotTicker,
   referenceMs: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): SessionMetrics {
   return {
     regular_close: regularClose(t),
     previous_regular_close: previousRegularClose(t),
     regular_change_pct: regularChangePercent(t),
-    extended_last: extendedLast(t, referenceMs),
-    after_hours_change_pct: afterHoursChangePercent(t, referenceMs),
-    extended_total_change_pct: extendedTotalChangePercent(t, referenceMs),
+    extended_last: extendedLast(t, referenceMs, schedule),
+    after_hours_change_pct: afterHoursChangePercent(t, referenceMs, schedule),
+    extended_total_change_pct: extendedTotalChangePercent(t, referenceMs, schedule),
     provider_day_volume: providerDayVolume(t),
     provider_previous_day_volume: providerPreviousDayVolume(t),
-    market_session: resolveMarketSessionAt(referenceMs),
+    market_session: resolveMarketSessionAt(referenceMs, schedule),
     provider_as_of: providerTimestampMs(t.updated),
   };
 }
@@ -344,6 +397,7 @@ export type AfterHoursMoverRow = {
 export function classifyTrackedAfterHoursMovers(
   candidates: SnapshotTicker[],
   referenceMs: number = Date.now(),
+  schedule?: ResolvedSessionSchedule | null,
 ): { gainers: AfterHoursMoverRow[]; losers: AfterHoursMoverRow[] } {
   const bySymbol = new Map<string, AfterHoursMoverRow>();
 
@@ -353,7 +407,7 @@ export function classifyTrackedAfterHoursMovers(
       .toUpperCase();
     if (!symbol) continue;
 
-    const metrics = sessionMetrics(t, referenceMs);
+    const metrics = sessionMetrics(t, referenceMs, schedule);
     if (
       metrics.extended_last === null ||
       metrics.regular_close === null ||

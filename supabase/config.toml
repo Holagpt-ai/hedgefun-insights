@@ -62,6 +62,9 @@ verify_jwt = false
 
 [functions.sync-screener-data]
 verify_jwt = false
+
+[functions.sync-market-calendar]
+verify_jwt = false
 [functions.mcp]
 verify_jwt = false
 
