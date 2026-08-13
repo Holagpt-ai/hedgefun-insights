@@ -33,9 +33,18 @@ export type SessionMetrics = {
   provider_as_of: number | null;
 };
 
-/** After-hours window in Eastern minutes from midnight: 16:00–20:00 inclusive. */
-export const AFTER_HOURS_START_MINS = 16 * 60;
-export const AFTER_HOURS_END_MINS = 20 * 60;
+/**
+ * Normal full-session after-hours window (America/New_York):
+ * strictly after 16:00:00.000 ET through 20:00:00.000 ET inclusive.
+ *
+ * Early-close calendar support is deferred — this module assumes a normal
+ * 9:30–16:00 ET regular session and does not shorten the AH open on early-close days.
+ */
+export const AFTER_HOURS_OPEN_EXCLUSIVE_MS = 16 * 60 * 60 * 1000;
+export const AFTER_HOURS_END_INCLUSIVE_MS = 20 * 60 * 60 * 1000;
+
+/** Tie-break when two AH candidates share the same normalized timestamp. */
+export const AFTER_HOURS_TIE_BREAK = "lastTrade" as const;
 
 function finitePositive(value: unknown): number | null {
   if (value === undefined || value === null) return null;
@@ -50,22 +59,57 @@ function finiteNumber(value: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
-/** Convert Polygon timestamps (ns or ms) to epoch ms. */
+/**
+ * Normalize provider timestamps to Unix epoch milliseconds.
+ * Explicit magnitude bands for contemporary Unix times (≈2001–2286):
+ *   seconds      [1e9, 1e10)
+ *   milliseconds [1e11, 1e14)
+ *   microseconds [1e14, 1e17)
+ *   nanoseconds  [1e17, 1e20)
+ * Values outside these bands are rejected rather than silently mis-scaled.
+ */
 export function providerTimestampMs(raw: unknown): number | null {
   const n = finiteNumber(raw);
   if (n === null || !(n > 0)) return null;
-  // Nanoseconds are >> 1e14; milliseconds for current era are ~1e12–1e13.
-  if (n > 1e14) return Math.trunc(n / 1_000_000);
-  return Math.trunc(n);
+
+  let ms: number;
+  if (n >= 1e17 && n < 1e20) {
+    ms = Math.trunc(n / 1_000_000); // nanoseconds
+  } else if (n >= 1e14 && n < 1e17) {
+    ms = Math.trunc(n / 1_000); // microseconds
+  } else if (n >= 1e11 && n < 1e14) {
+    ms = Math.trunc(n); // milliseconds
+  } else if (n >= 1e9 && n < 1e10) {
+    ms = Math.trunc(n * 1_000); // seconds
+  } else {
+    return null;
+  }
+
+  if (!Number.isFinite(ms) || !(ms > 0)) return null;
+  const date = new Date(ms);
+  const year = date.getUTCFullYear();
+  if (!Number.isFinite(date.getTime()) || year < 2000 || year > 2100) {
+    return null;
+  }
+  return ms;
 }
 
-/** Eastern-time calendar parts for a UTC epoch ms. */
-export function easternParts(ms: number): {
+export type EasternWallClock = {
   year: number;
   month: number;
   day: number;
+  hour: number;
+  minute: number;
+  second: number;
+  millisecond: number;
+  /** Milliseconds since Eastern local midnight. */
+  msOfDay: number;
+  /** Minutes since Eastern local midnight (hour*60+minute). */
   mins: number;
-} | null {
+};
+
+/** Eastern-time wall clock for a UTC epoch ms (America/New_York). */
+export function easternParts(ms: number): EasternWallClock | null {
   if (!Number.isFinite(ms)) return null;
   const fmt = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -74,6 +118,8 @@ export function easternParts(ms: number): {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    second: "2-digit",
+    fractionalSecondDigits: 3,
     hour12: false,
   });
   const parts = fmt.formatToParts(new Date(ms));
@@ -83,12 +129,31 @@ export function easternParts(ms: number): {
   const day = Number(get("day"));
   let hour = Number(get("hour"));
   const minute = Number(get("minute"));
+  const second = Number(get("second") ?? "0");
+  const frac = get("fractionalSecond") ?? "0";
+  const millisecond = Number(frac.padEnd(3, "0").slice(0, 3));
   // Some engines emit hour "24" for midnight.
   if (hour === 24) hour = 0;
-  if (![year, month, day, hour, minute].every((v) => Number.isFinite(v))) {
+  if (
+    ![year, month, day, hour, minute, second, millisecond].every((v) =>
+      Number.isFinite(v)
+    )
+  ) {
     return null;
   }
-  return { year, month, day, mins: hour * 60 + minute };
+  const msOfDay =
+    hour * 3_600_000 + minute * 60_000 + second * 1_000 + millisecond;
+  return {
+    year,
+    month,
+    day,
+    hour,
+    minute,
+    second,
+    millisecond,
+    msOfDay,
+    mins: hour * 60 + minute,
+  };
 }
 
 export function isAfterHoursTimestamp(
@@ -108,9 +173,65 @@ export function isAfterHoursTimestamp(
   ) {
     return false;
   }
+  // Strictly after 16:00:00.000 ET; through 20:00:00.000 ET inclusive.
   return (
-    trade.mins >= AFTER_HOURS_START_MINS && trade.mins <= AFTER_HOURS_END_MINS
+    trade.msOfDay > AFTER_HOURS_OPEN_EXCLUSIVE_MS &&
+    trade.msOfDay <= AFTER_HOURS_END_INCLUSIVE_MS
   );
+}
+
+type AfterHoursCandidate = {
+  price: number;
+  ms: number;
+  source: "lastTrade" | "min";
+};
+
+function afterHoursCandidate(
+  priceRaw: unknown,
+  tsRaw: unknown,
+  source: "lastTrade" | "min",
+  referenceMs: number,
+): AfterHoursCandidate | null {
+  const price = finitePositive(priceRaw);
+  if (price === null) return null;
+  if (!isAfterHoursTimestamp(tsRaw, referenceMs)) return null;
+  const ms = providerTimestampMs(tsRaw);
+  if (ms === null) return null;
+  return { price, ms, source };
+}
+
+/**
+ * Pick the newest valid after-hours observation.
+ * Tie-break: prefer lastTrade over min when normalized timestamps are equal.
+ * Never mixes one candidate's price with another's timestamp.
+ */
+export function selectNewestAfterHoursCandidate(
+  t: SnapshotTicker,
+  referenceMs: number = Date.now(),
+): AfterHoursCandidate | null {
+  const candidates: AfterHoursCandidate[] = [];
+  const last = afterHoursCandidate(
+    t?.lastTrade?.p,
+    t?.lastTrade?.t,
+    "lastTrade",
+    referenceMs,
+  );
+  if (last) candidates.push(last);
+  const min = afterHoursCandidate(t?.min?.c, t?.min?.t, "min", referenceMs);
+  if (min) candidates.push(min);
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => {
+    if (b.ms !== a.ms) return b.ms - a.ms;
+    if (a.source === AFTER_HOURS_TIE_BREAK && b.source !== AFTER_HOURS_TIE_BREAK) {
+      return -1;
+    }
+    if (b.source === AFTER_HOURS_TIE_BREAK && a.source !== AFTER_HOURS_TIE_BREAK) {
+      return 1;
+    }
+    return 0;
+  });
+  return candidates[0] ?? null;
 }
 
 export function regularClose(t: SnapshotTicker): number | null {
@@ -130,22 +251,14 @@ export function regularChangePercent(t: SnapshotTicker): number | null {
 }
 
 /**
- * Verified extended-hours last: lastTrade.p or min.c only when the timestamp
- * falls in the Eastern after-hours window. Never falls back to day.c.
+ * Verified extended-hours last from the newest valid AH observation among
+ * lastTrade and min. Never falls back to day.c.
  */
 export function extendedLast(
   t: SnapshotTicker,
   referenceMs: number = Date.now(),
 ): number | null {
-  const lastPx = finitePositive(t?.lastTrade?.p);
-  if (lastPx !== null && isAfterHoursTimestamp(t?.lastTrade?.t, referenceMs)) {
-    return lastPx;
-  }
-  const minPx = finitePositive(t?.min?.c);
-  if (minPx !== null && isAfterHoursTimestamp(t?.min?.t, referenceMs)) {
-    return minPx;
-  }
-  return null;
+  return selectNewestAfterHoursCandidate(t, referenceMs)?.price ?? null;
 }
 
 export function afterHoursChangePercent(

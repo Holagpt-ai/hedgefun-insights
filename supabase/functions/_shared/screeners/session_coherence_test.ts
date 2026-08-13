@@ -10,6 +10,7 @@ import {
   regularChangePercent,
   regularClose,
   type PolygonTicker,
+  volumeRatioPriorSession,
 } from "./selection.ts";
 
 const FIXED_ISO = "2026-08-12T22:45:00.000Z";
@@ -89,4 +90,41 @@ Deno.test("session: missing prevDay.c excludes change rather than fabricating", 
   const [row] = mapTabRows("gainers_losers", [t], (s) => s, META);
   assertEquals(row.price, 5);
   assertEquals(row.change_percent, null);
+});
+
+Deno.test("session: raw regular move 9.99% fails ≥10% qualification", () => {
+  // (10.999 - 10) / 10 * 100 = 9.99
+  const t: PolygonTicker = {
+    ticker: "U10",
+    updated: FIXED_NS,
+    todaysChangePerc: 50,
+    day: { c: 10.999, o: 10.999, v: 10_000_000, h: 11.5, l: 10 },
+    prevDay: { c: 10, v: 1_000_000 },
+  };
+  assertEquals(Math.abs(regularChangePercent(t)! - 9.99) < 1e-9, true);
+  assertEquals(qualifiesDayTradeRadar(t), false);
+});
+
+Deno.test("session: raw regular move 10.00% passes ≥10% qualification", () => {
+  const t: PolygonTicker = {
+    ticker: "EQ10",
+    updated: FIXED_NS,
+    todaysChangePerc: 1,
+    day: { c: 11, o: 11, v: 10_000_000, h: 11.5, l: 10 },
+    prevDay: { c: 10, v: 1_000_000 },
+  };
+  assertEquals(regularChangePercent(t), 10);
+  assertEquals(qualifiesDayTradeRadar(t), true);
+});
+
+Deno.test("session: raw volume ratio below 5.0× cannot qualify via display rounding", () => {
+  const t: PolygonTicker = {
+    ticker: "R499",
+    updated: FIXED_NS,
+    todaysChangePerc: 1,
+    day: { c: 11, o: 11, v: 4_999_999, h: 11.5, l: 10 },
+    prevDay: { c: 10, v: 1_000_000 },
+  };
+  assertEquals(volumeRatioPriorSession(t), 5.0);
+  assertEquals(qualifiesDayTradeRadar(t), false);
 });
