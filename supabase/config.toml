@@ -68,6 +68,9 @@ verify_jwt = false
 
 [functions.sync-after-hours-movers]
 verify_jwt = false
+
+[functions.sync-screener-52w-baselines]
+verify_jwt = false
 [functions.mcp]
 verify_jwt = false
 

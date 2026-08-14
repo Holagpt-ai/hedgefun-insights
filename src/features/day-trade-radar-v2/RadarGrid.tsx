@@ -5,7 +5,11 @@ import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentFo
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
 import { isRadarCapabilityEnabled } from "./radar-capabilities";
-import { RADAR_GRID_COLUMNS } from "./radar-grid-columns";
+import {
+  RADAR_ACTIONS_STICKY_CELL_CLASS,
+  RADAR_ACTIONS_STICKY_HEADER_CLASS,
+  RADAR_GRID_COLUMNS,
+} from "./radar-grid-columns";
 import {
   formatHodDistance,
   formatRadarDayRange,
@@ -103,7 +107,8 @@ export function RadarGrid({
 
   return (
     <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0">
-      <table className="w-full table-fixed text-[12px]">
+      <div className="overflow-x-auto">
+      <table className="w-full table-fixed text-[12px] min-w-[960px]">
         <colgroup>
           <col className="w-[44px]" />
           <col className="w-[18%]" />
@@ -113,9 +118,9 @@ export function RadarGrid({
           <col className="w-[9%]" />
           <col className="w-[12%]" />
           <col className="w-[14%]" />
-          <col className="w-[120px]" />
+          <col className="w-[160px]" />
         </colgroup>
-        <thead className="bg-muted/50">
+        <thead className="bg-muted">
           <tr>
             {RADAR_GRID_COLUMNS.map((label) => (
               <th
@@ -124,7 +129,7 @@ export function RadarGrid({
                   ["#", "Symbol", "Signal", "Catalyst", "Actions"].includes(label)
                     ? "text-left"
                     : "text-right"
-                }`}
+                } ${label === "Actions" ? RADAR_ACTIONS_STICKY_HEADER_CLASS : ""}`}
               >
                 {label}
               </th>
@@ -145,15 +150,17 @@ export function RadarGrid({
             return (
               <tr
                 key={`${row.tab_id}-${row.symbol}`}
+                data-selected={selected ? "true" : undefined}
+                data-leader={isLeader && accessible ? "true" : undefined}
                 onClick={() => {
                   if (accessible) onSelect(row);
                 }}
-                className={`border-t border-border transition-colors ${
+                className={`group border-t border-border transition-colors ${
                   !accessible
                     ? "blur-sm select-none pointer-events-none"
                     : "cursor-pointer hover:bg-muted/40"
-                } ${selected ? "bg-accent-blue/10" : ""} ${
-                  isLeader && accessible ? "bg-amber-500/5" : ""
+                } ${selected ? "bg-accent-blue-light" : ""} ${
+                  isLeader && accessible && !selected ? "bg-muted" : ""
                 }`}
               >
                 <td className="px-2 py-2 tabular-nums font-semibold text-muted-foreground">
@@ -211,9 +218,17 @@ export function RadarGrid({
                     "—"
                   )}
                 </td>
-                <td className="px-2 py-2">
+                <td
+                  className={`px-2 py-2 ${RADAR_ACTIONS_STICKY_CELL_CLASS} ${
+                    selected
+                      ? "bg-accent-blue-light group-hover:bg-accent-blue-light"
+                      : isLeader && accessible
+                        ? "bg-muted group-hover:bg-muted"
+                        : `bg-card${accessible ? " group-hover:bg-muted" : ""}`
+                  }`}
+                >
                   {accessible && (
-                    <div className="inline-flex items-center gap-0.5">
+                    <div className="inline-flex items-center gap-0.5 whitespace-nowrap">
                       <button
                         type="button"
                         onClick={(e) => {
@@ -269,6 +284,7 @@ export function RadarGrid({
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
