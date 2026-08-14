@@ -25,6 +25,23 @@ export const CALENDAR_STATUSES: ReadonlySet<string> = new Set([
 ]);
 export const CALENDAR_SOURCE = "polygon_marketstatus_upcoming";
 
+/** Persisted calendar row contract sent to replace_market_session_calendar_exceptions_v1. */
+export type PersistedCalendarExceptionRow = CalendarExceptionRow & {
+  source: string;
+};
+
+export function stampCalendarSource(
+  row: CalendarExceptionRow,
+): PersistedCalendarExceptionRow {
+  return { ...row, source: CALENDAR_SOURCE };
+}
+
+export function stampCalendarSourceRows(
+  rows: CalendarExceptionRow[],
+): PersistedCalendarExceptionRow[] {
+  return rows.map(stampCalendarSource);
+}
+
 export type UpcomingVenueRow = {
   exchange: string;
   date: string;
@@ -35,7 +52,7 @@ export type UpcomingVenueRow = {
 };
 
 export type CalendarParseResult =
-  | { ok: true; rows: CalendarExceptionRow[] }
+  | { ok: true; rows: PersistedCalendarExceptionRow[] }
   | { ok: false; reason: "malformed" | "contradictory" };
 
 function optionalString(value: unknown): { ok: boolean; value: string | null } {
@@ -97,7 +114,9 @@ function parseVenueRow(raw: unknown): UpcomingVenueRow | "skip" | "malformed" {
   };
 }
 
-function venueToException(row: UpcomingVenueRow): CalendarExceptionRow | null {
+function venueToException(
+  row: UpcomingVenueRow,
+): PersistedCalendarExceptionRow | null {
   const holidayName = row.name;
   if (row.status === "closed") {
     return {
@@ -107,6 +126,7 @@ function venueToException(row: UpcomingVenueRow): CalendarExceptionRow | null {
       regular_close_et: NORMAL_REGULAR_CLOSE_ET,
       after_hours_end_et: NORMAL_AFTER_HOURS_END_ET,
       holiday_name: holidayName,
+      source: CALENDAR_SOURCE,
     };
   }
 
@@ -128,6 +148,7 @@ function venueToException(row: UpcomingVenueRow): CalendarExceptionRow | null {
     regular_close_et: closeEt,
     after_hours_end_et: NORMAL_AFTER_HOURS_END_ET,
     holiday_name: holidayName,
+    source: CALENDAR_SOURCE,
   };
 }
 
@@ -155,13 +176,13 @@ function sameException(
 }
 
 function mergeException(
-  a: CalendarExceptionRow,
-  b: CalendarExceptionRow,
-): CalendarExceptionRow {
-  return {
+  a: PersistedCalendarExceptionRow,
+  b: PersistedCalendarExceptionRow,
+): PersistedCalendarExceptionRow {
+  return stampCalendarSource({
     ...a,
     holiday_name: a.holiday_name ?? b.holiday_name,
-  };
+  });
 }
 
 /**
@@ -190,7 +211,7 @@ export function parseUpcomingMarketStatus(
     byDate.set(row.date, list);
   }
 
-  const exceptions: CalendarExceptionRow[] = [];
+  const exceptions: PersistedCalendarExceptionRow[] = [];
   for (const [date, list] of byDate) {
     if (date < asOfDate) continue;
     const nyse = list.filter((r) => r.exchange === "NYSE");

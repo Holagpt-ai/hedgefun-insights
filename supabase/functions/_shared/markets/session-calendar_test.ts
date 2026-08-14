@@ -1,7 +1,9 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  CALENDAR_SOURCE,
   parseUpcomingMarketStatus,
   providerClockToEtTime,
+  stampCalendarSourceRows,
 } from "./session-calendar.ts";
 import {
   isWithinAfterHoursWindow,
@@ -44,6 +46,7 @@ Deno.test("upcoming closed holiday requires NYSE+NASDAQ agreement", () => {
   assertEquals(parsed.rows.length, 1);
   assertEquals(parsed.rows[0].market_status, "closed");
   assertEquals(parsed.rows[0].holiday_name, "Labor Day");
+  assertEquals(parsed.rows[0].source, CALENDAR_SOURCE);
 });
 
 Deno.test("upcoming early close uses provider close and 20:00 AH end", () => {
@@ -72,6 +75,7 @@ Deno.test("upcoming early close uses provider close and 20:00 AH end", () => {
   if (!parsed.ok) return;
   assertEquals(parsed.rows[0].regular_close_et, "13:00:00");
   assertEquals(parsed.rows[0].after_hours_end_et, "20:00:00");
+  assertEquals(parsed.rows[0].source, CALENDAR_SOURCE);
 });
 
 Deno.test("conflicting NYSE/NASDAQ close times fail closed", () => {
@@ -145,6 +149,47 @@ Deno.test("empty upcoming array is a valid empty exception calendar", () => {
   assertEquals(parsed.ok, true);
   if (!parsed.ok) return;
   assertEquals(parsed.rows.length, 0);
+});
+
+Deno.test("merged venue exceptions retain CALENDAR_SOURCE", () => {
+  const parsed = parseUpcomingMarketStatus(
+    [
+      {
+        exchange: "NYSE",
+        name: "Labor Day",
+        date: "2026-09-07",
+        status: "closed",
+      },
+      {
+        exchange: "NASDAQ",
+        date: "2026-09-07",
+        status: "closed",
+      },
+    ],
+    "2026-08-13",
+  );
+  assertEquals(parsed.ok, true);
+  if (!parsed.ok) return;
+  assertEquals(parsed.rows.length, 1);
+  assertEquals(parsed.rows[0].holiday_name, "Labor Day");
+  assertEquals(parsed.rows[0].source, CALENDAR_SOURCE);
+});
+
+Deno.test("persist stamp overwrites empty source with CALENDAR_SOURCE", () => {
+  const stamped = stampCalendarSourceRows([
+    {
+      session_date: "2026-09-07",
+      market_status: "closed",
+      regular_open_et: "09:30:00",
+      regular_close_et: "16:00:00",
+      after_hours_end_et: "20:00:00",
+      holiday_name: "Labor Day",
+      source: "",
+    },
+  ]);
+  assertEquals(stamped.length, 1);
+  assertEquals(stamped[0].source, CALENDAR_SOURCE);
+  assertEquals(stamped[0].source.length > 0, true);
 });
 
 Deno.test("unavailable calendar falls back to normal 16:00 close", () => {

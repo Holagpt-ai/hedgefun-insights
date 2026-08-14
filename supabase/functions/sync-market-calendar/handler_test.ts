@@ -1,4 +1,5 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { CALENDAR_SOURCE } from "../_shared/markets/session-calendar.ts";
 import {
   type CalendarSyncDeps,
   type DbClient,
@@ -123,6 +124,27 @@ Deno.test("sync-market-calendar persists validated upcoming exceptions", async (
   assertEquals(calls[0].fn, REPLACE_CALENDAR_RPC);
   assertEquals(calls[0].args.p_as_of_date, "2026-08-13");
   assertEquals(calls[0].args.p_rows.length, 2);
+  for (const row of calls[0].args.p_rows) {
+    const source = (row as { source?: unknown }).source;
+    assertEquals(typeof source, "string");
+    assertEquals(source, CALENDAR_SOURCE);
+    assertEquals((source as string).length > 0, true);
+  }
+});
+
+Deno.test("sync-market-calendar persist failure retains previous calendar", async () => {
+  const calls: RpcCall[] = [];
+  const res = await handleSyncMarketCalendar(
+    post(),
+    makeDeps(calls, async () => jsonResponse(upcomingOk()), {
+      error: { message: "invalid source" },
+    }),
+  );
+  assertEquals(res.status, 500);
+  const body = await res.json();
+  assertEquals(body.error, "persist_failed");
+  assertEquals(calls.length, 1);
+  assertEquals(body.ok, undefined);
 });
 
 Deno.test("sync-market-calendar does not mutate on provider failure", async () => {

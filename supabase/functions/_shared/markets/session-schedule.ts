@@ -28,6 +28,7 @@ export interface CalendarExceptionRow {
   regular_close_et: string;
   after_hours_end_et: string;
   holiday_name: string | null;
+  source?: string;
 }
 
 export interface ResolvedSessionSchedule {

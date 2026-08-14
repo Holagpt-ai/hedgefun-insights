@@ -12,11 +12,10 @@ import {
 import {
   CALENDAR_SOURCE,
   parseUpcomingMarketStatus,
+  type PersistedCalendarExceptionRow,
+  stampCalendarSourceRows,
 } from "../_shared/markets/session-calendar.ts";
-import {
-  type CalendarExceptionRow,
-  easternParts,
-} from "../_shared/markets/session-schedule.ts";
+import { easternParts } from "../_shared/markets/session-schedule.ts";
 
 export const REPLACE_CALENDAR_RPC =
   "replace_market_session_calendar_exceptions_v1";
@@ -33,7 +32,7 @@ export type DbClient = {
   rpc: (
     fn: string,
     args: {
-      p_rows: CalendarExceptionRow[];
+      p_rows: PersistedCalendarExceptionRow[];
       p_as_of_date: string;
       p_provider_as_of: string;
     },
@@ -114,8 +113,9 @@ export async function handleSyncMarketCalendar(
   }
 
   const sb = deps.createClient(supabaseUrl, serviceKey);
+  const p_rows = stampCalendarSourceRows(parsed.rows);
   const { data, error } = await sb.rpc(REPLACE_CALENDAR_RPC, {
-    p_rows: parsed.rows,
+    p_rows,
     p_as_of_date: parts.date,
     p_provider_as_of: nowIso,
   });
