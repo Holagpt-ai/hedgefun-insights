@@ -281,6 +281,18 @@ export function sessionKindAtMsOfDay(
   return "closed";
 }
 
+export function isWithinRegularSession(
+  msOfDay: number,
+  schedule: ResolvedSessionSchedule,
+): boolean {
+  if (!Number.isFinite(msOfDay)) return false;
+  if (schedule.marketStatus === "closed") return false;
+  return (
+    msOfDay >= schedule.regularOpenMsOfDay &&
+    msOfDay <= schedule.regularCloseMsOfDay
+  );
+}
+
 export function isWithinAfterHoursWindow(
   msOfDay: number,
   schedule: ResolvedSessionSchedule,

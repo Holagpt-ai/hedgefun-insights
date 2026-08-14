@@ -7,7 +7,7 @@ import {
   createSupabaseRpc,
   createSupabaseStateLoader,
 } from "./baseline/persist.ts";
-import { startRadarV22 } from "./radar/run.ts";
+import { runRadarLoop } from "./radar/runner.ts";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -204,7 +204,7 @@ async function main(): Promise<void> {
     }
   };
 
-  radar = startRadarV22({
+  radar = runRadarLoop({
     env,
     fetch,
     loadExceptions,

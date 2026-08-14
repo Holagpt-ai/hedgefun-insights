@@ -1,8 +1,8 @@
 import type { CalendarExceptionRow } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import {
   easternParts,
+  isWithinRegularSession,
   resolveScheduleAt,
-  sessionKindAtMsOfDay,
 } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import {
   type RadarV22ArchiveRow,
@@ -118,7 +118,7 @@ export function createRadarEngine(opts: {
     if (!schedule || schedule.marketStatus === "closed") return false;
     const parts = easternParts(ms);
     if (!parts) return false;
-    return sessionKindAtMsOfDay(parts.msOfDay, schedule) === "market";
+    return isWithinRegularSession(parts.msOfDay, schedule);
   }
 
   function trackedSet(): Set<string> {

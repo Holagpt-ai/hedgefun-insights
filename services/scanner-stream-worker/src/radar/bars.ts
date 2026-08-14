@@ -8,12 +8,11 @@ import type {
   SecondBar,
   SymbolMetrics,
 } from "./types.ts";
+import { acceleration5m, pruneWindow, rollingVolume } from "./windows.ts";
 
 const WINDOW_5S = 5_000;
 const WINDOW_15S = 15_000;
 const WINDOW_60S = 60_000;
-const BUCKET_60S = 60_000;
-const PRECEDING_BUCKETS = 4;
 
 function barFromEvent(event: AggregateSecondEvent): SecondBar {
   const typical = event.vw ?? event.c;
@@ -94,14 +93,7 @@ function pruneBars(
   eventNowMs: number,
   retentionMs: number,
 ): void {
-  const cutoff = eventNowMs - retentionMs;
-  let removed = false;
-  for (const startMs of book.bars.keys()) {
-    if (startMs < cutoff) {
-      book.bars.delete(startMs);
-      removed = true;
-    }
-  }
+  const removed = pruneWindow(book.bars, eventNowMs, retentionMs);
   if (removed) rebuildSessionExtremes(book);
 }
 
@@ -111,16 +103,7 @@ function sumVolume(
   durationMs: number,
   field: "volume" | "dollarVolume",
 ): { total: number; lateCorrection: boolean } {
-  const from = eventNowMs - durationMs;
-  let total = 0;
-  let lateCorrection = false;
-  for (const bar of book.bars.values()) {
-    if (bar.startMs >= from && bar.startMs < eventNowMs) {
-      total += bar[field];
-      if (bar.lateCorrected) lateCorrection = true;
-    }
-  }
-  return { total, lateCorrection };
+  return rollingVolume(book.bars, eventNowMs, durationMs, field);
 }
 
 function closeAtEnd(book: SymbolBook, endMs: number): number | null {
@@ -145,37 +128,6 @@ function priceWindow(
   const movePct = ((endClose - startClose) / startClose) * 100;
   if (!Number.isFinite(movePct)) return { movePct: null, complete: false };
   return { movePct, complete: true };
-}
-
-function acceleration5m(book: SymbolBook, eventNowMs: number): number | null {
-  const current = sumVolume(book, eventNowMs, WINDOW_60S, "volume").total;
-  const bucketEnds = [
-    eventNowMs - 4 * BUCKET_60S,
-    eventNowMs - 3 * BUCKET_60S,
-    eventNowMs - 2 * BUCKET_60S,
-    eventNowMs - BUCKET_60S,
-  ];
-  const buckets: number[] = [];
-  for (const end of bucketEnds) {
-    const start = end - BUCKET_60S;
-    let hasStart = false;
-    let hasEnd = false;
-    let total = 0;
-    for (const bar of book.bars.values()) {
-      if (bar.startMs >= start && bar.startMs < end) {
-        total += bar.volume;
-      }
-      if (bar.endMs === start) hasStart = true;
-      if (bar.endMs === end) hasEnd = true;
-    }
-    // Require completed bucket boundaries rather than fabricating history.
-    if (!hasStart || !hasEnd) return null;
-    buckets.push(total);
-  }
-  const avg = buckets.reduce((sum, v) => sum + v, 0) / PRECEDING_BUCKETS;
-  if (!(avg > 0) || !Number.isFinite(avg)) return null;
-  const ratio = current / avg;
-  return Number.isFinite(ratio) ? ratio : null;
 }
 
 export type RadarBook = {
@@ -334,7 +286,7 @@ export function createRadarBook(config: RadarV22Config): RadarBook {
         move60s: book
           ? priceWindow(book, eventNowMs, WINDOW_60S)
           : { movePct: null, complete: false },
-        acceleration5m: book ? acceleration5m(book, eventNowMs) : null,
+        acceleration5m: book ? acceleration5m(book.bars, eventNowMs) : null,
         providerLagMs,
         lastBarEndMs: lastBar?.endMs ?? null,
         lastBarStartMs: lastBar?.startMs ?? null,
