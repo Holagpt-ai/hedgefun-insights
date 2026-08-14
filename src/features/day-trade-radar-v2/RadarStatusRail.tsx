@@ -39,6 +39,7 @@ interface RadarStatusRailProps {
   onFollowLeader: () => void;
   showReturnToLeader: boolean;
   onReturnToLeader: () => void;
+  engineSource?: "v2.1" | "v2.2";
 }
 
 export function RadarStatusRail({
@@ -50,6 +51,7 @@ export function RadarStatusRail({
   onFollowLeader,
   showReturnToLeader,
   onReturnToLeader,
+  engineSource = "v2.1",
 }: RadarStatusRailProps) {
   const providerLabel = formatProviderAsOf(providerAsOfMax);
   const pipelineAge = formatPipelineAge(syncedAt);
@@ -67,6 +69,9 @@ export function RadarStatusRail({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
+        <span className="rounded border border-border px-2 py-0.5 font-semibold uppercase tracking-wide text-muted-foreground">
+          {engineSource === "v2.2" ? "Radar V2.2" : "Radar V2.1 snapshot"}
+        </span>
         <span className="rounded border border-border px-2 py-0.5 font-semibold uppercase tracking-wide text-muted-foreground">
           Feed: 15-Minute Delayed
         </span>

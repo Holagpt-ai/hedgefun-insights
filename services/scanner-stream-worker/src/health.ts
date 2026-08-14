@@ -1,4 +1,6 @@
-export type WorkerStatus = "running" | "degraded" | "initializing";
+import type { RadarHealthSnapshot } from "./radar/types.ts";
+
+export type WorkerStatus = "running" | "degraded" | "initializing" | "stale";
 export type BaselineStatus =
   | "initializing"
   | "available"
@@ -14,6 +16,7 @@ export type HealthPayload = {
   symbol_count: number;
   last_error_code: string | null;
   uptime_ms: number;
+  radar: RadarHealthSnapshot;
 };
 
 const ALLOWED_ERROR_CODES = new Set([
@@ -39,6 +42,19 @@ export function sanitizeErrorCode(
   return "internal_error";
 }
 
+const EMPTY_RADAR: RadarHealthSnapshot = {
+  status: "degraded",
+  connection_state: "idle",
+  last_provider_event_at: null,
+  last_published_generation: null,
+  active_symbol_count: 0,
+  correction_count: 0,
+  duplicate_count: 0,
+  out_of_order_count: 0,
+  reconnect_count: 0,
+  lease_held: false,
+};
+
 export type HealthStore = {
   get(nowMs: number): HealthPayload;
   markInitializing(): void;
@@ -52,6 +68,7 @@ export type HealthStore = {
     workerStatus?: WorkerStatus;
   }): void;
   markError(code: string, hasGeneration: boolean): void;
+  applyRadar(snapshot: RadarHealthSnapshot): void;
 };
 
 export function createHealthStore(startedAtMs: number): HealthStore {
@@ -62,11 +79,32 @@ export function createHealthStore(startedAtMs: number): HealthStore {
   let periodEnd: string | null = null;
   let symbolCount = 0;
   let lastErrorCode: string | null = null;
+  let radar: RadarHealthSnapshot = { ...EMPTY_RADAR };
+
+  function resolveWorkerStatus(explicit?: WorkerStatus): WorkerStatus {
+    if (explicit) {
+      if (explicit === "degraded" || radar.status === "degraded") {
+        return "degraded";
+      }
+      return explicit;
+    }
+    if (radar.status === "degraded" && workerStatus !== "initializing") {
+      return "degraded";
+    }
+    return workerStatus;
+  }
 
   return {
     get(nowMs: number): HealthPayload {
+      const status: WorkerStatus = workerStatus === "initializing"
+        ? "initializing"
+        : radar.status === "stale"
+        ? "stale"
+        : radar.status === "degraded"
+        ? "degraded"
+        : workerStatus;
       return {
-        status: workerStatus,
+        status,
         baseline_status: baselineStatus,
         current_generation_id: currentGenerationId,
         period_start: periodStart,
@@ -74,6 +112,7 @@ export function createHealthStore(startedAtMs: number): HealthStore {
         symbol_count: symbolCount,
         last_error_code: sanitizeErrorCode(lastErrorCode),
         uptime_ms: Math.max(0, nowMs - startedAtMs),
+        radar,
       };
     },
     markInitializing() {
@@ -91,16 +130,35 @@ export function createHealthStore(startedAtMs: number): HealthStore {
       } else {
         lastErrorCode = sanitizeErrorCode(input.errorCode);
       }
-      workerStatus = input.workerStatus ??
-        (baselineStatus === "available" || baselineStatus === "empty"
-          ? "running"
-          : "initializing");
+      workerStatus = resolveWorkerStatus(
+        input.workerStatus ??
+          (baselineStatus === "available" || baselineStatus === "empty"
+            ? "running"
+            : "initializing"),
+      );
     },
     markError(code: string, hasGeneration: boolean) {
       lastErrorCode = sanitizeErrorCode(code);
       workerStatus = "degraded";
       if (!hasGeneration) {
         baselineStatus = "unavailable";
+      }
+    },
+    applyRadar(snapshot) {
+      radar = {
+        status: snapshot.status,
+        connection_state: snapshot.connection_state,
+        last_provider_event_at: snapshot.last_provider_event_at,
+        last_published_generation: snapshot.last_published_generation,
+        active_symbol_count: snapshot.active_symbol_count,
+        correction_count: snapshot.correction_count,
+        duplicate_count: snapshot.duplicate_count,
+        out_of_order_count: snapshot.out_of_order_count,
+        reconnect_count: snapshot.reconnect_count,
+        lease_held: snapshot.lease_held,
+      };
+      if (snapshot.status === "degraded" && workerStatus === "running") {
+        workerStatus = "degraded";
       }
     },
   };

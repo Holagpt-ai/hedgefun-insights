@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer } from "react";
 import type { ScreenerResultRow, ScreenerUiStatus } from "@/lib/screeners/contract";
-import { applySignals, isRadarRowAccessible, rankRadarRows } from "./radar-metrics";
+import { applySignals, isRadarRowAccessible, rankRadarRows, signalForRank } from "./radar-metrics";
 import {
   INITIAL_RADAR_SELECTION,
   radarSelectionReducer,
@@ -61,7 +61,7 @@ export function useRadarSelection(opts: {
     return live
       ? {
           ...live,
-          signal: signalOverlay(live.rank, status),
+          signal: signalForRank(live.rank, status, false, live.signal_status),
         }
       : selection.snapshot;
   }, [selection, board, status]);
@@ -75,13 +75,4 @@ export function useRadarSelection(opts: {
     returnToLeader,
     followingLeader: selection.mode === "follow_leader",
   };
-}
-
-function signalOverlay(
-  rank: number,
-  status: ScreenerUiStatus,
-): RadarRankedRow["signal"] {
-  if (status === "stale") return "STALE";
-  if (rank === 1) return "TOP LEADER";
-  return "VOLUME LEADER";
 }

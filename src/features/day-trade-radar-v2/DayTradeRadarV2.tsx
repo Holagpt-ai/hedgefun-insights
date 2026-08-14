@@ -1,6 +1,8 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRadarV22Board } from "@/hooks/useRadarV22Board";
+import { easternDate, resolveRadarSource } from "@/lib/radar-v22";
 import type { DayTradeRadarV2Props } from "./types";
 import { useRadarSelection } from "./useRadarSelection";
 import { useRadarChartData } from "./useRadarChartData";
@@ -9,6 +11,8 @@ import { RadarGrid } from "./RadarGrid";
 import { RadarMobileCard } from "./RadarMobileCard";
 import { RadarDetailPanel } from "./RadarDetailPanel";
 import { isRadarRowAccessible } from "./radar-metrics";
+import type { RadarRankedRow } from "./types";
+import type { ScreenerResultRow } from "@/lib/screeners/contract";
 
 export function DayTradeRadarV2({
   rows,
@@ -21,6 +25,18 @@ export function DayTradeRadarV2({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  const v22 = useRadarV22Board();
+  const adoptedSessionRef = useRef<string | null>(null);
+  const todayEt = easternDate(Date.now());
+  const resolved = resolveRadarSource({
+    todayEt,
+    adoptedSession: adoptedSessionRef.current,
+    v21: { rows, status, syncedAt, providerAsOfMax },
+    v22,
+  });
+  adoptedSessionRef.current = resolved.adoptedSession;
+
+  const selectionRows = resolved.rows as ScreenerResultRow[];
 
   const {
     ranked,
@@ -30,13 +46,18 @@ export function DayTradeRadarV2({
     followLeader,
     returnToLeader,
     followingLeader,
-  } = useRadarSelection({ rows, status, isPro, freeRowLimit });
+  } = useRadarSelection({
+    rows: selectionRows,
+    status: resolved.status,
+    isPro,
+    freeRowLimit,
+  });
 
   const chartEnabled =
     !!activeRow &&
     isRadarRowAccessible(activeRow.rank, isPro, freeRowLimit) &&
     // Inactive retained snapshots may still show chart from last verified symbol.
-    (selection.inactive || status === "available" || status === "stale");
+    (selection.inactive || resolved.status === "available" || resolved.status === "stale");
 
   const chartSymbol =
     chartEnabled && activeRow
@@ -54,16 +75,16 @@ export function DayTradeRadarV2({
   const { status: chartStatus, bars, latestBarIso, errorMessage } = useRadarChartData({
     symbol: freeBlocked ? null : chartSymbol,
     enabled: !!chartSymbol && !freeBlocked,
-    providerAsOfMax,
+    providerAsOfMax: resolved.providerAsOfMax,
   });
 
   const showReturnToLeader =
     selection.mode === "manual" && ranked.length > 0;
 
   const boardVisible =
-    status === "available" || status === "stale";
+    resolved.status === "available" || resolved.status === "stale";
 
-  const handleSelect = (row: typeof ranked[number]) => {
+  const handleSelect = (row: RadarRankedRow) => {
     selectRow(row);
     if (isMobile) setMobileDetailOpen(true);
   };
@@ -72,30 +93,31 @@ export function DayTradeRadarV2({
     !isPro && ranked.length > freeRowLimit && boardVisible;
 
   const emptyMessage = useMemo(() => {
-    if (status === "loading") return null;
-    if (status === "unavailable") {
+    if (resolved.status === "loading") return null;
+    if (resolved.status === "unavailable") {
       return "Screener data is temporarily unavailable. No unverified rows are being shown.";
     }
-    if (status === "empty" || (boardVisible && ranked.length === 0)) {
+    if (resolved.status === "empty" || (boardVisible && ranked.length === 0)) {
       return "No qualifying movers yet.";
     }
     return null;
-  }, [status, boardVisible, ranked.length]);
+  }, [resolved.status, boardVisible, ranked.length]);
 
   return (
     <div className="space-y-3">
       <RadarStatusRail
-        status={status}
+        status={resolved.status}
         qualifyingCount={boardVisible ? ranked.length : 0}
-        syncedAt={syncedAt}
-        providerAsOfMax={providerAsOfMax}
+        syncedAt={resolved.syncedAt}
+        providerAsOfMax={resolved.providerAsOfMax}
         followingLeader={followingLeader}
         onFollowLeader={followLeader}
         showReturnToLeader={showReturnToLeader}
         onReturnToLeader={returnToLeader}
+        engineSource={resolved.source}
       />
 
-      {status === "loading" && (
+      {resolved.status === "loading" && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-2">
           {[...Array(6)].map((_, i) => (
             <div key={i} className="h-8 rounded bg-muted/50 animate-pulse" />

@@ -7,6 +7,7 @@ import {
   createSupabaseRpc,
   createSupabaseStateLoader,
 } from "./baseline/persist.ts";
+import { startRadarV22 } from "./radar/run.ts";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -79,11 +80,20 @@ async function main(): Promise<void> {
     return new Response("Not Found", { status: 404 });
   });
 
+  let radar: { stop: () => Promise<void> } | null = null;
+
   const shutdown = async () => {
     if (!running) return;
     running = false;
     abort.abort();
     log("info", "shutdown");
+    if (radar) {
+      try {
+        await radar.stop();
+      } catch {
+        // lease release is best-effort
+      }
+    }
     try {
       await server.shutdown();
     } catch {
@@ -193,6 +203,14 @@ async function main(): Promise<void> {
       await interruptibleSleep(POLL_INTERVAL_MS, abort.signal);
     }
   };
+
+  radar = startRadarV22({
+    env,
+    fetch,
+    loadExceptions,
+    health,
+    signal: abort.signal,
+  });
 
   void loop();
 }

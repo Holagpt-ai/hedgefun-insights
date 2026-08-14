@@ -15,6 +15,7 @@ import {
   formatRadarVolume,
   isRadarRowAccessible,
   moveClass,
+  radarSignalClass,
   volumeRatioClass,
 } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
@@ -170,13 +171,7 @@ export function RadarGrid({
                 </td>
                 <td className="px-2 py-2">
                   <span
-                    className={`text-[10px] font-semibold uppercase tracking-wide ${
-                      row.signal === "TOP LEADER"
-                        ? "text-amber-700 dark:text-amber-400"
-                        : row.signal === "STALE" || row.signal === "INACTIVE"
-                          ? "text-muted-foreground"
-                          : "text-foreground"
-                    }`}
+                    className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}
                   >
                     {row.signal}
                   </span>

@@ -124,7 +124,7 @@ export function RadarDetailPanel({
                 className={`text-[10px] font-semibold uppercase tracking-wide ${
                   inactive || row.signal === "INACTIVE"
                     ? "text-muted-foreground"
-                    : row.signal === "TOP LEADER"
+                    : row.signal === "TOP LEADER" || row.signal === "EXPLOSIVE" || row.signal === "REACTIVATED"
                       ? "text-amber-700 dark:text-amber-400"
                       : "text-foreground"
                 }`}

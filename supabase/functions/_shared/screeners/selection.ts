@@ -283,10 +283,11 @@ export type ScreenerTabId =
   | "gappers"
   | "volume_spikes"
   | "gainers_losers"
-  | "unusual_volume";
+  | "unusual_volume"
+  | "new_highs_lows";
 
 export const TAB_QUALIFIERS: Record<
-  Exclude<ScreenerTabId, never>,
+  Exclude<ScreenerTabId, "new_highs_lows">,
   (t: PolygonTicker) => boolean
 > = {
   day_trade_radar: qualifiesDayTradeRadar,
@@ -300,7 +301,7 @@ export const TAB_QUALIFIERS: Record<
  * Apply tab qualification then the shared volume-first selection contract.
  */
 export function selectForTab(
-  tabId: ScreenerTabId,
+  tabId: Exclude<ScreenerTabId, "new_highs_lows">,
   universe: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
 ): PolygonTicker[] {

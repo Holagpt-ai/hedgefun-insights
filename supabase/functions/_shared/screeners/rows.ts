@@ -213,7 +213,7 @@ export function mapNewHighsLows(
 }
 
 export function mapTabRows(
-  tabId: ScreenerTabId,
+  tabId: Exclude<ScreenerTabId, "new_highs_lows">,
   selected: PolygonTicker[],
   getName: NameLookup,
   meta: GenerationMeta,

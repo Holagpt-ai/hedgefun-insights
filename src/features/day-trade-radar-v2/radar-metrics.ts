@@ -5,8 +5,9 @@ import {
   type ScreenerResultRow,
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
-import type { RadarRankedRow, RadarSignalLabel } from "./types";
+import type { RadarRankedRow, RadarRankingFields, RadarSignalLabel } from "./types";
 import { isRadarCapabilityEnabled } from "./radar-capabilities";
+import { isRadarV22Signal } from "@/lib/radar-v22";
 
 /**
  * Authoritative ranks from verified backend order (volume desc, symbol asc).
@@ -18,13 +19,19 @@ export function rankRadarRows(
 ): RadarRankedRow[] {
   return rows.map((row, index) => {
     const rank = index + 1;
+    const ranking = row as ScreenerResultRow & RadarRankingFields;
     return {
       ...row,
       rank,
-      signal: signalForRank(rank, status, false),
+      signal: signalForRank(rank, status, false, ranking.signal_status),
       hod_distance_percent: computeHodDistancePercent(row.price, row.day_high),
-      // Future backend fields remain unset until verified.
-      radar_rank: rank,
+      radar_rank: ranking.radar_rank ?? rank,
+      signal_status: ranking.signal_status,
+      signal_tier: ranking.signal_tier,
+      rolling_volume_5s: ranking.rolling_volume_5s,
+      rolling_volume_15s: ranking.rolling_volume_15s,
+      rolling_volume_60s: ranking.rolling_volume_60s,
+      acceleration_5m: ranking.acceleration_5m,
     };
   });
 }
@@ -33,9 +40,13 @@ export function signalForRank(
   rank: number,
   status: ScreenerUiStatus,
   inactive: boolean,
+  signalStatus?: string,
 ): RadarSignalLabel {
   if (inactive) return "INACTIVE";
   if (status === "stale") return "STALE";
+  if (isRadarV22Signal(signalStatus) && signalStatus !== "STALE" && signalStatus !== "INACTIVE") {
+    return signalStatus;
+  }
   if (rank === 1) return "TOP LEADER";
   return "VOLUME LEADER";
 }
@@ -120,6 +131,24 @@ export function isRadarRowAccessible(
   return rank <= freeRowLimit;
 }
 
+export function radarSignalClass(signal: RadarSignalLabel): string {
+  switch (signal) {
+    case "TOP LEADER":
+    case "EXPLOSIVE":
+    case "REACTIVATED":
+      return "text-amber-700 dark:text-amber-400";
+    case "BUILDING":
+    case "CONFIRMING":
+      return "text-sky-700 dark:text-sky-400";
+    case "COOLING":
+    case "STALE":
+    case "INACTIVE":
+      return "text-muted-foreground";
+    default:
+      return "text-foreground";
+  }
+}
+
 export function applySignals(
   rows: readonly RadarRankedRow[],
   status: ScreenerUiStatus,
@@ -131,6 +160,7 @@ export function applySignals(
       row.rank,
       status,
       inactiveSymbol !== null && row.symbol === inactiveSymbol,
+      row.signal_status,
     ),
   }));
 }

@@ -14,6 +14,11 @@ export interface RadarRankingFields {
 export type RadarSignalLabel =
   | "TOP LEADER"
   | "VOLUME LEADER"
+  | "BUILDING"
+  | "CONFIRMING"
+  | "EXPLOSIVE"
+  | "REACTIVATED"
+  | "COOLING"
   | "STALE"
   | "INACTIVE";
 
