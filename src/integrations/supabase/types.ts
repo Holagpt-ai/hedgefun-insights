@@ -44,6 +44,93 @@ export type Database = {
         }
         Relationships: []
       }
+      after_hours_feed_state: {
+        Row: {
+          gainer_count: number
+          generation_id: string
+          loser_count: number
+          provider_as_of_max: string | null
+          provider_as_of_min: string | null
+          session_date: string
+          state_key: string
+          status: string
+          synced_at: string
+          updated_at: string
+        }
+        Insert: {
+          gainer_count: number
+          generation_id: string
+          loser_count: number
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          session_date: string
+          state_key: string
+          status: string
+          synced_at: string
+          updated_at: string
+        }
+        Update: {
+          gainer_count?: number
+          generation_id?: string
+          loser_count?: number
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          session_date?: string
+          state_key?: string
+          status?: string
+          synced_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      after_hours_mover_results: {
+        Row: {
+          change_amount: number
+          change_percent: number
+          company_name: string | null
+          extended_last: number
+          generation_id: string
+          observation_source: string
+          provider_as_of: string
+          rank: number
+          regular_close: number
+          side: string
+          symbol: string
+          updated_at: string
+          volume: number | null
+        }
+        Insert: {
+          change_amount: number
+          change_percent: number
+          company_name?: string | null
+          extended_last: number
+          generation_id: string
+          observation_source: string
+          provider_as_of: string
+          rank: number
+          regular_close: number
+          side: string
+          symbol: string
+          updated_at: string
+          volume?: number | null
+        }
+        Update: {
+          change_amount?: number
+          change_percent?: number
+          company_name?: string | null
+          extended_last?: number
+          generation_id?: string
+          observation_source?: string
+          provider_as_of?: string
+          rank?: number
+          regular_close?: number
+          side?: string
+          symbol?: string
+          updated_at?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
       agentic_seo_log: {
         Row: {
           audit_passed: boolean | null
@@ -1242,93 +1329,6 @@ export type Database = {
         }
         Relationships: []
       }
-      after_hours_feed_state: {
-        Row: {
-          gainer_count: number
-          generation_id: string
-          loser_count: number
-          provider_as_of_max: string | null
-          provider_as_of_min: string | null
-          session_date: string
-          state_key: string
-          status: string
-          synced_at: string
-          updated_at: string
-        }
-        Insert: {
-          gainer_count: number
-          generation_id: string
-          loser_count: number
-          provider_as_of_max?: string | null
-          provider_as_of_min?: string | null
-          session_date: string
-          state_key: string
-          status: string
-          synced_at: string
-          updated_at: string
-        }
-        Update: {
-          gainer_count?: number
-          generation_id?: string
-          loser_count?: number
-          provider_as_of_max?: string | null
-          provider_as_of_min?: string | null
-          session_date?: string
-          state_key?: string
-          status?: string
-          synced_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      after_hours_mover_results: {
-        Row: {
-          change_amount: number
-          change_percent: number
-          company_name: string | null
-          extended_last: number
-          generation_id: string
-          observation_source: string
-          provider_as_of: string
-          rank: number
-          regular_close: number
-          side: string
-          symbol: string
-          updated_at: string
-          volume: number | null
-        }
-        Insert: {
-          change_amount: number
-          change_percent: number
-          company_name?: string | null
-          extended_last: number
-          generation_id: string
-          observation_source: string
-          provider_as_of: string
-          rank: number
-          regular_close: number
-          side: string
-          symbol: string
-          updated_at: string
-          volume?: number | null
-        }
-        Update: {
-          change_amount?: number
-          change_percent?: number
-          company_name?: string | null
-          extended_last?: number
-          generation_id?: string
-          observation_source?: string
-          provider_as_of?: string
-          rank?: number
-          regular_close?: number
-          side?: string
-          symbol?: string
-          updated_at?: string
-          volume?: number | null
-        }
-        Relationships: []
-      }
       market_news: {
         Row: {
           category: string | null
@@ -1362,6 +1362,42 @@ export type Database = {
           publisher_favicon?: string | null
           source?: string | null
           url?: string | null
+        }
+        Relationships: []
+      }
+      market_session_calendar: {
+        Row: {
+          after_hours_end_et: string
+          holiday_name: string | null
+          market_status: string
+          provider_as_of: string
+          regular_close_et: string
+          regular_open_et: string
+          session_date: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          after_hours_end_et: string
+          holiday_name?: string | null
+          market_status: string
+          provider_as_of: string
+          regular_close_et: string
+          regular_open_et: string
+          session_date: string
+          source: string
+          updated_at: string
+        }
+        Update: {
+          after_hours_end_et?: string
+          holiday_name?: string | null
+          market_status?: string
+          provider_as_of?: string
+          regular_close_et?: string
+          regular_open_et?: string
+          session_date?: string
+          source?: string
+          updated_at?: string
         }
         Relationships: []
       }
@@ -1614,8 +1650,84 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_52w_baseline_state: {
+        Row: {
+          current_generation_id: string | null
+          period_end: string | null
+          period_start: string | null
+          provider_as_of: string | null
+          state_key: string
+          status: string
+          symbol_count: number
+          updated_at: string
+        }
+        Insert: {
+          current_generation_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_as_of?: string | null
+          state_key: string
+          status: string
+          symbol_count: number
+          updated_at: string
+        }
+        Update: {
+          current_generation_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_as_of?: string | null
+          state_key?: string
+          status?: string
+          symbol_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      screener_52w_baselines: {
+        Row: {
+          generation_id: string
+          high_52w: number
+          high_candidates: Json
+          low_52w: number
+          low_candidates: Json
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          sessions_observed: number
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          generation_id: string
+          high_52w: number
+          high_candidates: Json
+          low_52w: number
+          low_candidates: Json
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          sessions_observed: number
+          symbol: string
+          updated_at: string
+        }
+        Update: {
+          generation_id?: string
+          high_52w?: number
+          high_candidates?: Json
+          low_52w?: number
+          low_candidates?: Json
+          period_end?: string
+          period_start?: string
+          provider_as_of?: string
+          sessions_observed?: number
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       screener_feed_state: {
         Row: {
+          nhl_baseline_status: string | null
           provider_as_of_max: string | null
           provider_as_of_min: string | null
           rows_inserted: number
@@ -1624,10 +1736,10 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
-          nhl_baseline_status: string | null
           updated_at: string
         }
         Insert: {
+          nhl_baseline_status?: string | null
           provider_as_of_max?: string | null
           provider_as_of_min?: string | null
           rows_inserted: number
@@ -1636,10 +1748,10 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
-          nhl_baseline_status?: string | null
           updated_at: string
         }
         Update: {
+          nhl_baseline_status?: string | null
           provider_as_of_max?: string | null
           provider_as_of_min?: string | null
           rows_inserted?: number
@@ -1648,7 +1760,6 @@ export type Database = {
           sync_run_id?: string
           synced_at?: string
           tab_counts?: Json
-          nhl_baseline_status?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2531,6 +2642,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      heartbeat_radar_v22_lease_v1: {
+        Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
+        Returns: boolean
+      }
       record_wl_v2_baseline_written: {
         Args: { p_run_id: string; p_ticker: string }
         Returns: undefined
@@ -2540,6 +2655,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
+      release_radar_v22_lease_v1: {
+        Args: { p_holder_id: string; p_lease_key: string }
+        Returns: undefined
+      }
       replace_after_hours_generation_v1: {
         Args: {
           p_generation_id: string
@@ -2550,11 +2669,15 @@ export type Database = {
         }
         Returns: number
       }
+      replace_market_session_calendar_exceptions_v1: {
+        Args: { p_as_of_date: string; p_provider_as_of: string; p_rows: Json }
+        Returns: number
+      }
       replace_radar_v22_generation_v1: {
         Args: {
           p_archive: Json
           p_generation_id: string
-          p_last_provider_event_at: string | null
+          p_last_provider_event_at: string
           p_rows: Json
           p_session_date: string
           p_status: string
@@ -2562,9 +2685,29 @@ export type Database = {
         }
         Returns: number
       }
+      replace_screener_52w_baseline_generation_v1: {
+        Args: {
+          p_generation_id: string
+          p_period_end: string
+          p_period_start: string
+          p_provider_as_of: string
+          p_rows: Json
+          p_status: string
+        }
+        Returns: number
+      }
+      replace_screener_results_generation_v1: {
+        Args: {
+          p_nhl_baseline_status?: string
+          p_rows: Json
+          p_sync_run_id: string
+          p_synced_at: string
+        }
+        Returns: number
+      }
       set_radar_v22_feed_status_v1: {
         Args: {
-          p_last_provider_event_at: string | null
+          p_last_provider_event_at: string
           p_status: string
           p_synced_at: string
         }
@@ -2573,18 +2716,6 @@ export type Database = {
       try_acquire_radar_v22_lease_v1: {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
-      }
-      heartbeat_radar_v22_lease_v1: {
-        Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
-        Returns: boolean
-      }
-      release_radar_v22_lease_v1: {
-        Args: { p_holder_id: string; p_lease_key: string }
-        Returns: undefined
-      }
-      replace_screener_results_generation_v1: {
-        Args: { p_rows: Json; p_sync_run_id: string; p_synced_at: string }
-        Returns: number
       }
     }
     Enums: {
