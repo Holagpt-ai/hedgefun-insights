@@ -44,6 +44,93 @@ export type Database = {
         }
         Relationships: []
       }
+      after_hours_feed_state: {
+        Row: {
+          gainer_count: number
+          generation_id: string
+          loser_count: number
+          provider_as_of_max: string | null
+          provider_as_of_min: string | null
+          session_date: string
+          state_key: string
+          status: string
+          synced_at: string
+          updated_at: string
+        }
+        Insert: {
+          gainer_count: number
+          generation_id: string
+          loser_count: number
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          session_date: string
+          state_key: string
+          status: string
+          synced_at: string
+          updated_at: string
+        }
+        Update: {
+          gainer_count?: number
+          generation_id?: string
+          loser_count?: number
+          provider_as_of_max?: string | null
+          provider_as_of_min?: string | null
+          session_date?: string
+          state_key?: string
+          status?: string
+          synced_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      after_hours_mover_results: {
+        Row: {
+          change_amount: number
+          change_percent: number
+          company_name: string | null
+          extended_last: number
+          generation_id: string
+          observation_source: string
+          provider_as_of: string
+          rank: number
+          regular_close: number
+          side: string
+          symbol: string
+          updated_at: string
+          volume: number | null
+        }
+        Insert: {
+          change_amount: number
+          change_percent: number
+          company_name?: string | null
+          extended_last: number
+          generation_id: string
+          observation_source: string
+          provider_as_of: string
+          rank: number
+          regular_close: number
+          side: string
+          symbol: string
+          updated_at: string
+          volume?: number | null
+        }
+        Update: {
+          change_amount?: number
+          change_percent?: number
+          company_name?: string | null
+          extended_last?: number
+          generation_id?: string
+          observation_source?: string
+          provider_as_of?: string
+          rank?: number
+          regular_close?: number
+          side?: string
+          symbol?: string
+          updated_at?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
       agentic_seo_log: {
         Row: {
           audit_passed: boolean | null
@@ -2387,6 +2474,16 @@ export type Database = {
         Returns: undefined
       }
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
+      replace_after_hours_generation_v1: {
+        Args: {
+          p_generation_id: string
+          p_rows: Json
+          p_session_date: string
+          p_status: string
+          p_synced_at: string
+        }
+        Returns: number
+      }
       replace_market_session_calendar_exceptions_v1: {
         Args: { p_as_of_date: string; p_provider_as_of: string; p_rows: Json }
         Returns: number
