@@ -1242,93 +1242,6 @@ export type Database = {
         }
         Relationships: []
       }
-      after_hours_feed_state: {
-        Row: {
-          gainer_count: number
-          generation_id: string
-          loser_count: number
-          provider_as_of_max: string | null
-          provider_as_of_min: string | null
-          session_date: string
-          state_key: string
-          status: string
-          synced_at: string
-          updated_at: string
-        }
-        Insert: {
-          gainer_count: number
-          generation_id: string
-          loser_count: number
-          provider_as_of_max?: string | null
-          provider_as_of_min?: string | null
-          session_date: string
-          state_key: string
-          status: string
-          synced_at: string
-          updated_at: string
-        }
-        Update: {
-          gainer_count?: number
-          generation_id?: string
-          loser_count?: number
-          provider_as_of_max?: string | null
-          provider_as_of_min?: string | null
-          session_date?: string
-          state_key?: string
-          status?: string
-          synced_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      after_hours_mover_results: {
-        Row: {
-          change_amount: number
-          change_percent: number
-          company_name: string | null
-          extended_last: number
-          generation_id: string
-          observation_source: string
-          provider_as_of: string
-          rank: number
-          regular_close: number
-          side: string
-          symbol: string
-          updated_at: string
-          volume: number | null
-        }
-        Insert: {
-          change_amount: number
-          change_percent: number
-          company_name?: string | null
-          extended_last: number
-          generation_id: string
-          observation_source: string
-          provider_as_of: string
-          rank: number
-          regular_close: number
-          side: string
-          symbol: string
-          updated_at: string
-          volume?: number | null
-        }
-        Update: {
-          change_amount?: number
-          change_percent?: number
-          company_name?: string | null
-          extended_last?: number
-          generation_id?: string
-          observation_source?: string
-          provider_as_of?: string
-          rank?: number
-          regular_close?: number
-          side?: string
-          symbol?: string
-          updated_at?: string
-          volume?: number | null
-        }
-        Relationships: []
-      }
       market_news: {
         Row: {
           category: string | null
@@ -1437,183 +1350,6 @@ export type Database = {
         }
         Relationships: []
       }
-      radar_v22_archive: {
-        Row: {
-          archived_at: string
-          generation_id: string | null
-          lifecycle: string
-          peak_volume_15s: number | null
-          provider_as_of: string | null
-          rolling_volume_15s: number | null
-          rolling_volume_60s: number | null
-          session_date: string
-          session_volume: number | null
-          symbol: string
-        }
-        Insert: {
-          archived_at: string
-          generation_id?: string | null
-          lifecycle: string
-          peak_volume_15s?: number | null
-          provider_as_of?: string | null
-          rolling_volume_15s?: number | null
-          rolling_volume_60s?: number | null
-          session_date: string
-          session_volume?: number | null
-          symbol: string
-        }
-        Update: {
-          archived_at?: string
-          generation_id?: string | null
-          lifecycle?: string
-          peak_volume_15s?: number | null
-          provider_as_of?: string | null
-          rolling_volume_15s?: number | null
-          rolling_volume_60s?: number | null
-          session_date?: string
-          session_volume?: number | null
-          symbol?: string
-        }
-        Relationships: []
-      }
-      radar_v22_board: {
-        Row: {
-          acceleration_5m: number | null
-          change_percent: number
-          company_name: string | null
-          day_high: number
-          day_low: number
-          generation_id: string
-          lifecycle: string
-          peak_volume_15s: number | null
-          price: number
-          prior_session_volume: number
-          provider_as_of: string
-          rank: number
-          rolling_dollar_volume_60s: number
-          rolling_volume_15s: number
-          rolling_volume_5s: number
-          rolling_volume_60s: number
-          session_vwap: number | null
-          signal_status: string
-          symbol: string
-          updated_at: string
-          volume: number
-          volume_ratio_prior_session: number
-        }
-        Insert: {
-          acceleration_5m?: number | null
-          change_percent: number
-          company_name?: string | null
-          day_high: number
-          day_low: number
-          generation_id: string
-          lifecycle: string
-          peak_volume_15s?: number | null
-          price: number
-          prior_session_volume: number
-          provider_as_of: string
-          rank: number
-          rolling_dollar_volume_60s: number
-          rolling_volume_15s: number
-          rolling_volume_5s: number
-          rolling_volume_60s: number
-          session_vwap?: number | null
-          signal_status: string
-          symbol: string
-          updated_at: string
-          volume: number
-          volume_ratio_prior_session: number
-        }
-        Update: {
-          acceleration_5m?: number | null
-          change_percent?: number
-          company_name?: string | null
-          day_high?: number
-          day_low?: number
-          generation_id?: string
-          lifecycle?: string
-          peak_volume_15s?: number | null
-          price?: number
-          prior_session_volume?: number
-          provider_as_of?: string
-          rank?: number
-          rolling_dollar_volume_60s?: number
-          rolling_volume_15s?: number
-          rolling_volume_5s?: number
-          rolling_volume_60s?: number
-          session_vwap?: number | null
-          signal_status?: string
-          symbol?: string
-          updated_at?: string
-          volume?: number
-          volume_ratio_prior_session?: number
-        }
-        Relationships: []
-      }
-      radar_v22_feed_state: {
-        Row: {
-          feed_stale: boolean
-          generation_id: string | null
-          last_provider_event_at: string | null
-          provider_as_of_max: string | null
-          provider_as_of_min: string | null
-          session_date: string | null
-          state_key: string
-          status: string
-          symbol_count: number
-          synced_at: string
-          updated_at: string
-        }
-        Insert: {
-          feed_stale?: boolean
-          generation_id?: string | null
-          last_provider_event_at?: string | null
-          provider_as_of_max?: string | null
-          provider_as_of_min?: string | null
-          session_date?: string | null
-          state_key: string
-          status: string
-          symbol_count?: number
-          synced_at: string
-          updated_at: string
-        }
-        Update: {
-          feed_stale?: boolean
-          generation_id?: string | null
-          last_provider_event_at?: string | null
-          provider_as_of_max?: string | null
-          provider_as_of_min?: string | null
-          session_date?: string | null
-          state_key?: string
-          status?: string
-          symbol_count?: number
-          synced_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      radar_v22_lease: {
-        Row: {
-          expires_at: string
-          heartbeat_at: string
-          holder_id: string
-          lease_key: string
-        }
-        Insert: {
-          expires_at: string
-          heartbeat_at: string
-          holder_id: string
-          lease_key: string
-        }
-        Update: {
-          expires_at?: string
-          heartbeat_at?: string
-          holder_id?: string
-          lease_key?: string
-        }
-        Relationships: []
-      }
       screener_feed_state: {
         Row: {
           provider_as_of_max: string | null
@@ -1624,7 +1360,6 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
-          nhl_baseline_status: string | null
           updated_at: string
         }
         Insert: {
@@ -1636,7 +1371,6 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
-          nhl_baseline_status?: string | null
           updated_at: string
         }
         Update: {
@@ -1648,7 +1382,6 @@ export type Database = {
           sync_run_id?: string
           synced_at?: string
           tab_counts?: Json
-          nhl_baseline_status?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -1669,7 +1402,6 @@ export type Database = {
           price: number | null
           prior_session_volume: number | null
           provider_as_of: string | null
-          range_event: string | null
           rvol: number | null
           symbol: string
           sync_run_id: string | null
@@ -1693,7 +1425,6 @@ export type Database = {
           price?: number | null
           prior_session_volume?: number | null
           provider_as_of?: string | null
-          range_event?: string | null
           rvol?: number | null
           symbol: string
           sync_run_id?: string | null
@@ -1717,7 +1448,6 @@ export type Database = {
           price?: number | null
           prior_session_volume?: number | null
           provider_as_of?: string | null
-          range_event?: string | null
           rvol?: number | null
           symbol?: string
           sync_run_id?: string | null
@@ -2540,48 +2270,6 @@ export type Database = {
         Returns: undefined
       }
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
-      replace_after_hours_generation_v1: {
-        Args: {
-          p_generation_id: string
-          p_rows: Json
-          p_session_date: string
-          p_status: string
-          p_synced_at: string
-        }
-        Returns: number
-      }
-      replace_radar_v22_generation_v1: {
-        Args: {
-          p_archive: Json
-          p_generation_id: string
-          p_last_provider_event_at: string | null
-          p_rows: Json
-          p_session_date: string
-          p_status: string
-          p_synced_at: string
-        }
-        Returns: number
-      }
-      set_radar_v22_feed_status_v1: {
-        Args: {
-          p_last_provider_event_at: string | null
-          p_status: string
-          p_synced_at: string
-        }
-        Returns: undefined
-      }
-      try_acquire_radar_v22_lease_v1: {
-        Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
-        Returns: boolean
-      }
-      heartbeat_radar_v22_lease_v1: {
-        Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
-        Returns: boolean
-      }
-      release_radar_v22_lease_v1: {
-        Args: { p_holder_id: string; p_lease_key: string }
-        Returns: undefined
-      }
       replace_screener_results_generation_v1: {
         Args: { p_rows: Json; p_sync_run_id: string; p_synced_at: string }
         Returns: number
