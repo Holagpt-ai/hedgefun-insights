@@ -1650,6 +1650,90 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_52w_baseline_job: {
+        Row: {
+          dates_applied: number
+          dates_total: number
+          generation_id: string
+          job_key: string
+          last_applied_date: string | null
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          dates_applied: number
+          dates_total: number
+          generation_id: string
+          job_key: string
+          last_applied_date?: string | null
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          status: string
+          updated_at: string
+        }
+        Update: {
+          dates_applied?: number
+          dates_total?: number
+          generation_id?: string
+          job_key?: string
+          last_applied_date?: string | null
+          period_end?: string
+          period_start?: string
+          provider_as_of?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      screener_52w_baseline_job_dates: {
+        Row: {
+          generation_id: string
+          session_date: string
+        }
+        Insert: {
+          generation_id: string
+          session_date: string
+        }
+        Update: {
+          generation_id?: string
+          session_date?: string
+        }
+        Relationships: []
+      }
+      screener_52w_baseline_staging: {
+        Row: {
+          generation_id: string
+          high_52w: number
+          high_date: string
+          low_52w: number
+          low_date: string
+          sessions_observed: number
+          symbol: string
+        }
+        Insert: {
+          generation_id: string
+          high_52w: number
+          high_date: string
+          low_52w: number
+          low_date: string
+          sessions_observed: number
+          symbol: string
+        }
+        Update: {
+          generation_id?: string
+          high_52w?: number
+          high_date?: string
+          low_52w?: number
+          low_date?: string
+          sessions_observed?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
       screener_52w_baseline_state: {
         Row: {
           current_generation_id: string | null
@@ -2594,6 +2678,15 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
+      apply_screener_52w_baseline_day_v1: {
+        Args: {
+          p_bars: Json
+          p_generation_id: string
+          p_provider_as_of: string
+          p_session_date: string
+        }
+        Returns: Json
+      }
       checkpoint_wl_v2_cursor: {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
@@ -2622,6 +2715,14 @@ export type Database = {
       }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
+        Returns: Json
+      }
+      finalize_screener_52w_baseline_job_v1: {
+        Args: {
+          p_generation_id: string
+          p_min_sessions: number
+          p_provider_as_of: string
+        }
         Returns: Json
       }
       finalize_watchlist_analysis_v2: {
@@ -2712,6 +2813,16 @@ export type Database = {
           p_synced_at: string
         }
         Returns: undefined
+      }
+      start_screener_52w_baseline_job_v1: {
+        Args: {
+          p_dates_total: number
+          p_generation_id: string
+          p_period_end: string
+          p_period_start: string
+          p_provider_as_of: string
+        }
+        Returns: Json
       }
       try_acquire_radar_v22_lease_v1: {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
