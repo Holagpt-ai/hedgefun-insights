@@ -1386,8 +1386,84 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_52w_baseline_state: {
+        Row: {
+          current_generation_id: string | null
+          period_end: string | null
+          period_start: string | null
+          provider_as_of: string | null
+          state_key: string
+          status: string
+          symbol_count: number
+          updated_at: string
+        }
+        Insert: {
+          current_generation_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_as_of?: string | null
+          state_key: string
+          status: string
+          symbol_count: number
+          updated_at: string
+        }
+        Update: {
+          current_generation_id?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          provider_as_of?: string | null
+          state_key?: string
+          status?: string
+          symbol_count?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      screener_52w_baselines: {
+        Row: {
+          generation_id: string
+          high_52w: number
+          high_candidates: Json
+          low_52w: number
+          low_candidates: Json
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          sessions_observed: number
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          generation_id: string
+          high_52w: number
+          high_candidates: Json
+          low_52w: number
+          low_candidates: Json
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          sessions_observed: number
+          symbol: string
+          updated_at: string
+        }
+        Update: {
+          generation_id?: string
+          high_52w?: number
+          high_candidates?: Json
+          low_52w?: number
+          low_candidates?: Json
+          period_end?: string
+          period_start?: string
+          provider_as_of?: string
+          sessions_observed?: number
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       screener_feed_state: {
         Row: {
+          nhl_baseline_status: string | null
           provider_as_of_max: string | null
           provider_as_of_min: string | null
           rows_inserted: number
@@ -1399,6 +1475,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          nhl_baseline_status?: string | null
           provider_as_of_max?: string | null
           provider_as_of_min?: string | null
           rows_inserted: number
@@ -1410,6 +1487,7 @@ export type Database = {
           updated_at: string
         }
         Update: {
+          nhl_baseline_status?: string | null
           provider_as_of_max?: string | null
           provider_as_of_min?: string | null
           rows_inserted?: number
@@ -1438,6 +1516,7 @@ export type Database = {
           price: number | null
           prior_session_volume: number | null
           provider_as_of: string | null
+          range_event: string | null
           rvol: number | null
           symbol: string
           sync_run_id: string | null
@@ -1461,6 +1540,7 @@ export type Database = {
           price?: number | null
           prior_session_volume?: number | null
           provider_as_of?: string | null
+          range_event?: string | null
           rvol?: number | null
           symbol: string
           sync_run_id?: string | null
@@ -1484,6 +1564,7 @@ export type Database = {
           price?: number | null
           prior_session_volume?: number | null
           provider_as_of?: string | null
+          range_event?: string | null
           rvol?: number | null
           symbol?: string
           sync_run_id?: string | null
@@ -2310,8 +2391,24 @@ export type Database = {
         Args: { p_as_of_date: string; p_provider_as_of: string; p_rows: Json }
         Returns: number
       }
+      replace_screener_52w_baseline_generation_v1: {
+        Args: {
+          p_generation_id: string
+          p_period_end: string
+          p_period_start: string
+          p_provider_as_of: string
+          p_rows: Json
+          p_status: string
+        }
+        Returns: number
+      }
       replace_screener_results_generation_v1: {
-        Args: { p_rows: Json; p_sync_run_id: string; p_synced_at: string }
+        Args: {
+          p_nhl_baseline_status?: string
+          p_rows: Json
+          p_sync_run_id: string
+          p_synced_at: string
+        }
         Returns: number
       }
     }
