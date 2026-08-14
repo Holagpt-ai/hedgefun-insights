@@ -1278,6 +1278,42 @@ export type Database = {
         }
         Relationships: []
       }
+      market_session_calendar: {
+        Row: {
+          after_hours_end_et: string
+          holiday_name: string | null
+          market_status: string
+          provider_as_of: string
+          regular_close_et: string
+          regular_open_et: string
+          session_date: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          after_hours_end_et: string
+          holiday_name?: string | null
+          market_status: string
+          provider_as_of: string
+          regular_close_et: string
+          regular_open_et: string
+          session_date: string
+          source: string
+          updated_at: string
+        }
+        Update: {
+          after_hours_end_et?: string
+          holiday_name?: string | null
+          market_status?: string
+          provider_as_of?: string
+          regular_close_et?: string
+          regular_open_et?: string
+          session_date?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       newsletter_subscribers: {
         Row: {
           email: string
@@ -2270,6 +2306,10 @@ export type Database = {
         Returns: undefined
       }
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
+      replace_market_session_calendar_exceptions_v1: {
+        Args: { p_as_of_date: string; p_provider_as_of: string; p_rows: Json }
+        Returns: number
+      }
       replace_screener_results_generation_v1: {
         Args: { p_rows: Json; p_sync_run_id: string; p_synced_at: string }
         Returns: number
