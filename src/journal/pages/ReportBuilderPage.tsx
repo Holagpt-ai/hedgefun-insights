@@ -8,7 +8,7 @@ import { REPORTS_KEY, writeJson } from "../lib/storage";
 import { JOURNAL_BASE } from "../nav";
 import { REPORT_TEMPLATES } from "../reports/templates";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
-import { loadRuns, type ReportRun } from "./ReportsPage";
+import { loadRuns, type ReportRun } from "../reports/runs";
 
 export function ReportBuilderPage() {
   const t = useJournalT();

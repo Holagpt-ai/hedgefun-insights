@@ -4,7 +4,7 @@ import { KpiCard } from "../components/KpiCard";
 import { HonestState } from "../components/HonestState";
 import { StatusBadge } from "../components/StatusBadge";
 import { useJournalLang, useJournalT } from "../i18n";
-import { money, pnlClass, pct, ratio, signedMoney } from "../lib/format";
+import { formatAverageR, money, pnlClass, pct, ratio, signedMoney } from "../lib/format";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 
@@ -59,7 +59,7 @@ export function OverviewPage() {
         <KpiCard label={t("kpi.equity")} value={money(equity, lang)} sampleSize={metrics.sampleSize} definition={t("def.equity")} onDrillDown={() => navigate(`${JOURNAL_BASE}/settings?section=accounts`)} />
         <KpiCard label={t("kpi.profitFactor")} value={ratio(metrics.profitFactor)} sampleSize={metrics.sampleSize} definition={t("def.profitFactor")} />
         <KpiCard label={t("kpi.expectancy")} value={metrics.expectancyDollars != null ? signedMoney(metrics.expectancyDollars, lang) : "—"} sampleSize={metrics.sampleSize} definition={t("def.expectancy")} />
-        <KpiCard label={t("kpi.averageR")} value={metrics.averageR != null ? `${metrics.averageR.toFixed(2)}R` : "—"} sampleSize={metrics.sampleSize} definition={t("def.averageR")} />
+        <KpiCard label={t("kpi.averageR")} value={formatAverageR(metrics.averageR)} sampleSize={metrics.sampleSize} definition={t("def.averageR")} />
         <KpiCard label={t("kpi.processScore")} value={processScore != null ? String(processScore) : "—"} sampleSize={trades.length} definition={t("def.processScore")} />
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-2">

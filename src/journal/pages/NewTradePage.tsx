@@ -79,6 +79,7 @@ export function NewTradePage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Consume the untrusted symbol query once, matching the existing handoff contract.
   useEffect(() => {
     const raw = searchParams.get("symbol");
     if (raw === null) return;
@@ -89,7 +90,6 @@ export function NewTradePage() {
     const next = new URLSearchParams(searchParams);
     next.delete("symbol");
     setSearchParams(next, { replace: true });
-    // Consume the untrusted symbol query once, matching the existing handoff contract.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

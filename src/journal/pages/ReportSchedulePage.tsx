@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { HonestState } from "../components/HonestState";
 import { useJournalT } from "../i18n";
-import { loadRuns } from "./ReportsPage";
+import { loadRuns } from "../reports/runs";
 
 export function ReportSchedulePage() {
   const { reportId } = useParams();

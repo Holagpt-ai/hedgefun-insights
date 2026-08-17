@@ -38,7 +38,6 @@ import {
   SettingsPage,
   JournalLegacyRedirect,
 } from "@/journal";
-import TradingJournalPublicPage from "@/pages/journal/TradingJournalPublicPage";
 import HedgeFunGame from "@/pages/dashboard/HedgeFunGame";
 import ActionCenter from "@/pages/dashboard/ActionCenter";
 import Catalyst from "@/pages/dashboard/Catalyst";
@@ -194,8 +193,6 @@ const App = () => (
                   <Route path="/articles" element={<ArticlesPage />} />
                   <Route path="/articles/:slug" element={<ArticleDetailPage />} />
                   <Route path="/chart" element={<ChartLandingPage />} />
-                  <Route path="/trading-journal" element={<TradingJournalPublicPage />} />
-                  <Route path="/es/trading-journal" element={<TradingJournalPublicPage />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
                   <Route path="/tools/cagr-calculator" element={<CagrCalculatorPage />} />

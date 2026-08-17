@@ -27,3 +27,15 @@ describe("journal has no paywall copy", () => {
     expect(hits).toEqual([]);
   });
 });
+
+describe("journal does not display the +2.4R mock", () => {
+  it("runtime surfaces do not hardcode +2.4R", () => {
+    const files = walk(ROOT);
+    const hits: string[] = [];
+    for (const file of files) {
+      const text = readFileSync(file, "utf8");
+      if (/\+?2\.4R/.test(text)) hits.push(file);
+    }
+    expect(hits).toEqual([]);
+  });
+});

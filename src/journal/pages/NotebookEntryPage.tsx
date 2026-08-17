@@ -4,7 +4,7 @@ import { HonestState } from "../components/HonestState";
 import { useJournalT } from "../i18n";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
-import { loadNotebook } from "./NotebookPage";
+import { loadNotebook } from "../lib/notebook";
 
 export function NotebookEntryPage() {
   const { entryId } = useParams();

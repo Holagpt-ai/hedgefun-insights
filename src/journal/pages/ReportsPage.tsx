@@ -3,19 +3,7 @@ import { Button } from "@/components/ui/button";
 import { useJournalLang, useJournalT } from "../i18n";
 import { JOURNAL_BASE } from "../nav";
 import { REPORT_TEMPLATES } from "../reports/templates";
-import { REPORTS_KEY, readJson } from "../lib/storage";
-
-export interface ReportRun {
-  id: string;
-  templateId: string;
-  createdAt: string;
-  snapshot: Record<string, string | number | null>;
-  watermark?: boolean;
-}
-
-export function loadRuns(): ReportRun[] {
-  return readJson<ReportRun[]>(REPORTS_KEY, []);
-}
+import { loadRuns } from "../reports/runs";
 
 export function ReportsPage() {
   const t = useJournalT();

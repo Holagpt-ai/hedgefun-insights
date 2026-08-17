@@ -43,6 +43,13 @@ export function ratio(value: number | null, digits = 2): string {
   return value.toFixed(digits);
 }
 
+/** Engine-derived Average R only. Never substitute HTML-mock Average R constants. */
+export function formatAverageR(value: number | null, digits = 2): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value.toFixed(digits)}R`;
+}
+
 export function sampleLabel(n: number, language: string): string {
   return language === "es" ? `n=${n}` : `n=${n}`;
 }

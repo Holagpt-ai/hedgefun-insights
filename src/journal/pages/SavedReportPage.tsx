@@ -4,7 +4,7 @@ import { HonestState } from "../components/HonestState";
 import { useJournalT } from "../i18n";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
-import { loadRuns } from "./ReportsPage";
+import { loadRuns } from "../reports/runs";
 
 export function SavedReportPage() {
   const { reportId } = useParams();

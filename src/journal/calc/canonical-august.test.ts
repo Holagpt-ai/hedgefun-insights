@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { microsToNumber, parseDecimal } from "./decimal";
 import { aggregateTrades, calculateTrade, dailyMetrics, validateSymbol } from "./engine";
 import { derivedJournalEquity, reconcileBalances } from "./reconciliation";
+import { formatAverageR } from "../lib/format";
 import { AUGUST_14_TRADES, AUGUST_CLOSED_TRADES, AUGUST_DEMO_TRADES } from "../demo/august-fixtures";
 
 function dollars(value: bigint): number {
@@ -60,6 +61,7 @@ describe("canonical August 14 session", () => {
     // Mean of locked trade R values (2.1 + 3.1 + 1.3 + 0.3 + -0.6) / 5.
     // The HTML mock printed +2.4R; the ledger is authoritative.
     expect(metrics.averageR).toBeCloseTo(1.24, 5);
+    expect(formatAverageR(metrics.averageR)).toBe("+1.24R");
     expect(metrics.largestWin?.symbol).toBe("SPY");
     expect(dollars(metrics.largestWin!.net)).toBe(650);
     expect(metrics.largestLoss?.symbol).toBe("PLTR");

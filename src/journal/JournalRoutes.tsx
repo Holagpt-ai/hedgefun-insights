@@ -20,25 +20,6 @@ import { SettingsPage } from "./pages/SettingsPage";
 import { TradeDetailPage } from "./pages/TradeDetailPage";
 import { TradesPage } from "./pages/TradesPage";
 
-export const JOURNAL_PAGE_MAP = {
-  "/dashboard/journal": OverviewPage,
-  "/dashboard/journal/calendar": CalendarPage,
-  "/dashboard/journal/daily-review": DailyReviewPage,
-  "/dashboard/journal/trades": TradesPage,
-  "/dashboard/journal/notebook": NotebookPage,
-  "/dashboard/journal/playbooks": PlaybooksPage,
-  "/dashboard/journal/reports": ReportsPage,
-  "/dashboard/journal/analytics": AnalyticsPage,
-  "/dashboard/journal/settings": SettingsPage,
-  "/dashboard/journal/settings?section=ai-memory": SettingsPage,
-  "/dashboard/journal/settings?section=data-quality": SettingsPage,
-  "/dashboard/journal/settings?section=imports": SettingsPage,
-  "/dashboard/journal/settings?section=accounts": SettingsPage,
-  "/dashboard/journal/onboarding": OnboardingPage,
-  "/dashboard/journal/trades/new": NewTradePage,
-  "/dashboard/journal/coach": CoachPage,
-} as const;
-
 export function JournalRouteTree() {
   return (
     <>

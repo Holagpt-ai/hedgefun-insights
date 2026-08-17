@@ -1,34 +1,11 @@
+import { NOTEBOOK_KEY, writeJson } from "../lib/storage";
+import { loadNotebook, type NotebookEntry } from "../lib/notebook";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { HonestState } from "../components/HonestState";
-import { AUGUST_14_TRADES } from "../demo/august-fixtures";
 import { useJournalT } from "../i18n";
-import { NOTEBOOK_KEY, readJson, writeJson } from "../lib/storage";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
-
-export interface NotebookEntry {
-  id: string;
-  title: string;
-  date: string;
-  body: string;
-  tradeIds: string[];
-}
-
-const DEMO_ENTRIES: NotebookEntry[] = [
-  {
-    id: "nb-aug-14",
-    title: "Aug 14 process",
-    date: "2026-08-14",
-    body: "Only trade symbols from the pre-market watchlist. PLTR was outside the plan.",
-    tradeIds: AUGUST_14_TRADES.map((t) => t.id),
-  },
-];
-
-export function loadNotebook(mode: string): NotebookEntry[] {
-  if (mode === "demo") return DEMO_ENTRIES;
-  return readJson<NotebookEntry[]>(NOTEBOOK_KEY, []);
-}
 
 export function NotebookPage() {
   const t = useJournalT();
