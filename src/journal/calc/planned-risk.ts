@@ -52,12 +52,9 @@ export function computePlannedRiskFromPlan(trade: PlannedRiskInputs): Micros | n
 
 /**
  * Resolve the R denominator.
- * Plan inputs are authoritative when they produce a risk amount.
- * A stored plannedRisk is used only when plan inputs are incomplete, or when it
- * exactly matches the plan-derived amount (input contract already in sync).
- * Stored values that disagree with plan inputs remain the R denominator so
- * locked demo averages are not rewritten from a back-solved R, but are labeled
- * `stored_planned_risk` for audit.
+ * Complete plan inputs (entry, stop, quantity, multiplier) are always
+ * authoritative. A stored plannedRisk never overrides a plan-derived amount;
+ * it is a fallback only when plan inputs are incomplete.
  */
 export function resolveInitialRisk(trade: TradeInput): PlannedRiskResolution {
   const plannedEntry = optionalDecimal(trade.plannedEntry);
@@ -68,7 +65,7 @@ export function resolveInitialRisk(trade: TradeInput): PlannedRiskResolution {
   const stored = optionalDecimal(trade.plannedRisk);
   const multiplier = planMultiplier(trade);
 
-  if (fromPlan != null && (stored == null || stored === fromPlan)) {
+  if (fromPlan != null) {
     return {
       initialRisk: fromPlan,
       riskPerShare,
@@ -93,12 +90,12 @@ export function resolveInitialRisk(trade: TradeInput): PlannedRiskResolution {
   }
 
   return {
-    initialRisk: fromPlan,
+    initialRisk: null,
     riskPerShare,
     plannedQuantity,
     plannedEntry,
     plannedStop,
     multiplier,
-    source: fromPlan != null ? "plan_inputs" : "unavailable",
+    source: "unavailable",
   };
 }

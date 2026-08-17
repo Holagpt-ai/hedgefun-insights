@@ -35,19 +35,30 @@ describe("canonical August 14 session", () => {
     expect(dollars(byId["demo-spy-450c"].grossRealizedPnl)).toBe(660);
     expect(dollars(byId["demo-spy-450c"].totalFees)).toBe(10);
     expect(dollars(byId["demo-spy-450c"].netRealizedPnl)).toBe(650);
-    expect(byId["demo-spy-450c"].rMultiple).toBeCloseTo(3.1, 5);
+    expect(dollars(byId["demo-spy-450c"].initialRisk!)).toBe(210);
+    expect(byId["demo-spy-450c"].plannedRiskSource).toBe("plan_inputs");
+    expect(byId["demo-spy-450c"].rMultiple).toBeCloseTo(650 / 210, 10);
+    expect(formatR(byId["demo-spy-450c"].rMultiple)).toBe("3.10R");
     expect(byId["demo-spy-450c"].status).toBe("closed_before_expiration");
 
     expect(dollars(byId["demo-aapl"].netRealizedPnl)).toBe(120);
-    expect(byId["demo-aapl"].rMultiple).toBeCloseTo(1.3, 5);
+    expect(dollars(byId["demo-aapl"].initialRisk!)).toBe(92);
+    expect(byId["demo-aapl"].plannedRiskSource).toBe("plan_inputs");
+    expect(byId["demo-aapl"].rMultiple).toBeCloseTo(120 / 92, 10);
+    expect(formatR(byId["demo-aapl"].rMultiple)).toBe("1.30R");
 
     expect(dollars(byId["demo-tsla"].netRealizedPnl)).toBe(40);
-    expect(byId["demo-tsla"].rMultiple).toBeCloseTo(0.3, 5);
+    expect(dollars(byId["demo-tsla"].initialRisk!)).toBe(133);
+    expect(byId["demo-tsla"].plannedRiskSource).toBe("plan_inputs");
+    expect(byId["demo-tsla"].rMultiple).toBeCloseTo(40 / 133, 10);
+    expect(formatR(byId["demo-tsla"].rMultiple)).toBe("0.30R");
 
     expect(dollars(byId["demo-pltr"].grossRealizedPnl)).toBe(-124);
     expect(dollars(byId["demo-pltr"].totalFees)).toBe(6);
     expect(dollars(byId["demo-pltr"].netRealizedPnl)).toBe(-130);
+    expect(byId["demo-pltr"].plannedRiskSource).toBe("stored_planned_risk");
     expect(byId["demo-pltr"].rMultiple).toBeCloseTo(-0.6, 5);
+    expect(formatR(byId["demo-pltr"].rMultiple)).toBe("-0.60R");
     expect(byId["demo-pltr"].outcome).toBe("loss");
   });
 
@@ -61,8 +72,8 @@ describe("canonical August 14 session", () => {
     expect(metrics.losses).toBe(1);
     expect(metrics.breakevens).toBe(0);
     expect(metrics.winRate).toBe(0.8);
-    // Mean of trade R values, then display-round with formatAverageR (toFixed(2)).
-    // NVDA is 440/210 = 2.0952… → 2.10R; session display remains +1.24R.
+    // NVDA 440/210, SPY 650/210, AAPL 120/92, TSLA 40/133, PLTR stored −0.6.
+    // Display-round the mean with formatAverageR (toFixed(2)).
     expect(Number(metrics.averageR!.toFixed(2))).toBe(1.24);
     expect(formatAverageR(metrics.averageR)).toBe("+1.24R");
     expect(metrics.largestWin?.symbol).toBe("SPY");

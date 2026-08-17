@@ -1,6 +1,4 @@
 import type { ExecutionInput, TradeInput } from "../calc/types";
-import { computePlannedRiskFromPlan } from "../calc/planned-risk";
-import { microsToNumber } from "../calc/decimal";
 
 const TZ = "America/New_York";
 
@@ -77,14 +75,6 @@ export const AUGUST_14_TRADES: TradeInput[] = [
     {
       playbookId: "pb-momentum",
       playbookName: "Momentum Breakout",
-      plannedRisk: microsToNumber(
-        computePlannedRiskFromPlan({
-          assetClass: "stock",
-          plannedEntry: 118.4,
-          plannedStop: 116.3,
-          plannedSize: 100,
-        })!,
-      ),
       plannedStop: 116.3,
       plannedTarget: 124.5,
       plannedEntry: 118.4,
@@ -105,8 +95,7 @@ export const AUGUST_14_TRADES: TradeInput[] = [
     reviewed: true,
     playbookId: "pb-orb",
     playbookName: "Opening Range Breakout",
-    plannedRisk: "209.67741935",
-    plannedStop: 2.4,
+    plannedStop: 2.78,
     plannedTarget: 4.5,
     plannedEntry: 3.2,
     plannedSize: 5,
@@ -141,8 +130,7 @@ export const AUGUST_14_TRADES: TradeInput[] = [
     {
       playbookId: "pb-vwap",
       playbookName: "VWAP Reclaim",
-      plannedRisk: "92.30769231",
-      plannedStop: 214.6,
+      plannedStop: 214.88,
       plannedTarget: 217.2,
       plannedEntry: 215.8,
       plannedSize: 100,
@@ -160,8 +148,7 @@ export const AUGUST_14_TRADES: TradeInput[] = [
     {
       playbookId: "pb-momentum",
       playbookName: "Momentum Breakout",
-      plannedRisk: "133.33333333",
-      plannedStop: 246.8,
+      plannedStop: 246.87,
       plannedTarget: 252,
       plannedEntry: 248.2,
       plannedSize: 100,
