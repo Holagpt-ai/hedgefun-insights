@@ -8,7 +8,8 @@ import { HonestState } from "../components/HonestState";
 import { JournalTable, TableCell, TableRow } from "../components/JournalTable";
 import { StatusBadge } from "../components/StatusBadge";
 import { useJournalLang, useJournalT } from "../i18n";
-import { signedMoney } from "../lib/format";
+import { formatR, signedMoney } from "../lib/format";
+import { canCloseTrade } from "../lib/trade-actions";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 import type { Outcome, TradeStatus } from "../calc/types";
@@ -38,10 +39,7 @@ export function TradesPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">{t("trades.title")}</h1>
-        <Button asChild size="sm"><Link to={`${JOURNAL_BASE}/trades/new`}>{t("bar.addTrade")}</Link></Button>
-      </div>
+      <h1 className="text-lg font-bold">{t("trades.title")}</h1>
       <div className="journal-filter-bar">
         <Input className="h-[34px] w-36" placeholder={t("trades.symbol")} value={symbol} onChange={(e) => setSymbol(e.target.value)} />
         <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
@@ -77,11 +75,13 @@ export function TradesPage() {
               <TableCell className="tabular-nums">{microsToNumber(calc.openQuantity).toFixed(0)}</TableCell>
               <TableCell className="tabular-nums">{microsToNumber(calc.remainingQuantity).toFixed(0)}</TableCell>
               <TableCell className={`tabular-nums ${calc.netRealizedPnl >= 0n ? "journal-gain" : "journal-loss"}`}>{signedMoney(calc.netRealizedPnl, lang)}</TableCell>
-              <TableCell className="tabular-nums">{calc.rMultiple != null ? calc.rMultiple.toFixed(2) : "—"}</TableCell>
+              <TableCell className="tabular-nums">{formatR(calc.rMultiple)}</TableCell>
               <TableCell className="space-x-1">
                 <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/trades/${trade.id}`}>{t("trades.open")}</Link></Button>
                 <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/trades/${trade.id}`}>{t("trades.addExecution")}</Link></Button>
-                <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/trades/${trade.id}`}>{t("trades.close")}</Link></Button>
+                {canCloseTrade(calc.status) ? (
+                  <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/trades/${trade.id}`}>{t("trades.close")}</Link></Button>
+                ) : null}
                 <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/daily-review/${trade.sessionDate}`}>{t("trades.review")}</Link></Button>
               </TableCell>
             </TableRow>

@@ -50,6 +50,12 @@ export function formatAverageR(value: number | null, digits = 2): string {
   return `${sign}${value.toFixed(digits)}R`;
 }
 
+/** Individual trade R. Display rounding only; never feed back into the engine. */
+export function formatR(value: number | null, digits = 2): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value.toFixed(digits)}R`;
+}
+
 export function sampleLabel(n: number, language: string): string {
   return language === "es" ? `n=${n}` : `n=${n}`;
 }

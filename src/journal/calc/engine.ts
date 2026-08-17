@@ -9,6 +9,7 @@ import {
   sub,
   type Micros,
 } from "./decimal";
+import { resolveInitialRisk } from "./planned-risk";
 import type {
   AggregateMetrics,
   BreakevenMode,
@@ -162,8 +163,8 @@ export function calculatePosition(
 
   const remainingQuantity = lots.reduce((sum, lot) => add(sum, lot.qty), 0n);
   const net = sub(gross, totalFees);
-  const initialRisk =
-    trade.plannedRisk != null && trade.plannedRisk !== "" ? parseDecimal(trade.plannedRisk) : null;
+  const resolvedRisk = resolveInitialRisk(trade);
+  const initialRisk = resolvedRisk.initialRisk;
   const rMultiple =
     initialRisk && initialRisk !== 0n ? microsToNumber(net) / microsToNumber(initialRisk) : null;
   const returnOnNotional =
@@ -208,6 +209,8 @@ export function calculatePosition(
     netRealizedPnl: net,
     holdingDurationMinutes,
     initialRisk,
+    riskPerShare: resolvedRisk.riskPerShare,
+    plannedRiskSource: resolvedRisk.source,
     rMultiple,
     returnOnNotional,
     returnOnDefinedRisk,
@@ -223,6 +226,7 @@ function emptyPosition(
   exclusions: string[],
   calculationState: PositionResult["calculationState"],
 ): PositionResult {
+  const resolvedRisk = resolveInitialRisk(trade);
   return {
     openQuantity: 0n,
     closedQuantity: 0n,
@@ -236,7 +240,9 @@ function emptyPosition(
     feeDrag: 0n,
     netRealizedPnl: 0n,
     holdingDurationMinutes: null,
-    initialRisk: trade.plannedRisk != null && trade.plannedRisk !== "" ? parseDecimal(trade.plannedRisk) : null,
+    initialRisk: resolvedRisk.initialRisk,
+    riskPerShare: resolvedRisk.riskPerShare,
+    plannedRiskSource: resolvedRisk.source,
     rMultiple: null,
     returnOnNotional: null,
     returnOnDefinedRisk: null,

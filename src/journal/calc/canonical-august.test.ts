@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { microsToNumber, parseDecimal } from "./decimal";
 import { aggregateTrades, calculateTrade, dailyMetrics, validateSymbol } from "./engine";
 import { derivedJournalEquity, reconcileBalances } from "./reconciliation";
-import { formatAverageR } from "../lib/format";
+import { formatAverageR, formatR } from "../lib/format";
 import { AUGUST_14_TRADES, AUGUST_CLOSED_TRADES, AUGUST_DEMO_TRADES } from "../demo/august-fixtures";
 
 function dollars(value: bigint): number {
@@ -25,8 +25,11 @@ describe("canonical August 14 session", () => {
     expect(dollars(byId["demo-nvda"].grossRealizedPnl)).toBe(448);
     expect(dollars(byId["demo-nvda"].totalFees)).toBe(8);
     expect(dollars(byId["demo-nvda"].netRealizedPnl)).toBe(440);
+    expect(dollars(byId["demo-nvda"].initialRisk!)).toBe(210);
+    expect(byId["demo-nvda"].plannedRiskSource).toBe("plan_inputs");
     expect(byId["demo-nvda"].weightedAverageExit && dollars(byId["demo-nvda"].weightedAverageExit)).toBe(122.88);
-    expect(byId["demo-nvda"].rMultiple).toBeCloseTo(2.1, 5);
+    expect(byId["demo-nvda"].rMultiple).toBeCloseTo(440 / 210, 10);
+    expect(formatR(byId["demo-nvda"].rMultiple)).toBe("2.10R");
     expect(byId["demo-nvda"].outcome).toBe("win");
 
     expect(dollars(byId["demo-spy-450c"].grossRealizedPnl)).toBe(660);
@@ -58,9 +61,9 @@ describe("canonical August 14 session", () => {
     expect(metrics.losses).toBe(1);
     expect(metrics.breakevens).toBe(0);
     expect(metrics.winRate).toBe(0.8);
-    // Mean of locked trade R values (2.1 + 3.1 + 1.3 + 0.3 + -0.6) / 5.
-    // The HTML mock printed +2.4R; the ledger is authoritative.
-    expect(metrics.averageR).toBeCloseTo(1.24, 5);
+    // Mean of trade R values, then display-round with formatAverageR (toFixed(2)).
+    // NVDA is 440/210 = 2.0952… → 2.10R; session display remains +1.24R.
+    expect(Number(metrics.averageR!.toFixed(2))).toBe(1.24);
     expect(formatAverageR(metrics.averageR)).toBe("+1.24R");
     expect(metrics.largestWin?.symbol).toBe("SPY");
     expect(dollars(metrics.largestWin!.net)).toBe(650);
@@ -89,6 +92,8 @@ describe("canonical August calendar", () => {
     expect(dollars(metrics.netPnl)).toBe(4150);
     expect(dollars(metrics.grossPnl)).toBe(4350);
     expect(dollars(metrics.fees)).toBe(200);
+    expect(metrics.sampleSize).toBe(14);
+    expect(formatAverageR(metrics.averageR)).toBe("+0.87R");
     expect(daily.filter((row) => row.netPnl > 0n).length).toBe(7);
     expect(daily.filter((row) => row.netPnl < 0n).length).toBe(3);
     expect(daily.length).toBe(10);

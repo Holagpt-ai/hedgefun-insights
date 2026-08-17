@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { calculatePosition, formatMoney, validateSymbol } from "../calc";
+import { calculatePosition, computePlannedRiskFromPlan, formatMoney, microsToNumber, validateSymbol } from "../calc";
 import type { AssetClass, Direction, ExecutionAction, ExecutionInput, TradeInput } from "../calc/types";
 import { HonestState } from "../components/HonestState";
 import { useJournalLang, useJournalT } from "../i18n";
@@ -147,21 +147,23 @@ export function NewTradePage() {
           <TabsTrigger value="options">{t("new.options")}</TabsTrigger>
           <TabsTrigger value="crypto">{t("new.crypto")}</TabsTrigger>
         </TabsList>
-        <TabsContent value="stock" />
-        <TabsContent value="options" className="grid grid-cols-3 gap-2">
-          <Labeled label={t("new.strike")}><Input value={draft.strike} onChange={(e) => setDraft({ ...draft, strike: e.target.value })} /></Labeled>
-          <Labeled label={t("new.expiration")}><Input type="date" value={draft.expiration} onChange={(e) => setDraft({ ...draft, expiration: e.target.value })} /></Labeled>
-          <Labeled label={t("new.right")}>
-            <Select value={draft.right} onValueChange={(v) => setDraft({ ...draft, right: v as "call" | "put" })}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="call">{t("new.call")}</SelectItem>
-                <SelectItem value="put">{t("new.put")}</SelectItem>
-              </SelectContent>
-            </Select>
-          </Labeled>
-        </TabsContent>
-        <TabsContent value="crypto" />
+        {draft.assetClass === "equity_option" ? (
+          <TabsContent value="options">
+            <div className="grid grid-cols-3 gap-2">
+              <Labeled label={t("new.strike")}><Input value={draft.strike} onChange={(e) => setDraft({ ...draft, strike: e.target.value })} /></Labeled>
+              <Labeled label={t("new.expiration")}><Input type="date" value={draft.expiration} onChange={(e) => setDraft({ ...draft, expiration: e.target.value })} /></Labeled>
+              <Labeled label={t("new.right")}>
+                <Select value={draft.right} onValueChange={(v) => setDraft({ ...draft, right: v as "call" | "put" })}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="call">{t("new.call")}</SelectItem>
+                    <SelectItem value="put">{t("new.put")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </Labeled>
+            </div>
+          </TabsContent>
+        ) : null}
       </Tabs>
       <div className="grid grid-cols-2 gap-2">
         <Labeled label={t("new.symbol")}>
@@ -254,6 +256,16 @@ function toTrade(draft: Draft): TradeInput {
       commission: fill.commission || 0,
       multiplier: draft.assetClass === "equity_option" ? 100 : 1,
     }));
+  const planInputs = {
+    assetClass: draft.assetClass,
+    plannedEntry: draft.plannedEntry || null,
+    plannedStop: draft.plannedStop || null,
+    plannedSize: draft.plannedSize || null,
+    legs: draft.assetClass === "equity_option" && draft.strike
+      ? [{ id: "leg-1", action: "buy" as const, right: draft.right, strike: draft.strike, expiration: draft.expiration, contracts: draft.executions[0]?.quantity ?? 1, multiplier: 100, status: "open" as const }]
+      : undefined,
+  };
+  const derivedRisk = computePlannedRiskFromPlan(planInputs);
   return {
     id: "draft",
     accountId: draft.accountId.startsWith("demo-") ? "live-default" : draft.accountId,
@@ -267,12 +279,10 @@ function toTrade(draft: Draft): TradeInput {
     plannedStop: draft.plannedStop || null,
     plannedTarget: draft.plannedTarget || null,
     plannedSize: draft.plannedSize || null,
-    plannedRisk: draft.plannedRisk || null,
+    plannedRisk: draft.plannedRisk || (derivedRisk != null ? microsToNumber(derivedRisk) : null),
     playbookName: draft.playbookName || null,
     thesis: draft.thesis || null,
     planned: true,
-    legs: draft.assetClass === "equity_option" && draft.strike
-      ? [{ id: "leg-1", action: "buy", right: draft.right, strike: draft.strike, expiration: draft.expiration, contracts: draft.executions[0]?.quantity ?? 1, multiplier: 100, status: "open" }]
-      : undefined,
+    legs: planInputs.legs,
   };
 }

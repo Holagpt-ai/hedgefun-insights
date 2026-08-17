@@ -7,7 +7,7 @@ import { EvidenceCard } from "../components/EvidenceCard";
 import { HonestState } from "../components/HonestState";
 import { StatusBadge } from "../components/StatusBadge";
 import { AUGUST_14_TRADES } from "../demo/august-fixtures";
-import { useJournalLang, useJournalT } from "../i18n";
+import { journalCount, useJournalLang, useJournalT } from "../i18n";
 import { REST_DAYS_KEY, readJson, writeJson } from "../lib/storage";
 import { money, signedMoney } from "../lib/format";
 import { JOURNAL_BASE } from "../nav";
@@ -80,7 +80,7 @@ export function DailyReviewPage() {
         <Stat label={t("review.matchedPlan")} value={signedMoney(matchedNet, lang)} />
         <Stat label={t("review.unplannedCost")} value={signedMoney(unplannedNet, lang)} />
         <Stat label={t("review.adherence")} value={`${adherence}%`} />
-        <Stat label={t("review.followed", { n: followed })} value={`${t("review.deviations", { n: deviations })} · ${t("review.violated", { n: violated })}`} />
+        <Stat label={journalCount(lang, "review.followed", followed)} value={`${journalCount(lang, "review.deviation", deviations)} · ${journalCount(lang, "review.violated", violated)}`} />
       </div>
       {isAug14Demo ? (
         <p className="text-xs text-muted-foreground">

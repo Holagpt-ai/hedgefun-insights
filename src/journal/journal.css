@@ -20,6 +20,10 @@
   background: var(--journal-page);
   color: var(--journal-navy);
   min-height: 100%;
+  /* Reserve space for the existing viewport-right floating control (~52px + 24px offset). */
+  --journal-floating-control-size: 52px;
+  --journal-floating-control-offset: 24px;
+  --journal-right-safe: calc(var(--journal-floating-control-size) + var(--journal-floating-control-offset) + 12px);
 }
 
 .dark .journal-root {
@@ -38,6 +42,7 @@
 
 .journal-page {
   padding: 12px 16px 28px;
+  padding-right: max(16px, var(--journal-right-safe));
   max-width: 1280px;
   margin: 0 auto;
 }
@@ -245,3 +250,8 @@
 .journal-ai-warn { background: color-mix(in srgb, var(--journal-warn) 10%, transparent); border-left: 3px solid var(--journal-warn); }
 .journal-ai-brand { background: color-mix(in srgb, var(--journal-brand) 8%, transparent); border-left: 3px solid var(--journal-brand); }
 .journal-ai-loss { background: color-mix(in srgb, var(--journal-loss) 8%, transparent); border-left: 3px solid var(--journal-loss); }
+
+/* Inactive Radix tab panels must not occupy space or show empty card chrome. */
+.journal-root [role="tabpanel"][data-state="inactive"] {
+  display: none !important;
+}

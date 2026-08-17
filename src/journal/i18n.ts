@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-type Lang = "en" | "es";
+export type Lang = "en" | "es";
 
 const en = {
   "nav.groupOperate": "Operate",
@@ -145,9 +145,12 @@ const en = {
   "review.complete": "Complete",
   "review.sections": "{done} of {total} sections",
   "review.screenshotsPending": "Screenshots pending",
-  "review.followed": "{n} followed",
-  "review.deviations": "{n} deviations",
-  "review.violated": "{n} violated",
+  "review.followed.one": "{n} followed",
+  "review.followed.other": "{n} followed",
+  "review.deviation.one": "{n} deviation",
+  "review.deviation.other": "{n} deviations",
+  "review.violated.one": "{n} violated",
+  "review.violated.other": "{n} violated",
   "review.adherence": "Rule adherence",
   "review.matchedPlan": "Matched-plan P&L",
   "review.unplannedCost": "Unplanned P&L",
@@ -225,6 +228,28 @@ const en = {
   "detail.noNotes": "No notes yet.",
   "detail.demoAi": "Demo explanation only. This is not a live coaching run.",
   "detail.lineage": "Calculation {calc} · input {input}",
+  "detail.riskPerShare": "Risk per share",
+  "detail.netForR": "Net P&L used for R",
+  "detail.rResult": "R result",
+  "detail.calcVersion": "Calculation version",
+  "detail.inputVersion": "Input-contract version",
+  "detail.processVersion": "Process-score version",
+  "detail.plannedRiskSource": "Planned-risk source",
+  "detail.riskSource.plan_inputs": "Plan inputs (entry, stop, quantity)",
+  "detail.riskSource.stored_planned_risk": "Stored planned risk",
+  "detail.riskSource.unavailable": "Unavailable",
+  "detail.auditEvent": "Calculation / event type",
+  "detail.auditInputs": "Authoritative input snapshot",
+  "detail.auditTimestamp": "Calculation timestamp",
+  "detail.auditDemo": "Demo / source",
+  "detail.auditDemoBody": "DEMO WORKSPACE — illustrative calculation evidence. Not live database history.",
+  "detail.auditLiveBody": "Derived from the current trade and calculation engine. Not a stored database history row.",
+  "detail.event.closed_position": "Closed position P&L",
+  "detail.event.partial_position": "Partial position P&L",
+  "detail.event.open_position": "Open position",
+  "detail.event.unavailable": "Unavailable",
+  "detail.executionsCount": "{n} execution",
+  "detail.executionsCount.other": "{n} executions",
 
   "new.title": "New trade",
   "new.stock": "Stock",
@@ -544,9 +569,12 @@ const es: Record<keyof typeof en, string> = {
   "review.complete": "Completa",
   "review.sections": "{done} de {total} secciones",
   "review.screenshotsPending": "Capturas pendientes",
-  "review.followed": "{n} cumplidas",
-  "review.deviations": "{n} desviaciones",
-  "review.violated": "{n} violadas",
+  "review.followed.one": "{n} cumplida",
+  "review.followed.other": "{n} cumplidas",
+  "review.deviation.one": "{n} desviación",
+  "review.deviation.other": "{n} desviaciones",
+  "review.violated.one": "{n} violada",
+  "review.violated.other": "{n} violadas",
   "review.adherence": "Adherencia a reglas",
   "review.matchedPlan": "P&L según plan",
   "review.unplannedCost": "P&L no planificado",
@@ -624,6 +652,28 @@ const es: Record<keyof typeof en, string> = {
   "detail.noNotes": "Aún no hay notas.",
   "detail.demoAi": "Solo explicación de demostración. No es un análisis en vivo.",
   "detail.lineage": "Cálculo {calc} · entrada {input}",
+  "detail.riskPerShare": "Riesgo por acción",
+  "detail.netForR": "P&L neto usado para R",
+  "detail.rResult": "Resultado R",
+  "detail.calcVersion": "Versión de cálculo",
+  "detail.inputVersion": "Versión del contrato de entrada",
+  "detail.processVersion": "Versión de process-score",
+  "detail.plannedRiskSource": "Origen del riesgo planificado",
+  "detail.riskSource.plan_inputs": "Entradas del plan (entrada, stop, cantidad)",
+  "detail.riskSource.stored_planned_risk": "Riesgo planificado almacenado",
+  "detail.riskSource.unavailable": "No disponible",
+  "detail.auditEvent": "Tipo de cálculo / evento",
+  "detail.auditInputs": "Instantánea de entradas autoritativas",
+  "detail.auditTimestamp": "Marca de tiempo del cálculo",
+  "detail.auditDemo": "Demo / origen",
+  "detail.auditDemoBody": "ESPACIO DE DEMOSTRACIÓN — evidencia de cálculo ilustrativa. No es historial de base de datos en vivo.",
+  "detail.auditLiveBody": "Derivado de la operación actual y el motor de cálculo. No es una fila de historial en base de datos.",
+  "detail.event.closed_position": "P&L de posición cerrada",
+  "detail.event.partial_position": "P&L de posición parcial",
+  "detail.event.open_position": "Posición abierta",
+  "detail.event.unavailable": "No disponible",
+  "detail.executionsCount": "{n} ejecución",
+  "detail.executionsCount.other": "{n} ejecuciones",
 
   "new.title": "Nueva operación",
   "new.stock": "Acción",
@@ -802,6 +852,13 @@ const es: Record<keyof typeof en, string> = {
 };
 
 export type JournalMessageKey = keyof typeof en;
+
+export type CountStem = "review.followed" | "review.deviation" | "review.violated";
+
+export function journalCount(language: Lang, stem: CountStem, n: number): string {
+  const key = `${stem}.${n === 1 ? "one" : "other"}` as JournalMessageKey;
+  return journalMessage(language, key, { n });
+}
 
 export function journalMessage(language: Lang, key: JournalMessageKey, vars?: Record<string, string | number>): string {
   let text: string = (language === "es" ? es : en)[key] ?? en[key];

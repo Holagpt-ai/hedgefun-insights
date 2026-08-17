@@ -24,6 +24,8 @@ export type TradeStatus =
 export type Outcome = "win" | "loss" | "breakeven" | "open" | "excluded";
 export type CalculationState = "authoritative" | "estimated" | "unavailable" | "incomplete";
 export type BreakevenMode = "r" | "currency" | "strict_zero";
+export type PlannedRiskSource = "plan_inputs" | "stored_planned_risk" | "unavailable";
+export type AuditEventType = "closed_position" | "partial_position" | "open_position" | "unavailable";
 
 export interface ExecutionFeeInput {
   kind:
@@ -123,6 +125,8 @@ export interface PositionResult {
   netRealizedPnl: Micros;
   holdingDurationMinutes: number | null;
   initialRisk: Micros | null;
+  riskPerShare: Micros | null;
+  plannedRiskSource: PlannedRiskSource;
   rMultiple: number | null;
   returnOnNotional: number | null;
   returnOnDefinedRisk: number | null;
@@ -218,4 +222,42 @@ export interface CalculationLineage {
   timestamp: string;
   exclusions: string[];
   observations: string[];
+}
+
+export interface TradeRiskEvidence {
+  plannedEntry: Micros | null;
+  plannedStop: Micros | null;
+  plannedQuantity: Micros | null;
+  riskPerShare: Micros | null;
+  plannedRisk: Micros | null;
+  plannedRiskSource: PlannedRiskSource;
+  netPnl: Micros;
+  rMultiple: number | null;
+  calculationVersion: string;
+  inputVersion: string;
+  processScoreVersion: string;
+}
+
+export interface TradeAuditRecord {
+  calculationVersion: string;
+  inputVersion: string;
+  eventType: AuditEventType;
+  inputSummary: {
+    symbol: string;
+    direction: Direction;
+    assetClass: AssetClass;
+    plannedEntry: number | string | null;
+    plannedStop: number | string | null;
+    plannedSize: number | string | null;
+    storedPlannedRisk: number | string | null;
+    executionCount: number;
+  };
+  plannedRiskSource: PlannedRiskSource;
+  grossPnl: Micros;
+  fees: Micros;
+  netPnl: Micros;
+  rMultiple: number | null;
+  timestamp: string;
+  demoLabel: string | null;
+  exclusions: string[];
 }

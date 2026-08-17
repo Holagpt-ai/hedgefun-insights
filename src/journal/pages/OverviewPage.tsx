@@ -3,7 +3,7 @@ import { microsToNumber, sequenceMetrics } from "../calc";
 import { KpiCard } from "../components/KpiCard";
 import { HonestState } from "../components/HonestState";
 import { StatusBadge } from "../components/StatusBadge";
-import { useJournalLang, useJournalT } from "../i18n";
+import { journalCount, useJournalLang, useJournalT } from "../i18n";
 import { formatAverageR, money, pnlClass, pct, ratio, signedMoney } from "../lib/format";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
@@ -112,7 +112,7 @@ export function OverviewPage() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2">
         <div className="journal-card p-3">
           <div className="journal-card-hd">{t("overview.riskRules")}</div>
-          <p className="text-xs mt-2">{t("review.followed", { n: matched.length })} · {t("review.deviations", { n: unplanned.length })}</p>
+          <p className="text-xs mt-2">{journalCount(lang, "review.followed", matched.length)} · {journalCount(lang, "review.deviation", unplanned.length)}</p>
         </div>
         <div className="journal-card p-3">
           <div className="journal-card-hd">{t("overview.strength")}</div>

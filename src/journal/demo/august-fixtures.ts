@@ -1,4 +1,6 @@
 import type { ExecutionInput, TradeInput } from "../calc/types";
+import { computePlannedRiskFromPlan } from "../calc/planned-risk";
+import { microsToNumber } from "../calc/decimal";
 
 const TZ = "America/New_York";
 
@@ -75,7 +77,14 @@ export const AUGUST_14_TRADES: TradeInput[] = [
     {
       playbookId: "pb-momentum",
       playbookName: "Momentum Breakout",
-      plannedRisk: "209.52380952",
+      plannedRisk: microsToNumber(
+        computePlannedRiskFromPlan({
+          assetClass: "stock",
+          plannedEntry: 118.4,
+          plannedStop: 116.3,
+          plannedSize: 100,
+        })!,
+      ),
       plannedStop: 116.3,
       plannedTarget: 124.5,
       plannedEntry: 118.4,
