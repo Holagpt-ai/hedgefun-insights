@@ -104,3 +104,103 @@ export const getRecentTradesHandler: ToolHandler = async (
 
   return { content: JSON.stringify(trades) };
 };
+
+function scopedTradeQuery(supabase: SupabaseClient, userId: string) {
+  return supabase.from("journal_trades").select("*").eq("user_id", userId);
+}
+
+export const getTradeDefinition: ToolDefinition = {
+  name: "get_trade",
+  description:
+    "Retrieves one of the authenticated user's journal trades by id, including symbol, executions summary, status, and stored P&L. Never invents prices or P&L.",
+  input_schema: {
+    type: "object",
+    properties: { trade_id: { type: "string" } },
+    required: ["trade_id"],
+  },
+};
+
+export const getTradeHandler: ToolHandler = async (userId, supabase, params) => {
+  const tradeId = String(params.trade_id ?? "");
+  if (!tradeId) return { content: "trade_id is required.", isError: true };
+  const { data, error } = await scopedTradeQuery(supabase, userId).eq("id", tradeId).maybeSingle();
+  if (error || !data) return { content: "Trade not found for this user." };
+  return { content: JSON.stringify(data) };
+};
+
+export const getSessionSummaryDefinition: ToolDefinition = {
+  name: "get_session_summary",
+  description:
+    "Summarizes the authenticated user's closed journal trades for a session date (YYYY-MM-DD) using stored ledger fields only.",
+  input_schema: {
+    type: "object",
+    properties: { session_date: { type: "string" } },
+    required: ["session_date"],
+  },
+};
+
+export const getSessionSummaryHandler: ToolHandler = async (userId, supabase, params) => {
+  const sessionDate = String(params.session_date ?? "");
+  const { data, error } = await scopedTradeQuery(supabase, userId)
+    .gte("entry_date", `${sessionDate}T00:00:00`)
+    .lte("entry_date", `${sessionDate}T23:59:59`);
+  if (error) return { content: "Unable to load session trades." };
+  const rows = data ?? [];
+  const closed = rows.filter((row) => row.status === "closed");
+  const net = closed.reduce((sum, row) => sum + Number(row.return_dollars ?? 0), 0);
+  return {
+    content: JSON.stringify({
+      session_date: sessionDate,
+      trade_count: rows.length,
+      closed_count: closed.length,
+      net_pnl: net,
+      source: "journal_trades",
+      note: "Values are ledger-stored. AI must not invent missing prices.",
+    }),
+  };
+};
+
+export const getPerformanceMetricsDefinition: ToolDefinition = {
+  name: "get_performance_metrics",
+  description: "Returns cached deterministic journal stats for the authenticated user.",
+  input_schema: { type: "object", properties: {}, required: [] },
+};
+
+export const getPerformanceMetricsHandler: ToolHandler = async (userId, supabase) => {
+  return getJournalStatsHandler(userId, supabase, {});
+};
+
+export const getDataQualityDefinition: ToolDefinition = {
+  name: "get_data_quality",
+  description: "Lists open data-quality issues for the authenticated user. Does not invent issues.",
+  input_schema: { type: "object", properties: {}, required: [] },
+};
+
+export const getDataQualityHandler: ToolHandler = async (userId, supabase) => {
+  const { data, error } = await supabase
+    .from("journal_data_quality_issues")
+    .select("id, issue_type, severity, entity_id, explanation, created_at")
+    .eq("user_id", userId)
+    .is("resolved_at", null)
+    .limit(50);
+  if (error) return { content: JSON.stringify({ issues: [], note: "Data quality table unavailable." }) };
+  return { content: JSON.stringify({ issues: data ?? [] }) };
+};
+
+export const getRelevantMemoriesDefinition: ToolDefinition = {
+  name: "get_relevant_memories",
+  description: "Returns confirmed AI memories for the authenticated user. Demo data is never stored as memory.",
+  input_schema: { type: "object", properties: {}, required: [] },
+};
+
+export const getRelevantMemoriesHandler: ToolHandler = async (userId, supabase) => {
+  const { data, error } = await supabase
+    .from("journal_ai_memories")
+    .select("id, category, claim, status, confidence, created_at")
+    .eq("user_id", userId)
+    .eq("status", "confirmed")
+    .limit(25);
+  if (error) return { content: JSON.stringify({ memories: [] }) };
+  return { content: JSON.stringify({ memories: data ?? [] }) };
+};
+
