@@ -118,18 +118,23 @@ export function NewTradePage() {
       return;
     }
     setSaving(true);
-    const liveId = `live-${crypto.randomUUID()}`;
+    const persistMode = mode === "demo" ? "demo" : "live";
     const result = await saveTrade(
       {
         ...trade,
-        id: liveId,
-        accountId: trade.accountId.startsWith("demo-") ? "live-default" : trade.accountId,
+        id: crypto.randomUUID(),
+        accountId:
+          persistMode === "demo"
+            ? trade.accountId
+            : trade.accountId.startsWith("demo-")
+              ? "live-default"
+              : trade.accountId,
       },
-      { mode: "live", userId: user.id, client: supabase as never },
+      { mode: persistMode, userId: user.id, client: supabase as never },
     );
     setSaving(false);
     if (!result.ok) {
-      setError(result.skipped === "demo" ? t("new.demoBlocked") : result.error ?? t("state.error"));
+      setError(result.skipped === "demo" ? t("new.demoBlocked") : result.error ?? t("new.saveFailed"));
       return;
     }
     writeJson(DRAFT_KEY, emptyDraft());
@@ -223,7 +228,7 @@ export function NewTradePage() {
         {preview.overExitBlocked ? <p className="journal-loss text-xs mt-1">{t("new.overExit")}</p> : null}
       </div>
       {error ? <p className="text-xs journal-loss">{error}</p> : null}
-      <Button onClick={() => void onSave()} disabled={saving || preview.overExitBlocked}>{t("new.save")}</Button>
+      <Button onClick={() => void onSave()} disabled={saving || preview.overExitBlocked || mode === "demo"}>{t("new.save")}</Button>
     </div>
   );
 }

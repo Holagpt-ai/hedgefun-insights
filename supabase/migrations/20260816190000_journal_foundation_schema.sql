@@ -14,8 +14,9 @@ CREATE TABLE IF NOT EXISTS public.journal_trades (
   qty numeric NOT NULL,
   entry_price numeric NOT NULL,
   exit_price numeric,
-  entry_date date NOT NULL,
-  exit_date date,
+  entry_date timestamptz NOT NULL,
+  exit_date timestamptz,
+  session_date date,
   target_price numeric,
   stop_price numeric,
   setup_tag text,
@@ -104,6 +105,9 @@ ALTER TABLE public.journal_trades ADD COLUMN IF NOT EXISTS import_job_id uuid;
 ALTER TABLE public.journal_trades ADD COLUMN IF NOT EXISTS parent_trade_id uuid;
 ALTER TABLE public.journal_trades ADD COLUMN IF NOT EXISTS demo_forbidden boolean NOT NULL DEFAULT false;
 ALTER TABLE public.journal_trades ADD COLUMN IF NOT EXISTS source text NOT NULL DEFAULT 'manual';
+-- Live entry_date/exit_date are timestamptz. session_date is the trade-timezone
+-- calendar date. Additive only — never ALTER TYPE on existing rows.
+ALTER TABLE public.journal_trades ADD COLUMN IF NOT EXISTS session_date date;
 
 ALTER TABLE public.journal_trades DROP CONSTRAINT IF EXISTS journal_trades_source_not_demo;
 ALTER TABLE public.journal_trades
@@ -281,11 +285,14 @@ CREATE TABLE IF NOT EXISTS public.journal_executions (
   idempotency_key text,
   import_job_id uuid,
   note text,
+  leg_id uuid REFERENCES public.journal_trade_legs(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS journal_executions_idempotency_key_uidx
   ON public.journal_executions (idempotency_key);
+
+ALTER TABLE public.journal_executions ADD COLUMN IF NOT EXISTS leg_id uuid;
 
 CREATE TABLE IF NOT EXISTS public.journal_execution_fees (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -999,6 +1006,11 @@ BEGIN
     ALTER TABLE public.journal_executions
       ADD CONSTRAINT journal_executions_import_job_id_fkey
       FOREIGN KEY (import_job_id) REFERENCES public.journal_import_jobs(id) ON DELETE SET NULL;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'journal_executions_leg_id_fkey') THEN
+    ALTER TABLE public.journal_executions
+      ADD CONSTRAINT journal_executions_leg_id_fkey
+      FOREIGN KEY (leg_id) REFERENCES public.journal_trade_legs(id) ON DELETE SET NULL;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'journal_notebook_links_playbook_id_fkey') THEN
     ALTER TABLE public.journal_notebook_links

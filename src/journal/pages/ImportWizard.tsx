@@ -30,10 +30,10 @@ export function ImportWizard() {
       await saveTrade(
         {
           ...trade,
-          id: trade.id.startsWith("demo-") ? `live-${crypto.randomUUID()}` : trade.id,
+          id: trade.id.startsWith("demo-") ? crypto.randomUUID() : trade.id,
           accountId: trade.accountId.startsWith("demo-") ? "live-default" : trade.accountId,
         },
-        { mode: "live", userId: user.id, client: supabase as never },
+        { mode: mode === "demo" ? "demo" : "live", userId: user.id, client: supabase as never },
       );
     }
     hideDemo();

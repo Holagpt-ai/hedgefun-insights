@@ -5,6 +5,7 @@ import { isDemoTradeId } from "../lib/storage";
 
 function mockDb() {
   const inserts: { table: string; rows: unknown }[] = [];
+  const rpc = vi.fn(async () => ({ data: { ok: true, trade_id: "11111111-1111-4111-8111-000000000099" }, error: null }));
   const client: JournalDb = {
     from: (table: string) => {
       const query = {
@@ -20,28 +21,31 @@ function mockDb() {
       };
       return query;
     },
+    rpc,
   };
-  return { client, inserts };
+  return { client, inserts, rpc };
 }
 
 describe("demo isolation", () => {
   it("never passes demo trade ids to supabase insert in demo mode", async () => {
-    const { client, inserts } = mockDb();
+    const { client, inserts, rpc } = mockDb();
     for (const trade of AUGUST_DEMO_TRADES) {
       const result = await saveTrade(trade, { mode: "demo", userId: "user-1", client });
       expect(result.skipped).toBe("demo");
       expect(result.ok).toBe(false);
     }
     expect(inserts).toHaveLength(0);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("blocks demo-prefixed ids even if mode is live", async () => {
-    const { client, inserts } = mockDb();
+    const { client, inserts, rpc } = mockDb();
     const demoIds = AUGUST_DEMO_TRADES.map((trade) => trade.id);
     expect(demoIds.every(isDemoTradeId)).toBe(true);
     const result = await saveTrade(AUGUST_DEMO_TRADES[0], { mode: "live", userId: "user-1", client });
     expect(result.skipped).toBe("demo");
     expect(inserts).toHaveLength(0);
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("inserts a live trade id", async () => {
@@ -52,6 +56,7 @@ describe("demo isolation", () => {
       accountId: "live-default",
     };
     const spy = vi.fn();
+    const rpc = vi.fn(async () => ({ data: { ok: true, trade_id: "11111111-1111-4111-8111-000000000099" }, error: null }));
     const wrapped: JournalDb = {
       from: (table) => {
         const inner = client.from(table);
@@ -63,12 +68,14 @@ describe("demo isolation", () => {
           },
         };
       },
+      rpc,
     };
     const result = await saveTrade(live, { mode: "live", userId: "user-1", client: wrapped });
     expect(result.ok).toBe(true);
-    expect(spy).toHaveBeenCalled();
-    const payload = JSON.stringify(spy.mock.calls);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(spy).not.toHaveBeenCalled();
+    expect(inserts).toHaveLength(0);
+    const payload = JSON.stringify(rpc.mock.calls);
     expect(payload).not.toContain("demo-nvda");
-    expect(inserts.length).toBeGreaterThan(0);
   });
 });
