@@ -1,6 +1,7 @@
+import { resolveInitialRisk } from "./planned-risk";
 import type { ProcessScoreComponent, ProcessScoreResult, TradeInput } from "./types";
 
-export const PROCESS_SCORE_VERSION = "process-score.v1";
+export const PROCESS_SCORE_VERSION = "process-score.v1.1";
 
 const WEIGHTS = {
   planning: 15,
@@ -28,8 +29,13 @@ function scorePlanning(trade: TradeInput): number | null {
 
 function scoreRisk(trade: TradeInput): number | null {
   if (trade.executions.length === 0) return null;
+  const resolved = resolveInitialRisk(trade);
+  const definedRisk =
+    resolved.initialRisk != null &&
+    resolved.initialRisk > 0n &&
+    (resolved.source === "plan_inputs" || resolved.source === "stored_planned_risk");
   let score = 0;
-  if (trade.plannedRisk != null && trade.plannedRisk !== "") score += 40;
+  if (definedRisk) score += 40;
   if (trade.plannedStop != null) score += 30;
   if (!trade.ruleDeviation) score += 30;
   else score += 0;
