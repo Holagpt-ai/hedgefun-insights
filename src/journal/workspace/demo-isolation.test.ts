@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { AUGUST_DEMO_TRADES } from "../demo/august-fixtures";
+import { loadJournalGraph } from "../ledger/loadTrades";
 import { saveTrade, type JournalDb } from "../ledger/saveTrade";
 import { isDemoTradeId } from "../lib/storage";
 
@@ -77,5 +78,14 @@ describe("demo isolation", () => {
     expect(inserts).toHaveLength(0);
     const payload = JSON.stringify(rpc.mock.calls);
     expect(payload).not.toContain("demo-nvda");
+  });
+
+  it("never reads journal tables while Demo Workspace mode is selected", async () => {
+    const { client, rpc } = mockDb();
+    const from = vi.spyOn(client, "from");
+    const result = await loadJournalGraph({ mode: "demo", userId: "user-1", client: client as never });
+    expect(result.skipped).toBe("demo");
+    expect(from).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
   });
 });

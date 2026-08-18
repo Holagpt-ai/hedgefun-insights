@@ -113,6 +113,13 @@ export function NewTradePage() {
       setError(t("new.overExit"));
       return;
     }
+    if (draft.plannedEntry && draft.plannedStop) {
+      const size = Number(draft.plannedSize);
+      if (!Number.isFinite(size) || size <= 0) {
+        setError(t("validation.plannedSize"));
+        return;
+      }
+    }
     if (!user) {
       setError(t("state.error"));
       return;
@@ -196,6 +203,12 @@ export function NewTradePage() {
         <Labeled label={t("new.plannedEntry")}><Input value={draft.plannedEntry} onChange={(e) => setDraft({ ...draft, plannedEntry: e.target.value })} /></Labeled>
         <Labeled label={t("new.plannedStop")}><Input value={draft.plannedStop} onChange={(e) => setDraft({ ...draft, plannedStop: e.target.value })} /></Labeled>
         <Labeled label={t("new.plannedTarget")}><Input value={draft.plannedTarget} onChange={(e) => setDraft({ ...draft, plannedTarget: e.target.value })} /></Labeled>
+        <Labeled label={t("new.plannedSize")}>
+          <Input value={draft.plannedSize} onChange={(e) => setDraft({ ...draft, plannedSize: e.target.value })} />
+          {draft.plannedEntry && draft.plannedStop && draft.plannedSize && Number(draft.plannedSize) <= 0 ? (
+            <p className="text-[11px] journal-loss">{t("validation.plannedSize")}</p>
+          ) : null}
+        </Labeled>
         <Labeled label={t("new.plannedRisk")}><Input value={draft.plannedRisk} onChange={(e) => setDraft({ ...draft, plannedRisk: e.target.value })} /></Labeled>
       </div>
       <Labeled label={t("new.thesis")}><Textarea value={draft.thesis} onChange={(e) => setDraft({ ...draft, thesis: e.target.value })} /></Labeled>

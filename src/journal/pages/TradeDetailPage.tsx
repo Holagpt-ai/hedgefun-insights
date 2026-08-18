@@ -42,6 +42,7 @@ export function TradeDetailPage() {
         <h1 className="text-lg font-bold">{trade.symbol}</h1>
         <StatusBadge status={calc.status} outcome={calc.outcome} />
       </div>
+      {trade.exclusionReason === "missing_executions" ? <HonestState kind="partial" /> : null}
       <Tabs defaultValue="summary">
         <TabsList className="inline-flex flex-wrap h-auto w-fit max-w-full">
           <TabsTrigger value="summary">{t("detail.summary")}</TabsTrigger>

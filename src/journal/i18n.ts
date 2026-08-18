@@ -411,6 +411,7 @@ const en = {
   "validation.required": "This field is required.",
   "validation.symbol": "Invalid symbol.",
   "validation.qty": "Quantity must be greater than zero.",
+  "validation.plannedSize": "Planned size must be greater than zero when entry and stop are set.",
   "validation.price": "Price must be a finite number.",
   "validation.overExit": "Closing quantity exceeds remaining quantity.",
 
@@ -836,6 +837,7 @@ const es: Record<keyof typeof en, string> = {
   "validation.required": "Este campo es obligatorio.",
   "validation.symbol": "Símbolo inválido.",
   "validation.qty": "La cantidad debe ser mayor que cero.",
+  "validation.plannedSize": "El tamaño planificado debe ser mayor que cero cuando hay entrada y stop.",
   "validation.price": "El precio debe ser un número finito.",
   "validation.overExit": "La cantidad de cierre supera la cantidad restante.",
 

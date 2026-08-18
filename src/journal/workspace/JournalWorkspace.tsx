@@ -28,17 +28,16 @@ import {
   DEMO_WORKSPACE_LABEL,
 } from "../demo/august-fixtures";
 import { inRange, sessionOf } from "../lib/format";
+import { loadJournalGraph } from "../ledger/loadTrades";
 import {
   DEFAULT_FILTERS,
   FILTERS_KEY,
   HIDE_DEMO_KEY,
   isDemoTradeId,
-  mapLegacyTrade,
   rangeBounds,
   readJson,
   writeJson,
   type FilterPrefs,
-  type LegacyJournalTradeRow,
 } from "../lib/storage";
 
 export type JournalMode = "demo" | "live" | "empty";
@@ -93,6 +92,7 @@ const JournalWorkspaceContext = createContext<JournalWorkspaceValue | null>(null
 export function JournalWorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [liveTrades, setLiveTrades] = useState<TradeInput[]>([]);
+  const [liveAccounts, setLiveAccounts] = useState<JournalAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demoHidden, setDemoHidden] = useState(() => readJson<boolean>(HIDE_DEMO_KEY, false));
@@ -101,24 +101,26 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   const loadLive = useCallback(async () => {
     if (!user) {
       setLiveTrades([]);
+      setLiveAccounts([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     setError(null);
-    const { data, error: queryError } = await supabase
-      .from("journal_trades")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("entry_date", { ascending: false });
-    if (queryError) {
-      setError(queryError.message);
+    const result = await loadJournalGraph({
+      mode: "live",
+      userId: user.id,
+      client: supabase as never,
+    });
+    if (!result.ok) {
+      setError(result.error ?? "Journal data could not be loaded.");
       setLiveTrades([]);
+      setLiveAccounts([]);
       setLoading(false);
       return;
     }
-    const mapped = (data as LegacyJournalTradeRow[] | null)?.map(mapLegacyTrade) ?? [];
-    setLiveTrades(mapped.filter((trade) => !isDemoTradeId(trade.id)));
+    setLiveTrades(result.trades.filter((trade) => !isDemoTradeId(trade.id)));
+    setLiveAccounts(result.accounts);
     setLoading(false);
   }, [user]);
 
@@ -133,8 +135,17 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   }, [liveTrades.length, demoHidden]);
 
   const allTrades = mode === "demo" ? AUGUST_DEMO_TRADES : liveTrades;
+  const fallbackLiveAccount: JournalAccount = {
+    id: "live-default",
+    name: "Primary",
+    type: "personal",
+    baseCurrency: "USD",
+    beginningBalance: 0,
+    reportedBalance: 0,
+    reportedAsOf: new Date().toISOString(),
+  };
   const accounts: readonly JournalAccount[] =
-    mode === "demo" ? DEMO_ACCOUNTS : [{ id: "live-default", name: "Primary", type: "personal", baseCurrency: "USD", beginningBalance: 0, reportedBalance: 0, reportedAsOf: new Date().toISOString() }];
+    mode === "demo" ? DEMO_ACCOUNTS : liveAccounts.length > 0 ? liveAccounts : [fallbackLiveAccount];
 
   const persistFilters = (next: FilterPrefs) => {
     setFilters(next);

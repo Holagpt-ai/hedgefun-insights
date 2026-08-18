@@ -17,7 +17,7 @@ import type { Outcome, TradeStatus } from "../calc/types";
 export function TradesPage() {
   const t = useJournalT();
   const lang = useJournalLang();
-  const { trades, metrics, loading } = useJournalWorkspace();
+  const { trades, metrics, loading, error, refresh } = useJournalWorkspace();
   const [symbol, setSymbol] = useState("");
   const [status, setStatus] = useState<"all" | TradeStatus>("all");
   const [outcome, setOutcome] = useState<"all" | Outcome>("all");
@@ -35,6 +35,7 @@ export function TradesPage() {
   }, [trades, symbol, status, outcome]);
 
   if (loading) return <HonestState kind="loading" />;
+  if (error) return <HonestState kind="error" onRetry={() => void refresh()} />;
   if (trades.length === 0) return <HonestState kind="empty" title={t("state.noTrades")} />;
 
   return (
