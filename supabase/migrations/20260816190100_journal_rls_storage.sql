@@ -3817,9 +3817,11 @@ GRANT ALL ON TABLE public.journal_dead_letters TO service_role;
 -- Object paths: {user_id}/imports/, {user_id}/attachments/, {user_id}/exports/
 
 -- storage.objects
+-- The migration role is not the owner of this catalog table, so this
+-- block does not enable RLS here. Supabase already has RLS enabled.
+-- Replace only the four journal-private policy names.
 DO $journal_pol$
 BEGIN
-  EXECUTE format('ALTER TABLE storage.%I ENABLE ROW LEVEL SECURITY', 'objects');
   EXECUTE format('DROP POLICY IF EXISTS %I ON storage.%I', 'journal_private_select_own', 'objects');
   EXECUTE format('DROP POLICY IF EXISTS %I ON storage.%I', 'journal_private_insert_own', 'objects');
   EXECUTE format('DROP POLICY IF EXISTS %I ON storage.%I', 'journal_private_update_own', 'objects');

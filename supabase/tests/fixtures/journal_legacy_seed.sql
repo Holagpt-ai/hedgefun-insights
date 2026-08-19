@@ -144,3 +144,46 @@ INSERT INTO public.journal_equity_snapshots (
   'a1111111-1111-4111-8111-0000000000aa',
   '2026-07-02', 560, 2
 );
+
+-- Simulate the live five-table RLS posture that Migration 1 preflights.
+-- Policy names are allowlisted: known legacy names for trades/notes, and
+-- already-installed target names for stats/equity so Migration 2 can rerun.
+ALTER TABLE public.journal_trades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.journal_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.journal_stats_cache ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.journal_equity_snapshots ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Users can manage own trades" ON public.journal_trades;
+CREATE POLICY "Users can manage own trades"
+  ON public.journal_trades
+  FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own notes" ON public.journal_notes;
+CREATE POLICY "Users can manage own notes"
+  ON public.journal_notes
+  FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "journal_stats_cache_select_own" ON public.journal_stats_cache;
+CREATE POLICY "journal_stats_cache_select_own"
+  ON public.journal_stats_cache
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "journal_equity_snapshots_select_own" ON public.journal_equity_snapshots;
+CREATE POLICY "journal_equity_snapshots_select_own"
+  ON public.journal_equity_snapshots
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid());
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trades TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notes TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_stats_cache TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_equity_snapshots TO authenticated;

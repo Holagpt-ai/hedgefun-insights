@@ -308,5 +308,6 @@ describe("journal atomic Migration 2", () => {
     expect(block).toContain("'journal_private_update_own'");
     expect(block).toContain("'journal_private_delete_own'");
     expect(block).not.toMatch(/tablename LIKE/);
+    expect(block).not.toMatch(/EXECUTE format\('ALTER TABLE storage/);
   });
 });

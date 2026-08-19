@@ -173,6 +173,11 @@ CREATE POLICY "Users can manage own notes"
     )
   );
 
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trades TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notes TO authenticated;
+GRANT ALL ON TABLE public.journal_trades TO service_role;
+GRANT ALL ON TABLE public.journal_notes TO service_role;
+
 -- Disposable placeholders so later migrations that inspect Vault at apply
 -- time can compile. These are not production credentials.
 SELECT vault.create_secret('ci-disposable-not-a-production-secret', 'sync_secret');
