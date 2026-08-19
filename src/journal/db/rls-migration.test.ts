@@ -263,6 +263,9 @@ describe("journal atomic Migration 2", () => {
 
   it("does not grant Journal tables to anon", () => {
     expect(rls).not.toMatch(/GRANT[\s\S]{0,80}ON TABLE public\.journal_[\s\S]{0,40}TO anon/i);
+    expect((rls.match(/REVOKE ALL ON TABLE public\.journal_[a-z0-9_]+ FROM anon;/g) ?? []).length).toBe(
+      TABLE_NAMES.length,
+    );
   });
 
   it("replaces the four journal-private storage policies as one atomic group", () => {

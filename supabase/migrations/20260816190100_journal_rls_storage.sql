@@ -472,6 +472,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trades FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trades FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trades TO authenticated;
 GRANT ALL ON TABLE public.journal_trades TO service_role;
 
@@ -516,6 +517,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_notes FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_notes FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notes TO authenticated;
 GRANT ALL ON TABLE public.journal_notes TO service_role;
 
@@ -559,6 +561,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_stats_cache FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_stats_cache FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_stats_cache TO authenticated;
 GRANT ALL ON TABLE public.journal_stats_cache TO service_role;
 
@@ -602,6 +605,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_equity_snapshots FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_equity_snapshots FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_equity_snapshots TO authenticated;
 GRANT ALL ON TABLE public.journal_equity_snapshots TO service_role;
 
@@ -645,6 +649,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_imports FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_imports FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_imports TO authenticated;
 GRANT ALL ON TABLE public.journal_imports TO service_role;
 
@@ -688,6 +693,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trader_profiles FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trader_profiles FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trader_profiles TO authenticated;
 GRANT ALL ON TABLE public.journal_trader_profiles TO service_role;
 
@@ -731,6 +737,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_accounts FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_accounts FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_accounts TO authenticated;
 GRANT ALL ON TABLE public.journal_accounts TO service_role;
 
@@ -774,6 +781,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_account_balance_snapshots FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_account_balance_snapshots FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_account_balance_snapshots TO authenticated;
 GRANT ALL ON TABLE public.journal_account_balance_snapshots TO service_role;
 
@@ -817,6 +825,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_goals FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_goals FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_goals TO authenticated;
 GRANT ALL ON TABLE public.journal_goals TO service_role;
 
@@ -860,6 +869,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_risk_rules FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_risk_rules FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_risk_rules TO authenticated;
 GRANT ALL ON TABLE public.journal_risk_rules TO service_role;
 
@@ -903,6 +913,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_coaching_commitments FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_coaching_commitments FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_coaching_commitments TO authenticated;
 GRANT ALL ON TABLE public.journal_coaching_commitments TO service_role;
 
@@ -946,6 +957,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_cash_ledger_entries FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_cash_ledger_entries FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_cash_ledger_entries TO authenticated;
 GRANT ALL ON TABLE public.journal_cash_ledger_entries TO service_role;
 
@@ -989,6 +1001,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_balance_reconciliations FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_balance_reconciliations FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_balance_reconciliations TO authenticated;
 GRANT ALL ON TABLE public.journal_balance_reconciliations TO service_role;
 
@@ -1032,6 +1045,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_currency_conversions FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_currency_conversions FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_currency_conversions TO authenticated;
 GRANT ALL ON TABLE public.journal_currency_conversions TO service_role;
 
@@ -1075,6 +1089,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_plans FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_plans FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_plans TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_plans TO service_role;
 
@@ -1118,6 +1133,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_reviews FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_reviews FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_reviews TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_reviews TO service_role;
 
@@ -1161,6 +1177,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_context FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_context FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_context TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_context TO service_role;
 
@@ -1204,6 +1221,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_relationships FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_relationships FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_relationships TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_relationships TO service_role;
 
@@ -1247,6 +1265,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_markers FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_markers FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_markers TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_markers TO service_role;
 
@@ -1290,6 +1309,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_attachments FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_attachments FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_attachments TO authenticated;
 GRANT ALL ON TABLE public.journal_attachments TO service_role;
 
@@ -1333,6 +1353,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_tags FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_tags FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_tags TO authenticated;
 GRANT ALL ON TABLE public.journal_tags TO service_role;
 
@@ -1376,6 +1397,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_notebooks FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_notebooks FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notebooks TO authenticated;
 GRANT ALL ON TABLE public.journal_notebooks TO service_role;
 
@@ -1419,6 +1441,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_notebook_entries FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_notebook_entries FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notebook_entries TO authenticated;
 GRANT ALL ON TABLE public.journal_notebook_entries TO service_role;
 
@@ -1462,6 +1485,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_sessions FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_sessions FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_sessions TO authenticated;
 GRANT ALL ON TABLE public.journal_sessions TO service_role;
 
@@ -1505,6 +1529,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_daily_reviews FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_daily_reviews FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_daily_reviews TO authenticated;
 GRANT ALL ON TABLE public.journal_daily_reviews TO service_role;
 
@@ -1548,6 +1573,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_playbooks FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_playbooks FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_playbooks TO authenticated;
 GRANT ALL ON TABLE public.journal_playbooks TO service_role;
 
@@ -1591,6 +1617,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_playbook_versions FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_playbook_versions FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_playbook_versions TO authenticated;
 GRANT ALL ON TABLE public.journal_playbook_versions TO service_role;
 
@@ -1634,6 +1661,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_playbook_rules FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_playbook_rules FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_playbook_rules TO authenticated;
 GRANT ALL ON TABLE public.journal_playbook_rules TO service_role;
 
@@ -1677,6 +1705,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_risk_violations FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_risk_violations FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_risk_violations TO authenticated;
 GRANT ALL ON TABLE public.journal_risk_violations TO service_role;
 
@@ -1720,6 +1749,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_process_scores FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_process_scores FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_process_scores TO authenticated;
 GRANT ALL ON TABLE public.journal_process_scores TO service_role;
 
@@ -1763,6 +1793,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_saved_reports FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_saved_reports FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_saved_reports TO authenticated;
 GRANT ALL ON TABLE public.journal_saved_reports TO service_role;
 
@@ -1806,6 +1837,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_report_runs FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_report_runs FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_report_runs TO authenticated;
 GRANT ALL ON TABLE public.journal_report_runs TO service_role;
 
@@ -1849,6 +1881,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_report_exports FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_report_exports FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_report_exports TO authenticated;
 GRANT ALL ON TABLE public.journal_report_exports TO service_role;
 
@@ -1892,6 +1925,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_report_schedules FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_report_schedules FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_report_schedules TO authenticated;
 GRANT ALL ON TABLE public.journal_report_schedules TO service_role;
 
@@ -1935,6 +1969,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_market_context FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_market_context FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_market_context TO authenticated;
 GRANT ALL ON TABLE public.journal_market_context TO service_role;
 
@@ -1978,6 +2013,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_price_observations FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_price_observations FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_price_observations TO authenticated;
 GRANT ALL ON TABLE public.journal_price_observations TO service_role;
 
@@ -2021,6 +2057,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_valuation_snapshots FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_valuation_snapshots FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_valuation_snapshots TO authenticated;
 GRANT ALL ON TABLE public.journal_valuation_snapshots TO service_role;
 
@@ -2064,6 +2101,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_calculation_runs FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_calculation_runs FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_calculation_runs TO authenticated;
 GRANT ALL ON TABLE public.journal_calculation_runs TO service_role;
 
@@ -2107,6 +2145,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_sequence_metrics FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_sequence_metrics FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_sequence_metrics TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_sequence_metrics TO service_role;
 
@@ -2150,6 +2189,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_data_quality_issues FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_data_quality_issues FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_data_quality_issues TO authenticated;
 GRANT ALL ON TABLE public.journal_data_quality_issues TO service_role;
 
@@ -2193,6 +2233,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_daily_metrics FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_daily_metrics FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_daily_metrics TO authenticated;
 GRANT ALL ON TABLE public.journal_daily_metrics TO service_role;
 
@@ -2236,6 +2277,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_analytics_cache FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_analytics_cache FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_analytics_cache TO authenticated;
 GRANT ALL ON TABLE public.journal_analytics_cache TO service_role;
 
@@ -2279,6 +2321,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_performance_insights FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_performance_insights FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_performance_insights TO authenticated;
 GRANT ALL ON TABLE public.journal_performance_insights TO service_role;
 
@@ -2322,6 +2365,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_memories FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_memories FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_memories TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_memories TO service_role;
 
@@ -2365,6 +2409,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_insights FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_insights FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_insights TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_insights TO service_role;
 
@@ -2408,6 +2453,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_conversations FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_conversations FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_conversations TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_conversations TO service_role;
 
@@ -2451,6 +2497,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_feedback FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_feedback FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_feedback TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_feedback TO service_role;
 
@@ -2494,6 +2541,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_jobs FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_jobs FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_jobs TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_jobs TO service_role;
 
@@ -2537,6 +2585,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_usage FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_usage FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_usage TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_usage TO service_role;
 
@@ -2580,6 +2629,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_import_jobs FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_import_jobs FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_import_jobs TO authenticated;
 GRANT ALL ON TABLE public.journal_import_jobs TO service_role;
 
@@ -2623,6 +2673,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_import_mappings FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_import_mappings FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_import_mappings TO authenticated;
 GRANT ALL ON TABLE public.journal_import_mappings TO service_role;
 
@@ -2666,6 +2717,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_integrations FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_integrations FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_integrations TO authenticated;
 GRANT ALL ON TABLE public.journal_integrations TO service_role;
 
@@ -2709,6 +2761,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_webhook_endpoints FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_webhook_endpoints FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_webhook_endpoints TO authenticated;
 GRANT ALL ON TABLE public.journal_webhook_endpoints TO service_role;
 
@@ -2752,6 +2805,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_domain_events FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_domain_events FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_domain_events TO authenticated;
 GRANT ALL ON TABLE public.journal_domain_events TO service_role;
 
@@ -2804,6 +2858,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_event_outbox FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_event_outbox FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_event_outbox TO authenticated;
 GRANT ALL ON TABLE public.journal_event_outbox TO service_role;
 
@@ -2856,6 +2911,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_audit_log FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_audit_log FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_audit_log TO authenticated;
 GRANT ALL ON TABLE public.journal_audit_log TO service_role;
 
@@ -2899,6 +2955,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_metric_definitions FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_metric_definitions FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_metric_definitions TO authenticated;
 GRANT ALL ON TABLE public.journal_metric_definitions TO service_role;
 
@@ -2942,6 +2999,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_report_templates FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_report_templates FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_report_templates TO authenticated;
 GRANT ALL ON TABLE public.journal_report_templates TO service_role;
 
@@ -2985,6 +3043,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_legs FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_legs FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_legs TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_legs TO service_role;
 
@@ -3028,6 +3087,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_executions FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_executions FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_executions TO authenticated;
 GRANT ALL ON TABLE public.journal_executions TO service_role;
 
@@ -3091,6 +3151,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_execution_fees FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_execution_fees FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_execution_fees TO authenticated;
 GRANT ALL ON TABLE public.journal_execution_fees TO service_role;
 
@@ -3134,6 +3195,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_trade_cash_flows FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_trade_cash_flows FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trade_cash_flows TO authenticated;
 GRANT ALL ON TABLE public.journal_trade_cash_flows TO service_role;
 
@@ -3177,6 +3239,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_tag_assignments FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_tag_assignments FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_tag_assignments TO authenticated;
 GRANT ALL ON TABLE public.journal_tag_assignments TO service_role;
 
@@ -3220,6 +3283,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_notebook_links FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_notebook_links FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notebook_links TO authenticated;
 GRANT ALL ON TABLE public.journal_notebook_links TO service_role;
 
@@ -3263,6 +3327,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_playbook_check_results FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_playbook_check_results FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_playbook_check_results TO authenticated;
 GRANT ALL ON TABLE public.journal_playbook_check_results TO service_role;
 
@@ -3306,6 +3371,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_process_score_components FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_process_score_components FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_process_score_components TO authenticated;
 GRANT ALL ON TABLE public.journal_process_score_components TO service_role;
 
@@ -3369,6 +3435,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_metric_formula_versions FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_metric_formula_versions FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_metric_formula_versions TO authenticated;
 GRANT ALL ON TABLE public.journal_metric_formula_versions TO service_role;
 
@@ -3412,6 +3479,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_report_run_rows FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_report_run_rows FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_report_run_rows TO authenticated;
 GRANT ALL ON TABLE public.journal_report_run_rows TO service_role;
 
@@ -3455,6 +3523,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_market_context_sources FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_market_context_sources FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_market_context_sources TO authenticated;
 GRANT ALL ON TABLE public.journal_market_context_sources TO service_role;
 
@@ -3498,6 +3567,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_calculation_lineage FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_calculation_lineage FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_calculation_lineage TO authenticated;
 GRANT ALL ON TABLE public.journal_calculation_lineage TO service_role;
 
@@ -3541,6 +3611,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_memory_evidence FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_memory_evidence FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_memory_evidence TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_memory_evidence TO service_role;
 
@@ -3584,6 +3655,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_ai_messages FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_ai_messages FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_ai_messages TO authenticated;
 GRANT ALL ON TABLE public.journal_ai_messages TO service_role;
 
@@ -3627,6 +3699,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_import_rows FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_import_rows FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_import_rows TO authenticated;
 GRANT ALL ON TABLE public.journal_import_rows TO service_role;
 
@@ -3670,6 +3743,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_provider_accounts FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_provider_accounts FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_provider_accounts TO authenticated;
 GRANT ALL ON TABLE public.journal_provider_accounts TO service_role;
 
@@ -3713,6 +3787,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_sync_cursors FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_sync_cursors FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_sync_cursors TO authenticated;
 GRANT ALL ON TABLE public.journal_sync_cursors TO service_role;
 
@@ -3756,6 +3831,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_webhook_deliveries FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_webhook_deliveries FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_webhook_deliveries TO authenticated;
 GRANT ALL ON TABLE public.journal_webhook_deliveries TO service_role;
 
@@ -3808,6 +3884,7 @@ BEGIN
 END;
 $journal_pol$;
 REVOKE ALL ON TABLE public.journal_dead_letters FROM PUBLIC;
+REVOKE ALL ON TABLE public.journal_dead_letters FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_dead_letters TO authenticated;
 GRANT ALL ON TABLE public.journal_dead_letters TO service_role;
 
