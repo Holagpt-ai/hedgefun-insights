@@ -186,6 +186,24 @@ if "jobid = 25" in text or "job_id := 25" in text:
     raise SystemExit("failed to rewrite hardcoded cron job ids")
 p.write_text(text)
 print("rewrote 20260720201554 cron job id guards for disposable CI")
+
+p2 = Path("supabase/migrations/20260724190808_71a26e1f-4b2f-4f11-a8b9-8ab5145bf9df.sql")
+p2.write_text(
+    """DO $$
+DECLARE
+  v_id bigint;
+BEGIN
+  SELECT jobid INTO v_id
+  FROM cron.job
+  WHERE jobname = 'wl-v2-batch-analysis-10min'
+  LIMIT 1;
+  IF v_id IS NOT NULL THEN
+    PERFORM cron.alter_job(job_id := v_id, schedule := '*/5 * * * 1-6');
+  END IF;
+END $$;
+"""
+)
+print("rewrote 20260724190808 cron job 34 alter for disposable CI")
 PY
 }
 
