@@ -2790,12 +2790,10 @@ CREATE POLICY "journal_audit_log_service_role_all"
   USING (true)
   WITH CHECK (true);
 
--- Private storage bucket journal-private
+-- journal-private must be created separately through Lovable's supported
+-- storage tooling. The bucket must be private. This migration defines the
+-- storage.objects policies but intentionally does not create the bucket.
 -- Object paths: {user_id}/imports/, {user_id}/attachments/, {user_id}/exports/
-
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('journal-private', 'journal-private', false)
-ON CONFLICT (id) DO UPDATE SET public = false;
 
 DROP POLICY IF EXISTS "journal_private_select_own" ON storage.objects;
 CREATE POLICY "journal_private_select_own"

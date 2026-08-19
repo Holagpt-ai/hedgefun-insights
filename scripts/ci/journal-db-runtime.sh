@@ -152,6 +152,13 @@ SELECT vault.create_secret('ci-disposable-not-a-production-secret-next', 'sync_s
 
 SELECT cron.schedule('sync-screener-every-5min', '0 0 1 1 *', 'select 1');
 SELECT cron.schedule('sync-game-prices', '0 0 1 1 *', 'select 1');
+
+-- Simulate a privately created journal-private bucket so storage.objects
+-- policy tests can run. Production creates this through supported Lovable
+-- storage tooling, not through Journal migrations.
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('journal-private', 'journal-private', false)
+ON CONFLICT (id) DO UPDATE SET public = false;
 SQL
 }
 

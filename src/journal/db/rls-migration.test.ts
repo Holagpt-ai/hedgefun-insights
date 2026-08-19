@@ -69,13 +69,17 @@ describe("journal RLS migration inventory", () => {
     expect(missing).toEqual([]);
   });
 
-  it("keeps journal-private storage bucket non-public", () => {
+  it("defines journal-private object policies without creating the bucket", () => {
     expect(sql).toMatch(/journal-private/);
-    expect(sql).toMatch(/VALUES\s*\(\s*'journal-private'\s*,\s*'journal-private'\s*,\s*false\s*\)/i);
-    expect(sql).toMatch(/ON CONFLICT\s*\(\s*id\s*\)\s*DO UPDATE SET\s+public\s*=\s*false/i);
-    expect(sql).not.toMatch(
-      /INSERT INTO storage\.buckets[\s\S]{0,200}journal-private[\s\S]{0,80}\btrue\b/i,
-    );
+    expect(sql).toMatch(/must be private/i);
+    expect(sql).toMatch(/intentionally does not create the bucket/i);
+    expect(sql).not.toMatch(/INSERT\s+INTO\s+storage\.buckets/i);
+    expect(sql).not.toMatch(/UPDATE\s+storage\.buckets/i);
+    expect(sql).not.toMatch(/DELETE\s+FROM\s+storage\.buckets/i);
+    expect(sql).toMatch(/CREATE POLICY "journal_private_select_own"/);
+    expect(sql).toMatch(/CREATE POLICY "journal_private_insert_own"/);
+    expect(sql).toMatch(/CREATE POLICY "journal_private_update_own"/);
+    expect(sql).toMatch(/CREATE POLICY "journal_private_delete_own"/);
   });
 
   it("scopes private objects to auth.uid() first folder and known prefixes", () => {
