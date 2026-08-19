@@ -704,5 +704,86 @@ SELECT throws_ok(
   'user B cannot roll back user A job'
 );
 
+RESET ROLE;
+
+-- ---------------------------------------------------------------------------
+-- Fail-closed policy inventory after the complete Journal chain
+-- ---------------------------------------------------------------------------
+
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM information_schema.role_table_grants
+    WHERE grantee = 'anon'
+      AND table_schema = 'public'
+      AND table_name LIKE 'journal_%'
+  ),
+  'anon has no Journal table grants'
+);
+
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename LIKE 'journal_%'
+      AND policyname NOT LIKE tablename || '_%'
+  ),
+  'no unexpected leftover Journal policies remain'
+);
+
+SELECT ok(
+  (
+    SELECT bool_and(EXISTS (
+      SELECT 1 FROM pg_policies p
+      WHERE p.schemaname = 'public'
+        AND p.tablename = c.relname
+        AND p.policyname = c.relname || '_select_own'
+    ))
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relkind = 'r'
+      AND c.relname LIKE 'journal_%'
+      AND c.relname NOT LIKE 'journal_ci_%'
+      AND c.relname NOT LIKE 'journal_rollback_%'
+  ),
+  'every managed Journal table has its select_own policy'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM pg_policies
+    WHERE schemaname = 'storage'
+      AND tablename = 'objects'
+      AND policyname IN (
+        'journal_private_select_own',
+        'journal_private_insert_own',
+        'journal_private_update_own',
+        'journal_private_delete_own'
+      )
+  ),
+  4,
+  'all four journal-private storage policies exist'
+);
+
+SELECT ok(
+  has_table_privilege('authenticated', 'public.journal_accounts', 'SELECT')
+  AND has_table_privilege('authenticated', 'public.journal_accounts', 'INSERT')
+  AND has_table_privilege('authenticated', 'public.journal_executions', 'SELECT')
+  AND NOT has_table_privilege('anon', 'public.journal_accounts', 'SELECT'),
+  'new tables have authenticated grants and no anon access'
+);
+
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1 FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public' AND c.relname LIKE 'journal_rollback_%'
+  ),
+  'no public journal_rollback_* checkpoint tables exist'
+);
+
 SELECT * FROM finish();
 ROLLBACK;

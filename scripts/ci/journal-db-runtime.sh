@@ -7,8 +7,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 MODE="${1:-}"
-if [[ "$MODE" != "clean" && "$MODE" != "legacy" ]]; then
-  echo "usage: $0 clean|legacy" >&2
+if [[ "$MODE" != "clean" && "$MODE" != "legacy" && "$MODE" != "m1" ]]; then
+  echo "usage: $0 clean|legacy|m1" >&2
   exit 2
 fi
 
@@ -145,6 +145,34 @@ CREATE TABLE IF NOT EXISTS public.journal_notes (
 ALTER TABLE public.journal_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_trades ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can manage own trades" ON public.journal_trades;
+CREATE POLICY "Users can manage own trades"
+  ON public.journal_trades
+  FOR ALL
+  TO authenticated
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own notes" ON public.journal_notes;
+CREATE POLICY "Users can manage own notes"
+  ON public.journal_notes
+  FOR ALL
+  TO authenticated
+  USING (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id AND t.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id AND t.user_id = auth.uid()
+    )
+  );
+
 -- Disposable placeholders so later migrations that inspect Vault at apply
 -- time can compile. These are not production credentials.
 SELECT vault.create_secret('ci-disposable-not-a-production-secret', 'sync_secret');
@@ -228,6 +256,10 @@ if [[ "$MODE" == "legacy" ]]; then
   mv "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql" "$HELD/"
   mv "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql" "$HELD/"
   mv "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql" "$HELD/"
+elif [[ "$MODE" == "m1" ]]; then
+  echo "==> holding Migrations 2 and 3 so the database stops after fail-closed Migration 1"
+  mv "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql" "$HELD/"
+  mv "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql" "$HELD/"
 fi
 
 echo "==> writing disposable prereq stubs for production-only tables"
@@ -247,7 +279,16 @@ if [[ "$MODE" == "clean" ]]; then
   supabase db lint --local
   echo "==> running clean-database pgTAP tests"
   supabase test db --local supabase/tests/database/journal_runtime.test.sql
+  echo "==> running Migration 2 failure-injection pgTAP tests"
+  supabase test db --local supabase/tests/database/journal_m2_failure_injection.test.sql
   echo "==> clean-database job passed"
+  exit 0
+fi
+
+if [[ "$MODE" == "m1" ]]; then
+  echo "==> running Migration 1 fail-closed pgTAP tests"
+  supabase test db --local supabase/tests/database/journal_m1_failclosed.test.sql
+  echo "==> m1-only job passed"
   exit 0
 fi
 

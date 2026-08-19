@@ -56,3 +56,18 @@ jobs:
           sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
           chmod +x scripts/ci/journal-db-runtime.sh
           scripts/ci/journal-db-runtime.sh legacy
+
+  m1-failclosed:
+    name: Migration 1 fail-closed
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Run Migration 1 fail-closed Journal runtime tests
+        run: |
+          sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
+          chmod +x scripts/ci/journal-db-runtime.sh
+          scripts/ci/journal-db-runtime.sh m1

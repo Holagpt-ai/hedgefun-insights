@@ -565,6 +565,29 @@ $refresh$;
 
 -- ---------------------------------------------------------------------------
 -- journal_backfill_accounts_and_executions
+-- Operator-controlled. This migration does not invoke the function.
+--
+-- Do not create public.journal_rollback_* or any equivalent permanent
+-- checkpoint table in an API-exposed schema.
+--
+-- Deployment runbook (required). If the deployment tool cannot guarantee
+-- one operator session and one transaction, the backfill remains NO-GO
+-- until a private administrative ledger is separately approved.
+--   1. One operator-controlled database session.
+--   2. An explicit transaction.
+--   3. pg_temp checkpoint tables scoped to the exact affected user and
+--      exact enumerated trade IDs.
+--   4. Capture original trade account_id values, pre-existing account IDs,
+--      pre-existing execution IDs, exact account IDs created by the call,
+--      and exact execution IDs created by the call.
+--   5. Complete dry run ending in ROLLBACK.
+--   6. Repeat the transaction and COMMIT only after every assertion passes.
+--   7. Return exact created IDs to the operator and preserve them outside
+--      the Data API.
+--   8. Any later rollback must use those literal captured IDs and the
+--      exact original account_id mappings.
+--   9. Assertions inspect only captured deployment-created rows — not
+--      every row where source = 'synthetic_backfill'.
 -- ---------------------------------------------------------------------------
 
 CREATE OR REPLACE FUNCTION public.journal_backfill_accounts_and_executions(p_user_id uuid DEFAULT NULL)
