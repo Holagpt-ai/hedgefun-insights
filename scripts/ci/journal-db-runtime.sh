@@ -151,11 +151,17 @@ SELECT vault.create_secret('ci-disposable-not-a-production-secret', 'sync_secret
 SELECT vault.create_secret('ci-disposable-not-a-production-secret-next', 'sync_secret_next');
 
 -- 20260720201554 hard-codes production cron job ids 25 and 26.
-INSERT INTO cron.job (jobid, schedule, command, jobname, active)
-VALUES
-  (25, '* * * * *', 'select 1', 'sync-screener-every-5min', false),
-  (26, '* * * * *', 'select 1', 'sync-game-prices', false);
-SELECT setval('cron.jobid_seq', 26, true);
+-- Schedule through those ids using the granted cron.schedule API.
+DO $$
+DECLARE
+  i integer;
+BEGIN
+  FOR i IN 1..24 LOOP
+    PERFORM cron.schedule('ci-dummy-' || i::text, '0 0 1 1 *', 'select 1');
+  END LOOP;
+  PERFORM cron.schedule('sync-screener-every-5min', '0 0 1 1 *', 'select 1');
+  PERFORM cron.schedule('sync-game-prices', '0 0 1 1 *', 'select 1');
+END $$;
 SQL
 }
 
