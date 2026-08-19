@@ -376,4 +376,11 @@ describe("SQL calculation function contracts", () => {
   it("does not claim these SQL-text checks as executed PostgreSQL", () => {
     expect(FN_SQL.includes("journal_calculate_trade_v1")).toBe(true);
   });
+
+  it("defines operator backfill functions without auto-invoking them", () => {
+    expect(FN_SQL).toMatch(/CREATE OR REPLACE FUNCTION public\.journal_backfill_accounts_and_executions/);
+    expect(FN_SQL).toMatch(/CREATE OR REPLACE FUNCTION public\.journal_migrate_legacy_trades/);
+    expect(FN_SQL).not.toMatch(/PERFORM\s+public\.journal_backfill_accounts_and_executions/i);
+    expect(FN_SQL).not.toMatch(/PERFORM\s+public\.journal_migrate_legacy_trades/i);
+  });
 });

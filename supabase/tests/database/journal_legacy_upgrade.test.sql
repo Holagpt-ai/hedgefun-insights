@@ -55,6 +55,90 @@ SELECT ok(
   'journal_trades constraints remain valid'
 );
 
+-- ---------------------------------------------------------------------------
+-- Applying migrations must not auto-backfill seeded legacy Journal trades.
+-- ---------------------------------------------------------------------------
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.journal_trades
+    WHERE id IN (
+      'c1111111-1111-4111-8111-0000000000c1',
+      'c1111111-1111-4111-8111-0000000000c2',
+      'c1111111-1111-4111-8111-0000000000c3',
+      'c2222222-2222-4222-8222-0000000000c4'
+    )
+      AND account_id IS NOT NULL
+  ),
+  0,
+  'migrations do not attach accounts to seeded legacy trades'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.journal_accounts
+    WHERE user_id IN (
+      'a1111111-1111-4111-8111-0000000000aa',
+      'b2222222-2222-4222-8222-0000000000bb'
+    )
+  ),
+  0,
+  'migrations do not create backfilled accounts for seeded users'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.journal_executions
+    WHERE trade_id IN (
+      'c1111111-1111-4111-8111-0000000000c1',
+      'c1111111-1111-4111-8111-0000000000c2',
+      'c1111111-1111-4111-8111-0000000000c3',
+      'c2222222-2222-4222-8222-0000000000c4'
+    )
+  ),
+  0,
+  'migrations do not create executions for seeded legacy trades'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.journal_executions
+    WHERE source = 'synthetic_backfill'
+      AND trade_id IN (
+        'c1111111-1111-4111-8111-0000000000c1',
+        'c1111111-1111-4111-8111-0000000000c2',
+        'c1111111-1111-4111-8111-0000000000c3',
+        'c2222222-2222-4222-8222-0000000000c4'
+      )
+  ),
+  0,
+  'no synthetic_backfill executions exist before the operator backfill'
+);
+
+-- ---------------------------------------------------------------------------
+-- Operator-controlled backfill. A null argument scopes every user because
+-- auth.uid() is also null in this operator/session context.
+-- ---------------------------------------------------------------------------
+
+CREATE TEMP TABLE backfill_first AS
+SELECT public.journal_backfill_accounts_and_executions(NULL) AS payload;
+
+SELECT is(
+  (SELECT (payload->>'opening_executions')::integer FROM backfill_first),
+  4,
+  'explicit operator backfill creates one opening execution per seeded trade'
+);
+
+SELECT is(
+  (SELECT (payload->>'closing_executions')::integer FROM backfill_first),
+  3,
+  'explicit operator backfill creates closing executions for the three closed trades'
+);
+
 SELECT ok(
   (
     SELECT count(*) FILTER (WHERE account_id IS NOT NULL) = 4
@@ -115,7 +199,7 @@ SELECT ok(
       SELECT 1 FROM public.journal_executions e WHERE e.trade_id = t.id
     )
   ),
-  'existing trades do not become missing_executions after migration'
+  'existing trades do not become missing_executions after operator backfill'
 );
 
 SELECT is(

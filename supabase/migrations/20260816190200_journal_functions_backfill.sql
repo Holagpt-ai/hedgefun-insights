@@ -1634,12 +1634,3 @@ $fin$;
 
 REVOKE ALL ON FUNCTION public.journal_import_finalize_v1(uuid) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.journal_import_finalize_v1(uuid) TO authenticated, service_role;
-
--- Idempotent legacy backfill for journal_trades that existed before this
--- migration. auth.uid() is null during migrate, so a null argument scopes
--- every user. Generated executions are marked synthetic_backfill.
-DO $$
-BEGIN
-  PERFORM public.journal_backfill_accounts_and_executions(NULL);
-END;
-$$;
