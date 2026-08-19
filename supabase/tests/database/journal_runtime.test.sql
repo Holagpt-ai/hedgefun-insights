@@ -261,6 +261,8 @@ INSERT INTO ci_ids VALUES (
   NULL, NULL
 );
 
+GRANT SELECT, UPDATE ON ci_ids TO authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Atomic NVDA save + calculation
 -- ---------------------------------------------------------------------------
