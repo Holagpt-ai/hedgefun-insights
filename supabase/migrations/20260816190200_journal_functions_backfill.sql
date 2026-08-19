@@ -1118,7 +1118,7 @@ BEGIN
       v_leg_id := gen_random_uuid();
     END IF;
     INSERT INTO public.journal_trade_legs (
-      id, trade_id, action, right, strike, expiration, contracts, multiplier, occ_symbol, status, sequence_index
+      id, trade_id, action, "right", strike, expiration, contracts, multiplier, occ_symbol, status, sequence_index
     ) VALUES (
       v_leg_id,
       v_trade_id,

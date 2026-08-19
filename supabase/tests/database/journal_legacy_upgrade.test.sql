@@ -11,13 +11,13 @@ SELECT is(
 );
 
 SELECT is(
-  (SELECT count(*)::integer FROM public.journal_notes WHERE id = 'n1111111-1111-4111-8111-000000000001'),
+  (SELECT count(*)::integer FROM public.journal_notes WHERE id = 'd1111111-1111-4111-8111-000000000001'),
   1,
   'legacy note remains'
 );
 
 SELECT is(
-  (SELECT count(*)::integer FROM public.journal_stats_cache WHERE id = 's1111111-1111-4111-8111-000000000001'),
+  (SELECT count(*)::integer FROM public.journal_stats_cache WHERE id = 'd2222222-2222-4222-8222-000000000001'),
   1,
   'stats cache remains'
 );
@@ -136,13 +136,13 @@ SELECT is(
 );
 
 SELECT is(
-  (SELECT body FROM public.journal_notes WHERE id = 'n1111111-1111-4111-8111-000000000001'),
+  (SELECT body FROM public.journal_notes WHERE id = 'd1111111-1111-4111-8111-000000000001'),
   'Legacy NVDA note must survive upgrade.',
   'unrelated note text is not removed or rewritten'
 );
 
 SELECT is(
-  (SELECT total_pnl FROM public.journal_stats_cache WHERE id = 's1111111-1111-4111-8111-000000000001'),
+  (SELECT total_pnl FROM public.journal_stats_cache WHERE id = 'd2222222-2222-4222-8222-000000000001'),
   560::numeric,
   'unrelated stats cache is not removed'
 );
