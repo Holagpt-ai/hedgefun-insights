@@ -9,6 +9,8 @@ export interface JournalQuery {
   delete: () => JournalQuery;
   eq: (col: string, value: string) => JournalQuery;
   in: (col: string, values: string[]) => JournalQuery;
+  order: (col: string, opts?: { ascending?: boolean }) => JournalQuery;
+  limit: (n: number) => JournalQuery;
 }
 
 export interface JournalDb {

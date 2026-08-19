@@ -869,6 +869,12 @@ CREATE TABLE IF NOT EXISTS public.journal_import_jobs (
   filename text,
   status text NOT NULL DEFAULT 'pending',
   row_count integer,
+  total_count integer NOT NULL DEFAULT 0,
+  valid_count integer NOT NULL DEFAULT 0,
+  imported_count integer NOT NULL DEFAULT 0,
+  failed_count integer NOT NULL DEFAULT 0,
+  invalid_count integer NOT NULL DEFAULT 0,
+  duplicate_count integer NOT NULL DEFAULT 0,
   error_message text,
   started_at timestamptz,
   finished_at timestamptz,
@@ -883,9 +889,24 @@ CREATE TABLE IF NOT EXISTS public.journal_import_rows (
   parsed jsonb,
   status text NOT NULL DEFAULT 'pending',
   error_message text,
+  error_code text,
+  external_id text,
+  identity_key text,
   created_trade_id uuid REFERENCES public.journal_trades(id) ON DELETE SET NULL,
-  created_execution_id uuid REFERENCES public.journal_executions(id) ON DELETE SET NULL
+  created_execution_id uuid REFERENCES public.journal_executions(id) ON DELETE SET NULL,
+  prior_trade_id uuid
 );
+
+ALTER TABLE public.journal_import_jobs ADD COLUMN IF NOT EXISTS total_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.journal_import_jobs ADD COLUMN IF NOT EXISTS valid_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.journal_import_jobs ADD COLUMN IF NOT EXISTS imported_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.journal_import_jobs ADD COLUMN IF NOT EXISTS failed_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.journal_import_jobs ADD COLUMN IF NOT EXISTS invalid_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.journal_import_jobs ADD COLUMN IF NOT EXISTS duplicate_count integer NOT NULL DEFAULT 0;
+ALTER TABLE public.journal_import_rows ADD COLUMN IF NOT EXISTS error_code text;
+ALTER TABLE public.journal_import_rows ADD COLUMN IF NOT EXISTS external_id text;
+ALTER TABLE public.journal_import_rows ADD COLUMN IF NOT EXISTS identity_key text;
+ALTER TABLE public.journal_import_rows ADD COLUMN IF NOT EXISTS prior_trade_id uuid;
 
 CREATE TABLE IF NOT EXISTS public.journal_import_mappings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1058,6 +1079,9 @@ CREATE INDEX IF NOT EXISTS journal_event_outbox_status_idx
   ON public.journal_event_outbox (status, next_attempt_at);
 CREATE INDEX IF NOT EXISTS journal_import_rows_job_idx
   ON public.journal_import_rows (import_job_id, row_index);
+CREATE UNIQUE INDEX IF NOT EXISTS journal_import_rows_imported_identity_uidx
+  ON public.journal_import_rows (identity_key)
+  WHERE status = 'imported' AND identity_key IS NOT NULL;
 
 -- updated_at triggers (reuse existing helper when present)
 DO $$

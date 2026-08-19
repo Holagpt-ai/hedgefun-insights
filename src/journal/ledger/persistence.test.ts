@@ -91,6 +91,8 @@ function mockClient(rpcImpl?: JournalDb["rpc"]) {
         delete: () => query,
         eq: () => query,
         in: () => query,
+        order: () => query,
+        limit: () => query,
       };
       return query;
     },
@@ -130,6 +132,29 @@ describe("journal persistence contract", () => {
     expect(payload.audit.event_type).toBe("closed_position");
     expect(JSON.stringify(payload)).not.toContain("timestamp_utc");
     expect(JSON.stringify(payload.executions)).not.toContain("user_id");
+  });
+
+  it("stamps import source, job id, and external execution ids onto the save payload", () => {
+    const spy = AUGUST_14_TRADES.find((trade) => trade.id === "demo-spy-450c")!;
+    const jobId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const payload = buildJournalSavePayload({
+      ...spy,
+      id: "draft",
+      accountId: "live-default",
+      source: "import",
+      importJobId: jobId,
+      externalId: "brk-spy-1",
+      executions: spy.executions.map((execution) => ({
+        ...execution,
+        source: "import",
+        importJobId: jobId,
+        externalExecutionId: "brk-spy-1",
+      })),
+    });
+    expect(payload.trade.source).toBe("import");
+    expect(payload.trade.import_job_id).toBe(jobId);
+    expect(payload.executions.every((row) => row.external_execution_id === "brk-spy-1")).toBe(true);
+    expect(payload.executions.every((row) => row.import_job_id === jobId)).toBe(true);
   });
 
   it("does not collide on execution or leg ids across consecutive manual saves", () => {
@@ -288,6 +313,8 @@ describe("journal_save_trade_v1 SQL contract", () => {
     expect(execInsert).toMatch(/occurred_at_utc/);
     expect(execInsert).not.toMatch(/\buser_id\b/);
     expect(execInsert).not.toMatch(/timestamp_utc/);
+    const tradeInsert = SAVE_SQL.match(/INSERT INTO public\.journal_trades \([\s\S]*?\) VALUES/)?.[0] ?? "";
+    expect(tradeInsert).toMatch(/import_job_id/);
     expect(SAVE_SQL).toMatch(/GRANT EXECUTE ON FUNCTION public\.journal_save_trade_v1\(jsonb\) TO authenticated, service_role/);
   });
 

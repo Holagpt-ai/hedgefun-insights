@@ -56,6 +56,9 @@ WHERE n.nspname = 'public'
     'journal_backfill_accounts_and_executions',
     'journal_migrate_legacy_trades',
     'journal_import_rollback',
+    'journal_import_start_v1',
+    'journal_import_row_v1',
+    'journal_import_finalize_v1',
     'journal_save_trade_v1',
     'refresh_journal_stats'
   )

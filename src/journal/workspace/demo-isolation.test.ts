@@ -19,6 +19,8 @@ function mockDb() {
         delete: () => query,
         eq: () => query,
         in: () => query,
+        order: () => query,
+        limit: () => query,
       };
       return query;
     },

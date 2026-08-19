@@ -60,7 +60,8 @@ export interface JournalSaveTradeRow {
   thesis: string | null;
   reviewed_at: string | null;
   calculation_version: string;
-  source: "manual";
+  source: "manual" | "import";
+  import_job_id: string | null;
   stop_price: number | null;
   target_price: number | null;
   return_dollars: number;
@@ -398,7 +399,8 @@ export function buildJournalSavePayload(trade: TradeInput): JournalSavePayload {
       thesis: persisted.thesis ?? null,
       reviewed_at: persisted.reviewed ? lastClose?.timestampUtc ?? new Date().toISOString() : null,
       calculation_version: calc.calculationVersion,
-      source: "manual",
+      source: persisted.source === "import" ? "import" : "manual",
+      import_job_id: isUuid(persisted.importJobId) ? persisted.importJobId! : null,
       stop_price: plannedStop,
       target_price: plannedTarget,
       return_dollars: microsToNumber(calc.netRealizedPnl),

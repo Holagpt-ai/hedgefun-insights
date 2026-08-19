@@ -44,6 +44,7 @@ export interface CanonicalTradeRow {
   reviewed_at?: string | null;
   calculation_version?: string | null;
   source?: string | null;
+  import_job_id?: string | null;
 }
 
 export interface CanonicalPlanRow {
@@ -358,6 +359,8 @@ function hydrateCanonical(graph: CanonicalTradeGraph): TradeInput {
     feesIncomplete: incomplete,
     excludedFromAnalytics: incomplete,
     exclusionReason: incomplete ? "missing_executions" : undefined,
+    source: row.source === "import" ? "import" : row.source ?? "manual",
+    importJobId: row.import_job_id ?? undefined,
   };
 }
 

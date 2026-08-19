@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -6,48 +6,102 @@ import { microsToNumber } from "../calc";
 import { HonestState } from "../components/HonestState";
 import { JournalTable, TableCell, TableRow } from "../components/JournalTable";
 import { useJournalT } from "../i18n";
-import { parseCsvText, previewCsvNets, confirmImport, loadImportJobs, rollbackImportJob, type ParsedCsv } from "../import/csv";
-import { saveTrade } from "../ledger/saveTrade";
+import { parseCsvText, previewCsvNets, type ParsedCsv } from "../import/csv";
+import {
+  canRollbackImportJob,
+  formatConfirmedImportSummary,
+  loadRecentImportJobs,
+  rollbackImportJob,
+  runCsvImport,
+  type ImportJobRecord,
+} from "../import/import-service";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 
 export function ImportWizard() {
   const t = useJournalT();
   const { user } = useAuth();
-  const { mode, onLiveTradeSaved, hideDemo } = useJournalWorkspace();
+  const { mode, hideDemo, refresh } = useJournalWorkspace();
   const [parsed, setParsed] = useState<ParsedCsv | null>(null);
+  const [filename, setFilename] = useState("import.csv");
   const [message, setMessage] = useState<string | null>(null);
+  const [processing, setProcessing] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
+  const [jobs, setJobs] = useState<ImportJobRecord[]>([]);
+
+  const userId = user?.id;
+  const reloadJobs = useCallback(async () => {
+    if (!userId || mode === "demo") {
+      setJobs([]);
+      return;
+    }
+    const recent = await loadRecentImportJobs({
+      mode,
+      userId,
+      client: supabase as never,
+    });
+    setJobs(recent);
+  }, [userId, mode]);
+
+  useEffect(() => {
+    void reloadJobs();
+  }, [reloadJobs]);
 
   const onFile = async (file: File) => {
     const text = await file.text();
+    setFilename(file.name || "import.csv");
     setParsed(parseCsvText(text));
     setMessage(null);
+    setProgress(null);
   };
 
   const confirm = async () => {
-    if (!parsed || !user) return;
-    const job = confirmImport(parsed, loadImportJobs());
-    for (const trade of parsed.validTrades) {
-      await saveTrade(
-        {
-          ...trade,
-          id: trade.id.startsWith("demo-") ? crypto.randomUUID() : trade.id,
-          accountId: trade.accountId.startsWith("demo-") ? "live-default" : trade.accountId,
-        },
-        { mode: mode === "demo" ? "demo" : "live", userId: user.id, client: supabase as never },
-      );
+    if (!parsed || !user || processing) return;
+    if (mode === "demo") {
+      setMessage(t("import.demoBlock"));
+      return;
     }
-    hideDemo();
-    await onLiveTradeSaved();
-    setMessage(t("import.done", { n: parsed.validTrades.length }));
-    void job;
+    setProcessing(true);
+    setProgress(t("import.processing"));
+    const result = await runCsvImport(parsed, {
+      mode,
+      userId: user.id,
+      client: supabase as never,
+      filename,
+      onProgress: (item) => setProgress(t("import.progress", { done: item.processed, total: item.total })),
+    });
+    setProcessing(false);
+    setProgress(null);
+    if (result.skipped === "demo") {
+      setMessage(t("import.demoBlock"));
+      return;
+    }
+    if (!result.ok) {
+      setMessage(result.error ?? t("import.unconfirmed"));
+      return;
+    }
+    setMessage(formatConfirmedImportSummary(result.counts));
+    if (result.shouldHideDemo) hideDemo();
+    if (result.shouldRefresh) await refresh();
+    await reloadJobs();
   };
 
-  const rollback = () => {
-    const jobs = loadImportJobs();
-    const last = jobs.at(-1);
-    if (!last) return;
-    rollbackImportJob(last.id, []);
-    setMessage(t("import.rolled"));
+  const onRollback = async (job: ImportJobRecord) => {
+    if (!user || processing || mode === "demo") return;
+    if (!canRollbackImportJob(job)) return;
+    setProcessing(true);
+    const result = await rollbackImportJob(job.id, {
+      mode,
+      userId: user.id,
+      client: supabase as never,
+    });
+    setProcessing(false);
+    if (!result.ok) {
+      setMessage(result.error ?? t("import.rollbackUnconfirmed"));
+      return;
+    }
+    setMessage(t("import.rolledConfirmed", { n: result.tradesDeleted }));
+    await refresh();
+    await reloadJobs();
   };
 
   return (
@@ -74,13 +128,36 @@ export function ImportWizard() {
             ))}
           </JournalTable>
           <div className="flex gap-2">
-            <Button size="sm" onClick={() => void confirm()}>{t("import.confirm")}</Button>
-            <Button size="sm" variant="outline" onClick={() => setParsed(null)}>{t("import.cancel")}</Button>
-            <Button size="sm" variant="ghost" onClick={rollback}>{t("import.rollback")}</Button>
+            <Button size="sm" disabled={processing || mode === "demo"} onClick={() => void confirm()}>{t("import.confirm")}</Button>
+            <Button size="sm" variant="outline" disabled={processing} onClick={() => setParsed(null)}>{t("import.cancel")}</Button>
           </div>
         </>
       ) : null}
-      {message ? <p className="text-xs">{message}</p> : null}
+      {progress ? <p className="text-xs">{progress}</p> : null}
+      {message ? <p className="text-xs" data-testid="import-message">{message}</p> : null}
+      {mode !== "demo" ? (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">{t("import.recent")}</h3>
+          {jobs.length === 0 ? <p className="text-xs text-muted-foreground">{t("import.noJobs")}</p> : (
+            <JournalTable headers={[t("import.file"), t("import.created"), t("import.status"), t("import.importedCount"), t("import.otherCounts"), ""]}>
+              {jobs.map((job) => (
+                <TableRow key={job.id}>
+                  <TableCell>{job.filename || job.source}</TableCell>
+                  <TableCell>{job.created_at.slice(0, 10)}</TableCell>
+                  <TableCell>{job.status}</TableCell>
+                  <TableCell className="tabular-nums">{job.imported_count}</TableCell>
+                  <TableCell className="text-xs">{t("import.jobCounts", { failed: job.failed_count, invalid: job.invalid_count, duplicates: job.duplicate_count })}</TableCell>
+                  <TableCell>
+                    {canRollbackImportJob(job) ? (
+                      <Button size="sm" variant="ghost" disabled={processing} onClick={() => void onRollback(job)}>{t("import.rollback")}</Button>
+                    ) : null}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </JournalTable>
+          )}
+        </div>
+      ) : null}
     </div>
   );
 }

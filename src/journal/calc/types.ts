@@ -109,6 +109,9 @@ export interface TradeInput {
   feesIncomplete?: boolean;
   excludedFromAnalytics?: boolean;
   exclusionReason?: string;
+  source?: "manual" | "import" | string | null;
+  importJobId?: string | null;
+  externalId?: string | null;
 }
 
 export interface PositionResult {

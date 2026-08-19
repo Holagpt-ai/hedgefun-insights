@@ -1,6 +1,5 @@
 import { calculateTrade, validateSymbol } from "../calc";
 import type { Direction, ExecutionInput, TradeInput } from "../calc/types";
-import { isDemoTradeId, readJson, writeJson, IMPORT_JOBS_KEY } from "../lib/storage";
 
 export interface CsvColumnMap {
   symbol: string;
@@ -16,6 +15,8 @@ export interface CsvColumnMap {
   externalId?: string;
 }
 
+export type CsvRowStatus = "pending" | "invalid" | "duplicate";
+
 export interface ParsedCsvRow {
   line: number;
   raw: Record<string, string>;
@@ -23,6 +24,8 @@ export interface ParsedCsvRow {
   errors: string[];
   externalId: string | null;
   duplicate: boolean;
+  fingerprint: string;
+  status: CsvRowStatus;
 }
 
 export interface ParsedCsv {
@@ -34,12 +37,7 @@ export interface ParsedCsv {
   duplicateIds: string[];
 }
 
-export interface ImportJob {
-  id: string;
-  createdAt: string;
-  tradeIds: string[];
-  externalIds: string[];
-}
+export const IMPORT_SOURCE_CSV = "csv";
 
 const HEADER_ALIASES: Record<keyof CsvColumnMap, string[]> = {
   symbol: ["symbol", "ticker", "simbolo", "símbolo"],
@@ -55,10 +53,52 @@ const HEADER_ALIASES: Record<keyof CsvColumnMap, string[]> = {
   externalId: ["external_id", "id", "id externo", "id_externo", "trade_id"],
 };
 
+export function normalizeImportPart(value: string | number | null | undefined): string {
+  if (value == null) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  return value.trim().toLowerCase();
+}
+
+export function csvRowFingerprint(parts: {
+  symbol?: string | null;
+  direction?: string | null;
+  qty?: number | string | null;
+  entryPrice?: number | string | null;
+  exitPrice?: number | string | null;
+  entryDate?: string | null;
+  exitDate?: string | null;
+  fees?: number | string | null;
+}): string {
+  return [
+    normalizeImportPart(parts.symbol),
+    normalizeImportPart(parts.direction),
+    normalizeImportPart(parts.qty),
+    normalizeImportPart(parts.entryPrice),
+    normalizeImportPart(parts.exitPrice),
+    normalizeImportPart(parts.entryDate),
+    normalizeImportPart(parts.exitDate),
+    normalizeImportPart(parts.fees),
+  ].join("|");
+}
+
+export function importIdentityKey(
+  userId: string,
+  source: string,
+  externalId: string | null | undefined,
+  fingerprint: string,
+): string {
+  const uid = normalizeImportPart(userId);
+  const src = normalizeImportPart(source) || IMPORT_SOURCE_CSV;
+  const ext = externalId?.trim();
+  if (ext) return `${uid}|${src}|ext:${ext.toLowerCase()}`;
+  return `${uid}|${src}|fp:${fingerprint}`;
+}
+
 export function parseCsvText(text: string, existingExternalIds: string[] = []): ParsedCsv {
   const { headers, records } = splitCsv(text);
   const map = detectColumnMap(headers);
-  const seen = new Set(existingExternalIds.map((id) => id.toLowerCase()));
+  const seenExternal = new Set(existingExternalIds.map((id) => id.toLowerCase()));
+  const seenFingerprints = new Set<string>();
   const duplicateIds: string[] = [];
   const rows: ParsedCsvRow[] = records.map((raw, index) => {
     const errors: string[] = [];
@@ -78,21 +118,60 @@ export function parseCsvText(text: string, existingExternalIds: string[] = []): 
     const direction: Direction = sideRaw.includes("short") || sideRaw.includes("corto") ? "short" : "long";
     const fees = map.fees ? Number(pick(raw, map.fees) || 0) : 0;
     const externalId = map.externalId ? pick(raw, map.externalId) || null : null;
-    const duplicate = Boolean(externalId && seen.has(externalId.toLowerCase()));
+    const fingerprint = csvRowFingerprint({
+      symbol,
+      direction,
+      qty,
+      entryPrice,
+      exitPrice,
+      entryDate,
+      exitDate,
+      fees,
+    });
+    let duplicate = false;
     if (externalId) {
+      duplicate = seenExternal.has(externalId.toLowerCase());
       if (duplicate) duplicateIds.push(externalId);
-      seen.add(externalId.toLowerCase());
+      seenExternal.add(externalId.toLowerCase());
+    } else if (errors.length === 0) {
+      duplicate = seenFingerprints.has(fingerprint);
+      seenFingerprints.add(fingerprint);
     }
     if (errors.length > 0) {
-      return { line: index + 2, raw, trade: null, errors, externalId, duplicate };
+      return {
+        line: index + 2,
+        raw,
+        trade: null,
+        errors,
+        externalId,
+        duplicate,
+        fingerprint,
+        status: "invalid",
+      };
     }
-    const id = externalId && !duplicate ? `live-${externalId}` : `live-${cryptoRandom()}`;
+    if (duplicate) {
+      return {
+        line: index + 2,
+        raw,
+        trade: null,
+        errors,
+        externalId,
+        duplicate: true,
+        fingerprint,
+        status: "duplicate",
+      };
+    }
+    const id = cryptoRandom();
     const executions: ExecutionInput[] = [
-      fill(`${id}-in`, `${entryDate}T14:00:00Z`, direction === "long" ? "buy" : "short", qty, entryPrice, fees / (exitPrice != null ? 2 : 1)),
+      fill(`${id}-in`, `${entryDate}T14:00:00Z`, direction === "long" ? "buy" : "short", qty, entryPrice, fees / (exitPrice != null ? 2 : 1), {
+        externalExecutionId: externalId ?? undefined,
+      }),
     ];
     if (exitPrice != null && exitDate) {
       executions.push(
-        fill(`${id}-out`, `${exitDate}T18:00:00Z`, direction === "long" ? "sell" : "cover", qty, exitPrice, fees / 2),
+        fill(`${id}-out`, `${exitDate}T18:00:00Z`, direction === "long" ? "sell" : "cover", qty, exitPrice, fees / 2, {
+          externalExecutionId: externalId ?? undefined,
+        }),
       );
     }
     const trade: TradeInput = {
@@ -107,8 +186,18 @@ export function parseCsvText(text: string, existingExternalIds: string[] = []): 
       sessionDate: entryDate,
       playbookName: map.playbook ? pick(raw, map.playbook) || null : null,
       reviewed: false,
+      externalId,
     };
-    return { line: index + 2, raw, trade, errors, externalId, duplicate };
+    return {
+      line: index + 2,
+      raw,
+      trade,
+      errors,
+      externalId,
+      duplicate: false,
+      fingerprint,
+      status: "pending",
+    };
   });
 
   return {
@@ -116,7 +205,7 @@ export function parseCsvText(text: string, existingExternalIds: string[] = []): 
     headers,
     map,
     rows,
-    validTrades: rows.filter((row) => row.trade && !row.duplicate).map((row) => row.trade as TradeInput),
+    validTrades: rows.filter((row) => row.trade && row.status === "pending").map((row) => row.trade as TradeInput),
     duplicateIds,
   };
 }
@@ -126,30 +215,6 @@ export function previewCsvNets(parsed: ParsedCsv) {
     const calc = calculateTrade(trade);
     return { id: trade.id, symbol: trade.symbol, net: calc.netRealizedPnl, status: calc.status };
   });
-}
-
-export function confirmImport(parsed: ParsedCsv, existing: ImportJob[] = []): ImportJob {
-  const job: ImportJob = {
-    id: `job-${Date.now()}`,
-    createdAt: new Date().toISOString(),
-    tradeIds: parsed.validTrades.map((trade) => trade.id),
-    externalIds: parsed.rows.map((row) => row.externalId).filter((id): id is string => Boolean(id)),
-  };
-  writeJson(IMPORT_JOBS_KEY, [...existing, job]);
-  return job;
-}
-
-export function loadImportJobs(): ImportJob[] {
-  return readJson<ImportJob[]>(IMPORT_JOBS_KEY, []);
-}
-
-export function rollbackImportJob(jobId: string, liveTrades: TradeInput[]): { trades: TradeInput[]; job: ImportJob | null } {
-  const jobs = loadImportJobs();
-  const job = jobs.find((item) => item.id === jobId) ?? null;
-  if (!job) return { trades: liveTrades, job: null };
-  const ids = new Set(job.tradeIds);
-  writeJson(IMPORT_JOBS_KEY, jobs.filter((item) => item.id !== jobId));
-  return { trades: liveTrades.filter((trade) => !ids.has(trade.id) && !isDemoTradeId(trade.id)), job };
 }
 
 export function detectColumnMap(headers: string[]): CsvColumnMap {
@@ -234,6 +299,7 @@ function fill(
   quantity: number,
   price: number,
   commission: number,
+  extra?: Partial<ExecutionInput>,
 ): ExecutionInput {
   return {
     id,
@@ -245,10 +311,11 @@ function fill(
     price,
     commission,
     feeCurrency: "USD",
+    ...extra,
   };
 }
 
 function cryptoRandom(): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
-  return `id-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  return `id-${Math.random().toString(16).slice(2)}${Math.random().toString(16).slice(2)}`;
 }

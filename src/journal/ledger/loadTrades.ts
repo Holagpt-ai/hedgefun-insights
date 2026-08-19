@@ -150,6 +150,7 @@ export function graphRowsFromPayload(
       reviewed_at: payload.trade.reviewed_at,
       calculation_version: payload.trade.calculation_version,
       source: payload.trade.source,
+      import_job_id: payload.trade.import_job_id,
     },
     plan: {
       trade_id: tradeId,

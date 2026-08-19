@@ -751,65 +751,58 @@ SET search_path = public
 AS $fn$
 DECLARE
   v_job public.journal_import_jobs%ROWTYPE;
-  v_execs integer := 0;
   v_trades integer := 0;
+  v_already boolean := false;
 BEGIN
   IF p_job_id IS NULL THEN
     RAISE EXCEPTION 'p_job_id required';
   END IF;
   IF auth.uid() IS NULL THEN
-    RAISE EXCEPTION 'not authenticated';
+    RAISE EXCEPTION 'not authenticated' USING ERRCODE = '42501';
   END IF;
 
+  -- Same not-found for missing jobs and jobs owned by another user.
   SELECT * INTO v_job
   FROM public.journal_import_jobs
   WHERE id = p_job_id
     AND user_id = auth.uid();
 
   IF NOT FOUND THEN
-    RAISE EXCEPTION 'import job not found';
+    RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
   END IF;
 
-  DELETE FROM public.journal_executions e
-  WHERE (
-      e.import_job_id = p_job_id
-      OR e.id IN (
-        SELECT r.created_execution_id
-        FROM public.journal_import_rows r
-        WHERE r.import_job_id = p_job_id
-          AND r.created_execution_id IS NOT NULL
-      )
-    )
-    AND EXISTS (
-      SELECT 1 FROM public.journal_trades t
-      WHERE t.id = e.trade_id AND t.user_id = auth.uid()
-    );
-  GET DIAGNOSTICS v_execs = ROW_COUNT;
+  v_already := v_job.status = 'rolled_back';
 
+  UPDATE public.journal_import_rows
+  SET prior_trade_id = coalesce(prior_trade_id, created_trade_id),
+      status = CASE WHEN status = 'imported' THEN 'rolled_back' ELSE status END,
+      error_code = CASE WHEN status = 'imported' THEN 'rolled_back' ELSE error_code END
+  WHERE import_job_id = p_job_id
+    AND (
+      status = 'imported'
+      OR created_trade_id IS NOT NULL
+    );
+
+  -- Delete only this user's trades that belong to this import job.
+  -- Children (plans, legs, executions, fees, calculation runs) cascade.
+  -- Manual trades and other jobs are preserved. Job/row audit history is preserved.
   DELETE FROM public.journal_trades t
   WHERE t.user_id = auth.uid()
-    AND (
-      t.import_job_id = p_job_id
-      OR t.id IN (
-        SELECT r.created_trade_id
-        FROM public.journal_import_rows r
-        WHERE r.import_job_id = p_job_id
-          AND r.created_trade_id IS NOT NULL
-      )
-    );
+    AND t.import_job_id = p_job_id;
   GET DIAGNOSTICS v_trades = ROW_COUNT;
 
   UPDATE public.journal_import_jobs
   SET status = 'rolled_back',
-      finished_at = now(),
-      error_message = coalesce(error_message, 'rolled back')
+      finished_at = coalesce(finished_at, now()),
+      error_message = 'rolled back'
   WHERE id = p_job_id
     AND user_id = auth.uid();
 
   RETURN jsonb_build_object(
+    'ok', true,
     'job_id', p_job_id,
-    'executions_deleted', v_execs,
-    'trades_deleted', v_trades
+    'trades_deleted', v_trades,
+    'already_rolled_back', v_already AND v_trades = 0
   );
 END;
 $fn$;
@@ -844,6 +837,7 @@ DECLARE
   v_status text;
   v_setup text;
   v_source text;
+  v_import_job_id uuid;
   v_trade_id uuid;
   v_account_id uuid;
   v_playbook_id uuid;
@@ -885,6 +879,23 @@ BEGIN
   END IF;
   IF v_source NOT IN ('manual', 'import', 'legacy_migrate') THEN
     v_source := 'manual';
+  END IF;
+  IF coalesce(v_trade->>'id', '') ILIKE 'demo%' OR coalesce(v_trade->>'account_id', '') ILIKE 'demo%' THEN
+    RAISE EXCEPTION 'demo workspace cannot persist trades';
+  END IF;
+
+  -- Import ownership is established from auth.uid(), never from a client user_id.
+  v_import_job_id := NULL;
+  IF v_source = 'import' THEN
+    IF (v_trade->>'import_job_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+      SELECT j.id INTO v_import_job_id
+      FROM public.journal_import_jobs j
+      WHERE j.id = (v_trade->>'import_job_id')::uuid
+        AND j.user_id = v_uid;
+    END IF;
+    IF v_import_job_id IS NULL THEN
+      RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
+    END IF;
   END IF;
 
   IF v_trade->>'id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
@@ -1018,6 +1029,7 @@ BEGIN
       reviewed_at = (v_trade->>'reviewed_at')::timestamptz,
       calculation_version = coalesce(nullif(btrim(v_trade->>'calculation_version'), ''), 'journal-calc.v1'),
       source = v_source,
+      import_job_id = v_import_job_id,
       updated_at = now()
     WHERE id = v_trade_id
       AND user_id = v_uid;
@@ -1033,7 +1045,7 @@ BEGIN
       return_dollars, return_pct, hold_duration_minutes, account_id, asset_class,
       instrument, direction, lifecycle_status, playbook_id, timezone,
       planned_risk, planned_entry, planned_stop, planned_target, planned_size,
-      thesis, reviewed_at, calculation_version, source, demo_forbidden
+      thesis, reviewed_at, calculation_version, source, import_job_id, demo_forbidden
     ) VALUES (
       v_trade_id,
       v_uid,
@@ -1068,6 +1080,7 @@ BEGIN
       (v_trade->>'reviewed_at')::timestamptz,
       coalesce(nullif(btrim(v_trade->>'calculation_version'), ''), 'journal-calc.v1'),
       v_source,
+      v_import_job_id,
       false
     );
   END IF;
@@ -1160,10 +1173,11 @@ BEGIN
       coalesce(nullif(btrim(v_exec->>'fee_currency'), ''), 'USD'),
       v_exec->>'venue',
       v_exec->>'order_type',
-      v_exec->>'source',
+      CASE WHEN v_import_job_id IS NOT NULL THEN 'import' ELSE v_exec->>'source' END,
       v_exec->>'external_execution_id',
       nullif(btrim(coalesce(v_exec->>'idempotency_key', '')), ''),
       CASE
+        WHEN v_import_job_id IS NOT NULL THEN v_import_job_id
         WHEN (v_exec->>'import_job_id') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
           THEN (v_exec->>'import_job_id')::uuid
         ELSE NULL
@@ -1247,3 +1261,376 @@ $save$;
 
 REVOKE ALL ON FUNCTION public.journal_save_trade_v1(jsonb) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.journal_save_trade_v1(jsonb) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- journal_import_start_v1
+-- Creates a user-owned import job and one audit row per parsed CSV row.
+-- Owner is always auth.uid(). Client-supplied user_id is ignored.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.journal_import_start_v1(p_payload jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = public
+AS $start$
+DECLARE
+  v_uid uuid;
+  v_job_id uuid;
+  v_source text;
+  v_filename text;
+  v_row jsonb;
+  v_status text;
+  v_identity text;
+  v_row_id uuid;
+  v_rows jsonb := '[]'::jsonb;
+  v_idx integer := 0;
+  v_seen text[] := ARRAY[]::text[];
+  v_exists boolean;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not authenticated' USING ERRCODE = '42501';
+  END IF;
+  IF p_payload IS NULL OR jsonb_typeof(p_payload) <> 'object' THEN
+    RAISE EXCEPTION 'p_payload required';
+  END IF;
+
+  -- Never trust a client-supplied user_id.
+  v_source := lower(coalesce(nullif(btrim(p_payload->>'source'), ''), 'csv'));
+  IF v_source IN ('demo', 'demo_workspace') THEN
+    RAISE EXCEPTION 'demo workspace cannot persist trades';
+  END IF;
+  v_filename := left(coalesce(nullif(btrim(p_payload->>'filename'), ''), 'import.csv'), 512);
+
+  INSERT INTO public.journal_import_jobs (
+    user_id, source, filename, status, started_at, total_count
+  ) VALUES (
+    v_uid,
+    v_source,
+    v_filename,
+    'processing',
+    now(),
+    coalesce(jsonb_array_length(p_payload->'rows'), 0)
+  )
+  RETURNING id INTO v_job_id;
+
+  FOR v_row IN
+    SELECT value FROM jsonb_array_elements(coalesce(p_payload->'rows', '[]'::jsonb))
+  LOOP
+    v_idx := v_idx + 1;
+    v_identity := nullif(btrim(coalesce(v_row->>'identity_key', '')), '');
+    v_status := lower(coalesce(nullif(btrim(v_row->>'status'), ''), 'pending'));
+    IF v_status NOT IN ('pending', 'invalid', 'duplicate') THEN
+      v_status := 'pending';
+    END IF;
+
+    IF v_identity IS NOT NULL THEN
+      IF v_identity = ANY (v_seen) THEN
+        v_status := 'duplicate';
+      ELSE
+        v_seen := array_append(v_seen, v_identity);
+      END IF;
+      SELECT EXISTS (
+        SELECT 1
+        FROM public.journal_import_rows r
+        JOIN public.journal_import_jobs j ON j.id = r.import_job_id
+        WHERE r.identity_key = v_identity
+          AND r.status = 'imported'
+          AND j.user_id = v_uid
+      ) INTO v_exists;
+      IF v_exists THEN
+        v_status := 'duplicate';
+      END IF;
+    END IF;
+
+    INSERT INTO public.journal_import_rows (
+      import_job_id, row_index, raw, parsed, status, error_message, error_code,
+      external_id, identity_key
+    ) VALUES (
+      v_job_id,
+      coalesce((v_row->>'row_index')::integer, v_idx),
+      coalesce(v_row->'raw', '{}'::jsonb),
+      v_row->'parsed',
+      v_status,
+      CASE
+        WHEN v_status = 'invalid' THEN left(coalesce(nullif(btrim(v_row->>'error_message'), ''), 'invalid row'), 200)
+        WHEN v_status = 'duplicate' THEN 'duplicate'
+        ELSE NULL
+      END,
+      CASE
+        WHEN v_status = 'invalid' THEN left(coalesce(nullif(btrim(v_row->>'error_code'), ''), 'invalid'), 64)
+        WHEN v_status = 'duplicate' THEN 'duplicate'
+        ELSE NULL
+      END,
+      nullif(btrim(coalesce(v_row->>'external_id', '')), ''),
+      v_identity
+    )
+    RETURNING id INTO v_row_id;
+
+    v_rows := v_rows || jsonb_build_array(jsonb_build_object(
+      'id', v_row_id,
+      'row_index', coalesce((v_row->>'row_index')::integer, v_idx),
+      'status', v_status,
+      'identity_key', v_identity
+    ));
+  END LOOP;
+
+  RETURN jsonb_build_object('ok', true, 'job_id', v_job_id, 'rows', v_rows);
+END;
+$start$;
+
+REVOKE ALL ON FUNCTION public.journal_import_start_v1(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.journal_import_start_v1(jsonb) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- journal_import_row_v1
+-- Atomic per-row import. A failed graph save rolls back that trade only.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.journal_import_row_v1(
+  p_job_id uuid,
+  p_row_id uuid,
+  p_payload jsonb
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = public
+AS $row$
+DECLARE
+  v_uid uuid;
+  v_job public.journal_import_jobs%ROWTYPE;
+  v_imp public.journal_import_rows%ROWTYPE;
+  v_payload jsonb;
+  v_execs jsonb;
+  v_save jsonb;
+  v_trade_id uuid;
+  v_exists boolean;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not authenticated' USING ERRCODE = '42501';
+  END IF;
+  IF p_job_id IS NULL OR p_row_id IS NULL THEN
+    RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_job
+  FROM public.journal_import_jobs
+  WHERE id = p_job_id
+    AND user_id = v_uid
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
+  END IF;
+  IF v_job.status IN ('rolled_back') THEN
+    RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT * INTO v_imp
+  FROM public.journal_import_rows
+  WHERE id = p_row_id
+    AND import_job_id = p_job_id
+  FOR UPDATE;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
+  END IF;
+
+  IF v_imp.status IS DISTINCT FROM 'pending' THEN
+    RETURN jsonb_build_object(
+      'ok', true,
+      'status', v_imp.status,
+      'trade_id', v_imp.created_trade_id,
+      'skipped', true
+    );
+  END IF;
+
+  IF p_payload IS NULL
+     OR jsonb_typeof(p_payload) <> 'object'
+     OR coalesce(p_payload->'trade'->>'id', '') ILIKE 'demo%'
+     OR coalesce(p_payload->'trade'->>'account_id', '') ILIKE 'demo%'
+     OR lower(coalesce(p_payload->'trade'->>'source', '')) IN ('demo', 'demo_workspace') THEN
+    UPDATE public.journal_import_rows
+    SET status = 'failed',
+        error_code = 'demo_forbidden',
+        error_message = 'Trade could not be saved.'
+    WHERE id = p_row_id
+      AND import_job_id = p_job_id;
+    RETURN jsonb_build_object(
+      'ok', false,
+      'status', 'failed',
+      'error_code', 'demo_forbidden',
+      'error_message', 'Trade could not be saved.'
+    );
+  END IF;
+
+  IF v_imp.identity_key IS NOT NULL THEN
+    SELECT EXISTS (
+      SELECT 1
+      FROM public.journal_import_rows r
+      JOIN public.journal_import_jobs j ON j.id = r.import_job_id
+      WHERE r.identity_key = v_imp.identity_key
+        AND r.status = 'imported'
+        AND j.user_id = v_uid
+        AND r.id IS DISTINCT FROM p_row_id
+    ) INTO v_exists;
+    IF v_exists THEN
+      UPDATE public.journal_import_rows
+      SET status = 'duplicate',
+          error_code = 'duplicate',
+          error_message = 'duplicate'
+      WHERE id = p_row_id
+        AND import_job_id = p_job_id;
+      RETURN jsonb_build_object('ok', true, 'status', 'duplicate', 'skipped', true);
+    END IF;
+  END IF;
+
+  v_payload := p_payload;
+  v_payload := jsonb_set(v_payload, '{trade,source}', to_jsonb('import'::text), true);
+  v_payload := jsonb_set(v_payload, '{trade,import_job_id}', to_jsonb(p_job_id::text), true);
+  IF jsonb_typeof(v_payload->'executions') = 'array' THEN
+    SELECT jsonb_agg(
+      jsonb_set(
+        jsonb_set(elem, '{source}', to_jsonb('import'::text), true),
+        '{import_job_id}', to_jsonb(p_job_id::text), true
+      )
+    )
+    INTO v_execs
+    FROM jsonb_array_elements(v_payload->'executions') AS t(elem);
+    v_payload := jsonb_set(v_payload, '{executions}', coalesce(v_execs, '[]'::jsonb));
+  END IF;
+
+  BEGIN
+    v_save := public.journal_save_trade_v1(v_payload);
+    IF coalesce(v_save->>'ok', 'false') <> 'true' OR coalesce(v_save->>'trade_id', '') = '' THEN
+      RAISE EXCEPTION 'save unconfirmed';
+    END IF;
+    v_trade_id := (v_save->>'trade_id')::uuid;
+    UPDATE public.journal_import_rows
+    SET status = 'imported',
+        created_trade_id = v_trade_id,
+        error_code = NULL,
+        error_message = NULL
+    WHERE id = p_row_id
+      AND import_job_id = p_job_id;
+    RETURN jsonb_build_object('ok', true, 'status', 'imported', 'trade_id', v_trade_id);
+  EXCEPTION
+    WHEN unique_violation THEN
+      UPDATE public.journal_import_rows
+      SET status = 'duplicate',
+          error_code = 'duplicate',
+          error_message = 'duplicate'
+      WHERE id = p_row_id
+        AND import_job_id = p_job_id;
+      RETURN jsonb_build_object('ok', true, 'status', 'duplicate', 'skipped', true);
+    WHEN OTHERS THEN
+      -- Subtransaction rolls back the trade graph. Sanitized reason only.
+      UPDATE public.journal_import_rows
+      SET status = 'failed',
+          error_code = 'save_failed',
+          error_message = 'Trade could not be saved.'
+      WHERE id = p_row_id
+        AND import_job_id = p_job_id;
+      RETURN jsonb_build_object(
+        'ok', false,
+        'status', 'failed',
+        'error_code', 'save_failed',
+        'error_message', 'Trade could not be saved.'
+      );
+  END;
+END;
+$row$;
+
+REVOKE ALL ON FUNCTION public.journal_import_row_v1(uuid, uuid, jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.journal_import_row_v1(uuid, uuid, jsonb) TO authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- journal_import_finalize_v1
+-- Database-derived counts from row statuses. Client loop counters are ignored.
+-- ---------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION public.journal_import_finalize_v1(p_job_id uuid)
+RETURNS jsonb
+LANGUAGE plpgsql
+SET search_path = public
+AS $fin$
+DECLARE
+  v_uid uuid;
+  v_total integer := 0;
+  v_imported integer := 0;
+  v_failed integer := 0;
+  v_invalid integer := 0;
+  v_duplicate integer := 0;
+  v_pending integer := 0;
+  v_valid integer := 0;
+  v_status text;
+BEGIN
+  v_uid := auth.uid();
+  IF v_uid IS NULL THEN
+    RAISE EXCEPTION 'not authenticated' USING ERRCODE = '42501';
+  END IF;
+  IF p_job_id IS NULL THEN
+    RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM public.journal_import_jobs
+    WHERE id = p_job_id AND user_id = v_uid
+  ) THEN
+    RAISE EXCEPTION 'import job not found' USING ERRCODE = '42501';
+  END IF;
+
+  SELECT
+    count(*)::integer,
+    count(*) FILTER (WHERE status = 'imported')::integer,
+    count(*) FILTER (WHERE status = 'failed')::integer,
+    count(*) FILTER (WHERE status = 'invalid')::integer,
+    count(*) FILTER (WHERE status = 'duplicate')::integer,
+    count(*) FILTER (WHERE status = 'pending')::integer
+  INTO v_total, v_imported, v_failed, v_invalid, v_duplicate, v_pending
+  FROM public.journal_import_rows
+  WHERE import_job_id = p_job_id;
+
+  v_valid := v_imported + v_failed + v_pending;
+
+  IF v_imported > 0 AND v_failed = 0 AND v_invalid = 0 AND v_pending = 0 THEN
+    v_status := 'completed';
+  ELSIF v_imported = 0 AND v_failed > 0 THEN
+    v_status := 'failed';
+  ELSIF v_imported = 0 AND v_pending > 0 THEN
+    v_status := 'failed';
+  ELSIF v_failed > 0 OR v_invalid > 0 THEN
+    v_status := 'completed_with_errors';
+  ELSE
+    v_status := 'completed';
+  END IF;
+
+  UPDATE public.journal_import_jobs
+  SET status = v_status,
+      total_count = v_total,
+      row_count = v_total,
+      valid_count = v_valid,
+      imported_count = v_imported,
+      failed_count = v_failed,
+      invalid_count = v_invalid,
+      duplicate_count = v_duplicate,
+      finished_at = now()
+  WHERE id = p_job_id
+    AND user_id = v_uid;
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'job_id', p_job_id,
+    'status', v_status,
+    'total_count', v_total,
+    'imported_count', v_imported,
+    'failed_count', v_failed,
+    'invalid_count', v_invalid,
+    'duplicate_count', v_duplicate
+  );
+END;
+$fin$;
+
+REVOKE ALL ON FUNCTION public.journal_import_finalize_v1(uuid) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.journal_import_finalize_v1(uuid) TO authenticated, service_role;
