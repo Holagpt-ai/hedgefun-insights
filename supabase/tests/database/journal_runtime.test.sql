@@ -716,6 +716,7 @@ CREATE TEMP TABLE note_ci (
   mismatch uuid
 );
 GRANT SELECT, UPDATE ON note_ci TO authenticated;
+GRANT SELECT ON note_ci TO service_role;
 
 INSERT INTO note_ci (a_note, mismatch) VALUES (
   'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
