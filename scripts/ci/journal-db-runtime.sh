@@ -14,16 +14,99 @@ fi
 
 HELD="$(mktemp -d)"
 DB_CONTAINER=""
+STUB="$ROOT/supabase/migrations/20260611180000_ci_disposable_prereqs.sql"
 
 cleanup() {
+  rm -f "$STUB"
   if [[ -d "$HELD" ]]; then
     shopt -s nullglob
     mv "$HELD"/2026081619*.sql "$ROOT/supabase/migrations/" 2>/dev/null || true
     rmdir "$HELD" 2>/dev/null || true
   fi
-  supabase stop >/dev/null 2>&1 || true
+  supabase stop --no-backup >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
+
+write_disposable_prereqs() {
+  # Production created these tables outside this repo's migration history.
+  # The disposable runner stubs them so the committed chain can apply.
+  # This file is generated at job start and deleted in cleanup; it is not
+  # a production migration.
+  cat > "$STUB" <<'SQL'
+CREATE TABLE IF NOT EXISTS public.daily_briefs (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.daily_briefs ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.screener_results (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tab_id text,
+  symbol text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.screener_results ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.game_config (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+);
+
+CREATE TABLE IF NOT EXISTS public.game_seasons (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  invite_code text
+);
+
+CREATE TABLE IF NOT EXISTS public.game_leaderboard (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid,
+  season_id uuid,
+  display_name text,
+  rank integer,
+  total_value numeric,
+  total_pnl numeric,
+  pnl_pct numeric,
+  position_count integer,
+  updated_at timestamptz DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.game_portfolios (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid
+);
+
+CREATE TABLE IF NOT EXISTS public.game_positions (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid
+);
+
+CREATE TABLE IF NOT EXISTS public.game_trades (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid
+);
+
+CREATE TABLE IF NOT EXISTS public.game_season_results (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  season_id uuid,
+  user_id uuid,
+  display_name text,
+  final_rank integer,
+  final_total_value numeric,
+  final_pnl numeric,
+  final_pnl_pct numeric,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.watchlist_ai_alerts (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+);
+ALTER TABLE public.watchlist_ai_alerts ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.watchlist_ai_analysis (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+);
+ALTER TABLE public.watchlist_ai_analysis ENABLE ROW LEVEL SECURITY;
+SQL
+}
 
 db_container() {
   docker ps --format '{{.Names}}' | grep -E '^supabase_db_' | head -n 1
@@ -41,6 +124,9 @@ if [[ "$MODE" == "legacy" ]]; then
   mv "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql" "$HELD/"
 fi
 
+echo "==> writing disposable prereq stubs for production-only tables"
+write_disposable_prereqs
+
 echo "==> starting disposable local database"
 supabase db start
 DB_CONTAINER="$(db_container)"
@@ -51,7 +137,7 @@ fi
 
 if [[ "$MODE" == "clean" ]]; then
   echo "==> linting local schema"
-  supabase db lint
+  supabase db lint --local
   echo "==> running clean-database pgTAP tests"
   supabase test db --local supabase/tests/database/journal_runtime.test.sql
   echo "==> clean-database job passed"
