@@ -115,7 +115,10 @@ describe("journal persistence contract", () => {
     expect(payload.plan.planned_size).toBe(5);
     expect(payload.legs).toHaveLength(1);
     expect(isUuid(payload.legs[0].id)).toBe(true);
+    expect(payload.legs[0].sequence_index).toBe(0);
     expect(payload.executions).toHaveLength(2);
+    expect(payload.executions[0].sequence_index).toBe(0);
+    expect(payload.executions[1].sequence_index).toBe(1);
     expect(payload.executions[0].occurred_at).toBe("2026-08-14T13:45:00Z");
     expect(payload.executions[0].occurred_at_utc).toBe("2026-08-14T13:45:00Z");
     expect(payload.executions[0].fees.some((fee) => fee.kind === "commission")).toBe(true);
@@ -278,6 +281,8 @@ describe("journal_save_trade_v1 SQL contract", () => {
     expect(SAVE_SQL).toMatch(/INSERT INTO public\.journal_calculation_lineage/);
     expect(SAVE_SQL).toMatch(/INSERT INTO public\.journal_audit_log/);
     expect(SAVE_SQL).toMatch(/occurred_at_utc/);
+    expect(SAVE_SQL).toMatch(/journal_calculate_trade_v1\(v_trade_id\)/);
+    expect(SAVE_SQL).toMatch(/sequence_index/);
     const execInsert = SAVE_SQL.match(/INSERT INTO public\.journal_executions \([\s\S]*?\) VALUES/)?.[0] ?? "";
     expect(execInsert).toMatch(/occurred_at/);
     expect(execInsert).toMatch(/occurred_at_utc/);

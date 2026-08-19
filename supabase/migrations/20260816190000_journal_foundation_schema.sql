@@ -261,6 +261,7 @@ CREATE TABLE IF NOT EXISTS public.journal_trade_legs (
   multiplier numeric NOT NULL DEFAULT 100,
   occ_symbol text,
   status text NOT NULL DEFAULT 'open',
+  sequence_index integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -286,6 +287,7 @@ CREATE TABLE IF NOT EXISTS public.journal_executions (
   import_job_id uuid,
   note text,
   leg_id uuid REFERENCES public.journal_trade_legs(id) ON DELETE SET NULL,
+  sequence_index integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
@@ -293,6 +295,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS journal_executions_idempotency_key_uidx
   ON public.journal_executions (idempotency_key);
 
 ALTER TABLE public.journal_executions ADD COLUMN IF NOT EXISTS leg_id uuid;
+ALTER TABLE public.journal_executions ADD COLUMN IF NOT EXISTS sequence_index integer NOT NULL DEFAULT 0;
+ALTER TABLE public.journal_trade_legs ADD COLUMN IF NOT EXISTS sequence_index integer NOT NULL DEFAULT 0;
 
 CREATE TABLE IF NOT EXISTS public.journal_execution_fees (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -688,9 +692,26 @@ CREATE TABLE IF NOT EXISTS public.journal_calculation_runs (
   remaining_qty numeric,
   weighted_avg_entry numeric,
   weighted_avg_exit numeric,
+  initial_risk numeric,
+  risk_per_share numeric,
+  planned_quantity numeric,
+  plan_multiplier numeric,
+  planned_risk_source text,
+  r_multiple numeric,
+  outcome text,
+  over_exit_blocked boolean NOT NULL DEFAULT false,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (trade_id, calculation_version)
 );
+
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS initial_risk numeric;
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS risk_per_share numeric;
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS planned_quantity numeric;
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS plan_multiplier numeric;
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS planned_risk_source text;
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS r_multiple numeric;
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS outcome text;
+ALTER TABLE public.journal_calculation_runs ADD COLUMN IF NOT EXISTS over_exit_blocked boolean NOT NULL DEFAULT false;
 
 CREATE TABLE IF NOT EXISTS public.journal_calculation_lineage (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

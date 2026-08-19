@@ -89,6 +89,7 @@ export interface JournalSaveExecutionRow {
   import_job_id: string | null;
   note: string | null;
   leg_id: string | null;
+  sequence_index: number;
   fees: JournalSaveFeeRow[];
 }
 
@@ -114,6 +115,7 @@ export interface JournalSaveLegRow {
   multiplier: number;
   occ_symbol: string | null;
   status: string;
+  sequence_index: number;
 }
 
 export interface JournalSavePayload {
@@ -295,7 +297,7 @@ function executionFees(execution: ExecutionInput): JournalSaveFeeRow[] {
   return rows;
 }
 
-function toLegRow(leg: TradeLegInput): JournalSaveLegRow {
+function toLegRow(leg: TradeLegInput, sequenceIndex: number): JournalSaveLegRow {
   return {
     id: persistId(leg.id),
     action: leg.action,
@@ -306,10 +308,11 @@ function toLegRow(leg: TradeLegInput): JournalSaveLegRow {
     multiplier: toNumber(leg.multiplier, 100),
     occ_symbol: leg.occSymbol ?? null,
     status: leg.status,
+    sequence_index: sequenceIndex,
   };
 }
 
-function toExecutionRow(execution: ExecutionInput, tradeId: string): JournalSaveExecutionRow {
+function toExecutionRow(execution: ExecutionInput, tradeId: string, sequenceIndex: number): JournalSaveExecutionRow {
   const id = persistId(execution.id);
   const occurred = execution.timestampUtc || new Date(execution.timestamp).toISOString();
   return {
@@ -333,6 +336,7 @@ function toExecutionRow(execution: ExecutionInput, tradeId: string): JournalSave
     import_job_id: isUuid(execution.importJobId) ? execution.importJobId! : null,
     note: execution.note ?? null,
     leg_id: isUuid(execution.legId) ? execution.legId! : null,
+    sequence_index: sequenceIndex,
     fees: executionFees(execution),
   };
 }
@@ -355,8 +359,8 @@ export function buildJournalSavePayload(trade: TradeInput): JournalSavePayload {
   const entryDate = first?.timestampUtc ?? `${sessionDate}T13:30:00.000Z`;
   const lifecycleStatus: TradeStatus = calc.status;
   const audit = buildTradeAuditRecord(persisted, calc);
-  const legs = (persisted.legs ?? []).map(toLegRow);
-  const executions = persisted.executions.map((execution) => toExecutionRow(execution, persisted.id));
+  const legs = (persisted.legs ?? []).map((leg, index) => toLegRow(leg, index));
+  const executions = persisted.executions.map((execution, index) => toExecutionRow(execution, persisted.id, index));
 
   const plannedEntry = toNumberOrNull(persisted.plannedEntry);
   const plannedStop = toNumberOrNull(persisted.plannedStop);

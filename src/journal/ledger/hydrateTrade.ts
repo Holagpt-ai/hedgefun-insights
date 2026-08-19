@@ -82,6 +82,7 @@ export interface CanonicalLegRow {
   multiplier?: number | string | null;
   occ_symbol?: string | null;
   status?: string | null;
+  sequence_index?: number | string | null;
 }
 
 export interface CanonicalFeeRow {
@@ -120,6 +121,7 @@ export interface CanonicalExecutionRow {
   import_job_id?: string | null;
   note?: string | null;
   leg_id?: string | null;
+  sequence_index?: number | string | null;
 }
 
 export interface CanonicalCalculationRow {
@@ -322,10 +324,14 @@ function hydrateCanonical(graph: CanonicalTradeGraph): TradeInput {
     .sort((a, b) => {
       const left = a.occurred_at_utc || a.occurred_at || "";
       const right = b.occurred_at_utc || b.occurred_at || "";
-      return left.localeCompare(right);
+      const time = left.localeCompare(right);
+      if (time !== 0) return time;
+      return (asNumber(a.sequence_index) ?? 0) - (asNumber(b.sequence_index) ?? 0);
     })
     .map((execution) => hydrateExecution(execution, graph.fees, row.entry_date));
-  const legs = graph.legs.map(hydrateLeg);
+  const legs = [...graph.legs]
+    .sort((a, b) => (asNumber(a.sequence_index) ?? 0) - (asNumber(b.sequence_index) ?? 0))
+    .map(hydrateLeg);
   const assetClass = asAssetClass(row.asset_class, row.instrument);
   const incomplete = executions.length === 0;
   return {

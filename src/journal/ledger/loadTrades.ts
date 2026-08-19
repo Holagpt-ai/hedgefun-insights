@@ -180,6 +180,7 @@ export function graphRowsFromPayload(
       multiplier: leg.multiplier,
       occ_symbol: leg.occ_symbol,
       status: leg.status,
+      sequence_index: leg.sequence_index,
     })),
     executions: payload.executions.map((execution) => ({
       id: execution.id,
@@ -203,6 +204,7 @@ export function graphRowsFromPayload(
       import_job_id: execution.import_job_id,
       note: execution.note,
       leg_id: execution.leg_id,
+      sequence_index: execution.sequence_index,
     })),
     fees: payload.executions.flatMap((execution) =>
       execution.fees.map((fee, index) => ({
