@@ -920,8 +920,12 @@ SELECT ok(
   (
     SELECT bool_and(
       (
-        coalesce(qual, '') LIKE '%journal_notes.user_id = auth.uid()%'
-        OR coalesce(with_check, '') LIKE '%journal_notes.user_id = auth.uid()%'
+        coalesce(qual, '') LIKE '%user_id = auth.uid()%'
+        OR coalesce(with_check, '') LIKE '%user_id = auth.uid()%'
+      )
+      AND (
+        coalesce(qual, '') LIKE '%EXISTS%'
+        OR coalesce(with_check, '') LIKE '%EXISTS%'
       )
       AND (
         coalesce(qual, '') LIKE '%t.id = journal_notes.trade_id%'
