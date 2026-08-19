@@ -150,19 +150,43 @@ ALTER TABLE public.journal_trades ENABLE ROW LEVEL SECURITY;
 SELECT vault.create_secret('ci-disposable-not-a-production-secret', 'sync_secret');
 SELECT vault.create_secret('ci-disposable-not-a-production-secret-next', 'sync_secret_next');
 
--- 20260720201554 hard-codes production cron job ids 25 and 26.
--- Schedule through those ids using the granted cron.schedule API.
-DO $$
-DECLARE
-  i integer;
-BEGIN
-  FOR i IN 1..24 LOOP
-    PERFORM cron.schedule('ci-dummy-' || i::text, '0 0 1 1 *', 'select 1');
-  END LOOP;
-  PERFORM cron.schedule('sync-screener-every-5min', '0 0 1 1 *', 'select 1');
-  PERFORM cron.schedule('sync-game-prices', '0 0 1 1 *', 'select 1');
-END $$;
+SELECT cron.schedule('sync-screener-every-5min', '0 0 1 1 *', 'select 1');
+SELECT cron.schedule('sync-game-prices', '0 0 1 1 *', 'select 1');
 SQL
+}
+
+rewrite_hardcoded_cron_jobids() {
+  # Production cron job ids 25/26 are not reproducible on a fresh runner.
+  # Rewrite that one local migration to resolve jobs by name. The committed
+  # file is unchanged on the repository.
+  python3 - <<'PY'
+from pathlib import Path
+import re
+p = Path("supabase/migrations/20260720201554_w2r1_convert_crons_to_vault.sql")
+text = p.read_text()
+text = re.sub(
+    r"WHERE jobid = 25\s+AND jobname = 'sync-screener-every-5min'",
+    "WHERE jobname = 'sync-screener-every-5min'",
+    text,
+)
+text = re.sub(
+    r"WHERE jobid = 26\s+AND jobname = 'sync-game-prices'",
+    "WHERE jobname = 'sync-game-prices'",
+    text,
+)
+text = text.replace(
+    "job_id := 25,",
+    "job_id := (SELECT jobid FROM cron.job WHERE jobname = 'sync-screener-every-5min' LIMIT 1),",
+)
+text = text.replace(
+    "job_id := 26,",
+    "job_id := (SELECT jobid FROM cron.job WHERE jobname = 'sync-game-prices' LIMIT 1),",
+)
+if "jobid = 25" in text or "job_id := 25" in text:
+    raise SystemExit("failed to rewrite hardcoded cron job ids")
+p.write_text(text)
+print("rewrote 20260720201554 cron job id guards for disposable CI")
+PY
 }
 
 db_container() {
@@ -183,6 +207,7 @@ fi
 
 echo "==> writing disposable prereq stubs for production-only tables"
 write_disposable_prereqs
+rewrite_hardcoded_cron_jobids
 
 echo "==> starting disposable local database"
 supabase db start
