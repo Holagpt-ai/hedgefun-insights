@@ -230,11 +230,70 @@ describe("journal atomic Migration 2", () => {
     expect(pre).toBeGreaterThan(-1);
     expect(firstDrop).toBeGreaterThan(pre);
     expect(rls).toMatch(/preflight: unexpected policy/);
-    expect(rls).toMatch(/Users can manage own notes/);
-    expect(rls).toMatch(/Users can manage own trades/);
     const preBody = rls.slice(pre, rls.indexOf("$journal_pre$;"));
     expect(preBody).toMatch(/WHERE p\.schemaname = 'public'/);
     expect(preBody).not.toMatch(/storage/);
+    const legacy = [
+      ["journal_trades", "Users can manage own trades"],
+      ["journal_notes", "Users can manage own notes"],
+      ["journal_equity_snapshots", "Users can manage own equity snapshots"],
+      ["journal_imports", "Users can manage own imports"],
+      ["journal_stats_cache", "Users can manage own stats cache"],
+    ] as const;
+    for (const [table, name] of legacy) {
+      expect(preBody).toContain(`('public', '${table}', '${name}')`);
+      const header = `-- public.${table}`;
+      const start = rls.indexOf(header);
+      const doStart = rls.indexOf("DO $journal_pol$", start);
+      const doEnd = rls.indexOf("$journal_pol$;", doStart + 10);
+      const block = rls.slice(doStart, doEnd);
+      expect(block).toContain(
+        `DROP POLICY IF EXISTS %I ON public.%I', '${name}', '${table}'`,
+      );
+      expect(
+        (rls.match(
+          new RegExp(
+            `DROP POLICY IF EXISTS %I ON public\\.%I', '${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}', '${table}'`,
+            "g",
+          ),
+        ) ?? []).length,
+      ).toBe(1);
+    }
+  });
+
+  it("keeps journal_notes parent-trade ownership on every target policy", () => {
+    const start = rls.indexOf("-- public.journal_notes");
+    const doStart = rls.indexOf("DO $journal_pol$", start);
+    const doEnd = rls.indexOf("$journal_pol$;", doStart + 10);
+    const block = rls.slice(doStart, doEnd);
+    const ownership = [
+      "journal_notes.user_id = auth.uid()",
+      "EXISTS (",
+      "FROM public.journal_trades t",
+      "t.id = journal_notes.trade_id",
+      "t.user_id = auth.uid()",
+    ];
+    for (const name of [
+      "journal_notes_select_own",
+      "journal_notes_insert_own",
+      "journal_notes_update_own",
+      "journal_notes_delete_own",
+    ]) {
+      const create = block.indexOf(`CREATE POLICY "${name}"`);
+      const next = block.indexOf("CREATE POLICY", create + 10);
+      const policy = block.slice(create, next === -1 ? block.length : next);
+      for (const needle of ownership) {
+        expect(policy, name).toContain(needle);
+      }
+      expect(policy).not.toMatch(/USING \(user_id = auth\.uid\(\)\)/);
+      expect(policy).not.toMatch(/WITH CHECK \(user_id = auth\.uid\(\)\)/);
+    }
+    const update = block.slice(
+      block.indexOf('CREATE POLICY "journal_notes_update_own"'),
+      block.indexOf('CREATE POLICY "journal_notes_delete_own"'),
+    );
+    expect(update).toMatch(/USING \([\s\S]*EXISTS \([\s\S]*t\.id = journal_notes\.trade_id/);
+    expect(update).toMatch(/WITH CHECK \([\s\S]*EXISTS \([\s\S]*t\.id = journal_notes\.trade_id/);
   });
 
   it("replaces each table's policies inside one atomic DO block", () => {

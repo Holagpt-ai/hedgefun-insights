@@ -106,6 +106,9 @@ BEGIN
         VALUES
     ('public', 'journal_notes', 'Users can manage own notes'),
     ('public', 'journal_trades', 'Users can manage own trades'),
+    ('public', 'journal_equity_snapshots', 'Users can manage own equity snapshots'),
+    ('public', 'journal_imports', 'Users can manage own imports'),
+    ('public', 'journal_stats_cache', 'Users can manage own stats cache'),
     ('public', 'journal_trades', 'journal_trades_select_own'),
     ('public', 'journal_trades', 'journal_trades_insert_own'),
     ('public', 'journal_trades', 'journal_trades_update_own'),
@@ -490,29 +493,69 @@ BEGIN
   ON public.journal_notes
   FOR SELECT
   TO authenticated
-  USING (user_id = auth.uid())
+  USING (
+    journal_notes.user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id
+        AND t.user_id = auth.uid()
+    )
+  )
   $journal_create$;
   EXECUTE $journal_create$
   CREATE POLICY "journal_notes_insert_own"
   ON public.journal_notes
   FOR INSERT
   TO authenticated
-  WITH CHECK (user_id = auth.uid())
+  WITH CHECK (
+    journal_notes.user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id
+        AND t.user_id = auth.uid()
+    )
+  )
   $journal_create$;
   EXECUTE $journal_create$
   CREATE POLICY "journal_notes_update_own"
   ON public.journal_notes
   FOR UPDATE
   TO authenticated
-  USING (user_id = auth.uid())
-  WITH CHECK (user_id = auth.uid())
+  USING (
+    journal_notes.user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id
+        AND t.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    journal_notes.user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id
+        AND t.user_id = auth.uid()
+    )
+  )
   $journal_create$;
   EXECUTE $journal_create$
   CREATE POLICY "journal_notes_delete_own"
   ON public.journal_notes
   FOR DELETE
   TO authenticated
-  USING (user_id = auth.uid())
+  USING (
+    journal_notes.user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id
+        AND t.user_id = auth.uid()
+    )
+  )
   $journal_create$;
 END;
 $journal_pol$;
@@ -525,6 +568,7 @@ GRANT ALL ON TABLE public.journal_notes TO service_role;
 DO $journal_pol$
 BEGIN
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', 'journal_stats_cache');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Users can manage own stats cache', 'journal_stats_cache');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_select_own', 'journal_stats_cache');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_insert_own', 'journal_stats_cache');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_update_own', 'journal_stats_cache');
@@ -569,6 +613,7 @@ GRANT ALL ON TABLE public.journal_stats_cache TO service_role;
 DO $journal_pol$
 BEGIN
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', 'journal_equity_snapshots');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Users can manage own equity snapshots', 'journal_equity_snapshots');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_equity_snapshots_select_own', 'journal_equity_snapshots');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_equity_snapshots_insert_own', 'journal_equity_snapshots');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_equity_snapshots_update_own', 'journal_equity_snapshots');
@@ -613,6 +658,7 @@ GRANT ALL ON TABLE public.journal_equity_snapshots TO service_role;
 DO $journal_pol$
 BEGIN
   EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', 'journal_imports');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Users can manage own imports', 'journal_imports');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_imports_select_own', 'journal_imports');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_imports_insert_own', 'journal_imports');
   EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_imports_update_own', 'journal_imports');

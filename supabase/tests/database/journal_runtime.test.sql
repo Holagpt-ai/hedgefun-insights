@@ -707,6 +707,145 @@ SELECT throws_ok(
 RESET ROLE;
 
 -- ---------------------------------------------------------------------------
+-- Cross-user journal_notes parent-trade ownership
+-- ---------------------------------------------------------------------------
+
+CREATE TEMP TABLE note_ci (
+  a_note uuid,
+  b_trade uuid,
+  mismatch uuid
+);
+GRANT SELECT, UPDATE ON note_ci TO authenticated;
+
+INSERT INTO note_ci (a_note, mismatch) VALUES (
+  'bbbbbbbb-bbbb-4bbb-8bbb-000000000001',
+  'bbbbbbbb-bbbb-4bbb-8bbb-000000000003'
+);
+
+WITH ins AS (
+  INSERT INTO public.journal_trades (
+    user_id, symbol, side, status, qty, entry_price, entry_date
+  ) VALUES (
+    '22222222-2222-4222-8222-0000000000bb',
+    'B', 'long', 'open', 1, 1, now()
+  )
+  RETURNING id
+)
+UPDATE note_ci SET b_trade = (SELECT id FROM ins);
+
+SELECT journal_ci_auth('11111111-1111-4111-8111-0000000000aa');
+SET LOCAL ROLE authenticated;
+
+SELECT lives_ok(
+  format(
+    $q$INSERT INTO public.journal_notes (id, user_id, trade_id, body)
+       VALUES (%L::uuid, '11111111-1111-4111-8111-0000000000aa', %L::uuid, 'owned note')$q$,
+    (SELECT a_note FROM note_ci),
+    (SELECT nvda FROM ci_ids)
+  ),
+  'user A can insert a note attached to user A trade'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.journal_notes WHERE id = (SELECT a_note FROM note_ci)),
+  1,
+  'user A can read their valid note'
+);
+
+SELECT lives_ok(
+  format(
+    $q$UPDATE public.journal_notes SET body = 'updated owned note' WHERE id = %L::uuid$q$,
+    (SELECT a_note FROM note_ci)
+  ),
+  'user A can update their valid note'
+);
+
+SELECT throws_ok(
+  format(
+    $q$INSERT INTO public.journal_notes (user_id, trade_id, body)
+       VALUES ('11111111-1111-4111-8111-0000000000aa', %L::uuid, 'stolen parent')$q$,
+    (SELECT b_trade FROM note_ci)
+  ),
+  '42501',
+  NULL,
+  'user A cannot insert a note against user B trade'
+);
+
+SELECT throws_ok(
+  format(
+    $q$UPDATE public.journal_notes SET trade_id = %L::uuid WHERE id = %L::uuid$q$,
+    (SELECT b_trade FROM note_ci),
+    (SELECT a_note FROM note_ci)
+  ),
+  '42501',
+  NULL,
+  'user A cannot retarget a note to user B trade'
+);
+
+RESET ROLE;
+SET ROLE service_role;
+INSERT INTO public.journal_notes (id, user_id, trade_id, body)
+VALUES (
+  (SELECT mismatch FROM note_ci),
+  '11111111-1111-4111-8111-0000000000aa',
+  (SELECT b_trade FROM note_ci),
+  'mismatched owner and parent'
+);
+RESET ROLE;
+SELECT journal_ci_auth('11111111-1111-4111-8111-0000000000aa');
+SET LOCAL ROLE authenticated;
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.journal_notes WHERE id = (SELECT mismatch FROM note_ci)),
+  0,
+  'user A cannot read a mismatched note/parent-trade row'
+);
+
+SELECT lives_ok(
+  format(
+    $q$DELETE FROM public.journal_notes WHERE id = %L::uuid$q$,
+    (SELECT mismatch FROM note_ci)
+  ),
+  'user A delete against a mismatched note is a no-op under RLS'
+);
+
+RESET ROLE;
+SELECT is(
+  (SELECT count(*)::integer FROM public.journal_notes WHERE id = (SELECT mismatch FROM note_ci)),
+  1,
+  'mismatched row was not deleted by user A'
+);
+
+SELECT journal_ci_auth('22222222-2222-4222-8222-0000000000bb');
+SET LOCAL ROLE authenticated;
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.journal_notes WHERE id = (SELECT a_note FROM note_ci)),
+  0,
+  'user B cannot access user A valid note'
+);
+
+RESET ROLE;
+SELECT journal_ci_auth('11111111-1111-4111-8111-0000000000aa');
+SET LOCAL ROLE authenticated;
+
+SELECT lives_ok(
+  format(
+    $q$DELETE FROM public.journal_notes WHERE id = %L::uuid$q$,
+    (SELECT a_note FROM note_ci)
+  ),
+  'user A can delete their valid note'
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM public.journal_notes WHERE id = (SELECT a_note FROM note_ci)),
+  0,
+  'user A valid note is gone after delete'
+);
+
+RESET ROLE;
+
+-- ---------------------------------------------------------------------------
 -- Fail-closed policy inventory after the complete Journal chain
 -- ---------------------------------------------------------------------------
 
@@ -774,6 +913,43 @@ SELECT ok(
   AND has_table_privilege('authenticated', 'public.journal_executions', 'SELECT')
   AND NOT has_table_privilege('anon', 'public.journal_accounts', 'SELECT'),
   'new tables have authenticated grants and no anon access'
+);
+
+SELECT ok(
+  (
+    SELECT bool_and(
+      (
+        coalesce(qual, '') LIKE '%journal_notes.user_id = auth.uid()%'
+        OR coalesce(with_check, '') LIKE '%journal_notes.user_id = auth.uid()%'
+      )
+      AND (
+        coalesce(qual, '') LIKE '%t.id = journal_notes.trade_id%'
+        OR coalesce(with_check, '') LIKE '%t.id = journal_notes.trade_id%'
+      )
+      AND (
+        coalesce(qual, '') LIKE '%t.user_id = auth.uid()%'
+        OR coalesce(with_check, '') LIKE '%t.user_id = auth.uid()%'
+      )
+    )
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'journal_notes'
+      AND policyname LIKE 'journal_notes_%_own'
+  ),
+  'journal_notes target policies require parent-trade ownership'
+);
+
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'journal_notes'
+      AND cmd = 'UPDATE'
+      AND coalesce(qual, '') LIKE '%t.id = journal_notes.trade_id%'
+      AND coalesce(with_check, '') LIKE '%t.id = journal_notes.trade_id%'
+  ),
+  'journal_notes UPDATE keeps parent-trade ownership in USING and WITH CHECK'
 );
 
 SELECT ok(

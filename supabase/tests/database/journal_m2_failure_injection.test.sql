@@ -226,5 +226,124 @@ SELECT ok(
   'idempotent retry preserves auth.uid() ownership predicates'
 );
 
+-- Install the reviewed live legacy policy, then fail the table's atomic
+-- replacement. Statement rollback must restore that complete legacy policy.
+DROP POLICY IF EXISTS "journal_stats_cache_select_own" ON public.journal_stats_cache;
+DROP POLICY IF EXISTS "journal_stats_cache_insert_own" ON public.journal_stats_cache;
+DROP POLICY IF EXISTS "journal_stats_cache_update_own" ON public.journal_stats_cache;
+DROP POLICY IF EXISTS "journal_stats_cache_delete_own" ON public.journal_stats_cache;
+CREATE POLICY "Users can manage own stats cache"
+  ON public.journal_stats_cache
+  FOR ALL
+  TO public
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'journal_stats_cache'
+  ),
+  1,
+  'legacy stats-cache policy is installed for failure injection'
+);
+
+SELECT throws_ok(
+  $fail$
+  DO $journal_pol$
+  BEGIN
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', 'journal_stats_cache');
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Users can manage own stats cache', 'journal_stats_cache');
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_select_own', 'journal_stats_cache');
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_insert_own', 'journal_stats_cache');
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_update_own', 'journal_stats_cache');
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_delete_own', 'journal_stats_cache');
+    EXECUTE $journal_create$
+    CREATE POLICY "journal_stats_cache_select_own"
+    ON public.journal_stats_cache
+    FOR SELECT
+    TO authenticated
+    USING (user_id = auth.uid() AND __injected_failure__)
+    $journal_create$;
+  END;
+  $journal_pol$;
+  $fail$,
+  '42703',
+  NULL,
+  'failing stats-cache replacement raises inside the atomic DO'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'journal_stats_cache'
+  ),
+  1,
+  'atomic failure restores the complete legacy stats-cache policy'
+);
+
+SELECT ok(
+  EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'journal_stats_cache'
+      AND policyname = 'Users can manage own stats cache'
+  ),
+  'restored policy is the reviewed live legacy name'
+);
+
+DO $journal_pol$
+BEGIN
+  EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', 'journal_stats_cache');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'Users can manage own stats cache', 'journal_stats_cache');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_select_own', 'journal_stats_cache');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_insert_own', 'journal_stats_cache');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_update_own', 'journal_stats_cache');
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', 'journal_stats_cache_delete_own', 'journal_stats_cache');
+  EXECUTE $journal_create$
+  CREATE POLICY "journal_stats_cache_select_own"
+  ON public.journal_stats_cache
+  FOR SELECT
+  TO authenticated
+  USING (user_id = auth.uid())
+  $journal_create$;
+  EXECUTE $journal_create$
+  CREATE POLICY "journal_stats_cache_insert_own"
+  ON public.journal_stats_cache
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (user_id = auth.uid())
+  $journal_create$;
+  EXECUTE $journal_create$
+  CREATE POLICY "journal_stats_cache_update_own"
+  ON public.journal_stats_cache
+  FOR UPDATE
+  TO authenticated
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid())
+  $journal_create$;
+  EXECUTE $journal_create$
+  CREATE POLICY "journal_stats_cache_delete_own"
+  ON public.journal_stats_cache
+  FOR DELETE
+  TO authenticated
+  USING (user_id = auth.uid())
+  $journal_create$;
+END;
+$journal_pol$;
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'journal_stats_cache'
+  ),
+  4,
+  'supported idempotent path reinstalls the complete target stats-cache set'
+);
+
 SELECT * FROM finish();
 ROLLBACK;

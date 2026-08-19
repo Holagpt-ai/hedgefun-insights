@@ -146,18 +146,29 @@ INSERT INTO public.journal_equity_snapshots (
 );
 
 -- Simulate the live five-table RLS posture that Migration 1 preflights.
--- Policy names are allowlisted: known legacy names for trades/notes, and
--- already-installed target names for stats/equity so Migration 2 can rerun.
+-- Policy names match the reviewed live inventory.
 ALTER TABLE public.journal_trades ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_stats_cache ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.journal_equity_snapshots ENABLE ROW LEVEL SECURITY;
 
+CREATE TABLE IF NOT EXISTS public.journal_imports (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  broker text,
+  filename text,
+  status text NOT NULL DEFAULT 'pending',
+  row_count integer,
+  error_message text,
+  imported_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.journal_imports ENABLE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "Users can manage own trades" ON public.journal_trades;
 CREATE POLICY "Users can manage own trades"
   ON public.journal_trades
   FOR ALL
-  TO authenticated
+  TO public
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
@@ -166,24 +177,51 @@ CREATE POLICY "Users can manage own notes"
   ON public.journal_notes
   FOR ALL
   TO authenticated
+  USING (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id
+        AND t.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1
+      FROM public.journal_trades t
+      WHERE t.id = journal_notes.trade_id
+        AND t.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "Users can manage own stats cache" ON public.journal_stats_cache;
+CREATE POLICY "Users can manage own stats cache"
+  ON public.journal_stats_cache
+  FOR ALL
+  TO public
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "journal_stats_cache_select_own" ON public.journal_stats_cache;
-CREATE POLICY "journal_stats_cache_select_own"
-  ON public.journal_stats_cache
-  FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid());
-
-DROP POLICY IF EXISTS "journal_equity_snapshots_select_own" ON public.journal_equity_snapshots;
-CREATE POLICY "journal_equity_snapshots_select_own"
+DROP POLICY IF EXISTS "Users can manage own equity snapshots" ON public.journal_equity_snapshots;
+CREATE POLICY "Users can manage own equity snapshots"
   ON public.journal_equity_snapshots
-  FOR SELECT
-  TO authenticated
-  USING (user_id = auth.uid());
+  FOR ALL
+  TO public
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "Users can manage own imports" ON public.journal_imports;
+CREATE POLICY "Users can manage own imports"
+  ON public.journal_imports
+  FOR ALL
+  TO public
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_trades TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_notes TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_stats_cache TO authenticated;
 GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_equity_snapshots TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.journal_imports TO authenticated;
