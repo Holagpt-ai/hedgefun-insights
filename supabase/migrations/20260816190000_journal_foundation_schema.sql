@@ -1,8 +1,112 @@
 -- Stocksist Trading Journal foundation schema.
 -- Additive / idempotent-safe-ish. Does not drop existing journal_* or legacy trade tables.
+--
+-- Fail-closed under an unproven migration runner that may autocommit each
+-- top-level statement. This file creates no functions, trigger functions,
+-- sequences, views, or types. Triggers reuse public.set_updated_at() only.
+--
+-- Recovery if this file stops after default-privilege quarantine and before
+-- restore: existing tables stay operational (ALTER DEFAULT PRIVILEGES does
+-- not change them). Partially created Journal tables stay inaccessible to
+-- anon/authenticated. Retry this migration, or restore defaults as the
+-- same role that applied the quarantine:
+--   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon;
+--   ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
+-- Do not GRANT table defaults to PUBLIC. Do not create public rollback tables.
+
+-- ---------------------------------------------------------------------------
+-- Preflight: live Journal tables must already be RLS-protected.
+-- Fail before creating anything if the live state is contradictory.
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE
+  t text;
+  v_live constant text[] := ARRAY[
+    'journal_trades',
+    'journal_notes',
+    'journal_equity_snapshots',
+    'journal_stats_cache',
+    'journal_imports'
+  ];
+  v_rel pg_class%ROWTYPE;
+  v_policy_count integer;
+  v_uid_policy_count integer;
+BEGIN
+  FOREACH t IN ARRAY v_live LOOP
+    SELECT c.* INTO v_rel
+    FROM pg_class c
+    JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE n.nspname = 'public'
+      AND c.relname = t
+      AND c.relkind = 'r';
+
+    IF NOT FOUND THEN
+      CONTINUE;
+    END IF;
+
+    IF NOT v_rel.relrowsecurity THEN
+      RAISE EXCEPTION
+        'preflight: public.% is missing row level security',
+        t;
+    END IF;
+
+    SELECT count(*) INTO v_policy_count
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = t;
+
+    IF v_policy_count < 1 THEN
+      RAISE EXCEPTION
+        'preflight: public.% is RLS-enabled but has no policies',
+        t;
+    END IF;
+
+    SELECT count(*) INTO v_uid_policy_count
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = t
+      AND (
+        coalesce(qual, '') LIKE '%auth.uid()%'
+        OR coalesce(with_check, '') LIKE '%auth.uid()%'
+      );
+
+    IF v_uid_policy_count < 1 THEN
+      RAISE EXCEPTION
+        'preflight: public.% has no auth.uid() policy',
+        t;
+    END IF;
+
+    IF t = 'journal_notes'
+       AND NOT EXISTS (
+         SELECT 1
+         FROM pg_policies
+         WHERE schemaname = 'public'
+           AND tablename = 'journal_notes'
+           AND policyname = 'Users can manage own notes'
+       )
+    THEN
+      RAISE EXCEPTION
+        'preflight: public.journal_notes is missing policy "Users can manage own notes"';
+    END IF;
+  END LOOP;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
+-- Quarantine default TABLE privileges for objects this role is about to create.
+-- Does not change existing tables or service_role / sandbox_exec defaults.
+-- Live verified restore target: anon=arwdDxtm, authenticated=arwdDxtm,
+-- PUBLIC has no table default grant. GRANT ALL restores that on this server.
+-- ---------------------------------------------------------------------------
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM authenticated;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC;
 
 -- ---------------------------------------------------------------------------
 -- Existing canonical tables (create only if a fresh environment is missing them)
+-- Live grants/policies on these five are not revoked or replaced here.
 -- ---------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS public.journal_trades (
@@ -1120,3 +1224,147 @@ BEGIN
     );
   END LOOP;
 END $$;
+
+-- ---------------------------------------------------------------------------
+-- Harden tables created by this migration. Exact allowlist — not journal_%.
+-- Live tables that already have policies keep their grants and policies.
+-- ---------------------------------------------------------------------------
+
+DO $$
+DECLARE
+  t text;
+  v_created constant text[] := ARRAY[
+    'journal_trades',
+    'journal_notes',
+    'journal_stats_cache',
+    'journal_equity_snapshots',
+    'journal_imports',
+    'journal_trader_profiles',
+    'journal_accounts',
+    'journal_account_balance_snapshots',
+    'journal_goals',
+    'journal_risk_rules',
+    'journal_coaching_commitments',
+    'journal_cash_ledger_entries',
+    'journal_balance_reconciliations',
+    'journal_currency_conversions',
+    'journal_trade_legs',
+    'journal_executions',
+    'journal_execution_fees',
+    'journal_trade_cash_flows',
+    'journal_trade_plans',
+    'journal_trade_reviews',
+    'journal_trade_context',
+    'journal_trade_relationships',
+    'journal_trade_markers',
+    'journal_attachments',
+    'journal_tags',
+    'journal_tag_assignments',
+    'journal_notebooks',
+    'journal_notebook_entries',
+    'journal_notebook_links',
+    'journal_sessions',
+    'journal_daily_reviews',
+    'journal_playbooks',
+    'journal_playbook_versions',
+    'journal_playbook_rules',
+    'journal_playbook_check_results',
+    'journal_risk_violations',
+    'journal_process_scores',
+    'journal_process_score_components',
+    'journal_metric_definitions',
+    'journal_metric_formula_versions',
+    'journal_report_templates',
+    'journal_saved_reports',
+    'journal_report_runs',
+    'journal_report_run_rows',
+    'journal_report_exports',
+    'journal_report_schedules',
+    'journal_market_context',
+    'journal_market_context_sources',
+    'journal_price_observations',
+    'journal_valuation_snapshots',
+    'journal_calculation_runs',
+    'journal_calculation_lineage',
+    'journal_trade_sequence_metrics',
+    'journal_data_quality_issues',
+    'journal_daily_metrics',
+    'journal_analytics_cache',
+    'journal_performance_insights',
+    'journal_ai_memories',
+    'journal_ai_memory_evidence',
+    'journal_ai_insights',
+    'journal_ai_conversations',
+    'journal_ai_messages',
+    'journal_ai_feedback',
+    'journal_ai_jobs',
+    'journal_ai_usage',
+    'journal_import_jobs',
+    'journal_import_rows',
+    'journal_import_mappings',
+    'journal_integrations',
+    'journal_provider_accounts',
+    'journal_sync_cursors',
+    'journal_webhook_endpoints',
+    'journal_webhook_deliveries',
+    'journal_domain_events',
+    'journal_event_outbox',
+    'journal_audit_log',
+    'journal_dead_letters'
+  ];
+  v_live constant text[] := ARRAY[
+    'journal_trades',
+    'journal_notes',
+    'journal_equity_snapshots',
+    'journal_stats_cache',
+    'journal_imports'
+  ];
+BEGIN
+  FOREACH t IN ARRAY v_created LOOP
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relname = t
+        AND c.relkind = 'r'
+    ) THEN
+      CONTINUE;
+    END IF;
+
+    IF t = ANY (v_live)
+       AND EXISTS (
+         SELECT 1
+         FROM pg_policies
+         WHERE schemaname = 'public'
+           AND tablename = t
+       )
+    THEN
+      CONTINUE;
+    END IF;
+
+    EXECUTE format(
+      'ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY',
+      t
+    );
+
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+      EXECUTE format('REVOKE ALL ON TABLE public.%I FROM anon', t);
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+      EXECUTE format('REVOKE ALL ON TABLE public.%I FROM authenticated', t);
+    END IF;
+    EXECUTE format('REVOKE ALL ON TABLE public.%I FROM PUBLIC', t);
+
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+      EXECUTE format('GRANT ALL ON TABLE public.%I TO service_role', t);
+    END IF;
+  END LOOP;
+END;
+$$;
+
+-- Restore global default TABLE privileges to the verified live starting state.
+-- anon/authenticated: ALL (arwdDxtm on the live server). PUBLIC: no table grant.
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated;
