@@ -97,14 +97,53 @@ CREATE TABLE IF NOT EXISTS public.game_season_results (
 );
 
 CREATE TABLE IF NOT EXISTS public.watchlist_ai_alerts (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticker text
 );
 ALTER TABLE public.watchlist_ai_alerts ENABLE ROW LEVEL SECURITY;
 
 CREATE TABLE IF NOT EXISTS public.watchlist_ai_analysis (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid()
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  ticker text
 );
 ALTER TABLE public.watchlist_ai_analysis ENABLE ROW LEVEL SECURITY;
+
+-- Production Journal tables exist before 20260731213639, which is earlier
+-- than the committed Journal migrations. CREATE TABLE IF NOT EXISTS later
+-- is a no-op; 20260816190000 still adds remaining columns.
+CREATE TABLE IF NOT EXISTS public.journal_trades (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  symbol text NOT NULL,
+  side text NOT NULL,
+  status text NOT NULL DEFAULT 'open',
+  qty numeric NOT NULL,
+  entry_price numeric NOT NULL,
+  exit_price numeric,
+  entry_date timestamptz NOT NULL,
+  exit_date timestamptz,
+  session_date date,
+  target_price numeric,
+  stop_price numeric,
+  setup_tag text,
+  return_dollars numeric,
+  return_pct numeric,
+  hold_duration_minutes integer,
+  is_wash boolean NOT NULL DEFAULT false,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.journal_notes (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  trade_id uuid NOT NULL REFERENCES public.journal_trades(id) ON DELETE CASCADE,
+  body text NOT NULL,
+  note_type text NOT NULL DEFAULT 'general',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.journal_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.journal_trades ENABLE ROW LEVEL SECURITY;
 SQL
 }
 
