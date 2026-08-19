@@ -254,7 +254,7 @@ CREATE TABLE IF NOT EXISTS public.journal_trade_legs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   trade_id uuid NOT NULL REFERENCES public.journal_trades(id) ON DELETE CASCADE,
   action text NOT NULL,
-  right text,
+  "right" text,
   strike numeric,
   expiration date,
   contracts numeric,
@@ -821,7 +821,7 @@ CREATE TABLE IF NOT EXISTS public.journal_ai_conversations (
 CREATE TABLE IF NOT EXISTS public.journal_ai_messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   conversation_id uuid NOT NULL REFERENCES public.journal_ai_conversations(id) ON DELETE CASCADE,
-  role text NOT NULL,
+  "role" text NOT NULL,
   content text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );

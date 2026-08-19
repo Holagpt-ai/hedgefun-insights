@@ -122,7 +122,7 @@ INSERT INTO public.journal_trades (
 
 INSERT INTO public.journal_notes (id, user_id, trade_id, body, note_type)
 VALUES (
-  'n1111111-1111-4111-8111-0000000000n1',
+  'n1111111-1111-4111-8111-000000000001',
   'a1111111-1111-4111-8111-0000000000aa',
   'c1111111-1111-4111-8111-0000000000c1',
   'Legacy NVDA note must survive upgrade.',
@@ -132,7 +132,7 @@ VALUES (
 INSERT INTO public.journal_stats_cache (
   id, user_id, total_trades, wins, losses, wash_trades, win_rate, total_pnl
 ) VALUES (
-  's1111111-1111-4111-8111-0000000000s1',
+  's1111111-1111-4111-8111-000000000001',
   'a1111111-1111-4111-8111-0000000000aa',
   2, 2, 0, 0, 1, 560
 );
