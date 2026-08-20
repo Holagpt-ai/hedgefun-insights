@@ -217,6 +217,19 @@ describe("journal atomic Migration 2", () => {
     expect(rls).toContain("$journal_notes_pred$");
   });
 
+  it("keeps system-catalog SELECT predicates distinct from owner-only writes", () => {
+    expect(rls).toContain("'journal_metric_definitions'");
+    expect(rls).toContain("'journal_report_templates'");
+    expect(rls).toContain("(user_id IS NULL OR user_id = auth.uid())");
+    expect(rls).toMatch(/t = ANY \(v_catalog\)/);
+    expect(rls).toContain("$journal_formula_sel$");
+    expect(rls).toContain("$journal_formula_wr$");
+    expect(rls).toContain("p.id = journal_metric_formula_versions.metric_definition_id");
+    expect(rls).toContain("(p.user_id IS NULL OR p.user_id = auth.uid())");
+    expect(rls).toMatch(/select_pred/);
+    expect(rls).toMatch(/write_pred/);
+  });
+
   it("replaces every managed table inside one atomic DO block", () => {
     expect((rls.match(/DO \$journal_rls\$/g) ?? []).length).toBe(1);
     expect(rls).toMatch(/FOREACH t IN ARRAY v_tables LOOP/);

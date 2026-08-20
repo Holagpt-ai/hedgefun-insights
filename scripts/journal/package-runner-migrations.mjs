@@ -147,8 +147,21 @@ const FEES_PRED = `EXISTS (
     )`;
 
 const USER_PRED = "user_id = auth.uid()";
+const CATALOG = ["journal_metric_definitions", "journal_report_templates"];
+const CATALOG_SELECT_PRED = "(user_id IS NULL OR user_id = auth.uid())";
+const FORMULA_SELECT_PRED = `EXISTS (
+      SELECT 1 FROM public.journal_metric_definitions p
+      WHERE p.id = journal_metric_formula_versions.metric_definition_id
+        AND (p.user_id IS NULL OR p.user_id = auth.uid())
+    )`;
+const FORMULA_WRITE_PRED = `EXISTS (
+      SELECT 1 FROM public.journal_metric_definitions p
+      WHERE p.id = journal_metric_formula_versions.metric_definition_id
+        AND p.user_id = auth.uid()
+    )`;
 const PARENT_TEMPLATE =
   "EXISTS (SELECT 1 FROM public.%I p WHERE p.id = %I.%I AND p.user_id = auth.uid())";
+const NO_USER_ID_SPECIAL = ["journal_execution_fees", "journal_metric_formula_versions"];
 
 const files = [];
 
@@ -303,6 +316,27 @@ function sqlArray(values) {
   return `ARRAY[\n    ${values.map((v) => `'${v.replaceAll("'", "''")}'`).join(",\n    ")}\n  ]`;
 }
 
+function tablesWithoutUserId(src) {
+  const missing = [];
+  const re = /CREATE TABLE IF NOT EXISTS public\.([a-z0-9_]+) \(([\s\S]*?)\n\)/g;
+  let match;
+  while ((match = re.exec(src))) {
+    if (!/\buser_id\b/.test(match[2])) missing.push(match[1]);
+  }
+  return missing;
+}
+
+function assertChildPolicyCoverage(foundationSrc) {
+  const parentChildren = new Set(PARENTS.map((row) => row[0]));
+  const special = new Set(NO_USER_ID_SPECIAL);
+  const uncovered = tablesWithoutUserId(foundationSrc).filter(
+    (name) => !parentChildren.has(name) && !special.has(name),
+  );
+  if (uncovered.length) {
+    throw new Error(`tables without user_id missing policy mapping: ${uncovered.join(", ")}`);
+  }
+}
+
 function packagePolicies() {
   const parentRows = PARENTS.map(
     ([child, parent, fk]) => `    ('${child}', '${parent}', '${fk}')`,
@@ -312,6 +346,7 @@ function packagePolicies() {
   ).join(",\n");
   const tablesSql = sqlArray(TABLE_NAMES);
   const serviceSql = sqlArray(SERVICE);
+  const catalogSql = sqlArray(CATALOG);
 
   const manifestParts = [
     TABLE_NAMES.join(","),
@@ -321,6 +356,10 @@ function packagePolicies() {
     `fees:${toLf(FEES_PRED)}`,
     `user:${USER_PRED}`,
     `parent_template:${PARENT_TEMPLATE}`,
+    `catalog:${CATALOG.join(",")}`,
+    `catalog_select:${CATALOG_SELECT_PRED}`,
+    `formula_select:${toLf(FORMULA_SELECT_PRED)}`,
+    `formula_write:${toLf(FORMULA_WRITE_PRED)}`,
     `service:${SERVICE.join(",")}`,
     "storage:journal_private_select_own,journal_private_insert_own,journal_private_update_own,journal_private_delete_own",
   ].map(toLf);
@@ -346,13 +385,15 @@ DO $journal_rls$
 DECLARE
   r record;
   t text;
-  pred text;
+  select_pred text;
+  write_pred text;
   parent_table text;
   parent_fk text;
   v_digest text;
   v_expected text := '${digest}';
   v_tables constant text[] := ${tablesSql};
   v_service constant text[] := ${serviceSql};
+  v_catalog constant text[] := ${catalogSql};
   v_manifest constant text[] := ARRAY[
 ${manifestSql}
   ];
@@ -424,34 +465,48 @@ ${parentRows}
     WHERE p.child = t;
 
     IF t = 'journal_notes' THEN
-      pred := $journal_notes_pred$
+      select_pred := $journal_notes_pred$
 ${NOTES_PRED}
       $journal_notes_pred$;
+      write_pred := select_pred;
     ELSIF t = 'journal_execution_fees' THEN
-      pred := $journal_fees_pred$
+      select_pred := $journal_fees_pred$
 ${FEES_PRED}
       $journal_fees_pred$;
+      write_pred := select_pred;
+    ELSIF t = 'journal_metric_formula_versions' THEN
+      select_pred := $journal_formula_sel$
+${FORMULA_SELECT_PRED}
+      $journal_formula_sel$;
+      write_pred := $journal_formula_wr$
+${FORMULA_WRITE_PRED}
+      $journal_formula_wr$;
+    ELSIF t = ANY (v_catalog) THEN
+      select_pred := '${CATALOG_SELECT_PRED}';
+      write_pred := '${USER_PRED}';
     ELSIF parent_table IS NOT NULL THEN
-      pred := format('${PARENT_TEMPLATE}', parent_table, t, parent_fk);
+      select_pred := format('${PARENT_TEMPLATE}', parent_table, t, parent_fk);
+      write_pred := select_pred;
     ELSE
-      pred := '${USER_PRED}';
+      select_pred := '${USER_PRED}';
+      write_pred := select_pred;
     END IF;
 
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (%s)',
-      t || '_select_own', t, pred
+      t || '_select_own', t, select_pred
     );
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)',
-      t || '_insert_own', t, pred
+      t || '_insert_own', t, write_pred
     );
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)',
-      t || '_update_own', t, pred, pred
+      t || '_update_own', t, write_pred, write_pred
     );
     EXECUTE format(
       'CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (%s)',
-      t || '_delete_own', t, pred
+      t || '_delete_own', t, write_pred
     );
     IF t = ANY (v_service) THEN
       EXECUTE format(
@@ -695,6 +750,7 @@ for (const name of OLD_FILES) {
 
 mkdirSync(OUT, { recursive: true });
 packageFoundation(m1);
+assertChildPolicyCoverage(m1);
 const manifestParts = packagePolicies();
 packageFunctions(m3);
 

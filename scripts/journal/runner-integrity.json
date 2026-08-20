@@ -86,8 +86,8 @@
     },
     {
       "file": "20260816191200_journal_rls_storage.sql",
-      "bytes": 15461,
-      "digest": "5f410ae088b768f9f84cc54490e13d40",
+      "bytes": 17153,
+      "digest": "a8f1117770972910b0edd77b8afe300e",
       "kind": "policy"
     },
     {
@@ -159,6 +159,10 @@
     "fees:EXISTS (\n      SELECT 1 FROM public.journal_executions e\n      JOIN public.journal_trades p ON p.id = e.trade_id\n      WHERE e.id = journal_execution_fees.execution_id AND p.user_id = auth.uid()\n    )",
     "user:user_id = auth.uid()",
     "parent_template:EXISTS (SELECT 1 FROM public.%I p WHERE p.id = %I.%I AND p.user_id = auth.uid())",
+    "catalog:journal_metric_definitions,journal_report_templates",
+    "catalog_select:(user_id IS NULL OR user_id = auth.uid())",
+    "formula_select:EXISTS (\n      SELECT 1 FROM public.journal_metric_definitions p\n      WHERE p.id = journal_metric_formula_versions.metric_definition_id\n        AND (p.user_id IS NULL OR p.user_id = auth.uid())\n    )",
+    "formula_write:EXISTS (\n      SELECT 1 FROM public.journal_metric_definitions p\n      WHERE p.id = journal_metric_formula_versions.metric_definition_id\n        AND p.user_id = auth.uid()\n    )",
     "service:journal_event_outbox,journal_audit_log,journal_dead_letters",
     "storage:journal_private_select_own,journal_private_insert_own,journal_private_update_own,journal_private_delete_own"
   ]
