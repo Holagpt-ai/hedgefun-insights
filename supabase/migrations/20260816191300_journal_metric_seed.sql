@@ -1,5 +1,5 @@
 -- System metric catalog (English + Spanish) + journal-calc.v1 formulas.
--- integrity-md5: 88a84447da50e6dcda9532c9473e32af
+-- integrity-md5: c0bb6cfea2967fb1be532cfb09be01b7
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -99,7 +99,7 @@ ON CONFLICT (metric_definition_id, formula_version) DO UPDATE SET
   expression = EXCLUDED.expression
 $journal_stmt$
   ];
-  v_expected text := '88a84447da50e6dcda9532c9473e32af';
+  v_expected text := 'c0bb6cfea2967fb1be532cfb09be01b7';
   v_digest text;
   v_stmt text;
 BEGIN

@@ -1,6 +1,6 @@
 -- Trade graph (children of journal_trades) (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: c7dc9fe1264b5043f6926d2f81a2d9a2
+-- integrity-md5: 5f2379de330346a2d3812158e4874441
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -166,7 +166,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := 'c7dc9fe1264b5043f6926d2f81a2d9a2';
+  v_expected text := '5f2379de330346a2d3812158e4874441';
   v_digest text;
   v_stmt text;
 BEGIN

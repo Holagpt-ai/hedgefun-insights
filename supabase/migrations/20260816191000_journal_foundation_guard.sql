@@ -16,7 +16,7 @@
 --
 -- This segment contains only live-state preflight and default TABLE privilege
 -- quarantine. No table creation happens here.
--- integrity-md5: 270b8e77bd4ccc4611c2f95dad337f5d
+-- integrity-md5: 707bf9d90ba303bd7796d4dfd971211d
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -101,7 +101,7 @@ $journal_stmt$,
     $journal_stmt$ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM PUBLIC
 $journal_stmt$
   ];
-  v_expected text := '270b8e77bd4ccc4611c2f95dad337f5d';
+  v_expected text := '707bf9d90ba303bd7796d4dfd971211d';
   v_digest text;
   v_stmt text;
 BEGIN

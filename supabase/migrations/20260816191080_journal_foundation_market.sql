@@ -1,6 +1,6 @@
 -- Market context, calculations, analytics (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: d5af66e5bac8d61709393a8c8c246d62
+-- integrity-md5: 17112fdcb8f91038f70380e0b831e368
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -152,7 +152,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := 'd5af66e5bac8d61709393a8c8c246d62';
+  v_expected text := '17112fdcb8f91038f70380e0b831e368';
   v_digest text;
   v_stmt text;
 BEGIN

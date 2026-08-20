@@ -1,5 +1,5 @@
 -- journal_refresh_derived
--- integrity-md5: 67f900b91c695ca73b55188829a86ccb
+-- integrity-md5: 85d8c6da7a98de5d87d854a08778c27a
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -79,7 +79,7 @@ $journal_stmt$,
     $journal_stmt$REVOKE ALL ON FUNCTION public.journal_refresh_derived(uuid) FROM PUBLIC
 $journal_stmt$
   ];
-  v_expected text := '67f900b91c695ca73b55188829a86ccb';
+  v_expected text := '85d8c6da7a98de5d87d854a08778c27a';
   v_digest text;
   v_stmt text;
 BEGIN

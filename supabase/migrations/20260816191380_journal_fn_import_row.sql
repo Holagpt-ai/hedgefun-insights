@@ -1,5 +1,5 @@
 -- journal_import_row_v1
--- integrity-md5: 4d1822c6097d178b489df90f7dd5ce8f
+-- integrity-md5: d5a0336ec8831622f0259b024f8952b9
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -163,7 +163,7 @@ $journal_stmt$,
     $journal_stmt$GRANT EXECUTE ON FUNCTION public.journal_import_row_v1(uuid, uuid, jsonb) TO authenticated, service_role
 $journal_stmt$
   ];
-  v_expected text := '4d1822c6097d178b489df90f7dd5ce8f';
+  v_expected text := 'd5a0336ec8831622f0259b024f8952b9';
   v_digest text;
   v_stmt text;
 BEGIN

@@ -1,6 +1,6 @@
 -- journal_migrate_legacy_trades
 -- Operator-controlled. This migration does not invoke the function.
--- integrity-md5: 6b5f8f2efb4ca5e92542716b49897712
+-- integrity-md5: f05ae4a1c619f1899d6b151a1d951c23
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -66,7 +66,7 @@ $journal_stmt$,
     $journal_stmt$GRANT EXECUTE ON FUNCTION public.journal_migrate_legacy_trades() TO authenticated, service_role
 $journal_stmt$
   ];
-  v_expected text := '6b5f8f2efb4ca5e92542716b49897712';
+  v_expected text := 'f05ae4a1c619f1899d6b151a1d951c23';
   v_digest text;
   v_stmt text;
 BEGIN

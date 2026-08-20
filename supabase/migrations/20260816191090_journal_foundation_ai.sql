@@ -1,6 +1,6 @@
 -- AI (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: e78dcd355bac282c822759bf0035e4d8
+-- integrity-md5: c3360a689f0e24c11cd0edb3e0c07a06
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -79,7 +79,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := 'e78dcd355bac282c822759bf0035e4d8';
+  v_expected text := 'c3360a689f0e24c11cd0edb3e0c07a06';
   v_digest text;
   v_stmt text;
 BEGIN

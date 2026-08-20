@@ -1,5 +1,5 @@
 -- journal_import_rollback
--- integrity-md5: 1f77483221e683587154ce400d81aad3
+-- integrity-md5: 469bb81b664d7cb96cf9e152bff725db
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -69,7 +69,7 @@ $journal_stmt$,
     $journal_stmt$GRANT EXECUTE ON FUNCTION public.journal_import_rollback(uuid) TO authenticated, service_role
 $journal_stmt$
   ];
-  v_expected text := '1f77483221e683587154ce400d81aad3';
+  v_expected text := '469bb81b664d7cb96cf9e152bff725db';
   v_digest text;
   v_stmt text;
 BEGIN

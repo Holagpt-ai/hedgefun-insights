@@ -1,6 +1,6 @@
 -- Extend journal_trades without breaking side / status / qty.
 -- DROP and recreate of journal_trades_source_not_demo stay in this atomic segment.
--- integrity-md5: 4b4857bb569e404a893f5c991f87571e
+-- integrity-md5: 475f6a50374c70d329b42870b907be07
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -59,7 +59,7 @@ $journal_stmt$,
   CHECK (coalesce(source, '') <> 'demo_workspace')
 $journal_stmt$
   ];
-  v_expected text := '4b4857bb569e404a893f5c991f87571e';
+  v_expected text := '475f6a50374c70d329b42870b907be07';
   v_digest text;
   v_stmt text;
 BEGIN

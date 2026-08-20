@@ -1,6 +1,6 @@
 -- Identity, accounts, goals, risk (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: dc8c8c27fe516f43f7245ccc4c9f27d9
+-- integrity-md5: f0c7443be0788cc718ecfd9279f53f63
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -91,7 +91,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := 'dc8c8c27fe516f43f7245ccc4c9f27d9';
+  v_expected text := 'f0c7443be0788cc718ecfd9279f53f63';
   v_digest text;
   v_stmt text;
 BEGIN

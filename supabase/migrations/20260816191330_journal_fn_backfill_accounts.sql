@@ -22,7 +22,7 @@
 --      exact original account_id mappings.
 --   9. Assertions inspect only captured deployment-created rows — not
 --      every row where source = 'synthetic_backfill'.
--- integrity-md5: 82d80dbce6e1e6fd924a37e757479d33
+-- integrity-md5: 437c50fe6a1da57d2707f9a37c67ffea
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -139,7 +139,7 @@ $journal_stmt$,
     $journal_stmt$GRANT EXECUTE ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) TO authenticated, service_role
 $journal_stmt$
   ];
-  v_expected text := '82d80dbce6e1e6fd924a37e757479d33';
+  v_expected text := '437c50fe6a1da57d2707f9a37c67ffea';
   v_digest text;
   v_stmt text;
 BEGIN

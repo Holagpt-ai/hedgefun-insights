@@ -1,6 +1,6 @@
 -- Notebooks, sessions, playbooks, process (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: 449854b84ce8d14b0e286b7cd5617808
+-- integrity-md5: bf513961af8b243abf9a4c0ad81ab6a8
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -138,7 +138,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := '449854b84ce8d14b0e286b7cd5617808';
+  v_expected text := 'bf513961af8b243abf9a4c0ad81ab6a8';
   v_digest text;
   v_stmt text;
 BEGIN

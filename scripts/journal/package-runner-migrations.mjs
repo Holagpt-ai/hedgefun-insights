@@ -7,6 +7,7 @@ import {
   SIZE_LIMIT,
   sliceBetween,
   splitSqlStatements,
+  toLf,
   utf8Bytes,
   wrapAtomic,
 } from "./sql-pack.mjs";
@@ -152,11 +153,11 @@ const PARENT_TEMPLATE =
 const files = [];
 
 function emit(name, sql, extra = {}) {
-  const bytes = utf8Bytes(sql);
+  const bytes = utf8Bytes(toLf(sql));
   if (bytes > SIZE_LIMIT) {
     throw new Error(`${name} is ${bytes} bytes, exceeds ${SIZE_LIMIT}`);
   }
-  writeFileSync(resolve(OUT, name), sql);
+  writeFileSync(resolve(OUT, name), toLf(sql));
   const rec = { file: name, bytes, digest: extra.digest ?? null, kind: extra.kind };
   files.push(rec);
   console.log(`${name} ${bytes} ${extra.digest ?? ""}`);
@@ -316,13 +317,13 @@ function packagePolicies() {
     TABLE_NAMES.join(","),
     LEGACY.map(([t, n]) => `${t}=${n}`).join("|"),
     PARENTS.map((row) => row.join(".")).join("|"),
-    `notes:${NOTES_PRED}`,
-    `fees:${FEES_PRED}`,
+    `notes:${toLf(NOTES_PRED)}`,
+    `fees:${toLf(FEES_PRED)}`,
     `user:${USER_PRED}`,
     `parent_template:${PARENT_TEMPLATE}`,
     `service:${SERVICE.join(",")}`,
     "storage:journal_private_select_own,journal_private_insert_own,journal_private_update_own,journal_private_delete_own",
-  ];
+  ].map(toLf);
   const digest = md5Statements(manifestParts);
   const manifestSql = manifestParts
     .map((part) => `    $journal_man$${part}$journal_man$`)

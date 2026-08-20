@@ -1,6 +1,6 @@
 -- Domain events / outbox / audit (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: 1fc9607da4967aaa4a5f98de1303783a
+-- integrity-md5: a1be66650cc96a95d66d7fda270953e4
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -48,7 +48,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := '1fc9607da4967aaa4a5f98de1303783a';
+  v_expected text := 'a1be66650cc96a95d66d7fda270953e4';
   v_digest text;
   v_stmt text;
 BEGIN

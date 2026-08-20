@@ -4,7 +4,7 @@
 -- Service-role (auth.uid() IS NULL AND auth.role() = service_role) may calculate
 -- any trade id. Cross-user access returns the same 'trade not found' error.
 -- Writes begin only after a successful compute. over_exit_blocked raises first.
--- integrity-md5: e677059cdb9d48679ca8fe6b7dfeb050
+-- integrity-md5: a22c1160044dd175df43bc035e5ddace
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -389,7 +389,7 @@ $journal_stmt$,
     $journal_stmt$REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM PUBLIC
 $journal_stmt$
   ];
-  v_expected text := 'e677059cdb9d48679ca8fe6b7dfeb050';
+  v_expected text := 'a22c1160044dd175df43bc035e5ddace';
   v_digest text;
   v_stmt text;
 BEGIN

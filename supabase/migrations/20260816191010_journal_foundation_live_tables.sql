@@ -1,7 +1,7 @@
 -- Existing canonical tables (create only if a fresh environment is missing them).
 -- Live grants/policies on these five are not revoked or replaced here.
 -- Default TABLE privileges remain quarantined until foundation finalization.
--- integrity-md5: 92601c27610c65e73a1e5f57c4242aca
+-- integrity-md5: 775a8f4a69b4f682c8b55610e745dbd2
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -82,7 +82,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := '92601c27610c65e73a1e5f57c4242aca';
+  v_expected text := '775a8f4a69b4f682c8b55610e745dbd2';
   v_digest text;
   v_stmt text;
 BEGIN

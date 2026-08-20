@@ -104,11 +104,16 @@ export function splitSqlStatements(sql) {
   return statements;
 }
 
+export function toLf(text) {
+  return String(text).replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
 export function wrapAtomic(statements, { segTag = "journal_seg", header = "" } = {}) {
   if (statements.length === 0) throw new Error("no statements to wrap");
-  // A trailing newline keeps inner $$ / $tag$ closers from fusing with the
-  // wrapper tag ($$$journal_stmt$) and is included in the hashed payload.
-  const bodies = statements.map((s) => `${s}\n`);
+  // Normalize to LF so Windows checkouts and GitHub Actions hash the same
+  // payload. A trailing newline keeps inner $$ closers from fusing with the
+  // wrapper tag and is included in the hashed payload.
+  const bodies = statements.map((s) => `${toLf(s).replace(/\n+$/, "")}\n`);
   const stmtTag = pickDollarTag(bodies, "journal_stmt");
   const digest = md5Statements(bodies);
   const items = bodies.map((s) => `    $${stmtTag}$${s}$${stmtTag}$`).join(",\n");

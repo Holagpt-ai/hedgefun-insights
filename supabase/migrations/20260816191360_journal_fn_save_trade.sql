@@ -1,5 +1,5 @@
 -- journal_save_trade_v1. SECURITY INVOKER; owner is always auth.uid().
--- integrity-md5: 5ede9083c8b1a2a4053439188aaf8465
+-- integrity-md5: 6970651aa8191fd64ce8d44eb6cdb4cd
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -446,7 +446,7 @@ $journal_stmt$,
     $journal_stmt$GRANT EXECUTE ON FUNCTION public.journal_save_trade_v1(jsonb) TO authenticated, service_role
 $journal_stmt$
   ];
-  v_expected text := '5ede9083c8b1a2a4053439188aaf8465';
+  v_expected text := '6970651aa8191fd64ce8d44eb6cdb4cd';
   v_digest text;
   v_stmt text;
 BEGIN

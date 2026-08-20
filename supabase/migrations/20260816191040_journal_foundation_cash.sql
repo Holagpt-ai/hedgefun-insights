@@ -1,6 +1,6 @@
 -- Cash / balances / FX (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: f50f03c21ce31e4dee8da0945d84b37c
+-- integrity-md5: d6d99b0eed3db5bbfebd0f1212f958ec
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -43,7 +43,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := 'f50f03c21ce31e4dee8da0945d84b37c';
+  v_expected text := 'd6d99b0eed3db5bbfebd0f1212f958ec';
   v_digest text;
   v_stmt text;
 BEGIN

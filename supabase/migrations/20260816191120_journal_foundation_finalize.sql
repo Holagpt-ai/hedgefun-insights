@@ -3,7 +3,7 @@
 -- PUBLIC default table grant is never restored.
 -- Harden tables created by this migration. Exact allowlist — not journal_%.
 -- Live tables that already have policies keep their grants and policies.
--- integrity-md5: e401bee7a98986d8d6ce58204eeac3fe
+-- integrity-md5: c15c3b36bfff34ccb4c6ac846770d4ef
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -262,7 +262,7 @@ $journal_stmt$,
     $journal_stmt$ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated
 $journal_stmt$
   ];
-  v_expected text := 'e401bee7a98986d8d6ce58204eeac3fe';
+  v_expected text := 'c15c3b36bfff34ccb4c6ac846770d4ef';
   v_digest text;
   v_stmt text;
 BEGIN

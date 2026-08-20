@@ -8,80 +8,80 @@
   "files": [
     {
       "file": "20260816191000_journal_foundation_guard.sql",
-      "bytes": 3806,
-      "digest": "270b8e77bd4ccc4611c2f95dad337f5d",
+      "bytes": 3734,
+      "digest": "707bf9d90ba303bd7796d4dfd971211d",
       "kind": "foundation-guard"
     },
     {
       "file": "20260816191010_journal_foundation_live_tables.sql",
-      "bytes": 3628,
-      "digest": "92601c27610c65e73a1e5f57c4242aca",
+      "bytes": 3566,
+      "digest": "775a8f4a69b4f682c8b55610e745dbd2",
       "kind": "foundation-live"
     },
     {
       "file": "20260816191020_journal_foundation_trades_extend.sql",
-      "bytes": 3735,
-      "digest": "4b4857bb569e404a893f5c991f87571e",
+      "bytes": 3733,
+      "digest": "475f6a50374c70d329b42870b907be07",
       "kind": "foundation-extend"
     },
     {
       "file": "20260816191030_journal_foundation_identity.sql",
-      "bytes": 4021,
-      "digest": "dc8c8c27fe516f43f7245ccc4c9f27d9",
+      "bytes": 3947,
+      "digest": "f0c7443be0788cc718ecfd9279f53f63",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191040_journal_foundation_cash.sql",
-      "bytes": 2181,
-      "digest": "f50f03c21ce31e4dee8da0945d84b37c",
+      "bytes": 2149,
+      "digest": "d6d99b0eed3db5bbfebd0f1212f958ec",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191050_journal_foundation_trade_graph.sql",
-      "bytes": 7171,
-      "digest": "c7dc9fe1264b5043f6926d2f81a2d9a2",
+      "bytes": 7042,
+      "digest": "5f2379de330346a2d3812158e4874441",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191060_journal_foundation_notebooks.sql",
-      "bytes": 6481,
-      "digest": "449854b84ce8d14b0e286b7cd5617808",
+      "bytes": 6374,
+      "digest": "bf513961af8b243abf9a4c0ad81ab6a8",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191070_journal_foundation_metrics.sql",
-      "bytes": 4373,
-      "digest": "ed383f6e34dd87434da34cc32c7928ad",
+      "bytes": 4307,
+      "digest": "50e8a521a5a850c4e8a58f3912542f06",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191080_journal_foundation_market.sql",
-      "bytes": 7077,
-      "digest": "d5af66e5bac8d61709393a8c8c246d62",
+      "bytes": 6968,
+      "digest": "17112fdcb8f91038f70380e0b831e368",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191090_journal_foundation_ai.sql",
-      "bytes": 3638,
-      "digest": "e78dcd355bac282c822759bf0035e4d8",
+      "bytes": 3580,
+      "digest": "c3360a689f0e24c11cd0edb3e0c07a06",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191100_journal_foundation_imports.sql",
-      "bytes": 5687,
-      "digest": "7f40a4be43bfe2774bf60d4ea325a493",
+      "bytes": 5612,
+      "digest": "8b9db56e53e25dfd5c883f8be6a5d6c8",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191110_journal_foundation_events.sql",
-      "bytes": 2350,
-      "digest": "1fc9607da4967aaa4a5f98de1303783a",
+      "bytes": 2315,
+      "digest": "a1be66650cc96a95d66d7fda270953e4",
       "kind": "foundation-batch"
     },
     {
       "file": "20260816191120_journal_foundation_finalize.sql",
-      "bytes": 10374,
-      "digest": "e401bee7a98986d8d6ce58204eeac3fe",
+      "bytes": 10150,
+      "digest": "c15c3b36bfff34ccb4c6ac846770d4ef",
       "kind": "foundation-finalize"
     },
     {
@@ -92,62 +92,62 @@
     },
     {
       "file": "20260816191300_journal_metric_seed.sql",
-      "bytes": 4369,
-      "digest": "88a84447da50e6dcda9532c9473e32af",
+      "bytes": 4278,
+      "digest": "c0bb6cfea2967fb1be532cfb09be01b7",
       "kind": "metric-seed"
     },
     {
       "file": "20260816191310_journal_fn_calculate_trade.sql",
-      "bytes": 13912,
-      "digest": "e677059cdb9d48679ca8fe6b7dfeb050",
+      "bytes": 13538,
+      "digest": "a22c1160044dd175df43bc035e5ddace",
       "kind": "function"
     },
     {
       "file": "20260816191320_journal_fn_refresh_derived.sql",
-      "bytes": 3240,
-      "digest": "67f900b91c695ca73b55188829a86ccb",
+      "bytes": 3171,
+      "digest": "85d8c6da7a98de5d87d854a08778c27a",
       "kind": "function"
     },
     {
       "file": "20260816191330_journal_fn_backfill_accounts.sql",
-      "bytes": 5447,
-      "digest": "82d80dbce6e1e6fd924a37e757479d33",
+      "bytes": 5339,
+      "digest": "437c50fe6a1da57d2707f9a37c67ffea",
       "kind": "function"
     },
     {
       "file": "20260816191340_journal_fn_migrate_legacy.sql",
-      "bytes": 2443,
-      "digest": "6b5f8f2efb4ca5e92542716b49897712",
+      "bytes": 2386,
+      "digest": "f05ae4a1c619f1899d6b151a1d951c23",
       "kind": "function"
     },
     {
       "file": "20260816191350_journal_fn_import_rollback.sql",
-      "bytes": 2678,
-      "digest": "1f77483221e683587154ce400d81aad3",
+      "bytes": 2617,
+      "digest": "469bb81b664d7cb96cf9e152bff725db",
       "kind": "function"
     },
     {
       "file": "20260816191360_journal_fn_save_trade.sql",
-      "bytes": 18255,
-      "digest": "5ede9083c8b1a2a4053439188aaf8465",
+      "bytes": 17819,
+      "digest": "6970651aa8191fd64ce8d44eb6cdb4cd",
       "kind": "function"
     },
     {
       "file": "20260816191370_journal_fn_import_start.sql",
-      "bytes": 4324,
-      "digest": "13227ae100a8f864cf6ef258316d6a6d",
+      "bytes": 4215,
+      "digest": "3035ed18af16105a33865e5077a9d3b2",
       "kind": "function"
     },
     {
       "file": "20260816191380_journal_fn_import_row.sql",
-      "bytes": 5855,
-      "digest": "4d1822c6097d178b489df90f7dd5ce8f",
+      "bytes": 5702,
+      "digest": "d5a0336ec8831622f0259b024f8952b9",
       "kind": "function"
     },
     {
       "file": "20260816191390_journal_fn_import_finalize.sql",
-      "bytes": 3224,
-      "digest": "349380218cb2ca9e6d6ee1f159fd7792",
+      "bytes": 3144,
+      "digest": "86569d4bee60796943deb294d56d5c99",
       "kind": "function"
     }
   ],

@@ -1,6 +1,6 @@
 -- Imports / integrations (no secrets) (runner-sized atomic segment).
 -- Default TABLE privileges remain quarantined.
--- integrity-md5: 7f40a4be43bfe2774bf60d4ea325a493
+-- integrity-md5: 8b9db56e53e25dfd5c883f8be6a5d6c8
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -116,7 +116,7 @@ $journal_stmt$,
 )
 $journal_stmt$
   ];
-  v_expected text := '7f40a4be43bfe2774bf60d4ea325a493';
+  v_expected text := '8b9db56e53e25dfd5c883f8be6a5d6c8';
   v_digest text;
   v_stmt text;
 BEGIN

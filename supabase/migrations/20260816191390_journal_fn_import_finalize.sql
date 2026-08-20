@@ -1,5 +1,5 @@
 -- journal_import_finalize_v1
--- integrity-md5: 349380218cb2ca9e6d6ee1f159fd7792
+-- integrity-md5: 86569d4bee60796943deb294d56d5c99
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -90,7 +90,7 @@ $journal_stmt$,
     $journal_stmt$GRANT EXECUTE ON FUNCTION public.journal_import_finalize_v1(uuid) TO authenticated, service_role
 $journal_stmt$
   ];
-  v_expected text := '349380218cb2ca9e6d6ee1f159fd7792';
+  v_expected text := '86569d4bee60796943deb294d56d5c99';
   v_digest text;
   v_stmt text;
 BEGIN
