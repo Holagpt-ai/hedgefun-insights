@@ -330,15 +330,15 @@ JOIN pg_namespace n ON n.oid = p.pronamespace
 WHERE n.nspname = 'public' AND p.proname LIKE 'journal_%'
 ORDER BY 1;
 
-SELECT 'defacl|' || pg_get_userbyid(d.defaclrole) || '|' || d.defaclobjtype || '|' || d.defaclacl::text
+SELECT 'defacl|' || pg_get_userbyid(d.defaclrole)::text || '|' || d.defaclobjtype::text || '|' || d.defaclacl::text
 FROM pg_default_acl d
 JOIN pg_namespace n ON n.oid = d.defaclnamespace
 WHERE n.nspname = 'public'
 ORDER BY 1;
 
-SELECT 'counts|accounts=' || (SELECT count(*) FROM public.journal_accounts)
-  || '|executions=' || (SELECT count(*) FROM public.journal_executions)
-  || '|trades=' || (SELECT count(*) FROM public.journal_trades);
+SELECT 'counts|accounts=' || (SELECT count(*) FROM public.journal_accounts)::text
+  || '|executions=' || (SELECT count(*) FROM public.journal_executions)::text
+  || '|trades=' || (SELECT count(*) FROM public.journal_trades)::text;
 SQL
 }
 
