@@ -141,8 +141,10 @@ SELECT is(
         'journal_notes_update_own',
         'journal_notes_delete_own'
       )
-      AND coalesce(qual, '') LIKE '%journal_notes.user_id = auth.uid()%'
-      AND coalesce(qual, '') LIKE '%journal_trades%'
+      AND coalesce(qual, '') LIKE '%user_id = auth.uid()%'
+      AND coalesce(qual, '') LIKE '%EXISTS%'
+      AND coalesce(qual, '') LIKE '%t.id = journal_notes.trade_id%'
+      AND coalesce(qual, '') LIKE '%t.user_id = auth.uid()%'
   ),
   3,
   'notes SELECT/UPDATE/DELETE USING retain parent-trade ownership'
@@ -158,8 +160,10 @@ SELECT is(
         'journal_notes_insert_own',
         'journal_notes_update_own'
       )
-      AND coalesce(with_check, '') LIKE '%journal_notes.user_id = auth.uid()%'
+      AND coalesce(with_check, '') LIKE '%user_id = auth.uid()%'
+      AND coalesce(with_check, '') LIKE '%EXISTS%'
       AND coalesce(with_check, '') LIKE '%t.id = journal_notes.trade_id%'
+      AND coalesce(with_check, '') LIKE '%t.user_id = auth.uid()%'
   ),
   2,
   'notes INSERT/UPDATE WITH CHECK retain parent-trade ownership'

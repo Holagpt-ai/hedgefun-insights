@@ -271,9 +271,9 @@ apply_sql_file() {
 dump_journal_catalog() {
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t <<'SQL'
 SELECT 'col|' || n.nspname || '.' || c.relname || '|' || a.attname || '|' || pg_catalog.format_type(a.atttypid, a.atttypmod)
-  || '|notnull=' || (NOT a.attnotnull)
-  || '|identity=' || a.attidentity
-  || '|generated=' || a.attgenerated
+  || '|notnull=' || (NOT a.attnotnull)::text
+  || '|identity=' || a.attidentity::text
+  || '|generated=' || a.attgenerated::text
   || '|def=' || coalesce(pg_get_expr(ad.adbin, ad.adrelid), '')
 FROM pg_attribute a
 JOIN pg_class c ON c.oid = a.attrelid
@@ -283,7 +283,7 @@ WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'journal_%'
   AND a.attnum > 0 AND NOT a.attisdropped
 ORDER BY 1;
 
-SELECT 'con|' || n.nspname || '.' || c.relname || '|' || x.conname || '|' || x.contype || '|' || pg_get_constraintdef(x.oid)
+SELECT 'con|' || n.nspname || '.' || c.relname || '|' || x.conname || '|' || x.contype::text || '|' || pg_get_constraintdef(x.oid)
 FROM pg_constraint x
 JOIN pg_class c ON c.oid = x.conrelid
 JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -302,7 +302,7 @@ JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relname LIKE 'journal_%' AND NOT t.tgisinternal
 ORDER BY 1;
 
-SELECT 'rls|' || n.nspname || '.' || c.relname || '|enabled=' || c.relrowsecurity || '|forced=' || c.relforcerowsecurity
+SELECT 'rls|' || n.nspname || '.' || c.relname || '|enabled=' || c.relrowsecurity::text || '|forced=' || c.relforcerowsecurity::text
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'journal_%'
@@ -322,7 +322,7 @@ WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'journal_%'
 ORDER BY 1;
 
 SELECT 'fn|' || p.proname || '|' || pg_get_function_identity_arguments(p.oid)
-  || '|vol=' || p.provolatile || '|sec=' || p.prosecdef || '|path=' || coalesce(p.proconfig::text, '')
+  || '|vol=' || p.provolatile::text || '|sec=' || p.prosecdef::text || '|path=' || coalesce(p.proconfig::text, '')
   || '|acl=' || coalesce(p.proacl::text, '')
   || '|def=' || pg_get_functiondef(p.oid)
 FROM pg_proc p
