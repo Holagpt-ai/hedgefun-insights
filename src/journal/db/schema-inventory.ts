@@ -1,6 +1,6 @@
 /**
  * Canonical journal_* relation names for schema/RLS static checks.
- * Keep in sync with supabase/migrations/2026081619*_journal_*.sql
+ * Keep in sync with supabase/migrations/20260816191*_journal_*.sql
  */
 export const TABLE_NAMES: string[] = [
   "journal_trades",

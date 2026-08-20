@@ -1,6 +1,3 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { aggregateTrades, calculatePosition, calculateTrade, microsToNumber } from "../calc";
 import { dailyMetrics } from "../calc/engine";
@@ -8,29 +5,24 @@ import { formatR } from "../lib/format";
 import { AUGUST_14_TRADES } from "../demo/august-fixtures";
 import { buildJournalSavePayload } from "../ledger/persist-contract";
 import type { TradeInput } from "../calc/types";
+import { readJournalSql } from "./journal-sql";
 
 /**
  * These tests prove SQL-text contracts and TypeScript-engine expected results.
  * They are NOT executed PostgreSQL. Database runtime validation is outstanding
  * until a disposable Postgres can apply the unapplied Journal migrations.
  */
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const FN_SQL = readFileSync(
-  resolve(ROOT, "supabase/migrations/20260816190200_journal_functions_backfill.sql"),
-  "utf8",
-);
-const SCHEMA_SQL = readFileSync(
-  resolve(ROOT, "supabase/migrations/20260816190000_journal_foundation_schema.sql"),
-  "utf8",
-);
+const FN_SQL = readJournalSql("functions");
+const SCHEMA_SQL = readJournalSql("foundation");
 
 function dollars(value: bigint): number {
   return Number(microsToNumber(value).toFixed(2));
 }
 
 function taggedBody(sql: string, tag: string): string {
-  const open = sql.indexOf(`AS $${tag}$`);
-  const close = sql.indexOf(`$${tag}$;`, open + 1);
+  const marker = `AS $${tag}$`;
+  const open = sql.indexOf(marker);
+  const close = sql.indexOf(`$${tag}$`, open + marker.length);
   expect(open).toBeGreaterThan(-1);
   expect(close).toBeGreaterThan(open);
   return sql.slice(open, close);

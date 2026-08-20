@@ -8,6 +8,7 @@ on:
       - "supabase/tests/database/**"
       - "supabase/tests/fixtures/**"
       - "scripts/ci/journal-db-runtime.sh"
+      - "scripts/journal/**"
       - ".github/workflows/journal-db-runtime.yml"
   push:
     branches:
@@ -17,6 +18,7 @@ on:
       - "supabase/tests/database/**"
       - "supabase/tests/fixtures/**"
       - "scripts/ci/journal-db-runtime.sh"
+      - "scripts/journal/**"
       - ".github/workflows/journal-db-runtime.yml"
 
 permissions:
@@ -71,3 +73,21 @@ jobs:
           sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
           chmod +x scripts/ci/journal-db-runtime.sh
           scripts/ci/journal-db-runtime.sh m1
+
+  parity-catalog:
+    name: Old vs new catalog parity
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Compare approved three-file catalog to runner-native sequence
+        run: |
+          sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
+          chmod +x scripts/ci/journal-db-runtime.sh
+          scripts/ci/journal-db-runtime.sh parity
+

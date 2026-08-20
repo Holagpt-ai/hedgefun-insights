@@ -1,7 +1,5 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
+import { readJournalSql } from "../db/journal-sql";
 import { calculateTrade, microsToNumber } from "../calc";
 import { AUGUST_14_TRADES, AUGUST_DEMO_TRADES } from "../demo/august-fixtures";
 import { mapLegacyTrade, tradeToLegacyInsert, type LegacyJournalTradeRow } from "../lib/storage";
@@ -17,15 +15,8 @@ import {
 import { saveTrade, type JournalDb } from "./saveTrade";
 import type { TradeInput } from "../calc/types";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const SAVE_SQL = readFileSync(
-  resolve(ROOT, "supabase/migrations/20260816190200_journal_functions_backfill.sql"),
-  "utf8",
-);
-const SCHEMA_SQL = readFileSync(
-  resolve(ROOT, "supabase/migrations/20260816190000_journal_foundation_schema.sql"),
-  "utf8",
-);
+const SAVE_SQL = readJournalSql("functions");
+const SCHEMA_SQL = readJournalSql("foundation");
 
 function dollars(value: bigint): number {
   return Number(microsToNumber(value).toFixed(2));

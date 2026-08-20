@@ -1,12 +1,9 @@
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { readJournalSql } from "../db/journal-sql";
 
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../..");
-const SCHEMA_SQL = readFileSync(resolve(ROOT, "supabase/migrations/20260816190000_journal_foundation_schema.sql"), "utf8");
-const RLS_SQL = readFileSync(resolve(ROOT, "supabase/migrations/20260816190100_journal_rls_storage.sql"), "utf8");
-const FN_SQL = readFileSync(resolve(ROOT, "supabase/migrations/20260816190200_journal_functions_backfill.sql"), "utf8");
+const SCHEMA_SQL = readJournalSql("foundation");
+const RLS_SQL = readJournalSql("policy");
+const FN_SQL = readJournalSql("functions");
 
 function functionBody(sql: string, name: string): string {
   const start = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${name}`);
@@ -24,10 +21,14 @@ describe("journal import SQL-text contract (not executed PostgreSQL)", () => {
   });
 
   it("scopes jobs and rows to auth.uid() so user A cannot view user B's import data", () => {
-    expect(RLS_SQL).toMatch(/journal_import_jobs_select_own[\s\S]*user_id = auth\.uid\(\)/);
-    expect(RLS_SQL).toMatch(/journal_import_rows_select_own[\s\S]*p\.user_id = auth\.uid\(\)/);
-    expect(RLS_SQL).toMatch(/journal_import_rows_insert_own[\s\S]*p\.user_id = auth\.uid\(\)/);
-    expect(RLS_SQL).toMatch(/journal_import_rows_update_own[\s\S]*p\.user_id = auth\.uid\(\)/);
+    expect(RLS_SQL).toContain("'journal_import_jobs'");
+    expect(RLS_SQL).toContain("'journal_import_rows'");
+    expect(RLS_SQL).toContain("user_id = auth.uid()");
+    expect(RLS_SQL).toContain("('journal_import_rows', 'journal_import_jobs', 'import_job_id')");
+    expect(RLS_SQL).toMatch(/p\.user_id = auth\.uid\(\)/);
+    expect(RLS_SQL).toMatch(/t \|\| '_select_own'/);
+    expect(RLS_SQL).toMatch(/t \|\| '_insert_own'/);
+    expect(RLS_SQL).toMatch(/t \|\| '_update_own'/);
   });
 
   it("ignores client-supplied user_id and owns jobs from auth.uid()", () => {

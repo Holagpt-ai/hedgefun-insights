@@ -4,7 +4,7 @@ SET search_path = public, extensions;
 
 SELECT no_plan();
 
--- Disposable Migration 1 gate. Apply only 20260816190000 before this file.
+-- Disposable Migration 1 gate. Apply foundation 20260816191000-20260816191120 only.
 -- Never connect this test to the live Supabase project.
 
 CREATE OR REPLACE FUNCTION journal_ci_auth(p_uid uuid)

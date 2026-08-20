@@ -7,10 +7,15 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 
 MODE="${1:-}"
-if [[ "$MODE" != "clean" && "$MODE" != "legacy" && "$MODE" != "m1" ]]; then
-  echo "usage: $0 clean|legacy|m1" >&2
+if [[ "$MODE" != "clean" && "$MODE" != "legacy" && "$MODE" != "m1" && "$MODE" != "parity" ]]; then
+  echo "usage: $0 clean|legacy|m1|parity" >&2
   exit 2
 fi
+
+JOURNAL_PATTERN="$ROOT/supabase/migrations/20260816191*.sql"
+POLICY_PATTERN="$ROOT/supabase/migrations/202608161912*.sql"
+FUNCTION_PATTERN="$ROOT/supabase/migrations/202608161913*.sql"
+BASELINE_DIR="$ROOT/scripts/journal/approved-baseline"
 
 HELD="$(mktemp -d)"
 DB_CONTAINER=""
@@ -21,8 +26,15 @@ cleanup() {
   if [[ -d "$HELD" ]]; then
     shopt -s nullglob
     mv "$HELD"/2026081619*.sql "$ROOT/supabase/migrations/" 2>/dev/null || true
+    rm -f "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql"
+    rm -f "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql"
+    rm -f "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql"
     rmdir "$HELD" 2>/dev/null || true
   fi
+  git -C "$ROOT" checkout -- \
+    supabase/migrations/20260720201554_w2r1_convert_crons_to_vault.sql \
+    supabase/migrations/20260724190808_71a26e1f-4b2f-4f11-a8b9-8ab5145bf9df.sql \
+    >/dev/null 2>&1 || true
   supabase stop --no-backup >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -256,15 +268,124 @@ apply_sql_file() {
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$file"
 }
 
+dump_journal_catalog() {
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t <<'SQL'
+SELECT 'col|' || n.nspname || '.' || c.relname || '|' || a.attname || '|' || pg_catalog.format_type(a.atttypid, a.atttypmod)
+  || '|notnull=' || (NOT a.attnotnull)
+  || '|identity=' || a.attidentity
+  || '|generated=' || a.attgenerated
+  || '|def=' || coalesce(pg_get_expr(ad.adbin, ad.adrelid), '')
+FROM pg_attribute a
+JOIN pg_class c ON c.oid = a.attrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+LEFT JOIN pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum
+WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'journal_%'
+  AND a.attnum > 0 AND NOT a.attisdropped
+ORDER BY 1;
+
+SELECT 'con|' || n.nspname || '.' || c.relname || '|' || x.conname || '|' || x.contype || '|' || pg_get_constraintdef(x.oid)
+FROM pg_constraint x
+JOIN pg_class c ON c.oid = x.conrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname LIKE 'journal_%'
+ORDER BY 1;
+
+SELECT 'idx|' || schemaname || '.' || tablename || '|' || indexname || '|' || indexdef
+FROM pg_indexes
+WHERE schemaname = 'public' AND tablename LIKE 'journal_%'
+ORDER BY 1;
+
+SELECT 'trg|' || n.nspname || '.' || c.relname || '|' || t.tgname || '|' || pg_get_triggerdef(t.oid)
+FROM pg_trigger t
+JOIN pg_class c ON c.oid = t.tgrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relname LIKE 'journal_%' AND NOT t.tgisinternal
+ORDER BY 1;
+
+SELECT 'rls|' || n.nspname || '.' || c.relname || '|enabled=' || c.relrowsecurity || '|forced=' || c.relforcerowsecurity
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'journal_%'
+ORDER BY 1;
+
+SELECT 'pol|' || schemaname || '.' || tablename || '|' || policyname || '|' || cmd || '|' || roles::text
+  || '|using=' || coalesce(qual, '') || '|check=' || coalesce(with_check, '')
+FROM pg_policies
+WHERE (schemaname = 'public' AND tablename LIKE 'journal_%')
+   OR (schemaname = 'storage' AND policyname LIKE 'journal_private_%')
+ORDER BY 1;
+
+SELECT 'acl|' || n.nspname || '.' || c.relname || '|' || coalesce(c.relacl::text, '')
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname LIKE 'journal_%'
+ORDER BY 1;
+
+SELECT 'fn|' || p.proname || '|' || pg_get_function_identity_arguments(p.oid)
+  || '|vol=' || p.provolatile || '|sec=' || p.prosecdef || '|path=' || coalesce(p.proconfig::text, '')
+  || '|acl=' || coalesce(p.proacl::text, '')
+  || '|def=' || pg_get_functiondef(p.oid)
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public' AND p.proname LIKE 'journal_%'
+ORDER BY 1;
+
+SELECT 'defacl|' || pg_get_userbyid(d.defaclrole) || '|' || d.defaclobjtype || '|' || d.defaclacl::text
+FROM pg_default_acl d
+JOIN pg_namespace n ON n.oid = d.defaclnamespace
+WHERE n.nspname = 'public'
+ORDER BY 1;
+
+SELECT 'counts|accounts=' || (SELECT count(*) FROM public.journal_accounts)
+  || '|executions=' || (SELECT count(*) FROM public.journal_executions)
+  || '|trades=' || (SELECT count(*) FROM public.journal_trades);
+SQL
+}
+
+if [[ "$MODE" == "parity" ]]; then
+  echo "==> old-vs-new schema parity on disposable databases"
+  write_disposable_prereqs
+  rewrite_hardcoded_cron_jobids
+  echo "==> applying approved baseline three-file sequence"
+  shopt -s nullglob
+  mv $JOURNAL_PATTERN "$HELD/"
+  shopt -u nullglob
+  cp "$BASELINE_DIR/"*.sql "$ROOT/supabase/migrations/"
+  supabase db start
+  DB_CONTAINER="$(db_container)"
+  dump_journal_catalog > /tmp/journal-catalog-old.txt
+  supabase stop --no-backup >/dev/null 2>&1 || true
+  rm -f "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql"
+  rm -f "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql"
+  rm -f "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql"
+  shopt -s nullglob
+  mv "$HELD"/20260816191*.sql "$ROOT/supabase/migrations/"
+  shopt -u nullglob
+  echo "==> applying runner-native Journal sequence"
+  write_disposable_prereqs
+  rewrite_hardcoded_cron_jobids
+  supabase db start
+  DB_CONTAINER="$(db_container)"
+  dump_journal_catalog > /tmp/journal-catalog-new.txt
+  if ! diff -u /tmp/journal-catalog-old.txt /tmp/journal-catalog-new.txt; then
+    echo "old-vs-new journal catalog mismatch" >&2
+    exit 1
+  fi
+  echo "==> old-vs-new catalog match"
+  exit 0
+fi
+
 if [[ "$MODE" == "legacy" ]]; then
   echo "==> holding Journal migrations to reset through 20260814180000"
-  mv "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql" "$HELD/"
-  mv "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql" "$HELD/"
-  mv "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql" "$HELD/"
+  shopt -s nullglob
+  mv $JOURNAL_PATTERN "$HELD/"
+  shopt -u nullglob
 elif [[ "$MODE" == "m1" ]]; then
-  echo "==> holding Migrations 2 and 3 so the database stops after fail-closed Migration 1"
-  mv "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql" "$HELD/"
-  mv "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql" "$HELD/"
+  echo "==> holding policy and function migrations so the database stops after foundation"
+  shopt -s nullglob
+  mv $POLICY_PATTERN "$HELD/" 2>/dev/null || true
+  mv $FUNCTION_PATTERN "$HELD/" 2>/dev/null || true
+  shopt -u nullglob
 fi
 
 echo "==> writing disposable prereq stubs for production-only tables"
@@ -286,6 +407,8 @@ if [[ "$MODE" == "clean" ]]; then
   supabase test db --local supabase/tests/database/journal_runtime.test.sql
   echo "==> running Migration 2 failure-injection pgTAP tests"
   supabase test db --local supabase/tests/database/journal_m2_failure_injection.test.sql
+  echo "==> running runner integrity pgTAP tests"
+  supabase test db --local supabase/tests/database/journal_runner_integrity.test.sql
   echo "==> clean-database job passed"
   exit 0
 fi
@@ -293,6 +416,8 @@ fi
 if [[ "$MODE" == "m1" ]]; then
   echo "==> running Migration 1 fail-closed pgTAP tests"
   supabase test db --local supabase/tests/database/journal_m1_failclosed.test.sql
+  echo "==> running foundation batch-failure pgTAP tests"
+  supabase test db --local supabase/tests/database/journal_foundation_batch_failure.test.sql
   echo "==> m1-only job passed"
   exit 0
 fi
@@ -300,10 +425,14 @@ fi
 echo "==> loading legacy Journal seed"
 apply_sql_file "$ROOT/supabase/tests/fixtures/journal_legacy_seed.sql"
 
-echo "==> applying three pending Journal migrations"
-apply_sql_file "$HELD/20260816190000_journal_foundation_schema.sql"
-apply_sql_file "$HELD/20260816190100_journal_rls_storage.sql"
-apply_sql_file "$HELD/20260816190200_journal_functions_backfill.sql"
+echo "==> applying pending Journal migrations in version order"
+shopt -s nullglob
+mapfile -t JOURNAL_HELD < <(ls "$HELD"/20260816191*.sql | sort)
+shopt -u nullglob
+for f in "${JOURNAL_HELD[@]}"; do
+  echo "==> applying $(basename "$f")"
+  apply_sql_file "$f"
+done
 
 echo "==> running legacy-upgrade pgTAP tests"
 supabase test db --local supabase/tests/database/journal_legacy_upgrade.test.sql
