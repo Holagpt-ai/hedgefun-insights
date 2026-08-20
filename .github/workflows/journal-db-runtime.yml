@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.115.0
       - name: Run clean-database Journal runtime tests
         run: |
           sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
@@ -52,7 +52,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.115.0
       - name: Run legacy-upgrade Journal runtime tests
         run: |
           sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
@@ -67,7 +67,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.115.0
       - name: Run Migration 1 fail-closed Journal runtime tests
         run: |
           sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
@@ -84,10 +84,16 @@ jobs:
           fetch-depth: 0
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.115.0
       - name: Compare approved three-file catalog to runner-native sequence
         run: |
           sed -i 's/\r$//' scripts/ci/journal-db-runtime.sh
           chmod +x scripts/ci/journal-db-runtime.sh
           scripts/ci/journal-db-runtime.sh parity
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: journal-catalog-dumps
+          path: /tmp/journal-catalog-*.txt
+          if-no-files-found: ignore
 
