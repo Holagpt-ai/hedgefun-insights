@@ -5762,6 +5762,27 @@ export type Database = {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
       }
+      journal_backfill_accounts_and_executions: {
+        Args: { p_user_id?: string }
+        Returns: Json
+      }
+      journal_calculate_trade_v1: {
+        Args: { p_trade_id: string }
+        Returns: Json
+      }
+      journal_import_finalize_v1: { Args: { p_job_id: string }; Returns: Json }
+      journal_import_rollback: { Args: { p_job_id: string }; Returns: Json }
+      journal_import_row_v1: {
+        Args: { p_job_id: string; p_payload: Json; p_row_id: string }
+        Returns: Json
+      }
+      journal_import_start_v1: { Args: { p_payload: Json }; Returns: Json }
+      journal_migrate_legacy_trades: { Args: never; Returns: Json }
+      journal_refresh_derived: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
+      journal_save_trade_v1: { Args: { p_payload: Json }; Returns: Json }
       record_wl_v2_baseline_written: {
         Args: { p_run_id: string; p_ticker: string }
         Returns: undefined
