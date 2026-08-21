@@ -1655,6 +1655,80 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_metric_definitions: {
+        Row: {
+          category: string | null
+          created_at: string
+          definition_en: string
+          definition_es: string
+          id: string
+          metric_key: string
+          name_en: string
+          name_es: string
+          unit: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          definition_en: string
+          definition_es: string
+          id?: string
+          metric_key: string
+          name_en: string
+          name_es: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          definition_en?: string
+          definition_es?: string
+          id?: string
+          metric_key?: string
+          name_en?: string
+          name_es?: string
+          unit?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      journal_metric_formula_versions: {
+        Row: {
+          created_at: string
+          expression: string | null
+          formula_version: string
+          id: string
+          metric_definition_id: string
+        }
+        Insert: {
+          created_at?: string
+          expression?: string | null
+          formula_version: string
+          id?: string
+          metric_definition_id: string
+        }
+        Update: {
+          created_at?: string
+          expression?: string | null
+          formula_version?: string
+          id?: string
+          metric_definition_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_metric_formula_versions_metric_definition_id_fkey"
+            columns: ["metric_definition_id"]
+            isOneToOne: false
+            referencedRelation: "journal_metric_definitions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_notebook_entries: {
         Row: {
           body: string | null
@@ -2047,6 +2121,173 @@ export type Database = {
           },
         ]
       }
+      journal_report_exports: {
+        Row: {
+          created_at: string
+          format: string
+          id: string
+          report_run_id: string | null
+          storage_path: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          format?: string
+          id?: string
+          report_run_id?: string | null
+          storage_path: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          format?: string
+          id?: string
+          report_run_id?: string | null
+          storage_path?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_report_exports_report_run_id_fkey"
+            columns: ["report_run_id"]
+            isOneToOne: false
+            referencedRelation: "journal_report_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_report_run_rows: {
+        Row: {
+          id: string
+          payload: Json
+          report_run_id: string
+          row_index: number
+        }
+        Insert: {
+          id?: string
+          payload?: Json
+          report_run_id: string
+          row_index: number
+        }
+        Update: {
+          id?: string
+          payload?: Json
+          report_run_id?: string
+          row_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_report_run_rows_report_run_id_fkey"
+            columns: ["report_run_id"]
+            isOneToOne: false
+            referencedRelation: "journal_report_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_report_runs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          saved_report_id: string | null
+          started_at: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          saved_report_id?: string | null
+          started_at?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          saved_report_id?: string | null
+          started_at?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_report_runs_saved_report_id_fkey"
+            columns: ["saved_report_id"]
+            isOneToOne: false
+            referencedRelation: "journal_saved_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_report_schedules: {
+        Row: {
+          created_at: string
+          cron: string | null
+          id: string
+          is_active: boolean
+          last_run_at: string | null
+          saved_report_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          cron?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          saved_report_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          cron?: string | null
+          id?: string
+          is_active?: boolean
+          last_run_at?: string | null
+          saved_report_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_report_schedules_saved_report_id_fkey"
+            columns: ["saved_report_id"]
+            isOneToOne: false
+            referencedRelation: "journal_saved_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_report_templates: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          template: Json
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          template?: Json
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          template?: Json
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       journal_risk_rules: {
         Row: {
           account_id: string | null
@@ -2145,6 +2386,44 @@ export type Database = {
             columns: ["trade_id"]
             isOneToOne: false
             referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_saved_reports: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          params: Json
+          template_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          params?: Json
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          params?: Json
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_saved_reports_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "journal_report_templates"
             referencedColumns: ["id"]
           },
         ]
