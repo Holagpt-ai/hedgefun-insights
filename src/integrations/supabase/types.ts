@@ -2176,6 +2176,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "journal_executions_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "journal_import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "journal_executions_leg_id_fkey"
             columns: ["leg_id"]
             isOneToOne: false
@@ -2669,6 +2676,13 @@ export type Database = {
             columns: ["entry_id"]
             isOneToOne: false
             referencedRelation: "journal_notebook_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_notebook_links_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "journal_playbooks"
             referencedColumns: ["id"]
           },
           {
@@ -4113,7 +4127,50 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "journal_trades_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_trades_context_snapshot_id_fkey"
+            columns: ["context_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trade_context"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_trades_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "journal_import_jobs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_trades_parent_trade_id_fkey"
+            columns: ["parent_trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_trades_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "journal_playbooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_trades_playbook_version_id_fkey"
+            columns: ["playbook_version_id"]
+            isOneToOne: false
+            referencedRelation: "journal_playbook_versions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_valuation_snapshots: {
         Row: {
