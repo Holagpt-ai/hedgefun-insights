@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -759,6 +759,22 @@ const created = [...m1.matchAll(/CREATE TABLE IF NOT EXISTS public\.([a-z0-9_]+)
 );
 if (JSON.stringify(created) !== JSON.stringify(TABLE_NAMES)) {
   throw new Error("foundation CREATE TABLE order drifted from TABLE_NAMES");
+}
+
+const extraAcl = "20260816191210_journal_legacy_acl_hardening.sql";
+const extraAclPath = resolve(OUT, extraAcl);
+if (existsSync(extraAclPath)) {
+  const extraSql = toLf(readFileSync(extraAclPath, "utf8"));
+  const extraDigest = extraSql.match(/-- integrity-md5: ([0-9a-f]{32})/)?.[1] ?? null;
+  const rec = {
+    file: extraAcl,
+    bytes: utf8Bytes(extraSql),
+    digest: extraDigest,
+    kind: "legacy-acl",
+  };
+  const idx = files.findIndex((f) => f.file.startsWith("20260816191300"));
+  files.splice(idx < 0 ? files.length : idx, 0, rec);
+  console.log(`preserved ${extraAcl} ${rec.bytes} ${extraDigest}`);
 }
 
 writeFileSync(

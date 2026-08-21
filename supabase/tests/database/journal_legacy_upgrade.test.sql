@@ -119,6 +119,43 @@ SELECT is(
   'no synthetic_backfill executions exist before the operator backfill'
 );
 
+SELECT ok(
+  NOT has_table_privilege('authenticated', 'public.journal_trades', 'TRUNCATE')
+  AND NOT has_table_privilege('authenticated', 'public.journal_notes', 'TRUNCATE')
+  AND NOT has_table_privilege('authenticated', 'public.journal_equity_snapshots', 'TRUNCATE')
+  AND NOT has_table_privilege('authenticated', 'public.journal_stats_cache', 'TRUNCATE')
+  AND NOT has_table_privilege('authenticated', 'public.journal_imports', 'TRUNCATE')
+  AND NOT has_table_privilege('authenticated', 'public.journal_trades', 'REFERENCES')
+  AND NOT has_table_privilege('authenticated', 'public.journal_notes', 'TRIGGER')
+  AND (
+    CASE
+      WHEN current_setting('server_version_num')::integer < 170000 THEN true
+      ELSE NOT has_table_privilege('authenticated', 'public.journal_trades', 'MAINTAIN')
+    END
+  )
+  AND has_table_privilege('authenticated', 'public.journal_trades', 'SELECT')
+  AND has_table_privilege('authenticated', 'public.journal_trades', 'INSERT')
+  AND has_table_privilege('authenticated', 'public.journal_trades', 'UPDATE')
+  AND has_table_privilege('authenticated', 'public.journal_trades', 'DELETE'),
+  'legacy ACL hardening removed elevated authenticated grants and kept CRUD'
+);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.journal_trades
+    WHERE id IN (
+      'c1111111-1111-4111-8111-0000000000c1',
+      'c1111111-1111-4111-8111-0000000000c2',
+      'c1111111-1111-4111-8111-0000000000c3',
+      'c2222222-2222-4222-8222-0000000000c4'
+    )
+      AND account_id IS NULL
+  ),
+  4,
+  'four legacy account_id values remain NULL after ACL hardening'
+);
+
 -- ---------------------------------------------------------------------------
 -- Operator-controlled backfill. A null argument scopes every user because
 -- auth.uid() is also null in this operator/session context.

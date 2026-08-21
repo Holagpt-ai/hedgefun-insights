@@ -91,6 +91,12 @@
       "kind": "policy"
     },
     {
+      "file": "20260816191210_journal_legacy_acl_hardening.sql",
+      "bytes": 9258,
+      "digest": "3d118b151dd84545d0eca04d0590320c",
+      "kind": "legacy-acl"
+    },
+    {
       "file": "20260816191300_journal_metric_seed.sql",
       "bytes": 4278,
       "digest": "c0bb6cfea2967fb1be532cfb09be01b7",

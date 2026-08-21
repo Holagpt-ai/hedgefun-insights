@@ -15,6 +15,8 @@ fi
 JOURNAL_PATTERN="$ROOT/supabase/migrations/20260816191*.sql"
 POLICY_PATTERN="$ROOT/supabase/migrations/202608161912*.sql"
 FUNCTION_PATTERN="$ROOT/supabase/migrations/202608161913*.sql"
+ACL_FILE="$ROOT/supabase/migrations/20260816191210_journal_legacy_acl_hardening.sql"
+ACL_HELD_NAME="20260816191210_journal_legacy_acl_hardening.sql"
 BASELINE_DIR="$ROOT/scripts/journal/approved-baseline"
 
 HELD="$(mktemp -d)"
@@ -268,6 +270,95 @@ apply_sql_file() {
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 < "$file"
 }
 
+grant_legacy_elevated() {
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+DO $grant$
+BEGIN
+  GRANT TRUNCATE, REFERENCES, TRIGGER ON TABLE
+    public.journal_trades,
+    public.journal_notes,
+    public.journal_equity_snapshots,
+    public.journal_stats_cache,
+    public.journal_imports
+  TO authenticated;
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    EXECUTE $m$
+      GRANT MAINTAIN ON TABLE
+        public.journal_trades,
+        public.journal_notes,
+        public.journal_equity_snapshots,
+        public.journal_stats_cache,
+        public.journal_imports
+      TO authenticated
+    $m$;
+  END IF;
+END;
+$grant$;
+SQL
+}
+
+grant_unexpected_accounts_truncate() {
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT TRUNCATE ON TABLE public.journal_accounts TO authenticated;
+SQL
+}
+
+revoke_unexpected_accounts_truncate() {
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE TRUNCATE ON TABLE public.journal_accounts FROM authenticated;
+SQL
+}
+
+assert_privilege() {
+  local role="$1"
+  local table="$2"
+  local priv="$3"
+  local expect="$4"
+  local actual
+  actual="$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
+    "SELECT has_table_privilege('${role}', 'public.${table}', '${priv}')" | tr -d '[:space:]')"
+  if [[ "$actual" != "$expect" ]]; then
+    echo "expected ${role} ${priv} on ${table} to be ${expect}, got ${actual}" >&2
+    exit 1
+  fi
+}
+
+assert_legacy_elevated() {
+  local expect="$1"
+  local table
+  for table in journal_trades journal_notes journal_equity_snapshots journal_stats_cache journal_imports; do
+    assert_privilege authenticated "$table" TRUNCATE "$expect"
+    assert_privilege authenticated "$table" REFERENCES "$expect"
+    assert_privilege authenticated "$table" TRIGGER "$expect"
+  done
+}
+
+apply_acl_expect_failure() {
+  if apply_sql_file "$ACL_FILE"; then
+    echo "ACL hardening was expected to fail closed" >&2
+    exit 1
+  fi
+}
+
+run_acl_failure_injection() {
+  echo "==> unexpected elevated privilege must fail before any target revoke"
+  grant_legacy_elevated
+  grant_unexpected_accounts_truncate
+  assert_legacy_elevated t
+  assert_privilege authenticated journal_accounts TRUNCATE t
+  apply_acl_expect_failure
+  assert_legacy_elevated t
+  assert_privilege authenticated journal_accounts TRUNCATE t
+  revoke_unexpected_accounts_truncate
+  echo "==> applying ACL hardening after restoring the approved privilege set"
+  apply_sql_file "$ACL_FILE"
+  assert_legacy_elevated f
+  assert_privilege authenticated journal_trades SELECT t
+  echo "==> second ACL hardening execution is idempotent"
+  apply_sql_file "$ACL_FILE"
+  assert_legacy_elevated f
+}
+
 dump_journal_catalog() {
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t <<'SQL'
 SELECT 'col|' || n.nspname || '.' || c.relname || '|' || a.attname || '|' || pg_catalog.format_type(a.atttypid, a.atttypmod)
@@ -361,7 +452,8 @@ if [[ "$MODE" == "parity" ]]; then
   shopt -s nullglob
   mv "$HELD"/20260816191*.sql "$ROOT/supabase/migrations/"
   shopt -u nullglob
-  echo "==> applying runner-native Journal sequence"
+  mv "$ACL_FILE" "$HELD/"
+  echo "==> applying runner-native Journal sequence through 20260816191200"
   write_disposable_prereqs
   rewrite_hardcoded_cron_jobids
   supabase db start
@@ -371,7 +463,14 @@ if [[ "$MODE" == "parity" ]]; then
     echo "old-vs-new journal catalog mismatch" >&2
     exit 1
   fi
-  echo "==> old-vs-new catalog match"
+  echo "==> old-vs-new catalog match through Stage B"
+  echo "==> applying 20260816191210 expected ACL delta"
+  apply_sql_file "$HELD/$ACL_HELD_NAME"
+  dump_journal_catalog > /tmp/journal-catalog-after-acl.txt
+  python3 "$ROOT/scripts/ci/journal-acl-delta.py" \
+    /tmp/journal-catalog-old.txt \
+    /tmp/journal-catalog-after-acl.txt
+  echo "==> post-remediation expected-delta passed"
   exit 0
 fi
 
@@ -409,6 +508,10 @@ if [[ "$MODE" == "clean" ]]; then
   supabase test db --local supabase/tests/database/journal_m2_failure_injection.test.sql
   echo "==> running runner integrity pgTAP tests"
   supabase test db --local supabase/tests/database/journal_runner_integrity.test.sql
+  echo "==> running legacy ACL hardening failure-injection and idempotency"
+  run_acl_failure_injection
+  echo "==> running legacy ACL hardening pgTAP tests"
+  supabase test db --local supabase/tests/database/journal_legacy_acl_hardening.test.sql
   echo "==> clean-database job passed"
   exit 0
 fi
