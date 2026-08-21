@@ -144,7 +144,7 @@ DECLARE
   ];
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
-    v_privs := v_privs || 'MAINTAIN';
+    v_privs := v_privs || ARRAY['MAINTAIN']::text[];
   END IF;
   IF cardinality(v_canon) IS DISTINCT FROM 9 THEN
     RAISE EXCEPTION 'preflight: canonical Journal function count is %', cardinality(v_canon);
@@ -251,7 +251,7 @@ DECLARE
   ];
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
-    v_privs := v_privs || 'MAINTAIN';
+    v_privs := v_privs || ARRAY['MAINTAIN']::text[];
   END IF;
   FOREACH sig IN ARRAY v_canon LOOP
     ${inspectFn}

@@ -9,7 +9,7 @@
 -- Any future drop/recreate of these nine functions must be followed
 -- by this hardening migration or equivalent explicit revocations.
 -- Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
--- integrity-md5: bf7c767ee6ee89ce20bbb9bf8608016d
+-- integrity-md5: 91859448fcbf5d6dfb25dec585f7aa07
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -125,7 +125,7 @@ DECLARE
   ];
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
-    v_privs := v_privs || 'MAINTAIN';
+    v_privs := v_privs || ARRAY['MAINTAIN']::text[];
   END IF;
   IF cardinality(v_canon) IS DISTINCT FROM 9 THEN
     RAISE EXCEPTION 'preflight: canonical Journal function count is %', cardinality(v_canon);
@@ -355,7 +355,7 @@ DECLARE
   ];
 BEGIN
   IF current_setting('server_version_num')::integer >= 170000 THEN
-    v_privs := v_privs || 'MAINTAIN';
+    v_privs := v_privs || ARRAY['MAINTAIN']::text[];
   END IF;
   FOREACH sig IN ARRAY v_canon LOOP
     v_oid := to_regprocedure('public.' || sig);
@@ -426,7 +426,7 @@ END;
 $journal_fn_post$
 $journal_stmt$
   ];
-  v_expected text := 'bf7c767ee6ee89ce20bbb9bf8608016d';
+  v_expected text := '91859448fcbf5d6dfb25dec585f7aa07';
   v_digest text;
   v_stmt text;
 BEGIN
