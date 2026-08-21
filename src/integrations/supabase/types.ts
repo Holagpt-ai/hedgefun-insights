@@ -1045,6 +1045,351 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_account_balance_snapshots: {
+        Row: {
+          account_id: string
+          buying_power: number | null
+          cash_balance: number | null
+          created_at: string
+          currency: string
+          equity: number | null
+          id: string
+          snapshot_at: string
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          buying_power?: number | null
+          cash_balance?: number | null
+          created_at?: string
+          currency?: string
+          equity?: number | null
+          id?: string
+          snapshot_at: string
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          buying_power?: number | null
+          cash_balance?: number | null
+          created_at?: string
+          currency?: string
+          equity?: number | null
+          id?: string
+          snapshot_at?: string
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_account_balance_snapshots_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_accounts: {
+        Row: {
+          account_type: string | null
+          base_currency: string
+          broker: string | null
+          closed_at: string | null
+          created_at: string
+          id: string
+          is_paper: boolean
+          is_primary: boolean
+          metadata: Json
+          name: string
+          opened_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_type?: string | null
+          base_currency?: string
+          broker?: string | null
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          is_paper?: boolean
+          is_primary?: boolean
+          metadata?: Json
+          name: string
+          opened_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_type?: string | null
+          base_currency?: string
+          broker?: string | null
+          closed_at?: string | null
+          created_at?: string
+          id?: string
+          is_paper?: boolean
+          is_primary?: boolean
+          metadata?: Json
+          name?: string
+          opened_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_attachments: {
+        Row: {
+          byte_size: number | null
+          content_type: string | null
+          created_at: string
+          filename: string | null
+          id: string
+          storage_path: string
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          byte_size?: number | null
+          content_type?: string | null
+          created_at?: string
+          filename?: string | null
+          id?: string
+          storage_path: string
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          byte_size?: number | null
+          content_type?: string | null
+          created_at?: string
+          filename?: string | null
+          id?: string
+          storage_path?: string
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_attachments_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_balance_reconciliations: {
+        Row: {
+          account_id: string
+          as_of: string
+          created_at: string
+          derived_equity: number | null
+          difference: number | null
+          id: string
+          notes: string | null
+          reported_balance: number | null
+          state: string
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          as_of: string
+          created_at?: string
+          derived_equity?: number | null
+          difference?: number | null
+          id?: string
+          notes?: string | null
+          reported_balance?: number | null
+          state?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          as_of?: string
+          created_at?: string
+          derived_equity?: number | null
+          difference?: number | null
+          id?: string
+          notes?: string | null
+          reported_balance?: number | null
+          state?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_balance_reconciliations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_cash_ledger_entries: {
+        Row: {
+          account_id: string
+          amount: number
+          created_at: string
+          currency: string
+          entry_type: string
+          external_id: string | null
+          id: string
+          memo: string | null
+          occurred_at: string
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id: string
+          amount: number
+          created_at?: string
+          currency?: string
+          entry_type: string
+          external_id?: string | null
+          id?: string
+          memo?: string | null
+          occurred_at: string
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string
+          amount?: number
+          created_at?: string
+          currency?: string
+          entry_type?: string
+          external_id?: string | null
+          id?: string
+          memo?: string | null
+          occurred_at?: string
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_cash_ledger_entries_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_cash_ledger_entries_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_coaching_commitments: {
+        Row: {
+          body: string | null
+          created_at: string
+          ends_on: string | null
+          id: string
+          starts_on: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          starts_on?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          ends_on?: string | null
+          id?: string
+          starts_on?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_currency_conversions: {
+        Row: {
+          as_of: string
+          created_at: string
+          from_currency: string
+          id: string
+          rate: number
+          source: string | null
+          to_currency: string
+          user_id: string
+        }
+        Insert: {
+          as_of: string
+          created_at?: string
+          from_currency: string
+          id?: string
+          rate: number
+          source?: string | null
+          to_currency: string
+          user_id: string
+        }
+        Update: {
+          as_of?: string
+          created_at?: string
+          from_currency?: string
+          id?: string
+          rate?: number
+          source?: string | null
+          to_currency?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_daily_reviews: {
+        Row: {
+          body: string | null
+          created_at: string
+          followed_process: boolean | null
+          grade: string | null
+          id: string
+          review_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          followed_process?: boolean | null
+          grade?: string | null
+          id?: string
+          review_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          followed_process?: boolean | null
+          grade?: string | null
+          id?: string
+          review_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       journal_equity_snapshots: {
         Row: {
           created_at: string
@@ -1071,6 +1416,211 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      journal_execution_fees: {
+        Row: {
+          account_currency_amount: number | null
+          amount: number
+          conversion_rate: number | null
+          conversion_source: string | null
+          conversion_timestamp: string | null
+          created_at: string
+          currency: string
+          execution_id: string
+          id: string
+          kind: string
+          native_amount: number | null
+          native_currency: string | null
+        }
+        Insert: {
+          account_currency_amount?: number | null
+          amount: number
+          conversion_rate?: number | null
+          conversion_source?: string | null
+          conversion_timestamp?: string | null
+          created_at?: string
+          currency?: string
+          execution_id: string
+          id?: string
+          kind: string
+          native_amount?: number | null
+          native_currency?: string | null
+        }
+        Update: {
+          account_currency_amount?: number | null
+          amount?: number
+          conversion_rate?: number | null
+          conversion_source?: string | null
+          conversion_timestamp?: string | null
+          created_at?: string
+          currency?: string
+          execution_id?: string
+          id?: string
+          kind?: string
+          native_amount?: number | null
+          native_currency?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_execution_fees_execution_id_fkey"
+            columns: ["execution_id"]
+            isOneToOne: false
+            referencedRelation: "journal_executions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_executions: {
+        Row: {
+          action: string
+          commission: number | null
+          created_at: string
+          external_execution_id: string | null
+          fee_currency: string | null
+          id: string
+          idempotency_key: string | null
+          import_job_id: string | null
+          leg_id: string | null
+          multiplier: number
+          note: string | null
+          occurred_at: string | null
+          occurred_at_utc: string | null
+          order_type: string | null
+          other_fee: number | null
+          price: number
+          quantity: number
+          regulatory_fee: number | null
+          sequence_index: number
+          source: string | null
+          timezone: string | null
+          trade_id: string
+          venue: string | null
+        }
+        Insert: {
+          action: string
+          commission?: number | null
+          created_at?: string
+          external_execution_id?: string | null
+          fee_currency?: string | null
+          id?: string
+          idempotency_key?: string | null
+          import_job_id?: string | null
+          leg_id?: string | null
+          multiplier?: number
+          note?: string | null
+          occurred_at?: string | null
+          occurred_at_utc?: string | null
+          order_type?: string | null
+          other_fee?: number | null
+          price: number
+          quantity: number
+          regulatory_fee?: number | null
+          sequence_index?: number
+          source?: string | null
+          timezone?: string | null
+          trade_id: string
+          venue?: string | null
+        }
+        Update: {
+          action?: string
+          commission?: number | null
+          created_at?: string
+          external_execution_id?: string | null
+          fee_currency?: string | null
+          id?: string
+          idempotency_key?: string | null
+          import_job_id?: string | null
+          leg_id?: string | null
+          multiplier?: number
+          note?: string | null
+          occurred_at?: string | null
+          occurred_at_utc?: string | null
+          order_type?: string | null
+          other_fee?: number | null
+          price?: number
+          quantity?: number
+          regulatory_fee?: number | null
+          sequence_index?: number
+          source?: string | null
+          timezone?: string | null
+          trade_id?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_executions_leg_id_fkey"
+            columns: ["leg_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trade_legs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_executions_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_goals: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          id: string
+          max_daily_loss: number | null
+          max_drawdown: number | null
+          notes: string | null
+          period_end: string | null
+          period_start: string | null
+          period_type: string
+          status: string
+          target_pnl: number | null
+          target_r: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          max_daily_loss?: number | null
+          max_drawdown?: number | null
+          notes?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          period_type?: string
+          status?: string
+          target_pnl?: number | null
+          target_r?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          max_daily_loss?: number | null
+          max_drawdown?: number | null
+          notes?: string | null
+          period_end?: string | null
+          period_start?: string | null
+          period_type?: string
+          status?: string
+          target_pnl?: number | null
+          target_r?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_goals_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_imports: {
         Row: {
@@ -1101,6 +1651,113 @@ export type Database = {
           imported_at?: string
           row_count?: number | null
           status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_notebook_entries: {
+        Row: {
+          body: string | null
+          created_at: string
+          entry_date: string | null
+          id: string
+          notebook_id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          entry_date?: string | null
+          id?: string
+          notebook_id: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          entry_date?: string | null
+          id?: string
+          notebook_id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_notebook_entries_notebook_id_fkey"
+            columns: ["notebook_id"]
+            isOneToOne: false
+            referencedRelation: "journal_notebooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_notebook_links: {
+        Row: {
+          created_at: string
+          entry_id: string
+          id: string
+          playbook_id: string | null
+          trade_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          entry_id: string
+          id?: string
+          playbook_id?: string | null
+          trade_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          entry_id?: string
+          id?: string
+          playbook_id?: string | null
+          trade_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_notebook_links_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "journal_notebook_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_notebook_links_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_notebooks: {
+        Row: {
+          created_at: string
+          id: string
+          kind: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          kind?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          kind?: string
+          title?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -1136,6 +1793,405 @@ export type Database = {
             columns: ["trade_id"]
             isOneToOne: false
             referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_playbook_check_results: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          passed: boolean | null
+          rule_id: string
+          trade_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          passed?: boolean | null
+          rule_id: string
+          trade_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          passed?: boolean | null
+          rule_id?: string
+          trade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_playbook_check_results_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "journal_playbook_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_playbook_check_results_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_playbook_rules: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_required: boolean
+          playbook_id: string
+          rule_key: string
+          user_id: string
+          version_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          playbook_id: string
+          rule_key: string
+          user_id: string
+          version_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_required?: boolean
+          playbook_id?: string
+          rule_key?: string
+          user_id?: string
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_playbook_rules_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "journal_playbooks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_playbook_rules_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "journal_playbook_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_playbook_versions: {
+        Row: {
+          created_at: string
+          id: string
+          playbook_id: string
+          rules_snapshot: Json
+          user_id: string
+          version_number: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          playbook_id: string
+          rules_snapshot?: Json
+          user_id: string
+          version_number?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          playbook_id?: string
+          rules_snapshot?: Json
+          user_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_playbook_versions_playbook_id_fkey"
+            columns: ["playbook_id"]
+            isOneToOne: false
+            referencedRelation: "journal_playbooks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_playbooks: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_process_score_components: {
+        Row: {
+          applicable: boolean
+          component_key: string
+          created_at: string
+          id: string
+          process_score_id: string
+          reason: string | null
+          score: number | null
+          weight: number | null
+        }
+        Insert: {
+          applicable?: boolean
+          component_key: string
+          created_at?: string
+          id?: string
+          process_score_id: string
+          reason?: string | null
+          score?: number | null
+          weight?: number | null
+        }
+        Update: {
+          applicable?: boolean
+          component_key?: string
+          created_at?: string
+          id?: string
+          process_score_id?: string
+          reason?: string | null
+          score?: number | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_process_score_components_process_score_id_fkey"
+            columns: ["process_score_id"]
+            isOneToOne: false
+            referencedRelation: "journal_process_scores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_process_scores: {
+        Row: {
+          confidence: string | null
+          created_at: string
+          id: string
+          review_date: string | null
+          session_id: string | null
+          state: string | null
+          total: number | null
+          trade_id: string | null
+          user_id: string
+          version: string | null
+        }
+        Insert: {
+          confidence?: string | null
+          created_at?: string
+          id?: string
+          review_date?: string | null
+          session_id?: string | null
+          state?: string | null
+          total?: number | null
+          trade_id?: string | null
+          user_id: string
+          version?: string | null
+        }
+        Update: {
+          confidence?: string | null
+          created_at?: string
+          id?: string
+          review_date?: string | null
+          session_id?: string | null
+          state?: string | null
+          total?: number | null
+          trade_id?: string | null
+          user_id?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_process_scores_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "journal_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_process_scores_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_risk_rules: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          id: string
+          is_active: boolean
+          params: Json
+          rule_key: string
+          rule_type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          params?: Json
+          rule_key: string
+          rule_type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          params?: Json
+          rule_key?: string
+          rule_type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_risk_rules_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_risk_violations: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          details: Json
+          id: string
+          occurred_at: string
+          rule_id: string | null
+          severity: string
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          occurred_at?: string
+          rule_id?: string | null
+          severity?: string
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          details?: Json
+          id?: string
+          occurred_at?: string
+          rule_id?: string | null
+          severity?: string
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_risk_violations_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_risk_violations_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "journal_risk_rules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_risk_violations_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_sessions: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          ended_at: string | null
+          id: string
+          notes: string | null
+          session_date: string
+          started_at: string | null
+          timezone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          session_date: string
+          started_at?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          notes?: string | null
+          session_date?: string
+          started_at?: string | null
+          timezone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_sessions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
             referencedColumns: ["id"]
           },
         ]
@@ -1194,67 +2250,544 @@ export type Database = {
         }
         Relationships: []
       }
-      journal_trades: {
+      journal_tag_assignments: {
         Row: {
           created_at: string
+          id: string
+          tag_id: string
+          trade_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tag_id: string
+          trade_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tag_id?: string
+          trade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_tag_assignments_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "journal_tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_tag_assignments_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_trade_cash_flows: {
+        Row: {
+          amount: number
+          created_at: string
+          currency: string
+          flow_type: string
+          id: string
+          occurred_at: string
+          trade_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          currency?: string
+          flow_type: string
+          id?: string
+          occurred_at: string
+          trade_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          currency?: string
+          flow_type?: string
+          id?: string
+          occurred_at?: string
+          trade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_trade_cash_flows_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_trade_context: {
+        Row: {
+          captured_at: string
+          created_at: string
+          id: string
+          snapshot: Json
+          trade_id: string | null
+          user_id: string
+        }
+        Insert: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          snapshot?: Json
+          trade_id?: string | null
+          user_id: string
+        }
+        Update: {
+          captured_at?: string
+          created_at?: string
+          id?: string
+          snapshot?: Json
+          trade_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_trade_context_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_trade_legs: {
+        Row: {
+          action: string
+          contracts: number | null
+          created_at: string
+          expiration: string | null
+          id: string
+          multiplier: number
+          occ_symbol: string | null
+          right: string | null
+          sequence_index: number
+          status: string
+          strike: number | null
+          trade_id: string
+        }
+        Insert: {
+          action: string
+          contracts?: number | null
+          created_at?: string
+          expiration?: string | null
+          id?: string
+          multiplier?: number
+          occ_symbol?: string | null
+          right?: string | null
+          sequence_index?: number
+          status?: string
+          strike?: number | null
+          trade_id: string
+        }
+        Update: {
+          action?: string
+          contracts?: number | null
+          created_at?: string
+          expiration?: string | null
+          id?: string
+          multiplier?: number
+          occ_symbol?: string | null
+          right?: string | null
+          sequence_index?: number
+          status?: string
+          strike?: number | null
+          trade_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_trade_legs_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_trade_markers: {
+        Row: {
+          created_at: string
+          id: string
+          marker_type: string
+          note: string | null
+          occurred_at: string | null
+          price: number | null
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          marker_type: string
+          note?: string | null
+          occurred_at?: string | null
+          price?: number | null
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          marker_type?: string
+          note?: string | null
+          occurred_at?: string | null
+          price?: number | null
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_trade_markers_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_trade_plans: {
+        Row: {
+          created_at: string
+          id: string
+          planned_entry: number | null
+          planned_risk: number | null
+          planned_size: number | null
+          planned_stop: number | null
+          planned_target: number | null
+          thesis: string | null
+          trade_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          planned_entry?: number | null
+          planned_risk?: number | null
+          planned_size?: number | null
+          planned_stop?: number | null
+          planned_target?: number | null
+          thesis?: string | null
+          trade_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          planned_entry?: number | null
+          planned_risk?: number | null
+          planned_size?: number | null
+          planned_stop?: number | null
+          planned_target?: number | null
+          thesis?: string | null
+          trade_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_trade_plans_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: true
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_trade_relationships: {
+        Row: {
+          created_at: string
+          from_trade_id: string
+          id: string
+          relationship_type: string
+          to_trade_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          from_trade_id: string
+          id?: string
+          relationship_type: string
+          to_trade_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          from_trade_id?: string
+          id?: string
+          relationship_type?: string
+          to_trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_trade_relationships_from_trade_id_fkey"
+            columns: ["from_trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_trade_relationships_to_trade_id_fkey"
+            columns: ["to_trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_trade_reviews: {
+        Row: {
+          body: string | null
+          created_at: string
+          emotions: string | null
+          followed_plan: boolean | null
+          id: string
+          lessons: string | null
+          rating: number | null
+          reviewed_at: string
+          trade_id: string
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          emotions?: string | null
+          followed_plan?: boolean | null
+          id?: string
+          lessons?: string | null
+          rating?: number | null
+          reviewed_at?: string
+          trade_id: string
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          emotions?: string | null
+          followed_plan?: boolean | null
+          id?: string
+          lessons?: string | null
+          rating?: number | null
+          reviewed_at?: string
+          trade_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_trade_reviews_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_trader_profiles: {
+        Row: {
+          created_at: string
+          default_currency: string
+          default_timezone: string
+          display_name: string | null
+          experience_level: string | null
+          id: string
+          locale: string
+          preferences: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_currency?: string
+          default_timezone?: string
+          display_name?: string | null
+          experience_level?: string | null
+          id?: string
+          locale?: string
+          preferences?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_currency?: string
+          default_timezone?: string
+          display_name?: string | null
+          experience_level?: string | null
+          id?: string
+          locale?: string
+          preferences?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_trades: {
+        Row: {
+          account_id: string | null
+          archived_at: string | null
+          asset_class: string | null
+          calculation_version: string | null
+          context_snapshot_id: string | null
+          created_at: string
+          demo_forbidden: boolean
+          direction: string | null
+          discovery_source: string | null
           entry_date: string
           entry_price: number
           exit_date: string | null
           exit_price: number | null
           hold_duration_minutes: number | null
           id: string
+          import_job_id: string | null
+          instrument: string | null
           is_wash: boolean
+          lifecycle_status: string | null
+          parent_trade_id: string | null
+          planned_entry: number | null
+          planned_risk: number | null
+          planned_size: number | null
+          planned_stop: number | null
+          planned_target: number | null
+          playbook_id: string | null
+          playbook_version_id: string | null
           qty: number
           return_dollars: number | null
           return_pct: number | null
+          reviewed_at: string | null
+          session_date: string | null
           setup_tag: string | null
           side: string
+          source: string
           status: string
           stop_price: number | null
           symbol: string
           target_price: number | null
+          thesis: string | null
+          timezone: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          account_id?: string | null
+          archived_at?: string | null
+          asset_class?: string | null
+          calculation_version?: string | null
+          context_snapshot_id?: string | null
           created_at?: string
+          demo_forbidden?: boolean
+          direction?: string | null
+          discovery_source?: string | null
           entry_date: string
           entry_price: number
           exit_date?: string | null
           exit_price?: number | null
           hold_duration_minutes?: number | null
           id?: string
+          import_job_id?: string | null
+          instrument?: string | null
           is_wash?: boolean
+          lifecycle_status?: string | null
+          parent_trade_id?: string | null
+          planned_entry?: number | null
+          planned_risk?: number | null
+          planned_size?: number | null
+          planned_stop?: number | null
+          planned_target?: number | null
+          playbook_id?: string | null
+          playbook_version_id?: string | null
           qty: number
           return_dollars?: number | null
           return_pct?: number | null
+          reviewed_at?: string | null
+          session_date?: string | null
           setup_tag?: string | null
           side: string
+          source?: string
           status?: string
           stop_price?: number | null
           symbol: string
           target_price?: number | null
+          thesis?: string | null
+          timezone?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          account_id?: string | null
+          archived_at?: string | null
+          asset_class?: string | null
+          calculation_version?: string | null
+          context_snapshot_id?: string | null
           created_at?: string
+          demo_forbidden?: boolean
+          direction?: string | null
+          discovery_source?: string | null
           entry_date?: string
           entry_price?: number
           exit_date?: string | null
           exit_price?: number | null
           hold_duration_minutes?: number | null
           id?: string
+          import_job_id?: string | null
+          instrument?: string | null
           is_wash?: boolean
+          lifecycle_status?: string | null
+          parent_trade_id?: string | null
+          planned_entry?: number | null
+          planned_risk?: number | null
+          planned_size?: number | null
+          planned_stop?: number | null
+          planned_target?: number | null
+          playbook_id?: string | null
+          playbook_version_id?: string | null
           qty?: number
           return_dollars?: number | null
           return_pct?: number | null
+          reviewed_at?: string | null
+          session_date?: string | null
           setup_tag?: string | null
           side?: string
+          source?: string
           status?: string
           stop_price?: number | null
           symbol?: string
           target_price?: number | null
+          thesis?: string | null
+          timezone?: string | null
           updated_at?: string
           user_id?: string
         }
