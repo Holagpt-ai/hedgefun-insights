@@ -250,6 +250,7 @@ SELECT throws_ok(
     END IF;
     EXECUTE 'REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC';
   END;
+  $journal_fn_pre$;
   $otherpub$,
   'P0001',
   NULL,
