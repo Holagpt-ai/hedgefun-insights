@@ -1468,6 +1468,42 @@ export type Database = {
           },
         ]
       }
+      journal_audit_log: {
+        Row: {
+          action: string
+          actor_id: string | null
+          after_data: Json | null
+          before_data: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          after_data?: Json | null
+          before_data?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       journal_balance_reconciliations: {
         Row: {
           account_id: string
@@ -1881,6 +1917,63 @@ export type Database = {
           },
         ]
       }
+      journal_dead_letters: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          payload: Json
+          resolved_at: string | null
+          source: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          resolved_at?: string | null
+          source: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          payload?: Json
+          resolved_at?: string | null
+          source?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      journal_domain_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          occurred_at: string
+          payload: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          occurred_at?: string
+          payload?: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          payload?: Json
+          user_id?: string
+        }
+        Relationships: []
+      }
       journal_equity_snapshots: {
         Row: {
           created_at: string
@@ -1907,6 +2000,50 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      journal_event_outbox: {
+        Row: {
+          attempts: number
+          created_at: string
+          destination: string
+          event_id: string | null
+          id: string
+          next_attempt_at: string | null
+          payload: Json
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          destination: string
+          event_id?: string | null
+          id?: string
+          next_attempt_at?: string | null
+          payload?: Json
+          status?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          destination?: string
+          event_id?: string | null
+          id?: string
+          next_attempt_at?: string | null
+          payload?: Json
+          status?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_event_outbox_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "journal_domain_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_execution_fees: {
         Row: {
