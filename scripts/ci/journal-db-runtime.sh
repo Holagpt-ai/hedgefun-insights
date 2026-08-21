@@ -428,8 +428,39 @@ assert_sandbox_fn_execute_all() {
   done
 }
 
+assert_plain_sandbox_no_direct_fn_execute() {
+  local actual
+  actual="$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
+    "SELECT EXISTS (
+       SELECT 1
+       FROM pg_proc p
+       JOIN pg_namespace n ON n.oid = p.pronamespace
+       CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+       JOIN pg_roles g ON g.oid = a.grantee
+       WHERE n.nspname = 'public'
+         AND p.proname IN (
+           'journal_calculate_trade_v1',
+           'journal_refresh_derived',
+           'journal_backfill_accounts_and_executions',
+           'journal_migrate_legacy_trades',
+           'journal_import_rollback',
+           'journal_save_trade_v1',
+           'journal_import_start_v1',
+           'journal_import_row_v1',
+           'journal_import_finalize_v1'
+         )
+         AND g.rolname = '${FN_ACL_SANDBOX_PLAIN}'
+         AND a.privilege_type = 'EXECUTE'
+     )" | tr -d '[:space:]')"
+  if [[ "$actual" != "f" ]]; then
+    echo "plain sandbox_exec has direct EXECUTE on a canonical Journal function" >&2
+    exit 1
+  fi
+}
+
 assert_plain_sandbox_no_fn_execute() {
   local sig
+  assert_plain_sandbox_no_direct_fn_execute
   for sig in "${FN_CANON_SIGS[@]}"; do
     assert_fn_execute "$FN_ACL_SANDBOX_PLAIN" "$sig" f
   done
@@ -521,7 +552,7 @@ assert_production_starting_acl() {
   done
   assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX"
   assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX_PLAIN"
-  assert_plain_sandbox_no_fn_execute
+  assert_plain_sandbox_no_direct_fn_execute
 }
 
 apply_fn_acl_expect_failure() {
