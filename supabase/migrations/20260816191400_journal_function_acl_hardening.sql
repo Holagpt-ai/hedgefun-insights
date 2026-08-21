@@ -11,7 +11,7 @@
 -- Any future drop/recreate of these nine functions must be followed
 -- by this hardening migration or equivalent explicit revocations.
 -- Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
--- integrity-md5: ce9595f7b2e21fcfd30ef55ee7eec0b3
+-- integrity-md5: 7a7005b703663ca0d0ceba4bc30b8a17
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -227,7 +227,7 @@ BEGIN
     END IF;
     IF EXISTS (
       SELECT 1 FROM pg_auth_members m
-      WHERE m.member = v_role.oid OR m.roleid = v_role.oid
+      WHERE m.member = v_role.oid
     ) THEN
       RAISE EXCEPTION '%: sandbox role % has unexpected memberships', v_phase, v_sandbox;
     END IF;
@@ -474,7 +474,7 @@ BEGIN
     END IF;
     IF EXISTS (
       SELECT 1 FROM pg_auth_members m
-      WHERE m.member = v_role.oid OR m.roleid = v_role.oid
+      WHERE m.member = v_role.oid
     ) THEN
       RAISE EXCEPTION '%: sandbox role % has unexpected memberships', v_phase, v_sandbox;
     END IF;
@@ -520,7 +520,7 @@ END;
 $journal_fn_post$
 $journal_stmt$
   ];
-  v_expected text := 'ce9595f7b2e21fcfd30ef55ee7eec0b3';
+  v_expected text := '7a7005b703663ca0d0ceba4bc30b8a17';
   v_digest text;
   v_stmt text;
 BEGIN

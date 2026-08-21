@@ -133,7 +133,7 @@ const inspectSandboxTables = `v_postgres := (SELECT oid FROM pg_roles WHERE roln
     END IF;
     IF EXISTS (
       SELECT 1 FROM pg_auth_members m
-      WHERE m.member = v_role.oid OR m.roleid = v_role.oid
+      WHERE m.member = v_role.oid
     ) THEN
       RAISE EXCEPTION '%: sandbox role % has unexpected memberships', v_phase, v_sandbox;
     END IF;

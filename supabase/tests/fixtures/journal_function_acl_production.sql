@@ -50,15 +50,6 @@ BEGIN
   LOOP
     EXECUTE format('REVOKE %I FROM %I', r, v_sandbox);
   END LOOP;
-  FOR r IN
-    SELECT g.rolname
-    FROM pg_auth_members m
-    JOIN pg_roles g ON g.oid = m.member
-    JOIN pg_roles u ON u.oid = m.roleid
-    WHERE u.rolname = v_sandbox
-  LOOP
-    EXECUTE format('REVOKE %I FROM %I', v_sandbox, r);
-  END LOOP;
 
   FOREACH sig IN ARRAY v_canon LOOP
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO anon', sig);

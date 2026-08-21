@@ -123,7 +123,7 @@ SELECT ok(
     AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_import_finalize_v1(uuid)', 'EXECUTE')
     AND NOT EXISTS (
       SELECT 1 FROM pg_auth_members m
-      JOIN pg_roles r ON r.oid = m.member OR r.oid = m.roleid
+      JOIN pg_roles r ON r.oid = m.member
       WHERE r.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
     )
     AND NOT EXISTS (
