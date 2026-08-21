@@ -126,6 +126,25 @@ SELECT ok(
       JOIN pg_roles r ON r.oid = m.member
       WHERE r.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
     )
+    AND (
+      SELECT count(*) = 154
+         AND bool_and(a.privilege_type IN ('SELECT', 'INSERT'))
+         AND bool_and(NOT a.is_grantable)
+         AND bool_and(pg_get_userbyid(a.grantor) = 'postgres')
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      CROSS JOIN LATERAL aclexplode(
+        CASE
+          WHEN array_ndims(c.relacl) = 1 THEN c.relacl
+          ELSE ARRAY[]::aclitem[]
+        END
+      ) a
+      JOIN pg_roles g ON g.oid = a.grantee
+      WHERE n.nspname = 'public'
+        AND c.relkind = 'r'
+        AND c.relname LIKE 'journal_%'
+        AND g.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
+    )
     AND NOT EXISTS (
       SELECT 1
       FROM pg_class c
@@ -134,24 +153,7 @@ SELECT ok(
         AND c.relkind = 'r'
         AND c.relname LIKE 'journal_%'
         AND (
-          (
-            SELECT count(*)
-            FROM aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
-            JOIN pg_roles g ON g.oid = a.grantee
-            WHERE g.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
-          ) IS DISTINCT FROM 2
-          OR EXISTS (
-            SELECT 1
-            FROM aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
-            JOIN pg_roles g ON g.oid = a.grantee
-            WHERE g.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
-              AND (
-                a.privilege_type NOT IN ('SELECT', 'INSERT')
-                OR a.is_grantable
-                OR pg_get_userbyid(a.grantor) IS DISTINCT FROM 'postgres'
-              )
-          )
-          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'UPDATE')
+          has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'UPDATE')
           OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'DELETE')
           OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'TRUNCATE')
           OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'REFERENCES')
