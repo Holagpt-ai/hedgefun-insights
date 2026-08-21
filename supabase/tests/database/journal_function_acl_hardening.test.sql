@@ -122,6 +122,11 @@ SELECT ok(
     AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_import_row_v1(uuid, uuid, jsonb)', 'EXECUTE')
     AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_import_finalize_v1(uuid)', 'EXECUTE')
     AND NOT EXISTS (
+      SELECT 1 FROM pg_auth_members m
+      JOIN pg_roles r ON r.oid = m.member OR r.oid = m.roleid
+      WHERE r.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
+    )
+    AND NOT EXISTS (
       SELECT 1
       FROM pg_class c
       JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -129,8 +134,23 @@ SELECT ok(
         AND c.relkind = 'r'
         AND c.relname LIKE 'journal_%'
         AND (
-          has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'SELECT')
-          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'INSERT')
+          (
+            SELECT count(*)
+            FROM aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+            JOIN pg_roles g ON g.oid = a.grantee
+            WHERE g.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
+          ) IS DISTINCT FROM 2
+          OR EXISTS (
+            SELECT 1
+            FROM aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+            JOIN pg_roles g ON g.oid = a.grantee
+            WHERE g.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
+              AND (
+                a.privilege_type NOT IN ('SELECT', 'INSERT')
+                OR a.is_grantable
+                OR pg_get_userbyid(a.grantor) IS DISTINCT FROM 'postgres'
+              )
+          )
           OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'UPDATE')
           OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'DELETE')
           OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'TRUNCATE')
@@ -139,7 +159,23 @@ SELECT ok(
         )
     )
   ),
-  'sandbox EXECUTE remains on all nine with zero Journal table privileges when the role exists'
+  'long sandbox retains EXECUTE and the SELECT/INSERT table ACL footprint when present'
+);
+
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sandbox_exec')
+  OR (
+    NOT has_function_privilege('sandbox_exec', 'public.journal_calculate_trade_v1(uuid)', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_refresh_derived(uuid)', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_backfill_accounts_and_executions(uuid)', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_migrate_legacy_trades()', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_import_rollback(uuid)', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_save_trade_v1(jsonb)', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_import_start_v1(jsonb)', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_import_row_v1(uuid, uuid, jsonb)', 'EXECUTE')
+    AND NOT has_function_privilege('sandbox_exec', 'public.journal_import_finalize_v1(uuid)', 'EXECUTE')
+  ),
+  'plain sandbox_exec has no canonical function EXECUTE'
 );
 
 SELECT throws_ok(

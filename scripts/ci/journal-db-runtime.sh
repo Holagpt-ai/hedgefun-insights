@@ -22,6 +22,7 @@ FN_ACL_HELD_NAME="20260816191400_journal_function_acl_hardening.sql"
 FN_ACL_PATTERN="$ROOT/supabase/migrations/202608161914*.sql"
 FN_ACL_FIXTURE="$ROOT/supabase/tests/fixtures/journal_function_acl_production.sql"
 FN_ACL_SANDBOX="sandbox_exec_zcjptaolpumhtlwhlemq"
+FN_ACL_SANDBOX_PLAIN="sandbox_exec"
 # Function ACL: CREATE OR REPLACE preserves ACLs. DROP+CREATE reapplies
 # production default privileges and may restore anon/sandbox EXECUTE.
 # Follow any future drop/recreate with 20260816191400 or equivalent revokes.
@@ -427,30 +428,78 @@ assert_sandbox_fn_execute_all() {
   done
 }
 
-assert_sandbox_zero_table_privs() {
+assert_plain_sandbox_no_fn_execute() {
+  local sig
+  for sig in "${FN_CANON_SIGS[@]}"; do
+    assert_fn_execute "$FN_ACL_SANDBOX_PLAIN" "$sig" f
+  done
+}
+
+dump_sandbox_table_acl() {
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t <<'SQL'
+SELECT 'tblacl|' || c.relname || '|' || g.rolname || '|' || a.privilege_type
+  || '|grantable=' || a.is_grantable::text
+  || '|grantor=' || pg_get_userbyid(a.grantor)
+FROM pg_class c
+JOIN pg_namespace n ON n.oid = c.relnamespace
+CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+JOIN pg_roles g ON g.oid = a.grantee
+WHERE n.nspname = 'public'
+  AND c.relkind = 'r'
+  AND c.relname LIKE 'journal_%'
+  AND g.rolname IN ('sandbox_exec', 'sandbox_exec_zcjptaolpumhtlwhlemq')
+ORDER BY 1;
+SQL
+}
+
+assert_sandbox_table_acl_footprint() {
+  local role="$1"
   local actual
+  actual="$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
+    "SELECT count(*)::text
+     FROM pg_class c
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+     JOIN pg_roles g ON g.oid = a.grantee
+     WHERE n.nspname = 'public'
+       AND c.relkind = 'r'
+       AND c.relname LIKE 'journal_%'
+       AND g.rolname = '${role}'
+       AND a.privilege_type IN ('SELECT', 'INSERT')
+       AND NOT a.is_grantable
+       AND pg_get_userbyid(a.grantor) = 'postgres'" | tr -d '[:space:]')"
+  if [[ "$actual" != "154" ]]; then
+    echo "expected 154 SELECT/INSERT ${role} table ACL entries, got ${actual}" >&2
+    exit 1
+  fi
   actual="$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
     "SELECT EXISTS (
        SELECT 1
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
+       CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+       JOIN pg_roles g ON g.oid = a.grantee
        WHERE n.nspname = 'public'
          AND c.relkind = 'r'
          AND c.relname LIKE 'journal_%'
+         AND g.rolname = '${role}'
          AND (
-           has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'SELECT')
-           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'INSERT')
-           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'UPDATE')
-           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'DELETE')
-           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'TRUNCATE')
-           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'REFERENCES')
-           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'TRIGGER')
+           a.privilege_type NOT IN ('SELECT', 'INSERT')
+           OR a.is_grantable
+           OR pg_get_userbyid(a.grantor) IS DISTINCT FROM 'postgres'
          )
      )" | tr -d '[:space:]')"
   if [[ "$actual" != "f" ]]; then
-    echo "sandbox has Journal table privileges" >&2
+    echo "${role} has an unexpected Journal table ACL entry" >&2
     exit 1
   fi
+}
+
+restore_long_sandbox_trades_acl() {
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE ALL ON TABLE public.journal_trades FROM sandbox_exec_zcjptaolpumhtlwhlemq;
+GRANT SELECT, INSERT ON TABLE public.journal_trades TO sandbox_exec_zcjptaolpumhtlwhlemq;
+SQL
 }
 
 assert_production_starting_acl() {
@@ -470,7 +519,9 @@ assert_production_starting_acl() {
     assert_fn_execute service_role "$sig" t
     assert_fn_execute "$FN_ACL_SANDBOX" "$sig" t
   done
-  assert_sandbox_zero_table_privs
+  assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX"
+  assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX_PLAIN"
+  assert_plain_sandbox_no_fn_execute
 }
 
 apply_fn_acl_expect_failure() {
@@ -485,23 +536,37 @@ run_fn_acl_production_faithful() {
   apply_sql_file "$FN_ACL_FIXTURE"
   assert_production_starting_acl
   dump_journal_catalog > /tmp/journal-fn-acl-prod-before.txt
+  dump_sandbox_table_acl > /tmp/journal-sandbox-table-acl-before.txt
   apply_sql_file "$FN_ACL_FILE"
   dump_journal_catalog > /tmp/journal-fn-acl-prod-after.txt
+  dump_sandbox_table_acl > /tmp/journal-sandbox-table-acl-after.txt
   python3 "$ROOT/scripts/ci/journal-fn-acl-delta.py" \
     /tmp/journal-fn-acl-prod-before.txt \
     /tmp/journal-fn-acl-prod-after.txt
-  assert_fn_hardened_all
-  assert_sandbox_fn_execute_all t
-  assert_sandbox_zero_table_privs
-  echo "==> second function ACL hardening execution is idempotent"
-  apply_sql_file "$FN_ACL_FILE"
-  dump_journal_catalog > /tmp/journal-fn-acl-prod-after2.txt
-  if ! diff -u /tmp/journal-fn-acl-prod-after.txt /tmp/journal-fn-acl-prod-after2.txt; then
-    echo "idempotent function ACL re-apply changed the journal catalog" >&2
+  if ! diff -u /tmp/journal-sandbox-table-acl-before.txt /tmp/journal-sandbox-table-acl-after.txt; then
+    echo "sandbox table ACLs changed after function ACL hardening" >&2
     exit 1
   fi
   assert_fn_hardened_all
   assert_sandbox_fn_execute_all t
+  assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX"
+  assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX_PLAIN"
+  assert_plain_sandbox_no_fn_execute
+  echo "==> second function ACL hardening execution is idempotent"
+  apply_sql_file "$FN_ACL_FILE"
+  dump_journal_catalog > /tmp/journal-fn-acl-prod-after2.txt
+  dump_sandbox_table_acl > /tmp/journal-sandbox-table-acl-after2.txt
+  if ! diff -u /tmp/journal-fn-acl-prod-after.txt /tmp/journal-fn-acl-prod-after2.txt; then
+    echo "idempotent function ACL re-apply changed the journal catalog" >&2
+    exit 1
+  fi
+  if ! diff -u /tmp/journal-sandbox-table-acl-after.txt /tmp/journal-sandbox-table-acl-after2.txt; then
+    echo "idempotent function ACL re-apply changed sandbox table ACLs" >&2
+    exit 1
+  fi
+  assert_fn_hardened_all
+  assert_sandbox_fn_execute_all t
+  assert_plain_sandbox_no_fn_execute
 }
 
 run_fn_acl_failure_injection() {
@@ -541,13 +606,62 @@ REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM sandbox_exec
 DROP ROLE sandbox_exec_unexpected;
 SQL
 
-  echo "==> unexpected sandbox Journal table privilege fails before mutation"
+  echo "==> plain sandbox_exec function EXECUTE fails before mutation"
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-GRANT SELECT ON TABLE public.journal_trades TO sandbox_exec_zcjptaolpumhtlwhlemq;
+GRANT EXECUTE ON FUNCTION public.journal_calculate_trade_v1(uuid) TO sandbox_exec;
+SQL
+  apply_fn_acl_expect_failure
+  assert_fn_execute sandbox_exec "journal_calculate_trade_v1(uuid)" t
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM sandbox_exec;
+SQL
+
+  echo "==> missing sandbox SELECT fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE SELECT ON TABLE public.journal_trades FROM sandbox_exec_zcjptaolpumhtlwhlemq;
+SQL
+  apply_fn_acl_expect_failure
+  restore_long_sandbox_trades_acl
+
+  echo "==> missing sandbox INSERT fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE INSERT ON TABLE public.journal_trades FROM sandbox_exec_zcjptaolpumhtlwhlemq;
+SQL
+  apply_fn_acl_expect_failure
+  restore_long_sandbox_trades_acl
+
+  echo "==> extra sandbox table privileges fail before mutation"
+  for priv in UPDATE DELETE TRUNCATE REFERENCES TRIGGER; do
+    echo "==> extra sandbox ${priv} fails before mutation"
+    docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+      "GRANT ${priv} ON TABLE public.journal_trades TO sandbox_exec_zcjptaolpumhtlwhlemq"
+    apply_fn_acl_expect_failure
+    restore_long_sandbox_trades_acl
+  done
+  if docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
+    "SELECT (current_setting('server_version_num')::integer >= 170000)" \
+    | tr -d '[:space:]' | grep -qx t; then
+    echo "==> extra sandbox MAINTAIN fails before mutation"
+    docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c \
+      "GRANT MAINTAIN ON TABLE public.journal_trades TO sandbox_exec_zcjptaolpumhtlwhlemq"
+    apply_fn_acl_expect_failure
+    restore_long_sandbox_trades_acl
+  fi
+
+  echo "==> sandbox table grant option fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT SELECT ON TABLE public.journal_trades TO sandbox_exec_zcjptaolpumhtlwhlemq WITH GRANT OPTION;
+SQL
+  apply_fn_acl_expect_failure
+  restore_long_sandbox_trades_acl
+
+  echo "==> unexpected sandbox role membership fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT authenticated TO sandbox_exec_zcjptaolpumhtlwhlemq;
 SQL
   apply_fn_acl_expect_failure
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-REVOKE SELECT ON TABLE public.journal_trades FROM sandbox_exec_zcjptaolpumhtlwhlemq;
+REVOKE authenticated FROM sandbox_exec_zcjptaolpumhtlwhlemq;
 SQL
 
   echo "==> missing authenticated EXECUTE fails before mutation"
@@ -572,7 +686,9 @@ SQL
   apply_sql_file "$FN_ACL_FILE"
   assert_fn_hardened_all
   assert_sandbox_fn_execute_all t
-  assert_sandbox_zero_table_privs
+  assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX"
+  assert_sandbox_table_acl_footprint "$FN_ACL_SANDBOX_PLAIN"
+  assert_plain_sandbox_no_fn_execute
 }
 
 dump_journal_catalog() {

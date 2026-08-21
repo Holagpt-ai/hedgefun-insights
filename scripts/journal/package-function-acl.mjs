@@ -124,6 +124,57 @@ const inspectFn = `v_oid := to_regprocedure('public.' || sig);
       RAISE EXCEPTION '%: public.% is missing search_path=public', v_phase, sig;
     END IF;`;
 
+const inspectSandboxTables = `v_postgres := (SELECT oid FROM pg_roles WHERE rolname = 'postgres');
+    v_extra := ARRAY[
+      'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+    ];
+    IF current_setting('server_version_num')::integer >= 170000 THEN
+      v_extra := v_extra || ARRAY['MAINTAIN']::text[];
+    END IF;
+    IF EXISTS (
+      SELECT 1 FROM pg_auth_members m
+      WHERE m.member = v_role.oid OR m.roleid = v_role.oid
+    ) THEN
+      RAISE EXCEPTION '%: sandbox role % has unexpected memberships', v_phase, v_sandbox;
+    END IF;
+    FOREACH t IN ARRAY v_tables LOOP
+      SELECT c.relacl INTO v_acl
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r' AND c.relname = t;
+      IF NOT FOUND THEN
+        RAISE EXCEPTION '%: missing Journal table public.%', v_phase, t;
+      END IF;
+      SELECT
+        count(*) FILTER (WHERE a.privilege_type = 'SELECT'),
+        count(*) FILTER (WHERE a.privilege_type = 'INSERT'),
+        count(*),
+        coalesce(bool_or(a.is_grantable), false),
+        coalesce(bool_or(a.grantor IS DISTINCT FROM v_postgres), false)
+      INTO v_sel, v_ins, v_n, v_grantable, v_bad_grantor
+      FROM aclexplode(coalesce(v_acl, '{}'::aclitem[])) a
+      WHERE a.grantee = v_role.oid;
+      IF v_sel IS DISTINCT FROM 1
+         OR v_ins IS DISTINCT FROM 1
+         OR v_n IS DISTINCT FROM 2 THEN
+        RAISE EXCEPTION
+          '%: sandbox table ACL footprint mismatch on public.%',
+          v_phase,
+          t;
+      END IF;
+      IF v_grantable THEN
+        RAISE EXCEPTION '%: sandbox has grant option on public.%', v_phase, t;
+      END IF;
+      IF v_bad_grantor THEN
+        RAISE EXCEPTION '%: sandbox table grantor is not postgres on public.%', v_phase, t;
+      END IF;
+      FOREACH v_priv IN ARRAY v_extra LOOP
+        IF has_table_privilege(v_sandbox, 'public.' || t, v_priv) THEN
+          RAISE EXCEPTION '%: sandbox has extra % on public.%', v_phase, v_priv, t;
+        END IF;
+      END LOOP;
+    END LOOP;`;
+
 const preflight = `DO $journal_fn_pre$
 DECLARE
   sig text;
@@ -135,16 +186,21 @@ DECLARE
   r record;
   v_phase text := 'preflight';
   v_public boolean;
+  v_acl aclitem[];
+  v_sel int;
+  v_ins int;
+  v_n int;
+  v_grantable boolean;
+  v_bad_grantor boolean;
+  v_postgres oid;
+  v_extra text[];
   v_sandbox constant text := '${SANDBOX}';
   v_canon constant text[] := ${sqlArray(CANON)};
   v_targets constant text[] := ${sqlArray(TARGETS)};
   v_tables constant text[] := ${sqlArray(TABLE_NAMES)};
-  v_privs text[] := ARRAY[
-    'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
-  ];
 BEGIN
-  IF current_setting('server_version_num')::integer >= 170000 THEN
-    v_privs := v_privs || ARRAY['MAINTAIN']::text[];
+  IF cardinality(v_tables) IS DISTINCT FROM 77 THEN
+    RAISE EXCEPTION 'preflight: Journal table count is %', cardinality(v_tables);
   END IF;
   IF cardinality(v_canon) IS DISTINCT FROM 9 THEN
     RAISE EXCEPTION 'preflight: canonical Journal function count is %', cardinality(v_canon);
@@ -219,16 +275,7 @@ BEGIN
         RAISE EXCEPTION 'preflight: sandbox missing EXECUTE on public.%', sig;
       END IF;
     END LOOP;
-    FOREACH t IN ARRAY v_tables LOOP
-      FOREACH v_priv IN ARRAY v_privs LOOP
-        IF has_table_privilege(v_sandbox, 'public.' || t, v_priv) THEN
-          RAISE EXCEPTION
-            'preflight: sandbox has % on public.%',
-            v_priv,
-            t;
-        END IF;
-      END LOOP;
-    END LOOP;
+    ${inspectSandboxTables}
   END IF;
 END;
 $journal_fn_pre$`;
@@ -240,19 +287,22 @@ DECLARE
   v_priv text;
   v_oid regprocedure;
   v_proc pg_proc%ROWTYPE;
+  v_role pg_roles%ROWTYPE;
   r record;
   v_phase text := 'postcondition';
   v_public boolean;
+  v_acl aclitem[];
+  v_sel int;
+  v_ins int;
+  v_n int;
+  v_grantable boolean;
+  v_bad_grantor boolean;
+  v_postgres oid;
+  v_extra text[];
   v_sandbox constant text := '${SANDBOX}';
   v_canon constant text[] := ${sqlArray(CANON)};
   v_tables constant text[] := ${sqlArray(TABLE_NAMES)};
-  v_privs text[] := ARRAY[
-    'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
-  ];
 BEGIN
-  IF current_setting('server_version_num')::integer >= 170000 THEN
-    v_privs := v_privs || ARRAY['MAINTAIN']::text[];
-  END IF;
   FOREACH sig IN ARRAY v_canon LOOP
     ${inspectFn}
     SELECT EXISTS (
@@ -299,13 +349,8 @@ BEGIN
     END LOOP;
   END LOOP;
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_sandbox) THEN
-    FOREACH t IN ARRAY v_tables LOOP
-      FOREACH v_priv IN ARRAY v_privs LOOP
-        IF has_table_privilege(v_sandbox, 'public.' || t, v_priv) THEN
-          RAISE EXCEPTION 'postcondition: sandbox has % on public.%', v_priv, t;
-        END IF;
-      END LOOP;
-    END LOOP;
+    SELECT * INTO STRICT v_role FROM pg_roles WHERE rolname = v_sandbox;
+    ${inspectSandboxTables}
   END IF;
 END;
 $journal_fn_post$`;
@@ -319,7 +364,9 @@ const header = `-- Stocksist Trading Journal function ACL hardening.
 -- Twelve targeted revokes: PUBLIC EXECUTE from the three operator
 -- functions, and anon EXECUTE from all nine canonical functions.
 -- Preserves authenticated, service_role, owner, and
--- sandbox_exec_zcjptaolpumhtlwhlemq EXECUTE. Does not GRANT.
+-- sandbox_exec_zcjptaolpumhtlwhlemq EXECUTE plus that role's
+-- production SELECT/INSERT table ACL footprint. Does not GRANT
+-- or REVOKE table privileges. Plain sandbox_exec is not a function grantee.
 -- CREATE OR REPLACE FUNCTION preserves existing ACLs. A future
 -- DROP FUNCTION followed by CREATE FUNCTION reapplies production
 -- default privileges and may restore anon and sandbox EXECUTE.

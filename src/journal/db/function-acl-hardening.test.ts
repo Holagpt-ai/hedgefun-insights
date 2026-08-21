@@ -66,7 +66,23 @@ describe("function ACL hardening migration", () => {
     expect(sql).not.toMatch(/FROM authenticated/);
     expect(sql).not.toMatch(/FROM service_role/);
     expect(sql).not.toMatch(/FROM sandbox_exec_zcjptaolpumhtlwhlemq/);
+    expect(sql).not.toMatch(/REVOKE\s+.*\s+ON TABLE/i);
     expect(sql).toContain("sandbox_exec_zcjptaolpumhtlwhlemq");
+    expect(sql).toMatch(/SELECT\/INSERT table ACL footprint/);
+    expect(revokes).toEqual([
+      "REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC\n",
+      "REVOKE ALL ON FUNCTION public.journal_migrate_legacy_trades() FROM PUBLIC\n",
+      "REVOKE ALL ON FUNCTION public.journal_import_rollback(uuid) FROM PUBLIC\n",
+      "REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_refresh_derived(uuid) FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_migrate_legacy_trades() FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_import_rollback(uuid) FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_save_trade_v1(jsonb) FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_import_start_v1(jsonb) FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_import_row_v1(uuid, uuid, jsonb) FROM anon\n",
+      "REVOKE ALL ON FUNCTION public.journal_import_finalize_v1(uuid) FROM anon\n",
+    ]);
     expect(sql).toMatch(/CREATE OR REPLACE FUNCTION preserves existing ACLs/);
     expect(sql).toMatch(/DROP FUNCTION followed by CREATE FUNCTION/);
     expect(CANON).toHaveLength(9);
