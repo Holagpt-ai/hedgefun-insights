@@ -473,7 +473,7 @@ SELECT 'tblacl|' || c.relname || '|' || g.rolname || '|' || a.privilege_type
   || '|grantor=' || pg_get_userbyid(a.grantor)
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
-CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
 JOIN pg_roles g ON g.oid = a.grantee
 WHERE n.nspname = 'public'
   AND c.relkind = 'r'
@@ -490,7 +490,7 @@ assert_sandbox_table_acl_footprint() {
     "SELECT count(*)::text
      FROM pg_class c
      JOIN pg_namespace n ON n.oid = c.relnamespace
-     CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+     CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
      JOIN pg_roles g ON g.oid = a.grantee
      WHERE n.nspname = 'public'
        AND c.relkind = 'r'
@@ -508,7 +508,7 @@ assert_sandbox_table_acl_footprint() {
        SELECT 1
        FROM pg_class c
        JOIN pg_namespace n ON n.oid = c.relnamespace
-       CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+       CROSS JOIN LATERAL aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
        JOIN pg_roles g ON g.oid = a.grantee
        WHERE n.nspname = 'public'
          AND c.relkind = 'r'

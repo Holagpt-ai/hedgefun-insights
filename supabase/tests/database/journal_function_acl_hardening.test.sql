@@ -136,13 +136,13 @@ SELECT ok(
         AND (
           (
             SELECT count(*)
-            FROM aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+            FROM aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
             JOIN pg_roles g ON g.oid = a.grantee
             WHERE g.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
           ) IS DISTINCT FROM 2
           OR EXISTS (
             SELECT 1
-            FROM aclexplode(coalesce(c.relacl, '{}'::aclitem[])) a
+            FROM aclexplode(coalesce(c.relacl, ARRAY[]::aclitem[])) a
             JOIN pg_roles g ON g.oid = a.grantee
             WHERE g.rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq'
               AND (

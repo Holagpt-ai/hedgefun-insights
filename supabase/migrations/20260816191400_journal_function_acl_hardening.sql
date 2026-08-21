@@ -11,7 +11,7 @@
 -- Any future drop/recreate of these nine functions must be followed
 -- by this hardening migration or equivalent explicit revocations.
 -- Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
--- integrity-md5: 7a7005b703663ca0d0ceba4bc30b8a17
+-- integrity-md5: f73b70325e3fe33795bb7aacda1b6490
 DO $journal_seg$
 DECLARE
   v_statements text[] := ARRAY[
@@ -246,7 +246,7 @@ BEGIN
         coalesce(bool_or(a.is_grantable), false),
         coalesce(bool_or(a.grantor IS DISTINCT FROM v_postgres), false)
       INTO v_sel, v_ins, v_n, v_grantable, v_bad_grantor
-      FROM aclexplode(coalesce(v_acl, '{}'::aclitem[])) a
+      FROM aclexplode(coalesce(v_acl, ARRAY[]::aclitem[])) a
       WHERE a.grantee = v_role.oid;
       IF v_sel IS DISTINCT FROM 1
          OR v_ins IS DISTINCT FROM 1
@@ -493,7 +493,7 @@ BEGIN
         coalesce(bool_or(a.is_grantable), false),
         coalesce(bool_or(a.grantor IS DISTINCT FROM v_postgres), false)
       INTO v_sel, v_ins, v_n, v_grantable, v_bad_grantor
-      FROM aclexplode(coalesce(v_acl, '{}'::aclitem[])) a
+      FROM aclexplode(coalesce(v_acl, ARRAY[]::aclitem[])) a
       WHERE a.grantee = v_role.oid;
       IF v_sel IS DISTINCT FROM 1
          OR v_ins IS DISTINCT FROM 1
@@ -520,7 +520,7 @@ END;
 $journal_fn_post$
 $journal_stmt$
   ];
-  v_expected text := '7a7005b703663ca0d0ceba4bc30b8a17';
+  v_expected text := 'f73b70325e3fe33795bb7aacda1b6490';
   v_digest text;
   v_stmt text;
 BEGIN

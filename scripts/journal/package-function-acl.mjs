@@ -152,7 +152,7 @@ const inspectSandboxTables = `v_postgres := (SELECT oid FROM pg_roles WHERE roln
         coalesce(bool_or(a.is_grantable), false),
         coalesce(bool_or(a.grantor IS DISTINCT FROM v_postgres), false)
       INTO v_sel, v_ins, v_n, v_grantable, v_bad_grantor
-      FROM aclexplode(coalesce(v_acl, '{}'::aclitem[])) a
+      FROM aclexplode(coalesce(v_acl, ARRAY[]::aclitem[])) a
       WHERE a.grantee = v_role.oid;
       IF v_sel IS DISTINCT FROM 1
          OR v_ins IS DISTINCT FROM 1
