@@ -1143,6 +1143,266 @@ export type Database = {
         }
         Relationships: []
       }
+      journal_ai_conversations: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_ai_feedback: {
+        Row: {
+          comment: string | null
+          created_at: string
+          id: string
+          insight_id: string | null
+          message_id: string | null
+          rating: number | null
+          user_id: string
+        }
+        Insert: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          insight_id?: string | null
+          message_id?: string | null
+          rating?: number | null
+          user_id: string
+        }
+        Update: {
+          comment?: string | null
+          created_at?: string
+          id?: string
+          insight_id?: string | null
+          message_id?: string | null
+          rating?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_ai_feedback_insight_id_fkey"
+            columns: ["insight_id"]
+            isOneToOne: false
+            referencedRelation: "journal_ai_insights"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_ai_feedback_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "journal_ai_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_ai_insights: {
+        Row: {
+          body: string | null
+          created_at: string
+          id: string
+          payload: Json
+          title: string | null
+          user_id: string
+        }
+        Insert: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          title?: string | null
+          user_id: string
+        }
+        Update: {
+          body?: string | null
+          created_at?: string
+          id?: string
+          payload?: Json
+          title?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_ai_jobs: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          job_type: string
+          payload: Json
+          status: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_type: string
+          payload?: Json
+          status?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          job_type?: string
+          payload?: Json
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_ai_memories: {
+        Row: {
+          content: string
+          created_at: string
+          embedding_ref: string | null
+          id: string
+          memory_type: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding_ref?: string | null
+          id?: string
+          memory_type: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding_ref?: string | null
+          id?: string
+          memory_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_ai_memory_evidence: {
+        Row: {
+          created_at: string
+          id: string
+          memory_id: string
+          source_ref: string | null
+          trade_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          memory_id: string
+          source_ref?: string | null
+          trade_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          memory_id?: string
+          source_ref?: string | null
+          trade_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_ai_memory_evidence_memory_id_fkey"
+            columns: ["memory_id"]
+            isOneToOne: false
+            referencedRelation: "journal_ai_memories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_ai_memory_evidence_trade_id_fkey"
+            columns: ["trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_ai_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_ai_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "journal_ai_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_ai_usage: {
+        Row: {
+          cost_estimate: number | null
+          created_at: string
+          id: string
+          model: string | null
+          occurred_at: string
+          tokens_in: number | null
+          tokens_out: number | null
+          user_id: string
+        }
+        Insert: {
+          cost_estimate?: number | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          occurred_at?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id: string
+        }
+        Update: {
+          cost_estimate?: number | null
+          created_at?: string
+          id?: string
+          model?: string | null
+          occurred_at?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       journal_analytics_cache: {
         Row: {
           cache_key: string
