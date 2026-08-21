@@ -17,6 +17,9 @@ POLICY_PATTERN="$ROOT/supabase/migrations/202608161912*.sql"
 FUNCTION_PATTERN="$ROOT/supabase/migrations/202608161913*.sql"
 ACL_FILE="$ROOT/supabase/migrations/20260816191210_journal_legacy_acl_hardening.sql"
 ACL_HELD_NAME="20260816191210_journal_legacy_acl_hardening.sql"
+FN_ACL_FILE="$ROOT/supabase/migrations/20260816191400_journal_function_acl_hardening.sql"
+FN_ACL_HELD_NAME="20260816191400_journal_function_acl_hardening.sql"
+FN_ACL_PATTERN="$ROOT/supabase/migrations/202608161914*.sql"
 BASELINE_DIR="$ROOT/scripts/journal/approved-baseline"
 
 HELD="$(mktemp -d)"
@@ -359,6 +362,76 @@ run_acl_failure_injection() {
   assert_legacy_elevated f
 }
 
+assert_fn_execute() {
+  local role="$1"
+  local sig="$2"
+  local expect="$3"
+  local actual
+  actual="$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
+    "SELECT has_function_privilege('${role}', 'public.${sig}', 'EXECUTE')" | tr -d '[:space:]')"
+  if [[ "$actual" != "$expect" ]]; then
+    echo "expected ${role} EXECUTE on ${sig} to be ${expect}, got ${actual}" >&2
+    exit 1
+  fi
+}
+
+assert_fn_public_execute() {
+  local sig="$1"
+  local expect="$2"
+  local actual
+  actual="$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
+    "SELECT EXISTS (
+       SELECT 1 FROM pg_proc p
+       CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+       WHERE p.oid = 'public.${sig}'::regprocedure
+         AND a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+     )" | tr -d '[:space:]')"
+  if [[ "$actual" != "$expect" ]]; then
+    echo "expected PUBLIC EXECUTE on ${sig} to be ${expect}, got ${actual}" >&2
+    exit 1
+  fi
+}
+
+grant_operator_public_execute() {
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT EXECUTE ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.journal_migrate_legacy_trades() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION public.journal_import_rollback(uuid) TO PUBLIC;
+SQL
+}
+
+apply_fn_acl_expect_failure() {
+  if apply_sql_file "$FN_ACL_FILE"; then
+    echo "function ACL hardening was expected to fail closed" >&2
+    exit 1
+  fi
+}
+
+run_fn_acl_failure_injection() {
+  echo "==> unexpected canonical function PUBLIC EXECUTE must fail before operator revoke"
+  grant_operator_public_execute
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT EXECUTE ON FUNCTION public.journal_calculate_trade_v1(uuid) TO PUBLIC;
+SQL
+  assert_fn_public_execute "journal_backfill_accounts_and_executions(uuid)" t
+  apply_fn_acl_expect_failure
+  assert_fn_public_execute "journal_backfill_accounts_and_executions(uuid)" t
+  assert_fn_public_execute "journal_migrate_legacy_trades()" t
+  assert_fn_public_execute "journal_import_rollback(uuid)" t
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM PUBLIC;
+SQL
+  echo "==> applying function ACL hardening after restoring the approved privilege set"
+  apply_sql_file "$FN_ACL_FILE"
+  assert_fn_public_execute "journal_backfill_accounts_and_executions(uuid)" f
+  assert_fn_public_execute "journal_migrate_legacy_trades()" f
+  assert_fn_public_execute "journal_import_rollback(uuid)" f
+  assert_fn_execute anon "journal_backfill_accounts_and_executions(uuid)" f
+  assert_fn_execute authenticated "journal_backfill_accounts_and_executions(uuid)" t
+  assert_fn_execute service_role "journal_backfill_accounts_and_executions(uuid)" t
+  assert_fn_execute authenticated "journal_calculate_trade_v1(uuid)" t
+}
+
 dump_journal_catalog() {
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t <<'SQL'
 SELECT 'col|' || n.nspname || '.' || c.relname || '|' || a.attname || '|' || pg_catalog.format_type(a.atttypid, a.atttypmod)
@@ -453,7 +526,8 @@ if [[ "$MODE" == "parity" ]]; then
   mv "$HELD"/20260816191*.sql "$ROOT/supabase/migrations/"
   shopt -u nullglob
   mv "$ACL_FILE" "$HELD/"
-  echo "==> applying runner-native Journal sequence through 20260816191200"
+  mv "$FN_ACL_FILE" "$HELD/"
+  echo "==> applying runner-native Journal sequence through Stage C without remediations"
   write_disposable_prereqs
   rewrite_hardcoded_cron_jobids
   supabase db start
@@ -463,13 +537,19 @@ if [[ "$MODE" == "parity" ]]; then
     echo "old-vs-new journal catalog mismatch" >&2
     exit 1
   fi
-  echo "==> old-vs-new catalog match through Stage B"
-  echo "==> applying 20260816191210 expected ACL delta"
+  echo "==> old-vs-new catalog match through Stage C"
+  echo "==> applying 20260816191210 expected table ACL delta"
   apply_sql_file "$HELD/$ACL_HELD_NAME"
   dump_journal_catalog > /tmp/journal-catalog-after-acl.txt
   python3 "$ROOT/scripts/ci/journal-acl-delta.py" \
     /tmp/journal-catalog-old.txt \
     /tmp/journal-catalog-after-acl.txt
+  echo "==> applying 20260816191400 expected function ACL delta"
+  apply_sql_file "$HELD/$FN_ACL_HELD_NAME"
+  dump_journal_catalog > /tmp/journal-catalog-after-fn-acl.txt
+  python3 "$ROOT/scripts/ci/journal-fn-acl-delta.py" \
+    /tmp/journal-catalog-after-acl.txt \
+    /tmp/journal-catalog-after-fn-acl.txt
   echo "==> post-remediation expected-delta passed"
   exit 0
 fi
@@ -484,6 +564,7 @@ elif [[ "$MODE" == "m1" ]]; then
   shopt -s nullglob
   mv $POLICY_PATTERN "$HELD/" 2>/dev/null || true
   mv $FUNCTION_PATTERN "$HELD/" 2>/dev/null || true
+  mv $FN_ACL_PATTERN "$HELD/" 2>/dev/null || true
   shopt -u nullglob
 fi
 
@@ -512,6 +593,10 @@ if [[ "$MODE" == "clean" ]]; then
   run_acl_failure_injection
   echo "==> running legacy ACL hardening pgTAP tests"
   supabase test db --local supabase/tests/database/journal_legacy_acl_hardening.test.sql
+  echo "==> running function ACL hardening failure-injection"
+  run_fn_acl_failure_injection
+  echo "==> running function ACL hardening pgTAP tests"
+  supabase test db --local supabase/tests/database/journal_function_acl_hardening.test.sql
   echo "==> clean-database job passed"
   exit 0
 fi

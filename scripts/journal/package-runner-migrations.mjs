@@ -761,21 +761,32 @@ if (JSON.stringify(created) !== JSON.stringify(TABLE_NAMES)) {
   throw new Error("foundation CREATE TABLE order drifted from TABLE_NAMES");
 }
 
-const extraAcl = "20260816191210_journal_legacy_acl_hardening.sql";
-const extraAclPath = resolve(OUT, extraAcl);
-if (existsSync(extraAclPath)) {
-  const extraSql = toLf(readFileSync(extraAclPath, "utf8"));
+function preserveExtra(name, kind, beforePrefix) {
+  const extraPath = resolve(OUT, name);
+  if (!existsSync(extraPath)) return;
+  const extraSql = toLf(readFileSync(extraPath, "utf8"));
   const extraDigest = extraSql.match(/-- integrity-md5: ([0-9a-f]{32})/)?.[1] ?? null;
   const rec = {
-    file: extraAcl,
+    file: name,
     bytes: utf8Bytes(extraSql),
     digest: extraDigest,
-    kind: "legacy-acl",
+    kind,
   };
-  const idx = files.findIndex((f) => f.file.startsWith("20260816191300"));
-  files.splice(idx < 0 ? files.length : idx, 0, rec);
-  console.log(`preserved ${extraAcl} ${rec.bytes} ${extraDigest}`);
+  if (beforePrefix) {
+    const idx = files.findIndex((f) => f.file.startsWith(beforePrefix));
+    files.splice(idx < 0 ? files.length : idx, 0, rec);
+  } else {
+    files.push(rec);
+  }
+  console.log(`preserved ${name} ${rec.bytes} ${extraDigest}`);
 }
+
+preserveExtra(
+  "20260816191210_journal_legacy_acl_hardening.sql",
+  "legacy-acl",
+  "20260816191300",
+);
+preserveExtra("20260816191400_journal_function_acl_hardening.sql", "function-acl", null);
 
 writeFileSync(
   MANIFEST,

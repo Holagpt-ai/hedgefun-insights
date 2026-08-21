@@ -140,6 +140,17 @@ SELECT ok(
   'legacy ACL hardening removed elevated authenticated grants and kept CRUD'
 );
 
+SELECT ok(
+  NOT has_function_privilege('anon', 'public.journal_backfill_accounts_and_executions(uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_migrate_legacy_trades()', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_import_rollback(uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_backfill_accounts_and_executions(uuid)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_migrate_legacy_trades()', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_calculate_trade_v1(uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_calculate_trade_v1(uuid)', 'EXECUTE'),
+  'function ACL hardening removed PUBLIC/anon EXECUTE from operator functions'
+);
+
 SELECT is(
   (
     SELECT count(*)::integer

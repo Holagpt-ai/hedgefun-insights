@@ -155,6 +155,12 @@
       "bytes": 3144,
       "digest": "86569d4bee60796943deb294d56d5c99",
       "kind": "function"
+    },
+    {
+      "file": "20260816191400_journal_function_acl_hardening.sql",
+      "bytes": 7072,
+      "digest": "f3de4ebe810385ca63f90f7a22e116cf",
+      "kind": "function-acl"
     }
   ],
   "policyManifestParts": [

@@ -1,0 +1,271 @@
+BEGIN;
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+SET search_path = public, extensions;
+
+SELECT no_plan();
+
+CREATE TEMP TABLE journal_fn_def_snap AS
+SELECT
+  p.proname,
+  pg_get_function_identity_arguments(p.oid) AS args,
+  p.prosecdef,
+  p.provolatile,
+  p.proconfig,
+  md5(pg_get_functiondef(p.oid)) AS def_md5
+FROM pg_proc p
+JOIN pg_namespace n ON n.oid = p.pronamespace
+WHERE n.nspname = 'public'
+  AND p.proname IN (
+    'journal_calculate_trade_v1',
+    'journal_refresh_derived',
+    'journal_backfill_accounts_and_executions',
+    'journal_migrate_legacy_trades',
+    'journal_import_rollback',
+    'journal_save_trade_v1',
+    'journal_import_start_v1',
+    'journal_import_row_v1',
+    'journal_import_finalize_v1'
+  );
+
+SELECT is((SELECT count(*)::integer FROM journal_fn_def_snap), 9, 'nine canonical functions exist');
+
+SELECT ok(
+  (
+    SELECT bool_and(NOT prosecdef AND 'search_path=public' = ANY (proconfig))
+    FROM journal_fn_def_snap
+  ),
+  'all nine remain SECURITY INVOKER with search_path=public'
+);
+
+SELECT ok(
+  NOT has_function_privilege('anon', 'public.journal_backfill_accounts_and_executions(uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_migrate_legacy_trades()', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_import_rollback(uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_calculate_trade_v1(uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_refresh_derived(uuid)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_save_trade_v1(jsonb)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_import_start_v1(jsonb)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_import_row_v1(uuid, uuid, jsonb)', 'EXECUTE')
+  AND NOT has_function_privilege('anon', 'public.journal_import_finalize_v1(uuid)', 'EXECUTE'),
+  'anon EXECUTE is false for all nine canonical functions'
+);
+
+SELECT ok(
+  has_function_privilege('authenticated', 'public.journal_backfill_accounts_and_executions(uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_migrate_legacy_trades()', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_import_rollback(uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_calculate_trade_v1(uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_refresh_derived(uuid)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_save_trade_v1(jsonb)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_import_start_v1(jsonb)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_import_row_v1(uuid, uuid, jsonb)', 'EXECUTE')
+  AND has_function_privilege('authenticated', 'public.journal_import_finalize_v1(uuid)', 'EXECUTE'),
+  'authenticated EXECUTE remains true for all nine'
+);
+
+SELECT ok(
+  has_function_privilege('service_role', 'public.journal_backfill_accounts_and_executions(uuid)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_migrate_legacy_trades()', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_import_rollback(uuid)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_calculate_trade_v1(uuid)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_refresh_derived(uuid)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_save_trade_v1(jsonb)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_import_start_v1(jsonb)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_import_row_v1(uuid, uuid, jsonb)', 'EXECUTE')
+  AND has_function_privilege('service_role', 'public.journal_import_finalize_v1(uuid)', 'EXECUTE'),
+  'service_role EXECUTE remains true for all nine'
+);
+
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    CROSS JOIN LATERAL aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) a
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'journal_calculate_trade_v1',
+        'journal_refresh_derived',
+        'journal_backfill_accounts_and_executions',
+        'journal_migrate_legacy_trades',
+        'journal_import_rollback',
+        'journal_save_trade_v1',
+        'journal_import_start_v1',
+        'journal_import_row_v1',
+        'journal_import_finalize_v1'
+      )
+      AND a.grantee = 0
+      AND a.privilege_type = 'EXECUTE'
+  ),
+  'PUBLIC EXECUTE is false for all nine canonical functions'
+);
+
+SELECT throws_ok(
+  $miss$
+  DO $journal_fn_pre$
+  DECLARE
+    v_oid regprocedure;
+  BEGIN
+    v_oid := to_regprocedure('public.journal_missing_operator_fn(uuid)');
+    IF v_oid IS NULL THEN
+      RAISE EXCEPTION 'preflight: missing function public.journal_missing_operator_fn(uuid)';
+    END IF;
+    EXECUTE 'REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC';
+  END;
+  $journal_fn_pre$;
+  $miss$,
+  'P0001',
+  NULL,
+  'missing target function fails before revoke'
+);
+
+SELECT throws_ok(
+  $definer$
+  DO $journal_fn_pre$
+  DECLARE
+    v_proc pg_proc%ROWTYPE;
+  BEGIN
+    EXECUTE 'ALTER FUNCTION public.journal_import_rollback(uuid) SECURITY DEFINER';
+    SELECT p.* INTO STRICT v_proc
+    FROM pg_proc p
+    WHERE p.oid = 'public.journal_import_rollback(uuid)'::regprocedure;
+    IF v_proc.prosecdef THEN
+      RAISE EXCEPTION 'preflight: public.journal_import_rollback(uuid) is SECURITY DEFINER';
+    END IF;
+    EXECUTE 'REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC';
+  END;
+  $journal_fn_pre$;
+  $definer$,
+  'P0001',
+  NULL,
+  'SECURITY DEFINER fails before revoke'
+);
+
+SELECT throws_ok(
+  $nogrant$
+  DO $journal_fn_pre$
+  BEGIN
+    EXECUTE 'REVOKE ALL ON FUNCTION public.journal_import_rollback(uuid) FROM authenticated';
+    IF NOT has_function_privilege(
+      'authenticated',
+      'public.journal_import_rollback(uuid)'::regprocedure,
+      'EXECUTE'
+    ) THEN
+      RAISE EXCEPTION
+        'preflight: authenticated missing EXECUTE on public.journal_import_rollback(uuid)';
+    END IF;
+    EXECUTE 'REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC';
+  END;
+  $journal_fn_pre$;
+  $nogrant$,
+  'P0001',
+  NULL,
+  'missing authenticated grant fails before revoke'
+);
+
+SELECT throws_ok(
+  $otherpub$
+  DO $journal_fn_pre$
+  DECLARE
+    v_public boolean;
+    v_proc pg_proc%ROWTYPE;
+  BEGIN
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.journal_calculate_trade_v1(uuid) TO PUBLIC';
+    SELECT p.* INTO STRICT v_proc
+    FROM pg_proc p
+    WHERE p.oid = 'public.journal_calculate_trade_v1(uuid)'::regprocedure;
+    SELECT EXISTS (
+      SELECT 1
+      FROM aclexplode(coalesce(v_proc.proacl, acldefault('f', v_proc.proowner))) a
+      WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
+    ) INTO v_public;
+    IF v_public THEN
+      RAISE EXCEPTION
+        'preflight: unexpected PUBLIC/anon EXECUTE on public.journal_calculate_trade_v1(uuid)';
+    END IF;
+    EXECUTE 'REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC';
+  END;
+  $journal_fn_pre$;
+  $otherpub$,
+  'P0001',
+  NULL,
+  'unexpected PUBLIC EXECUTE on another canonical function fails before revoke'
+);
+
+CREATE TEMP TABLE journal_fn_acl_before_ck AS
+SELECT p.proacl
+FROM pg_proc p
+WHERE p.oid = 'public.journal_backfill_accounts_and_executions(uuid)'::regprocedure;
+
+SELECT throws_ok(
+  $badck$
+  DO $journal_seg$
+  DECLARE
+    v_statements text[] := ARRAY[
+      $journal_stmt$REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC
+$journal_stmt$
+    ];
+    v_expected text := 'deadbeefdeadbeefdeadbeefdeadbeef';
+    v_digest text;
+    v_stmt text;
+  BEGIN
+    v_digest := md5(array_to_string(v_statements, E'\x1e'));
+    IF v_digest IS DISTINCT FROM v_expected THEN
+      RAISE EXCEPTION
+        'journal migration integrity mismatch: expected %, got %',
+        v_expected,
+        v_digest;
+    END IF;
+    FOREACH v_stmt IN ARRAY v_statements LOOP
+      EXECUTE v_stmt;
+    END LOOP;
+  END;
+  $journal_seg$;
+  $badck$,
+  'P0001',
+  NULL,
+  'checksum mutation fails before function ACL mutation'
+);
+
+SELECT is(
+  (
+    SELECT p.proacl
+    FROM pg_proc p
+    WHERE p.oid = 'public.journal_backfill_accounts_and_executions(uuid)'::regprocedure
+  ),
+  (SELECT proacl FROM journal_fn_acl_before_ck),
+  'checksum failure leaves operator function ACL unchanged'
+);
+
+SELECT ok(
+  NOT EXISTS (
+    SELECT s.proname, s.args, s.prosecdef, s.provolatile, s.proconfig, s.def_md5
+    FROM journal_fn_def_snap s
+    EXCEPT
+    SELECT
+      p.proname,
+      pg_get_function_identity_arguments(p.oid),
+      p.prosecdef,
+      p.provolatile,
+      p.proconfig,
+      md5(pg_get_functiondef(p.oid))
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname IN (
+        'journal_calculate_trade_v1',
+        'journal_refresh_derived',
+        'journal_backfill_accounts_and_executions',
+        'journal_migrate_legacy_trades',
+        'journal_import_rollback',
+        'journal_save_trade_v1',
+        'journal_import_start_v1',
+        'journal_import_row_v1',
+        'journal_import_finalize_v1'
+      )
+  ),
+  'canonical function definitions and normalized hashes remain unchanged'
+);
+
+SELECT * FROM finish();
+ROLLBACK;

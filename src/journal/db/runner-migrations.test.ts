@@ -36,6 +36,7 @@ const ORIGINAL_RUNNER_DIGESTS: Record<string, string> = {
   "20260816191370_journal_fn_import_start.sql": "3035ed18af16105a33865e5077a9d3b2",
   "20260816191380_journal_fn_import_row.sql": "d5a0336ec8831622f0259b024f8952b9",
   "20260816191390_journal_fn_import_finalize.sql": "86569d4bee60796943deb294d56d5c99",
+  "20260816191210_journal_legacy_acl_hardening.sql": "3d118b151dd84545d0eca04d0590320c",
 };
 
 const REPLACED = [
@@ -105,21 +106,28 @@ describe("runner-native Journal migrations", () => {
     );
   });
 
-  it("registers the new ACL file without rewriting the original 24 runner migrations", () => {
+  it("places the function ACL hardening file after import finalize", () => {
+    expect(files).toContain("20260816191400_journal_function_acl_hardening.sql");
+    expect(files.indexOf("20260816191390_journal_fn_import_finalize.sql")).toBeLessThan(
+      files.indexOf("20260816191400_journal_function_acl_hardening.sql"),
+    );
+  });
+
+  it("registers extra ACL files without rewriting the previous 25 runner migrations", () => {
     const manifest = JSON.parse(
       readFileSync(resolve(MIGRATIONS_DIR, "../../scripts/journal/runner-integrity.json"), "utf8"),
     ) as { files: { file: string; digest: string }[] };
-    const original = manifest.files.filter(
-      (entry) => entry.file !== "20260816191210_journal_legacy_acl_hardening.sql",
+    const previous = manifest.files.filter(
+      (entry) => entry.file !== "20260816191400_journal_function_acl_hardening.sql",
     );
-    expect(original).toHaveLength(24);
+    expect(previous).toHaveLength(25);
     expect(manifest.files.map((entry) => entry.file)).toContain(
-      "20260816191210_journal_legacy_acl_hardening.sql",
+      "20260816191400_journal_function_acl_hardening.sql",
     );
-    expect(original.map((entry) => entry.file).sort()).toEqual(
+    expect(previous.map((entry) => entry.file).sort()).toEqual(
       Object.keys(ORIGINAL_RUNNER_DIGESTS).sort(),
     );
-    for (const entry of original) {
+    for (const entry of previous) {
       expect(entry.digest).toBe(ORIGINAL_RUNNER_DIGESTS[entry.file]);
       const sql = readFileSync(resolve(MIGRATIONS_DIR, entry.file), "utf8");
       expect(extractIntegrityDigest(sql)).toBe(entry.digest);
