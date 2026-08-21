@@ -2113,6 +2113,160 @@ export type Database = {
           },
         ]
       }
+      journal_import_jobs: {
+        Row: {
+          created_at: string
+          duplicate_count: number
+          error_message: string | null
+          failed_count: number
+          filename: string | null
+          finished_at: string | null
+          id: string
+          imported_count: number
+          invalid_count: number
+          row_count: number | null
+          source: string
+          started_at: string | null
+          status: string
+          total_count: number
+          user_id: string
+          valid_count: number
+        }
+        Insert: {
+          created_at?: string
+          duplicate_count?: number
+          error_message?: string | null
+          failed_count?: number
+          filename?: string | null
+          finished_at?: string | null
+          id?: string
+          imported_count?: number
+          invalid_count?: number
+          row_count?: number | null
+          source?: string
+          started_at?: string | null
+          status?: string
+          total_count?: number
+          user_id: string
+          valid_count?: number
+        }
+        Update: {
+          created_at?: string
+          duplicate_count?: number
+          error_message?: string | null
+          failed_count?: number
+          filename?: string | null
+          finished_at?: string | null
+          id?: string
+          imported_count?: number
+          invalid_count?: number
+          row_count?: number | null
+          source?: string
+          started_at?: string | null
+          status?: string
+          total_count?: number
+          user_id?: string
+          valid_count?: number
+        }
+        Relationships: []
+      }
+      journal_import_mappings: {
+        Row: {
+          broker: string
+          created_at: string
+          id: string
+          mapping: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          broker: string
+          created_at?: string
+          id?: string
+          mapping?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          broker?: string
+          created_at?: string
+          id?: string
+          mapping?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_import_rows: {
+        Row: {
+          created_execution_id: string | null
+          created_trade_id: string | null
+          error_code: string | null
+          error_message: string | null
+          external_id: string | null
+          id: string
+          identity_key: string | null
+          import_job_id: string
+          parsed: Json | null
+          prior_trade_id: string | null
+          raw: Json | null
+          row_index: number
+          status: string
+        }
+        Insert: {
+          created_execution_id?: string | null
+          created_trade_id?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          identity_key?: string | null
+          import_job_id: string
+          parsed?: Json | null
+          prior_trade_id?: string | null
+          raw?: Json | null
+          row_index: number
+          status?: string
+        }
+        Update: {
+          created_execution_id?: string | null
+          created_trade_id?: string | null
+          error_code?: string | null
+          error_message?: string | null
+          external_id?: string | null
+          id?: string
+          identity_key?: string | null
+          import_job_id?: string
+          parsed?: Json | null
+          prior_trade_id?: string | null
+          raw?: Json | null
+          row_index?: number
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_import_rows_created_execution_id_fkey"
+            columns: ["created_execution_id"]
+            isOneToOne: false
+            referencedRelation: "journal_executions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_import_rows_created_trade_id_fkey"
+            columns: ["created_trade_id"]
+            isOneToOne: false
+            referencedRelation: "journal_trades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_import_rows_import_job_id_fkey"
+            columns: ["import_job_id"]
+            isOneToOne: false
+            referencedRelation: "journal_import_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_imports: {
         Row: {
           broker: string | null
@@ -2142,6 +2296,36 @@ export type Database = {
           imported_at?: string
           row_count?: number | null
           status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      journal_integrations: {
+        Row: {
+          created_at: string
+          id: string
+          provider: string
+          settings: Json
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          provider: string
+          settings?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          provider?: string
+          settings?: Json
+          status?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -2734,6 +2918,48 @@ export type Database = {
           },
         ]
       }
+      journal_provider_accounts: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          display_name: string | null
+          external_account_id: string
+          id: string
+          integration_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          external_account_id: string
+          id?: string
+          integration_id: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          display_name?: string | null
+          external_account_id?: string
+          id?: string
+          integration_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_provider_accounts_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "journal_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_provider_accounts_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "journal_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       journal_report_exports: {
         Row: {
           created_at: string
@@ -3141,6 +3367,38 @@ export type Database = {
           wins?: number
         }
         Relationships: []
+      }
+      journal_sync_cursors: {
+        Row: {
+          cursor_key: string
+          cursor_value: string | null
+          id: string
+          integration_id: string
+          updated_at: string
+        }
+        Insert: {
+          cursor_key: string
+          cursor_value?: string | null
+          id?: string
+          integration_id: string
+          updated_at?: string
+        }
+        Update: {
+          cursor_key?: string
+          cursor_value?: string | null
+          id?: string
+          integration_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_sync_cursors_integration_id_fkey"
+            columns: ["integration_id"]
+            isOneToOne: false
+            referencedRelation: "journal_integrations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journal_tag_assignments: {
         Row: {
@@ -3760,6 +4018,68 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      journal_webhook_deliveries: {
+        Row: {
+          created_at: string
+          delivered_at: string | null
+          endpoint_id: string
+          error_message: string | null
+          id: string
+          payload_hash: string | null
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          delivered_at?: string | null
+          endpoint_id: string
+          error_message?: string | null
+          id?: string
+          payload_hash?: string | null
+          status: string
+        }
+        Update: {
+          created_at?: string
+          delivered_at?: string | null
+          endpoint_id?: string
+          error_message?: string | null
+          id?: string
+          payload_hash?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_webhook_deliveries_endpoint_id_fkey"
+            columns: ["endpoint_id"]
+            isOneToOne: false
+            referencedRelation: "journal_webhook_endpoints"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      journal_webhook_endpoints: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       market_indexes: {
         Row: {
