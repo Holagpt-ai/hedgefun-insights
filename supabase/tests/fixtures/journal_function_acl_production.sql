@@ -5,12 +5,14 @@
 --   direct SELECT+INSERT on all 77 Journal tables for
 --     sandbox_exec_zcjptaolpumhtlwhlemq and sandbox_exec
 --   no canonical function EXECUTE for plain sandbox_exec
+--   no role memberships for the long sandbox role
 -- CREATE OR REPLACE FUNCTION preserves existing ACLs. DROP+CREATE would
 -- reapply production default privileges and may restore anon/sandbox EXECUTE.
 DO $fixture$
 DECLARE
   sig text;
   t text;
+  r text;
   v_canon constant text[] := ARRAY[
     'journal_calculate_trade_v1(uuid)',
     'journal_refresh_derived(uuid)',
@@ -37,6 +39,26 @@ BEGIN
       v_plain
     );
   END IF;
+
+  -- Disposable CREATE ROLE may attach platform memberships. Production has none.
+  FOR r IN
+    SELECT g.rolname
+    FROM pg_auth_members m
+    JOIN pg_roles g ON g.oid = m.roleid
+    JOIN pg_roles u ON u.oid = m.member
+    WHERE u.rolname = v_sandbox
+  LOOP
+    EXECUTE format('REVOKE %I FROM %I', r, v_sandbox);
+  END LOOP;
+  FOR r IN
+    SELECT g.rolname
+    FROM pg_auth_members m
+    JOIN pg_roles g ON g.oid = m.member
+    JOIN pg_roles u ON u.oid = m.roleid
+    WHERE u.rolname = v_sandbox
+  LOOP
+    EXECUTE format('REVOKE %I FROM %I', v_sandbox, r);
+  END LOOP;
 
   FOREACH sig IN ARRAY v_canon LOOP
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO anon', sig);
