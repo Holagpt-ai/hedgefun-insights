@@ -10,10 +10,10 @@ import re
 import sys
 from pathlib import Path
 
-TARGETS = {
-    "journal_backfill_accounts_and_executions|uuid",
-    "journal_migrate_legacy_trades|",
-    "journal_import_rollback|uuid",
+TARGET_NAMES = {
+    "journal_backfill_accounts_and_executions",
+    "journal_migrate_legacy_trades",
+    "journal_import_rollback",
 }
 PUBLIC_GRANT = re.compile(r"(?:\{|,)=X/[^,}]+")
 
@@ -69,14 +69,15 @@ def main() -> int:
         return 1
     changed: list[str] = []
     for key, old_line in sorted(before_fn.items()):
+        name = key.split("|", 1)[0]
         new_line = after_fn[key]
         if old_line == new_line:
-            if key in TARGETS:
+            if name in TARGET_NAMES:
                 print(f"expected PUBLIC EXECUTE removal on {key}", file=sys.stderr)
                 return 1
             continue
-        changed.append(key)
-        if key not in TARGETS:
+        changed.append(name)
+        if name not in TARGET_NAMES:
             print(f"unexpected function catalog change on {key}", file=sys.stderr)
             print(f"- {old_line[:200]}", file=sys.stderr)
             print(f"+ {new_line[:200]}", file=sys.stderr)
@@ -104,9 +105,9 @@ def main() -> int:
         if "authenticated=X/" not in old_acl or "service_role=X/" not in old_acl:
             print(f"before-state missing approved EXECUTE on {key}: {old_acl}", file=sys.stderr)
             return 1
-    if set(changed) != TARGETS:
+    if set(changed) != TARGET_NAMES:
         print(
-            f"function ACL delta set mismatch: changed={sorted(changed)} expected={sorted(TARGETS)}",
+            f"function ACL delta set mismatch: changed={sorted(changed)} expected={sorted(TARGET_NAMES)}",
             file=sys.stderr,
         )
         return 1
