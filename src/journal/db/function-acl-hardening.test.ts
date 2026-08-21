@@ -46,41 +46,45 @@ describe("function ACL hardening migration", () => {
     expect(sql.includes("\r")).toBe(false);
     expect(digest).toMatch(/^[0-9a-f]{32}$/);
     expect(md5Parts(parts)).toBe(digest);
-    expect(parts.length).toBe(8);
-    expect(revokes).toHaveLength(6);
+    expect(parts.length).toBe(14);
+    expect(revokes).toHaveLength(12);
   });
 
-  it("revokes PUBLIC and anon EXECUTE from exactly the three operator signatures", () => {
+  it("revokes PUBLIC from the three targets and anon from all nine signatures", () => {
+    const publicRevokes = revokes.filter((part) => part.includes(" FROM PUBLIC"));
+    const anonRevokes = revokes.filter((part) => part.includes(" FROM anon"));
+    expect(publicRevokes).toHaveLength(3);
+    expect(anonRevokes).toHaveLength(9);
     for (const sig of TARGETS) {
-      expect(revokes.some((part) => part.includes(`public.${sig} FROM PUBLIC`))).toBe(true);
-      expect(revokes.some((part) => part.includes(`public.${sig} FROM anon`))).toBe(true);
+      expect(publicRevokes.some((part) => part.includes(`public.${sig} FROM PUBLIC`))).toBe(true);
+    }
+    for (const sig of CANON) {
+      expect(anonRevokes.some((part) => part.includes(`public.${sig} FROM anon`))).toBe(true);
     }
     expect(sql).not.toMatch(/ON ALL FUNCTIONS/i);
     expect(sql).not.toMatch(/REVOKE\s+ALL\s+ON\s+FUNCTION\s+public\.journal_%/i);
-    expect(sql).not.toMatch(/proname LIKE/i);
+    expect(sql).not.toMatch(/FROM authenticated/);
+    expect(sql).not.toMatch(/FROM service_role/);
+    expect(sql).not.toMatch(/FROM sandbox_exec_zcjptaolpumhtlwhlemq/);
+    expect(sql).toContain("sandbox_exec_zcjptaolpumhtlwhlemq");
+    expect(sql).toMatch(/CREATE OR REPLACE FUNCTION preserves existing ACLs/);
+    expect(sql).toMatch(/DROP FUNCTION followed by CREATE FUNCTION/);
     expect(CANON).toHaveLength(9);
-    for (const sig of CANON) {
-      expect(parts[0]).toContain(`'${sig}'`);
-      expect(parts[7]).toContain(`'${sig}'`);
-    }
-    expect(parts[0]).toMatch(/v_targets constant text\[] := ARRAY\[/);
-    for (const sig of TARGETS) {
-      expect(parts[0]).toContain(`'${sig}'`);
-    }
   });
 
   it("does not change function bodies, table ACLs, policies, storage, or invoke backfill", () => {
-    expect(sql).not.toMatch(/CREATE(?:\s+OR\s+REPLACE)?\s+FUNCTION/i);
-    expect(sql).not.toMatch(/ALTER FUNCTION/i);
-    expect(sql).not.toMatch(/DROP FUNCTION/i);
-    expect(sql).not.toMatch(/ALTER FUNCTION[\s\S]{0,80}SECURITY DEFINER/i);
-    expect(sql).not.toMatch(/\bGRANT (ALL|EXECUTE)\b/i);
-    expect(sql).not.toMatch(/ALTER TABLE/i);
-    expect(sql).not.toMatch(/CREATE POLICY/i);
-    expect(sql).not.toMatch(/DROP POLICY/i);
-    expect(sql).not.toMatch(/storage\.buckets/i);
-    expect(sql).not.toMatch(/PERFORM\s+/i);
-    expect(sql).not.toMatch(/SELECT\s+public\.journal_/i);
+    const body = parts.join("\n");
+    expect(body).not.toMatch(/CREATE(?:\s+OR\s+REPLACE)?\s+FUNCTION/i);
+    expect(body).not.toMatch(/ALTER FUNCTION/i);
+    expect(body).not.toMatch(/DROP FUNCTION/i);
+    expect(body).not.toMatch(/\bGRANT (ALL|EXECUTE)\b/i);
+    expect(body).not.toMatch(/ALTER TABLE/i);
+    expect(body).not.toMatch(/ALTER DEFAULT PRIVILEGES/);
+    expect(body).not.toMatch(/CREATE POLICY/i);
+    expect(body).not.toMatch(/DROP POLICY/i);
+    expect(body).not.toMatch(/storage\.buckets/i);
+    expect(body).not.toMatch(/PERFORM\s+/i);
+    expect(body).not.toMatch(/SELECT\s+public\.journal_/i);
   });
 
   it("fails the digest when a statement is changed, removed, or reordered", () => {

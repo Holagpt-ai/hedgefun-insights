@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Compare Journal catalog dumps after 20260816191400.
 
-Allows only removal of PUBLIC/anon effective EXECUTE from the three operator
-functions. Function definitions and every other catalog line must match.
+Permitted ACL delta only:
+  * PUBLIC EXECUTE removal from the three operator functions
+  * anon EXECUTE removal from any of the nine canonical functions
+
+Function definitions and every other catalog line must match. Owner,
+authenticated, service_role, and sandbox grants must be unchanged.
 """
 from __future__ import annotations
 
@@ -15,7 +19,19 @@ TARGET_NAMES = {
     "journal_migrate_legacy_trades",
     "journal_import_rollback",
 }
-PUBLIC_GRANT = re.compile(r"(?:\{|,)=X/[^,}]+")
+CANON_NAMES = {
+    "journal_calculate_trade_v1",
+    "journal_refresh_derived",
+    "journal_backfill_accounts_and_executions",
+    "journal_migrate_legacy_trades",
+    "journal_import_rollback",
+    "journal_save_trade_v1",
+    "journal_import_start_v1",
+    "journal_import_row_v1",
+    "journal_import_finalize_v1",
+}
+SANDBOX = "sandbox_exec_zcjptaolpumhtlwhlemq"
+ENTRY = re.compile(r"([^=,]*)=([^/]+)/([^,}]+)")
 
 
 def load_lines(path: Path) -> list[str]:
@@ -50,6 +66,14 @@ def parse_fn(line: str) -> tuple[str, str, str]:
     return head[:acl_idx], head[acl_idx + 5 :], definition
 
 
+def parse_acl(acl: str) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for match in ENTRY.finditer(acl.strip("{}")):
+        grantee = match.group(1) or "PUBLIC"
+        out[grantee] = match.group(2)
+    return out
+
+
 def main() -> int:
     if len(sys.argv) != 3:
         print("usage: journal-fn-acl-delta.py before.txt after.txt", file=sys.stderr)
@@ -67,53 +91,55 @@ def main() -> int:
     if set(before_fn) != set(after_fn):
         print("journal function set changed after 20260816191400", file=sys.stderr)
         return 1
-    changed: list[str] = []
     for key, old_line in sorted(before_fn.items()):
         name = key.split("|", 1)[0]
         new_line = after_fn[key]
-        if old_line == new_line:
-            if name in TARGET_NAMES:
-                print(f"expected PUBLIC EXECUTE removal on {key}", file=sys.stderr)
-                return 1
-            continue
-        changed.append(name)
-        if name not in TARGET_NAMES:
-            print(f"unexpected function catalog change on {key}", file=sys.stderr)
-            print(f"- {old_line[:200]}", file=sys.stderr)
-            print(f"+ {new_line[:200]}", file=sys.stderr)
-            return 1
         old_meta, old_acl, old_def = parse_fn(old_line)
         new_meta, new_acl, new_def = parse_fn(new_line)
-        if old_meta != new_meta:
-            print(f"function identity/volatility/security/path changed on {key}", file=sys.stderr)
+        if old_meta != new_meta or old_def != new_def:
+            print(f"function definition or identity changed on {key}", file=sys.stderr)
             return 1
-        if old_def != new_def:
-            print(f"function definition changed on {key}", file=sys.stderr)
-            return 1
-        if not PUBLIC_GRANT.search(old_acl):
-            print(f"before-state missing PUBLIC EXECUTE on {key}: {old_acl}", file=sys.stderr)
-            return 1
-        if PUBLIC_GRANT.search(new_acl):
+        old_map = parse_acl(old_acl)
+        new_map = parse_acl(new_acl)
+        if name not in CANON_NAMES:
+            if old_line != new_line:
+                print(f"non-canonical function catalog changed on {key}", file=sys.stderr)
+                return 1
+            continue
+        if "PUBLIC" in new_map:
             print(f"PUBLIC EXECUTE remains on {key}: {new_acl}", file=sys.stderr)
             return 1
-        if "authenticated=X/" not in new_acl:
-            print(f"authenticated EXECUTE missing on {key}: {new_acl}", file=sys.stderr)
+        if "anon" in new_map:
+            print(f"anon EXECUTE remains on {key}: {new_acl}", file=sys.stderr)
             return 1
-        if "service_role=X/" not in new_acl:
-            print(f"service_role EXECUTE missing on {key}: {new_acl}", file=sys.stderr)
+        if "PUBLIC" in old_map and name not in TARGET_NAMES:
+            print(f"unexpected PUBLIC EXECUTE on non-target {key}", file=sys.stderr)
             return 1
-        if "authenticated=X/" not in old_acl or "service_role=X/" not in old_acl:
-            print(f"before-state missing approved EXECUTE on {key}: {old_acl}", file=sys.stderr)
+        old_rest = {k: v for k, v in old_map.items() if k not in {"PUBLIC", "anon"}}
+        new_rest = {k: v for k, v in new_map.items() if k not in {"PUBLIC", "anon"}}
+        if old_rest != new_rest:
+            print(f"protected function grants changed on {key}", file=sys.stderr)
+            print(f"- {old_acl}", file=sys.stderr)
+            print(f"+ {new_acl}", file=sys.stderr)
             return 1
-    if set(changed) != TARGET_NAMES:
-        print(
-            f"function ACL delta set mismatch: changed={sorted(changed)} expected={sorted(TARGET_NAMES)}",
-            file=sys.stderr,
-        )
-        return 1
+        if "authenticated" not in new_map or "service_role" not in new_map:
+            print(f"authenticated/service_role EXECUTE missing on {key}: {new_acl}", file=sys.stderr)
+            return 1
+        if SANDBOX in old_map and SANDBOX not in new_map:
+            print(f"sandbox EXECUTE removed on {key}", file=sys.stderr)
+            return 1
+        extra = set(new_map) - set(old_map)
+        if extra:
+            print(f"unexpected ACL principal added on {key}: {sorted(extra)}", file=sys.stderr)
+            return 1
+        removed = set(old_map) - set(new_map)
+        if removed - {"PUBLIC", "anon"}:
+            print(f"unauthorized principal removed on {key}: {sorted(removed)}", file=sys.stderr)
+            return 1
     print(
         "post-remediation catalog delta is limited to PUBLIC EXECUTE "
-        "removal on the three operator functions"
+        "removal on the three operator functions and anon EXECUTE "
+        "removal on the nine canonical functions"
     )
     return 0
 

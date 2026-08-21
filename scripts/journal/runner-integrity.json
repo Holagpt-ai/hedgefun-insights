@@ -158,8 +158,8 @@
     },
     {
       "file": "20260816191400_journal_function_acl_hardening.sql",
-      "bytes": 7072,
-      "digest": "f3de4ebe810385ca63f90f7a22e116cf",
+      "bytes": 15887,
+      "digest": "bf7c767ee6ee89ce20bbb9bf8608016d",
       "kind": "function-acl"
     }
   ],

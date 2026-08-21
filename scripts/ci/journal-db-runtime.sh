@@ -20,6 +20,23 @@ ACL_HELD_NAME="20260816191210_journal_legacy_acl_hardening.sql"
 FN_ACL_FILE="$ROOT/supabase/migrations/20260816191400_journal_function_acl_hardening.sql"
 FN_ACL_HELD_NAME="20260816191400_journal_function_acl_hardening.sql"
 FN_ACL_PATTERN="$ROOT/supabase/migrations/202608161914*.sql"
+FN_ACL_FIXTURE="$ROOT/supabase/tests/fixtures/journal_function_acl_production.sql"
+FN_ACL_SANDBOX="sandbox_exec_zcjptaolpumhtlwhlemq"
+# Function ACL: CREATE OR REPLACE preserves ACLs. DROP+CREATE reapplies
+# production default privileges and may restore anon/sandbox EXECUTE.
+# Follow any future drop/recreate with 20260816191400 or equivalent revokes.
+# Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
+FN_CANON_SIGS=(
+  "journal_calculate_trade_v1(uuid)"
+  "journal_refresh_derived(uuid)"
+  "journal_backfill_accounts_and_executions(uuid)"
+  "journal_migrate_legacy_trades()"
+  "journal_import_rollback(uuid)"
+  "journal_save_trade_v1(jsonb)"
+  "journal_import_start_v1(jsonb)"
+  "journal_import_row_v1(uuid, uuid, jsonb)"
+  "journal_import_finalize_v1(uuid)"
+)
 BASELINE_DIR="$ROOT/scripts/journal/approved-baseline"
 
 HELD="$(mktemp -d)"
@@ -392,12 +409,68 @@ assert_fn_public_execute() {
   fi
 }
 
-grant_operator_public_execute() {
-  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-GRANT EXECUTE ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) TO PUBLIC;
-GRANT EXECUTE ON FUNCTION public.journal_migrate_legacy_trades() TO PUBLIC;
-GRANT EXECUTE ON FUNCTION public.journal_import_rollback(uuid) TO PUBLIC;
-SQL
+assert_fn_hardened_all() {
+  local sig
+  for sig in "${FN_CANON_SIGS[@]}"; do
+    assert_fn_public_execute "$sig" f
+    assert_fn_execute anon "$sig" f
+    assert_fn_execute authenticated "$sig" t
+    assert_fn_execute service_role "$sig" t
+  done
+}
+
+assert_sandbox_fn_execute_all() {
+  local expect="$1"
+  local sig
+  for sig in "${FN_CANON_SIGS[@]}"; do
+    assert_fn_execute "$FN_ACL_SANDBOX" "$sig" "$expect"
+  done
+}
+
+assert_sandbox_zero_table_privs() {
+  local actual
+  actual="$(docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 -A -t -c \
+    "SELECT EXISTS (
+       SELECT 1
+       FROM pg_class c
+       JOIN pg_namespace n ON n.oid = c.relnamespace
+       WHERE n.nspname = 'public'
+         AND c.relkind = 'r'
+         AND c.relname LIKE 'journal_%'
+         AND (
+           has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'SELECT')
+           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'INSERT')
+           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'UPDATE')
+           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'DELETE')
+           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'TRUNCATE')
+           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'REFERENCES')
+           OR has_table_privilege('${FN_ACL_SANDBOX}', c.oid, 'TRIGGER')
+         )
+     )" | tr -d '[:space:]')"
+  if [[ "$actual" != "f" ]]; then
+    echo "sandbox has Journal table privileges" >&2
+    exit 1
+  fi
+}
+
+assert_production_starting_acl() {
+  local sig
+  assert_fn_public_execute "journal_backfill_accounts_and_executions(uuid)" t
+  assert_fn_public_execute "journal_migrate_legacy_trades()" t
+  assert_fn_public_execute "journal_import_rollback(uuid)" t
+  assert_fn_public_execute "journal_calculate_trade_v1(uuid)" f
+  assert_fn_public_execute "journal_refresh_derived(uuid)" f
+  assert_fn_public_execute "journal_save_trade_v1(jsonb)" f
+  assert_fn_public_execute "journal_import_start_v1(jsonb)" f
+  assert_fn_public_execute "journal_import_row_v1(uuid, uuid, jsonb)" f
+  assert_fn_public_execute "journal_import_finalize_v1(uuid)" f
+  for sig in "${FN_CANON_SIGS[@]}"; do
+    assert_fn_execute anon "$sig" t
+    assert_fn_execute authenticated "$sig" t
+    assert_fn_execute service_role "$sig" t
+    assert_fn_execute "$FN_ACL_SANDBOX" "$sig" t
+  done
+  assert_sandbox_zero_table_privs
 }
 
 apply_fn_acl_expect_failure() {
@@ -407,29 +480,99 @@ apply_fn_acl_expect_failure() {
   fi
 }
 
+run_fn_acl_production_faithful() {
+  echo "==> production-faithful starting ACL reaches the required final ACL"
+  apply_sql_file "$FN_ACL_FIXTURE"
+  assert_production_starting_acl
+  dump_journal_catalog > /tmp/journal-fn-acl-prod-before.txt
+  apply_sql_file "$FN_ACL_FILE"
+  dump_journal_catalog > /tmp/journal-fn-acl-prod-after.txt
+  python3 "$ROOT/scripts/ci/journal-fn-acl-delta.py" \
+    /tmp/journal-fn-acl-prod-before.txt \
+    /tmp/journal-fn-acl-prod-after.txt
+  assert_fn_hardened_all
+  assert_sandbox_fn_execute_all t
+  assert_sandbox_zero_table_privs
+  echo "==> second function ACL hardening execution is idempotent"
+  apply_sql_file "$FN_ACL_FILE"
+  dump_journal_catalog > /tmp/journal-fn-acl-prod-after2.txt
+  if ! diff -u /tmp/journal-fn-acl-prod-after.txt /tmp/journal-fn-acl-prod-after2.txt; then
+    echo "idempotent function ACL re-apply changed the journal catalog" >&2
+    exit 1
+  fi
+  assert_fn_hardened_all
+  assert_sandbox_fn_execute_all t
+}
+
 run_fn_acl_failure_injection() {
-  echo "==> unexpected canonical function PUBLIC EXECUTE must fail before operator revoke"
-  grant_operator_public_execute
+  echo "==> unexpected PUBLIC EXECUTE on a non-target function fails before mutation"
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
 GRANT EXECUTE ON FUNCTION public.journal_calculate_trade_v1(uuid) TO PUBLIC;
 SQL
-  assert_fn_public_execute "journal_backfill_accounts_and_executions(uuid)" t
+  assert_fn_public_execute "journal_calculate_trade_v1(uuid)" t
   apply_fn_acl_expect_failure
-  assert_fn_public_execute "journal_backfill_accounts_and_executions(uuid)" t
-  assert_fn_public_execute "journal_migrate_legacy_trades()" t
-  assert_fn_public_execute "journal_import_rollback(uuid)" t
+  assert_fn_public_execute "journal_calculate_trade_v1(uuid)" t
+  assert_fn_execute authenticated "journal_calculate_trade_v1(uuid)" t
   docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
 REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM PUBLIC;
 SQL
+
+  echo "==> unexpected grantee fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+CREATE ROLE journal_fn_acl_probe NOLOGIN;
+GRANT EXECUTE ON FUNCTION public.journal_calculate_trade_v1(uuid) TO journal_fn_acl_probe;
+SQL
+  apply_fn_acl_expect_failure
+  assert_fn_execute journal_fn_acl_probe "journal_calculate_trade_v1(uuid)" t
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM journal_fn_acl_probe;
+DROP ROLE journal_fn_acl_probe;
+SQL
+
+  echo "==> unexpected sandbox_exec grantee fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+CREATE ROLE sandbox_exec_unexpected NOLOGIN;
+GRANT EXECUTE ON FUNCTION public.journal_calculate_trade_v1(uuid) TO sandbox_exec_unexpected;
+SQL
+  apply_fn_acl_expect_failure
+  assert_fn_execute sandbox_exec_unexpected "journal_calculate_trade_v1(uuid)" t
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE ALL ON FUNCTION public.journal_calculate_trade_v1(uuid) FROM sandbox_exec_unexpected;
+DROP ROLE sandbox_exec_unexpected;
+SQL
+
+  echo "==> unexpected sandbox Journal table privilege fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT SELECT ON TABLE public.journal_trades TO sandbox_exec_zcjptaolpumhtlwhlemq;
+SQL
+  apply_fn_acl_expect_failure
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE SELECT ON TABLE public.journal_trades FROM sandbox_exec_zcjptaolpumhtlwhlemq;
+SQL
+
+  echo "==> missing authenticated EXECUTE fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE ALL ON FUNCTION public.journal_import_rollback(uuid) FROM authenticated;
+SQL
+  apply_fn_acl_expect_failure
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT EXECUTE ON FUNCTION public.journal_import_rollback(uuid) TO authenticated;
+SQL
+
+  echo "==> missing service_role EXECUTE fails before mutation"
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+REVOKE ALL ON FUNCTION public.journal_import_rollback(uuid) FROM service_role;
+SQL
+  apply_fn_acl_expect_failure
+  docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+GRANT EXECUTE ON FUNCTION public.journal_import_rollback(uuid) TO service_role;
+SQL
+
   echo "==> applying function ACL hardening after restoring the approved privilege set"
   apply_sql_file "$FN_ACL_FILE"
-  assert_fn_public_execute "journal_backfill_accounts_and_executions(uuid)" f
-  assert_fn_public_execute "journal_migrate_legacy_trades()" f
-  assert_fn_public_execute "journal_import_rollback(uuid)" f
-  assert_fn_execute anon "journal_backfill_accounts_and_executions(uuid)" f
-  assert_fn_execute authenticated "journal_backfill_accounts_and_executions(uuid)" t
-  assert_fn_execute service_role "journal_backfill_accounts_and_executions(uuid)" t
-  assert_fn_execute authenticated "journal_calculate_trade_v1(uuid)" t
+  assert_fn_hardened_all
+  assert_sandbox_fn_execute_all t
+  assert_sandbox_zero_table_privs
 }
 
 dump_journal_catalog() {
@@ -593,6 +736,10 @@ if [[ "$MODE" == "clean" ]]; then
   run_acl_failure_injection
   echo "==> running legacy ACL hardening pgTAP tests"
   supabase test db --local supabase/tests/database/journal_legacy_acl_hardening.test.sql
+  echo "==> sandbox-absent function ACL already applied by db start"
+  assert_fn_hardened_all
+  echo "==> running production-faithful function ACL runtime"
+  run_fn_acl_production_faithful
   echo "==> running function ACL hardening failure-injection"
   run_fn_acl_failure_injection
   echo "==> running function ACL hardening pgTAP tests"

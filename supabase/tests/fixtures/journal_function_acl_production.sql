@@ -1,0 +1,40 @@
+-- Production-faithful Journal function ACL fixture for disposable tests.
+-- Mirrors verified production defaults:
+--   direct EXECUTE for anon and sandbox_exec_zcjptaolpumhtlwhlemq on all nine
+--   PUBLIC EXECUTE on the three operator functions
+--   zero Journal table privileges for the sandbox role
+-- CREATE OR REPLACE FUNCTION preserves existing ACLs. DROP+CREATE would
+-- reapply production default privileges and may restore anon/sandbox EXECUTE.
+DO $fixture$
+DECLARE
+  sig text;
+  v_canon constant text[] := ARRAY[
+    'journal_calculate_trade_v1(uuid)',
+    'journal_refresh_derived(uuid)',
+    'journal_backfill_accounts_and_executions(uuid)',
+    'journal_migrate_legacy_trades()',
+    'journal_import_rollback(uuid)',
+    'journal_save_trade_v1(jsonb)',
+    'journal_import_start_v1(jsonb)',
+    'journal_import_row_v1(uuid, uuid, jsonb)',
+    'journal_import_finalize_v1(uuid)'
+  ];
+  v_sandbox constant text := 'sandbox_exec_zcjptaolpumhtlwhlemq';
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_sandbox) THEN
+    EXECUTE format(
+      'CREATE ROLE %I LOGIN INHERIT NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION BYPASSRLS',
+      v_sandbox
+    );
+  END IF;
+
+  FOREACH sig IN ARRAY v_canon LOOP
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO anon', sig);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO %I', sig, v_sandbox);
+  END LOOP;
+
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) TO PUBLIC';
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.journal_migrate_legacy_trades() TO PUBLIC';
+  EXECUTE 'GRANT EXECUTE ON FUNCTION public.journal_import_rollback(uuid) TO PUBLIC';
+END;
+$fixture$;

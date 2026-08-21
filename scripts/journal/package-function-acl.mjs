@@ -7,6 +7,87 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const OUT = resolve(ROOT, "supabase/migrations");
 const MANIFEST = resolve(ROOT, "scripts/journal/runner-integrity.json");
 const NAME = "20260816191400_journal_function_acl_hardening.sql";
+const SANDBOX = "sandbox_exec_zcjptaolpumhtlwhlemq";
+
+const TABLE_NAMES = [
+  "journal_trades",
+  "journal_notes",
+  "journal_stats_cache",
+  "journal_equity_snapshots",
+  "journal_imports",
+  "journal_trader_profiles",
+  "journal_accounts",
+  "journal_account_balance_snapshots",
+  "journal_goals",
+  "journal_risk_rules",
+  "journal_coaching_commitments",
+  "journal_cash_ledger_entries",
+  "journal_balance_reconciliations",
+  "journal_currency_conversions",
+  "journal_trade_legs",
+  "journal_executions",
+  "journal_execution_fees",
+  "journal_trade_cash_flows",
+  "journal_trade_plans",
+  "journal_trade_reviews",
+  "journal_trade_context",
+  "journal_trade_relationships",
+  "journal_trade_markers",
+  "journal_attachments",
+  "journal_tags",
+  "journal_tag_assignments",
+  "journal_notebooks",
+  "journal_notebook_entries",
+  "journal_notebook_links",
+  "journal_sessions",
+  "journal_daily_reviews",
+  "journal_playbooks",
+  "journal_playbook_versions",
+  "journal_playbook_rules",
+  "journal_playbook_check_results",
+  "journal_risk_violations",
+  "journal_process_scores",
+  "journal_process_score_components",
+  "journal_metric_definitions",
+  "journal_metric_formula_versions",
+  "journal_report_templates",
+  "journal_saved_reports",
+  "journal_report_runs",
+  "journal_report_run_rows",
+  "journal_report_exports",
+  "journal_report_schedules",
+  "journal_market_context",
+  "journal_market_context_sources",
+  "journal_price_observations",
+  "journal_valuation_snapshots",
+  "journal_calculation_runs",
+  "journal_calculation_lineage",
+  "journal_trade_sequence_metrics",
+  "journal_data_quality_issues",
+  "journal_daily_metrics",
+  "journal_analytics_cache",
+  "journal_performance_insights",
+  "journal_ai_memories",
+  "journal_ai_memory_evidence",
+  "journal_ai_insights",
+  "journal_ai_conversations",
+  "journal_ai_messages",
+  "journal_ai_feedback",
+  "journal_ai_jobs",
+  "journal_ai_usage",
+  "journal_import_jobs",
+  "journal_import_rows",
+  "journal_import_mappings",
+  "journal_integrations",
+  "journal_provider_accounts",
+  "journal_sync_cursors",
+  "journal_webhook_endpoints",
+  "journal_webhook_deliveries",
+  "journal_domain_events",
+  "journal_event_outbox",
+  "journal_audit_log",
+  "journal_dead_letters",
+];
 
 const CANON = [
   "journal_calculate_trade_v1(uuid)",
@@ -30,33 +111,47 @@ function sqlArray(values) {
   return `ARRAY[\n    ${values.map((v) => `'${v}'`).join(",\n    ")}\n  ]`;
 }
 
+const inspectFn = `v_oid := to_regprocedure('public.' || sig);
+    IF v_oid IS NULL THEN
+      RAISE EXCEPTION '%: missing function public.%', v_phase, sig;
+    END IF;
+    SELECT p.* INTO STRICT v_proc FROM pg_proc p WHERE p.oid = v_oid;
+    IF v_proc.prosecdef THEN
+      RAISE EXCEPTION '%: public.% is SECURITY DEFINER', v_phase, sig;
+    END IF;
+    IF v_proc.proconfig IS NULL
+       OR NOT ('search_path=public' = ANY (v_proc.proconfig)) THEN
+      RAISE EXCEPTION '%: public.% is missing search_path=public', v_phase, sig;
+    END IF;`;
+
 const preflight = `DO $journal_fn_pre$
 DECLARE
   sig text;
+  t text;
+  v_priv text;
   v_oid regprocedure;
   v_proc pg_proc%ROWTYPE;
+  v_role pg_roles%ROWTYPE;
   r record;
+  v_phase text := 'preflight';
+  v_public boolean;
+  v_sandbox constant text := '${SANDBOX}';
   v_canon constant text[] := ${sqlArray(CANON)};
   v_targets constant text[] := ${sqlArray(TARGETS)};
-  v_public boolean;
+  v_tables constant text[] := ${sqlArray(TABLE_NAMES)};
+  v_privs text[] := ARRAY[
+    'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+  ];
 BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    v_privs := v_privs || 'MAINTAIN';
+  END IF;
   IF cardinality(v_canon) IS DISTINCT FROM 9 THEN
     RAISE EXCEPTION 'preflight: canonical Journal function count is %', cardinality(v_canon);
   END IF;
 
   FOREACH sig IN ARRAY v_canon LOOP
-    v_oid := to_regprocedure('public.' || sig);
-    IF v_oid IS NULL THEN
-      RAISE EXCEPTION 'preflight: missing function public.%', sig;
-    END IF;
-    SELECT p.* INTO STRICT v_proc FROM pg_proc p WHERE p.oid = v_oid;
-    IF v_proc.prosecdef THEN
-      RAISE EXCEPTION 'preflight: public.% is SECURITY DEFINER', sig;
-    END IF;
-    IF v_proc.proconfig IS NULL
-       OR NOT ('search_path=public' = ANY (v_proc.proconfig)) THEN
-      RAISE EXCEPTION 'preflight: public.% is missing search_path=public', sig;
-    END IF;
+    ${inspectFn}
     IF NOT has_function_privilege('authenticated', v_oid, 'EXECUTE') THEN
       RAISE EXCEPTION 'preflight: authenticated missing EXECUTE on public.%', sig;
     END IF;
@@ -69,19 +164,8 @@ BEGIN
       FROM aclexplode(coalesce(v_proc.proacl, acldefault('f', v_proc.proowner))) a
       WHERE a.grantee = 0 AND a.privilege_type = 'EXECUTE'
     ) INTO v_public;
-
-    IF sig = ANY (v_targets) THEN
-      IF NOT v_public OR NOT has_function_privilege('anon', v_oid, 'EXECUTE') THEN
-        RAISE EXCEPTION
-          'preflight: public.% does not currently expose PUBLIC/anon EXECUTE',
-          sig;
-      END IF;
-    ELSE
-      IF v_public OR has_function_privilege('anon', v_oid, 'EXECUTE') THEN
-        RAISE EXCEPTION
-          'preflight: unexpected PUBLIC/anon EXECUTE on public.%',
-          sig;
-      END IF;
+    IF v_public AND NOT (sig = ANY (v_targets)) THEN
+      RAISE EXCEPTION 'preflight: unexpected PUBLIC EXECUTE on public.%', sig;
     END IF;
 
     FOR r IN
@@ -90,15 +174,10 @@ BEGIN
       LEFT JOIN pg_roles g ON g.oid = a.grantee
     LOOP
       IF r.is_grantable THEN
-        RAISE EXCEPTION
-          'preflight: unexpected grant option on public.%',
-          sig;
+        RAISE EXCEPTION 'preflight: unexpected grant option on public.%', sig;
       END IF;
       IF r.privilege_type IS DISTINCT FROM 'EXECUTE' THEN
-        RAISE EXCEPTION
-          'preflight: unexpected % on public.%',
-          r.privilege_type,
-          sig;
+        RAISE EXCEPTION 'preflight: unexpected % on public.%', r.privilege_type, sig;
       END IF;
       IF r.grantee = 0 THEN
         IF NOT (sig = ANY (v_targets)) THEN
@@ -106,11 +185,20 @@ BEGIN
         END IF;
         CONTINUE;
       END IF;
-      IF r.rolname IN ('authenticated', 'service_role') THEN
+      IF r.rolname IN ('anon', 'authenticated', 'service_role') THEN
+        CONTINUE;
+      END IF;
+      IF r.rolname = v_sandbox THEN
         CONTINUE;
       END IF;
       IF r.grantee = v_proc.proowner THEN
         CONTINUE;
+      END IF;
+      IF coalesce(r.rolname, '') LIKE 'sandbox_exec%' THEN
+        RAISE EXCEPTION
+          'preflight: unexpected sandbox_exec grantee % on public.%',
+          r.rolname,
+          sig;
       END IF;
       RAISE EXCEPTION
         'preflight: unexpected grantee % on public.%',
@@ -118,30 +206,55 @@ BEGIN
         sig;
     END LOOP;
   END LOOP;
+
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_sandbox) THEN
+    SELECT * INTO STRICT v_role FROM pg_roles WHERE rolname = v_sandbox;
+    IF v_role.rolsuper OR NOT v_role.rolinherit OR v_role.rolcreaterole
+       OR v_role.rolcreatedb OR NOT v_role.rolcanlogin
+       OR v_role.rolreplication OR NOT v_role.rolbypassrls THEN
+      RAISE EXCEPTION 'preflight: sandbox role % has unexpected attributes', v_sandbox;
+    END IF;
+    FOREACH sig IN ARRAY v_canon LOOP
+      IF NOT has_function_privilege(v_sandbox, 'public.' || sig, 'EXECUTE') THEN
+        RAISE EXCEPTION 'preflight: sandbox missing EXECUTE on public.%', sig;
+      END IF;
+    END LOOP;
+    FOREACH t IN ARRAY v_tables LOOP
+      FOREACH v_priv IN ARRAY v_privs LOOP
+        IF has_table_privilege(v_sandbox, 'public.' || t, v_priv) THEN
+          RAISE EXCEPTION
+            'preflight: sandbox has % on public.%',
+            v_priv,
+            t;
+        END IF;
+      END LOOP;
+    END LOOP;
+  END IF;
 END;
 $journal_fn_pre$`;
 
 const postcondition = `DO $journal_fn_post$
 DECLARE
   sig text;
+  t text;
+  v_priv text;
   v_oid regprocedure;
   v_proc pg_proc%ROWTYPE;
-  v_canon constant text[] := ${sqlArray(CANON)};
+  r record;
+  v_phase text := 'postcondition';
   v_public boolean;
+  v_sandbox constant text := '${SANDBOX}';
+  v_canon constant text[] := ${sqlArray(CANON)};
+  v_tables constant text[] := ${sqlArray(TABLE_NAMES)};
+  v_privs text[] := ARRAY[
+    'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE', 'REFERENCES', 'TRIGGER'
+  ];
 BEGIN
+  IF current_setting('server_version_num')::integer >= 170000 THEN
+    v_privs := v_privs || 'MAINTAIN';
+  END IF;
   FOREACH sig IN ARRAY v_canon LOOP
-    v_oid := to_regprocedure('public.' || sig);
-    IF v_oid IS NULL THEN
-      RAISE EXCEPTION 'postcondition: missing function public.%', sig;
-    END IF;
-    SELECT p.* INTO STRICT v_proc FROM pg_proc p WHERE p.oid = v_oid;
-    IF v_proc.prosecdef THEN
-      RAISE EXCEPTION 'postcondition: public.% is SECURITY DEFINER', sig;
-    END IF;
-    IF v_proc.proconfig IS NULL
-       OR NOT ('search_path=public' = ANY (v_proc.proconfig)) THEN
-      RAISE EXCEPTION 'postcondition: public.% is missing search_path=public', sig;
-    END IF;
+    ${inspectFn}
     SELECT EXISTS (
       SELECT 1
       FROM aclexplode(coalesce(v_proc.proacl, acldefault('f', v_proc.proowner))) a
@@ -159,20 +272,60 @@ BEGIN
     IF NOT has_function_privilege('service_role', v_oid, 'EXECUTE') THEN
       RAISE EXCEPTION 'postcondition: service_role lost EXECUTE on public.%', sig;
     END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_sandbox)
+       AND NOT has_function_privilege(v_sandbox, v_oid, 'EXECUTE') THEN
+      RAISE EXCEPTION 'postcondition: sandbox lost EXECUTE on public.%', sig;
+    END IF;
+    FOR r IN
+      SELECT a.grantee, a.privilege_type, a.is_grantable, g.rolname
+      FROM aclexplode(coalesce(v_proc.proacl, acldefault('f', v_proc.proowner))) a
+      LEFT JOIN pg_roles g ON g.oid = a.grantee
+    LOOP
+      IF r.is_grantable OR r.privilege_type IS DISTINCT FROM 'EXECUTE' THEN
+        RAISE EXCEPTION 'postcondition: unexpected privilege state on public.%', sig;
+      END IF;
+      IF r.grantee = 0 OR r.rolname = 'anon' THEN
+        RAISE EXCEPTION 'postcondition: PUBLIC/anon EXECUTE remains on public.%', sig;
+      END IF;
+      IF r.rolname IN ('authenticated', 'service_role')
+         OR r.rolname = v_sandbox
+         OR r.grantee = v_proc.proowner THEN
+        CONTINUE;
+      END IF;
+      RAISE EXCEPTION
+        'postcondition: unexpected grantee % on public.%',
+        coalesce(r.rolname, r.grantee::text),
+        sig;
+    END LOOP;
   END LOOP;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = v_sandbox) THEN
+    FOREACH t IN ARRAY v_tables LOOP
+      FOREACH v_priv IN ARRAY v_privs LOOP
+        IF has_table_privilege(v_sandbox, 'public.' || t, v_priv) THEN
+          RAISE EXCEPTION 'postcondition: sandbox has % on public.%', v_priv, t;
+        END IF;
+      END LOOP;
+    END LOOP;
+  END IF;
 END;
 $journal_fn_post$`;
 
-const revokes = TARGETS.flatMap((sig) => [
-  `REVOKE ALL ON FUNCTION public.${sig} FROM PUBLIC`,
-  `REVOKE ALL ON FUNCTION public.${sig} FROM anon`,
-]);
+const revokes = [
+  ...TARGETS.map((sig) => `REVOKE ALL ON FUNCTION public.${sig} FROM PUBLIC`),
+  ...CANON.map((sig) => `REVOKE ALL ON FUNCTION public.${sig} FROM anon`),
+];
 
 const header = `-- Stocksist Trading Journal function ACL hardening.
--- Revokes leftover PUBLIC/anon EXECUTE from the three operator functions
--- that Stage C granted without REVOKE FROM PUBLIC. Does not change
--- function bodies, SECURITY INVOKER, search_path, or authenticated /
--- service_role EXECUTE. Mutation uses the exact three signatures.
+-- Twelve targeted revokes: PUBLIC EXECUTE from the three operator
+-- functions, and anon EXECUTE from all nine canonical functions.
+-- Preserves authenticated, service_role, owner, and
+-- sandbox_exec_zcjptaolpumhtlwhlemq EXECUTE. Does not GRANT.
+-- CREATE OR REPLACE FUNCTION preserves existing ACLs. A future
+-- DROP FUNCTION followed by CREATE FUNCTION reapplies production
+-- default privileges and may restore anon and sandbox EXECUTE.
+-- Any future drop/recreate of these nine functions must be followed
+-- by this hardening migration or equivalent explicit revocations.
+-- Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
 `;
 
 const wrapped = wrapAtomic([preflight, ...revokes, postcondition], { header });

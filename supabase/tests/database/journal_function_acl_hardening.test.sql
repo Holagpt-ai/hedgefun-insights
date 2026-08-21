@@ -4,10 +4,19 @@ SET search_path = public, extensions;
 
 SELECT no_plan();
 
+-- CREATE OR REPLACE FUNCTION preserves existing ACLs. DROP FUNCTION followed
+-- by CREATE FUNCTION reapplies production default privileges and may restore
+-- anon and sandbox EXECUTE. Follow any future drop/recreate of these nine
+-- functions with 20260816191400 or equivalent explicit revocations.
+-- Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
+
 CREATE TEMP TABLE journal_fn_def_snap AS
 SELECT
   p.proname,
   pg_get_function_identity_arguments(p.oid) AS args,
+  p.proowner,
+  p.prolang,
+  p.prorettype,
   p.prosecdef,
   p.provolatile,
   p.proconfig,
@@ -100,6 +109,39 @@ SELECT ok(
   'PUBLIC EXECUTE is false for all nine canonical functions'
 );
 
+SELECT ok(
+  NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sandbox_exec_zcjptaolpumhtlwhlemq')
+  OR (
+    has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_calculate_trade_v1(uuid)', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_refresh_derived(uuid)', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_backfill_accounts_and_executions(uuid)', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_migrate_legacy_trades()', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_import_rollback(uuid)', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_save_trade_v1(jsonb)', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_import_start_v1(jsonb)', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_import_row_v1(uuid, uuid, jsonb)', 'EXECUTE')
+    AND has_function_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', 'public.journal_import_finalize_v1(uuid)', 'EXECUTE')
+    AND NOT EXISTS (
+      SELECT 1
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public'
+        AND c.relkind = 'r'
+        AND c.relname LIKE 'journal_%'
+        AND (
+          has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'SELECT')
+          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'INSERT')
+          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'UPDATE')
+          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'DELETE')
+          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'TRUNCATE')
+          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'REFERENCES')
+          OR has_table_privilege('sandbox_exec_zcjptaolpumhtlwhlemq', c.oid, 'TRIGGER')
+        )
+    )
+  ),
+  'sandbox EXECUTE remains on all nine with zero Journal table privileges when the role exists'
+);
+
 SELECT throws_ok(
   $miss$
   DO $journal_fn_pre$
@@ -142,6 +184,29 @@ SELECT throws_ok(
 );
 
 SELECT throws_ok(
+  $badpath$
+  DO $journal_fn_pre$
+  DECLARE
+    v_proc pg_proc%ROWTYPE;
+  BEGIN
+    EXECUTE 'ALTER FUNCTION public.journal_import_rollback(uuid) SET search_path = pg_catalog';
+    SELECT p.* INTO STRICT v_proc
+    FROM pg_proc p
+    WHERE p.oid = 'public.journal_import_rollback(uuid)'::regprocedure;
+    IF v_proc.proconfig IS NULL
+       OR NOT ('search_path=public' = ANY (v_proc.proconfig)) THEN
+      RAISE EXCEPTION 'preflight: public.journal_import_rollback(uuid) is missing search_path=public';
+    END IF;
+    EXECUTE 'REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC';
+  END;
+  $journal_fn_pre$;
+  $badpath$,
+  'P0001',
+  NULL,
+  'altered search_path fails before revoke'
+);
+
+SELECT throws_ok(
   $nogrant$
   DO $journal_fn_pre$
   BEGIN
@@ -181,11 +246,10 @@ SELECT throws_ok(
     ) INTO v_public;
     IF v_public THEN
       RAISE EXCEPTION
-        'preflight: unexpected PUBLIC/anon EXECUTE on public.journal_calculate_trade_v1(uuid)';
+        'preflight: unexpected PUBLIC EXECUTE on public.journal_calculate_trade_v1(uuid)';
     END IF;
     EXECUTE 'REVOKE ALL ON FUNCTION public.journal_backfill_accounts_and_executions(uuid) FROM PUBLIC';
   END;
-  $journal_fn_pre$;
   $otherpub$,
   'P0001',
   NULL,
@@ -239,12 +303,15 @@ SELECT is(
 
 SELECT ok(
   NOT EXISTS (
-    SELECT s.proname, s.args, s.prosecdef, s.provolatile, s.proconfig, s.def_md5
+    SELECT s.proname, s.args, s.proowner, s.prolang, s.prorettype, s.prosecdef, s.provolatile, s.proconfig, s.def_md5
     FROM journal_fn_def_snap s
     EXCEPT
     SELECT
       p.proname,
       pg_get_function_identity_arguments(p.oid),
+      p.proowner,
+      p.prolang,
+      p.prorettype,
       p.prosecdef,
       p.provolatile,
       p.proconfig,
@@ -264,7 +331,7 @@ SELECT ok(
         'journal_import_finalize_v1'
       )
   ),
-  'canonical function definitions and normalized hashes remain unchanged'
+  'canonical function definitions, ownership, language, return types, and hashes remain unchanged'
 );
 
 SELECT * FROM finish();
