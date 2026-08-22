@@ -1,5 +1,4 @@
 import { AUGUST_14_TRADES } from "../demo/august-fixtures";
-import { NOTEBOOK_KEY, readJson } from "./storage";
 
 export interface NotebookEntry {
   id: string;
@@ -9,7 +8,7 @@ export interface NotebookEntry {
   tradeIds: string[];
 }
 
-const DEMO_ENTRIES: NotebookEntry[] = [
+export const DEMO_NOTEBOOK_ENTRIES: NotebookEntry[] = [
   {
     id: "nb-aug-14",
     title: "Aug 14 process",
@@ -19,7 +18,8 @@ const DEMO_ENTRIES: NotebookEntry[] = [
   },
 ];
 
+/** Demo Workspace only. Live Notebook entries are loaded from Supabase, never localStorage. */
 export function loadNotebook(mode: string): NotebookEntry[] {
-  if (mode === "demo") return DEMO_ENTRIES;
-  return readJson<NotebookEntry[]>(NOTEBOOK_KEY, []);
+  if (mode === "demo") return DEMO_NOTEBOOK_ENTRIES;
+  return [];
 }

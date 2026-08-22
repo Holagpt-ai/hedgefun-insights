@@ -1,22 +1,44 @@
 import { useSearchParams } from "react-router-dom";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { ComingSoonCard } from "../components/ComingSoonCard";
 import { HonestState } from "../components/HonestState";
 import { useJournalLang, useJournalT } from "../i18n";
+import { deleteOwnedAccount } from "../lib/delete-owned";
 import { SETTINGS_KEY, readJson, writeJson } from "../lib/storage";
+import { isUuid } from "../ledger/persist-contract";
 import { money } from "../lib/format";
+import type { JournalLiveClient } from "../lib/live-client";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 import { ImportWizard } from "./ImportWizard";
 
 const SECTIONS = ["profile", "ai-memory", "data-quality", "imports", "accounts", "risk", "privacy", "deletion"] as const;
+const liveClient = supabase as unknown as JournalLiveClient;
 
 export function SettingsPage() {
   const t = useJournalT();
   const lang = useJournalLang();
   const [params, setParams] = useSearchParams();
   const section = params.get("section") ?? "profile";
-  const { dataQualityIssues, dataQualityCount, accounts, equity, reconciliationState } = useJournalWorkspace();
+  const { dataQualityIssues, dataQualityCount, accounts, equity, reconciliationState, mode, refresh } = useJournalWorkspace();
+  const { user } = useAuth();
+  const [accountToDelete, setAccountToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [confirmName, setConfirmName] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [accountMessage, setAccountMessage] = useState<string | null>(null);
+  const [accountError, setAccountError] = useState<string | null>(null);
   const settings = readJson<Record<string, string>>(SETTINGS_KEY, {});
 
   const setSection = (value: string) => {
@@ -82,14 +104,78 @@ export function SettingsPage() {
       {section === "accounts" ? (
         <div className="space-y-2">
           <h2 className="font-semibold">{t("settings.accountsTitle")}</h2>
+          {accountMessage ? <p className="text-xs text-muted-foreground">{accountMessage}</p> : null}
+          {accountError ? <p className="text-xs journal-loss">{accountError}</p> : null}
           {accounts.map((account) => (
-            <div key={account.id} className="journal-card p-3 text-sm">
+            <div key={account.id} className="journal-card p-3 text-sm space-y-2">
               <div className="font-semibold">{account.name}</div>
               <div>{t("settings.reported")}: {account.reportedBalance} {account.baseCurrency}</div>
               <div>{t("settings.derived")}: {money(equity, lang)}</div>
               <div className="text-xs text-muted-foreground">{reconciliationState.state}</div>
+              {mode !== "demo" && isUuid(account.id) ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setAccountToDelete({ id: account.id, name: account.name });
+                    setConfirmName("");
+                    setAccountError(null);
+                  }}
+                >
+                  {t("settings.deleteAccount")}
+                </Button>
+              ) : null}
             </div>
           ))}
+          {mode === "demo" ? <p className="text-xs text-muted-foreground">{t("settings.demoNoDelete")}</p> : null}
+          <AlertDialog open={accountToDelete != null} onOpenChange={(open) => { if (!open) setAccountToDelete(null); }}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("settings.deleteAccount")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("settings.confirmDeleteAccount", { name: accountToDelete?.name ?? "" })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <Input
+                value={confirmName}
+                onChange={(event) => setConfirmName(event.target.value)}
+                aria-label={t("settings.confirmAccountName")}
+              />
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleting}>{t("notebook.cancel")}</AlertDialogCancel>
+                <Button
+                  type="button"
+                  disabled={deleting || !accountToDelete || confirmName.trim() !== (accountToDelete?.name ?? "")}
+                  onClick={async () => {
+                    if (!user || !accountToDelete || deleting) return;
+                    setDeleting(true);
+                    setAccountError(null);
+                    const result = await deleteOwnedAccount(
+                      { mode: "live", userId: user.id, client: liveClient },
+                      { accountId: accountToDelete.id, name: accountToDelete.name, confirmName },
+                    );
+                    setDeleting(false);
+                    if (!result.ok) {
+                      setAccountError(
+                        result.skipped === "demo"
+                          ? t("settings.demoNoDelete")
+                          : result.code === "not_empty"
+                            ? t("settings.accountNotEmpty")
+                            : result.error ?? t("settings.accountDeleteFailed"),
+                      );
+                      return;
+                    }
+                    setAccountToDelete(null);
+                    setAccountMessage(t("settings.accountDeleted"));
+                    await refresh();
+                  }}
+                >
+                  {t("settings.deleteAccount")}
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       ) : null}
       {section === "risk" ? (

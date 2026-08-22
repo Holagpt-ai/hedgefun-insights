@@ -1,5 +1,19 @@
-import { Link, useParams } from "react-router-dom";
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import {
   buildTradeAuditRecord,
   buildTradeRiskEvidence,
@@ -14,16 +28,28 @@ import { HonestState } from "../components/HonestState";
 import { JournalPanel } from "../components/JournalPanel";
 import { StatusBadge } from "../components/StatusBadge";
 import { JournalTable, TableCell, TableRow } from "../components/JournalTable";
+import { TradeNotesPanel } from "../components/TradeNotesPanel";
 import { useJournalLang, useJournalT } from "../i18n";
+import { deleteOwnedTrade } from "../lib/delete-owned";
 import { formatR, money, signedMoney } from "../lib/format";
+import type { JournalLiveClient } from "../lib/live-client";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
+
+const liveClient = supabase as unknown as JournalLiveClient;
 
 export function TradeDetailPage() {
   const { tradeId } = useParams();
   const t = useJournalT();
   const lang = useJournalLang();
-  const { allTrades, mode, demoLabel } = useJournalWorkspace();
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { allTrades, mode, demoLabel, refresh } = useJournalWorkspace();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmSymbol, setConfirmSymbol] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteMessage, setDeleteMessage] = useState<string | null>(null);
   const trade = allTrades.find((item) => item.id === tradeId);
   if (!trade) return <HonestState kind="empty" title={t("detail.notFound")} />;
 
@@ -38,10 +64,77 @@ export function TradeDetailPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <h1 className="text-lg font-bold">{trade.symbol}</h1>
-        <StatusBadge status={calc.status} outcome={calc.outcome} />
+        <div className="flex items-center gap-2">
+          <StatusBadge status={calc.status} outcome={calc.outcome} />
+          {mode === "demo" ? null : (
+            <Button
+              size="sm"
+              variant="outline"
+              type="button"
+              onClick={() => {
+                setConfirmSymbol("");
+                setDeleteError(null);
+                setConfirmOpen(true);
+              }}
+            >
+              {t("detail.deleteTrade")}
+            </Button>
+          )}
+        </div>
       </div>
+      {deleteMessage ? <p className="text-xs text-muted-foreground">{deleteMessage}</p> : null}
+      {deleteError ? <p className="text-xs journal-loss">{deleteError}</p> : null}
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("detail.confirmDeleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("detail.confirmDeleteBody", { symbol: trade.symbol })}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            value={confirmSymbol}
+            onChange={(event) => setConfirmSymbol(event.target.value)}
+            placeholder={trade.symbol}
+            aria-label={t("detail.confirmSymbolLabel")}
+            data-testid="confirm-trade-symbol"
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>{t("notebook.cancel")}</AlertDialogCancel>
+            <Button
+              type="button"
+              data-testid="confirm-delete-trade"
+              disabled={deleting || confirmSymbol.trim().toUpperCase() !== trade.symbol.trim().toUpperCase()}
+              onClick={async () => {
+                if (!user || deleting) return;
+                setDeleting(true);
+                setDeleteError(null);
+                const result = await deleteOwnedTrade(
+                  { mode: "live", userId: user.id, client: liveClient },
+                  { tradeId: trade.id, symbol: trade.symbol, confirmSymbol },
+                );
+                setDeleting(false);
+                if (!result.ok) {
+                  setDeleteError(
+                    result.skipped === "demo"
+                      ? t("new.demoBlocked")
+                      : result.code === "not_found"
+                        ? t("detail.deleteDenied")
+                        : result.error ?? t("detail.deleteFailed"),
+                  );
+                  return;
+                }
+                setConfirmOpen(false);
+                setDeleteMessage(t("detail.deleted"));
+                await refresh();
+                navigate(`${JOURNAL_BASE}/trades`);
+              }}
+            >
+              {t("detail.deleteTrade")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {trade.exclusionReason === "missing_executions" ? <HonestState kind="partial" /> : null}
       <Tabs defaultValue="summary">
         <TabsList className="inline-flex flex-wrap h-auto w-fit max-w-full">
@@ -106,9 +199,13 @@ export function TradeDetailPage() {
           />
         </TabsContent>
         <TabsContent value="notes">
-          <JournalPanel className="text-sm">
-            {trade.thesis ?? t("detail.noNotes")}
-          </JournalPanel>
+          <TradeNotesPanel
+            mode={mode}
+            userId={user?.id}
+            client={liveClient}
+            tradeId={trade.id}
+            thesis={trade.thesis ?? null}
+          />
         </TabsContent>
         <TabsContent value="audit">
           <TradeAuditPanel audit={audit} mode={mode} lang={lang} />
