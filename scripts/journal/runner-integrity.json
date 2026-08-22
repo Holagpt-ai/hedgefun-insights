@@ -1,0 +1,181 @@
+{
+  "sizeLimit": 20000,
+  "replaced": [
+    "20260816190000_journal_foundation_schema.sql",
+    "20260816190100_journal_rls_storage.sql",
+    "20260816190200_journal_functions_backfill.sql"
+  ],
+  "files": [
+    {
+      "file": "20260821001257_9282c917-8076-41c6-92bf-ae517f81cd41.sql",
+      "bytes": 3733,
+      "digest": "707bf9d90ba303bd7796d4dfd971211d",
+      "kind": "foundation-guard"
+    },
+    {
+      "file": "20260821001343_a7a5e668-0e0b-4bd7-b326-927cb9963505.sql",
+      "bytes": 3565,
+      "digest": "775a8f4a69b4f682c8b55610e745dbd2",
+      "kind": "foundation-live"
+    },
+    {
+      "file": "20260821001419_051e6f83-8fb0-4610-9233-4bdecd757b6a.sql",
+      "bytes": 3732,
+      "digest": "475f6a50374c70d329b42870b907be07",
+      "kind": "foundation-extend"
+    },
+    {
+      "file": "20260821001458_b46e3e96-8db6-414e-baae-4b6a263acaf9.sql",
+      "bytes": 3946,
+      "digest": "f0c7443be0788cc718ecfd9279f53f63",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821001529_1eef5d79-c60d-45f5-a1d5-e0924be2528b.sql",
+      "bytes": 2148,
+      "digest": "d6d99b0eed3db5bbfebd0f1212f958ec",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821001615_8f3c8c7b-046b-4ff5-b050-1939d31e9f09.sql",
+      "bytes": 7041,
+      "digest": "5f2379de330346a2d3812158e4874441",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821001700_85b3bf9a-b3bf-4a9a-afe1-c17e39e045d2.sql",
+      "bytes": 6373,
+      "digest": "bf513961af8b243abf9a4c0ad81ab6a8",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821001757_cbc54fa7-2b02-47e4-8db6-56c7e1086732.sql",
+      "bytes": 4306,
+      "digest": "50e8a521a5a850c4e8a58f3912542f06",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821001844_f5fd26a2-0402-4f9c-ab10-414c7f9d31f5.sql",
+      "bytes": 6967,
+      "digest": "17112fdcb8f91038f70380e0b831e368",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821001922_1d259b3f-7627-4335-a113-2096e2b9f3b9.sql",
+      "bytes": 3579,
+      "digest": "c3360a689f0e24c11cd0edb3e0c07a06",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821002006_9cdf0469-9628-413e-a667-a5f6a5b56c35.sql",
+      "bytes": 5611,
+      "digest": "8b9db56e53e25dfd5c883f8be6a5d6c8",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821002036_85efe351-9c7f-4d79-ad7a-3f96f145fb3f.sql",
+      "bytes": 2314,
+      "digest": "a1be66650cc96a95d66d7fda270953e4",
+      "kind": "foundation-batch"
+    },
+    {
+      "file": "20260821002138_beeaed44-400a-4e90-a8ae-04c38145ccd5.sql",
+      "bytes": 10149,
+      "digest": "c15c3b36bfff34ccb4c6ac846770d4ef",
+      "kind": "foundation-finalize"
+    },
+    {
+      "file": "20260821004422_1b96bd82-d304-45f8-9570-1206832c6c76.sql",
+      "bytes": 17152,
+      "digest": "a8f1117770972910b0edd77b8afe300e",
+      "kind": "policy"
+    },
+    {
+      "file": "20260821183316_d09a2ffa-392b-45b8-ac69-bd0907b76373.sql",
+      "bytes": 9257,
+      "digest": "3d118b151dd84545d0eca04d0590320c",
+      "kind": "legacy-acl"
+    },
+    {
+      "file": "20260821190157_faafdf84-ed6b-4a94-8454-958cee899de7.sql",
+      "bytes": 4277,
+      "digest": "c0bb6cfea2967fb1be532cfb09be01b7",
+      "kind": "metric-seed"
+    },
+    {
+      "file": "20260821190336_0ce1825e-eed9-4fd0-9f5f-3a721abc4162.sql",
+      "bytes": 13537,
+      "digest": "a22c1160044dd175df43bc035e5ddace",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190413_0f4d7849-acbe-4572-9b64-47ac96c0fe9c.sql",
+      "bytes": 3170,
+      "digest": "85d8c6da7a98de5d87d854a08778c27a",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190453_6e433c5e-e684-4253-821a-2266a7461869.sql",
+      "bytes": 5338,
+      "digest": "437c50fe6a1da57d2707f9a37c67ffea",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190522_26127311-93d3-4ec5-a184-120a0192f0ef.sql",
+      "bytes": 2385,
+      "digest": "f05ae4a1c619f1899d6b151a1d951c23",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190552_3a5a632f-d287-41ea-94c6-d837e30df60c.sql",
+      "bytes": 2616,
+      "digest": "469bb81b664d7cb96cf9e152bff725db",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190732_4d986e04-8e5a-472d-bb00-612ddcf76fe7.sql",
+      "bytes": 17818,
+      "digest": "6970651aa8191fd64ce8d44eb6cdb4cd",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190810_33222a13-fec7-4dbe-820d-f1d8ab5fe1f5.sql",
+      "bytes": 4214,
+      "digest": "3035ed18af16105a33865e5077a9d3b2",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190851_79e4fd3b-8755-4868-9f8c-5ddb228b548d.sql",
+      "bytes": 5701,
+      "digest": "d5a0336ec8831622f0259b024f8952b9",
+      "kind": "function"
+    },
+    {
+      "file": "20260821190926_03fc38cd-a96e-48b5-ad42-b5634a3bad3b.sql",
+      "bytes": 3143,
+      "digest": "86569d4bee60796943deb294d56d5c99",
+      "kind": "function"
+    },
+    {
+      "file": "20260821232909_728f5958-21ed-4a2c-ade9-8846d3dd84c4.sql",
+      "bytes": 19509,
+      "digest": "f73b70325e3fe33795bb7aacda1b6490",
+      "kind": "function-acl"
+    }
+  ],
+  "policyManifestParts": [
+    "journal_trades,journal_notes,journal_stats_cache,journal_equity_snapshots,journal_imports,journal_trader_profiles,journal_accounts,journal_account_balance_snapshots,journal_goals,journal_risk_rules,journal_coaching_commitments,journal_cash_ledger_entries,journal_balance_reconciliations,journal_currency_conversions,journal_trade_legs,journal_executions,journal_execution_fees,journal_trade_cash_flows,journal_trade_plans,journal_trade_reviews,journal_trade_context,journal_trade_relationships,journal_trade_markers,journal_attachments,journal_tags,journal_tag_assignments,journal_notebooks,journal_notebook_entries,journal_notebook_links,journal_sessions,journal_daily_reviews,journal_playbooks,journal_playbook_versions,journal_playbook_rules,journal_playbook_check_results,journal_risk_violations,journal_process_scores,journal_process_score_components,journal_metric_definitions,journal_metric_formula_versions,journal_report_templates,journal_saved_reports,journal_report_runs,journal_report_run_rows,journal_report_exports,journal_report_schedules,journal_market_context,journal_market_context_sources,journal_price_observations,journal_valuation_snapshots,journal_calculation_runs,journal_calculation_lineage,journal_trade_sequence_metrics,journal_data_quality_issues,journal_daily_metrics,journal_analytics_cache,journal_performance_insights,journal_ai_memories,journal_ai_memory_evidence,journal_ai_insights,journal_ai_conversations,journal_ai_messages,journal_ai_feedback,journal_ai_jobs,journal_ai_usage,journal_import_jobs,journal_import_rows,journal_import_mappings,journal_integrations,journal_provider_accounts,journal_sync_cursors,journal_webhook_endpoints,journal_webhook_deliveries,journal_domain_events,journal_event_outbox,journal_audit_log,journal_dead_letters",
+    "journal_trades=Users can manage own trades|journal_notes=Users can manage own notes|journal_equity_snapshots=Users can manage own equity snapshots|journal_imports=Users can manage own imports|journal_stats_cache=Users can manage own stats cache",
+    "journal_trade_legs.journal_trades.trade_id|journal_executions.journal_trades.trade_id|journal_trade_cash_flows.journal_trades.trade_id|journal_tag_assignments.journal_trades.trade_id|journal_notebook_links.journal_notebook_entries.entry_id|journal_playbook_check_results.journal_trades.trade_id|journal_process_score_components.journal_process_scores.process_score_id|journal_report_run_rows.journal_report_runs.report_run_id|journal_market_context_sources.journal_market_context.market_context_id|journal_calculation_lineage.journal_calculation_runs.calculation_run_id|journal_ai_memory_evidence.journal_ai_memories.memory_id|journal_ai_messages.journal_ai_conversations.conversation_id|journal_import_rows.journal_import_jobs.import_job_id|journal_provider_accounts.journal_integrations.integration_id|journal_sync_cursors.journal_integrations.integration_id|journal_webhook_deliveries.journal_webhook_endpoints.endpoint_id",
+    "notes:journal_notes.user_id = auth.uid()\n    AND EXISTS (\n      SELECT 1\n      FROM public.journal_trades t\n      WHERE t.id = journal_notes.trade_id\n        AND t.user_id = auth.uid()\n    )",
+    "fees:EXISTS (\n      SELECT 1 FROM public.journal_executions e\n      JOIN public.journal_trades p ON p.id = e.trade_id\n      WHERE e.id = journal_execution_fees.execution_id AND p.user_id = auth.uid()\n    )",
+    "user:user_id = auth.uid()",
+    "parent_template:EXISTS (SELECT 1 FROM public.%I p WHERE p.id = %I.%I AND p.user_id = auth.uid())",
+    "catalog:journal_metric_definitions,journal_report_templates",
+    "catalog_select:(user_id IS NULL OR user_id = auth.uid())",
+    "formula_select:EXISTS (\n      SELECT 1 FROM public.journal_metric_definitions p\n      WHERE p.id = journal_metric_formula_versions.metric_definition_id\n        AND (p.user_id IS NULL OR p.user_id = auth.uid())\n    )",
+    "formula_write:EXISTS (\n      SELECT 1 FROM public.journal_metric_definitions p\n      WHERE p.id = journal_metric_formula_versions.metric_definition_id\n        AND p.user_id = auth.uid()\n    )",
+    "service:journal_event_outbox,journal_audit_log,journal_dead_letters",
+    "storage:journal_private_select_own,journal_private_insert_own,journal_private_update_own,journal_private_delete_own"
+  ]
+}

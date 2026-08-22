@@ -16,7 +16,28 @@ import PMInbox from "@/pages/dashboard/PMInbox";
 import Screeners from "@/pages/dashboard/Screeners";
 import AIAnalyst from "@/pages/dashboard/AIAnalyst";
 import DashboardWatchlistPage from "@/pages/dashboard/DashboardWatchlistPage";
-import DashboardJournalPage from "@/pages/dashboard/JournalPage";
+import {
+  JournalShell,
+  OverviewPage,
+  CalendarPage,
+  DailyReviewPage,
+  TradesPage,
+  NewTradePage,
+  TradeDetailPage,
+  NotebookPage,
+  NotebookEntryPage,
+  PlaybooksPage,
+  PlaybookDetailPage,
+  ReportsPage,
+  ReportBuilderPage,
+  SavedReportPage,
+  ReportSchedulePage,
+  AnalyticsPage,
+  CoachPage,
+  OnboardingPage,
+  SettingsPage,
+  JournalLegacyRedirect,
+} from "@/journal";
 import HedgeFunGame from "@/pages/dashboard/HedgeFunGame";
 import ActionCenter from "@/pages/dashboard/ActionCenter";
 import Catalyst from "@/pages/dashboard/Catalyst";
@@ -93,7 +114,6 @@ import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
 import ArticlesPage from "./pages/articles/ArticlesPage";
 import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
-import JournalPage from "./pages/journal/JournalPage";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import AuthRoutePage from "./pages/auth/AuthRoutePage";
 import OAuthConsent from "./pages/auth/OAuthConsent";
@@ -213,7 +233,28 @@ const App = () => (
                   <Route path="/dashboard/screeners" element={<Screeners />} />
                   <Route path="/dashboard/ai" element={<AIAnalyst />} />
                   <Route path="/dashboard/watchlist" element={<DashboardWatchlistPage />} />
-                  <Route path="/dashboard/journal" element={<DashboardJournalPage />} />
+                  <Route path="/dashboard/journal" element={<JournalShell />}>
+                    <Route index element={<OverviewPage />} />
+                    <Route path="onboarding" element={<OnboardingPage />} />
+                    <Route path="calendar" element={<CalendarPage />} />
+                    <Route path="daily-review" element={<DailyReviewPage />} />
+                    <Route path="daily-review/:date" element={<DailyReviewPage />} />
+                    <Route path="trades" element={<TradesPage />} />
+                    <Route path="trades/new" element={<NewTradePage />} />
+                    <Route path="trades/:tradeId" element={<TradeDetailPage />} />
+                    <Route path="notebook" element={<NotebookPage />} />
+                    <Route path="notebook/:entryId" element={<NotebookEntryPage />} />
+                    <Route path="playbooks" element={<PlaybooksPage />} />
+                    <Route path="playbooks/:playbookId" element={<PlaybookDetailPage />} />
+                    <Route path="reports" element={<ReportsPage />} />
+                    <Route path="reports/new" element={<ReportBuilderPage />} />
+                    <Route path="reports/:reportId" element={<SavedReportPage />} />
+                    <Route path="reports/:reportId/schedule" element={<ReportSchedulePage />} />
+                    <Route path="analytics" element={<AnalyticsPage />} />
+                    <Route path="analytics/:analysisId" element={<AnalyticsPage />} />
+                    <Route path="coach" element={<CoachPage />} />
+                    <Route path="settings" element={<SettingsPage />} />
+                  </Route>
                   <Route path="/dashboard/game" element={<HedgeFunGame />} />
                   <Route path="/dashboard/action-center" element={<ActionCenter />} />
                   <Route path="/dashboard/catalyst" element={<Catalyst />} />
@@ -224,7 +265,7 @@ const App = () => (
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
                 <Route element={<SmartLayout />}>
-                  <Route path="/journal" element={<JournalPage />} />
+                  <Route path="/journal" element={<JournalLegacyRedirect />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/account/billing" element={<BillingPage />} />
                   <Route path="/support" element={<SupportPage />} />

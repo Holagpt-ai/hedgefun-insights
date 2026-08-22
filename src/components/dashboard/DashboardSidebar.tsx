@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import { BRAND } from "@/config/brand";
 import { PRICING } from "@/config/pricing";
+import { JOURNAL_NAV, navItemIsActive } from "@/journal/nav";
+import { useJournalT, type JournalMessageKey } from "@/journal/i18n";
 
 type NavEntry =
   | { section: string }
@@ -34,7 +36,7 @@ const NAV: NavEntry[] = [
   { label: "My Watchlist",  icon: <Star className="h-4 w-4" />,       route: "/dashboard/watchlist", plan: "free" },
   { label: "AI Analyst",    icon: <Sparkles className="h-4 w-4" />,   route: "/dashboard/ai",        plan: "free" },
   { label: "Action Center", icon: <Target className="h-4 w-4" />,     route: "/dashboard/action-center", plan: "free" },
-  { label: "Stock Journal", icon: <BookOpen className="h-4 w-4" />,   route: "/dashboard/journal",   plan: "pro" },
+  { label: "Trading Journal", icon: <BookOpen className="h-4 w-4" />, route: "/dashboard/journal", plan: "free" },
   { label: "After-Hours",   icon: <Moon className="h-4 w-4" />,       route: "/dashboard/after-hours", plan: "pro" },
   { section: "Phase 2" },
   { label: "Price Alerts",  icon: <Bell className="h-4 w-4" />,        route: "/dashboard/alerts", plan: "pro" },
@@ -49,6 +51,7 @@ const NAV: NavEntry[] = [
 
 export default function DashboardSidebar({ forceExpanded = false }: { forceExpanded?: boolean } = {}) {
   const { profile } = useAuth();
+  const tJournal = useJournalT();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -92,7 +95,12 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
             );
           }
 
-          const active = entry.route ? pathname === entry.route : false;
+          const journalActive = pathname.startsWith("/dashboard/journal");
+          const active = entry.route
+            ? entry.route === "/dashboard/journal"
+              ? journalActive
+              : pathname === entry.route
+            : false;
           const isLocked = entry.locked === "soon";
           const requiresUpgrade = entry.plan === "pro" && !isPro;
 
@@ -150,6 +158,51 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
             );
           }
 
+          if (entry.route === "/dashboard/journal") {
+            return (
+              <div key={entry.label} className="relative group">
+                <NavLink to={entry.route} className={baseClass} title={tooltip}>
+                  {content}
+                </NavLink>
+                {!collapsed && journalActive && (
+                  <div className="ml-6 mt-1 mb-2 space-y-0.5" role="group" aria-label="Trading Journal">
+                    {JOURNAL_NAV.flatMap((group) =>
+                      group.items.map((item) => (
+                        <NavLink
+                          key={item.id}
+                          to={item.path}
+                          className={cn(
+                            "block rounded-md px-2 py-1 text-xs truncate",
+                            navItemIsActive(pathname, window.location.search, item.path)
+                              ? "text-accent-blue font-semibold"
+                              : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          {tJournal(item.i18nKey as JournalMessageKey)}
+                        </NavLink>
+                      )),
+                    )}
+                  </div>
+                )}
+                {collapsed && (
+                  <div className="hidden group-hover:block absolute left-full top-0 z-30 w-48 rounded-md border border-border bg-surface-card p-2 shadow-md">
+                    {JOURNAL_NAV.flatMap((group) =>
+                      group.items.map((item) => (
+                        <NavLink
+                          key={item.id}
+                          to={item.path}
+                          className="block rounded-md px-2 py-1 text-xs text-foreground hover:bg-muted"
+                        >
+                          {tJournal(item.i18nKey as JournalMessageKey)}
+                        </NavLink>
+                      )),
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          }
+
           return (
             <NavLink key={entry.label} to={entry.route!} className={baseClass} title={tooltip}>
               {content}
@@ -160,7 +213,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
         {!isPro && !collapsed && (
           <div className="mt-6 mx-2 p-3 rounded-lg border border-border bg-accent-blue-light/40">
             <p className="text-xs text-foreground mb-2 leading-snug">
-              Unlock After-Hours, Stock Journal and more.
+            Unlock After-Hours and more.
             </p>
             <Button
               size="sm"
@@ -178,7 +231,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
           <DialogHeader>
             <DialogTitle>{`Unlock ${BRAND.name} PRO`}</DialogTitle>
             <DialogDescription>
-              {`Get After-Hours, Stock Journal, and the full PRO toolkit for $${PRICING.pro.monthly}/month.`}
+              {`Get After-Hours and the full PRO toolkit for $${PRICING.pro.monthly}/month.`}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
