@@ -90,6 +90,8 @@ function addDaysUTC(d: Date, days: number): Date {
   return out;
 }
 
+type SbClient = ReturnType<typeof createClient<any, "public", any>>;
+
 async function ingestEarnings(
   supabase: ReturnType<typeof createClient>,
   summary: CatalystSummary,
