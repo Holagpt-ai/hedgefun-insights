@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare Journal catalog dumps after 20260816191210.
+"""Compare Journal catalog dumps after 20260821183316.
 
 Allows only the confirmed authenticated elevated-grant removal on the five
 legacy tables. Any other schema, ACL, policy, function, or data delta fails.
@@ -56,7 +56,7 @@ def main() -> int:
     before_other, before_acl = split_catalog(load_lines(before))
     after_other, after_acl = split_catalog(load_lines(after))
     if before_other != after_other:
-        print("non-ACL journal catalog changed after 20260816191210", file=sys.stderr)
+        print("non-ACL journal catalog changed after 20260821183316", file=sys.stderr)
         for left, right in zip(before_other, after_other):
             if left != right:
                 print(f"- {left}", file=sys.stderr)
@@ -69,7 +69,7 @@ def main() -> int:
             )
         return 1
     if set(before_acl) != set(after_acl):
-        print("journal ACL table set changed after 20260816191210", file=sys.stderr)
+        print("journal ACL table set changed after 20260821183316", file=sys.stderr)
         return 1
     changed: list[str] = []
     for table, old_line in sorted(before_acl.items()):

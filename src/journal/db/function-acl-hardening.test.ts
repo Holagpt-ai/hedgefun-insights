@@ -5,12 +5,18 @@ import {
   extractIntegrityDigest,
   extractTaggedStrings,
   listJournalMigrations,
+  loadProductionMigrationMap,
   md5Parts,
   MIGRATIONS_DIR,
+  normalizeJournalSql,
   SIZE_LIMIT,
 } from "./journal-sql";
 
-const NAME = "20260816191400_journal_function_acl_hardening.sql";
+const MAP = loadProductionMigrationMap();
+const NAME = MAP.segments.find((segment) => segment.kind === "function-acl")!.productionFile;
+const IMPORT_FINALIZE = MAP.segments.find(
+  (segment) => segment.formerFile === "20260816191390_journal_fn_import_finalize.sql",
+)!.productionFile;
 const TARGETS = [
   "journal_backfill_accounts_and_executions(uuid)",
   "journal_migrate_legacy_trades()",
@@ -30,7 +36,7 @@ const CANON = [
 
 describe("function ACL hardening migration", () => {
   const files = listJournalMigrations();
-  const sql = readFileSync(resolve(MIGRATIONS_DIR, NAME), "utf8");
+  const sql = normalizeJournalSql(readFileSync(resolve(MIGRATIONS_DIR, NAME), "utf8"));
   const digest = extractIntegrityDigest(sql)!;
   const parts = extractTaggedStrings(sql, "journal_stmt");
   const revokes = parts.filter((part) => part.startsWith("REVOKE ALL ON FUNCTION"));
@@ -38,11 +44,8 @@ describe("function ACL hardening migration", () => {
   it("is registered after import finalize as a single atomic runner-sized file", () => {
     expect(files).toContain(NAME);
     expect(files.at(-1)).toBe(NAME);
-    expect(files.indexOf("20260816191390_journal_fn_import_finalize.sql")).toBeLessThan(
-      files.indexOf(NAME),
-    );
+    expect(files.indexOf(IMPORT_FINALIZE)).toBeLessThan(files.indexOf(NAME));
     expect(Buffer.byteLength(sql, "utf8")).toBeLessThan(SIZE_LIMIT);
-    expect(sql.endsWith("\n")).toBe(true);
     expect(sql.includes("\r")).toBe(false);
     expect(digest).toMatch(/^[0-9a-f]{32}$/);
     expect(md5Parts(parts)).toBe(digest);

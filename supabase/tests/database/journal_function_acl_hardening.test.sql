@@ -7,7 +7,7 @@ SELECT no_plan();
 -- CREATE OR REPLACE FUNCTION preserves existing ACLs. DROP FUNCTION followed
 -- by CREATE FUNCTION reapplies production default privileges and may restore
 -- anon and sandbox EXECUTE. Follow any future drop/recreate of these nine
--- functions with 20260816191400 or equivalent explicit revocations.
+-- functions with 20260821232909 or equivalent explicit revocations.
 -- Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
 
 CREATE TEMP TABLE journal_fn_def_snap AS

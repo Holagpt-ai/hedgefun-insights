@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Compare Journal catalog dumps after 20260816191400.
+"""Compare Journal catalog dumps after 20260821232909.
 
 Permitted ACL delta only:
   * PUBLIC EXECUTE removal from the three operator functions
@@ -81,7 +81,7 @@ def main() -> int:
     before_other, before_fn = split_catalog(load_lines(Path(sys.argv[1])))
     after_other, after_fn = split_catalog(load_lines(Path(sys.argv[2])))
     if before_other != after_other:
-        print("non-function journal catalog changed after 20260816191400", file=sys.stderr)
+        print("non-function journal catalog changed after 20260821232909", file=sys.stderr)
         for left, right in zip(before_other, after_other):
             if left != right:
                 print(f"- {left}", file=sys.stderr)
@@ -89,7 +89,7 @@ def main() -> int:
                 break
         return 1
     if set(before_fn) != set(after_fn):
-        print("journal function set changed after 20260816191400", file=sys.stderr)
+        print("journal function set changed after 20260821232909", file=sys.stderr)
         return 1
     for key, old_line in sorted(before_fn.items()):
         name = key.split("|", 1)[0]

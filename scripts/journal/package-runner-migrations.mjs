@@ -1,6 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, rmSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertGeneratedMatchesMap,
+  canonicalRecord,
+  segmentByKind,
+  writeIntegrityManifest,
+} from "./canonical.mjs";
 import {
   extractFunction,
   md5Statements,
@@ -15,7 +21,6 @@ import {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const BASE = resolve(ROOT, "scripts/journal/approved-baseline");
 const OUT = resolve(ROOT, "supabase/migrations");
-const MANIFEST = resolve(ROOT, "scripts/journal/runner-integrity.json");
 
 const OLD_FILES = [
   "20260816190000_journal_foundation_schema.sql",
@@ -165,15 +170,15 @@ const NO_USER_ID_SPECIAL = ["journal_execution_fees", "journal_metric_formula_ve
 
 const files = [];
 
-function emit(name, sql, extra = {}) {
-  const bytes = utf8Bytes(toLf(sql));
-  if (bytes > SIZE_LIMIT) {
-    throw new Error(`${name} is ${bytes} bytes, exceeds ${SIZE_LIMIT}`);
+function emit(formerName, sql, extra = {}) {
+  const generatedBytes = utf8Bytes(toLf(sql));
+  if (generatedBytes > SIZE_LIMIT) {
+    throw new Error(`${formerName} generated ${generatedBytes} bytes, exceeds ${SIZE_LIMIT}`);
   }
-  writeFileSync(resolve(OUT, name), toLf(sql));
-  const rec = { file: name, bytes, digest: extra.digest ?? null, kind: extra.kind };
+  assertGeneratedMatchesMap(formerName, extra.digest ?? null);
+  const rec = canonicalRecord(formerName, extra.kind);
   files.push(rec);
-  console.log(`${name} ${bytes} ${extra.digest ?? ""}`);
+  console.log(`verified ${rec.file} ${rec.bytes} ${rec.digest} (canonical SQL not rewritten)`);
   return rec;
 }
 
@@ -761,50 +766,29 @@ if (JSON.stringify(created) !== JSON.stringify(TABLE_NAMES)) {
   throw new Error("foundation CREATE TABLE order drifted from TABLE_NAMES");
 }
 
-function preserveExtra(name, kind, beforePrefix) {
-  const extraPath = resolve(OUT, name);
-  if (!existsSync(extraPath)) return;
-  const extraSql = toLf(readFileSync(extraPath, "utf8"));
-  const extraDigest = extraSql.match(/-- integrity-md5: ([0-9a-f]{32})/)?.[1] ?? null;
-  const rec = {
-    file: name,
-    bytes: utf8Bytes(extraSql),
-    digest: extraDigest,
-    kind,
-  };
-  if (beforePrefix) {
-    const idx = files.findIndex((f) => f.file.startsWith(beforePrefix));
+function preserveCanonical(kind, beforeProductionPrefix) {
+  const rec = canonicalRecord(segmentByKind(kind).formerFile, kind);
+  if (beforeProductionPrefix) {
+    const idx = files.findIndex((f) => f.file.startsWith(beforeProductionPrefix));
     files.splice(idx < 0 ? files.length : idx, 0, rec);
   } else {
     files.push(rec);
   }
-  console.log(`preserved ${name} ${rec.bytes} ${extraDigest}`);
+  console.log(`verified ${rec.file} ${rec.bytes} ${rec.digest} (canonical SQL not rewritten)`);
 }
 
-preserveExtra(
-  "20260816191210_journal_legacy_acl_hardening.sql",
-  "legacy-acl",
-  "20260816191300",
-);
-preserveExtra("20260816191400_journal_function_acl_hardening.sql", "function-acl", null);
+preserveCanonical("legacy-acl", "20260821190157");
+preserveCanonical("function-acl", null);
 
-writeFileSync(
-  MANIFEST,
-  JSON.stringify(
-    {
-      sizeLimit: SIZE_LIMIT,
-      replaced: OLD_FILES,
-      files,
-      policyManifestParts: manifestParts,
-    },
-    null,
-    2,
-  ) + "\n",
-);
+writeIntegrityManifest({
+  files,
+  replaced: OLD_FILES,
+  policyManifestParts: manifestParts,
+});
 
 const over = files.filter((f) => f.bytes > SIZE_LIMIT);
 if (over.length) {
   throw new Error(`size limit exceeded: ${over.map((f) => f.file).join(", ")}`);
 }
 
-console.log(`wrote ${files.length} runner migrations`);
+console.log(`verified ${files.length} canonical production Journal migrations`);

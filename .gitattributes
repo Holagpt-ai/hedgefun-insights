@@ -1,0 +1,2 @@
+# Keep canonical production Journal migrations as LF blobs, matching origin/main.
+supabase/migrations/20260821*.sql text eol=lf

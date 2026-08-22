@@ -1,6 +1,7 @@
 /**
  * Canonical journal_* relation names for schema/RLS static checks.
- * Keep in sync with supabase/migrations/20260816191*_journal_*.sql
+ * Keep in sync with the canonical production Journal migrations mapped in
+ * scripts/journal/production-migration-map.json.
  */
 export const TABLE_NAMES: string[] = [
   "journal_trades",

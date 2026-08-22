@@ -12,20 +12,59 @@ if [[ "$MODE" != "clean" && "$MODE" != "legacy" && "$MODE" != "m1" && "$MODE" !=
   exit 2
 fi
 
-JOURNAL_PATTERN="$ROOT/supabase/migrations/20260816191*.sql"
-POLICY_PATTERN="$ROOT/supabase/migrations/202608161912*.sql"
-FUNCTION_PATTERN="$ROOT/supabase/migrations/202608161913*.sql"
-ACL_FILE="$ROOT/supabase/migrations/20260816191210_journal_legacy_acl_hardening.sql"
-ACL_HELD_NAME="20260816191210_journal_legacy_acl_hardening.sql"
-FN_ACL_FILE="$ROOT/supabase/migrations/20260816191400_journal_function_acl_hardening.sql"
-FN_ACL_HELD_NAME="20260816191400_journal_function_acl_hardening.sql"
-FN_ACL_PATTERN="$ROOT/supabase/migrations/202608161914*.sql"
+MAP_JSON="$ROOT/scripts/journal/production-migration-map.json"
+
+journal_map_files() {
+  local group="${1:-all}"
+  node -e '
+    const fs = require("fs");
+    const map = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const group = process.argv[2];
+    for (const s of map.segments) {
+      if (group === "all" || s.group === group) process.stdout.write(s.productionFile + "\n");
+    }
+  ' "$MAP_JSON" "$group"
+}
+
+journal_map_kind() {
+  node -e '
+    const fs = require("fs");
+    const map = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
+    const kind = process.argv[2];
+    const s = map.segments.find((entry) => entry.kind === kind);
+    if (!s) {
+      console.error("missing Journal map kind " + kind);
+      process.exit(1);
+    }
+    process.stdout.write(s.productionFile);
+  ' "$MAP_JSON" "$1"
+}
+
+hold_journal_files() {
+  local group="$1"
+  mkdir -p "$HELD"
+  while IFS= read -r name; do
+    [[ -z "$name" ]] && continue
+    mv "$ROOT/supabase/migrations/$name" "$HELD/"
+  done < <(journal_map_files "$group")
+}
+
+restore_held_sql() {
+  shopt -s nullglob
+  mv "$HELD"/*.sql "$ROOT/supabase/migrations/" 2>/dev/null || true
+  shopt -u nullglob
+}
+
+ACL_HELD_NAME="$(journal_map_kind legacy-acl)"
+ACL_FILE="$ROOT/supabase/migrations/$ACL_HELD_NAME"
+FN_ACL_HELD_NAME="$(journal_map_kind function-acl)"
+FN_ACL_FILE="$ROOT/supabase/migrations/$FN_ACL_HELD_NAME"
 FN_ACL_FIXTURE="$ROOT/supabase/tests/fixtures/journal_function_acl_production.sql"
 FN_ACL_SANDBOX="sandbox_exec_zcjptaolpumhtlwhlemq"
 FN_ACL_SANDBOX_PLAIN="sandbox_exec"
 # Function ACL: CREATE OR REPLACE preserves ACLs. DROP+CREATE reapplies
 # production default privileges and may restore anon/sandbox EXECUTE.
-# Follow any future drop/recreate with 20260816191400 or equivalent revokes.
+# Follow any future drop/recreate with 20260821232909 or equivalent revokes.
 # Do not change ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA public.
 FN_CANON_SIGS=(
   "journal_calculate_trade_v1(uuid)"
@@ -40,6 +79,9 @@ FN_CANON_SIGS=(
 )
 BASELINE_DIR="$ROOT/scripts/journal/approved-baseline"
 
+echo "==> verifying canonical Journal migration collision guard"
+node "$ROOT/scripts/journal/verify-canonical-migrations.mjs"
+
 HELD="$(mktemp -d)"
 DB_CONTAINER=""
 STUB="$ROOT/supabase/migrations/20260611180000_ci_disposable_prereqs.sql"
@@ -47,8 +89,7 @@ STUB="$ROOT/supabase/migrations/20260611180000_ci_disposable_prereqs.sql"
 cleanup() {
   rm -f "$STUB"
   if [[ -d "$HELD" ]]; then
-    shopt -s nullglob
-    mv "$HELD"/2026081619*.sql "$ROOT/supabase/migrations/" 2>/dev/null || true
+    restore_held_sql
     rm -f "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql"
     rm -f "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql"
     rm -f "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql"
@@ -801,9 +842,7 @@ if [[ "$MODE" == "parity" ]]; then
   write_disposable_prereqs
   rewrite_hardcoded_cron_jobids
   echo "==> applying approved baseline three-file sequence"
-  shopt -s nullglob
-  mv $JOURNAL_PATTERN "$HELD/"
-  shopt -u nullglob
+  hold_journal_files all
   cp "$BASELINE_DIR/"*.sql "$ROOT/supabase/migrations/"
   supabase db start
   DB_CONTAINER="$(db_container)"
@@ -812,12 +851,10 @@ if [[ "$MODE" == "parity" ]]; then
   rm -f "$ROOT/supabase/migrations/20260816190000_journal_foundation_schema.sql"
   rm -f "$ROOT/supabase/migrations/20260816190100_journal_rls_storage.sql"
   rm -f "$ROOT/supabase/migrations/20260816190200_journal_functions_backfill.sql"
-  shopt -s nullglob
-  mv "$HELD"/20260816191*.sql "$ROOT/supabase/migrations/"
-  shopt -u nullglob
+  restore_held_sql
   mv "$ACL_FILE" "$HELD/"
   mv "$FN_ACL_FILE" "$HELD/"
-  echo "==> applying runner-native Journal sequence through Stage C without remediations"
+  echo "==> applying canonical production Journal sequence through Stage C without remediations"
   write_disposable_prereqs
   rewrite_hardcoded_cron_jobids
   supabase db start
@@ -828,13 +865,13 @@ if [[ "$MODE" == "parity" ]]; then
     exit 1
   fi
   echo "==> old-vs-new catalog match through Stage C"
-  echo "==> applying 20260816191210 expected table ACL delta"
+  echo "==> applying $ACL_HELD_NAME expected table ACL delta"
   apply_sql_file "$HELD/$ACL_HELD_NAME"
   dump_journal_catalog > /tmp/journal-catalog-after-acl.txt
   python3 "$ROOT/scripts/ci/journal-acl-delta.py" \
     /tmp/journal-catalog-old.txt \
     /tmp/journal-catalog-after-acl.txt
-  echo "==> applying 20260816191400 expected function ACL delta"
+  echo "==> applying $FN_ACL_HELD_NAME expected function ACL delta"
   apply_sql_file "$HELD/$FN_ACL_HELD_NAME"
   dump_journal_catalog > /tmp/journal-catalog-after-fn-acl.txt
   python3 "$ROOT/scripts/ci/journal-fn-acl-delta.py" \
@@ -846,16 +883,11 @@ fi
 
 if [[ "$MODE" == "legacy" ]]; then
   echo "==> holding Journal migrations to reset through 20260814180000"
-  shopt -s nullglob
-  mv $JOURNAL_PATTERN "$HELD/"
-  shopt -u nullglob
+  hold_journal_files all
 elif [[ "$MODE" == "m1" ]]; then
   echo "==> holding policy and function migrations so the database stops after foundation"
-  shopt -s nullglob
-  mv $POLICY_PATTERN "$HELD/" 2>/dev/null || true
-  mv $FUNCTION_PATTERN "$HELD/" 2>/dev/null || true
-  mv $FN_ACL_PATTERN "$HELD/" 2>/dev/null || true
-  shopt -u nullglob
+  hold_journal_files policy
+  hold_journal_files functions
 fi
 
 echo "==> writing disposable prereq stubs for production-only tables"
@@ -908,9 +940,9 @@ echo "==> loading legacy Journal seed"
 apply_sql_file "$ROOT/supabase/tests/fixtures/journal_legacy_seed.sql"
 
 echo "==> applying pending Journal migrations in version order"
-shopt -s nullglob
-mapfile -t JOURNAL_HELD < <(ls "$HELD"/20260816191*.sql | sort)
-shopt -u nullglob
+mapfile -t JOURNAL_HELD < <(journal_map_files all | while IFS= read -r name; do
+  printf '%s/%s\n' "$HELD" "$name"
+done)
 for f in "${JOURNAL_HELD[@]}"; do
   echo "==> applying $(basename "$f")"
   apply_sql_file "$f"

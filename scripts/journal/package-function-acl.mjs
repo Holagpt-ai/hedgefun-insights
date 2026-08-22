@@ -1,12 +1,18 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  assertGeneratedMatchesMap,
+  segmentByFormer,
+  segmentByKind,
+  verifyCanonicalMigrations,
+} from "./canonical.mjs";
 import { SIZE_LIMIT, toLf, utf8Bytes, wrapAtomic } from "./sql-pack.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const OUT = resolve(ROOT, "supabase/migrations");
-const MANIFEST = resolve(ROOT, "scripts/journal/runner-integrity.json");
-const NAME = "20260816191400_journal_function_acl_hardening.sql";
+const FORMER = "20260816191400_journal_function_acl_hardening.sql";
+const NAME = segmentByKind("function-acl").productionFile;
 const SANDBOX = "sandbox_exec_zcjptaolpumhtlwhlemq";
 
 const TABLE_NAMES = [
@@ -379,27 +385,11 @@ const wrapped = wrapAtomic([preflight, ...revokes, postcondition], { header });
 const sql = toLf(wrapped.sql);
 const bytes = utf8Bytes(sql);
 if (bytes > SIZE_LIMIT) {
-  throw new Error(`${NAME} is ${bytes} bytes, exceeds ${SIZE_LIMIT}`);
+  throw new Error(`${NAME} generated ${bytes} bytes, exceeds ${SIZE_LIMIT}`);
 }
-writeFileSync(resolve(OUT, NAME), sql);
-
-const manifest = JSON.parse(readFileSync(MANIFEST, "utf8"));
-const rec = {
-  file: NAME,
-  bytes,
-  digest: wrapped.digest,
-  kind: "function-acl",
-};
-const existing = manifest.files.findIndex((f) => f.file === NAME);
-if (existing >= 0) {
-  manifest.files[existing] = rec;
-} else {
-  manifest.files.push(rec);
-}
-writeFileSync(MANIFEST, `${JSON.stringify(manifest, null, 2)}\n`);
-
-if (!existsSync(resolve(OUT, "20260816191390_journal_fn_import_finalize.sql"))) {
+assertGeneratedMatchesMap(FORMER, wrapped.digest);
+if (!existsSync(resolve(OUT, segmentByFormer("20260816191390_journal_fn_import_finalize.sql").productionFile))) {
   throw new Error("import finalize migration missing");
 }
-
-console.log(`${NAME} ${bytes} ${wrapped.digest}`);
+verifyCanonicalMigrations();
+console.log(`verified ${NAME} ${bytes} ${wrapped.digest} (canonical SQL not rewritten)`);

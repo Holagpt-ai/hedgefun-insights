@@ -6,12 +6,16 @@ import {
   extractIntegrityDigest,
   extractTaggedStrings,
   listJournalMigrations,
+  loadProductionMigrationMap,
   md5Parts,
   MIGRATIONS_DIR,
+  normalizeJournalSql,
   SIZE_LIMIT,
 } from "./journal-sql";
 
-const NAME = "20260816191210_journal_legacy_acl_hardening.sql";
+const NAME = loadProductionMigrationMap().segments.find(
+  (segment) => segment.kind === "legacy-acl",
+)!.productionFile;
 const LEGACY = [
   "journal_trades",
   "journal_notes",
@@ -22,14 +26,13 @@ const LEGACY = [
 
 describe("legacy ACL hardening migration", () => {
   const files = listJournalMigrations();
-  const sql = readFileSync(resolve(MIGRATIONS_DIR, NAME), "utf8");
+  const sql = normalizeJournalSql(readFileSync(resolve(MIGRATIONS_DIR, NAME), "utf8"));
   const digest = extractIntegrityDigest(sql)!;
   const parts = extractTaggedStrings(sql, "journal_stmt");
 
   it("is registered as a single atomic runner-sized file", () => {
     expect(files).toContain(NAME);
     expect(Buffer.byteLength(sql, "utf8")).toBeLessThan(SIZE_LIMIT);
-    expect(sql.endsWith("\n")).toBe(true);
     expect(sql.includes("\r")).toBe(false);
     expect(digest).toMatch(/^[0-9a-f]{32}$/);
     expect(md5Parts(parts)).toBe(digest);

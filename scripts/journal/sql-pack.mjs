@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
 
+// Canonical production Journal SQL under supabase/migrations/20260821* is
+// verify-only. Packagers must not rewrite, reformat, or normalize those files.
+
 export const RS = "\x1e";
 export const SIZE_LIMIT = 20000;
 
