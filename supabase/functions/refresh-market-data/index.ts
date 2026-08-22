@@ -102,7 +102,7 @@ serve(async (req) => {
           stocksUpdated += rows.length;
         }
       } catch (e) {
-        errors.push(`stocks batch ${i}: ${e.message}`);
+        errors.push(`stocks batch ${i}: ${(e as Error).message}`);
       }
 
       // Rate-limit pause between batches
@@ -144,7 +144,7 @@ serve(async (req) => {
           etfsUpdated += rows.length;
         }
       } catch (e) {
-        errors.push(`etfs batch ${i}: ${e.message}`);
+        errors.push(`etfs batch ${i}: ${(e as Error).message}`);
       }
 
       if (i + BATCH_SIZE < etfSymbols.length) {
@@ -169,7 +169,7 @@ serve(async (req) => {
   } catch (e) {
     console.error("[refresh-market-data] fatal:", e);
     return new Response(
-      JSON.stringify({ success: false, error: e.message }),
+      JSON.stringify({ success: false, error: (e as Error).message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

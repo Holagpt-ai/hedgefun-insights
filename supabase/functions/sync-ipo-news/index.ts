@@ -100,6 +100,6 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("sync-ipo-news error:", e);
-    return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    return new Response(JSON.stringify({ error: (e as Error).message }), { status: 500 });
   }
 });
