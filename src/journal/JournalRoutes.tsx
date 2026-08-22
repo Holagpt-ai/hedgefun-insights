@@ -34,6 +34,7 @@ export function JournalRouteTree() {
         <Route path="trades/new" element={<NewTradePage />} />
         <Route path="trades/:tradeId" element={<TradeDetailPage />} />
         <Route path="notebook" element={<NotebookPage />} />
+        <Route path="notebook/new" element={<NotebookEntryPage />} />
         <Route path="notebook/:entryId" element={<NotebookEntryPage />} />
         <Route path="playbooks" element={<PlaybooksPage />} />
         <Route path="playbooks/:playbookId" element={<PlaybookDetailPage />} />
