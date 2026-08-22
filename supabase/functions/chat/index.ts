@@ -292,7 +292,7 @@ serve(async (req) => {
           const result = await executeTool(
             toolBlock.name,
             user.id,
-            adminSupabase,
+            adminSupabase as unknown as Parameters<typeof executeTool>[2],
             toolBlock.input ?? {}
           );
           toolResults.push({

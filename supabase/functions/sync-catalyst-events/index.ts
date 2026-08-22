@@ -90,8 +90,10 @@ function addDaysUTC(d: Date, days: number): Date {
   return out;
 }
 
+type SbClient = ReturnType<typeof createClient<any, "public", any>>;
+
 async function ingestEarnings(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SbClient,
   summary: CatalystSummary,
 ): Promise<{ rows: CatalystEventRow[]; ok: boolean }> {
   const today = new Date();
@@ -202,7 +204,7 @@ async function fetchPolygonNews(apiKey: string): Promise<PolygonFetchResult> {
 }
 
 async function enrichCompanyNames(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SbClient,
   symbols: Set<string>,
 ): Promise<Map<string, string>> {
   const out = new Map<string, string>();
@@ -223,7 +225,7 @@ async function enrichCompanyNames(
 }
 
 async function ingestPolygonNews(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SbClient,
   apiKey: string,
   summary: CatalystSummary,
 ): Promise<{ rows: CatalystEventRow[]; reason: ReasonCode | null }> {
@@ -328,7 +330,7 @@ async function ingestPolygonNews(
 }
 
 async function upsertEvents(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SbClient,
   rows: CatalystEventRow[],
   summary: CatalystSummary,
 ): Promise<boolean> {
@@ -339,7 +341,7 @@ async function upsertEvents(
     const chunk = rows.slice(i, i + CHUNK);
     const { error, count } = await supabase
       .from("catalyst_events")
-      .upsert(chunk, { onConflict: "dedupe_key", count: "exact" });
+      .upsert(chunk as never[], { onConflict: "dedupe_key", count: "exact" });
     if (error) {
       anyErr = true;
       summary.events_rejected += chunk.length;
