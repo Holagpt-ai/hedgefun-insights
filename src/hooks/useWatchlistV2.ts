@@ -22,6 +22,11 @@ import {
   type V2Session,
   type RvolClass,
 } from "@/lib/watchlist-v2/parsers";
+import {
+  WatchlistMarketClosedError,
+  classifyWatchlistRefreshInvoke,
+  toastSpecForRefreshError,
+} from "@/lib/watchlist-v2/refresh-response";
 
 export interface V2Row {
   ticker: string;
@@ -275,16 +280,26 @@ export function useWatchlistV2() {
         "analyze-watchlist-tickers-v2",
         { body: { ticker: upper } },
       );
-      if (error) throw error;
-      return data;
+      const outcome = await classifyWatchlistRefreshInvoke(data, error);
+      if (outcome.kind === "market_closed") {
+        throw new WatchlistMarketClosedError();
+      }
+      if (outcome.kind === "error") {
+        throw error instanceof Error ? error : new Error(outcome.message);
+      }
+      return outcome.data;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["watchlist-v2", "analysis"] });
       qc.invalidateQueries({ queryKey: ["watchlist-v2", "requests"] });
     },
     onError: (err: unknown) => {
-      const msg = err instanceof Error ? err.message : "Refresh failed";
-      toast.error("Refresh failed", { description: msg });
+      const spec = toastSpecForRefreshError(err);
+      if (spec.variant === "info") {
+        toast.info(spec.title, { description: spec.description });
+        return;
+      }
+      toast.error(spec.title, { description: spec.description });
     },
   });
 
