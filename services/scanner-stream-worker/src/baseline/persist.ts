@@ -285,7 +285,7 @@ export type CalendarExceptionLoader = () => Promise<
   CalendarExceptionRow[] | null
 >;
 
-function parseExceptionRow(raw: unknown): CalendarExceptionRow | null {
+export function parseExceptionRow(raw: unknown): CalendarExceptionRow | null {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     return null;
   }

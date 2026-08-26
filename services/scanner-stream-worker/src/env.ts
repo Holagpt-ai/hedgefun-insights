@@ -1,9 +1,9 @@
 export type MassiveWsMode = "delayed" | "realtime";
 
 export type WorkerEnv = {
-  supabaseUrl: string;
-  supabaseServiceRoleKey: string;
   polygonApiKey: string;
+  radarBridgeUrl: string;
+  radarWorkerSecret: string;
   port: number;
   massiveWsMode: MassiveWsMode;
   baselineMinSessions: number;
@@ -50,7 +50,7 @@ function readOptionalInt(
   return n;
 }
 
-function parseSupabaseUrl(raw: string): string {
+function parseHttpsUrl(raw: string): string {
   let parsed: URL;
   try {
     parsed = new URL(raw);
@@ -75,16 +75,13 @@ function parseWsMode(read: EnvReader): MassiveWsMode {
 }
 
 export function loadEnv(read: EnvReader = (k) => Deno.env.get(k)): WorkerEnv {
-  const supabaseUrl = parseSupabaseUrl(readRequired(read, "SUPABASE_URL"));
-  const supabaseServiceRoleKey = readRequired(
-    read,
-    "SUPABASE_SERVICE_ROLE_KEY",
-  );
   const polygonApiKey = readRequired(read, "POLYGON_API_KEY");
+  const radarBridgeUrl = parseHttpsUrl(readRequired(read, "RADAR_BRIDGE_URL"));
+  const radarWorkerSecret = readRequired(read, "RADAR_WORKER_SECRET");
   return {
-    supabaseUrl,
-    supabaseServiceRoleKey,
     polygonApiKey,
+    radarBridgeUrl,
+    radarWorkerSecret,
     port: readOptionalInt(read, "PORT", DEFAULT_PORT, 1, 65535),
     massiveWsMode: parseWsMode(read),
     baselineMinSessions: readOptionalInt(

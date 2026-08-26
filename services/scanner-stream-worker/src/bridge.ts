@@ -1,0 +1,223 @@
+import type { CalendarExceptionRow } from "../../../supabase/functions/_shared/markets/session-schedule.ts";
+import type {
+  CalendarExceptionLoader,
+  LoadStateFn,
+  RpcFn,
+} from "./baseline/persist.ts";
+import {
+  emptyState,
+  parseExceptionRow,
+  parseStateRow,
+} from "./baseline/persist.ts";
+import type { FetchLike } from "./baseline/grouped.ts";
+import { isRetryableStatus, RetryableError, withRetry } from "./retry.ts";
+import type { LeaseClient } from "./radar/lease.ts";
+import type { RadarRpcFn, ReplaceRadarArgs, SetStatusFn } from "./radar/persist.ts";
+import { log } from "./log.ts";
+
+export const DEFAULT_BRIDGE_TIMEOUT_MS = 15_000;
+export const BASELINE_BRIDGE_TIMEOUT_MS = 60_000;
+
+export type RadarBridge = {
+  lease: LeaseClient;
+  radarRpc: RadarRpcFn;
+  setStatus: SetStatusFn;
+  loadExceptions: CalendarExceptionLoader;
+  baselineRpc: RpcFn;
+  loadState: LoadStateFn;
+};
+
+type BridgeBody = Record<string, unknown>;
+
+
+async function bridgePost(
+  opts: {
+    bridgeUrl: string;
+    workerSecret: string;
+    fetch: FetchLike;
+    action: string;
+    body: BridgeBody;
+    timeoutMs: number;
+    sleep?: (ms: number) => Promise<void>;
+  },
+): Promise<{ ok: false; status: number } | { ok: true; body: unknown }> {
+  const headers = {
+    Authorization: `Bearer ${opts.workerSecret}`,
+    "Content-Type": "application/json",
+  };
+
+  const run = async () => {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs);
+    try {
+      const res = await opts.fetch(opts.bridgeUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ action: opts.action, ...opts.body }),
+        signal: ctrl.signal,
+      });
+      if (res.status === 401) {
+        log("error", "bridge_auth_failed", { code: "unauthorized" });
+        return { ok: false as const, status: 401 };
+      }
+      if (isRetryableStatus(res.status)) {
+        throw new RetryableError(res.status);
+      }
+      if (!res.ok) {
+        return { ok: false as const, status: res.status };
+      }
+      let parsed: unknown = null;
+      const text = await res.text();
+      if (text.trim() !== "") {
+        try {
+          parsed = JSON.parse(text);
+        } catch {
+          return { ok: false as const, status: 502 };
+        }
+      }
+      return { ok: true as const, body: parsed };
+    } catch (error) {
+      if (error instanceof RetryableError) throw error;
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new RetryableError(504, "bridge_timeout");
+      }
+      throw new RetryableError(503, "bridge_unavailable");
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  try {
+    return await withRetry(run, {
+      maxAttempts: 3,
+      baseDelayMs: 250,
+      maxDelayMs: 2_000,
+      sleep: opts.sleep,
+    });
+  } catch (error) {
+    const status = error instanceof RetryableError ? error.status : 503;
+    log("error", "bridge_unavailable", { code: "persist_failed", status });
+    return { ok: false, status };
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function resultTrue(body: unknown): boolean {
+  if (!isRecord(body) || body.ok !== true) return false;
+  return body.result === true;
+}
+
+export function createRadarBridge(opts: {
+  bridgeUrl: string;
+  workerSecret: string;
+  fetch: FetchLike;
+  sleep?: (ms: number) => Promise<void>;
+  timeoutMs?: number;
+}): RadarBridge {
+  const defaultTimeout = opts.timeoutMs ?? DEFAULT_BRIDGE_TIMEOUT_MS;
+  const post = (
+    action: string,
+    body: BridgeBody,
+    timeoutMs = defaultTimeout,
+  ) =>
+    bridgePost({
+      bridgeUrl: opts.bridgeUrl,
+      workerSecret: opts.workerSecret,
+      fetch: opts.fetch,
+      action,
+      body,
+      timeoutMs,
+      sleep: opts.sleep,
+    });
+
+  const lease: LeaseClient = {
+    async tryAcquire(holderId, ttlMs) {
+      const res = await post("acquire_lease", {
+        holder_id: holderId,
+        ttl_ms: ttlMs,
+      });
+      if (!res.ok) return false;
+      return resultTrue(res.body);
+    },
+    async heartbeat(holderId, ttlMs) {
+      const res = await post("heartbeat_lease", {
+        holder_id: holderId,
+        ttl_ms: ttlMs,
+      });
+      if (!res.ok) return false;
+      return resultTrue(res.body);
+    },
+    async release(holderId) {
+      try {
+        await post("release_lease", { holder_id: holderId });
+      } catch {
+        // best-effort release
+      }
+    },
+  };
+
+  const radarRpc: RadarRpcFn = async (args: ReplaceRadarArgs) => {
+    const res = await post("publish_generation", { ...args });
+    if (!res.ok) return { error: { message: "persist_failed" } };
+    if (!isRecord(res.body) || res.body.ok !== true) {
+      return { error: { message: "persist_failed" } };
+    }
+    return { error: null };
+  };
+
+  const setStatus: SetStatusFn = async (args) => {
+    const res = await post("set_feed_status", { ...args });
+    if (!res.ok) return { error: { message: "persist_failed" } };
+    if (!isRecord(res.body) || res.body.ok !== true) {
+      return { error: { message: "persist_failed" } };
+    }
+    return { error: null };
+  };
+
+  const loadExceptions: CalendarExceptionLoader = async () => {
+    const res = await post("get_calendar", {});
+    if (!res.ok) return null;
+    if (!isRecord(res.body) || res.body.ok !== true) return null;
+    const rows = res.body.rows;
+    if (!Array.isArray(rows)) return null;
+    const parsed: CalendarExceptionRow[] = [];
+    for (const item of rows) {
+      const row = parseExceptionRow(item);
+      if (row) parsed.push(row);
+    }
+    return parsed;
+  };
+
+  const baselineRpc: RpcFn = async (args) => {
+    const res = await post(
+      "replace_52w_baseline",
+      { ...args },
+      BASELINE_BRIDGE_TIMEOUT_MS,
+    );
+    if (!res.ok) return { error: { message: "persist_failed" } };
+    if (!isRecord(res.body) || res.body.ok !== true) {
+      return { error: { message: "persist_failed" } };
+    }
+    return { error: null };
+  };
+
+  const loadState: LoadStateFn = async () => {
+    const res = await post("get_52w_state", {});
+    if (!res.ok) return null;
+    if (!isRecord(res.body) || res.body.ok !== true) return null;
+    if (res.body.state == null) return emptyState();
+    return parseStateRow(res.body.state);
+  };
+
+  return {
+    lease,
+    radarRpc,
+    setStatus,
+    loadExceptions,
+    baselineRpc,
+    loadState,
+  };
+}

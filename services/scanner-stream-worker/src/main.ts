@@ -2,11 +2,7 @@ import { EnvValidationError, loadEnv } from "./env.ts";
 import { createHealthStore, healthResponse } from "./health.ts";
 import { log } from "./log.ts";
 import { createDailyCache, runBaselineJob } from "./baseline/builder.ts";
-import {
-  createCalendarExceptionLoader,
-  createSupabaseRpc,
-  createSupabaseStateLoader,
-} from "./baseline/persist.ts";
+import { createRadarBridge } from "./bridge.ts";
 import { runRadarLoop } from "./radar/runner.ts";
 
 const POLL_INTERVAL_MS = 60_000;
@@ -109,21 +105,14 @@ async function main(): Promise<void> {
   });
 
   const cache = createDailyCache();
-  const rpc = createSupabaseRpc({
-    supabaseUrl: env.supabaseUrl,
-    serviceRoleKey: env.supabaseServiceRoleKey,
+  const bridge = createRadarBridge({
+    bridgeUrl: env.radarBridgeUrl,
+    workerSecret: env.radarWorkerSecret,
     fetch,
   });
-  const loadState = createSupabaseStateLoader({
-    supabaseUrl: env.supabaseUrl,
-    serviceRoleKey: env.supabaseServiceRoleKey,
-    fetch,
-  });
-  const loadExceptions = createCalendarExceptionLoader({
-    supabaseUrl: env.supabaseUrl,
-    serviceRoleKey: env.supabaseServiceRoleKey,
-    fetch,
-  });
+  const rpc = bridge.baselineRpc;
+  const loadState = bridge.loadState;
+  const loadExceptions = bridge.loadExceptions;
 
   let lastSuccessfulPeriodEnd: string | null = null;
   try {
@@ -210,6 +199,9 @@ async function main(): Promise<void> {
     loadExceptions,
     health,
     signal: abort.signal,
+    lease: bridge.lease,
+    rpc: bridge.radarRpc,
+    setStatus: bridge.setStatus,
   });
 
   void loop();

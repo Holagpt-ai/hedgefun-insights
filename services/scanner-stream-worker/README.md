@@ -6,9 +6,11 @@ Supabase Edge Function wall-clock limits.
 
 The worker publishes the 52-week baseline and, when it holds the Radar V2.2
 lease, consumes Massive second aggregates (`A.*`) to publish a compact top-20
-momentum board. `MASSIVE_WS_MODE` selects `wss://delayed.massive.com/stocks` or
-`wss://socket.massive.com/stocks` (default delayed). Health stays up while both
-loops initialize.
+momentum board. Privileged database writes go through the Lovable Cloud
+`radar-worker-bridge` function using `RADAR_WORKER_SECRET`. The worker does not
+use `SUPABASE_SERVICE_ROLE_KEY`. `MASSIVE_WS_MODE` selects
+`wss://delayed.massive.com/stocks` or `wss://socket.massive.com/stocks`
+(default delayed). Health stays up while both loops initialize.
 
 ## Required environment
 
@@ -17,13 +19,16 @@ credentials or put API keys in git.
 
 | Variable                          | Required | Default   |
 | --------------------------------- | -------- | --------- |
-| `SUPABASE_URL`                    | yes      |           |
-| `SUPABASE_SERVICE_ROLE_KEY`       | yes      |           |
 | `POLYGON_API_KEY`                 | yes      |           |
+| `RADAR_BRIDGE_URL`                | yes      |           |
+| `RADAR_WORKER_SECRET`             | yes      |           |
 | `PORT`                            | no       | `8080`    |
 | `MASSIVE_WS_MODE`                 | no       | `delayed` |
 | `BASELINE_MIN_SESSIONS`           | no       | `120`     |
 | `BASELINE_LOOKBACK_CALENDAR_DAYS` | no       | `366`     |
+
+`SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are not required on the worker.
+They remain server-side only inside the Lovable Cloud bridge function.
 
 The process exits on missing or invalid required configuration and never prints
 secret values.
@@ -69,9 +74,9 @@ git):
 
 ```bash
 docker run --rm -p 8080:8080 \
-  -e SUPABASE_URL \
-  -e SUPABASE_SERVICE_ROLE_KEY \
   -e POLYGON_API_KEY \
+  -e RADAR_BRIDGE_URL \
+  -e RADAR_WORKER_SECRET \
   -e PORT=8080 \
   scanner-stream-worker
 ```
