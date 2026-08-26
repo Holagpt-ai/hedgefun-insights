@@ -158,13 +158,13 @@ async function main() {
     env("VITE_SUPABASE_ANON_KEY", file);
 
   if (!args.schedule) {
-    const code = await captureOnce({
+    process.exitCode = await captureOnce({
       polygonKey,
       supabaseUrl,
       supabaseKey,
       out: args.out,
     });
-    process.exit(code);
+    return;
   }
 
   process.stderr.write("premarket-shadow schedule mode — Ctrl+C to stop\n");
@@ -175,11 +175,15 @@ async function main() {
       supabaseKey,
       out: args.out,
     });
-    if (code !== 0) process.exit(code);
+    if (code !== 0) {
+      process.exitCode = code;
+      return;
+    }
     const wait = nextSlotWaitMs(Date.now());
     if (wait === null) {
       process.stderr.write("schedule complete (no further pre-market slot)\n");
-      process.exit(0);
+      process.exitCode = 0;
+      return;
     }
     process.stderr.write(`sleeping ${Math.round(wait / 1000)}s until next slot\n`);
     let remaining = wait;
@@ -193,5 +197,5 @@ async function main() {
 
 main().catch((err) => {
   console.error(err instanceof Error ? err.message : "shadow_run_failed");
-  process.exit(1);
+  process.exitCode = 1;
 });
