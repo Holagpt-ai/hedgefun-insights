@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "radar:am-shadow": "vite-node --config vitest.config.ts src/lib/radar-am-shadow/run-live.ts"
+    "radar:am-shadow": "vite-node --config vitest.config.ts src/lib/radar-am-shadow/run-live.ts",
+    "radar:premarket-shadow": "vite-node --config vitest.config.ts src/lib/premarket-radar-shadow/run-live.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
