@@ -5,10 +5,9 @@ import { log } from "../log.ts";
 import { isoFromMs } from "./time.ts";
 import { mergeRadarConfig, type RadarV22Config } from "./config.ts";
 import { createRadarEngine } from "./engine.ts";
-import { createLeaseClient, type LeaseClient } from "./lease.ts";
+import { createRadarBridge } from "../bridge.ts";
+import { type LeaseClient } from "./lease.ts";
 import {
-  createRadarRpc,
-  createSetRadarStatus,
   publishRadarGeneration,
   type RadarRpcFn,
   type SetStatusFn,
@@ -60,21 +59,15 @@ export function startRadarV22(opts: {
   const newId = opts.newId ?? (() => crypto.randomUUID());
   const sleep = opts.sleep ??
     ((ms) => interruptibleSleep(ms, opts.signal));
-  const lease = opts.lease ?? createLeaseClient({
-    supabaseUrl: opts.env.supabaseUrl,
-    serviceRoleKey: opts.env.supabaseServiceRoleKey,
+  const bridged = createRadarBridge({
+    bridgeUrl: opts.env.radarBridgeUrl,
+    workerSecret: opts.env.radarWorkerSecret,
     fetch: opts.fetch,
+    sleep: opts.sleep,
   });
-  const rpc = opts.rpc ?? createRadarRpc({
-    supabaseUrl: opts.env.supabaseUrl,
-    serviceRoleKey: opts.env.supabaseServiceRoleKey,
-    fetch: opts.fetch,
-  });
-  const setStatus = opts.setStatus ?? createSetRadarStatus({
-    supabaseUrl: opts.env.supabaseUrl,
-    serviceRoleKey: opts.env.supabaseServiceRoleKey,
-    fetch: opts.fetch,
-  });
+  const lease = opts.lease ?? bridged.lease;
+  const rpc = opts.rpc ?? bridged.radarRpc;
+  const setStatus = opts.setStatus ?? bridged.setStatus;
   const holderId = opts.holderId ?? `radar-${crypto.randomUUID()}`;
   const engine = createRadarEngine({ config, exceptions: [] });
   let leaseHeld = false;

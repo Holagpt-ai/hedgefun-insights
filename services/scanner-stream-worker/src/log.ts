@@ -1,6 +1,7 @@
 export type LogLevel = "info" | "warn" | "error";
 
-const REDACT_SUBSTR = /apiKey|Bearer|service_role|POLYGON|SUPABASE_SERVICE/i;
+const REDACT_SUBSTR =
+  /apiKey|Bearer|service_role|POLYGON|SUPABASE_SERVICE|RADAR_WORKER|WORKER_SECRET/i;
 const APIKEY_QUERY_RE = /apiKey=[^&\s"'`]+/gi;
 const BEARER_RE = /Bearer\s+\S+/gi;
 
