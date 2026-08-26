@@ -18,12 +18,17 @@ import { SessionBanner } from "@/components/pre-market/SessionBanner";
 import { IndexCards } from "@/components/pre-market/IndexCards";
 import { CatalystWatchList } from "@/components/pre-market/CatalystWatchList";
 import { EarningsList } from "@/components/pre-market/EarningsList";
-import { WatchlistActivityList } from "@/components/pre-market/WatchlistActivityList";
+import { WatchlistActivityList, WatchlistSessionCompact } from "@/components/pre-market/WatchlistActivityList";
 import { VolumeLeaderList } from "@/components/pre-market/VolumeLeaderList";
 import { RiskAttentionList } from "@/components/pre-market/RiskAttentionList";
 import { OpeningBellChecklist } from "@/components/pre-market/OpeningBellChecklist";
 import { HeadlinesList } from "@/components/pre-market/HeadlinesList";
 import { etTimestampLabel, relativeAge } from "@/lib/pre-market/builders";
+import {
+  compactWatchlistNotice,
+  isActivePremarketSession,
+  watchlistTrackedCount,
+} from "@/lib/session-intelligence/watchlist-session";
 
 export default function AMInbox() {
   const { profile } = useAuth();
@@ -40,8 +45,20 @@ export default function AMInbox() {
   const data = ws.data;
   const loading = ws.isLoading;
   const etDate = data?.market_context.et_date ?? "";
+  const marketStatus = data?.market_context.status;
+  const premarketActive = isActivePremarketSession(marketStatus);
 
   const catalysts = useMemo(() => data?.catalyst_watch.data ?? [], [data]);
+
+  const trackedCount = useMemo(
+    () =>
+      watchlistTrackedCount(
+        (data?.watchlist_activity.data ?? []).map((r) => r.ticker),
+        (data?.watchlist_lifecycle ?? []).map((l) => l.ticker),
+      ),
+    [data],
+  );
+  const watchlistNotice = compactWatchlistNotice(marketStatus, trackedCount);
 
   if (!ws.isAuthenticated) {
     return (
@@ -57,7 +74,7 @@ export default function AMInbox() {
   }
 
   return (
-    <div className="flex w-full max-w-full flex-col gap-6 overflow-x-hidden p-4 md:p-6">
+    <div className="flex w-full max-w-full flex-col gap-4 overflow-x-hidden p-4 md:p-6">
       {/* 1 — Title + honest data labeling */}
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -86,7 +103,7 @@ export default function AMInbox() {
         <SectionUnavailable reason="QUERY_FAILED" onRetry={ws.retry} />
       ) : (
         <>
-          {/* 2 — Authoritative ET session banner */}
+          {/* Session status */}
           <SessionBanner context={data?.market_context ?? null} loading={loading} />
 
           {data && (
@@ -95,9 +112,9 @@ export default function AMInbox() {
             </p>
           )}
 
-          {/* 3 — Index cards */}
+          {/* Market Pulse */}
           <SectionShell
-            title="Market Indexes"
+            title="Market Pulse"
             subtitle="SPY · QQQ · DIA · IWM — 15-minute delayed"
             section={data?.indexes ?? null}
             loading={loading}
@@ -107,8 +124,8 @@ export default function AMInbox() {
             <IndexCards rows={data?.indexes.data ?? []} />
           </SectionShell>
 
-          {/* 4 — AI Pre-Market Brief (existing entitlement-enforced flow) */}
-          <section className="flex flex-col gap-3">
+          {/* AI Pre-Market Brief (existing entitlement-enforced flow) */}
+          <section className="flex flex-col gap-2">
             <SectionHeading
               title="AI Pre-Market Brief"
               subtitle="Server-generated brief — entitlement enforced by the backend"
@@ -120,7 +137,7 @@ export default function AMInbox() {
             />
           </section>
 
-          {/* 5 — Catalyst Watch */}
+          {/* Catalyst Watch — Top 3 stories */}
           <SectionShell
             title="Catalyst Watch"
             subtitle="Provider-reported events · today and the previous two ET calendar dates"
@@ -140,7 +157,27 @@ export default function AMInbox() {
             <CatalystWatchList rows={catalysts} etDate={etDate} />
           </SectionShell>
 
-          {/* 6 — Before-Open Earnings */}
+          {/* Volume Leaders — screener_results, not Radar V2.2 */}
+          <SectionShell
+            title="Day-Trade Radar · sorted by volume"
+            subtitle="Screener results · 15-minute delayed · not session-attributed"
+            section={data?.volume_leaders ?? null}
+            loading={loading}
+            emptyMessage="No qualifying screener rows."
+            onRetry={ws.retry}
+            action={
+              <button
+                onClick={() => navigate("/dashboard/screeners")}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+              >
+                Open Screeners <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            }
+          >
+            <VolumeLeaderList rows={data?.volume_leaders.data ?? []} catalysts={catalysts} />
+          </SectionShell>
+
+          {/* Before-Open Earnings — Top 3 */}
           <SectionShell
             title="Before-Open Earnings"
             subtitle="Confirmed earnings-calendar records only · current ET date · reporting before the open"
@@ -174,7 +211,19 @@ export default function AMInbox() {
             </div>
           </SectionShell>
 
-          {/* 7 — Watchlist Pre-Market Activity */}
+          {/* Risk & Attention — Top 3 ticker groups */}
+          <SectionShell
+            title="Risk & Attention Flags"
+            subtitle="Derived only from your watchlist signals, alerts, provider events and open journal trades"
+            section={data?.risk_attention ?? null}
+            loading={loading}
+            emptyMessage="No attention items from currently available data."
+            onRetry={ws.retry}
+          >
+            <RiskAttentionList items={data?.risk_attention.data ?? []} />
+          </SectionShell>
+
+          {/* Watchlist — session-aware */}
           <SectionShell
             title="Watchlist Pre-Market Activity"
             subtitle="Scoreless · shown only during a confirmed pre-market session · sorted by volume"
@@ -187,8 +236,8 @@ export default function AMInbox() {
                   ? "The market session cannot be confirmed, so no pre-market analysis is shown."
                   : "No pre-market session is active, so no pre-market analysis is shown."
             }
-
             onRetry={ws.retry}
+            renderWhenEmpty={!premarketActive && !!watchlistNotice && trackedCount > 0}
             action={
               <button
                 onClick={() => navigate("/dashboard/watchlist")}
@@ -198,11 +247,20 @@ export default function AMInbox() {
               </button>
             }
           >
-            <WatchlistActivityList rows={data?.watchlist_activity.data ?? []} />
+            {premarketActive ? (
+              <WatchlistActivityList rows={data?.watchlist_activity.data ?? []} />
+            ) : watchlistNotice && trackedCount > 0 ? (
+              <WatchlistSessionCompact
+                notice={watchlistNotice}
+                onOpen={() => navigate("/dashboard/watchlist")}
+              />
+            ) : (
+              <WatchlistActivityList rows={data?.watchlist_activity.data ?? []} />
+            )}
           </SectionShell>
 
-          {/* 7b — Honest lifecycle disclosure for excluded symbols */}
-          {!loading && data && data.watchlist_lifecycle.length > 0 && (
+          {/* Premarket-only lifecycle chips — collapsed outside pre-market */}
+          {premarketActive && !loading && data && data.watchlist_lifecycle.length > 0 && (
             <div className="rounded-xl border border-dashed bg-card p-3">
               <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Watchlist symbols without a current pre-market analysis
@@ -220,40 +278,8 @@ export default function AMInbox() {
             </div>
           )}
 
-          {/* 8 — Day-Trade Radar volume leaders */}
-          <SectionShell
-            title="Day-Trade Radar · sorted by volume"
-            subtitle="Screener results · 15-minute delayed · not session-attributed"
-            section={data?.volume_leaders ?? null}
-            loading={loading}
-            emptyMessage="No qualifying screener rows."
-            onRetry={ws.retry}
-            action={
-              <button
-                onClick={() => navigate("/dashboard/screeners")}
-                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
-              >
-                Open Screeners <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            }
-          >
-            <VolumeLeaderList rows={data?.volume_leaders.data ?? []} catalysts={catalysts} />
-          </SectionShell>
-
-          {/* 9 — Risk & Attention Flags */}
-          <SectionShell
-            title="Risk & Attention Flags"
-            subtitle="Derived only from your watchlist signals, alerts, provider events and open journal trades"
-            section={data?.risk_attention ?? null}
-            loading={loading}
-            emptyMessage="No attention items from currently available data."
-            onRetry={ws.retry}
-          >
-            <RiskAttentionList items={data?.risk_attention.data ?? []} />
-          </SectionShell>
-
-          {/* 10 — Journal readiness + data-derived checklist */}
-          <section className="flex flex-col gap-3">
+          {/* Opening Bell Checklist */}
+          <section className="flex flex-col gap-2">
             <SectionHeading
               title="Opening Bell Checklist"
               subtitle="Generated from the data returned above · local session state"
@@ -284,7 +310,7 @@ export default function AMInbox() {
             )}
           </section>
 
-          {/* 11 — Market headlines */}
+          {/* Market Headlines — Top 3 */}
           <SectionShell
             title="Market Headlines"
             subtitle="Ordered by publication time — publication times only, no sync heartbeat available"
@@ -300,7 +326,7 @@ export default function AMInbox() {
         </>
       )}
 
-      {/* 12 — Workflow footer */}
+      {/* Workflow footer */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border pt-4">
         <button
           onClick={() => navigate("/dashboard/action-center")}

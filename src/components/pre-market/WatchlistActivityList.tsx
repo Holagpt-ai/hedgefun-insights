@@ -8,6 +8,7 @@ import {
   renderableSignals,
 } from "@/lib/pre-market/builders";
 import type { PreMarketWatchlistRow } from "@/types/pre-market";
+import type { WatchlistSessionNotice } from "@/lib/session-intelligence/watchlist-session";
 
 function DirectionBadge({ direction }: { direction: string }) {
   const cls =
@@ -22,6 +23,28 @@ function DirectionBadge({ direction }: { direction: string }) {
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`}>
       AI Read: {directionLabel(direction)}
     </span>
+  );
+}
+
+export function WatchlistSessionCompact({
+  notice,
+  onOpen,
+}: {
+  notice: WatchlistSessionNotice;
+  onOpen: () => void;
+}) {
+  return (
+    <div className="rounded-xl border bg-card p-3">
+      <p className="text-sm font-medium">{notice.headline}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{notice.detail}</p>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="mt-2 text-xs font-medium text-accent-blue hover:underline"
+      >
+        Open Watchlist →
+      </button>
+    </div>
   );
 }
 
