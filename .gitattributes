@@ -1,2 +1,7 @@
 # Keep canonical production Journal migrations as LF blobs, matching origin/main.
 supabase/migrations/20260821*.sql text eol=lf
+
+# MCP generator emit is LF. Windows autocrlf would otherwise dirty the working
+# tree after every Vite plugin regeneration.
+supabase/functions/mcp/index.ts text eol=lf
+.lovable/mcp/manifest.json text eol=lf
