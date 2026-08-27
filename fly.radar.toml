@@ -1,21 +1,25 @@
-# Deploy from the repository root so Docker build context includes shared files:
-#   fly deploy --config fly.radar.toml
-app = "stocksist-radar-v22-worker"
-primary_region = "iad"
-kill_signal = "SIGTERM"
-kill_timeout = 15
+# fly.toml app configuration file generated for stocksist-radar-v22-worker on 2026-08-27T00:46:14Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'stocksist-radar-v22-worker'
+primary_region = 'iad'
+kill_signal = 'SIGTERM'
+kill_timeout = '15s'
 
 [build]
-  dockerfile = "services/scanner-stream-worker/Dockerfile"
+  dockerfile = 'services/scanner-stream-worker/Dockerfile'
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = "off"
+  auto_stop_machines = 'off'
   auto_start_machines = true
   min_machines_running = 1
 
 [[vm]]
-  cpu_kind = "shared"
+  memory = '1gb'
+  cpu_kind = 'shared'
   cpus = 1
-  memory = "1gb"
+  memory_mb = 1024
