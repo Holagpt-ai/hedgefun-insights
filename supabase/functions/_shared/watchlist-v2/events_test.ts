@@ -75,8 +75,8 @@ Deno.test("identical ticker+epoch+normalized-headline collapse to one", async ()
   const t = Math.floor((now.getTime() - 3600_000) / 1000);
   const r = await mapNewsEvents(
     [
-      { headline: "Same story", datetime: t, source: "A", url: "https://x/1" },
-      { headline: "Same story", datetime: t, source: "B", url: "https://x/2" },
+      { headline: "Update: Same story", datetime: t, source: "A", url: "https://x/1" },
+      { headline: "Update: Same story", datetime: t, source: "B", url: "https://x/2" },
     ],
     now, analyzedAt, TICKER,
   );
@@ -87,8 +87,8 @@ Deno.test("whitespace/case differences still collapse", async () => {
   const t = Math.floor((now.getTime() - 3600_000) / 1000);
   const r = await mapNewsEvents(
     [
-      { headline: "Big  Story  Today", datetime: t, source: "A", url: "https://x/1" },
-      { headline: "big story today", datetime: t, source: "B", url: "https://x/2" },
+      { headline: "Update: Big  Story  Today", datetime: t, source: "A", url: "https://x/1" },
+      { headline: "update: big story today", datetime: t, source: "B", url: "https://x/2" },
     ],
     now, analyzedAt, TICKER,
   );
@@ -98,7 +98,7 @@ Deno.test("whitespace/case differences still collapse", async () => {
 Deno.test("caps at 5 events", async () => {
   const t = Math.floor((now.getTime() - 3600_000) / 1000);
   const items = Array.from({ length: 8 }, (_, i) => ({
-    headline: `Story ${i}`, datetime: t - i * 60, source: "S", url: `https://x/${i}`,
+    headline: `Update: Story ${i}`, datetime: t - i * 60, source: "S", url: `https://x/${i}`,
   }));
   const r = await mapNewsEvents(items, now, analyzedAt, TICKER);
   assertEquals(r.events.length, 5);
@@ -133,13 +133,45 @@ Deno.test("zero qualifying returns none_qualifying with empty events", async () 
 Deno.test("event_id is deterministic SHA-256 hex", async () => {
   const t = Math.floor((now.getTime() - 3600_000) / 1000);
   const r1 = await mapNewsEvents(
-    [{ headline: "Hello World", datetime: t, source: "S", url: "https://x/y" }],
+    [{ headline: "Update: Hello World", datetime: t, source: "S", url: "https://x/y" }],
     now, analyzedAt, TICKER,
   );
   const r2 = await mapNewsEvents(
-    [{ headline: "hello  world", datetime: t, source: "S", url: "https://x/y" }],
+    [{ headline: "update: hello  world", datetime: t, source: "S", url: "https://x/y" }],
     now, analyzedAt, TICKER,
   );
   assert(/^[0-9a-f]{64}$/.test(r1.events[0].event_id));
   assertEquals(r1.events[0].event_id, r2.events[0].event_id);
+});
+
+Deno.test("drops a competing-entity headline even on a single-ticker Finnhub feed", async () => {
+  const t = Math.floor((now.getTime() - 3600_000) / 1000);
+  const r = await mapNewsEvents(
+    [{
+      headline: "Nvidia unveils next-generation AI accelerator, shares jump",
+      datetime: t,
+      source: "Wire",
+      url: "https://x/n",
+      related: "TSLA",
+    }],
+    now, analyzedAt, "TSLA", "Tesla, Inc.",
+  );
+  assertEquals(r.events.length, 0);
+  assertEquals(r.quality, "none_qualifying");
+});
+
+Deno.test("keeps a direct company headline for the requested ticker", async () => {
+  const t = Math.floor((now.getTime() - 3600_000) / 1000);
+  const r = await mapNewsEvents(
+    [{
+      headline: "Apple reports record iPhone sales",
+      datetime: t,
+      source: "Wire",
+      url: "https://x/a",
+      related: "AAPL,MSFT",
+    }],
+    now, analyzedAt, TICKER, "Apple Inc.",
+  );
+  assertEquals(r.quality, "ok");
+  assertEquals(r.events.length, 1);
 });

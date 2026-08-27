@@ -90,6 +90,20 @@ describe("quote integrity", () => {
     expect(q.rejection_reason).toBe("SPLIT_ADJUSTMENT_MISMATCH");
   });
 
+  it("does not treat prior-close disagreement as a contemporaneous scale error", () => {
+    const q = validateQuote(validInput({
+      price: 12.5,
+      lastTradePrice: 12.5,
+      minuteClose: 12.4,
+      dayClose: 12.5,
+      vwap: 12.1,
+      priorClose: 125,
+      changePct: -90,
+    }));
+    expect(q.valid).toBe(true);
+    expect(q.rejection_reason).toBeNull();
+  });
+
   it("does not reject a large genuine session move without scale evidence", () => {
     const q = validateQuote(validInput({
       price: 12,

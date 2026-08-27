@@ -431,11 +431,15 @@ export async function handleRequest(req: Request): Promise<Response> {
   const newsTo = analyzedAtIso.slice(0, 10);
   const newsUrl = `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${newsFrom}&to=${newsTo}&token=${finnhubKey}`;
 
-  const [snapshotR, barsR, newsR] = await Promise.all([
+  const [snapshotR, barsR, newsR, stockNameRes] = await Promise.all([
     fetchWithOutcome(snapshotUrl, 8000),
     fetchWithOutcome(barsUrl, 8000),
     fetchWithOutcome(newsUrl, 8000),
+    supabase.from("stocks").select("name").eq("symbol", ticker).maybeSingle(),
   ]);
+  const stockNameRaw = (stockNameRes.data as { name?: unknown } | null)?.name;
+  const companyName =
+    typeof stockNameRaw === "string" && stockNameRaw.trim() ? stockNameRaw.trim() : null;
 
   if (snapshotR.kind === "transport_failure") {
     const code = logProviderFailure(ticker, "polygon_snapshot", snapshotR);
@@ -485,12 +489,13 @@ export async function handleRequest(req: Request): Promise<Response> {
     sessionType, analyzedAt: analyzedAtIso,
   });
   const eventsResult = newsR.kind === "ok"
-    ? await mapNewsEvents(newsR.body, analyzedAt, analyzedAtIso, ticker)
+    ? await mapNewsEvents(newsR.body, analyzedAt, analyzedAtIso, ticker, companyName)
     : { events: [] as RecentEvent[], quality: "missing" as const };
   const recentEvents: RecentEvent[] = eventsResult.events.filter((e) => {
     const attr = attributeSymbol({
       title: e.title,
       symbol: ticker,
+      companyName,
       providerTickers: [ticker],
       providerAssociatesSymbol: true,
     });

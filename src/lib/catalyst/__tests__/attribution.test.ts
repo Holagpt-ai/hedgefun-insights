@@ -80,6 +80,18 @@ describe("strict catalyst-to-ticker attribution", () => {
     expect(results.every((r) => r.class === "sector_related")).toBe(true);
   });
 
+  it("keeps a named company story even when the provider list includes another ticker", () => {
+    const r = attributeSymbol({
+      title: "Apple reports record iPhone sales",
+      symbol: "AAPL",
+      companyName: "Apple Inc.",
+      providerTickers: ["AAPL", "MSFT"],
+      providerAssociatesSymbol: true,
+    });
+    expect(r.class).toBe("direct");
+    expect(r.ticker_specific).toBe(true);
+  });
+
   it("marks a single-ticker provider association as reliable when no competing subject exists", () => {
     const r = attributeSymbol({
       title: "Company announces expanded manufacturing footprint",

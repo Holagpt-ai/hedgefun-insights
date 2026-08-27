@@ -112,10 +112,27 @@ function identityKey(item: RawRiskItem): string {
 function isExpired(kind: string, eventTime: string | null, nowMs: number): boolean {
   const window = EXPIRATION_MS[kind];
   if (window === null || window === undefined) return false;
-  if (!eventTime) return false;
+  // Expiring types without a usable timestamp cannot be proven current.
+  if (!eventTime) return true;
   const t = Date.parse(eventTime);
-  if (!Number.isFinite(t)) return false;
+  if (!Number.isFinite(t)) return true;
   return nowMs - t > window;
+}
+
+function eventTimeMs(iso: string | null): number {
+  if (!iso) return 0;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : 0;
+}
+
+/** Newest first; equal timestamps break ties by id so ordering is deterministic. */
+function compareNewestFirst(
+  a: { event_time: string | null; id: string },
+  b: { event_time: string | null; id: string },
+): number {
+  const dt = eventTimeMs(b.event_time) - eventTimeMs(a.event_time);
+  if (dt !== 0) return dt;
+  return a.id.localeCompare(b.id);
 }
 
 function directionFrom(item: RawRiskItem): "bullish" | "bearish" | null {
@@ -158,12 +175,8 @@ export function consolidateRiskFlags(
     history.push(row);
   }
 
-  // Newest first for identity collapse.
-  history.sort((a, b) => {
-    const at = a.event_time ? Date.parse(a.event_time) : 0;
-    const bt = b.event_time ? Date.parse(b.event_time) : 0;
-    return bt - at;
-  });
+  // Newest first for identity collapse. Equal timestamps use a stable id tie-break.
+  history.sort(compareNewestFirst);
 
   const candidates: ConsolidatedRiskItem[] = [];
   for (const row of history) {
@@ -179,9 +192,9 @@ export function consolidateRiskFlags(
     if (!row.symbol) continue;
     const dir = directionFrom(row);
     if (!dir) continue;
-    const time = row.event_time ? Date.parse(row.event_time) : 0;
+    const time = eventTimeMs(row.event_time);
     const prev = latestDirection.get(row.symbol);
-    if (!prev || time >= prev.time) {
+    if (!prev || time > prev.time || (time === prev.time && row.id.localeCompare(prev.id) > 0)) {
       latestDirection.set(row.symbol, { dir, id: row.id, time });
     }
   }
@@ -202,9 +215,7 @@ export function consolidateRiskFlags(
     const pa = PRIORITY[a.kind] ?? 500;
     const pb = PRIORITY[b.kind] ?? 500;
     if (pa !== pb) return pa - pb;
-    const at = a.event_time ? Date.parse(a.event_time) : 0;
-    const bt = b.event_time ? Date.parse(b.event_time) : 0;
-    return bt - at;
+    return compareNewestFirst(a, b);
   });
 
   const perTicker = new Map<string, number>();
