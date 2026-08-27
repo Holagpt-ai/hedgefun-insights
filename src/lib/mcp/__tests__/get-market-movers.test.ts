@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   canonicalizeLiveTickers,
+  parseMarketDataPayload,
   presentValidatedMovers,
 } from "@/lib/mcp/tools/get-market-movers";
 
@@ -51,5 +52,38 @@ describe("MCP get_market_movers canonical path", () => {
     const validated = canonicalizeLiveTickers(payload, "active", NOW);
     const presented = presentValidatedMovers(validated, "active", 10, NOW);
     expect(presented.movers.map((m) => m.symbol)).toEqual(["HIV", "LOWV"]);
+  });
+
+  it("treats auth failures as unavailable and does not invent movers", () => {
+    expect(parseMarketDataPayload(401, { tickers: [{ ticker: "AAA" }] })).toEqual({
+      tickers: [],
+      unavailable: true,
+    });
+    expect(parseMarketDataPayload(403, { error: "forbidden" })).toEqual({
+      tickers: [],
+      unavailable: true,
+    });
+  });
+
+  it("treats upstream failures and error envelopes as unavailable", () => {
+    expect(parseMarketDataPayload(503, { tickers: [] })).toEqual({
+      tickers: [],
+      unavailable: true,
+    });
+    expect(parseMarketDataPayload(200, { status: "ERROR", message: "Data temporarily unavailable", tickers: [] })).toEqual({
+      tickers: [],
+      unavailable: true,
+    });
+  });
+
+  it("ignores malformed payloads instead of passing them through", () => {
+    expect(parseMarketDataPayload(200, "not-json-object")).toEqual({
+      tickers: [],
+      unavailable: true,
+    });
+    expect(parseMarketDataPayload(200, { foo: 1 })).toEqual({
+      tickers: [],
+      unavailable: true,
+    });
   });
 });

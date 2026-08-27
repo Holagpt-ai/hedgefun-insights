@@ -56,6 +56,38 @@ function baseMover(overrides: Partial<CanonicalMover> = {}): CanonicalMover {
 }
 
 describe("market movers integrity", () => {
+  it("maps premarket last trade against previous regular close", () => {
+    const m = moverFromPolygonTicker(ticker({
+      ticker: "PREM",
+      todaysChangePerc: 50,
+      day: { c: 0, v: 0 },
+      prevDay: { c: 10 },
+      lastTrade: { p: 12, t: NOW },
+      min: { c: 11.9 },
+    }), "premarket", NOW);
+    expect(m.valid).toBe(true);
+    expect(m.session).toBe("premarket");
+    expect(m.price).toBe(12);
+    expect(m.reference_price).toBe(10);
+    expect(m.change_percent).toBeCloseTo(20, 5);
+  });
+
+  it("maps after-hours last trade against the current regular close", () => {
+    const m = moverFromPolygonTicker(ticker({
+      ticker: "AHCL",
+      todaysChangePerc: 5,
+      day: { c: 10, v: 1_000_000 },
+      prevDay: { c: 9.5 },
+      lastTrade: { p: 11, t: NOW },
+      min: { c: 10.9 },
+    }), "afterhours", NOW);
+    expect(m.valid).toBe(true);
+    expect(m.session).toBe("afterhours");
+    expect(m.price).toBe(11);
+    expect(m.reference_price).toBe(10);
+    expect(m.change_percent).toBeCloseTo(10, 5);
+  });
+
   it("accepts a normal positive mover", () => {
     const m = moverFromPolygonTicker(ticker(), "regular", NOW);
     expect(m.valid).toBe(true);
@@ -76,9 +108,52 @@ describe("market movers integrity", () => {
     expect(m.change_percent).toBeCloseTo(-4, 5);
   });
 
-  it("rejects recap-scale current vs reference as an adjustment mismatch, not because the percent is merely large", () => {
+  it("keeps a legitimate 250x move when current prints and both close series independently corroborate the reference", () => {
     const m = validateMover({
-      symbol: "RECP",
+      symbol: "EXTM",
+      price: 25,
+      referencePrice: 0.1,
+      providerPercent: 24900,
+      lastTradePrice: 25,
+      minuteClose: 24.9,
+      dayClose: 25,
+      adjustedClose: 0.1,
+      unadjustedClose: 0.1,
+      volume: 40_000_000,
+      session: "regular",
+      sessionDate: TODAY,
+      source: SOURCE_POLYGON,
+      providerAsOf: NOW,
+      nowMs: NOW,
+    });
+    expect(m.valid).toBe(true);
+    expect(m.change_percent).toBeCloseTo(24900, 5);
+  });
+
+  it("rejects a 250x pair when adjusted versus unadjusted closes disagree", () => {
+    const m = validateMover({
+      symbol: "SPLT",
+      price: 25,
+      referencePrice: 0.1,
+      providerPercent: 24900,
+      lastTradePrice: 25,
+      minuteClose: 25,
+      dayClose: 25,
+      adjustedClose: 25,
+      unadjustedClose: 0.1,
+      session: "regular",
+      sessionDate: TODAY,
+      source: SOURCE_POLYGON,
+      providerAsOf: NOW,
+      nowMs: NOW,
+    });
+    expect(m.valid).toBe(false);
+    expect(m.reason).toBe("adjustment_mismatch");
+  });
+
+  it("does not treat a same-pair provider percent as independent corroboration of a 250x move", () => {
+    const m = validateMover({
+      symbol: "SAME",
       price: 20.31,
       referencePrice: 0.025,
       providerPercent: 81140,
@@ -93,7 +168,26 @@ describe("market movers integrity", () => {
       nowMs: NOW,
     });
     expect(m.valid).toBe(false);
-    expect(m.reason).toBe("adjustment_mismatch");
+    expect(m.reason).toBe("missing_corroboration");
+    expect(m.change_percent).toBeNull();
+  });
+
+  it("does not classify large magnitude alone as a corporate action", () => {
+    const m = validateMover({
+      symbol: "BIGM",
+      price: 40,
+      referencePrice: 0.15,
+      lastTradePrice: 40,
+      minuteClose: 39.8,
+      dayClose: 40,
+      session: "regular",
+      sessionDate: TODAY,
+      source: SOURCE_POLYGON,
+      providerAsOf: NOW,
+      nowMs: NOW,
+    });
+    expect(m.valid).toBe(false);
+    expect(m.reason).toBe("missing_corroboration");
   });
 
   it("keeps a corroborated 85x trading move below recap scale", () => {
@@ -270,6 +364,87 @@ describe("market movers integrity", () => {
     const b = baseMover({ id: "b-id", volume: 800, provider_as_of: "2026-08-27T15:00:00.000Z" });
     const winners = selectCanonicalCurrentMovers([a, b], { sessionDate: TODAY });
     expect(winners[0].id).toBe("b-id");
+  });
+
+  it("does not let a prior ET session row win a current list on volume", () => {
+    const yesterday = baseMover({
+      id: "yday",
+      session_date: "2026-08-26",
+      volume: 99_000_000,
+      provider_as_of: "2026-08-26T20:00:00.000Z",
+    });
+    const today = baseMover({
+      id: "today",
+      session_date: TODAY,
+      volume: 1_000,
+      provider_as_of: "2026-08-27T15:00:00.000Z",
+    });
+    const current = selectCanonicalCurrentMovers([yesterday, today], { sessionDate: TODAY });
+    expect(current.map((r) => r.id)).toEqual(["today"]);
+  });
+
+  it("keeps the same symbol in regular and after-hours sessions", () => {
+    const regular = baseMover({ id: "rth", session: "regular" });
+    const after = baseMover({
+      id: "ah",
+      session: "afterhours",
+      price: 22,
+      change_percent: 10,
+    });
+    const winners = selectCanonicalCurrentMovers([regular, after], { sessionDate: TODAY });
+    expect(winners.map((r) => r.id).sort()).toEqual(["ah", "rth"]);
+  });
+
+  it("does not let a fresher invalid row displace the latest valid row", () => {
+    const valid = baseMover({
+      id: "good",
+      provider_as_of: "2026-08-27T15:00:00.000Z",
+      volume: 100,
+    });
+    const fresherInvalid = baseMover({
+      id: "newer-bad",
+      valid: false,
+      reason: "invalid_current_price",
+      price: null,
+      provider_as_of: "2026-08-27T18:00:00.000Z",
+      volume: 9_000_000,
+    });
+    const winners = selectCanonicalCurrentMovers([fresherInvalid, valid], { sessionDate: TODAY });
+    expect(winners).toHaveLength(1);
+    expect(winners[0].id).toBe("good");
+  });
+
+  it("uses a stable symbol key when ids are missing", () => {
+    const a = baseMover({ id: null, symbol: "AAA", volume: 10, provider_as_of: "2026-08-27T15:00:00.000Z" });
+    const dup = baseMover({ id: null, symbol: "AAA", volume: 10, provider_as_of: "2026-08-27T15:00:00.000Z" });
+    const winners = selectCanonicalCurrentMovers([a, dup], { sessionDate: TODAY });
+    expect(winners).toHaveLength(1);
+    expect(winners[0].symbol).toBe("AAA");
+    expect(toMoverListRow(winners[0])?.symbol).toBe("AAA");
+  });
+
+  it("tags movers with the ET session date, not the UTC date, around midnight UTC", () => {
+    const etEvening = Date.parse("2026-08-27T03:30:00.000Z"); // 23:30 ET on Aug 26
+    expect(etSessionDate(etEvening)).toBe("2026-08-26");
+    const m = moverFromPolygonTicker(ticker({ lastTrade: { p: 21, t: etEvening }, updated: etEvening }), "regular", etEvening);
+    expect(m.session_date).toBe("2026-08-26");
+  });
+
+  it("rejects a provider timestamp too far in the future", () => {
+    const m = validateMover({
+      symbol: "FUTR",
+      price: 21,
+      referencePrice: 20,
+      lastTradePrice: 21,
+      dayClose: 21,
+      session: "regular",
+      sessionDate: TODAY,
+      source: SOURCE_POLYGON,
+      providerAsOf: NOW + 10 * 60 * 1000,
+      nowMs: NOW,
+    });
+    expect(m.valid).toBe(false);
+    expect(m.reason).toBe("stale_reference");
   });
 
   it("keeps the same symbol across different historical session dates", () => {

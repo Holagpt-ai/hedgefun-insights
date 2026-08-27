@@ -44,8 +44,13 @@ const SCALE_TOLERANCE = 0.03;
 const PERCENT_ABS_TOLERANCE = 1;
 const PERCENT_REL_TOLERANCE = 0.08;
 const STALE_REFERENCE_MS = 18 * 60 * 60 * 1000;
-/** Recap/reverse-split scale, not a trading-session cap. 85× squeezes remain eligible. */
-const RECAP_RATIO_FLOOR = 200;
+/** Matches screener `PROVIDER_FUTURE_SLACK_MS`. */
+const PROVIDER_FUTURE_SLACK_MS = 5 * 60 * 1000;
+/**
+ * Magnitudes at or above this ratio are suspicious and require independent
+ * corroboration. Magnitude alone is never an adjustment mismatch.
+ */
+const SUSPICIOUS_RATIO_FLOOR = 200;
 
 export interface RawMoverInput {
   symbol: unknown;
@@ -134,6 +139,56 @@ function isSplitFactorPair(a: number, b: number): boolean {
   const ratio = pairRatio(a, b);
   if (ratio === null) return false;
   return SPLIT_FACTORS.some((f) => nearFactor(ratio, f));
+}
+
+function pricesAgree(a: number, b: number): boolean {
+  if (!(a > 0) || !(b > 0)) return false;
+  if (a === b) return true;
+  const ratio = pairRatio(a, b);
+  return ratio !== null && ratio <= 1 + SCALE_TOLERANCE;
+}
+
+function currentPrintsAgreeing(input: RawMoverInput, current: number): number {
+  const extended = input.session === "premarket" || input.session === "afterhours";
+  const candidates = [
+    finiteOrNull(input.lastTradePrice),
+    finiteOrNull(input.minuteClose),
+    extended ? null : finiteOrNull(input.dayClose),
+  ];
+  return candidates.filter((v) => v !== null && v > 0 && pricesAgree(v, current)).length;
+}
+
+function hasAdjustmentEvidence(input: RawMoverInput, current: number, reference: number): boolean {
+  const adjusted = finiteOrNull(input.adjustedClose);
+  const unadjusted = finiteOrNull(input.unadjustedClose);
+  if (adjusted !== null && adjusted > 0 && unadjusted !== null && unadjusted > 0 && !pricesAgree(adjusted, unadjusted)) {
+    const ratio = pairRatio(adjusted, unadjusted);
+    if (ratio !== null && (ratio >= SUSPICIOUS_RATIO_FLOOR || isDecimalScalePair(adjusted, unadjusted) || (isSplitFactorPair(adjusted, unadjusted) && ratio >= 1.8))) {
+      return true;
+    }
+  }
+  if (adjusted !== null && adjusted > 0 && unadjusted !== null && unadjusted > 0) {
+    const currentLooksAdjusted = pricesAgree(adjusted, current) && pricesAgree(unadjusted, reference);
+    const currentLooksUnadjusted = pricesAgree(unadjusted, current) && pricesAgree(adjusted, reference);
+    if ((currentLooksAdjusted || currentLooksUnadjusted) && !pricesAgree(adjusted, unadjusted)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function referenceIndependentlyCorroborated(input: RawMoverInput, reference: number): boolean {
+  const adjusted = finiteOrNull(input.adjustedClose);
+  const unadjusted = finiteOrNull(input.unadjustedClose);
+  // Both close series present and in agreement with the reference — not a split remnant.
+  return (
+    adjusted !== null &&
+    adjusted > 0 &&
+    unadjusted !== null &&
+    unadjusted > 0 &&
+    pricesAgree(adjusted, unadjusted) &&
+    pricesAgree(adjusted, reference)
+  );
 }
 
 function percentsAgree(a: number, b: number): boolean {
@@ -239,8 +294,8 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
   if (isDecimalScalePair(current, reference)) {
     return fail(input, symbol, "decimal_scale_mismatch");
   }
-  const recapRatio = pairRatio(current, reference);
-  if (recapRatio !== null && recapRatio >= RECAP_RATIO_FLOOR) {
+
+  if (hasAdjustmentEvidence(input, current, reference)) {
     return fail(input, symbol, "adjustment_mismatch");
   }
 
@@ -252,6 +307,16 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
       if (ratio !== null && ratio >= 1.8) {
         return fail(input, symbol, "adjustment_mismatch");
       }
+    }
+  }
+
+  const recapRatio = pairRatio(current, reference);
+  if (recapRatio !== null && recapRatio >= SUSPICIOUS_RATIO_FLOOR) {
+    // Provider percent derived from this same pair is not independent evidence.
+    const currentOk = currentPrintsAgreeing(input, current) >= 2;
+    const referenceOk = referenceIndependentlyCorroborated(input, reference);
+    if (!currentOk || !referenceOk) {
+      return fail(input, symbol, "missing_corroboration");
     }
   }
 
@@ -267,8 +332,13 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
   const asOf = isoOrNull(input.providerAsOf);
   if (asOf) {
     const asOfMs = Date.parse(asOf);
-    if (Number.isFinite(asOfMs) && nowMs - asOfMs > STALE_REFERENCE_MS) {
-      return fail(input, symbol, "stale_reference");
+    if (Number.isFinite(asOfMs)) {
+      if (asOfMs > nowMs + PROVIDER_FUTURE_SLACK_MS) {
+        return fail(input, symbol, "stale_reference");
+      }
+      if (nowMs - asOfMs > STALE_REFERENCE_MS) {
+        return fail(input, symbol, "stale_reference");
+      }
     }
   }
   const sessionDate = typeof input.sessionDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate)
@@ -607,6 +677,7 @@ export function presentCanonicalMovers(
     change_percent: number;
     volume: number | null;
     session_date: string | null;
+    type: MoverCategory;
   }>;
   status: "available" | "empty";
 } {
@@ -630,6 +701,7 @@ export function presentCanonicalMovers(
       change_percent: m.change_percent as number,
       volume: m.volume,
       session_date: m.session_date,
+      type: category,
     }));
   return { movers: rows, status: rows.length > 0 ? "available" : "empty" };
 }

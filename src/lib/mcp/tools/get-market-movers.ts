@@ -2,8 +2,6 @@ import { createClient } from "@supabase/supabase-js";
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
 import {
-  etSessionDate,
-  mapPolygonMovers,
   moverFromExtendedObservation,
   moverFromPolygonTicker,
   polygonTickersFromResponse,
@@ -14,20 +12,54 @@ import {
   SOURCE_AFTER_HOURS_FEED,
 } from "../../markets/movers-integrity";
 
+const MARKET_DATA_TIMEOUT_MS = 8_000;
+
+export type MarketDataFetchResult = {
+  tickers: unknown[];
+  unavailable: boolean;
+};
+
+function isPlainObject(x: unknown): x is Record<string, unknown> {
+  return x !== null && typeof x === "object" && !Array.isArray(x);
+}
+
+export function parseMarketDataPayload(status: number, body: unknown): MarketDataFetchResult {
+  if (!Number.isFinite(status) || status < 200 || status >= 300) {
+    return { tickers: [], unavailable: true };
+  }
+  if (isPlainObject(body) && body.status === "ERROR") {
+    return { tickers: [], unavailable: true };
+  }
+  if (Array.isArray(body) || (isPlainObject(body) && Array.isArray(body.tickers))) {
+    return { tickers: polygonTickersFromResponse(body), unavailable: false };
+  }
+  return { tickers: [], unavailable: true };
+}
+
 export async function fetchMarketDataTickers(
   kind: "gainers" | "losers",
   env: { url: string; key: string },
-): Promise<unknown> {
-  if (!env.url || !env.key) return [];
+): Promise<MarketDataFetchResult> {
+  if (!env.url || !env.key) return { tickers: [], unavailable: true };
   const url = `${env.url.replace(/\/$/, "")}/functions/v1/market-data?type=${kind}`;
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${env.key}`,
-      apikey: env.key,
-    },
-  });
-  if (!res.ok) return [];
-  return res.json();
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${env.key}`,
+        apikey: env.key,
+      },
+      signal: AbortSignal.timeout(MARKET_DATA_TIMEOUT_MS),
+    });
+    let body: unknown = null;
+    try {
+      body = await res.json();
+    } catch {
+      return { tickers: [], unavailable: true };
+    }
+    return parseMarketDataPayload(res.status, body);
+  } catch {
+    return { tickers: [], unavailable: true };
+  }
 }
 
 export function sessionForCategory(category: MoverCategory): MoverSession {
@@ -42,11 +74,7 @@ export function canonicalizeLiveTickers(
   nowMs: number = Date.now(),
 ): CanonicalMover[] {
   const session = sessionForCategory(category);
-  const tickers = Array.isArray(payload)
-    ? payload
-    : (payload && typeof payload === "object" && Array.isArray((payload as { tickers?: unknown }).tickers)
-      ? (payload as { tickers: unknown[] }).tickers
-      : []);
+  const tickers = polygonTickersFromResponse(payload);
   return tickers.map((t) => moverFromPolygonTicker(t, session, nowMs));
 }
 
@@ -57,6 +85,13 @@ export function presentValidatedMovers(
   nowMs: number = Date.now(),
 ) {
   return presentCanonicalMovers(movers, category, limit, nowMs);
+}
+
+function unavailableResult() {
+  return {
+    content: [{ type: "text" as const, text: JSON.stringify([]) }],
+    structuredContent: { movers: [] as const, status: "empty" as const },
+  };
 }
 
 export default defineTool({
@@ -84,7 +119,9 @@ export default defineTool({
         supabase.from("after_hours_feed_state").select("state_key,generation_id,status,session_date,synced_at").eq("state_key", "current").limit(1),
         supabase.from("after_hours_mover_results").select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of"),
       ]);
-      if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+      if (error) {
+        return unavailableResult();
+      }
       const state = (stateRows ?? [])[0] as { generation_id?: string; status?: string } | undefined;
       const gen = typeof state?.generation_id === "string" ? state.generation_id : null;
       const validated = (resultRows ?? [])
@@ -111,26 +148,8 @@ export default defineTool({
     const kinds: Array<"gainers" | "losers"> =
       type === "loser" ? ["losers"] : type === "gainer" ? ["gainers"] : ["gainers", "losers"];
     const payloads = await Promise.all(kinds.map((k) => fetchMarketDataTickers(k, env)));
-    const validated = payloads.flatMap((p) => canonicalizeLiveTickers(p, type, nowMs));
-    if (type === "active") {
-      const { rows } = mapPolygonMovers(
-        payloads.flatMap((p) => polygonTickersFromResponse(p)),
-        "regular",
-        { nowMs, sort: "volume_desc" },
-      );
-      const movers = rows.slice(0, cap).map((r) => ({
-        symbol: r.symbol,
-        name: r.name,
-        price: r.price,
-        change_percent: r.changePercent,
-        volume: r.volume,
-        session_date: etSessionDate(nowMs),
-      }));
-      return {
-        content: [{ type: "text", text: JSON.stringify(movers) }],
-        structuredContent: { movers, status: movers.length > 0 ? "available" : "empty" },
-      };
-    }
+    const tickers = payloads.flatMap((p) => p.tickers);
+    const validated = canonicalizeLiveTickers(tickers, type, nowMs);
     const presented = presentValidatedMovers(validated, type, cap, nowMs);
     return {
       content: [{ type: "text", text: JSON.stringify(presented.movers) }],

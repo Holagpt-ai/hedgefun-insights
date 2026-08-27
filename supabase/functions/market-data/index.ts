@@ -66,6 +66,7 @@ async function fetchWithRetry(
 
 // --- In-memory cache (persists for edge function instance lifetime) ---
 const cache = new Map<string, { data: unknown; ts: number }>();
+const lastSuccess = new Map<string, unknown>();
 const CACHE_TTL = 60_000;
 
 function getCached(key: string): unknown | null {
@@ -78,9 +79,22 @@ function getCached(key: string): unknown | null {
   return entry.data;
 }
 
+function getLastSuccess(key: string): unknown | null {
+  return lastSuccess.get(key) ?? null;
+}
+
 function setCache(key: string, data: unknown): void {
   cache.set(key, { data, ts: Date.now() });
+  lastSuccess.set(key, data);
 }
+
+const UNAVAILABLE_MOVERS = {
+  status: "ERROR",
+  message: "Data temporarily unavailable",
+  tickers: [],
+  results: [],
+  data: [],
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -117,10 +131,24 @@ serve(async (req) => {
         }
 
         const endpoint = type === "gainers" ? "gainers" : "losers";
-        const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
+        let res: Response;
+        try {
+          res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
+        } catch {
+          data = getLastSuccess(cacheKey) ?? UNAVAILABLE_MOVERS;
+          break;
+        }
+        if (!res.ok) {
+          data = getLastSuccess(cacheKey) ?? UNAVAILABLE_MOVERS;
+          break;
+        }
         const json = await res.json();
         console.log("[market-data] polygon response status:", res.status, "tickers count:", json.tickers?.length ?? 0);
-        const tickers = (json.tickers ?? []).slice(0, 20);
+        if (!Array.isArray(json.tickers)) {
+          data = getLastSuccess(cacheKey) ?? UNAVAILABLE_MOVERS;
+          break;
+        }
+        const tickers = json.tickers.slice(0, 20);
 
         // Enrich with company names from stocks table first
         const symbols = tickers.map((t: any) => t.ticker).filter(Boolean);
