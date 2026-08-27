@@ -8,6 +8,7 @@ export type SufficiencyCode =
   | "SNAPSHOT_MISSING"
   | "SNAPSHOT_STALE"
   | "SNAPSHOT_MALFORMED"
+  | "QUOTE_REJECTED"
   | "PRICE_UNAVAILABLE"
   | "PRIOR_CLOSE_UNAVAILABLE"
   | "BARS_MISSING"
@@ -23,6 +24,8 @@ export interface SufficiencyInput {
   volume: number | null;
   /** True when a required non-snapshot/bars provider surfaced a transport failure. */
   providerUnavailable?: boolean;
+  /** False when the centralized quote boundary rejected the snapshot. */
+  quoteValid?: boolean;
 }
 
 export interface SufficiencyResult {
@@ -37,7 +40,8 @@ export const MIN_BARS_FOR_AI = 10;
 const EXPLANATIONS: Record<SufficiencyCode, string> = {
   SNAPSHOT_MISSING: "Market snapshot unavailable.",
   SNAPSHOT_STALE: "Market snapshot is stale.",
-  SNAPSHOT_MALFORMED: "Market snapshot payload malformed.",
+  SNAPSHOT_MALFORMED: "Current market snapshot unavailable",
+  QUOTE_REJECTED: "Current market snapshot unavailable",
   PRICE_UNAVAILABLE: "Current price unavailable.",
   PRIOR_CLOSE_UNAVAILABLE: "Prior close unavailable.",
   BARS_MISSING: "Intraday bars unavailable.",
@@ -62,6 +66,7 @@ export function evaluateSufficiency(input: SufficiencyInput): SufficiencyResult 
   if (q.snapshot === "malformed") return fail("SNAPSHOT_MALFORMED");
   if (q.snapshot === "missing") return fail("SNAPSHOT_MISSING");
   if (q.snapshot === "stale") return fail("SNAPSHOT_STALE");
+  if (input.quoteValid === false) return fail("QUOTE_REJECTED");
 
   if (input.priorClose === null) return fail("PRIOR_CLOSE_UNAVAILABLE");
 

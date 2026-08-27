@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { RiskAttentionList } from "@/components/pre-market/RiskAttentionList";
 import type { PreMarketAttentionItem } from "@/types/pre-market";
@@ -41,5 +41,29 @@ describe("RiskAttentionList ticker rollup", () => {
     expect(screen.getByText("Bearish market signal — Broke premarket low")).toBeTruthy();
     expect(screen.getByText("Analysis awaiting refresh")).toBeTruthy();
     expect(screen.queryByText(/deterioration/i)).toBeNull();
+  });
+
+  it("keeps alert history behind an accessible secondary path", () => {
+    render(
+      <MemoryRouter>
+        <RiskAttentionList
+          items={[item({ id: "current", event_time: "2026-08-27T11:00:00.000Z", source: "deterministic" })]}
+          history={[
+            item({ id: "old", detail: "Price below VWAP", event_time: "2026-08-27T08:00:00.000Z" }),
+            item({ id: "current", event_time: "2026-08-27T11:00:00.000Z" }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("button", { name: "View alert history" })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "View alert history" }));
+    expect(screen.getByRole("button", { name: "Hide alert history" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(screen.getByText(/Price below VWAP/)).toBeTruthy();
   });
 });

@@ -124,39 +124,6 @@ export default function AMInbox() {
             <IndexCards rows={data?.indexes.data ?? []} />
           </SectionShell>
 
-          {/* AI Pre-Market Brief (existing entitlement-enforced flow) */}
-          <section className="flex flex-col gap-2">
-            <SectionHeading
-              title="AI Pre-Market Brief"
-              subtitle="Server-generated brief — entitlement enforced by the backend"
-            />
-            <AIBriefCard
-              isPro={isPro}
-              config={{ ...AM_INBOX_CONFIG, aiCardTitle: "✦ AI Pre-Market Brief" }}
-              briefType="am"
-            />
-          </section>
-
-          {/* Catalyst Watch — Top 3 stories */}
-          <SectionShell
-            title="Catalyst Watch"
-            subtitle="Provider-reported events · today and the previous two ET calendar dates"
-            section={data?.catalyst_watch ?? null}
-            loading={loading}
-            emptyMessage="No provider-reported catalysts in the current window."
-            onRetry={ws.retry}
-            action={
-              <button
-                onClick={() => navigate("/dashboard/catalyst")}
-                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
-              >
-                View Catalyst <ArrowRight className="h-3.5 w-3.5" />
-              </button>
-            }
-          >
-            <CatalystWatchList rows={catalysts} etDate={etDate} />
-          </SectionShell>
-
           {/* Volume Leaders — screener_results, not Radar V2.2 */}
           <SectionShell
             title="Day-Trade Radar · sorted by volume"
@@ -175,6 +142,39 @@ export default function AMInbox() {
             }
           >
             <VolumeLeaderList rows={data?.volume_leaders.data ?? []} catalysts={catalysts} />
+          </SectionShell>
+
+          {/* AI Pre-Market Brief (existing entitlement-enforced flow) */}
+          <section className="flex min-w-0 flex-col gap-2">
+            <SectionHeading
+              title="AI Pre-Market Brief"
+              subtitle="Server-generated brief — entitlement enforced by the backend"
+            />
+            <AIBriefCard
+              isPro={isPro}
+              config={{ ...AM_INBOX_CONFIG, aiCardTitle: "✦ AI Pre-Market Brief" }}
+              briefType="am"
+            />
+          </section>
+
+          {/* Catalyst Watch — prioritized stories */}
+          <SectionShell
+            title="Catalyst Watch"
+            subtitle="Verified ticker-specific catalysts · sector news labeled separately"
+            section={data?.catalyst_watch ?? null}
+            loading={loading}
+            emptyMessage="No provider-reported catalysts in the current window."
+            onRetry={ws.retry}
+            action={
+              <button
+                onClick={() => navigate("/dashboard/catalyst")}
+                className="inline-flex items-center gap-1 text-xs font-medium text-accent-blue hover:underline"
+              >
+                View Catalyst <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            }
+          >
+            <CatalystWatchList rows={catalysts} etDate={etDate} />
           </SectionShell>
 
           {/* Before-Open Earnings — Top 3 */}
@@ -220,7 +220,10 @@ export default function AMInbox() {
             emptyMessage="No attention items from currently available data."
             onRetry={ws.retry}
           >
-            <RiskAttentionList items={data?.risk_attention.data ?? []} />
+            <RiskAttentionList
+              items={data?.risk_attention.data ?? []}
+              history={data?.risk_attention_history ?? []}
+            />
           </SectionShell>
 
           {/* Watchlist — session-aware */}
@@ -313,13 +316,16 @@ export default function AMInbox() {
           {/* Market Headlines — Top 3 */}
           <SectionShell
             title="Market Headlines"
-            subtitle="Ordered by publication time — publication times only, no sync heartbeat available"
+            subtitle="Publication time is the provider timestamp — not feed synchronization time"
             section={data?.headlines ?? null}
             loading={loading}
             emptyMessage="No headlines available."
             onRetry={ws.retry}
           >
-            <HeadlinesList rows={data?.headlines.data ?? []} />
+            <HeadlinesList
+              rows={data?.headlines.data ?? []}
+              feedSyncAt={data?.headlines_feed_sync ?? null}
+            />
           </SectionShell>
 
           {!loading && !data && <SectionEmpty message="Workspace data is not available yet." />}

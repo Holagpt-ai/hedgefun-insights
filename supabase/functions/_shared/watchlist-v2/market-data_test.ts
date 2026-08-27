@@ -209,8 +209,37 @@ Deno.test("computeBasis uses last bar price and cumulative volume", () => {
     { t: t930, o: 100, h: 101, l: 99, c: 100.5, v: 1000 },
     { t: t931, o: 100.5, h: 102, l: 100, c: 101, v: 800 },
   ];
-  const b = computeBasis(bars, { quality: "ok", lastTradeTs: t931, priorClose: 99.5, dayClose: 101, dayVolume: 20000 });
+  const b = computeBasis(bars, {
+    quality: "ok",
+    lastTradeTs: t931,
+    priorClose: 99.5,
+    dayClose: 101,
+    dayVolume: 20000,
+    lastTradePrice: 101,
+    minClose: 101,
+    vwap: 100.8,
+    symbol: "AAPL",
+    quote: null,
+  });
   assertEquals(b.price, 101);
   assertEquals(b.volume, 1800);
   assert(b.change_pct !== null && Math.abs(b.change_pct - ((101 - 99.5) / 99.5 * 100)) < 1e-6);
+});
+
+Deno.test("computeBasis rejects decimal-scale mismatch among corroborating fields", () => {
+  const b = computeBasis([], {
+    quality: "ok",
+    lastTradeTs: t931,
+    priorClose: 97,
+    dayClose: 977,
+    dayVolume: 20_000,
+    lastTradePrice: 97.7,
+    minClose: 97.65,
+    vwap: 97.1,
+    symbol: "EXAMPLE",
+    quote: null,
+  }, "EXAMPLE");
+  assertEquals(b.price, null);
+  assertEquals(b.quote?.valid, false);
+  assertEquals(b.quote?.rejection_reason, "DECIMAL_SCALE_MISMATCH");
 });

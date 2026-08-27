@@ -46,6 +46,10 @@ import {
   type RequestState,
   type SectionEnvelope,
 } from "../_shared/pre-market/contract.ts";
+import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
+import { consolidateRiskFlags, type RawRiskItem } from "../_shared/pre-market/risk-flags.ts";
+import { FEED_SYNC_UNAVAILABLE, rankHeadlines } from "../_shared/pre-market/headlines.ts";
+import { humanizeFailureCode, validateQuote } from "../_shared/quotes/integrity.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -180,7 +184,7 @@ serve(async (req) => {
       .in("symbol", INDEX_SYMBOLS as unknown as string[]),
     userClient.from("watchlists").select("symbol").eq("user_id", userId),
     userClient.from("catalyst_events")
-      .select("id, dedupe_key, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts")
+      .select("id, dedupe_key, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts, related_symbols, provider_article_id")
       .eq("verification_state", "provider_reported")
       .gte("event_date", catalystFrom)
       .lte("event_date", et.date)
@@ -196,7 +200,7 @@ serve(async (req) => {
       .eq("user_id", userId)
       .eq("status", "open"),
     userClient.from("market_news")
-      .select("id, headline, source, url, published_at")
+      .select("id, headline, source, url, published_at, category")
       .order("published_at", { ascending: false })
       .limit(HEADLINE_LIMIT * 2),
   ]);
@@ -365,21 +369,41 @@ serve(async (req) => {
           else if (inPremarket) awaitingRefreshCount += 1;
           continue;
         }
-        const direction = normalizeDirection(a!.direction);
+        const quote = validateQuote({
+          symbol: sym,
+          price: a!.price,
+          changePct: a!.change_pct,
+          volume: a!.volume,
+          quoteTimestamp: a!.analyzed_at,
+        }, { provider: "watchlist_analysis_v2" });
+        const quoteInvalid = !quote.valid && quote.rejection_reason !== "MISSING_QUOTE";
+        if (quoteInvalid) {
+          console.error(`get-pre-market-workspace: ${JSON.stringify({
+            symbol: quote.diagnostic.symbol,
+            provider: quote.diagnostic.provider,
+            quote_timestamp: quote.diagnostic.quote_timestamp,
+            rejected_field: quote.diagnostic.rejected_field,
+            reason: quote.diagnostic.reason,
+          })}`);
+        }
+        const direction = quoteInvalid ? "data_unavailable" : normalizeDirection(a!.direction);
         const unavailable = direction === "data_unavailable";
+        const rawFailure = unavailable
+          ? (quoteInvalid
+            ? "QUOTE_REJECTED"
+            : (typeof a!.failure_reason === "string" ? a!.failure_reason : "Analysis could not be validated"))
+          : null;
         current.push({
           ticker: sym,
           company_name: nameMap[sym] ?? null,
           direction,
           explanation: typeof a!.explanation === "string" ? a!.explanation : "",
-          failure_reason: unavailable
-            ? (typeof a!.failure_reason === "string" ? a!.failure_reason : "Analysis could not be validated")
-            : null,
-          price: positiveOrNull(a!.price),
-          change_pct: finiteOrNull(a!.change_pct),
-          volume: positiveOrNull(a!.volume),
-          rvol: finiteOrNull(a!.rvol),
-          rvol_class: typeof a!.rvol_class === "string" ? a!.rvol_class : null,
+          failure_reason: rawFailure ? humanizeFailureCode(rawFailure) : null,
+          price: quoteInvalid ? null : positiveOrNull(a!.price),
+          change_pct: quoteInvalid ? null : finiteOrNull(a!.change_pct),
+          volume: quoteInvalid ? null : positiveOrNull(a!.volume),
+          rvol: quoteInvalid ? null : finiteOrNull(a!.rvol),
+          rvol_class: quoteInvalid ? null : (typeof a!.rvol_class === "string" ? a!.rvol_class : null),
           market_signals: sanitizeMarketSignals(a!.market_signals, { unavailable }),
           session_date: isIsoDate(a!.session_date) ? a!.session_date : null,
           analyzed_at: isoOrNull(a!.analyzed_at),
@@ -414,6 +438,9 @@ serve(async (req) => {
     event_date: string; event_time: string | null; time_of_day: string | null;
     title: string; source_name: string | null; source_url: string | null;
     published_at: string | null; updated_at: string | null; facts: unknown;
+    attribution_class: "direct" | "provider_associated" | "sector_related" | "unverified";
+    attribution_reason: string;
+    ticker_specific: boolean;
   }
   const catRaw = ok<Array<Record<string, unknown>>>(catRes as never);
   const catalystRows: CatOut[] = [];
@@ -438,6 +465,21 @@ serve(async (req) => {
       const updated = isoOrNull(r.updated_at);
       const published = isoOrNull(r.published_at);
       if (!updated && !published) continue; // untimestamped events are excluded
+      const related = Array.isArray(r.related_symbols)
+        ? (r.related_symbols as unknown[]).map((x) => String(x))
+        : [];
+      const isEarningsCal = r.provider === "earnings_calendar" && r.event_type === "earnings";
+      const attr = isEarningsCal
+        ? { class: "direct" as const, reason: "earnings_calendar_record", ticker_specific: true, symbol }
+        : attributeSymbol({
+          title,
+          description: typeof r.facts === "object" ? null : null,
+          symbol,
+          companyName: typeof r.company_name === "string" ? r.company_name : null,
+          providerTickers: [symbol, ...related],
+          providerAssociatesSymbol: true,
+        });
+      if (!attr.ticker_specific && attr.class !== "sector_related") continue;
       catalystRows.push({
         id: String(r.id),
         symbol,
@@ -454,10 +496,16 @@ serve(async (req) => {
         published_at: published,
         updated_at: updated,
         facts: r.facts ?? null,
+        attribution_class: attr.class,
+        attribution_reason: attr.reason,
+        ticker_specific: attr.ticker_specific,
       });
     }
     const scored = [...catalystRows]
       .sort((a, b) => {
+        const as = a.ticker_specific ? 0 : 1;
+        const bs = b.ticker_specific ? 0 : 1;
+        if (as !== bs) return as - bs;
         const aw = ownedSet.has(a.symbol) ? 0 : 1;
         const bw = ownedSet.has(b.symbol) ? 0 : 1;
         if (aw !== bw) return aw - bw;
@@ -547,11 +595,27 @@ serve(async (req) => {
       positiveVolumeCandidates += 1;
       const updated = isoOrNull(r.updated_at);
       if (!updated) continue; // no own freshness → never displayed
+      const quote = validateQuote({
+        symbol,
+        price: r.price,
+        changePct: r.change_percent,
+        volume,
+        quoteTimestamp: updated,
+      }, { provider: "screener_results" });
+      if (!quote.valid && quote.rejection_reason !== "MISSING_QUOTE") {
+        console.error(`get-pre-market-workspace: ${JSON.stringify({
+          symbol: quote.diagnostic.symbol,
+          provider: quote.diagnostic.provider,
+          quote_timestamp: quote.diagnostic.quote_timestamp,
+          rejected_field: quote.diagnostic.rejected_field,
+          reason: quote.diagnostic.reason,
+        })}`);
+      }
       candidates.push({
         symbol,
         company_name: typeof r.company_name === "string" ? r.company_name : null,
-        price: positiveOrNull(r.price),
-        change_percent: finiteOrNull(r.change_percent),
+        price: quote.valid ? quote.price : null,
+        change_percent: quote.valid ? finiteOrNull(r.change_percent) : null,
         volume,
         rvol: finiteOrNull(r.rvol),
         updated_at: updated,
@@ -617,25 +681,24 @@ serve(async (req) => {
 
 
   // ------------------------------------------------------------ 7. headlines
-  interface NewsOut { id: string; headline: string; source: string | null; url: string | null; published_at: string }
+  interface NewsOut {
+    id: string; headline: string; source: string | null; url: string | null;
+    published_at: string; symbols: string[];
+  }
   const newsRaw = ok<Array<Record<string, unknown>>>(newsRes as never);
   let headlines: SectionEnvelope<NewsOut[]>;
   if (newsRaw === null) {
     headlines = unavailableSection<NewsOut[]>([], "QUERY_FAILED");
   } else {
-    const seen = new Set<string>();
-    const rows: NewsOut[] = [];
-    for (const r of newsRaw) {
-      const headline = typeof r.headline === "string" ? r.headline.trim() : "";
-      const published = isoOrNull(r.published_at);
-      if (!headline || !published) continue;
-      const url = isHttpsUrl(r.url) ? r.url : null;
-      const key = url ?? String(r.id ?? headline);
-      if (seen.has(key)) continue;
-      seen.add(key);
-      rows.push({ id: String(r.id ?? key), headline, source: typeof r.source === "string" ? r.source : null, url, published_at: published });
-      if (rows.length >= HEADLINE_LIMIT) break;
-    }
+    const ranked = rankHeadlines(newsRaw as never, HEADLINE_LIMIT);
+    const rows: NewsOut[] = ranked.map((h) => ({
+      id: h.id,
+      headline: h.headline,
+      source: h.source,
+      url: h.url,
+      published_at: h.published_at,
+      symbols: h.symbols,
+    }));
     const newest = rows[0]?.published_at ?? null;
     headlines = rows.length === 0
       ? emptySection<NewsOut[]>([], "NEWS_FEED_EMPTY")
@@ -643,13 +706,26 @@ serve(async (req) => {
   }
 
   // ------------------------------------------------------ 8. risk & attention
-  interface AttentionItem { id: string; symbol: string | null; kind: string; label: string; detail: string | null; route: string | null }
+  interface AttentionItem {
+    id: string; symbol: string | null; kind: string; label: string;
+    detail: string | null; route: string | null; event_time: string | null;
+    source?: "deterministic" | "verified_event" | "watchlist_alert" | "system";
+  }
   const wlRoute = (s: string) => `/dashboard/watchlist?symbol=${encodeURIComponent(s)}`;
   const attention: AttentionItem[] = [];
   {
     for (const row of watchlist_activity.data as WlOut[]) {
       if (row.direction === "data_unavailable") {
-        attention.push({ id: `unavail:${row.ticker}`, symbol: row.ticker, kind: "data_unavailable", label: "Data unavailable", detail: row.failure_reason, route: wlRoute(row.ticker) });
+        attention.push({
+          id: `unavail:${row.ticker}`,
+          symbol: row.ticker,
+          kind: "data_unavailable",
+          label: "Current market snapshot unavailable",
+          detail: row.failure_reason,
+          route: wlRoute(row.ticker),
+          event_time: row.analyzed_at,
+          source: "system",
+        });
         continue;
       }
       for (const s of row.market_signals) {
@@ -661,27 +737,61 @@ serve(async (req) => {
             label: s.direction === "bearish" ? "Bearish market signal" : "Bullish market signal",
             detail: s.label,
             route: wlRoute(row.ticker),
+            event_time: s.observed_at,
+            source: "deterministic",
           });
         }
       }
       if (row.rvol_class === "unusual" || row.rvol_class === "extreme") {
-        attention.push({ id: `rvol:${row.ticker}`, symbol: row.ticker, kind: "unusual_volume", label: "Unusual time-adjusted volume", detail: row.rvol !== null ? `RVOL ${row.rvol.toFixed(2)}` : null, route: wlRoute(row.ticker) });
+        attention.push({
+          id: `rvol:${row.ticker}`,
+          symbol: row.ticker,
+          kind: "unusual_volume",
+          label: "Unusual time-adjusted volume",
+          detail: row.rvol !== null ? `RVOL ${row.rvol.toFixed(2)}` : null,
+          route: wlRoute(row.ticker),
+          event_time: row.analyzed_at,
+          source: "deterministic",
+        });
       }
     }
     for (const a of alerts) {
-      attention.push({ id: `alert:${a.dedupe_key}`, symbol: a.ticker, kind: `alert_${a.alert_type}`, label: "Watchlist alert", detail: a.reason, route: wlRoute(a.ticker) });
+      if (a.alert_type === "company_event") {
+        const matching = catalystRows.find((c) => c.symbol === a.ticker && c.title === a.reason);
+        if (matching && !matching.ticker_specific) continue;
+      }
+      attention.push({
+        id: `alert:${a.dedupe_key}`,
+        symbol: a.ticker,
+        kind: `alert_${a.alert_type}`,
+        label: "Watchlist alert",
+        detail: a.reason,
+        route: wlRoute(a.ticker),
+        event_time: a.event_time,
+        source: "watchlist_alert",
+      });
     }
     if (pendingCount > 0) {
-      attention.push({ id: "requests_pending", symbol: null, kind: "analysis_pending", label: "Analysis pending", detail: `${pendingCount} watchlist ${pendingCount === 1 ? "symbol has" : "symbols have"} an in-flight analysis request`, route: "/dashboard/watchlist" });
+      attention.push({
+        id: "requests_pending", symbol: null, kind: "analysis_pending", label: "Analysis pending",
+        detail: `${pendingCount} watchlist ${pendingCount === 1 ? "symbol has" : "symbols have"} an in-flight analysis request`,
+        route: "/dashboard/watchlist", event_time: now.toISOString(), source: "system",
+      });
     }
     if (failedCount > 0) {
-      attention.push({ id: "requests_failed", symbol: null, kind: "analysis_failed", label: "Analysis request failed", detail: `${failedCount} watchlist ${failedCount === 1 ? "symbol's" : "symbols'"} last analysis request failed`, route: "/dashboard/watchlist" });
+      attention.push({
+        id: "requests_failed", symbol: null, kind: "analysis_failed", label: "Analysis request failed",
+        detail: `${failedCount} watchlist ${failedCount === 1 ? "symbol's" : "symbols'"} last analysis request failed`,
+        route: "/dashboard/watchlist", event_time: now.toISOString(), source: "system",
+      });
     }
     if (awaitingRefreshCount > 0 && watchlist_activity.status !== "unavailable") {
-      attention.push({ id: "awaiting_refresh", symbol: null, kind: "awaiting_refresh", label: "Analysis awaiting refresh", detail: `${awaitingRefreshCount} watchlist ${awaitingRefreshCount === 1 ? "symbol has" : "symbols have"} no current pre-market analysis`, route: "/dashboard/watchlist" });
+      attention.push({
+        id: "awaiting_refresh", symbol: null, kind: "awaiting_refresh", label: "Analysis awaiting refresh",
+        detail: `${awaitingRefreshCount} watchlist ${awaitingRefreshCount === 1 ? "symbol has" : "symbols have"} no current pre-market analysis`,
+        route: "/dashboard/watchlist", event_time: now.toISOString(), source: "system",
+      });
     }
-    // Only a CONFIRMED earnings-calendar record dated today may raise this
-    // flag. Provider earnings-related news never creates "Earnings today".
     for (const c of catalystRows) {
       if (!isConfirmedEarningsCalendarEvent(c)) continue;
       if (c.event_date !== et.date || !ownedSet.has(c.symbol)) continue;
@@ -692,27 +802,46 @@ serve(async (req) => {
           : c.time_of_day === "during"
             ? "Reports during market hours"
             : "Report time unavailable";
-      attention.push({ id: `earn:${c.id}`, symbol: c.symbol, kind: "earnings_today", label: "Earnings today", detail, route: `/dashboard/catalyst?symbol=${encodeURIComponent(c.symbol)}` });
+      attention.push({
+        id: `earn:${c.id}`, symbol: c.symbol, kind: "earnings_today", label: "Earnings today",
+        detail, route: `/dashboard/catalyst?symbol=${encodeURIComponent(c.symbol)}`,
+        event_time: c.updated_at ?? c.published_at, source: "verified_event",
+      });
     }
     for (const t of (journal_readiness.data as JournalReadiness).symbols) {
       if (t.missing_stop || t.missing_target) {
         const missing = [t.missing_stop ? "stop" : null, t.missing_target ? "target" : null].filter(Boolean).join(" and ");
-        attention.push({ id: `jrnl:${t.symbol}:${missing}`, symbol: t.symbol, kind: "journal_risk_missing", label: "Journal risk level missing", detail: `Open ${t.side} trade has no recorded ${missing}`, route: `/dashboard/journal?symbol=${encodeURIComponent(t.symbol)}` });
+        attention.push({
+          id: `jrnl:${t.symbol}:${missing}`, symbol: t.symbol, kind: "journal_risk_missing",
+          label: "Journal risk level missing",
+          detail: `Open ${t.side} trade has no recorded ${missing}`,
+          route: `/dashboard/journal?symbol=${encodeURIComponent(t.symbol)}`,
+          event_time: now.toISOString(), source: "system",
+        });
       }
     }
   }
 
-  // A derived section may only claim available/empty when every required input succeeded.
+  const consolidated = consolidateRiskFlags(attention as RawRiskItem[], nowMs);
+  const currentAttention = consolidated.current.map((r) => ({
+    id: r.id, symbol: r.symbol, kind: r.kind, label: r.label, detail: r.detail,
+    route: r.route, event_time: r.event_time, source: r.source,
+  }));
+  const historyAttention = consolidated.history.map((r) => ({
+    id: r.id, symbol: r.symbol, kind: r.kind, label: r.label, detail: r.detail,
+    route: r.route, event_time: r.event_time, source: r.source,
+  }));
+
   const derivedInputsComplete =
     watchlist_activity.status !== "unavailable" &&
     journal_readiness.status !== "unavailable" &&
     catalyst_watch.status !== "unavailable" &&
     alertsOk;
 
-  const riskVerdict = derivedSectionStatus(derivedInputsComplete, attention.length);
+  const riskVerdict = derivedSectionStatus(derivedInputsComplete, currentAttention.length);
   const risk_attention: SectionEnvelope<AttentionItem[]> = envelope(
     riskVerdict.status,
-    riskVerdict.status === "unavailable" ? [] : attention,
+    riskVerdict.status === "unavailable" ? [] : currentAttention,
     riskVerdict.status === "available" ? now.toISOString() : null,
     riskVerdict.reason_code,
   );
@@ -755,6 +884,9 @@ serve(async (req) => {
     watchlist_lifecycle: lifecycle,
     earnings_confirmed_total: earningsConfirmedTotal,
     alerts_included: alertsOk,
+    headlines_feed_sync: null as string | null,
+    headlines_feed_sync_note: FEED_SYNC_UNAVAILABLE,
+    risk_attention_history: riskVerdict.status === "unavailable" ? [] : historyAttention,
     indexes,
     watchlist_activity,
     risk_attention,

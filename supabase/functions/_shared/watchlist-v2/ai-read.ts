@@ -82,10 +82,10 @@ export function buildAiPrompt(input: AiReadInput, catalog: EvidenceCatalog): str
     ticker: input.ticker,
     session_type: input.session_type,
     session_date: input.session_date,
-    price: input.price,
-    change_pct: input.change_pct,
-    volume: input.volume,
-    rvol: input.rvol,
+    price: input.price !== null && Number.isFinite(input.price) ? input.price : "unavailable",
+    change_pct: input.change_pct !== null && Number.isFinite(input.change_pct) ? input.change_pct : "unavailable",
+    volume: input.volume !== null && Number.isFinite(input.volume) ? input.volume : "unavailable",
+    rvol: input.rvol !== null && Number.isFinite(input.rvol) ? input.rvol : "unavailable",
     rvol_class: input.rvol_class,
     key_levels: input.key_levels,
     market_signals: input.market_signals.map((s) => ({
@@ -104,9 +104,15 @@ export function buildAiPrompt(input: AiReadInput, catalog: EvidenceCatalog): str
 RULES:
 - Return JSON only. No markdown, no prose outside JSON.
 - NEVER invent numbers.
+- NEVER invent catalysts, technical signals, or certainty that is not in FACTS.
+- If rvol is "unavailable", treat it as unavailable — never as 0 or as a neutral reading.
+- You may cite only verified ticker-specific catalysts in recent_events. If recent_events is empty, the explanation MUST include: "No verified ticker-specific catalyst available."
+- Distinguish observed facts from interpretation.
 - NEVER produce a score, confidence, weight, ranking, tier, or band. Any output containing such keys anywhere is invalid.
 - Return ONLY these top-level keys: "direction", "explanation", "driver_ids". Any extra key invalidates the output.
 - direction must be exactly one of: "bullish", "bearish", "neutral". "data_unavailable" is not permitted.
+- Use lean language in the explanation: Bullish Lean, Bearish Lean, Mixed, or Insufficient Data. Do not use strong labels such as "Strong Buy" or "High Conviction".
+- A single "Price below VWAP" or "Price above VWAP" signal cannot by itself produce a confident directional conclusion.
 - explanation is 1-2 short sentences, at most ${MAX_EXPLANATION} characters, plain English.
 - driver_ids MUST contain between ${MIN_DRIVERS} and ${MAX_DRIVERS} unique IDs, each taken verbatim from allowed_driver_ids. Do not invent IDs.
 

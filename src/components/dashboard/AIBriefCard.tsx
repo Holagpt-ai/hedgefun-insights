@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { summarizeBrief } from "@/lib/ai/evidence";
+import { etTimestampLabel } from "@/lib/pre-market/builders";
 
 interface AIBriefCardProps {
   isPro: boolean;
@@ -28,6 +31,7 @@ type BriefState =
       generatedAtEt: string;
       previousTradingDay: boolean;
       briefDateDisplay: string | null;
+      evidenceCutoff: string | null;
     }
   | { kind: "notice"; message: string; refreshable: boolean }
   | { kind: "error"; message: string; refreshable: boolean };
@@ -63,6 +67,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [state, setState] = useState<BriefState>({ kind: "idle" });
+  const [briefExpanded, setBriefExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const fetchBrief = useCallback(async () => {
@@ -110,6 +115,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           const validGen = typeof body.generated_at === "string" && Number.isFinite(Date.parse(body.generated_at));
           const validDate = typeof body.brief_date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(body.brief_date);
           const validPtd = typeof body.previous_trading_day === "boolean";
+          const cutoff = typeof body.source_checked_at === "string" && Number.isFinite(Date.parse(body.source_checked_at))
+            ? body.source_checked_at
+            : null;
           if (validType && validContent && validGen && validDate && validPtd) {
             setState({
               kind: "available",
@@ -117,6 +125,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               generatedAtEt: formatEt(body.generated_at),
               previousTradingDay: body.previous_trading_day,
               briefDateDisplay: formatBriefDate(body.brief_date),
+              evidenceCutoff: cutoff,
             });
             return;
           }
@@ -213,16 +222,14 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         );
       case "available":
         return (
-          <div className="flex flex-col gap-2">
-            {state.previousTradingDay && state.briefDateDisplay && (
-              <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
-                Last trading-day report · {state.briefDateDisplay}
-              </div>
-            )}
-            <p className="text-sm leading-relaxed text-foreground/80 whitespace-pre-wrap">
-              {state.content}
-            </p>
-          </div>
+          <AvailableBrief
+            content={state.content}
+            previousTradingDay={state.previousTradingDay}
+            briefDateDisplay={state.briefDateDisplay}
+            evidenceCutoff={state.evidenceCutoff}
+            expanded={briefExpanded}
+            onToggle={() => setBriefExpanded((v) => !v)}
+          />
         );
       case "notice":
       case "error":
@@ -249,7 +256,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   void isPro;
 
   return (
-    <div className="relative rounded-lg border border-border bg-card p-6 overflow-hidden">
+    <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-card p-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold tracking-wide">{config.aiCardTitle}</h3>
         <span className="text-[11px] text-muted-foreground">
@@ -257,6 +264,56 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         </span>
       </div>
       {renderBody()}
+    </div>
+  );
+}
+
+export function AvailableBrief({
+  content,
+  previousTradingDay,
+  briefDateDisplay,
+  evidenceCutoff,
+  expanded,
+  onToggle,
+}: {
+  content: string;
+  previousTradingDay: boolean;
+  briefDateDisplay: string | null;
+  evidenceCutoff: string | null;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  const summary = summarizeBrief(content, 2, 320);
+  const canCollapse = content.trim().length > summary.trim().length + 8;
+  const shown = expanded || !canCollapse ? content : summary;
+  const cutoffLabel = evidenceCutoff ? etTimestampLabel(evidenceCutoff) : null;
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2">
+      {previousTradingDay && briefDateDisplay && (
+        <div className="text-[11px] uppercase tracking-wide text-muted-foreground">
+          Last trading-day report · {briefDateDisplay}
+        </div>
+      )}
+      {cutoffLabel && (
+        <div data-testid="evidence-cutoff" className="text-[11px] text-muted-foreground">
+          Evidence cutoff {cutoffLabel}
+        </div>
+      )}
+      <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm leading-relaxed text-foreground/80 prose-headings:text-sm prose-headings:font-semibold prose-p:my-1">
+        <ReactMarkdown>{shown}</ReactMarkdown>
+      </div>
+      {canCollapse && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={expanded ? "Collapse AI brief" : "Expand AI brief"}
+          onClick={onToggle}
+          className="min-h-8 self-start text-xs font-medium text-accent-blue hover:underline"
+        >
+          {expanded ? "Show less" : "Show more"}
+        </button>
+      )}
     </div>
   );
 }

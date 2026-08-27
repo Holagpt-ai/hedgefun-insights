@@ -1,4 +1,5 @@
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
+import { CollapsibleCommentary } from "./CollapsibleCommentary";
 import {
   directionLabel,
   formatPercent,
@@ -7,6 +8,7 @@ import {
   numberOrDash,
   renderableSignals,
 } from "@/lib/pre-market/builders";
+import { USER_SNAPSHOT_UNAVAILABLE } from "@/lib/quotes/integrity";
 import type { PreMarketWatchlistRow } from "@/types/pre-market";
 import type { WatchlistSessionNotice } from "@/lib/session-intelligence/watchlist-session";
 
@@ -60,7 +62,7 @@ export function WatchlistActivityList({ rows }: { rows: PreMarketWatchlistRow[] 
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold">{r.ticker}</span>
                 {r.company_name && (
-                  <span className="max-w-[220px] truncate text-xs text-muted-foreground">{r.company_name}</span>
+                  <span className="max-w-[min(220px,50vw)] truncate text-xs text-muted-foreground">{r.company_name}</span>
                 )}
                 <DirectionBadge direction={r.direction} />
               </div>
@@ -86,11 +88,15 @@ export function WatchlistActivityList({ rows }: { rows: PreMarketWatchlistRow[] 
 
             {unavailable ? (
               <p className="text-xs text-muted-foreground">
-                Data Unavailable{r.failure_reason ? ` — ${r.failure_reason}` : ""}
+                {r.failure_reason && r.failure_reason !== "Insufficient Data"
+                  ? r.failure_reason
+                  : r.failure_reason === "Insufficient Data"
+                    ? "Insufficient Data"
+                    : USER_SNAPSHOT_UNAVAILABLE}
               </p>
             ) : (
               <>
-                {r.explanation && <p className="break-words text-xs text-muted-foreground">{r.explanation}</p>}
+                {r.explanation && <CollapsibleCommentary text={r.explanation} label={`AI read for ${r.ticker}`} />}
                 {signals.length > 0 && (
                   <div className="rounded-lg border border-border/60 bg-background/50 p-2">
                     <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

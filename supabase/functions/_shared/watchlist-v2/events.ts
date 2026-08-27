@@ -2,6 +2,7 @@
 // 48h window. Deterministic SHA-256 event_id from ticker+epoch+normalized headline.
 
 import type { RecentEvent } from "./contract.ts";
+import { attributeSymbol } from "../catalyst/attribution.ts";
 
 export interface MapNewsResult {
   events: RecentEvent[];
@@ -20,6 +21,19 @@ function normalizeHeadline(h: string): string {
   return h.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
+function relatedTickers(raw: unknown): string[] {
+  if (typeof raw !== "string" || !raw.trim()) return [];
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const part of raw.split(/[,;|\s]+/)) {
+    const t = part.trim().toUpperCase();
+    if (!t || seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+  }
+  return out;
+}
+
 async function sha256Hex(input: string): Promise<string> {
   const data = new TextEncoder().encode(input);
   const buf = await crypto.subtle.digest("SHA-256", data);
@@ -34,12 +48,15 @@ async function sha256Hex(input: string): Promise<string> {
  * @param now Current instant; used for a 48h look-back / +5min forward window.
  * @param analyzedAtIso ISO stamped as ingested_at.
  * @param ticker Normalized ticker used inside deterministic event_id.
+ * @param companyName Optional issuer name from `stocks`; used so a named
+ *   company story is not dropped merely because Finnhub `related` lists peers.
  */
 export async function mapNewsEvents(
   rawArticles: unknown,
   now: Date,
   analyzedAtIso: string,
   ticker: string,
+  companyName?: string | null,
 ): Promise<MapNewsResult> {
   if (rawArticles === null) return { events: [], quality: "missing" };
   if (!Array.isArray(rawArticles)) return { events: [], quality: "missing" };
@@ -63,6 +80,17 @@ export async function mapNewsEvents(
     const urlRaw = r.url;
     const url = isNonEmptyStr(urlRaw) && urlRaw.startsWith("https://") ? urlRaw : null;
 
+    const title = truncate((headline as string).trim(), 300);
+    const related = relatedTickers(r.related);
+    const attr = attributeSymbol({
+      title,
+      symbol: ticker,
+      companyName: companyName ?? null,
+      providerTickers: [ticker, ...related],
+      providerAssociatesSymbol: true,
+    });
+    if (!attr.ticker_specific) continue;
+
     const epochSec = Math.floor(ms / 1000);
     const norm = normalizeHeadline(headline as string);
     const eventId = await sha256Hex(`${ticker}|${epochSec}|${norm}`);
@@ -71,7 +99,7 @@ export async function mapNewsEvents(
     dedup.set(eventId, {
       event_id: eventId,
       event_type: "news",
-      title: truncate((headline as string).trim(), 300),
+      title,
       event_time: new Date(ms).toISOString(),
       source_name: source,
       source_url: url,

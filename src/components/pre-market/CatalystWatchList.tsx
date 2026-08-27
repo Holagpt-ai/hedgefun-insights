@@ -10,7 +10,7 @@ export function CatalystWatchList({ rows, etDate }: { rows: PreMarketCatalyst[];
   const groups = groupCatalystsByExactSourceUrl(rows);
 
   return (
-    <TopNReveal items={groups}>
+    <TopNReveal items={groups} limit={5}>
       {(visible) => (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
           {visible.map((g) => {
@@ -23,7 +23,11 @@ export function CatalystWatchList({ rows, etDate }: { rows: PreMarketCatalyst[];
                     {catalystTypeLabel(c)}
                   </span>
                   <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                    Provider reported
+                    {c.attribution_class === "sector_related"
+                      ? "Sector related"
+                      : c.attribution_class === "provider_associated"
+                        ? "Provider associated"
+                        : "Direct catalyst"}
                   </span>
                   {g.rows.some((r) => r.event_date === etDate) && (
                     <span className="rounded-full bg-accent-blue/10 px-2 py-0.5 text-[10px] font-medium text-accent-blue">

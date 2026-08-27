@@ -5,6 +5,12 @@
 import type { IntradayBar } from "./contract.ts";
 import { etParts } from "./session.ts";
 import { sanitize } from "./sanitize.ts";
+import {
+  extractPolygonSnapshotFields,
+  formatQuoteRejectionLog,
+  validateQuote,
+  type NormalizedQuote,
+} from "../quotes/integrity.ts";
 
 /** Persisted error-code vocabulary. Unchanged. */
 export type ProviderErrorCode = "RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_ERROR";
@@ -138,13 +144,31 @@ export interface SnapshotAssessment {
   priorClose: number | null;   // prevDay.c > 0 finite
   dayClose: number | null;
   dayVolume: number | null;
+  lastTradePrice: number | null;
+  minClose: number | null;
+  vwap: number | null;
+  symbol: string | null;
+  quote: NormalizedQuote | null;
 }
 
+const EMPTY_ASSESSMENT: SnapshotAssessment = {
+  quality: "missing",
+  lastTradeTs: null,
+  priorClose: null,
+  dayClose: null,
+  dayVolume: null,
+  lastTradePrice: null,
+  minClose: null,
+  vwap: null,
+  symbol: null,
+  quote: null,
+};
+
 export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment {
-  if (!isPlainObject(bodyRaw)) return { quality: "malformed", lastTradeTs: null, priorClose: null, dayClose: null, dayVolume: null };
+  if (!isPlainObject(bodyRaw)) return { ...EMPTY_ASSESSMENT, quality: "malformed" };
   const t = (bodyRaw as Record<string, unknown>).ticker;
   const tick = isPlainObject(t) ? t : null;
-  if (!tick) return { quality: "missing", lastTradeTs: null, priorClose: null, dayClose: null, dayVolume: null };
+  if (!tick) return { ...EMPTY_ASSESSMENT, quality: "missing" };
   const prevDay = isPlainObject(tick.prevDay) ? tick.prevDay : {};
   const day = isPlainObject(tick.day) ? tick.day : {};
   const lastTrade = isPlainObject(tick.lastTrade) ? tick.lastTrade : {};
@@ -160,7 +184,7 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
   const normalizeCandidate = (v: unknown, unit: "auto" | "ms"): number | null => {
     if (typeof v !== "number" || !Number.isFinite(v) || v <= 0) return null;
     // Auto-detect ns vs ms: values > 1e14 look like nanoseconds.
-    let ms = unit === "ms" ? v : (v > 1e14 ? Math.round(v / 1e6) : v);
+    const ms = unit === "ms" ? v : (v > 1e14 ? Math.round(v / 1e6) : v);
     if (!Number.isFinite(ms) || ms <= 0) return null;
     // Reject implausibly old (< year 2001) and >5min future timestamps.
     if (ms < 1_000_000_000_000) return null;
@@ -179,13 +203,37 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
   const priorC = typeof prevDay.c === "number" && Number.isFinite(prevDay.c) && prevDay.c > 0 ? prevDay.c : null;
   const dayC = typeof day.c === "number" && Number.isFinite(day.c) && day.c > 0 ? day.c : null;
   const dayV = typeof day.v === "number" && Number.isFinite(day.v) && day.v >= 0 ? day.v : null;
+  const lastTradePrice = typeof lastTrade.p === "number" && Number.isFinite(lastTrade.p) && lastTrade.p > 0 ? lastTrade.p : null;
+  const minClose = typeof min.c === "number" && Number.isFinite(min.c) && min.c > 0 ? min.c : null;
+  const vwap = typeof day.vw === "number" && Number.isFinite(day.vw) && day.vw > 0 ? day.vw : null;
+  const symbol = typeof tick.ticker === "string" ? tick.ticker : null;
 
   let quality: SnapshotAssessment["quality"];
   if (tsMs === null) quality = "missing";
   else if (nowMs - tsMs > STALE_MS) quality = "stale";
   else quality = "ok";
 
-  return { quality, lastTradeTs: tsMs, priorClose: priorC, dayClose: dayC, dayVolume: dayV };
+  const extracted = extractPolygonSnapshotFields(bodyRaw, symbol);
+  const quote = extracted
+    ? validateQuote({ ...extracted, quoteTimestamp: tsMs ?? extracted.quoteTimestamp }, { provider: "polygon" })
+    : null;
+  if (quote && !quote.valid && quote.rejection_reason !== "MISSING_QUOTE" && quote.rejection_reason !== "MISSING_SYMBOL") {
+    console.error(`[wl-v2] ${formatQuoteRejectionLog(quote)}`);
+    if (quality === "ok") quality = "malformed";
+  }
+
+  return {
+    quality,
+    lastTradeTs: tsMs,
+    priorClose: priorC,
+    dayClose: dayC,
+    dayVolume: dayV,
+    lastTradePrice,
+    minClose,
+    vwap,
+    symbol,
+    quote,
+  };
 }
 
 
@@ -194,14 +242,39 @@ export interface BasisComputation {
   price: number | null;
   change_pct: number | null;
   volume: number | null;
+  quote: NormalizedQuote | null;
 }
 
 export function computeBasis(
   bars: IntradayBar[],
   snapshot: SnapshotAssessment,
+  symbolHint?: string,
 ): BasisComputation {
   const lastBar = bars.length ? bars[bars.length - 1] : null;
-  const price = lastBar ? lastBar.c : snapshot.dayClose;
+  const candidate = lastBar ? lastBar.c : snapshot.dayClose ?? snapshot.lastTradePrice;
+  const quote = validateQuote({
+    symbol: snapshot.symbol ?? symbolHint ?? "UNKNOWN",
+    price: candidate,
+    lastTradePrice: snapshot.lastTradePrice,
+    minuteClose: snapshot.minClose,
+    dayClose: snapshot.dayClose,
+    vwap: snapshot.vwap,
+    priorClose: snapshot.priorClose,
+    volume: snapshot.dayVolume,
+    quoteTimestamp: snapshot.lastTradeTs,
+  }, { provider: "polygon" });
+  if (!quote.valid) {
+    if (quote.rejection_reason !== "MISSING_QUOTE" && quote.rejection_reason !== "MISSING_SYMBOL") {
+      console.error(`[wl-v2] ${formatQuoteRejectionLog(quote)}`);
+    }
+    const cumVolRejected = bars.reduce((s, b) => s + b.v, 0);
+    const volumeRejected =
+      bars.length > 0
+        ? cumVolRejected
+        : (snapshot.dayVolume !== null && snapshot.dayVolume >= 0 ? snapshot.dayVolume : null);
+    return { price: null, change_pct: null, volume: volumeRejected, quote };
+  }
+  const price = quote.price;
   const prior = snapshot.priorClose;
   const change_pct =
     price !== null && prior !== null && prior > 0
@@ -212,5 +285,5 @@ export function computeBasis(
     bars.length > 0
       ? cumVol
       : (snapshot.dayVolume !== null && snapshot.dayVolume >= 0 ? snapshot.dayVolume : null);
-  return { price, change_pct, volume };
+  return { price, change_pct, volume, quote };
 }

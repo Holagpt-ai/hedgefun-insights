@@ -60,22 +60,46 @@ describe("CatalystWatchList exact-url grouping", () => {
     expect(screen.queryByText(/Affected:/)).toBeNull();
   });
 
-  it("defaults to Top 3 stories after grouping and View All restores the rest", () => {
+  it("defaults to Top 5 stories after grouping and View All restores the rest", () => {
     const rows = [
       cat({ id: "1", symbol: "AMD", source_url: "https://example.com/a" }),
       cat({ id: "2", symbol: "AVGO", source_url: "https://example.com/a" }),
       cat({ id: "3", symbol: "BBB", source_url: "https://example.com/b", title: "Story B" }),
       cat({ id: "4", symbol: "CCC", source_url: "https://example.com/c", title: "Story C" }),
       cat({ id: "5", symbol: "DDD", source_url: "https://example.com/d", title: "Story D" }),
+      cat({ id: "6", symbol: "EEE", source_url: "https://example.com/e", title: "Story E" }),
+      cat({ id: "7", symbol: "FFF", source_url: "https://example.com/f", title: "Story F" }),
     ];
     render(
       <MemoryRouter>
         <CatalystWatchList etDate="2026-08-26" rows={rows} />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("button", { name: "View All (4)" })).toBeTruthy();
-    expect(screen.queryByText("Story D")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "View All (4)" }));
-    expect(screen.getByText("Story D")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View All (6)" })).toBeTruthy();
+    expect(screen.queryByText("Story F")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View All (6)" }));
+    expect(screen.getByText("Story F")).toBeTruthy();
+  });
+
+  it("labels sector-related news instead of presenting it as a direct catalyst", () => {
+    render(
+      <MemoryRouter>
+        <CatalystWatchList
+          etDate="2026-08-26"
+          rows={[
+            cat({
+              id: "s",
+              symbol: "TSLA",
+              title: "EV makers rally after policy shift",
+              attribution_class: "sector_related",
+              ticker_specific: false,
+              source_url: "https://example.com/ev",
+            }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Sector related")).toBeTruthy();
+    expect(screen.queryByText("Direct catalyst")).toBeNull();
   });
 });
