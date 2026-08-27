@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { defineTool } from "@lovable.dev/mcp-js";
 import { z } from "zod";
+import { isAfterHoursGenerationStale } from "../../after-hours-feed";
 import {
   moverFromExtendedObservation,
   moverFromPolygonTicker,
@@ -14,51 +15,140 @@ import {
 
 const MARKET_DATA_TIMEOUT_MS = 8_000;
 
+/** Safe user-facing copy. Never include credentials, provider bodies, or exception text. */
+export const MOVER_UNAVAILABLE_MESSAGE = "Market movers are currently unavailable.";
+export const MOVER_STALE_MESSAGE = "Showing last successful market movers. This data may not be current.";
+
+export type MoverToolStatus = "available" | "empty" | "unavailable" | "stale";
+export type MarketDataFreshness = "current" | "last_success" | "unavailable";
+export type MoverToolReason =
+  | "auth_failed"
+  | "timeout"
+  | "network_failure"
+  | "upstream_error"
+  | "malformed_payload"
+  | "last_success"
+  | "missing_evidence";
+
+export type PresentedMover = {
+  symbol: string;
+  name: string;
+  price: number;
+  change_percent: number;
+  volume: number | null;
+  session_date: string | null;
+  type: MoverCategory;
+};
+
 export type MarketDataFetchResult = {
   tickers: unknown[];
   unavailable: boolean;
+  freshness: MarketDataFreshness;
+  reason: MoverToolReason | null;
+};
+
+export type MoverToolResponse = {
+  content: Array<{ type: "text"; text: string }>;
+  structuredContent: {
+    movers: PresentedMover[];
+    status: MoverToolStatus;
+    reason?: MoverToolReason;
+    message?: string;
+    freshness?: "last_success";
+  };
+};
+
+const UNAVAILABLE: Pick<MarketDataFetchResult, "tickers" | "unavailable" | "freshness"> = {
+  tickers: [],
+  unavailable: true,
+  freshness: "unavailable",
 };
 
 function isPlainObject(x: unknown): x is Record<string, unknown> {
   return x !== null && typeof x === "object" && !Array.isArray(x);
 }
 
+export function reasonFromHttpStatus(status: number): MoverToolReason {
+  if (status === 401 || status === 403) return "auth_failed";
+  if (status === 408) return "timeout";
+  return "upstream_error";
+}
+
+export function classifyFetchFailure(err: unknown): MarketDataFetchResult {
+  if (isTimeoutError(err)) {
+    return { ...UNAVAILABLE, reason: "timeout" };
+  }
+  return { ...UNAVAILABLE, reason: "network_failure" };
+}
+
+function isTimeoutError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return false;
+  const name = "name" in err ? String(err.name) : "";
+  return name === "TimeoutError" || name === "AbortError";
+}
+
 export function parseMarketDataPayload(status: number, body: unknown): MarketDataFetchResult {
   if (!Number.isFinite(status) || status < 200 || status >= 300) {
-    return { tickers: [], unavailable: true };
+    return { ...UNAVAILABLE, reason: reasonFromHttpStatus(status) };
   }
   if (isPlainObject(body) && body.status === "ERROR") {
-    return { tickers: [], unavailable: true };
+    return { ...UNAVAILABLE, reason: "upstream_error" };
+  }
+  if (isPlainObject(body) && (body.freshness === "last_success" || body.status === "stale")) {
+    if (!Array.isArray(body.tickers)) {
+      return { ...UNAVAILABLE, reason: "missing_evidence" };
+    }
+    return {
+      tickers: polygonTickersFromResponse(body),
+      unavailable: false,
+      freshness: "last_success",
+      reason: "last_success",
+    };
   }
   if (Array.isArray(body) || (isPlainObject(body) && Array.isArray(body.tickers))) {
-    return { tickers: polygonTickersFromResponse(body), unavailable: false };
+    return {
+      tickers: polygonTickersFromResponse(body),
+      unavailable: false,
+      freshness: "current",
+      reason: null,
+    };
   }
-  return { tickers: [], unavailable: true };
+  return { ...UNAVAILABLE, reason: "malformed_payload" };
+}
+
+function timeoutSignal(ms: number): AbortSignal | undefined {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+  return undefined;
 }
 
 export async function fetchMarketDataTickers(
   kind: "gainers" | "losers",
   env: { url: string; key: string },
+  fetchImpl: typeof fetch = fetch,
 ): Promise<MarketDataFetchResult> {
-  if (!env.url || !env.key) return { tickers: [], unavailable: true };
+  if (!env.url || !env.key) return { ...UNAVAILABLE, reason: "missing_evidence" };
   const url = `${env.url.replace(/\/$/, "")}/functions/v1/market-data?type=${kind}`;
   try {
-    const res = await fetch(url, {
+    const signal = timeoutSignal(MARKET_DATA_TIMEOUT_MS);
+    const res = await fetchImpl(url, {
       headers: {
         Authorization: `Bearer ${env.key}`,
         apikey: env.key,
       },
-      signal: AbortSignal.timeout(MARKET_DATA_TIMEOUT_MS),
+      ...(signal ? { signal } : {}),
     });
     let body: unknown = null;
     try {
       body = await res.json();
     } catch {
-      return { tickers: [], unavailable: true };
+      if (!res.ok) return { ...UNAVAILABLE, reason: reasonFromHttpStatus(res.status) };
+      return { ...UNAVAILABLE, reason: "malformed_payload" };
     }
     return parseMarketDataPayload(res.status, body);
-  } catch {
-    return { tickers: [], unavailable: true };
+  } catch (err) {
+    return classifyFetchFailure(err);
   }
 }
 
@@ -87,11 +177,88 @@ export function presentValidatedMovers(
   return presentCanonicalMovers(movers, category, limit, nowMs);
 }
 
-function unavailableResult() {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify([]) }],
-    structuredContent: { movers: [] as const, status: "empty" as const },
+const REASON_PRIORITY: MoverToolReason[] = [
+  "auth_failed",
+  "timeout",
+  "network_failure",
+  "malformed_payload",
+  "upstream_error",
+  "missing_evidence",
+  "last_success",
+];
+
+export function mergeMarketDataFetches(results: MarketDataFetchResult[]): MarketDataFetchResult {
+  if (results.length === 0) return { ...UNAVAILABLE, reason: "missing_evidence" };
+  const current = results.filter((r) => r.freshness === "current");
+  if (current.length > 0) {
+    return {
+      tickers: current.flatMap((r) => r.tickers),
+      unavailable: false,
+      freshness: "current",
+      reason: null,
+    };
+  }
+  const lastSuccess = results.filter((r) => r.freshness === "last_success");
+  if (lastSuccess.length > 0) {
+    return {
+      tickers: lastSuccess.flatMap((r) => r.tickers),
+      unavailable: false,
+      freshness: "last_success",
+      reason: "last_success",
+    };
+  }
+  const reasons = results.map((r) => r.reason).filter((r): r is MoverToolReason => r !== null);
+  const reason = REASON_PRIORITY.find((code) => reasons.includes(code)) ?? "upstream_error";
+  return { ...UNAVAILABLE, reason };
+}
+
+export function composeMoverFeedStatus(
+  fetchState: MarketDataFreshness,
+  qualifyingCount: number,
+): MoverToolStatus {
+  if (fetchState === "unavailable") return "unavailable";
+  if (fetchState === "last_success") return "stale";
+  return qualifyingCount > 0 ? "available" : "empty";
+}
+
+export function buildMoverToolResponse(
+  movers: PresentedMover[],
+  fetchState: MarketDataFreshness,
+  reason: MoverToolReason | null,
+): MoverToolResponse {
+  const status = composeMoverFeedStatus(fetchState, movers.length);
+  const presented = status === "unavailable" ? [] : movers;
+  const structuredContent: MoverToolResponse["structuredContent"] = {
+    movers: presented,
+    status,
   };
+  if (status === "unavailable") {
+    structuredContent.reason = reason ?? "upstream_error";
+    structuredContent.message = MOVER_UNAVAILABLE_MESSAGE;
+  } else if (status === "stale") {
+    structuredContent.reason = "last_success";
+    structuredContent.message = MOVER_STALE_MESSAGE;
+    structuredContent.freshness = "last_success";
+  }
+  return {
+    content: [{ type: "text", text: JSON.stringify(presented) }],
+    structuredContent,
+  };
+}
+
+export function assembleMarketMoversResponse(
+  payloads: MarketDataFetchResult[],
+  category: MoverCategory,
+  limit: number,
+  nowMs: number,
+): MoverToolResponse {
+  const merged = mergeMarketDataFetches(payloads);
+  if (merged.freshness === "unavailable") {
+    return buildMoverToolResponse([], "unavailable", merged.reason);
+  }
+  const validated = canonicalizeLiveTickers(merged.tickers, category, nowMs);
+  const presented = presentValidatedMovers(validated, category, limit, nowMs);
+  return buildMoverToolResponse(presented.movers, merged.freshness, merged.reason);
 }
 
 export default defineTool({
@@ -115,17 +282,20 @@ export default defineTool({
     const nowMs = Date.now();
 
     if (type === "afterhours") {
-      const [{ data: stateRows }, { data: resultRows, error }] = await Promise.all([
+      const [{ data: stateRows, error: stateError }, { data: resultRows, error }] = await Promise.all([
         supabase.from("after_hours_feed_state").select("state_key,generation_id,status,session_date,synced_at").eq("state_key", "current").limit(1),
         supabase.from("after_hours_mover_results").select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of"),
       ]);
-      if (error) {
-        return unavailableResult();
+      if (stateError || error) {
+        return buildMoverToolResponse([], "unavailable", "upstream_error");
       }
-      const state = (stateRows ?? [])[0] as { generation_id?: string; status?: string } | undefined;
+      const state = (stateRows ?? [])[0] as { generation_id?: string; status?: string; synced_at?: string } | undefined;
       const gen = typeof state?.generation_id === "string" ? state.generation_id : null;
+      if (!gen) {
+        return buildMoverToolResponse([], "unavailable", "missing_evidence");
+      }
       const validated = (resultRows ?? [])
-        .filter((r) => gen && r.generation_id === gen)
+        .filter((r) => r.generation_id === gen)
         .map((r) =>
           moverFromExtendedObservation({
             symbol: r.symbol,
@@ -139,21 +309,17 @@ export default defineTool({
           }, nowMs),
         );
       const presented = presentValidatedMovers(validated, "afterhours", cap, nowMs);
-      return {
-        content: [{ type: "text", text: JSON.stringify(presented.movers) }],
-        structuredContent: { movers: presented.movers, status: presented.status },
-      };
+      const syncedAt = typeof state?.synced_at === "string" ? state.synced_at : "";
+      const stale = syncedAt !== "" && isAfterHoursGenerationStale(syncedAt, nowMs);
+      if (stale) {
+        return buildMoverToolResponse(presented.movers, "last_success", "last_success");
+      }
+      return buildMoverToolResponse(presented.movers, "current", null);
     }
 
     const kinds: Array<"gainers" | "losers"> =
       type === "loser" ? ["losers"] : type === "gainer" ? ["gainers"] : ["gainers", "losers"];
     const payloads = await Promise.all(kinds.map((k) => fetchMarketDataTickers(k, env)));
-    const tickers = payloads.flatMap((p) => p.tickers);
-    const validated = canonicalizeLiveTickers(tickers, type, nowMs);
-    const presented = presentValidatedMovers(validated, type, cap, nowMs);
-    return {
-      content: [{ type: "text", text: JSON.stringify(presented.movers) }],
-      structuredContent: { movers: presented.movers, status: presented.status },
-    };
+    return assembleMarketMoversResponse(payloads, type, cap, nowMs);
   },
 });

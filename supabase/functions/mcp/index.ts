@@ -67,6 +67,19 @@ import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.108.
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.25.76";
 
+// src/lib/after-hours-feed.ts
+var AH_STALE_AFTER_MS = 20 * 6e4;
+function parseTs(value) {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+function isAfterHoursGenerationStale(syncedAt, nowMs) {
+  const syncedMs = parseTs(syncedAt);
+  if (syncedMs === null) return true;
+  return nowMs - syncedMs > AH_STALE_AFTER_MS;
+}
+
 // src/lib/quotes/integrity.ts
 var TICKER_REGEX = /^[A-Z][A-Z0-9.-]{0,14}$/;
 var USER_SNAPSHOT_UNAVAILABLE = "Current market snapshot unavailable";
@@ -747,41 +760,88 @@ function presentCanonicalMovers(movers, category, limit = 10, nowMs = Date.now()
 
 // src/lib/mcp/tools/get-market-movers.ts
 var MARKET_DATA_TIMEOUT_MS = 8e3;
+var MOVER_UNAVAILABLE_MESSAGE = "Market movers are currently unavailable.";
+var MOVER_STALE_MESSAGE = "Showing last successful market movers. This data may not be current.";
+var UNAVAILABLE = {
+  tickers: [],
+  unavailable: true,
+  freshness: "unavailable"
+};
 function isPlainObject3(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
 }
+function reasonFromHttpStatus(status) {
+  if (status === 401 || status === 403) return "auth_failed";
+  if (status === 408) return "timeout";
+  return "upstream_error";
+}
+function classifyFetchFailure(err) {
+  if (isTimeoutError(err)) {
+    return { ...UNAVAILABLE, reason: "timeout" };
+  }
+  return { ...UNAVAILABLE, reason: "network_failure" };
+}
+function isTimeoutError(err) {
+  if (!err || typeof err !== "object") return false;
+  const name = "name" in err ? String(err.name) : "";
+  return name === "TimeoutError" || name === "AbortError";
+}
 function parseMarketDataPayload(status, body) {
   if (!Number.isFinite(status) || status < 200 || status >= 300) {
-    return { tickers: [], unavailable: true };
+    return { ...UNAVAILABLE, reason: reasonFromHttpStatus(status) };
   }
   if (isPlainObject3(body) && body.status === "ERROR") {
-    return { tickers: [], unavailable: true };
+    return { ...UNAVAILABLE, reason: "upstream_error" };
+  }
+  if (isPlainObject3(body) && (body.freshness === "last_success" || body.status === "stale")) {
+    if (!Array.isArray(body.tickers)) {
+      return { ...UNAVAILABLE, reason: "missing_evidence" };
+    }
+    return {
+      tickers: polygonTickersFromResponse(body),
+      unavailable: false,
+      freshness: "last_success",
+      reason: "last_success"
+    };
   }
   if (Array.isArray(body) || isPlainObject3(body) && Array.isArray(body.tickers)) {
-    return { tickers: polygonTickersFromResponse(body), unavailable: false };
+    return {
+      tickers: polygonTickersFromResponse(body),
+      unavailable: false,
+      freshness: "current",
+      reason: null
+    };
   }
-  return { tickers: [], unavailable: true };
+  return { ...UNAVAILABLE, reason: "malformed_payload" };
 }
-async function fetchMarketDataTickers(kind, env) {
-  if (!env.url || !env.key) return { tickers: [], unavailable: true };
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+  return void 0;
+}
+async function fetchMarketDataTickers(kind, env, fetchImpl = fetch) {
+  if (!env.url || !env.key) return { ...UNAVAILABLE, reason: "missing_evidence" };
   const url = `${env.url.replace(/\/$/, "")}/functions/v1/market-data?type=${kind}`;
   try {
-    const res = await fetch(url, {
+    const signal = timeoutSignal(MARKET_DATA_TIMEOUT_MS);
+    const res = await fetchImpl(url, {
       headers: {
         Authorization: `Bearer ${env.key}`,
         apikey: env.key
       },
-      signal: AbortSignal.timeout(MARKET_DATA_TIMEOUT_MS)
+      ...signal ? { signal } : {}
     });
     let body = null;
     try {
       body = await res.json();
     } catch {
-      return { tickers: [], unavailable: true };
+      if (!res.ok) return { ...UNAVAILABLE, reason: reasonFromHttpStatus(res.status) };
+      return { ...UNAVAILABLE, reason: "malformed_payload" };
     }
     return parseMarketDataPayload(res.status, body);
-  } catch {
-    return { tickers: [], unavailable: true };
+  } catch (err) {
+    return classifyFetchFailure(err);
   }
 }
 function sessionForCategory(category) {
@@ -797,11 +857,72 @@ function canonicalizeLiveTickers(payload, category, nowMs = Date.now()) {
 function presentValidatedMovers(movers, category, limit, nowMs = Date.now()) {
   return presentCanonicalMovers(movers, category, limit, nowMs);
 }
-function unavailableResult() {
-  return {
-    content: [{ type: "text", text: JSON.stringify([]) }],
-    structuredContent: { movers: [], status: "empty" }
+var REASON_PRIORITY = [
+  "auth_failed",
+  "timeout",
+  "network_failure",
+  "malformed_payload",
+  "upstream_error",
+  "missing_evidence",
+  "last_success"
+];
+function mergeMarketDataFetches(results) {
+  if (results.length === 0) return { ...UNAVAILABLE, reason: "missing_evidence" };
+  const current = results.filter((r) => r.freshness === "current");
+  if (current.length > 0) {
+    return {
+      tickers: current.flatMap((r) => r.tickers),
+      unavailable: false,
+      freshness: "current",
+      reason: null
+    };
+  }
+  const lastSuccess = results.filter((r) => r.freshness === "last_success");
+  if (lastSuccess.length > 0) {
+    return {
+      tickers: lastSuccess.flatMap((r) => r.tickers),
+      unavailable: false,
+      freshness: "last_success",
+      reason: "last_success"
+    };
+  }
+  const reasons = results.map((r) => r.reason).filter((r) => r !== null);
+  const reason = REASON_PRIORITY.find((code) => reasons.includes(code)) ?? "upstream_error";
+  return { ...UNAVAILABLE, reason };
+}
+function composeMoverFeedStatus(fetchState, qualifyingCount) {
+  if (fetchState === "unavailable") return "unavailable";
+  if (fetchState === "last_success") return "stale";
+  return qualifyingCount > 0 ? "available" : "empty";
+}
+function buildMoverToolResponse(movers, fetchState, reason) {
+  const status = composeMoverFeedStatus(fetchState, movers.length);
+  const presented = status === "unavailable" ? [] : movers;
+  const structuredContent = {
+    movers: presented,
+    status
   };
+  if (status === "unavailable") {
+    structuredContent.reason = reason ?? "upstream_error";
+    structuredContent.message = MOVER_UNAVAILABLE_MESSAGE;
+  } else if (status === "stale") {
+    structuredContent.reason = "last_success";
+    structuredContent.message = MOVER_STALE_MESSAGE;
+    structuredContent.freshness = "last_success";
+  }
+  return {
+    content: [{ type: "text", text: JSON.stringify(presented) }],
+    structuredContent
+  };
+}
+function assembleMarketMoversResponse(payloads, category, limit, nowMs) {
+  const merged = mergeMarketDataFetches(payloads);
+  if (merged.freshness === "unavailable") {
+    return buildMoverToolResponse([], "unavailable", merged.reason);
+  }
+  const validated = canonicalizeLiveTickers(merged.tickers, category, nowMs);
+  const presented = presentValidatedMovers(validated, category, limit, nowMs);
+  return buildMoverToolResponse(presented.movers, merged.freshness, merged.reason);
 }
 var get_market_movers_default = defineTool3({
   name: "get_market_movers",
@@ -823,16 +944,19 @@ var get_market_movers_default = defineTool3({
     const cap = limit ?? 10;
     const nowMs = Date.now();
     if (type === "afterhours") {
-      const [{ data: stateRows }, { data: resultRows, error }] = await Promise.all([
+      const [{ data: stateRows, error: stateError }, { data: resultRows, error }] = await Promise.all([
         supabase.from("after_hours_feed_state").select("state_key,generation_id,status,session_date,synced_at").eq("state_key", "current").limit(1),
         supabase.from("after_hours_mover_results").select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of")
       ]);
-      if (error) {
-        return unavailableResult();
+      if (stateError || error) {
+        return buildMoverToolResponse([], "unavailable", "upstream_error");
       }
       const state = (stateRows ?? [])[0];
       const gen = typeof state?.generation_id === "string" ? state.generation_id : null;
-      const validated2 = (resultRows ?? []).filter((r) => gen && r.generation_id === gen).map(
+      if (!gen) {
+        return buildMoverToolResponse([], "unavailable", "missing_evidence");
+      }
+      const validated = (resultRows ?? []).filter((r) => r.generation_id === gen).map(
         (r) => moverFromExtendedObservation({
           symbol: r.symbol,
           name: r.company_name,
@@ -844,21 +968,17 @@ var get_market_movers_default = defineTool3({
           source: SOURCE_AFTER_HOURS_FEED
         }, nowMs)
       );
-      const presented2 = presentValidatedMovers(validated2, "afterhours", cap, nowMs);
-      return {
-        content: [{ type: "text", text: JSON.stringify(presented2.movers) }],
-        structuredContent: { movers: presented2.movers, status: presented2.status }
-      };
+      const presented = presentValidatedMovers(validated, "afterhours", cap, nowMs);
+      const syncedAt = typeof state?.synced_at === "string" ? state.synced_at : "";
+      const stale = syncedAt !== "" && isAfterHoursGenerationStale(syncedAt, nowMs);
+      if (stale) {
+        return buildMoverToolResponse(presented.movers, "last_success", "last_success");
+      }
+      return buildMoverToolResponse(presented.movers, "current", null);
     }
     const kinds = type === "loser" ? ["losers"] : type === "gainer" ? ["gainers"] : ["gainers", "losers"];
     const payloads = await Promise.all(kinds.map((k) => fetchMarketDataTickers(k, env)));
-    const tickers = payloads.flatMap((p) => p.tickers);
-    const validated = canonicalizeLiveTickers(tickers, type, nowMs);
-    const presented = presentValidatedMovers(validated, type, cap, nowMs);
-    return {
-      content: [{ type: "text", text: JSON.stringify(presented.movers) }],
-      structuredContent: { movers: presented.movers, status: presented.status }
-    };
+    return assembleMarketMoversResponse(payloads, type, cap, nowMs);
   }
 });
 

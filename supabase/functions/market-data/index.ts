@@ -96,6 +96,22 @@ const UNAVAILABLE_MOVERS = {
   data: [],
 };
 
+function wrapLastSuccessTickers(tickers: unknown[]): Record<string, unknown> {
+  return {
+    tickers,
+    status: "stale",
+    freshness: "last_success",
+  };
+}
+
+function lastSuccessOrUnavailable(cacheKey: string): unknown {
+  const prior = getLastSuccess(cacheKey);
+  if (Array.isArray(prior)) {
+    return wrapLastSuccessTickers(prior);
+  }
+  return UNAVAILABLE_MOVERS;
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -110,6 +126,7 @@ serve(async (req) => {
   }
 
   const cors = corsHeaders;
+  let staleFallbackKey: string | null = null;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -124,6 +141,7 @@ serve(async (req) => {
       case "gainers":
       case "losers": {
         const cacheKey = type;
+        staleFallbackKey = cacheKey;
         const cached = getCached(cacheKey);
         if (cached) {
           data = cached;
@@ -135,17 +153,23 @@ serve(async (req) => {
         try {
           res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
         } catch {
-          data = getLastSuccess(cacheKey) ?? UNAVAILABLE_MOVERS;
+          data = lastSuccessOrUnavailable(cacheKey);
           break;
         }
         if (!res.ok) {
-          data = getLastSuccess(cacheKey) ?? UNAVAILABLE_MOVERS;
+          data = lastSuccessOrUnavailable(cacheKey);
           break;
         }
-        const json = await res.json();
-        console.log("[market-data] polygon response status:", res.status, "tickers count:", json.tickers?.length ?? 0);
+        let json: { tickers?: unknown };
+        try {
+          json = await res.json();
+        } catch {
+          data = lastSuccessOrUnavailable(cacheKey);
+          break;
+        }
+        console.log("[market-data] polygon response status:", res.status, "tickers count:", Array.isArray(json.tickers) ? json.tickers.length : 0);
         if (!Array.isArray(json.tickers)) {
-          data = getLastSuccess(cacheKey) ?? UNAVAILABLE_MOVERS;
+          data = lastSuccessOrUnavailable(cacheKey);
           break;
         }
         const tickers = json.tickers.slice(0, 20);
@@ -379,18 +403,10 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("market-data error:", e);
-    return new Response(
-      JSON.stringify({
-        status: "ERROR",
-        message: "Data temporarily unavailable",
-        tickers: [],
-        results: [],
-        data: [],
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    const fallback = staleFallbackKey ? lastSuccessOrUnavailable(staleFallbackKey) : UNAVAILABLE_MOVERS;
+    return new Response(JSON.stringify(fallback), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });
