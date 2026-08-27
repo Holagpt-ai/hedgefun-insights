@@ -20,8 +20,8 @@ var search_stocks_default = defineTool({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ query, limit }) => {
     const supabase = createClient(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_PUBLISHABLE_KEY,
+      process.env.SUPABASE_URL ?? "",
+      process.env.SUPABASE_PUBLISHABLE_KEY ?? "",
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
     const q = query.trim();
@@ -48,8 +48,8 @@ var get_stock_quote_default = defineTool2({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ symbol }) => {
     const supabase = createClient2(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_PUBLISHABLE_KEY,
+      process.env.SUPABASE_URL ?? "",
+      process.env.SUPABASE_PUBLISHABLE_KEY ?? "",
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
     const { data, error } = await supabase.from("stocks").select("*").ilike("symbol", symbol.trim()).maybeSingle();
@@ -77,8 +77,8 @@ var get_market_movers_default = defineTool3({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ type, limit }) => {
     const supabase = createClient3(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_PUBLISHABLE_KEY,
+      process.env.SUPABASE_URL ?? "",
+      process.env.SUPABASE_PUBLISHABLE_KEY ?? "",
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
     const { data, error } = await supabase.from("market_movers").select("symbol,name,price,change_percent,volume,type,session_date").eq("type", type).order("change_percent", { ascending: type === "loser" }).limit(limit ?? 10);
@@ -105,8 +105,8 @@ var get_market_news_default = defineTool4({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ category, limit }) => {
     const supabase = createClient4(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_PUBLISHABLE_KEY,
+      process.env.SUPABASE_URL ?? "",
+      process.env.SUPABASE_PUBLISHABLE_KEY ?? "",
       { auth: { persistSession: false, autoRefreshToken: false } }
     );
     let q = supabase.from("market_news").select("headline,source,url,category,published_at").order("published_at", { ascending: false }).limit(limit ?? 15);
