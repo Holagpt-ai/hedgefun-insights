@@ -355,6 +355,7 @@ var SCALE_TOLERANCE2 = 0.03;
 var PERCENT_ABS_TOLERANCE = 1;
 var PERCENT_REL_TOLERANCE = 0.08;
 var STALE_REFERENCE_MS = 18 * 60 * 60 * 1e3;
+var RECAP_RATIO_FLOOR = 200;
 function etSessionDate(ms = Date.now()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
@@ -473,6 +474,10 @@ function validateMover(input) {
   }
   if (isDecimalScalePair2(current, reference)) {
     return fail2(input, symbol, "decimal_scale_mismatch");
+  }
+  const recapRatio = pairRatio2(current, reference);
+  if (recapRatio !== null && recapRatio >= RECAP_RATIO_FLOOR) {
+    return fail2(input, symbol, "adjustment_mismatch");
   }
   const adjusted = finiteOrNull(input.adjustedClose);
   const unadjusted = finiteOrNull(input.unadjustedClose);

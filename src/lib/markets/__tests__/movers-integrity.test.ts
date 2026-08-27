@@ -76,10 +76,29 @@ describe("market movers integrity", () => {
     expect(m.change_percent).toBeCloseTo(-4, 5);
   });
 
-  it("keeps a legitimate extreme mover when prices corroborate", () => {
+  it("rejects recap-scale current vs reference as an adjustment mismatch, not because the percent is merely large", () => {
+    const m = validateMover({
+      symbol: "RECP",
+      price: 20.31,
+      referencePrice: 0.025,
+      providerPercent: 81140,
+      lastTradePrice: 20.31,
+      minuteClose: 20.31,
+      dayClose: 20.31,
+      volume: 98_627,
+      session: "regular",
+      sessionDate: TODAY,
+      source: SOURCE_POLYGON,
+      providerAsOf: NOW,
+      nowMs: NOW,
+    });
+    expect(m.valid).toBe(false);
+    expect(m.reason).toBe("adjustment_mismatch");
+  });
+
+  it("keeps a corroborated 85x trading move below recap scale", () => {
     const m = validateMover({
       symbol: "EXTM",
-      name: "Extreme Move Inc",
       price: 8.5,
       referencePrice: 0.1,
       providerPercent: 8400,

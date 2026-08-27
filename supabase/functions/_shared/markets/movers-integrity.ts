@@ -44,6 +44,8 @@ const SCALE_TOLERANCE = 0.03;
 const PERCENT_ABS_TOLERANCE = 1;
 const PERCENT_REL_TOLERANCE = 0.08;
 const STALE_REFERENCE_MS = 18 * 60 * 60 * 1000;
+/** Recap/reverse-split scale, not a trading-session cap. 85× squeezes remain eligible. */
+const RECAP_RATIO_FLOOR = 200;
 
 export interface RawMoverInput {
   symbol: unknown;
@@ -236,6 +238,10 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
 
   if (isDecimalScalePair(current, reference)) {
     return fail(input, symbol, "decimal_scale_mismatch");
+  }
+  const recapRatio = pairRatio(current, reference);
+  if (recapRatio !== null && recapRatio >= RECAP_RATIO_FLOOR) {
+    return fail(input, symbol, "adjustment_mismatch");
   }
 
   const adjusted = finiteOrNull(input.adjustedClose);
