@@ -23,6 +23,7 @@ describe("MCP generated Edge bundle stays generator-owned", () => {
   });
 
   it("pins the installed mcp-js version", () => {
+    expect(installed).toBe("0.20.0");
     const pins = [...source.matchAll(/@lovable\.dev\/mcp-js@([0-9]+\.[0-9]+\.[0-9]+)/g)].map((m) => m[1]);
     expect(pins.length).toBeGreaterThan(0);
     expect(new Set(pins)).toEqual(new Set([installed]));

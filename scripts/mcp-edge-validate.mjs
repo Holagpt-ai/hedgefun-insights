@@ -31,6 +31,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
 import { createServer } from "vite";
+import { VERIFIED_MCP_JS_VERSION } from "./mcp-js-compat.mjs";
 import { productionImportMetaEnv, syncMcpSupabaseFunction } from "./mcp-supabase-emit.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -131,6 +132,11 @@ async function validateBundle() {
   const installed = JSON.parse(
     readFileSync(join(ROOT, "node_modules/@lovable.dev/mcp-js/package.json"), "utf8"),
   ).version;
+  if (installed !== VERIFIED_MCP_JS_VERSION) {
+    fail(
+      `Windows-safe emitter is verified against @lovable.dev/mcp-js@${VERIFIED_MCP_JS_VERSION}, installed ${installed}`,
+    );
+  }
 
   assertGeneratorOwned(readBundle(), installed);
 
