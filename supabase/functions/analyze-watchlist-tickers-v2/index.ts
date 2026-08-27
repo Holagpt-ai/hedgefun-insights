@@ -37,7 +37,7 @@ import {
   isInsufficientEvidence,
 } from "../_shared/ai/evidence.ts";
 
-export type ServiceClient = SupabaseClient<any, any, any>;
+export type ServiceClient = SupabaseClient;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
