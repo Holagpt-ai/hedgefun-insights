@@ -19,6 +19,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
+import {
+  initialMoversSorting,
+  volumeSortValue,
+  type MoversDefaultSort,
+} from "@/components/markets/movers-table-sort";
 
 export interface MoverRow {
   symbol: string;
@@ -38,6 +43,7 @@ interface TableProps {
   isLoading: boolean;
   refetch?: () => void;
   defaultSortDesc?: boolean;
+  defaultSort?: MoversDefaultSort;
   colorMode?: "green" | "red" | "mixed";
 }
 
@@ -48,12 +54,13 @@ export function MoversTable({
   isLoading,
   refetch,
   defaultSortDesc = true,
+  defaultSort,
   colorMode = "mixed",
 }: TableProps) {
   const navigate = useNavigate();
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: "changePercent", desc: defaultSortDesc },
-  ]);
+  const [sorting, setSorting] = useState<SortingState>(() =>
+    initialMoversSorting(defaultSort, defaultSortDesc),
+  );
   const [search, setSearch] = useState("");
   const [activeView, setActiveView] = useState("Overview");
 
@@ -147,11 +154,16 @@ export function MoversTable({
         accessorKey: "volume",
         header: "Volume",
         size: 110,
-        cell: ({ getValue }) => (
-          <span className="text-[0.875rem] tabular-nums text-right block text-foreground">
-            {getValue<number>().toLocaleString()}
-          </span>
-        ),
+        sortingFn: (rowA, rowB, columnId) =>
+          volumeSortValue(rowA.getValue(columnId)) - volumeSortValue(rowB.getValue(columnId)),
+        cell: ({ getValue }) => {
+          const v = getValue<number>();
+          return (
+            <span className="text-[0.875rem] tabular-nums text-right block text-foreground">
+              {Number.isFinite(v) && v >= 0 ? v.toLocaleString() : "—"}
+            </span>
+          );
+        },
       },
     ],
     [navigate, colorMode]
@@ -336,6 +348,7 @@ export function MarketMoversPage({
   isLoading,
   refetch,
   defaultSortDesc,
+  defaultSort,
   colorMode,
 }: TableProps & { pageTitle: string }) {
   const [activeTime, setActiveTime] = useState("Today");
@@ -385,6 +398,7 @@ export function MarketMoversPage({
           isLoading={isLoading}
           refetch={refetch}
           defaultSortDesc={defaultSortDesc}
+          defaultSort={defaultSort}
           colorMode={colorMode}
         />
 

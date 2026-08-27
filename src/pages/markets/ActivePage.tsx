@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { resolveMarketSession } from "@/lib/price-utils";
 import { MarketMoversPage } from "@/components/markets/MarketMoversLayout";
+import { defaultSortForMoverKind } from "@/components/markets/movers-table-sort";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { mapPolygonMovers, polygonTickersFromResponse, type MoverSession } from "@/lib/markets/movers-integrity";
 
@@ -40,7 +41,7 @@ export default function ActivePage() {
       rows={data ?? []}
       isLoading={isLoading}
       refetch={refetch}
-      defaultSortDesc={true}
+      defaultSort={defaultSortForMoverKind("active")}
       colorMode="mixed"
     />
   );
