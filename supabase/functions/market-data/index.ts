@@ -149,16 +149,42 @@ serve(async (req) => {
           await Promise.all(fetches);
         }
 
-        data = tickers.map((t: any) => ({
-          ...t,
-          name: cleanName(nameMap.get(t.ticker) || t.ticker),
-          price: t.day?.c > 0 ? t.day.c : (t.min?.c ?? t.prevDay?.c ?? 0),
-        }));
+        data = tickers.flatMap((t: Record<string, unknown>) => {
+          const ticker = typeof t.ticker === "string" ? t.ticker : "";
+          const day = t.day && typeof t.day === "object" ? t.day as Record<string, unknown> : {};
+          const min = t.min && typeof t.min === "object" ? t.min as Record<string, unknown> : {};
+          const lastTrade = t.lastTrade && typeof t.lastTrade === "object" ? t.lastTrade as Record<string, unknown> : {};
+          const dayC = typeof day.c === "number" && Number.isFinite(day.c) && day.c > 0 ? day.c : null;
+          const lastP = typeof lastTrade.p === "number" && Number.isFinite(lastTrade.p) && lastTrade.p > 0 ? lastTrade.p : null;
+          const minC = typeof min.c === "number" && Number.isFinite(min.c) && min.c > 0 ? min.c : null;
+          const price = dayC ?? lastP ?? minC;
+          if (!ticker || price === null) {
+            let asOf = "none";
+            if (typeof lastTrade.t === "number" && Number.isFinite(lastTrade.t) && lastTrade.t > 0) {
+              const ms = lastTrade.t > 1e14 ? Math.round(lastTrade.t / 1e6) : lastTrade.t;
+              if (Number.isFinite(ms) && ms > 0) asOf = new Date(ms).toISOString();
+            }
+            console.log([
+              "mover_rejected",
+              `symbol=${ticker || "unknown"}`,
+              "provider=polygon",
+              `provider_as_of=${asOf}`,
+              "reason=invalid_current_price",
+            ].join(" "));
+            return [];
+          }
+          return [{
+            ...t,
+            name: cleanName(nameMap.get(ticker) || ticker),
+            price,
+          }];
+        });
 
         // GET reads must not silently mutate production mover rows.
         // After-hours classification is persisted by sync-after-hours-movers.
+        // Do not persist snapshots here: market_movers has no unique current-row identity.
 
-        if ((data as any[]).length > 0) setCache(cacheKey, data);
+        if (Array.isArray(data) && data.length > 0) setCache(cacheKey, data);
         break;
       }
       case "snapshot": {

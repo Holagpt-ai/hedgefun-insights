@@ -1,38 +1,17 @@
 import { useQuery } from "@tanstack/react-query";
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
-import {
-  classifyTrackedAfterHoursMovers,
-  providerDayVolume,
-  regularChangePercent,
-  regularClose,
-  type SnapshotTicker,
-} from "@/lib/market-session";
+import { classifyTrackedAfterHoursMovers, type SnapshotTicker } from "@/lib/market-session";
 import { resolveMarketSession } from "@/lib/price-utils";
-import { MarketMoversPage, type MoverRow } from "@/components/markets/MarketMoversLayout";
-import { supabase } from "@/integrations/supabase/client";
+import { MarketMoversPage } from "@/components/markets/MarketMoversLayout";
 import { usePageSeo } from "@/hooks/usePageSeo";
-
-function mapRegularSessionRows(tickers: SnapshotTicker[]): MoverRow[] {
-  if (!Array.isArray(tickers) || tickers.length === 0) return [];
-  return tickers.flatMap((t) => {
-    const price = regularClose(t);
-    const changePercent = regularChangePercent(t);
-    if (price === null || changePercent === null) return [];
-    const prev = Number(t.prevDay?.c);
-    const change = Number.isFinite(prev) ? price - prev : (price * changePercent) / 100;
-    const volume = providerDayVolume(t);
-    return [
-      {
-        symbol: String(t.ticker || t.symbol || "").toUpperCase(),
-        name: t.name || t.details?.name || String(t.ticker || t.symbol || ""),
-        price,
-        change,
-        changePercent,
-        volume: volume !== null && volume > 0 ? volume : 0,
-      },
-    ];
-  });
-}
+import {
+  mapPolygonMovers,
+  moverFromExtendedObservation,
+  polygonTickersFromResponse,
+  selectCanonicalCurrentMovers,
+  toMoverListRow,
+  SOURCE_POLYGON,
+} from "@/lib/markets/movers-integrity";
 
 function getTitle(): { page: string; section: string } {
   const session = resolveMarketSession();
@@ -51,41 +30,28 @@ export default function GainersPage() {
     queryFn: async () => {
       if (session === "after-hours") {
         const [gainRes, lossRes] = await Promise.all([getTopGainers(), getTopLosers()]);
-        const gainers = Array.isArray(gainRes) ? gainRes : (gainRes?.tickers ?? []);
-        const losers = Array.isArray(lossRes) ? lossRes : (lossRes?.tickers ?? []);
-        return classifyTrackedAfterHoursMovers([...gainers, ...losers]).gainers.map((r) => ({
-          symbol: r.symbol,
-          name: r.name,
-          price: r.price,
-          change: r.change,
-          changePercent: r.changePercent,
-          volume: r.volume,
-        }));
+        const gainers = polygonTickersFromResponse(gainRes) as SnapshotTicker[];
+        const losers = polygonTickersFromResponse(lossRes) as SnapshotTicker[];
+        const classified = classifyTrackedAfterHoursMovers([...gainers, ...losers]);
+        const validated = classified.gainers.map((r) =>
+          moverFromExtendedObservation({
+            symbol: r.symbol,
+            name: r.name,
+            extendedLast: r.extended_last,
+            regularClose: r.regular_close,
+            volume: r.volume,
+            changePercent: r.changePercent,
+            source: SOURCE_POLYGON,
+          }),
+        );
+        return selectCanonicalCurrentMovers(validated)
+          .map(toMoverListRow)
+          .filter((r): r is NonNullable<typeof r> => r !== null);
       }
 
       const res = await getTopGainers();
-      const tickers = Array.isArray(res) ? res : (res?.tickers ?? []);
-      if (tickers.length === 0) {
-        const { data: cached } = await supabase
-          .from("market_movers")
-          .select("*")
-          .eq("type", "gainer")
-          .order("session_date", { ascending: false })
-          .order("change_percent", { ascending: false })
-          .limit(20);
-        if (cached && cached.length > 0) {
-          return cached.map((r) => ({
-            symbol: r.symbol,
-            name: r.name ?? r.symbol,
-            price: r.price ?? 0,
-            change: 0,
-            changePercent: r.change_percent ?? 0,
-            volume: r.volume ?? 0,
-          }));
-        }
-        return [];
-      }
-      return mapRegularSessionRows(tickers);
+      const mappedSession = session === "pre-market" ? "premarket" : "regular";
+      return mapPolygonMovers(res, mappedSession, { sort: "percent_desc" }).rows;
     },
     staleTime: 60_000,
     retry: 3,
