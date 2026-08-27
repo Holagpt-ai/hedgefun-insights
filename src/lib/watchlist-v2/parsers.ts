@@ -207,7 +207,9 @@ export function isExpired(validThrough: string | null | undefined, now: Date = n
 export function humanFailureReason(code: string | null | undefined): string {
   if (!code) return "Analysis unavailable.";
   const map: Record<string, string> = {
-    SNAPSHOT_MISSING: "Live market snapshot unavailable.",
+    INSUFFICIENT_EVIDENCE: "Insufficient Data",
+    QUOTE_REJECTED: "Current market snapshot unavailable",
+    SNAPSHOT_MISSING: "Market snapshot unavailable.",
     SNAPSHOT_STALE: "Market snapshot too stale to analyze.",
     SNAPSHOT_MALFORMED: "Market snapshot data malformed.",
     PRICE_UNAVAILABLE: "Current price unavailable.",

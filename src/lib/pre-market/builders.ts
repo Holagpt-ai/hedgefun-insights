@@ -326,6 +326,9 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
 
     watchlist_lifecycle: validateLifecycle(r.watchlist_lifecycle),
     alerts_included: r.alerts_included === true,
+    headlines_feed_sync: typeof r.headlines_feed_sync === "string" ? r.headlines_feed_sync : null,
+    headlines_feed_sync_note: typeof r.headlines_feed_sync_note === "string" ? r.headlines_feed_sync_note : null,
+    risk_attention_history: Array.isArray(r.risk_attention_history) ? r.risk_attention_history as PreMarketWorkspaceResponse["risk_attention_history"] : [],
     market_context: {
       status,
       et_date: typeof mcRaw.et_date === "string" ? mcRaw.et_date : "",
@@ -365,10 +368,10 @@ export function marketContextLabel(status: MarketContextStatus): string {
 
 export function directionLabel(direction: string): string {
   switch (direction) {
-    case "bullish": return "Bullish";
-    case "bearish": return "Bearish";
-    case "neutral": return "Neutral";
-    default: return "Data Unavailable";
+    case "bullish": return "Bullish Lean";
+    case "bearish": return "Bearish Lean";
+    case "neutral": return "Mixed";
+    default: return "Insufficient Data";
   }
 }
 

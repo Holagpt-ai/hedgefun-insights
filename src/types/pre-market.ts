@@ -87,6 +87,8 @@ export interface PreMarketAttentionItem {
   label: string;
   detail: string | null;
   route: string | null;
+  event_time?: string | null;
+  source?: "deterministic" | "verified_event" | "watchlist_alert" | "system";
 }
 
 export interface PreMarketCatalyst {
@@ -104,6 +106,9 @@ export interface PreMarketCatalyst {
   source_name: string | null;
   source_url: string | null;
   published_at: string | null;
+  attribution_class?: "direct" | "provider_associated" | "sector_related" | "unverified";
+  attribution_reason?: string;
+  ticker_specific?: boolean;
 }
 
 export interface PreMarketEarnings {
@@ -159,6 +164,7 @@ export interface PreMarketHeadline {
   source: string | null;
   url: string | null;
   published_at: string;
+  symbols?: string[];
 }
 
 export interface PreMarketChecklistItem {
@@ -178,6 +184,10 @@ export interface PreMarketWorkspaceResponse {
   watchlist_lifecycle: PreMarketLifecycleEntry[];
   /** False when the alerts query failed — derived sections must fail closed. */
   alerts_included: boolean;
+  /** Null when no feed heartbeat exists. */
+  headlines_feed_sync?: string | null;
+  headlines_feed_sync_note?: string | null;
+  risk_attention_history?: PreMarketAttentionItem[];
   indexes: SectionEnvelope<PreMarketIndex[]>;
   watchlist_activity: SectionEnvelope<PreMarketWatchlistRow[]>;
   risk_attention: SectionEnvelope<PreMarketAttentionItem[]>;

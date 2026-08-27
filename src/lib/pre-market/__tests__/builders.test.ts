@@ -113,12 +113,23 @@ describe("honest labeling", () => {
     expect(marketContextLabel("non_trading_day")).toContain("no Pre-Market session active");
   });
 
-  it("labels unknown AI direction as Data Unavailable", () => {
-    expect(directionLabel("data_unavailable")).toBe("Data Unavailable");
-    expect(directionLabel("moon")).toBe("Data Unavailable");
-    expect(directionLabel("bullish")).toBe("Bullish");
+  it("labels unknown AI direction as Insufficient Data", () => {
+    expect(directionLabel("data_unavailable")).toBe("Insufficient Data");
+    expect(directionLabel("moon")).toBe("Insufficient Data");
+    expect(directionLabel("bullish")).toBe("Bullish Lean");
+    expect(directionLabel("bearish")).toBe("Bearish Lean");
+    expect(directionLabel("neutral")).toBe("Mixed");
     expect(timeOfDayLabel(null)).toBe("Time unavailable");
     expect(timeOfDayLabel("before_open")).toBe("Before Open");
+  });
+
+  it("passes through headline feed-sync fields without inventing a heartbeat", () => {
+    const ws = validateWorkspace(baseWorkspace({
+      headlines_feed_sync: null,
+      headlines_feed_sync_note: "Feed synchronization status unavailable",
+    }));
+    expect(ws?.headlines_feed_sync).toBeNull();
+    expect(ws?.headlines_feed_sync_note).toBe("Feed synchronization status unavailable");
   });
 
   it("computes relative age and rejects unusable timestamps", () => {

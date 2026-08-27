@@ -22,6 +22,7 @@ import {
   type TimeOfDay,
 } from "../_shared/catalyst/contract.ts";
 import { classifyCatalyst } from "../_shared/catalyst/classify.ts";
+import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
 import {
   type CatalystSummary,
   makeEmptySummary,
@@ -304,6 +305,17 @@ async function ingestPolygonNews(
       if (seen.has(dedupeKey)) continue;
       seen.add(dedupeKey);
 
+      const attr = attributeSymbol({
+        title: v.title,
+        description: v.description,
+        symbol,
+        companyName: nameMap.get(symbol) ?? null,
+        providerTickers: v.tickers,
+        providerAssociatesSymbol: true,
+      });
+      if (!attr.ticker_specific && attr.class !== "sector_related") {
+        continue;
+      }
       rows.push({
         dedupe_key: dedupeKey,
         symbol,
@@ -320,7 +332,10 @@ async function ingestPolygonNews(
         provider: "polygon",
         provider_article_id: v.providerArticleId,
         related_symbols: related,
-        facts: {},
+        facts: sanitizeFacts({
+          attribution_class: attr.class,
+          attribution_reason: attr.reason,
+        }),
         published_at: v.publishedAt,
       });
       summary.events_validated += 1;

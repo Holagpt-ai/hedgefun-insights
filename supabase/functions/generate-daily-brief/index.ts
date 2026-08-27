@@ -76,6 +76,8 @@ You MUST NOT reference or invent any of the following, because they are not in t
 - Watchlist personalization or any user-specific claim
 
 If the four-index snapshot is insufficient to support a conclusion, say so explicitly and stop.
+Distinguish observed percent-change facts from interpretation.
+Prefer lean labels (Bullish Lean, Bearish Lean, Mixed, Insufficient Data) over strong directional claims.
 Do not fabricate. Do not speculate. Stay strictly within the four-ETF percent-change picture.
 `.trim();
 

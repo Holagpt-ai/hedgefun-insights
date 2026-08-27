@@ -29,6 +29,13 @@ import {
 import {
   buildAiPrompt, buildEvidenceCatalog, makeAnthropicCaller, type AiCaller,
 } from "../_shared/watchlist-v2/ai-read.ts";
+import {
+  attributeSymbol,
+} from "../_shared/catalyst/attribution.ts";
+import {
+  buildAiEvidence,
+  isInsufficientEvidence,
+} from "../_shared/ai/evidence.ts";
 
 export type ServiceClient = SupabaseClient<any, any, any>;
 
@@ -448,7 +455,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   const priorClose = snapshot.priorClose;
   const keyLevels = computeKeyLevels(bars, sessionType, priorClose);
   const transitionLevels = computeTransitionLevels(bars, sessionType);
-  const basis = computeBasis(bars, snapshot);
+  const basis = computeBasis(bars, snapshot, ticker);
 
   // RVOL baseline
   let baseline: Baseline | null = null;
@@ -469,6 +476,8 @@ export async function handleRequest(req: Request): Promise<Response> {
     sessionType, sessionDate, session.et_now_minutes, basis.volume, baseline,
   );
 
+  const quoteValid = basis.quote?.valid === true && basis.price !== null;
+
   // Signals + events
   const marketSignals: MarketSignal[] = emitMarketSignals({
     bars, keyLevels, transitionLevels,
@@ -478,7 +487,15 @@ export async function handleRequest(req: Request): Promise<Response> {
   const eventsResult = newsR.kind === "ok"
     ? await mapNewsEvents(newsR.body, analyzedAt, analyzedAtIso, ticker)
     : { events: [] as RecentEvent[], quality: "missing" as const };
-  const recentEvents: RecentEvent[] = eventsResult.events;
+  const recentEvents: RecentEvent[] = eventsResult.events.filter((e) => {
+    const attr = attributeSymbol({
+      title: e.title,
+      symbol: ticker,
+      providerTickers: [ticker],
+      providerAssociatesSymbol: true,
+    });
+    return attr.ticker_specific;
+  });
 
   // Bars quality: distinguish malformed (raw provided, all rejected) from missing
   let barsQuality: InputsQuality["bars"];
@@ -507,6 +524,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     price: basis.price,
     priorClose,
     volume: basis.volume,
+    quoteValid,
   });
 
   // Prior direction (for direction_change eligibility) — read BEFORE finalize
@@ -554,6 +572,37 @@ export async function handleRequest(req: Request): Promise<Response> {
   } else if (!anthropicKey) {
     return await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR");
   } else {
+    const evidence = buildAiEvidence({
+      symbol: ticker,
+      quote: basis.quote,
+      rvol: rvolRes.rvol,
+      rvolAvailable: rvolRes.rvol !== null,
+      signals: marketSignals.map((s) => ({
+        signal_id: s.signal_id,
+        label: s.label,
+        direction: s.direction,
+      })),
+      catalysts: recentEvents.map((e) => ({
+        title: e.title,
+        attribution: "direct" as const,
+        ticker_specific: true,
+        source_url: e.source_url,
+        provider: e.source_name,
+        published_at: e.event_time,
+        reason: "ticker_specific",
+      })),
+      earnings: earningsDate
+        ? { symbol: ticker, event_date: earningsDate, time_of_day: null, estimate_eps: null, actual_eps: null }
+        : null,
+      evidenceCutoff: analyzedAtIso,
+    });
+    if (isInsufficientEvidence(evidence) || !evidence.quote_valid) {
+      direction = "data_unavailable";
+      failureReason = evidence.quote_valid ? "INSUFFICIENT_EVIDENCE" : "QUOTE_REJECTED";
+      explanation = evidence.quote_valid
+        ? "Insufficient Data"
+        : "Current market snapshot unavailable";
+    } else {
     const catalog = buildEvidenceCatalog({
       market_signals: marketSignals,
       recent_events: recentEvents,
@@ -576,11 +625,16 @@ export async function handleRequest(req: Request): Promise<Response> {
       direction = outcome.value.direction;
       explanation = outcome.value.explanation;
       driverIds = outcome.value.driver_ids; // no silent filtering
+      if (evidence.no_verified_catalyst && !explanation.includes("No verified ticker-specific catalyst available.")) {
+        explanation = `${explanation} No verified ticker-specific catalyst available.`.trim();
+        if (explanation.length > 240) explanation = explanation.slice(0, 240).trim();
+      }
     } else if (outcome.kind === "transport_failure") {
       const code = logProviderFailure(ticker, "anthropic_ai", outcome);
       return await failAndRespond(supabase, requestId, owner, code);
     } else {
       return await failAndRespond(supabase, requestId, owner, "AI_VALIDATION_FAILED");
+    }
     }
   }
 

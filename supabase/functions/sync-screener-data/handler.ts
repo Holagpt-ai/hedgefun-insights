@@ -17,6 +17,11 @@ import {
   selectForTab,
 } from "../_shared/screeners/selection.ts";
 import {
+  evaluateDayTradeRadar,
+  formatRadarRejectionLog,
+  summarizeRadarDiagnostics,
+} from "../_shared/screeners/diagnostics.ts";
+import {
   type GenerationMeta,
   mapNewHighsLows,
   mapTabRows,
@@ -261,6 +266,10 @@ export async function handleSyncScreenerData(
   }
 
   // ── Volume-first tab selection before enrichment / freshness / DB ───────
+  const nowMs = (deps.nowMs ?? (() => Date.now()))();
+  const dayTradeDiagnostics = allTickers.map((t) => evaluateDayTradeRadar(t, nowMs));
+  console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
+
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
   const gapperSelected = selectForTab("gappers", allTickers);
   const volumeSpikeSelected = selectForTab("volume_spikes", allTickers);
@@ -278,7 +287,6 @@ export async function handleSyncScreenerData(
     ...unusualSelected,
   ];
 
-  const nowMs = (deps.nowMs ?? (() => Date.now()))();
   const syncedAt = deps.nowIso();
   const syncRunId = (deps.newSyncRunId ?? (() => crypto.randomUUID()))();
 

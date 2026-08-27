@@ -9,6 +9,7 @@ import {
   isValidHttpsUrl,
   isExpired,
   isDirection,
+  humanFailureReason,
 } from "@/lib/watchlist-v2/parsers";
 
 describe("parseIntradayBars", () => {
@@ -120,6 +121,15 @@ describe("isExpired", () => {
     expect(isExpired("2100-01-01T00:00:00Z", new Date("2026-01-01T00:00:00Z"))).toBe(false);
     expect(isExpired(null)).toBe(true);
     expect(isExpired("not a date")).toBe(true);
+  });
+});
+
+describe("humanFailureReason never exposes internal snapshot codes", () => {
+  it("maps persisted codes to user-facing copy", () => {
+    expect(humanFailureReason("SNAPSHOT_MISSING")).toBe("Market snapshot unavailable.");
+    expect(humanFailureReason("QUOTE_REJECTED")).toBe("Current market snapshot unavailable");
+    expect(humanFailureReason("INSUFFICIENT_EVIDENCE")).toBe("Insufficient Data");
+    expect(humanFailureReason("SNAPSHOT_MISSING")).not.toContain("SNAPSHOT_MISSING");
   });
 });
 

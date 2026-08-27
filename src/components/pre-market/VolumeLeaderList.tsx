@@ -12,7 +12,7 @@ export function VolumeLeaderList({
   catalysts: PreMarketCatalyst[];
 }) {
   // Enrichment only — the incoming volume-descending order is preserved as-is.
-  const bySymbol = new Set(catalysts.map((c) => c.symbol));
+  const bySymbol = new Set(catalysts.filter((c) => c.ticker_specific !== false).map((c) => c.symbol));
 
   return (
     <TopNReveal items={rows}>
@@ -26,11 +26,11 @@ export function VolumeLeaderList({
                     {r.symbol}
                   </Link>
                   {r.company_name && (
-                    <span className="max-w-[200px] truncate text-xs text-muted-foreground">{r.company_name}</span>
+                    <span className="max-w-[min(200px,45vw)] truncate text-xs text-muted-foreground">{r.company_name}</span>
                   )}
                   {bySymbol.has(r.symbol) && (
                     <span className="rounded-full bg-accent-blue/10 px-2 py-0.5 text-[10px] font-medium text-accent-blue">
-                      Provider-reported catalyst
+                      Verified catalyst
                     </span>
                   )}
                 </div>
