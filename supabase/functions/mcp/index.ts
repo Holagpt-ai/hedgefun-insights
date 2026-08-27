@@ -66,6 +66,864 @@ var get_stock_quote_default = defineTool2({
 import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.108.2";
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.20.0";
 import { z as z3 } from "npm:zod@^3.25.76";
+
+// src/lib/after-hours-feed.ts
+var AH_STALE_AFTER_MS = 20 * 6e4;
+function parseTs(value) {
+  if (typeof value !== "string" || value.trim() === "") return null;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : null;
+}
+function isAfterHoursGenerationStale(syncedAt, nowMs) {
+  const syncedMs = parseTs(syncedAt);
+  if (syncedMs === null) return true;
+  return nowMs - syncedMs > AH_STALE_AFTER_MS;
+}
+
+// src/lib/quotes/integrity.ts
+var TICKER_REGEX = /^[A-Z][A-Z0-9.-]{0,14}$/;
+var USER_SNAPSHOT_UNAVAILABLE = "Current market snapshot unavailable";
+var REASON_USER_TEXT = {
+  MISSING_SYMBOL: USER_SNAPSHOT_UNAVAILABLE,
+  MISSING_QUOTE: "Market snapshot unavailable.",
+  MALFORMED_PRICE: USER_SNAPSHOT_UNAVAILABLE,
+  NON_POSITIVE_PRICE: USER_SNAPSHOT_UNAVAILABLE,
+  MALFORMED_CHANGE_PCT: USER_SNAPSHOT_UNAVAILABLE,
+  MALFORMED_VOLUME: USER_SNAPSHOT_UNAVAILABLE,
+  MISSING_QUOTE_TIMESTAMP: USER_SNAPSHOT_UNAVAILABLE,
+  DECIMAL_SCALE_MISMATCH: USER_SNAPSHOT_UNAVAILABLE,
+  CURRENCY_MISMATCH: USER_SNAPSHOT_UNAVAILABLE,
+  SPLIT_ADJUSTMENT_MISMATCH: USER_SNAPSHOT_UNAVAILABLE,
+  IMPLAUSIBLE_DISCONTINUITY: USER_SNAPSHOT_UNAVAILABLE
+};
+var CODE_USER_TEXT = {
+  SNAPSHOT_MISSING: "Market snapshot unavailable.",
+  SNAPSHOT_STALE: "Market snapshot is stale.",
+  SNAPSHOT_MALFORMED: USER_SNAPSHOT_UNAVAILABLE,
+  QUOTE_REJECTED: USER_SNAPSHOT_UNAVAILABLE,
+  INSUFFICIENT_EVIDENCE: "Insufficient Data",
+  PRICE_UNAVAILABLE: "Current price unavailable.",
+  PRIOR_CLOSE_UNAVAILABLE: "Prior close unavailable.",
+  BARS_MISSING: "Intraday bars unavailable.",
+  BARS_INSUFFICIENT: "Not enough intraday bars for this session.",
+  BARS_MALFORMED: "Intraday bar payload malformed.",
+  VOLUME_UNAVAILABLE: "Volume unavailable.",
+  PROVIDER_UNAVAILABLE: "Required upstream provider unavailable.",
+  ...REASON_USER_TEXT
+};
+function normalizeSymbol(raw) {
+  if (typeof raw !== "string") return null;
+  const t = raw.trim().toUpperCase();
+  return TICKER_REGEX.test(t) ? t : null;
+}
+function finiteOrNull(v) {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+function isMalformedNumber(v) {
+  if (v === null || v === void 0) return false;
+  if (typeof v === "number") return !Number.isFinite(v);
+  if (typeof v === "string") {
+    if (v.trim() === "") return false;
+    return !Number.isFinite(Number(v));
+  }
+  return true;
+}
+function isoOrNull(v) {
+  if (typeof v === "number" && Number.isFinite(v) && v > 0) {
+    const ms = v > 1e14 ? Math.round(v / 1e6) : v;
+    if (!Number.isFinite(ms) || ms < 1e12) return null;
+    return new Date(ms).toISOString();
+  }
+  if (typeof v !== "string" || !v.trim()) return null;
+  const t = Date.parse(v);
+  return Number.isFinite(t) ? new Date(t).toISOString() : null;
+}
+var USD_ALIASES = /* @__PURE__ */ new Set([
+  "USD",
+  "US DOLLAR",
+  "UNITED STATES DOLLAR",
+  "UNITED STATES DOLLARS"
+]);
+function normalizeCurrency(raw) {
+  if (typeof raw !== "string" || !raw.trim()) return null;
+  return raw.trim().toUpperCase().replace(/[._]/g, " ").replace(/\s+/g, " ");
+}
+function isUsdCurrency(raw) {
+  const c = normalizeCurrency(raw);
+  return c !== null && USD_ALIASES.has(c);
+}
+var SCALE_FACTORS = [10, 100, 1e3];
+var SPLIT_FACTORS = [2, 3, 4, 5, 10, 20, 25, 40, 50, 100];
+var SCALE_TOLERANCE = 0.03;
+function nearFactor(ratio, factor, tolerance = SCALE_TOLERANCE) {
+  if (!Number.isFinite(ratio) || ratio <= 0) return false;
+  return Math.abs(ratio - factor) / factor <= tolerance;
+}
+function pairRatio(a, b) {
+  if (!(a > 0) || !(b > 0)) return null;
+  return Math.max(a, b) / Math.min(a, b);
+}
+function isDecimalScalePair(a, b) {
+  const ratio = pairRatio(a, b);
+  if (ratio === null) return false;
+  return SCALE_FACTORS.some((f) => nearFactor(ratio, f));
+}
+function isSplitFactorPair(a, b) {
+  const ratio = pairRatio(a, b);
+  if (ratio === null) return false;
+  return SPLIT_FACTORS.some((f) => nearFactor(ratio, f));
+}
+function fail(input, opts, reason, field) {
+  return {
+    valid: false,
+    rejection_reason: reason,
+    rejected_field: field,
+    symbol: opts.symbol,
+    price: null,
+    change_pct: null,
+    volume: null,
+    quote_timestamp: opts.ts,
+    currency: opts.currency,
+    raw: rawBundle(input),
+    diagnostic: {
+      symbol: opts.symbol,
+      provider: opts.provider,
+      quote_timestamp: opts.ts,
+      rejected_field: field,
+      reason
+    }
+  };
+}
+function rawBundle(input) {
+  return {
+    price: input.price ?? null,
+    change_pct: input.changePct ?? null,
+    volume: input.volume ?? null,
+    last_trade: input.lastTradePrice ?? null,
+    minute_close: input.minuteClose ?? null,
+    day_close: input.dayClose ?? null,
+    vwap: input.vwap ?? null,
+    prior_close: input.priorClose ?? null
+  };
+}
+function contemporaneousPrices(input) {
+  const out = [];
+  const push = (field, raw) => {
+    const n = finiteOrNull(raw);
+    if (n !== null && n > 0) out.push({ field, value: n });
+  };
+  push("price", input.price);
+  push("lastTradePrice", input.lastTradePrice);
+  push("minuteClose", input.minuteClose);
+  push("dayClose", input.dayClose);
+  push("vwap", input.vwap);
+  return out;
+}
+function validateQuote(input, opts) {
+  const provider = opts?.provider ?? "polygon";
+  const symbol = normalizeSymbol(input.symbol);
+  const ts = isoOrNull(input.quoteTimestamp);
+  const currency = normalizeCurrency(input.currency);
+  const ctx = { provider, symbol, ts, currency };
+  if (!symbol) return fail(input, ctx, "MISSING_SYMBOL", "symbol");
+  if (isMalformedNumber(input.price)) {
+    return fail(input, ctx, "MALFORMED_PRICE", "price");
+  }
+  for (const [field, raw] of [
+    ["lastTradePrice", input.lastTradePrice],
+    ["minuteClose", input.minuteClose],
+    ["dayClose", input.dayClose],
+    ["vwap", input.vwap],
+    ["priorClose", input.priorClose]
+  ]) {
+    if (isMalformedNumber(raw)) return fail(input, ctx, "MALFORMED_PRICE", field);
+  }
+  if (input.changePct !== void 0 && isMalformedNumber(input.changePct)) {
+    return fail(input, ctx, "MALFORMED_CHANGE_PCT", "changePct");
+  }
+  if (input.volume !== void 0 && isMalformedNumber(input.volume)) {
+    return fail(input, ctx, "MALFORMED_VOLUME", "volume");
+  }
+  const price = finiteOrNull(input.price);
+  const lastTrade = finiteOrNull(input.lastTradePrice);
+  const minuteClose = finiteOrNull(input.minuteClose);
+  const dayClose = finiteOrNull(input.dayClose);
+  const vwap = finiteOrNull(input.vwap);
+  const priorClose = finiteOrNull(input.priorClose);
+  const anyPrice = price !== null && price > 0 || lastTrade !== null && lastTrade > 0 || minuteClose !== null && minuteClose > 0 || dayClose !== null && dayClose > 0;
+  if (!anyPrice) {
+    const anyPresent = input.price !== void 0 && input.price !== null || input.lastTradePrice !== void 0 && input.lastTradePrice !== null || input.minuteClose !== void 0 && input.minuteClose !== null || input.dayClose !== void 0 && input.dayClose !== null;
+    if (anyPresent) return fail(input, ctx, "NON_POSITIVE_PRICE", "price");
+    return fail(input, ctx, "MISSING_QUOTE", "price");
+  }
+  const resolved = (price !== null && price > 0 ? price : null) ?? (lastTrade !== null && lastTrade > 0 ? lastTrade : null) ?? (minuteClose !== null && minuteClose > 0 ? minuteClose : null) ?? (dayClose !== null && dayClose > 0 ? dayClose : null);
+  if (resolved === null || !(resolved > 0)) {
+    return fail(input, ctx, "NON_POSITIVE_PRICE", "price");
+  }
+  if (currency && !isUsdCurrency(currency)) {
+    return fail(input, ctx, "CURRENCY_MISMATCH", "currency");
+  }
+  const contemporaneous = contemporaneousPrices(input);
+  for (let i = 0; i < contemporaneous.length; i++) {
+    for (let j = i + 1; j < contemporaneous.length; j++) {
+      const a = contemporaneous[i];
+      const b = contemporaneous[j];
+      if (a.value === b.value) continue;
+      if (isDecimalScalePair(a.value, b.value)) {
+        return fail(input, ctx, "DECIMAL_SCALE_MISMATCH", `${a.field}/${b.field}`);
+      }
+    }
+  }
+  const adjusted = finiteOrNull(input.adjustedClose);
+  const unadjusted = finiteOrNull(input.unadjustedClose);
+  if (adjusted !== null && adjusted > 0 && unadjusted !== null && unadjusted > 0) {
+    if (isDecimalScalePair(adjusted, unadjusted) || isSplitFactorPair(adjusted, unadjusted)) {
+      const ratio = pairRatio(adjusted, unadjusted);
+      if (ratio !== null && ratio >= 1.8) {
+        return fail(input, ctx, "SPLIT_ADJUSTMENT_MISMATCH", "adjustedClose/unadjustedClose");
+      }
+    }
+  }
+  const priorTrusted = finiteOrNull(input.priorSnapshotPrice);
+  if (priorTrusted !== null && priorTrusted > 0) {
+    const ratio = pairRatio(resolved, priorTrusted);
+    if (ratio !== null && ratio >= 4 && !isSplitFactorPair(resolved, priorTrusted)) {
+      return fail(input, ctx, "IMPLAUSIBLE_DISCONTINUITY", "priorSnapshotPrice");
+    }
+    if (ratio !== null && isDecimalScalePair(resolved, priorTrusted)) {
+      return fail(input, ctx, "DECIMAL_SCALE_MISMATCH", "price/priorSnapshotPrice");
+    }
+  }
+  const changePct = finiteOrNull(input.changePct);
+  const volume = finiteOrNull(input.volume);
+  if (volume !== null && volume < 0) {
+    return fail(input, ctx, "MALFORMED_VOLUME", "volume");
+  }
+  return {
+    valid: true,
+    rejection_reason: null,
+    rejected_field: null,
+    symbol,
+    price: resolved,
+    change_pct: changePct,
+    volume: volume !== null && volume >= 0 ? volume : null,
+    quote_timestamp: ts,
+    currency,
+    raw: rawBundle(input),
+    diagnostic: {
+      symbol,
+      provider,
+      quote_timestamp: ts,
+      rejected_field: null,
+      reason: null
+    }
+  };
+}
+function isPlainObject(x) {
+  return x !== null && typeof x === "object" && !Array.isArray(x);
+}
+function extractPolygonSnapshotFields(body, symbolHint) {
+  if (!isPlainObject(body)) return null;
+  const tick = isPlainObject(body.ticker) ? body.ticker : body;
+  const prevDay = isPlainObject(tick.prevDay) ? tick.prevDay : {};
+  const day = isPlainObject(tick.day) ? tick.day : {};
+  const lastTrade = isPlainObject(tick.lastTrade) ? tick.lastTrade : {};
+  const min = isPlainObject(tick.min) ? tick.min : {};
+  const details = isPlainObject(tick.details) ? tick.details : {};
+  const symbol = symbolHint ?? tick.ticker ?? (typeof body.ticker === "string" ? body.ticker : null);
+  const currency = details.currency_symbol ?? details.currency_name ?? tick.currency ?? body.currency ?? null;
+  const ts = lastTrade.t ?? tick.updated ?? min.t ?? null;
+  const price = (typeof lastTrade.p === "number" && lastTrade.p > 0 ? lastTrade.p : null) ?? (typeof min.c === "number" && min.c > 0 ? min.c : null) ?? (typeof day.c === "number" && day.c > 0 ? day.c : null);
+  return {
+    symbol,
+    price,
+    lastTradePrice: lastTrade.p,
+    minuteClose: min.c,
+    dayClose: day.c,
+    vwap: day.vw,
+    priorClose: prevDay.c,
+    quoteTimestamp: ts,
+    volume: day.v,
+    currency
+  };
+}
+
+// src/lib/markets/movers-integrity.ts
+var SOURCE_POLYGON = "polygon";
+var SOURCE_MARKET_MOVERS_CACHE = "market_movers";
+var SOURCE_AFTER_HOURS_FEED = "after_hours_feed";
+var SOURCE_RANK = {
+  [SOURCE_POLYGON]: 0,
+  [SOURCE_AFTER_HOURS_FEED]: 1,
+  [SOURCE_MARKET_MOVERS_CACHE]: 2
+};
+var SCALE_FACTORS2 = [10, 100, 1e3];
+var SPLIT_FACTORS2 = [2, 3, 4, 5, 10, 20, 25, 40, 50, 100];
+var SCALE_TOLERANCE2 = 0.03;
+var PERCENT_ABS_TOLERANCE = 1;
+var PERCENT_REL_TOLERANCE = 0.08;
+var STALE_REFERENCE_MS = 18 * 60 * 60 * 1e3;
+var PROVIDER_FUTURE_SLACK_MS = 5 * 60 * 1e3;
+var SUSPICIOUS_RATIO_FLOOR = 200;
+function etSessionDate(ms = Date.now()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date(ms));
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (!year || !month || !day) return "";
+  return `${year}-${month}-${day}`;
+}
+function canonicalChangePercent(currentPrice, referencePrice) {
+  if (!(currentPrice > 0) || !(referencePrice > 0)) return null;
+  const pct = (currentPrice - referencePrice) / referencePrice * 100;
+  return Number.isFinite(pct) ? pct : null;
+}
+function nearFactor2(ratio, factor, tolerance = SCALE_TOLERANCE2) {
+  if (!Number.isFinite(ratio) || ratio <= 0) return false;
+  return Math.abs(ratio - factor) / factor <= tolerance;
+}
+function pairRatio2(a, b) {
+  if (!(a > 0) || !(b > 0)) return null;
+  return Math.max(a, b) / Math.min(a, b);
+}
+function isDecimalScalePair2(a, b) {
+  const ratio = pairRatio2(a, b);
+  if (ratio === null) return false;
+  return SCALE_FACTORS2.some((f) => nearFactor2(ratio, f));
+}
+function isSplitFactorPair2(a, b) {
+  const ratio = pairRatio2(a, b);
+  if (ratio === null) return false;
+  return SPLIT_FACTORS2.some((f) => nearFactor2(ratio, f));
+}
+function pricesAgree(a, b) {
+  if (!(a > 0) || !(b > 0)) return false;
+  if (a === b) return true;
+  const ratio = pairRatio2(a, b);
+  return ratio !== null && ratio <= 1 + SCALE_TOLERANCE2;
+}
+function currentPrintsAgreeing(input, current) {
+  const extended = input.session === "premarket" || input.session === "afterhours";
+  const candidates = [
+    finiteOrNull(input.lastTradePrice),
+    finiteOrNull(input.minuteClose),
+    extended ? null : finiteOrNull(input.dayClose)
+  ];
+  return candidates.filter((v) => v !== null && v > 0 && pricesAgree(v, current)).length;
+}
+function hasAdjustmentEvidence(input, current, reference) {
+  const adjusted = finiteOrNull(input.adjustedClose);
+  const unadjusted = finiteOrNull(input.unadjustedClose);
+  if (adjusted !== null && adjusted > 0 && unadjusted !== null && unadjusted > 0 && !pricesAgree(adjusted, unadjusted)) {
+    const ratio = pairRatio2(adjusted, unadjusted);
+    if (ratio !== null && (ratio >= SUSPICIOUS_RATIO_FLOOR || isDecimalScalePair2(adjusted, unadjusted) || isSplitFactorPair2(adjusted, unadjusted) && ratio >= 1.8)) {
+      return true;
+    }
+  }
+  if (adjusted !== null && adjusted > 0 && unadjusted !== null && unadjusted > 0) {
+    const currentLooksAdjusted = pricesAgree(adjusted, current) && pricesAgree(unadjusted, reference);
+    const currentLooksUnadjusted = pricesAgree(unadjusted, current) && pricesAgree(adjusted, reference);
+    if ((currentLooksAdjusted || currentLooksUnadjusted) && !pricesAgree(adjusted, unadjusted)) {
+      return true;
+    }
+  }
+  return false;
+}
+function referenceIndependentlyCorroborated(input, reference) {
+  const adjusted = finiteOrNull(input.adjustedClose);
+  const unadjusted = finiteOrNull(input.unadjustedClose);
+  return adjusted !== null && adjusted > 0 && unadjusted !== null && unadjusted > 0 && pricesAgree(adjusted, unadjusted) && pricesAgree(adjusted, reference);
+}
+function percentsAgree(a, b) {
+  const abs = Math.abs(a - b);
+  if (abs <= PERCENT_ABS_TOLERANCE) return true;
+  const denom = Math.max(Math.abs(a), Math.abs(b), 1);
+  return abs / denom <= PERCENT_REL_TOLERANCE;
+}
+function isRatioVersusPercent(provider, canonical) {
+  if (!(Math.abs(provider) > 0) || !(Math.abs(canonical) > 0)) return false;
+  if (Math.sign(provider) !== Math.sign(canonical) && provider !== 0 && canonical !== 0) {
+    return false;
+  }
+  const ratio = Math.abs(canonical) / Math.abs(provider);
+  return nearFactor2(ratio, 100) || nearFactor2(ratio, 0.01);
+}
+function nameFrom(raw, symbol) {
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return symbol;
+}
+function sourceFrom(raw) {
+  if (typeof raw === "string" && raw.trim()) return raw.trim();
+  return SOURCE_POLYGON;
+}
+function fail2(input, symbol, reason) {
+  return {
+    valid: false,
+    reason,
+    symbol,
+    name: nameFrom(input.name, symbol ?? ""),
+    price: null,
+    reference_price: null,
+    change: null,
+    change_percent: null,
+    volume: finiteOrNull(input.volume),
+    session: input.session ?? null,
+    session_date: typeof input.sessionDate === "string" ? input.sessionDate : null,
+    source: sourceFrom(input.source),
+    provider_as_of: isoOrNull(input.providerAsOf),
+    id: typeof input.id === "string" ? input.id : null
+  };
+}
+function validateMover(input) {
+  const symbol = normalizeSymbol(input.symbol);
+  if (!symbol) return fail2(input, null, "malformed_symbol");
+  const extended = input.session === "premarket" || input.session === "afterhours";
+  const quote = validateQuote({
+    symbol,
+    price: input.price,
+    lastTradePrice: input.lastTradePrice,
+    minuteClose: input.minuteClose,
+    dayClose: extended ? void 0 : input.dayClose,
+    vwap: extended ? void 0 : input.vwap,
+    priorClose: input.referencePrice,
+    volume: input.volume,
+    quoteTimestamp: input.providerAsOf,
+    adjustedClose: input.adjustedClose,
+    unadjustedClose: input.unadjustedClose
+  }, { provider: sourceFrom(input.source) });
+  if (!quote.valid) {
+    if (quote.rejection_reason === "DECIMAL_SCALE_MISMATCH") {
+      return fail2(input, symbol, "decimal_scale_mismatch");
+    }
+    if (quote.rejection_reason === "SPLIT_ADJUSTMENT_MISMATCH") {
+      return fail2(input, symbol, "adjustment_mismatch");
+    }
+    if (quote.rejection_reason === "MISSING_QUOTE" || quote.rejection_reason === "NON_POSITIVE_PRICE" || quote.rejection_reason === "MALFORMED_PRICE") {
+      return fail2(input, symbol, "invalid_current_price");
+    }
+    return fail2(input, symbol, "invalid_current_price");
+  }
+  const current = finiteOrNull(input.price) ?? quote.price;
+  if (current === null || !(current > 0)) {
+    return fail2(input, symbol, "invalid_current_price");
+  }
+  if (input.referencePrice === void 0 || input.referencePrice === null) {
+    return fail2(input, symbol, "missing_corroboration");
+  }
+  const reference = finiteOrNull(input.referencePrice);
+  if (reference === null || !(reference > 0)) {
+    return fail2(input, symbol, "invalid_reference_price");
+  }
+  if (isDecimalScalePair2(current, reference)) {
+    return fail2(input, symbol, "decimal_scale_mismatch");
+  }
+  if (hasAdjustmentEvidence(input, current, reference)) {
+    return fail2(input, symbol, "adjustment_mismatch");
+  }
+  const adjusted = finiteOrNull(input.adjustedClose);
+  const unadjusted = finiteOrNull(input.unadjustedClose);
+  if (adjusted !== null && adjusted > 0 && unadjusted !== null && unadjusted > 0) {
+    if (isDecimalScalePair2(adjusted, unadjusted) || isSplitFactorPair2(adjusted, unadjusted)) {
+      const ratio = pairRatio2(adjusted, unadjusted);
+      if (ratio !== null && ratio >= 1.8) {
+        return fail2(input, symbol, "adjustment_mismatch");
+      }
+    }
+  }
+  const recapRatio = pairRatio2(current, reference);
+  if (recapRatio !== null && recapRatio >= SUSPICIOUS_RATIO_FLOOR) {
+    const currentOk = currentPrintsAgreeing(input, current) >= 2;
+    const referenceOk = referenceIndependentlyCorroborated(input, reference);
+    if (!currentOk || !referenceOk) {
+      return fail2(input, symbol, "missing_corroboration");
+    }
+  }
+  const canonicalPct = canonicalChangePercent(current, reference);
+  if (canonicalPct === null) return fail2(input, symbol, "invalid_reference_price");
+  const providerPct = finiteOrNull(input.providerPercent);
+  if (providerPct !== null && isRatioVersusPercent(providerPct, canonicalPct) && !percentsAgree(providerPct, canonicalPct)) {
+    return fail2(input, symbol, "percentage_mismatch");
+  }
+  const nowMs = typeof input.nowMs === "number" && Number.isFinite(input.nowMs) ? input.nowMs : Date.now();
+  const asOf = isoOrNull(input.providerAsOf);
+  if (asOf) {
+    const asOfMs = Date.parse(asOf);
+    if (Number.isFinite(asOfMs)) {
+      if (asOfMs > nowMs + PROVIDER_FUTURE_SLACK_MS) {
+        return fail2(input, symbol, "stale_reference");
+      }
+      if (nowMs - asOfMs > STALE_REFERENCE_MS) {
+        return fail2(input, symbol, "stale_reference");
+      }
+    }
+  }
+  const sessionDate = typeof input.sessionDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate) ? input.sessionDate : null;
+  if (sessionDate && sessionDate !== etSessionDate(nowMs) && input.source === SOURCE_MARKET_MOVERS_CACHE) {
+    return fail2(input, symbol, "stale_reference");
+  }
+  const volume = finiteOrNull(input.volume);
+  return {
+    valid: true,
+    reason: null,
+    symbol,
+    name: nameFrom(input.name, symbol),
+    price: current,
+    reference_price: reference,
+    change: current - reference,
+    change_percent: canonicalPct,
+    volume: volume !== null && volume >= 0 ? volume : null,
+    session: input.session ?? null,
+    session_date: sessionDate,
+    source: sourceFrom(input.source),
+    provider_as_of: asOf,
+    id: typeof input.id === "string" ? input.id : null
+  };
+}
+function isPlainObject2(x) {
+  return x !== null && typeof x === "object" && !Array.isArray(x);
+}
+function moverFromExtendedObservation(input, nowMs = Date.now()) {
+  return validateMover({
+    symbol: input.symbol,
+    name: input.name,
+    price: input.extendedLast,
+    referencePrice: input.regularClose,
+    providerPercent: input.changePercent,
+    lastTradePrice: input.extendedLast,
+    minuteClose: input.extendedLast,
+    volume: input.volume,
+    providerAsOf: input.providerAsOf,
+    session: "afterhours",
+    sessionDate: etSessionDate(nowMs),
+    source: input.source ?? SOURCE_AFTER_HOURS_FEED,
+    id: input.id,
+    nowMs
+  });
+}
+function polygonTickersFromResponse(res) {
+  if (Array.isArray(res)) return res;
+  if (isPlainObject2(res) && Array.isArray(res.tickers)) return res.tickers;
+  return [];
+}
+function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
+  if (!isPlainObject2(raw)) {
+    return fail2({ symbol: null }, null, "malformed_symbol");
+  }
+  const extracted = extractPolygonSnapshotFields(raw, raw.ticker ?? raw.symbol);
+  const lastTrade = isPlainObject2(raw.lastTrade) ? raw.lastTrade : {};
+  const min = isPlainObject2(raw.min) ? raw.min : {};
+  const day = isPlainObject2(raw.day) ? raw.day : {};
+  const prevDay = isPlainObject2(raw.prevDay) ? raw.prevDay : {};
+  const lastTradePrice = finiteOrNull(lastTrade.p);
+  const minuteClose = finiteOrNull(min.c);
+  const dayClose = finiteOrNull(day.c);
+  const prevClose = finiteOrNull(prevDay.c);
+  let current = null;
+  let reference = null;
+  if (session === "regular") {
+    current = dayClose;
+    reference = prevClose;
+  } else if (session === "premarket") {
+    current = (lastTradePrice !== null && lastTradePrice > 0 ? lastTradePrice : null) ?? (minuteClose !== null && minuteClose > 0 ? minuteClose : null);
+    reference = prevClose;
+  } else {
+    current = (lastTradePrice !== null && lastTradePrice > 0 ? lastTradePrice : null) ?? (minuteClose !== null && minuteClose > 0 ? minuteClose : null);
+    reference = dayClose;
+  }
+  const providerPct = finiteOrNull(raw.todaysChangePerc ?? raw.change_percent ?? raw.changePercent);
+  const sessionDate = etSessionDate(nowMs);
+  if (session === "regular" && dayClose !== null && dayClose > 0 && current === dayClose && providerPct !== null && prevClose !== null && prevClose > 0) {
+    const dayPct = canonicalChangePercent(dayClose, prevClose);
+    const extPrice = (lastTradePrice !== null && lastTradePrice > 0 ? lastTradePrice : null) ?? (minuteClose !== null && minuteClose > 0 ? minuteClose : null);
+    if (extPrice !== null && dayPct !== null) {
+      const extPct = canonicalChangePercent(extPrice, prevClose);
+      if (extPct !== null && !percentsAgree(providerPct, dayPct) && percentsAgree(providerPct, extPct) && !percentsAgree(extPct, dayPct)) {
+        return fail2({
+          symbol: extracted?.symbol ?? raw.ticker ?? raw.symbol,
+          name: raw.name,
+          session,
+          sessionDate,
+          source: SOURCE_POLYGON,
+          providerAsOf: extracted?.quoteTimestamp ?? lastTrade.t ?? raw.updated
+        }, normalizeSymbol(extracted?.symbol ?? raw.ticker ?? raw.symbol), "session_mismatch");
+      }
+    }
+  }
+  return validateMover({
+    symbol: extracted?.symbol ?? raw.ticker ?? raw.symbol,
+    name: raw.name ?? (isPlainObject2(raw.details) ? raw.details.name : null),
+    price: current,
+    referencePrice: reference,
+    providerPercent: providerPct,
+    lastTradePrice,
+    minuteClose,
+    dayClose,
+    vwap: extracted?.vwap,
+    volume: finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v),
+    providerAsOf: extracted?.quoteTimestamp ?? lastTrade.t ?? raw.updated,
+    session,
+    sessionDate,
+    source: SOURCE_POLYGON,
+    nowMs
+  });
+}
+function eventTimeMs(iso) {
+  if (!iso) return 0;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : 0;
+}
+function sourceRank(source) {
+  return SOURCE_RANK[source] ?? 50;
+}
+function currentMoverIdentity(row) {
+  if (!row.symbol) return null;
+  const session = row.session ?? "_";
+  const date = row.session_date ?? "_";
+  return `${row.symbol}|${session}|${date}`;
+}
+function compareWinners(a, b) {
+  if (a.valid !== b.valid) return a.valid ? -1 : 1;
+  const dt = eventTimeMs(b.provider_as_of) - eventTimeMs(a.provider_as_of);
+  if (dt !== 0) return dt;
+  const src = sourceRank(a.source) - sourceRank(b.source);
+  if (src !== 0) return src;
+  const va = a.volume ?? -1;
+  const vb = b.volume ?? -1;
+  if (va !== vb) return vb - va;
+  const ida = a.id ?? a.symbol ?? "";
+  const idb = b.id ?? b.symbol ?? "";
+  return ida.localeCompare(idb);
+}
+function selectCanonicalCurrentMovers(rows, opts) {
+  const sessionDate = opts?.sessionDate;
+  const eligible = rows.filter((r) => {
+    if (!r.valid) return false;
+    if (sessionDate && r.session_date && r.session_date !== sessionDate) return false;
+    return true;
+  });
+  const ranked = [...eligible].sort(compareWinners);
+  const seen = /* @__PURE__ */ new Set();
+  const winners = [];
+  for (const row of ranked) {
+    const key = currentMoverIdentity(row);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    winners.push(row);
+  }
+  const sort = opts?.sort ?? "percent_desc";
+  winners.sort((a, b) => {
+    if (sort === "volume_desc") {
+      const dv = (b.volume ?? 0) - (a.volume ?? 0);
+      if (dv !== 0) return dv;
+    } else {
+      const pa = a.change_percent ?? 0;
+      const pb = b.change_percent ?? 0;
+      const dp = sort === "percent_asc" ? pa - pb : pb - pa;
+      if (dp !== 0) return dp;
+    }
+    return compareWinners(a, b);
+  });
+  return winners;
+}
+function presentCanonicalMovers(movers, category, limit = 10, nowMs = Date.now()) {
+  let sort = "percent_desc";
+  if (category === "loser") sort = "percent_asc";
+  if (category === "active") sort = "volume_desc";
+  let filtered = movers;
+  if (category === "gainer") filtered = movers.filter((m) => (m.change_percent ?? 0) > 0);
+  if (category === "loser") filtered = movers.filter((m) => (m.change_percent ?? 0) < 0);
+  const winners = selectCanonicalCurrentMovers(filtered, {
+    sessionDate: etSessionDate(nowMs),
+    sort
+  });
+  const rows = winners.slice(0, Math.max(1, limit)).filter((m) => m.symbol && m.price !== null && m.change_percent !== null).map((m) => ({
+    symbol: m.symbol,
+    name: m.name,
+    price: m.price,
+    change_percent: m.change_percent,
+    volume: m.volume,
+    session_date: m.session_date,
+    type: category
+  }));
+  return { movers: rows, status: rows.length > 0 ? "available" : "empty" };
+}
+
+// src/lib/mcp/tools/get-market-movers.ts
+var MARKET_DATA_TIMEOUT_MS = 8e3;
+var MOVER_UNAVAILABLE_MESSAGE = "Market movers are currently unavailable.";
+var MOVER_STALE_MESSAGE = "Showing last successful market movers. This data may not be current.";
+var UNAVAILABLE = {
+  tickers: [],
+  unavailable: true,
+  freshness: "unavailable"
+};
+function isPlainObject3(x) {
+  return x !== null && typeof x === "object" && !Array.isArray(x);
+}
+function reasonFromHttpStatus(status) {
+  if (status === 401 || status === 403) return "auth_failed";
+  if (status === 408) return "timeout";
+  return "upstream_error";
+}
+function classifyFetchFailure(err) {
+  if (isTimeoutError(err)) {
+    return { ...UNAVAILABLE, reason: "timeout" };
+  }
+  return { ...UNAVAILABLE, reason: "network_failure" };
+}
+function isTimeoutError(err) {
+  if (!err || typeof err !== "object") return false;
+  const name = "name" in err ? String(err.name) : "";
+  return name === "TimeoutError" || name === "AbortError";
+}
+function parseMarketDataPayload(status, body) {
+  if (!Number.isFinite(status) || status < 200 || status >= 300) {
+    return { ...UNAVAILABLE, reason: reasonFromHttpStatus(status) };
+  }
+  if (isPlainObject3(body) && body.status === "ERROR") {
+    return { ...UNAVAILABLE, reason: "upstream_error" };
+  }
+  if (isPlainObject3(body) && (body.freshness === "last_success" || body.status === "stale")) {
+    if (!Array.isArray(body.tickers)) {
+      return { ...UNAVAILABLE, reason: "missing_evidence" };
+    }
+    return {
+      tickers: polygonTickersFromResponse(body),
+      unavailable: false,
+      freshness: "last_success",
+      reason: "last_success"
+    };
+  }
+  if (Array.isArray(body) || isPlainObject3(body) && Array.isArray(body.tickers)) {
+    return {
+      tickers: polygonTickersFromResponse(body),
+      unavailable: false,
+      freshness: "current",
+      reason: null
+    };
+  }
+  return { ...UNAVAILABLE, reason: "malformed_payload" };
+}
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== "undefined" && typeof AbortSignal.timeout === "function") {
+    return AbortSignal.timeout(ms);
+  }
+  return void 0;
+}
+async function fetchMarketDataTickers(kind, env, fetchImpl = fetch) {
+  if (!env.url || !env.key) return { ...UNAVAILABLE, reason: "missing_evidence" };
+  const url = `${env.url.replace(/\/$/, "")}/functions/v1/market-data?type=${kind}`;
+  try {
+    const signal = timeoutSignal(MARKET_DATA_TIMEOUT_MS);
+    const res = await fetchImpl(url, {
+      headers: {
+        Authorization: `Bearer ${env.key}`,
+        apikey: env.key
+      },
+      ...signal ? { signal } : {}
+    });
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      if (!res.ok) return { ...UNAVAILABLE, reason: reasonFromHttpStatus(res.status) };
+      return { ...UNAVAILABLE, reason: "malformed_payload" };
+    }
+    return parseMarketDataPayload(res.status, body);
+  } catch (err) {
+    return classifyFetchFailure(err);
+  }
+}
+function sessionForCategory(category) {
+  if (category === "premarket") return "premarket";
+  if (category === "afterhours") return "afterhours";
+  return "regular";
+}
+function canonicalizeLiveTickers(payload, category, nowMs = Date.now()) {
+  const session = sessionForCategory(category);
+  const tickers = polygonTickersFromResponse(payload);
+  return tickers.map((t) => moverFromPolygonTicker(t, session, nowMs));
+}
+function presentValidatedMovers(movers, category, limit, nowMs = Date.now()) {
+  return presentCanonicalMovers(movers, category, limit, nowMs);
+}
+var REASON_PRIORITY = [
+  "auth_failed",
+  "timeout",
+  "network_failure",
+  "malformed_payload",
+  "upstream_error",
+  "missing_evidence",
+  "last_success"
+];
+function mergeMarketDataFetches(results) {
+  if (results.length === 0) return { ...UNAVAILABLE, reason: "missing_evidence" };
+  const current = results.filter((r) => r.freshness === "current");
+  if (current.length > 0) {
+    return {
+      tickers: current.flatMap((r) => r.tickers),
+      unavailable: false,
+      freshness: "current",
+      reason: null
+    };
+  }
+  const lastSuccess = results.filter((r) => r.freshness === "last_success");
+  if (lastSuccess.length > 0) {
+    return {
+      tickers: lastSuccess.flatMap((r) => r.tickers),
+      unavailable: false,
+      freshness: "last_success",
+      reason: "last_success"
+    };
+  }
+  const reasons = results.map((r) => r.reason).filter((r) => r !== null);
+  const reason = REASON_PRIORITY.find((code) => reasons.includes(code)) ?? "upstream_error";
+  return { ...UNAVAILABLE, reason };
+}
+function composeMoverFeedStatus(fetchState, qualifyingCount) {
+  if (fetchState === "unavailable") return "unavailable";
+  if (fetchState === "last_success") return "stale";
+  return qualifyingCount > 0 ? "available" : "empty";
+}
+function buildMoverToolResponse(movers, fetchState, reason) {
+  const status = composeMoverFeedStatus(fetchState, movers.length);
+  const presented = status === "unavailable" ? [] : movers;
+  const structuredContent = {
+    movers: presented,
+    status
+  };
+  if (status === "unavailable") {
+    structuredContent.reason = reason ?? "upstream_error";
+    structuredContent.message = MOVER_UNAVAILABLE_MESSAGE;
+  } else if (status === "stale") {
+    structuredContent.reason = "last_success";
+    structuredContent.message = MOVER_STALE_MESSAGE;
+    structuredContent.freshness = "last_success";
+  }
+  return {
+    content: [{ type: "text", text: JSON.stringify(presented) }],
+    structuredContent
+  };
+}
+function assembleMarketMoversResponse(payloads, category, limit, nowMs) {
+  const merged = mergeMarketDataFetches(payloads);
+  if (merged.freshness === "unavailable") {
+    return buildMoverToolResponse([], "unavailable", merged.reason);
+  }
+  const validated = canonicalizeLiveTickers(merged.tickers, category, nowMs);
+  const presented = presentValidatedMovers(validated, category, limit, nowMs);
+  return buildMoverToolResponse(presented.movers, merged.freshness, merged.reason);
+}
 var get_market_movers_default = defineTool3({
   name: "get_market_movers",
   title: "Get market movers",
@@ -76,17 +934,51 @@ var get_market_movers_default = defineTool3({
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ type, limit }) => {
-    const supabase = createClient3(
-      process.env.SUPABASE_URL ?? "",
-      process.env.SUPABASE_PUBLISHABLE_KEY ?? "",
-      { auth: { persistSession: false, autoRefreshToken: false } }
-    );
-    const { data, error } = await supabase.from("market_movers").select("symbol,name,price,change_percent,volume,type,session_date").eq("type", type).order("change_percent", { ascending: type === "loser" }).limit(limit ?? 10);
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data ?? []) }],
-      structuredContent: { movers: data ?? [] }
+    const env = {
+      url: process.env.SUPABASE_URL ?? "",
+      key: process.env.SUPABASE_PUBLISHABLE_KEY ?? ""
     };
+    const supabase = createClient3(env.url, env.key, {
+      auth: { persistSession: false, autoRefreshToken: false }
+    });
+    const cap = limit ?? 10;
+    const nowMs = Date.now();
+    if (type === "afterhours") {
+      const [{ data: stateRows, error: stateError }, { data: resultRows, error }] = await Promise.all([
+        supabase.from("after_hours_feed_state").select("state_key,generation_id,status,session_date,synced_at").eq("state_key", "current").limit(1),
+        supabase.from("after_hours_mover_results").select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of")
+      ]);
+      if (stateError || error) {
+        return buildMoverToolResponse([], "unavailable", "upstream_error");
+      }
+      const state = (stateRows ?? [])[0];
+      const gen = typeof state?.generation_id === "string" ? state.generation_id : null;
+      if (!gen) {
+        return buildMoverToolResponse([], "unavailable", "missing_evidence");
+      }
+      const validated = (resultRows ?? []).filter((r) => r.generation_id === gen).map(
+        (r) => moverFromExtendedObservation({
+          symbol: r.symbol,
+          name: r.company_name,
+          extendedLast: r.extended_last,
+          regularClose: r.regular_close,
+          volume: r.volume,
+          providerAsOf: r.provider_as_of,
+          changePercent: r.change_percent,
+          source: SOURCE_AFTER_HOURS_FEED
+        }, nowMs)
+      );
+      const presented = presentValidatedMovers(validated, "afterhours", cap, nowMs);
+      const syncedAt = typeof state?.synced_at === "string" ? state.synced_at : "";
+      const stale = syncedAt !== "" && isAfterHoursGenerationStale(syncedAt, nowMs);
+      if (stale) {
+        return buildMoverToolResponse(presented.movers, "last_success", "last_success");
+      }
+      return buildMoverToolResponse(presented.movers, "current", null);
+    }
+    const kinds = type === "loser" ? ["losers"] : type === "gainer" ? ["gainers"] : ["gainers", "losers"];
+    const payloads = await Promise.all(kinds.map((k) => fetchMarketDataTickers(k, env)));
+    return assembleMarketMoversResponse(payloads, type, cap, nowMs);
   }
 });
 

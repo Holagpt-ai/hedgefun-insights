@@ -1,27 +1,15 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
-import { resolveCurrentPrice } from "@/lib/price-utils";
-import { MoversTable, type MoverRow } from "@/components/markets/MarketMoversLayout";
+import { MoversTable } from "@/components/markets/MarketMoversLayout";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "@/hooks/use-toast";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { mapPolygonMovers } from "@/lib/markets/movers-integrity";
 
 const TIME_TABS = ["Today"];
-
-function mapRows(tickers: any[]): MoverRow[] {
-  if (!Array.isArray(tickers) || tickers.length === 0) return [];
-  return tickers.map((t: any) => ({
-    symbol: t.ticker || t.symbol || "",
-    name: t.name || t.details?.name || t.ticker || t.symbol || "",
-    price: resolveCurrentPrice(t),
-    change: t.todaysChange ?? 0,
-    changePercent: t.todaysChangePerc ?? 0,
-    volume: t.day?.v > 0 ? t.day.v : (t.min?.av ?? t.min?.v ?? 0),
-  }));
-}
 
 export default function PremarketPage() {
   const [activeTime, setActiveTime] = useState("Today");
@@ -30,8 +18,7 @@ export default function PremarketPage() {
     queryKey: ["premarket-gainers"],
     queryFn: async () => {
       const res = await getTopGainers();
-      const tickers = Array.isArray(res) ? res : (res?.tickers ?? []);
-      return mapRows(tickers);
+      return mapPolygonMovers(res, "premarket", { sort: "percent_desc" }).rows;
     },
     staleTime: 30_000,
     retry: 3,
@@ -42,8 +29,7 @@ export default function PremarketPage() {
     queryKey: ["premarket-losers"],
     queryFn: async () => {
       const res = await getTopLosers();
-      const tickers = Array.isArray(res) ? res : (res?.tickers ?? []);
-      return mapRows(tickers);
+      return mapPolygonMovers(res, "premarket", { sort: "percent_asc" }).rows;
     },
     staleTime: 30_000,
     retry: 3,

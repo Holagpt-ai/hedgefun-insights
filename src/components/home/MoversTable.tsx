@@ -5,20 +5,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
-import { resolveCurrentPrice } from "@/lib/price-utils";
+import { resolveMarketSession } from "@/lib/price-utils";
+import {
+  currentMoversEmptyMessage,
+  mapPolygonMovers,
+  type MoverListRow,
+  type MoverSession,
+} from "@/lib/markets/movers-integrity";
 
-interface Mover {
-  ticker: string;
-  todaysChangePerc?: number;
-  todaysChange?: number;
-  day?: { c?: number; v?: number };
-  min?: { c?: number };
-  prevDay?: { c?: number };
-  // Fallback fields from some Polygon responses
-  symbol?: string;
-  name?: string;
-  price?: number;
-  change_percent?: number;
+function toMoverSession(session: ReturnType<typeof resolveMarketSession>): MoverSession {
+  if (session === "pre-market") return "premarket";
+  if (session === "after-hours") return "afterhours";
+  return "regular";
 }
 
 function MoversTable({
@@ -26,18 +24,17 @@ function MoversTable({
   linkTo,
   data,
   isLoading,
-  type,
   refetch,
 }: {
   title: string;
   linkTo: string;
-  data: Mover[] | undefined;
+  data: MoverListRow[] | undefined;
   isLoading: boolean;
   type: "gainers" | "losers";
   refetch?: () => void;
 }) {
   const navigate = useNavigate();
-  const positive = type === "gainers";
+  const marketClosed = resolveMarketSession() === "closed";
 
   const select = (ticker: string) => {
     trackEvent("stock_search", { ticker });
@@ -69,7 +66,7 @@ function MoversTable({
           <div>
             <RefreshCw className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-[0.875rem] text-muted-foreground">
-              Market data is refreshing...
+              {currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed })}
             </p>
             {refetch && (
               <button
@@ -93,40 +90,35 @@ function MoversTable({
               </tr>
             </thead>
             <tbody>
-              {rows.slice(0, 10).map((m, i) => {
-                const ticker = m.ticker || m.symbol || "";
-                const price = m.price ?? resolveCurrentPrice(m);
-                const changePct = m.todaysChangePerc ?? m.change_percent ?? 0;
-                return (
-                  <tr
-                    key={i}
-                    className="border-b border-border last:border-b-0 hover:bg-accent/50 transition-colors"
-                  >
-                    <td className="px-3 py-2">
-                      <button
-                        onClick={() => select(ticker)}
-                        className="ticker-symbol text-accent-blue hover:underline text-sm"
-                      >
-                        {ticker}
-                      </button>
-                    </td>
-                    <td className="px-3 py-2 text-foreground hidden sm:table-cell truncate max-w-[180px]">
-                      {m.name ?? ticker}
-                    </td>
-                    <td className="px-3 py-2 text-right text-foreground tabular-nums">
-                      ${price.toFixed(2)}
-                    </td>
-                    <td
-                      className={cn(
-                        "px-3 py-2 text-right tabular-nums font-medium",
-                        positive ? "price-positive" : "price-negative"
-                      )}
+              {rows.slice(0, 10).map((m) => (
+                <tr
+                  key={m.symbol}
+                  className="border-b border-border last:border-b-0 hover:bg-accent/50 transition-colors"
+                >
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={() => select(m.symbol)}
+                      className="ticker-symbol text-accent-blue hover:underline text-sm"
                     >
-                      {positive ? "↑" : "↓"} {Math.abs(changePct).toFixed(2)}%
-                    </td>
-                  </tr>
-                );
-              })}
+                      {m.symbol}
+                    </button>
+                  </td>
+                  <td className="px-3 py-2 text-foreground hidden sm:table-cell truncate max-w-[180px]">
+                    {m.name}
+                  </td>
+                  <td className="px-3 py-2 text-right text-foreground tabular-nums">
+                    ${m.price.toFixed(2)}
+                  </td>
+                  <td
+                    className={cn(
+                      "px-3 py-2 text-right tabular-nums font-medium",
+                      m.changePercent >= 0 ? "price-positive" : "price-negative",
+                    )}
+                  >
+                    {m.changePercent >= 0 ? "↑" : "↓"} {Math.abs(m.changePercent).toFixed(2)}%
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -136,9 +128,13 @@ function MoversTable({
 }
 
 export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
+  const session = resolveMarketSession();
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["top-gainers"],
-    queryFn: getTopGainers,
+    queryKey: ["top-gainers", session],
+    queryFn: async () => {
+      const raw = await getTopGainers();
+      return mapPolygonMovers(raw, toMoverSession(session), { sort: "percent_desc" }).rows;
+    },
     staleTime: 60_000,
     retry: 3,
     retryDelay: 2000,
@@ -157,9 +153,13 @@ export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
 }
 
 export function TopLosersTable({ title = "Top Losers" }: { title?: string }) {
+  const session = resolveMarketSession();
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ["top-losers"],
-    queryFn: getTopLosers,
+    queryKey: ["top-losers", session],
+    queryFn: async () => {
+      const raw = await getTopLosers();
+      return mapPolygonMovers(raw, toMoverSession(session), { sort: "percent_asc" }).rows;
+    },
     staleTime: 60_000,
     retry: 3,
     retryDelay: 2000,

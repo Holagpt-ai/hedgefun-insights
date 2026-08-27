@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { MoversTable, type MoverRow } from "@/components/markets/MarketMoversLayout";
+import { MoversTable } from "@/components/markets/MarketMoversLayout";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { AdBanner } from "@/components/layout/AdBanner";
@@ -7,20 +7,9 @@ import { toast } from "@/hooks/use-toast";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { useAfterHoursFeed } from "@/hooks/useAfterHoursFeed";
 import { parseTimestampMs } from "@/lib/screeners/contract";
-import type { AfterHoursMoverResult } from "@/lib/after-hours-feed";
+import { mapAfterHoursFeed } from "@/lib/markets/movers-integrity";
 
 const TIME_TABS = ["Today"];
-
-function asMoverRows(rows: AfterHoursMoverResult[]): MoverRow[] {
-  return rows.map((r) => ({
-    symbol: r.symbol,
-    name: r.company_name?.trim() || r.symbol,
-    price: r.extended_last,
-    change: r.change_amount,
-    changePercent: r.change_percent,
-    volume: r.volume ?? 0,
-  }));
-}
 
 function formatTs(iso: string | null): string | null {
   if (!iso) return null;
@@ -96,7 +85,7 @@ export default function AfterHoursPage() {
 
         <MoversTable
           sectionTitle="After-Hours Gainers"
-          rows={asMoverRows(view.gainers)}
+          rows={mapAfterHoursFeed(view.gainers, { sort: "percent_desc" })}
           isLoading={isLoading}
           defaultSortDesc={true}
           colorMode="green"
@@ -106,7 +95,7 @@ export default function AfterHoursPage() {
 
         <MoversTable
           sectionTitle="After-Hours Losers"
-          rows={asMoverRows(view.losers)}
+          rows={mapAfterHoursFeed(view.losers, { sort: "percent_asc" })}
           isLoading={isLoading}
           defaultSortDesc={false}
           colorMode="red"

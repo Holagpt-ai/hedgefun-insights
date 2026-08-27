@@ -66,6 +66,7 @@ async function fetchWithRetry(
 
 // --- In-memory cache (persists for edge function instance lifetime) ---
 const cache = new Map<string, { data: unknown; ts: number }>();
+const lastSuccess = new Map<string, unknown>();
 const CACHE_TTL = 60_000;
 
 function getCached(key: string): unknown | null {
@@ -78,8 +79,37 @@ function getCached(key: string): unknown | null {
   return entry.data;
 }
 
+function getLastSuccess(key: string): unknown | null {
+  return lastSuccess.get(key) ?? null;
+}
+
 function setCache(key: string, data: unknown): void {
   cache.set(key, { data, ts: Date.now() });
+  lastSuccess.set(key, data);
+}
+
+const UNAVAILABLE_MOVERS = {
+  status: "ERROR",
+  message: "Data temporarily unavailable",
+  tickers: [],
+  results: [],
+  data: [],
+};
+
+function wrapLastSuccessTickers(tickers: unknown[]): Record<string, unknown> {
+  return {
+    tickers,
+    status: "stale",
+    freshness: "last_success",
+  };
+}
+
+function lastSuccessOrUnavailable(cacheKey: string): unknown {
+  const prior = getLastSuccess(cacheKey);
+  if (Array.isArray(prior)) {
+    return wrapLastSuccessTickers(prior);
+  }
+  return UNAVAILABLE_MOVERS;
 }
 
 serve(async (req) => {
@@ -96,6 +126,7 @@ serve(async (req) => {
   }
 
   const cors = corsHeaders;
+  let staleFallbackKey: string | null = null;
 
   try {
     const { searchParams } = new URL(req.url);
@@ -110,6 +141,7 @@ serve(async (req) => {
       case "gainers":
       case "losers": {
         const cacheKey = type;
+        staleFallbackKey = cacheKey;
         const cached = getCached(cacheKey);
         if (cached) {
           data = cached;
@@ -117,10 +149,30 @@ serve(async (req) => {
         }
 
         const endpoint = type === "gainers" ? "gainers" : "losers";
-        const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
-        const json = await res.json();
-        console.log("[market-data] polygon response status:", res.status, "tickers count:", json.tickers?.length ?? 0);
-        const tickers = (json.tickers ?? []).slice(0, 20);
+        let res: Response;
+        try {
+          res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
+        } catch {
+          data = lastSuccessOrUnavailable(cacheKey);
+          break;
+        }
+        if (!res.ok) {
+          data = lastSuccessOrUnavailable(cacheKey);
+          break;
+        }
+        let json: { tickers?: unknown };
+        try {
+          json = await res.json();
+        } catch {
+          data = lastSuccessOrUnavailable(cacheKey);
+          break;
+        }
+        console.log("[market-data] polygon response status:", res.status, "tickers count:", Array.isArray(json.tickers) ? json.tickers.length : 0);
+        if (!Array.isArray(json.tickers)) {
+          data = lastSuccessOrUnavailable(cacheKey);
+          break;
+        }
+        const tickers = json.tickers.slice(0, 20);
 
         // Enrich with company names from stocks table first
         const symbols = tickers.map((t: any) => t.ticker).filter(Boolean);
@@ -149,16 +201,42 @@ serve(async (req) => {
           await Promise.all(fetches);
         }
 
-        data = tickers.map((t: any) => ({
-          ...t,
-          name: cleanName(nameMap.get(t.ticker) || t.ticker),
-          price: t.day?.c > 0 ? t.day.c : (t.min?.c ?? t.prevDay?.c ?? 0),
-        }));
+        data = tickers.flatMap((t: Record<string, unknown>) => {
+          const ticker = typeof t.ticker === "string" ? t.ticker : "";
+          const day = t.day && typeof t.day === "object" ? t.day as Record<string, unknown> : {};
+          const min = t.min && typeof t.min === "object" ? t.min as Record<string, unknown> : {};
+          const lastTrade = t.lastTrade && typeof t.lastTrade === "object" ? t.lastTrade as Record<string, unknown> : {};
+          const dayC = typeof day.c === "number" && Number.isFinite(day.c) && day.c > 0 ? day.c : null;
+          const lastP = typeof lastTrade.p === "number" && Number.isFinite(lastTrade.p) && lastTrade.p > 0 ? lastTrade.p : null;
+          const minC = typeof min.c === "number" && Number.isFinite(min.c) && min.c > 0 ? min.c : null;
+          const price = dayC ?? lastP ?? minC;
+          if (!ticker || price === null) {
+            let asOf = "none";
+            if (typeof lastTrade.t === "number" && Number.isFinite(lastTrade.t) && lastTrade.t > 0) {
+              const ms = lastTrade.t > 1e14 ? Math.round(lastTrade.t / 1e6) : lastTrade.t;
+              if (Number.isFinite(ms) && ms > 0) asOf = new Date(ms).toISOString();
+            }
+            console.log([
+              "mover_rejected",
+              `symbol=${ticker || "unknown"}`,
+              "provider=polygon",
+              `provider_as_of=${asOf}`,
+              "reason=invalid_current_price",
+            ].join(" "));
+            return [];
+          }
+          return [{
+            ...t,
+            name: cleanName(nameMap.get(ticker) || ticker),
+            price,
+          }];
+        });
 
         // GET reads must not silently mutate production mover rows.
         // After-hours classification is persisted by sync-after-hours-movers.
+        // Do not persist snapshots here: market_movers has no unique current-row identity.
 
-        if ((data as any[]).length > 0) setCache(cacheKey, data);
+        if (Array.isArray(data) && data.length > 0) setCache(cacheKey, data);
         break;
       }
       case "snapshot": {
@@ -325,18 +403,10 @@ serve(async (req) => {
     });
   } catch (e) {
     console.error("market-data error:", e);
-    return new Response(
-      JSON.stringify({
-        status: "ERROR",
-        message: "Data temporarily unavailable",
-        tickers: [],
-        results: [],
-        data: [],
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
-    );
+    const fallback = staleFallbackKey ? lastSuccessOrUnavailable(staleFallbackKey) : UNAVAILABLE_MOVERS;
+    return new Response(JSON.stringify(fallback), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

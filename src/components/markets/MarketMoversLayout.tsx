@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { resolveMarketSession } from "@/lib/price-utils";
+import { currentMoversEmptyMessage } from "@/lib/markets/movers-integrity";
 import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
@@ -161,6 +162,7 @@ export function MoversTable({
     columns,
     state: { sorting },
     onSortingChange: setSorting,
+    getRowId: (row) => row.symbol,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
@@ -245,7 +247,7 @@ export function MoversTable({
         return (
           <div className="py-12 text-center">
             <p className="text-muted-foreground mb-3">
-              {search ? "No results match your search." : showEmpty ? "Markets are currently closed. Data will be available when markets reopen." : "Loading market data…"}
+              {currentMoversEmptyMessage({ hasSearchQuery: Boolean(search), marketClosed: showEmpty })}
             </p>
             {refetch && (
               <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">

@@ -5,10 +5,21 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  currentMoversEmptyMessage,
+  mapAfterHoursFeed,
+  mapPolygonMovers,
+  polygonTickersFromResponse,
+  type MoverListRow,
+  type MoverSession,
+  type MoverSort,
+} from "@/lib/markets/movers-integrity";
+import { resolveMarketSession } from "@/lib/price-utils";
 
-const TYPE_MAP: Record<string, { title: string; fetcher?: () => Promise<any> }> = {
-  gainers: { title: "Top Gainers", fetcher: getTopGainers },
-  losers: { title: "Top Losers", fetcher: getTopLosers },
+const TYPE_MAP: Record<string, { title: string }> = {
+  gainers: { title: "Top Gainers" },
+  losers: { title: "Top Losers" },
   active: { title: "Most Active" },
   premarket: { title: "Pre-Market Movers" },
   afterhours: { title: "After-Hours Movers" },
@@ -16,23 +27,54 @@ const TYPE_MAP: Record<string, { title: string; fetcher?: () => Promise<any> }> 
 
 const TYPES = ["gainers", "losers", "active", "premarket", "afterhours"];
 
+function sessionForType(type: string): MoverSession {
+  if (type === "premarket") return "premarket";
+  if (type === "afterhours") return "afterhours";
+  return "regular";
+}
+
+function sortForType(type: string): MoverSort {
+  if (type === "losers") return "percent_asc";
+  if (type === "active") return "volume_desc";
+  return "percent_desc";
+}
+
+async function fetchCanonicalMovers(type: string): Promise<MoverListRow[]> {
+  if (type === "afterhours") {
+    const [{ data: stateRows }, { data: resultRows }] = await Promise.all([
+      supabase.from("after_hours_feed_state").select("state_key,generation_id,status").eq("state_key", "current").limit(1),
+      supabase.from("after_hours_mover_results").select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of"),
+    ]);
+    const gen = (stateRows ?? [])[0]?.generation_id;
+    const matching = (resultRows ?? []).filter((r) => gen && r.generation_id === gen);
+    return mapAfterHoursFeed(matching, { sort: "percent_desc" });
+  }
+
+  const kinds: Array<"gainers" | "losers"> =
+    type === "losers" ? ["losers"] : type === "gainers" ? ["gainers"] : ["gainers", "losers"];
+  const payloads = await Promise.all(kinds.map((k) => (k === "gainers" ? getTopGainers() : getTopLosers())));
+  const combined = payloads.flatMap((p) => polygonTickersFromResponse(p));
+  return mapPolygonMovers(combined, sessionForType(type), { sort: sortForType(type) }).rows;
+}
+
 const MoversPage = () => {
   const { type = "gainers" } = useParams<{ type: string }>();
   const navigate = useNavigate();
   const config = TYPE_MAP[type] ?? TYPE_MAP.gainers;
+  const marketClosed = resolveMarketSession() === "closed";
 
   const { data, isLoading } = useQuery({
     queryKey: ["movers", type],
-    queryFn: config.fetcher ?? (async () => []),
+    queryFn: () => fetchCanonicalMovers(type),
     staleTime: 60_000,
   });
-
-  const positive = type === "gainers";
 
   usePageSeo({
     title: "Stock Market Movers — Top Gainers & Losers | HedgeFun",
     description: "See today's top stock market movers including gainers, losers, and most active stocks on HedgeFun.",
   });
+
+  const rows = data ?? [];
 
   return (
     <div className="p-4">
@@ -55,8 +97,10 @@ const MoversPage = () => {
 
       {isLoading ? (
         <div className="space-y-2">{Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
-      ) : !config.fetcher ? (
-        <p className="text-sm text-muted-foreground">Data for {config.title} coming soon.</p>
+      ) : rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          {currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed })}
+        </p>
       ) : (
         <div className="fintech-card overflow-x-auto">
           <table className="w-full text-sm min-w-[480px]">
@@ -69,23 +113,18 @@ const MoversPage = () => {
               </tr>
             </thead>
             <tbody>
-              {(data ?? []).slice(0, 50).map((m: any, i: number) => {
-                const ticker = m.ticker || m.symbol || "";
-                const price = m.price ?? (m.day?.c > 0 ? m.day.c : (m.min?.c ?? m.prevDay?.c ?? 0));
-                const changePct = m.todaysChangePerc ?? m.change_percent ?? 0;
-                return (
-                  <tr key={i} className="border-b border-border last:border-b-0 hover:bg-accent/50">
-                    <td className="px-3 py-2">
-                      <button onClick={() => { trackEvent("stock_search", { ticker }); navigate(`/stocks/${ticker.toLowerCase()}`); }} className="ticker-symbol text-accent-blue hover:underline text-sm">{ticker}</button>
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums">${price.toFixed(2)}</td>
-                    <td className={cn("px-3 py-2 text-right tabular-nums font-medium", positive ? "price-positive" : "price-negative")}>
-                      {positive ? "↑" : "↓"} {Math.abs(changePct).toFixed(2)}%
-                    </td>
-                    <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell">{(m.day?.v ?? m.volume ?? 0).toLocaleString()}</td>
-                  </tr>
-                );
-              })}
+              {rows.slice(0, 50).map((m) => (
+                <tr key={m.symbol} className="border-b border-border last:border-b-0 hover:bg-accent/50">
+                  <td className="px-3 py-2">
+                    <button onClick={() => { trackEvent("stock_search", { ticker: m.symbol }); navigate(`/stocks/${m.symbol.toLowerCase()}`); }} className="ticker-symbol text-accent-blue hover:underline text-sm">{m.symbol}</button>
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums">${m.price.toFixed(2)}</td>
+                  <td className={cn("px-3 py-2 text-right tabular-nums font-medium", m.changePercent >= 0 ? "price-positive" : "price-negative")}>
+                    {m.changePercent >= 0 ? "↑" : "↓"} {Math.abs(m.changePercent).toFixed(2)}%
+                  </td>
+                  <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell">{m.volume.toLocaleString()}</td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
