@@ -21,7 +21,7 @@ import { trackEvent } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
 import {
   initialMoversSorting,
-  volumeSortValue,
+  compareMoverVolume,
   type MoversDefaultSort,
 } from "@/components/markets/movers-table-sort";
 
@@ -155,7 +155,7 @@ export function MoversTable({
         header: "Volume",
         size: 110,
         sortingFn: (rowA, rowB, columnId) =>
-          volumeSortValue(rowA.getValue(columnId)) - volumeSortValue(rowB.getValue(columnId)),
+          compareMoverVolume(rowA.getValue(columnId), rowB.getValue(columnId)),
         cell: ({ getValue }) => {
           const v = getValue<number>();
           return (

@@ -8,6 +8,7 @@ import {
   type MoverRow,
 } from "@/components/markets/MarketMoversLayout";
 import {
+  compareMoverVolume,
   defaultSortForMoverKind,
   initialMoversSorting,
 } from "@/components/markets/movers-table-sort";
@@ -81,6 +82,50 @@ describe("defaultSortForMoverKind", () => {
   });
 });
 
+describe("compareMoverVolume", () => {
+  it("always returns a finite negative, zero, or positive number", () => {
+    const samples: unknown[] = [
+      9_000_000,
+      0,
+      -1,
+      Number.NaN,
+      Number.POSITIVE_INFINITY,
+      Number.NEGATIVE_INFINITY,
+      undefined,
+      null,
+      "100",
+    ];
+    for (const a of samples) {
+      for (const b of samples) {
+        const result = compareMoverVolume(a, b);
+        expect(Number.isFinite(result)).toBe(true);
+        expect([-1, 0, 1]).toContain(result);
+      }
+    }
+  });
+
+  it("compares two valid volumes numerically", () => {
+    expect(compareMoverVolume(9_000_000, 100_000)).toBe(1);
+    expect(compareMoverVolume(100_000, 9_000_000)).toBe(-1);
+    expect(compareMoverVolume(5_000_000, 5_000_000)).toBe(0);
+  });
+
+  it("ranks valid volume, including zero, above invalid volume", () => {
+    expect(compareMoverVolume(1, Number.NaN)).toBe(1);
+    expect(compareMoverVolume(0, Number.NaN)).toBe(1);
+    expect(compareMoverVolume(0, -1)).toBe(1);
+    expect(compareMoverVolume(0, Number.POSITIVE_INFINITY)).toBe(1);
+    expect(compareMoverVolume(Number.NaN, 0)).toBe(-1);
+  });
+
+  it("treats two invalid volumes as equal by returning exactly 0", () => {
+    expect(compareMoverVolume(Number.NaN, -1)).toBe(0);
+    expect(compareMoverVolume(-5, Number.POSITIVE_INFINITY)).toBe(0);
+    expect(compareMoverVolume(Number.NEGATIVE_INFINITY, Number.NaN)).toBe(0);
+    expect(compareMoverVolume(undefined, null)).toBe(0);
+  });
+});
+
 describe("Most Active visible table sort", () => {
   const mixed: MoverRow[] = [
     row({ symbol: "LOWV", volume: 100_000, changePercent: 40 }),
@@ -100,14 +145,34 @@ describe("Most Active visible table sort", () => {
     expect(visibleSymbols()).toEqual(["HIV", "MID", "LOWV"]);
   });
 
-  it("places missing or unavailable volume below valid volume", () => {
+  it("places missing or unavailable volume below valid volume, with zero above invalid", () => {
     renderTable([
-      row({ symbol: "MISS", volume: Number.NaN, changePercent: 90 }),
+      row({ symbol: "ZZZ", volume: Number.NaN, changePercent: 90 }),
       row({ symbol: "ZERO", volume: 0, changePercent: 80 }),
-      row({ symbol: "NEG", volume: -1, changePercent: 70 }),
+      row({ symbol: "AAA", volume: -1, changePercent: 70 }),
       row({ symbol: "REAL", volume: 500_000, changePercent: 1 }),
     ], { defaultSort: defaultSortForMoverKind("active") });
-    expect(visibleSymbols()).toEqual(["REAL", "ZERO", "MISS", "NEG"]);
+    expect(visibleSymbols()).toEqual(["REAL", "ZERO", "AAA", "ZZZ"]);
+  });
+
+  it("orders reverse-alphabetical invalid rows by symbol ascending", () => {
+    renderTable([
+      row({ symbol: "ZZZ", volume: Number.NaN, changePercent: 90 }),
+      row({ symbol: "MMM", volume: Number.POSITIVE_INFINITY, changePercent: 40 }),
+      row({ symbol: "AAA", volume: -8, changePercent: 12 }),
+    ], { defaultSort: defaultSortForMoverKind("active") });
+    expect(visibleSymbols()).toEqual(["AAA", "MMM", "ZZZ"]);
+  });
+
+  it("uses symbol ascending as the tie-break across mixed invalid volumes", () => {
+    renderTable([
+      row({ symbol: "ZETA", volume: Number.NEGATIVE_INFINITY, changePercent: 3 }),
+      row({ symbol: "NOVA", volume: Number.NaN, changePercent: 88 }),
+      row({ symbol: "ACME", volume: -2, changePercent: 40 }),
+      row({ symbol: "ZERO", volume: 0, changePercent: 1 }),
+      row({ symbol: "HIV", volume: 9_000_000, changePercent: 2 }),
+    ], { defaultSort: defaultSortForMoverKind("active") });
+    expect(visibleSymbols()).toEqual(["HIV", "ZERO", "ACME", "NOVA", "ZETA"]);
   });
 
   it("breaks equal volumes deterministically by symbol", () => {

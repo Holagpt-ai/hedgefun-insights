@@ -28,9 +28,21 @@ export function initialMoversSorting(
   return [{ id: sort.id, desc: sort.desc }];
 }
 
-export function volumeSortValue(value: unknown): number {
-  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
-    return Number.NEGATIVE_INFINITY;
-  }
-  return value;
+export function isValidMoverVolume(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0;
+}
+
+/**
+ * Finite volume comparator for TanStack Table.
+ * Always returns -1, 0, or 1. Never subtracts infinities.
+ */
+export function compareMoverVolume(a: unknown, b: unknown): number {
+  const aValid = isValidMoverVolume(a);
+  const bValid = isValidMoverVolume(b);
+  if (!aValid && !bValid) return 0;
+  if (!aValid) return -1;
+  if (!bValid) return 1;
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
 }
