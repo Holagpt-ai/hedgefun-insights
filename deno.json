@@ -1,0 +1,3 @@
+{
+  "exclude": ["supabase/functions/mcp/index.ts"]
+}
