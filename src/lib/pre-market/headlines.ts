@@ -34,10 +34,43 @@ export const FEED_SYNC_UNAVAILABLE = "Feed synchronization status unavailable";
 
 const US_EQUITY = /^[A-Z]{1,5}(?:[.-][A-Z]{1,4})?$/;
 
-const MACRO_PATTERNS: RegExp[] = [
-  /\b(?:fed|fomc|cpi|ppi|jobs report|nonfarm|unemployment|treasury|yields?|inflation|gdp|ecb|bank of japan|oil|crude|opec)\b/i,
-  /\b(?:s&p 500|dow jones|nasdaq|russell 2000|wall street|us stocks?|u\.s\. stocks?)\b/i,
+/** US/global macro with direct US-market implications. */
+const US_MACRO_PATTERNS: RegExp[] = [
+  /\b(?:cpi|ppi|jobs report|nonfarm|unemployment|inflation|gdp|pce|retail sales|ism|consumer confidence)\b/i,
+  /\b(?:fed|fomc|ecb|bank of (?:england|japan|canada)|central bank|rate cuts?|rate hikes?|interest rates?|treasury|yields?|bonds?|powell)\b/i,
+];
+
+const COMMODITY_PATTERNS: RegExp[] = [
+  /\b(?:oil|crude|brent|wti|opec|natural gas|gold|copper|commodit(?:y|ies))\b/i,
+];
+
+const GEOPOLITICS_PATTERNS: RegExp[] = [
+  /\b(?:iran|israel|gaza|ukraine|russia|taiwan|north korea|sanction(?:s|ed)?|missile|strait of hormuz|red sea|houthis?)\b/i,
+  /\b(?:geopolit(?:ical|ics)|military (?:strike|escalation)|war risk|tariffs?|trade war)\b/i,
+];
+
+const INDEX_SECTOR_PATTERNS: RegExp[] = [
+  /\b(?:s&p 500|dow jones|nasdaq|russell 2000|wall street|us stocks?|u\.s\. stocks?|mega[- ]caps?)\b/i,
   /\b(?:market(?:s)? (?:rally|selloff|sell-off|plunge|surge|open|close))\b/i,
+  /\b(?:sector[- ]wide|broad(?:[- ]based)? (?:rally|selloff|sell-off))\b/i,
+];
+
+/** Union used so routine filings that are also macro are not dropped. */
+const MACRO_PATTERNS: RegExp[] = [
+  ...US_MACRO_PATTERNS,
+  ...COMMODITY_PATTERNS,
+  ...GEOPOLITICS_PATTERNS,
+  ...INDEX_SECTOR_PATTERNS,
+];
+
+/**
+ * Isolated company press with no demonstrated broad US-market relevance.
+ * Demoted, never deleted from View All.
+ */
+const ISOLATED_COMPANY_PR: RegExp[] = [
+  /\b(?:share[- ]?buybacks?|share repurchases?|repurchase (?:program|programme|plan)s?)\b/i,
+  /\b(?:announces?|announced|declares?|declared)\b.{0,40}\b(?:dividend|buyback|repurchase)\b/i,
+  /\b(?:press release|company announcement)\b/i,
 ];
 
 const LOW_MATERIALITY: RegExp[] = [
@@ -93,13 +126,34 @@ function relatedSymbols(raw: unknown): string[] {
   return out;
 }
 
+function hasBroadMarketEvidence(headline: string): boolean {
+  return (
+    US_MACRO_PATTERNS.some((p) => p.test(headline)) ||
+    COMMODITY_PATTERNS.some((p) => p.test(headline)) ||
+    GEOPOLITICS_PATTERNS.some((p) => p.test(headline)) ||
+    INDEX_SECTOR_PATTERNS.some((p) => p.test(headline)) ||
+    HIGH_MATERIALITY.some((p) => p.test(headline))
+  );
+}
+
+/**
+ * Deterministic market-relevance score from headline text plus optional
+ * provider `related` symbols. `category` is too coarse (markets/stocks/ipo/etf/general)
+ * to drive ranking. Related tickers are often absent from the workspace query.
+ */
 export function materialityScore(headline: string, symbols: string[]): number {
   let score = 10;
-  if (MACRO_PATTERNS.some((p) => p.test(headline))) score += 40;
+  if (US_MACRO_PATTERNS.some((p) => p.test(headline))) score += 50;
+  if (COMMODITY_PATTERNS.some((p) => p.test(headline))) score += 40;
+  if (GEOPOLITICS_PATTERNS.some((p) => p.test(headline))) score += 35;
+  if (INDEX_SECTOR_PATTERNS.some((p) => p.test(headline))) score += 30;
   if (HIGH_MATERIALITY.some((p) => p.test(headline))) score += 30;
   if (symbols.length === 1) score += 20;
   else if (symbols.length >= 2 && symbols.length <= 3) score += 8;
   if (LOW_MATERIALITY.some((p) => p.test(headline))) score -= 50;
+  if (ISOLATED_COMPANY_PR.some((p) => p.test(headline)) && !hasBroadMarketEvidence(headline)) {
+    score -= 40;
+  }
   return score;
 }
 

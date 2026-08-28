@@ -66,4 +66,31 @@ describe("RiskAttentionList ticker rollup", () => {
     );
     expect(screen.getByText(/Price below VWAP/)).toBeTruthy();
   });
+
+  it("renders a compact system notice for aggregated data-health rows", () => {
+    render(
+      <MemoryRouter>
+        <RiskAttentionList
+          items={[
+            item({
+              id: "system:data_unavailable:watchlist",
+              symbol: null,
+              kind: "data_unavailable",
+              label: "Market data incomplete for 3 watchlist names",
+              detail: "VRAX · SHAZ · NVVE",
+              route: "/dashboard/watchlist",
+              source: "system",
+            }),
+          ]}
+          history={[
+            item({ id: "vrax", symbol: "VRAX", kind: "data_unavailable", label: "Current market snapshot unavailable" }),
+            item({ id: "shaz", symbol: "SHAZ", kind: "data_unavailable", label: "Not enough intraday bars" }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Market data incomplete for 3 watchlist names")).toBeTruthy();
+    expect(screen.getByText("VRAX · SHAZ · NVVE")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "View alert history" })).toBeTruthy();
+  });
 });

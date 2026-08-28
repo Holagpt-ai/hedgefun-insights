@@ -409,6 +409,24 @@ export function etTimestampLabel(iso: string | null): string | null {
   }).format(new Date(t)) + " ET";
 }
 
+/** America/New_York calendar date (YYYY-MM-DD) for a persisted ISO timestamp. */
+export function etCalendarDateFromIso(iso: string | null | undefined): string | null {
+  if (typeof iso !== "string" || !iso.trim()) return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return null;
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(t));
+  const year = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day = parts.find((p) => p.type === "day")?.value;
+  if (!year || !month || !day) return null;
+  return `${year}-${month}-${day}`;
+}
+
 /** Numeric display that never renders a missing value as 0. */
 export function numberOrDash(v: number | null | undefined, fmt: (n: number) => string): string {
   return typeof v === "number" && Number.isFinite(v) ? fmt(v) : "—";

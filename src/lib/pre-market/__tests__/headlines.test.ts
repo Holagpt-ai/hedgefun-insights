@@ -84,4 +84,33 @@ describe("market headlines relevance pipeline", () => {
   it("exports the missing heartbeat disclosure", () => {
     expect(FEED_SYNC_UNAVAILABLE).toBe("Feed synchronization status unavailable");
   });
+
+  it("ranks US macro and geopolitics ahead of isolated company buybacks without dropping them", () => {
+    const rows = rankHeadlines([
+      {
+        id: "buyback",
+        headline: "SalMar announces NOK 1.5bn share buyback programme",
+        source: "Wire",
+        url: "https://ex.com/salmar",
+        published_at: "2026-08-28T09:30:00.000Z",
+      },
+      {
+        id: "cpi",
+        headline: "Spain CPI holds as euro-area inflation stays sticky",
+        source: "Reuters",
+        url: "https://ex.com/spain-cpi",
+        published_at: "2026-08-28T08:00:00.000Z",
+      },
+      {
+        id: "oil",
+        headline: "Oil jumps after Iran tensions threaten Strait of Hormuz supply",
+        source: "Reuters",
+        url: "https://ex.com/oil-iran",
+        published_at: "2026-08-28T08:15:00.000Z",
+      },
+    ], 8);
+    expect(rows.map((r) => r.id)).toEqual(["oil", "cpi", "buyback"]);
+    expect(rows[0].id).not.toBe("buyback");
+    expect(rows.some((r) => r.id === "buyback")).toBe(true);
+  });
 });

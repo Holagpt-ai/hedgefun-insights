@@ -2,6 +2,10 @@ import { ExternalLink } from "lucide-react";
 import { Link } from "react-router-dom";
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
 import { catalystTypeLabel, etTimestampLabel, symbolRoutes, timeOfDayLabel } from "@/lib/pre-market/builders";
+import {
+  catalystPresentationLabel,
+  isCatalystPresentedToday,
+} from "@/lib/pre-market/catalyst-presentation";
 import { groupCatalystsByExactSourceUrl } from "@/lib/session-intelligence/group-catalysts";
 import { TopNReveal } from "@/components/session-intelligence/TopNReveal";
 import type { PreMarketCatalyst } from "@/types/pre-market";
@@ -23,13 +27,9 @@ export function CatalystWatchList({ rows, etDate }: { rows: PreMarketCatalyst[];
                     {catalystTypeLabel(c)}
                   </span>
                   <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
-                    {c.attribution_class === "sector_related"
-                      ? "Sector related"
-                      : c.attribution_class === "provider_associated"
-                        ? "Provider associated"
-                        : "Direct catalyst"}
+                    {catalystPresentationLabel(c)}
                   </span>
-                  {g.rows.some((r) => r.event_date === etDate) && (
+                  {g.rows.some((r) => isCatalystPresentedToday(r, etDate)) && (
                     <span className="rounded-full bg-accent-blue/10 px-2 py-0.5 text-[10px] font-medium text-accent-blue">
                       Today
                     </span>

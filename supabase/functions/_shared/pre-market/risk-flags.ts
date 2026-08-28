@@ -62,23 +62,36 @@ export const EXPIRATION_MS: Record<string, number | null> = {
   alert_earnings_upcoming: 24 * 60 * 60 * 1000,
 };
 
+/**
+ * Trading / account risks rank above generic data-health notices.
+ * Lower number = higher priority.
+ */
 const PRIORITY: Record<string, number> = {
-  data_unavailable: 10,
-  journal_risk_missing: 20,
-  earnings_today: 30,
-  unusual_volume: 40,
-  alert_unusual_volume: 41,
-  direction_state: 50,
-  alert_direction_change: 51,
-  bearish_signal: 60,
-  bullish_signal: 61,
-  alert_market_signal: 70,
-  alert_company_event: 80,
-  alert_earnings_upcoming: 90,
+  journal_risk_missing: 10,
+  earnings_today: 20,
+  unusual_volume: 30,
+  alert_unusual_volume: 31,
+  direction_state: 40,
+  alert_direction_change: 41,
+  bearish_signal: 50,
+  bullish_signal: 51,
+  alert_market_signal: 60,
+  alert_company_event: 70,
+  alert_earnings_upcoming: 80,
+  data_unavailable: 95,
   analysis_failed: 100,
   analysis_pending: 110,
   awaiting_refresh: 120,
 };
+
+export const DATA_UNAVAILABLE_AGGREGATE_ID = "system:data_unavailable:watchlist";
+
+export function dataUnavailableNoticeLabel(nameCount: number): string {
+  const n = Math.max(0, Math.floor(nameCount));
+  return n === 1
+    ? "Market data incomplete for 1 watchlist name"
+    : `Market data incomplete for ${n} watchlist names`;
+}
 
 function sourceFor(kind: string): RiskSource {
   if (kind.startsWith("alert_")) return "watchlist_alert";
@@ -175,6 +188,8 @@ export function consolidateRiskFlags(
     history.push(row);
   }
 
+  const insertionOrder = [...history];
+
   // Newest first for identity collapse. Equal timestamps use a stable id tie-break.
   history.sort(compareNewestFirst);
 
@@ -219,14 +234,69 @@ export function consolidateRiskFlags(
   });
 
   const perTicker = new Map<string, number>();
-  const current: ConsolidatedRiskItem[] = [];
+  const capped: ConsolidatedRiskItem[] = [];
   for (const row of afterDirection) {
     const key = row.symbol ?? `id:${row.id}`;
     const used = perTicker.get(key) ?? 0;
     if (used >= CURRENT_FLAGS_PER_TICKER) continue;
     perTicker.set(key, used + 1);
-    current.push(row);
+    capped.push(row);
   }
 
-  return { current, history };
+  return { current: collapseCurrentDataUnavailable(capped, insertionOrder), history };
+}
+
+/**
+ * Multiple current data-health rows become one compact system notice.
+ * Underlying records stay in history; nothing is deleted.
+ */
+function collapseCurrentDataUnavailable(
+  current: ConsolidatedRiskItem[],
+  insertionOrder: ConsolidatedRiskItem[],
+): ConsolidatedRiskItem[] {
+  const health: ConsolidatedRiskItem[] = [];
+  const rest: ConsolidatedRiskItem[] = [];
+  for (const row of current) {
+    if (row.kind === "data_unavailable") health.push(row);
+    else rest.push(row);
+  }
+  if (health.length < 2) return current;
+
+  const healthSymbols = new Set(
+    health
+      .map((row) => (typeof row.symbol === "string" ? row.symbol.trim() : ""))
+      .filter((symbol) => symbol.length > 0),
+  );
+  const symbols: string[] = [];
+  const seen = new Set<string>();
+  for (const row of insertionOrder) {
+    const symbol = typeof row.symbol === "string" ? row.symbol.trim() : "";
+    if (!symbol || seen.has(symbol) || !healthSymbols.has(symbol)) continue;
+    seen.add(symbol);
+    symbols.push(symbol);
+  }
+  const nameCount = symbols.length > 0 ? symbols.length : health.length;
+  const newest = [...health].sort(compareNewestFirst)[0];
+
+  const aggregate: ConsolidatedRiskItem = {
+    id: DATA_UNAVAILABLE_AGGREGATE_ID,
+    symbol: null,
+    kind: "data_unavailable",
+    label: dataUnavailableNoticeLabel(nameCount),
+    detail: symbols.length > 0 ? symbols.join(" · ") : null,
+    route: "/dashboard/watchlist",
+    source: "system",
+    event_time: newest?.event_time ?? null,
+    current: true,
+    history_key: "system|data_unavailable|aggregate",
+  };
+
+  const merged = [...rest, aggregate];
+  merged.sort((a, b) => {
+    const pa = PRIORITY[a.kind] ?? 500;
+    const pb = PRIORITY[b.kind] ?? 500;
+    if (pa !== pb) return pa - pb;
+    return compareNewestFirst(a, b);
+  });
+  return merged;
 }
