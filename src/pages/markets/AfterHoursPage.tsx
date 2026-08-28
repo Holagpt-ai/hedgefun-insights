@@ -8,6 +8,10 @@ import { usePageSeo } from "@/hooks/usePageSeo";
 import { useAfterHoursFeed } from "@/hooks/useAfterHoursFeed";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import { mapAfterHoursFeed } from "@/lib/markets/movers-integrity";
+import {
+  MOVERS_PAGE_INNER_CLASS,
+  MOVERS_PAGE_SHELL_CLASS,
+} from "@/components/markets/movers-responsive";
 
 const TIME_TABS = ["Today"];
 
@@ -49,9 +53,9 @@ export default function AfterHoursPage() {
             : "Loading";
 
   return (
-    <div className="w-full">
+    <div className={MOVERS_PAGE_SHELL_CLASS}>
       <MarketMoversTabBar />
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className={MOVERS_PAGE_INNER_CLASS}>
         <h1 className="text-[1.75rem] font-bold mb-4 text-foreground">After-Hours Movers</h1>
 
         <div className="flex items-center gap-1 mb-6 overflow-x-auto">

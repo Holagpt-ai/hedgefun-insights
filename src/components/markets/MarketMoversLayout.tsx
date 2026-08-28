@@ -19,11 +19,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { trackEvent } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 import {
   initialMoversSorting,
   compareMoverVolume,
   type MoversDefaultSort,
 } from "@/components/markets/movers-table-sort";
+import {
+  MOVERS_OPTIONAL_COLUMN_CLASS,
+  MOVERS_PAGE_INNER_CLASS,
+  MOVERS_PAGE_SHELL_CLASS,
+  MOVERS_PAGINATION_CLASS,
+  MOVERS_TABLE_CLASS,
+  MOVERS_TABLE_SCROLLER_CLASS,
+  MOVERS_TOOLBAR_CLASS,
+  MOVERS_NAME_TEXT_CLASS,
+  isOptionalMoversColumn,
+} from "@/components/markets/movers-responsive";
 
 export interface MoverRow {
   symbol: string;
@@ -98,7 +110,9 @@ export function MoversTable({
         accessorKey: "name",
         header: "Company Name",
         cell: ({ getValue }) => (
-          <span className="text-[0.875rem] text-foreground">{getValue<string>()}</span>
+          <span className={MOVERS_NAME_TEXT_CLASS} title={getValue<string>()}>
+            {getValue<string>()}
+          </span>
         ),
       },
       {
@@ -194,21 +208,21 @@ export function MoversTable({
   return (
     <div>
       {/* Section Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+      <div className="mb-3 flex min-w-0 flex-col justify-between gap-3 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2">
           <h2 className="text-[1.125rem] font-bold text-foreground">{sectionTitle}</h2>
           <Info className="h-4 w-4 text-muted-foreground" />
           <span className="text-[0.8125rem] text-muted-foreground">Updated {today}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
+        <div className={MOVERS_TOOLBAR_CLASS}>
+          <div className="relative min-w-0 flex-1 sm:flex-none">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
             <input
               type="text"
               placeholder="Find..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="h-8 w-[120px] pl-8 pr-2 text-[0.8125rem] rounded border border-border bg-background"
+              className="h-8 w-full max-w-full pl-8 pr-2 text-[0.8125rem] rounded border border-border bg-background sm:w-[120px]"
             />
           </div>
           <Button variant="outline" size="sm" className="text-[0.8125rem] h-8 gap-1">Indicators</Button>
@@ -269,8 +283,12 @@ export function MoversTable({
           </div>
         );
       })() : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <div
+          className={MOVERS_TABLE_SCROLLER_CLASS}
+          role="region"
+          aria-label={`${sectionTitle} table`}
+        >
+          <table className={MOVERS_TABLE_CLASS}>
             <thead>
               {table.getHeaderGroups().map((hg) => (
                 <tr key={hg.id} className="bg-muted/30" style={{ borderBottom: "2px solid hsl(var(--border))" }}>
@@ -279,7 +297,11 @@ export function MoversTable({
                     return (
                       <th
                         key={header.id}
-                        className="table-header px-3 py-2.5 cursor-pointer select-none text-muted-foreground"
+                        className={cn(
+                          "table-header cursor-pointer select-none px-2 py-2.5 text-muted-foreground md:px-3",
+                          header.id === "symbol" && "whitespace-nowrap",
+                          isOptionalMoversColumn(header.id) && MOVERS_OPTIONAL_COLUMN_CLASS,
+                        )}
                         style={{
                           textAlign: isRight ? "right" : "left",
                           width: header.getSize() !== 150 ? header.getSize() : undefined,
@@ -307,7 +329,16 @@ export function MoversTable({
                   {row.getVisibleCells().map((cell) => {
                     const isRight = ["price", "change", "changePercent", "volume"].includes(cell.column.id);
                     return (
-                      <td key={cell.id} className="px-3 py-2.5" style={{ textAlign: isRight ? "right" : "left" }}>
+                      <td
+                        key={cell.id}
+                        className={cn(
+                          "px-2 py-2.5 md:px-3",
+                          cell.column.id === "symbol" && "whitespace-nowrap",
+                          cell.column.id === "name" && "min-w-0",
+                          isOptionalMoversColumn(cell.column.id) && MOVERS_OPTIONAL_COLUMN_CLASS,
+                        )}
+                        style={{ textAlign: isRight ? "right" : "left" }}
+                      >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </td>
                     );
@@ -320,7 +351,7 @@ export function MoversTable({
       )}
 
       {/* Pagination */}
-      <div className="flex items-center justify-between py-4 border-t border-border">
+      <div className={MOVERS_PAGINATION_CLASS}>
         <Button variant="outline" size="sm" onClick={() => table.previousPage()} disabled={!table.getCanPreviousPage()} className="text-[0.8125rem] h-8">← Previous</Button>
         <div className="flex items-center gap-3 text-[0.8125rem] text-muted-foreground">
           <span>Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}</span>
@@ -362,9 +393,9 @@ export function MarketMoversPage({
   };
 
   return (
-    <div className="w-full">
+    <div className={MOVERS_PAGE_SHELL_CLASS}>
       <MarketMoversTabBar />
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className={MOVERS_PAGE_INNER_CLASS}>
         <h1 className="text-[1.75rem] font-bold mb-4 text-foreground">{pageTitle}</h1>
 
         {/* Time Tab Bar */}
