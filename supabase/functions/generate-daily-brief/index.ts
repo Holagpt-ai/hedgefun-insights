@@ -1,14 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { timingSafeMatchAny } from "../_shared/timing-safe.ts";
+import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
+import { rankHeadlines } from "../_shared/pre-market/headlines.ts";
+import {
+  etDateShift,
+  isoOrNull,
+  normalizeSymbol,
+  normalizeTimeOfDay,
+} from "../_shared/pre-market/contract.ts";
+import {
+  AM_HEADLINE_RANK_POOL,
+  AM_INDEX_SYMBOLS,
+  buildAmV2Snapshot,
+  buildMaterialState,
+  selectBeforeOpenEarningsEvidence,
+  selectDirectCatalysts,
+  selectRankedHeadlines,
+  validateIndexRows,
+  type AmEvidenceBundle,
+  type AttributedCatalystRow,
+} from "../_shared/briefs/am-evidence.ts";
+import { decideAmGeneration, isAmV2Snapshot } from "../_shared/briefs/am-decision.ts";
+import {
+  AM_MAX_TOKENS,
+  AM_MODEL,
+  AM_V2_SYSTEM,
+  PM_MAX_TOKENS,
+  PM_MODEL,
+  PM_SYSTEM,
+  buildAmUserPrompt,
+  buildPmUserPrompt,
+} from "../_shared/briefs/prompts.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const REQUIRED_SYMBOLS = ["SPY", "QQQ", "DIA", "IWM"] as const;
-const FRESHNESS_MS = 10 * 60 * 1000; // 10 minutes
+const FRESHNESS_MS = 10 * 60 * 1000; // 10 minutes — PM V1 unchanged
 
 type BriefType = "am" | "pm";
 
@@ -55,53 +85,114 @@ function sanitizeProviderError(msg: string): string {
   return String(msg).replace(/[A-Za-z0-9_\-]{20,}/g, "***");
 }
 
-const SHARED_GROUNDING = `
-STRICT GROUNDING RULES — the ONLY data you have is a snapshot of four broad US equity ETF proxies:
-- SPY (large-cap S&P 500)
-- QQQ (large-cap Nasdaq 100)
-- DIA (Dow 30)
-- IWM (small-cap Russell 2000)
+function cachedBody(row: {
+  id: string;
+  brief_type: string;
+  brief_date: string;
+  generated_at: string;
+  content: string;
+  market_snapshot: unknown;
+}) {
+  const snap = (row.market_snapshot ?? {}) as { source_checked_at?: string; evidence_checked_at?: string };
+  return {
+    id: row.id,
+    brief_type: row.brief_type,
+    brief_date: row.brief_date,
+    generated_at: row.generated_at,
+    content: row.content,
+    cached: true,
+    source_checked_at: snap.evidence_checked_at ?? snap.source_checked_at ?? row.generated_at,
+  };
+}
 
-You have percent change and current value for each. Nothing else.
+type ValidatedSchedule = {
+  status: "normal" | "early-close";
+  official_close_at: string;
+  release_at: string;
+  source: "polygon_marketstatus";
+  calendar_checked_at: string;
+};
 
-You MUST NOT reference or invent any of the following, because they are not in the data:
-- Earnings, guidance, or company results
-- News headlines, press releases, or announcements
-- Catalysts, product events, or corporate actions
-- Economic data, Fed events, macro releases, or geopolitical events
-- Overnight developments, futures moves, or pre-open/after-hours events beyond the snapshot
-- Causal explanations for moves ("because of…", "driven by…", "on the back of…")
-- Individual stocks, sectors by name, or single-name commentary
-- Predictions stated as facts, price targets, or forecasts
-- Watchlist personalization or any user-specific claim
+function parseMarketSchedule(raw: unknown): ValidatedSchedule | { error: string } | null {
+  if (raw === undefined || raw === null) return null;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { error: "Invalid marketSchedule" };
+  }
+  const s = raw as Record<string, unknown>;
+  const status = s.status;
+  const closeAt = s.official_close_at;
+  const releaseAt = s.release_at;
+  const src = s.source;
+  const cca = s.calendar_checked_at;
+  if (status !== "normal" && status !== "early-close") {
+    return { error: "Invalid marketSchedule" };
+  }
+  if (src !== "polygon_marketstatus") {
+    return { error: "Invalid marketSchedule" };
+  }
+  if (typeof closeAt !== "string" || typeof releaseAt !== "string" || typeof cca !== "string") {
+    return { error: "Invalid marketSchedule" };
+  }
+  const closeMs = Date.parse(closeAt);
+  const releaseMs = Date.parse(releaseAt);
+  const ccaMs = Date.parse(cca);
+  if (!Number.isFinite(closeMs) || !Number.isFinite(releaseMs) || !Number.isFinite(ccaMs)) {
+    return { error: "Invalid marketSchedule" };
+  }
+  if (releaseMs - closeMs !== 15 * 60 * 1000) {
+    return { error: "Invalid marketSchedule" };
+  }
+  return {
+    status,
+    official_close_at: new Date(closeMs).toISOString(),
+    release_at: new Date(releaseMs).toISOString(),
+    source: "polygon_marketstatus",
+    calendar_checked_at: new Date(ccaMs).toISOString(),
+  };
+}
 
-If the four-index snapshot is insufficient to support a conclusion, say so explicitly and stop.
-Distinguish observed percent-change facts from interpretation.
-Prefer lean labels (Bullish Lean, Bearish Lean, Mixed, Insufficient Data) over strong directional claims.
-Do not fabricate. Do not speculate. Stay strictly within the four-ETF percent-change picture.
-`.trim();
-
-const AM_SYSTEM = `You are a market analyst writing a pre-open brief for active traders.
-${SHARED_GROUNDING}
-
-Allowed scope for the AM brief:
-- Broad directional bias implied by the four ETF proxies
-- Relative strength among SPY, QQQ, DIA, IWM
-- Whether leadership appears concentrated (e.g. mega-cap tilt) or broad (small-caps participating)
-- Which of the four proxies are strongest and weakest
-
-Style: professional, concise, 3–4 sentences, no preamble. Reference the tickers by symbol. Never invent facts.`;
-
-const PM_SYSTEM = `You are a market analyst writing a post-close recap for active traders.
-${SHARED_GROUNDING}
-
-Allowed scope for the PM brief:
-- Broad session direction implied by the four ETF proxies
-- Relative index performance among SPY, QQQ, DIA, IWM
-- Large-cap vs small-cap participation (SPY/QQQ/DIA vs IWM)
-- Strongest and weakest of the four proxies
-
-Style: professional, concise, 3–4 sentences, no preamble. Reference the tickers by symbol. Never invent facts.`;
+async function callClaude(args: {
+  apiKey: string;
+  system: string;
+  user: string;
+  maxTokens: number;
+  model: string;
+}): Promise<{ ok: true; text: string } | { ok: false }> {
+  let providerRes: Response;
+  try {
+    providerRes = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": args.apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: args.model,
+        max_tokens: args.maxTokens,
+        system: args.system,
+        messages: [{ role: "user", content: args.user }],
+      }),
+    });
+  } catch (e) {
+    console.error("provider fetch failed:", sanitizeProviderError((e as Error).message ?? ""));
+    return { ok: false };
+  }
+  if (!providerRes.ok) {
+    console.error("provider non-2xx:", providerRes.status);
+    return { ok: false };
+  }
+  let providerJson: { content?: Array<{ type?: string; text?: string }> };
+  try {
+    providerJson = await providerRes.json();
+  } catch {
+    return { ok: false };
+  }
+  const textBlock = providerJson?.content?.find?.((b) => b?.type === "text");
+  const briefContent = typeof textBlock?.text === "string" ? textBlock.text.trim() : "";
+  if (!briefContent) return { ok: false };
+  return { ok: true, text: briefContent };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -130,53 +221,11 @@ serve(async (req) => {
       return json({ error: "Invalid briefType" }, 400);
     }
 
-    // Optional marketSchedule metadata (from dispatcher). Validate strictly if supplied.
-    let validatedSchedule:
-      | {
-          status: "normal" | "early-close";
-          official_close_at: string;
-          release_at: string;
-          source: "polygon_marketstatus";
-          calendar_checked_at: string;
-        }
-      | null = null;
-    if (payload.marketSchedule !== undefined && payload.marketSchedule !== null) {
-      const ms = payload.marketSchedule;
-      if (!ms || typeof ms !== "object" || Array.isArray(ms)) {
-        return json({ error: "Invalid marketSchedule" }, 400);
-      }
-      const s = ms as Record<string, unknown>;
-      const status = s.status;
-      const closeAt = s.official_close_at;
-      const releaseAt = s.release_at;
-      const src = s.source;
-      const cca = s.calendar_checked_at;
-      if (status !== "normal" && status !== "early-close") {
-        return json({ error: "Invalid marketSchedule" }, 400);
-      }
-      if (src !== "polygon_marketstatus") {
-        return json({ error: "Invalid marketSchedule" }, 400);
-      }
-      if (typeof closeAt !== "string" || typeof releaseAt !== "string" || typeof cca !== "string") {
-        return json({ error: "Invalid marketSchedule" }, 400);
-      }
-      const closeMs = Date.parse(closeAt);
-      const releaseMs = Date.parse(releaseAt);
-      const ccaMs = Date.parse(cca);
-      if (!Number.isFinite(closeMs) || !Number.isFinite(releaseMs) || !Number.isFinite(ccaMs)) {
-        return json({ error: "Invalid marketSchedule" }, 400);
-      }
-      if (releaseMs - closeMs !== 15 * 60 * 1000) {
-        return json({ error: "Invalid marketSchedule" }, 400);
-      }
-      validatedSchedule = {
-        status,
-        official_close_at: new Date(closeMs).toISOString(),
-        release_at: new Date(releaseMs).toISOString(),
-        source: "polygon_marketstatus",
-        calendar_checked_at: new Date(ccaMs).toISOString(),
-      };
+    const parsedSchedule = parseMarketSchedule(payload.marketSchedule);
+    if (parsedSchedule && "error" in parsedSchedule) {
+      return json({ error: parsedSchedule.error }, 400);
     }
+    const validatedSchedule = parsedSchedule && !("error" in parsedSchedule) ? parsedSchedule : null;
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -201,7 +250,6 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, supabaseServiceKey);
 
-    // 7. Cache lookup on ET date
     const { data: existingBrief } = await admin
       .from("daily_briefs")
       .select("id, brief_type, brief_date, content, market_snapshot, generated_at")
@@ -209,174 +257,336 @@ serve(async (req) => {
       .eq("brief_date", etDate)
       .maybeSingle();
 
-    if (existingBrief) {
-      const snap = (existingBrief.market_snapshot ?? {}) as {
-        source_checked_at?: string;
+    // ------------------------------------------------------------------ PM V1
+    // Unchanged: one generation per ET date; subsequent calls return the canonical row.
+    if (briefType === "pm") {
+      if (existingBrief) {
+        return json(cachedBody(existingBrief), 200);
+      }
+
+      const sourceCheckedAt = new Date();
+      const { data: idxRows, error: idxErr } = await admin
+        .from("market_indexes")
+        .select("symbol, current_value, change_percent, updated_at")
+        .in("symbol", AM_INDEX_SYMBOLS as unknown as string[]);
+
+      if (idxErr) {
+        console.error("market_indexes fetch failed:", idxErr.message);
+        return json(
+          { available: false, reason: "source_unavailable", brief_type: briefType, brief_date: etDate },
+          503,
+        );
+      }
+
+      const bySymbol = new Map<string, SymbolRow>();
+      for (const r of (idxRows ?? []) as SymbolRow[]) {
+        bySymbol.set(r.symbol, r);
+      }
+
+      const nowMs = sourceCheckedAt.getTime();
+      for (const sym of AM_INDEX_SYMBOLS) {
+        const row = bySymbol.get(sym);
+        if (!row) {
+          return json(
+            { available: false, reason: "source_missing_symbol", brief_type: briefType, brief_date: etDate },
+            503,
+          );
+        }
+        const cv = Number(row.current_value);
+        const cp = Number(row.change_percent);
+        if (!Number.isFinite(cv) || cv <= 0) {
+          return json(
+            { available: false, reason: "source_invalid_price", brief_type: briefType, brief_date: etDate },
+            503,
+          );
+        }
+        if (!Number.isFinite(cp)) {
+          return json(
+            { available: false, reason: "source_invalid_change", brief_type: briefType, brief_date: etDate },
+            503,
+          );
+        }
+        if (!row.updated_at) {
+          return json(
+            { available: false, reason: "source_missing_updated_at", brief_type: briefType, brief_date: etDate },
+            503,
+          );
+        }
+        const ageMs = nowMs - new Date(row.updated_at).getTime();
+        if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > FRESHNESS_MS) {
+          return json(
+            { available: false, reason: "source_stale", brief_type: briefType, brief_date: etDate },
+            503,
+          );
+        }
+      }
+
+      const symbolsSnap: Record<string, { current_value: number; change_percent: number; updated_at: string }> = {};
+      for (const sym of AM_INDEX_SYMBOLS) {
+        const r = bySymbol.get(sym)!;
+        symbolsSnap[sym] = {
+          current_value: Number(r.current_value),
+          change_percent: Number(r.change_percent),
+          updated_at: r.updated_at,
+        };
+      }
+
+      const userPrompt = buildPmUserPrompt(symbolsSnap);
+      const generated = await callClaude({
+        apiKey: anthropicApiKey,
+        system: PM_SYSTEM,
+        user: userPrompt,
+        maxTokens: PM_MAX_TOKENS,
+        model: PM_MODEL,
+      });
+      if (!generated.ok) return json({ error: "Upstream generation failed" }, 502);
+
+      const marketSnapshot: Record<string, unknown> = {
+        symbols: symbolsSnap,
+        source: "market_indexes",
+        source_checked_at: sourceCheckedAt.toISOString(),
       };
+      if (validatedSchedule) {
+        const closeEtDate = new Intl.DateTimeFormat("en-CA", {
+          timeZone: "America/New_York",
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        }).format(new Date(validatedSchedule.official_close_at));
+        if (closeEtDate !== etDate) {
+          return json({ error: "Invalid marketSchedule" }, 400);
+        }
+        marketSnapshot.market_schedule = validatedSchedule;
+      }
+
+      const generatedAt = new Date().toISOString();
+      const { data: inserted, error: insertErr } = await admin
+        .from("daily_briefs")
+        .insert({
+          brief_type: briefType,
+          brief_date: etDate,
+          content: generated.text,
+          market_snapshot: marketSnapshot,
+          generated_at: generatedAt,
+        })
+        .select("id, brief_type, brief_date, content, market_snapshot, generated_at")
+        .single();
+
+      if (insertErr) {
+        const isUniqueConflict =
+          (insertErr as { code?: string }).code === "23505" ||
+          /duplicate key|unique constraint/i.test(insertErr.message ?? "");
+        if (isUniqueConflict) {
+          const { data: canonical } = await admin
+            .from("daily_briefs")
+            .select("id, brief_type, brief_date, content, market_snapshot, generated_at")
+            .eq("brief_type", briefType)
+            .eq("brief_date", etDate)
+            .maybeSingle();
+          if (canonical) return json(cachedBody(canonical), 200);
+        }
+        console.error("insert failed:", insertErr.message);
+        return json({ error: "Persist failed" }, 500);
+      }
+
       return json(
         {
-          id: existingBrief.id,
-          brief_type: existingBrief.brief_type,
-          brief_date: existingBrief.brief_date,
-          generated_at: existingBrief.generated_at,
-          content: existingBrief.content,
-          cached: true,
-          source_checked_at: snap.source_checked_at ?? existingBrief.generated_at,
+          id: inserted.id,
+          brief_type: inserted.brief_type,
+          brief_date: inserted.brief_date,
+          generated_at: inserted.generated_at,
+          content: inserted.content,
+          cached: false,
+          source_checked_at: marketSnapshot.source_checked_at as string,
         },
         200,
       );
     }
 
-    // 2. Restricted source universe with freshness gate
+    // ------------------------------------------------------------------ AM V2
     const sourceCheckedAt = new Date();
     const { data: idxRows, error: idxErr } = await admin
       .from("market_indexes")
       .select("symbol, current_value, change_percent, updated_at")
-      .in("symbol", REQUIRED_SYMBOLS as unknown as string[]);
+      .in("symbol", AM_INDEX_SYMBOLS as unknown as string[]);
 
     if (idxErr) {
       console.error("market_indexes fetch failed:", idxErr.message);
       return json(
-        { available: false, reason: "source_unavailable", brief_type: briefType, brief_date: etDate },
+        { available: false, reason: "source_unavailable", brief_type: "am", brief_date: etDate },
         503,
       );
     }
 
-    const bySymbol = new Map<string, SymbolRow>();
-    for (const r of (idxRows ?? []) as SymbolRow[]) {
-      bySymbol.set(r.symbol, r);
-    }
-
-    const nowMs = sourceCheckedAt.getTime();
-    for (const sym of REQUIRED_SYMBOLS) {
-      const row = bySymbol.get(sym);
-      if (!row) {
-        return json(
-          { available: false, reason: "source_missing_symbol", brief_type: briefType, brief_date: etDate },
-          503,
-        );
-      }
-      const cv = Number(row.current_value);
-      const cp = Number(row.change_percent);
-      if (!Number.isFinite(cv) || cv <= 0) {
-        return json(
-          { available: false, reason: "source_invalid_price", brief_type: briefType, brief_date: etDate },
-          503,
-        );
-      }
-      if (!Number.isFinite(cp)) {
-        return json(
-          { available: false, reason: "source_invalid_change", brief_type: briefType, brief_date: etDate },
-          503,
-        );
-      }
-      if (!row.updated_at) {
-        return json(
-          { available: false, reason: "source_missing_updated_at", brief_type: briefType, brief_date: etDate },
-          503,
-        );
-      }
-      const ageMs = nowMs - new Date(row.updated_at).getTime();
-      if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > FRESHNESS_MS) {
-        return json(
-          { available: false, reason: "source_stale", brief_type: briefType, brief_date: etDate },
-          503,
-        );
-      }
-    }
-
-    // Build snapshot for prompt and provenance
-    const symbolsSnap: Record<string, { current_value: number; change_percent: number; updated_at: string }> = {};
-    for (const sym of REQUIRED_SYMBOLS) {
-      const r = bySymbol.get(sym)!;
-      symbolsSnap[sym] = {
-        current_value: Number(r.current_value),
-        change_percent: Number(r.change_percent),
-        updated_at: r.updated_at,
-      };
-    }
-
-    const marketContext = REQUIRED_SYMBOLS
-      .map((s) => {
-        const r = symbolsSnap[s];
-        const sign = r.change_percent > 0 ? "+" : "";
-        return `${s} ${r.current_value.toFixed(2)} (${sign}${r.change_percent.toFixed(2)}%)`;
-      })
-      .join(", ");
-
-    const systemPrompt = briefType === "am" ? AM_SYSTEM : PM_SYSTEM;
-    const userPrompt =
-      `Four-ETF snapshot (${briefType === "am" ? "pre-open" : "post-close"}): ${marketContext}. ` +
-      `Write a strictly grounded ${briefType === "am" ? "AM" : "PM"} brief using ONLY this data.`;
-
-    // 6. Provider call with validated response
-    let providerRes: Response;
-    try {
-      providerRes = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": anthropicApiKey,
-          "anthropic-version": "2023-06-01",
-          "Content-Type": "application/json",
+    const indexValidation = validateIndexRows(idxRows ?? [], sourceCheckedAt.getTime());
+    if (!indexValidation.ok) {
+      return json(
+        {
+          available: false,
+          reason: indexValidation.reason,
+          brief_type: "am",
+          brief_date: etDate,
         },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 350,
-          system: systemPrompt,
-          messages: [{ role: "user", content: userPrompt }],
-        }),
+        503,
+      );
+    }
+
+    const newsLookback = new Date(sourceCheckedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const catalystFrom = etDateShift(etDate, -2);
+
+    const [newsRes, catRes] = await Promise.all([
+      admin
+        .from("market_news")
+        .select("id, headline, source, url, published_at, category, description")
+        .gte("published_at", newsLookback)
+        .order("published_at", { ascending: false })
+        .limit(80),
+      admin
+        .from("catalyst_events")
+        .select(
+          "id, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, published_at, updated_at, related_symbols",
+        )
+        .eq("verification_state", "provider_reported")
+        .gte("event_date", catalystFrom)
+        .lte("event_date", etDate)
+        .order("event_date", { ascending: false })
+        .limit(400),
+    ]);
+
+    const optionalFailed = Boolean(newsRes.error || catRes.error);
+    if (optionalFailed && existingBrief && isAmV2Snapshot(existingBrief.market_snapshot)) {
+      console.error(
+        "am optional evidence fetch failed; returning cached V2 brief",
+        newsRes.error?.message ?? catRes.error?.message ?? "",
+      );
+      return json(cachedBody(existingBrief), 200);
+    }
+    if (newsRes.error) {
+      console.error("market_news fetch failed:", newsRes.error.message);
+    }
+    if (catRes.error) {
+      console.error("catalyst_events fetch failed:", catRes.error.message);
+    }
+
+    const ranked = rankHeadlines((newsRes.data ?? []) as never, AM_HEADLINE_RANK_POOL);
+    const headlines = selectRankedHeadlines(ranked);
+
+    const attributed: AttributedCatalystRow[] = [];
+    for (const r of (catRes.data ?? []) as Array<Record<string, unknown>>) {
+      const symbol = normalizeSymbol(r.symbol);
+      const title = typeof r.title === "string" ? r.title.trim() : "";
+      if (!symbol || !title) continue;
+      const related = Array.isArray(r.related_symbols)
+        ? r.related_symbols
+          .map((x) => (typeof x === "string" ? x : ""))
+          .filter(Boolean)
+        : [];
+      const isEarningsCal = r.provider === "earnings_calendar" && r.event_type === "earnings";
+      const attr = isEarningsCal
+        ? { class: "direct" as const, ticker_specific: true, reason: "earnings_calendar_record", symbol }
+        : attributeSymbol({
+          title,
+          symbol,
+          companyName: typeof r.company_name === "string" ? r.company_name : null,
+          providerTickers: related,
+          providerAssociatesSymbol: related.map((x) => x.toUpperCase()).includes(symbol),
+        });
+      attributed.push({
+        id: String(r.id),
+        symbol,
+        title,
+        provider: typeof r.provider === "string" ? r.provider : "",
+        event_type: typeof r.event_type === "string" ? r.event_type : "company_news",
+        event_date: typeof r.event_date === "string" ? r.event_date : "",
+        verification_state: "provider_reported",
+        event_time: isoOrNull(r.event_time),
+        published_at: isoOrNull(r.published_at),
+        source_name: typeof r.source_name === "string" ? r.source_name : null,
+        attribution_class: attr.class,
+        ticker_specific: attr.ticker_specific,
+        time_of_day: normalizeTimeOfDay(r.time_of_day),
+        updated_at: isoOrNull(r.updated_at),
       });
-    } catch (e) {
-      console.error("provider fetch failed:", sanitizeProviderError((e as Error).message ?? ""));
-      return json({ error: "Upstream generation failed" }, 502);
     }
 
-    if (!providerRes.ok) {
-      console.error("provider non-2xx:", providerRes.status);
-      return json({ error: "Upstream generation failed" }, 502);
-    }
+    const catalysts = selectDirectCatalysts(attributed);
+    const earnings = selectBeforeOpenEarningsEvidence(attributed, etDate);
 
-    let providerJson: any;
-    try {
-      providerJson = await providerRes.json();
-    } catch {
-      return json({ error: "Upstream generation failed" }, 502);
-    }
-
-    const textBlock = providerJson?.content?.find?.((b: { type: string }) => b?.type === "text");
-    const briefContent = typeof textBlock?.text === "string" ? textBlock.text.trim() : "";
-    if (!briefContent) {
-      return json({ error: "Upstream generation failed" }, 502);
-    }
-
-    // 8. Provenance
-    const marketSnapshot: Record<string, unknown> = {
-      symbols: symbolsSnap,
-      source: "market_indexes",
-      source_checked_at: sourceCheckedAt.toISOString(),
+    const bundle: AmEvidenceBundle = {
+      checkedAt: sourceCheckedAt.toISOString(),
+      indexes: indexValidation.indexes,
+      headlines,
+      catalysts,
+      earnings,
     };
-    if (validatedSchedule) {
-      // Confirm schedule date corresponds to generator ET date.
-      const closeEtDate = new Intl.DateTimeFormat("en-CA", {
-        timeZone: "America/New_York",
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date(validatedSchedule.official_close_at));
-      if (closeEtDate !== etDate) {
-        return json({ error: "Invalid marketSchedule" }, 400);
-      }
-      marketSnapshot.market_schedule = validatedSchedule;
+    const incomingState = buildMaterialState(bundle);
+    const decision = decideAmGeneration({
+      indexesValid: true,
+      existing: existingBrief
+        ? { id: existingBrief.id, market_snapshot: existingBrief.market_snapshot }
+        : null,
+      incomingState,
+    });
+
+    if (decision.action === "fail_closed") {
+      return json(
+        { available: false, reason: decision.reason, brief_type: "am", brief_date: etDate },
+        503,
+      );
+    }
+    if (decision.action === "return_cached" && existingBrief) {
+      return json(cachedBody(existingBrief), 200);
     }
 
-    // 7. Concurrency-safe insert; on unique conflict, read the canonical row.
+    const generated = await callClaude({
+      apiKey: anthropicApiKey,
+      system: AM_V2_SYSTEM,
+      user: buildAmUserPrompt(bundle),
+      maxTokens: AM_MAX_TOKENS,
+      model: AM_MODEL,
+    });
+    if (!generated.ok) return json({ error: "Upstream generation failed" }, 502);
+
+    const marketSnapshot = buildAmV2Snapshot(bundle, incomingState);
     const generatedAt = new Date().toISOString();
+
+    if (decision.action === "generate" && decision.persist === "update" && existingBrief) {
+      const { data: updated, error: updateErr } = await admin
+        .from("daily_briefs")
+        .update({
+          content: generated.text,
+          market_snapshot: marketSnapshot,
+          generated_at: generatedAt,
+        })
+        .eq("id", existingBrief.id)
+        .eq("brief_type", "am")
+        .eq("brief_date", etDate)
+        .select("id, brief_type, brief_date, content, market_snapshot, generated_at")
+        .single();
+      if (updateErr || !updated) {
+        console.error("am brief update failed:", updateErr?.message ?? "missing row");
+        return json({ error: "Persist failed" }, 500);
+      }
+      return json(
+        {
+          id: updated.id,
+          brief_type: updated.brief_type,
+          brief_date: updated.brief_date,
+          generated_at: updated.generated_at,
+          content: updated.content,
+          cached: false,
+          source_checked_at: bundle.checkedAt,
+        },
+        200,
+      );
+    }
+
     const { data: inserted, error: insertErr } = await admin
       .from("daily_briefs")
       .insert({
-        brief_type: briefType,
+        brief_type: "am",
         brief_date: etDate,
-        content: briefContent,
+        content: generated.text,
         market_snapshot: marketSnapshot,
         generated_at: generatedAt,
       })
@@ -384,7 +594,6 @@ serve(async (req) => {
       .single();
 
     if (insertErr) {
-      // Unique-violation → another invocation won the race. Return canonical row.
       const isUniqueConflict =
         (insertErr as { code?: string }).code === "23505" ||
         /duplicate key|unique constraint/i.test(insertErr.message ?? "");
@@ -392,24 +601,10 @@ serve(async (req) => {
         const { data: canonical } = await admin
           .from("daily_briefs")
           .select("id, brief_type, brief_date, content, market_snapshot, generated_at")
-          .eq("brief_type", briefType)
+          .eq("brief_type", "am")
           .eq("brief_date", etDate)
           .maybeSingle();
-        if (canonical) {
-          const snap = (canonical.market_snapshot ?? {}) as { source_checked_at?: string };
-          return json(
-            {
-              id: canonical.id,
-              brief_type: canonical.brief_type,
-              brief_date: canonical.brief_date,
-              generated_at: canonical.generated_at,
-              content: canonical.content,
-              cached: true,
-              source_checked_at: snap.source_checked_at ?? canonical.generated_at,
-            },
-            200,
-          );
-        }
+        if (canonical) return json(cachedBody(canonical), 200);
       }
       console.error("insert failed:", insertErr.message);
       return json({ error: "Persist failed" }, 500);
@@ -423,7 +618,7 @@ serve(async (req) => {
         generated_at: inserted.generated_at,
         content: inserted.content,
         cached: false,
-        source_checked_at: marketSnapshot.source_checked_at as string,
+        source_checked_at: bundle.checkedAt,
       },
       200,
     );

@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { timingSafeMatch } from "../_shared/timing-safe.ts";
+import { isAmEvaluationWindow } from "../_shared/briefs/am-window.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,9 +16,7 @@ const jsonHeaders = {
 
 type BriefType = "am" | "pm";
 
-const AM_WINDOW_START = 6 * 60; // 360
-const AM_WINDOW_END = 6 * 60 + 10; // 370 inclusive
-const WINDOW_LENGTH_MIN = 10;
+const WINDOW_LENGTH_MIN = 10; // PM release window length (unchanged)
 
 // Process-local best-effort cache for /v1/marketstatus/upcoming only.
 const UPCOMING_TTL_MS = 15 * 60 * 1000;
@@ -171,6 +170,54 @@ function classifyToday(rows: UpcomingRow[], etDate: string): Classification {
   return { kind: "conflict" };
 }
 
+async function relayGenerator(genRes: Response, briefType: BriefType): Promise<Response> {
+  let genBody: Record<string, unknown> | null = null;
+  try {
+    genBody = await genRes.json();
+  } catch {
+    return json({ error: "invalid_generator_response" }, 502);
+  }
+  if (!genBody || typeof genBody !== "object") {
+    return json({ error: "invalid_generator_response" }, 502);
+  }
+
+  if (genRes.status === 401) {
+    return json({ error: "internal_authentication_failure" }, 500);
+  }
+  if (genRes.status === 400) {
+    return json({ error: "invalid_internal_schedule" }, 500);
+  }
+  if (genRes.status === 502) {
+    return json({ error: "generation_provider_failure" }, 502);
+  }
+  if (genRes.status === 503) {
+    return json({ error: "generation_source_unavailable" }, 503);
+  }
+  if (!genRes.ok) {
+    return json({ error: "invalid_generator_response" }, 502);
+  }
+
+  const availableFalse = genBody && genBody.available === false;
+  if (availableFalse) {
+    return json({ error: "invalid_generator_response" }, 502);
+  }
+  const bd = genBody?.brief_date;
+  const bt = genBody?.brief_type;
+  if (bt !== briefType || typeof bd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(bd)) {
+    return json({ error: "invalid_generator_response" }, 502);
+  }
+
+  return json(
+    {
+      dispatched: true,
+      brief_type: briefType,
+      brief_date: bd,
+      cached: Boolean(genBody.cached),
+    },
+    200,
+  );
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -210,9 +257,10 @@ serve(async (req) => {
     return json({ dispatched: false, reason: "weekend" }, 200);
   }
 
-  // AM admission: only 6:00–6:10 AM ET inclusive.
+  // AM admission: 4:00–9:30 AM ET inclusive. Dispatcher fail-closes outside
+  // this America/New_York window even if cron fires on a wider UTC range.
   if (briefType === "am") {
-    if (et.minutes < AM_WINDOW_START || et.minutes > AM_WINDOW_END) {
+    if (!isAmEvaluationWindow(et.minutes)) {
       return json({ dispatched: false, reason: "outside_generation_window" }, 200);
     }
   }
@@ -233,8 +281,29 @@ serve(async (req) => {
     return json({ dispatched: false, reason: "full_holiday" }, 200);
   }
 
-  // For PM we still need /now to determine ET offset and confirm state.
-  // For AM we also need /now to confirm extended-hours state.
+  // AM V2: calendar holiday/conflict already applied. Do not require Polygon
+  // /now earlyHours (that blocked 4:00 and 9:30). Generator fail-closes on
+  // stale required index evidence.
+  if (briefType === "am") {
+    const generatorUrl = `${supabaseUrl}/functions/v1/generate-daily-brief`;
+    let genRes: Response;
+    try {
+      genRes = await fetch(generatorUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${syncSecret}`,
+        },
+        body: JSON.stringify({ briefType: "am" }),
+      });
+    } catch (e) {
+      console.error("brief-dispatch generator fetch error:", sanitize((e as Error).message ?? ""));
+      return json({ error: "generator_unavailable" }, 502);
+    }
+    return await relayGenerator(genRes, "am");
+  }
+
+  // PM V1: /now required for ET offset, release window, and after-hours confirmation.
   let nowResp: NowResponse;
   try {
     nowResp = await fetchNow(polygonKey);
@@ -247,15 +316,12 @@ serve(async (req) => {
     return json({ dispatched: false, reason: "calendar_unavailable" }, 503);
   }
 
-  // Build market schedule (needed for PM window; AM does not gate on schedule but we still
-  // pass a schedule reflecting today's close for provenance downstream on PM only).
   let officialCloseIso: string;
   let scheduleStatus: "normal" | "early-close";
   if (classification.kind === "early_close") {
     officialCloseIso = classification.closeIso;
     scheduleStatus = "early-close";
   } else {
-    // Normal 4:00 PM ET close using offset from provider serverTime.
     officialCloseIso = `${et.date}T16:00:00${etOffset}`;
     scheduleStatus = "normal";
   }
@@ -265,7 +331,6 @@ serve(async (req) => {
   }
   const releaseMs = closeMs + 15 * 60 * 1000;
   const releaseIso = new Date(releaseMs).toISOString();
-  // Confirm close/release fall on the ET brief date.
   const closeEtDate = etParts(new Date(closeMs)).date;
   const releaseEtDate = etParts(new Date(releaseMs)).date;
   if (closeEtDate !== et.date || releaseEtDate !== et.date) {
@@ -280,16 +345,12 @@ serve(async (req) => {
     calendar_checked_at: calendarCheckedAt,
   };
 
-  // PM window check
-  if (briefType === "pm") {
-    const nowMs = Date.now();
-    const upperMs = releaseMs + WINDOW_LENGTH_MIN * 60 * 1000;
-    if (nowMs < releaseMs || nowMs > upperMs) {
-      return json({ dispatched: false, reason: "outside_generation_window" }, 200);
-    }
+  const nowMs = Date.now();
+  const upperMs = releaseMs + WINDOW_LENGTH_MIN * 60 * 1000;
+  if (nowMs < releaseMs || nowMs > upperMs) {
+    return json({ dispatched: false, reason: "outside_generation_window" }, 200);
   }
 
-  // /now state confirmation
   const nyseNow = nowResp.exchanges?.nyse;
   const nasdaqNow = nowResp.exchanges?.nasdaq;
   const marketNow = nowResp.market;
@@ -297,17 +358,10 @@ serve(async (req) => {
     marketNow === "extended-hours" &&
     nyseNow === "extended-hours" &&
     nasdaqNow === "extended-hours";
-  if (briefType === "am") {
-    if (!okExt || nowResp.earlyHours !== true) {
-      return json({ dispatched: false, reason: "market_status_unconfirmed" }, 503);
-    }
-  } else {
-    if (!okExt || nowResp.afterHours !== true) {
-      return json({ dispatched: false, reason: "market_status_unconfirmed" }, 503);
-    }
+  if (!okExt || nowResp.afterHours !== true) {
+    return json({ dispatched: false, reason: "market_status_unconfirmed" }, 503);
   }
 
-  // Call generator server-to-server.
   const generatorUrl = `${supabaseUrl}/functions/v1/generate-daily-brief`;
   let genRes: Response;
   try {
@@ -317,55 +371,12 @@ serve(async (req) => {
         "Content-Type": "application/json",
         Authorization: `Bearer ${syncSecret}`,
       },
-      body: JSON.stringify({ briefType, marketSchedule }),
+      body: JSON.stringify({ briefType: "pm", marketSchedule }),
     });
   } catch (e) {
     console.error("brief-dispatch generator fetch error:", sanitize((e as Error).message ?? ""));
     return json({ error: "generator_unavailable" }, 502);
   }
 
-  let genBody: any = null;
-  try {
-    genBody = await genRes.json();
-  } catch {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-
-  if (genRes.status === 401) {
-    return json({ error: "internal_authentication_failure" }, 500);
-  }
-  if (genRes.status === 400) {
-    return json({ error: "invalid_internal_schedule" }, 500);
-  }
-  if (genRes.status === 502) {
-    return json({ error: "generation_provider_failure" }, 502);
-  }
-  if (genRes.status === 503) {
-    return json({ error: "generation_source_unavailable" }, 503);
-  }
-  if (!genRes.ok) {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-
-  // Success: validate response contract.
-  const availableFalse = genBody && genBody.available === false;
-  if (availableFalse) {
-    // Weekend/source-unavailable etc: propagate as calendar-conflict style failure.
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-  const bd = genBody?.brief_date;
-  const bt = genBody?.brief_type;
-  if (bt !== briefType || typeof bd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(bd)) {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-
-  return json(
-    {
-      dispatched: true,
-      brief_type: briefType,
-      brief_date: bd,
-      cached: Boolean(genBody.cached),
-    },
-    200,
-  );
+  return await relayGenerator(genRes, "pm");
 });
