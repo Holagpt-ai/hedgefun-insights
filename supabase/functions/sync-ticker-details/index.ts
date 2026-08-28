@@ -91,7 +91,7 @@ Deno.serve(async (req) => {
         const newIndustry = sicDescription ? toTitleCase(sicDescription) : null;
         const newSector = sicCode ? sicToSector(sicCode) : null;
 
-        const updatePayload = {};
+        const updatePayload: Record<string, string> = {};
         if (newIndustry) updatePayload.industry = newIndustry;
         if (newSector) updatePayload.sector = newSector;
 
