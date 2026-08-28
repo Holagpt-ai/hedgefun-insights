@@ -12,6 +12,7 @@ import { TodaysFocus } from "@/components/action-center/TodaysFocus";
 import { VolumeLeaders } from "@/components/action-center/VolumeLeaders";
 import { CatalystWatch } from "@/components/action-center/CatalystWatch";
 import { WatchlistSnapshot } from "@/components/action-center/WatchlistSnapshot";
+import { AM_AI_BRIEF_GATE_BODY, PM_AI_BRIEF_GATE_BODY } from "@/config/inbox.config";
 
 const WORKFLOW_LINKS = [
   { title: "Pre-Market", desc: "Start the session with your pre-market setup.", route: "/dashboard/pre-market" },
@@ -72,7 +73,7 @@ export default function ActionCenter() {
             aiCardPlaceholderText: "Your market brief will appear here when available.",
             aiCardTimestampLabel: ac.briefType === "am" ? "Updated at" : "Generated at",
             aiCardGateHeading: `${briefLabel} Brief — PRO Feature`,
-            aiCardGateBody: "A shared AI market brief grounded in SPY, QQQ, DIA, and IWM.",
+            aiCardGateBody: ac.briefType === "am" ? AM_AI_BRIEF_GATE_BODY : PM_AI_BRIEF_GATE_BODY,
             upgradeCta: "Request Pro Access",
           }}
         />

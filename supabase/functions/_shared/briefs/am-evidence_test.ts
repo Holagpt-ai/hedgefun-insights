@@ -1,12 +1,15 @@
 import { assertEquals, assert } from "https://deno.land/std@0.208.0/assert/mod.ts";
 import {
+  AM_INDEX_PCT_MATERIAL,
   AM_INDEX_SYMBOLS,
+  AM_LEADERSHIP_SPREAD_MATERIAL,
   AM_V2_SOURCE,
   AM_V2_VERSION,
   buildAmV2Snapshot,
   buildMaterialState,
   fingerprintMaterialState,
   isMaterialChange,
+  isMaterialLeadershipChange,
   selectDirectCatalysts,
   selectBeforeOpenEarningsEvidence,
   selectRankedHeadlines,
@@ -108,6 +111,76 @@ Deno.test("8. index sign flip does regenerate", () => {
     assertEquals(d.persist, "update");
     assertEquals(d.existingId, "row-1");
   }
+});
+
+Deno.test("leadership hysteresis constants", () => {
+  assertEquals(AM_LEADERSHIP_SPREAD_MATERIAL, 0.15);
+  assertEquals(AM_INDEX_PCT_MATERIAL, 0.25);
+});
+
+Deno.test("1. tiny leadership crossing does NOT regenerate", () => {
+  const prev = bundle({ indexes: idx({ QQQ: 0.11, SPY: 0.10, DIA: 0.05, IWM: 0 }) });
+  const next = bundle({ indexes: idx({ QQQ: 0.10, SPY: 0.11, DIA: 0.05, IWM: 0 }) });
+  assertEquals(isMaterialLeadershipChange(cloneStateFrom(prev), cloneStateFrom(next)), false);
+  const change = isMaterialChange(cloneStateFrom(prev), cloneStateFrom(next));
+  assertEquals(change.material, false);
+  assertEquals(change.reasons.includes("leadership_change"), false);
+  const d = decideAmGeneration({
+    indexesValid: true,
+    existing: { id: "row-1", market_snapshot: buildAmV2Snapshot(prev, cloneStateFrom(prev)) },
+    incomingState: cloneStateFrom(next),
+  });
+  assertEquals(d.action, "return_cached");
+});
+
+Deno.test("2. leadership swap with <0.15 pp spread does NOT regenerate", () => {
+  const prev = bundle({ indexes: idx({ QQQ: 0.24, SPY: 0.10, DIA: 0.00, IWM: -0.05 }) });
+  const next = bundle({ indexes: idx({ QQQ: 0.10, SPY: 0.24, DIA: 0.00, IWM: -0.05 }) });
+  const spread = Math.abs(0.24 - 0.10);
+  assertEquals(spread < AM_LEADERSHIP_SPREAD_MATERIAL, true);
+  assertEquals(isMaterialLeadershipChange(cloneStateFrom(prev), cloneStateFrom(next)), false);
+  const change = isMaterialChange(cloneStateFrom(prev), cloneStateFrom(next));
+  assertEquals(change.material, false);
+  assertEquals(change.reasons.includes("leadership_change"), false);
+});
+
+Deno.test("3. leadership swap with >=0.15 pp spread DOES regenerate", () => {
+  const prev = bundle({ indexes: idx({ QQQ: 0.25, SPY: 0.10, DIA: 0.00, IWM: -0.05 }) });
+  const next = bundle({ indexes: idx({ QQQ: 0.10, SPY: 0.25, DIA: 0.00, IWM: -0.05 }) });
+  const spread = Math.abs(0.25 - 0.10);
+  assertEquals(spread >= AM_LEADERSHIP_SPREAD_MATERIAL, true);
+  assertEquals(isMaterialLeadershipChange(cloneStateFrom(prev), cloneStateFrom(next)), true);
+  const change = isMaterialChange(cloneStateFrom(prev), cloneStateFrom(next));
+  assertEquals(change.material, true);
+  assert(change.reasons.includes("leadership_change"));
+  assertEquals(change.reasons.some((r) => r.startsWith("index_pct_move:")), false);
+  const d = decideAmGeneration({
+    indexesValid: true,
+    existing: { id: "row-1", market_snapshot: buildAmV2Snapshot(prev, cloneStateFrom(prev)) },
+    incomingState: cloneStateFrom(next),
+  });
+  assertEquals(d.action, "generate");
+});
+
+Deno.test("4. existing 0.25 pp index-change threshold still works", () => {
+  const prev = bundle({ indexes: idx({ QQQ: 0.60, SPY: 0.40, DIA: 0.20, IWM: -0.10 }) });
+  const next = bundle({ indexes: idx({ QQQ: 0.85, SPY: 0.40, DIA: 0.20, IWM: -0.10 }) });
+  const change = isMaterialChange(cloneStateFrom(prev), cloneStateFrom(next));
+  assertEquals(change.material, true);
+  assert(change.reasons.includes("index_pct_move:QQQ"));
+  assertEquals(change.reasons.includes("leadership_change"), false);
+  const under = bundle({ indexes: idx({ QQQ: 0.84, SPY: 0.40, DIA: 0.20, IWM: -0.10 }) });
+  const underChange = isMaterialChange(cloneStateFrom(prev), cloneStateFrom(under));
+  assertEquals(underChange.material, false);
+});
+
+Deno.test("5. sign flip still works without a material leadership spread", () => {
+  const prev = bundle({ indexes: idx({ QQQ: 0.02, SPY: 0.01, DIA: 0.00, IWM: -0.02 }) });
+  const next = bundle({ indexes: idx({ QQQ: 0.02, SPY: -0.01, DIA: 0.00, IWM: -0.02 }) });
+  const change = isMaterialChange(cloneStateFrom(prev), cloneStateFrom(next));
+  assertEquals(change.material, true);
+  assert(change.reasons.includes("index_sign_flip:SPY"));
+  assertEquals(isMaterialLeadershipChange(cloneStateFrom(prev), cloneStateFrom(next)), false);
 });
 
 Deno.test("9. materially new headline does regenerate", () => {

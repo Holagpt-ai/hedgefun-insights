@@ -146,13 +146,20 @@ export interface AIBriefConfig {
   upgradeLink?: string;
 }
 
+/** AM V2 gate body — indexes plus headlines, catalysts, and earnings. */
+export const AM_AI_BRIEF_GATE_BODY =
+  "A shared pre-market intelligence brief grounded in current index, headline, catalyst, and earnings evidence.";
+
+/** PM V1 gate body — four-ETF snapshot only. */
+export const PM_AI_BRIEF_GATE_BODY =
+  "A shared AI market brief grounded in SPY, QQQ, DIA, and IWM.";
+
 export const AM_INBOX_CONFIG = {
   title: "Pre-Market",
   subtitle: "Pre-market briefing — updated before every open",
   aiCardTitle: "✦ AI Morning Brief",
   aiCardGateHeading: "AI Morning Brief — PRO Feature",
-  aiCardGateBody:
-    "A shared AI market brief grounded in SPY, QQQ, DIA, and IWM.",
+  aiCardGateBody: AM_AI_BRIEF_GATE_BODY,
   aiCardPlaceholderText:
     "Your market brief will appear here when available.",
 

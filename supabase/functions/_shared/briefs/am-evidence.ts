@@ -28,6 +28,12 @@ export const AM_DIRECT_CATALYST_LIMIT = 3;
 export const AM_EARNINGS_LIMIT = 8;
 /** Percentage-point delta that counts as a meaningful index move. */
 export const AM_INDEX_PCT_MATERIAL = 0.25;
+/**
+ * A leadership-order change is material only when at least one displaced
+ * pair in the NEW evidence is separated by this many percentage points.
+ * Tiny crossings of nearly-equal indexes do not regenerate.
+ */
+export const AM_LEADERSHIP_SPREAD_MATERIAL = 0.15;
 
 export const AM_V2_VERSION = "am_v2";
 export const AM_V2_SOURCE = "am_intelligence_v2";
@@ -268,6 +274,38 @@ function idsEqual(a: string[], b: string[]): boolean {
   return true;
 }
 
+/**
+ * Leadership hysteresis: order changes only count when a displaced pair
+ * is separated by >= AM_LEADERSHIP_SPREAD_MATERIAL in the NEW snapshot.
+ */
+export function isMaterialLeadershipChange(
+  prev: AmMaterialState,
+  next: AmMaterialState,
+): boolean {
+  if (idsEqual(prev.leadership, next.leadership)) return false;
+  const prevRank = new Map(prev.leadership.map((s, i) => [s, i]));
+  const nextRank = new Map(next.leadership.map((s, i) => [s, i]));
+  for (let i = 0; i < AM_INDEX_SYMBOLS.length; i++) {
+    for (let j = i + 1; j < AM_INDEX_SYMBOLS.length; j++) {
+      const a = AM_INDEX_SYMBOLS[i];
+      const b = AM_INDEX_SYMBOLS[j];
+      const prevA = prevRank.get(a);
+      const prevB = prevRank.get(b);
+      const nextA = nextRank.get(a);
+      const nextB = nextRank.get(b);
+      if (prevA === undefined || prevB === undefined || nextA === undefined || nextB === undefined) {
+        continue;
+      }
+      const prevAhead = prevA < prevB;
+      const nextAhead = nextA < nextB;
+      if (prevAhead === nextAhead) continue;
+      const spread = Math.abs(next.index_pcts[a] - next.index_pcts[b]);
+      if (spread >= AM_LEADERSHIP_SPREAD_MATERIAL) return true;
+    }
+  }
+  return false;
+}
+
 export function isMaterialChange(
   prev: AmMaterialState,
   next: AmMaterialState,
@@ -282,7 +320,7 @@ export function isMaterialChange(
       reasons.push(`index_pct_move:${sym}`);
     }
   }
-  if (!idsEqual(prev.leadership, next.leadership)) {
+  if (isMaterialLeadershipChange(prev, next)) {
     reasons.push("leadership_change");
   }
   if (!idsEqual(prev.headline_ids, next.headline_ids)) {
