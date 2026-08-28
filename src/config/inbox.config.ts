@@ -156,7 +156,7 @@ export const AM_INBOX_CONFIG = {
   aiCardPlaceholderText:
     "Your market brief will appear here when available.",
 
-  aiCardTimestampLabel: "Generated at",
+  aiCardTimestampLabel: "Updated at",
   upgradeCta: "Request Pro Access",
   upgradeLink: "View all PRO features →",
   commandBriefHeading: "Pre-Market Command Brief",

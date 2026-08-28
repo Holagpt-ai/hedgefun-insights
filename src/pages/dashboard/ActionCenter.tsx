@@ -70,7 +70,7 @@ export default function ActionCenter() {
           config={{
             aiCardTitle: ac.briefType === "am" ? "✦ AI Pre-Market Brief" : "✦ AI After-Hours Brief",
             aiCardPlaceholderText: "Your market brief will appear here when available.",
-            aiCardTimestampLabel: "Generated at",
+            aiCardTimestampLabel: ac.briefType === "am" ? "Updated at" : "Generated at",
             aiCardGateHeading: `${briefLabel} Brief — PRO Feature`,
             aiCardGateBody: "A shared AI market brief grounded in SPY, QQQ, DIA, and IWM.",
             upgradeCta: "Request Pro Access",

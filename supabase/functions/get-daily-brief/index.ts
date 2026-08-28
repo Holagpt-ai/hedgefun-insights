@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { validateBriefProvenance, type BriefRowLike } from "../_shared/briefs/provenance.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,17 +60,6 @@ function isWeekend(weekday: string): boolean {
   return weekday === "Sat" || weekday === "Sun";
 }
 
-
-function isValidIsoDate(s: unknown): s is string {
-  return typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s);
-}
-
-function isValidTimestamp(s: unknown): boolean {
-  if (typeof s !== "string" || !s) return false;
-  const t = Date.parse(s);
-  return Number.isFinite(t);
-}
-
 interface BriefRow {
   id: string;
   brief_type: string;
@@ -80,16 +70,7 @@ interface BriefRow {
 }
 
 function validateProvenance(row: BriefRow, expectedType: BriefType): { ok: true; sourceCheckedAt: string } | { ok: false } {
-  if (row.brief_type !== expectedType) return { ok: false };
-  if (!isValidIsoDate(row.brief_date)) return { ok: false };
-  if (!isValidTimestamp(row.generated_at)) return { ok: false };
-  if (typeof row.content !== "string" || row.content.trim().length === 0) return { ok: false };
-  const snap = row.market_snapshot;
-  if (!snap || typeof snap !== "object" || Array.isArray(snap)) return { ok: false };
-  const s = snap as Record<string, unknown>;
-  if (s.source !== "market_indexes") return { ok: false };
-  if (!isValidTimestamp(s.source_checked_at)) return { ok: false };
-  return { ok: true, sourceCheckedAt: s.source_checked_at as string };
+  return validateBriefProvenance(row as BriefRowLike, expectedType);
 }
 
 serve(async (req) => {
