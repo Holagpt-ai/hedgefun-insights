@@ -177,6 +177,9 @@ async function relayGenerator(genRes: Response, briefType: BriefType): Promise<R
   } catch {
     return json({ error: "invalid_generator_response" }, 502);
   }
+  if (!genBody || typeof genBody !== "object") {
+    return json({ error: "invalid_generator_response" }, 502);
+  }
 
   if (genRes.status === 401) {
     return json({ error: "internal_authentication_failure" }, 500);

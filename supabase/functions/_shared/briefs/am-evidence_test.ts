@@ -202,8 +202,7 @@ Deno.test("13. missing optional section is omitted, not fabricated", () => {
   assertEquals(prompt.includes("DIRECT CATALYSTS"), false);
   assertEquals(prompt.includes("BEFORE-OPEN EARNINGS"), false);
   assertEquals(prompt.includes("INDEXES (required)"), true);
-  assertEquals(prompt.includes("Top Movers"), false);
-  assertEquals(prompt.includes("screener"), false);
+  assertEquals(/VERIFIED VOLUME|TOP MOVERS|Day-Trade Radar|screener_results/i.test(prompt), false);
 });
 
 Deno.test("14. stale required index evidence fails closed", () => {
@@ -215,10 +214,9 @@ Deno.test("14. stale required index evidence fails closed", () => {
     change_percent: 0.2,
     updated_at: staleAt,
   }));
-  assertEquals(validateIndexRows(staleRows, nowMs).ok, false);
-  if (!validateIndexRows(staleRows, nowMs).ok) {
-    assertEquals(validateIndexRows(staleRows, nowMs).reason, "source_stale");
-  }
+  const staleResult = validateIndexRows(staleRows, nowMs);
+  assertEquals(staleResult.ok, false);
+  if (!staleResult.ok) assertEquals(staleResult.reason, "source_stale");
 
   const freshAt = "2026-08-28T08:15:00.000Z";
   const freshRows = AM_INDEX_SYMBOLS.map((symbol) => ({

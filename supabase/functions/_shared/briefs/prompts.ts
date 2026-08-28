@@ -57,7 +57,7 @@ STRICT RULES:
 - No price targets. No predictions stated as facts. No "this stock will move".
 - No fabricated tickers, headlines, catalysts, or earnings.
 - No watchlist personalization. This brief is generic/shared.
-- No volume leaders or "top movers" unless a Top Movers section is explicitly supplied (it will not be).
+- No volume leaders or pre-market movers. Those sources are not in this evidence bundle.
 - If a section has no evidence in the user message, OMIT that section entirely. Do not fill empty space with generic commentary.
 - Do not mention missing sections.
 
@@ -142,7 +142,7 @@ export function buildAmUserPrompt(bundle: AmEvidenceBundle): string {
 
   parts.push("");
   parts.push(
-    "Write the AM brief. Omit any suggested section that has no evidence above. Do not add a Top Movers section.",
+    "Write the AM brief. Omit any suggested section that has no evidence above. Do not invent volume leaders or pre-market movers.",
   );
   return parts.join("\n");
 }
