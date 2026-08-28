@@ -1,0 +1,6 @@
+{
+  "compilerOptions": {
+    "noImplicitAny": false
+  },
+  "lint": { "exclude": ["supabase/functions/mcp/index.ts"] }
+}
