@@ -1,5 +1,11 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { Lock } from "lucide-react";
+import {
+  MOVERS_FULL_WIDTH_CLASS,
+  MOVERS_TAB_BAR_CLASS,
+  MOVERS_TAB_BUTTON_CLASS,
+  MOVERS_TABLIST_CLASS,
+} from "@/components/markets/movers-responsive";
 
 const TABS = [
   { label: "Gainers", path: "/markets/gainers" },
@@ -14,15 +20,21 @@ export function MarketMoversTabBar() {
   const { pathname } = useLocation();
 
   return (
-    <div className="flex items-center justify-between border-b border-border">
-      <div className="flex items-center gap-0">
+    <div className={MOVERS_TAB_BAR_CLASS}>
+      <div
+        role="tablist"
+        aria-label="Market movers views"
+        className={MOVERS_TABLIST_CLASS}
+      >
         {TABS.map((tab) => {
           const active = pathname === tab.path;
           return (
             <button
               key={tab.path}
+              role="tab"
+              aria-selected={active}
               onClick={() => navigate(tab.path)}
-              className="px-4 py-2.5 text-[0.9375rem] transition-colors relative"
+              className={MOVERS_TAB_BUTTON_CLASS}
               style={{
                 fontWeight: active ? 700 : 400,
                 color: active ? "hsl(var(--text-primary))" : "hsl(var(--text-secondary))",
@@ -39,7 +51,11 @@ export function MarketMoversTabBar() {
           );
         })}
       </div>
-      <button onClick={() => navigate("/pro")} className="flex items-center gap-1.5 text-[0.875rem] px-3 py-1.5" style={{ color: "hsl(var(--text-muted))" }}>
+      <button
+        onClick={() => navigate("/pro")}
+        className={MOVERS_FULL_WIDTH_CLASS}
+        style={{ color: "hsl(var(--text-muted))" }}
+      >
         Full Width <Lock className="h-3.5 w-3.5" />
       </button>
     </div>

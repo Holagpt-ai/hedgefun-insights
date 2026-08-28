@@ -16,6 +16,11 @@ import {
   type MoverSort,
 } from "@/lib/markets/movers-integrity";
 import { resolveMarketSession } from "@/lib/price-utils";
+import {
+  MOVERS_PAGE_SHELL_CLASS,
+  MOVERS_TABLE_CLASS,
+  MOVERS_TABLE_SCROLLER_CLASS,
+} from "@/components/markets/movers-responsive";
 
 const TYPE_MAP: Record<string, { title: string }> = {
   gainers: { title: "Top Gainers" },
@@ -77,7 +82,7 @@ const MoversPage = () => {
   const rows = data ?? [];
 
   return (
-    <div className="p-4">
+    <div className={cn(MOVERS_PAGE_SHELL_CLASS, "p-4")}>
       <h1 className="text-lg font-bold text-foreground mb-3">{config.title}</h1>
 
       <div className="flex gap-1 mb-4 flex-wrap">
@@ -102,27 +107,27 @@ const MoversPage = () => {
           {currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed })}
         </p>
       ) : (
-        <div className="fintech-card overflow-x-auto">
-          <table className="w-full text-sm min-w-[480px]">
+        <div className={cn("fintech-card", MOVERS_TABLE_SCROLLER_CLASS)} role="region" aria-label={`${config.title} table`}>
+          <table className={MOVERS_TABLE_CLASS}>
             <thead>
               <tr className="border-b border-border">
-                <th className="table-header text-left px-3 py-2">Symbol</th>
-                <th className="table-header text-right px-3 py-2">Price</th>
-                <th className="table-header text-right px-3 py-2">Change %</th>
-                <th className="table-header text-right px-3 py-2 hidden sm:table-cell">Volume</th>
+                <th className="table-header whitespace-nowrap text-left px-2 py-2 md:px-3">Symbol</th>
+                <th className="table-header text-right px-2 py-2 md:px-3">Price</th>
+                <th className="table-header text-right px-2 py-2 md:px-3">Change %</th>
+                <th className="table-header text-right px-2 py-2 md:px-3">Volume</th>
               </tr>
             </thead>
             <tbody>
               {rows.slice(0, 50).map((m) => (
                 <tr key={m.symbol} className="border-b border-border last:border-b-0 hover:bg-accent/50">
-                  <td className="px-3 py-2">
+                  <td className="whitespace-nowrap px-2 py-2 md:px-3">
                     <button onClick={() => { trackEvent("stock_search", { ticker: m.symbol }); navigate(`/stocks/${m.symbol.toLowerCase()}`); }} className="ticker-symbol text-accent-blue hover:underline text-sm">{m.symbol}</button>
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums">${m.price.toFixed(2)}</td>
-                  <td className={cn("px-3 py-2 text-right tabular-nums font-medium", m.changePercent >= 0 ? "price-positive" : "price-negative")}>
+                  <td className="px-2 py-2 text-right tabular-nums md:px-3">${m.price.toFixed(2)}</td>
+                  <td className={cn("px-2 py-2 text-right tabular-nums font-medium md:px-3", m.changePercent >= 0 ? "price-positive" : "price-negative")}>
                     {m.changePercent >= 0 ? "↑" : "↓"} {Math.abs(m.changePercent).toFixed(2)}%
                   </td>
-                  <td className="px-3 py-2 text-right tabular-nums hidden sm:table-cell">{m.volume.toLocaleString()}</td>
+                  <td className="px-2 py-2 text-right tabular-nums md:px-3">{m.volume.toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

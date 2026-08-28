@@ -4,10 +4,22 @@ import { supabase } from "@/integrations/supabase/client";
 import { AreaChart, Area, YAxis, ResponsiveContainer } from "recharts";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight } from "lucide-react";
+import {
+  MOVERS_INDEX_CARD_CLASS,
+  MOVERS_SPARKLINE_CHART_CLASS,
+} from "@/components/markets/movers-responsive";
 
 const INDEX_TO_ETF: Record<string, string> = {
   SPX: "spy", NDX: "qqq", DJI: "dia", RUT: "iwm",
   SPY: "spy", QQQ: "qqq", "^GSPC": "spy", "^IXIC": "qqq", "^DJI": "dia", "^RUT": "iwm",
+};
+
+type MarketIndexSpark = {
+  symbol: string;
+  name?: string;
+  current_value?: number;
+  change_percent?: number;
+  sparkline_data?: unknown;
 };
 
 export function IndexSparklines() {
@@ -36,7 +48,7 @@ export function IndexSparklines() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {isLoading
           ? Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-14 rounded" />)
-          : items.map((idx: any) => {
+          : items.map((idx: MarketIndexSpark) => {
               const rawSparkline = Array.isArray(idx.sparkline_data)
                 ? idx.sparkline_data.map((v: number, i: number) => ({ v, i }))
                 : [];
@@ -53,7 +65,11 @@ export function IndexSparklines() {
               const sparkData = rawSparkline;
 
               return (
-                <Link key={idx.symbol} to={`/etf/${INDEX_TO_ETF[idx.symbol as string] ?? (idx.symbol as string).toLowerCase()}`} className="flex items-center gap-2 px-3 py-2 rounded cursor-pointer transition-colors duration-200 relative hover:border-primary/50 border border-border">
+                <Link
+                  key={idx.symbol}
+                  to={`/etf/${INDEX_TO_ETF[idx.symbol as string] ?? (idx.symbol as string).toLowerCase()}`}
+                  className={MOVERS_INDEX_CARD_CLASS}
+                >
                   <ArrowUpRight className="absolute top-2 right-2 h-3 w-3 text-muted-foreground" />
                   <div className="flex-1 min-w-0">
                     <p className="text-[0.8125rem] font-bold truncate text-foreground">{idx.name}</p>
@@ -62,7 +78,7 @@ export function IndexSparklines() {
                     </p>
                     <p className="text-[0.8125rem] font-medium" style={{ color }}>{positive ? "↑" : "↓"} {Math.abs(pct).toFixed(2)}%</p>
                   </div>
-                  <div className="w-[120px] h-[40px] flex-shrink-0">
+                  <div className={MOVERS_SPARKLINE_CHART_CLASS}>
                     {sparkData.length > 1 && (
                       <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={sparkData}>
