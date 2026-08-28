@@ -92,6 +92,32 @@ describe("evidence-bound AI", () => {
     expect(AI_EVIDENCE_RULES).toMatch(/single VWAP signal/i);
   });
 
+  it("keeps RVOL optional when independent quote and signal evidence exists", () => {
+    const evidence = buildAiEvidence({
+      symbol: "AAPL",
+      quote: validQuote,
+      rvol: null,
+      rvolAvailable: false,
+      signals: [{ signal_id: "hod_break", label: "Broke session high", direction: "bullish" }],
+      evidenceCutoff: CUTOFF,
+    });
+    expect(evidence.rvol_available).toBe(false);
+    expect(evidenceForPrompt(evidence).rvol).toBe("unavailable");
+    expect(isInsufficientEvidence(evidence)).toBe(false);
+  });
+
+  it("fails closed when quote is present but no independent directional evidence exists", () => {
+    const evidence = buildAiEvidence({
+      symbol: "AAPL",
+      quote: validQuote,
+      rvol: null,
+      rvolAvailable: false,
+      signals: [],
+      evidenceCutoff: CUTOFF,
+    });
+    expect(isInsufficientEvidence(evidence)).toBe(true);
+  });
+
   it("strips raw markdown headings and emphasis so they are not displayed", () => {
     const raw = "**PRE-OPEN BRIEF**\n## Bias\nMarkets were mixed.";
     expect(hasRawMarkdownHeading(raw)).toBe(true);

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   directionLabel,
+  etCalendarDateFromIso,
   formatPercent,
   formatPrice,
   formatVolume,
@@ -416,5 +417,26 @@ describe("catalyst earnings labeling", () => {
       .toBe("Earnings-Related News");
     expect(catalystTypeLabel({ event_type: "merger_acquisition", provider: "polygon" }))
       .toBe("M&A");
+  });
+});
+
+describe("etCalendarDateFromIso", () => {
+  it("converts midnight-UTC timestamps to the prior ET calendar date during EDT", () => {
+    // 2026-08-28 00:48 UTC = Aug 27, 8:48 PM EDT
+    expect(etCalendarDateFromIso("2026-08-28T00:48:00.000Z")).toBe("2026-08-27");
+    expect(etCalendarDateFromIso("2026-08-28T03:59:00.000Z")).toBe("2026-08-27");
+    expect(etCalendarDateFromIso("2026-08-28T04:00:00.000Z")).toBe("2026-08-28");
+  });
+
+  it("converts midnight-UTC timestamps to the prior ET calendar date during EST", () => {
+    // 2026-01-15 04:48 UTC = Jan 14, 11:48 PM EST
+    expect(etCalendarDateFromIso("2026-01-15T04:48:00.000Z")).toBe("2026-01-14");
+    expect(etCalendarDateFromIso("2026-01-15T05:00:00.000Z")).toBe("2026-01-15");
+  });
+
+  it("returns null for missing or unusable input", () => {
+    expect(etCalendarDateFromIso(null)).toBeNull();
+    expect(etCalendarDateFromIso("")).toBeNull();
+    expect(etCalendarDateFromIso("not-a-date")).toBeNull();
   });
 });

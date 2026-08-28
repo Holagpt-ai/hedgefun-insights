@@ -102,4 +102,85 @@ describe("CatalystWatchList exact-url grouping", () => {
     expect(screen.getByText("Sector related")).toBeTruthy();
     expect(screen.queryByText("Direct catalyst")).toBeNull();
   });
+
+  it("presents editorial comparison and still-a-buy articles as Commentary", () => {
+    render(
+      <MemoryRouter>
+        <CatalystWatchList
+          etDate="2026-08-28"
+          rows={[
+            cat({
+              id: "amd",
+              symbol: "AMD",
+              title: "CBRS vs. AMD: Which Stock Leads the AI Infrastructure Boom?",
+              event_date: "2026-08-28",
+              event_time: "2026-08-28T14:00:00.000Z",
+              attribution_class: "direct",
+              ticker_specific: true,
+              source_url: "https://example.com/amd-vs",
+            }),
+            cat({
+              id: "spcx",
+              symbol: "SPCX",
+              title: "Up Nearly 30% in August, Is SpaceX Stock Still a Buy?",
+              event_date: "2026-08-28",
+              event_time: "2026-08-28T15:00:00.000Z",
+              attribution_class: "direct",
+              ticker_specific: true,
+              source_url: "https://example.com/spcx-buy",
+            }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByText("Commentary")).toHaveLength(2);
+    expect(screen.queryByText("Direct catalyst")).toBeNull();
+  });
+
+  it("presents class-action solicitations as Legal / shareholder notice", () => {
+    render(
+      <MemoryRouter>
+        <CatalystWatchList
+          etDate="2026-08-28"
+          rows={[
+            cat({
+              id: "wix",
+              symbol: "WIX",
+              title: "WIX Class Action: Law Firm Reminds Investors of Losses",
+              attribution_class: "direct",
+              ticker_specific: true,
+              source_url: "https://example.com/wix-legal",
+            }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByText("Legal / shareholder notice")).toBeTruthy();
+    expect(screen.queryByText("Direct catalyst")).toBeNull();
+  });
+
+  it("does not show Today for an Aug 27 ET article whose UTC date is Aug 28", () => {
+    render(
+      <MemoryRouter>
+        <CatalystWatchList
+          etDate="2026-08-28"
+          rows={[
+            cat({
+              id: "late",
+              symbol: "AMD",
+              title: "Chipmakers announce partnership",
+              event_date: "2026-08-28",
+              event_time: "2026-08-28T00:48:00.000Z",
+              published_at: "2026-08-28T00:48:00.000Z",
+              attribution_class: "direct",
+              ticker_specific: true,
+              source_url: "https://example.com/chips-late",
+            }),
+          ]}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByText("Today")).toBeNull();
+    expect(screen.getByText(/Aug 27/)).toBeTruthy();
+  });
 });

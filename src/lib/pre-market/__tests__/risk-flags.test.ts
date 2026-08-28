@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { consolidateRiskFlags, CURRENT_FLAGS_PER_TICKER } from "@/lib/pre-market/risk-flags";
+import {
+  consolidateRiskFlags,
+  CURRENT_FLAGS_PER_TICKER,
+  DATA_UNAVAILABLE_AGGREGATE_ID,
+} from "@/lib/pre-market/risk-flags";
 
 const NOW = Date.parse("2026-08-27T12:00:00.000Z");
 
@@ -131,5 +135,54 @@ describe("risk flag consolidation", () => {
       item({ id: "b", detail: "Broke premarket low", event_time: "2026-08-27T10:05:00.000Z" }),
     ], NOW);
     expect(history).toHaveLength(2);
+  });
+
+  it("ranks trading risks above data-unavailable notices", () => {
+    const { current } = consolidateRiskFlags([
+      item({
+        id: "d",
+        kind: "data_unavailable",
+        label: "Current market snapshot unavailable",
+        detail: "Not enough intraday bars",
+      }),
+      item({ id: "j", kind: "journal_risk_missing", label: "Journal risk level missing", detail: "no stop" }),
+      item({ id: "e", kind: "earnings_today", label: "Earnings today", detail: "Reports before the open" }),
+      item({ id: "u", kind: "unusual_volume", label: "Unusual time-adjusted volume", detail: "RVOL 4.00" }),
+    ], NOW);
+    expect(current.map((c) => c.id)).toEqual(["j", "e", "u"]);
+    expect(current.some((c) => c.kind === "data_unavailable")).toBe(false);
+  });
+
+  it("aggregates multiple current data-unavailable rows into one system notice", () => {
+    const { current, history } = consolidateRiskFlags([
+      item({
+        id: "vrax",
+        symbol: "VRAX",
+        kind: "data_unavailable",
+        label: "Current market snapshot unavailable",
+        detail: "Current market snapshot unavailable",
+      }),
+      item({
+        id: "shaz",
+        symbol: "SHAZ",
+        kind: "data_unavailable",
+        label: "Current market snapshot unavailable",
+        detail: "Not enough intraday bars",
+      }),
+      item({
+        id: "nvve",
+        symbol: "NVVE",
+        kind: "data_unavailable",
+        label: "Current market snapshot unavailable",
+        detail: "Current market snapshot unavailable",
+      }),
+    ], NOW);
+    expect(current).toHaveLength(1);
+    expect(current[0].id).toBe(DATA_UNAVAILABLE_AGGREGATE_ID);
+    expect(current[0].symbol).toBeNull();
+    expect(current[0].label).toBe("Market data incomplete for 3 watchlist names");
+    expect(current[0].detail).toBe("VRAX · SHAZ · NVVE");
+    expect(history.map((h) => h.id)).toEqual(expect.arrayContaining(["vrax", "shaz", "nvve"]));
+    expect(history).toHaveLength(3);
   });
 });
