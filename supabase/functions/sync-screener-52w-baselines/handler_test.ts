@@ -468,3 +468,105 @@ Deno.test("missing auth does not fetch or persist", async () => {
   assertEquals(calls.length, 0);
   assertEquals(db.rpcCalls.length, 0);
 });
+
+Deno.test("current published baseline is a no-op", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-12",
+    current_generation_id: GEN,
+  });
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "current");
+  assertEquals(body.generation_id, GEN);
+  assertEquals(calls.length, 0);
+  assertEquals(db.rpcCalls.length, 0);
+});
+
+Deno.test("period mismatch starts a new generation and clears prior staging", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-11",
+    current_generation_id: PRIOR_GEN,
+  });
+  db.job = {
+    generation_id: PRIOR_GEN,
+    period_start: "2026-08-09",
+    period_end: "2026-08-11",
+    status: "running",
+    last_applied_date: "2026-08-10",
+    dates_total: 3,
+    dates_applied: 2,
+  };
+  db.staging.set("OLD", {
+    symbol: "OLD",
+    high_52w: 9,
+    low_52w: 1,
+    high_date: "2026-08-10",
+    low_date: "2026-08-10",
+    sessions_observed: 1,
+  });
+  db.processed.add("2026-08-10");
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  assertEquals(db.job.generation_id, GEN);
+  assertEquals(db.job.dates_applied, 2);
+  assertEquals(db.job.last_applied_date, "2026-08-11");
+  assertEquals(db.staging.has("OLD"), false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+  assertEquals(
+    db.rpcCalls.find((c) => c.fn === START_JOB_RPC)?.args.p_generation_id,
+    GEN,
+  );
+});
+
+Deno.test("matching current-period job resumes without starting a new generation", async () => {
+  const db = new FakeBaselineDb({
+    status: "initializing",
+    period_end: null,
+    current_generation_id: null,
+  });
+  db.job = {
+    generation_id: GEN,
+    period_start: "2026-08-10",
+    period_end: "2026-08-12",
+    status: "running",
+    last_applied_date: "2026-08-10",
+    dates_total: 3,
+    dates_applied: 1,
+  };
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      datesPerInvocation: 1,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  assertEquals(body.generation_id, GEN);
+  assertEquals(db.job.dates_applied, 2);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    0,
+  );
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    0,
+  );
+});
