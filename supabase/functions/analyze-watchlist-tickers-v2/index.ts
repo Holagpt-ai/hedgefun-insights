@@ -16,7 +16,7 @@ import {
 } from "../_shared/watchlist-v2/contract.ts";
 import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import {
-  assessSnapshot, computeBasis, fetchWithOutcome, normalizeBars,
+  assessSnapshot, computeBasis, fetchWithOutcome, normalizeBars, STALE_MS,
   type ProviderFailureKind, type ProviderTransportFailure,
 } from "../_shared/watchlist-v2/market-data.ts";
 import { computeKeyLevels, computeTransitionLevels } from "../_shared/watchlist-v2/levels.ts";
@@ -36,6 +36,12 @@ import {
   buildAiEvidence,
   isInsufficientEvidence,
 } from "../_shared/ai/evidence.ts";
+import {
+  emitAnalyzerOutcomeLog,
+  emptyAnalyzerOutcomeLog,
+  resolveAnalyzerOrigin,
+  type AnalyzerOutcomeLog,
+} from "./outcome-log.ts";
 
 export type ServiceClient = SupabaseClient;
 
@@ -342,6 +348,18 @@ export async function handleRequest(req: Request): Promise<Response> {
     ticker = p.ticker; owner = uid; source = "manual";
   }
 
+  const startedMs = Date.now();
+  const outcomeLog: AnalyzerOutcomeLog = emptyAnalyzerOutcomeLog(
+    ticker,
+    resolveAnalyzerOrigin(source, runId),
+  );
+  outcomeLog.stale_threshold_ms = STALE_MS;
+  const finish = (resp: Response): Response => {
+    outcomeLog.elapsed_ms = Date.now() - startedMs;
+    emitAnalyzerOutcomeLog(outcomeLog);
+    return resp;
+  };
+
   const supabase: ServiceClient = createClient(
     Deno.env.get("SUPABASE_URL")!,
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -357,10 +375,14 @@ export async function handleRequest(req: Request): Promise<Response> {
       .limit(1);
     if (ownErr) {
       console.error(`${LOG_PREFIX} ownership check failed`);
-      return jsonResponse(500, { status: "failed", error_code: "UPSTREAM_ERROR" });
+      outcomeLog.outcome = "failed";
+      outcomeLog.failure_reason = "UPSTREAM_ERROR";
+      return finish(jsonResponse(500, { status: "failed", error_code: "UPSTREAM_ERROR" }));
     }
     if (!owned || owned.length === 0) {
-      return jsonResponse(403, { error: "not_permitted" });
+      outcomeLog.outcome = "failed";
+      outcomeLog.failure_reason = "UNKNOWN";
+      return finish(jsonResponse(403, { error: "not_permitted" }));
     }
   }
 
@@ -371,9 +393,15 @@ export async function handleRequest(req: Request): Promise<Response> {
       .select("run_id, status")
       .eq("run_id", runId)
       .maybeSingle();
-    if (runErr) return jsonResponse(500, { status: "failed", error_code: "UPSTREAM_ERROR" });
+    if (runErr) {
+      outcomeLog.outcome = "failed";
+      outcomeLog.failure_reason = "UPSTREAM_ERROR";
+      return finish(jsonResponse(500, { status: "failed", error_code: "UPSTREAM_ERROR" }));
+    }
     if (!runRow || (runRow as { status?: string }).status !== "running") {
-      return jsonResponse(409, { status: "failed", error_code: "UNKNOWN", reason: "invalid_run_id" });
+      outcomeLog.outcome = "failed";
+      outcomeLog.failure_reason = "UNKNOWN";
+      return finish(jsonResponse(409, { status: "failed", error_code: "UNKNOWN", reason: "invalid_run_id" }));
     }
   }
 
@@ -402,15 +430,22 @@ export async function handleRequest(req: Request): Promise<Response> {
   const session = await resolveSession(analyzedAt, marketStatus);
   if (!session.ok) {
     if (session.reason === "NON_TRADING_DAY") {
-      return jsonResponse(422, { status: "not_applicable", reason: "NON_TRADING_DAY" });
+      outcomeLog.outcome = "not_applicable";
+      outcomeLog.failure_reason = "NON_TRADING_DAY";
+      return finish(jsonResponse(422, { status: "not_applicable", reason: "NON_TRADING_DAY" }));
     }
     if (session.reason === "OUTSIDE_SESSION_WINDOW") {
-      return jsonResponse(422, { status: "not_applicable", reason: "OUTSIDE_SESSION_WINDOW" });
+      outcomeLog.outcome = "not_applicable";
+      outcomeLog.failure_reason = "OUTSIDE_SESSION_WINDOW";
+      return finish(jsonResponse(422, { status: "not_applicable", reason: "OUTSIDE_SESSION_WINDOW" }));
     }
-    return jsonResponse(503, { status: "unresolved", reason: "SESSION_UNRESOLVED" });
+    outcomeLog.outcome = "unresolved";
+    outcomeLog.failure_reason = "SESSION_UNRESOLVED";
+    return finish(jsonResponse(503, { status: "unresolved", reason: "SESSION_UNRESOLVED" }));
   }
   const sessionDate = session.session_date;
   const sessionType = session.session_type;
+  outcomeLog.session = sessionType;
 
   // Step 6: create request row (FIRST database write)
   const insertRes = await supabase
@@ -420,7 +455,9 @@ export async function handleRequest(req: Request): Promise<Response> {
     .single();
   if (insertRes.error || !insertRes.data) {
     console.error(`${LOG_PREFIX} request insert failed`);
-    return jsonResponse(500, { status: "failed", error_code: "UPSTREAM_ERROR" });
+    outcomeLog.outcome = "failed";
+    outcomeLog.failure_reason = "UPSTREAM_ERROR";
+    return finish(jsonResponse(500, { status: "failed", error_code: "UPSTREAM_ERROR" }));
   }
   const requestId = (insertRes.data as { id: string }).id;
 
@@ -443,11 +480,17 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   if (snapshotR.kind === "transport_failure") {
     const code = logProviderFailure(ticker, "polygon_snapshot", snapshotR);
-    return await failAndRespond(supabase, requestId, owner, code);
+    outcomeLog.outcome = "failed";
+    outcomeLog.failure_reason = code;
+    outcomeLog.provider_stage = "polygon_snapshot";
+    return finish(await failAndRespond(supabase, requestId, owner, code));
   }
   if (barsR.kind === "transport_failure") {
     const code = logProviderFailure(ticker, "polygon_bars", barsR);
-    return await failAndRespond(supabase, requestId, owner, code);
+    outcomeLog.outcome = "failed";
+    outcomeLog.failure_reason = code;
+    outcomeLog.provider_stage = "polygon_bars";
+    return finish(await failAndRespond(supabase, requestId, owner, code));
   }
 
   const snapshot = assessSnapshot(snapshotR.body, analyzedAt);
@@ -455,6 +498,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   const rawBarsCount = Array.isArray(barsBody?.results) ? (barsBody.results as unknown[]).length : 0;
   const barsNorm = normalizeBars(barsBody?.results, sessionDate, analyzedAt);
   const bars = barsNorm.bars;
+
+  outcomeLog.snapshot_timestamp_source = snapshot.timestampSource;
+  outcomeLog.snapshot_age_ms = snapshot.lastTradeTs !== null
+    ? Math.max(0, analyzedAtMs - snapshot.lastTradeTs)
+    : null;
+  outcomeLog.bar_count = bars.length;
 
   const priorClose = snapshot.priorClose;
   const keyLevels = computeKeyLevels(bars, sessionType, priorClose);
@@ -479,6 +528,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   const rvolRes = computeRvol(
     sessionType, sessionDate, session.et_now_minutes, basis.volume, baseline,
   );
+  outcomeLog.rvol_available = rvolRes.rvol !== null;
 
   const quoteValid = basis.quote?.valid === true && basis.price !== null;
 
@@ -501,6 +551,8 @@ export async function handleRequest(req: Request): Promise<Response> {
     });
     return attr.ticker_specific;
   });
+  outcomeLog.signal_count = marketSignals.length;
+  outcomeLog.catalyst_present = recentEvents.length > 0;
 
   // Bars quality: distinguish malformed (raw provided, all rejected) from missing
   let barsQuality: InputsQuality["bars"];
@@ -522,6 +574,9 @@ export async function handleRequest(req: Request): Promise<Response> {
     bar_count: bars.length,
     feed_delay_note: "provider feed is 15-minute delayed",
     reason_codes: reasonCodes,
+    snapshot_age_ms: outcomeLog.snapshot_age_ms,
+    snapshot_ts_ms: snapshot.lastTradeTs,
+    snapshot_timestamp_source: snapshot.timestampSource,
   };
 
   const sufficiency = evaluateSufficiency({
@@ -563,6 +618,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     const rd = (er as { report_date?: unknown } | null)?.report_date;
     if (typeof rd === "string") earningsDate = rd.slice(0, 10);
   }
+  outcomeLog.earnings_present = earningsDate !== null;
 
   let direction: Direction;
   let explanation: string;
@@ -574,8 +630,12 @@ export async function handleRequest(req: Request): Promise<Response> {
     direction = "data_unavailable";
     failureReason = code;
     explanation = sufficiency.explanation ?? "Data unavailable.";
+    outcomeLog.outcome = "data_unavailable";
+    outcomeLog.failure_reason = code;
   } else if (!anthropicKey) {
-    return await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR");
+    outcomeLog.outcome = "failed";
+    outcomeLog.failure_reason = "UPSTREAM_ERROR";
+    return finish(await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR"));
   } else {
     const evidence = buildAiEvidence({
       symbol: ticker,
@@ -607,6 +667,9 @@ export async function handleRequest(req: Request): Promise<Response> {
       explanation = evidence.quote_valid
         ? "Insufficient Data"
         : "Current market snapshot unavailable";
+      outcomeLog.outcome = "data_unavailable";
+      outcomeLog.failure_reason = failureReason;
+      outcomeLog.missing_evidence_count = evidence.missing.length;
     } else {
     const catalog = buildEvidenceCatalog({
       market_signals: marketSignals,
@@ -630,15 +693,28 @@ export async function handleRequest(req: Request): Promise<Response> {
       direction = outcome.value.direction;
       explanation = outcome.value.explanation;
       driverIds = outcome.value.driver_ids; // no silent filtering
+      outcomeLog.outcome = direction === "data_unavailable" ? "data_unavailable" : "succeeded";
+      outcomeLog.failure_reason = direction === "data_unavailable" ? (failureReason ?? "UNKNOWN") : null;
+      outcomeLog.anthropic_http_status = 200;
+      outcomeLog.missing_evidence_count = evidence.missing.length;
       if (evidence.no_verified_catalyst && !explanation.includes("No verified ticker-specific catalyst available.")) {
         explanation = `${explanation} No verified ticker-specific catalyst available.`.trim();
         if (explanation.length > 240) explanation = explanation.slice(0, 240).trim();
       }
     } else if (outcome.kind === "transport_failure") {
       const code = logProviderFailure(ticker, "anthropic_ai", outcome);
-      return await failAndRespond(supabase, requestId, owner, code);
+      outcomeLog.outcome = "failed";
+      outcomeLog.failure_reason = code;
+      outcomeLog.provider_stage = "anthropic_ai";
+      outcomeLog.anthropic_http_status = outcome.http_status;
+      outcomeLog.missing_evidence_count = evidence.missing.length;
+      return finish(await failAndRespond(supabase, requestId, owner, code));
     } else {
-      return await failAndRespond(supabase, requestId, owner, "AI_VALIDATION_FAILED");
+      outcomeLog.outcome = "failed";
+      outcomeLog.failure_reason = "AI_VALIDATION_FAILED";
+      outcomeLog.provider_stage = "anthropic_ai";
+      outcomeLog.missing_evidence_count = evidence.missing.length;
+      return finish(await failAndRespond(supabase, requestId, owner, "AI_VALIDATION_FAILED"));
     }
     }
   }
@@ -670,12 +746,16 @@ export async function handleRequest(req: Request): Promise<Response> {
   const forbidden = containsForbiddenKey(payload);
   if (forbidden) {
     console.error(`${LOG_PREFIX} forbidden key blocked: ${sanitize(forbidden)}`);
-    return await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR");
+    outcomeLog.outcome = "failed";
+    outcomeLog.failure_reason = "UPSTREAM_ERROR";
+    return finish(await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR"));
   }
   const validated = validateAnalysisV2Payload(payload);
   if (!validated.ok) {
     console.error(`${LOG_PREFIX} payload validation failed`);
-    return await failAndRespond(supabase, requestId, owner, "UNKNOWN");
+    outcomeLog.outcome = "failed";
+    outcomeLog.failure_reason = "UNKNOWN";
+    return finish(await failAndRespond(supabase, requestId, owner, "UNKNOWN"));
   }
 
   const alerts: AlertCandidate[] = buildAlerts({
@@ -695,11 +775,14 @@ export async function handleRequest(req: Request): Promise<Response> {
       p_payload: payload, p_alerts: alerts, p_run_id: runId,
     });
   } catch {
-    return await rereadRequest(supabase, requestId);
+    outcomeLog.outcome = "unresolved";
+    return finish(await rereadRequest(supabase, requestId));
   }
   if (rpcResp.error) {
     console.error(`${LOG_PREFIX} finalize rpc failed`);
-    return await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR");
+    outcomeLog.outcome = "failed";
+    outcomeLog.failure_reason = "UPSTREAM_ERROR";
+    return finish(await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR"));
   }
 
   const rpcData = (rpcResp.data ?? {}) as { status?: string; alerts_created?: number };
@@ -714,8 +797,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   if (direction === "data_unavailable") {
     respBody.failure_reason = failureReason;
     respBody.explanation = explanation;
+    outcomeLog.outcome = "data_unavailable";
+    outcomeLog.failure_reason = failureReason;
+  } else {
+    outcomeLog.outcome = "succeeded";
   }
-  return jsonResponse(200, respBody);
+  return finish(jsonResponse(200, respBody));
 }
 
 if (import.meta.main) serve(handleRequest);

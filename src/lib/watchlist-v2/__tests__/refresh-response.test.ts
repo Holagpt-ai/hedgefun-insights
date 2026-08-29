@@ -54,7 +54,7 @@ describe("classifyWatchlistRefreshInvoke", () => {
       title: MARKET_CLOSED_TITLE,
       description: MARKET_CLOSED_DESCRIPTION,
     });
-    expect(toast?.title).toBe("Market closed");
+    expect(toast?.title).toBe("Market session closed");
     expect(toast?.description).toBe("No new analysis is available on non-trading days.");
     expect(toast?.title).not.toBe(REFRESH_FAILED_TITLE);
     expect(JSON.stringify(toast)).not.toMatch(/Refresh failed/i);

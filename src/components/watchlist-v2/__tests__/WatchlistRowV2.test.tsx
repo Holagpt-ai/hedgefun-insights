@@ -52,23 +52,61 @@ function renderRow(r: V2Row) {
 }
 
 describe("WatchlistRowV2 data_unavailable contract", () => {
-  it("shows Data Unavailable badge without long provider errors on the collapsed row", () => {
+  it("shows honest SNAPSHOT_STALE copy and auto-recheck without alarming AI wording", () => {
     const { getByText, container } = renderRow(row({}));
-    expect(getByText(/Data Unavailable/i)).toBeInTheDocument();
+    expect(getByText(/Waiting for fresh market data/i)).toBeInTheDocument();
+    expect(getByText(/Auto-recheck enabled/i)).toBeInTheDocument();
+    expect(container.innerHTML).not.toMatch(/AI failed/i);
     expect(container.innerHTML).not.toMatch(/Market snapshot too stale to analyze/i);
+    expect(container.innerHTML).not.toMatch(/Update failed/i);
   });
 
-  it("surfaces trader-friendly failure reason inside expanded diagnostics", () => {
+  it("surfaces SNAPSHOT_STALE primary and retry copy inside expanded diagnostics", () => {
     const { container, getByText } = renderRow(row({}));
     const toggle = container.querySelector('button[title="Expand"]') as HTMLButtonElement | null;
     if (toggle) fireEvent.click(toggle);
-    const diag = container.querySelector("button") &&
-      Array.from(container.querySelectorAll("button")).find((b) =>
-        /provider diagnostics/i.test(b.textContent ?? ""),
-      );
+    const diag = Array.from(container.querySelectorAll("button")).find((b) =>
+      /provider diagnostics/i.test(b.textContent ?? ""),
+    );
     expect(diag).toBeTruthy();
     fireEvent.click(diag!);
-    expect(getByText(/Market snapshot too stale to analyze/i)).toBeInTheDocument();
+    expect(container.textContent).toMatch(/Waiting for fresh market data/i);
+    expect(container.textContent).toMatch(/Stocksist will automatically retry/i);
+  });
+
+  it("maps INSUFFICIENT_EVIDENCE to evidence copy, not an AI failure", () => {
+    const { getByText, container } = renderRow(row({
+      failureReason: "INSUFFICIENT_EVIDENCE",
+      explanation: "Insufficient Data",
+    }));
+    expect(getByText(/Not enough trading evidence yet/i)).toBeInTheDocument();
+    expect(getByText(/Auto-recheck enabled/i)).toBeInTheDocument();
+    expect(container.innerHTML).not.toMatch(/AI failed/i);
+  });
+
+  it("keeps provider failures visually distinct from expected unavailable states", () => {
+    const { getByText, container } = renderRow(row({
+      direction: "neutral",
+      failureReason: null,
+      explanation: "ok",
+      requestStatus: "failed",
+      requestError: "Rate limited by data provider.",
+    }));
+    expect(getByText(/Update failed/i)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Auto-recheck enabled/i);
+    expect(container.textContent).not.toMatch(/Waiting for fresh market data/i);
+    expect(container.innerHTML).not.toMatch(/AI failed/i);
+  });
+
+  it("shows market data age only from a real persisted timestamp", () => {
+    const ts = Date.now() - 12 * 60_000;
+    const { getByText, container } = renderRow(row({
+      inputsQuality: { snapshot_ts_ms: ts },
+    }));
+    expect(getByText("Market data 12m old")).toBeInTheDocument();
+    const missing = renderRow(row({ inputsQuality: {} }));
+    expect(missing.container.textContent).not.toMatch(/Market data /);
+    expect(container.textContent).not.toMatch(/estimated/i);
   });
 
   it("never surfaces market signals when direction=data_unavailable", () => {

@@ -61,6 +61,8 @@ export type QualityRvol =
   | "baseline_incompatible" | "not_applicable_session";
 export type QualityEvents = "ok" | "missing" | "none_qualifying";
 
+export type SnapshotTimestampSource = "lastTrade" | "lastQuote" | "updated" | "min";
+
 export interface InputsQuality {
   snapshot: QualitySnapshot;
   bars: QualityBars;
@@ -71,6 +73,10 @@ export interface InputsQuality {
   bar_count: number;
   feed_delay_note: "provider feed is 15-minute delayed";
   reason_codes: string[];
+  /** Optional observability extras on existing JSONB. Absent on historical rows. */
+  snapshot_age_ms?: number | null;
+  snapshot_ts_ms?: number | null;
+  snapshot_timestamp_source?: SnapshotTimestampSource | null;
 }
 
 export interface AnalysisV2Payload {
@@ -227,6 +233,21 @@ function validateInputsQuality(q: unknown): q is InputsQuality {
   if (q.feed_delay_note !== "provider feed is 15-minute delayed") return false;
   if (!Array.isArray(q.reason_codes)) return false;
   for (const r of q.reason_codes) if (typeof r !== "string") return false;
+  if ("snapshot_age_ms" in q) {
+    const v = q.snapshot_age_ms;
+    if (v !== null && !(typeof v === "number" && Number.isFinite(v) && v >= 0)) return false;
+  }
+  if ("snapshot_ts_ms" in q) {
+    const v = q.snapshot_ts_ms;
+    if (v !== null && !(typeof v === "number" && Number.isFinite(v) && v > 0)) return false;
+  }
+  if ("snapshot_timestamp_source" in q) {
+    const v = q.snapshot_timestamp_source;
+    if (
+      v !== null &&
+      v !== "lastTrade" && v !== "lastQuote" && v !== "updated" && v !== "min"
+    ) return false;
+  }
   return true;
 }
 

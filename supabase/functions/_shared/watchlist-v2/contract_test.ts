@@ -67,3 +67,55 @@ Deno.test("validateAnalysisV2Payload rejects data_unavailable without reason", (
   });
   assert(!r.ok);
 });
+
+Deno.test("inputs_quality may persist snapshot age extras without a schema migration", () => {
+  const analyzed = new Date().toISOString();
+  const validThrough = new Date(Date.now() + 60_000).toISOString();
+  const base = {
+    ticker: "AAPL",
+    contract_version: 2,
+    session_date: "2026-07-23",
+    session_type: "rth",
+    valid_through: validThrough,
+    direction: "data_unavailable",
+    explanation: "Waiting.",
+    driver_ids: [],
+    failure_reason: "SNAPSHOT_STALE",
+    price: 3.12,
+    change_pct: null,
+    intraday: [],
+    volume: 1000,
+    rvol: null,
+    rvol_class: null,
+    market_signals: [],
+    recent_events: [],
+    key_levels: {
+      vwap: null, hod: null, lod: null, premarket_high: null, premarket_low: null,
+      prior_close: 3, basis: { hod_lod_scope: "rth", vwap_scope: null },
+    },
+    analyzed_at: analyzed,
+    run_id: null,
+  };
+  const ok = validateAnalysisV2Payload({
+    ...base,
+    inputs_quality: {
+      snapshot: "stale", bars: "ok", prior_close: "ok", volume: "ok",
+      rvol: "no_baseline", events: "none_qualifying", bar_count: 12,
+      feed_delay_note: "provider feed is 15-minute delayed", reason_codes: [],
+      snapshot_age_ms: 3_600_000,
+      snapshot_ts_ms: Date.now() - 3_600_000,
+      snapshot_timestamp_source: "lastTrade",
+    },
+  });
+  assert(ok.ok, ok.ok ? "" : ok.reason);
+  const bad = validateAnalysisV2Payload({
+    ...base,
+    inputs_quality: {
+      snapshot: "stale", bars: "ok", prior_close: "ok", volume: "ok",
+      rvol: "no_baseline", events: "none_qualifying", bar_count: 12,
+      feed_delay_note: "provider feed is 15-minute delayed", reason_codes: [],
+      snapshot_timestamp_source: "fabricated",
+    },
+  });
+  assert(!bad.ok);
+});

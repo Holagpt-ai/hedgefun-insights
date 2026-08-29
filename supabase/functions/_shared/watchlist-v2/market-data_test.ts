@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   assessSnapshot, classifyFetchFailure, computeBasis, fetchWithOutcome, normalizeBars,
+  STALE_MS,
 } from "./market-data.ts";
 
 const sessionDate = "2026-07-23";
@@ -88,6 +89,29 @@ Deno.test("assessSnapshot: 44min age passes; 46min is stale", () => {
   const stale = { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastTrade: { t: now.getTime() - 46 * 60 * 1000 } } };
   assertEquals(assessSnapshot(ok, now).quality, "ok");
   assertEquals(assessSnapshot(stale, now).quality, "stale");
+});
+
+Deno.test("STALE_MS is exactly 45 minutes", () => {
+  assertEquals(STALE_MS, 45 * 60 * 1000);
+});
+
+Deno.test("assessSnapshot records the winning timestamp source without fabricating age", () => {
+  const trade = assessSnapshot(
+    { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastTrade: { t: now.getTime() - 60_000 } } },
+    now,
+  );
+  assertEquals(trade.timestampSource, "lastTrade");
+  const quote = assessSnapshot(
+    { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 }, lastQuote: { t: now.getTime() - 60_000 } } },
+    now,
+  );
+  assertEquals(quote.timestampSource, "lastQuote");
+  const missing = assessSnapshot(
+    { ticker: { prevDay: { c: 100 }, day: { c: 101, v: 1 } } },
+    now,
+  );
+  assertEquals(missing.timestampSource, null);
+  assertEquals(missing.lastTradeTs, null);
 });
 
 Deno.test("assessSnapshot: future timestamp (>5min) is rejected", () => {
@@ -212,6 +236,7 @@ Deno.test("computeBasis uses last bar price and cumulative volume", () => {
   const b = computeBasis(bars, {
     quality: "ok",
     lastTradeTs: t931,
+    timestampSource: "lastTrade",
     priorClose: 99.5,
     dayClose: 101,
     dayVolume: 20000,
@@ -230,6 +255,7 @@ Deno.test("computeBasis rejects decimal-scale mismatch among corroborating field
   const b = computeBasis([], {
     quality: "ok",
     lastTradeTs: t931,
+    timestampSource: "lastTrade",
     priorClose: 97,
     dayClose: 977,
     dayVolume: 20_000,

@@ -43,6 +43,8 @@ export interface KeyLevels {
   prior_close: number | null;
 }
 
+export type SnapshotTimestampSource = "lastTrade" | "lastQuote" | "updated" | "min";
+
 export interface InputsQuality {
   snapshot?: string;
   bars?: string;
@@ -53,6 +55,9 @@ export interface InputsQuality {
   bar_count?: number;
   feed_delay_note?: string;
   reason_codes?: string[];
+  snapshot_age_ms?: number | null;
+  snapshot_ts_ms?: number | null;
+  snapshot_timestamp_source?: SnapshotTimestampSource | null;
 }
 
 const isObj = (x: unknown): x is Record<string, unknown> =>
@@ -170,6 +175,10 @@ export function parseKeyLevels(raw: unknown): KeyLevels {
   };
 }
 
+const SNAPSHOT_SOURCES = new Set<SnapshotTimestampSource>([
+  "lastTrade", "lastQuote", "updated", "min",
+]);
+
 export function parseInputsQuality(raw: unknown): InputsQuality {
   if (!isObj(raw)) return {};
   const q = raw as Record<string, unknown>;
@@ -184,6 +193,14 @@ export function parseInputsQuality(raw: unknown): InputsQuality {
   if (isStr(q.feed_delay_note)) out.feed_delay_note = q.feed_delay_note;
   if (Array.isArray(q.reason_codes)) {
     out.reason_codes = q.reason_codes.filter(isStr);
+  }
+  if (q.snapshot_age_ms === null) out.snapshot_age_ms = null;
+  else if (isFin(q.snapshot_age_ms) && q.snapshot_age_ms >= 0) out.snapshot_age_ms = q.snapshot_age_ms;
+  if (q.snapshot_ts_ms === null) out.snapshot_ts_ms = null;
+  else if (isFin(q.snapshot_ts_ms) && q.snapshot_ts_ms > 0) out.snapshot_ts_ms = q.snapshot_ts_ms;
+  if (q.snapshot_timestamp_source === null) out.snapshot_timestamp_source = null;
+  else if (isStr(q.snapshot_timestamp_source) && SNAPSHOT_SOURCES.has(q.snapshot_timestamp_source as SnapshotTimestampSource)) {
+    out.snapshot_timestamp_source = q.snapshot_timestamp_source as SnapshotTimestampSource;
   }
   return out;
 }
@@ -203,14 +220,60 @@ export function isExpired(validThrough: string | null | undefined, now: Date = n
   return t <= now.getTime();
 }
 
+export const EXPECTED_UNAVAILABLE_CODES = new Set([
+  "SNAPSHOT_STALE",
+  "INSUFFICIENT_EVIDENCE",
+]);
+
+export const PROVIDER_SYSTEM_FAILURE_CODES = new Set([
+  "RATE_LIMITED",
+  "PROVIDER_TIMEOUT",
+  "PROVIDER_ERROR",
+  "PROVIDER_UNAVAILABLE",
+  "AI_VALIDATION_FAILED",
+  "UPSTREAM_ERROR",
+  "UNKNOWN",
+]);
+
+export function isExpectedUnavailableReason(code: string | null | undefined): boolean {
+  return typeof code === "string" && EXPECTED_UNAVAILABLE_CODES.has(code);
+}
+
+export function isProviderSystemFailureReason(code: string | null | undefined): boolean {
+  return typeof code === "string" && PROVIDER_SYSTEM_FAILURE_CODES.has(code);
+}
+
+export function humanFailureReasonSecondary(code: string | null | undefined): string | null {
+  if (code === "SNAPSHOT_STALE") return "Stocksist will automatically retry.";
+  if (code === "INSUFFICIENT_EVIDENCE") return "Stocksist will automatically recheck.";
+  return null;
+}
+
+/** Live age from a persisted source timestamp. Returns null when the timestamp is missing or invalid. */
+export function formatMarketDataAge(
+  snapshotTsMs: number | null | undefined,
+  nowMs: number = Date.now(),
+): string | null {
+  if (!isFin(snapshotTsMs) || snapshotTsMs <= 0) return null;
+  if (!Number.isFinite(nowMs)) return null;
+  const ageMs = nowMs - snapshotTsMs;
+  if (!Number.isFinite(ageMs) || ageMs < 0) return null;
+  const minutes = Math.floor(ageMs / 60_000);
+  if (minutes < 1) return "Market data <1m old";
+  if (minutes < 60) return `Market data ${minutes}m old`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 48) return `Market data ${hours}h old`;
+  return `Market data ${Math.floor(hours / 24)}d old`;
+}
+
 // Human-readable failure reason (never fabricate — pass-through with light polish).
 export function humanFailureReason(code: string | null | undefined): string {
   if (!code) return "Analysis unavailable.";
   const map: Record<string, string> = {
-    INSUFFICIENT_EVIDENCE: "Insufficient Data",
+    INSUFFICIENT_EVIDENCE: "Not enough trading evidence yet",
     QUOTE_REJECTED: "Current market snapshot unavailable",
     SNAPSHOT_MISSING: "Market snapshot unavailable.",
-    SNAPSHOT_STALE: "Market snapshot too stale to analyze.",
+    SNAPSHOT_STALE: "Waiting for fresh market data",
     SNAPSHOT_MALFORMED: "Market snapshot data malformed.",
     PRICE_UNAVAILABLE: "Current price unavailable.",
     PRIOR_CLOSE_UNAVAILABLE: "Prior close unavailable.",
@@ -224,6 +287,7 @@ export function humanFailureReason(code: string | null | undefined): string {
     RATE_LIMITED: "Rate limited by data provider.",
     AI_VALIDATION_FAILED: "AI response failed validation.",
     UPSTREAM_ERROR: "Upstream service error.",
+    NON_TRADING_DAY: "Market session closed",
     UNKNOWN: "Analysis unavailable.",
   };
   return map[code] ?? "Analysis unavailable.";
