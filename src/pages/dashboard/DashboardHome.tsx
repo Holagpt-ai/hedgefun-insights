@@ -23,7 +23,7 @@ const WHATS_NEW = [
   { date: "Jun 2 2026", text: "Day Trade Radar screener live" },
 ];
 
-type ActivityRow = { created_at: string; type: string };
+type ActivityRow = { created_at: string; entry_type: string };
 
 export default function DashboardHome() {
   const { user, profile, plan } = useAuth() as any;
@@ -48,9 +48,9 @@ export default function DashboardHome() {
     (async () => {
       const { data } = await (supabase as any)
         .from("ai_daily_logs")
-        .select("created_at,type")
+        .select("created_at,entry_type")
         .eq("user_id", user.id)
-        .in("type", ["section_view", "ai_turn"])
+        .in("entry_type", ["section_view", "ai_turn"])
         .order("created_at", { ascending: false })
         .limit(7);
       if (data) setActivity(data as unknown as ActivityRow[]);
@@ -166,7 +166,7 @@ export default function DashboardHome() {
                 <span className="text-xs text-muted-foreground w-24 shrink-0">
                   {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                 </span>
-                <span className="text-sm capitalize">{a.type.replace("_", " ")}</span>
+                <span className="text-sm capitalize">{a.entry_type.replace("_", " ")}</span>
               </li>
             ))}
           </ul>
