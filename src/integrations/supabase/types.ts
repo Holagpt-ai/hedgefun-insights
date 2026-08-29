@@ -4719,6 +4719,27 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_52w_baseline_run_lease: {
+        Row: {
+          expires_at: string
+          holder_id: string
+          lease_key: string
+          updated_at: string
+        }
+        Insert: {
+          expires_at: string
+          holder_id: string
+          lease_key: string
+          updated_at: string
+        }
+        Update: {
+          expires_at?: string
+          holder_id?: string
+          lease_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       screener_52w_baseline_staging: {
         Row: {
           generation_id: string
@@ -5783,6 +5804,7 @@ export type Database = {
         Returns: undefined
       }
       journal_save_trade_v1: { Args: { p_payload: Json }; Returns: Json }
+      prune_cron_job_run_details_v1: { Args: never; Returns: number }
       record_wl_v2_baseline_written: {
         Args: { p_run_id: string; p_ticker: string }
         Returns: undefined
@@ -5794,6 +5816,10 @@ export type Database = {
       refresh_journal_stats: { Args: { p_user_id: string }; Returns: undefined }
       release_radar_v22_lease_v1: {
         Args: { p_holder_id: string; p_lease_key: string }
+        Returns: undefined
+      }
+      release_screener_52w_baseline_run_lease_v1: {
+        Args: { p_holder_id: string }
         Returns: undefined
       }
       replace_after_hours_generation_v1: {
@@ -5864,6 +5890,11 @@ export type Database = {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
       }
+      try_acquire_screener_52w_baseline_run_lease_v1: {
+        Args: { p_holder_id: string; p_ttl_ms: number }
+        Returns: boolean
+      }
+      try_screener_bar_numeric: { Args: { p_raw: string }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
