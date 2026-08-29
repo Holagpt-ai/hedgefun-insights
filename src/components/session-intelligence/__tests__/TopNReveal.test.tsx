@@ -53,4 +53,25 @@ describe("TopNReveal", () => {
     expect(screen.getByText("empty")).toBeTruthy();
     expect(screen.queryByRole("button")).toBeNull();
   });
+
+  it("view-more mode shows remaining count, total, and Show less", () => {
+    render(
+      <TopNReveal items={["one", "two", "three", "four"]} mode="view-more">
+        {(visible) => (
+          <ul>
+            {visible.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        )}
+      </TopNReveal>,
+    );
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByText("4 total")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /View 1 more/i }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(4);
+    fireEvent.click(screen.getByRole("button", { name: /Show less/i }));
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: /View 1 more/i })).toBeTruthy();
+  });
 });

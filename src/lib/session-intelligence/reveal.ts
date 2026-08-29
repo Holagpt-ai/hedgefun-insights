@@ -36,3 +36,10 @@ export function revealToggleLabel(expanded: boolean, total: number): string {
   if (expanded) return "Show Less";
   return `View All (${total})`;
 }
+
+/** Remaining-count copy used by Risk & Attention. Does not replace View All on other AM sections. */
+export function revealMoreToggleLabel(expanded: boolean, hiddenCount: number): string {
+  if (expanded) return "Show less";
+  const n = Number.isFinite(hiddenCount) ? Math.max(0, Math.floor(hiddenCount)) : 0;
+  return `View ${n} more`;
+}

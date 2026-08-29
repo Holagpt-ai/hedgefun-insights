@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_REVEAL_LIMIT, revealToggleLabel, sliceForReveal } from "@/lib/session-intelligence/reveal";
+import { DEFAULT_REVEAL_LIMIT, revealMoreToggleLabel, revealToggleLabel, sliceForReveal } from "@/lib/session-intelligence/reveal";
 
 describe("sliceForReveal", () => {
   it("defaults to the first 3 items", () => {
@@ -48,5 +48,16 @@ describe("revealToggleLabel", () => {
 
   it("collapses with Show Less", () => {
     expect(revealToggleLabel(true, 12)).toBe("Show Less");
+  });
+});
+
+describe("revealMoreToggleLabel", () => {
+  it("uses remaining count, not a new rank", () => {
+    expect(revealMoreToggleLabel(false, 1)).toBe("View 1 more");
+    expect(revealMoreToggleLabel(false, 4)).toBe("View 4 more");
+  });
+
+  it("collapses with Show less", () => {
+    expect(revealMoreToggleLabel(true, 4)).toBe("Show less");
   });
 });
