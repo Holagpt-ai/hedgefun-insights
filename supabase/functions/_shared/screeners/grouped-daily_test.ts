@@ -8,6 +8,7 @@ import {
   groupedUrl,
   isValidHighLow,
   parseGroupedResults,
+  tryBarNumeric,
 } from "./grouped-daily.ts";
 
 Deno.test("grouped URL is adjusted=true and has no apiKey query param", () => {
@@ -63,4 +64,12 @@ Deno.test("barsToPayload emits one row per Map symbol", () => {
   assertEquals(payload.length, parsed.size);
   assertEquals(new Set(payload.map((row) => row.symbol)).size, payload.length);
   assertEquals(parsed.get("AAA"), { h: 12, l: 4 });
+});
+
+Deno.test("overflow-style numeric strings are skipped by tryBarNumeric", () => {
+  assertEquals(tryBarNumeric("1e100000"), null);
+  assertEquals(tryBarNumeric(`1${"0".repeat(80)}`), null);
+  assertEquals(tryBarNumeric("1e309"), null);
+  assertEquals(tryBarNumeric("12.5"), 12.5);
+  assertEquals(tryBarNumeric(10), 10);
 });

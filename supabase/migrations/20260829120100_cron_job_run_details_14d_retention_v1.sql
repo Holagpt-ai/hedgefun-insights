@@ -2,6 +2,9 @@
 -- Deletes only completed rows older than 14 days, oldest-first, 5000/run.
 -- Does not TRUNCATE, VACUUM FULL, or touch running/in-flight rows.
 --
+-- Ordered before catch-up cadence so high-frequency 52w invocations cannot
+-- become active if this privilege-gated install fails.
+--
 -- Post-deploy (Lovable, after the backlog has drained; do not run in this PR):
 --   VACUUM (ANALYZE) cron.job_run_details;
 -- is appropriate to update planner stats and reclaim dead-tuple space

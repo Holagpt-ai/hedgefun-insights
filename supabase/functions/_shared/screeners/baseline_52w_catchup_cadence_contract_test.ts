@@ -9,7 +9,7 @@ import {
 import { BASELINE_DATES_PER_INVOCATION } from "../markets/baseline-window.ts";
 
 const CADENCE_MIGRATION_REL =
-  "../../../migrations/20260829120100_screener_52w_baseline_catchup_cadence_v1.sql";
+  "../../../migrations/20260829120200_screener_52w_baseline_catchup_cadence_v1.sql";
 
 async function load(): Promise<string> {
   const raw = await Deno.readTextFile(new URL(CADENCE_MIGRATION_REL, import.meta.url));
@@ -29,7 +29,7 @@ Deno.test("static: after-close and overnight jobs replace the 21:30-only cadence
   assertFalse(sql.includes("30 21 * *"), "must not keep 21:30-only weekday cadence");
 });
 
-Deno.test("static: catch-up window is after close, spans midnight, and does not overlap", async () => {
+Deno.test("static: hour windows do not overlap; durable TTL lease guards successive invocations", async () => {
   const sql = await load();
   assert(sql.includes("*/5 22-23 * * 1-5"), "evening Mon-Fri 22-23 UTC");
   assert(sql.includes("*/5 0-5 * * 2-6"), "overnight Tue-Sat 00-05 UTC");
@@ -39,4 +39,14 @@ Deno.test("static: catch-up window is after close, spans midnight, and does not 
   assert(sql.includes("vault.decrypted_secrets"));
   assert(sql.includes("sync_secret"));
   assertEquals(BASELINE_DATES_PER_INVOCATION, 4);
+  assert(sql.includes("CREATE TABLE IF NOT EXISTS public.screener_52w_baseline_run_lease"));
+  assert(sql.includes("try_acquire_screener_52w_baseline_run_lease_v1"));
+  assert(sql.includes("release_screener_52w_baseline_run_lease_v1"));
+  assert(sql.includes("v_existing.expires_at <= v_now"));
+  assert(sql.includes("RETURN false"));
+  assert(sql.includes("AND holder_id = p_holder_id"));
+  assert(sql.includes("LEAST(COALESCE(p_ttl_ms, 360000), 480000)"));
+  const leaseIdx = sql.indexOf("try_acquire_screener_52w_baseline_run_lease_v1");
+  const cronIdx = sql.indexOf("cron.schedule(\n    'sync-screener-52w-baselines-after-close'");
+  assert(leaseIdx >= 0 && cronIdx > leaseIdx, "lease installs before cadence schedule");
 });

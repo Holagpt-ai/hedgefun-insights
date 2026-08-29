@@ -7,6 +7,31 @@
 -- Producer (barsToPayload over a Map) emits at most one row per symbol
 -- per session date. Duplicate symbols in a hand-crafted payload are
 -- collapsed with GROUP BY so ON CONFLICT cannot update the same row twice.
+--
+-- Numeric conversion is length-and-exponent bounded so a syntactically
+-- numeric overflow string cannot make ::numeric abort the daily statement.
+-- Those rows are skipped, matching the old per-row EXCEPTION CONTINUE.
+
+CREATE OR REPLACE FUNCTION public.try_screener_bar_numeric(p_raw text)
+RETURNS numeric
+LANGUAGE sql
+IMMUTABLE
+PARALLEL SAFE
+SET search_path = ''
+AS $num$
+  SELECT CASE
+    WHEN p_raw IS NULL THEN NULL
+    WHEN char_length(btrim(p_raw)) > 32 THEN NULL
+    WHEN btrim(p_raw)
+      ~ '^[+-]?(?:[0-9]{1,18}(?:\.[0-9]{0,18})?|\.[0-9]{1,18})(?:[eE][+-]?[0-9]{1,2})?$'
+      THEN btrim(p_raw)::numeric
+    ELSE NULL
+  END
+$num$;
+
+REVOKE ALL ON FUNCTION public.try_screener_bar_numeric(text) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.try_screener_bar_numeric(text) FROM anon;
+REVOKE ALL ON FUNCTION public.try_screener_bar_numeric(text) FROM authenticated;
 
 CREATE OR REPLACE FUNCTION public.apply_screener_52w_baseline_day_v1(
   p_generation_id uuid,
@@ -91,24 +116,8 @@ BEGIN
     FROM (
       SELECT
         upper(trim(COALESCE(e.elem ->> 'symbol', ''))) AS symbol,
-        CASE
-          WHEN jsonb_typeof(e.elem -> 'h') = 'number'
-            THEN (e.elem ->> 'h')::numeric
-          WHEN jsonb_typeof(e.elem -> 'h') = 'string'
-            AND btrim(e.elem ->> 'h')
-              ~ '^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$'
-            THEN btrim(e.elem ->> 'h')::numeric
-          ELSE NULL
-        END AS high_52w,
-        CASE
-          WHEN jsonb_typeof(e.elem -> 'l') = 'number'
-            THEN (e.elem ->> 'l')::numeric
-          WHEN jsonb_typeof(e.elem -> 'l') = 'string'
-            AND btrim(e.elem ->> 'l')
-              ~ '^[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?$'
-            THEN btrim(e.elem ->> 'l')::numeric
-          ELSE NULL
-        END AS low_52w
+        public.try_screener_bar_numeric(e.elem ->> 'h') AS high_52w,
+        public.try_screener_bar_numeric(e.elem ->> 'l') AS low_52w
       FROM jsonb_array_elements(p_bars) AS e(elem)
       WHERE jsonb_typeof(e.elem) = 'object'
     ) v

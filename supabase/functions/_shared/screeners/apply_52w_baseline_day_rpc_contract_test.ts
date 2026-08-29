@@ -148,14 +148,32 @@ Deno.test("static: invalid rows are filtered set-wise without a per-row exceptio
   assert(body.includes("v.high_52w > 0"));
   assert(body.includes("v.low_52w > 0"));
   assert(body.includes("v.low_52w <= v.high_52w"));
-  assert(
-    body.includes("^[+-]?(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][+-]?[0-9]+)?$"),
-    "safe numeric filter before cast",
-  );
+  assert(body.includes("public.try_screener_bar_numeric(e.elem ->> 'h')"));
+  assert(body.includes("public.try_screener_bar_numeric(e.elem ->> 'l')"));
   assertFalse(
     /BEGIN\s+v_high\s*:=/i.test(body) || body.includes("EXCEPTION WHEN others THEN"),
     "must not use per-row BEGIN/EXCEPTION subtransactions",
   );
+});
+
+Deno.test("static: bar numeric conversion is bounded so overflow text cannot abort the day", async () => {
+  const sql = await load(NEW_MIGRATION_REL);
+  assert(sql.includes("CREATE OR REPLACE FUNCTION public.try_screener_bar_numeric(p_raw text)"));
+  assert(sql.includes("LANGUAGE sql"));
+  assert(sql.includes("IMMUTABLE"));
+  assert(sql.includes("char_length(btrim(p_raw)) > 32"));
+  assert(sql.includes("[eE][+-]?[0-9]{1,2})?$"), "exponent at most 2 digits");
+  assertFalse(
+    sql.includes("[eE][+-]?[0-9]+)?$"),
+    "must not accept unbounded exponents",
+  );
+  const helperStart = sql.indexOf(
+    "CREATE OR REPLACE FUNCTION public.try_screener_bar_numeric",
+  );
+  const helperEnd = sql.indexOf("$num$;", helperStart);
+  const helper = sql.slice(helperStart, helperEnd);
+  assertFalse(helper.includes("EXCEPTION"), "helper must not use PL/pgSQL exceptions");
+  assertFalse(helper.includes("LANGUAGE plpgsql"), "helper is SQL CASE, not plpgsql");
 });
 
 Deno.test("static: apply is one set-based INSERT SELECT ON CONFLICT with GROUP BY symbol", async () => {

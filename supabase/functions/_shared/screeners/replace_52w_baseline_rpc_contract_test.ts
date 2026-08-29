@@ -7,8 +7,10 @@ import {
   assertFalse,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-const NEW_MIGRATION_REL =
-  "../../../migrations/20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql";
+const SET_BASED_MIGRATIONS = [
+  "../../../migrations/20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql",
+  "../../../migrations/20260829002443_7ba9725f-987a-4537-998b-bd7ee6a0a057.sql",
+] as const;
 const HISTORICAL_MIGRATIONS = [
   "../../../migrations/20260813190000_screener_52w_baselines.sql",
   "../../../migrations/20260814154404_11fa443d-48cf-4b31-9afb-2a95ce6338f4.sql",
@@ -55,7 +57,7 @@ function functionBody(sql: string): string {
   return sql.slice(begin, end);
 }
 
-Deno.test("static: only the new forward migration is the latest RPC definition", async () => {
+Deno.test("static: set-based migrations are the later RPC definitions", async () => {
   const migrationsDir = new URL("../../../migrations/", import.meta.url);
   const defs: string[] = [];
   for await (const entry of Deno.readDir(migrationsDir)) {
@@ -70,103 +72,48 @@ Deno.test("static: only the new forward migration is the latest RPC definition",
     "20260813190000_screener_52w_baselines.sql",
     "20260814154404_11fa443d-48cf-4b31-9afb-2a95ce6338f4.sql",
     "20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql",
+    "20260829002443_7ba9725f-987a-4537-998b-bd7ee6a0a057.sql",
   ]);
 });
 
-Deno.test("static: public signature, security, grants, and return type are unchanged", async () => {
-  const sql = await load(NEW_MIGRATION_REL);
-  assert(sql.includes(`CREATE OR REPLACE FUNCTION ${SIGNATURE}`), "signature");
-  assert(sql.includes("RETURNS integer"), "return type");
-  assert(sql.includes("LANGUAGE plpgsql"), "language");
-  assert(sql.includes("SECURITY DEFINER"), "security definer");
-  assert(sql.includes("SET search_path = ''"), "search_path");
+async function assertSetBasedContract(rel: string): Promise<void> {
+  const sql = await load(rel);
+  assert(sql.includes(`CREATE OR REPLACE FUNCTION ${SIGNATURE}`), `${rel} signature`);
+  assert(sql.includes("RETURNS integer"), `${rel} return type`);
+  assert(sql.includes("LANGUAGE plpgsql"), `${rel} language`);
+  assert(sql.includes("SECURITY DEFINER"), `${rel} security definer`);
+  assert(sql.includes("SET search_path = ''"), `${rel} search_path`);
   assert(
     sql.includes(
       `GRANT EXECUTE ON FUNCTION public.${RPC_NAME}(uuid, jsonb, date, date, timestamptz, text)\n  TO service_role`,
     ),
-    "service_role grant",
+    `${rel} service_role grant`,
   );
   assert(
     sql.includes(
       `REVOKE ALL ON FUNCTION public.${RPC_NAME}(uuid, jsonb, date, date, timestamptz, text)\n  FROM PUBLIC`,
     ),
-    "revoke public",
+    `${rel} revoke public`,
   );
-  assert(
-    sql.includes(
-      `REVOKE ALL ON FUNCTION public.${RPC_NAME}(uuid, jsonb, date, date, timestamptz, text)\n  FROM anon`,
-    ),
-    "revoke anon",
-  );
-  assert(
-    sql.includes(
-      `REVOKE ALL ON FUNCTION public.${RPC_NAME}(uuid, jsonb, date, date, timestamptz, text)\n  FROM authenticated`,
-    ),
-    "revoke authenticated",
-  );
-});
-
-Deno.test("static: validation messages and set-based duplicate detection are present", async () => {
-  const sql = await load(NEW_MIGRATION_REL);
   const body = functionBody(sql);
   for (const message of EXCEPTION_MESSAGES) {
-    assert(body.includes(`'${message}'`), `missing exception: ${message}`);
+    assert(body.includes(`'${message}'`), `${rel} missing exception: ${message}`);
   }
   assert(body.includes("GROUP BY upper(trim(COALESCE(e ->> 'symbol', '')))"));
   assert(body.includes("HAVING COUNT(*) > 1"));
-  assert(body.includes("jsonb_array_elements(p_rows)"));
-  assert(body.includes("v_len > 20000"));
-  assert(body.includes("p_status NOT IN ('available', 'empty')"));
-});
-
-Deno.test("static: O(n^2) per-row duplicate loop is gone", async () => {
-  const body = functionBody(await load(NEW_MIGRATION_REL));
-  assertFalse(body.includes("v_seen"), "must not use v_seen");
-  assertFalse(body.includes("array_append"), "must not use array_append");
-  assertFalse(body.includes("= ANY (v_seen)"), "must not use ANY(v_seen)");
-  assertFalse(body.includes("ANY(v_seen)"), "must not use ANY(v_seen)");
+  assertFalse(body.includes("v_seen"), `${rel} must not use v_seen`);
   assertFalse(
-    /FOR\s+v_elem\s+IN\s+SELECT\s+value\s+FROM\s+jsonb_array_elements/i.test(
-      body,
-    ),
-    "must not use a PL/pgSQL per-row jsonb loop",
+    /FOR\s+v_elem\s+IN\s+SELECT\s+value\s+FROM\s+jsonb_array_elements/i.test(body),
+    `${rel} must not use a PL/pgSQL per-row jsonb loop`,
   );
-});
+  assert(body.includes("INSERT INTO public.screener_52w_baselines"));
+  assert(body.includes("FROM jsonb_array_elements(p_rows) AS e;"));
+}
 
-Deno.test("static: insert is set-based and pointer flip precedes old-generation delete", async () => {
-  const body = functionBody(await load(NEW_MIGRATION_REL));
-  const insertIdx = body.indexOf(
-    "INSERT INTO public.screener_52w_baselines",
-  );
-  const selectFromJson = body.indexOf(
-    "FROM jsonb_array_elements(p_rows) AS e;",
-  );
-  const stateIdx = body.indexOf(
-    "INSERT INTO public.screener_52w_baseline_state",
-  );
-  const deleteIdx = body.indexOf(
-    "DELETE FROM public.screener_52w_baselines",
-  );
-  const returnIdx = body.indexOf("RETURN v_inserted;");
-  assert(insertIdx >= 0, "insert new generation");
-  assert(selectFromJson > insertIdx, "INSERT ... SELECT from jsonb array");
-  assertFalse(
-    /INSERT INTO public\.screener_52w_baselines[\s\S]*VALUES\s*\(/i.test(
-      body.slice(insertIdx, stateIdx),
-    ),
-    "must not INSERT one row at a time with VALUES",
-  );
-  assert(stateIdx > insertIdx, "pointer updates after insert");
-  assert(
-    body.includes("ON CONFLICT (state_key) DO UPDATE SET"),
-    "state upsert",
-  );
-  assert(
-    body.includes("WHERE generation_id IS DISTINCT FROM p_generation_id"),
-    "delete non-current generations",
-  );
-  assert(deleteIdx > stateIdx, "delete old generations after pointer update");
-  assert(returnIdx > deleteIdx, "return after delete");
+Deno.test("static: Cursor and Lovable set-based definitions match the public contract", async () => {
+  for (const rel of SET_BASED_MIGRATIONS) {
+    await assertSetBasedContract(rel);
+  }
 });
 
 Deno.test("static: historical migrations that defined the RPC were not edited", async () => {

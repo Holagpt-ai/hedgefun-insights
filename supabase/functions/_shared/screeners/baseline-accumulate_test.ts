@@ -123,3 +123,18 @@ Deno.test("empty and zero-valid-row days still record the session date", () => {
   assertEquals(staging.size, 0);
   assertEquals([...processed].sort(), ["2026-08-10", "2026-08-11"]);
 });
+
+Deno.test("overflow-style numeric text is skipped rather than aborting the day", () => {
+  const { staging, processed } = empty();
+  applyBaselineDay(staging, processed, "2026-08-10", [
+    { symbol: "AAA", h: 10, l: 5 },
+    { symbol: "BIGE", h: "1e100000", l: "1" },
+    { symbol: "BIGD", h: `1${"0".repeat(80)}`, l: "1" },
+    { symbol: "INF", h: "1e309", l: "1" },
+    { symbol: "OK", h: "12.5", l: "3e0" },
+  ]);
+  assertEquals([...staging.keys()].sort(), ["AAA", "OK"]);
+  assertEquals(staging.get("OK")?.high_52w, 12.5);
+  assertEquals(staging.get("OK")?.low_52w, 3);
+  assertEquals(processed.has("2026-08-10"), true);
+});

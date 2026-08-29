@@ -7,7 +7,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 const RETENTION_MIGRATION_REL =
-  "../../../migrations/20260829120200_cron_job_run_details_14d_retention_v1.sql";
+  "../../../migrations/20260829120100_cron_job_run_details_14d_retention_v1.sql";
 
 async function load(): Promise<string> {
   const raw = await Deno.readTextFile(
@@ -59,4 +59,8 @@ Deno.test("static: privilege blocker is explicit and cadence gradually drains", 
   assert(sql.includes("'*/15 * * * *'"));
   assert(sql.includes("VACUUM (ANALYZE) cron.job_run_details"));
   assertFalse(sql.includes("GRANT EXECUTE ON FUNCTION public.prune_cron_job_run_details_v1()"));
+  assert(
+    sql.includes("Ordered before catch-up cadence"),
+    "retention filename/order must precede cadence activation",
+  );
 });

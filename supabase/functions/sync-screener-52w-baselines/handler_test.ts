@@ -5,6 +5,7 @@ import {
   type StagingRow,
 } from "../_shared/screeners/baseline-accumulate.ts";
 import {
+  ACQUIRE_RUN_LEASE_RPC,
   APPLY_DAY_RPC,
   type BaselineSyncDeps,
   type DbClient,
@@ -12,6 +13,7 @@ import {
   type DbSelectResult,
   FINALIZE_JOB_RPC,
   handleSyncScreener52wBaselines,
+  RELEASE_RUN_LEASE_RPC,
   START_JOB_RPC,
 } from "./handler.ts";
 
@@ -92,6 +94,11 @@ function fakeGroupedFetch(
   };
 }
 
+type RunLeaseState = {
+  holderId: string | null;
+  expiresAtMs: number;
+};
+
 class FakeBaselineDb {
   published: PublishedState;
   job: JobRow | null = null;
@@ -99,13 +106,16 @@ class FakeBaselineDb {
   processed = new Set<string>();
   rpcCalls: RpcCall[] = [];
   finalizeError: { message: string } | null = null;
+  lease: RunLeaseState;
+  leaseNowMs = AFTER_CLOSE_MS;
 
-  constructor(published?: PublishedState) {
+  constructor(published?: PublishedState, lease?: RunLeaseState) {
     this.published = published ?? {
       status: "initializing",
       period_end: null,
       current_generation_id: null,
     };
+    this.lease = lease ?? { holderId: null, expiresAtMs: 0 };
   }
 
   client(): DbClient {
@@ -132,6 +142,27 @@ class FakeBaselineDb {
       }),
       rpc: async (fn, args) => {
         this.rpcCalls.push({ fn, args });
+        if (fn === ACQUIRE_RUN_LEASE_RPC) {
+          const holderId = String(args.p_holder_id);
+          const ttlMs = Number(args.p_ttl_ms);
+          if (
+            this.lease.holderId &&
+            this.lease.holderId !== holderId &&
+            this.lease.expiresAtMs > this.leaseNowMs
+          ) {
+            return { data: false, error: null };
+          }
+          this.lease.holderId = holderId;
+          this.lease.expiresAtMs = this.leaseNowMs + ttlMs;
+          return { data: true, error: null };
+        }
+        if (fn === RELEASE_RUN_LEASE_RPC) {
+          if (this.lease.holderId === String(args.p_holder_id)) {
+            this.lease.holderId = null;
+            this.lease.expiresAtMs = 0;
+          }
+          return { data: null, error: null };
+        }
         if (fn === START_JOB_RPC) {
           const periodStart = String(args.p_period_start);
           const periodEnd = String(args.p_period_end);
@@ -569,4 +600,79 @@ Deno.test("matching current-period job resumes without starting a new generation
     db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
     0,
   );
+});
+
+Deno.test("second concurrent invocation exits cheaply without fetching", async () => {
+  const lease: RunLeaseState = {
+    holderId: "other-holder",
+    expiresAtMs: AFTER_CLOSE_MS + 60_000,
+  };
+  const db = new FakeBaselineDb(undefined, lease);
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      newHolderId: () => "this-holder",
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "busy");
+  assertEquals(calls.length, 0);
+  assertEquals(db.job, null);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    0,
+  );
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === APPLY_DAY_RPC).length,
+    0,
+  );
+  assertEquals(lease.holderId, "other-holder");
+});
+
+Deno.test("expired stale lease can be recovered by a later invocation", async () => {
+  const lease: RunLeaseState = {
+    holderId: "dead-holder",
+    expiresAtMs: AFTER_CLOSE_MS - 1,
+  };
+  const db = new FakeBaselineDb(undefined, lease);
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      newHolderId: () => "fresh-holder",
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  assertEquals(calls.length > 0, true);
+  assertEquals(
+    db.rpcCalls.some((c) => c.fn === ACQUIRE_RUN_LEASE_RPC),
+    true,
+  );
+  assertEquals(
+    db.rpcCalls.some((c) => c.fn === RELEASE_RUN_LEASE_RPC),
+    true,
+  );
+  assertEquals(lease.holderId, null);
+});
+
+Deno.test("normal invocation acquires, continues, and releases the run lease", async () => {
+  const db = new FakeBaselineDb();
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, []), {
+      newHolderId: () => "run-holder",
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  const fns = db.rpcCalls.map((c) => c.fn);
+  assertEquals(fns[0], ACQUIRE_RUN_LEASE_RPC);
+  assertEquals(fns.includes(START_JOB_RPC), true);
+  assertEquals(fns[fns.length - 1], RELEASE_RUN_LEASE_RPC);
+  assertEquals(db.lease.holderId, null);
 });

@@ -26,6 +26,11 @@ import {
 export const START_JOB_RPC = "start_screener_52w_baseline_job_v1";
 export const APPLY_DAY_RPC = "apply_screener_52w_baseline_day_v1";
 export const FINALIZE_JOB_RPC = "finalize_screener_52w_baseline_job_v1";
+export const ACQUIRE_RUN_LEASE_RPC =
+  "try_acquire_screener_52w_baseline_run_lease_v1";
+export const RELEASE_RUN_LEASE_RPC =
+  "release_screener_52w_baseline_run_lease_v1";
+export const BASELINE_RUN_LEASE_TTL_MS = 360_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -80,6 +85,8 @@ export type BaselineSyncDeps = {
   nowIso: () => string;
   nowMs?: () => number;
   newGenerationId?: () => string;
+  newHolderId?: () => string;
+  leaseTtlMs?: number;
   datesPerInvocation?: number;
   lookbackCalendarDays?: number;
   minSessions?: number;
@@ -280,6 +287,42 @@ export async function handleSyncScreener52wBaselines(
       generation_id: published.current_generation_id,
     });
   }
+
+  const holderId = (deps.newHolderId ?? (() => crypto.randomUUID()))();
+  const acquired = await sb.rpc(ACQUIRE_RUN_LEASE_RPC, {
+    p_holder_id: holderId,
+    p_ttl_ms: deps.leaseTtlMs ?? BASELINE_RUN_LEASE_TTL_MS,
+  });
+  if (acquired.error) {
+    console.error("[sync-screener-52w-baselines] persist_failed");
+    return json({ error: "persist_failed" }, 500);
+  }
+  if (acquired.data !== true) {
+    return json({
+      ok: true,
+      status: "busy",
+      period_end: window.periodEnd,
+    });
+  }
+
+  try {
+    return await runCatchup(sb, deps, window, apiKey, nowIso);
+  } finally {
+    try {
+      await sb.rpc(RELEASE_RUN_LEASE_RPC, { p_holder_id: holderId });
+    } catch {
+      // TTL recovers a crashed holder; do not mask the invocation result.
+    }
+  }
+}
+
+async function runCatchup(
+  sb: DbClient,
+  deps: BaselineSyncDeps,
+  window: { periodStart: string; periodEnd: string },
+  apiKey: string,
+  nowIso: string,
+): Promise<Response> {
 
   let job = await loadJob(sb);
   const periodMatches = job &&
