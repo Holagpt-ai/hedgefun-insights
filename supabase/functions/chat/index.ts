@@ -2,6 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { getCapabilities } from "./capabilities.ts";
 import { getToolDefinitions, executeTool } from "./tools/registry.ts";
+import {
+  formatAnthropicHttpErrorLog,
+  readAnthropicErrorType,
+} from "../_shared/ai/anthropic-error.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -247,6 +251,7 @@ serve(async (req) => {
     let toolUseBlocks: Array<{ type: string; name: string; id: string; input: Record<string, unknown> }> = [];
 
     if (toolDefinitions.length > 0 && user) {
+      const firstPassStarted = Date.now();
       const firstPassResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -265,8 +270,13 @@ serve(async (req) => {
       });
 
       if (!firstPassResponse.ok) {
-        const t = await firstPassResponse.text();
-        console.error("Anthropic first-pass error:", firstPassResponse.status, t);
+        const errorType = await readAnthropicErrorType(firstPassResponse);
+        console.error(formatAnthropicHttpErrorLog({
+          http_status: firstPassResponse.status,
+          anthropic_error_type: errorType,
+          elapsed_ms: Date.now() - firstPassStarted,
+          stage: "first_pass",
+        }));
         return new Response(JSON.stringify({ error: "AI service error" }), {
           status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -315,6 +325,7 @@ serve(async (req) => {
 
     // Final streaming call — uses streamingMessages (may include tool results or
     // may be identical to builtMessages for Free/anonymous/no-tool-needed paths).
+    const streamStarted = Date.now();
     const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -338,8 +349,13 @@ serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
-      const t = await anthropicResponse.text();
-      console.error("Anthropic API error:", anthropicResponse.status, t);
+      const errorType = await readAnthropicErrorType(anthropicResponse);
+      console.error(formatAnthropicHttpErrorLog({
+        http_status: anthropicResponse.status,
+        anthropic_error_type: errorType,
+        elapsed_ms: Date.now() - streamStarted,
+        stage: "stream",
+      }));
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
