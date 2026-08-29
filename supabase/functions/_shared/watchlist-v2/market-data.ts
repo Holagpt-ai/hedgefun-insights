@@ -136,11 +136,15 @@ export function normalizeBars(
 }
 
 // ── Snapshot freshness / basis ───────────────────────────────────────────
-const STALE_MS = 45 * 60 * 1000;
+/** Snapshot older than this is SNAPSHOT_STALE. Do not change without an explicit product decision. */
+export const STALE_MS = 45 * 60 * 1000;
+
+export type SnapshotTimestampSource = "lastTrade" | "lastQuote" | "updated" | "min";
 
 export interface SnapshotAssessment {
   quality: "ok" | "missing" | "stale" | "malformed";
   lastTradeTs: number | null;
+  timestampSource: SnapshotTimestampSource | null;
   priorClose: number | null;   // prevDay.c > 0 finite
   dayClose: number | null;
   dayVolume: number | null;
@@ -154,6 +158,7 @@ export interface SnapshotAssessment {
 const EMPTY_ASSESSMENT: SnapshotAssessment = {
   quality: "missing",
   lastTradeTs: null,
+  timestampSource: null,
   priorClose: null,
   dayClose: null,
   dayVolume: null,
@@ -192,13 +197,18 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
     return ms;
   };
 
-  const candidates: number[] = [];
-  const c1 = normalizeCandidate(lastTrade.t, "auto"); if (c1 !== null) candidates.push(c1);
-  const c2 = normalizeCandidate(lastQuote.t, "auto"); if (c2 !== null) candidates.push(c2);
-  const c3 = normalizeCandidate((tick as Record<string, unknown>).updated, "auto"); if (c3 !== null) candidates.push(c3);
-  const c4 = normalizeCandidate(min.t, "ms"); if (c4 !== null) candidates.push(c4);
+  const named: Array<{ src: SnapshotTimestampSource; ms: number }> = [];
+  const c1 = normalizeCandidate(lastTrade.t, "auto"); if (c1 !== null) named.push({ src: "lastTrade", ms: c1 });
+  const c2 = normalizeCandidate(lastQuote.t, "auto"); if (c2 !== null) named.push({ src: "lastQuote", ms: c2 });
+  const c3 = normalizeCandidate((tick as Record<string, unknown>).updated, "auto"); if (c3 !== null) named.push({ src: "updated", ms: c3 });
+  const c4 = normalizeCandidate(min.t, "ms"); if (c4 !== null) named.push({ src: "min", ms: c4 });
 
-  const tsMs = candidates.length ? Math.max(...candidates) : null;
+  let winner: { src: SnapshotTimestampSource; ms: number } | null = null;
+  for (const c of named) {
+    if (!winner || c.ms > winner.ms) winner = c;
+  }
+  const tsMs = winner?.ms ?? null;
+  const timestampSource = winner?.src ?? null;
 
   const priorC = typeof prevDay.c === "number" && Number.isFinite(prevDay.c) && prevDay.c > 0 ? prevDay.c : null;
   const dayC = typeof day.c === "number" && Number.isFinite(day.c) && day.c > 0 ? day.c : null;
@@ -225,6 +235,7 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
   return {
     quality,
     lastTradeTs: tsMs,
+    timestampSource,
     priorClose: priorC,
     dayClose: dayC,
     dayVolume: dayV,

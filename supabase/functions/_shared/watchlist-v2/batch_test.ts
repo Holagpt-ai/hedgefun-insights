@@ -19,6 +19,26 @@ Deno.test("deriveUniqueTickers dedupes tickers and returns lex-ordered list", ()
   assertEquals(aapl.owner_id, U1);
 });
 
+Deno.test("deriveUniqueTickers keeps every watchlist ticker, including names that later go data_unavailable", () => {
+  const rows = [
+    { symbol: "STALE", user_id: U1 },
+    { symbol: "THIN", user_id: U1 },
+    { symbol: "AAPL", user_id: U1 },
+  ];
+  const r = deriveUniqueTickers(rows);
+  assertEquals(r.map((x) => x.ticker), ["AAPL", "STALE", "THIN"]);
+});
+
+Deno.test("applyCursor does not skip tickers based on analysis outcome", () => {
+  const items = [
+    { ticker: "ILLQ", owner_id: U1 },
+    { ticker: "MSFT", owner_id: U1 },
+    { ticker: "NVVE", owner_id: U1 },
+  ];
+  assertEquals(applyCursor(items, "").map((x) => x.ticker), ["ILLQ", "MSFT", "NVVE"]);
+  assertEquals(applyCursor(items, "ILLQ").map((x) => x.ticker), ["MSFT", "NVVE"]);
+});
+
 Deno.test("deriveUniqueTickers rejects malformed rows without fabricating owners", () => {
   const rows = [
     { symbol: "", user_id: U1 },
@@ -61,4 +81,17 @@ Deno.test("buildAnalysisScope rejects malformed date or session", () => {
   assertThrows(() => buildAnalysisScope("bad", "rth"), Error, "invalid_session_date");
   assertThrows(() => buildAnalysisScope("2026-07-24", "afterhours"), Error, "invalid_session_type");
   assertThrows(() => buildAnalysisScope("2026-07-24", ""), Error, "invalid_session_type");
+});
+
+Deno.test("batch worker still reanalyzes every unique watchlist ticker including data_unavailable", async () => {
+  const worker = await Deno.readTextFile(
+    new URL("../../run-watchlist-analysis-v2-batch/index.ts", import.meta.url),
+  );
+  assert(worker.includes('.from("watchlists")'));
+  assert(worker.includes("deriveUniqueTickers"));
+  assert(worker.includes('dir === "data_unavailable"'));
+  assert(worker.includes('return { status: "unavailable"'));
+  assert(!worker.includes("SNAPSHOT_STALE"));
+  assert(!worker.includes("INSUFFICIENT_EVIDENCE"));
+  assert(!worker.includes("failure_reason"));
 });

@@ -2,7 +2,7 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
-import { humanFailureReason, isExpired } from "@/lib/watchlist-v2/parsers";
+import { humanFailureReason, humanFailureReasonSecondary, isExpired, isExpectedUnavailableReason, formatMarketDataAge } from "@/lib/watchlist-v2/parsers";
 import {
   densityTokens,
   dollarMove,
@@ -57,9 +57,9 @@ const compactVol = (n: number | null) => {
 const sessionLabel = (s: V2Row["sessionType"]) =>
   s === "premarket" ? "Pre-market" : s === "postclose" ? "Post-close" : "RTH";
 
-const directionBadge = (d: V2Row["direction"]) => {
+const directionBadge = (d: V2Row["direction"], failureReason: string | null) => {
   const map: Record<
-    V2Row["direction"],
+    Exclude<V2Row["direction"], "data_unavailable">,
     { label: string; className: string; Icon: typeof TrendingUp }
   > = {
     bullish: {
@@ -77,12 +77,20 @@ const directionBadge = (d: V2Row["direction"]) => {
       className: "bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200",
       Icon: Minus,
     },
-    data_unavailable: {
-      label: "Data Unavailable",
+  };
+  if (d === "data_unavailable") {
+    const label =
+      failureReason === "SNAPSHOT_STALE"
+        ? "Waiting for fresh market data"
+        : failureReason === "INSUFFICIENT_EVIDENCE"
+          ? "Not enough trading evidence yet"
+          : "Data Unavailable";
+    return {
+      label,
       className: "bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-300",
       Icon: Minus,
-    },
-  };
+    };
+  }
   return map[d];
 };
 
@@ -154,7 +162,7 @@ export function WatchlistRowV2({
   const [expanded, setExpanded] = useState(false);
   const [showDiag, setShowDiag] = useState(false);
   const tokens = densityTokens(density);
-  const dir = directionBadge(row.direction);
+  const dir = directionBadge(row.direction, row.failureReason);
   const DirIcon = dir.Icon;
   const expired = row.hasV2 && isExpired(row.validThrough);
   const change = row.changePct;
@@ -166,6 +174,19 @@ export function WatchlistRowV2({
         : "text-red-600 dark:text-red-400";
 
   const isUnavailable = row.direction === "data_unavailable";
+  const expectedUnavailable = isUnavailable && isExpectedUnavailableReason(row.failureReason);
+  const providerFailed = row.requestStatus === "failed";
+  const marketDataAge = formatMarketDataAge(row.inputsQuality.snapshot_ts_ms);
+  const unavailableSecondary = expectedUnavailable ? humanFailureReasonSecondary(row.failureReason) : null;
+
+  const statusLine = (() => {
+    if (row.requestStatus === "pending") return { text: "Analysis pending", tone: "text-amber-700 dark:text-amber-400" };
+    if (row.requestStatus === "failed") return { text: "Update failed", tone: "text-red-600 dark:text-red-400" };
+    if (!row.hasV2) return { text: "Awaiting first analysis", tone: "text-muted-foreground" };
+    if (expectedUnavailable) return { text: "Auto-recheck enabled", tone: "text-slate-500 dark:text-slate-400" };
+    if (expired) return { text: "Snapshot stale", tone: "text-amber-700 dark:text-amber-400" };
+    return { text: "Current", tone: "text-muted-foreground" };
+  })();
   const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
   const latestEvent = row.recentEvents[0] ?? null;
   const primarySignal = shownMarketSignals[0] ?? null;
@@ -185,14 +206,6 @@ export function WatchlistRowV2({
     }
     if (row.requestStatus === "pending") return "RVOL pending";
     return "Unavailable";
-  })();
-
-  const statusLine = (() => {
-    if (row.requestStatus === "pending") return { text: "Analysis pending", tone: "text-amber-700 dark:text-amber-400" };
-    if (row.requestStatus === "failed") return { text: "Update failed", tone: "text-red-600 dark:text-red-400" };
-    if (!row.hasV2) return { text: "Awaiting first analysis", tone: "text-muted-foreground" };
-    if (expired) return { text: "Snapshot stale", tone: "text-amber-700 dark:text-amber-400" };
-    return { text: "Current", tone: "text-muted-foreground" };
   })();
 
   const earningsUrgent = earnings?.kind === "upcoming";
@@ -397,10 +410,20 @@ export function WatchlistRowV2({
                 </span>
               )}
               <span className={statusLine.tone}>{statusLine.text}</span>
+              {marketDataAge && (
+                <span className="text-slate-400 dark:text-slate-500">{marketDataAge}</span>
+              )}
             </div>
           )}
-          {!tokens.showUpdatedLine && statusLine.text !== "Current" && (
-            <div className={cn("text-[10px] mt-0.5", statusLine.tone)}>{statusLine.text}</div>
+          {!tokens.showUpdatedLine && (statusLine.text !== "Current" || marketDataAge) && (
+            <div className="flex flex-wrap items-center gap-x-2 mt-0.5 text-[10px]">
+              {statusLine.text !== "Current" && (
+                <span className={statusLine.tone}>{statusLine.text}</span>
+              )}
+              {marketDataAge && (
+                <span className="text-slate-400 dark:text-slate-500">{marketDataAge}</span>
+              )}
+            </div>
           )}
         </div>
 
@@ -561,8 +584,17 @@ export function WatchlistRowV2({
                 {showDiag ? "Hide provider diagnostics" : "Show provider diagnostics"}
               </button>
               {showDiag && (
-                <div className="mt-2 text-xs text-red-700 dark:text-red-400 space-y-1">
+                <div
+                  className={cn(
+                    "mt-2 text-xs space-y-1",
+                    providerFailed
+                      ? "text-red-700 dark:text-red-400"
+                      : "text-slate-600 dark:text-slate-300",
+                  )}
+                >
                   {row.failureReason && <p>{humanFailureReason(row.failureReason)}</p>}
+                  {unavailableSecondary && <p>{unavailableSecondary}</p>}
+                  {expectedUnavailable && !providerFailed && <p>Auto-recheck enabled</p>}
                   {row.requestError && <p>{row.requestError}</p>}
                   {isUnavailable && !row.failureReason && (
                     <p>{humanFailureReason(row.failureReason)}</p>

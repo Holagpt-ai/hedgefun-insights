@@ -1,6 +1,6 @@
 /** Client-only classification of `analyze-watchlist-tickers-v2` invoke results. */
 
-export const MARKET_CLOSED_TITLE = "Market closed";
+export const MARKET_CLOSED_TITLE = "Market session closed";
 export const MARKET_CLOSED_DESCRIPTION =
   "No new analysis is available on non-trading days.";
 export const REFRESH_FAILED_TITLE = "Refresh failed";
