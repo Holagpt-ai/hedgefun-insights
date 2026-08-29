@@ -5864,6 +5864,7 @@ export type Database = {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
       }
+      try_screener_bar_numeric: { Args: { p_raw: string }; Returns: number }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
