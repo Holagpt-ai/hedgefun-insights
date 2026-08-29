@@ -5783,6 +5783,7 @@ export type Database = {
         Returns: undefined
       }
       journal_save_trade_v1: { Args: { p_payload: Json }; Returns: Json }
+      prune_cron_job_run_details_v1: { Args: never; Returns: number }
       record_wl_v2_baseline_written: {
         Args: { p_run_id: string; p_ticker: string }
         Returns: undefined
