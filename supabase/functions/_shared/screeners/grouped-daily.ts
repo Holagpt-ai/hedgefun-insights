@@ -76,6 +76,11 @@ export async function fetchGroupedDay(
   return parseGroupedResults(body);
 }
 
+/**
+ * Map keys are unique, so the normal producer emits at most one bar per
+ * symbol per session date. The apply RPC also GROUP BYs symbol so a
+ * hand-crafted duplicate payload cannot hit ON CONFLICT twice.
+ */
 export function barsToPayload(
   bars: Map<string, BarHL>,
 ): Array<{ symbol: string; h: number; l: number }> {
