@@ -2,9 +2,15 @@
 -- Must run after 14-day cron history retention so catch-up cannot activate
 -- if retention failed to install.
 --
--- Lease: single-row TTL lock. A live holder blocks others. expires_at <= now
--- lets a later invocation recover if the previous Edge request died.
--- Default TTL 6 minutes (max 8). Does not wedge the job permanently.
+-- Lease: single-row TTL lock. Acquisition is one INSERT ... ON CONFLICT
+-- (lease_key) DO UPDATE ... WHERE same-holder OR expired ... RETURNING.
+-- Concurrent first-acquires serialize on the primary key; the loser gets
+-- DO UPDATE, the WHERE fails if the winner is still live, and the function
+-- returns false. It cannot raise unique_violation. Release DELETEs only
+-- the matching holder; an empty table after release is safe because the
+-- next acquire is the same atomic INSERT. expires_at <= now lets a later
+-- invocation recover if the previous Edge request died. Same holder can
+-- renew. Default TTL 6 minutes (max 8). Does not wedge the job permanently.
 --
 -- Window (UTC): Mon-Fri 22:00-23:59 and Tue-Sat 00:00-05:59
 --   = 22:00 -> 05:59 = 8 hours, spanning midnight.
@@ -41,40 +47,31 @@ AS $fn$
 DECLARE
   v_now timestamptz := clock_timestamp();
   v_ttl integer := GREATEST(1000, LEAST(COALESCE(p_ttl_ms, 360000), 480000));
-  v_existing public.screener_52w_baseline_run_lease%ROWTYPE;
+  v_got text;
 BEGIN
   IF p_holder_id IS NULL OR length(trim(p_holder_id)) = 0
      OR char_length(p_holder_id) > 200 THEN
     RAISE EXCEPTION 'holder required';
   END IF;
 
-  SELECT * INTO v_existing
-  FROM public.screener_52w_baseline_run_lease
-  WHERE lease_key = 'current'
-  FOR UPDATE;
+  INSERT INTO public.screener_52w_baseline_run_lease (
+    lease_key, holder_id, expires_at, updated_at
+  ) VALUES (
+    'current',
+    p_holder_id,
+    v_now + make_interval(secs => v_ttl / 1000.0),
+    v_now
+  )
+  ON CONFLICT (lease_key) DO UPDATE
+  SET holder_id = EXCLUDED.holder_id,
+      expires_at = EXCLUDED.expires_at,
+      updated_at = EXCLUDED.updated_at
+  WHERE public.screener_52w_baseline_run_lease.holder_id = EXCLUDED.holder_id
+     OR public.screener_52w_baseline_run_lease.expires_at <= v_now
+  RETURNING public.screener_52w_baseline_run_lease.lease_key
+  INTO v_got;
 
-  IF NOT FOUND THEN
-    INSERT INTO public.screener_52w_baseline_run_lease (
-      lease_key, holder_id, expires_at, updated_at
-    ) VALUES (
-      'current',
-      p_holder_id,
-      v_now + make_interval(secs => v_ttl / 1000.0),
-      v_now
-    );
-    RETURN true;
-  END IF;
-
-  IF v_existing.holder_id = p_holder_id OR v_existing.expires_at <= v_now THEN
-    UPDATE public.screener_52w_baseline_run_lease
-    SET holder_id = p_holder_id,
-        expires_at = v_now + make_interval(secs => v_ttl / 1000.0),
-        updated_at = v_now
-    WHERE lease_key = 'current';
-    RETURN true;
-  END IF;
-
-  RETURN false;
+  RETURN v_got IS NOT NULL;
 END;
 $fn$;
 

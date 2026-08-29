@@ -29,6 +29,17 @@ Deno.test("static: after-close and overnight jobs replace the 21:30-only cadence
   assertFalse(sql.includes("30 21 * *"), "must not keep 21:30-only weekday cadence");
 });
 
+function acquireFunctionBody(sql: string): string {
+  const start = sql.indexOf(
+    "CREATE OR REPLACE FUNCTION public.try_acquire_screener_52w_baseline_run_lease_v1",
+  );
+  assert(start >= 0, "missing acquire function");
+  const begin = sql.indexOf("AS $fn$", start);
+  const end = sql.indexOf("$fn$;", begin + 1);
+  assert(begin >= 0 && end > begin, "missing acquire body delimiters");
+  return sql.slice(begin, end);
+}
+
 Deno.test("static: hour windows do not overlap; durable TTL lease guards successive invocations", async () => {
   const sql = await load();
   assert(sql.includes("*/5 22-23 * * 1-5"), "evening Mon-Fri 22-23 UTC");
@@ -42,11 +53,45 @@ Deno.test("static: hour windows do not overlap; durable TTL lease guards success
   assert(sql.includes("CREATE TABLE IF NOT EXISTS public.screener_52w_baseline_run_lease"));
   assert(sql.includes("try_acquire_screener_52w_baseline_run_lease_v1"));
   assert(sql.includes("release_screener_52w_baseline_run_lease_v1"));
-  assert(sql.includes("v_existing.expires_at <= v_now"));
-  assert(sql.includes("RETURN false"));
   assert(sql.includes("AND holder_id = p_holder_id"));
   assert(sql.includes("LEAST(COALESCE(p_ttl_ms, 360000), 480000)"));
   const leaseIdx = sql.indexOf("try_acquire_screener_52w_baseline_run_lease_v1");
   const cronIdx = sql.indexOf("cron.schedule(\n    'sync-screener-52w-baselines-after-close'");
   assert(leaseIdx >= 0 && cronIdx > leaseIdx, "lease installs before cadence schedule");
+});
+
+Deno.test("static: lease acquire is a single INSERT ON CONFLICT statement", async () => {
+  const sql = await load();
+  const body = acquireFunctionBody(sql);
+  assert(body.includes("INSERT INTO public.screener_52w_baseline_run_lease"));
+  assert(body.includes("ON CONFLICT (lease_key)"));
+  assert(body.includes("DO UPDATE"));
+  assert(
+    body.includes(
+      "WHERE public.screener_52w_baseline_run_lease.holder_id = EXCLUDED.holder_id",
+    ),
+    "same holder may renew",
+  );
+  assert(
+    body.includes(
+      "OR public.screener_52w_baseline_run_lease.expires_at <= v_now",
+    ),
+    "expired lease may be taken over",
+  );
+  assert(body.includes("RETURNING public.screener_52w_baseline_run_lease.lease_key"));
+  assert(body.includes("RETURN v_got IS NOT NULL"));
+  assertFalse(
+    body.includes("FOR UPDATE"),
+    "absent-row SELECT FOR UPDATE + INSERT is racy",
+  );
+  assertFalse(
+    body.includes("unique_violation"),
+    "ON CONFLICT must absorb the empty-table race; no unique_violation path",
+  );
+  assertEquals(
+    (body.match(/INSERT INTO public\.screener_52w_baseline_run_lease/g) ?? [])
+      .length,
+    1,
+    "acquire must be one INSERT, not SELECT-then-INSERT",
+  );
 });

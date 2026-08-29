@@ -306,7 +306,7 @@ export async function handleSyncScreener52wBaselines(
   }
 
   try {
-    return await runCatchup(sb, deps, window, apiKey, nowIso);
+    return await runCatchup(sb, deps, window, apiKey, nowIso, holderId);
   } finally {
     try {
       await sb.rpc(RELEASE_RUN_LEASE_RPC, { p_holder_id: holderId });
@@ -316,13 +316,35 @@ export async function handleSyncScreener52wBaselines(
   }
 }
 
+async function renewRunLease(
+  sb: DbClient,
+  holderId: string,
+  ttlMs: number,
+): Promise<Response | null> {
+  const renewed = await sb.rpc(ACQUIRE_RUN_LEASE_RPC, {
+    p_holder_id: holderId,
+    p_ttl_ms: ttlMs,
+  });
+  if (renewed.error) {
+    console.error("[sync-screener-52w-baselines] persist_failed");
+    return json({ error: "persist_failed" }, 500);
+  }
+  if (renewed.data !== true) {
+    console.error("[sync-screener-52w-baselines] lease_lost");
+    return json({ error: "lease_lost" }, 409);
+  }
+  return null;
+}
+
 async function runCatchup(
   sb: DbClient,
   deps: BaselineSyncDeps,
   window: { periodStart: string; periodEnd: string },
   apiKey: string,
   nowIso: string,
+  holderId: string,
 ): Promise<Response> {
+  const ttlMs = deps.leaseTtlMs ?? BASELINE_RUN_LEASE_TTL_MS;
 
   let job = await loadJob(sb);
   const periodMatches = job &&
@@ -331,6 +353,8 @@ async function runCatchup(
     job.status === "running";
 
   if (!periodMatches) {
+    const lostBeforeStart = await renewRunLease(sb, holderId, ttlMs);
+    if (lostBeforeStart) return lostBeforeStart;
     const generationId = (deps.newGenerationId ?? (() =>
       crypto.randomUUID()))();
     const datesTotal = remainingWeekdays(
@@ -370,6 +394,8 @@ async function runCatchup(
   const batch = remaining.slice(0, batchSize);
 
   for (const date of batch) {
+    const lostBeforeDate = await renewRunLease(sb, holderId, ttlMs);
+    if (lostBeforeDate) return lostBeforeDate;
     let bars: Map<string, { h: number; l: number }>;
     try {
       bars = await fetchGroupedDay(date, apiKey, deps.fetch);
@@ -420,6 +446,9 @@ async function runCatchup(
       dates_total: job.dates_total,
     });
   }
+
+  const lostBeforeFinalize = await renewRunLease(sb, holderId, ttlMs);
+  if (lostBeforeFinalize) return lostBeforeFinalize;
 
   const finalized = await sb.rpc(FINALIZE_JOB_RPC, {
     p_generation_id: job.generation_id,

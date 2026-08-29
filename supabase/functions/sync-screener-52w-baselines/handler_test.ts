@@ -108,6 +108,9 @@ class FakeBaselineDb {
   finalizeError: { message: string } | null = null;
   lease: RunLeaseState;
   leaseNowMs = AFTER_CLOSE_MS;
+  acquireCount = 0;
+  failAcquireOnCall: number | null = null;
+  failAcquireErrorOnCall: number | null = null;
 
   constructor(published?: PublishedState, lease?: RunLeaseState) {
     this.published = published ?? {
@@ -143,6 +146,13 @@ class FakeBaselineDb {
       rpc: async (fn, args) => {
         this.rpcCalls.push({ fn, args });
         if (fn === ACQUIRE_RUN_LEASE_RPC) {
+          this.acquireCount += 1;
+          if (this.failAcquireErrorOnCall === this.acquireCount) {
+            return { data: null, error: { message: "lease rpc failed" } };
+          }
+          if (this.failAcquireOnCall === this.acquireCount) {
+            return { data: false, error: null };
+          }
           const holderId = String(args.p_holder_id);
           const ttlMs = Number(args.p_ttl_ms);
           if (
@@ -675,4 +685,147 @@ Deno.test("normal invocation acquires, continues, and releases the run lease", a
   assertEquals(fns.includes(START_JOB_RPC), true);
   assertEquals(fns[fns.length - 1], RELEASE_RUN_LEASE_RPC);
   assertEquals(db.lease.holderId, null);
+});
+
+function acquireHolderCalls(db: FakeBaselineDb, holderId: string): RpcCall[] {
+  return db.rpcCalls.filter((c) =>
+    c.fn === ACQUIRE_RUN_LEASE_RPC && c.args.p_holder_id === holderId
+  );
+}
+
+Deno.test("same holder renewal succeeds across a multi-date batch", async () => {
+  const db = new FakeBaselineDb();
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, []), {
+      newHolderId: () => "live-holder",
+      datesPerInvocation: 2,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  const acquires = acquireHolderCalls(db, "live-holder");
+  assertEquals(acquires.length >= 3, true);
+  assertEquals(db.job?.dates_applied, 2);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === APPLY_DAY_RPC).length,
+    2,
+  );
+});
+
+Deno.test("active holder remains protected across a long-running batch", async () => {
+  const db = new FakeBaselineDb();
+  const ttlMs = 1_000;
+  const calls: FetchCall[] = [];
+  const inner = fakeGroupedFetch(SAMPLE_DAYS, calls);
+  const fetchImpl: typeof fetch = async (input, init) => {
+    db.leaseNowMs += 900;
+    return inner(input, init);
+  };
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fetchImpl, {
+      newHolderId: () => "live-holder",
+      datesPerInvocation: 2,
+      leaseTtlMs: ttlMs,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  assertEquals(db.job?.dates_applied, 2);
+  assertEquals(acquireHolderCalls(db, "live-holder").length >= 3, true);
+});
+
+Deno.test("another invocation stays busy while the first keeps renewing", async () => {
+  const db = new FakeBaselineDb();
+  const ttlMs = 1_000;
+  const firstCalls: FetchCall[] = [];
+  const inner = fakeGroupedFetch(SAMPLE_DAYS, firstCalls);
+  const secondBodies: Array<{ status?: string }> = [];
+  const fetchImpl: typeof fetch = async (input, init) => {
+    db.leaseNowMs += 900;
+    const second = await handleSyncScreener52wBaselines(
+      post(),
+      makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, []), {
+        newHolderId: () => "other-holder",
+        leaseTtlMs: ttlMs,
+      }),
+    );
+    secondBodies.push(await second.json());
+    return inner(input, init);
+  };
+  const first = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fetchImpl, {
+      newHolderId: () => "live-holder",
+      datesPerInvocation: 2,
+      leaseTtlMs: ttlMs,
+    }),
+  );
+  const firstBody = await first.json();
+  assertEquals(first.status, 200);
+  assertEquals(firstBody.status, "running");
+  assertEquals(secondBodies.length, 2);
+  for (const body of secondBodies) {
+    assertEquals(body.status, "busy");
+  }
+  assertEquals(firstCalls.length, 2);
+  assertEquals(
+    db.rpcCalls.filter((c) =>
+      c.fn === APPLY_DAY_RPC
+    ).length,
+    2,
+  );
+  assertEquals(acquireHolderCalls(db, "live-holder").length >= 3, true);
+});
+
+Deno.test("loss of renewal stops further processing", async () => {
+  const db = new FakeBaselineDb();
+  db.failAcquireOnCall = 4;
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      newHolderId: () => "live-holder",
+      datesPerInvocation: 2,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 409);
+  assertEquals(body.error, "lease_lost");
+  assertEquals(calls.length, 1);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === APPLY_DAY_RPC).length,
+    1,
+  );
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    0,
+  );
+});
+
+Deno.test("finalization occurs only while lease ownership is still valid", async () => {
+  const db = new FakeBaselineDb();
+  db.failAcquireOnCall = 6;
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, []), {
+      newHolderId: () => "live-holder",
+      datesPerInvocation: 10,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 409);
+  assertEquals(body.error, "lease_lost");
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === APPLY_DAY_RPC).length,
+    3,
+  );
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    0,
+  );
+  assertEquals(db.published.current_generation_id, null);
 });
