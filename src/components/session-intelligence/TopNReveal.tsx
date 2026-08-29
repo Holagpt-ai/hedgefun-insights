@@ -28,40 +28,39 @@ export function TopNReveal<T>({
 }: TopNRevealProps<T>) {
   const [expanded, setExpanded] = useState(false);
   const slice = sliceForReveal(items, expanded, limit);
-  const label = mode === "view-more"
-    ? revealMoreToggleLabel(expanded, slice.hiddenCount)
-    : revealToggleLabel(expanded, slice.total);
 
   return (
     <div className={className}>
       {children(slice.visible)}
-      {slice.canReveal && (
+      {slice.canReveal && mode === "view-more" && (
         <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <button
             type="button"
             aria-expanded={expanded}
             aria-label={
-              mode === "view-more"
-                ? expanded
-                  ? `Show less, ${slice.total} total`
-                  : `View ${slice.hiddenCount} more, ${slice.total} total`
-                : undefined
+              expanded
+                ? `Show less, ${slice.total} total`
+                : `View ${slice.hiddenCount} more, ${slice.total} total`
             }
             onClick={() => setExpanded((v) => !v)}
-            className={
-              mode === "view-more"
-                ? "min-h-8 text-xs font-medium text-accent-blue hover:underline"
-                : "mt-0.5 text-xs font-medium text-accent-blue hover:underline"
-            }
+            className="min-h-8 text-xs font-medium text-accent-blue hover:underline"
           >
-            {label}
+            {revealMoreToggleLabel(expanded, slice.hiddenCount)}
           </button>
-          {mode === "view-more" && (
-            <span className="text-[11px] tabular-nums text-muted-foreground">
-              {slice.total} total
-            </span>
-          )}
+          <span className="text-[11px] tabular-nums text-muted-foreground">
+            {slice.total} total
+          </span>
         </div>
+      )}
+      {slice.canReveal && mode !== "view-more" && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 text-xs font-medium text-accent-blue hover:underline"
+        >
+          {revealToggleLabel(expanded, slice.total)}
+        </button>
       )}
     </div>
   );
