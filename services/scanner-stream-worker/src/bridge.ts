@@ -18,6 +18,33 @@ import { log } from "./log.ts";
 export const DEFAULT_BRIDGE_TIMEOUT_MS = 15_000;
 export const BASELINE_BRIDGE_TIMEOUT_MS = 60_000;
 
+export type BridgeAttemptOutcome =
+  | "ok"
+  | "http_error"
+  | "timeout"
+  | "transport_error";
+
+function payloadBytes(body: string): number {
+  return new TextEncoder().encode(body).length;
+}
+
+function logBridgeAttempt(fields: {
+  request_id: string;
+  action: string;
+  attempt: number;
+  elapsed_ms: number;
+  outcome: BridgeAttemptOutcome;
+  http_status: number | null;
+  timeout_ms: number;
+  payload_bytes: number;
+}): void {
+  log(
+    fields.outcome === "ok" ? "info" : "error",
+    "bridge_request",
+    fields,
+  );
+}
+
 export type RadarBridge = {
   lease: LeaseClient;
   radarRpc: RadarRpcFn;
@@ -41,29 +68,62 @@ async function bridgePost(
     sleep?: (ms: number) => Promise<void>;
   },
 ): Promise<{ ok: false; status: number } | { ok: true; body: unknown }> {
+  const requestId = crypto.randomUUID();
+  const payload = JSON.stringify({
+    action: opts.action,
+    ...opts.body,
+    request_id: requestId,
+  });
+  const bytes = payloadBytes(payload);
   const headers = {
     Authorization: `Bearer ${opts.workerSecret}`,
     "Content-Type": "application/json",
   };
+  let attempt = 0;
 
   const run = async () => {
+    attempt += 1;
+    const started = Date.now();
+    const finish = (
+      outcome: BridgeAttemptOutcome,
+      httpStatus: number | null,
+    ) => {
+      logBridgeAttempt({
+        request_id: requestId,
+        action: opts.action,
+        attempt,
+        elapsed_ms: Date.now() - started,
+        outcome,
+        http_status: httpStatus,
+        timeout_ms: opts.timeoutMs,
+        payload_bytes: bytes,
+      });
+    };
+
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), opts.timeoutMs);
     try {
       const res = await opts.fetch(opts.bridgeUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ action: opts.action, ...opts.body }),
+        body: payload,
         signal: ctrl.signal,
       });
       if (res.status === 401) {
-        log("error", "bridge_auth_failed", { code: "unauthorized" });
+        finish("http_error", 401);
+        log("error", "bridge_auth_failed", {
+          code: "unauthorized",
+          request_id: requestId,
+          action: opts.action,
+        });
         return { ok: false as const, status: 401 };
       }
       if (isRetryableStatus(res.status)) {
+        finish("http_error", res.status);
         throw new RetryableError(res.status);
       }
       if (!res.ok) {
+        finish("http_error", res.status);
         return { ok: false as const, status: res.status };
       }
       let parsed: unknown = null;
@@ -72,15 +132,19 @@ async function bridgePost(
         try {
           parsed = JSON.parse(text);
         } catch {
+          finish("http_error", res.status);
           return { ok: false as const, status: 502 };
         }
       }
+      finish("ok", res.status);
       return { ok: true as const, body: parsed };
     } catch (error) {
       if (error instanceof RetryableError) throw error;
       if (error instanceof Error && error.name === "AbortError") {
+        finish("timeout", null);
         throw new RetryableError(504, "bridge_timeout");
       }
+      finish("transport_error", null);
       throw new RetryableError(503, "bridge_unavailable");
     } finally {
       clearTimeout(timer);
@@ -96,7 +160,12 @@ async function bridgePost(
     });
   } catch (error) {
     const status = error instanceof RetryableError ? error.status : 503;
-    log("error", "bridge_unavailable", { code: "persist_failed", status });
+    log("error", "bridge_unavailable", {
+      code: "persist_failed",
+      status,
+      request_id: requestId,
+      action: opts.action,
+    });
     return { ok: false, status };
   }
 }

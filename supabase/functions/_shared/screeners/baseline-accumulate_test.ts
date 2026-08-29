@@ -78,3 +78,63 @@ Deno.test("batches resume by applying only unprocessed dates", () => {
   assertEquals(staging.get("AAA")?.low_52w, 6);
   assertEquals(staging.get("AAA")?.sessions_observed, 3);
 });
+
+Deno.test("valid daily payload accumulates high up and low down", () => {
+  const { staging, processed } = empty();
+  applyBaselineDay(staging, processed, "2026-08-10", [
+    { symbol: "AAA", h: 10, l: 5 },
+  ]);
+  applyBaselineDay(staging, processed, "2026-08-11", [
+    { symbol: "AAA", h: 12, l: 6 },
+  ]);
+  applyBaselineDay(staging, processed, "2026-08-12", [
+    { symbol: "AAA", h: 11, l: 4 },
+  ]);
+  assertEquals(staging.get("AAA")?.high_52w, 12);
+  assertEquals(staging.get("AAA")?.high_date, "2026-08-11");
+  assertEquals(staging.get("AAA")?.low_52w, 4);
+  assertEquals(staging.get("AAA")?.low_date, "2026-08-12");
+  assertEquals(staging.get("AAA")?.sessions_observed, 3);
+});
+
+Deno.test("invalid symbol, high/low, and malformed numeric rows are skipped", () => {
+  const { staging, processed } = empty();
+  applyBaselineDay(staging, processed, "2026-08-10", [
+    { symbol: "AAA", h: 10, l: 5 },
+    { symbol: "1BAD", h: 8, l: 2 },
+    { symbol: "FLIP", h: 2, l: 9 },
+    { symbol: "ZERO", h: 0, l: 1 },
+    { symbol: "NAN", h: "nope", l: 3 },
+    null,
+    12,
+  ]);
+  assertEquals([...staging.keys()], ["AAA"]);
+  assertEquals(processed.has("2026-08-10"), true);
+});
+
+Deno.test("empty and zero-valid-row days still record the session date", () => {
+  const { staging, processed } = empty();
+  const emptyDay = applyBaselineDay(staging, processed, "2026-08-10", []);
+  const skippedAll = applyBaselineDay(staging, processed, "2026-08-11", [
+    { symbol: "BAD", h: 0, l: 1 },
+  ]);
+  assertEquals(emptyDay, { applied: true, skipped: false });
+  assertEquals(skippedAll, { applied: true, skipped: false });
+  assertEquals(staging.size, 0);
+  assertEquals([...processed].sort(), ["2026-08-10", "2026-08-11"]);
+});
+
+Deno.test("overflow-style numeric text is skipped rather than aborting the day", () => {
+  const { staging, processed } = empty();
+  applyBaselineDay(staging, processed, "2026-08-10", [
+    { symbol: "AAA", h: 10, l: 5 },
+    { symbol: "BIGE", h: "1e100000", l: "1" },
+    { symbol: "BIGD", h: `1${"0".repeat(80)}`, l: "1" },
+    { symbol: "INF", h: "1e309", l: "1" },
+    { symbol: "OK", h: "12.5", l: "3e0" },
+  ]);
+  assertEquals([...staging.keys()].sort(), ["AAA", "OK"]);
+  assertEquals(staging.get("OK")?.high_52w, 12.5);
+  assertEquals(staging.get("OK")?.low_52w, 3);
+  assertEquals(processed.has("2026-08-10"), true);
+});

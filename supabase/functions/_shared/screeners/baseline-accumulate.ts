@@ -2,7 +2,7 @@
  * In-order 52-week high/low accumulation. Retrying a processed date is a no-op.
  */
 
-import { isValidHighLow, normalizeSymbol } from "./grouped-daily.ts";
+import { isValidHighLow, normalizeSymbol, tryBarNumeric } from "./grouped-daily.ts";
 
 export type StagingRow = {
   symbol: string;
@@ -38,8 +38,9 @@ export function parseDayBar(raw: unknown): DayBar | null {
   const row = raw as { symbol?: unknown; h?: unknown; l?: unknown };
   const symbol = normalizeSymbol(row.symbol);
   if (!symbol) return null;
-  const h = Number(row.h);
-  const l = Number(row.l);
+  const h = tryBarNumeric(row.h);
+  const l = tryBarNumeric(row.l);
+  if (h === null || l === null) return null;
   if (!isValidHighLow(h, l)) return null;
   return { symbol, h, l };
 }

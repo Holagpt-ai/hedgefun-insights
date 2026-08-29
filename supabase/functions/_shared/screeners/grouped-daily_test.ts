@@ -4,9 +4,11 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { ProviderUnavailableError } from "./provider.ts";
 import {
+  barsToPayload,
   groupedUrl,
   isValidHighLow,
   parseGroupedResults,
+  tryBarNumeric,
 } from "./grouped-daily.ts";
 
 Deno.test("grouped URL is adjusted=true and has no apiKey query param", () => {
@@ -47,4 +49,27 @@ Deno.test("malformed grouped envelope fails closed", () => {
 Deno.test("missing results is an empty valid day", () => {
   const parsed = parseGroupedResults({ status: "OK" });
   assertEquals(parsed.size, 0);
+});
+
+Deno.test("barsToPayload emits one row per Map symbol", () => {
+  const parsed = parseGroupedResults({
+    results: [
+      { T: "AAA", h: 10, l: 5 },
+      { T: "AAA", h: 12, l: 4 },
+      { T: "BBB", h: 8, l: 3 },
+    ],
+  });
+  assertEquals(parsed.size, 2);
+  const payload = barsToPayload(parsed);
+  assertEquals(payload.length, parsed.size);
+  assertEquals(new Set(payload.map((row) => row.symbol)).size, payload.length);
+  assertEquals(parsed.get("AAA"), { h: 12, l: 4 });
+});
+
+Deno.test("overflow-style numeric strings are skipped by tryBarNumeric", () => {
+  assertEquals(tryBarNumeric("1e100000"), null);
+  assertEquals(tryBarNumeric(`1${"0".repeat(80)}`), null);
+  assertEquals(tryBarNumeric("1e309"), null);
+  assertEquals(tryBarNumeric("12.5"), 12.5);
+  assertEquals(tryBarNumeric(10), 10);
 });

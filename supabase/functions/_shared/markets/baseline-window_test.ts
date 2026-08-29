@@ -1,5 +1,6 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  BASELINE_DATES_PER_INVOCATION,
   lastCompletedRegularSessionDate,
   remainingWeekdays,
   resolveBaselineWindow,
@@ -45,4 +46,14 @@ Deno.test("remaining weekdays resume after the last applied date", () => {
     remainingWeekdays("2026-08-10", "2026-08-13", "2026-08-11"),
     ["2026-08-12", "2026-08-13"],
   );
+});
+
+Deno.test("262-date catch-up fits in one 8-hour overnight window at 4 dates / 5 min", () => {
+  assertEquals(BASELINE_DATES_PER_INVOCATION, 4);
+  const dates = 262;
+  const invocations = Math.ceil(dates / BASELINE_DATES_PER_INVOCATION);
+  const minutes = invocations * 5;
+  assertEquals(invocations, 66);
+  assertEquals(minutes, 330);
+  assertEquals(minutes <= 8 * 60, true);
 });

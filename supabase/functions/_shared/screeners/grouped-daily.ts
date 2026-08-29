@@ -15,6 +15,21 @@ export const GROUPED_BASE =
   "https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks";
 export const SYMBOL_RE = /^[A-Z][A-Z0-9.\-]*$/;
 export const SYMBOL_MAX_LEN = 12;
+const BAR_NUMERIC_RE =
+  /^[+-]?(?:[0-9]{1,18}(?:\.[0-9]{0,18})?|\.[0-9]{1,18})(?:[eE][+-]?[0-9]{1,2})?$/;
+
+export function tryBarNumeric(raw: unknown): number | null {
+  if (typeof raw === "number") {
+    return Number.isFinite(raw) ? raw : null;
+  }
+  if (typeof raw !== "string") return null;
+  const text = raw.trim();
+  if (!text || text.length > 32) return null;
+  if (!BAR_NUMERIC_RE.test(text)) return null;
+  const value = Number(text);
+  if (!Number.isFinite(value)) return null;
+  return value;
+}
 
 export function normalizeSymbol(raw: unknown): string | null {
   if (typeof raw !== "string") return null;
@@ -56,8 +71,9 @@ export function parseGroupedResults(body: unknown): Map<string, BarHL> {
     const row = item as { T?: unknown; h?: unknown; l?: unknown };
     const symbol = normalizeSymbol(row.T);
     if (!symbol) continue;
-    const high = Number(row.h);
-    const low = Number(row.l);
+    const high = tryBarNumeric(row.h);
+    const low = tryBarNumeric(row.l);
+    if (high === null || low === null) continue;
     if (!isValidHighLow(high, low)) continue;
     out.set(symbol, { h: high, l: low });
   }
@@ -76,6 +92,11 @@ export async function fetchGroupedDay(
   return parseGroupedResults(body);
 }
 
+/**
+ * Map keys are unique, so the normal producer emits at most one bar per
+ * symbol per session date. The apply RPC also GROUP BYs symbol so a
+ * hand-crafted duplicate payload cannot hit ON CONFLICT twice.
+ */
 export function barsToPayload(
   bars: Map<string, BarHL>,
 ): Array<{ symbol: string; h: number; l: number }> {

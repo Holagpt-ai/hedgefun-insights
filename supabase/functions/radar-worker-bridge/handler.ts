@@ -24,6 +24,21 @@ const BASELINE_STATE_SELECT =
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
 
+type BridgeLogFields = Record<string, string | number | boolean | null>;
+
+function bridgeLog(msg: string, fields: BridgeLogFields): void {
+  console.log(JSON.stringify({ msg, ...fields }));
+}
+
+function readRequestId(body: Record<string, unknown>): string {
+  const raw = body.request_id;
+  if (typeof raw === "string") {
+    const requestId = raw.trim();
+    if (requestId && requestId.length <= 128) return requestId;
+  }
+  return crypto.randomUUID();
+}
+
 export type DbSelectResult = {
   data: Array<Record<string, unknown>> | null;
   error: { message: string } | null;
@@ -81,9 +96,31 @@ async function rpcResult(
   db: DbClient,
   name: string,
   args: Record<string, unknown>,
+  meta: { requestId: string; action: RadarBridgeAction },
 ): Promise<Response> {
+  bridgeLog("radar_bridge_rpc_started", {
+    request_id: meta.requestId,
+    action: meta.action,
+    rpc_name: name,
+  });
+  const started = Date.now();
   const result = await db.rpc(name, args);
-  if (result.error) return json({ ok: false, error: "persist_failed" }, 502);
+  const rpcElapsedMs = Date.now() - started;
+  if (result.error) {
+    bridgeLog("radar_bridge_rpc_error", {
+      request_id: meta.requestId,
+      action: meta.action,
+      rpc_name: name,
+      rpc_elapsed_ms: rpcElapsedMs,
+    });
+    return json({ ok: false, error: "persist_failed" }, 502);
+  }
+  bridgeLog("radar_bridge_rpc_completed", {
+    request_id: meta.requestId,
+    action: meta.action,
+    rpc_name: name,
+    rpc_elapsed_ms: rpcElapsedMs,
+  });
   return json({ ok: true, result: result.data });
 }
 
@@ -91,7 +128,9 @@ async function handleAction(
   action: RadarBridgeAction,
   body: Record<string, unknown>,
   db: DbClient,
+  requestId: string,
 ): Promise<Response> {
+  const rpcMeta = { requestId, action };
   switch (action) {
     case "acquire_lease": {
       const holderId = readHolderId(body);
@@ -103,7 +142,7 @@ async function handleAction(
         p_lease_key: RADAR_V22_LEASE_KEY,
         p_holder_id: holderId,
         p_ttl_ms: ttlMs,
-      });
+      }, rpcMeta);
     }
     case "heartbeat_lease": {
       const holderId = readHolderId(body);
@@ -115,16 +154,37 @@ async function handleAction(
         p_lease_key: RADAR_V22_LEASE_KEY,
         p_holder_id: holderId,
         p_ttl_ms: ttlMs,
-      });
+      }, rpcMeta);
     }
     case "release_lease": {
       const holderId = readHolderId(body);
       if (holderId === null) return json({ error: "invalid_body" }, 400);
+      bridgeLog("radar_bridge_rpc_started", {
+        request_id: requestId,
+        action,
+        rpc_name: RELEASE_LEASE_RPC,
+      });
+      const rpcStarted = Date.now();
       const result = await db.rpc(RELEASE_LEASE_RPC, {
         p_lease_key: RADAR_V22_LEASE_KEY,
         p_holder_id: holderId,
       });
-      if (result.error) return json({ ok: false, error: "persist_failed" }, 502);
+      const rpcElapsedMs = Date.now() - rpcStarted;
+      if (result.error) {
+        bridgeLog("radar_bridge_rpc_error", {
+          request_id: requestId,
+          action,
+          rpc_name: RELEASE_LEASE_RPC,
+          rpc_elapsed_ms: rpcElapsedMs,
+        });
+        return json({ ok: false, error: "persist_failed" }, 502);
+      }
+      bridgeLog("radar_bridge_rpc_completed", {
+        request_id: requestId,
+        action,
+        rpc_name: RELEASE_LEASE_RPC,
+        rpc_elapsed_ms: rpcElapsedMs,
+      });
       return json({ ok: true });
     }
     case "get_calendar": {
@@ -144,7 +204,7 @@ async function handleAction(
         p_synced_at: body.p_synced_at,
         p_status: body.p_status,
         p_last_provider_event_at: body.p_last_provider_event_at ?? null,
-      });
+      }, rpcMeta);
     }
     case "set_feed_status": {
       if (typeof body.p_status !== "string" || typeof body.p_synced_at !== "string") {
@@ -154,7 +214,7 @@ async function handleAction(
         p_status: body.p_status,
         p_last_provider_event_at: body.p_last_provider_event_at ?? null,
         p_synced_at: body.p_synced_at,
-      });
+      }, rpcMeta);
     }
     case "replace_52w_baseline": {
       if (typeof body.p_generation_id !== "string") {
@@ -167,7 +227,7 @@ async function handleAction(
         p_period_end: body.p_period_end,
         p_provider_as_of: body.p_provider_as_of,
         p_status: body.p_status,
-      });
+      }, rpcMeta);
     }
     case "get_52w_state": {
       const result = await db
@@ -216,10 +276,30 @@ export async function handleRadarWorkerBridge(
   }
 
   const db = deps.createClient(supabaseUrl, serviceKey);
+  const requestId = readRequestId(body);
+  const started = Date.now();
+  bridgeLog("radar_bridge_received", {
+    request_id: requestId,
+    action: body.action,
+    received: true,
+  });
   try {
-    return await handleAction(body.action, body, db);
+    const res = await handleAction(body.action, body, db, requestId);
+    bridgeLog("radar_bridge_complete", {
+      request_id: requestId,
+      action: body.action,
+      elapsed_ms: Date.now() - started,
+      http_status: res.status,
+    });
+    return res;
   } catch {
     console.error("[radar-worker-bridge] internal_error");
+    bridgeLog("radar_bridge_complete", {
+      request_id: requestId,
+      action: body.action,
+      elapsed_ms: Date.now() - started,
+      http_status: 500,
+    });
     return json({ error: "internal_error" }, 500);
   }
 }

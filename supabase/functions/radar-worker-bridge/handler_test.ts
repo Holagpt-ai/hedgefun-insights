@@ -365,3 +365,82 @@ Deno.test("database RPC failure returns persist_failed without secrets", async (
   assertEquals(dumped.includes(WORKER_SECRET), false);
   assertEquals(dumped.includes(SERVICE_ROLE), false);
 });
+
+Deno.test("edge logs request_id, action, received, rpc stages, and final status", async () => {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (msg?: unknown) => {
+    lines.push(String(msg ?? ""));
+  };
+  try {
+    const db = new FakeDb();
+    const requestId = "req-edge-telemetry-1";
+    const res = await handleRadarWorkerBridge(
+      post({
+        action: "acquire_lease",
+        holder_id: HOLDER,
+        ttl_ms: 15_000,
+        request_id: requestId,
+      }),
+      deps(db),
+    );
+    assertEquals(res.status, 200);
+    const logs = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+    assertEquals(logs[0].msg, "radar_bridge_received");
+    assertEquals(logs[0].request_id, requestId);
+    assertEquals(logs[0].action, "acquire_lease");
+    assertEquals(logs[0].received, true);
+    assertEquals(logs[1].msg, "radar_bridge_rpc_started");
+    assertEquals(logs[1].rpc_name, ACQUIRE_LEASE_RPC);
+    assertEquals(logs[2].msg, "radar_bridge_rpc_completed");
+    assertEquals(typeof logs[2].rpc_elapsed_ms, "number");
+    assertEquals(logs[3].msg, "radar_bridge_complete");
+    assertEquals(logs[3].http_status, 200);
+    assertEquals(typeof logs[3].elapsed_ms, "number");
+    const dumped = lines.join("\n");
+    assertEquals(dumped.includes(WORKER_SECRET), false);
+    assertEquals(dumped.includes(SERVICE_ROLE), false);
+    assertEquals(dumped.includes(HOLDER), false);
+  } finally {
+    console.log = original;
+  }
+});
+
+Deno.test("edge RPC error logs rpc_error without payload contents", async () => {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (msg?: unknown) => {
+    lines.push(String(msg ?? ""));
+  };
+  try {
+    const db = new FakeDb();
+    db.rpcImpl = () => ({ data: null, error: { message: "boom" } });
+    const res = await handleRadarWorkerBridge(
+      post({
+        action: "replace_52w_baseline",
+        request_id: "req-rpc-error-1",
+        p_generation_id: "11111111-2222-3333-4444-555555555555",
+        p_rows: [{ symbol: "AAA", high_52w: 10 }],
+        p_period_start: "2025-08-10",
+        p_period_end: "2026-08-10",
+        p_provider_as_of: "2026-08-10T20:00:00.000Z",
+        p_status: "empty",
+      }),
+      deps(db),
+    );
+    assertEquals(res.status, 502);
+    const logs = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+    assertEquals(logs.some((row) => row.msg === "radar_bridge_received"), true);
+    assertEquals(logs.some((row) => row.msg === "radar_bridge_rpc_started"), true);
+    assertEquals(logs.some((row) => row.msg === "radar_bridge_rpc_error"), true);
+    const complete = logs.find((row) => row.msg === "radar_bridge_complete");
+    assertEquals(complete?.http_status, 502);
+    assertEquals(complete?.action, "replace_52w_baseline");
+    const dumped = lines.join("\n");
+    assertEquals(dumped.includes("AAA"), false);
+    assertEquals(dumped.includes("high_52w"), false);
+    assertEquals(dumped.includes(WORKER_SECRET), false);
+  } finally {
+    console.log = original;
+  }
+});

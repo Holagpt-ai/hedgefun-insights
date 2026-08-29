@@ -18,6 +18,10 @@ export type BaselineWindow = {
 
 export const BASELINE_MIN_SESSIONS = 120;
 export const BASELINE_LOOKBACK_CALENDAR_DAYS = 366;
+// Keep each Edge invocation small. Overnight catch-up cadence is owned by
+// 20260829120300_screener_52w_baseline_catchup_cadence_v1.sql:
+// every 5 minutes across an 8-hour 22:00-05:59 UTC window.
+// 262 dates / 4 = 66 invocations * 5 min = 5.5 hours.
 export const BASELINE_DATES_PER_INVOCATION = 4;
 
 const WALK_BACK_LIMIT = 21;
