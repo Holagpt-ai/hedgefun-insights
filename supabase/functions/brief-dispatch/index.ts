@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import { isAmEvaluationWindow } from "../_shared/briefs/am-window.ts";
+import { relayGenerator, type BriefType } from "./relay.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,8 +14,6 @@ const jsonHeaders = {
   "Content-Type": "application/json",
   "Cache-Control": "private, no-store",
 };
-
-type BriefType = "am" | "pm";
 
 const WINDOW_LENGTH_MIN = 10; // PM release window length (unchanged)
 
@@ -168,54 +167,6 @@ function classifyToday(rows: UpcomingRow[], etDate: string): Classification {
     return { kind: "early_close", closeIso: c1 };
   }
   return { kind: "conflict" };
-}
-
-async function relayGenerator(genRes: Response, briefType: BriefType): Promise<Response> {
-  let genBody: Record<string, unknown> | null = null;
-  try {
-    genBody = await genRes.json();
-  } catch {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-  if (!genBody || typeof genBody !== "object") {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-
-  if (genRes.status === 401) {
-    return json({ error: "internal_authentication_failure" }, 500);
-  }
-  if (genRes.status === 400) {
-    return json({ error: "invalid_internal_schedule" }, 500);
-  }
-  if (genRes.status === 502) {
-    return json({ error: "generation_provider_failure" }, 502);
-  }
-  if (genRes.status === 503) {
-    return json({ error: "generation_source_unavailable" }, 503);
-  }
-  if (!genRes.ok) {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-
-  const availableFalse = genBody && genBody.available === false;
-  if (availableFalse) {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-  const bd = genBody?.brief_date;
-  const bt = genBody?.brief_type;
-  if (bt !== briefType || typeof bd !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(bd)) {
-    return json({ error: "invalid_generator_response" }, 502);
-  }
-
-  return json(
-    {
-      dispatched: true,
-      brief_type: briefType,
-      brief_date: bd,
-      cached: Boolean(genBody.cached),
-    },
-    200,
-  );
 }
 
 serve(async (req) => {

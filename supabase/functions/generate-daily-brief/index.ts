@@ -32,6 +32,12 @@ import {
   buildAmUserPrompt,
   buildPmUserPrompt,
 } from "../_shared/briefs/prompts.ts";
+import { callClaude } from "./claude.ts";
+import {
+  emitBriefTelemetry,
+  maxIndexAgeMs,
+  outcomeFromIndexReason,
+} from "./telemetry.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -151,49 +157,6 @@ function parseMarketSchedule(raw: unknown): ValidatedSchedule | { error: string 
   };
 }
 
-async function callClaude(args: {
-  apiKey: string;
-  system: string;
-  user: string;
-  maxTokens: number;
-  model: string;
-}): Promise<{ ok: true; text: string } | { ok: false }> {
-  let providerRes: Response;
-  try {
-    providerRes = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": args.apiKey,
-        "anthropic-version": "2023-06-01",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: args.model,
-        max_tokens: args.maxTokens,
-        system: args.system,
-        messages: [{ role: "user", content: args.user }],
-      }),
-    });
-  } catch (e) {
-    console.error("provider fetch failed:", sanitizeProviderError((e as Error).message ?? ""));
-    return { ok: false };
-  }
-  if (!providerRes.ok) {
-    console.error("provider non-2xx:", providerRes.status);
-    return { ok: false };
-  }
-  let providerJson: { content?: Array<{ type?: string; text?: string }> };
-  try {
-    providerJson = await providerRes.json();
-  } catch {
-    return { ok: false };
-  }
-  const textBlock = providerJson?.content?.find?.((b) => b?.type === "text");
-  const briefContent = typeof textBlock?.text === "string" ? textBlock.text.trim() : "";
-  if (!briefContent) return { ok: false };
-  return { ok: true, text: briefContent };
-}
-
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
@@ -220,6 +183,7 @@ serve(async (req) => {
     if (!briefType || (briefType !== "am" && briefType !== "pm")) {
       return json({ error: "Invalid briefType" }, 400);
     }
+    const startedAtMs = Date.now();
 
     const parsedSchedule = parseMarketSchedule(payload.marketSchedule);
     if (parsedSchedule && "error" in parsedSchedule) {
@@ -272,6 +236,14 @@ serve(async (req) => {
 
       if (idxErr) {
         console.error("market_indexes fetch failed:", idxErr.message);
+        emitBriefTelemetry(startedAtMs, {
+          brief_type: briefType,
+          outcome: "db_error",
+          reason: "source_unavailable",
+          index_age_ms: null,
+          anthropic_http_status: null,
+          anthropic_error_type: null,
+        });
         return json(
           { available: false, reason: "source_unavailable", brief_type: briefType, brief_date: etDate },
           503,
@@ -284,6 +256,7 @@ serve(async (req) => {
       }
 
       const nowMs = sourceCheckedAt.getTime();
+      const pmIndexAgeMs = maxIndexAgeMs(idxRows ?? [], nowMs);
       for (const sym of AM_INDEX_SYMBOLS) {
         const row = bySymbol.get(sym);
         if (!row) {
@@ -314,6 +287,14 @@ serve(async (req) => {
         }
         const ageMs = nowMs - new Date(row.updated_at).getTime();
         if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > FRESHNESS_MS) {
+          emitBriefTelemetry(startedAtMs, {
+            brief_type: briefType,
+            outcome: "source_stale",
+            reason: "source_stale",
+            index_age_ms: pmIndexAgeMs,
+            anthropic_http_status: null,
+            anthropic_error_type: null,
+          });
           return json(
             { available: false, reason: "source_stale", brief_type: briefType, brief_date: etDate },
             503,
@@ -339,7 +320,17 @@ serve(async (req) => {
         maxTokens: PM_MAX_TOKENS,
         model: PM_MODEL,
       });
-      if (!generated.ok) return json({ error: "Upstream generation failed" }, 502);
+      if (!generated.ok) {
+        emitBriefTelemetry(startedAtMs, {
+          brief_type: briefType,
+          outcome: generated.outcome,
+          reason: generated.outcome,
+          index_age_ms: pmIndexAgeMs,
+          anthropic_http_status: generated.httpStatus,
+          anthropic_error_type: generated.errorType,
+        });
+        return json({ error: "Upstream generation failed" }, 502);
+      }
 
       const marketSnapshot: Record<string, unknown> = {
         symbols: symbolsSnap,
@@ -386,9 +377,25 @@ serve(async (req) => {
           if (canonical) return json(cachedBody(canonical), 200);
         }
         console.error("insert failed:", insertErr.message);
+        emitBriefTelemetry(startedAtMs, {
+          brief_type: briefType,
+          outcome: "db_error",
+          reason: "persist_failed",
+          index_age_ms: pmIndexAgeMs,
+          anthropic_http_status: generated.httpStatus,
+          anthropic_error_type: null,
+        });
         return json({ error: "Persist failed" }, 500);
       }
 
+      emitBriefTelemetry(startedAtMs, {
+        brief_type: briefType,
+        outcome: "generated",
+        reason: null,
+        index_age_ms: pmIndexAgeMs,
+        anthropic_http_status: generated.httpStatus,
+        anthropic_error_type: null,
+      });
       return json(
         {
           id: inserted.id,
@@ -412,14 +419,31 @@ serve(async (req) => {
 
     if (idxErr) {
       console.error("market_indexes fetch failed:", idxErr.message);
+      emitBriefTelemetry(startedAtMs, {
+        brief_type: "am",
+        outcome: "db_error",
+        reason: "source_unavailable",
+        index_age_ms: null,
+        anthropic_http_status: null,
+        anthropic_error_type: null,
+      });
       return json(
         { available: false, reason: "source_unavailable", brief_type: "am", brief_date: etDate },
         503,
       );
     }
 
+    const amIndexAgeMs = maxIndexAgeMs(idxRows ?? [], sourceCheckedAt.getTime());
     const indexValidation = validateIndexRows(idxRows ?? [], sourceCheckedAt.getTime());
     if (!indexValidation.ok) {
+      emitBriefTelemetry(startedAtMs, {
+        brief_type: "am",
+        outcome: outcomeFromIndexReason(indexValidation.reason),
+        reason: indexValidation.reason,
+        index_age_ms: amIndexAgeMs,
+        anthropic_http_status: null,
+        anthropic_error_type: null,
+      });
       return json(
         {
           available: false,
@@ -529,6 +553,14 @@ serve(async (req) => {
     });
 
     if (decision.action === "fail_closed") {
+      emitBriefTelemetry(startedAtMs, {
+        brief_type: "am",
+        outcome: outcomeFromIndexReason(decision.reason),
+        reason: decision.reason,
+        index_age_ms: amIndexAgeMs,
+        anthropic_http_status: null,
+        anthropic_error_type: null,
+      });
       return json(
         { available: false, reason: decision.reason, brief_type: "am", brief_date: etDate },
         503,
@@ -545,7 +577,17 @@ serve(async (req) => {
       maxTokens: AM_MAX_TOKENS,
       model: AM_MODEL,
     });
-    if (!generated.ok) return json({ error: "Upstream generation failed" }, 502);
+    if (!generated.ok) {
+      emitBriefTelemetry(startedAtMs, {
+        brief_type: "am",
+        outcome: generated.outcome,
+        reason: generated.outcome,
+        index_age_ms: amIndexAgeMs,
+        anthropic_http_status: generated.httpStatus,
+        anthropic_error_type: generated.errorType,
+      });
+      return json({ error: "Upstream generation failed" }, 502);
+    }
 
     const marketSnapshot = buildAmV2Snapshot(bundle, incomingState);
     const generatedAt = new Date().toISOString();
@@ -565,8 +607,24 @@ serve(async (req) => {
         .single();
       if (updateErr || !updated) {
         console.error("am brief update failed:", updateErr?.message ?? "missing row");
+        emitBriefTelemetry(startedAtMs, {
+          brief_type: "am",
+          outcome: "db_error",
+          reason: "persist_failed",
+          index_age_ms: amIndexAgeMs,
+          anthropic_http_status: generated.httpStatus,
+          anthropic_error_type: null,
+        });
         return json({ error: "Persist failed" }, 500);
       }
+      emitBriefTelemetry(startedAtMs, {
+        brief_type: "am",
+        outcome: "generated",
+        reason: null,
+        index_age_ms: amIndexAgeMs,
+        anthropic_http_status: generated.httpStatus,
+        anthropic_error_type: null,
+      });
       return json(
         {
           id: updated.id,
@@ -607,9 +665,25 @@ serve(async (req) => {
         if (canonical) return json(cachedBody(canonical), 200);
       }
       console.error("insert failed:", insertErr.message);
+      emitBriefTelemetry(startedAtMs, {
+        brief_type: "am",
+        outcome: "db_error",
+        reason: "persist_failed",
+        index_age_ms: amIndexAgeMs,
+        anthropic_http_status: generated.httpStatus,
+        anthropic_error_type: null,
+      });
       return json({ error: "Persist failed" }, 500);
     }
 
+    emitBriefTelemetry(startedAtMs, {
+      brief_type: "am",
+      outcome: "generated",
+      reason: null,
+      index_age_ms: amIndexAgeMs,
+      anthropic_http_status: generated.httpStatus,
+      anthropic_error_type: null,
+    });
     return json(
       {
         id: inserted.id,
