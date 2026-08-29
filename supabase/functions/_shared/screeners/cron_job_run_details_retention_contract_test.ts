@@ -60,7 +60,7 @@ Deno.test("static: privilege blocker is explicit and cadence gradually drains", 
   assert(sql.includes("VACUUM (ANALYZE) cron.job_run_details"));
   assertFalse(sql.includes("GRANT EXECUTE ON FUNCTION public.prune_cron_job_run_details_v1()"));
   assert(
-    sql.includes("Ordered before catch-up cadence"),
-    "retention filename/order must precede cadence activation",
+    sql.includes("Ordered before lease install and catch-up cadence"),
+    "retention filename/order must precede lease install and cadence activation",
   );
 });

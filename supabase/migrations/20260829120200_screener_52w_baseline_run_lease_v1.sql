@@ -1,6 +1,8 @@
--- Forward-only: durable 52w catch-up run lease, then high-frequency cadence.
--- Must run after 14-day cron history retention so catch-up cannot activate
--- if retention failed to install.
+-- Forward-only: durable 52w catch-up run lease (schema + RPCs only).
+-- Must run after 14-day cron history retention.
+-- Must run BEFORE cadence activation so the updated Edge handler can
+-- acquire/renew/release without the 5-minute catch-up cron being live yet.
+-- This file does not unschedule or schedule any cron jobs.
 --
 -- Lease: single-row TTL lock. Acquisition is one INSERT ... ON CONFLICT
 -- (lease_key) DO UPDATE ... WHERE same-holder OR expired ... RETURNING.
@@ -11,13 +13,6 @@
 -- next acquire is the same atomic INSERT. expires_at <= now lets a later
 -- invocation recover if the previous Edge request died. Same holder can
 -- renew. Default TTL 6 minutes (max 8). Does not wedge the job permanently.
---
--- Window (UTC): Mon-Fri 22:00-23:59 and Tue-Sat 00:00-05:59
---   = 22:00 -> 05:59 = 8 hours, spanning midnight.
--- Cadence: every 5 minutes, 4 dates/invocation (unchanged).
---   262 dates / 4 = 66 invocations * 5 min = 330 min = 5.5 hours.
--- Hour ranges do not overlap each other; the lease guards successive
--- 5-minute Edge invocations that would otherwise overlap in time.
 
 CREATE TABLE IF NOT EXISTS public.screener_52w_baseline_run_lease (
   lease_key text PRIMARY KEY,
@@ -107,45 +102,3 @@ REVOKE ALL ON FUNCTION public.release_screener_52w_baseline_run_lease_v1(text)
   FROM authenticated;
 GRANT EXECUTE ON FUNCTION public.release_screener_52w_baseline_run_lease_v1(text)
   TO service_role;
-
-DO $setup$
-DECLARE
-  v_job_id bigint;
-  v_dispatch text;
-BEGIN
-  FOR v_job_id IN
-    SELECT jobid
-    FROM cron.job
-    WHERE jobname IN (
-      'sync-screener-52w-baselines-after-close',
-      'sync-screener-52w-baselines-overnight'
-    )
-    OR command LIKE '%/functions/v1/sync-screener-52w-baselines%'
-  LOOP
-    PERFORM cron.unschedule(v_job_id);
-  END LOOP;
-
-  v_dispatch := $cmd$
-SELECT net.http_post(
-  url := 'https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/sync-screener-52w-baselines',
-  headers := jsonb_build_object(
-    'Content-Type', 'application/json',
-    'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'sync_secret' LIMIT 1)
-  ),
-  body := '{}'::jsonb
-) AS request_id;
-$cmd$;
-
-  PERFORM cron.schedule(
-    'sync-screener-52w-baselines-after-close',
-    '*/5 22-23 * * 1-5',
-    v_dispatch
-  );
-
-  PERFORM cron.schedule(
-    'sync-screener-52w-baselines-overnight',
-    '*/5 0-5 * * 2-6',
-    v_dispatch
-  );
-END;
-$setup$;
