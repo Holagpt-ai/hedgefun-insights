@@ -1,6 +1,6 @@
 /**
  * Shared AM vs Radar V2.2 shadow comparison model.
- * Read-only evidence layer — does not change the visible AM Day-Trade Radar.
+ * Read-only evidence layer — does not change the visible AM Volume Leaders surface.
  */
 
 import type { SessionKind } from "@/lib/equities-session-calendar";

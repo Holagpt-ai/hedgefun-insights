@@ -475,13 +475,20 @@ describe("AM Radar shadow comparison", () => {
     expect(hodDistancePct(9, 0)).toBeNull();
   });
 
-  it("does not swap the visible AM Day-Trade Radar onto Radar V2.2", () => {
+  it("does not swap the visible AM Volume Leaders surface onto Radar V2.2", () => {
     const inbox = readFileSync(resolve("src/pages/dashboard/AMInbox.tsx"), "utf8");
-    expect(inbox).toContain('title="Day-Trade Radar · sorted by volume"');
+    expect(inbox).toContain('title="Volume Leaders · sorted by volume"');
+    expect(inbox).toContain("Screener results · 15-minute delayed · not session-attributed");
+    expect(inbox).not.toContain('title="Day-Trade Radar · sorted by volume"');
     expect(inbox).toContain("screener_results, not Radar V2.2");
     expect(inbox).toContain("volume_leaders");
     expect(inbox).not.toMatch(/from ["']@\/lib\/radar-v22["']/);
     expect(inbox).not.toMatch(/radar_v22_board/);
     expect(inbox).not.toMatch(/useRadarV22Board/);
+    const leaders = readFileSync(resolve("src/components/action-center/VolumeLeaders.tsx"), "utf8");
+    expect(leaders).toContain("Screener leaders · sorted by volume");
+    expect(leaders).not.toContain("Day-Trade Radar · sorted by volume");
+    const tabs = readFileSync(resolve("src/config/screener-tabs.config.ts"), "utf8");
+    expect(tabs).toContain('label: "Day Trade Radar"');
   });
 });

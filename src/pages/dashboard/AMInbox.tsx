@@ -126,7 +126,7 @@ export default function AMInbox() {
 
           {/* Volume Leaders — screener_results, not Radar V2.2 */}
           <SectionShell
-            title="Day-Trade Radar · sorted by volume"
+            title="Volume Leaders · sorted by volume"
             subtitle="Screener results · 15-minute delayed · not session-attributed"
             section={data?.volume_leaders ?? null}
             loading={loading}
