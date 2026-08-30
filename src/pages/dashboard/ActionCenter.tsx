@@ -50,7 +50,7 @@ export default function ActionCenter() {
       <div>
         <h1 className="text-2xl font-bold text-foreground">Action Center</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Your live command hub for market signals, catalysts and trading workflow.
+          Your market command hub for signals, catalysts and trading workflow.
         </p>
         <div className="mt-1 text-[11px] text-muted-foreground">
           Real account data · Market feeds may be delayed
@@ -79,9 +79,9 @@ export default function ActionCenter() {
         />
       </section>
 
-      {/* SECTION 2 — Live Summary */}
-      <section aria-label="Live Summary">
-        <h2 className="text-lg font-semibold mb-3">Live Summary</h2>
+      {/* SECTION 2 — Current Summary */}
+      <section aria-label="Current Summary">
+        <h2 className="text-lg font-semibold mb-3">Current Summary</h2>
         <SummaryCards
           counts={ac.summary}
           loading={

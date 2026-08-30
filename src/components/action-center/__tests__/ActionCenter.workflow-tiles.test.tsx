@@ -46,4 +46,23 @@ describe("Action Center generic workflow tiles", () => {
     const snapshot = screen.getByRole("link", { name: /open watchlist/i }) as HTMLAnchorElement;
     expect(snapshot.getAttribute("href")).toBe("/dashboard/watchlist");
   });
+
+  it("uses Current Summary and does not claim a live command hub", () => {
+    render(
+      <MemoryRouter>
+        <ActionCenter />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole("heading", { name: "Current Summary" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Current Summary" })).toBeTruthy();
+    expect(screen.queryByRole("heading", { name: "Live Summary" })).toBeNull();
+    expect(screen.queryByText("Live Summary")).toBeNull();
+    expect(
+      screen.queryByText("Your live command hub for market signals, catalysts and trading workflow."),
+    ).toBeNull();
+    expect(
+      screen.getByText("Your market command hub for signals, catalysts and trading workflow."),
+    ).toBeTruthy();
+    expect(screen.getByText("Real account data · Market feeds may be delayed")).toBeTruthy();
+  });
 });

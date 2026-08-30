@@ -56,7 +56,7 @@ export function VolumeLeaders({
     <div className="rounded-xl border bg-card overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/40">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Day-Trade Radar · sorted by volume
+          Screener leaders · sorted by volume
         </span>
         <div className="flex items-center gap-2">
           <span className={`text-[10px] px-2 py-0.5 rounded-full ${stale ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}>
