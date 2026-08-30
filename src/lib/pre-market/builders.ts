@@ -30,6 +30,7 @@ export function symbolRoutes(rawSymbol: string) {
     catalyst: `/dashboard/catalyst?symbol=${e}`,
     watchlist: `/dashboard/watchlist?symbol=${e}`,
     journal: `/dashboard/journal?symbol=${e}`,
+    chart: `/chart/${e}`,
     stock: `/stocks/${e}`,
   };
 }
