@@ -19,7 +19,7 @@ export function PreMarketSymbolActions({ symbol }: { symbol: string }) {
 
   const primary = [
     { to: routes.ai, label: "AI Analyst", Icon: Bot },
-    { to: routes.stock, label: "Chart", Icon: LineChart },
+    { to: routes.chart, label: "Chart", Icon: LineChart },
   ];
   const overflow = [
     { to: routes.catalyst, label: "Catalyst", Icon: CalendarClock },

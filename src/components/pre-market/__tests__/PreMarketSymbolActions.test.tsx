@@ -11,7 +11,9 @@ describe("PreMarketSymbolActions", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("link", { name: "AI Analyst for AAPL" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Chart for AAPL" })).toBeTruthy();
+    const chart = screen.getByRole("link", { name: "Chart for AAPL" }) as HTMLAnchorElement;
+    expect(chart.getAttribute("href")).toBe("/chart/AAPL");
+    expect(chart.getAttribute("href")).not.toMatch(/^\/stocks\//);
     expect(screen.getByRole("button", { name: "More actions for AAPL" })).toBeTruthy();
     expect(screen.getAllByLabelText("Catalyst for AAPL").length).toBeGreaterThan(0);
     expect(screen.getAllByLabelText("Watchlist for AAPL").length).toBeGreaterThan(0);

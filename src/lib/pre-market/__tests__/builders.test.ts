@@ -51,6 +51,8 @@ describe("pre-market symbol handling", () => {
     expect(r?.catalyst).toBe("/dashboard/catalyst?symbol=BRK.B");
     expect(r?.watchlist).toBe("/dashboard/watchlist?symbol=BRK.B");
     expect(r?.journal).toBe("/dashboard/journal?symbol=BRK.B");
+    expect(r?.chart).toBe("/chart/BRK.B");
+    expect(r?.stock).toBe("/stocks/BRK.B");
     expect(symbolRoutes("not a symbol")).toBeNull();
   });
 });

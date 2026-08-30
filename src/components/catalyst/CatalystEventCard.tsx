@@ -243,7 +243,7 @@ export function CatalystEventCard({
           </Link>
         </Button>
         <Button asChild variant="ghost" size="sm" className="gap-1">
-          <Link to={`/stocks/${encodeURIComponent(event.symbol)}`}>
+          <Link to={`/chart/${encodeURIComponent(event.symbol)}`}>
             <LineChart className="h-3.5 w-3.5" /> Open Chart
           </Link>
         </Button>

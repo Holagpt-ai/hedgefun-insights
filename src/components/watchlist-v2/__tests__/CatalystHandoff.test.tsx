@@ -61,6 +61,26 @@ describe("Catalyst → Watchlist handoff", () => {
   });
 });
 
+describe("Catalyst Open Chart route", () => {
+  it("sends Open Chart to /chart/{SYMBOL}, not stock detail", () => {
+    const { getByRole } = render(
+      <MemoryRouter>
+        <CatalystEventCard
+          event={catalystEvent({ symbol: "AAPL" })}
+          isSaved={false}
+          isReviewed={false}
+          onToggleSaved={() => {}}
+          onToggleReviewed={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    const chart = getByRole("link", { name: /open chart/i }) as HTMLAnchorElement;
+    expect(chart.getAttribute("href")).toBe("/chart/AAPL");
+    const ticker = getByRole("link", { name: "AAPL" }) as HTMLAnchorElement;
+    expect(ticker.getAttribute("href")).toBe("/stocks/AAPL");
+  });
+});
+
 describe("normalizeHandoffSymbol", () => {
   it("normalizes valid symbols to uppercase", () => {
     expect(normalizeHandoffSymbol("aapl")).toBe("AAPL");
