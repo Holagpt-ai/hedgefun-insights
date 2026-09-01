@@ -23,8 +23,28 @@ Deno.test("loadEnv does not require SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL", 
   assertEquals(env.radarBridgeUrl.endsWith("radar-worker-bridge"), true);
   assertEquals(env.radarWorkerSecret, "worker-secret");
   assertEquals(env.massiveWsMode, "delayed");
+  assertEquals(env.radarSentinelEnabled, false);
   assertEquals("supabaseServiceRoleKey" in env, false);
   assertEquals("supabaseUrl" in env, false);
+});
+
+Deno.test("loadEnv RADAR_SENTINEL_ENABLED defaults false and accepts true/false", () => {
+  const on = loadEnv((k) => {
+    if (k === "POLYGON_API_KEY") return "poly";
+    if (k === "RADAR_BRIDGE_URL") return "https://example.supabase.co/functions/v1/radar-worker-bridge";
+    if (k === "RADAR_WORKER_SECRET") return "secret";
+    if (k === "RADAR_SENTINEL_ENABLED") return "true";
+    return undefined;
+  });
+  assertEquals(on.radarSentinelEnabled, true);
+  const off = loadEnv((k) => {
+    if (k === "POLYGON_API_KEY") return "poly";
+    if (k === "RADAR_BRIDGE_URL") return "https://example.supabase.co/functions/v1/radar-worker-bridge";
+    if (k === "RADAR_WORKER_SECRET") return "secret";
+    if (k === "RADAR_SENTINEL_ENABLED") return "0";
+    return undefined;
+  });
+  assertEquals(off.radarSentinelEnabled, false);
 });
 
 Deno.test("loadEnv rejects invalid RADAR_BRIDGE_URL", () => {

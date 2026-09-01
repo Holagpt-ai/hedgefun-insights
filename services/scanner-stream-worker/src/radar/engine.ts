@@ -12,6 +12,12 @@ import {
 } from "../../../../supabase/functions/_shared/radar-v22/types.ts";
 import { activePass, createRadarBook, detectPass } from "./bars.ts";
 import type { RadarV22Config } from "./config.ts";
+import { parseAggregateEvent } from "./parse.ts";
+import {
+  createMarketSentinel,
+  evaluatePromotion,
+  promotionCapOf,
+} from "./sentinel.ts";
 import { isoFromMs } from "./time.ts";
 import {
   emptyLifecycle,
@@ -25,6 +31,7 @@ import type {
   IngestResult,
   LifecycleRecord,
   RankedCandidate,
+  SentinelStats,
 } from "./types.ts";
 
 export type FrozenBoard = {
@@ -86,7 +93,21 @@ export type RadarEngine = {
   lastReceiveMs(): number | null;
   inRegularSession(wallNowMs: number): boolean;
   incrementReconnect(): void;
+  sentinelStats(): SentinelStats;
+  hasSentinel(symbol: string): boolean;
+  isPromoted(symbol: string): boolean;
+  hasRadarBook(symbol: string): boolean;
+  bookBarCount(symbol: string): number;
 };
+
+function rssBytes(): number | null {
+  try {
+    const mem = Deno.memoryUsage?.();
+    return mem && typeof mem.rss === "number" ? mem.rss : null;
+  } catch {
+    return null;
+  }
+}
 
 export function createRadarEngine(opts: {
   config: RadarV22Config;
@@ -94,6 +115,9 @@ export function createRadarEngine(opts: {
 }): RadarEngine {
   const { config } = opts;
   const book = createRadarBook(config);
+  const sentinel = createMarketSentinel(config);
+  const promoted = new Set<string>();
+  const promotedAtMs = new Map<string, number>();
   const lifecycles = new Map<string, LifecycleRecord>();
   let universe = new Map<string, EligibleQuote>();
   let exceptions: CalendarExceptionRow[] | null = opts.exceptions ?? [];
@@ -108,6 +132,11 @@ export function createRadarEngine(opts: {
     outOfOrderCount: 0,
     reconnectCount: 0,
   };
+  let sentinelEvictions = 0;
+  let promotionsTotal = 0;
+  let demotionsTotal = 0;
+  let capRejections = 0;
+  const promotionCap = promotionCapOf(config);
 
   function sessionDateAt(ms: number): string | null {
     return easternParts(ms)?.date ?? null;
@@ -122,11 +151,91 @@ export function createRadarEngine(opts: {
   }
 
   function trackedSet(): Set<string> {
+    if (config.sentinelEnabled) {
+      return new Set(promoted);
+    }
     const tracked = new Set<string>(universe.keys());
     for (const [symbol, rec] of lifecycles) {
       if (rec.phase !== "WATCHING") tracked.add(symbol);
     }
     return tracked;
+  }
+
+  function noteReceive(endMs: number, receiveMs: number): void {
+    lastReceiveMs = receiveMs;
+    if (lastEventEndMs === null || endMs > lastEventEndMs) {
+      lastEventEndMs = endMs;
+    }
+  }
+
+  function noteKind(kind: string): void {
+    if (kind === "duplicate") counters.duplicateCount += 1;
+    if (kind === "correction" || kind === "late_correction") {
+      counters.correctionCount += 1;
+    }
+    if (kind === "out_of_order") counters.outOfOrderCount += 1;
+  }
+
+  function demote(symbol: string): boolean {
+    if (!promoted.has(symbol) && !book.trackedSymbols().includes(symbol)) {
+      return false;
+    }
+    promoted.delete(symbol);
+    promotedAtMs.delete(symbol);
+    book.dropSymbol(symbol);
+    lifecycles.delete(symbol);
+    demotionsTotal += 1;
+    return true;
+  }
+
+  function tryPromote(symbol: string): boolean {
+    if (promoted.has(symbol)) return true;
+    const metrics = sentinel.metrics(symbol);
+    if (!metrics) return false;
+    const decision = evaluatePromotion(metrics, config);
+    if (!decision.promote) return false;
+    if (promoted.size >= promotionCap) {
+      capRejections += 1;
+      return false;
+    }
+    promoted.add(symbol);
+    promotedAtMs.set(symbol, metrics.lastEndMs);
+    promotionsTotal += 1;
+    return true;
+  }
+
+  function sweepStage2(eventNowMs: number): void {
+    for (const symbol of [...promoted]) {
+      const rec = lifecycles.get(symbol);
+      if (rec?.phase === "ARCHIVED") {
+        demote(symbol);
+        continue;
+      }
+      const metrics = book.metrics(symbol, eventNowMs, null);
+      const lastEnd = metrics?.lastBarEndMs ?? null;
+      if (lastEnd !== null && eventNowMs - lastEnd >= config.sentinelTtlMs) {
+        demote(symbol);
+        continue;
+      }
+      if ((metrics?.barCount ?? 0) === 0) {
+        const at = promotedAtMs.get(symbol) ?? eventNowMs;
+        if (eventNowMs - at >= config.sentinelTtlMs) demote(symbol);
+      }
+    }
+  }
+
+  function snapshotSentinelStats(): SentinelStats {
+    return {
+      enabled: config.sentinelEnabled,
+      live: sentinel.liveCount(),
+      promoted: promoted.size,
+      cap: promotionCap,
+      evictions: sentinelEvictions,
+      promotionsTotal,
+      demotionsTotal,
+      capRejections,
+      rssBytes: rssBytes(),
+    };
   }
 
   function markStale(wallNowMs: number): EvaluateResult {
@@ -164,6 +273,7 @@ export function createRadarEngine(opts: {
   return {
     setUniverse(quotes) {
       universe = new Map(quotes);
+      if (config.sentinelEnabled) return;
       const tracked = trackedSet();
       for (const symbol of book.trackedSymbols()) {
         if (!tracked.has(symbol)) book.dropSymbol(symbol);
@@ -173,18 +283,29 @@ export function createRadarEngine(opts: {
       exceptions = next;
     },
     ingest(raw, receiveMs): IngestResult {
-      const result = book.ingest(raw, receiveMs, trackedSet());
-      if (!result.accepted) return result;
-      lastReceiveMs = receiveMs;
-      if (lastEventEndMs === null || result.endMs > lastEventEndMs) {
-        lastEventEndMs = result.endMs;
+      if (!config.sentinelEnabled) {
+        const result = book.ingest(raw, receiveMs, trackedSet());
+        if (!result.accepted) return result;
+        noteReceive(result.endMs, receiveMs);
+        noteKind(result.kind);
+        return result;
       }
-      if (result.kind === "duplicate") counters.duplicateCount += 1;
-      if (result.kind === "correction" || result.kind === "late_correction") {
-        counters.correctionCount += 1;
-      }
-      if (result.kind === "out_of_order") counters.outOfOrderCount += 1;
-      return result;
+
+      const event = parseAggregateEvent(raw);
+      if (!event) return { accepted: false, reason: "invalid" };
+      const sen = sentinel.ingestEvent(event, receiveMs);
+      if (!sen.accepted) return sen;
+      noteReceive(sen.endMs, receiveMs);
+      noteKind(sen.kind);
+
+      const already = promoted.has(event.sym);
+      const nowPromoted = already || tryPromote(event.sym);
+      if (!nowPromoted) return sen;
+
+      const tracked = trackedSet();
+      const bookResult = book.ingest(raw, receiveMs, tracked);
+      if (bookResult.accepted) return bookResult;
+      return sen;
     },
     evaluate(wallNowMs, generationId): EvaluateResult {
       const sessionDate = sessionDateAt(wallNowMs);
@@ -203,6 +324,9 @@ export function createRadarEngine(opts: {
         lastSessionDate !== sessionDate;
       if (sessionChanged) {
         book.clearSession();
+        sentinel.clear();
+        promoted.clear();
+        promotedAtMs.clear();
         lifecycles.clear();
         lastEventEndMs = null;
         lastReceiveMs = null;
@@ -269,6 +393,18 @@ export function createRadarEngine(opts: {
       }
 
       const eventNow = lastEventEndMs ?? wallNowMs;
+      if (config.sentinelEnabled) {
+        sentinelEvictions += sentinel.evict(
+          eventNow,
+          config.sentinelTtlMs,
+          promoted,
+        );
+        sweepStage2(eventNow);
+        for (const symbol of sentinel.takeDirty()) {
+          tryPromote(symbol);
+        }
+      }
+
       const candidates: RankedCandidate[] = [];
       const archives: RadarV22ArchiveRow[] = [];
       const symbols = trackedSet();
@@ -277,7 +413,7 @@ export function createRadarEngine(opts: {
 
       for (const symbol of symbols) {
         const quote = universe.get(symbol) ?? null;
-        const eligible = quote !== null;
+        const eligible = config.sentinelEnabled ? true : quote !== null;
         const metrics = book.metrics(symbol, eventNow, quote);
         if (!metrics) continue;
         const detect = detectPass(eligible, metrics, config);
@@ -405,6 +541,9 @@ export function createRadarEngine(opts: {
         feedStale: false,
         archives,
       };
+      if (config.sentinelEnabled) {
+        sweepStage2(eventNow);
+      }
       return {
         published: true,
         staleTransition: false,
@@ -433,6 +572,21 @@ export function createRadarEngine(opts: {
     },
     incrementReconnect() {
       counters.reconnectCount += 1;
+    },
+    sentinelStats() {
+      return snapshotSentinelStats();
+    },
+    hasSentinel(symbol) {
+      return sentinel.has(symbol);
+    },
+    isPromoted(symbol) {
+      return promoted.has(symbol);
+    },
+    hasRadarBook(symbol) {
+      return book.trackedSymbols().includes(symbol);
+    },
+    bookBarCount(symbol) {
+      return book.metrics(symbol, lastEventEndMs ?? 0, null)?.barCount ?? 0;
     },
   };
 }

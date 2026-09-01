@@ -54,7 +54,10 @@ export function startRadarV22(opts: {
   setStatus?: SetStatusFn;
   holderId?: string;
 }): RadarRuntime {
-  const config = mergeRadarConfig(opts.config);
+  const config = mergeRadarConfig({
+    sentinelEnabled: opts.env.radarSentinelEnabled,
+    ...opts.config,
+  });
   const nowMs = opts.nowMs ?? (() => Date.now());
   const newId = opts.newId ?? (() => crypto.randomUUID());
   const sleep = opts.sleep ??
@@ -82,6 +85,7 @@ export function startRadarV22(opts: {
     const counters = engine.counters();
     const board = engine.snapshot();
     const eventMs = engine.eventNowMs();
+    const sentinel = engine.sentinelStats();
     return {
       status,
       connection_state: connectionState,
@@ -97,6 +101,15 @@ export function startRadarV22(opts: {
       out_of_order_count: counters.outOfOrderCount,
       reconnect_count: counters.reconnectCount,
       lease_held: leaseHeld,
+      sentinel_enabled: sentinel.enabled,
+      sentinel_live: sentinel.live,
+      promoted_count: sentinel.promoted,
+      promotion_cap: sentinel.cap,
+      sentinel_evictions: sentinel.evictions,
+      promotions_total: sentinel.promotionsTotal,
+      demotions_total: sentinel.demotionsTotal,
+      cap_rejections: sentinel.capRejections,
+      rss_bytes: sentinel.rssBytes,
     };
   }
 
@@ -233,7 +246,14 @@ export function startRadarV22(opts: {
             });
             engine.setUniverse(universe);
             lastSnapshotMs = wallNow;
-            log("info", "radar_universe_refreshed", { size: universe.size });
+            const sentinel = engine.sentinelStats();
+            log("info", "radar_universe_refreshed", {
+              size: universe.size,
+              sentinel_enabled: sentinel.enabled,
+              sentinel_live: sentinel.live,
+              promoted_count: sentinel.promoted,
+              promotion_cap: sentinel.cap,
+            });
           } catch {
             log("error", "radar_snapshot_failed", {
               code: "provider_unavailable",
