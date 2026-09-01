@@ -243,6 +243,7 @@ Deno.test("100,000-share tier boundary ranks above sub-tier volume", () => {
     dollarVol60s: 9e9,
     sessionVolume: 9e9,
     acceleration5m: 10,
+    freshnessAgeMs: null,
     lastPrice: 10,
     changePercent: 20,
     priorVolume: 1,
@@ -280,6 +281,7 @@ Deno.test("volume-first ranking ignores lifecycle until later keys", () => {
     dollarVol60s: 1,
     sessionVolume: 1,
     acceleration5m: null,
+    freshnessAgeMs: null,
     lastPrice: 10,
     changePercent: 20,
     priorVolume: 1,
@@ -312,6 +314,7 @@ Deno.test("symbol tie-break is ascending", () => {
     dollarVol60s: 10,
     sessionVolume: 10,
     acceleration5m: null,
+    freshnessAgeMs: null,
     lastPrice: 10,
     changePercent: 20,
     priorVolume: 1,
@@ -410,6 +413,19 @@ Deno.test("ARCHIVED after cooling window and low 60s activity", () => {
   engine.evaluate(T0 + 300, GEN);
   engine.evaluate(T0 + 400, GEN);
   const coolingAt = T0 + 400;
+  // Advance provider event time past archiveCoolingMs; wall clock must not
+  // be the authority for cooling duration.
+  ingestSeconds(
+    engine,
+    "AAA",
+    T0 + 90_000,
+    8,
+    50,
+    10.08,
+    coolingAt + 6_000,
+    10.08,
+    20 * 20_000 + 70 * 50,
+  );
   engine.evaluate(coolingAt + 6_000, GEN);
   const archived = engine.evaluate(coolingAt + 7_000, GEN);
   assertEquals(archived.board.rows.length, 0);

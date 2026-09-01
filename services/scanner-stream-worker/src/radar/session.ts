@@ -120,6 +120,27 @@ export function isLiveSurveillanceKind(kind: SessionKind): boolean {
   return kind === "pre-market" || kind === "market" || kind === "after-hours";
 }
 
+/**
+ * Absolute ET instant of the current sub-session's half-open start,
+ * derived from the bar/event timestamp (use bar start `s`).
+ */
+export function subsessionStartMsAt(
+  ms: number,
+  exceptions: CalendarExceptionRow[] | null,
+): number | null {
+  const parts = easternParts(ms);
+  const schedule = resolveScheduleAt(ms, exceptions);
+  if (!parts || !schedule) return null;
+  const kind = radarSessionKindAtMsOfDay(parts.msOfDay, schedule);
+  if (kind === "closed") return null;
+  const openMsOfDay = kind === "pre-market"
+    ? PREMARKET_START_MS
+    : kind === "market"
+    ? schedule.regularOpenMsOfDay
+    : schedule.regularCloseMsOfDay;
+  return ms - parts.msOfDay + openMsOfDay;
+}
+
 export function softTransitionOf(
   from: SessionKind | null,
   to: SessionKind,

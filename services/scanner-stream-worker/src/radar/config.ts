@@ -66,6 +66,20 @@ export type RadarV22Config = {
   sentinelBurstMinDollar5s: number;
   /** Relative-burst 15s dollar floor ($). */
   sentinelBurstMinDollar15s: number;
+  /** HOD attempt: last price/high within this fraction of sessionHigh. */
+  hodAttemptProximityPct: number;
+  /** HOD rejection: close this fraction below sessionHigh. */
+  hodRejectDistancePct: number;
+  /** HOD rejection lookback after attempt/break (event-time ms). */
+  hodRejectWindowMs: number;
+  /** Acceleration clock: require non-null acceleration5m >= this multiple. */
+  freshnessAccelThreshold: number;
+  /** Symbol freshness class: FRESH if age <= this (event-time ms). */
+  freshnessFreshMs: number;
+  /** ACTIVE if age <= this (and > fresh). */
+  freshnessActiveMs: number;
+  /** COOLING if age <= this (and > active). Else STALE. */
+  freshnessCoolingMs: number;
 };
 
 /** Absolute ceiling — config cannot raise Stage-2 allocation above this. */
@@ -116,6 +130,13 @@ export const RADAR_V22_CONFIG: RadarV22Config = {
   sentinelAbsoluteMinDollar15s: 2_500,
   sentinelBurstMinDollar5s: 250,
   sentinelBurstMinDollar15s: 500,
+  hodAttemptProximityPct: 0.003,
+  hodRejectDistancePct: 0.005,
+  hodRejectWindowMs: 30_000,
+  freshnessAccelThreshold: 2,
+  freshnessFreshMs: 30_000,
+  freshnessActiveMs: 2 * 60 * 1000,
+  freshnessCoolingMs: 8 * 60 * 1000,
 };
 
 function clampPromotionCaps(config: RadarV22Config): RadarV22Config {

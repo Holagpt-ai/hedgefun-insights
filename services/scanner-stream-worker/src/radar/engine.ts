@@ -25,12 +25,16 @@ import {
 import { activePass, createRadarBook, detectPass } from "./bars.ts";
 import type { RadarV22Config } from "./config.ts";
 import { parseAggregateEvent } from "./parse.ts";
+import { isoFromMs } from "./time.ts";
 import {
   createMarketSentinel,
   evaluatePromotion,
   promotionCapOf,
 } from "./sentinel.ts";
-import { isoFromMs } from "./time.ts";
+import {
+  createSessionIntelBook,
+  type SessionIntelSnapshot,
+} from "./geometry.ts";
 import {
   emptyLifecycle,
   isBoardLifecycle,
@@ -145,6 +149,7 @@ export type RadarEngine = {
   isPromoted(symbol: string): boolean;
   hasRadarBook(symbol: string): boolean;
   bookBarCount(symbol: string): number;
+  sessionIntel(symbol: string): SessionIntelSnapshot | null;
 };
 
 function rssBytes(): number | null {
@@ -163,6 +168,7 @@ export function createRadarEngine(opts: {
   const { config } = opts;
   const book = createRadarBook(config);
   const sentinel = createMarketSentinel(config);
+  const intel = createSessionIntelBook(config);
   const promoted = new Set<string>();
   const promotedAtMs = new Map<string, number>();
   const lifecycles = new Map<string, LifecycleRecord>();
@@ -237,6 +243,7 @@ export function createRadarEngine(opts: {
   function hardResetTransientMarketState(): void {
     book.clearSession();
     sentinel.clear();
+    intel.clear();
     promoted.clear();
     promotedAtMs.clear();
     lifecycles.clear();
@@ -279,6 +286,7 @@ export function createRadarEngine(opts: {
     promoted.delete(symbol);
     promotedAtMs.delete(symbol);
     book.dropSymbol(symbol);
+    intel.drop(symbol);
     lifecycles.delete(symbol);
     demotionsTotal += 1;
     return true;
@@ -404,6 +412,15 @@ export function createRadarEngine(opts: {
       if (!metrics) continue;
       const detect = detectPass(eligible, metrics, config);
       const active = activePass(eligible, metrics, config);
+      intel.applyFreshnessHints(symbol, eventNow, {
+        vol5s: metrics.vol5s,
+        vol15s: metrics.vol15s,
+        vol60s: metrics.vol60s,
+        move15s: metrics.move15s,
+        move60s: metrics.move60s,
+        acceleration5m: metrics.acceleration5m,
+      });
+      const intelSnap = intel.get(symbol, eventNow);
       const prev = lifecycles.get(symbol) ?? emptyLifecycle(boardDate);
       const lateBlocks = metrics.lateCorrectionInWindows &&
         (prev.phase === "WATCHING" || prev.phase === "ARCHIVED" ||
@@ -465,6 +482,7 @@ export function createRadarEngine(opts: {
         dollarVol60s: metrics.dollarVol60s,
         sessionVolume,
         acceleration5m: metrics.acceleration5m,
+        freshnessAgeMs: intelSnap?.freshnessAgeMs ?? null,
         lastPrice,
         changePercent,
         priorVolume,
@@ -679,6 +697,7 @@ export function createRadarEngine(opts: {
     if (soft) {
       sessionTransition = soft;
       subsessionEpoch += 1;
+      intel.softResetAll(kind, subsessionEpoch);
     }
 
     if (!live) {
@@ -773,7 +792,26 @@ export function createRadarEngine(opts: {
 
       const tracked = trackedSet();
       const bookResult = book.ingest(raw, receiveMs, tracked);
-      if (bookResult.accepted) return bookResult;
+      if (bookResult.accepted) {
+        const quote = universe.get(event.sym) ?? null;
+        const metrics = book.metrics(event.sym, event.e, quote);
+        intel.applyEvent(event, {
+          currentKind: lastSessionKind,
+          subsessionEpoch,
+          exceptions,
+          hints: metrics
+            ? {
+              vol5s: metrics.vol5s,
+              vol15s: metrics.vol15s,
+              vol60s: metrics.vol60s,
+              move15s: metrics.move15s,
+              move60s: metrics.move60s,
+              acceleration5m: metrics.acceleration5m,
+            }
+            : null,
+        });
+        return bookResult;
+      }
       return sen;
     },
     evaluate(wallNowMs, generationId): EvaluateResult {
@@ -844,6 +882,9 @@ export function createRadarEngine(opts: {
     },
     bookBarCount(symbol) {
       return book.metrics(symbol, lastEventEndMs ?? 0, null)?.barCount ?? 0;
+    },
+    sessionIntel(symbol) {
+      return intel.get(symbol, lastEventEndMs ?? 0);
     },
   };
 }

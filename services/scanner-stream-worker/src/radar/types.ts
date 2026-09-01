@@ -97,6 +97,7 @@ export type RankedCandidate = {
   dollarVol60s: number;
   sessionVolume: number;
   acceleration5m: number | null;
+  freshnessAgeMs: number | null;
   lastPrice: number;
   changePercent: number;
   priorVolume: number;
