@@ -84,6 +84,7 @@ export type LifecycleRecord = {
   consecutiveActiveFail: number;
   consecutiveLowActivity: number;
   coolingEnteredAtMs: number | null;
+  phaseEnteredAtMs: number | null;
   peakVol15WhileActive: number;
   sessionDate: string;
 };

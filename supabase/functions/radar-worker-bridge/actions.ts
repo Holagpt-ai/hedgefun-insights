@@ -6,6 +6,7 @@ export const RADAR_BRIDGE_ACTIONS = [
   "release_lease",
   "get_calendar",
   "publish_generation",
+  "publish_candidates_v2",
   "set_feed_status",
   "replace_52w_baseline",
   "get_52w_state",

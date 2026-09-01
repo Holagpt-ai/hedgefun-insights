@@ -41,6 +41,14 @@ import {
   stepLifecycle,
 } from "./lifecycle.ts";
 import { rankBoard } from "./rank.ts";
+import {
+  mapCandidateRow,
+  type PersistenceV2View,
+} from "./persist_v2.ts";
+import type {
+  RadarV22CandidateRow,
+} from "../../../../supabase/functions/_shared/radar-v22/persistence-v2.ts";
+import { isRadarV22SessionKind } from "../../../../supabase/functions/_shared/radar-v22/persistence-v2.ts";
 import type {
   EligibleQuote,
   EngineCounters,
@@ -81,6 +89,8 @@ export type EvaluateResult = {
   persistEmpty: boolean;
   /** Increments on PM→RTH and RTH→AH so Sprint 3 can reset session HOD/VWAP. */
   subsessionEpoch: number;
+  /** In-memory Persistence V2 snapshot. Not written unless the V2 flag is on. */
+  persistenceV2: PersistenceV2View;
 };
 
 export function persistableGeneration(result: EvaluateResult): {
@@ -181,6 +191,8 @@ export function createRadarEngine(opts: {
   let lastSessionKind: SessionKind | null = null;
   let subsessionEpoch = 0;
   let lastPersistWasEmpty = false;
+  let lastV2Candidates: RadarV22CandidateRow[] = [];
+  let lastV2Archived: Array<{ symbol: string; eventAt: string }> = [];
   let frozen: FrozenBoard | null = null;
   let feedStale = false;
   const counters: EngineCounters = {
@@ -217,7 +229,15 @@ export function createRadarEngine(opts: {
     sessionTransition?: SessionTransition | null;
     liveSurveillance: boolean;
     persistEmpty?: boolean;
+    clearV2?: boolean;
   }): EvaluateResult {
+    if (opts.clearV2) {
+      lastV2Candidates = [];
+      lastV2Archived = [];
+    }
+    const sessionKind = isRadarV22SessionKind(opts.sessionKind)
+      ? opts.sessionKind
+      : "closed";
     return {
       published: opts.published,
       staleTransition: opts.staleTransition ?? false,
@@ -230,6 +250,20 @@ export function createRadarEngine(opts: {
       liveSurveillance: opts.liveSurveillance,
       persistEmpty: opts.persistEmpty ?? false,
       subsessionEpoch,
+      persistenceV2: {
+        tradingDate: opts.surveillanceDate,
+        sessionKind,
+        liveSurveillance: opts.liveSurveillance,
+        sessionTransition: opts.sessionTransition ?? null,
+        sentinelEnabled: config.sentinelEnabled,
+        feedStale: opts.board.feedStale,
+        lastReceiveAt: lastReceiveMs !== null
+          ? isoFromMs(lastReceiveMs)
+          : null,
+        lastProviderEventAt: opts.board.lastProviderEventAt,
+        candidates: lastV2Candidates.map((row) => ({ ...row })),
+        archived: lastV2Archived.map((row) => ({ ...row })),
+      },
     };
   }
 
@@ -251,6 +285,8 @@ export function createRadarEngine(opts: {
     lastReceiveMs = null;
     feedStale = false;
     subsessionEpoch = 0;
+    lastV2Candidates = [];
+    lastV2Archived = [];
   }
 
   function trackedSet(): Set<string> {
@@ -401,6 +437,8 @@ export function createRadarEngine(opts: {
 
     const candidates: RankedCandidate[] = [];
     const archives: RadarV22ArchiveRow[] = [];
+    const v2Rows: RadarV22CandidateRow[] = [];
+    const v2Archived: Array<{ symbol: string; eventAt: string }> = [];
     const symbols = trackedSet();
     const updatedAt = isoFromMs(wallNowMs) ??
       new Date(wallNowMs).toISOString();
@@ -452,6 +490,29 @@ export function createRadarEngine(opts: {
             ? isoFromMs(metrics.lastBarEndMs)
             : null,
         });
+        const archivedAt = stepped.record.phaseEnteredAtMs !== null
+          ? isoFromMs(stepped.record.phaseEnteredAtMs)
+          : updatedAt;
+        if (archivedAt) {
+          v2Archived.push({ symbol, eventAt: archivedAt });
+        }
+      } else if (
+        isRadarV22SessionKind(lastSessionKind) &&
+        v2Rows.length < 200
+      ) {
+        v2Rows.push(mapCandidateRow({
+          generationId,
+          tradingDate: boardDate,
+          sessionKind: lastSessionKind,
+          symbol,
+          lifecycle: stepped.record.phase,
+          metrics,
+          intel: intelSnap,
+          promotedAtMs: promotedAtMs.get(symbol) ?? null,
+          phaseEnteredAtMs: stepped.record.phaseEnteredAtMs,
+          updatedAt,
+          isoFromMs,
+        }));
       }
 
       if (!isBoardLifecycle(stepped.record.phase)) continue;
@@ -545,6 +606,8 @@ export function createRadarEngine(opts: {
       feedStale: false,
       archives,
     };
+    lastV2Candidates = v2Rows;
+    lastV2Archived = v2Archived;
     if (config.sentinelEnabled) {
       sweepStage2(eventNow);
     }
@@ -618,6 +681,7 @@ export function createRadarEngine(opts: {
         sessionTransition: "hard_reset",
         liveSurveillance: false,
         persistEmpty: true,
+        clearV2: true,
       });
     }
     lastSessionDate = calendarDate;
@@ -633,6 +697,7 @@ export function createRadarEngine(opts: {
         sessionKind: kind,
         surveillanceDate,
         liveSurveillance: false,
+        clearV2: true,
       });
     }
 
@@ -690,6 +755,7 @@ export function createRadarEngine(opts: {
         sessionTransition,
         liveSurveillance: false,
         persistEmpty: true,
+        clearV2: true,
       });
     }
 
@@ -719,6 +785,7 @@ export function createRadarEngine(opts: {
         sessionTransition: wasLive ? "park_closed" : null,
         liveSurveillance: false,
         persistEmpty,
+        clearV2: true,
       });
     }
 
@@ -734,9 +801,18 @@ export function createRadarEngine(opts: {
       true,
     );
     if (gated !== "rank") {
-      return gated.sessionTransition === null && sessionTransition !== null
-        ? { ...gated, sessionTransition, subsessionEpoch }
-        : gated;
+      if (gated.sessionTransition === null && sessionTransition !== null) {
+        return {
+          ...gated,
+          sessionTransition,
+          subsessionEpoch,
+          persistenceV2: {
+            ...gated.persistenceV2,
+            sessionTransition,
+          },
+        };
+      }
+      return gated;
     }
 
     rankLiveBoard(wallNowMs, generationId, surveillanceDate);

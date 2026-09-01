@@ -12,6 +12,11 @@ import {
   type RadarRpcFn,
   type SetStatusFn,
 } from "./persist.ts";
+import {
+  createRadarV2WriteGate,
+  publishRadarV2IfNeeded,
+  type RadarV2RpcFn,
+} from "./persist_v2.ts";
 import { refreshEligibleUniverse } from "./snapshot.ts";
 import type { RadarConnectionState, RadarHealthSnapshot } from "./types.ts";
 import { createRadarSocket, type RadarWsConnect } from "./ws.ts";
@@ -51,6 +56,7 @@ export function startRadarV22(opts: {
   sleep?: (ms: number) => Promise<void>;
   lease?: LeaseClient;
   rpc?: RadarRpcFn;
+  rpcV2?: RadarV2RpcFn;
   setStatus?: SetStatusFn;
   holderId?: string;
 }): RadarRuntime {
@@ -70,12 +76,14 @@ export function startRadarV22(opts: {
   });
   const lease = opts.lease ?? bridged.lease;
   const rpc = opts.rpc ?? bridged.radarRpc;
+  const rpcV2 = opts.rpcV2 ?? bridged.radarV2Rpc;
   const setStatus = opts.setStatus ?? bridged.setStatus;
   const holderId = opts.holderId ?? `radar-${crypto.randomUUID()}`;
   const engine = createRadarEngine({ config, exceptions: [] });
   let leaseHeld = false;
   let connectionState: RadarConnectionState = "idle";
   let lastPublishedGeneration: string | null = null;
+  const v2Gate = createRadarV2WriteGate();
   let running = true;
   let socket: ReturnType<typeof createRadarSocket> | null = null;
 
@@ -123,8 +131,8 @@ export function startRadarV22(opts: {
     const generationId = newId();
     const wallNow = nowMs();
     const result = engine.evaluate(wallNow, generationId);
+    const syncedAt = isoFromMs(wallNow) ?? new Date(wallNow).toISOString();
     if (result.staleTransition) {
-      const syncedAt = isoFromMs(wallNow) ?? new Date(wallNow).toISOString();
       await setStatus({
         p_status: result.board.rows.length > 0 ? "stale" : "empty",
         p_last_provider_event_at: result.board.lastProviderEventAt,
@@ -133,33 +141,49 @@ export function startRadarV22(opts: {
       pushHealth("stale");
       return;
     }
-    if (!result.published) {
+    if (result.published) {
+      const persist = persistableGeneration(result);
+      const published = await publishRadarGeneration(rpc, {
+        p_generation_id: generationId,
+        p_rows: persist.rows.map((row) => ({
+          ...row,
+          generation_id: generationId,
+          updated_at: syncedAt,
+        })),
+        p_archive: persist.archives.map((row) => ({
+          ...row,
+          generation_id: generationId,
+          archived_at: syncedAt,
+        })),
+        p_session_date: persist.sessionDate,
+        p_synced_at: syncedAt,
+        p_status: persist.status,
+        p_last_provider_event_at: result.board.lastProviderEventAt,
+      });
+      if (published.ok) {
+        lastPublishedGeneration = generationId;
+      } else {
+        log("error", "radar_persist_failed", { code: published.code });
+      }
+    }
+
+    const v2 = await publishRadarV2IfNeeded({
+      flagEnabled: opts.env.radarPersistenceV2Enabled,
+      result,
+      gate: v2Gate,
+      wallNowMs: wallNow,
+      checkpointMs: opts.env.radarPersistenceV2CheckpointMs,
+      generationId,
+      syncedAt,
+      rpc: rpcV2,
+    });
+    if (v2 !== "skipped" && !v2.ok) {
+      log("error", "radar_persist_v2_failed", { code: v2.code });
+    }
+
+    if (!result.published && !opts.env.radarPersistenceV2Enabled) {
       pushHealth(leaseHeld ? "running" : "degraded");
       return;
-    }
-    const syncedAt = isoFromMs(wallNow) ?? new Date(wallNow).toISOString();
-    const persist = persistableGeneration(result);
-    const published = await publishRadarGeneration(rpc, {
-      p_generation_id: generationId,
-      p_rows: persist.rows.map((row) => ({
-        ...row,
-        generation_id: generationId,
-        updated_at: syncedAt,
-      })),
-      p_archive: persist.archives.map((row) => ({
-        ...row,
-        generation_id: generationId,
-        archived_at: syncedAt,
-      })),
-      p_session_date: persist.sessionDate,
-      p_synced_at: syncedAt,
-      p_status: persist.status,
-      p_last_provider_event_at: result.board.lastProviderEventAt,
-    });
-    if (published.ok) {
-      lastPublishedGeneration = generationId;
-    } else {
-      log("error", "radar_persist_failed", { code: published.code });
     }
     pushHealth(result.board.feedStale ? "stale" : "running");
   };

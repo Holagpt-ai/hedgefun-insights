@@ -21,9 +21,20 @@ export function emptyLifecycle(sessionDate: string): LifecycleRecord {
     consecutiveActiveFail: 0,
     consecutiveLowActivity: 0,
     coolingEnteredAtMs: null,
+    phaseEnteredAtMs: null,
     peakVol15WhileActive: 0,
     sessionDate,
   };
+}
+
+function enterPhase(
+  record: LifecycleRecord,
+  phase: RadarV22Lifecycle,
+  eventNowMs: number,
+): void {
+  if (record.phase === phase) return;
+  record.phase = phase;
+  record.phaseEnteredAtMs = eventNowMs;
 }
 
 export function isBoardLifecycle(
@@ -75,7 +86,7 @@ export function stepLifecycle(
     next.consecutiveLowActivity = 0;
     if (detect) {
       next.consecutiveDetect = 1;
-      next.phase = "DETECTED";
+      enterPhase(next, "DETECTED", input.eventNowMs);
       next.consecutiveActive = activeForPromotion ? 1 : 0;
     } else {
       next.consecutiveDetect = 0;
@@ -93,7 +104,7 @@ export function stepLifecycle(
       next.phase === "DETECTED" &&
       next.consecutiveDetect >= input.config.confirmingEvals
     ) {
-      next.phase = "CONFIRMING";
+      enterPhase(next, "CONFIRMING", input.eventNowMs);
     }
     if (activeForPromotion) {
       next.consecutiveActive += 1;
@@ -104,7 +115,7 @@ export function stepLifecycle(
       next.phase === "CONFIRMING" &&
       next.consecutiveActive >= input.config.activeConfirmEvals
     ) {
-      next.phase = "ACTIVE";
+      enterPhase(next, "ACTIVE", input.eventNowMs);
       next.consecutiveActiveFail = 0;
       next.peakVol15WhileActive = input.metrics.vol15s;
       next.coolingEnteredAtMs = null;
@@ -134,7 +145,7 @@ export function stepLifecycle(
       next.consecutiveActiveFail >= input.config.coolingConfirmEvals &&
       (volCollapsed || moveNegative)
     ) {
-      next.phase = "COOLING";
+      enterPhase(next, "COOLING", input.eventNowMs);
       // EVENT TIME: cooling duration describes market inactivity, not wall age.
       next.coolingEnteredAtMs = input.eventNowMs;
       next.consecutiveLowActivity = 0;
@@ -147,7 +158,7 @@ export function stepLifecycle(
       next.consecutiveActive += 1;
       next.consecutiveLowActivity = 0;
       if (next.consecutiveActive >= input.config.reactivateConfirmEvals) {
-        next.phase = "REACTIVATED";
+        enterPhase(next, "REACTIVATED", input.eventNowMs);
         next.consecutiveActiveFail = 0;
         next.coolingEnteredAtMs = null;
         next.peakVol15WhileActive = input.metrics.vol15s;
@@ -167,7 +178,7 @@ export function stepLifecycle(
       cooledLongEnough &&
       next.consecutiveLowActivity >= input.config.archiveLowActivityEvals
     ) {
-      next.phase = "ARCHIVED";
+      enterPhase(next, "ARCHIVED", input.eventNowMs);
       return { record: next, archived: true };
     }
     return { record: next, archived: false };
@@ -177,7 +188,7 @@ export function stepLifecycle(
   if (activeForPromotion) {
     next.consecutiveActive += 1;
     if (next.consecutiveActive >= input.config.reactivateConfirmEvals) {
-      next.phase = "REACTIVATED";
+      enterPhase(next, "REACTIVATED", input.eventNowMs);
       next.consecutiveActiveFail = 0;
       next.coolingEnteredAtMs = null;
       next.peakVol15WhileActive = input.metrics.vol15s;

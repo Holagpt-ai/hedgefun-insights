@@ -9,7 +9,13 @@ export type WorkerEnv = {
   baselineMinSessions: number;
   baselineLookbackCalendarDays: number;
   radarSentinelEnabled: boolean;
+  radarPersistenceV2Enabled: boolean;
+  radarPersistenceV2CheckpointMs: number;
 };
+
+export const DEFAULT_RADAR_PERSISTENCE_V2_CHECKPOINT_MS = 30_000;
+export const MIN_RADAR_PERSISTENCE_V2_CHECKPOINT_MS = 5_000;
+export const MAX_RADAR_PERSISTENCE_V2_CHECKPOINT_MS = 300_000;
 
 export type EnvReader = (key: string) => string | undefined;
 
@@ -116,6 +122,18 @@ export function loadEnv(read: EnvReader = (k) => Deno.env.get(k)): WorkerEnv {
       read,
       "RADAR_SENTINEL_ENABLED",
       false,
+    ),
+    radarPersistenceV2Enabled: parseOptionalBool(
+      read,
+      "RADAR_PERSISTENCE_V2_ENABLED",
+      false,
+    ),
+    radarPersistenceV2CheckpointMs: readOptionalInt(
+      read,
+      "RADAR_PERSISTENCE_V2_CHECKPOINT_MS",
+      DEFAULT_RADAR_PERSISTENCE_V2_CHECKPOINT_MS,
+      MIN_RADAR_PERSISTENCE_V2_CHECKPOINT_MS,
+      MAX_RADAR_PERSISTENCE_V2_CHECKPOINT_MS,
     ),
   };
 }
