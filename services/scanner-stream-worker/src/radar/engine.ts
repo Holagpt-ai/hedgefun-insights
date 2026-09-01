@@ -1,9 +1,21 @@
-import type { CalendarExceptionRow } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
+import type {
+  CalendarExceptionRow,
+  SessionKind,
+} from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import {
   easternParts,
   isWithinRegularSession,
   resolveScheduleAt,
 } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
+import {
+  inclusiveSessionKindAt,
+  isLiveSurveillanceKind,
+  radarSessionKindAt,
+  shouldHardResetSurveillance,
+  softTransitionOf,
+  surveillanceDateAt,
+  type SessionTransition,
+} from "./session.ts";
 import {
   type RadarV22ArchiveRow,
   type RadarV22BoardRow,
@@ -52,7 +64,42 @@ export type EvaluateResult = {
   sessionReset: boolean;
   board: FrozenBoard;
   counters: EngineCounters;
+  sessionKind: SessionKind;
+  surveillanceDate: string;
+  sessionTransition: SessionTransition | null;
+  liveSurveillance: boolean;
+  /**
+   * When true, persistence must write an empty generation (status empty)
+   * even if `board` still holds an in-memory PM/AH ranking. The existing
+   * Top-20 RPC has no session-kind field and cannot honestly represent
+   * extended-hours rows.
+   */
+  persistEmpty: boolean;
+  /** Increments on PM→RTH and RTH→AH so Sprint 3 can reset session HOD/VWAP. */
+  subsessionEpoch: number;
 };
+
+export function persistableGeneration(result: EvaluateResult): {
+  rows: FrozenBoard["rows"];
+  archives: FrozenBoard["archives"];
+  status: FrozenBoard["status"];
+  sessionDate: string;
+} {
+  if (!result.published || result.persistEmpty) {
+    return {
+      rows: [],
+      archives: [],
+      status: "empty",
+      sessionDate: result.board.sessionDate,
+    };
+  }
+  return {
+    rows: result.board.rows,
+    archives: result.board.archives,
+    status: result.board.status,
+    sessionDate: result.board.sessionDate,
+  };
+}
 
 function cloneBoard(board: FrozenBoard): FrozenBoard {
   return {
@@ -124,6 +171,10 @@ export function createRadarEngine(opts: {
   let lastEventEndMs: number | null = null;
   let lastReceiveMs: number | null = null;
   let lastSessionDate: string | null = null;
+  let lastSurveillanceDate: string | null = null;
+  let lastSessionKind: SessionKind | null = null;
+  let subsessionEpoch = 0;
+  let lastPersistWasEmpty = false;
   let frozen: FrozenBoard | null = null;
   let feedStale = false;
   const counters: EngineCounters = {
@@ -148,6 +199,51 @@ export function createRadarEngine(opts: {
     const parts = easternParts(ms);
     if (!parts) return false;
     return isWithinRegularSession(parts.msOfDay, schedule);
+  }
+
+  function packResult(opts: {
+    published: boolean;
+    staleTransition?: boolean;
+    sessionReset?: boolean;
+    board: FrozenBoard;
+    sessionKind: SessionKind;
+    surveillanceDate: string;
+    sessionTransition?: SessionTransition | null;
+    liveSurveillance: boolean;
+    persistEmpty?: boolean;
+  }): EvaluateResult {
+    return {
+      published: opts.published,
+      staleTransition: opts.staleTransition ?? false,
+      sessionReset: opts.sessionReset ?? false,
+      board: cloneBoard(opts.board),
+      counters: { ...counters },
+      sessionKind: opts.sessionKind,
+      surveillanceDate: opts.surveillanceDate,
+      sessionTransition: opts.sessionTransition ?? null,
+      liveSurveillance: opts.liveSurveillance,
+      persistEmpty: opts.persistEmpty ?? false,
+      subsessionEpoch,
+    };
+  }
+
+  /**
+   * 04:00 HARD RESET of transient Radar market state.
+   * Clears: Sentinel rings, promoted identity, Stage-2 RadarBook, lifecycles,
+   *         lastEventEndMs, lastReceiveMs, feedStale, frozen board, subsessionEpoch.
+   * Preserves: snapshot universe (prev close / prior volume), exceptions, config,
+   *            operational counters (reconnect/correction/duplicate).
+   */
+  function hardResetTransientMarketState(): void {
+    book.clearSession();
+    sentinel.clear();
+    promoted.clear();
+    promotedAtMs.clear();
+    lifecycles.clear();
+    lastEventEndMs = null;
+    lastReceiveMs = null;
+    feedStale = false;
+    subsessionEpoch = 0;
   }
 
   function trackedSet(): Set<string> {
@@ -240,7 +336,10 @@ export function createRadarEngine(opts: {
 
   function markStale(wallNowMs: number): EvaluateResult {
     feedStale = true;
-    const sessionDate = sessionDateAt(wallNowMs) ?? lastSessionDate ?? "";
+    const sessionDate = (config.sentinelEnabled
+      ? surveillanceDateAt(wallNowMs)
+      : sessionDateAt(wallNowMs)) ?? lastSessionDate ?? "";
+    const kind = radarSessionKindAt(wallNowMs, exceptions);
     if (!frozen) {
       frozen = emptyBoard(
         sessionDate,
@@ -261,13 +360,383 @@ export function createRadarEngine(opts: {
         signal_status: "STALE",
       }));
     }
-    return {
+    return packResult({
       published: true,
       staleTransition: true,
       sessionReset: false,
-      board: cloneBoard(frozen),
-      counters: { ...counters },
+      board: frozen,
+      sessionKind: kind,
+      surveillanceDate: sessionDate,
+      liveSurveillance: config.sentinelEnabled
+        ? isLiveSurveillanceKind(kind)
+        : regularAt(wallNowMs),
+    });
+  }
+
+  function rankLiveBoard(
+    wallNowMs: number,
+    generationId: string,
+    boardDate: string,
+  ): void {
+    const eventNow = lastEventEndMs ?? wallNowMs;
+    if (config.sentinelEnabled) {
+      sentinelEvictions += sentinel.evict(
+        eventNow,
+        config.sentinelTtlMs,
+        promoted,
+      );
+      sweepStage2(eventNow);
+      for (const symbol of sentinel.takeDirty()) {
+        tryPromote(symbol);
+      }
+    }
+
+    const candidates: RankedCandidate[] = [];
+    const archives: RadarV22ArchiveRow[] = [];
+    const symbols = trackedSet();
+    const updatedAt = isoFromMs(wallNowMs) ??
+      new Date(wallNowMs).toISOString();
+
+    for (const symbol of symbols) {
+      const quote = universe.get(symbol) ?? null;
+      const eligible = config.sentinelEnabled ? true : quote !== null;
+      const metrics = book.metrics(symbol, eventNow, quote);
+      if (!metrics) continue;
+      const detect = detectPass(eligible, metrics, config);
+      const active = activePass(eligible, metrics, config);
+      const prev = lifecycles.get(symbol) ?? emptyLifecycle(boardDate);
+      const lateBlocks = metrics.lateCorrectionInWindows &&
+        (prev.phase === "WATCHING" || prev.phase === "ARCHIVED" ||
+          prev.phase === "COOLING");
+      const stepped = stepLifecycle(prev, {
+        sessionDate: boardDate,
+        eventNowMs: eventNow,
+        wallNowMs,
+        detect,
+        active,
+        metrics,
+        lateBlocksNewSignal: lateBlocks,
+        config,
+      });
+      lifecycles.set(symbol, stepped.record);
+
+      if (stepped.archived || stepped.record.phase === "ARCHIVED") {
+        archives.push({
+          session_date: boardDate,
+          symbol,
+          lifecycle: "ARCHIVED",
+          archived_at: updatedAt,
+          generation_id: generationId,
+          rolling_volume_60s: metrics.vol60s,
+          rolling_volume_15s: metrics.vol15s,
+          session_volume: metrics.sessionVolume,
+          peak_volume_15s: stepped.record.peakVol15WhileActive,
+          provider_as_of: metrics.lastBarEndMs !== null
+            ? isoFromMs(metrics.lastBarEndMs)
+            : null,
+        });
+      }
+
+      if (!isBoardLifecycle(stepped.record.phase)) continue;
+      const lastPrice = metrics.lastPrice;
+      if (lastPrice === null || !(lastPrice > 0)) continue;
+      const sessionVolume = Math.max(
+        metrics.sessionVolume,
+        quote?.dayVolume ?? 0,
+      );
+      if (!(sessionVolume > 0)) continue;
+      const priorVolume = quote?.priorVolume ?? 0;
+      if (!(priorVolume > 0)) continue;
+      const changePercent = quote
+        ? ((lastPrice - quote.previousClose) / quote.previousClose) * 100
+        : 0;
+      const dayHigh = metrics.sessionHigh ?? quote?.dayHigh ?? lastPrice;
+      const dayLow = metrics.sessionLow ?? quote?.dayLow ?? lastPrice;
+      if (!(dayHigh > 0) || !(dayLow > 0) || dayLow > dayHigh) continue;
+      const ratio = Math.round((sessionVolume / priorVolume) * 10) / 10;
+      if (!(ratio > 0)) continue;
+      const providerAsOfMs = metrics.lastBarEndMs ?? eventNow;
+      candidates.push({
+        symbol,
+        lifecycle: stepped.record.phase,
+        vol5s: metrics.vol5s,
+        vol15s: metrics.vol15s,
+        vol60s: metrics.vol60s,
+        dollarVol60s: metrics.dollarVol60s,
+        sessionVolume,
+        acceleration5m: metrics.acceleration5m,
+        lastPrice,
+        changePercent,
+        priorVolume,
+        volumeRatio: ratio,
+        dayHigh,
+        dayLow,
+        sessionVwap: metrics.sessionVwap,
+        peakVol15: stepped.record.peakVol15WhileActive > 0
+          ? stepped.record.peakVol15WhileActive
+          : null,
+        companyName: quote?.companyName ?? null,
+        providerAsOfMs,
+      });
+    }
+
+    const ranked = rankBoard(candidates, config);
+    const providerTimes = ranked.map((row) => row.providerAsOfMs);
+    const providerMin = providerTimes.length > 0
+      ? isoFromMs(Math.min(...providerTimes))
+      : null;
+    const providerMax = providerTimes.length > 0
+      ? isoFromMs(Math.max(...providerTimes))
+      : null;
+    const lastEventIso = lastEventEndMs !== null
+      ? isoFromMs(lastEventEndMs)
+      : null;
+    const rows: RadarV22BoardRow[] = ranked.map((row, index) => ({
+      generation_id: generationId,
+      rank: index + 1,
+      symbol: row.symbol,
+      company_name: row.companyName,
+      lifecycle: row.lifecycle,
+      signal_status: signalStatusForLifecycle(row.lifecycle, false),
+      price: row.lastPrice,
+      change_percent: row.changePercent,
+      volume: row.sessionVolume,
+      prior_session_volume: row.priorVolume,
+      volume_ratio_prior_session: row.volumeRatio,
+      day_high: row.dayHigh,
+      day_low: row.dayLow,
+      rolling_volume_5s: row.vol5s,
+      rolling_volume_15s: row.vol15s,
+      rolling_volume_60s: row.vol60s,
+      rolling_dollar_volume_60s: row.dollarVol60s,
+      acceleration_5m: row.acceleration5m,
+      session_vwap: row.sessionVwap,
+      peak_volume_15s: row.peakVol15,
+      provider_as_of: isoFromMs(row.providerAsOfMs) ?? updatedAt,
+      updated_at: updatedAt,
+    }));
+
+    frozen = {
+      rows,
+      status: rows.length > 0 ? "available" : "empty",
+      sessionDate: boardDate,
+      generationId,
+      providerAsOfMin: providerMin,
+      providerAsOfMax: providerMax,
+      lastProviderEventAt: lastEventIso,
+      feedStale: false,
+      archives,
     };
+    if (config.sentinelEnabled) {
+      sweepStage2(eventNow);
+    }
+  }
+
+  function tapeGate(
+    wallNowMs: number,
+    boardDate: string,
+    kind: SessionKind,
+    surveillanceDate: string,
+    liveSurveillance: boolean,
+  ): EvaluateResult | "rank" {
+    if (
+      lastReceiveMs !== null &&
+      wallNowMs - lastReceiveMs >= config.globalFeedStaleMs
+    ) {
+      if (feedStale) {
+        const board = frozen ??
+          emptyBoard(boardDate, isoFromMs(wallNowMs) ?? "");
+        return packResult({
+          published: false,
+          board,
+          sessionKind: kind,
+          surveillanceDate,
+          liveSurveillance,
+        });
+      }
+      return markStale(wallNowMs);
+    }
+    if (lastReceiveMs === null) {
+      const board = frozen ??
+        emptyBoard(boardDate, isoFromMs(wallNowMs) ?? "");
+      return packResult({
+        published: false,
+        board,
+        sessionKind: kind,
+        surveillanceDate,
+        liveSurveillance,
+      });
+    }
+    if (feedStale) feedStale = false;
+    return "rank";
+  }
+
+  function evaluateLegacy(
+    wallNowMs: number,
+    generationId: string,
+    calendarDate: string,
+    kind: SessionKind,
+    surveillanceDate: string,
+  ): EvaluateResult {
+    const inSession = regularAt(wallNowMs);
+    const sessionChanged = lastSessionDate !== null &&
+      lastSessionDate !== calendarDate;
+    if (sessionChanged) {
+      hardResetTransientMarketState();
+      lastSessionDate = calendarDate;
+      lastSurveillanceDate = calendarDate;
+      lastSessionKind = kind;
+      lastPersistWasEmpty = true;
+      frozen = {
+        ...emptyBoard(calendarDate, isoFromMs(wallNowMs) ?? ""),
+        generationId,
+      };
+      return packResult({
+        published: true,
+        sessionReset: true,
+        board: frozen,
+        sessionKind: kind,
+        surveillanceDate,
+        sessionTransition: "hard_reset",
+        liveSurveillance: false,
+        persistEmpty: true,
+      });
+    }
+    lastSessionDate = calendarDate;
+    lastSessionKind = kind;
+
+    if (!inSession) {
+      feedStale = false;
+      const board = frozen ??
+        emptyBoard(calendarDate, isoFromMs(wallNowMs) ?? "");
+      return packResult({
+        published: false,
+        board,
+        sessionKind: kind,
+        surveillanceDate,
+        liveSurveillance: false,
+      });
+    }
+
+    const gated = tapeGate(
+      wallNowMs,
+      calendarDate,
+      kind,
+      surveillanceDate,
+      true,
+    );
+    if (gated !== "rank") return gated;
+
+    rankLiveBoard(wallNowMs, generationId, calendarDate);
+    lastPersistWasEmpty = frozen === null || frozen.rows.length === 0;
+    return packResult({
+      published: true,
+      board: frozen ?? emptyBoard(calendarDate, isoFromMs(wallNowMs) ?? ""),
+      sessionKind: kind,
+      surveillanceDate,
+      liveSurveillance: true,
+    });
+  }
+
+  function evaluateSurveillance(
+    wallNowMs: number,
+    generationId: string,
+    kind: SessionKind,
+    surveillanceDate: string,
+  ): EvaluateResult {
+    const live = isLiveSurveillanceKind(kind);
+    let sessionTransition: SessionTransition | null = null;
+
+    const hardReset = shouldHardResetSurveillance({
+      lastSurveillanceDate,
+      surveillanceDate,
+      kind,
+    });
+    if (hardReset) {
+      hardResetTransientMarketState();
+      lastSessionDate = surveillanceDate;
+      lastSurveillanceDate = surveillanceDate;
+      lastSessionKind = kind;
+      lastPersistWasEmpty = true;
+      sessionTransition = "hard_reset";
+      frozen = {
+        ...emptyBoard(surveillanceDate, isoFromMs(wallNowMs) ?? ""),
+        generationId,
+      };
+      return packResult({
+        published: true,
+        sessionReset: true,
+        board: frozen,
+        sessionKind: kind,
+        surveillanceDate,
+        sessionTransition,
+        liveSurveillance: false,
+        persistEmpty: true,
+      });
+    }
+
+    const soft = softTransitionOf(lastSessionKind, kind);
+    if (soft) {
+      sessionTransition = soft;
+      subsessionEpoch += 1;
+    }
+
+    if (!live) {
+      const wasLive = lastSessionKind !== null &&
+        isLiveSurveillanceKind(lastSessionKind);
+      lastSessionKind = kind;
+      const nowIso = isoFromMs(wallNowMs) ?? "";
+      frozen = {
+        ...emptyBoard(surveillanceDate, nowIso),
+        generationId,
+      };
+      const persistEmpty = wasLive && !lastPersistWasEmpty;
+      if (persistEmpty) lastPersistWasEmpty = true;
+      return packResult({
+        published: persistEmpty,
+        board: frozen,
+        sessionKind: kind,
+        surveillanceDate,
+        sessionTransition: wasLive ? "park_closed" : null,
+        liveSurveillance: false,
+        persistEmpty,
+      });
+    }
+
+    lastSessionDate = surveillanceDate;
+    lastSurveillanceDate = surveillanceDate;
+    lastSessionKind = kind;
+
+    const gated = tapeGate(
+      wallNowMs,
+      surveillanceDate,
+      kind,
+      surveillanceDate,
+      true,
+    );
+    if (gated !== "rank") {
+      return gated.sessionTransition === null && sessionTransition !== null
+        ? { ...gated, sessionTransition, subsessionEpoch }
+        : gated;
+    }
+
+    rankLiveBoard(wallNowMs, generationId, surveillanceDate);
+    const persistLive = kind === "market";
+    const persistEmpty = !persistLive &&
+      sessionTransition === "soft_rth_ah" &&
+      !lastPersistWasEmpty;
+    if (persistLive) lastPersistWasEmpty = frozen?.status === "empty";
+    if (persistEmpty) lastPersistWasEmpty = true;
+
+    return packResult({
+      published: persistLive || persistEmpty,
+      board: frozen ?? emptyBoard(surveillanceDate, isoFromMs(wallNowMs) ?? ""),
+      sessionKind: kind,
+      surveillanceDate,
+      sessionTransition,
+      liveSurveillance: true,
+      persistEmpty,
+    });
   }
 
   return {
@@ -308,249 +777,37 @@ export function createRadarEngine(opts: {
       return sen;
     },
     evaluate(wallNowMs, generationId): EvaluateResult {
-      const sessionDate = sessionDateAt(wallNowMs);
-      if (!sessionDate) {
-        return {
+      const calendarDate = sessionDateAt(wallNowMs);
+      if (!calendarDate) {
+        return packResult({
           published: false,
-          staleTransition: false,
-          sessionReset: false,
           board: frozen ?? emptyBoard("", isoFromMs(wallNowMs) ?? ""),
-          counters: { ...counters },
-        };
+          sessionKind: "closed",
+          surveillanceDate: "",
+          liveSurveillance: false,
+        });
       }
 
-      const inSession = regularAt(wallNowMs);
-      const sessionChanged = lastSessionDate !== null &&
-        lastSessionDate !== sessionDate;
-      if (sessionChanged) {
-        book.clearSession();
-        sentinel.clear();
-        promoted.clear();
-        promotedAtMs.clear();
-        lifecycles.clear();
-        lastEventEndMs = null;
-        lastReceiveMs = null;
-        feedStale = false;
-        lastSessionDate = sessionDate;
-        frozen = {
-          ...emptyBoard(sessionDate, isoFromMs(wallNowMs) ?? ""),
-          generationId,
-        };
-        return {
-          published: true,
-          staleTransition: false,
-          sessionReset: true,
-          board: cloneBoard(frozen),
-          counters: { ...counters },
-        };
-      }
-      lastSessionDate = sessionDate;
+      const kind = config.sentinelEnabled
+        ? radarSessionKindAt(wallNowMs, exceptions)
+        : inclusiveSessionKindAt(wallNowMs, exceptions);
+      const surveillanceDate = surveillanceDateAt(wallNowMs) ?? calendarDate;
 
-      if (!inSession) {
-        feedStale = false;
-        const board = frozen ??
-          emptyBoard(sessionDate, isoFromMs(wallNowMs) ?? "");
-        return {
-          published: false,
-          staleTransition: false,
-          sessionReset: false,
-          board: cloneBoard(board),
-          counters: { ...counters },
-        };
-      }
-
-      if (
-        lastReceiveMs !== null &&
-        wallNowMs - lastReceiveMs >= config.globalFeedStaleMs
-      ) {
-        if (feedStale) {
-          const board = frozen ??
-            emptyBoard(sessionDate, isoFromMs(wallNowMs) ?? "");
-          return {
-            published: false,
-            staleTransition: false,
-            sessionReset: false,
-            board: cloneBoard(board),
-            counters: { ...counters },
-          };
-        }
-        return markStale(wallNowMs);
-      }
-      if (lastReceiveMs === null) {
-        const board = frozen ??
-          emptyBoard(sessionDate, isoFromMs(wallNowMs) ?? "");
-        return {
-          published: false,
-          staleTransition: false,
-          sessionReset: false,
-          board: cloneBoard(board),
-          counters: { ...counters },
-        };
-      }
-
-      if (feedStale) {
-        feedStale = false;
-      }
-
-      const eventNow = lastEventEndMs ?? wallNowMs;
-      if (config.sentinelEnabled) {
-        sentinelEvictions += sentinel.evict(
-          eventNow,
-          config.sentinelTtlMs,
-          promoted,
-        );
-        sweepStage2(eventNow);
-        for (const symbol of sentinel.takeDirty()) {
-          tryPromote(symbol);
-        }
-      }
-
-      const candidates: RankedCandidate[] = [];
-      const archives: RadarV22ArchiveRow[] = [];
-      const symbols = trackedSet();
-      const updatedAt = isoFromMs(wallNowMs) ??
-        new Date(wallNowMs).toISOString();
-
-      for (const symbol of symbols) {
-        const quote = universe.get(symbol) ?? null;
-        const eligible = config.sentinelEnabled ? true : quote !== null;
-        const metrics = book.metrics(symbol, eventNow, quote);
-        if (!metrics) continue;
-        const detect = detectPass(eligible, metrics, config);
-        const active = activePass(eligible, metrics, config);
-        const prev = lifecycles.get(symbol) ?? emptyLifecycle(sessionDate);
-        const lateBlocks = metrics.lateCorrectionInWindows &&
-          (prev.phase === "WATCHING" || prev.phase === "ARCHIVED" ||
-            prev.phase === "COOLING");
-        const stepped = stepLifecycle(prev, {
-          sessionDate,
-          eventNowMs: eventNow,
+      if (!config.sentinelEnabled) {
+        return evaluateLegacy(
           wallNowMs,
-          detect,
-          active,
-          metrics,
-          lateBlocksNewSignal: lateBlocks,
-          config,
-        });
-        lifecycles.set(symbol, stepped.record);
-
-        if (stepped.archived || stepped.record.phase === "ARCHIVED") {
-          archives.push({
-            session_date: sessionDate,
-            symbol,
-            lifecycle: "ARCHIVED",
-            archived_at: updatedAt,
-            generation_id: generationId,
-            rolling_volume_60s: metrics.vol60s,
-            rolling_volume_15s: metrics.vol15s,
-            session_volume: metrics.sessionVolume,
-            peak_volume_15s: stepped.record.peakVol15WhileActive,
-            provider_as_of: metrics.lastBarEndMs !== null
-              ? isoFromMs(metrics.lastBarEndMs)
-              : null,
-          });
-        }
-
-        if (!isBoardLifecycle(stepped.record.phase)) continue;
-        const lastPrice = metrics.lastPrice;
-        if (lastPrice === null || !(lastPrice > 0)) continue;
-        const sessionVolume = Math.max(
-          metrics.sessionVolume,
-          quote?.dayVolume ?? 0,
+          generationId,
+          calendarDate,
+          kind,
+          surveillanceDate,
         );
-        if (!(sessionVolume > 0)) continue;
-        const priorVolume = quote?.priorVolume ?? 0;
-        if (!(priorVolume > 0)) continue;
-        const changePercent = quote
-          ? ((lastPrice - quote.previousClose) / quote.previousClose) * 100
-          : 0;
-        const dayHigh = metrics.sessionHigh ?? quote?.dayHigh ?? lastPrice;
-        const dayLow = metrics.sessionLow ?? quote?.dayLow ?? lastPrice;
-        if (!(dayHigh > 0) || !(dayLow > 0) || dayLow > dayHigh) continue;
-        const ratio = Math.round((sessionVolume / priorVolume) * 10) / 10;
-        if (!(ratio > 0)) continue;
-        const providerAsOfMs = metrics.lastBarEndMs ?? eventNow;
-        candidates.push({
-          symbol,
-          lifecycle: stepped.record.phase,
-          vol5s: metrics.vol5s,
-          vol15s: metrics.vol15s,
-          vol60s: metrics.vol60s,
-          dollarVol60s: metrics.dollarVol60s,
-          sessionVolume,
-          acceleration5m: metrics.acceleration5m,
-          lastPrice,
-          changePercent,
-          priorVolume,
-          volumeRatio: ratio,
-          dayHigh,
-          dayLow,
-          sessionVwap: metrics.sessionVwap,
-          peakVol15: stepped.record.peakVol15WhileActive > 0
-            ? stepped.record.peakVol15WhileActive
-            : null,
-          companyName: quote?.companyName ?? null,
-          providerAsOfMs,
-        });
       }
-
-      const ranked = rankBoard(candidates, config);
-      const providerTimes = ranked.map((row) => row.providerAsOfMs);
-      const providerMin = providerTimes.length > 0
-        ? isoFromMs(Math.min(...providerTimes))
-        : null;
-      const providerMax = providerTimes.length > 0
-        ? isoFromMs(Math.max(...providerTimes))
-        : null;
-      const lastEventIso = lastEventEndMs !== null
-        ? isoFromMs(lastEventEndMs)
-        : null;
-      const rows: RadarV22BoardRow[] = ranked.map((row, index) => ({
-        generation_id: generationId,
-        rank: index + 1,
-        symbol: row.symbol,
-        company_name: row.companyName,
-        lifecycle: row.lifecycle,
-        signal_status: signalStatusForLifecycle(row.lifecycle, false),
-        price: row.lastPrice,
-        change_percent: row.changePercent,
-        volume: row.sessionVolume,
-        prior_session_volume: row.priorVolume,
-        volume_ratio_prior_session: row.volumeRatio,
-        day_high: row.dayHigh,
-        day_low: row.dayLow,
-        rolling_volume_5s: row.vol5s,
-        rolling_volume_15s: row.vol15s,
-        rolling_volume_60s: row.vol60s,
-        rolling_dollar_volume_60s: row.dollarVol60s,
-        acceleration_5m: row.acceleration5m,
-        session_vwap: row.sessionVwap,
-        peak_volume_15s: row.peakVol15,
-        provider_as_of: isoFromMs(row.providerAsOfMs) ?? updatedAt,
-        updated_at: updatedAt,
-      }));
-
-      frozen = {
-        rows,
-        status: rows.length > 0 ? "available" : "empty",
-        sessionDate,
+      return evaluateSurveillance(
+        wallNowMs,
         generationId,
-        providerAsOfMin: providerMin,
-        providerAsOfMax: providerMax,
-        lastProviderEventAt: lastEventIso,
-        feedStale: false,
-        archives,
-      };
-      if (config.sentinelEnabled) {
-        sweepStage2(eventNow);
-      }
-      return {
-        published: true,
-        staleTransition: false,
-        sessionReset: false,
-        board: cloneBoard(frozen),
-        counters: { ...counters },
-      };
+        kind,
+        surveillanceDate,
+      );
     },
     snapshot() {
       const sessionDate = lastSessionDate ?? "";

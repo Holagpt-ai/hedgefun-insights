@@ -4,7 +4,7 @@ import type { WorkerEnv } from "../env.ts";
 import { log } from "../log.ts";
 import { isoFromMs } from "./time.ts";
 import { mergeRadarConfig, type RadarV22Config } from "./config.ts";
-import { createRadarEngine } from "./engine.ts";
+import { createRadarEngine, persistableGeneration } from "./engine.ts";
 import { createRadarBridge } from "../bridge.ts";
 import { type LeaseClient } from "./lease.ts";
 import {
@@ -138,21 +138,22 @@ export function startRadarV22(opts: {
       return;
     }
     const syncedAt = isoFromMs(wallNow) ?? new Date(wallNow).toISOString();
+    const persist = persistableGeneration(result);
     const published = await publishRadarGeneration(rpc, {
       p_generation_id: generationId,
-      p_rows: result.board.rows.map((row) => ({
+      p_rows: persist.rows.map((row) => ({
         ...row,
         generation_id: generationId,
         updated_at: syncedAt,
       })),
-      p_archive: result.board.archives.map((row) => ({
+      p_archive: persist.archives.map((row) => ({
         ...row,
         generation_id: generationId,
         archived_at: syncedAt,
       })),
-      p_session_date: result.board.sessionDate,
+      p_session_date: persist.sessionDate,
       p_synced_at: syncedAt,
-      p_status: result.board.status,
+      p_status: persist.status,
       p_last_provider_event_at: result.board.lastProviderEventAt,
     });
     if (published.ok) {
