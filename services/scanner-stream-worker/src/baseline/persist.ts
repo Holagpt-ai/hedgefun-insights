@@ -82,6 +82,18 @@ export function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_RE.test(value);
 }
 
+/** Usable for Radar boot: AVAILABLE pointer with a generation and rows. */
+export function isUsableAvailableBaseline(state: BaselineState): boolean {
+  return (
+    state.status === "available" &&
+    isUuid(state.current_generation_id) &&
+    Number.isInteger(state.symbol_count) &&
+    state.symbol_count >= 1 &&
+    state.period_end !== null &&
+    isIsoDate(state.period_end)
+  );
+}
+
 export function validateGeneration(
   rows: BaselineRow[],
   periodStart: string,

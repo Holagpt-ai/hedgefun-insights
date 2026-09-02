@@ -18,6 +18,13 @@ import { log } from "./log.ts";
 
 export const DEFAULT_BRIDGE_TIMEOUT_MS = 15_000;
 export const BASELINE_BRIDGE_TIMEOUT_MS = 60_000;
+export const LATENCY_BRIDGE_MAX_ATTEMPTS = 3;
+export const BULK_BASELINE_MAX_ATTEMPTS = 1;
+
+function maxAttemptsForAction(action: string): number {
+  if (action === "replace_52w_baseline") return BULK_BASELINE_MAX_ATTEMPTS;
+  return LATENCY_BRIDGE_MAX_ATTEMPTS;
+}
 
 export type BridgeAttemptOutcome =
   | "ok"
@@ -155,7 +162,7 @@ async function bridgePost(
 
   try {
     return await withRetry(run, {
-      maxAttempts: 3,
+      maxAttempts: maxAttemptsForAction(opts.action),
       baseDelayMs: 250,
       maxDelayMs: 2_000,
       sleep: opts.sleep,
