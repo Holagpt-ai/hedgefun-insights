@@ -45,6 +45,24 @@ export type DbSelectResult = {
   error: { message: string } | null;
 };
 
+export type DbError = {
+  message: string;
+  code?: string | null;
+  details?: string | null;
+  hint?: string | null;
+};
+
+// Diagnostic-only: surfaces Supabase/PostgREST error fields in server-side logs.
+// Never includes request payloads, headers, secrets or environment values.
+function rpcErrorFields(error: DbError | null): BridgeLogFields {
+  return {
+    rpc_error_code: error?.code ?? null,
+    rpc_error_message: error?.message ?? null,
+    rpc_error_details: error?.details ?? null,
+    rpc_error_hint: error?.hint ?? null,
+  };
+}
+
 export type DbQuery = {
   eq: (col: string, value: string) => DbQuery;
   limit: (n: number) => DbQuery;
@@ -59,7 +77,7 @@ export type DbClient = {
   rpc: (
     fn: string,
     args: Record<string, unknown>,
-  ) => Promise<{ data: unknown; error: { message: string } | null }>;
+  ) => Promise<{ data: unknown; error: DbError | null }>;
 };
 
 export type BridgeDeps = {
@@ -113,8 +131,12 @@ async function rpcResult(
       action: meta.action,
       rpc_name: name,
       rpc_elapsed_ms: rpcElapsedMs,
+      ...rpcErrorFields(result.error),
     });
-    return json({ ok: false, error: "persist_failed" }, 502);
+    return json(
+      { ok: false, error: "persist_failed", code: result.error.code ?? null },
+      502,
+    );
   }
   bridgeLog("radar_bridge_rpc_completed", {
     request_id: meta.requestId,
@@ -177,8 +199,12 @@ async function handleAction(
           action,
           rpc_name: RELEASE_LEASE_RPC,
           rpc_elapsed_ms: rpcElapsedMs,
+          ...rpcErrorFields(result.error),
         });
-        return json({ ok: false, error: "persist_failed" }, 502);
+        return json(
+          { ok: false, error: "persist_failed", code: result.error.code ?? null },
+          502,
+        );
       }
       bridgeLog("radar_bridge_rpc_completed", {
         request_id: requestId,
