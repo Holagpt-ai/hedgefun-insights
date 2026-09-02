@@ -12,6 +12,7 @@ export const ACQUIRE_LEASE_RPC = "try_acquire_radar_v22_lease_v1";
 export const HEARTBEAT_LEASE_RPC = "heartbeat_radar_v22_lease_v1";
 export const RELEASE_LEASE_RPC = "release_radar_v22_lease_v1";
 export const REPLACE_RADAR_RPC = "replace_radar_v22_generation_v1";
+export const REPLACE_RADAR_V2_RPC = "replace_radar_v22_candidates_v1";
 export const SET_RADAR_STATUS_RPC = "set_radar_v22_feed_status_v1";
 export const REPLACE_52W_RPC = "replace_screener_52w_baseline_generation_v1";
 export const CALENDAR_TABLE = "market_session_calendar";
@@ -204,6 +205,31 @@ async function handleAction(
         p_synced_at: body.p_synced_at,
         p_status: body.p_status,
         p_last_provider_event_at: body.p_last_provider_event_at ?? null,
+      }, rpcMeta);
+    }
+    case "publish_candidates_v2": {
+      if (typeof body.p_generation_id !== "string") {
+        return json({ error: "invalid_body" }, 400);
+      }
+      if (typeof body.p_trading_date !== "string") {
+        return json({ error: "invalid_body" }, 400);
+      }
+      if (typeof body.p_session_kind !== "string") {
+        return json({ error: "invalid_body" }, 400);
+      }
+      if (typeof body.p_synced_at !== "string") {
+        return json({ error: "invalid_body" }, 400);
+      }
+      return await rpcResult(db, REPLACE_RADAR_V2_RPC, {
+        p_generation_id: body.p_generation_id,
+        p_trading_date: body.p_trading_date,
+        p_session_kind: body.p_session_kind,
+        p_synced_at: body.p_synced_at,
+        p_candidates: body.p_candidates,
+        p_events: body.p_events,
+        p_sentinel_enabled: body.p_sentinel_enabled === true,
+        p_last_provider_event_at: body.p_last_provider_event_at ?? null,
+        p_last_receive_at: body.p_last_receive_at ?? null,
       }, rpcMeta);
     }
     case "set_feed_status": {
