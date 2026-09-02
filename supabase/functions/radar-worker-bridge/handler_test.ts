@@ -39,7 +39,9 @@ class FakeDb implements DbClient {
   selectCalls: SelectCall[] = [];
   rpcImpl: (fn: string, args: Record<string, unknown>) => {
     data: unknown;
-    error: { message: string } | null;
+    error:
+      | { message: string; code?: string | null; details?: string | null; hint?: string | null }
+      | null;
   } = (_fn, _args) => ({ data: true, error: null });
   calendarRows: Array<Record<string, unknown>> = [];
   stateRows: Array<Record<string, unknown>> = [];
@@ -440,6 +442,64 @@ Deno.test("edge RPC error logs rpc_error without payload contents", async () => 
     assertEquals(dumped.includes("AAA"), false);
     assertEquals(dumped.includes("high_52w"), false);
     assertEquals(dumped.includes(WORKER_SECRET), false);
+  } finally {
+    console.log = original;
+  }
+});
+
+Deno.test("publish_candidates_v2 RPC error logs code/message/details/hint", async () => {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (msg?: unknown) => {
+    lines.push(String(msg ?? ""));
+  };
+  try {
+    const db = new FakeDb();
+    db.rpcImpl = () => ({
+      data: null,
+      error: {
+        code: "PGRST202",
+        message: "Could not find the function in the schema cache",
+        details: "Searched for function public.replace_radar_v22_candidates_v1",
+        hint: "Perhaps you meant another function",
+      },
+    });
+    const res = await handleRadarWorkerBridge(
+      post({
+        action: "publish_candidates_v2",
+        request_id: "req-v2-error-1",
+        p_generation_id: "11111111-2222-3333-4444-555555555555",
+        p_trading_date: "2026-09-02",
+        p_session_kind: "regular",
+        p_synced_at: "2026-09-02T22:56:10.000Z",
+        p_candidates: [{ symbol: "ZZZTOP" }],
+        p_events: [],
+        p_sentinel_enabled: true,
+      }),
+      deps(db),
+    );
+    assertEquals(res.status, 502);
+    const payload = await res.json() as Record<string, unknown>;
+    assertEquals(payload.error, "persist_failed");
+    assertEquals(payload.code, "PGRST202");
+    const logs = lines.map((line) => JSON.parse(line) as Record<string, unknown>);
+    const errLog = logs.find((row) => row.msg === "radar_bridge_rpc_error");
+    assertEquals(errLog?.rpc_error_code, "PGRST202");
+    assertEquals(
+      errLog?.rpc_error_message,
+      "Could not find the function in the schema cache",
+    );
+    assertEquals(
+      errLog?.rpc_error_details,
+      "Searched for function public.replace_radar_v22_candidates_v1",
+    );
+    assertEquals(errLog?.rpc_error_hint, "Perhaps you meant another function");
+    assertEquals(errLog?.rpc_name, "replace_radar_v22_candidates_v1");
+    assertEquals(typeof errLog?.rpc_elapsed_ms, "number");
+    const dumped = lines.join("\n");
+    assertEquals(dumped.includes("ZZZTOP"), false);
+    assertEquals(dumped.includes(WORKER_SECRET), false);
+    assertEquals(dumped.includes(SERVICE_ROLE), false);
   } finally {
     console.log = original;
   }
