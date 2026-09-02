@@ -252,7 +252,7 @@ export function createRadarBridge(opts: {
     if (!isRecord(res.body) || res.body.ok !== true) {
       return { error: { message: "persist_failed" } };
     }
-    return { error: null };
+    return { error: null, data: res.body.result };
   };
 
   const setStatus: SetStatusFn = async (args) => {

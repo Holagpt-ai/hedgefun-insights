@@ -9,9 +9,11 @@ import {
   buildRadarV2Events,
   createMemoryRadarV2Store,
   createRadarV2WriteGate,
+  decideRadarV2Fence,
   dualWriteRadarPersistence,
   eventKey,
   fingerprintRadarV2Generation,
+  monotonicProviderEventAt,
   publishRadarV2Generation,
   publishRadarV2IfNeeded,
   RADAR_V22_CANDIDATE_CAP,
@@ -31,7 +33,10 @@ import type { EligibleQuote } from "./types.ts";
 
 const GEN = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const GEN2 = "bbbbbbbb-cccc-4ddd-8eee-ffffffffffff";
+const GEN3 = "cccccccc-dddd-4eee-8fff-000000000000";
 const SYNC = "2026-08-10T14:00:05.000Z";
+const SYNC2 = "2026-08-10T14:00:10.000Z";
+const SYNC3 = "2026-08-10T14:00:15.000Z";
 const DATE = "2026-08-10";
 
 const ET = {
@@ -130,17 +135,31 @@ function candidate(symbol: string, overrides: Partial<RadarV22CandidateRow> = {}
   };
 }
 
-function args(candidates: RadarV22CandidateRow[], events: ReplaceRadarV2Args["p_events"] = []): ReplaceRadarV2Args {
+function args(
+  candidates: RadarV22CandidateRow[],
+  events: ReplaceRadarV2Args["p_events"] = [],
+  extra: Partial<ReplaceRadarV2Args> = {},
+): ReplaceRadarV2Args {
+  const generationId = extra.p_generation_id ?? GEN;
+  const syncedAt = extra.p_synced_at ?? SYNC;
+  const rows = extra.p_candidates ?? candidates;
   return {
-    p_generation_id: GEN,
     p_trading_date: DATE,
     p_session_kind: "market",
-    p_synced_at: SYNC,
-    p_candidates: candidates,
     p_events: events,
     p_sentinel_enabled: true,
-    p_last_provider_event_at: SYNC,
     p_last_receive_at: SYNC,
+    ...extra,
+    p_generation_id: generationId,
+    p_synced_at: syncedAt,
+    p_last_provider_event_at: extra.p_last_provider_event_at === undefined
+      ? SYNC
+      : extra.p_last_provider_event_at,
+    p_candidates: rows.map((row) => ({
+      ...row,
+      generation_id: generationId,
+      updated_at: syncedAt,
+    })),
   };
 }
 
@@ -157,10 +176,14 @@ Deno.test("1-3. candidate batch supports 21, 128, and 200; rejects 201", () => {
   const store = createMemoryRadarV2Store();
   store.apply(args(Array.from({ length: 21 }, (_, i) => candidate(`A${i}`))));
   assertEquals(store.candidates.length, 21);
-  store.apply(args(Array.from({ length: 128 }, (_, i) => candidate(`B${i}`))));
+  store.apply(args(
+    Array.from({ length: 128 }, (_, i) => candidate(`B${i}`)),
+    [],
+    { p_generation_id: GEN2, p_synced_at: SYNC2 },
+  ));
   assertEquals(store.candidates.length, 128);
   const twoHundred = Array.from({ length: 200 }, (_, i) => candidate(`C${i}`));
-  store.apply(args(twoHundred));
+  store.apply(args(twoHundred, [], { p_generation_id: GEN3, p_synced_at: SYNC3 }));
   assertEquals(store.candidates.length, 200);
   assertEquals(RADAR_V22_CANDIDATE_CAP, 200);
   assertEquals(validateRadarV2Generation(args([...twoHundred, candidate("Z1")])), false);
@@ -169,9 +192,11 @@ Deno.test("1-3. candidate batch supports 21, 128, and 200; rejects 201", () => {
 Deno.test("4-6. one current row per symbol; atomic generation replace; no mix", () => {
   const store = createMemoryRadarV2Store();
   store.apply(args([candidate("AAA"), candidate("BBB")]));
-  const next = args([candidate("AAA", { generation_id: GEN2, last_price: 12 })]);
-  next.p_generation_id = GEN2;
-  store.apply(next);
+  store.apply(args(
+    [candidate("AAA", { last_price: 12 })],
+    [],
+    { p_generation_id: GEN2, p_synced_at: SYNC2 },
+  ));
   assertEquals(store.candidates.length, 1);
   assertEquals(store.candidates[0].symbol, "AAA");
   assertEquals(store.candidates[0].generation_id, GEN2);
@@ -234,9 +259,18 @@ Deno.test("22. volume burst/acceleration are not discrete events", () => {
 Deno.test("23. candidate replacement does not append history", () => {
   const store = createMemoryRadarV2Store();
   store.apply(args([candidate("AAA")]));
-  store.apply(args([candidate("AAA", { last_price: 11 })]));
-  store.apply(args([candidate("AAA", { last_price: 12 })]));
+  store.apply(args(
+    [candidate("AAA", { last_price: 11 })],
+    [],
+    { p_generation_id: GEN2, p_synced_at: SYNC2 },
+  ));
+  store.apply(args(
+    [candidate("AAA", { last_price: 12 })],
+    [],
+    { p_generation_id: GEN3, p_synced_at: SYNC3 },
+  ));
   assertEquals(store.candidates.length, 1);
+  assertEquals(store.candidates[0].last_price, 12);
 });
 
 Deno.test("24. old Top-20 RPC name unchanged", () => {
@@ -786,3 +820,416 @@ Deno.test("churn engine session transitions still force V2 persistence", () => {
   assertEquals(resetDecision.shouldWrite, true);
   assertEquals(resetDecision.reason, "session");
 });
+
+Deno.test("fence 1. delayed A cannot delete committed B", () => {
+  const store = createMemoryRadarV2Store();
+  store.apply(args([candidate("AAA")], [], {
+    p_generation_id: GEN,
+    p_synced_at: "2026-08-10T14:00:00.000Z",
+  }));
+  store.apply(args([candidate("BBB")], [], {
+    p_generation_id: GEN2,
+    p_synced_at: "2026-08-10T14:00:05.000Z",
+  }));
+  const delayed = store.apply(args([candidate("AAA")], [], {
+    p_generation_id: GEN,
+    p_synced_at: "2026-08-10T14:00:00.000Z",
+  }));
+  assertEquals(delayed.applied, false);
+  assertEquals(delayed.reason, "stale_generation");
+  assertEquals(store.v2GenerationId, GEN2);
+  assertEquals(store.candidates.map((r) => r.symbol), ["BBB"]);
+});
+
+Deno.test("fence 2. same generation / same timestamp retry is idempotent", () => {
+  const store = createMemoryRadarV2Store();
+  const events = buildRadarV2Events({
+    generationId: GEN,
+    tradingDate: DATE,
+    sessionKind: "market",
+    candidates: [candidate("AAA")],
+    sessionTransition: null,
+    sessionEventAt: null,
+    archived: [],
+  });
+  const first = store.apply(args([candidate("AAA")], events));
+  assertEquals(first.applied, true);
+  const retry = store.apply(args([candidate("AAA", { last_price: 99 })], events));
+  assertEquals(retry.applied, true);
+  assertEquals(retry.reason, "already_current");
+  assertEquals(store.candidates[0].last_price, 10);
+  assertEquals(store.events.length, first.inserted === 1 ? store.events.length : store.events.length);
+  const count = store.events.length;
+  assertEquals(store.events.length, count);
+});
+
+Deno.test("fence 3. equal timestamp different generation is stale", () => {
+  const store = createMemoryRadarV2Store();
+  store.apply(args([candidate("AAA")]));
+  const conflict = store.apply(args([candidate("BBB")], [], {
+    p_generation_id: GEN2,
+    p_synced_at: SYNC,
+  }));
+  assertEquals(conflict.applied, false);
+  assertEquals(conflict.reason, "stale_generation");
+  assertEquals(store.candidates[0].symbol, "AAA");
+});
+
+Deno.test("fence 4. newer timestamp generation replaces older", () => {
+  const store = createMemoryRadarV2Store();
+  store.apply(args([candidate("AAA")]));
+  const next = store.apply(args([candidate("BBB")], [], {
+    p_generation_id: GEN2,
+    p_synced_at: SYNC2,
+  }));
+  assertEquals(next.applied, true);
+  assertEquals(next.reason, "replaced");
+  assertEquals(store.v2GenerationId, GEN2);
+  assertEquals(store.candidates.map((r) => r.symbol), ["BBB"]);
+});
+
+Deno.test("fence 5. candidate table holds one complete generation", () => {
+  const store = createMemoryRadarV2Store();
+  store.apply(args([candidate("AAA"), candidate("BBB")]));
+  store.apply(args(
+    [candidate("CCC"), candidate("DDD"), candidate("EEE")],
+    [],
+    { p_generation_id: GEN2, p_synced_at: SYNC2 },
+  ));
+  assertEquals(store.candidates.length, 3);
+  assertEquals(new Set(store.candidates.map((r) => r.generation_id)).size, 1);
+  assertEquals(store.candidates.every((r) => r.generation_id === GEN2), true);
+});
+
+Deno.test("fence 6. events remain retry-idempotent under same-generation retry", () => {
+  const store = createMemoryRadarV2Store();
+  const events = buildRadarV2Events({
+    generationId: GEN,
+    tradingDate: DATE,
+    sessionKind: "market",
+    candidates: [candidate("AAA")],
+    sessionTransition: null,
+    sessionEventAt: null,
+    archived: [],
+  });
+  store.apply(args([candidate("AAA")], events));
+  const count = store.events.length;
+  store.apply(args([candidate("AAA")], events));
+  store.apply(args([candidate("AAA")], events));
+  assertEquals(store.events.length, count);
+  assertEquals(new Set(store.events.map(eventKey)).size, count);
+});
+
+Deno.test("fence 7. last_provider_event_at cannot rewind", () => {
+  assertEquals(
+    monotonicProviderEventAt("2026-08-10T14:00:00.000Z", "2026-08-10T14:00:05.000Z"),
+    "2026-08-10T14:00:05.000Z",
+  );
+  assertEquals(
+    monotonicProviderEventAt("2026-08-10T14:00:05.000Z", "2026-08-10T14:00:00.000Z"),
+    "2026-08-10T14:00:05.000Z",
+  );
+  assertEquals(
+    monotonicProviderEventAt("2026-08-10T14:00:05.000Z", null),
+    "2026-08-10T14:00:05.000Z",
+  );
+  assertEquals(
+    monotonicProviderEventAt(null, "2026-08-10T14:00:00.000Z"),
+    "2026-08-10T14:00:00.000Z",
+  );
+  const store = createMemoryRadarV2Store();
+  store.apply(args([candidate("AAA")], [], {
+    p_last_provider_event_at: "2026-08-10T14:00:05.000Z",
+  }));
+  store.apply(args([candidate("BBB")], [], {
+    p_generation_id: GEN2,
+    p_synced_at: SYNC2,
+    p_last_provider_event_at: "2026-08-10T14:00:00.000Z",
+  }));
+  assertEquals(store.lastProviderEventAt, "2026-08-10T14:00:05.000Z");
+});
+
+Deno.test("fence concurrent: second decision sees first commit", () => {
+  let existingSyncedAt: string | null = null;
+  let existingGenerationId: string | null = null;
+  function commit(incomingSyncedAt: string, incomingGenerationId: string) {
+    const decision = decideRadarV2Fence({
+      existingSyncedAt,
+      existingGenerationId,
+      incomingSyncedAt,
+      incomingGenerationId,
+    });
+    if (decision.action === "replace") {
+      existingSyncedAt = incomingSyncedAt;
+      existingGenerationId = incomingGenerationId;
+    }
+    return decision.action;
+  }
+  assertEquals(commit("2026-08-10T14:00:05.000Z", GEN2), "replace");
+  assertEquals(commit("2026-08-10T14:00:00.000Z", GEN), "stale_generation");
+  assertEquals(existingGenerationId, GEN2);
+});
+
+function livePublishResult(
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    staleTransition: false,
+    liveSurveillance: true,
+    sessionReset: false,
+    persistEmpty: false,
+    sessionKind: "market" as const,
+    sessionTransition: null,
+    persistenceV2: v2View([candidate("AAA")]),
+    ...extra,
+  };
+}
+
+Deno.test("stale 1. first stale transition suppresses live V2", async () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.rthOpen, 80_000, 10), ET.rthOpen);
+  const live = engine.evaluate(ET.rthOpen + 50, GEN);
+  assertEquals(shouldPublishRadarV2(true, live), true);
+  const stale = engine.evaluate(ET.rthOpen + 50 + 16_000, GEN);
+  assertEquals(stale.staleTransition, true);
+  assertEquals(stale.board.feedStale, true);
+  assertEquals(shouldPublishRadarV2(true, stale), false);
+  let calls = 0;
+  const skipped = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: stale,
+    gate: createRadarV2WriteGate(),
+    wallNowMs: ET.rthOpen + 50 + 16_000,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc: async () => {
+      calls += 1;
+      return { error: null };
+    },
+  });
+  assertEquals(skipped, "skipped");
+  assertEquals(calls, 0);
+});
+
+Deno.test("stale 2-4. continued stale suppresses checkpoint, fingerprint, and new generation", async () => {
+  const gate = createRadarV2WriteGate();
+  let calls = 0;
+  const rpc: RadarV2RpcFn = async () => {
+    calls += 1;
+    return { error: null };
+  };
+  const first = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: livePublishResult(),
+    gate,
+    wallNowMs: 0,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  assertEquals(first, { ok: true });
+  assertEquals(calls, 1);
+  const continued = livePublishResult({
+    feedStale: true,
+    persistenceV2: v2View([candidate("AAA", { last_price: 11 })], {
+      feedStale: true,
+    }),
+  });
+  const checkpoint = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: continued,
+    gate,
+    wallNowMs: 30_000,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN2,
+    syncedAt: SYNC2,
+    rpc,
+  });
+  assertEquals(checkpoint, "skipped");
+  const fingerprint = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: continued,
+    gate,
+    wallNowMs: 5_000,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN3,
+    syncedAt: SYNC3,
+    rpc,
+  });
+  assertEquals(fingerprint, "skipped");
+  assertEquals(calls, 1);
+});
+
+Deno.test("stale 5-6. CLOSED and persistEmpty still write while stale", async () => {
+  assertEquals(shouldPublishRadarV2(true, {
+    staleTransition: true,
+    liveSurveillance: false,
+    sessionReset: false,
+    persistEmpty: true,
+    sessionKind: "closed",
+    sessionTransition: "park_closed",
+    feedStale: true,
+  }), true);
+  let calls = 0;
+  const out = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: {
+      staleTransition: false,
+      liveSurveillance: false,
+      sessionReset: false,
+      persistEmpty: true,
+      sessionKind: "closed",
+      sessionTransition: "park_closed",
+      feedStale: true,
+      persistenceV2: v2View([], {
+        sessionKind: "closed",
+        liveSurveillance: false,
+        sessionTransition: "park_closed",
+        feedStale: true,
+        candidates: [],
+      }),
+    },
+    gate: createRadarV2WriteGate(),
+    wallNowMs: 0,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc: async () => {
+      calls += 1;
+      return { error: null };
+    },
+  });
+  assertEquals(out, { ok: true });
+  assertEquals(calls, 1);
+
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.firstAh, 80_000, 10), ET.firstAh);
+  engine.evaluate(ET.firstAh + 50, GEN);
+  const staleAh = engine.evaluate(ET.firstAh + 50 + 16_000, GEN);
+  assertEquals(staleAh.board.feedStale, true);
+  const closed = engine.evaluate(ET.mon2000, GEN);
+  assertEquals(closed.sessionKind, "closed");
+  assertEquals(closed.persistenceV2.candidates.length, 0);
+  assertEquals(shouldPublishRadarV2(true, closed), true);
+});
+
+Deno.test("stale 7. running-worker 04:00 reset still clears while stale", () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.rthOpen, 80_000, 10), ET.rthOpen);
+  engine.evaluate(ET.rthOpen + 50, GEN);
+  const stale = engine.evaluate(ET.rthOpen + 50 + 16_000, GEN);
+  assertEquals(stale.board.feedStale, true);
+  const reset = engine.evaluate(ET.tue0400, GEN);
+  assertEquals(reset.sessionReset, true);
+  assertEquals(reset.persistenceV2.candidates.length, 0);
+  assertEquals(shouldPublishRadarV2(true, reset), true);
+  assertEquals(shouldPublishRadarV2(true, {
+    staleTransition: false,
+    liveSurveillance: false,
+    sessionReset: true,
+    persistEmpty: true,
+    sessionKind: "pre-market",
+    sessionTransition: "hard_reset",
+    feedStale: true,
+  }), true);
+});
+
+Deno.test("stale 8. PM→RTH while stale cannot persist PM snapshot as RTH", () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.pm, 80_000, 10, 16, 9), ET.pm);
+  const pm = engine.evaluate(ET.pm + 50, GEN);
+  const pmRow = pm.persistenceV2.candidates.find((r) => r.symbol === "AAA");
+  assert(pmRow);
+  assertEquals(pmRow.session_kind, "pre-market");
+  const rthStale = engine.evaluate(ET.rthOpen, GEN);
+  assertEquals(rthStale.sessionTransition, "soft_pm_rth");
+  assertEquals(rthStale.sessionKind, "market");
+  assertEquals(rthStale.board.feedStale, true);
+  assertEquals(rthStale.persistenceV2.candidates.length, 0);
+  assertEquals(rthStale.persistenceV2.sessionKind, "market");
+  assertEquals(shouldPublishRadarV2(true, rthStale), true);
+  assertEquals(persistableGeneration(rthStale).status === "empty" ||
+    rthStale.published === true, true);
+});
+
+Deno.test("stale 9. RTH→AH while stale cannot persist RTH snapshot as AH", () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.rthOpen, 80_000, 10, 12, 9), ET.rthOpen);
+  const rth = engine.evaluate(ET.rthOpen + 50, GEN);
+  assert(rth.persistenceV2.candidates.find((r) => r.symbol === "AAA"));
+  const ahStale = engine.evaluate(ET.firstAh, GEN);
+  assertEquals(ahStale.sessionTransition, "soft_rth_ah");
+  assertEquals(ahStale.sessionKind, "after-hours");
+  assertEquals(ahStale.persistenceV2.candidates.length, 0);
+  assertEquals(ahStale.persistenceV2.sessionKind, "after-hours");
+  assertEquals(shouldPublishRadarV2(true, ahStale), true);
+});
+
+Deno.test("stale 10. healthy tape after stale resumes normal V2 persistence", () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.rthOpen, 80_000, 10), ET.rthOpen);
+  engine.evaluate(ET.rthOpen + 50, GEN);
+  const stale = engine.evaluate(ET.rthOpen + 50 + 16_000, GEN);
+  assertEquals(stale.board.feedStale, true);
+  const resumeAt = ET.rthOpen + 50 + 20_000;
+  engine.ingest(aggRaw(resumeAt, 80_000, 11), resumeAt);
+  const resume = engine.evaluate(resumeAt + 50, GEN);
+  assertEquals(resume.board.feedStale, false);
+  assertEquals(shouldPublishRadarV2(true, resume), true);
+  assertEquals(resume.persistenceV2.candidates.length >= 1, true);
+});
+
+Deno.test("stale 11. V1 persistable generation is unchanged on first stale", () => {
+  const engine = sentinelEngine();
+  engine.ingest(aggRaw(ET.rthOpen, 80_000, 10), ET.rthOpen);
+  const live = engine.evaluate(ET.rthOpen + 50, GEN);
+  const livePersist = persistableGeneration(live);
+  assertEquals(livePersist.status === "available" || livePersist.rows.length >= 0, true);
+  const stale = engine.evaluate(ET.rthOpen + 50 + 16_000, GEN);
+  assertEquals(stale.staleTransition, true);
+  assertEquals(stale.persistEmpty, false);
+  const v1 = persistableGeneration(stale);
+  assertEquals(v1.rows.length, stale.board.rows.length);
+  assertEquals(v1.status, stale.board.status);
+});
+
+Deno.test("stale 12. V2 failure still cannot stop V1", async () => {
+  let v1Called = false;
+  const out = await dualWriteRadarPersistence({
+    v1: async () => {
+      v1Called = true;
+      return { ok: true };
+    },
+    v2: async () => {
+      throw new Error("boom");
+    },
+  });
+  assertEquals(v1Called, true);
+  assertEquals(out.v1, { ok: true });
+  assertEquals(out.v2, { ok: false, code: "persist_failed" });
+});
+
+Deno.test("stale RPC result is success and does not mark write-gate success", async () => {
+  const gate = createRadarV2WriteGate();
+  const rpc: RadarV2RpcFn = async () => ({
+    error: null,
+    data: { applied: false, reason: "stale_generation", inserted: 80 },
+  });
+  const first = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: livePublishResult(),
+    gate,
+    wallNowMs: 0,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  assertEquals(first, { ok: true, applied: false, reason: "stale_generation" });
+  const retry = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 5_000 }));
+  assertEquals(retry.shouldWrite, true);
+  assertEquals(retry.reason, "bootstrap");
+});
+

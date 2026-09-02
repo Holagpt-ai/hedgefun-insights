@@ -801,6 +801,22 @@ export function createRadarEngine(opts: {
       true,
     );
     if (gated !== "rank") {
+      const boundaryClear =
+        sessionTransition === "soft_pm_rth" ||
+        sessionTransition === "soft_rth_ah";
+      if (boundaryClear) {
+        return packResult({
+          published: gated.published,
+          staleTransition: gated.staleTransition,
+          board: gated.board,
+          sessionKind: kind,
+          surveillanceDate,
+          sessionTransition,
+          liveSurveillance: true,
+          persistEmpty: false,
+          clearV2: true,
+        });
+      }
       if (gated.sessionTransition === null && sessionTransition !== null) {
         return {
           ...gated,

@@ -47,7 +47,87 @@ const SYMBOL_RE = /^[A-Z][A-Z0-9.\-]*$/;
 
 export type RadarV2RpcFn = (
   args: ReplaceRadarV2Args,
-) => Promise<{ error: { message: string } | null }>;
+) => Promise<{ error: { message: string } | null; data?: unknown }>;
+
+export type RadarV2FenceReason =
+  | "replaced"
+  | "already_current"
+  | "stale_generation";
+
+export type RadarV2FenceDecision = {
+  action: "replace" | "already_current" | "stale_generation";
+};
+
+/**
+ * Dedicated V2 generation fence. Compares p_synced_at wall times, never UUIDs.
+ *
+ * A: no existing v2_synced_at → replace
+ * B: incoming > existing → replace
+ * C: incoming == existing AND same generation → already_current
+ * D: incoming < existing AND generation differs → stale_generation
+ * E: incoming == existing AND generation differs → stale_generation
+ * Same generation with an older timestamp → already_current (retry safety)
+ */
+export function decideRadarV2Fence(opts: {
+  existingSyncedAt: string | null;
+  existingGenerationId: string | null;
+  incomingSyncedAt: string;
+  incomingGenerationId: string;
+}): RadarV2FenceDecision {
+  const existingMs = opts.existingSyncedAt === null
+    ? null
+    : Date.parse(opts.existingSyncedAt);
+  const incomingMs = Date.parse(opts.incomingSyncedAt);
+  if (existingMs === null || !Number.isFinite(existingMs)) {
+    return { action: "replace" };
+  }
+  if (!Number.isFinite(incomingMs)) {
+    return { action: "stale_generation" };
+  }
+  const sameGen = opts.incomingGenerationId === opts.existingGenerationId;
+  if (incomingMs > existingMs) return { action: "replace" };
+  if (sameGen) return { action: "already_current" };
+  return { action: "stale_generation" };
+}
+
+export function monotonicProviderEventAt(
+  existing: string | null,
+  incoming: string | null,
+): string | null {
+  if (incoming === null) return existing;
+  if (existing === null) return incoming;
+  const incomingMs = Date.parse(incoming);
+  const existingMs = Date.parse(existing);
+  if (!Number.isFinite(incomingMs)) return existing;
+  if (!Number.isFinite(existingMs)) return incoming;
+  return incomingMs > existingMs ? incoming : existing;
+}
+
+function isMandatoryRadarV2Clear(result: {
+  sessionReset: boolean;
+  persistEmpty: boolean;
+  sessionKind: string;
+  sessionTransition?: SessionTransition | null;
+}): boolean {
+  if (result.sessionReset || result.persistEmpty) return true;
+  if (result.sessionKind === "closed") return true;
+  const t = result.sessionTransition ?? null;
+  return t === "hard_reset" || t === "park_closed" ||
+    t === "soft_pm_rth" || t === "soft_rth_ah";
+}
+
+function resultFeedStale(result: {
+  feedStale?: boolean;
+  staleTransition?: boolean;
+  board?: { feedStale?: boolean };
+  persistenceV2?: { feedStale?: boolean };
+}): boolean {
+  if (result.feedStale === true) return true;
+  if (result.staleTransition === true) return true;
+  if (result.board?.feedStale === true) return true;
+  if (result.persistenceV2?.feedStale === true) return true;
+  return false;
+}
 
 function isUuid(value: unknown): value is string {
   return typeof value === "string" && UUID_RE.test(value);
@@ -259,8 +339,33 @@ export function buildRadarV2Events(opts: {
 }
 
 export type PublishRadarResult =
-  | { ok: true }
+  | { ok: true; applied?: boolean; reason?: RadarV2FenceReason }
   | { ok: false; code: "validation_failed" | "persist_failed" };
+
+function parseRadarV2RpcData(data: unknown): {
+  applied: boolean;
+  reason: RadarV2FenceReason | null;
+} {
+  if (data === null || data === undefined) {
+    return { applied: true, reason: null };
+  }
+  if (typeof data === "number") {
+    return { applied: true, reason: "replaced" };
+  }
+  if (typeof data === "object" && !Array.isArray(data)) {
+    const rec = data as Record<string, unknown>;
+    if (rec.applied === false && rec.reason === "stale_generation") {
+      return { applied: false, reason: "stale_generation" };
+    }
+    if (rec.reason === "already_current") {
+      return { applied: true, reason: "already_current" };
+    }
+    if (rec.reason === "replaced") {
+      return { applied: true, reason: "replaced" };
+    }
+  }
+  return { applied: true, reason: null };
+}
 
 export async function publishRadarV2Generation(
   rpc: RadarV2RpcFn,
@@ -272,6 +377,13 @@ export async function publishRadarV2Generation(
   try {
     const result = await rpc(input);
     if (result.error) return { ok: false, code: "persist_failed" };
+    const parsed = parseRadarV2RpcData(result.data);
+    if (!parsed.applied && parsed.reason === "stale_generation") {
+      return { ok: true, applied: false, reason: "stale_generation" };
+    }
+    if (parsed.reason === "already_current") {
+      return { ok: true, applied: true, reason: "already_current" };
+    }
   } catch {
     return { ok: false, code: "persist_failed" };
   }
@@ -303,8 +415,14 @@ export type MemoryRadarV2Store = {
   candidates: RadarV22CandidateRow[];
   events: RadarV22EventRow[];
   v2GenerationId: string | null;
+  v2SyncedAt: string | null;
   sessionKind: RadarV22SessionKind | null;
-  apply(input: ReplaceRadarV2Args): { inserted: number };
+  lastProviderEventAt: string | null;
+  apply(input: ReplaceRadarV2Args): {
+    inserted: number;
+    applied: boolean;
+    reason: RadarV2FenceReason;
+  };
 };
 
 export function createMemoryRadarV2Store(): MemoryRadarV2Store {
@@ -312,10 +430,32 @@ export function createMemoryRadarV2Store(): MemoryRadarV2Store {
     candidates: [],
     events: [],
     v2GenerationId: null,
+    v2SyncedAt: null,
     sessionKind: null,
+    lastProviderEventAt: null,
     apply(input) {
       if (!validateRadarV2Generation(input)) {
         throw new Error("validation_failed");
+      }
+      const fence = decideRadarV2Fence({
+        existingSyncedAt: store.v2SyncedAt,
+        existingGenerationId: store.v2GenerationId,
+        incomingSyncedAt: input.p_synced_at,
+        incomingGenerationId: input.p_generation_id,
+      });
+      if (fence.action === "stale_generation") {
+        return {
+          inserted: store.candidates.length,
+          applied: false,
+          reason: "stale_generation",
+        };
+      }
+      if (fence.action === "already_current") {
+        return {
+          inserted: store.candidates.length,
+          applied: true,
+          reason: "already_current",
+        };
       }
       const nextCandidates = input.p_candidates.map((row) => ({ ...row }));
       const nextEvents = [...store.events];
@@ -329,8 +469,17 @@ export function createMemoryRadarV2Store(): MemoryRadarV2Store {
       store.candidates = nextCandidates;
       store.events = nextEvents;
       store.v2GenerationId = input.p_generation_id;
+      store.v2SyncedAt = input.p_synced_at;
       store.sessionKind = input.p_session_kind;
-      return { inserted: nextCandidates.length };
+      store.lastProviderEventAt = monotonicProviderEventAt(
+        store.lastProviderEventAt,
+        input.p_last_provider_event_at,
+      );
+      return {
+        inserted: nextCandidates.length,
+        applied: true,
+        reason: "replaced",
+      };
     },
   };
   return store;
@@ -466,12 +615,16 @@ export function shouldPublishRadarV2(
     sessionReset: boolean;
     persistEmpty: boolean;
     sessionKind: string;
+    sessionTransition?: SessionTransition | null;
+    feedStale?: boolean;
+    board?: { feedStale?: boolean };
+    persistenceV2?: { feedStale?: boolean };
   },
 ): boolean {
   if (!flagEnabled) return false;
-  if (result.staleTransition) return false;
-  return result.liveSurveillance || result.sessionReset ||
-    result.persistEmpty || result.sessionKind === "closed";
+  const mandatory = isMandatoryRadarV2Clear(result);
+  if (resultFeedStale(result) && !mandatory) return false;
+  return result.liveSurveillance || mandatory;
 }
 
 /**
@@ -664,6 +817,9 @@ export type RadarV2PublishEligibility = {
   sessionReset: boolean;
   persistEmpty: boolean;
   sessionKind: string;
+  sessionTransition?: SessionTransition | null;
+  feedStale?: boolean;
+  board?: { feedStale?: boolean };
 };
 
 /**
@@ -687,10 +843,20 @@ export async function publishRadarV2IfNeeded(opts: {
     return "skipped";
   }
   try {
+    let view = opts.result.persistenceV2;
+    const stale = resultFeedStale(opts.result) || view.feedStale;
+    const transition = opts.result.sessionTransition;
+    if (
+      stale &&
+      (transition === "soft_pm_rth" || transition === "soft_rth_ah") &&
+      view.candidates.length > 0
+    ) {
+      view = { ...view, candidates: [], archived: [] };
+    }
     const args = replaceArgsFromView({
       generationId: opts.generationId,
       syncedAt: opts.syncedAt,
-      view: opts.result.persistenceV2,
+      view,
     });
     args.p_candidates = args.p_candidates.map((row) => ({
       ...row,
@@ -709,7 +875,9 @@ export async function publishRadarV2IfNeeded(opts: {
     });
     if (!decision.shouldWrite) return "skipped";
     const result = await publishRadarV2Generation(opts.rpc, args);
-    if (result.ok) opts.gate.markSuccess(decision, opts.wallNowMs);
+    if (result.ok && result.applied !== false) {
+      opts.gate.markSuccess(decision, opts.wallNowMs);
+    }
     return result;
   } catch {
     return { ok: false, code: "persist_failed" };

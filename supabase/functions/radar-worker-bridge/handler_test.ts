@@ -286,6 +286,64 @@ Deno.test("action: publish_candidates_v2 maps to Persistence V2 RPC", async () =
   assertEquals(db.rpcCalls[0].args.p_session_kind, "market");
 });
 
+Deno.test("action: publish_candidates_v2 applied=true is HTTP 200", async () => {
+  const db = new FakeDb();
+  db.rpcImpl = () => ({
+    data: { applied: true, reason: "replaced", inserted: 2 },
+    error: null,
+  });
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "publish_candidates_v2",
+      p_generation_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      p_trading_date: "2026-08-10",
+      p_session_kind: "market",
+      p_synced_at: "2026-08-10T14:00:05.000Z",
+      p_candidates: [],
+      p_events: [],
+    }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 200);
+  assertEquals(out.body.ok, true);
+  assertEquals(
+    (out.body.result as Record<string, unknown>).reason,
+    "replaced",
+  );
+});
+
+Deno.test("action: publish_candidates_v2 stale_generation is HTTP 200 not 502", async () => {
+  const db = new FakeDb();
+  db.rpcImpl = () => ({
+    data: { applied: false, reason: "stale_generation", inserted: 80 },
+    error: null,
+  });
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "publish_candidates_v2",
+      p_generation_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      p_trading_date: "2026-08-10",
+      p_session_kind: "market",
+      p_synced_at: "2026-08-10T14:00:00.000Z",
+      p_candidates: [],
+      p_events: [],
+    }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 200);
+  assertEquals(out.body.ok, true);
+  assertEquals(
+    (out.body.result as Record<string, unknown>).applied,
+    false,
+  );
+  assertEquals(
+    (out.body.result as Record<string, unknown>).reason,
+    "stale_generation",
+  );
+});
+
 Deno.test("action: publish_candidates_v2 rejects invalid worker secret", async () => {
   const db = new FakeDb();
   const res = await handleRadarWorkerBridge(

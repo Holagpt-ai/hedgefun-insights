@@ -139,6 +139,19 @@ export function startRadarV22(opts: {
         p_synced_at: syncedAt,
       });
       pushHealth("stale");
+      const v2 = await publishRadarV2IfNeeded({
+        flagEnabled: opts.env.radarPersistenceV2Enabled,
+        result,
+        gate: v2Gate,
+        wallNowMs: wallNow,
+        checkpointMs: opts.env.radarPersistenceV2CheckpointMs,
+        generationId,
+        syncedAt,
+        rpc: rpcV2,
+      });
+      if (v2 !== "skipped" && !v2.ok) {
+        log("error", "radar_persist_v2_failed", { code: v2.code });
+      }
       return;
     }
     if (result.published) {

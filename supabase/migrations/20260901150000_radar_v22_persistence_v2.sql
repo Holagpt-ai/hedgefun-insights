@@ -7,6 +7,12 @@
 -- Atomic visibility: one RPC deletes the current candidate set and inserts the
 -- new generation, then upserts events ON CONFLICT DO NOTHING.
 --
+-- Generation fencing: v2_synced_at is the p_synced_at of the committed V2
+-- generation. Replacement is serialized on radar_v22_feed_state WHERE
+-- state_key='current' (SELECT FOR UPDATE) BEFORE any candidate DELETE.
+-- Stale/conflicting generations return jsonb {applied:false, reason:stale_generation}
+-- without throwing — not an infrastructure failure.
+--
 -- Event retention: 14 days via purge_radar_v22_events_v1. No cron is added in
 -- this sprint; operators/scheduler should call the purge RPC later.
 --
@@ -20,14 +26,19 @@
 --     DROP COLUMN IF EXISTS sentinel_enabled,
 --     DROP COLUMN IF EXISTS candidate_count,
 --     DROP COLUMN IF EXISTS v2_generation_id,
---     DROP COLUMN IF EXISTS last_receive_at;
+--     DROP COLUMN IF EXISTS last_receive_at,
+--     DROP COLUMN IF EXISTS v2_synced_at;
 
 ALTER TABLE public.radar_v22_feed_state
   ADD COLUMN IF NOT EXISTS session_kind text NULL,
   ADD COLUMN IF NOT EXISTS sentinel_enabled boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS candidate_count integer NOT NULL DEFAULT 0,
   ADD COLUMN IF NOT EXISTS v2_generation_id uuid NULL,
-  ADD COLUMN IF NOT EXISTS last_receive_at timestamptz NULL;
+  ADD COLUMN IF NOT EXISTS last_receive_at timestamptz NULL,
+  ADD COLUMN IF NOT EXISTS v2_synced_at timestamptz NULL;
+
+COMMENT ON COLUMN public.radar_v22_feed_state.v2_synced_at IS
+  'p_synced_at of the currently committed V2 candidate generation. Dedicated fence; not V1 updated_at/synced_at/last_receive_at.';
 
 DO $feed_ck$
 BEGIN
@@ -179,7 +190,7 @@ CREATE OR REPLACE FUNCTION public.replace_radar_v22_candidates_v1(
   p_last_provider_event_at timestamptz,
   p_last_receive_at timestamptz
 )
-RETURNS integer
+RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = ''
@@ -194,6 +205,9 @@ DECLARE
   v_ev jsonb;
   v_type text;
   v_at timestamptz;
+  v_existing_gen uuid;
+  v_existing_synced timestamptz;
+  v_existing_count integer;
 BEGIN
   IF p_generation_id IS NULL THEN RAISE EXCEPTION 'generation_id required'; END IF;
   IF p_trading_date IS NULL THEN RAISE EXCEPTION 'trading_date required'; END IF;
@@ -248,6 +262,58 @@ BEGIN
       RAISE EXCEPTION 'invalid lifecycle';
     END IF;
   END LOOP;
+
+  -- Serialize against the singleton feed-state row BEFORE any candidate DELETE.
+  -- SELECT FOR UPDATE: the second concurrent txn waits, then sees the first
+  -- txn's committed v2_synced_at / v2_generation_id before deciding.
+  INSERT INTO public.radar_v22_feed_state (
+    state_key, generation_id, status, session_date, synced_at,
+    symbol_count, feed_stale, updated_at
+  ) VALUES (
+    'current', NULL, 'empty', p_trading_date, p_synced_at,
+    0, false, p_synced_at
+  )
+  ON CONFLICT (state_key) DO NOTHING;
+
+  SELECT v2_generation_id, v2_synced_at, candidate_count
+    INTO v_existing_gen, v_existing_synced, v_existing_count
+  FROM public.radar_v22_feed_state
+  WHERE state_key = 'current'
+  FOR UPDATE;
+
+  -- CASE A: no existing V2 generation → accept.
+  -- CASE B: incoming p_synced_at > existing v2_synced_at → accept.
+  -- CASE C: same timestamp AND same generation → idempotent retry, no DELETE.
+  -- CASE D: incoming older AND generation differs → stale no-op.
+  -- CASE E: same timestamp AND generation differs → conflict/stale no-op.
+  -- UUIDs are never ordered. Same generation with an older timestamp is
+  -- treated as already_current (retry safety), not a rewrite.
+  IF v_existing_synced IS NOT NULL THEN
+    IF p_synced_at < v_existing_synced
+       AND p_generation_id IS DISTINCT FROM v_existing_gen THEN
+      RETURN jsonb_build_object(
+        'applied', false,
+        'reason', 'stale_generation',
+        'inserted', COALESCE(v_existing_count, 0)
+      );
+    END IF;
+    IF p_synced_at = v_existing_synced
+       AND p_generation_id IS DISTINCT FROM v_existing_gen THEN
+      RETURN jsonb_build_object(
+        'applied', false,
+        'reason', 'stale_generation',
+        'inserted', COALESCE(v_existing_count, 0)
+      );
+    END IF;
+    IF p_synced_at <= v_existing_synced
+       AND p_generation_id = v_existing_gen THEN
+      RETURN jsonb_build_object(
+        'applied', true,
+        'reason', 'already_current',
+        'inserted', COALESCE(v_existing_count, 0)
+      );
+    END IF;
+  END IF;
 
   DELETE FROM public.radar_v22_candidates;
 
@@ -349,7 +415,8 @@ BEGIN
     state_key, generation_id, status, session_date, synced_at,
     provider_as_of_min, provider_as_of_max, last_provider_event_at,
     symbol_count, feed_stale, updated_at,
-    session_kind, sentinel_enabled, candidate_count, v2_generation_id, last_receive_at
+    session_kind, sentinel_enabled, candidate_count, v2_generation_id,
+    last_receive_at, v2_synced_at
   ) VALUES (
     'current',
     NULL,
@@ -366,7 +433,8 @@ BEGIN
     COALESCE(p_sentinel_enabled, false),
     v_inserted,
     p_generation_id,
-    p_last_receive_at
+    p_last_receive_at,
+    p_synced_at
   )
   ON CONFLICT (state_key) DO UPDATE SET
     session_kind = EXCLUDED.session_kind,
@@ -374,13 +442,25 @@ BEGIN
     candidate_count = EXCLUDED.candidate_count,
     v2_generation_id = EXCLUDED.v2_generation_id,
     last_receive_at = EXCLUDED.last_receive_at,
-    last_provider_event_at = COALESCE(
-      EXCLUDED.last_provider_event_at,
-      public.radar_v22_feed_state.last_provider_event_at
-    ),
+    v2_synced_at = EXCLUDED.v2_synced_at,
+    last_provider_event_at = CASE
+      WHEN EXCLUDED.last_provider_event_at IS NULL THEN
+        public.radar_v22_feed_state.last_provider_event_at
+      WHEN public.radar_v22_feed_state.last_provider_event_at IS NULL THEN
+        EXCLUDED.last_provider_event_at
+      WHEN EXCLUDED.last_provider_event_at >
+           public.radar_v22_feed_state.last_provider_event_at THEN
+        EXCLUDED.last_provider_event_at
+      ELSE
+        public.radar_v22_feed_state.last_provider_event_at
+    END,
     updated_at = EXCLUDED.updated_at;
 
-  RETURN v_inserted;
+  RETURN jsonb_build_object(
+    'applied', true,
+    'reason', 'replaced',
+    'inserted', v_inserted
+  );
 END;
 $fn$;
 
@@ -423,3 +503,7 @@ COMMENT ON TABLE public.radar_v22_events IS
   'Discrete Radar events. Idempotent PK. Retain 14 days via purge_radar_v22_events_v1.';
 COMMENT ON FUNCTION public.purge_radar_v22_events_v1(integer) IS
   'Deletes radar_v22_events older than p_retain_days (default 14). No scheduler in this sprint.';
+COMMENT ON FUNCTION public.replace_radar_v22_candidates_v1(
+  uuid, date, text, timestamptz, jsonb, jsonb, boolean, timestamptz, timestamptz
+) IS
+  'Atomic V2 candidate replace with v2_synced_at fencing. Stale generations return applied=false reason=stale_generation (not an exception).';
