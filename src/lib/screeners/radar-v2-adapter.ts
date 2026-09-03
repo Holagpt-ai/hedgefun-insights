@@ -14,8 +14,12 @@
  *  - RVOL is not persisted by Radar V2 → `rvol` stays null → UI renders `—`.
  *  - No prior-close is persisted → `gap_percent` / `prior_session_volume` /
  *    `volume_ratio_prior_session` / 52w fields stay null (rendered `—`).
- *  - `change_percent` carries the short-window Radar move (move_60s_pct, then
- *    move_15s_pct); it is NOT a vs-prior-close day change. Documented, not faked.
+ *  - No confirmed prior-close percentage change exists pre-market, so
+ *    `change_percent` is left null (rendered `—`). Radar only persists a
+ *    short-window move (move_60s_pct / move_15s_pct); surfacing that in a column
+ *    labeled "Move"/"% Change" would mislabel it as a day/session change, so it
+ *    is intentionally NOT mapped into `change_percent`. It still contributes to
+ *    volume-first tie-breaking during ranking.
  *  - Stale/unavailable Radar data is never shown as live; caller falls back.
  */
 
@@ -305,13 +309,6 @@ export function qualifyCandidateForTab(
 
 // ── Mapping to the existing ScreenerResultRow view model ─────────────────────
 
-/** Short-window Radar move; NOT a vs-prior-close day change. */
-function shortWindowMove(row: RadarV2CandidateRow): number | null {
-  if (isFiniteNumber(row.move_60s_pct)) return row.move_60s_pct;
-  if (isFiniteNumber(row.move_15s_pct)) return row.move_15s_pct;
-  return null;
-}
-
 export function mapCandidateToScreenerRow(
   row: RadarV2CandidateRow,
   tabId: string,
@@ -322,7 +319,9 @@ export function mapCandidateToScreenerRow(
     symbol,
     company_name: null, // Radar V2 does not persist company name.
     price: isFiniteNumber(row.last_price) ? row.last_price : null,
-    change_percent: shortWindowMove(row),
+    // No confirmed prior-close % change pre-market. Radar's short-window move is
+    // NOT a day/session change and must not be mislabeled → leave null (`—`).
+    change_percent: null,
     volume: isFiniteNumber(row.session_volume) ? row.session_volume : null,
     avg_volume: null,
     rvol: null, // Not persisted; never fabricated → UI renders `—`.

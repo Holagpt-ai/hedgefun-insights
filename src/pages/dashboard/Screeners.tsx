@@ -9,6 +9,7 @@ import {
 } from "@/config/screener-tabs.config";
 import { hasProAccess } from "@/lib/entitlement";
 import { parseTimestampMs } from "@/lib/screeners/contract";
+import { resolveScreenerCopy } from "@/lib/screeners/screener-copy";
 import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
 
 const DAY_TRADE_RADAR_REFRESH_MS = 60_000;
@@ -42,10 +43,14 @@ export default function Screeners() {
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
   const isDayTradeRadar = activeTabId === "day_trade_radar";
 
-  const { status, rows, syncedAt, providerAsOfMax } = useScreenerData(activeTabId, {
+  const { status, rows, syncedAt, providerAsOfMax, source } = useScreenerData(activeTabId, {
     refreshIntervalMs: isDayTradeRadar ? DAY_TRADE_RADAR_REFRESH_MS : undefined,
     pauseWhenHidden: true,
   });
+
+  // Session-aware copy: during Radar V2 pre-market mode the static RTH criteria
+  // do not apply, so show truthful wording without rewriting the static config.
+  const activeCopy = resolveScreenerCopy(activeTab, source);
 
   const accessLabel = isPro
     ? "PRO ACCESS — 15-MINUTE DELAYED MARKET FEED"
@@ -91,7 +96,7 @@ export default function Screeners() {
         })}
       </div>
 
-      <p className="text-[13px] text-muted-foreground">{activeTab.description}</p>
+      <p className="text-[13px] text-muted-foreground">{activeCopy.description}</p>
 
       {status === "stale" && !isDayTradeRadar && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground">
@@ -126,6 +131,7 @@ export default function Screeners() {
           isPro={isPro}
           rows={rows}
           status={status}
+          source={source}
         />
       )}
     </div>
