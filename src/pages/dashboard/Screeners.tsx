@@ -10,9 +10,13 @@ import {
 import { hasProAccess } from "@/lib/entitlement";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import { resolveScreenerCopy } from "@/lib/screeners/screener-copy";
+import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
 
-const DAY_TRADE_RADAR_REFRESH_MS = 60_000;
+// All Radar-backed pre-market tabs refresh on this cadence so they do not go
+// stale while Radar V2 keeps publishing new generations. 60s is intentional:
+// the worker persists far more often, but polling faster would add no value.
+const RADAR_BACKED_REFRESH_MS = 60_000;
 
 function formatPipelineAge(iso: string | null): string | null {
   if (!iso) return null;
@@ -42,9 +46,13 @@ export default function Screeners() {
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
   const isDayTradeRadar = activeTabId === "day_trade_radar";
+  // Radar-backed tabs (day_trade_radar, volume_spikes, gainers_losers,
+  // unusual_volume) poll; gappers / new_highs_lows stay one-shot. Reuses the
+  // single tab-list source of truth instead of duplicating IDs here.
+  const isRadarBacked = isRadarV2BackedTab(activeTabId);
 
   const { status, rows, syncedAt, providerAsOfMax, source } = useScreenerData(activeTabId, {
-    refreshIntervalMs: isDayTradeRadar ? DAY_TRADE_RADAR_REFRESH_MS : undefined,
+    refreshIntervalMs: isRadarBacked ? RADAR_BACKED_REFRESH_MS : undefined,
     pauseWhenHidden: true,
   });
 
