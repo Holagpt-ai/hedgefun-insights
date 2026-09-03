@@ -13,10 +13,18 @@ import type { FetchLike } from "./baseline/grouped.ts";
 import { isRetryableStatus, RetryableError, withRetry } from "./retry.ts";
 import type { LeaseClient } from "./radar/lease.ts";
 import type { RadarRpcFn, ReplaceRadarArgs, SetStatusFn } from "./radar/persist.ts";
+import type { RadarV2RpcFn } from "./radar/persist_v2.ts";
 import { log } from "./log.ts";
 
 export const DEFAULT_BRIDGE_TIMEOUT_MS = 15_000;
 export const BASELINE_BRIDGE_TIMEOUT_MS = 60_000;
+export const LATENCY_BRIDGE_MAX_ATTEMPTS = 3;
+export const BULK_BASELINE_MAX_ATTEMPTS = 1;
+
+function maxAttemptsForAction(action: string): number {
+  if (action === "replace_52w_baseline") return BULK_BASELINE_MAX_ATTEMPTS;
+  return LATENCY_BRIDGE_MAX_ATTEMPTS;
+}
 
 export type BridgeAttemptOutcome =
   | "ok"
@@ -48,6 +56,7 @@ function logBridgeAttempt(fields: {
 export type RadarBridge = {
   lease: LeaseClient;
   radarRpc: RadarRpcFn;
+  radarV2Rpc: RadarV2RpcFn;
   setStatus: SetStatusFn;
   loadExceptions: CalendarExceptionLoader;
   baselineRpc: RpcFn;
@@ -153,7 +162,7 @@ async function bridgePost(
 
   try {
     return await withRetry(run, {
-      maxAttempts: 3,
+      maxAttempts: maxAttemptsForAction(opts.action),
       baseDelayMs: 250,
       maxDelayMs: 2_000,
       sleep: opts.sleep,
@@ -237,6 +246,15 @@ export function createRadarBridge(opts: {
     return { error: null };
   };
 
+  const radarV2Rpc: RadarV2RpcFn = async (args) => {
+    const res = await post("publish_candidates_v2", { ...args });
+    if (!res.ok) return { error: { message: "persist_failed" } };
+    if (!isRecord(res.body) || res.body.ok !== true) {
+      return { error: { message: "persist_failed" } };
+    }
+    return { error: null, data: res.body.result };
+  };
+
   const setStatus: SetStatusFn = async (args) => {
     const res = await post("set_feed_status", { ...args });
     if (!res.ok) return { error: { message: "persist_failed" } };
@@ -284,6 +302,7 @@ export function createRadarBridge(opts: {
   return {
     lease,
     radarRpc,
+    radarV2Rpc,
     setStatus,
     loadExceptions,
     baselineRpc,

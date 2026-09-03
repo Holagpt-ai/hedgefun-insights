@@ -2,7 +2,7 @@ import type { PolygonTicker } from "../../../../supabase/functions/_shared/scree
 import { isRetryableStatus, RetryableError, withRetry } from "../retry.ts";
 import type { FetchLike } from "../baseline/grouped.ts";
 import type { RadarV22Config } from "./config.ts";
-import { eligibleUniverse } from "./eligibility.ts";
+import { eligibleUniverse, enrichmentUniverse } from "./eligibility.ts";
 import type { EligibleQuote } from "./types.ts";
 
 export const SNAPSHOT_URL =
@@ -91,5 +91,7 @@ export async function refreshEligibleUniverse(opts: {
     }
     url = page.nextUrl;
   }
-  return eligibleUniverse(all);
+  return opts.config.sentinelEnabled
+    ? enrichmentUniverse(all)
+    : eligibleUniverse(all);
 }

@@ -386,3 +386,111 @@ Deno.test("baseline bridge success logs the 60s timeout budget", async () => {
     console.log = original;
   }
 });
+
+Deno.test("replace_52w_baseline 5xx is not retried", async () => {
+  let attempts = 0;
+  const fetchImpl: FetchLike = async () => {
+    attempts += 1;
+    return new Response("nope", { status: 502 });
+  };
+  const bridge = createRadarBridge({
+    bridgeUrl: BRIDGE_URL,
+    workerSecret: SECRET,
+    fetch: fetchImpl,
+    sleep: async () => {},
+  });
+  const result = await bridge.baselineRpc({
+    p_generation_id: "11111111-2222-3333-4444-555555555555",
+    p_rows: [],
+    p_period_start: "2025-08-10",
+    p_period_end: "2026-08-10",
+    p_provider_as_of: "2026-08-10T20:00:00.000Z",
+    p_status: "empty",
+  });
+  assertEquals(result.error?.message, "persist_failed");
+  assertEquals(attempts, 1);
+});
+
+Deno.test("lease heartbeat still retries 5xx independently of bulk baseline", async () => {
+  let heartbeatAttempts = 0;
+  const fetchImpl: FetchLike = async (_input, init) => {
+    const body = JSON.parse(String(init?.body ?? "{}")) as Record<string, unknown>;
+    if (body.action === "heartbeat_lease") {
+      heartbeatAttempts += 1;
+      return new Response("nope", { status: 503 });
+    }
+    return ok({ ok: true, result: true });
+  };
+  const bridge = createRadarBridge({
+    bridgeUrl: BRIDGE_URL,
+    workerSecret: SECRET,
+    fetch: fetchImpl,
+    sleep: async () => {},
+  });
+  assertEquals(await bridge.lease.heartbeat(HOLDER, 15_000), false);
+  assertEquals(heartbeatAttempts, 3);
+});
+
+const V2_ARGS = {
+  p_generation_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+  p_trading_date: "2026-08-10",
+  p_session_kind: "market" as const,
+  p_synced_at: "2026-08-10T14:00:05.000Z",
+  p_candidates: [],
+  p_events: [],
+  p_sentinel_enabled: true,
+  p_last_provider_event_at: null,
+  p_last_receive_at: null,
+};
+
+Deno.test("bridge publish_candidates_v2 applied=true is success", async () => {
+  let attempts = 0;
+  const fetchImpl = capturingFetch([], () => {
+    attempts += 1;
+    return ok({
+      ok: true,
+      result: { applied: true, reason: "replaced", inserted: 2 },
+    });
+  });
+  const bridge = createRadarBridge({
+    bridgeUrl: BRIDGE_URL,
+    workerSecret: SECRET,
+    fetch: fetchImpl,
+  });
+  const res = await bridge.radarV2Rpc(V2_ARGS);
+  assertEquals(res.error, null);
+  assertEquals(
+    (res.data as Record<string, unknown>).reason,
+    "replaced",
+  );
+  assertEquals(attempts, 1);
+});
+
+Deno.test("bridge publish_candidates_v2 stale_generation is success and is not retried", async () => {
+  let attempts = 0;
+  const fetchImpl = capturingFetch([], () => {
+    attempts += 1;
+    return ok({
+      ok: true,
+      result: { applied: false, reason: "stale_generation", inserted: 80 },
+    });
+  });
+  const bridge = createRadarBridge({
+    bridgeUrl: BRIDGE_URL,
+    workerSecret: SECRET,
+    fetch: fetchImpl,
+    sleep: async () => {},
+  });
+  const res = await bridge.radarV2Rpc(V2_ARGS);
+  assertEquals(res.error, null);
+  assertEquals(
+    (res.data as Record<string, unknown>).applied,
+    false,
+  );
+  assertEquals(
+    (res.data as Record<string, unknown>).reason,
+    "stale_generation",
+  );
+  assertEquals(attempts, 1);
+});
+
