@@ -249,15 +249,19 @@ describe("Radar V2 adapter — freshness & fallback (Phase G)", () => {
     expect(decision.view).toBeNull();
   });
 
-  it("3b. feed_stale flag falls back", () => {
+  it("3b. legacy feed_stale=true does NOT gate V2 health when V2 fields are fresh", () => {
+    // Production reality: the V1 publish_generation path can fail (feed_stale=true)
+    // while the V2 pipeline is fully healthy. feed_stale is legacy V1 and must not
+    // demote a fresh, advancing V2 generation.
     const decision = buildRadarV2Decision({
       feedRows: [feed({ feed_stale: true })],
       candidateRows: [candidate()],
       tabId: "day_trade_radar",
       nowMs: NOW,
     });
-    expect(decision.source).toBe("fallback");
-    expect(decision.reason).toBe("feed_stale_flag");
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.reason).toBe("radar_v2_available");
+    expect(decision.view!.status).toBe("available");
   });
 
   it("3c. missing feed / missing v2 generation falls back", () => {
@@ -411,5 +415,126 @@ describe("Radar V2 adapter — downstream contract (Phase H)", () => {
     expect(board[1].rank).toBe(2);
     // Free/Pro gating is driven purely by rank order, which volume-first preserves.
     expect(board[0].rvol).toBeNull();
+  });
+});
+
+describe("Radar V2 adapter — V2 health gate (D8.1)", () => {
+  // >20m before NOW (13:12:57Z) is stale under the 20-minute threshold.
+  const STALE_TS = "2026-09-03T12:40:00.000Z";
+
+  it("1. feed_stale=true + fresh v2_synced_at + fresh last_receive_at → Radar V2 authoritative", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ feed_stale: true, v2_synced_at: SYNCED, last_receive_at: SYNCED })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.view!.status).toBe("available");
+  });
+
+  it("2. feed_stale=true + stale v2_synced_at → fallback (stale pipeline)", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ feed_stale: true, v2_synced_at: STALE_TS })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("radar_v2_stale");
+  });
+
+  it("3. feed_stale=false + stale v2_synced_at → fallback (stale pipeline)", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ feed_stale: false, v2_synced_at: STALE_TS })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("radar_v2_stale");
+  });
+
+  it("4. fresh v2_synced_at + stale last_receive_at → fallback (ingest liveness)", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ v2_synced_at: SYNCED, last_receive_at: STALE_TS })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("radar_v2_receive_stale");
+  });
+
+  it("5. fresh v2_synced_at + fresh last_receive_at → Radar V2 available", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ v2_synced_at: SYNCED, last_receive_at: SYNCED })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.reason).toBe("radar_v2_available");
+  });
+
+  it("6. missing last_receive_at is allowed when v2_synced_at itself is fresh", () => {
+    // Documented safe behavior: v2_synced_at freshness already proves the current
+    // V2 generation is fresh, so a null ingest marker does not demote it.
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ v2_synced_at: SYNCED, last_receive_at: null })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.view!.status).toBe("available");
+  });
+
+  it("6b. present-but-unparseable last_receive_at cannot prove liveness → fallback", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ v2_synced_at: SYNCED, last_receive_at: "not-a-timestamp" })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("radar_v2_receive_stale");
+  });
+
+  it("7. generation mismatch still falls back even with feed_stale=true", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ feed_stale: true, candidate_count: 128 })],
+      candidateRows: [candidate({ generation_id: OTHER_GEN })],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("generation_race");
+  });
+
+  it("8. session mismatch is still rejected even with feed_stale=true", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ feed_stale: true, candidate_count: 2 })],
+      candidateRows: [
+        candidate({ symbol: "PM", session_kind: "pre-market", session_volume: 2_000_000 }),
+        candidate({ symbol: "RTH", session_kind: "market", session_volume: 9_000_000 }),
+      ],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.view!.rows.map((r) => r.symbol)).toEqual(["PM"]);
+  });
+
+  it("9. a healthy but empty V2 generation stays an honest empty even with feed_stale=true", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed({ feed_stale: true, candidate_count: 0 })],
+      candidateRows: [],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.view!.status).toBe("empty");
+    expect(decision.view!.rows).toEqual([]);
   });
 });

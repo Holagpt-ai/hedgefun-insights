@@ -145,6 +145,11 @@ export interface RadarV2FeedStateRow {
   v2_synced_at: string | null;
   last_receive_at: string | null;
   last_provider_event_at: string | null;
+  /**
+   * LEGACY V1 feed-health flag (driven by the V1 publish_generation path).
+   * Diagnostics ONLY. It can be `true` while the V2 pipeline is fully healthy,
+   * so it MUST NOT gate Radar V2 candidate health. See `buildRadarV2Decision`.
+   */
   feed_stale: boolean | null;
   updated_at: string;
 }
@@ -402,10 +407,35 @@ export function buildRadarV2Decision(input: {
   const syncedMs = parseTimestampMs(feed.v2_synced_at);
   if (syncedMs === null) return fallback("no_v2_synced_at", session);
 
-  // Freshness gate: stale pipeline must not be shown as live → fall back.
-  if (feed.feed_stale === true) return fallback("feed_stale_flag", session);
+  // ── V2 health gate (V2-specific fields ONLY; not the legacy V1 flag) ──────
+  //
+  // `feed.feed_stale` is a LEGACY V1 health flag driven by the V1
+  // `publish_generation` path. In production it can be `true` while the V2
+  // pipeline is fully healthy (fresh `v2_synced_at`, advancing
+  // `v2_generation_id`, fresh `last_receive_at`). It therefore MUST NOT gate
+  // Radar V2 candidate health, and is intentionally NOT consulted here.
+  //
+  // V2 liveness is decided by V2-specific evidence:
+  //   • v2_generation_id  — required (checked above)
+  //   • v2_synced_at      — required + within the stale threshold (below)
+  //   • last_receive_at   — ingest liveness, when the worker has recorded it
+  // We deliberately do NOT use `last_provider_event_at`: the Massive tape is
+  // intentionally ~15 min delayed, so provider-event age is not pipeline age.
+
+  // Pipeline freshness: a genuinely stale V2 generation must not be shown live.
   if (nowMs - syncedMs > RADAR_V2_STALE_AFTER_MS) {
     return fallback("radar_v2_stale", session);
+  }
+
+  // Ingest liveness: if the worker recorded a `last_receive_at`, it must be
+  // fresh. A MISSING value is allowed — `v2_synced_at` (checked above) already
+  // proves the current V2 generation is fresh. A present-but-unparseable value
+  // cannot prove liveness, so we fall back honestly rather than show it live.
+  if (feed.last_receive_at !== null && feed.last_receive_at !== undefined) {
+    const receiveMs = parseTimestampMs(feed.last_receive_at);
+    if (receiveMs === null || nowMs - receiveMs > RADAR_V2_STALE_AFTER_MS) {
+      return fallback("radar_v2_receive_stale", session);
+    }
   }
 
   const candidates = candidateRows ?? [];
