@@ -9,6 +9,8 @@ import {
   type ScreenerTabView,
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
+import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
+import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
 
 export type { ScreenerResultRow, ScreenerUiStatus };
 
@@ -151,6 +153,18 @@ export function useScreenerData(
         setProviderAsOfMax(null);
         hasLoadedOnce = false;
       }
+
+      // Preferred source during an active (pre-market) session: Radar V2
+      // candidate intelligence. Falls back to the verified screener_results
+      // path when Radar V2 is not the preferred/fresh source for this tab.
+      if (isRadarV2BackedTab(tabId)) {
+        const decision = await loadRadarV2Decision(tabId, Date.now());
+        if (decision.source === "radar-v2" && decision.view) {
+          applyView({ ...decision.view, attempts: 1 }, soft);
+          return;
+        }
+      }
+
       const view: ScreenerTabView = await loadVerifiedScreenerGeneration(
         fetchGenerationOnce,
         { nowMs: Date.now(), activeTabId: tabId },
