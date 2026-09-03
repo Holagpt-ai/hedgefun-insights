@@ -1,4 +1,5 @@
 import type { ScreenerResultRow, ScreenerUiStatus } from "@/lib/screeners/contract";
+import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 
 /** Versioned ranking interface — future burst fields stay optional until verified. */
 export interface RadarRankingFields {
@@ -48,7 +49,17 @@ export interface DayTradeRadarV2Props {
   syncedAt: string | null;
   providerAsOfMax: string | null;
   freeRowLimit: number;
+  /**
+   * Active screener data source. When "radar-v2", the passed rows/status are the
+   * authoritative Radar V2 pre-market candidate universe and MUST NOT be
+   * superseded by the legacy radar_v22_board. Any other value preserves the
+   * existing board/fallback resolution.
+   */
+  source?: ScreenerDataSource | null;
 }
+
+/** Engine/source designation shown in the Day Trade Radar status rail. */
+export type RadarEngineSource = "v2.1" | "v2.2" | "radar-v2-candidates";
 
 export type RadarChartStatus = "idle" | "loading" | "available" | "empty" | "error";
 

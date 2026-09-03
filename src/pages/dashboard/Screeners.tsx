@@ -124,6 +124,7 @@ export default function Screeners() {
           syncedAt={syncedAt}
           providerAsOfMax={providerAsOfMax}
           freeRowLimit={activeTab.freeRowLimit}
+          source={source}
         />
       ) : (
         <ScreenerTable

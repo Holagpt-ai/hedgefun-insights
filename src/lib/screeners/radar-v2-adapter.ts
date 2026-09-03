@@ -32,6 +32,15 @@ import {
   type ScreenerResultRow,
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
+import type { RadarRankingFields } from "@/features/day-trade-radar-v2/types";
+
+/**
+ * Radar-backed screener row: the standard row plus the OPTIONAL Radar ranking
+ * metadata the Day Trade Radar board already understands. It is assignable to
+ * `ScreenerResultRow`, so no global contract change is required; non-Radar
+ * consumers simply ignore the extra fields.
+ */
+export type RadarV2ScreenerRow = ScreenerResultRow & RadarRankingFields;
 
 // ── Session model (explicit; PM/RTH/AH-ready) ───────────────────────────────
 
@@ -312,7 +321,7 @@ export function qualifyCandidateForTab(
 export function mapCandidateToScreenerRow(
   row: RadarV2CandidateRow,
   tabId: string,
-): ScreenerResultRow {
+): RadarV2ScreenerRow {
   const symbol = normalizeSymbol(row.symbol) as string;
   return {
     tab_id: tabId,
@@ -338,6 +347,14 @@ export function mapCandidateToScreenerRow(
     provider_as_of: row.provider_as_of ?? row.updated_at,
     sync_run_id: row.generation_id,
     updated_at: row.updated_at,
+    // Radar ranking metadata carried through to the Day Trade Radar board.
+    // These are the authoritative persisted Radar V2 fields — not fabricated.
+    signal_status: row.signal_status,
+    signal_tier: row.lifecycle,
+    rolling_volume_5s: isFiniteNumber(row.volume_5s) ? row.volume_5s : null,
+    rolling_volume_15s: isFiniteNumber(row.volume_15s) ? row.volume_15s : null,
+    rolling_volume_60s: isFiniteNumber(row.volume_60s) ? row.volume_60s : null,
+    acceleration_5m: isFiniteNumber(row.acceleration_5m) ? row.acceleration_5m : null,
   };
 }
 

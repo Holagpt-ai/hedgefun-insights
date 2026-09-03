@@ -356,6 +356,48 @@ describe("Radar V2 adapter — tab semantics (Phase E)", () => {
   });
 });
 
+describe("Radar V2 adapter — ranking metadata preserved through mapping (D5.3)", () => {
+  it("8, 9, 10. signal_status, lifecycle→signal_tier, rolling volumes and acceleration survive without fabrication", () => {
+    const row = mapCandidateToScreenerRow(
+      candidate({
+        signal_status: "EXPLOSIVE",
+        lifecycle: "ACTIVE",
+        volume_5s: 21_000,
+        volume_15s: 41_000,
+        volume_60s: 121_000,
+        acceleration_5m: 0.75,
+      }),
+      "day_trade_radar",
+    );
+    expect(row.signal_status).toBe("EXPLOSIVE");
+    expect(row.signal_tier).toBe("ACTIVE");
+    expect(row.rolling_volume_5s).toBe(21_000);
+    expect(row.rolling_volume_15s).toBe(41_000);
+    expect(row.rolling_volume_60s).toBe(121_000);
+    expect(row.acceleration_5m).toBe(0.75);
+  });
+
+  it("does not fabricate metadata when Radar fields are missing", () => {
+    const row = mapCandidateToScreenerRow(
+      candidate({ volume_5s: null, volume_15s: null, volume_60s: null, acceleration_5m: null }),
+      "day_trade_radar",
+    );
+    expect(row.rolling_volume_5s).toBeNull();
+    expect(row.rolling_volume_15s).toBeNull();
+    expect(row.rolling_volume_60s).toBeNull();
+    expect(row.acceleration_5m).toBeNull();
+  });
+
+  it("carries signal_status into the Day Trade Radar board signal label", () => {
+    const rows = rankRadarV2Candidates([
+      candidate({ symbol: "AAA", session_volume: 3_000_000, signal_status: "EXPLOSIVE", lifecycle: "ACTIVE" }),
+    ]).map((c) => mapCandidateToScreenerRow(c, "day_trade_radar"));
+    const board = rankRadarRows(rows, "available");
+    expect(board[0].signal).toBe("EXPLOSIVE");
+    expect(board[0].signal_tier).toBe("ACTIVE");
+  });
+});
+
 describe("Radar V2 adapter — downstream contract (Phase H)", () => {
   it("14. mapped rows pass through the Radar board ranker (mobile/card contract intact)", () => {
     const rows = rankRadarV2Candidates([
