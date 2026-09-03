@@ -1,5 +1,6 @@
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import { parseTimestampMs } from "@/lib/screeners/contract";
+import type { RadarEngineSource } from "./types";
 
 function formatPipelineAge(iso: string | null): string | null {
   if (!iso) return null;
@@ -22,13 +23,43 @@ function formatProviderAsOf(iso: string | null): string | null {
   return new Date(ms).toLocaleString();
 }
 
-const ENGINE_CHIPS = [
+/**
+ * Legacy / RTH-snapshot engine chips. Truthful only for the radar_v22_board
+ * (v2.1 / v2.2) source, whose rows are regular-session qualified.
+ */
+const LEGACY_ENGINE_CHIPS = [
   "AUTO RADAR ON",
   "$2–$20 ENTRY",
   "+10% CONFIRMED",
   "CURRENT VOL ≥5× PRIOR",
   "VOLUME FIRST",
 ] as const;
+
+/**
+ * Radar V2 pre-market candidate chips. Only claims rules actually applied to
+ * these rows: Sentinel discovery, volume-first ranking on persisted
+ * volume/velocity/acceleration, on a 15-minute delayed feed. No $2–$20 / +10% /
+ * ≥5× / RVOL / gap claims.
+ */
+const RADAR_V2_PM_ENGINE_CHIPS = [
+  "SENTINEL DISCOVERY",
+  "PRE-MARKET",
+  "VOLUME FIRST",
+  "VELOCITY / ACCELERATION",
+  "15-MIN DELAYED",
+] as const;
+
+function engineChipsFor(engineSource: RadarEngineSource): readonly string[] {
+  return engineSource === "radar-v2-candidates"
+    ? RADAR_V2_PM_ENGINE_CHIPS
+    : LEGACY_ENGINE_CHIPS;
+}
+
+function engineLabelFor(engineSource: RadarEngineSource): string {
+  if (engineSource === "radar-v2-candidates") return "Radar V2 Sentinel";
+  if (engineSource === "v2.2") return "Radar V2.2";
+  return "Radar V2.1 snapshot";
+}
 
 interface RadarStatusRailProps {
   status: ScreenerUiStatus;
@@ -39,7 +70,7 @@ interface RadarStatusRailProps {
   onFollowLeader: () => void;
   showReturnToLeader: boolean;
   onReturnToLeader: () => void;
-  engineSource?: "v2.1" | "v2.2";
+  engineSource?: RadarEngineSource;
 }
 
 export function RadarStatusRail({
@@ -55,6 +86,8 @@ export function RadarStatusRail({
 }: RadarStatusRailProps) {
   const providerLabel = formatProviderAsOf(providerAsOfMax);
   const pipelineAge = formatPipelineAge(syncedAt);
+  const engineLabel = engineLabelFor(engineSource);
+  const engineChips = engineChipsFor(engineSource);
   const statusLabel =
     status === "available"
       ? "Available"
@@ -70,7 +103,7 @@ export function RadarStatusRail({
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2 text-[11px]">
         <span className="rounded border border-border px-2 py-0.5 font-semibold uppercase tracking-wide text-muted-foreground">
-          {engineSource === "v2.2" ? "Radar V2.2" : "Radar V2.1 snapshot"}
+          {engineLabel}
         </span>
         <span className="rounded border border-border px-2 py-0.5 font-semibold uppercase tracking-wide text-muted-foreground">
           Feed: 15-Minute Delayed
@@ -105,7 +138,7 @@ export function RadarStatusRail({
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5">
-        {ENGINE_CHIPS.map((chip) => (
+        {engineChips.map((chip) => (
           <span
             key={chip}
             className="rounded bg-muted/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
