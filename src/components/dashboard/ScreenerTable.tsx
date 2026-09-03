@@ -13,12 +13,15 @@ import {
   type ScreenerResultRow,
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
+import { resolveScreenerCopy, type ScreenerDataSource } from "@/lib/screeners/screener-copy";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
   isPro: boolean;
   rows?: ScreenerResultRow[];
   status?: ScreenerUiStatus;
+  /** Active data source, for session-aware criteria/description copy. */
+  source?: ScreenerDataSource | null;
 }
 
 function formatCell(value: string | number | null | undefined, format: ColumnFormat): string {
@@ -62,7 +65,9 @@ export function ScreenerTable({
   isPro,
   rows = [],
   status = "loading",
+  source = null,
 }: ScreenerTableProps) {
+  const copy = resolveScreenerCopy(tab, source);
   const navigate = useNavigate();
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
@@ -289,7 +294,7 @@ export function ScreenerTable({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
-        {tab.criteria.map((c) => (
+        {copy.criteria.map((c) => (
           <span
             key={c}
             className="text-[11px] font-medium px-2 py-1 rounded-md bg-muted text-muted-foreground"
@@ -395,7 +400,7 @@ export function ScreenerTable({
                 {tab.label} — Pro Feature
               </div>
               <div className="text-[12px] text-muted-foreground max-w-sm">
-                {tab.description}
+                {copy.description}
               </div>
               <button
                 onClick={() => navigate("/pro")}

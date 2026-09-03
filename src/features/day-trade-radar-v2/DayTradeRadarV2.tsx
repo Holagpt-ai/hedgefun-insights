@@ -2,7 +2,8 @@ import { useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRadarV22Board } from "@/hooks/useRadarV22Board";
-import { easternDate, resolveRadarSource } from "@/lib/radar-v22";
+import { easternDate } from "@/lib/radar-v22";
+import { resolveDayTradeRadarSource } from "./radar-source-precedence";
 import type { DayTradeRadarV2Props } from "./types";
 import { useRadarSelection } from "./useRadarSelection";
 import { useRadarChartData } from "./useRadarChartData";
@@ -21,14 +22,19 @@ export function DayTradeRadarV2({
   syncedAt,
   providerAsOfMax,
   freeRowLimit,
+  source = null,
 }: DayTradeRadarV2Props) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+  // Hook is always called (no conditional hooks); its result is only consumed
+  // for the legacy/fallback source resolution inside resolveDayTradeRadarSource.
   const v22 = useRadarV22Board();
   const adoptedSessionRef = useRef<string | null>(null);
   const todayEt = easternDate(Date.now());
-  const resolved = resolveRadarSource({
+
+  const resolved = resolveDayTradeRadarSource({
+    source,
     todayEt,
     adoptedSession: adoptedSessionRef.current,
     v21: { rows, status, syncedAt, providerAsOfMax },
