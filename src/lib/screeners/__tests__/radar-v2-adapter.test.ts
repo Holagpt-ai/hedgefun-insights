@@ -110,6 +110,7 @@ describe("Radar V2 adapter — mapping (Phase C)", () => {
   it("10. missing RVOL / prior-close fields stay null so the UI renders —", () => {
     const row = mapCandidateToScreenerRow(candidate(), "day_trade_radar");
     expect(row.rvol).toBeNull();
+    expect(row.change_percent).toBeNull();
     expect(row.avg_volume).toBeNull();
     expect(row.gap_percent).toBeNull();
     expect(row.prior_session_volume).toBeNull();
@@ -120,20 +121,17 @@ describe("Radar V2 adapter — mapping (Phase C)", () => {
     expect(row.float_shares).toBeNull();
   });
 
-  it("change_percent carries the short-window Radar move, not a fabricated day change", () => {
-    expect(mapCandidateToScreenerRow(candidate(), "gainers_losers").change_percent).toBe(3.4);
+  it("never surfaces the short-window Radar move as a day/session % change", () => {
+    // change_percent stays null (rendered `—`); no prior-close % is fabricated
+    // and move_60s/move_15s are never mislabeled as a day change.
+    expect(mapCandidateToScreenerRow(candidate(), "gainers_losers").change_percent).toBeNull();
     expect(
       mapCandidateToScreenerRow(
-        candidate({ move_60s_pct: null, move_15s_pct: -2.1 }),
-        "gainers_losers",
-      ).change_percent,
-    ).toBe(-2.1);
-    expect(
-      mapCandidateToScreenerRow(
-        candidate({ move_60s_pct: null, move_15s_pct: null }),
+        candidate({ move_60s_pct: 8.8, move_15s_pct: -2.1 }),
         "gainers_losers",
       ).change_percent,
     ).toBeNull();
+    expect(mapCandidateToScreenerRow(candidate(), "day_trade_radar").change_percent).toBeNull();
   });
 
   it("9. ticker handoff identity is preserved (normalized symbol + generation id)", () => {
