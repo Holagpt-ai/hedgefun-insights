@@ -10,7 +10,12 @@ import {
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
 import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
+import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
+import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
+import {
+  radarV2FetchThrewDecision,
+} from "@/lib/screeners/radar-v2-soft-refresh";
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 
 export type { ScreenerResultRow, ScreenerUiStatus };
@@ -100,6 +105,7 @@ export function useScreenerData(
     let staleTimer: ReturnType<typeof setTimeout> | null = null;
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let hasLoadedOnce = false;
+    let lastVerifiedRadar: RadarV2Decision | null = null;
 
     const clearStaleTimer = () => {
       if (staleTimer !== null) {
@@ -162,26 +168,68 @@ export function useScreenerData(
       }
 
       // Preferred source during an active Radar V2 session (pre-market, market,
-      // after-hours): Radar V2 candidate intelligence. Falls back to the
-      // verified screener_results path when Radar V2 is not the preferred/fresh
-      // source for this tab.
+      // after-hours): Radar V2 Sentinel. Transient poll failures must not
+      // replace a verified Sentinel board with screener_results. Legacy rows
+      // overlay confirmation on Day Trade Radar and render as the board only
+      // when Radar V2 is genuinely unavailable.
       if (isRadarV2BackedTab(tabId)) {
-        const decision = await loadRadarV2Decision(tabId, Date.now());
-        if (decision.source === "radar-v2" && decision.view) {
+        let radarDecision: RadarV2Decision;
+        try {
+          radarDecision = await loadRadarV2Decision(tabId, Date.now());
+        } catch {
+          radarDecision = radarV2FetchThrewDecision();
+        }
+
+        const resolved = resolveRadarBackedScreenerLoad({
+          tabId,
+          soft,
+          priorRadar: lastVerifiedRadar,
+          radarDecision,
+          legacyView: null,
+        });
+
+        if (resolved.preserve) return;
+
+        if (resolved.source === "radar-v2" && resolved.view) {
+          let view = resolved.view;
+          if (tabId === "day_trade_radar") {
+            try {
+              const legacyView: ScreenerTabView = await loadVerifiedScreenerGeneration(
+                fetchGenerationOnce,
+                { nowMs: Date.now(), activeTabId: tabId },
+              );
+              const withOverlay = resolveRadarBackedScreenerLoad({
+                tabId,
+                soft,
+                priorRadar: lastVerifiedRadar,
+                radarDecision,
+                legacyView,
+              });
+              if (withOverlay.source === "radar-v2" && withOverlay.view) {
+                view = withOverlay.view;
+              }
+            } catch {
+              // Overlay is optional. A failed legacy read must not drop Sentinel.
+            }
+          }
+          lastVerifiedRadar = resolved.nextPriorRadar;
           if (!cancelled) {
             setSource("radar-v2");
-            setSession(decision.session);
+            setSession(resolved.session);
           }
-          applyView({ ...decision.view, attempts: 1 }, soft);
+          applyView(view, soft);
           return;
         }
+
+        lastVerifiedRadar = null;
       }
 
       const view: ScreenerTabView = await loadVerifiedScreenerGeneration(
         fetchGenerationOnce,
         { nowMs: Date.now(), activeTabId: tabId },
       );
-      if (!cancelled) {
+      const skipSoftUnavailable = soft && view.status === "unavailable" && hasLoadedOnce;
+      if (!cancelled && !skipSoftUnavailable) {
         setSource("screener-results");
         setSession(null);
       }
