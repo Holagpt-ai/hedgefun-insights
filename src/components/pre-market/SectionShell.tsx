@@ -38,6 +38,8 @@ export const REASON_TEXT: Record<string, string> = {
   WATCHLIST_EMPTY: "Your watchlist has no symbols yet.",
   ANALYSIS_AWAITING_REFRESH: "Analyses are awaiting refresh.",
   NEWS_FEED_EMPTY: "No headlines available.",
+  RADAR_V2_UNAVAILABLE:
+    "Pre-market Radar V2 is unavailable. Volume leaders are not shown from an unverified fallback.",
 };
 
 export function SectionHeading({

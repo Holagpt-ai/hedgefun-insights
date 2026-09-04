@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   buildRadarV2Decision,
   compareCandidatesVolumeFirst,
+  currentRadarV2Feed,
   isRadarV2ActiveSession,
   isRadarV2BackedTab,
+  isSameAcceptedRadarV2Generation,
   mapCandidateToScreenerRow,
   qualifyCandidateForTab,
   rankRadarV2Candidates,
@@ -415,6 +417,21 @@ describe("Radar V2 adapter — downstream contract (Phase H)", () => {
     expect(board[1].rank).toBe(2);
     // Free/Pro gating is driven purely by rank order, which volume-first preserves.
     expect(board[0].rvol).toBeNull();
+  });
+});
+
+describe("Radar V2 adapter — handshake helpers (D11)", () => {
+  it("accepts a matching current feed pair for the same generation", () => {
+    const a = feed();
+    const b = feed();
+    expect(isSameAcceptedRadarV2Generation(a, b)).toBe(true);
+    expect(currentRadarV2Feed([a])?.v2_generation_id).toBe(GEN);
+  });
+
+  it("rejects a generation or session or synced_at change", () => {
+    expect(isSameAcceptedRadarV2Generation(feed(), feed({ v2_generation_id: OTHER_GEN }))).toBe(false);
+    expect(isSameAcceptedRadarV2Generation(feed(), feed({ session_kind: "market" }))).toBe(false);
+    expect(isSameAcceptedRadarV2Generation(feed(), feed({ v2_synced_at: "2026-09-03T13:13:00.000Z" }))).toBe(false);
   });
 });
 

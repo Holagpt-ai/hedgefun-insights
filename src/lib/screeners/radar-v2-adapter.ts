@@ -365,12 +365,28 @@ export function mapCandidateToScreenerRow(
 
 // ── Decision: prefer Radar V2 (fresh, active session) or fall back ───────────
 
-function singleCurrentFeed(
+export function currentRadarV2Feed(
   feedRows: readonly RadarV2FeedStateRow[] | null,
 ): RadarV2FeedStateRow | null {
   if (!feedRows) return null;
   const current = feedRows.filter((r) => r.state_key === "current");
   return current.length === 1 ? current[0] : null;
+}
+
+/**
+ * Handshake check: the second feed read still describes the generation captured
+ * on the first read. Generation id, session, and v2_synced_at must all agree so
+ * we never mix a feed from generation A with candidates from generation B.
+ */
+export function isSameAcceptedRadarV2Generation(
+  first: RadarV2FeedStateRow,
+  second: RadarV2FeedStateRow,
+): boolean {
+  if (!first.v2_generation_id || !second.v2_generation_id) return false;
+  if (first.v2_generation_id !== second.v2_generation_id) return false;
+  if ((first.session_kind ?? null) !== (second.session_kind ?? null)) return false;
+  if (!first.v2_synced_at || !second.v2_synced_at) return false;
+  return first.v2_synced_at === second.v2_synced_at;
 }
 
 function fallback(reason: string, session: string | null): RadarV2Decision {
@@ -393,7 +409,7 @@ export function buildRadarV2Decision(input: {
 
   if (!isRadarV2BackedTab(tabId)) return fallback("tab_not_radar_backed", null);
 
-  const feed = singleCurrentFeed(feedRows);
+  const feed = currentRadarV2Feed(feedRows);
   if (!feed) return fallback("no_current_feed_state", null);
 
   const session = feed.session_kind ?? null;

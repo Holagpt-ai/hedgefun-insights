@@ -29,6 +29,8 @@ import {
   isActivePremarketSession,
   watchlistTrackedCount,
 } from "@/lib/session-intelligence/watchlist-session";
+import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
+import { resolveVolumeLeadersView } from "@/lib/screeners/radar-v2-volume-leaders";
 
 export default function AMInbox() {
   const { profile } = useAuth();
@@ -47,6 +49,14 @@ export default function AMInbox() {
   const etDate = data?.market_context.et_date ?? "";
   const marketStatus = data?.market_context.status;
   const premarketActive = isActivePremarketSession(marketStatus);
+  const radarVolumeLeaders = useRadarV2VolumeLeaders(premarketActive);
+  const volumeLeadersView = resolveVolumeLeadersView({
+    premarketActive,
+    workspaceLoading: loading,
+    workspaceSection: data?.volume_leaders ?? null,
+    radarLoading: radarVolumeLeaders.loading,
+    radarDecision: radarVolumeLeaders.decision,
+  });
 
   const catalysts = useMemo(() => data?.catalyst_watch.data ?? [], [data]);
 
@@ -124,14 +134,17 @@ export default function AMInbox() {
             <IndexCards rows={data?.indexes.data ?? []} />
           </SectionShell>
 
-          {/* Volume Leaders — screener_results, not Radar V2.2 */}
+          {/* Volume Leaders — Radar V2 during confirmed pre-market; screener_results otherwise. Not Radar V2.2. */}
           <SectionShell
             title="Volume Leaders · sorted by volume"
-            subtitle="Screener results · 15-minute delayed · not session-attributed"
-            section={data?.volume_leaders ?? null}
-            loading={loading}
-            emptyMessage="No qualifying screener rows."
-            onRetry={ws.retry}
+            subtitle={volumeLeadersView.subtitle}
+            section={volumeLeadersView.section}
+            loading={volumeLeadersView.loading}
+            emptyMessage={volumeLeadersView.emptyMessage}
+            onRetry={() => {
+              ws.retry();
+              radarVolumeLeaders.retry();
+            }}
             action={
               <button
                 onClick={() => navigate("/dashboard/screeners")}
@@ -141,7 +154,7 @@ export default function AMInbox() {
               </button>
             }
           >
-            <VolumeLeaderList rows={data?.volume_leaders.data ?? []} catalysts={catalysts} />
+            <VolumeLeaderList rows={volumeLeadersView.section?.data ?? []} catalysts={catalysts} />
           </SectionShell>
 
           {/* AI Pre-Market Brief (existing entitlement-enforced flow) */}

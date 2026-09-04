@@ -478,10 +478,10 @@ describe("AM Radar shadow comparison", () => {
   it("does not swap the visible AM Volume Leaders surface onto Radar V2.2", () => {
     const inbox = readFileSync(resolve("src/pages/dashboard/AMInbox.tsx"), "utf8");
     expect(inbox).toContain('title="Volume Leaders · sorted by volume"');
-    expect(inbox).toContain("Screener results · 15-minute delayed · not session-attributed");
+    expect(inbox).toContain("radar-v2-volume-leaders");
+    expect(inbox).toContain("useRadarV2VolumeLeaders");
     expect(inbox).not.toContain('title="Day-Trade Radar · sorted by volume"');
-    expect(inbox).toContain("screener_results, not Radar V2.2");
-    expect(inbox).toContain("volume_leaders");
+    expect(inbox).toContain("Not Radar V2.2");
     expect(inbox).not.toMatch(/from ["']@\/lib\/radar-v22["']/);
     expect(inbox).not.toMatch(/radar_v22_board/);
     expect(inbox).not.toMatch(/useRadarV22Board/);
