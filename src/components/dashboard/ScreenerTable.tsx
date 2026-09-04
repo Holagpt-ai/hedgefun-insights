@@ -22,6 +22,8 @@ interface ScreenerTableProps {
   status?: ScreenerUiStatus;
   /** Active data source, for session-aware criteria/description copy. */
   source?: ScreenerDataSource | null;
+  /** Accepted Radar V2 generation session_kind. */
+  session?: string | null;
 }
 
 function formatCell(value: string | number | null | undefined, format: ColumnFormat): string {
@@ -66,8 +68,9 @@ export function ScreenerTable({
   rows = [],
   status = "loading",
   source = null,
+  session = null,
 }: ScreenerTableProps) {
-  const copy = resolveScreenerCopy(tab, source);
+  const copy = resolveScreenerCopy(tab, source, session);
   const navigate = useNavigate();
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);

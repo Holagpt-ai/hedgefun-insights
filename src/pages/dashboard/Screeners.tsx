@@ -13,9 +13,10 @@ import { resolveScreenerCopy } from "@/lib/screeners/screener-copy";
 import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
 
-// All Radar-backed pre-market tabs refresh on this cadence so they do not go
-// stale while Radar V2 keeps publishing new generations. 60s is intentional:
-// the worker persists far more often, but polling faster would add no value.
+// All Radar-backed tabs refresh on this cadence so they do not go stale while
+// Radar V2 keeps publishing new generations across pre-market, market, and
+// after-hours. 60s is intentional: the worker persists far more often, but
+// polling faster would add no value.
 const RADAR_BACKED_REFRESH_MS = 60_000;
 
 function formatPipelineAge(iso: string | null): string | null {
@@ -51,14 +52,13 @@ export default function Screeners() {
   // single tab-list source of truth instead of duplicating IDs here.
   const isRadarBacked = isRadarV2BackedTab(activeTabId);
 
-  const { status, rows, syncedAt, providerAsOfMax, source } = useScreenerData(activeTabId, {
+  const { status, rows, syncedAt, providerAsOfMax, source, session } = useScreenerData(activeTabId, {
     refreshIntervalMs: isRadarBacked ? RADAR_BACKED_REFRESH_MS : undefined,
     pauseWhenHidden: true,
   });
 
-  // Session-aware copy: during Radar V2 pre-market mode the static RTH criteria
-  // do not apply, so show truthful wording without rewriting the static config.
-  const activeCopy = resolveScreenerCopy(activeTab, source);
+  // Session-aware copy: use the accepted Radar generation session, never the clock.
+  const activeCopy = resolveScreenerCopy(activeTab, source, session);
 
   const accessLabel = isPro
     ? "PRO ACCESS — 15-MINUTE DELAYED MARKET FEED"
@@ -133,6 +133,7 @@ export default function Screeners() {
           providerAsOfMax={providerAsOfMax}
           freeRowLimit={activeTab.freeRowLimit}
           source={source}
+          session={session}
         />
       ) : (
         <ScreenerTable
@@ -141,6 +142,7 @@ export default function Screeners() {
           rows={rows}
           status={status}
           source={source}
+          session={session}
         />
       )}
     </div>

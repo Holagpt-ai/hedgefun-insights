@@ -12,6 +12,8 @@ vi.mock("@/hooks/useScreenerData", () => ({
     rows: [],
     syncedAt: null,
     providerAsOfMax: null,
+    source: null,
+    session: null,
   }),
 }));
 

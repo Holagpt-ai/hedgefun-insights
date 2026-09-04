@@ -306,19 +306,88 @@ describe("Radar V2 source — stable-generation handshake (D11)", () => {
     expect(peekRadarV2LoadDiagnostic()?.attempts).toBe(1);
   });
 
-  it("8. wrong session → fallback without retry", async () => {
+  it("8. closed session → fallback without retry", async () => {
     const sleep = vi.fn(async () => {});
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ session_kind: "market" })]),
-        ok([feedRow({ session_kind: "market" })]),
+        ok([feedRow({ session_kind: "closed" })]),
+        ok([feedRow({ session_kind: "closed" })]),
       ],
-      cands: [ok([candRow({ session_kind: "market" })])],
+      cands: [ok([candRow({ session_kind: "closed" })])],
     });
     const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
     expect(decision.source).toBe("fallback");
-    expect(decision.reason).toBe("session_not_active:market");
+    expect(decision.reason).toBe("session_not_active:closed");
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("14. stable-generation handshake still works in market session", async () => {
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_A })]),
+        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_A })]),
+      ],
+      cands: [ok([candRow({ session_kind: "market", symbol: "SOXL" })])],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep: noSleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.session).toBe("market");
+    expect(decision.view!.rows[0].symbol).toBe("SOXL");
+  });
+
+  it("15. stable-generation handshake still works in after-hours session", async () => {
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_A })]),
+        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_A })]),
+      ],
+      cands: [ok([candRow({ session_kind: "after-hours", symbol: "BTAI" })])],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep: noSleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.session).toBe("after-hours");
+    expect(decision.view!.rows[0].symbol).toBe("BTAI");
+  });
+
+  it("11. PM → market generation transition retries then adopts market without fallback", async () => {
+    const sleep = vi.fn(async () => {});
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ session_kind: "pre-market", v2_generation_id: GEN_A })]),
+        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_B })]),
+        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_B })]),
+        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_B })]),
+      ],
+      cands: [
+        ok([candRow({ generation_id: GEN_A, session_kind: "pre-market" })]),
+        ok([candRow({ symbol: "SNXX", generation_id: GEN_B, session_kind: "market" })]),
+      ],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.session).toBe("market");
+    expect(decision.view!.rows[0].symbol).toBe("SNXX");
+    expect(sleep).toHaveBeenCalled();
+  });
+
+  it("12. market → after-hours generation transition retries then adopts AH", async () => {
+    const sleep = vi.fn(async () => {});
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_A })]),
+        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_B })]),
+        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_B })]),
+        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_B })]),
+      ],
+      cands: [
+        ok([candRow({ generation_id: GEN_A, session_kind: "market" })]),
+        ok([candRow({ symbol: "BAOS", generation_id: GEN_B, session_kind: "after-hours" })]),
+      ],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.session).toBe("after-hours");
+    expect(decision.view!.rows[0].symbol).toBe("BAOS");
   });
 
   it("falls back on a reader error without retrying as a generation race", async () => {

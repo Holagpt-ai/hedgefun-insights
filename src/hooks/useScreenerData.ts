@@ -90,7 +90,7 @@ export function useScreenerData(
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [providerAsOfMax, setProviderAsOfMax] = useState<string | null>(null);
   // Which source is currently populating the tab, so the UI can show truthful,
-  // session-aware copy (Radar V2 pre-market vs the verified screener_results path).
+  // session-aware copy (Radar V2 vs the verified screener_results path).
   const [source, setSource] = useState<ScreenerDataSource | null>(null);
   const [session, setSession] = useState<string | null>(null);
 
@@ -161,9 +161,10 @@ export function useScreenerData(
         hasLoadedOnce = false;
       }
 
-      // Preferred source during an active (pre-market) session: Radar V2
-      // candidate intelligence. Falls back to the verified screener_results
-      // path when Radar V2 is not the preferred/fresh source for this tab.
+      // Preferred source during an active Radar V2 session (pre-market, market,
+      // after-hours): Radar V2 candidate intelligence. Falls back to the
+      // verified screener_results path when Radar V2 is not the preferred/fresh
+      // source for this tab.
       if (isRadarV2BackedTab(tabId)) {
         const decision = await loadRadarV2Decision(tabId, Date.now());
         if (decision.source === "radar-v2" && decision.view) {

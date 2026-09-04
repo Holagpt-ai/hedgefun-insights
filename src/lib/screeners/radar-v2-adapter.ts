@@ -14,7 +14,7 @@
  *  - RVOL is not persisted by Radar V2 → `rvol` stays null → UI renders `—`.
  *  - No prior-close is persisted → `gap_percent` / `prior_session_volume` /
  *    `volume_ratio_prior_session` / 52w fields stay null (rendered `—`).
- *  - No confirmed prior-close percentage change exists pre-market, so
+ *  - No confirmed prior-close percentage change is persisted in any session, so
  *    `change_percent` is left null (rendered `—`). Radar only persists a
  *    short-window move (move_60s_pct / move_15s_pct); surfacing that in a column
  *    labeled "Move"/"% Change" would mislabel it as a day/session change, so it
@@ -54,27 +54,28 @@ export const RADAR_V2_SESSION_KINDS = [
 export type RadarV2SessionKind = (typeof RADAR_V2_SESSION_KINDS)[number];
 
 /**
- * Sessions where Radar V2 is the PREFERRED screener source in THIS sprint.
- * Architecture supports market / after-hours, but D5 activates pre-market only.
- * Widening this set is the single switch to activate later sessions.
+ * Sessions where Radar V2 is the PREFERRED screener source.
+ * D12 activates the full live window: pre-market, regular market, after-hours.
+ * `closed` stays inactive so after-hours rows are never relabeled as live closed.
  */
 export const RADAR_V2_ACTIVE_SESSIONS: ReadonlySet<RadarV2SessionKind> = new Set([
   "pre-market",
+  "market",
+  "after-hours",
 ]);
 
 // ── Tab eligibility (do not make every tab identical) ───────────────────────
 
 /**
  * Tabs that consume the Radar V2 candidate universe during an active session.
- *  - day_trade_radar : Radar-backed (PM candidate universe; no RTH gate).
+ *  - day_trade_radar : Radar-backed across pre-market, market, and after-hours.
  *  - volume_spikes   : partially Radar-backed (session/velocity volume evidence).
  *  - unusual_volume  : partially Radar-backed (velocity/anomaly evidence; no RVOL).
  *  - gainers_losers  : partially Radar-backed (short-window Radar move).
  *
- * Intentionally NOT Radar-backed pre-market (kept on the existing path, which is
- * an honest empty during PM):
+ * Intentionally NOT Radar-backed in any session (kept on the existing path):
  *  - gappers        : no persisted prior-close → cannot compute honest gap.
- *  - new_highs_lows : RTH 52-week semantics are not valid pre-market.
+ *  - new_highs_lows : RTH 52-week semantics are not persisted by Radar V2.
  */
 export const RADAR_V2_BACKED_TABS: ReadonlySet<string> = new Set([
   "day_trade_radar",
@@ -333,8 +334,9 @@ export function mapCandidateToScreenerRow(
     symbol,
     company_name: null, // Radar V2 does not persist company name.
     price: isFiniteNumber(row.last_price) ? row.last_price : null,
-    // No confirmed prior-close % change pre-market. Radar's short-window move is
-    // NOT a day/session change and must not be mislabeled → leave null (`—`).
+    // No confirmed prior-close % change is persisted by Radar V2. Radar's
+    // short-window move is NOT a day/session change and must not be mislabeled
+    // → leave null (`—`).
     change_percent: null,
     volume: isFiniteNumber(row.session_volume) ? row.session_volume : null,
     avg_volume: null,
@@ -397,7 +399,7 @@ function fallback(reason: string, session: string | null): RadarV2Decision {
  * Central consumer decision. Returns `source: "radar-v2"` with a ready view when
  * Radar V2 is the preferred, fresh, single-generation source for the tab and the
  * active session; otherwise `source: "fallback"` so the caller uses the existing
- * verified screener_results path (an honest empty during pre-market).
+ * verified screener_results path.
  */
 export function buildRadarV2Decision(input: {
   feedRows: readonly RadarV2FeedStateRow[] | null;

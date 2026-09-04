@@ -23,6 +23,7 @@ export function DayTradeRadarV2({
   providerAsOfMax,
   freeRowLimit,
   source = null,
+  session = null,
 }: DayTradeRadarV2Props) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -121,6 +122,7 @@ export function DayTradeRadarV2({
         showReturnToLeader={showReturnToLeader}
         onReturnToLeader={returnToLeader}
         engineSource={resolved.source}
+        session={source === "radar-v2" ? session : null}
       />
 
       {resolved.status === "loading" && (

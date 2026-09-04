@@ -1,11 +1,12 @@
 /**
  * Day Trade Radar source precedence (D5.3).
  *
- * When the screener data layer selected Radar V2 as the preferred pre-market
- * source (`source === "radar-v2"`), those rows/status/timestamps are
- * AUTHORITATIVE and must not be superseded by the legacy `radar_v22_board`
- * (`resolveRadarSource`). This includes a healthy Radar V2 EMPTY generation,
- * which must stay honestly empty rather than falling back to legacy board rows.
+ * When the screener data layer selected Radar V2 as the preferred source
+ * (`source === "radar-v2"`), those rows/status/timestamps are AUTHORITATIVE
+ * during pre-market, regular market, and after-hours and must not be
+ * superseded by the legacy `radar_v22_board` (`resolveRadarSource`). This
+ * includes a healthy Radar V2 EMPTY generation, which must stay honestly
+ * empty rather than falling back to legacy board rows.
  *
  * For any other source, the existing board/fallback resolution is preserved
  * exactly by delegating to `resolveRadarSource`.
