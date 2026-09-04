@@ -5,7 +5,7 @@ import {
   type ScreenerResultRow,
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
-import type { RadarRankedRow, RadarRankingFields, RadarSignalLabel } from "./types";
+import type { RadarRankedRow, RadarRankingFields, RadarSignalLabel, LegacyConfirmationFields } from "./types";
 import { isRadarCapabilityEnabled } from "./radar-capabilities";
 import { isRadarV22Signal } from "@/lib/radar-v22";
 
@@ -19,7 +19,7 @@ export function rankRadarRows(
 ): RadarRankedRow[] {
   return rows.map((row, index) => {
     const rank = index + 1;
-    const ranking = row as ScreenerResultRow & RadarRankingFields;
+    const ranking = row as ScreenerResultRow & RadarRankingFields & LegacyConfirmationFields;
     return {
       ...row,
       rank,
@@ -32,6 +32,10 @@ export function rankRadarRows(
       rolling_volume_15s: ranking.rolling_volume_15s,
       rolling_volume_60s: ranking.rolling_volume_60s,
       acceleration_5m: ranking.acceleration_5m,
+      legacy_confirmed: ranking.legacy_confirmed,
+      legacy_price_gate: ranking.legacy_price_gate,
+      legacy_move_gate: ranking.legacy_move_gate,
+      legacy_volume_gate: ranking.legacy_volume_gate,
     };
   });
 }

@@ -24,6 +24,7 @@ import {
 } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
 import { useMemo } from "react";
+import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 
 interface RadarGridProps {
   rows: RadarRankedRow[];
@@ -175,6 +176,7 @@ export function RadarGrid({
                     {sym}
                   </Link>
                   <div className="text-[11px] text-muted-foreground truncate">{company}</div>
+                  <LegacyConfirmedBadge confirmed={row.legacy_confirmed} />
                 </td>
                 <td className="px-2 py-2">
                   <span

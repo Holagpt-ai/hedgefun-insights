@@ -189,4 +189,24 @@ describe("Day Trade Radar source precedence (D5.3)", () => {
     expect(decision.rows[0].symbol).toBe("RTH1");
     expect(decision.rows.map((r) => r.symbol)).not.toContain("LEGACY");
   });
+
+  it("2. legacy v2.2 board cannot replace a healthy Sentinel ranking", () => {
+    const decision = resolveDayTradeRadarSource({
+      source: "radar-v2",
+      todayEt: TODAY,
+      adoptedSession: null,
+      v21: {
+        rows: [screenerRow("A", 9_000_000), screenerRow("B", 1_000_000)],
+        status: "available",
+        syncedAt: "2026-09-04T17:12:30.000Z",
+        providerAsOfMax: "2026-09-04T17:00:00.000Z",
+      },
+      v22: legacyBoard(
+        [legacyRankedRow("B", 1), legacyRankedRow("A", 2)],
+        "available",
+      ),
+    });
+    expect(decision.source).toBe("radar-v2-candidates");
+    expect(decision.rows.map((r) => r.symbol)).toEqual(["A", "B"]);
+  });
 });

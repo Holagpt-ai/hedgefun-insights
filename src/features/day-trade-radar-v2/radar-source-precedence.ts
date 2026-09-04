@@ -1,15 +1,16 @@
 /**
- * Day Trade Radar source precedence (D5.3).
+ * Day Trade Radar source precedence (D5.3 / D13).
  *
  * When the screener data layer selected Radar V2 as the preferred source
  * (`source === "radar-v2"`), those rows/status/timestamps are AUTHORITATIVE
  * during pre-market, regular market, and after-hours and must not be
- * superseded by the legacy `radar_v22_board` (`resolveRadarSource`). This
- * includes a healthy Radar V2 EMPTY generation, which must stay honestly
- * empty rather than falling back to legacy board rows.
+ * superseded by the legacy `radar_v22_board` (`resolveRadarSource`) or by
+ * screener_results as a competing ranked board. This includes a healthy
+ * Radar V2 EMPTY generation, which must stay honestly empty.
  *
- * For any other source, the existing board/fallback resolution is preserved
- * exactly by delegating to `resolveRadarSource`.
+ * Legacy qualification is a confirmation overlay on Sentinel symbols, not a
+ * replacement ranking. For any other source, the existing board/fallback
+ * resolution is preserved exactly by delegating to `resolveRadarSource`.
  */
 
 import { resolveRadarSource, type RadarV22View } from "@/lib/radar-v22";

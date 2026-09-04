@@ -23,7 +23,15 @@ export type RadarSignalLabel =
   | "STALE"
   | "INACTIVE";
 
-export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields {
+export interface LegacyConfirmationFields {
+  /** True only when all three validated legacy gates are satisfied. */
+  legacy_confirmed?: boolean;
+  legacy_price_gate?: boolean | null;
+  legacy_move_gate?: boolean | null;
+  legacy_volume_gate?: boolean | null;
+}
+
+export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, LegacyConfirmationFields {
   /** Authoritative volume-first rank derived from verified backend order (1-based). */
   rank: number;
   signal: RadarSignalLabel;

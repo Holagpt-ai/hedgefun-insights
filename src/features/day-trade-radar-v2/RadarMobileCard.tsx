@@ -15,6 +15,7 @@ import {
   volumeRatioClass,
 } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
+import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -76,6 +77,7 @@ export function RadarMobileCard({
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {row.signal}
             </span>
+            <LegacyConfirmedBadge confirmed={row.legacy_confirmed} />
           </div>
           <div className="text-[12px] text-muted-foreground truncate">{company}</div>
         </div>

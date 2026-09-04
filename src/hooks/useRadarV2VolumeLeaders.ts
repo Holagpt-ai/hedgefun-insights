@@ -12,55 +12,25 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
-import { radarV2ReasonFamily } from "@/lib/screeners/radar-v2-diagnostics";
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
+import {
+  radarV2FetchThrewDecision,
+  shouldPreserveVerifiedRadarV2OnSoftRefresh,
+} from "@/lib/screeners/radar-v2-soft-refresh";
 
 export const RADAR_REFRESH_MS = 60_000;
 
-/** Transient loader failures that must not destroy a verified PM board. */
-export const RADAR_V2_SOFT_REFRESH_PRESERVE_REASONS = [
-  "radar_v2_fetch_error",
-  "radar_v2_fetch_threw",
-  "radar_v2_retry_exhausted",
-  "generation_race",
-] as const;
+export {
+  isTransientRadarV2SoftFailure,
+  isVerifiedRadarV2Decision,
+  RADAR_V2_SOFT_REFRESH_PRESERVE_REASONS,
+  shouldPreserveVerifiedRadarV2OnSoftRefresh,
+} from "@/lib/screeners/radar-v2-soft-refresh";
 
 export interface UseRadarV2VolumeLeadersResult {
   loading: boolean;
   decision: RadarV2Decision | null;
   retry: () => void;
-}
-
-export function isVerifiedRadarV2Decision(
-  decision: RadarV2Decision | null | undefined,
-): decision is RadarV2Decision {
-  return !!decision && decision.source === "radar-v2" && decision.view !== null;
-}
-
-export function isTransientRadarV2SoftFailure(decision: RadarV2Decision): boolean {
-  if (decision.source === "radar-v2") return false;
-  const family = radarV2ReasonFamily(decision.reason);
-  return (RADAR_V2_SOFT_REFRESH_PRESERVE_REASONS as readonly string[]).includes(family);
-}
-
-/**
- * Soft-refresh retain rule (mirrors useScreenerData):
- * keep the last verified Radar V2 decision when a background poll fails
- * transiently. Hard/initial loads always apply. Valid available and valid
- * empty Radar decisions always replace.
- */
-export function shouldPreserveVerifiedRadarV2OnSoftRefresh(input: {
-  soft: boolean;
-  next: RadarV2Decision;
-  prior: RadarV2Decision | null;
-}): boolean {
-  if (!input.soft) return false;
-  if (!isVerifiedRadarV2Decision(input.prior)) return false;
-  return isTransientRadarV2SoftFailure(input.next);
-}
-
-function fetchThrewDecision(): RadarV2Decision {
-  return { source: "fallback", reason: "radar_v2_fetch_threw", session: null, view: null };
 }
 
 export function useRadarV2VolumeLeaders(enabled: boolean): UseRadarV2VolumeLeadersResult {
@@ -88,7 +58,7 @@ export function useRadarV2VolumeLeaders(enabled: boolean): UseRadarV2VolumeLeade
       try {
         next = await loadRadarV2Decision("day_trade_radar", Date.now());
       } catch {
-        next = fetchThrewDecision();
+        next = radarV2FetchThrewDecision();
       }
       if (cancelled) return;
       setDecision((prior) =>
