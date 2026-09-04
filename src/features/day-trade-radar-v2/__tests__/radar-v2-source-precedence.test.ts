@@ -149,19 +149,44 @@ describe("Day Trade Radar source precedence (D5.3)", () => {
     expect(decision.rows[0].symbol).toBe("OLD1");
   });
 
-  it("null source (initial) behaves like fallback, not Radar V2 authoritative", () => {
+  it("17. valid empty Radar V2 remains authoritative in market and after-hours", () => {
+    for (const _session of ["market", "after-hours"] as const) {
+      const decision = resolveDayTradeRadarSource({
+        source: "radar-v2",
+        todayEt: TODAY,
+        adoptedSession: null,
+        v21: {
+          rows: [],
+          status: "empty",
+          syncedAt: "2026-09-03T20:12:30.000Z",
+          providerAsOfMax: "2026-09-03T20:00:00.000Z",
+        },
+        v22: legacyBoard(
+          [legacyRankedRow("A", 1), legacyRankedRow("B", 2)],
+          "available",
+        ),
+      });
+      expect(decision.source).toBe("radar-v2-candidates");
+      expect(decision.status).toBe("empty");
+      expect(decision.rows).toHaveLength(0);
+    }
+  });
+
+  it("J. Radar V2 RTH source beats a valid legacy snapshot", () => {
     const decision = resolveDayTradeRadarSource({
-      source: null,
+      source: "radar-v2",
       todayEt: TODAY,
       adoptedSession: null,
       v21: {
-        rows: [screenerRow("OLD1", 9_000_000)],
+        rows: [screenerRow("RTH1", 5_000_000)],
         status: "available",
-        syncedAt: null,
-        providerAsOfMax: null,
+        syncedAt: "2026-09-03T17:12:30.000Z",
+        providerAsOfMax: "2026-09-03T17:00:00.000Z",
       },
-      v22: emptyLegacyBoard,
+      v22: legacyBoard([legacyRankedRow("LEGACY", 1)], "available"),
     });
-    expect(decision.source).toBe("v2.1");
+    expect(decision.source).toBe("radar-v2-candidates");
+    expect(decision.rows[0].symbol).toBe("RTH1");
+    expect(decision.rows.map((r) => r.symbol)).not.toContain("LEGACY");
   });
 });

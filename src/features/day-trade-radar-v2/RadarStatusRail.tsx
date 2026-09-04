@@ -27,7 +27,7 @@ function formatProviderAsOf(iso: string | null): string | null {
  * Legacy / RTH-snapshot engine chips. Truthful only for the radar_v22_board
  * (v2.1 / v2.2) source, whose rows are regular-session qualified.
  */
-const LEGACY_ENGINE_CHIPS = [
+export const LEGACY_ENGINE_CHIPS = [
   "AUTO RADAR ON",
   "$2–$20 ENTRY",
   "+10% CONFIRMED",
@@ -35,27 +35,47 @@ const LEGACY_ENGINE_CHIPS = [
   "VOLUME FIRST",
 ] as const;
 
-/**
- * Radar V2 pre-market candidate chips. Only claims rules actually applied to
- * these rows: Sentinel discovery, volume-first ranking on persisted
- * volume/velocity/acceleration, on a 15-minute delayed feed. No $2–$20 / +10% /
- * ≥5× / RVOL / gap claims.
- */
-const RADAR_V2_PM_ENGINE_CHIPS = [
+const RADAR_V2_SHARED_CHIPS = [
   "SENTINEL DISCOVERY",
-  "PRE-MARKET",
   "VOLUME FIRST",
   "VELOCITY / ACCELERATION",
   "15-MIN DELAYED",
 ] as const;
 
-function engineChipsFor(engineSource: RadarEngineSource): readonly string[] {
+/** Session chip for an accepted Radar V2 generation. Never inferred from clock. */
+export function radarV2SessionChip(session: string | null | undefined): string | null {
+  if (session === "pre-market") return "PRE-MARKET";
+  if (session === "market") return "REGULAR MARKET";
+  if (session === "after-hours") return "AFTER-HOURS";
+  return null;
+}
+
+/**
+ * Radar V2 candidate chips. Session comes from the accepted generation.
+ * No $2–$20 / +10% / ≥5× / RVOL / gap claims.
+ */
+export function radarV2EngineChips(session: string | null | undefined): readonly string[] {
+  const sessionChip = radarV2SessionChip(session);
+  if (!sessionChip) return RADAR_V2_SHARED_CHIPS;
+  return [
+    "SENTINEL DISCOVERY",
+    sessionChip,
+    "VOLUME FIRST",
+    "VELOCITY / ACCELERATION",
+    "15-MIN DELAYED",
+  ];
+}
+
+export function engineChipsFor(
+  engineSource: RadarEngineSource,
+  session?: string | null,
+): readonly string[] {
   return engineSource === "radar-v2-candidates"
-    ? RADAR_V2_PM_ENGINE_CHIPS
+    ? radarV2EngineChips(session)
     : LEGACY_ENGINE_CHIPS;
 }
 
-function engineLabelFor(engineSource: RadarEngineSource): string {
+export function engineLabelFor(engineSource: RadarEngineSource): string {
   if (engineSource === "radar-v2-candidates") return "Radar V2 Sentinel";
   if (engineSource === "v2.2") return "Radar V2.2";
   return "Radar V2.1 snapshot";
@@ -71,6 +91,8 @@ interface RadarStatusRailProps {
   showReturnToLeader: boolean;
   onReturnToLeader: () => void;
   engineSource?: RadarEngineSource;
+  /** Accepted Radar V2 generation session_kind. Authoritative; never clock-inferred. */
+  session?: string | null;
 }
 
 export function RadarStatusRail({
@@ -83,11 +105,12 @@ export function RadarStatusRail({
   showReturnToLeader,
   onReturnToLeader,
   engineSource = "v2.1",
+  session = null,
 }: RadarStatusRailProps) {
   const providerLabel = formatProviderAsOf(providerAsOfMax);
   const pipelineAge = formatPipelineAge(syncedAt);
   const engineLabel = engineLabelFor(engineSource);
-  const engineChips = engineChipsFor(engineSource);
+  const engineChips = engineChipsFor(engineSource, session);
   const statusLabel =
     status === "available"
       ? "Available"

@@ -51,11 +51,13 @@ export interface DayTradeRadarV2Props {
   freeRowLimit: number;
   /**
    * Active screener data source. When "radar-v2", the passed rows/status are the
-   * authoritative Radar V2 pre-market candidate universe and MUST NOT be
-   * superseded by the legacy radar_v22_board. Any other value preserves the
-   * existing board/fallback resolution.
+   * authoritative Radar V2 candidate universe (pre-market, market, after-hours)
+   * and MUST NOT be superseded by the legacy radar_v22_board. Any other value
+   * preserves the existing board/fallback resolution.
    */
   source?: ScreenerDataSource | null;
+  /** Accepted Radar V2 generation session_kind from the data layer. */
+  session?: string | null;
 }
 
 /** Engine/source designation shown in the Day Trade Radar status rail. */

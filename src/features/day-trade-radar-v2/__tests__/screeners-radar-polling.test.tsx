@@ -40,6 +40,7 @@ beforeEach(() => {
     syncedAt: null,
     providerAsOfMax: null,
     source: null,
+    session: null,
   });
 });
 

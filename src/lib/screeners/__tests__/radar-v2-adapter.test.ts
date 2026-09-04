@@ -69,10 +69,10 @@ function feed(overrides: Partial<RadarV2FeedStateRow> = {}): RadarV2FeedStateRow
 }
 
 describe("Radar V2 adapter — session + tab eligibility", () => {
-  it("activates pre-market only this sprint but recognizes the full session model", () => {
+  it("1–4. activates pre-market, market, and after-hours; closed stays inactive", () => {
     expect(isRadarV2ActiveSession("pre-market")).toBe(true);
-    expect(isRadarV2ActiveSession("market")).toBe(false);
-    expect(isRadarV2ActiveSession("after-hours")).toBe(false);
+    expect(isRadarV2ActiveSession("market")).toBe(true);
+    expect(isRadarV2ActiveSession("after-hours")).toBe(true);
     expect(isRadarV2ActiveSession("closed")).toBe(false);
     expect(isRadarV2ActiveSession("nonsense")).toBe(false);
   });
@@ -304,17 +304,33 @@ describe("Radar V2 adapter — freshness & fallback (Phase G)", () => {
   });
 });
 
-describe("Radar V2 adapter — session integrity (Phase F)", () => {
-  it("11a. a non-active feed session falls back and is never relabeled", () => {
+describe("Radar V2 adapter — session integrity (Phase F / D12)", () => {
+  it("11a. a closed feed session falls back and is never relabeled", () => {
     const decision = buildRadarV2Decision({
-      feedRows: [feed({ session_kind: "market" })],
-      candidateRows: [candidate({ session_kind: "market" })],
+      feedRows: [feed({ session_kind: "closed" })],
+      candidateRows: [candidate({ session_kind: "closed" })],
       tabId: "day_trade_radar",
       nowMs: NOW,
     });
     expect(decision.source).toBe("fallback");
-    expect(decision.reason).toBe("session_not_active:market");
-    expect(decision.session).toBe("market");
+    expect(decision.reason).toBe("session_not_active:closed");
+    expect(decision.session).toBe("closed");
+  });
+
+  it("market and after-hours generations are accepted as Radar V2", () => {
+    for (const session of ["market", "after-hours"] as const) {
+      const decision = buildRadarV2Decision({
+        feedRows: [feed({ session_kind: session })],
+        candidateRows: [candidate({ session_kind: session, symbol: "SOXL" })],
+        tabId: "day_trade_radar",
+        nowMs: NOW,
+      });
+      expect(decision.source).toBe("radar-v2");
+      expect(decision.session).toBe(session);
+      expect(decision.view!.rows[0].symbol).toBe("SOXL");
+      expect(decision.view!.rows[0].rvol).toBeNull();
+      expect(decision.view!.rows[0].change_percent).toBeNull();
+    }
   });
 
   it("11b. candidates whose session_kind differs from the feed are excluded, not mislabeled", () => {
