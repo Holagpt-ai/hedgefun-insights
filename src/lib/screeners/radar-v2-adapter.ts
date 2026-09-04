@@ -376,9 +376,13 @@ export function currentRadarV2Feed(
 }
 
 /**
- * Handshake check: the second feed read still describes the generation captured
- * on the first read. Generation id, session, and v2_synced_at must all agree so
- * we never mix a feed from generation A with candidates from generation B.
+ * Handshake identity: the second feed read still describes the generation
+ * captured on the first read. Generation id and session must agree so we never
+ * mix generation G candidates with generation H metadata.
+ *
+ * `v2_synced_at` is NOT identity. The worker may advance it on the same
+ * generation while the browser is mid-handshake. Freshness of that timestamp
+ * is checked later by `buildRadarV2Decision`, using the confirmed second feed.
  */
 export function isSameAcceptedRadarV2Generation(
   first: RadarV2FeedStateRow,
@@ -386,9 +390,7 @@ export function isSameAcceptedRadarV2Generation(
 ): boolean {
   if (!first.v2_generation_id || !second.v2_generation_id) return false;
   if (first.v2_generation_id !== second.v2_generation_id) return false;
-  if ((first.session_kind ?? null) !== (second.session_kind ?? null)) return false;
-  if (!first.v2_synced_at || !second.v2_synced_at) return false;
-  return first.v2_synced_at === second.v2_synced_at;
+  return (first.session_kind ?? null) === (second.session_kind ?? null);
 }
 
 function fallback(reason: string, session: string | null): RadarV2Decision {

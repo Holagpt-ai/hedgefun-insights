@@ -436,7 +436,7 @@ describe("Radar V2 adapter — downstream contract (Phase H)", () => {
   });
 });
 
-describe("Radar V2 adapter — handshake helpers (D11)", () => {
+describe("Radar V2 adapter — handshake helpers (D11 / D14)", () => {
   it("accepts a matching current feed pair for the same generation", () => {
     const a = feed();
     const b = feed();
@@ -444,10 +444,18 @@ describe("Radar V2 adapter — handshake helpers (D11)", () => {
     expect(currentRadarV2Feed([a])?.v2_generation_id).toBe(GEN);
   });
 
-  it("rejects a generation or session or synced_at change", () => {
+  it("rejects a generation or session change", () => {
     expect(isSameAcceptedRadarV2Generation(feed(), feed({ v2_generation_id: OTHER_GEN }))).toBe(false);
     expect(isSameAcceptedRadarV2Generation(feed(), feed({ session_kind: "market" }))).toBe(false);
-    expect(isSameAcceptedRadarV2Generation(feed(), feed({ v2_synced_at: "2026-09-03T13:13:00.000Z" }))).toBe(false);
+  });
+
+  it("does not treat a same-generation v2_synced_at advancement as a race", () => {
+    expect(
+      isSameAcceptedRadarV2Generation(
+        feed({ v2_synced_at: "2026-09-03T13:12:30.000Z" }),
+        feed({ v2_synced_at: "2026-09-03T13:13:00.000Z" }),
+      ),
+    ).toBe(true);
   });
 });
 
