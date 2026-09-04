@@ -45,6 +45,10 @@ vi.mock("@/lib/screeners/contract", async (importOriginal) => {
 });
 
 import { useScreenerData } from "@/hooks/useScreenerData";
+import {
+  recordRadarV2LoadDiagnostic,
+  resetRadarV2LoadDiagnostic,
+} from "@/lib/screeners/radar-v2-diagnostics";
 
 const GEN_A = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const GEN_B = "bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee";
@@ -123,6 +127,7 @@ async function flush() {
 describe("useScreenerData Radar V2 soft-refresh preserve (D13)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    resetRadarV2LoadDiagnostic();
     loadRadarV2Decision.mockReset();
     loadVerifiedScreenerGeneration.mockReset();
     loadVerifiedScreenerGeneration.mockResolvedValue(legacyAvailable("LEGACY"));
@@ -160,6 +165,49 @@ describe("useScreenerData Radar V2 soft-refresh preserve (D13)", () => {
     });
     expect(result.current.source).toBe("radar-v2");
     expect(result.current.rows[0].symbol).toBe("IMRN");
+  });
+
+  it("D15. diagnostic snapshot updates on each poll, including preserve", async () => {
+    loadRadarV2Decision
+      .mockImplementationOnce(async () => {
+        recordRadarV2LoadDiagnostic({
+          reason: "radar_v2_available",
+          source: "radar-v2",
+          session: "market",
+          attempts: 1,
+          generationId: GEN_A,
+          declaredCandidateCount: 1,
+          lastAttemptReason: null,
+        });
+        return radarAvailable("IMRN", GEN_A, SYNCED_A);
+      })
+      .mockImplementationOnce(async () => {
+        recordRadarV2LoadDiagnostic({
+          reason: "radar_v2_fetch_error",
+          source: "fallback",
+          session: "market",
+          attempts: 1,
+          generationId: GEN_A,
+          declaredCandidateCount: 1,
+          lastAttemptReason: "radar_v2_fetch_error",
+        });
+        return radarFallback("radar_v2_fetch_error");
+      });
+
+    const { result } = renderHook(() =>
+      useScreenerData("day_trade_radar", { refreshIntervalMs: 60_000, pauseWhenHidden: true }),
+    );
+    await flush();
+    expect(result.current.radarDiagnostic?.reason).toBe("radar_v2_available");
+    expect(result.current.source).toBe("radar-v2");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(result.current.source).toBe("radar-v2");
+    expect(result.current.rows[0].symbol).toBe("IMRN");
+    expect(result.current.radarDiagnostic?.reason).toBe("radar_v2_fetch_error");
+    expect(result.current.radarDiagnostic?.source).toBe("fallback");
   });
 
   it("8. valid newer Radar generation replaces the prior board", async () => {
