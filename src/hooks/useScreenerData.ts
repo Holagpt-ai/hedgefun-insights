@@ -16,6 +16,10 @@ import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screene
 import {
   radarV2FetchThrewDecision,
 } from "@/lib/screeners/radar-v2-soft-refresh";
+import {
+  peekRadarV2LoadDiagnostic,
+  type RadarV2LoadDiagnostic,
+} from "@/lib/screeners/radar-v2-diagnostics";
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 
 export type { ScreenerResultRow, ScreenerUiStatus };
@@ -98,6 +102,9 @@ export function useScreenerData(
   // session-aware copy (Radar V2 vs the verified screener_results path).
   const [source, setSource] = useState<ScreenerDataSource | null>(null);
   const [session, setSession] = useState<string | null>(null);
+  // Snapshot of the existing load diagnostic after each Radar V2 attempt.
+  // Used only by the opt-in `?radarDebug=1` surface — not a second decision path.
+  const [radarDiagnostic, setRadarDiagnostic] = useState<RadarV2LoadDiagnostic | null>(null);
 
   useEffect(() => {
     if (!tabId) return;
@@ -164,6 +171,7 @@ export function useScreenerData(
         setProviderAsOfMax(null);
         setSource(null);
         setSession(null);
+        setRadarDiagnostic(null);
         hasLoadedOnce = false;
       }
 
@@ -178,6 +186,10 @@ export function useScreenerData(
           radarDecision = await loadRadarV2Decision(tabId, Date.now());
         } catch {
           radarDecision = radarV2FetchThrewDecision();
+        }
+
+        if (!cancelled) {
+          setRadarDiagnostic(peekRadarV2LoadDiagnostic());
         }
 
         const resolved = resolveRadarBackedScreenerLoad({
@@ -258,5 +270,5 @@ export function useScreenerData(
     };
   }, [tabId, refreshIntervalMs, pauseWhenHidden]);
 
-  return { status, rows, syncedAt, providerAsOfMax, source, session };
+  return { status, rows, syncedAt, providerAsOfMax, source, session, radarDiagnostic };
 }

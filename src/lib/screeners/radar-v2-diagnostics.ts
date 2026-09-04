@@ -1,10 +1,14 @@
 /**
- * Radar V2 consumer load diagnostics (D11).
+ * Radar V2 consumer load diagnostics (D11 / D15).
  *
  * Machine-readable reasons for why Radar V2 was adopted or why the loader
- * fell back. Recorded in-memory for tests and logged only in development —
- * never rendered in the normal user UI.
+ * fell back. Recorded in-memory for tests and an opt-in `?radarDebug=1` UI.
+ * Console logging remains development-only — never in production, never in
+ * the default Screeners UI.
  */
+
+export const RADAR_DEBUG_QUERY_PARAM = "radarDebug";
+export const RADAR_DEBUG_QUERY_VALUE = "1";
 
 export const RADAR_V2_DECISION_REASONS = [
   "radar_v2_available",
@@ -74,4 +78,19 @@ export function resetRadarV2LoadDiagnostic(): void {
 export function radarV2ReasonFamily(reason: string): string {
   const idx = reason.indexOf(":");
   return idx === -1 ? reason : reason.slice(0, idx);
+}
+
+/**
+ * Opt-in production debug surface. Only `radarDebug=1` enables it —
+ * `true`, empty, or any other value stays off.
+ */
+export function isRadarDebugEnabled(
+  search: string | URLSearchParams | null | undefined,
+): boolean {
+  if (!search) return false;
+  const params =
+    typeof search === "string"
+      ? new URLSearchParams(search.startsWith("?") ? search.slice(1) : search)
+      : search;
+  return params.get(RADAR_DEBUG_QUERY_PARAM) === RADAR_DEBUG_QUERY_VALUE;
 }

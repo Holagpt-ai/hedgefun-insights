@@ -1,5 +1,6 @@
-import { describe, expect, it, beforeEach } from "vitest";
+import { describe, expect, it, beforeEach, vi } from "vitest";
 import {
+  isRadarDebugEnabled,
   peekRadarV2LoadDiagnostic,
   radarV2ReasonFamily,
   recordRadarV2LoadDiagnostic,
@@ -7,7 +8,7 @@ import {
   RADAR_V2_DECISION_REASONS,
 } from "@/lib/screeners/radar-v2-diagnostics";
 
-describe("Radar V2 load diagnostics (D11)", () => {
+describe("Radar V2 load diagnostics (D11 / D15)", () => {
   beforeEach(() => {
     resetRadarV2LoadDiagnostic();
   });
@@ -36,5 +37,33 @@ describe("Radar V2 load diagnostics (D11)", () => {
     });
     expect(peekRadarV2LoadDiagnostic()?.reason).toBe("generation_race");
     expect(radarV2ReasonFamily("session_not_active:market")).toBe("session_not_active");
+  });
+
+  it("does not console-log outside DEV (test / production stay silent)", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    recordRadarV2LoadDiagnostic({
+      reason: "radar_v2_fetch_error",
+      source: "fallback",
+      session: "after-hours",
+      attempts: 1,
+      generationId: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      declaredCandidateCount: 118,
+      lastAttemptReason: "radar_v2_fetch_error",
+    });
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
+  it("enables the debug surface only for radarDebug=1", () => {
+    expect(isRadarDebugEnabled(null)).toBe(false);
+    expect(isRadarDebugEnabled("")).toBe(false);
+    expect(isRadarDebugEnabled("tab=day_trade_radar")).toBe(false);
+    expect(isRadarDebugEnabled("radarDebug=true")).toBe(false);
+    expect(isRadarDebugEnabled("radarDebug=0")).toBe(false);
+    expect(isRadarDebugEnabled("radarDebug=")).toBe(false);
+    expect(isRadarDebugEnabled("radarDebug=1")).toBe(true);
+    expect(isRadarDebugEnabled("?radarDebug=1")).toBe(true);
+    expect(isRadarDebugEnabled(new URLSearchParams("radarDebug=1"))).toBe(true);
+    expect(isRadarDebugEnabled(new URLSearchParams("radarDebug=true"))).toBe(false);
   });
 });

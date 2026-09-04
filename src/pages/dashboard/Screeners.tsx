@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScreenerTable } from "@/components/dashboard/ScreenerTable";
 import { useScreenerData } from "@/hooks/useScreenerData";
@@ -11,7 +12,9 @@ import { hasProAccess } from "@/lib/entitlement";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import { resolveScreenerCopy } from "@/lib/screeners/screener-copy";
 import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
+import { isRadarDebugEnabled } from "@/lib/screeners/radar-v2-diagnostics";
 import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
+import { RadarDebugPanel } from "@/features/day-trade-radar-v2/RadarDebugPanel";
 
 // All Radar-backed tabs refresh on this cadence so they do not go stale while
 // Radar V2 keeps publishing new generations across pre-market, market, and
@@ -43,6 +46,8 @@ function formatProviderAsOf(iso: string | null): string | null {
 export default function Screeners() {
   const { profile } = useAuth();
   const isPro = hasProAccess(profile?.plan);
+  const [searchParams] = useSearchParams();
+  const radarDebug = isRadarDebugEnabled(searchParams);
 
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
@@ -52,7 +57,7 @@ export default function Screeners() {
   // single tab-list source of truth instead of duplicating IDs here.
   const isRadarBacked = isRadarV2BackedTab(activeTabId);
 
-  const { status, rows, syncedAt, providerAsOfMax, source, session } = useScreenerData(activeTabId, {
+  const { status, rows, syncedAt, providerAsOfMax, source, session, radarDiagnostic } = useScreenerData(activeTabId, {
     refreshIntervalMs: isRadarBacked ? RADAR_BACKED_REFRESH_MS : undefined,
     pauseWhenHidden: true,
   });
@@ -122,6 +127,10 @@ export default function Screeners() {
           {providerLabel && <div>Provider data as of {providerLabel}</div>}
           {pipelineAge && <div>Pipeline refreshed {pipelineAge}</div>}
         </div>
+      )}
+
+      {radarDebug && (
+        <RadarDebugPanel diagnostic={radarDiagnostic ?? null} syncedAt={syncedAt} />
       )}
 
       {isDayTradeRadar ? (
