@@ -408,6 +408,124 @@ describe("Radar V2 source — stable-generation handshake (D11)", () => {
   });
 });
 
+describe("Radar V2 source — D14 initial-load handshake fence", () => {
+  const T1 = "2026-09-04T19:45:00.000Z";
+  const T2 = "2026-09-04T19:45:08.000Z";
+
+  it("1. same generation with a newer v2_synced_at is accepted, not raced", async () => {
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ session_kind: "market", v2_synced_at: T1, last_receive_at: T1 })]),
+        ok([feedRow({ session_kind: "market", v2_synced_at: T2, last_receive_at: T2 })]),
+      ],
+      cands: [ok([candRow({ session_kind: "market", symbol: "IMRN" })])],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", Date.parse(T2), {
+      reader,
+      sleep: noSleep,
+    });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.reason).toBe("radar_v2_available");
+    expect(decision.session).toBe("market");
+    expect(decision.view!.rows[0].symbol).toBe("IMRN");
+    expect(decision.view!.synced_at).toBe(T2);
+    expect(reader.feedCalls()).toBe(2);
+    expect(reader.candGens()).toEqual([GEN_A]);
+  });
+
+  it("2. feed2 generation H retries using H", async () => {
+    const sleep = vi.fn(async () => {});
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
+        ok([feedRow({ v2_generation_id: GEN_B, session_kind: "market" })]),
+        ok([feedRow({ v2_generation_id: GEN_B, session_kind: "market" })]),
+        ok([feedRow({ v2_generation_id: GEN_B, session_kind: "market" })]),
+      ],
+      cands: [
+        ok([candRow({ generation_id: GEN_A, session_kind: "market" })]),
+        ok([candRow({ symbol: "SOXL", generation_id: GEN_B, session_kind: "market" })]),
+      ],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.view!.rows[0].symbol).toBe("SOXL");
+    expect(reader.candGens()).toEqual([GEN_A, GEN_B]);
+    expect(sleep).toHaveBeenCalled();
+  });
+
+  it("3. same generation with a different session is not accepted; handshake retries", async () => {
+    const sleep = vi.fn(async () => {});
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "pre-market" })]),
+        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
+        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
+        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
+      ],
+      cands: [
+        ok([candRow({ generation_id: GEN_A, session_kind: "pre-market" })]),
+        ok([candRow({ symbol: "SNXX", generation_id: GEN_A, session_kind: "market" })]),
+      ],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.session).toBe("market");
+    expect(decision.view!.rows[0].symbol).toBe("SNXX");
+    expect(sleep).toHaveBeenCalled();
+    expect(reader.candGens()).toEqual([GEN_A, GEN_A]);
+  });
+
+  it("4. candidate rows from another generation are rejected as a race", async () => {
+    const sleep = vi.fn(async () => {});
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ candidate_count: 128 })]),
+        ok([feedRow({ candidate_count: 128 })]),
+        ok([feedRow({ candidate_count: 128 })]),
+        ok([feedRow({ candidate_count: 128 })]),
+      ],
+      cands: [
+        ok([candRow({ generation_id: GEN_B })]),
+        ok([candRow({ symbol: "BAOS", generation_id: GEN_A })]),
+      ],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.view!.rows[0].symbol).toBe("BAOS");
+    expect(sleep).toHaveBeenCalled();
+  });
+
+  it("6. stale last_receive_at falls back without retry", async () => {
+    const sleep = vi.fn(async () => {});
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ last_receive_at: STALE })]),
+        ok([feedRow({ last_receive_at: STALE })]),
+      ],
+      cands: [ok([candRow()])],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("radar_v2_receive_stale");
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("7. healthy coherent initial load remains Sentinel", async () => {
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ session_kind: "market", candidate_count: 1 })]),
+        ok([feedRow({ session_kind: "market", candidate_count: 1 })]),
+      ],
+      cands: [ok([candRow({ session_kind: "market", symbol: "SOXL" })])],
+    });
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep: noSleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.reason).toBe("radar_v2_available");
+    expect(decision.view!.rows[0].symbol).toBe("SOXL");
+  });
+});
+
 describe("Radar V2 free/Pro entitlement gating remains intact", () => {
   it("7. free users are limited to freeRowLimit rows by rank; Pro sees all", () => {
     const rows = [

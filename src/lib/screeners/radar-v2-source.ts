@@ -141,7 +141,9 @@ function fetchErrorResult(): RadarV2FetchResult {
  *   1. read current feed
  *   2. read candidates FILTERED by that v2_generation_id
  *   3. read current feed again
- *   4. accept only if generation / session / v2_synced_at still match
+ *   4. accept only if generation id and session still match
+ *      (`v2_synced_at` may advance on the same generation; it is freshness,
+ *      not identity)
  *
  * Never issues a parallel feed-and-candidate read.
  */
