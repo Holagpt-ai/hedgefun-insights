@@ -12,6 +12,27 @@ import {
 const et = (iso: string) => new Date(iso);
 
 describe("market calendar", () => {
+  it("never reports regular market open on weekends", () => {
+    const satNoon = resolveMarketClock(et("2026-08-01T16:00:00Z")); // Sat 12:00 ET
+    expect(satNoon.sessionId).toBe("closed");
+    expect(satNoon.label).toBe("MARKET CLOSED");
+
+    const sunNoon = resolveMarketClock(et("2026-08-02T16:00:00Z")); // Sun 12:00 ET
+    expect(sunNoon.sessionId).toBe("closed");
+    expect(sunNoon.label).toBe("MARKET CLOSED");
+  });
+
+  it("resolves deterministic Monday pre/regular/after-hours windows", () => {
+    const pre = resolveMarketClock(et("2026-08-03T12:00:00Z")); // Mon 8:00 ET
+    expect(pre.sessionId).toBe("pre-market");
+
+    const regular = resolveMarketClock(et("2026-08-03T14:00:00Z")); // Mon 10:00 ET
+    expect(regular.sessionId).toBe("market");
+
+    const afterHours = resolveMarketClock(et("2026-08-03T21:00:00Z")); // Mon 5:00 ET
+    expect(afterHours.sessionId).toBe("after-hours");
+  });
+
   it("Sunday Aug 2 2026 1:18 PM ET is closed, next session Monday Aug 3", () => {
     const s = resolveMarketClock(et("2026-08-02T17:18:21Z"));
     expect(s.sessionId).toBe("closed");

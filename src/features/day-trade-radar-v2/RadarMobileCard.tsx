@@ -63,7 +63,7 @@ export function RadarMobileCard({
           onSelect(row);
         }
       }}
-      className={`rounded-lg border border-border bg-card p-3 ${
+      className={`rounded-lg border border-border bg-card p-2.5 ${
         !accessible ? "blur-sm select-none pointer-events-none" : ""
       } ${selected ? "ring-1 ring-accent-blue" : ""} ${
         row.rank === 1 && accessible ? "border-amber-500/30" : ""
@@ -73,7 +73,7 @@ export function RadarMobileCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold text-muted-foreground">#{row.rank}</span>
-            <span className="font-semibold text-accent-blue">{sym}</span>
+            <span className="font-semibold tracking-wide tabular-nums text-accent-blue">{sym}</span>
             <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
               {row.signal}
             </span>
@@ -128,7 +128,7 @@ export function RadarMobileCard({
         )}
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[12px] tabular-nums">
+      <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[12px] tabular-nums">
         <div>
           <span className="text-muted-foreground">Price </span>
           <span className="font-medium">{formatRadarPrice(row.price)}</span>
@@ -156,7 +156,7 @@ export function RadarMobileCard({
       </div>
 
       {accessible && (
-        <div className="mt-2 text-[12px]">
+        <div className="mt-1.5 text-[12px]">
           {catalystCheckPending ? (
             <span className="text-muted-foreground">Catalyst check pending</span>
           ) : catalystError ? (

@@ -142,7 +142,9 @@ export interface MarketClockState {
 export function resolveMarketClock(now: Date): MarketClockState {
   const p = getEtParts(now);
   const etTimeStr = formatEt12h(p);
-  const tradingDay = isTradingDay(p.date, p.weekday);
+  const weekend = isWeekendDate(p.weekday);
+  const holiday = isMarketHoliday(p.date);
+  const tradingDay = !weekend && !holiday;
   const closed = getSession("closed");
 
   const countdownTo = (targetMins: number, daysAhead: number) => {
@@ -150,7 +152,7 @@ export function resolveMarketClock(now: Date): MarketClockState {
     return formatCountdown(secs);
   };
 
-  if (!tradingDay) {
+  if (weekend || holiday) {
     const next = nextTradingDay(p.date);
     const preOpen = getSession("pre-market").rangeStart ?? 240;
     return {

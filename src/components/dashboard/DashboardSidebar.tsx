@@ -103,6 +103,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
             : false;
           const isLocked = entry.locked === "soon";
           const requiresUpgrade = entry.plan === "pro" && !isPro;
+          const isGameEntry = entry.label === "Stocksist Game";
 
           const baseClass = cn(
             "flex items-center rounded-md text-sm transition-colors",
@@ -115,10 +116,20 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
 
           const content = (
             <>
-              <span className="flex-shrink-0">{entry.icon}</span>
+              <span className="relative flex-shrink-0">
+                {entry.icon}
+                {collapsed && isGameEntry && (
+                  <span className="absolute -right-1 -top-1 h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                )}
+              </span>
               {!collapsed && (
                 <>
                   <span className="flex-1 truncate">{entry.label}</span>
+                  {isGameEntry && (
+                    <span className="rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">
+                      NEW
+                    </span>
+                  )}
                   {isLocked && (
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                       Soon
