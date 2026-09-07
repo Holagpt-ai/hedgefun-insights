@@ -10,7 +10,6 @@ import {
 } from "@/config/screener-tabs.config";
 import { hasProAccess } from "@/lib/entitlement";
 import { parseTimestampMs } from "@/lib/screeners/contract";
-import { resolveScreenerCopy } from "@/lib/screeners/screener-copy";
 import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import { isRadarDebugEnabled } from "@/lib/screeners/radar-v2-diagnostics";
 import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
@@ -62,13 +61,6 @@ export default function Screeners() {
     pauseWhenHidden: true,
   });
 
-  // Session-aware copy: use the accepted Radar generation session, never the clock.
-  const activeCopy = resolveScreenerCopy(activeTab, source, session);
-
-  const accessLabel = isPro
-    ? "PRO ACCESS — 15-MINUTE DELAYED MARKET FEED"
-    : "FREE ACCESS — LIMITED 15-MINUTE DELAYED MARKET FEED";
-
   const providerLabel = formatProviderAsOf(providerAsOfMax);
   const pipelineAge = formatPipelineAge(syncedAt);
   const showFreshness =
@@ -78,13 +70,10 @@ export default function Screeners() {
   return (
     <div className="p-3 md:p-5 space-y-2.5">
       <div className="space-y-1.5">
-        <span className="inline-block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground border border-border rounded px-2 py-0.5">
-          {accessLabel}
-        </span>
         <div>
           <h1 className="text-xl md:text-2xl font-bold text-foreground">Screeners</h1>
           <p className="text-sm text-muted-foreground max-w-3xl">
-            Stocksist Sentinel surfaces emerging market activity with volume-first ranking from a 15-minute delayed feed.
+            Stocksist AI surfaces emerging market activity with volume-first ranking.
           </p>
         </div>
       </div>
@@ -108,8 +97,6 @@ export default function Screeners() {
           );
         })}
       </div>
-
-      <p className="text-[12.5px] text-muted-foreground leading-relaxed">{activeCopy.description}</p>
 
       {status === "stale" && !isDayTradeRadar && (
         <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground">

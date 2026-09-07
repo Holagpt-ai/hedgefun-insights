@@ -1,8 +1,7 @@
 import { hasProAccess } from "@/lib/entitlement";
-import { useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BRAND } from "@/config/brand";
 
@@ -17,19 +16,10 @@ const NAV_CARDS = [
   { label: "After-Hours", path: "/dashboard/after-hours", pro: true, icon: "🌙", desc: "Post-market recap & tomorrow's setup" },
 ];
 
-const WHATS_NEW = [
-  { date: "Jun 16 2026", text: "AI Analyst persistent memory" },
-  { date: "Jun 10 2026", text: "After-Hours launched" },
-  { date: "Jun 2 2026", text: "Day Trade Radar screener live" },
-];
-
-type ActivityRow = { created_at: string; entry_type: string };
-
 export default function DashboardHome() {
-  const { user, profile, plan } = useAuth() as any;
+  const { profile, plan } = useAuth() as any;
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [activity, setActivity] = useState<ActivityRow[]>([]);
 
   const isPro = hasProAccess(plan);
 
@@ -42,20 +32,6 @@ export default function DashboardHome() {
       navigate("/dashboard", { replace: true });
     }
   }, []);
-
-  useEffect(() => {
-    if (!user?.id) return;
-    (async () => {
-      const { data } = await (supabase as any)
-        .from("ai_daily_logs")
-        .select("created_at,entry_type")
-        .eq("user_id", user.id)
-        .in("entry_type", ["section_view", "ai_turn"])
-        .order("created_at", { ascending: false })
-        .limit(7);
-      if (data) setActivity(data as unknown as ActivityRow[]);
-    })();
-  }, [user]);
 
   const greeting = () => {
     const h = new Date().getHours();
@@ -73,7 +49,7 @@ export default function DashboardHome() {
   });
 
   return (
-    <div className="p-6 max-w-5xl mx-auto space-y-10">
+    <div className="p-6 max-w-5xl mx-auto space-y-6">
       {/* Greeting */}
       <section>
         <h1 className="text-3xl font-bold tracking-tight">
@@ -115,63 +91,6 @@ export default function DashboardHome() {
         </div>
       </section>
 
-      {/* What's New */}
-      <section>
-        <h2 className="text-lg font-semibold mb-3">What's New</h2>
-        <ul className="divide-y rounded-xl border bg-card">
-          {WHATS_NEW.map((item, i) => (
-            <li key={i} className="flex items-center gap-4 px-4 py-3">
-              <span className="text-xs text-muted-foreground w-24 shrink-0">{item.date}</span>
-              <span className="text-sm">{item.text}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      {/* Recent Activity */}
-      <section>
-        <h2 className="text-lg font-semibold mb-3">Recent Activity</h2>
-        {activity.length === 0 ? (
-          <div className="text-center py-6 space-y-3">
-            <p className="text-sm font-medium text-foreground">No recent activity yet</p>
-            <p className="text-xs text-muted-foreground max-w-xs mx-auto">
-              Start by opening Pre-Market, running a screener, or asking the AI Analyst
-              for a market read. Your activity will appear here once you get started.
-            </p>
-            <div className="flex justify-center gap-2 flex-wrap pt-1">
-              <Link
-                to="/dashboard/pre-market"
-                className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
-              >
-                Pre-Market
-              </Link>
-              <Link
-                to="/dashboard/screeners"
-                className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
-              >
-                Screeners
-              </Link>
-              <Link
-                to="/dashboard/ai"
-                className="text-xs px-3 py-1 rounded-full bg-muted text-muted-foreground hover:bg-muted/80"
-              >
-                AI Analyst
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <ul className="divide-y rounded-xl border bg-card">
-            {activity.map((a, i) => (
-              <li key={i} className="flex items-center gap-4 px-4 py-3">
-                <span className="text-xs text-muted-foreground w-24 shrink-0">
-                  {new Date(a.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </span>
-                <span className="text-sm capitalize">{a.entry_type.replace("_", " ")}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

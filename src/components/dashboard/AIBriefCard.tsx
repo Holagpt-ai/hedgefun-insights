@@ -5,6 +5,8 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBrief } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
+import { getEtParts, isTradingDay, marketHolidayName, nextTradingDay } from "@/lib/market-calendar";
+import { Link } from "react-router-dom";
 
 interface AIBriefCardProps {
   isPro: boolean;
@@ -33,7 +35,7 @@ type BriefState =
       briefDateDisplay: string | null;
       evidenceCutoff: string | null;
     }
-  | { kind: "notice"; message: string; refreshable: boolean }
+  | { kind: "notice"; message: string; refreshable: boolean; showAfterHoursCta?: boolean }
   | { kind: "error"; message: string; refreshable: boolean };
 
 const REFRESHABLE_CODES = new Set(["brief_not_ready", "pm_not_released"]);
@@ -52,6 +54,17 @@ function formatEt(iso: string): string {
   }
 }
 
+function longDateLabel(date: string): string {
+  const [y, m, d] = date.split("-").map(Number);
+  const utc = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: "UTC",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(utc);
+}
+
 // Safely format a YYYY-MM-DD backend date string without timezone shift.
 function formatBriefDate(dateStr: string | null | undefined): string | null {
   if (!dateStr) return null;
@@ -61,6 +74,57 @@ function formatBriefDate(dateStr: string | null | undefined): string | null {
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const idx = parseInt(mo, 10) - 1;
   return `${months[idx] ?? mo} ${parseInt(d, 10)}, ${y}`;
+}
+
+export interface BriefContextNotice {
+  message: string;
+  refreshable: boolean;
+  showAfterHoursCta: boolean;
+}
+
+export function resolveAmBriefNoticeAt(now: Date): BriefContextNotice {
+  const et = getEtParts(now);
+  const tradingDay = isTradingDay(et.date, et.weekday);
+  if (!tradingDay) {
+    const next = nextTradingDay(et.date);
+    const nextLabel = longDateLabel(next.date);
+    const holiday = marketHolidayName(et.date);
+    if (holiday) {
+      return {
+        message: `${holiday} — U.S. markets are closed today.\nPre-market reopens ${nextLabel} at 4:00 AM ET. The regular session opens at 9:30 AM ET.`,
+        refreshable: false,
+        showAfterHoursCta: false,
+      };
+    }
+    return {
+      message: `U.S. markets are closed today.\nThe next pre-market session begins ${nextLabel} at 4:00 AM ET. The regular session opens at 9:30 AM ET.`,
+      refreshable: false,
+      showAfterHoursCta: false,
+    };
+  }
+
+  if (et.minutes >= 900) {
+    return {
+      message:
+        "The AM Brief has expired.\nAfter-Hours is now active. Review afternoon setups and prepare for the close.\nThe PM Brief will publish after the market closes.",
+      refreshable: false,
+      showAfterHoursCta: true,
+    };
+  }
+
+  if (et.minutes >= 720) {
+    return {
+      message: "The AM Brief has expired.\nThe After-Hours workflow begins at 3:00 PM ET.",
+      refreshable: false,
+      showAfterHoursCta: true,
+    };
+  }
+
+  return {
+    message: "Today's AI Pre-Market Brief is being prepared. Check again shortly.",
+    refreshable: true,
+    showAfterHoursCta: false,
+  };
 }
 
 export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
@@ -135,16 +199,46 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         const reason: string = typeof body?.reason === "string" ? body.reason : "";
         switch (reason) {
           case "brief_not_ready":
-            setState({ kind: "notice", message: "No brief is available yet.", refreshable: true });
+            if (briefType === "am") {
+              const next = resolveAmBriefNoticeAt(new Date());
+              setState({
+                kind: "notice",
+                message: next.message,
+                refreshable: next.refreshable,
+                showAfterHoursCta: next.showAfterHoursCta,
+              });
+            } else {
+              setState({ kind: "notice", message: "The PM brief has not been released.", refreshable: true });
+            }
             return;
           case "pm_not_released":
             setState({ kind: "notice", message: "The PM brief has not been released.", refreshable: true });
             return;
           case "weekend_no_am_brief":
-            setState({ kind: "notice", message: "No AM brief on weekends.", refreshable: false });
+            if (briefType === "am") {
+              const next = resolveAmBriefNoticeAt(new Date());
+              setState({
+                kind: "notice",
+                message: next.message,
+                refreshable: next.refreshable,
+                showAfterHoursCta: next.showAfterHoursCta,
+              });
+            } else {
+              setState({ kind: "notice", message: "No AM brief on weekends.", refreshable: false });
+            }
             return;
           case "previous_report_unavailable":
-            setState({ kind: "notice", message: "The previous Friday report is unavailable.", refreshable: false });
+            if (briefType === "am") {
+              const next = resolveAmBriefNoticeAt(new Date());
+              setState({
+                kind: "notice",
+                message: next.message,
+                refreshable: next.refreshable,
+                showAfterHoursCta: next.showAfterHoursCta,
+              });
+            } else {
+              setState({ kind: "notice", message: "The previous Friday report is unavailable.", refreshable: false });
+            }
             return;
           case "invalid_brief_provenance":
             setState({ kind: "notice", message: "Brief unavailable.", refreshable: false });
@@ -194,6 +288,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     (state.kind === "notice" && state.refreshable) ||
     (state.kind === "error" && state.refreshable);
 
+  const amArchiveNotice =
+    state.kind === "available" && briefType === "am"
+      ? resolveAmBriefNoticeAt(new Date())
+      : null;
+  const showAmArchiveNotice = !!amArchiveNotice && !amArchiveNotice.refreshable;
+
   const timestampLabel = config.aiCardTimestampLabel ?? "Generated at";
 
   const renderBody = () => {
@@ -222,20 +322,35 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         );
       case "available":
         return (
-          <AvailableBrief
-            content={state.content}
-            previousTradingDay={state.previousTradingDay}
-            briefDateDisplay={state.briefDateDisplay}
-            evidenceCutoff={state.evidenceCutoff}
-            expanded={briefExpanded}
-            onToggle={() => setBriefExpanded((v) => !v)}
-          />
+          <div className="space-y-3">
+            {showAmArchiveNotice && (
+              <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground">
+                <p className="whitespace-pre-line">{amArchiveNotice.message}</p>
+                <Link to="/dashboard/after-hours" className="mt-1 inline-flex text-xs font-medium text-accent-blue hover:underline">
+                  Go to After-Hours →
+                </Link>
+              </div>
+            )}
+            <AvailableBrief
+              content={state.content}
+              previousTradingDay={state.previousTradingDay}
+              briefDateDisplay={state.briefDateDisplay}
+              evidenceCutoff={state.evidenceCutoff}
+              expanded={briefExpanded}
+              onToggle={() => setBriefExpanded((v) => !v)}
+            />
+          </div>
         );
       case "notice":
       case "error":
         return (
           <div className="flex flex-col items-start gap-2">
-            <p className="text-sm leading-relaxed text-foreground/80">{state.message}</p>
+            <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/80">{state.message}</p>
+            {state.kind === "notice" && state.showAfterHoursCta && (
+              <Link to="/dashboard/after-hours" className="text-xs font-medium text-accent-blue hover:underline">
+                Go to After-Hours →
+              </Link>
+            )}
             {canRefresh && (
               <button
                 onClick={() => fetchBrief()}
@@ -250,7 +365,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   };
 
   const timestampText =
-    state.kind === "available" && state.generatedAtEt ? state.generatedAtEt : "—";
+    state.kind === "available" && state.generatedAtEt
+      ? state.generatedAtEt
+      : state.kind === "loading"
+        ? "Updating..."
+        : "Contextual";
+  const metaLabel = state.kind === "available" ? timestampLabel : "Status";
 
   // isPro is presentation-only — no fetch gate, no blur overlay.
   void isPro;
@@ -260,7 +380,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold tracking-wide">{config.aiCardTitle}</h3>
         <span className="text-[11px] text-muted-foreground">
-          {timestampLabel} {timestampText}
+          {metaLabel} {timestampText}
         </span>
       </div>
       {renderBody()}
