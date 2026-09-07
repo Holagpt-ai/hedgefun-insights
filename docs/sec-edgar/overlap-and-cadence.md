@@ -1,6 +1,6 @@
 # Latest Filings overlap audit and recommended cadence
 
-Status: **do not apply cron**. V1B prepares controls only.
+Status: **do not apply cron**. V1C adds paging + accession-anchor checkpoint. Schedule remains a later approved step.
 
 ## Verified official source facts
 
@@ -9,9 +9,11 @@ Observed from official SEC Latest Filings (`https://www.sec.gov/cgi-bin/browse-e
 - The UI exposes count options: 10, 20, 40, 80, **100** entries.
 - The default HTML view is **Items 1–40** and advertises an RSS/Atom feed.
 - Official RSS documentation examples use `count=40` and `start=0`, which documents **start-based paging**.
-- Current V1A/V1B discovery URL remains:
-  `https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&owner=include&count=100&output=atom`
-- `owner=include` includes ownership forms (Forms 3/4/5). Those forms are **deferred** by Stocksist and discarded after fetch.
+- V1C issuer-direct discovery URL:
+  `https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&owner=exclude&count=100&start={OFFSET}&output=atom`
+- Official Latest Filings Ownership filter values are **Include / Exclude / Only**.
+- `owner=exclude` was verified against the official Atom feed: Forms 3/4/5 drop out of this stream. 13D/13G can still appear and remain deferred by form filter.
+- Ownership/insider ingestion stays a later dedicated pipeline. Do not map reporter CIK to ticker.
 - The same official page stated: filings may be made Monday–Friday except **U.S. Federal Holidays**. That is the SEC filing calendar, not the NYSE/Nasdaq session calendar.
 
 ## Live firehose composition (same official page)
@@ -27,17 +29,7 @@ Implication: with `owner=include`, a `count=100` poll can turn over almost entir
 - Market-open is usually quieter for 8-Ks; the material risk is after the close and during clustered 8-K windows.
 - Official paging exists (`start=`), but V1B does not implement a persistent checkpoint. Unbounded paging is out of scope.
 
-**Conclusion:** `count=100` plus 5-minute polling plus accession dedupe is **not sufficient** for production cron. This is a material blind spot.
-
-## Required architecture before cron
-
-Do not schedule production polling until a later sprint adds one of:
-
-1. Official `start=` paging until the previous high-water accession is seen, **or**
-2. `owner=exclude` (official Ownership filter) plus a still-bounded page walk for issuer-direct forms, **or**
-3. A persistent accession/accepted-at checkpoint with fail-closed overlap detection.
-
-Prefer (1)+(3). Do not guess tickers for Form 3/4/5 or 13D/13G.
+V1C implements official `start=` paging, `owner=exclude`, and an accession-identity checkpoint with fail-closed gap detection. Cron is still not applied until a controlled dry-run/write sequence succeeds.
 
 ## Recommended cadence — documentation only
 
@@ -61,8 +53,6 @@ See `unapplied-cron.sql` for a blocked draft. Do not move it into `supabase/migr
 
 ## Holiday behavior
 
-SEC discovery must stay independent of the Stocksist market-open calendar.
+The SEC operating calendar is not derived from the NYSE/Nasdaq market calendar. Stocksist must not use its market-open calendar as the authority for whether SEC discovery should run.
 
-- NYSE/Nasdaq closed ≠ no SEC filings
-- Labor Day / weekend / federal-holiday filings can still matter for the next session
-- Handler code never gates on market holidays (`shouldSkipSecDiscoveryForMarketHoliday` is always false)
+If SEC's own service is unavailable or closed, normal provider failure handling governs. Handler code never gates on NYSE/Nasdaq holidays.

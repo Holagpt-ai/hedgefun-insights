@@ -24,7 +24,7 @@ This package does **not** deploy the function, set production secrets, apply cro
 9. Verify `catalyst_events` with the read-only SQL below. Do not mutate rows.
 10. Confirm Catalyst cards show **Filing-Related News** + **SEC FILING**.
 11. Rerun the same write request and confirm idempotency (`rows_upserted` near zero, no duplicate `dedupe_key`).
-12. Only then consider cron — **not in V1B**. Latest Filings overlap is insufficient without paging/checkpointing. See `overlap-and-cadence.md`.
+12. Only then consider cron — **not in this sprint**. After V1C, first confirm paging/checkpoint telemetry on dry-run, one write, and an idempotent second write. See `overlap-and-cadence.md`.
 
 ## Invoke body contract
 

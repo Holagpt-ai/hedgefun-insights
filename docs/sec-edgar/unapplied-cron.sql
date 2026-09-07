@@ -1,7 +1,6 @@
 -- DO NOT APPLY.
--- SEC EDGAR V1B overlap audit found a material Latest Filings blind spot:
--- count=100 / 5-minute polling with owner=include can miss issuer-direct forms
--- during ownership-form bursts. Cron is blocked until paging + checkpointing exist.
+-- V1C adds paging + checkpoint in code, but production cron remains blocked
+-- until a controlled dry-run / write / idempotency sequence is approved.
 --
 -- This is a recommended-cadence draft only. Keep it out of supabase/migrations.
 

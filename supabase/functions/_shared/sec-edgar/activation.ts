@@ -13,8 +13,10 @@ export type SecModeParseResult =
 const ALLOWED_KEYS = new Set(["mode"]);
 
 /**
- * SEC discovery is independent of NYSE/Nasdaq session calendars.
- * A market holiday must never disable filing ingestion.
+ * The SEC operating calendar is not derived from the NYSE/Nasdaq market calendar.
+ * Stocksist must not use its market-open calendar as the authority for whether
+ * SEC discovery should run. Provider unavailability is handled as a normal
+ * SEC response/failure.
  */
 export function shouldSkipSecDiscoveryForMarketHoliday(
   _isMarketHoliday: boolean,
@@ -70,8 +72,22 @@ export function countIncludedForms(
   return out;
 }
 
+export type CheckpointStatusLabel =
+  | "absent"
+  | "bootstrapped"
+  | "boundary_reached"
+  | "gap"
+  | "inconsistent"
+  | "write_failed";
+
 export interface SecActivationSummary {
   mode: SecSyncMode;
+  checkpoint_present: boolean;
+  checkpoint_status: CheckpointStatusLabel;
+  checkpoint_boundary_reached: boolean;
+  pages_fetched: number;
+  entries_scanned: number;
+  page_size: number;
   feed_entries_read: number;
   relevant_forms_found: number;
   mapped_issuers: number;
@@ -93,8 +109,23 @@ export function sanitizeActivationSummary(input: SecActivationSummary): SecActiv
   for (const [k, v] of Object.entries(input.forms_found ?? {})) {
     if (typeof k === "string" && k.length > 0 && k.length <= 16) forms[k] = nn(v);
   }
+  const status = input.checkpoint_status;
+  const safeStatus: CheckpointStatusLabel =
+    status === "bootstrapped" ||
+      status === "boundary_reached" ||
+      status === "gap" ||
+      status === "inconsistent" ||
+      status === "write_failed"
+      ? status
+      : "absent";
   return {
     mode: input.mode === "write" ? "write" : "dry_run",
+    checkpoint_present: input.checkpoint_present === true,
+    checkpoint_status: safeStatus,
+    checkpoint_boundary_reached: input.checkpoint_boundary_reached === true,
+    pages_fetched: nn(input.pages_fetched),
+    entries_scanned: nn(input.entries_scanned),
+    page_size: 100,
     feed_entries_read: nn(input.feed_entries_read),
     relevant_forms_found: nn(input.relevant_forms_found),
     mapped_issuers: nn(input.mapped_issuers),
