@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBrief } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
 import { getEtParts, isTradingDay, marketHolidayName, nextTradingDay } from "@/lib/market-calendar";
-import { Link } from "react-router-dom";
 
 interface AIBriefCardProps {
   isPro: boolean;
@@ -106,7 +105,7 @@ export function resolveAmBriefNoticeAt(now: Date): BriefContextNotice {
   if (et.minutes >= 900) {
     return {
       message:
-        "The AM Brief has expired.\nAfter-Hours is now active. Review afternoon setups and prepare for the close.\nThe PM Brief will publish after the market closes.",
+        "The AM Brief has expired.\nThe After-Hours workflow is now active. Review afternoon setups and prepare for the close.\nThe PM Brief will publish after the market closes.",
       refreshable: false,
       showAfterHoursCta: true,
     };
@@ -292,7 +291,8 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     state.kind === "available" && briefType === "am"
       ? resolveAmBriefNoticeAt(new Date())
       : null;
-  const showAmArchiveNotice = !!amArchiveNotice && !amArchiveNotice.refreshable;
+  const showAmArchiveNotice =
+    !!amArchiveNotice && !amArchiveNotice.refreshable && amArchiveNotice.showAfterHoursCta;
 
   const timestampLabel = config.aiCardTimestampLabel ?? "Generated at";
 
@@ -364,13 +364,11 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     }
   };
 
-  const timestampText =
-    state.kind === "available" && state.generatedAtEt
-      ? state.generatedAtEt
-      : state.kind === "loading"
-        ? "Updating..."
-        : "Contextual";
-  const metaLabel = state.kind === "available" ? timestampLabel : "Status";
+  const timestampText = state.kind === "available" && state.generatedAtEt
+    ? `${timestampLabel} ${state.generatedAtEt}`
+    : state.kind === "loading"
+      ? "Updating..."
+      : null;
 
   // isPro is presentation-only — no fetch gate, no blur overlay.
   void isPro;
@@ -379,9 +377,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-card p-6">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold tracking-wide">{config.aiCardTitle}</h3>
-        <span className="text-[11px] text-muted-foreground">
-          {metaLabel} {timestampText}
-        </span>
+        {timestampText && <span className="text-[11px] text-muted-foreground">{timestampText}</span>}
       </div>
       {renderBody()}
     </div>

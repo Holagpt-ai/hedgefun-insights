@@ -8,6 +8,7 @@ describe("resolveAmBriefNoticeAt", () => {
     expect(out.message).toContain("markets are closed today");
     expect(out.message).toContain("Tuesday, September 8");
     expect(out.refreshable).toBe(false);
+    expect(out.showAfterHoursCta).toBe(false);
   });
 
   it("returns weekend guidance on Saturday", () => {
@@ -15,6 +16,7 @@ describe("resolveAmBriefNoticeAt", () => {
     expect(out.message).toContain("U.S. markets are closed today.");
     expect(out.message).toContain("Monday, August 3");
     expect(out.refreshable).toBe(false);
+    expect(out.showAfterHoursCta).toBe(false);
   });
 
   it("skips Monday holiday when evaluating Sunday before Labor Day", () => {
@@ -39,7 +41,7 @@ describe("resolveAmBriefNoticeAt", () => {
 
   it("returns active after-hours guidance at 3:30 PM ET", () => {
     const out = resolveAmBriefNoticeAt(new Date("2026-08-03T19:30:00Z"));
-    expect(out.message).toContain("After-Hours is now active.");
+    expect(out.message).toContain("The After-Hours workflow is now active.");
     expect(out.message).toContain("PM Brief will publish after the market closes.");
     expect(out.showAfterHoursCta).toBe(true);
     expect(out.refreshable).toBe(false);
