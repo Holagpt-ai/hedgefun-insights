@@ -73,6 +73,24 @@ function formatPublished(iso: string | null): string | null {
   }
 }
 
+function earningsResultBadge(event: CatalystEvent): { label: "BEAT" | "MISS"; className: string } | null {
+  if (event.event_type !== "earnings") return null;
+  const surprise = event.facts?.surprise_percent;
+  if (typeof surprise !== "number" || !Number.isFinite(surprise) || surprise === 0) {
+    return null;
+  }
+  if (surprise > 0) {
+    return {
+      label: "BEAT",
+      className: "border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    };
+  }
+  return {
+    label: "MISS",
+    className: "border-rose-500/50 bg-rose-500/10 text-rose-700 dark:text-rose-300",
+  };
+}
+
 function EarningsFacts({ facts }: { facts: Record<string, unknown> }) {
   const est = formatEpsValue(facts.estimate_eps);
   const actual = formatEpsValue(facts.actual_eps);
@@ -108,6 +126,7 @@ export function CatalystEventCard({
   const todLabel = event.time_of_day ? timeOfDayLabel(event.time_of_day) : null;
   const publishedLabel = formatPublished(event.published_at);
   const showTitle = event.event_type !== "earnings" && event.title;
+  const earningsResult = earningsResultBadge(event);
 
   return (
     <Card className={cn("p-4 space-y-3 transition-colors", isReviewed && "opacity-80")}>
@@ -128,6 +147,14 @@ export function CatalystEventCard({
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
               {EVENT_TYPE_LABEL[event.event_type]}
             </Badge>
+            {earningsResult && (
+              <Badge
+                variant="outline"
+                className={cn("text-[10px] uppercase tracking-wide", earningsResult.className)}
+              >
+                {earningsResult.label}
+              </Badge>
+            )}
             {event.verification_state === "provider_reported" && (
               <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                 Provider Reported

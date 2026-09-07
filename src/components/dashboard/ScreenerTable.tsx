@@ -26,6 +26,25 @@ interface ScreenerTableProps {
   session?: string | null;
 }
 
+function desktopColClass(key: string): string {
+  switch (key) {
+    case "symbol":
+      return "w-[14%]";
+    case "company_name":
+      return "w-[18%]";
+    case "catalyst_news":
+      return "w-[24%]";
+    case "actions":
+      return "w-[120px]";
+    case "range_event":
+      return "w-[10%]";
+    case "day_range":
+      return "w-[12%]";
+    default:
+      return "w-[9%]";
+  }
+}
+
 function formatCell(value: string | number | null | undefined, format: ColumnFormat): string {
   if (value === null || value === undefined || value === "") return "—";
   switch (format) {
@@ -211,13 +230,13 @@ export function ScreenerTable({
       <Link
         to={href}
         onClick={(e) => e.stopPropagation()}
-        className="inline-flex flex-col items-start gap-0.5 max-w-[220px] hover:underline"
+        className="inline-flex max-w-full items-center hover:underline"
         title={entry.event.title ?? label}
       >
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        <span className="mr-1 shrink-0 text-[10px] uppercase tracking-wide text-muted-foreground">
           {kindLabel} · {label}
         </span>
-        <span className="text-[12px] text-foreground truncate max-w-full">
+        <span className="max-w-[220px] truncate text-[12px] text-foreground">
           {entry.event.title ?? entry.event.company_name ?? sym}
         </span>
       </Link>
@@ -231,10 +250,10 @@ export function ScreenerTable({
     if (col.key === "symbol") {
       const showInlineActions = tab.columns.every((c) => c.key !== "actions");
       return (
-        <div className="inline-flex items-center gap-1">
+        <div className="inline-flex min-w-0 items-center gap-1.5">
           <Link
             to={`/stocks/${raw}`}
-            className="inline-flex items-center min-h-[36px] font-semibold text-accent-blue hover:underline"
+            className="inline-flex min-h-[32px] items-center font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
           >
             {formatCell(raw as string, col.format)}
           </Link>
@@ -296,11 +315,11 @@ export function ScreenerTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5">
         {copy.criteria.map((c) => (
           <span
             key={c}
-            className="text-[11px] font-medium px-2 py-1 rounded-md bg-muted text-muted-foreground"
+            className="shrink-0 rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
           >
             {c}
           </span>
@@ -343,8 +362,13 @@ export function ScreenerTable({
 
       {!loading && hasVerifiedRows && (
         <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0">
-          <div className="min-w-0">
-            <table className="w-full table-fixed text-[12px]">
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[900px] table-fixed text-[11.5px]">
+              <colgroup>
+                {tab.columns.map((col) => (
+                  <col key={`col-${col.key}`} className={desktopColClass(col.key)} />
+                ))}
+              </colgroup>
               <thead className="bg-muted/50">
                 <tr>
                   {tab.columns.map((col) => {
@@ -354,7 +378,7 @@ export function ScreenerTable({
                       <th
                         key={col.key}
                         onClick={() => handleSortClick(col.key)}
-                        className={`px-2 py-2 font-semibold text-[10px] uppercase tracking-wide cursor-pointer select-none hover:text-foreground transition-colors ${
+                        className={`px-2 py-1.5 font-semibold text-[10px] uppercase tracking-wide cursor-pointer select-none hover:text-foreground transition-colors ${
                           active ? "text-foreground" : "text-muted-foreground"
                         } ${col.align === "right" ? "text-right" : "text-left"}`}
                       >
@@ -371,7 +395,7 @@ export function ScreenerTable({
                   return (
                     <tr
                       key={`${row.tab_id}-${row.symbol}`}
-                      className={`border-t border-border ${
+                      className={`border-t border-border hover:bg-muted/20 ${
                         blurred ? "blur-sm select-none pointer-events-none" : ""
                       }`}
                     >
@@ -381,7 +405,7 @@ export function ScreenerTable({
                         return (
                           <td
                             key={col.key}
-                            className={`px-2 py-2 tabular-nums ${
+                            className={`px-2 py-1.5 tabular-nums ${
                               col.align === "right" ? "text-right" : "text-left"
                             } ${isPct ? percentClass(Number(raw)) : ""}`}
                           >
@@ -446,7 +470,7 @@ export function ScreenerTable({
             return (
               <div
                 key={`${row.tab_id}-${row.symbol}`}
-                className={`rounded-lg border border-border bg-card p-3 ${
+                className={`rounded-lg border border-border bg-card p-2.5 ${
                   blurred ? "blur-sm select-none pointer-events-none" : ""
                 }`}
               >
@@ -454,11 +478,11 @@ export function ScreenerTable({
                   <div className="min-w-0">
                     <Link
                       to={`/stocks/${sym}`}
-                      className="font-semibold text-accent-blue hover:underline"
+                      className="font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
                     >
                       {sym}
                     </Link>
-                    <div className="text-[12px] truncate">
+                    <div className="truncate text-[11.5px]">
                       {isCompanyEmpty(company) ? (
                         <span className="italic text-muted-foreground">{sym}</span>
                       ) : (
@@ -474,7 +498,7 @@ export function ScreenerTable({
                     </div>
                   )}
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] tabular-nums">
+                <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] tabular-nums">
                   {showEvent && (
                     <div>
                       <span className="text-muted-foreground">Event </span>
@@ -545,7 +569,7 @@ export function ScreenerTable({
                   )}
                 </div>
                 {showCatalyst && (
-                  <div className="mt-2 text-[12px]">{renderCatalystCell(sym)}</div>
+                  <div className="mt-1.5 text-[12px]">{renderCatalystCell(sym)}</div>
                 )}
               </div>
             );

@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { BRAND } from "@/config/brand";
+import { resolveMarketClock } from "@/lib/market-calendar";
 
 const EXCHANGES = [
   { city: "New York", exchange: "NYSE · NASDAQ", timezone: "America/New_York", openHour: 9, openMinute: 30, closeHour: 16, closeMinute: 0, preMarketStart: 4, afterHoursEnd: 20, url: "https://www.nyse.com" },
@@ -12,8 +13,16 @@ const EXCHANGES = [
 ];
 
 type MarketStatus = "open" | "closed" | "pre-market" | "after-hours";
+type Exchange = (typeof EXCHANGES)[number];
 
-function getMarketStatus(exchange: typeof EXCHANGES[0], now: Date): MarketStatus {
+export function getMarketStatus(exchange: Exchange, now: Date): MarketStatus {
+  if (exchange.timezone === "America/New_York") {
+    const state = resolveMarketClock(now);
+    if (state.sessionId === "market") return "open";
+    if (state.sessionId === "pre-market") return "pre-market";
+    if (state.sessionId === "after-hours") return "after-hours";
+    return "closed";
+  }
   const localDay = new Intl.DateTimeFormat("en-US", { timeZone: exchange.timezone, weekday: "short" }).format(now);
   if (localDay === "Sat" || localDay === "Sun") return "closed";
 

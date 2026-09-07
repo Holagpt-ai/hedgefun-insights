@@ -37,12 +37,12 @@ function radarV2CopyFor(tabId: string, session: string | null | undefined): Scre
       return {
         description:
           session === "market"
-            ? "Radar V2 Sentinel regular-session candidates ranked volume-first from the delayed market feed."
+            ? "Radar V2 Sentinel regular-session discovery ranked volume-first for emerging activity on the delayed market feed."
             : session === "after-hours"
-              ? "Radar V2 Sentinel after-hours candidates ranked volume-first from the delayed market feed."
+              ? "Radar V2 Sentinel after-hours discovery ranked volume-first for emerging activity on the delayed market feed."
               : session === "pre-market"
-                ? "Radar V2 Sentinel pre-market candidates ranked volume-first from the delayed market feed."
-                : `Radar V2 Sentinel ${phrase} candidates ranked volume-first from the delayed market feed.`,
+                ? "Radar V2 Sentinel pre-market discovery ranked volume-first for emerging activity on the delayed market feed."
+                : `Radar V2 Sentinel ${phrase} discovery ranked volume-first for emerging activity on the delayed market feed.`,
         criteria: [
           `Radar V2 ${phrase} candidates`,
           "Volume-first ranking",
@@ -53,7 +53,7 @@ function radarV2CopyFor(tabId: string, session: string | null | undefined): Scre
     case "unusual_volume":
       return {
         description:
-          `Radar V2 Sentinel ${phrase} volume and velocity activity ranked volume-first ` +
+          `Radar V2 Sentinel ${phrase} volume/velocity activity ranked volume-first ` +
           `from the delayed market feed. ${honesty}`,
         criteria: [
           `Radar V2 ${phrase} volume / velocity`,
@@ -64,7 +64,7 @@ function radarV2CopyFor(tabId: string, session: string | null | undefined): Scre
     case "gainers_losers":
       return {
         description:
-          `Radar V2 Sentinel ${phrase} movers ranked volume-first from the delayed market feed. ` +
+          `Radar V2 Sentinel ${phrase} movers ranked volume-first from the delayed market feed to surface emerging names early. ` +
           "A confirmed prior-close percentage change is not persisted by Radar V2 and is shown as —; " +
           "short-window Radar movement is not presented as a day/session change.",
         criteria: [

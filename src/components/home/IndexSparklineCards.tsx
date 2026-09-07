@@ -5,13 +5,14 @@ import { AreaChart, Area, ResponsiveContainer, YAxis, ReferenceLine } from "rech
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveMarketSession } from "@/lib/price-utils";
+import { resolveMarketClock } from "@/lib/market-calendar";
 
 function useSessionLabel() {
-  const session = resolveMarketSession();
+  const session = resolveMarketClock(new Date()).sessionId;
   if (session === "pre-market") return { label: "Pre-market", color: "bg-orange-500" };
   if (session === "market") return { label: "Live", color: "bg-green-500" };
-  return { label: "After-hours", color: "bg-muted-foreground" };
+  if (session === "after-hours") return { label: "After-hours", color: "bg-muted-foreground" };
+  return { label: "Closed", color: "bg-red-500" };
 }
 
 export function IndexSparklineCards() {
