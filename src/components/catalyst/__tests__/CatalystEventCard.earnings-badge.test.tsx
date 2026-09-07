@@ -70,9 +70,15 @@ describe("CatalystEventCard earnings result badge", () => {
     expect(screen.getByText("NEWS")).toBeInTheDocument();
   });
 
+  it("shows SEC FILING for sec_edgar rows", () => {
+    renderCard(baseEvent({ provider: "sec_edgar" }));
+    expect(screen.getByText("SEC FILING")).toBeInTheDocument();
+  });
+
   it("hides source-class badge for unknown providers", () => {
     renderCard(baseEvent({ provider: "provider" }));
     expect(screen.queryByText("EARNINGS DATA")).toBeNull();
     expect(screen.queryByText("NEWS")).toBeNull();
+    expect(screen.queryByText("SEC FILING")).toBeNull();
   });
 });

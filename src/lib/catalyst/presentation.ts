@@ -1,8 +1,9 @@
 import type { CatalystEvent } from "@/types/catalyst";
 
-export function catalystSourceBadge(provider: string): "EARNINGS DATA" | "NEWS" | null {
+export function catalystSourceBadge(provider: string): "EARNINGS DATA" | "NEWS" | "SEC FILING" | null {
   if (provider === "earnings_calendar") return "EARNINGS DATA";
   if (provider === "polygon") return "NEWS";
+  if (provider === "sec_edgar") return "SEC FILING";
   return null;
 }
 

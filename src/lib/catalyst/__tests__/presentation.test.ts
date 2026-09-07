@@ -32,6 +32,7 @@ describe("catalystSourceBadge", () => {
   it("maps canonical provider ids to user-facing badges", () => {
     expect(catalystSourceBadge("earnings_calendar")).toBe("EARNINGS DATA");
     expect(catalystSourceBadge("polygon")).toBe("NEWS");
+    expect(catalystSourceBadge("sec_edgar")).toBe("SEC FILING");
     expect(catalystSourceBadge("other_provider")).toBeNull();
   });
 });
