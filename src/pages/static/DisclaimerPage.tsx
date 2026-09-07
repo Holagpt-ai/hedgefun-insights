@@ -89,7 +89,7 @@ export default function DisclaimerPage() {
               <li>
                 <strong>Third-Party Data Sources:</strong> Market data, stock prices, financial statements, analyst
                 ratings, and related information are sourced from third-party providers including, but not limited
-                to, <strong>Polygon.io</strong>, SEC EDGAR filings, and other publicly available APIs. While we
+                to, <strong>Polygon.io</strong>, licensed market-data providers, and publicly available company information. While we
                 endeavor to present accurate data, we do not guarantee the accuracy, completeness, timeliness, or
                 reliability of any third-party data.
               </li>
@@ -111,7 +111,7 @@ export default function DisclaimerPage() {
           <section>
             <h2 className="text-[1.125rem] font-bold mb-2">5. IPO &amp; Earnings Calendar Data</h2>
             <p>
-              IPO dates, pricing ranges, and related details are sourced from SEC filings, press releases, and
+              IPO dates, pricing ranges, and related details are sourced from publicly available company filing information, press releases, and
               third-party data providers. All IPO dates are <strong>estimates</strong> and subject to change without
               notice. Companies may postpone, withdraw, or modify their IPO plans at any time. Earnings report
               dates and estimated EPS figures are similarly subject to revision. Stocksist is not responsible for any

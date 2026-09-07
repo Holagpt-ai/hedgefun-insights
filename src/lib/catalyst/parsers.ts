@@ -8,9 +8,9 @@ export const EVENT_TYPE_LABEL: Record<CatalystEventType, string> = {
   fda_biotech: "FDA / Biotech",
   merger_acquisition: "M&A",
   analyst_action: "Analyst Actions",
-  sec_filing_news: "SEC / Filing News",
+  sec_filing_news: "Filing-Related News",
   corporate_action: "Corporate Actions",
-  product_contract: "Product / Contract",
+  product_contract: "Contracts / Partnerships",
   company_news: "Company News",
 };
 

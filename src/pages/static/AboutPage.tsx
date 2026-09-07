@@ -28,7 +28,7 @@ const PILLARS = [
   {
     icon: BarChart3,
     title: "Institutional-Grade Data",
-    desc: "Real-time and delayed feeds from Polygon.io, SEC EDGAR, and proprietary pipelines — the same sources used by hedge funds.",
+    desc: "Real-time and delayed feeds from Polygon.io, licensed market-data providers, and proprietary pipelines — the same caliber of sources used by hedge funds.",
   },
   {
     icon: Shield,
@@ -80,7 +80,7 @@ export default function AboutPage() {
               Our platform leverages <strong>McKinsey-style Socratic AI agents</strong> — reasoning systems that
               don't just summarize data, but actively challenge assumptions, stress-test theses, and surface
               non-obvious risk factors that traditional screeners miss. Combined with real-time market data from
-              Polygon.io, SEC filings, and proprietary analytical pipelines, Stocksist delivers the depth of a
+              Polygon.io, licensed market-data providers, and proprietary analytical pipelines, Stocksist delivers the depth of a
               professional research desk in an interface designed for clarity and speed.
             </p>
             <p>

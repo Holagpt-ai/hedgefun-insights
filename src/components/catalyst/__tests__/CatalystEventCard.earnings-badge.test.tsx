@@ -59,4 +59,20 @@ describe("CatalystEventCard earnings result badge", () => {
     expect(screen.queryByText("BEAT")).toBeNull();
     expect(screen.queryByText("MISS")).toBeNull();
   });
+
+  it("shows EARNINGS DATA for earnings_calendar rows", () => {
+    renderCard(baseEvent({ provider: "earnings_calendar" }));
+    expect(screen.getByText("EARNINGS DATA")).toBeInTheDocument();
+  });
+
+  it("shows NEWS for polygon rows", () => {
+    renderCard(baseEvent({ provider: "polygon" }));
+    expect(screen.getByText("NEWS")).toBeInTheDocument();
+  });
+
+  it("hides source-class badge for unknown providers", () => {
+    renderCard(baseEvent({ provider: "provider" }));
+    expect(screen.queryByText("EARNINGS DATA")).toBeNull();
+    expect(screen.queryByText("NEWS")).toBeNull();
+  });
 });

@@ -248,7 +248,7 @@ export default function TermsPage() {
             <h2 className="text-[1.125rem] font-bold mb-2">10. Third-Party Links &amp; Data</h2>
             <p>
               Stocksist may contain links to third-party websites and integrates data from third-party
-              providers including Polygon.io, SEC EDGAR, Google Analytics, and Google AdSense. We are not
+              providers including Polygon.io, licensed market-data providers, Google Analytics, and Google AdSense. We are not
               responsible for the content, accuracy, privacy practices, or availability of any third-party
               services. Your interaction with third-party services is governed by their respective terms
               and privacy policies.

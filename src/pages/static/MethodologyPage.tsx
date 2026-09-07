@@ -25,10 +25,10 @@ export default function MethodologyPage() {
               All stock prices, ETF net asset values, index levels, and options Greeks displayed on Stocksist are sourced from Polygon.io feeds. We do not generate, estimate, or fabricate any raw market data. Every figure you see on Stocksist originates from a regulated exchange or licensed data provider.
             </p>
             <p className="text-muted-foreground leading-relaxed mb-3">
-              For IPO data, we compile listings from SEC EDGAR filings (S-1 and F-1 registration statements), official exchange announcements from NASDAQ and NYSE, and verified company press releases. IPO pricing and allocation data is updated as official information becomes available from underwriting firms.
+              For IPO data, we compile listings from official exchange announcements, verified company press releases, and publicly available company filing information (including registration statements such as S-1 and F-1). IPO pricing and allocation data is updated as official information becomes available from underwriting firms.
             </p>
             <p className="text-muted-foreground leading-relaxed">
-              Earnings calendar data is sourced from a combination of SEC filings (10-Q and 10-K reports), exchange earnings notification systems, and verified investor relations announcements. We cross-reference multiple sources to minimize scheduling errors, though investors should always verify earnings dates directly with the reporting company.
+              Earnings calendar data is sourced from licensed market-data providers, exchange earnings notification systems, and verified investor relations announcements. We cross-reference multiple sources to minimize scheduling errors, though investors should always verify earnings dates directly with the reporting company.
             </p>
           </section>
 
@@ -59,9 +59,9 @@ export default function MethodologyPage() {
               <li>Pre-market and after-hours data: Updated every 1–5 minutes during extended sessions (4:00 AM – 9:30 AM and 4:00 PM – 8:00 PM ET)</li>
               <li>Market movers (gainers, losers, most active): Refreshed every 5 minutes during market hours</li>
               <li>News aggregation: Refreshed every 5–15 minutes from financial wire services</li>
-              <li>Earnings calendar: Synced daily with SEC filings and exchange notifications</li>
-              <li>IPO listings: Updated daily as new S-1 filings and pricing announcements are released</li>
-              <li>Financial statements (income, balance sheet, cash flow): Updated quarterly following SEC filing deadlines</li>
+              <li>Earnings calendar: Synced daily with licensed market-data providers and exchange notifications</li>
+              <li>IPO listings: Updated daily as new registration filings and pricing announcements are released</li>
+              <li>Financial statements (income, balance sheet, cash flow): Updated quarterly as company filings and provider updates are published</li>
               <li>AI-generated summaries: Generated and audited daily for newly enriched tickers</li>
             </ul>
           </section>

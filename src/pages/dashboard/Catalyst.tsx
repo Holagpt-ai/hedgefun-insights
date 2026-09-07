@@ -27,6 +27,10 @@ import {
   makeComparator,
   normalizeSymbol,
 } from "@/lib/catalyst/parsers";
+import {
+  watchlistCatalystCounts,
+  watchlistCatalystEmptyMessage,
+} from "@/lib/catalyst/presentation";
 import type { CatalystEvent, CatalystEventType } from "@/types/catalyst";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -34,10 +38,11 @@ import { useToast } from "@/hooks/use-toast";
 type TypeFilter = "all" | CatalystEventType;
 
 const HORIZONS: HorizonFilter[] = ["today", "next_7_days", "next_30_days", "recent_72h"];
+export const WATCHLIST_SUMMARY_LABEL = "Watchlist Catalysts";
 
-const WORKFLOW_LABEL: Record<WorkflowFilter, string> = {
+export const WORKFLOW_LABEL: Record<WorkflowFilter, string> = {
   all: "All Events",
-  watchlist: "My Watchlist",
+  watchlist: "Watchlist Catalysts",
   saved: "Saved",
   reviewed: "Reviewed",
 };
@@ -153,9 +158,9 @@ export default function Catalyst() {
     const recentCompany = events.filter(
       (e) => e.event_type !== "earnings" && isRecent(e, nowMs, 72),
     ).length;
-    const myWatchlist = events.filter((e) => watchlistSymbols.has(e.symbol)).length;
+    const watchlistCatalysts = watchlistCatalystCounts(events, watchlistSymbols);
     const last24 = events.filter((e) => isRecent(e, nowMs, 24)).length;
-    return { upcomingEarnings, recentCompany, myWatchlist, last24 };
+    return { upcomingEarnings, recentCompany, watchlistCatalysts, last24 };
   }, [events, watchlistSymbols, nowMs]);
 
   const clearSymbolFilter = () => {
@@ -218,12 +223,19 @@ export default function Catalyst() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard label="Upcoming Earnings" value={summary.upcomingEarnings} />
         <SummaryCard label="Recent Company Events" value={summary.recentCompany} />
-        <SummaryCard label="My Watchlist Events" value={summary.myWatchlist} />
+        <SummaryCard
+          label={WATCHLIST_SUMMARY_LABEL}
+          value={summary.watchlistCatalysts.events}
+          sublabel={`${summary.watchlistCatalysts.events} events · ${summary.watchlistCatalysts.stocks} stocks`}
+        />
         <SummaryCard label="Reported in Last 24h" value={summary.last24} />
       </div>
 
       {/* Filters */}
       <div className="space-y-2">
+        <p className="text-[12px] text-muted-foreground">
+          Event categories may include provider-news classifications. Source details are shown on each event.
+        </p>
         <FilterRow>
           {HORIZONS.map((h) => (
             <FilterChip key={h} active={horizon === h} onClick={() => setHorizon(h)}>
@@ -277,7 +289,7 @@ export default function Catalyst() {
       {!isLoading && !error && sortedEvents.length === 0 && (
         <Card className="p-8 text-center space-y-1">
           <div className="text-sm font-semibold text-foreground">
-            {emptyMessage(activeSymbol, workflow, horizon)}
+            {emptyMessage(activeSymbol, workflow, horizon, watchlistSymbols.size)}
           </div>
           <div className="text-[12px] text-muted-foreground">
             Try a different horizon, type, or workflow filter.
@@ -304,11 +316,12 @@ export default function Catalyst() {
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: number }) {
+function SummaryCard({ label, value, sublabel }: { label: string; value: number; sublabel?: string }) {
   return (
     <Card className="p-3">
       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
       <div className="mt-1 text-2xl font-semibold tabular-nums">{value}</div>
+      {sublabel && <div className="mt-1 text-[11px] text-muted-foreground">{sublabel}</div>}
     </Card>
   );
 }
@@ -350,10 +363,11 @@ function emptyMessage(
   symbol: string | null,
   workflow: WorkflowFilter,
   horizon: HorizonFilter,
+  watchlistSize: number,
 ): string {
   if (symbol) return `No recent catalyst found for ${symbol}.`;
   if (workflow === "saved") return "No saved Catalyst events yet.";
-  if (workflow === "watchlist") return "No provider-reported catalysts match your watchlist.";
+  if (workflow === "watchlist") return watchlistCatalystEmptyMessage(watchlistSize);
   if (horizon === "next_7_days" || horizon === "next_30_days" || horizon === "today") {
     return "No upcoming earnings found in this window.";
   }

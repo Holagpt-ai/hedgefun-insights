@@ -109,6 +109,11 @@ describe("event type labels", () => {
       expect(EVENT_TYPE_LABEL[t].length).toBeGreaterThan(0);
     }
   });
+
+  it("uses source-honest filing and contract labels", () => {
+    expect(EVENT_TYPE_LABEL.sec_filing_news).toBe("Filing-Related News");
+    expect(EVENT_TYPE_LABEL.product_contract).toBe("Contracts / Partnerships");
+  });
 });
 
 /** Production-shaped XRX earnings row (date-only, older announcement published_at). */
