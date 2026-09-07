@@ -1,0 +1,32 @@
+-- DO NOT APPLY.
+-- SEC EDGAR V1B overlap audit found a material Latest Filings blind spot:
+-- count=100 / 5-minute polling with owner=include can miss issuer-direct forms
+-- during ownership-form bursts. Cron is blocked until paging + checkpointing exist.
+--
+-- This is a recommended-cadence draft only. Keep it out of supabase/migrations.
+
+-- Weekday EST sketch (UTC): 4:00 AM-10:00 PM ET = 09:00-02:59 UTC
+-- SELECT cron.schedule(
+--   'sync-sec-edgar-filings-weekday-est-day',
+--   '*/5 9-23 * * 1-5',
+--   $$ /* net.http_post ... body := '{"mode":"write"}' */ $$
+-- );
+-- SELECT cron.schedule(
+--   'sync-sec-edgar-filings-weekday-est-late',
+--   '*/5 0-2 * * 2-6',
+--   $$ /* same */ $$
+-- );
+
+-- Weekday EDT sketch (UTC): 4:00 AM-10:00 PM ET = 08:00-01:59 UTC
+-- SELECT cron.schedule(
+--   'sync-sec-edgar-filings-weekday-edt-day',
+--   '*/5 8-23 * * 1-5',
+--   $$ /* net.http_post ... body := '{"mode":"write"}' */ $$
+-- );
+-- SELECT cron.schedule(
+--   'sync-sec-edgar-filings-weekday-edt-late',
+--   '*/5 0-1 * * 2-6',
+--   $$ /* same */ $$
+-- );
+
+-- Weekend remains lower frequency or disabled until weekday overlap is proven.
