@@ -5,9 +5,13 @@ import {
   SEC_LATEST_FILINGS_PAGE_SIZE,
 } from "./ingest.ts";
 import {
+  applyCheckpointCas,
   dedupeEntriesByAccession,
   normalizeAnchorAccessions,
   pageContainsAnyAnchor,
+  parseLoadedCheckpoint,
+  parseRevision,
+  SEC_EDGAR_STREAM_KEY,
   uniqueAccessionsInOrder,
   walkLatestFilingsPages,
 } from "./checkpoint.ts";
@@ -151,6 +155,105 @@ Deno.test("provider error after page 0 does not report success", async () => {
   if (walk.ok) return;
   assertEquals(walk.reason, "PROVIDER_ERROR");
   assertEquals(walk.pagesFetched, 1);
+});
+
+function acc(n: number): string {
+  return `0001045810-26-${String(n).padStart(6, "0")}`;
+}
+
+Deno.test("normalizeAnchorAccessions accepts 1..100 unique identities", () => {
+  assertEquals(normalizeAnchorAccessions([acc(1)]), [acc(1)]);
+  const hundred = Array.from({ length: 100 }, (_, i) => acc(i + 1));
+  assertEquals(normalizeAnchorAccessions(hundred)?.length, 100);
+});
+
+Deno.test("normalizeAnchorAccessions rejects empty, oversized, and malformed", () => {
+  assertEquals(normalizeAnchorAccessions([]), null);
+  assertEquals(normalizeAnchorAccessions(Array.from({ length: 101 }, (_, i) => acc(i + 1))), null);
+  assertEquals(normalizeAnchorAccessions(["0001045810-26-000001", "bad"]), null);
+  assertEquals(normalizeAnchorAccessions("0001045810-26-000001"), null);
+  assertEquals(normalizeAnchorAccessions(null), null);
+});
+
+Deno.test("parseRevision accepts integer >= 0 only", () => {
+  assertEquals(parseRevision(0), 0);
+  assertEquals(parseRevision(4), 4);
+  assertEquals(parseRevision("4"), 4);
+  assertEquals(parseRevision(-1), null);
+  assertEquals(parseRevision(1.5), null);
+  assertEquals(parseRevision("01"), null);
+  assertEquals(parseRevision(null), null);
+});
+
+Deno.test("parseLoadedCheckpoint rejects invalid state without placeholders", () => {
+  const valid = {
+    stream_key: SEC_EDGAR_STREAM_KEY,
+    anchor_accessions: [acc(1)],
+    revision: 4,
+    anchor_observed_at: "2026-09-07T00:00:00.000Z",
+    last_success_at: "2026-09-07T00:00:00.000Z",
+    head_updated_at: null,
+    pages_fetched: 1,
+  };
+  assertEquals(parseLoadedCheckpoint(valid).ok, true);
+  assertEquals(parseLoadedCheckpoint({ ...valid, stream_key: "other" }).ok, false);
+  assertEquals(parseLoadedCheckpoint({ ...valid, revision: -1 }).ok, false);
+  assertEquals(parseLoadedCheckpoint({ ...valid, anchor_accessions: [] }).ok, false);
+  assertEquals(parseLoadedCheckpoint({ ...valid, anchor_accessions: ["invalid"] }).ok, false);
+});
+
+Deno.test("CAS advances current revision and rejects stale expected revision", () => {
+  const current = {
+    stream_key: SEC_EDGAR_STREAM_KEY,
+    anchor_accessions: [acc(1)],
+    revision: 4,
+    anchor_observed_at: "2026-09-07T00:00:00.000Z",
+    last_success_at: "2026-09-07T00:00:00.000Z",
+    head_updated_at: null,
+    pages_fetched: 1,
+  };
+  const newer = applyCheckpointCas(current, {
+    expectedRevision: 4,
+    nextCheckpoint: { ...current, anchor_accessions: [acc(2)], revision: 5 },
+  });
+  assertEquals(newer.ok, true);
+  if (!newer.ok) return;
+  assertEquals(newer.checkpoint.revision, 5);
+  assertEquals(newer.checkpoint.anchor_accessions, [acc(2)]);
+
+  const stale = applyCheckpointCas(newer.checkpoint, {
+    expectedRevision: 4,
+    nextCheckpoint: { ...current, anchor_accessions: [acc(9)], revision: 5 },
+  });
+  assertEquals(stale.ok, false);
+  if (stale.ok) return;
+  assertEquals(stale.reason, "CHECKPOINT_CONFLICT");
+  assertEquals(newer.checkpoint.anchor_accessions, [acc(2)]);
+});
+
+Deno.test("bootstrap insert-if-absent succeeds once and rejects a competitor", () => {
+  const seed = {
+    stream_key: SEC_EDGAR_STREAM_KEY,
+    anchor_accessions: [acc(1)],
+    revision: 0,
+    anchor_observed_at: "2026-09-07T00:00:00.000Z",
+    last_success_at: "2026-09-07T00:00:00.000Z",
+    head_updated_at: null,
+    pages_fetched: 1,
+  };
+  const first = applyCheckpointCas(null, { expectedRevision: null, nextCheckpoint: seed });
+  assertEquals(first.ok, true);
+  if (!first.ok) return;
+  assertEquals(first.checkpoint.revision, 0);
+
+  const second = applyCheckpointCas(first.checkpoint, {
+    expectedRevision: null,
+    nextCheckpoint: { ...seed, anchor_accessions: [acc(9)] },
+  });
+  assertEquals(second.ok, false);
+  if (second.ok) return;
+  assertEquals(second.reason, "CHECKPOINT_CONFLICT");
+  assertEquals(first.checkpoint.anchor_accessions, [acc(1)]);
 });
 
 Deno.test("dedupeEntriesByAccession keeps first-seen identity", () => {

@@ -5,7 +5,12 @@ import {
   SEC_LATEST_FILINGS_ATOM_URL,
   secDedupeKey,
 } from "../_shared/sec-edgar/ingest.ts";
-import { SEC_EDGAR_STREAM_KEY, type SecEdgarCheckpoint } from "../_shared/sec-edgar/checkpoint.ts";
+import {
+  applyCheckpointCas,
+  SEC_EDGAR_STREAM_KEY,
+  type CheckpointSaveRequest,
+  type SecEdgarCheckpoint,
+} from "../_shared/sec-edgar/checkpoint.ts";
 import {
   handleSyncSecEdgarFilings,
   resetSecEdgarCikCacheForTests,
@@ -88,16 +93,22 @@ function memoryStore(
     checkpoint?: SecEdgarCheckpoint | null;
     insertFails?: boolean;
     saveFails?: boolean;
+    conflictOnSave?: boolean;
     loadFails?: boolean;
+    loadInconsistent?: boolean;
+    loadFrozenAbsent?: boolean;
+    shared?: { row: SecEdgarCheckpoint | null };
   } = {},
 ): SecEdgarStore & {
   inserts: Record<string, unknown>[][];
   saves: SecEdgarCheckpoint[];
   loads: number;
   finds: number;
+  current(): SecEdgarCheckpoint | null;
 } {
   const inserts: Record<string, unknown>[][] = [];
   const saves: SecEdgarCheckpoint[] = [];
+  const box = opts.shared ?? { row: opts.checkpoint ?? null };
   let loads = 0;
   let finds = 0;
   return {
@@ -109,6 +120,7 @@ function memoryStore(
     get finds() {
       return finds;
     },
+    current: () => box.row,
     findExistingDedupeKeys: async (keys) => {
       finds += 1;
       return new Set(keys.filter((k) => (opts.existing ?? []).includes(k)));
@@ -120,21 +132,28 @@ function memoryStore(
     },
     loadCheckpoint: async () => {
       loads += 1;
-      if (opts.loadFails) return { ok: false };
-      return { ok: true, checkpoint: opts.checkpoint ?? null };
+      if (opts.loadFails) return { ok: false, reason: "DATABASE_ERROR" };
+      if (opts.loadInconsistent) return { ok: false, reason: "CHECKPOINT_INCONSISTENT" };
+      if (opts.loadFrozenAbsent) return { ok: true, checkpoint: null };
+      return { ok: true, checkpoint: box.row };
     },
-    saveCheckpoint: async (checkpoint) => {
-      if (opts.saveFails) return false;
-      saves.push(checkpoint);
-      return true;
+    saveCheckpoint: async (request) => {
+      if (opts.saveFails) return { ok: false, reason: "CHECKPOINT_WRITE_FAILED" };
+      if (opts.conflictOnSave) return { ok: false, reason: "CHECKPOINT_CONFLICT" };
+      const applied = applyCheckpointCas(box.row, request);
+      if (!applied.ok) return applied;
+      box.row = applied.checkpoint;
+      saves.push(applied.checkpoint);
+      return applied;
     },
   };
 }
 
-function checkpoint(accessions: string[]): SecEdgarCheckpoint {
+function checkpoint(accessions: string[], revision = 0): SecEdgarCheckpoint {
   return {
     stream_key: SEC_EDGAR_STREAM_KEY,
     anchor_accessions: accessions,
+    revision,
     anchor_observed_at: "2026-09-07T00:00:00.000Z",
     last_success_at: "2026-09-07T00:00:00.000Z",
     head_updated_at: null,
@@ -218,6 +237,7 @@ Deno.test("write without checkpoint bootstraps from page 0 only", async () => {
   assertEquals(json.pages_fetched, 1);
   assertEquals(store.inserts.length, 1);
   assertEquals(store.saves.length, 1);
+  assertEquals(store.saves[0]?.revision, 0);
   assertEquals(store.saves[0]?.anchor_accessions.includes(NVDA_ACC), true);
   assertEquals(store.saves[0]?.anchor_accessions.includes("0001045810-26-000003"), true);
   assertEquals(fetch.urls.filter((u) => u.includes("browse-edgar")).length, 1);
@@ -234,6 +254,7 @@ Deno.test("previous anchor on page 0 fetches one page and reaches boundary", asy
   assertEquals(json.checkpoint_boundary_reached, true);
   assertEquals(json.pages_fetched, 1);
   assertEquals(store.saves[0]?.anchor_accessions[0], NVDA_ACC);
+  assertEquals(store.saves[0]?.revision, 1);
 });
 
 Deno.test("previous anchor on page 2 walks start=0,100,200", async () => {
@@ -383,4 +404,91 @@ Deno.test("holiday has no special disable behavior", async () => {
   assertEquals(res.status, 200);
   assertEquals(json.mode, "dry_run");
   assertEquals(json.error, undefined);
+});
+
+Deno.test("invalid loaded checkpoint is inconsistent and does not invent placeholders", async () => {
+  const { res, json, store } = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store: memoryStore({ loadInconsistent: true }),
+  });
+  assertEquals(res.status, 409);
+  assertEquals(json.error, "CHECKPOINT_INCONSISTENT");
+  assertEquals(store.inserts.length, 0);
+  assertEquals(store.saves.length, 0);
+  assertEquals(store.current(), null);
+
+  const emptyAnchors = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store: memoryStore({
+      checkpoint: { ...checkpoint([NVDA_ACC]), anchor_accessions: [] },
+    }),
+  });
+  assertEquals(emptyAnchors.res.status, 409);
+  assertEquals(emptyAnchors.json.error, "CHECKPOINT_INCONSISTENT");
+  assertEquals(emptyAnchors.store.inserts.length, 0);
+  assertEquals(emptyAnchors.store.saves.length, 0);
+});
+
+Deno.test("CAS update from revision 4 succeeds and stale expected 4 is rejected", async () => {
+  const shared = { row: checkpoint([NVDA_ACC], 4) };
+  const store = memoryStore({
+    checkpoint: shared.row,
+    shared,
+  });
+  const { res, json } = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store,
+  });
+  assertEquals(res.status, 200);
+  assertEquals(store.saves[0]?.revision, 5);
+  assertEquals(store.current()?.revision, 5);
+  const newerAnchors = store.current()?.anchor_accessions ?? [];
+  assertEquals(newerAnchors.includes(NVDA_ACC), true);
+
+  const stale: CheckpointSaveRequest = {
+    expectedRevision: 4,
+    nextCheckpoint: checkpoint(["0009999999-26-000001"], 5),
+  };
+  const staleResult = applyCheckpointCas(store.current(), stale);
+  assertEquals(staleResult.ok, false);
+  if (!staleResult.ok) assertEquals(staleResult.reason, "CHECKPOINT_CONFLICT");
+  assertEquals(store.current()?.revision, 5);
+  assertEquals(store.current()?.anchor_accessions, newerAnchors);
+  assertEquals(json.rows_upserted >= 1, true);
+});
+
+Deno.test("competing bootstrap insert-if-absent is rejected", async () => {
+  const shared = { row: null as SecEdgarCheckpoint | null };
+  const first = memoryStore({ shared });
+  const second = memoryStore({ shared, loadFrozenAbsent: true });
+  const a = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store: first,
+  });
+  assertEquals(a.res.status, 200);
+  assertEquals(first.saves[0]?.revision, 0);
+  assertEquals(shared.row?.revision, 0);
+
+  const b = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store: second,
+  });
+  assertEquals(b.res.status, 409);
+  assertEquals(b.json.error, "CHECKPOINT_CONFLICT");
+  assertEquals(second.saves.length, 0);
+  assertEquals(shared.row?.revision, 0);
+  assertEquals(b.store.inserts.length, 1);
+});
+
+Deno.test("checkpoint conflict after Catalyst insert remains dedupe-safe", async () => {
+  const store = memoryStore({ conflictOnSave: true });
+  const { res, json } = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store,
+  });
+  assertEquals(res.status, 409);
+  assertEquals(json.error, "CHECKPOINT_CONFLICT");
+  assertEquals(store.inserts.length, 1);
+  assertEquals(store.saves.length, 0);
+  assertEquals(store.current(), null);
 });

@@ -8,8 +8,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { handleSyncSecEdgarFilings, type SecEdgarStore } from "./handler.ts";
 import {
   normalizeAnchorAccessions,
+  parseLoadedCheckpoint,
   SEC_EDGAR_STREAM_KEY,
-  type SecEdgarCheckpoint,
 } from "../_shared/sec-edgar/checkpoint.ts";
 
 type SbClient = ReturnType<typeof createClient<any, "public", any>>;
@@ -51,37 +51,73 @@ function createSupabaseStore(supabase: SbClient): SecEdgarStore {
       const { data, error } = await supabase
         .from("sec_edgar_sync_state")
         .select(
-          "stream_key,anchor_accessions,anchor_observed_at,last_success_at,head_updated_at,pages_fetched",
+          "stream_key,anchor_accessions,revision,anchor_observed_at,last_success_at,head_updated_at,pages_fetched",
         )
         .eq("stream_key", streamKey)
         .maybeSingle();
-      if (error) return { ok: false };
+      if (error) return { ok: false, reason: "DATABASE_ERROR" };
       if (!data) return { ok: true, checkpoint: null };
-      const anchors = normalizeAnchorAccessions(data.anchor_accessions);
-      if (anchors === null) return { ok: true, checkpoint: { ...data, anchor_accessions: ["invalid"] } as SecEdgarCheckpoint };
-      const checkpoint: SecEdgarCheckpoint = {
-        stream_key: typeof data.stream_key === "string" ? data.stream_key : SEC_EDGAR_STREAM_KEY,
-        anchor_accessions: anchors,
-        anchor_observed_at: typeof data.anchor_observed_at === "string" ? data.anchor_observed_at : "",
-        last_success_at: typeof data.last_success_at === "string" ? data.last_success_at : "",
-        head_updated_at: typeof data.head_updated_at === "string" ? data.head_updated_at : null,
-        pages_fetched: typeof data.pages_fetched === "number" ? data.pages_fetched : 0,
-      };
-      return { ok: true, checkpoint };
+      const parsed = parseLoadedCheckpoint(data);
+      if (!parsed.ok) return { ok: false, reason: "CHECKPOINT_INCONSISTENT" };
+      return { ok: true, checkpoint: parsed.checkpoint };
     },
-    async saveCheckpoint(checkpoint) {
-      const { error } = await supabase
+    async saveCheckpoint(request) {
+      const anchors = normalizeAnchorAccessions(request.nextCheckpoint.anchor_accessions);
+      if (anchors === null) return { ok: false, reason: "CHECKPOINT_WRITE_FAILED" };
+      const next = {
+        ...request.nextCheckpoint,
+        stream_key: SEC_EDGAR_STREAM_KEY,
+        anchor_accessions: anchors,
+      };
+      if (request.expectedRevision === null) {
+        const { error } = await supabase.from("sec_edgar_sync_state").insert({
+          stream_key: SEC_EDGAR_STREAM_KEY,
+          anchor_accessions: next.anchor_accessions,
+          revision: 0,
+          anchor_observed_at: next.anchor_observed_at,
+          last_success_at: next.last_success_at,
+          head_updated_at: next.head_updated_at,
+          pages_fetched: next.pages_fetched,
+          updated_at: next.last_success_at,
+        });
+        if (error) {
+          if (error.code === "23505") {
+            return { ok: false, reason: "CHECKPOINT_CONFLICT" };
+          }
+          return { ok: false, reason: "CHECKPOINT_WRITE_FAILED" };
+        }
+        return {
+          ok: true,
+          checkpoint: { ...next, stream_key: SEC_EDGAR_STREAM_KEY, revision: 0 },
+        };
+      }
+
+      const { data, error } = await supabase
         .from("sec_edgar_sync_state")
-        .upsert({
-          stream_key: checkpoint.stream_key,
-          anchor_accessions: checkpoint.anchor_accessions,
-          anchor_observed_at: checkpoint.anchor_observed_at,
-          last_success_at: checkpoint.last_success_at,
-          head_updated_at: checkpoint.head_updated_at,
-          pages_fetched: checkpoint.pages_fetched,
-          updated_at: checkpoint.last_success_at,
-        }, { onConflict: "stream_key" });
-      return !error;
+        .update({
+          anchor_accessions: next.anchor_accessions,
+          revision: request.expectedRevision + 1,
+          anchor_observed_at: next.anchor_observed_at,
+          last_success_at: next.last_success_at,
+          head_updated_at: next.head_updated_at,
+          pages_fetched: next.pages_fetched,
+          updated_at: next.last_success_at,
+        })
+        .eq("stream_key", SEC_EDGAR_STREAM_KEY)
+        .eq("revision", request.expectedRevision)
+        .select("revision");
+      if (error) return { ok: false, reason: "CHECKPOINT_WRITE_FAILED" };
+      if (!data || data.length === 0) {
+        return { ok: false, reason: "CHECKPOINT_CONFLICT" };
+      }
+      return {
+        ok: true,
+        checkpoint: {
+          ...next,
+          stream_key: SEC_EDGAR_STREAM_KEY,
+          revision: request.expectedRevision + 1,
+        },
+      };
     },
   };
 }
@@ -97,8 +133,8 @@ serve(async (req) => {
     : {
       findExistingDedupeKeys: async () => new Set<string>(),
       insertNewRows: async () => null,
-      loadCheckpoint: async () => ({ ok: false as const }),
-      saveCheckpoint: async () => false,
+      loadCheckpoint: async () => ({ ok: false as const, reason: "DATABASE_ERROR" as const }),
+      saveCheckpoint: async () => ({ ok: false as const, reason: "CHECKPOINT_WRITE_FAILED" as const }),
     };
 
   return await handleSyncSecEdgarFilings(req, {

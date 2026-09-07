@@ -18,8 +18,11 @@ import {
 import {
   SEC_EDGAR_STREAM_KEY,
   normalizeAnchorAccessions,
+  parseLoadedCheckpoint,
   walkLatestFilingsPages,
-  type SecEdgarCheckpoint,
+  type CheckpointSaveRequest,
+  type CheckpointSaveResult,
+  type LoadCheckpointResult,
 } from "../_shared/sec-edgar/checkpoint.ts";
 import {
   createSecRequester,
@@ -42,6 +45,7 @@ export type ReasonCode =
   | "WRITE_DISABLED"
   | "CHECKPOINT_GAP"
   | "CHECKPOINT_INCONSISTENT"
+  | "CHECKPOINT_CONFLICT"
   | "CHECKPOINT_WRITE_FAILED"
   | "PROVIDER_TIMEOUT"
   | "PROVIDER_RATE_LIMITED"
@@ -71,10 +75,8 @@ export type EnvReader = (key: string) => string | undefined;
 export interface SecEdgarStore {
   findExistingDedupeKeys(keys: string[]): Promise<Set<string> | null>;
   insertNewRows(rows: Record<string, unknown>[]): Promise<number | null>;
-  loadCheckpoint(
-    streamKey: string,
-  ): Promise<{ ok: true; checkpoint: SecEdgarCheckpoint | null } | { ok: false }>;
-  saveCheckpoint(checkpoint: SecEdgarCheckpoint): Promise<boolean>;
+  loadCheckpoint(streamKey: string): Promise<LoadCheckpointResult>;
+  saveCheckpoint(request: CheckpointSaveRequest): Promise<CheckpointSaveResult>;
 }
 
 export type HandlerDeps = {
@@ -229,9 +231,12 @@ export async function handleSyncSecEdgarFilings(
   try {
     const loaded = await deps.store.loadCheckpoint(SEC_EDGAR_STREAM_KEY);
     if (!loaded.ok) {
-      log("DATABASE_ERROR", toSummary(mode, ingest, {
+      const loadReason = loaded.reason === "CHECKPOINT_INCONSISTENT"
+        ? "CHECKPOINT_INCONSISTENT"
+        : "DATABASE_ERROR";
+      log(loadReason, toSummary(mode, ingest, {
         checkpointPresent: false,
-        checkpointStatus: "absent",
+        checkpointStatus: loadReason === "CHECKPOINT_INCONSISTENT" ? "inconsistent" : "absent",
         boundaryReached: false,
         pagesFetched: 0,
         entriesScanned: 0,
@@ -239,17 +244,19 @@ export async function handleSyncSecEdgarFilings(
         rowsWouldInsert: 0,
         formsFound: {},
       }));
-      return respondError(500, "DATABASE_ERROR");
+      return respondError(loadReason === "CHECKPOINT_INCONSISTENT" ? 409 : 500, loadReason);
     }
 
     let anchors: string[] | null = null;
+    let expectedRevision: number | null = null;
     if (loaded.checkpoint) {
-      const normalized = normalizeAnchorAccessions(loaded.checkpoint.anchor_accessions);
-      if (normalized === null) {
+      const parsed = parseLoadedCheckpoint(loaded.checkpoint);
+      if (!parsed.ok) {
         log("CHECKPOINT_INCONSISTENT");
         return respondError(409, "CHECKPOINT_INCONSISTENT");
       }
-      anchors = normalized;
+      anchors = parsed.checkpoint.anchor_accessions;
+      expectedRevision = parsed.checkpoint.revision;
     }
 
     const walk = await walkLatestFilingsPages(secFetch, anchors);
@@ -271,6 +278,18 @@ export async function handleSyncSecEdgarFilings(
         ? 409
         : 502;
       return respondError(status, walk.reason);
+    }
+
+    const nextAnchors = normalizeAnchorAccessions(walk.page0Accessions);
+    if (nextAnchors === null) {
+      log("CHECKPOINT_INCONSISTENT", toSummary(mode, ingest, {
+        ...walkMeta,
+        checkpointStatus: "inconsistent",
+        rowsExisting: 0,
+        rowsWouldInsert: 0,
+        formsFound: {},
+      }));
+      return respondError(409, "CHECKPOINT_INCONSISTENT");
     }
 
     const cikMap = await loadCikMap(secFetch, nowMs);
@@ -331,23 +350,30 @@ export async function handleSyncSecEdgarFilings(
 
     const nowIso = new Date(nowMs()).toISOString();
     const saved = await deps.store.saveCheckpoint({
-      stream_key: SEC_EDGAR_STREAM_KEY,
-      anchor_accessions: walk.page0Accessions,
-      anchor_observed_at: nowIso,
-      last_success_at: nowIso,
-      head_updated_at: walk.page0HeadUpdatedAt,
-      pages_fetched: walk.pagesFetched,
+      expectedRevision,
+      nextCheckpoint: {
+        stream_key: SEC_EDGAR_STREAM_KEY,
+        anchor_accessions: nextAnchors,
+        revision: expectedRevision === null ? 0 : expectedRevision + 1,
+        anchor_observed_at: nowIso,
+        last_success_at: nowIso,
+        head_updated_at: walk.page0HeadUpdatedAt,
+        pages_fetched: walk.pagesFetched,
+      },
     });
-    if (!saved) {
+    if (!saved.ok) {
       const failed = toSummary(mode, ingest, {
         ...walkMeta,
-        checkpointStatus: "write_failed",
+        checkpointStatus: saved.reason === "CHECKPOINT_CONFLICT" ? "conflict" : "write_failed",
         rowsExisting: skipped.length,
         rowsWouldInsert: incoming.length,
         formsFound,
       });
-      log("CHECKPOINT_WRITE_FAILED", failed);
-      return respondError(500, "CHECKPOINT_WRITE_FAILED");
+      log(saved.reason, failed);
+      return respondError(
+        saved.reason === "CHECKPOINT_CONFLICT" ? 409 : 500,
+        saved.reason,
+      );
     }
 
     const safe = toSummary(mode, ingest, {

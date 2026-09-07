@@ -23,11 +23,25 @@ export type CheckpointStatus =
 export interface SecEdgarCheckpoint {
   stream_key: string;
   anchor_accessions: string[];
+  revision: number;
   anchor_observed_at: string;
   last_success_at: string;
   head_updated_at: string | null;
   pages_fetched: number;
 }
+
+export type CheckpointSaveRequest = {
+  nextCheckpoint: SecEdgarCheckpoint;
+  expectedRevision: number | null;
+};
+
+export type CheckpointSaveResult =
+  | { ok: true; checkpoint: SecEdgarCheckpoint }
+  | { ok: false; reason: "CHECKPOINT_CONFLICT" | "CHECKPOINT_WRITE_FAILED" };
+
+export type LoadCheckpointResult =
+  | { ok: true; checkpoint: SecEdgarCheckpoint | null }
+  | { ok: false; reason: "DATABASE_ERROR" | "CHECKPOINT_INCONSISTENT" };
 
 export function uniqueAccessionsInOrder(entries: readonly SecFeedEntry[]): string[] {
   const seen = new Set<string>();
@@ -61,8 +75,20 @@ export function pageContainsAnyAnchor(
   return pageAccessions.some((acc) => wanted.has(acc));
 }
 
+export function parseRevision(raw: unknown): number | null {
+  if (typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && Number.isSafeInteger(raw)) {
+    return raw;
+  }
+  if (typeof raw === "string" && /^(0|[1-9]\d*)$/.test(raw)) {
+    const n = Number(raw);
+    if (Number.isSafeInteger(n) && n >= 0) return n;
+  }
+  return null;
+}
+
 export function normalizeAnchorAccessions(raw: unknown): string[] | null {
   if (!Array.isArray(raw)) return null;
+  if (raw.length < 1 || raw.length > SEC_LATEST_FILINGS_PAGE_SIZE) return null;
   const out: string[] = [];
   const seen = new Set<string>();
   for (const item of raw) {
@@ -73,7 +99,76 @@ export function normalizeAnchorAccessions(raw: unknown): string[] | null {
     seen.add(acc);
     out.push(acc);
   }
+  if (out.length < 1 || out.length > SEC_LATEST_FILINGS_PAGE_SIZE) return null;
   return out;
+}
+
+export function parseLoadedCheckpoint(raw: unknown):
+  | { ok: true; checkpoint: SecEdgarCheckpoint }
+  | { ok: false } {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return { ok: false };
+  const row = raw as Record<string, unknown>;
+  if (row.stream_key !== SEC_EDGAR_STREAM_KEY) return { ok: false };
+  const revision = parseRevision(row.revision);
+  if (revision === null) return { ok: false };
+  const anchors = normalizeAnchorAccessions(row.anchor_accessions);
+  if (anchors === null) return { ok: false };
+  if (typeof row.anchor_observed_at !== "string" || row.anchor_observed_at.trim() === "") {
+    return { ok: false };
+  }
+  if (typeof row.last_success_at !== "string" || row.last_success_at.trim() === "") {
+    return { ok: false };
+  }
+  const head = row.head_updated_at;
+  if (head != null && typeof head !== "string") return { ok: false };
+  const pages = row.pages_fetched;
+  if (typeof pages !== "number" || !Number.isInteger(pages) || pages < 0 || pages > SEC_LATEST_FILINGS_MAX_PAGES) {
+    return { ok: false };
+  }
+  return {
+    ok: true,
+    checkpoint: {
+      stream_key: SEC_EDGAR_STREAM_KEY,
+      anchor_accessions: anchors,
+      revision,
+      anchor_observed_at: row.anchor_observed_at,
+      last_success_at: row.last_success_at,
+      head_updated_at: typeof head === "string" ? head : null,
+      pages_fetched: pages,
+    },
+  };
+}
+
+/** Optimistic compare-and-set. Never blindly overwrites newer state. */
+export function applyCheckpointCas(
+  current: SecEdgarCheckpoint | null,
+  request: CheckpointSaveRequest,
+): CheckpointSaveResult {
+  const anchors = normalizeAnchorAccessions(request.nextCheckpoint.anchor_accessions);
+  if (anchors === null) {
+    return { ok: false, reason: "CHECKPOINT_WRITE_FAILED" };
+  }
+  const next: SecEdgarCheckpoint = {
+    stream_key: SEC_EDGAR_STREAM_KEY,
+    anchor_accessions: anchors,
+    revision: 0,
+    anchor_observed_at: request.nextCheckpoint.anchor_observed_at,
+    last_success_at: request.nextCheckpoint.last_success_at,
+    head_updated_at: request.nextCheckpoint.head_updated_at,
+    pages_fetched: request.nextCheckpoint.pages_fetched,
+  };
+
+  if (request.expectedRevision === null) {
+    if (current !== null) return { ok: false, reason: "CHECKPOINT_CONFLICT" };
+    return { ok: true, checkpoint: { ...next, revision: 0 } };
+  }
+
+  const expected = parseRevision(request.expectedRevision);
+  if (expected === null) return { ok: false, reason: "CHECKPOINT_WRITE_FAILED" };
+  if (current === null || current.revision !== expected) {
+    return { ok: false, reason: "CHECKPOINT_CONFLICT" };
+  }
+  return { ok: true, checkpoint: { ...next, revision: expected + 1 } };
 }
 
 export type PageWalkOk = {

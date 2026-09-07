@@ -78,6 +78,7 @@ export type CheckpointStatusLabel =
   | "boundary_reached"
   | "gap"
   | "inconsistent"
+  | "conflict"
   | "write_failed";
 
 export interface SecActivationSummary {
@@ -115,6 +116,7 @@ export function sanitizeActivationSummary(input: SecActivationSummary): SecActiv
       status === "boundary_reached" ||
       status === "gap" ||
       status === "inconsistent" ||
+      status === "conflict" ||
       status === "write_failed"
       ? status
       : "absent";
