@@ -33,7 +33,7 @@ const FAQ_SECTIONS = [
     items: [
       {
         q: "Where does Stocksist get its market data?",
-        a: "All stock prices, ETF data, market indexes, corporate actions, and historical financial data are sourced from third-party APIs, primarily Polygon.io. News is aggregated from multiple financial wire services and press outlets. IPO data is compiled from SEC filings, NASDAQ, NYSE, and official company press releases. Stocksist does not generate or fabricate any raw market data — all figures originate from regulated exchanges and licensed data providers.",
+        a: "All stock prices, ETF data, market indexes, corporate actions, and historical financial data are sourced from third-party APIs, primarily Polygon.io. News is aggregated from multiple financial wire services and press outlets. IPO data is compiled from exchange announcements, official company press releases, and publicly available company filing information. Stocksist does not generate or fabricate any raw market data — all figures originate from regulated exchanges and licensed data providers.",
       },
       {
         q: "How does the Stocksist AI work?",

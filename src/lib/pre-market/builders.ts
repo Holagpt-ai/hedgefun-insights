@@ -253,9 +253,9 @@ export const CATALYST_TYPE_LABEL: Record<string, string> = {
   fda_biotech: "FDA / Biotech",
   merger_acquisition: "M&A",
   analyst_action: "Analyst Action",
-  sec_filing_news: "SEC / Filing News",
+  sec_filing_news: "Filing-Related News",
   corporate_action: "Corporate Action",
-  product_contract: "Product / Contract",
+  product_contract: "Contracts / Partnerships",
   company_news: "Company News",
 };
 

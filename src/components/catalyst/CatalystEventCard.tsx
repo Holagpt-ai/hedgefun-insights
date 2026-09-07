@@ -19,6 +19,7 @@ import {
   formatSurprisePct,
   timeOfDayLabel,
 } from "@/lib/catalyst/parsers";
+import { catalystSourceBadge } from "@/lib/catalyst/presentation";
 import { cn } from "@/lib/utils";
 
 interface CatalystEventCardProps {
@@ -127,6 +128,7 @@ export function CatalystEventCard({
   const publishedLabel = formatPublished(event.published_at);
   const showTitle = event.event_type !== "earnings" && event.title;
   const earningsResult = earningsResultBadge(event);
+  const sourceBadge = catalystSourceBadge(event.provider);
 
   return (
     <Card className={cn("p-4 space-y-3 transition-colors", isReviewed && "opacity-80")}>
@@ -147,6 +149,11 @@ export function CatalystEventCard({
             <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">
               {EVENT_TYPE_LABEL[event.event_type]}
             </Badge>
+            {sourceBadge && (
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                {sourceBadge}
+              </Badge>
+            )}
             {earningsResult && (
               <Badge
                 variant="outline"
