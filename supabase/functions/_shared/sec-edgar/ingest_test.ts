@@ -1,8 +1,13 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
+  createSecRequester,
   emptySecSummary,
+  extractSecItems,
+  formatSecFilingDescription,
   parseCompanyTickersExchangeJson,
   parseLatestFilingsAtom,
+  parseSecAtomCompanyName,
+  partitionNewRows,
   secDedupeKey,
   toCatalystRowsFromSec,
 } from "./ingest.ts";
@@ -133,4 +138,203 @@ Deno.test("SEC rows keep fact-only deterministic title/description", () => {
   assertEquals(blob.includes("Bullish"), false);
   assertEquals(blob.includes("bearish"), false);
   assertEquals(blob.includes("Potential breakout"), false);
+});
+
+Deno.test("Atom filing index URL is source_url and never facts.primary_document", () => {
+  const entries = parseLatestFilingsAtom(FEED_XML);
+  const nvda = entries.find((e) => e.accession_number === "0001045810-26-000001");
+  assert(!!nvda);
+  assertEquals(
+    nvda?.filing_url,
+    "https://www.sec.gov/Archives/edgar/data/1045810/000104581026000001/0001045810-26-000001-index.htm",
+  );
+  assertEquals(nvda?.primary_document, null);
+
+  const map = parseCompanyTickersExchangeJson(CIK_MAP_FIXTURE);
+  const rows = toCatalystRowsFromSec([nvda!], map, emptySecSummary());
+  assertEquals(rows[0]?.source_url, nvda?.filing_url);
+  assertEquals(rows[0]?.facts.primary_document, null);
+  assertEquals(String(rows[0]?.facts.primary_document ?? "").includes("index.htm"), false);
+});
+
+Deno.test("parseSecAtomCompanyName handles hyphenated SEC form titles", () => {
+  assertEquals(
+    parseSecAtomCompanyName("8-K - NVIDIA CORP (0001045810) (Filer)"),
+    "NVIDIA CORP",
+  );
+  assertEquals(
+    parseSecAtomCompanyName("8-K/A - AMENDED REPORT INC (0000003333) (Issuer)"),
+    "AMENDED REPORT INC",
+  );
+  assertEquals(
+    parseSecAtomCompanyName("10-Q - ALPHA CLASS INC (0000002222) (Filer)"),
+    "ALPHA CLASS INC",
+  );
+  assertEquals(
+    parseSecAtomCompanyName("20-F - FOREIGN ISSUER LTD (0000011111) (Filer)"),
+    "FOREIGN ISSUER LTD",
+  );
+  assertEquals(parseSecAtomCompanyName("10-K - BROKEN ENTRY"), null);
+  assertEquals(parseSecAtomCompanyName("8-K - NVIDIA CORP"), null);
+});
+
+Deno.test("parsed Atom entries keep verified company names from hyphenated forms", () => {
+  const entries = parseLatestFilingsAtom(FEED_XML);
+  assertEquals(entries.find((e) => e.form_type === "8-K")?.company_name, "NVIDIA CORP");
+  assertEquals(entries.find((e) => e.form_type === "8-K/A")?.company_name, "AMENDED REPORT INC");
+  assertEquals(entries.find((e) => e.form_type === "10-Q")?.company_name, "ALPHA CLASS INC");
+});
+
+Deno.test("partitionNewRows skips existing dedupe keys and keeps only new rows", () => {
+  const existingKey = secDedupeKey("0001045810-26-000001", "NVDA");
+  const newKey = secDedupeKey("0000002222-26-000100", "ALPHA");
+  const rows = [
+    { dedupe_key: existingKey, symbol: "NVDA" },
+    { dedupe_key: newKey, symbol: "ALPHA" },
+  ];
+  const { existing, incoming } = partitionNewRows(rows, new Set([existingKey]));
+  assertEquals(existing.length, 1);
+  assertEquals(existing[0]?.dedupe_key, existingKey);
+  assertEquals(incoming.map((r) => r.dedupe_key), [newKey]);
+});
+
+Deno.test("extractSecItems keeps explicit Item X.XX identifiers only", () => {
+  const multi = extractSecItems(
+    "Filed: 2026-09-07 AccNo: 0001045810-26-000001 Item 2.02: Results of Operations and Financial Condition Item 5.02: Departure of Directors Item 9.01: Financial Statements and Exhibits",
+  );
+  assertEquals(multi, ["2.02", "5.02", "9.01"]);
+
+  const dupes = extractSecItems("Item 2.02: Results Item 2.02: Results Item 8.01: Other Events");
+  assertEquals(dupes, ["2.02", "8.01"]);
+
+  assertEquals(extractSecItems("Filed: 2026-09-07 AccNo: 0001045810-26-000001 Size: 12 KB"), null);
+  assertEquals(extractSecItems("Item foo Item 2.0 Item 2 Items 5.02"), null);
+});
+
+Deno.test("formatSecFilingDescription stays factual", () => {
+  assertEquals(formatSecFilingDescription("8-K", null), "Form 8-K filed with the SEC.");
+  assertEquals(
+    formatSecFilingDescription("8-K", ["2.02", "5.02", "9.01"]),
+    "Form 8-K — Items 2.02, 5.02 and 9.01",
+  );
+});
+
+Deno.test("8-K Atom summary items become sec_items and a factual description", () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <entry>
+    <title>8-K - NVIDIA CORP (0001045810) (Filer)</title>
+    <link rel="alternate" type="text/html" href="https://www.sec.gov/Archives/edgar/data/1045810/000104581026000001/0001045810-26-000001-index.htm" />
+    <id>urn:tag:sec.gov,2008:accession-number=0001045810-26-000001</id>
+    <updated>2026-09-07T13:17:00-04:00</updated>
+    <summary type="html">Filed: 2026-09-07 AccNo: 0001045810-26-000001 Item 2.02: Results of Operations and Financial Condition Item 5.02: Departure of Directors Item 9.01: Financial Statements and Exhibits</summary>
+    <category scheme="https://www.sec.gov/" term="8-K" />
+  </entry>
+</feed>`;
+  const entries = parseLatestFilingsAtom(xml);
+  assertEquals(entries[0]?.sec_items, ["2.02", "5.02", "9.01"]);
+  const rows = toCatalystRowsFromSec(
+    entries,
+    parseCompanyTickersExchangeJson(CIK_MAP_FIXTURE),
+    emptySecSummary(),
+  );
+  assertEquals(rows[0]?.description, "Form 8-K — Items 2.02, 5.02 and 9.01");
+  assertEquals(rows[0]?.facts.sec_items, ["2.02", "5.02", "9.01"]);
+});
+
+function requesterHarness() {
+  let now = 1_000_000;
+  const sleeps: number[] = [];
+  return {
+    sleeps,
+    nowMs: () => {
+      now += 10_000;
+      return now;
+    },
+    sleepFn: async (ms: number) => {
+      sleeps.push(ms);
+    },
+  };
+}
+
+Deno.test("createSecRequester classifies timeout/abort as PROVIDER_TIMEOUT after bounded retries", async () => {
+  const harness = requesterHarness();
+  const summary = emptySecSummary();
+  let calls = 0;
+  const secFetch = createSecRequester("Stocksist/1.0 test@example.com", summary, {
+    ...harness,
+    fetchFn: () => {
+      calls += 1;
+      return Promise.reject(Object.assign(new Error("aborted"), { name: "TimeoutError" }));
+    },
+  });
+  const res = await secFetch("https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom");
+  assertEquals(res.ok, false);
+  if (!res.ok) assertEquals(res.reason, "PROVIDER_TIMEOUT");
+  assertEquals(calls, 3);
+  assertEquals(summary.sec_requests, 3);
+});
+
+Deno.test("createSecRequester classifies generic fetch failure as PROVIDER_ERROR", async () => {
+  const harness = requesterHarness();
+  const summary = emptySecSummary();
+  const secFetch = createSecRequester("Stocksist/1.0 test@example.com", summary, {
+    ...harness,
+    fetchFn: () => Promise.reject(new TypeError("fetch failed")),
+  });
+  const res = await secFetch("https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom");
+  assertEquals(res.ok, false);
+  if (!res.ok) assertEquals(res.reason, "PROVIDER_ERROR");
+});
+
+Deno.test("createSecRequester returns PROVIDER_FORBIDDEN on 403 without retrying", async () => {
+  const harness = requesterHarness();
+  const summary = emptySecSummary();
+  let calls = 0;
+  const secFetch = createSecRequester("Stocksist/1.0 test@example.com", summary, {
+    ...harness,
+    fetchFn: () => {
+      calls += 1;
+      return Promise.resolve(new Response("forbidden", { status: 403 }));
+    },
+  });
+  const res = await secFetch("https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom");
+  assertEquals(res.ok, false);
+  if (!res.ok) assertEquals(res.reason, "PROVIDER_FORBIDDEN");
+  assertEquals(calls, 1);
+});
+
+Deno.test("createSecRequester retries 429 then returns PROVIDER_RATE_LIMITED", async () => {
+  const harness = requesterHarness();
+  const summary = emptySecSummary();
+  let calls = 0;
+  const secFetch = createSecRequester("Stocksist/1.0 test@example.com", summary, {
+    ...harness,
+    fetchFn: () => {
+      calls += 1;
+      return Promise.resolve(new Response("slow", { status: 429 }));
+    },
+  });
+  const res = await secFetch("https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom");
+  assertEquals(res.ok, false);
+  if (!res.ok) assertEquals(res.reason, "PROVIDER_RATE_LIMITED");
+  assertEquals(calls, 3);
+  assert(harness.sleeps.length >= 2);
+});
+
+Deno.test("createSecRequester retries 503 then returns PROVIDER_ERROR", async () => {
+  const harness = requesterHarness();
+  const summary = emptySecSummary();
+  let calls = 0;
+  const secFetch = createSecRequester("Stocksist/1.0 test@example.com", summary, {
+    ...harness,
+    fetchFn: () => {
+      calls += 1;
+      return Promise.resolve(new Response("down", { status: 503 }));
+    },
+  });
+  const res = await secFetch("https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom");
+  assertEquals(res.ok, false);
+  if (!res.ok) assertEquals(res.reason, "PROVIDER_ERROR");
+  assertEquals(calls, 3);
 });

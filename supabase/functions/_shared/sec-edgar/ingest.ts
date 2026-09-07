@@ -147,16 +147,33 @@ function extractAccession(summaryText: string): string | null {
   return m ? normalizeAccession(m[1]) : null;
 }
 
-function extractPrimaryDocumentFromUrl(url: string | null): string | null {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split("/");
-    const file = parts[parts.length - 1] ?? "";
-    return file.length > 0 ? file : null;
-  } catch {
-    return null;
+/** Extract explicit "Item X.XX" identifiers only. Never invent or interpret items. */
+export function extractSecItems(summaryText: string): string[] | null {
+  if (!summaryText) return null;
+  const seen = new Set<string>();
+  const items: string[] = [];
+  for (const match of summaryText.matchAll(/\bItem\s+(\d+\.\d{2})\b/gi)) {
+    const num = match[1];
+    if (!num || seen.has(num)) continue;
+    seen.add(num);
+    items.push(num);
   }
+  return items.length > 0 ? items : null;
+}
+
+export function formatSecFilingDescription(
+  formType: string,
+  secItems: string[] | null,
+): string {
+  if (!secItems || secItems.length === 0) {
+    return `Form ${formType} filed with the SEC.`;
+  }
+  if (secItems.length === 1) return `Form ${formType} — Items ${secItems[0]}`;
+  if (secItems.length === 2) {
+    return `Form ${formType} — Items ${secItems[0]} and ${secItems[1]}`;
+  }
+  const head = secItems.slice(0, -1).join(", ");
+  return `Form ${formType} — Items ${head} and ${secItems[secItems.length - 1]}`;
 }
 
 function entryFormType(categoryTerm: unknown, titleText: string): string | null {
@@ -171,9 +188,16 @@ function entryCik(titleText: string): string | null {
   return m ? normalizeCik(m[1]) : null;
 }
 
-function entryCompanyName(titleText: string): string | null {
-  const m = titleText.match(/^[^-]+-\s*(.+)\s+\(\d{1,10}\)\s*\([^)]+\)\s*$/);
-  return m ? nonEmptyTrimmed(m[1]) : null;
+/**
+ * SEC Latest Filings Atom titles use:
+ *   {FORM} - {COMPANY NAME} ({CIK}) ({ROLE})
+ * e.g. "8-K - NVIDIA CORP (0001045810) (Filer)"
+ * Fail closed when the verified structure is not present.
+ */
+export function parseSecAtomCompanyName(titleText: string): string | null {
+  const m = titleText.match(/^\S+\s+-\s+(.+)\s+\((\d{1,10})\)\s+\([^)]+\)\s*$/);
+  if (!m) return null;
+  return nonEmptyTrimmed(m[1]);
 }
 
 function hrefFromLink(link: unknown): string | null {
@@ -252,12 +276,12 @@ export function parseLatestFilingsAtom(xml: string): SecFeedEntry[] {
 
     const formType = entryFormType(categoryTerm, titleText);
     const cik = entryCik(titleText);
-    const companyName = entryCompanyName(titleText);
+    const companyName = parseSecAtomCompanyName(titleText);
     const accession = normalizeAccession(idText) ?? extractAccession(summaryText);
     const filingDate = extractFiledDate(summaryText);
     const acceptedAt = toIsoOrNull(updatedText);
     const filingUrl = entryFilingUrl(entry.link);
-    const primaryDocument = extractPrimaryDocumentFromUrl(filingUrl);
+    const secItems = extractSecItems(summaryText);
 
     if (!formType || !cik || !accession) continue;
     entries.push({
@@ -268,8 +292,10 @@ export function parseLatestFilingsAtom(xml: string): SecFeedEntry[] {
       filing_date: filingDate,
       accepted_at: acceptedAt,
       filing_url: filingUrl,
-      primary_document: primaryDocument,
-      sec_items: null,
+      // Atom latest-filings links are filing index pages, not the primary document.
+      // Leave null unless a later sprint obtains the actual document from verified SEC metadata.
+      primary_document: null,
+      sec_items: secItems,
     });
   }
   return entries;
@@ -314,6 +340,19 @@ function secFacts(entry: SecFeedEntry, exchange: string | null): Record<string, 
     sec_items: entry.sec_items,
     exchange,
   };
+}
+
+export function partitionNewRows<T extends { dedupe_key: string }>(
+  rows: readonly T[],
+  existingKeys: ReadonlySet<string>,
+): { existing: T[]; incoming: T[] } {
+  const existing: T[] = [];
+  const incoming: T[] = [];
+  for (const row of rows) {
+    if (existingKeys.has(row.dedupe_key)) existing.push(row);
+    else incoming.push(row);
+  }
+  return { existing, incoming };
 }
 
 export function toCatalystRowsFromSec(
@@ -361,9 +400,7 @@ export function toCatalystRowsFromSec(
         event_time: entry.accepted_at,
         time_of_day: null,
         title: `${target.ticker} filed Form ${entry.form_type}`,
-        description: entry.sec_items && entry.sec_items.length > 0
-          ? `Form ${entry.form_type} — Items ${entry.sec_items.join(" and ")}`
-          : `Form ${entry.form_type} filed with the SEC.`,
+        description: formatSecFilingDescription(entry.form_type, entry.sec_items),
         source_name: "SEC EDGAR",
         source_url: entry.filing_url,
         provider: "sec_edgar",
@@ -384,9 +421,15 @@ export type SecFetchResult =
   | { ok: true; status: number; text: string; json: unknown }
   | { ok: false; reason: "PROVIDER_TIMEOUT" | "PROVIDER_RATE_LIMITED" | "PROVIDER_FORBIDDEN" | "PROVIDER_ERROR" };
 
+function isTimeoutOrAbort(err: unknown): boolean {
+  const name = (err as { name?: string } | null)?.name;
+  return name === "TimeoutError" || name === "AbortError";
+}
+
 interface SecRequesterDeps {
   fetchFn?: FetchLike;
   nowMs?: () => number;
+  sleepFn?: (ms: number) => Promise<void>;
 }
 
 export function createSecRequester(
@@ -396,13 +439,14 @@ export function createSecRequester(
 ) {
   const fetchFn = deps.fetchFn ?? fetch;
   const nowMs = deps.nowMs ?? (() => Date.now());
+  const sleepFn = deps.sleepFn ?? sleep;
   let lastRequestAt = 0;
 
   return async function secFetch(url: string): Promise<SecFetchResult> {
     for (let attempt = 0; attempt < SEC_BACKOFF_MS.length; attempt += 1) {
       const now = nowMs();
       const waitMs = Math.max(0, SEC_MIN_REQUEST_INTERVAL_MS - (now - lastRequestAt));
-      if (waitMs > 0) await sleep(waitMs);
+      if (waitMs > 0) await sleepFn(waitMs);
 
       summary.sec_requests += 1;
       lastRequestAt = nowMs();
@@ -418,17 +462,17 @@ export function createSecRequester(
           },
         });
       } catch (err) {
-        const isTimeout = (err as { name?: string })?.name === "TimeoutError";
-        if (isTimeout && attempt < SEC_BACKOFF_MS.length - 1) {
-          await sleep(SEC_BACKOFF_MS[attempt]);
+        const timedOut = isTimeoutOrAbort(err);
+        if (attempt < SEC_BACKOFF_MS.length - 1) {
+          await sleepFn(SEC_BACKOFF_MS[attempt]);
           continue;
         }
-        return { ok: false, reason: "PROVIDER_TIMEOUT" };
+        return { ok: false, reason: timedOut ? "PROVIDER_TIMEOUT" : "PROVIDER_ERROR" };
       }
 
       if (res.status === 429) {
         if (attempt < SEC_BACKOFF_MS.length - 1) {
-          await sleep(SEC_BACKOFF_MS[attempt]);
+          await sleepFn(SEC_BACKOFF_MS[attempt]);
           continue;
         }
         return { ok: false, reason: "PROVIDER_RATE_LIMITED" };
@@ -438,7 +482,7 @@ export function createSecRequester(
       }
       if (res.status >= 500) {
         if (attempt < SEC_BACKOFF_MS.length - 1) {
-          await sleep(SEC_BACKOFF_MS[attempt]);
+          await sleepFn(SEC_BACKOFF_MS[attempt]);
           continue;
         }
         return { ok: false, reason: "PROVIDER_ERROR" };

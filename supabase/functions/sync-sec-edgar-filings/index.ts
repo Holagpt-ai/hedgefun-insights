@@ -11,6 +11,7 @@ import {
   emptySecSummary,
   parseCompanyTickersExchangeJson,
   parseLatestFilingsAtom,
+  partitionNewRows,
   SEC_COMPANY_TICKERS_EXCHANGE_URL,
   SEC_LATEST_FILINGS_ATOM_URL,
   sanitizeSecSummary,
@@ -97,11 +98,16 @@ async function upsertRows(
     rows.map((r) => String(r.dedupe_key)),
   );
   if (existing === null) return false;
-  summary.rows_skipped_existing += existing.size;
+  const keyed = rows.filter((r): r is Record<string, unknown> & { dedupe_key: string } =>
+    typeof r.dedupe_key === "string"
+  );
+  const { existing: skipped, incoming } = partitionNewRows(keyed, existing);
+  summary.rows_skipped_existing += skipped.length;
+  if (incoming.length === 0) return true;
 
   const chunkSize = 200;
-  for (let i = 0; i < rows.length; i += chunkSize) {
-    const chunk = rows.slice(i, i + chunkSize);
+  for (let i = 0; i < incoming.length; i += chunkSize) {
+    const chunk = incoming.slice(i, i + chunkSize);
     const { error, count } = await supabase
       .from("catalyst_events")
       .upsert(chunk as never[], { onConflict: "dedupe_key", count: "exact" });
