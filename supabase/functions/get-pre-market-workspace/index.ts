@@ -5,7 +5,7 @@ import {
   INDEX_STALE_MINUTES,
   SCREENER_STALE_MINUTES,
   ageMinutes,
-  buildChecklist,
+  buildChecklistFromAvailableSources,
   EARNINGS_DISPLAY_LIMIT,
   catalystDisplayTodayCount,
   isConfirmedEarningsCalendarEvent,
@@ -13,11 +13,13 @@ import {
   selectBeforeOpenEarnings,
   
   dedupeCatalyst,
+  derivedPartialChecklistStatus,
   derivedSectionStatus,
   emptySection,
   envelope,
   etDateShift,
   etParts,
+
   etTimeLabel,
   finiteOrNull,
   isActiveSession,
@@ -38,6 +40,7 @@ import {
   resolveMarketContext,
   sanitizeAlerts,
   sanitizeMarketSignals,
+  sectionOkForChecklist,
   selectVolumeLeaders,
   sortByVolumeDesc,
 
@@ -847,19 +850,28 @@ serve(async (req) => {
   );
 
   // ------------------------------------------------------------- 9. checklist
-  const checklistInputsComplete =
-    derivedInputsComplete && volume_leaders.status !== "unavailable" && indexes.status !== "unavailable";
-  const checklistItems = checklistInputsComplete
-    ? buildChecklist({
+  // Each item is optional/enrichment. Indexes and alerts are not checklist
+  // sources. Withhold the whole list only when every source section failed.
+  const checklistAvailability = {
+    watchlist: sectionOkForChecklist(watchlist_activity.status),
+    catalyst: sectionOkForChecklist(catalyst_watch.status),
+    earnings: sectionOkForChecklist(earnings.status),
+    journal: sectionOkForChecklist(journal_readiness.status),
+    volumeLeaders: sectionOkForChecklist(volume_leaders.status),
+  };
+  const anyChecklistSource = Object.values(checklistAvailability).some(Boolean);
+  const checklistItems = buildChecklistFromAvailableSources(
+    {
       watchlistPremarketCount: (watchlist_activity.data as WlOut[]).length,
       catalystTodayCount: catalystDisplayTodayCount(displayedCatalysts, et.date),
       beforeOpenEarningsCount: beforeOpenCount,
       awaitingRefreshCount,
       journalMissingRiskCount,
       volumeLeaderCount: (volume_leaders.data as VolOut[]).length,
-    })
-    : [];
-  const checklistVerdict = derivedSectionStatus(checklistInputsComplete, checklistItems.length);
+    },
+    checklistAvailability,
+  );
+  const checklistVerdict = derivedPartialChecklistStatus(anyChecklistSource, checklistItems.length);
   const checklist = envelope(
     checklistVerdict.status,
     checklistItems,

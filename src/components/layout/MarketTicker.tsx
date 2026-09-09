@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { indexDisplayLabel } from "@/lib/market-indexes/display-labels";
 
 // extend as more instruments are seeded
 const ORDER = [
@@ -93,7 +94,7 @@ export default function MarketTicker() {
         key={`${r.symbol}-${idx}`}
         className="inline-flex items-center gap-2 px-4 border-r border-border text-xs"
       >
-        <span className="font-semibold">{r.name}</span>
+        <span className="font-semibold">{indexDisplayLabel(r.symbol, r.name)}</span>
         <span className="tabular-nums">
           {r.current_value != null ? Number(r.current_value).toFixed(2) : "—"}
         </span>

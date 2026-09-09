@@ -241,6 +241,7 @@ describe("P1-R2 controlled reason messages", () => {
       "PROVIDER_TIME_INVALID",
       "INCOMPLETE_COVERAGE",
       "SOURCE_UNVERIFIABLE",
+      "REFRESH_UNAVAILABLE",
     ]) {
       expect(REASON_TEXT[code]).toBeTruthy();
       expect(REASON_TEXT[code].length).toBeGreaterThan(20);

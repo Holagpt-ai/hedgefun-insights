@@ -30,18 +30,18 @@ const DISPLAYED_FRONTEND_SYMBOLS = [
 ] as const;
 
 const REQUIRED_MAPPINGS: Record<(typeof DISPLAYED_FRONTEND_SYMBOLS)[number], string> = {
-  SPY: "S&P 500",
-  QQQ: "Nasdaq 100",
-  DIA: "Dow Jones",
-  IWM: "Russell 2000",
-  VIXY: "VIX",
-  GLD: "Gold",
-  SLV: "Silver",
-  IBIT: "Bitcoin",
-  BNO: "Brent Crude",
-  UNG: "Nat Gas",
-  TLT: "20Y Treasury",
-  UUP: "US Dollar",
+  SPY: "S&P 500 ETF",
+  QQQ: "Nasdaq 100 ETF",
+  DIA: "Dow Jones ETF",
+  IWM: "Russell 2000 ETF",
+  VIXY: "VIX ETF",
+  GLD: "Gold ETF",
+  SLV: "Silver ETF",
+  IBIT: "Bitcoin ETF",
+  BNO: "Brent Crude ETF",
+  UNG: "Nat Gas ETF",
+  TLT: "20Y Treasury ETF",
+  UUP: "US Dollar ETF",
 };
 
 type UpsertCall = { table: string; row: MarketIndexRow; onConflict: string };

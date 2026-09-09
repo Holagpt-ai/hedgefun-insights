@@ -239,6 +239,9 @@ Deno.test("only https source URLs are accepted", () => {
 
 import {
   derivedSectionStatus,
+  derivedPartialChecklistStatus,
+  buildChecklistFromAvailableSources,
+  sectionOkForChecklist,
   etDateShift,
   isUsableVolumeRow,
   lifecycleLabel,
@@ -551,6 +554,41 @@ Deno.test("derived sections fail closed when an input failed", () => {
   assertEquals(derivedSectionStatus(false, 5).status, "unavailable");
   assertEquals(derivedSectionStatus(true, 0).status, "empty");
   assertEquals(derivedSectionStatus(true, 2).status, "available");
+});
+
+Deno.test("partial checklist withholds only when every source failed", () => {
+  assertEquals(sectionOkForChecklist("unavailable"), false);
+  assertEquals(sectionOkForChecklist("available"), true);
+  assertEquals(sectionOkForChecklist("empty"), true);
+
+  const items = buildChecklistFromAvailableSources(
+    {
+      watchlistPremarketCount: 4,
+      catalystTodayCount: 2,
+      beforeOpenEarningsCount: 1,
+      awaitingRefreshCount: 1,
+      journalMissingRiskCount: 3,
+      volumeLeaderCount: 6,
+    },
+    {
+      watchlist: false,
+      catalyst: true,
+      earnings: true,
+      journal: false,
+      volumeLeaders: false,
+    },
+  );
+  assertEquals(items.map((i) => i.id), ["catalysts_today", "earnings_before_open"]);
+
+  const withheld = derivedPartialChecklistStatus(false, 2);
+  assertEquals(withheld.status, "unavailable");
+  assertEquals(withheld.reason_code, "INCOMPLETE_COVERAGE");
+
+  const partial = derivedPartialChecklistStatus(true, items.length);
+  assertEquals(partial.status, "available");
+
+  const emptyButSourcesOk = derivedPartialChecklistStatus(true, 0);
+  assertEquals(emptyButSourcesOk.status, "empty");
 });
 
 Deno.test("alerts are ownership-scoped, validated and deduped", () => {

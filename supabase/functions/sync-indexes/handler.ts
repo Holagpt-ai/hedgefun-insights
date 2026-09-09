@@ -10,18 +10,18 @@ const corsHeaders = {
 
 /** Complete displayed market-index universe (must match MarketTicker / DashboardIndexCards). */
 export const INDEXES = [
-  { ticker: "SPY", name: "S&P 500" },
-  { ticker: "QQQ", name: "Nasdaq 100" },
-  { ticker: "DIA", name: "Dow Jones" },
-  { ticker: "IWM", name: "Russell 2000" },
-  { ticker: "VIXY", name: "VIX" },
-  { ticker: "GLD", name: "Gold" },
-  { ticker: "SLV", name: "Silver" },
-  { ticker: "IBIT", name: "Bitcoin" },
-  { ticker: "BNO", name: "Brent Crude" },
-  { ticker: "UNG", name: "Nat Gas" },
-  { ticker: "TLT", name: "20Y Treasury" },
-  { ticker: "UUP", name: "US Dollar" },
+  { ticker: "SPY", name: "S&P 500 ETF" },
+  { ticker: "QQQ", name: "Nasdaq 100 ETF" },
+  { ticker: "DIA", name: "Dow Jones ETF" },
+  { ticker: "IWM", name: "Russell 2000 ETF" },
+  { ticker: "VIXY", name: "VIX ETF" },
+  { ticker: "GLD", name: "Gold ETF" },
+  { ticker: "SLV", name: "Silver ETF" },
+  { ticker: "IBIT", name: "Bitcoin ETF" },
+  { ticker: "BNO", name: "Brent Crude ETF" },
+  { ticker: "UNG", name: "Nat Gas ETF" },
+  { ticker: "TLT", name: "20Y Treasury ETF" },
+  { ticker: "UUP", name: "US Dollar ETF" },
 ] as const;
 
 export type IndexDefinition = (typeof INDEXES)[number];

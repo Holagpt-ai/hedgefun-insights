@@ -1,8 +1,9 @@
 import { useCallback, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { validateWorkspace } from "@/lib/pre-market/builders";
+import { mergeWorkspaceLastKnownGood } from "@/lib/pre-market/last-known-good";
 import type { PreMarketWorkspaceResponse } from "@/types/pre-market";
 
 const REFRESH_MS = 60_000;
@@ -26,10 +27,12 @@ export interface UsePreMarketWorkspaceResult {
 export function usePreMarketWorkspace(): UsePreMarketWorkspaceResult {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+  const queryClient = useQueryClient();
+  const queryKey = ["pre-market-workspace", userId] as const;
 
   const query = useQuery<PreMarketWorkspaceResponse>({
     // Stable key derived from authenticated identity, not request input.
-    queryKey: ["pre-market-workspace", userId],
+    queryKey,
     enabled: !!userId,
     refetchInterval: REFRESH_MS,
     refetchIntervalInBackground: false,
@@ -43,7 +46,8 @@ export function usePreMarketWorkspace(): UsePreMarketWorkspaceResult {
       if (error) throw new Error("WORKSPACE_UNAVAILABLE");
       const validated = validateWorkspace(data);
       if (!validated) throw new Error("WORKSPACE_CONTRACT_INVALID");
-      return validated;
+      const previous = queryClient.getQueryData<PreMarketWorkspaceResponse>(queryKey);
+      return mergeWorkspaceLastKnownGood(previous ?? null, validated);
     },
   });
 
