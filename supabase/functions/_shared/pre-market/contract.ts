@@ -730,6 +730,47 @@ export function derivedSectionStatus(
   return { status: "available", reason_code: null };
 }
 
+/** Envelope statuses that produced a validated (possibly empty) source. */
+export function sectionOkForChecklist(status: string | null | undefined): boolean {
+  return status === "available" || status === "empty" || status === "stale";
+}
+
+export interface ChecklistSourceAvailability {
+  watchlist: boolean;
+  catalyst: boolean;
+  earnings: boolean;
+  journal: boolean;
+  volumeLeaders: boolean;
+}
+
+/**
+ * Omit checklist items whose source section failed. Zero-count omitted items
+ * are not fabricated. Critical: if every source failed, callers must withhold.
+ */
+export function buildChecklistFromAvailableSources(
+  counts: ChecklistSource,
+  available: ChecklistSourceAvailability,
+): ChecklistItem[] {
+  return buildChecklist({
+    watchlistPremarketCount: available.watchlist ? counts.watchlistPremarketCount : 0,
+    catalystTodayCount: available.catalyst ? counts.catalystTodayCount : 0,
+    beforeOpenEarningsCount: available.earnings ? counts.beforeOpenEarningsCount : 0,
+    awaitingRefreshCount: available.watchlist ? counts.awaitingRefreshCount : 0,
+    journalMissingRiskCount: available.journal ? counts.journalMissingRiskCount : 0,
+    volumeLeaderCount: available.volumeLeaders ? counts.volumeLeaderCount : 0,
+  });
+}
+
+/** Partial checklist: withhold only when no source section succeeded. */
+export function derivedPartialChecklistStatus(
+  anySourceSucceeded: boolean,
+  itemCount: number,
+): { status: SectionStatus; reason_code: ReasonCode | null } {
+  if (!anySourceSucceeded) return { status: "unavailable", reason_code: "INCOMPLETE_COVERAGE" };
+  if (itemCount === 0) return { status: "empty", reason_code: "NO_QUALIFYING_DATA" };
+  return { status: "available", reason_code: null };
+}
+
 // ------------------------------------------------------------- alerts
 
 export interface PreMarketAlert {

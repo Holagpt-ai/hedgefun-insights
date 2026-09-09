@@ -6,21 +6,22 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { indexDisplayLabel } from "@/lib/market-indexes/display-labels";
 
 // Add more symbols here as they are seeded into market_indexes
 const CARD_ORDER = [
-  "SPY",   // S&P 500
-  "QQQ",   // Nasdaq 100
-  "DIA",   // Dow Jones
-  "IWM",   // Russell 2000
-  "VIXY",  // VIX
-  "GLD",   // Gold
-  "SLV",   // Silver
-  "IBIT",  // Bitcoin
-  "BNO",   // Brent Crude
-  "UNG",   // Nat Gas
-  "TLT",   // 20Y Treasury
-  "UUP",   // US Dollar
+  "SPY",   // S&P 500 ETF
+  "QQQ",   // Nasdaq 100 ETF
+  "DIA",   // Dow Jones ETF
+  "IWM",   // Russell 2000 ETF
+  "VIXY",  // VIX ETF
+  "GLD",   // Gold ETF
+  "SLV",   // Silver ETF
+  "IBIT",  // Bitcoin ETF
+  "BNO",   // Brent Crude ETF
+  "UNG",   // Nat Gas ETF
+  "TLT",   // 20Y Treasury ETF
+  "UUP",   // US Dollar ETF
 ];
 
 export default function DashboardIndexCards() {
@@ -119,7 +120,7 @@ export default function DashboardIndexCards() {
                   style={{ minWidth: 190, borderRadius: "var(--radius)" }}
                 >
                   <span className="text-xs text-muted-foreground truncate">
-                    {idx.name}
+                    {indexDisplayLabel(idx.symbol, idx.name)}
                   </span>
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-sm font-bold tabular-nums text-foreground">

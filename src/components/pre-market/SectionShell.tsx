@@ -40,6 +40,8 @@ export const REASON_TEXT: Record<string, string> = {
   NEWS_FEED_EMPTY: "No headlines available.",
   RADAR_V2_UNAVAILABLE:
     "Pre-market Radar V2 is unavailable. Volume leaders are not shown from an unverified fallback.",
+  REFRESH_UNAVAILABLE:
+    "Refresh temporarily unavailable — showing last validated data.",
 };
 
 export function SectionHeading({
@@ -122,7 +124,9 @@ export function SectionShell<T>({
         <>
           {section.status === "stale" && (
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
-              Stale source — shown as last available, not current.
+              {section.reason_code === "REFRESH_UNAVAILABLE"
+                ? (REASON_TEXT.REFRESH_UNAVAILABLE)
+                : "Stale source — shown as last available, not current."}
             </div>
           )}
           {children}
