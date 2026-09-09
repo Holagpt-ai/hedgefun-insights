@@ -11,6 +11,23 @@ import type {
   ScoreBreakdown,
 } from "./types.ts";
 
+export function parseIsoOrNull(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.trim().length === 0) return null;
+  const ms = Date.parse(raw);
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toISOString();
+}
+
+export function evidenceAsOfIso(input: NormalizedCatalystInput): string | null {
+  return parseIsoOrNull(input.published_at) ??
+    parseIsoOrNull(input.event_time) ??
+    parseIsoOrNull(input.created_at);
+}
+
+export function marketContextAsOfIso(input: NormalizedCatalystInput): string | null {
+  return parseIsoOrNull(input.facts?.market_context_as_of);
+}
+
 const SEC_FACT_KEYS = [
   "source_kind",
   "form_type",
@@ -77,12 +94,20 @@ export function buildEvidenceTrail(
         source_url: input.source_url ?? null,
       });
     }
+    if (classified.fact_state === "provider_fact") {
+      items.push({
+        field: "title",
+        value: input.title,
+        fact_state: "provider_fact",
+        source_url: input.source_url ?? null,
+      });
+    }
   }
 
   items.push({
     field: "classification",
     value: classified.classification,
-    fact_state: classified.fact_state === "provider_fact" && isSec ? "derived" : "derived",
+    fact_state: "derived",
     source_url: null,
   });
   items.push({
@@ -98,6 +123,9 @@ export function buildEvidenceTrail(
     source_url: null,
   });
 
+  const evidenceAsOf = evidenceAsOfIso(input);
+  const marketContextAsOf = marketContextAsOfIso(input);
+
   return {
     source_event_id: input.id ?? null,
     source_dedupe_key: input.dedupe_key,
@@ -110,6 +138,8 @@ export function buildEvidenceTrail(
     classification_reasons: [...classified.reasons],
     score_breakdown: scores,
     items,
+    evidence_as_of: evidenceAsOf,
+    market_context_as_of: marketContextAsOf,
   };
 }
 

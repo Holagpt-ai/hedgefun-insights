@@ -26,6 +26,25 @@ const COMMENTARY_PATTERNS: RegExp[] = [
   /\bwe\s+think\b/i,
   /\bis\s+it\s+(?:time\s+to\s+)?(?:buy|sell)\b/i,
   /\btop\s+\d+\s+stocks?\s+to\s+(?:buy|watch)\b/i,
+  /^\s*prediction\s*:/i,
+  /\bprediction\s*:/i,
+  /\bcould\s+make\s+it\s+one\s+of\s+the\s+best/i,
+  /\bbest[- ]performing\b/i,
+  /\bthrough\s+20\d{2}\b/i,
+  /\btop\s+stock(?:s)?\s+for\s+the\s+long[- ]term\b/i,
+  /\bwhy\s+.{1,120}\bis\s+a\s+top\s+stock\b/i,
+  /\bsuperior\s+buy\b/i,
+  /\bclearly\s+the\s+(?:superior\s+)?buy\b/i,
+  /\binvestment\s+thesis\b/i,
+];
+
+const EMERGING_NEWS_PATTERNS: RegExp[] = [
+  /\bercot\b/i,
+  /\bbatch\s+zero\b/i,
+  /\breceived\s+conditional\b/i,
+  /\bconditional\s+(?:ercot\s+)?(?:batch|classification|approval|interconnection)\b/i,
+  /\bgrid\s+interconnection\b/i,
+  /\binfrastructure\s+approval\b/i,
 ];
 
 const LEGAL_NOTICE_PATTERNS: RegExp[] = [
@@ -276,6 +295,18 @@ export function classifyIntelligence(input: NormalizedCatalystInput): Classifica
       reasons,
       attribution_class: attribution,
       ticker_specific: tickerSpecific,
+    };
+  }
+
+  if (EMERGING_NEWS_PATTERNS.some((p) => p.test(text))) {
+    reasons.push("emerging_factual_headline");
+    return {
+      classification: "emerging",
+      direction: inferDirectionFromText(input.title, input.description),
+      fact_state: "provider_fact",
+      reasons,
+      attribution_class: attribution ?? "direct",
+      ticker_specific: tickerSpecific || input.symbol.length > 0,
     };
   }
 

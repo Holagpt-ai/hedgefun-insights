@@ -4,6 +4,24 @@
 
 export const SCORING_VERSION = "catalyst_intelligence_v1a";
 
+/** Processor/idempotency identity. Distinct from scoring_version. */
+export const RULES_VERSION = "catalyst-intelligence-v1";
+
+export type IntelligenceLifecycle =
+  | "scheduled"
+  | "developing"
+  | "confirmed"
+  | "outcome"
+  | "stale";
+
+export const INTELLIGENCE_LIFECYCLES: readonly IntelligenceLifecycle[] = [
+  "scheduled",
+  "developing",
+  "confirmed",
+  "outcome",
+  "stale",
+] as const;
+
 export type CatalystClassification = "hard" | "emerging" | "context" | "commentary";
 
 export const CATALYST_CLASSIFICATIONS: readonly CatalystClassification[] = [
@@ -67,6 +85,7 @@ export interface NormalizedCatalystInput {
   related_symbols?: string[];
   facts?: Record<string, unknown>;
   published_at?: string | null;
+  created_at?: string | null;
 }
 
 export interface ScoreBreakdown {
@@ -97,6 +116,8 @@ export interface EvidenceTrail {
   classification_reasons: string[];
   score_breakdown: ScoreBreakdown;
   items: EvidenceItem[];
+  evidence_as_of: string | null;
+  market_context_as_of: string | null;
 }
 
 export interface CatalystIntelligenceRecord {
@@ -115,6 +136,10 @@ export interface CatalystIntelligenceRecord {
   source_url: string | null;
   evidence: EvidenceTrail;
   scoring_version: string;
+  rules_version: string;
+  lifecycle: IntelligenceLifecycle;
+  evidence_as_of: string | null;
+  market_context_as_of: string | null;
   created_at: string;
 }
 

@@ -10,6 +10,20 @@ export function alertDedupeKey(sourceEventDedupeKey: string): string {
   return `alert:v1:${sourceEventDedupeKey}`;
 }
 
+export type ProcessorAlertType = "high_priority" | "relevant_catalyst";
+
+export function processorAlertType(score: number): ProcessorAlertType {
+  return score >= 80 ? "high_priority" : "relevant_catalyst";
+}
+
+export function processorAlertDedupeKey(
+  catalystEventId: string,
+  rulesVersion: string,
+  alertType: ProcessorAlertType,
+): string {
+  return `catalyst:${catalystEventId}:${rulesVersion}:${alertType}`;
+}
+
 export function buildAlertEvent(
   record: CatalystIntelligenceRecord,
   nowIso: string,

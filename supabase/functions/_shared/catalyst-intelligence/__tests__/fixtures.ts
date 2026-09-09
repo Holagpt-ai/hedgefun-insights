@@ -130,6 +130,109 @@ export function earningsCalendar(): NormalizedCatalystInput {
   };
 }
 
+export function orclPredictionCommentary(): NormalizedCatalystInput {
+  return baseRow({
+    id: "evt-orcl-2026-09-09",
+    dedupe_key: "polygon:art-orcl-pred:ORCL",
+    symbol: "ORCL",
+    company_name: "Oracle Corporation",
+    event_date: "2026-09-09",
+    title:
+      "Prediction: Oracle's $638 Billion Cloud Infrastructure Backlog Could Make It One of the Best-Performing AI Stocks Through 2028",
+    source_url: "https://example.com/orcl-prediction",
+    provider_article_id: "art-orcl-pred",
+    published_at: "2026-09-09T10:00:00.000Z",
+    facts: {
+      attribution_class: "direct",
+      ticker_specific: true,
+    },
+  });
+}
+
+export function amdLongTermCommentary(): NormalizedCatalystInput {
+  return baseRow({
+    id: "evt-amd-2026-09-09",
+    dedupe_key: "polygon:art-amd-long:AMD",
+    symbol: "AMD",
+    company_name: "Advanced Micro Devices",
+    event_date: "2026-09-09",
+    title: "Why Advanced Micro Devices (AMD) Is a Top Stock for the Long-Term",
+    source_url: "https://example.com/amd-long-term",
+    provider_article_id: "art-amd-long",
+    published_at: "2026-09-09T10:05:00.000Z",
+    facts: {
+      attribution_class: "direct",
+      ticker_specific: true,
+    },
+  });
+}
+
+export function muVsSandiskCommentary(): NormalizedCatalystInput {
+  return baseRow({
+    id: "evt-mu-2026-09-09",
+    dedupe_key: "polygon:art-mu-vs:MU",
+    symbol: "MU",
+    company_name: "Micron Technology",
+    event_date: "2026-09-09",
+    title:
+      "Micron vs. Sandisk: 1 Artificial Intelligence (AI) Memory Winner Is Down 20% and Clearly the Superior Buy Today",
+    source_url: "https://example.com/mu-vs-sandisk",
+    provider_article_id: "art-mu-vs",
+    published_at: "2026-09-09T10:10:00.000Z",
+    facts: {
+      attribution_class: "direct",
+      ticker_specific: true,
+    },
+  });
+}
+
+export function occScheduledEarnings(): NormalizedCatalystInput {
+  return {
+    id: "evt-occ-2026-09-09",
+    dedupe_key: "earnings:OCC:2026-09-09",
+    symbol: "OCC",
+    company_name: "Optical Cable Corporation",
+    event_type: "earnings",
+    verification_state: "provider_reported",
+    event_date: "2026-09-09",
+    event_time: null,
+    time_of_day: "before_open",
+    title: "OCC scheduled to report earnings before market open on September 9, 2026",
+    description: null,
+    source_name: "Earnings Calendar",
+    source_url: null,
+    provider: "earnings_calendar",
+    provider_article_id: null,
+    related_symbols: [],
+    facts: {
+      time_of_day: "before_open",
+    },
+    published_at: null,
+    created_at: "2026-09-08T20:00:00.000Z",
+  };
+}
+
+export function irenErcotFactual(): NormalizedCatalystInput {
+  return baseRow({
+    id: "evt-iren-2026-09-08",
+    dedupe_key: "polygon:art-iren-ercot:IREN",
+    symbol: "IREN",
+    company_name: "Iris Energy",
+    event_date: "2026-09-08",
+    event_time: "2026-09-08T18:00:00.000Z",
+    title:
+      "IREN 2GW Sweetwater hub received conditional ERCOT Batch Zero classification on September 8, 2026",
+    description: "Company-reported interconnection classification for the Sweetwater hub.",
+    source_url: "https://example.com/iren-ercot",
+    provider_article_id: "art-iren-ercot",
+    published_at: "2026-09-08T18:00:00.000Z",
+    facts: {
+      attribution_class: "direct",
+      ticker_specific: true,
+    },
+  });
+}
+
 export function unknownProviderHardLooking(): NormalizedCatalystInput {
   return baseRow({
     dedupe_key: "wire:xyz:AAPL",

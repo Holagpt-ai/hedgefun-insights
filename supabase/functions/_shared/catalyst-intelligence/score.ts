@@ -107,10 +107,10 @@ export function rawCatalystScore(parts: {
 }): number {
   return clampScore(
     0.30 * parts.materiality +
+      0.25 * parts.ticker_specificity +
       0.20 * parts.source_quality +
-      0.15 * parts.ticker_specificity +
       0.15 * parts.freshness +
-      0.20 * parts.confidence,
+      0.10 * parts.confidence,
   );
 }
 

@@ -1,7 +1,7 @@
 // Public Catalyst Intelligence V1A surface.
 // Boundary: normalized events -> intelligence -> AlertEvent -> Notification Router.
 
-export { SCORING_VERSION } from "./types.ts";
+export { SCORING_VERSION, RULES_VERSION } from "./types.ts";
 export type {
   AlertEvent,
   CatalystClassification,

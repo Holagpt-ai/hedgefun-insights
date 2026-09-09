@@ -96,3 +96,6 @@ verify_jwt = false
 
 [functions.get-pre-market-workspace]
 verify_jwt = false
+
+[functions.process-catalyst-intelligence]
+verify_jwt = false

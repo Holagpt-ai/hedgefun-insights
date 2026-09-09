@@ -25,6 +25,10 @@ export interface CatalystIntelligenceRow {
   source_url: string | null;
   evidence: Record<string, unknown>;
   scoring_version: string;
+  rules_version: string;
+  lifecycle: string;
+  evidence_as_of: string | null;
+  market_context_as_of: string | null;
 }
 
 export interface AlertEventRow {
@@ -65,6 +69,10 @@ export function toIntelligenceRow(record: CatalystIntelligenceRecord): CatalystI
     source_url: record.source_url,
     evidence: record.evidence as unknown as Record<string, unknown>,
     scoring_version: record.scoring_version,
+    rules_version: record.rules_version,
+    lifecycle: record.lifecycle,
+    evidence_as_of: record.evidence_as_of,
+    market_context_as_of: record.market_context_as_of,
   };
 }
 

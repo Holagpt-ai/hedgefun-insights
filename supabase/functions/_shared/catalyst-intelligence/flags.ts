@@ -6,6 +6,7 @@ export const FLAG_TRUE = "true";
 
 export interface CatalystFlags {
   catalystIntelligenceEnabled: boolean;
+  catalystIntelligenceWriteEnabled: boolean;
   catalystAlertGenerationEnabled: boolean;
   alertDeliveryEnabled: boolean;
   pushNotificationsEnabled: boolean;
@@ -16,6 +17,7 @@ export interface CatalystFlags {
 /** Mandatory V1A configuration. Delivery remains off. */
 export const V1A_MANDATORY_FLAGS: CatalystFlags = {
   catalystIntelligenceEnabled: true,
+  catalystIntelligenceWriteEnabled: false,
   catalystAlertGenerationEnabled: true,
   alertDeliveryEnabled: false,
   pushNotificationsEnabled: false,
@@ -25,6 +27,7 @@ export const V1A_MANDATORY_FLAGS: CatalystFlags = {
 
 export const FLAG_ENV_KEYS = {
   CATALYST_INTELLIGENCE_ENABLED: "CATALYST_INTELLIGENCE_ENABLED",
+  CATALYST_INTELLIGENCE_WRITE_ENABLED: "CATALYST_INTELLIGENCE_WRITE_ENABLED",
   CATALYST_ALERT_GENERATION_ENABLED: "CATALYST_ALERT_GENERATION_ENABLED",
   ALERT_DELIVERY_ENABLED: "ALERT_DELIVERY_ENABLED",
   PUSH_NOTIFICATIONS_ENABLED: "PUSH_NOTIFICATIONS_ENABLED",
@@ -44,6 +47,7 @@ export function readCatalystFlags(
     : (key: string) => env[key];
   return {
     catalystIntelligenceEnabled: isFlagEnabled(get(FLAG_ENV_KEYS.CATALYST_INTELLIGENCE_ENABLED)),
+    catalystIntelligenceWriteEnabled: isFlagEnabled(get(FLAG_ENV_KEYS.CATALYST_INTELLIGENCE_WRITE_ENABLED)),
     catalystAlertGenerationEnabled: isFlagEnabled(get(FLAG_ENV_KEYS.CATALYST_ALERT_GENERATION_ENABLED)),
     alertDeliveryEnabled: isFlagEnabled(get(FLAG_ENV_KEYS.ALERT_DELIVERY_ENABLED)),
     pushNotificationsEnabled: isFlagEnabled(get(FLAG_ENV_KEYS.PUSH_NOTIFICATIONS_ENABLED)),
@@ -56,6 +60,7 @@ export function readCatalystFlags(
 export function failClosedFlags(): CatalystFlags {
   return {
     catalystIntelligenceEnabled: false,
+    catalystIntelligenceWriteEnabled: false,
     catalystAlertGenerationEnabled: false,
     alertDeliveryEnabled: false,
     pushNotificationsEnabled: false,

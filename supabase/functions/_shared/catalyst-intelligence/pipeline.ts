@@ -3,16 +3,17 @@
 // No UI consumers. No provider I/O. Failures fail closed.
 
 import { classifyIntelligence } from "./classify.ts";
-import { buildEvidenceTrail, evidenceHasAiInterpretation } from "./evidence.ts";
+import { buildEvidenceTrail, evidenceAsOfIso, evidenceHasAiInterpretation } from "./evidence.ts";
 import type { CatalystFlags } from "./flags.ts";
 import { emitAlertEvent, type AlertQueue, type EmitAlertResult } from "./alerts.ts";
 import { createNotificationRouter } from "./router.ts";
+import { deriveLifecycle } from "./lifecycle.ts";
 import { scoreIntelligence } from "./score.ts";
 import type {
   CatalystIntelligenceRecord,
   NormalizedCatalystInput,
 } from "./types.ts";
-import { SCORING_VERSION } from "./types.ts";
+import { RULES_VERSION, SCORING_VERSION } from "./types.ts";
 
 export function intelligenceId(sourceDedupeKey: string): string {
   return `intel:${sourceDedupeKey}`;
@@ -36,6 +37,9 @@ export function evaluateCatalystIntelligence(
 
   const createdAt = Number.isFinite(nowMs) ? new Date(nowMs).toISOString() : new Date(0).toISOString();
 
+  const evidenceAsOf = evidence.evidence_as_of ?? evidenceAsOfIso(input);
+  const marketContextAsOf = evidence.market_context_as_of;
+
   return {
     id: intelligenceId(input.dedupe_key),
     source_event_id: input.id ?? null,
@@ -52,6 +56,10 @@ export function evaluateCatalystIntelligence(
     source_url: input.source_url ?? null,
     evidence,
     scoring_version: SCORING_VERSION,
+    rules_version: RULES_VERSION,
+    lifecycle: deriveLifecycle(input, classified, nowMs),
+    evidence_as_of: evidenceAsOf,
+    market_context_as_of: marketContextAsOf,
     created_at: createdAt,
   };
 }
