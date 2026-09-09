@@ -5,10 +5,24 @@ import {
   nonEmptyTrimmed,
 } from "../catalyst/contract.ts";
 
-export const SEC_LATEST_FILINGS_ATOM_URL =
-  "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&owner=include&count=100&output=atom";
+export const SEC_LATEST_FILINGS_PAGE_SIZE = 100;
+export const SEC_LATEST_FILINGS_OWNER = "exclude";
 export const SEC_COMPANY_TICKERS_EXCHANGE_URL =
   "https://www.sec.gov/files/company_tickers_exchange.json";
+
+/** Official Latest Filings Atom page. `start` is the verified official offset. */
+export function buildLatestFilingsAtomUrl(start = 0): string {
+  const offset = Number.isInteger(start) && start >= 0 ? start : 0;
+  return (
+    `https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent` +
+    `&owner=${SEC_LATEST_FILINGS_OWNER}` +
+    `&count=${SEC_LATEST_FILINGS_PAGE_SIZE}` +
+    `&start=${offset}` +
+    `&output=atom`
+  );
+}
+
+export const SEC_LATEST_FILINGS_ATOM_URL = buildLatestFilingsAtomUrl(0);
 
 export const SEC_MAX_REQUESTS_PER_SECOND = 5;
 export const SEC_MIN_REQUEST_INTERVAL_MS = Math.ceil(1000 / SEC_MAX_REQUESTS_PER_SECOND);
@@ -279,6 +293,8 @@ export function parseLatestFilingsAtom(xml: string): SecFeedEntry[] {
     const companyName = parseSecAtomCompanyName(titleText);
     const accession = normalizeAccession(idText) ?? extractAccession(summaryText);
     const filingDate = extractFiledDate(summaryText);
+    // Official Atom `updated` is the SEC acceptance timestamp shown on Latest Filings.
+    // There is no distinct second accepted field in this feed. Do not invent one.
     const acceptedAt = toIsoOrNull(updatedText);
     const filingUrl = entryFilingUrl(entry.link);
     const secItems = extractSecItems(summaryText);

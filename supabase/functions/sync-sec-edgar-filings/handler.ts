@@ -1,7 +1,7 @@
-// sync-sec-edgar-filings handler — V1B activation controls.
+// sync-sec-edgar-filings handler — V1C paging + accession-anchor checkpoint.
 // FACT-ONLY ingestion. Default mode is dry_run. Write requires both
 // an authenticated {"mode":"write"} request and SEC_EDGAR_WRITE_ENABLED=true.
-// Endpoints are server-fixed; request bodies cannot redirect SEC URLs.
+// Endpoints, paging, owner filter, and checkpoint are server-fixed.
 
 import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import {
@@ -11,18 +11,27 @@ import {
   sanitizeActivationSummary,
   SEC_SYNC_MAX_BODY_BYTES,
   shouldSkipSecDiscoveryForMarketHoliday,
+  type CheckpointStatusLabel,
   type SecActivationSummary,
   type SecSyncMode,
 } from "../_shared/sec-edgar/activation.ts";
 import {
+  SEC_EDGAR_STREAM_KEY,
+  normalizeAnchorAccessions,
+  parseLoadedCheckpoint,
+  walkLatestFilingsPages,
+  type CheckpointSaveRequest,
+  type CheckpointSaveResult,
+  type LoadCheckpointResult,
+} from "../_shared/sec-edgar/checkpoint.ts";
+import {
   createSecRequester,
   emptySecSummary,
   parseCompanyTickersExchangeJson,
-  parseLatestFilingsAtom,
   partitionNewRows,
   SEC_COMPANY_TICKERS_EXCHANGE_URL,
   SEC_INCLUDED_FORMS,
-  SEC_LATEST_FILINGS_ATOM_URL,
+  SEC_LATEST_FILINGS_PAGE_SIZE,
   toCatalystRowsFromSec,
   type CikTickerMap,
   type SecFetchResult,
@@ -34,6 +43,10 @@ export type ReasonCode =
   | "METHOD_NOT_ALLOWED"
   | "VALIDATION_ERROR"
   | "WRITE_DISABLED"
+  | "CHECKPOINT_GAP"
+  | "CHECKPOINT_INCONSISTENT"
+  | "CHECKPOINT_CONFLICT"
+  | "CHECKPOINT_WRITE_FAILED"
   | "PROVIDER_TIMEOUT"
   | "PROVIDER_RATE_LIMITED"
   | "PROVIDER_FORBIDDEN"
@@ -62,6 +75,8 @@ export type EnvReader = (key: string) => string | undefined;
 export interface SecEdgarStore {
   findExistingDedupeKeys(keys: string[]): Promise<Set<string> | null>;
   insertNewRows(rows: Record<string, unknown>[]): Promise<number | null>;
+  loadCheckpoint(streamKey: string): Promise<LoadCheckpointResult>;
+  saveCheckpoint(request: CheckpointSaveRequest): Promise<CheckpointSaveResult>;
 }
 
 export type HandlerDeps = {
@@ -82,7 +97,7 @@ function log(code: ReasonCode | "OK", summary?: SecActivationSummary): void {
   }
   const s = sanitizeActivationSummary(summary);
   console.log(
-    `[sec-edgar-sync] ${code} mode=${s.mode} feed_entries_read=${s.feed_entries_read} relevant_forms_found=${s.relevant_forms_found} mapped_issuers=${s.mapped_issuers} unmapped_issuers=${s.unmapped_issuers} rows_validated=${s.rows_validated} rows_existing=${s.rows_existing} rows_would_insert=${s.rows_would_insert} rows_upserted=${s.rows_upserted} rows_rejected=${s.rows_rejected} sec_requests=${s.sec_requests}`,
+    `[sec-edgar-sync] ${code} mode=${s.mode} checkpoint_status=${s.checkpoint_status} pages_fetched=${s.pages_fetched} entries_scanned=${s.entries_scanned} rows_validated=${s.rows_validated} rows_existing=${s.rows_existing} rows_would_insert=${s.rows_would_insert} rows_upserted=${s.rows_upserted} sec_requests=${s.sec_requests}`,
   );
 }
 
@@ -114,27 +129,40 @@ async function loadCikMap(
   return map;
 }
 
-function toActivationSummary(
+function toSummary(
   mode: SecSyncMode,
   ingest: SecSyncSummary,
-  rowsExisting: number,
-  rowsWouldInsert: number,
-  formsFound: Record<string, number>,
+  extra: {
+    checkpointPresent: boolean;
+    checkpointStatus: CheckpointStatusLabel;
+    boundaryReached: boolean;
+    pagesFetched: number;
+    entriesScanned: number;
+    rowsExisting: number;
+    rowsWouldInsert: number;
+    formsFound: Record<string, number>;
+  },
 ): SecActivationSummary {
   return sanitizeActivationSummary({
     mode,
+    checkpoint_present: extra.checkpointPresent,
+    checkpoint_status: extra.checkpointStatus,
+    checkpoint_boundary_reached: extra.boundaryReached,
+    pages_fetched: extra.pagesFetched,
+    entries_scanned: extra.entriesScanned,
+    page_size: SEC_LATEST_FILINGS_PAGE_SIZE,
     feed_entries_read: ingest.feed_entries_read,
     relevant_forms_found: ingest.relevant_forms_found,
     mapped_issuers: ingest.mapped_issuers,
     unmapped_issuers: ingest.unmapped_issuers,
     rows_validated: ingest.rows_validated,
-    rows_existing: rowsExisting,
-    rows_would_insert: rowsWouldInsert,
+    rows_existing: extra.rowsExisting,
+    rows_would_insert: extra.rowsWouldInsert,
     rows_upserted: ingest.rows_upserted,
     rows_skipped_existing: ingest.rows_skipped_existing,
     rows_rejected: ingest.rows_rejected,
     sec_requests: ingest.sec_requests,
-    forms_found: formsFound,
+    forms_found: extra.formsFound,
   });
 }
 
@@ -192,7 +220,6 @@ export async function handleSyncSecEdgarFilings(
     return respondError(500, "VALIDATION_ERROR");
   }
 
-  // Explicit no-op: market holidays never disable SEC discovery.
   shouldSkipSecDiscoveryForMarketHoliday(true);
 
   const ingest = emptySecSummary();
@@ -202,39 +229,107 @@ export async function handleSyncSecEdgarFilings(
   const nowMs = deps.nowMs ?? (() => Date.now());
 
   try {
-    const feedRes = await secFetch(SEC_LATEST_FILINGS_ATOM_URL);
-    if (!feedRes.ok) {
-      log(feedRes.reason, toActivationSummary(mode, ingest, 0, 0, {}));
-      return respondError(502, feedRes.reason);
+    const loaded = await deps.store.loadCheckpoint(SEC_EDGAR_STREAM_KEY);
+    if (!loaded.ok) {
+      const loadReason = loaded.reason === "CHECKPOINT_INCONSISTENT"
+        ? "CHECKPOINT_INCONSISTENT"
+        : "DATABASE_ERROR";
+      log(loadReason, toSummary(mode, ingest, {
+        checkpointPresent: false,
+        checkpointStatus: loadReason === "CHECKPOINT_INCONSISTENT" ? "inconsistent" : "absent",
+        boundaryReached: false,
+        pagesFetched: 0,
+        entriesScanned: 0,
+        rowsExisting: 0,
+        rowsWouldInsert: 0,
+        formsFound: {},
+      }));
+      return respondError(loadReason === "CHECKPOINT_INCONSISTENT" ? 409 : 500, loadReason);
     }
-    const entries = parseLatestFilingsAtom(feedRes.text);
-    if (entries.length === 0) {
-      log("PROVIDER_ERROR", toActivationSummary(mode, ingest, 0, 0, {}));
-      return respondError(502, "PROVIDER_ERROR");
+
+    let anchors: string[] | null = null;
+    let expectedRevision: number | null = null;
+    if (loaded.checkpoint) {
+      const parsed = parseLoadedCheckpoint(loaded.checkpoint);
+      if (!parsed.ok) {
+        log("CHECKPOINT_INCONSISTENT");
+        return respondError(409, "CHECKPOINT_INCONSISTENT");
+      }
+      anchors = parsed.checkpoint.anchor_accessions;
+      expectedRevision = parsed.checkpoint.revision;
+    }
+
+    const walk = await walkLatestFilingsPages(secFetch, anchors);
+    const walkMeta = {
+      checkpointPresent: anchors !== null,
+      checkpointStatus: (walk.ok ? walk.checkpointStatus : walk.reason === "CHECKPOINT_GAP" ? "gap" : walk.reason === "CHECKPOINT_INCONSISTENT" ? "inconsistent" : "absent") as CheckpointStatusLabel,
+      boundaryReached: walk.ok ? walk.boundaryReached : false,
+      pagesFetched: walk.pagesFetched,
+      entriesScanned: walk.entriesScanned,
+    };
+    if (!walk.ok) {
+      log(walk.reason, toSummary(mode, ingest, {
+        ...walkMeta,
+        rowsExisting: 0,
+        rowsWouldInsert: 0,
+        formsFound: {},
+      }));
+      const status = walk.reason === "CHECKPOINT_GAP" || walk.reason === "CHECKPOINT_INCONSISTENT"
+        ? 409
+        : 502;
+      return respondError(status, walk.reason);
+    }
+
+    const nextAnchors = normalizeAnchorAccessions(walk.page0Accessions);
+    if (nextAnchors === null) {
+      log("CHECKPOINT_INCONSISTENT", toSummary(mode, ingest, {
+        ...walkMeta,
+        checkpointStatus: "inconsistent",
+        rowsExisting: 0,
+        rowsWouldInsert: 0,
+        formsFound: {},
+      }));
+      return respondError(409, "CHECKPOINT_INCONSISTENT");
     }
 
     const cikMap = await loadCikMap(secFetch, nowMs);
     if (!(cikMap instanceof Map)) {
-      log(cikMap.error, toActivationSummary(mode, ingest, 0, 0, {}));
+      log(cikMap.error, toSummary(mode, ingest, {
+        ...walkMeta,
+        rowsExisting: 0,
+        rowsWouldInsert: 0,
+        formsFound: {},
+      }));
       return respondError(502, cikMap.error);
     }
 
-    const rows = toCatalystRowsFromSec(entries, cikMap, ingest);
+    const rows = toCatalystRowsFromSec(walk.entries, cikMap, ingest);
     const formsFound = countIncludedForms(
-      entries.map((e) => e.form_type),
+      walk.entries.map((e) => e.form_type),
       SEC_INCLUDED_FORMS,
     );
 
     const existing = await deps.store.findExistingDedupeKeys(rows.map((r) => r.dedupe_key));
     if (existing === null) {
-      log("DATABASE_ERROR", toActivationSummary(mode, ingest, 0, 0, formsFound));
+      log("DATABASE_ERROR", toSummary(mode, ingest, {
+        ...walkMeta,
+        rowsExisting: 0,
+        rowsWouldInsert: 0,
+        formsFound,
+      }));
       return respondError(500, "DATABASE_ERROR");
     }
     const { existing: skipped, incoming } = partitionNewRows(rows, existing);
     ingest.rows_skipped_existing += skipped.length;
 
     if (mode === "dry_run") {
-      const safe = toActivationSummary(mode, ingest, skipped.length, incoming.length, formsFound);
+      const safe = toSummary(mode, ingest, {
+        ...walkMeta,
+        checkpointStatus: anchors === null ? "absent" : walk.checkpointStatus,
+        rowsExisting: skipped.length,
+        rowsWouldInsert: incoming.length,
+        formsFound,
+      });
       log("OK", safe);
       return respondJson(200, safe);
     }
@@ -243,15 +338,63 @@ export async function handleSyncSecEdgarFilings(
       ? 0
       : await deps.store.insertNewRows(incoming as unknown as Record<string, unknown>[]);
     if (inserted === null) {
-      log("DATABASE_ERROR", toActivationSummary(mode, ingest, skipped.length, incoming.length, formsFound));
+      log("DATABASE_ERROR", toSummary(mode, ingest, {
+        ...walkMeta,
+        rowsExisting: skipped.length,
+        rowsWouldInsert: incoming.length,
+        formsFound,
+      }));
       return respondError(500, "DATABASE_ERROR");
     }
     ingest.rows_upserted += inserted;
-    const safe = toActivationSummary(mode, ingest, skipped.length, incoming.length, formsFound);
+
+    const nowIso = new Date(nowMs()).toISOString();
+    const saved = await deps.store.saveCheckpoint({
+      expectedRevision,
+      nextCheckpoint: {
+        stream_key: SEC_EDGAR_STREAM_KEY,
+        anchor_accessions: nextAnchors,
+        revision: expectedRevision === null ? 0 : expectedRevision + 1,
+        anchor_observed_at: nowIso,
+        last_success_at: nowIso,
+        head_updated_at: walk.page0HeadUpdatedAt,
+        pages_fetched: walk.pagesFetched,
+      },
+    });
+    if (!saved.ok) {
+      const failed = toSummary(mode, ingest, {
+        ...walkMeta,
+        checkpointStatus: saved.reason === "CHECKPOINT_CONFLICT" ? "conflict" : "write_failed",
+        rowsExisting: skipped.length,
+        rowsWouldInsert: incoming.length,
+        formsFound,
+      });
+      log(saved.reason, failed);
+      return respondError(
+        saved.reason === "CHECKPOINT_CONFLICT" ? 409 : 500,
+        saved.reason,
+      );
+    }
+
+    const safe = toSummary(mode, ingest, {
+      ...walkMeta,
+      rowsExisting: skipped.length,
+      rowsWouldInsert: incoming.length,
+      formsFound,
+    });
     log("OK", safe);
     return respondJson(200, safe);
   } catch {
-    log("UNKNOWN", toActivationSummary(mode, ingest, 0, 0, {}));
+    log("UNKNOWN", toSummary(mode, ingest, {
+      checkpointPresent: false,
+      checkpointStatus: "absent",
+      boundaryReached: false,
+      pagesFetched: 0,
+      entriesScanned: 0,
+      rowsExisting: 0,
+      rowsWouldInsert: 0,
+      formsFound: {},
+    }));
     return respondError(500, "UNKNOWN");
   }
 }
