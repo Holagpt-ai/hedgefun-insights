@@ -13,6 +13,7 @@ import { providerPolicy } from "./providers.ts";
 export const COMMENTARY_SCORE_CAP = 35;
 export const UNKNOWN_PROVIDER_SCORE_CAP = 40;
 export const NON_SPECIFIC_SCORE_CAP = 50;
+export const ORDINARY_CONTEXT_SCORE_CAP = 55;
 export const HIGH_PRIORITY_THRESHOLD = 65;
 
 const HOUR = 60 * 60 * 1000;
@@ -128,6 +129,7 @@ export function applyScoreDowngrades(
   classification: CatalystClassification,
   provider: string,
   tickerSpecific: boolean,
+  contextActionability?: "ordinary" | "material" | null,
 ): DowngradeApplied {
   const reasons: string[] = [];
   let score = clampScore(raw);
@@ -135,6 +137,12 @@ export function applyScoreDowngrades(
     if (score > COMMENTARY_SCORE_CAP) {
       score = COMMENTARY_SCORE_CAP;
       reasons.push("commentary_score_cap");
+    }
+  }
+  if (classification === "context" && contextActionability === "ordinary") {
+    if (score > ORDINARY_CONTEXT_SCORE_CAP) {
+      score = ORDINARY_CONTEXT_SCORE_CAP;
+      reasons.push("ordinary_context_score_cap");
     }
   }
   const policy = providerPolicy(provider);
@@ -176,6 +184,7 @@ export function scoreIntelligence(
     classified.classification,
     input.provider,
     classified.ticker_specific,
+    classified.context_actionability,
   );
   return {
     source_quality,

@@ -61,7 +61,7 @@ export function buildEvidenceTrail(
 ): EvidenceTrail {
   const facts = sanitizeFacts(input.facts ?? {});
   const items: EvidenceItem[] = [];
-  const isSec = input.provider === "sec_edgar" || input.event_type === "sec_filing_news";
+  const isSec = input.provider === "sec_edgar";
   const providerFactState: FactState = isSec || input.provider === "earnings_calendar"
     ? "provider_fact"
     : "derived";
