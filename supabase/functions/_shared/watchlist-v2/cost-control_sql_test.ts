@@ -47,10 +47,20 @@ Deno.test("batch telemetry records each Claude decision on the run", () => {
   assert(rec.includes("claude_skipped"));
 });
 
-Deno.test("provider-call telemetry records fallback off and never mentions prompts", async () => {
-  const providerSql = await Deno.readTextFile(
+function providerTelemetrySql(): Promise<string> {
+  return Deno.readTextFile(
     new URL("../../../migrations/20260911183000_wl_v2_ai_provider_telemetry.sql", import.meta.url),
   );
+}
+
+function providerTelemetryFunctionBody(sql: string): string {
+  const start = sql.indexOf("CREATE OR REPLACE FUNCTION public.record_wl_v2_provider_call");
+  assert(start >= 0, "missing record_wl_v2_provider_call");
+  return sql.slice(start);
+}
+
+Deno.test("provider-call telemetry records fallback off and never mentions prompts", async () => {
+  const providerSql = await providerTelemetrySql();
   assert(providerSql.includes("fallback"));
   assert(providerSql.includes("\"off\""));
   assert(providerSql.includes("^[a-z][a-z0-9_-]{0,31}$"));
@@ -58,4 +68,20 @@ Deno.test("provider-call telemetry records fallback off and never mentions promp
   assertFalse(providerSql.includes("QWEN_API_KEY"));
   assertFalse(providerSql.includes("ANTHROPIC_API_KEY"));
   assertFalse(providerSql.includes("buildAiPrompt"));
+});
+
+Deno.test("provider-call telemetry locks the run row before read-modify-write", async () => {
+  const body = providerTelemetryFunctionBody(await providerTelemetrySql());
+  const selectIdx = body.search(
+    /SELECT\s+coalesce\(reason_codes,\s+'\{\}'::jsonb\)\s+INTO\s+v_codes/i,
+  );
+  assert(selectIdx >= 0, "missing reason_codes fetch into v_codes");
+  const forUpdateIdx = body.indexOf("FOR UPDATE", selectIdx);
+  assert(forUpdateIdx > selectIdx, "reason_codes fetch must acquire FOR UPDATE");
+  const incrementIdx = body.indexOf("'{calls}'", forUpdateIdx);
+  assert(incrementIdx > forUpdateIdx, "row lock must precede JSON counter increments");
+  const updateIdx = body.indexOf("UPDATE public.watchlist_analysis_runs", forUpdateIdx);
+  assert(updateIdx > incrementIdx, "final UPDATE must run while the row lock is held");
+  assertFalse(body.includes("pg_advisory_xact_lock"));
+  assertFalse(body.includes("pg_advisory_lock"));
 });

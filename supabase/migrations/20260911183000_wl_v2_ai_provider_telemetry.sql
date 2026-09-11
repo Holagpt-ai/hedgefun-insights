@@ -27,9 +27,11 @@ BEGIN
     RAISE EXCEPTION 'invalid_ai_provider';
   END IF;
 
-  SELECT coalesce(reason_codes, '{}'::jsonb) INTO v_codes
+  SELECT coalesce(reason_codes, '{}'::jsonb)
+    INTO v_codes
     FROM public.watchlist_analysis_runs
-   WHERE run_id = p_run_id;
+   WHERE run_id = p_run_id
+   FOR UPDATE;
   IF NOT FOUND THEN
     RETURN;
   END IF;
