@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasProAccess } from "@/lib/entitlement";
@@ -31,10 +31,22 @@ import {
 } from "@/lib/session-intelligence/watchlist-session";
 import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
 import { resolveVolumeLeadersView } from "@/lib/screeners/radar-v2-volume-leaders";
+import { peekRadarV2LoadDiagnostic } from "@/lib/screeners/radar-v2-diagnostics";
+import {
+  applyPresentedVolumeLeadersToChecklist,
+  buildFreshnessVerifyState,
+  buildRadarVerifyState,
+  buildSessionMismatchPayload,
+  emitPmVerify,
+  isPmDebugEnabled,
+  isRadarSessionMismatch,
+} from "@/lib/pre-market/pm-verify";
 
 export default function AMInbox() {
   const { profile } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const pmDebug = isPmDebugEnabled(searchParams);
   const isPro = hasProAccess(profile?.plan);
 
   usePageSeo({
@@ -69,6 +81,79 @@ export default function AMInbox() {
     [data],
   );
   const watchlistNotice = compactWatchlistNotice(marketStatus, trackedCount);
+
+  const checklistItems = useMemo(
+    () =>
+      applyPresentedVolumeLeadersToChecklist({
+        premarketActive,
+        items: data?.checklist.data ?? [],
+        volumeLeadersView,
+      }),
+    [premarketActive, data?.checklist.data, volumeLeadersView],
+  );
+
+  const verifyTick = [
+    pmDebug,
+    marketStatus,
+    data?.server_now,
+    ws.isStaleUpdateFailed,
+    volumeLeadersView.source,
+    volumeLeadersView.section?.data.length ?? 0,
+    radarVolumeLeaders.decision?.source,
+    radarVolumeLeaders.decision?.reason,
+    radarVolumeLeaders.decision?.session,
+    radarVolumeLeaders.decision?.view?.synced_at,
+    radarVolumeLeaders.observe.preserved,
+    radarVolumeLeaders.observe.preserveReason,
+    radarVolumeLeaders.observe.lastSuccessfulRefreshAt,
+  ].join("|");
+
+  useEffect(() => {
+    if (!pmDebug) return;
+    const nowMs = Date.now();
+    const radarState = buildRadarVerifyState({
+      nowMs,
+      polygonSession: marketStatus,
+      radarDecision: radarVolumeLeaders.decision,
+      volumeLeadersView,
+      observe: radarVolumeLeaders.observe,
+    });
+    emitPmVerify(true, "radar-state", radarState);
+
+    const radarSession =
+      radarVolumeLeaders.decision?.session ?? peekRadarV2LoadDiagnostic()?.session ?? null;
+    if (isRadarSessionMismatch(marketStatus, radarSession)) {
+      emitPmVerify(true, "SESSION_MISMATCH", buildSessionMismatchPayload(marketStatus, radarSession));
+    }
+
+    emitPmVerify(
+      true,
+      "freshness",
+      buildFreshnessVerifyState({
+        nowMs,
+        workspace: data,
+        workspaceStaleUpdateFailed: ws.isStaleUpdateFailed,
+        radarSyncedAt:
+          radarVolumeLeaders.decision?.view?.synced_at ??
+          peekRadarV2LoadDiagnostic()?.v2SyncedAt ??
+          null,
+        radarLastReceiveAt: peekRadarV2LoadDiagnostic()?.lastReceiveAt ?? null,
+        volumeLeadersSource: volumeLeadersView.source,
+      }),
+    );
+
+    if (radarVolumeLeaders.observe.preserved) {
+      emitPmVerify(true, "preserve", {
+        preserve: true,
+        previousGenerationId: radarVolumeLeaders.observe.previousGenerationId,
+        transientFailureReason: radarVolumeLeaders.observe.preserveReason,
+        lastSuccessfulRadarRefreshAt: radarVolumeLeaders.observe.lastSuccessfulRefreshAt,
+        preservedBoardAgeSeconds: radarState.preservedBoardAgeSeconds,
+      });
+    }
+    // verifyTick is the intentional change detector for live-proof logs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verifyTick]);
 
   if (!ws.isAuthenticated) {
     return (
@@ -305,7 +390,7 @@ export default function AMInbox() {
             ) : !data || data.checklist.status === "unavailable" ? (
               <SectionUnavailable reason={data?.checklist.reason_code ?? "QUERY_FAILED"} onRetry={ws.retry} />
             ) : (
-              <OpeningBellChecklist items={data.checklist.data} etDate={etDate} />
+              <OpeningBellChecklist items={checklistItems} etDate={etDate} />
             )}
 
             {!loading && data && (

@@ -1,11 +1,16 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBrief } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
 import { getEtParts, isTradingDay, marketHolidayName, nextTradingDay } from "@/lib/market-calendar";
+import {
+  emitPmVerify,
+  isPmDebugEnabled,
+  mapAmBriefVerifyState,
+} from "@/lib/pre-market/pm-verify";
 
 interface AIBriefCardProps {
   isPro: boolean;
@@ -129,9 +134,19 @@ export function resolveAmBriefNoticeAt(now: Date): BriefContextNotice {
 export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const pmDebug = isPmDebugEnabled(searchParams);
   const [state, setState] = useState<BriefState>({ kind: "idle" });
   const [briefExpanded, setBriefExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const briefObserveRef = useRef({
+    httpStatus: null as number | null,
+    reason: null as string | null,
+    generatedAt: null as string | null,
+    sourceCheckedAt: null as string | null,
+    briefDate: null as string | null,
+    previousTradingDay: null as boolean | null,
+  });
 
   const fetchBrief = useCallback(async () => {
     abortRef.current?.abort();
@@ -162,6 +177,16 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       );
 
       const body = await resp.json().catch(() => ({}));
+      briefObserveRef.current.httpStatus = resp.status;
+      briefObserveRef.current.reason = typeof body?.reason === "string" ? body.reason : null;
+      briefObserveRef.current.generatedAt =
+        typeof body?.generated_at === "string" ? body.generated_at : null;
+      briefObserveRef.current.sourceCheckedAt =
+        typeof body?.source_checked_at === "string" ? body.source_checked_at : null;
+      briefObserveRef.current.briefDate =
+        typeof body?.brief_date === "string" ? body.brief_date : null;
+      briefObserveRef.current.previousTradingDay =
+        typeof body?.previous_trading_day === "boolean" ? body.previous_trading_day : null;
 
       if (resp.status === 401) {
         setState({ kind: "unauth" });
@@ -270,6 +295,25 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       abortRef.current?.abort();
     };
   }, [user, fetchBrief]);
+
+  useEffect(() => {
+    if (!pmDebug || briefType !== "am") return;
+    const observed = briefObserveRef.current;
+    emitPmVerify(
+      true,
+      "ai-brief",
+      mapAmBriefVerifyState({
+        kind: state.kind,
+        httpStatus: observed.httpStatus,
+        reason: observed.reason,
+        generatedAt: observed.generatedAt,
+        sourceCheckedAt: observed.sourceCheckedAt,
+        briefDate: observed.briefDate,
+        previousTradingDay: observed.previousTradingDay,
+        nowEtDate: getEtParts(new Date()).date,
+      }),
+    );
+  }, [pmDebug, briefType, state]);
 
   // Focus-refetch only for refreshable pending/error states.
   useEffect(() => {

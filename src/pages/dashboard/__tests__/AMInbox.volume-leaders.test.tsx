@@ -7,6 +7,11 @@ import {
   RADAR_V2_PM_VOLUME_LEADERS_SUBTITLE,
   LEGACY_VOLUME_LEADERS_SUBTITLE,
 } from "@/lib/screeners/radar-v2-volume-leaders";
+import {
+  EMPTY_RADAR_OBSERVE,
+  PM_VERIFY_PREFIX,
+  volumeLeaderChecklistLabel,
+} from "@/lib/pre-market/pm-verify";
 
 const radarState: { enabled: boolean; decision: RadarV2Decision | null; loading: boolean } = {
   enabled: false,
@@ -33,6 +38,7 @@ vi.mock("@/hooks/useRadarV2VolumeLeaders", () => ({
       loading: radarState.loading,
       decision: radarState.decision,
       retry: () => {},
+      observe: EMPTY_RADAR_OBSERVE,
     };
   },
 }));
@@ -67,7 +73,11 @@ vi.mock("@/components/pre-market/WatchlistActivityList", () => ({
   WatchlistSessionCompact: () => null,
 }));
 vi.mock("@/components/pre-market/RiskAttentionList", () => ({ RiskAttentionList: () => null }));
-vi.mock("@/components/pre-market/OpeningBellChecklist", () => ({ OpeningBellChecklist: () => null }));
+vi.mock("@/components/pre-market/OpeningBellChecklist", () => ({
+  OpeningBellChecklist: ({ items }: { items: Array<{ id: string; label: string }> }) => (
+    <div data-testid="checklist">{items.map((i) => i.label).join("|")}</div>
+  ),
+}));
 vi.mock("@/components/pre-market/HeadlinesList", () => ({ HeadlinesList: () => null }));
 
 import AMInbox from "@/pages/dashboard/AMInbox";
@@ -114,7 +124,14 @@ function workspace(status: "premarket" | "regular"): PreMarketWorkspaceResponse 
     ]),
     journal_readiness: section({ open_trades: 0, missing_stop: 0, missing_target: 0, symbols: [] }),
     headlines: section([]),
-    checklist: section([]),
+    checklist: section([
+      {
+        id: "volume_leaders",
+        label: volumeLeaderChecklistLabel(6),
+        count: 6,
+        route: "/dashboard/screeners",
+      },
+    ]),
   };
 }
 
@@ -218,5 +235,116 @@ describe("AMInbox Pre-Market Volume Leaders wiring (D11)", () => {
     expect(screen.getByText(LEGACY_VOLUME_LEADERS_SUBTITLE)).toBeInTheDocument();
     expect(screen.queryByText(RADAR_V2_PM_VOLUME_LEADERS_SUBTITLE)).not.toBeInTheDocument();
     expect(screen.getByTestId("volume-leaders").textContent).toBe("LEGACY");
+    expect(screen.getByTestId("checklist").textContent).toBe(volumeLeaderChecklistLabel(6));
+  });
+
+  it("confirmed pre-market checklist count comes from Radar, not screener_results", () => {
+    workspaceState.data = workspace("premarket");
+    radarState.decision = radarAvailable;
+    radarState.loading = false;
+
+    render(
+      <MemoryRouter>
+        <AMInbox />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("checklist").textContent).toBe(volumeLeaderChecklistLabel(2));
+    expect(screen.getByTestId("checklist").textContent).not.toBe(volumeLeaderChecklistLabel(6));
+  });
+
+  it("confirmed pre-market + Radar empty omits the volume-leaders checklist item", () => {
+    workspaceState.data = workspace("premarket");
+    radarState.decision = {
+      source: "radar-v2",
+      reason: "radar_v2_empty",
+      session: "pre-market",
+      view: { status: "empty", rows: [], synced_at: SYNCED, provider_as_of_max: null },
+    };
+    radarState.loading = false;
+
+    render(
+      <MemoryRouter>
+        <AMInbox />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("checklist").textContent).toBe("");
+  });
+
+  it("confirmed pre-market + Radar unavailable does not keep the legacy screener checklist count", () => {
+    workspaceState.data = workspace("premarket");
+    radarState.decision = {
+      source: "fallback",
+      reason: "radar_v2_retry_exhausted",
+      session: "pre-market",
+      view: null,
+    };
+    radarState.loading = false;
+
+    render(
+      <MemoryRouter>
+        <AMInbox />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("checklist").textContent).toBe("");
+  });
+
+  it("does not emit PM-VERIFY logs without pmDebug=1", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    workspaceState.data = workspace("premarket");
+    radarState.decision = radarAvailable;
+    radarState.loading = false;
+
+    render(
+      <MemoryRouter>
+        <AMInbox />
+      </MemoryRouter>,
+    );
+
+    expect(spy.mock.calls.some((call) => call[0] === PM_VERIFY_PREFIX)).toBe(false);
+    spy.mockRestore();
+  });
+
+  it("emits PM-VERIFY diagnostics when pmDebug=1", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    workspaceState.data = workspace("premarket");
+    radarState.decision = radarAvailable;
+    radarState.loading = false;
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard/pre-market?pmDebug=1"]}>
+        <AMInbox />
+      </MemoryRouter>,
+    );
+
+    const verifyCalls = spy.mock.calls.filter((call) => call[0] === PM_VERIFY_PREFIX);
+    expect(verifyCalls.length).toBeGreaterThan(0);
+    expect(verifyCalls.some((call) => call[1] === "radar-state")).toBe(true);
+    expect(verifyCalls.some((call) => call[1] === "freshness")).toBe(true);
+    spy.mockRestore();
+  });
+
+  it("logs SESSION_MISMATCH when Polygon is premarket and Radar session is not pre-market", () => {
+    const spy = vi.spyOn(console, "info").mockImplementation(() => {});
+    workspaceState.data = workspace("premarket");
+    radarState.decision = { ...radarAvailable, session: "market" };
+    radarState.loading = false;
+
+    render(
+      <MemoryRouter initialEntries={["/dashboard/pre-market?pmDebug=1"]}>
+        <AMInbox />
+      </MemoryRouter>,
+    );
+
+    const mismatch = spy.mock.calls.find(
+      (call) => call[0] === PM_VERIFY_PREFIX && call[1] === "SESSION_MISMATCH",
+    );
+    expect(mismatch).toBeTruthy();
+    expect(mismatch?.[2]).toEqual({ polygonSession: "premarket", radarSession: "market" });
+    expect(radarState.decision.session).toBe("market");
+    expect(workspaceState.data?.market_context.status).toBe("premarket");
+    spy.mockRestore();
   });
 });

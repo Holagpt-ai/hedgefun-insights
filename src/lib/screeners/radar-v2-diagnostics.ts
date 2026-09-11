@@ -36,6 +36,10 @@ export interface RadarV2LoadDiagnostic {
   generationId: string | null;
   declaredCandidateCount: number | null;
   lastAttemptReason: string | null;
+  /** Observation-only timestamps / counts. Do not gate decisions. */
+  lastReceiveAt?: string | null;
+  v2SyncedAt?: string | null;
+  candidateRowsRead?: number | null;
 }
 
 let lastDiagnostic: RadarV2LoadDiagnostic | null = null;
