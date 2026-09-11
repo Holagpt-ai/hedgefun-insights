@@ -32,12 +32,14 @@ Deno.test("SNAPSHOT_STALE still fails sufficiency before any AI caller", () => {
   assertEquals(r.failure_code, "SNAPSHOT_STALE");
 
   const suffIdx = src.indexOf("if (!sufficiency.ok)");
-  const callerIdx = src.indexOf("const caller: AiCaller = makeAnthropicCaller");
-  assert(suffIdx > 0 && callerIdx > suffIdx, "sufficiency gate must precede Anthropic caller");
-  const between = src.slice(suffIdx, callerIdx);
+  const evidenceIdx = src.indexOf("const evidence = buildAiEvidence");
+  const callerIdx = src.indexOf("generateWatchlistAnalysis(");
+  assert(suffIdx > 0 && evidenceIdx > suffIdx && callerIdx > evidenceIdx);
+  const between = src.slice(suffIdx, evidenceIdx);
   assert(between.includes("data_unavailable"));
   assert(between.includes("failureReason = code"));
-  assert(!between.includes("buildAiPrompt("), "stale path must not build an Anthropic prompt");
+  assert(!between.includes("buildAiPrompt("), "stale path must not build an AI prompt");
+  assert(!between.includes("generateWatchlistAnalysis("));
 });
 
 Deno.test("INSUFFICIENT_EVIDENCE still blocks Anthropic", () => {
@@ -62,12 +64,14 @@ Deno.test("INSUFFICIENT_EVIDENCE still blocks Anthropic", () => {
   assert(isInsufficientEvidence(evidence));
 
   const insuffIdx = src.indexOf("if (isInsufficientEvidence(evidence)");
-  const callerIdx = src.indexOf("const caller: AiCaller = makeAnthropicCaller");
-  assert(insuffIdx > 0 && callerIdx > insuffIdx);
-  const between = src.slice(insuffIdx, callerIdx);
+  const decideIdx = src.indexOf("decideAfterFacts(");
+  const callerIdx = src.indexOf("generateWatchlistAnalysis(");
+  assert(insuffIdx > 0 && decideIdx > insuffIdx && callerIdx > decideIdx);
+  const between = src.slice(insuffIdx, decideIdx);
   assert(between.includes("INSUFFICIENT_EVIDENCE"));
   assert(between.includes("data_unavailable"));
   assert(!between.includes("buildAiPrompt("));
+  assert(!between.includes("generateWatchlistAnalysis("));
 });
 
 Deno.test("successful path still constructs the Anthropic caller after both gates", () => {
@@ -105,6 +109,41 @@ Deno.test("successful path still constructs the Anthropic caller after both gate
   });
   assertEquals(isInsufficientEvidence(evidence), false);
 
-  assert(src.includes("const caller: AiCaller = makeAnthropicCaller(anthropicKey);"));
+  assert(src.includes("generateWatchlistAnalysis("));
   assert(src.includes("const prompt = buildAiPrompt("));
+  assert(src.includes("createWatchlistAiAdapter"));
+  assert(!src.includes("makeAnthropicCaller("));
+});
+
+Deno.test("still_valid gate precedes ticker market-data fetch and the AI caller", () => {
+  const stillIdx = src.indexOf('preFetch === "skipped_still_valid"');
+  const snapIdx = src.indexOf("const snapshotUrl");
+  const callerIdx = src.indexOf("generateWatchlistAnalysis(");
+  assert(stillIdx > 0 && snapIdx > stillIdx, "still_valid must skip before snapshot fetch");
+  assert(callerIdx > stillIdx);
+});
+
+Deno.test("AI path acquires the ticker lease before generateWatchlistAnalysis", () => {
+  const leaseIdx = src.indexOf("runExclusiveClaudeCall");
+  const callerIdx = src.indexOf("generateWatchlistAnalysis(");
+  assert(leaseIdx > 0 && callerIdx > leaseIdx);
+  assert(src.includes("claim_watchlist_v2_ticker_lease") || src.includes("createRpcTickerLeaseStore"));
+  assert(!src.includes("pg_advisory_xact_lock"), "AI must not rely on a short advisory lock");
+});
+
+Deno.test("batch/trigger cannot pass force_refresh into the bypass helper", () => {
+  assert(src.includes("resolveForceRefresh(source, body)"));
+  const hook = Deno.readTextFileSync(new URL("../../../src/hooks/useWatchlistV2.ts", import.meta.url));
+  assert(hook.includes("force_refresh: true"));
+});
+
+Deno.test("analyzer does not require Qwen secrets and uses the provider factory", () => {
+  assert(src.includes("resolveWatchlistAiConfig"));
+  assert(src.includes("createWatchlistAiAdapter"));
+  assert(src.includes("generateWatchlistAnalysis"));
+  assert(src.includes("ANTHROPIC_API_KEY"));
+  assert(!src.includes("QWEN_API_KEY"));
+  assert(!src.includes("QWEN_BASE_URL"));
+  assert(!src.includes("qwen-flash-us"));
+  assert(!src.includes("makeAnthropicCaller("));
 });

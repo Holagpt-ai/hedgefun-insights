@@ -38,8 +38,18 @@ export type AiReadOutcome =
   | ProviderTransportFailure
   | { kind: "validation_failed"; reason: string };
 
+export interface AiRawComplete {
+  kind: "ok" | "transport_failure";
+  rawText?: string;
+  usage?: { input_tokens: number | null; output_tokens: number | null };
+  http_status?: number | null;
+  code?: ProviderTransportFailure["code"];
+  failure_kind?: ProviderTransportFailure["failure_kind"];
+}
+
 export interface AiCaller {
   call(prompt: string, catalog: EvidenceCatalog): Promise<AiReadOutcome>;
+  callRaw(prompt: string): Promise<AiRawComplete>;
 }
 
 const DIRECTIONS: Direction[] = ["bullish", "bearish", "neutral"];
@@ -170,67 +180,98 @@ export function validateAiOutput(rawText: string, catalog: EvidenceCatalog): AiR
   };
 }
 
-export function makeAnthropicCaller(apiKey: string): AiCaller {
+export const DEFAULT_ANTHROPIC_WATCHLIST_MODEL = "claude-haiku-4-5-20251001";
+
+export function makeAnthropicCaller(
+  apiKey: string,
+  model: string = DEFAULT_ANTHROPIC_WATCHLIST_MODEL,
+): AiCaller {
+  async function callRaw(prompt: string): Promise<AiRawComplete> {
+    let res: Response;
+    try {
+      res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model,
+          max_tokens: 512,
+          messages: [{ role: "user", content: prompt }],
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+    } catch (e) {
+      console.warn("[wl-v2] anthropic transport error:", sanitize(e));
+      return {
+        kind: "transport_failure",
+        code: "PROVIDER_TIMEOUT",
+        http_status: null,
+        failure_kind: classifyFetchFailure(e),
+      };
+    }
+    if (res.status === 429) {
+      try { await res.body?.cancel(); } catch { /* noop */ }
+      return {
+        kind: "transport_failure",
+        code: "RATE_LIMITED",
+        http_status: 429,
+        failure_kind: "http_error",
+      };
+    }
+    if (!res.ok) {
+      try { await res.body?.cancel(); } catch { /* noop */ }
+      return {
+        kind: "transport_failure",
+        code: "PROVIDER_ERROR",
+        http_status: res.status,
+        failure_kind: "http_error",
+      };
+    }
+    let body: unknown;
+    try {
+      body = await res.json();
+    } catch {
+      return {
+        kind: "transport_failure",
+        code: "PROVIDER_ERROR",
+        http_status: res.status,
+        failure_kind: "invalid_json",
+      };
+    }
+    const b = body as {
+      content?: Array<{ text?: unknown }>;
+      usage?: { input_tokens?: unknown; output_tokens?: unknown };
+    } | null;
+    const rawText = b?.content?.[0]?.text;
+    const usage = {
+      input_tokens: typeof b?.usage?.input_tokens === "number" ? b.usage.input_tokens : null,
+      output_tokens: typeof b?.usage?.output_tokens === "number" ? b.usage.output_tokens : null,
+    };
+    if (typeof rawText !== "string") {
+      return { kind: "ok", rawText: "", usage, http_status: res.status };
+    }
+    return { kind: "ok", rawText, usage, http_status: res.status };
+  }
+
   return {
+    callRaw,
     async call(prompt: string, catalog: EvidenceCatalog): Promise<AiReadOutcome> {
-      let res: Response;
-      try {
-        res = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": apiKey,
-            "anthropic-version": "2023-06-01",
-          },
-          body: JSON.stringify({
-            model: "claude-haiku-4-5-20251001",
-            max_tokens: 512,
-            messages: [{ role: "user", content: prompt }],
-          }),
-          signal: AbortSignal.timeout(20000),
-        });
-      } catch (e) {
-        console.warn("[wl-v2] anthropic transport error:", sanitize(e));
+      const raw = await callRaw(prompt);
+      if (raw.kind === "transport_failure") {
         return {
           kind: "transport_failure",
-          code: "PROVIDER_TIMEOUT",
-          http_status: null,
-          failure_kind: classifyFetchFailure(e),
+          code: raw.code ?? "PROVIDER_ERROR",
+          http_status: raw.http_status ?? null,
+          failure_kind: raw.failure_kind ?? "http_error",
         };
       }
-      if (res.status === 429) {
-        try { await res.body?.cancel(); } catch { /* noop */ }
-        return {
-          kind: "transport_failure",
-          code: "RATE_LIMITED",
-          http_status: 429,
-          failure_kind: "http_error",
-        };
+      if (typeof raw.rawText !== "string" || raw.rawText.length === 0) {
+        return { kind: "validation_failed", reason: "no_text" };
       }
-      if (!res.ok) {
-        try { await res.body?.cancel(); } catch { /* noop */ }
-        return {
-          kind: "transport_failure",
-          code: "PROVIDER_ERROR",
-          http_status: res.status,
-          failure_kind: "http_error",
-        };
-      }
-      let body: unknown;
-      try {
-        body = await res.json();
-      } catch {
-        return {
-          kind: "transport_failure",
-          code: "PROVIDER_ERROR",
-          http_status: res.status,
-          failure_kind: "invalid_json",
-        };
-      }
-      const b = body as { content?: Array<{ text?: unknown }> } | null;
-      const rawText = b?.content?.[0]?.text;
-      if (typeof rawText !== "string") return { kind: "validation_failed", reason: "no_text" };
-      return validateAiOutput(rawText, catalog);
+      return validateAiOutput(raw.rawText, catalog);
     },
   };
 }

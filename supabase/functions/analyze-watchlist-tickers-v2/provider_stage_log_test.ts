@@ -8,7 +8,7 @@ import {
 import { LOG_PREFIX } from "../_shared/watchlist-v2/sanitize.ts";
 import type { ProviderTransportFailure } from "../_shared/watchlist-v2/market-data.ts";
 
-const STAGES: ProviderStage[] = ["polygon_snapshot", "polygon_bars", "anthropic_ai"];
+const STAGES: ProviderStage[] = ["polygon_snapshot", "polygon_bars", "anthropic_ai", "watchlist_ai"];
 
 Deno.test("diagnostic preserves stage, persisted code, status and failure kind", () => {
   const failure: ProviderTransportFailure = {

@@ -1,6 +1,8 @@
 // Watchlist V2 Analyzer — greenfield, scoreless, deterministic.
 // Auth: mutually exclusive trigger mode (SYNC_SECRET) OR manual JWT mode.
-// Ordering: authN → validate body → verify ownership → validate run_id → resolve session → INSERT request row → fetch → compute → AI → finalize.
+// Ordering: authN → validate body → verify ownership → validate run_id → resolve session
+// → INSERT request row → still_valid gate → fetch → sufficiency → material-change
+// → ticker lease → AI → finalize. Scheduled/trigger cannot force-refresh.
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // deno-lint-ignore-file no-explicit-any
@@ -27,8 +29,29 @@ import {
   evaluateSufficiency, MIN_BARS_FOR_AI, type SufficiencyCode,
 } from "../_shared/watchlist-v2/sufficiency.ts";
 import {
-  buildAiPrompt, buildEvidenceCatalog, makeAnthropicCaller, type AiCaller,
+  buildAiPrompt, buildEvidenceCatalog,
 } from "../_shared/watchlist-v2/ai-read.ts";
+import {
+  createWatchlistAiAdapter,
+  emitWatchlistAiCallLog,
+  generateWatchlistAnalysis,
+  resolveWatchlistAiConfig,
+  type WatchlistAiCallMeta,
+} from "../_shared/watchlist-v2/ai-provider.ts";
+import {
+  computeValidThrough,
+  decideAfterFacts,
+  decideBeforeFetch,
+  parsePriorAnalysis,
+  resolveForceRefresh,
+  type MaterialFacts,
+  type PriorAnalysis,
+} from "../_shared/watchlist-v2/cost-control.ts";
+import {
+  TICKER_LEASE_SECONDS,
+  createRpcTickerLeaseStore,
+  runExclusiveClaudeCall,
+} from "../_shared/watchlist-v2/ticker-lease.ts";
 import {
   attributeSymbol,
 } from "../_shared/catalyst/attribution.ts";
@@ -53,9 +76,6 @@ const corsHeaders = {
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// TTL: RTH 10min, off-hours 30min
-const TTL_MIN_RTH = 10;
-const TTL_MIN_OFFHOURS = 30;
 // Company-event alert cutoff
 const EVENT_ALERT_MAX_AGE_MS = 6 * 60 * 60 * 1000;
 // Earnings horizon
@@ -103,14 +123,14 @@ export function parseTriggerBody(body: unknown): TriggerParse {
 }
 
 export type ManualParse =
-  | { ok: true; ticker: string }
+  | { ok: true; ticker: string; force_refresh: boolean }
   | { ok: false; error: string };
 
 export function parseManualBody(body: unknown): ManualParse {
   if (!body || typeof body !== "object") return { ok: false, error: "invalid_body" };
   const ticker = normalizeTicker((body as Record<string, unknown>).ticker);
   if (!ticker) return { ok: false, error: "invalid_ticker" };
-  return { ok: true, ticker };
+  return { ok: true, ticker, force_refresh: resolveForceRefresh("manual", body) };
 }
 
 export type RunIdParse =
@@ -229,7 +249,7 @@ export function buildAlerts(input: AlertBuildInput): AlertCandidate[] {
 
 // ── Provider stage diagnostics (pure) ─────────────────────────────────────
 
-export type ProviderStage = "polygon_snapshot" | "polygon_bars" | "anthropic_ai";
+export type ProviderStage = "polygon_snapshot" | "polygon_bars" | "anthropic_ai" | "watchlist_ai";
 
 /**
  * Sanitized, log-only view of a transport failure. Carries no URL, credential,
@@ -348,6 +368,8 @@ export async function handleRequest(req: Request): Promise<Response> {
     ticker = p.ticker; owner = uid; source = "manual";
   }
 
+  const forceRefresh = resolveForceRefresh(source, body);
+
   const startedMs = Date.now();
   const outcomeLog: AnalyzerOutcomeLog = emptyAnalyzerOutcomeLog(
     ticker,
@@ -411,7 +433,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   const analyzedAtIso = analyzedAt.toISOString();
   const polygonKey = Deno.env.get("POLYGON_API_KEY") ?? "";
   const finnhubKey = Deno.env.get("FINNHUB_API_KEY") ?? "";
-  const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+  const aiConfig = resolveWatchlistAiConfig({
+    WATCHLIST_AI_PROVIDER: Deno.env.get("WATCHLIST_AI_PROVIDER"),
+    WATCHLIST_AI_MODEL: Deno.env.get("WATCHLIST_AI_MODEL"),
+    WATCHLIST_AI_FALLBACK: Deno.env.get("WATCHLIST_AI_FALLBACK"),
+    ANTHROPIC_API_KEY: Deno.env.get("ANTHROPIC_API_KEY"),
+  });
 
   const marketStatus: MarketStatusFetcher = {
     async fetchNow() {
@@ -461,6 +488,48 @@ export async function handleRequest(req: Request): Promise<Response> {
   }
   const requestId = (insertRes.data as { id: string }).id;
 
+  let prior: PriorAnalysis | null = null;
+  {
+    const { data: prevRow } = await supabase
+      .from("watchlist_analysis_v2")
+      .select(
+        "ticker, session_date, session_type, valid_through, direction, explanation, failure_reason, change_pct, volume, rvol_class, market_signals, recent_events, inputs_quality",
+      )
+      .eq("ticker", ticker)
+      .maybeSingle();
+    prior = parsePriorAnalysis(prevRow);
+  }
+
+  const preFetch = decideBeforeFetch({
+    forceRefresh, prior, now: analyzedAt, sessionDate, sessionType,
+  });
+  if (preFetch === "skipped_still_valid" && prior) {
+    outcomeLog.claude_decision = "skipped_still_valid";
+    outcomeLog.outcome = "succeeded";
+    const skipped = await completeSkip(supabase, {
+      requestId, owner, ticker, runId,
+      decision: "skipped_still_valid",
+      extendValidThrough: null,
+    });
+    if (!skipped.ok) {
+      outcomeLog.outcome = "failed";
+      outcomeLog.failure_reason = "UPSTREAM_ERROR";
+      outcomeLog.claude_decision = "error";
+      return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+    }
+    return finish(jsonResponse(200, {
+      status: "succeeded",
+      request_id: requestId,
+      ticker,
+      direction: prior.direction,
+      session_type: sessionType,
+      session_date: sessionDate,
+      alerts_created: 0,
+      replayed: false,
+      claude_decision: "skipped_still_valid",
+    }));
+  }
+
   // Step 7: fetch providers
   const snapshotUrl = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${polygonKey}`;
   const barsUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/minute/${sessionDate}/${sessionDate}?adjusted=true&sort=asc&limit=5000&apiKey=${polygonKey}`;
@@ -483,14 +552,16 @@ export async function handleRequest(req: Request): Promise<Response> {
     outcomeLog.outcome = "failed";
     outcomeLog.failure_reason = code;
     outcomeLog.provider_stage = "polygon_snapshot";
-    return finish(await failAndRespond(supabase, requestId, owner, code));
+    outcomeLog.claude_decision = "error";
+    return finish(await failAndRespond(supabase, requestId, owner, runId, code));
   }
   if (barsR.kind === "transport_failure") {
     const code = logProviderFailure(ticker, "polygon_bars", barsR);
     outcomeLog.outcome = "failed";
     outcomeLog.failure_reason = code;
     outcomeLog.provider_stage = "polygon_bars";
-    return finish(await failAndRespond(supabase, requestId, owner, code));
+    outcomeLog.claude_decision = "error";
+    return finish(await failAndRespond(supabase, requestId, owner, runId, code));
   }
 
   const snapshot = assessSnapshot(snapshotR.body, analyzedAt);
@@ -577,6 +648,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     snapshot_age_ms: outcomeLog.snapshot_age_ms,
     snapshot_ts_ms: snapshot.lastTradeTs,
     snapshot_timestamp_source: snapshot.timestampSource,
+    earnings_date: null,
   };
 
   const sufficiency = evaluateSufficiency({
@@ -587,19 +659,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     quoteValid,
   });
 
-  // Prior direction (for direction_change eligibility) — read BEFORE finalize
-  let priorDirection: Direction | null = null;
-  {
-    const { data: prev } = await supabase
-      .from("watchlist_analysis_v2")
-      .select("direction")
-      .eq("ticker", ticker)
-      .maybeSingle();
-    const d = (prev as { direction?: unknown } | null)?.direction;
-    if (d === "bullish" || d === "bearish" || d === "neutral" || d === "data_unavailable") {
-      priorDirection = d;
-    }
-  }
+  const priorDirection: Direction | null = prior?.direction ?? null;
 
   // Earnings date within horizon (source of truth for earnings_upcoming)
   let earningsDate: string | null = null;
@@ -619,11 +679,24 @@ export async function handleRequest(req: Request): Promise<Response> {
     if (typeof rd === "string") earningsDate = rd.slice(0, 10);
   }
   outcomeLog.earnings_present = earningsDate !== null;
+  inputsQuality.earnings_date = earningsDate;
 
   let direction: Direction;
   let explanation: string;
   let driverIds: string[] = [];
   let failureReason: string | null = null;
+
+  const currentFacts: MaterialFacts = {
+    change_pct: basis.change_pct,
+    volume: basis.volume !== null ? Math.round(basis.volume) : null,
+    rvol_class: rvolRes.rvol_class,
+    signal_ids: [...new Set(marketSignals.map((s) => s.signal_id))].sort(),
+    event_ids: [...new Set(recentEvents.map((e) => e.event_id))].sort(),
+    earnings_date: earningsDate,
+    session_date: sessionDate,
+    session_type: sessionType,
+    sufficient: sufficiency.ok,
+  };
 
   if (!sufficiency.ok) {
     const code = sufficiency.failure_code as SufficiencyCode;
@@ -632,10 +705,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     explanation = sufficiency.explanation ?? "Data unavailable.";
     outcomeLog.outcome = "data_unavailable";
     outcomeLog.failure_reason = code;
-  } else if (!anthropicKey) {
-    outcomeLog.outcome = "failed";
-    outcomeLog.failure_reason = "UPSTREAM_ERROR";
-    return finish(await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR"));
+    outcomeLog.claude_decision = "skipped_insufficient_data";
   } else {
     const evidence = buildAiEvidence({
       symbol: ticker,
@@ -669,53 +739,182 @@ export async function handleRequest(req: Request): Promise<Response> {
         : "Current market snapshot unavailable";
       outcomeLog.outcome = "data_unavailable";
       outcomeLog.failure_reason = failureReason;
+      outcomeLog.claude_decision = "skipped_insufficient_data";
       outcomeLog.missing_evidence_count = evidence.missing.length;
     } else {
-    const catalog = buildEvidenceCatalog({
-      market_signals: marketSignals,
-      recent_events: recentEvents,
-      key_levels: keyLevels,
-      metrics: [
-        ...(rvolRes.rvol !== null ? ["rvol"] : []),
-        ...(basis.change_pct !== null ? ["change_pct"] : []),
-      ],
-    });
-    const caller: AiCaller = makeAnthropicCaller(anthropicKey);
-    const prompt = buildAiPrompt({
-      ticker, session_type: sessionType, session_date: sessionDate,
-      price: basis.price, change_pct: basis.change_pct, volume: basis.volume,
-      rvol: rvolRes.rvol, rvol_class: rvolRes.rvol_class,
-      key_levels: keyLevels, market_signals: marketSignals, recent_events: recentEvents,
-      reason_codes: reasonCodes,
-    }, catalog);
-    const outcome = await caller.call(prompt, catalog);
-    if (outcome.kind === "ok") {
-      direction = outcome.value.direction;
-      explanation = outcome.value.explanation;
-      driverIds = outcome.value.driver_ids; // no silent filtering
-      outcomeLog.outcome = direction === "data_unavailable" ? "data_unavailable" : "succeeded";
-      outcomeLog.failure_reason = direction === "data_unavailable" ? (failureReason ?? "UNKNOWN") : null;
-      outcomeLog.anthropic_http_status = 200;
-      outcomeLog.missing_evidence_count = evidence.missing.length;
-      if (evidence.no_verified_catalyst && !explanation.includes("No verified ticker-specific catalyst available.")) {
-        explanation = `${explanation} No verified ticker-specific catalyst available.`.trim();
-        if (explanation.length > 240) explanation = explanation.slice(0, 240).trim();
+      currentFacts.sufficient = true;
+      const after = decideAfterFacts({
+        forceRefresh,
+        sufficient: true,
+        prior,
+        currentFacts,
+      });
+      if (after.kind === "skip" && after.decision === "skipped_unchanged" && prior) {
+        outcomeLog.claude_decision = "skipped_unchanged";
+        outcomeLog.outcome = "succeeded";
+        const skipped = await completeSkip(supabase, {
+          requestId, owner, ticker, runId,
+          decision: "skipped_unchanged",
+          extendValidThrough: computeValidThrough(analyzedAtMs, sessionType),
+        });
+        if (!skipped.ok) {
+          outcomeLog.outcome = "failed";
+          outcomeLog.failure_reason = "UPSTREAM_ERROR";
+          outcomeLog.claude_decision = "error";
+          return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+        }
+        return finish(jsonResponse(200, {
+          status: "succeeded",
+          request_id: requestId,
+          ticker,
+          direction: prior.direction,
+          session_type: sessionType,
+          session_date: sessionDate,
+          alerts_created: 0,
+          replayed: false,
+          claude_decision: "skipped_unchanged",
+        }));
       }
-    } else if (outcome.kind === "transport_failure") {
-      const code = logProviderFailure(ticker, "anthropic_ai", outcome);
-      outcomeLog.outcome = "failed";
-      outcomeLog.failure_reason = code;
-      outcomeLog.provider_stage = "anthropic_ai";
-      outcomeLog.anthropic_http_status = outcome.http_status;
-      outcomeLog.missing_evidence_count = evidence.missing.length;
-      return finish(await failAndRespond(supabase, requestId, owner, code));
-    } else {
-      outcomeLog.outcome = "failed";
-      outcomeLog.failure_reason = "AI_VALIDATION_FAILED";
-      outcomeLog.provider_stage = "anthropic_ai";
-      outcomeLog.missing_evidence_count = evidence.missing.length;
-      return finish(await failAndRespond(supabase, requestId, owner, "AI_VALIDATION_FAILED"));
-    }
+
+      const created = createWatchlistAiAdapter(aiConfig);
+      if (!created.ok) {
+        outcomeLog.outcome = "failed";
+        outcomeLog.failure_reason = "UPSTREAM_ERROR";
+        outcomeLog.claude_decision = "error";
+        outcomeLog.ai_provider = aiConfig.provider;
+        outcomeLog.ai_model = aiConfig.model;
+        outcomeLog.ai_fallback = "off";
+        return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+      }
+      const intended = after.kind === "call"
+        ? after.decision
+        : "claude_called_expired_changed";
+      const exclusive = await runExclusiveClaudeCall({
+        store: createRpcTickerLeaseStore(supabase),
+        key: { ticker, sessionDate, sessionType },
+        requestId,
+        forceRefresh,
+        intendedDecision: intended,
+        now: analyzedAt,
+        prior,
+        leaseSeconds: TICKER_LEASE_SECONDS,
+        recheckPrior: async () => {
+          const { data } = await supabase
+            .from("watchlist_analysis_v2")
+            .select(
+              "ticker, session_date, session_type, valid_through, direction, explanation, failure_reason, change_pct, volume, rvol_class, market_signals, recent_events, inputs_quality",
+            )
+            .eq("ticker", ticker)
+            .maybeSingle();
+          return parsePriorAnalysis(data);
+        },
+        callClaude: async () => {
+          const catalog = buildEvidenceCatalog({
+            market_signals: marketSignals,
+            recent_events: recentEvents,
+            key_levels: keyLevels,
+            metrics: [
+              ...(rvolRes.rvol !== null ? ["rvol"] : []),
+              ...(basis.change_pct !== null ? ["change_pct"] : []),
+            ],
+          });
+          const prompt = buildAiPrompt({
+            ticker, session_type: sessionType, session_date: sessionDate,
+            price: basis.price, change_pct: basis.change_pct, volume: basis.volume,
+            rvol: rvolRes.rvol, rvol_class: rvolRes.rvol_class,
+            key_levels: keyLevels, market_signals: marketSignals, recent_events: recentEvents,
+            reason_codes: reasonCodes,
+          }, catalog);
+          const result = await generateWatchlistAnalysis(created.adapter, { prompt, catalog });
+          applyAiCallMeta(outcomeLog, result.meta, intended);
+          emitWatchlistAiCallLog(result.meta, result.kind === "ok", intended);
+          if (runId) {
+            await recordProviderCall(supabase, runId, result.meta, result.kind === "ok");
+          }
+          return result;
+        },
+      });
+      outcomeLog.claude_decision = exclusive.decision;
+      if (exclusive.decision === "error") {
+        outcomeLog.outcome = "failed";
+        outcomeLog.failure_reason = "UPSTREAM_ERROR";
+        return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+      }
+      if (
+        exclusive.decision === "skipped_in_flight"
+        || exclusive.decision === "skipped_still_valid"
+      ) {
+        const reused = exclusive.reused ?? prior;
+        const skipped = await completeSkip(supabase, {
+          requestId, owner, ticker, runId,
+          decision: exclusive.decision,
+          extendValidThrough: null,
+        });
+        if (!skipped.ok) {
+          outcomeLog.outcome = "failed";
+          outcomeLog.failure_reason = "UPSTREAM_ERROR";
+          outcomeLog.claude_decision = "error";
+          return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+        }
+        outcomeLog.outcome = reused && reused.direction !== "data_unavailable"
+          ? "succeeded"
+          : "data_unavailable";
+        return finish(jsonResponse(200, {
+          status: "succeeded",
+          request_id: requestId,
+          ticker,
+          direction: reused?.direction ?? "data_unavailable",
+          session_type: sessionType,
+          session_date: sessionDate,
+          alerts_created: 0,
+          replayed: false,
+          claude_decision: exclusive.decision,
+        }));
+      }
+
+      const outcome = exclusive.value;
+      if (!outcome) {
+        outcomeLog.outcome = "failed";
+        outcomeLog.failure_reason = "UPSTREAM_ERROR";
+        outcomeLog.claude_decision = "error";
+        return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+      }
+      if (outcome.kind === "ok") {
+        direction = outcome.value.direction;
+        explanation = outcome.value.explanation;
+        driverIds = outcome.value.driver_ids;
+        outcomeLog.outcome = direction === "data_unavailable" ? "data_unavailable" : "succeeded";
+        outcomeLog.failure_reason = direction === "data_unavailable" ? (failureReason ?? "UNKNOWN") : null;
+        outcomeLog.ai_http_status = outcome.meta.http_status ?? 200;
+        if (outcome.meta.provider === "anthropic") {
+          outcomeLog.anthropic_http_status = outcome.meta.http_status ?? 200;
+        }
+        outcomeLog.missing_evidence_count = evidence.missing.length;
+        if (evidence.no_verified_catalyst && !explanation.includes("No verified ticker-specific catalyst available.")) {
+          explanation = `${explanation} No verified ticker-specific catalyst available.`.trim();
+          if (explanation.length > 240) explanation = explanation.slice(0, 240).trim();
+        }
+      } else if (outcome.kind === "transport_failure") {
+        const code = logProviderFailure(ticker, "watchlist_ai", outcome);
+        outcomeLog.outcome = "failed";
+        outcomeLog.failure_reason = code;
+        outcomeLog.provider_stage = "watchlist_ai";
+        outcomeLog.ai_http_status = outcome.http_status;
+        if (outcome.meta.provider === "anthropic") {
+          outcomeLog.provider_stage = "anthropic_ai";
+          outcomeLog.anthropic_http_status = outcome.http_status;
+        }
+        outcomeLog.missing_evidence_count = evidence.missing.length;
+        outcomeLog.claude_decision = "error";
+        return finish(await failAndRespond(supabase, requestId, owner, runId, code));
+      } else {
+        outcomeLog.outcome = "failed";
+        outcomeLog.failure_reason = "AI_VALIDATION_FAILED";
+        outcomeLog.provider_stage = "watchlist_ai";
+        outcomeLog.missing_evidence_count = evidence.missing.length;
+        outcomeLog.claude_decision = "error";
+        return finish(await failAndRespond(supabase, requestId, owner, runId, "AI_VALIDATION_FAILED"));
+      }
     }
   }
 
@@ -726,8 +925,7 @@ export async function handleRequest(req: Request): Promise<Response> {
   });
 
   // Build payload
-  const ttlMin = sessionType === "rth" ? TTL_MIN_RTH : TTL_MIN_OFFHOURS;
-  const validThrough = new Date(analyzedAtMs + ttlMin * 60 * 1000).toISOString();
+  const validThrough = computeValidThrough(analyzedAtMs, sessionType);
   const payload: AnalysisV2Payload = {
     ticker, contract_version: CONTRACT_VERSION,
     session_date: sessionDate, session_type: sessionType, valid_through: validThrough,
@@ -748,14 +946,14 @@ export async function handleRequest(req: Request): Promise<Response> {
     console.error(`${LOG_PREFIX} forbidden key blocked: ${sanitize(forbidden)}`);
     outcomeLog.outcome = "failed";
     outcomeLog.failure_reason = "UPSTREAM_ERROR";
-    return finish(await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR"));
+    return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
   }
   const validated = validateAnalysisV2Payload(payload);
   if (!validated.ok) {
     console.error(`${LOG_PREFIX} payload validation failed`);
     outcomeLog.outcome = "failed";
     outcomeLog.failure_reason = "UNKNOWN";
-    return finish(await failAndRespond(supabase, requestId, owner, "UNKNOWN"));
+    return finish(await failAndRespond(supabase, requestId, owner, runId, "UNKNOWN"));
   }
 
   const alerts: AlertCandidate[] = buildAlerts({
@@ -782,7 +980,17 @@ export async function handleRequest(req: Request): Promise<Response> {
     console.error(`${LOG_PREFIX} finalize rpc failed`);
     outcomeLog.outcome = "failed";
     outcomeLog.failure_reason = "UPSTREAM_ERROR";
-    return finish(await failAndRespond(supabase, requestId, owner, "UPSTREAM_ERROR"));
+    return finish(await failAndRespond(supabase, requestId, owner, runId, "UPSTREAM_ERROR"));
+  }
+
+  if (outcomeLog.claude_decision === "skipped_insufficient_data") {
+    await recordClaudeDecision(supabase, runId, "skipped_insufficient_data");
+  } else if (
+    outcomeLog.claude_decision === "claude_called_new"
+    || outcomeLog.claude_decision === "claude_called_expired_changed"
+    || outcomeLog.claude_decision === "claude_called_manual"
+  ) {
+    await recordClaudeDecision(supabase, runId, outcomeLog.claude_decision);
   }
 
   const rpcData = (rpcResp.data ?? {}) as { status?: string; alerts_created?: number };
@@ -793,6 +1001,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     status: "succeeded", request_id: requestId, ticker, direction,
     session_type: sessionType, session_date: sessionDate,
     alerts_created: alertsCreated, replayed,
+    claude_decision: outcomeLog.claude_decision,
   };
   if (direction === "data_unavailable") {
     respBody.failure_reason = failureReason;
@@ -813,14 +1022,91 @@ function mapTransportErr(code: string): ErrorCode {
   return "PROVIDER_ERROR";
 }
 
+async function completeSkip(
+  supabase: ServiceClient,
+  args: {
+    requestId: string;
+    owner: string;
+    ticker: string;
+    runId: string | null;
+    decision: "skipped_still_valid" | "skipped_unchanged" | "skipped_in_flight";
+    extendValidThrough: string | null;
+  },
+): Promise<{ ok: boolean }> {
+  const { error } = await supabase.rpc("skip_watchlist_analysis_v2", {
+    p_request_id: args.requestId,
+    p_user_id: args.owner,
+    p_ticker: args.ticker,
+    p_run_id: args.runId,
+    p_decision: args.decision,
+    p_extend_valid_through: args.extendValidThrough,
+  });
+  if (error) console.error(`${LOG_PREFIX} skip rpc failed`);
+  return { ok: !error };
+}
+
+function applyAiCallMeta(
+  outcomeLog: AnalyzerOutcomeLog,
+  meta: WatchlistAiCallMeta,
+  _decision: string,
+): void {
+  outcomeLog.ai_provider = meta.provider;
+  outcomeLog.ai_model = meta.model;
+  outcomeLog.ai_http_status = meta.http_status;
+  outcomeLog.ai_latency_ms = meta.latency_ms;
+  outcomeLog.ai_input_tokens = meta.usage.input_tokens;
+  outcomeLog.ai_output_tokens = meta.usage.output_tokens;
+  outcomeLog.ai_retry_count = meta.retry_count;
+  outcomeLog.ai_fallback = "off";
+}
+
+async function recordProviderCall(
+  supabase: ServiceClient,
+  runId: string,
+  meta: WatchlistAiCallMeta,
+  ok: boolean,
+): Promise<void> {
+  const { error } = await supabase.rpc("record_wl_v2_provider_call", {
+    p_run_id: runId,
+    p_provider: meta.provider,
+    p_model: meta.model,
+    p_ok: ok,
+    p_latency_ms: meta.latency_ms,
+    p_input_tokens: meta.usage.input_tokens,
+    p_output_tokens: meta.usage.output_tokens,
+    p_retry_count: meta.retry_count,
+  });
+  if (error) console.error(`${LOG_PREFIX} provider call rpc failed`);
+}
+
+async function recordClaudeDecision(
+  supabase: ServiceClient,
+  runId: string | null,
+  decision: import("../_shared/watchlist-v2/cost-control.ts").ClaudeDecision,
+): Promise<void> {
+  if (!runId) return;
+  const { error } = await supabase.rpc("record_wl_v2_claude_decision", {
+    p_run_id: runId,
+    p_decision: decision,
+  });
+  if (error) console.error(`${LOG_PREFIX} claude decision rpc failed`);
+}
+
 async function failAndRespond(
-  supabase: ServiceClient, requestId: string, owner: string, code: ErrorCode,
+  supabase: ServiceClient,
+  requestId: string,
+  owner: string,
+  runId: string | null,
+  code: ErrorCode,
 ): Promise<Response> {
+  await recordClaudeDecision(supabase, runId, "error");
   const { error } = await supabase.rpc("fail_watchlist_analysis_v2", {
     p_request_id: requestId, p_user_id: owner, p_error_code: code,
   });
   if (error) console.error(`${LOG_PREFIX} fail rpc error`);
-  return jsonResponse(200, { status: "failed", request_id: requestId, error_code: code });
+  return jsonResponse(200, {
+    status: "failed", request_id: requestId, error_code: code, claude_decision: "error",
+  });
 }
 
 async function rereadRequest(supabase: ServiceClient, requestId: string): Promise<Response> {
