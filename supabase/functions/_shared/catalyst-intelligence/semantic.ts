@@ -146,14 +146,17 @@ export function isInsiderActivity(title: string, description?: string | null): b
 export function hasObjectiveEarningsEvidence(title: string, description?: string | null): boolean {
   const blob = blobOf(title, description);
   return (
-    /\b(?:reports?|announces?)\s+(?:q[1-4]|first|second|third|fourth|full[- ]year).{0,60}(?:results|earnings|loss)\b/i
+    /\b(?<!(?:to|will|expect(?:s|ed)?)\s+)(?:report(?:s|ed)?|announce(?:s|d)?)\s+(?:q[1-4]|first|second|third|fourth|full[- ]year|quarterly).{0,60}(?:results|earnings|loss|revenue|sales)\b/i
       .test(blob) ||
-    /\bannounces?\s+.{0,80}(?:unaudited\s+)?financial\s+results\b/i.test(blob) ||
-    /\bbeat(?:s|ing)?\s+(?:q[1-4]\s+)?(?:earnings|revenue|estimates|eps|sales)\b/i.test(blob) ||
+    /\bannounce(?:s|d)?\s+.{0,80}(?:unaudited\s+)?financial\s+results\b/i.test(blob) ||
+    /\bbeat(?:s|ing)?\s+(?:(?:the|wall\s+street(?:'s)?)\s+)?(?:q[1-4]\s+|consensus\s+)?(?:earnings|revenue|estimates?|eps|sales)\b/i
+      .test(blob) ||
     /\bsurpass(?:es|ed)?\s+(?:q[1-4]\s+)?(?:earnings|revenue|estimates|eps|sales)\b/i.test(blob) ||
-    /\bmiss(?:es|ed)\s+(?:q[1-4]\s+)?(?:revenue|earnings|estimates|eps|sales)\b/i.test(blob) ||
+    /\bmiss(?:es|ed|ing)\s+(?:(?:the|wall\s+street(?:'s)?)\s+)?(?:q[1-4]\s+|consensus\s+)?(?:revenue|earnings|estimates?|eps|sales)\b/i
+      .test(blob) ||
     /\b(?:q[1-4])\s+earnings\s+and\s+revenues?\s+surpass/i.test(blob) ||
-    /\breports?\s+q[1-4]\s+loss\b/i.test(blob) ||
+    /\breport(?:s|ed)?\s+q[1-4]\s+loss\b/i.test(blob) ||
+    /\btopp?(?:ed|s|ing)\s+(?:q[1-4]\s+)?(?:revenue|earnings|sales)\s+estimates?\b/i.test(blob) ||
     /\brais(?:es?|ed|ing)\s+(?:its\s+)?(?:full[- ]year|fy|q[1-4])\s+(?:revenue\s+)?(?:and\s+operating\s+income\s+)?(?:guidance|targets?)\b/i
       .test(blob) ||
     /\b(?:disappointing|cut|lowered|lowers)\s+q[1-4]\s+(?:sales\s+)?guidance\b/i.test(blob)
@@ -197,9 +200,15 @@ export function hasObjectiveFdaEvidence(title: string, description?: string | nu
 
 export function hasObjectiveMaEvidence(title: string, description?: string | null): boolean {
   const blob = blobOf(title, description);
+  const definitiveAgreementToAcquire =
+    /\b(?:(?:has\s+)?entered|enters)\s+into\s+(?:a\s+)?definitive\s+agreement\s+to\s+acquire\b/i
+      .test(blob) ||
+    /(?<!(?:may|could|might|should|considering|exploring)\s+)\b(?:announce(?:s|d)?|signs?|signed)\s+(?:a\s+)?definitive\s+agreement\s+to\s+acquire\b/i
+      .test(blob);
   return (
+    definitiveAgreementToAcquire ||
     /\bdefinitive\s+(?:merger|acquisition)\s+agreement\b/i.test(blob) ||
-    /\b(?:announces?|completes?|closes?|closed)\s+(?:the\s+)?(?:acquisition|merger|transaction)\b/i
+    /\b(?:announces?|announced|completes?|completed|closes?|closed)\s+(?:the\s+)?(?:acquisition|merger|transaction)\b/i
       .test(blob) ||
     /\bto\s+sell\s+.{0,80}(?:projects?|assets?|mines?|stakes?|business(?:es)?)\b/i.test(blob) ||
     /\b(?:asset|project)s?\s+(?:sale|purchase)\b/i.test(blob) ||
@@ -315,6 +324,10 @@ export function isEditorialNonEvent(title: string, description?: string | null):
 export function isBlockedEditorialFrame(title: string): boolean {
   const patterns: RegExp[] = [
     /\bsince\s+last\s+earnings\b/i,
+    /\bwhat\s+to\s+expect\b/i,
+    /\bahead\s+of(?:\s+(?:the|its))?\s+earnings\b/i,
+    /\bearnings\s+preview\b/i,
+    /\bbuy\s+before\s+earnings\b/i,
     /\bcan\s+it\s+rebound\b/i,
     /\bearnings\s+estimates?\s+(?:rising|moving|higher)\b/i,
     /\bwill\s+it\s+gain\b/i,
