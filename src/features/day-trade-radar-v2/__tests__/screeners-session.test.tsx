@@ -7,7 +7,7 @@ const hookState = {
   rows: [] as unknown[],
   syncedAt: "2026-09-04T15:12:30.000Z",
   providerAsOfMax: "2026-09-04T15:00:00.000Z",
-  source: "radar-v2" as const,
+  source: "radar-v2" as "radar-v2" | "screener-results",
   session: "pre-market" as string | null,
 };
 

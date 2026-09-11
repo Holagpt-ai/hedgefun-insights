@@ -17,7 +17,7 @@ const hookState = {
   ] as unknown[],
   syncedAt: "2026-09-04T20:35:00.000Z",
   providerAsOfMax: "2026-09-04T20:30:00.000Z",
-  source: "screener-results" as const,
+  source: "screener-results" as "radar-v2" | "screener-results",
   session: null as string | null,
   radarDiagnostic: {
     reason: "radar_v2_fetch_error",
