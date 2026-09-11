@@ -194,6 +194,10 @@ describe("useRadarV2VolumeLeaders — D11.2 soft-refresh retain", () => {
     expect(result.current.decision?.view?.synced_at).toBe(SYNCED_A);
     expect(result.current.decision?.view?.provider_as_of_max).toBe(SYNCED_A);
     expect(loadRadarV2Decision).toHaveBeenCalledTimes(2);
+    expect(result.current.observe.preserved).toBe(true);
+    expect(result.current.observe.preserveReason).toBe("radar_v2_fetch_error");
+    expect(result.current.observe.previousGenerationId).toBe(GEN_A);
+    expect(result.current.observe.lastSuccessfulRefreshAt).toBeTruthy();
   });
 
   it("3. next background poll retry exhausted -> prior rows preserved", async () => {

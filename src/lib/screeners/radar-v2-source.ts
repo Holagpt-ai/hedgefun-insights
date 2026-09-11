@@ -215,6 +215,17 @@ function isRetryableDecision(decision: RadarV2Decision): boolean {
   return decision.source === "fallback" && decision.reason === "generation_race";
 }
 
+function observeFromFetch(
+  fetched: RadarV2FetchResult | null,
+): Pick<RadarV2LoadDiagnostic, "lastReceiveAt" | "v2SyncedAt" | "candidateRowsRead"> {
+  const feed = fetched ? currentRadarV2Feed(fetched.feedRows) : null;
+  return {
+    lastReceiveAt: feed?.last_receive_at ?? null,
+    v2SyncedAt: feed?.v2_synced_at ?? null,
+    candidateRowsRead: fetched?.candidateRows?.length ?? null,
+  };
+}
+
 function recordAndReturn(
   decision: RadarV2Decision,
   extra: Omit<RadarV2LoadDiagnostic, "reason" | "source" | "session">,
@@ -255,6 +266,7 @@ export async function loadRadarV2Decision(
   let lastGenerationId: string | null = null;
   let lastDeclaredCount: number | null = null;
   let lastDecision: RadarV2Decision | null = null;
+  let lastFetched: RadarV2FetchResult | null = null;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     let fetched: RadarV2FetchResult;
@@ -272,8 +284,11 @@ export async function loadRadarV2Decision(
         generationId: lastGenerationId,
         declaredCandidateCount: lastDeclaredCount,
         lastAttemptReason: "radar_v2_fetch_threw",
+        ...observeFromFetch(null),
       });
     }
+
+    lastFetched = fetched;
 
     if (fetched.error) {
       const decision: RadarV2Decision = {
@@ -287,6 +302,7 @@ export async function loadRadarV2Decision(
         generationId: lastGenerationId,
         declaredCandidateCount: lastDeclaredCount,
         lastAttemptReason: "radar_v2_fetch_error",
+        ...observeFromFetch(fetched),
       });
     }
 
@@ -308,6 +324,7 @@ export async function loadRadarV2Decision(
         generationId: lastGenerationId,
         declaredCandidateCount: lastDeclaredCount,
         lastAttemptReason: fetched.handshakeReason,
+        ...observeFromFetch(fetched),
       });
     }
 
@@ -348,6 +365,7 @@ export async function loadRadarV2Decision(
       generationId: lastGenerationId,
       declaredCandidateCount: lastDeclaredCount,
       lastAttemptReason: decision.reason,
+      ...observeFromFetch(fetched),
     });
   }
 
@@ -362,5 +380,6 @@ export async function loadRadarV2Decision(
     generationId: lastGenerationId,
     declaredCandidateCount: lastDeclaredCount,
     lastAttemptReason,
+    ...observeFromFetch(lastFetched),
   });
 }
