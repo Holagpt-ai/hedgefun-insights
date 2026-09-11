@@ -25,3 +25,9 @@ Deno.test("sanitize truncates length", () => {
 Deno.test("log prefix is stable", () => {
   assertEquals(LOG_PREFIX, "[wl-v2]");
 });
+
+Deno.test("sanitize masks Model Studio / DashScope URLs", () => {
+  const s = sanitize("POST https://dashscope-us.aliyuncs.com/compatible-mode/v1/chat/completions key=secret");
+  assert(!s.includes("dashscope-us"));
+  assert(!s.includes("compatible-mode"));
+});

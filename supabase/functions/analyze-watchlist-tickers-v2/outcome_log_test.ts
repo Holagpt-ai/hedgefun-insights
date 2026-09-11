@@ -73,7 +73,7 @@ Deno.test("formatted outcome log has no secrets, prompts, or raw provider bodies
   assertEquals(Object.keys(parsed).sort(), [...ANALYZER_OUTCOME_LOG_KEYS].sort());
   for (const forbidden of [
     "sk-ant", "apiKey", "Bearer", "x-api-key", "Authorization",
-    "prompt", "You are", "claude", "https://", "http://",
+    "prompt", "You are", "https://", "http://",
   ]) {
     assertFalse(line.includes(forbidden), `leaked ${forbidden}`);
   }

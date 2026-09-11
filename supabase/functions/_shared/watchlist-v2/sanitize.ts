@@ -11,6 +11,7 @@ const XAPIKEY_HDR_RE = /x-api-key[^\n]*/gi;
 const POLYGON_URL_RE = /https?:\/\/api\.polygon\.io[^\s"'`]*/gi;
 const FINNHUB_URL_RE = /https?:\/\/finnhub\.io[^\s"'`]*/gi;
 const ANTHROPIC_URL_RE = /https?:\/\/api\.anthropic\.com[^\s"'`]*/gi;
+const DASHSCOPE_URL_RE = /https?:\/\/[^\s"'`]*aliyuncs\.com[^\s"'`]*/gi;
 
 const MAX = 200;
 
@@ -34,6 +35,7 @@ export function sanitize(input: unknown): string {
     .replace(POLYGON_URL_RE, "https://api.polygon.io/***")
     .replace(FINNHUB_URL_RE, "https://finnhub.io/***")
     .replace(ANTHROPIC_URL_RE, "https://api.anthropic.com/***")
+    .replace(DASHSCOPE_URL_RE, "https://aliyuncs.com/***")
     .replace(UUID_RE, "***-uuid-***");
   if (s.length > MAX) s = s.slice(0, MAX);
   return s;

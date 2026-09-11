@@ -5644,7 +5644,10 @@ export type Database = {
           completed_at: string | null
           error_code: string | null
           id: string
+          lease_expires_at: string | null
           requested_at: string
+          session_date: string | null
+          session_type: Database["public"]["Enums"]["watchlist_session"] | null
           source: string
           status: string
           ticker: string
@@ -5654,7 +5657,10 @@ export type Database = {
           completed_at?: string | null
           error_code?: string | null
           id?: string
+          lease_expires_at?: string | null
           requested_at?: string
+          session_date?: string | null
+          session_type?: Database["public"]["Enums"]["watchlist_session"] | null
           source: string
           status?: string
           ticker: string
@@ -5664,7 +5670,10 @@ export type Database = {
           completed_at?: string | null
           error_code?: string | null
           id?: string
+          lease_expires_at?: string | null
           requested_at?: string
+          session_date?: string | null
+          session_type?: Database["public"]["Enums"]["watchlist_session"] | null
           source?: string
           status?: string
           ticker?: string
@@ -5901,6 +5910,16 @@ export type Database = {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
       }
+      claim_watchlist_v2_ticker_lease: {
+        Args: {
+          p_lease_seconds: number
+          p_request_id: string
+          p_session_date: string
+          p_session_type: Database["public"]["Enums"]["watchlist_session"]
+          p_ticker: string
+        }
+        Returns: Json
+      }
       claim_wl_v2_analysis_cycle: {
         Args: {
           p_lease_seconds: number
@@ -5987,6 +6006,23 @@ export type Database = {
         Args: { p_run_id: string; p_ticker: string }
         Returns: undefined
       }
+      record_wl_v2_claude_decision: {
+        Args: { p_decision: string; p_run_id: string }
+        Returns: undefined
+      }
+      record_wl_v2_provider_call: {
+        Args: {
+          p_input_tokens: number | null
+          p_latency_ms: number | null
+          p_model: string
+          p_ok: boolean
+          p_output_tokens: number | null
+          p_provider: string
+          p_retry_count: number | null
+          p_run_id: string
+        }
+        Returns: undefined
+      }
       record_wl_v2_run_error: {
         Args: { p_code: string; p_run_id: string; p_ticker: string }
         Returns: undefined
@@ -5998,6 +6034,10 @@ export type Database = {
       }
       release_screener_52w_baseline_run_lease_v1: {
         Args: { p_holder_id: string }
+        Returns: undefined
+      }
+      release_watchlist_v2_ticker_lease: {
+        Args: { p_request_id: string }
         Returns: undefined
       }
       replace_after_hours_generation_v1: {
@@ -6075,6 +6115,17 @@ export type Database = {
           p_period_end: string
           p_period_start: string
           p_provider_as_of: string
+        }
+        Returns: Json
+      }
+      skip_watchlist_analysis_v2: {
+        Args: {
+          p_decision: string
+          p_extend_valid_through: string | null
+          p_request_id: string
+          p_run_id: string | null
+          p_ticker: string
+          p_user_id: string
         }
         Returns: Json
       }

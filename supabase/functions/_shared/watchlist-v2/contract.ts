@@ -77,6 +77,8 @@ export interface InputsQuality {
   snapshot_age_ms?: number | null;
   snapshot_ts_ms?: number | null;
   snapshot_timestamp_source?: SnapshotTimestampSource | null;
+  /** Optional fingerprint field so a later cycle can detect earnings-state change. */
+  earnings_date?: string | null;
 }
 
 export interface AnalysisV2Payload {
@@ -247,6 +249,10 @@ function validateInputsQuality(q: unknown): q is InputsQuality {
       v !== null &&
       v !== "lastTrade" && v !== "lastQuote" && v !== "updated" && v !== "min"
     ) return false;
+  }
+  if ("earnings_date" in q) {
+    const v = q.earnings_date;
+    if (v !== null && !(typeof v === "string" && /^\d{4}-\d{2}-\d{2}$/.test(v))) return false;
   }
   return true;
 }

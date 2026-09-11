@@ -278,7 +278,7 @@ export function useWatchlistV2() {
       const upper = ticker.toUpperCase();
       const { data, error } = await supabase.functions.invoke(
         "analyze-watchlist-tickers-v2",
-        { body: { ticker: upper } },
+        { body: { ticker: upper, force_refresh: true } },
       );
       const outcome = await classifyWatchlistRefreshInvoke(data, error);
       if (outcome.kind === "market_closed") {

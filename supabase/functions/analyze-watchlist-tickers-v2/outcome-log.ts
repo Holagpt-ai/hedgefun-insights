@@ -4,6 +4,10 @@
 import { LOG_PREFIX } from "../_shared/watchlist-v2/sanitize.ts";
 import { STALE_MS, type SnapshotTimestampSource } from "../_shared/watchlist-v2/market-data.ts";
 import { normalizeTicker } from "../_shared/watchlist-v2/contract.ts";
+import {
+  CLAUDE_DECISIONS,
+  type ClaudeDecision,
+} from "../_shared/watchlist-v2/cost-control.ts";
 
 export type AnalyzerOrigin = "trigger" | "manual" | "batch";
 export type AnalyzerOutcomeKind =
@@ -15,7 +19,11 @@ export type AnalyzerOutcomeKind =
 
 export type AnalyzerSession = "premarket" | "rth" | "postclose";
 
-export type AnalyzerProviderStage = "polygon_snapshot" | "polygon_bars" | "anthropic_ai";
+export type AnalyzerProviderStage =
+  | "polygon_snapshot"
+  | "polygon_bars"
+  | "anthropic_ai"
+  | "watchlist_ai";
 
 export interface AnalyzerOutcomeLog {
   symbol: string;
@@ -34,6 +42,15 @@ export interface AnalyzerOutcomeLog {
   missing_evidence_count: number | null;
   provider_stage: AnalyzerProviderStage | null;
   anthropic_http_status: number | null;
+  claude_decision: ClaudeDecision | null;
+  ai_provider: string | null;
+  ai_model: string | null;
+  ai_http_status: number | null;
+  ai_latency_ms: number | null;
+  ai_input_tokens: number | null;
+  ai_output_tokens: number | null;
+  ai_retry_count: number | null;
+  ai_fallback: "off" | null;
   elapsed_ms: number;
 }
 
@@ -54,6 +71,15 @@ export const ANALYZER_OUTCOME_LOG_KEYS = [
   "missing_evidence_count",
   "provider_stage",
   "anthropic_http_status",
+  "claude_decision",
+  "ai_provider",
+  "ai_model",
+  "ai_http_status",
+  "ai_latency_ms",
+  "ai_input_tokens",
+  "ai_output_tokens",
+  "ai_retry_count",
+  "ai_fallback",
   "elapsed_ms",
 ] as const;
 
@@ -63,11 +89,15 @@ const OUTCOMES: ReadonlySet<string> = new Set([
 ]);
 const SESSIONS: ReadonlySet<string> = new Set(["premarket", "rth", "postclose"]);
 const SOURCES: ReadonlySet<string> = new Set(["lastTrade", "lastQuote", "updated", "min"]);
-const STAGES: ReadonlySet<string> = new Set(["polygon_snapshot", "polygon_bars", "anthropic_ai"]);
+const STAGES: ReadonlySet<string> = new Set([
+  "polygon_snapshot", "polygon_bars", "anthropic_ai", "watchlist_ai",
+]);
+const AI_PROVIDERS: ReadonlySet<string> = new Set(["qwen", "anthropic"]);
+const FALLBACKS: ReadonlySet<string> = new Set(["off"]);
 
 const FORBIDDEN_LOG_SNIPPETS = [
   "apiKey", "x-api-key", "Bearer", "sk-ant", "token=", "Authorization",
-  "prompt", "ANTHROPIC_API_KEY", "POLYGON_API_KEY",
+  "prompt", "ANTHROPIC_API_KEY", "POLYGON_API_KEY", "QWEN_API_KEY",
 ];
 
 function finiteOrNull(v: unknown): number | null {
@@ -111,6 +141,15 @@ export function emptyAnalyzerOutcomeLog(
     missing_evidence_count: null,
     provider_stage: null,
     anthropic_http_status: null,
+    claude_decision: null,
+    ai_provider: null,
+    ai_model: null,
+    ai_http_status: null,
+    ai_latency_ms: null,
+    ai_input_tokens: null,
+    ai_output_tokens: null,
+    ai_retry_count: null,
+    ai_fallback: null,
     elapsed_ms: 0,
   };
 }
@@ -141,6 +180,20 @@ export function sanitizeAnalyzerOutcomeLog(input: AnalyzerOutcomeLog): AnalyzerO
     missing_evidence_count: finiteOrNull(input.missing_evidence_count),
     provider_stage: strOrNull(input.provider_stage, STAGES) as AnalyzerProviderStage | null,
     anthropic_http_status: finiteOrNull(input.anthropic_http_status),
+    claude_decision: strOrNull(
+      input.claude_decision,
+      CLAUDE_DECISIONS as ReadonlySet<string>,
+    ) as ClaudeDecision | null,
+    ai_provider: strOrNull(input.ai_provider, AI_PROVIDERS),
+    ai_model: typeof input.ai_model === "string" && input.ai_model
+      ? input.ai_model.slice(0, 64)
+      : null,
+    ai_http_status: finiteOrNull(input.ai_http_status),
+    ai_latency_ms: finiteOrNull(input.ai_latency_ms),
+    ai_input_tokens: finiteOrNull(input.ai_input_tokens),
+    ai_output_tokens: finiteOrNull(input.ai_output_tokens),
+    ai_retry_count: finiteOrNull(input.ai_retry_count),
+    ai_fallback: strOrNull(input.ai_fallback, FALLBACKS) as "off" | null,
     elapsed_ms: finiteOrNull(input.elapsed_ms) ?? 0,
   };
 }

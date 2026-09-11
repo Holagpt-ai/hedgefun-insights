@@ -2,6 +2,7 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 import {
   buildAlerts, parseManualBody, parseRunId, parseTriggerBody, selectMode,
 } from "../../analyze-watchlist-tickers-v2/index.ts";
+import { resolveForceRefresh } from "./cost-control.ts";
 import type { MarketSignal, RecentEvent } from "./contract.ts";
 
 Deno.test("selectMode: none when empty", () => {
@@ -44,7 +45,19 @@ Deno.test("parseTriggerBody: non-uuid user_id rejected", () => {
 Deno.test("parseManualBody: valid", () => {
   const r = parseManualBody({ ticker: "msft" });
   assertEquals(r.ok, true);
-  if (r.ok) assertEquals(r.ticker, "MSFT");
+  if (r.ok) {
+    assertEquals(r.ticker, "MSFT");
+    assertEquals(r.force_refresh, false);
+  }
+});
+
+Deno.test("parseManualBody: force_refresh true only when explicitly set", () => {
+  const r = parseManualBody({ ticker: "MSFT", force_refresh: true });
+  assertEquals(r.ok, true);
+  if (r.ok) assertEquals(r.force_refresh, true);
+  const triggerBody = { record: { symbol: "MSFT" }, force_refresh: true };
+  assertEquals(selectMode(triggerBody), "trigger");
+  assertEquals(resolveForceRefresh("trigger", triggerBody), false);
 });
 
 Deno.test("parseManualBody: invalid ticker rejected", () => {
