@@ -1,13 +1,20 @@
 import { hasProAccess } from "@/lib/entitlement";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowRight, Sparkles, Newspaper, BookOpen, Star } from "lucide-react";
+import { ArrowRight, ExternalLink, Sparkles, Newspaper, BookOpen, Star } from "lucide-react";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
 import { NewsSection } from "@/components/dashboard/NewsSection";
+import { useCatalystEvents } from "@/hooks/useCatalystEvents";
+import {
+  PM_CATALYST_ACTIVITY_CANDIDATE_LIMIT,
+  selectPmCatalystActivity,
+} from "@/lib/catalyst/pm-catalyst-activity";
+import { EVENT_TYPE_LABEL, timeOfDayLabel } from "@/lib/catalyst/parsers";
+import type { CatalystEvent } from "@/types/catalyst";
 import {
   Dialog,
   DialogContent,
@@ -20,11 +27,9 @@ import { Button } from "@/components/ui/button";
 import {
   PM_INBOX_CONFIG,
   PM_GATE_THRESHOLD_MINS,
-  PM_CATALYST_PILLS,
   PM_TODAYS_KEY_MOVES,
   PM_TOMORROW_SETUP,
   PM_AFTER_HOURS_WATCH,
-  type CatalystPill,
   type StaticInboxItem,
 } from "@/config/inbox.config";
 import { estDate } from "@/lib/price-utils";
@@ -91,28 +96,76 @@ function SectionHeader({
   );
 }
 
-function CatalystCard({ pill, locked }: { pill: CatalystPill; locked?: boolean }) {
+function honestEventSessionLabel(event: CatalystEvent): string {
+  if (event.event_time) {
+    const parsed = Date.parse(event.event_time);
+    if (Number.isFinite(parsed)) {
+      return new Date(parsed).toLocaleString("en-US", {
+        timeZone: "America/New_York",
+        hour: "numeric",
+        minute: "2-digit",
+        timeZoneName: "short",
+      });
+    }
+  }
+  return timeOfDayLabel(event.time_of_day) ?? "Time unavailable";
+}
+
+function PmCatalystActivityCard({ event }: { event: CatalystEvent }) {
+  const navigate = useNavigate();
+  const encoded = encodeURIComponent(event.symbol);
+  const typeLabel = EVENT_TYPE_LABEL[event.event_type];
+  const btn =
+    "inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors";
+
   return (
-    <div
-      className={`rounded-xl border bg-card p-3 flex flex-col gap-1.5 ${priorityBorder(pill.priority)} ${
-        locked ? "opacity-60" : ""
-      }`}
-    >
+    <div className="rounded-xl border bg-card p-3 flex flex-col gap-1.5">
       <div className="flex items-start justify-between gap-2">
-        <div className="text-sm font-medium leading-snug">{pill.label}</div>
-        {pill.priority && (
-          <span
-            className={`text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${priorityBadge(
-              pill.priority,
-            )}`}
-          >
-            {pill.priority}
+        <div className="text-sm font-semibold">{event.symbol}</div>
+        {typeLabel && (
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground whitespace-nowrap">
+            {typeLabel}
           </span>
         )}
       </div>
-      {pill.note && (
-        <div className="text-xs text-muted-foreground">{locked ? "PRO — unlock to preview" : pill.note}</div>
-      )}
+      <div className="text-sm font-medium leading-snug">{event.title}</div>
+      <div className="text-xs text-muted-foreground">
+        {event.source_name}
+        <span> · </span>
+        <span>{honestEventSessionLabel(event)}</span>
+      </div>
+      <div className="mt-1 flex items-center gap-1">
+        <button
+          type="button"
+          onClick={() => navigate(`/dashboard/ai?symbol=${encoded}`)}
+          aria-label={`Research ${event.symbol} in AI Analyst`}
+          title={`Research ${event.symbol} in AI Analyst`}
+          className={btn}
+        >
+          <Sparkles className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => navigate(`/dashboard/catalyst?symbol=${encoded}`)}
+          aria-label={`Open ${event.symbol} in Catalyst`}
+          title={`Open ${event.symbol} in Catalyst`}
+          className={btn}
+        >
+          <Newspaper className="h-3.5 w-3.5" />
+        </button>
+        {event.source_url && (
+          <a
+            href={event.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Open source for ${event.symbol}`}
+            title={event.source_name}
+            className={btn}
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        )}
+      </div>
     </div>
   );
 }
@@ -198,7 +251,22 @@ export default function PMInbox() {
     : "FREE ACCESS — SAMPLE WORKFLOWS";
 
   const timeGated = isBeforePMWindow();
+  const fullPmWorkspace = isPro && !timeGated;
   const [modalOpen, setModalOpen] = useState(timeGated);
+  const {
+    data: catalystEvents,
+    isLoading: catalystLoading,
+    isError: catalystError,
+  } = useCatalystEvents({
+    recentDays: 1,
+    upcomingDays: 1,
+    limit: PM_CATALYST_ACTIVITY_CANDIDATE_LIMIT,
+    enabled: fullPmWorkspace,
+  });
+  const catalystActivity = useMemo(
+    () => selectPmCatalystActivity(catalystEvents ?? [], Date.now()),
+    [catalystEvents],
+  );
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">
@@ -322,8 +390,6 @@ export default function PMInbox() {
         </>
       ) : (
         <>
-          {/* Catalyst Outcomes */}
-
           <section className="flex flex-col gap-3">
             <SectionHeader
               title={PM_INBOX_CONFIG.catalystOutcomesHeading}
@@ -331,12 +397,30 @@ export default function PMInbox() {
               cta="View Catalyst"
               onCta={() => navigate("/dashboard/catalyst")}
             />
-            <SampleChip />
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {PM_CATALYST_PILLS.map((pill) => (
-                <CatalystCard key={pill.label} pill={pill} locked={!isPro && pill.tier === "pro"} />
-              ))}
-            </div>
+            {catalystLoading ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {Array.from({ length: 3 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="h-24 rounded-xl border bg-card animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : catalystError ? (
+              <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+                Catalyst activity is unavailable right now.
+              </div>
+            ) : catalystActivity.length === 0 ? (
+              <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
+                No provider-reported catalyst activity for today.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {catalystActivity.map((event) => (
+                  <PmCatalystActivityCard key={event.id} event={event} />
+                ))}
+              </div>
+            )}
           </section>
 
           {/* After-Close Earnings */}

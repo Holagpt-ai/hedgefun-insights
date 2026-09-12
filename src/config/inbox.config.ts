@@ -66,26 +66,6 @@ export const AM_BRIEF_STALE_MINS = 900; // 3:00 PM ET
 /** Minutes from midnight ET at which the PM Brief is considered stale. */
 export const PM_BRIEF_STALE_MINS = 1440; // midnight ET
 
-export interface CatalystPill {
-  label: string;
-  tier: "free" | "pro";
-  /** Visual-only priority — never used for access control. */
-  priority?: "High" | "Medium" | "Low";
-  note?: string;
-}
-
-// NOTE: AM (Pre-Market) fabricated preview constants were removed when the
-// Pre-Market page became a production data workspace. PM/After-Hours constants
-// below remain until After-Hours is rebuilt in its own sprint.
-
-export const PM_CATALYST_PILLS: CatalystPill[] = [
-  { label: "After-hours movers preview", tier: "free", priority: "High", note: "Post-close price action" },
-  { label: "Today's market recap", tier: "free", priority: "Medium", note: "Sector winners/losers" },
-  { label: "Tomorrow's economic calendar", tier: "pro", priority: "High", note: "Setup for next open" },
-  { label: "Sector rotation recap", tier: "pro", priority: "Medium", note: "Flow shifts today" },
-  { label: "After-hours options flow", tier: "pro", priority: "Low", note: "Unusual activity scan" },
-];
-
 export interface StaticInboxItem {
   label: string;
   detail: string;
@@ -203,8 +183,8 @@ export const PM_INBOX_CONFIG = {
   aiCardTimestampLabel: "Generated at",
   recapHeading: "Post-Market Recap",
   recapSubtitle: "End-of-day review and planning",
-  catalystOutcomesHeading: "Catalyst Outcomes · Preview Signals",
-  catalystOutcomesSubtitle: "Static preview — continue the workflow in the Catalyst module",
+  catalystOutcomesHeading: "Today's Catalyst Activity",
+  catalystOutcomesSubtitle: "Provider-reported company events for the current ET date",
   earningsHeading: "Upcoming After-Close Earnings",
   keyMovesHeading: "Session Review Workflow",
   keyMovesEmpty: "No workflow steps configured.",
