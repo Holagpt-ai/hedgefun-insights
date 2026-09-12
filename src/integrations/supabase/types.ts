@@ -6010,19 +6010,6 @@ export type Database = {
         Args: { p_decision: string; p_run_id: string }
         Returns: undefined
       }
-      record_wl_v2_provider_call: {
-        Args: {
-          p_input_tokens: number | null
-          p_latency_ms: number | null
-          p_model: string
-          p_ok: boolean
-          p_output_tokens: number | null
-          p_provider: string
-          p_retry_count: number | null
-          p_run_id: string
-        }
-        Returns: undefined
-      }
       record_wl_v2_run_error: {
         Args: { p_code: string; p_run_id: string; p_ticker: string }
         Returns: undefined
@@ -6108,6 +6095,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      skip_watchlist_analysis_v2: {
+        Args: {
+          p_decision: string
+          p_extend_valid_through: string
+          p_request_id: string
+          p_run_id: string
+          p_ticker: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       start_screener_52w_baseline_job_v1: {
         Args: {
           p_dates_total: number
@@ -6115,17 +6113,6 @@ export type Database = {
           p_period_end: string
           p_period_start: string
           p_provider_as_of: string
-        }
-        Returns: Json
-      }
-      skip_watchlist_analysis_v2: {
-        Args: {
-          p_decision: string
-          p_extend_valid_through: string | null
-          p_request_id: string
-          p_run_id: string | null
-          p_ticker: string
-          p_user_id: string
         }
         Returns: Json
       }
