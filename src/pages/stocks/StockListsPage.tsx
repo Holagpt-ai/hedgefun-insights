@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 interface LinkSection {
   title: string;
@@ -164,8 +165,8 @@ export default function StockListsPage() {
   const [email, setEmail] = useState("");
 
   usePageSeo({
-    title: "Stock Lists — Curated Stock Collections | HedgeFun",
-    description: "Browse curated stock lists including top performers, dividend payers, growth stocks, and more on HedgeFun.",
+    title: `Stock Lists — Curated Stock Collections | ${BRAND.name}`,
+    description: `Browse curated stock lists including top performers, dividend payers, growth stocks, and more on ${BRAND.name}.`,
   });
 
   return (
@@ -210,7 +211,7 @@ export default function StockListsPage() {
           <div className="w-full md:w-[280px] md:flex-shrink-0 space-y-4">
             {/* Pro promo */}
             <div className="border border-border rounded-[var(--radius)] p-4">
-              <h3 className="text-sm font-bold text-foreground mb-2">HedgeFun Pro</h3>
+              <h3 className="text-sm font-bold text-foreground mb-2">{BRAND.name} Pro</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">
                 Upgrade now for unlimited access to all data and tools.
               </p>

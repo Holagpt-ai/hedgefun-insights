@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { hasProAccess } from "@/lib/entitlement";
+import { BRAND } from "@/config/brand";
 
 const AccountPage = () => {
   const navigate = useNavigate();
@@ -23,7 +24,7 @@ const AccountPage = () => {
 
   useEffect(() => {
     if (searchParams.get("success") === "true") {
-      toast({ title: "You're now on HedgeFun Pro. Welcome!" });
+      toast({ title: `You're now on ${BRAND.name} Pro. Welcome!` });
     }
   }, [searchParams]);
 

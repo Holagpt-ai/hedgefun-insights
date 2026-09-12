@@ -7,6 +7,7 @@ import { IpoTabBar } from "@/components/ipos/IpoTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { BRAND } from "@/config/brand";
 import {
   Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage,
 } from "@/components/ui/breadcrumb";
@@ -95,7 +96,7 @@ export default function IpoNewsPage() {
                       {item.headline}
                     </a>
                     <div className="text-[0.8125rem] text-muted-foreground mt-1">
-                      {item.source ?? "HedgeFun"} · {item.published_at ? timeAgo(item.published_at) : ""}
+                      {item.source ?? BRAND.name} · {item.published_at ? timeAgo(item.published_at) : ""}
                     </div>
                   </div>
                 </div>

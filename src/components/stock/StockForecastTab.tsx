@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Target } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/config/brand";
 
 export default function StockForecastTab() {
   return (
@@ -12,7 +13,7 @@ export default function StockForecastTab() {
         Analyst Forecasts
       </h3>
       <p className="text-[0.875rem] text-muted-foreground mb-1">
-        Upgrade to HedgeFun Pro to access analyst forecasts including:
+        Upgrade to {BRAND.name} Pro to access analyst forecasts including:
       </p>
       <ul className="text-[0.875rem] text-muted-foreground text-left mb-6 space-y-1">
         <li>✓ Wall Street price targets</li>
@@ -23,7 +24,7 @@ export default function StockForecastTab() {
       </ul>
       <Link to="/pro">
         <Button className="w-full max-w-xs bg-blue-600 hover:bg-blue-700 text-white">
-          Upgrade to HedgeFun Pro
+          Upgrade to {BRAND.name} Pro
         </Button>
       </Link>
       <p className="text-[0.75rem] text-muted-foreground mt-3">

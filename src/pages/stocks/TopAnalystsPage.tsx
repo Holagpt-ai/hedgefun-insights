@@ -6,6 +6,7 @@ import {
 } from "@/components/ui/breadcrumb";
 import { ANALYSTS } from "@/data/analysts";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 function StarRating({ value }: { value: number }) {
   const full = Math.floor(value);
@@ -30,7 +31,7 @@ export default function TopAnalystsPage() {
   const navigate = useNavigate();
 
   usePageSeo({
-    title: "Top Wall Street Analysts | HedgeFun",
+    title: `Top Wall Street Analysts | ${BRAND.name}`,
     description: "Wall Street analysts ranked by their stock picking performance. See success rates, average returns, and ratings history.",
   });
 
@@ -92,7 +93,7 @@ export default function TopAnalystsPage() {
 
         {/* Pro upsell */}
         <div className="relative border border-border rounded-lg p-6 text-center mb-8">
-          <h2 className="text-lg font-bold mb-1">Upgrade to HedgeFun Pro</h2>
+          <h2 className="text-lg font-bold mb-1">Upgrade to {BRAND.name} Pro</h2>
           <p className="text-sm text-muted-foreground mb-4">
             Unlock full analyst rankings, advanced filtering, and unlimited data access.
           </p>
