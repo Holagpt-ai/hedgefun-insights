@@ -22,6 +22,37 @@ describe("market calendar", () => {
     expect(sunNoon.label).toBe("MARKET CLOSED");
   });
 
+  it("Saturday Sep 12 2026 1:00 PM ET (17:00Z) is closed with next session Mon Sep 14", () => {
+    const s = resolveMarketClock(et("2026-09-12T17:00:00Z"));
+    expect(s.sessionId).toBe("closed");
+    expect(s.isTradingDay).toBe(false);
+    expect(s.dot).toBe("gray");
+    expect(s.label).not.toContain("MARKET OPEN");
+    expect(s.label).not.toContain("PRE-MARKET");
+    expect(s.label).not.toContain("AFTER-HOURS");
+    expect(s.subLabel).toContain("Mon, Sep 14");
+    expect(s.subLabel).toContain("4:00 AM ET");
+  });
+
+  it("Sunday Sep 13 2026 1:00 PM ET (17:00Z) is closed with next session Mon Sep 14", () => {
+    const s = resolveMarketClock(et("2026-09-13T17:00:00Z"));
+    expect(s.sessionId).toBe("closed");
+    expect(s.isTradingDay).toBe(false);
+    expect(s.dot).toBe("gray");
+    expect(s.label).not.toContain("MARKET OPEN");
+    expect(s.subLabel).toContain("Mon, Sep 14");
+    expect(s.subLabel).toContain("4:00 AM ET");
+  });
+
+  it("Monday Sep 14 2026 10:00 AM ET (14:00Z) is a regular trading session", () => {
+    const s = resolveMarketClock(et("2026-09-14T14:00:00Z"));
+    expect(s.sessionId).toBe("market");
+    expect(s.isTradingDay).toBe(true);
+    expect(s.dot).toBe("green");
+    expect(s.subLabel).toBe("Market closes 4:00 PM ET");
+    expect(s.countdown).toBe("06:00:00");
+  });
+
   it("resolves deterministic Monday pre/regular/after-hours windows", () => {
     const pre = resolveMarketClock(et("2026-08-03T12:00:00Z")); // Mon 8:00 ET
     expect(pre.sessionId).toBe("pre-market");
