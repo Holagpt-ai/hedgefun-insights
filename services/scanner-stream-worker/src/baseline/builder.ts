@@ -8,10 +8,12 @@ import {
   pruneCache,
   symbolsInWindow,
 } from "./grouped.ts";
+import { log } from "../log.ts";
 import {
   type BaselineRow,
   type BaselineState,
   emptyState,
+  isUsableAvailableBaseline,
   type LoadStateFn,
   publishGeneration,
   type RpcFn,
@@ -36,6 +38,8 @@ export type BaselineJobDeps = {
 
 export type BaselineJobResult = {
   didRebuild: boolean;
+  refreshDeferred: boolean;
+  desiredPeriodEnd: string | null;
   state: BaselineState;
   errorCode: string | null;
   lastSuccessfulPeriodEnd: string | null;
@@ -140,22 +144,33 @@ export async function runBaselineJob(
   if (!window) {
     return {
       didRebuild: false,
+      refreshDeferred: false,
+      desiredPeriodEnd: null,
       state: prior,
       errorCode: "period_unresolved",
       lastSuccessfulPeriodEnd: deps.lastSuccessfulPeriodEnd,
     };
   }
 
-  const hasGeneration = prior.current_generation_id != null;
-  if (
-    hasGeneration &&
-    deps.lastSuccessfulPeriodEnd === window.periodEnd
-  ) {
+  if (isUsableAvailableBaseline(prior)) {
+    const refreshDeferred = prior.period_end !== window.periodEnd;
+    if (refreshDeferred) {
+      log("info", "baseline_refresh_deferred", {
+        current_generation_id: prior.current_generation_id,
+        current_period_end: prior.period_end,
+        desired_period_end: window.periodEnd,
+        symbol_count: prior.symbol_count,
+        status: prior.status,
+        reason: "available_baseline_preserved_for_radar_startup",
+      });
+    }
     return {
       didRebuild: false,
+      refreshDeferred,
+      desiredPeriodEnd: window.periodEnd,
       state: prior,
       errorCode: null,
-      lastSuccessfulPeriodEnd: deps.lastSuccessfulPeriodEnd,
+      lastSuccessfulPeriodEnd: prior.period_end,
     };
   }
 
@@ -175,6 +190,8 @@ export async function runBaselineJob(
       : "provider_unavailable";
     return {
       didRebuild: false,
+      refreshDeferred: false,
+      desiredPeriodEnd: window.periodEnd,
       state: prior,
       errorCode: code === "provider_response_invalid"
         ? "provider_response_invalid"
@@ -204,6 +221,8 @@ export async function runBaselineJob(
   if (!published.ok) {
     return {
       didRebuild: false,
+      refreshDeferred: false,
+      desiredPeriodEnd: window.periodEnd,
       state: prior,
       errorCode: published.code,
       lastSuccessfulPeriodEnd: deps.lastSuccessfulPeriodEnd,
@@ -212,6 +231,8 @@ export async function runBaselineJob(
 
   return {
     didRebuild: true,
+    refreshDeferred: false,
+    desiredPeriodEnd: window.periodEnd,
     state: published.state,
     errorCode: null,
     lastSuccessfulPeriodEnd: window.periodEnd,

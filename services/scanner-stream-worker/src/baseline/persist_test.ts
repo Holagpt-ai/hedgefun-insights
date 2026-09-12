@@ -1,6 +1,10 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import type { BaselineRow, ReplaceGenerationArgs, RpcFn } from "./persist.ts";
-import { publishGeneration, validateGeneration } from "./persist.ts";
+import type { BaselineRow, BaselineState, ReplaceGenerationArgs, RpcFn } from "./persist.ts";
+import {
+  isUsableAvailableBaseline,
+  publishGeneration,
+  validateGeneration,
+} from "./persist.ts";
 
 const GEN = "11111111-2222-3333-4444-555555555555";
 const AS_OF = "2026-08-12T20:00:01.000Z";
@@ -122,4 +126,25 @@ Deno.test("RPC throw is treated as persist_failed without exposing a generation"
   if (published.ok) return;
   assertEquals(published.code, "persist_failed");
   assertEquals(calls.length, 1);
+});
+
+Deno.test("isUsableAvailableBaseline requires available status, generation, and rows", () => {
+  const usable: BaselineState = {
+    current_generation_id: GEN,
+    status: "available",
+    period_start: START,
+    period_end: END,
+    symbol_count: 1,
+    provider_as_of: AS_OF,
+  };
+  assertEquals(isUsableAvailableBaseline(usable), true);
+  assertEquals(isUsableAvailableBaseline({ ...usable, status: "empty", symbol_count: 0 }), false);
+  assertEquals(isUsableAvailableBaseline({ ...usable, status: "unavailable" }), false);
+  assertEquals(isUsableAvailableBaseline({ ...usable, status: "initializing" }), false);
+  assertEquals(
+    isUsableAvailableBaseline({ ...usable, current_generation_id: null }),
+    false,
+  );
+  assertEquals(isUsableAvailableBaseline({ ...usable, symbol_count: 0 }), false);
+  assertEquals(isUsableAvailableBaseline({ ...usable, period_end: null }), false);
 });
