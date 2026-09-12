@@ -28,6 +28,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { toast } from "@/hooks/use-toast";
+import { BRAND } from "@/config/brand";
 
 /* ── helpers ── */
 function abbr(n: number | null | undefined): string {
@@ -512,7 +513,7 @@ export default function StockListDetailPage() {
           {/* Right sidebar */}
           <div className="hidden lg:block w-[280px] flex-shrink-0 space-y-4">
             <SidebarCard
-              title="HedgeFun Pro"
+              title={`${BRAND.name} Pro`}
               body="Upgrade for unlimited access to all data and tools."
               cta="Upgrade Now →"
               to="/pro"

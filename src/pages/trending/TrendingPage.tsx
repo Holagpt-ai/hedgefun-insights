@@ -25,6 +25,7 @@ import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "sonner";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 /* ── seed data (used if DB returns nothing) ── */
 const SEED: TrendingStock[] = [
@@ -219,8 +220,8 @@ export default function TrendingPage() {
   const dateStr = now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 
   usePageSeo({
-    title: "Trending Stocks — Most Searched & Watched | HedgeFun",
-    description: "See which stocks investors are searching and watching most on HedgeFun right now.",
+    title: `Trending Stocks — Most Searched & Watched | ${BRAND.name}`,
+    description: `See which stocks investors are searching and watching most on ${BRAND.name} right now.`,
   });
 
   return (
@@ -425,7 +426,7 @@ export default function TrendingPage() {
           {/* Sidebar */}
           <aside className="hidden md:flex flex-col gap-4 w-[300px] shrink-0 sticky top-20 self-start">
             {[
-              { title: "HedgeFun Pro", desc: "Upgrade now for unlimited access to all data and tools.", route: "/pro" },
+              { title: `${BRAND.name} Pro`, desc: "Upgrade now for unlimited access to all data and tools.", route: "/pro" },
               { title: "Market Newsletter", desc: "Get a daily email with the top market news in bullet point format.", route: "/newsletter" },
               { title: "Stock Screener", desc: "Filter, sort and analyze all stocks to find your next investment.", route: "/screener" },
               { title: "Watchlists", desc: "Keep track of all your favorite stocks in real-time.", route: "/watchlist" },

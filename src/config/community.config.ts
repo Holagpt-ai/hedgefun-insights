@@ -1,3 +1,5 @@
+import { BRAND } from "@/config/brand";
+
 export const COMMUNITY_WAITLIST_SOURCE = "community_waitlist";
 
 export const COMMUNITY_COPY = {
@@ -8,7 +10,7 @@ export const COMMUNITY_COPY = {
   trustBanner:
     "Community is coming soon. When launched, discussion will be educational only and moderated to reduce spam, hype, harassment, and coordinated promotion. Nothing shared in Community should be treated as financial advice.",
   waitlistNote:
-    "You may receive the existing HedgeFun welcome email after joining.",
+    `You may receive the existing ${BRAND.name} welcome email after joining.`,
   footerDisclaimer:
     "Community is not live yet. Future content will be for educational discussion only. Not financial advice.",
 };

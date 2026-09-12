@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 interface EtfRow {
   symbol: string;
@@ -130,8 +131,8 @@ export default function EtfMainPage() {
   };
 
   usePageSeo({
-    title: "ETF List — All ETF Symbols & Prices | HedgeFun",
-    description: "Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on HedgeFun.",
+    title: `ETF List — All ETF Symbols & Prices | ${BRAND.name}`,
+    description: `Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on ${BRAND.name}.`,
   });
 
   return (
@@ -224,7 +225,7 @@ export default function EtfMainPage() {
         <aside className="hidden lg:block w-[280px] shrink-0 space-y-4">
           <button onClick={() => navigate("/pro")} className="w-full border border-border rounded-md p-4 text-left hover:border-accent-blue transition-colors group relative">
             <ArrowUpRight className="absolute top-3 right-3 h-4 w-4 text-muted-foreground group-hover:text-accent-blue transition-colors" />
-            <h3 className="text-[0.9375rem] font-bold text-foreground mb-1">HedgeFun Pro</h3>
+            <h3 className="text-[0.9375rem] font-bold text-foreground mb-1">{BRAND.name} Pro</h3>
             <p className="text-xs text-muted-foreground leading-relaxed">Upgrade now for unlimited access to all data and tools.</p>
           </button>
           <button onClick={() => navigate("/newsletter")} className="w-full border border-border rounded-md p-4 text-left hover:border-accent-blue transition-colors group relative">

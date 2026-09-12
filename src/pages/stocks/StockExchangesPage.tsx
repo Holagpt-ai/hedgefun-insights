@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Info, ChevronUp, ChevronDown, ArrowUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BRAND } from "@/config/brand";
 
 import {
   useReactTable,
@@ -246,7 +247,7 @@ export default function StockExchangesPage() {
           <aside className="w-full md:w-[280px] shrink-0 flex flex-col gap-4">
             {/* Pro Promo */}
             <div className="border border-border rounded-[var(--radius)] p-4">
-              <h3 className="text-[0.9375rem] font-bold text-foreground mb-1">HedgeFun Pro</h3>
+              <h3 className="text-[0.9375rem] font-bold text-foreground mb-1">{BRAND.name} Pro</h3>
               <p className="text-[0.8125rem] text-muted-foreground mb-3">
                 Upgrade now for unlimited access to all data and tools.
               </p>
