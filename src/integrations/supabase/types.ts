@@ -6010,6 +6010,19 @@ export type Database = {
         Args: { p_decision: string; p_run_id: string }
         Returns: undefined
       }
+      record_wl_v2_provider_call: {
+        Args: {
+          p_input_tokens: number
+          p_latency_ms: number
+          p_model: string
+          p_ok: boolean
+          p_output_tokens: number
+          p_provider: string
+          p_retry_count: number
+          p_run_id: string
+        }
+        Returns: undefined
+      }
       record_wl_v2_run_error: {
         Args: { p_code: string; p_run_id: string; p_ticker: string }
         Returns: undefined
