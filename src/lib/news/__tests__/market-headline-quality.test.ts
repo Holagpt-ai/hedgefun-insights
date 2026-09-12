@@ -278,4 +278,82 @@ describe("selectQualityMarketHeadlines", () => {
     expect(selected[0].extra).toBe("featured");
     expect(selected[0].summary).toBe("Keep this summary on the same object");
   });
+
+  it("suppresses law-firm headlines that only mention an agency", () => {
+    const selected = selectQualityMarketHeadlines(
+      [
+        row({
+          id: "sec-mention",
+          headline: "SHAREHOLDER ALERT: Rosen Law Firm Investigates Acme Following SEC Disclosure",
+          url: "https://example.com/sec-mention",
+        }),
+        row({
+          id: "doj-mention",
+          headline: "Law Firm Announces Investigation of Acme After DOJ Inquiry",
+          url: "https://example.com/doj-mention",
+        }),
+        row({
+          id: "sec-correspondence",
+          headline: "Securities Class Action Filed After Company Disclosed SEC Correspondence",
+          url: "https://example.com/sec-correspondence",
+        }),
+        row({
+          id: "keep",
+          headline: "Oil jumps after OPEC supply cut",
+          url: "https://example.com/oil-keep",
+        }),
+      ],
+      10,
+    );
+    expect(selected.map((item) => item.id)).toEqual(["keep"]);
+  });
+
+  it("preserves official actor/action regulatory headlines", () => {
+    const selected = selectQualityMarketHeadlines(
+      [
+        row({
+          id: "sec-charges",
+          headline: "SEC charges Acme with accounting fraud",
+          url: "https://example.com/sec-charges",
+        }),
+        row({
+          id: "doj-subpoena",
+          headline: "Acme subpoenaed by DOJ",
+          url: "https://example.com/doj-subpoena",
+        }),
+        row({
+          id: "court-dismiss",
+          headline: "Federal court dismisses class action against Acme",
+          url: "https://example.com/court-dismiss",
+        }),
+      ],
+      10,
+    );
+    expect(selected.map((item) => item.id)).toEqual(
+      expect.arrayContaining(["sec-charges", "doj-subpoena", "court-dismiss"]),
+    );
+    expect(selected).toHaveLength(3);
+  });
+
+  it("keeps the older market-moving row when a newer low-value row shares its URL", () => {
+    const selected = selectQualityMarketHeadlines(
+      [
+        row({
+          id: "newer-low",
+          headline: "Acme Inc conference presentation date announced",
+          url: "https://example.com/shared-story?utm_source=feed",
+          published_at: "2026-09-12T16:00:00.000Z",
+        }),
+        row({
+          id: "older-macro",
+          headline: "Fed signals slower path for rate cuts as CPI holds",
+          url: "https://example.com/shared-story/",
+          published_at: "2026-09-12T10:00:00.000Z",
+        }),
+      ],
+      10,
+    );
+    expect(selected).toHaveLength(1);
+    expect(selected[0].id).toBe("older-macro");
+  });
 });
