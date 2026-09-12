@@ -2,6 +2,10 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { ExternalLink } from "lucide-react";
+import {
+  MARKET_HEADLINE_CANDIDATE_POOL,
+  selectQualityMarketHeadlines,
+} from "@/lib/news/market-headline-quality";
 
 interface NewsItem {
   id: string;
@@ -47,9 +51,9 @@ export function NewsSection({ isPro, contained = false }: NewsSectionProps) {
           .from("market_news")
           .select("*")
           .order("published_at", { ascending: false })
-          .limit(limit);
+          .limit(MARKET_HEADLINE_CANDIDATE_POOL);
         if (error) throw error;
-        setNews((data as NewsItem[]) || []);
+        setNews(selectQualityMarketHeadlines((data as NewsItem[]) || [], limit));
       } catch (err) {
         console.error("Failed to fetch news:", err);
       } finally {
