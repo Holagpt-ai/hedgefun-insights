@@ -23,6 +23,15 @@ function cmpAccelDesc(a: number | null, b: number | null): number {
   return cmpNumberDesc(a, b);
 }
 
+function cmpFreshnessAsc(a: number | null, b: number | null): number {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
+}
+
 export function compareRankedCandidates(
   a: RankedCandidate,
   b: RankedCandidate,
@@ -38,12 +47,26 @@ export function compareRankedCandidates(
   if (vol15 !== 0) return vol15;
   const vol5 = cmpNumberDesc(a.vol5s, b.vol5s);
   if (vol5 !== 0) return vol5;
-  const session = cmpNumberDesc(a.sessionVolume, b.sessionVolume);
-  if (session !== 0) return session;
-  const dollars = cmpNumberDesc(a.dollarVol60s, b.dollarVol60s);
-  if (dollars !== 0) return dollars;
-  const accel = cmpAccelDesc(a.acceleration5m, b.acceleration5m);
-  if (accel !== 0) return accel;
+  if (config.sentinelEnabled) {
+    const accel = cmpAccelDesc(a.acceleration5m, b.acceleration5m);
+    if (accel !== 0) return accel;
+    const dollars = cmpNumberDesc(a.dollarVol60s, b.dollarVol60s);
+    if (dollars !== 0) return dollars;
+    const fresh = cmpFreshnessAsc(
+      a.freshnessAgeMs ?? null,
+      b.freshnessAgeMs ?? null,
+    );
+    if (fresh !== 0) return fresh;
+    const session = cmpNumberDesc(a.sessionVolume, b.sessionVolume);
+    if (session !== 0) return session;
+  } else {
+    const session = cmpNumberDesc(a.sessionVolume, b.sessionVolume);
+    if (session !== 0) return session;
+    const dollars = cmpNumberDesc(a.dollarVol60s, b.dollarVol60s);
+    if (dollars !== 0) return dollars;
+    const accel = cmpAccelDesc(a.acceleration5m, b.acceleration5m);
+    if (accel !== 0) return accel;
+  }
   const life = LIFECYCLE_PRIORITY[a.lifecycle] -
     LIFECYCLE_PRIORITY[b.lifecycle];
   if (life !== 0) return life;

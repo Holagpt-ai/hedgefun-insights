@@ -84,6 +84,7 @@ export type LifecycleRecord = {
   consecutiveActiveFail: number;
   consecutiveLowActivity: number;
   coolingEnteredAtMs: number | null;
+  phaseEnteredAtMs: number | null;
   peakVol15WhileActive: number;
   sessionDate: string;
 };
@@ -97,6 +98,7 @@ export type RankedCandidate = {
   dollarVol60s: number;
   sessionVolume: number;
   acceleration5m: number | null;
+  freshnessAgeMs: number | null;
   lastPrice: number;
   changePercent: number;
   priorVolume: number;
@@ -130,6 +132,63 @@ export type RadarHealthSnapshot = {
   out_of_order_count: number;
   reconnect_count: number;
   lease_held: boolean;
+  sentinel_enabled: boolean;
+  sentinel_live: number;
+  promoted_count: number;
+  promotion_cap: number;
+  sentinel_evictions: number;
+  promotions_total: number;
+  demotions_total: number;
+  cap_rejections: number;
+  rss_bytes: number | null;
+};
+
+export type SentinelStats = {
+  enabled: boolean;
+  live: number;
+  promoted: number;
+  cap: number;
+  evictions: number;
+  promotionsTotal: number;
+  demotionsTotal: number;
+  capRejections: number;
+  rssBytes: number | null;
+};
+
+export type PromotionReason =
+  | "absolute_60s"
+  | "absolute_5s"
+  | "absolute_15s"
+  | "burst_5s"
+  | "burst_15s";
+
+export type PromotionDecision = {
+  promote: boolean;
+  reason: PromotionReason | null;
+};
+
+export type SentinelMetrics = {
+  symbol: string;
+  lastStartMs: number;
+  lastEndMs: number;
+  lastVolume: number;
+  lastClose: number | null;
+  lastDollarVolume: number;
+  vol5s: number;
+  vol15s: number;
+  vol60s: number;
+  dollarVol5s: number;
+  dollarVol15s: number;
+  dollarVol60s: number;
+  sessionVolume: number;
+  lastSeenMs: number;
+  observedSeconds: number;
+  precedingVol5Baseline: number;
+  precedingSeconds5: number;
+  expected5: number | null;
+  precedingVol15Baseline: number;
+  precedingSeconds15: number;
+  expected15: number | null;
 };
 
 export type EngineCounters = {
