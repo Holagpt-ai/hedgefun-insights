@@ -264,7 +264,7 @@ export function assembleMarketMoversResponse(
 export default defineTool({
   name: "get_market_movers",
   title: "Get market movers",
-  description: "List today's top market movers (gainers, losers, most active, pre-market, or after-hours) from HedgeFun's data.",
+  description: "List today's top market movers (gainers, losers, most active, pre-market, or after-hours) from Stocksist's data.",
   inputSchema: {
     type: z.enum(["gainer", "loser", "active", "premarket", "afterhours"]).describe("Which mover category to return."),
     limit: z.number().int().min(1).max(50).optional().describe("Max results, default 10."),

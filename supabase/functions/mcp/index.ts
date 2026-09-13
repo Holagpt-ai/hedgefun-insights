@@ -12,7 +12,7 @@ import { z } from "npm:zod@^3.25.76";
 var search_stocks_default = defineTool({
   name: "search_stocks",
   title: "Search stocks",
-  description: "Search HedgeFun's stock database by ticker symbol or company name. Returns up to 20 matches with price, sector, and market cap.",
+  description: "Search Stocksist's stock database by ticker symbol or company name. Returns up to 20 matches with price, sector, and market cap.",
   inputSchema: {
     query: z.string().trim().min(1).describe("Ticker symbol or company name fragment, e.g. 'AAPL' or 'apple'."),
     limit: z.number().int().min(1).max(20).optional().describe("Max results, default 10.")
@@ -41,7 +41,7 @@ import { z as z2 } from "npm:zod@^3.25.76";
 var get_stock_quote_default = defineTool2({
   name: "get_stock_quote",
   title: "Get stock quote",
-  description: "Fetch the latest cached quote and fundamentals for a single ticker symbol from HedgeFun's stock database.",
+  description: "Fetch the latest cached quote and fundamentals for a single ticker symbol from Stocksist's stock database.",
   inputSchema: {
     symbol: z2.string().trim().min(1).max(10).describe("Ticker symbol, e.g. 'AAPL'.")
   },
@@ -927,7 +927,7 @@ function assembleMarketMoversResponse(payloads, category, limit, nowMs) {
 var get_market_movers_default = defineTool3({
   name: "get_market_movers",
   title: "Get market movers",
-  description: "List today's top market movers (gainers, losers, most active, pre-market, or after-hours) from HedgeFun's data.",
+  description: "List today's top market movers (gainers, losers, most active, pre-market, or after-hours) from Stocksist's data.",
   inputSchema: {
     type: z3.enum(["gainer", "loser", "active", "premarket", "afterhours"]).describe("Which mover category to return."),
     limit: z3.number().int().min(1).max(50).optional().describe("Max results, default 10.")
@@ -989,7 +989,7 @@ import { z as z4 } from "npm:zod@^3.25.76";
 var get_market_news_default = defineTool4({
   name: "get_market_news",
   title: "Get market news",
-  description: "Return the most recent market news headlines from HedgeFun, optionally filtered by category.",
+  description: "Return the most recent market news headlines from Stocksist, optionally filtered by category.",
   inputSchema: {
     category: z4.enum(["markets", "stocks", "ipo", "etf", "general"]).optional().describe("Optional news category filter."),
     limit: z4.number().int().min(1).max(50).optional().describe("Max headlines, default 15.")
@@ -1016,9 +1016,9 @@ var get_market_news_default = defineTool4({
 var projectRef = "zcjptaolpumhtlwhlemq";
 var mcp_default = defineMcp({
   name: "hedgefun-mcp",
-  title: "HedgeFun Market Data",
+  title: "Stocksist Market Data",
   version: "0.1.0",
-  instructions: "Tools for HedgeFun stock market data. Use `search_stocks` to find tickers by name or symbol, `get_stock_quote` for a single ticker's latest cached quote and fundamentals, `get_market_movers` for today's top gainers/losers/most-active/pre-market/after-hours lists, and `get_market_news` for recent market headlines. All data is cached market data; sign in with your HedgeFun account to connect.",
+  instructions: "Tools for Stocksist stock market data. Use `search_stocks` to find tickers by name or symbol, `get_stock_quote` for a single ticker's latest cached quote and fundamentals, `get_market_movers` for today's top gainers/losers/most-active/pre-market/after-hours lists, and `get_market_news` for recent market headlines. All data is cached market data; sign in with your Stocksist account to connect.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"

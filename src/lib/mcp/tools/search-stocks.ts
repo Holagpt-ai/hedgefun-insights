@@ -5,7 +5,7 @@ import { z } from "zod";
 export default defineTool({
   name: "search_stocks",
   title: "Search stocks",
-  description: "Search HedgeFun's stock database by ticker symbol or company name. Returns up to 20 matches with price, sector, and market cap.",
+  description: "Search Stocksist's stock database by ticker symbol or company name. Returns up to 20 matches with price, sector, and market cap.",
   inputSchema: {
     query: z.string().trim().min(1).describe("Ticker symbol or company name fragment, e.g. 'AAPL' or 'apple'."),
     limit: z.number().int().min(1).max(20).optional().describe("Max results, default 10."),

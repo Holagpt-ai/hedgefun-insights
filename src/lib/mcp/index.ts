@@ -12,10 +12,10 @@ const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unse
 
 export default defineMcp({
   name: "hedgefun-mcp",
-  title: "HedgeFun Market Data",
+  title: "Stocksist Market Data",
   version: "0.1.0",
   instructions:
-    "Tools for HedgeFun stock market data. Use `search_stocks` to find tickers by name or symbol, `get_stock_quote` for a single ticker's latest cached quote and fundamentals, `get_market_movers` for today's top gainers/losers/most-active/pre-market/after-hours lists, and `get_market_news` for recent market headlines. All data is cached market data; sign in with your HedgeFun account to connect.",
+    "Tools for Stocksist stock market data. Use `search_stocks` to find tickers by name or symbol, `get_stock_quote` for a single ticker's latest cached quote and fundamentals, `get_market_movers` for today's top gainers/losers/most-active/pre-market/after-hours lists, and `get_market_news` for recent market headlines. All data is cached market data; sign in with your Stocksist account to connect.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated",
