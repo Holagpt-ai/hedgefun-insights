@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { X, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { streamChat, type ChatMessage } from "@/lib/chat";
+import { BRAND } from "@/config/brand";
 import type { Trade } from "./TradeTable";
 
 type Stats = {
@@ -79,7 +80,7 @@ export default function JournalAIPanel({ open, onClose, userId }: JournalAIPanel
           .join("\n")
       : "No closed trades yet.";
 
-    return `You are an expert trading coach and journal analyst. The user has given you access to their HedgeFun Stock Journal.
+    return `You are an expert trading coach and journal analyst. The user has given you access to their ${BRAND.name} Stock Journal.
 
 Their overall stats: ${stats?.total_trades ?? 0} trades, ${winRatePct}% win rate, total P&L: $${totalPnl}.
 

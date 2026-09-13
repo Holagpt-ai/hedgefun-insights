@@ -85,7 +85,7 @@ export default function EtfComparePage() {
   usePageSeo({
     title: `Compare ETFs Side by Side | ${BRAND.name}`,
     description: "Compare ETF performance, expense ratios, and holdings side by side with interactive charts.",
-    canonical: "https://hedge-fun-analysis.lovable.app/etf/compare",
+    canonical: `${BRAND.url}/etf/compare`,
   });
 
   // Fetch all ETFs for search
