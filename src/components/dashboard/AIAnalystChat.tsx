@@ -90,6 +90,9 @@ interface AIAnalystChatProps {
   userPlan: string;
 }
 
+const ANALYST_SESSION_KEY = "stocksist-analyst-session";
+const LEGACY_ANALYST_SESSION_KEY = "hedgefun-analyst-session";
+
 export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps) {
   const { user, loading: authLoading, profile } = useAuth();
   // Session may resolve before the profile/plan row arrives — do not consume
@@ -107,12 +110,15 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const [historyLoading, setHistoryLoading] = useState(false);
   const [toolStatus, setToolStatus] = useState<string | null>(null);
   const [sessionToken] = useState(() => {
-    const key = "hedgefun-analyst-session";
-    let token = sessionStorage.getItem(key);
-    if (!token) {
-      token = crypto.randomUUID();
-      sessionStorage.setItem(key, token);
+    const stored = sessionStorage.getItem(ANALYST_SESSION_KEY);
+    if (stored) return stored;
+    const legacy = sessionStorage.getItem(LEGACY_ANALYST_SESSION_KEY);
+    if (legacy) {
+      sessionStorage.setItem(ANALYST_SESSION_KEY, legacy);
+      return legacy;
     }
+    const token = crypto.randomUUID();
+    sessionStorage.setItem(ANALYST_SESSION_KEY, token);
     return token;
   });
   const bottomRef = useRef<HTMLDivElement | null>(null);

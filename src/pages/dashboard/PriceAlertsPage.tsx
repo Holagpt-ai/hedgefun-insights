@@ -9,7 +9,7 @@ import PriceAlertsTable from "@/components/alerts/PriceAlertsTable";
 import CreateAlertDrawer from "@/components/alerts/CreateAlertDrawer";
 import EmptyAlertsState from "@/components/alerts/EmptyAlertsState";
 import {
-  PRICE_ALERTS_STORAGE_KEY, PRICE_ALERTS_COPY,
+  PRICE_ALERTS_STORAGE_KEY, LEGACY_PRICE_ALERTS_STORAGE_KEY, PRICE_ALERTS_COPY,
   type PriceAlert,
 } from "@/config/price-alerts.config";
 import { PRICING } from "@/config/pricing";
@@ -17,9 +17,21 @@ import { PRICING } from "@/config/pricing";
 function loadAlerts(): PriceAlert[] {
   try {
     const raw = localStorage.getItem(PRICE_ALERTS_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (raw !== null) {
+      try {
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    const legacyRaw = localStorage.getItem(LEGACY_PRICE_ALERTS_STORAGE_KEY);
+    if (!legacyRaw) return [];
+    const parsed = JSON.parse(legacyRaw);
+    if (!Array.isArray(parsed)) return [];
+    localStorage.setItem(PRICE_ALERTS_STORAGE_KEY, legacyRaw);
+    return parsed;
   } catch {
     return [];
   }

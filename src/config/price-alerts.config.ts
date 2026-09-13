@@ -1,7 +1,8 @@
 // Price Alerts V1 — frontend-only preview config.
 // No backend, no delivery. All alerts live in localStorage.
 
-export const PRICE_ALERTS_STORAGE_KEY = "hedgefun_price_alerts_preview";
+export const PRICE_ALERTS_STORAGE_KEY = "stocksist_price_alerts_preview";
+export const LEGACY_PRICE_ALERTS_STORAGE_KEY = "hedgefun_price_alerts_preview";
 
 export type PriceAlertCondition =
   | "price_above"

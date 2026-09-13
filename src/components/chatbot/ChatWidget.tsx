@@ -18,12 +18,19 @@ const SUGGESTED = [
   "How do I read an earnings report?",
 ];
 
+const CHAT_SESSION_KEY = "stocksist-chat-session";
+const LEGACY_CHAT_SESSION_KEY = "hedgefun-chat-session";
+
 function getSessionToken(): string {
-  let token = sessionStorage.getItem("hedgefun-chat-session");
-  if (!token) {
-    token = crypto.randomUUID();
-    sessionStorage.setItem("hedgefun-chat-session", token);
+  const stored = sessionStorage.getItem(CHAT_SESSION_KEY);
+  if (stored) return stored;
+  const legacy = sessionStorage.getItem(LEGACY_CHAT_SESSION_KEY);
+  if (legacy) {
+    sessionStorage.setItem(CHAT_SESSION_KEY, legacy);
+    return legacy;
   }
+  const token = crypto.randomUUID();
+  sessionStorage.setItem(CHAT_SESSION_KEY, token);
   return token;
 }
 
