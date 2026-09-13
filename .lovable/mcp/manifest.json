@@ -13,13 +13,13 @@
     "server": {
       "name": "hedgefun-mcp",
       "version": "0.1.0",
-      "title": "HedgeFun Market Data"
+      "title": "Stocksist Market Data"
     },
     "tools": [
       {
         "name": "search_stocks",
         "title": "Search stocks",
-        "description": "Search HedgeFun's stock database by ticker symbol or company name. Returns up to 20 matches with price, sector, and market cap.",
+        "description": "Search Stocksist's stock database by ticker symbol or company name. Returns up to 20 matches with price, sector, and market cap.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -51,7 +51,7 @@
       {
         "name": "get_stock_quote",
         "title": "Get stock quote",
-        "description": "Fetch the latest cached quote and fundamentals for a single ticker symbol from HedgeFun's stock database.",
+        "description": "Fetch the latest cached quote and fundamentals for a single ticker symbol from Stocksist's stock database.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -78,7 +78,7 @@
       {
         "name": "get_market_movers",
         "title": "Get market movers",
-        "description": "List today's top market movers (gainers, losers, most active, pre-market, or after-hours) from HedgeFun's data.",
+        "description": "List today's top market movers (gainers, losers, most active, pre-market, or after-hours) from Stocksist's data.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -116,7 +116,7 @@
       {
         "name": "get_market_news",
         "title": "Get market news",
-        "description": "Return the most recent market news headlines from HedgeFun, optionally filtered by category.",
+        "description": "Return the most recent market news headlines from Stocksist, optionally filtered by category.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,

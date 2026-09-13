@@ -5,7 +5,7 @@ import { z } from "zod";
 export default defineTool({
   name: "get_stock_quote",
   title: "Get stock quote",
-  description: "Fetch the latest cached quote and fundamentals for a single ticker symbol from HedgeFun's stock database.",
+  description: "Fetch the latest cached quote and fundamentals for a single ticker symbol from Stocksist's stock database.",
   inputSchema: {
     symbol: z.string().trim().min(1).max(10).describe("Ticker symbol, e.g. 'AAPL'."),
   },

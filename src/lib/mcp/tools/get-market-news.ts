@@ -5,7 +5,7 @@ import { z } from "zod";
 export default defineTool({
   name: "get_market_news",
   title: "Get market news",
-  description: "Return the most recent market news headlines from HedgeFun, optionally filtered by category.",
+  description: "Return the most recent market news headlines from Stocksist, optionally filtered by category.",
   inputSchema: {
     category: z.enum(["markets", "stocks", "ipo", "etf", "general"]).optional().describe("Optional news category filter."),
     limit: z.number().int().min(1).max(50).optional().describe("Max headlines, default 15."),
