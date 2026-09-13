@@ -10,6 +10,7 @@ import {
 } from 'lightweight-charts';
 import type { IChartApi } from 'lightweight-charts';
 import { Skeleton } from '@/components/ui/skeleton';
+import { BRAND } from '@/config/brand';
 
 type ChartType = 'area' | 'line' | 'candlestick' | 'heikinashi';
 type Indicator = 'volume' | 'sma20' | 'sma50' | 'sma200';
@@ -95,8 +96,8 @@ export default function TradingViewChart({
   const [isDark, setIsDark] = useState(document.documentElement.classList.contains('dark'));
 
   const seoTitle = companyName
-    ? `${companyName} (${ticker}) Real-Time Analysis & Probability Forecast Chart | Hedgefun`
-    : `${ticker} Technical Analysis Chart | Hedgefun`;
+    ? `${companyName} (${ticker}) Real-Time Analysis & Probability Forecast Chart | ${BRAND.name}`
+    : `${ticker} Technical Analysis Chart | ${BRAND.name}`;
 
   // Intersection observer for lazy loading
   useEffect(() => {

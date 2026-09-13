@@ -15,6 +15,7 @@ import {
   type ColumnDef, type SortingState, flexRender,
 } from "@tanstack/react-table";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 function abbreviateNumber(n: number | null | undefined): string {
   if (n == null) return "—";
@@ -145,8 +146,8 @@ export default function EtfScreenerPage() {
   const totalPages = table.getPageCount();
 
   usePageSeo({
-    title: "ETF Screener — Filter & Compare ETFs | HedgeFun",
-    description: "Screen and filter ETFs by asset class, expense ratio, performance, and issuer on HedgeFun.",
+    title: `ETF Screener — Filter & Compare ETFs | ${BRAND.name}`,
+    description: `Screen and filter ETFs by asset class, expense ratio, performance, and issuer on ${BRAND.name}.`,
   });
 
   return (

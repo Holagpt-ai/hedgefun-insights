@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BRAND } from "@/config/brand";
 
 export default function EtfTopPage() {
   useEffect(() => {
-    document.title = "Top ETFs by Category | HedgeFun";
+    document.title = `Top ETFs by Category | ${BRAND.name}`;
   }, []);
 
   return (

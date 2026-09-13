@@ -7,6 +7,7 @@ import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "@/hooks/use-toast";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 import { mapPolygonMovers } from "@/lib/markets/movers-integrity";
 import {
   MOVERS_PAGE_INNER_CLASS,
@@ -64,8 +65,8 @@ export default function PremarketPage() {
   };
 
   usePageSeo({
-    title: "Pre-Market Stock Movers | HedgeFun",
-    description: "Track pre-market stock price movements, gainers, and losers before the market opens on HedgeFun.",
+    title: `Pre-Market Stock Movers | ${BRAND.name}`,
+    description: `Track pre-market stock price movements, gainers, and losers before the market opens on ${BRAND.name}.`,
   });
 
   return (

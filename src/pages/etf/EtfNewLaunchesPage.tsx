@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 interface NewEtf {
   inception: string;
@@ -120,8 +121,8 @@ export default function EtfNewLaunchesPage() {
   const tabs = ["Overview", "Price", "Profile"];
 
   usePageSeo({
-    title: "New ETF Launches — Recently Listed ETFs | HedgeFun",
-    description: "Discover recently launched ETFs with fund details, asset class, and early performance data on HedgeFun.",
+    title: `New ETF Launches — Recently Listed ETFs | ${BRAND.name}`,
+    description: `Discover recently launched ETFs with fund details, asset class, and early performance data on ${BRAND.name}.`,
   });
 
   return (

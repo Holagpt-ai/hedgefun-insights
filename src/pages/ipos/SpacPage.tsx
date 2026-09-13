@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BRAND } from "@/config/brand";
 
 export default function SpacPage() {
   useEffect(() => {
-    document.title = "SPAC List & Guide | HedgeFun";
+    document.title = `SPAC List & Guide | ${BRAND.name}`;
   }, []);
 
   return (

@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BRAND } from "@/config/brand";
 
 export default function DividendsPage() {
   useEffect(() => {
-    document.title = "Dividend Stocks & Tracker | HedgeFun";
+    document.title = `Dividend Stocks & Tracker | ${BRAND.name}`;
   }, []);
 
   return (

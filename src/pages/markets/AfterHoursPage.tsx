@@ -5,6 +5,7 @@ import { IndexSparklines } from "@/components/markets/IndexSparklines";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "@/hooks/use-toast";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 import { useAfterHoursFeed } from "@/hooks/useAfterHoursFeed";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import { mapAfterHoursFeed } from "@/lib/markets/movers-integrity";
@@ -35,8 +36,8 @@ export default function AfterHoursPage() {
   };
 
   usePageSeo({
-    title: "After-Hours Stock Movers | HedgeFun",
-    description: "Track after-hours stock price movements classified from the full-market provider snapshot on HedgeFun.",
+    title: `After-Hours Stock Movers | ${BRAND.name}`,
+    description: `Track after-hours stock price movements classified from the full-market provider snapshot on ${BRAND.name}.`,
   });
 
   const providerLabel = formatTs(view.providerAsOfMax);

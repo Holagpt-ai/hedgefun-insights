@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 
 import { PRICING } from "@/config/pricing";
+import { BRAND } from "@/config/brand";
 import { hasProAccess } from "@/lib/entitlement";
 import { toast } from "@/hooks/use-toast";
 import { CreditCard, Receipt } from "lucide-react";
@@ -31,7 +32,7 @@ const BillingPage = () => {
   }, [loading, user, navigate]);
 
   useEffect(() => {
-    document.title = "Manage Billing | HedgeFun";
+    document.title = `Manage Billing | ${BRAND.name}`;
   }, []);
 
   if (loading || !user) return null;

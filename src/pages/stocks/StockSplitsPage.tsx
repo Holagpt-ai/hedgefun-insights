@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BRAND } from "@/config/brand";
 
 export default function StockSplitsPage() {
   useEffect(() => {
-    document.title = "Stock Split History & Guide | HedgeFun";
+    document.title = `Stock Split History & Guide | ${BRAND.name}`;
   }, []);
 
   return (
