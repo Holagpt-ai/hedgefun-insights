@@ -94,17 +94,25 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
+const LANG_STORAGE_KEY = "stocksist-lang";
+const LEGACY_LANG_STORAGE_KEY = "hedgefun-lang";
+
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("hedgefun-lang") as Language) || "en";
+    if (typeof window === "undefined") return "en";
+    const stored = localStorage.getItem(LANG_STORAGE_KEY);
+    if (stored) return stored as Language;
+    const legacy = localStorage.getItem(LEGACY_LANG_STORAGE_KEY);
+    if (legacy) {
+      localStorage.setItem(LANG_STORAGE_KEY, legacy);
+      return legacy as Language;
     }
     return "en";
   });
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (localStorage.getItem("hedgefun-lang")) return;
+    if (localStorage.getItem(LANG_STORAGE_KEY) || localStorage.getItem(LEGACY_LANG_STORAGE_KEY)) return;
     const SPANISH_COUNTRIES = new Set([
       "MX","GT","SV","HN","NI","CR","PA","CU","DO","PR",
       "CO","VE","EC","PE","BO","CL","PY","UY","AR","GQ"
@@ -114,7 +122,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       .then((data) => {
         if (SPANISH_COUNTRIES.has(data?.country_code)) {
           setLanguageState("es");
-          localStorage.setItem("hedgefun-lang", "es");
+          localStorage.setItem(LANG_STORAGE_KEY, "es");
         }
       })
       .catch(() => {});
@@ -122,7 +130,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
 
   const setLanguage = (lang: Language) => {
     setLanguageState(lang);
-    localStorage.setItem("hedgefun-lang", lang);
+    localStorage.setItem(LANG_STORAGE_KEY, lang);
   };
 
   const t = (key: string): string => {

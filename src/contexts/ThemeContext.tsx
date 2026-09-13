@@ -11,13 +11,23 @@ interface ThemeContextValue {
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
+const THEME_STORAGE_KEY = "stocksist-theme";
+const LEGACY_THEME_STORAGE_KEY = "hedgefun-theme";
+
+function readStoredTheme(): Theme {
+  if (typeof window === "undefined") return "light";
+  const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored) return stored as Theme;
+  const legacy = localStorage.getItem(LEGACY_THEME_STORAGE_KEY);
+  if (legacy) {
+    localStorage.setItem(THEME_STORAGE_KEY, legacy);
+    return legacy as Theme;
+  }
+  return "light";
+}
+
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => {
-    if (typeof window !== "undefined") {
-      return (localStorage.getItem("hedgefun-theme") as Theme) || "light";
-    }
-    return "light";
-  });
+  const [theme, setTheme] = useState<Theme>(readStoredTheme);
   const profileLoaded = useRef(false);
 
   useEffect(() => {
@@ -27,7 +37,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     } else {
       root.classList.remove("dark");
     }
-    localStorage.setItem("hedgefun-theme", theme);
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
   }, [theme]);
 
   const setThemeFromProfile = (preferred: string | null) => {
