@@ -1,3 +1,5 @@
+import { BRAND } from "@/config/brand";
+
 export interface Analyst {
   rank: number;
   name: string;
@@ -19,14 +21,14 @@ export const ANALYSTS: Analyst[] = [
     rank: 1,
     name: "Carlos A. Acosta",
     slug: "carlos-a-acosta",
-    firm: "HedgeFun",
+    firm: BRAND.name,
     rating: 4.92,
     sector: "Technology",
     successRate: 82,
     avgReturn: 38.55,
     totalRatings: 347,
     role: "Senior Analyst & Founder",
-    bio: "Carlos A. Acosta is the founder and lead analyst at HedgeFun. A United States Air Force veteran, Carlos transitioned from military service into a career spanning full-stack software development and quantitative data analysis. He specializes in high-probability options spreads — particularly credit spreads and iron condors — using algorithmic models that evaluate implied volatility skew, delta exposure, and probability of profit. His analytical framework combines institutional-grade data pipelines with Socratic questioning methodologies to help retail traders make more informed, capital-efficient decisions.",
+    bio: `Carlos A. Acosta is the founder and lead analyst at ${BRAND.name}. A United States Air Force veteran, Carlos transitioned from military service into a career spanning full-stack software development and quantitative data analysis. He specializes in high-probability options spreads — particularly credit spreads and iron condors — using algorithmic models that evaluate implied volatility skew, delta exposure, and probability of profit. His analytical framework combines institutional-grade data pipelines with Socratic questioning methodologies to help retail traders make more informed, capital-efficient decisions.`,
     avatarUrl: "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=400&fit=crop&crop=face",
     methodology: "Carlos employs a systematic approach to options analysis centered on capital efficiency and risk-defined strategies. His methodology focuses on selling premium in high-implied-volatility environments, targeting credit spreads with favorable risk/reward profiles (typically 1:2 or better). He uses multi-factor screening combining technical momentum signals, fundamental valuation metrics, and volatility surface analysis to identify high-probability setups. All analysis is algorithmic and educational — it does not constitute personalized financial advice.",
   },
@@ -34,16 +36,16 @@ export const ANALYSTS: Analyst[] = [
     rank: 2,
     name: "Sofia Sky Acosta",
     slug: "sofia-sky-acosta",
-    firm: "HedgeFun",
+    firm: BRAND.name,
     rating: 4.78,
     sector: "Communication Services",
     successRate: 74,
     avgReturn: 28.12,
     totalRatings: 156,
     role: "Junior Research Analyst/Assistant",
-    bio: "Sofia Sky Acosta serves as a junior research analyst and assistant at HedgeFun. She supports the analytical pipeline by assisting with data validation, market research compilation, and quality assurance of AI-generated outputs. Sofia is actively developing her expertise in equity research and market microstructure under the mentorship of Carlos A. Acosta.",
+    bio: `Sofia Sky Acosta serves as a junior research analyst and assistant at ${BRAND.name}. She supports the analytical pipeline by assisting with data validation, market research compilation, and quality assurance of AI-generated outputs. Sofia is actively developing her expertise in equity research and market microstructure under the mentorship of Carlos A. Acosta.`,
     avatarUrl: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=400&h=400&fit=crop&crop=face",
-    methodology: "Sofia focuses on research support including earnings calendar analysis, sector rotation tracking, and validating screener outputs against live market data. Her work ensures the accuracy and reliability of data presented across the HedgeFun platform.",
+    methodology: `Sofia focuses on research support including earnings calendar analysis, sector rotation tracking, and validating screener outputs against live market data. Her work ensures the accuracy and reliability of data presented across the ${BRAND.name} platform.`,
   },
   { rank: 3, name: "Lloyd Byrne", slug: "lloyd-byrne", firm: "Jefferies", rating: 4.75, sector: "Energy", successRate: 64, avgReturn: 28.24, totalRatings: 143 },
   { rank: 4, name: "Colin Sebastian", slug: "colin-sebastian", firm: "Baird", rating: 4.69, sector: "Communication Services", successRate: 71, avgReturn: 24.11, totalRatings: 98 },
