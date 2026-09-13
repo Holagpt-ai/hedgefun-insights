@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 import { supabase } from "@/integrations/supabase/client";
 import {
   currentMoversEmptyMessage,
@@ -75,8 +76,8 @@ const MoversPage = () => {
   });
 
   usePageSeo({
-    title: "Stock Market Movers — Top Gainers & Losers | HedgeFun",
-    description: "See today's top stock market movers including gainers, losers, and most active stocks on HedgeFun.",
+    title: `Stock Market Movers — Top Gainers & Losers | ${BRAND.name}`,
+    description: `See today's top stock market movers including gainers, losers, and most active stocks on ${BRAND.name}.`,
   });
 
   const rows = data ?? [];

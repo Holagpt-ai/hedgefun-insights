@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowUpRight } from "lucide-react";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BRAND } from "@/config/brand";
 
 
 function ToolCard({ title, description, route }: { title: string; description: string; route: string }) {
@@ -20,7 +21,7 @@ export default function ToolsPage() {
   return (
     <>
       <div className="w-full max-w-5xl mx-auto px-4 md:px-6 py-8">
-        <title>Tools | HedgeFun</title>
+        <title>Tools | {BRAND.name}</title>
         <h1 className="text-[1.75rem] font-bold text-foreground border-b-2 border-border pb-3 mb-8">Tools</h1>
 
         {/* Screeners */}

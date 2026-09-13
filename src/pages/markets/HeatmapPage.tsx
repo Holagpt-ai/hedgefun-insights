@@ -6,6 +6,7 @@ import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Lock, ChevronDown } from "lucide-react";
+import { BRAND } from "@/config/brand";
 
 const TIMEFRAMES = ["1D", "1W", "1M", "YTD", "1Y"] as const;
 
@@ -141,7 +142,7 @@ function HeatmapPage() {
   }, []);
 
   useEffect(() => {
-    document.title = "Market Heatmap | HedgeFun";
+    document.title = `Market Heatmap | ${BRAND.name}`;
   }, []);
 
   return (

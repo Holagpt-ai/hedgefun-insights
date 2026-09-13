@@ -4,6 +4,7 @@ import { useQuery, useQueries } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { getAggregates } from "@/lib/polygon";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 import { Search, Lock, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -82,7 +83,7 @@ export default function EtfComparePage() {
   const [showResults, setShowResults] = useState(false);
 
   usePageSeo({
-    title: "Compare ETFs Side by Side | HedgeFun",
+    title: `Compare ETFs Side by Side | ${BRAND.name}`,
     description: "Compare ETF performance, expense ratios, and holdings side by side with interactive charts.",
     canonical: "https://hedge-fun-analysis.lovable.app/etf/compare",
   });

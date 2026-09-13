@@ -4,6 +4,7 @@ import { classifyTrackedAfterHoursMovers, type SnapshotTicker } from "@/lib/mark
 import { resolveMarketSession } from "@/lib/price-utils";
 import { MarketMoversPage } from "@/components/markets/MarketMoversLayout";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 import {
   mapPolygonMovers,
   moverFromExtendedObservation,
@@ -61,8 +62,8 @@ export default function LosersPage() {
   const titles = getTitle();
 
   usePageSeo({
-    title: "Top Stock Losers Today | HedgeFun",
-    description: "See today's biggest losing stocks with real-time price and percentage change data on HedgeFun.",
+    title: `Top Stock Losers Today | ${BRAND.name}`,
+    description: `See today's biggest losing stocks with real-time price and percentage change data on ${BRAND.name}.`,
   });
 
   return (

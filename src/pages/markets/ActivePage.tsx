@@ -4,6 +4,7 @@ import { resolveMarketSession } from "@/lib/price-utils";
 import { MarketMoversPage } from "@/components/markets/MarketMoversLayout";
 import { defaultSortForMoverKind } from "@/components/markets/movers-table-sort";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 import { mapPolygonMovers, polygonTickersFromResponse, type MoverSession } from "@/lib/markets/movers-integrity";
 
 function toMoverSession(session: ReturnType<typeof resolveMarketSession>): MoverSession {
@@ -30,8 +31,8 @@ export default function ActivePage() {
   });
 
   usePageSeo({
-    title: "Most Active Stocks Today | HedgeFun",
-    description: "See today's most actively traded stocks by volume with real-time data on HedgeFun.",
+    title: `Most Active Stocks Today | ${BRAND.name}`,
+    description: `See today's most actively traded stocks by volume with real-time data on ${BRAND.name}.`,
   });
 
   return (
