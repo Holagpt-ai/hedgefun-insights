@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
+import { BRAND } from "@/config/brand";
 
 const card: React.CSSProperties = { background: "#ffffff", border: "1px solid #e2e8f0", borderRadius: 8, padding: 20 };
 const inputStyle: React.CSSProperties = { background: "#ffffff", borderColor: "#e2e8f0", color: "#0f172a" };
@@ -54,7 +55,7 @@ export default function AdminSettingsPage() {
         </div>
         <div>
           <label style={labelStyle}>System Prompt (read-only)</label>
-          <Textarea readOnly rows={4} value="You are HedgeFun AI, a financial markets assistant. You help users understand stocks, ETFs, earnings, and market analysis. Always include a disclaimer that you are not a financial advisor." style={{ ...inputStyle, opacity: 0.7 }} />
+          <Textarea readOnly rows={4} value={`You are ${BRAND.name} AI, a financial markets assistant. You help users understand stocks, ETFs, earnings, and market analysis. Always include a disclaimer that you are not a financial advisor.`} style={{ ...inputStyle, opacity: 0.7 }} />
         </div>
         <Button size="sm" style={{ background: "#2563eb" }}>Save Limits</Button>
       </div>
