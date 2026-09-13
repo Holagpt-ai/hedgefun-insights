@@ -10,6 +10,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { getAnalystBySlug, getStockRatingsForSector, getIndustriesForSector, type StockRating, type RatingAction } from "@/data/analysts";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 import NotFound from "@/pages/NotFound";
 
 function StarRating({ value }: { value: number }) {
@@ -135,10 +136,10 @@ export default function AnalystProfilePage() {
   const analyst = getAnalystBySlug(slug ?? "");
 
   usePageSeo({
-    title: analyst ? `${analyst.name} - ${analyst.role ?? "Stock Analyst"} | HedgeFun` : "Analyst | HedgeFun",
+    title: analyst ? `${analyst.name} - ${analyst.role ?? "Stock Analyst"} | ${BRAND.name}` : `Analyst | ${BRAND.name}`,
     description: analyst
       ? `${analyst.name} is ${analyst.role ?? "a stock analyst"} at ${analyst.firm}. See ratings, success rate, and average return.`
-      : "Analyst profile on HedgeFun.",
+      : `Analyst profile on ${BRAND.name}.`,
   });
 
   if (!analyst) return <NotFound />;
@@ -151,7 +152,7 @@ export default function AnalystProfilePage() {
     .join("")
     .slice(0, 2);
 
-  const isHedgeFunTeam = analyst.firm === "HedgeFun";
+  const isStocksistTeam = analyst.firm === BRAND.name;
 
   return (
     <div className="min-w-0">
@@ -188,8 +189,8 @@ export default function AnalystProfilePage() {
         </div>
         <div className="h-0.5 bg-accent-blue rounded mb-6" />
 
-        {/* Bio Card — only for HedgeFun team members */}
-        {isHedgeFunTeam && analyst.bio && (
+        {/* Bio Card — only for Stocksist team members */}
+        {isStocksistTeam && analyst.bio && (
           <Card className="border border-border mb-6">
             <CardContent className="p-5">
               <h2 className="font-semibold text-sm mb-2 flex items-center gap-2">
@@ -203,8 +204,8 @@ export default function AnalystProfilePage() {
           </Card>
         )}
 
-        {/* Methodology Card — only for HedgeFun team members */}
-        {isHedgeFunTeam && analyst.methodology && (
+        {/* Methodology Card — only for Stocksist team members */}
+        {isStocksistTeam && analyst.methodology && (
           <Card className="border border-border mb-6">
             <CardContent className="p-5">
               <h2 className="font-semibold text-sm mb-2">Investment Methodology</h2>
@@ -262,7 +263,7 @@ export default function AnalystProfilePage() {
               <div>
                 <h2 className="font-semibold text-sm mb-1">Educational Disclaimer</h2>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  All analysis provided by {analyst.name} is algorithmic and educational in nature. It does <strong>NOT</strong> constitute personalized financial advice, a recommendation to buy or sell any security, or a solicitation of any kind. HedgeFun is not a registered broker-dealer or investment advisor. Past performance metrics shown above are based on historical data and are not indicative of future results. Trading options, credit spreads, and equities involves substantial risk of loss. Always consult a licensed financial professional before making investment decisions.
+                  All analysis provided by {analyst.name} is algorithmic and educational in nature. It does <strong>NOT</strong> constitute personalized financial advice, a recommendation to buy or sell any security, or a solicitation of any kind. {BRAND.name} is not a registered broker-dealer or investment advisor. Past performance metrics shown above are based on historical data and are not indicative of future results. Trading options, credit spreads, and equities involves substantial risk of loss. Always consult a licensed financial professional before making investment decisions.
                 </p>
               </div>
             </div>
@@ -284,7 +285,7 @@ export default function AnalystProfilePage() {
             <p className="text-sm text-muted-foreground mb-4">
               Get stock forecasts from Wall Street's highest rated professionals
             </p>
-            <p className="font-semibold text-sm mb-3">Get much more with HedgeFun Pro</p>
+            <p className="font-semibold text-sm mb-3">Get much more with {BRAND.name} Pro</p>
             <ul className="space-y-1.5 text-sm mb-5">
               <li className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green shrink-0" />
