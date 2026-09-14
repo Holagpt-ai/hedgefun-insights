@@ -23,8 +23,9 @@ import {
 } from "../_shared/briefs/am-evidence.ts";
 import { decideAmGeneration, isAmV2Snapshot } from "../_shared/briefs/am-decision.ts";
 import {
-  isInsideGenerationWindow,
+  isInsideFinalPreopenRecoveryEnvelope,
   readSnapshotGenerationWindow,
+  resolvePersistedGenerationWindow,
 } from "../_shared/briefs/am-freshness.ts";
 import { etClock } from "../_shared/briefs/am-window.ts";
 import {
@@ -602,19 +603,21 @@ serve(async (req) => {
       return json({ error: "Upstream generation failed" }, 502);
     }
 
-    const activeWindow = isInsideGenerationWindow(nowMinutesEt);
+    const persistWindow = resolvePersistedGenerationWindow(nowMinutesEt);
     let generationReason = "material_change";
-    if (activeWindow) {
+    if (persistWindow) {
       if (decision.persist === "insert") {
         generationReason = "initial_window";
-      } else if (readSnapshotGenerationWindow(existingBrief?.market_snapshot) !== activeWindow) {
-        generationReason = "window_supersession";
+      } else if (readSnapshotGenerationWindow(existingBrief?.market_snapshot) !== persistWindow) {
+        generationReason = isInsideFinalPreopenRecoveryEnvelope(nowMinutesEt)
+          ? "window_recovery"
+          : "window_supersession";
       }
     }
     const marketSnapshot = buildAmV2Snapshot(
       bundle,
       incomingState,
-      activeWindow,
+      persistWindow,
       generationReason,
     );
     const generatedAt = new Date().toISOString();

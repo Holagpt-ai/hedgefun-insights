@@ -19,6 +19,8 @@ export const AM_GENERATION_WINDOWS: Readonly<
 
 export const AM_WINDOW_ORDER: readonly AmGenerationWindow[] = ["early", "mid", "final_preopen"];
 
+export const FINAL_PREOPEN_RECOVERY_END_MIN = 9 * 60 + 25;
+
 export const AM_BRIEF_AGING_LEAD_MINUTES = 30;
 export const AM_BRIEF_EXPIRE_MINUTES = 12 * 60;
 
@@ -41,6 +43,27 @@ export function isInsideGenerationWindow(minutesEt: number): AmGenerationWindow 
   return null;
 }
 
+export function isInsideFinalPreopenRecoveryEnvelope(minutesEt: number): boolean {
+  const nominalEnd = AM_GENERATION_WINDOWS.final_preopen.endMin;
+  return minutesEt > nominalEnd && minutesEt <= FINAL_PREOPEN_RECOVERY_END_MIN;
+}
+
+export function activeSupersessionTarget(minutesEt: number): AmGenerationWindow | null {
+  const nominal = isInsideGenerationWindow(minutesEt);
+  if (nominal) return nominal;
+  if (
+    minutesEt >= AM_GENERATION_WINDOWS.final_preopen.startMin &&
+    minutesEt <= FINAL_PREOPEN_RECOVERY_END_MIN
+  ) {
+    return "final_preopen";
+  }
+  return null;
+}
+
+export function resolvePersistedGenerationWindow(minutesEt: number): AmGenerationWindow | null {
+  return activeSupersessionTarget(minutesEt);
+}
+
 export function expectedGenerationWindow(minutesEt: number): AmGenerationWindow | null {
   if (minutesEt < AM_GENERATION_WINDOWS.early.startMin) return null;
   if (minutesEt < AM_GENERATION_WINDOWS.mid.startMin) return "early";
@@ -53,6 +76,10 @@ export function classifyBriefGenerationWindow(
   snapshotGenerationWindow?: AmGenerationWindow | null,
 ): AmGenerationWindow | null {
   if (snapshotGenerationWindow) return snapshotGenerationWindow;
+  return inferLegacyGenerationWindow(generatedAtIso);
+}
+
+export function inferLegacyGenerationWindow(generatedAtIso: string): AmGenerationWindow | null {
   const genDate = new Date(generatedAtIso);
   if (!Number.isFinite(genDate.getTime())) return null;
   const et = getEtParts(genDate);
@@ -186,14 +213,15 @@ export function shouldRegenerateForWindowSupersession(input: {
   existingGeneratedAt: string;
   existingSnapshot: unknown;
 }): boolean {
-  const activeWindow = isInsideGenerationWindow(input.nowMinutesEt);
-  if (!activeWindow) return false;
+  const targetWindow = activeSupersessionTarget(input.nowMinutesEt);
+  if (!targetWindow) return false;
   const existingWindow = classifyBriefGenerationWindow(
     input.existingGeneratedAt,
     readSnapshotGenerationWindow(input.existingSnapshot),
   );
   if (!existingWindow) return true;
-  return windowRank(activeWindow) > windowRank(existingWindow);
+  if (windowRank(existingWindow) >= windowRank(targetWindow)) return false;
+  return true;
 }
 
 export function buildAmBriefTimestampLabel(input: {

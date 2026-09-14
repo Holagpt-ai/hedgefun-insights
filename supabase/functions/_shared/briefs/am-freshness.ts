@@ -17,6 +17,13 @@ export const AM_GENERATION_WINDOWS: Readonly<
 
 export const AM_WINDOW_ORDER: readonly AmGenerationWindow[] = ["early", "mid", "final_preopen"];
 
+/**
+ * Final pre-open recovery envelope end (9:25 AM ET).
+ * After the nominal 8:50 end, missed final generations remain eligible
+ * until this minute without changing the trader-facing 8:30–8:50 window.
+ */
+export const FINAL_PREOPEN_RECOVERY_END_MIN = 9 * 60 + 25;
+
 /** Minutes before the next window when an on-window brief becomes aging. */
 export const AM_BRIEF_AGING_LEAD_MINUTES = 30;
 
@@ -34,13 +41,40 @@ export function readSnapshotGenerationWindow(snapshot: unknown): AmGenerationWin
   return null;
 }
 
-/** Active controlled-generation window, if any. */
+/** Nominal trader-facing controlled-generation window, if any. */
 export function isInsideGenerationWindow(minutesEt: number): AmGenerationWindow | null {
   for (const w of AM_WINDOW_ORDER) {
     const def = AM_GENERATION_WINDOWS[w];
     if (minutesEt >= def.startMin && minutesEt <= def.endMin) return w;
   }
   return null;
+}
+
+/** True only in the post-8:50 recovery slice (8:51–9:25 AM ET). */
+export function isInsideFinalPreopenRecoveryEnvelope(minutesEt: number): boolean {
+  const nominalEnd = AM_GENERATION_WINDOWS.final_preopen.endMin;
+  return minutesEt > nominalEnd && minutesEt <= FINAL_PREOPEN_RECOVERY_END_MIN;
+}
+
+/**
+ * Generation/recovery eligibility for supersession decisions.
+ * Separated from trader-facing nominal windows and expected-window freshness.
+ */
+export function activeSupersessionTarget(minutesEt: number): AmGenerationWindow | null {
+  const nominal = isInsideGenerationWindow(minutesEt);
+  if (nominal) return nominal;
+  if (
+    minutesEt >= AM_GENERATION_WINDOWS.final_preopen.startMin &&
+    minutesEt <= FINAL_PREOPEN_RECOVERY_END_MIN
+  ) {
+    return "final_preopen";
+  }
+  return null;
+}
+
+/** Window stamped on a newly generated brief for the current ET minute. */
+export function resolvePersistedGenerationWindow(minutesEt: number): AmGenerationWindow | null {
+  return activeSupersessionTarget(minutesEt);
 }
 
 /** Highest window whose start time has passed during the pre-open session. */
@@ -74,11 +108,20 @@ export function etMinutesFromIso(iso: string): number | null {
   return etMinutesFromParts(hour, minute);
 }
 
+/**
+ * Resolve the generation window for a brief row.
+ * Legacy rows without snapshot metadata infer deterministically from generated_at ET.
+ */
 export function classifyBriefGenerationWindow(
   generatedAtIso: string,
   snapshotGenerationWindow?: AmGenerationWindow | null,
 ): AmGenerationWindow | null {
   if (snapshotGenerationWindow) return snapshotGenerationWindow;
+  return inferLegacyGenerationWindow(generatedAtIso);
+}
+
+/** Backward-compatible inference for pre-deployment rows lacking generation_window. */
+export function inferLegacyGenerationWindow(generatedAtIso: string): AmGenerationWindow | null {
   const m = etMinutesFromIso(generatedAtIso);
   if (m === null) return null;
   for (let i = AM_WINDOW_ORDER.length - 1; i >= 0; i--) {
@@ -86,10 +129,11 @@ export function classifyBriefGenerationWindow(
     const def = AM_GENERATION_WINDOWS[w];
     if (m >= def.startMin && m <= def.endMin) return w;
   }
+  // Same-day gaps between nominal windows map to the most recent satisfied window.
   if (m < AM_GENERATION_WINDOWS.early.startMin) return null;
-  if (m < AM_GENERATION_WINDOWS.mid.startMin) return "early";
-  if (m < AM_GENERATION_WINDOWS.final_preopen.startMin) return "mid";
-  return "final_preopen";
+  if (m < AM_GENERATION_WINDOWS.mid.startMin) return "early"; // ~4:31–6:59
+  if (m < AM_GENERATION_WINDOWS.final_preopen.startMin) return "mid"; // ~8:01–8:29
+  return "final_preopen"; // ≥8:30 pre-open
 }
 
 function nextWindowAfter(w: AmGenerationWindow): AmGenerationWindow | null {
@@ -210,12 +254,14 @@ export function shouldRegenerateForWindowSupersession(input: {
   existingGeneratedAt: string;
   existingSnapshot: unknown;
 }): boolean {
-  const activeWindow = isInsideGenerationWindow(input.nowMinutesEt);
-  if (!activeWindow) return false;
+  const targetWindow = activeSupersessionTarget(input.nowMinutesEt);
+  if (!targetWindow) return false;
   const existingWindow = classifyBriefGenerationWindow(
     input.existingGeneratedAt,
     readSnapshotGenerationWindow(input.existingSnapshot),
   );
   if (!existingWindow) return true;
-  return windowRank(activeWindow) > windowRank(existingWindow);
+  // Target already satisfied — including final briefs during recovery envelope.
+  if (windowRank(existingWindow) >= windowRank(targetWindow)) return false;
+  return true;
 }

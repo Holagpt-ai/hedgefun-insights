@@ -93,6 +93,37 @@ Deno.test("7. tiny index noise does not regenerate", () => {
   assertEquals(d.action, "return_cached");
 });
 
+Deno.test("7b. material change is anchored to last generated brief, not intermediate snapshots", () => {
+  const briefBaseline = {
+    index_signs: { SPY: -1, QQQ: -1, DIA: -1, IWM: -1 },
+    index_pcts: { SPY: -0.05, QQQ: -0.05, DIA: -0.05, IWM: -0.05 },
+    leadership: ["SPY", "QQQ", "DIA", "IWM"] as AmIndexSymbol[],
+    headline_ids: [] as string[],
+    catalyst_ids: [] as string[],
+    earnings_ids: [] as string[],
+  };
+  const intermediate = {
+    ...briefBaseline,
+    index_pcts: { SPY: -0.25, QQQ: -0.25, DIA: -0.25, IWM: -0.25 },
+  };
+  const current = {
+    ...briefBaseline,
+    index_pcts: { SPY: -0.49, QQQ: -0.49, DIA: -0.49, IWM: -0.49 },
+  };
+
+  assertEquals(isMaterialChange(briefBaseline, intermediate).material, false);
+  assertEquals(isMaterialChange(intermediate, current).material, false);
+  assertEquals(isMaterialChange(briefBaseline, current).material, true);
+
+  const snap = buildAmV2Snapshot(bundle(), briefBaseline);
+  const decision = decideAmGeneration({
+    indexesValid: true,
+    existing: { id: "row-1", market_snapshot: snap },
+    incomingState: current,
+  });
+  assertEquals(decision.action, "generate");
+});
+
 Deno.test("8. index sign flip does regenerate", () => {
   const prev = bundle();
   const next = bundle({

@@ -20,7 +20,11 @@ export function isAmV2Snapshot(snapshot: unknown): boolean {
 
 /**
  * AM V2 generation gate. Page renders never reach this function.
- * Claude is called only on first eligible run or a material evidence change.
+ * Claude is called only on first eligible run, window supersession/recovery,
+ * or a material evidence change.
+ *
+ * Material comparison uses `material_state` from the persisted brief snapshot
+ * (last actual generation), never intermediate cron evaluations.
  */
 export function decideAmGeneration(input: {
   indexesValid: boolean;

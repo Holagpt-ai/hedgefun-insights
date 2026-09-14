@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  activeSupersessionTarget,
   classifyBriefGenerationWindow,
   expectedGenerationWindow,
+  inferLegacyGenerationWindow,
+  isInsideFinalPreopenRecoveryEnvelope,
   isInsideGenerationWindow,
   resolveAmBriefFreshness,
   shouldRegenerateForWindowSupersession,
@@ -144,5 +147,75 @@ describe("AM brief window supersession gate", () => {
         existingSnapshot: { generation_window: "early" },
       }),
     ).toBe(false);
+  });
+});
+
+describe("Final pre-open recovery envelope", () => {
+  it("keeps final pre-open expected at 8:30 while nominal window ends at 8:50", () => {
+    expect(expectedGenerationWindow(8 * 60 + 30)).toBe("final_preopen");
+    expect(isInsideGenerationWindow(8 * 60 + 50)).toBe("final_preopen");
+    expect(isInsideGenerationWindow(8 * 60 + 51)).toBeNull();
+    expect(isInsideFinalPreopenRecoveryEnvelope(8 * 60 + 51)).toBe(true);
+  });
+
+  it("allows recovery supersession after 8:50 when final generation is missing", () => {
+    expect(activeSupersessionTarget(9 * 60)).toBe("final_preopen");
+    expect(
+      shouldRegenerateForWindowSupersession({
+        nowMinutesEt: 9 * 60,
+        existingGeneratedAt: "2026-09-14T11:05:00.000Z",
+        existingSnapshot: { generation_window: "mid" },
+      }),
+    ).toBe(true);
+    expect(
+      shouldRegenerateForWindowSupersession({
+        nowMinutesEt: 9 * 60 + 15,
+        existingGeneratedAt: "2026-09-14T08:15:00.000Z",
+        existingSnapshot: { generation_window: "early" },
+      }),
+    ).toBe(true);
+  });
+
+  it("does not regenerate an existing final brief solely because recovery time remains", () => {
+    expect(
+      shouldRegenerateForWindowSupersession({
+        nowMinutesEt: 9 * 60,
+        existingGeneratedAt: "2026-09-14T12:40:00.000Z",
+        existingSnapshot: { generation_window: "final_preopen" },
+      }),
+    ).toBe(false);
+    expect(
+      shouldRegenerateForWindowSupersession({
+        nowMinutesEt: 9 * 60 + 20,
+        existingGeneratedAt: "2026-09-14T12:40:00.000Z",
+        existingSnapshot: { generation_window: "final_preopen" },
+      }),
+    ).toBe(false);
+  });
+
+  it("closes recovery after approximately 9:25 AM ET", () => {
+    expect(activeSupersessionTarget(9 * 60 + 25)).toBe("final_preopen");
+    expect(activeSupersessionTarget(9 * 60 + 26)).toBeNull();
+  });
+});
+
+describe("Legacy brief compatibility", () => {
+  it("infers generation window from generated_at when snapshot metadata is absent", () => {
+    expect(inferLegacyGenerationWindow("2026-09-14T08:15:00.000Z")).toBe("early");
+    expect(inferLegacyGenerationWindow("2026-09-14T09:30:00.000Z")).toBe("early"); // 5:30 AM ET
+    expect(inferLegacyGenerationWindow("2026-09-14T11:05:00.000Z")).toBe("mid");
+    expect(inferLegacyGenerationWindow("2026-09-14T12:10:00.000Z")).toBe("mid");
+    expect(inferLegacyGenerationWindow("2026-09-14T12:40:00.000Z")).toBe("final_preopen");
+  });
+
+  it("does not mark a usable same-day legacy brief unavailable", () => {
+    const freshness = resolveAmBriefFreshness({
+      now: new Date("2026-09-14T12:45:00.000Z"),
+      briefDate: BRIEF_DATE,
+      generatedAt: "2026-09-14T08:15:00.000Z",
+    });
+    expect(freshness.generationWindow).toBe("early");
+    expect(freshness.freshnessState).toBe("stale");
+    expect(freshness.freshnessState).not.toBe("unavailable");
   });
 });
