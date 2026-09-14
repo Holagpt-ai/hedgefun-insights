@@ -34,12 +34,12 @@ function row(symbol: string, volume: number, generationId = GEN_A): ScreenerResu
   };
 }
 
-function legacyRow(symbol: string): ScreenerResultRow {
+function legacyRow(symbol: string, sentinelVolume = 50_000): ScreenerResultRow {
   return {
-    ...row(symbol, 50_000),
-    price: 10,
+    ...row(symbol, sentinelVolume),
+    price: 8,
     change_percent: 12,
-    volume_ratio_prior_session: 8,
+    volume_ratio_prior_session: sentinelVolume / 6_000,
     prior_session_volume: 6_000,
   };
 }
@@ -81,10 +81,13 @@ function fallback(reason: string, session: string | null = "market"): RadarV2Dec
   return { source: "fallback", reason, session, view: null };
 }
 
-function legacyView(symbols: string[]): ScreenerTabView {
+function legacyView(
+  symbols: string[],
+  volumeBySymbol: Record<string, number> = {},
+): ScreenerTabView {
   return {
     status: "available",
-    rows: symbols.map(legacyRow),
+    rows: symbols.map((symbol) => legacyRow(symbol, volumeBySymbol[symbol] ?? 50_000)),
     synced_at: SYNCED_A,
     provider_as_of_max: SYNCED_A,
     attempts: 1,
@@ -113,7 +116,7 @@ describe("Radar-backed Screeners load resolver (D13)", () => {
       soft: false,
       priorRadar: null,
       radarDecision: available(["SNXX"], "after-hours"),
-      legacyView: legacyView(["SNXX", "IMRN"]),
+      legacyView: legacyView(["SNXX", "IMRN"], { SNXX: 9_000_000 }),
     });
     expect(result.source).toBe("radar-v2");
     expect(result.view?.rows).toHaveLength(1);
@@ -228,7 +231,7 @@ describe("Radar-backed Screeners load resolver (D13)", () => {
         soft: false,
         priorRadar: null,
         radarDecision: available(["A", "B"], session),
-        legacyView: legacyView(["B"]),
+        legacyView: legacyView(["B"], { B: 1_000_000 }),
       });
       expect(result.source).toBe("radar-v2");
       expect(result.session).toBe(session);
@@ -240,10 +243,9 @@ describe("Radar-backed Screeners load resolver (D13)", () => {
 
   it("enriches Sentinel display fields from full-generation rows outside the active tab", () => {
     const volumeSpikeDonor: ScreenerResultRow = {
-      ...legacyRow("HAIN"),
+      ...legacyRow("HAIN", 16_500_000),
       tab_id: "volume_spikes",
       change_percent: 18.4,
-      volume: 16_500_000,
       prior_session_volume: 1_000_000,
       volume_ratio_prior_session: 16.5,
     };

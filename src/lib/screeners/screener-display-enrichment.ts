@@ -7,22 +7,33 @@
  * for display only. Never fabricate values or reorder rows.
  */
 
+import { easternDate } from "@/lib/radar-v22";
 import {
   expectedVolumeRatio,
   isFiniteNumber,
   isPositiveFinite,
+  parseTimestampMs,
+  SCREENER_STALE_AFTER_MS,
   type ScreenerResultRow,
 } from "@/lib/screeners/contract";
 
 export interface DisplayFieldDonor {
   symbol: string;
   tab_id?: string | null;
+  price?: number | null;
+  volume?: number | null;
   change_percent?: number | null;
   prior_session_volume?: number | null;
   volume_ratio_prior_session?: number | null;
   gap_percent?: number | null;
   company_name?: string | null;
+  provider_as_of?: string | null;
+  sync_run_id?: string | null;
+  updated_at?: string | null;
 }
+
+export const DONOR_MAX_PROVIDER_SKEW_MS = SCREENER_STALE_AFTER_MS;
+const MAX_PRICE_DIVERGENCE_RATIO = 0.01;
 
 const TAB_PRIORITY: Record<string, number> = {
   day_trade_radar: 5,
@@ -37,6 +48,73 @@ function normalizeSymbol(symbol: string | null | undefined): string | null {
   if (!symbol) return null;
   const trimmed = symbol.trim().toUpperCase();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function easternTradingDate(iso: string | null | undefined): string | null {
+  const ms = parseTimestampMs(iso);
+  if (ms === null) return null;
+  return easternDate(ms);
+}
+
+function providerSkewMs(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): number | null {
+  const am = parseTimestampMs(a);
+  const bm = parseTimestampMs(b);
+  if (am === null || bm === null) return null;
+  return Math.abs(am - bm);
+}
+
+function pricesWithinTolerance(donorPrice: number, sentinelPrice: number): boolean {
+  return Math.abs(donorPrice - sentinelPrice) / sentinelPrice <= MAX_PRICE_DIVERGENCE_RATIO;
+}
+
+function sessionVolumesMatch(
+  donorVolume: number | null | undefined,
+  sentinelVolume: number | null | undefined,
+): boolean {
+  if (!isPositiveFinite(donorVolume) || !isPositiveFinite(sentinelVolume)) return false;
+  return donorVolume === sentinelVolume;
+}
+
+export function isBaseDonorCoherent(
+  sentinel: Pick<ScreenerResultRow, "symbol" | "provider_as_of">,
+  donor: DisplayFieldDonor,
+): boolean {
+  const sentinelKey = normalizeSymbol(sentinel.symbol);
+  const donorKey = normalizeSymbol(donor.symbol);
+  if (!sentinelKey || !donorKey || sentinelKey !== donorKey) return false;
+
+  const sentinelProvider = sentinel.provider_as_of;
+  const donorProvider = donor.provider_as_of;
+  if (!sentinelProvider || !donorProvider) return false;
+
+  const sentinelDate = easternTradingDate(sentinelProvider);
+  const donorDate = easternTradingDate(donorProvider);
+  if (!sentinelDate || !donorDate || sentinelDate !== donorDate) return false;
+
+  const skew = providerSkewMs(sentinelProvider, donorProvider);
+  if (skew === null || skew > DONOR_MAX_PROVIDER_SKEW_MS) return false;
+
+  return true;
+}
+
+function canEnrichMove(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
+  if (!isBaseDonorCoherent(sentinel, donor)) return false;
+  if (!isPositiveFinite(sentinel.price) || !isPositiveFinite(donor.price)) return false;
+  if (!sessionVolumesMatch(donor.volume, sentinel.volume)) return false;
+  return pricesWithinTolerance(donor.price as number, sentinel.price as number);
+}
+
+function canEnrichVolPrior(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
+  if (!isBaseDonorCoherent(sentinel, donor)) return false;
+  if (!sessionVolumesMatch(donor.volume, sentinel.volume)) return false;
+  return priorRatioPairValid(
+    donor.prior_session_volume,
+    donor.volume_ratio_prior_session,
+    sentinel.volume,
+  );
 }
 
 function priorRatioPairValid(
@@ -139,18 +217,18 @@ export function enrichDisplayFields<T extends ScreenerResultRow>(
 
   const next: T = { ...row };
 
-  if (next.change_percent === null && isFiniteNumber(donor.change_percent)) {
+  if (
+    next.change_percent === null &&
+    isFiniteNumber(donor.change_percent) &&
+    canEnrichMove(row, donor)
+  ) {
     next.change_percent = donor.change_percent;
   }
 
   const canCopyPrior =
     next.prior_session_volume === null &&
     next.volume_ratio_prior_session === null &&
-    priorRatioPairValid(
-      donor.prior_session_volume,
-      donor.volume_ratio_prior_session,
-      next.volume,
-    );
+    canEnrichVolPrior(row, donor);
   if (canCopyPrior) {
     next.prior_session_volume = donor.prior_session_volume as number;
     next.volume_ratio_prior_session = donor.volume_ratio_prior_session as number;
@@ -159,7 +237,8 @@ export function enrichDisplayFields<T extends ScreenerResultRow>(
   if (
     options.allowGap &&
     next.gap_percent === null &&
-    isFiniteNumber(donor.gap_percent)
+    isFiniteNumber(donor.gap_percent) &&
+    isBaseDonorCoherent(row, donor)
   ) {
     next.gap_percent = donor.gap_percent;
   }
@@ -167,7 +246,8 @@ export function enrichDisplayFields<T extends ScreenerResultRow>(
   if (
     (next.company_name === null || next.company_name === undefined || next.company_name === "") &&
     typeof donor.company_name === "string" &&
-    donor.company_name.trim()
+    donor.company_name.trim() &&
+    isBaseDonorCoherent(row, donor)
   ) {
     next.company_name = donor.company_name;
   }
