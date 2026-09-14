@@ -13,6 +13,10 @@
  */
 
 import { isFiniteNumber, type ScreenerResultRow } from "@/lib/screeners/contract";
+import {
+  enrichDisplayFieldsForRows,
+  type DisplayFieldDonor,
+} from "@/lib/screeners/screener-display-enrichment";
 
 export const LEGACY_PRICE_MIN = 2;
 export const LEGACY_PRICE_MAX = 20;
@@ -86,18 +90,45 @@ export function buildLegacyConfirmationLookup(
   return lookup;
 }
 
-/**
- * Attach confirmation metadata onto Sentinel rows in the given order.
- * Does not sort, filter, or insert extra symbols.
- */
-export function overlayLegacyConfirmation<T extends { symbol: string }>(
-  sentinelRows: readonly T[],
-  legacyRows: readonly ScreenerResultRow[] | null | undefined,
+/** Attach Day Trade Radar confirmation badges only (no display-field enrichment). */
+export function attachLegacyConfirmation<T extends ScreenerResultRow>(
+  rows: readonly T[],
+  confirmationRows: readonly ScreenerResultRow[] | null | undefined,
 ): Array<T & LegacyConfirmationOverlay> {
-  const lookup = buildLegacyConfirmationLookup(legacyRows);
-  return sentinelRows.map((row) => {
+  const lookup = buildLegacyConfirmationLookup(confirmationRows);
+  return rows.map((row) => {
     const key = normalizeSymbol(row.symbol);
     const match = key ? lookup.get(key) : undefined;
     return { ...row, ...evaluateLegacyConfirmation(match) };
   });
+}
+
+/**
+ * Attach verified display metrics and confirmation metadata onto Sentinel rows.
+ * Does not sort, filter, or insert extra symbols. RVOL is never backfilled.
+ */
+export function overlayLegacyConfirmation<T extends ScreenerResultRow>(
+  sentinelRows: readonly T[],
+  enrichmentRows: readonly ScreenerResultRow[] | null | undefined,
+  boardRows: readonly DisplayFieldDonor[] | null | undefined = null,
+  options: {
+    preferredTabId?: string | null;
+    allowGap?: boolean;
+    /** Tab-filtered day_trade_radar rows for confirmation badges only. */
+    confirmationRows?: readonly ScreenerResultRow[] | null;
+  } = {},
+): Array<T & LegacyConfirmationOverlay> {
+  const enriched = enrichDisplayFieldsForRows(
+    sentinelRows,
+    enrichmentRows,
+    boardRows,
+    {
+      preferredTabId: options.preferredTabId ?? "day_trade_radar",
+      allowGap: options.allowGap ?? false,
+    },
+  );
+  return attachLegacyConfirmation(
+    enriched,
+    options.confirmationRows ?? enrichmentRows,
+  );
 }

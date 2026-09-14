@@ -71,13 +71,31 @@ describe("legacy confirmation overlay (D13)", () => {
     expect(evaluateLegacyConfirmation(undefined).legacy_confirmed).toBe(false);
   });
 
-  it("does not fabricate RVOL / prior-close / gap onto Sentinel honesty columns", () => {
-    const [row] = overlayLegacyConfirmation([sentinel("AAA", 9_000_000)], [legacy("AAA")]);
+  it("backfills verified Move / Vol/Prior from legacy donors but never RVOL or gap", () => {
+    const [row] = overlayLegacyConfirmation([sentinel("AAA", 60_000)], [legacy("AAA")]);
+    expect(row.change_percent).toBe(12);
+    expect(row.prior_session_volume).toBe(10_000);
+    expect(row.volume_ratio_prior_session).toBe(6);
     expect(row.rvol).toBeNull();
-    expect(row.change_percent).toBeNull();
     expect(row.gap_percent).toBeNull();
-    expect(row.prior_session_volume).toBeNull();
     expect(row.legacy_confirmed).toBe(true);
+  });
+
+  it("uses confirmationRows for badges while enriching from all-tab donors", () => {
+    const sentinelRows = [sentinel("AAA", 50_000)];
+    const allTabDonors = [
+      legacy("AAA", {
+        tab_id: "volume_spikes",
+        change_percent: 15,
+        prior_session_volume: 10_000,
+        volume_ratio_prior_session: 5,
+      }),
+    ];
+    const [row] = overlayLegacyConfirmation(sentinelRows, allTabDonors, null, {
+      confirmationRows: [],
+    });
+    expect(row.change_percent).toBe(15);
+    expect(row.legacy_confirmed).toBe(false);
   });
 
   it("3 & 19. overlay never reorders Sentinel volume-first ranks", () => {

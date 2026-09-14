@@ -238,6 +238,35 @@ describe("Radar-backed Screeners load resolver (D13)", () => {
     }
   });
 
+  it("enriches Sentinel display fields from full-generation rows outside the active tab", () => {
+    const volumeSpikeDonor: ScreenerResultRow = {
+      ...legacyRow("HAIN"),
+      tab_id: "volume_spikes",
+      change_percent: 18.4,
+      volume: 16_500_000,
+      prior_session_volume: 1_000_000,
+      volume_ratio_prior_session: 16.5,
+    };
+    const result = resolveRadarBackedScreenerLoad({
+      tabId: "day_trade_radar",
+      soft: false,
+      priorRadar: null,
+      radarDecision: {
+        ...available(["HAIN"], "pre-market"),
+        view: {
+          ...available(["HAIN"], "pre-market").view!,
+          rows: [row("HAIN", 16_500_000)],
+        },
+      },
+      legacyView: { status: "available", rows: [], synced_at: SYNCED_A, provider_as_of_max: SYNCED_A, attempts: 1 },
+      enrichmentRows: [volumeSpikeDonor],
+    });
+    const enriched = result.view?.rows[0];
+    expect(enriched?.change_percent).toBe(18.4);
+    expect(enriched?.volume_ratio_prior_session).toBe(16.5);
+    expect((enriched as { legacy_confirmed?: boolean }).legacy_confirmed).toBe(false);
+  });
+
   it("17–18. Gappers / New Highs-Lows are not overlayed as Day Trade Radar confirmation", () => {
     for (const tabId of ["gappers", "new_highs_lows"]) {
       const result = resolveRadarBackedScreenerLoad({

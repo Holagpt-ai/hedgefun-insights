@@ -4,6 +4,9 @@ import {
   loadVerifiedScreenerGeneration,
   MAX_ROWS_FETCH,
   msUntilStaleTransition,
+  unavailableView,
+  validateGeneration,
+  viewForActiveTab,
   type ScreenerFeedState,
   type ScreenerResultRow,
   type ScreenerTabView,
@@ -13,6 +16,7 @@ import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
+import { fetchRadarV22BoardDisplayDonors } from "@/lib/screeners/radar-v22-board-enrichment";
 import {
   radarV2FetchThrewDecision,
 } from "@/lib/screeners/radar-v2-soft-refresh";
@@ -50,6 +54,20 @@ const ROW_SELECT = [
   "sync_run_id",
   "updated_at",
 ].join(",");
+
+async function loadRadarEnrichmentContext(
+  tabId: string,
+  nowMs: number,
+): Promise<{ tabView: ScreenerTabView; allRows: ScreenerResultRow[] } | null> {
+  const fetched = await fetchGenerationOnce();
+  if (fetched.stateError || fetched.resultError) return null;
+  const outcome = validateGeneration(fetched.stateRows, fetched.resultRows, nowMs);
+  if (!outcome.ok) return null;
+  return {
+    tabView: viewForActiveTab(outcome.generation, tabId, nowMs, 1),
+    allRows: outcome.generation.rows,
+  };
+}
 
 async function fetchGenerationOnce() {
   const [stateRes, rowsRes] = await Promise.all([
@@ -204,18 +222,21 @@ export function useScreenerData(
 
         if (resolved.source === "radar-v2" && resolved.view) {
           let view = resolved.view;
-          if (tabId === "day_trade_radar") {
+          if (isRadarV2BackedTab(tabId)) {
             try {
-              const legacyView: ScreenerTabView = await loadVerifiedScreenerGeneration(
-                fetchGenerationOnce,
-                { nowMs: Date.now(), activeTabId: tabId },
-              );
+              const nowMs = Date.now();
+              const [enrichmentContext, boardRows] = await Promise.all([
+                loadRadarEnrichmentContext(tabId, nowMs),
+                fetchRadarV22BoardDisplayDonors(),
+              ]);
               const withOverlay = resolveRadarBackedScreenerLoad({
                 tabId,
                 soft,
                 priorRadar: lastVerifiedRadar,
                 radarDecision,
-                legacyView,
+                legacyView: enrichmentContext?.tabView ?? unavailableView(1),
+                enrichmentRows: enrichmentContext?.allRows ?? null,
+                boardRows,
               });
               if (withOverlay.source === "radar-v2" && withOverlay.view) {
                 view = withOverlay.view;
