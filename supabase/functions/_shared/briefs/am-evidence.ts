@@ -350,6 +350,8 @@ export function fingerprintMaterialState(state: AmMaterialState): string {
 export function buildAmV2Snapshot(
   bundle: AmEvidenceBundle,
   state: AmMaterialState,
+  generationWindow?: string | null,
+  generationReason?: string | null,
 ): Record<string, unknown> {
   const fingerprint = fingerprintMaterialState(state);
   return {
@@ -357,6 +359,8 @@ export function buildAmV2Snapshot(
     source: AM_V2_SOURCE,
     source_checked_at: bundle.checkedAt,
     evidence_checked_at: bundle.checkedAt,
+    ...(generationWindow ? { generation_window: generationWindow } : {}),
+    ...(generationReason ? { generation_reason: generationReason } : {}),
     fingerprint,
     material_state: state,
     indexes: bundle.indexes,

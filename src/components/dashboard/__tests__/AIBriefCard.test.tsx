@@ -14,9 +14,25 @@ describe("AI Pre-Market Brief presentation", () => {
         onToggle={() => {}}
       />,
     );
-    expect(screen.getByTestId("evidence-cutoff").textContent).toMatch(/Evidence cutoff/);
+    expect(screen.getByTestId("evidence-cutoff").textContent).toMatch(/Evidence through/);
     expect(screen.queryByText("**PRE-OPEN BRIEF**")).toBeNull();
     expect(screen.getByText("PRE-OPEN BRIEF")).toBeTruthy();
+  });
+
+  it("shows a freshness notice for stale early-session briefs", () => {
+    render(
+      <AvailableBrief
+        content={"**PRE-OPEN BRIEF**\n\nMarkets were flat overnight."}
+        previousTradingDay={false}
+        briefDateDisplay={null}
+        evidenceCutoff="2026-09-14T08:14:00.000Z"
+        freshnessState="stale"
+        generationWindow="early"
+        expanded
+        onToggle={() => {}}
+      />,
+    );
+    expect(screen.getByTestId("freshness-notice").textContent).toMatch(/newer update is expected/);
   });
 
   it("keeps the full server brief behind an accessible expand control", () => {

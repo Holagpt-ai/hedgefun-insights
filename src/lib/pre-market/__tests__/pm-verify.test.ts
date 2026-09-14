@@ -196,4 +196,28 @@ describe("AM brief verify mapping", () => {
     expect(mapped.cachedVsGenerated).toBeNull();
     expect(mapped.cachedVsGeneratedAvailable).toBe(false);
   });
+
+  it("includes freshness diagnostics when provided", () => {
+    const mapped = mapAmBriefVerifyState({
+      kind: "available",
+      httpStatus: 200,
+      generatedAt: "2026-09-14T08:15:00.000Z",
+      sourceCheckedAt: "2026-09-14T08:14:00.000Z",
+      briefDate: "2026-09-14",
+      previousTradingDay: false,
+      nowEtDate: "2026-09-14",
+      freshnessState: "stale",
+      generationWindow: "early",
+      expectedGenerationWindow: "final_preopen",
+      supersededBy: "final_preopen",
+      ageSeconds: 16200,
+      generationReason: "initial_window",
+    });
+    expect(mapped.freshnessState).toBe("stale");
+    expect(mapped.generationWindow).toBe("early");
+    expect(mapped.expectedGenerationWindow).toBe("final_preopen");
+    expect(mapped.supersededBy).toBe("final_preopen");
+    expect(mapped.ageSeconds).toBe(16200);
+    expect(mapped.generationReason).toBe("initial_window");
+  });
 });

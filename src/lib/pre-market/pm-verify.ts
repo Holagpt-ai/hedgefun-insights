@@ -239,6 +239,12 @@ export interface AmBriefVerifyInput {
   briefDate?: string | null;
   previousTradingDay?: boolean | null;
   nowEtDate: string;
+  freshnessState?: string | null;
+  generationWindow?: string | null;
+  expectedGenerationWindow?: string | null;
+  supersededBy?: string | null;
+  ageSeconds?: number | null;
+  generationReason?: string | null;
 }
 
 /**
@@ -259,6 +265,12 @@ export function mapAmBriefVerifyState(input: AmBriefVerifyInput): Record<string,
     previousTradingDay: input.previousTradingDay ?? null,
     isCurrentEtTradingDay:
       typeof input.briefDate === "string" && input.briefDate === input.nowEtDate,
+    freshnessState: input.freshnessState ?? null,
+    generationWindow: input.generationWindow ?? null,
+    expectedGenerationWindow: input.expectedGenerationWindow ?? null,
+    supersededBy: input.supersededBy ?? null,
+    ageSeconds: input.ageSeconds ?? null,
+    generationReason: input.generationReason ?? null,
     httpStatus: input.httpStatus,
     httpStatusCategory: httpStatusCategory(input.httpStatus),
     cachedVsGenerated: null,

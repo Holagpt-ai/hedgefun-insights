@@ -7,6 +7,13 @@ import { summarizeBrief } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
 import { getEtParts, isTradingDay, marketHolidayName, nextTradingDay } from "@/lib/market-calendar";
 import {
+  buildAmBriefTimestampLabel,
+  formatFreshnessWindowLabel,
+  resolveAmBriefFreshness,
+  type AmBriefFreshnessState,
+  type AmGenerationWindow,
+} from "@/lib/pre-market/am-brief-freshness";
+import {
   emitPmVerify,
   isPmDebugEnabled,
   mapAmBriefVerifyState,
@@ -38,6 +45,12 @@ type BriefState =
       previousTradingDay: boolean;
       briefDateDisplay: string | null;
       evidenceCutoff: string | null;
+      freshnessState: AmBriefFreshnessState;
+      generationWindow: AmGenerationWindow | null;
+      expectedGenerationWindow: AmGenerationWindow | null;
+      supersededBy: AmGenerationWindow | null;
+      ageSeconds: number;
+      generationReason: string | null;
     }
   | { kind: "notice"; message: string; refreshable: boolean; showAfterHoursCta?: boolean }
   | { kind: "error"; message: string; refreshable: boolean };
@@ -146,6 +159,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     sourceCheckedAt: null as string | null,
     briefDate: null as string | null,
     previousTradingDay: null as boolean | null,
+    freshnessState: null as AmBriefFreshnessState | null,
+    generationWindow: null as AmGenerationWindow | null,
+    expectedGenerationWindow: null as AmGenerationWindow | null,
+    supersededBy: null as AmGenerationWindow | null,
+    ageSeconds: null as number | null,
+    generationReason: null as string | null,
   });
 
   const fetchBrief = useCallback(async () => {
@@ -207,6 +226,55 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             ? body.source_checked_at
             : null;
           if (validType && validContent && validGen && validDate && validPtd) {
+            const snapshotWindow =
+              typeof body.generation_window === "string" ? body.generation_window : null;
+            const freshness = resolveAmBriefFreshness({
+              now: new Date(),
+              briefDate: body.brief_date,
+              generatedAt: body.generated_at,
+              snapshotGenerationWindow:
+                snapshotWindow === "early" ||
+                snapshotWindow === "mid" ||
+                snapshotWindow === "final_preopen"
+                  ? snapshotWindow
+                  : null,
+            });
+            const freshnessState =
+              typeof body.freshness_state === "string"
+                ? (body.freshness_state as AmBriefFreshnessState)
+                : freshness.freshnessState;
+            const generationWindow =
+              body.generation_window === "early" ||
+              body.generation_window === "mid" ||
+              body.generation_window === "final_preopen"
+                ? body.generation_window
+                : freshness.generationWindow;
+            const expectedGenerationWindow =
+              body.expected_generation_window === "early" ||
+              body.expected_generation_window === "mid" ||
+              body.expected_generation_window === "final_preopen"
+                ? body.expected_generation_window
+                : freshness.expectedGenerationWindow;
+            const supersededBy =
+              body.superseded_by === "early" ||
+              body.superseded_by === "mid" ||
+              body.superseded_by === "final_preopen"
+                ? body.superseded_by
+                : freshness.supersededBy;
+            const ageSeconds =
+              typeof body.age_seconds === "number" && Number.isFinite(body.age_seconds)
+                ? body.age_seconds
+                : freshness.ageSeconds;
+            const generationReason =
+              typeof body.generation_reason === "string" ? body.generation_reason : null;
+
+            briefObserveRef.current.freshnessState = freshnessState;
+            briefObserveRef.current.generationWindow = generationWindow;
+            briefObserveRef.current.expectedGenerationWindow = expectedGenerationWindow;
+            briefObserveRef.current.supersededBy = supersededBy;
+            briefObserveRef.current.ageSeconds = ageSeconds;
+            briefObserveRef.current.generationReason = generationReason;
+
             setState({
               kind: "available",
               content: body.content,
@@ -214,6 +282,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               previousTradingDay: body.previous_trading_day,
               briefDateDisplay: formatBriefDate(body.brief_date),
               evidenceCutoff: cutoff,
+              freshnessState,
+              generationWindow,
+              expectedGenerationWindow,
+              supersededBy,
+              ageSeconds,
+              generationReason,
             });
             return;
           }
@@ -311,6 +385,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         briefDate: observed.briefDate,
         previousTradingDay: observed.previousTradingDay,
         nowEtDate: getEtParts(new Date()).date,
+        freshnessState: observed.freshnessState,
+        generationWindow: observed.generationWindow,
+        expectedGenerationWindow: observed.expectedGenerationWindow,
+        supersededBy: observed.supersededBy,
+        ageSeconds: observed.ageSeconds,
+        generationReason: observed.generationReason,
       }),
     );
   }, [pmDebug, briefType, state]);
@@ -380,6 +460,8 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               previousTradingDay={state.previousTradingDay}
               briefDateDisplay={state.briefDateDisplay}
               evidenceCutoff={state.evidenceCutoff}
+              freshnessState={briefType === "am" ? state.freshnessState : undefined}
+              generationWindow={briefType === "am" ? state.generationWindow : undefined}
               expanded={briefExpanded}
               onToggle={() => setBriefExpanded((v) => !v)}
             />
@@ -408,11 +490,19 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     }
   };
 
-  const timestampText = state.kind === "available" && state.generatedAtEt
-    ? `${timestampLabel} ${state.generatedAtEt}`
-    : state.kind === "loading"
-      ? "Updating..."
-      : null;
+  const timestampText =
+    state.kind === "available" && state.generatedAtEt
+      ? briefType === "am"
+        ? buildAmBriefTimestampLabel({
+            generatedAtEt: state.generatedAtEt,
+            freshnessState: state.freshnessState,
+            generationWindow: state.generationWindow,
+            supersededBy: state.supersededBy,
+          })
+        : `${timestampLabel} ${state.generatedAtEt}`
+      : state.kind === "loading"
+        ? "Updating..."
+        : null;
 
   // isPro is presentation-only — no fetch gate, no blur overlay.
   void isPro;
@@ -433,6 +523,8 @@ export function AvailableBrief({
   previousTradingDay,
   briefDateDisplay,
   evidenceCutoff,
+  freshnessState,
+  generationWindow,
   expanded,
   onToggle,
 }: {
@@ -440,6 +532,8 @@ export function AvailableBrief({
   previousTradingDay: boolean;
   briefDateDisplay: string | null;
   evidenceCutoff: string | null;
+  freshnessState?: AmBriefFreshnessState;
+  generationWindow?: AmGenerationWindow | null;
   expanded: boolean;
   onToggle: () => void;
 }) {
@@ -457,7 +551,13 @@ export function AvailableBrief({
       )}
       {cutoffLabel && (
         <div data-testid="evidence-cutoff" className="text-[11px] text-muted-foreground">
-          Evidence cutoff {cutoffLabel}
+          Evidence through {cutoffLabel}
+        </div>
+      )}
+      {freshnessState === "stale" && generationWindow && (
+        <div data-testid="freshness-notice" className="text-[11px] text-muted-foreground">
+          {formatFreshnessWindowLabel(generationWindow)} brief — a newer update is expected for current
+          pre-open conditions.
         </div>
       )}
       <div className="prose prose-sm dark:prose-invert max-w-none break-words text-sm leading-relaxed text-foreground/80 prose-headings:text-sm prose-headings:font-semibold prose-p:my-1">
