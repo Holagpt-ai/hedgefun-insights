@@ -23,6 +23,11 @@ import {
 } from "../_shared/briefs/am-evidence.ts";
 import { decideAmGeneration, isAmV2Snapshot } from "../_shared/briefs/am-decision.ts";
 import {
+  isInsideGenerationWindow,
+  readSnapshotGenerationWindow,
+} from "../_shared/briefs/am-freshness.ts";
+import { etClock } from "../_shared/briefs/am-window.ts";
+import {
   AM_MAX_TOKENS,
   AM_MODEL,
   AM_V2_SYSTEM,
@@ -213,6 +218,9 @@ serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, supabaseServiceKey);
+
+    const etNow = etClock();
+    const nowMinutesEt = etNow.minutes;
 
     const { data: existingBrief } = await admin
       .from("daily_briefs")
@@ -547,9 +555,14 @@ serve(async (req) => {
     const decision = decideAmGeneration({
       indexesValid: true,
       existing: existingBrief
-        ? { id: existingBrief.id, market_snapshot: existingBrief.market_snapshot }
+        ? {
+          id: existingBrief.id,
+          market_snapshot: existingBrief.market_snapshot,
+          generated_at: existingBrief.generated_at,
+        }
         : null,
       incomingState,
+      nowMinutesEt,
     });
 
     if (decision.action === "fail_closed") {
@@ -589,7 +602,21 @@ serve(async (req) => {
       return json({ error: "Upstream generation failed" }, 502);
     }
 
-    const marketSnapshot = buildAmV2Snapshot(bundle, incomingState);
+    const activeWindow = isInsideGenerationWindow(nowMinutesEt);
+    let generationReason = "material_change";
+    if (activeWindow) {
+      if (decision.persist === "insert") {
+        generationReason = "initial_window";
+      } else if (readSnapshotGenerationWindow(existingBrief?.market_snapshot) !== activeWindow) {
+        generationReason = "window_supersession";
+      }
+    }
+    const marketSnapshot = buildAmV2Snapshot(
+      bundle,
+      incomingState,
+      activeWindow,
+      generationReason,
+    );
     const generatedAt = new Date().toISOString();
 
     if (decision.action === "generate" && decision.persist === "update" && existingBrief) {

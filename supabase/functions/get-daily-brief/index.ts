@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { validateBriefProvenance, type BriefRowLike } from "../_shared/briefs/provenance.ts";
+import {
+  readSnapshotGenerationWindow,
+  resolveAmBriefFreshness,
+} from "../_shared/briefs/am-freshness.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -67,6 +71,29 @@ interface BriefRow {
   content: string;
   generated_at: string;
   market_snapshot: unknown;
+}
+
+function amFreshnessPayload(row: BriefRow, et: ReturnType<typeof etParts>) {
+  const snapshotWindow = readSnapshotGenerationWindow(row.market_snapshot);
+  const freshness = resolveAmBriefFreshness({
+    nowMs: Date.now(),
+    briefDate: row.brief_date,
+    nowEtDate: et.date,
+    nowMinutesEt: et.minutes,
+    generatedAt: row.generated_at,
+    snapshotGenerationWindow: snapshotWindow,
+  });
+  const snap = row.market_snapshot as Record<string, unknown> | null;
+  const generationReason =
+    snap && typeof snap.generation_reason === "string" ? snap.generation_reason : null;
+  return {
+    freshness_state: freshness.freshnessState,
+    generation_window: freshness.generationWindow,
+    expected_generation_window: freshness.expectedGenerationWindow,
+    superseded_by: freshness.supersededBy,
+    age_seconds: freshness.ageSeconds,
+    generation_reason: generationReason,
+  };
 }
 
 function validateProvenance(row: BriefRow, expectedType: BriefType): { ok: true; sourceCheckedAt: string } | { ok: false } {
@@ -157,6 +184,7 @@ serve(async (req) => {
           content: row.content,
           previous_trading_day: false,
           source_checked_at: v.sourceCheckedAt,
+          ...amFreshnessPayload(row as BriefRow, et),
         },
         200,
       );

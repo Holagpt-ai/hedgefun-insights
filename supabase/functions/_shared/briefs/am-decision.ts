@@ -5,6 +5,7 @@ import {
   readMaterialState,
   type AmMaterialState,
 } from "./am-evidence.ts";
+import { shouldRegenerateForWindowSupersession } from "./am-freshness.ts";
 
 export type AmGenerationDecision =
   | { action: "fail_closed"; reason: string }
@@ -24,8 +25,9 @@ export function isAmV2Snapshot(snapshot: unknown): boolean {
 export function decideAmGeneration(input: {
   indexesValid: boolean;
   staleOrMissingReason?: string;
-  existing: { id: string; market_snapshot: unknown } | null;
+  existing: { id: string; market_snapshot: unknown; generated_at?: string } | null;
   incomingState: AmMaterialState;
+  nowMinutesEt?: number;
 }): AmGenerationDecision {
   if (!input.indexesValid) {
     return {
@@ -35,6 +37,21 @@ export function decideAmGeneration(input: {
   }
   if (!input.existing) {
     return { action: "generate", persist: "insert" };
+  }
+  if (
+    input.nowMinutesEt !== undefined &&
+    input.existing.generated_at &&
+    shouldRegenerateForWindowSupersession({
+      nowMinutesEt: input.nowMinutesEt,
+      existingGeneratedAt: input.existing.generated_at,
+      existingSnapshot: input.existing.market_snapshot,
+    })
+  ) {
+    return {
+      action: "generate",
+      persist: "update",
+      existingId: input.existing.id,
+    };
   }
   if (!isAmV2Snapshot(input.existing.market_snapshot)) {
     return {
