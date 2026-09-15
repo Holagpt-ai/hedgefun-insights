@@ -137,6 +137,40 @@ export function volumeRatioPriorSession(t: PolygonTicker): number | null {
   return Math.round(ratio * 10) / 10;
 }
 
+function isExplicitNumericZero(value: unknown): boolean {
+  if (value === undefined || value === null || typeof value === "boolean") {
+    return false;
+  }
+  if (typeof value === "number") return Number.isFinite(value) && value === 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    const n = Number(trimmed);
+    return Number.isFinite(n) && n === 0;
+  }
+  return false;
+}
+
+/**
+ * True when the provider supplied an explicit zero prior-day aggregate
+ * (prevDay.c and prevDay.v are present and numerically zero — not absent/null).
+ */
+export function isExplicitZeroPriorDayAggregate(t: PolygonTicker): boolean {
+  const prev = t?.prevDay;
+  if (prev === undefined || prev === null || typeof prev !== "object") {
+    return false;
+  }
+  return isExplicitNumericZero(prev.c) && isExplicitNumericZero(prev.v);
+}
+
+/** True when day.o is present and finite. */
+export function hasValidCurrentDayOpen(t: PolygonTicker): boolean {
+  const open = t?.day?.o;
+  if (open === undefined || open === null) return false;
+  const n = Number(open);
+  return Number.isFinite(n);
+}
+
 /** Gap % = (today open - prev close) / prev close * 100. */
 export function gapPercent(t: PolygonTicker): number | null {
   const open = t?.day?.o;

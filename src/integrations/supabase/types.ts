@@ -4839,6 +4839,33 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_52w_baseline_exclusions: {
+        Row: {
+          generation_id: string
+          min_sessions: number
+          provider_as_of: string
+          reason: string
+          sessions_observed: number
+          symbol: string
+        }
+        Insert: {
+          generation_id: string
+          min_sessions: number
+          provider_as_of: string
+          reason: string
+          sessions_observed: number
+          symbol: string
+        }
+        Update: {
+          generation_id?: string
+          min_sessions?: number
+          provider_as_of?: string
+          reason?: string
+          sessions_observed?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
       screener_52w_baseline_job: {
         Row: {
           dates_applied: number
@@ -4949,6 +4976,8 @@ export type Database = {
           current_generation_id: string | null
           period_end: string | null
           period_start: string | null
+          policy_excluded_count: number | null
+          policy_min_sessions: number | null
           provider_as_of: string | null
           state_key: string
           status: string
@@ -4959,6 +4988,8 @@ export type Database = {
           current_generation_id?: string | null
           period_end?: string | null
           period_start?: string | null
+          policy_excluded_count?: number | null
+          policy_min_sessions?: number | null
           provider_as_of?: string | null
           state_key: string
           status: string
@@ -4969,6 +5000,8 @@ export type Database = {
           current_generation_id?: string | null
           period_end?: string | null
           period_start?: string | null
+          policy_excluded_count?: number | null
+          policy_min_sessions?: number | null
           provider_as_of?: string | null
           state_key?: string
           status?: string

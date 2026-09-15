@@ -11,6 +11,8 @@ const SET_BASED_MIGRATIONS = [
   "../../../migrations/20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql",
   "../../../migrations/20260829002443_7ba9725f-987a-4537-998b-bd7ee6a0a057.sql",
 ] as const;
+const ELIGIBILITY_MIGRATION =
+  "../../../migrations/20260915180000_screener_prerequisite_eligibility_v1.sql";
 const HISTORICAL_MIGRATIONS = [
   "../../../migrations/20260813190000_screener_52w_baselines.sql",
   "../../../migrations/20260814154404_11fa443d-48cf-4b31-9afb-2a95ce6338f4.sql",
@@ -73,6 +75,7 @@ Deno.test("static: set-based migrations are the later RPC definitions", async ()
     "20260814154404_11fa443d-48cf-4b31-9afb-2a95ce6338f4.sql",
     "20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql",
     "20260829002443_7ba9725f-987a-4537-998b-bd7ee6a0a057.sql",
+    "20260915180000_screener_prerequisite_eligibility_v1.sql",
   ]);
 });
 
@@ -114,6 +117,7 @@ Deno.test("static: Cursor and Lovable set-based definitions match the public con
   for (const rel of SET_BASED_MIGRATIONS) {
     await assertSetBasedContract(rel);
   }
+  await assertSetBasedContract(ELIGIBILITY_MIGRATION);
 });
 
 Deno.test("static: historical migrations that defined the RPC were not edited", async () => {

@@ -21,6 +21,7 @@ type Mutation =
   | { kind: "select"; symbols: string[] }
   | { kind: "baseline_state" }
   | { kind: "baseline_quotes" }
+  | { kind: "baseline_exclusions" }
   | {
     kind: "rpc";
     fn: string;
@@ -29,6 +30,7 @@ type Mutation =
       p_sync_run_id: string;
       p_synced_at: string;
       p_nhl_baseline_status: string;
+      p_tab_evaluation_evidence?: Record<string, unknown>;
     };
   };
 
@@ -58,8 +60,10 @@ function mockDb(
     rpcData?: number;
     baselineState?: Array<Record<string, unknown>>;
     baselineQuotes?: Array<Record<string, unknown>>;
+    baselineExclusions?: Array<Record<string, unknown>>;
     baselineStateError?: { message: string };
     baselineQuotesError?: { message: string };
+    baselineExclusionsError?: { message: string };
   } = {},
 ): DbClient {
   return {
@@ -89,6 +93,13 @@ function mockDb(
               return { data: null, error: opts.baselineQuotesError };
             }
             return { data: opts.baselineQuotes ?? [], error: null };
+          }
+          if (table === "screener_52w_baseline_exclusions") {
+            mutations.push({ kind: "baseline_exclusions" });
+            if (opts.baselineExclusionsError) {
+              return { data: null, error: opts.baselineExclusionsError };
+            }
+            return { data: opts.baselineExclusions ?? [], error: null };
           }
           void cols;
           void usedRange;
@@ -1077,5 +1088,131 @@ Deno.test("handler: initializing baseline omits NHL rows and records status", as
   assertEquals(
     rpc.args.p_rows.some((r) => r.tab_id === "new_highs_lows"),
     false,
+  );
+});
+
+Deno.test("handler: policy-exclusion evidence classifies missing baseline as policy_excluded", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([
+      mk("NEWHI", 4_000_000, 500_000, { price: 12, high: 20, low: 10 }),
+      mk("THIN", 3_000_000, 500_000, { price: 8, high: 9, low: 7 }),
+    ]),
+    {
+      baselineState: [{
+        current_generation_id: RUN_ID,
+        status: "available",
+        symbol_count: 1,
+        policy_min_sessions: 120,
+        policy_excluded_count: 1,
+      }],
+      baselineQuotes: [
+        { symbol: "NEWHI", high_52w: 20, low_52w: 4, sessions_observed: 200 },
+      ],
+      baselineExclusions: [{
+        generation_id: RUN_ID,
+        symbol: "THIN",
+        reason: "insufficient_sessions",
+        sessions_observed: 40,
+        min_sessions: 120,
+      }],
+    },
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.nhl_baseline_status, "available");
+  const rpc = mutations.find((m) => m.kind === "rpc") as {
+    kind: "rpc";
+    args: {
+      p_nhl_baseline_status: string;
+      p_tab_evaluation_evidence?: {
+        new_highs_lows?: {
+          status: string;
+          evaluated_count?: number;
+          policy_excluded_count?: number;
+          unresolved_count?: number;
+        };
+      };
+    };
+  };
+  const nhl = rpc.args.p_tab_evaluation_evidence?.new_highs_lows;
+  assertEquals(nhl?.status, "evaluated");
+  assertEquals(nhl?.evaluated_count, 1);
+  assertEquals(nhl?.policy_excluded_count, 1);
+  assertEquals(nhl?.unresolved_count, 0);
+});
+
+Deno.test("handler: malformed exclusion evidence does not invalidate valid quotes", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([
+      mk("NEWHI", 4_000_000, 500_000, { price: 12, high: 20, low: 10 }),
+      mk("THIN", 3_000_000, 500_000, { price: 8, high: 9, low: 7 }),
+    ]),
+    {
+      baselineState: [{
+        current_generation_id: RUN_ID,
+        status: "available",
+        symbol_count: 1,
+        policy_min_sessions: 120,
+        policy_excluded_count: 2,
+      }],
+      baselineQuotes: [
+        { symbol: "NEWHI", high_52w: 20, low_52w: 4, sessions_observed: 200 },
+      ],
+      baselineExclusions: [{
+        generation_id: RUN_ID,
+        symbol: "THIN",
+        reason: "insufficient_sessions",
+        sessions_observed: 40,
+        min_sessions: 120,
+      }],
+    },
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.nhl_baseline_status, "available");
+  const rpc = mutations.find((m) => m.kind === "rpc") as {
+    kind: "rpc";
+    args: {
+      p_nhl_baseline_status: string;
+      p_rows: ScreenerResultRow[];
+      p_tab_evaluation_evidence?: {
+        new_highs_lows?: {
+          status: string;
+          reason?: string;
+          unresolved_count?: number;
+        };
+      };
+    };
+  };
+  assertEquals(rpc.args.p_nhl_baseline_status, "available");
+  assertEquals(
+    rpc.args.p_rows.some((r) => r.tab_id === "new_highs_lows" && r.symbol === "NEWHI"),
+    true,
+  );
+  assertEquals(
+    rpc.args.p_tab_evaluation_evidence?.new_highs_lows?.status,
+    "not_evaluated",
+  );
+  assertEquals(
+    rpc.args.p_tab_evaluation_evidence?.new_highs_lows?.reason,
+    "baseline_coverage_incomplete",
   );
 });

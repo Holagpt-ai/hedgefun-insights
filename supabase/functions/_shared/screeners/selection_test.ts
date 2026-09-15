@@ -10,6 +10,8 @@ import {
 } from "./provider.ts";
 import {
   dayHighLow,
+  hasValidCurrentDayOpen,
+  isExplicitZeroPriorDayAggregate,
   parseProviderAsOf,
   type PolygonTicker,
   priorSessionVolume,
@@ -605,4 +607,31 @@ Deno.test("freshness: never throws on adversarial inputs", () => {
     threwNow = true;
   }
   assertEquals(threwNow, false);
+});
+
+Deno.test("metrics: explicit zero prior-day aggregate requires present zeros, not absence", () => {
+  assertEquals(
+    isExplicitZeroPriorDayAggregate({ ticker: "A", prevDay: { c: 0, v: 0 } }),
+    true,
+  );
+  assertEquals(
+    isExplicitZeroPriorDayAggregate({ ticker: "A", prevDay: { c: 0 } }),
+    false,
+  );
+  assertEquals(
+    isExplicitZeroPriorDayAggregate({ ticker: "A", prevDay: { c: null, v: 0 } }),
+    false,
+  );
+  assertEquals(
+    isExplicitZeroPriorDayAggregate({ ticker: "A" }),
+    false,
+  );
+  assertEquals(
+    hasValidCurrentDayOpen({ ticker: "A", day: { o: 10 } }),
+    true,
+  );
+  assertEquals(
+    hasValidCurrentDayOpen({ ticker: "A", day: { o: undefined } }),
+    false,
+  );
 });
