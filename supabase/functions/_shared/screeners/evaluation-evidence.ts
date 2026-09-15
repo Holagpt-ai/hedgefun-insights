@@ -1,6 +1,12 @@
 /**
  * Compact per-tab evaluation evidence persisted on screener_feed_state.
  * Proves whether a tab was evaluated vs blocked by missing prerequisites.
+ *
+ * Gappers fail-closed coverage contract:
+ * - upstream universe must be non-empty;
+ * - at least one volume-active symbol must exist;
+ * - every volume-active symbol must have calculable prior-close/open gap inputs.
+ * Partial calculability across the active snapshot does not establish coverage.
  */
 
 import {
@@ -26,6 +32,7 @@ export type TabEvidenceEvaluationStatus = "evaluated" | "prerequisite_unavailabl
 export interface GappersTabEvidence {
   status: TabEvidenceEvaluationStatus;
   universe_count: number;
+  volume_positive_count: number;
   gap_calculable_count: number;
   qualified_count: number;
   selected_count: number;
@@ -35,6 +42,7 @@ export interface GappersTabEvidence {
 export interface NhlTabEvidence {
   status: "evaluated" | "not_evaluated";
   baseline_status: NhlBaselineStatus;
+  baseline_quote_count: number;
   universe_count: number;
   evaluated_count?: number;
   qualified_count?: number;
@@ -59,14 +67,21 @@ export type TabEvaluationEvidenceMap = Partial<
   Record<ScreenerTabId, TabEvaluationEvidence>
 >;
 
-/** Minimum share of the universe that must have calculable gap inputs. */
-export const GAPPERS_MIN_USABLE_SHARE = 0.01;
+function countVolumeActive(universe: readonly PolygonTicker[]): number {
+  let count = 0;
+  for (const t of universe) {
+    const vol = dayVolume(t);
+    if (vol !== null && vol > 0) count += 1;
+  }
+  return count;
+}
 
 export function evaluateGappersEvidence(
   universe: readonly PolygonTicker[],
   selected: readonly PolygonTicker[],
 ): GappersTabEvidence {
   const universe_count = universe.length;
+  const volume_positive_count = countVolumeActive(universe);
   let gap_calculable_count = 0;
   let qualified_count = 0;
 
@@ -76,28 +91,49 @@ export function evaluateGappersEvidence(
   }
 
   const selected_count = selected.length;
-  const usableShare = universe_count > 0 ? gap_calculable_count / universe_count : 0;
+  const base = {
+    universe_count,
+    volume_positive_count,
+    gap_calculable_count,
+    qualified_count,
+    selected_count,
+  };
 
-  if (
-    universe_count > 0 &&
-    (gap_calculable_count === 0 || usableShare < GAPPERS_MIN_USABLE_SHARE)
-  ) {
+  if (universe_count === 0) {
     return {
       status: "prerequisite_unavailable",
-      universe_count,
-      gap_calculable_count,
-      qualified_count,
-      selected_count,
+      ...base,
+      reason: "upstream_universe_empty",
+    };
+  }
+
+  if (volume_positive_count === 0) {
+    return {
+      status: "prerequisite_unavailable",
+      ...base,
+      reason: "no_volume_active_universe",
+    };
+  }
+
+  if (gap_calculable_count === 0) {
+    return {
+      status: "prerequisite_unavailable",
+      ...base,
       reason: "prior_close_gap_inputs_unavailable",
+    };
+  }
+
+  if (gap_calculable_count < volume_positive_count) {
+    return {
+      status: "prerequisite_unavailable",
+      ...base,
+      reason: "gap_input_coverage_incomplete",
     };
   }
 
   return {
     status: "evaluated",
-    universe_count,
-    gap_calculable_count,
-    qualified_count,
-    selected_count,
+    ...base,
   };
 }
 
@@ -107,13 +143,28 @@ export function evaluateNhlEvidence(
   baselineStatus: NhlBaselineStatus,
   selected: readonly NhlClassification[],
 ): NhlTabEvidence {
+  const baseline_quote_count = baselines.size;
+  const base = {
+    baseline_quote_count,
+    universe_count: universe.length,
+    selected_count: selected.length,
+  };
+
   if (baselineStatus !== "available") {
     return {
       status: "not_evaluated",
       baseline_status: baselineStatus,
-      universe_count: universe.length,
-      selected_count: selected.length,
+      ...base,
       reason: `baseline_${baselineStatus}`,
+    };
+  }
+
+  if (baseline_quote_count === 0) {
+    return {
+      status: "not_evaluated",
+      baseline_status: "initializing",
+      ...base,
+      reason: "baseline_quotes_empty",
     };
   }
 
@@ -132,13 +183,23 @@ export function evaluateNhlEvidence(
     if (classifyNewHighLow(t, baseline) !== null) qualified_count += 1;
   }
 
+  if (evaluated_count === 0) {
+    return {
+      status: "not_evaluated",
+      baseline_status: "available",
+      evaluated_count: 0,
+      qualified_count: 0,
+      ...base,
+      reason: "baseline_coverage_empty",
+    };
+  }
+
   return {
     status: "evaluated",
     baseline_status: "available",
-    universe_count: universe.length,
     evaluated_count,
     qualified_count,
-    selected_count: selected.length,
+    ...base,
   };
 }
 
@@ -152,6 +213,17 @@ export function evaluateGenericTabEvidence(
   for (const t of universe) {
     if (qualify(t)) qualified_count += 1;
   }
+
+  if (universe.length === 0) {
+    return {
+      status: "prerequisite_unavailable",
+      universe_count: 0,
+      qualified_count: 0,
+      selected_count: selected.length,
+      reason: "upstream_universe_empty",
+    };
+  }
+
   return {
     status: "evaluated",
     universe_count: universe.length,

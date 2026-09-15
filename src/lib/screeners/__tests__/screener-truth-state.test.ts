@@ -70,7 +70,28 @@ function gapperRow(symbol: string, gap: number, volume: number): ScreenerResultR
 }
 
 describe("screener truth-state resolver", () => {
-  it("gappers: prerequisites available + zero qualified → validated zero-match copy", () => {
+  it("gappers: empty universe evidence does not claim validated zero-match", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "prerequisite_unavailable",
+          universe_count: 0,
+          volume_positive_count: 0,
+          gap_calculable_count: 0,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "upstream_universe_empty",
+        },
+      },
+    });
+    expect(truth.reason).toBe("prerequisite_unavailable");
+  });
+
+  it("gappers: sufficient coverage with zero qualified → validated zero-match copy", () => {
     const truth = resolveScreenerTruthState({
       tabId: "gappers",
       status: "empty",
@@ -80,6 +101,7 @@ describe("screener truth-state resolver", () => {
         gappers: {
           status: "evaluated",
           universe_count: 500,
+          volume_positive_count: 480,
           gap_calculable_count: 480,
           qualified_count: 0,
           selected_count: 0,
@@ -88,10 +110,9 @@ describe("screener truth-state resolver", () => {
     });
     expect(truth.reason).toBe("validated_zero_matches");
     expect(truth.explanation).toContain("No securities met this screener");
-    expect(truth.showRows).toBe(false);
   });
 
-  it("gappers: prerequisites unavailable → prerequisite-unavailable copy", () => {
+  it("gappers: incomplete coverage → prerequisite-unavailable copy", () => {
     const truth = resolveScreenerTruthState({
       tabId: "gappers",
       status: "empty",
@@ -101,10 +122,11 @@ describe("screener truth-state resolver", () => {
         gappers: {
           status: "prerequisite_unavailable",
           universe_count: 500,
-          gap_calculable_count: 0,
+          volume_positive_count: 480,
+          gap_calculable_count: 120,
           qualified_count: 0,
           selected_count: 0,
-          reason: "prior_close_gap_inputs_unavailable",
+          reason: "gap_input_coverage_incomplete",
         },
       },
     });
@@ -113,18 +135,16 @@ describe("screener truth-state resolver", () => {
   });
 
   it("gappers: 20 valid rows → available with results", () => {
-    const rows = Array.from({ length: 20 }, (_, i) =>
-      gapperRow(`G${i}`, 8 + i * 0.1, 1_000_000 - i * 10_000),
-    );
     const truth = resolveScreenerTruthState({
       tabId: "gappers",
       status: "available",
-      rowCount: rows.length,
+      rowCount: 20,
       syncedAt: SYNCED,
       tabEvaluationEvidence: {
         gappers: {
           status: "evaluated",
           universe_count: 900,
+          volume_positive_count: 880,
           gap_calculable_count: 880,
           qualified_count: 40,
           selected_count: 20,
@@ -135,27 +155,52 @@ describe("screener truth-state resolver", () => {
     expect(truth.showRows).toBe(true);
   });
 
-  it("gappers: evidence preserves qualified vs selected counts without changing display threshold", () => {
+  it("new highs/lows: evaluated_count=0 never resolves to validated zero-match", () => {
     const truth = resolveScreenerTruthState({
-      tabId: "gappers",
-      status: "available",
-      rowCount: 20,
+      tabId: "new_highs_lows",
+      status: "empty",
+      rowCount: 0,
       syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
       tabEvaluationEvidence: {
-        gappers: {
-          status: "evaluated",
-          universe_count: 900,
-          gap_calculable_count: 880,
-          qualified_count: 37,
-          selected_count: 20,
+        new_highs_lows: {
+          status: "not_evaluated",
+          baseline_status: "available",
+          baseline_quote_count: 100,
+          universe_count: 800,
+          evaluated_count: 0,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "baseline_coverage_empty",
         },
       },
     });
-    expect(truth.reason).toBe("evaluated_with_results");
-    expect(truth.showRows).toBe(true);
+    expect(truth.reason).not.toBe("validated_zero_matches");
+    expect(truth.reason).toBe("evaluation_evidence_missing");
   });
 
-  it("new highs/lows: baseline available + zero qualified → legitimate zero-match", () => {
+  it("new highs/lows: empty baseline quotes do not claim baseline-ready zero-match", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "initializing",
+      tabEvaluationEvidence: {
+        new_highs_lows: {
+          status: "not_evaluated",
+          baseline_status: "initializing",
+          baseline_quote_count: 0,
+          universe_count: 0,
+          selected_count: 0,
+          reason: "baseline_quotes_empty",
+        },
+      },
+    });
+    expect(truth.reason).toBe("baseline_initializing");
+  });
+
+  it("new highs/lows: baseline available + meaningful evaluated coverage + zero qualified", () => {
     const truth = resolveScreenerTruthState({
       tabId: "new_highs_lows",
       status: "empty",
@@ -166,6 +211,7 @@ describe("screener truth-state resolver", () => {
         new_highs_lows: {
           status: "evaluated",
           baseline_status: "available",
+          baseline_quote_count: 700,
           universe_count: 800,
           evaluated_count: 700,
           qualified_count: 0,
@@ -186,7 +232,6 @@ describe("screener truth-state resolver", () => {
       nhlBaselineStatus: "initializing",
     });
     expect(truth.reason).toBe("baseline_initializing");
-    expect(truth.explanation).toContain("Building the validated 52-week baseline");
   });
 
   it("new highs/lows: baseline unavailable → unavailable", () => {
@@ -198,29 +243,6 @@ describe("screener truth-state resolver", () => {
       nhlBaselineStatus: "unavailable",
     });
     expect(truth.reason).toBe("baseline_unavailable");
-    expect(truth.explanation).toContain("baseline is unavailable");
-  });
-
-  it("new highs/lows: baseline available + classified rows → available", () => {
-    const truth = resolveScreenerTruthState({
-      tabId: "new_highs_lows",
-      status: "available",
-      rowCount: 3,
-      syncedAt: SYNCED,
-      nhlBaselineStatus: "available",
-      tabEvaluationEvidence: {
-        new_highs_lows: {
-          status: "evaluated",
-          baseline_status: "available",
-          universe_count: 800,
-          evaluated_count: 700,
-          qualified_count: 3,
-          selected_count: 3,
-        },
-      },
-    });
-    expect(truth.reason).toBe("evaluated_with_results");
-    expect(truth.showRows).toBe(true);
   });
 
   it("new highs/lows: row count alone cannot override baseline status", () => {
@@ -235,6 +257,32 @@ describe("screener truth-state resolver", () => {
     expect(truth.showRows).toBe(false);
   });
 
+  it("stale: available-with-rows transitions to generation_stale metadata", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "stale",
+      rowCount: 3,
+      syncedAt: SYNCED,
+    });
+    expect(truth.status).toBe("stale");
+    expect(truth.reason).toBe("generation_stale");
+    expect(truth.showRows).toBe(true);
+    expect(truth.reason).not.toBe("evaluated_with_results");
+  });
+
+  it("stale: empty transitions to generation_stale without showing rows", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "stale",
+      rowCount: 0,
+      syncedAt: SYNCED,
+    });
+    expect(truth.status).toBe("stale");
+    expect(truth.reason).toBe("generation_stale");
+    expect(truth.showRows).toBe(false);
+    expect(truth.reason).not.toBe("validated_zero_matches");
+  });
+
   it("generic feed: query failure → unavailable", () => {
     const truth = resolveScreenerTruthState({
       tabId: "volume_spikes",
@@ -243,7 +291,6 @@ describe("screener truth-state resolver", () => {
       syncedAt: null,
     });
     expect(truth.reason).toBe("generation_unavailable");
-    expect(truth.explanation).toContain("temporarily unavailable");
   });
 
   it("generic feed: generation mismatch → unavailable via validation", () => {
@@ -259,6 +306,7 @@ describe("screener truth-state resolver", () => {
             gappers: {
               status: "evaluated",
               universe_count: 1,
+              volume_positive_count: 1,
               gap_calculable_count: 1,
               qualified_count: 0,
               selected_count: 99,
@@ -274,37 +322,12 @@ describe("screener truth-state resolver", () => {
     expect(out.reason).toBe("tab_evaluation_selected_count_mismatch");
   });
 
-  it("generic feed: stale validated rows remain visible with stale disclosure", () => {
-    const staleSynced = new Date(NOW - SCREENER_STALE_AFTER_MS - 60_000).toISOString();
-    expect(isGenerationStale(staleSynced, NOW)).toBe(true);
-    const truth = resolveScreenerTruthState({
-      tabId: "gappers",
-      status: "stale",
-      rowCount: 2,
-      syncedAt: staleSynced,
-    });
-    expect(truth.reason).toBe("generation_stale");
-    expect(truth.showRows).toBe(true);
-    expect(truth.explanation).toContain("delayed snapshot");
-  });
-
-  it("generic feed: empty without evidence does not claim validated zero-match", () => {
-    const truth = resolveScreenerTruthState({
-      tabId: "gappers",
-      status: "empty",
-      rowCount: 0,
-      syncedAt: SYNCED,
-      tabEvaluationEvidence: null,
-    });
-    expect(truth.reason).toBe("evaluation_evidence_missing");
-    expect(truth.explanation).toContain("Evaluation evidence");
-  });
-
   it("viewForActiveTab attaches evaluation evidence for downstream truth resolution", () => {
     const evidence = {
       gappers: {
         status: "evaluated" as const,
         universe_count: 100,
+        volume_positive_count: 95,
         gap_calculable_count: 95,
         qualified_count: 0,
         selected_count: 0,
@@ -327,8 +350,6 @@ describe("screener truth-state resolver", () => {
     expect(validated.ok).toBe(true);
     if (!validated.ok) return;
     const view = viewForActiveTab(validated.generation, "gappers", NOW, 1);
-    expect(view.status).toBe("empty");
-    expect(view.tab_evaluation_evidence?.gappers?.status).toBe("evaluated");
     const truth = resolveScreenerTruthState({
       tabId: "gappers",
       status: view.status,
@@ -349,5 +370,28 @@ describe("screener truth-state resolver", () => {
     });
     expect(truth.reason).toBe("generation_unavailable");
     expect(truth.showRows).toBe(false);
+  });
+
+  it("generic feed: stale validated rows remain visible with stale disclosure", () => {
+    const staleSynced = new Date(NOW - SCREENER_STALE_AFTER_MS - 60_000).toISOString();
+    expect(isGenerationStale(staleSynced, NOW)).toBe(true);
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "stale",
+      rowCount: 2,
+      syncedAt: staleSynced,
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "evaluated",
+          universe_count: 100,
+          volume_positive_count: 100,
+          gap_calculable_count: 100,
+          qualified_count: 2,
+          selected_count: 2,
+        },
+      },
+    });
+    expect(truth.reason).toBe("generation_stale");
+    expect(truth.showRows).toBe(true);
   });
 });

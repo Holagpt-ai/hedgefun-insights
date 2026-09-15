@@ -136,7 +136,7 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       return { status: "unavailable", quotes: new Map() };
     }
     if (status === "empty") {
-      return { status: "available", quotes: new Map() };
+      return { status: "initializing", quotes: new Map() };
     }
     if (
       status !== "available" || typeof generationId !== "string" ||
@@ -369,16 +369,27 @@ export async function handleSyncScreenerData(
     nhlSelected,
   });
 
-  const { data: rowsInserted, error: rpcError } = await sb.rpc(
-    REPLACE_GENERATION_RPC,
-    {
-      p_rows: allRows,
-      p_sync_run_id: syncRunId,
-      p_synced_at: syncedAt,
-      p_nhl_baseline_status: nhlBaseline.status,
-      p_tab_evaluation_evidence: tabEvaluationEvidence,
-    },
-  );
+  const rpcBase = {
+    p_rows: allRows,
+    p_sync_run_id: syncRunId,
+    p_synced_at: syncedAt,
+    p_nhl_baseline_status: nhlBaseline.status,
+  };
+  let rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, {
+    ...rpcBase,
+    p_tab_evaluation_evidence: tabEvaluationEvidence,
+  });
+  if (rpcResult.error) {
+    const message = String(rpcResult.error.message ?? "").toLowerCase();
+    const missingEvidenceRpc =
+      message.includes("p_tab_evaluation_evidence") ||
+      message.includes("could not find the function") ||
+      message.includes("function public.replace_screener_results_generation_v1(");
+    if (missingEvidenceRpc) {
+      rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, rpcBase);
+    }
+  }
+  const { data: rowsInserted, error: rpcError } = rpcResult;
   if (rpcError) {
     console.error("[sync-screener-data] replace generation failed");
     return json({ error: "database_error" }, 500);

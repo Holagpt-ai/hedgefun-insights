@@ -6,6 +6,8 @@ import {
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import {
   getTabEvaluationEvidence,
+  gappersEvidenceSupportsZeroMatch,
+  nhlEvidenceSupportsZeroMatch,
   type GappersTabEvidence,
   type NhlTabEvidence,
   type TabEvaluationEvidenceMap,
@@ -97,7 +99,8 @@ function resolveEmptyReason(
     if (nhlBaselineStatus === "initializing") return "baseline_initializing";
     if (nhlBaselineStatus === "unavailable") return "baseline_unavailable";
     const nhlEvidence = evidence as NhlTabEvidence | null;
-    if (nhlEvidence?.status === "evaluated") return "validated_zero_matches";
+    if (nhlEvidenceSupportsZeroMatch(nhlEvidence)) return "validated_zero_matches";
+    if (nhlEvidence?.status === "not_evaluated") return "evaluation_evidence_missing";
     return "evaluation_evidence_missing";
   }
 
@@ -107,7 +110,10 @@ function resolveEmptyReason(
     if (gappersEvidence.status === "prerequisite_unavailable") {
       return "prerequisite_unavailable";
     }
-    if (gappersEvidence.status === "evaluated" && gappersEvidence.qualified_count === 0) {
+    if (
+      gappersEvidenceSupportsZeroMatch(gappersEvidence) &&
+      gappersEvidence.qualified_count === 0
+    ) {
       return "validated_zero_matches";
     }
     return "evaluation_evidence_missing";
@@ -167,8 +173,9 @@ function copyForReason(
 }
 
 /**
- * Canonical truth-state resolver for Screener desktop and mobile surfaces.
- * UI must not infer evaluation outcome from row length alone.
+ * Canonical truth-state resolver for screener-results tabs rendered via
+ * ScreenerTable (desktop + mobile). Day Trade Radar V2 uses Radar Sentinel
+ * copy and remains outside this contract by design.
  */
 export function resolveScreenerTruthState(
   input: ResolveScreenerTruthStateInput,

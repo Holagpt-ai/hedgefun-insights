@@ -1,5 +1,19 @@
 -- Screener Truth-State V1: persist compact per-tab evaluation evidence on feed state.
 -- Forward-only. Does not modify historical migrations.
+--
+-- ROLLOUT ORDER (migration-first, backward-compatible callers):
+--   1. Apply this migration (adds tab_evaluation_evidence + 5-arg RPC with DEFAULT NULL).
+--   2. Deploy sync-screener-data Edge Function (passes evidence; falls back to 4-arg RPC).
+--   3. Deploy frontend (selects evidence via fetchScreenerFeedState fallback).
+--
+-- ROLLBACK ORDER (reverse):
+--   1. Revert frontend to a build without tab_evaluation_evidence SELECT (fallback still safe).
+--   2. Revert Edge Function to stop passing p_tab_evaluation_evidence (4-arg RPC still valid).
+--   3. Do NOT drop the column in-place unless also reverting RPC; prefer forward-fix.
+--
+-- PRE-MIGRATION SAFETY:
+--   - Frontend fetchScreenerFeedState() retries without tab_evaluation_evidence on missing column.
+--   - sync-screener-data retries replace_screener_results_generation_v1 without evidence param.
 
 ALTER TABLE public.screener_feed_state
   ADD COLUMN IF NOT EXISTS tab_evaluation_evidence jsonb;

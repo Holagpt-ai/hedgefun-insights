@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchScreenerFeedState } from "@/lib/screeners/screener-feed-fetch";
 import {
   loadVerifiedScreenerGeneration,
   MAX_ROWS_FETCH,
@@ -33,9 +34,6 @@ import type { TabEvaluationEvidenceMap } from "@/lib/screeners/tab-evaluation-ev
 import type { NhlBaselineStatus } from "@/lib/screeners/contract";
 
 export type { ScreenerResultRow, ScreenerUiStatus };
-
-const STATE_SELECT =
-  "state_key,sync_run_id,status,synced_at,provider_as_of_min,provider_as_of_max,rows_inserted,tab_counts,nhl_baseline_status,tab_evaluation_evidence,updated_at";
 
 const ROW_SELECT = [
   "tab_id",
@@ -77,7 +75,7 @@ async function loadRadarEnrichmentContext(
 
 async function fetchGenerationOnce() {
   const [stateRes, rowsRes] = await Promise.all([
-    supabase.from("screener_feed_state").select(STATE_SELECT).eq("state_key", "current"),
+    fetchScreenerFeedState(),
     supabase
       .from("screener_results")
       .select(ROW_SELECT)
@@ -96,9 +94,9 @@ async function fetchGenerationOnce() {
   ]);
 
   return {
-    stateRows: (stateRes.data ?? null) as ScreenerFeedState[] | null,
+    stateRows: stateRes.stateRows,
     resultRows: (rowsRes.data ?? null) as unknown as ScreenerResultRow[] | null,
-    stateError: stateRes.error,
+    stateError: stateRes.stateError,
     resultError: rowsRes.error,
   };
 }
@@ -141,6 +139,8 @@ export function useScreenerData(
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let hasLoadedOnce = false;
     let lastVerifiedRadar: RadarV2Decision | null = null;
+    const lastViewRef = { current: null as ScreenerTabView | null };
+    const lastSourceRef = { current: null as ScreenerDataSource | null };
 
     const clearStaleTimer = () => {
       if (staleTimer !== null) {
@@ -166,6 +166,8 @@ export function useScreenerData(
       setStatus(view.status);
       setNhlBaselineStatus(view.nhl_baseline_status ?? null);
       setTabEvaluationEvidence(view.tab_evaluation_evidence ?? null);
+      lastViewRef.current = view;
+      lastSourceRef.current = resolvedSource;
       setTruthState(
         resolveScreenerTruthState({
           tabId,
@@ -202,7 +204,20 @@ export function useScreenerData(
         if (delay !== null) {
           staleTimer = setTimeout(() => {
             if (cancelled) return;
+            const staleView = lastViewRef.current;
+            if (!staleView) return;
             setStatus("stale");
+            setTruthState(
+              resolveScreenerTruthState({
+                tabId,
+                status: "stale",
+                rowCount: staleView.rows.length,
+                syncedAt: staleView.synced_at,
+                nhlBaselineStatus: staleView.nhl_baseline_status,
+                tabEvaluationEvidence: staleView.tab_evaluation_evidence,
+                source: lastSourceRef.current,
+              }),
+            );
           }, delay);
         }
       }

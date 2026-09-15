@@ -11,6 +11,7 @@ export type TabEvidenceEvaluationStatus = "evaluated" | "prerequisite_unavailabl
 export interface GappersTabEvidence {
   status: TabEvidenceEvaluationStatus;
   universe_count: number;
+  volume_positive_count: number;
   gap_calculable_count: number;
   qualified_count: number;
   selected_count: number;
@@ -20,6 +21,7 @@ export interface GappersTabEvidence {
 export interface NhlTabEvidence {
   status: "evaluated" | "not_evaluated";
   baseline_status: NhlBaselineStatus;
+  baseline_quote_count: number;
   universe_count: number;
   evaluated_count?: number;
   qualified_count?: number;
@@ -84,9 +86,16 @@ function parseGappersTabEvidence(raw: unknown): GappersTabEvidence | null {
   ) {
     return null;
   }
+  const volume_positive_count = isNonNegativeInt(obj.volume_positive_count)
+    ? obj.volume_positive_count
+    : obj.status === "evaluated" && isNonNegativeInt(obj.universe_count)
+      ? obj.universe_count
+      : null;
+  if (volume_positive_count === null) return null;
   return {
     status: obj.status,
     universe_count: obj.universe_count,
+    volume_positive_count,
     gap_calculable_count: obj.gap_calculable_count,
     qualified_count: obj.qualified_count,
     selected_count: obj.selected_count,
@@ -102,6 +111,11 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
   if (!isNonNegativeInt(obj.universe_count) || !isNonNegativeInt(obj.selected_count)) {
     return null;
   }
+  const baseline_quote_count = isNonNegativeInt(obj.baseline_quote_count)
+    ? obj.baseline_quote_count
+    : obj.status === "evaluated"
+      ? 1
+      : 0;
   if (obj.evaluated_count !== undefined && !isNonNegativeInt(obj.evaluated_count)) {
     return null;
   }
@@ -111,6 +125,7 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
   return {
     status: obj.status,
     baseline_status,
+    baseline_quote_count,
     universe_count: obj.universe_count,
     evaluated_count: obj.evaluated_count as number | undefined,
     qualified_count: obj.qualified_count as number | undefined,
@@ -147,4 +162,24 @@ export function getTabEvaluationEvidence(
 ): TabEvaluationEvidence | null {
   if (!map) return null;
   return (map[tabId as ManagedTabId] as TabEvaluationEvidence | undefined) ?? null;
+}
+
+export function gappersEvidenceSupportsZeroMatch(
+  evidence: GappersTabEvidence | null | undefined,
+): boolean {
+  if (!evidence || evidence.status !== "evaluated") return false;
+  return (
+    evidence.universe_count > 0 &&
+    evidence.volume_positive_count > 0 &&
+    evidence.gap_calculable_count === evidence.volume_positive_count
+  );
+}
+
+export function nhlEvidenceSupportsZeroMatch(
+  evidence: NhlTabEvidence | null | undefined,
+): boolean {
+  if (!evidence || evidence.status !== "evaluated") return false;
+  if (evidence.baseline_status !== "available") return false;
+  if (evidence.baseline_quote_count <= 0) return false;
+  return (evidence.evaluated_count ?? 0) > 0 && evidence.qualified_count === 0;
 }
