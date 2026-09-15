@@ -111,8 +111,12 @@ function sameExclusion(
 
 type ProductionPointer = {
   generation_id: string | null;
+  status: "available" | "empty" | "initializing" | "unavailable";
+  symbol_count: number;
   policy_min_sessions: number | null;
   policy_excluded_count: number | null;
+  published_baseline_count: number;
+  published_exclusion_count: number;
 };
 
 class MemoryStagingStore {
@@ -121,14 +125,19 @@ class MemoryStagingStore {
   exclusions = new Map<string, BaselineExclusionPayload>();
   production: ProductionPointer = {
     generation_id: PRIOR_GEN,
+    status: "available",
+    symbol_count: 1,
     policy_min_sessions: null,
     policy_excluded_count: null,
+    published_baseline_count: 1,
+    published_exclusion_count: 0,
   };
   replaceCalls = 0;
   startCalls = 0;
   rowAppendCalls = 0;
   exclusionAppendCalls = 0;
   finalizeCalls = 0;
+  lastFinalizeSymbolCount: number | null = null;
 
   start(args: StartPublishArgs): { error: { message: string } | null } {
     this.startCalls += 1;
@@ -183,10 +192,30 @@ class MemoryStagingStore {
     return { error: null };
   }
 
+  replayIfAlreadyCurrent(
+    generationId: string,
+  ): { error: { message: string } | null } {
+    if (
+      this.production.generation_id === generationId &&
+      (this.production.status === "available" ||
+        this.production.status === "empty") &&
+      this.production.policy_min_sessions != null &&
+      this.production.policy_excluded_count != null &&
+      this.production.published_baseline_count ===
+        this.production.symbol_count &&
+      this.production.published_exclusion_count ===
+        this.production.policy_excluded_count
+    ) {
+      this.lastFinalizeSymbolCount = this.production.symbol_count;
+      return { error: null };
+    }
+    return { error: { message: "wrong generation" } };
+  }
+
   finalize(args: FinalizePublishArgs): { error: { message: string } | null } {
     this.finalizeCalls += 1;
     if (!this.job || this.job.p_generation_id !== args.p_generation_id) {
-      return { error: { message: "wrong generation" } };
+      return this.replayIfAlreadyCurrent(args.p_generation_id);
     }
     if (this.rows.size !== this.job.p_expected_baseline_count) {
       return { error: { message: "expected/actual baseline count mismatch" } };
@@ -215,11 +244,17 @@ class MemoryStagingStore {
       }
     }
     this.replaceCalls += 1;
+    const symbolCount = this.rows.size;
     this.production = {
       generation_id: args.p_generation_id,
+      status: symbolCount === 0 ? "empty" : "available",
+      symbol_count: symbolCount,
       policy_min_sessions: this.job.p_min_sessions,
       policy_excluded_count: this.exclusions.size,
+      published_baseline_count: symbolCount,
+      published_exclusion_count: this.exclusions.size,
     };
+    this.lastFinalizeSymbolCount = symbolCount;
     this.rows.clear();
     this.exclusions.clear();
     this.job = null;
@@ -606,6 +641,143 @@ Deno.test("successful finalizer sets policy_min_sessions 120 and exact excluded 
   assertEquals(store.production.policy_excluded_count, 2);
   assertEquals(store.job, null);
   assertEquals(store.rows.size, 0);
+});
+
+Deno.test("finalize retry after cleanup is idempotent and does not republish", () => {
+  const store = new MemoryStagingStore();
+  store.start({
+    p_generation_id: GEN,
+    p_period_start: START,
+    p_period_end: END,
+    p_provider_as_of: AS_OF,
+    p_expected_baseline_count: 2,
+    p_expected_exclusion_count: 1,
+    p_min_sessions: 120,
+  });
+  store.appendRows({
+    p_generation_id: GEN,
+    p_rows: [validRow("AAPL"), validRow("MSFT")],
+  });
+  store.appendExclusions({
+    p_generation_id: GEN,
+    p_exclusions: [validExclusion("IPO")],
+  });
+  const first = store.finalize({ p_generation_id: GEN });
+  assertEquals(first.error, null);
+  assertEquals(store.replaceCalls, 1);
+  assertEquals(store.lastFinalizeSymbolCount, 2);
+  assertEquals(store.job, null);
+  assertEquals(store.rows.size, 0);
+  assertEquals(store.exclusions.size, 0);
+
+  const retry = store.finalize({ p_generation_id: GEN });
+  assertEquals(retry.error, null);
+  assertEquals(store.replaceCalls, 1);
+  assertEquals(store.lastFinalizeSymbolCount, 2);
+  assertEquals(store.job, null);
+  assertEquals(store.rows.size, 0);
+  assertEquals(store.exclusions.size, 0);
+  assertEquals(store.production.generation_id, GEN);
+  assertEquals(store.production.symbol_count, 2);
+});
+
+Deno.test("old finalize retry does not delete a newer staging generation", () => {
+  const store = new MemoryStagingStore();
+  store.start({
+    p_generation_id: GEN,
+    p_period_start: START,
+    p_period_end: END,
+    p_provider_as_of: AS_OF,
+    p_expected_baseline_count: 1,
+    p_expected_exclusion_count: 0,
+    p_min_sessions: 120,
+  });
+  store.appendRows({ p_generation_id: GEN, p_rows: [validRow("AAPL")] });
+  assertEquals(store.finalize({ p_generation_id: GEN }).error, null);
+  assertEquals(store.replaceCalls, 1);
+
+  store.start({
+    p_generation_id: OTHER_GEN,
+    p_period_start: START,
+    p_period_end: END,
+    p_provider_as_of: AS_OF,
+    p_expected_baseline_count: 1,
+    p_expected_exclusion_count: 0,
+    p_min_sessions: 120,
+  });
+  store.appendRows({
+    p_generation_id: OTHER_GEN,
+    p_rows: [validRow("MSFT")],
+  });
+  const retry = store.finalize({ p_generation_id: GEN });
+  assertEquals(retry.error, null);
+  assertEquals(store.replaceCalls, 1);
+  assertEquals(store.job?.p_generation_id, OTHER_GEN);
+  assertEquals(store.rows.has("MSFT"), true);
+  assertEquals(store.production.generation_id, GEN);
+});
+
+Deno.test("old finalize retry fails once another generation is current", () => {
+  const store = new MemoryStagingStore();
+  store.start({
+    p_generation_id: GEN,
+    p_period_start: START,
+    p_period_end: END,
+    p_provider_as_of: AS_OF,
+    p_expected_baseline_count: 1,
+    p_expected_exclusion_count: 0,
+    p_min_sessions: 120,
+  });
+  store.appendRows({ p_generation_id: GEN, p_rows: [validRow("AAPL")] });
+  assertEquals(store.finalize({ p_generation_id: GEN }).error, null);
+
+  store.start({
+    p_generation_id: OTHER_GEN,
+    p_period_start: START,
+    p_period_end: END,
+    p_provider_as_of: AS_OF,
+    p_expected_baseline_count: 1,
+    p_expected_exclusion_count: 0,
+    p_min_sessions: 120,
+  });
+  store.appendRows({
+    p_generation_id: OTHER_GEN,
+    p_rows: [validRow("MSFT")],
+  });
+  assertEquals(store.finalize({ p_generation_id: OTHER_GEN }).error, null);
+  assertEquals(store.production.generation_id, OTHER_GEN);
+  assertEquals(store.replaceCalls, 2);
+
+  const retry = store.finalize({ p_generation_id: GEN });
+  assertEquals(retry.error?.message, "wrong generation");
+  assertEquals(store.replaceCalls, 2);
+  assertEquals(store.production.generation_id, OTHER_GEN);
+});
+
+Deno.test("missing job plus unrelated current generation fails closed", () => {
+  const store = new MemoryStagingStore();
+  const result = store.finalize({ p_generation_id: GEN });
+  assertEquals(result.error?.message, "wrong generation");
+  assertEquals(store.replaceCalls, 0);
+  assertEquals(store.production.generation_id, PRIOR_GEN);
+  assertEquals(store.job, null);
+});
+
+Deno.test("current generation with NULL policy evidence is not an idempotent success", () => {
+  const store = new MemoryStagingStore();
+  store.production = {
+    generation_id: GEN,
+    status: "available",
+    symbol_count: 1,
+    policy_min_sessions: null,
+    policy_excluded_count: null,
+    published_baseline_count: 1,
+    published_exclusion_count: 0,
+  };
+  const result = store.finalize({ p_generation_id: GEN });
+  assertEquals(result.error?.message, "wrong generation");
+  assertEquals(store.replaceCalls, 0);
+  assertEquals(store.job, null);
 });
 
 Deno.test("payload size proof: staged requests stay far below the 14.8 MB one-shot", () => {

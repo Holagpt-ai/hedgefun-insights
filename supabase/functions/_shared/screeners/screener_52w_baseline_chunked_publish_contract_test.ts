@@ -123,6 +123,14 @@ Deno.test("static: finalize reconstructs payloads and delegates to exclusion-awa
   assert(deleteJobAt > replaceAt, "job cleanup after replace");
   assertFalse(body.includes("status = 'failed'"));
   assert(body.includes("job stays status='staging'"));
+  assert(body.includes("Lost-response replay"));
+  assert(body.includes("policy_min_sessions IS NOT NULL"));
+  assert(body.includes("policy_excluded_count IS NOT NULL"));
+  assert(body.includes("status IN ('available', 'empty')"));
+  assert(body.includes("RETURN v_state.symbol_count"));
+  const replayAt = body.indexOf("Lost-response replay");
+  assert(replayAt >= 0 && replayAt < replaceAt, "replay check before replace");
+  assertFalse(body.includes("DELETE FROM public.screener_52w_baseline_publish_job\n  WHERE job_key = 'current';"));
 });
 
 Deno.test("static: append RPCs reject conflicting retries and accept identical ones", async () => {

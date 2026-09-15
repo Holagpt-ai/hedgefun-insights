@@ -528,8 +528,11 @@ SET search_path = ''
 AS $fn$
 DECLARE
   v_job public.screener_52w_baseline_publish_job%ROWTYPE;
+  v_state public.screener_52w_baseline_state%ROWTYPE;
   v_row_count integer := 0;
   v_excl_count integer := 0;
+  v_actual_rows integer := 0;
+  v_actual_excl integer := 0;
   v_rows jsonb := '[]'::jsonb;
   v_exclusions jsonb := '[]'::jsonb;
   v_status text;
@@ -544,7 +547,32 @@ BEGIN
   WHERE job_key = 'current'
   FOR UPDATE;
 
+  -- Lost-response replay: if this generation is already the current
+  -- exclusion-aware production pointer, succeed without republishing
+  -- and without touching another generation's staging job.
   IF NOT FOUND OR v_job.generation_id IS DISTINCT FROM p_generation_id THEN
+    SELECT * INTO v_state
+    FROM public.screener_52w_baseline_state
+    WHERE state_key = 'current'
+    FOR UPDATE;
+
+    IF FOUND
+       AND v_state.current_generation_id IS NOT DISTINCT FROM p_generation_id
+       AND v_state.status IN ('available', 'empty')
+       AND v_state.policy_min_sessions IS NOT NULL
+       AND v_state.policy_excluded_count IS NOT NULL THEN
+      SELECT COUNT(*) INTO v_actual_rows
+      FROM public.screener_52w_baselines
+      WHERE generation_id = p_generation_id;
+      SELECT COUNT(*) INTO v_actual_excl
+      FROM public.screener_52w_baseline_exclusions
+      WHERE generation_id = p_generation_id;
+      IF v_actual_rows IS NOT DISTINCT FROM v_state.symbol_count
+         AND v_actual_excl IS NOT DISTINCT FROM v_state.policy_excluded_count THEN
+        RETURN v_state.symbol_count;
+      END IF;
+    END IF;
+
     RAISE EXCEPTION 'wrong generation';
   END IF;
 
