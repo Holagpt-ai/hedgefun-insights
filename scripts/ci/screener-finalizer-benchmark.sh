@@ -73,6 +73,7 @@ SQL
 
 LINEAGE=(
   "20260813190000_screener_52w_baselines.sql"
+  "20260814180000_screener_52w_baseline_job.sql"
   "20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql"
   "20260915180000_screener_prerequisite_eligibility_v1.sql"
   "20260915200000_screener_52w_baseline_chunked_publish_v1.sql"
