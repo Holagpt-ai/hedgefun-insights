@@ -103,6 +103,8 @@ describe("screener truth-state resolver", () => {
           universe_count: 500,
           volume_positive_count: 480,
           gap_calculable_count: 480,
+          no_prior_session_count: 0,
+          unresolved_gap_input_count: 0,
           qualified_count: 0,
           selected_count: 0,
         },
@@ -110,6 +112,26 @@ describe("screener truth-state resolver", () => {
     });
     expect(truth.reason).toBe("validated_zero_matches");
     expect(truth.explanation).toContain("No securities met this screener");
+  });
+
+  it("gappers: old evidence lacking accounting fields cannot certify zero", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "evaluated",
+          universe_count: 500,
+          volume_positive_count: 480,
+          gap_calculable_count: 480,
+          qualified_count: 0,
+          selected_count: 0,
+        },
+      },
+    });
+    expect(truth.reason).not.toBe("validated_zero_matches");
   });
 
   it("gappers: zero calculable rows does not claim validated zero-match", () => {
@@ -349,13 +371,38 @@ describe("screener truth-state resolver", () => {
           universe_count: 800,
           eligible_count: 700,
           evaluated_count: 700,
+          policy_excluded_count: 0,
+          unresolved_count: 0,
           qualified_count: 0,
           selected_count: 0,
         },
       },
     });
     expect(truth.reason).toBe("validated_zero_matches");
-    expect(truth.explanation).toContain("Baseline ready");
+    expect(truth.explanation).toContain("sufficient validated baseline history");
+  });
+
+  it("new highs/lows: old evidence lacking accounting fields cannot certify zero", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+      tabEvaluationEvidence: {
+        new_highs_lows: {
+          status: "evaluated",
+          baseline_status: "available",
+          baseline_quote_count: 700,
+          universe_count: 800,
+          eligible_count: 700,
+          evaluated_count: 700,
+          qualified_count: 0,
+          selected_count: 0,
+        },
+      },
+    });
+    expect(truth.reason).not.toBe("validated_zero_matches");
   });
 
   it("new highs/lows: baseline initializing → initializing", () => {
@@ -464,6 +511,8 @@ describe("screener truth-state resolver", () => {
         universe_count: 100,
         volume_positive_count: 95,
         gap_calculable_count: 95,
+        no_prior_session_count: 0,
+        unresolved_gap_input_count: 0,
         qualified_count: 0,
         selected_count: 0,
       },

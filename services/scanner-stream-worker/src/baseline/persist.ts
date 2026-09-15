@@ -2,12 +2,16 @@ import {
   type CalendarExceptionRow,
   isIsoDate,
 } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
+import type { BaselineExclusionPayload } from "../../../../supabase/functions/_shared/screeners/baseline-exclusion-publish.ts";
+import { parseValidatedBaselineExclusions } from "../../../../supabase/functions/_shared/screeners/baseline-exclusion-publish.ts";
 import type { Candidate } from "./deque.ts";
 import type { FetchLike } from "./grouped.ts";
 import { isValidHighLow, normalizeSymbol } from "./grouped.ts";
 
 export const REPLACE_GENERATION_RPC =
   "replace_screener_52w_baseline_generation_v1";
+export const REPLACE_GENERATION_WITH_EXCLUSIONS_RPC =
+  "replace_screener_52w_baseline_generation_with_exclusions_v1";
 export const STATE_TABLE = "screener_52w_baseline_state";
 export const STATE_KEY = "current";
 
@@ -39,6 +43,8 @@ export type BaselineState = {
   period_end: string | null;
   symbol_count: number;
   provider_as_of: string | null;
+  policy_min_sessions?: number | null;
+  policy_excluded_count?: number | null;
 };
 
 export type ReplaceGenerationArgs = {
@@ -53,6 +59,17 @@ export type ReplaceGenerationArgs = {
 export type RpcFn = (
   args: ReplaceGenerationArgs,
 ) => Promise<{ error: { message: string } | null }>;
+
+export type ReplaceGenerationWithExclusionsArgs = ReplaceGenerationArgs & {
+  p_exclusions: BaselineExclusionPayload[];
+  p_min_sessions: number;
+};
+
+export type ExclusionAwareRpcFn = (
+  args: ReplaceGenerationWithExclusionsArgs,
+) => Promise<{ error: { message: string } | null }>;
+
+export type { BaselineExclusionPayload };
 
 export type LoadStateFn = () => Promise<BaselineState | null>;
 
@@ -178,8 +195,87 @@ export async function publishGeneration(
       period_end: input.periodEnd,
       symbol_count: input.rows.length,
       provider_as_of: input.providerAsOf,
+      policy_min_sessions: null,
+      policy_excluded_count: null,
     },
   };
+}
+
+export async function publishGenerationWithExclusions(
+  rpc: ExclusionAwareRpcFn,
+  input: {
+    generationId: string;
+    rows: BaselineRow[];
+    exclusions: BaselineExclusionPayload[];
+    minSessions: number;
+    periodStart: string;
+    periodEnd: string;
+    providerAsOf: string;
+  },
+): Promise<PublishResult> {
+  const status: "available" | "empty" = input.rows.length === 0
+    ? "empty"
+    : "available";
+  if (
+    !validateGeneration(
+      input.rows,
+      input.periodStart,
+      input.periodEnd,
+      input.generationId,
+      input.providerAsOf,
+    )
+  ) {
+    return { ok: false, code: "validation_failed" };
+  }
+  const exclusions = parseValidatedBaselineExclusions(
+    input.exclusions,
+    input.minSessions,
+    input.rows,
+  );
+  if (!exclusions) return { ok: false, code: "validation_failed" };
+
+  const args: ReplaceGenerationWithExclusionsArgs = {
+    p_generation_id: input.generationId,
+    p_rows: input.rows,
+    p_period_start: input.periodStart,
+    p_period_end: input.periodEnd,
+    p_provider_as_of: input.providerAsOf,
+    p_status: status,
+    p_exclusions: exclusions,
+    p_min_sessions: input.minSessions,
+  };
+
+  try {
+    const result = await rpc(args);
+    if (result.error) return { ok: false, code: "persist_failed" };
+  } catch {
+    return { ok: false, code: "persist_failed" };
+  }
+
+  return {
+    ok: true,
+    state: {
+      current_generation_id: input.generationId,
+      status,
+      period_start: input.periodStart,
+      period_end: input.periodEnd,
+      symbol_count: input.rows.length,
+      provider_as_of: input.providerAsOf,
+      policy_min_sessions: input.minSessions,
+      policy_excluded_count: exclusions.length,
+    },
+  };
+}
+
+export function hasCompletePolicyExclusionEvidence(
+  state: BaselineState,
+  expectedMinSessions: number,
+): boolean {
+  const min = state.policy_min_sessions;
+  const count = state.policy_excluded_count;
+  return min === expectedMinSessions &&
+    Number.isInteger(min) && min >= 1 &&
+    typeof count === "number" && Number.isInteger(count) && count >= 0;
 }
 
 export function parseStateRow(raw: unknown): BaselineState | null {
@@ -206,6 +302,19 @@ export function parseStateRow(raw: unknown): BaselineState | null {
   if (!Number.isFinite(symbolCount) || symbolCount < 0) return null;
   const providerAsOf = row.provider_as_of;
   if (providerAsOf !== null && !isIsoTimestamp(providerAsOf)) return null;
+  let policyMin: number | null = null;
+  let policyCount: number | null = null;
+  if (row.policy_min_sessions != null && row.policy_excluded_count != null) {
+    const min = Number(row.policy_min_sessions);
+    const count = Number(row.policy_excluded_count);
+    if (
+      Number.isInteger(min) && min >= 1 &&
+      Number.isInteger(count) && count >= 0
+    ) {
+      policyMin = min;
+      policyCount = count;
+    }
+  }
   return {
     current_generation_id: generationId === null ? null : generationId,
     status,
@@ -213,6 +322,8 @@ export function parseStateRow(raw: unknown): BaselineState | null {
     period_end: periodEnd === null ? null : periodEnd,
     symbol_count: Math.trunc(symbolCount),
     provider_as_of: providerAsOf === null ? null : providerAsOf,
+    policy_min_sessions: policyMin,
+    policy_excluded_count: policyCount,
   };
 }
 
@@ -224,6 +335,8 @@ export function emptyState(): BaselineState {
     period_end: null,
     symbol_count: 0,
     provider_as_of: null,
+    policy_min_sessions: null,
+    policy_excluded_count: null,
   };
 }
 
@@ -259,7 +372,7 @@ export function createSupabaseStateLoader(opts: {
   return async () => {
     const url = `${opts.supabaseUrl}/rest/v1/${STATE_TABLE}` +
       `?state_key=eq.${STATE_KEY}` +
-      "&select=current_generation_id,status,period_start,period_end,symbol_count,provider_as_of" +
+      "&select=current_generation_id,status,period_start,period_end,symbol_count,provider_as_of,policy_min_sessions,policy_excluded_count" +
       "&limit=1";
     const res = await opts.fetch(url, {
       method: "GET",

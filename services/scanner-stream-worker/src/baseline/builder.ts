@@ -9,19 +9,21 @@ import {
   symbolsInWindow,
 } from "./grouped.ts";
 import {
+  type BaselineExclusionPayload,
   type BaselineRow,
   type BaselineState,
   emptyState,
+  hasCompletePolicyExclusionEvidence,
+  type ExclusionAwareRpcFn,
   type LoadStateFn,
-  publishGeneration,
-  type RpcFn,
+  publishGenerationWithExclusions,
 } from "./persist.ts";
 
 export type BaselineJobDeps = {
   nowMs: () => number;
   fetch: FetchLike;
   polygonApiKey: string;
-  rpc: RpcFn;
+  rpc: ExclusionAwareRpcFn;
   loadState: LoadStateFn;
   loadExceptions: () => Promise<CalendarExceptionRow[] | null>;
   minSessions: number;
@@ -45,6 +47,10 @@ export function createDailyCache(): DailyCache {
   return new Map();
 }
 
+export type SymbolBaselineBuild =
+  | { kind: "row"; row: BaselineRow }
+  | { kind: "exclusion"; exclusion: BaselineExclusionPayload };
+
 export function buildSymbolBaseline(
   symbol: string,
   datesAsc: string[],
@@ -53,7 +59,7 @@ export function buildSymbolBaseline(
   periodEnd: string,
   minSessions: number,
   providerAsOf: string,
-): BaselineRow | null {
+): SymbolBaselineBuild | null {
   const maxQ = new MonotonicMaxDeque();
   const minQ = new MonotonicMinDeque();
   let sessions = 0;
@@ -69,7 +75,18 @@ export function buildSymbolBaseline(
     minQ.expire(periodStart);
   }
 
-  if (sessions < minSessions) return null;
+  if (sessions < 1) return null;
+  if (sessions < minSessions) {
+    return {
+      kind: "exclusion",
+      exclusion: {
+        symbol,
+        reason: "insufficient_sessions",
+        sessions_observed: sessions,
+        min_sessions: minSessions,
+      },
+    };
+  }
   const high = maxQ.front();
   const low = minQ.front();
   if (!high || !low) return null;
@@ -77,29 +94,33 @@ export function buildSymbolBaseline(
   if (!Number.isFinite(high.v) || !Number.isFinite(low.v)) return null;
 
   return {
-    symbol,
-    period_start: periodStart,
-    period_end: periodEnd,
-    high_52w: high.v,
-    low_52w: low.v,
-    high_candidates: maxQ.toArray(),
-    low_candidates: minQ.toArray(),
-    sessions_observed: sessions,
-    provider_as_of: providerAsOf,
+    kind: "row",
+    row: {
+      symbol,
+      period_start: periodStart,
+      period_end: periodEnd,
+      high_52w: high.v,
+      low_52w: low.v,
+      high_candidates: maxQ.toArray(),
+      low_candidates: minQ.toArray(),
+      sessions_observed: sessions,
+      provider_as_of: providerAsOf,
+    },
   };
 }
 
-export function buildBaselineRows(
+export function buildBaselinePublication(
   cache: DailyCache,
   periodStart: string,
   periodEnd: string,
   minSessions: number,
   providerAsOf: string,
-): BaselineRow[] {
+): { rows: BaselineRow[]; exclusions: BaselineExclusionPayload[] } {
   const dates = weekdayDatesInclusive(periodStart, periodEnd);
   const rows: BaselineRow[] = [];
+  const exclusions: BaselineExclusionPayload[] = [];
   for (const symbol of symbolsInWindow(cache, dates)) {
-    const row = buildSymbolBaseline(
+    const built = buildSymbolBaseline(
       symbol,
       dates,
       cache,
@@ -108,9 +129,10 @@ export function buildBaselineRows(
       minSessions,
       providerAsOf,
     );
-    if (row) rows.push(row);
+    if (built?.kind === "row") rows.push(built.row);
+    else if (built?.kind === "exclusion") exclusions.push(built.exclusion);
   }
-  return rows;
+  return { rows, exclusions };
 }
 
 export async function runBaselineJob(
@@ -149,7 +171,8 @@ export async function runBaselineJob(
   const hasGeneration = prior.current_generation_id != null;
   if (
     hasGeneration &&
-    deps.lastSuccessfulPeriodEnd === window.periodEnd
+    deps.lastSuccessfulPeriodEnd === window.periodEnd &&
+    hasCompletePolicyExclusionEvidence(prior, deps.minSessions)
   ) {
     return {
       didRebuild: false,
@@ -185,7 +208,7 @@ export async function runBaselineJob(
 
   pruneCache(deps.cache, window.periodStart, window.periodEnd);
   const providerAsOf = new Date(nowMs).toISOString();
-  const rows = buildBaselineRows(
+  const { rows, exclusions } = buildBaselinePublication(
     deps.cache,
     window.periodStart,
     window.periodEnd,
@@ -193,9 +216,11 @@ export async function runBaselineJob(
     providerAsOf,
   );
   const generationId = (deps.newGenerationId ?? (() => crypto.randomUUID()))();
-  const published = await publishGeneration(deps.rpc, {
+  const published = await publishGenerationWithExclusions(deps.rpc, {
     generationId,
     rows,
+    exclusions,
+    minSessions: deps.minSessions,
     periodStart: window.periodStart,
     periodEnd: window.periodEnd,
     providerAsOf,

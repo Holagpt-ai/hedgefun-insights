@@ -2,6 +2,7 @@
 // Does not accept RPC/table names from the caller. Never logs secrets.
 
 import { RADAR_V22_LEASE_KEY } from "../_shared/radar-v22/types.ts";
+import { parseValidatedBaselineExclusions } from "../_shared/screeners/baseline-exclusion-publish.ts";
 import {
   authorizeRadarWorker,
   type EnvReader,
@@ -15,12 +16,16 @@ export const REPLACE_RADAR_RPC = "replace_radar_v22_generation_v1";
 export const REPLACE_RADAR_V2_RPC = "replace_radar_v22_candidates_v1";
 export const SET_RADAR_STATUS_RPC = "set_radar_v22_feed_status_v1";
 export const REPLACE_52W_RPC = "replace_screener_52w_baseline_generation_v1";
+export const REPLACE_52W_WITH_EXCLUSIONS_RPC =
+  "replace_screener_52w_baseline_generation_with_exclusions_v1";
 export const CALENDAR_TABLE = "market_session_calendar";
 export const BASELINE_STATE_TABLE = "screener_52w_baseline_state";
 
 const CALENDAR_SELECT =
   "session_date,market_status,regular_open_et,regular_close_et,after_hours_end_et,holiday_name";
 const BASELINE_STATE_SELECT =
+  "current_generation_id,status,period_start,period_end,symbol_count,provider_as_of,policy_min_sessions,policy_excluded_count";
+const BASELINE_STATE_SELECT_PRE_MIGRATION =
   "current_generation_id,status,period_start,period_end,symbol_count,provider_as_of";
 
 const JSON_HEADERS = { "Content-Type": "application/json" };
@@ -281,12 +286,42 @@ async function handleAction(
         p_status: body.p_status,
       }, rpcMeta);
     }
+    case "replace_52w_baseline_with_exclusions": {
+      if (typeof body.p_generation_id !== "string") {
+        return json({ error: "invalid_body" }, 400);
+      }
+      const exclusions = parseValidatedBaselineExclusions(
+        body.p_exclusions,
+        body.p_min_sessions,
+        body.p_rows,
+      );
+      if (!exclusions) {
+        return json({ error: "invalid_body" }, 400);
+      }
+      return await rpcResult(db, REPLACE_52W_WITH_EXCLUSIONS_RPC, {
+        p_generation_id: body.p_generation_id,
+        p_rows: body.p_rows,
+        p_period_start: body.p_period_start,
+        p_period_end: body.p_period_end,
+        p_provider_as_of: body.p_provider_as_of,
+        p_status: body.p_status,
+        p_exclusions: exclusions,
+        p_min_sessions: body.p_min_sessions,
+      }, rpcMeta);
+    }
     case "get_52w_state": {
-      const result = await db
+      let result = await db
         .from(BASELINE_STATE_TABLE)
         .select(BASELINE_STATE_SELECT)
         .eq("state_key", "current")
         .limit(1) as DbSelectResult;
+      if (result.error) {
+        result = await db
+          .from(BASELINE_STATE_TABLE)
+          .select(BASELINE_STATE_SELECT_PRE_MIGRATION)
+          .eq("state_key", "current")
+          .limit(1) as DbSelectResult;
+      }
       if (result.error) return json({ ok: false, error: "persist_failed" }, 502);
       const rows = result.data ?? [];
       return json({ ok: true, state: rows[0] ?? null });

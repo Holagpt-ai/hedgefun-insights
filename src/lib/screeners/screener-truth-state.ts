@@ -70,11 +70,20 @@ function nhlZeroMatchCopy(): Pick<ScreenerTruthState, "title" | "explanation"> {
   return {
     title: "Baseline ready",
     explanation:
-      "Baseline ready. No securities reached a new 52-week high or low in the latest validated evaluation.",
+      "No securities with sufficient validated baseline history reached a new 52-week high or low in the latest evaluation.",
   };
 }
 
-function gappersPrerequisiteCopy(): Pick<ScreenerTruthState, "title" | "explanation"> {
+function gappersPrerequisiteCopy(
+  reason?: string,
+): Pick<ScreenerTruthState, "title" | "explanation"> {
+  if (reason === "gap_inputs_not_applicable") {
+    return {
+      title: "No prior session",
+      explanation:
+        "No securities had a prior regular session from which a gap could be calculated.",
+    };
+  }
   return {
     title: "Gap inputs unavailable",
     explanation:
@@ -129,6 +138,7 @@ function resolveEmptyReason(
 function copyForReason(
   tabId: string,
   reason: ScreenerTruthReason,
+  evidence?: ReturnType<typeof getTabEvaluationEvidence>,
 ): Pick<ScreenerTruthState, "title" | "explanation"> {
   switch (reason) {
     case "baseline_initializing":
@@ -142,7 +152,9 @@ function copyForReason(
       };
     case "prerequisite_unavailable":
       return tabId === "gappers"
-        ? gappersPrerequisiteCopy()
+        ? gappersPrerequisiteCopy(
+          evidence && "reason" in evidence ? evidence.reason : undefined,
+        )
         : {
             title: "Prerequisites unavailable",
             explanation:
@@ -207,7 +219,7 @@ export function resolveScreenerTruthState(
       tabId === NHL_TAB_ID && nhlStatus === "unavailable"
         ? "baseline_unavailable"
         : "generation_unavailable";
-    const copy = copyForReason(tabId, reason);
+    const copy = copyForReason(tabId, reason, evidence);
     return {
       status,
       reason,
@@ -228,7 +240,7 @@ export function resolveScreenerTruthState(
   }
 
   if (status === "stale") {
-    const copy = copyForReason(tabId, "generation_stale");
+    const copy = copyForReason(tabId, "generation_stale", evidence);
     return {
       status,
       reason: "generation_stale",
@@ -251,7 +263,7 @@ export function resolveScreenerTruthState(
 
   if (status === "empty" || (status === "available" && rowCount === 0)) {
     const reason = resolveEmptyReason(tabId, evidence, nhlStatus);
-    const copy = copyForReason(tabId, reason);
+    const copy = copyForReason(tabId, reason, evidence);
     return {
       status: "empty",
       reason,

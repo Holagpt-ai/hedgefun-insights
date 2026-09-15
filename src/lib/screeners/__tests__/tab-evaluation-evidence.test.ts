@@ -6,6 +6,29 @@ import {
 } from "@/lib/screeners/tab-evaluation-evidence";
 
 describe("tab evaluation evidence parsing", () => {
+  it("gappers: old payloads without accounting fields still parse", () => {
+    const parsed = parseTabEvaluationEvidence({
+      gappers: {
+        status: "evaluated",
+        universe_count: 500,
+        volume_positive_count: 480,
+        gap_calculable_count: 480,
+        qualified_count: 0,
+        selected_count: 0,
+      },
+    });
+    expect(parsed).not.toBeNull();
+    expect(parsed?.gappers).toMatchObject({
+      status: "evaluated",
+      volume_positive_count: 480,
+      gap_calculable_count: 480,
+    });
+    expect(
+      (parsed?.gappers as { no_prior_session_count?: number } | undefined)
+        ?.no_prior_session_count,
+    ).toBeUndefined();
+  });
+
   it("gappers: rejects evaluated payload missing volume_positive_count", () => {
     const parsed = parseTabEvaluationEvidence({
       gappers: {
@@ -69,6 +92,8 @@ describe("zero-match support helpers", () => {
         universe_count: 500,
         volume_positive_count: 480,
         gap_calculable_count: 120,
+        no_prior_session_count: 0,
+        unresolved_gap_input_count: 0,
         qualified_count: 0,
         selected_count: 0,
       }),
@@ -82,6 +107,8 @@ describe("zero-match support helpers", () => {
         universe_count: 500,
         volume_positive_count: 480,
         gap_calculable_count: 480,
+        no_prior_session_count: 0,
+        unresolved_gap_input_count: 0,
         qualified_count: 0,
         selected_count: 5,
       }),
@@ -94,11 +121,41 @@ describe("zero-match support helpers", () => {
         status: "evaluated",
         universe_count: 500,
         volume_positive_count: 480,
-        gap_calculable_count: 480,
+        gap_calculable_count: 470,
+        no_prior_session_count: 10,
+        unresolved_gap_input_count: 0,
         qualified_count: 0,
         selected_count: 0,
       }),
     ).toBe(true);
+  });
+
+  it("gappers: old evidence lacking accounting fields cannot certify zero", () => {
+    expect(
+      gappersEvidenceSupportsZeroMatch({
+        status: "evaluated",
+        universe_count: 500,
+        volume_positive_count: 480,
+        gap_calculable_count: 480,
+        qualified_count: 0,
+        selected_count: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("gappers: zero calculable count cannot certify validated zero", () => {
+    expect(
+      gappersEvidenceSupportsZeroMatch({
+        status: "evaluated",
+        universe_count: 500,
+        volume_positive_count: 16,
+        gap_calculable_count: 0,
+        no_prior_session_count: 16,
+        unresolved_gap_input_count: 0,
+        qualified_count: 0,
+        selected_count: 0,
+      }),
+    ).toBe(false);
   });
 
   it("nhl: rejects selected_count / qualified_count mismatch", () => {
@@ -110,6 +167,8 @@ describe("zero-match support helpers", () => {
         universe_count: 800,
         eligible_count: 700,
         evaluated_count: 700,
+        policy_excluded_count: 0,
+        unresolved_count: 0,
         qualified_count: 0,
         selected_count: 3,
       }),
@@ -125,6 +184,8 @@ describe("zero-match support helpers", () => {
         universe_count: 800,
         eligible_count: 700,
         evaluated_count: 400,
+        policy_excluded_count: 0,
+        unresolved_count: 300,
         qualified_count: 0,
         selected_count: 0,
       }),
@@ -139,10 +200,27 @@ describe("zero-match support helpers", () => {
         baseline_quote_count: 700,
         universe_count: 800,
         eligible_count: 700,
-        evaluated_count: 700,
+        evaluated_count: 600,
+        policy_excluded_count: 100,
+        unresolved_count: 0,
         qualified_count: 0,
         selected_count: 0,
       }),
     ).toBe(true);
+  });
+
+  it("nhl: old evidence lacking accounting fields cannot certify zero", () => {
+    expect(
+      nhlEvidenceSupportsZeroMatch({
+        status: "evaluated",
+        baseline_status: "available",
+        baseline_quote_count: 700,
+        universe_count: 800,
+        eligible_count: 700,
+        evaluated_count: 700,
+        qualified_count: 0,
+        selected_count: 0,
+      }),
+    ).toBe(false);
   });
 });

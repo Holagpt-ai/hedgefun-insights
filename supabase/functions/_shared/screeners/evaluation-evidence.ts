@@ -5,10 +5,19 @@
  * Gappers fail-closed coverage contract:
  * - upstream universe must be non-empty;
  * - at least one volume-active symbol must exist;
- * - every volume-active symbol must have calculable prior-close/open gap inputs.
+ * - every volume-active symbol must be either gap-calculable or
+ *   structurally no-prior-session (when baseline coverage evidence is complete);
+ * - unresolved gap inputs fail closed.
  * Partial calculability across the active snapshot does not establish coverage.
+ *
+ * NHL fail-closed coverage contract:
+ * - eligible symbols classify as evaluated, policy_excluded, or unresolved;
+ * - any unresolved symbol fails closed;
+ * - policy-excluded symbols are not evaluated and not qualified.
  */
 
+import type { PolicyExclusionEvidence } from "./baseline-coverage.ts";
+import { POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE } from "./baseline-coverage.ts";
 import {
   classifyNewHighLow,
   isValidBaselineQuote,
@@ -20,6 +29,8 @@ import {
   dayHighLow,
   dayVolume,
   gapPercent,
+  hasValidCurrentDayOpen,
+  isExplicitZeroPriorDayAggregate,
   normalizeSymbol,
   qualifiesGappers,
   regularClose,
@@ -35,6 +46,8 @@ export interface GappersTabEvidence {
   universe_count: number;
   volume_positive_count: number;
   gap_calculable_count: number;
+  no_prior_session_count: number;
+  unresolved_gap_input_count: number;
   qualified_count: number;
   selected_count: number;
   reason?: string;
@@ -47,6 +60,8 @@ export interface NhlTabEvidence {
   universe_count: number;
   eligible_count?: number;
   evaluated_count?: number;
+  policy_excluded_count?: number;
+  unresolved_count?: number;
   qualified_count?: number;
   selected_count: number;
   reason?: string;
@@ -69,6 +84,11 @@ export type TabEvaluationEvidenceMap = Partial<
   Record<ScreenerTabId, TabEvaluationEvidence>
 >;
 
+export type HistoricalCoverageEvidence = {
+  baselineSymbols: ReadonlySet<string>;
+  policyExclusions: PolicyExclusionEvidence;
+};
+
 function countVolumeActive(universe: readonly PolygonTicker[]): number {
   let count = 0;
   for (const t of universe) {
@@ -78,19 +98,61 @@ function countVolumeActive(universe: readonly PolygonTicker[]): number {
   return count;
 }
 
+function hasHistoricalSessionCoverage(
+  symbol: string,
+  coverage: HistoricalCoverageEvidence | undefined,
+): boolean {
+  if (!coverage) return false;
+  if (coverage.baselineSymbols.has(symbol)) return true;
+  return coverage.policyExclusions.available &&
+    coverage.policyExclusions.symbols.has(symbol);
+}
+
+/**
+ * Strict structural no-prior-session: normalized symbol, positive volume,
+ * current open finite and > 0, explicit all-zero prior-day OHLCV, and absent
+ * from both the current valid baseline set and current-generation
+ * policy-exclusion set. If exclusion evidence is unavailable, never classify
+ * as no-prior-session.
+ */
+export function isStructurallyNoPriorSession(
+  t: PolygonTicker,
+  coverage: HistoricalCoverageEvidence | undefined,
+): boolean {
+  if (!coverage?.policyExclusions.available) return false;
+  const sym = normalizeSymbol(t?.ticker);
+  if (!sym) return false;
+  const vol = dayVolume(t);
+  if (vol === null || !(vol > 0)) return false;
+  if (!hasValidCurrentDayOpen(t)) return false;
+  if (!isExplicitZeroPriorDayAggregate(t)) return false;
+  if (hasHistoricalSessionCoverage(sym, coverage)) return false;
+  return true;
+}
+
 export function evaluateGappersEvidence(
   universe: readonly PolygonTicker[],
   selected: readonly PolygonTicker[],
+  coverage?: HistoricalCoverageEvidence,
 ): GappersTabEvidence {
   const universe_count = universe.length;
   const volume_positive_count = countVolumeActive(universe);
   let gap_calculable_count = 0;
+  let no_prior_session_count = 0;
+  let unresolved_gap_input_count = 0;
   let qualified_count = 0;
 
   for (const t of universe) {
     const vol = dayVolume(t);
     const volumeActive = vol !== null && vol > 0;
-    if (volumeActive && gapPercent(t) !== null) gap_calculable_count += 1;
+    if (!volumeActive) continue;
+    if (gapPercent(t) !== null) {
+      gap_calculable_count += 1;
+    } else if (isStructurallyNoPriorSession(t, coverage)) {
+      no_prior_session_count += 1;
+    } else {
+      unresolved_gap_input_count += 1;
+    }
     if (qualifiesGappers(t)) qualified_count += 1;
   }
 
@@ -99,6 +161,8 @@ export function evaluateGappersEvidence(
     universe_count,
     volume_positive_count,
     gap_calculable_count,
+    no_prior_session_count,
+    unresolved_gap_input_count,
     qualified_count,
     selected_count,
   };
@@ -119,15 +183,20 @@ export function evaluateGappersEvidence(
     };
   }
 
+  const accountingComplete = unresolved_gap_input_count === 0 &&
+    gap_calculable_count + no_prior_session_count === volume_positive_count;
+
   if (gap_calculable_count === 0) {
     return {
       status: "prerequisite_unavailable",
       ...base,
-      reason: "prior_close_gap_inputs_unavailable",
+      reason: accountingComplete
+        ? "gap_inputs_not_applicable"
+        : "prior_close_gap_inputs_unavailable",
     };
   }
 
-  if (gap_calculable_count < volume_positive_count) {
+  if (!accountingComplete) {
     return {
       status: "prerequisite_unavailable",
       ...base,
@@ -146,6 +215,7 @@ export function evaluateNhlEvidence(
   baselines: ReadonlyMap<string, NhlBaselineQuote>,
   baselineStatus: NhlBaselineStatus,
   selected: readonly NhlClassification[],
+  policyExclusions: PolicyExclusionEvidence = POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
 ): NhlTabEvidence {
   const baseline_quote_count = baselines.size;
   const base = {
@@ -174,6 +244,8 @@ export function evaluateNhlEvidence(
 
   let eligible_count = 0;
   let evaluated_count = 0;
+  let policy_excluded_count = 0;
+  let unresolved_count = 0;
   let qualified_count = 0;
 
   for (const t of universe) {
@@ -188,9 +260,16 @@ export function evaluateNhlEvidence(
 
     eligible_count += 1;
     const baseline = baselines.get(sym);
-    if (!isValidBaselineQuote(baseline)) continue;
-    evaluated_count += 1;
-    if (classifyNewHighLow(t, baseline) !== null) qualified_count += 1;
+    if (isValidBaselineQuote(baseline)) {
+      evaluated_count += 1;
+      if (classifyNewHighLow(t, baseline) !== null) qualified_count += 1;
+      continue;
+    }
+    if (policyExclusions.available && policyExclusions.symbols.has(sym)) {
+      policy_excluded_count += 1;
+      continue;
+    }
+    unresolved_count += 1;
   }
 
   if (eligible_count === 0) {
@@ -199,18 +278,25 @@ export function evaluateNhlEvidence(
       baseline_status: "available",
       eligible_count: 0,
       evaluated_count: 0,
+      policy_excluded_count: 0,
+      unresolved_count: 0,
       qualified_count: 0,
       ...base,
       reason: "baseline_coverage_empty",
     };
   }
 
-  if (evaluated_count < eligible_count) {
+  const accountingComplete = unresolved_count === 0 &&
+    evaluated_count + policy_excluded_count === eligible_count;
+
+  if (!accountingComplete) {
     return {
       status: "not_evaluated",
       baseline_status: "available",
       eligible_count,
       evaluated_count,
+      policy_excluded_count,
+      unresolved_count,
       qualified_count,
       ...base,
       reason: "baseline_coverage_incomplete",
@@ -222,6 +308,8 @@ export function evaluateNhlEvidence(
     baseline_status: "available",
     eligible_count,
     evaluated_count,
+    policy_excluded_count,
+    unresolved_count,
     qualified_count,
     ...base,
   };
@@ -266,14 +354,25 @@ export function buildTabEvaluationEvidence(input: {
   nhlBaselineStatus: NhlBaselineStatus;
   nhlBaselines: ReadonlyMap<string, NhlBaselineQuote>;
   nhlSelected: readonly NhlClassification[];
+  nhlPolicyExclusions?: PolicyExclusionEvidence;
 }): TabEvaluationEvidenceMap {
+  const policyExclusions = input.nhlPolicyExclusions ??
+    POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE;
+  const coverage: HistoricalCoverageEvidence = {
+    baselineSymbols: new Set(input.nhlBaselines.keys()),
+    policyExclusions,
+  };
   return {
     day_trade_radar: evaluateGenericTabEvidence(
       "day_trade_radar",
       input.universe,
       input.dayTradeSelected,
     ),
-    gappers: evaluateGappersEvidence(input.universe, input.gapperSelected),
+    gappers: evaluateGappersEvidence(
+      input.universe,
+      input.gapperSelected,
+      coverage,
+    ),
     volume_spikes: evaluateGenericTabEvidence(
       "volume_spikes",
       input.universe,
@@ -294,6 +393,7 @@ export function buildTabEvaluationEvidence(input: {
       input.nhlBaselines,
       input.nhlBaselineStatus,
       input.nhlSelected,
+      policyExclusions,
     ),
   };
 }

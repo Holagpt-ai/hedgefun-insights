@@ -2,7 +2,11 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { createDailyCache, runBaselineJob } from "./builder.ts";
 import { lastCompletedRegularSessionDate } from "./dates.ts";
 import { groupedUrl } from "./grouped.ts";
-import type { BaselineState, ReplaceGenerationArgs, RpcFn } from "./persist.ts";
+import type {
+  BaselineState,
+  ReplaceGenerationWithExclusionsArgs,
+  ExclusionAwareRpcFn,
+} from "./persist.ts";
 
 const GEN_NEW = "11111111-2222-3333-4444-555555555555";
 const GEN_PRIOR = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -53,7 +57,9 @@ function fakeGroupedFetch(
   };
 }
 
-function recordingRpc(calls: ReplaceGenerationArgs[]): RpcFn {
+function recordingRpc(
+  calls: ReplaceGenerationWithExclusionsArgs[],
+): ExclusionAwareRpcFn {
   return async (args) => {
     calls.push(args);
     return { error: null };
@@ -80,7 +86,7 @@ Deno.test("current regular session is excluded from the window", () => {
 
 Deno.test("builder excludes the in-progress session from grouped fetches", async () => {
   const fetchCalls: FetchCall[] = [];
-  const rpcCalls: ReplaceGenerationArgs[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
   const nowMs = Date.parse("2026-08-12T18:00:00.000Z");
   await runBaselineJob({
     nowMs: () => nowMs,
@@ -115,6 +121,8 @@ Deno.test("builder excludes the in-progress session from grouped fetches", async
   assertEquals(rpcCalls[0].p_period_end, "2026-08-11");
   assertEquals(rpcCalls[0].p_rows[0].high_52w, 12);
   assertEquals(rpcCalls[0].p_rows[0].low_52w, 4);
+  assertEquals(rpcCalls[0].p_exclusions, []);
+  assertEquals(rpcCalls[0].p_min_sessions, 1);
   for (const call of fetchCalls) {
     assertEquals(call.url.includes("apiKey"), false);
     assertEquals(call.url.includes("adjusted=true"), true);
@@ -125,7 +133,7 @@ Deno.test("builder excludes the in-progress session from grouped fetches", async
 
 Deno.test("invalid bars are skipped and incomplete history is omitted", async () => {
   const fetchCalls: FetchCall[] = [];
-  const rpcCalls: ReplaceGenerationArgs[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
   const nowMs = Date.parse("2026-08-12T20:00:01.000Z");
   const result = await runBaselineJob({
     nowMs: () => nowMs,
@@ -172,11 +180,16 @@ Deno.test("invalid bars are skipped and incomplete history is omitted", async ()
   assertEquals(rpcCalls[0].p_rows[0].sessions_observed, 3);
   assertEquals(rpcCalls[0].p_rows[0].high_52w, 12);
   assertEquals(rpcCalls[0].p_rows[0].low_52w, 4);
+  const excluded = rpcCalls[0].p_exclusions.map((e) => e.symbol).sort();
+  assertEquals(excluded, ["AMD"]);
+  assertEquals(rpcCalls[0].p_exclusions[0].sessions_observed, 2);
+  assertEquals(rpcCalls[0].p_exclusions[0].min_sessions, 3);
+  assertEquals(rpcCalls[0].p_min_sessions, 3);
 });
 
 Deno.test("failed provider build retains prior generation and never calls RPC", async () => {
   const fetchCalls: FetchCall[] = [];
-  const rpcCalls: ReplaceGenerationArgs[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
   const nowMs = Date.parse("2026-08-12T20:00:01.000Z");
   const result = await runBaselineJob({
     nowMs: () => nowMs,
@@ -211,7 +224,7 @@ Deno.test("failed provider build retains prior generation and never calls RPC", 
 
 Deno.test("RPC failure retains prior generation pointer", async () => {
   const fetchCalls: FetchCall[] = [];
-  const rpcCalls: ReplaceGenerationArgs[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
   const nowMs = Date.parse("2026-08-12T20:00:01.000Z");
   const result = await runBaselineJob({
     nowMs: () => nowMs,
@@ -244,7 +257,7 @@ Deno.test("RPC failure retains prior generation pointer", async () => {
 
 Deno.test("does not rebuild when period_end has not advanced", async () => {
   const fetchCalls: FetchCall[] = [];
-  const rpcCalls: ReplaceGenerationArgs[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
   const nowMs = Date.parse("2026-08-12T18:00:00.000Z");
   const result = await runBaselineJob({
     nowMs: () => nowMs,
@@ -254,6 +267,8 @@ Deno.test("does not rebuild when period_end has not advanced", async () => {
     loadState: async () => ({
       ...PRIOR_STATE,
       period_end: "2026-08-11",
+      policy_min_sessions: 1,
+      policy_excluded_count: 0,
     }),
     loadExceptions: async () => [],
     minSessions: 1,
@@ -268,4 +283,71 @@ Deno.test("does not rebuild when period_end has not advanced", async () => {
   assertEquals(fetchCalls.length, 0);
   assertEquals(rpcCalls.length, 0);
   assertEquals(result.state.current_generation_id, GEN_PRIOR);
+});
+
+Deno.test("mismatched policy_min_sessions rebuilds instead of skipping", async () => {
+  const fetchCalls: FetchCall[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const nowMs = Date.parse("2026-08-12T18:00:00.000Z");
+  const result = await runBaselineJob({
+    nowMs: () => nowMs,
+    fetch: fakeGroupedFetch({
+      "2026-08-10": [{ T: "AAPL", h: 10, l: 5 }],
+      "2026-08-11": [{ T: "AAPL", h: 12, l: 4 }],
+    }, fetchCalls),
+    polygonApiKey: "test-key",
+    rpc: recordingRpc(rpcCalls),
+    loadState: async () => ({
+      ...PRIOR_STATE,
+      period_end: "2026-08-11",
+      policy_min_sessions: 120,
+      policy_excluded_count: 0,
+    }),
+    loadExceptions: async () => [],
+    minSessions: 1,
+    lookbackCalendarDays: 3,
+    cache: createDailyCache(),
+    lastSuccessfulPeriodEnd: "2026-08-11",
+    newGenerationId: () => GEN_NEW,
+    sleep: instantSleep,
+  });
+
+  assertEquals(result.didRebuild, true);
+  assertEquals(rpcCalls.length, 1);
+  assertEquals(result.state.policy_min_sessions, 1);
+});
+
+Deno.test("current period without policy evidence rebuilds exclusion-aware generation", async () => {
+  const fetchCalls: FetchCall[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const nowMs = Date.parse("2026-08-12T18:00:00.000Z");
+  const result = await runBaselineJob({
+    nowMs: () => nowMs,
+    fetch: fakeGroupedFetch({
+      "2026-08-10": [{ T: "AAPL", h: 10, l: 5 }],
+      "2026-08-11": [{ T: "AAPL", h: 12, l: 4 }],
+    }, fetchCalls),
+    polygonApiKey: "test-key",
+    rpc: recordingRpc(rpcCalls),
+    loadState: async () => ({
+      ...PRIOR_STATE,
+      period_end: "2026-08-11",
+      policy_min_sessions: null,
+      policy_excluded_count: null,
+    }),
+    loadExceptions: async () => [],
+    minSessions: 1,
+    lookbackCalendarDays: 3,
+    cache: createDailyCache(),
+    lastSuccessfulPeriodEnd: "2026-08-11",
+    newGenerationId: () => GEN_NEW,
+    sleep: instantSleep,
+  });
+
+  assertEquals(result.didRebuild, true);
+  assertEquals(rpcCalls.length, 1);
+  assertEquals(rpcCalls[0].p_generation_id, GEN_NEW);
+  assertEquals(result.state.policy_min_sessions, 1);
+  assertEquals(result.state.policy_excluded_count, 0);
+  assertEquals(Array.isArray(rpcCalls[0].p_exclusions), true);
 });

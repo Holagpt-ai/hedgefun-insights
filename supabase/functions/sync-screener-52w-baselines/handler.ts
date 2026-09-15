@@ -22,6 +22,7 @@ import {
   barsToPayload,
   fetchGroupedDay,
 } from "../_shared/screeners/grouped-daily.ts";
+import { parseStatePolicyExclusionFields } from "../_shared/screeners/baseline-coverage.ts";
 
 export const START_JOB_RPC = "start_screener_52w_baseline_job_v1";
 export const APPLY_DAY_RPC = "apply_screener_52w_baseline_day_v1";
@@ -152,15 +153,38 @@ async function loadPublishedState(sb: DbClient): Promise<{
   status: string | null;
   period_end: string | null;
   current_generation_id: string | null;
+  policy_min_sessions: unknown;
+  policy_excluded_count: unknown;
+  policy_columns_missing: boolean;
 }> {
+  const empty = {
+    status: null,
+    period_end: null,
+    current_generation_id: null,
+    policy_min_sessions: null,
+    policy_excluded_count: null,
+    policy_columns_missing: false,
+  };
+  const fullSelect =
+    "status,period_end,current_generation_id,policy_min_sessions,policy_excluded_count";
+  const legacySelect = "status,period_end,current_generation_id";
   try {
-    const res = await sb
+    let policyColumnsMissing = false;
+    let res = await sb
       .from("screener_52w_baseline_state")
-      .select("status,period_end,current_generation_id")
+      .select(fullSelect)
       .eq("state_key", "current")
       .limit(1);
+    if (res.error) {
+      res = await sb
+        .from("screener_52w_baseline_state")
+        .select(legacySelect)
+        .eq("state_key", "current")
+        .limit(1);
+      policyColumnsMissing = true;
+    }
     if (res.error || !res.data || res.data.length === 0) {
-      return { status: null, period_end: null, current_generation_id: null };
+      return empty;
     }
     const row = res.data[0];
     return {
@@ -169,10 +193,41 @@ async function loadPublishedState(sb: DbClient): Promise<{
       current_generation_id: typeof row.current_generation_id === "string"
         ? row.current_generation_id
         : null,
+      policy_min_sessions: row.policy_min_sessions ?? null,
+      policy_excluded_count: row.policy_excluded_count ?? null,
+      policy_columns_missing: policyColumnsMissing,
     };
   } catch {
-    return { status: null, period_end: null, current_generation_id: null };
+    return empty;
   }
+}
+
+function isPublishedBaselineFullyCurrent(
+  published: {
+    status: string | null;
+    period_end: string | null;
+    current_generation_id: string | null;
+    policy_min_sessions: unknown;
+    policy_excluded_count: unknown;
+    policy_columns_missing: boolean;
+  },
+  windowPeriodEnd: string,
+  expectedMinSessions: number,
+): boolean {
+  if (
+    !(published.status === "available" || published.status === "empty") ||
+    published.period_end !== windowPeriodEnd ||
+    !published.current_generation_id
+  ) {
+    return false;
+  }
+  // Pre-migration: policy columns do not exist yet. Do not loop a rebuild.
+  if (published.policy_columns_missing) return true;
+  const policy = parseStatePolicyExclusionFields({
+    policy_min_sessions: published.policy_min_sessions,
+    policy_excluded_count: published.policy_excluded_count,
+  });
+  return policy !== null && policy.min_sessions === expectedMinSessions;
 }
 
 async function loadJob(sb: DbClient): Promise<JobSnapshot | null> {
@@ -276,9 +331,11 @@ export async function handleSyncScreener52wBaselines(
 
   const published = await loadPublishedState(sb);
   if (
-    (published.status === "available" || published.status === "empty") &&
-    published.period_end === window.periodEnd &&
-    published.current_generation_id
+    isPublishedBaselineFullyCurrent(
+      published,
+      window.periodEnd,
+      deps.minSessions ?? BASELINE_MIN_SESSIONS,
+    )
   ) {
     return json({
       ok: true,

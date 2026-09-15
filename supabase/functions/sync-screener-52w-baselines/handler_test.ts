@@ -33,6 +33,8 @@ type PublishedState = {
   status: string;
   period_end: string | null;
   current_generation_id: string | null;
+  policy_min_sessions?: number | null;
+  policy_excluded_count?: number | null;
 };
 
 type JobRow = {
@@ -111,6 +113,7 @@ class FakeBaselineDb {
   acquireCount = 0;
   failAcquireOnCall: number | null = null;
   failAcquireErrorOnCall: number | null = null;
+  failPolicyColumnSelect = false;
 
   constructor(published?: PublishedState, lease?: RunLeaseState) {
     this.published = published ?? {
@@ -124,12 +127,21 @@ class FakeBaselineDb {
   client(): DbClient {
     return {
       from: (table: string) => ({
-        select: (_cols: string) => {
+        select: (cols: string) => {
           const execute = async (): Promise<DbSelectResult> => {
             if (table === "market_session_calendar") {
               return { data: [], error: null };
             }
             if (table === "screener_52w_baseline_state") {
+              if (
+                this.failPolicyColumnSelect &&
+                cols.includes("policy_min_sessions")
+              ) {
+                return {
+                  data: null,
+                  error: { message: "column does not exist" },
+                };
+              }
               return { data: [this.published], error: null };
             }
             if (table === "screener_52w_baseline_job") {
@@ -515,7 +527,74 @@ Deno.test("current published baseline is a no-op", async () => {
     status: "available",
     period_end: "2026-08-12",
     current_generation_id: GEN,
+    policy_min_sessions: 120,
+    policy_excluded_count: 0,
   });
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), { minSessions: 120 }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "current");
+  assertEquals(body.generation_id, GEN);
+  assertEquals(calls.length, 0);
+  assertEquals(db.rpcCalls.length, 0);
+});
+
+Deno.test("current period with mismatched policy_min_sessions is not a no-op", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-12",
+    current_generation_id: GEN,
+    policy_min_sessions: 120,
+    policy_excluded_count: 0,
+  });
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), { minSessions: 2 }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+});
+
+Deno.test("current period with NULL policy metadata is not a no-op", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-12",
+    current_generation_id: GEN,
+    policy_min_sessions: null,
+    policy_excluded_count: null,
+  });
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+  assertEquals(calls.length > 0, true);
+});
+
+Deno.test("pre-migration current period without policy columns remains a no-op", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-12",
+    current_generation_id: GEN,
+  });
+  db.failPolicyColumnSelect = true;
   const calls: FetchCall[] = [];
   const res = await handleSyncScreener52wBaselines(
     post(),

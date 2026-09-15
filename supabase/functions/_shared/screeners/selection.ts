@@ -10,7 +10,13 @@ export type PolygonTicker = {
   /** Provider day-change vs previous close (may use extended last). Do not pair with day.c. */
   todaysChangePerc?: unknown;
   day?: { c?: unknown; o?: unknown; v?: unknown; h?: unknown; l?: unknown };
-  prevDay?: { c?: unknown; v?: unknown };
+  prevDay?: {
+    o?: unknown;
+    h?: unknown;
+    l?: unknown;
+    c?: unknown;
+    v?: unknown;
+  };
   lastTrade?: { p?: unknown; t?: unknown };
   min?: { c?: unknown; t?: unknown; v?: unknown; av?: unknown };
   [key: string]: unknown;
@@ -135,6 +141,48 @@ export function volumeRatioPriorSession(t: PolygonTicker): number | null {
   const ratio = rawVolumeRatioPriorSession(t);
   if (ratio === null) return null;
   return Math.round(ratio * 10) / 10;
+}
+
+function isExplicitNumericZero(value: unknown): boolean {
+  if (value === undefined || value === null || typeof value === "boolean") {
+    return false;
+  }
+  if (typeof value === "number") return Number.isFinite(value) && value === 0;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    const n = Number(trimmed);
+    return Number.isFinite(n) && n === 0;
+  }
+  return false;
+}
+
+const PRIOR_DAY_OHLCV_KEYS = ["o", "h", "l", "c", "v"] as const;
+
+/**
+ * True when the provider supplied an explicit all-zero prior-day OHLCV
+ * aggregate. Every field o/h/l/c/v must be present and numerically exactly
+ * zero. Absent, partial, null, NaN, infinite, or mixed aggregates fail closed.
+ */
+export function isExplicitZeroPriorDayAggregate(t: PolygonTicker): boolean {
+  const prev = t?.prevDay;
+  if (prev === undefined || prev === null || typeof prev !== "object") {
+    return false;
+  }
+  const row = prev as Record<string, unknown>;
+  for (const key of PRIOR_DAY_OHLCV_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(row, key)) return false;
+    if (!isExplicitNumericZero(row[key])) return false;
+  }
+  return true;
+}
+
+/** True when day.o is present, finite, and strictly greater than zero. */
+export function hasValidCurrentDayOpen(t: PolygonTicker): boolean {
+  const open = t?.day?.o;
+  if (open === undefined || open === null) return false;
+  const n = Number(open);
+  return Number.isFinite(n) && n > 0;
 }
 
 /** Gap % = (today open - prev close) / prev close * 100. */

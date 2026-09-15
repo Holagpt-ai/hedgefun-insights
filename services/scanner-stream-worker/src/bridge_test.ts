@@ -371,13 +371,15 @@ Deno.test("baseline bridge success logs the 60s timeout budget", async () => {
       p_period_end: "2026-08-10",
       p_provider_as_of: "2026-08-10T20:00:00.000Z",
       p_status: "empty",
+      p_exclusions: [],
+      p_min_sessions: 120,
     });
     assertEquals(result.error, null);
     const attemptsLogged = parseBridgeLogs(lines).filter((row) =>
       row.msg === "bridge_request"
     );
     assertEquals(attemptsLogged.length, 1);
-    assertEquals(attemptsLogged[0].action, "replace_52w_baseline");
+    assertEquals(attemptsLogged[0].action, "replace_52w_baseline_with_exclusions");
     assertEquals(attemptsLogged[0].outcome, "ok");
     assertEquals(attemptsLogged[0].http_status, 200);
     assertEquals(attemptsLogged[0].timeout_ms, 60_000);

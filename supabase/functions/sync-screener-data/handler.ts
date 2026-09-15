@@ -32,6 +32,12 @@ import {
   type TabEvaluationEvidenceMap,
 } from "../_shared/screeners/evaluation-evidence.ts";
 import {
+  POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+  parseStatePolicyExclusionFields,
+  validatePolicyExclusionEvidence,
+  type PolicyExclusionEvidence,
+} from "../_shared/screeners/baseline-coverage.ts";
+import {
   isValidBaselineQuote,
   type NhlBaselineQuote,
   type NhlBaselineStatus,
@@ -119,41 +125,104 @@ async function loadNameMapFromStocks(
 }
 
 const BASELINE_PAGE = 1000;
+const STATE_SELECT_WITH_POLICY =
+  "current_generation_id,status,symbol_count,policy_min_sessions,policy_excluded_count";
+const STATE_SELECT_BASE = "current_generation_id,status,symbol_count";
+
+function unavailableBaseline(status: NhlBaselineStatus = "unavailable"): {
+  status: NhlBaselineStatus;
+  quotes: Map<string, NhlBaselineQuote>;
+  policyExclusions: PolicyExclusionEvidence;
+} {
+  return {
+    status,
+    quotes: new Map(),
+    policyExclusions: POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+  };
+}
+
+async function loadPolicyExclusions(
+  sb: DbClient,
+  generationId: string,
+  policyMinSessions: unknown,
+  policyExcludedCount: unknown,
+): Promise<PolicyExclusionEvidence> {
+  const declared = parseStatePolicyExclusionFields({
+    policy_min_sessions: policyMinSessions,
+    policy_excluded_count: policyExcludedCount,
+  });
+  if (!declared) return POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE;
+
+  const rows: Array<Record<string, unknown>> = [];
+  let from = 0;
+  while (true) {
+    const page = await sb
+      .from("screener_52w_baseline_exclusions")
+      .select(
+        "generation_id,symbol,reason,sessions_observed,min_sessions",
+      )
+      .eq("generation_id", generationId)
+      .range(from, from + BASELINE_PAGE - 1);
+    if (page.error || !page.data) {
+      return POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE;
+    }
+    for (const item of page.data) {
+      rows.push(item);
+    }
+    if (page.data.length < BASELINE_PAGE) break;
+    from += BASELINE_PAGE;
+  }
+
+  return validatePolicyExclusionEvidence({
+    generationId,
+    policyMinSessions: declared.min_sessions,
+    policyExcludedCount: declared.excluded_count,
+    rows,
+  });
+}
 
 async function loadNhlBaseline(sb: DbClient): Promise<{
   status: NhlBaselineStatus;
   quotes: Map<string, NhlBaselineQuote>;
+  policyExclusions: PolicyExclusionEvidence;
 }> {
   try {
-    const stateRes = await sb
+    let stateRes = await sb
       .from("screener_52w_baseline_state")
-      .select("current_generation_id,status,symbol_count")
+      .select(STATE_SELECT_WITH_POLICY)
       .eq("state_key", "current")
       .limit(1);
+    if (stateRes.error) {
+      stateRes = await sb
+        .from("screener_52w_baseline_state")
+        .select(STATE_SELECT_BASE)
+        .eq("state_key", "current")
+        .limit(1);
+    }
     if (stateRes.error || !stateRes.data || stateRes.data.length === 0) {
-      return { status: "initializing", quotes: new Map() };
+      return unavailableBaseline("initializing");
     }
     const row = stateRes.data[0];
     const status = row.status;
     const generationId = row.current_generation_id;
     if (status === "unavailable") {
-      return { status: "unavailable", quotes: new Map() };
+      return unavailableBaseline("unavailable");
     }
     if (status === "empty") {
-      return { status: "initializing", quotes: new Map() };
+      return unavailableBaseline("initializing");
     }
     if (
       status !== "available" || typeof generationId !== "string" ||
       !generationId
     ) {
-      return { status: "initializing", quotes: new Map() };
+      return unavailableBaseline("initializing");
     }
 
     const declaredSymbolCount = Number(row.symbol_count);
     if (
       !Number.isInteger(declaredSymbolCount) || declaredSymbolCount <= 0
     ) {
-      return { status: "initializing", quotes: new Map() };
+      return unavailableBaseline("initializing");
     }
 
     const quotes = new Map<string, NhlBaselineQuote>();
@@ -166,7 +235,7 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
         .eq("generation_id", generationId)
         .range(from, from + BASELINE_PAGE - 1);
       if (page.error || !page.data) {
-        return { status: "unavailable", quotes: new Map() };
+        return unavailableBaseline("unavailable");
       }
       loadedRowCount += page.data.length;
       for (const item of page.data) {
@@ -190,11 +259,20 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       loadedRowCount !== declaredSymbolCount ||
       quotes.size !== declaredSymbolCount
     ) {
-      return { status: "initializing", quotes: new Map() };
+      return unavailableBaseline("initializing");
     }
-    return { status: "available", quotes };
+
+    // Exclusion evidence is independent of quote validity. Malformed or
+    // missing evidence must not invalidate an otherwise valid baseline.
+    const policyExclusions = await loadPolicyExclusions(
+      sb,
+      generationId,
+      row.policy_min_sessions,
+      row.policy_excluded_count,
+    );
+    return { status: "available", quotes, policyExclusions };
   } catch {
-    return { status: "unavailable", quotes: new Map() };
+    return unavailableBaseline("unavailable");
   }
 }
 
@@ -389,6 +467,7 @@ export async function handleSyncScreenerData(
     nhlBaselineStatus: nhlBaseline.status,
     nhlBaselines: nhlBaseline.quotes,
     nhlSelected,
+    nhlPolicyExclusions: nhlBaseline.policyExclusions,
   });
 
   const rpcBase = {

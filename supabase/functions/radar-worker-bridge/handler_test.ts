@@ -6,6 +6,7 @@ import {
   CALENDAR_TABLE,
   HEARTBEAT_LEASE_RPC,
   REPLACE_52W_RPC,
+  REPLACE_52W_WITH_EXCLUSIONS_RPC,
   REPLACE_RADAR_RPC,
   RELEASE_LEASE_RPC,
   SET_RADAR_STATUS_RPC,
@@ -46,6 +47,7 @@ class FakeDb implements DbClient {
   calendarRows: Array<Record<string, unknown>> = [];
   stateRows: Array<Record<string, unknown>> = [];
   selectError: { message: string } | null = null;
+  failPolicyColumns = false;
 
   from(table: string) {
     return {
@@ -62,6 +64,19 @@ class FakeDb implements DbClient {
             return builder;
           },
           then(onFulfilled, onRejected) {
+            if (
+              self.failPolicyColumns &&
+              table === BASELINE_STATE_TABLE &&
+              cols.includes("policy_min_sessions")
+            ) {
+              return Promise.resolve({
+                data: null,
+                error: { message: "column does not exist" },
+              } satisfies DbSelectResult).then(
+                onFulfilled ?? undefined,
+                onRejected ?? undefined,
+              );
+            }
             const rows = table === CALENDAR_TABLE
               ? self.calendarRows
               : table === BASELINE_STATE_TABLE
@@ -294,6 +309,85 @@ Deno.test("action: replace_52w_baseline maps to hardcoded 52w RPC", async () => 
   );
   assertEquals(res.status, 200);
   assertEquals(db.rpcCalls.map((c) => c.fn), [REPLACE_52W_RPC]);
+});
+
+Deno.test("action: replace_52w_baseline_with_exclusions maps to exclusion-aware RPC", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "replace_52w_baseline_with_exclusions",
+      p_generation_id: "11111111-2222-3333-4444-555555555555",
+      p_rows: [{ symbol: "AAPL", sessions_observed: 120 }],
+      p_period_start: "2025-08-10",
+      p_period_end: "2026-08-10",
+      p_provider_as_of: "2026-08-10T20:00:00.000Z",
+      p_status: "available",
+      p_min_sessions: 120,
+      p_exclusions: [{
+        symbol: "IPO",
+        reason: "insufficient_sessions",
+        sessions_observed: 40,
+        min_sessions: 120,
+      }],
+    }),
+    deps(db),
+  );
+  assertEquals(res.status, 200);
+  assertEquals(db.rpcCalls.map((c) => c.fn), [REPLACE_52W_WITH_EXCLUSIONS_RPC]);
+  assertEquals(db.rpcCalls[0].args.p_min_sessions, 120);
+  assertEquals(
+    (db.rpcCalls[0].args.p_exclusions as Array<{ symbol: string }>)[0].symbol,
+    "IPO",
+  );
+});
+
+Deno.test("action: replace_52w_baseline_with_exclusions rejects malformed evidence", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "replace_52w_baseline_with_exclusions",
+      p_generation_id: "11111111-2222-3333-4444-555555555555",
+      p_rows: [{ symbol: "AAPL", sessions_observed: 120 }],
+      p_period_start: "2025-08-10",
+      p_period_end: "2026-08-10",
+      p_provider_as_of: "2026-08-10T20:00:00.000Z",
+      p_status: "available",
+      p_min_sessions: 120,
+      p_exclusions: [{
+        symbol: "AAPL",
+        reason: "insufficient_sessions",
+        sessions_observed: 40,
+        min_sessions: 120,
+      }],
+    }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 400);
+  assertEquals(out.body.error, "invalid_body");
+  assertEquals(db.rpcCalls.length, 0);
+});
+
+Deno.test("action: replace_52w_baseline_with_exclusions rejects under-min baseline rows", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "replace_52w_baseline_with_exclusions",
+      p_generation_id: "11111111-2222-3333-4444-555555555555",
+      p_rows: [{ symbol: "AAPL", sessions_observed: 40 }],
+      p_period_start: "2025-08-10",
+      p_period_end: "2026-08-10",
+      p_provider_as_of: "2026-08-10T20:00:00.000Z",
+      p_status: "available",
+      p_min_sessions: 120,
+      p_exclusions: [],
+    }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 400);
+  assertEquals(out.body.error, "invalid_body");
+  assertEquals(db.rpcCalls.length, 0);
 });
 
 Deno.test("action: get_52w_state reads hardcoded baseline state table", async () => {
