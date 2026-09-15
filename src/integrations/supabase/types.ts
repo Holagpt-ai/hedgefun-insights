@@ -6100,6 +6100,7 @@ export type Database = {
           p_rows: Json
           p_sync_run_id: string
           p_synced_at: string
+          p_tab_evaluation_evidence?: Json
         }
         Returns: number
       }

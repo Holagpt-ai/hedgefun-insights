@@ -35,7 +35,7 @@ export async function fetchScreenerFeedState(): Promise<{
 
   if (!withEvidence.error) {
     return {
-      stateRows: (withEvidence.data ?? null) as ScreenerFeedState[] | null,
+      stateRows: (withEvidence.data ?? null) as unknown as ScreenerFeedState[] | null,
       stateError: null,
     };
   }
