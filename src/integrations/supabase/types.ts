@@ -5030,7 +5030,6 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
-          tab_evaluation_evidence: Json | null
           updated_at: string
         }
         Insert: {
@@ -5043,7 +5042,6 @@ export type Database = {
           sync_run_id: string
           synced_at: string
           tab_counts: Json
-          tab_evaluation_evidence?: Json | null
           updated_at: string
         }
         Update: {
@@ -5056,7 +5054,6 @@ export type Database = {
           sync_run_id?: string
           synced_at?: string
           tab_counts?: Json
-          tab_evaluation_evidence?: Json | null
           updated_at?: string
         }
         Relationships: []
