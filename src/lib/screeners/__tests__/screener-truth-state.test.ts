@@ -112,6 +112,69 @@ describe("screener truth-state resolver", () => {
     expect(truth.explanation).toContain("No securities met this screener");
   });
 
+  it("gappers: zero calculable rows does not claim validated zero-match", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "prerequisite_unavailable",
+          universe_count: 500,
+          volume_positive_count: 480,
+          gap_calculable_count: 0,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "prior_close_gap_inputs_unavailable",
+        },
+      },
+    });
+    expect(truth.reason).toBe("prerequisite_unavailable");
+    expect(truth.reason).not.toBe("validated_zero_matches");
+  });
+
+  it("gappers: no volume-active universe does not claim validated zero-match", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "prerequisite_unavailable",
+          universe_count: 500,
+          volume_positive_count: 0,
+          gap_calculable_count: 0,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "no_volume_active_universe",
+        },
+      },
+    });
+    expect(truth.reason).toBe("prerequisite_unavailable");
+  });
+
+  it("gappers: selected_count mismatch blocks validated zero-match", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "gappers",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      tabEvaluationEvidence: {
+        gappers: {
+          status: "evaluated",
+          universe_count: 500,
+          volume_positive_count: 480,
+          gap_calculable_count: 480,
+          qualified_count: 0,
+          selected_count: 5,
+        },
+      },
+    });
+    expect(truth.reason).toBe("evaluation_evidence_missing");
+  });
+
   it("gappers: incomplete coverage → prerequisite-unavailable copy", () => {
     const truth = resolveScreenerTruthState({
       tabId: "gappers",
@@ -177,6 +240,51 @@ describe("screener truth-state resolver", () => {
     });
     expect(truth.reason).not.toBe("validated_zero_matches");
     expect(truth.reason).toBe("evaluation_evidence_missing");
+  });
+
+  it("new highs/lows: available baseline with zero loaded rows does not claim validated zero", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "initializing",
+      tabEvaluationEvidence: {
+        new_highs_lows: {
+          status: "not_evaluated",
+          baseline_status: "initializing",
+          baseline_quote_count: 0,
+          universe_count: 800,
+          selected_count: 0,
+          reason: "baseline_quotes_empty",
+        },
+      },
+    });
+    expect(truth.reason).toBe("baseline_initializing");
+    expect(truth.reason).not.toBe("validated_zero_matches");
+  });
+
+  it("new highs/lows: partial baseline coverage with results remains available", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "available",
+      rowCount: 2,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+      tabEvaluationEvidence: {
+        new_highs_lows: {
+          status: "evaluated",
+          baseline_status: "available",
+          baseline_quote_count: 700,
+          universe_count: 800,
+          evaluated_count: 400,
+          qualified_count: 2,
+          selected_count: 2,
+        },
+      },
+    });
+    expect(truth.reason).toBe("evaluated_with_results");
+    expect(truth.showRows).toBe(true);
   });
 
   it("new highs/lows: empty baseline quotes do not claim baseline-ready zero-match", () => {

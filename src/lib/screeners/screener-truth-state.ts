@@ -110,10 +110,7 @@ function resolveEmptyReason(
     if (gappersEvidence.status === "prerequisite_unavailable") {
       return "prerequisite_unavailable";
     }
-    if (
-      gappersEvidenceSupportsZeroMatch(gappersEvidence) &&
-      gappersEvidence.qualified_count === 0
-    ) {
+    if (gappersEvidenceSupportsZeroMatch(gappersEvidence)) {
       return "validated_zero_matches";
     }
     return "evaluation_evidence_missing";

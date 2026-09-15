@@ -80,18 +80,14 @@ function parseGappersTabEvidence(raw: unknown): GappersTabEvidence | null {
   }
   if (
     !isNonNegativeInt(obj.universe_count) ||
+    !isNonNegativeInt(obj.volume_positive_count) ||
     !isNonNegativeInt(obj.gap_calculable_count) ||
     !isNonNegativeInt(obj.qualified_count) ||
     !isNonNegativeInt(obj.selected_count)
   ) {
     return null;
   }
-  const volume_positive_count = isNonNegativeInt(obj.volume_positive_count)
-    ? obj.volume_positive_count
-    : obj.status === "evaluated" && isNonNegativeInt(obj.universe_count)
-      ? obj.universe_count
-      : null;
-  if (volume_positive_count === null) return null;
+  const volume_positive_count = obj.volume_positive_count;
   return {
     status: obj.status,
     universe_count: obj.universe_count,
@@ -108,14 +104,14 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
   const obj = raw as Record<string, unknown>;
   if (obj.status !== "evaluated" && obj.status !== "not_evaluated") return null;
   const baseline_status = parseNhlBaselineStatus(obj.baseline_status);
-  if (!isNonNegativeInt(obj.universe_count) || !isNonNegativeInt(obj.selected_count)) {
+  if (
+    !isNonNegativeInt(obj.universe_count) ||
+    !isNonNegativeInt(obj.baseline_quote_count) ||
+    !isNonNegativeInt(obj.selected_count)
+  ) {
     return null;
   }
-  const baseline_quote_count = isNonNegativeInt(obj.baseline_quote_count)
-    ? obj.baseline_quote_count
-    : obj.status === "evaluated"
-      ? 1
-      : 0;
+  const baseline_quote_count = obj.baseline_quote_count;
   if (obj.evaluated_count !== undefined && !isNonNegativeInt(obj.evaluated_count)) {
     return null;
   }
@@ -171,7 +167,9 @@ export function gappersEvidenceSupportsZeroMatch(
   return (
     evidence.universe_count > 0 &&
     evidence.volume_positive_count > 0 &&
-    evidence.gap_calculable_count === evidence.volume_positive_count
+    evidence.gap_calculable_count === evidence.volume_positive_count &&
+    evidence.qualified_count === 0 &&
+    evidence.selected_count === 0
   );
 }
 
@@ -181,5 +179,9 @@ export function nhlEvidenceSupportsZeroMatch(
   if (!evidence || evidence.status !== "evaluated") return false;
   if (evidence.baseline_status !== "available") return false;
   if (evidence.baseline_quote_count <= 0) return false;
-  return (evidence.evaluated_count ?? 0) > 0 && evidence.qualified_count === 0;
+  return (
+    (evidence.evaluated_count ?? 0) > 0 &&
+    evidence.qualified_count === 0 &&
+    evidence.selected_count === 0
+  );
 }

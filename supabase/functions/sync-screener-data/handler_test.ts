@@ -955,6 +955,70 @@ Deno.test("handler: verified new highs/lows rows use the prior 52w baseline", as
   assertEquals(nhl.some((r) => r.symbol === "MISS"), false);
 });
 
+Deno.test("handler: available baseline with zero valid quotes records initializing", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([
+      mk("NEWHI", 4_000_000, 500_000, { price: 12, high: 20, low: 10 }),
+    ]),
+    {
+      baselineState: [{
+        current_generation_id: RUN_ID,
+        status: "available",
+      }],
+      baselineQuotes: [
+        { symbol: "NEWHI", high_52w: 0, low_52w: 0, sessions_observed: 0 },
+      ],
+    },
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.nhl_baseline_status, "initializing");
+  const rpc = mutations.find((m) => m.kind === "rpc") as {
+    kind: "rpc";
+    args: { p_rows: ScreenerResultRow[]; p_nhl_baseline_status: string };
+  };
+  assertEquals(rpc.args.p_nhl_baseline_status, "initializing");
+  assertEquals(
+    rpc.args.p_rows.some((r) => r.tab_id === "new_highs_lows"),
+    false,
+  );
+});
+
+Deno.test("handler: empty baseline state records initializing", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([
+      mk("NEWHI", 4_000_000, 500_000, { price: 12, high: 20, low: 10 }),
+    ]),
+    {
+      baselineState: [{
+        current_generation_id: RUN_ID,
+        status: "empty",
+      }],
+    },
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.nhl_baseline_status, "initializing");
+});
+
 Deno.test("handler: initializing baseline omits NHL rows and records status", async () => {
   const mutations: Mutation[] = [];
   const deps = depsWith(

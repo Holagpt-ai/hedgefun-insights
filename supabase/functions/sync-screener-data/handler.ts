@@ -27,7 +27,10 @@ import {
   mapTabRows,
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
-import { buildTabEvaluationEvidence } from "../_shared/screeners/evaluation-evidence.ts";
+import {
+  buildTabEvaluationEvidence,
+  type TabEvaluationEvidenceMap,
+} from "../_shared/screeners/evaluation-evidence.ts";
 import {
   isValidBaselineQuote,
   type NhlBaselineQuote,
@@ -72,6 +75,7 @@ export type DbClient = {
       p_sync_run_id: string;
       p_synced_at: string;
       p_nhl_baseline_status: NhlBaselineStatus;
+      p_tab_evaluation_evidence?: TabEvaluationEvidenceMap;
     },
   ) => Promise<{ data: number | null; error: { message: string } | null }>;
 };
@@ -169,6 +173,11 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       }
       if (page.data.length < BASELINE_PAGE) break;
       from += BASELINE_PAGE;
+    }
+    // DB may mark the generation available while every quote fails validation.
+    // Treat that as initializing so feed state cannot claim baseline readiness.
+    if (quotes.size === 0) {
+      return { status: "initializing", quotes: new Map() };
     }
     return { status: "available", quotes };
   } catch {

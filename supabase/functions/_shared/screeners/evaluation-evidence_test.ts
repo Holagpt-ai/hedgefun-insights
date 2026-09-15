@@ -25,6 +25,17 @@ Deno.test("gappers: empty upstream universe is not evaluated", () => {
   assertEquals(evidence.universe_count, 0);
 });
 
+Deno.test("gappers: no volume-active universe blocks evaluation", () => {
+  const universe = [
+    ticker("AAA", { day: { o: 10, c: 10, v: 0 }, prevDay: { c: 9, v: 1 } }),
+    ticker("BBB", { day: { c: 5, v: 0 }, prevDay: { c: 5, v: 1 } }),
+  ];
+  const evidence = evaluateGappersEvidence(universe, []);
+  assertEquals(evidence.status, "prerequisite_unavailable");
+  assertEquals(evidence.reason, "no_volume_active_universe");
+  assertEquals(evidence.volume_positive_count, 0);
+});
+
 Deno.test("gappers: zero calculable rows blocks evaluation", () => {
   const universe = [
     ticker("AAA", { day: { o: undefined, c: 10, v: 1_000_000 }, prevDay: { c: 9, v: 1 } }),
@@ -56,6 +67,20 @@ Deno.test("gappers: sufficient coverage with zero matches is evaluated", () => {
   assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.gap_calculable_count, evidence.volume_positive_count);
   assertEquals(evidence.qualified_count, 0);
+});
+
+Deno.test("gappers: selected_count tracks selected rows independently of qualified_count", () => {
+  const qualified = ticker("HIGH", {
+    day: { o: 10.8, c: 10.9, h: 11, l: 9.5, v: 1_000_000 },
+    prevDay: { c: 10, v: 1 },
+  });
+  const unqualified = ticker("LOW", {
+    day: { o: 10.2, c: 10.3, h: 10.4, l: 10, v: 500_000 },
+    prevDay: { c: 10, v: 1 },
+  });
+  const evidence = evaluateGappersEvidence([unqualified, qualified], [qualified]);
+  assertEquals(evidence.qualified_count, 1);
+  assertEquals(evidence.selected_count, 1);
 });
 
 Deno.test("gappers: valid matches remain evaluated without changing qualification", () => {
