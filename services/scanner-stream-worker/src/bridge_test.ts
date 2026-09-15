@@ -388,3 +388,69 @@ Deno.test("baseline bridge success logs the 60s timeout budget", async () => {
     console.log = original;
   }
 });
+
+Deno.test("staged publish uses start/append/finalize actions and keeps legacy one-shot", async () => {
+  const calls: Captured[] = [];
+  const fetchImpl = capturingFetch(calls, () => ok({ ok: true, result: true }));
+  const bridge = createRadarBridge({
+    bridgeUrl: BRIDGE_URL,
+    workerSecret: SECRET,
+    fetch: fetchImpl,
+  });
+  const generationId = "11111111-2222-3333-4444-555555555555";
+  assertEquals(
+    (await bridge.stagedPublish.start({
+      p_generation_id: generationId,
+      p_period_start: "2025-08-10",
+      p_period_end: "2026-08-10",
+      p_provider_as_of: "2026-08-10T20:00:00.000Z",
+      p_expected_baseline_count: 1,
+      p_expected_exclusion_count: 0,
+      p_min_sessions: 120,
+    })).error,
+    null,
+  );
+  assertEquals(
+    (await bridge.stagedPublish.appendRows({
+      p_generation_id: generationId,
+      p_rows: [],
+    })).error,
+    null,
+  );
+  assertEquals(
+    (await bridge.stagedPublish.appendExclusions({
+      p_generation_id: generationId,
+      p_exclusions: [],
+    })).error,
+    null,
+  );
+  assertEquals(
+    (await bridge.stagedPublish.finalize({ p_generation_id: generationId }))
+      .error,
+    null,
+  );
+  assertEquals(
+    calls.map((c) => c.body.action),
+    [
+      "start_52w_baseline_publish",
+      "append_52w_baseline_rows",
+      "append_52w_baseline_exclusions",
+      "finalize_52w_baseline_publish",
+    ],
+  );
+  const legacy = await bridge.baselineRpc({
+    p_generation_id: generationId,
+    p_rows: [],
+    p_period_start: "2025-08-10",
+    p_period_end: "2026-08-10",
+    p_provider_as_of: "2026-08-10T20:00:00.000Z",
+    p_status: "empty",
+    p_exclusions: [],
+    p_min_sessions: 120,
+  });
+  assertEquals(legacy.error, null);
+  assertEquals(
+    calls[calls.length - 1].body.action,
+    "replace_52w_baseline_with_exclusions",
+  );
+});

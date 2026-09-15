@@ -3,6 +3,7 @@ import type {
   CalendarExceptionLoader,
   ExclusionAwareRpcFn,
   LoadStateFn,
+  StagedPublishClient,
 } from "./baseline/persist.ts";
 import {
   emptyState,
@@ -51,6 +52,7 @@ export type RadarBridge = {
   setStatus: SetStatusFn;
   loadExceptions: CalendarExceptionLoader;
   baselineRpc: ExclusionAwareRpcFn;
+  stagedPublish: StagedPublishClient;
   loadState: LoadStateFn;
 };
 
@@ -273,6 +275,38 @@ export function createRadarBridge(opts: {
     return { error: null };
   };
 
+  const stagedResult = async (
+    action: string,
+    body: BridgeBody,
+    timeoutMs: number,
+  ) => {
+    const res = await post(action, body, timeoutMs);
+    if (!res.ok) return { error: { message: "persist_failed" } };
+    if (!isRecord(res.body) || res.body.ok !== true) {
+      return { error: { message: "persist_failed" } };
+    }
+    return { error: null };
+  };
+
+  const stagedPublish: StagedPublishClient = {
+    start: (args) =>
+      stagedResult("start_52w_baseline_publish", { ...args }, defaultTimeout),
+    appendRows: (args) =>
+      stagedResult("append_52w_baseline_rows", { ...args }, defaultTimeout),
+    appendExclusions: (args) =>
+      stagedResult(
+        "append_52w_baseline_exclusions",
+        { ...args },
+        defaultTimeout,
+      ),
+    finalize: (args) =>
+      stagedResult(
+        "finalize_52w_baseline_publish",
+        { ...args },
+        BASELINE_BRIDGE_TIMEOUT_MS,
+      ),
+  };
+
   const loadState: LoadStateFn = async () => {
     const res = await post("get_52w_state", {});
     if (!res.ok) return null;
@@ -287,6 +321,7 @@ export function createRadarBridge(opts: {
     setStatus,
     loadExceptions,
     baselineRpc,
+    stagedPublish,
     loadState,
   };
 }

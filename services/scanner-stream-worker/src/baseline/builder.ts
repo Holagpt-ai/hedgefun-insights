@@ -14,16 +14,16 @@ import {
   type BaselineState,
   emptyState,
   hasCompletePolicyExclusionEvidence,
-  type ExclusionAwareRpcFn,
   type LoadStateFn,
-  publishGenerationWithExclusions,
+  publishGenerationStaged,
+  type StagedPublishClient,
 } from "./persist.ts";
 
 export type BaselineJobDeps = {
   nowMs: () => number;
   fetch: FetchLike;
   polygonApiKey: string;
-  rpc: ExclusionAwareRpcFn;
+  publish: StagedPublishClient;
   loadState: LoadStateFn;
   loadExceptions: () => Promise<CalendarExceptionRow[] | null>;
   minSessions: number;
@@ -216,7 +216,7 @@ export async function runBaselineJob(
     providerAsOf,
   );
   const generationId = (deps.newGenerationId ?? (() => crypto.randomUUID()))();
-  const published = await publishGenerationWithExclusions(deps.rpc, {
+  const published = await publishGenerationStaged(deps.publish, {
     generationId,
     rows,
     exclusions,
