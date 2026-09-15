@@ -44,6 +44,9 @@ export function parseStatePolicyExclusionFields(
   row: Record<string, unknown> | null | undefined,
 ): { min_sessions: number; excluded_count: number } | null {
   if (!row) return null;
+  if (row.policy_min_sessions == null || row.policy_excluded_count == null) {
+    return null;
+  }
   const min = Number(row.policy_min_sessions);
   const count = Number(row.policy_excluded_count);
   if (!Number.isInteger(min) || min < 1) return null;

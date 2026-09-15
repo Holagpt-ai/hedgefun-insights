@@ -4,9 +4,15 @@ Deno service that bootstraps and refreshes the 52-week high/low baseline used by
 Stocksist scanners. It runs as a long-lived HTTP process so it is not bound by
 Supabase Edge Function wall-clock limits.
 
-The worker publishes the 52-week baseline and, when it holds the Radar V2.2
-lease, consumes Massive second aggregates (`A.*`) to publish a compact top-20
-momentum board. Privileged database writes go through the Lovable Cloud
+The worker is the authoritative 52-week baseline publisher after this sprint.
+It publishes qualifying high/low rows together with validated
+`insufficient_sessions` exclusion evidence in one atomic RPC. The resumable
+Edge Function `sync-screener-52w-baselines` remains a catch-up path and is a
+no-op when the current period already has complete policy metadata. When the
+worker holds the Radar V2.2 lease, it consumes Massive second aggregates
+(`A.*`) to publish a compact top-20 momentum board.
+
+Privileged database writes go through the Lovable Cloud
 `radar-worker-bridge` function using `RADAR_WORKER_SECRET`. The worker does not
 use `SUPABASE_SERVICE_ROLE_KEY`. `MASSIVE_WS_MODE` selects
 `wss://delayed.massive.com/stocks` or `wss://socket.massive.com/stocks`

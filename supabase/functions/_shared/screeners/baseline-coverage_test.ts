@@ -36,6 +36,16 @@ Deno.test("state policy fields: nulls are unavailable", () => {
   );
 });
 
+Deno.test("state policy fields: split nulls are unavailable", () => {
+  assertEquals(
+    parseStatePolicyExclusionFields({
+      policy_min_sessions: 120,
+      policy_excluded_count: null,
+    }),
+    null,
+  );
+});
+
 Deno.test("state policy fields: zero exclusions with min_sessions is valid", () => {
   const parsed = parseStatePolicyExclusionFields({
     policy_min_sessions: 120,

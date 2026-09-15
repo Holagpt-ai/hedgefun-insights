@@ -1,8 +1,8 @@
 import type { CalendarExceptionRow } from "../../../supabase/functions/_shared/markets/session-schedule.ts";
 import type {
   CalendarExceptionLoader,
+  ExclusionAwareRpcFn,
   LoadStateFn,
-  RpcFn,
 } from "./baseline/persist.ts";
 import {
   emptyState,
@@ -50,7 +50,7 @@ export type RadarBridge = {
   radarRpc: RadarRpcFn;
   setStatus: SetStatusFn;
   loadExceptions: CalendarExceptionLoader;
-  baselineRpc: RpcFn;
+  baselineRpc: ExclusionAwareRpcFn;
   loadState: LoadStateFn;
 };
 
@@ -260,9 +260,9 @@ export function createRadarBridge(opts: {
     return parsed;
   };
 
-  const baselineRpc: RpcFn = async (args) => {
+  const baselineRpc: ExclusionAwareRpcFn = async (args) => {
     const res = await post(
-      "replace_52w_baseline",
+      "replace_52w_baseline_with_exclusions",
       { ...args },
       BASELINE_BRIDGE_TIMEOUT_MS,
     );

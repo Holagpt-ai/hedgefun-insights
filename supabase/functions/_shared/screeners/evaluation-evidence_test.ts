@@ -8,6 +8,8 @@ import {
 import type { NhlBaselineQuote } from "./new-highs-lows.ts";
 import type { PolygonTicker } from "./selection.ts";
 
+const ZERO_PREV = { o: 0, h: 0, l: 0, c: 0, v: 0 };
+
 function ticker(
   sym: string,
   overrides: Partial<PolygonTicker> = {},
@@ -425,7 +427,7 @@ Deno.test("gappers: explicit zero prior aggregate + no historical coverage is no
   const universe = [
     ticker("IPO", {
       day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
-      prevDay: { c: 0, v: 0 },
+      prevDay: ZERO_PREV,
     }),
   ];
   const evidence = evaluateGappersEvidence(universe, [], coverage([], []));
@@ -436,11 +438,63 @@ Deno.test("gappers: explicit zero prior aggregate + no historical coverage is no
   assertEquals(evidence.unresolved_gap_input_count, 0);
 });
 
+Deno.test("gappers: mixed zero/nonzero prior aggregate is unresolved", () => {
+  const universe = [
+    ticker("IPO", {
+      day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
+      prevDay: { o: 10, h: 11, l: 9, c: 0, v: 0 },
+    }),
+  ];
+  const evidence = evaluateGappersEvidence(universe, [], coverage([], []));
+  assertEquals(evidence.no_prior_session_count, 0);
+  assertEquals(evidence.unresolved_gap_input_count, 1);
+  assertEquals(evidence.status, "prerequisite_unavailable");
+});
+
+Deno.test("gappers: partial prior aggregate {c,v} only is unresolved", () => {
+  const universe = [
+    ticker("IPO", {
+      day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
+      prevDay: { c: 0, v: 0 },
+    }),
+  ];
+  const evidence = evaluateGappersEvidence(universe, [], coverage([], []));
+  assertEquals(evidence.no_prior_session_count, 0);
+  assertEquals(evidence.unresolved_gap_input_count, 1);
+  assertEquals(evidence.status, "prerequisite_unavailable");
+});
+
+Deno.test("gappers: all-zero prior aggregate + current open 0 is unresolved", () => {
+  const universe = [
+    ticker("IPO", {
+      day: { o: 0, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
+      prevDay: ZERO_PREV,
+    }),
+  ];
+  const evidence = evaluateGappersEvidence(universe, [], coverage([], []));
+  assertEquals(evidence.no_prior_session_count, 0);
+  assertEquals(evidence.unresolved_gap_input_count, 1);
+  assertEquals(evidence.status, "prerequisite_unavailable");
+});
+
+Deno.test("gappers: all-zero prior aggregate + current open < 0 is unresolved", () => {
+  const universe = [
+    ticker("IPO", {
+      day: { o: -1, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
+      prevDay: ZERO_PREV,
+    }),
+  ];
+  const evidence = evaluateGappersEvidence(universe, [], coverage([], []));
+  assertEquals(evidence.no_prior_session_count, 0);
+  assertEquals(evidence.unresolved_gap_input_count, 1);
+  assertEquals(evidence.status, "prerequisite_unavailable");
+});
+
 Deno.test("gappers: explicit zero prior aggregate in included baseline is unresolved", () => {
   const universe = [
     ticker("AAA", {
       day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
-      prevDay: { c: 0, v: 0 },
+      prevDay: ZERO_PREV,
     }),
   ];
   const evidence = evaluateGappersEvidence(
@@ -458,7 +512,7 @@ Deno.test("gappers: explicit zero prior aggregate in policy exclusions is unreso
   const universe = [
     ticker("AAA", {
       day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
-      prevDay: { c: 0, v: 0 },
+      prevDay: ZERO_PREV,
     }),
   ];
   const evidence = evaluateGappersEvidence(
@@ -488,7 +542,7 @@ Deno.test("gappers: missing day.o is unresolved", () => {
   const universe = [
     ticker("AAA", {
       day: { o: undefined, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
-      prevDay: { c: 0, v: 0 },
+      prevDay: ZERO_PREV,
     }),
   ];
   const evidence = evaluateGappersEvidence(universe, [], coverage([], []));
@@ -505,7 +559,7 @@ Deno.test("gappers: complete calculable + structural not-applicable accounting i
     }),
     ticker("IPO", {
       day: { o: 8, c: 8.1, h: 8.2, l: 7.9, v: 500_000 },
-      prevDay: { c: 0, v: 0 },
+      prevDay: ZERO_PREV,
     }),
   ];
   const evidence = evaluateGappersEvidence(
@@ -545,7 +599,7 @@ Deno.test("gappers: unavailable exclusion evidence cannot classify structural no
   const universe = [
     ticker("IPO", {
       day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
-      prevDay: { c: 0, v: 0 },
+      prevDay: ZERO_PREV,
     }),
   ];
   const evidence = evaluateGappersEvidence(universe, [], coverage([], null));
@@ -558,7 +612,7 @@ Deno.test("gappers: no calculable symbols cannot certify generic validated zero"
   const universe = [
     ticker("IPO", {
       day: { o: 10, c: 10.5, h: 11, l: 9.5, v: 1_000_000 },
-      prevDay: { c: 0, v: 0 },
+      prevDay: ZERO_PREV,
     }),
   ];
   const evidence = evaluateGappersEvidence(universe, [], coverage([], []));

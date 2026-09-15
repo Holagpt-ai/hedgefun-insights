@@ -609,13 +609,27 @@ Deno.test("freshness: never throws on adversarial inputs", () => {
   assertEquals(threwNow, false);
 });
 
-Deno.test("metrics: explicit zero prior-day aggregate requires present zeros, not absence", () => {
+Deno.test("metrics: explicit zero prior-day aggregate requires full OHLCV zeros", () => {
   assertEquals(
-    isExplicitZeroPriorDayAggregate({ ticker: "A", prevDay: { c: 0, v: 0 } }),
+    isExplicitZeroPriorDayAggregate({
+      ticker: "A",
+      prevDay: { o: 0, h: 0, l: 0, c: 0, v: 0 },
+    }),
     true,
   );
   assertEquals(
+    isExplicitZeroPriorDayAggregate({ ticker: "A", prevDay: { c: 0, v: 0 } }),
+    false,
+  );
+  assertEquals(
     isExplicitZeroPriorDayAggregate({ ticker: "A", prevDay: { c: 0 } }),
+    false,
+  );
+  assertEquals(
+    isExplicitZeroPriorDayAggregate({
+      ticker: "A",
+      prevDay: { o: 10, h: 11, l: 9, c: 0, v: 0 },
+    }),
     false,
   );
   assertEquals(
@@ -629,6 +643,14 @@ Deno.test("metrics: explicit zero prior-day aggregate requires present zeros, no
   assertEquals(
     hasValidCurrentDayOpen({ ticker: "A", day: { o: 10 } }),
     true,
+  );
+  assertEquals(
+    hasValidCurrentDayOpen({ ticker: "A", day: { o: 0 } }),
+    false,
+  );
+  assertEquals(
+    hasValidCurrentDayOpen({ ticker: "A", day: { o: -1 } }),
+    false,
   );
   assertEquals(
     hasValidCurrentDayOpen({ ticker: "A", day: { o: undefined } }),

@@ -6127,6 +6127,19 @@ export type Database = {
         }
         Returns: number
       }
+      replace_screener_52w_baseline_generation_with_exclusions_v1: {
+        Args: {
+          p_exclusions: Json
+          p_generation_id: string
+          p_min_sessions: number
+          p_period_end: string
+          p_period_start: string
+          p_provider_as_of: string
+          p_rows: Json
+          p_status: string
+        }
+        Returns: number
+      }
       replace_screener_results_generation_v1: {
         Args: {
           p_nhl_baseline_status?: string

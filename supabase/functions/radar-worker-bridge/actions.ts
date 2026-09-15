@@ -9,6 +9,7 @@ export const RADAR_BRIDGE_ACTIONS = [
   "publish_candidates_v2",
   "set_feed_status",
   "replace_52w_baseline",
+  "replace_52w_baseline_with_exclusions",
   "get_52w_state",
 ] as const;
 

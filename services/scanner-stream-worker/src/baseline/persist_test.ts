@@ -1,6 +1,16 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import type { BaselineRow, ReplaceGenerationArgs, RpcFn } from "./persist.ts";
-import { publishGeneration, validateGeneration } from "./persist.ts";
+import type {
+  BaselineRow,
+  ReplaceGenerationArgs,
+  ReplaceGenerationWithExclusionsArgs,
+  ExclusionAwareRpcFn,
+  RpcFn,
+} from "./persist.ts";
+import {
+  publishGeneration,
+  publishGenerationWithExclusions,
+  validateGeneration,
+} from "./persist.ts";
 
 const GEN = "11111111-2222-3333-4444-555555555555";
 const AS_OF = "2026-08-12T20:00:01.000Z";
@@ -122,4 +132,83 @@ Deno.test("RPC throw is treated as persist_failed without exposing a generation"
   if (published.ok) return;
   assertEquals(published.code, "persist_failed");
   assertEquals(calls.length, 1);
+});
+
+function recordingExclusionRpc(
+  calls: ReplaceGenerationWithExclusionsArgs[],
+  impl?: ExclusionAwareRpcFn,
+): ExclusionAwareRpcFn {
+  return async (args) => {
+    calls.push(args);
+    if (impl) return impl(args);
+    return { error: null };
+  };
+}
+
+Deno.test("legacy publishGeneration does not attach policy evidence", async () => {
+  const calls: ReplaceGenerationArgs[] = [];
+  const published = await publishGeneration(recordingRpc(calls), {
+    generationId: GEN,
+    rows: [validRow()],
+    periodStart: START,
+    periodEnd: END,
+    providerAsOf: AS_OF,
+  });
+  assertEquals(published.ok, true);
+  if (!published.ok) return;
+  assertEquals(published.state.policy_min_sessions, null);
+  assertEquals(published.state.policy_excluded_count, null);
+  assertEquals("p_exclusions" in calls[0], false);
+});
+
+Deno.test("exclusion-aware publish attaches validated policy evidence", async () => {
+  const calls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const published = await publishGenerationWithExclusions(
+    recordingExclusionRpc(calls),
+    {
+      generationId: GEN,
+      rows: [validRow()],
+      exclusions: [{
+        symbol: "IPO",
+        reason: "insufficient_sessions",
+        sessions_observed: 40,
+        min_sessions: 120,
+      }],
+      minSessions: 120,
+      periodStart: START,
+      periodEnd: END,
+      providerAsOf: AS_OF,
+    },
+  );
+  assertEquals(published.ok, true);
+  if (!published.ok) return;
+  assertEquals(published.state.policy_min_sessions, 120);
+  assertEquals(published.state.policy_excluded_count, 1);
+  assertEquals(calls[0].p_exclusions[0].symbol, "IPO");
+  assertEquals(calls[0].p_min_sessions, 120);
+});
+
+Deno.test("overlapping exclusion never calls RPC so mixed evidence cannot persist", async () => {
+  const calls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const published = await publishGenerationWithExclusions(
+    recordingExclusionRpc(calls),
+    {
+      generationId: GEN,
+      rows: [validRow()],
+      exclusions: [{
+        symbol: "AAPL",
+        reason: "insufficient_sessions",
+        sessions_observed: 40,
+        min_sessions: 120,
+      }],
+      minSessions: 120,
+      periodStart: START,
+      periodEnd: END,
+      providerAsOf: AS_OF,
+    },
+  );
+  assertEquals(published.ok, false);
+  if (published.ok) return;
+  assertEquals(published.code, "validation_failed");
+  assertEquals(calls.length, 0);
 });

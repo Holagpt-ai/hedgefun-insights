@@ -109,10 +109,11 @@ function hasHistoricalSessionCoverage(
 }
 
 /**
- * Strict structural no-prior-session: volume-active, valid open, explicit
- * zero prior aggregate, and absent from both the current valid baseline set
- * and current-generation policy-exclusion set.
- * If exclusion evidence is unavailable, never classify as no-prior-session.
+ * Strict structural no-prior-session: normalized symbol, positive volume,
+ * current open finite and > 0, explicit all-zero prior-day OHLCV, and absent
+ * from both the current valid baseline set and current-generation
+ * policy-exclusion set. If exclusion evidence is unavailable, never classify
+ * as no-prior-session.
  */
 export function isStructurallyNoPriorSession(
   t: PolygonTicker,

@@ -11,6 +11,8 @@ import {
 const MIGRATION_REL =
   "../../../migrations/20260915180000_screener_prerequisite_eligibility_v1.sql";
 const REPLACE_RPC = "replace_screener_52w_baseline_generation_v1";
+const REPLACE_WITH_EXCLUSIONS_RPC =
+  "replace_screener_52w_baseline_generation_with_exclusions_v1";
 const FINALIZE_RPC = "finalize_screener_52w_baseline_job_v1";
 
 async function load(rel: string): Promise<string> {
@@ -30,20 +32,32 @@ function functionBody(sql: string, rpcName: string): string {
 Deno.test("static: eligibility migration is the latest replace and finalize definition", async () => {
   const migrationsDir = new URL("../../../migrations/", import.meta.url);
   const replaceDefs: string[] = [];
+  const replaceWithExclusionsDefs: string[] = [];
   const finalizeDefs: string[] = [];
   for await (const entry of Deno.readDir(migrationsDir)) {
     if (!entry.isFile || !entry.name.endsWith(".sql")) continue;
     const sql = await Deno.readTextFile(new URL(entry.name, migrationsDir));
-    if (sql.includes(`CREATE OR REPLACE FUNCTION public.${REPLACE_RPC}`)) {
+    if (sql.includes(`CREATE OR REPLACE FUNCTION public.${REPLACE_RPC}(`)) {
       replaceDefs.push(entry.name);
+    }
+    if (
+      sql.includes(
+        `CREATE OR REPLACE FUNCTION public.${REPLACE_WITH_EXCLUSIONS_RPC}(`,
+      )
+    ) {
+      replaceWithExclusionsDefs.push(entry.name);
     }
     if (sql.includes(`CREATE OR REPLACE FUNCTION public.${FINALIZE_RPC}`)) {
       finalizeDefs.push(entry.name);
     }
   }
   replaceDefs.sort();
+  replaceWithExclusionsDefs.sort();
   finalizeDefs.sort();
   assertEquals(replaceDefs[replaceDefs.length - 1], "20260915180000_screener_prerequisite_eligibility_v1.sql");
+  assertEquals(replaceWithExclusionsDefs, [
+    "20260915180000_screener_prerequisite_eligibility_v1.sql",
+  ]);
   assertEquals(finalizeDefs, [
     "20260814180000_screener_52w_baseline_job.sql",
     "20260915180000_screener_prerequisite_eligibility_v1.sql",
@@ -96,21 +110,59 @@ Deno.test("static: direct replace publisher resets exclusion metadata unavailabl
   );
 });
 
-Deno.test("static: finalizer persists exclusions before staging cleanup and stays atomic", async () => {
+Deno.test("static: exclusion-aware publisher is atomic and fail-closed on mismatch", async () => {
+  const sql = await load(MIGRATION_REL);
+  const body = functionBody(sql, REPLACE_WITH_EXCLUSIONS_RPC);
+  assertFalse(body.includes("COMMIT"));
+  assert(body.includes("unrecognized exclusion reason"));
+  assert(body.includes("exclusion symbol overlaps baseline"));
+  assert(body.includes("exclusion insert count mismatch"));
+  assert(body.includes("INSERT INTO public.screener_52w_baseline_exclusions"));
+  assert(body.includes("policy_min_sessions = p_min_sessions"));
+  assert(body.includes("policy_excluded_count = v_excluded"));
+  assert(body.includes("AND current_generation_id = p_generation_id"));
+  assert(body.includes("baseline state generation mismatch"));
+  assert(
+    body.includes(
+      "DELETE FROM public.screener_52w_baseline_exclusions\n  WHERE generation_id IS DISTINCT FROM p_generation_id",
+    ),
+  );
+
+  const replaceAt = body.indexOf(`public.${REPLACE_RPC}(`);
+  const insertExclAt = body.indexOf(
+    "INSERT INTO public.screener_52w_baseline_exclusions",
+  );
+  const updateStateAt = body.indexOf("policy_excluded_count = v_excluded");
+  const mismatchAt = body.indexOf("baseline state generation mismatch");
+  const deleteStaleAt = body.indexOf(
+    "DELETE FROM public.screener_52w_baseline_exclusions",
+  );
+  assert(replaceAt >= 0 && insertExclAt > replaceAt, "insert after legacy replace");
+  assert(updateStateAt > insertExclAt, "state count after insert");
+  assert(mismatchAt > updateStateAt, "generation mismatch rolls back");
+  assert(deleteStaleAt > updateStateAt, "stale exclusion delete after publication");
+
+  assert(
+    sql.includes(
+      `GRANT EXECUTE ON FUNCTION public.${REPLACE_WITH_EXCLUSIONS_RPC}(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)\n  TO service_role`,
+    ),
+  );
+  assert(
+    sql.includes(
+      `REVOKE ALL ON FUNCTION public.${REPLACE_WITH_EXCLUSIONS_RPC}(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)\n  FROM PUBLIC`,
+    ),
+  );
+});
+
+Deno.test("static: finalizer delegates to exclusion-aware publisher then cleans staging", async () => {
   const sql = await load(MIGRATION_REL);
   const body = functionBody(sql, FINALIZE_RPC);
   assertFalse(body.includes("COMMIT"));
   assert(body.includes("s.sessions_observed >= p_min_sessions"));
   assert(body.includes("s.sessions_observed < p_min_sessions"));
   assert(body.includes("'insufficient_sessions'"));
-  assert(body.includes("INSERT INTO public.screener_52w_baseline_exclusions"));
-  assert(body.includes("policy_min_sessions = p_min_sessions"));
-  assert(body.includes("policy_excluded_count = v_excluded"));
-  assert(
-    body.includes(
-      "DELETE FROM public.screener_52w_baseline_exclusions\n  WHERE generation_id IS DISTINCT FROM p_generation_id",
-    ),
-  );
+  assert(body.includes(`public.${REPLACE_WITH_EXCLUSIONS_RPC}`));
+  assertFalse(body.includes(`public.${REPLACE_RPC}(`));
   assert(
     body.includes(
       "DELETE FROM public.screener_52w_baseline_staging WHERE generation_id = p_generation_id",
@@ -122,23 +174,11 @@ Deno.test("static: finalizer persists exclusions before staging cleanup and stay
     ),
   );
 
-  const replaceAt = body.indexOf(
-    `public.${REPLACE_RPC}`,
-  );
-  const insertExclAt = body.indexOf(
-    "INSERT INTO public.screener_52w_baseline_exclusions",
-  );
-  const updateStateAt = body.indexOf("policy_excluded_count = v_excluded");
-  const deleteStaleAt = body.indexOf(
-    "DELETE FROM public.screener_52w_baseline_exclusions",
-  );
+  const publishAt = body.indexOf(`public.${REPLACE_WITH_EXCLUSIONS_RPC}`);
   const deleteStagingAt = body.indexOf(
     "DELETE FROM public.screener_52w_baseline_staging",
   );
-  assert(replaceAt >= 0 && insertExclAt > replaceAt, "insert exclusions after replace");
-  assert(updateStateAt > insertExclAt, "state count after insert");
-  assert(deleteStaleAt > updateStateAt, "stale exclusion delete after publication");
-  assert(deleteStagingAt > deleteStaleAt, "staging cleanup last");
+  assert(publishAt >= 0 && deleteStagingAt > publishAt, "staging cleanup last");
 
   assert(
     sql.includes(

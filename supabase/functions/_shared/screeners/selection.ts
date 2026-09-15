@@ -10,7 +10,13 @@ export type PolygonTicker = {
   /** Provider day-change vs previous close (may use extended last). Do not pair with day.c. */
   todaysChangePerc?: unknown;
   day?: { c?: unknown; o?: unknown; v?: unknown; h?: unknown; l?: unknown };
-  prevDay?: { c?: unknown; v?: unknown };
+  prevDay?: {
+    o?: unknown;
+    h?: unknown;
+    l?: unknown;
+    c?: unknown;
+    v?: unknown;
+  };
   lastTrade?: { p?: unknown; t?: unknown };
   min?: { c?: unknown; t?: unknown; v?: unknown; av?: unknown };
   [key: string]: unknown;
@@ -151,24 +157,32 @@ function isExplicitNumericZero(value: unknown): boolean {
   return false;
 }
 
+const PRIOR_DAY_OHLCV_KEYS = ["o", "h", "l", "c", "v"] as const;
+
 /**
- * True when the provider supplied an explicit zero prior-day aggregate
- * (prevDay.c and prevDay.v are present and numerically zero — not absent/null).
+ * True when the provider supplied an explicit all-zero prior-day OHLCV
+ * aggregate. Every field o/h/l/c/v must be present and numerically exactly
+ * zero. Absent, partial, null, NaN, infinite, or mixed aggregates fail closed.
  */
 export function isExplicitZeroPriorDayAggregate(t: PolygonTicker): boolean {
   const prev = t?.prevDay;
   if (prev === undefined || prev === null || typeof prev !== "object") {
     return false;
   }
-  return isExplicitNumericZero(prev.c) && isExplicitNumericZero(prev.v);
+  const row = prev as Record<string, unknown>;
+  for (const key of PRIOR_DAY_OHLCV_KEYS) {
+    if (!Object.prototype.hasOwnProperty.call(row, key)) return false;
+    if (!isExplicitNumericZero(row[key])) return false;
+  }
+  return true;
 }
 
-/** True when day.o is present and finite. */
+/** True when day.o is present, finite, and strictly greater than zero. */
 export function hasValidCurrentDayOpen(t: PolygonTicker): boolean {
   const open = t?.day?.o;
   if (open === undefined || open === null) return false;
   const n = Number(open);
-  return Number.isFinite(n);
+  return Number.isFinite(n) && n > 0;
 }
 
 /** Gap % = (today open - prev close) / prev close * 100. */

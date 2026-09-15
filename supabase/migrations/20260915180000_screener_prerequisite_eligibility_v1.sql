@@ -304,6 +304,168 @@ REVOKE ALL ON FUNCTION public.replace_screener_52w_baseline_generation_v1(uuid, 
 GRANT EXECUTE ON FUNCTION public.replace_screener_52w_baseline_generation_v1(uuid, jsonb, date, date, timestamptz, text)
   TO service_role;
 
+-- ── Exclusion-aware publisher: atomic generation + policy evidence ──
+-- Does not change replace_screener_52w_baseline_generation_v1 semantics.
+-- Calls the legacy replace (which fail-closes policy metadata and drops
+-- leftover exclusion rows), then writes validated exclusions and restores
+-- integrity metadata in the same transaction. Concurrent callers cannot
+-- attach another generation's exclusions: the state update is keyed to
+-- p_generation_id and rolls back on mismatch.
+
+CREATE OR REPLACE FUNCTION public.replace_screener_52w_baseline_generation_with_exclusions_v1(
+  p_generation_id uuid,
+  p_rows jsonb,
+  p_period_start date,
+  p_period_end date,
+  p_provider_as_of timestamptz,
+  p_status text,
+  p_exclusions jsonb,
+  p_min_sessions integer
+)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = ''
+AS $fn$
+DECLARE
+  v_inserted integer := 0;
+  v_excluded integer := 0;
+  v_excl_len integer := 0;
+BEGIN
+  IF p_min_sessions IS NULL OR p_min_sessions < 1 THEN
+    RAISE EXCEPTION 'invalid min_sessions';
+  END IF;
+  IF p_exclusions IS NULL OR jsonb_typeof(p_exclusions) <> 'array' THEN
+    RAISE EXCEPTION 'exclusions must be a JSON array';
+  END IF;
+
+  v_excl_len := jsonb_array_length(p_exclusions);
+  IF v_excl_len > 20000 THEN
+    RAISE EXCEPTION 'exclusions exceed baseline limit';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_exclusions) AS e
+    WHERE jsonb_typeof(e) <> 'object'
+  ) THEN
+    RAISE EXCEPTION 'exclusion must be an object';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_exclusions) AS e
+    WHERE upper(trim(COALESCE(e ->> 'symbol', ''))) = ''
+       OR char_length(upper(trim(COALESCE(e ->> 'symbol', '')))) > 12
+       OR upper(trim(COALESCE(e ->> 'symbol', ''))) !~ '^[A-Z][A-Z0-9.\-]*$'
+  ) THEN
+    RAISE EXCEPTION 'invalid exclusion symbol';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_exclusions) AS e
+    GROUP BY upper(trim(COALESCE(e ->> 'symbol', '')))
+    HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'duplicate exclusion symbol';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_exclusions) AS e
+    WHERE COALESCE(e ->> 'reason', '') IS DISTINCT FROM 'insufficient_sessions'
+  ) THEN
+    RAISE EXCEPTION 'unrecognized exclusion reason';
+  END IF;
+
+  BEGIN
+    IF EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(p_exclusions) AS e
+      WHERE (e ->> 'min_sessions')::integer IS DISTINCT FROM p_min_sessions
+         OR (e ->> 'sessions_observed')::integer IS NULL
+         OR (e ->> 'sessions_observed')::integer < 1
+         OR (e ->> 'sessions_observed')::integer >= p_min_sessions
+    ) THEN
+      RAISE EXCEPTION 'invalid exclusion session counts';
+    END IF;
+  EXCEPTION
+    WHEN others THEN
+      RAISE EXCEPTION 'invalid exclusion session counts';
+  END;
+
+  IF EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(p_exclusions) AS e
+    JOIN jsonb_array_elements(p_rows) AS r
+      ON upper(trim(COALESCE(e ->> 'symbol', '')))
+       = upper(trim(COALESCE(r ->> 'symbol', '')))
+  ) THEN
+    RAISE EXCEPTION 'exclusion symbol overlaps baseline';
+  END IF;
+
+  v_inserted := public.replace_screener_52w_baseline_generation_v1(
+    p_generation_id,
+    p_rows,
+    p_period_start,
+    p_period_end,
+    p_provider_as_of,
+    p_status
+  );
+
+  IF v_excl_len > 0 THEN
+    INSERT INTO public.screener_52w_baseline_exclusions (
+      generation_id,
+      symbol,
+      reason,
+      sessions_observed,
+      min_sessions,
+      provider_as_of
+    )
+    SELECT
+      p_generation_id,
+      upper(trim(e ->> 'symbol')),
+      'insufficient_sessions',
+      (e ->> 'sessions_observed')::integer,
+      p_min_sessions,
+      p_provider_as_of
+    FROM jsonb_array_elements(p_exclusions) AS e;
+
+    GET DIAGNOSTICS v_excluded = ROW_COUNT;
+    IF v_excluded <> v_excl_len THEN
+      RAISE EXCEPTION 'exclusion insert count mismatch';
+    END IF;
+  ELSE
+    v_excluded := 0;
+  END IF;
+
+  UPDATE public.screener_52w_baseline_state
+  SET policy_min_sessions = p_min_sessions,
+      policy_excluded_count = v_excluded
+  WHERE state_key = 'current'
+    AND current_generation_id = p_generation_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'baseline state generation mismatch';
+  END IF;
+
+  DELETE FROM public.screener_52w_baseline_exclusions
+  WHERE generation_id IS DISTINCT FROM p_generation_id;
+
+  RETURN v_inserted;
+END;
+$fn$;
+
+REVOKE ALL ON FUNCTION public.replace_screener_52w_baseline_generation_with_exclusions_v1(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)
+  FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.replace_screener_52w_baseline_generation_with_exclusions_v1(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)
+  FROM anon;
+REVOKE ALL ON FUNCTION public.replace_screener_52w_baseline_generation_with_exclusions_v1(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)
+  FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.replace_screener_52w_baseline_generation_with_exclusions_v1(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)
+  TO service_role;
+
 -- ── Finalizer: publish qualifying baselines, then retain exclusion evidence ──
 
 CREATE OR REPLACE FUNCTION public.finalize_screener_52w_baseline_job_v1(
@@ -319,6 +481,7 @@ AS $fn$
 DECLARE
   v_job public.screener_52w_baseline_job%ROWTYPE;
   v_rows jsonb;
+  v_exclusions jsonb;
   v_count integer;
   v_status text;
   v_inserted integer;
@@ -379,48 +542,34 @@ BEGIN
 
   v_status := CASE WHEN v_count = 0 THEN 'empty' ELSE 'available' END;
 
-  v_inserted := public.replace_screener_52w_baseline_generation_v1(
+  SELECT COALESCE(jsonb_agg(excl_payload ORDER BY symbol), '[]'::jsonb)
+    INTO v_exclusions
+  FROM (
+    SELECT
+      s.symbol,
+      jsonb_build_object(
+        'symbol', s.symbol,
+        'reason', 'insufficient_sessions',
+        'sessions_observed', s.sessions_observed,
+        'min_sessions', p_min_sessions
+      ) AS excl_payload
+    FROM public.screener_52w_baseline_staging s
+    WHERE s.generation_id = p_generation_id
+      AND s.sessions_observed < p_min_sessions
+  ) q;
+
+  v_excluded := jsonb_array_length(v_exclusions);
+
+  v_inserted := public.replace_screener_52w_baseline_generation_with_exclusions_v1(
     p_generation_id,
     v_rows,
     v_job.period_start,
     v_job.period_end,
     p_provider_as_of,
-    v_status
+    v_status,
+    v_exclusions,
+    p_min_sessions
   );
-
-  INSERT INTO public.screener_52w_baseline_exclusions (
-    generation_id,
-    symbol,
-    reason,
-    sessions_observed,
-    min_sessions,
-    provider_as_of
-  )
-  SELECT
-    p_generation_id,
-    s.symbol,
-    'insufficient_sessions',
-    s.sessions_observed,
-    p_min_sessions,
-    p_provider_as_of
-  FROM public.screener_52w_baseline_staging s
-  WHERE s.generation_id = p_generation_id
-    AND s.sessions_observed < p_min_sessions;
-
-  GET DIAGNOSTICS v_excluded = ROW_COUNT;
-
-  UPDATE public.screener_52w_baseline_state
-  SET policy_min_sessions = p_min_sessions,
-      policy_excluded_count = v_excluded
-  WHERE state_key = 'current'
-    AND current_generation_id = p_generation_id;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'baseline state generation mismatch';
-  END IF;
-
-  DELETE FROM public.screener_52w_baseline_exclusions
-  WHERE generation_id IS DISTINCT FROM p_generation_id;
 
   UPDATE public.screener_52w_baseline_job
   SET status = 'idle',
