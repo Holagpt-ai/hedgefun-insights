@@ -46,6 +46,19 @@ Deno.test("gappers: zero calculable rows blocks evaluation", () => {
   assertEquals(evidence.reason, "prior_close_gap_inputs_unavailable");
 });
 
+Deno.test("gappers: zero-volume calculable gap cannot compensate for missing active coverage", () => {
+  const universe = [
+    ticker("AAA", { day: { o: 10.8, c: 10.9, v: 1_000_000 }, prevDay: { c: 10, v: 1 } }),
+    ticker("BBB", { day: { o: undefined, c: 5, v: 2_000_000 }, prevDay: { c: 5, v: 1 } }),
+    ticker("CCC", { day: { o: 10.5, c: 10.6, v: 0 }, prevDay: { c: 10, v: 1 } }),
+  ];
+  const evidence = evaluateGappersEvidence(universe, []);
+  assertEquals(evidence.status, "prerequisite_unavailable");
+  assertEquals(evidence.reason, "gap_input_coverage_incomplete");
+  assertEquals(evidence.volume_positive_count, 2);
+  assertEquals(evidence.gap_calculable_count, 1);
+});
+
 Deno.test("gappers: incomplete coverage across volume-active symbols is not evaluated", () => {
   const universe = [
     ticker("AAA", { day: { o: 10.8, c: 10.9, v: 1_000_000 }, prevDay: { c: 10, v: 1 } }),
@@ -105,7 +118,7 @@ Deno.test("nhl: empty baseline generation is not treated as available", () => {
   assertEquals(evidence.reason, "baseline_quotes_empty");
 });
 
-Deno.test("nhl: available baseline with zero evaluated securities is not evaluated", () => {
+Deno.test("nhl: eligible snapshot without matching baseline is incomplete coverage", () => {
   const baseline: NhlBaselineQuote = {
     symbol: "ZZZ",
     high_52w: 20,
@@ -119,11 +132,49 @@ Deno.test("nhl: available baseline with zero evaluated securities is not evaluat
     [],
   );
   assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.eligible_count, 1);
+  assertEquals(evidence.evaluated_count, 0);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
+});
+
+Deno.test("nhl: zero eligible snapshots is not evaluated", () => {
+  const baseline: NhlBaselineQuote = {
+    symbol: "AAA",
+    high_52w: 20,
+    low_52w: 5,
+    sessions_observed: 30,
+  };
+  const evidence = evaluateNhlEvidence(
+    [ticker("AAA", { day: { c: 10, v: 0 }, prevDay: { c: 9, v: 1 } })],
+    new Map([["AAA", baseline]]),
+    "available",
+    [],
+  );
+  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.eligible_count, 0);
   assertEquals(evidence.evaluated_count, 0);
   assertEquals(evidence.reason, "baseline_coverage_empty");
 });
 
-Deno.test("nhl: partial baseline coverage can still evaluate matched symbols", () => {
+Deno.test("nhl: missing day range excludes symbol from eligible_count", () => {
+  const baseline: NhlBaselineQuote = {
+    symbol: "AAA",
+    high_52w: 20,
+    low_52w: 5,
+    sessions_observed: 30,
+  };
+  const evidence = evaluateNhlEvidence(
+    [ticker("AAA", { day: { c: 10, v: 1_000_000 }, prevDay: { c: 9, v: 1 } })],
+    new Map([["AAA", baseline]]),
+    "available",
+    [],
+  );
+  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.eligible_count, 0);
+  assertEquals(evidence.reason, "baseline_coverage_empty");
+});
+
+Deno.test("nhl: full eligible coverage with matching baseline is evaluated", () => {
   const baseline: NhlBaselineQuote = {
     symbol: "AAA",
     high_52w: 20,
@@ -137,9 +188,32 @@ Deno.test("nhl: partial baseline coverage can still evaluate matched symbols", (
     [],
   );
   assertEquals(evidence.status, "evaluated");
+  assertEquals(evidence.eligible_count, 1);
   assertEquals(evidence.evaluated_count, 1);
   assertEquals(evidence.qualified_count, 0);
   assertEquals(evidence.baseline_quote_count, 1);
+});
+
+Deno.test("nhl: partial eligible baseline match fails closed", () => {
+  const baselineA: NhlBaselineQuote = {
+    symbol: "AAA",
+    high_52w: 20,
+    low_52w: 5,
+    sessions_observed: 30,
+  };
+  const evidence = evaluateNhlEvidence(
+    [
+      ticker("AAA", { day: { c: 10, h: 12, l: 8, v: 1_000_000 }, prevDay: { c: 9, v: 1 } }),
+      ticker("BBB", { day: { c: 8, h: 11, l: 7, v: 900_000 }, prevDay: { c: 8, v: 1 } }),
+    ],
+    new Map([["AAA", baselineA]]),
+    "available",
+    [],
+  );
+  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.eligible_count, 2);
+  assertEquals(evidence.evaluated_count, 1);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
 });
 
 Deno.test("nhl: baseline initializing is not evaluated", () => {
@@ -168,6 +242,7 @@ Deno.test("nhl: legitimate zero matches require evaluated coverage", () => {
     [],
   );
   assertEquals(evidence.status, "evaluated");
+  assertEquals(evidence.eligible_count, 1);
   assertEquals(evidence.evaluated_count, 1);
   assertEquals(evidence.qualified_count, 0);
 });

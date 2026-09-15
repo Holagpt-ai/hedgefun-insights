@@ -17,6 +17,7 @@ import {
   type NhlClassification,
 } from "./new-highs-lows.ts";
 import {
+  dayHighLow,
   dayVolume,
   gapPercent,
   normalizeSymbol,
@@ -44,6 +45,7 @@ export interface NhlTabEvidence {
   baseline_status: NhlBaselineStatus;
   baseline_quote_count: number;
   universe_count: number;
+  eligible_count?: number;
   evaluated_count?: number;
   qualified_count?: number;
   selected_count: number;
@@ -86,7 +88,9 @@ export function evaluateGappersEvidence(
   let qualified_count = 0;
 
   for (const t of universe) {
-    if (gapPercent(t) !== null) gap_calculable_count += 1;
+    const vol = dayVolume(t);
+    const volumeActive = vol !== null && vol > 0;
+    if (volumeActive && gapPercent(t) !== null) gap_calculable_count += 1;
     if (qualifiesGappers(t)) qualified_count += 1;
   }
 
@@ -168,25 +172,32 @@ export function evaluateNhlEvidence(
     };
   }
 
+  let eligible_count = 0;
   let evaluated_count = 0;
   let qualified_count = 0;
 
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
+    const vol = dayVolume(t);
+    if (vol === null || !(vol > 0)) continue;
+    const price = regularClose(t);
+    if (price === null || !(price > 0)) continue;
+    const range = dayHighLow(t);
+    if (range.high === null || range.low === null) continue;
+
+    eligible_count += 1;
     const baseline = baselines.get(sym);
     if (!isValidBaselineQuote(baseline)) continue;
-    const vol = dayVolume(t);
-    const price = regularClose(t);
-    if (vol === null || !(vol > 0) || price === null || !(price > 0)) continue;
     evaluated_count += 1;
     if (classifyNewHighLow(t, baseline) !== null) qualified_count += 1;
   }
 
-  if (evaluated_count === 0) {
+  if (eligible_count === 0) {
     return {
       status: "not_evaluated",
       baseline_status: "available",
+      eligible_count: 0,
       evaluated_count: 0,
       qualified_count: 0,
       ...base,
@@ -194,9 +205,22 @@ export function evaluateNhlEvidence(
     };
   }
 
+  if (evaluated_count < eligible_count) {
+    return {
+      status: "not_evaluated",
+      baseline_status: "available",
+      eligible_count,
+      evaluated_count,
+      qualified_count,
+      ...base,
+      reason: "baseline_coverage_incomplete",
+    };
+  }
+
   return {
     status: "evaluated",
     baseline_status: "available",
+    eligible_count,
     evaluated_count,
     qualified_count,
     ...base,

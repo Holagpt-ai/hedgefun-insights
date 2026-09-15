@@ -23,6 +23,7 @@ export interface NhlTabEvidence {
   baseline_status: NhlBaselineStatus;
   baseline_quote_count: number;
   universe_count: number;
+  eligible_count?: number;
   evaluated_count?: number;
   qualified_count?: number;
   selected_count: number;
@@ -112,6 +113,9 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
     return null;
   }
   const baseline_quote_count = obj.baseline_quote_count;
+  if (obj.eligible_count !== undefined && !isNonNegativeInt(obj.eligible_count)) {
+    return null;
+  }
   if (obj.evaluated_count !== undefined && !isNonNegativeInt(obj.evaluated_count)) {
     return null;
   }
@@ -123,6 +127,7 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
     baseline_status,
     baseline_quote_count,
     universe_count: obj.universe_count,
+    eligible_count: obj.eligible_count as number | undefined,
     evaluated_count: obj.evaluated_count as number | undefined,
     qualified_count: obj.qualified_count as number | undefined,
     selected_count: obj.selected_count,
@@ -179,8 +184,11 @@ export function nhlEvidenceSupportsZeroMatch(
   if (!evidence || evidence.status !== "evaluated") return false;
   if (evidence.baseline_status !== "available") return false;
   if (evidence.baseline_quote_count <= 0) return false;
+  const eligible = evidence.eligible_count ?? 0;
+  const evaluated = evidence.evaluated_count ?? 0;
   return (
-    (evidence.evaluated_count ?? 0) > 0 &&
+    eligible > 0 &&
+    evaluated === eligible &&
     evidence.qualified_count === 0 &&
     evidence.selected_count === 0
   );

@@ -264,7 +264,7 @@ describe("screener truth-state resolver", () => {
     expect(truth.reason).not.toBe("validated_zero_matches");
   });
 
-  it("new highs/lows: partial baseline coverage with results remains available", () => {
+  it("new highs/lows: partial baseline evidence does not block row display", () => {
     const truth = resolveScreenerTruthState({
       tabId: "new_highs_lows",
       status: "available",
@@ -273,18 +273,44 @@ describe("screener truth-state resolver", () => {
       nhlBaselineStatus: "available",
       tabEvaluationEvidence: {
         new_highs_lows: {
-          status: "evaluated",
+          status: "not_evaluated",
           baseline_status: "available",
           baseline_quote_count: 700,
           universe_count: 800,
+          eligible_count: 800,
           evaluated_count: 400,
           qualified_count: 2,
           selected_count: 2,
+          reason: "baseline_coverage_incomplete",
         },
       },
     });
     expect(truth.reason).toBe("evaluated_with_results");
     expect(truth.showRows).toBe(true);
+  });
+
+  it("new highs/lows: incomplete eligible coverage blocks validated zero-match", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "empty",
+      rowCount: 0,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+      tabEvaluationEvidence: {
+        new_highs_lows: {
+          status: "not_evaluated",
+          baseline_status: "available",
+          baseline_quote_count: 700,
+          universe_count: 800,
+          eligible_count: 800,
+          evaluated_count: 400,
+          qualified_count: 0,
+          selected_count: 0,
+          reason: "baseline_coverage_incomplete",
+        },
+      },
+    });
+    expect(truth.reason).toBe("evaluation_evidence_missing");
   });
 
   it("new highs/lows: empty baseline quotes do not claim baseline-ready zero-match", () => {
@@ -321,6 +347,7 @@ describe("screener truth-state resolver", () => {
           baseline_status: "available",
           baseline_quote_count: 700,
           universe_count: 800,
+          eligible_count: 700,
           evaluated_count: 700,
           qualified_count: 0,
           selected_count: 0,

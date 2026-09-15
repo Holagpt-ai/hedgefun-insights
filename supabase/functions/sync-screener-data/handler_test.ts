@@ -921,6 +921,7 @@ Deno.test("handler: verified new highs/lows rows use the prior 52w baseline", as
       baselineState: [{
         current_generation_id: RUN_ID,
         status: "available",
+        symbol_count: 4,
       }],
       baselineQuotes: [
         { symbol: "NEWHI", high_52w: 20, low_52w: 4, sessions_observed: 200 },
@@ -966,6 +967,7 @@ Deno.test("handler: available baseline with zero valid quotes records initializi
       baselineState: [{
         current_generation_id: RUN_ID,
         status: "available",
+        symbol_count: 1,
       }],
       baselineQuotes: [
         { symbol: "NEWHI", high_52w: 0, low_52w: 0, sessions_observed: 0 },
@@ -991,6 +993,36 @@ Deno.test("handler: available baseline with zero valid quotes records initializi
     rpc.args.p_rows.some((r) => r.tab_id === "new_highs_lows"),
     false,
   );
+});
+
+Deno.test("handler: declared symbol_count mismatch records initializing", async () => {
+  const mutations: Mutation[] = [];
+  const deps = depsWith(
+    mutations,
+    marketFetch([
+      mk("NEWHI", 4_000_000, 500_000, { price: 12, high: 20, low: 10 }),
+    ]),
+    {
+      baselineState: [{
+        current_generation_id: RUN_ID,
+        status: "available",
+        symbol_count: 3,
+      }],
+      baselineQuotes: [
+        { symbol: "NEWHI", high_52w: 20, low_52w: 4, sessions_observed: 200 },
+      ],
+    },
+  );
+  const res = await handleSyncScreenerData(
+    new Request("https://example.test/sync", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${SYNC_SECRET}` },
+    }),
+    deps,
+  );
+  assertEquals(res.status, 200);
+  const body = await res.json();
+  assertEquals(body.nhl_baseline_status, "initializing");
 });
 
 Deno.test("handler: empty baseline state records initializing", async () => {

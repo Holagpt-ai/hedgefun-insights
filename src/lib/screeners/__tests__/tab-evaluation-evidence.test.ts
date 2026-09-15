@@ -108,6 +108,7 @@ describe("zero-match support helpers", () => {
         baseline_status: "available",
         baseline_quote_count: 700,
         universe_count: 800,
+        eligible_count: 700,
         evaluated_count: 700,
         qualified_count: 0,
         selected_count: 3,
@@ -115,13 +116,29 @@ describe("zero-match support helpers", () => {
     ).toBe(false);
   });
 
-  it("nhl: accepts meaningful evaluated coverage with zero qualifiers", () => {
+  it("nhl: rejects incomplete eligible/evaluated coverage", () => {
     expect(
       nhlEvidenceSupportsZeroMatch({
         status: "evaluated",
         baseline_status: "available",
         baseline_quote_count: 700,
         universe_count: 800,
+        eligible_count: 700,
+        evaluated_count: 400,
+        qualified_count: 0,
+        selected_count: 0,
+      }),
+    ).toBe(false);
+  });
+
+  it("nhl: accepts full eligible coverage with zero qualifiers", () => {
+    expect(
+      nhlEvidenceSupportsZeroMatch({
+        status: "evaluated",
+        baseline_status: "available",
+        baseline_quote_count: 700,
+        universe_count: 800,
+        eligible_count: 700,
         evaluated_count: 700,
         qualified_count: 0,
         selected_count: 0,
