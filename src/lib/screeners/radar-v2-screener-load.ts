@@ -8,8 +8,12 @@
 
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
-import type { ScreenerTabView } from "@/lib/screeners/contract";
-import { overlayLegacyConfirmation } from "@/lib/screeners/legacy-confirmation";
+import type { ScreenerResultRow, ScreenerTabView } from "@/lib/screeners/contract";
+import { attachLegacyConfirmation } from "@/lib/screeners/legacy-confirmation";
+import {
+  enrichDisplayFieldsForRows,
+  type DisplayFieldDonor,
+} from "@/lib/screeners/screener-display-enrichment";
 import {
   isVerifiedRadarV2Decision,
   shouldPreserveVerifiedRadarV2OnSoftRefresh,
@@ -22,6 +26,13 @@ export interface RadarBackedScreenerLoadInput {
   radarDecision: RadarV2Decision;
   /** Validated screener_results view; used for overlay and genuine fallback. */
   legacyView: ScreenerTabView | null;
+  /**
+   * Full-generation screener_results rows (all tabs) for display-field enrichment.
+   * When omitted, falls back to legacyView.rows (tab-filtered only).
+   */
+  enrichmentRows?: readonly ScreenerResultRow[] | null;
+  /** Optional radar_v22_board rows for honest display-field backfill. */
+  boardRows?: readonly DisplayFieldDonor[] | null;
 }
 
 export interface RadarBackedScreenerLoadResult {
@@ -49,7 +60,8 @@ function asTabView(
 export function resolveRadarBackedScreenerLoad(
   input: RadarBackedScreenerLoadInput,
 ): RadarBackedScreenerLoadResult {
-  const { tabId, soft, priorRadar, radarDecision, legacyView } = input;
+  const { tabId, soft, priorRadar, radarDecision, legacyView, enrichmentRows, boardRows } =
+    input;
 
   if (shouldPreserveVerifiedRadarV2OnSoftRefresh({ soft, next: radarDecision, prior: priorRadar })) {
     return {
@@ -62,10 +74,22 @@ export function resolveRadarBackedScreenerLoad(
   }
 
   if (isVerifiedRadarV2Decision(radarDecision)) {
-    const rows =
-      tabId === "day_trade_radar"
-        ? overlayLegacyConfirmation(radarDecision.view.rows, legacyView?.rows ?? null)
-        : radarDecision.view.rows;
+    const enrichmentSource = enrichmentRows ?? legacyView?.rows ?? null;
+    let rows = radarDecision.view.rows;
+    if ((enrichmentSource?.length ?? 0) > 0 || (boardRows?.length ?? 0) > 0) {
+      rows = enrichDisplayFieldsForRows(
+        rows,
+        enrichmentSource,
+        boardRows ?? null,
+        {
+          preferredTabId: tabId,
+          allowGap: false,
+        },
+      );
+    }
+    if (tabId === "day_trade_radar") {
+      rows = attachLegacyConfirmation(rows, legacyView?.rows ?? null);
+    }
     return {
       preserve: false,
       source: "radar-v2",

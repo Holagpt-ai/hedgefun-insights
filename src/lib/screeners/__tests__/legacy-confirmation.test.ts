@@ -37,13 +37,14 @@ function sentinel(symbol: string, volume: number): ScreenerResultRow {
 
 function legacy(
   symbol: string,
+  sentinelVolume: number,
   overrides: Partial<ScreenerResultRow> = {},
 ): ScreenerResultRow {
   return {
-    ...sentinel(symbol, 50_000),
-    price: 10,
+    ...sentinel(symbol, sentinelVolume),
+    price: 8,
     change_percent: 12,
-    volume_ratio_prior_session: 6,
+    volume_ratio_prior_session: sentinelVolume / 10_000,
     prior_session_volume: 10_000,
     rvol: 4.2,
     ...overrides,
@@ -52,7 +53,7 @@ function legacy(
 
 describe("legacy confirmation overlay (D13)", () => {
   it("4. matching Sentinel symbol + valid legacy criteria → confirmed", () => {
-    const overlay = evaluateLegacyConfirmation(legacy("AAA"));
+    const overlay = evaluateLegacyConfirmation(legacy("AAA", 50_000));
     expect(overlay.legacy_confirmed).toBe(true);
     expect(overlay.legacy_price_gate).toBe(true);
     expect(overlay.legacy_move_gate).toBe(true);
@@ -60,31 +61,49 @@ describe("legacy confirmation overlay (D13)", () => {
   });
 
   it("5. missing legacy field → no false confirmation", () => {
-    expect(evaluateLegacyConfirmation(legacy("AAA", { change_percent: null })).legacy_confirmed).toBe(
+    expect(evaluateLegacyConfirmation(legacy("AAA", 50_000, { change_percent: null })).legacy_confirmed).toBe(
       false,
     );
-    expect(evaluateLegacyConfirmation(legacy("AAA", { change_percent: null })).legacy_move_gate).toBeNull();
-    expect(evaluateLegacyConfirmation(legacy("AAA", { price: null })).legacy_price_gate).toBeNull();
+    expect(evaluateLegacyConfirmation(legacy("AAA", 50_000, { change_percent: null })).legacy_move_gate).toBeNull();
+    expect(evaluateLegacyConfirmation(legacy("AAA", 50_000, { price: null })).legacy_price_gate).toBeNull();
     expect(
-      evaluateLegacyConfirmation(legacy("AAA", { volume_ratio_prior_session: null })).legacy_volume_gate,
+      evaluateLegacyConfirmation(legacy("AAA", 50_000, { volume_ratio_prior_session: null })).legacy_volume_gate,
     ).toBeNull();
     expect(evaluateLegacyConfirmation(undefined).legacy_confirmed).toBe(false);
   });
 
-  it("does not fabricate RVOL / prior-close / gap onto Sentinel honesty columns", () => {
-    const [row] = overlayLegacyConfirmation([sentinel("AAA", 9_000_000)], [legacy("AAA")]);
+  it("backfills verified Move / Vol/Prior from legacy donors but never RVOL or gap", () => {
+    const [row] = overlayLegacyConfirmation([sentinel("AAA", 60_000)], [legacy("AAA", 60_000)]);
+    expect(row.change_percent).toBe(12);
+    expect(row.prior_session_volume).toBe(10_000);
+    expect(row.volume_ratio_prior_session).toBe(6);
     expect(row.rvol).toBeNull();
-    expect(row.change_percent).toBeNull();
     expect(row.gap_percent).toBeNull();
-    expect(row.prior_session_volume).toBeNull();
     expect(row.legacy_confirmed).toBe(true);
+  });
+
+  it("uses confirmationRows for badges while enriching from all-tab donors", () => {
+    const sentinelRows = [sentinel("AAA", 50_000)];
+    const allTabDonors = [
+      legacy("AAA", 50_000, {
+        tab_id: "volume_spikes",
+        change_percent: 15,
+        prior_session_volume: 10_000,
+        volume_ratio_prior_session: 5,
+      }),
+    ];
+    const [row] = overlayLegacyConfirmation(sentinelRows, allTabDonors, null, {
+      confirmationRows: [],
+    });
+    expect(row.change_percent).toBe(15);
+    expect(row.legacy_confirmed).toBe(false);
   });
 
   it("3 & 19. overlay never reorders Sentinel volume-first ranks", () => {
     const sentinelRows = [sentinel("A", 9_000_000), sentinel("B", 1_000_000)];
     const overlaid = overlayLegacyConfirmation(sentinelRows, [
-      legacy("B"),
-      legacy("A", { change_percent: 1, volume_ratio_prior_session: 1.1 }),
+      legacy("B", 1_000_000),
+      legacy("A", 9_000_000, { change_percent: 1, volume_ratio_prior_session: 1.1 }),
     ]);
     expect(overlaid.map((r) => r.symbol)).toEqual(["A", "B"]);
     expect(overlaid[0].legacy_confirmed).toBe(false);
@@ -99,19 +118,19 @@ describe("legacy confirmation overlay (D13)", () => {
   });
 
   it("does not insert legacy-only symbols into the Sentinel board", () => {
-    const overlaid = overlayLegacyConfirmation([sentinel("A", 9_000_000)], [legacy("ZZZ")]);
+    const overlaid = overlayLegacyConfirmation([sentinel("A", 9_000_000)], [legacy("ZZZ", 50_000)]);
     expect(overlaid.map((r) => r.symbol)).toEqual(["A"]);
     expect(overlaid[0].legacy_confirmed).toBe(false);
   });
 
   it("price / move / volume gates fail independently without guessing", () => {
-    expect(evaluateLegacyConfirmation(legacy("AAA", { price: 1.5 })).legacy_price_gate).toBe(false);
-    expect(evaluateLegacyConfirmation(legacy("AAA", { price: 21 })).legacy_confirmed).toBe(false);
-    expect(evaluateLegacyConfirmation(legacy("AAA", { change_percent: 9.9 })).legacy_move_gate).toBe(
+    expect(evaluateLegacyConfirmation(legacy("AAA", 50_000, { price: 1.5 })).legacy_price_gate).toBe(false);
+    expect(evaluateLegacyConfirmation(legacy("AAA", 50_000, { price: 21 })).legacy_confirmed).toBe(false);
+    expect(evaluateLegacyConfirmation(legacy("AAA", 50_000, { change_percent: 9.9 })).legacy_move_gate).toBe(
       false,
     );
     expect(
-      evaluateLegacyConfirmation(legacy("AAA", { volume_ratio_prior_session: 4.9 })).legacy_volume_gate,
+      evaluateLegacyConfirmation(legacy("AAA", 50_000, { volume_ratio_prior_session: 4.9 })).legacy_volume_gate,
     ).toBe(false);
   });
 });
