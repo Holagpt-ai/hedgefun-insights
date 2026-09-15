@@ -269,10 +269,12 @@ export async function publishGenerationWithExclusions(
 
 export function hasCompletePolicyExclusionEvidence(
   state: BaselineState,
+  expectedMinSessions: number,
 ): boolean {
   const min = state.policy_min_sessions;
   const count = state.policy_excluded_count;
-  return typeof min === "number" && Number.isInteger(min) && min >= 1 &&
+  return min === expectedMinSessions &&
+    Number.isInteger(min) && min >= 1 &&
     typeof count === "number" && Number.isInteger(count) && count >= 0;
 }
 

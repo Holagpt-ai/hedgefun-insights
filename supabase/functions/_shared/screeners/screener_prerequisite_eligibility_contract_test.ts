@@ -115,6 +115,7 @@ Deno.test("static: exclusion-aware publisher is atomic and fail-closed on mismat
   const body = functionBody(sql, REPLACE_WITH_EXCLUSIONS_RPC);
   assertFalse(body.includes("COMMIT"));
   assert(body.includes("unrecognized exclusion reason"));
+  assert(body.includes("invalid baseline session counts"));
   assert(body.includes("exclusion symbol overlaps baseline"));
   assert(body.includes("exclusion insert count mismatch"));
   assert(body.includes("INSERT INTO public.screener_52w_baseline_exclusions"));
@@ -128,6 +129,7 @@ Deno.test("static: exclusion-aware publisher is atomic and fail-closed on mismat
     ),
   );
 
+  const floorAt = body.indexOf("invalid baseline session counts");
   const replaceAt = body.indexOf(`public.${REPLACE_RPC}(`);
   const insertExclAt = body.indexOf(
     "INSERT INTO public.screener_52w_baseline_exclusions",
@@ -137,6 +139,7 @@ Deno.test("static: exclusion-aware publisher is atomic and fail-closed on mismat
   const deleteStaleAt = body.indexOf(
     "DELETE FROM public.screener_52w_baseline_exclusions",
   );
+  assert(floorAt >= 0 && replaceAt > floorAt, "session floor before legacy replace");
   assert(replaceAt >= 0 && insertExclAt > replaceAt, "insert after legacy replace");
   assert(updateStateAt > insertExclAt, "state count after insert");
   assert(mismatchAt > updateStateAt, "generation mismatch rolls back");

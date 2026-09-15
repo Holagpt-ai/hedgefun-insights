@@ -317,7 +317,7 @@ Deno.test("action: replace_52w_baseline_with_exclusions maps to exclusion-aware 
     post({
       action: "replace_52w_baseline_with_exclusions",
       p_generation_id: "11111111-2222-3333-4444-555555555555",
-      p_rows: [{ symbol: "AAPL" }],
+      p_rows: [{ symbol: "AAPL", sessions_observed: 120 }],
       p_period_start: "2025-08-10",
       p_period_end: "2026-08-10",
       p_provider_as_of: "2026-08-10T20:00:00.000Z",
@@ -347,7 +347,7 @@ Deno.test("action: replace_52w_baseline_with_exclusions rejects malformed eviden
     post({
       action: "replace_52w_baseline_with_exclusions",
       p_generation_id: "11111111-2222-3333-4444-555555555555",
-      p_rows: [{ symbol: "AAPL" }],
+      p_rows: [{ symbol: "AAPL", sessions_observed: 120 }],
       p_period_start: "2025-08-10",
       p_period_end: "2026-08-10",
       p_provider_as_of: "2026-08-10T20:00:00.000Z",
@@ -359,6 +359,28 @@ Deno.test("action: replace_52w_baseline_with_exclusions rejects malformed eviden
         sessions_observed: 40,
         min_sessions: 120,
       }],
+    }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 400);
+  assertEquals(out.body.error, "invalid_body");
+  assertEquals(db.rpcCalls.length, 0);
+});
+
+Deno.test("action: replace_52w_baseline_with_exclusions rejects under-min baseline rows", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "replace_52w_baseline_with_exclusions",
+      p_generation_id: "11111111-2222-3333-4444-555555555555",
+      p_rows: [{ symbol: "AAPL", sessions_observed: 40 }],
+      p_period_start: "2025-08-10",
+      p_period_end: "2026-08-10",
+      p_provider_as_of: "2026-08-10T20:00:00.000Z",
+      p_status: "available",
+      p_min_sessions: 120,
+      p_exclusions: [],
     }),
     deps(db),
   );

@@ -339,6 +339,27 @@ BEGIN
     RAISE EXCEPTION 'exclusions must be a JSON array';
   END IF;
 
+  -- Stronger than legacy replace: every published baseline row must meet
+  -- the min-session floor. Missing/non-integer/below-min values abort
+  -- before replace_screener_52w_baseline_generation_v1 runs.
+  BEGIN
+    IF p_rows IS NULL OR jsonb_typeof(p_rows) <> 'array' THEN
+      RAISE EXCEPTION 'invalid baseline session counts';
+    END IF;
+    IF EXISTS (
+      SELECT 1
+      FROM jsonb_array_elements(p_rows) AS r
+      WHERE jsonb_typeof(r) <> 'object'
+         OR (r ->> 'sessions_observed')::integer IS NULL
+         OR (r ->> 'sessions_observed')::integer < p_min_sessions
+    ) THEN
+      RAISE EXCEPTION 'invalid baseline session counts';
+    END IF;
+  EXCEPTION
+    WHEN others THEN
+      RAISE EXCEPTION 'invalid baseline session counts';
+  END;
+
   v_excl_len := jsonb_array_length(p_exclusions);
   IF v_excl_len > 20000 THEN
     RAISE EXCEPTION 'exclusions exceed baseline limit';

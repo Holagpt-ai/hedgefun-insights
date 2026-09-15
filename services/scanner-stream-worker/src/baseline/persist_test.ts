@@ -86,7 +86,7 @@ Deno.test("failed RPC retains prior generation and does not publish a new pointe
     recordingRpc(calls, async () => ({ error: { message: "persist_failed" } })),
     {
       generationId: GEN,
-      rows: [validRow()],
+      rows: [validRow({ sessions_observed: 120 })],
       periodStart: START,
       periodEnd: END,
       providerAsOf: AS_OF,
@@ -122,7 +122,7 @@ Deno.test("RPC throw is treated as persist_failed without exposing a generation"
     }),
     {
       generationId: GEN,
-      rows: [validRow()],
+      rows: [validRow({ sessions_observed: 120 })],
       periodStart: START,
       periodEnd: END,
       providerAsOf: AS_OF,
@@ -167,7 +167,7 @@ Deno.test("exclusion-aware publish attaches validated policy evidence", async ()
     recordingExclusionRpc(calls),
     {
       generationId: GEN,
-      rows: [validRow()],
+      rows: [validRow({ sessions_observed: 120 })],
       exclusions: [{
         symbol: "IPO",
         reason: "insufficient_sessions",
@@ -194,13 +194,112 @@ Deno.test("overlapping exclusion never calls RPC so mixed evidence cannot persis
     recordingExclusionRpc(calls),
     {
       generationId: GEN,
-      rows: [validRow()],
+      rows: [validRow({ sessions_observed: 120 })],
       exclusions: [{
         symbol: "AAPL",
         reason: "insufficient_sessions",
         sessions_observed: 40,
         min_sessions: 120,
       }],
+      minSessions: 120,
+      periodStart: START,
+      periodEnd: END,
+      providerAsOf: AS_OF,
+    },
+  );
+  assertEquals(published.ok, false);
+  if (published.ok) return;
+  assertEquals(published.code, "validation_failed");
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("exclusion-aware publish accepts sessions_observed equal to minSessions", async () => {
+  const calls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const published = await publishGenerationWithExclusions(
+    recordingExclusionRpc(calls),
+    {
+      generationId: GEN,
+      rows: [validRow({ sessions_observed: 120 })],
+      exclusions: [],
+      minSessions: 120,
+      periodStart: START,
+      periodEnd: END,
+      providerAsOf: AS_OF,
+    },
+  );
+  assertEquals(published.ok, true);
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("exclusion-aware publish accepts sessions_observed above minSessions", async () => {
+  const calls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const published = await publishGenerationWithExclusions(
+    recordingExclusionRpc(calls),
+    {
+      generationId: GEN,
+      rows: [validRow({ sessions_observed: 121 })],
+      exclusions: [],
+      minSessions: 120,
+      periodStart: START,
+      periodEnd: END,
+      providerAsOf: AS_OF,
+    },
+  );
+  assertEquals(published.ok, true);
+  assertEquals(calls.length, 1);
+});
+
+Deno.test("under-min baseline row never reaches the exclusion-aware RPC", async () => {
+  const calls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const published = await publishGenerationWithExclusions(
+    recordingExclusionRpc(calls),
+    {
+      generationId: GEN,
+      rows: [validRow({ sessions_observed: 119 })],
+      exclusions: [],
+      minSessions: 120,
+      periodStart: START,
+      periodEnd: END,
+      providerAsOf: AS_OF,
+    },
+  );
+  assertEquals(published.ok, false);
+  if (published.ok) return;
+  assertEquals(published.code, "validation_failed");
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("missing baseline sessions_observed never reaches the exclusion-aware RPC", async () => {
+  const calls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const { sessions_observed: _dropped, ...rest } = validRow({
+    sessions_observed: 120,
+  });
+  const published = await publishGenerationWithExclusions(
+    recordingExclusionRpc(calls),
+    {
+      generationId: GEN,
+      rows: [rest as typeof rest & { sessions_observed: number }],
+      exclusions: [],
+      minSessions: 120,
+      periodStart: START,
+      periodEnd: END,
+      providerAsOf: AS_OF,
+    },
+  );
+  assertEquals(published.ok, false);
+  if (published.ok) return;
+  assertEquals(published.code, "validation_failed");
+  assertEquals(calls.length, 0);
+});
+
+Deno.test("non-integer baseline sessions_observed never reaches the exclusion-aware RPC", async () => {
+  const calls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const published = await publishGenerationWithExclusions(
+    recordingExclusionRpc(calls),
+    {
+      generationId: GEN,
+      rows: [validRow({ sessions_observed: 120.5 })],
+      exclusions: [],
       minSessions: 120,
       periodStart: START,
       periodEnd: END,

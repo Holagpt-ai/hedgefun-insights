@@ -212,6 +212,7 @@ function isPublishedBaselineFullyCurrent(
     policy_columns_missing: boolean;
   },
   windowPeriodEnd: string,
+  expectedMinSessions: number,
 ): boolean {
   if (
     !(published.status === "available" || published.status === "empty") ||
@@ -222,10 +223,11 @@ function isPublishedBaselineFullyCurrent(
   }
   // Pre-migration: policy columns do not exist yet. Do not loop a rebuild.
   if (published.policy_columns_missing) return true;
-  return parseStatePolicyExclusionFields({
+  const policy = parseStatePolicyExclusionFields({
     policy_min_sessions: published.policy_min_sessions,
     policy_excluded_count: published.policy_excluded_count,
-  }) !== null;
+  });
+  return policy !== null && policy.min_sessions === expectedMinSessions;
 }
 
 async function loadJob(sb: DbClient): Promise<JobSnapshot | null> {
@@ -328,7 +330,13 @@ export async function handleSyncScreener52wBaselines(
   }
 
   const published = await loadPublishedState(sb);
-  if (isPublishedBaselineFullyCurrent(published, window.periodEnd)) {
+  if (
+    isPublishedBaselineFullyCurrent(
+      published,
+      window.periodEnd,
+      deps.minSessions ?? BASELINE_MIN_SESSIONS,
+    )
+  ) {
     return json({
       ok: true,
       status: "current",

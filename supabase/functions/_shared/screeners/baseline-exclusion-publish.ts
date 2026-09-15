@@ -20,23 +20,43 @@ export function isValidMinSessions(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 1;
 }
 
-function baselineRowSymbols(rows: unknown): Set<string> | null {
-  if (!Array.isArray(rows)) return null;
-  const out = new Set<string>();
+function isIntegerSessionCount(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
+/**
+ * True when every baseline row is an object with a unique normalized symbol
+ * and integer sessions_observed >= minSessions.
+ */
+export function baselineRowsMeetMinSessions(
+  rows: unknown,
+  minSessions: unknown,
+): boolean {
+  if (!isValidMinSessions(minSessions) || !Array.isArray(rows)) return false;
+  const seen = new Set<string>();
   for (const item of rows) {
     if (item === null || typeof item !== "object" || Array.isArray(item)) {
-      continue;
+      return false;
     }
-    const symbol = normalizeSymbol((item as { symbol?: unknown }).symbol);
-    if (symbol) out.add(symbol);
+    const row = item as Record<string, unknown>;
+    const symbol = normalizeSymbol(row.symbol);
+    if (!symbol || symbol !== row.symbol) return false;
+    if (seen.has(symbol)) return false;
+    seen.add(symbol);
+    if (
+      !isIntegerSessionCount(row.sessions_observed) ||
+      row.sessions_observed < minSessions
+    ) {
+      return false;
+    }
   }
-  return out;
+  return true;
 }
 
 /**
  * Returns a sanitized exclusion list, or null when any field is malformed.
- * Rejects duplicate symbols, overlap with baseline rows, unrecognized reasons,
- * non-integer session counts, and min-session mismatch.
+ * Also requires baseline rows to meet the min-session floor, unique symbols,
+ * no overlap, recognized reasons, and exclusion session counts below min.
  */
 export function parseValidatedBaselineExclusions(
   raw: unknown,
@@ -46,9 +66,16 @@ export function parseValidatedBaselineExclusions(
   if (!isValidMinSessions(minSessions)) return null;
   if (!Array.isArray(raw) || !Array.isArray(baselineRows)) return null;
   if (raw.length > MAX_BASELINE_EXCLUSIONS) return null;
+  if (!baselineRowsMeetMinSessions(baselineRows, minSessions)) return null;
 
-  const reserved = baselineRowSymbols(baselineRows);
-  if (!reserved) return null;
+  const reserved = new Set<string>();
+  for (const item of baselineRows) {
+    const symbol = normalizeSymbol(
+      (item as { symbol?: unknown }).symbol,
+    );
+    if (!symbol) return null;
+    reserved.add(symbol);
+  }
 
   const seen = new Set<string>();
   const out: BaselineExclusionPayload[] = [];
@@ -63,8 +90,7 @@ export function parseValidatedBaselineExclusions(
     seen.add(symbol);
     if (row.reason !== INSUFFICIENT_SESSIONS_REASON) return null;
     if (
-      typeof row.sessions_observed !== "number" ||
-      !Number.isInteger(row.sessions_observed) ||
+      !isIntegerSessionCount(row.sessions_observed) ||
       row.sessions_observed < 1
     ) {
       return null;

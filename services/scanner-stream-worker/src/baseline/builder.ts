@@ -172,7 +172,7 @@ export async function runBaselineJob(
   if (
     hasGeneration &&
     deps.lastSuccessfulPeriodEnd === window.periodEnd &&
-    hasCompletePolicyExclusionEvidence(prior)
+    hasCompletePolicyExclusionEvidence(prior, deps.minSessions)
   ) {
     return {
       didRebuild: false,

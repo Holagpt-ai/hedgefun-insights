@@ -533,7 +533,7 @@ Deno.test("current published baseline is a no-op", async () => {
   const calls: FetchCall[] = [];
   const res = await handleSyncScreener52wBaselines(
     post(),
-    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), { minSessions: 120 }),
   );
   const body = await res.json();
   assertEquals(res.status, 200);
@@ -541,6 +541,28 @@ Deno.test("current published baseline is a no-op", async () => {
   assertEquals(body.generation_id, GEN);
   assertEquals(calls.length, 0);
   assertEquals(db.rpcCalls.length, 0);
+});
+
+Deno.test("current period with mismatched policy_min_sessions is not a no-op", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-12",
+    current_generation_id: GEN,
+    policy_min_sessions: 120,
+    policy_excluded_count: 0,
+  });
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), { minSessions: 2 }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
 });
 
 Deno.test("current period with NULL policy metadata is not a no-op", async () => {

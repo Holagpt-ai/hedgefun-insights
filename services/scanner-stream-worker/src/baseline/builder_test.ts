@@ -267,7 +267,7 @@ Deno.test("does not rebuild when period_end has not advanced", async () => {
     loadState: async () => ({
       ...PRIOR_STATE,
       period_end: "2026-08-11",
-      policy_min_sessions: 120,
+      policy_min_sessions: 1,
       policy_excluded_count: 0,
     }),
     loadExceptions: async () => [],
@@ -283,6 +283,38 @@ Deno.test("does not rebuild when period_end has not advanced", async () => {
   assertEquals(fetchCalls.length, 0);
   assertEquals(rpcCalls.length, 0);
   assertEquals(result.state.current_generation_id, GEN_PRIOR);
+});
+
+Deno.test("mismatched policy_min_sessions rebuilds instead of skipping", async () => {
+  const fetchCalls: FetchCall[] = [];
+  const rpcCalls: ReplaceGenerationWithExclusionsArgs[] = [];
+  const nowMs = Date.parse("2026-08-12T18:00:00.000Z");
+  const result = await runBaselineJob({
+    nowMs: () => nowMs,
+    fetch: fakeGroupedFetch({
+      "2026-08-10": [{ T: "AAPL", h: 10, l: 5 }],
+      "2026-08-11": [{ T: "AAPL", h: 12, l: 4 }],
+    }, fetchCalls),
+    polygonApiKey: "test-key",
+    rpc: recordingRpc(rpcCalls),
+    loadState: async () => ({
+      ...PRIOR_STATE,
+      period_end: "2026-08-11",
+      policy_min_sessions: 120,
+      policy_excluded_count: 0,
+    }),
+    loadExceptions: async () => [],
+    minSessions: 1,
+    lookbackCalendarDays: 3,
+    cache: createDailyCache(),
+    lastSuccessfulPeriodEnd: "2026-08-11",
+    newGenerationId: () => GEN_NEW,
+    sleep: instantSleep,
+  });
+
+  assertEquals(result.didRebuild, true);
+  assertEquals(rpcCalls.length, 1);
+  assertEquals(result.state.policy_min_sessions, 1);
 });
 
 Deno.test("current period without policy evidence rebuilds exclusion-aware generation", async () => {
