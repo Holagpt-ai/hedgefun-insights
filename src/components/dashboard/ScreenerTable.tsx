@@ -14,6 +14,7 @@ import {
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
 import { resolveScreenerCopy, type ScreenerDataSource } from "@/lib/screeners/screener-copy";
+import type { ScreenerTruthState } from "@/lib/screeners/screener-truth-state";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -24,6 +25,8 @@ interface ScreenerTableProps {
   source?: ScreenerDataSource | null;
   /** Accepted Radar V2 generation session_kind. */
   session?: string | null;
+  /** Canonical truth-state for empty/unavailable/initializing rendering. */
+  truthState?: ScreenerTruthState | null;
 }
 
 function desktopColClass(key: string): string {
@@ -88,6 +91,7 @@ export function ScreenerTable({
   status = "loading",
   source = null,
   session = null,
+  truthState = null,
 }: ScreenerTableProps) {
   const copy = resolveScreenerCopy(tab, source, session);
   const navigate = useNavigate();
@@ -95,8 +99,16 @@ export function ScreenerTable({
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
 
   const loading = status === "loading";
-  const showRows = status === "available" || status === "stale";
+  const showRows = truthState?.showRows ?? (status === "available" || status === "stale");
   const hasVerifiedRows = showRows && rows.length > 0;
+  const emptyTitle = truthState?.title ?? "No qualifying securities";
+  const emptyExplanation =
+    truthState?.explanation ??
+    "No securities met this screener's criteria in the latest validated evaluation.";
+  const unavailableTitle = truthState?.title ?? "Screener unavailable";
+  const unavailableExplanation =
+    truthState?.explanation ??
+    "Screener data is temporarily unavailable. No unverified rows are being shown.";
 
   const handleSortClick = (key: string) => {
     setSort((prev) => {
@@ -335,28 +347,23 @@ export function ScreenerTable({
       )}
 
       {!loading && status === "unavailable" && (
-        <div className="rounded-lg border border-border bg-card p-10 text-center">
-          <div className="text-sm font-semibold text-foreground">
-            {tab.id === "new_highs_lows"
-              ? "New Highs / Lows is unavailable because a validated 52-week baseline could not be loaded. No securities are being inferred."
-              : "Screener data is temporarily unavailable. No unverified rows are being shown."}
-          </div>
+        <div className="rounded-lg border border-border bg-card p-10 text-center space-y-2">
+          <div className="text-sm font-semibold text-foreground">{unavailableTitle}</div>
+          <p className="text-sm text-muted-foreground">{unavailableExplanation}</p>
         </div>
       )}
 
       {!loading && status === "initializing" && (
-        <div className="rounded-lg border border-border bg-card p-10 text-center">
-          <div className="text-sm font-semibold text-foreground">
-            New Highs / Lows is initializing a validated prior 52-week baseline. No securities are being inferred.
-          </div>
+        <div className="rounded-lg border border-border bg-card p-10 text-center space-y-2">
+          <div className="text-sm font-semibold text-foreground">{emptyTitle}</div>
+          <p className="text-sm text-muted-foreground">{emptyExplanation}</p>
         </div>
       )}
 
       {!loading && status === "empty" && (
-        <div className="rounded-lg border border-border bg-card p-10 text-center">
-          <div className="text-sm font-semibold text-foreground">
-            No securities met this screener’s criteria in the latest validated generation.
-          </div>
+        <div className="rounded-lg border border-border bg-card p-10 text-center space-y-2">
+          <div className="text-sm font-semibold text-foreground">{emptyTitle}</div>
+          <p className="text-sm text-muted-foreground">{emptyExplanation}</p>
         </div>
       )}
 

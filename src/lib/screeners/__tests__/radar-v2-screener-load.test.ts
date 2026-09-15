@@ -91,6 +91,8 @@ function legacyView(
     synced_at: SYNCED_A,
     provider_as_of_max: SYNCED_A,
     attempts: 1,
+    nhl_baseline_status: null,
+    tab_evaluation_evidence: null,
   };
 }
 
@@ -260,7 +262,15 @@ describe("Radar-backed Screeners load resolver (D13)", () => {
           rows: [row("HAIN", 16_500_000)],
         },
       },
-      legacyView: { status: "available", rows: [], synced_at: SYNCED_A, provider_as_of_max: SYNCED_A, attempts: 1 },
+      legacyView: {
+        status: "available",
+        rows: [],
+        synced_at: SYNCED_A,
+        provider_as_of_max: SYNCED_A,
+        attempts: 1,
+        nhl_baseline_status: null,
+        tab_evaluation_evidence: null,
+      },
       enrichmentRows: [volumeSpikeDonor],
     });
     const enriched = result.view?.rows[0];

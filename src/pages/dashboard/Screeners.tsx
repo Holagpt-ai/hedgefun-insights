@@ -56,7 +56,8 @@ export default function Screeners() {
   // single tab-list source of truth instead of duplicating IDs here.
   const isRadarBacked = isRadarV2BackedTab(activeTabId);
 
-  const { status, rows, syncedAt, providerAsOfMax, source, session, radarDiagnostic } = useScreenerData(activeTabId, {
+  const { status, rows, syncedAt, providerAsOfMax, source, session, radarDiagnostic, truthState } =
+    useScreenerData(activeTabId, {
     refreshIntervalMs: isRadarBacked ? RADAR_BACKED_REFRESH_MS : undefined,
     pauseWhenHidden: true,
   });
@@ -65,7 +66,8 @@ export default function Screeners() {
   const pipelineAge = formatPipelineAge(syncedAt);
   const showFreshness =
     !isDayTradeRadar &&
-    (status === "available" || status === "stale" || status === "empty");
+    (truthState?.showFreshness ??
+      (status === "available" || status === "stale" || status === "empty"));
 
   return (
     <div className="p-3 md:p-5 space-y-2.5">
@@ -139,6 +141,7 @@ export default function Screeners() {
           status={status}
           source={source}
           session={session}
+          truthState={truthState}
         />
       )}
     </div>

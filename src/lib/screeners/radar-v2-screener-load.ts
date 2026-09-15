@@ -54,6 +54,8 @@ function asTabView(
     synced_at: radar.view.synced_at,
     provider_as_of_max: radar.view.provider_as_of_max,
     attempts: 1,
+    nhl_baseline_status: null,
+    tab_evaluation_evidence: null,
   };
 }
 

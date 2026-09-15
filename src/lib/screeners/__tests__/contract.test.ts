@@ -420,6 +420,7 @@ describe("screeners verified generation contract", () => {
       synced_at: SYNCED,
       provider_as_of_max: null,
       provider_as_of_min: null,
+      tab_evaluation_evidence: null,
     };
     expect(viewForActiveTab(emptyGen, "new_highs_lows", NOW, 1).status).toBe("initializing");
     expect(viewForActiveTab(emptyGen, "gappers", NOW, 1).status).toBe("empty");

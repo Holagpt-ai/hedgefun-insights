@@ -1,6 +1,11 @@
 // Pure validated-generation contract for Screeners P1-R4.
 // Retry + fail-closed load live here; the React hook only wires fetchers + UI state.
 
+import {
+  parseTabEvaluationEvidence,
+  type TabEvaluationEvidenceMap,
+} from "@/lib/screeners/tab-evaluation-evidence";
+
 export const MANAGED_TAB_IDS = [
   "day_trade_radar",
   "gappers",
@@ -51,6 +56,7 @@ export interface ScreenerFeedState {
   rows_inserted: number;
   tab_counts: unknown;
   nhl_baseline_status?: unknown;
+  tab_evaluation_evidence?: unknown;
   updated_at: string;
 }
 
@@ -85,6 +91,7 @@ export interface ValidatedGeneration {
   synced_at: string;
   provider_as_of_max: string | null;
   provider_as_of_min: string | null;
+  tab_evaluation_evidence: TabEvaluationEvidenceMap | null;
 }
 
 export type ValidationOutcome =
@@ -97,6 +104,8 @@ export interface ScreenerTabView {
   synced_at: string | null;
   provider_as_of_max: string | null;
   attempts: number;
+  nhl_baseline_status: NhlBaselineStatus | null;
+  tab_evaluation_evidence: TabEvaluationEvidenceMap | null;
 }
 
 export interface GenerationFetchResult {
@@ -234,6 +243,11 @@ export function validateGeneration(
     return fail("nhl_rows_without_available_baseline");
   }
 
+  const tabEvaluationEvidence = parseTabEvaluationEvidence(state.tab_evaluation_evidence);
+  if (state.tab_evaluation_evidence != null && tabEvaluationEvidence === null) {
+    return fail("invalid_tab_evaluation_evidence");
+  }
+
   const countSum = MANAGED_TAB_IDS.reduce((sum, id) => sum + tabCounts[id], 0);
   if (countSum !== state.rows_inserted) return fail("tab_counts_sum_mismatch");
 
@@ -250,6 +264,14 @@ export function validateGeneration(
     if (state.provider_as_of_min !== null || state.provider_as_of_max !== null) {
       return fail("empty_provider_bounds_present");
     }
+    if (tabEvaluationEvidence) {
+      for (const tab of MANAGED_TAB_IDS) {
+        const evidence = tabEvaluationEvidence[tab];
+        if (evidence && "selected_count" in evidence && evidence.selected_count !== 0) {
+          return fail("tab_evaluation_selected_count_mismatch");
+        }
+      }
+    }
     return {
       ok: true,
       generation: {
@@ -259,6 +281,7 @@ export function validateGeneration(
         synced_at: state.synced_at,
         provider_as_of_max: null,
         provider_as_of_min: null,
+        tab_evaluation_evidence: tabEvaluationEvidence,
       },
     };
   }
@@ -377,6 +400,16 @@ export function validateGeneration(
     return fail("provider_min_max_mismatch");
   }
 
+  if (tabEvaluationEvidence) {
+    for (const tab of MANAGED_TAB_IDS) {
+      const evidence = tabEvaluationEvidence[tab];
+      if (!evidence) continue;
+      if ("selected_count" in evidence && evidence.selected_count !== actualCounts[tab]) {
+        return fail("tab_evaluation_selected_count_mismatch");
+      }
+    }
+  }
+
   for (const [, rows] of byTab) {
     if (rows.length > MAX_TAB_ROWS) return fail("tab_over_limit");
     for (let i = 1; i < rows.length; i++) {
@@ -400,7 +433,15 @@ export function validateGeneration(
       synced_at: state.synced_at,
       provider_as_of_max: state.provider_as_of_max,
       provider_as_of_min: state.provider_as_of_min,
+      tab_evaluation_evidence: tabEvaluationEvidence,
     },
+  };
+}
+
+function viewMetadata(generation: ValidatedGeneration) {
+  return {
+    nhl_baseline_status: parseNhlBaselineStatus(generation.state.nhl_baseline_status),
+    tab_evaluation_evidence: generation.tab_evaluation_evidence,
   };
 }
 
@@ -438,6 +479,7 @@ export function viewForActiveTab(
         synced_at: generation.synced_at,
         provider_as_of_max: generation.provider_as_of_max,
         attempts,
+        ...viewMetadata(generation),
       };
     }
     if (nhlStatus === "unavailable") {
@@ -447,6 +489,7 @@ export function viewForActiveTab(
         synced_at: generation.synced_at,
         provider_as_of_max: generation.provider_as_of_max,
         attempts,
+        ...viewMetadata(generation),
       };
     }
   }
@@ -461,6 +504,7 @@ export function viewForActiveTab(
       synced_at: generation.synced_at,
       provider_as_of_max: generation.provider_as_of_max,
       attempts,
+      ...viewMetadata(generation),
     };
   }
 
@@ -471,6 +515,7 @@ export function viewForActiveTab(
       synced_at: generation.synced_at,
       provider_as_of_max: generation.provider_as_of_max,
       attempts,
+      ...viewMetadata(generation),
     };
   }
 
@@ -480,6 +525,7 @@ export function viewForActiveTab(
     synced_at: generation.synced_at,
     provider_as_of_max: generation.provider_as_of_max,
     attempts,
+    ...viewMetadata(generation),
   };
 }
 
@@ -490,6 +536,8 @@ export function unavailableView(attempts: number): ScreenerTabView {
     synced_at: null,
     provider_as_of_max: null,
     attempts,
+    nhl_baseline_status: null,
+    tab_evaluation_evidence: null,
   };
 }
 

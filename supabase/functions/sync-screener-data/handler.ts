@@ -28,6 +28,10 @@ import {
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
 import {
+  buildTabEvaluationEvidence,
+  type TabEvaluationEvidenceMap,
+} from "../_shared/screeners/evaluation-evidence.ts";
+import {
   isValidBaselineQuote,
   type NhlBaselineQuote,
   type NhlBaselineStatus,
@@ -71,6 +75,7 @@ export type DbClient = {
       p_sync_run_id: string;
       p_synced_at: string;
       p_nhl_baseline_status: NhlBaselineStatus;
+      p_tab_evaluation_evidence?: TabEvaluationEvidenceMap;
     },
   ) => Promise<{ data: number | null; error: { message: string } | null }>;
 };
@@ -122,7 +127,7 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
   try {
     const stateRes = await sb
       .from("screener_52w_baseline_state")
-      .select("current_generation_id,status")
+      .select("current_generation_id,status,symbol_count")
       .eq("state_key", "current")
       .limit(1);
     if (stateRes.error || !stateRes.data || stateRes.data.length === 0) {
@@ -135,7 +140,7 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       return { status: "unavailable", quotes: new Map() };
     }
     if (status === "empty") {
-      return { status: "available", quotes: new Map() };
+      return { status: "initializing", quotes: new Map() };
     }
     if (
       status !== "available" || typeof generationId !== "string" ||
@@ -144,7 +149,15 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       return { status: "initializing", quotes: new Map() };
     }
 
+    const declaredSymbolCount = Number(row.symbol_count);
+    if (
+      !Number.isInteger(declaredSymbolCount) || declaredSymbolCount <= 0
+    ) {
+      return { status: "initializing", quotes: new Map() };
+    }
+
     const quotes = new Map<string, NhlBaselineQuote>();
+    let loadedRowCount = 0;
     let from = 0;
     while (true) {
       const page = await sb
@@ -155,6 +168,7 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       if (page.error || !page.data) {
         return { status: "unavailable", quotes: new Map() };
       }
+      loadedRowCount += page.data.length;
       for (const item of page.data) {
         const candidate: NhlBaselineQuote = {
           symbol: typeof item.symbol === "string" ? item.symbol : "",
@@ -168,6 +182,15 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       }
       if (page.data.length < BASELINE_PAGE) break;
       from += BASELINE_PAGE;
+    }
+    // Fail closed unless every declared baseline row loaded and passed validation.
+    // replace_screener_52w_baseline_generation_v1 sets symbol_count = inserted rows
+    // under CHECK constraints aligned with isValidBaselineQuote().
+    if (
+      loadedRowCount !== declaredSymbolCount ||
+      quotes.size !== declaredSymbolCount
+    ) {
+      return { status: "initializing", quotes: new Map() };
     }
     return { status: "available", quotes };
   } catch {
@@ -356,15 +379,39 @@ export async function handleSyncScreenerData(
     ...nhlRows,
   ];
 
-  const { data: rowsInserted, error: rpcError } = await sb.rpc(
-    REPLACE_GENERATION_RPC,
-    {
-      p_rows: allRows,
-      p_sync_run_id: syncRunId,
-      p_synced_at: syncedAt,
-      p_nhl_baseline_status: nhlBaseline.status,
-    },
-  );
+  const tabEvaluationEvidence = buildTabEvaluationEvidence({
+    universe: allTickers,
+    dayTradeSelected,
+    gapperSelected,
+    volumeSpikeSelected,
+    gainersLosersSelected,
+    unusualSelected,
+    nhlBaselineStatus: nhlBaseline.status,
+    nhlBaselines: nhlBaseline.quotes,
+    nhlSelected,
+  });
+
+  const rpcBase = {
+    p_rows: allRows,
+    p_sync_run_id: syncRunId,
+    p_synced_at: syncedAt,
+    p_nhl_baseline_status: nhlBaseline.status,
+  };
+  let rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, {
+    ...rpcBase,
+    p_tab_evaluation_evidence: tabEvaluationEvidence,
+  });
+  if (rpcResult.error) {
+    const message = String(rpcResult.error.message ?? "").toLowerCase();
+    const missingEvidenceRpc =
+      message.includes("p_tab_evaluation_evidence") ||
+      message.includes("could not find the function") ||
+      message.includes("function public.replace_screener_results_generation_v1(");
+    if (missingEvidenceRpc) {
+      rpcResult = await sb.rpc(REPLACE_GENERATION_RPC, rpcBase);
+    }
+  }
+  const { data: rowsInserted, error: rpcError } = rpcResult;
   if (rpcError) {
     console.error("[sync-screener-data] replace generation failed");
     return json({ error: "database_error" }, 500);
