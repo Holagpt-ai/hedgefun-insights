@@ -1,0 +1,38 @@
+name: Screener 52w finalizer benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/screener-finalizer-benchmark-v1
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screener-finalizer-benchmark-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  benchmark:
+    name: Isolated finalize runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.115.0
+      - name: Run isolated 52w finalize benchmark
+        run: |
+          sed -i 's/\r$//' scripts/ci/screener-finalizer-benchmark.sh
+          chmod +x scripts/ci/screener-finalizer-benchmark.sh
+          scripts/ci/screener-finalizer-benchmark.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screener-finalizer-benchmark
+          path: |
+            /tmp/screener-finalizer-benchmark.json
+            /tmp/screener-finalizer-benchmark.raw
+          if-no-files-found: ignore
