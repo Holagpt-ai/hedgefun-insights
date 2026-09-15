@@ -45,6 +45,32 @@ if [[ -z "$DB_CONTAINER" ]]; then
   exit 1
 fi
 
+echo "==> applying disposable production-table stubs (not a production migration)"
+docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
+-- Production created these tables outside the held 52w finalize lineage.
+-- Stub only so the real committed migrations can ALTER them.
+CREATE TABLE IF NOT EXISTS public.screener_results (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tab_id text,
+  symbol text,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.screener_results ENABLE ROW LEVEL SECURITY;
+
+CREATE TABLE IF NOT EXISTS public.screener_feed_state (
+  state_key text PRIMARY KEY,
+  sync_run_id uuid,
+  status text,
+  synced_at timestamptz,
+  provider_as_of_min timestamptz,
+  provider_as_of_max timestamptz,
+  rows_inserted integer,
+  tab_counts jsonb,
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.screener_feed_state ENABLE ROW LEVEL SECURITY;
+SQL
+
 LINEAGE=(
   "20260813190000_screener_52w_baselines.sql"
   "20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql"
@@ -62,13 +88,26 @@ done
 
 echo "==> verifying effective finalize objects"
 docker exec -i "$DB_CONTAINER" psql -U postgres -d postgres -v ON_ERROR_STOP=1 <<'SQL'
-SELECT to_regclass('public.screener_52w_baselines');
-SELECT to_regclass('public.screener_52w_baseline_state');
-SELECT to_regclass('public.screener_52w_baseline_exclusions');
-SELECT to_regclass('public.screener_52w_baseline_publish_job');
-SELECT to_regprocedure('public.replace_screener_52w_baseline_generation_v1(uuid, jsonb, date, date, timestamptz, text)');
-SELECT to_regprocedure('public.replace_screener_52w_baseline_generation_with_exclusions_v1(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)');
-SELECT to_regprocedure('public.finalize_screener_52w_baseline_publish_v1(uuid)');
+DO $verify$
+BEGIN
+  IF to_regclass('public.screener_52w_baselines') IS NULL
+     OR to_regclass('public.screener_52w_baseline_state') IS NULL
+     OR to_regclass('public.screener_52w_baseline_exclusions') IS NULL
+     OR to_regclass('public.screener_52w_baseline_publish_job') IS NULL
+     OR to_regclass('public.screener_52w_baseline_publish_rows') IS NULL
+     OR to_regclass('public.screener_52w_baseline_publish_exclusions') IS NULL THEN
+    RAISE EXCEPTION 'missing 52w finalize table';
+  END IF;
+  IF to_regprocedure('public.replace_screener_52w_baseline_generation_v1(uuid, jsonb, date, date, timestamptz, text)') IS NULL
+     OR to_regprocedure('public.replace_screener_52w_baseline_generation_with_exclusions_v1(uuid, jsonb, date, date, timestamptz, text, jsonb, integer)') IS NULL
+     OR to_regprocedure('public.start_screener_52w_baseline_publish_v1(uuid, date, date, timestamptz, integer, integer, integer)') IS NULL
+     OR to_regprocedure('public.append_screener_52w_baseline_rows_v1(uuid, jsonb)') IS NULL
+     OR to_regprocedure('public.append_screener_52w_baseline_exclusions_v1(uuid, jsonb)') IS NULL
+     OR to_regprocedure('public.finalize_screener_52w_baseline_publish_v1(uuid)') IS NULL THEN
+    RAISE EXCEPTION 'missing 52w finalize RPC';
+  END IF;
+END;
+$verify$;
 SQL
 
 echo "==> running finalize benchmark"
