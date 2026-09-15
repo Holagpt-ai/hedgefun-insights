@@ -25,11 +25,17 @@ import {
   type RadarV2LoadDiagnostic,
 } from "@/lib/screeners/radar-v2-diagnostics";
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
+import {
+  resolveScreenerTruthState,
+  type ScreenerTruthState,
+} from "@/lib/screeners/screener-truth-state";
+import type { TabEvaluationEvidenceMap } from "@/lib/screeners/tab-evaluation-evidence";
+import type { NhlBaselineStatus } from "@/lib/screeners/contract";
 
 export type { ScreenerResultRow, ScreenerUiStatus };
 
 const STATE_SELECT =
-  "state_key,sync_run_id,status,synced_at,provider_as_of_min,provider_as_of_max,rows_inserted,tab_counts,nhl_baseline_status,updated_at";
+  "state_key,sync_run_id,status,synced_at,provider_as_of_min,provider_as_of_max,rows_inserted,tab_counts,nhl_baseline_status,tab_evaluation_evidence,updated_at";
 
 const ROW_SELECT = [
   "tab_id",
@@ -123,6 +129,10 @@ export function useScreenerData(
   // Snapshot of the existing load diagnostic after each Radar V2 attempt.
   // Used only by the opt-in `?radarDebug=1` surface — not a second decision path.
   const [radarDiagnostic, setRadarDiagnostic] = useState<RadarV2LoadDiagnostic | null>(null);
+  const [truthState, setTruthState] = useState<ScreenerTruthState | null>(null);
+  const [nhlBaselineStatus, setNhlBaselineStatus] = useState<NhlBaselineStatus | null>(null);
+  const [tabEvaluationEvidence, setTabEvaluationEvidence] =
+    useState<TabEvaluationEvidenceMap | null>(null);
 
   useEffect(() => {
     if (!tabId) return;
@@ -139,7 +149,11 @@ export function useScreenerData(
       }
     };
 
-    const applyView = (view: ScreenerTabView, soft: boolean) => {
+    const applyView = (
+      view: ScreenerTabView,
+      soft: boolean,
+      resolvedSource: ScreenerDataSource | null = null,
+    ) => {
       if (cancelled) return;
       // Never wipe rows on a failed background refresh.
       if (
@@ -150,6 +164,19 @@ export function useScreenerData(
         return;
       }
       setStatus(view.status);
+      setNhlBaselineStatus(view.nhl_baseline_status ?? null);
+      setTabEvaluationEvidence(view.tab_evaluation_evidence ?? null);
+      setTruthState(
+        resolveScreenerTruthState({
+          tabId,
+          status: view.status,
+          rowCount: view.rows.length,
+          syncedAt: view.synced_at,
+          nhlBaselineStatus: view.nhl_baseline_status,
+          tabEvaluationEvidence: view.tab_evaluation_evidence,
+          source: resolvedSource,
+        }),
+      );
       if (
         view.status === "available" ||
         view.status === "stale" ||
@@ -190,6 +217,9 @@ export function useScreenerData(
         setSource(null);
         setSession(null);
         setRadarDiagnostic(null);
+        setTruthState(null);
+        setNhlBaselineStatus(null);
+        setTabEvaluationEvidence(null);
         hasLoadedOnce = false;
       }
 
@@ -250,7 +280,7 @@ export function useScreenerData(
             setSource("radar-v2");
             setSession(resolved.session);
           }
-          applyView(view, soft);
+          applyView(view, soft, "radar-v2");
           return;
         }
 
@@ -266,7 +296,7 @@ export function useScreenerData(
         setSource("screener-results");
         setSession(null);
       }
-      applyView(view, soft);
+      applyView(view, soft, "screener-results");
     };
 
     void load(false);
@@ -291,5 +321,16 @@ export function useScreenerData(
     };
   }, [tabId, refreshIntervalMs, pauseWhenHidden]);
 
-  return { status, rows, syncedAt, providerAsOfMax, source, session, radarDiagnostic };
+  return {
+    status,
+    rows,
+    syncedAt,
+    providerAsOfMax,
+    source,
+    session,
+    radarDiagnostic,
+    truthState,
+    nhlBaselineStatus,
+    tabEvaluationEvidence,
+  };
 }

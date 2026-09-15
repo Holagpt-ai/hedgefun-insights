@@ -113,6 +113,8 @@ function legacyAvailable(symbol: string): ScreenerTabView {
     synced_at: SYNCED_A,
     provider_as_of_max: SYNCED_A,
     attempts: 1,
+    nhl_baseline_status: null,
+    tab_evaluation_evidence: null,
   };
 }
 

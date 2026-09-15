@@ -27,6 +27,7 @@ import {
   mapTabRows,
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
+import { buildTabEvaluationEvidence } from "../_shared/screeners/evaluation-evidence.ts";
 import {
   isValidBaselineQuote,
   type NhlBaselineQuote,
@@ -356,6 +357,18 @@ export async function handleSyncScreenerData(
     ...nhlRows,
   ];
 
+  const tabEvaluationEvidence = buildTabEvaluationEvidence({
+    universe: allTickers,
+    dayTradeSelected,
+    gapperSelected,
+    volumeSpikeSelected,
+    gainersLosersSelected,
+    unusualSelected,
+    nhlBaselineStatus: nhlBaseline.status,
+    nhlBaselines: nhlBaseline.quotes,
+    nhlSelected,
+  });
+
   const { data: rowsInserted, error: rpcError } = await sb.rpc(
     REPLACE_GENERATION_RPC,
     {
@@ -363,6 +376,7 @@ export async function handleSyncScreenerData(
       p_sync_run_id: syncRunId,
       p_synced_at: syncedAt,
       p_nhl_baseline_status: nhlBaseline.status,
+      p_tab_evaluation_evidence: tabEvaluationEvidence,
     },
   );
   if (rpcError) {
