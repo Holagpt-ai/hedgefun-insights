@@ -110,7 +110,7 @@ async function main(): Promise<void> {
     workerSecret: env.radarWorkerSecret,
     fetch,
   });
-  const rpc = bridge.baselineRpc;
+  const publish = bridge.stagedPublish;
   const loadState = bridge.loadState;
   const loadExceptions = bridge.loadExceptions;
 
@@ -139,7 +139,7 @@ async function main(): Promise<void> {
           nowMs: () => Date.now(),
           fetch,
           polygonApiKey: env.polygonApiKey,
-          rpc,
+          publish,
           loadState,
           loadExceptions,
           minSessions: env.baselineMinSessions,

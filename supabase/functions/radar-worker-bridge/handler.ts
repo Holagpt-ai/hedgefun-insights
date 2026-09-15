@@ -18,6 +18,12 @@ export const SET_RADAR_STATUS_RPC = "set_radar_v22_feed_status_v1";
 export const REPLACE_52W_RPC = "replace_screener_52w_baseline_generation_v1";
 export const REPLACE_52W_WITH_EXCLUSIONS_RPC =
   "replace_screener_52w_baseline_generation_with_exclusions_v1";
+export const START_52W_PUBLISH_RPC = "start_screener_52w_baseline_publish_v1";
+export const APPEND_52W_ROWS_RPC = "append_screener_52w_baseline_rows_v1";
+export const APPEND_52W_EXCLUSIONS_RPC =
+  "append_screener_52w_baseline_exclusions_v1";
+export const FINALIZE_52W_PUBLISH_RPC =
+  "finalize_screener_52w_baseline_publish_v1";
 export const CALENDAR_TABLE = "market_session_calendar";
 export const BASELINE_STATE_TABLE = "screener_52w_baseline_state";
 
@@ -107,6 +113,34 @@ function readHolderId(body: Record<string, unknown>): string | null {
   const holderId = raw.trim();
   if (!holderId || holderId.length > 200) return null;
   return holderId;
+}
+
+function payloadBytes(value: unknown): number {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+  } catch {
+    return -1;
+  }
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readNonNegInt(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    return null;
+  }
+  return value;
+}
+
+function readPositiveInt(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) {
+    return null;
+  }
+  return value;
 }
 
 function readTtlMs(body: Record<string, unknown>): number | null {
@@ -307,6 +341,76 @@ async function handleAction(
         p_status: body.p_status,
         p_exclusions: exclusions,
         p_min_sessions: body.p_min_sessions,
+      }, rpcMeta);
+    }
+    case "start_52w_baseline_publish": {
+      const generationId = readNonEmptyString(body.p_generation_id);
+      const periodStart = readNonEmptyString(body.p_period_start);
+      const periodEnd = readNonEmptyString(body.p_period_end);
+      const providerAsOf = readNonEmptyString(body.p_provider_as_of);
+      const expectedBaseline = readNonNegInt(body.p_expected_baseline_count);
+      const expectedExclusions = readNonNegInt(body.p_expected_exclusion_count);
+      const minSessions = readPositiveInt(body.p_min_sessions);
+      if (
+        generationId === null ||
+        periodStart === null ||
+        periodEnd === null ||
+        providerAsOf === null ||
+        expectedBaseline === null ||
+        expectedExclusions === null ||
+        minSessions === null
+      ) {
+        return json({ error: "invalid_body" }, 400);
+      }
+      return await rpcResult(db, START_52W_PUBLISH_RPC, {
+        p_generation_id: generationId,
+        p_period_start: periodStart,
+        p_period_end: periodEnd,
+        p_provider_as_of: providerAsOf,
+        p_expected_baseline_count: expectedBaseline,
+        p_expected_exclusion_count: expectedExclusions,
+        p_min_sessions: minSessions,
+      }, rpcMeta);
+    }
+    case "append_52w_baseline_rows": {
+      const generationId = readNonEmptyString(body.p_generation_id);
+      if (generationId === null || !Array.isArray(body.p_rows)) {
+        return json({ error: "invalid_body" }, 400);
+      }
+      bridgeLog("radar_bridge_append_payload_bytes", {
+        request_id: requestId,
+        action,
+        payload_bytes: payloadBytes(body),
+        chunk_item_count: body.p_rows.length,
+      });
+      return await rpcResult(db, APPEND_52W_ROWS_RPC, {
+        p_generation_id: generationId,
+        p_rows: body.p_rows,
+      }, rpcMeta);
+    }
+    case "append_52w_baseline_exclusions": {
+      const generationId = readNonEmptyString(body.p_generation_id);
+      if (generationId === null || !Array.isArray(body.p_exclusions)) {
+        return json({ error: "invalid_body" }, 400);
+      }
+      bridgeLog("radar_bridge_append_payload_bytes", {
+        request_id: requestId,
+        action,
+        payload_bytes: payloadBytes(body),
+        chunk_item_count: body.p_exclusions.length,
+      });
+      return await rpcResult(db, APPEND_52W_EXCLUSIONS_RPC, {
+        p_generation_id: generationId,
+        p_exclusions: body.p_exclusions,
+      }, rpcMeta);
+    }
+    case "finalize_52w_baseline_publish": {
+      const generationId = readNonEmptyString(body.p_generation_id);
+      if (generationId === null) {
+        return json({ error: "invalid_body" }, 400);
+      }
+      return await rpcResult(db, FINALIZE_52W_PUBLISH_RPC, {
+        p_generation_id: generationId,
       }, rpcMeta);
     }
     case "get_52w_state": {

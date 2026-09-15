@@ -4,9 +4,19 @@ import {
 } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import type { BaselineExclusionPayload } from "../../../../supabase/functions/_shared/screeners/baseline-exclusion-publish.ts";
 import { parseValidatedBaselineExclusions } from "../../../../supabase/functions/_shared/screeners/baseline-exclusion-publish.ts";
+import {
+  chunkItemsByRequestBytes,
+  STAGED_CHUNK_SAFETY_BYTES,
+  STAGED_CHUNK_TARGET_BYTES,
+} from "./chunk.ts";
 import type { Candidate } from "./deque.ts";
 import type { FetchLike } from "./grouped.ts";
 import { isValidHighLow, normalizeSymbol } from "./grouped.ts";
+
+export {
+  STAGED_CHUNK_SAFETY_BYTES,
+  STAGED_CHUNK_TARGET_BYTES,
+} from "./chunk.ts";
 
 export const REPLACE_GENERATION_RPC =
   "replace_screener_52w_baseline_generation_v1";
@@ -68,6 +78,72 @@ export type ReplaceGenerationWithExclusionsArgs = ReplaceGenerationArgs & {
 export type ExclusionAwareRpcFn = (
   args: ReplaceGenerationWithExclusionsArgs,
 ) => Promise<{ error: { message: string } | null }>;
+
+export type StartPublishArgs = {
+  p_generation_id: string;
+  p_period_start: string;
+  p_period_end: string;
+  p_provider_as_of: string;
+  p_expected_baseline_count: number;
+  p_expected_exclusion_count: number;
+  p_min_sessions: number;
+};
+
+export type AppendRowsArgs = {
+  p_generation_id: string;
+  p_rows: BaselineRow[];
+};
+
+export type AppendExclusionsArgs = {
+  p_generation_id: string;
+  p_exclusions: BaselineExclusionPayload[];
+};
+
+export type FinalizePublishArgs = {
+  p_generation_id: string;
+};
+
+export type StagedPublishClient = {
+  start: (
+    args: StartPublishArgs,
+  ) => Promise<{ error: { message: string } | null }>;
+  appendRows: (
+    args: AppendRowsArgs,
+  ) => Promise<{ error: { message: string } | null }>;
+  appendExclusions: (
+    args: AppendExclusionsArgs,
+  ) => Promise<{ error: { message: string } | null }>;
+  finalize: (
+    args: FinalizePublishArgs,
+  ) => Promise<{ error: { message: string } | null }>;
+};
+
+const STAGED_REQUEST_ID_PLACEHOLDER =
+  "00000000-0000-0000-0000-000000000000";
+
+export function wrapAppendRowsRequest(
+  generationId: string,
+  rows: BaselineRow[],
+): Record<string, unknown> {
+  return {
+    action: "append_52w_baseline_rows",
+    p_generation_id: generationId,
+    p_rows: rows,
+    request_id: STAGED_REQUEST_ID_PLACEHOLDER,
+  };
+}
+
+export function wrapAppendExclusionsRequest(
+  generationId: string,
+  exclusions: BaselineExclusionPayload[],
+): Record<string, unknown> {
+  return {
+    action: "append_52w_baseline_exclusions",
+    p_generation_id: generationId,
+    p_exclusions: exclusions,
+    request_id: STAGED_REQUEST_ID_PLACEHOLDER,
+  };
+}
 
 export type { BaselineExclusionPayload };
 
@@ -251,6 +327,127 @@ export async function publishGenerationWithExclusions(
   } catch {
     return { ok: false, code: "persist_failed" };
   }
+
+  return {
+    ok: true,
+    state: {
+      current_generation_id: input.generationId,
+      status,
+      period_start: input.periodStart,
+      period_end: input.periodEnd,
+      symbol_count: input.rows.length,
+      provider_as_of: input.providerAsOf,
+      policy_min_sessions: input.minSessions,
+      policy_excluded_count: exclusions.length,
+    },
+  };
+}
+
+async function stagedOk(
+  call: () => Promise<{ error: { message: string } | null }>,
+): Promise<boolean> {
+  try {
+    const result = await call();
+    return result.error == null;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Stage baseline rows and exclusions in bounded HTTP chunks, then finalize
+ * atomically. lastSuccessfulPeriodEnd must only advance when this returns ok.
+ */
+export async function publishGenerationStaged(
+  publish: StagedPublishClient,
+  input: {
+    generationId: string;
+    rows: BaselineRow[];
+    exclusions: BaselineExclusionPayload[];
+    minSessions: number;
+    periodStart: string;
+    periodEnd: string;
+    providerAsOf: string;
+  },
+): Promise<PublishResult> {
+  const status: "available" | "empty" = input.rows.length === 0
+    ? "empty"
+    : "available";
+  if (
+    !validateGeneration(
+      input.rows,
+      input.periodStart,
+      input.periodEnd,
+      input.generationId,
+      input.providerAsOf,
+    )
+  ) {
+    return { ok: false, code: "validation_failed" };
+  }
+  const exclusions = parseValidatedBaselineExclusions(
+    input.exclusions,
+    input.minSessions,
+    input.rows,
+  );
+  if (!exclusions) return { ok: false, code: "validation_failed" };
+
+  const rowChunks = chunkItemsByRequestBytes(
+    input.rows,
+    (chunk) => wrapAppendRowsRequest(input.generationId, chunk),
+    {
+      targetBytes: STAGED_CHUNK_TARGET_BYTES,
+      safetyBytes: STAGED_CHUNK_SAFETY_BYTES,
+    },
+  );
+  if (!rowChunks.ok) return { ok: false, code: "validation_failed" };
+
+  const exclusionChunks = chunkItemsByRequestBytes(
+    exclusions,
+    (chunk) => wrapAppendExclusionsRequest(input.generationId, chunk),
+    {
+      targetBytes: STAGED_CHUNK_TARGET_BYTES,
+      safetyBytes: STAGED_CHUNK_SAFETY_BYTES,
+    },
+  );
+  if (!exclusionChunks.ok) return { ok: false, code: "validation_failed" };
+
+  const started = await stagedOk(() =>
+    publish.start({
+      p_generation_id: input.generationId,
+      p_period_start: input.periodStart,
+      p_period_end: input.periodEnd,
+      p_provider_as_of: input.providerAsOf,
+      p_expected_baseline_count: input.rows.length,
+      p_expected_exclusion_count: exclusions.length,
+      p_min_sessions: input.minSessions,
+    })
+  );
+  if (!started) return { ok: false, code: "persist_failed" };
+
+  for (const chunk of rowChunks.chunks) {
+    const appended = await stagedOk(() =>
+      publish.appendRows({
+        p_generation_id: input.generationId,
+        p_rows: chunk,
+      })
+    );
+    if (!appended) return { ok: false, code: "persist_failed" };
+  }
+
+  for (const chunk of exclusionChunks.chunks) {
+    const appended = await stagedOk(() =>
+      publish.appendExclusions({
+        p_generation_id: input.generationId,
+        p_exclusions: chunk,
+      })
+    );
+    if (!appended) return { ok: false, code: "persist_failed" };
+  }
+
+  const finalized = await stagedOk(() =>
+    publish.finalize({ p_generation_id: input.generationId })
+  );
+  if (!finalized) return { ok: false, code: "persist_failed" };
 
   return {
     ok: true,

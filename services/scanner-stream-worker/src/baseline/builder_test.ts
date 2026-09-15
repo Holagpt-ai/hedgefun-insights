@@ -5,7 +5,7 @@ import { groupedUrl } from "./grouped.ts";
 import type {
   BaselineState,
   ReplaceGenerationWithExclusionsArgs,
-  ExclusionAwareRpcFn,
+  StagedPublishClient,
 } from "./persist.ts";
 
 const GEN_NEW = "11111111-2222-3333-4444-555555555555";
@@ -57,12 +57,58 @@ function fakeGroupedFetch(
   };
 }
 
-function recordingRpc(
+function recordingStaged(
   calls: ReplaceGenerationWithExclusionsArgs[],
-): ExclusionAwareRpcFn {
-  return async (args) => {
-    calls.push(args);
-    return { error: null };
+  opts?: { failAt?: "start" | "finalize" },
+): StagedPublishClient {
+  const rows: ReplaceGenerationWithExclusionsArgs["p_rows"] = [];
+  const exclusions: ReplaceGenerationWithExclusionsArgs["p_exclusions"] = [];
+  let start: {
+    p_generation_id: string;
+    p_period_start: string;
+    p_period_end: string;
+    p_provider_as_of: string;
+    p_min_sessions: number;
+  } | null = null;
+  return {
+    async start(args) {
+      start = {
+        p_generation_id: args.p_generation_id,
+        p_period_start: args.p_period_start,
+        p_period_end: args.p_period_end,
+        p_provider_as_of: args.p_provider_as_of,
+        p_min_sessions: args.p_min_sessions,
+      };
+      if (opts?.failAt === "start") {
+        return { error: { message: "persist_failed" } };
+      }
+      return { error: null };
+    },
+    async appendRows(args) {
+      rows.push(...args.p_rows);
+      return { error: null };
+    },
+    async appendExclusions(args) {
+      exclusions.push(...args.p_exclusions);
+      return { error: null };
+    },
+    async finalize(args) {
+      if (opts?.failAt === "finalize") {
+        return { error: { message: "persist_failed" } };
+      }
+      if (!start) return { error: { message: "persist_failed" } };
+      calls.push({
+        p_generation_id: args.p_generation_id,
+        p_rows: [...rows],
+        p_period_start: start.p_period_start,
+        p_period_end: start.p_period_end,
+        p_provider_as_of: start.p_provider_as_of,
+        p_status: rows.length === 0 ? "empty" : "available",
+        p_exclusions: [...exclusions],
+        p_min_sessions: start.p_min_sessions,
+      });
+      return { error: null };
+    },
   };
 }
 
@@ -96,7 +142,7 @@ Deno.test("builder excludes the in-progress session from grouped fetches", async
       "2026-08-12": [{ T: "AAPL", h: 99, l: 1 }],
     }, fetchCalls),
     polygonApiKey: "test-key",
-    rpc: recordingRpc(rpcCalls),
+    publish: recordingStaged(rpcCalls),
     loadState: async () => ({
       current_generation_id: null,
       status: "initializing",
@@ -155,7 +201,7 @@ Deno.test("invalid bars are skipped and incomplete history is omitted", async ()
       ],
     }, fetchCalls),
     polygonApiKey: "test-key",
-    rpc: recordingRpc(rpcCalls),
+    publish: recordingStaged(rpcCalls),
     loadState: async () => ({
       current_generation_id: null,
       status: "initializing",
@@ -203,7 +249,7 @@ Deno.test("failed provider build retains prior generation and never calls RPC", 
       { failDates: new Set(["2026-08-12"]), statusForFail: 500 },
     ),
     polygonApiKey: "test-key",
-    rpc: recordingRpc(rpcCalls),
+    publish: recordingStaged(rpcCalls),
     loadState: async () => PRIOR_STATE,
     loadExceptions: async () => [],
     minSessions: 1,
@@ -234,10 +280,7 @@ Deno.test("RPC failure retains prior generation pointer", async () => {
       "2026-08-12": [{ T: "AAPL", h: 11, l: 6 }],
     }, fetchCalls),
     polygonApiKey: "test-key",
-    rpc: async (args) => {
-      rpcCalls.push(args);
-      return { error: { message: "persist_failed" } };
-    },
+    publish: recordingStaged(rpcCalls, { failAt: "finalize" }),
     loadState: async () => PRIOR_STATE,
     loadExceptions: async () => [],
     minSessions: 1,
@@ -248,7 +291,7 @@ Deno.test("RPC failure retains prior generation pointer", async () => {
     sleep: instantSleep,
   });
 
-  assertEquals(rpcCalls.length, 1);
+  assertEquals(rpcCalls.length, 0);
   assertEquals(result.didRebuild, false);
   assertEquals(result.state.current_generation_id, GEN_PRIOR);
   assertEquals(result.lastSuccessfulPeriodEnd, "2026-08-11");
@@ -263,7 +306,7 @@ Deno.test("does not rebuild when period_end has not advanced", async () => {
     nowMs: () => nowMs,
     fetch: fakeGroupedFetch({}, fetchCalls),
     polygonApiKey: "test-key",
-    rpc: recordingRpc(rpcCalls),
+    publish: recordingStaged(rpcCalls),
     loadState: async () => ({
       ...PRIOR_STATE,
       period_end: "2026-08-11",
@@ -296,7 +339,7 @@ Deno.test("mismatched policy_min_sessions rebuilds instead of skipping", async (
       "2026-08-11": [{ T: "AAPL", h: 12, l: 4 }],
     }, fetchCalls),
     polygonApiKey: "test-key",
-    rpc: recordingRpc(rpcCalls),
+    publish: recordingStaged(rpcCalls),
     loadState: async () => ({
       ...PRIOR_STATE,
       period_end: "2026-08-11",
@@ -328,7 +371,7 @@ Deno.test("current period without policy evidence rebuilds exclusion-aware gener
       "2026-08-11": [{ T: "AAPL", h: 12, l: 4 }],
     }, fetchCalls),
     polygonApiKey: "test-key",
-    rpc: recordingRpc(rpcCalls),
+    publish: recordingStaged(rpcCalls),
     loadState: async () => ({
       ...PRIOR_STATE,
       period_end: "2026-08-11",

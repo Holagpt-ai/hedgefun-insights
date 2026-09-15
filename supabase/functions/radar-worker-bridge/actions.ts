@@ -10,6 +10,10 @@ export const RADAR_BRIDGE_ACTIONS = [
   "set_feed_status",
   "replace_52w_baseline",
   "replace_52w_baseline_with_exclusions",
+  "start_52w_baseline_publish",
+  "append_52w_baseline_rows",
+  "append_52w_baseline_exclusions",
+  "finalize_52w_baseline_publish",
   "get_52w_state",
 ] as const;
 
