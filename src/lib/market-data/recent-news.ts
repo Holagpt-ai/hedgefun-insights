@@ -1,110 +1,147 @@
-import { getTickerNews } from "@/lib/polygon";
+import { getRadarNews } from "@/lib/polygon";
 import { createConcurrencyGate, mapPool } from "./concurrency";
 import { uniqueNormalizedSymbols } from "./symbols";
 
 export const RECENT_NEWS_WINDOW_MS = 24 * 60 * 60 * 1000;
 export const RECENT_NEWS_STALE_TIME_MS = 15 * 60 * 1000;
 export const RECENT_NEWS_FETCH_CONCURRENCY = 3;
+export const RADAR_NEWS_UNAVAILABLE_MESSAGE = "Radar news temporarily unavailable";
+
+export type RadarNewsProvider = "finnhub" | "massive";
+export type RadarNewsStatus = "ok" | "empty" | "unavailable";
+export type RadarNewsSymbolStatus = RadarNewsStatus | "pending";
 
 export interface RecentProviderHeadline {
   ticker: string;
   title: string;
-  publishedAt: string | null;
+  publishedAt: string;
   url: string | null;
+  source: string;
+  provider: RadarNewsProvider;
+}
+
+export interface RadarNewsRecord {
+  ticker: string;
+  status: RadarNewsStatus;
+  article: RecentProviderHeadline | null;
 }
 
 const newsGate = createConcurrencyGate(RECENT_NEWS_FETCH_CONCURRENCY);
-const newsMemory = new Map<string, { headline: RecentProviderHeadline | null; ts: number }>();
-const newsInflight = new Map<string, Promise<RecentProviderHeadline | null>>();
+const newsMemory = new Map<string, { record: RadarNewsRecord; ts: number }>();
+const newsInflight = new Map<string, Promise<RadarNewsRecord>>();
 
 export function resetRecentNewsSymbolCache() {
   newsMemory.clear();
   newsInflight.clear();
 }
 
-function pickTitle(row: Record<string, unknown>): string | null {
-  for (const key of ["title", "headline", "description"]) {
-    const value = row[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
+export function peekRecentNewsRecord(symbol: string): RadarNewsRecord | null {
+  const ticker = uniqueNormalizedSymbols([symbol])[0];
+  if (!ticker) return null;
+  return readCachedNews(ticker);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function publishedIso(value: unknown): string | null {
+  if (typeof value === "string" && value.trim()) {
+    const ms = Date.parse(value);
+    return Number.isFinite(ms) && ms > 0 ? new Date(ms).toISOString() : null;
   }
   return null;
 }
 
-function pickPublished(row: Record<string, unknown>): string | null {
-  for (const key of ["published_utc", "published_at", "publishedAt"]) {
-    const value = row[key];
-    if (typeof value === "string" && value.trim()) return value.trim();
-  }
-  return null;
+function asProvider(value: unknown): RadarNewsProvider | null {
+  return value === "finnhub" || value === "massive" ? value : null;
 }
 
-function pickUrl(row: Record<string, unknown>): string | null {
-  if (typeof row.article_url === "string" && row.article_url.trim()) return row.article_url.trim();
-  if (typeof row.url === "string" && row.url.trim()) return row.url.trim();
-  return null;
+function emptyRecord(ticker: string, status: RadarNewsStatus): RadarNewsRecord {
+  return { ticker, status, article: null };
 }
 
-export function mapRecentNewsPayload(
+export function mapRadarNewsPayload(
   ticker: string,
   payload: unknown,
   nowMs: number = Date.now(),
   windowMs: number = RECENT_NEWS_WINDOW_MS,
-): RecentProviderHeadline | null {
-  const rows = Array.isArray(payload)
-    ? payload
-    : payload && typeof payload === "object" && Array.isArray((payload as { results?: unknown }).results)
-      ? (payload as { results: unknown[] }).results
-      : [];
+): RadarNewsRecord {
+  if (!payload || typeof payload !== "object") return emptyRecord(ticker, "unavailable");
+  const root = payload as Record<string, unknown>;
+  const status: RadarNewsStatus =
+    root.status === "ok" || root.status === "empty" || root.status === "unavailable"
+      ? root.status
+      : "unavailable";
+  if (status !== "ok") return emptyRecord(ticker, status);
+
+  const rows = Array.isArray(root.articles) ? root.articles : [];
   const cutoff = nowMs - windowMs;
   let best: RecentProviderHeadline | null = null;
   let bestMs = -1;
   for (const raw of rows) {
     if (!raw || typeof raw !== "object") continue;
     const row = raw as Record<string, unknown>;
-    const title = pickTitle(row);
-    if (!title) continue;
-    const publishedAt = pickPublished(row);
-    const publishedMs = publishedAt ? Date.parse(publishedAt) : Number.NaN;
-    if (!Number.isFinite(publishedMs) || publishedMs < cutoff) continue;
+    if (!isNonEmptyString(row.title)) continue;
+    const publishedAt = publishedIso(row.published_at);
+    if (!publishedAt) continue;
+    const publishedMs = Date.parse(publishedAt);
+    if (publishedMs < cutoff || publishedMs > nowMs + 5 * 60 * 1000) continue;
+    const provider = asProvider(row.provider);
+    if (!provider) continue;
     if (publishedMs > bestMs) {
       bestMs = publishedMs;
-      best = { ticker, title, publishedAt, url: pickUrl(row) };
+      best = {
+        ticker,
+        title: row.title.trim(),
+        publishedAt,
+        url: isNonEmptyString(row.url) ? row.url.trim() : null,
+        source: isNonEmptyString(row.source) ? row.source.trim() : provider === "finnhub" ? "Finnhub" : "Massive",
+        provider,
+      };
     }
   }
-  return best;
+  if (!best) return emptyRecord(ticker, "empty");
+  return { ticker, status: "ok", article: best };
 }
 
-function readCachedHeadline(ticker: string, nowMs: number = Date.now()): RecentProviderHeadline | null | undefined {
+function readCachedNews(ticker: string, nowMs: number = Date.now()): RadarNewsRecord | null {
   const hit = newsMemory.get(ticker);
-  if (!hit) return undefined;
+  if (!hit) return null;
   if (nowMs - hit.ts > RECENT_NEWS_STALE_TIME_MS) {
     newsMemory.delete(ticker);
-    return undefined;
+    return null;
   }
-  return hit.headline;
+  return hit.record;
+}
+
+function throwTransientNews(): never {
+  throw new Error(RADAR_NEWS_UNAVAILABLE_MESSAGE);
 }
 
 export async function getRecentHeadlineForSymbol(
   symbol: string,
   nowMs: number = Date.now(),
-): Promise<RecentProviderHeadline | null> {
+): Promise<RadarNewsRecord> {
   const ticker = uniqueNormalizedSymbols([symbol])[0];
-  if (!ticker) return null;
+  if (!ticker) return emptyRecord("", "empty");
 
-  const cached = readCachedHeadline(ticker, nowMs);
-  if (cached !== undefined) return cached;
+  const cached = readCachedNews(ticker, nowMs);
+  if (cached) return cached;
 
   const pending = newsInflight.get(ticker);
   if (pending) return pending;
 
   const request = (async () => {
     try {
-      const payload = await newsGate.run(() => getTickerNews(ticker, 5));
-      const headline = mapRecentNewsPayload(ticker, payload, nowMs);
-      newsMemory.set(ticker, { headline, ts: Date.now() });
-      return headline;
-    } catch {
-      return null;
+      const payload = await newsGate.run(() => getRadarNews(ticker));
+      const mapped = mapRadarNewsPayload(ticker, payload, nowMs);
+      if (mapped.status === "unavailable") throwTransientNews();
+      newsMemory.set(ticker, { record: mapped, ts: Date.now() });
+      return mapped;
+    } catch (error) {
+      if (error instanceof Error && error.message === RADAR_NEWS_UNAVAILABLE_MESSAGE) throw error;
+      throwTransientNews();
     } finally {
       newsInflight.delete(ticker);
     }
@@ -117,14 +154,25 @@ export async function getRecentHeadlineForSymbol(
 export async function getRecentHeadlinesForSymbols(
   symbols: readonly string[],
   nowMs: number = Date.now(),
-): Promise<Map<string, RecentProviderHeadline>> {
+): Promise<Map<string, RadarNewsRecord>> {
   const unique = uniqueNormalizedSymbols(symbols);
-  const rows = await mapPool(unique, RECENT_NEWS_FETCH_CONCURRENCY, (symbol) =>
-    getRecentHeadlineForSymbol(symbol, nowMs),
-  );
-  const out = new Map<string, RecentProviderHeadline>();
+  const rows = await mapPool(unique, RECENT_NEWS_FETCH_CONCURRENCY, async (symbol) => {
+    try {
+      return await getRecentHeadlineForSymbol(symbol, nowMs);
+    } catch {
+      return emptyRecord(symbol, "unavailable");
+    }
+  });
+  const out = new Map<string, RadarNewsRecord>();
   for (const row of rows) {
-    if (row?.ticker) out.set(row.ticker, row);
+    if (row.ticker) out.set(row.ticker, row);
   }
   return out;
+}
+
+export function radarNewsMapHasUnavailable(
+  records: Map<string, RadarNewsRecord>,
+  symbols: readonly string[],
+): boolean {
+  return uniqueNormalizedSymbols(symbols).some((symbol) => records.get(symbol)?.status === "unavailable");
 }

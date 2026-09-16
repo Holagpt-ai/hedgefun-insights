@@ -39,9 +39,9 @@ import { ScannerFieldHelp } from "./ScannerFieldHelp";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
-import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsDisplay } from "./radar-news-display";
+import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
-import type { RecentProviderHeadline } from "@/lib/market-data/recent-news";
+import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 
 interface RadarGridProps {
   rows: RadarRankedRow[];
@@ -54,35 +54,59 @@ interface RadarGridProps {
 
 function NewsCatalystCell({
   symbol,
-  pending,
-  error,
+  catalystPending,
+  catalystUnavailable,
+  newsStatus,
   catalyst,
   recent,
 }: {
   symbol: string;
-  pending: boolean;
-  error: boolean;
+  catalystPending: boolean;
+  catalystUnavailable: boolean;
+  newsStatus: RadarNewsSymbolStatus;
   catalyst: CatalystEnrichmentEntry | undefined;
   recent: RecentProviderHeadline | undefined;
 }) {
-  if (pending) {
+  const display = resolveRadarNewsCellState({
+    symbol,
+    catalyst,
+    recent,
+    newsStatus,
+    catalystPending,
+    catalystUnavailable,
+  });
+  if (display.level === "pending") {
     return <span className="text-muted-foreground text-xs">News check pending</span>;
   }
-  if (error && !catalyst && !recent) {
+  if (display.level === "unavailable") {
     return <span className="text-muted-foreground text-xs">News unavailable</span>;
   }
-  const display = resolveRadarNewsDisplay(symbol, catalyst, recent);
   if (display.level === "none") {
     return <span className="text-muted-foreground text-xs">{NO_VERIFIED_NEWS_COPY}</span>;
   }
   if (display.level === "recent") {
-    return (
+    const meta = [display.source, display.ageLabel].filter(Boolean).join(" · ");
+    const body = (
       <div className="flex max-w-[220px] flex-col items-start gap-0.5" title={display.title}>
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Recent News</span>
+        {meta ? <span className="text-[10px] text-muted-foreground">{meta}</span> : null}
         <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
       </div>
     );
+    if (!display.href) return body;
+    return (
+      <a
+        href={display.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="hover:underline"
+      >
+        {body}
+      </a>
+    );
   }
+  const catalystMeta = [display.category, display.ageLabel].filter(Boolean).join(" · ");
   return (
     <Link
       to={display.href}
@@ -90,9 +114,8 @@ function NewsCatalystCell({
       className="inline-flex max-w-[220px] flex-col items-start gap-0.5 hover:underline"
       title={display.title}
     >
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        Verified Catalyst · {display.category}
-      </span>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Verified Catalyst</span>
+      {catalystMeta ? <span className="text-[10px] text-muted-foreground">{catalystMeta}</span> : null}
       <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
     </Link>
   );
@@ -163,7 +186,6 @@ export function RadarGrid({
 
   const catalystCheckPending =
     symbols.length > 0 && (catalystPending || (catalystFetching && !catalystMap));
-  const newsPending = catalystCheckPending || newsState.isPending;
 
   return (
     <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0" data-testid="radar-scanner-table">
@@ -336,8 +358,9 @@ export function RadarGrid({
                         {accessible ? (
                           <NewsCatalystCell
                             symbol={sym}
-                            pending={newsPending && !catalystMap?.get(sym) && !newsState.getHeadline(sym)}
-                            error={!!catalystError}
+                            catalystPending={catalystCheckPending && !catalystMap?.get(sym)}
+                            catalystUnavailable={!!catalystError && !catalystMap?.get(sym)}
+                            newsStatus={newsState.getStatus(sym)}
                             catalyst={catalystMap?.get(sym)}
                             recent={newsState.getHeadline(sym)}
                           />

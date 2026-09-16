@@ -1,9 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { RadarGrid } from "../RadarGrid";
 import { formatRadarContextMultiplier, formatRadarContextVolume } from "../radar-metrics";
 import type { RadarRankedRow } from "../types";
+
+const newsStatusBySymbol = vi.hoisted(() => ({ current: new Map<string, "ok" | "empty" | "unavailable" | "pending">() }));
 
 vi.mock("@/hooks/useAddToWatchlist", () => ({
   useAddToWatchlist: () => ({
@@ -35,6 +37,7 @@ vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
     bySymbol: new Map(),
     isPending: false,
     getHeadline: () => undefined,
+    getStatus: (symbol: string) => newsStatusBySymbol.current.get(symbol) ?? "empty",
   }),
 }));
 
@@ -79,6 +82,10 @@ function renderGrid(rows: RadarRankedRow[], onSelect = vi.fn()) {
   };
 }
 
+beforeEach(() => {
+  newsStatusBySymbol.current = new Map();
+});
+
 describe("Radar volume story", () => {
   it("splits prior volume, today volume, and vol/prior", () => {
     expect(formatRadarContextVolume(196_000)).toBe("196K");
@@ -109,6 +116,19 @@ describe("Radar news empty copy", () => {
     expect(screen.getByText("No verified news found")).toBeInTheDocument();
     expect(screen.queryByText("No confirmed catalyst")).not.toBeInTheDocument();
     expect(screen.queryByText(/reason for move/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps empty and unavailable news copy per symbol in the same batch", () => {
+    newsStatusBySymbol.current = new Map([
+      ["AAA", "empty"],
+      ["BBB", "unavailable"],
+    ]);
+    renderGrid([ranked({ symbol: "AAA", rank: 1 }), ranked({ symbol: "BBB", rank: 2, company_name: "Beta" })]);
+    const rows = screen.getAllByRole("row");
+    expect(within(rows[1]).getByText("No verified news found")).toBeInTheDocument();
+    expect(within(rows[1]).queryByText("News unavailable")).not.toBeInTheDocument();
+    expect(within(rows[2]).getByText("News unavailable")).toBeInTheDocument();
+    expect(within(rows[2]).queryByText("No verified news found")).not.toBeInTheDocument();
   });
 });
 

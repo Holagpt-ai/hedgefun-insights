@@ -1,6 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { emptyFloatRecord, resolveFloatProviderResult } from "../_shared/market-data/float.ts";
+import {
+  assembleRadarNewsResponse,
+  finnhubDateWindow,
+  RADAR_NEWS_CACHE_TTL_MS,
+  RADAR_NEWS_LIMIT,
+  RADAR_NEWS_LOOKBACK_HOURS,
+  shouldCacheRadarNews,
+  type ProviderNewsFetch,
+} from "../_shared/market-data/radar-news.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +79,7 @@ const cache = new Map<string, { data: unknown; ts: number }>();
 const lastSuccess = new Map<string, unknown>();
 const CACHE_TTL = 60_000;
 const FLOAT_CACHE_TTL = 12 * 60 * 60 * 1000;
+const RADAR_NEWS_CACHE_TTL = RADAR_NEWS_CACHE_TTL_MS;
 
 function getCached(key: string, ttl: number = CACHE_TTL): unknown | null {
   const entry = cache.get(key);
@@ -284,6 +294,45 @@ serve(async (req) => {
         data = json.results ?? [];
         break;
       }
+      case "radar-news": {
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        const lookbackHours = Math.max(1, Math.min(Number(searchParams.get("lookback_hours") ?? RADAR_NEWS_LOOKBACK_HOURS) || RADAR_NEWS_LOOKBACK_HOURS, 48));
+        const newsLimit = Math.max(1, Math.min(Number(searchParams.get("limit") ?? RADAR_NEWS_LIMIT) || RADAR_NEWS_LIMIT, 10));
+        const cacheKey = `radar-news:${ticker}:${lookbackHours}:${newsLimit}`;
+        const cachedNews = getCached(cacheKey, RADAR_NEWS_CACHE_TTL);
+        if (cachedNews) {
+          data = cachedNews;
+          break;
+        }
+
+        const nowMs = Date.now();
+        const dates = finnhubDateWindow(nowMs, lookbackHours);
+        const finnhubKey = Deno.env.get("FINNHUB_API_KEY") ?? "";
+
+        const fetchNewsProvider = async (url: string): Promise<ProviderNewsFetch> => {
+          try {
+            const res = await fetchWithRetry(url);
+            if (!res.ok) return { ok: false };
+            const payload = await res.json().catch(() => null);
+            if (payload == null) return { ok: false };
+            return { ok: true, payload };
+          } catch {
+            return { ok: false };
+          }
+        };
+
+        const [finnhub, massive] = await Promise.all([
+          finnhubKey
+            ? fetchNewsProvider(`https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(ticker)}&from=${dates.from}&to=${dates.to}&token=${finnhubKey}`)
+            : Promise.resolve({ ok: false } as ProviderNewsFetch),
+          fetchNewsProvider(polyUrl("/v2/reference/news", { ticker, limit: "20", order: "desc" })),
+        ]);
+
+        const assembled = assembleRadarNewsResponse(ticker, finnhub, massive, nowMs, lookbackHours, newsLimit);
+        data = assembled;
+        if (shouldCacheRadarNews(assembled.status)) setCache(cacheKey, assembled);
+        break;
+      }
       case "aggregates": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const multiplier = searchParams.get("multiplier") ?? "1";
@@ -417,7 +466,7 @@ serve(async (req) => {
         });
       }
       default:
-        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, float, news, aggregates, prev-close, dividends, splits, ipos, search" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, float, news, radar-news, aggregates, prev-close, dividends, splits, ipos, search" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify(data), {

@@ -22,7 +22,7 @@ import { ScannerFieldHelp } from "./ScannerFieldHelp";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
-import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsDisplay } from "./radar-news-display";
+import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -59,7 +59,14 @@ export function RadarMobileCard({
   const entry = catalystMap?.get(sym);
   const floatShares = floatState.getFloat(sym);
   const turnover = computeFloatTurnover(row.volume, floatShares);
-  const news = resolveRadarNewsDisplay(sym, entry, newsState.getHeadline(sym));
+  const news = resolveRadarNewsCellState({
+    symbol: sym,
+    catalyst: entry,
+    recent: newsState.getHeadline(sym),
+    newsStatus: newsState.getStatus(sym),
+    catalystPending: catalystCheckPending && !entry,
+    catalystUnavailable: !!catalystError && !entry,
+  });
 
   return (
     <div
@@ -194,17 +201,22 @@ export function RadarMobileCard({
 
       {accessible && (
         <div className="mt-1.5 text-[12px]">
-          {catalystCheckPending && news.level === "none" ? (
+          {news.level === "pending" ? (
             <span className="text-muted-foreground">News check pending</span>
-          ) : catalystError && news.level === "none" ? (
+          ) : news.level === "unavailable" ? (
             <span className="text-muted-foreground">News unavailable</span>
           ) : news.level === "none" ? (
             <span className="text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</span>
           ) : news.level === "recent" ? (
-            <span className="text-muted-foreground">Recent News · {news.title}</span>
+            <span className="text-muted-foreground" title={news.title}>
+              Recent News
+              {news.source || news.ageLabel ? ` · ${[news.source, news.ageLabel].filter(Boolean).join(" · ")}` : ""}
+              {` · ${news.title}`}
+            </span>
           ) : (
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground" title={news.title}>
               Verified Catalyst · {news.category}
+              {news.ageLabel ? ` · ${news.ageLabel}` : ""}
               {news.title ? ` · ${news.title}` : ""}
             </span>
           )}

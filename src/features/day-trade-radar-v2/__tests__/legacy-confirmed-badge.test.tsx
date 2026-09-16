@@ -36,6 +36,7 @@ vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
     bySymbol: new Map(),
     isPending: false,
     getHeadline: () => undefined,
+    getStatus: () => "empty",
   }),
 }));
 
