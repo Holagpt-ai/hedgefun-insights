@@ -40,6 +40,8 @@ export const RADAR_COLUMN_IDS = [
   "vwap_state",
   "freshness",
   "data_time",
+  "move_15s",
+  "move_60s",
   "catalyst",
   "actions",
 ] as const;
@@ -61,7 +63,7 @@ export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
   { id: "symbol", label: "Symbol", fieldId: "symbol", defaultVisible: true, required: true, align: "left", optional: false },
   { id: "signal", label: "Signal", fieldId: null, defaultVisible: true, required: false, align: "left", optional: false },
   { id: "price_move", label: "Last / Move", fieldId: "price", defaultVisible: true, required: false, align: "right", optional: false },
-  { id: "range_hod", label: "Range / HOD", fieldId: "hod_distance", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "range_hod", label: "Range / HOD", fieldId: "day_range", defaultVisible: true, required: false, align: "left", optional: false },
   { id: "volume", label: "Volume", fieldId: "volume", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "prior_ratio", label: "Prior / Ratio", fieldId: "volume_ratio", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "volume_5s", label: "5s Volume", fieldId: "volume_5s", defaultVisible: false, required: false, align: "right", optional: true },
@@ -72,6 +74,8 @@ export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
   { id: "vwap_state", label: "VWAP State", fieldId: "vwap_state", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "freshness", label: "Freshness", fieldId: "freshness", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "data_time", label: "Data Time", fieldId: "data_time", defaultVisible: false, required: false, align: "right", optional: true },
+  { id: "move_15s", label: "15s Move", fieldId: "move_15s", defaultVisible: false, required: false, align: "right", optional: true },
+  { id: "move_60s", label: "60s Move", fieldId: "move_60s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "catalyst", label: "Catalyst", fieldId: "catalyst", defaultVisible: true, required: false, align: "left", optional: false },
   { id: "actions", label: "Actions", fieldId: null, defaultVisible: true, required: true, align: "left", optional: false },
 ];

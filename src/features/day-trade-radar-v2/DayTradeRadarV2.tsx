@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRadarV22Board } from "@/hooks/useRadarV22Board";
 import { easternDate } from "@/lib/radar-v22";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { resolveDayTradeRadarSource } from "./radar-source-precedence";
 import type { DayTradeRadarV2Props } from "./types";
 import { useRadarSelection } from "./useRadarSelection";
@@ -11,8 +12,9 @@ import { RadarStatusRail } from "./RadarStatusRail";
 import { RadarGrid } from "./RadarGrid";
 import { RadarMobileCard } from "./RadarMobileCard";
 import { RadarDetailPanel } from "./RadarDetailPanel";
+import { RadarLeaderStrip } from "./RadarLeaderStrip";
 import { TraderLensBar } from "./TraderLensBar";
-import { applyTraderLensPriceFilter } from "./trader-lens";
+import { applyTraderLensFilter } from "./trader-lens";
 import { useTraderLens } from "./useTraderLens";
 import { useRadarColumnVisibility } from "./useRadarColumnVisibility";
 import { isRadarRowAccessible } from "./radar-metrics";
@@ -32,8 +34,7 @@ export function DayTradeRadarV2({
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
-  // Hook is always called (no conditional hooks); its result is only consumed
-  // for the legacy/fallback source resolution inside resolveDayTradeRadarSource.
+  const [desktopDetailOpen, setDesktopDetailOpen] = useState(false);
   const v22 = useRadarV22Board();
   const adoptedSessionRef = useRef<string | null>(null);
   const todayEt = easternDate(Date.now());
@@ -66,25 +67,21 @@ export function DayTradeRadarV2({
 
   const traderLens = useTraderLens();
   const { visibleColumns, toggleColumn, resetColumns } = useRadarColumnVisibility();
-  const filtered = useMemo(
-    () => applyTraderLensPriceFilter(ranked, traderLens.bounds),
-    [ranked, traderLens.bounds],
+  const lens = useMemo(
+    () => applyTraderLensFilter(ranked, traderLens.presetId, traderLens.bounds),
+    [ranked, traderLens.presetId, traderLens.bounds],
   );
+  const filtered = lens.rows;
+  const leaderRow = ranked[0] ?? null;
 
   const chartEnabled =
     !!activeRow &&
     isRadarRowAccessible(activeRow.rank, isPro, freeRowLimit) &&
-    // Inactive retained snapshots may still show chart from last verified symbol.
     (selection.inactive || resolved.status === "available" || resolved.status === "stale");
 
   const chartSymbol =
-    chartEnabled && activeRow
-      ? // Free gate: never chart a symbol the user cannot access from the board,
-        // unless it's an inactive retained selection that was previously accessible.
-        activeRow.symbol
-      : null;
+    chartEnabled && activeRow ? activeRow.symbol : null;
 
-  // Harden Free: if somehow an inaccessible live row is active, block chart.
   const freeBlocked =
     !!activeRow &&
     !selection.inactive &&
@@ -102,9 +99,20 @@ export function DayTradeRadarV2({
   const boardVisible =
     resolved.status === "available" || resolved.status === "stale";
 
-  const handleSelect = (row: RadarRankedRow) => {
+  const openDetails = (row: RadarRankedRow) => {
     selectRow(row);
     if (isMobile) setMobileDetailOpen(true);
+    else setDesktopDetailOpen(true);
+  };
+
+  const handleSelect = (row: RadarRankedRow) => {
+    openDetails(row);
+  };
+
+  const openLeaderDetails = () => {
+    if (!leaderRow) return;
+    if (!isRadarRowAccessible(leaderRow.rank, isPro, freeRowLimit)) return;
+    openDetails(leaderRow);
   };
 
   const upgradeNeeded =
@@ -124,17 +132,24 @@ export function DayTradeRadarV2({
     return null;
   }, [resolved.status, boardVisible, ranked.length, filtered.length]);
 
+  const detailPanel = (
+    <RadarDetailPanel
+      row={freeBlocked ? null : activeRow}
+      inactive={selection.inactive}
+      chartStatus={freeBlocked ? "idle" : chartStatus}
+      chartBars={freeBlocked ? [] : bars}
+      latestBarIso={freeBlocked ? null : latestBarIso}
+      chartError={freeBlocked ? null : errorMessage}
+    />
+  );
+
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       <RadarStatusRail
         status={resolved.status}
         qualifyingCount={boardVisible ? ranked.length : 0}
         syncedAt={resolved.syncedAt}
         providerAsOfMax={resolved.providerAsOfMax}
-        followingLeader={followingLeader}
-        onFollowLeader={followLeader}
-        showReturnToLeader={showReturnToLeader}
-        onReturnToLeader={returnToLeader}
         engineSource={resolved.source}
         session={source === "radar-v2" ? session : null}
       />
@@ -147,12 +162,26 @@ export function DayTradeRadarV2({
           visibleCount={filtered.length}
           radarCount={ranked.length}
           visibleColumns={visibleColumns}
+          sessionMoveUnavailable={lens.sessionMoveUnavailable}
           onPresetChange={traderLens.selectPreset}
           onMinChange={traderLens.setMinInput}
           onMaxChange={traderLens.setMaxInput}
           onReset={traderLens.resetLens}
           onToggleColumn={toggleColumn}
           onResetColumns={resetColumns}
+        />
+      )}
+
+      {boardVisible && leaderRow && (
+        <RadarLeaderStrip
+          row={leaderRow}
+          followingLeader={followingLeader}
+          showReturnToLeader={showReturnToLeader}
+          isPro={isPro}
+          freeRowLimit={freeRowLimit}
+          onFollowLeader={followLeader}
+          onReturnToLeader={returnToLeader}
+          onOpenDetails={openLeaderDetails}
         />
       )}
 
@@ -172,8 +201,7 @@ export function DayTradeRadarV2({
 
       {boardVisible && filtered.length > 0 && (
         <>
-          {/* Desktop command center */}
-          <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] gap-4 items-start">
+          <div className="hidden md:block min-w-0">
             <RadarGrid
               rows={filtered}
               selectedSymbol={selection.selectedSymbol}
@@ -182,18 +210,23 @@ export function DayTradeRadarV2({
               onSelect={handleSelect}
               visibleColumns={visibleColumns}
             />
-            <RadarDetailPanel
-              row={freeBlocked ? null : activeRow}
-              inactive={selection.inactive}
-              chartStatus={freeBlocked ? "idle" : chartStatus}
-              chartBars={freeBlocked ? [] : bars}
-              latestBarIso={freeBlocked ? null : latestBarIso}
-              chartError={freeBlocked ? null : errorMessage}
-            />
           </div>
 
-          {/* Mobile ranked cards */}
-          <div className="md:hidden space-y-2">
+          <Sheet open={!isMobile && desktopDetailOpen} onOpenChange={setDesktopDetailOpen}>
+            <SheetContent
+              side="right"
+              data-testid="radar-detail-drawer"
+              className="w-full overflow-y-auto p-0 sm:max-w-[440px]"
+            >
+              <SheetTitle className="sr-only">Radar detail</SheetTitle>
+              <SheetDescription className="sr-only">
+                Radar candidate detail, chart, catalyst, and handoffs
+              </SheetDescription>
+              {detailPanel}
+            </SheetContent>
+          </Sheet>
+
+          <div className="md:hidden space-y-2" data-testid="radar-mobile-board">
             {filtered.map((row) => (
               <RadarMobileCard
                 key={`${row.tab_id}-${row.symbol}`}

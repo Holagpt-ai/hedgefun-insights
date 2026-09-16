@@ -1,7 +1,8 @@
-import { Columns3 } from "lucide-react";
+import { Columns3, SlidersHorizontal } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
+  CORE_MOMENTUM_MOVE_UNAVAILABLE_COPY,
   TRADER_LENS_PRESETS,
   type TraderLensPresetId,
 } from "@/config/scanner-presets.config";
@@ -14,6 +15,16 @@ import {
 } from "./radar-grid-columns";
 import { traderLensShowingCopy } from "./trader-lens";
 
+const FUTURE_FILTERS = [
+  "Move %",
+  "Volume",
+  "Float",
+  "RVOL",
+  "Short Float",
+  "Catalyst",
+  "HOD Distance",
+] as const;
+
 interface TraderLensBarProps {
   presetId: TraderLensPresetId;
   minInput: string;
@@ -21,12 +32,58 @@ interface TraderLensBarProps {
   visibleCount: number;
   radarCount: number;
   visibleColumns: RadarColumnId[];
+  sessionMoveUnavailable?: boolean;
   onPresetChange: (id: TraderLensPresetId) => void;
   onMinChange: (value: string) => void;
   onMaxChange: (value: string) => void;
   onReset: () => void;
   onToggleColumn: (id: RadarColumnId) => void;
   onResetColumns: () => void;
+}
+
+function PriceInputs({
+  minInput,
+  maxInput,
+  onMinChange,
+  onMaxChange,
+}: {
+  minInput: string;
+  maxInput: string;
+  onMinChange: (value: string) => void;
+  onMaxChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        Price Min
+        <input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          value={minInput}
+          onChange={(event) => onMinChange(event.target.value)}
+          placeholder="—"
+          className="h-8 w-[88px] rounded-md border border-border bg-background px-2 text-[12px] tabular-nums text-foreground"
+          aria-label="Price min"
+        />
+      </label>
+      <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+        Price Max
+        <input
+          type="number"
+          inputMode="decimal"
+          min={0}
+          step="0.01"
+          value={maxInput}
+          onChange={(event) => onMaxChange(event.target.value)}
+          placeholder="—"
+          className="h-8 w-[88px] rounded-md border border-border bg-background px-2 text-[12px] tabular-nums text-foreground"
+          aria-label="Price max"
+        />
+      </label>
+    </div>
+  );
 }
 
 export function TraderLensBar({
@@ -36,6 +93,7 @@ export function TraderLensBar({
   visibleCount,
   radarCount,
   visibleColumns,
+  sessionMoveUnavailable = false,
   onPresetChange,
   onMinChange,
   onMaxChange,
@@ -47,9 +105,10 @@ export function TraderLensBar({
   const defaultToggles = RADAR_COLUMN_DEFINITIONS.filter(
     (column) => column.defaultVisible && !column.required && !column.optional,
   );
+  const showInlinePrice = presetId === "custom";
 
   return (
-    <div className="rounded-lg border border-border bg-card px-3 py-2 space-y-2">
+    <div className="rounded-lg border border-border bg-card px-3 py-1.5 space-y-1.5">
       <div className="flex flex-wrap items-center gap-2">
         <label className="sr-only" htmlFor="trader-lens-preset">
           Trader Lens preset
@@ -67,34 +126,49 @@ export function TraderLensBar({
           ))}
         </select>
 
-        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          Price Min
-          <input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.01"
-            value={minInput}
-            onChange={(event) => onMinChange(event.target.value)}
-            placeholder="—"
-            className="h-8 w-[88px] rounded-md border border-border bg-background px-2 text-[12px] tabular-nums text-foreground"
-            aria-label="Price min"
+        {showInlinePrice && (
+          <PriceInputs
+            minInput={minInput}
+            maxInput={maxInput}
+            onMinChange={onMinChange}
+            onMaxChange={onMaxChange}
           />
-        </label>
-        <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          Price Max
-          <input
-            type="number"
-            inputMode="decimal"
-            min={0}
-            step="0.01"
-            value={maxInput}
-            onChange={(event) => onMaxChange(event.target.value)}
-            placeholder="—"
-            className="h-8 w-[88px] rounded-md border border-border bg-background px-2 text-[12px] tabular-nums text-foreground"
-            aria-label="Price max"
-          />
-        </label>
+        )}
+
+        <Popover>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-semibold text-foreground hover:bg-muted"
+            >
+              <SlidersHorizontal className="h-3.5 w-3.5" />
+              Filters
+            </button>
+          </PopoverTrigger>
+          <PopoverContent align="start" className="w-72 p-3 space-y-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Price
+            </div>
+            <PriceInputs
+              minInput={minInput}
+              maxInput={maxInput}
+              onMinChange={onMinChange}
+              onMaxChange={onMaxChange}
+            />
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+              Coming later
+            </div>
+            <div className="space-y-1">
+              {FUTURE_FILTERS.map((label) => (
+                <div key={label} className="flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <Checkbox disabled checked={false} aria-label={`${label} unavailable`} />
+                  {label}
+                  <span className="text-[10px] uppercase tracking-wide">Unavailable</span>
+                </div>
+              ))}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         <Popover>
           <PopoverTrigger asChild>
@@ -174,8 +248,9 @@ export function TraderLensBar({
           Reset
         </button>
       </div>
-      <div className="text-[11px] text-muted-foreground tabular-nums">
-        {traderLensShowingCopy(visibleCount, radarCount)}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
+        <span>{traderLensShowingCopy(visibleCount, radarCount)}</span>
+        {sessionMoveUnavailable && <span>{CORE_MOMENTUM_MOVE_UNAVAILABLE_COPY}</span>}
       </div>
     </div>
   );

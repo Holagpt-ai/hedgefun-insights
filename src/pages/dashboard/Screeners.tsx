@@ -121,21 +121,7 @@ export default function Screeners() {
       )}
 
       {isDayTradeRadar && (
-        <div className="space-y-1.5">
-          <p className="text-sm text-muted-foreground max-w-3xl">{copy.description}</p>
-          {copy.criteria.length > 0 && (
-            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5">
-              {copy.criteria.map((item) => (
-                <span
-                  key={item}
-                  className="shrink-0 rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
-                >
-                  {item}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
+        <p className="text-sm text-muted-foreground max-w-3xl">{copy.description}</p>
       )}
 
       {radarDebug && (
