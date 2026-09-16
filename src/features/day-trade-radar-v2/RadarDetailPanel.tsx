@@ -7,12 +7,18 @@ import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import {
+  formatFreshness,
   formatHodDistance,
+  formatRadarAcceleration,
   formatRadarDayRange,
+  formatRadarDollarVolume,
   formatRadarMultiplier,
   formatRadarPercent,
   formatRadarPrice,
+  formatRadarUnavailableMetric,
   formatRadarVolume,
+  formatShortWindowMove,
+  formatVwapState,
   moveClass,
   volumeRatioClass,
 } from "./radar-metrics";
@@ -170,7 +176,24 @@ export function RadarDetailPanel({
             label="Day Range"
             value={formatRadarDayRange(row.day_low, row.day_high)}
           />
-          <Metric label="Provider" value={providerLabel ?? "—"} />
+          <Metric label="Data Time" value={providerLabel ?? "Unavailable"} />
+          <Metric label="5s Volume" value={formatRadarUnavailableMetric(row.rolling_volume_5s)} />
+          <Metric label="15s Volume" value={formatRadarUnavailableMetric(row.rolling_volume_15s)} />
+          <Metric label="60s Volume" value={formatRadarUnavailableMetric(row.rolling_volume_60s)} />
+          <Metric label="60s Dollar Volume" value={formatRadarDollarVolume(row.rolling_dollar_volume_60s)} />
+          <Metric label="5m Acceleration" value={formatRadarAcceleration(row.acceleration_5m)} />
+          <Metric label="VWAP State" value={formatVwapState(row.vwap_side, row.session_vwap)} />
+          <Metric label="Freshness" value={formatFreshness(row.freshness_class)} />
+          <Metric
+            label="15s Move"
+            value={formatShortWindowMove(row.move_15s_pct)}
+            className={moveClass(row.move_15s_pct)}
+          />
+          <Metric
+            label="60s Move"
+            value={formatShortWindowMove(row.move_60s_pct)}
+            className={moveClass(row.move_60s_pct)}
+          />
         </div>
 
         <div className="space-y-2">

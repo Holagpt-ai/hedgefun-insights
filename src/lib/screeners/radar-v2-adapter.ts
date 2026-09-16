@@ -362,6 +362,15 @@ export function mapCandidateToScreenerRow(
     rolling_volume_15s: isFiniteNumber(row.volume_15s) ? row.volume_15s : null,
     rolling_volume_60s: isFiniteNumber(row.volume_60s) ? row.volume_60s : null,
     acceleration_5m: isFiniteNumber(row.acceleration_5m) ? row.acceleration_5m : null,
+    rolling_dollar_volume_60s: isFiniteNumber(row.dollar_volume_60s) ? row.dollar_volume_60s : null,
+    session_vwap: isFiniteNumber(row.session_vwap) ? row.session_vwap : null,
+    vwap_side: typeof row.vwap_side === "string" && row.vwap_side.trim() ? row.vwap_side : null,
+    freshness_class:
+      typeof row.freshness_class === "string" && row.freshness_class.trim()
+        ? row.freshness_class
+        : null,
+    move_15s_pct: isFiniteNumber(row.move_15s_pct) ? row.move_15s_pct : null,
+    move_60s_pct: isFiniteNumber(row.move_60s_pct) ? row.move_60s_pct : null,
   };
 }
 

@@ -37,16 +37,17 @@ function radarV2CopyFor(tabId: string, session: string | null | undefined): Scre
       return {
         description:
           session === "market"
-            ? "Radar V2 Sentinel regular-session discovery ranked volume-first for emerging activity on the delayed market feed."
+            ? "Radar V2 Sentinel regular-session candidates ranked volume-first from the delayed market feed."
             : session === "after-hours"
-              ? "Radar V2 Sentinel after-hours discovery ranked volume-first for emerging activity on the delayed market feed."
+              ? "Radar V2 Sentinel after-hours candidates ranked volume-first from the delayed market feed."
               : session === "pre-market"
-                ? "Radar V2 Sentinel pre-market discovery ranked volume-first for emerging activity on the delayed market feed."
-                : `Radar V2 Sentinel ${phrase} discovery ranked volume-first for emerging activity on the delayed market feed.`,
+                ? "Radar V2 Sentinel pre-market candidates ranked volume-first from the delayed market feed."
+                : `Radar V2 Sentinel ${phrase} candidates ranked volume-first from the delayed market feed.`,
         criteria: [
-          `Radar V2 ${phrase} candidates`,
+          `Radar V2 ${phrase} universe`,
           "Volume-first ranking",
           "Legacy $2–$20 / +10% / 5× snapshot gates not applied",
+          "$2–$20 is a Trader Lens preset, not a Radar discovery gate",
         ],
       };
     case "volume_spikes":

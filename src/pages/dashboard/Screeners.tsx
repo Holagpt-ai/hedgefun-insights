@@ -14,6 +14,7 @@ import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import { isRadarDebugEnabled } from "@/lib/screeners/radar-v2-diagnostics";
 import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
 import { RadarDebugPanel } from "@/features/day-trade-radar-v2/RadarDebugPanel";
+import { resolveScreenerCopy } from "@/lib/screeners/screener-copy";
 
 // All Radar-backed tabs refresh on this cadence so they do not go stale while
 // Radar V2 keeps publishing new generations across pre-market, market, and
@@ -64,6 +65,7 @@ export default function Screeners() {
 
   const providerLabel = formatProviderAsOf(providerAsOfMax);
   const pipelineAge = formatPipelineAge(syncedAt);
+  const copy = resolveScreenerCopy(activeTab, source, session);
   const showFreshness =
     !isDayTradeRadar &&
     (truthState?.showFreshness ??
@@ -115,6 +117,24 @@ export default function Screeners() {
         <div className="text-[12px] text-muted-foreground space-y-0.5">
           {providerLabel && <div>Provider data as of {providerLabel}</div>}
           {pipelineAge && <div>Pipeline refreshed {pipelineAge}</div>}
+        </div>
+      )}
+
+      {isDayTradeRadar && (
+        <div className="space-y-1.5">
+          <p className="text-sm text-muted-foreground max-w-3xl">{copy.description}</p>
+          {copy.criteria.length > 0 && (
+            <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5">
+              {copy.criteria.map((item) => (
+                <span
+                  key={item}
+                  className="shrink-0 rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
+                >
+                  {item}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

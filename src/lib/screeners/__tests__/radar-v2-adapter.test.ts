@@ -397,17 +397,41 @@ describe("Radar V2 adapter — ranking metadata preserved through mapping (D5.3)
     expect(row.rolling_volume_15s).toBe(41_000);
     expect(row.rolling_volume_60s).toBe(121_000);
     expect(row.acceleration_5m).toBe(0.75);
+    expect(row.rolling_dollar_volume_60s).toBe(1_200_000);
+    expect(row.session_vwap).toBe(10);
+    expect(row.vwap_side).toBe("above");
+    expect(row.freshness_class).toBe("fresh");
+    expect(row.move_15s_pct).toBe(1.2);
+    expect(row.move_60s_pct).toBe(3.4);
+    expect(row.change_percent).toBeNull();
   });
 
   it("does not fabricate metadata when Radar fields are missing", () => {
     const row = mapCandidateToScreenerRow(
-      candidate({ volume_5s: null, volume_15s: null, volume_60s: null, acceleration_5m: null }),
+      candidate({
+        volume_5s: null,
+        volume_15s: null,
+        volume_60s: null,
+        acceleration_5m: null,
+        dollar_volume_60s: null,
+        session_vwap: null,
+        vwap_side: null,
+        freshness_class: null,
+        move_15s_pct: null,
+        move_60s_pct: null,
+      }),
       "day_trade_radar",
     );
     expect(row.rolling_volume_5s).toBeNull();
     expect(row.rolling_volume_15s).toBeNull();
     expect(row.rolling_volume_60s).toBeNull();
     expect(row.acceleration_5m).toBeNull();
+    expect(row.rolling_dollar_volume_60s).toBeNull();
+    expect(row.session_vwap).toBeNull();
+    expect(row.vwap_side).toBeNull();
+    expect(row.freshness_class).toBeNull();
+    expect(row.move_15s_pct).toBeNull();
+    expect(row.move_60s_pct).toBeNull();
   });
 
   it("carries signal_status into the Day Trade Radar board signal label", () => {

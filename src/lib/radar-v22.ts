@@ -149,6 +149,10 @@ export function mapV22Row(
     rolling_volume_15s: row.rolling_volume_15s,
     rolling_volume_60s: row.rolling_volume_60s,
     acceleration_5m: row.acceleration_5m,
+    rolling_dollar_volume_60s: Number.isFinite(row.rolling_dollar_volume_60s)
+      ? row.rolling_dollar_volume_60s
+      : null,
+    session_vwap: row.session_vwap,
     hod_distance_percent:
       Number.isFinite(row.price) && Number.isFinite(row.day_high) && row.day_high > 0
         ? Math.round(((row.day_high - row.price) / row.day_high) * 1000) / 10
