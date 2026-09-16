@@ -16,6 +16,7 @@ import { BRAND } from "@/config/brand";
 import { PRICING } from "@/config/pricing";
 import { JOURNAL_NAV, navItemIsActive } from "@/journal/nav";
 import { useJournalT, type JournalMessageKey } from "@/journal/i18n";
+import { MarketSessionBadge } from "@/components/dashboard/MarketSessionBadge";
 
 type NavEntry =
   | { section: string }
@@ -105,7 +106,7 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
           const requiresUpgrade = entry.plan === "pro" && !isPro;
 
           const baseClass = cn(
-            "flex items-center rounded-md text-sm transition-colors",
+            "flex min-w-0 items-center rounded-md text-sm transition-colors",
             collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
             active
               ? "bg-accent-blue-light border-l-[3px] border-accent-blue text-accent-blue font-medium"
@@ -118,7 +119,8 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
               <span className="flex-shrink-0">{entry.icon}</span>
               {!collapsed && (
                 <>
-                  <span className="flex-1 truncate">{entry.label}</span>
+                  <span className="min-w-0 flex-1 truncate">{entry.label}</span>
+                  {entry.label === "Screeners" && <MarketSessionBadge />}
                   {isLocked && (
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                       Soon
