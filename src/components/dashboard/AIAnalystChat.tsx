@@ -21,7 +21,12 @@ import {
   Terminal,
 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { streamChat, ChatMessage, CHAT_REQUEST_TIMEOUT_ERROR } from "@/lib/chat";
+import {
+  streamChat,
+  ChatMessage,
+  CHAT_REQUEST_TIMEOUT_MS,
+  CHAT_REQUEST_TIMEOUT_ERROR,
+} from "@/lib/chat";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
@@ -51,7 +56,46 @@ const GENERIC_FAILURE_MESSAGE = "The analysis couldn't be completed. Please try 
 
 const TIMEOUT_FAILURE_MESSAGE = "The analysis took too long. Please try again.";
 
+/** Preflight bounds — full sendMessage lifecycle uses CHAT_REQUEST_TIMEOUT_MS. */
+const DASHBOARD_CONTEXT_TIMEOUT_MS = 8_000;
+const SESSION_PREFLIGHT_TIMEOUT_MS = 5_000;
+
 const SIGNUP_PROMPT_MESSAGE = "Sign up for free to get more daily AI queries. No credit card required.";
+
+type RequestAbortReason = "user" | "lifecycle_timeout";
+
+/** Rejects after `ms` unless `signal` aborts first (user cancel / lifecycle deadline). */
+async function withTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  signal?: AbortSignal,
+): Promise<T> {
+  if (signal?.aborted) {
+    throw new DOMException("Aborted", "AbortError");
+  }
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error("TIMEOUT"));
+    }, ms);
+    const onAbort = () => {
+      clearTimeout(timer);
+      reject(new DOMException("Aborted", "AbortError"));
+    };
+    signal?.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        signal?.removeEventListener("abort", onAbort);
+        reject(error);
+      },
+    );
+  });
+}
 
 const buildSymbolPrompt = (symbol: string) =>
   `Analyze ${symbol} as a day-trade setup. Focus on price action, RVOL, liquidity, catalyst risk, support/resistance, and what a disciplined trader should watch before entering. This is research only, not financial advice.`;
@@ -142,6 +186,8 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const conversationIdRef = useRef<string | null>(null);
   const attachmentRef = useRef<Attachment | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const abortReasonRef = useRef<RequestAbortReason | null>(null);
+  const lifecycleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const requestIdRef = useRef(0);
   const inFlightRef = useRef(false);
   const unmountedRef = useRef(false);
@@ -176,21 +222,30 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     }
   }, []);
 
+  const clearLifecycleTimer = useCallback(() => {
+    if (lifecycleTimerRef.current) {
+      clearTimeout(lifecycleTimerRef.current);
+      lifecycleTimerRef.current = null;
+    }
+  }, []);
+
   /**
    * Ends the active request: aborts the transport, bumps the request id so any
    * late callback is ignored, and returns the UI to a non-analyzing state.
    */
   const cancelActiveRequest = useCallback(() => {
+    abortReasonRef.current = "user";
     requestIdRef.current += 1;
     inFlightRef.current = false;
     abortRef.current?.abort();
     abortRef.current = null;
+    clearLifecycleTimer();
     clearStatusRotation();
     if (!unmountedRef.current) {
       setStreaming(false);
       setToolStatus(null);
     }
-  }, [clearStatusRotation]);
+  }, [clearLifecycleTimer, clearStatusRotation]);
 
   useEffect(() => {
     unmountedRef.current = false;
@@ -198,8 +253,13 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       unmountedRef.current = true;
       requestIdRef.current += 1;
       inFlightRef.current = false;
+      abortReasonRef.current = "user";
       abortRef.current?.abort();
       abortRef.current = null;
+      if (lifecycleTimerRef.current) {
+        clearTimeout(lifecycleTimerRef.current);
+        lifecycleTimerRef.current = null;
+      }
       if (statusIntervalRef.current) {
         clearInterval(statusIntervalRef.current);
         statusIntervalRef.current = null;
@@ -522,7 +582,15 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       const requestId = ++requestIdRef.current;
       const controller = new AbortController();
       abortRef.current = controller;
+      abortReasonRef.current = null;
       inFlightRef.current = true;
+
+      clearLifecycleTimer();
+      lifecycleTimerRef.current = setTimeout(() => {
+        if (requestIdRef.current !== requestId) return;
+        abortReasonRef.current = "lifecycle_timeout";
+        controller.abort();
+      }, CHAT_REQUEST_TIMEOUT_MS);
 
       // A superseded or unmounted request may no longer write to the screen.
       const isCurrent = () => requestIdRef.current === requestId && !unmountedRef.current;
@@ -544,16 +612,45 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         setToolStatus(STREAMING_STATUS_MESSAGES[statusIdx]);
       }, 2200);
 
+      let failureReported = false;
       const appendAssistant = (text: string) => {
         if (!isCurrent()) return;
         commitMessages([...messagesRef.current, { role: "assistant", content: text }]);
       };
+      const reportFailure = (message: string) => {
+        if (failureReported || !isCurrent()) return;
+        failureReported = true;
+        appendAssistant(`Error: ${message}`);
+      };
 
       try {
-        const systemContext = await fetchDashboardContext();
+        let systemContext = "";
+        try {
+          systemContext = await withTimeout(
+            fetchDashboardContext(),
+            DASHBOARD_CONTEXT_TIMEOUT_MS,
+            controller.signal,
+          );
+        } catch (contextErr) {
+          if (isAbortLike(contextErr)) throw contextErr;
+          // Context is best-effort enrichment — fail open without surfacing an error.
+          systemContext = "";
+        }
         if (!isCurrent()) return;
 
-        const { data: { session } } = await supabase.auth.getSession();
+        let accessToken: string | undefined;
+        try {
+          const { data: { session } } = await withTimeout(
+            supabase.auth.getSession(),
+            SESSION_PREFLIGHT_TIMEOUT_MS,
+            controller.signal,
+          );
+          accessToken = session?.access_token;
+        } catch (sessionErr) {
+          if (isAbortLike(sessionErr)) throw sessionErr;
+          reportFailure(GENERIC_FAILURE_MESSAGE);
+          return;
+        }
         if (!isCurrent()) return;
 
         let assistantContent = "";
@@ -561,7 +658,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         await streamChat({
           messages: messagesRef.current,
           sessionToken,
-          accessToken: session?.access_token,
+          accessToken,
           model: selectedModel,
           attachment: attachmentRef.current ?? undefined,
           systemContext: systemContext || undefined,
@@ -599,20 +696,23 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               return;
             }
             if (code === CHAT_REQUEST_TIMEOUT_ERROR) {
-              appendAssistant(`Error: ${TIMEOUT_FAILURE_MESSAGE}`);
+              reportFailure(TIMEOUT_FAILURE_MESSAGE);
               return;
             }
-            appendAssistant(`Error: ${GENERIC_FAILURE_MESSAGE}`);
+            reportFailure(GENERIC_FAILURE_MESSAGE);
           },
         });
       } catch (err) {
-        // An abort is an intentional cancellation, never a failure to report.
-        // Timeouts are surfaced via onError(REQUEST_TIMEOUT), not this path.
-        if (!isAbortLike(err)) appendAssistant(`Error: ${GENERIC_FAILURE_MESSAGE}`);
+        if (abortReasonRef.current === "lifecycle_timeout") {
+          reportFailure(TIMEOUT_FAILURE_MESSAGE);
+        } else if (!isAbortLike(err)) {
+          reportFailure(GENERIC_FAILURE_MESSAGE);
+        }
       } finally {
         if (requestIdRef.current === requestId) {
           inFlightRef.current = false;
           abortRef.current = null;
+          clearLifecycleTimer();
           clearStatusRotation();
           if (!unmountedRef.current) {
             setStreaming(false);
@@ -625,6 +725,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       sessionToken,
       selectedModel,
       commitMessages,
+      clearLifecycleTimer,
       clearStatusRotation,
       fetchDashboardContext,
       applyConversationId,

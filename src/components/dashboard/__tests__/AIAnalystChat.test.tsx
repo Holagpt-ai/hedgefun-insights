@@ -77,22 +77,49 @@ vi.mock("@/hooks/useVoiceInput", () => ({
   }),
 }));
 
-/** Chainable, awaitable stand-in for a PostgREST query builder. */
-function queryStub() {
-  const q: Record<string, unknown> = {};
-  for (const method of ["select", "eq", "order", "limit", "gte", "lte", "insert"]) {
-    q[method] = () => q;
+const supabaseHarness = vi.hoisted(() => {
+  type QueryThen = (
+    resolve: (v: { data: never[] }) => unknown,
+    reject?: (e: unknown) => unknown,
+  ) => unknown;
+
+  let queryThenImpl: QueryThen = (resolve) =>
+    Promise.resolve({ data: [] as never[] }).then(resolve);
+  let getSessionImpl: () => Promise<{ data: { session: { access_token: string } | null } }> =
+    async () => ({ data: { session: { access_token: "test-token" } } });
+
+  /** Chainable, awaitable stand-in for a PostgREST query builder. */
+  function queryStub() {
+    const q: Record<string, unknown> = {};
+    for (const method of ["select", "eq", "order", "limit", "gte", "lte", "insert"]) {
+      q[method] = () => q;
+    }
+    q.then = (resolve: (v: { data: never[] }) => unknown, reject?: (e: unknown) => unknown) =>
+      queryThenImpl(resolve, reject);
+    return q;
   }
-  q.then = (resolve: (v: { data: never[] }) => unknown, reject?: (e: unknown) => unknown) =>
-    Promise.resolve({ data: [] as never[] }).then(resolve, reject);
-  return q;
-}
+
+  return {
+    queryStub,
+    getSession: () => getSessionImpl(),
+    reset() {
+      queryThenImpl = (resolve) => Promise.resolve({ data: [] as never[] }).then(resolve);
+      getSessionImpl = async () => ({ data: { session: { access_token: "test-token" } } });
+    },
+    hangQueries() {
+      queryThenImpl = () => new Promise(() => {});
+    },
+    hangSession() {
+      getSessionImpl = () => new Promise(() => {});
+    },
+  };
+});
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
-    from: () => queryStub(),
+    from: () => supabaseHarness.queryStub(),
     auth: {
-      getSession: async () => ({ data: { session: { access_token: "test-token" } } }),
+      getSession: () => supabaseHarness.getSession(),
     },
   },
 }));
@@ -288,6 +315,7 @@ function abortError() {
 }
 
 beforeEach(() => {
+  supabaseHarness.reset();
   streamChatMock.mockReset();
   toastMock.mockReset();
   sessionStorage.clear();
@@ -408,6 +436,79 @@ describe("AI Analyst — request lifecycle", () => {
     expect(textarea()).not.toBeDisabled();
     expect(screen.queryByText(/analyzing available stocksist context/i)).not.toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/REQUEST_TIMEOUT/);
+  });
+
+  it("dashboard context timeout fails open and continues without blocking", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    supabaseHarness.hangQueries();
+    streamChatMock.mockResolvedValue(undefined);
+
+    renderChat();
+    await typeAndSend("Check the tape");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(8_100);
+    });
+
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(1));
+    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
+    expect(sent.systemContext).toBeUndefined();
+    expect(textarea()).not.toBeDisabled();
+    expect(screen.queryByText(/analyzing available stocksist context/i)).not.toBeInTheDocument();
+  });
+
+  it("session preflight timeout exits cleanly with a safe error", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    supabaseHarness.hangSession();
+    streamChatMock.mockResolvedValue(undefined);
+
+    renderChat();
+    await typeAndSend("Session hang");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_100);
+    });
+
+    expect(await screen.findByText(/something went wrong/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeEnabled();
+    expect(textarea()).not.toBeDisabled();
+    expect(streamChatMock).not.toHaveBeenCalled();
+    expect(screen.queryByText(/analyzing available stocksist context/i)).not.toBeInTheDocument();
+  });
+
+  it("full lifecycle timeout shows the timeout message and allows retry", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    streamChatMock.mockImplementation(
+      ({ signal }) =>
+        new Promise((_resolve, reject) => {
+          if (signal?.aborted) {
+            reject(new DOMException("Aborted", "AbortError"));
+            return;
+          }
+          signal?.addEventListener(
+            "abort",
+            () => reject(new DOMException("Aborted", "AbortError")),
+            { once: true },
+          );
+        }),
+    );
+
+    renderChat();
+    await typeAndSend("Long analysis");
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(CHAT_REQUEST_TIMEOUT_MS + 100);
+      await Promise.resolve();
+    });
+
+    expect(await screen.findByText(/analysis took too long/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeEnabled();
+    expect(textarea()).not.toBeDisabled();
+    expect(screen.queryByText(/analyzing available stocksist context/i)).not.toBeInTheDocument();
   });
 
   it("manual cancellation still works independently of timeout", async () => {

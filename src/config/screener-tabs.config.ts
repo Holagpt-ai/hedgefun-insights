@@ -49,8 +49,8 @@ export const SCREENER_TABS: ScreenerTab[] = [
   {
     id: "gappers",
     label: "Gappers",
-    description: "Gap >5% from prior close. Ranked by current volume.",
-    criteria: ["Gap >5% from prior close"],
+    description: "Gap ≥5% up or down from prior close. Ranked by current volume.",
+    criteria: ["Gap ≥5% up or down from prior close"],
     columns: [
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },

@@ -367,6 +367,15 @@ export function ScreenerTable({
         </div>
       )}
 
+      {!loading && truthState?.advisory && hasVerifiedRows && (
+        <div
+          role="status"
+          className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground"
+        >
+          {truthState.advisory}
+        </div>
+      )}
+
       {!loading && hasVerifiedRows && (
         <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0">
           <div className="overflow-x-auto">

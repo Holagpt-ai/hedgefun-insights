@@ -311,6 +311,60 @@ describe("screener truth-state resolver", () => {
     expect(truth.showRows).toBe(true);
   });
 
+  it("new highs/lows: complete evidence with rows → no advisory", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "available",
+      rowCount: 3,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+      tabEvaluationEvidence: {
+        new_highs_lows: {
+          status: "evaluated",
+          baseline_status: "available",
+          baseline_quote_count: 700,
+          universe_count: 800,
+          eligible_count: 700,
+          evaluated_count: 700,
+          policy_excluded_count: 0,
+          unresolved_count: 0,
+          qualified_count: 3,
+          selected_count: 3,
+        },
+      },
+    });
+    expect(truth.showRows).toBe(true);
+    expect(truth.advisory).toBeUndefined();
+  });
+
+  it("new highs/lows: baseline_coverage_incomplete with unresolved_count → advisory", () => {
+    const truth = resolveScreenerTruthState({
+      tabId: "new_highs_lows",
+      status: "available",
+      rowCount: 4,
+      syncedAt: SYNCED,
+      nhlBaselineStatus: "available",
+      tabEvaluationEvidence: {
+        new_highs_lows: {
+          status: "not_evaluated",
+          baseline_status: "available",
+          baseline_quote_count: 700,
+          universe_count: 800,
+          eligible_count: 800,
+          evaluated_count: 794,
+          qualified_count: 4,
+          selected_count: 4,
+          unresolved_count: 6,
+          reason: "baseline_coverage_incomplete",
+        },
+      },
+    });
+    expect(truth.showRows).toBe(true);
+    expect(truth.advisory).toBe(
+      "52-week coverage incomplete — 6 symbols unresolved. Results below are from symbols with valid baseline coverage.",
+    );
+  });
+
   it("new highs/lows: incomplete eligible coverage blocks validated zero-match", () => {
     const truth = resolveScreenerTruthState({
       tabId: "new_highs_lows",
