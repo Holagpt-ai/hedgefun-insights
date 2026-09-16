@@ -53,10 +53,8 @@ describe("scanner field registry", () => {
     expect(SCANNER_FIELDS.some((field) => field.label === "Day Move")).toBe(false);
   });
 
-  it("registers future float / rvol / trigger fields as unavailable", () => {
+  it("registers future rvol / trigger fields as unavailable", () => {
     for (const id of [
-      "float",
-      "float_turnover",
       "short_float",
       "daily_rvol",
       "rvol_5m",
@@ -68,5 +66,12 @@ describe("scanner field registry", () => {
       expect(getScannerField(id)?.availability).toBe("unavailable");
       expect(getScannerField(id)?.defaultVisible).toBe(false);
     }
+  });
+
+  it("marks Float and Float Turnover as source-dependent after verified Massive mapping", () => {
+    expect(getScannerField("float")?.availability).toBe("source-dependent");
+    expect(getScannerField("float_turnover")?.availability).toBe("source-dependent");
+    expect(getScannerField("float")?.description).toMatch(/available for the public/i);
+    expect(getScannerField("float_turnover")?.description).toMatch(/volume divided by the stock's public float/i);
   });
 });

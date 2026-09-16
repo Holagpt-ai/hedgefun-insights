@@ -112,6 +112,16 @@ export function formatRadarUnavailableMetric(value: number | null | undefined): 
   return formatRadarVolume(value);
 }
 
+export function formatRadarContextVolume(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  return formatRadarVolume(value);
+}
+
+export function formatRadarContextMultiplier(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  return `${Number(value).toFixed(1)}×`;
+}
+
 export function formatRadarDollarVolume(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
   return `$${formatRadarVolume(value)}`;

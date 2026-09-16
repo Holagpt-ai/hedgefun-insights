@@ -28,6 +28,22 @@ vi.mock("@/hooks/useCatalystEnrichmentForSymbols", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
+  useRadarFloatForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getFloat: () => null,
+  }),
+}));
+
+vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
+  useRecentProviderNewsForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getHeadline: () => undefined,
+  }),
+}));
+
 function ranked(symbol = "AAA"): RadarRankedRow {
   return {
     tab_id: "day_trade_radar",
@@ -58,8 +74,8 @@ function ranked(symbol = "AAA"): RadarRankedRow {
 }
 
 describe("Day Trade Radar Actions sticky column", () => {
-  it("keeps nine columns and a 160px sticky-right Actions contract", () => {
-    expect(RADAR_GRID_COLUMN_COUNT).toBe(9);
+  it("keeps eleven columns and a 160px sticky-right Actions contract", () => {
+    expect(RADAR_GRID_COLUMN_COUNT).toBe(11);
     expect(RADAR_GRID_COLUMNS[RADAR_GRID_COLUMN_COUNT - 1]).toBe("Actions");
     expect(RADAR_ACTIONS_MIN_WIDTH_PX).toBe(160);
     expect(RADAR_ACTIONS_STICKY_HEADER_CLASS).toContain("sticky");

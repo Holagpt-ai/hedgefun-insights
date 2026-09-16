@@ -23,6 +23,22 @@ vi.mock("@/hooks/useCatalystEnrichmentForSymbols", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
+  useRadarFloatForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getFloat: () => null,
+  }),
+}));
+
+vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
+  useRecentProviderNewsForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getHeadline: () => undefined,
+  }),
+}));
+
 function ranked(overrides: Partial<RadarRankedRow> = {}): RadarRankedRow {
   return {
     tab_id: "day_trade_radar",

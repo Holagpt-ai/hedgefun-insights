@@ -41,6 +41,23 @@ vi.mock("../useRadarChartData", () => ({
     bars: [],
     latestBarIso: null,
     errorMessage: null,
+    interval: null,
+  }),
+}));
+
+vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
+  useRadarFloatForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getFloat: () => null,
+  }),
+}));
+
+vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
+  useRecentProviderNewsForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getHeadline: () => undefined,
   }),
 }));
 
