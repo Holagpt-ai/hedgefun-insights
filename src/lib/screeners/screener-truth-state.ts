@@ -31,6 +31,8 @@ export interface ScreenerTruthState {
   explanation: string;
   showRows: boolean;
   showFreshness: boolean;
+  /** Optional informational notice when partial results are shown honestly. */
+  advisory?: string;
 }
 
 export interface ResolveScreenerTruthStateInput {
@@ -97,6 +99,24 @@ function evidenceMissingCopy(): Pick<ScreenerTruthState, "title" | "explanation"
     explanation:
       "Evaluation evidence for this tab is unavailable in the latest generation. No securities are being inferred.",
   };
+}
+
+function resolveNhlBaselineCoverageAdvisory(
+  tabId: string,
+  rowCount: number,
+  evidence: ReturnType<typeof getTabEvaluationEvidence>,
+): string | undefined {
+  if (tabId !== NHL_TAB_ID || rowCount <= 0) return undefined;
+  const nhlEvidence = evidence as NhlTabEvidence | null;
+  if (
+    nhlEvidence?.status === "not_evaluated" &&
+    nhlEvidence.reason === "baseline_coverage_incomplete" &&
+    typeof nhlEvidence.unresolved_count === "number" &&
+    nhlEvidence.unresolved_count > 0
+  ) {
+    return `52-week coverage incomplete — ${nhlEvidence.unresolved_count} symbols unresolved. Results below are from symbols with valid baseline coverage.`;
+  }
+  return undefined;
 }
 
 function resolveEmptyReason(
@@ -251,6 +271,7 @@ export function resolveScreenerTruthState(
   }
 
   if (status === "available" && rowCount > 0) {
+    const advisory = resolveNhlBaselineCoverageAdvisory(tabId, rowCount, evidence);
     return {
       status,
       reason: "evaluated_with_results",
@@ -258,6 +279,7 @@ export function resolveScreenerTruthState(
       explanation: "",
       showRows: true,
       showFreshness: hasSyncedAt,
+      ...(advisory ? { advisory } : {}),
     };
   }
 
