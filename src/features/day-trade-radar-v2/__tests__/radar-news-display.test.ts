@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatRadarNewsAge,
   NO_VERIFIED_NEWS_COPY,
+  resolveRadarNewsCellState,
   resolveRadarNewsDisplay,
 } from "../radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
@@ -73,5 +74,24 @@ describe("Radar news / catalyst hierarchy", () => {
     expect(formatRadarNewsAge("2026-09-16T19:48:00.000Z", now)).toBe("12m ago");
     expect(formatRadarNewsAge("2026-09-16T18:00:00.000Z", now)).toBe("2h ago");
     expect(formatRadarNewsAge("not-a-date", now)).toBeNull();
+  });
+
+  it("maps per-symbol empty vs unavailable independently of the batch", () => {
+    expect(
+      resolveRadarNewsCellState({
+        symbol: "AAA",
+        catalyst: undefined,
+        recent: undefined,
+        newsStatus: "empty",
+      }).level,
+    ).toBe("none");
+    expect(
+      resolveRadarNewsCellState({
+        symbol: "BBB",
+        catalyst: undefined,
+        recent: undefined,
+        newsStatus: "unavailable",
+      }).level,
+    ).toBe("unavailable");
   });
 });

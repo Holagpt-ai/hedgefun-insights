@@ -39,9 +39,9 @@ import { ScannerFieldHelp } from "./ScannerFieldHelp";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
-import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsDisplay } from "./radar-news-display";
+import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
-import type { RecentProviderHeadline } from "@/lib/market-data/recent-news";
+import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 
 interface RadarGridProps {
   rows: RadarRankedRow[];
@@ -54,24 +54,30 @@ interface RadarGridProps {
 
 function NewsCatalystCell({
   symbol,
-  pending,
-  error,
+  catalystPending,
+  newsStatus,
   catalyst,
   recent,
 }: {
   symbol: string;
-  pending: boolean;
-  error: boolean;
+  catalystPending: boolean;
+  newsStatus: RadarNewsSymbolStatus;
   catalyst: CatalystEnrichmentEntry | undefined;
   recent: RecentProviderHeadline | undefined;
 }) {
-  if (pending) {
+  const display = resolveRadarNewsCellState({
+    symbol,
+    catalyst,
+    recent,
+    newsStatus,
+    catalystPending,
+  });
+  if (display.level === "pending") {
     return <span className="text-muted-foreground text-xs">News check pending</span>;
   }
-  if (error && !catalyst && !recent) {
+  if (display.level === "unavailable") {
     return <span className="text-muted-foreground text-xs">News unavailable</span>;
   }
-  const display = resolveRadarNewsDisplay(symbol, catalyst, recent);
   if (display.level === "none") {
     return <span className="text-muted-foreground text-xs">{NO_VERIFIED_NEWS_COPY}</span>;
   }
@@ -170,14 +176,12 @@ export function RadarGrid({
     data: catalystMap,
     isPending: catalystPending,
     isFetching: catalystFetching,
-    isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
   const floatState = useRadarFloatForSymbols(symbols);
   const newsState = useRecentProviderNewsForSymbols(symbols);
 
   const catalystCheckPending =
     symbols.length > 0 && (catalystPending || (catalystFetching && !catalystMap));
-  const newsPending = catalystCheckPending || newsState.isPending;
 
   return (
     <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0" data-testid="radar-scanner-table">
@@ -350,8 +354,8 @@ export function RadarGrid({
                         {accessible ? (
                           <NewsCatalystCell
                             symbol={sym}
-                            pending={newsPending && !catalystMap?.get(sym) && !newsState.getHeadline(sym)}
-                            error={!!catalystError || newsState.isError}
+                            catalystPending={catalystCheckPending && !catalystMap?.get(sym)}
+                            newsStatus={newsState.getStatus(sym)}
                             catalyst={catalystMap?.get(sym)}
                             recent={newsState.getHeadline(sym)}
                           />

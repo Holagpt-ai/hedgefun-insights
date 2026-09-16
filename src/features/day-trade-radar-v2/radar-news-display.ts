@@ -1,7 +1,9 @@
 import { EVENT_TYPE_LABEL } from "@/lib/catalyst/parsers";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
-import type { RecentProviderHeadline } from "@/lib/market-data/recent-news";
+import type { RecentProviderHeadline, RadarNewsSymbolStatus } from "@/lib/market-data/recent-news";
+
+export type { RadarNewsSymbolStatus };
 
 export type RadarNewsDisplay =
   | {
@@ -20,7 +22,9 @@ export type RadarNewsDisplay =
       source: string;
       ageLabel: string | null;
     }
-  | { level: "none" };
+  | { level: "none" }
+  | { level: "pending" }
+  | { level: "unavailable" };
 
 export const NO_VERIFIED_NEWS_COPY = "No verified news found";
 
@@ -70,5 +74,20 @@ export function resolveRadarNewsDisplay(
       ageLabel,
     };
   }
+  return { level: "none" };
+}
+
+export function resolveRadarNewsCellState(opts: {
+  symbol: string;
+  catalyst: CatalystEnrichmentEntry | undefined;
+  recent: RecentProviderHeadline | undefined;
+  newsStatus: RadarNewsSymbolStatus;
+  catalystPending?: boolean;
+  nowMs?: number;
+}): RadarNewsDisplay {
+  const display = resolveRadarNewsDisplay(opts.symbol, opts.catalyst, opts.recent, opts.nowMs);
+  if (display.level === "catalyst" || display.level === "recent") return display;
+  if (opts.catalystPending || opts.newsStatus === "pending") return { level: "pending" };
+  if (opts.newsStatus === "unavailable") return { level: "unavailable" };
   return { level: "none" };
 }

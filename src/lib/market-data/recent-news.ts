@@ -9,6 +9,7 @@ export const RADAR_NEWS_UNAVAILABLE_MESSAGE = "Radar news temporarily unavailabl
 
 export type RadarNewsProvider = "finnhub" | "massive";
 export type RadarNewsStatus = "ok" | "empty" | "unavailable";
+export type RadarNewsSymbolStatus = RadarNewsStatus | "pending";
 
 export interface RecentProviderHeadline {
   ticker: string;

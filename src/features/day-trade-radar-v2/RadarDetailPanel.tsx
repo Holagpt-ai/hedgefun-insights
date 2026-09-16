@@ -26,7 +26,7 @@ import {
 import type { RadarChartBar, RadarChartStatus, RadarRankedRow } from "./types";
 import type { RadarChartInterval } from "./radar-chart-data";
 import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
-import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsDisplay } from "./radar-news-display";
+import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 
 interface RadarDetailPanelProps {
   row: RadarRankedRow | null;
@@ -76,7 +76,6 @@ export function RadarDetailPanel({
     data: catalystMap,
     isPending: catalystPending,
     isFetching: catalystFetching,
-    isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
   const newsState = useRecentProviderNewsForSymbols(symbols);
   const catalystCheckPending =
@@ -95,7 +94,13 @@ export function RadarDetailPanel({
   const already = isAdded(sym);
   const pending = pendingSymbol === sym;
   const entry = catalystMap?.get(sym);
-  const news = resolveRadarNewsDisplay(sym, entry, newsState.getHeadline(sym));
+  const news = resolveRadarNewsCellState({
+    symbol: sym,
+    catalyst: entry,
+    recent: newsState.getHeadline(sym),
+    newsStatus: newsState.getStatus(sym),
+    catalystPending: catalystCheckPending && !entry,
+  });
   const ohlcv: OHLCVData[] = chartBars.map((b) => ({
     time: b.time,
     open: b.open,
@@ -256,9 +261,9 @@ export function RadarDetailPanel({
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
             News / Catalyst
           </div>
-          {catalystCheckPending && news.level === "none" ? (
+          {news.level === "pending" ? (
             <div className="text-[12px] text-muted-foreground">News check pending</div>
-          ) : (catalystError || newsState.isError) && news.level === "none" ? (
+          ) : news.level === "unavailable" ? (
             <div className="text-[12px] text-muted-foreground">News unavailable</div>
           ) : news.level === "none" ? (
             <div className="text-[12px] text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</div>
