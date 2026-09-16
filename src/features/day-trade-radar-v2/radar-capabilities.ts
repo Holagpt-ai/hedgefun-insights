@@ -12,7 +12,7 @@ export const RADAR_CAPABILITIES = {
   rapidBurstSignals: false,
   halts: false,
   shortInterest: false,
-  float: false,
+  float: true,
   issuerRegion: false,
   vwap: false,
   radarPulse: false,

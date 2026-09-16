@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { emptyFloatRecord, resolveFloatProviderResult } from "../_shared/market-data/float.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -68,11 +69,12 @@ async function fetchWithRetry(
 const cache = new Map<string, { data: unknown; ts: number }>();
 const lastSuccess = new Map<string, unknown>();
 const CACHE_TTL = 60_000;
+const FLOAT_CACHE_TTL = 12 * 60 * 60 * 1000;
 
-function getCached(key: string): unknown | null {
+function getCached(key: string, ttl: number = CACHE_TTL): unknown | null {
   const entry = cache.get(key);
   if (!entry) return null;
-  if (Date.now() - entry.ts > CACHE_TTL) {
+  if (Date.now() - entry.ts > ttl) {
     cache.delete(key);
     return null;
   }
@@ -253,6 +255,25 @@ serve(async (req) => {
         data = json.results ?? null;
         break;
       }
+      case "float": {
+        if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        const cacheKey = `float:${ticker}`;
+        const cached = getCached(cacheKey, FLOAT_CACHE_TTL);
+        if (cached) {
+          data = cached;
+          break;
+        }
+        try {
+          const res = await fetchWithRetry(polyUrl("/stocks/vX/float", { ticker }));
+          const json = res.ok ? await res.json().catch(() => null) : null;
+          const result = resolveFloatProviderResult(ticker, { ok: res.ok, status: res.status }, json);
+          data = result.data;
+          if (result.cache) setCache(cacheKey, data);
+        } catch {
+          data = emptyFloatRecord(ticker, "unavailable");
+        }
+        break;
+      }
       case "news": {
         const limit = searchParams.get("limit") ?? "10";
         const newsTicker = ticker ?? "";
@@ -270,7 +291,8 @@ serve(async (req) => {
         const from = searchParams.get("from") ?? "";
         const to = searchParams.get("to") ?? "";
         if (!from || !to) return new Response(JSON.stringify({ error: "from and to required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit: "365" }));
+        const limit = timespan === "minute" ? "50000" : "365";
+        const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit }));
         const json = await res.json();
         data = json.results ?? [];
         break;
@@ -395,7 +417,7 @@ serve(async (req) => {
         });
       }
       default:
-        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, news, aggregates, prev-close, dividends, splits, ipos, search" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ error: "Invalid type. Use: gainers, losers, snapshot, details, float, news, aggregates, prev-close, dividends, splits, ipos, search" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     return new Response(JSON.stringify(data), {

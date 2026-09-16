@@ -87,7 +87,7 @@ export function DayTradeRadarV2({
     !selection.inactive &&
     !isRadarRowAccessible(activeRow.rank, isPro, freeRowLimit);
 
-  const { status: chartStatus, bars, latestBarIso, errorMessage } = useRadarChartData({
+  const { status: chartStatus, bars, latestBarIso, errorMessage, interval } = useRadarChartData({
     symbol: freeBlocked ? null : chartSymbol,
     enabled: !!chartSymbol && !freeBlocked,
     providerAsOfMax: resolved.providerAsOfMax,
@@ -140,6 +140,7 @@ export function DayTradeRadarV2({
       chartBars={freeBlocked ? [] : bars}
       latestBarIso={freeBlocked ? null : latestBarIso}
       chartError={freeBlocked ? null : errorMessage}
+      chartInterval={freeBlocked ? null : interval}
     />
   );
 
@@ -245,6 +246,7 @@ export function DayTradeRadarV2({
                 chartBars={bars}
                 latestBarIso={latestBarIso}
                 chartError={errorMessage}
+                chartInterval={interval}
                 mobile
                 onCloseMobile={() => setMobileDetailOpen(false)}
               />

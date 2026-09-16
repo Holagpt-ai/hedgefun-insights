@@ -41,6 +41,11 @@ export async function getTickerNews(ticker: string, limit = 10) {
   return fetchMarketData({ type: "news", ticker, limit: String(limit) });
 }
 
+/** Massive Float dataset via the existing market-data Edge Function. No browser API key. */
+export async function getFloat(ticker: string) {
+  return fetchMarketData({ type: "float", ticker });
+}
+
 export async function getAggregates(
   ticker: string,
   multiplier: number,

@@ -40,7 +40,6 @@ interface AdaptiveDayRangeBarProps {
   dayLow: number | null | undefined;
   dayHigh: number | null | undefined;
   hodDistancePercent?: number | null;
-  /** Future VWAP / trigger / news markers. Never guessed in this sprint. */
   extraMarkers?: readonly AdaptiveRangeMarker[];
   compact?: boolean;
 }
@@ -68,19 +67,30 @@ export function AdaptiveDayRangeBar({
   ];
 
   return (
-    <div className="min-w-[132px]" data-testid="adaptive-day-range" data-position={String(position)}>
+    <div className="min-w-[148px]" data-testid="adaptive-day-range" data-position={String(position)}>
       <div className="flex items-center gap-1.5 tabular-nums">
-        <span className="w-[44px] shrink-0 text-[10px] text-muted-foreground">
-          {formatRadarPrice(dayLow)}
+        <span className="w-[52px] shrink-0 text-[10px] text-muted-foreground">
+          L {formatRadarPrice(dayLow)}
         </span>
-        <div className="relative h-1.5 min-w-0 flex-1 rounded-full bg-muted">
+        <div
+          className="relative h-2 min-w-0 flex-1 rounded-sm bg-border"
+          data-testid="range-track"
+        >
+          <span
+            data-testid="range-low-cap"
+            className="absolute inset-y-0 left-0 w-0.5 rounded-l-sm bg-foreground/70"
+          />
+          <span
+            data-testid="range-high-cap"
+            className="absolute inset-y-0 right-0 w-0.5 rounded-r-sm bg-foreground/70"
+          />
           {markers.map((marker) => (
             <span
               key={`${marker.kind}-${marker.positionPct}`}
               data-testid={marker.kind === "last" ? "range-last-marker" : `range-marker-${marker.kind}`}
               className={`absolute top-1/2 -translate-x-1/2 -translate-y-1/2 ${
                 marker.kind === "last"
-                  ? "h-2.5 w-2.5 rounded-full bg-foreground"
+                  ? "h-2.5 w-2.5 rounded-full bg-foreground ring-2 ring-background"
                   : "text-[9px] font-semibold leading-none text-muted-foreground"
               }`}
               style={{ left: `${marker.positionPct}%` }}
@@ -90,15 +100,15 @@ export function AdaptiveDayRangeBar({
             </span>
           ))}
         </div>
-        <span className="w-[44px] shrink-0 text-right text-[10px] text-muted-foreground">
-          {formatRadarPrice(dayHigh)}
+        <span className="w-[52px] shrink-0 text-right text-[10px] text-muted-foreground">
+          {formatRadarPrice(dayHigh)} H
         </span>
       </div>
       {!compact && (
-        <div className="mt-0.5 text-[10px] text-muted-foreground">
+        <div className="mt-0.5 text-center text-[10px] text-muted-foreground">
           {hodDistancePercent === null || hodDistancePercent === undefined
             ? "HOD Unavailable"
-            : `${formatHodDistance(hodDistancePercent)} below HOD`}
+            : `${formatHodDistance(hodDistancePercent)} from HOD`}
         </div>
       )}
     </div>

@@ -2,21 +2,27 @@ import { Link } from "react-router-dom";
 import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen } from "lucide-react";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
+import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
-import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
+import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
-  formatRadarMultiplier,
+  formatRadarContextMultiplier,
+  formatRadarContextVolume,
   formatRadarPercent,
   formatRadarPrice,
-  formatRadarVolume,
   isRadarRowAccessible,
   moveClass,
+  radarSignalClass,
   volumeRatioClass,
 } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
 import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 import { ScannerFieldHelp } from "./ScannerFieldHelp";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
+import { RadarActionTooltip } from "./RadarActionTooltip";
+import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
+import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsDisplay } from "./radar-news-display";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -46,9 +52,14 @@ export function RadarMobileCard({
     isFetching: catalystFetching,
     isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
+  const floatState = useRadarFloatForSymbols(symbols);
+  const newsState = useRecentProviderNewsForSymbols(symbols);
   const catalystCheckPending =
     symbols.length > 0 && (catalystPending || (catalystFetching && !catalystMap));
   const entry = catalystMap?.get(sym);
+  const floatShares = floatState.getFloat(sym);
+  const turnover = computeFloatTurnover(row.volume, floatShares);
+  const news = resolveRadarNewsDisplay(sym, entry, newsState.getHeadline(sym));
 
   return (
     <div
@@ -75,7 +86,7 @@ export function RadarMobileCard({
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold text-muted-foreground">#{row.rank}</span>
             <span className="font-semibold tracking-wide tabular-nums text-accent-blue">{sym}</span>
-            <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}>
               {row.signal}
             </span>
             <LegacyConfirmedBadge confirmed={row.legacy_confirmed} />
@@ -84,47 +95,59 @@ export function RadarMobileCard({
         </div>
         {accessible && (
           <div className="inline-flex items-center gap-0.5 shrink-0">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                if (!already && !pending) addToWatchlist(sym);
-              }}
-              disabled={already || pending}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-            >
-              {pending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : already ? (
-                <Check className="h-4 w-4 text-green-600" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-            </button>
-            <Link
-              to={
-                catalystSymbolHref(sym) ??
-                `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`
-              }
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-            >
-              <Newspaper className="h-4 w-4" />
-            </Link>
-            <Link
-              to={`/dashboard/ai?symbol=${encodeURIComponent(sym)}`}
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-            >
-              <Sparkles className="h-4 w-4" />
-            </Link>
-            <Link
-              to={`/dashboard/journal?symbol=${encodeURIComponent(sym)}`}
-              onClick={(e) => e.stopPropagation()}
-              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
-            >
-              <BookOpen className="h-4 w-4" />
-            </Link>
+            <RadarActionTooltip label={already ? "In Watchlist" : "Add to Watchlist"}>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!already && !pending) addToWatchlist(sym);
+                }}
+                disabled={already || pending}
+                aria-label={already ? `${sym} is in watchlist` : `Add ${sym} to watchlist`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : already ? (
+                  <Check className="h-4 w-4 text-green-600" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+              </button>
+            </RadarActionTooltip>
+            <RadarActionTooltip label="News / Catalyst">
+              <Link
+                to={
+                  catalystSymbolHref(sym) ??
+                  `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`
+                }
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`View catalysts for ${sym}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <Newspaper className="h-4 w-4" />
+              </Link>
+            </RadarActionTooltip>
+            <RadarActionTooltip label="Ask AI Analyst">
+              <Link
+                to={`/dashboard/ai?symbol=${encodeURIComponent(sym)}`}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Ask AI Analyst about ${sym}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <Sparkles className="h-4 w-4" />
+              </Link>
+            </RadarActionTooltip>
+            <RadarActionTooltip label="Open Trading Journal">
+              <Link
+                to={`/dashboard/journal?symbol=${encodeURIComponent(sym)}`}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Open journal for ${sym}`}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
+              >
+                <BookOpen className="h-4 w-4" />
+              </Link>
+            </RadarActionTooltip>
           </div>
         )}
       </div>
@@ -144,20 +167,18 @@ export function RadarMobileCard({
             {formatRadarPercent(row.change_percent)}
           </span>
         </div>
-        <div>
-          <ScannerFieldHelp fieldId="volume" className="text-muted-foreground">
-            Vol
-          </ScannerFieldHelp>{" "}
-          <span className="font-medium">{formatRadarVolume(row.volume)}</span>
-        </div>
-        <div>
-          <ScannerFieldHelp fieldId="volume_ratio" className="text-muted-foreground">
-            Vol/Prior
-          </ScannerFieldHelp>{" "}
-          <span className={volumeRatioClass(row.volume_ratio_prior_session)}>
-            {formatRadarMultiplier(row.volume_ratio_prior_session)}
-          </span>
-        </div>
+      </div>
+      <div className="mt-1 text-[12px] tabular-nums text-muted-foreground">
+        Today Vol {formatRadarContextVolume(row.volume)}
+        {" · "}
+        Prior {formatRadarContextVolume(row.prior_session_volume)}
+        {" · "}
+        <span className={volumeRatioClass(row.volume_ratio_prior_session)}>
+          {formatRadarContextMultiplier(row.volume_ratio_prior_session)}
+        </span>
+      </div>
+      <div className="mt-0.5 text-[12px] tabular-nums text-muted-foreground">
+        Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
       </div>
       <div className="mt-1.5">
         <ScannerFieldHelp fieldId="day_range" className="text-muted-foreground text-[11px]">
@@ -173,16 +194,18 @@ export function RadarMobileCard({
 
       {accessible && (
         <div className="mt-1.5 text-[12px]">
-          {catalystCheckPending ? (
-            <span className="text-muted-foreground">Catalyst check pending</span>
-          ) : catalystError ? (
-            <span className="text-muted-foreground">Catalyst unavailable</span>
-          ) : !entry ? (
-            <span className="text-muted-foreground">No confirmed catalyst</span>
+          {catalystCheckPending && news.level === "none" ? (
+            <span className="text-muted-foreground">News check pending</span>
+          ) : catalystError && news.level === "none" ? (
+            <span className="text-muted-foreground">News unavailable</span>
+          ) : news.level === "none" ? (
+            <span className="text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</span>
+          ) : news.level === "recent" ? (
+            <span className="text-muted-foreground">Recent News · {news.title}</span>
           ) : (
             <span className="text-muted-foreground">
-              {(EVENT_TYPE_LABEL[entry.event.event_type] ?? "Catalyst") +
-                (entry.event.title ? ` · ${entry.event.title}` : "")}
+              Verified Catalyst · {news.category}
+              {news.title ? ` · ${news.title}` : ""}
             </span>
           )}
         </div>

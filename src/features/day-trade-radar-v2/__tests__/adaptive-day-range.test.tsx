@@ -31,9 +31,12 @@ describe("AdaptiveDayRangeBar", () => {
     );
     expect(screen.getByTestId("adaptive-day-range")).toHaveAttribute("data-position", "0");
     expect(screen.getByTestId("range-last-marker")).toHaveStyle({ left: "0%" });
-    expect(screen.getByText("$0.50")).toBeInTheDocument();
-    expect(screen.getByText("$5.00")).toBeInTheDocument();
-    expect(screen.getByText("90.0% below HOD")).toBeInTheDocument();
+    expect(screen.getByText(/L \$0\.50/)).toBeInTheDocument();
+    expect(screen.getByText(/\$5\.00 H/)).toBeInTheDocument();
+    expect(screen.getByTestId("range-track")).toBeInTheDocument();
+    expect(screen.getByTestId("range-low-cap")).toBeInTheDocument();
+    expect(screen.getByTestId("range-high-cap")).toBeInTheDocument();
+    expect(screen.getByText("90.0% from HOD")).toBeInTheDocument();
     expect(screen.queryByTestId("range-marker-vwap")).not.toBeInTheDocument();
     expect(screen.queryByTestId("range-marker-trigger")).not.toBeInTheDocument();
 
@@ -41,8 +44,8 @@ describe("AdaptiveDayRangeBar", () => {
       <AdaptiveDayRangeBar price={65} dayLow={50} dayHigh={80} hodDistancePercent={18.8} />,
     );
     expect(screen.getByTestId("adaptive-day-range")).toHaveAttribute("data-position", "50");
-    expect(screen.getByText("$50.00")).toBeInTheDocument();
-    expect(screen.getByText("$80.00")).toBeInTheDocument();
+    expect(screen.getByText(/L \$50\.00/)).toBeInTheDocument();
+    expect(screen.getByText(/\$80\.00 H/)).toBeInTheDocument();
   });
 
   it("handles a zero-width range without dividing by zero", () => {

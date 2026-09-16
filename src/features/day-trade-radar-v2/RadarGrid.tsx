@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen } from "lucide-react";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
+import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
-import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
-import { isRadarCapabilityEnabled } from "./radar-capabilities";
+import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
   RADAR_ACTIONS_STICKY_CELL_CLASS,
   RADAR_ACTIONS_STICKY_HEADER_CLASS,
@@ -17,13 +18,13 @@ import {
 import {
   formatFreshness,
   formatRadarAcceleration,
+  formatRadarContextMultiplier,
+  formatRadarContextVolume,
   formatRadarDataTime,
   formatRadarDollarVolume,
-  formatRadarMultiplier,
   formatRadarPercent,
   formatRadarPrice,
   formatRadarUnavailableMetric,
-  formatRadarVolume,
   formatShortWindowMove,
   formatVwapState,
   isRadarRowAccessible,
@@ -36,6 +37,11 @@ import { useMemo, type ReactNode } from "react";
 import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 import { ScannerFieldHelp } from "./ScannerFieldHelp";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
+import { RadarActionTooltip } from "./RadarActionTooltip";
+import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
+import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsDisplay } from "./radar-news-display";
+import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
+import type { RecentProviderHeadline } from "@/lib/market-data/recent-news";
 
 interface RadarGridProps {
   rows: RadarRankedRow[];
@@ -46,45 +52,48 @@ interface RadarGridProps {
   visibleColumns?: RadarColumnId[];
 }
 
-function CatalystCell({
+function NewsCatalystCell({
   symbol,
   pending,
   error,
-  entry,
+  catalyst,
+  recent,
 }: {
   symbol: string;
   pending: boolean;
   error: boolean;
-  entry: { event: { title?: string | null; event_type: string }; kind: string } | undefined;
+  catalyst: CatalystEnrichmentEntry | undefined;
+  recent: RecentProviderHeadline | undefined;
 }) {
   if (pending) {
-    return <span className="text-muted-foreground text-xs">Catalyst check pending</span>;
+    return <span className="text-muted-foreground text-xs">News check pending</span>;
   }
-  if (error) {
-    return <span className="text-muted-foreground text-xs">Catalyst unavailable</span>;
+  if (error && !catalyst && !recent) {
+    return <span className="text-muted-foreground text-xs">News unavailable</span>;
   }
-  if (!entry) {
-    return <span className="text-muted-foreground text-xs">No confirmed catalyst</span>;
+  const display = resolveRadarNewsDisplay(symbol, catalyst, recent);
+  if (display.level === "none") {
+    return <span className="text-muted-foreground text-xs">{NO_VERIFIED_NEWS_COPY}</span>;
   }
-  const label =
-    EVENT_TYPE_LABEL[entry.event.event_type as keyof typeof EVENT_TYPE_LABEL] ??
-    "Catalyst";
-  const href =
-    catalystSymbolHref(symbol) ??
-    `/dashboard/catalyst?symbol=${encodeURIComponent(symbol)}`;
+  if (display.level === "recent") {
+    return (
+      <div className="flex max-w-[220px] flex-col items-start gap-0.5" title={display.title}>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Recent News</span>
+        <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
+      </div>
+    );
+  }
   return (
     <Link
-      to={href}
+      to={display.href}
       onClick={(e) => e.stopPropagation()}
-      className="inline-flex flex-col items-start gap-0.5 max-w-[220px] hover:underline"
-      title={entry.event.title ?? label}
+      className="inline-flex max-w-[220px] flex-col items-start gap-0.5 hover:underline"
+      title={display.title}
     >
       <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        {isRadarCapabilityEnabled("pressReleaseClassification") ? "PR" : "Catalyst"} · {label}
+        Verified Catalyst · {display.category}
       </span>
-      <span className="text-[12px] text-foreground truncate max-w-full">
-        {entry.event.title ?? label}
-      </span>
+      <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
     </Link>
   );
 }
@@ -149,9 +158,12 @@ export function RadarGrid({
     isFetching: catalystFetching,
     isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
+  const floatState = useRadarFloatForSymbols(symbols);
+  const newsState = useRecentProviderNewsForSymbols(symbols);
 
   const catalystCheckPending =
     symbols.length > 0 && (catalystPending || (catalystFetching && !catalystMap));
+  const newsPending = catalystCheckPending || newsState.isPending;
 
   return (
     <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0" data-testid="radar-scanner-table">
@@ -163,13 +175,16 @@ export function RadarGrid({
         <colgroup>
           {visibleColumns.map((columnId) => {
             if (columnId === "rank") return <col key={columnId} className="w-[44px]" />;
-            if (columnId === "symbol") return <col key={columnId} className="w-[17%]" />;
-            if (columnId === "signal") return <col key={columnId} className="w-[11%]" />;
-            if (columnId === "price_move") return <col key={columnId} className="w-[11%]" />;
-            if (columnId === "range_hod") return <col key={columnId} className="w-[22%]" />;
-            if (columnId === "volume") return <col key={columnId} className="w-[9%]" />;
-            if (columnId === "prior_ratio") return <col key={columnId} className="w-[12%]" />;
-            if (columnId === "catalyst") return <col key={columnId} className="w-[16%]" />;
+            if (columnId === "symbol") return <col key={columnId} className="w-[14%]" />;
+            if (columnId === "signal") return <col key={columnId} className="w-[9%]" />;
+            if (columnId === "price_move") return <col key={columnId} className="w-[9%]" />;
+            if (columnId === "prior_volume") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "volume") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "volume_ratio") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "float") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "float_turnover") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "range_hod") return <col key={columnId} className="w-[16%]" />;
+            if (columnId === "catalyst") return <col key={columnId} className="w-[14%]" />;
             if (columnId === "actions") return <col key={columnId} className="w-[160px]" />;
             return <col key={columnId} className="w-[96px]" />;
           })}
@@ -200,7 +215,6 @@ export function RadarGrid({
             const company = row.company_name?.trim() || sym;
             const already = isAdded(sym);
             const pending = pendingSymbol === sym;
-            const entry = catalystMap?.get(sym);
 
             return (
               <tr
@@ -236,6 +250,9 @@ export function RadarGrid({
                         >
                           {sym}
                         </Link>
+                        <div className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}>
+                          {row.signal}
+                        </div>
                         <div className="text-[11px] text-muted-foreground truncate">{company}</div>
                         <LegacyConfirmedBadge confirmed={row.legacy_confirmed} />
                       </td>
@@ -277,17 +294,39 @@ export function RadarGrid({
                   if (columnId === "volume") {
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums font-medium">
-                        {formatRadarVolume(row.volume)}
+                        {formatRadarContextVolume(row.volume)}
                       </td>
                     );
                   }
-                  if (columnId === "prior_ratio") {
+                  if (columnId === "prior_volume") {
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
-                        <div>{formatRadarVolume(row.prior_session_volume)}</div>
-                        <div className={volumeRatioClass(row.volume_ratio_prior_session)}>
-                          {formatRadarMultiplier(row.volume_ratio_prior_session)}
-                        </div>
+                        {formatRadarContextVolume(row.prior_session_volume)}
+                      </td>
+                    );
+                  }
+                  if (columnId === "volume_ratio") {
+                    return (
+                      <td key={columnId} className={`px-2 py-1.5 text-right tabular-nums ${volumeRatioClass(row.volume_ratio_prior_session)}`}>
+                        {formatRadarContextMultiplier(row.volume_ratio_prior_session)}
+                      </td>
+                    );
+                  }
+                  if (columnId === "float") {
+                    const floatShares = floatState.getFloat(sym);
+                    return (
+                      <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
+                        {floatState.isPending && floatShares === null
+                          ? "…"
+                          : formatRadarContextVolume(floatShares)}
+                      </td>
+                    );
+                  }
+                  if (columnId === "float_turnover") {
+                    const turnover = computeFloatTurnover(row.volume, floatState.getFloat(sym));
+                    return (
+                      <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
+                        {formatFloatTurnover(turnover)}
                       </td>
                     );
                   }
@@ -295,11 +334,12 @@ export function RadarGrid({
                     return (
                       <td key={columnId} className="px-2 py-1.5 min-w-0">
                         {accessible ? (
-                          <CatalystCell
+                          <NewsCatalystCell
                             symbol={sym}
-                            pending={catalystCheckPending}
+                            pending={newsPending && !catalystMap?.get(sym) && !newsState.getHeadline(sym)}
                             error={!!catalystError}
-                            entry={entry}
+                            catalyst={catalystMap?.get(sym)}
+                            recent={newsState.getHeadline(sym)}
                           />
                         ) : (
                           "—"
@@ -321,53 +361,61 @@ export function RadarGrid({
                       >
                         {accessible && (
                           <div className="inline-flex items-center gap-0.5 whitespace-nowrap">
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (!already && !pending) addToWatchlist(sym);
-                              }}
-                              disabled={already || pending}
-                              aria-label={
-                                already ? `${sym} is in watchlist` : `Add ${sym} to watchlist`
-                              }
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-70"
-                            >
-                              {pending ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : already ? (
-                                <Check className="h-4 w-4 text-green-600" />
-                              ) : (
-                                <Plus className="h-4 w-4" />
-                              )}
-                            </button>
-                            <Link
-                              to={
-                                catalystSymbolHref(sym) ??
-                                `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`
-                              }
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={`View catalysts for ${sym}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              <Newspaper className="h-4 w-4" />
-                            </Link>
-                            <Link
-                              to={`/dashboard/ai?symbol=${encodeURIComponent(sym)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={`Ask AI Analyst about ${sym}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              <Sparkles className="h-4 w-4" />
-                            </Link>
-                            <Link
-                              to={`/dashboard/journal?symbol=${encodeURIComponent(sym)}`}
-                              onClick={(e) => e.stopPropagation()}
-                              aria-label={`Open journal for ${sym}`}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
-                            >
-                              <BookOpen className="h-4 w-4" />
-                            </Link>
+                            <RadarActionTooltip label={already ? "In Watchlist" : "Add to Watchlist"}>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!already && !pending) addToWatchlist(sym);
+                                }}
+                                disabled={already || pending}
+                                aria-label={
+                                  already ? `${sym} is in watchlist` : `Add ${sym} to watchlist`
+                                }
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-70"
+                              >
+                                {pending ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : already ? (
+                                  <Check className="h-4 w-4 text-green-600" />
+                                ) : (
+                                  <Plus className="h-4 w-4" />
+                                )}
+                              </button>
+                            </RadarActionTooltip>
+                            <RadarActionTooltip label="News / Catalyst">
+                              <Link
+                                to={
+                                  catalystSymbolHref(sym) ??
+                                  `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`
+                                }
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`View catalysts for ${sym}`}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                              >
+                                <Newspaper className="h-4 w-4" />
+                              </Link>
+                            </RadarActionTooltip>
+                            <RadarActionTooltip label="Ask AI Analyst">
+                              <Link
+                                to={`/dashboard/ai?symbol=${encodeURIComponent(sym)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`Ask AI Analyst about ${sym}`}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                              >
+                                <Sparkles className="h-4 w-4" />
+                              </Link>
+                            </RadarActionTooltip>
+                            <RadarActionTooltip label="Open Trading Journal">
+                              <Link
+                                to={`/dashboard/journal?symbol=${encodeURIComponent(sym)}`}
+                                onClick={(e) => e.stopPropagation()}
+                                aria-label={`Open journal for ${sym}`}
+                                className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
+                              >
+                                <BookOpen className="h-4 w-4" />
+                              </Link>
+                            </RadarActionTooltip>
                           </div>
                         )}
                       </td>

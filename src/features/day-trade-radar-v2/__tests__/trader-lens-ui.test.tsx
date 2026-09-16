@@ -25,6 +25,22 @@ vi.mock("@/hooks/useCatalystEnrichmentForSymbols", () => ({
   }),
 }));
 
+vi.mock("@/hooks/useRadarFloatForSymbols", () => ({
+  useRadarFloatForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getFloat: () => null,
+  }),
+}));
+
+vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
+  useRecentProviderNewsForSymbols: () => ({
+    bySymbol: new Map(),
+    isPending: false,
+    getHeadline: () => undefined,
+  }),
+}));
+
 function ranked(overrides: Partial<RadarRankedRow> = {}): RadarRankedRow {
   return {
     tab_id: "day_trade_radar",
@@ -114,13 +130,12 @@ describe("Radar mobile card render", () => {
     expect(screen.getByText("AAA")).toBeInTheDocument();
     expect(screen.getByText("#1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Price info" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Volume info" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Day Range info" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
     expect(screen.queryByText("5s Volume")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Volume info" }));
+    fireEvent.click(screen.getByRole("button", { name: "Price info" }));
     expect(
-      screen.getByText("Volume is the number of shares traded during a defined period."),
+      screen.getByText("The latest last price supplied by the active market-data source."),
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Day Range info" }));
     expect(

@@ -23,6 +23,9 @@ import {
   volumeRatioClass,
 } from "./radar-metrics";
 import type { RadarChartBar, RadarChartStatus, RadarRankedRow } from "./types";
+import type { RadarChartInterval } from "./radar-chart-data";
+import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
+import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 
 interface RadarDetailPanelProps {
   row: RadarRankedRow | null;
@@ -31,6 +34,7 @@ interface RadarDetailPanelProps {
   chartBars: RadarChartBar[];
   latestBarIso: string | null;
   chartError: string | null;
+  chartInterval?: RadarChartInterval | null;
   onCloseMobile?: () => void;
   mobile?: boolean;
 }
@@ -61,6 +65,7 @@ export function RadarDetailPanel({
   chartBars,
   latestBarIso,
   chartError,
+  chartInterval = null,
   onCloseMobile,
   mobile = false,
 }: RadarDetailPanelProps) {
@@ -199,7 +204,7 @@ export function RadarDetailPanel({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Intraday (1m delayed)
+              {radarChartIntervalLabel(chartInterval)}
             </div>
             <Link
               to={`/chart/${encodeURIComponent(sym)}`}
@@ -213,12 +218,12 @@ export function RadarDetailPanel({
           )}
           {chartStatus === "error" && (
             <div className="flex h-[220px] items-center justify-center rounded-md border border-border text-sm text-muted-foreground">
-              {chartError ?? "Chart data unavailable"}
+              {chartError ?? radarChartEmptyCopy("error")}
             </div>
           )}
           {chartStatus === "empty" && (
             <div className="flex h-[220px] items-center justify-center rounded-md border border-border text-sm text-muted-foreground">
-              No intraday bars returned for this session.
+              {radarChartEmptyCopy("empty")}
             </div>
           )}
           {chartStatus === "available" && (
@@ -253,7 +258,7 @@ export function RadarDetailPanel({
           ) : catalystError ? (
             <div className="text-[12px] text-muted-foreground">Catalyst unavailable</div>
           ) : !entry ? (
-            <div className="text-[12px] text-muted-foreground">No confirmed catalyst</div>
+            <div className="text-[12px] text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</div>
           ) : (
             <Link
               to={
