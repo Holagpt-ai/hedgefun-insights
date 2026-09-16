@@ -6,6 +6,7 @@ import {
   formatAnthropicHttpErrorLog,
   readAnthropicErrorType,
 } from "../_shared/ai/anthropic-error.ts";
+import { buildMemoryExtractionPrompt } from "./memory-extraction.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -566,10 +567,7 @@ serve(async (req) => {
               if (ANTHROPIC_API_KEY) {
                 (async () => {
                   try {
-                    const extractionPrompt = `You are a memory-extraction system for a trading app. Given this exchange, extract any NEW facts about the user's trading interests, style, risk tolerance, or goals. Respond ONLY with a JSON object (no markdown, no preamble) with these optional keys: tickers_of_interest (array of strings), trading_style (object), risk_tolerance (object), goals (array of strings). If nothing new was learned, respond with {}.
-
-User message: ${lastUserMessage}
-Assistant response: ${fullContent}`;
+                    const extractionPrompt = buildMemoryExtractionPrompt(lastUserMessage);
 
                     const haikuRes = await fetch("https://api.anthropic.com/v1/messages", {
                       method: "POST",
