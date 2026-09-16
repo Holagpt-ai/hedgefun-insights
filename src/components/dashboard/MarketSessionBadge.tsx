@@ -12,7 +12,7 @@ import {
 } from "@/lib/extended-session-badge";
 
 const BADGE_CLASS =
-  "inline-flex max-w-full shrink-0 items-center rounded-full border px-1.5 py-px text-[9px] font-semibold uppercase leading-none tracking-wide whitespace-nowrap";
+  "ml-auto inline-flex shrink-0 items-center rounded-full border px-1 py-px text-[8px] font-semibold uppercase leading-none tracking-tight whitespace-nowrap";
 
 export function MarketSessionBadge() {
   const state = useExtendedSessionBadgeState();

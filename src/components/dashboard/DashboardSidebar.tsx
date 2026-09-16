@@ -104,10 +104,11 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
             : false;
           const isLocked = entry.locked === "soon";
           const requiresUpgrade = entry.plan === "pro" && !isPro;
+          const isScreeners = entry.label === "Screeners";
 
           const baseClass = cn(
             "flex min-w-0 items-center rounded-md text-sm transition-colors",
-            collapsed ? "justify-center px-0 py-2" : "gap-3 px-3 py-2",
+            collapsed ? "justify-center px-0 py-2" : isScreeners ? "gap-2 px-3 py-2" : "gap-3 px-3 py-2",
             active
               ? "bg-accent-blue-light border-l-[3px] border-accent-blue text-accent-blue font-medium"
               : "text-foreground hover:bg-muted/50",
@@ -119,8 +120,16 @@ export default function DashboardSidebar({ forceExpanded = false }: { forceExpan
               <span className="flex-shrink-0">{entry.icon}</span>
               {!collapsed && (
                 <>
-                  <span className="min-w-0 flex-1 truncate">{entry.label}</span>
-                  {entry.label === "Screeners" && <MarketSessionBadge />}
+                  <span
+                    className={
+                      isScreeners
+                        ? "shrink-0 whitespace-nowrap"
+                        : "min-w-0 flex-1 truncate"
+                    }
+                  >
+                    {entry.label}
+                  </span>
+                  {isScreeners && <MarketSessionBadge />}
                   {isLocked && (
                     <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
                       Soon
