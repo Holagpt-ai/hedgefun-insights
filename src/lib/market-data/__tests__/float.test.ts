@@ -21,6 +21,7 @@ describe("Massive float mapping", () => {
     expect(mapped.float).toBe(15_100_000_000);
     expect(mapped.asOf).toBe("2026-09-01");
     expect(mapped.source).toBe("massive_float");
+    expect(mapped.status).toBe("ok");
   });
 
   it("keeps missing or non-positive float unavailable", () => {
@@ -31,11 +32,14 @@ describe("Massive float mapping", () => {
 
   it("maps the market-data envelope", () => {
     expect(
-      mapFloatPayload("BBB", { ticker: "BBB", float: 2_400_000, as_of: "2026-09-01", source: "massive_float" }).float,
+      mapFloatPayload("BBB", { ticker: "BBB", float: 2_400_000, as_of: "2026-09-01", source: "massive_float", status: "ok" }).float,
     ).toBe(2_400_000);
     expect(
-      mapFloatPayload("BBB", { ticker: "BBB", float: null, as_of: null, source: "massive_float" }).float,
+      mapFloatPayload("BBB", { ticker: "BBB", float: null, as_of: null, source: "massive_float", status: "ok" }).float,
     ).toBeNull();
+    expect(
+      mapFloatPayload("BBB", { ticker: "BBB", float: null, as_of: null, source: "massive_float", status: "unavailable" }).status,
+    ).toBe("unavailable");
   });
 });
 
@@ -60,7 +64,12 @@ describe("getFloatForSymbols isolation and bounds", () => {
     const { getFloatForSymbols: fetchFloats } = await import("@/lib/market-data/float");
     const map = await fetchFloats(["GOOD", "BAD"]);
     expect(map.get("GOOD")?.float).toBe(1_000_000);
+    expect(map.get("GOOD")?.status).toBe("ok");
     expect(map.get("BAD")?.float ?? null).toBeNull();
+    expect(map.get("BAD")?.status).toBe("unavailable");
+    const { peekFloatRecord } = await import("@/lib/market-data/float");
+    expect(peekFloatRecord("BAD")).toBeNull();
+    expect(peekFloatRecord("GOOD")?.float).toBe(1_000_000);
   });
 
   it("bounds concurrency for a large symbol set", async () => {
@@ -94,5 +103,54 @@ describe("getFloatForSymbols isolation and bounds", () => {
     await getFloatForSymbols(["AAA", "BBB"]);
     await getFloatForSymbols(["BBB", "CCC"]);
     expect(getFloat.mock.calls.map((call) => call[0]).sort()).toEqual(["AAA", "BBB", "CCC"]);
+  });
+
+  it("does not long-cache a transient failure and recovers on the next fetch", async () => {
+    let calls = 0;
+    vi.doMock("@/lib/polygon", () => ({
+      getFloat: async () => {
+        calls += 1;
+        if (calls === 1) {
+          return { ticker: "AAA", float: null, as_of: null, source: "massive_float", status: "unavailable" };
+        }
+        return {
+          ticker: "AAA",
+          float: 2_400_000,
+          as_of: "2026-09-01",
+          source: "massive_float",
+          status: "ok",
+        };
+      },
+    }));
+    const { getFloatForSymbols, peekFloatRecord } = await import("@/lib/market-data/float");
+    const first = await getFloatForSymbols(["AAA"]);
+    expect(first.get("AAA")?.float ?? null).toBeNull();
+    expect(first.get("AAA")?.status).toBe("unavailable");
+    expect(peekFloatRecord("AAA")).toBeNull();
+    expect(calls).toBe(1);
+
+    const second = await getFloatForSymbols(["AAA"]);
+    expect(second.get("AAA")?.float).toBe(2_400_000);
+    expect(second.get("AAA")?.status).toBe("ok");
+    expect(peekFloatRecord("AAA")?.float).toBe(2_400_000);
+    expect(calls).toBe(2);
+  });
+
+  it("long-caches a successful empty Float", async () => {
+    const getFloat = vi.fn(async () => ({
+      ticker: "AAA",
+      float: null,
+      as_of: null,
+      source: "massive_float",
+      status: "ok",
+    }));
+    vi.doMock("@/lib/polygon", () => ({ getFloat }));
+    const { getFloatForSymbols, peekFloatRecord } = await import("@/lib/market-data/float");
+    const first = await getFloatForSymbols(["AAA"]);
+    expect(first.get("AAA")?.float).toBeNull();
+    expect(first.get("AAA")?.status).toBe("ok");
+    expect(peekFloatRecord("AAA")?.status).toBe("ok");
+    await getFloatForSymbols(["AAA"]);
+    expect(getFloat).toHaveBeenCalledTimes(1);
   });
 });

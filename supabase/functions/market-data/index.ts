@@ -270,7 +270,7 @@ serve(async (req) => {
           data = result.data;
           if (result.cache) setCache(cacheKey, data);
         } catch {
-          data = emptyFloatRecord(ticker);
+          data = emptyFloatRecord(ticker, "unavailable");
         }
         break;
       }
