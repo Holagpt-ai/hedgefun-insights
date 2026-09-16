@@ -4920,6 +4920,114 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_52w_baseline_publish_exclusions: {
+        Row: {
+          generation_id: string
+          min_sessions: number
+          provider_as_of: string
+          reason: string
+          sessions_observed: number
+          symbol: string
+        }
+        Insert: {
+          generation_id: string
+          min_sessions: number
+          provider_as_of: string
+          reason: string
+          sessions_observed: number
+          symbol: string
+        }
+        Update: {
+          generation_id?: string
+          min_sessions?: number
+          provider_as_of?: string
+          reason?: string
+          sessions_observed?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
+      screener_52w_baseline_publish_job: {
+        Row: {
+          created_at: string
+          expected_baseline_count: number
+          expected_exclusion_count: number
+          generation_id: string
+          job_key: string
+          min_sessions: number
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expected_baseline_count: number
+          expected_exclusion_count: number
+          generation_id: string
+          job_key: string
+          min_sessions: number
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expected_baseline_count?: number
+          expected_exclusion_count?: number
+          generation_id?: string
+          job_key?: string
+          min_sessions?: number
+          period_end?: string
+          period_start?: string
+          provider_as_of?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      screener_52w_baseline_publish_rows: {
+        Row: {
+          generation_id: string
+          high_52w: number
+          high_candidates: Json
+          low_52w: number
+          low_candidates: Json
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          sessions_observed: number
+          symbol: string
+        }
+        Insert: {
+          generation_id: string
+          high_52w: number
+          high_candidates: Json
+          low_52w: number
+          low_candidates: Json
+          period_end: string
+          period_start: string
+          provider_as_of: string
+          sessions_observed: number
+          symbol: string
+        }
+        Update: {
+          generation_id?: string
+          high_52w?: number
+          high_candidates?: Json
+          low_52w?: number
+          low_candidates?: Json
+          period_end?: string
+          period_start?: string
+          provider_as_of?: string
+          sessions_observed?: number
+          symbol?: string
+        }
+        Relationships: []
+      }
       screener_52w_baseline_run_lease: {
         Row: {
           expires_at: string
@@ -5933,6 +6041,14 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
+      append_screener_52w_baseline_exclusions_v1: {
+        Args: { p_exclusions: Json; p_generation_id: string }
+        Returns: number
+      }
+      append_screener_52w_baseline_rows_v1: {
+        Args: { p_generation_id: string; p_rows: Json }
+        Returns: number
+      }
       apply_screener_52w_baseline_day_v1: {
         Args: {
           p_bars: Json
@@ -5989,6 +6105,10 @@ export type Database = {
           p_provider_as_of: string
         }
         Returns: Json
+      }
+      finalize_screener_52w_baseline_publish_v1: {
+        Args: { p_generation_id: string }
+        Returns: number
       }
       finalize_watchlist_analysis_v2: {
         Args: {
@@ -6173,6 +6293,18 @@ export type Database = {
         Args: {
           p_dates_total: number
           p_generation_id: string
+          p_period_end: string
+          p_period_start: string
+          p_provider_as_of: string
+        }
+        Returns: Json
+      }
+      start_screener_52w_baseline_publish_v1: {
+        Args: {
+          p_expected_baseline_count: number
+          p_expected_exclusion_count: number
+          p_generation_id: string
+          p_min_sessions: number
           p_period_end: string
           p_period_start: string
           p_provider_as_of: string
