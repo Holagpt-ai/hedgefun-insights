@@ -45,15 +45,32 @@ function sortForType(type: string): MoverSort {
   return "percent_desc";
 }
 
+const AFTER_HOURS_ROW_LIMIT = 41;
+
 async function fetchCanonicalMovers(type: string): Promise<MoverListRow[]> {
   if (type === "afterhours") {
-    const [{ data: stateRows }, { data: resultRows }] = await Promise.all([
-      supabase.from("after_hours_feed_state").select("state_key,generation_id,status").eq("state_key", "current").limit(1),
-      supabase.from("after_hours_mover_results").select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of"),
-    ]);
+    const { data: stateRows, error: stateError } = await supabase
+      .from("after_hours_feed_state")
+      .select("state_key,generation_id,status")
+      .eq("state_key", "current")
+      .limit(1);
+    if (stateError) throw new Error(stateError.message);
+
     const gen = (stateRows ?? [])[0]?.generation_id;
-    const matching = (resultRows ?? []).filter((r) => gen && r.generation_id === gen);
-    return mapAfterHoursFeed(matching, { sort: "percent_desc" });
+    if (!gen) return [];
+
+    // Bounded read: only the current generation, ordered, capped. An unfiltered
+    // full-table read here caused statement timeouts as the table accumulated.
+    const { data: resultRows, error: rowsError } = await supabase
+      .from("after_hours_mover_results")
+      .select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of")
+      .eq("generation_id", gen)
+      .order("side", { ascending: true })
+      .order("rank", { ascending: true })
+      .limit(AFTER_HOURS_ROW_LIMIT);
+    if (rowsError) throw new Error(rowsError.message);
+
+    return mapAfterHoursFeed(resultRows ?? [], { sort: "percent_desc" });
   }
 
   const kinds: Array<"gainers" | "losers"> =

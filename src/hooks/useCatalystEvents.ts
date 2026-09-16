@@ -19,6 +19,10 @@ interface UseCatalystEventsArgs {
   upcomingDays?: number;
   limit?: number;
   enabled?: boolean;
+  // Order of the event_date page. Consumers that only care about the newest
+  // events (e.g. "today's activity") must use "desc" so the row cap does not
+  // fill up with the oldest rows in the window.
+  eventDateOrder?: "asc" | "desc";
 }
 
 export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
@@ -28,10 +32,11 @@ export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
     upcomingDays = 30,
     limit = 500,
     enabled = true,
+    eventDateOrder = "asc",
   } = args;
 
   return useQuery<CatalystEvent[]>({
-    queryKey: ["catalyst_events", symbol, recentDays, upcomingDays, limit],
+    queryKey: ["catalyst_events", symbol, recentDays, upcomingDays, limit, eventDateOrder],
     enabled,
     staleTime: 60_000,
     queryFn: async () => {
@@ -51,7 +56,7 @@ export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
         .or(
           `and(published_at.gte.${recentFromIso}),and(event_date.gte.${eventDateFrom},event_date.lte.${upcomingTo})`,
         )
-        .order("event_date", { ascending: true })
+        .order("event_date", { ascending: eventDateOrder === "asc" })
         .limit(limit);
 
       if (symbol) q = q.eq("symbol", symbol);
