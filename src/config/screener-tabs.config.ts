@@ -26,6 +26,9 @@ export const SCREENER_TABS: ScreenerTab[] = [
   {
     id: "day_trade_radar",
     label: "Day Trade Radar",
+    // LEGACY fallback copy for the verified screener_results path only.
+    // Live Radar V2 discovery is the broad volume-first candidate universe;
+    // $2–$20 belongs to the Trader Lens preset, not Radar ranking.
     description:
       "stocks priced $2–$20, up at least 10% on the regular session (day close vs prior close), and trading at least 5× provider prior-day volume; ranked by provider day volume (may include extended-session activity).",
     criteria: [

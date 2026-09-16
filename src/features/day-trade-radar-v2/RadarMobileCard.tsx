@@ -16,6 +16,7 @@ import {
 } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
 import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
+import { ScannerFieldHelp } from "./ScannerFieldHelp";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -130,27 +131,37 @@ export function RadarMobileCard({
 
       <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[12px] tabular-nums">
         <div>
-          <span className="text-muted-foreground">Price </span>
+          <ScannerFieldHelp fieldId="price" className="text-muted-foreground">
+            Price
+          </ScannerFieldHelp>{" "}
           <span className="font-medium">{formatRadarPrice(row.price)}</span>
         </div>
         <div>
-          <span className="text-muted-foreground">Move </span>
+          <ScannerFieldHelp fieldId="move" className="text-muted-foreground">
+            Move
+          </ScannerFieldHelp>{" "}
           <span className={`font-medium ${moveClass(row.change_percent)}`}>
             {formatRadarPercent(row.change_percent)}
           </span>
         </div>
         <div>
-          <span className="text-muted-foreground">Vol </span>
+          <ScannerFieldHelp fieldId="volume" className="text-muted-foreground">
+            Vol
+          </ScannerFieldHelp>{" "}
           <span className="font-medium">{formatRadarVolume(row.volume)}</span>
         </div>
         <div>
-          <span className="text-muted-foreground">Vol/Prior </span>
+          <ScannerFieldHelp fieldId="volume_ratio" className="text-muted-foreground">
+            Vol/Prior
+          </ScannerFieldHelp>{" "}
           <span className={volumeRatioClass(row.volume_ratio_prior_session)}>
             {formatRadarMultiplier(row.volume_ratio_prior_session)}
           </span>
         </div>
         <div>
-          <span className="text-muted-foreground">HOD </span>
+          <ScannerFieldHelp fieldId="hod_distance" className="text-muted-foreground">
+            HOD
+          </ScannerFieldHelp>{" "}
           <span className="font-medium">{formatHodDistance(row.hod_distance_percent)}</span>
         </div>
       </div>

@@ -10,6 +10,14 @@ export interface RadarRankingFields {
   rolling_volume_15s?: number | null;
   rolling_volume_60s?: number | null;
   acceleration_5m?: number | null;
+  rolling_dollar_volume_60s?: number | null;
+  session_vwap?: number | null;
+  vwap_side?: string | null;
+  freshness_class?: string | null;
+  /** Short-window 15s move. Never display as Day Move. */
+  move_15s_pct?: number | null;
+  /** Short-window 60s move. Never display as Day Move. */
+  move_60s_pct?: number | null;
 }
 
 export type RadarSignalLabel =

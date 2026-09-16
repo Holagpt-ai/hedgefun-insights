@@ -11,6 +11,10 @@ import { RadarStatusRail } from "./RadarStatusRail";
 import { RadarGrid } from "./RadarGrid";
 import { RadarMobileCard } from "./RadarMobileCard";
 import { RadarDetailPanel } from "./RadarDetailPanel";
+import { TraderLensBar } from "./TraderLensBar";
+import { applyTraderLensPriceFilter } from "./trader-lens";
+import { useTraderLens } from "./useTraderLens";
+import { useRadarColumnVisibility } from "./useRadarColumnVisibility";
 import { isRadarRowAccessible } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
@@ -60,6 +64,13 @@ export function DayTradeRadarV2({
     freeRowLimit,
   });
 
+  const traderLens = useTraderLens();
+  const { visibleColumns, toggleColumn, resetColumns } = useRadarColumnVisibility();
+  const filtered = useMemo(
+    () => applyTraderLensPriceFilter(ranked, traderLens.bounds),
+    [ranked, traderLens.bounds],
+  );
+
   const chartEnabled =
     !!activeRow &&
     isRadarRowAccessible(activeRow.rank, isPro, freeRowLimit) &&
@@ -107,8 +118,11 @@ export function DayTradeRadarV2({
     if (resolved.status === "empty" || (boardVisible && ranked.length === 0)) {
       return "No qualifying movers yet.";
     }
+    if (boardVisible && ranked.length > 0 && filtered.length === 0) {
+      return "No Radar candidates in this Trader Lens price range.";
+    }
     return null;
-  }, [resolved.status, boardVisible, ranked.length]);
+  }, [resolved.status, boardVisible, ranked.length, filtered.length]);
 
   return (
     <div className="space-y-3">
@@ -125,6 +139,23 @@ export function DayTradeRadarV2({
         session={source === "radar-v2" ? session : null}
       />
 
+      {boardVisible && ranked.length > 0 && (
+        <TraderLensBar
+          presetId={traderLens.presetId}
+          minInput={traderLens.customMinInput}
+          maxInput={traderLens.customMaxInput}
+          visibleCount={filtered.length}
+          radarCount={ranked.length}
+          visibleColumns={visibleColumns}
+          onPresetChange={traderLens.selectPreset}
+          onMinChange={traderLens.setMinInput}
+          onMaxChange={traderLens.setMaxInput}
+          onReset={traderLens.resetLens}
+          onToggleColumn={toggleColumn}
+          onResetColumns={resetColumns}
+        />
+      )}
+
       {resolved.status === "loading" && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-2">
           {[...Array(6)].map((_, i) => (
@@ -139,16 +170,17 @@ export function DayTradeRadarV2({
         </div>
       )}
 
-      {boardVisible && ranked.length > 0 && (
+      {boardVisible && filtered.length > 0 && (
         <>
           {/* Desktop command center */}
           <div className="hidden md:grid md:grid-cols-[minmax(0,1fr)_minmax(380px,420px)] gap-4 items-start">
             <RadarGrid
-              rows={ranked}
+              rows={filtered}
               selectedSymbol={selection.selectedSymbol}
               isPro={isPro}
               freeRowLimit={freeRowLimit}
               onSelect={handleSelect}
+              visibleColumns={visibleColumns}
             />
             <RadarDetailPanel
               row={freeBlocked ? null : activeRow}
@@ -162,7 +194,7 @@ export function DayTradeRadarV2({
 
           {/* Mobile ranked cards */}
           <div className="md:hidden space-y-2">
-            {ranked.map((row) => (
+            {filtered.map((row) => (
               <RadarMobileCard
                 key={`${row.tab_id}-${row.symbol}`}
                 row={row}

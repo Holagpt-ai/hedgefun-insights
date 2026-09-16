@@ -2,6 +2,7 @@ import {
   formatDayRange,
   isFiniteNumber,
   isPositiveFinite,
+  parseTimestampMs,
   type ScreenerResultRow,
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
@@ -32,6 +33,12 @@ export function rankRadarRows(
       rolling_volume_15s: ranking.rolling_volume_15s,
       rolling_volume_60s: ranking.rolling_volume_60s,
       acceleration_5m: ranking.acceleration_5m,
+      rolling_dollar_volume_60s: ranking.rolling_dollar_volume_60s,
+      session_vwap: ranking.session_vwap,
+      vwap_side: ranking.vwap_side,
+      freshness_class: ranking.freshness_class,
+      move_15s_pct: ranking.move_15s_pct,
+      move_60s_pct: ranking.move_60s_pct,
       legacy_confirmed: ranking.legacy_confirmed,
       legacy_price_gate: ranking.legacy_price_gate,
       legacy_move_gate: ranking.legacy_move_gate,
@@ -97,6 +104,54 @@ export function formatRadarVolume(value: number | null | undefined): string {
 export function formatRadarMultiplier(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return `${Number(value).toFixed(1)}×`;
+}
+
+/** Honest empty for optional Radar metrics — never coerce missing to 0. */
+export function formatRadarUnavailableMetric(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  return formatRadarVolume(value);
+}
+
+export function formatRadarDollarVolume(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  return `$${formatRadarVolume(value)}`;
+}
+
+export function formatRadarAcceleration(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  const n = Number(value);
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n.toFixed(2)}`;
+}
+
+export function formatVwapState(
+  side: string | null | undefined,
+  vwap: number | null | undefined,
+): string {
+  const sideLabel = side === "above" || side === "below" ? side : null;
+  const vwapLabel =
+    vwap === null || vwap === undefined || !Number.isFinite(vwap) ? null : formatRadarPrice(vwap);
+  if (!sideLabel && !vwapLabel) return "Unavailable";
+  if (sideLabel && vwapLabel) return `${sideLabel} · ${vwapLabel}`;
+  return sideLabel ?? vwapLabel ?? "Unavailable";
+}
+
+export function formatFreshness(value: string | null | undefined): string {
+  if (typeof value !== "string" || !value.trim()) return "Unavailable";
+  return value.trim();
+}
+
+export function formatRadarDataTime(iso: string | null | undefined): string {
+  if (!iso) return "Unavailable";
+  const ms = parseTimestampMs(iso);
+  if (ms === null) return "Unavailable";
+  return new Date(ms).toLocaleString();
+}
+
+/** Short-window move only. Callers must use 15s Move / 60s Move labels. */
+export function formatShortWindowMove(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  return formatRadarPercent(value);
 }
 
 export function formatRadarDayRange(

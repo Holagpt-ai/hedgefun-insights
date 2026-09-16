@@ -18,6 +18,8 @@ describe("Screener copy — Radar V2 session-aware honesty (D5.1 / D12)", () => 
     expect(copy.description).toBe(
       "Radar V2 Sentinel pre-market candidates ranked volume-first from the delayed market feed.",
     );
+    expect(copy.description.toLowerCase()).not.toContain("stocks priced $2");
+    expect(copy.criteria.some((item) => item.includes("Trader Lens preset"))).toBe(true);
     expect(blob(copy)).not.toMatch(/\+?10\s*% CONFIRMED/i);
     expect(blob(copy).toLowerCase()).not.toContain("v2.1 snapshot");
     expect(copy.description.toLowerCase()).toContain("pre-market");
