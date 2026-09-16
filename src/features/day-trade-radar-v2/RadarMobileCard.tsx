@@ -196,15 +196,20 @@ export function RadarMobileCard({
         <div className="mt-1.5 text-[12px]">
           {catalystCheckPending && news.level === "none" ? (
             <span className="text-muted-foreground">News check pending</span>
-          ) : catalystError && news.level === "none" ? (
+          ) : (catalystError || newsState.isError) && news.level === "none" ? (
             <span className="text-muted-foreground">News unavailable</span>
           ) : news.level === "none" ? (
             <span className="text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</span>
           ) : news.level === "recent" ? (
-            <span className="text-muted-foreground">Recent News · {news.title}</span>
+            <span className="text-muted-foreground" title={news.title}>
+              Recent News
+              {news.source || news.ageLabel ? ` · ${[news.source, news.ageLabel].filter(Boolean).join(" · ")}` : ""}
+              {` · ${news.title}`}
+            </span>
           ) : (
-            <span className="text-muted-foreground">
+            <span className="text-muted-foreground" title={news.title}>
               Verified Catalyst · {news.category}
+              {news.ageLabel ? ` · ${news.ageLabel}` : ""}
               {news.title ? ` · ${news.title}` : ""}
             </span>
           )}

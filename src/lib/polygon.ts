@@ -41,6 +41,16 @@ export async function getTickerNews(ticker: string, limit = 10) {
   return fetchMarketData({ type: "news", ticker, limit: String(limit) });
 }
 
+/** Radar-only multi-source news. Server uses Finnhub + Massive. No browser API key. */
+export async function getRadarNews(ticker: string, lookbackHours = 24, limit = 5) {
+  return fetchMarketData({
+    type: "radar-news",
+    ticker,
+    lookback_hours: String(lookbackHours),
+    limit: String(limit),
+  });
+}
+
 /** Massive Float dataset via the existing market-data Edge Function. No browser API key. */
 export async function getFloat(ticker: string) {
   return fetchMarketData({ type: "float", ticker });

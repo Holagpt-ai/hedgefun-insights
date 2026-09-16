@@ -3,8 +3,9 @@ import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen, ExternalLink, Layo
 import TradingViewChart, { type OHLCVData } from "@/components/charts/TradingViewChart";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
-import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
+import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import {
   formatFreshness,
@@ -25,7 +26,7 @@ import {
 import type { RadarChartBar, RadarChartStatus, RadarRankedRow } from "./types";
 import type { RadarChartInterval } from "./radar-chart-data";
 import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
-import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
+import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsDisplay } from "./radar-news-display";
 
 interface RadarDetailPanelProps {
   row: RadarRankedRow | null;
@@ -77,6 +78,7 @@ export function RadarDetailPanel({
     isFetching: catalystFetching,
     isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
+  const newsState = useRecentProviderNewsForSymbols(symbols);
   const catalystCheckPending =
     symbols.length > 0 && (catalystPending || (catalystFetching && !catalystMap));
 
@@ -93,6 +95,7 @@ export function RadarDetailPanel({
   const already = isAdded(sym);
   const pending = pendingSymbol === sym;
   const entry = catalystMap?.get(sym);
+  const news = resolveRadarNewsDisplay(sym, entry, newsState.getHeadline(sym));
   const ohlcv: OHLCVData[] = chartBars.map((b) => ({
     time: b.time,
     open: b.open,
@@ -251,26 +254,45 @@ export function RadarDetailPanel({
 
         <div className="space-y-1">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            PR / Catalyst
+            News / Catalyst
           </div>
-          {catalystCheckPending ? (
-            <div className="text-[12px] text-muted-foreground">Catalyst check pending</div>
-          ) : catalystError ? (
-            <div className="text-[12px] text-muted-foreground">Catalyst unavailable</div>
-          ) : !entry ? (
+          {catalystCheckPending && news.level === "none" ? (
+            <div className="text-[12px] text-muted-foreground">News check pending</div>
+          ) : (catalystError || newsState.isError) && news.level === "none" ? (
+            <div className="text-[12px] text-muted-foreground">News unavailable</div>
+          ) : news.level === "none" ? (
             <div className="text-[12px] text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</div>
+          ) : news.level === "recent" ? (
+            news.href ? (
+              <a
+                href={news.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block text-[12px] hover:underline"
+              >
+                <span className="text-muted-foreground">
+                  Recent News · {[news.source, news.ageLabel].filter(Boolean).join(" · ")} ·{" "}
+                </span>
+                {news.title}
+              </a>
+            ) : (
+              <div className="text-[12px]">
+                <span className="text-muted-foreground">
+                  Recent News · {[news.source, news.ageLabel].filter(Boolean).join(" · ")} ·{" "}
+                </span>
+                {news.title}
+              </div>
+            )
           ) : (
             <Link
-              to={
-                catalystSymbolHref(sym) ??
-                `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`
-              }
+              to={news.href}
               className="block text-[12px] hover:underline"
             >
               <span className="text-muted-foreground">
-                {EVENT_TYPE_LABEL[entry.event.event_type] ?? "Catalyst"} ·{" "}
+                Verified Catalyst · {news.category}
+                {news.ageLabel ? ` · ${news.ageLabel}` : ""} ·{" "}
               </span>
-              {entry.event.title ?? "View catalyst"}
+              {news.title}
             </Link>
           )}
         </div>

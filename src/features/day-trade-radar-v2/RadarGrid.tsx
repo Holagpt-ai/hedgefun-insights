@@ -76,13 +76,28 @@ function NewsCatalystCell({
     return <span className="text-muted-foreground text-xs">{NO_VERIFIED_NEWS_COPY}</span>;
   }
   if (display.level === "recent") {
-    return (
+    const meta = [display.source, display.ageLabel].filter(Boolean).join(" · ");
+    const body = (
       <div className="flex max-w-[220px] flex-col items-start gap-0.5" title={display.title}>
         <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Recent News</span>
+        {meta ? <span className="text-[10px] text-muted-foreground">{meta}</span> : null}
         <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
       </div>
     );
+    if (!display.href) return body;
+    return (
+      <a
+        href={display.href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className="hover:underline"
+      >
+        {body}
+      </a>
+    );
   }
+  const catalystMeta = [display.category, display.ageLabel].filter(Boolean).join(" · ");
   return (
     <Link
       to={display.href}
@@ -90,9 +105,8 @@ function NewsCatalystCell({
       className="inline-flex max-w-[220px] flex-col items-start gap-0.5 hover:underline"
       title={display.title}
     >
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">
-        Verified Catalyst · {display.category}
-      </span>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Verified Catalyst</span>
+      {catalystMeta ? <span className="text-[10px] text-muted-foreground">{catalystMeta}</span> : null}
       <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
     </Link>
   );
@@ -337,7 +351,7 @@ export function RadarGrid({
                           <NewsCatalystCell
                             symbol={sym}
                             pending={newsPending && !catalystMap?.get(sym) && !newsState.getHeadline(sym)}
-                            error={!!catalystError}
+                            error={!!catalystError || newsState.isError}
                             catalyst={catalystMap?.get(sym)}
                             recent={newsState.getHeadline(sym)}
                           />

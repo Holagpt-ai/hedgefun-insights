@@ -10,40 +10,64 @@ export type RadarNewsDisplay =
       title: string;
       href: string;
       publishedAt: string | null;
+      ageLabel: string | null;
     }
   | {
       level: "recent";
       title: string;
-      publishedAt: string | null;
+      publishedAt: string;
       href: string | null;
+      source: string;
+      ageLabel: string | null;
     }
   | { level: "none" };
 
 export const NO_VERIFIED_NEWS_COPY = "No verified news found";
 
+export function formatRadarNewsAge(
+  publishedAt: string | null | undefined,
+  nowMs: number = Date.now(),
+): string | null {
+  if (!publishedAt) return null;
+  const ms = Date.parse(publishedAt);
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  const mins = Math.max(0, Math.floor((nowMs - ms) / 60000));
+  if (mins < 60) return `${Math.max(mins, 1)}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  return `${Math.floor(hours / 24)}d ago`;
+}
+
 export function resolveRadarNewsDisplay(
   symbol: string,
   catalyst: CatalystEnrichmentEntry | undefined,
   recent: RecentProviderHeadline | undefined,
+  nowMs: number = Date.now(),
 ): RadarNewsDisplay {
   if (catalyst?.event) {
     const category =
       EVENT_TYPE_LABEL[catalyst.event.event_type as keyof typeof EVENT_TYPE_LABEL] ?? "Catalyst";
     const title = catalyst.event.title?.trim() || category;
+    const publishedAt = catalyst.event.published_at ?? null;
     return {
       level: "catalyst",
       category,
       title,
       href: catalystSymbolHref(symbol) ?? `/dashboard/catalyst?symbol=${encodeURIComponent(symbol)}`,
-      publishedAt: catalyst.event.published_at ?? null,
+      publishedAt,
+      ageLabel: formatRadarNewsAge(publishedAt, nowMs),
     };
   }
-  if (recent?.title) {
+  if (recent?.title && recent.publishedAt) {
+    const ageLabel = formatRadarNewsAge(recent.publishedAt, nowMs);
+    if (!ageLabel) return { level: "none" };
     return {
       level: "recent",
       title: recent.title,
       publishedAt: recent.publishedAt,
       href: recent.url,
+      source: recent.source,
+      ageLabel,
     };
   }
   return { level: "none" };
