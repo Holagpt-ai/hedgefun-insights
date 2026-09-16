@@ -261,6 +261,8 @@ export default function PMInbox() {
     recentDays: 1,
     upcomingDays: 1,
     limit: PM_CATALYST_ACTIVITY_CANDIDATE_LIMIT,
+    // Newest first so today's events are never crowded out by older rows.
+    eventDateOrder: "desc",
     enabled: fullPmWorkspace,
   });
   const catalystActivity = useMemo(
