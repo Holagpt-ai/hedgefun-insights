@@ -94,4 +94,35 @@ describe("Radar news / catalyst hierarchy", () => {
       }).level,
     ).toBe("unavailable");
   });
+
+  it("does not treat catalyst-unavailable plus empty news as verified empty", () => {
+    expect(
+      resolveRadarNewsCellState({
+        symbol: "AAA",
+        catalyst: undefined,
+        recent: undefined,
+        newsStatus: "empty",
+        catalystUnavailable: true,
+      }).level,
+    ).toBe("unavailable");
+  });
+
+  it("still shows recent news when the catalyst query failed", () => {
+    const display = resolveRadarNewsCellState({
+      symbol: "AAA",
+      catalyst: undefined,
+      recent: {
+        ticker: "AAA",
+        title: "Company announces new distribution agreement",
+        publishedAt: "2026-09-16T19:42:00.000Z",
+        url: null,
+        source: "GlobeNewswire",
+        provider: "finnhub",
+      },
+      newsStatus: "ok",
+      catalystUnavailable: true,
+      nowMs: now,
+    });
+    expect(display.level).toBe("recent");
+  });
 });

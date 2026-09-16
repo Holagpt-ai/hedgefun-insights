@@ -55,12 +55,14 @@ interface RadarGridProps {
 function NewsCatalystCell({
   symbol,
   catalystPending,
+  catalystUnavailable,
   newsStatus,
   catalyst,
   recent,
 }: {
   symbol: string;
   catalystPending: boolean;
+  catalystUnavailable: boolean;
   newsStatus: RadarNewsSymbolStatus;
   catalyst: CatalystEnrichmentEntry | undefined;
   recent: RecentProviderHeadline | undefined;
@@ -71,6 +73,7 @@ function NewsCatalystCell({
     recent,
     newsStatus,
     catalystPending,
+    catalystUnavailable,
   });
   if (display.level === "pending") {
     return <span className="text-muted-foreground text-xs">News check pending</span>;
@@ -176,6 +179,7 @@ export function RadarGrid({
     data: catalystMap,
     isPending: catalystPending,
     isFetching: catalystFetching,
+    isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
   const floatState = useRadarFloatForSymbols(symbols);
   const newsState = useRecentProviderNewsForSymbols(symbols);
@@ -355,6 +359,7 @@ export function RadarGrid({
                           <NewsCatalystCell
                             symbol={sym}
                             catalystPending={catalystCheckPending && !catalystMap?.get(sym)}
+                            catalystUnavailable={!!catalystError && !catalystMap?.get(sym)}
                             newsStatus={newsState.getStatus(sym)}
                             catalyst={catalystMap?.get(sym)}
                             recent={newsState.getHeadline(sym)}

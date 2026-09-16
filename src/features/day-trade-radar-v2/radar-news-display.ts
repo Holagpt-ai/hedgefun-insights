@@ -83,11 +83,12 @@ export function resolveRadarNewsCellState(opts: {
   recent: RecentProviderHeadline | undefined;
   newsStatus: RadarNewsSymbolStatus;
   catalystPending?: boolean;
+  catalystUnavailable?: boolean;
   nowMs?: number;
 }): RadarNewsDisplay {
   const display = resolveRadarNewsDisplay(opts.symbol, opts.catalyst, opts.recent, opts.nowMs);
   if (display.level === "catalyst" || display.level === "recent") return display;
   if (opts.catalystPending || opts.newsStatus === "pending") return { level: "pending" };
-  if (opts.newsStatus === "unavailable") return { level: "unavailable" };
+  if (opts.catalystUnavailable || opts.newsStatus === "unavailable") return { level: "unavailable" };
   return { level: "none" };
 }

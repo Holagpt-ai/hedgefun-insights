@@ -50,6 +50,7 @@ export function RadarMobileCard({
     data: catalystMap,
     isPending: catalystPending,
     isFetching: catalystFetching,
+    isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
   const floatState = useRadarFloatForSymbols(symbols);
   const newsState = useRecentProviderNewsForSymbols(symbols);
@@ -64,6 +65,7 @@ export function RadarMobileCard({
     recent: newsState.getHeadline(sym),
     newsStatus: newsState.getStatus(sym),
     catalystPending: catalystCheckPending && !entry,
+    catalystUnavailable: !!catalystError && !entry,
   });
 
   return (

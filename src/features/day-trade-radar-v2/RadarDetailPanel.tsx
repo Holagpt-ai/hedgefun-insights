@@ -76,6 +76,7 @@ export function RadarDetailPanel({
     data: catalystMap,
     isPending: catalystPending,
     isFetching: catalystFetching,
+    isError: catalystError,
   } = useCatalystEnrichmentForSymbols(symbols);
   const newsState = useRecentProviderNewsForSymbols(symbols);
   const catalystCheckPending =
@@ -100,6 +101,7 @@ export function RadarDetailPanel({
     recent: newsState.getHeadline(sym),
     newsStatus: newsState.getStatus(sym),
     catalystPending: catalystCheckPending && !entry,
+    catalystUnavailable: !!catalystError && !entry,
   });
   const ohlcv: OHLCVData[] = chartBars.map((b) => ({
     time: b.time,
