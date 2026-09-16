@@ -1,7 +1,7 @@
 import { isFiniteNumber } from "@/lib/screeners/contract";
-import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { getFloat } from "@/lib/polygon";
-import { mapPool } from "./concurrency";
+import { createConcurrencyGate, mapPool } from "./concurrency";
+import { uniqueNormalizedSymbols } from "./symbols";
 
 export const FLOAT_STALE_TIME_MS = 18 * 60 * 60 * 1000;
 export const FLOAT_FETCH_CONCURRENCY = 4;
@@ -11,6 +11,15 @@ export interface RadarFloatRecord {
   float: number | null;
   asOf: string | null;
   source: "massive_float";
+}
+
+const floatGate = createConcurrencyGate(FLOAT_FETCH_CONCURRENCY);
+const floatMemory = new Map<string, { record: RadarFloatRecord; ts: number }>();
+const floatInflight = new Map<string, Promise<RadarFloatRecord>>();
+
+export function resetFloatSymbolCache() {
+  floatMemory.clear();
+  floatInflight.clear();
 }
 
 function finitePositiveShares(value: unknown): number | null {
@@ -23,17 +32,16 @@ function asOfFrom(value: unknown): string | null {
   return null;
 }
 
+function emptyFloat(ticker: string): RadarFloatRecord {
+  return { ticker, float: null, asOf: null, source: "massive_float" };
+}
+
 /**
  * Map a Massive / Polygon Float payload.
  * Uses free-float fields only. Never substitutes shares outstanding.
  */
 export function mapFloatPayload(ticker: string, payload: unknown): RadarFloatRecord {
-  const empty: RadarFloatRecord = {
-    ticker,
-    float: null,
-    asOf: null,
-    source: "massive_float",
-  };
+  const empty = emptyFloat(ticker);
   if (!payload || typeof payload !== "object") return empty;
 
   const root = payload as Record<string, unknown>;
@@ -70,24 +78,48 @@ export function mapFloatPayload(ticker: string, payload: unknown): RadarFloatRec
   };
 }
 
+function readCachedFloat(ticker: string, nowMs: number = Date.now()): RadarFloatRecord | null {
+  const hit = floatMemory.get(ticker);
+  if (!hit) return null;
+  if (nowMs - hit.ts > FLOAT_STALE_TIME_MS) {
+    floatMemory.delete(ticker);
+    return null;
+  }
+  return hit.record;
+}
+
 export async function getFloatForSymbol(symbol: string): Promise<RadarFloatRecord> {
-  const ticker = normalizeSymbol(symbol);
-  if (!ticker) {
-    return { ticker: "", float: null, asOf: null, source: "massive_float" };
-  }
-  try {
-    const payload = await getFloat(ticker);
-    return mapFloatPayload(ticker, payload);
-  } catch {
-    return { ticker, float: null, asOf: null, source: "massive_float" };
-  }
+  const ticker = uniqueNormalizedSymbols([symbol])[0];
+  if (!ticker) return emptyFloat("");
+
+  const cached = readCachedFloat(ticker);
+  if (cached) return cached;
+
+  const pending = floatInflight.get(ticker);
+  if (pending) return pending;
+
+  const request = (async () => {
+    try {
+      const payload = await floatGate.run(() => getFloat(ticker));
+      const mapped = mapFloatPayload(ticker, payload);
+      floatMemory.set(ticker, { record: mapped, ts: Date.now() });
+      return mapped;
+    } catch {
+      return emptyFloat(ticker);
+    } finally {
+      floatInflight.delete(ticker);
+    }
+  })();
+
+  floatInflight.set(ticker, request);
+  return request;
 }
 
 export async function getFloatForSymbols(
   symbols: readonly string[],
   concurrency: number = FLOAT_FETCH_CONCURRENCY,
 ): Promise<Map<string, RadarFloatRecord>> {
-  const unique = [...new Set(symbols.map((s) => normalizeSymbol(s)).filter(Boolean) as string[])];
+  const unique = uniqueNormalizedSymbols(symbols);
   const rows = await mapPool(unique, concurrency, getFloatForSymbol);
   const out = new Map<string, RadarFloatRecord>();
   for (const row of rows) {

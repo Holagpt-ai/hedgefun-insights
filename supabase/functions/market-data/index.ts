@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { mapMassiveFloat } from "../_shared/market-data/float.ts";
+import { emptyFloatRecord, resolveFloatProviderResult } from "../_shared/market-data/float.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -265,16 +265,12 @@ serve(async (req) => {
         }
         try {
           const res = await fetchWithRetry(polyUrl("/stocks/vX/float", { ticker }));
-          if (!res.ok) {
-            data = { ticker, float: null, as_of: null, source: "massive_float" };
-            setCache(cacheKey, data);
-            break;
-          }
-          const json = await res.json().catch(() => null);
-          data = mapMassiveFloat(ticker, json);
-          if (data && typeof data === "object") setCache(cacheKey, data);
+          const json = res.ok ? await res.json().catch(() => null) : null;
+          const result = resolveFloatProviderResult(ticker, { ok: res.ok, status: res.status }, json);
+          data = result.data;
+          if (result.cache) setCache(cacheKey, data);
         } catch {
-          data = { ticker, float: null, as_of: null, source: "massive_float" };
+          data = emptyFloatRecord(ticker);
         }
         break;
       }

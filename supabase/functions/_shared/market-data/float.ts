@@ -1,14 +1,22 @@
-export function finitePositiveShares(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
-}
+export const FLOAT_CACHE_TTL_MS = 12 * 60 * 60 * 1000;
 
-export function mapMassiveFloat(ticker: string, payload: unknown): {
+export type MassiveFloatRecord = {
   ticker: string;
   float: number | null;
   as_of: string | null;
   source: "massive_float";
-} {
-  const empty = { ticker, float: null, as_of: null as string | null, source: "massive_float" as const };
+};
+
+export function finitePositiveShares(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+}
+
+export function emptyFloatRecord(ticker: string): MassiveFloatRecord {
+  return { ticker, float: null, as_of: null, source: "massive_float" };
+}
+
+export function mapMassiveFloat(ticker: string, payload: unknown): MassiveFloatRecord {
+  const empty = emptyFloatRecord(ticker);
   if (!payload || typeof payload !== "object") return empty;
   const root = payload as Record<string, unknown>;
   const rawResults = root.results;
@@ -27,4 +35,24 @@ export function mapMassiveFloat(ticker: string, payload: unknown): {
     : typeof row.updated === "string" ? row.updated
     : null;
   return { ticker, float, as_of: asOf, source: "massive_float" };
+}
+
+/** Cache only HTTP-successful Massive responses. Never long-cache 429/401/5xx. */
+export function resolveFloatProviderResult(
+  ticker: string,
+  res: { ok: boolean; status: number },
+  payload: unknown,
+): { data: MassiveFloatRecord; cache: boolean } {
+  if (!res.ok) {
+    return { data: emptyFloatRecord(ticker), cache: false };
+  }
+  return { data: mapMassiveFloat(ticker, payload), cache: true };
+}
+
+export function rememberFloatIfCacheable(
+  cache: Map<string, MassiveFloatRecord>,
+  ticker: string,
+  result: { data: MassiveFloatRecord; cache: boolean },
+): void {
+  if (result.cache) cache.set(ticker, result.data);
 }

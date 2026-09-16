@@ -1,8 +1,9 @@
-import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { getTickerNews } from "@/lib/polygon";
-import { mapPool } from "./concurrency";
+import { createConcurrencyGate, mapPool } from "./concurrency";
+import { uniqueNormalizedSymbols } from "./symbols";
 
 export const RECENT_NEWS_WINDOW_MS = 24 * 60 * 60 * 1000;
+export const RECENT_NEWS_STALE_TIME_MS = 15 * 60 * 1000;
 export const RECENT_NEWS_FETCH_CONCURRENCY = 3;
 
 export interface RecentProviderHeadline {
@@ -10,6 +11,15 @@ export interface RecentProviderHeadline {
   title: string;
   publishedAt: string | null;
   url: string | null;
+}
+
+const newsGate = createConcurrencyGate(RECENT_NEWS_FETCH_CONCURRENCY);
+const newsMemory = new Map<string, { headline: RecentProviderHeadline | null; ts: number }>();
+const newsInflight = new Map<string, Promise<RecentProviderHeadline | null>>();
+
+export function resetRecentNewsSymbolCache() {
+  newsMemory.clear();
+  newsInflight.clear();
 }
 
 function pickTitle(row: Record<string, unknown>): string | null {
@@ -64,25 +74,51 @@ export function mapRecentNewsPayload(
   return best;
 }
 
+function readCachedHeadline(ticker: string, nowMs: number = Date.now()): RecentProviderHeadline | null | undefined {
+  const hit = newsMemory.get(ticker);
+  if (!hit) return undefined;
+  if (nowMs - hit.ts > RECENT_NEWS_STALE_TIME_MS) {
+    newsMemory.delete(ticker);
+    return undefined;
+  }
+  return hit.headline;
+}
+
 export async function getRecentHeadlineForSymbol(
   symbol: string,
   nowMs: number = Date.now(),
 ): Promise<RecentProviderHeadline | null> {
-  const ticker = normalizeSymbol(symbol);
+  const ticker = uniqueNormalizedSymbols([symbol])[0];
   if (!ticker) return null;
-  try {
-    const payload = await getTickerNews(ticker, 5);
-    return mapRecentNewsPayload(ticker, payload, nowMs);
-  } catch {
-    return null;
-  }
+
+  const cached = readCachedHeadline(ticker, nowMs);
+  if (cached !== undefined) return cached;
+
+  const pending = newsInflight.get(ticker);
+  if (pending) return pending;
+
+  const request = (async () => {
+    try {
+      const payload = await newsGate.run(() => getTickerNews(ticker, 5));
+      const headline = mapRecentNewsPayload(ticker, payload, nowMs);
+      newsMemory.set(ticker, { headline, ts: Date.now() });
+      return headline;
+    } catch {
+      return null;
+    } finally {
+      newsInflight.delete(ticker);
+    }
+  })();
+
+  newsInflight.set(ticker, request);
+  return request;
 }
 
 export async function getRecentHeadlinesForSymbols(
   symbols: readonly string[],
   nowMs: number = Date.now(),
 ): Promise<Map<string, RecentProviderHeadline>> {
-  const unique = [...new Set(symbols.map((s) => normalizeSymbol(s)).filter(Boolean) as string[])];
+  const unique = uniqueNormalizedSymbols(symbols);
   const rows = await mapPool(unique, RECENT_NEWS_FETCH_CONCURRENCY, (symbol) =>
     getRecentHeadlineForSymbol(symbol, nowMs),
   );
