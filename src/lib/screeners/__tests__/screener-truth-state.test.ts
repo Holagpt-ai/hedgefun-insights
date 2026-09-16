@@ -500,8 +500,9 @@ describe("screener truth-state resolver", () => {
       NOW,
     );
     expect(out.ok).toBe(false);
-    if (out.ok) return;
-    expect(out.reason).toBe("tab_evaluation_selected_count_mismatch");
+    expect((out as { reason?: string }).reason).toBe(
+      "tab_evaluation_selected_count_mismatch",
+    );
   });
 
   it("viewForActiveTab attaches evaluation evidence for downstream truth resolution", () => {
