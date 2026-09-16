@@ -4,7 +4,8 @@ import { MemoryRouter } from "react-router-dom";
 import { RadarGrid } from "../RadarGrid";
 import { RadarMobileCard } from "../RadarMobileCard";
 import { RadarDetailPanel } from "../RadarDetailPanel";
-import { canonicalizeRadarColumns } from "../radar-grid-columns";
+import { TraderLensBar } from "../TraderLensBar";
+import { canonicalizeRadarColumns, defaultRadarColumns } from "../radar-grid-columns";
 import type { RadarRankedRow } from "../types";
 
 vi.mock("@/hooks/useAddToWatchlist", () => ({
@@ -114,12 +115,102 @@ describe("Radar mobile card render", () => {
     expect(screen.getByText("#1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Price info" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Volume info" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "HOD Distance info" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Day Range info" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
     expect(screen.queryByText("5s Volume")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Volume info" }));
     expect(
       screen.getByText("Volume is the number of shares traded during a defined period."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Day Range info" }));
+    expect(
+      screen.getByText(
+        "Shows the stock's low and high for the current trading session. The marker shows where the current price is trading inside that range.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("adaptive-day-range")).toBeInTheDocument();
+  });
+});
+
+describe("compact Trader Lens bar", () => {
+  it("hides Price Min/Max until Custom or Filters, and keeps Core Momentum as the default option", () => {
+    render(
+      <TraderLensBar
+        presetId="momentum_2_20"
+        minInput="2"
+        maxInput="20"
+        visibleCount={2}
+        radarCount={3}
+        visibleColumns={defaultRadarColumns()}
+        sessionMoveUnavailable
+        onPresetChange={() => {}}
+        onMinChange={() => {}}
+        onMaxChange={() => {}}
+        onReset={() => {}}
+        onToggleColumn={() => {}}
+        onResetColumns={() => {}}
+      />,
+    );
+    const select = screen.getByLabelText("Trader Lens preset") as HTMLSelectElement;
+    expect(select.value).toBe("momentum_2_20");
+    expect(screen.getByRole("option", { name: "Core Momentum $2–$20" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "All Radar Movers" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Price min")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Price max")).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Price filter active; regular-session move unavailable on this source."),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByLabelText("Price min")).toBeInTheDocument();
+    expect(screen.getByText("Move %")).toBeInTheDocument();
+    expect(screen.getByText("Float")).toBeInTheDocument();
+    expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
+  });
+
+  it("shows Price Min/Max inline when Custom is selected", () => {
+    render(
+      <TraderLensBar
+        presetId="custom"
+        minInput="3"
+        maxInput="8"
+        visibleCount={2}
+        radarCount={3}
+        visibleColumns={defaultRadarColumns()}
+        onPresetChange={() => {}}
+        onMinChange={() => {}}
+        onMaxChange={() => {}}
+        onReset={() => {}}
+        onToggleColumn={() => {}}
+        onResetColumns={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText("Price min")).toBeInTheDocument();
+    expect(screen.getByLabelText("Price max")).toBeInTheDocument();
+  });
+
+  it("exposes Day Range tooltip copy from the scanner field registry on the desktop header", () => {
+    render(
+      <MemoryRouter>
+        <RadarGrid
+          rows={[ranked()]}
+          selectedSymbol="AAA"
+          isPro
+          freeRowLimit={3}
+          onSelect={() => {}}
+        />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Day Range info" }));
+    expect(
+      screen.getByText(
+        "A stock holding near its high may indicate stronger momentum, while a stock far below its high may have already faded.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Low $2.00, High $5.00, Last $4.70 places the marker near the right side of the range.",
+      ),
     ).toBeInTheDocument();
   });
 });

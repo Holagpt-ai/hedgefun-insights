@@ -22,6 +22,15 @@ describe("scanner field registry", () => {
     }
   });
 
+  it("documents Day Range as an adaptive session range with a last-price marker", () => {
+    const dayRange = getScannerField("day_range");
+    expect(dayRange?.tooltipEnabled).toBe(true);
+    expect(dayRange?.description).toMatch(/low and high for the current trading session/i);
+    expect(dayRange?.description).toMatch(/marker shows where the current price is trading inside that range/i);
+    expect(dayRange?.whyItMatters).toMatch(/holding near its high/i);
+    expect(dayRange?.example).toMatch(/Low \$2\.00, High \$5\.00, Last \$4\.70/);
+  });
+
   it("labels provider_as_of as Data Time and never as Trigger Time", () => {
     const dataTime = getScannerField("data_time");
     expect(dataTime?.label).toBe("Data Time");

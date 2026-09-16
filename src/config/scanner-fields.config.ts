@@ -153,8 +153,11 @@ export const SCANNER_FIELDS: readonly ScannerFieldDefinition[] = [
     id: "day_range",
     label: "Day Range",
     shortLabel: "Range",
-    description: "The session low and high supplied by the active source.",
-    whyItMatters: "Range shows where price has already traded and whether the name is extended or compressed.",
+    description:
+      "Shows the stock's low and high for the current trading session. The marker shows where the current price is trading inside that range.",
+    whyItMatters:
+      "A stock holding near its high may indicate stronger momentum, while a stock far below its high may have already faded.",
+    example: "Low $2.00, High $5.00, Last $4.70 places the marker near the right side of the range.",
     format: "text",
     category: "range",
     sortable: false,

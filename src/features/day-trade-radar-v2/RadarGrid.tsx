@@ -16,16 +16,15 @@ import {
 } from "./radar-grid-columns";
 import {
   formatFreshness,
-  formatHodDistance,
   formatRadarAcceleration,
   formatRadarDataTime,
-  formatRadarDayRange,
   formatRadarDollarVolume,
   formatRadarMultiplier,
   formatRadarPercent,
   formatRadarPrice,
   formatRadarUnavailableMetric,
   formatRadarVolume,
+  formatShortWindowMove,
   formatVwapState,
   isRadarRowAccessible,
   moveClass,
@@ -36,6 +35,7 @@ import type { RadarRankedRow } from "./types";
 import { useMemo, type ReactNode } from "react";
 import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 import { ScannerFieldHelp } from "./ScannerFieldHelp";
+import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 
 interface RadarGridProps {
   rows: RadarRankedRow[];
@@ -114,6 +114,10 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
       return formatFreshness(row.freshness_class);
     case "data_time":
       return formatRadarDataTime(row.provider_as_of);
+    case "move_15s":
+      return formatShortWindowMove(row.move_15s_pct);
+    case "move_60s":
+      return formatShortWindowMove(row.move_60s_pct);
     default:
       return "Unavailable";
   }
@@ -150,7 +154,7 @@ export function RadarGrid({
     symbols.length > 0 && (catalystPending || (catalystFetching && !catalystMap));
 
   return (
-    <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0">
+    <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0" data-testid="radar-scanner-table">
       <div className="overflow-x-auto">
       <table
         className="w-full table-fixed text-[11.5px]"
@@ -162,7 +166,7 @@ export function RadarGrid({
             if (columnId === "symbol") return <col key={columnId} className="w-[17%]" />;
             if (columnId === "signal") return <col key={columnId} className="w-[11%]" />;
             if (columnId === "price_move") return <col key={columnId} className="w-[11%]" />;
-            if (columnId === "range_hod") return <col key={columnId} className="w-[14%]" />;
+            if (columnId === "range_hod") return <col key={columnId} className="w-[22%]" />;
             if (columnId === "volume") return <col key={columnId} className="w-[9%]" />;
             if (columnId === "prior_ratio") return <col key={columnId} className="w-[12%]" />;
             if (columnId === "catalyst") return <col key={columnId} className="w-[16%]" />;
@@ -260,13 +264,13 @@ export function RadarGrid({
                   }
                   if (columnId === "range_hod") {
                     return (
-                      <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
-                        <div className="whitespace-nowrap">
-                          {formatRadarDayRange(row.day_low, row.day_high)}
-                        </div>
-                        <div className="text-[11px] text-muted-foreground">
-                          HOD {formatHodDistance(row.hod_distance_percent)}
-                        </div>
+                      <td key={columnId} className="px-2 py-1.5">
+                        <AdaptiveDayRangeBar
+                          price={row.price}
+                          dayLow={row.day_low}
+                          dayHigh={row.day_high}
+                          hodDistancePercent={row.hod_distance_percent}
+                        />
                       </td>
                     );
                   }

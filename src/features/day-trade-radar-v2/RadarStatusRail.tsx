@@ -2,7 +2,7 @@ import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import type { RadarEngineSource } from "./types";
 
-function formatPipelineAge(iso: string | null): string | null {
+export function formatPipelineAge(iso: string | null): string | null {
   if (!iso) return null;
   const then = parseTimestampMs(iso);
   if (then === null) return null;
@@ -16,7 +16,7 @@ function formatPipelineAge(iso: string | null): string | null {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function formatProviderAsOf(iso: string | null): string | null {
+export function formatProviderAsOf(iso: string | null): string | null {
   if (!iso) return null;
   const ms = parseTimestampMs(iso);
   if (ms === null) return null;
@@ -24,8 +24,8 @@ function formatProviderAsOf(iso: string | null): string | null {
 }
 
 /**
- * Legacy / RTH-snapshot engine chips. Truthful only for the radar_v22_board
- * (v2.1 / v2.2) source, whose rows are regular-session qualified.
+ * Legacy / RTH-snapshot engine chips. Kept for source-state honesty tests.
+ * Not rendered in the healthy trader UI.
  */
 export const LEGACY_ENGINE_CHIPS = [
   "AUTO RADAR ON",
@@ -81,17 +81,28 @@ export function engineLabelFor(engineSource: RadarEngineSource): string {
   return "Radar V2.1 snapshot";
 }
 
+export function formatHealthyRadarFeedLine(
+  providerAsOfMax: string | null,
+  syncedAt: string | null,
+): string {
+  const data = formatProviderAsOf(providerAsOfMax);
+  const age = formatPipelineAge(syncedAt);
+  const parts = ["15-minute delayed"];
+  if (data) parts.push(`Data as of ${data}`);
+  if (age) parts.push(`Updated ${age}`);
+  return parts.join(" · ");
+}
+
 interface RadarStatusRailProps {
   status: ScreenerUiStatus;
   qualifyingCount: number;
   syncedAt: string | null;
   providerAsOfMax: string | null;
-  followingLeader: boolean;
-  onFollowLeader: () => void;
-  showReturnToLeader: boolean;
-  onReturnToLeader: () => void;
+  followingLeader?: boolean;
+  onFollowLeader?: () => void;
+  showReturnToLeader?: boolean;
+  onReturnToLeader?: () => void;
   engineSource?: RadarEngineSource;
-  /** Accepted Radar V2 generation session_kind. Authoritative; never clock-inferred. */
   session?: string | null;
 }
 
@@ -100,99 +111,57 @@ export function RadarStatusRail({
   qualifyingCount,
   syncedAt,
   providerAsOfMax,
-  followingLeader,
-  onFollowLeader,
-  showReturnToLeader,
-  onReturnToLeader,
-  engineSource = "v2.1",
-  session = null,
 }: RadarStatusRailProps) {
-  const providerLabel = formatProviderAsOf(providerAsOfMax);
-  const pipelineAge = formatPipelineAge(syncedAt);
-  const engineLabel = engineLabelFor(engineSource);
-  const engineChips = engineChipsFor(engineSource, session);
-  const statusLabel =
-    status === "available"
-      ? "Available"
-      : status === "stale"
-        ? "Stale"
-        : status === "empty"
-          ? "Empty"
+  const feedLine = formatHealthyRadarFeedLine(providerAsOfMax, syncedAt);
+  const abnormal =
+    status === "stale" ||
+    status === "unavailable" ||
+    status === "loading" ||
+    status === "empty";
+
+  if (abnormal) {
+    const title =
+      status === "stale"
+        ? "Feed stale"
+        : status === "unavailable"
+          ? "Data unavailable"
           : status === "loading"
             ? "Loading"
-            : "Unavailable";
+            : "Empty";
+    const detail =
+      status === "stale"
+        ? "These rows are a delayed snapshot, not current market opportunities."
+        : status === "unavailable"
+          ? "Screener data is temporarily unavailable. No unverified rows are being shown."
+          : status === "loading"
+            ? "Loading the Radar candidate universe."
+            : "No qualifying movers yet.";
+    return (
+      <div
+        data-testid="radar-status-rail"
+        className={`rounded-md border px-3 py-2 text-[13px] ${
+          status === "stale"
+            ? "border-amber-500/40 bg-amber-500/10 text-foreground"
+            : "border-border bg-card text-foreground"
+        }`}
+      >
+        <div className="font-semibold">{title}</div>
+        <p className="mt-0.5 text-muted-foreground">{detail}</p>
+        <div className="mt-1 text-[11px] text-muted-foreground" data-testid="radar-feed-line">
+          {feedLine}
+          {qualifyingCount > 0 ? ` · ${qualifyingCount} Radar candidates` : ""}
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2 text-[11px]">
-        <span className="rounded border border-border px-2 py-0.5 font-semibold uppercase tracking-wide text-muted-foreground">
-          {engineLabel}
-        </span>
-        <span className="rounded border border-border px-2 py-0.5 font-semibold uppercase tracking-wide text-muted-foreground">
-          Feed: 15-Minute Delayed
-        </span>
-        <span
-          className={`rounded border px-2 py-0.5 font-semibold uppercase tracking-wide ${
-            status === "stale"
-              ? "border-amber-500/40 text-amber-700 dark:text-amber-400"
-              : status === "unavailable"
-                ? "border-border text-muted-foreground"
-                : "border-border text-foreground"
-          }`}
-        >
-          Status: {statusLabel}
-        </span>
-        <span className="rounded border border-border px-2 py-0.5 tabular-nums text-muted-foreground">
-          Qualifying: {qualifyingCount}
-        </span>
-        {providerLabel && (
-          <span className="rounded border border-border px-2 py-0.5 text-muted-foreground">
-            Provider: {providerLabel}
-          </span>
-        )}
-        {pipelineAge && (
-          <span className="rounded border border-border px-2 py-0.5 text-muted-foreground">
-            Pipeline: {pipelineAge}
-          </span>
-        )}
-        <span className="rounded border border-border px-2 py-0.5 font-semibold text-foreground">
-          {followingLeader ? "Follow #1: On" : "Follow #1: Off"}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-1.5">
-        {engineChips.map((chip) => (
-          <span
-            key={chip}
-            className="rounded bg-muted/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-          >
-            {chip}
-          </span>
-        ))}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onFollowLeader}
-          className={`h-8 rounded-md px-3 text-[12px] font-semibold transition-colors ${
-            followingLeader
-              ? "bg-accent-blue text-white"
-              : "border border-border text-foreground hover:bg-muted"
-          }`}
-        >
-          Follow #1
-        </button>
-        {showReturnToLeader && (
-          <button
-            type="button"
-            onClick={onReturnToLeader}
-            className="h-8 rounded-md border border-border px-3 text-[12px] font-semibold text-foreground hover:bg-muted transition-colors"
-          >
-            Return to #1
-          </button>
-        )}
-      </div>
+    <div
+      data-testid="radar-status-rail"
+      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
+    >
+      <span data-testid="radar-feed-line">{feedLine}</span>
+      <span className="tabular-nums">{qualifyingCount} Radar candidates</span>
     </div>
   );
 }

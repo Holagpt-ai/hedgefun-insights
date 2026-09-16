@@ -8,8 +8,8 @@ import {
 
 export function useTraderLens() {
   const [presetId, setPresetId] = useState<TraderLensPresetId>(DEFAULT_TRADER_LENS_PRESET_ID);
-  const [customMinInput, setCustomMinInput] = useState("");
-  const [customMaxInput, setCustomMaxInput] = useState("");
+  const [customMinInput, setCustomMinInput] = useState("2");
+  const [customMaxInput, setCustomMaxInput] = useState("20");
 
   const customMin = parseTraderLensPriceInput(customMinInput);
   const customMax = parseTraderLensPriceInput(customMaxInput);
@@ -58,8 +58,8 @@ export function useTraderLens() {
 
   const resetLens = () => {
     setPresetId(DEFAULT_TRADER_LENS_PRESET_ID);
-    setCustomMinInput("");
-    setCustomMaxInput("");
+    setCustomMinInput("2");
+    setCustomMaxInput("20");
   };
 
   return {

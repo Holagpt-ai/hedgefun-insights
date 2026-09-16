@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { LegacyConfirmedBadge } from "../LegacyConfirmedBadge";
 import { RadarGrid } from "../RadarGrid";
-import { RadarStatusRail } from "../RadarStatusRail";
+import { RadarStatusRail, engineChipsFor, engineLabelFor } from "../RadarStatusRail";
 import type { RadarRankedRow } from "../types";
 
 vi.mock("@/hooks/useAddToWatchlist", () => ({
@@ -110,20 +110,29 @@ describe("Sentinel vs legacy status rail (D13)", () => {
   it("12. Sentinel rail never shows legacy criteria chips", () => {
     for (const session of ["pre-market", "market", "after-hours"] as const) {
       const { unmount } = rail("radar-v2-candidates", session);
-      expect(screen.getByText("Radar V2 Sentinel")).toBeInTheDocument();
+      expect(engineLabelFor("radar-v2-candidates")).toBe("Radar V2 Sentinel");
+      expect(screen.queryByText("Radar V2 Sentinel")).not.toBeInTheDocument();
       expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();
       expect(screen.queryByText("+10% CONFIRMED")).not.toBeInTheDocument();
       expect(screen.queryByText("CURRENT VOL ≥5× PRIOR")).not.toBeInTheDocument();
       expect(screen.queryByText("Radar V2.1 snapshot")).not.toBeInTheDocument();
+      expect(screen.getByTestId("radar-feed-line")).toBeInTheDocument();
       unmount();
     }
   });
 
-  it("11. legacy fallback rail retains old criteria chips", () => {
+  it("11. legacy fallback helpers retain old criteria chips without rendering them in the healthy trader UI", () => {
+    expect(engineLabelFor("v2.1")).toBe("Radar V2.1 snapshot");
+    expect(engineChipsFor("v2.1")).toEqual(expect.arrayContaining([
+      "$2–$20 ENTRY",
+      "+10% CONFIRMED",
+      "CURRENT VOL ≥5× PRIOR",
+    ]));
     rail("v2.1", null);
-    expect(screen.getByText("Radar V2.1 snapshot")).toBeInTheDocument();
-    expect(screen.getByText("$2–$20 ENTRY")).toBeInTheDocument();
-    expect(screen.getByText("+10% CONFIRMED")).toBeInTheDocument();
-    expect(screen.getByText("CURRENT VOL ≥5× PRIOR")).toBeInTheDocument();
+    expect(screen.queryByText("Radar V2.1 snapshot")).not.toBeInTheDocument();
+    expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();
+    expect(screen.queryByText("+10% CONFIRMED")).not.toBeInTheDocument();
+    expect(screen.queryByText("CURRENT VOL ≥5× PRIOR")).not.toBeInTheDocument();
+    expect(screen.getByTestId("radar-feed-line")).toBeInTheDocument();
   });
 });

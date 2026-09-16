@@ -53,6 +53,8 @@ describe("Day Trade Radar desktop grid", () => {
       "vwap_state",
       "freshness",
       "data_time",
+      "move_15s",
+      "move_60s",
     ]);
     for (const id of OPTIONAL_RADAR_COLUMN_IDS) {
       expect(DEFAULT_RADAR_COLUMN_IDS).not.toContain(id);

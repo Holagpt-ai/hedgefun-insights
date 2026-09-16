@@ -5,7 +5,6 @@ import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentFo
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
-  formatHodDistance,
   formatRadarMultiplier,
   formatRadarPercent,
   formatRadarPrice,
@@ -17,6 +16,7 @@ import {
 import type { RadarRankedRow } from "./types";
 import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 import { ScannerFieldHelp } from "./ScannerFieldHelp";
+import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -158,12 +158,17 @@ export function RadarMobileCard({
             {formatRadarMultiplier(row.volume_ratio_prior_session)}
           </span>
         </div>
-        <div>
-          <ScannerFieldHelp fieldId="hod_distance" className="text-muted-foreground">
-            HOD
-          </ScannerFieldHelp>{" "}
-          <span className="font-medium">{formatHodDistance(row.hod_distance_percent)}</span>
-        </div>
+      </div>
+      <div className="mt-1.5">
+        <ScannerFieldHelp fieldId="day_range" className="text-muted-foreground text-[11px]">
+          Day Range
+        </ScannerFieldHelp>
+        <AdaptiveDayRangeBar
+          price={row.price}
+          dayLow={row.day_low}
+          dayHigh={row.day_high}
+          hodDistancePercent={row.hod_distance_percent}
+        />
       </div>
 
       {accessible && (

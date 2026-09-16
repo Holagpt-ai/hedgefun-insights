@@ -1,60 +1,69 @@
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { RadarStatusRail } from "../RadarStatusRail";
+import {
+  RadarStatusRail,
+  engineChipsFor,
+  engineLabelFor,
+  formatHealthyRadarFeedLine,
+  radarV2EngineChips,
+  radarV2SessionChip,
+} from "../RadarStatusRail";
 import type { RadarEngineSource } from "../types";
 
-function renderRail(engineSource: RadarEngineSource, session: string | null = "pre-market") {
+function renderRail(
+  engineSource: RadarEngineSource,
+  session: string | null = "pre-market",
+  status: "available" | "stale" | "unavailable" | "loading" | "empty" = "available",
+) {
   return render(
     <RadarStatusRail
-      status="available"
+      status={status}
       qualifyingCount={128}
       syncedAt="2026-09-03T13:12:30.000Z"
       providerAsOfMax="2026-09-03T12:57:30.000Z"
-      followingLeader={false}
-      onFollowLeader={() => {}}
-      showReturnToLeader={false}
-      onReturnToLeader={() => {}}
       engineSource={engineSource}
       session={session}
     />,
   );
 }
 
-describe("RadarStatusRail engine source honesty (D5.3 / D12)", () => {
-  it("4. Radar V2 candidate source is not labeled a V2.1 snapshot", () => {
+describe("RadarStatusRail condensed trader presentation", () => {
+  it("keeps underlying Radar V2 session/state helpers without rendering engineering pills", () => {
+    expect(radarV2SessionChip("pre-market")).toBe("PRE-MARKET");
+    expect(radarV2SessionChip("market")).toBe("REGULAR MARKET");
+    expect(radarV2SessionChip("after-hours")).toBe("AFTER-HOURS");
+    expect(engineLabelFor("radar-v2-candidates")).toBe("Radar V2 Sentinel");
+    expect(engineLabelFor("v2.1")).toBe("Radar V2.1 snapshot");
+    expect(radarV2EngineChips("pre-market")).toContain("PRE-MARKET");
+    expect(engineChipsFor("radar-v2-candidates", "market")).not.toContain("$2–$20 ENTRY");
+    expect(engineChipsFor("v2.1")).toContain("$2–$20 ENTRY");
+  });
+
+  it("healthy status rail is condensed and feed-wide", () => {
     renderRail("radar-v2-candidates", "pre-market");
-    expect(screen.getByText("Radar V2 Sentinel")).toBeInTheDocument();
+    const line = screen.getByTestId("radar-feed-line");
+    expect(line.textContent).toMatch(/15-minute delayed/i);
+    expect(line.textContent).toMatch(/Data as of/i);
+    expect(line.textContent).toMatch(/Updated/i);
+    expect(screen.getByText("128 Radar candidates")).toBeInTheDocument();
+    expect(screen.queryByText("Radar V2 Sentinel")).not.toBeInTheDocument();
     expect(screen.queryByText("Radar V2.1 snapshot")).not.toBeInTheDocument();
-    expect(screen.queryByText("Radar V2.2")).not.toBeInTheDocument();
-  });
-
-  it("5. PM Radar generation produces PRE-MARKET status rail", () => {
-    renderRail("radar-v2-candidates", "pre-market");
-    expect(screen.getByText("PRE-MARKET")).toBeInTheDocument();
-    expect(screen.queryByText("REGULAR MARKET")).not.toBeInTheDocument();
-    expect(screen.queryByText("AFTER-HOURS")).not.toBeInTheDocument();
-  });
-
-  it("6. market Radar generation produces REGULAR MARKET status rail", () => {
-    renderRail("radar-v2-candidates", "market");
-    expect(screen.getByText("REGULAR MARKET")).toBeInTheDocument();
+    expect(screen.queryByText("Feed: 15-Minute Delayed")).not.toBeInTheDocument();
+    expect(screen.queryByText("Status: Available")).not.toBeInTheDocument();
     expect(screen.queryByText("PRE-MARKET")).not.toBeInTheDocument();
-    expect(screen.queryByText("AFTER-HOURS")).not.toBeInTheDocument();
+    expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();
+    expect(screen.queryByText("VOLUME FIRST")).not.toBeInTheDocument();
+    expect(screen.queryByText("Follow #1")).not.toBeInTheDocument();
   });
 
-  it("7. after-hours Radar generation produces AFTER-HOURS status rail", () => {
-    renderRail("radar-v2-candidates", "after-hours");
-    expect(screen.getByText("AFTER-HOURS")).toBeInTheDocument();
-    expect(screen.queryByText("PRE-MARKET")).not.toBeInTheDocument();
-    expect(screen.queryByText("REGULAR MARKET")).not.toBeInTheDocument();
+  it("does not imply timestamps change with a Trader Lens preset", () => {
+    const a = formatHealthyRadarFeedLine("2026-09-03T12:57:30.000Z", "2026-09-03T13:12:30.000Z");
+    const b = formatHealthyRadarFeedLine("2026-09-03T12:57:30.000Z", "2026-09-03T13:12:30.000Z");
+    expect(a).toBe(b);
+    expect(a).toMatch(/^15-minute delayed · Data as of /);
   });
 
-  it("8. no PM label leaks into RTH", () => {
-    renderRail("radar-v2-candidates", "market");
-    expect(screen.queryByText("PRE-MARKET")).not.toBeInTheDocument();
-  });
-
-  it("9. no RTH legacy criteria chips leak into Radar V2", () => {
+  it("9. no RTH legacy criteria chips leak into Radar V2 UI", () => {
     for (const session of ["pre-market", "market", "after-hours"] as const) {
       const { unmount } = renderRail("radar-v2-candidates", session);
       expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();
@@ -64,31 +73,19 @@ describe("RadarStatusRail engine source honesty (D5.3 / D12)", () => {
     }
   });
 
-  it("10. no market label leaks into after-hours", () => {
-    renderRail("radar-v2-candidates", "after-hours");
-    expect(screen.queryByText("REGULAR MARKET")).not.toBeInTheDocument();
-  });
-
-  it("Radar V2 rail keeps truthful volume-first / delayed-feed wording", () => {
-    renderRail("radar-v2-candidates", "after-hours");
-    expect(screen.getByText("VOLUME FIRST")).toBeInTheDocument();
-    expect(screen.getByText("15-MIN DELAYED")).toBeInTheDocument();
-    expect(screen.getByText("SENTINEL DISCOVERY")).toBeInTheDocument();
-    expect(screen.getByText("VELOCITY / ACCELERATION")).toBeInTheDocument();
-    expect(screen.getByText("Feed: 15-Minute Delayed")).toBeInTheDocument();
-  });
-
-  it("legacy v2.1 / v2.2 sources keep their existing RTH chips and labels", () => {
-    const { unmount } = renderRail("v2.1", null);
-    expect(screen.getByText("Radar V2.1 snapshot")).toBeInTheDocument();
-    expect(screen.getByText("$2–$20 ENTRY")).toBeInTheDocument();
-    expect(screen.getByText("+10% CONFIRMED")).toBeInTheDocument();
-    expect(screen.getByText("CURRENT VOL ≥5× PRIOR")).toBeInTheDocument();
-    expect(screen.queryByText("SENTINEL DISCOVERY")).not.toBeInTheDocument();
+  it("stale/unavailable remains visible", () => {
+    const { unmount } = renderRail("radar-v2-candidates", "market", "stale");
+    expect(screen.getByText("Feed stale")).toBeInTheDocument();
+    expect(screen.getByTestId("radar-feed-line")).toBeInTheDocument();
     unmount();
+    renderRail("v2.1", null, "unavailable");
+    expect(screen.getByText("Data unavailable")).toBeInTheDocument();
+  });
 
-    renderRail("v2.2", null);
-    expect(screen.getByText("Radar V2.2")).toBeInTheDocument();
-    expect(screen.getByText("$2–$20 ENTRY")).toBeInTheDocument();
+  it("legacy source also stays condensed in the healthy trader UI", () => {
+    renderRail("v2.1", null);
+    expect(screen.queryByText("Radar V2.1 snapshot")).not.toBeInTheDocument();
+    expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();
+    expect(screen.getByTestId("radar-feed-line")).toBeInTheDocument();
   });
 });

@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import {
+  CORE_MOMENTUM_MOVE_UNAVAILABLE_COPY,
+  CORE_MOMENTUM_SESSION_MOVE_MIN,
   DEFAULT_TRADER_LENS_PRESET_ID,
   TRADER_LENS_PRESETS,
   getTraderLensPreset,
@@ -13,6 +15,7 @@ import {
   radarSelectionReducer,
 } from "../radar-selection";
 import {
+  applyTraderLensFilter,
   applyTraderLensPriceFilter,
   matchesTraderLensPrice,
   traderLensShowingCopy,
@@ -47,29 +50,41 @@ function row(
 }
 
 describe("Trader Lens price presets", () => {
-  it("keeps All Movers as the default and does not hardwire $2–$20", () => {
-    expect(DEFAULT_TRADER_LENS_PRESET_ID).toBe("all_movers");
-    expect(getTraderLensPreset("all_movers")).toEqual({
-      id: "all_movers",
-      label: "All Movers",
-      min: null,
-      max: null,
-    });
+  it("defaults to Core Momentum $2–$20", () => {
+    expect(DEFAULT_TRADER_LENS_PRESET_ID).toBe("momentum_2_20");
     expect(getTraderLensPreset("momentum_2_20")).toEqual({
       id: "momentum_2_20",
-      label: "$2–$20 Momentum",
+      label: "Core Momentum $2–$20",
       min: 2,
       max: 20,
     });
-    expect(TRADER_LENS_PRESETS).toHaveLength(6);
+    expect(getTraderLensPreset("all_movers")?.label).toBe("All Radar Movers");
+    expect(TRADER_LENS_PRESETS[0].id).toBe("momentum_2_20");
+    expect(CORE_MOMENTUM_SESSION_MOVE_MIN).toBe(10);
   });
 
-  it("applies inclusive $2–$20 Momentum boundaries", () => {
+  it("applies inclusive $2–$20 Core Momentum price boundaries", () => {
     const bounds = resolveTraderLensBounds("momentum_2_20", null, null);
     expect(matchesTraderLensPrice(2, bounds)).toBe(true);
     expect(matchesTraderLensPrice(20, bounds)).toBe(true);
     expect(matchesTraderLensPrice(1.99, bounds)).toBe(false);
     expect(matchesTraderLensPrice(20.01, bounds)).toBe(false);
+  });
+
+  it("All Radar Movers restores the broad candidate view", () => {
+    const bounds = resolveTraderLensBounds("all_movers", 2, 20);
+    const ranked = rankRadarRows(
+      [
+        row({ symbol: "PENNY", volume: 9_000_000, price: 0.8 }),
+        row({ symbol: "MID", volume: 5_000_000, price: 6.4 }),
+        row({ symbol: "GAP", volume: 1_000_000, price: null }),
+      ],
+      "available",
+    );
+    const filtered = applyTraderLensFilter(ranked, "all_movers", bounds);
+    expect(filtered.rows.map((item) => item.symbol)).toEqual(["PENNY", "MID", "GAP"]);
+    expect(filtered.rows.map((item) => item.rank)).toEqual([1, 2, 3]);
+    expect(filtered.sessionMoveFilterApplied).toBe(false);
   });
 
   it("applies the other named price presets", () => {
@@ -95,21 +110,6 @@ describe("Trader Lens price presets", () => {
     expect(parseTraderLensPriceInput("12.5")).toBe(12.5);
   });
 
-  it("does not filter All Movers, including missing prices", () => {
-    const bounds = resolveTraderLensBounds("all_movers", 2, 20);
-    const ranked = rankRadarRows(
-      [
-        row({ symbol: "PENNY", volume: 9_000_000, price: 0.8 }),
-        row({ symbol: "MID", volume: 5_000_000, price: 6.4 }),
-        row({ symbol: "GAP", volume: 1_000_000, price: null }),
-      ],
-      "available",
-    );
-    const filtered = applyTraderLensPriceFilter(ranked, bounds);
-    expect(filtered.map((item) => item.symbol)).toEqual(["PENNY", "MID", "GAP"]);
-    expect(filtered.map((item) => item.rank)).toEqual([1, 2, 3]);
-  });
-
   it("preserves original Radar order and ranks after filtering", () => {
     const ranked = rankRadarRows(
       [
@@ -119,16 +119,65 @@ describe("Trader Lens price presets", () => {
       ],
       "available",
     );
-    const filtered = applyTraderLensPriceFilter(
+    const filtered = applyTraderLensFilter(
       ranked,
+      "momentum_2_20",
       resolveTraderLensBounds("momentum_2_20", null, null),
     );
-    expect(filtered.map((item) => item.symbol)).toEqual(["MID", "HIGH"]);
-    expect(filtered.map((item) => item.rank)).toEqual([2, 3]);
-    expect(filtered[0].signal).toBe("VOLUME LEADER");
-    expect(traderLensShowingCopy(filtered.length, ranked.length)).toBe(
+    expect(filtered.rows.map((item) => item.symbol)).toEqual(["MID", "HIGH"]);
+    expect(filtered.rows.map((item) => item.rank)).toEqual([2, 3]);
+    expect(filtered.sessionMoveUnavailable).toBe(true);
+    expect(filtered.sessionMoveFilterApplied).toBe(false);
+    expect(traderLensShowingCopy(filtered.rows.length, ranked.length)).toBe(
       "Showing 2 of 3 Radar candidates",
     );
+  });
+
+  it("enforces +10% Core Momentum only when regular-session move is verified", () => {
+    const ranked = rankRadarRows(
+      [
+        row({ symbol: "WEAK", volume: 9_000_000, price: 8, change_percent: 4 }),
+        row({ symbol: "STRONG", volume: 5_000_000, price: 9, change_percent: 12 }),
+        row({ symbol: "PENNY", volume: 1_000_000, price: 0.8, change_percent: 40 }),
+      ],
+      "available",
+    );
+    const filtered = applyTraderLensFilter(
+      ranked,
+      "momentum_2_20",
+      resolveTraderLensBounds("momentum_2_20", null, null),
+    );
+    expect(filtered.sessionMoveFilterApplied).toBe(true);
+    expect(filtered.rows.map((item) => item.symbol)).toEqual(["STRONG"]);
+    expect(filtered.rows[0].rank).toBe(2);
+  });
+
+  it("does not substitute 15s/60s move when session move is missing", () => {
+    const ranked = rankRadarRows(
+      [
+        row({
+          symbol: "AAA",
+          volume: 5_000_000,
+          price: 8,
+          change_percent: null,
+        }),
+      ],
+      "available",
+    );
+    const withShortWindow = ranked.map((item) => ({
+      ...item,
+      move_15s_pct: 40,
+      move_60s_pct: 25,
+    }));
+    const filtered = applyTraderLensFilter(
+      withShortWindow,
+      "momentum_2_20",
+      resolveTraderLensBounds("momentum_2_20", null, null),
+    );
+    expect(filtered.sessionMoveFilterApplied).toBe(false);
+    expect(filtered.sessionMoveUnavailable).toBe(true);
+    expect(filtered.rows).toHaveLength(1);
+    expect(CORE_MOMENTUM_MOVE_UNAVAILABLE_COPY).toMatch(/regular-session move unavailable/i);
   });
 
   it("handles missing price honestly when a price band is active", () => {
