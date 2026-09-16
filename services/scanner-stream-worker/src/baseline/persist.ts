@@ -6,6 +6,7 @@ import type { BaselineExclusionPayload } from "../../../../supabase/functions/_s
 import { parseValidatedBaselineExclusions } from "../../../../supabase/functions/_shared/screeners/baseline-exclusion-publish.ts";
 import {
   chunkItemsByRequestBytes,
+  STAGED_CHUNK_MAX_ITEMS,
   STAGED_CHUNK_SAFETY_BYTES,
   STAGED_CHUNK_TARGET_BYTES,
 } from "./chunk.ts";
@@ -14,6 +15,7 @@ import type { FetchLike } from "./grouped.ts";
 import { isValidHighLow, normalizeSymbol } from "./grouped.ts";
 
 export {
+  STAGED_CHUNK_MAX_ITEMS,
   STAGED_CHUNK_SAFETY_BYTES,
   STAGED_CHUNK_TARGET_BYTES,
 } from "./chunk.ts";
@@ -397,6 +399,7 @@ export async function publishGenerationStaged(
     {
       targetBytes: STAGED_CHUNK_TARGET_BYTES,
       safetyBytes: STAGED_CHUNK_SAFETY_BYTES,
+      maxItems: STAGED_CHUNK_MAX_ITEMS,
     },
   );
   if (!rowChunks.ok) return { ok: false, code: "validation_failed" };
@@ -407,6 +410,7 @@ export async function publishGenerationStaged(
     {
       targetBytes: STAGED_CHUNK_TARGET_BYTES,
       safetyBytes: STAGED_CHUNK_SAFETY_BYTES,
+      maxItems: STAGED_CHUNK_MAX_ITEMS,
     },
   );
   if (!exclusionChunks.ok) return { ok: false, code: "validation_failed" };

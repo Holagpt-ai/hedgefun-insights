@@ -1,7 +1,8 @@
-import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assert, assertEquals, assertThrows } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   chunkItemsByRequestBytes,
   serializedRequestBytes,
+  STAGED_CHUNK_MAX_ITEMS,
   STAGED_CHUNK_SAFETY_BYTES,
   STAGED_CHUNK_TARGET_BYTES,
 } from "./chunk.ts";
@@ -330,6 +331,132 @@ Deno.test("chunker rejects a single row above the 1 MiB safety ceiling", () => {
   assertEquals(result.ok, false);
   if (result.ok) return;
   assertEquals(result.code, "row_exceeds_safety_ceiling");
+});
+
+Deno.test("chunker rejects invalid maxItems instead of creating unbounded chunks", () => {
+  const items = [validExclusion("AAPL")];
+  const wrap = (chunk: BaselineExclusionPayload[]) =>
+    wrapAppendExclusionsRequest(GEN, chunk);
+  assertThrows(
+    () => chunkItemsByRequestBytes(items, wrap, { maxItems: 0 }),
+    Error,
+    "invalid staged chunk maxItems",
+  );
+  assertThrows(
+    () => chunkItemsByRequestBytes(items, wrap, { maxItems: 1.5 }),
+    Error,
+    "invalid staged chunk maxItems",
+  );
+});
+
+Deno.test("exactly 2000 small exclusions stay in one chunk when bytes permit", () => {
+  const exclusions = Array.from({ length: STAGED_CHUNK_MAX_ITEMS }, (_, i) =>
+    validExclusion(symbolAt(30_000 + i))
+  );
+  const result = chunkItemsByRequestBytes(
+    exclusions,
+    (chunk) => wrapAppendExclusionsRequest(GEN, chunk),
+    { maxItems: STAGED_CHUNK_MAX_ITEMS },
+  );
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+  assertEquals(result.chunks.length, 1);
+  assertEquals(result.chunks[0].length, 2000);
+  const bytes = serializedRequestBytes(
+    wrapAppendExclusionsRequest(GEN, result.chunks[0]),
+  );
+  assert(bytes <= STAGED_CHUNK_TARGET_BYTES, `2000-item chunk ${bytes}`);
+});
+
+Deno.test("2001 small exclusions split on the item cap", () => {
+  const exclusions = Array.from({ length: 2001 }, (_, i) =>
+    validExclusion(symbolAt(40_000 + i))
+  );
+  const result = chunkItemsByRequestBytes(
+    exclusions,
+    (chunk) => wrapAppendExclusionsRequest(GEN, chunk),
+    { maxItems: STAGED_CHUNK_MAX_ITEMS },
+  );
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+  assert(result.chunks.length >= 2);
+  assertEquals(result.chunks[0].length, 2000);
+  assertEquals(result.chunks[1].length, 1);
+  assertEquals(
+    result.chunks.reduce((n, chunk) => n + chunk.length, 0),
+    2001,
+  );
+});
+
+Deno.test("byte limit still splits before the item cap when rows are large", () => {
+  const rows = Array.from({ length: 800 }, (_, i) => fatRow(symbolAt(i), 8));
+  const result = chunkItemsByRequestBytes(
+    rows,
+    (chunk) => wrapAppendRowsRequest(GEN, chunk),
+    { maxItems: STAGED_CHUNK_MAX_ITEMS },
+  );
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+  assert(result.chunks.length > 1);
+  for (const chunk of result.chunks) {
+    assert(chunk.length < STAGED_CHUNK_MAX_ITEMS);
+    const bytes = serializedRequestBytes(wrapAppendRowsRequest(GEN, chunk));
+    assert(bytes <= STAGED_CHUNK_TARGET_BYTES);
+  }
+  assertEquals(
+    result.chunks.reduce((n, chunk) => n + chunk.length, 0),
+    800,
+  );
+});
+
+Deno.test("2671 production exclusions split into 2000 + 671, not one 502 chunk", async () => {
+  const exclusions = Array.from({ length: 2671 }, (_, i) =>
+    validExclusion(symbolAt(50_000 + i), {
+      sessions_observed: 1 + (i % 119),
+    })
+  );
+  const result = chunkItemsByRequestBytes(
+    exclusions,
+    (chunk) => wrapAppendExclusionsRequest(GEN, chunk),
+    { maxItems: STAGED_CHUNK_MAX_ITEMS },
+  );
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+  assertEquals(result.chunks.length, 2);
+  assertEquals(result.chunks[0].length, 2000);
+  assertEquals(result.chunks[1].length, 671);
+  const seen = new Set<string>();
+  for (const chunk of result.chunks) {
+    assert(chunk.length <= STAGED_CHUNK_MAX_ITEMS);
+    const bytes = serializedRequestBytes(
+      wrapAppendExclusionsRequest(GEN, chunk),
+    );
+    assert(bytes <= STAGED_CHUNK_TARGET_BYTES, `exclusion chunk ${bytes}`);
+    for (const exclusion of chunk) {
+      assertEquals(seen.has(exclusion.symbol), false);
+      seen.add(exclusion.symbol);
+    }
+  }
+  assertEquals(seen.size, 2671);
+
+  const store = new MemoryStagingStore();
+  const client = recordingClient(store);
+  const published = await publishGenerationStaged(client, {
+    generationId: GEN,
+    rows: [validRow("AAPL")],
+    exclusions,
+    minSessions: 120,
+    periodStart: START,
+    periodEnd: END,
+    providerAsOf: AS_OF,
+  });
+  assertEquals(published.ok, true);
+  if (!published.ok) return;
+  assertEquals(client.exclusionChunkSizes.length, 2);
+  for (const bytes of client.exclusionChunkSizes) {
+    assert(bytes <= STAGED_CHUNK_TARGET_BYTES);
+  }
+  assertEquals(store.production.policy_excluded_count, 2671);
 });
 
 Deno.test("staged publish splits requests, preserves every row/exclusion once, and stays under ceiling", async () => {
@@ -860,5 +987,68 @@ Deno.test("payload size proof: staged requests stay far below the 14.8 MB one-sh
     total_baseline_rows: baselineCount,
     total_exclusions: exclusionCount,
     total_rows_preserved: baselineCount + exclusionCount,
+  }));
+});
+
+Deno.test("production-shape 11961/2671 honors item cap and 512 KiB target", () => {
+  const baselineCount = 11_961;
+  const exclusionCount = 2_671;
+  const rows = Array.from({ length: baselineCount }, (_, i) => fatRow(symbolAt(i), 8));
+  const exclusions = Array.from({ length: exclusionCount }, (_, i) =>
+    validExclusion(symbolAt(20_000 + i), {
+      sessions_observed: 1 + (i % 119),
+    })
+  );
+  const rowChunks = chunkItemsByRequestBytes(
+    rows,
+    (chunk) => wrapAppendRowsRequest(GEN, chunk),
+    { maxItems: STAGED_CHUNK_MAX_ITEMS },
+  );
+  const exclusionChunks = chunkItemsByRequestBytes(
+    exclusions,
+    (chunk) => wrapAppendExclusionsRequest(GEN, chunk),
+    { maxItems: STAGED_CHUNK_MAX_ITEMS },
+  );
+  assertEquals(rowChunks.ok, true);
+  assertEquals(exclusionChunks.ok, true);
+  if (!rowChunks.ok || !exclusionChunks.ok) return;
+
+  assertEquals(exclusionChunks.chunks.length, 2);
+  assertEquals(exclusionChunks.chunks[0].length, 2000);
+  assertEquals(exclusionChunks.chunks[1].length, 671);
+
+  const rowItemCounts = rowChunks.chunks.map((chunk) => chunk.length);
+  const rowBytes = rowChunks.chunks.map((chunk) =>
+    serializedRequestBytes(wrapAppendRowsRequest(GEN, chunk))
+  );
+  const exclusionItemCounts = exclusionChunks.chunks.map((chunk) => chunk.length);
+  const exclusionBytes = exclusionChunks.chunks.map((chunk) =>
+    serializedRequestBytes(wrapAppendExclusionsRequest(GEN, chunk))
+  );
+
+  for (const count of [...rowItemCounts, ...exclusionItemCounts]) {
+    assert(count <= STAGED_CHUNK_MAX_ITEMS);
+  }
+  for (const bytes of [...rowBytes, ...exclusionBytes]) {
+    assert(bytes <= STAGED_CHUNK_TARGET_BYTES);
+    assert(bytes <= STAGED_CHUNK_SAFETY_BYTES);
+  }
+  assertEquals(
+    rowChunks.chunks.reduce((n, chunk) => n + chunk.length, 0),
+    baselineCount,
+  );
+  assertEquals(
+    exclusionChunks.chunks.reduce((n, chunk) => n + chunk.length, 0),
+    exclusionCount,
+  );
+
+  console.log(JSON.stringify({
+    msg: "production_shape_item_cap_proof",
+    baseline_chunk_count: rowChunks.chunks.length,
+    largest_baseline_item_count: Math.max(...rowItemCounts),
+    largest_baseline_payload_bytes: Math.max(...rowBytes),
+    exclusion_chunk_count: exclusionChunks.chunks.length,
+    exclusion_item_counts: exclusionItemCounts,
+    largest_exclusion_payload_bytes: Math.max(...exclusionBytes),
   }));
 });
