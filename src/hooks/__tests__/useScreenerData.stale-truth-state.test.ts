@@ -60,6 +60,8 @@ function gapperRow() {
     volume: 1_000_000,
     avg_volume: null,
     rvol: null,
+    avg_volume_20d: null,
+    rvol_20d: null,
     float_shares: null,
     gap_percent: 6,
     high_52w: null,

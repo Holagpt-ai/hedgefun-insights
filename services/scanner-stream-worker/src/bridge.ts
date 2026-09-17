@@ -317,6 +317,12 @@ export function createRadarBridge(opts: {
         { ...args },
         defaultTimeout,
       ),
+    appendVolumeHistory: (args) =>
+      stagedResult(
+        "append_daily_volume_history",
+        { ...args },
+        defaultTimeout,
+      ),
     finalize: (args) =>
       stagedResult(
         "finalize_52w_baseline_publish",

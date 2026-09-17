@@ -341,6 +341,8 @@ export function mapCandidateToScreenerRow(
     volume: isFiniteNumber(row.session_volume) ? row.session_volume : null,
     avg_volume: null,
     rvol: null, // Not persisted; never fabricated → UI renders `—`.
+    avg_volume_20d: null,
+    rvol_20d: null,
     float_shares: null,
     gap_percent: null, // No prior close persisted → no honest gap.
     high_52w: null,

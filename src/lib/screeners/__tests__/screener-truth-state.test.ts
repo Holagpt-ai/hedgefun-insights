@@ -53,6 +53,8 @@ function gapperRow(symbol: string, gap: number, volume: number): ScreenerResultR
     volume,
     avg_volume: null,
     rvol: null,
+    avg_volume_20d: null,
+    rvol_20d: null,
     float_shares: null,
     gap_percent: gap,
     high_52w: null,

@@ -13,6 +13,7 @@ export const RADAR_BRIDGE_ACTIONS = [
   "start_52w_baseline_publish",
   "append_52w_baseline_rows",
   "append_52w_baseline_exclusions",
+  "append_daily_volume_history",
   "finalize_52w_baseline_publish",
   "get_52w_state",
 ] as const;

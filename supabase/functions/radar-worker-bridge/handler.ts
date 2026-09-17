@@ -22,6 +22,8 @@ export const START_52W_PUBLISH_RPC = "start_screener_52w_baseline_publish_v1";
 export const APPEND_52W_ROWS_RPC = "append_screener_52w_baseline_rows_v1";
 export const APPEND_52W_EXCLUSIONS_RPC =
   "append_screener_52w_baseline_exclusions_v1";
+export const APPEND_DAILY_VOLUME_RPC =
+  "append_screener_daily_volume_history_v1";
 export const FINALIZE_52W_PUBLISH_RPC =
   "finalize_screener_52w_baseline_publish_v1";
 export const CALENDAR_TABLE = "market_session_calendar";
@@ -402,6 +404,28 @@ async function handleAction(
       return await rpcResult(db, APPEND_52W_EXCLUSIONS_RPC, {
         p_generation_id: generationId,
         p_exclusions: body.p_exclusions,
+      }, rpcMeta);
+    }
+    case "append_daily_volume_history": {
+      const generationId = readNonEmptyString(body.p_generation_id);
+      const providerAsOf = readNonEmptyString(body.p_provider_as_of);
+      if (
+        generationId === null ||
+        providerAsOf === null ||
+        !Array.isArray(body.p_rows)
+      ) {
+        return json({ error: "invalid_body" }, 400);
+      }
+      bridgeLog("radar_bridge_append_payload_bytes", {
+        request_id: requestId,
+        action,
+        payload_bytes: payloadBytes(body),
+        chunk_item_count: body.p_rows.length,
+      });
+      return await rpcResult(db, APPEND_DAILY_VOLUME_RPC, {
+        p_generation_id: generationId,
+        p_rows: body.p_rows,
+        p_provider_as_of: providerAsOf,
       }, rpcMeta);
     }
     case "finalize_52w_baseline_publish": {

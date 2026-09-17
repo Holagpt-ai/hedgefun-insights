@@ -56,7 +56,6 @@ describe("scanner field registry", () => {
   it("registers future rvol / trigger fields as unavailable", () => {
     for (const id of [
       "short_float",
-      "daily_rvol",
       "rvol_5m",
       "market_cap",
       "trigger_time",
@@ -66,6 +65,25 @@ describe("scanner field registry", () => {
       expect(getScannerField(id)?.availability).toBe("unavailable");
       expect(getScannerField(id)?.defaultVisible).toBe(false);
     }
+  });
+
+  it("registers RVOL 20D and Dollar Volume with honest trader-intelligence copy", () => {
+    const rvol = getScannerField("daily_rvol");
+    expect(rvol?.label).toBe("RVOL 20D");
+    expect(rvol?.shortLabel).toBe("RVOL 20D");
+    expect(rvol?.availability).toBe("source-dependent");
+    expect(rvol?.description).toMatch(/not adjusted for time of day/i);
+    expect(rvol?.description).not.toMatch(/5m|intraday normalized|time-adjusted RVOL/i);
+    expect(rvol?.sortable).toBe(true);
+    expect(rvol?.filterable).toBe(true);
+
+    const dollarVolume = getScannerField("dollar_volume");
+    expect(dollarVolume?.label).toBe("Dollar Volume");
+    expect(dollarVolume?.availability).toBe("source-dependent");
+    expect(dollarVolume?.example).toMatch(/\$0\.25/);
+    expect(dollarVolume?.example).toMatch(/\$12/);
+    expect(dollarVolume?.sortable).toBe(true);
+    expect(dollarVolume?.filterable).toBe(true);
   });
 
   it("marks Float and Float Turnover as source-dependent after verified Massive mapping", () => {

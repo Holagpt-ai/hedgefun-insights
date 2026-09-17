@@ -5,7 +5,7 @@ export type FetchLike = (
   init?: RequestInit,
 ) => Promise<Response>;
 
-export type BarHL = { h: number; l: number };
+export type BarHL = { h: number; l: number; v: number | null };
 export type DailyCache = Map<string, Map<string, BarHL>>;
 
 export const GROUPED_BASE =
@@ -61,13 +61,15 @@ export function parseGroupedResults(body: unknown): Map<string, BarHL> {
     if (item === null || typeof item !== "object" || Array.isArray(item)) {
       continue;
     }
-    const row = item as { T?: unknown; h?: unknown; l?: unknown };
+    const row = item as { T?: unknown; h?: unknown; l?: unknown; v?: unknown };
     const symbol = normalizeSymbol(row.T);
     if (!symbol) continue;
     const high = Number(row.h);
     const low = Number(row.l);
     if (!isValidHighLow(high, low)) continue;
-    out.set(symbol, { h: high, l: low });
+    const volume = Number(row.v);
+    const v = Number.isFinite(volume) && volume > 0 ? volume : null;
+    out.set(symbol, { h: high, l: low, v });
   }
   return out;
 }

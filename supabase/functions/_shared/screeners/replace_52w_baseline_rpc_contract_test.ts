@@ -13,6 +13,8 @@ const SET_BASED_MIGRATIONS = [
 ] as const;
 const ELIGIBILITY_MIGRATION =
   "../../../migrations/20260915180000_screener_prerequisite_eligibility_v1.sql";
+const SPRINT_VOLUME_MIGRATION =
+  "../../../migrations/20260917180000_screener_daily_volume_baseline_v1.sql";
 const HISTORICAL_MIGRATIONS = [
   "../../../migrations/20260813190000_screener_52w_baselines.sql",
   "../../../migrations/20260814154404_11fa443d-48cf-4b31-9afb-2a95ce6338f4.sql",
@@ -59,24 +61,17 @@ function functionBody(sql: string): string {
   return sql.slice(begin, end);
 }
 
-Deno.test("static: set-based migrations are the later RPC definitions", async () => {
+Deno.test("static: latest replace RPC definition is Sprint 1B volume migration", async () => {
   const migrationsDir = new URL("../../../migrations/", import.meta.url);
-  const defs: string[] = [];
+  let latest = "";
   for await (const entry of Deno.readDir(migrationsDir)) {
     if (!entry.isFile || !entry.name.endsWith(".sql")) continue;
     const sql = await Deno.readTextFile(new URL(entry.name, migrationsDir));
     if (sql.includes(`CREATE OR REPLACE FUNCTION public.${RPC_NAME}`)) {
-      defs.push(entry.name);
+      if (entry.name > latest) latest = entry.name;
     }
   }
-  defs.sort();
-  assertEquals(defs, [
-    "20260813190000_screener_52w_baselines.sql",
-    "20260814154404_11fa443d-48cf-4b31-9afb-2a95ce6338f4.sql",
-    "20260828200000_screener_52w_baseline_replace_generation_set_based_v1.sql",
-    "20260829002443_7ba9725f-987a-4537-998b-bd7ee6a0a057.sql",
-    "20260915180000_screener_prerequisite_eligibility_v1.sql",
-  ]);
+  assertEquals(latest, "20260917180000_screener_daily_volume_baseline_v1.sql");
 });
 
 async function assertSetBasedContract(rel: string): Promise<void> {
@@ -118,6 +113,12 @@ Deno.test("static: Cursor and Lovable set-based definitions match the public con
     await assertSetBasedContract(rel);
   }
   await assertSetBasedContract(ELIGIBILITY_MIGRATION);
+});
+
+Deno.test("static: Sprint 1B replace preserves set-based contract and adds volume cleanup", async () => {
+  await assertSetBasedContract(SPRINT_VOLUME_MIGRATION);
+  const body = functionBody(await load(SPRINT_VOLUME_MIGRATION));
+  assert(body.includes("cleanup_stale_screener_volume_generations_v1"));
 });
 
 Deno.test("static: historical migrations that defined the RPC were not edited", async () => {

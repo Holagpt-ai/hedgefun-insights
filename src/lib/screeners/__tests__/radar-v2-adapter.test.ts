@@ -460,6 +460,27 @@ describe("Radar V2 adapter — downstream contract (Phase H)", () => {
   });
 });
 
+describe("Radar V2 adapter — intelligence fields do not affect Discovery Rank", () => {
+  it("compareCandidatesVolumeFirst ignores RVOL 20D and session Dollar Volume", () => {
+    const highVolume = candidate({
+      symbol: "AAA",
+      session_volume: 5_000_000,
+      volume_60s: 100_000,
+      dollar_volume_60s: 500_000,
+    });
+    const lowVolume = candidate({
+      symbol: "BBB",
+      session_volume: 1_000_000,
+      volume_60s: 500_000,
+      dollar_volume_60s: 5_000_000,
+      acceleration_5m: 99,
+      move_60s_pct: 99,
+    });
+    expect(compareCandidatesVolumeFirst(highVolume, lowVolume)).toBeLessThan(0);
+    expect(compareCandidatesVolumeFirst(lowVolume, highVolume)).toBeGreaterThan(0);
+  });
+});
+
 describe("Radar V2 adapter — handshake helpers (D11 / D14)", () => {
   it("accepts a matching current feed pair for the same generation", () => {
     const a = feed();

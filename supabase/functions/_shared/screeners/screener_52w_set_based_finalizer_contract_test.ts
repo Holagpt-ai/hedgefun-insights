@@ -48,6 +48,7 @@ Deno.test("static: set-based finalizer is the latest publish-finalize definition
   assertEquals(defs, [
     "20260915200000_screener_52w_baseline_chunked_publish_v1.sql",
     "20260916010000_screener_52w_set_based_finalizer_v1.sql",
+    "20260917180000_screener_daily_volume_baseline_v1.sql",
   ]);
 });
 

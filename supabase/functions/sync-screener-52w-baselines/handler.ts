@@ -20,12 +20,14 @@ import {
 } from "../_shared/markets/baseline-window.ts";
 import {
   barsToPayload,
+  barsToVolumePayload,
   fetchGroupedDay,
 } from "../_shared/screeners/grouped-daily.ts";
 import { parseStatePolicyExclusionFields } from "../_shared/screeners/baseline-coverage.ts";
 
 export const START_JOB_RPC = "start_screener_52w_baseline_job_v1";
 export const APPLY_DAY_RPC = "apply_screener_52w_baseline_day_v1";
+export const APPLY_VOLUME_DAY_RPC = "apply_screener_daily_volume_day_v1";
 export const FINALIZE_JOB_RPC = "finalize_screener_52w_baseline_job_v1";
 export const ACQUIRE_RUN_LEASE_RPC =
   "try_acquire_screener_52w_baseline_run_lease_v1";
@@ -453,7 +455,7 @@ async function runCatchup(
   for (const date of batch) {
     const lostBeforeDate = await renewRunLease(sb, holderId, ttlMs);
     if (lostBeforeDate) return lostBeforeDate;
-    let bars: Map<string, { h: number; l: number }>;
+    let bars: Map<string, { h: number; l: number; v: number | null }>;
     try {
       bars = await fetchGroupedDay(date, apiKey, deps.fetch);
     } catch (e) {
@@ -475,6 +477,18 @@ async function runCatchup(
       console.error("[sync-screener-52w-baselines] persist_failed");
       return json({ error: "persist_failed" }, 500);
     }
+
+    const volumeApplied = await sb.rpc(APPLY_VOLUME_DAY_RPC, {
+      p_generation_id: job.generation_id,
+      p_session_date: date,
+      p_bars: barsToVolumePayload(bars),
+      p_provider_as_of: nowIso,
+    });
+    if (volumeApplied.error) {
+      console.error("[sync-screener-52w-baselines] persist_failed");
+      return json({ error: "persist_failed" }, 500);
+    }
+
     const snap = applied.data as {
       last_applied_date?: string;
       dates_applied?: number;

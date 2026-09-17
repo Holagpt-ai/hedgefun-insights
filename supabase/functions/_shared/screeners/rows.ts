@@ -16,6 +16,10 @@ import {
   type ScreenerTabId,
 } from "./selection.ts";
 import type { NhlClassification, RangeEvent } from "./new-highs-lows.ts";
+import {
+  type VolumeBaselineQuote,
+  rvol20dFromBaseline,
+} from "./volume-baseline.ts";
 
 export type ScreenerResultRow = {
   tab_id: string;
@@ -38,10 +42,47 @@ export type ScreenerResultRow = {
   volume_ratio_prior_session: number | null;
   day_high: number | null;
   day_low: number | null;
+  avg_volume_20d: number | null;
+  rvol_20d: number | null;
   provider_as_of: string;
   sync_run_id: string;
   updated_at: string;
 };
+
+const RVOL_20D_TAB_IDS = new Set([
+  "day_trade_radar",
+  "volume_spikes",
+  "unusual_volume",
+  "gainers_losers",
+]);
+
+export function easternTradingDateFromMs(nowMs: number): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(nowMs));
+}
+
+export function attachRvol20dToRows(
+  rows: ScreenerResultRow[],
+  baselines: Map<string, VolumeBaselineQuote>,
+  tradingDate: string,
+): ScreenerResultRow[] {
+  return rows.map((row) => {
+    if (!RVOL_20D_TAB_IDS.has(row.tab_id)) {
+      return { ...row, avg_volume_20d: null, rvol_20d: null };
+    }
+    const baseline = baselines.get(row.symbol) ?? null;
+    const metrics = rvol20dFromBaseline(row.volume, baseline, tradingDate);
+    return {
+      ...row,
+      avg_volume_20d: metrics.avg_volume_20d,
+      rvol_20d: metrics.rvol_20d,
+    };
+  });
+}
 
 export type NameLookup = (symbol: string) => string;
 
@@ -141,6 +182,8 @@ function baseRow(
     volume_ratio_prior_session,
     day_high: range.high,
     day_low: range.low,
+    avg_volume_20d: null,
+    rvol_20d: null,
     provider_as_of: providerAsOf,
     sync_run_id: meta.syncRunId,
     updated_at: meta.syncedAt,

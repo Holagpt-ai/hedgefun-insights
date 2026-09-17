@@ -92,6 +92,9 @@ function recordingStaged(
       exclusions.push(...args.p_exclusions);
       return { error: null };
     },
+    async appendVolumeHistory(_args) {
+      return { error: null };
+    },
     async finalize(args) {
       if (opts?.failAt === "finalize") {
         return { error: { message: "persist_failed" } };

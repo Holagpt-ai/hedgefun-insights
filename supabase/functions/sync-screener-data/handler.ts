@@ -28,11 +28,17 @@ import {
   summarizeRadarDiagnostics,
 } from "../_shared/screeners/diagnostics.ts";
 import {
+  attachRvol20dToRows,
+  easternTradingDateFromMs,
   type GenerationMeta,
   mapNewHighsLows,
   mapTabRows,
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
+import {
+  parseVolumeBaselineRow,
+  type VolumeBaselineQuote,
+} from "../_shared/screeners/volume-baseline.ts";
 import {
   buildTabEvaluationEvidence,
   type TabEvaluationEvidenceMap,
@@ -205,6 +211,46 @@ async function loadCurrentTabEvaluationEvidence(
   } catch {
     return null;
   }
+}
+
+async function loadVolumeBaselines(
+  sb: DbClient,
+): Promise<Map<string, VolumeBaselineQuote>> {
+  const out = new Map<string, VolumeBaselineQuote>();
+  try {
+    const stateRes = await sb
+      .from("screener_52w_baseline_state")
+      .select("current_generation_id,status")
+      .eq("state_key", "current")
+      .limit(1);
+    if (stateRes.error || !stateRes.data?.length) return out;
+    const generationId = stateRes.data[0].current_generation_id;
+    const status = stateRes.data[0].status;
+    if (status !== "available" || typeof generationId !== "string" || !generationId) {
+      return out;
+    }
+
+    let from = 0;
+    while (true) {
+      const page = await sb
+        .from("screener_volume_baselines")
+        .select(
+          "symbol,avg_volume_20d,volume_sessions_used,window_start_date,window_end_date",
+        )
+        .eq("generation_id", generationId)
+        .range(from, from + BASELINE_PAGE - 1);
+      if (page.error || !page.data) return out;
+      for (const item of page.data) {
+        const parsed = parseVolumeBaselineRow(item);
+        if (parsed) out.set(parsed.symbol, parsed);
+      }
+      if (page.data.length < BASELINE_PAGE) break;
+      from += BASELINE_PAGE;
+    }
+  } catch {
+    return out;
+  }
+  return out;
 }
 
 async function loadNhlBaseline(sb: DbClient): Promise<{
@@ -436,7 +482,10 @@ export async function handleSyncScreenerData(
 
   // ── Database reads begin only after freshness evidence is verified ──────
   const sb = deps.createClient(supabaseUrl, serviceRole);
-  const nhlBaseline = await loadNhlBaseline(sb);
+  const [nhlBaseline, volumeBaselines] = await Promise.all([
+    loadNhlBaseline(sb),
+    loadVolumeBaselines(sb),
+  ]);
   const nhlSelected = nhlBaseline.status === "available"
     ? selectNewHighsLows(allTickers, nhlBaseline.quotes)
     : [];
@@ -486,7 +535,7 @@ export async function handleSyncScreenerData(
   );
   const nhlRows = mapNewHighsLows(nhlSelected, getName, meta);
 
-  const allRows = [
+  let allRows = [
     ...dayTradeRows,
     ...gapperRows,
     ...volumeSpikeRows,
@@ -494,6 +543,12 @@ export async function handleSyncScreenerData(
     ...unusualVolumeRows,
     ...nhlRows,
   ];
+
+  allRows = attachRvol20dToRows(
+    allRows,
+    volumeBaselines,
+    easternTradingDateFromMs(nowMs),
+  );
 
   const tabEvaluationEvidence = buildTabEvaluationEvidence({
     universe: allTickers,

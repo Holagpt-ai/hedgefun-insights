@@ -77,6 +77,8 @@ export interface ScreenerResultRow {
   market_cap: number | null;
   prior_session_volume: number | null;
   volume_ratio_prior_session: number | null;
+  avg_volume_20d: number | null;
+  rvol_20d: number | null;
   day_high: number | null;
   day_low: number | null;
   provider_as_of: string;

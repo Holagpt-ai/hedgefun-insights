@@ -41,6 +41,8 @@ export const RADAR_COLUMN_IDS = [
   "volume_15s",
   "volume_60s",
   "dollar_volume_60s",
+  "daily_rvol",
+  "dollar_volume",
   "acceleration_5m",
   "vwap_state",
   "freshness",
@@ -78,6 +80,8 @@ export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
   { id: "volume_15s", label: "15s Volume", fieldId: "volume_15s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "volume_60s", label: "60s Volume", fieldId: "volume_60s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "dollar_volume_60s", label: "60s Dollar Volume", fieldId: "dollar_volume_60s", defaultVisible: false, required: false, align: "right", optional: true },
+  { id: "daily_rvol", label: "RVOL 20D", fieldId: "daily_rvol", defaultVisible: false, required: false, align: "right", optional: true },
+  { id: "dollar_volume", label: "Dollar Volume", fieldId: "dollar_volume", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "acceleration_5m", label: "5m Acceleration", fieldId: "acceleration_5m", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "vwap_state", label: "VWAP State", fieldId: "vwap_state", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "freshness", label: "Freshness", fieldId: "freshness", defaultVisible: false, required: false, align: "right", optional: true },
@@ -106,7 +110,6 @@ export const REQUIRED_RADAR_COLUMN_IDS: readonly RadarColumnId[] = RADAR_COLUMN_
 
 export const FUTURE_RADAR_COLUMN_FIELD_IDS = [
   "short_float",
-  "daily_rvol",
   "rvol_5m",
   "spread",
   "market_cap",

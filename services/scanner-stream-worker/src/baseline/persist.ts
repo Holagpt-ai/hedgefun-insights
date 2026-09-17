@@ -101,6 +101,18 @@ export type AppendExclusionsArgs = {
   p_exclusions: BaselineExclusionPayload[];
 };
 
+export type VolumeHistoryRow = {
+  symbol: string;
+  session_date: string;
+  volume: number;
+};
+
+export type AppendVolumeHistoryArgs = {
+  p_generation_id: string;
+  p_rows: VolumeHistoryRow[];
+  p_provider_as_of: string;
+};
+
 export type FinalizePublishArgs = {
   p_generation_id: string;
 };
@@ -114,6 +126,9 @@ export type StagedPublishClient = {
   ) => Promise<{ error: { message: string } | null }>;
   appendExclusions: (
     args: AppendExclusionsArgs,
+  ) => Promise<{ error: { message: string } | null }>;
+  appendVolumeHistory: (
+    args: AppendVolumeHistoryArgs,
   ) => Promise<{ error: { message: string } | null }>;
   finalize: (
     args: FinalizePublishArgs,
@@ -143,6 +158,20 @@ export function wrapAppendExclusionsRequest(
     action: "append_52w_baseline_exclusions",
     p_generation_id: generationId,
     p_exclusions: exclusions,
+    request_id: STAGED_REQUEST_ID_PLACEHOLDER,
+  };
+}
+
+export function wrapAppendVolumeHistoryRequest(
+  generationId: string,
+  rows: VolumeHistoryRow[],
+  providerAsOf: string,
+): Record<string, unknown> {
+  return {
+    action: "append_daily_volume_history",
+    p_generation_id: generationId,
+    p_rows: rows,
+    p_provider_as_of: providerAsOf,
     request_id: STAGED_REQUEST_ID_PLACEHOLDER,
   };
 }
@@ -366,6 +395,7 @@ export async function publishGenerationStaged(
     generationId: string;
     rows: BaselineRow[];
     exclusions: BaselineExclusionPayload[];
+    volumeHistoryRows?: VolumeHistoryRow[];
     minSessions: number;
     periodStart: string;
     periodEnd: string;
@@ -446,6 +476,35 @@ export async function publishGenerationStaged(
       })
     );
     if (!appended) return { ok: false, code: "persist_failed" };
+  }
+
+  const volumeRows = input.volumeHistoryRows ?? [];
+  if (volumeRows.length > 0) {
+    const volumeChunks = chunkItemsByRequestBytes(
+      volumeRows,
+      (chunk) =>
+        wrapAppendVolumeHistoryRequest(
+          input.generationId,
+          chunk,
+          input.providerAsOf,
+        ),
+      {
+        targetBytes: STAGED_CHUNK_TARGET_BYTES,
+        safetyBytes: STAGED_CHUNK_SAFETY_BYTES,
+        maxItems: STAGED_CHUNK_MAX_ITEMS,
+      },
+    );
+    if (!volumeChunks.ok) return { ok: false, code: "validation_failed" };
+    for (const chunk of volumeChunks.chunks) {
+      const appended = await stagedOk(() =>
+        publish.appendVolumeHistory({
+          p_generation_id: input.generationId,
+          p_rows: chunk,
+          p_provider_as_of: input.providerAsOf,
+        })
+      );
+      if (!appended) return { ok: false, code: "persist_failed" };
+    }
   }
 
   const finalized = await stagedOk(() =>

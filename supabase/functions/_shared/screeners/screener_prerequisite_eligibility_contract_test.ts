@@ -54,13 +54,17 @@ Deno.test("static: eligibility migration is the latest replace and finalize defi
   replaceDefs.sort();
   replaceWithExclusionsDefs.sort();
   finalizeDefs.sort();
-  assertEquals(replaceDefs[replaceDefs.length - 1], "20260915180000_screener_prerequisite_eligibility_v1.sql");
+  assertEquals(
+    replaceDefs[replaceDefs.length - 1],
+    "20260917180000_screener_daily_volume_baseline_v1.sql",
+  );
   assertEquals(replaceWithExclusionsDefs, [
     "20260915180000_screener_prerequisite_eligibility_v1.sql",
   ]);
   assertEquals(finalizeDefs, [
     "20260814180000_screener_52w_baseline_job.sql",
     "20260915180000_screener_prerequisite_eligibility_v1.sql",
+    "20260917180000_screener_daily_volume_baseline_v1.sql",
   ]);
 });
 

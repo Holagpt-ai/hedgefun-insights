@@ -262,11 +262,20 @@ class MemoryStagingStore {
     return { error: null };
   }
 
+  appendVolumeHistory(_args: {
+    p_generation_id: string;
+    p_rows: unknown[];
+    p_provider_as_of: string;
+  }) {
+    return Promise.resolve({ error: null });
+  }
+
   client(): StagedPublishClient {
     return {
       start: async (args) => this.start(args),
       appendRows: async (args) => this.appendRows(args),
       appendExclusions: async (args) => this.appendExclusions(args),
+      appendVolumeHistory: async (args) => this.appendVolumeHistory(args),
       finalize: async (args) => this.finalize(args),
     };
   }
@@ -297,6 +306,7 @@ function recordingClient(store: MemoryStagingStore): StagedPublishClient & {
       );
       return inner.appendExclusions(args);
     },
+    appendVolumeHistory: inner.appendVolumeHistory,
     finalize: inner.finalize,
   };
 }
@@ -601,6 +611,7 @@ Deno.test("failed middle chunk never flips the production generation", async () 
       return store.appendRows(args);
     },
     appendExclusions: async (args) => store.appendExclusions(args),
+    appendVolumeHistory: async (args) => store.appendVolumeHistory(args),
     finalize: async (args) => store.finalize(args),
   };
   const published = await publishGenerationStaged(client, {
@@ -628,6 +639,7 @@ Deno.test("failed finalizer never flips the production generation", async () => 
     start: inner.start,
     appendRows: inner.appendRows,
     appendExclusions: inner.appendExclusions,
+    appendVolumeHistory: inner.appendVolumeHistory,
     finalize: async () => ({ error: { message: "persist_failed" } }),
   };
   const published = await publishGenerationStaged(client, {

@@ -7,6 +7,7 @@ import {
 import {
   ACQUIRE_RUN_LEASE_RPC,
   APPLY_DAY_RPC,
+  APPLY_VOLUME_DAY_RPC,
   type BaselineSyncDeps,
   type DbClient,
   type DbQuery,
@@ -231,6 +232,19 @@ class FakeBaselineDb {
           return {
             data: {
               skipped: result.skipped,
+              dates_applied: this.job.dates_applied,
+              last_applied_date: this.job.last_applied_date,
+            },
+            error: null,
+          };
+        }
+        if (fn === APPLY_VOLUME_DAY_RPC) {
+          if (!this.job) {
+            return { data: null, error: { message: "job missing" } };
+          }
+          return {
+            data: {
+              skipped: false,
               dates_applied: this.job.dates_applied,
               last_applied_date: this.job.last_applied_date,
             },
