@@ -23,8 +23,8 @@ Deno.test("loadEnv does not require SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL", 
   assertEquals(env.radarBridgeUrl.endsWith("radar-worker-bridge"), true);
   assertEquals(env.radarWorkerSecret, "worker-secret");
   assertEquals(env.massiveWsMode, "delayed");
-  assertEquals(env.radarSentinelEnabled, false);
-  assertEquals(env.radarPersistenceV2Enabled, false);
+  assertEquals(env.radarSentinelEnabled, true);
+  assertEquals(env.radarPersistenceV2Enabled, true);
   assertEquals(env.radarPersistenceV2CheckpointMs, 30_000);
   assertEquals("supabaseServiceRoleKey" in env, false);
   assertEquals("supabaseUrl" in env, false);
