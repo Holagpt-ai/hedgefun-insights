@@ -34,6 +34,45 @@ Deno.test("preserve: gappers evaluated → prerequisite_unavailable retains prio
   );
 });
 
+Deno.test("preserve: nhl evaluated → not_evaluated retains prior generation", () => {
+  const prior: TabEvaluationEvidenceMap = {
+    new_highs_lows: {
+      status: "evaluated",
+      baseline_status: "available",
+      baseline_quote_count: 11_979,
+      universe_count: 13_223,
+      eligible_count: 9_693,
+      evaluated_count: 9_019,
+      policy_excluded_count: 666,
+      no_history_count: 8,
+      unresolved_count: 0,
+      qualified_count: 181,
+      selected_count: 20,
+    },
+  };
+  const next: TabEvaluationEvidenceMap = {
+    new_highs_lows: {
+      status: "not_evaluated",
+      baseline_status: "available",
+      baseline_quote_count: 11_979,
+      universe_count: 13_223,
+      eligible_count: 9_693,
+      evaluated_count: 9_019,
+      policy_excluded_count: 666,
+      no_history_count: 7,
+      unresolved_count: 1,
+      qualified_count: 181,
+      selected_count: 20,
+      reason: "baseline_coverage_incomplete",
+      unresolved_symbols: ["HOLE"],
+    },
+  };
+  assertEquals(
+    shouldPreservePriorScreenerGeneration({ priorEvidence: prior, nextEvidence: next }),
+    true,
+  );
+});
+
 Deno.test("preserve: validated zero after evaluated does not retain", () => {
   const prior: TabEvaluationEvidenceMap = {
     volume_spikes: {

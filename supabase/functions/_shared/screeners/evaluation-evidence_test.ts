@@ -1,10 +1,17 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import type { PolicyExclusionEvidence } from "./baseline-coverage.ts";
 import {
+  POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+  type PolicyExclusionEvidence,
+} from "./baseline-coverage.ts";
+import {
+  buildTabEvaluationEvidence,
   evaluateGappersEvidence,
   evaluateNhlEvidence,
+  isSafelyClassifiableNoHistory,
+  NHL_DIAGNOSTIC_SYMBOL_CAP,
   type HistoricalCoverageEvidence,
 } from "./evaluation-evidence.ts";
+import { selectNewHighsLows } from "./new-highs-lows.ts";
 import type { NhlBaselineQuote } from "./new-highs-lows.ts";
 import type { PolygonTicker } from "./selection.ts";
 
@@ -319,19 +326,21 @@ Deno.test("nhl: missing baseline + validated insufficient-session exclusion is p
   assertEquals(evidence.qualified_count, 0);
 });
 
-Deno.test("nhl: missing baseline + no exclusion is unresolved/fail closed", () => {
+Deno.test("nhl: missing baseline + complete exclusion evidence is no_history", () => {
   const evidence = evaluateNhlEvidence(
-    [ticker("AAA")],
+    [ticker("IPO1")],
     new Map([["ZZZ", quote("ZZZ")]]),
     "available",
     [],
     exclusionEvidence([]),
   );
-  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.evaluated_count, 0);
   assertEquals(evidence.policy_excluded_count, 0);
-  assertEquals(evidence.unresolved_count, 1);
-  assertEquals(evidence.reason, "baseline_coverage_incomplete");
+  assertEquals(evidence.no_history_count, 1);
+  assertEquals(evidence.unresolved_count, 0);
+  assertEquals(evidence.no_history_symbols, ["IPO1"]);
+  assertEquals(isSafelyClassifiableNoHistory("IPO1", new Map(), exclusionEvidence([])), true);
 });
 
 Deno.test("nhl: unavailable exclusion evidence with missing baseline fails closed", () => {
@@ -406,9 +415,164 @@ Deno.test("nhl: zero qualifier with complete accounting is evaluated", () => {
   assertEquals(evidence.qualified_count, 0);
   assertEquals(evidence.selected_count, 0);
   assertEquals(
-    evidence.evaluated_count! + evidence.policy_excluded_count!,
+    evidence.evaluated_count! + evidence.policy_excluded_count! +
+      (evidence.no_history_count ?? 0),
     evidence.eligible_count,
   );
+});
+
+Deno.test("nhl: invalid baseline row in map is unresolved not no_history", () => {
+  const corrupt: NhlBaselineQuote = {
+    symbol: "BAD",
+    high_52w: Number.NaN,
+    low_52w: 5,
+    sessions_observed: 120,
+  };
+  const evidence = evaluateNhlEvidence(
+    [ticker("BAD")],
+    new Map([["BAD", corrupt]]),
+    "available",
+    [],
+    exclusionEvidence([]),
+  );
+  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.unresolved_count, 1);
+  assertEquals(evidence.no_history_count, 0);
+  assertEquals(evidence.unresolved_symbols, ["BAD"]);
+  assertEquals(isSafelyClassifiableNoHistory("BAD", new Map([["BAD", corrupt]]), exclusionEvidence([])), false);
+});
+
+Deno.test("nhl: production-shaped accounting with no_history evaluates", () => {
+  const baselines = new Map<string, NhlBaselineQuote>();
+  const universe: ReturnType<typeof ticker>[] = [];
+  for (let i = 0; i < 9019; i++) {
+    const symbol = `E${String(i).padStart(4, "0")}`;
+    baselines.set(symbol, quote(symbol));
+    universe.push(ticker(symbol));
+  }
+  const excluded: string[] = [];
+  for (let i = 0; i < 666; i++) {
+    excluded.push(`X${String(i).padStart(3, "0")}`);
+    universe.push(ticker(`X${String(i).padStart(3, "0")}`));
+  }
+  const noHistory: string[] = [];
+  for (let i = 0; i < 8; i++) {
+    noHistory.push(`N${String(i).padStart(2, "0")}`);
+    universe.push(ticker(`N${String(i).padStart(2, "0")}`));
+  }
+  const evidence = evaluateNhlEvidence(
+    universe,
+    baselines,
+    "available",
+    [],
+    exclusionEvidence(excluded),
+  );
+  assertEquals(evidence.status, "evaluated");
+  assertEquals(evidence.eligible_count, 9693);
+  assertEquals(evidence.evaluated_count, 9019);
+  assertEquals(evidence.policy_excluded_count, 666);
+  assertEquals(evidence.no_history_count, 8);
+  assertEquals(evidence.unresolved_count, 0);
+  assertEquals(evidence.no_history_symbols, noHistory.sort((a, b) => a.localeCompare(b)));
+});
+
+Deno.test("nhl: production-shaped accounting with one unresolved fails closed", () => {
+  const baselines = new Map<string, NhlBaselineQuote>();
+  const universe: ReturnType<typeof ticker>[] = [];
+  for (let i = 0; i < 9019; i++) {
+    const symbol = `E${String(i).padStart(4, "0")}`;
+    baselines.set(symbol, quote(symbol));
+    universe.push(ticker(symbol));
+  }
+  const excluded: string[] = [];
+  for (let i = 0; i < 666; i++) {
+    excluded.push(`X${String(i).padStart(3, "0")}`);
+    universe.push(ticker(`X${String(i).padStart(3, "0")}`));
+  }
+  for (let i = 0; i < 7; i++) {
+    universe.push(ticker(`N${String(i).padStart(2, "0")}`));
+  }
+  baselines.set("HOLE", {
+    symbol: "HOLE",
+    high_52w: Number.NaN,
+    low_52w: 5,
+    sessions_observed: 120,
+  });
+  universe.push(ticker("HOLE"));
+  const evidence = evaluateNhlEvidence(
+    universe,
+    baselines,
+    "available",
+    [],
+    exclusionEvidence(excluded),
+  );
+  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.no_history_count, 7);
+  assertEquals(evidence.unresolved_count, 1);
+  assertEquals(evidence.unresolved_symbols, ["HOLE"]);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
+});
+
+Deno.test("nhl: no_history symbols are never qualified", () => {
+  const highHit = ticker("IPO1", {
+    day: { o: 99, c: 99, h: 99, l: 1, v: 1_000_000 },
+  });
+  const evidence = evaluateNhlEvidence(
+    [highHit],
+    new Map([["ZZZ", quote("ZZZ")]]),
+    "available",
+    [],
+    exclusionEvidence([]),
+  );
+  assertEquals(evidence.no_history_count, 1);
+  assertEquals(evidence.qualified_count, 0);
+  assertEquals(
+    selectNewHighsLows([highHit], new Map([["ZZZ", quote("ZZZ")]])),
+    [],
+  );
+});
+
+Deno.test("buildTabEvaluationEvidence: non-NHL tabs unchanged when NHL adds no_history", () => {
+  const universe = [
+    ticker("AAA", { day: { o: 10.8, c: 10.9, h: 11, l: 9.5, v: 1_000_000 }, prevDay: { c: 10, v: 1 } }),
+    ticker("IPO1", { day: { o: 10, c: 10, h: 12, l: 8, v: 1_000_000 }, prevDay: { c: 9, v: 1 } }),
+  ];
+  const evidence = buildTabEvaluationEvidence({
+    universe,
+    dayTradeSelected: [],
+    gapperSelected: [],
+    volumeSpikeSelected: [],
+    gainersLosersUniverse: [],
+    gainersLosersSelected: [],
+    unusualSelected: [],
+    nhlBaselineStatus: "available",
+    nhlBaselines: new Map([["AAA", quote("AAA")]]),
+    nhlSelected: [],
+    nhlPolicyExclusions: exclusionEvidence([]),
+  });
+  assertEquals(evidence.gappers?.status, "evaluated");
+  assertEquals(evidence.volume_spikes?.status, "evaluated");
+  assertEquals(evidence.new_highs_lows?.status, "evaluated");
+  const nhl = evidence.new_highs_lows;
+  assertEquals(nhl && "no_history_count" in nhl ? nhl.no_history_count : undefined, 1);
+});
+
+Deno.test("nhl: diagnostic symbol samples are capped", () => {
+  const baselines = new Map<string, NhlBaselineQuote>([["ANCHOR", quote("ANCHOR")]]);
+  const universe: ReturnType<typeof ticker>[] = [ticker("ANCHOR")];
+  for (let i = 0; i < NHL_DIAGNOSTIC_SYMBOL_CAP + 5; i++) {
+    const symbol = `U${String(i).padStart(2, "0")}`;
+    universe.push(ticker(symbol));
+  }
+  const evidence = evaluateNhlEvidence(
+    universe,
+    baselines,
+    "available",
+    [],
+    POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+  );
+  assertEquals(evidence.unresolved_count, NHL_DIAGNOSTIC_SYMBOL_CAP + 5);
+  assertEquals(evidence.unresolved_symbols?.length, NHL_DIAGNOSTIC_SYMBOL_CAP);
 });
 
 Deno.test("gappers: normal valid prior close/open is calculable", () => {

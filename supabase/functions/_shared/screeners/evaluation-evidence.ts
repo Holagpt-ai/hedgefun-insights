@@ -11,9 +11,12 @@
  * Partial calculability across the active snapshot does not establish coverage.
  *
  * NHL fail-closed coverage contract:
- * - eligible symbols classify as evaluated, policy_excluded, or unresolved;
+ * - eligible symbols classify as evaluated, policy_excluded, no_history, or unresolved;
  * - any unresolved symbol fails closed;
- * - policy-excluded symbols are not evaluated and not qualified.
+ * - policy-excluded symbols are not evaluated and not qualified;
+ * - no_history applies only when validated exclusion evidence proves the current
+ *   baseline generation fully accounted for grouped-daily observations and the
+ *   eligible snapshot symbol is absent from both baseline quotes and exclusions.
  */
 
 import type { PolicyExclusionEvidence } from "./baseline-coverage.ts";
@@ -53,6 +56,9 @@ export interface GappersTabEvidence {
   reason?: string;
 }
 
+/** Bounded diagnostic sample persisted on screener_feed_state. Counts remain authoritative. */
+export const NHL_DIAGNOSTIC_SYMBOL_CAP = 20;
+
 export interface NhlTabEvidence {
   status: "evaluated" | "not_evaluated";
   baseline_status: NhlBaselineStatus;
@@ -61,7 +67,12 @@ export interface NhlTabEvidence {
   eligible_count?: number;
   evaluated_count?: number;
   policy_excluded_count?: number;
+  no_history_count?: number;
   unresolved_count?: number;
+  /** Sample of unresolved symbols (sorted, capped). */
+  unresolved_symbols?: string[];
+  /** Sample of no-history symbols (sorted, capped). */
+  no_history_symbols?: string[];
   qualified_count?: number;
   selected_count: number;
   reason?: string;
@@ -106,6 +117,31 @@ function hasHistoricalSessionCoverage(
   if (coverage.baselineSymbols.has(symbol)) return true;
   return coverage.policyExclusions.available &&
     coverage.policyExclusions.symbols.has(symbol);
+}
+
+/**
+ * True when validated current-generation exclusion evidence proves grouped-daily
+ * accounting is complete and the eligible snapshot symbol was never observed in
+ * that window (absent from both baseline quotes and policy exclusions).
+ * Does not apply when exclusion evidence is unavailable or a baseline row exists
+ * but fails quote validation (integrity defect → unresolved).
+ */
+export function isSafelyClassifiableNoHistory(
+  symbol: string,
+  baselines: ReadonlyMap<string, NhlBaselineQuote>,
+  policyExclusions: PolicyExclusionEvidence,
+): boolean {
+  if (!policyExclusions.available) return false;
+  if (baselines.has(symbol)) return false;
+  if (policyExclusions.symbols.has(symbol)) return false;
+  return true;
+}
+
+function boundedSymbolSample(symbols: string[]): string[] | undefined {
+  if (symbols.length === 0) return undefined;
+  const sorted = [...symbols].sort((a, b) => a.localeCompare(b));
+  if (sorted.length <= NHL_DIAGNOSTIC_SYMBOL_CAP) return sorted;
+  return sorted.slice(0, NHL_DIAGNOSTIC_SYMBOL_CAP);
 }
 
 /**
@@ -247,8 +283,11 @@ export function evaluateNhlEvidence(
   let eligible_count = 0;
   let evaluated_count = 0;
   let policy_excluded_count = 0;
+  let no_history_count = 0;
   let unresolved_count = 0;
   let qualified_count = 0;
+  const unresolvedSymbols: string[] = [];
+  const noHistorySymbols: string[] = [];
 
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
@@ -271,8 +310,24 @@ export function evaluateNhlEvidence(
       policy_excluded_count += 1;
       continue;
     }
+    if (baseline !== undefined) {
+      unresolved_count += 1;
+      unresolvedSymbols.push(sym);
+      continue;
+    }
+    if (isSafelyClassifiableNoHistory(sym, baselines, policyExclusions)) {
+      no_history_count += 1;
+      noHistorySymbols.push(sym);
+      continue;
+    }
     unresolved_count += 1;
+    unresolvedSymbols.push(sym);
   }
+
+  const diagnostic = {
+    unresolved_symbols: boundedSymbolSample(unresolvedSymbols),
+    no_history_symbols: boundedSymbolSample(noHistorySymbols),
+  };
 
   if (eligible_count === 0) {
     return {
@@ -281,6 +336,7 @@ export function evaluateNhlEvidence(
       eligible_count: 0,
       evaluated_count: 0,
       policy_excluded_count: 0,
+      no_history_count: 0,
       unresolved_count: 0,
       qualified_count: 0,
       ...base,
@@ -289,7 +345,7 @@ export function evaluateNhlEvidence(
   }
 
   const accountingComplete = unresolved_count === 0 &&
-    evaluated_count + policy_excluded_count === eligible_count;
+    evaluated_count + policy_excluded_count + no_history_count === eligible_count;
 
   if (!accountingComplete) {
     return {
@@ -298,7 +354,9 @@ export function evaluateNhlEvidence(
       eligible_count,
       evaluated_count,
       policy_excluded_count,
+      no_history_count,
       unresolved_count,
+      ...diagnostic,
       qualified_count,
       ...base,
       reason: "baseline_coverage_incomplete",
@@ -311,7 +369,9 @@ export function evaluateNhlEvidence(
     eligible_count,
     evaluated_count,
     policy_excluded_count,
+    no_history_count,
     unresolved_count,
+    ...diagnostic,
     qualified_count,
     ...base,
   };

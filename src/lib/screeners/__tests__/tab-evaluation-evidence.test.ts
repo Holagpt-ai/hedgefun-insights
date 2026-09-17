@@ -202,11 +202,55 @@ describe("zero-match support helpers", () => {
         eligible_count: 700,
         evaluated_count: 600,
         policy_excluded_count: 100,
+        no_history_count: 0,
         unresolved_count: 0,
         qualified_count: 0,
         selected_count: 0,
       }),
     ).toBe(true);
+  });
+
+  it("nhl: accepts no_history in full eligible accounting", () => {
+    expect(
+      nhlEvidenceSupportsZeroMatch({
+        status: "evaluated",
+        baseline_status: "available",
+        baseline_quote_count: 700,
+        universe_count: 800,
+        eligible_count: 700,
+        evaluated_count: 600,
+        policy_excluded_count: 94,
+        no_history_count: 6,
+        unresolved_count: 0,
+        qualified_count: 0,
+        selected_count: 0,
+      }),
+    ).toBe(true);
+  });
+
+  it("nhl: parses bounded diagnostic symbol samples", () => {
+    const parsed = parseTabEvaluationEvidence({
+      new_highs_lows: {
+        status: "not_evaluated",
+        baseline_status: "available",
+        baseline_quote_count: 11_979,
+        universe_count: 13_223,
+        eligible_count: 100,
+        evaluated_count: 90,
+        policy_excluded_count: 5,
+        no_history_count: 4,
+        unresolved_count: 1,
+        unresolved_symbols: ["HOLE"],
+        no_history_symbols: ["IPO1", "IPO2"],
+        qualified_count: 0,
+        selected_count: 0,
+        reason: "baseline_coverage_incomplete",
+      },
+    });
+    expect(parsed?.new_highs_lows).toMatchObject({
+      unresolved_symbols: ["HOLE"],
+      no_history_symbols: ["IPO1", "IPO2"],
+    });
   });
 
   it("nhl: old evidence lacking accounting fields cannot certify zero", () => {
