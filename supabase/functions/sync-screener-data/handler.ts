@@ -10,11 +10,17 @@ import {
   parseTickersPayload,
   ProviderUnavailableError,
 } from "../_shared/screeners/provider.ts";
+import { shouldPreservePriorScreenerGeneration } from "../_shared/screeners/generation-preserve.ts";
+import {
+  isExtendedSyncSession,
+  resolveSyncSessionKind,
+} from "../_shared/screeners/session-sync-context.ts";
 import {
   allHaveProviderAsOf,
   normalizeSymbol,
   type PolygonTicker,
   selectForTab,
+  selectGainersLosersFromSnapshot,
 } from "../_shared/screeners/selection.ts";
 import {
   evaluateDayTradeRadar,
@@ -128,6 +134,7 @@ const BASELINE_PAGE = 1000;
 const STATE_SELECT_WITH_POLICY =
   "current_generation_id,status,symbol_count,policy_min_sessions,policy_excluded_count";
 const STATE_SELECT_BASE = "current_generation_id,status,symbol_count";
+const FEED_EVIDENCE_SELECT = "tab_evaluation_evidence";
 
 function unavailableBaseline(status: NhlBaselineStatus = "unavailable"): {
   status: NhlBaselineStatus;
@@ -179,6 +186,25 @@ async function loadPolicyExclusions(
     policyExcludedCount: declared.excluded_count,
     rows,
   });
+}
+
+async function loadCurrentTabEvaluationEvidence(
+  sb: DbClient,
+): Promise<TabEvaluationEvidenceMap | null> {
+  try {
+    const res = await sb
+      .from("screener_feed_state")
+      .select(FEED_EVIDENCE_SELECT)
+      .eq("state_key", "current")
+      .limit(1);
+    if (res.error || !res.data || res.data.length === 0) return null;
+    const raw = res.data[0].tab_evaluation_evidence;
+    if (raw === null || raw === undefined) return null;
+    if (typeof raw !== "object" || Array.isArray(raw)) return null;
+    return raw as TabEvaluationEvidenceMap;
+  } catch {
+    return null;
+  }
 }
 
 async function loadNhlBaseline(sb: DbClient): Promise<{
@@ -371,13 +397,25 @@ export async function handleSyncScreenerData(
   const dayTradeDiagnostics = allTickers.map((t) => evaluateDayTradeRadar(t, nowMs));
   console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
 
+  const sessionKind = resolveSyncSessionKind(nowMs);
+  const extendedSession = isExtendedSyncSession(sessionKind);
+
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
-  const gapperSelected = selectForTab("gappers", allTickers);
+  const gapperSelected = selectForTab("gappers", allTickers, undefined, {
+    extendedSession,
+  });
   const volumeSpikeSelected = selectForTab("volume_spikes", allTickers);
-  const gainersLosersSelected = selectForTab("gainers_losers", [
-    ...gainers,
-    ...losers,
-  ]);
+  const providerGainersLosers = [...gainers, ...losers];
+  const gainersLosersUniverse = providerGainersLosers.length > 0
+    ? providerGainersLosers
+    : extendedSession
+    ? selectGainersLosersFromSnapshot(allTickers, allTickers.length)
+    : [];
+  const gainersLosersSelected = providerGainersLosers.length > 0
+    ? selectForTab("gainers_losers", providerGainersLosers)
+    : extendedSession
+    ? selectGainersLosersFromSnapshot(allTickers)
+    : [];
   const unusualSelected = selectForTab("unusual_volume", allTickers);
 
   const selectedAll = [
@@ -419,7 +457,7 @@ export async function handleSyncScreenerData(
   const nameMap = await loadNameMapFromStocks(sb, selectedSymbols);
   const getName = (ticker: string) => nameMap[ticker] ?? ticker;
 
-  const meta: GenerationMeta = { syncedAt, syncRunId, nowMs };
+  const meta: GenerationMeta = { syncedAt, syncRunId, nowMs, extendedSession };
 
   const dayTradeRows = mapTabRows(
     "day_trade_radar",
@@ -462,13 +500,33 @@ export async function handleSyncScreenerData(
     dayTradeSelected,
     gapperSelected,
     volumeSpikeSelected,
+    gainersLosersUniverse,
     gainersLosersSelected,
     unusualSelected,
     nhlBaselineStatus: nhlBaseline.status,
     nhlBaselines: nhlBaseline.quotes,
     nhlSelected,
     nhlPolicyExclusions: nhlBaseline.policyExclusions,
+    extendedSession,
   });
+
+  const priorEvidence = await loadCurrentTabEvaluationEvidence(sb);
+  if (
+    shouldPreservePriorScreenerGeneration({
+      priorEvidence,
+      nextEvidence: tabEvaluationEvidence,
+    })
+  ) {
+    return json({
+      ok: true,
+      preserved: true,
+      reason: "prior_generation_retained",
+      sync_run_id: syncRunId,
+      tickers_scanned: allTickers.length,
+      session_kind: sessionKind,
+      synced_at: syncedAt,
+    });
+  }
 
   const rpcBase = {
     p_rows: allRows,

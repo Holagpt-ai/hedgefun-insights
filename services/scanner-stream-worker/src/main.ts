@@ -201,6 +201,7 @@ async function main(): Promise<void> {
     signal: abort.signal,
     lease: bridge.lease,
     rpc: bridge.radarRpc,
+    rpcV2: bridge.radarV2Rpc,
     setStatus: bridge.setStatus,
   });
 

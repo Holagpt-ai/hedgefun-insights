@@ -29,7 +29,7 @@ import {
   dayHighLow,
   dayVolume,
   gapPercent,
-  hasValidCurrentDayOpen,
+  hasValidSessionOpen,
   isExplicitZeroPriorDayAggregate,
   normalizeSymbol,
   qualifiesGappers,
@@ -118,13 +118,14 @@ function hasHistoricalSessionCoverage(
 export function isStructurallyNoPriorSession(
   t: PolygonTicker,
   coverage: HistoricalCoverageEvidence | undefined,
+  extendedSession = false,
 ): boolean {
   if (!coverage?.policyExclusions.available) return false;
   const sym = normalizeSymbol(t?.ticker);
   if (!sym) return false;
   const vol = dayVolume(t);
   if (vol === null || !(vol > 0)) return false;
-  if (!hasValidCurrentDayOpen(t)) return false;
+  if (!hasValidSessionOpen(t, extendedSession)) return false;
   if (!isExplicitZeroPriorDayAggregate(t)) return false;
   if (hasHistoricalSessionCoverage(sym, coverage)) return false;
   return true;
@@ -134,6 +135,7 @@ export function evaluateGappersEvidence(
   universe: readonly PolygonTicker[],
   selected: readonly PolygonTicker[],
   coverage?: HistoricalCoverageEvidence,
+  extendedSession = false,
 ): GappersTabEvidence {
   const universe_count = universe.length;
   const volume_positive_count = countVolumeActive(universe);
@@ -146,14 +148,14 @@ export function evaluateGappersEvidence(
     const vol = dayVolume(t);
     const volumeActive = vol !== null && vol > 0;
     if (!volumeActive) continue;
-    if (gapPercent(t) !== null) {
+    if (gapPercent(t, extendedSession) !== null) {
       gap_calculable_count += 1;
-    } else if (isStructurallyNoPriorSession(t, coverage)) {
+    } else if (isStructurallyNoPriorSession(t, coverage, extendedSession)) {
       no_prior_session_count += 1;
     } else {
       unresolved_gap_input_count += 1;
     }
-    if (qualifiesGappers(t)) qualified_count += 1;
+    if (qualifiesGappers(t, extendedSession)) qualified_count += 1;
   }
 
   const selected_count = selected.length;
@@ -349,13 +351,16 @@ export function buildTabEvaluationEvidence(input: {
   dayTradeSelected: readonly PolygonTicker[];
   gapperSelected: readonly PolygonTicker[];
   volumeSpikeSelected: readonly PolygonTicker[];
+  gainersLosersUniverse: readonly PolygonTicker[];
   gainersLosersSelected: readonly PolygonTicker[];
   unusualSelected: readonly PolygonTicker[];
   nhlBaselineStatus: NhlBaselineStatus;
   nhlBaselines: ReadonlyMap<string, NhlBaselineQuote>;
   nhlSelected: readonly NhlClassification[];
   nhlPolicyExclusions?: PolicyExclusionEvidence;
+  extendedSession?: boolean;
 }): TabEvaluationEvidenceMap {
+  const extendedSession = input.extendedSession ?? false;
   const policyExclusions = input.nhlPolicyExclusions ??
     POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE;
   const coverage: HistoricalCoverageEvidence = {
@@ -372,6 +377,7 @@ export function buildTabEvaluationEvidence(input: {
       input.universe,
       input.gapperSelected,
       coverage,
+      extendedSession,
     ),
     volume_spikes: evaluateGenericTabEvidence(
       "volume_spikes",
@@ -380,7 +386,7 @@ export function buildTabEvaluationEvidence(input: {
     ),
     gainers_losers: evaluateGenericTabEvidence(
       "gainers_losers",
-      input.gainersLosersSelected,
+      input.gainersLosersUniverse,
       input.gainersLosersSelected,
     ),
     unusual_volume: evaluateGenericTabEvidence(
