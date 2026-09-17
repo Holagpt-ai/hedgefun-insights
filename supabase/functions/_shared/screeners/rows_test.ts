@@ -1,16 +1,13 @@
 // Write-side row mapping: persisted volumes and the ratio derived from them.
 
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { mapNewHighsLows, mapTabRows } from "./rows.ts";
+import { expectedVolumeRatio, mapNewHighsLows, mapTabRows } from "./rows.ts";
 import type { GenerationMeta } from "./rows.ts";
 import {
   type PolygonTicker,
   selectForTab,
   volumeRatioPriorSession,
 } from "./selection.ts";
-// The invariant the Screener UI enforces on every stored row.
-import { expectedVolumeRatio } from "../../../../src/lib/screeners/contract.ts";
-
 const FIXED_ISO = "2026-07-27T20:00:00.000Z";
 const FIXED_MS = Date.parse(FIXED_ISO);
 const FIXED_NS = FIXED_MS * 1_000_000;
