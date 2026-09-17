@@ -5160,6 +5160,48 @@ export type Database = {
         }
         Relationships: []
       }
+      screener_daily_volume_history: {
+        Row: {
+          created_at: string
+          generation_id: string
+          provider_as_of: string
+          session_date: string
+          symbol: string
+          volume: number
+        }
+        Insert: {
+          created_at?: string
+          generation_id: string
+          provider_as_of: string
+          session_date: string
+          symbol: string
+          volume: number
+        }
+        Update: {
+          created_at?: string
+          generation_id?: string
+          provider_as_of?: string
+          session_date?: string
+          symbol?: string
+          volume?: number
+        }
+        Relationships: []
+      }
+      screener_daily_volume_job_dates: {
+        Row: {
+          generation_id: string
+          session_date: string
+        }
+        Insert: {
+          generation_id: string
+          session_date: string
+        }
+        Update: {
+          generation_id?: string
+          session_date?: string
+        }
+        Relationships: []
+      }
       screener_feed_state: {
         Row: {
           nhl_baseline_status: string | null
@@ -5205,6 +5247,7 @@ export type Database = {
       screener_results: {
         Row: {
           avg_volume: number | null
+          avg_volume_20d: number | null
           change_percent: number | null
           company_name: string | null
           day_high: number | null
@@ -5220,6 +5263,7 @@ export type Database = {
           provider_as_of: string | null
           range_event: string | null
           rvol: number | null
+          rvol_20d: number | null
           symbol: string
           sync_run_id: string | null
           tab_id: string
@@ -5229,6 +5273,7 @@ export type Database = {
         }
         Insert: {
           avg_volume?: number | null
+          avg_volume_20d?: number | null
           change_percent?: number | null
           company_name?: string | null
           day_high?: number | null
@@ -5244,6 +5289,7 @@ export type Database = {
           provider_as_of?: string | null
           range_event?: string | null
           rvol?: number | null
+          rvol_20d?: number | null
           symbol: string
           sync_run_id?: string | null
           tab_id: string
@@ -5253,6 +5299,7 @@ export type Database = {
         }
         Update: {
           avg_volume?: number | null
+          avg_volume_20d?: number | null
           change_percent?: number | null
           company_name?: string | null
           day_high?: number | null
@@ -5268,12 +5315,46 @@ export type Database = {
           provider_as_of?: string | null
           range_event?: string | null
           rvol?: number | null
+          rvol_20d?: number | null
           symbol?: string
           sync_run_id?: string | null
           tab_id?: string
           updated_at?: string | null
           volume?: number | null
           volume_ratio_prior_session?: number | null
+        }
+        Relationships: []
+      }
+      screener_volume_baselines: {
+        Row: {
+          avg_volume_20d: number | null
+          generation_id: string
+          provider_as_of: string
+          symbol: string
+          updated_at: string
+          volume_sessions_used: number
+          window_end_date: string | null
+          window_start_date: string | null
+        }
+        Insert: {
+          avg_volume_20d?: number | null
+          generation_id: string
+          provider_as_of: string
+          symbol: string
+          updated_at: string
+          volume_sessions_used: number
+          window_end_date?: string | null
+          window_start_date?: string | null
+        }
+        Update: {
+          avg_volume_20d?: number | null
+          generation_id?: string
+          provider_as_of?: string
+          symbol?: string
+          updated_at?: string
+          volume_sessions_used?: number
+          window_end_date?: string | null
+          window_start_date?: string | null
         }
         Relationships: []
       }
@@ -6049,7 +6130,24 @@ export type Database = {
         Args: { p_generation_id: string; p_rows: Json }
         Returns: number
       }
+      append_screener_daily_volume_history_v1: {
+        Args: {
+          p_generation_id: string
+          p_provider_as_of: string
+          p_rows: Json
+        }
+        Returns: number
+      }
       apply_screener_52w_baseline_day_v1: {
+        Args: {
+          p_bars: Json
+          p_generation_id: string
+          p_provider_as_of: string
+          p_session_date: string
+        }
+        Returns: Json
+      }
+      apply_screener_daily_volume_day_v1: {
         Args: {
           p_bars: Json
           p_generation_id: string
@@ -6090,9 +6188,17 @@ export type Database = {
           run_id: string
         }[]
       }
+      cleanup_stale_screener_volume_generations_v1: {
+        Args: { p_keep_generation_id: string }
+        Returns: undefined
+      }
       complete_wl_v2_run: {
         Args: { p_cursor_end: string; p_run_id: string; p_status: string }
         Returns: undefined
+      }
+      copy_screener_daily_volume_history_from_current_v1: {
+        Args: { p_target_generation_id: string }
+        Returns: number
       }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
@@ -6154,6 +6260,10 @@ export type Database = {
       }
       journal_save_trade_v1: { Args: { p_payload: Json }; Returns: Json }
       prune_cron_job_run_details_v1: { Args: never; Returns: number }
+      publish_screener_volume_baselines_v1: {
+        Args: { p_generation_id: string; p_provider_as_of: string }
+        Returns: number
+      }
       purge_radar_v22_events_v1: {
         Args: { p_retain_days?: number }
         Returns: number
@@ -6310,6 +6420,10 @@ export type Database = {
           p_provider_as_of: string
         }
         Returns: Json
+      }
+      trim_screener_daily_volume_history_v1: {
+        Args: { p_generation_id: string; p_symbols: string[] }
+        Returns: undefined
       }
       try_acquire_radar_v22_lease_v1: {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }

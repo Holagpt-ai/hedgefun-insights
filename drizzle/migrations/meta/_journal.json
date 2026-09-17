@@ -8,6 +8,20 @@
       "when": 1789517019283,
       "tag": "0000_screener_52w_baseline_chunked_publish_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789686270368,
+      "tag": "0001_screener_daily_volume_baseline_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789686342804,
+      "tag": "0002_screener_rvol20d_results_rpc_v1",
+      "breakpoints": true
     }
   ]
 }
