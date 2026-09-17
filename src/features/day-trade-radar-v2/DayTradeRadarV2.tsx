@@ -14,7 +14,6 @@ import { RadarMobileCard } from "./RadarMobileCard";
 import { RadarDetailPanel } from "./RadarDetailPanel";
 import { RadarLeaderStrip } from "./RadarLeaderStrip";
 import { TraderLensBar } from "./TraderLensBar";
-import { applyTraderLensFilter } from "./trader-lens";
 import { useTraderLens } from "./useTraderLens";
 import { useRadarColumnVisibility } from "./useRadarColumnVisibility";
 import { isRadarRowAccessible } from "./radar-metrics";
@@ -50,8 +49,14 @@ export function DayTradeRadarV2({
 
   const selectionRows = resolved.rows as ScreenerResultRow[];
 
+  const traderLens = useTraderLens();
+  const { visibleColumns, toggleColumn, resetColumns } = useRadarColumnVisibility();
+
   const {
     ranked,
+    filtered,
+    visibleTopLeader,
+    lens,
     selection,
     activeRow,
     selectRow,
@@ -63,16 +68,11 @@ export function DayTradeRadarV2({
     status: resolved.status,
     isPro,
     freeRowLimit,
+    traderLensPresetId: traderLens.presetId,
+    traderLensBounds: traderLens.bounds,
   });
 
-  const traderLens = useTraderLens();
-  const { visibleColumns, toggleColumn, resetColumns } = useRadarColumnVisibility();
-  const lens = useMemo(
-    () => applyTraderLensFilter(ranked, traderLens.presetId, traderLens.bounds),
-    [ranked, traderLens.presetId, traderLens.bounds],
-  );
-  const filtered = lens.rows;
-  const leaderRow = ranked[0] ?? null;
+  const leaderRow = visibleTopLeader;
 
   const chartEnabled =
     !!activeRow &&
@@ -94,7 +94,7 @@ export function DayTradeRadarV2({
   });
 
   const showReturnToLeader =
-    selection.mode === "manual" && ranked.length > 0;
+    selection.mode === "manual" && visibleTopLeader !== null;
 
   const boardVisible =
     resolved.status === "available" || resolved.status === "stale";

@@ -59,14 +59,34 @@ const ROW_SELECT = [
   "updated_at",
 ].join(",");
 
+function filterCanonicalFieldDonors(
+  rows: readonly ScreenerResultRow[] | null | undefined,
+): ScreenerResultRow[] {
+  if (!rows?.length) return [];
+  return rows.filter(
+    (row) =>
+      row.change_percent !== null ||
+      (row.prior_session_volume !== null && row.volume_ratio_prior_session !== null),
+  );
+}
+
 async function loadRadarEnrichmentContext(
   tabId: string,
   nowMs: number,
-): Promise<{ tabView: ScreenerTabView; allRows: ScreenerResultRow[] } | null> {
+): Promise<{ tabView: ScreenerTabView | null; allRows: ScreenerResultRow[] } | null> {
   const fetched = await fetchGenerationOnce();
-  if (fetched.stateError || fetched.resultError) return null;
+  if (fetched.resultError || !fetched.resultRows?.length) return null;
+
+  const donorRows = filterCanonicalFieldDonors(fetched.resultRows);
+  if (fetched.stateError) {
+    return donorRows.length > 0 ? { tabView: null, allRows: donorRows } : null;
+  }
+
   const outcome = validateGeneration(fetched.stateRows, fetched.resultRows, nowMs);
-  if (!outcome.ok) return null;
+  if (!outcome.ok) {
+    return donorRows.length > 0 ? { tabView: null, allRows: donorRows } : null;
+  }
+
   return {
     tabView: viewForActiveTab(outcome.generation, tabId, nowMs, 1),
     allRows: outcome.generation.rows,
@@ -279,7 +299,7 @@ export function useScreenerData(
                 soft,
                 priorRadar: lastVerifiedRadar,
                 radarDecision,
-                legacyView: enrichmentContext?.tabView ?? unavailableView(1),
+                legacyView: enrichmentContext?.tabView ?? null,
                 enrichmentRows: enrichmentContext?.allRows ?? null,
                 boardRows,
               });

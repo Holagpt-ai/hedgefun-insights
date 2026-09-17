@@ -591,4 +591,32 @@ describe("market movers integrity", () => {
     expect(currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed: true }))
       .toContain("currently closed");
   });
+
+  it("excludes warrants and zero-price movers from canonical homepage lists", () => {
+    const warrant = moverFromPolygonTicker(ticker({
+      ticker: "DAICW",
+      instrument_type: "WARRANT",
+      day: { c: 1.5, v: 500_000 },
+      prevDay: { c: 1.2 },
+    }), "regular", NOW);
+    expect(warrant.valid).toBe(false);
+    expect(warrant.reason).toBe("excluded_instrument");
+
+    const zero = moverFromPolygonTicker(ticker({
+      ticker: "RIVR",
+      day: { c: 0, v: 100 },
+      prevDay: { c: 10 },
+      lastTrade: { p: 0, t: NOW },
+    }), "regular", NOW);
+    expect(zero.valid).toBe(false);
+    expect(zero.reason).toBe("invalid_current_price");
+
+    const common = moverFromPolygonTicker(ticker({
+      ticker: "AAPL",
+      instrument_type: "CS",
+      day: { c: 190, v: 10_000_000 },
+      prevDay: { c: 188 },
+    }), "regular", NOW);
+    expect(common.valid).toBe(true);
+  });
 });

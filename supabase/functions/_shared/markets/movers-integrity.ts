@@ -12,6 +12,7 @@ import {
   normalizeSymbol,
   validateQuote,
 } from "../quotes/integrity.ts";
+import { shouldExcludeHomepageMover } from "./mover-universe.ts";
 
 export type MoverSession = "regular" | "premarket" | "afterhours";
 
@@ -25,7 +26,8 @@ export type MoverRejectionReason =
   | "stale_reference"
   | "session_mismatch"
   | "missing_corroboration"
-  | "malformed_symbol";
+  | "malformed_symbol"
+  | "excluded_instrument";
 
 export const SOURCE_POLYGON = "polygon";
 export const SOURCE_MARKET_MOVERS_CACHE = "market_movers";
@@ -70,6 +72,7 @@ export interface RawMoverInput {
   id?: unknown;
   adjustedClose?: unknown;
   unadjustedClose?: unknown;
+  instrumentType?: unknown;
   nowMs?: number;
 }
 
@@ -283,6 +286,20 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
     return fail(input, symbol, "invalid_current_price");
   }
 
+  const instrumentType =
+    typeof input.instrumentType === "string" ? input.instrumentType : null;
+  const universeReject = shouldExcludeHomepageMover({
+    symbol,
+    price: current,
+    instrumentType,
+  });
+  if (universeReject === "excluded_instrument_type") {
+    return fail(input, symbol, "excluded_instrument");
+  }
+  if (universeReject === "invalid_last_price") {
+    return fail(input, symbol, "invalid_current_price");
+  }
+
   if (input.referencePrice === undefined || input.referencePrice === null) {
     return fail(input, symbol, "missing_corroboration");
   }
@@ -475,6 +492,13 @@ export function moverFromPolygonTicker(
     }
   }
 
+  const instrumentType =
+    typeof raw.instrument_type === "string"
+      ? raw.instrument_type
+      : typeof raw.type === "string"
+        ? raw.type
+        : null;
+
   return validateMover({
     symbol: extracted?.symbol ?? raw.ticker ?? raw.symbol,
     name: raw.name ?? (isPlainObject(raw.details) ? raw.details.name : null),
@@ -490,6 +514,7 @@ export function moverFromPolygonTicker(
     session,
     sessionDate,
     source: SOURCE_POLYGON,
+    instrumentType,
     nowMs,
   });
 }

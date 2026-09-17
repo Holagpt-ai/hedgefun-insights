@@ -30,7 +30,8 @@ function radarSessionPhrase(session: string | null | undefined): string {
 
 function radarV2CopyFor(tabId: string, session: string | null | undefined): ScreenerCopy | null {
   const phrase = radarSessionPhrase(session);
-  const honesty = "RVOL / prior-close % / gap are not persisted by Radar V2 and are shown as —.";
+  const enrichmentNote =
+    "Regular-session % change and prior-day volume may be enriched from a verified delayed snapshot when available; otherwise shown as —. RVOL and gap are not persisted by Radar V2.";
 
   switch (tabId) {
     case "day_trade_radar":
@@ -55,23 +56,22 @@ function radarV2CopyFor(tabId: string, session: string | null | undefined): Scre
       return {
         description:
           `Radar V2 Sentinel ${phrase} volume/velocity activity ranked volume-first ` +
-          `from the delayed market feed. ${honesty}`,
+          `from the delayed market feed. ${enrichmentNote}`,
         criteria: [
           `Radar V2 ${phrase} volume / velocity`,
           "Volume-first ranking",
-          "Prior-day ratio unavailable from Radar V2",
+          "Prior-day volume enriched when verified snapshot aligns",
         ],
       };
     case "gainers_losers":
       return {
         description:
           `Radar V2 Sentinel ${phrase} movers ranked volume-first from the delayed market feed to surface emerging names early. ` +
-          "A confirmed prior-close percentage change is not persisted by Radar V2 and is shown as —; " +
-          "short-window Radar movement is not presented as a day/session change.",
+          `${enrichmentNote} Short-window Radar movement is not presented as a day/session change.`,
         criteria: [
           `Radar V2 ${phrase} movers`,
           "Volume-first ranking",
-          "Prior-close % change unavailable from Radar V2",
+          "MOVE enriched from verified regular-session snapshot when available",
         ],
       };
     default:

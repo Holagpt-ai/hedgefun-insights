@@ -17,8 +17,10 @@ import {
 import {
   applyTraderLensFilter,
   applyTraderLensPriceFilter,
+  isBroadTraderLens,
   matchesTraderLensPrice,
   traderLensShowingCopy,
+  visibleTopLeaderRow,
 } from "../trader-lens";
 
 function row(
@@ -184,27 +186,81 @@ describe("Trader Lens price presets", () => {
     expect(matchesTraderLensPrice(null, { min: 2, max: 20 })).toBe(false);
     expect(matchesTraderLensPrice(undefined, { min: 1, max: null })).toBe(false);
     expect(matchesTraderLensPrice(Number.NaN, { min: null, max: 10 })).toBe(false);
+    expect(matchesTraderLensPrice(0, { min: 2, max: 20 })).toBe(false);
+    expect(matchesTraderLensPrice(0.27, { min: 2, max: 20 })).toBe(false);
     expect(matchesTraderLensPrice(null, { min: null, max: null })).toBe(true);
   });
 
-  it("does not change Follow #1 behavior when a price lens is applied", () => {
+  it("uses broad #1 as visible Top Leader for All Radar Movers", () => {
     const ranked = rankRadarRows(
       [
-        row({ symbol: "PENNY", volume: 9_000_000, price: 0.8 }),
-        row({ symbol: "MID", volume: 5_000_000, price: 6.4 }),
+        row({ symbol: "SDST", volume: 9_000_000, price: 0.27 }),
+        row({ symbol: "XYZ", volume: 5_000_000, price: 0.8 }),
+        row({ symbol: "ABC", volume: 1_000_000, price: 6.4 }),
       ],
       "available",
     );
-    const filtered = applyTraderLensPriceFilter(
-      ranked,
-      resolveTraderLensBounds("momentum_2_20", null, null),
-    );
-    expect(filtered.map((item) => item.symbol)).toEqual(["MID"]);
+    const bounds = resolveTraderLensBounds("all_movers", null, null);
+    const filtered = applyTraderLensPriceFilter(ranked, bounds);
+    expect(isBroadTraderLens(bounds)).toBe(true);
+    expect(visibleTopLeaderRow(ranked, filtered, bounds)?.symbol).toBe("SDST");
+    expect(visibleTopLeaderRow(ranked, filtered, bounds)?.rank).toBe(1);
+
     const following = radarSelectionReducer(INITIAL_RADAR_SELECTION, {
       type: "board_updated",
       rows: ranked,
+      topLeader: visibleTopLeaderRow(ranked, filtered, bounds),
+      lensConstrained: false,
+    });
+    expect(following.selectedSymbol).toBe("SDST");
+  });
+
+  it("uses first eligible filtered row as visible Top Leader under Core Momentum", () => {
+    const ranked = rankRadarRows(
+      [
+        row({ symbol: "SDST", volume: 9_000_000, price: 0.27 }),
+        row({ symbol: "XYZ", volume: 5_000_000, price: 0.8 }),
+        row({ symbol: "ABC", volume: 1_000_000, price: 6.4 }),
+      ],
+      "available",
+    );
+    const bounds = resolveTraderLensBounds("momentum_2_20", null, null);
+    const filtered = applyTraderLensPriceFilter(ranked, bounds);
+    expect(filtered.map((item) => item.symbol)).toEqual(["ABC"]);
+    const leader = visibleTopLeaderRow(ranked, filtered, bounds);
+    expect(leader?.symbol).toBe("ABC");
+    expect(leader?.rank).toBe(3);
+
+    const following = radarSelectionReducer(INITIAL_RADAR_SELECTION, {
+      type: "board_updated",
+      rows: ranked,
+      topLeader: leader,
+      lensConstrained: true,
     });
     expect(following.mode).toBe("follow_leader");
-    expect(following.selectedSymbol).toBe("PENNY");
+    expect(following.selectedSymbol).toBe("ABC");
+  });
+
+  it("returns no visible Top Leader when the active lens has zero eligible rows", () => {
+    const ranked = rankRadarRows(
+      [
+        row({ symbol: "SDST", volume: 9_000_000, price: 0.27 }),
+        row({ symbol: "XYZ", volume: 5_000_000, price: 0.8 }),
+      ],
+      "available",
+    );
+    const bounds = resolveTraderLensBounds("momentum_2_20", null, null);
+    const filtered = applyTraderLensPriceFilter(ranked, bounds);
+    expect(filtered).toEqual([]);
+    expect(visibleTopLeaderRow(ranked, filtered, bounds)).toBeNull();
+
+    const following = radarSelectionReducer(INITIAL_RADAR_SELECTION, {
+      type: "board_updated",
+      rows: ranked,
+      topLeader: null,
+      lensConstrained: true,
+    });
+    expect(following.selectedSymbol).toBeNull();
+    expect(following.snapshot).toBeNull();
   });
 });
