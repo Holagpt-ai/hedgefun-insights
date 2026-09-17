@@ -47,7 +47,7 @@ Deno.test("fillGroupedCache sends adjusted=true on every provider request", asyn
     assertEquals(url.includes("adjusted=false"), false);
     assertEquals(new URL(url).searchParams.get("adjusted"), "true");
   }
-  assertEquals(cache.get("2026-08-10")?.get("AAPL"), { h: 12, l: 4 });
+  assertEquals(cache.get("2026-08-10")?.get("AAPL"), { h: 12, l: 4, v: null });
 });
 
 Deno.test("parseGroupedResults accepts an empty results array", () => {

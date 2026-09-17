@@ -23,6 +23,8 @@ function sentinel(
     volume,
     avg_volume: null,
     rvol: null,
+    avg_volume_20d: null,
+    rvol_20d: null,
     float_shares: null,
     gap_percent: null,
     high_52w: null,
@@ -276,5 +278,46 @@ describe("screener display-field enrichment", () => {
     const enriched = enrichDisplayFields(row, lookup);
     expect(enriched.prior_session_volume).toBeNull();
     expect(enriched.volume_ratio_prior_session).toBeNull();
+  });
+
+  it("recomputes RVOL 20D from Sentinel volume and donor avg_volume_20d", () => {
+    const row = sentinel("RVOL", 10_000_000);
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("RVOL", "volume_spikes", 1_000_000, {
+          avg_volume_20d: 2_000_000,
+          rvol_20d: 0.5,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
+    expect(enriched.avg_volume_20d).toBe(2_000_000);
+    expect(enriched.rvol_20d).toBe(5);
+  });
+
+  it("uses Sentinel volume for RVOL even when donor volume differs", () => {
+    const row = sentinel("SENT", 8_000_000);
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("SENT", "unusual_volume", 3_000_000, {
+          avg_volume_20d: 2_000_000,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
+    expect(enriched.rvol_20d).toBe(4);
+  });
+
+  it("does not enrich RVOL when donor avg_volume_20d is missing", () => {
+    const row = sentinel("NOAVG", 5_000_000);
+    const lookup = buildDisplayFieldLookup(
+      [donor("NOAVG", "gainers_losers", 5_000_000)],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
+    expect(enriched.avg_volume_20d).toBeNull();
+    expect(enriched.rvol_20d).toBeNull();
   });
 });

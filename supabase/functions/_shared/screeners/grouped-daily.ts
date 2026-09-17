@@ -9,7 +9,7 @@ import {
   ProviderUnavailableError,
 } from "./provider.ts";
 
-export type BarHL = { h: number; l: number };
+export type BarHL = { h: number; l: number; v: number | null };
 
 export const GROUPED_BASE =
   "https://api.polygon.io/v2/aggs/grouped/locale/us/market/stocks";
@@ -49,6 +49,17 @@ export function isValidHighLow(high: number, low: number): boolean {
   );
 }
 
+/** Full regular-session daily volume for historical RVOL baselines. */
+export function isValidSessionVolume(volume: number): boolean {
+  return Number.isFinite(volume) && volume > 0;
+}
+
+export function parseGroupedVolume(raw: unknown): number | null {
+  const value = tryBarNumeric(raw);
+  if (value === null || !isValidSessionVolume(value)) return null;
+  return value;
+}
+
 export function groupedUrl(date: string): string {
   return `${GROUPED_BASE}/${date}?adjusted=true`;
 }
@@ -68,14 +79,14 @@ export function parseGroupedResults(body: unknown): Map<string, BarHL> {
     if (item === null || typeof item !== "object" || Array.isArray(item)) {
       continue;
     }
-    const row = item as { T?: unknown; h?: unknown; l?: unknown };
+    const row = item as { T?: unknown; h?: unknown; l?: unknown; v?: unknown };
     const symbol = normalizeSymbol(row.T);
     if (!symbol) continue;
     const high = tryBarNumeric(row.h);
     const low = tryBarNumeric(row.l);
     if (high === null || low === null) continue;
     if (!isValidHighLow(high, low)) continue;
-    out.set(symbol, { h: high, l: low });
+    out.set(symbol, { h: high, l: low, v: parseGroupedVolume(row.v) });
   }
   return out;
 }
@@ -103,6 +114,17 @@ export function barsToPayload(
   const out: Array<{ symbol: string; h: number; l: number }> = [];
   for (const [symbol, hl] of bars) {
     out.push({ symbol, h: hl.h, l: hl.l });
+  }
+  return out;
+}
+
+export function barsToVolumePayload(
+  bars: Map<string, BarHL>,
+): Array<{ symbol: string; v: number }> {
+  const out: Array<{ symbol: string; v: number }> = [];
+  for (const [symbol, hl] of bars) {
+    if (hl.v === null || !isValidSessionVolume(hl.v)) continue;
+    out.push({ symbol, v: hl.v });
   }
   return out;
 }

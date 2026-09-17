@@ -54,6 +54,8 @@ describe("Day Trade Radar desktop grid", () => {
       "volume_15s",
       "volume_60s",
       "dollar_volume_60s",
+      "daily_rvol",
+      "dollar_volume",
       "acceleration_5m",
       "vwap_state",
       "freshness",

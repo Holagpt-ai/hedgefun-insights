@@ -39,6 +39,12 @@ import { ScannerFieldHelp } from "./ScannerFieldHelp";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
+import { formatDailyRvol20d } from "@/lib/screeners/daily-rvol";
+import { formatDollarVolume } from "@/lib/screeners/dollar-volume";
+import {
+  resolveDailyRvol20d,
+  resolveDollarVolume,
+} from "@/lib/screeners/screener-intelligence-fields";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -138,6 +144,10 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
       return formatRadarUnavailableMetric(row.rolling_volume_60s);
     case "dollar_volume_60s":
       return formatRadarDollarVolume(row.rolling_dollar_volume_60s);
+    case "daily_rvol":
+      return formatDailyRvol20d(resolveDailyRvol20d(row));
+    case "dollar_volume":
+      return formatDollarVolume(resolveDollarVolume(row));
     case "acceleration_5m":
       return formatRadarAcceleration(row.acceleration_5m);
     case "vwap_state":

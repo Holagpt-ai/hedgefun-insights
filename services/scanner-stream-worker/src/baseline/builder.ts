@@ -18,6 +18,7 @@ import {
   publishGenerationStaged,
   type StagedPublishClient,
 } from "./persist.ts";
+import { buildVolumeHistoryFromCache } from "./volume-history.ts";
 
 export type BaselineJobDeps = {
   nowMs: () => number;
@@ -215,11 +216,18 @@ export async function runBaselineJob(
     deps.minSessions,
     providerAsOf,
   );
+  const volumeHistoryRows = buildVolumeHistoryFromCache(
+    deps.cache,
+    dates,
+    window.periodStart,
+    window.periodEnd,
+  );
   const generationId = (deps.newGenerationId ?? (() => crypto.randomUUID()))();
   const published = await publishGenerationStaged(deps.publish, {
     generationId,
     rows,
     exclusions,
+    volumeHistoryRows,
     minSessions: deps.minSessions,
     periodStart: window.periodStart,
     periodEnd: window.periodEnd,

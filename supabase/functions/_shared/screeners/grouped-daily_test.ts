@@ -31,7 +31,7 @@ Deno.test("invalid bars are rejected and valid bars are kept", () => {
     ],
   });
   assertEquals([...parsed.keys()].sort(), ["AAA", "BBB"]);
-  assertEquals(parsed.get("AAA"), { h: 10, l: 5 });
+  assertEquals(parsed.get("AAA"), { h: 10, l: 5, v: null });
   assertEquals(isValidHighLow(2, 9), false);
 });
 
@@ -63,7 +63,20 @@ Deno.test("barsToPayload emits one row per Map symbol", () => {
   const payload = barsToPayload(parsed);
   assertEquals(payload.length, parsed.size);
   assertEquals(new Set(payload.map((row) => row.symbol)).size, payload.length);
-  assertEquals(parsed.get("AAA"), { h: 12, l: 4 });
+  assertEquals(parsed.get("AAA"), { h: 12, l: 4, v: null });
+});
+
+Deno.test("parseGroupedResults retains valid regular-session volume", () => {
+  const parsed = parseGroupedResults({
+    results: [
+      { T: "AAA", h: 10, l: 5, v: 2_500_000 },
+      { T: "BBB", h: 8, l: 3, v: 0 },
+      { T: "CCC", h: 6, l: 4, v: -1 },
+    ],
+  });
+  assertEquals(parsed.get("AAA"), { h: 10, l: 5, v: 2_500_000 });
+  assertEquals(parsed.get("BBB")?.v, null);
+  assertEquals(parsed.get("CCC")?.v, null);
 });
 
 Deno.test("overflow-style numeric strings are skipped by tryBarNumeric", () => {

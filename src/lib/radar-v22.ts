@@ -124,6 +124,8 @@ export function mapV22Row(
     volume: row.volume,
     avg_volume: null,
     rvol: null,
+    avg_volume_20d: null,
+    rvol_20d: null,
     float_shares: null,
     gap_percent: null,
     high_52w: null,

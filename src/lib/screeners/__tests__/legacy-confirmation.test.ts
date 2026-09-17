@@ -19,6 +19,8 @@ function sentinel(symbol: string, volume: number): ScreenerResultRow {
     volume,
     avg_volume: null,
     rvol: null,
+    avg_volume_20d: null,
+    rvol_20d: null,
     float_shares: null,
     gap_percent: null,
     high_52w: null,

@@ -21,6 +21,7 @@ import {
   SCREENER_STALE_AFTER_MS,
   type ScreenerResultRow,
 } from "@/lib/screeners/contract";
+import { computeDailyRvol20d } from "@/lib/screeners/daily-rvol";
 
 export interface DisplayFieldDonor {
   symbol: string;
@@ -30,6 +31,8 @@ export interface DisplayFieldDonor {
   change_percent?: number | null;
   prior_session_volume?: number | null;
   volume_ratio_prior_session?: number | null;
+  avg_volume_20d?: number | null;
+  rvol_20d?: number | null;
   gap_percent?: number | null;
   company_name?: string | null;
   provider_as_of?: string | null;
@@ -280,6 +283,18 @@ export function enrichDisplayFields<T extends ScreenerResultRow>(
     isBaseDonorCoherent(row, donor)
   ) {
     next.company_name = donor.company_name;
+  }
+
+  if (
+    (next.avg_volume_20d === null || next.avg_volume_20d === undefined) &&
+    isPositiveFinite(donor.avg_volume_20d) &&
+    isBaseDonorCoherent(row, donor)
+  ) {
+    const rvol = computeDailyRvol20d(row.volume, donor.avg_volume_20d);
+    if (rvol !== null) {
+      next.avg_volume_20d = donor.avg_volume_20d as number;
+      next.rvol_20d = rvol;
+    }
   }
 
   return next;

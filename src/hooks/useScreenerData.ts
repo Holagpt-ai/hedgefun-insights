@@ -51,6 +51,8 @@ const ROW_SELECT = [
   "market_cap",
   "prior_session_volume",
   "volume_ratio_prior_session",
+  "avg_volume_20d",
+  "rvol_20d",
   "day_high",
   "day_low",
   "range_event",
