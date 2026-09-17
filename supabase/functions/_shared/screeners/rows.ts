@@ -49,6 +49,8 @@ export type GenerationMeta = {
   syncedAt: string;
   syncRunId: string;
   nowMs: number;
+  /** Pre-market / after-hours extended session field semantics. */
+  extendedSession?: boolean;
 };
 
 /** Volume columns persist as integers. */
@@ -125,7 +127,7 @@ function baseRow(
     avg_volume: null,
     rvol: null,
     float_shares: null,
-    gap_percent: gapPercent(t),
+    gap_percent: gapPercent(t, meta.extendedSession ?? false),
     high_52w: null,
     low_52w: null,
     range_event: null,
@@ -158,7 +160,10 @@ export function mapGappers(
 ): ScreenerResultRow[] {
   return selected.map((t) => {
     const row = baseRow("gappers", t, getName, meta);
-    return { ...row, gap_percent: gapPercent(t) };
+    return {
+      ...row,
+      gap_percent: gapPercent(t, meta.extendedSession ?? false),
+    };
   });
 }
 

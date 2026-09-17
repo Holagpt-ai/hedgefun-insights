@@ -67,23 +67,15 @@ function emptyBook(): SymbolBook {
   };
 }
 
-function rebuildSessionExtremes(book: SymbolBook): void {
-  let high: number | null = null;
-  let low: number | null = null;
+function rebuildRetainedSums(book: SymbolBook): void {
+  // Volume/dollar for the retained window only. High/low are monotonic
+  // scalars and must survive six-minute pruning.
   let vol = 0;
   let dollars = 0;
   for (const bar of book.bars.values()) {
     vol += bar.volume;
     dollars += bar.dollarVolume;
-    if (bar.priceComplete && bar.high !== null) {
-      high = high === null ? bar.high : Math.max(high, bar.high);
-    }
-    if (bar.priceComplete && bar.low !== null) {
-      low = low === null ? bar.low : Math.min(low, bar.low);
-    }
   }
-  book.sessionHigh = high;
-  book.sessionLow = low;
   book.sessionVolumeSum = vol;
   book.sessionDollarSum = dollars;
 }
@@ -94,7 +86,7 @@ function pruneBars(
   retentionMs: number,
 ): void {
   const removed = pruneWindow(book.bars, eventNowMs, retentionMs);
-  if (removed) rebuildSessionExtremes(book);
+  if (removed) rebuildRetainedSums(book);
 }
 
 function sumVolume(
@@ -183,7 +175,17 @@ export function createRadarBook(config: RadarV22Config): RadarBook {
           correctionCount: existing.correctionCount + 1,
         };
         book.bars.set(event.s, next);
-        rebuildSessionExtremes(book);
+        if (incoming.priceComplete && incoming.high !== null) {
+          book.sessionHigh = book.sessionHigh === null
+            ? incoming.high
+            : Math.max(book.sessionHigh, incoming.high);
+        }
+        if (incoming.priceComplete && incoming.low !== null) {
+          book.sessionLow = book.sessionLow === null
+            ? incoming.low
+            : Math.min(book.sessionLow, incoming.low);
+        }
+        rebuildRetainedSums(book);
         book.lastReceiveMs = receiveMs;
         return {
           accepted: true,

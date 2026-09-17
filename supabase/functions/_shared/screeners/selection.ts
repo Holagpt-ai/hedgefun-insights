@@ -18,7 +18,7 @@ export type PolygonTicker = {
     v?: unknown;
   };
   lastTrade?: { p?: unknown; t?: unknown };
-  min?: { c?: unknown; t?: unknown; v?: unknown; av?: unknown };
+  min?: { o?: unknown; c?: unknown; t?: unknown; v?: unknown; av?: unknown };
   [key: string]: unknown;
 };
 
@@ -185,16 +185,40 @@ export function hasValidCurrentDayOpen(t: PolygonTicker): boolean {
   return Number.isFinite(n) && n > 0;
 }
 
-/** Gap % = (today open - prev close) / prev close * 100. */
-export function gapPercent(t: PolygonTicker): number | null {
-  const open = t?.day?.o;
-  const prevClose = t?.prevDay?.c;
-  if (open === undefined || open === null) return null;
-  if (prevClose === undefined || prevClose === null) return null;
-  const o = Number(open);
-  const c = Number(prevClose);
-  if (!Number.isFinite(o) || !Number.isFinite(c) || c === 0) return null;
-  return Math.round(((o - c) / c) * 1000) / 10;
+/**
+ * Session open for gap math. Regular session uses day.o only.
+ * Extended sessions may use the provider minute-bar open (min.o) when day.o
+ * is not yet populated at the session boundary — never substitutes price for
+ * prior close and never infers open from movement.
+ */
+export function currentSessionOpen(
+  t: PolygonTicker,
+  extendedSession: boolean,
+): number | null {
+  const dayOpen = safeNumber(t?.day?.o);
+  if (dayOpen !== null && dayOpen > 0) return dayOpen;
+  if (!extendedSession) return null;
+  const minOpen = safeNumber(t?.min?.o);
+  if (minOpen !== null && minOpen > 0) return minOpen;
+  return null;
+}
+
+export function hasValidSessionOpen(
+  t: PolygonTicker,
+  extendedSession: boolean,
+): boolean {
+  return currentSessionOpen(t, extendedSession) !== null;
+}
+
+/** Gap % = (session open - prev close) / prev close * 100. */
+export function gapPercent(
+  t: PolygonTicker,
+  extendedSession = false,
+): number | null {
+  const open = currentSessionOpen(t, extendedSession);
+  const prevClose = previousRegularClose(t);
+  if (open === null || prevClose === null || prevClose === 0) return null;
+  return Math.round(((open - prevClose) / prevClose) * 1000) / 10;
 }
 
 /**
@@ -306,8 +330,11 @@ export function qualifiesDayTradeRadar(t: PolygonTicker): boolean {
   return price >= 2 && price <= 20 && chg >= 10 && ratio >= 5;
 }
 
-export function qualifiesGappers(t: PolygonTicker): boolean {
-  const g = gapPercent(t);
+export function qualifiesGappers(
+  t: PolygonTicker,
+  extendedSession = false,
+): boolean {
+  const g = gapPercent(t, extendedSession);
   return g !== null && Math.abs(g) >= 5;
 }
 
@@ -352,8 +379,41 @@ export function selectForTab(
   tabId: Exclude<ScreenerTabId, "new_highs_lows">,
   universe: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
+  opts?: { extendedSession?: boolean },
 ): PolygonTicker[] {
+  const extendedSession = opts?.extendedSession ?? false;
+  if (tabId === "gappers") {
+    const qualified = universe.filter((t) => qualifiesGappers(t, extendedSession));
+    return selectVolumeFirst(qualified, limit);
+  }
   const qualify = TAB_QUALIFIERS[tabId];
   const qualified = universe.filter(qualify);
   return selectVolumeFirst(qualified, limit);
+}
+
+/** Gainers/losers from full snapshot when provider lists are empty (extended session). */
+export function selectGainersLosersFromSnapshot(
+  universe: PolygonTicker[],
+  limit: number = SCREENER_ROW_LIMIT,
+): PolygonTicker[] {
+  const movers = universe.filter((t) => regularChangePercent(t) !== null);
+  const bySymbol = new Map<string, PolygonTicker>();
+  for (const t of movers) {
+    const sym = normalizeSymbol(t?.ticker);
+    if (!sym) continue;
+    const vol = dayVolume(t);
+    if (vol === null || !(vol > 0)) continue;
+    bySymbol.set(sym, { ...t, ticker: sym });
+  }
+  return [...bySymbol.values()]
+    .sort((a, b) => {
+      const ca = Math.abs(regularChangePercent(a)!);
+      const cb = Math.abs(regularChangePercent(b)!);
+      if (cb !== ca) return cb - ca;
+      const va = dayVolume(a)!;
+      const vb = dayVolume(b)!;
+      if (vb !== va) return vb - va;
+      return normalizeSymbol(a.ticker)! < normalizeSymbol(b.ticker)! ? -1 : 1;
+    })
+    .slice(0, Math.max(0, limit));
 }

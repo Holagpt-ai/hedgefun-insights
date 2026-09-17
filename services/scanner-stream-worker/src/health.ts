@@ -53,6 +53,15 @@ const EMPTY_RADAR: RadarHealthSnapshot = {
   out_of_order_count: 0,
   reconnect_count: 0,
   lease_held: false,
+  sentinel_enabled: false,
+  sentinel_live: 0,
+  promoted_count: 0,
+  promotion_cap: 128,
+  sentinel_evictions: 0,
+  promotions_total: 0,
+  demotions_total: 0,
+  cap_rejections: 0,
+  rss_bytes: null,
 };
 
 export type HealthStore = {
@@ -145,18 +154,7 @@ export function createHealthStore(startedAtMs: number): HealthStore {
       }
     },
     applyRadar(snapshot) {
-      radar = {
-        status: snapshot.status,
-        connection_state: snapshot.connection_state,
-        last_provider_event_at: snapshot.last_provider_event_at,
-        last_published_generation: snapshot.last_published_generation,
-        active_symbol_count: snapshot.active_symbol_count,
-        correction_count: snapshot.correction_count,
-        duplicate_count: snapshot.duplicate_count,
-        out_of_order_count: snapshot.out_of_order_count,
-        reconnect_count: snapshot.reconnect_count,
-        lease_held: snapshot.lease_held,
-      };
+      radar = { ...snapshot };
       if (snapshot.status === "degraded" && workerStatus === "running") {
         workerStatus = "degraded";
       }

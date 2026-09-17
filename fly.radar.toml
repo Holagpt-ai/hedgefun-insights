@@ -19,3 +19,7 @@ kill_timeout = 15
   cpu_kind = "shared"
   cpus = 1
   memory = "1gb"
+
+[env]
+  RADAR_SENTINEL_ENABLED = "true"
+  RADAR_PERSISTENCE_V2_ENABLED = "true"
