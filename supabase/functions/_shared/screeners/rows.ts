@@ -67,6 +67,11 @@ function persistedPriorVolume(value: number | null): number | null {
   return rounded !== null && rounded > 0 ? rounded : null;
 }
 
+/** One-decimal ratio from persisted integer volumes (mirrors frontend contract). */
+export function expectedVolumeRatio(volume: number, prior: number): number {
+  return Math.round((volume / prior) * 10) / 10;
+}
+
 /**
  * Persist prior volume and one-decimal ratio as one optional pair.
  * Derived from persisted integer volumes so a reader recomputing the ratio
@@ -90,7 +95,7 @@ function persistedPriorRatioPair(
   if (!Number.isFinite(ratio) || !(ratio > 0)) {
     return { prior_session_volume: null, volume_ratio_prior_session: null };
   }
-  const rounded = Math.round(ratio * 10) / 10;
+  const rounded = expectedVolumeRatio(volume, prior);
   if (!(rounded > 0)) {
     return { prior_session_volume: null, volume_ratio_prior_session: null };
   }
