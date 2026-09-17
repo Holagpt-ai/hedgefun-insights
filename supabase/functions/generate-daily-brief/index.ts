@@ -606,7 +606,7 @@ serve(async (req) => {
     const persistWindow = resolvePersistedGenerationWindow(nowMinutesEt);
     let generationReason = "material_change";
     if (persistWindow) {
-      if (decision.persist === "insert") {
+      if (decision.action === "generate" && decision.persist === "insert") {
         generationReason = "initial_window";
       } else if (readSnapshotGenerationWindow(existingBrief?.market_snapshot) !== persistWindow) {
         generationReason = isInsideFinalPreopenRecoveryEnvelope(nowMinutesEt)
