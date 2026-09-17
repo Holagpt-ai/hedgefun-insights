@@ -353,6 +353,29 @@ function extractPolygonSnapshotFields(body, symbolHint) {
   };
 }
 
+// src/lib/markets/mover-universe.ts
+var HOMEPAGE_MOVER_EXCLUDED_TYPES = /* @__PURE__ */ new Set([
+  "WARRANT",
+  "RIGHT",
+  "UNIT"
+]);
+function isExcludedHomepageMoverInstrument(instrumentType) {
+  if (!instrumentType || typeof instrumentType !== "string") return false;
+  return HOMEPAGE_MOVER_EXCLUDED_TYPES.has(instrumentType.trim().toUpperCase());
+}
+function shouldExcludeHomepageMover(input) {
+  const symbol = typeof input.symbol === "string" ? input.symbol.trim().toUpperCase() : "";
+  if (!symbol) return "invalid_last_price";
+  const price = input.price;
+  if (price === null || price === void 0 || !Number.isFinite(price) || !(price > 0)) {
+    return "invalid_last_price";
+  }
+  if (isExcludedHomepageMoverInstrument(input.instrumentType)) {
+    return "excluded_instrument_type";
+  }
+  return null;
+}
+
 // src/lib/markets/movers-integrity.ts
 var SOURCE_POLYGON = "polygon";
 var SOURCE_MARKET_MOVERS_CACHE = "market_movers";
@@ -517,6 +540,18 @@ function validateMover(input) {
   if (current === null || !(current > 0)) {
     return fail2(input, symbol, "invalid_current_price");
   }
+  const instrumentType = typeof input.instrumentType === "string" ? input.instrumentType : null;
+  const universeReject = shouldExcludeHomepageMover({
+    symbol,
+    price: current,
+    instrumentType
+  });
+  if (universeReject === "excluded_instrument_type") {
+    return fail2(input, symbol, "excluded_instrument");
+  }
+  if (universeReject === "invalid_last_price") {
+    return fail2(input, symbol, "invalid_current_price");
+  }
   if (input.referencePrice === void 0 || input.referencePrice === null) {
     return fail2(input, symbol, "missing_corroboration");
   }
@@ -659,6 +694,7 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
       }
     }
   }
+  const instrumentType = typeof raw.instrument_type === "string" ? raw.instrument_type : typeof raw.type === "string" ? raw.type : null;
   return validateMover({
     symbol: extracted?.symbol ?? raw.ticker ?? raw.symbol,
     name: raw.name ?? (isPlainObject2(raw.details) ? raw.details.name : null),
@@ -674,6 +710,7 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
     session,
     sessionDate,
     source: SOURCE_POLYGON,
+    instrumentType,
     nowMs
   });
 }
