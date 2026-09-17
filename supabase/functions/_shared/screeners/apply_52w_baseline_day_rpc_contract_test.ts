@@ -7,8 +7,11 @@ import {
   assertFalse,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-const NEW_MIGRATION_REL =
-  "../../../migrations/20260829120000_screener_52w_baseline_apply_day_set_based_v1.sql";
+const SET_BASED_MIGRATION_NAME =
+  "20260829120000_screener_52w_baseline_apply_day_set_based_v1.sql";
+const LATEST_MIGRATION_NAME =
+  "20260829201039_cf3e2ed0-3552-41f5-af80-18982f33424b.sql";
+const NEW_MIGRATION_REL = `../../../migrations/${LATEST_MIGRATION_NAME}`;
 const HISTORICAL_MIGRATION_REL =
   "../../../migrations/20260814180000_screener_52w_baseline_job.sql";
 
@@ -51,10 +54,9 @@ Deno.test("static: new forward migration is the latest apply RPC definition", as
     }
   }
   defs.sort();
-  assertEquals(defs, [
-    "20260814180000_screener_52w_baseline_job.sql",
-    "20260829120000_screener_52w_baseline_apply_day_set_based_v1.sql",
-  ]);
+  assertEquals(defs[defs.length - 1], LATEST_MIGRATION_NAME);
+  assert(defs.includes("20260814180000_screener_52w_baseline_job.sql"));
+  assert(defs.includes(SET_BASED_MIGRATION_NAME));
 });
 
 Deno.test("static: public signature, security, and grants are unchanged", async () => {

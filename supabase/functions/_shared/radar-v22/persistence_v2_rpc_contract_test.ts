@@ -7,12 +7,27 @@ import {
   assertFalse,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-const MIGRATION =
+const SCHEMA_MIGRATION_REL =
   "../../../migrations/20260901150000_radar_v22_persistence_v2.sql";
+const LOVABLE_FULL_MIGRATION_NAME =
+  "20260902223843_d8af27c1-7f12-477f-9860-b301d6395d62.sql";
+const LATEST_RPC_MIGRATION_NAME =
+  "20260902235002_b1e907c5-0bf9-4124-966f-380461046d9f.sql";
+const LATEST_RPC_MIGRATION_REL =
+  `../../../migrations/${LATEST_RPC_MIGRATION_NAME}`;
 const RPC_NAME = "replace_radar_v22_candidates_v1";
 
-async function load(): Promise<string> {
-  const raw = await Deno.readTextFile(new URL(MIGRATION, import.meta.url));
+async function loadSchema(): Promise<string> {
+  const raw = await Deno.readTextFile(
+    new URL(SCHEMA_MIGRATION_REL, import.meta.url),
+  );
+  return raw.replaceAll("\r\n", "\n");
+}
+
+async function loadRpc(): Promise<string> {
+  const raw = await Deno.readTextFile(
+    new URL(LATEST_RPC_MIGRATION_REL, import.meta.url),
+  );
   return raw.replaceAll("\r\n", "\n");
 }
 
@@ -26,7 +41,7 @@ function functionBody(sql: string): string {
 }
 
 Deno.test("static: v2_synced_at is a dedicated feed_state fence column", async () => {
-  const sql = await load();
+  const sql = await loadSchema();
   assert(sql.includes("ADD COLUMN IF NOT EXISTS v2_synced_at timestamptz NULL"));
   assert(sql.includes("v2_synced_at = EXCLUDED.v2_synced_at"));
   assertFalse(/v2_synced_at\s*=\s*EXCLUDED\.updated_at/.test(sql));
@@ -35,7 +50,7 @@ Deno.test("static: v2_synced_at is a dedicated feed_state fence column", async (
 });
 
 Deno.test("static: RPC returns jsonb fence result, not integer", async () => {
-  const sql = await load();
+  const sql = await loadRpc();
   const start = sql.indexOf(`CREATE OR REPLACE FUNCTION public.${RPC_NAME}`);
   const returns = sql.slice(start, sql.indexOf("AS $fn$", start));
   assert(returns.includes("RETURNS jsonb"));
@@ -43,7 +58,7 @@ Deno.test("static: RPC returns jsonb fence result, not integer", async () => {
 });
 
 Deno.test("static: fence locks feed_state FOR UPDATE before DELETE", async () => {
-  const body = functionBody(await load());
+  const body = functionBody(await loadRpc());
   const lockAt = body.indexOf("FOR UPDATE");
   const deleteAt = body.indexOf("DELETE FROM public.radar_v22_candidates");
   const staleAt = body.indexOf("stale_generation");
@@ -57,7 +72,7 @@ Deno.test("static: fence locks feed_state FOR UPDATE before DELETE", async () =>
 });
 
 Deno.test("static: UUID values are never ordered for fencing", async () => {
-  const body = functionBody(await load());
+  const body = functionBody(await loadRpc());
   assertFalse(body.includes("p_generation_id <"));
   assertFalse(body.includes("p_generation_id >"));
   assertFalse(body.includes("v_existing_gen <"));
@@ -65,7 +80,7 @@ Deno.test("static: UUID values are never ordered for fencing", async () => {
 });
 
 Deno.test("static: last_provider_event_at is non-regressive", async () => {
-  const body = functionBody(await load());
+  const body = functionBody(await loadRpc());
   assert(body.includes("WHEN EXCLUDED.last_provider_event_at IS NULL THEN"));
   assert(
     body.includes(
@@ -85,7 +100,7 @@ Deno.test("static: last_provider_event_at is non-regressive", async () => {
 });
 
 Deno.test("static: security surface unchanged", async () => {
-  const sql = await load();
+  const sql = await loadRpc();
   assert(sql.includes("SECURITY DEFINER"));
   assert(sql.includes("SET search_path = ''"));
   assert(
@@ -101,7 +116,7 @@ Deno.test("static: security surface unchanged", async () => {
   assert(sql.includes("TO service_role"));
 });
 
-Deno.test("static: only one replace_radar_v22_candidates_v1 definition exists", async () => {
+Deno.test("static: latest forward migration is the authoritative replace RPC definition", async () => {
   const migrationsDir = new URL("../../../migrations/", import.meta.url);
   const defs: string[] = [];
   for await (const entry of Deno.readDir(migrationsDir)) {
@@ -112,5 +127,7 @@ Deno.test("static: only one replace_radar_v22_candidates_v1 definition exists", 
     }
   }
   defs.sort();
-  assertEquals(defs, ["20260901150000_radar_v22_persistence_v2.sql"]);
+  assertEquals(defs[defs.length - 1], LATEST_RPC_MIGRATION_NAME);
+  assert(defs.includes("20260901150000_radar_v22_persistence_v2.sql"));
+  assert(defs.includes(LOVABLE_FULL_MIGRATION_NAME));
 });
