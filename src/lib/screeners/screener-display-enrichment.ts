@@ -9,6 +9,11 @@
 
 import { easternDate } from "@/lib/radar-v22";
 import {
+  canonicalPriorRatioFromDonor,
+  isVerifiedRegularSessionChange,
+  pricesWithinCanonicalTolerance,
+} from "@/lib/screeners/canonical-fields";
+import {
   expectedVolumeRatio,
   isFiniteNumber,
   isPositiveFinite,
@@ -33,7 +38,6 @@ export interface DisplayFieldDonor {
 }
 
 export const DONOR_MAX_PROVIDER_SKEW_MS = SCREENER_STALE_AFTER_MS;
-const MAX_PRICE_DIVERGENCE_RATIO = 0.01;
 
 const TAB_PRIORITY: Record<string, number> = {
   day_trade_radar: 5,
@@ -66,10 +70,6 @@ function providerSkewMs(
   return Math.abs(am - bm);
 }
 
-function pricesWithinTolerance(donorPrice: number, sentinelPrice: number): boolean {
-  return Math.abs(donorPrice - sentinelPrice) / sentinelPrice <= MAX_PRICE_DIVERGENCE_RATIO;
-}
-
 function sessionVolumesMatch(
   donorVolume: number | null | undefined,
   sentinelVolume: number | null | undefined,
@@ -100,20 +100,36 @@ export function isBaseDonorCoherent(
   return true;
 }
 
+function pricesCoherent(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
+  if (!isPositiveFinite(sentinel.price) || !isPositiveFinite(donor.price)) return false;
+  return pricesWithinCanonicalTolerance(donor.price as number, sentinel.price as number);
+}
+
+/** Regular-session MOVE: price-aligned donor on the same ET day; volume may differ. */
 function canEnrichMove(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
   if (!isBaseDonorCoherent(sentinel, donor)) return false;
-  if (!isPositiveFinite(sentinel.price) || !isPositiveFinite(donor.price)) return false;
-  if (!sessionVolumesMatch(donor.volume, sentinel.volume)) return false;
-  return pricesWithinTolerance(donor.price as number, sentinel.price as number);
+  if (!isVerifiedRegularSessionChange(donor.change_percent)) return false;
+  return pricesCoherent(sentinel, donor);
 }
 
 function canEnrichVolPrior(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
   if (!isBaseDonorCoherent(sentinel, donor)) return false;
-  if (!sessionVolumesMatch(donor.volume, sentinel.volume)) return false;
-  return priorRatioPairValid(
-    donor.prior_session_volume,
-    donor.volume_ratio_prior_session,
-    sentinel.volume,
+  if (!isPositiveFinite(sentinel.volume)) return false;
+  if (sessionVolumesMatch(donor.volume, sentinel.volume)) {
+    return priorRatioPairValid(
+      donor.prior_session_volume,
+      donor.volume_ratio_prior_session,
+      sentinel.volume,
+    );
+  }
+  if (!pricesCoherent(sentinel, donor)) return false;
+  return (
+    canonicalPriorRatioFromDonor(
+      sentinel.volume,
+      donor.prior_session_volume,
+      donor.volume_ratio_prior_session,
+      donor.volume,
+    ) !== null
   );
 }
 
@@ -225,13 +241,27 @@ export function enrichDisplayFields<T extends ScreenerResultRow>(
     next.change_percent = donor.change_percent;
   }
 
-  const canCopyPrior =
+  if (
     next.prior_session_volume === null &&
     next.volume_ratio_prior_session === null &&
-    canEnrichVolPrior(row, donor);
-  if (canCopyPrior) {
-    next.prior_session_volume = donor.prior_session_volume as number;
-    next.volume_ratio_prior_session = donor.volume_ratio_prior_session as number;
+    canEnrichVolPrior(row, donor)
+  ) {
+    const exactVolumeMatch = sessionVolumesMatch(donor.volume, row.volume);
+    if (exactVolumeMatch) {
+      next.prior_session_volume = donor.prior_session_volume as number;
+      next.volume_ratio_prior_session = donor.volume_ratio_prior_session as number;
+    } else {
+      const pair = canonicalPriorRatioFromDonor(
+        row.volume,
+        donor.prior_session_volume,
+        donor.volume_ratio_prior_session,
+        donor.volume,
+      );
+      if (pair) {
+        next.prior_session_volume = pair.prior_session_volume;
+        next.volume_ratio_prior_session = pair.volume_ratio_prior_session;
+      }
+    }
   }
 
   if (

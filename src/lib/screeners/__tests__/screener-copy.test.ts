@@ -46,16 +46,15 @@ describe("Screener copy — Radar V2 session-aware honesty (D5.1 / D12)", () => 
     expect(copy.description.toLowerCase()).not.toContain("v2.1 snapshot");
   });
 
-  it("Volume Spikes / Unusual Volume Radar copy does not claim a prior-day volume ratio", () => {
+  it("Volume Spikes / Unusual Volume Radar copy describes canonical enrichment", () => {
     for (const session of ["pre-market", "market", "after-hours"] as const) {
       for (const id of ["volume_spikes", "unusual_volume"]) {
         const copy = resolveScreenerCopy(tab(id), "radar-v2", session);
         const text = blob(copy);
         expect(text).not.toMatch(/[0-9]\s*×/);
-        expect(text).not.toMatch(/\bx\s*prior/i);
         expect(text.toLowerCase()).toContain("rvol");
-        expect(text.toLowerCase()).toContain("not persisted by radar v2");
-        expect(text.toLowerCase()).toContain("prior-day ratio unavailable");
+        expect(text.toLowerCase()).toContain("enriched");
+        expect(text.toLowerCase()).toContain("verified");
         expect(copy.description.toLowerCase()).toContain("velocity");
         if (session !== "pre-market") {
           expect(copy.description.toLowerCase()).not.toContain("pre-market");
@@ -64,13 +63,14 @@ describe("Screener copy — Radar V2 session-aware honesty (D5.1 / D12)", () => 
     }
   });
 
-  it("Gainers/Losers Radar copy flags prior-close % as unavailable in every live session", () => {
+  it("Gainers/Losers Radar copy describes MOVE enrichment without short-window substitution", () => {
     for (const session of ["pre-market", "market", "after-hours"] as const) {
       const copy = resolveScreenerCopy(tab("gainers_losers"), "radar-v2", session);
       const desc = copy.description.toLowerCase();
-      expect(desc).toContain("prior-close");
+      expect(desc).toContain("enriched");
       expect(desc).toContain("short-window");
       expect(desc).toContain("not presented");
+      expect(copy.criteria.some((item) => item.toLowerCase().includes("move enriched"))).toBe(true);
     }
   });
 

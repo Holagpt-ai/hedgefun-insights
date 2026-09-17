@@ -18,7 +18,7 @@ export function matchesTraderLensPrice(
   const hasMin = bounds.min !== null;
   const hasMax = bounds.max !== null;
   if (!hasMin && !hasMax) return true;
-  if (!isFiniteNumber(price)) return false;
+  if (!isFiniteNumber(price) || !((price as number) > 0)) return false;
   if (hasMin && (price as number) < (bounds.min as number)) return false;
   if (hasMax && (price as number) > (bounds.max as number)) return false;
   return true;
@@ -89,4 +89,26 @@ export function applyTraderLensFilter(
 
 export function traderLensShowingCopy(visibleCount: number, radarCount: number): string {
   return `Showing ${visibleCount} of ${radarCount} Radar candidates`;
+}
+
+/** True when the lens does not restrict price (All Radar Movers / unbounded custom). */
+export function isBroadTraderLens(bounds: TraderLensPriceBounds): boolean {
+  return bounds.min === null && bounds.max === null;
+}
+
+/**
+ * Visible Top Leader for the active Trader Lens.
+ * Broad lens → volume-first #1 from the full ranked board.
+ * Restricted lens → first eligible filtered row (original rank preserved).
+ * Empty filtered lens → no visible leader (never fall back to broad #1).
+ */
+export function visibleTopLeaderRow(
+  ranked: readonly RadarRankedRow[],
+  filtered: readonly RadarRankedRow[],
+  bounds: TraderLensPriceBounds,
+): RadarRankedRow | null {
+  if (isBroadTraderLens(bounds)) {
+    return ranked[0] ?? null;
+  }
+  return filtered[0] ?? null;
 }

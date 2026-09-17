@@ -1,10 +1,16 @@
 import { useCallback, useEffect, useMemo, useReducer } from "react";
+import type { TraderLensPresetId, TraderLensPriceBounds } from "@/config/scanner-presets.config";
 import type { ScreenerResultRow, ScreenerUiStatus } from "@/lib/screeners/contract";
 import { applySignals, isRadarRowAccessible, rankRadarRows, signalForRank } from "./radar-metrics";
 import {
   INITIAL_RADAR_SELECTION,
   radarSelectionReducer,
 } from "./radar-selection";
+import {
+  applyTraderLensFilter,
+  isBroadTraderLens,
+  visibleTopLeaderRow,
+} from "./trader-lens";
 import type { RadarRankedRow } from "./types";
 
 export function useRadarSelection(opts: {
@@ -12,8 +18,17 @@ export function useRadarSelection(opts: {
   status: ScreenerUiStatus;
   isPro: boolean;
   freeRowLimit: number;
+  traderLensPresetId: TraderLensPresetId;
+  traderLensBounds: TraderLensPriceBounds;
 }) {
-  const { rows, status, isPro, freeRowLimit } = opts;
+  const {
+    rows,
+    status,
+    isPro,
+    freeRowLimit,
+    traderLensPresetId,
+    traderLensBounds,
+  } = opts;
   const [selection, dispatch] = useReducer(
     radarSelectionReducer,
     INITIAL_RADAR_SELECTION,
@@ -31,10 +46,29 @@ export function useRadarSelection(opts: {
     [board, status, selection.inactive, selection.selectedSymbol],
   );
 
+  const lens = useMemo(
+    () => applyTraderLensFilter(ranked, traderLensPresetId, traderLensBounds),
+    [ranked, traderLensPresetId, traderLensBounds],
+  );
+
+  const filtered = lens.rows;
+
+  const visibleTopLeader = useMemo(
+    () => visibleTopLeaderRow(ranked, filtered, traderLensBounds),
+    [ranked, filtered, traderLensBounds],
+  );
+
+  const lensConstrained = !isBroadTraderLens(traderLensBounds);
+
   useEffect(() => {
     if (status === "loading") return;
-    dispatch({ type: "board_updated", rows: board });
-  }, [board, status]);
+    dispatch({
+      type: "board_updated",
+      rows: board,
+      topLeader: visibleTopLeader,
+      lensConstrained,
+    });
+  }, [board, status, visibleTopLeader, lensConstrained]);
 
   const selectRow = useCallback(
     (row: RadarRankedRow) => {
@@ -45,12 +79,22 @@ export function useRadarSelection(opts: {
   );
 
   const followLeader = useCallback(() => {
-    dispatch({ type: "follow_leader", rows: board });
-  }, [board]);
+    dispatch({
+      type: "follow_leader",
+      rows: board,
+      topLeader: visibleTopLeader,
+      lensConstrained,
+    });
+  }, [board, visibleTopLeader, lensConstrained]);
 
   const returnToLeader = useCallback(() => {
-    dispatch({ type: "return_to_leader", rows: board });
-  }, [board]);
+    dispatch({
+      type: "return_to_leader",
+      rows: board,
+      topLeader: visibleTopLeader,
+      lensConstrained,
+    });
+  }, [board, visibleTopLeader, lensConstrained]);
 
   const activeRow: RadarRankedRow | null = useMemo(() => {
     if (!selection.snapshot) return null;
@@ -68,6 +112,9 @@ export function useRadarSelection(opts: {
 
   return {
     ranked,
+    filtered,
+    visibleTopLeader,
+    lens,
     selection,
     activeRow,
     selectRow,

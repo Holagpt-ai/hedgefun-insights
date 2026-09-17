@@ -198,6 +198,12 @@ serve(async (req) => {
           .in("symbol", symbols);
         const nameMap = new Map((stockRows ?? []).map((r: any) => [r.symbol, r.name]));
 
+        const { data: typeRows } = await supabase
+          .from("ticker_search")
+          .select("symbol, type")
+          .in("symbol", symbols);
+        const typeMap = new Map((typeRows ?? []).map((r: { symbol: string; type: string | null }) => [r.symbol, r.type]));
+
         // For tickers not in DB, batch-fetch names from Massive reference API
         const missing = symbols.filter((s: string) => !nameMap.has(s));
         if (missing.length > 0) {
@@ -237,10 +243,13 @@ serve(async (req) => {
             ].join(" "));
             return [];
           }
+          const instrumentType = typeMap.get(ticker) ?? null;
           return [{
             ...t,
             name: cleanName(nameMap.get(ticker) || ticker),
             price,
+            instrument_type: instrumentType,
+            type: instrumentType,
           }];
         });
 

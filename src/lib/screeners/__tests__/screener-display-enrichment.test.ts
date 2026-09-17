@@ -244,7 +244,7 @@ describe("screener display-field enrichment", () => {
     expect(enriched.prior_session_volume).toBe(1_000_000);
   });
 
-  it("rejects enrichment when cumulative session volume does not match Sentinel", () => {
+  it("enriches MOVE and recomputes Vol/Prior when prices align but volumes differ", () => {
     const row = sentinel("VOL", 7_000_000);
     const lookup = buildDisplayFieldLookup(
       [
@@ -257,7 +257,23 @@ describe("screener display-field enrichment", () => {
       null,
     );
     const enriched = enrichDisplayFields(row, lookup);
-    expect(enriched.change_percent).toBeNull();
+    expect(enriched.change_percent).toBe(11.1);
+    expect(enriched.prior_session_volume).toBe(1_000_000);
+    expect(enriched.volume_ratio_prior_session).toBe(7);
+  });
+
+  it("rejects Vol/Prior when donor prior/ratio pair is inconsistent", () => {
+    const row = sentinel("BADPAIR", 7_000_000);
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("BADPAIR", "volume_spikes", 7_000_000, {
+          prior_session_volume: 1_000_000,
+          volume_ratio_prior_session: 99,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
     expect(enriched.prior_session_volume).toBeNull();
     expect(enriched.volume_ratio_prior_session).toBeNull();
   });

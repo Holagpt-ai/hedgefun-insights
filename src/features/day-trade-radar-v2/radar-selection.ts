@@ -1,10 +1,25 @@
 import type { RadarRankedRow, RadarSelectionState } from "./types";
 
 export type RadarSelectionAction =
-  | { type: "board_updated"; rows: RadarRankedRow[] }
+  | {
+      type: "board_updated";
+      rows: RadarRankedRow[];
+      topLeader?: RadarRankedRow | null;
+      lensConstrained?: boolean;
+    }
   | { type: "select_manual"; row: RadarRankedRow }
-  | { type: "follow_leader"; rows: RadarRankedRow[] }
-  | { type: "return_to_leader"; rows: RadarRankedRow[] }
+  | {
+      type: "follow_leader";
+      rows: RadarRankedRow[];
+      topLeader?: RadarRankedRow | null;
+      lensConstrained?: boolean;
+    }
+  | {
+      type: "return_to_leader";
+      rows: RadarRankedRow[];
+      topLeader?: RadarRankedRow | null;
+      lensConstrained?: boolean;
+    }
   | { type: "reset" };
 
 export const INITIAL_RADAR_SELECTION: RadarSelectionState = {
@@ -16,6 +31,16 @@ export const INITIAL_RADAR_SELECTION: RadarSelectionState = {
 
 function leaderOf(rows: readonly RadarRankedRow[]): RadarRankedRow | null {
   return rows.length > 0 ? rows[0] : null;
+}
+
+function resolveVisibleLeader(
+  rows: readonly RadarRankedRow[],
+  topLeader: RadarRankedRow | null | undefined,
+  lensConstrained: boolean | undefined,
+): RadarRankedRow | null {
+  if (topLeader !== undefined) return topLeader;
+  if (lensConstrained) return null;
+  return leaderOf(rows);
 }
 
 function findBySymbol(
@@ -39,7 +64,11 @@ export function radarSelectionReducer(
 
     case "follow_leader":
     case "return_to_leader": {
-      const leader = leaderOf(action.rows);
+      const leader = resolveVisibleLeader(
+        action.rows,
+        action.topLeader,
+        action.lensConstrained,
+      );
       if (!leader) {
         return {
           mode: "follow_leader",
@@ -79,7 +108,19 @@ export function radarSelectionReducer(
       }
 
       if (state.mode === "follow_leader" || state.selectedSymbol === null) {
-        const leader = leaderOf(rows)!;
+        const leader = resolveVisibleLeader(
+          rows,
+          action.topLeader,
+          action.lensConstrained,
+        );
+        if (!leader) {
+          return {
+            mode: "follow_leader",
+            selectedSymbol: null,
+            snapshot: null,
+            inactive: false,
+          };
+        }
         return {
           mode: "follow_leader",
           selectedSymbol: leader.symbol,
