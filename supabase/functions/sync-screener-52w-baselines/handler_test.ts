@@ -14,6 +14,8 @@ import {
   type DbSelectResult,
   FINALIZE_JOB_RPC,
   handleSyncScreener52wBaselines,
+  isPublishedBaselineFullyCurrent,
+  isVolumeBaselineReady,
   RELEASE_RUN_LEASE_RPC,
   START_JOB_RPC,
 } from "./handler.ts";
@@ -115,6 +117,10 @@ class FakeBaselineDb {
   failAcquireOnCall: number | null = null;
   failAcquireErrorOnCall: number | null = null;
   failPolicyColumnSelect = false;
+  volumeBaselineGenerations = new Set<string>();
+  volumeHistoryGenerations = new Set<string>();
+  failVolumeBaselineSelect = false;
+  failVolumeHistorySelect = false;
 
   constructor(published?: PublishedState, lease?: RunLeaseState) {
     this.published = published ?? {
@@ -123,12 +129,18 @@ class FakeBaselineDb {
       current_generation_id: null,
     };
     this.lease = lease ?? { holderId: null, expiresAtMs: 0 };
+    if (this.published.current_generation_id) {
+      this.volumeBaselineGenerations.add(this.published.current_generation_id);
+      this.volumeHistoryGenerations.add(this.published.current_generation_id);
+    }
   }
 
   client(): DbClient {
     return {
       from: (table: string) => ({
-        select: (cols: string) => {
+        select: (_cols: string) => {
+          let eqCol: string | null = null;
+          let eqVal: string | null = null;
           const execute = async (): Promise<DbSelectResult> => {
             if (table === "market_session_calendar") {
               return { data: [], error: null };
@@ -136,7 +148,7 @@ class FakeBaselineDb {
             if (table === "screener_52w_baseline_state") {
               if (
                 this.failPolicyColumnSelect &&
-                cols.includes("policy_min_sessions")
+                _cols.includes("policy_min_sessions")
               ) {
                 return {
                   data: null,
@@ -151,9 +163,41 @@ class FakeBaselineDb {
                 error: null,
               };
             }
+            if (table === "screener_volume_baselines") {
+              if (this.failVolumeBaselineSelect) {
+                return { data: null, error: { message: "volume baseline query failed" } };
+              }
+              const genId = eqCol === "generation_id" ? eqVal : null;
+              if (genId && this.volumeBaselineGenerations.has(genId)) {
+                return { data: [{ generation_id: genId }], error: null };
+              }
+              return { data: [], error: null };
+            }
+            if (table === "screener_daily_volume_history") {
+              if (this.failVolumeHistorySelect) {
+                return { data: null, error: { message: "volume history query failed" } };
+              }
+              const genId = eqCol === "generation_id" ? eqVal : null;
+              if (genId && this.volumeHistoryGenerations.has(genId)) {
+                return { data: [{ generation_id: genId }], error: null };
+              }
+              return { data: [], error: null };
+            }
             return { data: [], error: null };
           };
-          return thenableQuery(execute);
+          const builder: DbQuery = {
+            eq: (col: string, value: string) => {
+              eqCol = col;
+              eqVal = value;
+              return builder;
+            },
+            limit: (_n: number) => builder,
+            then: (
+              onFulfilled?: ((value: DbSelectResult) => unknown) | null,
+              onRejected?: ((reason: unknown) => unknown) | null,
+            ) => execute().then(onFulfilled ?? undefined, onRejected ?? undefined),
+          };
+          return builder;
         },
       }),
       rpc: async (fn, args) => {
@@ -620,6 +664,163 @@ Deno.test("pre-migration current period without policy columns remains a no-op",
   assertEquals(body.generation_id, GEN);
   assertEquals(calls.length, 0);
   assertEquals(db.rpcCalls.length, 0);
+});
+
+const CURRENT_PUBLISHED = {
+  status: "available",
+  period_end: "2026-08-12",
+  current_generation_id: GEN,
+  policy_min_sessions: 2,
+  policy_excluded_count: 0,
+};
+
+function volumeBootstrapDb(): FakeBaselineDb {
+  const db = new FakeBaselineDb(CURRENT_PUBLISHED);
+  db.volumeBaselineGenerations.clear();
+  db.volumeHistoryGenerations.clear();
+  return db;
+}
+
+Deno.test("isVolumeBaselineReady requires both baseline and history rows", () => {
+  assertEquals(isVolumeBaselineReady(false, false), false);
+  assertEquals(isVolumeBaselineReady(true, false), false);
+  assertEquals(isVolumeBaselineReady(false, true), false);
+  assertEquals(isVolumeBaselineReady(true, true), true);
+});
+
+Deno.test("isPublishedBaselineFullyCurrent requires volume readiness when policy columns exist", () => {
+  const published = {
+    ...CURRENT_PUBLISHED,
+    policy_columns_missing: false,
+  };
+  assertEquals(
+    isPublishedBaselineFullyCurrent(published, "2026-08-12", 2, false),
+    false,
+  );
+  assertEquals(
+    isPublishedBaselineFullyCurrent(published, "2026-08-12", 2, true),
+    true,
+  );
+});
+
+Deno.test("current 52W generation with zero volume baseline/history is not fully current", async () => {
+  const db = volumeBootstrapDb();
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+  assertEquals(calls.length > 0, true);
+});
+
+Deno.test("volume baseline without history is not fully current", async () => {
+  const db = volumeBootstrapDb();
+  db.volumeBaselineGenerations.add(GEN);
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+});
+
+Deno.test("volume history without baseline is not fully current", async () => {
+  const db = volumeBootstrapDb();
+  db.volumeHistoryGenerations.add(GEN);
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+});
+
+Deno.test("current generation with volume baseline and history remains fully current", async () => {
+  const db = new FakeBaselineDb({
+    ...CURRENT_PUBLISHED,
+    policy_min_sessions: 2,
+    policy_excluded_count: 0,
+  });
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "current");
+  assertEquals(body.generation_id, GEN);
+  assertEquals(calls.length, 0);
+  assertEquals(db.rpcCalls.length, 0);
+});
+
+Deno.test("volume rows for an old generation do not satisfy current readiness", async () => {
+  const db = volumeBootstrapDb();
+  db.volumeBaselineGenerations.add(PRIOR_GEN);
+  db.volumeHistoryGenerations.add(PRIOR_GEN);
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+});
+
+Deno.test("volume bootstrap keeps published generation authoritative while rebuild runs", async () => {
+  const db = volumeBootstrapDb();
+  db.published.current_generation_id = PRIOR_GEN;
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      datesPerInvocation: 1,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(body.status, "running");
+  assertEquals(db.published.current_generation_id, PRIOR_GEN);
+  assertEquals(
+    db.rpcCalls.find((c) => c.fn === START_JOB_RPC)?.args.p_generation_id,
+    GEN,
+  );
+});
+
+Deno.test("volume readiness query failure fails closed and does not return current", async () => {
+  const db = new FakeBaselineDb(CURRENT_PUBLISHED);
+  db.failVolumeBaselineSelect = true;
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(body.status === "current", false);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
 });
 
 Deno.test("period mismatch starts a new generation and clears prior staging", async () => {
