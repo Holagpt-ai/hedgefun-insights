@@ -151,6 +151,52 @@ async function loadExceptions(
   }
 }
 
+export type VolumeBaselineReadiness = {
+  ready: boolean;
+  query_failed: boolean;
+};
+
+export async function loadVolumeBaselineReadiness(
+  sb: DbClient,
+  generationId: string | null,
+): Promise<VolumeBaselineReadiness> {
+  if (!generationId) {
+    return { ready: false, query_failed: false };
+  }
+  try {
+    const baselineRes = await sb
+      .from("screener_volume_baselines")
+      .select("generation_id")
+      .eq("generation_id", generationId)
+      .limit(1);
+    if (baselineRes.error) {
+      return { ready: false, query_failed: true };
+    }
+    const historyRes = await sb
+      .from("screener_daily_volume_history")
+      .select("generation_id")
+      .eq("generation_id", generationId)
+      .limit(1);
+    if (historyRes.error) {
+      return { ready: false, query_failed: true };
+    }
+    const hasBaseline = Array.isArray(baselineRes.data) &&
+      baselineRes.data.length > 0;
+    const hasHistory = Array.isArray(historyRes.data) &&
+      historyRes.data.length > 0;
+    return { ready: hasBaseline && hasHistory, query_failed: false };
+  } catch {
+    return { ready: false, query_failed: true };
+  }
+}
+
+export function isVolumeBaselineReady(
+  hasBaselineRow: boolean,
+  hasHistoryRow: boolean,
+): boolean {
+  return hasBaselineRow && hasHistoryRow;
+}
+
 async function loadPublishedState(sb: DbClient): Promise<{
   status: string | null;
   period_end: string | null;
@@ -204,7 +250,7 @@ async function loadPublishedState(sb: DbClient): Promise<{
   }
 }
 
-function isPublishedBaselineFullyCurrent(
+export function isPublishedBaselineFullyCurrent(
   published: {
     status: string | null;
     period_end: string | null;
@@ -215,6 +261,7 @@ function isPublishedBaselineFullyCurrent(
   },
   windowPeriodEnd: string,
   expectedMinSessions: number,
+  volumeBaselineReady: boolean,
 ): boolean {
   if (
     !(published.status === "available" || published.status === "empty") ||
@@ -223,13 +270,16 @@ function isPublishedBaselineFullyCurrent(
   ) {
     return false;
   }
-  // Pre-migration: policy columns do not exist yet. Do not loop a rebuild.
+  // Pre-RVOL policy rollout: policy columns do not exist yet. Do not loop a rebuild.
   if (published.policy_columns_missing) return true;
   const policy = parseStatePolicyExclusionFields({
     policy_min_sessions: published.policy_min_sessions,
     policy_excluded_count: published.policy_excluded_count,
   });
-  return policy !== null && policy.min_sessions === expectedMinSessions;
+  if (policy === null || policy.min_sessions !== expectedMinSessions) {
+    return false;
+  }
+  return volumeBaselineReady;
 }
 
 async function loadJob(sb: DbClient): Promise<JobSnapshot | null> {
@@ -332,11 +382,19 @@ export async function handleSyncScreener52wBaselines(
   }
 
   const published = await loadPublishedState(sb);
+  const volumeReadiness = await loadVolumeBaselineReadiness(
+    sb,
+    published.current_generation_id,
+  );
+  if (volumeReadiness.query_failed) {
+    console.error("[sync-screener-52w-baselines] volume_readiness_failed");
+  }
   if (
     isPublishedBaselineFullyCurrent(
       published,
       window.periodEnd,
       deps.minSessions ?? BASELINE_MIN_SESSIONS,
+      volumeReadiness.ready,
     )
   ) {
     return json({
