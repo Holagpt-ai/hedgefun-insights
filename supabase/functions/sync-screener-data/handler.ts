@@ -510,6 +510,21 @@ export async function handleSyncScreenerData(
     extendedSession,
   });
 
+  const nhlEvidence = tabEvaluationEvidence.new_highs_lows;
+  if (
+    nhlEvidence &&
+    nhlEvidence.status === "not_evaluated" &&
+    typeof nhlEvidence.unresolved_count === "number" &&
+    nhlEvidence.unresolved_count > 0
+  ) {
+    console.log(
+      `[sync-screener-data] nhl_unresolved count=${nhlEvidence.unresolved_count}` +
+        (nhlEvidence.unresolved_symbols?.length
+          ? ` sample=${JSON.stringify(nhlEvidence.unresolved_symbols)}`
+          : ""),
+    );
+  }
+
   const priorEvidence = await loadCurrentTabEvaluationEvidence(sb);
   if (
     shouldPreservePriorScreenerGeneration({

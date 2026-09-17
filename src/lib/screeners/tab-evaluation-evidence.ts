@@ -28,7 +28,10 @@ export interface NhlTabEvidence {
   eligible_count?: number;
   evaluated_count?: number;
   policy_excluded_count?: number;
+  no_history_count?: number;
   unresolved_count?: number;
+  unresolved_symbols?: string[];
+  no_history_symbols?: string[];
   qualified_count?: number;
   selected_count: number;
   reason?: string;
@@ -51,8 +54,23 @@ export type TabEvaluationEvidenceMap = Partial<
   Record<ManagedTabId, TabEvaluationEvidence>
 >;
 
+const NHL_DIAGNOSTIC_SYMBOL_CAP = 20;
+const NHL_SYMBOL_RE = /^[A-Z][A-Z0-9.\-]*$/;
+
 function isNonNegativeInt(value: unknown): value is number {
   return typeof value === "number" && Number.isInteger(value) && value >= 0;
+}
+
+function parseBoundedSymbolSample(value: unknown): string[] | null | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return null;
+  if (value.length > NHL_DIAGNOSTIC_SYMBOL_CAP) return null;
+  const out: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string" || !NHL_SYMBOL_RE.test(item)) return null;
+    out.push(item);
+  }
+  return out;
 }
 
 function parseGenericTabEvidence(raw: unknown): GenericTabEvidence | null {
@@ -146,9 +164,16 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
   ) {
     return null;
   }
+  if (obj.no_history_count !== undefined && !isNonNegativeInt(obj.no_history_count)) {
+    return null;
+  }
   if (obj.unresolved_count !== undefined && !isNonNegativeInt(obj.unresolved_count)) {
     return null;
   }
+  const unresolved_symbols = parseBoundedSymbolSample(obj.unresolved_symbols);
+  if (unresolved_symbols === null) return null;
+  const no_history_symbols = parseBoundedSymbolSample(obj.no_history_symbols);
+  if (no_history_symbols === null) return null;
   return {
     status: obj.status,
     baseline_status,
@@ -157,7 +182,10 @@ function parseNhlTabEvidence(raw: unknown): NhlTabEvidence | null {
     eligible_count: obj.eligible_count as number | undefined,
     evaluated_count: obj.evaluated_count as number | undefined,
     policy_excluded_count: obj.policy_excluded_count as number | undefined,
+    no_history_count: obj.no_history_count as number | undefined,
     unresolved_count: obj.unresolved_count as number | undefined,
+    unresolved_symbols,
+    no_history_symbols,
     qualified_count: obj.qualified_count as number | undefined,
     selected_count: obj.selected_count,
     reason: typeof obj.reason === "string" ? obj.reason : undefined,
@@ -220,13 +248,14 @@ export function nhlEvidenceSupportsZeroMatch(
   if (!isNonNegativeInt(evidence.eligible_count)) return false;
   if (!isNonNegativeInt(evidence.evaluated_count)) return false;
   if (!isNonNegativeInt(evidence.policy_excluded_count)) return false;
+  if (!isNonNegativeInt(evidence.no_history_count)) return false;
   if (!isNonNegativeInt(evidence.unresolved_count)) return false;
   if (!isNonNegativeInt(evidence.qualified_count)) return false;
   return (
     evidence.eligible_count > 0 &&
     evidence.unresolved_count === 0 &&
-    evidence.evaluated_count + evidence.policy_excluded_count ===
-      evidence.eligible_count &&
+    evidence.evaluated_count + evidence.policy_excluded_count +
+      evidence.no_history_count === evidence.eligible_count &&
     evidence.qualified_count === 0 &&
     evidence.selected_count === 0
   );

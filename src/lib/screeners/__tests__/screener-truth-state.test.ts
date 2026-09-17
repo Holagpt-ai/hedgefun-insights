@@ -426,6 +426,7 @@ describe("screener truth-state resolver", () => {
           eligible_count: 700,
           evaluated_count: 700,
           policy_excluded_count: 0,
+          no_history_count: 0,
           unresolved_count: 0,
           qualified_count: 0,
           selected_count: 0,
