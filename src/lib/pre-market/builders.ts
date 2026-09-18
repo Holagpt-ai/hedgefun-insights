@@ -216,11 +216,23 @@ export function isConfirmedEarningsCalendarEvent(row: CatalystLike): boolean {
   return true;
 }
 
+function normalizeTimeOfDay(v: unknown): "before_open" | "after_close" | "during" | null {
+  if (v === "before_open" || v === "after_close" || v === "during") return v;
+  return null;
+}
+
 /** Confirmed earnings-calendar record, dated today ET, explicitly before open. */
 export function isConfirmedBeforeOpenEarnings(row: CatalystLike, etDate: string): boolean {
   if (!isConfirmedEarningsCalendarEvent(row)) return false;
   if (row.event_date !== etDate) return false;
-  return row.time_of_day === "before_open";
+  return normalizeTimeOfDay(row.time_of_day) === "before_open";
+}
+
+/** Confirmed earnings-calendar record for today ET with unconfirmed reporting time. */
+export function isEarningsTodayTimingUnconfirmed(row: CatalystLike, etDate: string): boolean {
+  if (!isConfirmedEarningsCalendarEvent(row)) return false;
+  if (row.event_date !== etDate) return false;
+  return normalizeTimeOfDay(row.time_of_day) === null;
 }
 
 /**
@@ -236,6 +248,25 @@ export function selectDisplayEarnings<T extends CatalystLike>(
   return rows
     .filter((r) => isConfirmedBeforeOpenEarnings(r, opts.etDate))
     .slice(0, Math.max(0, limit));
+}
+
+export function selectDisplayEarningsTimingUnconfirmed<T extends CatalystLike>(
+  rows: T[],
+  opts: { etDate: string; limit?: number },
+): T[] {
+  if (!Array.isArray(rows)) return [];
+  const limit = opts.limit ?? EARNINGS_DISPLAY_LIMIT;
+  return rows
+    .filter((r) => isEarningsTodayTimingUnconfirmed(r, opts.etDate))
+    .slice(0, Math.max(0, limit));
+}
+
+export function buildBeforeOpenEarningsEmptyMessage(unconfirmedTotal: number): string {
+  if (unconfirmedTotal > 0) {
+    const noun = unconfirmedTotal === 1 ? "company has" : "companies have";
+    return `No confirmed before-open earnings currently. ${unconfirmedTotal} additional ${noun} earnings scheduled today with reporting time unconfirmed. Earnings-related news appears under Catalyst Watch.`;
+  }
+  return "No confirmed before-open earnings-calendar events for today. Earnings-related news appears under Catalyst Watch.";
 }
 
 
@@ -319,11 +350,34 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
       ? Math.max(validEarnings.length, rawTotal)
       : validEarnings.length;
 
+  const unconfirmedSection = validateSection<PreMarketWorkspaceResponse["earnings_timing_unconfirmed"]["data"]>(
+    r.earnings_timing_unconfirmed ?? { status: "empty", data: [], as_of: null, reason_code: "NO_QUALIFYING_DATA" },
+    [],
+    true,
+  );
+  const validUnconfirmed = unconfirmedSection.data.filter((row) => isEarningsTodayTimingUnconfirmed(row, etDate));
+  const displayUnconfirmed = validUnconfirmed.slice(0, EARNINGS_DISPLAY_LIMIT);
+  const unconfirmedDropped =
+    (unconfirmedSection.status === "available" || unconfirmedSection.status === "stale") &&
+    validUnconfirmed.length < unconfirmedSection.data.length;
+  const earnings_timing_unconfirmed: PreMarketWorkspaceResponse["earnings_timing_unconfirmed"] = unconfirmedDropped
+    ? { status: "unavailable", data: [], as_of: null, reason_code: "INCOMPLETE_COVERAGE" }
+    : { ...unconfirmedSection, data: displayUnconfirmed };
+
+  const rawUnconfirmedTotal = r.earnings_timing_unconfirmed_total;
+  const unconfirmedTotalValid =
+    typeof rawUnconfirmedTotal === "number" && Number.isInteger(rawUnconfirmedTotal) && rawUnconfirmedTotal >= 0;
+  const earningsTimingUnconfirmedTotal = unconfirmedDropped
+    ? 0
+    : unconfirmedTotalValid
+      ? Math.max(validUnconfirmed.length, rawUnconfirmedTotal)
+      : validUnconfirmed.length;
 
   return {
     contract_version: 1,
     server_now: r.server_now,
     earnings_confirmed_total: earningsConfirmedTotal,
+    earnings_timing_unconfirmed_total: earningsTimingUnconfirmedTotal,
 
     watchlist_lifecycle: validateLifecycle(r.watchlist_lifecycle),
     alerts_included: r.alerts_included === true,
@@ -347,6 +401,7 @@ export function validateWorkspace(raw: unknown): PreMarketWorkspaceResponse | nu
     catalyst_watch: validateSection(r.catalyst_watch, [], true),
     // Defense in depth: only confirmed before-open earnings-calendar rows.
     earnings,
+    earnings_timing_unconfirmed,
     volume_leaders: validateSection(r.volume_leaders, [], true),
     journal_readiness: validateSection(r.journal_readiness, EMPTY_JOURNAL, false),
     headlines: validateSection(r.headlines, [], true),

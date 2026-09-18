@@ -23,7 +23,7 @@ import { VolumeLeaderList } from "@/components/pre-market/VolumeLeaderList";
 import { RiskAttentionList } from "@/components/pre-market/RiskAttentionList";
 import { OpeningBellChecklist } from "@/components/pre-market/OpeningBellChecklist";
 import { HeadlinesList } from "@/components/pre-market/HeadlinesList";
-import { etTimestampLabel, relativeAge } from "@/lib/pre-market/builders";
+import { buildBeforeOpenEarningsEmptyMessage, etTimestampLabel, relativeAge } from "@/lib/pre-market/builders";
 import {
   compactWatchlistNotice,
   isActivePremarketSession,
@@ -281,8 +281,9 @@ export default function AMInbox() {
             subtitle="Confirmed earnings-calendar records only · current ET date · reporting before the open"
             section={data?.earnings ?? null}
             loading={loading}
-            emptyMessage="No confirmed before-open earnings-calendar events for today. Earnings-related news appears under Catalyst Watch."
+            emptyMessage={buildBeforeOpenEarningsEmptyMessage(data?.earnings_timing_unconfirmed_total ?? 0)}
             onRetry={ws.retry}
+            renderWhenEmpty={(data?.earnings_timing_unconfirmed_total ?? 0) > 0}
             action={
               <button
                 onClick={() => navigate("/dashboard/catalyst")}
@@ -292,19 +293,64 @@ export default function AMInbox() {
               </button>
             }
           >
-            <div className="flex flex-col gap-2">
-              <EarningsList rows={data?.earnings.data ?? []} />
-              {!!data && data.earnings_confirmed_total > (data.earnings.data.length ?? 0) && (
-                <p className="text-[11px] text-muted-foreground">
-                  Showing {data.earnings.data.length} of {data.earnings_confirmed_total} confirmed
-                  before-open earnings events ·{" "}
-                  <button
-                    onClick={() => navigate("/dashboard/catalyst")}
-                    className="text-accent-blue hover:underline"
-                  >
-                    open Catalyst for the full calendar
-                  </button>
-                </p>
+            <div className="flex flex-col gap-3">
+              {(data?.earnings.data.length ?? 0) === 0 && (data?.earnings_timing_unconfirmed_total ?? 0) > 0 && (
+                <SectionEmpty
+                  message={buildBeforeOpenEarningsEmptyMessage(data!.earnings_timing_unconfirmed_total)}
+                  reason={data?.earnings.reason_code}
+                />
+              )}
+              {(data?.earnings.data.length ?? 0) > 0 && (
+                <>
+                  <EarningsList rows={data?.earnings.data ?? []} />
+                  {!!data && data.earnings_confirmed_total > (data.earnings.data.length ?? 0) && (
+                    <p className="text-[11px] text-muted-foreground">
+                      Showing {data.earnings.data.length} of {data.earnings_confirmed_total} confirmed
+                      before-open earnings events ·{" "}
+                      <button
+                        onClick={() => navigate("/dashboard/catalyst")}
+                        className="text-accent-blue hover:underline"
+                      >
+                        open Catalyst for the full calendar
+                      </button>
+                    </p>
+                  )}
+                </>
+              )}
+              {(data?.earnings_timing_unconfirmed_total ?? 0) > 0 && (
+                <div className="flex flex-col gap-2 border-t border-border/60 pt-3">
+                  <div>
+                    <h3 className="text-sm font-medium">Earnings Today — Timing Unconfirmed</h3>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Provider-reported calendar events for today ET without a confirmed BMO/AMC session.
+                    </p>
+                  </div>
+                  {data?.earnings_timing_unconfirmed.status === "unavailable" ? (
+                    <SectionUnavailable
+                      reason={data.earnings_timing_unconfirmed.reason_code}
+                      onRetry={ws.retry}
+                    />
+                  ) : (
+                    <>
+                      <EarningsList
+                        rows={data?.earnings_timing_unconfirmed.data ?? []}
+                        sessionBadge="Timing Unconfirmed"
+                      />
+                      {!!data && data.earnings_timing_unconfirmed_total > (data.earnings_timing_unconfirmed.data.length ?? 0) && (
+                        <p className="text-[11px] text-muted-foreground">
+                          Showing {data.earnings_timing_unconfirmed.data.length} of{" "}
+                          {data.earnings_timing_unconfirmed_total} timing-unconfirmed earnings events ·{" "}
+                          <button
+                            onClick={() => navigate("/dashboard/catalyst")}
+                            className="text-accent-blue hover:underline"
+                          >
+                            open Catalyst for the full calendar
+                          </button>
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
               )}
             </div>
           </SectionShell>

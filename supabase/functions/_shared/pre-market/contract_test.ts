@@ -669,12 +669,15 @@ Deno.test("freshness is not applied outside an active session", () => {
 // ==========================================================================
 
 import {
+  buildBeforeOpenEarningsEmptyMessage,
   catalystDisplayTodayCount,
   catalystEarningsLabel,
   isConfirmedBeforeOpenEarnings,
   isConfirmedEarningsCalendarEvent,
+  isEarningsTodayTimingUnconfirmed,
   readEarningsFacts,
   selectBeforeOpenEarnings,
+  selectEarningsTodayTimingUnconfirmed,
 } from "./contract.ts";
 
 const ET = "2026-07-27";
@@ -795,4 +798,59 @@ Deno.test("checklist: polygon earnings news cannot increment before-open count",
     volumeLeaderCount: 0,
   });
   assertEquals(items.length, 0);
+});
+
+Deno.test("earnings: null and unknown time_of_day are timing-unconfirmed, not before-open", () => {
+  assertEquals(isEarningsTodayTimingUnconfirmed(base({ time_of_day: null }), ET), true);
+  assertEquals(isEarningsTodayTimingUnconfirmed(base({ time_of_day: "unknown" }), ET), true);
+  assertEquals(isConfirmedBeforeOpenEarnings(base({ time_of_day: null }), ET), false);
+  assertEquals(isConfirmedBeforeOpenEarnings(base({ time_of_day: "unknown" }), ET), false);
+});
+
+Deno.test("earnings: after_close and during are not timing-unconfirmed", () => {
+  assertEquals(isEarningsTodayTimingUnconfirmed(base({ time_of_day: "after_close" }), ET), false);
+  assertEquals(isEarningsTodayTimingUnconfirmed(base({ time_of_day: "during" }), ET), false);
+});
+
+Deno.test("earnings: mixed BMO and timing-unconfirmed on same ET date", () => {
+  const rows = [
+    base({ symbol: "AAA", time_of_day: "before_open" }),
+    base({ symbol: "BBB", time_of_day: null }),
+    base({ symbol: "CCC", time_of_day: "after_close" }),
+  ];
+  const bmo = selectBeforeOpenEarnings(rows as never, { etDate: ET, owned: new Set() });
+  const unconfirmed = selectEarningsTodayTimingUnconfirmed(rows as never, { etDate: ET, owned: new Set() });
+  assertEquals(bmo.total, 1);
+  assertEquals(bmo.rows[0].symbol, "AAA");
+  assertEquals(unconfirmed.total, 1);
+  assertEquals(unconfirmed.rows[0].symbol, "BBB");
+});
+
+Deno.test("earnings: Sep 18 2026 Nasdaq validation symbols with null provider timing", () => {
+  const SEP18 = "2026-09-18";
+  const symbols = ["NB", "HTLM", "TRT", "ZONE", "CELU", "ENLV", "LNAI"];
+  const rows = symbols.map((symbol) => base({
+    symbol,
+    event_date: SEP18,
+    time_of_day: null,
+  }));
+  const bmo = selectBeforeOpenEarnings(rows as never, { etDate: SEP18, owned: new Set() });
+  const unconfirmed = selectEarningsTodayTimingUnconfirmed(rows as never, { etDate: SEP18, owned: new Set() });
+  assertEquals(bmo.total, 0);
+  assertEquals(unconfirmed.total, 7);
+  assertEquals(
+    buildBeforeOpenEarningsEmptyMessage(unconfirmed.total).includes("7 additional companies have"),
+    true,
+  );
+});
+
+Deno.test("earnings: empty message does not imply no earnings when unconfirmed exist", () => {
+  assertEquals(buildBeforeOpenEarningsEmptyMessage(0).includes("additional"), false);
+  assertEquals(buildBeforeOpenEarningsEmptyMessage(3).includes("3 additional companies have"), true);
+});
+
+Deno.test("earnings: unknown time cannot become before-open via selection", () => {
+  const rows = [base({ time_of_day: null }), base({ time_of_day: "unknown" })];
+  const sel = selectBeforeOpenEarnings(rows as never, { etDate: ET, owned: new Set() });
+  assertEquals(sel.total, 0);
 });

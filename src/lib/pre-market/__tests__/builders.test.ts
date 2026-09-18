@@ -1,15 +1,18 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildBeforeOpenEarningsEmptyMessage,
   directionLabel,
   etCalendarDateFromIso,
   formatPercent,
   formatPrice,
   formatVolume,
+  isEarningsTodayTimingUnconfirmed,
   marketContextLabel,
   normalizeSymbol,
   numberOrDash,
   relativeAge,
   renderableSignals,
+  selectDisplayEarningsTimingUnconfirmed,
   symbolRoutes,
   timeOfDayLabel,
   validateSection,
@@ -28,6 +31,9 @@ function baseWorkspace(overrides: Record<string, unknown> = {}) {
     risk_attention: section([]),
     catalyst_watch: section([]),
     earnings: section([]),
+    earnings_timing_unconfirmed: section([]),
+    earnings_timing_unconfirmed_total: 0,
+    earnings_confirmed_total: 0,
     volume_leaders: section([]),
     journal_readiness: section({ open_trades: 0, missing_stop: 0, missing_target: 0, symbols: [] }),
     headlines: section([]),
@@ -351,6 +357,33 @@ describe("before-open earnings integrity", () => {
     expect(ws!.earnings.reason_code).toBe("INCOMPLETE_COVERAGE");
     expect(ws!.earnings.data).toHaveLength(0);
     expect(ws!.earnings_confirmed_total).toBe(0);
+  });
+
+  it("includes timing-unconfirmed earnings separately from before-open", () => {
+    const unconfirmed = earn({ symbol: "NB", time_of_day: null });
+    expect(isEarningsTodayTimingUnconfirmed(unconfirmed, ET)).toBe(true);
+    expect(selectDisplayEarningsTimingUnconfirmed([unconfirmed], { etDate: ET })).toHaveLength(1);
+    const ws = validateWorkspace(baseWorkspace({
+      market_context: { status: "premarket", et_date: ET, et_time: "08:00" },
+      earnings: { status: "empty", data: [], as_of: null, reason_code: "NO_QUALIFYING_DATA" },
+      earnings_timing_unconfirmed: { status: "available", data: [unconfirmed], as_of: null, reason_code: null },
+      earnings_timing_unconfirmed_total: 1,
+    }));
+    expect(ws!.earnings.data).toHaveLength(0);
+    expect(ws!.earnings_timing_unconfirmed.data).toHaveLength(1);
+    expect(ws!.earnings_timing_unconfirmed_total).toBe(1);
+    expect(buildBeforeOpenEarningsEmptyMessage(1)).toContain("1 additional company has");
+  });
+
+  it("excludes confirmed AMC from timing-unconfirmed", () => {
+    expect(isEarningsTodayTimingUnconfirmed(earn({ time_of_day: "after_close" }), ET)).toBe(false);
+  });
+
+  it("empty BMO message reflects unconfirmed count without hardcoding", () => {
+    const symbols = ["NB", "HTLM", "TRT", "ZONE", "CELU", "ENLV", "LNAI"];
+    const rows = symbols.map((symbol) => earn({ symbol, time_of_day: null }));
+    expect(selectDisplayEarningsTimingUnconfirmed(rows, { etDate: ET })).toHaveLength(7);
+    expect(buildBeforeOpenEarningsEmptyMessage(7)).toContain("7 additional companies have");
   });
 });
 

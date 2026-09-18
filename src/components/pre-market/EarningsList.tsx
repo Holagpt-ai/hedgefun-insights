@@ -3,7 +3,13 @@ import { numberOrDash } from "@/lib/pre-market/builders";
 import { TopNReveal } from "@/components/session-intelligence/TopNReveal";
 import type { PreMarketEarnings } from "@/types/pre-market";
 
-export function EarningsList({ rows }: { rows: PreMarketEarnings[] }) {
+export function EarningsList({
+  rows,
+  sessionBadge = "Before Open",
+}: {
+  rows: PreMarketEarnings[];
+  sessionBadge?: string;
+}) {
   return (
     <TopNReveal items={rows}>
       {(visible) => (
@@ -13,7 +19,7 @@ export function EarningsList({ rows }: { rows: PreMarketEarnings[] }) {
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-sm font-semibold">{e.symbol}</span>
                 <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  Before Open
+                  {sessionBadge}
                 </span>
                 <span className="rounded-full border border-border px-2 py-0.5 text-[10px] text-muted-foreground">
                   Earnings Calendar · provider reported
