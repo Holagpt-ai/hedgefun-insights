@@ -41,7 +41,11 @@ export function computeDailyRvol20d(
   if (!isValidHistoricalSessionVolume(avgVolume20d)) return null;
   const ratio = currentSessionVolume / avgVolume20d;
   if (!Number.isFinite(ratio)) return null;
-  return Math.round(ratio * 100) / 100;
+  const rounded = Math.round(ratio * 100) / 100;
+  // A genuinely positive ratio must never be reported as 0 by rounding:
+  // downstream persistence requires a positive rvol_20d whenever avg is set.
+  if (rounded === 0 && ratio > 0) return Number(ratio.toPrecision(2));
+  return rounded;
 }
 
 export interface SessionVolumeEntry {

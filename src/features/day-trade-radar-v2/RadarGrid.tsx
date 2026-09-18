@@ -178,7 +178,7 @@ export function RadarGrid({
   const symbols = useMemo(() => {
     const out: string[] = [];
     for (const r of rows) {
-      if (!isRadarRowAccessible(r.rank, isPro, freeRowLimit)) continue;
+      if (!isRadarRowAccessible(r.access_rank ?? r.rank, isPro, freeRowLimit)) continue;
       const s = normalizeSymbol(r.symbol);
       if (s) out.push(s);
     }
@@ -240,7 +240,7 @@ export function RadarGrid({
         </thead>
         <tbody>
           {rows.map((row) => {
-            const accessible = isRadarRowAccessible(row.rank, isPro, freeRowLimit);
+            const accessible = isRadarRowAccessible(row.access_rank ?? row.rank, isPro, freeRowLimit);
             const selected = selectedSymbol === row.symbol;
             const isLeader = row.rank === 1;
             const sym = row.symbol;

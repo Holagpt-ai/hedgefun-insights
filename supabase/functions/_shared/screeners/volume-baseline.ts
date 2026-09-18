@@ -51,7 +51,9 @@ export function rvol20dFromBaseline(
     return { avg_volume_20d: null, rvol_20d: null };
   }
   const rvol = computeDailyRvol20d(currentVolume, baseline.avg_volume_20d);
-  if (rvol === null) {
+  // Zero session volume yields a non-positive ratio, which is not a valid
+  // rvol pair downstream. Report no RVOL rather than a rejected pair.
+  if (rvol === null || !(rvol > 0)) {
     return { avg_volume_20d: null, rvol_20d: null };
   }
   return { avg_volume_20d: baseline.avg_volume_20d, rvol_20d: rvol };

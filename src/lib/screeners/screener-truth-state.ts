@@ -123,7 +123,13 @@ function resolveEmptyReason(
   tabId: string,
   evidence: ReturnType<typeof getTabEvaluationEvidence>,
   nhlBaselineStatus: ReturnType<typeof parseNhlBaselineStatus>,
+  source?: ScreenerDataSource | null,
 ): ScreenerTruthReason {
+  // A verified Radar V2 generation IS the evaluation: an empty tab means the
+  // validated board produced no qualifying securities, not missing evidence.
+  if (source === "radar-v2" && tabId !== NHL_TAB_ID && tabId !== "gappers") {
+    return "validated_zero_matches";
+  }
   if (tabId === NHL_TAB_ID) {
     if (nhlBaselineStatus === "initializing") return "baseline_initializing";
     if (nhlBaselineStatus === "unavailable") return "baseline_unavailable";
@@ -284,14 +290,14 @@ export function resolveScreenerTruthState(
   }
 
   if (status === "empty" || (status === "available" && rowCount === 0)) {
-    const reason = resolveEmptyReason(tabId, evidence, nhlStatus);
+    const reason = resolveEmptyReason(tabId, evidence, nhlStatus, source);
     const copy = copyForReason(tabId, reason, evidence);
     return {
       status: "empty",
       reason,
       ...copy,
       showRows: false,
-      showFreshness: hasSyncedAt && source !== "radar-v2",
+      showFreshness: hasSyncedAt,
     };
   }
 

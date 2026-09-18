@@ -42,6 +42,11 @@ export interface LegacyConfirmationFields {
 export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, LegacyConfirmationFields {
   /** Authoritative volume-first rank derived from verified backend order (1-based). */
   rank: number;
+  /**
+   * 1-based position within the currently visible Trader Lens view.
+   * Free-plan unlocking uses this so the first visible rows stay usable.
+   */
+  access_rank?: number;
   signal: RadarSignalLabel;
   hod_distance_percent: number | null;
 }
