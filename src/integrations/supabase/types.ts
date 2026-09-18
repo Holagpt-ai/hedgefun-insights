@@ -6196,6 +6196,10 @@ export type Database = {
         Args: { p_cursor_end: string; p_run_id: string; p_status: string }
         Returns: undefined
       }
+      copy_screener_daily_volume_history_for_finalize_v1: {
+        Args: { p_target_generation_id: string }
+        Returns: number
+      }
       copy_screener_daily_volume_history_from_current_v1: {
         Args: { p_target_generation_id: string }
         Returns: number
