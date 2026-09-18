@@ -148,16 +148,25 @@ describe("Pre-Market Volume Leaders ← Radar V2 (D11)", () => {
     }
   });
 
-  it("11. does not invent RVOL / prior-close / gap / company name / catalyst", () => {
+  it("11. surfaces RVOL 20D when screener snapshot carries avg_volume_20d", () => {
     const rows = mapRadarV2RowsToVolumeLeaders([
-      screenerRow("IMRN", 9_000_000),
+      {
+        ...screenerRow("IMRN", 9_000_000),
+        avg_volume_20d: 3_000_000,
+        rvol_20d: 3,
+      },
     ]);
     expect(rows).toHaveLength(1);
-    expect(rows[0].rvol).toBeNull();
+    expect(rows[0].rvol).toBe(3);
     expect(rows[0].change_percent).toBeNull();
     expect(rows[0].company_name).toBeNull();
     expect(rows[0]).not.toHaveProperty("gap_percent");
     expect(rows[0]).not.toHaveProperty("catalyst");
+  });
+
+  it("11b. keeps RVOL unavailable when baseline fields are absent", () => {
+    const rows = mapRadarV2RowsToVolumeLeaders([screenerRow("IMRN", 9_000_000)]);
+    expect(rows[0].rvol).toBeNull();
   });
 
   it("12. existing RTH behavior is unchanged", () => {
