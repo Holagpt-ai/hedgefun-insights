@@ -11,6 +11,9 @@ import {
 const MIGRATION_REL =
   "../../../migrations/20260917180000_screener_daily_volume_baseline_v1.sql";
 
+const CARRY_MIGRATION_REL =
+  "../../../migrations/20260918213000_screener_rvol_carry_forward_v1.sql";
+
 const FINALIZE_RPC = "finalize_screener_52w_baseline_publish_v1";
 const PUBLISH_VOLUME_RPC = "publish_screener_volume_baselines_v1";
 const APPLY_VOLUME_RPC = "apply_screener_daily_volume_day_v1";
@@ -49,11 +52,11 @@ Deno.test("static: volume baseline migration is latest finalize definition", asy
     }
   }
   defs.sort();
-  assertEquals(defs[defs.length - 1], "20260917180000_screener_daily_volume_baseline_v1.sql");
+  assertEquals(defs[defs.length - 1], "20260918213000_screener_rvol_carry_forward_v1.sql");
 });
 
 Deno.test("static: worker finalize publishes volume baselines before HL flip", async () => {
-  const sql = await load(MIGRATION_REL);
+  const sql = await load(CARRY_MIGRATION_REL);
   const body = functionBody(sql, FINALIZE_RPC);
   const publishIdx = body.indexOf(PUBLISH_VOLUME_RPC);
   const hlInsertIdx = body.indexOf("INSERT INTO public.screener_52w_baselines");
@@ -99,7 +102,8 @@ Deno.test("static: start job copy-forwards from current generation", async () =>
 Deno.test("static: published generation retains rolling history", async () => {
   const sql = await load(MIGRATION_REL);
   const cronBody = functionBody(sql, "finalize_screener_52w_baseline_job_v1");
-  const workerBody = functionBody(sql, "finalize_screener_52w_baseline_publish_v1");
+  const carrySql = await load(CARRY_MIGRATION_REL);
+  const workerBody = functionBody(carrySql, "finalize_screener_52w_baseline_publish_v1");
   assertFalse(cronBody.includes("DELETE FROM public.screener_daily_volume_history"));
   assertFalse(workerBody.includes("DELETE FROM public.screener_daily_volume_history"));
 });
