@@ -916,6 +916,16 @@ export function isConfirmedBeforeOpenEarnings(row: CatalystLike, etDate: string)
   return normalizeTimeOfDay(row.time_of_day) === "before_open";
 }
 
+/**
+ * Confirmed earnings-calendar record for today ET where the provider did not
+ * establish BMO/AMC/during timing. Never includes after_close or during rows.
+ */
+export function isEarningsTodayTimingUnconfirmed(row: CatalystLike, etDate: string): boolean {
+  if (!isConfirmedEarningsCalendarEvent(row)) return false;
+  if (row.event_date !== etDate) return false;
+  return normalizeTimeOfDay(row.time_of_day) === null;
+}
+
 /** Only the persisted ingestion fact keys are read. Nothing is synthesized. */
 export function readEarningsFacts(facts: unknown): {
   estimate_eps: number | null;
@@ -949,6 +959,31 @@ export function selectBeforeOpenEarnings<T extends CatalystLike & { symbol: stri
     return a.symbol.localeCompare(b.symbol);
   });
   return { rows: sorted.slice(0, Math.max(0, limit)), total: qualifying.length };
+}
+
+/** Deterministic selection for today ET with unconfirmed reporting time. */
+export function selectEarningsTodayTimingUnconfirmed<T extends CatalystLike & { symbol: string }>(
+  rows: T[],
+  opts: { etDate: string; owned: ReadonlySet<string>; limit?: number },
+): { rows: T[]; total: number } {
+  const limit = opts.limit ?? EARNINGS_DISPLAY_LIMIT;
+  const qualifying = rows.filter((r) => isEarningsTodayTimingUnconfirmed(r, opts.etDate));
+  const sorted = [...qualifying].sort((a, b) => {
+    const aw = opts.owned.has(a.symbol) ? 0 : 1;
+    const bw = opts.owned.has(b.symbol) ? 0 : 1;
+    if (aw !== bw) return aw - bw;
+    return a.symbol.localeCompare(b.symbol);
+  });
+  return { rows: sorted.slice(0, Math.max(0, limit)), total: qualifying.length };
+}
+
+/** Empty-state copy for the before-open section — never implies zero earnings today. */
+export function buildBeforeOpenEarningsEmptyMessage(unconfirmedTotal: number): string {
+  if (unconfirmedTotal > 0) {
+    const noun = unconfirmedTotal === 1 ? "company has" : "companies have";
+    return `No confirmed before-open earnings currently. ${unconfirmedTotal} additional ${noun} earnings scheduled today with reporting time unconfirmed. Earnings-related news appears under Catalyst Watch.`;
+  }
+  return "No confirmed before-open earnings-calendar events for today. Earnings-related news appears under Catalyst Watch.";
 }
 
 /**

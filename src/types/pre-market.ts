@@ -180,6 +180,8 @@ export interface PreMarketWorkspaceResponse {
   market_context: MarketContext;
   /** Total CONFIRMED before-open earnings-calendar events for the ET date. */
   earnings_confirmed_total: number;
+  /** Total earnings-calendar events for the ET date with unconfirmed reporting time. */
+  earnings_timing_unconfirmed_total: number;
   /** Lifecycle state for watchlist symbols excluded from the current session view. */
   watchlist_lifecycle: PreMarketLifecycleEntry[];
   /** False when the alerts query failed — derived sections must fail closed. */
@@ -193,6 +195,7 @@ export interface PreMarketWorkspaceResponse {
   risk_attention: SectionEnvelope<PreMarketAttentionItem[]>;
   catalyst_watch: SectionEnvelope<PreMarketCatalyst[]>;
   earnings: SectionEnvelope<PreMarketEarnings[]>;
+  earnings_timing_unconfirmed: SectionEnvelope<PreMarketEarnings[]>;
   volume_leaders: SectionEnvelope<PreMarketVolumeLeader[]>;
   journal_readiness: SectionEnvelope<JournalReadiness>;
   headlines: SectionEnvelope<PreMarketHeadline[]>;

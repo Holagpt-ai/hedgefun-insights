@@ -11,7 +11,8 @@ import {
   isConfirmedEarningsCalendarEvent,
   readEarningsFacts,
   selectBeforeOpenEarnings,
-  
+  selectEarningsTodayTimingUnconfirmed,
+
   dedupeCatalyst,
   derivedPartialChecklistStatus,
   derivedSectionStatus,
@@ -537,43 +538,59 @@ serve(async (req) => {
     updated_at: string | null; published_at: string | null;
   }
   let earnings: SectionEnvelope<EarnOut[]>;
+  let earnings_timing_unconfirmed: SectionEnvelope<EarnOut[]>;
   let beforeOpenCount = 0;
   let earningsConfirmedTotal = 0;
+  let earningsTimingUnconfirmedTotal = 0;
+
+  const mapEarnOut = (c: typeof catalystRows[number]): EarnOut => {
+    const f = readEarningsFacts(c.facts);
+    return {
+      id: c.id,
+      symbol: c.symbol,
+      company_name: c.company_name,
+      provider: c.provider,
+      verification_state: c.verification_state,
+      event_type: c.event_type,
+      event_date: c.event_date,
+      time_of_day: c.time_of_day,
+      title: c.title,
+      estimate_eps: f.estimate_eps,
+      actual_eps: f.actual_eps,
+      surprise_percent: f.surprise_percent,
+      source_name: c.source_name,
+      source_url: c.source_url,
+      updated_at: c.updated_at ?? null,
+      published_at: c.published_at ?? null,
+    };
+  };
+
   if (catRaw === null) {
     earnings = unavailableSection<EarnOut[]>([], "QUERY_FAILED");
+    earnings_timing_unconfirmed = unavailableSection<EarnOut[]>([], "QUERY_FAILED");
   } else {
     const selection = selectBeforeOpenEarnings(catalystRows, {
       etDate: et.date,
       owned: ownedSet,
       limit: EARNINGS_DISPLAY_LIMIT,
     });
-    earningsConfirmedTotal = selection.total;
-    beforeOpenCount = selection.total;
-    const out: EarnOut[] = selection.rows.map((c) => {
-      const f = readEarningsFacts(c.facts);
-      return {
-        id: c.id,
-        symbol: c.symbol,
-        company_name: c.company_name,
-        provider: c.provider,
-        verification_state: c.verification_state,
-        event_type: c.event_type,
-        event_date: c.event_date,
-        time_of_day: c.time_of_day,
-        title: c.title,
-        estimate_eps: f.estimate_eps,
-        actual_eps: f.actual_eps,
-        surprise_percent: f.surprise_percent,
-        source_name: c.source_name,
-        source_url: c.source_url,
-        updated_at: c.updated_at ?? null,
-        published_at: c.published_at ?? null,
-      };
+    const unconfirmedSelection = selectEarningsTodayTimingUnconfirmed(catalystRows, {
+      etDate: et.date,
+      owned: ownedSet,
+      limit: EARNINGS_DISPLAY_LIMIT,
     });
+    earningsConfirmedTotal = selection.total;
+    earningsTimingUnconfirmedTotal = unconfirmedSelection.total;
+    beforeOpenCount = selection.total;
+    const out: EarnOut[] = selection.rows.map(mapEarnOut);
+    const unconfirmedOut: EarnOut[] = unconfirmedSelection.rows.map(mapEarnOut);
 
     earnings = out.length === 0
       ? emptySection<EarnOut[]>([], "NO_QUALIFYING_DATA")
       : envelope("available", out, newestSourceTs(selection.rows), null);
+    earnings_timing_unconfirmed = unconfirmedOut.length === 0
+      ? emptySection<EarnOut[]>([], "NO_QUALIFYING_DATA")
+      : envelope("available", unconfirmedOut, newestSourceTs(unconfirmedSelection.rows), null);
   }
 
   // -------------------------------------------------------- 5. volume leaders
@@ -895,6 +912,7 @@ serve(async (req) => {
     },
     watchlist_lifecycle: lifecycle,
     earnings_confirmed_total: earningsConfirmedTotal,
+    earnings_timing_unconfirmed_total: earningsTimingUnconfirmedTotal,
     alerts_included: alertsOk,
     headlines_feed_sync: null as string | null,
     headlines_feed_sync_note: FEED_SYNC_UNAVAILABLE,
@@ -904,6 +922,7 @@ serve(async (req) => {
     risk_attention,
     catalyst_watch,
     earnings,
+    earnings_timing_unconfirmed,
     volume_leaders,
     journal_readiness,
     headlines,

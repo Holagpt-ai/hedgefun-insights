@@ -104,6 +104,7 @@ function workspace(status: "premarket" | "regular"): PreMarketWorkspaceResponse 
       next_known_session_at: null,
     },
     earnings_confirmed_total: 0,
+    earnings_timing_unconfirmed_total: 0,
     watchlist_lifecycle: [],
     alerts_included: true,
     indexes: section([]),
@@ -111,6 +112,7 @@ function workspace(status: "premarket" | "regular"): PreMarketWorkspaceResponse 
     risk_attention: section([]),
     catalyst_watch: section([]),
     earnings: section([]),
+    earnings_timing_unconfirmed: section([]),
     volume_leaders: section([
       {
         symbol: "LEGACY",
