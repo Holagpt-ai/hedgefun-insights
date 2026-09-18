@@ -74,10 +74,10 @@ export type DbQuery = {
   in: (col: string, values: string[]) => DbQuery;
   limit: (n: number) => DbQuery;
   range: (from: number, to: number) => DbQuery;
-  then: (
-    onfulfilled?: ((value: DbSelectResult) => unknown) | null,
-    onrejected?: ((reason: unknown) => unknown) | null,
-  ) => Promise<unknown>;
+  then: <R1 = DbSelectResult, R2 = never>(
+    onfulfilled?: ((value: DbSelectResult) => R1 | PromiseLike<R1>) | null,
+    onrejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+  ) => Promise<R1 | R2>;
 };
 
 export type DbClient = {
