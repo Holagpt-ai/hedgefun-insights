@@ -34,7 +34,7 @@ export function RadarLeaderStrip({
   onReturnToLeader,
   onOpenDetails,
 }: RadarLeaderStripProps) {
-  const accessible = row ? isRadarRowAccessible(row.rank, isPro, freeRowLimit) : false;
+  const accessible = row ? isRadarRowAccessible(row.access_rank ?? row.rank, isPro, freeRowLimit) : false;
   const symbols = accessible && row ? ([normalizeSymbol(row.symbol)].filter(Boolean) as string[]) : [];
   const { data: catalystMap, isPending, isFetching, isError } = useCatalystEnrichmentForSymbols(symbols);
   const catalystPending = symbols.length > 0 && (isPending || (isFetching && !catalystMap));
