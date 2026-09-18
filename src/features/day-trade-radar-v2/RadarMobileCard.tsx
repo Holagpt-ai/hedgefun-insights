@@ -39,7 +39,7 @@ export function RadarMobileCard({
   freeRowLimit,
   onSelect,
 }: RadarMobileCardProps) {
-  const accessible = isRadarRowAccessible(row.rank, isPro, freeRowLimit);
+  const accessible = isRadarRowAccessible(row.access_rank ?? row.rank, isPro, freeRowLimit);
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const sym = row.symbol;
   const company = row.company_name?.trim() || sym;

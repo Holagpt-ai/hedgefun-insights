@@ -72,11 +72,25 @@ export function DayTradeRadarV2({
     traderLensBounds: traderLens.bounds,
   });
 
-  const leaderRow = visibleTopLeader;
+  // Free-plan unlocking follows the visible Trader Lens order, so the first
+  // rows a free user actually sees are the usable ones.
+  const lensRows = useMemo(
+    () => filtered.map((row, index) => ({ ...row, access_rank: index + 1 })),
+    [filtered],
+  );
+
+  const leaderRow = visibleTopLeader
+    ? lensRows.find((r) => r.symbol === visibleTopLeader.symbol) ?? visibleTopLeader
+    : null;
+
+  const activeAccessRank =
+    activeRow
+      ? lensRows.find((r) => r.symbol === activeRow.symbol)?.access_rank ?? activeRow.rank
+      : 0;
 
   const chartEnabled =
     !!activeRow &&
-    isRadarRowAccessible(activeRow.rank, isPro, freeRowLimit) &&
+    isRadarRowAccessible(activeAccessRank, isPro, freeRowLimit) &&
     (selection.inactive || resolved.status === "available" || resolved.status === "stale");
 
   const chartSymbol =
@@ -85,7 +99,7 @@ export function DayTradeRadarV2({
   const freeBlocked =
     !!activeRow &&
     !selection.inactive &&
-    !isRadarRowAccessible(activeRow.rank, isPro, freeRowLimit);
+    !isRadarRowAccessible(activeAccessRank, isPro, freeRowLimit);
 
   const { status: chartStatus, bars, latestBarIso, errorMessage, interval } = useRadarChartData({
     symbol: freeBlocked ? null : chartSymbol,
@@ -111,12 +125,12 @@ export function DayTradeRadarV2({
 
   const openLeaderDetails = () => {
     if (!leaderRow) return;
-    if (!isRadarRowAccessible(leaderRow.rank, isPro, freeRowLimit)) return;
+    if (!isRadarRowAccessible(leaderRow.access_rank ?? leaderRow.rank, isPro, freeRowLimit)) return;
     openDetails(leaderRow);
   };
 
   const upgradeNeeded =
-    !isPro && ranked.length > freeRowLimit && boardVisible;
+    !isPro && lensRows.length > freeRowLimit && boardVisible;
 
   const emptyMessage = useMemo(() => {
     if (resolved.status === "loading") return null;
@@ -204,7 +218,7 @@ export function DayTradeRadarV2({
         <>
           <div className="hidden md:block min-w-0">
             <RadarGrid
-              rows={filtered}
+              rows={lensRows}
               selectedSymbol={selection.selectedSymbol}
               isPro={isPro}
               freeRowLimit={freeRowLimit}
@@ -228,7 +242,7 @@ export function DayTradeRadarV2({
           </Sheet>
 
           <div className="md:hidden space-y-2" data-testid="radar-mobile-board">
-            {filtered.map((row) => (
+            {lensRows.map((row) => (
               <RadarMobileCard
                 key={`${row.tab_id}-${row.symbol}`}
                 row={row}
@@ -262,7 +276,7 @@ export function DayTradeRadarV2({
             onClick={() => navigate("/pro")}
             className="text-[12px] font-semibold text-accent-blue hover:underline"
           >
-            Unlock all {ranked.length} results with Pro access →
+            Unlock all {lensRows.length} results with Pro access →
           </button>
           <p className="text-xs text-muted-foreground text-center mt-2">
             Or go Unlimited for full access.
