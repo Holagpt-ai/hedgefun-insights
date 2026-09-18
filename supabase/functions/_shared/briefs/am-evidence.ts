@@ -13,6 +13,10 @@ import {
   type CatalystPresentationInput,
 } from "../pre-market/catalyst-presentation.ts";
 import {
+  classifyCatalystPrecedence,
+  compareCatalystPrecedence,
+} from "../catalyst/precedence.ts";
+import {
   EARNINGS_CALENDAR_PROVIDER,
   isConfirmedBeforeOpenEarnings,
 } from "../pre-market/contract.ts";
@@ -180,7 +184,7 @@ export function selectRankedHeadlines(ranked: RankedHeadline[]): AmHeadlineEvide
  * Legal / commentary / provider-associated / sector-related do not enter.
  */
 export function selectDirectCatalysts(rows: AttributedCatalystRow[]): AmCatalystEvidence[] {
-  const qualifying: AmCatalystEvidence[] = [];
+  const qualifying: AttributedCatalystRow[] = [];
   for (const row of rows) {
     if (row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings") {
       continue;
@@ -198,7 +202,22 @@ export function selectDirectCatalysts(rows: AttributedCatalystRow[]): AmCatalyst
     });
     if (cls !== "direct_catalyst") continue;
     if (row.ticker_specific !== true || row.attribution_class !== "direct") continue;
-    qualifying.push({
+    if (classifyCatalystPrecedence(row).tier !== "primary") continue;
+    qualifying.push(row);
+  }
+  const etDate = qualifying.reduce(
+    (max, r) => (r.event_date > max ? r.event_date : max),
+    qualifying[0]?.event_date ?? "",
+  );
+  qualifying.sort((a, b) =>
+    compareCatalystPrecedence(a, b, { owned: new Set(), etDate })
+  );
+  const seen = new Set<string>();
+  const out: AmCatalystEvidence[] = [];
+  for (const row of qualifying) {
+    if (seen.has(row.id)) continue;
+    seen.add(row.id);
+    out.push({
       id: row.id,
       symbol: row.symbol,
       title: row.title,
@@ -206,19 +225,6 @@ export function selectDirectCatalysts(rows: AttributedCatalystRow[]): AmCatalyst
       event_type: row.event_type,
       source_name: row.source_name ?? null,
     });
-  }
-  qualifying.sort((a, b) => {
-    const ad = a.event_date;
-    const bd = b.event_date;
-    if (ad !== bd) return bd.localeCompare(ad);
-    return a.symbol.localeCompare(b.symbol) || a.id.localeCompare(b.id);
-  });
-  const seen = new Set<string>();
-  const out: AmCatalystEvidence[] = [];
-  for (const row of qualifying) {
-    if (seen.has(row.id)) continue;
-    seen.add(row.id);
-    out.push(row);
     if (out.length >= AM_DIRECT_CATALYST_LIMIT) break;
   }
   return out;

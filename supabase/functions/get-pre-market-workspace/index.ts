@@ -50,6 +50,7 @@ import {
   type SectionEnvelope,
 } from "../_shared/pre-market/contract.ts";
 import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
+import { compareCatalystPrecedence } from "../_shared/catalyst/precedence.ts";
 import { consolidateRiskFlags, type RawRiskItem } from "../_shared/pre-market/risk-flags.ts";
 import { FEED_SYNC_UNAVAILABLE, rankHeadlines } from "../_shared/pre-market/headlines.ts";
 import { humanizeFailureCode, validateQuote } from "../_shared/quotes/integrity.ts";
@@ -505,18 +506,7 @@ serve(async (req) => {
       });
     }
     const scored = [...catalystRows]
-      .sort((a, b) => {
-        const as = a.ticker_specific ? 0 : 1;
-        const bs = b.ticker_specific ? 0 : 1;
-        if (as !== bs) return as - bs;
-        const aw = ownedSet.has(a.symbol) ? 0 : 1;
-        const bw = ownedSet.has(b.symbol) ? 0 : 1;
-        if (aw !== bw) return aw - bw;
-        const at = a.event_date === et.date ? 0 : 1;
-        const bt = b.event_date === et.date ? 0 : 1;
-        if (at !== bt) return at - bt;
-        return b.event_date.localeCompare(a.event_date);
-      })
+      .sort((a, b) => compareCatalystPrecedence(a, b, { owned: ownedSet, etDate: et.date }))
       .slice(0, CATALYST_DISPLAY_LIMIT);
     displayedCatalysts = scored;
     catalyst_watch = scored.length === 0

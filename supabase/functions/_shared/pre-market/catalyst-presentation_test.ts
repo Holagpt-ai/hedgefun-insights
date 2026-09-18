@@ -21,6 +21,32 @@ function row(overrides: Partial<CatalystPresentationInput> = {}): CatalystPresen
   };
 }
 
+Deno.test("parity: bull of the day is Commentary", () => {
+  assertEquals(
+    catalystPresentationLabel(
+      row({
+        title: "Bull of the Day: AXTI",
+        attribution_class: "direct",
+        ticker_specific: true,
+      }),
+    ),
+    "Commentary",
+  );
+});
+
+Deno.test("parity: featured highlights roundup is Commentary", () => {
+  assertEquals(
+    catalystPresentationLabel(
+      row({
+        title: "Zacks.com featured highlights Vince, Cognyte and Magnolia Oil & Gas",
+        attribution_class: "sector_related",
+        ticker_specific: false,
+      }),
+    ),
+    "Commentary",
+  );
+});
+
 Deno.test("parity: editorial comparison is Commentary, not Direct catalyst", () => {
   assertEquals(
     catalystPresentationLabel(

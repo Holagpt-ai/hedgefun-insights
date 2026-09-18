@@ -22,6 +22,18 @@ function row(overrides: Partial<CatalystPresentationInput> = {}): CatalystPresen
 }
 
 describe("classifyCatalystPresentation", () => {
+  it("labels bull of the day as Commentary", () => {
+    expect(
+      catalystPresentationLabel(
+        row({
+          title: "Bull of the Day: AXTI",
+          attribution_class: "direct",
+          ticker_specific: true,
+        }),
+      ),
+    ).toBe("Commentary");
+  });
+
   it("does not label editorial comparison articles as Direct catalyst", () => {
     expect(
       catalystPresentationLabel(

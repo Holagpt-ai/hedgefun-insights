@@ -5,6 +5,7 @@
  * Keep behaviorally synchronized with the client helper; parity tests cover both.
  */
 
+import { looksLikeMarketAttention } from "../catalyst/precedence.ts";
 import { EARNINGS_CALENDAR_PROVIDER } from "./contract.ts";
 
 export type CatalystPresentationClass =
@@ -48,16 +49,6 @@ const LEGAL_TITLE: RegExp[] = [
   /\bdeadline\b.{0,40}\b(?:investors?|shareholders?)\b/i,
 ];
 
-const COMMENTARY_TITLE: RegExp[] = [
-  /\bvs\.?\b/i,
-  /\bwhich\s+stocks?\b/i,
-  /\bis\s+.{0,80}\bstill\s+a\s+buy\b/i,
-  /\bstill\s+a\s+buy\s*\??\s*$/i,
-  /\bworth\s+(?:buying|a\s+buy)\b/i,
-  /\bshould\s+you\s+(?:buy|sell|hold)\b/i,
-  /\bbuy[, ]\s*hold[, ]\s*(?:or\s+)?sell\b/i,
-];
-
 function isEarningsCalendar(row: CatalystPresentationInput): boolean {
   return row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings";
 }
@@ -88,8 +79,8 @@ export function looksLikeLegalShareholderNotice(
   return LEGAL_TITLE.some((p) => p.test(blob));
 }
 
-export function looksLikeCommentary(title: string): boolean {
-  return COMMENTARY_TITLE.some((p) => p.test(title));
+export function looksLikeCommentary(title: string, eventType?: string): boolean {
+  return looksLikeMarketAttention(title, eventType);
 }
 
 /**
@@ -103,7 +94,7 @@ export function classifyCatalystPresentation(
   if (looksLikeLegalShareholderNotice(row.title, row.source_name)) {
     return "legal_shareholder_notice";
   }
-  if (looksLikeCommentary(row.title)) return "commentary";
+  if (looksLikeCommentary(row.title, row.event_type)) return "commentary";
   if (row.attribution_class === "sector_related") return "sector_related";
   if (row.attribution_class === "provider_associated") return "provider_associated";
   if (isEarningsCalendar(row)) return "direct_catalyst";
