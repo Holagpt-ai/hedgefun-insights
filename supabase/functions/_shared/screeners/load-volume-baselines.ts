@@ -14,8 +14,8 @@ export type VolumeBaselineDbClient = {
   from: (table: string) => {
     select: (cols: string) => {
       eq: (col: string, value: string) => {
-        limit: (n: number) => Promise<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }>;
-        range: (from: number, to: number) => Promise<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }>;
+        limit: (n: number) => PromiseLike<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }>;
+        range: (from: number, to: number) => PromiseLike<{ data: Array<Record<string, unknown>> | null; error: { message: string } | null }>;
       };
     };
   };
