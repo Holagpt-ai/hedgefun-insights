@@ -22,6 +22,13 @@
       "when": 1789686342804,
       "tag": "0002_screener_rvol20d_results_rpc_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789766350253,
+      "tag": "0003_screener_rvol_carry_forward_v1",
+      "breakpoints": true
     }
   ]
 }
