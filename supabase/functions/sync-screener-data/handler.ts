@@ -35,10 +35,8 @@ import {
   mapTabRows,
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
-import {
-  parseVolumeBaselineRow,
-  type VolumeBaselineQuote,
-} from "../_shared/screeners/volume-baseline.ts";
+import { loadVolumeBaselines } from "../_shared/screeners/load-volume-baselines.ts";
+import type { VolumeBaselineQuote } from "../_shared/screeners/volume-baseline.ts";
 import {
   buildTabEvaluationEvidence,
   type TabEvaluationEvidenceMap,
@@ -211,46 +209,6 @@ async function loadCurrentTabEvaluationEvidence(
   } catch {
     return null;
   }
-}
-
-async function loadVolumeBaselines(
-  sb: DbClient,
-): Promise<Map<string, VolumeBaselineQuote>> {
-  const out = new Map<string, VolumeBaselineQuote>();
-  try {
-    const stateRes = await sb
-      .from("screener_52w_baseline_state")
-      .select("current_generation_id,status")
-      .eq("state_key", "current")
-      .limit(1);
-    if (stateRes.error || !stateRes.data?.length) return out;
-    const generationId = stateRes.data[0].current_generation_id;
-    const status = stateRes.data[0].status;
-    if (status !== "available" || typeof generationId !== "string" || !generationId) {
-      return out;
-    }
-
-    let from = 0;
-    while (true) {
-      const page = await sb
-        .from("screener_volume_baselines")
-        .select(
-          "symbol,avg_volume_20d,volume_sessions_used,window_start_date,window_end_date",
-        )
-        .eq("generation_id", generationId)
-        .range(from, from + BASELINE_PAGE - 1);
-      if (page.error || !page.data) return out;
-      for (const item of page.data) {
-        const parsed = parseVolumeBaselineRow(item);
-        if (parsed) out.set(parsed.symbol, parsed);
-      }
-      if (page.data.length < BASELINE_PAGE) break;
-      from += BASELINE_PAGE;
-    }
-  } catch {
-    return out;
-  }
-  return out;
 }
 
 async function loadNhlBaseline(sb: DbClient): Promise<{

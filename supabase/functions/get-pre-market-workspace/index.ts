@@ -53,6 +53,8 @@ import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
 import { consolidateRiskFlags, type RawRiskItem } from "../_shared/pre-market/risk-flags.ts";
 import { FEED_SYNC_UNAVAILABLE, rankHeadlines } from "../_shared/pre-market/headlines.ts";
 import { humanizeFailureCode, validateQuote } from "../_shared/quotes/integrity.ts";
+import { loadVolumeBaselines } from "../_shared/screeners/load-volume-baselines.ts";
+import { resolveRvol20dFromSources } from "../_shared/screeners/resolve-rvol20d.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -135,6 +137,11 @@ serve(async (req) => {
   if (userErr || !userData?.user?.id) return json({ error: "UNAUTHORIZED" }, 401);
   const userId = userData.user.id;
 
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const volumeBaselines = serviceRoleKey
+    ? await loadVolumeBaselines(createClient(supabaseUrl, serviceRoleKey))
+    : new Map();
+
   const now = new Date();
   const nowMs = now.getTime();
   const et = etParts(now);
@@ -194,7 +201,7 @@ serve(async (req) => {
       .order("event_date", { ascending: false })
       .limit(400),
     userClient.from("screener_results")
-      .select("symbol, company_name, price, change_percent, volume, rvol, updated_at")
+      .select("symbol, company_name, price, change_percent, volume, avg_volume_20d, rvol_20d, updated_at")
       .eq("tab_id", "day_trade_radar")
       .order("volume", { ascending: false, nullsFirst: false })
       .limit(VOLUME_LEADER_LIMIT * 4),
@@ -405,7 +412,16 @@ serve(async (req) => {
           price: quoteInvalid ? null : positiveOrNull(a!.price),
           change_pct: quoteInvalid ? null : finiteOrNull(a!.change_pct),
           volume: quoteInvalid ? null : positiveOrNull(a!.volume),
-          rvol: quoteInvalid ? null : finiteOrNull(a!.rvol),
+          rvol: quoteInvalid
+            ? null
+            : finiteOrNull(a!.rvol) ?? (inPremarket
+              ? resolveRvol20dFromSources({
+                volume: positiveOrNull(a!.volume),
+                symbol: sym,
+                baselines: volumeBaselines,
+                tradingDate: et.date,
+              })
+              : null),
           rvol_class: quoteInvalid ? null : (typeof a!.rvol_class === "string" ? a!.rvol_class : null),
           market_signals: sanitizeMarketSignals(a!.market_signals, { unavailable }),
           session_date: isIsoDate(a!.session_date) ? a!.session_date : null,
@@ -620,7 +636,14 @@ serve(async (req) => {
         price: quote.valid ? quote.price : null,
         change_percent: quote.valid ? finiteOrNull(r.change_percent) : null,
         volume,
-        rvol: finiteOrNull(r.rvol),
+        rvol: resolveRvol20dFromSources({
+          volume,
+          symbol,
+          persistedRvol20d: r.rvol_20d,
+          persistedAvgVolume20d: r.avg_volume_20d,
+          baselines: volumeBaselines,
+          tradingDate: et.date,
+        }),
         updated_at: updated,
       });
     }

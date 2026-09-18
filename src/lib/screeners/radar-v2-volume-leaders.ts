@@ -12,6 +12,7 @@
 
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
+import { resolveDailyRvol20d } from "@/lib/screeners/screener-intelligence-fields";
 import type { PreMarketVolumeLeader, SectionEnvelope } from "@/types/pre-market";
 
 /** Matches the backend AM volume-leader cap in get-pre-market-workspace. */
@@ -36,9 +37,9 @@ function isPositiveVolume(v: number | null | undefined): v is number {
 
 /**
  * Map already-ranked Radar V2 screener rows onto the Volume Leaders row shape.
- * Adapter order (volume-first) is preserved. Honesty: RVOL, prior-close %,
- * gap, and company name stay null unless the source already had a real value —
- * Radar V2 never persists those, so they stay `—`.
+ * Adapter order (volume-first) is preserved. RVOL 20D is surfaced when the
+ * screener snapshot carries a valid avg_volume_20d / rvol_20d pair.
+ * Prior-close %, gap, and company name stay null unless already present.
  */
 export function mapRadarV2RowsToVolumeLeaders(
   rows: readonly ScreenerResultRow[],
@@ -48,13 +49,14 @@ export function mapRadarV2RowsToVolumeLeaders(
   for (const row of rows) {
     if (out.length >= limit) break;
     if (!isPositiveVolume(row.volume)) continue;
+    const rvol = row.rvol_20d ?? resolveDailyRvol20d(row);
     out.push({
       symbol: row.symbol,
       company_name: null,
       price: row.price,
       change_percent: null,
       volume: row.volume,
-      rvol: null,
+      rvol: typeof rvol === "number" && Number.isFinite(rvol) ? rvol : null,
       updated_at: row.updated_at ?? null,
     });
   }
