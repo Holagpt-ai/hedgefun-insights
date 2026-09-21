@@ -33,6 +33,7 @@ import {
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
+import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -79,6 +80,7 @@ export function RadarMobileCard({
   });
   const triggerTime = evaluateScreenerTriggerTime(row);
   const shortFloat = evaluateScreenerShortFloat(row);
+  const continuation = evaluateScreenerContinuation(row);
 
   return (
     <div
@@ -233,6 +235,11 @@ export function RadarMobileCard({
         </ScannerFieldHelp>{" "}
         <span className="text-foreground" title={shortFloat.title}>
           {shortFloat.display}
+        </span>
+        {" · "}
+        <span>Cont</span>{" "}
+        <span className="text-foreground" title={continuation.title}>
+          {continuation.display}
         </span>
       </div>
       <div className="mt-1.5">

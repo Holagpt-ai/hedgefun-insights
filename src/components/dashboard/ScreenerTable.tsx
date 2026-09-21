@@ -35,6 +35,7 @@ import {
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
+import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -334,6 +335,7 @@ export function ScreenerTable({
     if (col.key === "symbol") {
       const showInlineActions = tab.columns.every((c) => c.key !== "actions");
       const shortFloat = evaluateScreenerShortFloat(row);
+      const continuation = evaluateScreenerContinuation(row);
       return (
         <div className="min-w-0">
           <div className="inline-flex min-w-0 items-center gap-1.5">
@@ -357,6 +359,11 @@ export function ScreenerTable({
             </ScannerFieldHelp>{" "}
             <span className="tabular-nums text-foreground" title={shortFloat.title}>
               {shortFloat.display}
+            </span>
+            {" · "}
+            <span>Cont</span>{" "}
+            <span className="tabular-nums text-foreground" title={continuation.title}>
+              {continuation.display}
             </span>
           </div>
         </div>
@@ -609,6 +616,7 @@ export function ScreenerTable({
                 : null;
             const movementLabel = useGap ? "Gap" : useMove ? "Move" : null;
             const shortFloat = evaluateScreenerShortFloat(row);
+            const continuation = evaluateScreenerContinuation(row);
             return (
               <div
                 key={`${row.tab_id}-${row.symbol}`}
@@ -723,6 +731,12 @@ export function ScreenerTable({
                     </ScannerFieldHelp>{" "}
                     <span className="font-medium" title={shortFloat.title}>
                       {shortFloat.display}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Cont </span>
+                    <span className="font-medium" title={continuation.title}>
+                      {continuation.display}
                     </span>
                   </div>
                   {showPriorVol &&

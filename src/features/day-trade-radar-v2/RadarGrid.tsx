@@ -46,6 +46,7 @@ import {
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
+import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -365,6 +366,7 @@ export function RadarGrid({
                   if (columnId === "float") {
                     const floatShares = floatState.getFloat(sym);
                     const shortFloat = evaluateScreenerShortFloat(row);
+                    const continuation = evaluateScreenerContinuation(row);
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
                         <div>
@@ -377,6 +379,9 @@ export function RadarGrid({
                             Short
                           </ScannerFieldHelp>{" "}
                           <span title={shortFloat.title}>{shortFloat.display}</span>
+                          {" · "}
+                          <span>Cont</span>{" "}
+                          <span title={continuation.title}>{continuation.display}</span>
                         </div>
                       </td>
                     );
