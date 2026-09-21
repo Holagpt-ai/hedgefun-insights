@@ -57,6 +57,20 @@
       "when": 1790029453673,
       "tag": "0007_activate_historical_intelligence_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790032743280,
+      "tag": "0008_grant_min_update_historical_intelligence_sandbox_exec",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790032820474,
+      "tag": "0009_grant_update_backfill_jobs_sandbox_exec_retry",
+      "breakpoints": true
     }
   ]
 }

@@ -1,0 +1,2 @@
+GRANT UPDATE ON public.security_backfill_jobs TO sandbox_exec;
+COMMENT ON TABLE public.security_backfill_jobs IS 'Historical Intelligence backfill job ledger. Sandbox execution role requires UPDATE for state/checkpoint transitions.';
