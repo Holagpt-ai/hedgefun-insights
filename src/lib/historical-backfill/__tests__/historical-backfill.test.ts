@@ -4,7 +4,7 @@ import { historicalBackfillConfig } from "@/config/historical-backfill.config";
 import { HistoricalBackfillEngine } from "@/lib/historical-backfill/engine";
 import { detectDailyEpisode } from "@/lib/historical-backfill/episode-detector";
 import { addCalendarDays } from "@/lib/historical-backfill/dates";
-import { historicalDailyRvol } from "@/lib/historical-backfill/historical-rvol";
+import { historicalDailyRvol, createRollingDailyRvol } from "@/lib/historical-backfill/historical-rvol";
 import { normalizeDailyBar } from "@/lib/historical-backfill/normalize-daily-bar";
 import { createPolygonDailyAdapter } from "@/lib/historical-backfill/polygon-daily-adapter";
 import { withBoundedRetry } from "@/lib/historical-backfill/retry";
@@ -246,6 +246,14 @@ describe("Historical backfill engine V1", () => {
     expect(historicalDailyRvol(withCurrent, "2024-02-01", 500, 20)).toBe(5);
     expect(historicalDailyRvol(prior.slice(0, 19), "2024-02-01", 500, 20)).toBeNull();
     expect(historicalDailyRvol(withCurrent, "2024-02-01", null, 20)).toBeNull();
+    const rolling = createRollingDailyRvol(20);
+    const samples = [100, null, 80.5, 0, -1, 120.25, 90, 110.5, 130, 70.75, 60, 140.125, 150, 95.5, 88, 77.25, 66.5, 55, 44.125, 33.5, 22.25, 500.5, 10];
+    const seen: Array<{ sessionDate: string; volume: number | null }> = [];
+    samples.forEach((volume, index) => {
+      const sessionDate = addCalendarDays("2024-01-01", index);
+      seen.push({ sessionDate, volume });
+      expect(rolling.observe(volume)).toBe(historicalDailyRvol(seen, sessionDate, volume, 20));
+    });
   });
 
   it("13/14/15. detector tiers persist only above normal, and significant or extreme episodes are queued", async () => {

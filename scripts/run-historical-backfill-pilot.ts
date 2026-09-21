@@ -4,7 +4,7 @@
  */
 import { writeFileSync } from "node:fs";
 import { HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE } from "@/config/historical-backfill.config";
-import { HistoricalBackfillEngine } from "@/lib/historical-backfill/engine";
+import { HistoricalBackfillEngine, emptyBackfillLoopTimings } from "@/lib/historical-backfill/engine";
 import { detectDailyEpisode } from "@/lib/historical-backfill/episode-detector";
 import { historicalDailyRvol } from "@/lib/historical-backfill/historical-rvol";
 import { createPolygonDailyAdapter } from "@/lib/historical-backfill/polygon-daily-adapter";
@@ -212,11 +212,13 @@ async function main() {
   });
 
   const securities = SYMBOLS.map((symbol) => ({ securityId: securityIds.get(symbol)! }));
+  const ingestTimings = emptyBackfillLoopTimings();
   const engine = new HistoricalBackfillEngine({
     identity,
     intelligence,
     provider: adapter,
     config,
+    timings: ingestTimings,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
   const ingestStarted = Date.now();
@@ -239,6 +241,7 @@ async function main() {
     intelligence,
     provider: adapter,
     config: { ...config, maxChunksPerRun: 20 },
+    timings: ingestTimings,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   });
   const rest = await continued.runBatch(job.record.jobId, "2026-09-21T21:50:00.000Z");
@@ -383,6 +386,7 @@ async function main() {
     idempotencyMs,
     ingestMs,
     ingestWriteProfile,
+    ingestTimings: Object.fromEntries(Object.entries(ingestTimings).map(([key, value]) => [key, Math.round(value)])),
     ingestProviderMs: ingestDailyRequests.reduce((sum, request) => sum + request.ms, 0),
     runtimeMs: Date.now() - startedAt,
     dailyCounts,
@@ -425,6 +429,7 @@ async function main() {
     referenceRequests: requests.filter((request) => request.kind !== "daily" && request.kind !== "daily_page").length,
     sizes,
     ingestMs,
+    ingestTimings: report.ingestTimings,
     ingestWriteProfile,
     ingestProviderMs: report.ingestProviderMs,
     runtimeMs: report.runtimeMs,
