@@ -107,9 +107,11 @@ export function toScreenerTradeQualityView(result: TradeQualityResult): Screener
 }
 
 export function screenerTradeQualityValuesFromRow(
-  row: Pick<
-    ScreenerResultRow,
-    "price" | "volume" | "rvol_20d" | "change_percent" | "gap_percent" | "provider_as_of" | "updated_at"
+  row: Partial<
+    Pick<
+      ScreenerResultRow,
+      "price" | "volume" | "rvol_20d" | "change_percent" | "gap_percent" | "provider_as_of" | "updated_at"
+    >
   >,
   observation: ScreenerMetricObservation = SCORING_OBSERVATION,
 ): ScreenerTradeQualityValues {
@@ -130,9 +132,11 @@ export function screenerTradeQualityValuesFromRow(
 }
 
 export function evaluateScreenerTradeQuality(
-  row: Pick<
-    ScreenerResultRow,
-    "price" | "volume" | "rvol_20d" | "change_percent" | "gap_percent" | "provider_as_of" | "updated_at"
+  row: Partial<
+    Pick<
+      ScreenerResultRow,
+      "price" | "volume" | "rvol_20d" | "change_percent" | "gap_percent" | "provider_as_of" | "updated_at"
+    >
   >,
   observation?: ScreenerMetricObservation,
 ): ScreenerTradeQualityView {

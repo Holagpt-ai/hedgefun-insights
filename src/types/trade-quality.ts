@@ -6,6 +6,14 @@ import type {
   TradeQualityVersion,
 } from "@/config/trade-quality.config";
 
+export type {
+  TradeQualityCatalystQuality,
+  TradeQualityComponentKey,
+  TradeQualityLabel,
+  TradeQualityTechnicalSignalKey,
+  TradeQualityVersion,
+};
+
 /** Three-state boolean for technical signals. FALSE is a known negative; UNKNOWN is unavailable. */
 export type TradeQualityTriState = "TRUE" | "FALSE" | "UNKNOWN";
 

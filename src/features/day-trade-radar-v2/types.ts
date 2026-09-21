@@ -22,6 +22,8 @@ export interface RadarRankingFields {
   promoted_at?: string | null;
   /** Authentic Radar HOD-break event timestamp. Not current HOD distance. */
   last_hod_break_at?: string | null;
+  /** Current intraday distance from HOD. Optional on ranking-augmented rows. */
+  hod_distance_percent?: number | null;
   /** Radar trading session date (YYYY-MM-DD). */
   radar_trading_date?: string | null;
 }
