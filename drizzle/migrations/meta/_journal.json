@@ -43,6 +43,13 @@
       "when": 1790035200000,
       "tag": "0005_security_identity_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790121600000,
+      "tag": "0006_security_intelligence_data_model_v1",
+      "breakpoints": true
     }
   ]
 }
