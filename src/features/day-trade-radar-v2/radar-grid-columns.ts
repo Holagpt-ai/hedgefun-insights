@@ -9,6 +9,7 @@ export const RADAR_GRID_COLUMNS = [
   "$ Volume",
   "RVOL 20D",
   "Trade Quality",
+  "Trigger Time",
   "Prior Vol",
   "Vol / Prior",
   "Float",
@@ -47,6 +48,7 @@ export const RADAR_COLUMN_IDS = [
   "daily_rvol",
   "dollar_volume",
   "trade_quality",
+  "trigger_time",
   "acceleration_5m",
   "vwap_state",
   "freshness",
@@ -78,6 +80,7 @@ export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
   { id: "dollar_volume", label: "$ Volume", fieldId: "dollar_volume", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "daily_rvol", label: "RVOL 20D", fieldId: "daily_rvol", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "trade_quality", label: "Trade Quality", fieldId: "trade_quality", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "trigger_time", label: "Trigger Time", fieldId: "trigger_time", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "prior_volume", label: "Prior Vol", fieldId: "prior_volume", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "volume_ratio", label: "Vol / Prior", fieldId: "volume_ratio", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "float", label: "Float", fieldId: "float", defaultVisible: true, required: false, align: "right", optional: false },
@@ -121,12 +124,11 @@ export const FUTURE_RADAR_COLUMN_FIELD_IDS = [
   "ssr",
   "borrow_fee",
   "institutional_ownership",
-  "trigger_time",
   "latest_trigger",
   "catalyst_time",
 ] as const;
 
-export const RADAR_COLUMN_STORAGE_KEY = "stocksist.trader-lens.radar-columns.v3";
+export const RADAR_COLUMN_STORAGE_KEY = "stocksist.trader-lens.radar-columns.v4";
 
 export function isRadarColumnId(value: unknown): value is RadarColumnId {
   return typeof value === "string" && COLUMN_BY_ID.has(value as RadarColumnId);

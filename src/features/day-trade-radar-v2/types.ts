@@ -18,6 +18,12 @@ export interface RadarRankingFields {
   move_15s_pct?: number | null;
   /** Short-window 60s move. Never display as Day Move. */
   move_60s_pct?: number | null;
+  /** Authentic Radar promotion timestamp. Not fetched_at / synced_at. */
+  promoted_at?: string | null;
+  /** Authentic Radar HOD-break event timestamp. Not current HOD distance. */
+  last_hod_break_at?: string | null;
+  /** Radar trading session date (YYYY-MM-DD). */
+  radar_trading_date?: string | null;
 }
 
 export type RadarSignalLabel =

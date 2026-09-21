@@ -68,6 +68,8 @@ export function formatScreenerMetric(
       return n === null ? "—" : `#${n.toFixed(0)}`;
     case "trade_quality":
       return n === null ? "—" : String(Math.round(n));
+    case "trigger_time":
+      return value === null || value === undefined || value === "" ? "—" : String(value);
     case "text":
     default:
       return value === null || value === undefined || value === "" ? "—" : String(value);

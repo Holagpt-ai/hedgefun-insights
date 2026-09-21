@@ -12,7 +12,8 @@ export type ColumnFormat =
   | "dollar_volume"
   | "daily_rvol"
   | "rank"
-  | "trade_quality";
+  | "trade_quality"
+  | "trigger_time";
 
 export interface ScreenerColumn {
   key: string;
@@ -56,6 +57,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
       { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "trade_quality", label: "Trade Quality", format: "trade_quality", align: "right" },
+      { key: "trigger_time", label: "Trigger Time", format: "trigger_time", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
@@ -77,6 +79,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
       { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "trade_quality", label: "Trade Quality", format: "trade_quality", align: "right" },
+      { key: "trigger_time", label: "Trigger Time", format: "trigger_time", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
@@ -97,6 +100,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
       { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "trade_quality", label: "Trade Quality", format: "trade_quality", align: "right" },
+      { key: "trigger_time", label: "Trigger Time", format: "trigger_time", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
@@ -118,6 +122,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
       { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "trade_quality", label: "Trade Quality", format: "trade_quality", align: "right" },
+      { key: "trigger_time", label: "Trigger Time", format: "trigger_time", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
@@ -142,6 +147,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
       { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "trade_quality", label: "Trade Quality", format: "trade_quality", align: "right" },
+      { key: "trigger_time", label: "Trigger Time", format: "trigger_time", align: "right" },
       { key: "range_event", label: "Event", format: "text", align: "left" },
       { key: "high_52w", label: "Prior 52W High", format: "price", align: "right" },
       { key: "low_52w", label: "Prior 52W Low", format: "price", align: "right" },
@@ -166,6 +172,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
       { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "trade_quality", label: "Trade Quality", format: "trade_quality", align: "right" },
+      { key: "trigger_time", label: "Trigger Time", format: "trigger_time", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },

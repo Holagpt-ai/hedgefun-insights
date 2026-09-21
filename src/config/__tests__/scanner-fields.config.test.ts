@@ -39,8 +39,10 @@ describe("scanner field registry", () => {
     expect(dataTime?.source).toBe("provider_as_of");
 
     const trigger = getScannerField("trigger_time");
-    expect(trigger?.availability).toBe("unavailable");
+    expect(trigger?.availability).toBe("source-dependent");
     expect(trigger?.source).toMatch(/Do not populate from provider_as_of/);
+    expect(trigger?.source).toMatch(/promoted_at/);
+    expect(trigger?.description).toMatch(/not Data Time/i);
   });
 
   it("does not mislabel short-window moves as Day Move", () => {
@@ -58,7 +60,6 @@ describe("scanner field registry", () => {
       "short_float",
       "rvol_5m",
       "market_cap",
-      "trigger_time",
       "latest_trigger",
       "catalyst_time",
     ]) {
@@ -85,6 +86,17 @@ describe("scanner field registry", () => {
     expect(dollarVolume?.example).toMatch(/\$12/);
     expect(dollarVolume?.sortable).toBe(true);
     expect(dollarVolume?.filterable).toBe(true);
+  });
+
+  it("registers Trigger Time as source-dependent event timing, not Data Time", () => {
+    const trigger = getScannerField("trigger_time");
+    expect(trigger?.label).toBe("Trigger Time");
+    expect(trigger?.shortLabel).toBe("Trigger");
+    expect(trigger?.availability).toBe("source-dependent");
+    expect(trigger?.filterable).toBe(false);
+    expect(trigger?.defaultVisible).toBe(true);
+    expect(trigger?.mobileVisible).toBe(true);
+    expect(trigger?.source).toMatch(/Do not populate from provider_as_of/);
   });
 
   it("registers Trade Quality as a secondary intelligence field, not a filter", () => {

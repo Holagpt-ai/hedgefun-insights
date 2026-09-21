@@ -29,6 +29,11 @@ import {
   evaluateScreenerTradeQuality,
   formatScreenerTradeQualityFromRow,
 } from "@/lib/screeners/screener-trade-quality";
+import {
+  evaluateScreenerTriggerTime,
+  formatScreenerTriggerTimeFromRow,
+  triggerTypeLabel,
+} from "@/lib/screeners/screener-trigger-time";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -62,6 +67,7 @@ function desktopColClass(key: string): string {
     case "dollar_volume":
     case "rvol_20d":
     case "trade_quality":
+    case "trigger_time":
       return "w-[8%]";
     default:
       return "w-[8%]";
@@ -105,6 +111,8 @@ function screenerColumnFieldId(key: string): string | null {
       return "daily_rvol";
     case "trade_quality":
       return "trade_quality";
+    case "trigger_time":
+      return "trigger_time";
     case "catalyst_news":
       return "catalyst";
     default:
@@ -166,6 +174,10 @@ export function ScreenerTable({
     }
     if (key === "trade_quality") {
       return evaluateScreenerTradeQuality(row).score;
+    }
+    if (key === "trigger_time") {
+      const primary = evaluateScreenerTriggerTime(row).primary;
+      return primary ? Date.parse(primary.triggeredAt) : null;
     }
     return (row as unknown as Record<string, string | number | null | undefined>)[key];
   }, [getDiscoveryRank]);
@@ -385,6 +397,18 @@ export function ScreenerTable({
       return formatScreenerTradeQualityFromRow(row);
     }
 
+    if (col.key === "trigger_time") {
+      const view = evaluateScreenerTriggerTime(row);
+      return (
+        <span
+          className="tabular-nums"
+          title={view.primary ? `${triggerTypeLabel(view.primary.triggerType)} trigger` : "Trigger Time unavailable"}
+        >
+          {view.display}
+        </span>
+      );
+    }
+
     if (col.key === "volume_ratio_prior_session" && col.format === "multiplier") {
       return (
         <span className={volumeRatioBadgeClass(Number(raw))}>
@@ -556,6 +580,7 @@ export function ScreenerTable({
             const showDollarVolume = colKeys.has("dollar_volume");
             const showRvol20d = colKeys.has("rvol_20d");
             const showTradeQuality = colKeys.has("trade_quality");
+            const showTriggerTime = colKeys.has("trigger_time");
             const showPriorVol = colKeys.has("prior_session_volume");
             const showVolRatio = colKeys.has("volume_ratio_prior_session");
             const showDayRange = colKeys.has("day_range");
@@ -660,6 +685,23 @@ export function ScreenerTable({
                         Trade Quality
                       </ScannerFieldHelp>{" "}
                       <span className="font-medium">{formatScreenerTradeQualityFromRow(row)}</span>
+                    </div>
+                  )}
+                  {showTriggerTime && (
+                    <div>
+                      <ScannerFieldHelp fieldId="trigger_time" className="text-muted-foreground">
+                        Trigger
+                      </ScannerFieldHelp>{" "}
+                      <span
+                        className="font-medium"
+                        title={
+                          evaluateScreenerTriggerTime(row).primary
+                            ? `${triggerTypeLabel(evaluateScreenerTriggerTime(row).primary?.triggerType)} trigger`
+                            : "Trigger Time unavailable"
+                        }
+                      >
+                        {formatScreenerTriggerTimeFromRow(row)}
+                      </span>
                     </div>
                   )}
                   {showPriorVol &&

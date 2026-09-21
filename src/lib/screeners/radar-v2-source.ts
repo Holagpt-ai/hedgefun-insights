@@ -64,6 +64,8 @@ const CANDIDATE_SELECT = [
   "freshness_class",
   "provider_as_of",
   "updated_at",
+  "promoted_at",
+  "last_hod_break_at",
 ].join(",");
 
 /** Bounded handshake attempts. Do not spin; three coherent-read tries is enough. */

@@ -148,7 +148,7 @@ describe("Radar workspace layout", () => {
     expect(within(screen.getByTestId("radar-leader-strip")).getByText("PENNY")).toBeInTheDocument();
     expect(within(screen.getByTestId("radar-leader-strip")).getByText("#1")).toBeInTheDocument();
     expect(screen.getByTestId("radar-feed-line").textContent).toBe(feed);
-    expect(screen.queryByText("Trigger Time")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-scanner-table")).getByText("Trigger Time")).toBeInTheDocument();
   });
 
   it("opens the detail drawer from a row click without changing ranks, then restores the full scanner", () => {

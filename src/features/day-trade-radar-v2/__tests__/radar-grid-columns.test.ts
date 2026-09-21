@@ -14,7 +14,7 @@ import {
 
 describe("Day Trade Radar desktop grid", () => {
   it("keeps default columns with a sticky-right Actions contract", () => {
-    expect(RADAR_GRID_COLUMN_COUNT).toBe(14);
+    expect(RADAR_GRID_COLUMN_COUNT).toBe(15);
     expect([...RADAR_GRID_COLUMNS]).toEqual([
       "#",
       "Symbol / Signal",
@@ -23,6 +23,7 @@ describe("Day Trade Radar desktop grid", () => {
       "$ Volume",
       "RVOL 20D",
       "Trade Quality",
+      "Trigger Time",
       "Prior Vol",
       "Vol / Prior",
       "Float",
@@ -39,6 +40,7 @@ describe("Day Trade Radar desktop grid", () => {
       "dollar_volume",
       "daily_rvol",
       "trade_quality",
+      "trigger_time",
       "prior_volume",
       "volume_ratio",
       "float",

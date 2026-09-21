@@ -135,6 +135,8 @@ export interface RadarV2CandidateRow {
   freshness_class: string | null;
   provider_as_of: string | null;
   updated_at: string;
+  promoted_at?: string | null;
+  last_hod_break_at?: string | null;
 }
 
 export interface RadarV2FeedStateRow {
@@ -373,6 +375,9 @@ export function mapCandidateToScreenerRow(
         : null,
     move_15s_pct: isFiniteNumber(row.move_15s_pct) ? row.move_15s_pct : null,
     move_60s_pct: isFiniteNumber(row.move_60s_pct) ? row.move_60s_pct : null,
+    promoted_at: row.promoted_at ?? null,
+    last_hod_break_at: row.last_hod_break_at ?? null,
+    radar_trading_date: row.trading_date ?? null,
   };
 }
 

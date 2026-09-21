@@ -28,6 +28,10 @@ import {
   formatScreenerRvol20d,
 } from "@/lib/screeners/screener-metric-display";
 import { formatScreenerTradeQualityFromRow } from "@/lib/screeners/screener-trade-quality";
+import {
+  evaluateScreenerTriggerTime,
+  triggerTypeLabel,
+} from "@/lib/screeners/screener-trigger-time";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -72,6 +76,7 @@ export function RadarMobileCard({
     catalystPending: catalystCheckPending && !entry,
     catalystUnavailable: !!catalystError && !entry,
   });
+  const triggerTime = evaluateScreenerTriggerTime(row);
 
   return (
     <div
@@ -197,6 +202,20 @@ export function RadarMobileCard({
           TQ
         </ScannerFieldHelp>{" "}
         <span className="text-foreground">{formatScreenerTradeQualityFromRow(row)}</span>
+        {" · "}
+        <ScannerFieldHelp fieldId="trigger_time" className="text-muted-foreground">
+          Trigger
+        </ScannerFieldHelp>{" "}
+        <span
+          className="text-foreground"
+          title={
+            triggerTime.primary
+              ? `${triggerTypeLabel(triggerTime.primary.triggerType)} trigger`
+              : "Trigger Time unavailable"
+          }
+        >
+          {triggerTime.display}
+        </span>
         {" · "}
         Prior {formatRadarContextVolume(row.prior_session_volume)}
         {" · "}

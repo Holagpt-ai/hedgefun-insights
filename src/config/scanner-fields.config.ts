@@ -565,17 +565,18 @@ export const SCANNER_FIELDS: readonly ScannerFieldDefinition[] = [
     label: "Trigger Time",
     shortLabel: "Trigger",
     description:
-      "Future field: the time a breakout or trigger first occurred. This is not the provider data timestamp.",
+      "The first authentic Radar event time for this name — Discovery when promoted_at exists, otherwise the earliest mapped trigger. This is not Data Time, fetched time, or synced_at.",
     whyItMatters: "Traders need the event clock, not the last quote clock, to judge how late they are.",
     format: "datetime",
     category: "triggers",
     sortable: true,
     filterable: false,
-    defaultVisible: false,
-    mobileVisible: false,
+    defaultVisible: true,
+    mobileVisible: true,
     tooltipEnabled: true,
-    availability: "unavailable",
-    source: "Architectural placeholder. Do not populate from provider_as_of.",
+    availability: "source-dependent",
+    source:
+      "radar_v22_candidates.promoted_at and last_hod_break_at. Do not populate from provider_as_of.",
   },
   {
     id: "latest_trigger",
