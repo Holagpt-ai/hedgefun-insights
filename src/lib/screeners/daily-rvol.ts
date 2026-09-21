@@ -75,6 +75,6 @@ export function averageVolume20dFromSessions(
 }
 
 export function formatDailyRvol20d(value: number | null | undefined): string {
-  if (value === null || value === undefined || !Number.isFinite(value)) return "Unavailable";
+  if (value === null || value === undefined || !Number.isFinite(value)) return "—";
   return `${Number(value).toFixed(1)}×`;
 }

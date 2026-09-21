@@ -23,6 +23,10 @@ import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
+import {
+  formatScreenerDollarVolume,
+  formatScreenerRvol20d,
+} from "@/lib/screeners/screener-metric-display";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -177,6 +181,16 @@ export function RadarMobileCard({
       </div>
       <div className="mt-1 text-[12px] tabular-nums text-muted-foreground">
         Today Vol {formatRadarContextVolume(row.volume)}
+        {" · "}
+        <ScannerFieldHelp fieldId="dollar_volume" className="text-muted-foreground">
+          $ Vol
+        </ScannerFieldHelp>{" "}
+        <span className="text-foreground">{formatScreenerDollarVolume(row.price, row.volume)}</span>
+        {" · "}
+        <ScannerFieldHelp fieldId="daily_rvol" className="text-muted-foreground">
+          RVOL 20D
+        </ScannerFieldHelp>{" "}
+        <span className="text-foreground">{formatScreenerRvol20d(row.rvol_20d)}</span>
         {" · "}
         Prior {formatRadarContextVolume(row.prior_session_volume)}
         {" · "}

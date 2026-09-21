@@ -2,7 +2,16 @@
 // HedgeFun Dashboard Screeners — Tab Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ColumnFormat = "text" | "price" | "percent" | "multiplier" | "volume" | "shares";
+export type ColumnFormat =
+  | "text"
+  | "price"
+  | "percent"
+  | "multiplier"
+  | "volume"
+  | "shares"
+  | "dollar_volume"
+  | "daily_rvol"
+  | "rank";
 
 export interface ScreenerColumn {
   key: string;
@@ -38,13 +47,16 @@ export const SCREENER_TABS: ScreenerTab[] = [
     ],
     featured: true,
     columns: [
+      { key: "discovery_rank", label: "#", format: "rank", align: "left" },
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
       { key: "change_percent", label: "Move", format: "percent", align: "right" },
-      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Day Vol", format: "volume", align: "right" },
+      { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
+      { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
@@ -55,11 +67,14 @@ export const SCREENER_TABS: ScreenerTab[] = [
     description: "Gap ≥5% up or down from prior close. Ranked by current volume.",
     criteria: ["Gap ≥5% up or down from prior close"],
     columns: [
+      { key: "discovery_rank", label: "#", format: "rank", align: "left" },
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
       { key: "gap_percent", label: "Gap %", format: "percent", align: "right" },
-      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
+      { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
+      { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
@@ -71,11 +86,15 @@ export const SCREENER_TABS: ScreenerTab[] = [
       "provider day volume at least 3× provider prior-day volume (may include extended-session activity); ranked by provider day volume.",
     criteria: ["Provider day vol ≥3× prior day vol"],
     columns: [
+      { key: "discovery_rank", label: "#", format: "rank", align: "left" },
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
       { key: "volume", label: "Day Vol", format: "volume", align: "right" },
+      { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
+      { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
-      { key: "change_percent", label: "Move", format: "percent", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
@@ -87,11 +106,14 @@ export const SCREENER_TABS: ScreenerTab[] = [
     description: "Provider-reported gainers and losers. Ranked by current volume.",
     criteria: [],
     columns: [
+      { key: "discovery_rank", label: "#", format: "rank", align: "left" },
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
       { key: "change_percent", label: "Move", format: "percent", align: "right" },
-      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
+      { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
+      { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
+      { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
     ],
     freeRowLimit: 2,
@@ -107,14 +129,17 @@ export const SCREENER_TABS: ScreenerTab[] = [
       "Positive current volume and price",
     ],
     columns: [
+      { key: "discovery_rank", label: "#", format: "rank", align: "left" },
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
-      { key: "range_event", label: "Event", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
       { key: "change_percent", label: "Move", format: "percent", align: "right" },
+      { key: "volume", label: "Volume", format: "volume", align: "right" },
+      { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
+      { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
+      { key: "range_event", label: "Event", format: "text", align: "left" },
       { key: "high_52w", label: "Prior 52W High", format: "price", align: "right" },
       { key: "low_52w", label: "Prior 52W Low", format: "price", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
-      { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "catalyst_news", label: "Catalyst", format: "text", align: "left" },
       { key: "actions", label: "Actions", format: "text", align: "left" },
     ],
@@ -127,8 +152,13 @@ export const SCREENER_TABS: ScreenerTab[] = [
       "provider day volume at least 4× provider prior-day volume (may include extended-session activity); ranked by provider day volume.",
     criteria: ["Provider day vol ≥4× prior day vol"],
     columns: [
+      { key: "discovery_rank", label: "#", format: "rank", align: "left" },
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
+      { key: "price", label: "Last", format: "price", align: "right" },
+      { key: "change_percent", label: "Move", format: "percent", align: "right" },
       { key: "volume", label: "Day Vol", format: "volume", align: "right" },
+      { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
+      { key: "rvol_20d", label: "RVOL 20D", format: "daily_rvol", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },

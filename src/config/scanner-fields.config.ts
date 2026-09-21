@@ -416,8 +416,7 @@ export const SCANNER_FIELDS: readonly ScannerFieldDefinition[] = [
     id: "dollar_volume",
     label: "Dollar Volume",
     shortLabel: "$ Vol",
-    description:
-      "Stock price multiplied by today's traded share volume.",
+    description: "Current session trading value, calculated as price × volume.",
     whyItMatters:
       "It shows how much capital is moving through the stock, which helps distinguish high-share-volume penny stocks from genuinely high-liquidity names.",
     example: "100M shares at $0.25 ≈ $25M. 10M shares at $12 ≈ $120M.",
@@ -436,9 +435,9 @@ export const SCANNER_FIELDS: readonly ScannerFieldDefinition[] = [
     label: "RVOL 20D",
     shortLabel: "RVOL 20D",
     description:
-      "Today's cumulative volume divided by the average full-day volume of the prior 20 trading sessions. This version is not adjusted for time of day.",
+      "Current session volume divided by the average full-session volume of the prior 20 completed trading sessions. This version is not adjusted for time of day.",
     whyItMatters:
-      "It shows whether unusually heavy participation is occurring relative to the stock's recent normal volume. Note: this version is not adjusted for time of day; time-adjusted intraday RVOL will be added separately.",
+      "It shows whether unusually heavy participation is occurring relative to the stock's recent normal volume. It is separate from Vol/Prior and is not adjusted for time of day.",
     example: "10M shares today with a 2M 20-day average full-day volume ≈ 5.0× RVOL 20D.",
     format: "multiplier",
     category: "volume",

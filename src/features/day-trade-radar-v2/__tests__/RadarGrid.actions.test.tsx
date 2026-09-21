@@ -77,8 +77,8 @@ function ranked(symbol = "AAA"): RadarRankedRow {
 }
 
 describe("Day Trade Radar Actions sticky column", () => {
-  it("keeps eleven columns and a 160px sticky-right Actions contract", () => {
-    expect(RADAR_GRID_COLUMN_COUNT).toBe(11);
+  it("keeps default metric columns and a 160px sticky-right Actions contract", () => {
+    expect(RADAR_GRID_COLUMN_COUNT).toBe(13);
     expect(RADAR_GRID_COLUMNS[RADAR_GRID_COLUMN_COUNT - 1]).toBe("Actions");
     expect(RADAR_ACTIONS_MIN_WIDTH_PX).toBe(160);
     expect(RADAR_ACTIONS_STICKY_HEADER_CLASS).toContain("sticky");
