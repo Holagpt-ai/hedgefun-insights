@@ -164,7 +164,8 @@ async function main(): Promise<void> {
     dateFrom: DATE_FROM,
     dateTo: DATE_TO,
     recordedAt,
-    jobType: mode === "replay-intc" ? "SECURITY_DAILY_HISTORY_CANARY_REPLAY" : "SECURITY_DAILY_HISTORY_CANARY",
+    jobType: process.env.CANARY_JOB_TYPE
+      ?? (mode === "replay-intc" ? "SECURITY_DAILY_HISTORY_CANARY_REPLAY" : "SECURITY_DAILY_HISTORY_CANARY"),
   });
   if (!started.ok) throw new Error(`job start failed: ${started.reason}`);
   const jobId = started.record.jobId;
