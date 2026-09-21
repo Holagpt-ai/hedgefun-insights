@@ -32,6 +32,7 @@ import {
   evaluateScreenerTriggerTime,
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
+import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -77,6 +78,7 @@ export function RadarMobileCard({
     catalystUnavailable: !!catalystError && !entry,
   });
   const triggerTime = evaluateScreenerTriggerTime(row);
+  const shortFloat = evaluateScreenerShortFloat(row);
 
   return (
     <div
@@ -225,6 +227,13 @@ export function RadarMobileCard({
       </div>
       <div className="mt-0.5 text-[12px] tabular-nums text-muted-foreground">
         Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
+        {" · "}
+        <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
+          Short
+        </ScannerFieldHelp>{" "}
+        <span className="text-foreground" title={shortFloat.title}>
+          {shortFloat.display}
+        </span>
       </div>
       <div className="mt-1.5">
         <ScannerFieldHelp fieldId="day_range" className="text-muted-foreground text-[11px]">

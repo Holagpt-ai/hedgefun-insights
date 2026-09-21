@@ -34,6 +34,7 @@ import {
   formatScreenerTriggerTimeFromRow,
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
+import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -332,21 +333,32 @@ export function ScreenerTable({
 
     if (col.key === "symbol") {
       const showInlineActions = tab.columns.every((c) => c.key !== "actions");
+      const shortFloat = evaluateScreenerShortFloat(row);
       return (
-        <div className="inline-flex min-w-0 items-center gap-1.5">
-          <Link
-            to={`/stocks/${raw}`}
-            className="inline-flex min-h-[32px] items-center font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
-          >
-            {formatScreenerMetric(raw as string, col.format)}
-          </Link>
-          {hasVerifiedRows && !blurred && showInlineActions && (
-            <div className="inline-flex items-center gap-0.5">
-              {renderWatchlistButton(sym)}
-              {renderCatalystButton(sym)}
-              {renderAiButton(sym)}
-            </div>
-          )}
+        <div className="min-w-0">
+          <div className="inline-flex min-w-0 items-center gap-1.5">
+            <Link
+              to={`/stocks/${raw}`}
+              className="inline-flex min-h-[32px] items-center font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
+            >
+              {formatScreenerMetric(raw as string, col.format)}
+            </Link>
+            {hasVerifiedRows && !blurred && showInlineActions && (
+              <div className="inline-flex items-center gap-0.5">
+                {renderWatchlistButton(sym)}
+                {renderCatalystButton(sym)}
+                {renderAiButton(sym)}
+              </div>
+            )}
+          </div>
+          <div className="text-[10px] leading-tight text-muted-foreground">
+            <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
+              Short
+            </ScannerFieldHelp>{" "}
+            <span className="tabular-nums text-foreground" title={shortFloat.title}>
+              {shortFloat.display}
+            </span>
+          </div>
         </div>
       );
     }
@@ -596,6 +608,7 @@ export function ScreenerTable({
                 ? row.change_percent
                 : null;
             const movementLabel = useGap ? "Gap" : useMove ? "Move" : null;
+            const shortFloat = evaluateScreenerShortFloat(row);
             return (
               <div
                 key={`${row.tab_id}-${row.symbol}`}
@@ -704,6 +717,14 @@ export function ScreenerTable({
                       </span>
                     </div>
                   )}
+                  <div>
+                    <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
+                      Short
+                    </ScannerFieldHelp>{" "}
+                    <span className="font-medium" title={shortFloat.title}>
+                      {shortFloat.display}
+                    </span>
+                  </div>
                   {showPriorVol &&
                     row.prior_session_volume !== null &&
                     row.prior_session_volume !== undefined && (

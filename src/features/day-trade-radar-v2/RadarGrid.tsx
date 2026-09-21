@@ -45,6 +45,7 @@ import {
   evaluateScreenerTriggerTime,
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
+import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -363,11 +364,20 @@ export function RadarGrid({
                   }
                   if (columnId === "float") {
                     const floatShares = floatState.getFloat(sym);
+                    const shortFloat = evaluateScreenerShortFloat(row);
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
-                        {floatState.isPending && floatShares === null
-                          ? "…"
-                          : formatRadarContextVolume(floatShares)}
+                        <div>
+                          {floatState.isPending && floatShares === null
+                            ? "…"
+                            : formatRadarContextVolume(floatShares)}
+                        </div>
+                        <div className="text-[10px] font-normal leading-tight text-muted-foreground">
+                          <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">
+                            Short
+                          </ScannerFieldHelp>{" "}
+                          <span title={shortFloat.title}>{shortFloat.display}</span>
+                        </div>
                       </td>
                     );
                   }
