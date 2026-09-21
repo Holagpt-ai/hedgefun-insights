@@ -29,6 +29,13 @@
       "when": 1789766350253,
       "tag": "0003_screener_rvol_carry_forward_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789952591173,
+      "tag": "0004_scope_baseline_exclusions_delete",
+      "breakpoints": true
     }
   ]
 }
