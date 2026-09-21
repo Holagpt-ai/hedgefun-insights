@@ -72,6 +72,10 @@ describe("scanner field registry", () => {
     expect(rvol?.label).toBe("RVOL 20D");
     expect(rvol?.shortLabel).toBe("RVOL 20D");
     expect(rvol?.availability).toBe("source-dependent");
+    expect(rvol?.description).toMatch(
+      /Current session volume divided by the average full-session volume of the prior 20 completed trading sessions/i,
+    );
+    expect(rvol?.description).toMatch(/not Vol\/Prior/i);
     expect(rvol?.description).toMatch(/not adjusted for time of day/i);
     expect(rvol?.description).not.toMatch(/5m|intraday normalized|time-adjusted RVOL/i);
     expect(rvol?.sortable).toBe(true);
@@ -79,6 +83,7 @@ describe("scanner field registry", () => {
 
     const dollarVolume = getScannerField("dollar_volume");
     expect(dollarVolume?.label).toBe("Dollar Volume");
+    expect(dollarVolume?.description).toMatch(/price × volume/i);
     expect(dollarVolume?.availability).toBe("source-dependent");
     expect(dollarVolume?.example).toMatch(/\$0\.25/);
     expect(dollarVolume?.example).toMatch(/\$12/);

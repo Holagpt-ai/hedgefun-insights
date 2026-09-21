@@ -134,6 +134,8 @@ describe("Radar mobile card render", () => {
     expect(screen.getByText("#1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Price info" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Day Range info" })).toBeInTheDocument();
+    expect(screen.getByTestId("radar-mobile-liquidity")).toHaveTextContent("$ Vol");
+    expect(screen.getByTestId("radar-mobile-liquidity")).toHaveTextContent("RVOL 20D");
     expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();
     expect(screen.queryByText("5s Volume")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Price info" }));

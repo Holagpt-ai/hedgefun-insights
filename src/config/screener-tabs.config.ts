@@ -2,13 +2,47 @@
 // HedgeFun Dashboard Screeners — Tab Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ColumnFormat = "text" | "price" | "percent" | "multiplier" | "volume" | "shares";
+export type ColumnFormat =
+  | "text"
+  | "price"
+  | "percent"
+  | "multiplier"
+  | "volume"
+  | "shares"
+  | "dollar_volume"
+  | "rvol";
 
 export interface ScreenerColumn {
   key: string;
   label: string;
   format: ColumnFormat;
   align?: "left" | "right";
+  /** Scanner-fields help id when the header should show the metric tooltip. */
+  helpFieldId?: string;
+}
+
+export const SCREENER_DOLLAR_VOLUME_COLUMN: ScreenerColumn = {
+  key: "dollar_volume",
+  label: "$ Volume",
+  format: "dollar_volume",
+  align: "right",
+  helpFieldId: "dollar_volume",
+};
+
+export const SCREENER_RVOL_20D_COLUMN: ScreenerColumn = {
+  key: "rvol_20d",
+  label: "RVOL 20D",
+  format: "rvol",
+  align: "right",
+  helpFieldId: "daily_rvol",
+};
+
+/** Insert P1 liquidity columns after current session Volume. */
+export function withScreenerLiquidityColumns(columns: ScreenerColumn[]): ScreenerColumn[] {
+  const volumeIdx = columns.findIndex((column) => column.key === "volume");
+  const liquidity = [SCREENER_DOLLAR_VOLUME_COLUMN, SCREENER_RVOL_20D_COLUMN];
+  if (volumeIdx === -1) return [...columns, ...liquidity];
+  return [...columns.slice(0, volumeIdx + 1), ...liquidity, ...columns.slice(volumeIdx + 1)];
 }
 
 export interface ScreenerTab {
@@ -37,7 +71,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       "Provider day vol ≥5× prior day vol",
     ],
     featured: true,
-    columns: [
+    columns: withScreenerLiquidityColumns([
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
       { key: "change_percent", label: "Move", format: "percent", align: "right" },
@@ -46,7 +80,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
-    ],
+    ]),
     freeRowLimit: 2,
   },
   {
@@ -54,14 +88,14 @@ export const SCREENER_TABS: ScreenerTab[] = [
     label: "Gappers",
     description: "Gap ≥5% up or down from prior close. Ranked by current volume.",
     criteria: ["Gap ≥5% up or down from prior close"],
-    columns: [
+    columns: withScreenerLiquidityColumns([
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
       { key: "gap_percent", label: "Gap %", format: "percent", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
-    ],
+    ]),
     freeRowLimit: 2,
   },
   {
@@ -70,7 +104,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
     description:
       "provider day volume at least 3× provider prior-day volume (may include extended-session activity); ranked by provider day volume.",
     criteria: ["Provider day vol ≥3× prior day vol"],
-    columns: [
+    columns: withScreenerLiquidityColumns([
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "volume", label: "Day Vol", format: "volume", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
@@ -78,7 +112,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "change_percent", label: "Move", format: "percent", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
-    ],
+    ]),
     freeRowLimit: 2,
   },
   {
@@ -86,14 +120,14 @@ export const SCREENER_TABS: ScreenerTab[] = [
     label: "Gainers / Losers",
     description: "Provider-reported gainers and losers. Ranked by current volume.",
     criteria: [],
-    columns: [
+    columns: withScreenerLiquidityColumns([
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
       { key: "change_percent", label: "Move", format: "percent", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
-    ],
+    ]),
     freeRowLimit: 2,
   },
   {
@@ -106,7 +140,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       "Day high ≥ prior 52W high or day low ≤ prior 52W low",
       "Positive current volume and price",
     ],
-    columns: [
+    columns: withScreenerLiquidityColumns([
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "range_event", label: "Event", format: "text", align: "left" },
       { key: "price", label: "Last", format: "price", align: "right" },
@@ -117,7 +151,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "volume", label: "Volume", format: "volume", align: "right" },
       { key: "catalyst_news", label: "Catalyst", format: "text", align: "left" },
       { key: "actions", label: "Actions", format: "text", align: "left" },
-    ],
+    ]),
     freeRowLimit: 2,
   },
   {
@@ -126,14 +160,14 @@ export const SCREENER_TABS: ScreenerTab[] = [
     description:
       "provider day volume at least 4× provider prior-day volume (may include extended-session activity); ranked by provider day volume.",
     criteria: ["Provider day vol ≥4× prior day vol"],
-    columns: [
+    columns: withScreenerLiquidityColumns([
       { key: "symbol", label: "Symbol", format: "text", align: "left" },
       { key: "volume", label: "Day Vol", format: "volume", align: "right" },
       { key: "prior_session_volume", label: "Prior Day Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior Day", format: "multiplier", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst / News", format: "text", align: "left" },
-    ],
+    ]),
     freeRowLimit: 2,
   },
 ];

@@ -23,6 +23,11 @@ import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
+import { resolveDollarVolume } from "@/lib/screeners/screener-intelligence-fields";
+import {
+  formatScreenerDollarVolume,
+  formatScreenerRvol20d,
+} from "@/lib/screeners/screener-metric-display";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -183,6 +188,18 @@ export function RadarMobileCard({
         <span className={volumeRatioClass(row.volume_ratio_prior_session)}>
           {formatRadarContextMultiplier(row.volume_ratio_prior_session)}
         </span>
+      </div>
+      <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 text-[12px] tabular-nums" data-testid="radar-mobile-liquidity">
+        <div title="Current session trading value, calculated as price × volume.">
+          <span className="text-muted-foreground">$ Vol </span>
+          <span className="font-medium text-foreground">
+            {formatScreenerDollarVolume(resolveDollarVolume(row))}
+          </span>
+        </div>
+        <div title="Current session volume divided by the average full-session volume of the prior 20 completed trading sessions.">
+          <span className="text-muted-foreground">RVOL 20D </span>
+          <span className="font-medium text-foreground">{formatScreenerRvol20d(row.rvol_20d)}</span>
+        </div>
       </div>
       <div className="mt-0.5 text-[12px] tabular-nums text-muted-foreground">
         Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}

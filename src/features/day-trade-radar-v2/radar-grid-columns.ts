@@ -7,6 +7,8 @@ export const RADAR_GRID_COLUMNS = [
   "Last / Move",
   "Prior Vol",
   "Today Vol",
+  "$ Volume",
+  "RVOL 20D",
   "Vol / Prior",
   "Float",
   "Float Turnover",
@@ -72,6 +74,8 @@ export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
   { id: "price_move", label: "Last / Move", fieldId: "price", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "prior_volume", label: "Prior Vol", fieldId: "prior_volume", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "volume", label: "Today Vol", fieldId: "volume", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "dollar_volume", label: "$ Volume", fieldId: "dollar_volume", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "daily_rvol", label: "RVOL 20D", fieldId: "daily_rvol", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "volume_ratio", label: "Vol / Prior", fieldId: "volume_ratio", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "float", label: "Float", fieldId: "float", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "float_turnover", label: "Float Turnover", fieldId: "float_turnover", defaultVisible: true, required: false, align: "right", optional: false },
@@ -80,8 +84,6 @@ export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
   { id: "volume_15s", label: "15s Volume", fieldId: "volume_15s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "volume_60s", label: "60s Volume", fieldId: "volume_60s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "dollar_volume_60s", label: "60s Dollar Volume", fieldId: "dollar_volume_60s", defaultVisible: false, required: false, align: "right", optional: true },
-  { id: "daily_rvol", label: "RVOL 20D", fieldId: "daily_rvol", defaultVisible: false, required: false, align: "right", optional: true },
-  { id: "dollar_volume", label: "Dollar Volume", fieldId: "dollar_volume", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "acceleration_5m", label: "5m Acceleration", fieldId: "acceleration_5m", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "vwap_state", label: "VWAP State", fieldId: "vwap_state", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "freshness", label: "Freshness", fieldId: "freshness", defaultVisible: false, required: false, align: "right", optional: true },
@@ -121,7 +123,7 @@ export const FUTURE_RADAR_COLUMN_FIELD_IDS = [
   "catalyst_time",
 ] as const;
 
-export const RADAR_COLUMN_STORAGE_KEY = "stocksist.trader-lens.radar-columns.v2";
+export const RADAR_COLUMN_STORAGE_KEY = "stocksist.trader-lens.radar-columns.v3";
 
 export function isRadarColumnId(value: unknown): value is RadarColumnId {
   return typeof value === "string" && COLUMN_BY_ID.has(value as RadarColumnId);

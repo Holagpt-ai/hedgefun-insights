@@ -6,6 +6,7 @@ import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
+import { ScannerFieldHelp } from "@/features/day-trade-radar-v2/ScannerFieldHelp";
 import {
   formatDayRange,
   formatRangeEvent,
@@ -15,6 +16,12 @@ import {
 } from "@/lib/screeners/contract";
 import { resolveScreenerCopy, type ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import type { ScreenerTruthState } from "@/lib/screeners/screener-truth-state";
+import {
+  formatScreenerDollarVolume,
+  formatScreenerRvol20d,
+  resolveDisplayDollarVolume,
+  resolveDisplayRvol20d,
+} from "@/lib/screeners/screener-metric-display";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -50,19 +57,27 @@ function desktopColClass(key: string): string {
 
 function formatCell(value: string | number | null | undefined, format: ColumnFormat): string {
   if (value === null || value === undefined || value === "") return "—";
+  if (format === "rvol") return formatScreenerRvol20d(value);
+  if (format === "dollar_volume") return formatScreenerDollarVolume(value);
+  if (typeof value === "number" && !Number.isFinite(value)) return "—";
   switch (format) {
     case "price":
       return `$${Number(value).toFixed(2)}`;
     case "percent": {
       const n = Number(value);
+      if (!Number.isFinite(n)) return "—";
       const sign = n > 0 ? "+" : "";
       return `${sign}${n.toFixed(1)}%`;
     }
-    case "multiplier":
-      return `${Number(value).toFixed(1)}×`;
+    case "multiplier": {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return "—";
+      return `${n.toFixed(1)}×`;
+    }
     case "volume":
     case "shares": {
       const n = Number(value);
+      if (!Number.isFinite(n)) return "—";
       if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
       if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
       if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
@@ -72,6 +87,16 @@ function formatCell(value: string | number | null | undefined, format: ColumnFor
     default:
       return String(value);
   }
+}
+
+function columnSortValue(row: ScreenerResultRow, key: string): unknown {
+  if (key === "dollar_volume") {
+    return resolveDisplayDollarVolume(row.price, row.volume);
+  }
+  if (key === "rvol_20d") {
+    return resolveDisplayRvol20d(row.rvol_20d);
+  }
+  return (row as unknown as Record<string, unknown>)[key];
 }
 
 function percentClass(value: number): string {
@@ -126,8 +151,8 @@ export function ScreenerTable({
     const dir = sort.direction === "asc" ? 1 : -1;
     const isText = col.format === "text";
     return [...baseRows].sort((a, b) => {
-      const av = (a as unknown as Record<string, unknown>)[sort.key];
-      const bv = (b as unknown as Record<string, unknown>)[sort.key];
+      const av = columnSortValue(a, sort.key);
+      const bv = columnSortValue(b, sort.key);
       const aNull = av === null || av === undefined || av === "";
       const bNull = bv === null || bv === undefined || bv === "";
       if (aNull && bNull) return 0;
@@ -322,6 +347,14 @@ export function ScreenerTable({
       );
     }
 
+    if (col.key === "dollar_volume") {
+      return formatScreenerDollarVolume(resolveDisplayDollarVolume(row.price, row.volume));
+    }
+
+    if (col.key === "rvol_20d") {
+      return formatScreenerRvol20d(row.rvol_20d);
+    }
+
     return formatCell(raw as string | number | null | undefined, col.format);
   };
 
@@ -398,7 +431,11 @@ export function ScreenerTable({
                           active ? "text-foreground" : "text-muted-foreground"
                         } ${col.align === "right" ? "text-right" : "text-left"}`}
                       >
-                        {col.label}
+                        {col.helpFieldId ? (
+                          <ScannerFieldHelp fieldId={col.helpFieldId}>{col.label}</ScannerFieldHelp>
+                        ) : (
+                          col.label
+                        )}
                         <span className="text-accent-blue">{indicator}</span>
                       </th>
                     );
@@ -468,6 +505,8 @@ export function ScreenerTable({
             const colKeys = new Set(tab.columns.map((c) => c.key));
             const showPrice = colKeys.has("price");
             const showVolume = colKeys.has("volume");
+            const showDollarVolume = colKeys.has("dollar_volume");
+            const showRvol20d = colKeys.has("rvol_20d");
             const showPriorVol = colKeys.has("prior_session_volume");
             const showVolRatio = colKeys.has("volume_ratio_prior_session");
             const showDayRange = colKeys.has("day_range");
@@ -541,6 +580,26 @@ export function ScreenerTable({
                     <div>
                       <span className="text-muted-foreground">Volume </span>
                       <span className="font-medium">{formatCell(row.volume, "volume")}</span>
+                    </div>
+                  )}
+                  {showDollarVolume && (
+                    <div
+                      data-testid="screener-mobile-dollar-volume"
+                      title="Current session trading value, calculated as price × volume."
+                    >
+                      <span className="text-muted-foreground">$ Vol </span>
+                      <span className="font-medium">
+                        {formatScreenerDollarVolume(resolveDisplayDollarVolume(row.price, row.volume))}
+                      </span>
+                    </div>
+                  )}
+                  {showRvol20d && (
+                    <div
+                      data-testid="screener-mobile-rvol-20d"
+                      title="Current session volume divided by the average full-session volume of the prior 20 completed trading sessions."
+                    >
+                      <span className="text-muted-foreground">RVOL 20D </span>
+                      <span className="font-medium">{formatScreenerRvol20d(row.rvol_20d)}</span>
                     </div>
                   )}
                   {showPriorVol &&
