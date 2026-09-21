@@ -233,7 +233,7 @@ export function createAuthoritativeValue<T>(
 ): DataValue<T> {
   if (options?.metric && typeof value === "number") {
     const validated = validateNumericMetric(value, options.metric);
-    if (!validated.ok) return createInvalidValue(options, validated.diagnostic);
+    if ("diagnostic" in validated) return createInvalidValue(options, validated.diagnostic);
   }
   if (typeof value === "number" && !Number.isFinite(value)) {
     return createInvalidValue(options, {
@@ -255,7 +255,7 @@ export function createDerivedValue<T>(
 ): DataValue<T> {
   if (options?.metric && typeof value === "number") {
     const validated = validateNumericMetric(value, options.metric);
-    if (!validated.ok) return createInvalidValue(options, validated.diagnostic);
+    if ("diagnostic" in validated) return createInvalidValue(options, validated.diagnostic);
   }
   if (typeof value === "number" && !Number.isFinite(value)) {
     return createInvalidValue(options, {
