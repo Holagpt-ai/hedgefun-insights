@@ -94,7 +94,7 @@ function isProvenance(value: string): value is DataProvenanceState {
   return value === "PROVIDER" || value === "DERIVED" || value === "INTERNAL" || value === "COMPOSITE" || value === "UNKNOWN";
 }
 
-function normalize(observation: SecurityIdentityObservation): { ok: true; value: NormalizedObservation } | { ok: false; reason: string } {
+function normalize(observation: SecurityIdentityObservation): { ok: true; value: NormalizedObservation; reason?: never } | { ok: false; reason: string; value?: never } {
   const symbol = blankToNull(observation.symbol)?.toUpperCase() ?? "";
   if (!SYMBOL_RE.test(symbol)) return { ok: false, reason: "invalid symbol" };
 
