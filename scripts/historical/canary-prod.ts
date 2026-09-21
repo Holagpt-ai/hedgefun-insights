@@ -95,7 +95,15 @@ async function main(): Promise<void> {
   const identity = new PostgresSecurityIdentityRepository(sql);
   const intelligence = new PostgresSecurityIntelligenceRepository(sql);
 
-  const symbols = mode === "replay-intc" ? ["INTC"] : [...SYMBOLS];
+  const envSymbols = (process.env.CANARY_SYMBOLS ?? "")
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter((s) => s.length > 0);
+  const symbols = mode === "replay-intc"
+    ? ["INTC"]
+    : envSymbols.length > 0
+      ? envSymbols
+      : [...SYMBOLS];
   const identities: Array<{ symbol: string; securityId: string; status: string; created: boolean; reason: string }> = [];
 
   for (const symbol of symbols) {
@@ -156,7 +164,8 @@ async function main(): Promise<void> {
     dateFrom: DATE_FROM,
     dateTo: DATE_TO,
     recordedAt,
-    jobType: mode === "replay-intc" ? "SECURITY_DAILY_HISTORY_CANARY_REPLAY" : "SECURITY_DAILY_HISTORY_CANARY",
+    jobType: process.env.CANARY_JOB_TYPE
+      ?? (mode === "replay-intc" ? "SECURITY_DAILY_HISTORY_CANARY_REPLAY" : "SECURITY_DAILY_HISTORY_CANARY"),
   });
   if (!started.ok) throw new Error(`job start failed: ${started.reason}`);
   const jobId = started.record.jobId;
