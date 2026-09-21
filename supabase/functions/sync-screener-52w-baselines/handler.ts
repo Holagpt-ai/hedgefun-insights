@@ -433,6 +433,48 @@ export async function handleSyncScreener52wBaselines(
   }
 }
 
+export function isCatchupJobComplete(job: {
+  dates_applied: number;
+  dates_total: number;
+  period_start: string;
+  period_end: string;
+  last_applied_date: string | null;
+}): boolean {
+  return job.dates_applied >= job.dates_total ||
+    remainingWeekdays(job.period_start, job.period_end, job.last_applied_date)
+      .length === 0;
+}
+
+async function finalizeCatchupJob(
+  sb: DbClient,
+  deps: BaselineSyncDeps,
+  job: JobSnapshot,
+  nowIso: string,
+  holderId: string,
+  ttlMs: number,
+): Promise<Response> {
+  const lostBeforeFinalize = await renewRunLease(sb, holderId, ttlMs);
+  if (lostBeforeFinalize) return lostBeforeFinalize;
+
+  const finalized = await sb.rpc(FINALIZE_JOB_RPC, {
+    p_generation_id: job.generation_id,
+    p_min_sessions: deps.minSessions ?? BASELINE_MIN_SESSIONS,
+    p_provider_as_of: nowIso,
+  });
+  if (finalized.error) {
+    console.error("[sync-screener-52w-baselines] persist_failed");
+    return json({ error: "persist_failed" }, 500);
+  }
+  const result = finalized.data as FinalizeSnapshot | null;
+  return json({
+    ok: true,
+    status: result?.status ?? "available",
+    period_end: job.period_end,
+    generation_id: job.generation_id,
+    symbol_count: result?.symbol_count ?? 0,
+  });
+}
+
 async function renewRunLease(
   sb: DbClient,
   holderId: string,
@@ -464,6 +506,14 @@ async function runCatchup(
   const ttlMs = deps.leaseTtlMs ?? BASELINE_RUN_LEASE_TTL_MS;
 
   let job = await loadJob(sb);
+  // A fully processed running job must finalize on this invocation, even if
+  // the live baseline window has already rolled to a newer session. Waiting
+  // for the next 22:00 UTC cron would otherwise start a new job and delete
+  // unpublished volume history for the completed generation.
+  if (job && job.status === "running" && isCatchupJobComplete(job)) {
+    return await finalizeCatchupJob(sb, deps, job, nowIso, holderId, ttlMs);
+  }
+
   const periodMatches = job &&
     job.period_start === window.periodStart &&
     job.period_end === window.periodEnd &&
@@ -561,11 +611,7 @@ async function runCatchup(
     }
   }
 
-  const done = job.dates_applied >= job.dates_total ||
-    remainingWeekdays(job.period_start, job.period_end, job.last_applied_date)
-        .length === 0;
-
-  if (!done) {
+  if (!isCatchupJobComplete(job)) {
     return json({
       ok: true,
       status: "running",
@@ -576,24 +622,5 @@ async function runCatchup(
     });
   }
 
-  const lostBeforeFinalize = await renewRunLease(sb, holderId, ttlMs);
-  if (lostBeforeFinalize) return lostBeforeFinalize;
-
-  const finalized = await sb.rpc(FINALIZE_JOB_RPC, {
-    p_generation_id: job.generation_id,
-    p_min_sessions: deps.minSessions ?? BASELINE_MIN_SESSIONS,
-    p_provider_as_of: nowIso,
-  });
-  if (finalized.error) {
-    console.error("[sync-screener-52w-baselines] persist_failed");
-    return json({ error: "persist_failed" }, 500);
-  }
-  const result = finalized.data as FinalizeSnapshot | null;
-  return json({
-    ok: true,
-    status: result?.status ?? "available",
-    period_end: job.period_end,
-    generation_id: job.generation_id,
-    symbol_count: result?.symbol_count ?? 0,
-  });
+  return await finalizeCatchupJob(sb, deps, job, nowIso, holderId, ttlMs);
 }

@@ -14,6 +14,7 @@ import {
   type DbSelectResult,
   FINALIZE_JOB_RPC,
   handleSyncScreener52wBaselines,
+  isCatchupJobComplete,
   isPublishedBaselineFullyCurrent,
   isVolumeBaselineReady,
   RELEASE_RUN_LEASE_RPC,
@@ -1122,4 +1123,229 @@ Deno.test("finalization occurs only while lease ownership is still valid", async
     0,
   );
   assertEquals(db.published.current_generation_id, null);
+});
+
+const COMPLETE_JOB: JobRow = {
+  generation_id: GEN,
+  period_start: "2026-08-10",
+  period_end: "2026-08-12",
+  status: "running",
+  last_applied_date: "2026-08-12",
+  dates_total: 3,
+  dates_applied: 3,
+};
+
+const NEXT_SESSION_AFTER_CLOSE_MS = Date.parse("2026-08-13T20:00:01.000Z");
+
+Deno.test("isCatchupJobComplete requires a fully processed date range", () => {
+  assertEquals(isCatchupJobComplete(COMPLETE_JOB), true);
+  assertEquals(
+    isCatchupJobComplete({
+      ...COMPLETE_JOB,
+      dates_applied: 2,
+      last_applied_date: "2026-08-11",
+    }),
+    false,
+  );
+  assertEquals(
+    isCatchupJobComplete({
+      ...COMPLETE_JOB,
+      dates_applied: 2,
+      dates_total: 3,
+      last_applied_date: "2026-08-12",
+    }),
+    true,
+  );
+});
+
+Deno.test("fully processed running job finalizes without fetching more dates", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-11",
+    current_generation_id: PRIOR_GEN,
+  });
+  db.job = { ...COMPLETE_JOB };
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls)),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "empty");
+  assertEquals(body.generation_id, GEN);
+  assertEquals(db.job.status, "idle");
+  assertEquals(db.published.current_generation_id, GEN);
+  assertEquals(calls.length, 0);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    0,
+  );
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    1,
+  );
+});
+
+Deno.test("fully processed job finalizes even after the live window rolls forward", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-12",
+    current_generation_id: PRIOR_GEN,
+  });
+  db.job = { ...COMPLETE_JOB };
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      nowMs: () => NEXT_SESSION_AFTER_CLOSE_MS,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "empty");
+  assertEquals(body.generation_id, GEN);
+  assertEquals(body.period_end, "2026-08-12");
+  assertEquals(db.job.status, "idle");
+  assertEquals(db.published.current_generation_id, GEN);
+  assertEquals(calls.length, 0);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    0,
+  );
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    1,
+  );
+});
+
+Deno.test("incomplete job does not finalize", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-11",
+    current_generation_id: PRIOR_GEN,
+  });
+  db.job = {
+    ...COMPLETE_JOB,
+    dates_applied: 1,
+    last_applied_date: "2026-08-10",
+  };
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      datesPerInvocation: 1,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  assertEquals(body.generation_id, GEN);
+  assertEquals(db.job.status, "running");
+  assertEquals(db.published.current_generation_id, PRIOR_GEN);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    0,
+  );
+});
+
+Deno.test("incomplete job does not finalize when the live window rolls forward", async () => {
+  const nextGen = "99999999-aaaa-bbbb-cccc-dddddddddddd";
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-12",
+    current_generation_id: PRIOR_GEN,
+  });
+  db.job = {
+    ...COMPLETE_JOB,
+    dates_applied: 2,
+    last_applied_date: "2026-08-11",
+  };
+  const calls: FetchCall[] = [];
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, calls), {
+      nowMs: () => NEXT_SESSION_AFTER_CLOSE_MS,
+      newGenerationId: () => nextGen,
+      datesPerInvocation: 1,
+    }),
+  );
+  const body = await res.json();
+  assertEquals(res.status, 200);
+  assertEquals(body.status, "running");
+  assertEquals(body.generation_id, nextGen);
+  assertEquals(db.job.generation_id, nextGen);
+  assertEquals(db.published.current_generation_id, PRIOR_GEN);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    0,
+  );
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === START_JOB_RPC).length,
+    1,
+  );
+});
+
+Deno.test("failed date processing does not finalize a complete-looking remaining window", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-11",
+    current_generation_id: PRIOR_GEN,
+  });
+  db.job = {
+    ...COMPLETE_JOB,
+    dates_applied: 2,
+    last_applied_date: "2026-08-11",
+  };
+  const res = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(
+      db,
+      fakeGroupedFetch(SAMPLE_DAYS, [], {
+        failDates: new Set(["2026-08-12"]),
+      }),
+      { datesPerInvocation: 10 },
+    ),
+  );
+  assertEquals(res.status, 503);
+  assertEquals(db.job.status, "running");
+  assertEquals(db.published.current_generation_id, PRIOR_GEN);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    0,
+  );
+});
+
+Deno.test("repeated invocation of a completed job finalizes once then stays published", async () => {
+  const db = new FakeBaselineDb({
+    status: "available",
+    period_end: "2026-08-11",
+    current_generation_id: PRIOR_GEN,
+  });
+  db.job = { ...COMPLETE_JOB };
+  const first = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, [])),
+  );
+  const firstBody = await first.json();
+  assertEquals(firstBody.status, "empty");
+  assertEquals(db.job.status, "idle");
+  db.volumeBaselineGenerations.add(GEN);
+  db.volumeHistoryGenerations.add(GEN);
+  db.published.policy_min_sessions = 2;
+  db.published.policy_excluded_count = 0;
+  const secondCalls: FetchCall[] = [];
+  const second = await handleSyncScreener52wBaselines(
+    post(),
+    makeDeps(db, fakeGroupedFetch(SAMPLE_DAYS, secondCalls)),
+  );
+  const secondBody = await second.json();
+  assertEquals(second.status, 200);
+  assertEquals(secondBody.status, "current");
+  assertEquals(secondBody.generation_id, GEN);
+  assertEquals(secondCalls.length, 0);
+  assertEquals(
+    db.rpcCalls.filter((c) => c.fn === FINALIZE_JOB_RPC).length,
+    1,
+  );
 });
