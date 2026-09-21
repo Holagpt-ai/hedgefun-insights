@@ -451,6 +451,25 @@ export const SCANNER_FIELDS: readonly ScannerFieldDefinition[] = [
       "Requires persisted prior-20 full-day volume baseline from grouped-daily history. Not Vol/Prior, not time-adjusted RVOL.",
   },
   {
+    id: "trade_quality",
+    label: "Trade Quality",
+    shortLabel: "TQ",
+    description:
+      "A secondary 0–100 score from usable liquidity, movement, RVOL 20D, and price inputs. Incomplete coverage shows — and does not replace Discovery Rank.",
+    whyItMatters:
+      "It helps compare how tradable a discovered name is after volume-first ranking, without reordering the scanner.",
+    example: "A complete score of 78. Coverage below 60% shows —.",
+    format: "text",
+    category: "radar",
+    sortable: true,
+    filterable: false,
+    defaultVisible: true,
+    mobileVisible: true,
+    tooltipEnabled: true,
+    availability: "source-dependent",
+    source: "Trade Quality Rank V1 using Data Quality-gated screener inputs only.",
+  },
+  {
     id: "rvol_5m",
     label: "5-minute RVOL",
     shortLabel: "5m RVOL",

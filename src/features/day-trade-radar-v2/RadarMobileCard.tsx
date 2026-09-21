@@ -27,6 +27,7 @@ import {
   formatScreenerDollarVolume,
   formatScreenerRvol20d,
 } from "@/lib/screeners/screener-metric-display";
+import { formatScreenerTradeQualityFromRow } from "@/lib/screeners/screener-trade-quality";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -191,6 +192,11 @@ export function RadarMobileCard({
           RVOL 20D
         </ScannerFieldHelp>{" "}
         <span className="text-foreground">{formatScreenerRvol20d(row.rvol_20d, row)}</span>
+        {" · "}
+        <ScannerFieldHelp fieldId="trade_quality" className="text-muted-foreground">
+          TQ
+        </ScannerFieldHelp>{" "}
+        <span className="text-foreground">{formatScreenerTradeQualityFromRow(row)}</span>
         {" · "}
         Prior {formatRadarContextVolume(row.prior_session_volume)}
         {" · "}

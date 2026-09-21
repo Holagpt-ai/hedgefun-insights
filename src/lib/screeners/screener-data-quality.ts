@@ -2,7 +2,7 @@
  * Production screener Data Quality adapter.
  *
  * Raw liquidity metrics → DataValue envelopes → existing presentation.
- * Does not recompute RVOL 20D, change Discovery Rank, or activate Trade Quality.
+ * Does not recompute RVOL 20D or change Discovery Rank.
  */
 
 import { computeDollarVolume } from "@/lib/screeners/dollar-volume";
@@ -13,11 +13,12 @@ import {
   deriveFromInputs,
   isUsableForDisplay,
 } from "@/lib/screeners/data-quality";
-import type { DataValue, DataValueCreateOptions } from "@/types/data-quality";
+import type { DataFreshnessState, DataValue, DataValueCreateOptions } from "@/types/data-quality";
 
 export interface ScreenerMetricObservation {
   provider_as_of?: string | null;
   updated_at?: string | null;
+  freshnessState?: DataFreshnessState;
 }
 
 function observationOptions(
@@ -29,7 +30,7 @@ function observationOptions(
     sourceAsOf: extra.sourceAsOf ?? observation?.provider_as_of ?? null,
     observedAt: extra.observedAt ?? observation?.updated_at ?? null,
     fetchedAt: extra.fetchedAt ?? observation?.updated_at ?? null,
-    freshnessState: extra.freshnessState ?? "UNKNOWN",
+    freshnessState: extra.freshnessState ?? observation?.freshnessState ?? "UNKNOWN",
   };
 }
 
@@ -111,6 +112,25 @@ export function toScreenerRvol20dValue(
   return createAuthoritativeValue(n, options);
 }
 
+export function toScreenerMoveValue(
+  movePct: unknown,
+  observation?: ScreenerMetricObservation,
+): DataValue<number> {
+  const options = observationOptions(
+    {
+      metric: "movePct",
+      provenance: "PROVIDER",
+      source: "screener_results.change_percent|gap_percent",
+    },
+    observation,
+  );
+  if (isMissing(movePct)) return createUnavailableValue(options);
+  if (isNonFiniteNumber(movePct) || asFiniteNumber(movePct) === null) {
+    return createInvalidValue(options);
+  }
+  return createAuthoritativeValue(asFiniteNumber(movePct) as number, options);
+}
+
 /**
  * Dollar Volume = price × current session volume via computeDollarVolume().
  * DERIVED from price and volume DataValues. Does not invent a second formula.
@@ -131,6 +151,7 @@ export function toScreenerDollarVolumeValue(
     sourceAsOf: observation?.provider_as_of ?? null,
     observedAt: observation?.updated_at ?? null,
     fetchedAt: observation?.updated_at ?? null,
+    freshnessState: observation?.freshnessState,
   });
 }
 

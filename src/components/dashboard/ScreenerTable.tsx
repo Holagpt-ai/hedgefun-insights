@@ -22,6 +22,10 @@ import {
   formatScreenerMetric,
   formatScreenerRvol20d,
 } from "@/lib/screeners/screener-metric-display";
+import {
+  evaluateScreenerTradeQuality,
+  formatScreenerTradeQualityFromRow,
+} from "@/lib/screeners/screener-trade-quality";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -54,6 +58,7 @@ function desktopColClass(key: string): string {
       return "w-[10%]";
     case "dollar_volume":
     case "rvol_20d":
+    case "trade_quality":
       return "w-[8%]";
     default:
       return "w-[8%]";
@@ -95,6 +100,8 @@ function screenerColumnFieldId(key: string): string | null {
       return "dollar_volume";
     case "rvol_20d":
       return "daily_rvol";
+    case "trade_quality":
+      return "trade_quality";
     case "catalyst_news":
       return "catalyst";
     default:
@@ -152,6 +159,9 @@ export function ScreenerTable({
       const price = finiteMetric(row.price);
       const volume = finiteMetric(row.volume);
       return price === null || volume === null ? null : price * volume;
+    }
+    if (key === "trade_quality") {
+      return evaluateScreenerTradeQuality(row).score;
     }
     return (row as unknown as Record<string, string | number | null | undefined>)[key];
   }, [getDiscoveryRank]);
@@ -364,6 +374,10 @@ export function ScreenerTable({
       return formatScreenerRvol20d(row.rvol_20d, row);
     }
 
+    if (col.key === "trade_quality") {
+      return formatScreenerTradeQualityFromRow(row);
+    }
+
     if (col.key === "volume_ratio_prior_session" && col.format === "multiplier") {
       return (
         <span className={volumeRatioBadgeClass(Number(raw))}>
@@ -526,6 +540,7 @@ export function ScreenerTable({
             const showVolume = colKeys.has("volume");
             const showDollarVolume = colKeys.has("dollar_volume");
             const showRvol20d = colKeys.has("rvol_20d");
+            const showTradeQuality = colKeys.has("trade_quality");
             const showPriorVol = colKeys.has("prior_session_volume");
             const showVolRatio = colKeys.has("volume_ratio_prior_session");
             const showDayRange = colKeys.has("day_range");
@@ -622,6 +637,14 @@ export function ScreenerTable({
                         RVOL 20D
                       </ScannerFieldHelp>{" "}
                       <span className="font-medium">{formatScreenerRvol20d(row.rvol_20d, row)}</span>
+                    </div>
+                  )}
+                  {showTradeQuality && (
+                    <div>
+                      <ScannerFieldHelp fieldId="trade_quality" className="text-muted-foreground">
+                        Trade Quality
+                      </ScannerFieldHelp>{" "}
+                      <span className="font-medium">{formatScreenerTradeQualityFromRow(row)}</span>
                     </div>
                   )}
                   {showPriorVol &&

@@ -40,6 +40,7 @@ import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { formatScreenerDollarVolume, formatScreenerRvol20d } from "@/lib/screeners/screener-metric-display";
+import { formatScreenerTradeQualityFromRow } from "@/lib/screeners/screener-trade-quality";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -143,6 +144,8 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
       return formatScreenerRvol20d(row.rvol_20d, row);
     case "dollar_volume":
       return formatScreenerDollarVolume(row.price, row.volume, row);
+    case "trade_quality":
+      return formatScreenerTradeQualityFromRow(row);
     case "acceleration_5m":
       return formatRadarAcceleration(row.acceleration_5m);
     case "vwap_state":
@@ -208,6 +211,7 @@ export function RadarGrid({
             if (columnId === "volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "dollar_volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "daily_rvol") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "trade_quality") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "prior_volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "volume_ratio") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "float") return <col key={columnId} className="w-[8%]" />;

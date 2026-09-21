@@ -87,6 +87,16 @@ describe("scanner field registry", () => {
     expect(dollarVolume?.filterable).toBe(true);
   });
 
+  it("registers Trade Quality as a secondary intelligence field, not a filter", () => {
+    const tradeQuality = getScannerField("trade_quality");
+    expect(tradeQuality?.label).toBe("Trade Quality");
+    expect(tradeQuality?.shortLabel).toBe("TQ");
+    expect(tradeQuality?.availability).toBe("source-dependent");
+    expect(tradeQuality?.filterable).toBe(false);
+    expect(tradeQuality?.sortable).toBe(true);
+    expect(tradeQuality?.description).toMatch(/does not replace Discovery Rank/i);
+  });
+
   it("marks Float and Float Turnover as source-dependent after verified Massive mapping", () => {
     expect(getScannerField("float")?.availability).toBe("source-dependent");
     expect(getScannerField("float_turnover")?.availability).toBe("source-dependent");

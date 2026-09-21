@@ -66,6 +66,8 @@ export function formatScreenerMetric(
       return formatCompactNumber(value);
     case "rank":
       return n === null ? "—" : `#${n.toFixed(0)}`;
+    case "trade_quality":
+      return n === null ? "—" : String(Math.round(n));
     case "text":
     default:
       return value === null || value === undefined || value === "" ? "—" : String(value);
