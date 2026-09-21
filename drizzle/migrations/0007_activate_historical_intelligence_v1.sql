@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.securities IS 'Stocksist-owned security identity. current_symbol is the open listing, not the primary key.';

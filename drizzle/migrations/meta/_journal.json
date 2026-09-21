@@ -50,6 +50,13 @@
       "when": 1790121600000,
       "tag": "0006_security_intelligence_data_model_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790029453673,
+      "tag": "0007_activate_historical_intelligence_v1",
+      "breakpoints": true
     }
   ]
 }
