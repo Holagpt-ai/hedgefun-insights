@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Plus, Check, Loader2, Newspaper, Sparkles } from "lucide-react";
 import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tabs.config";
@@ -15,6 +15,13 @@ import {
 } from "@/lib/screeners/contract";
 import { resolveScreenerCopy, type ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import type { ScreenerTruthState } from "@/lib/screeners/screener-truth-state";
+import { ScannerFieldHelp } from "@/features/day-trade-radar-v2/ScannerFieldHelp";
+import {
+  finiteMetric,
+  formatScreenerDollarVolume,
+  formatScreenerMetric,
+  formatScreenerRvol20d,
+} from "@/lib/screeners/screener-metric-display";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -31,47 +38,30 @@ interface ScreenerTableProps {
 
 function desktopColClass(key: string): string {
   switch (key) {
+    case "discovery_rank":
+      return "w-[44px]";
     case "symbol":
-      return "w-[14%]";
+      return "w-[12%]";
     case "company_name":
-      return "w-[18%]";
+      return "w-[16%]";
     case "catalyst_news":
-      return "w-[24%]";
+      return "w-[20%]";
     case "actions":
       return "w-[120px]";
     case "range_event":
-      return "w-[10%]";
+      return "w-[8%]";
     case "day_range":
-      return "w-[12%]";
+      return "w-[10%]";
+    case "dollar_volume":
+    case "rvol_20d":
+      return "w-[8%]";
     default:
-      return "w-[9%]";
+      return "w-[8%]";
   }
 }
 
-function formatCell(value: string | number | null | undefined, format: ColumnFormat): string {
-  if (value === null || value === undefined || value === "") return "—";
-  switch (format) {
-    case "price":
-      return `$${Number(value).toFixed(2)}`;
-    case "percent": {
-      const n = Number(value);
-      const sign = n > 0 ? "+" : "";
-      return `${sign}${n.toFixed(1)}%`;
-    }
-    case "multiplier":
-      return `${Number(value).toFixed(1)}×`;
-    case "volume":
-    case "shares": {
-      const n = Number(value);
-      if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}B`;
-      if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-      if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
-      return String(n);
-    }
-    case "text":
-    default:
-      return String(value);
-  }
+function rowKey(row: Pick<ScreenerResultRow, "tab_id" | "symbol">): string {
+  return `${row.tab_id}::${row.symbol}`;
 }
 
 function percentClass(value: number): string {
@@ -82,6 +72,34 @@ function percentClass(value: number): string {
 
 function isCompanyEmpty(v: unknown): boolean {
   return v === null || v === undefined || String(v).trim() === "";
+}
+
+function screenerColumnFieldId(key: string): string | null {
+  switch (key) {
+    case "symbol":
+      return "symbol";
+    case "price":
+      return "price";
+    case "change_percent":
+    case "gap_percent":
+      return "move";
+    case "volume":
+      return "volume";
+    case "prior_session_volume":
+      return "prior_volume";
+    case "volume_ratio_prior_session":
+      return "volume_ratio";
+    case "day_range":
+      return "day_range";
+    case "dollar_volume":
+      return "dollar_volume";
+    case "rvol_20d":
+      return "daily_rvol";
+    case "catalyst_news":
+      return "catalyst";
+    default:
+      return null;
+  }
 }
 
 export function ScreenerTable({
@@ -118,6 +136,26 @@ export function ScreenerTable({
     });
   };
 
+  const discoveryRankByKey = useMemo(() => {
+    const ranks = new Map<string, number>();
+    rows.forEach((row, index) => ranks.set(rowKey(row), index + 1));
+    return ranks;
+  }, [rows]);
+
+  const getDiscoveryRank = useCallback((row: ScreenerResultRow): number | null => {
+    return discoveryRankByKey.get(rowKey(row)) ?? null;
+  }, [discoveryRankByKey]);
+
+  const getSortValue = useCallback((row: ScreenerResultRow, key: string): string | number | null | undefined => {
+    if (key === "discovery_rank") return getDiscoveryRank(row);
+    if (key === "dollar_volume") {
+      const price = finiteMetric(row.price);
+      const volume = finiteMetric(row.volume);
+      return price === null || volume === null ? null : price * volume;
+    }
+    return (row as unknown as Record<string, string | number | null | undefined>)[key];
+  }, [getDiscoveryRank]);
+
   const sortedRows = useMemo(() => {
     const baseRows = hasVerifiedRows ? rows : [];
     if (!sort) return baseRows;
@@ -126,8 +164,8 @@ export function ScreenerTable({
     const dir = sort.direction === "asc" ? 1 : -1;
     const isText = col.format === "text";
     return [...baseRows].sort((a, b) => {
-      const av = (a as unknown as Record<string, unknown>)[sort.key];
-      const bv = (b as unknown as Record<string, unknown>)[sort.key];
+      const av = getSortValue(a, sort.key);
+      const bv = getSortValue(b, sort.key);
       const aNull = av === null || av === undefined || av === "";
       const bNull = bv === null || bv === undefined || bv === "";
       if (aNull && bNull) return 0;
@@ -136,7 +174,7 @@ export function ScreenerTable({
       if (isText) return String(av).localeCompare(String(bv)) * dir;
       return (Number(av) - Number(bv)) * dir;
     });
-  }, [sort, tab.columns, rows, hasVerifiedRows]);
+  }, [sort, tab.columns, rows, hasVerifiedRows, getSortValue]);
 
   const enrichmentSymbols = useMemo(() => {
     const out: string[] = [];
@@ -259,6 +297,10 @@ export function ScreenerTable({
     const raw = (row as unknown as Record<string, unknown>)[col.key];
     const sym = normalizeSymbol(row.symbol) ?? String(row.symbol ?? "").toUpperCase();
 
+    if (col.key === "discovery_rank") {
+      return formatScreenerMetric(getDiscoveryRank(row), "rank");
+    }
+
     if (col.key === "symbol") {
       const showInlineActions = tab.columns.every((c) => c.key !== "actions");
       return (
@@ -267,7 +309,7 @@ export function ScreenerTable({
             to={`/stocks/${raw}`}
             className="inline-flex min-h-[32px] items-center font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
           >
-            {formatCell(raw as string, col.format)}
+            {formatScreenerMetric(raw as string, col.format)}
           </Link>
           {hasVerifiedRows && !blurred && showInlineActions && (
             <div className="inline-flex items-center gap-0.5">
@@ -314,15 +356,23 @@ export function ScreenerTable({
       return renderCatalystCell(sym);
     }
 
+    if (col.key === "dollar_volume") {
+      return formatScreenerDollarVolume(row.price, row.volume);
+    }
+
+    if (col.key === "rvol_20d") {
+      return formatScreenerRvol20d(row.rvol_20d);
+    }
+
     if (col.key === "volume_ratio_prior_session" && col.format === "multiplier") {
       return (
         <span className={volumeRatioBadgeClass(Number(raw))}>
-          {formatCell(raw as number, col.format)}
+          {formatScreenerMetric(raw as number, col.format)}
         </span>
       );
     }
 
-    return formatCell(raw as string | number | null | undefined, col.format);
+    return formatScreenerMetric(raw as string | number | null | undefined, col.format);
   };
 
   return (
@@ -379,7 +429,7 @@ export function ScreenerTable({
       {!loading && hasVerifiedRows && (
         <div className="relative rounded-lg border border-border overflow-hidden bg-card hidden md:block min-w-0">
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] table-fixed text-[11.5px]">
+            <table className="w-full min-w-[1180px] table-fixed text-[11.5px]">
               <colgroup>
                 {tab.columns.map((col) => (
                   <col key={`col-${col.key}`} className={desktopColClass(col.key)} />
@@ -398,7 +448,13 @@ export function ScreenerTable({
                           active ? "text-foreground" : "text-muted-foreground"
                         } ${col.align === "right" ? "text-right" : "text-left"}`}
                       >
-                        {col.label}
+                        {screenerColumnFieldId(col.key) ? (
+                          <ScannerFieldHelp fieldId={screenerColumnFieldId(col.key) ?? ""}>
+                            {col.label}
+                          </ScannerFieldHelp>
+                        ) : (
+                          col.label
+                        )}
                         <span className="text-accent-blue">{indicator}</span>
                       </th>
                     );
@@ -421,7 +477,7 @@ export function ScreenerTable({
                         return (
                           <td
                             key={col.key}
-                            className={`px-2 py-1.5 tabular-nums ${
+                            className={`px-2 py-1.5 align-middle tabular-nums ${
                               col.align === "right" ? "text-right" : "text-left"
                             } ${isPct ? percentClass(Number(raw)) : ""}`}
                           >
@@ -468,6 +524,8 @@ export function ScreenerTable({
             const colKeys = new Set(tab.columns.map((c) => c.key));
             const showPrice = colKeys.has("price");
             const showVolume = colKeys.has("volume");
+            const showDollarVolume = colKeys.has("dollar_volume");
+            const showRvol20d = colKeys.has("rvol_20d");
             const showPriorVol = colKeys.has("prior_session_volume");
             const showVolRatio = colKeys.has("volume_ratio_prior_session");
             const showDayRange = colKeys.has("day_range");
@@ -492,12 +550,17 @@ export function ScreenerTable({
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <Link
-                      to={`/stocks/${sym}`}
-                      className="font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
-                    >
-                      {sym}
-                    </Link>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span className="text-[11px] font-semibold text-muted-foreground">
+                        {formatScreenerMetric(getDiscoveryRank(row), "rank")}
+                      </span>
+                      <Link
+                        to={`/stocks/${sym}`}
+                        className="font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
+                      >
+                        {sym}
+                      </Link>
+                    </div>
                     <div className="truncate text-[11.5px]">
                       {isCompanyEmpty(company) ? (
                         <span className="italic text-muted-foreground">{sym}</span>
@@ -524,7 +587,7 @@ export function ScreenerTable({
                   {showPrice && row.price !== null && row.price !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Price </span>
-                      <span className="font-medium">{formatCell(row.price, "price")}</span>
+                      <span className="font-medium">{formatScreenerMetric(row.price, "price")}</span>
                     </div>
                   )}
                   {movementLabel &&
@@ -533,14 +596,32 @@ export function ScreenerTable({
                       <div>
                         <span className="text-muted-foreground">{movementLabel} </span>
                         <span className={`font-medium ${percentClass(Number(movementValue))}`}>
-                          {formatCell(movementValue, "percent")}
+                          {formatScreenerMetric(movementValue, "percent")}
                         </span>
                       </div>
                     )}
                   {showVolume && row.volume !== null && row.volume !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Volume </span>
-                      <span className="font-medium">{formatCell(row.volume, "volume")}</span>
+                      <span className="font-medium">{formatScreenerMetric(row.volume, "volume")}</span>
+                    </div>
+                  )}
+                  {showDollarVolume && (
+                    <div>
+                      <ScannerFieldHelp fieldId="dollar_volume" className="text-muted-foreground">
+                        $ Vol
+                      </ScannerFieldHelp>{" "}
+                      <span className="font-medium">
+                        {formatScreenerDollarVolume(row.price, row.volume)}
+                      </span>
+                    </div>
+                  )}
+                  {showRvol20d && (
+                    <div>
+                      <ScannerFieldHelp fieldId="daily_rvol" className="text-muted-foreground">
+                        RVOL 20D
+                      </ScannerFieldHelp>{" "}
+                      <span className="font-medium">{formatScreenerRvol20d(row.rvol_20d)}</span>
                     </div>
                   )}
                   {showPriorVol &&
@@ -549,7 +630,7 @@ export function ScreenerTable({
                       <div>
                         <span className="text-muted-foreground">Prior Vol </span>
                         <span className="font-medium">
-                          {formatCell(row.prior_session_volume, "volume")}
+                          {formatScreenerMetric(row.prior_session_volume, "volume")}
                         </span>
                       </div>
                     )}
@@ -559,7 +640,7 @@ export function ScreenerTable({
                       <div>
                         <span className="text-muted-foreground">Vol / Prior </span>
                         <span className={volumeRatioBadgeClass(Number(row.volume_ratio_prior_session))}>
-                          {formatCell(row.volume_ratio_prior_session, "multiplier")}
+                          {formatScreenerMetric(row.volume_ratio_prior_session, "multiplier")}
                         </span>
                       </div>
                     )}
@@ -574,13 +655,13 @@ export function ScreenerTable({
                   {showHigh52 && row.high_52w !== null && row.high_52w !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Prior 52W High </span>
-                      <span className="font-medium">{formatCell(row.high_52w, "price")}</span>
+                      <span className="font-medium">{formatScreenerMetric(row.high_52w, "price")}</span>
                     </div>
                   )}
                   {showLow52 && row.low_52w !== null && row.low_52w !== undefined && (
                     <div>
                       <span className="text-muted-foreground">Prior 52W Low </span>
-                      <span className="font-medium">{formatCell(row.low_52w, "price")}</span>
+                      <span className="font-medium">{formatScreenerMetric(row.low_52w, "price")}</span>
                     </div>
                   )}
                 </div>

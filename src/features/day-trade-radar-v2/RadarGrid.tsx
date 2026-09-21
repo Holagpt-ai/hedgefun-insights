@@ -40,10 +40,9 @@ import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { formatDailyRvol20d } from "@/lib/screeners/daily-rvol";
-import { formatDollarVolume } from "@/lib/screeners/dollar-volume";
+import { formatScreenerDollarVolume } from "@/lib/screeners/screener-metric-display";
 import {
   resolveDailyRvol20d,
-  resolveDollarVolume,
 } from "@/lib/screeners/screener-intelligence-fields";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
@@ -147,7 +146,7 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
     case "daily_rvol":
       return formatDailyRvol20d(resolveDailyRvol20d(row));
     case "dollar_volume":
-      return formatDollarVolume(resolveDollarVolume(row));
+      return formatScreenerDollarVolume(row.price, row.volume);
     case "acceleration_5m":
       return formatRadarAcceleration(row.acceleration_5m);
     case "vwap_state":
@@ -210,8 +209,10 @@ export function RadarGrid({
             if (columnId === "symbol") return <col key={columnId} className="w-[14%]" />;
             if (columnId === "signal") return <col key={columnId} className="w-[9%]" />;
             if (columnId === "price_move") return <col key={columnId} className="w-[9%]" />;
-            if (columnId === "prior_volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "volume") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "dollar_volume") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "daily_rvol") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "prior_volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "volume_ratio") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "float") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "float_turnover") return <col key={columnId} className="w-[8%]" />;

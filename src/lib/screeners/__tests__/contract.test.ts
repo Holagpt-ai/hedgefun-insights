@@ -507,9 +507,9 @@ describe("screeners verified generation contract", () => {
     }
   });
 
-  it("28. config contains no RVOL, average-volume, float, market-cap, SAMPLE, or Preview claims", () => {
+  it("28. config contains no unsupported average-volume, float, market-cap, SAMPLE, or Preview claims", () => {
     const blob = JSON.stringify(SCREENER_TABS);
-    expect(blob).not.toMatch(/RVOL|rvol|Avg Volume|avg_volume|Float|market_cap|Market Cap|SAMPLE|Preview/i);
+    expect(blob).not.toMatch(/Avg Volume|avg_volume|Float|market_cap|Market Cap|SAMPLE|Preview/i);
   });
 
   it("29. all existing freeRowLimit values remain unchanged", () => {

@@ -79,6 +79,7 @@ describe("scanner field registry", () => {
 
     const dollarVolume = getScannerField("dollar_volume");
     expect(dollarVolume?.label).toBe("Dollar Volume");
+    expect(dollarVolume?.description).toBe("Current session trading value, calculated as price × volume.");
     expect(dollarVolume?.availability).toBe("source-dependent");
     expect(dollarVolume?.example).toMatch(/\$0\.25/);
     expect(dollarVolume?.example).toMatch(/\$12/);
