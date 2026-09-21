@@ -204,7 +204,7 @@ export class PostgresSecurityIntelligenceRepository {
   }
 
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    return this.sql.begin(async (tx) => this.txContext.run(tx, async () => {
+    return (await this.sql.begin(async (tx) => this.txContext.run(tx, async () => {
       this.writeProfile.transactions += 1;
       try {
         const result = await fn();
@@ -217,7 +217,7 @@ export class PostgresSecurityIntelligenceRepository {
         this.episodeCache.clear();
         throw error;
       }
-    }));
+    }))) as T;
   }
 
   async upsertDailyHistory(input: DailyHistoryInput): Promise<IntelligenceWriteResult<SecurityDailyHistory>> {
@@ -570,7 +570,7 @@ export class PostgresSecurityIntelligenceRepository {
         ${row.jobId}, ${row.jobType}, ${row.state}, ${row.dateFrom}, ${row.dateTo},
         ${row.cursorDate}, ${row.cursorToken}, ${row.processedCount}, ${row.errorCount},
         ${row.startedAt}, ${row.updatedAt}, ${row.completedAt},
-        ${row.metadata === null ? null : this.sql.json(row.metadata)}
+        ${row.metadata === null ? null : this.sql.json(row.metadata as never)}
       )
     `;
   }
@@ -587,7 +587,7 @@ export class PostgresSecurityIntelligenceRepository {
         started_at = ${row.startedAt},
         updated_at = ${row.updatedAt},
         completed_at = ${row.completedAt},
-        metadata = ${row.metadata === null ? null : this.sql.json(row.metadata)}
+        metadata = ${row.metadata === null ? null : this.sql.json(row.metadata as never)}
       where job_id = ${row.jobId}
     `;
   }

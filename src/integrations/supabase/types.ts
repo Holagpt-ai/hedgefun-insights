@@ -531,6 +531,80 @@ export type Database = {
         }
         Relationships: []
       }
+      corporate_events: {
+        Row: {
+          accession_id: string | null
+          computed_at: string | null
+          created_at: string
+          event_at: string
+          event_id: string
+          event_type: string
+          fetched_at: string | null
+          freshness: string
+          metadata: Json | null
+          observed_symbol: string | null
+          provenance: string
+          provider_event_id: string | null
+          quality: string
+          security_id: string
+          source: string | null
+          source_as_of: string | null
+          source_url: string | null
+          summary: string | null
+          title: string
+        }
+        Insert: {
+          accession_id?: string | null
+          computed_at?: string | null
+          created_at: string
+          event_at: string
+          event_id: string
+          event_type: string
+          fetched_at?: string | null
+          freshness: string
+          metadata?: Json | null
+          observed_symbol?: string | null
+          provenance: string
+          provider_event_id?: string | null
+          quality: string
+          security_id: string
+          source?: string | null
+          source_as_of?: string | null
+          source_url?: string | null
+          summary?: string | null
+          title: string
+        }
+        Update: {
+          accession_id?: string | null
+          computed_at?: string | null
+          created_at?: string
+          event_at?: string
+          event_id?: string
+          event_type?: string
+          fetched_at?: string | null
+          freshness?: string
+          metadata?: Json | null
+          observed_symbol?: string | null
+          provenance?: string
+          provider_event_id?: string | null
+          quality?: string
+          security_id?: string
+          source?: string | null
+          source_as_of?: string | null
+          source_url?: string | null
+          summary?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corporate_events_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       daily_briefs: {
         Row: {
           brief_date: string
@@ -644,6 +718,147 @@ export type Database = {
           ytd_return?: number | null
         }
         Relationships: []
+      }
+      event_reaction_links: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          episode_id: string
+          event_id: string
+          evidence: string | null
+          link_id: string
+          provenance: string
+          relation_type: string
+          security_id: string
+          source: string | null
+          source_as_of: string | null
+          time_delta_minutes: number | null
+          time_delta_seconds: number | null
+        }
+        Insert: {
+          confidence?: number | null
+          created_at: string
+          episode_id: string
+          event_id: string
+          evidence?: string | null
+          link_id: string
+          provenance: string
+          relation_type: string
+          security_id: string
+          source?: string | null
+          source_as_of?: string | null
+          time_delta_minutes?: number | null
+          time_delta_seconds?: number | null
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          episode_id?: string
+          event_id?: string
+          evidence?: string | null
+          link_id?: string
+          provenance?: string
+          relation_type?: string
+          security_id?: string
+          source?: string | null
+          source_as_of?: string | null
+          time_delta_minutes?: number | null
+          time_delta_seconds?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_reaction_links_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "market_behavior_episodes"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "event_reaction_links_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "corporate_events"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_reaction_links_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
+      forward_outcomes: {
+        Row: {
+          computed_at: string | null
+          data_available: boolean
+          episode_id: string
+          fetched_at: string | null
+          freshness: string
+          high_price: number | null
+          horizon: string
+          low_price: number | null
+          max_drawdown_pct: number | null
+          max_gain_pct: number | null
+          outcome_price: number | null
+          provenance: string
+          quality: string
+          reference_price: number | null
+          reference_timestamp: string | null
+          return_pct: number | null
+          source: string | null
+          source_as_of: string | null
+        }
+        Insert: {
+          computed_at?: string | null
+          data_available: boolean
+          episode_id: string
+          fetched_at?: string | null
+          freshness: string
+          high_price?: number | null
+          horizon: string
+          low_price?: number | null
+          max_drawdown_pct?: number | null
+          max_gain_pct?: number | null
+          outcome_price?: number | null
+          provenance: string
+          quality: string
+          reference_price?: number | null
+          reference_timestamp?: string | null
+          return_pct?: number | null
+          source?: string | null
+          source_as_of?: string | null
+        }
+        Update: {
+          computed_at?: string | null
+          data_available?: boolean
+          episode_id?: string
+          fetched_at?: string | null
+          freshness?: string
+          high_price?: number | null
+          horizon?: string
+          low_price?: number | null
+          max_drawdown_pct?: number | null
+          max_gain_pct?: number | null
+          outcome_price?: number | null
+          provenance?: string
+          quality?: string
+          reference_price?: number | null
+          reference_timestamp?: string | null
+          return_pct?: number | null
+          source?: string | null
+          source_as_of?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "forward_outcomes_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "market_behavior_episodes"
+            referencedColumns: ["episode_id"]
+          },
+        ]
       }
       game_config: {
         Row: {
@@ -4275,6 +4490,113 @@ export type Database = {
         }
         Relationships: []
       }
+      market_behavior_episodes: {
+        Row: {
+          close_strength: number | null
+          computed_at: string | null
+          created_at: string
+          detected_by: string | null
+          direction: string
+          dollar_volume: number | null
+          end_price: number | null
+          episode_end: string | null
+          episode_id: string
+          episode_start: string
+          fetched_at: string | null
+          float_turnover: number | null
+          freshness: string
+          halt_count: number | null
+          high_price: number | null
+          low_price: number | null
+          max_negative_move_pct: number | null
+          max_positive_move_pct: number | null
+          observed_symbol: string | null
+          origin: string
+          provenance: string
+          quality: string
+          rvol: number | null
+          security_id: string
+          source: string | null
+          source_as_of: string | null
+          start_price: number | null
+          tier: string
+          updated_at: string
+          volume: number | null
+        }
+        Insert: {
+          close_strength?: number | null
+          computed_at?: string | null
+          created_at: string
+          detected_by?: string | null
+          direction: string
+          dollar_volume?: number | null
+          end_price?: number | null
+          episode_end?: string | null
+          episode_id: string
+          episode_start: string
+          fetched_at?: string | null
+          float_turnover?: number | null
+          freshness: string
+          halt_count?: number | null
+          high_price?: number | null
+          low_price?: number | null
+          max_negative_move_pct?: number | null
+          max_positive_move_pct?: number | null
+          observed_symbol?: string | null
+          origin: string
+          provenance: string
+          quality: string
+          rvol?: number | null
+          security_id: string
+          source?: string | null
+          source_as_of?: string | null
+          start_price?: number | null
+          tier: string
+          updated_at: string
+          volume?: number | null
+        }
+        Update: {
+          close_strength?: number | null
+          computed_at?: string | null
+          created_at?: string
+          detected_by?: string | null
+          direction?: string
+          dollar_volume?: number | null
+          end_price?: number | null
+          episode_end?: string | null
+          episode_id?: string
+          episode_start?: string
+          fetched_at?: string | null
+          float_turnover?: number | null
+          freshness?: string
+          halt_count?: number | null
+          high_price?: number | null
+          low_price?: number | null
+          max_negative_move_pct?: number | null
+          max_positive_move_pct?: number | null
+          observed_symbol?: string | null
+          origin?: string
+          provenance?: string
+          quality?: string
+          rvol?: number | null
+          security_id?: string
+          source?: string | null
+          source_as_of?: string | null
+          start_price?: number | null
+          tier?: string
+          updated_at?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "market_behavior_episodes_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       market_indexes: {
         Row: {
           change_amount: number | null
@@ -5357,6 +5679,321 @@ export type Database = {
           window_start_date?: string | null
         }
         Relationships: []
+      }
+      securities: {
+        Row: {
+          active: boolean
+          adr_status: string
+          country: string | null
+          created_at: string
+          current_symbol: string
+          exchange: string | null
+          issuer_name: string | null
+          resolution_state: string
+          security_id: string
+          security_type: string
+          updated_at: string
+        }
+        Insert: {
+          active: boolean
+          adr_status: string
+          country?: string | null
+          created_at: string
+          current_symbol: string
+          exchange?: string | null
+          issuer_name?: string | null
+          resolution_state: string
+          security_id: string
+          security_type: string
+          updated_at: string
+        }
+        Update: {
+          active?: boolean
+          adr_status?: string
+          country?: string | null
+          created_at?: string
+          current_symbol?: string
+          exchange?: string | null
+          issuer_name?: string | null
+          resolution_state?: string
+          security_id?: string
+          security_type?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      security_backfill_jobs: {
+        Row: {
+          completed_at: string | null
+          cursor_date: string | null
+          cursor_token: string | null
+          date_from: string
+          date_to: string
+          error_count: number
+          job_id: string
+          job_type: string
+          metadata: Json | null
+          processed_count: number
+          started_at: string | null
+          state: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          cursor_date?: string | null
+          cursor_token?: string | null
+          date_from: string
+          date_to: string
+          error_count: number
+          job_id: string
+          job_type: string
+          metadata?: Json | null
+          processed_count: number
+          started_at?: string | null
+          state: string
+          updated_at: string
+        }
+        Update: {
+          completed_at?: string | null
+          cursor_date?: string | null
+          cursor_token?: string | null
+          date_from?: string
+          date_to?: string
+          error_count?: number
+          job_id?: string
+          job_type?: string
+          metadata?: Json | null
+          processed_count?: number
+          started_at?: string | null
+          state?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      security_daily_history: {
+        Row: {
+          close: number | null
+          computed_at: string | null
+          dollar_volume: number | null
+          exchange: string | null
+          fetched_at: string | null
+          freshness: string
+          high: number | null
+          low: number | null
+          move_pct: number | null
+          observed_symbol: string | null
+          open: number | null
+          previous_close: number | null
+          provenance: string
+          quality: string
+          security_id: string
+          session_date: string
+          source: string | null
+          source_as_of: string | null
+          volume: number | null
+        }
+        Insert: {
+          close?: number | null
+          computed_at?: string | null
+          dollar_volume?: number | null
+          exchange?: string | null
+          fetched_at?: string | null
+          freshness: string
+          high?: number | null
+          low?: number | null
+          move_pct?: number | null
+          observed_symbol?: string | null
+          open?: number | null
+          previous_close?: number | null
+          provenance: string
+          quality: string
+          security_id: string
+          session_date: string
+          source?: string | null
+          source_as_of?: string | null
+          volume?: number | null
+        }
+        Update: {
+          close?: number | null
+          computed_at?: string | null
+          dollar_volume?: number | null
+          exchange?: string | null
+          fetched_at?: string | null
+          freshness?: string
+          high?: number | null
+          low?: number | null
+          move_pct?: number | null
+          observed_symbol?: string | null
+          open?: number | null
+          previous_close?: number | null
+          provenance?: string
+          quality?: string
+          security_id?: string
+          session_date?: string
+          source?: string | null
+          source_as_of?: string | null
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_daily_history_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
+      security_episode_events: {
+        Row: {
+          created_at: string
+          episode_event_id: string
+          episode_id: string
+          event_at: string
+          event_type: string
+          metadata: Json | null
+          price: number | null
+          provenance: string
+          security_id: string
+          source: string | null
+          source_as_of: string | null
+          volume: number | null
+        }
+        Insert: {
+          created_at: string
+          episode_event_id: string
+          episode_id: string
+          event_at: string
+          event_type: string
+          metadata?: Json | null
+          price?: number | null
+          provenance: string
+          security_id: string
+          source?: string | null
+          source_as_of?: string | null
+          volume?: number | null
+        }
+        Update: {
+          created_at?: string
+          episode_event_id?: string
+          episode_id?: string
+          event_at?: string
+          event_type?: string
+          metadata?: Json | null
+          price?: number | null
+          provenance?: string
+          security_id?: string
+          source?: string | null
+          source_as_of?: string | null
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_episode_events_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "market_behavior_episodes"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "security_episode_events_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
+      security_reference_identifiers: {
+        Row: {
+          fetched_at: string | null
+          identifier_kind: string
+          identifier_value: string
+          observed_at: string | null
+          provenance: string
+          security_id: string
+          source: string | null
+          source_as_of: string | null
+        }
+        Insert: {
+          fetched_at?: string | null
+          identifier_kind: string
+          identifier_value: string
+          observed_at?: string | null
+          provenance: string
+          security_id: string
+          source?: string | null
+          source_as_of?: string | null
+        }
+        Update: {
+          fetched_at?: string | null
+          identifier_kind?: string
+          identifier_value?: string
+          observed_at?: string | null
+          provenance?: string
+          security_id?: string
+          source?: string | null
+          source_as_of?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_reference_identifiers_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
+      security_symbol_history: {
+        Row: {
+          effective_from: string
+          effective_to: string | null
+          exchange: string | null
+          fetched_at: string | null
+          history_id: string
+          observed_at: string | null
+          provenance: string
+          security_id: string
+          source: string | null
+          source_as_of: string | null
+          symbol: string
+        }
+        Insert: {
+          effective_from: string
+          effective_to?: string | null
+          exchange?: string | null
+          fetched_at?: string | null
+          history_id: string
+          observed_at?: string | null
+          provenance: string
+          security_id: string
+          source?: string | null
+          source_as_of?: string | null
+          symbol: string
+        }
+        Update: {
+          effective_from?: string
+          effective_to?: string | null
+          exchange?: string | null
+          fetched_at?: string | null
+          history_id?: string
+          observed_at?: string | null
+          provenance?: string
+          security_id?: string
+          source?: string | null
+          source_as_of?: string | null
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_symbol_history_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
       }
       stocks: {
         Row: {

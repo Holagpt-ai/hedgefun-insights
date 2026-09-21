@@ -149,12 +149,14 @@ export interface IntelligenceWriteSuccess<T> {
   record: T;
   /** True when an idempotent write found the same security/date facts already stored. */
   noop?: boolean;
+  reason?: never;
 }
 
 export interface IntelligenceWriteFailure {
   version: SecurityIntelligenceVersion;
   ok: false;
   reason: string;
+  record?: never;
 }
 
 export type IntelligenceWriteResult<T> = IntelligenceWriteSuccess<T> | IntelligenceWriteFailure;

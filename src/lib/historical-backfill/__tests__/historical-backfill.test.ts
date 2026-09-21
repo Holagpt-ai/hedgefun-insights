@@ -309,7 +309,7 @@ describe("Historical backfill engine V1", () => {
         closeStrength: null,
         rvol: null,
       });
-      expect(result.episodesByTier.NORMAL).toBeUndefined();
+      expect((result.episodesByTier as Record<string, number | undefined>).NORMAL).toBeUndefined();
       expect(result.deepReconstruction.map((item) => item.tier)).toEqual(["EXTREME"]);
       expect(result.episodesByTier.NOTABLE).toBe(0);
     });

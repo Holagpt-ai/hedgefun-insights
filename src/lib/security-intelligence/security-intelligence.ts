@@ -35,7 +35,9 @@ import type {
   EventReactionLink,
   ForwardOutcome,
   IntelligenceEvidence,
+  IntelligenceWriteFailure,
   IntelligenceWriteResult,
+  IntelligenceWriteSuccess,
   MarketBehaviorEpisode,
   SecurityBackfillJob,
   SecurityDailyHistory,
@@ -56,11 +58,11 @@ type EvidenceInput = {
   provenance?: string | null;
 };
 
-function fail(reason: string): IntelligenceWriteResult<never> {
+function fail(reason: string): IntelligenceWriteFailure {
   return { version: SECURITY_INTELLIGENCE_VERSION, ok: false, reason };
 }
 
-function ok<T>(record: T): IntelligenceWriteResult<T> {
+function ok<T>(record: T): IntelligenceWriteSuccess<T> {
   return { version: SECURITY_INTELLIGENCE_VERSION, ok: true, record };
 }
 
@@ -107,7 +109,7 @@ function asEnum<T extends string>(value: string | null | undefined, allowed: rea
   return (allowed as readonly string[]).includes(value) ? (value as T) : null;
 }
 
-function timestamp(value: string | null | undefined, label: string): { ok: true; iso: string | null } | { ok: false; reason: string } {
+function timestamp(value: string | null | undefined, label: string): { ok: true; iso: string | null; reason?: never } | { ok: false; reason: string; iso?: never } {
   if (value == null || value.trim() === "") return { ok: true, iso: null };
   const ms = parseTimestampMs(value);
   if (ms === null) return { ok: false, reason: `invalid ${label}` };
@@ -118,7 +120,7 @@ function optionalNumber(
   value: number | null | undefined,
   label: string,
   options?: { allowNegative?: boolean; integer?: boolean },
-): { ok: true; value: number | null } | { ok: false; reason: string } {
+): { ok: true; value: number | null; reason?: never } | { ok: false; reason: string; value?: never } {
   if (value === undefined || value === null) return { ok: true, value: null };
   if (typeof value !== "number" || !Number.isFinite(value)) return { ok: false, reason: `invalid ${label}` };
   if (options?.integer && !Number.isInteger(value)) return { ok: false, reason: `invalid ${label}` };
@@ -126,7 +128,7 @@ function optionalNumber(
   return { ok: true, value };
 }
 
-function optionalSymbol(value: string | null | undefined): { ok: true; value: string | null } | { ok: false; reason: string } {
+function optionalSymbol(value: string | null | undefined): { ok: true; value: string | null; reason?: never } | { ok: false; reason: string; value?: never } {
   const symbol = blankToNull(value);
   if (symbol === null) return { ok: true, value: null };
   const upper = symbol.toUpperCase();
@@ -134,13 +136,13 @@ function optionalSymbol(value: string | null | undefined): { ok: true; value: st
   return { ok: true, value: upper };
 }
 
-function evidence(input: EvidenceInput): { ok: true; value: IntelligenceEvidence } | { ok: false; reason: string } {
+function evidence(input: EvidenceInput): { ok: true; value: IntelligenceEvidence; reason?: never } | { ok: false; reason: string; value?: never } {
   const sourceAsOf = timestamp(input.sourceAsOf, "sourceAsOf");
   const fetchedAt = timestamp(input.fetchedAt, "fetchedAt");
   const computedAt = timestamp(input.computedAt, "computedAt");
-  if (!sourceAsOf.ok) return sourceAsOf;
-  if (!fetchedAt.ok) return fetchedAt;
-  if (!computedAt.ok) return computedAt;
+  if (!sourceAsOf.ok) return { ok: false, reason: sourceAsOf.reason };
+  if (!fetchedAt.ok) return { ok: false, reason: fetchedAt.reason };
+  if (!computedAt.ok) return { ok: false, reason: computedAt.reason };
   const quality = input.quality == null || input.quality === ""
     ? "UNAVAILABLE"
     : asEnum(input.quality, INTELLIGENCE_QUALITY_STATES);
@@ -340,7 +342,7 @@ export class SecurityIntelligenceStore {
 
   putDailyHistory(input: DailyHistoryInput): IntelligenceWriteResult<SecurityDailyHistory> {
     const built = this.buildDailyHistory(input);
-    if (!built.ok) return built;
+    if (!built.ok) return fail(built.reason);
     if (this.daily.has(built.key)) return fail("daily history already exists for securityId and sessionDate");
     this.daily.set(built.key, built.record);
     return ok(built.record);
@@ -352,13 +354,16 @@ export class SecurityIntelligenceStore {
    */
   upsertDailyHistory(input: DailyHistoryInput): IntelligenceWriteResult<SecurityDailyHistory> {
     const built = this.buildDailyHistory(input);
-    if (!built.ok) return built;
+    if (!built.ok) return fail(built.reason);
     const existing = this.daily.get(built.key);
     if (!existing) {
       this.daily.set(built.key, built.record);
       return ok(built.record);
     }
-    if (sameDailyHistory(existing, built.record)) return { ...ok(existing), noop: true };
+    if (sameDailyHistory(existing, built.record)) {
+      const noopResult: IntelligenceWriteSuccess<SecurityDailyHistory> = { ...ok(existing), noop: true };
+      return noopResult;
+    }
     return fail("conflicting daily history for securityId and sessionDate");
   }
 
@@ -719,7 +724,7 @@ export class SecurityIntelligenceStore {
 
   private buildDailyHistory(
     input: DailyHistoryInput,
-  ): { ok: true; key: string; record: SecurityDailyHistory } | IntelligenceWriteResult<never> {
+  ): { ok: true; key: string; record: SecurityDailyHistory; reason?: never } | IntelligenceWriteFailure {
     const securityId = requiredId(input.securityId);
     if (!securityId) return fail("invalid securityId");
     if (!isCalendarDate(input.sessionDate)) return fail("invalid sessionDate");
@@ -743,7 +748,7 @@ export class SecurityIntelligenceStore {
     };
   }
 
-  private marketFacts(input: DailyHistoryInput): { ok: true; value: Pick<SecurityDailyHistory, "open" | "high" | "low" | "close" | "volume" | "dollarVolume" | "previousClose" | "movePct"> } | { ok: false; reason: string } {
+  private marketFacts(input: DailyHistoryInput): { ok: true; value: Pick<SecurityDailyHistory, "open" | "high" | "low" | "close" | "volume" | "dollarVolume" | "previousClose" | "movePct">; reason?: never } | { ok: false; reason: string; value?: never } {
     const open = optionalNumber(input.open, "open");
     const high = optionalNumber(input.high, "high");
     const low = optionalNumber(input.low, "low");
@@ -753,7 +758,7 @@ export class SecurityIntelligenceStore {
     const previousClose = optionalNumber(input.previousClose, "previousClose");
     const movePct = optionalNumber(input.movePct, "movePct", { allowNegative: true });
     const numbers = [open, high, low, close, volume, dollarVolume, previousClose, movePct];
-    for (const number of numbers) if (!number.ok) return number;
+    for (const number of numbers) if (!number.ok) return { ok: false, reason: number.reason };
     return {
       ok: true,
       value: {
