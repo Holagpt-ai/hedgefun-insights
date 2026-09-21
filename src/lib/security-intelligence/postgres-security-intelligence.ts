@@ -204,7 +204,7 @@ export class PostgresSecurityIntelligenceRepository {
   }
 
   async transaction<T>(fn: () => Promise<T>): Promise<T> {
-    return this.sql.begin(async (tx) => this.txContext.run(tx, async () => {
+    return (await this.sql.begin(async (tx) => this.txContext.run(tx, async () => {
       this.writeProfile.transactions += 1;
       try {
         const result = await fn();
