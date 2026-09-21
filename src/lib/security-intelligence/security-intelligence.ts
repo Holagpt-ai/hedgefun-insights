@@ -58,11 +58,11 @@ type EvidenceInput = {
   provenance?: string | null;
 };
 
-function fail(reason: string): IntelligenceWriteResult<never> {
+function fail(reason: string): IntelligenceWriteFailure {
   return { version: SECURITY_INTELLIGENCE_VERSION, ok: false, reason };
 }
 
-function ok<T>(record: T): IntelligenceWriteResult<T> {
+function ok<T>(record: T): IntelligenceWriteSuccess<T> {
   return { version: SECURITY_INTELLIGENCE_VERSION, ok: true, record };
 }
 
@@ -140,9 +140,9 @@ function evidence(input: EvidenceInput): { ok: true; value: IntelligenceEvidence
   const sourceAsOf = timestamp(input.sourceAsOf, "sourceAsOf");
   const fetchedAt = timestamp(input.fetchedAt, "fetchedAt");
   const computedAt = timestamp(input.computedAt, "computedAt");
-  if (!sourceAsOf.ok) return sourceAsOf;
-  if (!fetchedAt.ok) return fetchedAt;
-  if (!computedAt.ok) return computedAt;
+  if (!sourceAsOf.ok) return { ok: false, reason: sourceAsOf.reason };
+  if (!fetchedAt.ok) return { ok: false, reason: fetchedAt.reason };
+  if (!computedAt.ok) return { ok: false, reason: computedAt.reason };
   const quality = input.quality == null || input.quality === ""
     ? "UNAVAILABLE"
     : asEnum(input.quality, INTELLIGENCE_QUALITY_STATES);
@@ -758,7 +758,7 @@ export class SecurityIntelligenceStore {
     const previousClose = optionalNumber(input.previousClose, "previousClose");
     const movePct = optionalNumber(input.movePct, "movePct", { allowNegative: true });
     const numbers = [open, high, low, close, volume, dollarVolume, previousClose, movePct];
-    for (const number of numbers) if (!number.ok) return number;
+    for (const number of numbers) if (!number.ok) return { ok: false, reason: number.reason };
     return {
       ok: true,
       value: {
