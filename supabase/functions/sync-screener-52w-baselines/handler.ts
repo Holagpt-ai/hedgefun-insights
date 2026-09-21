@@ -469,7 +469,15 @@ async function runCatchup(
     job.period_end === window.periodEnd &&
     job.status === "running";
 
-  if (!periodMatches) {
+  // A running job that has already applied every date must be finalized before
+  // any period-mismatch evaluation. Otherwise a rolled-forward window abandons
+  // a completed bootstrap generation and starts a replacement from zero.
+  const runningJobAlreadyComplete = !!job && job.status === "running" &&
+    (job.dates_applied >= job.dates_total ||
+      remainingWeekdays(job.period_start, job.period_end, job.last_applied_date)
+          .length === 0);
+
+  if (!periodMatches && !runningJobAlreadyComplete) {
     const lostBeforeStart = await renewRunLease(sb, holderId, ttlMs);
     if (lostBeforeStart) return lostBeforeStart;
     const generationId = (deps.newGenerationId ?? (() =>
