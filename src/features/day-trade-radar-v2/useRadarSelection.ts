@@ -11,6 +11,8 @@ import {
   isBroadTraderLens,
   visibleTopLeaderRow,
 } from "./trader-lens";
+import { applyScreenerRowFilters } from "@/lib/screeners/screener-filters";
+import type { ScreenerFilterSet } from "@/types/screener-filters";
 import type { RadarRankedRow } from "./types";
 
 export function useRadarSelection(opts: {
@@ -20,6 +22,7 @@ export function useRadarSelection(opts: {
   freeRowLimit: number;
   traderLensPresetId: TraderLensPresetId;
   traderLensBounds: TraderLensPriceBounds;
+  screenerFilterSet?: ScreenerFilterSet;
 }) {
   const {
     rows,
@@ -28,6 +31,7 @@ export function useRadarSelection(opts: {
     freeRowLimit,
     traderLensPresetId,
     traderLensBounds,
+    screenerFilterSet,
   } = opts;
   const [selection, dispatch] = useReducer(
     radarSelectionReducer,
@@ -51,7 +55,10 @@ export function useRadarSelection(opts: {
     [ranked, traderLensPresetId, traderLensBounds],
   );
 
-  const filtered = lens.rows;
+  const filtered = useMemo(() => {
+    if (!screenerFilterSet || screenerFilterSet.filters.length === 0) return lens.rows;
+    return applyScreenerRowFilters(lens.rows, screenerFilterSet, (row) => row.rank);
+  }, [lens.rows, screenerFilterSet]);
 
   const visibleTopLeader = useMemo(
     () => visibleTopLeaderRow(ranked, filtered, traderLensBounds),

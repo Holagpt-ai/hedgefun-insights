@@ -16,12 +16,15 @@ import {
 import { resolveScreenerCopy, type ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import type { ScreenerTruthState } from "@/lib/screeners/screener-truth-state";
 import { ScannerFieldHelp } from "@/features/day-trade-radar-v2/ScannerFieldHelp";
+import { ScreenerFiltersControl } from "@/components/screener/ScreenerFiltersControl";
+import { useScreenerFilters } from "@/hooks/useScreenerFilters";
 import {
   finiteMetric,
   formatScreenerDollarVolume,
   formatScreenerMetric,
   formatScreenerRvol20d,
 } from "@/lib/screeners/screener-metric-display";
+import { applyScreenerRowFilters } from "@/lib/screeners/screener-filters";
 import {
   evaluateScreenerTradeQuality,
   formatScreenerTradeQualityFromRow,
@@ -122,6 +125,7 @@ export function ScreenerTable({
   const navigate = useNavigate();
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const [sort, setSort] = useState<{ key: string; direction: "asc" | "desc" } | null>(null);
+  const filters = useScreenerFilters();
 
   const loading = status === "loading";
   const showRows = truthState?.showRows ?? (status === "available" || status === "stale");
@@ -168,12 +172,15 @@ export function ScreenerTable({
 
   const sortedRows = useMemo(() => {
     const baseRows = hasVerifiedRows ? rows : [];
-    if (!sort) return baseRows;
+    const visibleRows = applyScreenerRowFilters(baseRows, filters.filterSet, (row) => {
+      return discoveryRankByKey.get(rowKey(row)) ?? 0;
+    });
+    if (!sort) return visibleRows;
     const col = tab.columns.find((c) => c.key === sort.key);
-    if (!col) return baseRows;
+    if (!col) return visibleRows;
     const dir = sort.direction === "asc" ? 1 : -1;
     const isText = col.format === "text";
-    return [...baseRows].sort((a, b) => {
+    return [...visibleRows].sort((a, b) => {
       const av = getSortValue(a, sort.key);
       const bv = getSortValue(b, sort.key);
       const aNull = av === null || av === undefined || av === "";
@@ -184,7 +191,7 @@ export function ScreenerTable({
       if (isText) return String(av).localeCompare(String(bv)) * dir;
       return (Number(av) - Number(bv)) * dir;
     });
-  }, [sort, tab.columns, rows, hasVerifiedRows, getSortValue]);
+  }, [sort, tab.columns, rows, hasVerifiedRows, getSortValue, filters.filterSet, discoveryRankByKey]);
 
   const enrichmentSymbols = useMemo(() => {
     const out: string[] = [];
@@ -391,6 +398,14 @@ export function ScreenerTable({
 
   return (
     <div className="space-y-3">
+      {hasVerifiedRows && (
+        <ScreenerFiltersControl
+          draft={filters.draft}
+          activeCount={filters.activeCount}
+          onChange={filters.update}
+          onClear={filters.clear}
+        />
+      )}
       <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5">
         {copy.criteria.map((c) => (
           <span
@@ -712,6 +727,12 @@ export function ScreenerTable({
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {!loading && hasVerifiedRows && sortedRows.length === 0 && filters.hasActive && (
+        <div className="rounded-lg border border-border bg-card p-6 text-center text-sm text-muted-foreground">
+          No rows match the current filters.
         </div>
       )}
 

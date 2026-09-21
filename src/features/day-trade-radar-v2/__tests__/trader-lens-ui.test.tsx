@@ -181,7 +181,9 @@ describe("compact Trader Lens bar", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Filters" }));
     expect(screen.getByLabelText("Price min")).toBeInTheDocument();
-    expect(screen.getByText("Move %")).toBeInTheDocument();
+    expect(screen.getByLabelText("Min Move %")).toBeInTheDocument();
+    expect(screen.getByLabelText("Min Volume")).toBeInTheDocument();
+    expect(screen.getByLabelText("Min RVOL 20D")).toBeInTheDocument();
     expect(screen.getByText("Float")).toBeInTheDocument();
     expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
   });

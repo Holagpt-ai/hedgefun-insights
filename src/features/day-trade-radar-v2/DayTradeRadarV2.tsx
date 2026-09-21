@@ -15,6 +15,7 @@ import { RadarDetailPanel } from "./RadarDetailPanel";
 import { RadarLeaderStrip } from "./RadarLeaderStrip";
 import { TraderLensBar } from "./TraderLensBar";
 import { useTraderLens } from "./useTraderLens";
+import { useScreenerFilters } from "@/hooks/useScreenerFilters";
 import { useRadarColumnVisibility } from "./useRadarColumnVisibility";
 import { isRadarRowAccessible } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
@@ -50,6 +51,7 @@ export function DayTradeRadarV2({
   const selectionRows = resolved.rows as ScreenerResultRow[];
 
   const traderLens = useTraderLens();
+  const screenerFilters = useScreenerFilters();
   const { visibleColumns, toggleColumn, resetColumns } = useRadarColumnVisibility();
 
   const {
@@ -70,6 +72,7 @@ export function DayTradeRadarV2({
     freeRowLimit,
     traderLensPresetId: traderLens.presetId,
     traderLensBounds: traderLens.bounds,
+    screenerFilterSet: screenerFilters.filterSet,
   });
 
   // Free-plan unlocking follows the visible Trader Lens order, so the first
@@ -141,10 +144,12 @@ export function DayTradeRadarV2({
       return "No qualifying movers yet.";
     }
     if (boardVisible && ranked.length > 0 && filtered.length === 0) {
-      return "No Radar candidates in this Trader Lens price range.";
+      return screenerFilters.hasActive
+        ? "No Radar candidates match the current filters."
+        : "No Radar candidates in this Trader Lens price range.";
     }
     return null;
-  }, [resolved.status, boardVisible, ranked.length, filtered.length]);
+  }, [resolved.status, boardVisible, ranked.length, filtered.length, screenerFilters.hasActive]);
 
   const detailPanel = (
     <RadarDetailPanel
@@ -184,6 +189,10 @@ export function DayTradeRadarV2({
           onReset={traderLens.resetLens}
           onToggleColumn={toggleColumn}
           onResetColumns={resetColumns}
+          filterDraft={screenerFilters.draft}
+          filterActiveCount={screenerFilters.activeCount}
+          onFilterChange={screenerFilters.update}
+          onClearFilters={screenerFilters.clear}
         />
       )}
 

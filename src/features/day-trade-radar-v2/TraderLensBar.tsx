@@ -14,12 +14,17 @@ import {
   type RadarColumnId,
 } from "./radar-grid-columns";
 import { traderLensShowingCopy } from "./trader-lens";
+import {
+  ScreenerFiltersActions,
+  ScreenerFiltersFields,
+} from "@/components/screener/ScreenerFiltersControl";
+import {
+  EMPTY_SCREENER_FILTER_DRAFT,
+  type ScreenerFilterDraft,
+} from "@/lib/screeners/screener-filters";
 
-const FUTURE_FILTERS = [
-  "Move %",
-  "Volume",
+const DORMANT_FILTERS = [
   "Float",
-  "RVOL",
   "Short Float",
   "Catalyst",
   "HOD Distance",
@@ -39,6 +44,10 @@ interface TraderLensBarProps {
   onReset: () => void;
   onToggleColumn: (id: RadarColumnId) => void;
   onResetColumns: () => void;
+  filterDraft?: ScreenerFilterDraft;
+  filterActiveCount?: number;
+  onFilterChange?: (key: keyof ScreenerFilterDraft, value: string) => void;
+  onClearFilters?: () => void;
 }
 
 function PriceInputs({
@@ -100,6 +109,10 @@ export function TraderLensBar({
   onReset,
   onToggleColumn,
   onResetColumns,
+  filterDraft = EMPTY_SCREENER_FILTER_DRAFT,
+  filterActiveCount = 0,
+  onFilterChange = () => {},
+  onClearFilters = () => {},
 }: TraderLensBarProps) {
   const futureColumns = futureRadarColumnLabels();
   const defaultToggles = RADAR_COLUMN_DEFINITIONS.filter(
@@ -142,10 +155,10 @@ export function TraderLensBar({
               className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-semibold text-foreground hover:bg-muted"
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
-              Filters
+              Filters{filterActiveCount > 0 ? ` (${filterActiveCount})` : ""}
             </button>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-72 p-3 space-y-3">
+          <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] max-w-[calc(100vw-2rem)] p-3 space-y-3">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
               Price
             </div>
@@ -156,10 +169,19 @@ export function TraderLensBar({
               onMaxChange={onMaxChange}
             />
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1">
+              Filters
+            </div>
+            <ScreenerFiltersFields
+              draft={filterDraft}
+              onChange={onFilterChange}
+              includePrice={false}
+            />
+            <ScreenerFiltersActions activeCount={filterActiveCount} onClear={onClearFilters} />
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground pt-1">
               Coming later
             </div>
             <div className="space-y-1">
-              {FUTURE_FILTERS.map((label) => (
+              {DORMANT_FILTERS.map((label) => (
                 <div key={label} className="flex items-center gap-2 text-[12px] text-muted-foreground">
                   <Checkbox disabled checked={false} aria-label={`${label} unavailable`} />
                   {label}
