@@ -147,6 +147,8 @@ export interface IntelligenceWriteSuccess<T> {
   version: SecurityIntelligenceVersion;
   ok: true;
   record: T;
+  /** True when an idempotent write found the same security/date facts already stored. */
+  noop?: boolean;
 }
 
 export interface IntelligenceWriteFailure {

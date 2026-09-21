@@ -64,6 +64,27 @@ function ok<T>(record: T): IntelligenceWriteResult<T> {
   return { version: SECURITY_INTELLIGENCE_VERSION, ok: true, record };
 }
 
+function sameDailyHistory(left: SecurityDailyHistory, right: SecurityDailyHistory): boolean {
+  const fields: Array<keyof SecurityDailyHistory> = [
+    "securityId",
+    "sessionDate",
+    "observedSymbol",
+    "exchange",
+    "open",
+    "high",
+    "low",
+    "close",
+    "volume",
+    "dollarVolume",
+    "previousClose",
+    "movePct",
+    "source",
+    "quality",
+    "provenance",
+  ];
+  return fields.every((field) => left[field] === right[field]);
+}
+
 function blankToNull(value: string | null | undefined): string | null {
   if (value == null) return null;
   const trimmed = value.trim();
@@ -316,27 +337,33 @@ export class SecurityIntelligenceStore {
   }
 
   putDailyHistory(input: DailyHistoryInput): IntelligenceWriteResult<SecurityDailyHistory> {
-    const securityId = requiredId(input.securityId);
-    if (!securityId) return fail("invalid securityId");
-    if (!isCalendarDate(input.sessionDate)) return fail("invalid sessionDate");
-    const observedSymbol = optionalSymbol(input.observedSymbol);
-    if (!observedSymbol.ok) return fail(observedSymbol.reason);
-    const facts = this.marketFacts(input);
-    if (!facts.ok) return fail(facts.reason);
-    const proof = evidence(input);
-    if (!proof.ok) return fail(proof.reason);
-    const key = `${securityId}|${input.sessionDate}`;
-    if (this.daily.has(key)) return fail("daily history already exists for securityId and sessionDate");
-    const record: SecurityDailyHistory = {
-      securityId,
-      sessionDate: input.sessionDate,
-      observedSymbol: observedSymbol.value,
-      exchange: blankToNull(input.exchange)?.toUpperCase() ?? null,
-      ...facts.value,
-      ...proof.value,
-    };
-    this.daily.set(key, record);
-    return ok(record);
+    const built = this.buildDailyHistory(input);
+    if (!built.ok) return built;
+    if (this.daily.has(built.key)) return fail("daily history already exists for securityId and sessionDate");
+    this.daily.set(built.key, built.record);
+    return ok(built.record);
+  }
+
+  /**
+   * Inserts a daily row, or accepts an identical retry without a second row.
+   * A different payload for the same security and date is rejected and does not overwrite.
+   */
+  upsertDailyHistory(input: DailyHistoryInput): IntelligenceWriteResult<SecurityDailyHistory> {
+    const built = this.buildDailyHistory(input);
+    if (!built.ok) return built;
+    const existing = this.daily.get(built.key);
+    if (!existing) {
+      this.daily.set(built.key, built.record);
+      return ok(built.record);
+    }
+    if (sameDailyHistory(existing, built.record)) return { ...ok(existing), noop: true };
+    return fail("conflicting daily history for securityId and sessionDate");
+  }
+
+  getDailyHistory(securityId: string, sessionDate: string): SecurityDailyHistory | null {
+    const id = requiredId(securityId);
+    if (!id) return null;
+    return this.daily.get(`${id}|${sessionDate}`) ?? null;
   }
 
   putEpisode(input: EpisodeInput): IntelligenceWriteResult<MarketBehaviorEpisode> {
@@ -610,6 +637,42 @@ export class SecurityIntelligenceStore {
     return ok(record);
   }
 
+  /** Updates cursor and counters while the job stays RUNNING. This is not a state change. */
+  recordBackfillCheckpoint(jobId: string, input: BackfillTransitionInput): IntelligenceWriteResult<SecurityBackfillJob> {
+    const current = this.jobs.get(jobId);
+    if (!current) return fail("job not found");
+    if (current.state !== "RUNNING") return fail("checkpoint requires a running job");
+    const recordedAt = timestamp(input.recordedAt, "recordedAt");
+    if (!recordedAt.ok || recordedAt.iso === null) return fail("invalid recordedAt");
+    let cursorDate = current.cursorDate;
+    if (input.cursorDate !== undefined) {
+      if (input.cursorDate !== null && !isCalendarDate(input.cursorDate)) return fail("invalid cursorDate");
+      if (input.cursorDate !== null && (input.cursorDate < current.dateFrom || input.cursorDate > current.dateTo)) {
+        return fail("cursorDate outside job range");
+      }
+      cursorDate = input.cursorDate;
+    }
+    const processedCount = input.processedCount == null
+      ? current.processedCount
+      : optionalNumber(input.processedCount, "processedCount", { integer: true });
+    const errorCount = input.errorCount == null
+      ? current.errorCount
+      : optionalNumber(input.errorCount, "errorCount", { integer: true });
+    if (typeof processedCount !== "number" && !processedCount.ok) return fail(processedCount.reason);
+    if (typeof errorCount !== "number" && !errorCount.ok) return fail(errorCount.reason);
+    const next: SecurityBackfillJob = {
+      ...current,
+      cursorDate,
+      cursorToken: input.cursorToken === undefined ? current.cursorToken : blankToNull(input.cursorToken),
+      processedCount: typeof processedCount === "number" ? processedCount : processedCount.value ?? current.processedCount,
+      errorCount: typeof errorCount === "number" ? errorCount : errorCount.value ?? current.errorCount,
+      updatedAt: recordedAt.iso,
+      metadata: input.metadata === undefined ? current.metadata : input.metadata,
+    };
+    this.jobs.set(jobId, next);
+    return ok(next);
+  }
+
   transitionBackfillJob(jobId: string, input: BackfillTransitionInput): IntelligenceWriteResult<SecurityBackfillJob> {
     const current = this.jobs.get(jobId);
     if (!current) return fail("job not found");
@@ -650,6 +713,32 @@ export class SecurityIntelligenceStore {
     };
     this.jobs.set(jobId, next);
     return ok(next);
+  }
+
+  private buildDailyHistory(
+    input: DailyHistoryInput,
+  ): { ok: true; key: string; record: SecurityDailyHistory } | IntelligenceWriteResult<never> {
+    const securityId = requiredId(input.securityId);
+    if (!securityId) return fail("invalid securityId");
+    if (!isCalendarDate(input.sessionDate)) return fail("invalid sessionDate");
+    const observedSymbol = optionalSymbol(input.observedSymbol);
+    if (!observedSymbol.ok) return fail(observedSymbol.reason);
+    const facts = this.marketFacts(input);
+    if (!facts.ok) return fail(facts.reason);
+    const proof = evidence(input);
+    if (!proof.ok) return fail(proof.reason);
+    return {
+      ok: true,
+      key: `${securityId}|${input.sessionDate}`,
+      record: {
+        securityId,
+        sessionDate: input.sessionDate,
+        observedSymbol: observedSymbol.value,
+        exchange: blankToNull(input.exchange)?.toUpperCase() ?? null,
+        ...facts.value,
+        ...proof.value,
+      },
+    };
   }
 
   private marketFacts(input: DailyHistoryInput): { ok: true; value: Pick<SecurityDailyHistory, "open" | "high" | "low" | "close" | "volume" | "dollarVolume" | "previousClose" | "movePct"> } | { ok: false; reason: string } {
