@@ -1,4 +1,9 @@
-import { computeDollarVolume } from "@/lib/screeners/dollar-volume";
+import {
+  displayScreenerMetricValue,
+  toScreenerDollarVolumeValue,
+  toScreenerRvol20dValue,
+  type ScreenerMetricObservation,
+} from "@/lib/screeners/screener-data-quality";
 
 export function finiteMetric(value: string | number | null | undefined): number | null {
   if (value === null || value === undefined || value === "") return null;
@@ -24,14 +29,18 @@ export function formatScreenerDollarVolumeValue(value: string | number | null | 
 export function formatScreenerDollarVolume(
   price: number | null | undefined,
   volume: number | null | undefined,
+  observation?: ScreenerMetricObservation,
 ): string {
-  return formatScreenerDollarVolumeValue(computeDollarVolume(price, volume));
+  return displayScreenerMetricValue(toScreenerDollarVolumeValue(price, volume, observation), (n) =>
+    formatScreenerDollarVolumeValue(n),
+  );
 }
 
-export function formatScreenerRvol20d(value: string | number | null | undefined): string {
-  const n = finiteMetric(value);
-  if (n === null) return "—";
-  return `${n.toFixed(1)}×`;
+export function formatScreenerRvol20d(
+  value: string | number | null | undefined,
+  observation?: ScreenerMetricObservation,
+): string {
+  return displayScreenerMetricValue(toScreenerRvol20dValue(value, observation), (n) => `${n.toFixed(1)}×`);
 }
 
 export function formatScreenerMetric(

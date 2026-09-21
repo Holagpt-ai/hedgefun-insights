@@ -357,11 +357,11 @@ export function ScreenerTable({
     }
 
     if (col.key === "dollar_volume") {
-      return formatScreenerDollarVolume(row.price, row.volume);
+      return formatScreenerDollarVolume(row.price, row.volume, row);
     }
 
     if (col.key === "rvol_20d") {
-      return formatScreenerRvol20d(row.rvol_20d);
+      return formatScreenerRvol20d(row.rvol_20d, row);
     }
 
     if (col.key === "volume_ratio_prior_session" && col.format === "multiplier") {
@@ -612,7 +612,7 @@ export function ScreenerTable({
                         $ Vol
                       </ScannerFieldHelp>{" "}
                       <span className="font-medium">
-                        {formatScreenerDollarVolume(row.price, row.volume)}
+                        {formatScreenerDollarVolume(row.price, row.volume, row)}
                       </span>
                     </div>
                   )}
@@ -621,7 +621,7 @@ export function ScreenerTable({
                       <ScannerFieldHelp fieldId="daily_rvol" className="text-muted-foreground">
                         RVOL 20D
                       </ScannerFieldHelp>{" "}
-                      <span className="font-medium">{formatScreenerRvol20d(row.rvol_20d)}</span>
+                      <span className="font-medium">{formatScreenerRvol20d(row.rvol_20d, row)}</span>
                     </div>
                   )}
                   {showPriorVol &&

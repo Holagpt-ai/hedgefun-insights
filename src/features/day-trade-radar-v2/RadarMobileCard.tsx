@@ -185,12 +185,12 @@ export function RadarMobileCard({
         <ScannerFieldHelp fieldId="dollar_volume" className="text-muted-foreground">
           $ Vol
         </ScannerFieldHelp>{" "}
-        <span className="text-foreground">{formatScreenerDollarVolume(row.price, row.volume)}</span>
+        <span className="text-foreground">{formatScreenerDollarVolume(row.price, row.volume, row)}</span>
         {" · "}
         <ScannerFieldHelp fieldId="daily_rvol" className="text-muted-foreground">
           RVOL 20D
         </ScannerFieldHelp>{" "}
-        <span className="text-foreground">{formatScreenerRvol20d(row.rvol_20d)}</span>
+        <span className="text-foreground">{formatScreenerRvol20d(row.rvol_20d, row)}</span>
         {" · "}
         Prior {formatRadarContextVolume(row.prior_session_volume)}
         {" · "}
