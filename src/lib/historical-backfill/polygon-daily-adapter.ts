@@ -21,7 +21,13 @@ export interface PolygonAggregateFetch {
 export interface PolygonDailyAdapterOptions {
   fetchAggregates: PolygonAggregateFetch;
   fetchNextPage?: (nextUrl: string) => Promise<unknown>;
+  /**
+   * When omitted, the requested from/to span is one provider call.
+   * Set this to the conservative fallback when a provider must be chunked.
+   */
   maxDaysPerRequest?: number;
+  /** Requests that start before this date are incomplete and are not sent. */
+  verifiedEarliestDailyDate?: string | null;
   maxPages?: number;
   sourceAsOf?: string | null;
   fetchedAt?: string | null;
@@ -50,6 +56,7 @@ export function parsePolygonAggregatePage(payload: unknown): ParsedPage {
   const coverage = typeof payload.coverage === "string" ? payload.coverage as ProviderCoverage : null;
   const error = typeof payload.error === "string" ? payload.error : null;
   const nextPageToken = typeof payload.next_url === "string" && payload.next_url.length > 0 ? payload.next_url : null;
+  const providerStatus = typeof payload.status === "string" ? payload.status : null;
   const results = Array.isArray(payload.results) ? payload.results : [];
   const bars: ProviderDailyBar[] = [];
   for (const row of results) {
@@ -65,17 +72,40 @@ export function parsePolygonAggregatePage(payload: unknown): ParsedPage {
       volume: finiteOrNull(row.v),
     });
   }
-  const truncated = nextPageToken === null && results.length >= 365;
-  return { bars, nextPageToken, truncated, coverage, error };
+  const queryCount = typeof payload.queryCount === "number" ? payload.queryCount : null;
+  const resultsCount = typeof payload.resultsCount === "number" ? payload.resultsCount : null;
+  const countedComplete = queryCount !== null && resultsCount !== null && results.length >= queryCount;
+  const truncated = nextPageToken === null && !countedComplete && results.length >= 365;
+  let pageCoverage = coverage;
+  let pageError = error;
+  if (providerStatus === "NOT_AUTHORIZED") {
+    pageCoverage = "UNAVAILABLE";
+    pageError = pageError ?? "provider plan does not include this data timeframe";
+  }
+  return { bars, nextPageToken, truncated, coverage: pageCoverage, error: pageError };
 }
 
 export function createPolygonDailyAdapter(options: PolygonDailyAdapterOptions): HistoricalMarketDataProvider {
-  const maxDays = options.maxDaysPerRequest ?? 120;
+  const maxDays = options.maxDaysPerRequest;
   const maxPages = options.maxPages ?? 20;
+  const earliest = options.verifiedEarliestDailyDate ?? null;
 
   return {
     async fetchDailyBars(request: DailyBarsRequest): Promise<DailyBarsResult> {
-      const chunks = chunkInclusiveDates(request.dateFrom, request.dateTo, maxDays);
+      if (earliest && request.dateFrom < earliest) {
+        return {
+          coverage: "UNAVAILABLE",
+          bars: [],
+          source: "polygon-aggregates",
+          sourceAsOf: options.sourceAsOf ?? null,
+          fetchedAt: options.fetchedAt ?? null,
+          error: `daily request starts before verified entitlement ${earliest}`,
+          complete: false,
+        };
+      }
+      const chunks = maxDays == null
+        ? [{ dateFrom: request.dateFrom, dateTo: request.dateTo }]
+        : chunkInclusiveDates(request.dateFrom, request.dateTo, maxDays);
       const bars: ProviderDailyBar[] = [];
       let coverage: ProviderCoverage = "SUPPORTED";
       let error: string | null = null;

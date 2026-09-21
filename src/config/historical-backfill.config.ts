@@ -8,11 +8,22 @@
 
 export const HISTORICAL_BACKFILL_DEFAULT_DATE_FROM = "2021-09-01";
 
+/** Verified Polygon/Massive daily entitlement start. Not the engine default date. */
+export const HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE = "2021-09-22";
+
+/** Used when a provider cannot accept the full requested span. */
+export const HISTORICAL_DAILY_FALLBACK_CHUNK_DAYS = 90;
+
 export const HISTORICAL_DAILY_DETECTOR_ID = "HISTORICAL_DAILY_V1";
 
 export const HISTORICAL_BACKFILL_DEFAULTS = {
   securityBatchSize: 5,
-  dateChunkDays: 90,
+  dateChunkDays: HISTORICAL_DAILY_FALLBACK_CHUNK_DAYS,
+  /**
+   * Null leaves the requested span unchanged. A date rejects provider calls that
+   * start before verified daily entitlement.
+   */
+  verifiedEarliestDailyDate: null as string | null,
   maxConcurrentProviderRequests: 1,
   retryCount: 3,
   retryBackoffMs: 500,
@@ -40,6 +51,7 @@ export const HISTORICAL_BACKFILL_DEFAULTS = {
 export type HistoricalBackfillConfig = {
   securityBatchSize: number;
   dateChunkDays: number;
+  verifiedEarliestDailyDate: string | null;
   maxConcurrentProviderRequests: number;
   retryCount: number;
   retryBackoffMs: number;

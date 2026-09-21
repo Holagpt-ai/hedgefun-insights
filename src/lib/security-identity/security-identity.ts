@@ -192,6 +192,20 @@ export class SecurityIdentityStore {
     this.createId = createId;
   }
 
+  /** Replaces in-memory rows. Callers use this to run the existing resolver against a loaded snapshot. */
+  loadState(state: {
+    securities: readonly Security[];
+    history: readonly SecuritySymbolHistory[];
+    identifiers: readonly SecurityReferenceIdentifier[];
+  }): void {
+    this.securities.clear();
+    for (const security of state.securities) this.securities.set(security.securityId, { ...security });
+    this.history.length = 0;
+    this.history.push(...state.history.map((row) => ({ ...row })));
+    this.identifiers.length = 0;
+    this.identifiers.push(...state.identifiers.map((row) => ({ ...row })));
+  }
+
   listSecurities(): readonly Security[] {
     return [...this.securities.values()];
   }

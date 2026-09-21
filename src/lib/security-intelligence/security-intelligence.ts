@@ -312,8 +312,9 @@ export class SecurityIntelligenceStore {
     this.createId = createId;
   }
 
-  listDailyHistory(): readonly SecurityDailyHistory[] {
-    return [...this.daily.values()];
+  listDailyHistory(securityId?: string): readonly SecurityDailyHistory[] {
+    const rows = [...this.daily.values()];
+    return securityId === undefined ? rows : rows.filter((row) => row.securityId === securityId);
   }
 
   listEvents(): readonly CorporateEvent[] {
@@ -324,8 +325,9 @@ export class SecurityIntelligenceStore {
     return [...this.links.values()];
   }
 
-  listEpisodes(): readonly MarketBehaviorEpisode[] {
-    return [...this.episodes.values()];
+  listEpisodes(securityId?: string): readonly MarketBehaviorEpisode[] {
+    const rows = [...this.episodes.values()];
+    return securityId === undefined ? rows : rows.filter((row) => row.securityId === securityId);
   }
 
   listOutcomes(): readonly ForwardOutcome[] {

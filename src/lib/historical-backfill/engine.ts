@@ -27,13 +27,33 @@ import type {
   EligibleSecurity,
   ProviderCoverage,
 } from "@/types/historical-backfill";
-import type { SecuritySymbolHistory } from "@/types/security-identity";
+import type { SecuritySymbolHistory, SymbolAtDate } from "@/types/security-identity";
+import type { MarketBehaviorEpisode, SecurityBackfillJob, SecurityDailyHistory } from "@/types/security-intelligence";
 
 const EMPTY_TIERS = { NOTABLE: 0, SIGNIFICANT: 0, EXTREME: 0 };
 
+type MaybePromise<T> = T | Promise<T>;
+
+export interface HistoricalIdentityPort {
+  listHistory(securityId?: string): MaybePromise<readonly SecuritySymbolHistory[]>;
+  symbolAt(securityId: string, eventDate: string): MaybePromise<SymbolAtDate | null>;
+}
+
+export interface HistoricalIntelligencePort {
+  createBackfillJob(input: Parameters<SecurityIntelligenceStore["createBackfillJob"]>[0]): MaybePromise<ReturnType<SecurityIntelligenceStore["createBackfillJob"]>>;
+  transitionBackfillJob(jobId: string, input: Parameters<SecurityIntelligenceStore["transitionBackfillJob"]>[1]): MaybePromise<ReturnType<SecurityIntelligenceStore["transitionBackfillJob"]>>;
+  getJob(jobId: string): MaybePromise<SecurityBackfillJob | null>;
+  recordBackfillCheckpoint(jobId: string, input: Parameters<SecurityIntelligenceStore["recordBackfillCheckpoint"]>[1]): MaybePromise<ReturnType<SecurityIntelligenceStore["recordBackfillCheckpoint"]>>;
+  upsertDailyHistory(input: Parameters<SecurityIntelligenceStore["upsertDailyHistory"]>[0]): MaybePromise<ReturnType<SecurityIntelligenceStore["upsertDailyHistory"]>>;
+  putEpisode(input: Parameters<SecurityIntelligenceStore["putEpisode"]>[0]): MaybePromise<ReturnType<SecurityIntelligenceStore["putEpisode"]>>;
+  listDailyHistory(securityId?: string): MaybePromise<readonly SecurityDailyHistory[]>;
+  listEpisodes(securityId?: string): MaybePromise<readonly MarketBehaviorEpisode[]>;
+  transaction?<T>(fn: () => Promise<T>): Promise<T>;
+}
+
 export interface HistoricalBackfillEngineOptions {
-  identity: SecurityIdentityStore;
-  intelligence: SecurityIntelligenceStore;
+  identity: HistoricalIdentityPort;
+  intelligence: HistoricalIntelligencePort;
   provider: { fetchDailyBars: (request: {
     securityId: string;
     symbol: string;
@@ -46,8 +66,8 @@ export interface HistoricalBackfillEngineOptions {
 }
 
 export class HistoricalBackfillEngine {
-  private readonly identity: SecurityIdentityStore;
-  private readonly intelligence: SecurityIntelligenceStore;
+  private readonly identity: HistoricalIdentityPort;
+  private readonly intelligence: HistoricalIntelligencePort;
   private readonly provider: HistoricalBackfillEngineOptions["provider"];
   private readonly config: HistoricalBackfillConfig;
   private readonly sleep: (ms: number) => Promise<void>;
@@ -61,7 +81,7 @@ export class HistoricalBackfillEngine {
     this.sleep = options.sleep ?? (async () => undefined);
   }
 
-  start(input: {
+  async start(input: {
     securities: readonly EligibleSecurity[];
     completedSessionDate: string;
     dateFrom?: string;
@@ -77,11 +97,14 @@ export class HistoricalBackfillEngine {
     const dateTo = input.dateTo ?? input.completedSessionDate;
     if (!isBackfillDate(dateFrom) || !isBackfillDate(dateTo)) return { ok: false as const, reason: "invalid date range" };
     if (dateFrom > dateTo) return { ok: false as const, reason: "dateFrom after dateTo" };
+    if (this.config.verifiedEarliestDailyDate && dateFrom < this.config.verifiedEarliestDailyDate) {
+      return { ok: false as const, reason: "dateFrom is before verified daily entitlement" };
+    }
     if (dateTo > input.completedSessionDate) return { ok: false as const, reason: "dateTo is after the completed session" };
     if (input.securities.length === 0) return { ok: false as const, reason: "eligible universe is empty" };
     const securityIds = input.securities.map((security) => security.securityId);
     const checkpoint = emptyCheckpoint(securityIds.length, dateFrom);
-    const created = this.intelligence.createBackfillJob({
+    const created = await this.intelligence.createBackfillJob({
       jobType: input.jobType ?? "SECURITY_DAILY_HISTORY",
       dateFrom,
       dateTo,
@@ -98,8 +121,8 @@ export class HistoricalBackfillEngine {
     });
   }
 
-  resume(jobId: string, recordedAt: string) {
-    const job = this.intelligence.getJob(jobId);
+  async resume(jobId: string, recordedAt: string) {
+    const job = await this.intelligence.getJob(jobId);
     if (!job) return { ok: false as const, reason: "job not found" };
     if (job.state !== "FAILED" && job.state !== "PAUSED") {
       return { ok: false as const, reason: "job is not paused or failed" };
@@ -108,7 +131,7 @@ export class HistoricalBackfillEngine {
   }
 
   async runBatch(jobId: string, recordedAt: string): Promise<BackfillJobStats> {
-    const job = this.intelligence.getJob(jobId);
+    const job = await this.intelligence.getJob(jobId);
     if (!job || job.state !== "RUNNING") return this.stats(jobId, recordedAt);
     const securityIds = readSecurityIds(job.metadata);
     let checkpoint = readCheckpoint(job.metadata, securityIds.length, job.dateFrom);
@@ -116,7 +139,7 @@ export class HistoricalBackfillEngine {
     while (chunks < this.config.maxChunksPerRun && job.state === "RUNNING") {
       if (checkpoint.securityIndex >= securityIds.length) {
         if (checkpoint.coverage && checkpoint.coverage !== "SUPPORTED") break;
-        this.intelligence.transitionBackfillJob(jobId, {
+        await this.intelligence.transitionBackfillJob(jobId, {
           to: "COMPLETE",
           recordedAt,
           cursorDate: job.dateTo,
@@ -129,7 +152,8 @@ export class HistoricalBackfillEngine {
       }
       const securityId = securityIds[checkpoint.securityIndex];
       const chunkTo = minDate(addCalendarDays(checkpoint.nextChunkFrom, this.config.dateChunkDays - 1), job.dateTo);
-      const segments = symbolSegments(this.identity.listHistory(securityId), checkpoint.nextChunkFrom, chunkTo);
+      const history = await this.identity.listHistory(securityId);
+      const segments = symbolSegments(history, checkpoint.nextChunkFrom, chunkTo);
       let failed = false;
       for (const segment of segments) {
         let result: DailyBarsResult;
@@ -137,7 +161,7 @@ export class HistoricalBackfillEngine {
           result = await this.fetchDaily(securityId, segment);
         } catch {
           checkpoint = { ...checkpoint, providerErrors: checkpoint.providerErrors + 1 };
-          this.intelligence.transitionBackfillJob(jobId, {
+          await this.intelligence.transitionBackfillJob(jobId, {
             to: "FAILED",
             recordedAt,
             cursorDate: checkpoint.lastSuccessfulChunkFrom,
@@ -151,7 +175,7 @@ export class HistoricalBackfillEngine {
         }
         if (result.coverage !== "SUPPORTED" || !result.complete) {
           checkpoint = { ...checkpoint, coverage: result.coverage, providerErrors: checkpoint.providerErrors + 1 };
-          this.intelligence.transitionBackfillJob(jobId, {
+          await this.intelligence.transitionBackfillJob(jobId, {
             to: "PAUSED",
             recordedAt,
             cursorDate: checkpoint.lastSuccessfulChunkFrom,
@@ -163,13 +187,12 @@ export class HistoricalBackfillEngine {
           failed = true;
           break;
         }
-        const applied = this.applyBars(securityId, segment.symbol, result, recordedAt, checkpoint);
-        checkpoint = applied;
+        checkpoint = await this.inWriteStep(() => this.applyBars(securityId, segment.symbol, result, recordedAt, checkpoint));
       }
       if (failed) break;
       checkpoint = advance(checkpoint, chunkTo, job.dateFrom, job.dateTo);
       chunks += 1;
-      this.intelligence.recordBackfillCheckpoint(jobId, {
+      await this.inWriteStep(() => this.intelligence.recordBackfillCheckpoint(jobId, {
         to: "RUNNING",
         recordedAt,
         cursorDate: checkpoint.lastSuccessfulChunkFrom,
@@ -177,15 +200,15 @@ export class HistoricalBackfillEngine {
         processedCount: checkpoint.securitiesProcessed,
         errorCount: checkpoint.providerErrors,
         metadata: { securityIds, checkpoint },
-      });
-      const refreshed = this.intelligence.getJob(jobId);
+      }));
+      const refreshed = await this.intelligence.getJob(jobId);
       if (!refreshed || refreshed.state !== "RUNNING") break;
     }
-    const latest = this.intelligence.getJob(jobId);
+    const latest = await this.intelligence.getJob(jobId);
     if (latest?.state === "RUNNING") {
       const done = readCheckpoint(latest.metadata, securityIds.length, latest.dateFrom);
       if (done.securityIndex >= securityIds.length && (done.coverage === null || done.coverage === "SUPPORTED")) {
-        this.intelligence.transitionBackfillJob(jobId, {
+        await this.intelligence.transitionBackfillJob(jobId, {
           to: "COMPLETE",
           recordedAt,
           cursorDate: latest.dateTo,
@@ -199,8 +222,13 @@ export class HistoricalBackfillEngine {
     return this.stats(jobId, recordedAt);
   }
 
-  stats(jobId: string, recordedAt: string): BackfillJobStats {
-    const job = this.intelligence.getJob(jobId);
+  private async inWriteStep<T>(fn: () => Promise<T> | T): Promise<T> {
+    if (!this.intelligence.transaction) return await fn();
+    return this.intelligence.transaction(async () => await fn());
+  }
+
+  async stats(jobId: string, recordedAt: string): Promise<BackfillJobStats> {
+    const job = await this.intelligence.getJob(jobId);
     const checkpoint = job
       ? readCheckpoint(job.metadata, readSecurityIds(job.metadata).length, job.dateFrom)
       : emptyCheckpoint(0, HISTORICAL_BACKFILL_DEFAULT_DATE_FROM);
@@ -254,7 +282,7 @@ export class HistoricalBackfillEngine {
     }
   }
 
-  private applyBars(
+  private async applyBars(
     securityId: string,
     segmentSymbol: string,
     result: DailyBarsResult,
@@ -270,12 +298,12 @@ export class HistoricalBackfillEngine {
     const ordered = [...result.bars].sort((a, b) => a.sessionDate.localeCompare(b.sessionDate));
     for (const bar of ordered) {
       next.sessionsProcessed += 1;
-      const at = this.identity.symbolAt(securityId, bar.sessionDate);
+      const at = await this.identity.symbolAt(securityId, bar.sessionDate);
       if (!at || at.symbol !== segmentSymbol) {
         next.invalidRows += 1;
         continue;
       }
-      const previous = this.previousClose(securityId, bar.sessionDate);
+      const previous = await this.previousClose(securityId, bar.sessionDate);
       const normalized = normalizeDailyBar({
         securityId,
         observedSymbol: at.symbol,
@@ -291,7 +319,7 @@ export class HistoricalBackfillEngine {
         next.invalidRows += 1;
         continue;
       }
-      const saved = this.intelligence.upsertDailyHistory({
+      const saved = await this.intelligence.upsertDailyHistory({
         securityId,
         sessionDate: normalized.bar.sessionDate,
         observedSymbol: normalized.bar.observedSymbol,
@@ -318,12 +346,12 @@ export class HistoricalBackfillEngine {
       }
       if (saved.noop) next.duplicateRows += 1;
       else next.rowsWritten += 1;
-      this.persistEpisode(securityId, normalized.bar, recordedAt, next);
+      await this.persistEpisode(securityId, normalized.bar, recordedAt, next);
     }
     return next;
   }
 
-  private persistEpisode(
+  private async persistEpisode(
     securityId: string,
     bar: {
       sessionDate: string;
@@ -340,7 +368,7 @@ export class HistoricalBackfillEngine {
     recordedAt: string,
     checkpoint: BackfillCheckpoint,
   ): void {
-    const sessions = this.volumeSessions(securityId);
+    const sessions = await this.volumeSessions(securityId);
     const rvol = historicalDailyRvol(sessions, bar.sessionDate, bar.volume, this.config.rvolMinSessions);
     const detection = detectDailyEpisode({ ...bar, rvol }, this.config);
     if (detection.tier === "NORMAL") return;
@@ -349,14 +377,14 @@ export class HistoricalBackfillEngine {
       checkpoint.invalidRows += 1;
       return;
     }
-    const existing = this.intelligence.listEpisodes().find((episode) =>
+    const existing = (await this.intelligence.listEpisodes(securityId)).find((episode) =>
       episode.securityId === securityId
       && episode.detectedBy === HISTORICAL_DAILY_DETECTOR_ID
       && episode.episodeStart === bounds.open,
     );
     const episode = existing
       ? { ok: true as const, record: existing }
-      : this.intelligence.putEpisode({
+      : await this.intelligence.putEpisode({
         securityId,
         episodeStart: bounds.open,
         episodeEnd: bounds.close,
@@ -402,15 +430,15 @@ export class HistoricalBackfillEngine {
     checkpoint.deepReconstruction.push(queued);
   }
 
-  private previousClose(securityId: string, sessionDate: string): number | null {
-    const prior = this.intelligence.listDailyHistory()
+  private async previousClose(securityId: string, sessionDate: string): Promise<number | null> {
+    const prior = (await this.intelligence.listDailyHistory(securityId))
       .filter((row) => row.securityId === securityId && row.sessionDate < sessionDate && row.close !== null)
       .sort((a, b) => b.sessionDate.localeCompare(a.sessionDate));
     return prior[0]?.close ?? null;
   }
 
-  private volumeSessions(securityId: string): HistoricalVolumeSession[] {
-    return this.intelligence.listDailyHistory()
+  private async volumeSessions(securityId: string): Promise<HistoricalVolumeSession[]> {
+    return (await this.intelligence.listDailyHistory(securityId))
       .filter((row) => row.securityId === securityId)
       .map((row) => ({ sessionDate: row.sessionDate, volume: row.volume }));
   }

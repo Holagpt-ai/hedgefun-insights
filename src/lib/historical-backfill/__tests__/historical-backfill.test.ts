@@ -64,7 +64,7 @@ describe("Historical backfill engine V1", () => {
       provider: { fetchDailyBars: async (request) => supported([bar(request.dateFrom)]) },
       config: { dateChunkDays: 1, maxChunksPerRun: 1, retryCount: 0 },
     });
-    const started = engine.start({
+    const started = await engine.start({
       securities: [{ securityId }],
       completedSessionDate: "2024-06-05",
       dateFrom: "2024-06-03",
@@ -92,7 +92,7 @@ describe("Historical backfill engine V1", () => {
       provider,
       config: { dateChunkDays: 1, maxChunksPerRun: 1, retryCount: 0 },
     });
-    const started = first.start({
+    const started = await first.start({
       securities: [{ securityId }],
       completedSessionDate: "2024-06-03",
       dateFrom: "2024-06-03",
@@ -107,7 +107,7 @@ describe("Historical backfill engine V1", () => {
       provider,
       config: { dateChunkDays: 1, maxChunksPerRun: 1, retryCount: 0 },
     });
-    const retry = second.start({
+    const retry = await second.start({
       securities: [{ securityId }],
       completedSessionDate: "2024-06-03",
       dateFrom: "2024-06-03",
@@ -138,7 +138,7 @@ describe("Historical backfill engine V1", () => {
       },
       config: { dateChunkDays: 5, maxChunksPerRun: 1, retryCount: 0 },
     });
-    const started = engine.start({
+    const started = await engine.start({
       securities: [{ securityId: first.securityId! }, { securityId: second.securityId! }],
       completedSessionDate: "2024-06-03",
       dateFrom: "2024-06-03",
@@ -152,7 +152,7 @@ describe("Historical backfill engine V1", () => {
     expect(failed.cursorToken).toBe("1:2024-06-03");
     expect(intelligence.listDailyHistory().map((row) => row.securityId)).toEqual([first.securityId]);
     failSecond = false;
-    engine.resume(started.record.jobId, LATER);
+    await engine.resume(started.record.jobId, LATER);
     const resumed = await engine.runBatch(started.record.jobId, "2026-09-21T16:20:00.000Z");
     expect(resumed.state).toBe("COMPLETE");
     expect(intelligence.listDailyHistory()).toHaveLength(2);
@@ -182,7 +182,7 @@ describe("Historical backfill engine V1", () => {
       },
       config: { dateChunkDays: 2000, maxChunksPerRun: 4, retryCount: 0 },
     });
-    const started = engine.start({
+    const started = await engine.start({
       securities: [{ securityId: original.securityId! }, { securityId: reused.securityId! }],
       completedSessionDate: "2024-06-03",
       dateFrom: "2021-06-01",
@@ -248,7 +248,7 @@ describe("Historical backfill engine V1", () => {
     expect(historicalDailyRvol(withCurrent, "2024-02-01", null, 20)).toBeNull();
   });
 
-  it("13/14/15. detector tiers persist only above normal, and significant or extreme episodes are queued", () => {
+  it("13/14/15. detector tiers persist only above normal, and significant or extreme episodes are queued", async () => {
     const flat = detectDailyEpisode({
       open: 10, high: 10.2, low: 9.9, close: 10.1, movePct: 1, dollarVolume: 1000, rvol: null, previousClose: 10,
     }, CONFIG);
@@ -282,7 +282,7 @@ describe("Historical backfill engine V1", () => {
       },
       config: { dateChunkDays: 10, maxChunksPerRun: 2, retryCount: 0 },
     });
-    const started = engine.start({
+    const started = await engine.start({
       securities: [{ securityId }],
       completedSessionDate: "2024-06-05",
       dateFrom: "2024-06-03",
@@ -326,7 +326,7 @@ describe("Historical backfill engine V1", () => {
       },
       config: { retryCount: 0 },
     });
-    const started = engine.start({
+    const started = await engine.start({
       securities: [{ securityId }],
       completedSessionDate: "2024-06-03",
       dateFrom: "2021-09-01",
@@ -395,6 +395,54 @@ describe("Historical backfill engine V1", () => {
     });
     expect(pages.bars.length).toBe(375);
     expect(pages.coverage).toBe("SUPPORTED");
+
+    let fullRangeCalls = 0;
+    const fullRange = createPolygonDailyAdapter({
+      verifiedEarliestDailyDate: "2021-09-22",
+      fetchAggregates: async (_ticker, _multiplier, _timespan, from, to) => {
+        fullRangeCalls += 1;
+        expect(from).toBe("2021-09-22");
+        expect(to).toBe("2026-09-18");
+        return {
+          status: "OK",
+          queryCount: 2,
+          resultsCount: 2,
+          results: [
+            { t: Date.parse("2021-09-22T00:00:00.000Z"), o: 10, h: 11, l: 9, c: 10, v: 100 },
+            { t: Date.parse("2026-09-18T00:00:00.000Z"), o: 10, h: 11, l: 9, c: 12, v: 100 },
+          ],
+        };
+      },
+    });
+    const wide = await fullRange.fetchDailyBars({
+      securityId: "11111111-1111-4111-8111-111111111111",
+      symbol: "AAA",
+      exchange: null,
+      dateFrom: "2021-09-22",
+      dateTo: "2026-09-18",
+    });
+    expect(fullRangeCalls).toBe(1);
+    expect(wide.complete).toBe(true);
+    expect(wide.bars).toHaveLength(2);
+
+    let blockedCalls = 0;
+    const blocked = createPolygonDailyAdapter({
+      verifiedEarliestDailyDate: "2021-09-22",
+      fetchAggregates: async () => {
+        blockedCalls += 1;
+        return { results: [] };
+      },
+    });
+    const tooEarly = await blocked.fetchDailyBars({
+      securityId: "11111111-1111-4111-8111-111111111111",
+      symbol: "AAA",
+      exchange: null,
+      dateFrom: "2021-09-01",
+      dateTo: "2021-09-22",
+    });
+    expect(blockedCalls).toBe(0);
+    expect(tooEarly.complete).toBe(false);
+    expect(tooEarly.coverage).toBe("UNAVAILABLE");
   });
 
   it("18. provider retry and backoff stay bounded", async () => {
@@ -426,7 +474,7 @@ describe("Historical backfill engine V1", () => {
       },
       config: { retryCount: 2, retryBackoffMs: 5, dateChunkDays: 1, maxChunksPerRun: 1 },
     });
-    const started = engine.start({
+    const started = await engine.start({
       securities: [{ securityId }],
       completedSessionDate: "2024-06-03",
       dateFrom: "2024-06-03",
