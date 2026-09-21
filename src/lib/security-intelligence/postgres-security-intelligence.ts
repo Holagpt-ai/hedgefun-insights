@@ -570,7 +570,7 @@ export class PostgresSecurityIntelligenceRepository {
         ${row.jobId}, ${row.jobType}, ${row.state}, ${row.dateFrom}, ${row.dateTo},
         ${row.cursorDate}, ${row.cursorToken}, ${row.processedCount}, ${row.errorCount},
         ${row.startedAt}, ${row.updatedAt}, ${row.completedAt},
-        ${row.metadata === null ? null : this.sql.json(row.metadata)}
+        ${row.metadata === null ? null : this.sql.json(row.metadata as never)}
       )
     `;
   }
@@ -587,7 +587,7 @@ export class PostgresSecurityIntelligenceRepository {
         started_at = ${row.startedAt},
         updated_at = ${row.updatedAt},
         completed_at = ${row.completedAt},
-        metadata = ${row.metadata === null ? null : this.sql.json(row.metadata)}
+        metadata = ${row.metadata === null ? null : this.sql.json(row.metadata as never)}
       where job_id = ${row.jobId}
     `;
   }
