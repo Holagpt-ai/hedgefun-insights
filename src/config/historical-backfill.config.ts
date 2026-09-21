@@ -14,6 +14,9 @@ export const HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE = "2021-09-22";
 /** Used when a provider cannot accept the full requested span. */
 export const HISTORICAL_DAILY_FALLBACK_CHUNK_DAYS = 90;
 
+/** Maximum rows in one daily-history or episode INSERT. */
+export const HISTORICAL_BACKFILL_WRITE_BATCH_SIZE = 250;
+
 export const HISTORICAL_DAILY_DETECTOR_ID = "HISTORICAL_DAILY_V1";
 
 export const HISTORICAL_BACKFILL_DEFAULTS = {

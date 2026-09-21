@@ -6,7 +6,10 @@ import {
   resetLocalPilotTables,
 } from "@/lib/persistence/local-pilot-database";
 import { PostgresSecurityIdentityRepository } from "@/lib/security-identity/postgres-security-identity";
-import { PostgresSecurityIntelligenceRepository } from "@/lib/security-intelligence/postgres-security-intelligence";
+import {
+  HistoricalFactConflictError,
+  PostgresSecurityIntelligenceRepository,
+} from "@/lib/security-intelligence/postgres-security-intelligence";
 import type { SecurityIdentityObservation } from "@/types/security-identity";
 
 const sql = openLocalPilotSql(LOCAL_PILOT_DATABASE_URL);
@@ -185,5 +188,59 @@ describe("local postgres historical persistence", () => {
     expect(stats.rowsWritten).toBe(0);
     const after = await sql<{ n: string }[]>`select count(*)::text as n from public.security_daily_history`;
     expect(after[0].n).toBe("2");
+  });
+
+  it("flushes daily rows in bounded batches and rolls a conflict back", async () => {
+    const created = await identity.resolve(observation());
+    const securityId = created.securityId!;
+    const batched = new PostgresSecurityIntelligenceRepository(sql, 2);
+    const row = (sessionDate: string, close = 10) => ({
+      securityId,
+      sessionDate,
+      observedSymbol: "INTC",
+      exchange: "XNAS",
+      open: 10,
+      high: 11,
+      low: 9,
+      close,
+      volume: 1000,
+      dollarVolume: null,
+      previousClose: null,
+      movePct: null,
+      source: "polygon-aggregates",
+      provenance: "PROVIDER" as const,
+      quality: "AUTHORITATIVE" as const,
+      freshness: "UNKNOWN" as const,
+    });
+    await batched.transaction(async () => {
+      await batched.upsertDailyHistory(row("2024-06-03"));
+      await batched.upsertDailyHistory(row("2024-06-04"));
+      await batched.upsertDailyHistory(row("2024-06-05"));
+    });
+    const count = await sql<{ n: string; nulls: string }[]>`
+      select count(*)::text as n,
+             count(*) filter (where previous_close is null and move_pct is null)::text as nulls
+      from public.security_daily_history
+    `;
+    expect(count[0].n).toBe("3");
+    expect(count[0].nulls).toBe("3");
+    expect(batched.writeProfile.dailyInsertStatements).toBe(2);
+    expect(batched.writeProfile.dailyInsertRows).toBe(3);
+
+    const job = await batched.createBackfillJob({
+      jobType: "SECURITY_DAILY_HISTORY",
+      dateFrom: "2024-06-03",
+      dateTo: "2024-06-05",
+      recordedAt: RECORDED,
+    });
+    if (!job.ok) throw new Error(job.reason);
+    await expect(batched.transaction(async () => {
+      await batched.upsertDailyHistory(row("2024-06-06"));
+      await batched.upsertDailyHistory(row("2024-06-03", 99));
+    })).rejects.toThrow(HistoricalFactConflictError);
+    const after = await sql<{ n: string }[]>`select count(*)::text as n from public.security_daily_history`;
+    expect(after[0].n).toBe("3");
+    const storedJob = await batched.getJob(job.record.jobId);
+    expect(storedJob?.cursorToken).toBeNull();
   });
 });

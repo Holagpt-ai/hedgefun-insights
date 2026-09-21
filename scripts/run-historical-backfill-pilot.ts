@@ -246,6 +246,8 @@ async function main() {
     select count(*)::text as n from public.security_daily_history where security_id = ${firstId}
   `;
   const ingestMs = Date.now() - ingestStarted;
+  const ingestWriteProfile = { ...intelligence.writeProfile };
+  const ingestDailyRequests = requests.filter((request) => request.kind === "daily" || request.kind === "daily_page");
 
   const idempotencyStarted = Date.now();
   const replay = new HistoricalBackfillEngine({
@@ -380,6 +382,8 @@ async function main() {
     replayStats,
     idempotencyMs,
     ingestMs,
+    ingestWriteProfile,
+    ingestProviderMs: ingestDailyRequests.reduce((sum, request) => sum + request.ms, 0),
     runtimeMs: Date.now() - startedAt,
     dailyCounts,
     duplicateKeys: duplicateKeys[0]?.n,
@@ -421,6 +425,8 @@ async function main() {
     referenceRequests: requests.filter((request) => request.kind !== "daily" && request.kind !== "daily_page").length,
     sizes,
     ingestMs,
+    ingestWriteProfile,
+    ingestProviderMs: report.ingestProviderMs,
     runtimeMs: report.runtimeMs,
     referenceNotes,
   }, null, 2));
