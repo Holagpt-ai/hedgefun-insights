@@ -217,7 +217,7 @@ export class PostgresSecurityIntelligenceRepository {
         this.episodeCache.clear();
         throw error;
       }
-    }));
+    }))) as T;
   }
 
   async upsertDailyHistory(input: DailyHistoryInput): Promise<IntelligenceWriteResult<SecurityDailyHistory>> {
