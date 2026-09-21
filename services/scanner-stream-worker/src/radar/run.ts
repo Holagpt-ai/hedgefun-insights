@@ -230,10 +230,28 @@ export function startRadarV22(opts: {
     socket.start();
   };
 
+  const MEMORY_LOG_MS = 30_000;
+
+  function logMemory(): void {
+    const mem = engine.memorySnapshot();
+    log("info", "radar_memory", {
+      heap_used_bytes: mem.heapUsedBytes,
+      rss_bytes: mem.rssBytes,
+      universe_size: mem.universeSize,
+      sentinel_live: mem.sentinelLive,
+      promoted_count: mem.promotedCount,
+      radar_book_symbols: mem.radarBookSymbols,
+      radar_book_bars: mem.radarBookBars,
+      candidate_rows: mem.candidateRows,
+      v2_candidate_rows: mem.v2CandidateRows,
+    });
+  }
+
   const loop = async () => {
     let lastSnapshotMs = 0;
     let lastEvalMs = 0;
     let lastHeartbeatMs = 0;
+    let lastMemoryLogMs = 0;
 
     while (running && !opts.signal.aborted) {
       const wallNow = nowMs();
@@ -292,6 +310,8 @@ export function startRadarV22(opts: {
               promoted_count: sentinel.promoted,
               promotion_cap: sentinel.cap,
             });
+            logMemory();
+            lastMemoryLogMs = wallNow;
           } catch {
             log("error", "radar_snapshot_failed", {
               code: "provider_unavailable",
@@ -303,6 +323,11 @@ export function startRadarV22(opts: {
         if (wallNow - lastEvalMs >= config.evaluationIntervalMs) {
           await evaluateAndPublish();
           lastEvalMs = wallNow;
+        }
+
+        if (leaseHeld && wallNow - lastMemoryLogMs >= MEMORY_LOG_MS) {
+          logMemory();
+          lastMemoryLogMs = wallNow;
         }
       } catch (error) {
         const code = error && typeof error === "object" && "code" in error

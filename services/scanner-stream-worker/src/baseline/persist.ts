@@ -396,6 +396,11 @@ export async function publishGenerationStaged(
     rows: BaselineRow[];
     exclusions: BaselineExclusionPayload[];
     volumeHistoryRows?: VolumeHistoryRow[];
+    writeVolumeHistory?: (
+      write: (
+        rows: VolumeHistoryRow[],
+      ) => Promise<"ok" | "persist_failed" | "validation_failed">,
+    ) => Promise<"ok" | "persist_failed" | "validation_failed">;
     minSessions: number;
     periodStart: string;
     periodEnd: string;
@@ -478,8 +483,44 @@ export async function publishGenerationStaged(
     if (!appended) return { ok: false, code: "persist_failed" };
   }
 
+  if (input.writeVolumeHistory) {
+    const write = async (
+      rows: VolumeHistoryRow[],
+    ): Promise<"ok" | "persist_failed" | "validation_failed"> => {
+      if (rows.length === 0) return "ok";
+      const volumeChunks = chunkItemsByRequestBytes(
+        rows,
+        (chunk) =>
+          wrapAppendVolumeHistoryRequest(
+            input.generationId,
+            chunk,
+            input.providerAsOf,
+          ),
+        {
+          targetBytes: STAGED_CHUNK_TARGET_BYTES,
+          safetyBytes: STAGED_CHUNK_SAFETY_BYTES,
+          maxItems: STAGED_CHUNK_MAX_ITEMS,
+        },
+      );
+      if (!volumeChunks.ok) return "validation_failed";
+      for (const chunk of volumeChunks.chunks) {
+        const appended = await stagedOk(() =>
+          publish.appendVolumeHistory({
+            p_generation_id: input.generationId,
+            p_rows: chunk,
+            p_provider_as_of: input.providerAsOf,
+          })
+        );
+        if (!appended) return "persist_failed";
+      }
+      return "ok";
+    };
+    const volumeStatus = await input.writeVolumeHistory(write);
+    if (volumeStatus !== "ok") return { ok: false, code: volumeStatus };
+  }
+
   const volumeRows = input.volumeHistoryRows ?? [];
-  if (volumeRows.length > 0) {
+  if (!input.writeVolumeHistory && volumeRows.length > 0) {
     const volumeChunks = chunkItemsByRequestBytes(
       volumeRows,
       (chunk) =>

@@ -253,6 +253,7 @@ Deno.test("100,000-share tier boundary ranks above sub-tier volume", () => {
     peakVol15: 90_000,
     companyName: "AAA",
     providerAsOfMs: T0,
+    freshnessAgeMs: null,
   };
   const b: RankedCandidate = {
     ...a,
@@ -290,6 +291,7 @@ Deno.test("volume-first ranking ignores lifecycle until later keys", () => {
     peakVol15: 10,
     companyName: null,
     providerAsOfMs: T0,
+    freshnessAgeMs: null,
   };
   const activeLow: RankedCandidate = {
     ...cooler,
@@ -322,6 +324,7 @@ Deno.test("symbol tie-break is ascending", () => {
     peakVol15: 10,
     companyName: null,
     providerAsOfMs: T0,
+    freshnessAgeMs: null,
   };
   const ranked = rankBoard([base, { ...base, symbol: "AAA" }], config);
   assertEquals(ranked[0].symbol, "AAA");

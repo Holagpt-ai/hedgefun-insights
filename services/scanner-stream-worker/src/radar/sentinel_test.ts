@@ -487,3 +487,16 @@ Deno.test("operational feed-staleness still uses receive time vs wall clock", ()
   assertEquals(stale.board.feedStale, true);
 });
 
+Deno.test("memory snapshot reports heap and bounded radar counts", () => {
+  const engine = sentinelEngine();
+  ingestSeconds(engine, "MEM", T0, 5, 20_000, 6, T0);
+  const snap = engine.memorySnapshot();
+  assertEquals(typeof snap.heapUsedBytes, "number");
+  assert(snap.heapUsedBytes !== null && snap.heapUsedBytes > 0);
+  assertEquals(snap.sentinelLive, 1);
+  assertEquals(snap.promotedCount, 1);
+  assertEquals(snap.radarBookSymbols, 1);
+  assert(snap.radarBookBars > 0);
+  assert(snap.radarBookBars <= 5);
+});
+

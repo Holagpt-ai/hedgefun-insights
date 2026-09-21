@@ -136,6 +136,8 @@ export type RadarBook = {
   clearSession(): void;
   dropSymbol(symbol: string): void;
   trackedSymbols(): string[];
+  trackedCount(): number;
+  retainedBarCount(): number;
 };
 
 export function createRadarBook(config: RadarV22Config): RadarBook {
@@ -308,6 +310,16 @@ export function createRadarBook(config: RadarV22Config): RadarBook {
 
     trackedSymbols() {
       return [...books.keys()];
+    },
+
+    trackedCount() {
+      return books.size;
+    },
+
+    retainedBarCount() {
+      let bars = 0;
+      for (const book of books.values()) bars += book.bars.size;
+      return bars;
     },
   };
 }

@@ -149,6 +149,13 @@ async function main(): Promise<void> {
           signal: abort.signal,
         });
         lastSuccessfulPeriodEnd = result.lastSuccessfulPeriodEnd;
+        const mem = Deno.memoryUsage();
+        log("info", "baseline_memory", {
+          cache_days: cache.size,
+          heap_used_bytes: mem.heapUsed,
+          rss_bytes: mem.rss,
+          did_rebuild: result.didRebuild,
+        });
         const hasGeneration = result.state.current_generation_id != null;
         if (result.errorCode) {
           health.markError(result.errorCode, hasGeneration);

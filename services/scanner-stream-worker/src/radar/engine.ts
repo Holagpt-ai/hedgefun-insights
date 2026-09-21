@@ -155,6 +155,7 @@ export type RadarEngine = {
   inRegularSession(wallNowMs: number): boolean;
   incrementReconnect(): void;
   sentinelStats(): SentinelStats;
+  memorySnapshot(): RadarMemorySnapshot;
   hasSentinel(symbol: string): boolean;
   isPromoted(symbol: string): boolean;
   hasRadarBook(symbol: string): boolean;
@@ -162,13 +163,32 @@ export type RadarEngine = {
   sessionIntel(symbol: string): SessionIntelSnapshot | null;
 };
 
-function rssBytes(): number | null {
+export type RadarMemorySnapshot = {
+  heapUsedBytes: number | null;
+  rssBytes: number | null;
+  universeSize: number;
+  sentinelLive: number;
+  promotedCount: number;
+  radarBookSymbols: number;
+  radarBookBars: number;
+  candidateRows: number;
+  v2CandidateRows: number;
+};
+
+function processMemory(): { heapUsed: number | null; rss: number | null } {
   try {
     const mem = Deno.memoryUsage?.();
-    return mem && typeof mem.rss === "number" ? mem.rss : null;
+    return {
+      heapUsed: mem && typeof mem.heapUsed === "number" ? mem.heapUsed : null,
+      rss: mem && typeof mem.rss === "number" ? mem.rss : null,
+    };
   } catch {
-    return null;
+    return { heapUsed: null, rss: null };
   }
+}
+
+function rssBytes(): number | null {
+  return processMemory().rss;
 }
 
 export function createRadarEngine(opts: {
@@ -962,6 +982,20 @@ export function createRadarEngine(opts: {
     },
     sentinelStats() {
       return snapshotSentinelStats();
+    },
+    memorySnapshot(): RadarMemorySnapshot {
+      const mem = processMemory();
+      return {
+        heapUsedBytes: mem.heapUsed,
+        rssBytes: mem.rss,
+        universeSize: universe.size,
+        sentinelLive: sentinel.liveCount(),
+        promotedCount: promoted.size,
+        radarBookSymbols: book.trackedCount(),
+        radarBookBars: book.retainedBarCount(),
+        candidateRows: frozen?.rows.length ?? 0,
+        v2CandidateRows: lastV2Candidates.length,
+      };
     },
     hasSentinel(symbol) {
       return sentinel.has(symbol);

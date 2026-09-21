@@ -1,11 +1,12 @@
 import type { CalendarExceptionRow } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import { MonotonicMaxDeque, MonotonicMinDeque } from "./deque.ts";
 import { resolveBaselineWindow, weekdayDatesInclusive } from "./dates.ts";
+import { createBaselineFold } from "./fold.ts";
 import {
   type DailyCache,
   type FetchLike,
   fillGroupedCache,
-  pruneCache,
+  GROUPED_FETCH_CONCURRENCY,
   symbolsInWindow,
 } from "./grouped.ts";
 import {
@@ -18,7 +19,6 @@ import {
   publishGenerationStaged,
   type StagedPublishClient,
 } from "./persist.ts";
-import { buildVolumeHistoryFromCache } from "./volume-history.ts";
 
 export type BaselineJobDeps = {
   nowMs: () => number;
@@ -184,15 +184,34 @@ export async function runBaselineJob(
   }
 
   const dates = weekdayDatesInclusive(window.periodStart, window.periodEnd);
+  const fold = createBaselineFold(
+    window.periodStart,
+    window.periodEnd,
+    deps.minSessions,
+    dates,
+  );
+  const concurrency = Math.max(
+    1,
+    deps.fetchConcurrency ?? GROUPED_FETCH_CONCURRENCY,
+  );
   try {
-    await fillGroupedCache(dates, deps.cache, {
-      fetch: deps.fetch,
-      apiKey: deps.polygonApiKey,
-      concurrency: deps.fetchConcurrency,
-      signal: deps.signal,
-      sleep: deps.sleep,
-    });
+    for (let i = 0; i < dates.length; i += concurrency) {
+      const batch = dates.slice(i, i + concurrency);
+      await fillGroupedCache(batch, deps.cache, {
+        fetch: deps.fetch,
+        apiKey: deps.polygonApiKey,
+        concurrency,
+        signal: deps.signal,
+        sleep: deps.sleep,
+      });
+      for (const date of batch) {
+        const day = deps.cache.get(date);
+        if (day) fold.addDay(date, day);
+        deps.cache.delete(date);
+      }
+    }
   } catch (error) {
+    deps.cache.clear();
     const code = error && typeof error === "object" && "code" in error &&
         typeof (error as { code: unknown }).code === "string"
       ? (error as { code: string }).code
@@ -207,31 +226,19 @@ export async function runBaselineJob(
     };
   }
 
-  pruneCache(deps.cache, window.periodStart, window.periodEnd);
+  deps.cache.clear();
   const providerAsOf = new Date(nowMs).toISOString();
-  const { rows, exclusions } = buildBaselinePublication(
-    deps.cache,
-    window.periodStart,
-    window.periodEnd,
-    deps.minSessions,
-    providerAsOf,
-  );
-  const volumeHistoryRows = buildVolumeHistoryFromCache(
-    deps.cache,
-    dates,
-    window.periodStart,
-    window.periodEnd,
-  );
+  const folded = fold.finish(providerAsOf);
   const generationId = (deps.newGenerationId ?? (() => crypto.randomUUID()))();
   const published = await publishGenerationStaged(deps.publish, {
     generationId,
-    rows,
-    exclusions,
-    volumeHistoryRows,
+    rows: folded.rows,
+    exclusions: folded.exclusions,
     minSessions: deps.minSessions,
     periodStart: window.periodStart,
     periodEnd: window.periodEnd,
     providerAsOf,
+    writeVolumeHistory: (write) => folded.writeVolumeHistory(write),
   });
 
   if (!published.ok) {
