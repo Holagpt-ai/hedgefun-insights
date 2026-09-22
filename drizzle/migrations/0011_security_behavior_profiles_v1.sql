@@ -1,6 +1,4 @@
 -- Historical Behavior Profile V1 — one current profile row per security.
--- Derived from security_daily_history and market_behavior_episodes. Not predictive.
-
 CREATE TABLE IF NOT EXISTS public.security_behavior_profiles (
   security_id uuid PRIMARY KEY REFERENCES public.securities (security_id),
   profile_version text NOT NULL DEFAULT 'v1',
@@ -82,50 +80,22 @@ BEGIN
     RAISE EXCEPTION 'security_id is required';
   END IF;
   INSERT INTO public.security_behavior_profiles (
-    security_id,
-    profile_version,
-    observed_symbol,
-    computed_at,
-    history_start_date,
-    history_end_date,
-    sessions_observed,
-    episode_count,
-    sample_size_quality,
-    notable_count,
-    significant_count,
-    extreme_count,
-    positive_episode_count,
-    negative_episode_count,
-    mixed_episode_count,
-    positive_episode_pct,
-    negative_episode_pct,
-    median_episode_move_pct,
-    average_episode_move_pct,
-    max_positive_episode_move_pct,
-    max_negative_episode_move_pct,
-    median_absolute_move_pct,
-    median_episode_volume,
-    median_episode_rvol,
-    max_episode_rvol,
-    median_episode_dollar_volume,
-    episodes_per_30_sessions,
-    episodes_per_90_sessions,
-    median_days_between_episodes,
-    most_recent_episode_date,
-    prior_comparable_episode_count,
-    positive_close_upper_quartile_pct,
-    positive_close_near_high_pct,
-    negative_close_near_low_pct,
-    continuation_sample_size,
-    next_session_positive_continuation_count,
-    next_session_negative_continuation_count,
-    next_session_positive_continuation_rate,
+    security_id, profile_version, observed_symbol, computed_at,
+    history_start_date, history_end_date, sessions_observed, episode_count, sample_size_quality,
+    notable_count, significant_count, extreme_count,
+    positive_episode_count, negative_episode_count, mixed_episode_count,
+    positive_episode_pct, negative_episode_pct,
+    median_episode_move_pct, average_episode_move_pct,
+    max_positive_episode_move_pct, max_negative_episode_move_pct, median_absolute_move_pct,
+    median_episode_volume, median_episode_rvol, max_episode_rvol, median_episode_dollar_volume,
+    episodes_per_30_sessions, episodes_per_90_sessions, median_days_between_episodes,
+    most_recent_episode_date, prior_comparable_episode_count,
+    positive_close_upper_quartile_pct, positive_close_near_high_pct, negative_close_near_low_pct,
+    continuation_sample_size, next_session_positive_continuation_count,
+    next_session_negative_continuation_count, next_session_positive_continuation_rate,
     next_session_negative_continuation_rate,
-    latest_source_history_date,
-    latest_episode_date_used,
-    source_daily_row_count,
-    source_episode_count,
-    updated_at
+    latest_source_history_date, latest_episode_date_used,
+    source_daily_row_count, source_episode_count, updated_at
   ) VALUES (
     (p_row->>'security_id')::uuid,
     coalesce(nullif(p_row->>'profile_version', ''), 'v1'),
@@ -240,18 +210,12 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
   WITH daily AS (
-    SELECT
-      d.security_id,
-      max(d.session_date) AS max_history_date,
-      count(*)::bigint AS daily_row_count
+    SELECT d.security_id, max(d.session_date) AS max_history_date, count(*)::bigint AS daily_row_count
     FROM public.security_daily_history d
     GROUP BY d.security_id
   ),
   episodes AS (
-    SELECT
-      e.security_id,
-      max((e.episode_start AT TIME ZONE 'UTC')::date) AS max_episode_date,
-      count(*)::bigint AS episode_row_count
+    SELECT e.security_id, max((e.episode_start AT TIME ZONE 'UTC')::date) AS max_episode_date, count(*)::bigint AS episode_row_count
     FROM public.market_behavior_episodes e
     GROUP BY e.security_id
   )
@@ -267,8 +231,7 @@ AS $$
     profiles.profile_version
   FROM daily
   LEFT JOIN episodes ON episodes.security_id = daily.security_id
-  LEFT JOIN public.security_behavior_profiles profiles
-    ON profiles.security_id = daily.security_id
+  LEFT JOIN public.security_behavior_profiles profiles ON profiles.security_id = daily.security_id
   WHERE p_after_security_id IS NULL OR daily.security_id > p_after_security_id
   ORDER BY daily.security_id
   LIMIT greatest(1, least(coalesce(p_limit, 50), 500));

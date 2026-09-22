@@ -5770,6 +5770,158 @@ export type Database = {
         }
         Relationships: []
       }
+      security_behavior_profiles: {
+        Row: {
+          average_episode_move_pct: number | null
+          computed_at: string
+          continuation_sample_size: number
+          created_at: string
+          episode_count: number
+          episodes_per_30_sessions: number | null
+          episodes_per_90_sessions: number | null
+          extreme_count: number
+          history_end_date: string | null
+          history_start_date: string | null
+          latest_episode_date_used: string | null
+          latest_source_history_date: string | null
+          max_episode_rvol: number | null
+          max_negative_episode_move_pct: number | null
+          max_positive_episode_move_pct: number | null
+          median_absolute_move_pct: number | null
+          median_days_between_episodes: number | null
+          median_episode_dollar_volume: number | null
+          median_episode_move_pct: number | null
+          median_episode_rvol: number | null
+          median_episode_volume: number | null
+          mixed_episode_count: number
+          most_recent_episode_date: string | null
+          negative_close_near_low_pct: number | null
+          negative_episode_count: number
+          negative_episode_pct: number | null
+          next_session_negative_continuation_count: number
+          next_session_negative_continuation_rate: number | null
+          next_session_positive_continuation_count: number
+          next_session_positive_continuation_rate: number | null
+          notable_count: number
+          observed_symbol: string | null
+          positive_close_near_high_pct: number | null
+          positive_close_upper_quartile_pct: number | null
+          positive_episode_count: number
+          positive_episode_pct: number | null
+          prior_comparable_episode_count: number
+          profile_version: string
+          sample_size_quality: string
+          security_id: string
+          sessions_observed: number
+          significant_count: number
+          source_daily_row_count: number
+          source_episode_count: number
+          updated_at: string
+        }
+        Insert: {
+          average_episode_move_pct?: number | null
+          computed_at: string
+          continuation_sample_size?: number
+          created_at?: string
+          episode_count?: number
+          episodes_per_30_sessions?: number | null
+          episodes_per_90_sessions?: number | null
+          extreme_count?: number
+          history_end_date?: string | null
+          history_start_date?: string | null
+          latest_episode_date_used?: string | null
+          latest_source_history_date?: string | null
+          max_episode_rvol?: number | null
+          max_negative_episode_move_pct?: number | null
+          max_positive_episode_move_pct?: number | null
+          median_absolute_move_pct?: number | null
+          median_days_between_episodes?: number | null
+          median_episode_dollar_volume?: number | null
+          median_episode_move_pct?: number | null
+          median_episode_rvol?: number | null
+          median_episode_volume?: number | null
+          mixed_episode_count?: number
+          most_recent_episode_date?: string | null
+          negative_close_near_low_pct?: number | null
+          negative_episode_count?: number
+          negative_episode_pct?: number | null
+          next_session_negative_continuation_count?: number
+          next_session_negative_continuation_rate?: number | null
+          next_session_positive_continuation_count?: number
+          next_session_positive_continuation_rate?: number | null
+          notable_count?: number
+          observed_symbol?: string | null
+          positive_close_near_high_pct?: number | null
+          positive_close_upper_quartile_pct?: number | null
+          positive_episode_count?: number
+          positive_episode_pct?: number | null
+          prior_comparable_episode_count?: number
+          profile_version?: string
+          sample_size_quality: string
+          security_id: string
+          sessions_observed?: number
+          significant_count?: number
+          source_daily_row_count?: number
+          source_episode_count?: number
+          updated_at?: string
+        }
+        Update: {
+          average_episode_move_pct?: number | null
+          computed_at?: string
+          continuation_sample_size?: number
+          created_at?: string
+          episode_count?: number
+          episodes_per_30_sessions?: number | null
+          episodes_per_90_sessions?: number | null
+          extreme_count?: number
+          history_end_date?: string | null
+          history_start_date?: string | null
+          latest_episode_date_used?: string | null
+          latest_source_history_date?: string | null
+          max_episode_rvol?: number | null
+          max_negative_episode_move_pct?: number | null
+          max_positive_episode_move_pct?: number | null
+          median_absolute_move_pct?: number | null
+          median_days_between_episodes?: number | null
+          median_episode_dollar_volume?: number | null
+          median_episode_move_pct?: number | null
+          median_episode_rvol?: number | null
+          median_episode_volume?: number | null
+          mixed_episode_count?: number
+          most_recent_episode_date?: string | null
+          negative_close_near_low_pct?: number | null
+          negative_episode_count?: number
+          negative_episode_pct?: number | null
+          next_session_negative_continuation_count?: number
+          next_session_negative_continuation_rate?: number | null
+          next_session_positive_continuation_count?: number
+          next_session_positive_continuation_rate?: number | null
+          notable_count?: number
+          observed_symbol?: string | null
+          positive_close_near_high_pct?: number | null
+          positive_close_upper_quartile_pct?: number | null
+          positive_episode_count?: number
+          positive_episode_pct?: number | null
+          prior_comparable_episode_count?: number
+          profile_version?: string
+          sample_size_quality?: string
+          security_id?: string
+          sessions_observed?: number
+          significant_count?: number
+          source_daily_row_count?: number
+          source_episode_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_behavior_profiles_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: true
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       security_daily_history: {
         Row: {
           close: number | null
@@ -6793,6 +6945,21 @@ export type Database = {
         }
         Returns: Json
       }
+      behavior_profile_list_candidates_v1: {
+        Args: { p_after_security_id: string; p_limit: number }
+        Returns: {
+          daily_row_count: number
+          episode_row_count: number
+          max_episode_date: string
+          max_history_date: string
+          profile_computed_at: string
+          profile_latest_episode_date: string
+          profile_latest_history_date: string
+          profile_version: string
+          security_id: string
+        }[]
+      }
+      behavior_profile_upsert_v1: { Args: { p_row: Json }; Returns: undefined }
       checkpoint_wl_v2_cursor: {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
@@ -6878,6 +7045,43 @@ export type Database = {
       heartbeat_radar_v22_lease_v1: {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
+      }
+      historical_apply_daily_batch: {
+        Args: { p_rows: Json }
+        Returns: undefined
+      }
+      historical_apply_episode_batch: {
+        Args: { p_rows: Json }
+        Returns: undefined
+      }
+      historical_daily_facts_match: {
+        Args: {
+          p_existing: Database["public"]["Tables"]["security_daily_history"]["Row"]
+          p_row: Json
+        }
+        Returns: boolean
+      }
+      historical_find_interrupted_backfill_job: {
+        Args: { p_date_from: string; p_date_to: string }
+        Returns: {
+          job_id: string
+          state: string
+        }[]
+      }
+      historical_identity_apply_diff: {
+        Args: {
+          p_history_inserts: Json
+          p_history_updates: Json
+          p_identifier_inserts: Json
+          p_securities: Json
+        }
+        Returns: undefined
+      }
+      historical_rollout_backfilled_symbols: {
+        Args: { p_date_from: string; p_date_to: string; p_min_sessions: number }
+        Returns: {
+          symbol: string
+        }[]
       }
       journal_backfill_accounts_and_executions: {
         Args: { p_user_id?: string }

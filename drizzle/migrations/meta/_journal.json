@@ -78,6 +78,20 @@
       "when": 1790208000000,
       "tag": "0010_historical_backfill_supabase_rpc_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790208060000,
+      "tag": "0011_security_behavior_profiles_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790089083806,
+      "tag": "0012_behavior_profile_v1_apply_marker",
+      "breakpoints": true
     }
   ]
 }

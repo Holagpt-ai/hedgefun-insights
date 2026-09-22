@@ -27,7 +27,7 @@ export function createProductionSupabaseClient(): SupabaseClient {
 }
 
 export async function selectAllPages<T>(
-  fetchPage: (from: number, to: number) => Promise<{ data: T[] | null; error: { message: string } | null }>,
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
 ): Promise<T[]> {
   const pageSize = 1000;
   const rows: T[] = [];
