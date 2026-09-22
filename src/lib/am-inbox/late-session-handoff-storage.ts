@@ -1,4 +1,4 @@
-import { LATE_SESSION_HANDOFF_STORAGE_KEY } from "@/config/late-session-handoff.config";
+import { LATE_SESSION_HANDOFF_STORAGE_KEY, type LateSessionSourceCategory } from "@/config/late-session-handoff.config";
 import type { ContinuationCategory } from "@/config/continuation.config";
 import { buildLateSessionContinuationContext, isLateSessionSourceCategory } from "@/lib/am-inbox/build-late-session-continuation-context";
 import type {
