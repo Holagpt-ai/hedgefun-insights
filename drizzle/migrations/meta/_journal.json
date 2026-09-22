@@ -127,6 +127,13 @@
       "when": 1790208140000,
       "tag": "0017_security_behavior_profiles_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790114481277,
+      "tag": "0018_security_behavior_profiles_v2_apply_marker",
+      "breakpoints": true
     }
   ]
 }
