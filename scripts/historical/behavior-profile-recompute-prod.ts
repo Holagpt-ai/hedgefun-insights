@@ -59,7 +59,7 @@ const CANDIDATE_SQL = `
 `;
 
 const INSERT_SQL = `
-  WITH r AS (SELECT $1::jsonb AS p)
+  WITH r AS (SELECT $1::text::jsonb AS p)
   INSERT INTO public.security_behavior_profiles (
     security_id, profile_version, observed_symbol, computed_at,
     history_start_date, history_end_date, sessions_observed, episode_count, sample_size_quality,
