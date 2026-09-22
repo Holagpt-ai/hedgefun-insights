@@ -1,15 +1,15 @@
-import type { Sql } from "postgres";
 import { HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE } from "@/config/historical-backfill.config";
 import { historicalBackfillConfig } from "@/config/historical-backfill.config";
 import { HistoricalBackfillEngine } from "@/lib/historical-backfill/engine";
 import { createPolygonDailyAdapter } from "@/lib/historical-backfill/polygon-daily-adapter";
+import { loadDotEnvFiles } from "@/lib/persistence/production-database";
 import {
-  loadDotEnvFiles,
-  openProductionSql,
-  requireProductionDatabaseUrl,
-} from "@/lib/persistence/production-database";
-import { PostgresSecurityIdentityRepository } from "@/lib/security-identity/postgres-security-identity";
-import { HistoricalFactConflictError, PostgresSecurityIntelligenceRepository } from "@/lib/security-intelligence/postgres-security-intelligence";
+  createHistoricalPersistence,
+  type HistoricalIdentityRepository,
+  type HistoricalPersistence,
+} from "@/lib/persistence/historical-persistence";
+import { HistoricalBridgeClient, requireHistoricalBridgeConfig } from "@/lib/persistence/historical-bridge-client";
+import { HistoricalFactConflictError } from "@/lib/security-intelligence/postgres-security-intelligence";
 import type { SecurityType } from "@/config/security-identity.config";
 import type { BackfillJobStats } from "@/types/historical-backfill";
 import type { SecurityId } from "@/types/security-identity";
@@ -109,36 +109,10 @@ function tickerChanges(payload: Record<string, unknown>): Array<{ date: string; 
   return changes.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-async function loadBackfilledSymbols(sql: Sql): Promise<Set<string>> {
-  const rows = await sql<{ symbol: string }[]>`
-    select s.current_symbol as symbol
-    from public.securities s
-    inner join (
-      select security_id, count(*)::int as n
-      from public.security_daily_history
-      where session_date >= ${PRODUCTION_DATE_FROM} and session_date <= ${PRODUCTION_DATE_TO}
-      group by security_id
-    ) h on h.security_id = s.security_id
-    where h.n >= ${MIN_COMPLETED_SESSIONS}
-  `;
-  return new Set(rows.map((row) => row.symbol));
-}
-
-async function loadEligibleSymbols(sql: Sql, backfilled: Set<string>): Promise<string[]> {
-  const rows = await sql<{ symbol: string }[]>`
-    select symbol from public.ticker_search
-    where active is true and type = 'CS'
-    order by symbol
-  `;
-  return rows
-    .map((row) => row.symbol)
-    .filter((symbol) => !PRODUCTION_CANARY_SYMBOLS.has(symbol) && !backfilled.has(symbol));
-}
-
 async function resolveSymbol(
   symbol: string,
   key: string,
-  identity: PostgresSecurityIdentityRepository,
+  identity: HistoricalIdentityRepository,
   recordedAt: string,
   counters: ProviderCounters,
   logs: RequestLog[],
@@ -187,12 +161,12 @@ async function resolveSymbol(
 }
 
 function createEngine(
-  identity: PostgresSecurityIdentityRepository,
-  intelligence: PostgresSecurityIntelligenceRepository,
+  persistence: HistoricalPersistence,
   key: string,
   counters: ProviderCounters,
   logs: RequestLog[],
 ) {
+  const { identity, intelligence } = persistence;
   const config = historicalBackfillConfig({
     dateChunkDays: FULL_SPAN_DAYS,
     maxChunksPerRun: 5,
@@ -262,22 +236,9 @@ async function runJobToCompletion(
   return stats;
 }
 
-async function findInterruptedJob(sql: Sql): Promise<{ jobId: string; state: string } | null> {
-  const rows = await sql<{ job_id: string; state: string }[]>`
-    select job_id, state
-    from public.security_backfill_jobs
-    where state in ('RUNNING', 'PAUSED', 'FAILED')
-      and date_from = ${PRODUCTION_DATE_FROM}
-      and date_to = ${PRODUCTION_DATE_TO}
-    order by updated_at desc
-    limit 1
-  `;
-  return rows[0] ? { jobId: rows[0].job_id, state: rows[0].state } : null;
-}
-
-async function resumeInterruptedJobs(engine: HistoricalBackfillEngine, sql: Sql): Promise<void> {
+async function resumeInterruptedJobs(engine: HistoricalBackfillEngine, persistence: HistoricalPersistence): Promise<void> {
   while (true) {
-    const interrupted = await findInterruptedJob(sql);
+    const interrupted = await persistence.rollout.findInterruptedJob(PRODUCTION_DATE_FROM, PRODUCTION_DATE_TO);
     if (!interrupted) return;
     const started = Date.now();
     if (interrupted.state === "PAUSED" || interrupted.state === "FAILED") {
@@ -311,13 +272,67 @@ export interface ProductionRolloutResult {
   runtimeMs: number;
 }
 
+export const PRODUCTION_CONNECTIVITY_JOB_ID = "0ab000ee-6f58-4e21-ba68-4a095a97f584";
+
+export async function runHistoricalBackfillConnectivityCheck(options: {
+  loadLocalEnv?: boolean;
+  jobId?: string;
+} = {}): Promise<{ transport: string; jobId: string; jobState: string | null }> {
+  const persistence = createHistoricalPersistence(options);
+  const jobId = options.jobId ?? PRODUCTION_CONNECTIVITY_JOB_ID;
+  try {
+    const job = await persistence.intelligence.getJob(jobId);
+    if (!job) throw new Error(`connectivity check: job ${jobId} not found`);
+    if (persistence.transport === "bridge") {
+      const bridge = new HistoricalBridgeClient(requireHistoricalBridgeConfig());
+      await bridge.call("historical_apply_daily_batch", { p_rows: [] });
+      const interrupted = await persistence.rollout.findInterruptedJob(job.dateFrom, job.dateTo);
+      if (!interrupted?.jobId) throw new Error("connectivity check: rollout job query failed");
+    }
+    if (job.state === "RUNNING") {
+      const checkpoint = await persistence.intelligence.recordBackfillCheckpoint(jobId, {
+        to: "RUNNING",
+        recordedAt: job.updatedAt,
+        cursorDate: job.cursorDate,
+        cursorToken: job.cursorToken,
+        processedCount: job.processedCount,
+        errorCount: job.errorCount,
+        metadata: job.metadata,
+      });
+      if (!checkpoint.ok) throw new Error(`connectivity checkpoint blocked: ${checkpoint.reason}`);
+    } else if (job.state === "PAUSED" || job.state === "FAILED") {
+      const engine = createEngine(persistence, requirePolygonKey(), {
+        dailyRequests: 0,
+        referenceRequests: 0,
+        http403: 0,
+        http429: 0,
+        nextPages: 0,
+      }, []);
+      const resumed = await engine.resume(jobId, new Date().toISOString());
+      if (!resumed.ok) throw new Error(`connectivity resume blocked: ${resumed.reason}`);
+      const restored = await persistence.intelligence.transitionBackfillJob(jobId, {
+        to: job.state,
+        recordedAt: job.updatedAt,
+        cursorDate: job.cursorDate,
+        cursorToken: job.cursorToken,
+        processedCount: job.processedCount,
+        errorCount: job.errorCount,
+        metadata: job.metadata,
+      });
+      if (!restored.ok) throw new Error(`connectivity restore blocked: ${restored.reason}`);
+    }
+    return { transport: persistence.transport, jobId, jobState: job.state };
+  } finally {
+    await persistence.close();
+  }
+}
+
 export async function runProductionHistoricalRollout(options: { loadLocalEnv?: boolean } = {}): Promise<ProductionRolloutResult> {
   if (options.loadLocalEnv) loadDotEnvFiles();
   const startedAt = Date.now();
   const key = requirePolygonKey();
-  const sql = openProductionSql(requireProductionDatabaseUrl());
-  const identity = new PostgresSecurityIdentityRepository(sql);
-  const intelligence = new PostgresSecurityIntelligenceRepository(sql);
+  const persistence = createHistoricalPersistence(options);
+  const { identity } = persistence;
   const counters: ProviderCounters = {
     dailyRequests: 0,
     referenceRequests: 0,
@@ -326,9 +341,9 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
     nextPages: 0,
   };
   const logs: RequestLog[] = [];
-  const engine = createEngine(identity, intelligence, key, counters, logs);
+  const engine = createEngine(persistence, key, counters, logs);
 
-  await resumeInterruptedJobs(engine, sql);
+  await resumeInterruptedJobs(engine, persistence);
 
   let batchesRun = 0;
   let symbolsAttempted = 0;
@@ -336,7 +351,12 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
   let symbolsSkipped = 0;
 
   while (true) {
-    const eligible = await loadEligibleSymbols(sql, await loadBackfilledSymbols(sql));
+    const backfilled = await persistence.rollout.loadBackfilledSymbols(
+      PRODUCTION_DATE_FROM,
+      PRODUCTION_DATE_TO,
+      MIN_COMPLETED_SESSIONS,
+    );
+    const eligible = await persistence.rollout.loadEligibleSymbols(backfilled, PRODUCTION_CANARY_SYMBOLS);
     if (eligible.length === 0) break;
     const size = batchesRun === 0 ? FIRST_BATCH : NEXT_BATCH;
     const batchSymbols = eligible.slice(0, size);
@@ -393,7 +413,7 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
     provider: counters,
     elapsedMs: Date.now() - startedAt,
   });
-  await sql.end();
+  await persistence.close();
   return {
     batchesRun,
     symbolsAttempted,

@@ -8,6 +8,7 @@ import {
   type EnvReader,
 } from "./auth.ts";
 import { isRadarBridgeAction, type RadarBridgeAction } from "./actions.ts";
+import { handleHistoricalAction } from "./historical-handlers.ts";
 
 export const ACQUIRE_LEASE_RPC = "try_acquire_radar_v22_lease_v1";
 export const HEARTBEAT_LEASE_RPC = "heartbeat_radar_v22_lease_v1";
@@ -175,7 +176,12 @@ async function rpcResult(
       ...rpcErrorFields(result.error),
     });
     return json(
-      { ok: false, error: "persist_failed", code: result.error.code ?? null },
+      {
+        ok: false,
+        error: "persist_failed",
+        code: result.error.code ?? null,
+        detail: result.error.message ?? null,
+      },
       502,
     );
   }
@@ -195,6 +201,13 @@ async function handleAction(
   requestId: string,
 ): Promise<Response> {
   const rpcMeta = { requestId, action };
+  const historical = await handleHistoricalAction(
+    action,
+    body,
+    db,
+    (name, args) => rpcResult(db, name, args, rpcMeta),
+  );
+  if (historical) return historical;
   switch (action) {
     case "acquire_lease": {
       const holderId = readHolderId(body);
@@ -243,7 +256,12 @@ async function handleAction(
           ...rpcErrorFields(result.error),
         });
         return json(
-          { ok: false, error: "persist_failed", code: result.error.code ?? null },
+          {
+            ok: false,
+            error: "persist_failed",
+            code: result.error.code ?? null,
+            detail: result.error.message ?? null,
+          },
           502,
         );
       }
@@ -454,6 +472,8 @@ async function handleAction(
       const rows = result.data ?? [];
       return json({ ok: true, state: rows[0] ?? null });
     }
+    default:
+      return json({ error: "unknown_action" }, 400);
   }
 }
 
