@@ -111,9 +111,9 @@ describe("Repeat Movers V1", () => {
   it("assembles profile, comparables, and freshness for partial history", async () => {
     const profiles = new MemoryBehaviorProfileRepository();
     const dailyHistory = [
-      daily("2024-01-02", 10, { volume: 1_000_000, rvol: 2, dollarVolume: 10_000_000 }),
-      daily("2024-01-03", 2, { volume: 500_000, rvol: 1, dollarVolume: 5_000_000 }),
-      daily("2024-01-04", 11, { volume: 800_000, rvol: 1.5, dollarVolume: 8_000_000 }),
+      daily("2024-01-02", 10, { volume: 1_000_000, dollarVolume: 10_000_000 }),
+      daily("2024-01-03", 2, { volume: 500_000, dollarVolume: 5_000_000 }),
+      daily("2024-01-04", 11, { volume: 800_000, dollarVolume: 8_000_000 }),
     ];
     const episodes = [episode("2024-01-02", 10), episode("2024-01-04", 11)];
     const built = buildSecurityBehaviorProfile({

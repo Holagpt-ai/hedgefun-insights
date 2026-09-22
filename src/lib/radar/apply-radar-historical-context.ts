@@ -1,5 +1,8 @@
-import type { RadarV2Decision, RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
-import type { ScreenerTabView } from "@/lib/screeners/contract";
+import type {
+  RadarV2Decision,
+  RadarV2ScreenerRow,
+  RadarV2ScreenerView,
+} from "@/lib/screeners/radar-v2-adapter";
 import { attachHistoricalContextToRadarRows } from "@/lib/radar/enrich-radar-historical-context";
 import type { RepeatMoverContextLoader } from "@/lib/radar/enrich-radar-historical-context";
 import type { RadarSecurityIdResolver } from "@/lib/radar/resolve-radar-security-id";
@@ -11,13 +14,13 @@ import type { RadarHistoricalContextBatchResponse } from "@/lib/radar/radar-hist
  * Post-rank enrichment for Radar V2 views. Does not mutate ranking inputs.
  */
 export async function applyHistoricalContextToRadarView(
-  view: ScreenerTabView,
+  view: RadarV2ScreenerView,
   deps: {
     resolveSecurityId: RadarSecurityIdResolver;
     loadContext: RepeatMoverContextLoader;
     config?: Partial<RadarHistoricalContextConfig>;
   },
-): Promise<ScreenerTabView> {
+): Promise<RadarV2ScreenerView> {
   const enrichedRows = await attachHistoricalContextToRadarRows(
     view.rows as RadarV2ScreenerRow[],
     deps,

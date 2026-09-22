@@ -2,6 +2,7 @@ import {
   radarHistoricalContextConfig,
   type RadarHistoricalContextConfig,
 } from "@/config/radar-historical-context.config";
+import type { EpisodeDirection, EpisodeTier } from "@/config/security-intelligence.config";
 import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-mover-input";
 import type {
   RadarHistoricalContextEnrichmentRequest,
@@ -13,6 +14,17 @@ import type { RepeatMoverContextInput } from "@/lib/repeat-movers/normalize-repe
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 import type { SecurityId } from "@/types/security-identity";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
+
+function toEpisodeDirection(value: string | null | undefined): EpisodeDirection | null {
+  if (value === "POSITIVE" || value === "NEGATIVE" || value === "MIXED") return value;
+  return null;
+}
+
+function toEpisodeTier(value: string | null | undefined): EpisodeTier | null {
+  if (value === "NOTABLE" || value === "SIGNIFICANT" || value === "EXTREME") return value;
+  return null;
+}
+
 
 export type RepeatMoverContextLoader = (input: {
   securityId: SecurityId;
@@ -64,8 +76,8 @@ function toLoaderInput(
     volume: request.volume ?? null,
     rvol: request.rvol ?? null,
     dollarVolume: request.dollarVolume ?? null,
-    direction: request.direction ?? null,
-    tier: request.tier ?? null,
+    direction: toEpisodeDirection(request.direction),
+    tier: toEpisodeTier(request.tier),
     sessionDate: request.sessionDate ?? null,
     recordedAt: request.recordedAt ?? null,
   };
