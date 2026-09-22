@@ -5923,7 +5923,13 @@ export type Database = {
           episode_count: number
           episodes_per_30_sessions: number | null
           episodes_per_90_sessions: number | null
+          episodes_with_d1_outcome: number
+          episodes_with_d5_outcome: number
           extreme_count: number
+          forward_outcome_coverage_pct_d1: number | null
+          forward_outcome_coverage_pct_d5: number | null
+          forward_outcome_d1_count: number
+          forward_outcome_d5_count: number
           history_end_date: string | null
           history_start_date: string | null
           latest_episode_date_used: string | null
@@ -5932,6 +5938,12 @@ export type Database = {
           max_negative_episode_move_pct: number | null
           max_positive_episode_move_pct: number | null
           median_absolute_move_pct: number | null
+          median_d1_max_drawdown_pct: number | null
+          median_d1_max_gain_pct: number | null
+          median_d1_return_pct: number | null
+          median_d5_max_drawdown_pct: number | null
+          median_d5_max_gain_pct: number | null
+          median_d5_return_pct: number | null
           median_days_between_episodes: number | null
           median_episode_dollar_volume: number | null
           median_episode_move_pct: number | null
@@ -5940,6 +5952,10 @@ export type Database = {
           mixed_episode_count: number
           most_recent_episode_date: string | null
           negative_close_near_low_pct: number | null
+          negative_d1_count: number
+          negative_d1_pct: number | null
+          negative_d5_count: number
+          negative_d5_pct: number | null
           negative_episode_count: number
           negative_episode_pct: number | null
           next_session_negative_continuation_count: number
@@ -5947,9 +5963,16 @@ export type Database = {
           next_session_positive_continuation_count: number
           next_session_positive_continuation_rate: number | null
           notable_count: number
+          observed_next_session_negative_pct: number | null
+          observed_next_session_positive_pct: number | null
+          observed_next_session_sample_size: number
           observed_symbol: string | null
           positive_close_near_high_pct: number | null
           positive_close_upper_quartile_pct: number | null
+          positive_d1_count: number
+          positive_d1_pct: number | null
+          positive_d5_count: number
+          positive_d5_pct: number | null
           positive_episode_count: number
           positive_episode_pct: number | null
           prior_comparable_episode_count: number
@@ -5961,6 +5984,8 @@ export type Database = {
           source_daily_row_count: number
           source_episode_count: number
           updated_at: string
+          zero_d1_count: number
+          zero_d5_count: number
         }
         Insert: {
           average_episode_move_pct?: number | null
@@ -5970,7 +5995,13 @@ export type Database = {
           episode_count?: number
           episodes_per_30_sessions?: number | null
           episodes_per_90_sessions?: number | null
+          episodes_with_d1_outcome?: number
+          episodes_with_d5_outcome?: number
           extreme_count?: number
+          forward_outcome_coverage_pct_d1?: number | null
+          forward_outcome_coverage_pct_d5?: number | null
+          forward_outcome_d1_count?: number
+          forward_outcome_d5_count?: number
           history_end_date?: string | null
           history_start_date?: string | null
           latest_episode_date_used?: string | null
@@ -5979,6 +6010,12 @@ export type Database = {
           max_negative_episode_move_pct?: number | null
           max_positive_episode_move_pct?: number | null
           median_absolute_move_pct?: number | null
+          median_d1_max_drawdown_pct?: number | null
+          median_d1_max_gain_pct?: number | null
+          median_d1_return_pct?: number | null
+          median_d5_max_drawdown_pct?: number | null
+          median_d5_max_gain_pct?: number | null
+          median_d5_return_pct?: number | null
           median_days_between_episodes?: number | null
           median_episode_dollar_volume?: number | null
           median_episode_move_pct?: number | null
@@ -5987,6 +6024,10 @@ export type Database = {
           mixed_episode_count?: number
           most_recent_episode_date?: string | null
           negative_close_near_low_pct?: number | null
+          negative_d1_count?: number
+          negative_d1_pct?: number | null
+          negative_d5_count?: number
+          negative_d5_pct?: number | null
           negative_episode_count?: number
           negative_episode_pct?: number | null
           next_session_negative_continuation_count?: number
@@ -5994,9 +6035,16 @@ export type Database = {
           next_session_positive_continuation_count?: number
           next_session_positive_continuation_rate?: number | null
           notable_count?: number
+          observed_next_session_negative_pct?: number | null
+          observed_next_session_positive_pct?: number | null
+          observed_next_session_sample_size?: number
           observed_symbol?: string | null
           positive_close_near_high_pct?: number | null
           positive_close_upper_quartile_pct?: number | null
+          positive_d1_count?: number
+          positive_d1_pct?: number | null
+          positive_d5_count?: number
+          positive_d5_pct?: number | null
           positive_episode_count?: number
           positive_episode_pct?: number | null
           prior_comparable_episode_count?: number
@@ -6008,6 +6056,8 @@ export type Database = {
           source_daily_row_count?: number
           source_episode_count?: number
           updated_at?: string
+          zero_d1_count?: number
+          zero_d5_count?: number
         }
         Update: {
           average_episode_move_pct?: number | null
@@ -6017,7 +6067,13 @@ export type Database = {
           episode_count?: number
           episodes_per_30_sessions?: number | null
           episodes_per_90_sessions?: number | null
+          episodes_with_d1_outcome?: number
+          episodes_with_d5_outcome?: number
           extreme_count?: number
+          forward_outcome_coverage_pct_d1?: number | null
+          forward_outcome_coverage_pct_d5?: number | null
+          forward_outcome_d1_count?: number
+          forward_outcome_d5_count?: number
           history_end_date?: string | null
           history_start_date?: string | null
           latest_episode_date_used?: string | null
@@ -6026,6 +6082,12 @@ export type Database = {
           max_negative_episode_move_pct?: number | null
           max_positive_episode_move_pct?: number | null
           median_absolute_move_pct?: number | null
+          median_d1_max_drawdown_pct?: number | null
+          median_d1_max_gain_pct?: number | null
+          median_d1_return_pct?: number | null
+          median_d5_max_drawdown_pct?: number | null
+          median_d5_max_gain_pct?: number | null
+          median_d5_return_pct?: number | null
           median_days_between_episodes?: number | null
           median_episode_dollar_volume?: number | null
           median_episode_move_pct?: number | null
@@ -6034,6 +6096,10 @@ export type Database = {
           mixed_episode_count?: number
           most_recent_episode_date?: string | null
           negative_close_near_low_pct?: number | null
+          negative_d1_count?: number
+          negative_d1_pct?: number | null
+          negative_d5_count?: number
+          negative_d5_pct?: number | null
           negative_episode_count?: number
           negative_episode_pct?: number | null
           next_session_negative_continuation_count?: number
@@ -6041,9 +6107,16 @@ export type Database = {
           next_session_positive_continuation_count?: number
           next_session_positive_continuation_rate?: number | null
           notable_count?: number
+          observed_next_session_negative_pct?: number | null
+          observed_next_session_positive_pct?: number | null
+          observed_next_session_sample_size?: number
           observed_symbol?: string | null
           positive_close_near_high_pct?: number | null
           positive_close_upper_quartile_pct?: number | null
+          positive_d1_count?: number
+          positive_d1_pct?: number | null
+          positive_d5_count?: number
+          positive_d5_pct?: number | null
           positive_episode_count?: number
           positive_episode_pct?: number | null
           prior_comparable_episode_count?: number
@@ -6055,6 +6128,8 @@ export type Database = {
           source_daily_row_count?: number
           source_episode_count?: number
           updated_at?: string
+          zero_d1_count?: number
+          zero_d5_count?: number
         }
         Relationships: [
           {
@@ -7094,9 +7169,13 @@ export type Database = {
         Returns: {
           daily_row_count: number
           episode_row_count: number
+          forward_outcome_d1_count: number
+          forward_outcome_d5_count: number
           max_episode_date: string
           max_history_date: string
           profile_computed_at: string
+          profile_forward_outcome_d1_count: number
+          profile_forward_outcome_d5_count: number
           profile_latest_episode_date: string
           profile_latest_history_date: string
           profile_version: string
