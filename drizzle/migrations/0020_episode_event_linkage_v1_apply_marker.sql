@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.securities IS 'Canonical security identity registry.';

@@ -541,10 +541,12 @@ export type Database = {
           event_type: string
           fetched_at: string | null
           freshness: string
+          ingested_at: string
           metadata: Json | null
           observed_symbol: string | null
           provenance: string
           provider_event_id: string | null
+          published_at: string | null
           quality: string
           security_id: string
           source: string | null
@@ -562,10 +564,12 @@ export type Database = {
           event_type: string
           fetched_at?: string | null
           freshness: string
+          ingested_at?: string
           metadata?: Json | null
           observed_symbol?: string | null
           provenance: string
           provider_event_id?: string | null
+          published_at?: string | null
           quality: string
           security_id: string
           source?: string | null
@@ -583,10 +587,12 @@ export type Database = {
           event_type?: string
           fetched_at?: string | null
           freshness?: string
+          ingested_at?: string
           metadata?: Json | null
           observed_symbol?: string | null
           provenance?: string
           provider_event_id?: string | null
+          published_at?: string | null
           quality?: string
           security_id?: string
           source?: string | null
@@ -7230,6 +7236,71 @@ export type Database = {
       copy_screener_daily_volume_history_from_current_v1: {
         Args: { p_target_generation_id: string }
         Returns: number
+      }
+      corporate_event_apply_batch_v1: { Args: { p_rows: Json }; Returns: Json }
+      corporate_event_list_for_security_v1: {
+        Args: {
+          p_after_event_at?: string
+          p_limit?: number
+          p_security_id: string
+        }
+        Returns: {
+          accession_id: string | null
+          computed_at: string | null
+          created_at: string
+          event_at: string
+          event_id: string
+          event_type: string
+          fetched_at: string | null
+          freshness: string
+          ingested_at: string
+          metadata: Json | null
+          observed_symbol: string | null
+          provenance: string
+          provider_event_id: string | null
+          published_at: string | null
+          quality: string
+          security_id: string
+          source: string | null
+          source_as_of: string | null
+          source_url: string | null
+          summary: string | null
+          title: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "corporate_events"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      event_reaction_link_apply_batch_v1: {
+        Args: { p_rows: Json }
+        Returns: Json
+      }
+      event_reaction_link_list_for_episodes_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: {
+          created_at: string
+          episode_id: string
+          event_at: string
+          event_id: string
+          event_source: string
+          event_type: string
+          evidence: string
+          link_id: string
+          provenance: string
+          provider_event_id: string
+          published_at: string
+          relation_type: string
+          security_id: string
+          source: string
+          source_as_of: string
+          source_url: string
+          time_delta_minutes: number
+          time_delta_seconds: number
+          title: string
+        }[]
       }
       fail_watchlist_analysis_v2: {
         Args: { p_error_code: string; p_request_id: string; p_user_id: string }
