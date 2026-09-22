@@ -50,6 +50,7 @@ import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuat
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
+import { RepeatMoverBadge } from "./HistoricalBehavior";
 
 interface RadarGridProps {
   rows: RadarRankedRow[];
@@ -294,13 +295,16 @@ export function RadarGrid({
                   if (columnId === "symbol") {
                     return (
                       <td key={columnId} className="px-2 py-1.5 min-w-0">
-                        <Link
-                          to={`/stocks/${sym}`}
-                          onClick={(e) => e.stopPropagation()}
-                          className="font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
-                        >
-                          {sym}
-                        </Link>
+                        <div className="flex min-w-0 flex-wrap items-center gap-1">
+                          <Link
+                            to={`/stocks/${sym}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="font-semibold tracking-wide tabular-nums text-accent-blue hover:underline"
+                          >
+                            {sym}
+                          </Link>
+                          <RepeatMoverBadge context={row.historicalContext} />
+                        </div>
                         <div className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}>
                           {row.signal}
                         </div>

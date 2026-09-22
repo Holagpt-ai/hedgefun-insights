@@ -27,6 +27,7 @@ import type { RadarChartBar, RadarChartStatus, RadarRankedRow } from "./types";
 import type { RadarChartInterval } from "./radar-chart-data";
 import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
+import { HistoricalBehaviorSection } from "./HistoricalBehavior";
 
 interface RadarDetailPanelProps {
   row: RadarRankedRow | null;
@@ -210,6 +211,8 @@ export function RadarDetailPanel({
             className={moveClass(row.move_60s_pct)}
           />
         </div>
+
+        <HistoricalBehaviorSection context={row.historicalContext} />
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">

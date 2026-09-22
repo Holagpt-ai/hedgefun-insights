@@ -34,6 +34,7 @@ import {
 } from "@/lib/screeners/screener-trigger-time";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
+import { RepeatMoverBadge } from "./HistoricalBehavior";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -104,13 +105,14 @@ export function RadarMobileCard({
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold text-muted-foreground">#{row.rank}</span>
             <span className="font-semibold tracking-wide tabular-nums text-accent-blue">{sym}</span>
             <span className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}>
               {row.signal}
             </span>
             <LegacyConfirmedBadge confirmed={row.legacy_confirmed} />
+            <RepeatMoverBadge context={row.historicalContext} />
           </div>
           <div className="text-[12px] text-muted-foreground truncate">{company}</div>
         </div>
