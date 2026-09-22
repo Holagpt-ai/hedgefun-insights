@@ -267,7 +267,7 @@ export async function handleHistoricalAction(
     case "historical_list_eligible_symbols": {
       const page = readPage(body);
       if (!page) return jsonResponse({ error: "invalid_body" }, 400);
-      return await selectPage(db, TICKER_SEARCH_TABLE, "symbol", page, (q) =>
+      return await selectPage(db, TICKER_SEARCH_TABLE, "symbol, exchange, name", page, (q) =>
         q.eq("active", true).eq("type", "CS"), "symbol");
     }
     case "historical_list_securities": {

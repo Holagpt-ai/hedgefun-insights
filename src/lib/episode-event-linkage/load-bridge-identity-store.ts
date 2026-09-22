@@ -46,21 +46,41 @@ function mapIdentifier(row: Record<string, unknown>): SecurityReferenceIdentifie
   };
 }
 
-export async function loadSecurityIdentityStoreFromBridge(
-  bridge: HistoricalBridgeClient,
-): Promise<SecurityIdentityStore> {
+export async function loadSecurityIdentitySnapshotFromBridge(bridge: HistoricalBridgeClient): Promise<{
+  securities: Security[];
+  history: SecuritySymbolHistory[];
+  identifiers: SecurityReferenceIdentifier[];
+}> {
   const [securities, history, identifiers] = await Promise.all([
     bridge.fetchAllRows("historical_list_securities", {}),
     bridge.fetchAllRows("historical_list_symbol_history", {}),
     bridge.fetchAllRows("historical_list_reference_identifiers", {}),
   ]);
-  const store = new SecurityIdentityStore();
-  store.loadState({
+  return {
     securities: securities.map(mapSecurity),
     history: history.map(mapHistory),
     identifiers: identifiers.map(mapIdentifier),
-  });
+  };
+}
+
+export async function loadSecurityIdentityStoreFromBridge(
+  bridge: HistoricalBridgeClient,
+): Promise<SecurityIdentityStore> {
+  const snapshot = await loadSecurityIdentitySnapshotFromBridge(bridge);
+  const store = new SecurityIdentityStore();
+  store.loadState(snapshot);
   return store;
+}
+
+export async function fetchAllEligibleTickers(
+  bridge: HistoricalBridgeClient,
+): Promise<Array<{ symbol: string; exchange: string | null; name: string }>> {
+  const rows = await bridge.fetchAllRows("historical_list_eligible_symbols", {});
+  return rows.map((row) => ({
+    symbol: String(row.symbol ?? "").trim().toUpperCase(),
+    exchange: typeof row.exchange === "string" ? row.exchange.trim().toUpperCase() : null,
+    name: typeof row.name === "string" ? row.name : String(row.symbol ?? ""),
+  })).filter((row) => row.symbol.length > 0);
 }
 
 export async function fetchAllCatalystEvents(
