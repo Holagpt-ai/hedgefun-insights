@@ -49,6 +49,7 @@ export const RADAR_BRIDGE_ACTIONS = [
   "event_reaction_link_apply_batch",
   "corporate_event_list_for_security",
   "event_reaction_link_list_for_episodes",
+  "catalyst_event_list",
 ] as const;
 
 export type RadarBridgeAction = (typeof RADAR_BRIDGE_ACTIONS)[number];

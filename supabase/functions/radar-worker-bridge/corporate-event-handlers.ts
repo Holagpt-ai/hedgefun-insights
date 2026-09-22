@@ -1,6 +1,43 @@
 import type { RadarBridgeAction } from "./actions.ts";
 import type { DbClient } from "./handler.ts";
-import { HISTORICAL_PAGE_MAX } from "./historical-handlers.ts";
+import {
+  HISTORICAL_PAGE_MAX,
+  type HistoricalSelectQuery,
+} from "./historical-handlers.ts";
+
+export const CATALYST_EVENTS_TABLE = "catalyst_events";
+export const CATALYST_EVENTS_SELECT =
+  "dedupe_key, symbol, event_type, event_date, event_time, title, description, source_name, source_url, provider, provider_article_id, published_at, facts";
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type HistoricalDb = any;
+
+function historicalDb(db: DbClient): HistoricalDb {
+  return db as HistoricalDb;
+}
+
+function readNonEmptyString(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function readNonNegInt(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return null;
+  return value;
+}
+
+function readPositiveInt(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) return null;
+  return value;
+}
+
+function readPage(body: Record<string, unknown>): { offset: number; limit: number } | null {
+  const offset = body.page_offset === undefined ? 0 : readNonNegInt(body.page_offset);
+  const limit = body.page_limit === undefined ? HISTORICAL_PAGE_MAX : readPositiveInt(body.page_limit);
+  if (offset === null || limit === null || limit > HISTORICAL_PAGE_MAX) return null;
+  return { offset, limit };
+}
 
 export const CORPORATE_EVENT_APPLY_BATCH_RPC = "corporate_event_apply_batch_v1";
 export const EVENT_REACTION_LINK_APPLY_BATCH_RPC = "event_reaction_link_apply_batch_v1";
@@ -44,13 +81,31 @@ function jsonResponse(data: unknown, status = 200): Response {
   });
 }
 
+async function selectCatalystPage(
+  db: DbClient,
+  page: { offset: number; limit: number },
+): Promise<Response> {
+  const result = await (historicalDb(db).from(CATALYST_EVENTS_TABLE).select(CATALYST_EVENTS_SELECT)
+    .order("dedupe_key", { ascending: true }) as HistoricalSelectQuery)
+    .range(page.offset, page.offset + page.limit - 1);
+  if (result.error) {
+    return jsonResponse({ ok: false, error: "persist_failed" }, 502);
+  }
+  return jsonResponse({ ok: true, result: result.data ?? [] });
+}
+
 export async function handleCorporateEventAction(
   action: RadarBridgeAction,
   body: Record<string, unknown>,
-  _db: DbClient,
+  db: DbClient,
   rpc: (name: string, args: Record<string, unknown>) => Promise<Response>,
 ): Promise<Response | null> {
   switch (action) {
+    case "catalyst_event_list": {
+      const page = readPage(body);
+      if (!page) return jsonResponse({ error: "invalid_body" }, 400);
+      return await selectCatalystPage(db, page);
+    }
     case "corporate_event_apply_batch": {
       const rows = readJsonArray(body.rows);
       if (!rows) return jsonResponse({ error: "invalid_body" }, 400);
