@@ -13,6 +13,7 @@ import type {
 } from "@/types/repeat-mover";
 import { attachHistoricalEventsFromStore } from "@/lib/episode-event-linkage/attach-events-to-comparables";
 import { attachForwardOutcomesFromStore } from "@/lib/forward-outcomes/attach-forward-outcomes-to-comparables";
+import { attachIntradayReconstructionToComparables } from "@/lib/intraday-reconstruction/attach-intraday-to-comparables";
 import type { CorporateEvent, EventReactionLink } from "@/types/security-intelligence";
 import type { PersistedForwardOutcomeRow } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { MarketBehaviorEpisode, SecurityDailyHistory } from "@/types/security-intelligence";
@@ -28,6 +29,9 @@ export interface RepeatMoverDataAccess {
   listEventReactionLinksForEpisodes?(
     episodeIds: readonly string[],
   ): Promise<readonly (EventReactionLink & { corporateEvent?: CorporateEvent | null })[]>;
+  listIntradayReconstructionForEpisodes?(
+    episodeIds: readonly string[],
+  ): Promise<readonly Record<string, unknown>[]>;
 }
 
 export function unavailableRepeatMoverProfileSnapshot(): RepeatMoverProfileSnapshot {
@@ -195,6 +199,10 @@ export async function getRepeatMoverContext(input: {
     if (input.data.listForwardOutcomesForEpisodes) {
       const persisted = await input.data.listForwardOutcomesForEpisodes(episodeIds);
       comparables = attachForwardOutcomesFromStore(comparables, persisted);
+    }
+    if (input.data.listIntradayReconstructionForEpisodes) {
+      const intradayRows = await input.data.listIntradayReconstructionForEpisodes(episodeIds);
+      comparables = attachIntradayReconstructionToComparables(comparables, intradayRows);
     }
     if (input.data.listEventReactionLinksForEpisodes) {
       const linkRows = await input.data.listEventReactionLinksForEpisodes(episodeIds);

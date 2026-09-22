@@ -93,12 +93,28 @@ export function createRepeatMoverBridgeDataAccess(
           : [];
       return (raw as Record<string, unknown>[]).map(mapForwardOutcomeRow);
     },
-    async listEventReactionLinksForEpisodes(episodeIds) {
+    async listIntradayReconstructionForEpisodes(episodeIds) {
       if (episodeIds.length === 0) return [];
-      const result = await bridge.call("event_reaction_link_list_for_episodes", {
+      const result = await bridge.call("intraday_reconstruction_list_by_episodes", {
         episode_ids: [...episodeIds],
       });
-      const raw = Array.isArray(result.result) ? result.result : [];
+      const raw = Array.isArray(result.result)
+        ? result.result
+        : Array.isArray(result.rows)
+          ? result.rows
+          : [];
+      return raw as Record<string, unknown>[];
+    },
+    async listEventReactionLinksForEpisodes(episodeIds) {
+      if (episodeIds.length === 0) return [];
+      const linkResult = await bridge.call("event_reaction_link_list_for_episodes", {
+        episode_ids: [...episodeIds],
+      });
+      const raw = Array.isArray(linkResult.result)
+        ? linkResult.result
+        : Array.isArray(linkResult.rows)
+          ? linkResult.rows
+          : [];
       return (raw as Record<string, unknown>[]).map(eventReactionLinkWithEventFromBridgeRow);
     },
   };

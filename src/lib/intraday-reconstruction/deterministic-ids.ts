@@ -1,0 +1,15 @@
+import { createHash } from "node:crypto";
+
+function hashToUuidV4Like(seed: string): string {
+  const hash = createHash("sha256").update(seed).digest("hex");
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
+
+export function episodeIntradayEventId(
+  episodeId: string,
+  eventType: string,
+  eventAt: string,
+  sequence: number,
+): string {
+  return hashToUuidV4Like(`episode-intraday-event-v1:${episodeId}:${eventType}:${eventAt}:${sequence}`);
+}

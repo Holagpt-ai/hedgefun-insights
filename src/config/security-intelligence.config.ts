@@ -91,6 +91,7 @@ export type ForwardOutcomeHorizon = (typeof FORWARD_OUTCOME_HORIZONS)[number];
 
 export const EPISODE_EVENT_TYPES = [
   "DISCOVERED",
+  "SESSION_OPEN",
   "VOLUME_TRIGGER",
   "MOMENTUM_TRIGGER",
   "NEW_HOD",
@@ -101,6 +102,8 @@ export const EPISODE_EVENT_TYPES = [
   "VWAP_LOSS",
   "VWAP_RECLAIM",
   "RANGE_EXPANSION",
+  "CLOSE",
+  "AFTER_HOURS_EXTENSION",
 ] as const;
 export type EpisodeEventType = (typeof EPISODE_EVENT_TYPES)[number];
 

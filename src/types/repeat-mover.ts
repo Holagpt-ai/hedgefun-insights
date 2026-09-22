@@ -1,4 +1,5 @@
 import type { RepeatMoverEvidenceLabel, RepeatMoverVersion } from "@/config/repeat-mover.config";
+import type { RepeatMoverIntradayEvidence } from "@/lib/intraday-reconstruction/intraday-reconstruction-types";
 import type { RepeatMoverForwardOutcomeEvidence } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { BehaviorProfileSampleQuality } from "@/config/behavior-profile.config";
 import type { EpisodeLinkedEventEvidence } from "@/lib/episode-event-linkage/episode-linked-event-evidence";
@@ -40,6 +41,8 @@ export interface RepeatMoverComparableEpisode {
   observedForwardOutcomes?: RepeatMoverForwardOutcomeEvidence;
   /** Verified corporate/event evidence temporally associated with the episode (non-causal). */
   historicalEvents?: readonly EpisodeLinkedEventEvidence[];
+  /** Observed intraday reconstruction facts when loaded (does not affect qualification). */
+  observedIntradayReconstruction?: RepeatMoverIntradayEvidence;
   similarity: RepeatMoverComparableSimilarity;
 }
 

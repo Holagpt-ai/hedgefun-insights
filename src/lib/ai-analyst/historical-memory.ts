@@ -1,10 +1,16 @@
 import type { EpisodeLinkedEventEvidence } from "@/lib/episode-event-linkage/episode-linked-event-evidence";
+import type { RepeatMoverIntradayEvidence } from "@/lib/intraday-reconstruction/intraday-reconstruction-types";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 
 /** Prompt guardrail: temporal association is not causation. */
 export const HISTORICAL_MEMORY_EVENT_CAUSATION_GUARDRAIL =
   "Linked corporate events are temporally associated with prior episodes only. "
   + "Do not state or imply that an event caused a price move unless a source explicitly establishes causation.";
+
+/** Intraday facts are descriptive only — no forward inference from prior session structure. */
+export const HISTORICAL_MEMORY_INTRADAY_GUARDRAIL =
+  "Intraday reconstruction facts describe what occurred during a prior episode session. "
+  + "Do not infer that today's session will repeat HOD timing, pullbacks, or close-vs-HOD behavior.";
 
 export interface HistoricalMemoryComparableEpisode {
   sessionDate: string | null;
@@ -19,6 +25,7 @@ export interface HistoricalMemoryComparableEpisode {
   nextSessionContinuation: boolean | null;
   movePctDelta: number | null;
   historicalEvents: readonly EpisodeLinkedEventEvidence[];
+  observedIntradayReconstruction: RepeatMoverIntradayEvidence | null;
 }
 
 /** Deterministic same-security historical evidence for AI Analyst. */
@@ -70,6 +77,7 @@ export interface HistoricalMemoryFacts {
   observedNextSessionPositivePct: number | null;
   observedNextSessionNegativePct: number | null;
   eventCausationGuardrail: string;
+  intradayGuardrail: string;
   assembledAt: string | null;
 }
 
@@ -120,6 +128,7 @@ export function unavailableHistoricalMemory(symbol: string | null): HistoricalMe
     observedNextSessionPositivePct: null,
     observedNextSessionNegativePct: null,
     eventCausationGuardrail: HISTORICAL_MEMORY_EVENT_CAUSATION_GUARDRAIL,
+    intradayGuardrail: HISTORICAL_MEMORY_INTRADAY_GUARDRAIL,
     assembledAt: null,
   };
 }
@@ -140,6 +149,7 @@ function mapComparable(
     nextSessionContinuation: episode.nextSessionContinuation,
     movePctDelta: episode.similarity.movePctDelta,
     historicalEvents: episode.historicalEvents ?? [],
+    observedIntradayReconstruction: episode.observedIntradayReconstruction ?? null,
   };
 }
 
@@ -203,6 +213,7 @@ export function buildHistoricalMemoryFromRepeatMoverContext(
     observedNextSessionPositivePct: profile.observedNextSessionPositivePct,
     observedNextSessionNegativePct: profile.observedNextSessionNegativePct,
     eventCausationGuardrail: HISTORICAL_MEMORY_EVENT_CAUSATION_GUARDRAIL,
+    intradayGuardrail: HISTORICAL_MEMORY_INTRADAY_GUARDRAIL,
     assembledAt: context.assembledAt,
   };
 }
@@ -212,7 +223,10 @@ export function serializeHistoricalMemoryForPrompt(
 ): string {
   return JSON.stringify({
     historicalMemory: memory,
-    guardrails: { eventCausation: memory.eventCausationGuardrail },
+    guardrails: {
+      eventCausation: memory.eventCausationGuardrail,
+      intraday: memory.intradayGuardrail,
+    },
   });
 }
 
