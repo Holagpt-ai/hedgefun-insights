@@ -24,7 +24,7 @@ async function loadSymbolContext(
   try {
     await resolveWorkflowHistoricalContext({
       symbol,
-      sourceSurface: "catalyst",
+      sourceSurface: "unknown",
       accessToken: accessToken ?? undefined,
     });
     return readPreloadedRepeatMoverContext(symbol);
