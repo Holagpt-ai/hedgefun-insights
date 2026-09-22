@@ -11,6 +11,8 @@ import type {
   RepeatMoverContext,
   RepeatMoverProfileSnapshot,
 } from "@/types/repeat-mover";
+import { attachForwardOutcomesFromStore } from "@/lib/forward-outcomes/attach-forward-outcomes-to-comparables";
+import type { PersistedForwardOutcomeRow } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { MarketBehaviorEpisode, SecurityDailyHistory } from "@/types/security-intelligence";
 import type { SecurityId } from "@/types/security-identity";
 
@@ -18,6 +20,9 @@ export interface RepeatMoverDataAccess {
   getBehaviorProfile(securityId: SecurityId): Promise<SecurityBehaviorProfile | null>;
   listDailyHistory(securityId: SecurityId): Promise<readonly SecurityDailyHistory[]>;
   listEpisodes(securityId: SecurityId): Promise<readonly MarketBehaviorEpisode[]>;
+  listForwardOutcomesForEpisodes?(
+    episodeIds: readonly string[],
+  ): Promise<readonly PersistedForwardOutcomeRow[]>;
 }
 
 export function unavailableRepeatMoverProfileSnapshot(): RepeatMoverProfileSnapshot {
@@ -158,6 +163,12 @@ export async function getRepeatMoverContext(input: {
     comparables = comparables.filter(
       (episode) => episode.similarity.movePctDelta !== 0,
     );
+  }
+
+  if (input.data.listForwardOutcomesForEpisodes && comparables.length > 0) {
+    const episodeIds = comparables.map((episode) => episode.episodeId);
+    const persisted = await input.data.listForwardOutcomesForEpisodes(episodeIds);
+    comparables = attachForwardOutcomesFromStore(comparables, persisted);
   }
 
   const mostRecentComparableEpisode = comparables.length === 0

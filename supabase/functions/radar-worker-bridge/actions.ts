@@ -40,6 +40,11 @@ export const RADAR_BRIDGE_ACTIONS = [
   "late_session_handoff_upsert",
   "late_session_handoff_list_active",
   "late_session_handoff_expire_stale",
+  "forward_outcome_apply_batch",
+  "forward_outcome_list_for_security",
+  "forward_outcome_list_by_episodes",
+  "forward_outcome_aggregate_for_security",
+  "forward_outcome_list_candidates",
 ] as const;
 
 export type RadarBridgeAction = (typeof RADAR_BRIDGE_ACTIONS)[number];

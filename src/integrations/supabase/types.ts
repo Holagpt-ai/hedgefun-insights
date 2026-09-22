@@ -791,22 +791,35 @@ export type Database = {
       }
       forward_outcomes: {
         Row: {
+          availability_state: string | null
+          broke_episode_low: boolean | null
+          close_position: number | null
+          closed_above_episode_close: boolean | null
+          closed_below_episode_close: boolean | null
           computed_at: string | null
           data_available: boolean
           episode_id: string
+          episode_session_date: string | null
+          exceeded_episode_high: boolean | null
           fetched_at: string | null
           freshness: string
+          gap_pct: number | null
           high_price: number | null
           horizon: string
+          horizon_session_date: string | null
           low_price: number | null
           max_drawdown_pct: number | null
           max_gain_pct: number | null
+          open_to_close_return_pct: number | null
           outcome_price: number | null
           provenance: string
           quality: string
           reference_price: number | null
           reference_timestamp: string | null
           return_pct: number | null
+          rvol: number | null
+          security_id: string | null
+          session_volume: number | null
           source: string | null
           source_as_of: string | null
         }

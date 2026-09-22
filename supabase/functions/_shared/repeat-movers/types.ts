@@ -33,6 +33,13 @@ export interface RepeatMoverComparableEpisode {
   closePosition: number | null;
   nextSessionMovePct: number | null;
   nextSessionContinuation: boolean | null;
+  observedForwardOutcomes?: {
+    closeToCloseReturnPct: Partial<Record<"D1" | "D2" | "D3" | "D5", number | null>>;
+    highExcursionPct: Partial<Record<"D1" | "D2" | "D3" | "D5", number | null>>;
+    lowExcursionPct: Partial<Record<"D1" | "D2" | "D3" | "D5", number | null>>;
+    closePosition: Partial<Record<"D1" | "D2" | "D3" | "D5", number | null>>;
+    nextSession: Record<string, unknown> | null;
+  };
   similarity: {
     sameDirection: boolean;
     sameTier: boolean;

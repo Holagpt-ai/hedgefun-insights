@@ -1,4 +1,5 @@
 import type { RepeatMoverEvidenceLabel, RepeatMoverVersion } from "@/config/repeat-mover.config";
+import type { RepeatMoverForwardOutcomeEvidence } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { BehaviorProfileSampleQuality } from "@/config/behavior-profile.config";
 import type { EpisodeDirection, EpisodeTier } from "@/config/security-intelligence.config";
 import type { SecurityId } from "@/types/security-identity";
@@ -34,6 +35,8 @@ export interface RepeatMoverComparableEpisode {
   closePosition: number | null;
   nextSessionMovePct: number | null;
   nextSessionContinuation: boolean | null;
+  /** Persisted forward-outcome facts when loaded (does not affect qualification). */
+  observedForwardOutcomes?: RepeatMoverForwardOutcomeEvidence;
   similarity: RepeatMoverComparableSimilarity;
 }
 

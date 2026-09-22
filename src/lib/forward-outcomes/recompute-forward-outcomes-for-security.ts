@@ -1,11 +1,17 @@
-import { BridgeBehaviorProfileRepository } from "@/lib/behavior-profile/behavior-profile-repository";
-import { mapForwardOutcomeRow } from "@/lib/forward-outcomes/forward-outcome-bridge-map";
-import { getRepeatMoverContext } from "@/lib/repeat-movers/get-repeat-mover-context";
-import type { RepeatMoverDataAccess } from "@/lib/repeat-movers/get-repeat-mover-context";
-import { HistoricalBridgeClient } from "@/lib/persistence/historical-bridge-client";
-import type { RepeatMoverContextInput } from "@/lib/repeat-movers/normalize-repeat-mover-context";
+import {
+  existingForwardOutcomeKeys,
+  mapForwardOutcomeRow,
+} from "@/lib/forward-outcomes/forward-outcome-bridge-map";
+import { forwardOutcomeRowToJson } from "@/lib/forward-outcomes/forward-outcome-record";
+import {
+  forwardOutcomeRowKey,
+  generateForwardOutcomes,
+} from "@/lib/forward-outcomes/generate-forward-outcomes";
+import type { HistoricalBridgeClient } from "@/lib/persistence/historical-bridge-client";
 import type { MarketBehaviorEpisode, SecurityDailyHistory } from "@/types/security-intelligence";
 import type { SecurityId } from "@/types/security-identity";
+
+const APPLY_CHUNK = 100;
 
 function mapDaily(row: Record<string, unknown>): SecurityDailyHistory {
   return {
@@ -66,45 +72,52 @@ function mapEpisode(row: Record<string, unknown>): MarketBehaviorEpisode {
   };
 }
 
-export function createRepeatMoverBridgeDataAccess(
-  bridge: HistoricalBridgeClient,
-): RepeatMoverDataAccess {
-  const profiles = new BridgeBehaviorProfileRepository(bridge);
-  return {
-    getBehaviorProfile: (securityId) => profiles.getSecurityBehaviorProfile(securityId),
-    async listDailyHistory(securityId: SecurityId) {
-      const rows = await bridge.fetchAllRows("historical_list_daily_history", { security_id: securityId });
-      return rows.map(mapDaily);
-    },
-    async listEpisodes(securityId: SecurityId) {
-      const rows = await bridge.fetchAllRows("historical_list_episodes", { security_id: securityId });
-      return rows.map(mapEpisode);
-    },
-    async listForwardOutcomesForEpisodes(episodeIds) {
-      if (episodeIds.length === 0) return [];
-      const result = await bridge.call("forward_outcome_list_by_episodes", {
-        episode_ids: [...episodeIds],
-      });
-      const raw = Array.isArray(result.result)
-        ? result.result
-        : Array.isArray(result.rows)
-          ? result.rows
-          : [];
-      return (raw as Record<string, unknown>[]).map(mapForwardOutcomeRow);
-    },
-  };
-}
-
-export async function getRepeatMoverContextViaBridge(input: {
+export async function recomputeForwardOutcomesForSecurity(input: {
   bridge: HistoricalBridgeClient;
   securityId: SecurityId;
-  currentContext: RepeatMoverContextInput;
-  assembledAt?: string;
-}) {
-  return getRepeatMoverContext({
+  computedAt?: string;
+  refreshUnavailable?: boolean;
+}): Promise<{ applied: number; generated: number; skippedExisting: number }> {
+  const computedAt = input.computedAt ?? new Date().toISOString();
+  const [dailyRows, episodeRows, existingRows] = await Promise.all([
+    input.bridge.fetchAllRows("historical_list_daily_history", { security_id: input.securityId }),
+    input.bridge.fetchAllRows("historical_list_episodes", { security_id: input.securityId }),
+    input.bridge.fetchAllRows("forward_outcome_list_for_security", { security_id: input.securityId }),
+  ]);
+
+  const dailyHistory = dailyRows.map(mapDaily);
+  const episodes = episodeRows.map(mapEpisode);
+  const existingMapped = existingRows.map(mapForwardOutcomeRow);
+
+  let existingKeys = existingForwardOutcomeKeys(existingMapped);
+  if (input.refreshUnavailable) {
+    for (const row of existingMapped) {
+      if (row.availabilityState === "FUTURE_SESSION_NOT_LOADED" || row.availabilityState === "EPISODE_TOO_RECENT") {
+        existingKeys.delete(forwardOutcomeRowKey(row.episodeId, row.horizonKey));
+      }
+    }
+  }
+
+  const { rows, skippedExisting } = generateForwardOutcomes({
     securityId: input.securityId,
-    currentContext: input.currentContext,
-    data: createRepeatMoverBridgeDataAccess(input.bridge),
-    assembledAt: input.assembledAt,
+    dailyHistory,
+    episodes,
+    existingKeys,
+    computedAt,
+    limit: episodes.length,
   });
+
+  let applied = 0;
+  for (let i = 0; i < rows.length; i += APPLY_CHUNK) {
+    const chunk = rows.slice(i, i + APPLY_CHUNK).map((row) => forwardOutcomeRowToJson(row, computedAt));
+    const result = await input.bridge.call("forward_outcome_apply_batch", { rows: chunk });
+    const inner = result.result;
+    const count = typeof inner === "object" && inner !== null && !Array.isArray(inner)
+      && typeof (inner as Record<string, unknown>).applied === "number"
+      ? (inner as Record<string, unknown>).applied as number
+      : chunk.length;
+    applied += count;
+  }
+
+  return { applied, generated: rows.length, skippedExisting };
 }
