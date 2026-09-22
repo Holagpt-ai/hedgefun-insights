@@ -18,6 +18,7 @@ export async function streamChat({
   model,
   attachment,
   systemContext,
+  historicalMemory,
   conversationId,
   signal,
   onDelta,
@@ -31,6 +32,8 @@ export async function streamChat({
   model?: string;
   attachment?: ChatAttachment;
   systemContext?: string;
+  /** Deterministic same-security historical evidence (Repeat Movers). */
+  historicalMemory?: Record<string, unknown> | null;
   conversationId?: string;
   signal?: AbortSignal;
   onDelta: (deltaText: string) => void;
@@ -64,7 +67,15 @@ export async function streamChat({
         "Content-Type": "application/json",
         Authorization: `Bearer ${accessToken ?? import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages, sessionToken, model, attachment, systemContext, conversationId }),
+      body: JSON.stringify({
+        messages,
+        sessionToken,
+        model,
+        attachment,
+        systemContext,
+        historicalMemory,
+        conversationId,
+      }),
       signal: timeoutController.signal,
     });
 

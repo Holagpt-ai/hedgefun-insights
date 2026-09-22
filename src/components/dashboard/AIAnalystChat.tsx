@@ -43,6 +43,21 @@ import {
   type AnalystWorkflowId,
 } from "@/config/ai-analyst-presets.config";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
+import { fetchAnalystHistoricalMemory } from "@/lib/ai-analyst/fetch-analyst-historical-memory";
+import type { HistoricalMemoryFacts } from "@/lib/ai-analyst/historical-memory";
+import type { RepeatMoverContext } from "@/types/repeat-mover";
+
+import { RADAR_HISTORICAL_SESSION_PREFIX } from "@/lib/ai-analyst/radar-historical-handoff";
+
+function readPreloadedRadarHistoricalContext(symbol: string): RepeatMoverContext | null {
+  try {
+    const raw = sessionStorage.getItem(`${RADAR_HISTORICAL_SESSION_PREFIX}${symbol}`);
+    if (!raw) return null;
+    return JSON.parse(raw) as RepeatMoverContext;
+  } catch {
+    return null;
+  }
+}
 
 // Only wording that the request path can actually stand behind.
 const STREAMING_STATUS_MESSAGES = [
@@ -175,6 +190,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   const statusIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [activeSymbol, setActiveSymbol] = useState<string | null>(null);
   const activeSymbolRef = useRef<string | null>(null);
+  const historicalMemoryRef = useRef<HistoricalMemoryFacts | null>(null);
   // Tracks the exact deep-link params already consumed. It resets as soon as the
   // URL is clean again, so a later ticker handoff is still processed.
   const handoffTokenRef = useRef<string | null>(null);
@@ -267,9 +283,25 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     };
   }, []);
 
+  const prefetchHistoricalMemory = useCallback(async (symbol: string, accessToken?: string) => {
+    const preloaded = readPreloadedRadarHistoricalContext(symbol);
+    try {
+      historicalMemoryRef.current = await fetchAnalystHistoricalMemory({
+        symbol,
+        accessToken,
+        preloadedContext: preloaded,
+      });
+    } catch {
+      historicalMemoryRef.current = null;
+    }
+  }, []);
+
   const setActiveWorkflowSymbol = useCallback((symbol: string | null) => {
     activeSymbolRef.current = symbol;
     setActiveSymbol(symbol);
+    if (!symbol) {
+      historicalMemoryRef.current = null;
+    }
   }, []);
 
   const { language } = useLanguage();
@@ -653,6 +685,16 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         }
         if (!isCurrent()) return;
 
+        const symbolForHistory = activeSymbolRef.current;
+        if (symbolForHistory && accessToken) {
+          try {
+            await prefetchHistoricalMemory(symbolForHistory, accessToken);
+          } catch {
+            // Historical memory is best-effort — never block analysis.
+          }
+        }
+        if (!isCurrent()) return;
+
         let assistantContent = "";
 
         await streamChat({
@@ -662,6 +704,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           model: selectedModel,
           attachment: attachmentRef.current ?? undefined,
           systemContext: systemContext || undefined,
+          historicalMemory: historicalMemoryRef.current ?? undefined,
           conversationId: conversationIdRef.current ?? undefined,
           signal: controller.signal,
           onConversationId: (id) => {
@@ -731,6 +774,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       applyConversationId,
       applyAttachment,
       resolveSubmissionPrompt,
+      prefetchHistoricalMemory,
     ]
   );
 

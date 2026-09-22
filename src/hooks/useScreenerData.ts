@@ -20,6 +20,7 @@ import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screene
 import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
 import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
+import { persistRadarHistoricalContextForAnalyst } from "@/lib/ai-analyst/radar-historical-handoff";
 import { fetchRadarV22BoardDisplayDonors } from "@/lib/screeners/radar-v22-board-enrichment";
 import {
   radarV2FetchThrewDecision,
@@ -330,6 +331,11 @@ export function useScreenerData(
                   }),
                 });
                 view = { ...view, rows: enrichedRows };
+                for (const row of enrichedRows) {
+                  if (row.symbol && row.historicalContext) {
+                    persistRadarHistoricalContextForAnalyst(row.symbol, row.historicalContext);
+                  }
+                }
               }
             } catch {
               // Repeat Movers enrichment is optional and must not block Radar delivery.
