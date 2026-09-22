@@ -16,12 +16,6 @@ function historicalDb(db: DbClient): HistoricalDb {
   return db as HistoricalDb;
 }
 
-function readNonEmptyString(value: unknown): string | null {
-  if (typeof value !== "string") return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
 function readNonNegInt(value: unknown): number | null {
   if (typeof value !== "number" || !Number.isInteger(value) || value < 0) return null;
   return value;
@@ -66,11 +60,6 @@ function readUuidArray(value: unknown): string[] | null {
 
 function readJsonArray(value: unknown): unknown[] | null {
   if (!Array.isArray(value)) return null;
-  return value;
-}
-
-function readPositiveInt(value: unknown): number | null {
-  if (typeof value !== "number" || !Number.isInteger(value) || value < 1) return null;
   return value;
 }
 
