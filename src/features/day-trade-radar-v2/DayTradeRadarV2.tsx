@@ -282,20 +282,6 @@ export function DayTradeRadarV2({
             />
           </div>
 
-          <Sheet open={!isMobile && desktopDetailOpen} onOpenChange={setDesktopDetailOpen}>
-            <SheetContent
-              side="right"
-              data-testid="radar-detail-drawer"
-              className="w-full overflow-y-auto p-0 sm:max-w-[440px]"
-            >
-              <SheetTitle className="sr-only">Radar detail</SheetTitle>
-              <SheetDescription className="sr-only">
-                Radar candidate detail, chart, catalyst, and handoffs
-              </SheetDescription>
-              {detailPanel}
-            </SheetContent>
-          </Sheet>
-
           <div className="md:hidden space-y-2" data-testid="radar-mobile-board">
             {lensRows.map((row) => (
               <RadarMobileCard
@@ -307,21 +293,36 @@ export function DayTradeRadarV2({
                 onSelect={handleSelect}
               />
             ))}
-            {mobileDetailOpen && activeRow && !freeBlocked && (
-              <RadarDetailPanel
-                row={activeRow}
-                inactive={selection.inactive}
-                chartStatus={chartStatus}
-                chartBars={bars}
-                latestBarIso={latestBarIso}
-                chartError={errorMessage}
-                chartInterval={interval}
-                mobile
-                onCloseMobile={() => setMobileDetailOpen(false)}
-              />
-            )}
           </div>
         </>
+      )}
+
+      <Sheet open={!isMobile && desktopDetailOpen} onOpenChange={setDesktopDetailOpen}>
+        <SheetContent
+          side="right"
+          data-testid="radar-detail-drawer"
+          className="w-full overflow-y-auto p-0 sm:max-w-[440px]"
+        >
+          <SheetTitle className="sr-only">Radar detail</SheetTitle>
+          <SheetDescription className="sr-only">
+            Radar candidate detail, chart, catalyst, and handoffs
+          </SheetDescription>
+          {detailPanel}
+        </SheetContent>
+      </Sheet>
+
+      {mobileDetailOpen && activeRow && !freeBlocked && (
+        <RadarDetailPanel
+          row={activeRow}
+          inactive={selection.inactive}
+          chartStatus={chartStatus}
+          chartBars={bars}
+          latestBarIso={latestBarIso}
+          chartError={errorMessage}
+          chartInterval={interval}
+          mobile
+          onCloseMobile={() => setMobileDetailOpen(false)}
+        />
       )}
 
       {activeView === "radar" && upgradeNeeded && (

@@ -145,10 +145,10 @@ export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDet
             {candidates.map((candidate) => (
               <div key={candidate.symbol} className="grid grid-cols-[minmax(180px,1.1fr)_minmax(210px,1fr)_minmax(300px,1.4fr)] gap-3 border-b border-border px-3 py-2.5 last:border-b-0">
                 <div className="min-w-0">
-                  <button type="button" onClick={() => onOpenDetails(candidate.symbol)} className="flex items-baseline gap-2 text-left">
+                  <Button type="button" variant="link" onClick={() => onOpenDetails(candidate.symbol)} className="h-auto gap-2 p-0 text-left">
                     <span className="text-[11px] font-semibold text-muted-foreground">#{candidate.discoveryRank}</span>
                     <span className="font-semibold text-accent-blue hover:underline">{candidate.symbol}</span>
-                  </button>
+                  </Button>
                   <div className="mt-1"><CandidateBadges candidate={candidate} /></div>
                 </div>
                 <CandidateMetrics candidate={candidate} />
@@ -163,10 +163,10 @@ export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDet
           <div className="space-y-2 md:hidden">
             {candidates.map((candidate) => (
               <article key={candidate.symbol} className="min-w-0 rounded-md border border-border bg-card p-3">
-                <button type="button" onClick={() => onOpenDetails(candidate.symbol)} className="flex items-baseline gap-2 text-left">
+                <Button type="button" variant="link" onClick={() => onOpenDetails(candidate.symbol)} className="h-auto gap-2 p-0 text-left">
                   <span className="text-[11px] font-semibold text-muted-foreground">#{candidate.discoveryRank}</span>
                   <span className="font-semibold text-accent-blue">{candidate.symbol}</span>
-                </button>
+                </Button>
                 <div className="mt-1.5"><CandidateBadges candidate={candidate} /></div>
                 <div className="mt-2"><CandidateMetrics candidate={candidate} /></div>
                 <div className="mt-2"><CandidateFacts candidate={candidate} /></div>
