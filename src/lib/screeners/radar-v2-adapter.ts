@@ -33,6 +33,7 @@ import {
   type ScreenerUiStatus,
 } from "@/lib/screeners/contract";
 import type { RadarRankingFields } from "@/features/day-trade-radar-v2/types";
+import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 
 /**
  * Radar-backed screener row: the standard row plus the OPTIONAL Radar ranking
@@ -40,7 +41,7 @@ import type { RadarRankingFields } from "@/features/day-trade-radar-v2/types";
  * `ScreenerResultRow`, so no global contract change is required; non-Radar
  * consumers simply ignore the extra fields.
  */
-export type RadarV2ScreenerRow = ScreenerResultRow & RadarRankingFields;
+export type RadarV2ScreenerRow = ScreenerResultRow & RadarRankingFields & RadarHistoricalContextFields;
 
 // ── Session model (explicit; PM/RTH/AH-ready) ───────────────────────────────
 

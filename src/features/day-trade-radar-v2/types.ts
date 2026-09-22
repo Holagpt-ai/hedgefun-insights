@@ -1,5 +1,6 @@
 import type { ScreenerResultRow, ScreenerUiStatus } from "@/lib/screeners/contract";
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
+import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 
 /** Versioned ranking interface — future burst fields stay optional until verified. */
 export interface RadarRankingFields {
@@ -47,7 +48,7 @@ export interface LegacyConfirmationFields {
   legacy_volume_gate?: boolean | null;
 }
 
-export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, LegacyConfirmationFields {
+export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, LegacyConfirmationFields, RadarHistoricalContextFields {
   /** Authoritative volume-first rank derived from verified backend order (1-based). */
   rank: number;
   /**

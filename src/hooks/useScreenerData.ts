@@ -17,6 +17,9 @@ import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
+import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
+import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
+import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import { fetchRadarV22BoardDisplayDonors } from "@/lib/screeners/radar-v22-board-enrichment";
 import {
   radarV2FetchThrewDecision,
@@ -310,6 +313,26 @@ export function useScreenerData(
               }
             } catch {
               // Overlay is optional. A failed legacy read must not drop Sentinel.
+            }
+          }
+          if (tabId === "day_trade_radar" && view.rows.length > 0) {
+            try {
+              const { data: sessionData } = await supabase.auth.getSession();
+              const token = sessionData.session?.access_token;
+              const edgeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-historical-context`;
+              if (token && edgeUrl.includes("http")) {
+                const enrichedRows = await fetchAndMergeRadarHistoricalContext({
+                  rows: view.rows as RadarV2ScreenerRow[],
+                  fetchBatch: (requests) => fetchRadarHistoricalContextBatch({
+                    url: edgeUrl,
+                    accessToken: token,
+                    requests,
+                  }),
+                });
+                view = { ...view, rows: enrichedRows };
+              }
+            } catch {
+              // Repeat Movers enrichment is optional and must not block Radar delivery.
             }
           }
           lastVerifiedRadar = resolved.nextPriorRadar;

@@ -10,6 +10,7 @@ import {
 import { isRadarBridgeAction, type RadarBridgeAction } from "./actions.ts";
 import { handleBehaviorProfileAction } from "./behavior-handlers.ts";
 import { handleHistoricalAction } from "./historical-handlers.ts";
+import { handleRepeatMoverAction } from "./repeat-mover-handlers.ts";
 
 export const ACQUIRE_LEASE_RPC = "try_acquire_radar_v22_lease_v1";
 export const HEARTBEAT_LEASE_RPC = "heartbeat_radar_v22_lease_v1";
@@ -216,6 +217,8 @@ async function handleAction(
     (name, args) => rpcResult(db, name, args, rpcMeta),
   );
   if (behaviorProfile) return behaviorProfile;
+  const repeatMover = await handleRepeatMoverAction(action, body, db);
+  if (repeatMover) return repeatMover;
   switch (action) {
     case "acquire_lease": {
       const holderId = readHolderId(body);

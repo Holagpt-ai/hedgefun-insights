@@ -36,6 +36,7 @@ export const RADAR_BRIDGE_ACTIONS = [
   "behavior_profile_upsert",
   "behavior_profile_list",
   "behavior_profile_list_candidates",
+  "repeat_mover_get_context",
 ] as const;
 
 export type RadarBridgeAction = (typeof RADAR_BRIDGE_ACTIONS)[number];
