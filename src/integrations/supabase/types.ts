@@ -4490,6 +4490,101 @@ export type Database = {
         }
         Relationships: []
       }
+      late_session_continuation_handoffs: {
+        Row: {
+          after_hours_extends: boolean | null
+          capture_freshness_class: string | null
+          catalyst_present: boolean | null
+          close_distance_from_hod_pct: number | null
+          comparable_episode_count: number | null
+          created_at: string
+          dollar_volume: number | null
+          evidence_labels: Json
+          float_turnover: number | null
+          historical_context_available: boolean
+          id: string
+          last_price: number | null
+          most_recent_comparable_date: string | null
+          profile_freshness: string
+          rvol: number | null
+          sample_size_quality: string | null
+          security_id: string | null
+          session_move_pct: number | null
+          source_category: string
+          source_session_date: string
+          source_timestamp: string
+          symbol: string
+          updated_at: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+          volume: number | null
+        }
+        Insert: {
+          after_hours_extends?: boolean | null
+          capture_freshness_class?: string | null
+          catalyst_present?: boolean | null
+          close_distance_from_hod_pct?: number | null
+          comparable_episode_count?: number | null
+          created_at?: string
+          dollar_volume?: number | null
+          evidence_labels?: Json
+          float_turnover?: number | null
+          historical_context_available?: boolean
+          id?: string
+          last_price?: number | null
+          most_recent_comparable_date?: string | null
+          profile_freshness?: string
+          rvol?: number | null
+          sample_size_quality?: string | null
+          security_id?: string | null
+          session_move_pct?: number | null
+          source_category: string
+          source_session_date: string
+          source_timestamp: string
+          symbol: string
+          updated_at?: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+          volume?: number | null
+        }
+        Update: {
+          after_hours_extends?: boolean | null
+          capture_freshness_class?: string | null
+          catalyst_present?: boolean | null
+          close_distance_from_hod_pct?: number | null
+          comparable_episode_count?: number | null
+          created_at?: string
+          dollar_volume?: number | null
+          evidence_labels?: Json
+          float_turnover?: number | null
+          historical_context_available?: boolean
+          id?: string
+          last_price?: number | null
+          most_recent_comparable_date?: string | null
+          profile_freshness?: string
+          rvol?: number | null
+          sample_size_quality?: string | null
+          security_id?: string | null
+          session_move_pct?: number | null
+          source_category?: string
+          source_session_date?: string
+          source_timestamp?: string
+          symbol?: string
+          updated_at?: string
+          valid_from_session_date?: string
+          valid_through_session_date?: string
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "late_session_continuation_handoffs_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       market_behavior_episodes: {
         Row: {
           close_strength: number | null
@@ -7104,6 +7199,51 @@ export type Database = {
         Returns: undefined
       }
       journal_save_trade_v1: { Args: { p_payload: Json }; Returns: Json }
+      late_session_handoff_expire_stale_v1: {
+        Args: { p_as_of_session_date: string }
+        Returns: number
+      }
+      late_session_handoff_list_active_v1: {
+        Args: { p_am_session_date: string }
+        Returns: {
+          after_hours_extends: boolean | null
+          capture_freshness_class: string | null
+          catalyst_present: boolean | null
+          close_distance_from_hod_pct: number | null
+          comparable_episode_count: number | null
+          created_at: string
+          dollar_volume: number | null
+          evidence_labels: Json
+          float_turnover: number | null
+          historical_context_available: boolean
+          id: string
+          last_price: number | null
+          most_recent_comparable_date: string | null
+          profile_freshness: string
+          rvol: number | null
+          sample_size_quality: string | null
+          security_id: string | null
+          session_move_pct: number | null
+          source_category: string
+          source_session_date: string
+          source_timestamp: string
+          symbol: string
+          updated_at: string
+          valid_from_session_date: string
+          valid_through_session_date: string
+          volume: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "late_session_continuation_handoffs"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      late_session_handoff_upsert_v1: {
+        Args: { p_row: Json }
+        Returns: undefined
+      }
       prune_cron_job_run_details_v1: { Args: never; Returns: number }
       publish_screener_volume_baselines_v1: {
         Args: { p_generation_id: string; p_provider_as_of: string }
