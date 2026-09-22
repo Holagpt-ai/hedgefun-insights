@@ -69,7 +69,7 @@ export function publicationTimestampMs(
 
 export function classifyEventEpisodeRelationship(input: {
   episodeSecurityId: SecurityId;
-  event: Pick<CorporateEvent, "securityId" | "eventAt" | "metadata" | "provenance" | "source">;
+  event: Pick<CorporateEvent, "securityId" | "eventAt" | "publishedAt" | "metadata" | "provenance" | "source">;
   episode: EpisodeSessionContext;
   tradingSessionDates: readonly string[];
   config?: Partial<EpisodeEventLinkageConfig>;
