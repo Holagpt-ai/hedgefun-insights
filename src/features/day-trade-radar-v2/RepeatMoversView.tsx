@@ -27,7 +27,7 @@ const DISPLAYED_FILTERS: readonly RadarRepeatMoverFilterId[] = [
 ];
 
 function titleCase(value: string): string {
-  return value.charAt(0) + value.slice(1).toLowerCase().replaceAll("_", " ");
+  return value.charAt(0) + value.slice(1).toLowerCase().replace(/_/g, " ");
 }
 
 function CandidateBadges({ candidate }: { candidate: RadarRepeatMoverCandidate }) {
