@@ -20,6 +20,9 @@ import { useRadarColumnVisibility } from "./useRadarColumnVisibility";
 import { isRadarRowAccessible } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
+import type { RadarRepeatMoverFilterId } from "@/config/radar-repeat-movers.config";
+import { Button } from "@/components/ui/button";
+import { RepeatMoversView } from "./RepeatMoversView";
 
 export function DayTradeRadarV2({
   rows,
@@ -30,11 +33,14 @@ export function DayTradeRadarV2({
   freeRowLimit,
   source = null,
   session = null,
+  repeatMoversView = null,
 }: DayTradeRadarV2Props) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [desktopDetailOpen, setDesktopDetailOpen] = useState(false);
+  const [activeView, setActiveView] = useState<"radar" | "repeat_movers">("radar");
+  const [repeatMoverFilter, setRepeatMoverFilter] = useState<RadarRepeatMoverFilterId>("all");
   const v22 = useRadarV22Board();
   const adoptedSessionRef = useRef<string | null>(null);
   const todayEt = easternDate(Date.now());
@@ -135,6 +141,11 @@ export function DayTradeRadarV2({
   const upgradeNeeded =
     !isPro && lensRows.length > freeRowLimit && boardVisible;
 
+  const openRepeatMoverDetails = (symbol: string) => {
+    const row = ranked.find((candidate) => candidate.symbol === symbol);
+    if (row) openDetails(row);
+  };
+
   const emptyMessage = useMemo(() => {
     if (resolved.status === "loading") return null;
     if (resolved.status === "unavailable") {
@@ -174,7 +185,42 @@ export function DayTradeRadarV2({
         session={source === "radar-v2" ? session : null}
       />
 
-      {boardVisible && ranked.length > 0 && (
+      {boardVisible && repeatMoversView && (
+        <div className="flex items-center gap-1 border-b border-border" aria-label="Radar view">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={`h-8 rounded-none border-b-2 px-2.5 text-[12px] ${activeView === "radar" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground"}`}
+            aria-pressed={activeView === "radar"}
+            onClick={() => setActiveView("radar")}
+          >
+            Radar
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={`h-8 rounded-none border-b-2 px-2.5 text-[12px] ${activeView === "repeat_movers" ? "border-accent-blue text-accent-blue" : "border-transparent text-muted-foreground"}`}
+            aria-pressed={activeView === "repeat_movers"}
+            onClick={() => setActiveView("repeat_movers")}
+          >
+            Repeat Movers
+            <span className="tabular-nums text-[10px] text-muted-foreground">{repeatMoversView.summary.repeatMoverCount}</span>
+          </Button>
+        </div>
+      )}
+
+      {boardVisible && repeatMoversView && activeView === "repeat_movers" && (
+        <RepeatMoversView
+          view={repeatMoversView}
+          activeFilter={repeatMoverFilter}
+          onFilterChange={setRepeatMoverFilter}
+          onOpenDetails={openRepeatMoverDetails}
+        />
+      )}
+
+      {activeView === "radar" && boardVisible && ranked.length > 0 && (
         <TraderLensBar
           presetId={traderLens.presetId}
           minInput={traderLens.customMinInput}
@@ -196,7 +242,7 @@ export function DayTradeRadarV2({
         />
       )}
 
-      {boardVisible && leaderRow && (
+      {activeView === "radar" && boardVisible && leaderRow && (
         <RadarLeaderStrip
           row={leaderRow}
           followingLeader={followingLeader}
@@ -217,13 +263,13 @@ export function DayTradeRadarV2({
         </div>
       )}
 
-      {emptyMessage && (
+      {activeView === "radar" && emptyMessage && (
         <div className="rounded-lg border border-border bg-card p-10 text-center">
           <div className="text-sm font-semibold text-foreground">{emptyMessage}</div>
         </div>
       )}
 
-      {boardVisible && filtered.length > 0 && (
+      {activeView === "radar" && boardVisible && filtered.length > 0 && (
         <>
           <div className="hidden md:block min-w-0">
             <RadarGrid
@@ -278,7 +324,7 @@ export function DayTradeRadarV2({
         </>
       )}
 
-      {upgradeNeeded && (
+      {activeView === "radar" && upgradeNeeded && (
         <div className="text-center pt-1">
           <button
             type="button"

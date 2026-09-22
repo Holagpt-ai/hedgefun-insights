@@ -1,6 +1,7 @@
 import type { ScreenerResultRow, ScreenerUiStatus } from "@/lib/screeners/contract";
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
+import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
 
 /** Versioned ranking interface — future burst fields stay optional until verified. */
 export interface RadarRankingFields {
@@ -88,6 +89,8 @@ export interface DayTradeRadarV2Props {
   source?: ScreenerDataSource | null;
   /** Accepted Radar V2 generation session_kind from the data layer. */
   session?: string | null;
+  /** Existing qualified Repeat Movers view derived from the same Discovery-ordered Radar rows. */
+  repeatMoversView?: RadarRepeatMoversView | null;
 }
 
 /** Engine/source designation shown in the Day Trade Radar status rail. */
