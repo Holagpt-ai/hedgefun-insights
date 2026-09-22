@@ -4,10 +4,13 @@
  */
 
 import {
+  BEHAVIOR_PROFILE_VERSION,
   behaviorProfileConfig,
   type BehaviorProfileConfig,
   type BehaviorProfileSampleQuality,
 } from "@/config/behavior-profile.config";
+import type { ForwardOutcomeSecurityAggregate } from "@/lib/behavior-profile/forward-outcome-aggregate-types";
+import { behaviorProfileForwardOutcomesFromAggregate } from "@/lib/behavior-profile/merge-forward-outcome-aggregates";
 import { etSessionBounds } from "@/lib/historical-backfill/dates";
 import type { SecurityBehaviorProfile } from "@/types/behavior-profile";
 import type {
@@ -22,6 +25,7 @@ export interface BuildSecurityBehaviorProfileInput {
   episodes: readonly MarketBehaviorEpisode[];
   computedAt: string;
   config?: Partial<BehaviorProfileConfig>;
+  forwardOutcomeAggregate?: ForwardOutcomeSecurityAggregate | null;
 }
 
 function finiteNumbers(values: Array<number | null | undefined>): number[] {
@@ -295,8 +299,13 @@ export function buildSecurityBehaviorProfile(
   const latestSourceHistoryDate = historyEndDate;
   const latestEpisodeDateUsed = mostRecentEpisodeDate;
 
+  const forwardOutcomes = behaviorProfileForwardOutcomesFromAggregate({
+    episodeCount,
+    aggregate: input.forwardOutcomeAggregate ?? null,
+  });
+
   return {
-    version: "v1",
+    version: BEHAVIOR_PROFILE_VERSION,
     securityId: input.securityId,
     observedSymbol,
     computedAt: input.computedAt,
@@ -353,11 +362,14 @@ export function buildSecurityBehaviorProfile(
         ? (nextSessionNegativeContinuationCount / negativeContinuationSampleSize) * 100
         : null,
     },
+    forwardOutcomes,
     freshness: {
       latestSourceHistoryDate,
       latestEpisodeDateUsed,
       sourceDailyRowCount: dailyRows.length,
       sourceEpisodeCount: episodeRows.length,
+      forwardOutcomeD1Count: forwardOutcomes.episodesWithD1Outcome,
+      forwardOutcomeD5Count: forwardOutcomes.episodesWithD5Outcome,
     },
   };
 }

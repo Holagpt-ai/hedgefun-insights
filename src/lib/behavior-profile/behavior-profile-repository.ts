@@ -1,5 +1,9 @@
 import type { Sql } from "postgres";
 import { behaviorProfileFromRow, behaviorProfileToRow } from "@/lib/behavior-profile/behavior-profile-record";
+import {
+  parseForwardOutcomeSecurityAggregate,
+  type ForwardOutcomeSecurityAggregate,
+} from "@/lib/behavior-profile/forward-outcome-aggregate-types";
 import { HistoricalBridgeClient } from "@/lib/persistence/historical-bridge-client";
 import type { SecurityBehaviorProfile } from "@/types/behavior-profile";
 import type { SecurityId } from "@/types/security-identity";
@@ -14,6 +18,10 @@ export interface BehaviorProfileCandidate {
   profileLatestHistoryDate: string | null;
   profileLatestEpisodeDate: string | null;
   profileVersion: string | null;
+  forwardOutcomeD1Count: number;
+  forwardOutcomeD5Count: number;
+  profileForwardOutcomeD1Count: number | null;
+  profileForwardOutcomeD5Count: number | null;
 }
 
 export interface ListBehaviorProfileOptions {
@@ -27,6 +35,7 @@ export interface BehaviorProfileRepository {
   upsertSecurityBehaviorProfile(profile: SecurityBehaviorProfile): Promise<void>;
   listSecurityBehaviorProfiles(options?: ListBehaviorProfileOptions): Promise<SecurityBehaviorProfile[]>;
   listRecomputeCandidates(afterSecurityId: SecurityId | null, limit: number): Promise<BehaviorProfileCandidate[]>;
+  getForwardOutcomeAggregate(securityId: SecurityId): Promise<ForwardOutcomeSecurityAggregate | null>;
 }
 
 const PROFILE_SELECT = `
@@ -45,7 +54,18 @@ const PROFILE_SELECT = `
   next_session_negative_continuation_count, next_session_positive_continuation_rate,
   next_session_negative_continuation_rate,
   latest_source_history_date, latest_episode_date_used,
-  source_daily_row_count, source_episode_count
+  source_daily_row_count, source_episode_count,
+  episodes_with_d1_outcome, episodes_with_d5_outcome,
+  forward_outcome_coverage_pct_d1, forward_outcome_coverage_pct_d5,
+  median_d1_return_pct, positive_d1_count, negative_d1_count, zero_d1_count,
+  positive_d1_pct, negative_d1_pct,
+  median_d5_return_pct, positive_d5_count, negative_d5_count, zero_d5_count,
+  positive_d5_pct, negative_d5_pct,
+  median_d1_max_gain_pct, median_d1_max_drawdown_pct,
+  median_d5_max_gain_pct, median_d5_max_drawdown_pct,
+  observed_next_session_sample_size, observed_next_session_positive_pct,
+  observed_next_session_negative_pct,
+  forward_outcome_d1_count, forward_outcome_d5_count
 `;
 
 function mapCandidate(row: Record<string, unknown>): BehaviorProfileCandidate {
@@ -63,6 +83,14 @@ function mapCandidate(row: Record<string, unknown>): BehaviorProfileCandidate {
       ? row.profile_latest_episode_date.slice(0, 10)
       : null,
     profileVersion: typeof row.profile_version === "string" ? row.profile_version : null,
+    forwardOutcomeD1Count: Number(row.forward_outcome_d1_count ?? 0),
+    forwardOutcomeD5Count: Number(row.forward_outcome_d5_count ?? 0),
+    profileForwardOutcomeD1Count: row.profile_forward_outcome_d1_count == null
+      ? null
+      : Number(row.profile_forward_outcome_d1_count),
+    profileForwardOutcomeD5Count: row.profile_forward_outcome_d5_count == null
+      ? null
+      : Number(row.profile_forward_outcome_d5_count),
   };
 }
 
@@ -114,6 +142,14 @@ export class PostgresBehaviorProfileRepository implements BehaviorProfileReposit
     `, [afterSecurityId, limit]) as Record<string, unknown>[];
     return rows.map(mapCandidate);
   }
+
+  async getForwardOutcomeAggregate(securityId: SecurityId): Promise<ForwardOutcomeSecurityAggregate | null> {
+    const rows = await this.sql.unsafe(
+      "select public.forward_outcome_aggregate_for_security_v1($1::uuid) as aggregate",
+      [securityId],
+    ) as Record<string, unknown>[];
+    return parseForwardOutcomeSecurityAggregate(rows[0]?.aggregate);
+  }
 }
 
 export class BridgeBehaviorProfileRepository implements BehaviorProfileRepository {
@@ -145,6 +181,11 @@ export class BridgeBehaviorProfileRepository implements BehaviorProfileRepositor
     const rows = Array.isArray(payload) ? payload as Record<string, unknown>[] : [];
     return rows.map(mapCandidate);
   }
+
+  async getForwardOutcomeAggregate(securityId: SecurityId): Promise<ForwardOutcomeSecurityAggregate | null> {
+    const res = await this.bridge.call("forward_outcome_aggregate_for_security", { security_id: securityId });
+    return parseForwardOutcomeSecurityAggregate(res.result ?? res);
+  }
 }
 
 export class MemoryBehaviorProfileRepository implements BehaviorProfileRepository {
@@ -173,5 +214,9 @@ export class MemoryBehaviorProfileRepository implements BehaviorProfileRepositor
       .filter((row) => !afterSecurityId || row.securityId > afterSecurityId)
       .sort((a, b) => a.securityId.localeCompare(b.securityId));
     return filtered.slice(0, limit);
+  }
+
+  async getForwardOutcomeAggregate(_securityId: SecurityId): Promise<ForwardOutcomeSecurityAggregate | null> {
+    return null;
   }
 }

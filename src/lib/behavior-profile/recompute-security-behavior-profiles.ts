@@ -36,6 +36,10 @@ function shouldRecompute(candidate: BehaviorProfileCandidate, force: boolean): b
     storedLatestHistoryDate: candidate.profileLatestHistoryDate,
     storedLatestEpisodeDate: candidate.profileLatestEpisodeDate,
     storedProfileVersion: candidate.profileVersion,
+    candidateForwardOutcomeD1Count: candidate.forwardOutcomeD1Count,
+    candidateForwardOutcomeD5Count: candidate.forwardOutcomeD5Count,
+    storedForwardOutcomeD1Count: candidate.profileForwardOutcomeD1Count,
+    storedForwardOutcomeD5Count: candidate.profileForwardOutcomeD5Count,
     force,
   });
 }

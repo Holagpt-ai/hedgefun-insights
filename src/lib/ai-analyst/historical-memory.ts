@@ -52,6 +52,16 @@ export interface HistoricalMemoryFacts {
   latestEpisodeDateUsed: string | null;
   sourceDailyRowCount: number | null;
   sourceEpisodeCount: number | null;
+  episodesWithD1Outcome: number | null;
+  episodesWithD5Outcome: number | null;
+  forwardOutcomeCoveragePctD1: number | null;
+  medianD1ReturnPct: number | null;
+  medianD5ReturnPct: number | null;
+  positiveD1Pct: number | null;
+  negativeD1Pct: number | null;
+  observedNextSessionSampleSize: number | null;
+  observedNextSessionPositivePct: number | null;
+  observedNextSessionNegativePct: number | null;
   assembledAt: string | null;
 }
 
@@ -91,6 +101,16 @@ export function unavailableHistoricalMemory(symbol: string | null): HistoricalMe
     latestEpisodeDateUsed: null,
     sourceDailyRowCount: null,
     sourceEpisodeCount: null,
+    episodesWithD1Outcome: null,
+    episodesWithD5Outcome: null,
+    forwardOutcomeCoveragePctD1: null,
+    medianD1ReturnPct: null,
+    medianD5ReturnPct: null,
+    positiveD1Pct: null,
+    negativeD1Pct: null,
+    observedNextSessionSampleSize: null,
+    observedNextSessionPositivePct: null,
+    observedNextSessionNegativePct: null,
     assembledAt: null,
   };
 }
@@ -162,6 +182,16 @@ export function buildHistoricalMemoryFromRepeatMoverContext(
     latestEpisodeDateUsed: profile.latestEpisodeDateUsed,
     sourceDailyRowCount: profile.sourceDailyRowCount,
     sourceEpisodeCount: profile.sourceEpisodeCount,
+    episodesWithD1Outcome: profile.episodesWithD1Outcome,
+    episodesWithD5Outcome: profile.episodesWithD5Outcome,
+    forwardOutcomeCoveragePctD1: profile.forwardOutcomeCoveragePctD1,
+    medianD1ReturnPct: profile.medianD1ReturnPct,
+    medianD5ReturnPct: profile.medianD5ReturnPct,
+    positiveD1Pct: profile.positiveD1Pct,
+    negativeD1Pct: profile.negativeD1Pct,
+    observedNextSessionSampleSize: profile.observedNextSessionSampleSize,
+    observedNextSessionPositivePct: profile.observedNextSessionPositivePct,
+    observedNextSessionNegativePct: profile.observedNextSessionNegativePct,
     assembledAt: context.assembledAt,
   };
 }

@@ -54,6 +54,16 @@ export function unavailableRepeatMoverProfileSnapshot(): RepeatMoverProfileSnaps
     latestEpisodeDateUsed: null,
     sourceDailyRowCount: null,
     sourceEpisodeCount: null,
+    episodesWithD1Outcome: null,
+    episodesWithD5Outcome: null,
+    forwardOutcomeCoveragePctD1: null,
+    medianD1ReturnPct: null,
+    medianD5ReturnPct: null,
+    positiveD1Pct: null,
+    negativeD1Pct: null,
+    observedNextSessionSampleSize: null,
+    observedNextSessionPositivePct: null,
+    observedNextSessionNegativePct: null,
   };
 }
 
@@ -88,6 +98,16 @@ export function repeatMoverProfileSnapshotFromBehaviorProfile(
     latestEpisodeDateUsed: profile.freshness.latestEpisodeDateUsed,
     sourceDailyRowCount: profile.freshness.sourceDailyRowCount,
     sourceEpisodeCount: profile.freshness.sourceEpisodeCount,
+    episodesWithD1Outcome: profile.forwardOutcomes.episodesWithD1Outcome,
+    episodesWithD5Outcome: profile.forwardOutcomes.episodesWithD5Outcome,
+    forwardOutcomeCoveragePctD1: profile.forwardOutcomes.forwardOutcomeCoveragePctD1,
+    medianD1ReturnPct: profile.forwardOutcomes.medianD1ReturnPct,
+    medianD5ReturnPct: profile.forwardOutcomes.medianD5ReturnPct,
+    positiveD1Pct: profile.forwardOutcomes.positiveD1Pct,
+    negativeD1Pct: profile.forwardOutcomes.negativeD1Pct,
+    observedNextSessionSampleSize: profile.forwardOutcomes.observedNextSessionSampleSize,
+    observedNextSessionPositivePct: profile.forwardOutcomes.observedNextSessionPositivePct,
+    observedNextSessionNegativePct: profile.forwardOutcomes.observedNextSessionNegativePct,
   };
 }
 

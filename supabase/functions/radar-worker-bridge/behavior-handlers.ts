@@ -27,7 +27,18 @@ export const BEHAVIOR_PROFILE_SELECT = `
   next_session_negative_continuation_count, next_session_positive_continuation_rate,
   next_session_negative_continuation_rate,
   latest_source_history_date, latest_episode_date_used,
-  source_daily_row_count, source_episode_count
+  source_daily_row_count, source_episode_count,
+  episodes_with_d1_outcome, episodes_with_d5_outcome,
+  forward_outcome_coverage_pct_d1, forward_outcome_coverage_pct_d5,
+  median_d1_return_pct, positive_d1_count, negative_d1_count, zero_d1_count,
+  positive_d1_pct, negative_d1_pct,
+  median_d5_return_pct, positive_d5_count, negative_d5_count, zero_d5_count,
+  positive_d5_pct, negative_d5_pct,
+  median_d1_max_gain_pct, median_d1_max_drawdown_pct,
+  median_d5_max_gain_pct, median_d5_max_drawdown_pct,
+  observed_next_session_sample_size, observed_next_session_positive_pct,
+  observed_next_session_negative_pct,
+  forward_outcome_d1_count, forward_outcome_d5_count
 `.replace(/\s+/g, " ").trim();
 
 function readNonNegInt(value: unknown): number | null {

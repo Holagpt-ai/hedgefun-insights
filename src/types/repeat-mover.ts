@@ -68,6 +68,17 @@ export interface RepeatMoverProfileSnapshot {
   latestEpisodeDateUsed: string | null;
   sourceDailyRowCount: number | null;
   sourceEpisodeCount: number | null;
+  /** Observed forward-outcome aggregates (v2 profile evidence). */
+  episodesWithD1Outcome: number | null;
+  episodesWithD5Outcome: number | null;
+  forwardOutcomeCoveragePctD1: number | null;
+  medianD1ReturnPct: number | null;
+  medianD5ReturnPct: number | null;
+  positiveD1Pct: number | null;
+  negativeD1Pct: number | null;
+  observedNextSessionSampleSize: number | null;
+  observedNextSessionPositivePct: number | null;
+  observedNextSessionNegativePct: number | null;
 }
 
 export interface RepeatMoverComparableHistory {

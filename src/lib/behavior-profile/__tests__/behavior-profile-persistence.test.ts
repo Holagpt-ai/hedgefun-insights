@@ -153,6 +153,10 @@ describe("behavior profile persistence", () => {
         profileLatestHistoryDate: null,
         profileLatestEpisodeDate: null,
         profileVersion: null,
+        forwardOutcomeD1Count: 0,
+        forwardOutcomeD5Count: 0,
+        profileForwardOutcomeD1Count: null,
+        profileForwardOutcomeD5Count: null,
       },
       {
         securityId: OTHER_ID,
@@ -164,6 +168,10 @@ describe("behavior profile persistence", () => {
         profileLatestHistoryDate: "2024-03-02",
         profileLatestEpisodeDate: null,
         profileVersion: BEHAVIOR_PROFILE_VERSION,
+        forwardOutcomeD1Count: 0,
+        forwardOutcomeD5Count: 0,
+        profileForwardOutcomeD1Count: 0,
+        profileForwardOutcomeD5Count: 0,
       },
     );
     const listEpisodes = vi.fn(async (securityId: string) =>

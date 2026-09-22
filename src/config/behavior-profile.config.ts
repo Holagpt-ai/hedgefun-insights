@@ -1,10 +1,11 @@
 /**
- * Historical Behavior Profile V1 — deterministic thresholds only.
+ * Historical Behavior Profile — deterministic thresholds only (current version v2).
  * Does not score, predict, or rank securities.
  */
 
-export const BEHAVIOR_PROFILE_VERSION = "v1" as const;
-export type BehaviorProfileVersion = typeof BEHAVIOR_PROFILE_VERSION;
+export const BEHAVIOR_PROFILE_VERSION = "v2" as const;
+export const BEHAVIOR_PROFILE_VERSIONS = ["v1", "v2"] as const;
+export type BehaviorProfileVersion = (typeof BEHAVIOR_PROFILE_VERSIONS)[number];
 
 export const BEHAVIOR_PROFILE_SAMPLE_QUALITIES = [
   "INSUFFICIENT",
