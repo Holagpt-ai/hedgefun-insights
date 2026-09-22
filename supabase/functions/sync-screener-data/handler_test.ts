@@ -44,10 +44,11 @@ function thenableQuery(
     in: (_col: string, _values: string[]) => builder,
     limit: (_n: number) => builder,
     range: (_from: number, _to: number) => builder,
-    then: (
-      onFulfilled?: ((value: DbSelectResult) => unknown) | null,
-      onRejected?: ((reason: unknown) => unknown) | null,
-    ) => execute().then(onFulfilled ?? undefined, onRejected ?? undefined),
+    then: <R1 = DbSelectResult, R2 = never>(
+      onFulfilled?: ((value: DbSelectResult) => R1 | PromiseLike<R1>) | null,
+      onRejected?: ((reason: unknown) => R2 | PromiseLike<R2>) | null,
+    ): Promise<R1 | R2> =>
+      execute().then(onFulfilled ?? undefined, onRejected ?? undefined) as Promise<R1 | R2>,
   };
   return builder;
 }
