@@ -748,6 +748,40 @@ Deno.test("historical: apply daily batch forwards rpc", async () => {
   assertEquals(db.rpcCalls.length, 1);
 });
 
+Deno.test("behavior profile: upsert forwards rpc", async () => {
+  const db = new FakeDb();
+  db.rpcImpl = (fn, args) => {
+    assertEquals(fn, "behavior_profile_upsert_v1");
+    assertEquals(typeof (args.p_row as Record<string, unknown>)?.security_id, "string");
+    return { data: null, error: null };
+  };
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "behavior_profile_upsert",
+      row: {
+        security_id: "11111111-1111-4111-8111-111111111111",
+        computed_at: "2026-09-22T18:00:00.000Z",
+        sample_size_quality: "LIMITED",
+      },
+    }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 200);
+  assertEquals(out.body.ok, true);
+});
+
+Deno.test("behavior profile: unknown action still rejected", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({ action: "behavior_profile_not_real" }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 400);
+  assertEquals(out.body.error, "unknown_action");
+});
+
 Deno.test("historical: pagination rejects oversized page_limit", async () => {
   const db = new FakeDb();
   const res = await handleRadarWorkerBridge(

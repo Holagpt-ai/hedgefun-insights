@@ -32,6 +32,10 @@ export const RADAR_BRIDGE_ACTIONS = [
   "historical_list_daily_history",
   "historical_list_episodes",
   "historical_symbol_at",
+  "behavior_profile_get",
+  "behavior_profile_upsert",
+  "behavior_profile_list",
+  "behavior_profile_list_candidates",
 ] as const;
 
 export type RadarBridgeAction = (typeof RADAR_BRIDGE_ACTIONS)[number];

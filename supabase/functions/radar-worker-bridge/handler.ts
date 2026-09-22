@@ -8,6 +8,7 @@ import {
   type EnvReader,
 } from "./auth.ts";
 import { isRadarBridgeAction, type RadarBridgeAction } from "./actions.ts";
+import { handleBehaviorProfileAction } from "./behavior-handlers.ts";
 import { handleHistoricalAction } from "./historical-handlers.ts";
 
 export const ACQUIRE_LEASE_RPC = "try_acquire_radar_v22_lease_v1";
@@ -208,6 +209,13 @@ async function handleAction(
     (name, args) => rpcResult(db, name, args, rpcMeta),
   );
   if (historical) return historical;
+  const behaviorProfile = await handleBehaviorProfileAction(
+    action,
+    body,
+    db,
+    (name, args) => rpcResult(db, name, args, rpcMeta),
+  );
+  if (behaviorProfile) return behaviorProfile;
   switch (action) {
     case "acquire_lease": {
       const holderId = readHolderId(body);
