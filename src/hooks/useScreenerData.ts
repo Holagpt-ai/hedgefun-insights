@@ -38,6 +38,7 @@ import {
 } from "@/lib/screeners/screener-truth-state";
 import type { TabEvaluationEvidenceMap } from "@/lib/screeners/tab-evaluation-evidence";
 import type { NhlBaselineStatus } from "@/lib/screeners/contract";
+import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
 
 export type { ScreenerResultRow, ScreenerUiStatus };
 
@@ -159,6 +160,7 @@ export function useScreenerData(
   const [nhlBaselineStatus, setNhlBaselineStatus] = useState<NhlBaselineStatus | null>(null);
   const [tabEvaluationEvidence, setTabEvaluationEvidence] =
     useState<TabEvaluationEvidenceMap | null>(null);
+  const [repeatMoversView, setRepeatMoversView] = useState<RadarRepeatMoversView | null>(null);
 
   useEffect(() => {
     if (!tabId) return;
@@ -194,6 +196,7 @@ export function useScreenerData(
       setStatus(view.status);
       setNhlBaselineStatus(view.nhl_baseline_status ?? null);
       setTabEvaluationEvidence(view.tab_evaluation_evidence ?? null);
+      setRepeatMoversView(view.repeatMoversView ?? null);
       lastViewRef.current = view;
       lastSourceRef.current = resolvedSource;
       setTruthState(
@@ -263,6 +266,7 @@ export function useScreenerData(
         setTruthState(null);
         setNhlBaselineStatus(null);
         setTabEvaluationEvidence(null);
+        setRepeatMoversView(null);
         hasLoadedOnce = false;
       }
 
@@ -402,5 +406,6 @@ export function useScreenerData(
     truthState,
     nhlBaselineStatus,
     tabEvaluationEvidence,
+    repeatMoversView,
   };
 }

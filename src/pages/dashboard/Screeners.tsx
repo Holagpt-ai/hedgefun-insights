@@ -57,7 +57,7 @@ export default function Screeners() {
   // single tab-list source of truth instead of duplicating IDs here.
   const isRadarBacked = isRadarV2BackedTab(activeTabId);
 
-  const { status, rows, syncedAt, providerAsOfMax, source, session, radarDiagnostic, truthState } =
+  const { status, rows, syncedAt, providerAsOfMax, source, session, radarDiagnostic, truthState, repeatMoversView } =
     useScreenerData(activeTabId, {
     refreshIntervalMs: isRadarBacked ? RADAR_BACKED_REFRESH_MS : undefined,
     pauseWhenHidden: true,
@@ -138,6 +138,7 @@ export default function Screeners() {
           freeRowLimit={activeTab.freeRowLimit}
           source={source}
           session={session}
+          repeatMoversView={repeatMoversView}
         />
       ) : (
         <ScreenerTable

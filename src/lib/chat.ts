@@ -33,7 +33,7 @@ export async function streamChat({
   attachment?: ChatAttachment;
   systemContext?: string;
   /** Deterministic same-security historical evidence (Repeat Movers). */
-  historicalMemory?: Record<string, unknown> | null;
+  historicalMemory?: object | null;
   conversationId?: string;
   signal?: AbortSignal;
   onDelta: (deltaText: string) => void;
