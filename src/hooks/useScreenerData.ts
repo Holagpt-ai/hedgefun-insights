@@ -20,6 +20,8 @@ import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screene
 import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
 import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
+import { captureLateSessionHandoffsFromScreenerRows } from "@/lib/am-inbox/late-session-handoff-storage";
+import { mapRadarRowToContinuationSource } from "@/lib/am-inbox/map-radar-row-to-continuation-source";
 import { persistHistoricalWorkflowHandoff } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { buildRadarRepeatMoversView } from "@/lib/radar/build-radar-repeat-movers-view";
 import { recordRadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-peek";
@@ -339,6 +341,7 @@ export function useScreenerData(
                 const repeatMoversView = buildRadarRepeatMoversView(enrichedRows, { nowMs: Date.now() });
                 recordRadarRepeatMoversView(repeatMoversView);
                 view = { ...view, rows: enrichedRows, repeatMoversView };
+                const securityIdBySymbol = new Map<string, string>();
                 for (const row of enrichedRows) {
                   if (row.symbol && row.historicalContext) {
                     persistHistoricalWorkflowHandoff(row.historicalContext, {
@@ -347,7 +350,17 @@ export function useScreenerData(
                       securityId: row.securityId ?? row.historicalContext.securityId,
                     });
                   }
+                  if (row.symbol && row.securityId) {
+                    securityIdBySymbol.set(row.symbol.toUpperCase(), row.securityId);
+                  }
                 }
+                const sessionDate =
+                  enrichedRows.find((row) => row.radar_trading_date)?.radar_trading_date
+                  ?? new Date().toISOString().slice(0, 10);
+                captureLateSessionHandoffsFromScreenerRows(
+                  enrichedRows.map((row) => mapRadarRowToContinuationSource(row)),
+                  { sessionDate, securityIdBySymbol },
+                );
               }
             } catch {
               // Repeat Movers enrichment is optional and must not block Radar delivery.

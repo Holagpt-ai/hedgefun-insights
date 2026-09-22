@@ -32,6 +32,8 @@ import {
 import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
 import { resolveVolumeLeadersView } from "@/lib/screeners/radar-v2-volume-leaders";
 import { peekRadarV2LoadDiagnostic } from "@/lib/screeners/radar-v2-diagnostics";
+import { buildAmInboxLateSessionView } from "@/lib/am-inbox/am-inbox-late-session-view";
+import { LateSessionHandoffsList } from "@/components/pre-market/LateSessionHandoffsList";
 import {
   applyPresentedVolumeLeadersToChecklist,
   buildFreshnessVerifyState,
@@ -81,6 +83,11 @@ export default function AMInbox() {
     [data],
   );
   const watchlistNotice = compactWatchlistNotice(marketStatus, trackedCount);
+
+  const lateSessionView = useMemo(
+    () => buildAmInboxLateSessionView(etDate || data?.market_context.et_date || ""),
+    [etDate, data?.market_context.et_date],
+  );
 
   const checklistItems = useMemo(
     () =>
@@ -218,6 +225,16 @@ export default function AMInbox() {
           >
             <IndexCards rows={data?.indexes.data ?? []} />
           </SectionShell>
+
+          {lateSessionView.candidates.length > 0 && (
+            <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
+              <SectionHeading
+                title="Late-Session Continuation"
+                subtitle="Carried from prior session · workflow handoffs preserve symbol and historical context"
+              />
+              <LateSessionHandoffsList candidates={lateSessionView.candidates} />
+            </section>
+          )}
 
           {/* Volume Leaders — Radar V2 during confirmed pre-market; screener_results otherwise. Not Radar V2.2. */}
           <SectionShell

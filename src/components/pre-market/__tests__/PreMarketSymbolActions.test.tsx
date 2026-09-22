@@ -4,6 +4,16 @@ import { MemoryRouter } from "react-router-dom";
 import { PreMarketSymbolActions } from "@/components/pre-market/PreMarketSymbolActions";
 
 describe("PreMarketSymbolActions", () => {
+  it("includes securityId on workflow routes when provided", () => {
+    render(
+      <MemoryRouter>
+        <PreMarketSymbolActions symbol="AAPL" securityId="11111111-1111-4111-8111-111111111111" />
+      </MemoryRouter>,
+    );
+    const ai = screen.getByRole("link", { name: "AI Analyst for AAPL" }) as HTMLAnchorElement;
+    expect(ai.getAttribute("href")).toContain("securityId=");
+  });
+
   it("keeps AI Analyst and Chart as primary actions and exposes overflow in More", () => {
     render(
       <MemoryRouter>
