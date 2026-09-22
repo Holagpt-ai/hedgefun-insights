@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { etSessionBounds } from "@/lib/historical-backfill/dates";
-import { buildSecurityBehaviorProfile } from "@/lib/behavior-profile/build-security-behavior-profile";
+import {
+  buildSecurityBehaviorProfile,
+  episodeMovePct,
+} from "@/lib/behavior-profile/build-security-behavior-profile";
+import { getComparableHistoricalEpisodes } from "@/lib/behavior-profile/comparable-historical-episodes";
 import type { MarketBehaviorEpisode, SecurityDailyHistory } from "@/types/security-intelligence";
 
 const SECURITY_ID = "11111111-1111-4111-8111-111111111111";
@@ -217,5 +221,73 @@ describe("buildSecurityBehaviorProfile", () => {
     });
     expect(profile.coverage.sessionsObserved).toBe(1);
     expect(profile.coverage.episodeCount).toBe(1);
+  });
+
+  it("does not throw when episode session date is missing from the daily-history map", () => {
+    const dailyByDate = new Map<string, SecurityDailyHistory>();
+    const missingDailyEpisode = episode("2024-06-01", {
+      startPrice: 10,
+      endPrice: 11,
+      maxPositiveMovePct: 15,
+    });
+    expect(() =>
+      episodeMovePct(missingDailyEpisode, dailyByDate, "2024-06-01"),
+    ).not.toThrow();
+    expect(episodeMovePct(missingDailyEpisode, dailyByDate, "2024-06-01")).toBeCloseTo(10);
+
+    const noDerivedEpisode = episode("2024-06-01", {
+      startPrice: null,
+      endPrice: null,
+      maxPositiveMovePct: null,
+      maxNegativeMovePct: null,
+    });
+    expect(episodeMovePct(noDerivedEpisode, dailyByDate, "2024-06-01")).toBeNull();
+
+    const profile = buildSecurityBehaviorProfile({
+      securityId: SECURITY_ID,
+      dailyHistory: [
+        daily("2024-06-02", { movePct: 5 }),
+        daily("2024-06-03", { movePct: -3 }),
+      ],
+      episodes: [
+        missingDailyEpisode,
+        episode("2024-06-02", { direction: "POSITIVE", tier: "NOTABLE" }),
+      ],
+      computedAt: RECORDED,
+    });
+    expect(profile.coverage.episodeCount).toBe(2);
+    expect(profile.moveBehavior.medianEpisodeMovePct).toBeCloseTo(7.5);
+  });
+
+  it("skips next-session continuation when episode session date is absent from daily rows", () => {
+    const profile = buildSecurityBehaviorProfile({
+      securityId: SECURITY_ID,
+      dailyHistory: [
+        daily("2024-08-02", { movePct: 5 }),
+        daily("2024-08-03", { movePct: -3 }),
+      ],
+      episodes: [
+        episode("2024-08-01", { direction: "POSITIVE", startPrice: 10, endPrice: 11 }),
+        episode("2024-08-02", { direction: "POSITIVE" }),
+      ],
+      computedAt: RECORDED,
+    });
+    expect(profile.continuation.continuationSampleSize).toBe(1);
+    expect(profile.continuation.nextSessionPositiveContinuationCount).toBe(0);
+    expect(profile.continuation.nextSessionNegativeContinuationCount).toBe(0);
+  });
+
+  it("leaves comparable next-session fields null when episode session date is absent from daily rows", () => {
+    const comparables = getComparableHistoricalEpisodes({
+      securityId: SECURITY_ID,
+      dailyHistory: [daily("2024-09-02", { movePct: 4 })],
+      episodes: [episode("2024-09-01", { direction: "POSITIVE", startPrice: 10, endPrice: 10.5 })],
+      currentContext: {},
+      limit: 5,
+    });
+    expect(comparables).toHaveLength(1);
+    expect(comparables[0]?.nextSessionMovePct).toBeNull();
+    expect(comparables[0]?.nextSessionContinuation).toBeNull();
+    expect(comparables[0]?.movePct).toBeCloseTo(5);
   });
 });

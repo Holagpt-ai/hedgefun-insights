@@ -91,8 +91,9 @@ export function episodeMovePct(
 ): number | null {
   if (sessionDate) {
     const daily = dailyByDate.get(sessionDate);
-    if (daily?.movePct !== null && daily.movePct !== undefined && Number.isFinite(daily.movePct)) {
-      return daily.movePct;
+    const movePct = daily?.movePct;
+    if (movePct != null && Number.isFinite(movePct)) {
+      return movePct;
     }
   }
   if (episode.endPrice !== null && episode.startPrice !== null && episode.startPrice !== 0) {
@@ -280,7 +281,7 @@ export function buildSecurityBehaviorProfile(
     const index = sessionIndex.get(sessionDate);
     if (index === undefined || index + 1 >= dailyRows.length) continue;
     const nextDaily = dailyRows[index + 1];
-    if (nextDaily.movePct === null || !Number.isFinite(nextDaily.movePct)) continue;
+    if (!nextDaily || nextDaily.movePct === null || !Number.isFinite(nextDaily.movePct)) continue;
     continuationSampleSize += 1;
     if (episode.direction === "POSITIVE") {
       positiveContinuationSampleSize += 1;

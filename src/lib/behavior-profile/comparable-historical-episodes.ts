@@ -97,7 +97,7 @@ export function getComparableHistoricalEpisodes(input: {
       const index = sessionIndex.get(sessionDate);
       if (index !== undefined && index + 1 < dailyRows.length) {
         const nextDaily = dailyRows[index + 1];
-        if (nextDaily.movePct !== null && Number.isFinite(nextDaily.movePct)) {
+        if (nextDaily && nextDaily.movePct !== null && Number.isFinite(nextDaily.movePct)) {
           nextSessionMovePct = nextDaily.movePct;
           if (episode.direction === "POSITIVE") {
             nextSessionContinuation = nextDaily.movePct >= config.continuationMinMovePct;
