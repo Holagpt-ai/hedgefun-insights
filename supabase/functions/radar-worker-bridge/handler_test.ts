@@ -708,6 +708,34 @@ Deno.test("publish_candidates_v2 RPC error logs code/message/details/hint", asyn
   }
 });
 
+Deno.test("late session: upsert forwards hardcoded rpc", async () => {
+  let rpcName = "";
+  const db = {
+    from: () => ({ select: () => ({ eq: () => ({ limit: () => Promise.resolve({ data: [], error: null }) }) }) }),
+    rpc: (fn: string) => {
+      rpcName = fn;
+      return Promise.resolve({ data: null, error: null });
+    },
+  };
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "late_session_handoff_upsert",
+      row: {
+        symbol: "AAA",
+        source_session_date: "2026-09-21",
+        source_category: "STRONG_CLOSE_NEAR_HOD",
+        source_timestamp: "2026-09-21T20:00:00.000Z",
+        valid_from_session_date: "2026-09-22",
+        valid_through_session_date: "2026-09-22",
+      },
+    }),
+    deps(db as never),
+  );
+  const out = await res.json();
+  assertEquals(out.ok, true);
+  assertEquals(rpcName, "late_session_handoff_upsert_v1");
+});
+
 Deno.test("historical: unknown action rejected", async () => {
   const db = new FakeDb();
   const res = await handleRadarWorkerBridge(

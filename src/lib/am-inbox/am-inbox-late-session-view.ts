@@ -1,47 +1,78 @@
-import type { AmInboxLateSessionCandidate, AmInboxLateSessionView } from "@/lib/am-inbox/late-session-continuation-types";
+import type {
+  AmInboxLateSessionCandidate,
+  AmInboxLateSessionView,
+  LateSessionContinuationContext,
+} from "@/lib/am-inbox/late-session-continuation-types";
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
-import { listStoredLateSessionHandoffs } from "@/lib/am-inbox/late-session-handoff-storage";
+import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/am-inbox/late-session-handoff-storage";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import type { ContinuationCategory } from "@/config/continuation.config";
 
-export function buildAmInboxLateSessionView(amSessionDate: string): AmInboxLateSessionView {
-  const stored = listStoredLateSessionHandoffs();
+function mergeContextWithWorkflow(
+  context: LateSessionContinuationContext,
+  amSessionDate: string,
+): AmInboxLateSessionCandidate | null {
+  const expiry = resolveLateSessionExpiryState({
+    sourceSessionDate: context.sourceSessionDate,
+    sourceCategory: context.sourceCategory,
+    amSessionDate,
+  });
+  if (expiry.expiryState === "expired") return null;
+
+  const workflow = readHistoricalWorkflowContext(context.symbol);
+  return {
+    context: {
+      ...context,
+      ...expiry,
+      securityId: context.securityId ?? workflow?.securityId ?? null,
+      historicalContextAvailable:
+        workflow?.historicalContextAvailable ?? context.historicalContextAvailable,
+      evidenceLabels: workflow?.evidenceLabels ?? context.evidenceLabels,
+      sampleSizeQuality: workflow?.sampleSizeQuality ?? context.sampleSizeQuality,
+      comparableEpisodeCount:
+        workflow?.comparableEpisodeCount ?? context.comparableEpisodeCount,
+      mostRecentComparableDate:
+        workflow?.mostRecentComparableDate ?? context.mostRecentComparableDate,
+      profileFreshness: workflow?.profileFreshness ?? context.profileFreshness,
+    },
+    workflow,
+    sourceCategories: [context.sourceCategory] as readonly ContinuationCategory[],
+  };
+}
+
+export function buildAmInboxLateSessionViewFromContexts(
+  amSessionDate: string,
+  contexts: readonly LateSessionContinuationContext[],
+): AmInboxLateSessionView {
   const candidates: AmInboxLateSessionCandidate[] = [];
   let expiredCount = 0;
+  const seen = new Set<string>();
 
-  for (const entry of stored) {
-    const expiry = resolveLateSessionExpiryState({
-      sourceSessionDate: entry.context.sourceSessionDate,
-      sourceCategory: entry.context.sourceCategory,
-      amSessionDate,
-    });
-    if (expiry.expiryState === "expired") {
+  for (const context of contexts) {
+    const merged = mergeContextWithWorkflow(context, amSessionDate);
+    if (!merged) {
       expiredCount += 1;
       continue;
     }
-
-    const workflow = readHistoricalWorkflowContext(entry.context.symbol);
-    candidates.push({
-      context: {
-        ...entry.context,
-        ...expiry,
-        securityId: entry.context.securityId ?? workflow?.securityId ?? null,
-        historicalContextAvailable: workflow?.historicalContextAvailable ?? entry.context.historicalContextAvailable,
-        evidenceLabels: workflow?.evidenceLabels ?? entry.context.evidenceLabels,
-        sampleSizeQuality: workflow?.sampleSizeQuality ?? entry.context.sampleSizeQuality,
-        comparableEpisodeCount: workflow?.comparableEpisodeCount ?? entry.context.comparableEpisodeCount,
-        mostRecentComparableDate: workflow?.mostRecentComparableDate ?? entry.context.mostRecentComparableDate,
-        profileFreshness: workflow?.profileFreshness ?? entry.context.profileFreshness,
-      },
-      workflow,
-      sourceCategories: [entry.context.sourceCategory] as readonly ContinuationCategory[],
-    });
+    const key = `${merged.context.symbol}:${merged.context.sourceSessionDate}:${merged.context.sourceCategory}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push(merged);
+    persistLateSessionHandoff(merged.context);
   }
 
-  // Preserve stored order — no historical re-ranking.
   return {
     asOfSessionDate: amSessionDate,
     candidates,
     expiredCount,
   };
+}
+
+/** Legacy sessionStorage-only path (tests / offline mirror). Production uses server fetch + this merge. */
+export function buildAmInboxLateSessionView(amSessionDate: string): AmInboxLateSessionView {
+  const stored = listStoredLateSessionHandoffs();
+  return buildAmInboxLateSessionViewFromContexts(
+    amSessionDate,
+    stored.map((entry) => entry.context),
+  );
 }

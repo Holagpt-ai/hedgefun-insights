@@ -37,6 +37,9 @@ export const RADAR_BRIDGE_ACTIONS = [
   "behavior_profile_list",
   "behavior_profile_list_candidates",
   "repeat_mover_get_context",
+  "late_session_handoff_upsert",
+  "late_session_handoff_list_active",
+  "late_session_handoff_expire_stale",
 ] as const;
 
 export type RadarBridgeAction = (typeof RADAR_BRIDGE_ACTIONS)[number];

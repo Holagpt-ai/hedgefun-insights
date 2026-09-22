@@ -11,6 +11,12 @@ import { isRadarBridgeAction, type RadarBridgeAction } from "./actions.ts";
 import { handleBehaviorProfileAction } from "./behavior-handlers.ts";
 import { handleHistoricalAction } from "./historical-handlers.ts";
 import { handleRepeatMoverAction } from "./repeat-mover-handlers.ts";
+import {
+  handleLateSessionHandoffAction,
+  persistLateSessionHandoffRows,
+} from "./late-session-handoff-handlers.ts";
+import { buildLateSessionHandoffUpsertsFromV22Candidates } from "../_shared/am-inbox/capture-late-session-handoffs.ts";
+import type { RadarV22CandidateRow } from "../_shared/radar-v22/persistence-v2.ts";
 
 export const ACQUIRE_LEASE_RPC = "try_acquire_radar_v22_lease_v1";
 export const HEARTBEAT_LEASE_RPC = "heartbeat_radar_v22_lease_v1";
@@ -219,6 +225,12 @@ async function handleAction(
   if (behaviorProfile) return behaviorProfile;
   const repeatMover = await handleRepeatMoverAction(action, body, db);
   if (repeatMover) return repeatMover;
+  const lateSession = await handleLateSessionHandoffAction(
+    action,
+    body,
+    (name, args) => rpcResult(db, name, args, rpcMeta),
+  );
+  if (lateSession) return lateSession;
   switch (action) {
     case "acquire_lease": {
       const holderId = readHolderId(body);
@@ -316,7 +328,7 @@ async function handleAction(
       if (typeof body.p_synced_at !== "string") {
         return json({ error: "invalid_body" }, 400);
       }
-      return await rpcResult(db, REPLACE_RADAR_V2_RPC, {
+      const publishRes = await rpcResult(db, REPLACE_RADAR_V2_RPC, {
         p_generation_id: body.p_generation_id,
         p_trading_date: body.p_trading_date,
         p_session_kind: body.p_session_kind,
@@ -327,6 +339,31 @@ async function handleAction(
         p_last_provider_event_at: body.p_last_provider_event_at ?? null,
         p_last_receive_at: body.p_last_receive_at ?? null,
       }, rpcMeta);
+      if (publishRes.status !== 200) return publishRes;
+      try {
+        const candidates = Array.isArray(body.p_candidates)
+          ? body.p_candidates as RadarV22CandidateRow[]
+          : [];
+        const upserts = buildLateSessionHandoffUpsertsFromV22Candidates({
+          tradingDate: body.p_trading_date,
+          sessionKind: body.p_session_kind as RadarV22CandidateRow["session_kind"],
+          syncedAt: body.p_synced_at,
+          candidates,
+        });
+        if (upserts.length > 0) {
+          await persistLateSessionHandoffRows(
+            db,
+            upserts,
+            (name, args) => rpcResult(db, name, args, rpcMeta),
+          );
+        }
+      } catch {
+        bridgeLog("late_session_capture_failed", {
+          request_id: requestId,
+          action: "publish_candidates_v2",
+        });
+      }
+      return publishRes;
     }
     case "set_feed_status": {
       if (typeof body.p_status !== "string" || typeof body.p_synced_at !== "string") {

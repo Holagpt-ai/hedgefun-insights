@@ -32,8 +32,8 @@ import {
 import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
 import { resolveVolumeLeadersView } from "@/lib/screeners/radar-v2-volume-leaders";
 import { peekRadarV2LoadDiagnostic } from "@/lib/screeners/radar-v2-diagnostics";
-import { buildAmInboxLateSessionView } from "@/lib/am-inbox/am-inbox-late-session-view";
 import { LateSessionHandoffsList } from "@/components/pre-market/LateSessionHandoffsList";
+import { useAmInboxLateSessionHandoffs } from "@/hooks/useAmInboxLateSessionHandoffs";
 import {
   applyPresentedVolumeLeadersToChecklist,
   buildFreshnessVerifyState,
@@ -84,10 +84,12 @@ export default function AMInbox() {
   );
   const watchlistNotice = compactWatchlistNotice(marketStatus, trackedCount);
 
-  const lateSessionView = useMemo(
-    () => buildAmInboxLateSessionView(etDate || data?.market_context.et_date || ""),
-    [etDate, data?.market_context.et_date],
-  );
+  const lateSessionQuery = useAmInboxLateSessionHandoffs(etDate || data?.market_context.et_date || "");
+  const lateSessionView = lateSessionQuery.data ?? {
+    asOfSessionDate: etDate,
+    candidates: [],
+    expiredCount: 0,
+  };
 
   const checklistItems = useMemo(
     () =>
