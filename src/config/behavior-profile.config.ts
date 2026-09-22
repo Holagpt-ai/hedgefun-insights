@@ -37,7 +37,8 @@ export const BEHAVIOR_PROFILE_DEFAULTS = {
 } as const;
 
 export type BehaviorProfileConfig = {
-  -readonly [K in keyof typeof BEHAVIOR_PROFILE_DEFAULTS]: number;
+  -readonly [K in keyof typeof BEHAVIOR_PROFILE_DEFAULTS]:
+    (typeof BEHAVIOR_PROFILE_DEFAULTS)[K] extends boolean ? boolean : number;
 };
 
 export function behaviorProfileConfig(
