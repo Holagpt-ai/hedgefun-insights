@@ -45,19 +45,7 @@ import {
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import { fetchAnalystHistoricalMemory } from "@/lib/ai-analyst/fetch-analyst-historical-memory";
 import type { HistoricalMemoryFacts } from "@/lib/ai-analyst/historical-memory";
-import type { RepeatMoverContext } from "@/types/repeat-mover";
-
-import { RADAR_HISTORICAL_SESSION_PREFIX } from "@/lib/ai-analyst/radar-historical-handoff";
-
-function readPreloadedRadarHistoricalContext(symbol: string): RepeatMoverContext | null {
-  try {
-    const raw = sessionStorage.getItem(`${RADAR_HISTORICAL_SESSION_PREFIX}${symbol}`);
-    if (!raw) return null;
-    return JSON.parse(raw) as RepeatMoverContext;
-  } catch {
-    return null;
-  }
-}
+import { readPreloadedRepeatMoverContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 
 // Only wording that the request path can actually stand behind.
 const STREAMING_STATUS_MESSAGES = [
@@ -284,7 +272,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   }, []);
 
   const prefetchHistoricalMemory = useCallback(async (symbol: string, accessToken?: string) => {
-    const preloaded = readPreloadedRadarHistoricalContext(symbol);
+    const preloaded = readPreloadedRepeatMoverContext(symbol);
     try {
       historicalMemoryRef.current = await fetchAnalystHistoricalMemory({
         symbol,

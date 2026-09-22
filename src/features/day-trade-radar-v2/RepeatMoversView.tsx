@@ -8,6 +8,7 @@ import type {
   RadarRepeatMoverCandidate,
   RadarRepeatMoversView as RadarRepeatMoversViewData,
 } from "@/lib/radar/radar-repeat-movers-types";
+import { touchWorkflowHandoff } from "@/lib/historical-workflow/workflow-symbol-routes";
 import { formatRadarMultiplier, formatRadarPercent, formatRadarVolume, moveClass } from "./radar-metrics";
 
 const FILTER_LABELS: Partial<Record<RadarRepeatMoverFilterId, string>> = {
@@ -71,7 +72,11 @@ function WorkflowActions({ candidate }: { candidate: RadarRepeatMoverCandidate }
     <div className="flex flex-wrap items-center gap-1">
       {actions.map(({ label, href, Icon }) => (
         <Button key={label} asChild variant="ghost" size="sm" className="h-7 gap-1 px-2 text-[11px] text-muted-foreground">
-          <Link to={href} aria-label={`${label} for ${candidate.symbol}`}>
+          <Link
+            to={href}
+            onClick={() => touchWorkflowHandoff(candidate.symbol, "repeat_movers")}
+            aria-label={`${label} for ${candidate.symbol}`}
+          >
             <Icon className="h-3.5 w-3.5" />
             <span>{label}</span>
           </Link>
@@ -103,7 +108,7 @@ interface RepeatMoversViewProps {
 
 export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDetails }: RepeatMoversViewProps) {
   const allowedFilters = DISPLAYED_FILTERS.filter((filter) => view.filtersAvailable.includes(filter));
-  const candidates = applyRadarRepeatMoverFilter(view.repeatMovers, activeFilter);
+  const candidates = applyRadarRepeatMoverFilter(view.candidates, activeFilter);
 
   return (
     <section className="min-w-0 space-y-2" data-testid="repeat-movers-view">

@@ -89,7 +89,7 @@ export interface DayTradeRadarV2Props {
   source?: ScreenerDataSource | null;
   /** Accepted Radar V2 generation session_kind from the data layer. */
   session?: string | null;
-  /** Existing qualified Repeat Movers view derived from the same Discovery-ordered Radar rows. */
+  /** Repeat Movers V2 view from enriched Radar payload (Discovery order preserved). */
   repeatMoversView?: RadarRepeatMoversView | null;
 }
 

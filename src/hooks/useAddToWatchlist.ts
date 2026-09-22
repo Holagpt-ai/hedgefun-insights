@@ -3,6 +3,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { mergeWorkflowSource } from "@/lib/historical-workflow/build-historical-workflow-context";
+import {
+  persistHistoricalWorkflowContext,
+  readHistoricalWorkflowContext,
+} from "@/lib/historical-workflow/workflow-handoff-storage";
 
 /**
  * Shared watchlist add helper. Mirrors the exact insert pattern used by
@@ -58,6 +63,10 @@ export function useAddToWatchlist() {
       return upper;
     },
     onSuccess: (upper) => {
+      const workflow = readHistoricalWorkflowContext(upper);
+      if (workflow) {
+        persistHistoricalWorkflowContext(mergeWorkflowSource(workflow, "watchlist"));
+      }
       queryClient.invalidateQueries({ queryKey: ["watchlist"] });
       if (user?.id) {
         queryClient.invalidateQueries({ queryKey: ["watchlist", user.id] });

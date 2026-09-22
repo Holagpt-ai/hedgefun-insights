@@ -20,7 +20,7 @@ import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screene
 import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
 import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
-import { persistRadarHistoricalContextForAnalyst } from "@/lib/ai-analyst/radar-historical-handoff";
+import { persistHistoricalWorkflowHandoff } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { buildRadarRepeatMoversView } from "@/lib/radar/build-radar-repeat-movers-view";
 import { recordRadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-peek";
 import { fetchRadarV22BoardDisplayDonors } from "@/lib/screeners/radar-v22-board-enrichment";
@@ -341,7 +341,11 @@ export function useScreenerData(
                 view = { ...view, rows: enrichedRows, repeatMoversView };
                 for (const row of enrichedRows) {
                   if (row.symbol && row.historicalContext) {
-                    persistRadarHistoricalContextForAnalyst(row.symbol, row.historicalContext);
+                    persistHistoricalWorkflowHandoff(row.historicalContext, {
+                      symbol: row.symbol,
+                      sourceSurface: "radar",
+                      securityId: row.securityId ?? row.historicalContext.securityId,
+                    });
                   }
                 }
               }

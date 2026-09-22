@@ -83,7 +83,10 @@ function mapRowToRepeatMoverCandidate(
       comparableEpisodeCount,
       mostRecentComparableDate,
     }),
-    workflowHandoffs: buildRepeatMoverWorkflowHandoffs(row.symbol),
+    workflowHandoffs: buildRepeatMoverWorkflowHandoffs(
+      row.symbol,
+      row.securityId ?? context?.securityId ?? null,
+    ),
     profileComputedAt: profile.computedAt,
     latestSourceHistoryDate: profile.latestSourceHistoryDate,
   };

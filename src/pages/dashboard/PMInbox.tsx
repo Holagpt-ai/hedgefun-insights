@@ -2,6 +2,7 @@ import { hasProAccess } from "@/lib/entitlement";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles, Newspaper, BookOpen, Star } from "lucide-react";
+import { buildInboxWorkflowNavigatePath } from "@/lib/historical-workflow/workflow-symbol-routes";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import { useAuth } from "@/contexts/AuthContext";
 import { MarketCountdownClock } from "@/components/dashboard/MarketCountdownClock";
@@ -113,7 +114,6 @@ function honestEventSessionLabel(event: CatalystEvent): string {
 
 function PmCatalystActivityCard({ event }: { event: CatalystEvent }) {
   const navigate = useNavigate();
-  const encoded = encodeURIComponent(event.symbol);
   const typeLabel = EVENT_TYPE_LABEL[event.event_type];
   const btn =
     "inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors";
@@ -137,7 +137,10 @@ function PmCatalystActivityCard({ event }: { event: CatalystEvent }) {
       <div className="mt-1 flex items-center gap-1">
         <button
           type="button"
-          onClick={() => navigate(`/dashboard/ai?symbol=${encoded}`)}
+          onClick={() => {
+            const path = buildInboxWorkflowNavigatePath("ai", event.symbol);
+            if (path) navigate(path);
+          }}
           aria-label={`Research ${event.symbol} in AI Analyst`}
           title={`Research ${event.symbol} in AI Analyst`}
           className={btn}
@@ -146,7 +149,10 @@ function PmCatalystActivityCard({ event }: { event: CatalystEvent }) {
         </button>
         <button
           type="button"
-          onClick={() => navigate(`/dashboard/catalyst?symbol=${encoded}`)}
+          onClick={() => {
+            const path = buildInboxWorkflowNavigatePath("catalyst", event.symbol);
+            if (path) navigate(path);
+          }}
           aria-label={`Open ${event.symbol} in Catalyst`}
           title={`Open ${event.symbol} in Catalyst`}
           className={btn}
@@ -183,7 +189,6 @@ function StaticItemCard({
   const symbol = normalized ?? "";
   const isTicker = normalized !== null;
 
-  const encoded = isTicker ? encodeURIComponent(symbol) : "";
   const btn =
     "inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors";
 
@@ -202,7 +207,10 @@ function StaticItemCard({
         <div className="mt-1.5 flex items-center gap-1">
           <button
             type="button"
-            onClick={() => navigate(`/dashboard/ai?symbol=${encoded}`)}
+            onClick={() => {
+              const path = buildInboxWorkflowNavigatePath("ai", symbol);
+              if (path) navigate(path);
+            }}
             aria-label={`Research ${symbol} in AI Analyst`}
             title={`Research ${symbol} in AI Analyst`}
             className={btn}
@@ -211,7 +219,10 @@ function StaticItemCard({
           </button>
           <button
             type="button"
-            onClick={() => navigate(`/dashboard/catalyst?symbol=${encoded}`)}
+            onClick={() => {
+              const path = buildInboxWorkflowNavigatePath("catalyst", symbol);
+              if (path) navigate(path);
+            }}
             aria-label={`Open ${symbol} in Catalyst`}
             title={`Open ${symbol} in Catalyst`}
             className={btn}
@@ -220,7 +231,10 @@ function StaticItemCard({
           </button>
           <button
             type="button"
-            onClick={() => navigate(`/dashboard/journal?symbol=${encoded}`)}
+            onClick={() => {
+              const path = buildInboxWorkflowNavigatePath("journal", symbol);
+              if (path) navigate(path);
+            }}
             aria-label={`Log ${symbol} in Journal`}
             title={`Log ${symbol} in Journal`}
             className={btn}
@@ -229,7 +243,10 @@ function StaticItemCard({
           </button>
           <button
             type="button"
-            onClick={() => navigate(`/dashboard/watchlist?symbol=${encoded}`)}
+            onClick={() => {
+              const path = buildInboxWorkflowNavigatePath("watchlist", symbol);
+              if (path) navigate(path);
+            }}
             aria-label={`Open ${symbol} in Watchlist`}
             title={`Open ${symbol} in Watchlist`}
             className={btn}

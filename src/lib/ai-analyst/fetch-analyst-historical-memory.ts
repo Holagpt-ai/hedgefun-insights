@@ -3,6 +3,7 @@ import {
   unavailableHistoricalMemory,
   type HistoricalMemoryFacts,
 } from "@/lib/ai-analyst/historical-memory";
+import { persistHistoricalWorkflowHandoff } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
 import { normalizeRadarSymbol } from "@/lib/radar/resolve-radar-security-id";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
@@ -38,6 +39,11 @@ export async function fetchAnalystHistoricalMemory(input: {
   if (!symbol) return unavailableHistoricalMemory(null);
 
   if (input.preloadedContext) {
+    persistHistoricalWorkflowHandoff(input.preloadedContext, {
+      symbol,
+      sourceSurface: "ai_analyst",
+      securityId: input.preloadedContext.securityId,
+    });
     return buildHistoricalMemoryFromRepeatMoverContext(input.preloadedContext, symbol);
   }
 
@@ -58,10 +64,15 @@ export async function fetchAnalystHistoricalMemory(input: {
     );
     const match = batch.results.find((row) => row.symbol === symbol)
       ?? batch.results[0];
-    return buildHistoricalMemoryFromRepeatMoverContext(
-      match?.historicalContext ?? null,
-      symbol,
-    );
+    const historicalContext = match?.historicalContext ?? null;
+    if (historicalContext) {
+      persistHistoricalWorkflowHandoff(historicalContext, {
+        symbol,
+        sourceSurface: "ai_analyst",
+        securityId: historicalContext.securityId,
+      });
+    }
+    return buildHistoricalMemoryFromRepeatMoverContext(historicalContext, symbol);
   } catch {
     return unavailableHistoricalMemory(symbol);
   }

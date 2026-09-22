@@ -15,6 +15,11 @@ import { DRAFT_KEY, readJson, writeJson } from "../lib/storage";
 import { saveTrade } from "../ledger/saveTrade";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
+import { journalReferenceFromWorkflow, persistJournalObservationalHistoricalReference } from "@/lib/historical-workflow/journal-historical-reference";
+import {
+  readHistoricalWorkflowContext,
+  readHistoricalWorkflowContextBySecurityId,
+} from "@/lib/historical-workflow/workflow-handoff-storage";
 
 interface DraftFill {
   action: ExecutionAction;
@@ -87,6 +92,13 @@ export function NewTradePage() {
     const symbol = validateSymbol(raw);
     if (symbol) {
       setDraft((current) => (current.symbol === symbol ? current : { ...current, symbol }));
+      const securityIdParam = searchParams.get("securityId");
+      const workflow =
+        readHistoricalWorkflowContext(symbol)
+        ?? (securityIdParam ? readHistoricalWorkflowContextBySecurityId(securityIdParam) : null);
+      if (workflow) {
+        persistJournalObservationalHistoricalReference(journalReferenceFromWorkflow(workflow));
+      }
     }
     const next = new URLSearchParams(searchParams);
     next.delete("symbol");

@@ -81,8 +81,6 @@ export function DayTradeRadarV2({
     screenerFilterSet: screenerFilters.filterSet,
   });
 
-  // Free-plan unlocking follows the visible Trader Lens order, so the first
-  // rows a free user actually sees are the usable ones.
   const lensRows = useMemo(
     () => filtered.map((row, index) => ({ ...row, access_rank: index + 1 })),
     [filtered],
@@ -138,13 +136,13 @@ export function DayTradeRadarV2({
     openDetails(leaderRow);
   };
 
-  const upgradeNeeded =
-    !isPro && lensRows.length > freeRowLimit && boardVisible;
-
   const openRepeatMoverDetails = (symbol: string) => {
     const row = ranked.find((candidate) => candidate.symbol === symbol);
     if (row) openDetails(row);
   };
+
+  const upgradeNeeded =
+    !isPro && lensRows.length > freeRowLimit && boardVisible;
 
   const emptyMessage = useMemo(() => {
     if (resolved.status === "loading") return null;
@@ -195,7 +193,7 @@ export function DayTradeRadarV2({
             aria-pressed={activeView === "radar"}
             onClick={() => setActiveView("radar")}
           >
-            Radar
+            Discovery
           </Button>
           <Button
             type="button"
@@ -297,32 +295,36 @@ export function DayTradeRadarV2({
         </>
       )}
 
-      <Sheet open={!isMobile && desktopDetailOpen} onOpenChange={setDesktopDetailOpen}>
-        <SheetContent
-          side="right"
-          data-testid="radar-detail-drawer"
-          className="w-full overflow-y-auto p-0 sm:max-w-[440px]"
-        >
-          <SheetTitle className="sr-only">Radar detail</SheetTitle>
-          <SheetDescription className="sr-only">
-            Radar candidate detail, chart, catalyst, and handoffs
-          </SheetDescription>
-          {detailPanel}
-        </SheetContent>
-      </Sheet>
+      {boardVisible && (
+        <>
+          <Sheet open={!isMobile && desktopDetailOpen} onOpenChange={setDesktopDetailOpen}>
+            <SheetContent
+              side="right"
+              data-testid="radar-detail-drawer"
+              className="w-full overflow-y-auto p-0 sm:max-w-[440px]"
+            >
+              <SheetTitle className="sr-only">Radar detail</SheetTitle>
+              <SheetDescription className="sr-only">
+                Radar candidate detail, chart, catalyst, and handoffs
+              </SheetDescription>
+              {detailPanel}
+            </SheetContent>
+          </Sheet>
 
-      {mobileDetailOpen && activeRow && !freeBlocked && (
-        <RadarDetailPanel
-          row={activeRow}
-          inactive={selection.inactive}
-          chartStatus={chartStatus}
-          chartBars={bars}
-          latestBarIso={latestBarIso}
-          chartError={errorMessage}
-          chartInterval={interval}
-          mobile
-          onCloseMobile={() => setMobileDetailOpen(false)}
-        />
+          {isMobile && mobileDetailOpen && activeRow && !freeBlocked && (
+            <RadarDetailPanel
+              row={activeRow}
+              inactive={selection.inactive}
+              chartStatus={chartStatus}
+              chartBars={bars}
+              latestBarIso={latestBarIso}
+              chartError={errorMessage}
+              chartInterval={interval}
+              mobile
+              onCloseMobile={() => setMobileDetailOpen(false)}
+            />
+          )}
+        </>
       )}
 
       {activeView === "radar" && upgradeNeeded && (
