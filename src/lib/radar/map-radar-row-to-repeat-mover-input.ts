@@ -1,8 +1,14 @@
-import type { RadarV2CandidateRow, RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
+import type { EpisodeTier } from "@/config/security-intelligence.config";
+import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import type { RepeatMoverContextInput } from "@/lib/repeat-movers/normalize-repeat-mover-context";
 import type { RadarHistoricalContextEnrichmentRequest } from "@/lib/radar/radar-historical-context-types";
 
-function shortWindowMovePct(row: RadarV2CandidateRow | RadarV2ScreenerRow): number | null {
+function readEpisodeTier(value: unknown): EpisodeTier | null {
+  if (value === "NOTABLE" || value === "SIGNIFICANT" || value === "EXTREME") return value;
+  return null;
+}
+
+function shortWindowMovePct(row: RadarV2ScreenerRow): number | null {
   const move60 = row.move_60s_pct;
   if (typeof move60 === "number" && Number.isFinite(move60)) return move60;
   const move15 = row.move_15s_pct;
@@ -16,21 +22,16 @@ function shortWindowMovePct(row: RadarV2CandidateRow | RadarV2ScreenerRow): numb
  * Maps verified Radar fields only. Does not infer RVOL, tier, or day move when absent.
  */
 export function mapRadarRowToRepeatMoverInput(
-  row: RadarV2ScreenerRow | RadarV2CandidateRow,
+  row: RadarV2ScreenerRow,
 ): RepeatMoverContextInput {
-  const dollarVolume =
-    "rolling_dollar_volume_60s" in row && row.rolling_dollar_volume_60s != null
-      ? row.rolling_dollar_volume_60s
-      : null;
-
   return {
     symbol: row.symbol,
     movePct: shortWindowMovePct(row),
     volume: row.volume ?? null,
     rvol: row.rvol ?? null,
-    dollarVolume,
+    dollarVolume: row.rolling_dollar_volume_60s ?? null,
     direction: null,
-    tier: typeof row.signal_tier === "string" ? row.signal_tier : null,
+    tier: readEpisodeTier(row.signal_tier),
     sessionDate: row.radar_trading_date ?? null,
     recordedAt: row.provider_as_of ?? row.updated_at ?? null,
   };
