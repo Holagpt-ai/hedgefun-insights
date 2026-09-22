@@ -1,0 +1,26 @@
+# One-shot Historical Intelligence production backfill on Fly (run on demand).
+# Deploy from repository root:
+#   fly deploy --config fly.historical-backfill.toml
+app = "stocksist-historical-backfill-job"
+primary_region = "iad"
+kill_signal = "SIGTERM"
+kill_timeout = "600s"
+
+[build]
+  dockerfile = "services/historical-backfill-job/Dockerfile"
+
+[processes]
+  backfill = "npx vite-node --config vitest.config.ts services/historical-backfill-job/src/main.ts"
+
+[[services]]
+  processes = ["backfill"]
+  protocol = "tcp"
+  internal_port = 8080
+  auto_stop_machines = "stop"
+  auto_start_machines = false
+  min_machines_running = 0
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 2
+  memory = "2gb"
