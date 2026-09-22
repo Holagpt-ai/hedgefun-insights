@@ -1,6 +1,7 @@
 // Pure validated-generation contract for Screeners P1-R4.
 // Retry + fail-closed load live here; the React hook only wires fetchers + UI state.
 
+import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
 import {
   parseTabEvaluationEvidence,
   type TabEvaluationEvidenceMap,
@@ -108,6 +109,8 @@ export interface ScreenerTabView {
   attempts: number;
   nhl_baseline_status: NhlBaselineStatus | null;
   tab_evaluation_evidence: TabEvaluationEvidenceMap | null;
+  /** Repeat Movers V2 view derived from enriched Radar rows (day_trade_radar only). */
+  repeatMoversView?: RadarRepeatMoversView | null;
 }
 
 export interface GenerationFetchResult {

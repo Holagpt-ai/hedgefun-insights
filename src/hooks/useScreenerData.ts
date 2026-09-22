@@ -21,6 +21,8 @@ import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-his
 import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import { persistRadarHistoricalContextForAnalyst } from "@/lib/ai-analyst/radar-historical-handoff";
+import { buildRadarRepeatMoversView } from "@/lib/radar/build-radar-repeat-movers-view";
+import { recordRadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-peek";
 import { fetchRadarV22BoardDisplayDonors } from "@/lib/screeners/radar-v22-board-enrichment";
 import {
   radarV2FetchThrewDecision,
@@ -330,7 +332,9 @@ export function useScreenerData(
                     requests,
                   }),
                 });
-                view = { ...view, rows: enrichedRows };
+                const repeatMoversView = buildRadarRepeatMoversView(enrichedRows, { nowMs: Date.now() });
+                recordRadarRepeatMoversView(repeatMoversView);
+                view = { ...view, rows: enrichedRows, repeatMoversView };
                 for (const row of enrichedRows) {
                   if (row.symbol && row.historicalContext) {
                     persistRadarHistoricalContextForAnalyst(row.symbol, row.historicalContext);
