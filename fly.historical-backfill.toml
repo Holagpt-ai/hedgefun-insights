@@ -16,9 +16,9 @@ kill_timeout = "300s"
   processes = ["backfill"]
   protocol = "tcp"
   internal_port = 8080
-  auto_stop_machines = "stop"
+  auto_stop_machines = "off"
   auto_start_machines = false
-  min_machines_running = 0
+  min_machines_running = 1
 
 [[vm]]
   cpu_kind = "shared"
