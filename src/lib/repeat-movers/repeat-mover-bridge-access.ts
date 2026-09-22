@@ -1,4 +1,5 @@
 import { BridgeBehaviorProfileRepository } from "@/lib/behavior-profile/behavior-profile-repository";
+import { eventReactionLinkWithEventFromBridgeRow } from "@/lib/episode-event-linkage/episode-event-linkage-bridge-map";
 import { mapForwardOutcomeRow } from "@/lib/forward-outcomes/forward-outcome-bridge-map";
 import { getRepeatMoverContext } from "@/lib/repeat-movers/get-repeat-mover-context";
 import type { RepeatMoverDataAccess } from "@/lib/repeat-movers/get-repeat-mover-context";
@@ -91,6 +92,14 @@ export function createRepeatMoverBridgeDataAccess(
           ? result.rows
           : [];
       return (raw as Record<string, unknown>[]).map(mapForwardOutcomeRow);
+    },
+    async listEventReactionLinksForEpisodes(episodeIds) {
+      if (episodeIds.length === 0) return [];
+      const result = await bridge.call("event_reaction_link_list_for_episodes", {
+        episode_ids: [...episodeIds],
+      });
+      const raw = Array.isArray(result.result) ? result.result : [];
+      return (raw as Record<string, unknown>[]).map(eventReactionLinkWithEventFromBridgeRow);
     },
   };
 }

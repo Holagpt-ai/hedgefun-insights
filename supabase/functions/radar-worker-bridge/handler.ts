@@ -16,6 +16,7 @@ import {
   persistLateSessionHandoffRows,
 } from "./late-session-handoff-handlers.ts";
 import { handleForwardOutcomeAction } from "./forward-outcome-handlers.ts";
+import { handleCorporateEventAction } from "./corporate-event-handlers.ts";
 import { buildLateSessionHandoffUpsertsFromV22Candidates } from "../_shared/am-inbox/capture-late-session-handoffs.ts";
 import type { RadarV22CandidateRow } from "../_shared/radar-v22/persistence-v2.ts";
 
@@ -244,6 +245,13 @@ async function handleAction(
     (name, args) => rpcResult(db, name, args, rpcMeta),
   );
   if (forwardOutcomes) return forwardOutcomes;
+  const corporateEvents = await handleCorporateEventAction(
+    action,
+    body,
+    db,
+    (name, args) => rpcResult(db, name, args, rpcMeta),
+  );
+  if (corporateEvents) return corporateEvents;
   switch (action) {
     case "acquire_lease": {
       const holderId = readHolderId(body);

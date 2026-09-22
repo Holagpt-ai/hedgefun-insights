@@ -45,6 +45,10 @@ export const RADAR_BRIDGE_ACTIONS = [
   "forward_outcome_list_by_episodes",
   "forward_outcome_aggregate_for_security",
   "forward_outcome_list_candidates",
+  "corporate_event_apply_batch",
+  "event_reaction_link_apply_batch",
+  "corporate_event_list_for_security",
+  "event_reaction_link_list_for_episodes",
 ] as const;
 
 export type RadarBridgeAction = (typeof RADAR_BRIDGE_ACTIONS)[number];

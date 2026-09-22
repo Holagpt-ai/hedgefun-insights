@@ -1,6 +1,7 @@
 import type { RepeatMoverEvidenceLabel, RepeatMoverVersion } from "@/config/repeat-mover.config";
 import type { RepeatMoverForwardOutcomeEvidence } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { BehaviorProfileSampleQuality } from "@/config/behavior-profile.config";
+import type { EpisodeLinkedEventEvidence } from "@/lib/episode-event-linkage/episode-linked-event-evidence";
 import type { EpisodeDirection, EpisodeTier } from "@/config/security-intelligence.config";
 import type { SecurityId } from "@/types/security-identity";
 
@@ -37,6 +38,8 @@ export interface RepeatMoverComparableEpisode {
   nextSessionContinuation: boolean | null;
   /** Persisted forward-outcome facts when loaded (does not affect qualification). */
   observedForwardOutcomes?: RepeatMoverForwardOutcomeEvidence;
+  /** Verified corporate/event evidence temporally associated with the episode (non-causal). */
+  historicalEvents?: readonly EpisodeLinkedEventEvidence[];
   similarity: RepeatMoverComparableSimilarity;
 }
 

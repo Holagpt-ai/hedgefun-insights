@@ -226,6 +226,7 @@ export interface CorporateEventInput extends EvidenceInput {
   observedSymbol?: string | null;
   eventType: string;
   eventAt: string;
+  publishedAt?: string | null;
   title: string;
   summary?: string | null;
   sourceUrl?: string | null;
@@ -454,8 +455,12 @@ export class SecurityIntelligenceStore {
     const title = blankToNull(input.title);
     if (title === null) return fail("title required");
     const eventAt = timestamp(input.eventAt, "eventAt");
+    const publishedAt = input.publishedAt == null || input.publishedAt === ""
+      ? eventAt
+      : timestamp(input.publishedAt, "publishedAt");
     const recordedAt = timestamp(input.recordedAt, "recordedAt");
     if (!eventAt.ok || eventAt.iso === null) return fail("invalid eventAt");
+    if (!publishedAt.ok || publishedAt.iso === null) return fail("invalid publishedAt");
     if (!recordedAt.ok || recordedAt.iso === null) return fail("invalid recordedAt");
     const observedSymbol = optionalSymbol(input.observedSymbol);
     if (!observedSymbol.ok) return fail(observedSymbol.reason);
@@ -474,6 +479,7 @@ export class SecurityIntelligenceStore {
       observedSymbol: observedSymbol.value,
       eventType: eventType as CorporateEventType,
       eventAt: eventAt.iso,
+      publishedAt: publishedAt.iso,
       title,
       summary: blankToNull(input.summary),
       sourceUrl: blankToNull(input.sourceUrl),

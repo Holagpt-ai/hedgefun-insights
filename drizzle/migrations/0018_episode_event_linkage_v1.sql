@@ -1,0 +1,2 @@
+-- Episode Event Linkage V1 — canonical SQL lives in:
+-- supabase/migrations/20260922240000_episode_event_linkage_v1.sql

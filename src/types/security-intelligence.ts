@@ -73,6 +73,8 @@ export interface CorporateEvent extends IntelligenceEvidence {
   observedSymbol: string | null;
   eventType: CorporateEventType;
   eventAt: string;
+  /** When the event became publicly known (point-in-time safety). Falls back to eventAt when absent. */
+  publishedAt: string | null;
   title: string;
   summary: string | null;
   sourceUrl: string | null;

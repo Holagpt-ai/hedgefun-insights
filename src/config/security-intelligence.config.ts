@@ -54,6 +54,10 @@ export const CORPORATE_EVENT_TYPES = [
   "REGULATORY_EVENT",
   "EXCHANGE_COMPLIANCE",
   "OWNERSHIP_CHANGE",
+  "ANALYST_ACTION",
+  "BANKRUPTCY",
+  "CORPORATE_ACTION",
+  "UNKNOWN",
   "OTHER",
 ] as const;
 export type CorporateEventType = (typeof CORPORATE_EVENT_TYPES)[number];

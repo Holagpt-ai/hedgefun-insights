@@ -11,7 +11,9 @@ import type {
   RepeatMoverContext,
   RepeatMoverProfileSnapshot,
 } from "@/types/repeat-mover";
+import { attachHistoricalEventsFromStore } from "@/lib/episode-event-linkage/attach-events-to-comparables";
 import { attachForwardOutcomesFromStore } from "@/lib/forward-outcomes/attach-forward-outcomes-to-comparables";
+import type { CorporateEvent, EventReactionLink } from "@/types/security-intelligence";
 import type { PersistedForwardOutcomeRow } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { MarketBehaviorEpisode, SecurityDailyHistory } from "@/types/security-intelligence";
 import type { SecurityId } from "@/types/security-identity";
@@ -23,6 +25,9 @@ export interface RepeatMoverDataAccess {
   listForwardOutcomesForEpisodes?(
     episodeIds: readonly string[],
   ): Promise<readonly PersistedForwardOutcomeRow[]>;
+  listEventReactionLinksForEpisodes?(
+    episodeIds: readonly string[],
+  ): Promise<readonly (EventReactionLink & { corporateEvent?: CorporateEvent | null })[]>;
 }
 
 export function unavailableRepeatMoverProfileSnapshot(): RepeatMoverProfileSnapshot {
@@ -185,10 +190,34 @@ export async function getRepeatMoverContext(input: {
     );
   }
 
-  if (input.data.listForwardOutcomesForEpisodes && comparables.length > 0) {
+  if (comparables.length > 0) {
     const episodeIds = comparables.map((episode) => episode.episodeId);
-    const persisted = await input.data.listForwardOutcomesForEpisodes(episodeIds);
-    comparables = attachForwardOutcomesFromStore(comparables, persisted);
+    if (input.data.listForwardOutcomesForEpisodes) {
+      const persisted = await input.data.listForwardOutcomesForEpisodes(episodeIds);
+      comparables = attachForwardOutcomesFromStore(comparables, persisted);
+    }
+    if (input.data.listEventReactionLinksForEpisodes) {
+      const linkRows = await input.data.listEventReactionLinksForEpisodes(episodeIds);
+      const links: EventReactionLink[] = linkRows.map((row) => ({
+        linkId: row.linkId,
+        eventId: row.eventId,
+        episodeId: row.episodeId,
+        securityId: row.securityId,
+        relationType: row.relationType,
+        timeDeltaSeconds: row.timeDeltaSeconds,
+        timeDeltaMinutes: row.timeDeltaMinutes,
+        confidence: null,
+        evidence: row.evidence,
+        provenance: row.provenance,
+        source: row.source,
+        sourceAsOf: row.sourceAsOf,
+        createdAt: row.createdAt,
+      }));
+      const events: CorporateEvent[] = linkRows
+        .map((row) => row.corporateEvent)
+        .filter((event): event is CorporateEvent => event != null);
+      comparables = attachHistoricalEventsFromStore(comparables, links, events);
+    }
   }
 
   const mostRecentComparableEpisode = comparables.length === 0
