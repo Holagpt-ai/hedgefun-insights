@@ -22,7 +22,7 @@ describe("HistoricalBridgeClient", () => {
     });
     await client.call("historical_apply_daily_batch", { p_rows: [] });
     expect(fetchMock).toHaveBeenCalledTimes(1);
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(init.headers).toMatchObject({
       Authorization: `Bearer ${SECRET}`,
       "Content-Type": "application/json",

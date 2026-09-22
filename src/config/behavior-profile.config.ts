@@ -36,7 +36,9 @@ export const BEHAVIOR_PROFILE_DEFAULTS = {
   recurrenceWindowSessions90: 90,
 } as const;
 
-export type BehaviorProfileConfig = typeof BEHAVIOR_PROFILE_DEFAULTS;
+export type BehaviorProfileConfig = {
+  -readonly [K in keyof typeof BEHAVIOR_PROFILE_DEFAULTS]: number;
+};
 
 export function behaviorProfileConfig(
   overrides: Partial<BehaviorProfileConfig> = {},
