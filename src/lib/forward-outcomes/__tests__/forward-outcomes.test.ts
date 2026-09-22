@@ -64,7 +64,7 @@ function episode(episodeId: string, sessionStart: string, endPrice: number): Mar
     haltCount: 0,
     closeStrength: null,
     detectedBy: null,
-    origin: "INTERNAL",
+    origin: "HISTORICAL_BACKFILL",
     createdAt: `${sessionStart}T21:00:00.000Z`,
     updatedAt: `${sessionStart}T21:00:00.000Z`,
     source: null,

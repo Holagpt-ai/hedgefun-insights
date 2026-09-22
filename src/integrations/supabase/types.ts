@@ -807,6 +807,7 @@ export type Database = {
           high_price: number | null
           horizon: string
           horizon_session_date: string | null
+          horizon_session_move_pct: number | null
           low_price: number | null
           max_drawdown_pct: number | null
           max_gain_pct: number | null
@@ -824,42 +825,70 @@ export type Database = {
           source_as_of: string | null
         }
         Insert: {
+          availability_state?: string | null
+          broke_episode_low?: boolean | null
+          close_position?: number | null
+          closed_above_episode_close?: boolean | null
+          closed_below_episode_close?: boolean | null
           computed_at?: string | null
           data_available: boolean
           episode_id: string
+          episode_session_date?: string | null
+          exceeded_episode_high?: boolean | null
           fetched_at?: string | null
           freshness: string
+          gap_pct?: number | null
           high_price?: number | null
           horizon: string
+          horizon_session_date?: string | null
+          horizon_session_move_pct?: number | null
           low_price?: number | null
           max_drawdown_pct?: number | null
           max_gain_pct?: number | null
+          open_to_close_return_pct?: number | null
           outcome_price?: number | null
           provenance: string
           quality: string
           reference_price?: number | null
           reference_timestamp?: string | null
           return_pct?: number | null
+          rvol?: number | null
+          security_id?: string | null
+          session_volume?: number | null
           source?: string | null
           source_as_of?: string | null
         }
         Update: {
+          availability_state?: string | null
+          broke_episode_low?: boolean | null
+          close_position?: number | null
+          closed_above_episode_close?: boolean | null
+          closed_below_episode_close?: boolean | null
           computed_at?: string | null
           data_available?: boolean
           episode_id?: string
+          episode_session_date?: string | null
+          exceeded_episode_high?: boolean | null
           fetched_at?: string | null
           freshness?: string
+          gap_pct?: number | null
           high_price?: number | null
           horizon?: string
+          horizon_session_date?: string | null
+          horizon_session_move_pct?: number | null
           low_price?: number | null
           max_drawdown_pct?: number | null
           max_gain_pct?: number | null
+          open_to_close_return_pct?: number | null
           outcome_price?: number | null
           provenance?: string
           quality?: string
           reference_price?: number | null
           reference_timestamp?: string | null
           return_pct?: number | null
+          rvol?: number | null
+          security_id?: string | null
+          session_volume?: number | null
           source?: string | null
           source_as_of?: string | null
         }
@@ -870,6 +899,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "market_behavior_episodes"
             referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "forward_outcomes_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
           },
         ]
       }
@@ -7142,6 +7178,63 @@ export type Database = {
           p_user_id: string
         }
         Returns: Json
+      }
+      forward_outcome_aggregate_for_security_v1: {
+        Args: { p_security_id: string }
+        Returns: Json
+      }
+      forward_outcome_apply_batch_v1: { Args: { p_rows: Json }; Returns: Json }
+      forward_outcome_list_by_episodes_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: {
+          availability_state: string | null
+          broke_episode_low: boolean | null
+          close_position: number | null
+          closed_above_episode_close: boolean | null
+          closed_below_episode_close: boolean | null
+          computed_at: string | null
+          data_available: boolean
+          episode_id: string
+          episode_session_date: string | null
+          exceeded_episode_high: boolean | null
+          fetched_at: string | null
+          freshness: string
+          gap_pct: number | null
+          high_price: number | null
+          horizon: string
+          horizon_session_date: string | null
+          horizon_session_move_pct: number | null
+          low_price: number | null
+          max_drawdown_pct: number | null
+          max_gain_pct: number | null
+          open_to_close_return_pct: number | null
+          outcome_price: number | null
+          provenance: string
+          quality: string
+          reference_price: number | null
+          reference_timestamp: string | null
+          return_pct: number | null
+          rvol: number | null
+          security_id: string | null
+          session_volume: number | null
+          source: string | null
+          source_as_of: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "forward_outcomes"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      forward_outcome_list_candidates_v1: {
+        Args: { p_after_security_id?: string; p_limit?: number }
+        Returns: {
+          episode_count: number
+          max_history_date: string
+          outcome_row_count: number
+          security_id: string
+        }[]
       }
       has_role: {
         Args: {
