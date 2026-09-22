@@ -30,7 +30,10 @@ export interface ComparableHistoricalEpisodeEvidence {
   movePct: number | null;
   rvol: number | null;
   volume: number | null;
+  dollarVolume: number | null;
   closePosition: number | null;
+  nextSessionMovePct: number | null;
+  nextSessionContinuation: boolean | null;
   similarity: ComparableEpisodeSimilarity;
 }
 
@@ -69,6 +72,7 @@ export function getComparableHistoricalEpisodes(input: {
   const referenceTier = input.currentContext?.tier ?? null;
   const referenceDate = input.currentContext?.sessionDate ?? null;
 
+  const sessionIndex = new Map(dailyRows.map((row, index) => [row.sessionDate, index]));
   const results: ComparableHistoricalEpisodeEvidence[] = [];
   for (const episode of episodeRows) {
     const sessionDate = episodeSessionDate(episode, openTimestampToDate);
@@ -87,6 +91,22 @@ export function getComparableHistoricalEpisodes(input: {
     }
     const daily = sessionDate ? dailyByDate.get(sessionDate) : undefined;
     const position = daily ? closePosition(daily) : null;
+    let nextSessionMovePct: number | null = null;
+    let nextSessionContinuation: boolean | null = null;
+    if (sessionDate) {
+      const index = sessionIndex.get(sessionDate);
+      if (index !== undefined && index + 1 < dailyRows.length) {
+        const nextDaily = dailyRows[index + 1];
+        if (nextDaily.movePct !== null && Number.isFinite(nextDaily.movePct)) {
+          nextSessionMovePct = nextDaily.movePct;
+          if (episode.direction === "POSITIVE") {
+            nextSessionContinuation = nextDaily.movePct >= config.continuationMinMovePct;
+          } else if (episode.direction === "NEGATIVE") {
+            nextSessionContinuation = nextDaily.movePct <= -config.continuationMinMovePct;
+          }
+        }
+      }
+    }
     results.push({
       episodeId: episode.episodeId,
       sessionDate,
@@ -95,7 +115,10 @@ export function getComparableHistoricalEpisodes(input: {
       movePct: move,
       rvol: episode.rvol,
       volume: episode.volume,
+      dollarVolume: episode.dollarVolume ?? daily?.dollarVolume ?? null,
       closePosition: position,
+      nextSessionMovePct,
+      nextSessionContinuation,
       similarity: {
         sameDirection: referenceDirection === null || episode.direction === referenceDirection,
         movePctDelta: referenceMove !== null && move !== null
@@ -107,6 +130,15 @@ export function getComparableHistoricalEpisodes(input: {
   }
 
   return results
-    .sort((left, right) => (right.sessionDate ?? "").localeCompare(left.sessionDate ?? ""))
+    .sort((left, right) => {
+      const leftDelta = left.similarity.movePctDelta;
+      const rightDelta = right.similarity.movePctDelta;
+      if (leftDelta !== null && rightDelta !== null && leftDelta !== rightDelta) {
+        return leftDelta - rightDelta;
+      }
+      if (leftDelta === null && rightDelta !== null) return 1;
+      if (leftDelta !== null && rightDelta === null) return -1;
+      return (right.sessionDate ?? "").localeCompare(left.sessionDate ?? "");
+    })
     .slice(0, limit);
 }
