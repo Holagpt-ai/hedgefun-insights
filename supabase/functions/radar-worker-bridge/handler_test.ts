@@ -707,3 +707,58 @@ Deno.test("publish_candidates_v2 RPC error logs code/message/details/hint", asyn
     console.log = original;
   }
 });
+
+Deno.test("historical: unknown action rejected", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({ action: "historical_not_allowed" }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 400);
+  assertEquals(out.body.error, "unknown_action");
+  assertEquals(db.rpcCalls.length, 0);
+});
+
+Deno.test("historical: apply daily batch requires p_rows array", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({ action: "historical_apply_daily_batch", p_rows: "bad" }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 400);
+  assertEquals(out.body.error, "invalid_body");
+});
+
+Deno.test("historical: apply daily batch forwards rpc", async () => {
+  const db = new FakeDb();
+  db.rpcImpl = (fn, args) => {
+    assertEquals(fn, "historical_apply_daily_batch");
+    assertEquals(Array.isArray(args.p_rows), true);
+    return { data: null, error: null };
+  };
+  const res = await handleRadarWorkerBridge(
+    post({ action: "historical_apply_daily_batch", p_rows: [] }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 200);
+  assertEquals(out.body.ok, true);
+  assertEquals(db.rpcCalls.length, 1);
+});
+
+Deno.test("historical: pagination rejects oversized page_limit", async () => {
+  const db = new FakeDb();
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "historical_list_securities",
+      page_offset: 0,
+      page_limit: 501,
+    }),
+    deps(db),
+  );
+  const out = await readJson(res);
+  assertEquals(out.status, 400);
+  assertEquals(out.body.error, "invalid_body");
+});

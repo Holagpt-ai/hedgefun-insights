@@ -1,22 +1,20 @@
 import type { Sql } from "postgres";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HistoricalIdentityPort, HistoricalIntelligencePort } from "@/lib/historical-backfill/engine";
+import {
+  HistoricalBridgeClient,
+  requireHistoricalBridgeConfig,
+} from "@/lib/persistence/historical-bridge-client";
 import {
   loadDotEnvFiles,
   openProductionSql,
   requireProductionDatabaseUrl,
 } from "@/lib/persistence/production-database";
-import {
-  createProductionSupabaseClient,
-  requireProductionSupabaseServerKey,
-  requireProductionSupabaseUrl,
-} from "@/lib/persistence/supabase-server";
+import { BridgeSecurityIdentityRepository } from "@/lib/security-identity/bridge-security-identity";
 import { PostgresSecurityIdentityRepository } from "@/lib/security-identity/postgres-security-identity";
-import { SupabaseSecurityIdentityRepository } from "@/lib/security-identity/supabase-security-identity";
+import { BridgeSecurityIntelligenceRepository } from "@/lib/security-intelligence/bridge-security-intelligence";
 import { PostgresSecurityIntelligenceRepository } from "@/lib/security-intelligence/postgres-security-intelligence";
-import { SupabaseSecurityIntelligenceRepository } from "@/lib/security-intelligence/supabase-security-intelligence";
 
-export type HistoricalPersistenceTransport = "postgres" | "supabase";
+export type HistoricalPersistenceTransport = "bridge" | "postgres";
 
 export interface HistoricalIdentityRepository extends HistoricalIdentityPort {
   resolve: PostgresSecurityIdentityRepository["resolve"];
@@ -40,6 +38,12 @@ export interface HistoricalRolloutQueries {
   loadEligibleSymbols(backfilled: Set<string>, canarySymbols: ReadonlySet<string>): Promise<string[]>;
 }
 
+function hasBridgeCredentials(): boolean {
+  const bridgeUrl = (process.env.RADAR_BRIDGE_URL ?? "").trim();
+  const workerSecret = (process.env.RADAR_WORKER_SECRET ?? "").trim();
+  return bridgeUrl.length > 0 && workerSecret.length > 0;
+}
+
 function hasDirectProductionDatabaseUrl(): boolean {
   const url = (
     process.env.HISTORICAL_PRODUCTION_DATABASE_URL
@@ -51,21 +55,11 @@ function hasDirectProductionDatabaseUrl(): boolean {
   return url.length > 0;
 }
 
-function hasProductionSupabaseCredentials(): boolean {
-  const url = (process.env.SUPABASE_URL ?? "").trim();
-  const key = (
-    process.env.SUPABASE_SERVICE_ROLE_KEY
-    ?? process.env.SUPABASE_SECRET_KEY
-    ?? ""
-  ).trim();
-  return url.length > 0 && key.length > 0;
-}
-
 export function resolveHistoricalPersistenceTransport(): HistoricalPersistenceTransport {
+  if (hasBridgeCredentials()) return "bridge";
   if (hasDirectProductionDatabaseUrl()) return "postgres";
-  if (hasProductionSupabaseCredentials()) return "supabase";
   throw new Error(
-    "Historical production persistence requires HISTORICAL_PRODUCTION_DATABASE_URL or SUPABASE_URL with SUPABASE_SERVICE_ROLE_KEY/SUPABASE_SECRET_KEY",
+    "Historical production persistence requires RADAR_BRIDGE_URL with RADAR_WORKER_SECRET or HISTORICAL_PRODUCTION_DATABASE_URL",
   );
 }
 
@@ -110,40 +104,30 @@ function postgresRolloutQueries(sql: Sql): HistoricalRolloutQueries {
   };
 }
 
-function supabaseRolloutQueries(supabase: SupabaseClient): HistoricalRolloutQueries {
+function bridgeRolloutQueries(bridge: HistoricalBridgeClient): HistoricalRolloutQueries {
   return {
     async findInterruptedJob(dateFrom, dateTo) {
-      const { data, error } = await supabase.rpc("historical_find_interrupted_backfill_job", {
+      const res = await bridge.call("historical_find_interrupted_job", {
         p_date_from: dateFrom,
         p_date_to: dateTo,
       });
-      if (error) throw new Error(error.message);
-      const row = Array.isArray(data) ? data[0] : null;
-      if (!row || typeof row !== "object") return null;
-      const record = row as { job_id?: string; state?: string };
-      return record.job_id && record.state ? { jobId: record.job_id, state: record.state } : null;
+      const rows = Array.isArray(res.result) ? res.result as Record<string, unknown>[] : [];
+      const row = rows[0];
+      if (!row?.job_id || !row?.state) return null;
+      return { jobId: String(row.job_id), state: String(row.state) };
     },
     async loadBackfilledSymbols(dateFrom, dateTo, minSessions) {
-      const { data, error } = await supabase.rpc("historical_rollout_backfilled_symbols", {
+      const res = await bridge.call("historical_rollout_backfilled_symbols", {
         p_date_from: dateFrom,
         p_date_to: dateTo,
         p_min_sessions: minSessions,
       });
-      if (error) throw new Error(error.message);
-      const symbols = Array.isArray(data)
-        ? data.map((row) => (typeof row === "object" && row && "symbol" in row ? String((row as { symbol: string }).symbol) : ""))
-        : [];
-      return new Set(symbols.filter(Boolean));
+      const rows = Array.isArray(res.result) ? res.result as Record<string, unknown>[] : [];
+      return new Set(rows.map((row) => String(row.symbol)).filter(Boolean));
     },
     async loadEligibleSymbols(backfilled, canarySymbols) {
-      const { data, error } = await supabase
-        .from("ticker_search")
-        .select("symbol")
-        .eq("active", true)
-        .eq("type", "CS")
-        .order("symbol");
-      if (error) throw new Error(error.message);
-      return (data ?? [])
+      const rows = await bridge.fetchAllRows("historical_list_eligible_symbols", {});
+      return rows
         .map((row) => String(row.symbol))
         .filter((symbol) => !canarySymbols.has(symbol) && !backfilled.has(symbol));
     },
@@ -153,24 +137,23 @@ function supabaseRolloutQueries(supabase: SupabaseClient): HistoricalRolloutQuer
 export function createHistoricalPersistence(options: { loadLocalEnv?: boolean } = {}): HistoricalPersistence {
   if (options.loadLocalEnv) loadDotEnvFiles();
   const transport = resolveHistoricalPersistenceTransport();
-  if (transport === "postgres") {
-    const sql = openProductionSql(requireProductionDatabaseUrl());
+  if (transport === "bridge") {
+    const config = requireHistoricalBridgeConfig();
+    const bridge = new HistoricalBridgeClient(config);
     return {
       transport,
-      identity: new PostgresSecurityIdentityRepository(sql),
-      intelligence: new PostgresSecurityIntelligenceRepository(sql),
-      rollout: postgresRolloutQueries(sql),
-      close: async () => { await sql.end(); },
+      identity: new BridgeSecurityIdentityRepository(bridge),
+      intelligence: new BridgeSecurityIntelligenceRepository(bridge),
+      rollout: bridgeRolloutQueries(bridge),
+      close: async () => {},
     };
   }
-  requireProductionSupabaseUrl();
-  requireProductionSupabaseServerKey();
-  const supabase = createProductionSupabaseClient();
+  const sql = openProductionSql(requireProductionDatabaseUrl());
   return {
     transport,
-    identity: new SupabaseSecurityIdentityRepository(supabase),
-    intelligence: new SupabaseSecurityIntelligenceRepository(supabase),
-    rollout: supabaseRolloutQueries(supabase),
-    close: async () => {},
+    identity: new PostgresSecurityIdentityRepository(sql),
+    intelligence: new PostgresSecurityIntelligenceRepository(sql),
+    rollout: postgresRolloutQueries(sql),
+    close: async () => { await sql.end(); },
   };
 }

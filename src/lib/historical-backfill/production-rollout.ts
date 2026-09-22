@@ -8,7 +8,7 @@ import {
   type HistoricalIdentityRepository,
   type HistoricalPersistence,
 } from "@/lib/persistence/historical-persistence";
-import { createProductionSupabaseClient } from "@/lib/persistence/supabase-server";
+import { HistoricalBridgeClient, requireHistoricalBridgeConfig } from "@/lib/persistence/historical-bridge-client";
 import { HistoricalFactConflictError } from "@/lib/security-intelligence/postgres-security-intelligence";
 import type { SecurityType } from "@/config/security-identity.config";
 import type { BackfillJobStats } from "@/types/historical-backfill";
@@ -283,10 +283,9 @@ export async function runHistoricalBackfillConnectivityCheck(options: {
   try {
     const job = await persistence.intelligence.getJob(jobId);
     if (!job) throw new Error(`connectivity check: job ${jobId} not found`);
-    if (persistence.transport === "supabase") {
-      const supabase = createProductionSupabaseClient();
-      const { error } = await supabase.rpc("historical_apply_daily_batch", { p_rows: [] });
-      if (error) throw new Error(error.message);
+    if (persistence.transport === "bridge") {
+      const bridge = new HistoricalBridgeClient(requireHistoricalBridgeConfig());
+      await bridge.call("historical_apply_daily_batch", { p_rows: [] });
       const interrupted = await persistence.rollout.findInterruptedJob(job.dateFrom, job.dateTo);
       if (!interrupted?.jobId) throw new Error("connectivity check: rollout job query failed");
     }

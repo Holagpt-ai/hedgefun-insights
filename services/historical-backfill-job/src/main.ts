@@ -1,6 +1,6 @@
 /**
  * Fly one-shot Historical Intelligence production backfill worker.
- * Secrets: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (or direct HISTORICAL_PRODUCTION_DATABASE_URL), POLYGON_API_KEY.
+ * Secrets: RADAR_BRIDGE_URL, RADAR_WORKER_SECRET, POLYGON_API_KEY (optional HISTORICAL_PRODUCTION_DATABASE_URL for local).
  */
 import { createServer } from "node:http";
 import {
