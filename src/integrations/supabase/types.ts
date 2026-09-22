@@ -6879,6 +6879,43 @@ export type Database = {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
       }
+      historical_apply_daily_batch: {
+        Args: { p_rows: Json }
+        Returns: undefined
+      }
+      historical_apply_episode_batch: {
+        Args: { p_rows: Json }
+        Returns: undefined
+      }
+      historical_daily_facts_match: {
+        Args: {
+          p_existing: Database["public"]["Tables"]["security_daily_history"]["Row"]
+          p_row: Json
+        }
+        Returns: boolean
+      }
+      historical_find_interrupted_backfill_job: {
+        Args: { p_date_from: string; p_date_to: string }
+        Returns: {
+          job_id: string
+          state: string
+        }[]
+      }
+      historical_identity_apply_diff: {
+        Args: {
+          p_history_inserts: Json
+          p_history_updates: Json
+          p_identifier_inserts: Json
+          p_securities: Json
+        }
+        Returns: undefined
+      }
+      historical_rollout_backfilled_symbols: {
+        Args: { p_date_from: string; p_date_to: string; p_min_sessions: number }
+        Returns: {
+          symbol: string
+        }[]
+      }
       journal_backfill_accounts_and_executions: {
         Args: { p_user_id?: string }
         Returns: Json
