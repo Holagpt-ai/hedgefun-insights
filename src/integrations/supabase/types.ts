@@ -5446,10 +5446,16 @@ export type Database = {
       radar_v22_feed_state: {
         Row: {
           candidate_count: number
+          feed_connection_state: string | null
+          feed_last_message_at: string | null
+          feed_latency_ms: number | null
           feed_stale: boolean
+          feed_telemetry_stale: boolean
           generation_id: string | null
           last_provider_event_at: string | null
           last_receive_at: string | null
+          market_data_feed_mode: string | null
+          market_data_provider: string | null
           provider_as_of_max: string | null
           provider_as_of_min: string | null
           sentinel_enabled: boolean
@@ -5465,10 +5471,16 @@ export type Database = {
         }
         Insert: {
           candidate_count?: number
+          feed_connection_state?: string | null
+          feed_last_message_at?: string | null
+          feed_latency_ms?: number | null
           feed_stale?: boolean
+          feed_telemetry_stale?: boolean
           generation_id?: string | null
           last_provider_event_at?: string | null
           last_receive_at?: string | null
+          market_data_feed_mode?: string | null
+          market_data_provider?: string | null
           provider_as_of_max?: string | null
           provider_as_of_min?: string | null
           sentinel_enabled?: boolean
@@ -5484,10 +5496,16 @@ export type Database = {
         }
         Update: {
           candidate_count?: number
+          feed_connection_state?: string | null
+          feed_last_message_at?: string | null
+          feed_latency_ms?: number | null
           feed_stale?: boolean
+          feed_telemetry_stale?: boolean
           generation_id?: string | null
           last_provider_event_at?: string | null
           last_receive_at?: string | null
+          market_data_feed_mode?: string | null
+          market_data_provider?: string | null
           provider_as_of_max?: string | null
           provider_as_of_min?: string | null
           sentinel_enabled?: boolean
@@ -8006,9 +8024,15 @@ export type Database = {
         Args: {
           p_candidates: Json
           p_events: Json
+          p_feed_connection_state?: string
+          p_feed_last_message_at?: string
+          p_feed_latency_ms?: number
+          p_feed_telemetry_stale?: boolean
           p_generation_id: string
           p_last_provider_event_at: string
           p_last_receive_at: string
+          p_market_data_feed_mode?: string
+          p_market_data_provider?: string
           p_sentinel_enabled: boolean
           p_session_kind: string
           p_synced_at: string

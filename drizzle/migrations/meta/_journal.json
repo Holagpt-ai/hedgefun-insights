@@ -253,6 +253,20 @@
       "when": 1790202820387,
       "tag": "0035_scanner_intelligence_alerts_final_reload",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790208800000,
+      "tag": "0036_radar_v22_market_feed_telemetry_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1790203964190,
+      "tag": "0037_radar_v22_market_feed_telemetry_reload",
+      "breakpoints": true
     }
   ]
 }
