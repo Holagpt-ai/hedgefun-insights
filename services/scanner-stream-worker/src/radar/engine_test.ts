@@ -570,7 +570,7 @@ Deno.test("reconnect reauthenticates and resubscribes", async () => {
   let closes = 0;
   const box: { handle: RadarWsHandle | null } = { handle: null };
   const socket = createRadarSocket({
-    mode: "delayed",
+    feedMode: "delayed",
     apiKey: "secret-key",
     config: mergeRadarConfig({
       reconnectBaseDelayMs: 1,

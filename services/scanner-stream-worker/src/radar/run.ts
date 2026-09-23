@@ -20,7 +20,10 @@ import {
 } from "./persist_v2.ts";
 import { refreshEligibleUniverse } from "./snapshot.ts";
 import type { RadarConnectionState, RadarHealthSnapshot } from "./types.ts";
+import { createFeedTelemetryTracker } from "./feed-telemetry.ts";
+import { parseAggregateEvent } from "./parse.ts";
 import { createRadarSocket, type RadarWsConnect } from "./ws.ts";
+import type { EvaluateResult } from "./engine.ts";
 
 export type RadarHealthSink = {
   applyRadar(snapshot: RadarHealthSnapshot): void;
@@ -87,6 +90,10 @@ export function startRadarV22(opts: {
     exceptions: () => calendarExceptions,
   });
   const engine = createRadarEngine({ config, exceptions: [], todBaselineCache });
+  const feedTracker = createFeedTelemetryTracker({
+    provider: opts.env.marketDataProvider,
+    configuredFeedMode: opts.env.marketDataFeedMode,
+  });
   let leaseHeld = false;
   let connectionState: RadarConnectionState = "idle";
   let lastPublishedGeneration: string | null = null;
@@ -125,6 +132,22 @@ export function startRadarV22(opts: {
       demotions_total: sentinel.demotionsTotal,
       cap_rejections: sentinel.capRejections,
       rss_bytes: sentinel.rssBytes,
+      market_feed: feedTracker.snapshot(nowMs()),
+    };
+  }
+
+  function attachFeedTelemetry(
+    result: EvaluateResult,
+    wallNow: number,
+  ): EvaluateResult {
+    const snap = feedTracker.snapshot(wallNow);
+    return {
+      ...result,
+      persistenceV2: {
+        ...result.persistenceV2,
+        feedTelemetry: snap,
+        feedStale: result.persistenceV2.feedStale || snap.stale,
+      },
     };
   }
 
@@ -146,7 +169,10 @@ export function startRadarV22(opts: {
         log("warn", "radar_tod_baseline_warm_failed", { code: "baseline_unavailable" });
       }
     }
-    const result = engine.evaluate(wallNow, generationId);
+    const result = attachFeedTelemetry(
+      engine.evaluate(wallNow, generationId),
+      wallNow,
+    );
     const syncedAt = isoFromMs(wallNow) ?? new Date(wallNow).toISOString();
     if (result.staleTransition) {
       await setStatus({
@@ -220,7 +246,7 @@ export function startRadarV22(opts: {
   const startSocket = () => {
     socket?.stop();
     socket = createRadarSocket({
-      mode: opts.env.massiveWsMode,
+      feedMode: opts.env.marketDataFeedMode,
       apiKey: opts.env.polygonApiKey,
       config,
       connect: opts.connect,
@@ -228,15 +254,21 @@ export function startRadarV22(opts: {
       nowMs,
       onEvent: (raw, receiveMs) => {
         engine.ingest(raw, receiveMs);
+        const bar = parseAggregateEvent(raw);
+        if (bar) feedTracker.noteMarketMessage(bar.e, receiveMs);
       },
       onState: (state) => {
         connectionState = state;
+        feedTracker.setConnectionState(state);
         if (leaseHeld && state === "subscribed") pushHealth("running");
         if (
           leaseHeld && (state === "disconnected" || state === "reconnecting")
         ) {
           pushHealth("degraded");
         }
+      },
+      onEndpointChange: (endpoint) => {
+        feedTracker.setActiveEndpoint(endpoint);
       },
       onReconnect: () => {
         engine.incrementReconnect();

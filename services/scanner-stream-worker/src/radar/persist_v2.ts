@@ -15,6 +15,7 @@
  * generation_id / updated_at / freshness_age_ms / provider_as_of do not
  * force a write. Fingerprint is recorded only after a successful RPC.
  */
+import type { MarketFeedTelemetry } from "../../../../supabase/functions/_shared/market-feed/telemetry.ts";
 import {
   isRadarV22EventType,
   isRadarV22FreshnessClass,
@@ -525,6 +526,7 @@ export type PersistenceV2View = {
   feedStale: boolean;
   lastReceiveAt: string | null;
   lastProviderEventAt: string | null;
+  feedTelemetry?: MarketFeedTelemetry | null;
   candidates: RadarV22CandidateRow[];
   archived: Array<{ symbol: string; eventAt: string }>;
   scannerFirings: ScannerAlertFiring[];
@@ -647,6 +649,12 @@ export function replaceArgsFromView(opts: {
     p_last_provider_event_at: opts.view.lastProviderEventAt,
     p_last_receive_at: opts.view.lastReceiveAt,
     p_scanner_firings: opts.view.scannerFirings ?? [],
+    p_market_data_provider: opts.view.feedTelemetry?.provider ?? null,
+    p_market_data_feed_mode: opts.view.feedTelemetry?.feed_mode ?? null,
+    p_feed_latency_ms: opts.view.feedTelemetry?.latency_ms ?? null,
+    p_feed_connection_state: opts.view.feedTelemetry?.connection_state ?? null,
+    p_feed_last_message_at: opts.view.feedTelemetry?.last_message_at ?? null,
+    p_feed_telemetry_stale: opts.view.feedTelemetry?.stale ?? null,
   };
 }
 

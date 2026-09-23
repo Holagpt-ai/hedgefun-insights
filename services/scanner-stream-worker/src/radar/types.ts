@@ -2,6 +2,7 @@ import type {
   RadarV22BoardLifecycle,
   RadarV22Lifecycle,
 } from "../../../../supabase/functions/_shared/radar-v22/types.ts";
+import type { MarketFeedTelemetry } from "../../../../supabase/functions/_shared/market-feed/telemetry.ts";
 
 export type AggregateSecondEvent = {
   ev: "A";
@@ -147,6 +148,7 @@ export type RadarHealthSnapshot = {
   demotions_total: number;
   cap_rejections: number;
   rss_bytes: number | null;
+  market_feed?: MarketFeedTelemetry | null;
 };
 
 export type SentinelStats = {

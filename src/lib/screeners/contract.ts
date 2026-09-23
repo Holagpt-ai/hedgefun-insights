@@ -2,6 +2,7 @@
 // Retry + fail-closed load live here; the React hook only wires fetchers + UI state.
 
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
+import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import {
   parseTabEvaluationEvidence,
   type TabEvaluationEvidenceMap,
@@ -111,6 +112,8 @@ export interface ScreenerTabView {
   tab_evaluation_evidence: TabEvaluationEvidenceMap | null;
   /** Repeat Movers V2 view derived from enriched Radar rows (day_trade_radar only). */
   repeatMoversView?: RadarRepeatMoversView | null;
+  /** Radar worker feed telemetry when available. */
+  market_feed?: MarketFeedTelemetry | null;
 }
 
 export interface GenerationFetchResult {

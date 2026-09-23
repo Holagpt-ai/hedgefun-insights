@@ -4,9 +4,14 @@ import {
   authMessage,
   reconnectDelayMs,
   subscribeMessage,
-  wsUrlForMode,
+  wsUrlForMassiveEndpoint,
+  type MassiveWsEndpoint,
 } from "./parse.ts";
 import type { RadarConnectionState } from "./types.ts";
+import {
+  massiveEndpointForFeedMode,
+  type MarketDataFeedMode,
+} from "../../../../supabase/functions/_shared/market-feed/config.ts";
 
 export type RadarWsHandlers = {
   onOpen: () => void;
@@ -52,10 +57,11 @@ export type RadarSocketController = {
   start: () => void;
   stop: () => void;
   connectionState: () => RadarConnectionState;
+  activeEndpoint: () => MassiveWsEndpoint;
 };
 
 export function createRadarSocket(opts: {
-  mode: "delayed" | "realtime";
+  feedMode: MarketDataFeedMode;
   apiKey: string;
   config: RadarV22Config;
   connect?: RadarWsConnect;
@@ -64,6 +70,7 @@ export function createRadarSocket(opts: {
   nowMs?: () => number;
   onEvent: (raw: unknown, receiveMs: number) => void;
   onState: (state: RadarConnectionState) => void;
+  onEndpointChange?: (endpoint: MassiveWsEndpoint) => void;
   onReconnect: () => void;
   shouldRun: () => boolean;
 }): RadarSocketController {
@@ -76,10 +83,20 @@ export function createRadarSocket(opts: {
   let stopped = false;
   let attempt = 0;
   let loop: Promise<void> | null = null;
+  let activeEndpoint: MassiveWsEndpoint = massiveEndpointForFeedMode(
+    opts.feedMode,
+  );
+  let authFailedOnRealtime = false;
 
   function setState(next: RadarConnectionState) {
     state = next;
     opts.onState(next);
+  }
+
+  function setEndpoint(next: MassiveWsEndpoint): void {
+    if (activeEndpoint === next) return;
+    activeEndpoint = next;
+    opts.onEndpointChange?.(next);
   }
 
   function dispatchPayload(data: string, receiveMs: number): void {
@@ -95,19 +112,41 @@ export function createRadarSocket(opts: {
       const ev = (item as { ev?: unknown }).ev;
       if (ev === "A") opts.onEvent(item, receiveMs);
       if (ev === "status") {
-        const status = (item as { status?: unknown }).status;
+        const status = String((item as { status?: unknown }).status ?? "");
         if (status === "auth_success") {
           handle?.send(subscribeMessage());
           setState("subscribed");
+        } else if (
+          status === "auth_failed" || status === "auth_timeout" ||
+          status === "unauthorized"
+        ) {
+          if (
+            activeEndpoint === "realtime" &&
+            (opts.feedMode === "auto" || opts.feedMode === "realtime")
+          ) {
+            authFailedOnRealtime = true;
+            log("warn", "radar_ws_auth_failed_realtime", {
+              feed_mode: opts.feedMode,
+              status,
+            });
+            handle?.close();
+          }
         }
       }
     }
   }
 
+  function resolveEndpoint(): MassiveWsEndpoint {
+    if (opts.feedMode === "delayed") return "delayed";
+    if (authFailedOnRealtime && opts.feedMode === "auto") return "delayed";
+    return massiveEndpointForFeedMode(opts.feedMode);
+  }
+
   async function run(): Promise<void> {
     while (!stopped && opts.shouldRun()) {
+      setEndpoint(resolveEndpoint());
       setState(attempt === 0 ? "connecting" : "reconnecting");
-      const url = wsUrlForMode(opts.mode);
+      const url = wsUrlForMassiveEndpoint(activeEndpoint);
       await new Promise<void>((resolve) => {
         let settled = false;
         const finish = () => {
@@ -119,7 +158,10 @@ export function createRadarSocket(opts: {
           onOpen: () => {
             setState("authenticating");
             handle?.send(authMessage(opts.apiKey));
-            log("info", "radar_ws_auth_sent", { mode: opts.mode });
+            log("info", "radar_ws_auth_sent", {
+              feed_mode: opts.feedMode,
+              endpoint: activeEndpoint,
+            });
           },
           onMessage: (data) => {
             dispatchPayload(data, nowMs());
@@ -139,7 +181,11 @@ export function createRadarSocket(opts: {
       attempt += 1;
       opts.onReconnect();
       const delay = reconnectDelayMs(attempt, opts.config, random);
-      log("warn", "radar_ws_reconnect", { attempt, delay_ms: delay });
+      log("warn", "radar_ws_reconnect", {
+        attempt,
+        delay_ms: delay,
+        endpoint: activeEndpoint,
+      });
       await sleep(delay);
     }
     setState("idle");
@@ -150,6 +196,7 @@ export function createRadarSocket(opts: {
       if (loop) return;
       stopped = false;
       attempt = 0;
+      authFailedOnRealtime = false;
       loop = run();
     },
     stop() {
@@ -159,6 +206,9 @@ export function createRadarSocket(opts: {
     },
     connectionState() {
       return state;
+    },
+    activeEndpoint() {
+      return activeEndpoint;
     },
   };
 }

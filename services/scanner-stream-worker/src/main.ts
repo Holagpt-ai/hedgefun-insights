@@ -63,7 +63,12 @@ async function main(): Promise<void> {
     port: env.port,
     hostname: "0.0.0.0",
     onListen: ({ port }) => {
-      log("info", "listening", { port, massive_ws_mode: env.massiveWsMode });
+      log("info", "listening", {
+        port,
+        market_data_provider: env.marketDataProvider,
+        market_data_feed_mode: env.marketDataFeedMode,
+        massive_ws_mode: env.massiveWsMode,
+      });
     },
   }, (req) => {
     const url = new URL(req.url);

@@ -1,6 +1,10 @@
 import type { RadarV22Config } from "./config.ts";
 import { providerTimestampMs } from "./time.ts";
 import type { AggregateSecondEvent } from "./types.ts";
+import {
+  type MassiveWsEndpoint,
+  wsUrlForMassiveEndpoint,
+} from "../../../../supabase/functions/_shared/market-feed/config.ts";
 
 const SYMBOL_RE = /^[A-Z][A-Z0-9.\-]*$/;
 const SYMBOL_MAX_LEN = 12;
@@ -91,11 +95,12 @@ export function parseAggregateEvent(
   };
 }
 
+/** @deprecated Prefer wsUrlForMassiveEndpoint / wsUrlForFeedConfig. */
 export function wsUrlForMode(mode: "delayed" | "realtime"): string {
-  return mode === "realtime"
-    ? "wss://socket.massive.com/stocks"
-    : "wss://delayed.massive.com/stocks";
+  return wsUrlForMassiveEndpoint(mode);
 }
+
+export { wsUrlForMassiveEndpoint, type MassiveWsEndpoint };
 
 export function authMessage(apiKey: string): string {
   return JSON.stringify({ action: "auth", params: apiKey });

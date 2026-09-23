@@ -7,6 +7,7 @@ COPY supabase/functions/_shared/screeners/selection.ts ./supabase/functions/_sha
 COPY supabase/functions/_shared/screeners/baseline-exclusion-publish.ts ./supabase/functions/_shared/screeners/baseline-exclusion-publish.ts
 COPY supabase/functions/_shared/radar-v22 ./supabase/functions/_shared/radar-v22
 COPY supabase/functions/_shared/scanner-alerts ./supabase/functions/_shared/scanner-alerts
+COPY supabase/functions/_shared/market-feed ./supabase/functions/_shared/market-feed
 WORKDIR /repo/services/scanner-stream-worker
 RUN deno cache src/main.ts
 EXPOSE 8080

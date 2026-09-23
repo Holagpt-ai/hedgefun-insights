@@ -86,6 +86,7 @@ export interface DayTradeRadarV2Props {
   isPro: boolean;
   syncedAt: string | null;
   providerAsOfMax: string | null;
+  marketFeed?: import("@/lib/market-feed/telemetry").MarketFeedTelemetry | null;
   freeRowLimit: number;
   /**
    * Active screener data source. When "radar-v2", the passed rows/status are the

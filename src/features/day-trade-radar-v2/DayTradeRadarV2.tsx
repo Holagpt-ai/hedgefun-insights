@@ -27,6 +27,7 @@ export function DayTradeRadarV2({
   isPro,
   syncedAt,
   providerAsOfMax,
+  marketFeed = null,
   freeRowLimit,
   source = null,
   session = null,
@@ -169,6 +170,7 @@ export function DayTradeRadarV2({
         qualifyingCount={boardVisible ? ranked.length : 0}
         syncedAt={resolved.syncedAt}
         providerAsOfMax={resolved.providerAsOfMax}
+        marketFeed={marketFeed}
         engineSource={resolved.source}
         session={source === "radar-v2" ? session : null}
       />

@@ -369,6 +369,12 @@ async function handleAction(
         p_sentinel_enabled: body.p_sentinel_enabled === true,
         p_last_provider_event_at: body.p_last_provider_event_at ?? null,
         p_last_receive_at: body.p_last_receive_at ?? null,
+        p_market_data_provider: body.p_market_data_provider ?? null,
+        p_market_data_feed_mode: body.p_market_data_feed_mode ?? null,
+        p_feed_latency_ms: body.p_feed_latency_ms ?? null,
+        p_feed_connection_state: body.p_feed_connection_state ?? null,
+        p_feed_last_message_at: body.p_feed_last_message_at ?? null,
+        p_feed_telemetry_stale: body.p_feed_telemetry_stale ?? null,
       }, rpcMeta);
       if (publishRes.status !== 200) return publishRes;
       try {

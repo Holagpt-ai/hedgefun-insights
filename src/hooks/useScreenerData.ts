@@ -149,6 +149,9 @@ export function useScreenerData(
   const [rows, setRows] = useState<ScreenerResultRow[]>([]);
   const [syncedAt, setSyncedAt] = useState<string | null>(null);
   const [providerAsOfMax, setProviderAsOfMax] = useState<string | null>(null);
+  const [marketFeed, setMarketFeed] = useState<
+    import("@/lib/market-feed/telemetry").MarketFeedTelemetry | null
+  >(null);
   // Which source is currently populating the tab, so the UI can show truthful,
   // session-aware copy (Radar V2 vs the verified screener_results path).
   const [source, setSource] = useState<ScreenerDataSource | null>(null);
@@ -219,11 +222,13 @@ export function useScreenerData(
         setRows(view.rows);
         setSyncedAt(view.synced_at);
         setProviderAsOfMax(view.provider_as_of_max);
+        setMarketFeed(view.market_feed ?? null);
         hasLoadedOnce = true;
       } else if (!soft) {
         setRows(view.rows);
         setSyncedAt(view.synced_at);
         setProviderAsOfMax(view.provider_as_of_max);
+        setMarketFeed(view.market_feed ?? null);
       }
 
       clearStaleTimer();
@@ -260,6 +265,7 @@ export function useScreenerData(
         setRows([]);
         setSyncedAt(null);
         setProviderAsOfMax(null);
+        setMarketFeed(null);
         setSource(null);
         setSession(null);
         setRadarDiagnostic(null);
@@ -404,6 +410,7 @@ export function useScreenerData(
     rows,
     syncedAt,
     providerAsOfMax,
+    marketFeed,
     source,
     session,
     radarDiagnostic,

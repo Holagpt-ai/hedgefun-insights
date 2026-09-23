@@ -14,9 +14,13 @@ worker holds the Radar V2.2 lease, it consumes Massive second aggregates
 
 Privileged database writes go through the Lovable Cloud
 `radar-worker-bridge` function using `RADAR_WORKER_SECRET`. The worker does not
-use `SUPABASE_SERVICE_ROLE_KEY`. `MASSIVE_WS_MODE` selects
-`wss://delayed.massive.com/stocks` or `wss://socket.massive.com/stocks`
-(default delayed). Health stays up while both loops initialize.
+use `SUPABASE_SERVICE_ROLE_KEY`. Market feed mode is configured with
+`MARKET_DATA_PROVIDER` (default `polygon`) and `MARKET_DATA_FEED_MODE`
+(`realtime`, `streaming`, `near_realtime`, `delayed`, or `auto`). Legacy
+`MASSIVE_WS_MODE` (`delayed` | `realtime`) is still honored when
+`MARKET_DATA_FEED_MODE` is unset. In `auto`, the worker tries the realtime
+Massive socket first and falls back to delayed on auth failure. Health stays up
+while both loops initialize.
 
 ## Required environment
 
@@ -29,7 +33,9 @@ credentials or put API keys in git.
 | `RADAR_BRIDGE_URL`                | yes      |           |
 | `RADAR_WORKER_SECRET`             | yes      |           |
 | `PORT`                            | no       | `8080`    |
-| `MASSIVE_WS_MODE`                 | no       | `delayed` |
+| `MARKET_DATA_PROVIDER`            | no       | `polygon` |
+| `MARKET_DATA_FEED_MODE`           | no       | `auto`    |
+| `MASSIVE_WS_MODE`                 | no       | legacy    |
 | `BASELINE_MIN_SESSIONS`           | no       | `120`     |
 | `BASELINE_LOOKBACK_CALENDAR_DAYS` | no       | `366`     |
 

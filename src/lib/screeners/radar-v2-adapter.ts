@@ -34,6 +34,7 @@ import {
 } from "@/lib/screeners/contract";
 import type { RadarRankingFields } from "@/features/day-trade-radar-v2/types";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
+import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 
 /**
  * Radar-backed screener row: the standard row plus the OPTIONAL Radar ranking
@@ -162,6 +163,12 @@ export interface RadarV2FeedStateRow {
    */
   feed_stale: boolean | null;
   updated_at: string;
+  market_data_provider?: string | null;
+  market_data_feed_mode?: string | null;
+  feed_latency_ms?: number | null;
+  feed_connection_state?: string | null;
+  feed_last_message_at?: string | null;
+  feed_telemetry_stale?: boolean | null;
 }
 
 export interface RadarV2ScreenerView {
@@ -169,6 +176,29 @@ export interface RadarV2ScreenerView {
   rows: ScreenerResultRow[];
   synced_at: string | null;
   provider_as_of_max: string | null;
+  market_feed?: MarketFeedTelemetry | null;
+}
+
+export function marketFeedTelemetryFromFeedRow(
+  feed: RadarV2FeedStateRow,
+): MarketFeedTelemetry | null {
+  if (
+    !feed.market_data_feed_mode && feed.feed_latency_ms == null &&
+    !feed.feed_connection_state
+  ) {
+    return null;
+  }
+  return {
+    provider: feed.market_data_provider ?? "polygon",
+    feed_mode: feed.market_data_feed_mode ?? "delayed",
+    market_timestamp: feed.last_provider_event_at ?? null,
+    received_at: feed.last_receive_at ?? null,
+    latency_ms: feed.feed_latency_ms ?? null,
+    connection_state: (feed.feed_connection_state ??
+      "idle") as MarketFeedTelemetry["connection_state"],
+    last_message_at: feed.feed_last_message_at ?? feed.last_receive_at ?? null,
+    stale: feed.feed_telemetry_stale === true,
+  };
 }
 
 export interface RadarV2Decision {
@@ -526,6 +556,7 @@ export function buildRadarV2Decision(input: {
         rows: [],
         synced_at: syncedAt,
         provider_as_of_max: providerAsOfMax,
+        market_feed: marketFeedTelemetryFromFeedRow(feed),
       },
     };
   }
@@ -544,6 +575,7 @@ export function buildRadarV2Decision(input: {
       rows,
       synced_at: syncedAt,
       provider_as_of_max: providerAsOfMax,
+      market_feed: marketFeedTelemetryFromFeedRow(feed),
     },
   };
 }

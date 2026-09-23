@@ -1,3 +1,13 @@
+import type {
+  MarketDataFeedMode,
+  MarketDataProvider,
+} from "../../../supabase/functions/_shared/market-feed/config.ts";
+import {
+  normalizeMarketDataFeedMode,
+  normalizeMarketDataProvider,
+} from "../../../supabase/functions/_shared/market-feed/config.ts";
+
+/** @deprecated Use marketDataFeedMode — kept for logs/backward compat. */
 export type MassiveWsMode = "delayed" | "realtime";
 
 export type WorkerEnv = {
@@ -5,6 +15,9 @@ export type WorkerEnv = {
   radarBridgeUrl: string;
   radarWorkerSecret: string;
   port: number;
+  marketDataProvider: MarketDataProvider;
+  marketDataFeedMode: MarketDataFeedMode;
+  /** Legacy mirror: delayed | realtime derived from feed mode / MASSIVE_WS_MODE. */
   massiveWsMode: MassiveWsMode;
   baselineMinSessions: number;
   baselineLookbackCalendarDays: number;
@@ -86,24 +99,46 @@ function parseOptionalBool(
   throw new EnvValidationError("invalid_env");
 }
 
-function parseWsMode(read: EnvReader): MassiveWsMode {
-  const raw = read("MASSIVE_WS_MODE");
-  if (raw === undefined || raw === null || raw.trim() === "") return "delayed";
-  const mode = raw.trim().toLowerCase();
-  if (mode === "delayed" || mode === "realtime") return mode;
-  throw new EnvValidationError("invalid_env");
+function legacyMassiveWsMode(feedMode: MarketDataFeedMode): MassiveWsMode {
+  if (feedMode === "delayed") return "delayed";
+  if (feedMode === "auto") return "realtime";
+  return "realtime";
+}
+
+function parseMarketFeed(read: EnvReader): {
+  provider: MarketDataProvider;
+  feedMode: MarketDataFeedMode;
+  massiveWsMode: MassiveWsMode;
+} {
+  try {
+    const provider = normalizeMarketDataProvider(read("MARKET_DATA_PROVIDER"));
+    const feedMode = normalizeMarketDataFeedMode(
+      read("MARKET_DATA_FEED_MODE"),
+      read("MASSIVE_WS_MODE"),
+    );
+    return {
+      provider,
+      feedMode,
+      massiveWsMode: legacyMassiveWsMode(feedMode),
+    };
+  } catch {
+    throw new EnvValidationError("invalid_env");
+  }
 }
 
 export function loadEnv(read: EnvReader = (k) => Deno.env.get(k)): WorkerEnv {
   const polygonApiKey = readRequired(read, "POLYGON_API_KEY");
   const radarBridgeUrl = parseHttpsUrl(readRequired(read, "RADAR_BRIDGE_URL"));
   const radarWorkerSecret = readRequired(read, "RADAR_WORKER_SECRET");
+  const marketFeed = parseMarketFeed(read);
   return {
     polygonApiKey,
     radarBridgeUrl,
     radarWorkerSecret,
     port: readOptionalInt(read, "PORT", DEFAULT_PORT, 1, 65535),
-    massiveWsMode: parseWsMode(read),
+    marketDataProvider: marketFeed.provider,
+    marketDataFeedMode: marketFeed.feedMode,
+    massiveWsMode: marketFeed.massiveWsMode,
     baselineMinSessions: readOptionalInt(
       read,
       "BASELINE_MIN_SESSIONS",

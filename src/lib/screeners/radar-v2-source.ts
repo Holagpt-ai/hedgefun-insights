@@ -38,7 +38,9 @@ import {
 
 const FEED_SELECT =
   "state_key,session_kind,sentinel_enabled,candidate_count,v2_generation_id," +
-  "v2_synced_at,last_receive_at,last_provider_event_at,feed_stale,updated_at";
+  "v2_synced_at,last_receive_at,last_provider_event_at,feed_stale,updated_at," +
+  "market_data_provider,market_data_feed_mode,feed_latency_ms,feed_connection_state," +
+  "feed_last_message_at,feed_telemetry_stale";
 
 const CANDIDATE_SELECT = [
   "symbol",

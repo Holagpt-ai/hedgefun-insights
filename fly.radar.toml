@@ -23,3 +23,5 @@ kill_timeout = 15
 [env]
   RADAR_SENTINEL_ENABLED = "true"
   RADAR_PERSISTENCE_V2_ENABLED = "true"
+  MARKET_DATA_PROVIDER = "polygon"
+  MARKET_DATA_FEED_MODE = "auto"

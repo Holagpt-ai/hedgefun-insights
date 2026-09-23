@@ -147,6 +147,12 @@ export type ReplaceRadarV2Args = {
   p_last_provider_event_at: string | null;
   p_last_receive_at: string | null;
   p_scanner_firings?: ScannerAlertFiringPayload[];
+  p_market_data_provider?: string | null;
+  p_market_data_feed_mode?: string | null;
+  p_feed_latency_ms?: number | null;
+  p_feed_connection_state?: string | null;
+  p_feed_last_message_at?: string | null;
+  p_feed_telemetry_stale?: boolean | null;
 };
 
 export function isRadarV22SessionKind(

@@ -56,6 +56,7 @@ function asTabView(
     attempts: 1,
     nhl_baseline_status: null,
     tab_evaluation_evidence: null,
+    market_feed: radar.view.market_feed ?? null,
   };
 }
 

@@ -1,5 +1,6 @@
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import { MarketDataStatus } from "@/components/screener/MarketDataStatus";
+import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import type { RadarEngineSource } from "./types";
 
 /**
@@ -18,7 +19,6 @@ const RADAR_V2_SHARED_CHIPS = [
   "SENTINEL DISCOVERY",
   "VOLUME FIRST",
   "VELOCITY / ACCELERATION",
-  "15-MIN DELAYED",
 ] as const;
 
 /** Session chip for an accepted Radar V2 generation. Never inferred from clock. */
@@ -41,7 +41,6 @@ export function radarV2EngineChips(session: string | null | undefined): readonly
     sessionChip,
     "VOLUME FIRST",
     "VELOCITY / ACCELERATION",
-    "15-MIN DELAYED",
   ];
 }
 
@@ -76,6 +75,7 @@ interface RadarStatusRailProps {
   qualifyingCount: number;
   syncedAt: string | null;
   providerAsOfMax: string | null;
+  marketFeed?: MarketFeedTelemetry | null;
   followingLeader?: boolean;
   onFollowLeader?: () => void;
   showReturnToLeader?: boolean;
@@ -89,6 +89,7 @@ export function RadarStatusRail({
   qualifyingCount,
   syncedAt,
   providerAsOfMax,
+  marketFeed = null,
 }: RadarStatusRailProps) {
   const abnormal =
     status === "stale" ||
@@ -134,6 +135,7 @@ export function RadarStatusRail({
             status={status}
             syncedAt={syncedAt}
             providerAsOfMax={providerAsOfMax}
+            marketFeed={marketFeed}
             suffix={suffix}
           />
         </div>
@@ -148,6 +150,7 @@ export function RadarStatusRail({
           status={status}
           syncedAt={syncedAt}
           providerAsOfMax={providerAsOfMax}
+          marketFeed={marketFeed}
           suffix={suffix}
         />
       </div>
