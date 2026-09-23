@@ -37,6 +37,8 @@ export interface CatalystEvent {
   related_symbols: string[];
   facts: Record<string, unknown>;
   published_at: string | null;
+  attribution_class?: "direct" | "provider_associated" | "sector_related" | "unverified" | null;
+  ticker_specific?: boolean | null;
 }
 
 export interface CatalystUserStateRow {

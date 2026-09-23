@@ -384,7 +384,7 @@ describe("Catalyst Intelligence V2 relevance", () => {
       event_type: "company_news",
       title: "Why XYZ stock is moving today",
       published_at: "2026-07-30T12:00:00.000Z",
-      attribution_class: "commentary",
+      attribution_class: "unverified",
       ticker_specific: false,
     });
     expect(selectEnrichmentEntries([attention], ["XYZ"], NOW).has("XYZ")).toBe(false);
