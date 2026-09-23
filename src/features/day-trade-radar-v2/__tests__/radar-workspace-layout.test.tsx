@@ -157,7 +157,7 @@ describe("Radar workspace layout", () => {
     expect(within(drawer).getByText("AEHL")).toBeInTheDocument();
     expect(within(drawer).getByText("Action Center")).toBeInTheDocument();
     expect(within(screen.getByTestId("radar-leader-strip")).getByText("PENNY")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Return to #1" })).toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-leader-strip")).getByText("Return to #1")).toBeInTheDocument();
     expect(within(screen.getByTestId("radar-scanner-table")).getByText("2")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));

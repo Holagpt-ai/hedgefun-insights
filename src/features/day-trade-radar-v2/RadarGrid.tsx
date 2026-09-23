@@ -261,7 +261,7 @@ export function RadarGrid({
               return (
                 <th
                   key={columnId}
-                  className={`px-2 py-1.5 font-semibold text-[10px] uppercase tracking-wide text-muted-foreground ${
+                  className={`px-2 py-1.5 font-semibold text-[10px] uppercase tracking-wide text-muted-foreground truncate ${
                     column.align === "left" ? "text-left" : "text-right"
                   } ${columnId === "actions" ? RADAR_ACTIONS_STICKY_HEADER_CLASS : ""}`}
                 >

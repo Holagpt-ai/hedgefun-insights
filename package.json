@@ -12,6 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "verify:migrations": "node scripts/supabase/verify-migration-order.mjs",
+    "typecheck": "tsc -b --noEmit",
     "radar:am-shadow": "vite-node --config vitest.config.ts src/lib/radar-am-shadow/run-live.ts"
   },
   "dependencies": {

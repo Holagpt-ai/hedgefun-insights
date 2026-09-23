@@ -1,0 +1,19 @@
+name: Supabase migration order
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/supabase/**"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/supabase/**"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/supabase/verify-migration-order.mjs
