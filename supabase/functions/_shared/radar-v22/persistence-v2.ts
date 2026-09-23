@@ -103,6 +103,9 @@ export type RadarV22CandidateRow = {
   promoted_at: string | null;
   lifecycle_entered_at: string | null;
   provider_as_of: string | null;
+  primary_scanner_event: string | null;
+  primary_scanner_event_at: string | null;
+  scanner_events: unknown;
   updated_at: string;
 };
 

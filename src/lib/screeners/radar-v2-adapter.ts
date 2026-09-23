@@ -131,6 +131,9 @@ export interface RadarV2CandidateRow {
   rvol_5m: number | null;
   volume_velocity: number | null;
   volume_acceleration_pct: number | null;
+  primary_scanner_event: string | null;
+  primary_scanner_event_at: string | null;
+  scanner_events: unknown;
   session_high: number | null;
   session_low: number | null;
   distance_from_hod_pct: number | null;
@@ -387,6 +390,14 @@ export function mapCandidateToScreenerRow(
     promoted_at: row.promoted_at ?? null,
     last_hod_break_at: row.last_hod_break_at ?? null,
     radar_trading_date: row.trading_date ?? null,
+    primary_scanner_event: typeof row.primary_scanner_event === "string"
+      ? row.primary_scanner_event
+      : null,
+    primary_scanner_event_at: row.primary_scanner_event_at ?? null,
+    scanner_events: row.scanner_events ?? null,
+    distance_from_hod_pct: isFiniteNumber(row.distance_from_hod_pct)
+      ? row.distance_from_hod_pct
+      : null,
   };
 }
 

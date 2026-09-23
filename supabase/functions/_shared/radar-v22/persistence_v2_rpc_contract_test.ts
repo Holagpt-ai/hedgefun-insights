@@ -12,7 +12,7 @@ const SCHEMA_MIGRATION_REL =
 const LOVABLE_FULL_MIGRATION_NAME =
   "20260902223843_d8af27c1-7f12-477f-9860-b301d6395d62.sql";
 const LATEST_RPC_MIGRATION_NAME =
-  "20260923160000_radar_v22_momentum_metrics.sql";
+  "20260923180000_radar_v22_scanner_events.sql";
 const LATEST_RPC_MIGRATION_REL =
   `../../../migrations/${LATEST_RPC_MIGRATION_NAME}`;
 const RPC_NAME = "replace_radar_v22_candidates_v1";

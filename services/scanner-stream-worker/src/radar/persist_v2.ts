@@ -38,6 +38,7 @@ import {
 import type { SessionIntelSnapshot } from "./geometry.ts";
 import type { SessionTransition } from "./session.ts";
 import type { SymbolMetrics } from "./types.ts";
+import { isScannerEventType } from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
 
 export { REPLACE_RADAR_V2_RPC, RADAR_V22_CANDIDATE_CAP };
 
@@ -216,6 +217,25 @@ export function validateRadarV2Generation(input: ReplaceRadarV2Args): boolean {
     if (
       row.volume_acceleration_pct !== null &&
       !finiteNumber(row.volume_acceleration_pct)
+    ) {
+      return false;
+    }
+    if (
+      row.primary_scanner_event !== null &&
+      !isScannerEventType(row.primary_scanner_event)
+    ) {
+      return false;
+    }
+    if (
+      row.primary_scanner_event_at !== null &&
+      !isIsoTimestamp(row.primary_scanner_event_at)
+    ) {
+      return false;
+    }
+    if (
+      row.scanner_events !== null &&
+      row.scanner_events !== undefined &&
+      !Array.isArray(row.scanner_events)
     ) {
       return false;
     }
@@ -520,6 +540,10 @@ export function mapCandidateRow(opts: {
   phaseEnteredAtMs: number | null;
   updatedAt: string;
   isoFromMs: (ms: number) => string | null;
+  scanner?: {
+    events: Array<{ type: string; triggered_at: string; active: boolean }>;
+    primary: { type: string; triggered_at: string; active: boolean } | null;
+  };
 }): RadarV22CandidateRow {
   const intel = opts.intel;
   const lastPrice = intel?.lastPrice ?? opts.metrics.lastPrice;
@@ -589,6 +613,9 @@ export function mapCandidateRow(opts: {
     promoted_at: iso(opts.promotedAtMs),
     lifecycle_entered_at: iso(opts.phaseEnteredAtMs),
     provider_as_of: lastPriceAt,
+    primary_scanner_event: opts.scanner?.primary?.type ?? null,
+    primary_scanner_event_at: opts.scanner?.primary?.triggered_at ?? null,
+    scanner_events: opts.scanner?.events ?? [],
     updated_at: opts.updatedAt,
   };
 }
@@ -730,6 +757,8 @@ export function fingerprintRadarV2Generation(
         fingerprintClock(row.last_acceleration_at),
         fingerprintClock(row.promoted_at),
         fingerprintClock(row.lifecycle_entered_at),
+        row.primary_scanner_event ?? "",
+        fingerprintClock(row.primary_scanner_event_at),
       ].join("\t")
     )
     .sort();

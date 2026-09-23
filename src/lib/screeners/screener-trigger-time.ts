@@ -35,6 +35,8 @@ export interface ScreenerTriggerTimeSource {
   radar_trading_date?: string | null;
   promoted_at?: string | null;
   last_hod_break_at?: string | null;
+  primary_scanner_event?: string | null;
+  primary_scanner_event_at?: string | null;
 }
 
 export interface ScreenerTriggerTimeView {
@@ -91,7 +93,32 @@ export function formatTriggerTimeDisplay(iso: string | null | undefined): string
   return formatTriggerTimePrimaryLine(iso);
 }
 
-export function selectPrimaryTrigger(state: TriggerState): TriggerEvent | null {
+function scannerTriggerEvent(
+  row: ScreenerTriggerTimeSource,
+): TriggerEvent | null {
+  const at = row.primary_scanner_event_at;
+  const type = row.primary_scanner_event;
+  const sessionDate = row.radar_trading_date?.trim();
+  if (!type || !at || !sessionDate || !row.symbol) return null;
+  const utc = toCanonicalUtcTimestamp(at);
+  if (utc === null) return null;
+  return {
+    symbol: row.symbol.trim().toUpperCase(),
+    sessionDate,
+    triggerType: "MOMENTUM_TRIGGER",
+    eventKey: type,
+    version: "v1",
+    triggeredAt: utc,
+    source: "radar_v22_candidates.primary_scanner_event_at",
+    reason: "MOMENTUM_QUALIFIED",
+  };
+}
+
+export function selectPrimaryTrigger(
+  state: TriggerState,
+  scannerPrimary?: TriggerEvent | null,
+): TriggerEvent | null {
+  if (scannerPrimary) return scannerPrimary;
   const discovery = state.events
     .filter((event) => event.triggerType === "DISCOVERY_TRIGGER")
     .sort((a, b) => a.triggeredAt.localeCompare(b.triggeredAt));
@@ -135,7 +162,8 @@ export function buildScreenerTriggerState(row: ScreenerTriggerTimeSource): Trigg
 
 export function evaluateScreenerTriggerTime(row: ScreenerTriggerTimeSource): ScreenerTriggerTimeView {
   const state = buildScreenerTriggerState(row);
-  const primary = selectPrimaryTrigger(state);
+  const scannerPrimary = scannerTriggerEvent(row);
+  const primary = selectPrimaryTrigger(state, scannerPrimary);
   return {
     state,
     summary: summarizeTriggerState(state),
@@ -161,7 +189,13 @@ export function inspectScreenerTriggerQuality(row: ScreenerTriggerTimeSource): {
   };
 }
 
-export function triggerTypeLabel(type: TriggerEvent["triggerType"] | undefined): string {
+export function triggerTypeLabel(
+  type: TriggerEvent["triggerType"] | undefined,
+  eventKey?: string,
+): string {
+  if (eventKey === "HOD_MOMENTUM") return "HOD Momentum";
+  if (eventKey === "RUNNING_UP") return "Running Up";
+  if (eventKey === "VOLUME_EXPLOSION") return "Volume Explosion";
   if (!type) return "Triggered";
   return TRIGGER_TYPE_LABELS[type];
 }

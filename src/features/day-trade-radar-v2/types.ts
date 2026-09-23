@@ -15,6 +15,10 @@ export interface RadarRankingFields {
   rvol_5m?: number | null;
   vol_velocity?: number | null;
   volume_acceleration_pct?: number | null;
+  primary_scanner_event?: string | null;
+  primary_scanner_event_at?: string | null;
+  scanner_events?: unknown;
+  distance_from_hod_pct?: number | null;
   rolling_dollar_volume_60s?: number | null;
   session_vwap?: number | null;
   vwap_side?: string | null;

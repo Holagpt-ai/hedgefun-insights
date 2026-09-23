@@ -46,6 +46,8 @@ import {
   regularSessionBucketIndex,
 } from "./momentum-metrics.ts";
 import type { Tod5mBaselineCache } from "./tod-5m-baseline-cache.ts";
+import { createScannerEventBook } from "./scanner-event-book.ts";
+import type { ScannerEventBookSnapshot } from "./scanner-event-book.ts";
 import {
   mapCandidateRow,
   type PersistenceV2View,
@@ -206,6 +208,7 @@ export function createRadarEngine(opts: {
 }): RadarEngine {
   const { config } = opts;
   const todBaselineCache = opts.todBaselineCache ?? null;
+  const scannerEventBook = createScannerEventBook();
   const book = createRadarBook(config);
   const sentinel = createMarketSentinel(config);
   const intel = createSessionIntelBook(config);
@@ -311,6 +314,7 @@ export function createRadarEngine(opts: {
     promoted.clear();
     promotedAtMs.clear();
     lifecycles.clear();
+    scannerEventBook.clear();
     lastEventEndMs = null;
     lastReceiveMs = null;
     feedStale = false;
@@ -560,6 +564,39 @@ export function createRadarEngine(opts: {
         isRadarV22SessionKind(lastSessionKind) &&
         v2Rows.length < 200
       ) {
+        const sessionVol = intelSnap !== null && intelSnap.sessionVolumeSum > 0
+          ? intelSnap.sessionVolumeSum
+          : metrics.sessionVolume;
+        const priorVol = quote?.priorVolume ?? 0;
+        const volRatio = priorVol > 0 && sessionVol > 0
+          ? Math.round((sessionVol / priorVol) * 10) / 10
+          : null;
+        const hodPct = intelSnap?.hodDistance !== null &&
+            intelSnap?.hodDistance !== undefined
+          ? intelSnap.hodDistance * 100
+          : null;
+        let scannerSnap: ScannerEventBookSnapshot = { events: [], primary: null };
+        if (lastSessionKind === "market") {
+          scannerSnap = scannerEventBook.step(
+            symbol,
+            eventNow,
+            {
+              lastPrice: metrics.lastPrice,
+              move15sPct: metrics.move15s.movePct,
+              move60sPct: metrics.move60s.movePct,
+              move15Complete: metrics.move15s.complete,
+              move60Complete: metrics.move60s.complete,
+              volumeVelocity: metrics.volumeVelocity,
+              rvol5m: metrics.rvol5m,
+              volumeAccelerationPct: metrics.volumeAccelerationPct,
+              distanceFromHodPct: hodPct,
+              sessionVolume: sessionVol,
+              volumeRatioPrior: volRatio,
+              vol60s: metrics.vol60s,
+            },
+            isoFromMs,
+          );
+        }
         v2Rows.push(mapCandidateRow({
           generationId,
           tradingDate: boardDate,
@@ -572,6 +609,7 @@ export function createRadarEngine(opts: {
           phaseEnteredAtMs: stepped.record.phaseEnteredAtMs,
           updatedAt,
           isoFromMs,
+          scanner: scannerSnap,
         }));
       }
 

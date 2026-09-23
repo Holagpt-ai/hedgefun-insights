@@ -20,6 +20,7 @@ import {
   formatScreenerVolumeAccelerationPct,
   formatScreenerVolumeVelocity,
 } from "@/lib/screeners/screener-metric-display";
+import { resolveScannerSignalLabel } from "@/lib/screeners/scanner-events-display";
 import {
   formatFreshness,
   formatHodDistance,
@@ -305,7 +306,7 @@ export function RadarGrid({
                           triggeredAt={view.primary?.triggeredAt}
                           title={
                             view.primary
-                              ? `${triggerTypeLabel(view.primary.triggerType)} trigger`
+                              ? `${triggerTypeLabel(view.primary.triggerType, view.primary.eventKey)} trigger`
                               : "Triggered unavailable"
                           }
                         />
@@ -332,7 +333,10 @@ export function RadarGrid({
                           </Link>
                         </div>
                         <div className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}>
-                          {row.signal}
+                          {resolveScannerSignalLabel({
+                            primaryScannerEvent: row.primary_scanner_event,
+                            fallbackSignal: row.signal,
+                          })}
                         </div>
                         <div className="text-[11px] text-muted-foreground truncate">{company}</div>
                         <LegacyConfirmedBadge confirmed={row.legacy_confirmed} />
@@ -345,7 +349,10 @@ export function RadarGrid({
                         <span
                           className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}
                         >
-                          {row.signal}
+                          {resolveScannerSignalLabel({
+                            primaryScannerEvent: row.primary_scanner_event,
+                            fallbackSignal: row.signal,
+                          })}
                         </span>
                       </td>
                     );
