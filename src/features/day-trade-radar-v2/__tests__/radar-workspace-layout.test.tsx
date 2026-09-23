@@ -121,10 +121,10 @@ function renderRadar() {
 }
 
 describe("Radar workspace layout", () => {
-  it("defaults to Core Momentum, keeps feed-wide timestamps, and shows lens-eligible Top Leader", () => {
+  it("defaults to All Radar Candidates, keeps feed-wide timestamps, and shows volume #1 Top Leader", () => {
     renderRadar();
     const preset = screen.getByLabelText("Trader Lens preset") as HTMLSelectElement;
-    expect(preset.value).toBe("momentum_2_20");
+    expect(preset.value).toBe("all_movers");
 
     const feed = screen.getByTestId("radar-feed-line").textContent ?? "";
     expect(feed).toMatch(/Data Status/i);
@@ -132,32 +132,32 @@ describe("Radar workspace layout", () => {
     expect(feed).toMatch(/3 Radar candidates/);
 
     const strip = screen.getByTestId("radar-leader-strip");
-    expect(within(strip).getByText("#2")).toBeInTheDocument();
-    expect(within(strip).getByText("AEHL")).toBeInTheDocument();
-    expect(within(strip).queryByText("PENNY")).not.toBeInTheDocument();
-    expect(within(strip).getByText("VOLUME LEADER")).toBeInTheDocument();
+    expect(within(strip).getByText("#1")).toBeInTheDocument();
+    expect(within(strip).getByText("PENNY")).toBeInTheDocument();
+    expect(within(strip).getByText("TOP LEADER")).toBeInTheDocument();
     expect(within(strip).getByRole("button", { name: /Follow #1/ })).toBeInTheDocument();
 
     const table = screen.getByTestId("radar-scanner-table");
-    expect(within(table).queryByText("PENNY")).not.toBeInTheDocument();
+    expect(within(table).getByText("PENNY")).toBeInTheDocument();
     expect(within(table).getByRole("link", { name: "AEHL" })).toBeInTheDocument();
-    expect(within(table).getByText("2")).toBeInTheDocument();
+    expect(within(table).getByText("Triggered")).toBeInTheDocument();
 
-    fireEvent.change(preset, { target: { value: "all_movers" } });
-    expect(within(screen.getByTestId("radar-scanner-table")).getByText("PENNY")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByText("PENNY")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByText("#1")).toBeInTheDocument();
+    fireEvent.change(preset, { target: { value: "momentum_2_20" } });
+    expect(within(screen.getByTestId("radar-scanner-table")).queryByText("PENNY")).not.toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-leader-strip")).getByText("AEHL")).toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-leader-strip")).getByText("#2")).toBeInTheDocument();
     expect(screen.getByTestId("radar-feed-line").textContent).toBe(feed);
-    expect(within(screen.getByTestId("radar-scanner-table")).getByText("Triggered")).toBeInTheDocument();
   });
 
   it("opens the detail drawer from a row click without changing ranks, then restores the full scanner", () => {
     renderRadar();
-    fireEvent.click(within(screen.getByTestId("radar-scanner-table")).getByText("2"));
+    const rows = within(screen.getByTestId("radar-scanner-table")).getAllByRole("row");
+    fireEvent.click(rows.find((r) => r.textContent?.includes("AEHL"))!);
     const drawer = screen.getByTestId("radar-detail-drawer");
     expect(within(drawer).getByText("AEHL")).toBeInTheDocument();
     expect(within(drawer).getByText("Action Center")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByText("AEHL")).toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-leader-strip")).getByText("PENNY")).toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Return to #1" })).toBeInTheDocument();
     expect(within(screen.getByTestId("radar-scanner-table")).getByText("2")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -169,14 +169,15 @@ describe("Radar workspace layout", () => {
     renderRadar();
     const strip = screen.getByTestId("radar-leader-strip");
     expect(within(strip).getByRole("button", { name: /Follow #1/ }).textContent).toMatch(/✓/);
-    fireEvent.click(within(screen.getByTestId("radar-scanner-table")).getByText("2"));
+    const tableRows = within(screen.getByTestId("radar-scanner-table")).getAllByRole("row");
+    fireEvent.click(tableRows.find((r) => r.textContent?.includes("AEHL"))!);
     expect(screen.getByTestId("radar-detail-drawer")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Follow #1" }).textContent).not.toMatch(/✓/);
     fireEvent.click(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Follow #1" }));
     expect(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: /Follow #1/ }).textContent).toMatch(/✓/);
     fireEvent.click(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Details" }));
-    expect(within(screen.getByTestId("radar-detail-drawer")).getByText("AEHL")).toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-detail-drawer")).getByText("PENNY")).toBeInTheDocument();
   });
 
   it("uses compact mobile cards and a bottom-sheet detail instead of a permanent side panel", () => {

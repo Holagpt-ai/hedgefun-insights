@@ -350,11 +350,16 @@ function evaluateCategories(
     isFiniteNumber(input.distanceFromHodPct) &&
     input.distanceFromHodPct <= CONTINUATION_STRONG_CLOSE_MAX_HOD_DISTANCE_PCT;
 
+  const scannerPowerHourEvent =
+    input.scannerPrimaryEvent === "LATE_DAY_ACCELERATION" ||
+    input.scannerPrimaryEvent === "HOD_BREAK" ||
+    input.scannerPrimaryEvent === "HOD_MOMENTUM" ||
+    input.scannerPrimaryEvent === "RUNNING_UP";
   const powerHour =
     window.isPowerHour &&
-    (velocity === "STRONG" || velocity === "MODERATE") &&
     liquidityMet(dollarVolume, CONTINUATION_POWER_HOUR_MIN_DOLLAR_VOLUME) &&
-    !technicalBroken(input);
+    !technicalBroken(input) &&
+    ((velocity === "STRONG" || velocity === "MODERATE") || scannerPowerHourEvent);
   results.push({
     category: "POWER_HOUR_MOMENTUM",
     qualified: powerHour,

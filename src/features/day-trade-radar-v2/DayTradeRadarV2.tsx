@@ -184,6 +184,7 @@ export function DayTradeRadarV2({
           radarCount={ranked.length}
           visibleColumns={visibleColumns}
           sessionMoveUnavailable={lens.sessionMoveUnavailable}
+          sessionMoveFilterApplied={lens.sessionMoveFilterApplied}
           onPresetChange={traderLens.selectPreset}
           onMinChange={traderLens.setMinInput}
           onMaxChange={traderLens.setMaxInput}

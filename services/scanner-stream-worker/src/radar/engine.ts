@@ -35,6 +35,7 @@ import {
   createSessionIntelBook,
   type SessionIntelSnapshot,
 } from "./geometry.ts";
+import { computeGapPercent } from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
 import {
   emptyLifecycle,
   isBoardLifecycle,
@@ -587,10 +588,13 @@ export function createRadarEngine(opts: {
           newlyActivated: [],
         };
         if (lastSessionKind === "market") {
+          const openPx = intelSnap?.sessionOpen ?? null;
+          const gapPercent = computeGapPercent(openPx, quote?.previousClose ?? null);
           scannerSnap = scannerEventBook.step(
             symbol,
             eventNow,
             {
+              eventNowMs: eventNow,
               lastPrice: metrics.lastPrice,
               move15sPct: metrics.move15s.movePct,
               move60sPct: metrics.move60s.movePct,
@@ -603,6 +607,13 @@ export function createRadarEngine(opts: {
               sessionVolume: sessionVol,
               volumeRatioPrior: volRatio,
               vol60s: metrics.vol60s,
+              vwapSide: intelSnap?.vwapSide ?? "unknown",
+              lastHodBreakMs: intelSnap?.lastHodBreakMs ?? null,
+              lastVwapReclaimMs: intelSnap?.lastVwapReclaimMs ?? null,
+              lastVwapLossMs: intelSnap?.lastVwapLossMs ?? null,
+              previousClose: quote?.previousClose ?? null,
+              sessionOpen: openPx,
+              gapPercent,
             },
             isoFromMs,
           );

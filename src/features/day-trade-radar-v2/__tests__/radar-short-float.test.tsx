@@ -3,7 +3,12 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { RadarGrid } from "../RadarGrid";
 import { RadarMobileCard } from "../RadarMobileCard";
-import { RADAR_GRID_COLUMN_COUNT, RADAR_GRID_COLUMNS, defaultRadarColumns } from "../radar-grid-columns";
+import {
+  RADAR_GRID_COLUMN_COUNT,
+  RADAR_GRID_COLUMNS,
+  canonicalizeRadarColumns,
+  defaultRadarColumns,
+} from "../radar-grid-columns";
 import type { RadarRankedRow } from "../types";
 
 vi.mock("@/hooks/useAddToWatchlist", () => ({
@@ -76,7 +81,7 @@ function ranked(overrides: Partial<RadarRankedRow> = {}): RadarRankedRow {
 
 describe("Radar Short Float presentation", () => {
   it("keeps the primary column layout and shows unavailable short float in the float cell", () => {
-    expect(RADAR_GRID_COLUMN_COUNT).toBe(19);
+    expect(RADAR_GRID_COLUMN_COUNT).toBe(18);
     expect([...RADAR_GRID_COLUMNS]).not.toContain("Short Float");
     render(
       <MemoryRouter>
@@ -86,7 +91,7 @@ describe("Radar Short Float presentation", () => {
           isPro
           freeRowLimit={3}
           onSelect={() => {}}
-          visibleColumns={defaultRadarColumns()}
+          visibleColumns={canonicalizeRadarColumns([...defaultRadarColumns(), "float"])}
         />
       </MemoryRouter>,
     );

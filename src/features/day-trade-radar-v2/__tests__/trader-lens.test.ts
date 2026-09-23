@@ -19,7 +19,7 @@ import {
   applyTraderLensPriceFilter,
   isBroadTraderLens,
   matchesTraderLensPrice,
-  traderLensShowingCopy,
+  traderLensResultCountCopy,
   visibleTopLeaderRow,
 } from "../trader-lens";
 
@@ -54,16 +54,16 @@ function row(
 }
 
 describe("Trader Lens price presets", () => {
-  it("defaults to Core Momentum $2–$20", () => {
-    expect(DEFAULT_TRADER_LENS_PRESET_ID).toBe("momentum_2_20");
+  it("defaults to All Radar Candidates", () => {
+    expect(DEFAULT_TRADER_LENS_PRESET_ID).toBe("all_movers");
+    expect(getTraderLensPreset("all_movers")?.label).toBe("All Radar Candidates");
     expect(getTraderLensPreset("momentum_2_20")).toEqual({
       id: "momentum_2_20",
       label: "Core Momentum $2–$20",
       min: 2,
       max: 20,
     });
-    expect(getTraderLensPreset("all_movers")?.label).toBe("All Radar Movers");
-    expect(TRADER_LENS_PRESETS[0].id).toBe("momentum_2_20");
+    expect(TRADER_LENS_PRESETS[0].id).toBe("all_movers");
     expect(CORE_MOMENTUM_SESSION_MOVE_MIN).toBe(10);
   });
 
@@ -132,9 +132,10 @@ describe("Trader Lens price presets", () => {
     expect(filtered.rows.map((item) => item.rank)).toEqual([2, 3]);
     expect(filtered.sessionMoveUnavailable).toBe(true);
     expect(filtered.sessionMoveFilterApplied).toBe(false);
-    expect(traderLensShowingCopy(filtered.rows.length, ranked.length)).toBe(
-      "Showing 2 of 3 Radar candidates",
-    );
+    expect(
+      traderLensResultCountCopy(filtered.rows.length, ranked.length, "momentum_2_20", false),
+    ).toBe("3 detected · 2 matches Core Momentum $2–$20");
+    expect(traderLensResultCountCopy(3, 3, "all_movers", false)).toBe("3 Radar candidates");
   });
 
   it("enforces +10% Core Momentum only when regular-session move is verified", () => {

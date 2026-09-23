@@ -41,6 +41,8 @@ export type SessionIntelSnapshot = {
   subsessionEpoch: number;
   sessionHigh: number | null;
   sessionLow: number | null;
+  /** First regular-session open observed for gap context. */
+  sessionOpen: number | null;
   sessionVolumeSum: number;
   sessionDollarSum: number;
   sessionVwap: number | null;
@@ -80,6 +82,8 @@ type SymbolIntel = {
   subsessionEpoch: number;
   sessionHigh: number | null;
   sessionLow: number | null;
+  /** First regular-session open observed for gap context. */
+  sessionOpen: number | null;
   sessionVolumeSum: number;
   sessionDollarSum: number;
   sessionVwap: number | null;
@@ -163,6 +167,7 @@ function emptyState(
     subsessionEpoch,
     sessionHigh: null,
     sessionLow: null,
+    sessionOpen: null,
     sessionVolumeSum: 0,
     sessionDollarSum: 0,
     sessionVwap: null,
@@ -206,6 +211,7 @@ function snapshotOf(
     subsessionEpoch: state.subsessionEpoch,
     sessionHigh: state.sessionHigh,
     sessionLow: state.sessionLow,
+    sessionOpen: state.sessionOpen,
     sessionVolumeSum: state.sessionVolumeSum,
     sessionDollarSum: state.sessionDollarSum,
     sessionVwap: state.sessionVwap,
@@ -283,6 +289,9 @@ function applyBarToState(
   const priceComplete = event.o !== null && event.h !== null &&
     event.l !== null && event.c !== null;
   if (priceComplete && event.c !== null) state.lastPrice = event.c;
+  if (state.sessionOpen === null && event.o !== null && event.o > 0) {
+    state.sessionOpen = event.o;
+  }
 
   if (priceComplete && event.l !== null) {
     state.sessionLow = state.sessionLow === null

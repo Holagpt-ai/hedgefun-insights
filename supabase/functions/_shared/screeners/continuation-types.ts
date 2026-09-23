@@ -50,6 +50,8 @@ export interface ContinuationInput {
   afterHoursExtendsSession?: ContinuationTriState | null;
   catalystInvalidated?: ContinuationTriState | null;
   instrumentType?: string | null;
+  /** Primary scanner event from Radar V2 when available (not fabricated). */
+  scannerPrimaryEvent?: string | null;
 }
 
 export interface ContinuationComponentResult {

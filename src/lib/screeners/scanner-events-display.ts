@@ -1,9 +1,14 @@
-/** Display helpers for persisted scanner event types (Phase 2). */
+/** Display helpers for persisted scanner event types. */
 
 export const SCANNER_EVENT_LABELS = {
+  HOD_BREAK: "HOD BREAK",
   HOD_MOMENTUM: "HOD MOMENTUM",
   RUNNING_UP: "RUNNING UP",
+  VWAP_RECLAIM: "VWAP RECLAIM",
+  GAP_CONTINUATION: "GAP CONTINUATION",
+  LATE_DAY_ACCELERATION: "LATE DAY ACCELERATION",
   VOLUME_EXPLOSION: "VOLUME EXPLOSION",
+  VWAP_LOSS: "VWAP LOSS",
 } as const;
 
 export type ScannerEventLabelKey = keyof typeof SCANNER_EVENT_LABELS;

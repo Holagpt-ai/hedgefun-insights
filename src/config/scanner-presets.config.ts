@@ -26,16 +26,16 @@ export interface TraderLensPreset {
 }
 
 export const TRADER_LENS_PRESETS: readonly TraderLensPreset[] = [
+  { id: "all_movers", label: "All Radar Candidates", min: null, max: null },
   { id: "momentum_2_20", label: "Core Momentum $2–$20", min: 2, max: 20 },
-  { id: "all_movers", label: "All Radar Movers", min: null, max: null },
   { id: "band_1_10", label: "$1–$10", min: 1, max: 10 },
   { id: "band_5_20", label: "$5–$20", min: 5, max: 20 },
   { id: "band_10_50", label: "$10–$50", min: 10, max: 50 },
   { id: "custom", label: "Custom", min: null, max: null },
 ] as const;
 
-/** Trader-facing default. Broad Radar still runs underneath. */
-export const DEFAULT_TRADER_LENS_PRESET_ID: TraderLensPresetId = "momentum_2_20";
+/** Trader-facing default — full ranked Radar universe (presets filter on top). */
+export const DEFAULT_TRADER_LENS_PRESET_ID: TraderLensPresetId = "all_movers";
 
 /** Inclusive regular-session move gate. Evaluated only when change_percent is verified. */
 export const CORE_MOMENTUM_SESSION_MOVE_MIN = 10;

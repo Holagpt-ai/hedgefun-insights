@@ -13,7 +13,7 @@ import {
   futureRadarColumnLabels,
   type RadarColumnId,
 } from "./radar-grid-columns";
-import { traderLensShowingCopy } from "./trader-lens";
+import { traderLensResultCountCopy } from "./trader-lens";
 import {
   ScreenerFiltersActions,
   ScreenerFiltersFields,
@@ -38,6 +38,7 @@ interface TraderLensBarProps {
   radarCount: number;
   visibleColumns: RadarColumnId[];
   sessionMoveUnavailable?: boolean;
+  sessionMoveFilterApplied?: boolean;
   onPresetChange: (id: TraderLensPresetId) => void;
   onMinChange: (value: string) => void;
   onMaxChange: (value: string) => void;
@@ -103,6 +104,7 @@ export function TraderLensBar({
   radarCount,
   visibleColumns,
   sessionMoveUnavailable = false,
+  sessionMoveFilterApplied = false,
   onPresetChange,
   onMinChange,
   onMaxChange,
@@ -271,7 +273,14 @@ export function TraderLensBar({
         </button>
       </div>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground tabular-nums">
-        <span>{traderLensShowingCopy(visibleCount, radarCount)}</span>
+        <span>
+          {traderLensResultCountCopy(
+            visibleCount,
+            radarCount,
+            presetId,
+            sessionMoveFilterApplied,
+          )}
+        </span>
         {sessionMoveUnavailable && <span>{CORE_MOMENTUM_MOVE_UNAVAILABLE_COPY}</span>}
       </div>
     </div>

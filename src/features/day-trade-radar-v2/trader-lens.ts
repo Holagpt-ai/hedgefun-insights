@@ -1,5 +1,6 @@
 import {
   CORE_MOMENTUM_SESSION_MOVE_MIN,
+  getTraderLensPreset,
   type TraderLensPresetId,
   type TraderLensPriceBounds,
 } from "@/config/scanner-presets.config";
@@ -87,8 +88,24 @@ export function applyTraderLensFilter(
   };
 }
 
+export function traderLensResultCountCopy(
+  visibleCount: number,
+  radarCount: number,
+  presetId: TraderLensPresetId,
+  sessionMoveFilterApplied: boolean,
+): string {
+  const presetLabel = getTraderLensPreset(presetId)?.label ?? "filter";
+  const broadDefault =
+    presetId === "all_movers" && !sessionMoveFilterApplied && visibleCount === radarCount;
+  if (broadDefault) {
+    return `${radarCount} Radar candidates`;
+  }
+  return `${radarCount} detected · ${visibleCount} matches ${presetLabel}`;
+}
+
+/** @deprecated Use traderLensResultCountCopy */
 export function traderLensShowingCopy(visibleCount: number, radarCount: number): string {
-  return `Showing ${visibleCount} of ${radarCount} Radar candidates`;
+  return traderLensResultCountCopy(visibleCount, radarCount, "all_movers", false);
 }
 
 /** True when the lens does not restrict price (All Radar Movers / unbounded custom). */

@@ -10,6 +10,7 @@ import {
 } from "../config/late-session-source-categories.ts";
 import type { RadarV22CandidateRow, RadarV22SessionKind } from "../radar-v22/persistence-v2.ts";
 import { evaluateContinuation } from "../screeners/continuation-v1.ts";
+import { SCANNER_EVENT_DISPLAY } from "../radar-v22/scanner-events.ts";
 
 export type LateSessionHandoffUpsertRow = Record<string, unknown>;
 
@@ -25,6 +26,15 @@ function pickPrimaryLateSessionCategory(
     if (categories.includes(category)) return category;
   }
   return categories[0]!;
+}
+
+function scannerEvidenceLabels(row: RadarV22CandidateRow): string[] {
+  const labels: string[] = [];
+  const primary = row.primary_scanner_event?.trim();
+  if (primary && primary in SCANNER_EVENT_DISPLAY) {
+    labels.push(SCANNER_EVENT_DISPLAY[primary as keyof typeof SCANNER_EVENT_DISPLAY]);
+  }
+  return labels;
 }
 
 function buildUpsertRow(input: {
@@ -54,14 +64,14 @@ function buildUpsertRow(input: {
     last_price: row.last_price,
     session_move_pct: row.move_60s_pct,
     volume: row.session_volume,
-    rvol: null,
+    rvol: row.rvol_5m,
     dollar_volume: Number.isFinite(dollarVolume) ? dollarVolume : null,
     close_distance_from_hod_pct: row.distance_from_hod_pct,
     after_hours_extends: null,
     catalyst_present: null,
     float_turnover: null,
     historical_context_available: false,
-    evidence_labels: [],
+    evidence_labels: scannerEvidenceLabels(row),
     sample_size_quality: null,
     comparable_episode_count: null,
     most_recent_comparable_date: null,

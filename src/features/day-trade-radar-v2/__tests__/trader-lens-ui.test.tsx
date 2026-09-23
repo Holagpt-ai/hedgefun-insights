@@ -151,7 +151,7 @@ describe("Radar mobile card render", () => {
 });
 
 describe("compact Trader Lens bar", () => {
-  it("hides Price Min/Max until Custom or Filters, and keeps Core Momentum as the default option", () => {
+  it("hides Price Min/Max until Custom or Filters, and lists All Radar Candidates first", () => {
     render(
       <TraderLensBar
         presetId="momentum_2_20"
@@ -172,7 +172,7 @@ describe("compact Trader Lens bar", () => {
     const select = screen.getByLabelText("Trader Lens preset") as HTMLSelectElement;
     expect(select.value).toBe("momentum_2_20");
     expect(screen.getByRole("option", { name: "Core Momentum $2–$20" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "All Radar Movers" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "All Radar Candidates" })).toBeInTheDocument();
     expect(screen.queryByLabelText("Price min")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Price max")).not.toBeInTheDocument();
     expect(
@@ -218,6 +218,7 @@ describe("compact Trader Lens bar", () => {
           isPro
           freeRowLimit={3}
           onSelect={() => {}}
+          visibleColumns={canonicalizeRadarColumns(["day_range"])}
         />
       </MemoryRouter>,
     );

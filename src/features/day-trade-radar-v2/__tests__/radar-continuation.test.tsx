@@ -3,7 +3,11 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { RadarGrid } from "../RadarGrid";
 import { RadarMobileCard } from "../RadarMobileCard";
-import { RADAR_GRID_COLUMN_COUNT, defaultRadarColumns } from "../radar-grid-columns";
+import {
+  RADAR_GRID_COLUMN_COUNT,
+  canonicalizeRadarColumns,
+  defaultRadarColumns,
+} from "../radar-grid-columns";
 import type { RadarRankedRow } from "../types";
 
 vi.mock("@/hooks/useAddToWatchlist", () => ({
@@ -76,7 +80,7 @@ function ranked(overrides: Partial<RadarRankedRow> = {}): RadarRankedRow {
 
 describe("Radar Continuation presentation", () => {
   it("15. keeps primary columns and shows unavailable continuation on desktop", () => {
-    expect(RADAR_GRID_COLUMN_COUNT).toBe(19);
+    expect(RADAR_GRID_COLUMN_COUNT).toBe(18);
     render(
       <MemoryRouter>
         <RadarGrid
@@ -85,7 +89,7 @@ describe("Radar Continuation presentation", () => {
           isPro
           freeRowLimit={3}
           onSelect={() => {}}
-          visibleColumns={defaultRadarColumns()}
+          visibleColumns={canonicalizeRadarColumns([...defaultRadarColumns(), "float"])}
         />
       </MemoryRouter>,
     );
