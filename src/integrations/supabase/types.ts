@@ -5296,6 +5296,7 @@ export type Database = {
           move_60s_pct: number | null
           promoted_at: string | null
           provider_as_of: string | null
+          rvol_5m: number | null
           session_high: number | null
           session_kind: string
           session_low: number | null
@@ -5308,6 +5309,8 @@ export type Database = {
           volume_15s: number
           volume_5s: number
           volume_60s: number
+          volume_acceleration_pct: number | null
+          volume_velocity: number | null
           vwap_partial: boolean
           vwap_side: string
         }
@@ -5337,6 +5340,7 @@ export type Database = {
           move_60s_pct?: number | null
           promoted_at?: string | null
           provider_as_of?: string | null
+          rvol_5m?: number | null
           session_high?: number | null
           session_kind: string
           session_low?: number | null
@@ -5349,6 +5353,8 @@ export type Database = {
           volume_15s: number
           volume_5s: number
           volume_60s: number
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
           vwap_partial: boolean
           vwap_side: string
         }
@@ -5378,6 +5384,7 @@ export type Database = {
           move_60s_pct?: number | null
           promoted_at?: string | null
           provider_as_of?: string | null
+          rvol_5m?: number | null
           session_high?: number | null
           session_kind?: string
           session_low?: number | null
@@ -5390,6 +5397,8 @@ export type Database = {
           volume_15s?: number
           volume_5s?: number
           volume_60s?: number
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
           vwap_partial?: boolean
           vwap_side?: string
         }
