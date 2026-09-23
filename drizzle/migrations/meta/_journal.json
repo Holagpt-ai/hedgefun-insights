@@ -204,6 +204,13 @@
       "when": 1790208300000,
       "tag": "0028_radar_v22_scanner_events",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790200470408,
+      "tag": "0029_radar_v22_scanner_events_schema_reload",
+      "breakpoints": true
     }
   ]
 }
