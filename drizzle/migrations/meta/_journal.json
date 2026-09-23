@@ -225,6 +225,13 @@
       "when": 1790201233559,
       "tag": "0031_radar_v22_scanner_events_rpc_fix_schema_reload",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790202729522,
+      "tag": "0032_scanner_intelligence_alerts_v1",
+      "breakpoints": true
     }
   ]
 }
