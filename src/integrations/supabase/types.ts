@@ -674,6 +674,201 @@ export type Database = {
         }
         Relationships: []
       }
+      episode_intraday_reconstruction: {
+        Row: {
+          after_hours_high: number | null
+          after_hours_low: number | null
+          bar_granularity: string
+          bars_available: number | null
+          bars_expected: number | null
+          close_at: string | null
+          close_position: number | null
+          close_price: number | null
+          close_vs_hod_pct: number | null
+          completeness_state: string
+          computed_at: string
+          episode_id: string
+          fetched_at: string | null
+          first_halt_at: string | null
+          first_major_move_at: string | null
+          first_vwap_break_at: string | null
+          freshness: string
+          halt_count: number | null
+          halt_data_available: boolean
+          hod_at: string | null
+          hod_price: number | null
+          hod_session_phase: string | null
+          hod_vs_vwap_pct: number | null
+          largest_bar_volume: number | null
+          largest_pullback_pct: number | null
+          largest_volume_burst_at: string | null
+          lod_at: string | null
+          lod_price: number | null
+          major_pullback_count: number | null
+          max_drawdown_from_hod_pct: number | null
+          momentum_leg_count: number | null
+          move_open_to_hod_pct: number | null
+          open_price: number | null
+          premarket_high: number | null
+          premarket_low: number | null
+          provenance: string
+          provider: string | null
+          quality: string
+          recovered_from_pullback: boolean | null
+          reg_bars_available: number | null
+          reg_bars_expected: number | null
+          regular_high: number | null
+          regular_low: number | null
+          seconds_above_vwap: number | null
+          seconds_below_vwap: number | null
+          security_id: string
+          session_coverage_pct: number | null
+          session_date: string
+          session_open_at: string | null
+          source: string | null
+          source_as_of: string | null
+          total_intraday_volume: number | null
+          volume_after_hod: number | null
+          volume_before_hod: number | null
+          volume_concentration_top5_pct: number | null
+          vwap_at_close: number | null
+          vwap_reclaim_count: number | null
+        }
+        Insert: {
+          after_hours_high?: number | null
+          after_hours_low?: number | null
+          bar_granularity?: string
+          bars_available?: number | null
+          bars_expected?: number | null
+          close_at?: string | null
+          close_position?: number | null
+          close_price?: number | null
+          close_vs_hod_pct?: number | null
+          completeness_state: string
+          computed_at: string
+          episode_id: string
+          fetched_at?: string | null
+          first_halt_at?: string | null
+          first_major_move_at?: string | null
+          first_vwap_break_at?: string | null
+          freshness: string
+          halt_count?: number | null
+          halt_data_available?: boolean
+          hod_at?: string | null
+          hod_price?: number | null
+          hod_session_phase?: string | null
+          hod_vs_vwap_pct?: number | null
+          largest_bar_volume?: number | null
+          largest_pullback_pct?: number | null
+          largest_volume_burst_at?: string | null
+          lod_at?: string | null
+          lod_price?: number | null
+          major_pullback_count?: number | null
+          max_drawdown_from_hod_pct?: number | null
+          momentum_leg_count?: number | null
+          move_open_to_hod_pct?: number | null
+          open_price?: number | null
+          premarket_high?: number | null
+          premarket_low?: number | null
+          provenance: string
+          provider?: string | null
+          quality: string
+          recovered_from_pullback?: boolean | null
+          reg_bars_available?: number | null
+          reg_bars_expected?: number | null
+          regular_high?: number | null
+          regular_low?: number | null
+          seconds_above_vwap?: number | null
+          seconds_below_vwap?: number | null
+          security_id: string
+          session_coverage_pct?: number | null
+          session_date: string
+          session_open_at?: string | null
+          source?: string | null
+          source_as_of?: string | null
+          total_intraday_volume?: number | null
+          volume_after_hod?: number | null
+          volume_before_hod?: number | null
+          volume_concentration_top5_pct?: number | null
+          vwap_at_close?: number | null
+          vwap_reclaim_count?: number | null
+        }
+        Update: {
+          after_hours_high?: number | null
+          after_hours_low?: number | null
+          bar_granularity?: string
+          bars_available?: number | null
+          bars_expected?: number | null
+          close_at?: string | null
+          close_position?: number | null
+          close_price?: number | null
+          close_vs_hod_pct?: number | null
+          completeness_state?: string
+          computed_at?: string
+          episode_id?: string
+          fetched_at?: string | null
+          first_halt_at?: string | null
+          first_major_move_at?: string | null
+          first_vwap_break_at?: string | null
+          freshness?: string
+          halt_count?: number | null
+          halt_data_available?: boolean
+          hod_at?: string | null
+          hod_price?: number | null
+          hod_session_phase?: string | null
+          hod_vs_vwap_pct?: number | null
+          largest_bar_volume?: number | null
+          largest_pullback_pct?: number | null
+          largest_volume_burst_at?: string | null
+          lod_at?: string | null
+          lod_price?: number | null
+          major_pullback_count?: number | null
+          max_drawdown_from_hod_pct?: number | null
+          momentum_leg_count?: number | null
+          move_open_to_hod_pct?: number | null
+          open_price?: number | null
+          premarket_high?: number | null
+          premarket_low?: number | null
+          provenance?: string
+          provider?: string | null
+          quality?: string
+          recovered_from_pullback?: boolean | null
+          reg_bars_available?: number | null
+          reg_bars_expected?: number | null
+          regular_high?: number | null
+          regular_low?: number | null
+          seconds_above_vwap?: number | null
+          seconds_below_vwap?: number | null
+          security_id?: string
+          session_coverage_pct?: number | null
+          session_date?: string
+          session_open_at?: string | null
+          source?: string | null
+          source_as_of?: string | null
+          total_intraday_volume?: number | null
+          volume_after_hod?: number | null
+          volume_before_hod?: number | null
+          volume_concentration_top5_pct?: number | null
+          vwap_at_close?: number | null
+          vwap_reclaim_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "episode_intraday_reconstruction_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: true
+            referencedRelation: "market_behavior_episodes"
+            referencedColumns: ["episode_id"]
+          },
+          {
+            foreignKeyName: "episode_intraday_reconstruction_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       etfs: {
         Row: {
           asset_class: string | null
@@ -7432,6 +7627,97 @@ export type Database = {
         Args: { p_date_from: string; p_date_to: string; p_min_sessions: number }
         Returns: {
           symbol: string
+        }[]
+      }
+      intraday_episode_event_apply_batch_v1: {
+        Args: { p_rows: Json }
+        Returns: Json
+      }
+      intraday_reconstruction_apply_batch_v1: {
+        Args: { p_rows: Json }
+        Returns: Json
+      }
+      intraday_reconstruction_list_by_episodes_v1: {
+        Args: { p_episode_ids: string[] }
+        Returns: {
+          after_hours_high: number | null
+          after_hours_low: number | null
+          bar_granularity: string
+          bars_available: number | null
+          bars_expected: number | null
+          close_at: string | null
+          close_position: number | null
+          close_price: number | null
+          close_vs_hod_pct: number | null
+          completeness_state: string
+          computed_at: string
+          episode_id: string
+          fetched_at: string | null
+          first_halt_at: string | null
+          first_major_move_at: string | null
+          first_vwap_break_at: string | null
+          freshness: string
+          halt_count: number | null
+          halt_data_available: boolean
+          hod_at: string | null
+          hod_price: number | null
+          hod_session_phase: string | null
+          hod_vs_vwap_pct: number | null
+          largest_bar_volume: number | null
+          largest_pullback_pct: number | null
+          largest_volume_burst_at: string | null
+          lod_at: string | null
+          lod_price: number | null
+          major_pullback_count: number | null
+          max_drawdown_from_hod_pct: number | null
+          momentum_leg_count: number | null
+          move_open_to_hod_pct: number | null
+          open_price: number | null
+          premarket_high: number | null
+          premarket_low: number | null
+          provenance: string
+          provider: string | null
+          quality: string
+          recovered_from_pullback: boolean | null
+          reg_bars_available: number | null
+          reg_bars_expected: number | null
+          regular_high: number | null
+          regular_low: number | null
+          seconds_above_vwap: number | null
+          seconds_below_vwap: number | null
+          security_id: string
+          session_coverage_pct: number | null
+          session_date: string
+          session_open_at: string | null
+          source: string | null
+          source_as_of: string | null
+          total_intraday_volume: number | null
+          volume_after_hod: number | null
+          volume_before_hod: number | null
+          volume_concentration_top5_pct: number | null
+          vwap_at_close: number | null
+          vwap_reclaim_count: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "episode_intraday_reconstruction"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      intraday_reconstruction_list_episodes_v1: {
+        Args: {
+          p_after_episode_id?: string
+          p_include_reconstructed?: boolean
+          p_limit?: number
+        }
+        Returns: {
+          direction: string
+          episode_id: string
+          observed_symbol: string
+          security_id: string
+          session_date: string
+          tier: string
         }[]
       }
       journal_backfill_accounts_and_executions: {

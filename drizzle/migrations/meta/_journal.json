@@ -159,8 +159,15 @@
     {
       "idx": 22,
       "version": "7",
-      "when": 1790179568218,
+      "when": 1790208160000,
       "tag": "0022_intraday_reconstruction_v1_apply_marker",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790179601097,
+      "tag": "0023_intraday_reconstruction_v1_schema_reload",
       "breakpoints": true
     }
   ]
