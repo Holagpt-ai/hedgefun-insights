@@ -166,8 +166,15 @@
     {
       "idx": 23,
       "version": "7",
-      "when": 1790179601097,
+      "when": 1790208170000,
       "tag": "0023_intraday_reconstruction_v1_schema_reload",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790179639184,
+      "tag": "0024_intraday_reconstruction_v1_restrict_execute",
       "breakpoints": true
     }
   ]
