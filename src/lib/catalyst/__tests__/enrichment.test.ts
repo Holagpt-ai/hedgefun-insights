@@ -394,7 +394,7 @@ describe("Catalyst Intelligence V2 relevance", () => {
     const filing = evt({
       id: "sec",
       symbol: "DEF",
-      event_type: "sec_filing",
+      event_type: "sec_filing_news",
       title: "DEF 8-K",
       published_at: "2026-07-30T10:00:00.000Z",
       attribution_class: "direct",
