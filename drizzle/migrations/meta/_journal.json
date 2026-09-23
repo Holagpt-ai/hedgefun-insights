@@ -173,8 +173,15 @@
     {
       "idx": 24,
       "version": "7",
-      "when": 1790179639184,
+      "when": 1790208180000,
       "tag": "0024_intraday_reconstruction_v1_restrict_execute",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790179651175,
+      "tag": "0025_intraday_reconstruction_v1_schema_reload_final",
       "breakpoints": true
     }
   ]
