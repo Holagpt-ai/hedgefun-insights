@@ -57,7 +57,8 @@ STRICT RULES:
 - No price targets. No predictions stated as facts. No "this stock will move".
 - No fabricated tickers, headlines, catalysts, or earnings.
 - No watchlist personalization. This brief is generic/shared.
-- No volume leaders or pre-market movers. Those sources are not in this evidence bundle.
+- Continuation carryovers are prior-session context only — not predictions.
+- No volume leaders or pre-market movers unless listed under CONTINUATION CARRYOVERS.
 - If a section has no evidence in the user message, OMIT that section entirely. Do not fill empty space with generic commentary.
 - Do not mention missing sections.
 
@@ -73,6 +74,9 @@ Up to 3 genuine ticker-specific catalysts.
 
 ### Before-Open Earnings
 Important confirmed events if available.
+
+### Day-Two / Continuation Watch
+Prior-session carryovers (Power-Hour, Strong Close, After-Hours, Day-Two) when listed.
 
 ### Into the Open
 2–3 evidence-grounded items traders should monitor, using only the supplied facts.
@@ -140,9 +144,24 @@ export function buildAmUserPrompt(bundle: AmEvidenceBundle): string {
     }
   }
 
+  if (bundle.continuationCarryovers.length > 0) {
+    parts.push("");
+    parts.push("CONTINUATION CARRYOVERS (prior session → next-session watch, factual only):");
+    for (const c of bundle.continuationCarryovers) {
+      const labels = c.evidence_labels.length > 0 ? c.evidence_labels.join(", ") : "—";
+      const rvol = c.rvol !== null ? ` rvol_5m=${c.rvol.toFixed(2)}` : "";
+      const move = c.session_move_pct !== null
+        ? ` move=${c.session_move_pct.toFixed(2)}%`
+        : "";
+      parts.push(
+        `- [${c.key}] ${c.symbol} category=${c.source_category} from=${c.source_session_date}${rvol}${move} context=${labels}`,
+      );
+    }
+  }
+
   parts.push("");
   parts.push(
-    "Write the AM brief. Omit any suggested section that has no evidence above. Do not invent volume leaders or pre-market movers.",
+    "Write the AM brief. Omit any suggested section that has no evidence above. Do not invent tickers or events.",
   );
   return parts.join("\n");
 }

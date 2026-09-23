@@ -139,6 +139,24 @@ export function normalizeBars(
 /** Snapshot older than this is SNAPSHOT_STALE. Do not change without an explicit product decision. */
 export const STALE_MS = 45 * 60 * 1000;
 
+/** When snapshot timestamps lag on delayed feeds, recent intraday bars can still qualify. */
+export function effectiveSnapshotQuality(
+  snapshot: Pick<SnapshotAssessment, "quality" | "lastTradeTs">,
+  bars: readonly IntradayBar[],
+  nowMs: number,
+): SnapshotAssessment["quality"] {
+  if (snapshot.quality !== "stale") return snapshot.quality;
+  const lastBar = bars.length > 0 ? bars[bars.length - 1] : null;
+  if (lastBar && nowMs - lastBar.t <= STALE_MS) return "ok";
+  if (
+    snapshot.lastTradeTs !== null &&
+    nowMs - snapshot.lastTradeTs <= STALE_MS
+  ) {
+    return "ok";
+  }
+  return "stale";
+}
+
 export type SnapshotTimestampSource = "lastTrade" | "lastQuote" | "updated" | "min";
 
 export interface SnapshotAssessment {

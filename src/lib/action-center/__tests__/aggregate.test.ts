@@ -349,6 +349,22 @@ describe("action-center aggregate", () => {
     });
   });
 
+  it("suppresses watchlist market_signal when the same symbol has a scanner alert within 2h", () => {
+    const row = scannerAlert({ symbol: "AAA" });
+    const feed = buildActionFeed({
+      alerts: [alert({ ticker: "AAA", alert_type: "market_signal" })],
+      scannerAlerts: [row],
+      dismissedScannerAlertIds: new Set(),
+      catalyst: [],
+      savedEventIds: new Set(),
+      reviewedEventIds: new Set(),
+      openTrades: [],
+      nowMs: NOW,
+    });
+    expect(feed.filter((i) => i.source === "watchlist_alert")).toHaveLength(0);
+    expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(1);
+  });
+
   it("scanner intelligence alerts appear once in feed and respect dismiss set", () => {
     const row = scannerAlert({});
     const feed = buildActionFeed({

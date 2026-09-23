@@ -25,6 +25,14 @@ export interface AiReadInput {
   market_signals: MarketSignal[];
   recent_events: RecentEvent[];
   reason_codes: string[];
+  radar_context?: {
+    primary_event: string | null;
+    primary_event_at: string | null;
+    rvol_5m: number | null;
+    volume_velocity: number | null;
+    volume_acceleration_pct: number | null;
+    distance_from_hod_pct: number | null;
+  } | null;
 }
 
 export interface AiReadResult {
@@ -107,6 +115,7 @@ export function buildAiPrompt(input: AiReadInput, catalog: EvidenceCatalog): str
       source: e.source_name, event_time: e.event_time,
     })),
     reason_codes: input.reason_codes,
+    radar_context: input.radar_context ?? null,
     allowed_driver_ids: [...catalog.ids],
   };
 

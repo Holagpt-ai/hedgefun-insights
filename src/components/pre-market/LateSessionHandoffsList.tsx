@@ -23,6 +23,9 @@ function formatNum(value: number | null | undefined, digits = 1): string {
 
 function HandoffCard({ entry }: { entry: AmInboxLateSessionCandidate }) {
   const { context } = entry;
+  const categories = entry.sourceCategories.length > 0
+    ? entry.sourceCategories
+    : [context.sourceCategory];
   const eventLabel =
     context.evidenceLabels[0] ??
     formatScannerEventLabel(entry.sourceCategories[0] ?? null) ??
@@ -32,6 +35,14 @@ function HandoffCard({ entry }: { entry: AmInboxLateSessionCandidate }) {
     <div className="flex flex-col gap-2 rounded-xl border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold">{context.symbol}</span>
+        {categories.map((cat) => (
+          <span
+            key={cat}
+            className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+          >
+            {CATEGORY_LABEL[cat] ?? cat}
+          </span>
+        ))}
         <span className="text-[10px] text-muted-foreground">
           Prior session {context.sourceSessionDate}
         </span>

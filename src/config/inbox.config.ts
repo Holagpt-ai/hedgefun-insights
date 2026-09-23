@@ -183,6 +183,9 @@ export const PM_INBOX_CONFIG = {
   aiCardTimestampLabel: "Generated at",
   recapHeading: "Post-Market Recap",
   recapSubtitle: "End-of-day review and planning",
+  sessionSummaryHeading: "Late-Session Scanner Highlights",
+  sessionSummarySubtitle:
+    "End-of-day scanner events from today's Radar feed — not a duplicate alert stream.",
   catalystOutcomesHeading: "Today's Catalyst Activity",
   catalystOutcomesSubtitle: "Provider-reported company events for the current ET date",
   earningsHeading: "Upcoming After-Close Earnings",

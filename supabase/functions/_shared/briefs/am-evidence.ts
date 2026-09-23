@@ -73,12 +73,26 @@ export interface AmEarningsEvidence {
   time_of_day: string;
 }
 
+/** Next-session continuation handoff from late-session capture (not predictive). */
+export interface AmContinuationCarryoverEvidence {
+  key: string;
+  symbol: string;
+  source_session_date: string;
+  source_category: string;
+  evidence_labels: string[];
+  rvol: number | null;
+  session_move_pct: number | null;
+}
+
+export const AM_CONTINUATION_CARRYOVER_LIMIT = 8;
+
 export interface AmEvidenceBundle {
   checkedAt: string;
   indexes: Record<AmIndexSymbol, IndexSnapshot>;
   headlines: AmHeadlineEvidence[];
   catalysts: AmCatalystEvidence[];
   earnings: AmEarningsEvidence[];
+  continuationCarryovers: AmContinuationCarryoverEvidence[];
 }
 
 export interface AmMaterialState {
@@ -88,6 +102,7 @@ export interface AmMaterialState {
   headline_ids: string[];
   catalyst_ids: string[];
   earnings_ids: string[];
+  continuation_keys: string[];
 }
 
 export interface MaterialChangeResult {
@@ -183,11 +198,25 @@ export function selectRankedHeadlines(ranked: RankedHeadline[]): AmHeadlineEvide
  * excluded here (they belong in the before-open earnings section).
  * Legal / commentary / provider-associated / sector-related do not enter.
  */
-export function selectDirectCatalysts(rows: AttributedCatalystRow[]): AmCatalystEvidence[] {
+const AM_CATALYST_MAX_PUBLISHED_AGE_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function selectDirectCatalysts(
+  rows: AttributedCatalystRow[],
+  asOfMs: number = Date.now(),
+): AmCatalystEvidence[] {
   const qualifying: AttributedCatalystRow[] = [];
   for (const row of rows) {
     if (row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings") {
       continue;
+    }
+    if (row.published_at) {
+      const publishedMs = Date.parse(row.published_at);
+      if (
+        Number.isFinite(publishedMs) &&
+        asOfMs - publishedMs > AM_CATALYST_MAX_PUBLISHED_AGE_MS
+      ) {
+        continue;
+      }
     }
     const cls = classifyCatalystPresentation({
       title: row.title,
@@ -255,6 +284,44 @@ export function selectBeforeOpenEarningsEvidence(
   return out;
 }
 
+export function selectContinuationCarryovers(
+  rows: readonly {
+    symbol: string;
+    source_session_date: string;
+    source_category: string;
+    evidence_labels?: unknown;
+    rvol?: number | null;
+    session_move_pct?: number | null;
+  }[],
+): AmContinuationCarryoverEvidence[] {
+  const seen = new Set<string>();
+  const out: AmContinuationCarryoverEvidence[] = [];
+  for (const row of rows) {
+    const symbol = row.symbol?.trim().toUpperCase();
+    if (!symbol) continue;
+    const key = `${symbol}:${row.source_session_date}:${row.source_category}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const labels = Array.isArray(row.evidence_labels)
+      ? row.evidence_labels.filter((x): x is string => typeof x === "string")
+      : [];
+    out.push({
+      key,
+      symbol,
+      source_session_date: row.source_session_date,
+      source_category: row.source_category,
+      evidence_labels: labels,
+      rvol: typeof row.rvol === "number" && Number.isFinite(row.rvol) ? row.rvol : null,
+      session_move_pct: typeof row.session_move_pct === "number" &&
+          Number.isFinite(row.session_move_pct)
+        ? row.session_move_pct
+        : null,
+    });
+    if (out.length >= AM_CONTINUATION_CARRYOVER_LIMIT) break;
+  }
+  return out;
+}
+
 export function buildMaterialState(bundle: AmEvidenceBundle): AmMaterialState {
   const index_signs = {} as Record<AmIndexSymbol, number>;
   const index_pcts = {} as Record<AmIndexSymbol, number>;
@@ -269,6 +336,7 @@ export function buildMaterialState(bundle: AmEvidenceBundle): AmMaterialState {
     headline_ids: bundle.headlines.map((h) => h.id),
     catalyst_ids: [...bundle.catalysts.map((c) => c.id)].sort(),
     earnings_ids: [...bundle.earnings.map((e) => e.id)].sort(),
+    continuation_keys: [...bundle.continuationCarryovers.map((c) => c.key)].sort(),
   };
 }
 
@@ -338,6 +406,9 @@ export function isMaterialChange(
   if (!idsEqual(prev.earnings_ids, next.earnings_ids)) {
     reasons.push("earnings_set_change");
   }
+  if (!idsEqual(prev.continuation_keys, next.continuation_keys)) {
+    reasons.push("continuation_set_change");
+  }
   return { material: reasons.length > 0, reasons };
 }
 
@@ -350,6 +421,7 @@ export function fingerprintMaterialState(state: AmMaterialState): string {
     `h:${state.headline_ids.join(",")}`,
     `c:${state.catalyst_ids.join(",")}`,
     `e:${state.earnings_ids.join(",")}`,
+    `x:${state.continuation_keys.join(",")}`,
   ].join("|");
 }
 
@@ -390,6 +462,15 @@ export function buildAmV2Snapshot(
       event_date: e.event_date,
       time_of_day: e.time_of_day,
     })),
+    continuation_carryovers: bundle.continuationCarryovers.map((c) => ({
+      key: c.key,
+      symbol: c.symbol,
+      source_session_date: c.source_session_date,
+      source_category: c.source_category,
+      evidence_labels: c.evidence_labels,
+      rvol: c.rvol,
+      session_move_pct: c.session_move_pct,
+    })),
   };
 }
 
@@ -405,6 +486,7 @@ export function readMaterialState(snapshot: unknown): AmMaterialState | null {
   const headlines = m.headline_ids;
   const catalysts = m.catalyst_ids;
   const earnings = m.earnings_ids;
+  const continuation = m.continuation_keys;
   if (!signs || typeof signs !== "object" || Array.isArray(signs)) return null;
   if (!pcts || typeof pcts !== "object" || Array.isArray(pcts)) return null;
   if (!Array.isArray(leadership) || !Array.isArray(headlines) || !Array.isArray(catalysts) || !Array.isArray(earnings)) {
@@ -423,6 +505,9 @@ export function readMaterialState(snapshot: unknown): AmMaterialState | null {
   if (headlines.some((x) => typeof x !== "string")) return null;
   if (catalysts.some((x) => typeof x !== "string")) return null;
   if (earnings.some((x) => typeof x !== "string")) return null;
+  const continuation_keys = Array.isArray(continuation)
+    ? continuation.filter((x): x is string => typeof x === "string")
+    : [];
   return {
     index_signs,
     index_pcts,
@@ -430,5 +515,6 @@ export function readMaterialState(snapshot: unknown): AmMaterialState | null {
     headline_ids: headlines as string[],
     catalyst_ids: catalysts as string[],
     earnings_ids: earnings as string[],
+    continuation_keys,
   };
 }

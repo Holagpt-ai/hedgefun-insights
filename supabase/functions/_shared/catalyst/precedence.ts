@@ -127,6 +127,8 @@ const PRIMARY_EVIDENCE: EvidenceRule[] = [
       /\b(?:convertible|senior\s+notes?|debt\s+financing)\b/i,
       /\bwarrant(?:s|\s+exercise|\s+inducement)\b/i,
       /\bdilut(?:ive|ion)\b/i,
+      /\b(?:stock|share)\s+split\b/i,
+      /\breverse\s+split\b/i,
     ],
   },
   {
@@ -162,7 +164,8 @@ export const MARKET_ATTENTION_TITLE: RegExp[] = [
   /\b(?:better|worse)\s+(?:stock|pick|buy)\b/i,
   /\b(?:momentum|value|growth)\s+stock\s+pick\b/i,
   /\b(?:wall\s+street|analyst)\s+(?:says|sees|expects)\b/i,
-  /\bwhy\s+.{0,60}\b(?:jumped|rose|fell|sold\s+off)\b/i,
+  /\bwhy\s+.{0,60}\b(?:jumped|rose|fell|sold\s+off|moving|volatile)\b/i,
+  /\bstock\s+is\s+moving\b/i,
 ];
 
 /** Vague market-movement phrasing — insufficient alone to rescue into primary. */

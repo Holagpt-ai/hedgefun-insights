@@ -48,6 +48,7 @@ function bundle(overrides: Partial<AmEvidenceBundle> = {}): AmEvidenceBundle {
     earnings: [
       { id: "e1", symbol: "AAPL", title: "AAPL reports before the open", event_date: "2026-08-28", time_of_day: "before_open" },
     ],
+    continuationCarryovers: [],
     ...overrides,
   };
 }
@@ -101,6 +102,7 @@ Deno.test("7b. material change is anchored to last generated brief, not intermed
     headline_ids: [] as string[],
     catalyst_ids: [] as string[],
     earnings_ids: [] as string[],
+    continuation_keys: [] as string[],
   };
   const intermediate = {
     ...briefBaseline,
@@ -282,7 +284,8 @@ Deno.test("11. legal/commentary catalyst does not enter direct-catalyst evidence
     }),
     cat({ id: "real" }),
   ];
-  const selected = selectDirectCatalysts(rows);
+  const asOfMs = Date.parse("2026-08-28T13:00:00.000Z");
+  const selected = selectDirectCatalysts(rows, asOfMs);
   assertEquals(selected.map((r) => r.id), ["real"]);
 });
 

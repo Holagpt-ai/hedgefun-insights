@@ -55,7 +55,11 @@ type BriefState =
   | { kind: "notice"; message: string; refreshable: boolean; showAfterHoursCta?: boolean }
   | { kind: "error"; message: string; refreshable: boolean };
 
-const REFRESHABLE_CODES = new Set(["brief_not_ready", "pm_not_released"]);
+const REFRESHABLE_CODES = new Set([
+  "brief_not_ready",
+  "pm_not_released",
+  "invalid_brief_provenance",
+]);
 
 function formatEt(iso: string): string {
   try {
@@ -339,7 +343,11 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             }
             return;
           case "invalid_brief_provenance":
-            setState({ kind: "notice", message: "Brief unavailable.", refreshable: false });
+            setState({
+              kind: "notice",
+              message: "Morning brief is updating. Check back shortly or refresh.",
+              refreshable: true,
+            });
             return;
           default:
             setState({ kind: "error", message: "Couldn't load the brief.", refreshable: true });

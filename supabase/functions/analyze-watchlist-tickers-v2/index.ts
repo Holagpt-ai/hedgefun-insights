@@ -18,7 +18,8 @@ import {
 } from "../_shared/watchlist-v2/contract.ts";
 import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import {
-  assessSnapshot, computeBasis, fetchWithOutcome, normalizeBars, STALE_MS,
+  assessSnapshot,
+  effectiveSnapshotQuality, computeBasis, fetchWithOutcome, normalizeBars, STALE_MS,
   type ProviderFailureKind, type ProviderTransportFailure,
 } from "../_shared/watchlist-v2/market-data.ts";
 import { computeKeyLevels, computeTransitionLevels } from "../_shared/watchlist-v2/levels.ts";
@@ -59,6 +60,10 @@ import {
   buildAiEvidence,
   isInsufficientEvidence,
 } from "../_shared/ai/evidence.ts";
+import {
+  fetchRadarScannerContext,
+  radarContextReasonCodes,
+} from "../_shared/watchlist-v2/radar-context.ts";
 import {
   emitAnalyzerOutcomeLog,
   emptyAnalyzerOutcomeLog,
@@ -634,9 +639,12 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   const reasonCodes: string[] = [];
   if (newsR.kind === "transport_failure") reasonCodes.push(`news_${newsR.code.toLowerCase()}`);
+  const radarContext = await fetchRadarScannerContext(supabase, ticker, sessionDate);
+  reasonCodes.push(...radarContextReasonCodes(radarContext));
 
+  const snapshotQuality = effectiveSnapshotQuality(snapshot, bars, analyzedAtMs);
   const inputsQuality: InputsQuality = {
-    snapshot: snapshot.quality,
+    snapshot: snapshotQuality,
     bars: barsQuality,
     prior_close: priorClose === null ? "missing" : "ok",
     volume: basis.volume === null ? "missing" : "ok",
@@ -816,6 +824,7 @@ export async function handleRequest(req: Request): Promise<Response> {
             metrics: [
               ...(rvolRes.rvol !== null ? ["rvol"] : []),
               ...(basis.change_pct !== null ? ["change_pct"] : []),
+              ...(radarContext?.primary_event ? ["scanner_event"] : []),
             ],
           });
           const prompt = buildAiPrompt({
@@ -824,6 +833,7 @@ export async function handleRequest(req: Request): Promise<Response> {
             rvol: rvolRes.rvol, rvol_class: rvolRes.rvol_class,
             key_levels: keyLevels, market_signals: marketSignals, recent_events: recentEvents,
             reason_codes: reasonCodes,
+            radar_context: radarContext,
           }, catalog);
           const result = await generateWatchlistAnalysis(created.adapter, { prompt, catalog });
           applyAiCallMeta(outcomeLog, result.meta, intended);

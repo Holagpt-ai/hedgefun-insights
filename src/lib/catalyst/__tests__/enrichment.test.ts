@@ -12,6 +12,7 @@ import {
   eventDateInFetchWindow,
   normalizeEnrichmentSymbols,
   selectEnrichmentEntries,
+  enrichmentSelectionScore,
   symbolsMissingFromPayload,
 } from "@/lib/catalyst/enrichment";
 import { scheduledMomentMs } from "@/lib/catalyst/parsers";
@@ -352,5 +353,68 @@ describe("XRX date-boundary: retain recent scheduled earnings", () => {
     );
     expect(map.get("USEA")?.kind).toBe("upcoming");
     expect(map.get("USEA")?.event.title).toBe("USEA near earnings");
+  });
+});
+
+describe("Catalyst Intelligence V2 relevance", () => {
+  it("prefers primary earnings over generic company news for the same symbol", () => {
+    const earnings = evt({
+      id: "earn",
+      symbol: "ABC",
+      event_type: "earnings",
+      title: "ABC Q2 earnings",
+      published_at: "2026-07-30T08:00:00.000Z",
+      source_name: "Earnings Calendar",
+    });
+    const generic = evt({
+      id: "news",
+      symbol: "ABC",
+      event_type: "company_news",
+      title: "ABC mentioned in sector roundup",
+      published_at: "2026-07-30T14:00:00.000Z",
+    });
+    const map = selectEnrichmentEntries([generic, earnings], ["ABC"], NOW);
+    expect(map.get("ABC")?.event.id).toBe("earn");
+  });
+
+  it("rejects secondary market-attention headlines", () => {
+    const attention = evt({
+      id: "attn",
+      symbol: "XYZ",
+      event_type: "company_news",
+      title: "Why XYZ stock is moving today",
+      published_at: "2026-07-30T12:00:00.000Z",
+      attribution_class: "commentary",
+      ticker_specific: false,
+    });
+    expect(selectEnrichmentEntries([attention], ["XYZ"], NOW).has("XYZ")).toBe(false);
+  });
+
+  it("scores stale weak commentary below verified primary filings", () => {
+    const filing = evt({
+      id: "sec",
+      symbol: "DEF",
+      event_type: "sec_filing",
+      title: "DEF 8-K",
+      published_at: "2026-07-30T10:00:00.000Z",
+      attribution_class: "direct",
+      ticker_specific: true,
+    });
+    const filingEntry = selectEnrichmentEntries([filing], ["DEF"], NOW).get("DEF")!;
+    const weak = evt({
+      id: "weak",
+      symbol: "DEF",
+      event_type: "company_news",
+      title: "DEF in the news",
+      published_at: "2026-07-29T10:00:00.000Z",
+    });
+    const weakEntry = {
+      event: weak,
+      kind: "recent" as const,
+      sortMs: Date.parse("2026-07-29T10:00:00.000Z"),
+    };
+    expect(enrichmentSelectionScore(filingEntry, NOW)).toBeGreaterThan(
+      enrichmentSelectionScore(weakEntry, NOW),
+    );
   });
 });

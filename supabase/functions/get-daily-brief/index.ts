@@ -174,7 +174,8 @@ serve(async (req) => {
         .maybeSingle();
       if (!row) return unavailable("am", "brief_not_ready");
       const v = validateProvenance(row as BriefRow, "am");
-      if (!v.ok) return unavailable("am", "invalid_brief_provenance");
+      // Legacy / corrupt rows: treat as not ready so dispatch can regenerate V2.
+      if (!v.ok) return unavailable("am", "brief_not_ready");
       return json(
         {
           available: true,

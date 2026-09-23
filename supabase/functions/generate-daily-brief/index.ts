@@ -16,6 +16,7 @@ import {
   buildMaterialState,
   selectBeforeOpenEarningsEvidence,
   selectDirectCatalysts,
+  selectContinuationCarryovers,
   selectRankedHeadlines,
   validateIndexRows,
   type AmEvidenceBundle,
@@ -38,7 +39,7 @@ import {
   buildAmUserPrompt,
   buildPmUserPrompt,
 } from "../_shared/briefs/prompts.ts";
-import { callClaude } from "./claude.ts";
+import { callClaudeWithRetry } from "./claude-retry.ts";
 import {
   emitBriefTelemetry,
   maxIndexAgeMs,
@@ -322,7 +323,7 @@ serve(async (req) => {
       }
 
       const userPrompt = buildPmUserPrompt(symbolsSnap);
-      const generated = await callClaude({
+      const generated = await callClaudeWithRetry({
         apiKey: anthropicApiKey,
         system: PM_SYSTEM,
         user: userPrompt,
@@ -467,7 +468,7 @@ serve(async (req) => {
     const newsLookback = new Date(sourceCheckedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const catalystFrom = etDateShift(etDate, -2);
 
-    const [newsRes, catRes] = await Promise.all([
+    const [newsRes, catRes, handoffRes] = await Promise.all([
       admin
         .from("market_news")
         .select("id, headline, source, url, published_at, category, description")
@@ -484,9 +485,18 @@ serve(async (req) => {
         .lte("event_date", etDate)
         .order("event_date", { ascending: false })
         .limit(400),
+      admin
+        .from("late_session_continuation_handoffs")
+        .select(
+          "symbol, source_session_date, source_category, evidence_labels, rvol, session_move_pct, source_timestamp",
+        )
+        .lte("valid_from_session_date", etDate)
+        .gte("valid_through_session_date", etDate)
+        .order("source_timestamp", { ascending: false })
+        .limit(40),
     ]);
 
-    const optionalFailed = Boolean(newsRes.error || catRes.error);
+    const optionalFailed = Boolean(newsRes.error || catRes.error || handoffRes.error);
     if (optionalFailed && existingBrief && isAmV2Snapshot(existingBrief.market_snapshot)) {
       console.error(
         "am optional evidence fetch failed; returning cached V2 brief",
@@ -499,6 +509,9 @@ serve(async (req) => {
     }
     if (catRes.error) {
       console.error("catalyst_events fetch failed:", catRes.error.message);
+    }
+    if (handoffRes.error) {
+      console.error("late_session handoffs fetch failed:", handoffRes.error.message);
     }
 
     const ranked = rankHeadlines((newsRes.data ?? []) as never, AM_HEADLINE_RANK_POOL);
@@ -542,8 +555,11 @@ serve(async (req) => {
       });
     }
 
-    const catalysts = selectDirectCatalysts(attributed);
+    const catalysts = selectDirectCatalysts(attributed, sourceCheckedAt.getTime());
     const earnings = selectBeforeOpenEarningsEvidence(attributed, etDate);
+    const continuationCarryovers = handoffRes.error
+      ? []
+      : selectContinuationCarryovers(handoffRes.data ?? []);
 
     const bundle: AmEvidenceBundle = {
       checkedAt: sourceCheckedAt.toISOString(),
@@ -551,6 +567,7 @@ serve(async (req) => {
       headlines,
       catalysts,
       earnings,
+      continuationCarryovers,
     };
     const incomingState = buildMaterialState(bundle);
     const decision = decideAmGeneration({
@@ -584,7 +601,7 @@ serve(async (req) => {
       return json(cachedBody(existingBrief), 200);
     }
 
-    const generated = await callClaude({
+    const generated = await callClaudeWithRetry({
       apiKey: anthropicApiKey,
       system: AM_V2_SYSTEM,
       user: buildAmUserPrompt(bundle),

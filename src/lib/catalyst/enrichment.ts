@@ -3,6 +3,12 @@
 
 import type { CatalystEvent } from "@/types/catalyst";
 import {
+  classifyCatalystPrecedence,
+  hasVagueNonEventEvidence,
+  looksLikeMarketAttention,
+  type CatalystPrecedenceInput,
+} from "@/lib/catalyst/precedence";
+import {
   eventMomentMs,
   normalizeSymbol,
   scheduledMomentMs,
@@ -135,23 +141,47 @@ export function classifyEnrichmentEvent(
   return null;
 }
 
+function toPrecedenceInput(event: CatalystEvent): CatalystPrecedenceInput {
+  return {
+    title: event.title,
+    description: event.description ?? null,
+    event_type: event.event_type,
+    provider: event.provider,
+    event_date: event.event_date,
+    event_time: event.event_time ?? null,
+    published_at: event.published_at ?? null,
+    source_name: event.source_name ?? null,
+    attribution_class: event.attribution_class,
+    ticker_specific: event.ticker_specific,
+  };
+}
+
+/** Higher score wins for the single displayed enrichment row per symbol. */
+export function enrichmentSelectionScore(
+  entry: CatalystEnrichmentEntry,
+  nowMs: number,
+): number {
+  const input = toPrecedenceInput(entry.event);
+  if (looksLikeMarketAttention(input.title, input.event_type)) return -1_000_000;
+  if (hasVagueNonEventEvidence(`${input.title} ${input.description ?? ""}`)) return -1_000_000;
+  const p = classifyCatalystPrecedence(input);
+  /** Must exceed the max recent recency window (72h) so scheduled events beat headlines. */
+  const kindBoost = entry.kind === "upcoming" ? 500_000_000 : 0;
+  const recency = entry.kind === "recent"
+    ? Math.min(entry.sortMs, nowMs) - (nowMs - ENRICHMENT_RECENT_MS)
+    : -(entry.sortMs - nowMs);
+  return p.classRank * 10_000 + kindBoost + recency;
+}
+
 function shouldReplace(
   prev: CatalystEnrichmentEntry,
-  nextKind: "upcoming" | "recent",
-  nextSortMs: number,
-  nextId: string,
+  next: CatalystEnrichmentEntry,
+  nowMs: number,
 ): boolean {
-  if (prev.kind === "upcoming" && nextKind === "upcoming") {
-    if (nextSortMs !== prev.sortMs) return nextSortMs < prev.sortMs;
-    return nextId < prev.event.id;
-  }
-  if (prev.kind === "recent" && nextKind === "upcoming") return true;
-  if (prev.kind === "recent" && nextKind === "recent") {
-    if (nextSortMs !== prev.sortMs) return nextSortMs > prev.sortMs;
-    return nextId < prev.event.id;
-  }
-  // prev upcoming + next recent → keep upcoming
-  return false;
+  const prevScore = enrichmentSelectionScore(prev, nowMs);
+  const nextScore = enrichmentSelectionScore(next, nowMs);
+  if (nextScore !== prevScore) return nextScore > prevScore;
+  return next.event.id < prev.event.id;
 }
 
 /**
@@ -174,16 +204,20 @@ export function selectEnrichmentEntries(
     const classified = classifyEnrichmentEvent(raw, nowMs);
     if (!classified) continue;
 
+    const precedenceInput = toPrecedenceInput(raw);
+    if (looksLikeMarketAttention(precedenceInput.title, precedenceInput.event_type)) continue;
+    const text = `${precedenceInput.title} ${precedenceInput.description ?? ""}`;
+    if (hasVagueNonEventEvidence(text)) continue;
+    const precedence = classifyCatalystPrecedence(precedenceInput);
+
+    const candidate: CatalystEnrichmentEntry = {
+      event: raw,
+      kind: classified.kind,
+      sortMs: classified.sortMs,
+    };
     const prev = bySym.get(sym);
-    if (
-      !prev ||
-      shouldReplace(prev, classified.kind, classified.sortMs, raw.id)
-    ) {
-      bySym.set(sym, {
-        event: raw,
-        kind: classified.kind,
-        sortMs: classified.sortMs,
-      });
+    if (!prev || shouldReplace(prev, candidate, nowMs)) {
+      bySym.set(sym, candidate);
     }
   }
   return bySym;

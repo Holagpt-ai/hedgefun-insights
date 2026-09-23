@@ -83,6 +83,12 @@ export function validateAmV2Provenance(row: BriefRowLike): ProvenanceResult {
   for (const key of ["headlines", "catalysts", "earnings"] as const) {
     if (!Array.isArray(s[key])) return { ok: false, reason: "invalid_brief_provenance" };
   }
+  if (
+    s.continuation_carryovers !== undefined &&
+    !Array.isArray(s.continuation_carryovers)
+  ) {
+    return { ok: false, reason: "invalid_brief_provenance" };
+  }
   return { ok: true, sourceCheckedAt: checked };
 }
 

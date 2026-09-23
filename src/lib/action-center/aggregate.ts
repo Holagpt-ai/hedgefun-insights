@@ -207,10 +207,24 @@ export function buildActionFeed(input: {
     });
   }
 
+  const scannerSymbolsRecent = new Set(
+    scannerAlerts
+      .filter((s) => !dismissedScannerAlertIds.has(s.id))
+      .map((s) => s.symbol.toUpperCase()),
+  );
+
   for (const a of alerts) {
     const ms = Date.parse(a.event_time) || Date.parse(a.created_at);
     if (!Number.isFinite(ms)) continue;
     if (nowMs - ms > 24 * HOUR) continue;
+    const sym = a.ticker.toUpperCase();
+    if (
+      a.alert_type === "market_signal" &&
+      scannerSymbolsRecent.has(sym) &&
+      nowMs - ms <= 2 * HOUR
+    ) {
+      continue;
+    }
     items.push({
       key: `alert:${a.id}`,
       bucket: pickBucket(ms, nowMs, "recent"),

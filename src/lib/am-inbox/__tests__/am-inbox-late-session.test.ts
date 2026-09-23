@@ -1,5 +1,8 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
-import { buildAmInboxLateSessionView } from "@/lib/am-inbox/am-inbox-late-session-view";
+import {
+  buildAmInboxLateSessionView,
+  buildAmInboxLateSessionViewFromContexts,
+} from "@/lib/am-inbox/am-inbox-late-session-view";
 import { amInboxNavigatePath, amInboxWorkflowRoutes } from "@/lib/am-inbox/am-inbox-workflow-handoff";
 import { buildLateSessionContinuationContext } from "@/lib/am-inbox/build-late-session-continuation-context";
 import {
@@ -309,7 +312,28 @@ describe("AM Inbox late-session handoff V1", () => {
     expect(amInboxNavigatePath("journal", "ID", SECURITY_ID)).toContain("symbol=ID");
   });
 
-  it("preserves stored handoff order (no historical re-ranking)", () => {
+  it("collapses same-symbol late-session handoffs into one grouped card", () => {
+    const view = buildAmInboxLateSessionViewFromContexts("2026-09-22", [
+      buildLateSessionContinuationContext({
+        symbol: "SOLO",
+        sourceSessionDate: "2026-09-21",
+        sourceTimestamp: "2026-09-21T20:00:00.000Z",
+        sourceCategory: "AFTER_HOURS_CONTINUATION",
+      }),
+      buildLateSessionContinuationContext({
+        symbol: "SOLO",
+        sourceSessionDate: "2026-09-21",
+        sourceTimestamp: "2026-09-21T20:05:00.000Z",
+        sourceCategory: "STRONG_CLOSE_NEAR_HOD",
+      }),
+    ]);
+    expect(view.candidates).toHaveLength(1);
+    expect(view.candidates[0].sourceCategories).toEqual(
+      expect.arrayContaining(["AFTER_HOURS_CONTINUATION", "STRONG_CLOSE_NEAR_HOD"]),
+    );
+  });
+
+  it("sorts collapsed handoffs alphabetically by symbol", () => {
     for (const symbol of ["CCC", "BBB", "AAA"]) {
       persistLateSessionHandoff(
         buildLateSessionContinuationContext({
@@ -321,7 +345,7 @@ describe("AM Inbox late-session handoff V1", () => {
       );
     }
     const view = buildAmInboxLateSessionView("2026-09-22");
-    expect(view.candidates.map((c) => c.context.symbol)).toEqual(["CCC", "BBB", "AAA"]);
+    expect(view.candidates.map((c) => c.context.symbol)).toEqual(["AAA", "BBB", "CCC"]);
   });
 
   it("does not change Discovery volume-first ranking when capturing handoffs", () => {
