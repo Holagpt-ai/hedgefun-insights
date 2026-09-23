@@ -183,6 +183,20 @@
       "when": 1790208190000,
       "tag": "0025_intraday_reconstruction_v1_schema_reload_final",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790208200000,
+      "tag": "0026_radar_v22_momentum_metrics",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790186890398,
+      "tag": "0027_radar_v22_momentum_metrics_schema_reload",
+      "breakpoints": true
     }
   ]
 }
