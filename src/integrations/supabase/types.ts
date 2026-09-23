@@ -5294,9 +5294,12 @@ export type Database = {
           lifecycle_entered_at: string | null
           move_15s_pct: number | null
           move_60s_pct: number | null
+          primary_scanner_event: string | null
+          primary_scanner_event_at: string | null
           promoted_at: string | null
           provider_as_of: string | null
           rvol_5m: number | null
+          scanner_events: Json | null
           session_high: number | null
           session_kind: string
           session_low: number | null
@@ -5338,9 +5341,12 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          primary_scanner_event?: string | null
+          primary_scanner_event_at?: string | null
           promoted_at?: string | null
           provider_as_of?: string | null
           rvol_5m?: number | null
+          scanner_events?: Json | null
           session_high?: number | null
           session_kind: string
           session_low?: number | null
@@ -5382,9 +5388,12 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          primary_scanner_event?: string | null
+          primary_scanner_event_at?: string | null
           promoted_at?: string | null
           provider_as_of?: string | null
           rvol_5m?: number | null
+          scanner_events?: Json | null
           session_high?: number | null
           session_kind?: string
           session_low?: number | null
