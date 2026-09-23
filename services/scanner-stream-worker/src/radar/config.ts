@@ -113,7 +113,8 @@ export const RADAR_V22_CONFIG: RadarV22Config = {
   reconnectBaseDelayMs: 500,
   reconnectMaxDelayMs: 15_000,
   reconnectJitter: 0.2,
-  barRetentionMs: 6 * 60 * 1000,
+  /** Two 5m momentum windows need ~10m of event-time tape; keep a small buffer. */
+  barRetentionMs: 12 * 60 * 1000,
   snapshotPageCap: 50,
   snapshotTimeoutMs: 15_000,
   sentinelEnabled: false,
