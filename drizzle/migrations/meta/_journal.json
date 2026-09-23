@@ -225,6 +225,34 @@
       "when": 1790201233559,
       "tag": "0031_radar_v22_scanner_events_rpc_fix_schema_reload",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790208500000,
+      "tag": "0032_scanner_intelligence_alerts_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790208600000,
+      "tag": "0033_scanner_intelligence_alerts_schema_reload",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790208700000,
+      "tag": "0034_scanner_intelligence_alert_upsert_acl",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1790202820387,
+      "tag": "0035_scanner_intelligence_alerts_final_reload",
+      "breakpoints": true
     }
   ]
 }

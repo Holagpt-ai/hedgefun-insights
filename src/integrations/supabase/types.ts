@@ -5524,6 +5524,143 @@ export type Database = {
         }
         Relationships: []
       }
+      scanner_intelligence_alert_user_state: {
+        Row: {
+          alert_id: string
+          created_at: string
+          dismissed_at: string | null
+          id: string
+          read_at: string | null
+          user_id: string
+        }
+        Insert: {
+          alert_id: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          read_at?: string | null
+          user_id: string
+        }
+        Update: {
+          alert_id?: string
+          created_at?: string
+          dismissed_at?: string | null
+          id?: string
+          read_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scanner_intelligence_alert_user_state_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "scanner_intelligence_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scanner_intelligence_alerts: {
+        Row: {
+          catalyst_id: string | null
+          catalyst_type: string | null
+          comparable_episode_count: number | null
+          created_at: string
+          dedupe_key: string
+          distance_from_hod_pct: number | null
+          event_at: string
+          event_type: string
+          headline: string
+          historical_catalyst_type: string | null
+          historical_match_count: number | null
+          id: string
+          last_episode_hod_time: string | null
+          last_episode_move_pct: number | null
+          last_episode_volume: number | null
+          last_significant_episode_date: string | null
+          last_significant_episode_id: string | null
+          metadata: Json
+          move_pct: number | null
+          price: number | null
+          prior_volume: number | null
+          rvol_5m: number | null
+          session_kind: string
+          severity: string
+          summary: string
+          symbol: string
+          today_volume: number | null
+          trading_date: string
+          vol_prior: number | null
+          volume_acceleration_pct: number | null
+          volume_velocity: number | null
+        }
+        Insert: {
+          catalyst_id?: string | null
+          catalyst_type?: string | null
+          comparable_episode_count?: number | null
+          created_at?: string
+          dedupe_key: string
+          distance_from_hod_pct?: number | null
+          event_at: string
+          event_type: string
+          headline: string
+          historical_catalyst_type?: string | null
+          historical_match_count?: number | null
+          id?: string
+          last_episode_hod_time?: string | null
+          last_episode_move_pct?: number | null
+          last_episode_volume?: number | null
+          last_significant_episode_date?: string | null
+          last_significant_episode_id?: string | null
+          metadata?: Json
+          move_pct?: number | null
+          price?: number | null
+          prior_volume?: number | null
+          rvol_5m?: number | null
+          session_kind: string
+          severity?: string
+          summary: string
+          symbol: string
+          today_volume?: number | null
+          trading_date: string
+          vol_prior?: number | null
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
+        }
+        Update: {
+          catalyst_id?: string | null
+          catalyst_type?: string | null
+          comparable_episode_count?: number | null
+          created_at?: string
+          dedupe_key?: string
+          distance_from_hod_pct?: number | null
+          event_at?: string
+          event_type?: string
+          headline?: string
+          historical_catalyst_type?: string | null
+          historical_match_count?: number | null
+          id?: string
+          last_episode_hod_time?: string | null
+          last_episode_move_pct?: number | null
+          last_episode_volume?: number | null
+          last_significant_episode_date?: string | null
+          last_significant_episode_id?: string | null
+          metadata?: Json
+          move_pct?: number | null
+          price?: number | null
+          prior_volume?: number | null
+          rvol_5m?: number | null
+          session_kind?: string
+          severity?: string
+          summary?: string
+          symbol?: string
+          today_volume?: number | null
+          trading_date?: string
+          vol_prior?: number | null
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
+        }
+        Relationships: []
+      }
       screener_52w_baseline_exclusions: {
         Row: {
           generation_id: string
@@ -7924,6 +8061,10 @@ export type Database = {
           p_tab_evaluation_evidence?: Json
         }
         Returns: number
+      }
+      scanner_intelligence_alert_upsert_v1: {
+        Args: { p_row: Json }
+        Returns: undefined
       }
       set_radar_v22_feed_status_v1: {
         Args: {
