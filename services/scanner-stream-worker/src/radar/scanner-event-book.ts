@@ -18,6 +18,8 @@ type Slot = {
 export type ScannerEventBookSnapshot = {
   events: ScannerEventSnapshot[];
   primary: ScannerEventSnapshot | null;
+  /** False→true transitions this evaluation tick. */
+  newlyActivated: ScannerEventSnapshot[];
 };
 
 export type ScannerEventBook = {
@@ -53,6 +55,7 @@ export function createScannerEventBook(
       const qual = evaluateScannerEventQualification(input, cfg);
       const map = slots(symbol);
       const activeSnapshots: ScannerEventSnapshot[] = [];
+      const newlyActivated: ScannerEventSnapshot[] = [];
 
       for (const type of SCANNER_EVENT_TYPES) {
         const slot = map.get(type)!;
@@ -67,6 +70,14 @@ export function createScannerEventBook(
               slot.active = true;
               slot.triggeredAtMs = eventNowMs;
               slot.cooldownUntilMs = null;
+              const iso = isoFromMs(eventNowMs);
+              if (iso) {
+                newlyActivated.push({
+                  type,
+                  triggered_at: iso,
+                  active: true,
+                });
+              }
             }
           }
         } else if (slot.active) {
@@ -87,7 +98,7 @@ export function createScannerEventBook(
       }
 
       const primary = pickPrimaryScannerEvent(activeSnapshots);
-      return { events: activeSnapshots, primary };
+      return { events: activeSnapshots, primary, newlyActivated };
     },
     clear() {
       bySymbol.clear();

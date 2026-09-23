@@ -19,6 +19,8 @@ import { handleForwardOutcomeAction } from "./forward-outcome-handlers.ts";
 import { handleCorporateEventAction } from "./corporate-event-handlers.ts";
 import { handleIntradayReconstructionAction } from "./intraday-reconstruction-handlers.ts";
 import { buildLateSessionHandoffUpsertsFromV22Candidates } from "../_shared/am-inbox/capture-late-session-handoffs.ts";
+import { parseScannerAlertFirings } from "../_shared/scanner-alerts/parse-firings.ts";
+import { persistScannerIntelligenceAlerts } from "../_shared/scanner-alerts/enrich-and-persist.ts";
 import type { RadarV22CandidateRow } from "../_shared/radar-v22/persistence-v2.ts";
 
 export const ACQUIRE_LEASE_RPC = "try_acquire_radar_v22_lease_v1";
@@ -388,6 +390,21 @@ async function handleAction(
         }
       } catch {
         bridgeLog("late_session_capture_failed", {
+          request_id: requestId,
+          action: "publish_candidates_v2",
+        });
+      }
+      try {
+        const firings = parseScannerAlertFirings(body.p_scanner_firings);
+        if (firings.length > 0) {
+          await persistScannerIntelligenceAlerts(
+            db,
+            firings,
+            (name, args) => rpcResult(db, name, args, rpcMeta),
+          );
+        }
+      } catch {
+        bridgeLog("scanner_alert_capture_failed", {
           request_id: requestId,
           action: "publish_candidates_v2",
         });

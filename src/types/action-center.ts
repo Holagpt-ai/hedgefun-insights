@@ -2,7 +2,12 @@
 
 export type FeedBucket = "now" | "today" | "upcoming" | "open_position";
 
-export type FeedSource = "watchlist_alert" | "catalyst_saved" | "catalyst_upcoming" | "open_trade";
+export type FeedSource =
+  | "watchlist_alert"
+  | "scanner_intelligence_alert"
+  | "catalyst_saved"
+  | "catalyst_upcoming"
+  | "open_trade";
 
 export interface ActionFeedItem {
   key: string;
@@ -16,6 +21,9 @@ export interface ActionFeedItem {
   sourceLabel: string;
   eventId?: string;
   sourceUrl?: string | null;
+  /** Scanner intelligence alert payload when source is scanner_intelligence_alert. */
+  scannerAlertId?: string;
+  scannerDedupeKey?: string;
 }
 
 export interface WatchlistAlertRow {

@@ -25,6 +25,10 @@ import type {
   WatchlistAlertRow,
   WatchlistAnalysisRow,
 } from "@/types/action-center";
+import type {
+  ScannerAlertUserStateRow,
+  ScannerIntelligenceAlertRow,
+} from "@/types/scanner-intelligence-alert";
 
 const REFRESH_MS = 60_000;
 
@@ -52,7 +56,41 @@ export function useActionCenter() {
 
   const symbols = symbolsQ.data ?? [];
 
-  // 2. Watchlist V2 alerts (RLS scoped by ticker ownership).
+  // 2. Global scanner intelligence alerts (market events).
+  const scannerAlertsQ = useQuery({
+    queryKey: ["ac", "scanner-alerts"],
+    enabled: !!userId,
+    staleTime: REFRESH_MS,
+    refetchOnWindowFocus: true,
+    refetchInterval: REFRESH_MS,
+    queryFn: async (): Promise<ScannerIntelligenceAlertRow[]> => {
+      const since = new Date(Date.now() - 24 * 3600_000).toISOString();
+      const { data, error } = await supabase
+        .from("scanner_intelligence_alerts")
+        .select("*")
+        .gte("event_at", since)
+        .order("event_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      return (data ?? []) as ScannerIntelligenceAlertRow[];
+    },
+  });
+
+  const scannerUserStateQ = useQuery({
+    queryKey: ["ac", "scanner-alert-state", userId],
+    enabled: !!userId,
+    staleTime: REFRESH_MS,
+    queryFn: async (): Promise<ScannerAlertUserStateRow[]> => {
+      const { data, error } = await supabase
+        .from("scanner_intelligence_alert_user_state")
+        .select("alert_id, read_at, dismissed_at")
+        .eq("user_id", userId!);
+      if (error) throw error;
+      return (data ?? []) as ScannerAlertUserStateRow[];
+    },
+  });
+
+  // 3. Watchlist V2 alerts (RLS scoped by ticker ownership).
   const alertsQ = useQuery({
     queryKey: ["ac", "alerts", userId, symbols],
     enabled: !!userId && symbols.length > 0,
@@ -131,6 +169,14 @@ export function useActionCenter() {
   });
 
   const alerts = alertsQ.data ?? [];
+  const scannerAlerts = scannerAlertsQ.data ?? [];
+  const scannerUserState = scannerUserStateQ.data ?? [];
+  const dismissedScanner = useMemo(
+    () => new Set(
+      scannerUserState.filter((r) => r.dismissed_at).map((r) => r.alert_id),
+    ),
+    [scannerUserState],
+  );
   const analyses = analysesQ.data ?? [];
   const catalyst = catalystQ.data ?? [];
   const userState = userStateQ.data ?? [];
@@ -146,18 +192,30 @@ export function useActionCenter() {
     [userState],
   );
 
+  const activeScannerAlerts = useMemo(
+    () => scannerAlerts.filter((a) => !dismissedScanner.has(a.id)),
+    [scannerAlerts, dismissedScanner],
+  );
+
   const summary = useMemo(
-    () => summaryCounts({ alerts, analyses, catalyst, openTrades, nowMs }),
-    [alerts, analyses, catalyst, openTrades, nowMs],
+    () => summaryCounts({ alerts, scannerAlerts: activeScannerAlerts, analyses, catalyst, openTrades, nowMs }),
+    [alerts, activeScannerAlerts, analyses, catalyst, openTrades, nowMs],
   );
 
   const snapshot = useMemo(() => watchlistSnapshot(analyses, nowMs), [analyses, nowMs]);
 
   const feed = useMemo(
     () => buildActionFeed({
-      alerts, catalyst, savedEventIds: saved, reviewedEventIds: reviewed, openTrades, nowMs,
+      alerts,
+      scannerAlerts: activeScannerAlerts,
+      dismissedScannerAlertIds: dismissedScanner,
+      catalyst,
+      savedEventIds: saved,
+      reviewedEventIds: reviewed,
+      openTrades,
+      nowMs,
     }),
-    [alerts, catalyst, saved, reviewed, openTrades, nowMs],
+    [alerts, activeScannerAlerts, dismissedScanner, catalyst, saved, reviewed, openTrades, nowMs],
   );
 
   const savedUnreviewed = useMemo(
@@ -166,8 +224,12 @@ export function useActionCenter() {
   );
 
   const tasks = useMemo(
-    () => buildFocusTasks({ summary, savedUnreviewedCount: savedUnreviewed }),
-    [summary, savedUnreviewed],
+    () => buildFocusTasks({
+      summary,
+      savedUnreviewedCount: savedUnreviewed,
+      scannerAlertCount: activeScannerAlerts.length,
+    }),
+    [summary, savedUnreviewed, activeScannerAlerts.length],
   );
 
   const catalystWatch = useMemo(() => catalystWatchList(catalyst, nowMs, 6), [catalyst, nowMs]);
@@ -184,7 +246,9 @@ export function useActionCenter() {
     catalystWatch,
     savedEventIds: saved,
     reviewedEventIds: reviewed,
+    scannerAlerts: activeScannerAlerts,
     errors: {
+      scannerAlerts: scannerAlertsQ.error,
       alerts: alertsQ.error,
       analyses: analysesQ.error,
       catalyst: catalystQ.error,
@@ -192,6 +256,7 @@ export function useActionCenter() {
       leaders: leadersQ.error,
     },
     loading: {
+      scannerAlerts: scannerAlertsQ.isLoading,
       alerts: alertsQ.isLoading,
       analyses: analysesQ.isLoading,
       catalyst: catalystQ.isLoading,

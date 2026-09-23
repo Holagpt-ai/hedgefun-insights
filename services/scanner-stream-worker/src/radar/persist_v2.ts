@@ -39,6 +39,7 @@ import type { SessionIntelSnapshot } from "./geometry.ts";
 import type { SessionTransition } from "./session.ts";
 import type { SymbolMetrics } from "./types.ts";
 import { isScannerEventType } from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
+import type { ScannerAlertFiring } from "../../../../supabase/functions/_shared/scanner-alerts/types.ts";
 
 export { REPLACE_RADAR_V2_RPC, RADAR_V22_CANDIDATE_CAP };
 
@@ -526,6 +527,7 @@ export type PersistenceV2View = {
   lastProviderEventAt: string | null;
   candidates: RadarV22CandidateRow[];
   archived: Array<{ symbol: string; eventAt: string }>;
+  scannerFirings: ScannerAlertFiring[];
 };
 
 export function mapCandidateRow(opts: {
@@ -644,6 +646,7 @@ export function replaceArgsFromView(opts: {
     p_sentinel_enabled: opts.view.sentinelEnabled,
     p_last_provider_event_at: opts.view.lastProviderEventAt,
     p_last_receive_at: opts.view.lastReceiveAt,
+    p_scanner_firings: opts.view.scannerFirings ?? [],
   };
 }
 

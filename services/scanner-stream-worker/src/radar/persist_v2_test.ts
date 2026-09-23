@@ -523,6 +523,7 @@ function v2View(
     lastProviderEventAt: SYNC,
     candidates,
     archived: [],
+    scannerFirings: [],
     ...extra,
   };
 }

@@ -48,6 +48,7 @@ import {
 import type { Tod5mBaselineCache } from "./tod-5m-baseline-cache.ts";
 import { createScannerEventBook } from "./scanner-event-book.ts";
 import type { ScannerEventBookSnapshot } from "./scanner-event-book.ts";
+import type { ScannerAlertFiring } from "../../../../supabase/functions/_shared/scanner-alerts/types.ts";
 import {
   mapCandidateRow,
   type PersistenceV2View,
@@ -225,6 +226,7 @@ export function createRadarEngine(opts: {
   let subsessionEpoch = 0;
   let lastPersistWasEmpty = false;
   let lastV2Candidates: RadarV22CandidateRow[] = [];
+  let lastV2ScannerFirings: ScannerAlertFiring[] = [];
   let lastV2Archived: Array<{ symbol: string; eventAt: string }> = [];
   let frozen: FrozenBoard | null = null;
   let feedStale = false;
@@ -266,6 +268,7 @@ export function createRadarEngine(opts: {
   }): EvaluateResult {
     if (opts.clearV2) {
       lastV2Candidates = [];
+      lastV2ScannerFirings = [];
       lastV2Archived = [];
     }
     const sessionKind = isRadarV22SessionKind(opts.sessionKind)
@@ -296,6 +299,7 @@ export function createRadarEngine(opts: {
         lastProviderEventAt: opts.board.lastProviderEventAt,
         candidates: lastV2Candidates.map((row) => ({ ...row })),
         archived: lastV2Archived.map((row) => ({ ...row })),
+        scannerFirings: lastV2ScannerFirings.map((row) => ({ ...row })),
       },
     };
   }
@@ -320,6 +324,7 @@ export function createRadarEngine(opts: {
     feedStale = false;
     subsessionEpoch = 0;
     lastV2Candidates = [];
+    lastV2ScannerFirings = [];
     lastV2Archived = [];
   }
 
@@ -501,6 +506,7 @@ export function createRadarEngine(opts: {
     const candidates: RankedCandidate[] = [];
     const archives: RadarV22ArchiveRow[] = [];
     const v2Rows: RadarV22CandidateRow[] = [];
+    const v2ScannerFirings: ScannerAlertFiring[] = [];
     const v2Archived: Array<{ symbol: string; eventAt: string }> = [];
     const symbols = trackedSet();
     const updatedAt = isoFromMs(wallNowMs) ??
@@ -575,7 +581,11 @@ export function createRadarEngine(opts: {
             intelSnap?.hodDistance !== undefined
           ? intelSnap.hodDistance * 100
           : null;
-        let scannerSnap: ScannerEventBookSnapshot = { events: [], primary: null };
+        let scannerSnap: ScannerEventBookSnapshot = {
+          events: [],
+          primary: null,
+          newlyActivated: [],
+        };
         if (lastSessionKind === "market") {
           scannerSnap = scannerEventBook.step(
             symbol,
@@ -611,6 +621,25 @@ export function createRadarEngine(opts: {
           isoFromMs,
           scanner: scannerSnap,
         }));
+        for (const ev of scannerSnap.newlyActivated) {
+          v2ScannerFirings.push({
+            symbol,
+            event_type: ev.type,
+            event_at: ev.triggered_at,
+            trading_date: boardDate,
+            session_kind: lastSessionKind,
+            price: metrics.lastPrice,
+            move_pct: metrics.move60s.movePct ?? metrics.move15s.movePct ?? null,
+            today_volume: sessionVol,
+            prior_volume: priorVol > 0 ? priorVol : null,
+            vol_prior: volRatio,
+            rvol_5m: metrics.rvol5m,
+            volume_velocity: metrics.volumeVelocity,
+            volume_acceleration_pct: metrics.volumeAccelerationPct,
+            distance_from_hod_pct: hodPct,
+            session_vwap: intelSnap?.sessionVwap ?? null,
+          });
+        }
       }
 
       if (!isBoardLifecycle(stepped.record.phase)) continue;
@@ -705,6 +734,7 @@ export function createRadarEngine(opts: {
       archives,
     };
     lastV2Candidates = v2Rows;
+    lastV2ScannerFirings = v2ScannerFirings;
     lastV2Archived = v2Archived;
     if (config.sentinelEnabled) {
       sweepStage2(eventNow);

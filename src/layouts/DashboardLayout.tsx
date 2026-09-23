@@ -5,6 +5,7 @@ import MarketTicker from "@/components/layout/MarketTicker";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
+import { ScannerAlertToastListener } from "@/components/scanner-alerts/ScannerAlertToastListener";
 
 export default function DashboardLayout() {
   const { user, loading } = useAuth();
@@ -24,6 +25,7 @@ export default function DashboardLayout() {
 
   return (
     <>
+      <ScannerAlertToastListener />
       <Header onMenuToggle={() => setMobileNavOpen(true)} />
       <MarketTicker />
       <div className="flex">

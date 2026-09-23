@@ -1,5 +1,6 @@
 import type { ActionFeedItem, FeedBucket } from "@/types/action-center";
 import { SymbolActions } from "./SymbolActions";
+import { ScannerAlertActions } from "@/components/scanner-alerts/ScannerAlertActions";
 
 const BUCKET_LABEL: Record<FeedBucket, string> = {
   now: "Now",
@@ -14,8 +15,8 @@ export function ActionFeed({ items }: { items: ActionFeedItem[] }) {
   if (items.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
-        No qualifying items right now. New Watchlist alerts, saved Catalyst events, upcoming
-        catalysts, and open trades will appear here as they occur.
+        No qualifying items right now. Scanner events, Watchlist alerts, saved Catalyst events,
+        upcoming catalysts, and open trades will appear here as they occur.
       </div>
     );
   }
@@ -46,12 +47,16 @@ export function ActionFeed({ items }: { items: ActionFeedItem[] }) {
                   <div className="text-[11px] text-muted-foreground mt-1">{it.timestampLabel}</div>
                 </div>
                 <div className="sm:w-auto">
-                  <SymbolActions
-                    symbol={it.symbol}
-                    showWatchlist={it.source === "watchlist_alert"}
-                    showChart
-                    sourceUrl={it.sourceUrl}
-                  />
+                  {it.source === "scanner_intelligence_alert" ? (
+                    <ScannerAlertActions symbol={it.symbol} />
+                  ) : (
+                    <SymbolActions
+                      symbol={it.symbol}
+                      showWatchlist={it.source === "watchlist_alert"}
+                      showChart
+                      sourceUrl={it.sourceUrl}
+                    />
+                  )}
                 </div>
               </li>
             ))}

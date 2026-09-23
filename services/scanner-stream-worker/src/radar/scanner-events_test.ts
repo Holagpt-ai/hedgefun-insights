@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   DEFAULT_SCANNER_EVENT_CONFIG,
   evaluateScannerEventQualification,
@@ -104,9 +104,15 @@ Deno.test("scanner event book lifecycle", () => {
   const t0 = 1_000_000;
   const first = book.step("AAA", t0, input, iso);
   assertEquals(first.primary?.type, "HOD_MOMENTUM");
+  assert(first.newlyActivated.some((e) => e.type === "HOD_MOMENTUM"));
+  assertEquals(
+    first.newlyActivated.every((e) => e.triggered_at === first.newlyActivated[0]?.triggered_at),
+    true,
+  );
   const t1 = t0 + 5_000;
   const second = book.step("AAA", t1, input, iso);
   assertEquals(second.primary?.triggered_at, first.primary?.triggered_at);
+  assertEquals(second.newlyActivated.length, 0);
   const t2 = t1 + 5_000;
   const off = book.step("AAA", t2, base({ volumeVelocity: 100 }), iso);
   assertEquals(off.primary, null);

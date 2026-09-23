@@ -118,6 +118,24 @@ export type RadarV22EventRow = {
   generation_id: string | null;
 };
 
+export type ScannerAlertFiringPayload = {
+  symbol: string;
+  event_type: string;
+  event_at: string;
+  trading_date: string;
+  session_kind: string;
+  price: number | null;
+  move_pct: number | null;
+  today_volume: number | null;
+  prior_volume: number | null;
+  vol_prior: number | null;
+  rvol_5m: number | null;
+  volume_velocity: number | null;
+  volume_acceleration_pct: number | null;
+  distance_from_hod_pct: number | null;
+  session_vwap: number | null;
+};
+
 export type ReplaceRadarV2Args = {
   p_generation_id: string;
   p_trading_date: string;
@@ -128,6 +146,7 @@ export type ReplaceRadarV2Args = {
   p_sentinel_enabled: boolean;
   p_last_provider_event_at: string | null;
   p_last_receive_at: string | null;
+  p_scanner_firings?: ScannerAlertFiringPayload[];
 };
 
 export function isRadarV22SessionKind(

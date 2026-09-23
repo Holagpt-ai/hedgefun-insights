@@ -14,6 +14,7 @@ import type {
   WatchlistAnalysisRow,
 } from "@/types/action-center";
 import type { CatalystEvent } from "@/types/catalyst";
+import type { ScannerIntelligenceAlertRow } from "@/types/scanner-intelligence-alert";
 
 const NOW = Date.parse("2026-03-15T18:00:00Z"); // 14:00 ET
 
@@ -47,6 +48,41 @@ function event(over: Partial<CatalystEvent>): CatalystEvent {
     title: "AAA earnings", description: null,
     source_name: "Provider", source_url: "https://x/y", provider: "prov",
     related_symbols: [], facts: {}, published_at: new Date(NOW - 60_000).toISOString(),
+    ...over,
+  };
+}
+
+function scannerAlert(
+  over: Partial<ScannerIntelligenceAlertRow>,
+): ScannerIntelligenceAlertRow {
+  return {
+    id: "s1",
+    dedupe_key: "scanner_v1:2026-03-15:AAA:RUNNING_UP:2026-03-15T14:00:00.000Z",
+    symbol: "AAA",
+    trading_date: "2026-03-15",
+    session_kind: "market",
+    event_type: "RUNNING_UP",
+    event_at: new Date(NOW - 30 * 60_000).toISOString(),
+    severity: "info",
+    price: 10,
+    move_pct: 5,
+    today_volume: 1_000_000,
+    prior_volume: 100_000,
+    vol_prior: 10,
+    rvol_5m: 3,
+    volume_velocity: 50_000,
+    volume_acceleration_pct: 20,
+    distance_from_hod_pct: 1,
+    historical_match_count: 4,
+    last_significant_episode_date: "2025-08-02",
+    last_significant_episode_id: null,
+    comparable_episode_count: 4,
+    catalyst_type: "corporate_action",
+    catalyst_id: "c1",
+    headline: "AAA — RUNNING UP",
+    summary: "Running Up with 3.0x 5m RVOL. 4 comparable historical episodes available.",
+    metadata: { repeat_mover_label: "Repeat mover · 4 similar episodes" },
+    created_at: new Date(NOW - 30 * 60_000).toISOString(),
     ...over,
   };
 }
@@ -311,5 +347,31 @@ describe("action-center aggregate", () => {
       expect(feed).toHaveLength(1);
       expect(feed[0].bucket).toBe("today");
     });
+  });
+
+  it("scanner intelligence alerts appear once in feed and respect dismiss set", () => {
+    const row = scannerAlert({});
+    const feed = buildActionFeed({
+      alerts: [],
+      scannerAlerts: [row, row],
+      dismissedScannerAlertIds: new Set(),
+      catalyst: [],
+      savedEventIds: new Set(),
+      reviewedEventIds: new Set(),
+      openTrades: [],
+      nowMs: NOW,
+    });
+    expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(2);
+    const dismissed = buildActionFeed({
+      alerts: [],
+      scannerAlerts: [row],
+      dismissedScannerAlertIds: new Set([row.id]),
+      catalyst: [],
+      savedEventIds: new Set(),
+      reviewedEventIds: new Set(),
+      openTrades: [],
+      nowMs: NOW,
+    });
+    expect(dismissed).toHaveLength(0);
   });
 });

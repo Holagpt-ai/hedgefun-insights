@@ -9,6 +9,8 @@ import type {
   WatchlistAnalysisRow,
   WatchlistSnapshot,
 } from "@/types/action-center";
+import type { ScannerIntelligenceAlertRow } from "@/types/scanner-intelligence-alert";
+import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
 import { eventMomentMs, etStartOfDayMs, scheduledMomentMs } from "@/lib/catalyst/parsers";
 
@@ -84,12 +86,13 @@ export function classifyCatalyst(
 
 export function summaryCounts(input: {
   alerts: WatchlistAlertRow[];
+  scannerAlerts?: ScannerIntelligenceAlertRow[];
   analyses: WatchlistAnalysisRow[];
   catalyst: CatalystEvent[];
   openTrades: OpenTradeRow[];
   nowMs: number;
 }): SummaryCounts {
-  const { alerts, analyses, catalyst, openTrades, nowMs } = input;
+  const { alerts, scannerAlerts = [], analyses, catalyst, openTrades, nowMs } = input;
   const cutoff = nowMs - 24 * HOUR;
   const alertCount = alerts.filter((a) => {
     const t = Date.parse(a.created_at);
@@ -163,14 +166,46 @@ function pickBucket(ms: number, nowMs: number, source: "recent" | "upcoming" | "
 
 export function buildActionFeed(input: {
   alerts: WatchlistAlertRow[];
+  scannerAlerts?: ScannerIntelligenceAlertRow[];
+  dismissedScannerAlertIds?: Set<string>;
   catalyst: CatalystEvent[];
   savedEventIds: Set<string>;
   reviewedEventIds: Set<string>;
   openTrades: OpenTradeRow[];
   nowMs: number;
 }): ActionFeedItem[] {
-  const { alerts, catalyst, savedEventIds, reviewedEventIds, openTrades, nowMs } = input;
+  const {
+    alerts,
+    scannerAlerts = [],
+    dismissedScannerAlertIds = new Set<string>(),
+    catalyst,
+    savedEventIds,
+    reviewedEventIds,
+    openTrades,
+    nowMs,
+  } = input;
   const items: ActionFeedItem[] = [];
+
+  for (const s of scannerAlerts) {
+    if (dismissedScannerAlertIds.has(s.id)) continue;
+    const ms = Date.parse(s.event_at) || Date.parse(s.created_at);
+    if (!Number.isFinite(ms)) continue;
+    if (nowMs - ms > 24 * HOUR) continue;
+    const eventLabel = formatScannerEventLabel(s.event_type) ?? s.event_type;
+    items.push({
+      key: `scanner:${s.id}`,
+      bucket: pickBucket(ms, nowMs, "recent"),
+      source: "scanner_intelligence_alert",
+      symbol: s.symbol.toUpperCase(),
+      title: s.headline || `${s.symbol} — ${eventLabel}`,
+      detail: s.summary,
+      timestampMs: ms,
+      timestampLabel: fmtEt(new Date(ms).toISOString()),
+      sourceLabel: "Scanner event",
+      scannerAlertId: s.id,
+      scannerDedupeKey: s.dedupe_key,
+    });
+  }
 
   for (const a of alerts) {
     const ms = Date.parse(a.event_time) || Date.parse(a.created_at);
@@ -270,8 +305,17 @@ export function buildActionFeed(input: {
 export function buildFocusTasks(input: {
   summary: SummaryCounts;
   savedUnreviewedCount: number;
+  scannerAlertCount?: number;
 }): FocusTask[] {
   const out: FocusTask[] = [];
+  if ((input.scannerAlertCount ?? 0) > 0) {
+    out.push({
+      id: "scanner",
+      label: "Review scanner intelligence alerts",
+      count: input.scannerAlertCount!,
+      route: "/dashboard/action-center",
+    });
+  }
   if (input.summary.watchlistAlerts > 0) {
     out.push({ id: "alerts", label: "Review new Watchlist alerts", count: input.summary.watchlistAlerts, route: "/dashboard/watchlist" });
   }
