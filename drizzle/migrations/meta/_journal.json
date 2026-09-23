@@ -155,6 +155,34 @@
       "when": 1790172874892,
       "tag": "0021_intraday_reconstruction_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790208160000,
+      "tag": "0022_intraday_reconstruction_v1_apply_marker",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790208170000,
+      "tag": "0023_intraday_reconstruction_v1_schema_reload",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790208180000,
+      "tag": "0024_intraday_reconstruction_v1_restrict_execute",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790208190000,
+      "tag": "0025_intraday_reconstruction_v1_schema_reload_final",
+      "breakpoints": true
     }
   ]
 }
