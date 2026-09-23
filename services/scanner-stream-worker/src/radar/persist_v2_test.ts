@@ -325,6 +325,34 @@ Deno.test("31. schema/RPC validator rejects malformed payload", () => {
   assertEquals(validateRadarV2Generation(bad), false);
 });
 
+Deno.test("31b. scanner event fields validate and remain on RPC candidate payload", () => {
+  const at = "2026-08-10T14:00:05.000Z";
+  const withEvents = args([
+    candidate("AAA", {
+      primary_scanner_event: "RUNNING_UP",
+      primary_scanner_event_at: at,
+      scanner_events: [{ type: "RUNNING_UP", triggered_at: at, active: true }],
+      rvol_5m: 2.5,
+      volume_velocity: 1200,
+      volume_acceleration_pct: 15,
+    }),
+  ]);
+  assertEquals(validateRadarV2Generation(withEvents), true);
+  const row = withEvents.p_candidates[0];
+  assertEquals(row.primary_scanner_event, "RUNNING_UP");
+  assertEquals(row.primary_scanner_event_at, at);
+  assertEquals(row.scanner_events, [
+    { type: "RUNNING_UP", triggered_at: at, active: true },
+  ]);
+  assertEquals(row.rvol_5m, 2.5);
+
+  const nullScanner = args([candidate("BBB")]);
+  assertEquals(validateRadarV2Generation(nullScanner), true);
+  assertEquals(nullScanner.p_candidates[0].primary_scanner_event, null);
+  assertEquals(nullScanner.p_candidates[0].primary_scanner_event_at, null);
+  assertEquals(nullScanner.p_candidates[0].scanner_events, []);
+});
+
 Deno.test("flag-off helper skips even when live", () => {
   assertEquals(shouldPublishRadarV2(false, {
     staleTransition: false,
