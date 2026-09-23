@@ -56,7 +56,8 @@ describe("Screeners session propagation (D12)", () => {
   it("passes the accepted Radar session into Day Trade Radar without clock inference", () => {
     renderScreeners();
     expect(screen.getByTestId("day-trade-radar-v2").textContent).toBe("radar-v2:pre-market");
-    expect(screen.getByText(/Radar V2 Sentinel pre-market candidates/i)).toBeInTheDocument();
+    expect(screen.queryByText(/Radar V2 Sentinel/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/volume-first ranking/i)).not.toBeInTheDocument();
   });
 
   it("11. PM → RTH generation transition updates session without a page reload", () => {
@@ -69,8 +70,6 @@ describe("Screeners session propagation (D12)", () => {
       </MemoryRouter>,
     );
     expect(screen.getByTestId("day-trade-radar-v2").textContent).toBe("radar-v2:market");
-    expect(screen.getByText(/regular-session candidates/i)).toBeInTheDocument();
-    expect(screen.queryByText(/pre-market candidates/i)).not.toBeInTheDocument();
   });
 
   it("12. RTH → AH transition updates session without a page reload", () => {
@@ -84,8 +83,6 @@ describe("Screeners session propagation (D12)", () => {
       </MemoryRouter>,
     );
     expect(screen.getByTestId("day-trade-radar-v2").textContent).toBe("radar-v2:after-hours");
-    expect(screen.getByText(/after-hours candidates/i)).toBeInTheDocument();
-    expect(screen.queryByText(/regular-session candidates/i)).not.toBeInTheDocument();
   });
 
   it("13. AH → CLOSED stops Radar V2 active-source treatment", () => {

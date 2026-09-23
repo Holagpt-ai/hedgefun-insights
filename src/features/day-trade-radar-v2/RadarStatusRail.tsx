@@ -1,27 +1,6 @@
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
-import { parseTimestampMs } from "@/lib/screeners/contract";
+import { MarketDataStatus } from "@/components/screener/MarketDataStatus";
 import type { RadarEngineSource } from "./types";
-
-export function formatPipelineAge(iso: string | null): string | null {
-  if (!iso) return null;
-  const then = parseTimestampMs(iso);
-  if (then === null) return null;
-  const diffMs = Date.now() - then;
-  if (diffMs < 0) return "just now";
-  const mins = Math.floor(diffMs / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
-}
-
-export function formatProviderAsOf(iso: string | null): string | null {
-  if (!iso) return null;
-  const ms = parseTimestampMs(iso);
-  if (ms === null) return null;
-  return new Date(ms).toLocaleString();
-}
 
 /**
  * Legacy / RTH-snapshot engine chips. Kept for source-state honesty tests.
@@ -81,15 +60,14 @@ export function engineLabelFor(engineSource: RadarEngineSource): string {
   return "Radar V2.1 snapshot";
 }
 
+/** @deprecated Use MarketDataStatus — kept for tests comparing stable timestamp formatting. */
 export function formatHealthyRadarFeedLine(
   providerAsOfMax: string | null,
   syncedAt: string | null,
 ): string {
-  const data = formatProviderAsOf(providerAsOfMax);
-  const age = formatPipelineAge(syncedAt);
-  const parts = ["15-minute delayed"];
-  if (data) parts.push(`Data as of ${data}`);
-  if (age) parts.push(`Updated ${age}`);
+  const parts: string[] = ["Market data status"];
+  if (providerAsOfMax) parts.push("last data timestamp available");
+  if (syncedAt) parts.push("received timestamp available");
   return parts.join(" · ");
 }
 
@@ -112,12 +90,16 @@ export function RadarStatusRail({
   syncedAt,
   providerAsOfMax,
 }: RadarStatusRailProps) {
-  const feedLine = formatHealthyRadarFeedLine(providerAsOfMax, syncedAt);
   const abnormal =
     status === "stale" ||
     status === "unavailable" ||
     status === "loading" ||
     status === "empty";
+
+  const suffix =
+    qualifyingCount > 0 && (status === "available" || status === "stale")
+      ? `${qualifyingCount} Radar candidates`
+      : null;
 
   if (abnormal) {
     const title =
@@ -147,21 +129,28 @@ export function RadarStatusRail({
       >
         <div className="font-semibold">{title}</div>
         <p className="mt-0.5 text-muted-foreground">{detail}</p>
-        <div className="mt-1 text-[11px] text-muted-foreground" data-testid="radar-feed-line">
-          {feedLine}
-          {qualifyingCount > 0 ? ` · ${qualifyingCount} Radar candidates` : ""}
+        <div className="mt-1.5" data-testid="radar-feed-line">
+          <MarketDataStatus
+            status={status}
+            syncedAt={syncedAt}
+            providerAsOfMax={providerAsOfMax}
+            suffix={suffix}
+          />
         </div>
       </div>
     );
   }
 
   return (
-    <div
-      data-testid="radar-status-rail"
-      className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-muted-foreground"
-    >
-      <span data-testid="radar-feed-line">{feedLine}</span>
-      <span className="tabular-nums">{qualifyingCount} Radar candidates</span>
+    <div data-testid="radar-status-rail">
+      <div data-testid="radar-feed-line">
+        <MarketDataStatus
+          status={status}
+          syncedAt={syncedAt}
+          providerAsOfMax={providerAsOfMax}
+          suffix={suffix}
+        />
+      </div>
     </div>
   );
 }

@@ -14,39 +14,30 @@ import {
 
 describe("Day Trade Radar desktop grid", () => {
   it("keeps default columns with a sticky-right Actions contract", () => {
-    expect(RADAR_GRID_COLUMN_COUNT).toBe(15);
-    expect([...RADAR_GRID_COLUMNS]).toEqual([
-      "#",
-      "Symbol / Signal",
-      "Last / Move",
-      "Today Vol",
-      "$ Volume",
-      "RVOL 20D",
-      "Trade Quality",
-      "Trigger Time",
-      "Prior Vol",
-      "Vol / Prior",
-      "Float",
-      "Float Turnover",
-      "Range / HOD",
-      "News / Catalyst",
-      "Actions",
-    ]);
+    expect(RADAR_GRID_COLUMN_COUNT).toBe(19);
+    expect([...RADAR_GRID_COLUMNS][0]).toBe("Triggered");
+    expect([...RADAR_GRID_COLUMNS]).toContain("History");
+    expect([...RADAR_GRID_COLUMNS]).not.toContain("Trade Quality");
+    expect([...DEFAULT_RADAR_COLUMN_IDS][0]).toBe("trigger_time");
     expect([...DEFAULT_RADAR_COLUMN_IDS]).toEqual([
+      "trigger_time",
       "rank",
       "symbol",
       "price_move",
       "volume",
-      "dollar_volume",
-      "daily_rvol",
-      "trade_quality",
-      "trigger_time",
       "prior_volume",
       "volume_ratio",
+      "dollar_volume",
+      "rvol_5m",
+      "vol_velocity",
+      "acceleration_5m",
       "float",
       "float_turnover",
-      "range_hod",
+      "hod_distance",
+      "vwap_state",
+      "day_range",
       "catalyst",
+      "history",
       "actions",
     ]);
     expect(defaultRadarColumns()).toEqual([...DEFAULT_RADAR_COLUMN_IDS]);
@@ -56,19 +47,9 @@ describe("Day Trade Radar desktop grid", () => {
   });
 
   it("keeps optional truthful metrics off by default", () => {
-    expect([...OPTIONAL_RADAR_COLUMN_IDS]).toEqual([
-      "signal",
-      "volume_5s",
-      "volume_15s",
-      "volume_60s",
-      "dollar_volume_60s",
-      "acceleration_5m",
-      "vwap_state",
-      "freshness",
-      "data_time",
-      "move_15s",
-      "move_60s",
-    ]);
+    expect([...OPTIONAL_RADAR_COLUMN_IDS]).toEqual(
+      expect.arrayContaining(["signal", "range_hod", "daily_rvol", "trade_quality"]),
+    );
     for (const id of OPTIONAL_RADAR_COLUMN_IDS) {
       expect(DEFAULT_RADAR_COLUMN_IDS).not.toContain(id);
     }

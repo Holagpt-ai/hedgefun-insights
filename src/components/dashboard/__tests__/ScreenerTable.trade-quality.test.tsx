@@ -51,9 +51,10 @@ function row(symbol: string, volume: number): ScreenerResultRow {
 }
 
 describe("ScreenerTable Trade Quality column", () => {
-  it("13. keeps Discovery order by default and does not sort by Trade Quality", () => {
+  it("13. keeps Discovery order by default and omits Trade Quality from default columns", () => {
     const tab = getScreenerTabById("day_trade_radar");
     expect(tab).toBeTruthy();
+    expect(tab!.columns.some((column) => column.key === "trade_quality")).toBe(false);
     render(
       <MemoryRouter>
         <ScreenerTable
@@ -69,11 +70,10 @@ describe("ScreenerTable Trade Quality column", () => {
     const bodyRows = table.querySelectorAll("tbody tr");
     expect(bodyRows[0]).toHaveTextContent("AAA");
     expect(bodyRows[1]).toHaveTextContent("BBB");
-    expect(bodyRows[0]).toHaveTextContent("#1");
-    expect(bodyRows[1]).toHaveTextContent("#2");
+    expect(screen.queryByRole("columnheader", { name: /Trade Quality/ })).not.toBeInTheDocument();
   });
 
-  it("14/15. renders Trade Quality on mobile as incomplete em dash, not a fabricated score", () => {
+  it("14/15. default mobile layout does not surface Trade Quality", () => {
     const tab = getScreenerTabById("day_trade_radar");
     render(
       <MemoryRouter>
@@ -86,12 +86,7 @@ describe("ScreenerTable Trade Quality column", () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getAllByRole("button", { name: "Trade Quality info" }).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: "Trade Quality info" })).not.toBeInTheDocument();
     expect(screen.queryByText("BUY")).not.toBeInTheDocument();
-    expect(screen.queryByText("SELL")).not.toBeInTheDocument();
-    expect(screen.queryByText("STRONG")).not.toBeInTheDocument();
-    expect(screen.queryByText("WEAK")).not.toBeInTheDocument();
-    expect(screen.queryByText("HIGH_QUALITY")).not.toBeInTheDocument();
-    expect(screen.queryByText("INCOMPLETE")).not.toBeInTheDocument();
   });
 });

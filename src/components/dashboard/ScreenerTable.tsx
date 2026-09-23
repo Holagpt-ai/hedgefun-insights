@@ -34,6 +34,9 @@ import {
   formatScreenerTriggerTimeFromRow,
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
+import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
+import { HistoryCell } from "@/features/day-trade-radar-v2/HistoricalBehavior";
+import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 
@@ -115,6 +118,12 @@ function screenerColumnFieldId(key: string): string | null {
       return "trade_quality";
     case "trigger_time":
       return "trigger_time";
+    case "history":
+      return "history";
+    case "rvol_5m":
+      return "rvol_5m";
+    case "vol_velocity":
+      return "vol_velocity";
     case "catalyst_news":
       return "catalyst";
     default:
@@ -416,15 +425,22 @@ export function ScreenerTable({
       return formatScreenerTradeQualityFromRow(row);
     }
 
+    if (col.format === "unavailable") {
+      return "—";
+    }
+
+    if (col.key === "history") {
+      const context = (row as ScreenerResultRow & RadarHistoricalContextFields).historicalContext;
+      return <HistoryCell context={context ?? null} />;
+    }
+
     if (col.key === "trigger_time") {
       const view = evaluateScreenerTriggerTime(row);
       return (
-        <span
-          className="tabular-nums"
-          title={view.primary ? `${triggerTypeLabel(view.primary.triggerType)} trigger` : "Trigger Time unavailable"}
-        >
-          {view.display}
-        </span>
+        <TriggeredTimeCell
+          triggeredAt={view.primary?.triggeredAt}
+          title={view.primary ? `${triggerTypeLabel(view.primary.triggerType)} trigger` : "Triggered unavailable"}
+        />
       );
     }
 
@@ -449,16 +465,18 @@ export function ScreenerTable({
           onClear={filters.clear}
         />
       )}
-      <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5">
-        {copy.criteria.map((c) => (
-          <span
-            key={c}
-            className="shrink-0 rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
-          >
-            {c}
-          </span>
-        ))}
-      </div>
+      {copy.criteria.length > 0 && (
+        <div className="flex flex-nowrap items-center gap-1.5 overflow-x-auto pb-0.5">
+          {copy.criteria.map((c) => (
+            <span
+              key={c}
+              className="shrink-0 rounded-md bg-muted px-2 py-1 text-[11px] font-medium text-muted-foreground"
+            >
+              {c}
+            </span>
+          ))}
+        </div>
+      )}
 
       {loading && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-2">

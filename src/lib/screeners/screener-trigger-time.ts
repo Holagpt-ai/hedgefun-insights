@@ -62,15 +62,33 @@ function triggerTimestampValue(
   return createAuthoritativeValue(utc, options);
 }
 
-export function formatTriggerTimeDisplay(iso: string | null | undefined): string {
+export function formatTriggerTimePrimaryLine(iso: string | null | undefined): string {
   const utc = toCanonicalUtcTimestamp(iso);
   if (utc === null) return "—";
-  return new Date(utc).toLocaleTimeString("en-US", {
-    hour: "numeric",
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "2-digit",
     minute: "2-digit",
-    hour12: true,
+    second: "2-digit",
+    hour12: false,
     timeZone: TRIGGER_TIME_DISPLAY_TIMEZONE,
-  });
+  }).format(new Date(utc));
+}
+
+export function formatTriggerTimeSecondaryLine(iso: string | null | undefined): string {
+  const utc = toCanonicalUtcTimestamp(iso);
+  if (utc === null) return "";
+  const date = new Intl.DateTimeFormat("en-US", {
+    month: "2-digit",
+    day: "2-digit",
+    year: "2-digit",
+    timeZone: TRIGGER_TIME_DISPLAY_TIMEZONE,
+  }).format(new Date(utc));
+  return `${date} ET`;
+}
+
+/** Compact single-line display (mobile / legacy callers). */
+export function formatTriggerTimeDisplay(iso: string | null | undefined): string {
+  return formatTriggerTimePrimaryLine(iso);
 }
 
 export function selectPrimaryTrigger(state: TriggerState): TriggerEvent | null {
@@ -144,6 +162,6 @@ export function inspectScreenerTriggerQuality(row: ScreenerTriggerTimeSource): {
 }
 
 export function triggerTypeLabel(type: TriggerEvent["triggerType"] | undefined): string {
-  if (!type) return "Trigger Time";
+  if (!type) return "Triggered";
   return TRIGGER_TYPE_LABELS[type];
 }

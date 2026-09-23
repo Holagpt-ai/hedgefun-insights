@@ -30,16 +30,51 @@ function hasUsefulHistory(context: RepeatMoverContext | null | undefined): conte
   return (context.profile.episodeCount ?? 0) > 0 || context.comparableHistory.comparableEpisodeCount > 0;
 }
 
-export function RepeatMoverBadge({ context }: { context: RepeatMoverContext | null | undefined }) {
+export function historyContextLabel(context: RepeatMoverContext | null | undefined): string | null {
   if (!hasUsefulHistory(context)) return null;
   const count = context.comparableHistory.comparableEpisodeCount;
+  if (count > 0) return `${count} Similar`;
+  return "Repeat Mover";
+}
+
+export function RepeatMoverBadge({ context }: { context: RepeatMoverContext | null | undefined }) {
+  const label = historyContextLabel(context);
+  if (!label) return null;
   return (
     <Badge
       variant="outline"
       className="h-4 shrink-0 rounded px-1.5 py-0 text-[9px] font-semibold normal-case tracking-normal text-accent-blue"
     >
-      {count > 0 ? `${count} Similar Moves` : "Repeat Mover"}
+      {label}
     </Badge>
+  );
+}
+
+export function HistoryCell({
+  context,
+  onOpen,
+}: {
+  context: RepeatMoverContext | null | undefined;
+  onOpen?: () => void;
+}) {
+  const label = historyContextLabel(context);
+  if (!label) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  if (!onOpen) {
+    return <span className="text-[11px] font-medium text-accent-blue">{label}</span>;
+  }
+  return (
+    <button
+      type="button"
+      className="text-[11px] font-medium text-accent-blue hover:underline"
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+    >
+      {label}
+    </button>
   );
 }
 

@@ -23,18 +23,15 @@ import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
-import {
-  formatScreenerDollarVolume,
-  formatScreenerRvol20d,
-} from "@/lib/screeners/screener-metric-display";
-import { formatScreenerTradeQualityFromRow } from "@/lib/screeners/screener-trade-quality";
+import { formatScreenerDollarVolume } from "@/lib/screeners/screener-metric-display";
 import {
   evaluateScreenerTriggerTime,
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
+import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
-import { RepeatMoverBadge } from "./HistoricalBehavior";
+import { HistoryCell } from "./HistoricalBehavior";
 
 interface RadarMobileCardProps {
   row: RadarRankedRow;
@@ -106,13 +103,20 @@ export function RadarMobileCard({
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[11px] font-semibold text-muted-foreground">#{row.rank}</span>
+            <TriggeredTimeCell
+              triggeredAt={triggerTime.primary?.triggeredAt}
+              title={
+                triggerTime.primary
+                  ? `${triggerTypeLabel(triggerTime.primary.triggerType)} trigger`
+                  : "Triggered unavailable"
+              }
+            />
+            <span className="text-[11px] font-semibold text-muted-foreground">{row.rank}</span>
             <span className="font-semibold tracking-wide tabular-nums text-accent-blue">{sym}</span>
             <span className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}>
               {row.signal}
             </span>
             <LegacyConfirmedBadge confirmed={row.legacy_confirmed} />
-            <RepeatMoverBadge context={row.historicalContext} />
           </div>
           <div className="text-[12px] text-muted-foreground truncate">{company}</div>
         </div>
@@ -199,30 +203,6 @@ export function RadarMobileCard({
         </ScannerFieldHelp>{" "}
         <span className="text-foreground">{formatScreenerDollarVolume(row.price, row.volume, row)}</span>
         {" · "}
-        <ScannerFieldHelp fieldId="daily_rvol" className="text-muted-foreground">
-          RVOL 20D
-        </ScannerFieldHelp>{" "}
-        <span className="text-foreground">{formatScreenerRvol20d(row.rvol_20d, row)}</span>
-        {" · "}
-        <ScannerFieldHelp fieldId="trade_quality" className="text-muted-foreground">
-          TQ
-        </ScannerFieldHelp>{" "}
-        <span className="text-foreground">{formatScreenerTradeQualityFromRow(row)}</span>
-        {" · "}
-        <ScannerFieldHelp fieldId="trigger_time" className="text-muted-foreground">
-          Trigger
-        </ScannerFieldHelp>{" "}
-        <span
-          className="text-foreground"
-          title={
-            triggerTime.primary
-              ? `${triggerTypeLabel(triggerTime.primary.triggerType)} trigger`
-              : "Trigger Time unavailable"
-          }
-        >
-          {triggerTime.display}
-        </span>
-        {" · "}
         Prior {formatRadarContextVolume(row.prior_session_volume)}
         {" · "}
         <span className={volumeRatioClass(row.volume_ratio_prior_session)}>
@@ -230,6 +210,11 @@ export function RadarMobileCard({
         </span>
       </div>
       <div className="mt-0.5 text-[12px] tabular-nums text-muted-foreground">
+        <ScannerFieldHelp fieldId="history" className="text-muted-foreground">
+          History
+        </ScannerFieldHelp>{" "}
+        <HistoryCell context={row.historicalContext} onOpen={() => onSelect(row)} />
+        {" · "}
         Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
         {" · "}
         <ScannerFieldHelp fieldId="short_float" className="text-muted-foreground">

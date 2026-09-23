@@ -72,7 +72,7 @@ function ranked(symbol = "AAA"): RadarRankedRow {
 }
 
 describe("Radar Trade Quality presentation", () => {
-  it("renders Trade Quality after RVOL 20D on the desktop grid", () => {
+  it("does not show Trade Quality in the default scanner grid", () => {
     render(
       <MemoryRouter>
         <RadarGrid
@@ -85,12 +85,10 @@ describe("Radar Trade Quality presentation", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("columnheader", { name: /Trade Quality/ })).toBeInTheDocument();
-    expect(screen.queryByText("BUY")).not.toBeInTheDocument();
-    expect(screen.queryByText("SELL")).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: /Trade Quality/ })).not.toBeInTheDocument();
   });
 
-  it("14. mobile card renders compact Trade Quality after Phase 3 liquidity metrics", () => {
+  it("14. mobile card does not surface Trade Quality in the default layout", () => {
     render(
       <MemoryRouter>
         <RadarMobileCard
@@ -102,10 +100,9 @@ describe("Radar Trade Quality presentation", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("button", { name: "Trade Quality info" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Trade Quality info" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Dollar Volume info" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "RVOL 20D info" })).toBeInTheDocument();
-    expect(screen.getByText("#1")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByText("AAA")).toBeInTheDocument();
   });
 });

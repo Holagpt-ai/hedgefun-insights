@@ -73,8 +73,8 @@ function ranked(overrides: Partial<RadarRankedRow> = {}): RadarRankedRow {
   };
 }
 
-describe("Radar Trigger Time presentation", () => {
-  it("renders compact Discovery trigger time on the desktop grid", () => {
+describe("Radar Triggered presentation", () => {
+  it("renders Triggered as the first desktop column with HH:MM:SS ET", () => {
     render(
       <MemoryRouter>
         <RadarGrid
@@ -87,13 +87,14 @@ describe("Radar Trigger Time presentation", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("columnheader", { name: /Trigger Time/ })).toBeInTheDocument();
-    expect(screen.getByText("9:42 AM")).toBeInTheDocument();
-    expect(screen.getByText("9:42 AM")).toHaveAttribute("title", "Discovery trigger");
+    expect(screen.getByRole("columnheader", { name: /Triggered/ })).toBeInTheDocument();
+    expect(screen.getByText("09:42:00")).toBeInTheDocument();
+    expect(screen.getByText("09/21/26 ET")).toBeInTheDocument();
+    expect(screen.getByTitle("Discovery trigger")).toBeInTheDocument();
     expect(screen.queryByText("NEW")).not.toBeInTheDocument();
   });
 
-  it("16. mobile card renders compact Trigger Time after Trade Quality", () => {
+  it("16. mobile card renders Triggered before rank", () => {
     render(
       <MemoryRouter>
         <RadarMobileCard
@@ -105,12 +106,11 @@ describe("Radar Trigger Time presentation", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("button", { name: "Trigger Time info" })).toBeInTheDocument();
-    expect(screen.getByText("10:17 AM")).toBeInTheDocument();
-    expect(screen.getByText("10:17 AM")).toHaveAttribute("title", "Discovery trigger");
+    expect(screen.getByText("10:17:00")).toBeInTheDocument();
+    expect(screen.getByTitle("Discovery trigger")).toBeInTheDocument();
   });
 
-  it("17. unavailable Trigger Time displays —", () => {
+  it("17. unavailable Triggered displays —", () => {
     render(
       <MemoryRouter>
         <RadarGrid
@@ -123,11 +123,11 @@ describe("Radar Trigger Time presentation", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByRole("columnheader", { name: /Trigger Time/ })).toBeInTheDocument();
-    expect(screen.getByTitle("Trigger Time unavailable")).toHaveTextContent("—");
+    expect(screen.getByRole("columnheader", { name: /Triggered/ })).toBeInTheDocument();
+    expect(screen.getByTitle("Triggered unavailable")).toHaveTextContent("—");
   });
 
-  it("does not treat Data Time as Trigger Time", () => {
+  it("does not treat Data Time as Triggered", () => {
     render(
       <MemoryRouter>
         <RadarGrid
@@ -140,8 +140,8 @@ describe("Radar Trigger Time presentation", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByText("Trigger Time")).toBeInTheDocument();
+    expect(screen.getByText("Triggered")).toBeInTheDocument();
     expect(screen.getByText("Data Time")).toBeInTheDocument();
-    expect(screen.getByText("9:42 AM")).toBeInTheDocument();
+    expect(screen.getByText("09:42:00")).toBeInTheDocument();
   });
 });

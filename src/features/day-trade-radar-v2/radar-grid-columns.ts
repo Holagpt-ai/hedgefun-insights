@@ -1,21 +1,25 @@
 import { getScannerField } from "@/config/scanner-fields.config";
 
-/** Desktop Day Trade Radar columns. Metric columns may scroll behind a sticky Actions column. */
+/** Default visible Day Trade Radar column headers (desktop). */
 export const RADAR_GRID_COLUMNS = [
-  "#",
+  "Triggered",
+  "Rank",
   "Symbol / Signal",
   "Last / Move",
   "Today Vol",
-  "$ Volume",
-  "RVOL 20D",
-  "Trade Quality",
-  "Trigger Time",
   "Prior Vol",
   "Vol / Prior",
+  "$ Volume",
+  "5m RVOL",
+  "Vol Velocity",
+  "Acceleration",
   "Float",
   "Float Turnover",
-  "Range / HOD",
-  "News / Catalyst",
+  "HOD Distance",
+  "VWAP State",
+  "Day Range",
+  "Catalyst",
+  "History",
   "Actions",
 ] as const;
 
@@ -31,31 +35,36 @@ export const RADAR_ACTIONS_STICKY_CELL_CLASS =
   "sticky right-0 z-20 min-w-[160px] w-[160px] border-l border-border shadow-[-8px_0_12px_-8px_hsl(var(--foreground)/0.18)]";
 
 export const RADAR_COLUMN_IDS = [
+  "trigger_time",
   "rank",
   "symbol",
   "signal",
   "price_move",
-  "prior_volume",
   "volume",
+  "prior_volume",
   "volume_ratio",
+  "dollar_volume",
+  "rvol_5m",
+  "vol_velocity",
+  "acceleration_5m",
   "float",
   "float_turnover",
+  "hod_distance",
+  "vwap_state",
+  "day_range",
   "range_hod",
   "volume_5s",
   "volume_15s",
   "volume_60s",
   "dollar_volume_60s",
   "daily_rvol",
-  "dollar_volume",
   "trade_quality",
-  "trigger_time",
-  "acceleration_5m",
-  "vwap_state",
   "freshness",
   "data_time",
   "move_15s",
   "move_60s",
   "catalyst",
+  "history",
   "actions",
 ] as const;
 
@@ -72,31 +81,36 @@ export interface RadarColumnDefinition {
 }
 
 export const RADAR_COLUMN_DEFINITIONS: readonly RadarColumnDefinition[] = [
-  { id: "rank", label: "#", fieldId: null, defaultVisible: true, required: true, align: "left", optional: false },
+  { id: "trigger_time", label: "Triggered", fieldId: "trigger_time", defaultVisible: true, required: false, align: "left", optional: false },
+  { id: "rank", label: "Rank", fieldId: null, defaultVisible: true, required: true, align: "left", optional: false },
   { id: "symbol", label: "Symbol / Signal", fieldId: "symbol", defaultVisible: true, required: true, align: "left", optional: false },
   { id: "signal", label: "Signal", fieldId: null, defaultVisible: false, required: false, align: "left", optional: true },
   { id: "price_move", label: "Last / Move", fieldId: "price", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "volume", label: "Today Vol", fieldId: "volume", defaultVisible: true, required: false, align: "right", optional: false },
-  { id: "dollar_volume", label: "$ Volume", fieldId: "dollar_volume", defaultVisible: true, required: false, align: "right", optional: false },
-  { id: "daily_rvol", label: "RVOL 20D", fieldId: "daily_rvol", defaultVisible: true, required: false, align: "right", optional: false },
-  { id: "trade_quality", label: "Trade Quality", fieldId: "trade_quality", defaultVisible: true, required: false, align: "right", optional: false },
-  { id: "trigger_time", label: "Trigger Time", fieldId: "trigger_time", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "prior_volume", label: "Prior Vol", fieldId: "prior_volume", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "volume_ratio", label: "Vol / Prior", fieldId: "volume_ratio", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "dollar_volume", label: "$ Volume", fieldId: "dollar_volume", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "rvol_5m", label: "5m RVOL", fieldId: "rvol_5m", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "vol_velocity", label: "Vol Velocity", fieldId: "vol_velocity", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "acceleration_5m", label: "Acceleration", fieldId: "acceleration_5m", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "float", label: "Float", fieldId: "float", defaultVisible: true, required: false, align: "right", optional: false },
   { id: "float_turnover", label: "Float Turnover", fieldId: "float_turnover", defaultVisible: true, required: false, align: "right", optional: false },
-  { id: "range_hod", label: "Range / HOD", fieldId: "day_range", defaultVisible: true, required: false, align: "left", optional: false },
+  { id: "hod_distance", label: "HOD Distance", fieldId: "hod_distance", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "vwap_state", label: "VWAP State", fieldId: "vwap_state", defaultVisible: true, required: false, align: "right", optional: false },
+  { id: "day_range", label: "Day Range", fieldId: "day_range", defaultVisible: true, required: false, align: "left", optional: false },
+  { id: "range_hod", label: "Range / HOD", fieldId: "day_range", defaultVisible: false, required: false, align: "left", optional: true },
   { id: "volume_5s", label: "5s Volume", fieldId: "volume_5s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "volume_15s", label: "15s Volume", fieldId: "volume_15s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "volume_60s", label: "60s Volume", fieldId: "volume_60s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "dollar_volume_60s", label: "60s Dollar Volume", fieldId: "dollar_volume_60s", defaultVisible: false, required: false, align: "right", optional: true },
-  { id: "acceleration_5m", label: "5m Acceleration", fieldId: "acceleration_5m", defaultVisible: false, required: false, align: "right", optional: true },
-  { id: "vwap_state", label: "VWAP State", fieldId: "vwap_state", defaultVisible: false, required: false, align: "right", optional: true },
+  { id: "daily_rvol", label: "RVOL 20D", fieldId: "daily_rvol", defaultVisible: false, required: false, align: "right", optional: true },
+  { id: "trade_quality", label: "Trade Quality", fieldId: "trade_quality", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "freshness", label: "Freshness", fieldId: "freshness", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "data_time", label: "Data Time", fieldId: "data_time", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "move_15s", label: "15s Move", fieldId: "move_15s", defaultVisible: false, required: false, align: "right", optional: true },
   { id: "move_60s", label: "60s Move", fieldId: "move_60s", defaultVisible: false, required: false, align: "right", optional: true },
-  { id: "catalyst", label: "News / Catalyst", fieldId: "catalyst", defaultVisible: true, required: false, align: "left", optional: false },
+  { id: "catalyst", label: "Catalyst", fieldId: "catalyst", defaultVisible: true, required: false, align: "left", optional: false },
+  { id: "history", label: "History", fieldId: "history", defaultVisible: true, required: false, align: "left", optional: false },
   { id: "actions", label: "Actions", fieldId: null, defaultVisible: true, required: true, align: "left", optional: false },
 ];
 
@@ -118,7 +132,6 @@ export const REQUIRED_RADAR_COLUMN_IDS: readonly RadarColumnId[] = RADAR_COLUMN_
 
 export const FUTURE_RADAR_COLUMN_FIELD_IDS = [
   "short_float",
-  "rvol_5m",
   "spread",
   "market_cap",
   "ssr",
@@ -128,7 +141,7 @@ export const FUTURE_RADAR_COLUMN_FIELD_IDS = [
   "catalyst_time",
 ] as const;
 
-export const RADAR_COLUMN_STORAGE_KEY = "stocksist.trader-lens.radar-columns.v4";
+export const RADAR_COLUMN_STORAGE_KEY = "stocksist.trader-lens.radar-columns.v5";
 
 export function isRadarColumnId(value: unknown): value is RadarColumnId {
   return typeof value === "string" && COLUMN_BY_ID.has(value as RadarColumnId);
@@ -187,5 +200,5 @@ export function futureRadarColumnLabels(): { id: string; label: string }[] {
 
 export function radarGridMinWidthPx(visibleCount: number): number {
   const extra = Math.max(0, visibleCount - RADAR_GRID_COLUMN_COUNT);
-  return 1440 + extra * 96;
+  return 1560 + extra * 88;
 }

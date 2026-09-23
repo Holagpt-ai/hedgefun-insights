@@ -90,7 +90,7 @@ describe("scanner field registry", () => {
 
   it("registers Trigger Time as source-dependent event timing, not Data Time", () => {
     const trigger = getScannerField("trigger_time");
-    expect(trigger?.label).toBe("Trigger Time");
+    expect(trigger?.label).toBe("Triggered");
     expect(trigger?.shortLabel).toBe("Trigger");
     expect(trigger?.availability).toBe("source-dependent");
     expect(trigger?.filterable).toBe(false);

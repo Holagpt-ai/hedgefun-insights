@@ -71,7 +71,7 @@ describe("Screener Trigger Time adapter", () => {
     expect(view.primary?.triggerType).toBe("DISCOVERY_TRIGGER");
     expect(view.primary?.triggeredAt).toBe(DISCOVERY_AT);
     expect(view.primary?.source).toBe("radar_v22_candidates.promoted_at");
-    expect(view.display).toBe("9:42 AM");
+    expect(view.display).toBe("09:42:00");
     expect(view.state.events).toHaveLength(1);
   });
 
@@ -201,10 +201,10 @@ describe("Screener Trigger Time adapter", () => {
 
   it("12. display timezone is America/New_York clock form", () => {
     expect(TRIGGER_TIME_DISPLAY_TIMEZONE).toBe("America/New_York");
-    expect(formatTriggerTimeDisplay(DISCOVERY_AT)).toBe("9:42 AM");
-    expect(formatTriggerTimeDisplay("2026-09-21T14:17:00.000Z")).toBe("10:17 AM");
-    expect(formatTriggerTimeDisplay(HOD_BREAK_AT)).toBe("3:08 PM");
-    expect(evaluateScreenerTriggerTime(row({ last_hod_break_at: HOD_BREAK_AT })).display).toBe("3:08 PM");
+    expect(formatTriggerTimeDisplay(DISCOVERY_AT)).toBe("09:42:00");
+    expect(formatTriggerTimeDisplay("2026-09-21T14:17:00.000Z")).toBe("10:17:00");
+    expect(formatTriggerTimeDisplay(HOD_BREAK_AT)).toBe("15:08:00");
+    expect(evaluateScreenerTriggerTime(row({ last_hod_break_at: HOD_BREAK_AT })).display).toBe("15:08:00");
   });
 
   it("13. NEW semantics are unchanged — Trigger Time is a separate clock", () => {
@@ -263,11 +263,11 @@ describe("Screener Trigger Time adapter", () => {
       "HOD_BREAK_TRIGGER",
     ]);
     expect(both.primary?.triggerType).toBe("DISCOVERY_TRIGGER");
-    expect(both.display).toBe("9:42 AM");
+    expect(both.display).toBe("09:42:00");
 
     const hodOnly = evaluateScreenerTriggerTime(row({ last_hod_break_at: HOD_BREAK_AT }));
     expect(hodOnly.primary?.triggerType).toBe("HOD_BREAK_TRIGGER");
-    expect(hodOnly.display).toBe("3:08 PM");
+    expect(hodOnly.display).toBe("15:08:00");
   });
 
   it("DQ: authentic timestamps are AUTHORITATIVE with UNKNOWN freshness", () => {
@@ -294,13 +294,12 @@ describe("Screener Trigger Time adapter", () => {
     expect(mapped.radar_trading_date).toBe(SESSION);
   });
 
-  it("default screener sort remains Discovery / tab order", () => {
+  it("default screener columns lead with Triggered then Rank", () => {
     expect(DEFAULT_SCREENER_TAB_ID).toBe("day_trade_radar");
     for (const tab of SCREENER_TABS) {
-      expect(tab.columns[0]).toMatchObject({ key: "discovery_rank", format: "rank" });
-      const tqIndex = tab.columns.findIndex((column) => column.key === "trade_quality");
-      const ttIndex = tab.columns.findIndex((column) => column.key === "trigger_time");
-      expect(ttIndex).toBe(tqIndex + 1);
+      expect(tab.columns[0]).toMatchObject({ key: "trigger_time", format: "trigger_time" });
+      expect(tab.columns[1]).toMatchObject({ key: "discovery_rank", format: "rank" });
+      expect(tab.columns.some((column) => column.key === "trade_quality")).toBe(false);
     }
   });
 

@@ -98,7 +98,7 @@ const context: RepeatMoverContext = {
 describe("Repeat Movers UI V1", () => {
   it("shows one compact count badge only for useful history", () => {
     const { rerender } = render(<RepeatMoverBadge context={context} />);
-    expect(screen.getByText("5 Similar Moves")).toBeInTheDocument();
+    expect(screen.getByText("5 Similar")).toBeInTheDocument();
 
     rerender(<RepeatMoverBadge context={{ ...context, profile: { ...context.profile, profileAvailable: false } }} />);
     expect(screen.queryByText(/Similar Moves|Repeat Mover/)).not.toBeInTheDocument();

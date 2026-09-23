@@ -76,7 +76,7 @@ function ranked(overrides: Partial<RadarRankedRow> = {}): RadarRankedRow {
 
 describe("Radar Short Float presentation", () => {
   it("keeps the primary column layout and shows unavailable short float in the float cell", () => {
-    expect(RADAR_GRID_COLUMN_COUNT).toBe(15);
+    expect(RADAR_GRID_COLUMN_COUNT).toBe(19);
     expect([...RADAR_GRID_COLUMNS]).not.toContain("Short Float");
     render(
       <MemoryRouter>
@@ -96,10 +96,10 @@ describe("Radar Short Float presentation", () => {
     expect(bodyRows[0]).toHaveTextContent("AAA");
     expect(bodyRows[1]).toHaveTextContent("BBB");
     expect(screen.getByRole("columnheader", { name: "Float" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Trigger Time/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Triggered/ })).toBeInTheDocument();
     expect(screen.getAllByTitle("Short float unavailable").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Short float unavailable")[0]).toHaveTextContent("—");
-    expect(screen.getAllByText("9:42 AM").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("09:42:00").length).toBeGreaterThan(0);
   });
 
   it("renders compact short float on the mobile card without replacing float turnover", () => {
@@ -116,7 +116,7 @@ describe("Radar Short Float presentation", () => {
     );
     expect(screen.getByRole("button", { name: "Short Float info" })).toBeInTheDocument();
     expect(screen.getByTitle("Short float unavailable")).toHaveTextContent("—");
-    expect(screen.getByText("9:42 AM")).toBeInTheDocument();
+    expect(screen.getByText("09:42:00")).toBeInTheDocument();
     expect(screen.getByText(/Turnover/)).toBeInTheDocument();
   });
 });

@@ -99,6 +99,6 @@ describe("ScreenerTable Short Float presentation", () => {
       </MemoryRouter>,
     );
     expect(screen.getAllByRole("button", { name: "Short Float info" }).length).toBeGreaterThan(0);
-    expect(screen.getAllByText("9:42 AM").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("09:42:00").length).toBeGreaterThan(0);
   });
 });

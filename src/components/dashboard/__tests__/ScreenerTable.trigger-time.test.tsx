@@ -57,8 +57,8 @@ function row(
   };
 }
 
-describe("ScreenerTable Trigger Time column", () => {
-  it("keeps Discovery order by default and does not sort by Trigger Time", () => {
+describe("ScreenerTable Triggered column", () => {
+  it("keeps Discovery order by default and does not sort by Triggered", () => {
     const tab = getScreenerTabById("day_trade_radar");
     render(
       <MemoryRouter>
@@ -80,10 +80,10 @@ describe("ScreenerTable Trigger Time column", () => {
     expect(bodyRows[1]).toHaveTextContent("BBB");
     expect(bodyRows[0]).toHaveTextContent("#1");
     expect(bodyRows[1]).toHaveTextContent("#2");
-    expect(screen.getByRole("columnheader", { name: /Trigger Time/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Triggered/ })).toBeInTheDocument();
   });
 
-  it("16/17. renders Trigger Time on mobile as the Discovery clock or —", () => {
+  it("16/17. renders Triggered on mobile as the Discovery clock or —", () => {
     const tab = getScreenerTabById("day_trade_radar");
     render(
       <MemoryRouter>
@@ -98,7 +98,7 @@ describe("ScreenerTable Trigger Time column", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getAllByText("9:42 AM").length).toBeGreaterThan(0);
-    expect(screen.getAllByTitle("Trigger Time unavailable").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("09:42:00").length).toBeGreaterThan(0);
+    expect(screen.getAllByTitle("Triggered unavailable").length).toBeGreaterThan(0);
   });
 });

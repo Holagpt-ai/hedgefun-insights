@@ -131,7 +131,7 @@ describe("Radar mobile card render", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("AAA")).toBeInTheDocument();
-    expect(screen.getByText("#1")).toBeInTheDocument();
+    expect(screen.getByText("1")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Price info" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Day Range info" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Columns" })).not.toBeInTheDocument();

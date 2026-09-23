@@ -41,26 +41,21 @@ describe("RadarStatusRail condensed trader presentation", () => {
 
   it("healthy status rail is condensed and feed-wide", () => {
     renderRail("radar-v2-candidates", "pre-market");
-    const line = screen.getByTestId("radar-feed-line");
-    expect(line.textContent).toMatch(/15-minute delayed/i);
-    expect(line.textContent).toMatch(/Data as of/i);
-    expect(line.textContent).toMatch(/Updated/i);
-    expect(screen.getByText("128 Radar candidates")).toBeInTheDocument();
+    expect(screen.getByTestId("market-data-status")).toBeInTheDocument();
+    expect(screen.getByText("Data Status")).toBeInTheDocument();
+    expect(screen.queryByText(/15-minute delayed/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/128 Radar candidates/)).toBeInTheDocument();
     expect(screen.queryByText("Radar V2 Sentinel")).not.toBeInTheDocument();
-    expect(screen.queryByText("Radar V2.1 snapshot")).not.toBeInTheDocument();
-    expect(screen.queryByText("Feed: 15-Minute Delayed")).not.toBeInTheDocument();
-    expect(screen.queryByText("Status: Available")).not.toBeInTheDocument();
     expect(screen.queryByText("PRE-MARKET")).not.toBeInTheDocument();
     expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();
     expect(screen.queryByText("VOLUME FIRST")).not.toBeInTheDocument();
-    expect(screen.queryByText("Follow #1")).not.toBeInTheDocument();
   });
 
   it("does not imply timestamps change with a Trader Lens preset", () => {
     const a = formatHealthyRadarFeedLine("2026-09-03T12:57:30.000Z", "2026-09-03T13:12:30.000Z");
     const b = formatHealthyRadarFeedLine("2026-09-03T12:57:30.000Z", "2026-09-03T13:12:30.000Z");
     expect(a).toBe(b);
-    expect(a).toMatch(/^15-minute delayed · Data as of /);
+    expect(a).toMatch(/Market data status/i);
   });
 
   it("9. no RTH legacy criteria chips leak into Radar V2 UI", () => {

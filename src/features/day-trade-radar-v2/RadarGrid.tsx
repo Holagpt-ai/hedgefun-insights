@@ -17,6 +17,7 @@ import {
 } from "./radar-grid-columns";
 import {
   formatFreshness,
+  formatHodDistance,
   formatRadarAcceleration,
   formatRadarContextMultiplier,
   formatRadarContextVolume,
@@ -50,7 +51,8 @@ import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuat
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
-import { RepeatMoverBadge } from "./HistoricalBehavior";
+import { HistoryCell } from "./HistoricalBehavior";
+import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 
 interface RadarGridProps {
   rows: RadarRankedRow[];
@@ -153,15 +155,16 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
       return formatScreenerDollarVolume(row.price, row.volume, row);
     case "trade_quality":
       return formatScreenerTradeQualityFromRow(row);
+    case "rvol_5m":
+    case "vol_velocity":
+      return "—";
     case "trigger_time": {
       const view = evaluateScreenerTriggerTime(row);
       return (
-        <span
-          className="tabular-nums"
-          title={view.primary ? `${triggerTypeLabel(view.primary.triggerType)} trigger` : "Trigger Time unavailable"}
-        >
-          {view.display}
-        </span>
+        <TriggeredTimeCell
+          triggeredAt={view.primary?.triggeredAt}
+          title={view.primary ? `${triggerTypeLabel(view.primary.triggerType)} trigger` : "Triggered unavailable"}
+        />
       );
     }
     case "acceleration_5m":
@@ -230,7 +233,11 @@ export function RadarGrid({
             if (columnId === "dollar_volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "daily_rvol") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "trade_quality") return <col key={columnId} className="w-[8%]" />;
-            if (columnId === "trigger_time") return <col key={columnId} className="w-[8%]" />;
+            if (columnId === "trigger_time") return <col key={columnId} className="w-[88px]" />;
+            if (columnId === "day_range") return <col key={columnId} className="w-[12%]" />;
+            if (columnId === "history") return <col key={columnId} className="w-[72px]" />;
+            if (columnId === "hod_distance") return <col key={columnId} className="w-[72px]" />;
+            if (columnId === "vwap_state") return <col key={columnId} className="w-[88px]" />;
             if (columnId === "prior_volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "volume_ratio") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "float") return <col key={columnId} className="w-[8%]" />;
@@ -285,10 +292,25 @@ export function RadarGrid({
                 }`}
               >
                 {visibleColumns.map((columnId) => {
+                  if (columnId === "trigger_time") {
+                    const view = evaluateScreenerTriggerTime(row);
+                    return (
+                      <td key={columnId} className="px-2 py-1.5 align-top">
+                        <TriggeredTimeCell
+                          triggeredAt={view.primary?.triggeredAt}
+                          title={
+                            view.primary
+                              ? `${triggerTypeLabel(view.primary.triggerType)} trigger`
+                              : "Triggered unavailable"
+                          }
+                        />
+                      </td>
+                    );
+                  }
                   if (columnId === "rank") {
                     return (
                       <td key={columnId} className="px-2 py-1.5 tabular-nums font-semibold text-muted-foreground">
-                        #{row.rank}
+                        {row.rank}
                       </td>
                     );
                   }
@@ -303,7 +325,6 @@ export function RadarGrid({
                           >
                             {sym}
                           </Link>
-                          <RepeatMoverBadge context={row.historicalContext} />
                         </div>
                         <div className={`text-[10px] font-semibold uppercase tracking-wide ${radarSignalClass(row.signal)}`}>
                           {row.signal}
@@ -334,15 +355,44 @@ export function RadarGrid({
                       </td>
                     );
                   }
-                  if (columnId === "range_hod") {
+                  if (columnId === "hod_distance") {
+                    return (
+                      <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
+                        {formatHodDistance(row.hod_distance_percent)}
+                      </td>
+                    );
+                  }
+                  if (columnId === "day_range" || columnId === "range_hod") {
                     return (
                       <td key={columnId} className="px-2 py-1.5">
                         <AdaptiveDayRangeBar
                           price={row.price}
                           dayLow={row.day_low}
                           dayHigh={row.day_high}
-                          hodDistancePercent={row.hod_distance_percent}
+                          hodDistancePercent={columnId === "range_hod" ? row.hod_distance_percent : null}
+                          compact={columnId === "day_range"}
                         />
+                      </td>
+                    );
+                  }
+                  if (columnId === "history") {
+                    return (
+                      <td key={columnId} className="px-2 py-1.5">
+                        {accessible ? (
+                          <HistoryCell
+                            context={row.historicalContext}
+                            onOpen={() => onSelect(row)}
+                          />
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    );
+                  }
+                  if (columnId === "vwap_state") {
+                    return (
+                      <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
+                        {renderMetricCell(columnId, row)}
                       </td>
                     );
                   }

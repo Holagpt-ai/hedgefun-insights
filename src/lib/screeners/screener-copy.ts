@@ -28,55 +28,18 @@ function radarSessionPhrase(session: string | null | undefined): string {
   return "current-session";
 }
 
-function radarV2CopyFor(tabId: string, session: string | null | undefined): ScreenerCopy | null {
-  const phrase = radarSessionPhrase(session);
-  const enrichmentNote =
-    "Regular-session % change and prior-day volume may be enriched from a verified delayed snapshot when available; otherwise shown as —. RVOL and gap are not persisted by Radar V2.";
+const RADAR_V2_NEUTRAL_COPY_TABS = new Set([
+  "day_trade_radar",
+  "volume_spikes",
+  "unusual_volume",
+  "gainers_losers",
+]);
 
-  switch (tabId) {
-    case "day_trade_radar":
-      return {
-        description:
-          session === "market"
-            ? "Radar V2 Sentinel regular-session candidates ranked volume-first from the delayed market feed."
-            : session === "after-hours"
-              ? "Radar V2 Sentinel after-hours candidates ranked volume-first from the delayed market feed."
-              : session === "pre-market"
-                ? "Radar V2 Sentinel pre-market candidates ranked volume-first from the delayed market feed."
-                : `Radar V2 Sentinel ${phrase} candidates ranked volume-first from the delayed market feed.`,
-        criteria: [
-          `Radar V2 ${phrase} universe`,
-          "Volume-first ranking",
-          "Legacy $2–$20 / +10% / 5× snapshot gates not applied",
-          "$2–$20 is a Trader Lens preset, not a Radar discovery gate",
-        ],
-      };
-    case "volume_spikes":
-    case "unusual_volume":
-      return {
-        description:
-          `Radar V2 Sentinel ${phrase} volume/velocity activity ranked volume-first ` +
-          `from the delayed market feed. ${enrichmentNote}`,
-        criteria: [
-          `Radar V2 ${phrase} volume / velocity`,
-          "Volume-first ranking",
-          "Prior-day volume enriched when verified snapshot aligns",
-        ],
-      };
-    case "gainers_losers":
-      return {
-        description:
-          `Radar V2 Sentinel ${phrase} movers ranked volume-first from the delayed market feed to surface emerging names early. ` +
-          `${enrichmentNote} Short-window Radar movement is not presented as a day/session change.`,
-        criteria: [
-          `Radar V2 ${phrase} movers`,
-          "Volume-first ranking",
-          "MOVE enriched from verified regular-session snapshot when available",
-        ],
-      };
-    default:
-      return null;
+function radarV2CopyFor(tabId: string, _session: string | null | undefined): ScreenerCopy | null {
+  if (RADAR_V2_NEUTRAL_COPY_TABS.has(tabId)) {
+    return { description: "", criteria: [] };
   }
+  return null;
 }
 
 /**
