@@ -229,14 +229,10 @@ describe("Screener Trade Quality adapter", () => {
     expect(src).not.toMatch(/tradeQuality|trade_quality|calculateTradeQuality/);
   });
 
-  it("13. default screener sort remains Discovery / tab order", () => {
+  it("13. default screener sort remains Triggered time", () => {
     expect(DEFAULT_SCREENER_TAB_ID).toBe("day_trade_radar");
     for (const tab of SCREENER_TABS) {
-      expect(tab.columns[0]).toMatchObject({ key: "discovery_rank", format: "rank" });
-      const rvolIndex = tab.columns.findIndex((column) => column.key === "rvol_20d");
-      const tqIndex = tab.columns.findIndex((column) => column.key === "trade_quality");
-      expect(rvolIndex).toBeGreaterThan(-1);
-      expect(tqIndex).toBe(rvolIndex + 1);
+      expect(tab.columns[0]).toMatchObject({ key: "trigger_time", format: "trigger_time" });
     }
   });
 
