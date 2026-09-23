@@ -267,6 +267,13 @@
       "when": 1790203964190,
       "tag": "0037_radar_v22_market_feed_telemetry_reload",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1790206870923,
+      "tag": "0038_launch_cleanup_security_v1",
+      "breakpoints": true
     }
   ]
 }
