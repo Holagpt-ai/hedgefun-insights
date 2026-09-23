@@ -40,6 +40,9 @@ function candidate(overrides: Partial<RadarV2CandidateRow> = {}): RadarV2Candida
     session_volume: 1_000_000,
     dollar_volume_60s: 1_200_000,
     acceleration_5m: 0.5,
+    rvol_5m: null,
+    volume_velocity: null,
+    volume_acceleration_pct: null,
     session_high: 11,
     session_low: 9,
     distance_from_hod_pct: 1.5,
@@ -379,6 +382,20 @@ describe("Radar V2 adapter — tab semantics (Phase E)", () => {
 });
 
 describe("Radar V2 adapter — ranking metadata preserved through mapping (D5.3)", () => {
+  it("maps momentum metrics without fabrication", () => {
+    const row = mapCandidateToScreenerRow(
+      candidate({
+        rvol_5m: 5.4,
+        volume_velocity: 182_000,
+        volume_acceleration_pct: 74.2,
+      }),
+      "day_trade_radar",
+    );
+    expect(row.rvol_5m).toBe(5.4);
+    expect(row.vol_velocity).toBe(182_000);
+    expect(row.volume_acceleration_pct).toBe(74.2);
+  });
+
   it("8, 9, 10. signal_status, lifecycle→signal_tier, rolling volumes and acceleration survive without fabrication", () => {
     const row = mapCandidateToScreenerRow(
       candidate({

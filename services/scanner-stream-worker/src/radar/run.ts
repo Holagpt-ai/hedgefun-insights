@@ -5,6 +5,7 @@ import { log } from "../log.ts";
 import { isoFromMs } from "./time.ts";
 import { mergeRadarConfig, type RadarV22Config } from "./config.ts";
 import { createRadarEngine, persistableGeneration } from "./engine.ts";
+import { createTod5mBaselineCache } from "./tod-5m-baseline-cache.ts";
 import { createRadarBridge } from "../bridge.ts";
 import { type LeaseClient } from "./lease.ts";
 import {
@@ -79,7 +80,13 @@ export function startRadarV22(opts: {
   const rpcV2 = opts.rpcV2 ?? bridged.radarV2Rpc;
   const setStatus = opts.setStatus ?? bridged.setStatus;
   const holderId = opts.holderId ?? `radar-${crypto.randomUUID()}`;
-  const engine = createRadarEngine({ config, exceptions: [] });
+  let calendarExceptions: Awaited<ReturnType<CalendarExceptionLoader>> = [];
+  const todBaselineCache = createTod5mBaselineCache({
+    apiKey: opts.env.polygonApiKey,
+    fetch: opts.fetch,
+    exceptions: () => calendarExceptions,
+  });
+  const engine = createRadarEngine({ config, exceptions: [], todBaselineCache });
   let leaseHeld = false;
   let connectionState: RadarConnectionState = "idle";
   let lastPublishedGeneration: string | null = null;
@@ -130,6 +137,15 @@ export function startRadarV22(opts: {
   const evaluateAndPublish = async () => {
     const generationId = newId();
     const wallNow = nowMs();
+    const tradingDate = engine.surveillanceDateAt(wallNow);
+    const tapeSymbols = engine.symbolsWithTape();
+    if (tradingDate && tapeSymbols.length > 0) {
+      try {
+        await todBaselineCache.warm(tapeSymbols, tradingDate);
+      } catch {
+        log("warn", "radar_tod_baseline_warm_failed", { code: "baseline_unavailable" });
+      }
+    }
     const result = engine.evaluate(wallNow, generationId);
     const syncedAt = isoFromMs(wallNow) ?? new Date(wallNow).toISOString();
     if (result.staleTransition) {
@@ -267,6 +283,7 @@ export function startRadarV22(opts: {
           lastHeartbeatMs = wallNow;
           try {
             const exceptions = await opts.loadExceptions();
+            calendarExceptions = exceptions;
             engine.setExceptions(exceptions);
           } catch {
             log("warn", "radar_calendar_load_failed", {

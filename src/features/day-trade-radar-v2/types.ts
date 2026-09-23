@@ -12,6 +12,9 @@ export interface RadarRankingFields {
   rolling_volume_15s?: number | null;
   rolling_volume_60s?: number | null;
   acceleration_5m?: number | null;
+  rvol_5m?: number | null;
+  vol_velocity?: number | null;
+  volume_acceleration_pct?: number | null;
   rolling_dollar_volume_60s?: number | null;
   session_vwap?: number | null;
   vwap_side?: string | null;

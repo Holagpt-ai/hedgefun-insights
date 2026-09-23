@@ -42,6 +42,11 @@ import {
 } from "./lifecycle.ts";
 import { rankBoard } from "./rank.ts";
 import {
+  computeMomentumMetrics,
+  regularSessionBucketIndex,
+} from "./momentum-metrics.ts";
+import type { Tod5mBaselineCache } from "./tod-5m-baseline-cache.ts";
+import {
   mapCandidateRow,
   type PersistenceV2View,
 } from "./persist_v2.ts";
@@ -56,6 +61,7 @@ import type {
   LifecycleRecord,
   RankedCandidate,
   SentinelStats,
+  SymbolMetrics,
 } from "./types.ts";
 
 export type FrozenBoard = {
@@ -161,6 +167,8 @@ export type RadarEngine = {
   hasRadarBook(symbol: string): boolean;
   bookBarCount(symbol: string): number;
   sessionIntel(symbol: string): SessionIntelSnapshot | null;
+  symbolsWithTape(): string[];
+  surveillanceDateAt(wallNowMs: number): string | null;
 };
 
 export type RadarMemorySnapshot = {
@@ -194,8 +202,10 @@ function rssBytes(): number | null {
 export function createRadarEngine(opts: {
   config: RadarV22Config;
   exceptions?: CalendarExceptionRow[] | null;
+  todBaselineCache?: Tod5mBaselineCache | null;
 }): RadarEngine {
   const { config } = opts;
+  const todBaselineCache = opts.todBaselineCache ?? null;
   const book = createRadarBook(config);
   const sentinel = createMarketSentinel(config);
   const intel = createSessionIntelBook(config);
@@ -437,6 +447,35 @@ export function createRadarEngine(opts: {
     });
   }
 
+  function applyMomentumMetrics(
+    symbol: string,
+    metrics: SymbolMetrics,
+    eventNowMs: number,
+  ): SymbolMetrics {
+    const kind = lastSessionKind ?? radarSessionKindAt(eventNowMs, exceptions);
+    const schedule = resolveScheduleAt(eventNowMs, exceptions);
+    let todBaseline = null;
+    if (todBaselineCache && kind === "market" && schedule) {
+      const bucket = regularSessionBucketIndex(eventNowMs, schedule);
+      if (bucket !== null) {
+        todBaseline = todBaselineCache.get(symbol, bucket);
+      }
+    }
+    const momentum = computeMomentumMetrics({
+      bars: book.bars(symbol),
+      eventNowMs,
+      sessionKind: kind,
+      schedule,
+      todBaseline,
+    });
+    return {
+      ...metrics,
+      rvol5m: momentum.rvol_5m,
+      volumeVelocity: momentum.volume_velocity,
+      volumeAccelerationPct: momentum.volume_acceleration_pct,
+    };
+  }
+
   function rankLiveBoard(
     wallNowMs: number,
     generationId: string,
@@ -466,8 +505,9 @@ export function createRadarEngine(opts: {
     for (const symbol of symbols) {
       const quote = universe.get(symbol) ?? null;
       const eligible = config.sentinelEnabled ? true : quote !== null;
-      const metrics = book.metrics(symbol, eventNow, quote);
-      if (!metrics) continue;
+      const rawMetrics = book.metrics(symbol, eventNow, quote);
+      if (!rawMetrics) continue;
+      const metrics = applyMomentumMetrics(symbol, rawMetrics, eventNow);
       const detect = detectPass(eligible, metrics, config);
       const active = activePass(eligible, metrics, config);
       intel.applyFreshnessHints(symbol, eventNow, {
@@ -1011,6 +1051,12 @@ export function createRadarEngine(opts: {
     },
     sessionIntel(symbol) {
       return intel.get(symbol, lastEventEndMs ?? 0);
+    },
+    symbolsWithTape() {
+      return book.trackedSymbols();
+    },
+    surveillanceDateAt(wallNowMs) {
+      return surveillanceDateAt(wallNowMs);
     },
   };
 }

@@ -23,6 +23,7 @@ import {
   formatScreenerDollarVolume,
   formatScreenerMetric,
   formatScreenerRvol20d,
+  formatScreenerVolumeAccelerationPct,
 } from "@/lib/screeners/screener-metric-display";
 import { applyScreenerRowFilters } from "@/lib/screeners/screener-filters";
 import {
@@ -423,6 +424,12 @@ export function ScreenerTable({
 
     if (col.key === "trade_quality") {
       return formatScreenerTradeQualityFromRow(row);
+    }
+
+    if (col.key === "acceleration") {
+      const pct = (row as ScreenerResultRow & { volume_acceleration_pct?: number | null })
+        .volume_acceleration_pct;
+      return formatScreenerVolumeAccelerationPct(pct);
     }
 
     if (col.format === "unavailable") {

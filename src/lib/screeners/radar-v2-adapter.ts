@@ -128,6 +128,9 @@ export interface RadarV2CandidateRow {
   session_volume: number | null;
   dollar_volume_60s: number | null;
   acceleration_5m: number | null;
+  rvol_5m: number | null;
+  volume_velocity: number | null;
+  volume_acceleration_pct: number | null;
   session_high: number | null;
   session_low: number | null;
   distance_from_hod_pct: number | null;
@@ -367,6 +370,11 @@ export function mapCandidateToScreenerRow(
     rolling_volume_15s: isFiniteNumber(row.volume_15s) ? row.volume_15s : null,
     rolling_volume_60s: isFiniteNumber(row.volume_60s) ? row.volume_60s : null,
     acceleration_5m: isFiniteNumber(row.acceleration_5m) ? row.acceleration_5m : null,
+    rvol_5m: isFiniteNumber(row.rvol_5m) ? row.rvol_5m : null,
+    vol_velocity: isFiniteNumber(row.volume_velocity) ? row.volume_velocity : null,
+    volume_acceleration_pct: isFiniteNumber(row.volume_acceleration_pct)
+      ? row.volume_acceleration_pct
+      : null,
     rolling_dollar_volume_60s: isFiniteNumber(row.dollar_volume_60s) ? row.dollar_volume_60s : null,
     session_vwap: isFiniteNumber(row.session_vwap) ? row.session_vwap : null,
     vwap_side: typeof row.vwap_side === "string" && row.vwap_side.trim() ? row.vwap_side : null,

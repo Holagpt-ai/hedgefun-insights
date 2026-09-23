@@ -16,9 +16,13 @@ import {
   type RadarColumnId,
 } from "./radar-grid-columns";
 import {
+  formatScreenerRvol5m,
+  formatScreenerVolumeAccelerationPct,
+  formatScreenerVolumeVelocity,
+} from "@/lib/screeners/screener-metric-display";
+import {
   formatFreshness,
   formatHodDistance,
-  formatRadarAcceleration,
   formatRadarContextMultiplier,
   formatRadarContextVolume,
   formatRadarDataTime,
@@ -156,8 +160,9 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
     case "trade_quality":
       return formatScreenerTradeQualityFromRow(row);
     case "rvol_5m":
+      return formatScreenerRvol5m(row.rvol_5m);
     case "vol_velocity":
-      return "—";
+      return formatScreenerVolumeVelocity(row.vol_velocity);
     case "trigger_time": {
       const view = evaluateScreenerTriggerTime(row);
       return (
@@ -168,7 +173,7 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
       );
     }
     case "acceleration_5m":
-      return formatRadarAcceleration(row.acceleration_5m);
+      return formatScreenerVolumeAccelerationPct(row.volume_acceleration_pct);
     case "vwap_state":
       return formatVwapState(row.vwap_side, row.session_vwap);
     case "freshness":

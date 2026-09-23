@@ -57,6 +57,12 @@ export type SymbolMetrics = {
   move15s: PriceWindow;
   move60s: PriceWindow;
   acceleration5m: number | null;
+  /** Regular-session TOD 5m RVOL; null when baseline insufficient. */
+  rvol5m: number | null;
+  /** Shares per minute over the latest 5m window. */
+  volumeVelocity: number | null;
+  /** Percent change in velocity vs the prior 5m window. */
+  volumeAccelerationPct: number | null;
   providerLagMs: number | null;
   lastBarEndMs: number | null;
   lastBarStartMs: number | null;

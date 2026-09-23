@@ -9,7 +9,7 @@ const PRECEDING_BUCKETS = 4;
  * Does not fabricate OHLC for absent seconds.
  */
 export function rollingVolume(
-  bars: Map<number, SecondBar>,
+  bars: ReadonlyMap<number, SecondBar>,
   eventNowMs: number,
   windowMs: number,
   field: "volume" | "dollarVolume" = "volume",

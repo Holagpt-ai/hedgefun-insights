@@ -75,6 +75,12 @@ export type RadarV22CandidateRow = {
   session_volume: number;
   dollar_volume_60s: number;
   acceleration_5m: number | null;
+  /** Regular-session 5m RVOL vs historical TOD baseline (null when insufficient). */
+  rvol_5m: number | null;
+  /** Shares per minute over the latest completed 5m window. */
+  volume_velocity: number | null;
+  /** Percent change in velocity vs the prior 5m window (distinct from acceleration_5m ratio). */
+  volume_acceleration_pct: number | null;
   session_high: number | null;
   session_low: number | null;
   distance_from_hod_pct: number | null;

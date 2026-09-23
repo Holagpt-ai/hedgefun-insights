@@ -138,6 +138,7 @@ export type RadarBook = {
   trackedSymbols(): string[];
   trackedCount(): number;
   retainedBarCount(): number;
+  bars(symbol: string): ReadonlyMap<number, SecondBar> | null;
 };
 
 export function createRadarBook(config: RadarV22Config): RadarBook {
@@ -291,6 +292,9 @@ export function createRadarBook(config: RadarV22Config): RadarBook {
           ? priceWindow(book, eventNowMs, WINDOW_60S)
           : { movePct: null, complete: false },
         acceleration5m: book ? acceleration5m(book.bars, eventNowMs) : null,
+        rvol5m: null,
+        volumeVelocity: null,
+        volumeAccelerationPct: null,
         providerLagMs,
         lastBarEndMs: lastBar?.endMs ?? null,
         lastBarStartMs: lastBar?.startMs ?? null,
@@ -314,6 +318,10 @@ export function createRadarBook(config: RadarV22Config): RadarBook {
 
     trackedCount() {
       return books.size;
+    },
+
+    bars(symbol) {
+      return books.get(symbol)?.bars ?? null;
     },
 
     retainedBarCount() {

@@ -43,6 +43,34 @@ export function formatScreenerRvol20d(
   return displayScreenerMetricValue(toScreenerRvol20dValue(value, observation), (n) => `${n.toFixed(1)}×`);
 }
 
+/** Short-window 5m RVOL from Radar V2 (distinct from 20d daily RVOL). */
+export function formatScreenerRvol5m(
+  value: string | number | null | undefined,
+): string {
+  const n = finiteMetric(value);
+  if (n === null) return "—";
+  return `${n.toFixed(1)}×`;
+}
+
+/** Shares per minute over the latest 5m window. */
+export function formatScreenerVolumeVelocity(
+  value: string | number | null | undefined,
+): string {
+  const n = finiteMetric(value);
+  if (n === null) return "—";
+  return `${formatCompactNumber(n)}/min`;
+}
+
+/** Percent change in volume velocity vs the prior 5m window. */
+export function formatScreenerVolumeAccelerationPct(
+  value: string | number | null | undefined,
+): string {
+  const n = finiteMetric(value);
+  if (n === null) return "—";
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n.toFixed(0)}%`;
+}
+
 export function formatScreenerMetric(
   value: string | number | null | undefined,
   format: string,
@@ -59,6 +87,12 @@ export function formatScreenerMetric(
     case "multiplier":
     case "daily_rvol":
       return formatScreenerRvol20d(value);
+    case "rvol_5m":
+      return formatScreenerRvol5m(value);
+    case "vol_velocity":
+      return formatScreenerVolumeVelocity(value);
+    case "vol_acceleration":
+      return formatScreenerVolumeAccelerationPct(value);
     case "dollar_volume":
       return formatScreenerDollarVolumeValue(value);
     case "volume":

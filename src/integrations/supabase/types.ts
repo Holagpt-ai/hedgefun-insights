@@ -5272,6 +5272,9 @@ export type Database = {
       radar_v22_candidates: {
         Row: {
           acceleration_5m: number | null
+          rvol_5m: number | null
+          volume_velocity: number | null
+          volume_acceleration_pct: number | null
           distance_from_hod_pct: number | null
           dollar_volume_60s: number
           freshness_age_ms: number | null
@@ -5313,6 +5316,9 @@ export type Database = {
         }
         Insert: {
           acceleration_5m?: number | null
+          rvol_5m?: number | null
+          volume_velocity?: number | null
+          volume_acceleration_pct?: number | null
           distance_from_hod_pct?: number | null
           dollar_volume_60s: number
           freshness_age_ms?: number | null
@@ -5354,6 +5360,9 @@ export type Database = {
         }
         Update: {
           acceleration_5m?: number | null
+          rvol_5m?: number | null
+          volume_velocity?: number | null
+          volume_acceleration_pct?: number | null
           distance_from_hod_pct?: number | null
           dollar_volume_60s?: number
           freshness_age_ms?: number | null

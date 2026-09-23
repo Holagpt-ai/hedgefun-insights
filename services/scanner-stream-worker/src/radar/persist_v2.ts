@@ -209,6 +209,16 @@ export function validateRadarV2Generation(input: ReplaceRadarV2Args): boolean {
     ) {
       return false;
     }
+    if (row.rvol_5m !== null && !finiteNumber(row.rvol_5m)) return false;
+    if (row.volume_velocity !== null && !finiteNumber(row.volume_velocity)) {
+      return false;
+    }
+    if (
+      row.volume_acceleration_pct !== null &&
+      !finiteNumber(row.volume_acceleration_pct)
+    ) {
+      return false;
+    }
     if (!isRadarV22VwapSide(row.vwap_side)) return false;
     if (!isRadarV22FreshnessClass(row.freshness_class)) return false;
     if (typeof row.geometry_partial !== "boolean") return false;
@@ -551,6 +561,9 @@ export function mapCandidateRow(opts: {
       : opts.metrics.sessionVolume,
     dollar_volume_60s: opts.metrics.dollarVol60s,
     acceleration_5m: opts.metrics.acceleration5m,
+    rvol_5m: opts.metrics.rvol5m,
+    volume_velocity: opts.metrics.volumeVelocity,
+    volume_acceleration_pct: opts.metrics.volumeAccelerationPct,
     session_high: intel?.sessionHigh ?? null,
     session_low: intel?.sessionLow ?? null,
     distance_from_hod_pct: hodPct,
@@ -691,6 +704,9 @@ export function fingerprintRadarV2Generation(
           RADAR_V2_DOLLAR_DECIMALS,
         ),
         normalizeRadarV2Number(row.acceleration_5m, RADAR_V2_ACCEL_DECIMALS),
+        normalizeRadarV2Number(row.rvol_5m, 2),
+        normalizeRadarV2Number(row.volume_velocity, RADAR_V2_VOLUME_DECIMALS),
+        normalizeRadarV2Number(row.volume_acceleration_pct, 1),
         normalizeRadarV2Number(row.session_high, RADAR_V2_PRICE_DECIMALS),
         normalizeRadarV2Number(row.session_low, RADAR_V2_PRICE_DECIMALS),
         normalizeRadarV2Number(

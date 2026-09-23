@@ -14,6 +14,9 @@ export type ColumnFormat =
   | "rank"
   | "trade_quality"
   | "trigger_time"
+  | "rvol_5m"
+  | "vol_velocity"
+  | "vol_acceleration"
   | "unavailable";
 
 export interface ScreenerColumn {
@@ -56,9 +59,9 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "prior_session_volume", label: "Prior Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior", format: "multiplier", align: "right" },
       { key: "dollar_volume", label: "$ Volume", format: "dollar_volume", align: "right" },
-      { key: "rvol_5m", label: "5m RVOL", format: "unavailable", align: "right" },
-      { key: "vol_velocity", label: "Vol Velocity", format: "unavailable", align: "right" },
-      { key: "acceleration", label: "Acceleration", format: "unavailable", align: "right" },
+      { key: "rvol_5m", label: "5m RVOL", format: "rvol_5m", align: "right" },
+      { key: "vol_velocity", label: "Vol Velocity", format: "vol_velocity", align: "right" },
+      { key: "acceleration", label: "Acceleration", format: "vol_acceleration", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst", format: "text", align: "left" },
       { key: "history", label: "History", format: "text", align: "left" },
@@ -79,7 +82,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "volume", label: "Today Vol", format: "volume", align: "right" },
       { key: "prior_session_volume", label: "Prior Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior", format: "multiplier", align: "right" },
-      { key: "rvol_5m", label: "5m RVOL", format: "unavailable", align: "right" },
+      { key: "rvol_5m", label: "5m RVOL", format: "rvol_5m", align: "right" },
       { key: "catalyst_news", label: "Catalyst", format: "text", align: "left" },
       { key: "history", label: "History", format: "text", align: "left" },
     ],
@@ -100,8 +103,8 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "volume", label: "Today Vol", format: "volume", align: "right" },
       { key: "prior_session_volume", label: "Prior Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior", format: "multiplier", align: "right" },
-      { key: "rvol_5m", label: "5m RVOL", format: "unavailable", align: "right" },
-      { key: "vol_velocity", label: "Velocity", format: "unavailable", align: "right" },
+      { key: "rvol_5m", label: "5m RVOL", format: "rvol_5m", align: "right" },
+      { key: "vol_velocity", label: "Velocity", format: "vol_velocity", align: "right" },
       { key: "catalyst_news", label: "Catalyst", format: "text", align: "left" },
       { key: "history", label: "History", format: "text", align: "left" },
     ],
@@ -169,7 +172,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "volume", label: "Today Vol", format: "volume", align: "right" },
       { key: "prior_session_volume", label: "Prior Vol", format: "volume", align: "right" },
       { key: "volume_ratio_prior_session", label: "Vol / Prior", format: "multiplier", align: "right" },
-      { key: "rvol_5m", label: "5m RVOL", format: "unavailable", align: "right" },
+      { key: "rvol_5m", label: "5m RVOL", format: "rvol_5m", align: "right" },
       { key: "day_range", label: "Day Range", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst", format: "text", align: "left" },
       { key: "history", label: "History", format: "text", align: "left" },
