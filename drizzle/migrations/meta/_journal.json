@@ -281,6 +281,20 @@
       "when": 1790206885951,
       "tag": "0039_launch_cleanup_security_reload",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790273300974,
+      "tag": "0040_screener_52w_baseline_corporate_action_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1790273308205,
+      "tag": "0041_catalyst_event_type_legal_v1",
+      "breakpoints": true
     }
   ]
 }

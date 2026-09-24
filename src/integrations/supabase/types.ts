@@ -7959,6 +7959,14 @@ export type Database = {
         Args: { p_row: Json }
         Returns: undefined
       }
+      merge_screener_52w_high: {
+        Args: { p_bar_high: number; p_existing_high: number }
+        Returns: number
+      }
+      merge_screener_52w_low: {
+        Args: { p_bar_low: number; p_existing_low: number }
+        Returns: number
+      }
       prune_cron_job_run_details_v1: { Args: never; Returns: number }
       publish_screener_volume_baselines_v1: {
         Args: { p_generation_id: string; p_provider_as_of: string }
@@ -8086,9 +8094,21 @@ export type Database = {
         }
         Returns: number
       }
+      restate_screener_legacy_high: {
+        Args: { p_legacy_high: number; p_session_high: number }
+        Returns: number
+      }
+      restate_screener_legacy_low: {
+        Args: { p_legacy_low: number; p_session_low: number }
+        Returns: number
+      }
       scanner_intelligence_alert_upsert_v1: {
         Args: { p_row: Json }
         Returns: undefined
+      }
+      screener_near_integer_scale_factor: {
+        Args: { p_ratio: number }
+        Returns: number
       }
       set_radar_v22_feed_status_v1: {
         Args: {
