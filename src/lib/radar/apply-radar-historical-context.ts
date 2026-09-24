@@ -9,6 +9,7 @@ import type { RadarSecurityIdResolver } from "@/lib/radar/resolve-radar-security
 import type { RadarHistoricalContextConfig } from "@/config/radar-historical-context.config";
 import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-mover-input";
 import type { RadarHistoricalContextBatchResponse } from "@/lib/radar/radar-historical-context-client";
+import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
 
 /**
  * Post-rank enrichment for Radar V2 views. Does not mutate ranking inputs.
@@ -39,7 +40,7 @@ export function mergeHistoricalContextBatchIntoRows(
     return {
       ...row,
       securityId: match.securityId,
-      historicalContext: match.historicalContext,
+      historicalContext: coerceRepeatMoverContextForDisplay(match.historicalContext),
     };
   });
 }
@@ -51,13 +52,9 @@ export async function fetchAndMergeRadarHistoricalContext(input: {
   ) => Promise<RadarHistoricalContextBatchResponse>;
 }): Promise<Array<RadarV2ScreenerRow>> {
   if (input.rows.length === 0) return [];
-  try {
-    const requests = input.rows.map((row) => mapRadarEnrichmentRequest(row));
-    const batch = await input.fetchBatch(requests);
-    return mergeHistoricalContextBatchIntoRows(input.rows, batch);
-  } catch {
-    return input.rows.map((row) => ({ ...row, historicalContext: null }));
-  }
+  const requests = input.rows.map((row) => mapRadarEnrichmentRequest(row));
+  const batch = await input.fetchBatch(requests);
+  return mergeHistoricalContextBatchIntoRows(input.rows, batch);
 }
 
 export async function applyHistoricalContextToRadarDecision(

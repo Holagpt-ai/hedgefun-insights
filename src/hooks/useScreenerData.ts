@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchScreenerFeedState } from "@/lib/screeners/screener-feed-fetch";
 import {
@@ -39,6 +39,10 @@ import {
 import type { TabEvaluationEvidenceMap } from "@/lib/screeners/tab-evaluation-evidence";
 import type { NhlBaselineStatus } from "@/lib/screeners/contract";
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
+import {
+  REPEAT_MOVERS_IDLE,
+  type RepeatMoversLoadState,
+} from "@/lib/radar/repeat-movers-load-state";
 
 export type { ScreenerResultRow, ScreenerUiStatus };
 
@@ -164,6 +168,9 @@ export function useScreenerData(
   const [tabEvaluationEvidence, setTabEvaluationEvidence] =
     useState<TabEvaluationEvidenceMap | null>(null);
   const [repeatMoversView, setRepeatMoversView] = useState<RadarRepeatMoversView | null>(null);
+  const [repeatMoversLoadState, setRepeatMoversLoadState] =
+    useState<RepeatMoversLoadState>(REPEAT_MOVERS_IDLE);
+  const softReloadRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     if (!tabId) return;
@@ -200,6 +207,9 @@ export function useScreenerData(
       setNhlBaselineStatus(view.nhl_baseline_status ?? null);
       setTabEvaluationEvidence(view.tab_evaluation_evidence ?? null);
       setRepeatMoversView(view.repeatMoversView ?? null);
+      if (view.repeatMoversView) {
+        setRepeatMoversLoadState({ status: "ready", view: view.repeatMoversView });
+      }
       lastViewRef.current = view;
       lastSourceRef.current = resolvedSource;
       setTruthState(
@@ -273,6 +283,7 @@ export function useScreenerData(
         setNhlBaselineStatus(null);
         setTabEvaluationEvidence(null);
         setRepeatMoversView(null);
+        setRepeatMoversLoadState(REPEAT_MOVERS_IDLE);
         hasLoadedOnce = false;
       }
 
@@ -329,11 +340,16 @@ export function useScreenerData(
             }
           }
           if (tabId === "day_trade_radar" && view.rows.length > 0) {
-            try {
-              const { data: sessionData } = await supabase.auth.getSession();
-              const token = sessionData.session?.access_token;
-              const edgeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-historical-context`;
-              if (token && edgeUrl.includes("http")) {
+            if (!cancelled) setRepeatMoversLoadState({ status: "loading" });
+            const { data: sessionData } = await supabase.auth.getSession();
+            const token = sessionData.session?.access_token;
+            const edgeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-historical-context`;
+            if (!token || !edgeUrl.includes("http")) {
+              if (!cancelled) {
+                setRepeatMoversLoadState({ status: "unavailable", reason: "no_session" });
+              }
+            } else {
+              try {
                 const enrichedRows = await fetchAndMergeRadarHistoricalContext({
                   rows: view.rows as RadarV2ScreenerRow[],
                   fetchBatch: (requests) => fetchRadarHistoricalContextBatch({
@@ -342,9 +358,7 @@ export function useScreenerData(
                     requests,
                   }),
                 });
-                const repeatMoversView = buildRadarRepeatMoversView(enrichedRows, { nowMs: Date.now() });
-                recordRadarRepeatMoversView(repeatMoversView);
-                view = { ...view, rows: enrichedRows, repeatMoversView };
+                view = { ...view, rows: enrichedRows };
                 for (const row of enrichedRows) {
                   if (row.symbol && row.historicalContext) {
                     persistHistoricalWorkflowHandoff(row.historicalContext, {
@@ -354,10 +368,26 @@ export function useScreenerData(
                     });
                   }
                 }
+                try {
+                  const repeatMoversView = buildRadarRepeatMoversView(enrichedRows, { nowMs: Date.now() });
+                  recordRadarRepeatMoversView(repeatMoversView);
+                  view = { ...view, repeatMoversView };
+                  if (!cancelled) {
+                    setRepeatMoversLoadState({ status: "ready", view: repeatMoversView });
+                  }
+                } catch {
+                  if (!cancelled) {
+                    setRepeatMoversLoadState({ status: "unavailable", reason: "view_build_failed" });
+                  }
+                }
+              } catch {
+                if (!cancelled) {
+                  setRepeatMoversLoadState({ status: "unavailable", reason: "enrichment_failed" });
+                }
               }
-            } catch {
-              // Repeat Movers enrichment is optional and must not block Radar delivery.
             }
+          } else if (tabId === "day_trade_radar") {
+            if (!cancelled) setRepeatMoversLoadState(REPEAT_MOVERS_IDLE);
           }
           lastVerifiedRadar = resolved.nextPriorRadar;
           if (!cancelled) {
@@ -383,6 +413,9 @@ export function useScreenerData(
       applyView(view, soft, "screener-results");
     };
 
+    softReloadRef.current = () => {
+      void load(true);
+    };
     void load(false);
 
     if (
@@ -405,6 +438,10 @@ export function useScreenerData(
     };
   }, [tabId, refreshIntervalMs, pauseWhenHidden]);
 
+  const refetch = useCallback(() => {
+    softReloadRef.current();
+  }, []);
+
   return {
     status,
     rows,
@@ -418,5 +455,7 @@ export function useScreenerData(
     nhlBaselineStatus,
     tabEvaluationEvidence,
     repeatMoversView,
+    repeatMoversLoadState,
+    refetch,
   };
 }

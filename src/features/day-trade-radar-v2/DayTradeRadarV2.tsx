@@ -11,6 +11,8 @@ import { useRadarChartData } from "./useRadarChartData";
 import { RadarStatusRail } from "./RadarStatusRail";
 import { RadarDetailPanel } from "./RadarDetailPanel";
 import { MultiRadarWorkspace } from "./MultiRadarWorkspace";
+import { RadarRepeatMoversSection } from "./RadarRepeatMoversSection";
+import { REPEAT_MOVERS_IDLE } from "@/lib/radar/repeat-movers-load-state";
 import { isRadarRowAccessible } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
@@ -25,7 +27,8 @@ export function DayTradeRadarV2({
   freeRowLimit,
   source = null,
   session = null,
-  repeatMoversView: _repeatMoversView = null,
+  repeatMoversLoadState = REPEAT_MOVERS_IDLE,
+  onRepeatMoversRetry,
 }: DayTradeRadarV2Props) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -172,6 +175,17 @@ export function DayTradeRadarV2({
           nowMs={nowMs}
           onSelect={selectActive}
           onOpenDetails={openDetails}
+        />
+      )}
+
+      {boardVisible && ranked.length > 0 && (
+        <RadarRepeatMoversSection
+          loadState={repeatMoversLoadState}
+          onRetry={onRepeatMoversRetry}
+          onOpenDetails={(symbol) => {
+            const match = lensRows.find((r) => r.symbol === symbol);
+            if (match) openDetails(match);
+          }}
         />
       )}
 

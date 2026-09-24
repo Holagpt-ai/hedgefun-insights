@@ -52,7 +52,7 @@ export function qualifyRadarRepeatMover(input: {
     };
   }
 
-  const labels = context.evidenceLabels;
+  const labels = Array.isArray(context.evidenceLabels) ? context.evidenceLabels : [];
   const hasMeaningful = labels.some((label) => MEANINGFUL_EVIDENCE.has(label));
   if (!hasMeaningful) {
     return {

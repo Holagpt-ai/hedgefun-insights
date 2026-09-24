@@ -31,7 +31,18 @@ export async function fetchRadarHistoricalContextBatch(input: {
       historicalContext: null,
     })) };
   }
-  const payload = await res.json() as RadarHistoricalContextBatchResponse;
+  let payload: RadarHistoricalContextBatchResponse;
+  try {
+    payload = (await res.json()) as RadarHistoricalContextBatchResponse;
+  } catch {
+    return {
+      results: input.requests.map((request) => ({
+        symbol: request.symbol,
+        securityId: request.securityId ?? null,
+        historicalContext: null,
+      })),
+    };
+  }
   return payload?.results ? payload : {
     results: input.requests.map((request) => ({
       symbol: request.symbol,

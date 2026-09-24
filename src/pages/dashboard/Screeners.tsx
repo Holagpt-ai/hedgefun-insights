@@ -28,8 +28,19 @@ export default function Screeners() {
   const isDayTradeRadar = activeTabId === "day_trade_radar";
   const isRadarBacked = isRadarV2BackedTab(activeTabId);
 
-  const { status, rows, syncedAt, providerAsOfMax, marketFeed, source, session, radarDiagnostic, truthState, repeatMoversView } =
-    useScreenerData(activeTabId, {
+  const {
+    status,
+    rows,
+    syncedAt,
+    providerAsOfMax,
+    marketFeed,
+    source,
+    session,
+    radarDiagnostic,
+    truthState,
+    repeatMoversLoadState,
+    refetch,
+  } = useScreenerData(activeTabId, {
     refreshIntervalMs: isRadarBacked ? RADAR_BACKED_REFRESH_MS : undefined,
     pauseWhenHidden: true,
   });
@@ -97,7 +108,8 @@ export default function Screeners() {
           freeRowLimit={activeTab.freeRowLimit}
           source={source}
           session={session}
-          repeatMoversView={repeatMoversView}
+          repeatMoversLoadState={repeatMoversLoadState}
+          onRepeatMoversRetry={refetch}
         />
       ) : (
         <ScreenerTable

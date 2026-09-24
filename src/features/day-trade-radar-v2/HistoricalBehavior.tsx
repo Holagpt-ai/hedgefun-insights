@@ -25,14 +25,25 @@ function formatRvol(value: number | null): string | null {
   return `${value.toFixed(1)}× RVOL`;
 }
 
+function finiteCount(value: unknown): number {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
 function hasUsefulHistory(context: RepeatMoverContext | null | undefined): context is RepeatMoverContext {
-  if (!context?.profile.profileAvailable) return false;
-  return (context.profile.episodeCount ?? 0) > 0 || context.comparableHistory.comparableEpisodeCount > 0;
+  if (!context?.profile?.profileAvailable) return false;
+  const episodeCount = finiteCount(context.profile.episodeCount);
+  const comparableCount = finiteCount(context.comparableHistory?.comparableEpisodeCount);
+  return episodeCount > 0 || comparableCount > 0;
 }
 
 export function historyContextLabel(context: RepeatMoverContext | null | undefined): string | null {
   if (!hasUsefulHistory(context)) return null;
-  const count = context.comparableHistory.comparableEpisodeCount;
+  const count = finiteCount(context.comparableHistory?.comparableEpisodeCount);
   if (count > 0) return `${count} Similar`;
   return "Repeat Mover";
 }
@@ -112,15 +123,15 @@ export function HistoricalBehaviorSection({ context }: { context: RepeatMoverCon
         profile.sampleSizeQuality
           ? { label: "Sample quality", value: formatQuality(profile.sampleSizeQuality) }
           : null,
-        profile.sessionsObserved !== null
-          ? { label: "Sessions observed", value: profile.sessionsObserved.toLocaleString() }
+        finiteCount(profile.sessionsObserved) > 0
+          ? { label: "Sessions observed", value: finiteCount(profile.sessionsObserved).toLocaleString() }
           : null,
-        profile.episodeCount !== null
-          ? { label: "Episode count", value: profile.episodeCount.toLocaleString() }
+        finiteCount(profile.episodeCount) > 0
+          ? { label: "Episode count", value: finiteCount(profile.episodeCount).toLocaleString() }
           : null,
       ].filter((metric): metric is { label: string; value: string } => metric !== null)
     : [];
-  const comparables = context?.comparableHistory.closestComparableEpisodes.slice(0, 3) ?? [];
+  const comparables = context?.comparableHistory?.closestComparableEpisodes?.slice(0, 3) ?? [];
   const partial = available && (!profile.sampleSizeQuality || PARTIAL_QUALITIES.has(profile.sampleSizeQuality));
 
   return (

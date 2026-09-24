@@ -41,9 +41,9 @@ function mapRowToRepeatMoverCandidate(
   const profile = context?.profile ?? unavailableRepeatMoverProfileSnapshot();
 
   const evidenceLabels = context?.evidenceLabels ?? [];
-  const comparableEpisodeCount = context?.comparableHistory.comparableEpisodeCount ?? 0;
+  const comparableEpisodeCount = context?.comparableHistory?.comparableEpisodeCount ?? 0;
   const mostRecentComparableDate =
-    context?.comparableHistory.mostRecentComparableEpisode?.sessionDate ?? null;
+    context?.comparableHistory?.mostRecentComparableEpisode?.sessionDate ?? null;
 
   const qualification = qualifyRadarRepeatMover({ historicalContext: context });
   const profileFreshness = deriveRepeatMoverProfileFreshness({ profile, nowMs });

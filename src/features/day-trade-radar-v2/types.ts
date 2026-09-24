@@ -2,6 +2,7 @@ import type { ScreenerResultRow, ScreenerUiStatus } from "@/lib/screeners/contra
 import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
+import type { RepeatMoversLoadState } from "@/lib/radar/repeat-movers-load-state";
 
 /** Versioned ranking interface — future burst fields stay optional until verified. */
 export interface RadarRankingFields {
@@ -99,6 +100,10 @@ export interface DayTradeRadarV2Props {
   session?: string | null;
   /** Repeat Movers V2 view from enriched Radar payload (Discovery order preserved). */
   repeatMoversView?: RadarRepeatMoversView | null;
+  /** Isolated Repeat Movers load lifecycle (must not gate Discovery). */
+  repeatMoversLoadState?: RepeatMoversLoadState;
+  /** Soft refresh to retry Repeat Movers enrichment after failure. */
+  onRepeatMoversRetry?: () => void;
 }
 
 /** Engine/source designation shown in the Day Trade Radar status rail. */
