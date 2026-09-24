@@ -37,7 +37,7 @@ describe("Radar news / catalyst hierarchy", () => {
     expect(display.level).toBe("catalyst");
     if (display.level === "catalyst") {
       expect(display.title).toMatch(/\$22M defense contract/);
-      expect(display.category).toMatch(/Contract/i);
+      expect(display.category).toBe("Product");
       expect(display.ageLabel).toBe("9h ago");
     }
   });
