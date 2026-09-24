@@ -26,6 +26,7 @@ import { activePass, createRadarBook, detectPass } from "./bars.ts";
 import type { RadarV22Config } from "./config.ts";
 import { parseAggregateEvent } from "./parse.ts";
 import { isoFromMs } from "./time.ts";
+import { rememberRadarFirstSeen } from "./first-seen.ts";
 import {
   createMarketSentinel,
   evaluatePromotion,
@@ -216,6 +217,7 @@ export function createRadarEngine(opts: {
   const intel = createSessionIntelBook(config);
   const promoted = new Set<string>();
   const promotedAtMs = new Map<string, number>();
+  const radarFirstSeenAtMs = new Map<string, number>();
   const lifecycles = new Map<string, LifecycleRecord>();
   let universe = new Map<string, EligibleQuote>();
   let exceptions: CalendarExceptionRow[] | null = opts.exceptions ?? [];
@@ -318,6 +320,7 @@ export function createRadarEngine(opts: {
     intel.clear();
     promoted.clear();
     promotedAtMs.clear();
+    radarFirstSeenAtMs.clear();
     lifecycles.clear();
     scannerEventBook.clear();
     lastEventEndMs = null;
@@ -626,7 +629,11 @@ export function createRadarEngine(opts: {
           lifecycle: stepped.record.phase,
           metrics,
           intel: intelSnap,
-          promotedAtMs: promotedAtMs.get(symbol) ?? null,
+          promotedAtMs: rememberRadarFirstSeen(
+            radarFirstSeenAtMs,
+            symbol,
+            promotedAtMs.get(symbol) ?? eventNow,
+          ),
           phaseEnteredAtMs: stepped.record.phaseEnteredAtMs,
           updatedAt,
           isoFromMs,

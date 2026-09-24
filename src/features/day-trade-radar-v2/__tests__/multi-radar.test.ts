@@ -7,6 +7,7 @@ import {
   PENNY_DEFAULT_COLUMNS,
   breakoutPanelTime,
   dayTradePanelTime,
+  deskRowSignal,
   defaultWorkspaceState,
   formatVolumeSpeedCompact,
   formatVolumeSpeedSpotlight,
@@ -137,6 +138,25 @@ describe("panel time", () => {
     expect(dayTradePanelTime(bare).iso).toBeNull();
     expect(pennyPanelTime(bare).iso).toBeNull();
     expect(breakoutPanelTime(bare).iso).toBeNull();
+  });
+
+  it("shows a scanner event or NEW and hides VOLUME LEADER", () => {
+    const plain = row({ symbol: "AAA", rank: 2, signal: "VOLUME LEADER" });
+    expect(deskRowSignal(plain, "12m")).toBeNull();
+    expect(deskRowSignal(plain, "NEW")).toBe("NEW");
+    const running = row({
+      symbol: "RUN",
+      rank: 3,
+      signal: "VOLUME LEADER",
+      primary_scanner_event: "RUNNING_UP",
+    });
+    expect(deskRowSignal(running, "NEW")).toBe("RUNNING UP");
+    expect(deskRowSignal(row({
+      symbol: "HOD",
+      rank: 4,
+      signal: "TOP LEADER",
+      primary_scanner_event: "HOD_BREAK",
+    }), null)).toBe("HOD BREAK");
   });
 
   it("keeps day trade and penny on promoted_at and breakouts on the event clock", () => {

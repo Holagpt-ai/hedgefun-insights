@@ -14,7 +14,7 @@ import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
-import { HistoryCell } from "./HistoricalBehavior";
+import { historyContextLabel, HistoryCell } from "./HistoricalBehavior";
 import {
   formatRadarContextMultiplier,
   formatRadarPercent,
@@ -24,11 +24,10 @@ import {
   moveClass,
   radarSignalClass,
 } from "./radar-metrics";
-import { resolveScannerSignalLabel } from "@/lib/screeners/scanner-events-display";
 import {
   PANEL_COLUMN_DEFS,
   PENNY_PRICE_BANDS,
-  breakoutSignalLabel,
+  deskRowSignal,
   formatDeskHod,
   formatDeskVwap,
   formatVolumeSpeedCompact,
@@ -73,7 +72,7 @@ export function RadarPanelLeader({
   if (!row) return null;
   const speed = formatVolumeSpeedSpotlight(row.vol_velocity);
   const trend = mapVolumeTrend(row.volume_acceleration_pct);
-  const signal = breakoutSignalLabel(row);
+    const signal = deskRowSignal(row, null);
   const floatShares = floatState.getFloat(row.symbol);
   const catalyst = catalystMap?.get(row.symbol);
   return (
@@ -102,13 +101,18 @@ export function RadarPanelLeader({
         <Metric label="5m RVOL" value={formatScreenerRvol5m(row.rvol_5m)} />
         <Metric label="HOD" value={formatDeskHod(row)} />
         {panel === "breakouts" ? <Metric label="VWAP" value={formatDeskVwap(row)} /> : null}
-        <Metric label="Volume Trend" value={trend.label} />
         <Metric label="Catalyst" value={catalyst ? "Catalyst" : "No verified catalyst"} />
+        <Metric label="History" value={historyContextLabel(row.historicalContext) ?? "—"} />
       </div>
-      <div className="ml-auto rounded-md border border-border bg-muted/40 px-3 py-1.5 text-right" data-testid={`volume-speed-hero-${panel}`}>
-        <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Volume Speed</div>
-        <div className="font-mono text-xl font-semibold tabular-nums leading-none">{speed ? speed.value : "—"}</div>
-        <div className="text-[10px] text-muted-foreground">{speed ? speed.unit : "shares/min"}</div>
+      <div className="ml-auto flex items-stretch gap-3 rounded-md border border-border bg-muted/50 px-3 py-2" data-testid={`volume-speed-hero-${panel}`}>
+        <div className="text-right">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Volume Speed</div>
+          <div className="font-mono text-2xl font-semibold tabular-nums leading-none">{speed ? speed.value : "—"}</div>
+          <div className="text-[10px] text-muted-foreground">{speed ? speed.unit : "No recent tape"}</div>
+        </div>
+        <div className="flex items-center border-l border-border pl-3 text-sm font-semibold tracking-wide" data-testid={`volume-trend-hero-${panel}`}>
+          {trend.label}
+        </div>
       </div>
       <button type="button" className="h-8 rounded-md border border-border px-2 text-[12px] font-semibold" onClick={() => onOpenDetails(row)}>
         Details
@@ -376,15 +380,15 @@ function renderCell(args: {
   }
   if (id === "rank") return <span className="tabular-nums font-semibold text-muted-foreground">{row.rank}</span>;
   if (id === "symbol") {
-    const signal = args.panel === "breakouts"
-      ? breakoutSignalLabel(row) ?? resolveScannerSignalLabel({ primaryScannerEvent: row.primary_scanner_event, fallbackSignal: row.signal })
-      : resolveScannerSignalLabel({ primaryScannerEvent: row.primary_scanner_event, fallbackSignal: row.signal });
+    const signal = deskRowSignal(row, args.age);
     return (
       <div>
         <Link to={`/stocks/${row.symbol}`} onClick={(event) => event.stopPropagation()} className="font-semibold text-accent-blue hover:underline">
           {row.symbol}
         </Link>
-        <div className={`text-[10px] font-semibold uppercase ${radarSignalClass(row.signal)}`}>{signal}</div>
+        {signal ? (
+          <div className={`text-[10px] font-semibold uppercase ${radarSignalClass(row.signal)}`}>{signal}</div>
+        ) : null}
       </div>
     );
   }

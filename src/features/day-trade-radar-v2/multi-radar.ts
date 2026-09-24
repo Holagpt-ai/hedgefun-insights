@@ -494,6 +494,22 @@ export function breakoutSignalLabel(row: Pick<RadarRankedRow, "scanner_events" |
   return best ? formatScannerEventLabel(best.type) : null;
 }
 
+/** Row subtitle: a real scanner event, else NEW, else nothing. Never VOLUME LEADER. */
+export function deskRowSignal(
+  row: Pick<RadarRankedRow, "scanner_events" | "primary_scanner_event" | "primary_scanner_event_at" | "last_hod_break_at" | "signal">,
+  ageLabel: string | null,
+): string | null {
+  const primary = formatScannerEventLabel(row.primary_scanner_event);
+  if (primary) return primary;
+  const active = parseScannerEvents(row.scanner_events).filter((event) => event.active);
+  const labeled = active
+    .map((event) => formatScannerEventLabel(event.type))
+    .filter((label): label is string => Boolean(label));
+  if (labeled[0]) return labeled[0];
+  if (ageLabel === "NEW") return "NEW";
+  return null;
+}
+
 function parseBound(raw: string): number | null {
   const trimmed = raw.trim();
   if (!trimmed) return null;
