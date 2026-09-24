@@ -121,6 +121,29 @@ export function isLiveSurveillanceKind(kind: SessionKind): boolean {
 }
 
 /**
+ * Realtime A.* aggregates are expected only in a live surveillance session.
+ * Overnight, weekends, holidays, and the closed window before 04:00 ET are quiet.
+ */
+export function realtimeTapeExpectedAt(
+  ms: number,
+  exceptions: CalendarExceptionRow[] | null,
+): boolean {
+  return isLiveSurveillanceKind(radarSessionKindAt(ms, exceptions));
+}
+
+/** Live sub-session identity. Null while the tape is not expected. */
+export function liveTapeSessionKey(
+  ms: number,
+  exceptions: CalendarExceptionRow[] | null,
+): string | null {
+  if (!realtimeTapeExpectedAt(ms, exceptions)) return null;
+  const date = surveillanceDateAt(ms);
+  const kind = radarSessionKindAt(ms, exceptions);
+  if (!date) return null;
+  return `${date}:${kind}`;
+}
+
+/**
  * Absolute ET instant of the current sub-session's half-open start,
  * derived from the bar/event timestamp (use bar start `s`).
  */

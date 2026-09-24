@@ -254,6 +254,7 @@ export function startRadarV22(opts: {
       connect: opts.connect,
       sleep,
       nowMs,
+      exceptions: () => calendarExceptions,
       onEvent: (raw, receiveMs) => {
         engine.ingest(raw, receiveMs);
         const bar = parseAggregateEvent(raw);

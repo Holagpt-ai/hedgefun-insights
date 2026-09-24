@@ -8,10 +8,12 @@ import {
   type MassiveWsEndpoint,
 } from "./parse.ts";
 import type { RadarConnectionState } from "./types.ts";
+import type { CalendarExceptionRow } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import {
   massiveEndpointForFeedMode,
   type MarketDataFeedMode,
 } from "../../../../supabase/functions/_shared/market-feed/config.ts";
+import { liveTapeSessionKey, realtimeTapeExpectedAt } from "./session.ts";
 
 export type RadarWsHandlers = {
   onOpen: () => void;
@@ -62,6 +64,8 @@ export type RadarSocketController = {
 };
 
 export const DEFAULT_SILENT_MARKET_MS = 20_000;
+/** Retry realtime after a same-session delayed fallback, without a process restart. */
+export const DEFAULT_REALTIME_PROBE_MS = 60_000;
 
 export async function frameText(data: unknown): Promise<string> {
   if (typeof data === "string") return data;
@@ -78,8 +82,11 @@ export function createRadarSocket(opts: {
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
   nowMs?: () => number;
-  /** Reconnect when a subscribed socket delivers no aggregates. */
+  /** Reconnect when a subscribed socket delivers no aggregates during a live session. */
   silentMarketMs?: number;
+  /** Same-session delay before auto mode probes realtime again after a fallback. */
+  realtimeProbeMs?: number;
+  exceptions?: () => CalendarExceptionRow[] | null;
   onEvent: (raw: unknown, receiveMs: number) => void;
   onState: (state: RadarConnectionState) => void;
   onEndpointChange?: (endpoint: MassiveWsEndpoint) => void;
@@ -99,9 +106,58 @@ export function createRadarSocket(opts: {
     opts.feedMode,
   );
   let authFailedOnRealtime = false;
+  let downgradedSessionKey: string | null = null;
   const silentMarketMs = opts.silentMarketMs ?? DEFAULT_SILENT_MARKET_MS;
+  const realtimeProbeMs = opts.realtimeProbeMs ?? DEFAULT_REALTIME_PROBE_MS;
+  const exceptions = opts.exceptions ?? (() => []);
   let silentTimer: ReturnType<typeof setTimeout> | null = null;
+  let probeTimer: ReturnType<typeof setTimeout> | null = null;
   let sawMarket = false;
+  let silentArmedAt = 0;
+
+  function tapeExpected(atMs: number): boolean {
+    return realtimeTapeExpectedAt(atMs, exceptions());
+  }
+
+  function clearProbe(): void {
+    if (probeTimer !== null) {
+      clearTimeout(probeTimer);
+      probeTimer = null;
+    }
+  }
+
+  function clearDowngrade(): void {
+    authFailedOnRealtime = false;
+    downgradedSessionKey = null;
+    clearProbe();
+  }
+
+  function releaseStaleDowngrade(atMs: number): boolean {
+    if (!authFailedOnRealtime) return false;
+    const key = liveTapeSessionKey(atMs, exceptions());
+    if (key !== null && key === downgradedSessionKey) return false;
+    clearDowngrade();
+    return true;
+  }
+
+  function armProbe(): void {
+    clearProbe();
+    probeTimer = setTimeout(() => {
+      probeTimer = null;
+      if (stopped || !authFailedOnRealtime) return;
+      const atMs = nowMs();
+      if (releaseStaleDowngrade(atMs)) {
+        if (opts.feedMode === "auto" && activeEndpoint === "delayed") {
+          handle?.close();
+        }
+        return;
+      }
+      if (!tapeExpected(atMs) || opts.feedMode !== "auto") return;
+      log("info", "radar_ws_realtime_probe", { endpoint: activeEndpoint });
+      clearDowngrade();
+      handle?.close();
+    }, realtimeProbeMs);
+  }
 
   function clearSilent(): void {
     if (silentTimer !== null) {
@@ -113,9 +169,21 @@ export function createRadarSocket(opts: {
   function armSilent(): void {
     clearSilent();
     sawMarket = false;
+    silentArmedAt = nowMs();
     silentTimer = setTimeout(() => {
       silentTimer = null;
       if (sawMarket || stopped) return;
+      const atMs = nowMs();
+      if (releaseStaleDowngrade(atMs)) {
+        if (opts.feedMode === "auto" && activeEndpoint === "delayed") {
+          handle?.close();
+        }
+        return;
+      }
+      if (!tapeExpected(atMs) || !tapeExpected(silentArmedAt)) {
+        armSilent();
+        return;
+      }
       log("warn", "radar_ws_silent", {
         endpoint: activeEndpoint,
         feed_mode: opts.feedMode,
@@ -123,6 +191,8 @@ export function createRadarSocket(opts: {
       });
       if (activeEndpoint === "realtime" && opts.feedMode === "auto") {
         authFailedOnRealtime = true;
+        downgradedSessionKey = liveTapeSessionKey(atMs, exceptions());
+        armProbe();
       }
       handle?.close();
     }, silentMarketMs);
@@ -182,6 +252,7 @@ export function createRadarSocket(opts: {
   }
 
   function resolveEndpoint(): MassiveWsEndpoint {
+    releaseStaleDowngrade(nowMs());
     if (opts.feedMode === "delayed") return "delayed";
     if (authFailedOnRealtime && opts.feedMode === "auto") return "delayed";
     return massiveEndpointForFeedMode(opts.feedMode);
@@ -242,11 +313,13 @@ export function createRadarSocket(opts: {
       if (loop) return;
       stopped = false;
       attempt = 0;
-      authFailedOnRealtime = false;
+      clearDowngrade();
       loop = run();
     },
     stop() {
       stopped = true;
+      clearSilent();
+      clearProbe();
       handle?.close();
       handle = null;
     },
