@@ -10,7 +10,7 @@ import {
 const SET_BASED_MIGRATION_NAME =
   "20260829120000_screener_52w_baseline_apply_day_set_based_v1.sql";
 const LATEST_MIGRATION_NAME =
-  "20260829201039_cf3e2ed0-3552-41f5-af80-18982f33424b.sql";
+  "20260924120000_screener_52w_baseline_corporate_action_v1.sql";
 const NEW_MIGRATION_REL = `../../../migrations/${LATEST_MIGRATION_NAME}`;
 const HISTORICAL_MIGRATION_REL =
   "../../../migrations/20260814180000_screener_52w_baseline_job.sql";
@@ -133,8 +133,8 @@ Deno.test("static: duplicate date is idempotent and empty days still record the 
 
 Deno.test("static: high/low accumulation and one session increment per applied day", async () => {
   const body = functionBody(await load(NEW_MIGRATION_REL));
-  assert(body.includes("EXCLUDED.high_52w >= public.screener_52w_baseline_staging.high_52w"));
-  assert(body.includes("EXCLUDED.low_52w <= public.screener_52w_baseline_staging.low_52w"));
+  assert(body.includes("public.merge_screener_52w_high("));
+  assert(body.includes("public.merge_screener_52w_low("));
   assert(
     body.includes(
       "sessions_observed = public.screener_52w_baseline_staging.sessions_observed + 1",
@@ -159,7 +159,7 @@ Deno.test("static: invalid rows are filtered set-wise without a per-row exceptio
 });
 
 Deno.test("static: bar numeric conversion is bounded so overflow text cannot abort the day", async () => {
-  const sql = await load(NEW_MIGRATION_REL);
+  const sql = await load(`../../../migrations/${SET_BASED_MIGRATION_NAME}`);
   assert(sql.includes("CREATE OR REPLACE FUNCTION public.try_screener_bar_numeric(p_raw text)"));
   assert(sql.includes("LANGUAGE sql"));
   assert(sql.includes("IMMUTABLE"));

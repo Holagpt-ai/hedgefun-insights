@@ -1,3 +1,8 @@
+import {
+  isCoherent52WeekRange,
+  merge52WeekHigh,
+  merge52WeekLow,
+} from "../../../../supabase/functions/_shared/screeners/baseline-corporate-action.ts";
 import type { BarHL } from "./grouped.ts";
 import type {
   BaselineExclusionPayload,
@@ -137,8 +142,22 @@ export function createBaselineFold(
           acc.set(id, state);
         }
         state.sessions += 1;
-        pushMax(state.max, day, bar.h);
-        pushMin(state.min, day, bar.l);
+        const priorMax = state.max.n > 0 ? state.max.vals[0] : bar.h;
+        const priorMin = state.min.n > 0 ? state.min.vals[0] : bar.l;
+        const mergedMax = merge52WeekHigh(priorMax, bar.h);
+        const mergedMin = merge52WeekLow(priorMin, bar.l);
+        if (mergedMax !== priorMax && state.max.n > 0) {
+          state.max = createDeque();
+          append(state.max, day, mergedMax);
+        } else {
+          pushMax(state.max, day, bar.h);
+        }
+        if (mergedMin !== priorMin && state.min.n > 0) {
+          state.min = createDeque();
+          append(state.min, day, mergedMin);
+        } else {
+          pushMin(state.min, day, bar.l);
+        }
         if (bar.v !== null && bar.v > 0 && Number.isFinite(bar.v)) {
           ids[n] = id;
           vols[n] = bar.v;
@@ -176,6 +195,7 @@ export function createBaselineFold(
         const low = state.min.vals[0];
         if (!(high >= low) || !(high > 0) || !(low > 0)) continue;
         if (!Number.isFinite(high) || !Number.isFinite(low)) continue;
+        if (!isCoherent52WeekRange(high, low)) continue;
         rows.push({
           symbol,
           period_start: periodStart,

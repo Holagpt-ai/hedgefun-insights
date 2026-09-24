@@ -3,6 +3,7 @@
  * Never infers 52-week values from day / prevDay / last price / todaysChangePerc.
  */
 
+import { isCoherent52WeekRange } from "./baseline-corporate-action.ts";
 import {
   dayHighLow,
   dayVolume,
@@ -40,6 +41,7 @@ export function isValidBaselineQuote(
   if (!Number.isFinite(row.high_52w) || !(row.high_52w > 0)) return false;
   if (!Number.isFinite(row.low_52w) || !(row.low_52w > 0)) return false;
   if (!(row.low_52w <= row.high_52w)) return false;
+  if (!isCoherent52WeekRange(row.high_52w, row.low_52w)) return false;
   if (!Number.isInteger(row.sessions_observed) || row.sessions_observed <= 0) {
     return false;
   }

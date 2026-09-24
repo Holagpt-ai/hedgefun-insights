@@ -99,6 +99,15 @@ Deno.test("partial or invalid baseline does not qualify", () => {
     false,
   );
   assertEquals(
+    isValidBaselineQuote({
+      symbol: "CTNT",
+      high_52w: 424,
+      low_52w: 0.0329,
+      sessions_observed: 200,
+    }),
+    false,
+  );
+  assertEquals(
     classifyNewHighLow(
       ticker({ ticker: "EEE", high: 30, low: 1 }),
       quote({ symbol: "EEE", high_52w: Number.NaN, low_52w: 5 }),

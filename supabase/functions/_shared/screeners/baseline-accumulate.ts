@@ -2,6 +2,11 @@
  * In-order 52-week high/low accumulation. Retrying a processed date is a no-op.
  */
 
+import {
+  isCoherent52WeekRange,
+  merge52WeekHigh,
+  merge52WeekLow,
+} from "./baseline-corporate-action.ts";
 import { isValidHighLow, normalizeSymbol, tryBarNumeric } from "./grouped-daily.ts";
 
 export type StagingRow = {
@@ -68,17 +73,23 @@ export function applyBaselineDay(
       });
       continue;
     }
+    const mergedHigh = merge52WeekHigh(existing.high_52w, bar.h);
+    const mergedLow = merge52WeekLow(existing.low_52w, bar.l);
     const next: StagingRow = {
       ...existing,
       sessions_observed: existing.sessions_observed + 1,
+      high_52w: mergedHigh,
+      low_52w: mergedLow,
     };
-    if (bar.h >= existing.high_52w) {
-      next.high_52w = bar.h;
+    if (mergedHigh === bar.h && bar.h >= existing.high_52w) {
       next.high_date = date;
+    } else if (mergedHigh < existing.high_52w) {
+      next.high_date = existing.high_date;
     }
-    if (bar.l <= existing.low_52w) {
-      next.low_52w = bar.l;
+    if (mergedLow === bar.l && bar.l <= existing.low_52w) {
       next.low_date = date;
+    } else if (mergedLow > existing.low_52w) {
+      next.low_date = existing.low_date;
     }
     staging.set(bar.symbol, next);
   }
@@ -98,6 +109,7 @@ export function publishableBaselineRows(
   for (const row of staging.values()) {
     if (row.sessions_observed < minSessions) continue;
     if (!isValidHighLow(row.high_52w, row.low_52w)) continue;
+    if (!isCoherent52WeekRange(row.high_52w, row.low_52w)) continue;
     rows.push({
       symbol: row.symbol,
       period_start: periodStart,

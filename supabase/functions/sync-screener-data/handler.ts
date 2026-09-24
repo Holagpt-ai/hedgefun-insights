@@ -293,13 +293,10 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
       if (page.data.length < BASELINE_PAGE) break;
       from += BASELINE_PAGE;
     }
-    // Fail closed unless every declared baseline row loaded and passed validation.
-    // replace_screener_52w_baseline_generation_v1 sets symbol_count = inserted rows
-    // under CHECK constraints aligned with isValidBaselineQuote().
-    if (
-      loadedRowCount !== declaredSymbolCount ||
-      quotes.size !== declaredSymbolCount
-    ) {
+    // Fail closed if pagination did not return every declared row. Individual
+    // symbols that fail isValidBaselineQuote (e.g. mixed split-adjustment
+    // extrema) are omitted so NHL stays honest for the rest of the universe.
+    if (loadedRowCount !== declaredSymbolCount) {
       return unavailableBaseline("initializing");
     }
 
