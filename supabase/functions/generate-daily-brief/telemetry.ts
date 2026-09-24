@@ -12,6 +12,7 @@ export interface BriefTelemetry {
   index_age_ms: number | null;
   anthropic_http_status: number | null;
   anthropic_error_type: string | null;
+  anthropic_error_message: string | null;
   elapsed_ms: number;
 }
 
@@ -40,6 +41,7 @@ export function formatBriefTelemetry(fields: BriefTelemetry): string {
     index_age_ms: fields.index_age_ms,
     anthropic_http_status: fields.anthropic_http_status,
     anthropic_error_type: fields.anthropic_error_type,
+    anthropic_error_message: fields.anthropic_error_message,
     elapsed_ms: fields.elapsed_ms,
   });
 }

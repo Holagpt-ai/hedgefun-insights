@@ -12,6 +12,7 @@ import {
   isMaterialLeadershipChange,
   selectDirectCatalysts,
   selectBeforeOpenEarningsEvidence,
+  selectContinuationCarryovers,
   selectRankedHeadlines,
   validateIndexRows,
   type AmEvidenceBundle,
@@ -446,6 +447,21 @@ Deno.test("headline ranking prefers macro over isolated company PR", () => {
   const selected = selectRankedHeadlines(ranked);
   assertEquals(selected[0]?.id, "fed");
   assertEquals(selected.some((h) => h.id === "pr"), false);
+});
+
+Deno.test("continuation carryover string numerics coerce to finite numbers", () => {
+  const rows = selectContinuationCarryovers([
+    {
+      symbol: "AAPL",
+      source_session_date: "2026-09-23",
+      source_category: "after_hours",
+      rvol: "1.25" as unknown as number,
+      session_move_pct: "2.5" as unknown as number,
+    },
+  ]);
+  assertEquals(rows.length, 1);
+  assertEquals(rows[0]?.rvol, 1.25);
+  assertEquals(rows[0]?.session_move_pct, 2.5);
 });
 
 Deno.test("17. PM token/prompt contract remains four-ETF-only", () => {

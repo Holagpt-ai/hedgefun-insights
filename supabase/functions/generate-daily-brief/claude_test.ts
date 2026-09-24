@@ -24,8 +24,30 @@ Deno.test("provider non-2xx is provider_error with status and type, no body leak
   assertEquals(result.outcome, "provider_error");
   assertEquals(result.httpStatus, 529);
   assertEquals(result.errorType, "overloaded_error");
+  assertEquals(result.errorMessage, null);
   assertEquals(JSON.stringify(result).includes("sk-ant-secret-body"), false);
   assertEquals(JSON.stringify(result).includes("test-key"), false);
+});
+
+Deno.test("provider 400 surfaces sanitized invalid_request message", async () => {
+  const rawBody = JSON.stringify({
+    type: "error",
+    error: {
+      type: "invalid_request_error",
+      message: "max_tokens: field required sk-ant-leak",
+    },
+  });
+  const result = await callClaude({
+    ...ARGS,
+    fetchImpl: () => Promise.resolve(new Response(rawBody, { status: 400 })),
+  });
+  assertEquals(result.ok, false);
+  if (result.ok) return;
+  assertEquals(result.outcome, "provider_error");
+  assertEquals(result.httpStatus, 400);
+  assertEquals(result.errorType, "invalid_request_error");
+  assertEquals(result.errorMessage?.includes("max_tokens"), true);
+  assertEquals(JSON.stringify(result).includes("sk-ant"), false);
 });
 
 Deno.test("provider 2xx with empty text is parse_error", async () => {

@@ -30,6 +30,8 @@ export const AM_HEADLINE_RANK_POOL = 12;
 export const AM_HEADLINE_MIN_MATERIALITY = 30;
 export const AM_DIRECT_CATALYST_LIMIT = 3;
 export const AM_EARNINGS_LIMIT = 8;
+/** Upper bound on catalyst rows scanned per AM run (selection stays bounded). */
+export const AM_CATALYST_SCAN_LIMIT = 120;
 /** Percentage-point delta that counts as a meaningful index move. */
 export const AM_INDEX_PCT_MATERIAL = 0.25;
 /**
@@ -284,6 +286,15 @@ export function selectBeforeOpenEarningsEvidence(
   return out;
 }
 
+function finiteMetricOrNull(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim()) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 export function selectContinuationCarryovers(
   rows: readonly {
     symbol: string;
@@ -311,11 +322,8 @@ export function selectContinuationCarryovers(
       source_session_date: row.source_session_date,
       source_category: row.source_category,
       evidence_labels: labels,
-      rvol: typeof row.rvol === "number" && Number.isFinite(row.rvol) ? row.rvol : null,
-      session_move_pct: typeof row.session_move_pct === "number" &&
-          Number.isFinite(row.session_move_pct)
-        ? row.session_move_pct
-        : null,
+      rvol: finiteMetricOrNull(row.rvol),
+      session_move_pct: finiteMetricOrNull(row.session_move_pct),
     });
     if (out.length >= AM_CONTINUATION_CARRYOVER_LIMIT) break;
   }

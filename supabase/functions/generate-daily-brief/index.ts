@@ -10,6 +10,7 @@ import {
   normalizeTimeOfDay,
 } from "../_shared/pre-market/contract.ts";
 import {
+  AM_CATALYST_SCAN_LIMIT,
   AM_HEADLINE_RANK_POOL,
   AM_INDEX_SYMBOLS,
   buildAmV2Snapshot,
@@ -253,6 +254,7 @@ serve(async (req) => {
           index_age_ms: null,
           anthropic_http_status: null,
           anthropic_error_type: null,
+          anthropic_error_message: null,
         });
         return json(
           { available: false, reason: "source_unavailable", brief_type: briefType, brief_date: etDate },
@@ -304,9 +306,10 @@ serve(async (req) => {
             index_age_ms: pmIndexAgeMs,
             anthropic_http_status: null,
             anthropic_error_type: null,
-          });
-          return json(
-            { available: false, reason: "source_stale", brief_type: briefType, brief_date: etDate },
+            anthropic_error_message: null,
+        });
+        return json(
+          { available: false, reason: "source_stale", brief_type: briefType, brief_date: etDate },
             503,
           );
         }
@@ -338,6 +341,7 @@ serve(async (req) => {
           index_age_ms: pmIndexAgeMs,
           anthropic_http_status: generated.httpStatus,
           anthropic_error_type: generated.errorType,
+          anthropic_error_message: generated.errorMessage,
         });
         return json({ error: "Upstream generation failed" }, 502);
       }
@@ -394,6 +398,7 @@ serve(async (req) => {
           index_age_ms: pmIndexAgeMs,
           anthropic_http_status: generated.httpStatus,
           anthropic_error_type: null,
+          anthropic_error_message: null,
         });
         return json({ error: "Persist failed" }, 500);
       }
@@ -405,6 +410,7 @@ serve(async (req) => {
         index_age_ms: pmIndexAgeMs,
         anthropic_http_status: generated.httpStatus,
         anthropic_error_type: null,
+        anthropic_error_message: null,
       });
       return json(
         {
@@ -436,6 +442,7 @@ serve(async (req) => {
         index_age_ms: null,
         anthropic_http_status: null,
         anthropic_error_type: null,
+        anthropic_error_message: null,
       });
       return json(
         { available: false, reason: "source_unavailable", brief_type: "am", brief_date: etDate },
@@ -453,6 +460,7 @@ serve(async (req) => {
         index_age_ms: amIndexAgeMs,
         anthropic_http_status: null,
         anthropic_error_type: null,
+        anthropic_error_message: null,
       });
       return json(
         {
@@ -484,7 +492,7 @@ serve(async (req) => {
         .gte("event_date", catalystFrom)
         .lte("event_date", etDate)
         .order("event_date", { ascending: false })
-        .limit(400),
+        .limit(AM_CATALYST_SCAN_LIMIT),
       admin
         .from("late_session_continuation_handoffs")
         .select(
@@ -591,6 +599,7 @@ serve(async (req) => {
         index_age_ms: amIndexAgeMs,
         anthropic_http_status: null,
         anthropic_error_type: null,
+        anthropic_error_message: null,
       });
       return json(
         { available: false, reason: decision.reason, brief_type: "am", brief_date: etDate },
@@ -616,6 +625,7 @@ serve(async (req) => {
         index_age_ms: amIndexAgeMs,
         anthropic_http_status: generated.httpStatus,
         anthropic_error_type: generated.errorType,
+        anthropic_error_message: generated.errorMessage,
       });
       return json({ error: "Upstream generation failed" }, 502);
     }
@@ -661,6 +671,7 @@ serve(async (req) => {
           index_age_ms: amIndexAgeMs,
           anthropic_http_status: generated.httpStatus,
           anthropic_error_type: null,
+          anthropic_error_message: null,
         });
         return json({ error: "Persist failed" }, 500);
       }
@@ -671,6 +682,7 @@ serve(async (req) => {
         index_age_ms: amIndexAgeMs,
         anthropic_http_status: generated.httpStatus,
         anthropic_error_type: null,
+        anthropic_error_message: null,
       });
       return json(
         {
@@ -719,6 +731,7 @@ serve(async (req) => {
         index_age_ms: amIndexAgeMs,
         anthropic_http_status: generated.httpStatus,
         anthropic_error_type: null,
+        anthropic_error_message: null,
       });
       return json({ error: "Persist failed" }, 500);
     }
@@ -730,6 +743,7 @@ serve(async (req) => {
       index_age_ms: amIndexAgeMs,
       anthropic_http_status: generated.httpStatus,
       anthropic_error_type: null,
+      anthropic_error_message: null,
     });
     return json(
       {

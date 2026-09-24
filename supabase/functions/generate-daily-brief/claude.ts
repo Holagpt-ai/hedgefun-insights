@@ -1,4 +1,9 @@
-import { readAnthropicErrorType } from "../_shared/ai/anthropic-error.ts";
+import {
+  formatAnthropicHttpErrorLog,
+  readAnthropicErrorDetail,
+} from "../_shared/ai/anthropic-error.ts";
+
+const ANTHROPIC_TIMEOUT_MS = 50_000;
 
 export type FetchLike = (
   input: string | URL,
@@ -17,6 +22,7 @@ export type ClaudeErr = {
   outcome: "provider_error" | "parse_error";
   httpStatus: number | null;
   errorType: string | null;
+  errorMessage: string | null;
   elapsed_ms: number;
 };
 
@@ -45,6 +51,7 @@ export async function callClaude(args: {
         system: args.system,
         messages: [{ role: "user", content: args.user }],
       }),
+      signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS),
     });
   } catch {
     return {
@@ -52,17 +59,32 @@ export async function callClaude(args: {
       outcome: "provider_error",
       httpStatus: null,
       errorType: null,
+      errorMessage: null,
       elapsed_ms: Date.now() - started,
     };
   }
   const elapsed_ms = Date.now() - started;
   if (!providerRes.ok) {
-    const errorType = await readAnthropicErrorType(providerRes);
+    const detail = await readAnthropicErrorDetail(providerRes);
+    console.error(formatAnthropicHttpErrorLog({
+      http_status: providerRes.status,
+      anthropic_error_type: detail.type,
+      elapsed_ms,
+      stage: "generate_daily_brief",
+    }));
+    if (detail.message) {
+      console.error(JSON.stringify({
+        event: "anthropic_http_error_message",
+        stage: "generate_daily_brief",
+        message: detail.message,
+      }));
+    }
     return {
       ok: false,
       outcome: "provider_error",
       httpStatus: providerRes.status,
-      errorType,
+      errorType: detail.type,
+      errorMessage: detail.message,
       elapsed_ms,
     };
   }
@@ -75,6 +97,7 @@ export async function callClaude(args: {
       outcome: "parse_error",
       httpStatus: providerRes.status,
       errorType: null,
+      errorMessage: null,
       elapsed_ms,
     };
   }
@@ -86,6 +109,7 @@ export async function callClaude(args: {
       outcome: "parse_error",
       httpStatus: providerRes.status,
       errorType: null,
+      errorMessage: null,
       elapsed_ms,
     };
   }

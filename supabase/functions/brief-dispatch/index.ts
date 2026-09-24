@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import { isAmEvaluationWindow } from "../_shared/briefs/am-window.ts";
+import { fetchGenerateDailyBrief } from "./invoke-generator.ts";
 import { relayGenerator, type BriefType } from "./relay.ts";
 
 const corsHeaders = {
@@ -197,7 +198,9 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const polygonKey = Deno.env.get("POLYGON_API_KEY") ?? "";
-  if (!supabaseUrl || !polygonKey) {
+  const publishableKey =
+    Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
+  if (!supabaseUrl || !polygonKey || !publishableKey) {
     console.error("brief-dispatch: server_misconfigured");
     return json({ error: "Server misconfigured" }, 500);
   }
@@ -236,16 +239,13 @@ serve(async (req) => {
   // /now earlyHours (that blocked 4:00 and 9:30). Generator fail-closes on
   // stale required index evidence.
   if (briefType === "am") {
-    const generatorUrl = `${supabaseUrl}/functions/v1/generate-daily-brief`;
     let genRes: Response;
     try {
-      genRes = await fetch(generatorUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${syncSecret}`,
-        },
-        body: JSON.stringify({ briefType: "am" }),
+      genRes = await fetchGenerateDailyBrief({
+        supabaseUrl,
+        syncSecret,
+        publishableKey,
+        body: { briefType: "am" },
       });
     } catch (e) {
       console.error("brief-dispatch generator fetch error:", sanitize((e as Error).message ?? ""));
@@ -313,16 +313,13 @@ serve(async (req) => {
     return json({ dispatched: false, reason: "market_status_unconfirmed" }, 503);
   }
 
-  const generatorUrl = `${supabaseUrl}/functions/v1/generate-daily-brief`;
   let genRes: Response;
   try {
-    genRes = await fetch(generatorUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${syncSecret}`,
-      },
-      body: JSON.stringify({ briefType: "pm", marketSchedule }),
+    genRes = await fetchGenerateDailyBrief({
+      supabaseUrl,
+      syncSecret,
+      publishableKey,
+      body: { briefType: "pm", marketSchedule },
     });
   } catch (e) {
     console.error("brief-dispatch generator fetch error:", sanitize((e as Error).message ?? ""));

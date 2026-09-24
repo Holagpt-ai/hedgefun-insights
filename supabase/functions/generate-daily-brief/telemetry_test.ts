@@ -22,6 +22,7 @@ Deno.test("telemetry line has required fields and no secrets", () => {
     index_age_ms: 120000,
     anthropic_http_status: 529,
     anthropic_error_type: "overloaded_error",
+    anthropic_error_message: "Overloaded",
     elapsed_ms: 842,
   });
   const parsed = JSON.parse(line) as Record<string, unknown>;
@@ -32,6 +33,7 @@ Deno.test("telemetry line has required fields and no secrets", () => {
   assertEquals(parsed.index_age_ms, 120000);
   assertEquals(parsed.anthropic_http_status, 529);
   assertEquals(parsed.anthropic_error_type, "overloaded_error");
+  assertEquals(parsed.anthropic_error_message, "Overloaded");
   assertEquals(parsed.elapsed_ms, 842);
   for (const forbidden of ["sk-ant", "Bearer", "x-api-key", "Authorization", "prompt"]) {
     assert(!line.includes(forbidden), `leaked ${forbidden}`);

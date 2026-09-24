@@ -21,11 +21,30 @@ export function relayJson(body: unknown, status: number): Response {
  * HTTP 200 + { available: false } is an intentional generator outcome.
  * Non-2xx, malformed bodies, and missing success fields remain failures.
  */
+function logGeneratorFailure(status: number, body: Record<string, unknown> | null): void {
+  const err = body && typeof body.error === "string" ? body.error : null;
+  const reason = body && typeof body.reason === "string" ? body.reason : null;
+  console.error(JSON.stringify({
+    event: "brief_dispatch_generator_failure",
+    http_status: status,
+    error: err,
+    reason,
+    brief_type: body?.brief_type ?? null,
+  }));
+}
+
 export async function relayGenerator(genRes: Response, briefType: BriefType): Promise<Response> {
   let genBody: Record<string, unknown> | null = null;
   try {
     genBody = await genRes.json();
   } catch {
+    console.error(JSON.stringify({
+      event: "brief_dispatch_generator_failure",
+      http_status: genRes.status,
+      error: "invalid_generator_response",
+      reason: "non_json_body",
+      brief_type: briefType,
+    }));
     return relayJson({ error: "invalid_generator_response" }, 502);
   }
   if (!genBody || typeof genBody !== "object") {
@@ -39,12 +58,15 @@ export async function relayGenerator(genRes: Response, briefType: BriefType): Pr
     return relayJson({ error: "invalid_internal_schedule" }, 500);
   }
   if (genRes.status === 502) {
+    logGeneratorFailure(genRes.status, genBody);
     return relayJson({ error: "generation_provider_failure" }, 502);
   }
   if (genRes.status === 503) {
+    logGeneratorFailure(genRes.status, genBody);
     return relayJson({ error: "generation_source_unavailable" }, 503);
   }
   if (!genRes.ok) {
+    logGeneratorFailure(genRes.status, genBody);
     return relayJson({ error: "invalid_generator_response" }, 502);
   }
 
