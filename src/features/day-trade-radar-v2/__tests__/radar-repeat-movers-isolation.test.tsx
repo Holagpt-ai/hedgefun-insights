@@ -129,6 +129,18 @@ describe("Repeat Movers failure isolation", () => {
     expect(historyContextLabel(malformed)).toBe("Repeat Mover");
   });
 
+  it("A: HTTP 500 maps to Repeat Movers unavailable + Retry", () => {
+    render(
+      <RadarRepeatMoversSection
+        loadState={{ status: "unavailable", reason: "service_http_error" }}
+        onRetry={vi.fn()}
+        onOpenDetails={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId("repeat-movers-unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry repeat movers/i })).toBeInTheDocument();
+  });
+
   it("A: Repeat Movers enrichment failure shows unavailable panel only", () => {
     render(
       <RadarRepeatMoversSection
@@ -164,7 +176,7 @@ describe("Repeat Movers failure isolation", () => {
           freeRowLimit={20}
           source="radar-v2"
           session="market"
-          repeatMoversLoadState={{ status: "unavailable", reason: "enrichment_failed" }}
+          repeatMoversLoadState={{ status: "unavailable", reason: "service_http_error" }}
         />
       </MemoryRouter>,
     );

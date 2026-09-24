@@ -18,7 +18,11 @@ import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
 import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
-import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
+import {
+  fetchRadarHistoricalContextBatch,
+  RadarHistoricalContextHttpError,
+  RadarHistoricalContextResponseError,
+} from "@/lib/radar/radar-historical-context-client";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import { persistHistoricalWorkflowHandoff } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { buildRadarRepeatMoversView } from "@/lib/radar/build-radar-repeat-movers-view";
@@ -380,9 +384,14 @@ export function useScreenerData(
                     setRepeatMoversLoadState({ status: "unavailable", reason: "view_build_failed" });
                   }
                 }
-              } catch {
+              } catch (err) {
                 if (!cancelled) {
-                  setRepeatMoversLoadState({ status: "unavailable", reason: "enrichment_failed" });
+                  const reason =
+                    err instanceof RadarHistoricalContextHttpError
+                      || err instanceof RadarHistoricalContextResponseError
+                      ? "service_http_error"
+                      : "enrichment_failed";
+                  setRepeatMoversLoadState({ status: "unavailable", reason });
                 }
               }
             }

@@ -9,6 +9,23 @@ export interface RadarHistoricalContextBatchResponse {
   }>;
 }
 
+export class RadarHistoricalContextHttpError extends Error {
+  readonly status: number;
+
+  constructor(status: number) {
+    super(`radar-historical-context responded with HTTP ${status}`);
+    this.name = "RadarHistoricalContextHttpError";
+    this.status = status;
+  }
+}
+
+export class RadarHistoricalContextResponseError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "RadarHistoricalContextResponseError";
+  }
+}
+
 export async function fetchRadarHistoricalContextBatch(input: {
   url: string;
   accessToken: string;
@@ -25,23 +42,13 @@ export async function fetchRadarHistoricalContextBatch(input: {
     body: JSON.stringify({ requests: input.requests }),
   });
   if (!res.ok) {
-    return { results: input.requests.map((request) => ({
-      symbol: request.symbol,
-      securityId: request.securityId ?? null,
-      historicalContext: null,
-    })) };
+    throw new RadarHistoricalContextHttpError(res.status);
   }
   let payload: RadarHistoricalContextBatchResponse;
   try {
     payload = (await res.json()) as RadarHistoricalContextBatchResponse;
   } catch {
-    return {
-      results: input.requests.map((request) => ({
-        symbol: request.symbol,
-        securityId: request.securityId ?? null,
-        historicalContext: null,
-      })),
-    };
+    throw new RadarHistoricalContextResponseError("radar-historical-context returned invalid JSON");
   }
   return payload?.results ? payload : {
     results: input.requests.map((request) => ({

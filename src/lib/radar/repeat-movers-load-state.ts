@@ -6,7 +6,7 @@ export type RepeatMoversLoadState =
   | { status: "ready"; view: RadarRepeatMoversView }
   | {
     status: "unavailable";
-    reason: "no_session" | "enrichment_failed" | "view_build_failed";
+    reason: "no_session" | "enrichment_failed" | "view_build_failed" | "service_http_error";
   }
   | { status: "error"; reason: "render_failed" };
 
