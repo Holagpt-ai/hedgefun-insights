@@ -31,6 +31,7 @@ export function DayTradeRadarV2({
   const navigate = useNavigate();
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [desktopDetailOpen, setDesktopDetailOpen] = useState(false);
+  const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const v22 = useRadarV22Board();
   const adoptedSessionRef = useRef<string | null>(null);
@@ -100,8 +101,14 @@ export function DayTradeRadarV2({
 
   const openDetails = (row: RadarRankedRow) => {
     selectRow(row);
+    setPinnedSymbol(row.symbol);
     if (isMobile) setMobileDetailOpen(true);
     else setDesktopDetailOpen(true);
+  };
+
+  const selectActive = (row: RadarRankedRow) => {
+    selectRow(row);
+    setPinnedSymbol(row.symbol);
   };
 
   const upgradeNeeded =
@@ -159,11 +166,11 @@ export function DayTradeRadarV2({
       {boardVisible && ranked.length > 0 && (
         <MultiRadarWorkspace
           rows={lensRows}
-          selectedSymbol={selection.selectedSymbol}
+          selectedSymbol={pinnedSymbol}
           isPro={isPro}
           freeRowLimit={freeRowLimit}
           nowMs={nowMs}
-          onSelect={selectRow}
+          onSelect={selectActive}
           onOpenDetails={openDetails}
         />
       )}

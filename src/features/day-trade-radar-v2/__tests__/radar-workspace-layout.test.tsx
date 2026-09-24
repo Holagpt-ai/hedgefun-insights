@@ -136,7 +136,9 @@ describe("Radar workspace layout", () => {
     expect(within(screen.getByTestId("panel-leader-day_trade")).getAllByText("PENNY").length).toBeGreaterThan(0);
     expect(within(screen.getByTestId("radar-panel-penny")).getAllByText("PENNY").length).toBeGreaterThan(0);
     expect(within(screen.getByTestId("radar-panel-day_trade")).getByText("AEHL")).toBeInTheDocument();
-    expect(screen.getByTestId("radar-desktop-stack")).toBeInTheDocument();
+    expect(screen.getByText("Select a ticker")).toBeInTheDocument();
+    expect(within(screen.getByTestId("active-symbol-rail")).queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("panel-leader-day_trade")).not.toHaveAttribute("data-selected");
   });
 
   it("sets the shared active symbol from any panel and opens details from the rail", () => {
@@ -144,10 +146,16 @@ describe("Radar workspace layout", () => {
     const dayTrade = screen.getByTestId("radar-panel-day_trade");
     fireEvent.click(within(dayTrade).getAllByRole("row").find((row) => row.textContent?.includes("AEHL"))!);
     expect(within(screen.getByTestId("active-symbol-rail")).getByText("AEHL")).toBeInTheDocument();
+    expect(within(dayTrade).getAllByRole("row").find((row) => row.textContent?.includes("AEHL"))).toHaveAttribute("data-selected", "true");
     expect(screen.queryByTestId("radar-detail-drawer")).not.toBeInTheDocument();
     fireEvent.click(within(screen.getByTestId("active-symbol-rail")).getByRole("button", { name: "Details" }));
     expect(within(screen.getByTestId("radar-detail-drawer")).getByText("AEHL")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-detail-drawer")).getByText("Action Center")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(within(screen.getByTestId("panel-leader-penny")).getByRole("button", { name: "PENNY" }));
+    expect(within(screen.getByTestId("active-symbol-rail")).getByText("PENNY")).toBeInTheDocument();
+    expect(screen.getByTestId("panel-leader-penny")).toHaveAttribute("data-selected", "true");
+    expect(within(screen.getByTestId("radar-panel-day_trade")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "PENNY")).toHaveAttribute("data-selected", "true");
+    expect(within(screen.getByTestId("radar-panel-penny")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "PENNY")).toHaveAttribute("data-selected", "true");
   });
 
   it("shows one mobile panel at a time", () => {
@@ -157,9 +165,12 @@ describe("Radar workspace layout", () => {
       expect(screen.getByTestId("radar-mobile-tabs")).toBeInTheDocument();
       expect(screen.getByTestId("radar-panel-day_trade")).toBeInTheDocument();
       expect(screen.queryByTestId("radar-panel-breakouts")).not.toBeInTheDocument();
+      fireEvent.click(within(screen.getByTestId("radar-panel-day_trade")).getByRole("button", { name: /AEHL/ }));
       fireEvent.click(screen.getByRole("tab", { name: "Penny < $1" }));
-      expect(screen.getByTestId("radar-panel-penny")).toBeInTheDocument();
-      expect(screen.queryByTestId("radar-panel-day_trade")).not.toBeInTheDocument();
+      expect(within(screen.getByTestId("active-symbol-rail")).getByText("AEHL")).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: "DAY TRADE" }));
+      expect(within(screen.getByTestId("radar-panel-day_trade")).getByRole("button", { name: /AEHL/ })).toHaveAttribute("data-selected", "true");
+      expect(screen.queryByTestId("radar-panel-penny")).not.toBeInTheDocument();
       expect(screen.getByTestId("multi-radar-workspace")).toHaveClass("overflow-x-hidden");
     } finally {
       isMobileState.value = false;

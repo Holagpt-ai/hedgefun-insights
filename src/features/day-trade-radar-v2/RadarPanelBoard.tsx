@@ -52,6 +52,8 @@ const SORTS: { id: PanelSortId; label: string }[] = [
   { id: "time", label: "Time" },
 ];
 
+const SELECTED_ROW_CLASS = "border-l-2 border-accent-blue bg-accent-blue-light";
+
 function dash(value: string): string {
   return value === "Unavailable" ? "—" : value;
 }
@@ -59,10 +61,14 @@ function dash(value: string): string {
 export function RadarPanelLeader({
   panel,
   row,
+  selected,
+  onSelect,
   onOpenDetails,
 }: {
   panel: RadarPanelId;
   row: RadarRankedRow | null;
+  selected: boolean;
+  onSelect: (row: RadarRankedRow) => void;
   onOpenDetails: (row: RadarRankedRow) => void;
 }) {
   const meta = panelMeta(panel);
@@ -76,10 +82,14 @@ export function RadarPanelLeader({
   const floatShares = floatState.getFloat(row.symbol);
   const catalyst = catalystMap?.get(row.symbol);
   return (
-    <div data-testid={`panel-leader-${panel}`} className="flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-3 py-2">
+    <div
+      data-testid={`panel-leader-${panel}`}
+      data-selected={selected ? "true" : undefined}
+      className={`flex flex-wrap items-center gap-x-4 gap-y-2 border-b border-border px-3 py-2 ${selected ? SELECTED_ROW_CLASS : ""}`}
+    >
       <div className="min-w-[140px]">
         <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{meta.leaderLabel}</div>
-        <button type="button" className="text-lg font-semibold tracking-wide text-accent-blue" onClick={() => onOpenDetails(row)}>
+        <button type="button" className="text-lg font-semibold tracking-wide text-accent-blue" onClick={() => onSelect(row)}>
           {row.symbol}
         </button>
         {signal ? <div className="text-[10px] font-semibold uppercase text-foreground">{signal}</div> : null}
@@ -265,7 +275,13 @@ export function RadarPanelBoard({
           </PopoverContent>
         </Popover>
       </header>
-      <RadarPanelLeader panel={panel} row={leader} onOpenDetails={onOpenDetails} />
+      <RadarPanelLeader
+        panel={panel}
+        row={leader}
+        selected={leader !== null && selectedSymbol === leader.symbol}
+        onSelect={onSelect}
+        onOpenDetails={onOpenDetails}
+      />
       {layout === "table" ? (
       <div className="overflow-x-auto" data-testid={`panel-table-${panel}`}>
         <table className="w-full text-[11.5px]">
@@ -291,7 +307,8 @@ export function RadarPanelBoard({
                   onClick={() => {
                     if (accessible) onSelect(row);
                   }}
-                  className={`cursor-pointer border-t border-border ${selected ? "bg-accent-blue-light" : "hover:bg-muted/40"} ${accessible ? "" : "pointer-events-none blur-sm"}`}
+                  data-selected={selected ? "true" : undefined}
+                  className={`cursor-pointer border-t border-border ${selected ? SELECTED_ROW_CLASS : "hover:bg-muted/40"} ${accessible ? "" : "pointer-events-none blur-sm"}`}
                 >
                   {columns.map((id) => (
                     <td key={id} className="px-2 py-1 align-top">
@@ -489,7 +506,8 @@ function MobilePanelCard({
       type="button"
       data-symbol={row.symbol}
       onClick={() => onSelect(row)}
-      className={`w-full rounded-md border border-border p-2 text-left ${selected ? "bg-accent-blue-light" : ""}`}
+      data-selected={selected ? "true" : undefined}
+      className={`w-full rounded-md border border-border p-2 text-left ${selected ? SELECTED_ROW_CLASS : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
         <TriggeredTimeCell triggeredAt={time.iso} />
