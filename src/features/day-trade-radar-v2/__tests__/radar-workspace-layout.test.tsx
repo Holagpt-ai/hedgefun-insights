@@ -121,74 +121,46 @@ function renderRadar() {
 }
 
 describe("Radar workspace layout", () => {
-  it("defaults to All Radar Candidates, keeps feed-wide timestamps, and shows volume #1 Top Leader", () => {
+  it("stacks three desk panels and does not auto-select Core Momentum", () => {
     renderRadar();
-    const preset = screen.getByLabelText("Trader Lens preset") as HTMLSelectElement;
-    expect(preset.value).toBe("all_movers");
+    expect(screen.getByText("DAY TRADE DESK")).toBeInTheDocument();
+    expect(screen.getByTestId("radar-panel-day_trade")).toBeInTheDocument();
+    expect(screen.getByTestId("radar-panel-breakouts")).toBeInTheDocument();
+    expect(screen.getByTestId("radar-panel-penny")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Trader Lens preset")).not.toBeInTheDocument();
+    expect(screen.queryByText("Core Momentum $2–$20")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("halts-rail")).not.toBeInTheDocument();
 
     const feed = screen.getByTestId("radar-feed-line").textContent ?? "";
     expect(feed).toMatch(/Data Status/i);
-    expect(feed).toMatch(/Market data status/i);
-    expect(feed).toMatch(/3 Radar candidates/);
-
-    const strip = screen.getByTestId("radar-leader-strip");
-    expect(within(strip).getByText("#1")).toBeInTheDocument();
-    expect(within(strip).getByText("PENNY")).toBeInTheDocument();
-    expect(within(strip).getByText("TOP LEADER")).toBeInTheDocument();
-    expect(within(strip).getByRole("button", { name: /Follow #1/ })).toBeInTheDocument();
-
-    const table = screen.getByTestId("radar-scanner-table");
-    expect(within(table).getByText("PENNY")).toBeInTheDocument();
-    expect(within(table).getByRole("link", { name: "AEHL" })).toBeInTheDocument();
-    expect(within(table).getByText("Triggered")).toBeInTheDocument();
-
-    fireEvent.change(preset, { target: { value: "momentum_2_20" } });
-    expect(within(screen.getByTestId("radar-scanner-table")).queryByText("PENNY")).not.toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByText("AEHL")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByText("#2")).toBeInTheDocument();
-    expect(screen.getByTestId("radar-feed-line").textContent).toBe(feed);
+    expect(within(screen.getByTestId("panel-leader-day_trade")).getAllByText("PENNY").length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId("radar-panel-penny")).getAllByText("PENNY").length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId("radar-panel-day_trade")).getByText("AEHL")).toBeInTheDocument();
+    expect(screen.getByTestId("radar-desktop-stack")).toBeInTheDocument();
   });
 
-  it("opens the detail drawer from a row click without changing ranks, then restores the full scanner", () => {
+  it("sets the shared active symbol from any panel and opens details from the rail", () => {
     renderRadar();
-    const rows = within(screen.getByTestId("radar-scanner-table")).getAllByRole("row");
-    fireEvent.click(rows.find((r) => r.textContent?.includes("AEHL"))!);
-    const drawer = screen.getByTestId("radar-detail-drawer");
-    expect(within(drawer).getByText("AEHL")).toBeInTheDocument();
-    expect(within(drawer).getByText("Action Center")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByText("PENNY")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-leader-strip")).getByText("Return to #1")).toBeInTheDocument();
-    expect(within(screen.getByTestId("radar-scanner-table")).getByText("2")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    const dayTrade = screen.getByTestId("radar-panel-day_trade");
+    fireEvent.click(within(dayTrade).getAllByRole("row").find((row) => row.textContent?.includes("AEHL"))!);
+    expect(within(screen.getByTestId("active-symbol-rail")).getByText("AEHL")).toBeInTheDocument();
     expect(screen.queryByTestId("radar-detail-drawer")).not.toBeInTheDocument();
-    expect(screen.getByTestId("radar-scanner-table")).toBeInTheDocument();
+    fireEvent.click(within(screen.getByTestId("active-symbol-rail")).getByRole("button", { name: "Details" }));
+    expect(within(screen.getByTestId("radar-detail-drawer")).getByText("AEHL")).toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-detail-drawer")).getByText("Action Center")).toBeInTheDocument();
   });
 
-  it("keeps Follow #1 on the leader strip and opens details from Details", () => {
-    renderRadar();
-    const strip = screen.getByTestId("radar-leader-strip");
-    expect(within(strip).getByRole("button", { name: /Follow #1/ }).textContent).toMatch(/✓/);
-    const tableRows = within(screen.getByTestId("radar-scanner-table")).getAllByRole("row");
-    fireEvent.click(tableRows.find((r) => r.textContent?.includes("AEHL"))!);
-    expect(screen.getByTestId("radar-detail-drawer")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
-    expect(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Follow #1" }).textContent).not.toMatch(/✓/);
-    fireEvent.click(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Follow #1" }));
-    expect(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: /Follow #1/ }).textContent).toMatch(/✓/);
-    fireEvent.click(within(screen.getByTestId("radar-leader-strip")).getByRole("button", { name: "Details" }));
-    expect(within(screen.getByTestId("radar-detail-drawer")).getByText("PENNY")).toBeInTheDocument();
-  });
-
-  it("uses compact mobile cards and a bottom-sheet detail instead of a permanent side panel", () => {
+  it("shows one mobile panel at a time", () => {
     isMobileState.value = true;
     try {
       renderRadar();
-      expect(screen.getByTestId("radar-mobile-board")).toBeInTheDocument();
-      fireEvent.click(within(screen.getByTestId("radar-mobile-board")).getByText("2"));
-      expect(screen.queryByTestId("radar-detail-drawer")).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
-      expect(screen.getAllByTestId("adaptive-day-range").length).toBeGreaterThan(0);
+      expect(screen.getByTestId("radar-mobile-tabs")).toBeInTheDocument();
+      expect(screen.getByTestId("radar-panel-day_trade")).toBeInTheDocument();
+      expect(screen.queryByTestId("radar-panel-breakouts")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("tab", { name: "Penny < $1" }));
+      expect(screen.getByTestId("radar-panel-penny")).toBeInTheDocument();
+      expect(screen.queryByTestId("radar-panel-day_trade")).not.toBeInTheDocument();
+      expect(screen.getByTestId("multi-radar-workspace")).toHaveClass("overflow-x-hidden");
     } finally {
       isMobileState.value = false;
     }

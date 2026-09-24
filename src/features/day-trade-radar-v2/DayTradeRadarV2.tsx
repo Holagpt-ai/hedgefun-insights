@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRadarV22Board } from "@/hooks/useRadarV22Board";
@@ -9,14 +9,8 @@ import type { DayTradeRadarV2Props } from "./types";
 import { useRadarSelection } from "./useRadarSelection";
 import { useRadarChartData } from "./useRadarChartData";
 import { RadarStatusRail } from "./RadarStatusRail";
-import { RadarGrid } from "./RadarGrid";
-import { RadarMobileCard } from "./RadarMobileCard";
 import { RadarDetailPanel } from "./RadarDetailPanel";
-import { RadarLeaderStrip } from "./RadarLeaderStrip";
-import { TraderLensBar } from "./TraderLensBar";
-import { useTraderLens } from "./useTraderLens";
-import { useScreenerFilters } from "@/hooks/useScreenerFilters";
-import { useRadarColumnVisibility } from "./useRadarColumnVisibility";
+import { MultiRadarWorkspace } from "./MultiRadarWorkspace";
 import { isRadarRowAccessible } from "./radar-metrics";
 import type { RadarRankedRow } from "./types";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
@@ -37,6 +31,7 @@ export function DayTradeRadarV2({
   const navigate = useNavigate();
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [desktopDetailOpen, setDesktopDetailOpen] = useState(false);
+  const [nowMs, setNowMs] = useState(() => Date.now());
   const v22 = useRadarV22Board();
   const adoptedSessionRef = useRef<string | null>(null);
   const todayEt = easternDate(Date.now());
@@ -52,39 +47,29 @@ export function DayTradeRadarV2({
 
   const selectionRows = resolved.rows as ScreenerResultRow[];
 
-  const traderLens = useTraderLens();
-  const screenerFilters = useScreenerFilters();
-  const { visibleColumns, toggleColumn, resetColumns } = useRadarColumnVisibility();
+  useEffect(() => {
+    const id = window.setInterval(() => setNowMs(Date.now()), 15_000);
+    return () => window.clearInterval(id);
+  }, []);
 
   const {
     ranked,
-    filtered,
-    visibleTopLeader,
-    lens,
     selection,
     activeRow,
     selectRow,
-    followLeader,
-    returnToLeader,
-    followingLeader,
   } = useRadarSelection({
     rows: selectionRows,
     status: resolved.status,
     isPro,
     freeRowLimit,
-    traderLensPresetId: traderLens.presetId,
-    traderLensBounds: traderLens.bounds,
-    screenerFilterSet: screenerFilters.filterSet,
+    traderLensPresetId: "all_movers",
+    traderLensBounds: { min: null, max: null },
   });
 
   const lensRows = useMemo(
-    () => filtered.map((row, index) => ({ ...row, access_rank: index + 1 })),
-    [filtered],
+    () => ranked.map((row, index) => ({ ...row, access_rank: index + 1 })),
+    [ranked],
   );
-
-  const leaderRow = visibleTopLeader
-    ? lensRows.find((r) => r.symbol === visibleTopLeader.symbol) ?? visibleTopLeader
-    : null;
 
   const activeAccessRank =
     activeRow
@@ -110,9 +95,6 @@ export function DayTradeRadarV2({
     providerAsOfMax: resolved.providerAsOfMax,
   });
 
-  const showReturnToLeader =
-    selection.mode === "manual" && visibleTopLeader !== null;
-
   const boardVisible =
     resolved.status === "available" || resolved.status === "stale";
 
@@ -120,16 +102,6 @@ export function DayTradeRadarV2({
     selectRow(row);
     if (isMobile) setMobileDetailOpen(true);
     else setDesktopDetailOpen(true);
-  };
-
-  const handleSelect = (row: RadarRankedRow) => {
-    openDetails(row);
-  };
-
-  const openLeaderDetails = () => {
-    if (!leaderRow) return;
-    if (!isRadarRowAccessible(leaderRow.access_rank ?? leaderRow.rank, isPro, freeRowLimit)) return;
-    openDetails(leaderRow);
   };
 
   const upgradeNeeded =
@@ -143,13 +115,8 @@ export function DayTradeRadarV2({
     if (resolved.status === "empty" || (boardVisible && ranked.length === 0)) {
       return "No qualifying movers yet.";
     }
-    if (boardVisible && ranked.length > 0 && filtered.length === 0) {
-      return screenerFilters.hasActive
-        ? "No Radar candidates match the current filters."
-        : "No Radar candidates in this Trader Lens price range.";
-    }
     return null;
-  }, [resolved.status, boardVisible, ranked.length, filtered.length, screenerFilters.hasActive]);
+  }, [resolved.status, boardVisible, ranked.length]);
 
   const detailPanel = (
     <RadarDetailPanel
@@ -175,42 +142,6 @@ export function DayTradeRadarV2({
         session={source === "radar-v2" ? session : null}
       />
 
-      {boardVisible && ranked.length > 0 && (
-        <TraderLensBar
-          presetId={traderLens.presetId}
-          minInput={traderLens.customMinInput}
-          maxInput={traderLens.customMaxInput}
-          visibleCount={filtered.length}
-          radarCount={ranked.length}
-          visibleColumns={visibleColumns}
-          sessionMoveUnavailable={lens.sessionMoveUnavailable}
-          sessionMoveFilterApplied={lens.sessionMoveFilterApplied}
-          onPresetChange={traderLens.selectPreset}
-          onMinChange={traderLens.setMinInput}
-          onMaxChange={traderLens.setMaxInput}
-          onReset={traderLens.resetLens}
-          onToggleColumn={toggleColumn}
-          onResetColumns={resetColumns}
-          filterDraft={screenerFilters.draft}
-          filterActiveCount={screenerFilters.activeCount}
-          onFilterChange={screenerFilters.update}
-          onClearFilters={screenerFilters.clear}
-        />
-      )}
-
-      {boardVisible && leaderRow && (
-        <RadarLeaderStrip
-          row={leaderRow}
-          followingLeader={followingLeader}
-          showReturnToLeader={showReturnToLeader}
-          isPro={isPro}
-          freeRowLimit={freeRowLimit}
-          onFollowLeader={followLeader}
-          onReturnToLeader={returnToLeader}
-          onOpenDetails={openLeaderDetails}
-        />
-      )}
-
       {resolved.status === "loading" && (
         <div className="rounded-lg border border-border bg-card p-4 space-y-2">
           {[...Array(6)].map((_, i) => (
@@ -225,32 +156,16 @@ export function DayTradeRadarV2({
         </div>
       )}
 
-      {boardVisible && filtered.length > 0 && (
-        <>
-          <div className="hidden md:block min-w-0">
-            <RadarGrid
-              rows={lensRows}
-              selectedSymbol={selection.selectedSymbol}
-              isPro={isPro}
-              freeRowLimit={freeRowLimit}
-              onSelect={handleSelect}
-              visibleColumns={visibleColumns}
-            />
-          </div>
-
-          <div className="md:hidden space-y-2" data-testid="radar-mobile-board">
-            {lensRows.map((row) => (
-              <RadarMobileCard
-                key={`${row.tab_id}-${row.symbol}`}
-                row={row}
-                selected={selection.selectedSymbol === row.symbol}
-                isPro={isPro}
-                freeRowLimit={freeRowLimit}
-                onSelect={handleSelect}
-              />
-            ))}
-          </div>
-        </>
+      {boardVisible && ranked.length > 0 && (
+        <MultiRadarWorkspace
+          rows={lensRows}
+          selectedSymbol={selection.selectedSymbol}
+          isPro={isPro}
+          freeRowLimit={freeRowLimit}
+          nowMs={nowMs}
+          onSelect={selectRow}
+          onOpenDetails={openDetails}
+        />
       )}
 
       {boardVisible && (
