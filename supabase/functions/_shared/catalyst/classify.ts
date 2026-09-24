@@ -1,29 +1,49 @@
 // Deterministic closed-set classifier for Catalyst events.
 // Input: validated provider title and optional description.
-// Output: one of eight event_type labels. Descriptive only — never a score.
+// Output: one event_type label. Descriptive only — never a score.
+// Prefer company_news when evidence is insufficient (no forced FDA/biotech).
 
 import type { CatalystEventType } from "./contract.ts";
+import { looksLikeLegalShareholderNoticeText } from "./legal-notice.ts";
+
+export { looksLikeLegalShareholderNoticeText } from "./legal-notice.ts";
 
 interface Rule {
   type: CatalystEventType;
   patterns: RegExp[];
 }
 
+const FDA_BIOTECH_PATTERNS: RegExp[] = [
+  /\bpdufa\b/i,
+  /\b(?:new\s+drug\s+application|\bnda\b|\bbla\b)\b/i,
+  /\bbiologics?\s+license\b/i,
+  /\bemergency\s+use\s+authorization\b/i,
+  /\b(?:complete\s+response\s+letter|\bcrl\b)\b/i,
+  /\bfda\s+(?:approv|reject|deni|clearance|complete\s+response|clinical\s+hold)/i,
+  /\b(?:reject|den(?:y|ies|ied))\s+(?:by\s+)?(?:the\s+)?fda\b/i,
+  /\bclinical[-\s]trial\b/i,
+  /\b(?:phase\s*(?:iii|3|ii|2|i|1))\b.{0,80}\b(?:trial|study|data|readout|endpoint|patient|pivotal)/i,
+  /\b(?:drug|therapy|vaccine|biotech|pharma(?:ceutical)?|oncology)\b.{0,100}\bfda\b/i,
+  /\bfda\b.{0,100}\b(?:drug|therapy|vaccine|biotech|pharma(?:ceutical)?|oncology)\b/i,
+  /\bdrug\s+(?:approval|decision|application)\b/i,
+];
+
+const NON_BIOTECH_FDA_CONTEXT: RegExp[] = [
+  /\b(?:smart\s+glasses|ar\s+glasses|ai\s+glasses|wearable|wellness|consumer\s+device)\b/i,
+  /\bphase\s*(?:iii|3|ii|2|i|1)\b.{0,60}\b(?:rollout|launch|release|deployment|product|consumer|software|hardware)\b/i,
+];
+
+function matchesFdaBiotech(text: string): boolean {
+  if (NON_BIOTECH_FDA_CONTEXT.some((p) => p.test(text))) {
+    const hasDrugEvidence = /\b(?:drug|therapy|vaccine|biotech|pharma(?:ceutical)?|clinical\s+trial|pdufa|nda\b|bla\b)\b/i
+      .test(text);
+    if (!hasDrugEvidence) return false;
+  }
+  return FDA_BIOTECH_PATTERNS.some((p) => p.test(text));
+}
+
 // Order matters: first match wins.
 const RULES: Rule[] = [
-  {
-    type: "fda_biotech",
-    patterns: [
-      /\bfda\b/i,
-      /\bpdufa\b/i,
-      /\bclinical[-\s]trial\b/i,
-      /\bphase\s*(?:i{1,3}|1|2|3|4)\b/i,
-      /\bdrug\s+(?:approval|decision|application)\b/i,
-      /\bnew\s+drug\s+application\b/i,
-      /\bbiologics?\s+license\b/i,
-      /\bemergency\s+use\s+authorization\b/i,
-    ],
-  },
   {
     type: "merger_acquisition",
     patterns: [
@@ -97,7 +117,11 @@ const RULES: Rule[] = [
       /\bawarded\s+contract\b/i,
       /\bproduct\s+launch\b/i,
       /\blaunches?\s+(?:new\s+)?product\b/i,
-      /\bproduct\s+approval\b/i,
+      /\b(?:unveils?|introduces?|debuts?|showcases?)\b.{0,80}\b(?:glasses|headset|device|platform|ai\b)/i,
+      /\b(?:smart\s+glasses|ai\s+glasses|ar\s+glasses)\b/i,
+      /\bfda\s+clear(?:s|ance|ed)\b.{0,80}\b(?:glasses|wearable|device)\b/i,
+      /\bphase\s*(?:iii|3|ii|2|i|1)\b.{0,60}\b(?:rollout|launch|release|deployment|consumer|product|software|hardware)\b/i,
+      /\b(?:glasses|headset|wearable)\b.{0,80}\b(?:rollout|launch|unveil|debut)\b/i,
     ],
   },
 ];
@@ -110,7 +134,13 @@ export function classifyCatalyst(
   title: string,
   description?: string | null,
 ): CatalystEventType {
-  const text = `${title} ${description ?? ""}`;
+  const text = `${title} ${description ?? ""}`.trim();
+  if (looksLikeLegalShareholderNoticeText(title, description)) {
+    return "legal";
+  }
+  if (matchesFdaBiotech(text)) {
+    return "fda_biotech";
+  }
   for (const rule of RULES) {
     for (const p of rule.patterns) {
       if (p.test(text)) return rule.type;

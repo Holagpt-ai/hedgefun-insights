@@ -9,6 +9,7 @@ export type CatalystEventType =
   | "sec_filing_news"
   | "corporate_action"
   | "product_contract"
+  | "legal"
   | "company_news";
 
 export type CatalystVerificationState = "provider_reported";

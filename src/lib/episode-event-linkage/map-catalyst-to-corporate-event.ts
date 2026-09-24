@@ -23,6 +23,7 @@ const CATALYST_TO_CORPORATE: Record<CatalystEventType, CorporateEventType> = {
   sec_filing_news: "SEC_FILING",
   corporate_action: "CORPORATE_ACTION",
   product_contract: "CONTRACT",
+  legal: "LITIGATION",
   company_news: "PRESS_RELEASE",
 };
 

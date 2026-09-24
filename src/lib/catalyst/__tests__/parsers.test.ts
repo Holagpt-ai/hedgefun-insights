@@ -112,7 +112,9 @@ describe("event type labels", () => {
 
   it("uses source-honest filing and contract labels", () => {
     expect(EVENT_TYPE_LABEL.sec_filing_news).toBe("Filing-Related News");
-    expect(EVENT_TYPE_LABEL.product_contract).toBe("Contracts / Partnerships");
+    expect(EVENT_TYPE_LABEL.product_contract).toBe("Product");
+    expect(EVENT_TYPE_LABEL.fda_biotech).toBe("FDA / Regulatory");
+    expect(EVENT_TYPE_LABEL.legal).toBe("Legal");
   });
 });
 

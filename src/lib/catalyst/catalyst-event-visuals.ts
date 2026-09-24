@@ -71,7 +71,8 @@ const LIVE_TYPE_CATEGORY: Record<CatalystEventType, CatalystDisplayCategory> = {
   analyst_action: "ANALYST_ACTION",
   sec_filing_news: "SEC_FILING",
   corporate_action: "CORPORATE_ACTION",
-  product_contract: "CONTRACT_AWARD",
+  product_contract: "PARTNERSHIP",
+  legal: "LEGAL",
   company_news: "PRESS_RELEASE",
 };
 

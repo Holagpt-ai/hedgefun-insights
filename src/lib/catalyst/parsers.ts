@@ -5,12 +5,13 @@ import type { CatalystEventType } from "@/types/catalyst";
 
 export const EVENT_TYPE_LABEL: Record<CatalystEventType, string> = {
   earnings: "Earnings",
-  fda_biotech: "FDA / Biotech",
+  fda_biotech: "FDA / Regulatory",
   merger_acquisition: "M&A",
   analyst_action: "Analyst Actions",
   sec_filing_news: "Filing-Related News",
   corporate_action: "Corporate Actions",
-  product_contract: "Contracts / Partnerships",
+  product_contract: "Product",
+  legal: "Legal",
   company_news: "Company News",
 };
 
@@ -22,6 +23,7 @@ export const EVENT_TYPE_ORDER: readonly CatalystEventType[] = [
   "sec_filing_news",
   "corporate_action",
   "product_contract",
+  "legal",
   "company_news",
 ] as const;
 

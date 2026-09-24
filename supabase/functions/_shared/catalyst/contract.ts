@@ -11,6 +11,7 @@ export type CatalystEventType =
   | "sec_filing_news"
   | "corporate_action"
   | "product_contract"
+  | "legal"
   | "company_news";
 
 export const CATALYST_EVENT_TYPES: readonly CatalystEventType[] = [
@@ -21,6 +22,7 @@ export const CATALYST_EVENT_TYPES: readonly CatalystEventType[] = [
   "sec_filing_news",
   "corporate_action",
   "product_contract",
+  "legal",
   "company_news",
 ] as const;
 

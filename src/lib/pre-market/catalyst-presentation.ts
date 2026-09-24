@@ -3,6 +3,7 @@
  * Does not rewrite persisted provider rows or ingestion attribution.
  */
 
+import { looksLikeLegalShareholderNoticeText } from "@/lib/catalyst/legal-notice";
 import { looksLikeMarketAttention } from "@/lib/catalyst/precedence";
 import { EARNINGS_CALENDAR_PROVIDER, etCalendarDateFromIso } from "@/lib/pre-market/builders";
 
@@ -34,19 +35,6 @@ export interface CatalystPresentationInput {
   ticker_specific?: boolean;
 }
 
-const LEGAL_TITLE: RegExp[] = [
-  /\bclass[- ]actions?\b/i,
-  /\bsecurities[- ](?:class[- ]action|fraud|litigation)\b/i,
-  /\binvestors?\s+(?:who\s+(?:purchased|acquired)|losses?|loss\s+alert)\b/i,
-  /\b(?:shareholders?|stockholders?)\s+(?:alert|lawsuit|class[- ]action|investigation)\b/i,
-  /\blead\s+plaintiff\b/i,
-  /\blaw\s+firm\b/i,
-  /\bsecurities\s+law\b/i,
-  /\b(?:remind(?:s|er)?|notifies)\s+investors?\b/i,
-  /\binvestigation\s+(?:of|into)\b.{0,80}\b(?:securities|shareholders?|investors?)\b/i,
-  /\bdeadline\b.{0,40}\b(?:investors?|shareholders?)\b/i,
-];
-
 function isEarningsCalendar(row: CatalystPresentationInput): boolean {
   return row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings";
 }
@@ -55,8 +43,7 @@ export function looksLikeLegalShareholderNotice(
   title: string,
   sourceName?: string | null,
 ): boolean {
-  const blob = `${title} ${sourceName ?? ""}`;
-  return LEGAL_TITLE.some((p) => p.test(blob));
+  return looksLikeLegalShareholderNoticeText(title, null, sourceName);
 }
 
 export function looksLikeCommentary(title: string, eventType?: string): boolean {

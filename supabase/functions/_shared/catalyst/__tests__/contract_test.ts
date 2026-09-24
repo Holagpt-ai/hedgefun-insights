@@ -16,8 +16,12 @@ import { classifyCatalyst } from "../classify.ts";
 import { sanitizeFacts, sanitizeSummary, makeEmptySummary } from "../sanitize.ts";
 
 // 1. Classifier closed-set behavior.
-Deno.test("classifier: fda_biotech beats analyst on FDA headline", () => {
+Deno.test("classifier: fda_biotech requires biotech evidence not bare FDA token", () => {
   assertEquals(classifyCatalyst("FDA approves new PDUFA drug"), "fda_biotech");
+  assertEquals(
+    classifyCatalyst("Meta showcases AI glasses roadmap at annual developer conference"),
+    "product_contract",
+  );
 });
 Deno.test("classifier: earnings label", () => {
   assertEquals(classifyCatalyst("Q3 earnings beat estimates"), "earnings");

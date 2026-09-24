@@ -177,14 +177,13 @@ const VAGUE_NON_EVENT: RegExp[] = [
 ];
 
 const EVENT_TYPE_PRIMARY: Partial<Record<string, PrimaryCatalystClass>> = {
-  fda_biotech: "fda_regulatory",
   merger_acquisition: "acquisition_ma",
   sec_filing_news: "sec_material",
   earnings: "earnings_guidance",
   product_contract: "contract_award",
 };
 
-const EVENT_TYPE_SECONDARY = new Set(["analyst_action"]);
+const EVENT_TYPE_SECONDARY = new Set(["analyst_action", "legal"]);
 
 function catalystText(row: CatalystPrecedenceInput): string {
   return `${row.title} ${row.description ?? ""}`.trim();

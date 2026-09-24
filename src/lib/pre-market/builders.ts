@@ -281,7 +281,7 @@ export function catalystTypeLabel(row: { event_type: string; provider: string })
 }
 
 export const CATALYST_TYPE_LABEL: Record<string, string> = {
-  fda_biotech: "FDA / Biotech",
+  fda_biotech: "FDA / Regulatory",
   merger_acquisition: "M&A",
   analyst_action: "Analyst Action",
   sec_filing_news: "Filing-Related News",
