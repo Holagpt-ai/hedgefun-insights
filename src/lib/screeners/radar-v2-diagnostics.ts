@@ -24,6 +24,8 @@ export const RADAR_V2_DECISION_REASONS = [
   "radar_v2_fetch_threw",
   "radar_v2_retry_exhausted",
   "tab_not_radar_backed",
+  "radar_v2_previous_session",
+  "session_feed_mismatch",
 ] as const;
 
 export type RadarV2DecisionReason = (typeof RADAR_V2_DECISION_REASONS)[number];

@@ -42,9 +42,13 @@ const GEN_A = "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const GEN_B = "bbbbbbbb-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const GEN_C = "cccccccc-bbbb-4ccc-8ddd-eeeeeeeeeeee";
 const GEN_D = "dddddddd-bbbb-4ccc-8ddd-eeeeeeeeeeee";
-const NOW = Date.parse("2026-09-03T13:12:57.000Z");
+const NOW = Date.parse("2026-09-03T13:12:57.000Z"); // ~09:12 ET pre-market
 const SYNCED = "2026-09-03T13:12:30.000Z";
 const STALE = "2026-09-03T12:40:00.000Z";
+const RTH_NOW = Date.parse("2026-09-03T14:30:00.000Z");
+const RTH_SYNCED = "2026-09-03T14:29:30.000Z";
+const AH_NOW = Date.parse("2026-09-04T00:05:00.000Z");
+const AH_SYNCED = "2026-09-04T00:04:30.000Z";
 
 function feedRow(overrides: Partial<RadarV2FeedStateRow> = {}): RadarV2FeedStateRow {
   return {
@@ -330,12 +334,26 @@ describe("Radar V2 source — stable-generation handshake (D11)", () => {
   it("14. stable-generation handshake still works in market session", async () => {
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_A })]),
-        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_A })]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            v2_generation_id: GEN_A,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            v2_generation_id: GEN_A,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
       ],
       cands: [ok([candRow({ session_kind: "market", symbol: "SOXL" })])],
     });
-    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep: noSleep });
+    const decision = await loadRadarV2Decision("day_trade_radar", RTH_NOW, { reader, sleep: noSleep });
     expect(decision.source).toBe("radar-v2");
     expect(decision.session).toBe("market");
     expect(decision.view!.rows[0].symbol).toBe("SOXL");
@@ -344,12 +362,26 @@ describe("Radar V2 source — stable-generation handshake (D11)", () => {
   it("15. stable-generation handshake still works in after-hours session", async () => {
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_A })]),
-        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_A })]),
+        ok([
+          feedRow({
+            session_kind: "after-hours",
+            v2_generation_id: GEN_A,
+            v2_synced_at: AH_SYNCED,
+            last_receive_at: AH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "after-hours",
+            v2_generation_id: GEN_A,
+            v2_synced_at: AH_SYNCED,
+            last_receive_at: AH_SYNCED,
+          }),
+        ]),
       ],
       cands: [ok([candRow({ session_kind: "after-hours", symbol: "BTAI" })])],
     });
-    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep: noSleep });
+    const decision = await loadRadarV2Decision("day_trade_radar", AH_NOW, { reader, sleep: noSleep });
     expect(decision.source).toBe("radar-v2");
     expect(decision.session).toBe("after-hours");
     expect(decision.view!.rows[0].symbol).toBe("BTAI");
@@ -359,17 +391,45 @@ describe("Radar V2 source — stable-generation handshake (D11)", () => {
     const sleep = vi.fn(async () => {});
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ session_kind: "pre-market", v2_generation_id: GEN_A })]),
-        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_B })]),
-        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_B })]),
-        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_B })]),
+        ok([
+          feedRow({
+            session_kind: "pre-market",
+            v2_generation_id: GEN_A,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            v2_generation_id: GEN_B,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            v2_generation_id: GEN_B,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            v2_generation_id: GEN_B,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
       ],
       cands: [
         ok([candRow({ generation_id: GEN_A, session_kind: "pre-market" })]),
         ok([candRow({ symbol: "SNXX", generation_id: GEN_B, session_kind: "market" })]),
       ],
     });
-    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    const decision = await loadRadarV2Decision("day_trade_radar", RTH_NOW, { reader, sleep });
     expect(decision.source).toBe("radar-v2");
     expect(decision.session).toBe("market");
     expect(decision.view!.rows[0].symbol).toBe("SNXX");
@@ -380,17 +440,45 @@ describe("Radar V2 source — stable-generation handshake (D11)", () => {
     const sleep = vi.fn(async () => {});
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ session_kind: "market", v2_generation_id: GEN_A })]),
-        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_B })]),
-        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_B })]),
-        ok([feedRow({ session_kind: "after-hours", v2_generation_id: GEN_B })]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            v2_generation_id: GEN_A,
+            v2_synced_at: AH_SYNCED,
+            last_receive_at: AH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "after-hours",
+            v2_generation_id: GEN_B,
+            v2_synced_at: AH_SYNCED,
+            last_receive_at: AH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "after-hours",
+            v2_generation_id: GEN_B,
+            v2_synced_at: AH_SYNCED,
+            last_receive_at: AH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "after-hours",
+            v2_generation_id: GEN_B,
+            v2_synced_at: AH_SYNCED,
+            last_receive_at: AH_SYNCED,
+          }),
+        ]),
       ],
       cands: [
         ok([candRow({ generation_id: GEN_A, session_kind: "market" })]),
         ok([candRow({ symbol: "BAOS", generation_id: GEN_B, session_kind: "after-hours" })]),
       ],
     });
-    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    const decision = await loadRadarV2Decision("day_trade_radar", AH_NOW, { reader, sleep });
     expect(decision.source).toBe("radar-v2");
     expect(decision.session).toBe("after-hours");
     expect(decision.view!.rows[0].symbol).toBe("BAOS");
@@ -424,7 +512,7 @@ describe("Radar V2 source — D14 initial-load handshake fence", () => {
         ok([feedRow({ session_kind: "market", v2_synced_at: T1, last_receive_at: T1 })]),
         ok([feedRow({ session_kind: "market", v2_synced_at: T2, last_receive_at: T2 })]),
       ],
-      cands: [ok([candRow({ session_kind: "market", symbol: "IMRN" })])],
+      cands: [ok([candRow({ session_kind: "market", symbol: "IMRN", trading_date: "2026-09-04" })])],
     });
     const decision = await loadRadarV2Decision("day_trade_radar", Date.parse(T2), {
       reader,
@@ -443,17 +531,45 @@ describe("Radar V2 source — D14 initial-load handshake fence", () => {
     const sleep = vi.fn(async () => {});
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
-        ok([feedRow({ v2_generation_id: GEN_B, session_kind: "market" })]),
-        ok([feedRow({ v2_generation_id: GEN_B, session_kind: "market" })]),
-        ok([feedRow({ v2_generation_id: GEN_B, session_kind: "market" })]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_A,
+            session_kind: "market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_B,
+            session_kind: "market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_B,
+            session_kind: "market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_B,
+            session_kind: "market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
       ],
       cands: [
         ok([candRow({ generation_id: GEN_A, session_kind: "market" })]),
         ok([candRow({ symbol: "SOXL", generation_id: GEN_B, session_kind: "market" })]),
       ],
     });
-    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    const decision = await loadRadarV2Decision("day_trade_radar", RTH_NOW, { reader, sleep });
     expect(decision.source).toBe("radar-v2");
     expect(decision.view!.rows[0].symbol).toBe("SOXL");
     expect(reader.candGens()).toEqual([GEN_A, GEN_B]);
@@ -464,17 +580,45 @@ describe("Radar V2 source — D14 initial-load handshake fence", () => {
     const sleep = vi.fn(async () => {});
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "pre-market" })]),
-        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
-        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
-        ok([feedRow({ v2_generation_id: GEN_A, session_kind: "market" })]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_A,
+            session_kind: "pre-market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_A,
+            session_kind: "market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_A,
+            session_kind: "market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            v2_generation_id: GEN_A,
+            session_kind: "market",
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
       ],
       cands: [
         ok([candRow({ generation_id: GEN_A, session_kind: "pre-market" })]),
         ok([candRow({ symbol: "SNXX", generation_id: GEN_A, session_kind: "market" })]),
       ],
     });
-    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep });
+    const decision = await loadRadarV2Decision("day_trade_radar", RTH_NOW, { reader, sleep });
     expect(decision.source).toBe("radar-v2");
     expect(decision.session).toBe("market");
     expect(decision.view!.rows[0].symbol).toBe("SNXX");
@@ -520,12 +664,26 @@ describe("Radar V2 source — D14 initial-load handshake fence", () => {
   it("7. healthy coherent initial load remains Sentinel", async () => {
     const reader = queuedReader({
       feeds: [
-        ok([feedRow({ session_kind: "market", candidate_count: 1 })]),
-        ok([feedRow({ session_kind: "market", candidate_count: 1 })]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            candidate_count: 1,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
+        ok([
+          feedRow({
+            session_kind: "market",
+            candidate_count: 1,
+            v2_synced_at: RTH_SYNCED,
+            last_receive_at: RTH_SYNCED,
+          }),
+        ]),
       ],
       cands: [ok([candRow({ session_kind: "market", symbol: "SOXL" })])],
     });
-    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep: noSleep });
+    const decision = await loadRadarV2Decision("day_trade_radar", RTH_NOW, { reader, sleep: noSleep });
     expect(decision.source).toBe("radar-v2");
     expect(decision.reason).toBe("radar_v2_available");
     expect(decision.view!.rows[0].symbol).toBe("SOXL");

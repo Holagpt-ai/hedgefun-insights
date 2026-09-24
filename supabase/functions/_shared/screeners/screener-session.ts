@@ -14,7 +14,9 @@ import {
   PREMARKET_START_MS,
   type SessionKind,
 } from "../markets/session-schedule.ts";
-import { resolveSyncSessionKind } from "./session-sync-context.ts";
+import {
+  resolveSyncSessionKind,
+} from "./session-sync-context.ts";
 
 export type ScreenerGenerationSessionAlignment =
   | "current"
@@ -82,4 +84,21 @@ export function isPreviousSessionSnapshotDuringLiveSession(input: {
   sessionKind?: SessionKind;
 }): boolean {
   return assessScreenerGenerationSession(input) === "previous_during_live";
+}
+
+/** Mirror of the browser helper — uses resolveSyncSessionKind for Edge/worker tests. */
+export function feedSessionMatchesConsumerClock(
+  feedSession: string | null | undefined,
+  nowMs: number,
+): boolean {
+  const expected = resolveSyncSessionKind(nowMs);
+  if (!isLiveSurveillanceSessionKind(expected)) return true;
+  if (
+    feedSession !== "pre-market" &&
+    feedSession !== "market" &&
+    feedSession !== "after-hours"
+  ) {
+    return false;
+  }
+  return feedSession === expected;
 }

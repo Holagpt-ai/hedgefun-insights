@@ -222,7 +222,10 @@ function isRetryableHandshake(reason: string | null): boolean {
 }
 
 function isRetryableDecision(decision: RadarV2Decision): boolean {
-  return decision.source === "fallback" && decision.reason === "generation_race";
+  if (decision.source !== "fallback") return false;
+  if (decision.reason === "generation_race") return true;
+  // Worker/session boundary writes can briefly expose the prior sub-session on feed.
+  return decision.reason.startsWith("session_feed_mismatch:");
 }
 
 function observeFromFetch(

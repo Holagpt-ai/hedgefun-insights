@@ -81,3 +81,18 @@ export function isPreviousSessionSnapshotDuringLiveSession(input: {
 }): boolean {
   return assessScreenerGenerationSession(input) === "previous_during_live";
 }
+
+/**
+ * During live surveillance the persisted feed `session_kind` must match the
+ * ET calendar clock. Prevents relabeling a prior sub-session snapshot (e.g.
+ * after-hours) as the current pre-market board.
+ */
+export function feedSessionMatchesConsumerClock(
+  feedSession: string | null | undefined,
+  nowMs: number,
+): boolean {
+  const expected = resolveConsumerSessionKind(nowMs);
+  if (!isLiveSurveillanceSessionKind(expected)) return true;
+  if (!feedSession || !isLiveSurveillanceSessionKind(feedSession)) return false;
+  return feedSession === expected;
+}

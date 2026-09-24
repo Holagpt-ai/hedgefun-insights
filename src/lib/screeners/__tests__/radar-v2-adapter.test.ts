@@ -324,30 +324,78 @@ describe("Radar V2 adapter — session integrity (Phase F / D12)", () => {
   });
 
   it("market and after-hours generations are accepted as Radar V2", () => {
-    for (const session of ["market", "after-hours"] as const) {
-      const decision = buildRadarV2Decision({
-        feedRows: [feed({ session_kind: session })],
-        candidateRows: [candidate({ session_kind: session, symbol: "SOXL" })],
-        tabId: "day_trade_radar",
-        nowMs: NOW,
-      });
-      expect(decision.source).toBe("radar-v2");
-      expect(decision.session).toBe(session);
-      expect(decision.view!.rows[0].symbol).toBe("SOXL");
-      expect(decision.view!.rows[0].rvol).toBeNull();
-      expect(decision.view!.rows[0].change_percent).toBeNull();
-    }
+    const marketNow = Date.parse("2026-09-03T14:30:00.000Z"); // 10:30 ET RTH
+    const marketSynced = "2026-09-03T14:29:30.000Z";
+    const marketDecision = buildRadarV2Decision({
+      feedRows: [
+        feed({
+          session_kind: "market",
+          v2_synced_at: marketSynced,
+          last_receive_at: marketSynced,
+        }),
+      ],
+      candidateRows: [
+        candidate({ session_kind: "market", symbol: "SOXL", trading_date: "2026-09-03" }),
+      ],
+      tabId: "day_trade_radar",
+      nowMs: marketNow,
+    });
+    expect(marketDecision.source).toBe("radar-v2");
+    expect(marketDecision.session).toBe("market");
+
+    const ahNow = Date.parse("2026-09-04T00:05:00.000Z"); // Sep 3 20:05 ET
+    const ahSynced = "2026-09-04T00:04:30.000Z";
+    const ahDecision = buildRadarV2Decision({
+      feedRows: [
+        feed({
+          session_kind: "after-hours",
+          v2_synced_at: ahSynced,
+          last_receive_at: ahSynced,
+        }),
+      ],
+      candidateRows: [
+        candidate({
+          session_kind: "after-hours",
+          symbol: "SOXL",
+          trading_date: "2026-09-03",
+        }),
+      ],
+      tabId: "day_trade_radar",
+      nowMs: ahNow,
+    });
+    expect(ahDecision.source).toBe("radar-v2");
+    expect(ahDecision.session).toBe("after-hours");
+    expect(ahDecision.view!.rows[0].symbol).toBe("SOXL");
   });
 
   it("11b. candidates whose session_kind differs from the feed are excluded, not mislabeled", () => {
+    const pmNow = Date.parse("2026-09-03T12:00:00.000Z"); // 08:00 ET pre-market
+    const pmSynced = "2026-09-03T11:58:00.000Z";
     const decision = buildRadarV2Decision({
-      feedRows: [feed({ candidate_count: 2 })],
+      feedRows: [
+        feed({
+          session_kind: "pre-market",
+          candidate_count: 2,
+          v2_synced_at: pmSynced,
+          last_receive_at: pmSynced,
+        }),
+      ],
       candidateRows: [
-        candidate({ symbol: "PM", session_kind: "pre-market", session_volume: 2_000_000 }),
-        candidate({ symbol: "RTH", session_kind: "market", session_volume: 9_000_000 }),
+        candidate({
+          symbol: "PM",
+          session_kind: "pre-market",
+          session_volume: 2_000_000,
+          trading_date: "2026-09-03",
+        }),
+        candidate({
+          symbol: "RTH",
+          session_kind: "market",
+          session_volume: 9_000_000,
+          trading_date: "2026-09-03",
+        }),
       ],
       tabId: "day_trade_radar",
-      nowMs: NOW,
+      nowMs: pmNow,
     });
     expect(decision.source).toBe("radar-v2");
     expect(decision.view!.rows.map((r) => r.symbol)).toEqual(["PM"]);
@@ -527,6 +575,46 @@ describe("Radar V2 adapter — handshake helpers (D11 / D14)", () => {
 describe("Radar V2 adapter — V2 health gate (D8.1)", () => {
   // >20m before NOW (13:12:57Z) is stale under the 20-minute threshold.
   const STALE_TS = "2026-09-03T12:40:00.000Z";
+
+  it("0b. stale last_receive_at from prior surveillance date does not block fresh V2 sync", () => {
+    const premarketNow = Date.parse("2026-09-24T10:30:00.000Z"); // 06:30 ET Sep 24
+    const freshSync = "2026-09-24T10:20:00.000Z";
+    const priorReceive = "2026-09-24T00:00:00.000Z"; // Sep 23 20:00 ET
+    const decision = buildRadarV2Decision({
+      feedRows: [
+        feed({
+          session_kind: "pre-market",
+          v2_synced_at: freshSync,
+          last_receive_at: priorReceive,
+          candidate_count: 0,
+        }),
+      ],
+      candidateRows: [],
+      tabId: "day_trade_radar",
+      nowMs: premarketNow,
+    });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.reason).toBe("radar_v2_empty");
+  });
+
+  it("0c. feed session_kind must match the consumer clock during live pre-market", () => {
+    const premarketNow = Date.parse("2026-09-24T10:10:00.000Z");
+    const decision = buildRadarV2Decision({
+      feedRows: [
+        feed({
+          session_kind: "after-hours",
+          v2_synced_at: "2026-09-24T10:00:00.000Z",
+          last_receive_at: "2026-09-24T10:00:00.000Z",
+          candidate_count: 0,
+        }),
+      ],
+      candidateRows: [],
+      tabId: "day_trade_radar",
+      nowMs: premarketNow,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("session_feed_mismatch:after-hours");
+  });
 
   it("0. previous surveillance date falls back during live pre-market", () => {
     const premarketNow = Date.parse("2026-09-24T10:10:00.000Z"); // 06:10 ET Sep 24

@@ -35,7 +35,10 @@ import {
 import type { RadarRankingFields } from "@/features/day-trade-radar-v2/types";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
-import { surveillanceTradingDateFromMs } from "@/lib/screeners/screener-session";
+import {
+  feedSessionMatchesConsumerClock,
+  surveillanceTradingDateFromMs,
+} from "@/lib/screeners/screener-session";
 
 /**
  * Radar-backed screener row: the standard row plus the OPTIONAL Radar ranking
@@ -487,6 +490,9 @@ export function buildRadarV2Decision(input: {
   if (!isRadarV2ActiveSession(session)) {
     return fallback(`session_not_active:${session ?? "null"}`, session);
   }
+  if (!feedSessionMatchesConsumerClock(session, nowMs)) {
+    return fallback(`session_feed_mismatch:${session ?? "null"}`, session);
+  }
 
   const generationId = feed.v2_generation_id;
   if (!generationId) return fallback("no_v2_generation", session);
@@ -530,7 +536,15 @@ export function buildRadarV2Decision(input: {
   // cannot prove liveness, so we fall back honestly rather than show it live.
   if (feed.last_receive_at !== null && feed.last_receive_at !== undefined) {
     const receiveMs = parseTimestampMs(feed.last_receive_at);
-    if (receiveMs === null || nowMs - receiveMs > RADAR_V2_STALE_AFTER_MS) {
+    if (receiveMs === null) {
+      return fallback("radar_v2_receive_stale", session);
+    }
+    const receiveSurveillance = surveillanceTradingDateFromMs(receiveMs);
+    if (
+      receiveSurveillance !== null &&
+      receiveSurveillance === currentSurveillanceDate &&
+      nowMs - receiveMs > RADAR_V2_STALE_AFTER_MS
+    ) {
       return fallback("radar_v2_receive_stale", session);
     }
   }

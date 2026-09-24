@@ -1,6 +1,7 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   assessScreenerGenerationSession,
+  feedSessionMatchesConsumerClock,
   surveillanceTradingDateFromMs,
 } from "./screener-session.ts";
 
@@ -33,6 +34,12 @@ Deno.test("same surveillance date pre-market reference is current", () => {
     }),
     "current",
   );
+});
+
+Deno.test("feed session must match clock during live pre-market", () => {
+  const premarketMs = Date.parse("2026-09-24T10:10:00.000Z");
+  assertEquals(feedSessionMatchesConsumerClock("pre-market", premarketMs), true);
+  assertEquals(feedSessionMatchesConsumerClock("after-hours", premarketMs), false);
 });
 
 Deno.test("closed overnight session does not apply live-session rejection", () => {
