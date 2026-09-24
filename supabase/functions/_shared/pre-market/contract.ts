@@ -9,6 +9,7 @@ import {
   extractEtOffset,
   type UpcomingRow,
 } from "../watchlist-v2/session.ts";
+import { boundWatchlistAlertReason } from "../watchlist-v2/signal-assertion-provenance.ts";
 
 export type { UpcomingRow };
 
@@ -779,6 +780,8 @@ export interface PreMarketAlert {
   alert_type: string;
   reason: string;
   event_time: string;
+  /** Original Finnhub headline when alert is company_event (for de-dupe with catalyst). */
+  provider_headline: string | null;
 }
 
 const ALERT_TYPES = new Set([
@@ -800,12 +803,32 @@ export function sanitizeAlerts(
     const ticker = normalizeSymbol(r.ticker);
     const key = typeof r.dedupe_key === "string" ? r.dedupe_key.trim() : "";
     const type = typeof r.alert_type === "string" ? r.alert_type : "";
-    const reason = typeof r.reason === "string" ? r.reason.trim() : "";
+    const rawReason = typeof r.reason === "string" ? r.reason.trim() : "";
     const eventTime = isoOrNull(r.event_time);
     if (!ticker || !ownedSymbols.has(ticker) || !key || seen.has(key)) continue;
-    if (!ALERT_TYPES.has(type) || !reason || !eventTime) continue;
+    if (!ALERT_TYPES.has(type) || !rawReason || !eventTime) continue;
+    const facts = r.facts && typeof r.facts === "object" && !Array.isArray(r.facts)
+      ? r.facts as Record<string, unknown>
+      : null;
+    const sourceName = typeof facts?.source === "string" ? facts.source : null;
+    const providerHeadline = typeof facts?.provider_headline === "string"
+      ? facts.provider_headline.trim()
+      : null;
+    const reason = type === "company_event"
+      ? boundWatchlistAlertReason(rawReason, type, {
+        sourceName,
+        providerHeadline: providerHeadline ?? rawReason,
+      })
+      : rawReason;
     seen.add(key);
-    out.push({ dedupe_key: key, ticker, alert_type: type, reason, event_time: eventTime });
+    out.push({
+      dedupe_key: key,
+      ticker,
+      alert_type: type,
+      reason,
+      event_time: eventTime,
+      provider_headline: providerHeadline,
+    });
   }
   out.sort((a, b) => b.event_time.localeCompare(a.event_time));
   return out;

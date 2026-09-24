@@ -13,6 +13,7 @@ import type { ScannerIntelligenceAlertRow } from "@/types/scanner-intelligence-a
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
 import { eventMomentMs, etStartOfDayMs, scheduledMomentMs } from "@/lib/catalyst/parsers";
+import { boundWatchlistAlertReason } from "@/lib/watchlist-v2/signal-assertion-provenance";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -231,7 +232,9 @@ export function buildActionFeed(input: {
       source: "watchlist_alert",
       symbol: a.ticker.toUpperCase(),
       title: humanAlertType(a.alert_type),
-      detail: a.reason || null,
+      detail: a.reason
+        ? boundWatchlistAlertReason(a.reason, a.alert_type ?? "company_event")
+        : null,
       timestampMs: ms,
       timestampLabel: fmtEt(new Date(ms).toISOString()),
       sourceLabel: "Watchlist alert",

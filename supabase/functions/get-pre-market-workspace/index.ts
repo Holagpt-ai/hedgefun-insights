@@ -50,6 +50,7 @@ import {
   type RequestState,
   type SectionEnvelope,
 } from "../_shared/pre-market/contract.ts";
+import { boundWatchlistUserFacingText } from "../_shared/watchlist-v2/signal-assertion-provenance.ts";
 import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
 import { compareCatalystPrecedence } from "../_shared/catalyst/precedence.ts";
 import { consolidateRiskFlags, type RawRiskItem } from "../_shared/pre-market/risk-flags.ts";
@@ -337,7 +338,7 @@ serve(async (req) => {
         .limit(400),
 
       userClient.from("watchlist_alerts_v2")
-        .select("ticker, alert_type, reason, event_time, session_date, dedupe_key")
+        .select("ticker, alert_type, reason, facts, event_time, session_date, dedupe_key")
         .in("ticker", symbols)
         .gte("event_time", alertSince)
         .order("event_time", { ascending: false })
@@ -409,7 +410,9 @@ serve(async (req) => {
           ticker: sym,
           company_name: nameMap[sym] ?? null,
           direction,
-          explanation: typeof a!.explanation === "string" ? a!.explanation : "",
+          explanation: typeof a!.explanation === "string"
+            ? boundWatchlistUserFacingText(a!.explanation)
+            : "",
           failure_reason: rawFailure ? humanizeFailureCode(rawFailure) : null,
           price: quoteInvalid ? null : positiveOrNull(a!.price),
           change_pct: quoteInvalid ? null : finiteOrNull(a!.change_pct),
@@ -790,7 +793,8 @@ serve(async (req) => {
     }
     for (const a of alerts) {
       if (a.alert_type === "company_event") {
-        const matching = catalystRows.find((c) => c.symbol === a.ticker && c.title === a.reason);
+        const headline = a.provider_headline ?? a.reason;
+        const matching = catalystRows.find((c) => c.symbol === a.ticker && c.title === headline);
         if (matching && !matching.ticker_specific) continue;
       }
       attention.push({

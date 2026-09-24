@@ -149,6 +149,24 @@ Deno.test("buildAlerts: emits company_event within 6h", () => {
   const ce = alerts.find((a) => a.alert_type === "company_event");
   assert(ce);
   assertEquals(ce!.dedupe_key, `v2:company_event:${T}:${D}:e1`);
+  assertEquals(ce!.reason, "Fresh news");
+  assertEquals((ce!.facts as { provider_headline?: string }).provider_headline, "Fresh news");
+});
+
+Deno.test("buildAlerts: bounds unsupported buyer/seller headline for company_event", () => {
+  const recentIso = new Date(NOW_MS - 3600_000).toISOString();
+  const headline =
+    "324 buyers against 93 sellers: the solar manufacturer institutions are accumulating";
+  const events: RecentEvent[] = [{
+    event_id: "e2", event_type: "news", title: headline,
+    event_time: recentIso, source_name: "Finnhub", source_url: null,
+    verification_state: "provider_reported", ingested_at: recentIso,
+  }];
+  const alerts = buildAlerts({ ...baseAlertInput, recentEvents: events });
+  const ce = alerts.find((a) => a.alert_type === "company_event");
+  assert(ce);
+  assert(!ce!.reason.includes("institutions are accumulating"));
+  assert(ce!.reason.includes("324 buyers vs 93 sellers"));
 });
 
 Deno.test("buildAlerts: earnings_upcoming within 3 days", () => {

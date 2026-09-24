@@ -26,6 +26,7 @@ import { computeKeyLevels, computeTransitionLevels } from "../_shared/watchlist-
 import { computeRvol, type Baseline } from "../_shared/watchlist-v2/rvol.ts";
 import { emitMarketSignals, TRANSITION_ALERT_SIGNAL_IDS } from "../_shared/watchlist-v2/signals.ts";
 import { mapNewsEvents } from "../_shared/watchlist-v2/events.ts";
+import { boundWatchlistAlertReason, boundWatchlistUserFacingText } from "../_shared/watchlist-v2/signal-assertion-provenance.ts";
 import {
   evaluateSufficiency, MIN_BARS_FOR_AI, type SufficiencyCode,
 } from "../_shared/watchlist-v2/sufficiency.ts";
@@ -224,8 +225,17 @@ export function buildAlerts(input: AlertBuildInput): AlertCandidate[] {
     if (!Number.isFinite(evMs)) continue;
     if (analyzedAtMs - evMs > EVENT_ALERT_MAX_AGE_MS) continue;
     out.push({
-      ticker, alert_type: "company_event", reason: e.title,
-      facts: { source: e.source_name, event_id: e.event_id },
+      ticker,
+      alert_type: "company_event",
+      reason: boundWatchlistAlertReason(e.title, "company_event", {
+        sourceName: e.source_name,
+        providerHeadline: e.title,
+      }),
+      facts: {
+        source: e.source_name,
+        event_id: e.event_id,
+        provider_headline: e.title,
+      },
       event_time: e.event_time, session_date: sessionDate,
       dedupe_key: `v2:company_event:${ticker}:${sessionDate}:${e.event_id}`,
     });
@@ -891,7 +901,8 @@ export async function handleRequest(req: Request): Promise<Response> {
       }
       if (outcome.kind === "ok") {
         direction = outcome.value.direction;
-        explanation = outcome.value.explanation;
+        explanation = boundWatchlistUserFacingText(outcome.value.explanation);
+        if (explanation.length > 240) explanation = explanation.slice(0, 240).trim();
         driverIds = outcome.value.driver_ids;
         outcomeLog.outcome = direction === "data_unavailable" ? "data_unavailable" : "succeeded";
         outcomeLog.failure_reason = direction === "data_unavailable" ? (failureReason ?? "UNKNOWN") : null;
