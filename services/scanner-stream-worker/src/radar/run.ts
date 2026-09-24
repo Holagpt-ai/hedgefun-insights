@@ -163,11 +163,13 @@ export function startRadarV22(opts: {
     const tradingDate = engine.surveillanceDateAt(wallNow);
     const tapeSymbols = engine.symbolsWithTape();
     if (tradingDate && tapeSymbols.length > 0) {
-      try {
-        await todBaselineCache.warm(tapeSymbols, tradingDate);
-      } catch {
-        log("warn", "radar_tod_baseline_warm_failed", { code: "baseline_unavailable" });
-      }
+      // History hydrates the cache for a later cycle. This cycle publishes
+      // with whatever baselines are already verified.
+      void todBaselineCache.warm(tapeSymbols, tradingDate).catch(() => {
+        log("warn", "radar_tod_baseline_warm_failed", {
+          code: "baseline_unavailable",
+        });
+      });
     }
     const result = attachFeedTelemetry(
       engine.evaluate(wallNow, generationId),
