@@ -528,6 +528,29 @@ describe("Radar V2 adapter — V2 health gate (D8.1)", () => {
   // >20m before NOW (13:12:57Z) is stale under the 20-minute threshold.
   const STALE_TS = "2026-09-03T12:40:00.000Z";
 
+  it("0. previous surveillance date falls back during live pre-market", () => {
+    const premarketNow = Date.parse("2026-09-24T10:10:00.000Z"); // 06:10 ET Sep 24
+    const decision = buildRadarV2Decision({
+      feedRows: [
+        feed({
+          session_kind: "pre-market",
+          v2_synced_at: "2026-09-24T00:00:00.000Z",
+          last_receive_at: "2026-09-24T00:00:00.000Z",
+        }),
+      ],
+      candidateRows: [
+        candidate({
+          trading_date: "2026-09-23",
+          session_kind: "pre-market",
+        }),
+      ],
+      tabId: "day_trade_radar",
+      nowMs: premarketNow,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("radar_v2_previous_session");
+  });
+
   it("1. feed_stale=true + fresh v2_synced_at + fresh last_receive_at → Radar V2 authoritative", () => {
     const decision = buildRadarV2Decision({
       feedRows: [feed({ feed_stale: true, v2_synced_at: SYNCED, last_receive_at: SYNCED })],

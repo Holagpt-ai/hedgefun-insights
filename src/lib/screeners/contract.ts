@@ -7,6 +7,7 @@ import {
   parseTabEvaluationEvidence,
   type TabEvaluationEvidenceMap,
 } from "@/lib/screeners/tab-evaluation-evidence";
+import { assessScreenerGenerationSession } from "@/lib/screeners/screener-session";
 
 export const MANAGED_TAB_IDS = [
   "day_trade_radar",
@@ -503,6 +504,23 @@ export function viewForActiveTab(
   }
 
   const tabRows = generation.rows.filter((r) => r.tab_id === activeTabId);
+  const sessionReference = generation.provider_as_of_max ?? generation.synced_at;
+  if (
+    assessScreenerGenerationSession({
+      nowMs,
+      referenceIso: sessionReference,
+    }) === "previous_during_live"
+  ) {
+    return {
+      status: "unavailable",
+      rows: [],
+      synced_at: generation.synced_at,
+      provider_as_of_max: generation.provider_as_of_max,
+      attempts,
+      ...viewMetadata(generation),
+    };
+  }
+
   const stale = isGenerationStale(generation.synced_at, nowMs);
 
   if (stale) {

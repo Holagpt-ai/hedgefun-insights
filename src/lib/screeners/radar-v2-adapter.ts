@@ -35,6 +35,7 @@ import {
 import type { RadarRankingFields } from "@/features/day-trade-radar-v2/types";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
+import { surveillanceTradingDateFromMs } from "@/lib/screeners/screener-session";
 
 /**
  * Radar-backed screener row: the standard row plus the OPTIONAL Radar ranking
@@ -493,6 +494,16 @@ export function buildRadarV2Decision(input: {
   const syncedMs = parseTimestampMs(feed.v2_synced_at);
   if (syncedMs === null) return fallback("no_v2_synced_at", session);
 
+  const currentSurveillanceDate = surveillanceTradingDateFromMs(nowMs);
+  const feedSurveillanceDate = surveillanceTradingDateFromMs(syncedMs);
+  if (
+    currentSurveillanceDate === null ||
+    feedSurveillanceDate === null ||
+    feedSurveillanceDate !== currentSurveillanceDate
+  ) {
+    return fallback("radar_v2_previous_session", session);
+  }
+
   // ── V2 health gate (V2-specific fields ONLY; not the legacy V1 flag) ──────
   //
   // `feed.feed_stale` is a LEGACY V1 health flag driven by the V1
@@ -537,6 +548,12 @@ export function buildRadarV2Decision(input: {
 
   // Session fencing: never relabel another session's rows as this session.
   const sessionMatched = genMatched.filter((c) => c.session_kind === session);
+  if (
+    currentSurveillanceDate !== null &&
+    sessionMatched.some((c) => c.trading_date !== currentSurveillanceDate)
+  ) {
+    return fallback("radar_v2_previous_session", session);
+  }
 
   const syncedAt = feed.v2_synced_at;
   const providerAsOfMax = feed.last_provider_event_at ?? null;

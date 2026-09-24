@@ -123,19 +123,19 @@ describe("screeners verified generation contract", () => {
 
   it("4. stale classification uses synced_at, not provider_as_of", () => {
     const syncedAt = new Date(NOW - SCREENER_STALE_AFTER_MS - 1).toISOString();
-    const oldProvider = new Date(NOW - 7 * 86_400_000).toISOString();
+    const sameDayProvider = PROVIDER;
     expect(isGenerationStale(syncedAt, NOW)).toBe(true);
     expect(isGenerationStale(SYNCED, NOW)).toBe(false);
 
     const r = row({
-      provider_as_of: oldProvider,
+      provider_as_of: sameDayProvider,
       updated_at: syncedAt,
     });
     const s = state({
       synced_at: syncedAt,
       updated_at: syncedAt,
-      provider_as_of_min: oldProvider,
-      provider_as_of_max: oldProvider,
+      provider_as_of_min: sameDayProvider,
+      provider_as_of_max: sameDayProvider,
     });
     const out = validateGeneration([s], [r], NOW);
     expect(out.ok).toBe(true);
@@ -160,7 +160,7 @@ describe("screeners verified generation contract", () => {
     expect(msUntilStaleTransition("not-a-timestamp", NOW)).toBeNull();
   });
 
-  it("5. old provider timestamp alone does not invalidate a fresh pipeline generation", () => {
+  it("5. old provider timestamp still validates but is not shown live in a new session", () => {
     const oldProvider = "2026-07-20T15:00:00.000Z";
     const r = row({ provider_as_of: oldProvider });
     const s = state({
@@ -171,7 +171,8 @@ describe("screeners verified generation contract", () => {
     expect(out.ok).toBe(true);
     if (!out.ok) return;
     const view = viewForActiveTab(out.generation, "day_trade_radar", NOW, 1);
-    expect(view.status).toBe("available");
+    expect(view.status).toBe("unavailable");
+    expect(view.rows).toHaveLength(0);
   });
 
   it("6. first-attempt generation mismatch retries and succeeds", async () => {

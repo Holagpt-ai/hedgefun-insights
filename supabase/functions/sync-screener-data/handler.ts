@@ -192,22 +192,33 @@ async function loadPolicyExclusions(
   });
 }
 
-async function loadCurrentTabEvaluationEvidence(
+async function loadCurrentFeedEvidenceContext(
   sb: DbClient,
-): Promise<TabEvaluationEvidenceMap | null> {
+): Promise<{
+  evidence: TabEvaluationEvidenceMap | null;
+  syncedAt: string | null;
+}> {
   try {
     const res = await sb
       .from("screener_feed_state")
-      .select(FEED_EVIDENCE_SELECT)
+      .select(`${FEED_EVIDENCE_SELECT},synced_at`)
       .eq("state_key", "current")
       .limit(1);
-    if (res.error || !res.data || res.data.length === 0) return null;
-    const raw = res.data[0].tab_evaluation_evidence;
-    if (raw === null || raw === undefined) return null;
-    if (typeof raw !== "object" || Array.isArray(raw)) return null;
-    return raw as TabEvaluationEvidenceMap;
+    if (res.error || !res.data || res.data.length === 0) {
+      return { evidence: null, syncedAt: null };
+    }
+    const row = res.data[0];
+    const syncedAt = typeof row.synced_at === "string" ? row.synced_at : null;
+    const raw = row.tab_evaluation_evidence;
+    if (raw === null || raw === undefined) {
+      return { evidence: null, syncedAt };
+    }
+    if (typeof raw !== "object" || Array.isArray(raw)) {
+      return { evidence: null, syncedAt };
+    }
+    return { evidence: raw as TabEvaluationEvidenceMap, syncedAt };
   } catch {
-    return null;
+    return { evidence: null, syncedAt: null };
   }
 }
 
@@ -538,11 +549,13 @@ export async function handleSyncScreenerData(
     );
   }
 
-  const priorEvidence = await loadCurrentTabEvaluationEvidence(sb);
+  const priorFeed = await loadCurrentFeedEvidenceContext(sb);
   if (
     shouldPreservePriorScreenerGeneration({
-      priorEvidence,
+      priorEvidence: priorFeed.evidence,
       nextEvidence: tabEvaluationEvidence,
+      nowMs,
+      priorSyncedAt: priorFeed.syncedAt,
     })
   ) {
     return json({

@@ -4,6 +4,7 @@
  */
 
 import type { TabEvaluationEvidenceMap } from "./evaluation-evidence.ts";
+import { isPreviousSessionSnapshotDuringLiveSession } from "./screener-session.ts";
 
 type EvidenceStatus = "evaluated" | "prerequisite_unavailable" | "not_evaluated";
 
@@ -50,7 +51,17 @@ const PRESERVE_TABS = [
 export function shouldPreservePriorScreenerGeneration(input: {
   priorEvidence: TabEvaluationEvidenceMap | null | undefined;
   nextEvidence: TabEvaluationEvidenceMap;
+  nowMs: number;
+  priorSyncedAt: string | null | undefined;
 }): boolean {
+  if (
+    isPreviousSessionSnapshotDuringLiveSession({
+      nowMs: input.nowMs,
+      referenceIso: input.priorSyncedAt,
+    })
+  ) {
+    return false;
+  }
   for (const tabId of PRESERVE_TABS) {
     if (wouldDegradeTab(input.priorEvidence, input.nextEvidence, tabId)) {
       return true;
