@@ -295,6 +295,13 @@
       "when": 1790273308205,
       "tag": "0041_catalyst_event_type_legal_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1790211000000,
+      "tag": "0042_radar_v22_feed_session_date_v1",
+      "breakpoints": true
     }
   ]
 }

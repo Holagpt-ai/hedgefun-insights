@@ -34,8 +34,9 @@ export const defaultWsConnect: RadarWsConnect = (url, handlers) => {
   const socket = new WebSocket(url);
   socket.addEventListener("open", () => handlers.onOpen());
   socket.addEventListener("message", (ev) => {
-    const data = typeof ev.data === "string" ? ev.data : "";
-    handlers.onMessage(data);
+    void frameText(ev.data).then((data) => {
+      if (data) handlers.onMessage(data);
+    });
   });
   socket.addEventListener("close", () => handlers.onClose());
   socket.addEventListener("error", () => handlers.onError());
@@ -60,6 +61,15 @@ export type RadarSocketController = {
   activeEndpoint: () => MassiveWsEndpoint;
 };
 
+export const DEFAULT_SILENT_MARKET_MS = 20_000;
+
+export async function frameText(data: unknown): Promise<string> {
+  if (typeof data === "string") return data;
+  if (data instanceof Uint8Array) return new TextDecoder().decode(data);
+  if (typeof Blob !== "undefined" && data instanceof Blob) return await data.text();
+  return "";
+}
+
 export function createRadarSocket(opts: {
   feedMode: MarketDataFeedMode;
   apiKey: string;
@@ -68,6 +78,8 @@ export function createRadarSocket(opts: {
   sleep?: (ms: number) => Promise<void>;
   random?: () => number;
   nowMs?: () => number;
+  /** Reconnect when a subscribed socket delivers no aggregates. */
+  silentMarketMs?: number;
   onEvent: (raw: unknown, receiveMs: number) => void;
   onState: (state: RadarConnectionState) => void;
   onEndpointChange?: (endpoint: MassiveWsEndpoint) => void;
@@ -87,6 +99,34 @@ export function createRadarSocket(opts: {
     opts.feedMode,
   );
   let authFailedOnRealtime = false;
+  const silentMarketMs = opts.silentMarketMs ?? DEFAULT_SILENT_MARKET_MS;
+  let silentTimer: ReturnType<typeof setTimeout> | null = null;
+  let sawMarket = false;
+
+  function clearSilent(): void {
+    if (silentTimer !== null) {
+      clearTimeout(silentTimer);
+      silentTimer = null;
+    }
+  }
+
+  function armSilent(): void {
+    clearSilent();
+    sawMarket = false;
+    silentTimer = setTimeout(() => {
+      silentTimer = null;
+      if (sawMarket || stopped) return;
+      log("warn", "radar_ws_silent", {
+        endpoint: activeEndpoint,
+        feed_mode: opts.feedMode,
+        silent_ms: silentMarketMs,
+      });
+      if (activeEndpoint === "realtime" && opts.feedMode === "auto") {
+        authFailedOnRealtime = true;
+      }
+      handle?.close();
+    }, silentMarketMs);
+  }
 
   function setState(next: RadarConnectionState) {
     state = next;
@@ -110,12 +150,17 @@ export function createRadarSocket(opts: {
     for (const item of items) {
       if (item === null || typeof item !== "object") continue;
       const ev = (item as { ev?: unknown }).ev;
-      if (ev === "A") opts.onEvent(item, receiveMs);
+      if (ev === "A") {
+        sawMarket = true;
+        clearSilent();
+        opts.onEvent(item, receiveMs);
+      }
       if (ev === "status") {
         const status = String((item as { status?: unknown }).status ?? "");
         if (status === "auth_success") {
           handle?.send(subscribeMessage());
           setState("subscribed");
+          armSilent();
         } else if (
           status === "auth_failed" || status === "auth_timeout" ||
           status === "unauthorized"
@@ -152,6 +197,7 @@ export function createRadarSocket(opts: {
         const finish = () => {
           if (settled) return;
           settled = true;
+          clearSilent();
           resolve();
         };
         handle = connect(url, {

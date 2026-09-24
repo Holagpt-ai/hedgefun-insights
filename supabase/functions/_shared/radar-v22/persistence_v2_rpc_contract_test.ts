@@ -12,7 +12,7 @@ const SCHEMA_MIGRATION_REL =
 const LOVABLE_FULL_MIGRATION_NAME =
   "20260902223843_d8af27c1-7f12-477f-9860-b301d6395d62.sql";
 const LATEST_RPC_MIGRATION_NAME =
-  "20260923190000_radar_v22_scanner_events_rpc_fix.sql";
+  "20260924181500_radar_v22_feed_session_date_v1.sql";
 const LATEST_RPC_MIGRATION_REL =
   `../../../migrations/${LATEST_RPC_MIGRATION_NAME}`;
 const RPC_NAME = "replace_radar_v22_candidates_v1";
@@ -139,6 +139,11 @@ Deno.test("static: candidate INSERT still persists Phase 1 momentum fields", asy
   assert(body.includes("NULLIF(e ->> 'volume_acceleration_pct', '')::numeric"));
   assert(body.includes("NULLIF(e ->> 'last_price', '')::numeric"));
   assert(body.includes("NULLIF(e ->> 'acceleration_5m', '')::numeric"));
+});
+
+Deno.test("static: V2 replace advances surveillance session_date", async () => {
+  const body = functionBody(await loadRpc());
+  assert(body.includes("session_date = EXCLUDED.session_date"));
 });
 
 Deno.test("static: latest forward migration is the authoritative replace RPC definition", async () => {

@@ -16,7 +16,7 @@ import {
 import { providerTimestampMs } from "./time.ts";
 import type { EligibleQuote, RankedCandidate } from "./types.ts";
 import type { RadarV22BoardRow } from "../../../../supabase/functions/_shared/radar-v22/types.ts";
-import { createRadarSocket, type RadarWsHandle } from "./ws.ts";
+import { createRadarSocket, frameText, type RadarWsHandle } from "./ws.ts";
 import { createLeaseClient } from "./lease.ts";
 
 const T0 = Date.parse("2026-08-10T14:00:00.000Z"); // 10:00 ET Monday
@@ -613,6 +613,55 @@ Deno.test("reconnect reauthenticates and resubscribes", async () => {
   assert(sends.filter((a) => a === "subscribe").length >= 1);
   assert(!sends.some((s) => s.includes("secret-key")));
   assertEquals(closes >= 1, true);
+});
+
+Deno.test("auto mode falls back to delayed when realtime stays silent", async () => {
+  const urls: string[] = [];
+  const socket = createRadarSocket({
+    feedMode: "auto",
+    apiKey: "secret-key",
+    config: mergeRadarConfig({
+      reconnectBaseDelayMs: 1,
+      reconnectMaxDelayMs: 1,
+      reconnectJitter: 0,
+    }),
+    silentMarketMs: 15,
+    sleep: () => Promise.resolve(),
+    nowMs: () => T0,
+    connect: (url, handlers) => {
+      urls.push(url);
+      const handle: RadarWsHandle = {
+        send: (data) => {
+          const parsed = JSON.parse(data) as { action?: string };
+          if (parsed.action === "auth") {
+            handlers.onMessage(
+              JSON.stringify({ ev: "status", status: "auth_success" }),
+            );
+          }
+        },
+        close: () => handlers.onClose(),
+      };
+      queueMicrotask(() => handlers.onOpen());
+      return handle;
+    },
+    onEvent: () => {},
+    onState: () => {},
+    onReconnect: () => {},
+    shouldRun: () => urls.length < 2,
+  });
+  socket.start();
+  await new Promise((r) => setTimeout(r, 80));
+  socket.stop();
+  assertEquals(urls[0], "wss://socket.massive.com/stocks");
+  assertEquals(urls[1], "wss://delayed.massive.com/stocks");
+});
+
+Deno.test("binary aggregate frames decode to JSON text", async () => {
+  const payload = JSON.stringify({ ev: "A", sym: "AAA" });
+  const decoded = await frameText(new TextEncoder().encode(payload));
+  assertEquals(decoded, payload);
+  assertEquals(await frameText(payload), payload);
+  assertEquals(await frameText(null), "");
 });
 
 Deno.test("duplicate-consumer lease: second holder is rejected", async () => {
