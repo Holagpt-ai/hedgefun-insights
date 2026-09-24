@@ -1,6 +1,10 @@
 // Sanitized structured outcome log for one Watchlist V2 analyzer invocation.
 // Never carries API keys, auth headers, prompts, raw provider bodies, or user IDs.
 
+import {
+  sanitizeAnthropicErrorMessage,
+  sanitizeAnthropicErrorType,
+} from "../_shared/ai/anthropic-error.ts";
 import { LOG_PREFIX } from "../_shared/watchlist-v2/sanitize.ts";
 import { STALE_MS, type SnapshotTimestampSource } from "../_shared/watchlist-v2/market-data.ts";
 import { normalizeTicker } from "../_shared/watchlist-v2/contract.ts";
@@ -42,6 +46,8 @@ export interface AnalyzerOutcomeLog {
   missing_evidence_count: number | null;
   provider_stage: AnalyzerProviderStage | null;
   anthropic_http_status: number | null;
+  anthropic_error_type: string | null;
+  anthropic_error_message: string | null;
   claude_decision: ClaudeDecision | null;
   ai_provider: string | null;
   ai_model: string | null;
@@ -71,6 +77,8 @@ export const ANALYZER_OUTCOME_LOG_KEYS = [
   "missing_evidence_count",
   "provider_stage",
   "anthropic_http_status",
+  "anthropic_error_type",
+  "anthropic_error_message",
   "claude_decision",
   "ai_provider",
   "ai_model",
@@ -141,6 +149,8 @@ export function emptyAnalyzerOutcomeLog(
     missing_evidence_count: null,
     provider_stage: null,
     anthropic_http_status: null,
+    anthropic_error_type: null,
+    anthropic_error_message: null,
     claude_decision: null,
     ai_provider: null,
     ai_model: null,
@@ -180,6 +190,10 @@ export function sanitizeAnalyzerOutcomeLog(input: AnalyzerOutcomeLog): AnalyzerO
     missing_evidence_count: finiteOrNull(input.missing_evidence_count),
     provider_stage: strOrNull(input.provider_stage, STAGES) as AnalyzerProviderStage | null,
     anthropic_http_status: finiteOrNull(input.anthropic_http_status),
+    anthropic_error_type: sanitizeAnthropicErrorType(input.anthropic_error_type),
+    anthropic_error_message: typeof input.anthropic_error_message === "string"
+      ? sanitizeAnthropicErrorMessage(input.anthropic_error_message)
+      : null,
     claude_decision: strOrNull(
       input.claude_decision,
       CLAUDE_DECISIONS as ReadonlySet<string>,

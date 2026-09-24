@@ -1,6 +1,7 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
-  buildAiPrompt, buildEvidenceCatalog, EVIDENCE_PREFIXES, makeAnthropicCaller, validateAiOutput,
+  buildAiPrompt, buildEvidenceCatalog, buildWatchlistAnthropicBody, EVIDENCE_PREFIXES,
+  makeAnthropicCaller, validateAiOutput, DEFAULT_ANTHROPIC_WATCHLIST_MODEL,
 } from "./ai-read.ts";
 
 const catalog = buildEvidenceCatalog({
@@ -210,9 +211,101 @@ Deno.test("anthropic transport failure carries no key, prompt, url, or body", as
   const r = await callWithFetch(() =>
     Promise.resolve(new Response("SECRET_BODY", { status: 500 }))
   );
-  assertEquals(Object.keys(r).sort(), ["code", "failure_kind", "http_status", "kind"]);
+  assertEquals(Object.keys(r).sort(), [
+    "code", "failure_kind", "http_status", "kind",
+    "provider_error_message", "provider_error_type",
+  ]);
   const serialized = JSON.stringify(r);
   for (const forbidden of ["SECRET_KEY_VALUE", "SECRET_PROMPT_TEXT", "SECRET_BODY", "x-api-key", "anthropic", "https://"]) {
     assert(!serialized.includes(forbidden), `leaked ${forbidden}`);
   }
+});
+
+Deno.test("anthropic: valid request succeeds and posts only model, max_tokens, and one user message", async () => {
+  const original = globalThis.fetch;
+  let posted = "";
+  let headers: Record<string, string> = {};
+  globalThis.fetch = (async (_url: string, init?: RequestInit) => {
+    posted = String(init?.body ?? "");
+    headers = Object.fromEntries(new Headers(init?.headers).entries());
+    return new Response(JSON.stringify({
+      content: [{ type: "text", text: `{"direction":"bullish","explanation":"Above VWAP.","driver_ids":["${ID_SIGNAL}"]}` }],
+      usage: { input_tokens: 3, output_tokens: 4 },
+    }), { status: 200 });
+  }) as typeof fetch;
+  try {
+    const r = await makeAnthropicCaller(API_KEY).call("PROMPT", catalog);
+    assertEquals(r.kind, "ok");
+    if (r.kind === "ok") assertEquals(r.value.direction, "bullish");
+  } finally {
+    globalThis.fetch = original;
+  }
+  const body = JSON.parse(posted) as Record<string, unknown>;
+  assertEquals(body.model, DEFAULT_ANTHROPIC_WATCHLIST_MODEL);
+  assertEquals(body.max_tokens, 512);
+  assertEquals(Object.keys(body).sort(), ["max_tokens", "messages", "model"]);
+  assertEquals(body.messages, [{ role: "user", content: "PROMPT" }]);
+  assertEquals(headers["x-api-key"], API_KEY);
+  assertEquals(headers["anthropic-version"], "2023-06-01");
+  assertEquals(headers["content-type"], "application/json");
+  assert(!("temperature" in body));
+  assert(!("top_p" in body));
+  assert(!("tools" in body));
+  assert(!("tool_choice" in body));
+  assert(!("system" in body));
+});
+
+Deno.test("anthropic: HTTP 400 invalid_request_error is surfaced and is not success", async () => {
+  const message = "messages.0: extra inputs are not permitted";
+  const r = await callWithFetch(() => Promise.resolve(new Response(JSON.stringify({
+    type: "error",
+    error: { type: "invalid_request_error", message },
+    request_id: "req_watchlist_400",
+  }), { status: 400 })));
+  assertEquals(r.kind, "transport_failure");
+  if (r.kind !== "transport_failure") return;
+  assertEquals(r.code, "PROVIDER_ERROR");
+  assertEquals(r.http_status, 400);
+  assertEquals(r.failure_kind, "http_error");
+  assertEquals(r.provider_error_type, "invalid_request_error");
+  assertEquals(r.provider_error_message, message);
+});
+
+Deno.test("anthropic: HTTP 400 message drops secrets", async () => {
+  const r = await callWithFetch(() => Promise.resolve(new Response(JSON.stringify({
+    type: "error",
+    error: { type: "invalid_request_error", message: "rejected sk-ant-SECRET_KEY_VALUE" },
+  }), { status: 400 })));
+  const serialized = JSON.stringify(r);
+  assert(!serialized.includes("SECRET_KEY_VALUE"));
+  assert(!serialized.includes("sk-ant"));
+});
+
+Deno.test("radar context serializes inside the user prompt without extra API fields", () => {
+  const prompt = buildAiPrompt({
+    ticker: "AAPL", session_type: "rth", session_date: "2026-09-24",
+    price: 10, change_pct: 1, volume: 100, rvol: 1.2, rvol_class: "normal",
+    key_levels: { vwap: 10 }, market_signals: [], recent_events: [],
+    reason_codes: ["radar_event:HOD_BREAK"],
+    radar_context: {
+      primary_event: "HOD_BREAK",
+      primary_event_at: "2026-09-24T14:00:00.000Z",
+      rvol_5m: 2.5,
+      volume_velocity: 1.1,
+      volume_acceleration_pct: null,
+      distance_from_hod_pct: -0.4,
+    },
+  }, catalog);
+  const body = buildWatchlistAnthropicBody(DEFAULT_ANTHROPIC_WATCHLIST_MODEL, prompt);
+  const parsed = JSON.parse(JSON.stringify(body)) as {
+    model: string;
+    max_tokens: number;
+    messages: Array<{ role: string; content: string }>;
+  };
+  assertEquals(Object.keys(parsed).sort(), ["max_tokens", "messages", "model"]);
+  assertEquals(parsed.messages.length, 1);
+  assertEquals(parsed.messages[0].role, "user");
+  assert(parsed.messages[0].content.includes("HOD_BREAK"));
+  assert(parsed.messages[0].content.includes('"volume_acceleration_pct":null'));
+  assert(!parsed.messages[0].content.includes("undefined"));
 });

@@ -75,6 +75,8 @@ export interface WatchlistAiRawComplete {
   http_status?: number | null;
   code?: ProviderTransportFailure["code"];
   failure_kind?: ProviderTransportFailure["failure_kind"];
+  provider_error_type?: string | null;
+  provider_error_message?: string | null;
 }
 
 export interface WatchlistAiAdapter {
@@ -223,6 +225,8 @@ export async function generateWatchlistAnalysis(
         code: raw.code ?? "PROVIDER_ERROR",
         http_status: raw.http_status ?? null,
         failure_kind: raw.failure_kind ?? "http_error",
+        provider_error_type: raw.provider_error_type ?? null,
+        provider_error_message: raw.provider_error_message ?? null,
       };
       const issue = classifyQualityIssue(failure);
       emitWatchlistAiQualityLog({

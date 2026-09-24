@@ -276,6 +276,8 @@ export interface ProviderFailureDiagnostic {
   error_code: ErrorCode;
   http_status: number | null;
   failure_kind: ProviderFailureKind;
+  anthropic_error_type?: string;
+  anthropic_error_message?: string;
 }
 
 export function buildProviderFailureDiagnostic(
@@ -283,17 +285,24 @@ export function buildProviderFailureDiagnostic(
   stage: ProviderStage,
   failure: ProviderTransportFailure,
 ): ProviderFailureDiagnostic {
-  return {
+  const diagnostic: ProviderFailureDiagnostic = {
     ticker: normalizeTicker(ticker) ?? "",
     provider_stage: stage,
     error_code: mapTransportErr(failure.code),
     http_status: typeof failure.http_status === "number" ? failure.http_status : null,
     failure_kind: failure.failure_kind,
   };
+  if (typeof failure.provider_error_type === "string" && failure.provider_error_type) {
+    diagnostic.anthropic_error_type = failure.provider_error_type;
+  }
+  if (typeof failure.provider_error_message === "string" && failure.provider_error_message) {
+    diagnostic.anthropic_error_message = failure.provider_error_message;
+  }
+  return diagnostic;
 }
 
 export function formatProviderFailureLog(d: ProviderFailureDiagnostic): string {
-  return `${LOG_PREFIX} provider stage failure ${sanitize(JSON.stringify(d))}`;
+  return `${LOG_PREFIX} provider stage failure ${sanitize(JSON.stringify(d), 480)}`;
 }
 
 function logProviderFailure(
@@ -924,6 +933,8 @@ export async function handleRequest(req: Request): Promise<Response> {
         if (outcome.meta.provider === "anthropic") {
           outcomeLog.provider_stage = "anthropic_ai";
           outcomeLog.anthropic_http_status = outcome.http_status;
+          outcomeLog.anthropic_error_type = outcome.provider_error_type ?? null;
+          outcomeLog.anthropic_error_message = outcome.provider_error_message ?? null;
         }
         outcomeLog.missing_evidence_count = evidence.missing.length;
         outcomeLog.claude_decision = "error";

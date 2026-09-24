@@ -5,7 +5,8 @@
 import type { Direction, KeyLevels, MarketSignal, RecentEvent } from "./contract.ts";
 import { containsForbiddenKey } from "./contract.ts";
 import { classifyFetchFailure, type ProviderTransportFailure } from "./market-data.ts";
-import { sanitize } from "./sanitize.ts";
+import { LOG_PREFIX, sanitize } from "./sanitize.ts";
+import { readAnthropicErrorDetail } from "../ai/anthropic-error.ts";
 
 export interface EvidenceCatalog {
   /** Full set of allowed driver_ids, each carrying its stable prefix. */
@@ -53,6 +54,8 @@ export interface AiRawComplete {
   http_status?: number | null;
   code?: ProviderTransportFailure["code"];
   failure_kind?: ProviderTransportFailure["failure_kind"];
+  provider_error_type?: string | null;
+  provider_error_message?: string | null;
 }
 
 export interface AiCaller {
@@ -190,6 +193,20 @@ export function validateAiOutput(rawText: string, catalog: EvidenceCatalog): AiR
 }
 
 export const DEFAULT_ANTHROPIC_WATCHLIST_MODEL = "claude-haiku-4-5-20251001";
+export const WATCHLIST_ANTHROPIC_MAX_TOKENS = 512;
+
+/** Messages request actually posted to Anthropic. No sampling, tools, or system field. */
+export function buildWatchlistAnthropicBody(model: string, prompt: string): {
+  model: string;
+  max_tokens: number;
+  messages: Array<{ role: "user"; content: string }>;
+} {
+  return {
+    model,
+    max_tokens: WATCHLIST_ANTHROPIC_MAX_TOKENS,
+    messages: [{ role: "user", content: prompt }],
+  };
+}
 
 export function makeAnthropicCaller(
   apiKey: string,
@@ -205,11 +222,7 @@ export function makeAnthropicCaller(
           "x-api-key": apiKey,
           "anthropic-version": "2023-06-01",
         },
-        body: JSON.stringify({
-          model,
-          max_tokens: 512,
-          messages: [{ role: "user", content: prompt }],
-        }),
+        body: JSON.stringify(buildWatchlistAnthropicBody(model, prompt)),
         signal: AbortSignal.timeout(20000),
       });
     } catch (e) {
@@ -221,22 +234,20 @@ export function makeAnthropicCaller(
         failure_kind: classifyFetchFailure(e),
       };
     }
-    if (res.status === 429) {
-      try { await res.body?.cancel(); } catch { /* noop */ }
-      return {
-        kind: "transport_failure",
-        code: "RATE_LIMITED",
-        http_status: 429,
-        failure_kind: "http_error",
-      };
-    }
     if (!res.ok) {
-      try { await res.body?.cancel(); } catch { /* noop */ }
+      const detail = await readAnthropicErrorDetail(res);
+      console.error(`${LOG_PREFIX} anthropic_http_error ${sanitize(JSON.stringify({
+        http_status: res.status,
+        anthropic_error_type: detail.type,
+        anthropic_error_message: detail.message,
+      }), 400)}`);
       return {
         kind: "transport_failure",
-        code: "PROVIDER_ERROR",
+        code: res.status === 429 ? "RATE_LIMITED" : "PROVIDER_ERROR",
         http_status: res.status,
         failure_kind: "http_error",
+        provider_error_type: detail.type,
+        provider_error_message: detail.message,
       };
     }
     let body: unknown;
@@ -275,6 +286,8 @@ export function makeAnthropicCaller(
           code: raw.code ?? "PROVIDER_ERROR",
           http_status: raw.http_status ?? null,
           failure_kind: raw.failure_kind ?? "http_error",
+          provider_error_type: raw.provider_error_type ?? null,
+          provider_error_message: raw.provider_error_message ?? null,
         };
       }
       if (typeof raw.rawText !== "string" || raw.rawText.length === 0) {

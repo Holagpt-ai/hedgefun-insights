@@ -15,7 +15,7 @@ const DASHSCOPE_URL_RE = /https?:\/\/[^\s"'`]*aliyuncs\.com[^\s"'`]*/gi;
 
 const MAX = 200;
 
-export function sanitize(input: unknown): string {
+export function sanitize(input: unknown, max = MAX): string {
   let s: string;
   if (input == null) s = "";
   else if (typeof input === "string") s = input;
@@ -37,6 +37,6 @@ export function sanitize(input: unknown): string {
     .replace(ANTHROPIC_URL_RE, "https://api.anthropic.com/***")
     .replace(DASHSCOPE_URL_RE, "https://aliyuncs.com/***")
     .replace(UUID_RE, "***-uuid-***");
-  if (s.length > MAX) s = s.slice(0, MAX);
+  if (s.length > max) s = s.slice(0, max);
   return s;
 }

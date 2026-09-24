@@ -24,6 +24,10 @@ export interface ProviderTransportFailure {
   /** Upstream HTTP status when a response was received, else null. */
   http_status: number | null;
   failure_kind: ProviderFailureKind;
+  /** Sanitized Anthropic error.type when the Watchlist caller read one. */
+  provider_error_type?: string | null;
+  /** Sanitized Anthropic error.message. Never the raw body. */
+  provider_error_message?: string | null;
 }
 
 export type ProviderOutcome<T = unknown> =

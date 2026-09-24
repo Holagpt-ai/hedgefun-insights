@@ -51,6 +51,22 @@ Deno.test("diagnostic exposes only the allowed fields", () => {
   );
 });
 
+Deno.test("provider 400 keeps the sanitized Anthropic message and drops secrets", () => {
+  const line = formatProviderFailureLog(buildProviderFailureDiagnostic("AAPL", "anthropic_ai", {
+    kind: "transport_failure",
+    code: "PROVIDER_ERROR",
+    http_status: 400,
+    failure_kind: "http_error",
+    provider_error_type: "invalid_request_error",
+    provider_error_message: "messages.0: extra inputs are not permitted",
+  }));
+  assert(line.includes("invalid_request_error"));
+  assert(line.includes("messages.0: extra inputs are not permitted"));
+  assert(line.includes("400"));
+  assert(!line.includes("sk-ant"));
+  assert(!line.includes("https://"));
+});
+
 Deno.test("log line carries the safe prefix and no secret-bearing text", () => {
   const line = formatProviderFailureLog(buildProviderFailureDiagnostic("GRAB", "anthropic_ai", {
     kind: "transport_failure", code: "PROVIDER_ERROR",
