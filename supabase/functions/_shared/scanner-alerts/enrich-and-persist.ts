@@ -47,7 +47,8 @@ async function resolveSecurityId(
   db: DbClient,
   symbol: string,
 ): Promise<string | null> {
-  const result = await db.from("securities")
+  // deno-lint-ignore no-explicit-any
+  const result = await (db.from("securities") as any)
     .select("security_id")
     .eq("current_symbol", symbol.toUpperCase())
     .maybeSingle();
@@ -60,7 +61,8 @@ async function pickVerifiedCatalyst(
   db: DbClient,
   symbol: string,
 ): Promise<{ id: string; event_type: string; title: string | null } | null> {
-  const result = await db.from("catalyst_events")
+  // deno-lint-ignore no-explicit-any
+  const result = await (db.from("catalyst_events") as any)
     .select("id, event_type, title")
     .eq("symbol", symbol.toUpperCase())
     .eq("verification_state", "provider_reported")
@@ -181,12 +183,12 @@ export async function buildEnrichedScannerAlertRow(
       lastSignificantEpisodeId = recent.episodeId;
       lastEpisodeMovePct = recent.movePct;
       lastEpisodeVolume = recent.volume;
-      const intraday = recent.observedIntradayReconstruction;
+      const intraday = (recent as { observedIntradayReconstruction?: unknown }).observedIntradayReconstruction;
       if (intraday && typeof intraday === "object" && intraday !== null) {
         const hodAt = (intraday as { hodAt?: string | null }).hodAt;
         if (typeof hodAt === "string") lastEpisodeHodTime = hodAt;
       }
-      const linked = recent.historicalEvents;
+      const linked = (recent as { historicalEvents?: unknown }).historicalEvents;
       if (Array.isArray(linked) && linked[0] && typeof linked[0] === "object") {
         const et = (linked[0] as { eventType?: string }).eventType;
         if (typeof et === "string") historicalCatalystType = et;

@@ -649,7 +649,7 @@ export async function handleRequest(req: Request): Promise<Response> {
 
   const reasonCodes: string[] = [];
   if (newsR.kind === "transport_failure") reasonCodes.push(`news_${newsR.code.toLowerCase()}`);
-  const radarContext = await fetchRadarScannerContext(supabase, ticker, sessionDate);
+  const radarContext = await fetchRadarScannerContext(supabase as unknown as Parameters<typeof fetchRadarScannerContext>[0], ticker, sessionDate);
   reasonCodes.push(...radarContextReasonCodes(radarContext));
 
   const snapshotQuality = effectiveSnapshotQuality(snapshot, bars, analyzedAtMs);

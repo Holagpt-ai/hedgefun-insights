@@ -25,6 +25,7 @@ function state(): AmMaterialState {
     headline_ids: [],
     catalyst_ids: [],
     earnings_ids: [],
+    continuation_keys: [],
   };
 }
 
