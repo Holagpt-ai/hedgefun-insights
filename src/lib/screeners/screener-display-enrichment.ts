@@ -1,10 +1,11 @@
 /**
  * Screener display-field enrichment for Radar V2 Sentinel rows.
  *
- * Sentinel ranking stays volume-first and authoritative. When verified
- * screener_results or radar_v22_board rows carry honest day/session metrics
- * that Sentinel does not persist, copy them onto matching Sentinel symbols
- * for display only. Never fabricate values or reorder rows.
+ * Sentinel ranking stays volume-first and authoritative. MOVE and prior-session
+ * volume prefer facts already persisted on the candidate. A same-session
+ * screener_results donor is only a compatibility fallback when those facts are
+ * null. radar_v22_board snapshots are not a fallback for either fact.
+ * Never fabricate values or reorder rows.
  */
 
 import { easternDate } from "@/lib/radar-v22";
@@ -45,6 +46,12 @@ export interface DisplayFieldDonor {
 }
 
 export const DONOR_MAX_PROVIDER_SKEW_MS = SCREENER_STALE_AFTER_MS;
+
+const BOARD_DONOR_TAB = "radar_v22_board";
+
+function isBoardDonor(donor: DisplayFieldDonor): boolean {
+  return donor.tab_id === BOARD_DONOR_TAB;
+}
 
 const TAB_PRIORITY: Record<string, number> = {
   day_trade_radar: 5,
@@ -116,6 +123,7 @@ function recoveredSessionMove(
   sentinel: ScreenerResultRow,
   donor: DisplayFieldDonor,
 ): number | null {
+  if (isBoardDonor(donor)) return null;
   if (!isBaseDonorCoherent(sentinel, donor)) return null;
   if (!isVerifiedRegularSessionChange(donor.change_percent)) return null;
   if (!isPositiveFinite(sentinel.price) || !isPositiveFinite(donor.price)) return null;
@@ -132,6 +140,7 @@ function recoveredSessionMove(
  * be internally consistent. The displayed ratio is recomputed from Sentinel volume.
  */
 function canEnrichVolPrior(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
+  if (isBoardDonor(donor)) return false;
   if (!isBaseDonorCoherent(sentinel, donor)) return false;
   if (!isPositiveFinite(sentinel.volume)) return false;
   return (
@@ -179,6 +188,8 @@ function isBetterDonor(
   preferredTabId: string | null,
 ): boolean {
   if (!incumbent) return true;
+  if (isBoardDonor(candidate) && !isBoardDonor(incumbent)) return false;
+  if (!isBoardDonor(candidate) && isBoardDonor(incumbent)) return true;
   const candidatePreferred =
     preferredTabId && candidate.tab_id === preferredTabId ? 1 : 0;
   const incumbentPreferred =
@@ -217,7 +228,7 @@ export function buildDisplayFieldLookup(
     consider(row);
   }
   for (const row of boardRows ?? []) {
-    consider({ ...row, tab_id: "radar_v22_board" });
+    consider({ ...row, tab_id: BOARD_DONOR_TAB });
   }
 
   return lookup;
@@ -247,6 +258,12 @@ export function enrichDisplayFields<T extends ScreenerResultRow>(
   if (next.change_percent === null) {
     const move = recoveredSessionMove(row, donor);
     if (move !== null) next.change_percent = move;
+  } else if (
+    !isBoardDonor(donor) &&
+    isBaseDonorCoherent(row, donor) &&
+    pricesImplyCorporateActionScale(donor.price, row.price)
+  ) {
+    next.change_percent = null;
   }
 
   if (

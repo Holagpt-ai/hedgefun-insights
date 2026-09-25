@@ -41,6 +41,10 @@ import type { SessionTransition } from "./session.ts";
 import type { SymbolMetrics } from "./types.ts";
 import { isScannerEventType } from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
 import type { ScannerAlertFiring } from "../../../../supabase/functions/_shared/scanner-alerts/types.ts";
+import {
+  candidatePreviousSessionFacts,
+  type PreviousSessionQuoteInput,
+} from "../../../../src/lib/screeners/previous-session-facts.ts";
 
 export { REPLACE_RADAR_V2_RPC, RADAR_V22_CANDIDATE_CAP };
 
@@ -548,6 +552,11 @@ export function mapCandidateRow(opts: {
     events: Array<{ type: string; triggered_at: string; active: boolean }>;
     primary: { type: string; triggered_at: string; active: boolean } | null;
   };
+  /**
+   * Current enrichment quote for this surveillance date. Null when the symbol
+   * has no quote in this generation. Not read from radar_v22_board.
+   */
+  previousSession?: Omit<PreviousSessionQuoteInput, "lastPrice"> | null;
 }): RadarV22CandidateRow {
   const intel = opts.intel;
   const lastPrice = intel?.lastPrice ?? opts.metrics.lastPrice;
@@ -565,6 +574,13 @@ export function mapCandidateRow(opts: {
   const signal: RadarV22SignalStatus = isRadarV22BoardLifecycle(opts.lifecycle)
     ? signalStatusForLifecycle(opts.lifecycle, false)
     : "INACTIVE";
+  const previousSession = candidatePreviousSessionFacts({
+    regularClose: opts.previousSession?.regularClose,
+    previousClose: opts.previousSession?.previousClose,
+    changePercent: opts.previousSession?.changePercent,
+    priorVolume: opts.previousSession?.priorVolume,
+    lastPrice,
+  });
   const iso = (ms: number | null): string | null =>
     ms === null ? null : opts.isoFromMs(ms);
   const hodPct = intel?.hodDistance !== null && intel?.hodDistance !== undefined
@@ -620,6 +636,8 @@ export function mapCandidateRow(opts: {
     primary_scanner_event: opts.scanner?.primary?.type ?? null,
     primary_scanner_event_at: opts.scanner?.primary?.triggered_at ?? null,
     scanner_events: opts.scanner?.events ?? [],
+    previous_close: previousSession.previous_close,
+    prior_session_volume: previousSession.prior_session_volume,
     updated_at: opts.updatedAt,
   };
 }
@@ -711,8 +729,9 @@ function fingerprintClock(value: string | null): string {
  * Material-state fingerprint for a candidate generation.
  *
  * Included: membership, trading_date, session_kind, lifecycle, signal_status,
- * normalized price/volume/geometry, honesty flags, freshness CLASS, HOD/VWAP
- * clocks, freshness clocks, promoted_at, lifecycle_entered_at.
+ * normalized price/volume/geometry, previous_close, prior_session_volume,
+ * honesty flags, freshness CLASS, HOD/VWAP clocks, freshness clocks,
+ * promoted_at, lifecycle_entered_at.
  *
  * Excluded (would churn every eval): generation_id, updated_at,
  * freshness_age_ms, provider_as_of, last_price_at.
@@ -731,6 +750,8 @@ export function fingerprintRadarV2Generation(
         row.lifecycle,
         row.signal_status,
         normalizeRadarV2Number(row.last_price, RADAR_V2_PRICE_DECIMALS),
+        normalizeRadarV2Number(row.previous_close, RADAR_V2_PRICE_DECIMALS),
+        normalizeRadarV2Number(row.prior_session_volume, RADAR_V2_VOLUME_DECIMALS),
         normalizeRadarV2Number(row.move_15s_pct, RADAR_V2_PCT_DECIMALS),
         normalizeRadarV2Number(row.move_60s_pct, RADAR_V2_PCT_DECIMALS),
         normalizeRadarV2Number(row.volume_5s, RADAR_V2_VOLUME_DECIMALS),

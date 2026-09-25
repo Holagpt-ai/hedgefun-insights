@@ -12,14 +12,12 @@
  *
  * Honesty rules:
  *  - RVOL is not persisted by Radar V2 → `rvol` stays null → UI renders `—`.
- *  - No prior-close is persisted → `gap_percent` / `prior_session_volume` /
- *    `volume_ratio_prior_session` / 52w fields stay null (rendered `—`).
- *  - No confirmed prior-close percentage change is persisted in any session, so
- *    `change_percent` is left null (rendered `—`). Radar only persists a
- *    short-window move (move_60s_pct / move_15s_pct); surfacing that in a column
- *    labeled "Move"/"% Change" would mislabel it as a day/session change, so it
- *    is intentionally NOT mapped into `change_percent`. It still contributes to
- *    volume-first tie-breaking during ranking.
+ *  - `previous_close` and `prior_session_volume` are persisted previous-session
+ *    facts. MOVE is (last - previous_close) / previous_close. VOL/YDAY is
+ *    session volume / prior_session_volume. Missing facts stay null (`—`).
+ *  - Short-window moves (move_60s_pct / move_15s_pct) are never mapped into
+ *    `change_percent`. They still contribute to volume-first tie-breaking.
+ *  - Gap and 52w fields are not persisted here and stay null.
  *  - Stale/unavailable Radar data is never shown as live; caller falls back.
  */
 
@@ -35,6 +33,7 @@ import {
 import type { RadarRankingFields } from "@/features/day-trade-radar-v2/types";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
+import { sessionMovePercent, volumeVersusPriorSession } from "@/lib/screeners/session-move";
 import {
   feedSessionMatchesConsumerClock,
   surveillanceTradingDateFromMs,
@@ -149,6 +148,10 @@ export interface RadarV2CandidateRow {
   updated_at: string;
   promoted_at?: string | null;
   last_hod_break_at?: string | null;
+  /** Persisted previous regular close. Null or omitted when unverified. */
+  previous_close?: number | null;
+  /** Persisted previous completed session volume. Null or omitted when unverified. */
+  prior_session_volume?: number | null;
 }
 
 export interface RadarV2FeedStateRow {
@@ -377,23 +380,30 @@ export function mapCandidateToScreenerRow(
     symbol,
     company_name: null, // Radar V2 does not persist company name.
     price: isFiniteNumber(row.last_price) ? row.last_price : null,
-    // No confirmed prior-close % change is persisted by Radar V2. Radar's
-    // short-window move is NOT a day/session change and must not be mislabeled
-    // → leave null (`—`).
-    change_percent: null,
+    // MOVE uses the persisted previous regular close. Short-window 15s/60s
+    // moves are never substituted. Missing or non-positive close stays null.
+    change_percent: sessionMovePercent(
+      isFiniteNumber(row.last_price) ? row.last_price : null,
+      isPositiveFinite(row.previous_close) ? row.previous_close : null,
+    ),
     volume: isFiniteNumber(row.session_volume) ? row.session_volume : null,
     avg_volume: null,
     rvol: null, // Not persisted; never fabricated → UI renders `—`.
     avg_volume_20d: null,
     rvol_20d: null,
     float_shares: null,
-    gap_percent: null, // No prior close persisted → no honest gap.
+    gap_percent: null, // Gap is not derived from the persisted previous close.
     high_52w: null,
     low_52w: null,
     range_event: null,
     market_cap: null,
-    prior_session_volume: null, // No prior-session volume in Radar V2.
-    volume_ratio_prior_session: null,
+    prior_session_volume: isPositiveFinite(row.prior_session_volume)
+      ? row.prior_session_volume
+      : null,
+    volume_ratio_prior_session: volumeVersusPriorSession(
+      isFiniteNumber(row.session_volume) ? row.session_volume : null,
+      isPositiveFinite(row.prior_session_volume) ? row.prior_session_volume : null,
+    ),
     day_high: isPositiveFinite(row.session_high) ? row.session_high : null,
     day_low: isPositiveFinite(row.session_low) ? row.session_low : null,
     provider_as_of: row.provider_as_of ?? row.updated_at,

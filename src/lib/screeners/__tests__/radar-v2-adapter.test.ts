@@ -142,6 +142,34 @@ describe("Radar V2 adapter — mapping (Phase C)", () => {
     expect(mapCandidateToScreenerRow(candidate(), "day_trade_radar").change_percent).toBeNull();
   });
 
+  it("prefers persisted previous-session facts over short-window moves", () => {
+    const row = mapCandidateToScreenerRow(
+      candidate({
+        last_price: 10.2,
+        previous_close: 8,
+        prior_session_volume: 100_000,
+        session_volume: 250_000,
+        move_60s_pct: 8.8,
+        move_15s_pct: -2.1,
+      }),
+      "day_trade_radar",
+    );
+    expect(row.change_percent).toBeCloseTo(((10.2 - 8) / 8) * 100, 8);
+    expect(row.prior_session_volume).toBe(100_000);
+    expect(row.volume_ratio_prior_session).toBe(2.5);
+    expect(row.move_60s_pct).toBe(8.8);
+  });
+
+  it("does not substitute 0 for a missing previous close or prior volume", () => {
+    const row = mapCandidateToScreenerRow(
+      candidate({ previous_close: 0, prior_session_volume: 0, move_60s_pct: 4 }),
+      "day_trade_radar",
+    );
+    expect(row.change_percent).toBeNull();
+    expect(row.prior_session_volume).toBeNull();
+    expect(row.volume_ratio_prior_session).toBeNull();
+  });
+
   it("9. ticker handoff identity is preserved (normalized symbol + generation id)", () => {
     const row = mapCandidateToScreenerRow(candidate({ symbol: "  aaa " }), "day_trade_radar");
     expect(row.symbol).toBe("AAA"); // /stocks/AAA, watchlist, catalyst, AI all key off this

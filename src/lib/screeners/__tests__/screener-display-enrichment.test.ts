@@ -143,7 +143,7 @@ describe("screener display-field enrichment", () => {
     expect(rows[0].volume_ratio_prior_session).toBe(16.5);
   });
 
-  it("uses radar_v22_board donors when screener_results lack the symbol", () => {
+  it("does not use a radar_v22_board snapshot for MOVE or prior volume", () => {
     const row = sentinel("EEE", 3_000_000);
     const lookup = buildDisplayFieldLookup(
       [],
@@ -162,8 +162,9 @@ describe("screener display-field enrichment", () => {
       ],
     );
     const enriched = enrichDisplayFields(row, lookup);
-    expect(enriched.change_percent).toBe(9.5);
-    expect(enriched.volume_ratio_prior_session).toBe(6);
+    expect(enriched.change_percent).toBeNull();
+    expect(enriched.prior_session_volume).toBeNull();
+    expect(enriched.volume_ratio_prior_session).toBeNull();
   });
 
   it("gap_percent copies only when allowGap is true", () => {
@@ -356,5 +357,74 @@ describe("screener display-field enrichment", () => {
     const enriched = enrichDisplayFields(row, lookup);
     expect(enriched.avg_volume_20d).toBeNull();
     expect(enriched.rvol_20d).toBeNull();
+  });
+
+  it("keeps persisted candidate MOVE and prior volume instead of donor reconstruction", () => {
+    const persistedMove = ((10.2 - 8) / 8) * 100;
+    const row = sentinel("KEEP", 250_000, {
+      price: 10.2,
+      change_percent: persistedMove,
+      prior_session_volume: 100_000,
+      volume_ratio_prior_session: 2.5,
+    });
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("KEEP", "volume_spikes", 9_000_000, {
+          price: 9,
+          change_percent: 10,
+          prior_session_volume: 999_999,
+          volume_ratio_prior_session: 9,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
+    expect(enriched.change_percent).toBeCloseTo(persistedMove, 8);
+    expect(enriched.prior_session_volume).toBe(100_000);
+    expect(enriched.volume_ratio_prior_session).toBe(2.5);
+  });
+
+  it("blanks a persisted MOVE when a same-day screener price implies a split", () => {
+    const row = sentinel("SPLIT2", 250_000, {
+      price: 20,
+      change_percent: 100,
+      prior_session_volume: 100_000,
+      volume_ratio_prior_session: 2.5,
+    });
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("SPLIT2", "volume_spikes", 250_000, {
+          price: 10,
+          change_percent: 0,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
+    expect(enriched.change_percent).toBeNull();
+    expect(enriched.prior_session_volume).toBe(100_000);
+  });
+
+  it("leaves MOVE and prior volume null when no donor exists", () => {
+    const enriched = enrichDisplayFields(sentinel("NONE", 1_000), new Map());
+    expect(enriched.change_percent).toBeNull();
+    expect(enriched.prior_session_volume).toBeNull();
+    expect(enriched.volume_ratio_prior_session).toBeNull();
+  });
+
+  it("does not substitute a zero prior volume from a donor", () => {
+    const row = sentinel("ZERO", 1_000_000);
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("ZERO", "volume_spikes", 1_000_000, {
+          prior_session_volume: 0,
+          volume_ratio_prior_session: 0,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
+    expect(enriched.prior_session_volume).toBeNull();
+    expect(enriched.volume_ratio_prior_session).toBeNull();
   });
 });

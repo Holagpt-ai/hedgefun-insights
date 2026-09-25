@@ -13,6 +13,7 @@ import {
   dualWriteRadarPersistence,
   eventKey,
   fingerprintRadarV2Generation,
+  mapCandidateRow,
   monotonicProviderEventAt,
   publishRadarV2Generation,
   publishRadarV2IfNeeded,
@@ -25,6 +26,7 @@ import {
   type RadarV2ChurnInput,
   type RadarV2RpcFn,
 } from "./persist_v2.ts";
+import type { SymbolMetrics } from "./types.ts";
 import type {
   RadarV22CandidateRow,
   ReplaceRadarV2Args,
@@ -136,6 +138,8 @@ function candidate(symbol: string, overrides: Partial<RadarV22CandidateRow> = {}
     promoted_at: SYNC,
     lifecycle_entered_at: SYNC,
     provider_as_of: SYNC,
+    previous_close: null,
+    prior_session_volume: null,
     updated_at: SYNC,
     ...overrides,
   };
@@ -1266,5 +1270,118 @@ Deno.test("stale RPC result is success and does not mark write-gate success", as
   const retry = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 5_000 }));
   assertEquals(retry.shouldWrite, true);
   assertEquals(retry.reason, "bootstrap");
+});
+
+function sessionMetrics(lastPrice: number): SymbolMetrics {
+  return {
+    symbol: "AAA",
+    vol5s: 1_000,
+    vol15s: 2_000,
+    vol60s: 3_000,
+    dollarVol60s: 40_000,
+    sessionVolume: 4_000,
+    sessionHigh: lastPrice,
+    sessionLow: lastPrice,
+    sessionVwap: lastPrice,
+    lastPrice,
+    move15s: { movePct: 1.5, complete: true },
+    move60s: { movePct: 4, complete: true },
+    acceleration5m: null,
+    rvol5m: null,
+    volumeVelocity: null,
+    volumeAccelerationPct: null,
+    providerLagMs: null,
+    lastBarEndMs: Date.parse(SYNC),
+    lastBarStartMs: Date.parse(SYNC),
+    lateCorrectionInWindows: false,
+    barCount: 1,
+  };
+}
+
+function mappedCandidate(
+  lastPrice: number,
+  previousSession: {
+    regularClose: number;
+    previousClose: number;
+    changePercent: number;
+    priorVolume: number;
+  } | null,
+): RadarV22CandidateRow {
+  return mapCandidateRow({
+    generationId: GEN,
+    tradingDate: DATE,
+    sessionKind: "after-hours",
+    symbol: "AAA",
+    lifecycle: "ACTIVE",
+    metrics: sessionMetrics(lastPrice),
+    intel: null,
+    promotedAtMs: Date.parse(SYNC),
+    phaseEnteredAtMs: Date.parse(SYNC),
+    updatedAt: SYNC,
+    isoFromMs: (ms) => new Date(ms).toISOString(),
+    previousSession,
+  });
+}
+
+Deno.test("previous-session facts persist from the regular-session pair, not the Radar last", () => {
+  const drifted = mappedCandidate(10.15, {
+    regularClose: 10,
+    previousClose: 8,
+    changePercent: 25,
+    priorVolume: 225_295,
+  });
+  assertEquals(drifted.previous_close, 8);
+  assertEquals(drifted.prior_session_volume, 225_295);
+  assertEquals(drifted.move_15s_pct, 1.5);
+  assert(drifted.previous_close !== drifted.last_price);
+
+  const largeDrift = mappedCandidate(15, {
+    regularClose: 10,
+    previousClose: 8,
+    changePercent: 25,
+    priorVolume: 225_295,
+  });
+  assertEquals(largeDrift.previous_close, 8);
+  assertEquals(largeDrift.prior_session_volume, 225_295);
+
+  const split = mappedCandidate(20, {
+    regularClose: 10,
+    previousClose: 8,
+    changePercent: 25,
+    priorVolume: 225_295,
+  });
+  assertEquals(split.previous_close, null);
+  assertEquals(split.prior_session_volume, 225_295);
+
+  const missing = mappedCandidate(10.15, null);
+  assertEquals(missing.previous_close, null);
+  assertEquals(missing.prior_session_volume, null);
+
+  const coercedZero = mappedCandidate(10.15, {
+    regularClose: 0,
+    previousClose: 0,
+    changePercent: 0,
+    priorVolume: 0,
+  });
+  assertEquals(coercedZero.previous_close, null);
+  assertEquals(coercedZero.prior_session_volume, null);
+});
+
+Deno.test("previous-session facts change the publish fingerprint", () => {
+  const before = fingerprintRadarV2Generation(DATE, "after-hours", [candidate("AAA")]);
+  const after = fingerprintRadarV2Generation(DATE, "after-hours", [
+    candidate("AAA", { previous_close: 8, prior_session_volume: 225_295 }),
+  ]);
+  assert(before !== after);
+  const gate = createRadarV2WriteGate();
+  commit(gate, [candidate("AAA")], 0);
+  const decision = gate.decide(
+    churnInput(
+      [candidate("AAA", { previous_close: 8, prior_session_volume: 225_295 })],
+      { wallNowMs: 5_000 },
+    ),
+  );
+  assertEquals(decision.shouldWrite, true);
+  assertEquals(decision.reason, "fingerprint");
 });
 

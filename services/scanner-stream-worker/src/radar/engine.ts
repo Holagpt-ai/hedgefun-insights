@@ -638,6 +638,14 @@ export function createRadarEngine(opts: {
           updatedAt,
           isoFromMs,
           scanner: scannerSnap,
+          previousSession: quote
+            ? {
+              regularClose: quote.regularClose,
+              previousClose: quote.previousClose,
+              changePercent: quote.changePercent,
+              priorVolume: quote.priorVolume,
+            }
+            : null,
         }));
         for (const ev of scannerSnap.newlyActivated) {
           v2ScannerFirings.push({

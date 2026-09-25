@@ -106,6 +106,13 @@ export type RadarV22CandidateRow = {
   primary_scanner_event: string | null;
   primary_scanner_event_at: string | null;
   scanner_events: unknown;
+  /**
+   * Previous regular-session close recovered from day.c and the verified
+   * regular-session move. Null when unverified or split-scale. Never 0.
+   */
+  previous_close: number | null;
+  /** Verified previous completed session volume (prevDay.v). Null when unverified. Never 0. */
+  prior_session_volume: number | null;
   updated_at: string;
 };
 

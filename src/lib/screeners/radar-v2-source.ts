@@ -71,6 +71,8 @@ const CANDIDATE_SELECT = [
   "vwap_side",
   "freshness_class",
   "provider_as_of",
+  "previous_close",
+  "prior_session_volume",
   "updated_at",
   "promoted_at",
   "last_hod_break_at",

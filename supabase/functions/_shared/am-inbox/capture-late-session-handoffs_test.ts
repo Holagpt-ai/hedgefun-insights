@@ -42,6 +42,8 @@ function candidate(overrides: Partial<RadarV22CandidateRow> = {}): RadarV22Candi
     promoted_at: null,
     lifecycle_entered_at: null,
     provider_as_of: "2026-07-15T20:00:00.000Z",
+    previous_close: null,
+    prior_session_volume: null,
     updated_at: "2026-07-15T20:00:00.000Z",
     ...overrides,
   };
