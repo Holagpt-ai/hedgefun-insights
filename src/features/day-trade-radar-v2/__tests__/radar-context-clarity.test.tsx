@@ -97,18 +97,19 @@ describe("Radar volume story", () => {
     expect(formatRadarContextMultiplier(null)).toBe("Unavailable");
 
     renderGrid([ranked()]);
-    expect(screen.getByRole("columnheader", { name: "Prior Vol" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Today Vol" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Vol / Prior" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "YDAY VOL" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "TODAY VOL" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "VOL/YDAY" })).toBeInTheDocument();
     expect(screen.getByText("196K")).toBeInTheDocument();
     expect(screen.getByText("3.7M")).toBeInTheDocument();
-    expect(screen.getByText("18.8×")).toBeInTheDocument();
+    expect(screen.getByText("18.9×")).toBeInTheDocument();
   });
 
   it("keeps missing prior volume unavailable instead of 0", () => {
     renderGrid([ranked({ prior_session_volume: null, volume_ratio_prior_session: null })]);
-    expect(screen.getAllByText("Unavailable").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("—").length).toBeGreaterThan(0);
     expect(screen.queryByText("0")).not.toBeInTheDocument();
+    expect(screen.queryByText("0.0×")).not.toBeInTheDocument();
   });
 });
 

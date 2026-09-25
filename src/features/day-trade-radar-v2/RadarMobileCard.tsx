@@ -7,10 +7,11 @@ import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsFo
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
-  formatRadarContextMultiplier,
   formatRadarContextVolume,
+  formatRadarMultiplier,
   formatRadarPercent,
   formatRadarPrice,
+  formatRadarVolume,
   isRadarRowAccessible,
   moveClass,
   radarSignalClass,
@@ -19,6 +20,17 @@ import {
 import type { RadarRankedRow } from "./types";
 import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 import { ScannerFieldHelp } from "./ScannerFieldHelp";
+import { HintedMetric, ScannerMetricHint } from "./ScannerMetricHint";
+import {
+  MOVE_BLANK,
+  MOVE_HEADER,
+  TODAY_VOL_BLANK,
+  TODAY_VOL_HEADER,
+  YDAY_VOL_BLANK,
+  YDAY_VOL_HEADER,
+  VOL_YDAY_HEADER,
+} from "./scanner-metric-copy";
+import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
@@ -187,26 +199,35 @@ export function RadarMobileCard({
           <span className="font-medium">{formatRadarPrice(row.price)}</span>
         </div>
         <div>
-          <ScannerFieldHelp fieldId="move" className="text-muted-foreground">
-            Move
-          </ScannerFieldHelp>{" "}
-          <span className={`font-medium ${moveClass(row.change_percent)}`}>
-            {formatRadarPercent(row.change_percent)}
-          </span>
+          <ScannerMetricHint label={MOVE_HEADER} className="text-muted-foreground">
+            MOVE
+          </ScannerMetricHint>{" "}
+          <HintedMetric
+            text={formatRadarPercent(row.change_percent)}
+            blankHint={MOVE_BLANK}
+            className={`font-medium ${moveClass(row.change_percent)}`}
+          />
         </div>
       </div>
       <div className="mt-1 text-[12px] tabular-nums text-muted-foreground">
-        Today Vol {formatRadarContextVolume(row.volume)}
+        <ScannerMetricHint label={TODAY_VOL_HEADER}>TODAY VOL</ScannerMetricHint>{" "}
+        <HintedMetric text={formatRadarVolume(row.volume)} blankHint={TODAY_VOL_BLANK} className="text-foreground" />
         {" · "}
         <ScannerFieldHelp fieldId="dollar_volume" className="text-muted-foreground">
           $ Vol
         </ScannerFieldHelp>{" "}
         <span className="text-foreground">{formatScreenerDollarVolume(row.price, row.volume, row)}</span>
         {" · "}
-        Prior {formatRadarContextVolume(row.prior_session_volume)}
+        <ScannerMetricHint label={YDAY_VOL_HEADER}>YDAY VOL</ScannerMetricHint>{" "}
+        <HintedMetric
+          text={formatRadarVolume(row.prior_session_volume)}
+          blankHint={YDAY_VOL_BLANK}
+          className="text-foreground"
+        />
         {" · "}
-        <span className={volumeRatioClass(row.volume_ratio_prior_session)}>
-          {formatRadarContextMultiplier(row.volume_ratio_prior_session)}
+        <ScannerMetricHint label={VOL_YDAY_HEADER}>VOL/YDAY</ScannerMetricHint>{" "}
+        <span className={`text-foreground ${volumeRatioClass(volumeVersusPriorSession(row.volume, row.prior_session_volume))}`}>
+          {formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}
         </span>
       </div>
       <div className="mt-0.5 text-[12px] tabular-nums text-muted-foreground">

@@ -24,12 +24,13 @@ import { resolveScannerSignalLabel } from "@/lib/screeners/scanner-events-displa
 import {
   formatFreshness,
   formatHodDistance,
-  formatRadarContextMultiplier,
   formatRadarContextVolume,
   formatRadarDataTime,
   formatRadarDollarVolume,
+  formatRadarMultiplier,
   formatRadarPercent,
   formatRadarPrice,
+  formatRadarVolume,
   formatRadarUnavailableMetric,
   formatShortWindowMove,
   formatVwapState,
@@ -42,6 +43,18 @@ import type { RadarRankedRow } from "./types";
 import { useMemo, type ReactNode } from "react";
 import { LegacyConfirmedBadge } from "./LegacyConfirmedBadge";
 import { ScannerFieldHelp } from "./ScannerFieldHelp";
+import { HintedMetric, ScannerMetricHint } from "./ScannerMetricHint";
+import {
+  MOVE_BLANK,
+  MOVE_HEADER,
+  TODAY_VOL_BLANK,
+  TODAY_VOL_HEADER,
+  VOL_YDAY_HEADER,
+  YDAY_VOL_BLANK,
+  YDAY_VOL_HEADER,
+  HISTORY_HEADER,
+} from "./scanner-metric-copy";
+import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
@@ -137,8 +150,20 @@ function NewsCatalystCell({
   );
 }
 
+const COLUMN_HEADER_HINT: Partial<Record<RadarColumnId, string>> = {
+  price_move: MOVE_HEADER,
+  volume: TODAY_VOL_HEADER,
+  prior_volume: YDAY_VOL_HEADER,
+  volume_ratio: VOL_YDAY_HEADER,
+  history: HISTORY_HEADER,
+};
+
 function HeaderLabel({ columnId }: { columnId: RadarColumnId }) {
   const column = getRadarColumn(columnId);
+  const hint = COLUMN_HEADER_HINT[columnId];
+  if (hint) {
+    return <ScannerMetricHint label={hint}>{column.label}</ScannerMetricHint>;
+  }
   const fieldId = radarColumnHelpFieldId(columnId);
   if (!fieldId) return <>{column.label}</>;
   return <ScannerFieldHelp fieldId={fieldId}>{column.label}</ScannerFieldHelp>;
@@ -362,7 +387,10 @@ export function RadarGrid({
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
                         <div>{formatRadarPrice(row.price)}</div>
                         <div className={moveClass(row.change_percent)}>
-                          {formatRadarPercent(row.change_percent)}
+                          <HintedMetric
+                            text={formatRadarPercent(row.change_percent)}
+                            blankHint={MOVE_BLANK}
+                          />
                         </div>
                       </td>
                     );
@@ -411,21 +439,28 @@ export function RadarGrid({
                   if (columnId === "volume") {
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums font-medium">
-                        {formatRadarContextVolume(row.volume)}
+                        <HintedMetric
+                          text={formatRadarVolume(row.volume)}
+                          blankHint={TODAY_VOL_BLANK}
+                        />
                       </td>
                     );
                   }
                   if (columnId === "prior_volume") {
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
-                        {formatRadarContextVolume(row.prior_session_volume)}
+                        <HintedMetric
+                          text={formatRadarVolume(row.prior_session_volume)}
+                          blankHint={YDAY_VOL_BLANK}
+                        />
                       </td>
                     );
                   }
                   if (columnId === "volume_ratio") {
+                    const ratio = volumeVersusPriorSession(row.volume, row.prior_session_volume);
                     return (
-                      <td key={columnId} className={`px-2 py-1.5 text-right tabular-nums ${volumeRatioClass(row.volume_ratio_prior_session)}`}>
-                        {formatRadarContextMultiplier(row.volume_ratio_prior_session)}
+                      <td key={columnId} className={`px-2 py-1.5 text-right tabular-nums ${volumeRatioClass(ratio)}`}>
+                        {formatRadarMultiplier(ratio)}
                       </td>
                     );
                   }

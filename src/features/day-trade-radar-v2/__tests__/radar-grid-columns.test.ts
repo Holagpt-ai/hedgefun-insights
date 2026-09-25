@@ -16,7 +16,7 @@ describe("Day Trade Radar desktop grid", () => {
   it("keeps default columns with a sticky-right Actions contract", () => {
     expect(RADAR_GRID_COLUMN_COUNT).toBe(18);
     expect([...RADAR_GRID_COLUMNS][0]).toBe("Triggered");
-    expect([...RADAR_GRID_COLUMNS]).toContain("History");
+    expect([...RADAR_GRID_COLUMNS]).toContain("HISTORY");
     expect([...RADAR_GRID_COLUMNS]).not.toContain("Trade Quality");
     expect([...DEFAULT_RADAR_COLUMN_IDS][0]).toBe("trigger_time");
     expect([...DEFAULT_RADAR_COLUMN_IDS]).toEqual([

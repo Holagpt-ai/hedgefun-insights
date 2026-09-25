@@ -230,7 +230,7 @@ describe("screener display-field enrichment", () => {
     expect(enriched.prior_session_volume).toBeNull();
   });
 
-  it("rejects Move enrichment when donor price diverges materially from Sentinel", () => {
+  it("recomputes MOVE from the recovered previous close when last price has drifted", () => {
     const row = sentinel("PRICE", 6_000_000);
     const lookup = buildDisplayFieldLookup(
       [
@@ -242,8 +242,45 @@ describe("screener display-field enrichment", () => {
       null,
     );
     const enriched = enrichDisplayFields(row, lookup);
+    const previousClose = 0.75 / (1 + 14.2 / 100);
+    expect(enriched.change_percent).toBeCloseTo(((0.68 - previousClose) / previousClose) * 100, 8);
+    expect(enriched.prior_session_volume).toBe(1_000_000);
+  });
+
+  it("leaves MOVE blank when donor and last price imply a split-scale jump", () => {
+    const row = sentinel("SPLIT", 6_000_000, { price: 6.8 });
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("SPLIT", "volume_spikes", 6_000_000, {
+          price: 0.68,
+          change_percent: 0,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
     expect(enriched.change_percent).toBeNull();
     expect(enriched.prior_session_volume).toBe(1_000_000);
+  });
+
+  it("maps verified prior volume when session volume and last price differ from the donor", () => {
+    const row = sentinel("AIFF", 638_216, { price: 1.93 });
+    const lookup = buildDisplayFieldLookup(
+      [
+        donor("AIFF", "volume_spikes", 142_034_879, {
+          price: 2.01,
+          change_percent: 68.90756302521007,
+          prior_session_volume: 225_295,
+          volume_ratio_prior_session: 630.4,
+        }),
+      ],
+      null,
+    );
+    const enriched = enrichDisplayFields(row, lookup);
+    const previousClose = 2.01 / (1 + 68.90756302521007 / 100);
+    expect(enriched.prior_session_volume).toBe(225_295);
+    expect(enriched.volume_ratio_prior_session).toBe(2.8);
+    expect(enriched.change_percent).toBeCloseTo(((1.93 - previousClose) / previousClose) * 100, 6);
   });
 
   it("enriches MOVE and recomputes Vol/Prior when prices align but volumes differ", () => {

@@ -1,5 +1,7 @@
 import { Badge } from "@/components/ui/badge";
 import type { RepeatMoverComparableEpisode, RepeatMoverContext } from "@/types/repeat-mover";
+import { ScannerMetricHint } from "./ScannerMetricHint";
+import { HISTORY_BLANK } from "./scanner-metric-copy";
 
 const PARTIAL_QUALITIES = new Set(["INSUFFICIENT", "LIMITED"]);
 
@@ -34,18 +36,20 @@ function finiteCount(value: unknown): number {
   return 0;
 }
 
-function hasUsefulHistory(context: RepeatMoverContext | null | undefined): context is RepeatMoverContext {
-  if (!context?.profile?.profileAvailable) return false;
-  const episodeCount = finiteCount(context.profile.episodeCount);
-  const comparableCount = finiteCount(context.comparableHistory?.comparableEpisodeCount);
-  return episodeCount > 0 || comparableCount > 0;
+/** Verified momentum-episode count. Comparable-episode similarity is not a substitute. */
+export function verifiedPriorRunCount(
+  context: RepeatMoverContext | null | undefined,
+): number | null {
+  if (!context?.profile?.profileAvailable) return null;
+  const count = context.profile.episodeCount;
+  if (typeof count !== "number" || !Number.isFinite(count) || count <= 0) return null;
+  return Math.floor(count);
 }
 
 export function historyContextLabel(context: RepeatMoverContext | null | undefined): string | null {
-  if (!hasUsefulHistory(context)) return null;
-  const count = finiteCount(context.comparableHistory?.comparableEpisodeCount);
-  if (count > 0) return `${count} Similar`;
-  return "Repeat Mover";
+  const count = verifiedPriorRunCount(context);
+  if (count === null) return null;
+  return count === 1 ? "1 prior run" : `${count} prior runs`;
 }
 
 export function RepeatMoverBadge({ context }: { context: RepeatMoverContext | null | undefined }) {
@@ -70,7 +74,11 @@ export function HistoryCell({
 }) {
   const label = historyContextLabel(context);
   if (!label) {
-    return <span className="text-muted-foreground">—</span>;
+    return (
+      <ScannerMetricHint label={HISTORY_BLANK} className="text-muted-foreground">
+        —
+      </ScannerMetricHint>
+    );
   }
   if (!onOpen) {
     return <span className="text-[11px] font-medium text-accent-blue">{label}</span>;

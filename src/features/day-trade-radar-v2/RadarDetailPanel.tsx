@@ -7,6 +7,17 @@ import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsFo
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { parseTimestampMs } from "@/lib/screeners/contract";
+import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
+import { HintedMetric, ScannerMetricHint } from "./ScannerMetricHint";
+import {
+  MOVE_BLANK,
+  MOVE_HEADER,
+  TODAY_VOL_BLANK,
+  TODAY_VOL_HEADER,
+  VOL_YDAY_HEADER,
+  YDAY_VOL_BLANK,
+  YDAY_VOL_HEADER,
+} from "./scanner-metric-copy";
 import {
   formatFreshness,
   formatHodDistance,
@@ -45,16 +56,22 @@ function Metric({
   label,
   value,
   className,
+  hint,
+  blankHint,
 }: {
   label: string;
   value: string;
   className?: string;
+  hint?: string;
+  blankHint?: string;
 }) {
   return (
     <div className="min-w-0">
-      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+        {hint ? <ScannerMetricHint label={hint}>{label}</ScannerMetricHint> : label}
+      </div>
       <div className={`text-[13px] font-medium tabular-nums truncate ${className ?? ""}`}>
-        {value}
+        <HintedMetric text={value} blankHint={blankHint} className={className} />
       </div>
     </div>
   );
@@ -176,16 +193,29 @@ export function RadarDetailPanel({
         <div className="grid grid-cols-2 gap-3">
           <Metric label="Last" value={formatRadarPrice(row.price)} />
           <Metric
-            label="Move"
+            label="MOVE"
             value={formatRadarPercent(row.change_percent)}
             className={moveClass(row.change_percent)}
+            hint={MOVE_HEADER}
+            blankHint={MOVE_BLANK}
           />
-          <Metric label="Volume" value={formatRadarVolume(row.volume)} />
-          <Metric label="Prior Day Vol" value={formatRadarVolume(row.prior_session_volume)} />
           <Metric
-            label="Vol / Prior Day"
-            value={formatRadarMultiplier(row.volume_ratio_prior_session)}
-            className={volumeRatioClass(row.volume_ratio_prior_session)}
+            label="TODAY VOL"
+            value={formatRadarVolume(row.volume)}
+            hint={TODAY_VOL_HEADER}
+            blankHint={TODAY_VOL_BLANK}
+          />
+          <Metric
+            label="YDAY VOL"
+            value={formatRadarVolume(row.prior_session_volume)}
+            hint={YDAY_VOL_HEADER}
+            blankHint={YDAY_VOL_BLANK}
+          />
+          <Metric
+            label="VOL/YDAY"
+            value={formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}
+            className={volumeRatioClass(volumeVersusPriorSession(row.volume, row.prior_session_volume))}
+            hint={VOL_YDAY_HEADER}
           />
           <Metric label="HOD Dist" value={formatHodDistance(row.hod_distance_percent)} />
           <Metric

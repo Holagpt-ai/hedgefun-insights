@@ -126,7 +126,7 @@ describe("Repeat Movers failure isolation", () => {
       profile: { profileAvailable: true, episodeCount: 2 },
     } as Parameters<typeof historyContextLabel>[0];
     expect(() => historyContextLabel(malformed)).not.toThrow();
-    expect(historyContextLabel(malformed)).toBe("Repeat Mover");
+    expect(historyContextLabel(malformed)).toBe("2 prior runs");
   });
 
   it("A: HTTP 500 maps to Repeat Movers unavailable + Retry", () => {

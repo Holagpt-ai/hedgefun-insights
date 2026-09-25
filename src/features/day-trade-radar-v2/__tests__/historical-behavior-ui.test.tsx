@@ -98,10 +98,10 @@ const context: RepeatMoverContext = {
 describe("Repeat Movers UI V1", () => {
   it("shows one compact count badge only for useful history", () => {
     const { rerender } = render(<RepeatMoverBadge context={context} />);
-    expect(screen.getByText("5 Similar")).toBeInTheDocument();
+    expect(screen.getByText("7 prior runs")).toBeInTheDocument();
 
     rerender(<RepeatMoverBadge context={{ ...context, profile: { ...context.profile, profileAvailable: false } }} />);
-    expect(screen.queryByText(/Similar Moves|Repeat Mover/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/prior run/)).not.toBeInTheDocument();
   });
 
   it("shows truthful profile facts, partial copy, and only three vertical comparables", () => {
@@ -116,6 +116,19 @@ describe("Repeat Movers UI V1", () => {
     expect(within(section).getByText("2.4× RVOL")).toBeInTheDocument();
     expect(within(section).getByText("+3.2% next session")).toBeInTheDocument();
     expect(within(section).queryByText("Jul 4, 2026")).not.toBeInTheDocument();
+  });
+
+  it("does not invent a count from similar episodes when episode count is missing", () => {
+    render(
+      <RepeatMoverBadge
+        context={{
+          ...context,
+          profile: { ...context.profile, episodeCount: null },
+        }}
+      />,
+    );
+    expect(screen.queryByText(/prior run/)).not.toBeInTheDocument();
+    expect(screen.queryByText("5")).not.toBeInTheDocument();
   });
 
   it("uses the requested no-history state without unavailable zero values", () => {

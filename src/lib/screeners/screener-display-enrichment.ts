@@ -11,7 +11,6 @@ import { easternDate } from "@/lib/radar-v22";
 import {
   canonicalPriorRatioFromDonor,
   isVerifiedRegularSessionChange,
-  pricesWithinCanonicalTolerance,
 } from "@/lib/screeners/canonical-fields";
 import {
   expectedVolumeRatio,
@@ -22,6 +21,11 @@ import {
   type ScreenerResultRow,
 } from "@/lib/screeners/contract";
 import { computeDailyRvol20d } from "@/lib/screeners/daily-rvol";
+import {
+  previousCloseFromVerifiedMove,
+  pricesImplyCorporateActionScale,
+  sessionMovePercent,
+} from "@/lib/screeners/session-move";
 
 export interface DisplayFieldDonor {
   symbol: string;
@@ -103,29 +107,33 @@ export function isBaseDonorCoherent(
   return true;
 }
 
-function pricesCoherent(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
-  if (!isPositiveFinite(sentinel.price) || !isPositiveFinite(donor.price)) return false;
-  return pricesWithinCanonicalTolerance(donor.price as number, sentinel.price as number);
+/**
+ * MOVE is always last price versus the previous regular close.
+ * A same-day donor price/change pair recovers that close. The donor percent
+ * is not copied when the last price has moved. Split-scale price jumps stay blank.
+ */
+function recoveredSessionMove(
+  sentinel: ScreenerResultRow,
+  donor: DisplayFieldDonor,
+): number | null {
+  if (!isBaseDonorCoherent(sentinel, donor)) return null;
+  if (!isVerifiedRegularSessionChange(donor.change_percent)) return null;
+  if (!isPositiveFinite(sentinel.price) || !isPositiveFinite(donor.price)) return null;
+  if (pricesImplyCorporateActionScale(donor.price, sentinel.price)) return null;
+  if (donor.price === sentinel.price) return donor.change_percent;
+  const previousClose = previousCloseFromVerifiedMove(donor.price, donor.change_percent);
+  return sessionMovePercent(sentinel.price, previousClose);
 }
 
-/** Regular-session MOVE: price-aligned donor on the same ET day; volume may differ. */
-function canEnrichMove(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
-  if (!isBaseDonorCoherent(sentinel, donor)) return false;
-  if (!isVerifiedRegularSessionChange(donor.change_percent)) return false;
-  return pricesCoherent(sentinel, donor);
-}
-
+/**
+ * Prior-session volume is a completed-session fact. It does not require the
+ * current last price to match the donor, and it does not require today's
+ * session volume to equal the donor's day volume. The donor pair must still
+ * be internally consistent. The displayed ratio is recomputed from Sentinel volume.
+ */
 function canEnrichVolPrior(sentinel: ScreenerResultRow, donor: DisplayFieldDonor): boolean {
   if (!isBaseDonorCoherent(sentinel, donor)) return false;
   if (!isPositiveFinite(sentinel.volume)) return false;
-  if (sessionVolumesMatch(donor.volume, sentinel.volume)) {
-    return priorRatioPairValid(
-      donor.prior_session_volume,
-      donor.volume_ratio_prior_session,
-      sentinel.volume,
-    );
-  }
-  if (!pricesCoherent(sentinel, donor)) return false;
   return (
     canonicalPriorRatioFromDonor(
       sentinel.volume,
@@ -236,12 +244,9 @@ export function enrichDisplayFields<T extends ScreenerResultRow>(
 
   const next: T = { ...row };
 
-  if (
-    next.change_percent === null &&
-    isFiniteNumber(donor.change_percent) &&
-    canEnrichMove(row, donor)
-  ) {
-    next.change_percent = donor.change_percent;
+  if (next.change_percent === null) {
+    const move = recoveredSessionMove(row, donor);
+    if (move !== null) next.change_percent = move;
   }
 
   if (

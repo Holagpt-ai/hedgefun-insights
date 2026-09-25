@@ -15,8 +15,20 @@ import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import { historyContextLabel, HistoryCell } from "./HistoricalBehavior";
+import { HintedMetric, ScannerMetricHint } from "./ScannerMetricHint";
 import {
-  formatRadarContextMultiplier,
+  HISTORY_HEADER,
+  MOVE_BLANK,
+  MOVE_HEADER,
+  TODAY_VOL_BLANK,
+  TODAY_VOL_HEADER,
+  VOL_YDAY_HEADER,
+  YDAY_VOL_BLANK,
+  YDAY_VOL_HEADER,
+} from "./scanner-metric-copy";
+import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
+import {
+  formatRadarMultiplier,
   formatRadarPercent,
   formatRadarPrice,
   formatRadarVolume,
@@ -53,6 +65,14 @@ const SORTS: { id: PanelSortId; label: string }[] = [
 ];
 
 const SELECTED_ROW_CLASS = "border-l-2 border-accent-blue bg-accent-blue-light";
+
+const PANEL_HEADER_HINT: Partial<Record<PanelColumnId, string>> = {
+  move: MOVE_HEADER,
+  today_vol: TODAY_VOL_HEADER,
+  yday_vol: YDAY_VOL_HEADER,
+  vol_yday: VOL_YDAY_HEADER,
+  history: HISTORY_HEADER,
+};
 
 function dash(value: string): string {
   return value === "Unavailable" ? "—" : value;
@@ -95,24 +115,28 @@ export function RadarPanelLeader({
         {signal ? <div className="text-[10px] font-semibold uppercase text-foreground">{signal}</div> : null}
         <div className="flex gap-2 text-[13px] tabular-nums">
           <span>{formatRadarPrice(row.price)}</span>
-          <span className={moveClass(row.change_percent)}>{formatRadarPercent(row.change_percent)}</span>
+          <HintedMetric
+            text={formatRadarPercent(row.change_percent)}
+            blankHint={MOVE_BLANK}
+            className={moveClass(row.change_percent)}
+          />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-x-4 text-[11px] sm:grid-cols-3">
         {panel !== "breakouts" ? <Metric label="Float" value={floatShares === null ? "—" : dash(formatRadarVolume(floatShares))} /> : null}
-        <Metric label="Today Vol" value={dash(formatRadarVolume(row.volume))} />
-        {panel !== "breakouts" ? <Metric label="Yday Vol" value={dash(formatRadarVolume(row.prior_session_volume))} /> : null}
+        <Metric label="TODAY VOL" value={formatRadarVolume(row.volume)} />
+        {panel !== "breakouts" ? <Metric label="YDAY VOL" value={formatRadarVolume(row.prior_session_volume)} /> : null}
         {panel !== "breakouts" ? (
           <Metric
-            label="Vol/Yday"
-            value={row.volume_ratio_prior_session === null || row.volume_ratio_prior_session === undefined ? "—" : `${formatRadarContextMultiplier(row.volume_ratio_prior_session)} Yday`}
+            label="VOL/YDAY"
+            value={formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}
           />
         ) : null}
         <Metric label="5m RVOL" value={formatScreenerRvol5m(row.rvol_5m)} />
         <Metric label="HOD" value={formatDeskHod(row)} />
         {panel === "breakouts" ? <Metric label="VWAP" value={formatDeskVwap(row)} /> : null}
         <Metric label="Catalyst" value={catalyst ? "Catalyst" : "No verified catalyst"} />
-        <Metric label="History" value={historyContextLabel(row.historicalContext) ?? "—"} />
+        <Metric label="HISTORY" value={historyContextLabel(row.historicalContext) ?? "—"} />
       </div>
       <div className="ml-auto flex items-stretch gap-3 rounded-md border border-border bg-muted/50 px-3 py-2" data-testid={`volume-speed-hero-${panel}`}>
         <div className="text-right">
@@ -287,11 +311,15 @@ export function RadarPanelBoard({
         <table className="w-full text-[11.5px]">
           <thead className="bg-muted/60">
             <tr>
-              {columns.map((id) => (
-                <th key={id} className="px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {PANEL_COLUMN_DEFS.find((column) => column.id === id)?.label}
-                </th>
-              ))}
+              {columns.map((id) => {
+                const label = PANEL_COLUMN_DEFS.find((column) => column.id === id)?.label ?? id;
+                const hint = PANEL_HEADER_HINT[id];
+                return (
+                  <th key={id} className="px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {hint ? <ScannerMetricHint label={hint}>{label}</ScannerMetricHint> : label}
+                  </th>
+                );
+              })}
             </tr>
           </thead>
           <tbody>
@@ -410,16 +438,38 @@ function renderCell(args: {
     );
   }
   if (id === "last") return <span className="tabular-nums">{formatRadarPrice(row.price)}</span>;
-  if (id === "move") return <span className={`tabular-nums ${moveClass(row.change_percent)}`}>{formatRadarPercent(row.change_percent)}</span>;
+  if (id === "move") {
+    return (
+      <HintedMetric
+        text={formatRadarPercent(row.change_percent)}
+        blankHint={MOVE_BLANK}
+        className={`tabular-nums ${moveClass(row.change_percent)}`}
+      />
+    );
+  }
   if (id === "float") return <span className="tabular-nums">{args.floatShares === null ? "—" : dash(formatRadarVolume(args.floatShares))}</span>;
-  if (id === "today_vol") return <span className="tabular-nums">{dash(formatRadarVolume(row.volume))}</span>;
-  if (id === "yday_vol") return <span className="tabular-nums">{dash(formatRadarVolume(row.prior_session_volume))}</span>;
+  if (id === "today_vol") {
+    return (
+      <HintedMetric
+        text={formatRadarVolume(row.volume)}
+        blankHint={TODAY_VOL_BLANK}
+        className="tabular-nums"
+      />
+    );
+  }
+  if (id === "yday_vol") {
+    return (
+      <HintedMetric
+        text={formatRadarVolume(row.prior_session_volume)}
+        blankHint={YDAY_VOL_BLANK}
+        className="tabular-nums"
+      />
+    );
+  }
   if (id === "vol_yday") {
     return (
       <span className="tabular-nums">
-        {row.volume_ratio_prior_session === null || row.volume_ratio_prior_session === undefined
-          ? "—"
-          : formatRadarContextMultiplier(row.volume_ratio_prior_session)}
+        {formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}
       </span>
     );
   }
@@ -518,8 +568,8 @@ function MobilePanelCard({
         <span className="tabular-nums">{formatRadarPrice(row.price)} <span className={moveClass(row.change_percent)}>{formatRadarPercent(row.change_percent)}</span></span>
       </div>
       <div className="mt-1 grid grid-cols-2 gap-x-3 text-[11px] text-muted-foreground">
-        <span>Today {dash(formatRadarVolume(row.volume))}</span>
-        <span>Vol/Yday {row.volume_ratio_prior_session == null ? "—" : formatRadarContextMultiplier(row.volume_ratio_prior_session)}</span>
+        <span>TODAY VOL {formatRadarVolume(row.volume)}</span>
+        <span>VOL/YDAY {formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}</span>
         <span>5m {formatScreenerRvol5m(row.rvol_5m)}</span>
         <span title={formatVolumeSpeedExact(row.vol_velocity)}>{formatVolumeSpeedCompact(row.vol_velocity)}</span>
         <span>{trend.label}</span>

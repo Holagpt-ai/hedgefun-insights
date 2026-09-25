@@ -16,6 +16,18 @@ import {
 import { resolveScreenerCopy, type ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import type { ScreenerTruthState } from "@/lib/screeners/screener-truth-state";
 import { ScannerFieldHelp } from "@/features/day-trade-radar-v2/ScannerFieldHelp";
+import { HintedMetric, ScannerMetricHint } from "@/features/day-trade-radar-v2/ScannerMetricHint";
+import {
+  HISTORY_HEADER,
+  MOVE_BLANK,
+  MOVE_HEADER,
+  TODAY_VOL_BLANK,
+  TODAY_VOL_HEADER,
+  VOL_YDAY_HEADER,
+  YDAY_VOL_BLANK,
+  YDAY_VOL_HEADER,
+} from "@/features/day-trade-radar-v2/scanner-metric-copy";
+import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
 import { ScreenerFiltersControl } from "@/components/screener/ScreenerFiltersControl";
 import { useScreenerFilters } from "@/hooks/useScreenerFilters";
 import {
@@ -94,6 +106,14 @@ function isCompanyEmpty(v: unknown): boolean {
   return v === null || v === undefined || String(v).trim() === "";
 }
 
+const SCREENER_HEADER_HINT: Record<string, string> = {
+  change_percent: MOVE_HEADER,
+  volume: TODAY_VOL_HEADER,
+  prior_session_volume: YDAY_VOL_HEADER,
+  volume_ratio_prior_session: VOL_YDAY_HEADER,
+  history: HISTORY_HEADER,
+};
+
 function screenerColumnFieldId(key: string): string | null {
   switch (key) {
     case "symbol":
@@ -101,8 +121,9 @@ function screenerColumnFieldId(key: string): string | null {
     case "price":
       return "price";
     case "change_percent":
-    case "gap_percent":
       return "move";
+    case "gap_percent":
+      return null;
     case "volume":
       return "volume";
     case "prior_session_volume":
@@ -451,10 +472,27 @@ export function ScreenerTable({
       );
     }
 
+    if (col.key === "change_percent") {
+      const text = formatScreenerMetric(row.change_percent, "percent");
+      return <HintedMetric text={text} blankHint={MOVE_BLANK} />;
+    }
+
+    if (col.key === "volume") {
+      const text = formatScreenerMetric(row.volume, "volume");
+      return <HintedMetric text={text} blankHint={TODAY_VOL_BLANK} />;
+    }
+
+    if (col.key === "prior_session_volume") {
+      const text = formatScreenerMetric(row.prior_session_volume, "volume");
+      return <HintedMetric text={text} blankHint={YDAY_VOL_BLANK} />;
+    }
+
     if (col.key === "volume_ratio_prior_session" && col.format === "multiplier") {
+      const ratio = volumeVersusPriorSession(row.volume, row.prior_session_volume);
+      if (ratio === null) return "—";
       return (
-        <span className={volumeRatioBadgeClass(Number(raw))}>
-          {formatScreenerMetric(raw as number, col.format)}
+        <span className={volumeRatioBadgeClass(ratio)}>
+          {formatScreenerMetric(ratio, col.format)}
         </span>
       );
     }
@@ -545,7 +583,11 @@ export function ScreenerTable({
                           active ? "text-foreground" : "text-muted-foreground"
                         } ${col.align === "right" ? "text-right" : "text-left"}`}
                       >
-                        {screenerColumnFieldId(col.key) ? (
+                        {SCREENER_HEADER_HINT[col.key] ? (
+                          <ScannerMetricHint label={SCREENER_HEADER_HINT[col.key]}>
+                            {col.label}
+                          </ScannerMetricHint>
+                        ) : screenerColumnFieldId(col.key) ? (
                           <ScannerFieldHelp fieldId={screenerColumnFieldId(col.key) ?? ""}>
                             {col.label}
                           </ScannerFieldHelp>
@@ -639,7 +681,6 @@ export function ScreenerTable({
               : useMove
                 ? row.change_percent
                 : null;
-            const movementLabel = useGap ? "Gap" : useMove ? "Move" : null;
             const shortFloat = evaluateScreenerShortFloat(row);
             const continuation = evaluateScreenerContinuation(row);
             return (
@@ -691,20 +732,36 @@ export function ScreenerTable({
                       <span className="font-medium">{formatScreenerMetric(row.price, "price")}</span>
                     </div>
                   )}
-                  {movementLabel &&
-                    movementValue !== null &&
-                    movementValue !== undefined && (
-                      <div>
-                        <span className="text-muted-foreground">{movementLabel} </span>
-                        <span className={`font-medium ${percentClass(Number(movementValue))}`}>
-                          {formatScreenerMetric(movementValue, "percent")}
-                        </span>
-                      </div>
-                    )}
-                  {showVolume && row.volume !== null && row.volume !== undefined && (
+                  {useMove && (
                     <div>
-                      <span className="text-muted-foreground">Volume </span>
-                      <span className="font-medium">{formatScreenerMetric(row.volume, "volume")}</span>
+                      <ScannerMetricHint label={MOVE_HEADER} className="text-muted-foreground">
+                        MOVE
+                      </ScannerMetricHint>{" "}
+                      <HintedMetric
+                        text={formatScreenerMetric(row.change_percent, "percent")}
+                        blankHint={MOVE_BLANK}
+                        className={`font-medium ${percentClass(Number(row.change_percent))}`}
+                      />
+                    </div>
+                  )}
+                  {useGap && movementValue !== null && movementValue !== undefined && (
+                    <div>
+                      <span className="text-muted-foreground">Gap </span>
+                      <span className={`font-medium ${percentClass(Number(movementValue))}`}>
+                        {formatScreenerMetric(movementValue, "percent")}
+                      </span>
+                    </div>
+                  )}
+                  {showVolume && (
+                    <div>
+                      <ScannerMetricHint label={TODAY_VOL_HEADER} className="text-muted-foreground">
+                        TODAY VOL
+                      </ScannerMetricHint>{" "}
+                      <HintedMetric
+                        text={formatScreenerMetric(row.volume, "volume")}
+                        blankHint={TODAY_VOL_BLANK}
+                        className="font-medium text-foreground"
+                      />
                     </div>
                   )}
                   {showDollarVolume && (
@@ -764,26 +821,31 @@ export function ScreenerTable({
                       {continuation.display}
                     </span>
                   </div>
-                  {showPriorVol &&
-                    row.prior_session_volume !== null &&
-                    row.prior_session_volume !== undefined && (
-                      <div>
-                        <span className="text-muted-foreground">Prior Vol </span>
-                        <span className="font-medium">
-                          {formatScreenerMetric(row.prior_session_volume, "volume")}
-                        </span>
-                      </div>
-                    )}
-                  {showVolRatio &&
-                    row.volume_ratio_prior_session !== null &&
-                    row.volume_ratio_prior_session !== undefined && (
-                      <div>
-                        <span className="text-muted-foreground">Vol / Prior </span>
-                        <span className={volumeRatioBadgeClass(Number(row.volume_ratio_prior_session))}>
-                          {formatScreenerMetric(row.volume_ratio_prior_session, "multiplier")}
-                        </span>
-                      </div>
-                    )}
+                  {showPriorVol && (
+                    <div>
+                      <ScannerMetricHint label={YDAY_VOL_HEADER} className="text-muted-foreground">
+                        YDAY VOL
+                      </ScannerMetricHint>{" "}
+                      <HintedMetric
+                        text={formatScreenerMetric(row.prior_session_volume, "volume")}
+                        blankHint={YDAY_VOL_BLANK}
+                        className="font-medium text-foreground"
+                      />
+                    </div>
+                  )}
+                  {showVolRatio && (
+                    <div>
+                      <ScannerMetricHint label={VOL_YDAY_HEADER} className="text-muted-foreground">
+                        VOL/YDAY
+                      </ScannerMetricHint>{" "}
+                      <span className={volumeRatioBadgeClass(volumeVersusPriorSession(row.volume, row.prior_session_volume) ?? Number.NaN)}>
+                        {formatScreenerMetric(
+                          volumeVersusPriorSession(row.volume, row.prior_session_volume),
+                          "multiplier",
+                        )}
+                      </span>
+                    </div>
+                  )}
                   {showDayRange && (
                     <div>
                       <span className="text-muted-foreground">Range </span>
