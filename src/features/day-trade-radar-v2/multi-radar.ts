@@ -569,6 +569,39 @@ export function selectDayTradeLeader(rows: readonly RadarRankedRow[]): RadarRank
   return [...rows].sort((a, b) => a.rank - b.rank)[0] ?? null;
 }
 
+/** Inclusive bands for the Day Trade Desk featured card only. */
+export const TRADABLE_LEADER_PREFERRED_BAND = { min: 2, max: 25 } as const;
+export const TRADABLE_LEADER_WIDENED_BAND = { min: 1, max: 30 } as const;
+
+function verifiedPriceInBand(
+  price: number | null | undefined,
+  band: { min: number; max: number },
+): boolean {
+  const n = finiteMetric(price);
+  return n !== null && n >= band.min && n <= band.max;
+}
+
+/**
+ * Featured Day Trade Desk leader.
+ * Keeps existing rank order inside each price band.
+ * Does not reorder or hide the scanner rows.
+ */
+export function selectTradableFeaturedLeader(
+  rows: readonly RadarRankedRow[],
+): RadarRankedRow | null {
+  if (rows.length === 0) return null;
+  const ranked = [...rows].sort((a, b) => a.rank - b.rank);
+  const preferred = ranked.find((row) =>
+    verifiedPriceInBand(row.price, TRADABLE_LEADER_PREFERRED_BAND)
+  );
+  if (preferred) return preferred;
+  const widened = ranked.find((row) =>
+    verifiedPriceInBand(row.price, TRADABLE_LEADER_WIDENED_BAND)
+  );
+  if (widened) return widened;
+  return ranked[0] ?? null;
+}
+
 export function selectPennyLeader(rows: readonly RadarRankedRow[]): RadarRankedRow | null {
   return selectDayTradeLeader(rows);
 }
@@ -593,5 +626,5 @@ export function selectBreakoutLeader(rows: readonly RadarRankedRow[]): RadarRank
 export function selectPanelLeader(panel: RadarPanelId, rows: readonly RadarRankedRow[]): RadarRankedRow | null {
   if (panel === "breakouts") return selectBreakoutLeader(rows);
   if (panel === "penny") return selectPennyLeader(rows);
-  return selectDayTradeLeader(rows);
+  return selectTradableFeaturedLeader(rows);
 }

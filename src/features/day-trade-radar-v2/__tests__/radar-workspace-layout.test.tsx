@@ -133,9 +133,10 @@ describe("Radar workspace layout", () => {
 
     const feed = screen.getByTestId("radar-feed-line").textContent ?? "";
     expect(feed).toMatch(/Data Status/i);
-    expect(within(screen.getByTestId("panel-leader-day_trade")).getAllByText("PENNY").length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId("panel-leader-day_trade")).getAllByText("AEHL").length).toBeGreaterThan(0);
     expect(within(screen.getByTestId("radar-panel-penny")).getAllByText("PENNY").length).toBeGreaterThan(0);
-    expect(within(screen.getByTestId("radar-panel-day_trade")).getByText("AEHL")).toBeInTheDocument();
+    expect(within(screen.getByTestId("radar-panel-day_trade")).getAllByText("PENNY").length).toBeGreaterThan(0);
+    expect(within(screen.getByTestId("radar-panel-day_trade")).getAllByText("AEHL").length).toBeGreaterThan(0);
     expect(screen.getByText("Select a ticker")).toBeInTheDocument();
     expect(within(screen.getByTestId("active-symbol-rail")).queryByRole("button", { name: "Details" })).not.toBeInTheDocument();
     expect(screen.getByTestId("panel-leader-day_trade")).not.toHaveAttribute("data-selected");
@@ -165,11 +166,13 @@ describe("Radar workspace layout", () => {
       expect(screen.getByTestId("radar-mobile-tabs")).toBeInTheDocument();
       expect(screen.getByTestId("radar-panel-day_trade")).toBeInTheDocument();
       expect(screen.queryByTestId("radar-panel-breakouts")).not.toBeInTheDocument();
-      fireEvent.click(within(screen.getByTestId("radar-panel-day_trade")).getByRole("button", { name: /AEHL/ }));
+      const dayTradeCard = screen.getByTestId("radar-panel-day_trade").querySelector('[data-symbol="AEHL"]');
+      expect(dayTradeCard).not.toBeNull();
+      fireEvent.click(dayTradeCard!);
       fireEvent.click(screen.getByRole("tab", { name: "Penny < $1" }));
       expect(within(screen.getByTestId("active-symbol-rail")).getByText("AEHL")).toBeInTheDocument();
       fireEvent.click(screen.getByRole("tab", { name: "DAY TRADE" }));
-      expect(within(screen.getByTestId("radar-panel-day_trade")).getByRole("button", { name: /AEHL/ })).toHaveAttribute("data-selected", "true");
+      expect(screen.getByTestId("radar-panel-day_trade").querySelector('[data-symbol="AEHL"]')).toHaveAttribute("data-selected", "true");
       expect(screen.queryByTestId("radar-panel-penny")).not.toBeInTheDocument();
       expect(screen.getByTestId("multi-radar-workspace")).toHaveClass("overflow-x-hidden");
     } finally {

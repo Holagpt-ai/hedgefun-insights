@@ -113,12 +113,22 @@ export default {
           "0%, 100%": { opacity: "1" },
           "50%": { opacity: "0.72" },
         },
+        "volume-trend-up": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-2px)" },
+        },
+        "volume-trend-down": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(2px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "snap-in": "snap-in 0.15s ease-out",
         "session-badge-breathe": "session-badge-breathe 2.4s ease-in-out infinite",
+        "volume-trend-up": "volume-trend-up 1.8s ease-in-out infinite",
+        "volume-trend-down": "volume-trend-down 1.8s ease-in-out infinite",
       },
     },
   },

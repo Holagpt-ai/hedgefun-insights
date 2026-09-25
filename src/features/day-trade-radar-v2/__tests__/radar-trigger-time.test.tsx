@@ -88,7 +88,7 @@ describe("Radar Triggered presentation", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("columnheader", { name: /Triggered/ })).toBeInTheDocument();
-    expect(screen.getByText("09:42:00")).toBeInTheDocument();
+    expect(screen.getByText("9:42:00 AM")).toBeInTheDocument();
     expect(screen.getByText("09/21/26 ET")).toBeInTheDocument();
     expect(screen.getByTitle("Discovery trigger")).toBeInTheDocument();
     expect(screen.queryByText("NEW")).not.toBeInTheDocument();
@@ -106,7 +106,7 @@ describe("Radar Triggered presentation", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getByText("10:17:00")).toBeInTheDocument();
+    expect(screen.getByText("10:17:00 AM")).toBeInTheDocument();
     expect(screen.getByTitle("Discovery trigger")).toBeInTheDocument();
   });
 
@@ -142,6 +142,6 @@ describe("Radar Triggered presentation", () => {
     );
     expect(screen.getByText("Triggered")).toBeInTheDocument();
     expect(screen.getByText("Data Time")).toBeInTheDocument();
-    expect(screen.getByText("09:42:00")).toBeInTheDocument();
+    expect(screen.getByText("9:42:00 AM")).toBeInTheDocument();
   });
 });

@@ -104,7 +104,7 @@ describe("Radar Short Float presentation", () => {
     expect(screen.getByRole("columnheader", { name: /Triggered/ })).toBeInTheDocument();
     expect(screen.getAllByTitle("Short float unavailable").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Short float unavailable")[0]).toHaveTextContent("—");
-    expect(screen.getAllByText("09:42:00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("9:42:00 AM").length).toBeGreaterThan(0);
   });
 
   it("renders compact short float on the mobile card without replacing float turnover", () => {
@@ -121,7 +121,7 @@ describe("Radar Short Float presentation", () => {
     );
     expect(screen.getByRole("button", { name: "Short Float info" })).toBeInTheDocument();
     expect(screen.getByTitle("Short float unavailable")).toHaveTextContent("—");
-    expect(screen.getByText("09:42:00")).toBeInTheDocument();
+    expect(screen.getByText("9:42:00 AM")).toBeInTheDocument();
     expect(screen.getByText(/Turnover/)).toBeInTheDocument();
   });
 });

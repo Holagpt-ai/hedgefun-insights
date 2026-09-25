@@ -264,7 +264,7 @@ export function RadarGrid({
             if (columnId === "dollar_volume") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "daily_rvol") return <col key={columnId} className="w-[8%]" />;
             if (columnId === "trade_quality") return <col key={columnId} className="w-[8%]" />;
-            if (columnId === "trigger_time") return <col key={columnId} className="w-[88px]" />;
+            if (columnId === "trigger_time") return <col key={columnId} className="w-[120px]" />;
             if (columnId === "day_range") return <col key={columnId} className="w-[12%]" />;
             if (columnId === "history") return <col key={columnId} className="w-[72px]" />;
             if (columnId === "hod_distance") return <col key={columnId} className="w-[72px]" />;

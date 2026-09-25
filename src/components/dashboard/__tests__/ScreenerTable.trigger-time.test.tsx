@@ -98,7 +98,7 @@ describe("ScreenerTable Triggered column", () => {
         />
       </MemoryRouter>,
     );
-    expect(screen.getAllByText("09:42:00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("9:42:00 AM").length).toBeGreaterThan(0);
     expect(screen.getAllByTitle("Triggered unavailable").length).toBeGreaterThan(0);
   });
 });

@@ -15,6 +15,7 @@ import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import { HistoryCell } from "./HistoricalBehavior";
+import { VolumeTrendMark } from "./VolumeTrendMark";
 import { HintedMetric, ScannerMetricHint } from "./ScannerMetricHint";
 import {
   HISTORY_HEADER,
@@ -45,7 +46,6 @@ import {
   formatVolumeSpeedCompact,
   formatVolumeSpeedExact,
   formatVolumeSpeedSpotlight,
-  mapVolumeTrend,
   panelAgeLabel,
   panelMeta,
   panelTime,
@@ -97,8 +97,7 @@ export function RadarPanelLeader({
   const floatState = useRadarFloatForSymbols(symbols);
   if (!row) return null;
   const speed = formatVolumeSpeedSpotlight(row.vol_velocity);
-  const trend = mapVolumeTrend(row.volume_acceleration_pct);
-    const signal = deskRowSignal(row, null);
+  const signal = deskRowSignal(row, null);
   const floatShares = floatState.getFloat(row.symbol);
   const catalyst = catalystMap?.get(row.symbol);
   return (
@@ -147,8 +146,8 @@ export function RadarPanelLeader({
           <div className="font-mono text-2xl font-semibold tabular-nums leading-none">{speed ? speed.value : "—"}</div>
           <div className="text-[10px] text-muted-foreground">{speed ? speed.unit : "No recent tape"}</div>
         </div>
-        <div className="flex items-center border-l border-border pl-3 text-sm font-semibold tracking-wide" data-testid={`volume-trend-hero-${panel}`}>
-          {trend.label}
+        <div className="flex items-center border-l border-border pl-3 text-sm" data-testid={`volume-trend-hero-${panel}`}>
+          <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} />
         </div>
       </div>
       <button type="button" className="h-8 rounded-md border border-border px-2 text-[12px] font-semibold" onClick={() => onOpenDetails(row)}>
@@ -485,8 +484,7 @@ function renderCell(args: {
     );
   }
   if (id === "volume_trend") {
-    const trend = mapVolumeTrend(row.volume_acceleration_pct);
-    return <span title={trend.title}>{trend.label}</span>;
+    return <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} />;
   }
   if (id === "hod") return <span className="tabular-nums">{formatDeskHod(row)}</span>;
   if (id === "vwap") return <span>{formatDeskVwap(row)}</span>;
@@ -553,7 +551,6 @@ function MobilePanelCard({
 }) {
   const time = panelTime(panel, row);
   const age = panelAgeLabel(time.iso, nowMs);
-  const trend = mapVolumeTrend(row.volume_acceleration_pct);
   return (
     <button
       type="button"
@@ -575,7 +572,7 @@ function MobilePanelCard({
         <span>VOL/YDAY {formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}</span>
         <span>5m {formatScreenerRvol5m(row.rvol_5m)}</span>
         <span title={formatVolumeSpeedExact(row.vol_velocity)}>{formatVolumeSpeedCompact(row.vol_velocity)}</span>
-        <span>{trend.label}</span>
+        <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} />
         <span>{formatDeskHod(row)}</span>
       </div>
     </button>

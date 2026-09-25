@@ -77,7 +77,7 @@ describe("Screener Trigger Time adapter", () => {
     expect(view.primary?.triggerType).toBe("DISCOVERY_TRIGGER");
     expect(view.primary?.triggeredAt).toBe(DISCOVERY_AT);
     expect(view.primary?.source).toBe("radar_v22_candidates.promoted_at");
-    expect(view.display).toBe("09:42:00");
+    expect(view.display).toBe("9:42:00 AM");
     expect(view.state.events).toHaveLength(1);
   });
 
@@ -207,10 +207,10 @@ describe("Screener Trigger Time adapter", () => {
 
   it("12. display timezone is America/New_York clock form", () => {
     expect(TRIGGER_TIME_DISPLAY_TIMEZONE).toBe("America/New_York");
-    expect(formatTriggerTimeDisplay(DISCOVERY_AT)).toBe("09:42:00");
-    expect(formatTriggerTimeDisplay("2026-09-21T14:17:00.000Z")).toBe("10:17:00");
-    expect(formatTriggerTimeDisplay(HOD_BREAK_AT)).toBe("15:08:00");
-    expect(evaluateScreenerTriggerTime(row({ last_hod_break_at: HOD_BREAK_AT })).display).toBe("15:08:00");
+    expect(formatTriggerTimeDisplay(DISCOVERY_AT)).toBe("9:42:00 AM");
+    expect(formatTriggerTimeDisplay("2026-09-21T14:17:00.000Z")).toBe("10:17:00 AM");
+    expect(formatTriggerTimeDisplay(HOD_BREAK_AT)).toBe("3:08:00 PM");
+    expect(evaluateScreenerTriggerTime(row({ last_hod_break_at: HOD_BREAK_AT })).display).toBe("3:08:00 PM");
   });
 
   it("13. NEW semantics are unchanged — Trigger Time is a separate clock", () => {
@@ -269,11 +269,11 @@ describe("Screener Trigger Time adapter", () => {
       "HOD_BREAK_TRIGGER",
     ]);
     expect(both.primary?.triggerType).toBe("DISCOVERY_TRIGGER");
-    expect(both.display).toBe("09:42:00");
+    expect(both.display).toBe("9:42:00 AM");
 
     const hodOnly = evaluateScreenerTriggerTime(row({ last_hod_break_at: HOD_BREAK_AT }));
     expect(hodOnly.primary?.triggerType).toBe("HOD_BREAK_TRIGGER");
-    expect(hodOnly.display).toBe("15:08:00");
+    expect(hodOnly.display).toBe("3:08:00 PM");
   });
 
   it("DQ: authentic timestamps are AUTHORITATIVE with UNKNOWN freshness", () => {

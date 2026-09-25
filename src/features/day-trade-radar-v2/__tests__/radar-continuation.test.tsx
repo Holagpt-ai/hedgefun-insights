@@ -99,7 +99,7 @@ describe("Radar Continuation presentation", () => {
     expect(bodyRows[1]).toHaveTextContent("BBB");
     expect(screen.queryByRole("columnheader", { name: /Continuation/ })).not.toBeInTheDocument();
     expect(screen.getAllByTitle("Continuation unavailable")[0]).toHaveTextContent("—");
-    expect(screen.getAllByText("09:42:00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("9:42:00 AM").length).toBeGreaterThan(0);
   });
 
   it("16. shows unavailable continuation on the mobile card", () => {
@@ -109,6 +109,6 @@ describe("Radar Continuation presentation", () => {
       </MemoryRouter>,
     );
     expect(screen.getByTitle("Continuation unavailable")).toHaveTextContent("—");
-    expect(screen.getByText("09:42:00")).toBeInTheDocument();
+    expect(screen.getByText("9:42:00 AM")).toBeInTheDocument();
   });
 });

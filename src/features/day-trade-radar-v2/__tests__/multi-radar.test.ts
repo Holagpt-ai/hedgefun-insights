@@ -20,6 +20,9 @@ import {
   qualifyPanelRows,
   selectBreakoutLeader,
   selectDayTradeLeader,
+  selectPanelLeader,
+  selectTradableFeaturedLeader,
+  sortPanelRows,
 } from "../multi-radar";
 import { RADAR_COLUMN_STORAGE_KEY } from "../radar-grid-columns";
 
@@ -227,6 +230,52 @@ describe("leaders and storage reset", () => {
     ];
     expect(selectDayTradeLeader(rows)?.symbol).toBe("FAST");
     expect(selectBreakoutLeader(rows)?.symbol).toBe("HOD");
+  });
+
+  it("features the highest-ranked $2–$25 name without reordering the desk", () => {
+    const rows = [
+      row({ symbol: "PENNY", rank: 1, price: 0.03 }),
+      row({ symbol: "WIDE", rank: 2, price: 1.25 }),
+      row({ symbol: "TRADE", rank: 4, price: 8.4 }),
+      row({ symbol: "RICH", rank: 3, price: 40 }),
+    ];
+    expect(selectTradableFeaturedLeader(rows)?.symbol).toBe("TRADE");
+    expect(selectPanelLeader("day_trade", rows)?.symbol).toBe("TRADE");
+    expect(selectPanelLeader("penny", rows)?.symbol).toBe("PENNY");
+    expect(sortPanelRows(rows, "day_trade", "rank").map((item) => item.symbol)).toEqual([
+      "PENNY",
+      "WIDE",
+      "RICH",
+      "TRADE",
+    ]);
+    expect(rows.map((item) => item.rank)).toEqual([1, 2, 4, 3]);
+  });
+
+  it("falls back to $1–$30 and then to the highest rank", () => {
+    const widened = [
+      row({ symbol: "SUB", rank: 1, price: 0.4 }),
+      row({ symbol: "BAND", rank: 3, price: 1.5 }),
+      row({ symbol: "HIGH", rank: 2, price: 31 }),
+    ];
+    expect(selectTradableFeaturedLeader(widened)?.symbol).toBe("BAND");
+
+    const edges = [
+      row({ symbol: "LOW", rank: 2, price: 2 }),
+      row({ symbol: "HIGHEDGE", rank: 1, price: 25 }),
+    ];
+    expect(selectTradableFeaturedLeader(edges)?.symbol).toBe("HIGHEDGE");
+
+    const outside = [
+      row({ symbol: "TINY", rank: 1, price: 0.03 }),
+      row({ symbol: "EXPENSIVE", rank: 2, price: 80 }),
+    ];
+    expect(selectTradableFeaturedLeader(outside)?.symbol).toBe("TINY");
+
+    const missing = [
+      row({ symbol: "BLANK", rank: 1, price: null }),
+      row({ symbol: "OK", rank: 2, price: 12 }),
+    ];
+    expect(selectTradableFeaturedLeader(missing)?.symbol).toBe("OK");
   });
 
   it("resets legacy scanner column storage onto DAY TRADE DESK", () => {

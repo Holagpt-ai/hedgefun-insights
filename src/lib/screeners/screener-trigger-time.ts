@@ -68,12 +68,12 @@ export function formatTriggerTimePrimaryLine(iso: string | null | undefined): st
   const utc = toCanonicalUtcTimestamp(iso);
   if (utc === null) return "—";
   return new Intl.DateTimeFormat("en-US", {
-    hour: "2-digit",
+    hour: "numeric",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
+    hour12: true,
     timeZone: TRIGGER_TIME_DISPLAY_TIMEZONE,
-  }).format(new Date(utc));
+  }).format(new Date(utc)).replace(/[\u202f\u00a0]/g, " ");
 }
 
 export function formatTriggerTimeSecondaryLine(iso: string | null | undefined): string {
