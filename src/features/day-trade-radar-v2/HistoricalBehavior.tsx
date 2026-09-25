@@ -1,7 +1,17 @@
+import type { ReactNode } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { RepeatMoverComparableEpisode, RepeatMoverContext } from "@/types/repeat-mover";
 import { ScannerMetricHint } from "./ScannerMetricHint";
-import { HISTORY_BLANK } from "./scanner-metric-copy";
+import {
+  comparableEpisodeFacts,
+  episodeSessionHeading,
+  episodeTierLabel,
+  historyDetailCopy,
+  loadedComparableEpisodes,
+} from "./history-detail";
+import { HISTORY_BLANK, HISTORY_HEADER } from "./scanner-metric-copy";
 
 const PARTIAL_QUALITIES = new Set(["INSUFFICIENT", "LIMITED"]);
 
@@ -65,35 +75,142 @@ export function RepeatMoverBadge({ context }: { context: RepeatMoverContext | nu
   );
 }
 
+function stopRowActivation(event: { stopPropagation: () => void }) {
+  event.stopPropagation();
+}
+
+function HistoryDetailTrigger({
+  visible,
+  hover,
+  className,
+  children,
+}: {
+  visible: string;
+  hover: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <TooltipProvider delayDuration={250}>
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                className={className}
+                aria-label={`${visible}. ${hover}`}
+                onClick={stopRowActivation}
+                onKeyDown={stopRowActivation}
+              >
+                {visible}
+              </button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="hidden max-w-xs text-xs md:block">
+            {hover}
+          </TooltipContent>
+        </Tooltip>
+        <PopoverContent
+          align="start"
+          className="max-h-80 w-80 overflow-y-auto p-3"
+          data-testid="history-detail"
+          onClick={stopRowActivation}
+        >
+          {children}
+        </PopoverContent>
+      </Popover>
+    </TooltipProvider>
+  );
+}
+
+export function PriorMomentumHistory({ context }: { context: RepeatMoverContext }) {
+  const count = verifiedPriorRunCount(context);
+  if (count === null) return null;
+  const copy = historyDetailCopy(context, count);
+  const episodes = loadedComparableEpisodes(context);
+  return (
+    <div className="space-y-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Prior momentum history
+      </div>
+      <div className="text-[13px] font-medium text-foreground">{copy.verifiedRuns}</div>
+      {copy.showing && (
+        <p className="text-[11px] text-muted-foreground">{copy.showing}</p>
+      )}
+      {copy.emptyDetails && (
+        <p className="text-[12px] text-muted-foreground">{copy.emptyDetails}</p>
+      )}
+      <p className="text-[11px] text-muted-foreground">
+        Verified historical Stocksist momentum episodes for this ticker.
+      </p>
+      {episodes.length > 0 && (
+        <div>
+          {episodes.map((episode) => (
+            <HistoryEpisodeCard key={episode.episodeId} episode={episode} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function HistoryEpisodeCard({ episode }: { episode: RepeatMoverComparableEpisode }) {
+  const heading = episodeSessionHeading(episode.sessionDate);
+  const tier = episodeTierLabel(episode.tier);
+  const facts = comparableEpisodeFacts(episode);
+  return (
+    <div className="border-t border-border py-2 first:border-t-0">
+      <div className="flex items-baseline justify-between gap-2">
+        {heading && <div className="text-[12px] font-medium text-foreground">{heading}</div>}
+        {tier && <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{tier}</div>}
+      </div>
+      {facts.length > 0 && (
+        <dl className="mt-1 space-y-0.5">
+          {facts.map((fact) => (
+            <div key={`${episode.episodeId}-${fact.label}`} className="flex gap-2 text-[11px]">
+              <dt className="text-muted-foreground">{fact.label}</dt>
+              <dd className="tabular-nums text-foreground">{fact.value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+    </div>
+  );
+}
+
 export function HistoryCell({
   context,
-  onOpen,
 }: {
   context: RepeatMoverContext | null | undefined;
-  onOpen?: () => void;
 }) {
+  if (context?.profile?.profileAvailable === false) {
+    return (
+      <HistoryDetailTrigger
+        visible="—"
+        hover={HISTORY_BLANK}
+        className="text-[11px] text-muted-foreground"
+      >
+        <p className="text-[12px] text-foreground">Historical profile unavailable</p>
+      </HistoryDetailTrigger>
+    );
+  }
   const label = historyContextLabel(context);
-  if (!label) {
+  if (!label || !context) {
     return (
       <ScannerMetricHint label={HISTORY_BLANK} className="text-muted-foreground">
         —
       </ScannerMetricHint>
     );
   }
-  if (!onOpen) {
-    return <span className="text-[11px] font-medium text-accent-blue">{label}</span>;
-  }
   return (
-    <button
-      type="button"
+    <HistoryDetailTrigger
+      visible={label}
+      hover={HISTORY_HEADER}
       className="text-[11px] font-medium text-accent-blue hover:underline"
-      onClick={(e) => {
-        e.stopPropagation();
-        onOpen();
-      }}
     >
-      {label}
-    </button>
+      <PriorMomentumHistory context={context} />
+    </HistoryDetailTrigger>
   );
 }
 

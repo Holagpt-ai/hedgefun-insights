@@ -14,7 +14,7 @@ import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
-import { historyContextLabel, HistoryCell } from "./HistoricalBehavior";
+import { HistoryCell } from "./HistoricalBehavior";
 import { HintedMetric, ScannerMetricHint } from "./ScannerMetricHint";
 import {
   HISTORY_HEADER,
@@ -136,7 +136,10 @@ export function RadarPanelLeader({
         <Metric label="HOD" value={formatDeskHod(row)} />
         {panel === "breakouts" ? <Metric label="VWAP" value={formatDeskVwap(row)} /> : null}
         <Metric label="Catalyst" value={catalyst ? "Catalyst" : "No verified catalyst"} />
-        <Metric label="HISTORY" value={historyContextLabel(row.historicalContext) ?? "—"} />
+        <div>
+          <div className="text-[10px] uppercase text-muted-foreground">HISTORY</div>
+          <HistoryCell context={row.historicalContext} />
+        </div>
       </div>
       <div className="ml-auto flex items-stretch gap-3 rounded-md border border-border bg-muted/50 px-3 py-2" data-testid={`volume-speed-hero-${panel}`}>
         <div className="text-right">
@@ -487,7 +490,7 @@ function renderCell(args: {
   }
   if (id === "hod") return <span className="tabular-nums">{formatDeskHod(row)}</span>;
   if (id === "vwap") return <span>{formatDeskVwap(row)}</span>;
-  if (id === "history") return args.accessible ? <HistoryCell context={row.historicalContext} onOpen={() => args.onOpenDetails(row)} /> : "—";
+  if (id === "history") return args.accessible ? <HistoryCell context={row.historicalContext} /> : "—";
   if (id === "catalyst") {
     if (!args.accessible) return "—";
     const display = resolveRadarNewsCellState({
