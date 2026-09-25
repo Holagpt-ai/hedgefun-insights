@@ -333,19 +333,40 @@ describe("AM Inbox late-session handoff V1", () => {
     );
   });
 
-  it("sorts collapsed handoffs alphabetically by symbol", () => {
-    for (const symbol of ["CCC", "BBB", "AAA"]) {
-      persistLateSessionHandoff(
-        buildLateSessionContinuationContext({
-          symbol,
-          sourceSessionDate: "2026-09-21",
-          sourceTimestamp: "2026-09-21T20:00:00.000Z",
-          sourceCategory: "POWER_HOUR_MOMENTUM",
-        }),
-      );
-    }
+  it("sorts collapsed handoffs by volume-first AM inbox priority", () => {
+    persistLateSessionHandoff(
+      buildLateSessionContinuationContext({
+        symbol: "LOW",
+        sourceSessionDate: "2026-09-21",
+        sourceTimestamp: "2026-09-21T20:00:00.000Z",
+        sourceCategory: "DAY_TWO_WATCH",
+        volume: 500_000,
+        rvol: 1,
+      }),
+    );
+    persistLateSessionHandoff(
+      buildLateSessionContinuationContext({
+        symbol: "HIGH",
+        sourceSessionDate: "2026-09-21",
+        sourceTimestamp: "2026-09-21T20:00:00.000Z",
+        sourceCategory: "POWER_HOUR_MOMENTUM",
+        volume: 15_000_000,
+        rvol: 10,
+        dollarVolume: 120_000_000,
+      }),
+    );
+    persistLateSessionHandoff(
+      buildLateSessionContinuationContext({
+        symbol: "MID",
+        sourceSessionDate: "2026-09-21",
+        sourceTimestamp: "2026-09-21T20:00:00.000Z",
+        sourceCategory: "AFTER_HOURS_CONTINUATION",
+        volume: 3_000_000,
+        rvol: 4,
+      }),
+    );
     const view = buildAmInboxLateSessionView("2026-09-22");
-    expect(view.candidates.map((c) => c.context.symbol)).toEqual(["AAA", "BBB", "CCC"]);
+    expect(view.candidates.map((c) => c.context.symbol)).toEqual(["HIGH", "MID", "LOW"]);
   });
 
   it("does not change Discovery volume-first ranking when capturing handoffs", () => {

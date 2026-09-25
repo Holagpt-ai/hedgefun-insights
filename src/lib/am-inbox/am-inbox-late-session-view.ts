@@ -8,6 +8,7 @@ import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import type { ContinuationCategory } from "@/config/continuation.config";
 import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
+import { rankAmInboxLateSessionCandidates } from "@/lib/am-inbox/am-inbox-late-session-priority";
 
 function mergeContextWithWorkflow(
   context: LateSessionContinuationContext,
@@ -89,9 +90,7 @@ export function collapseLateSessionCandidates(
       sourceCategories: unique,
     });
   }
-  return [...byKey.values()].sort((a, b) =>
-    a.context.symbol.localeCompare(b.context.symbol),
-  );
+  return rankAmInboxLateSessionCandidates([...byKey.values()]);
 }
 
 export function buildAmInboxLateSessionViewFromContexts(

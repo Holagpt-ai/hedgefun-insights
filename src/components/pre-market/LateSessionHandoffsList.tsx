@@ -1,5 +1,7 @@
 import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
+import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
+import { TopNReveal } from "@/components/session-intelligence/TopNReveal";
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -8,13 +10,6 @@ const CATEGORY_LABEL: Record<string, string> = {
   STRONG_CLOSE_NEAR_HOD: "Strong Close Near HOD",
   DAY_TWO_WATCH: "Day-Two Watch",
 };
-
-const CATEGORY_ORDER = [
-  "POWER_HOUR_MOMENTUM",
-  "AFTER_HOURS_CONTINUATION",
-  "STRONG_CLOSE_NEAR_HOD",
-  "DAY_TWO_WATCH",
-] as const;
 
 function formatNum(value: number | null | undefined, digits = 1): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
@@ -75,36 +70,33 @@ function HandoffCard({ entry }: { entry: AmInboxLateSessionCandidate }) {
 
 export function LateSessionHandoffsList({
   candidates,
+  visibleLimit = AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
 }: {
   candidates: readonly AmInboxLateSessionCandidate[];
+  visibleLimit?: number;
 }) {
   if (candidates.length === 0) return null;
 
-  const byCategory = new Map<string, AmInboxLateSessionCandidate[]>();
-  for (const entry of candidates) {
-    const key = entry.context.sourceCategory;
-    const list = byCategory.get(key) ?? [];
-    list.push(entry);
-    byCategory.set(key, list);
-  }
+  const total = candidates.length;
 
   return (
-    <div className="flex flex-col gap-4" data-testid="am-inbox-late-session-handoffs">
-      {CATEGORY_ORDER.filter((cat) => (byCategory.get(cat)?.length ?? 0) > 0).map((cat) => (
-        <section key={cat} className="flex flex-col gap-2">
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {CATEGORY_LABEL[cat] ?? cat}
-          </h3>
-          <div className="flex flex-col gap-2">
-            {(byCategory.get(cat) ?? []).map((entry) => (
-              <HandoffCard
-                key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}`}
-                entry={entry}
-              />
-            ))}
-          </div>
-        </section>
-      ))}
-    </div>
+    <TopNReveal items={candidates} limit={visibleLimit}>
+      {(visible) => (
+        <div className="flex flex-col gap-2" data-testid="am-inbox-late-session-handoffs">
+          {visible.map((entry) => (
+            <HandoffCard
+              key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}`}
+              entry={entry}
+            />
+          ))}
+          {total > visibleLimit && (
+            <p className="text-[11px] text-muted-foreground">
+              Showing {visible.length} of {total} priority continuation{" "}
+              {total === 1 ? "candidate" : "candidates"}
+            </p>
+          )}
+        </div>
+      )}
+    </TopNReveal>
   );
 }
