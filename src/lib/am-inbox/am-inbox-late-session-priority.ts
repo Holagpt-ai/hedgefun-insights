@@ -107,15 +107,18 @@ export function compareAmInboxLateSessionCandidates(
   a: AmInboxLateSessionCandidate,
   b: AmInboxLateSessionCandidate,
 ): number {
-  const scoreDiff =
-    computeAmInboxLateSessionPriorityScore(b) - computeAmInboxLateSessionPriorityScore(a);
-  if (scoreDiff !== 0) return scoreDiff;
-
   const volDiff = finiteOrZero(b.context.volume) - finiteOrZero(a.context.volume);
   if (volDiff !== 0) return volDiff;
 
+  const dollarDiff = finiteOrZero(b.context.dollarVolume) - finiteOrZero(a.context.dollarVolume);
+  if (dollarDiff !== 0) return dollarDiff;
+
   const rvolDiff = finiteOrZero(b.context.rvol) - finiteOrZero(a.context.rvol);
   if (rvolDiff !== 0) return rvolDiff;
+
+  const scoreDiff =
+    computeAmInboxLateSessionPriorityScore(b) - computeAmInboxLateSessionPriorityScore(a);
+  if (scoreDiff !== 0) return scoreDiff;
 
   return a.context.symbol.localeCompare(b.context.symbol);
 }
