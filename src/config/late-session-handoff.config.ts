@@ -11,3 +11,6 @@ export const LATE_SESSION_SOURCE_CATEGORIES = [
 export type LateSessionSourceCategory = (typeof LATE_SESSION_SOURCE_CATEGORIES)[number];
 
 export const LATE_SESSION_HANDOFF_STORAGE_KEY = "stocksist-late-session-handoffs-v1";
+
+/** Main AM Inbox continuation module — full dataset remains available via View All. */
+export const AM_INBOX_LATE_SESSION_VISIBLE_LIMIT = 6;

@@ -228,11 +228,24 @@ export default function AMInbox() {
             <IndexCards rows={data?.indexes.data ?? []} />
           </SectionShell>
 
+          {/* AI Pre-Market Brief (existing entitlement-enforced flow) */}
+          <section className="flex min-w-0 flex-col gap-2">
+            <SectionHeading
+              title="AI Pre-Market Brief"
+              subtitle="Server-generated brief — entitlement enforced by the backend"
+            />
+            <AIBriefCard
+              isPro={isPro}
+              config={{ ...AM_INBOX_CONFIG, aiCardTitle: "✦ AI Pre-Market Brief" }}
+              briefType="am"
+            />
+          </section>
+
           {lateSessionView.candidates.length > 0 && (
             <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
               <SectionHeading
                 title="Late-Session Continuation"
-                subtitle="Carried from prior session · workflow handoffs preserve symbol and historical context"
+                subtitle="Priority opportunities from the prior session · volume-first ordering"
               />
               <LateSessionHandoffsList candidates={lateSessionView.candidates} />
             </section>
@@ -260,19 +273,6 @@ export default function AMInbox() {
           >
             <VolumeLeaderList rows={volumeLeadersView.section?.data ?? []} catalysts={catalysts} />
           </SectionShell>
-
-          {/* AI Pre-Market Brief (existing entitlement-enforced flow) */}
-          <section className="flex min-w-0 flex-col gap-2">
-            <SectionHeading
-              title="AI Pre-Market Brief"
-              subtitle="Server-generated brief — entitlement enforced by the backend"
-            />
-            <AIBriefCard
-              isPro={isPro}
-              config={{ ...AM_INBOX_CONFIG, aiCardTitle: "✦ AI Pre-Market Brief" }}
-              briefType="am"
-            />
-          </section>
 
           {/* Catalyst Watch — prioritized stories */}
           <SectionShell
