@@ -5294,8 +5294,10 @@ export type Database = {
           lifecycle_entered_at: string | null
           move_15s_pct: number | null
           move_60s_pct: number | null
+          previous_close: number | null
           primary_scanner_event: string | null
           primary_scanner_event_at: string | null
+          prior_session_volume: number | null
           promoted_at: string | null
           provider_as_of: string | null
           rvol_5m: number | null
@@ -5341,8 +5343,10 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          previous_close?: number | null
           primary_scanner_event?: string | null
           primary_scanner_event_at?: string | null
+          prior_session_volume?: number | null
           promoted_at?: string | null
           provider_as_of?: string | null
           rvol_5m?: number | null
@@ -5388,8 +5392,10 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          previous_close?: number | null
           primary_scanner_event?: string | null
           primary_scanner_event_at?: string | null
+          prior_session_volume?: number | null
           promoted_at?: string | null
           provider_as_of?: string | null
           rvol_5m?: number | null

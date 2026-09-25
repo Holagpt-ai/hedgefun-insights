@@ -309,6 +309,13 @@
       "when": 1790275602292,
       "tag": "0043_radar_v22_feed_session_date_schema_reload",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1790375835063,
+      "tag": "0044_radar_v22_previous_session_facts_v1",
+      "breakpoints": true
     }
   ]
 }
