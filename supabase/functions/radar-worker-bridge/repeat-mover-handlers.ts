@@ -1,6 +1,5 @@
-import { attachForwardOutcomesToComparables } from "../_shared/forward-outcomes/attach-comparables.ts";
 import { assembleRepeatMoverContext } from "../_shared/repeat-movers/assemble-repeat-mover-context.ts";
-import { FORWARD_OUTCOME_LIST_BY_EPISODES_RPC } from "./forward-outcome-handlers.ts";
+import { enrichRepeatMoverComparableEpisodes } from "../_shared/repeat-movers/enrich-comparable-episodes.ts";
 import type { RepeatMoverContextInput } from "../_shared/repeat-movers/types.ts";
 import type { RadarBridgeAction } from "./actions.ts";
 import { BEHAVIOR_PROFILE_SELECT, BEHAVIOR_PROFILE_TABLE } from "./behavior-handlers.ts";
@@ -94,34 +93,20 @@ export async function handleRepeatMoverAction(
       assembledAt: typeof body.assembled_at === "string" ? body.assembled_at : undefined,
     });
 
-    const comparables = context.comparableHistory.closestComparableEpisodes;
-    if (rpc && comparables.length > 0) {
-      const episodeIds = comparables.map((episode) => episode.episodeId);
-      const foResponse = await rpc(FORWARD_OUTCOME_LIST_BY_EPISODES_RPC, { p_episode_ids: episodeIds });
-      const foText = await foResponse.text();
-      let foParsed: Record<string, unknown> = {};
-      try {
-        foParsed = JSON.parse(foText) as Record<string, unknown>;
-      } catch {
-        foParsed = {};
-      }
-      const rawRows = Array.isArray(foParsed.result)
-        ? foParsed.result as Record<string, unknown>[]
-        : [];
-      if (rawRows.length > 0) {
-        const attached = attachForwardOutcomesToComparables(comparables, rawRows);
-        context = {
-          ...context,
-          comparableHistory: {
-            ...context.comparableHistory,
-            closestComparableEpisodes: attached,
-            mostRecentComparableEpisode: context.comparableHistory.mostRecentComparableEpisode
-              ? attached.find((e) => e.episodeId === context.comparableHistory.mostRecentComparableEpisode?.episodeId)
-                ?? context.comparableHistory.mostRecentComparableEpisode
-              : null,
-          },
-        };
-      }
+    if (rpc && context.comparableHistory.closestComparableEpisodes.length > 0) {
+      const enriched = await enrichRepeatMoverComparableEpisodes({
+        comparables: context.comparableHistory.closestComparableEpisodes,
+        mostRecentComparableEpisode: context.comparableHistory.mostRecentComparableEpisode,
+        rpc,
+      });
+      context = {
+        ...context,
+        comparableHistory: {
+          ...context.comparableHistory,
+          closestComparableEpisodes: enriched.closestComparableEpisodes,
+          mostRecentComparableEpisode: enriched.mostRecentComparableEpisode,
+        },
+      };
     }
 
     return jsonResponse({ ok: true, context });

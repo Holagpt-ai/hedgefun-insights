@@ -40,6 +40,23 @@ export interface RepeatMoverComparableEpisode {
     closePosition: Partial<Record<"D1" | "D2" | "D3" | "D5", number | null>>;
     nextSession: Record<string, unknown> | null;
   };
+  historicalEvents?: Array<{
+    eventType: string;
+    title: string;
+    publishedAt: string | null;
+    temporalRelationship: string;
+    source: string | null;
+  }>;
+  observedIntradayReconstruction?: {
+    hodAt: string | null;
+    closeVsHodPct: number | null;
+    largestPullbackPct: number | null;
+    recoveredFromPullback: boolean | null;
+    haltCount: number | null;
+    vwapReclaimCount: number | null;
+    largestVolumeBurstAt: string | null;
+    completenessState: string;
+  };
   similarity: {
     sameDirection: boolean;
     sameTier: boolean;
