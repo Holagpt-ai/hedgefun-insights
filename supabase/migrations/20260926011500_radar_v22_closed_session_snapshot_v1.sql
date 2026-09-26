@@ -4,15 +4,13 @@
 -- radar_v22_board cannot carry promoted_at or volume_acceleration_pct.
 
 CREATE TABLE public.radar_v22_closed_snapshot (
-  LIKE public.radar_v22_candidates INCLUDING DEFAULTS
-);
-
-ALTER TABLE public.radar_v22_closed_snapshot
-  ADD COLUMN snapshot_kind text NOT NULL DEFAULT 'closed_session',
-  ADD COLUMN captured_at timestamptz NOT NULL,
-  ADD CONSTRAINT radar_v22_closed_snapshot_kind_check
+  LIKE public.radar_v22_candidates INCLUDING DEFAULTS,
+  snapshot_kind text NOT NULL DEFAULT 'closed_session',
+  captured_at timestamptz NOT NULL,
+  CONSTRAINT radar_v22_closed_snapshot_kind_check
     CHECK (snapshot_kind = 'closed_session'),
-  ADD CONSTRAINT radar_v22_closed_snapshot_pkey PRIMARY KEY (trading_date, symbol);
+  CONSTRAINT radar_v22_closed_snapshot_pkey PRIMARY KEY (trading_date, symbol)
+);
 
 COMMENT ON TABLE public.radar_v22_closed_snapshot IS
   'Read-only last active same-session Radar payload for closed-session display. Not the live candidate set.';
