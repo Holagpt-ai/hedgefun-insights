@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Search, Menu, Sun, Moon, User, LogOut, Settings, Star, CreditCard, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { translateForLanguage, useLanguage } from "@/contexts/LanguageContext";
 import { useTheme } from "@/contexts/ThemeContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { AuthModals } from "@/components/auth/AuthModals";
@@ -18,10 +18,16 @@ import { trackEvent } from "@/lib/analytics";
 import { useEffect, useRef, useCallback } from "react";
 import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
 import { BRAND } from "@/config/brand";
+import { getEffectiveLanguage } from "@/config/locale-v1.policy";
+import { useShowPublicLanguageToggle } from "@/hooks/useEffectiveLanguage";
 
 export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
   const navigate = useNavigate();
-  const { language, setLanguage, t } = useLanguage();
+  const { language, setLanguage } = useLanguage();
+  const { pathname } = useLocation();
+  const effectiveLanguage = getEffectiveLanguage(language, pathname);
+  const showLanguageToggle = useShowPublicLanguageToggle();
+  const t = (key: string) => translateForLanguage(key, effectiveLanguage);
   const { theme, toggleTheme } = useTheme();
   const { user, profile, signOut } = useAuth();
 
@@ -173,14 +179,17 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
         </div>
 
         <div className="hidden md:flex items-center gap-2">
-          <button
-            onClick={() => setLanguage(language === "en" ? "es" : "en")}
-            className="text-xs font-medium text-muted-foreground hover:text-foreground bg-muted rounded-full px-2.5 py-1 transition-colors"
-          >
-            <span className={language === "en" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>EN</span>
-            <span className="text-muted-foreground mx-0.5">|</span>
-            <span className={language === "es" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>ES</span>
-          </button>
+          {showLanguageToggle ? (
+            <button
+              onClick={() => setLanguage(language === "en" ? "es" : "en")}
+              className="text-xs font-medium text-muted-foreground hover:text-foreground bg-muted rounded-full px-2.5 py-1 transition-colors"
+              aria-label="Switch site language"
+            >
+              <span className={language === "en" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>EN</span>
+              <span className="text-muted-foreground mx-0.5">|</span>
+              <span className={language === "es" ? "text-accent-blue font-semibold" : "text-muted-foreground"}>ES</span>
+            </button>
+          ) : null}
 
           <Button variant="ghost" size="icon" onClick={toggleTheme} className="h-8 w-8">
             {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}

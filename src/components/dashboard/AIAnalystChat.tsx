@@ -32,7 +32,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 import ReactMarkdown from "react-markdown";
 import { useVoiceInput } from "@/hooks/useVoiceInput";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useEffectiveLanguage } from "@/hooks/useEffectiveLanguage";
 import {
   ANALYST_WORKFLOWS,
   ANALYSIS_DEPTH_OPTIONS,
@@ -293,7 +293,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     }
   }, []);
 
-  const { language } = useLanguage();
+  const language = useEffectiveLanguage();
   const [voiceError, setVoiceError] = useState<string | null>(null);
   const {
     isSupported: voiceSupported,

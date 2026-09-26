@@ -10,6 +10,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { hasProAccess } from "@/lib/entitlement";
 import { BRAND } from "@/config/brand";
+import { LOCALE_V1_POLICY } from "@/config/locale-v1.policy";
 
 const AccountPage = () => {
   const navigate = useNavigate();
@@ -93,9 +94,16 @@ const AccountPage = () => {
       <div className="fintech-card p-4">
         <h2 className="text-sm font-semibold text-foreground mb-3">Preferences</h2>
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-foreground">Language</span>
-            <div className="flex gap-1">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <span className="text-sm text-foreground">Site language</span>
+              {LOCALE_V1_POLICY.tradingSurfacesEnglishOnly ? (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  Public site only. The trading dashboard is English in this release.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex gap-1 shrink-0">
               <button onClick={() => handleLanguageChange("en")} className={cn("text-xs px-3 py-1 rounded-full", language === "en" ? "bg-accent-blue text-primary-foreground" : "bg-muted text-muted-foreground")}>EN</button>
               <button onClick={() => handleLanguageChange("es")} className={cn("text-xs px-3 py-1 rounded-full", language === "es" ? "bg-accent-blue text-primary-foreground" : "bg-muted text-muted-foreground")}>ES</button>
             </div>

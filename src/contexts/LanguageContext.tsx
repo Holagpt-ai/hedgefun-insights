@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
+import { LOCALE_V1_POLICY } from "@/config/locale-v1.policy";
 
 type Language = "en" | "es";
 
@@ -94,8 +95,8 @@ interface LanguageContextValue {
 
 const LanguageContext = createContext<LanguageContextValue | null>(null);
 
-const LANG_STORAGE_KEY = "stocksist-lang";
-const LEGACY_LANG_STORAGE_KEY = "hedgefun-lang";
+const LANG_STORAGE_KEY = LOCALE_V1_POLICY.storageKey;
+const LEGACY_LANG_STORAGE_KEY = LOCALE_V1_POLICY.legacyStorageKey;
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>(() => {
@@ -148,4 +149,8 @@ export function useLanguage() {
   const ctx = useContext(LanguageContext);
   if (!ctx) throw new Error("useLanguage must be used within LanguageProvider");
   return ctx;
+}
+
+export function translateForLanguage(key: string, language: Language): string {
+  return translations[key]?.[language] ?? key;
 }

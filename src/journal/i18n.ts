@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useLanguage } from "@/contexts/LanguageContext";
+import { useEffectiveLanguage } from "@/hooks/useEffectiveLanguage";
 
 export type Lang = "en" | "es";
 
@@ -1015,7 +1015,7 @@ export function journalMessage(language: Lang, key: JournalMessageKey, vars?: Re
 }
 
 export function useJournalT() {
-  const { language } = useLanguage();
+  const language = useEffectiveLanguage();
   const lang: Lang = language === "es" ? "es" : "en";
   return useCallback(
     (key: JournalMessageKey, vars?: Record<string, string | number>) => journalMessage(lang, key, vars),
@@ -1024,6 +1024,6 @@ export function useJournalT() {
 }
 
 export function useJournalLang(): Lang {
-  const { language } = useLanguage();
+  const language = useEffectiveLanguage();
   return language === "es" ? "es" : "en";
 }
