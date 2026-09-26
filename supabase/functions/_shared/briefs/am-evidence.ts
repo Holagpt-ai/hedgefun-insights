@@ -20,6 +20,12 @@ import {
   EARNINGS_CALENDAR_PROVIDER,
   isConfirmedBeforeOpenEarnings,
 } from "../pre-market/contract.ts";
+import type {
+  AmCurrentPremarketMover,
+  AmEnrichmentBundle,
+  AmPriorSessionRadarLeader,
+  CatalystFeedStatus,
+} from "./am-enrichment.ts";
 
 export const AM_INDEX_SYMBOLS = ["SPY", "QQQ", "DIA", "IWM"] as const;
 export type AmIndexSymbol = (typeof AM_INDEX_SYMBOLS)[number];
@@ -84,6 +90,12 @@ export interface AmContinuationCarryoverEvidence {
   evidence_labels: string[];
   rvol: number | null;
   session_move_pct: number | null;
+  /** Prior-session qualification — not a live scanner detection. */
+  context_scope: "prior_session_qualification";
+  primary_reason: string | null;
+  last_price: number | null;
+  close_distance_from_hod_pct: number | null;
+  after_hours_extends: boolean | null;
 }
 
 export const AM_CONTINUATION_CARRYOVER_LIMIT = 8;
@@ -95,6 +107,7 @@ export interface AmEvidenceBundle {
   catalysts: AmCatalystEvidence[];
   earnings: AmEarningsEvidence[];
   continuationCarryovers: AmContinuationCarryoverEvidence[];
+  enrichment: AmEnrichmentBundle;
 }
 
 export interface AmMaterialState {
@@ -303,6 +316,9 @@ export function selectContinuationCarryovers(
     evidence_labels?: unknown;
     rvol?: number | null;
     session_move_pct?: number | null;
+    last_price?: unknown;
+    close_distance_from_hod_pct?: unknown;
+    after_hours_extends?: unknown;
   }[],
 ): AmContinuationCarryoverEvidence[] {
   const seen = new Set<string>();
@@ -324,6 +340,13 @@ export function selectContinuationCarryovers(
       evidence_labels: labels,
       rvol: finiteMetricOrNull(row.rvol),
       session_move_pct: finiteMetricOrNull(row.session_move_pct),
+      context_scope: "prior_session_qualification",
+      primary_reason: labels.length > 0 ? labels[0] : null,
+      last_price: finiteMetricOrNull(row.last_price),
+      close_distance_from_hod_pct: finiteMetricOrNull(row.close_distance_from_hod_pct),
+      after_hours_extends: typeof row.after_hours_extends === "boolean"
+        ? row.after_hours_extends
+        : null,
     });
     if (out.length >= AM_CONTINUATION_CARRYOVER_LIMIT) break;
   }
@@ -478,9 +501,21 @@ export function buildAmV2Snapshot(
       evidence_labels: c.evidence_labels,
       rvol: c.rvol,
       session_move_pct: c.session_move_pct,
+      context_scope: c.context_scope,
+      primary_reason: c.primary_reason,
+      last_price: c.last_price,
+      close_distance_from_hod_pct: c.close_distance_from_hod_pct,
+      after_hours_extends: c.after_hours_extends,
     })),
+    intelligence_enrichment: {
+      prior_session_radar_leaders: bundle.enrichment.priorSessionRadarLeaders,
+      current_premarket_movers: bundle.enrichment.currentPremarketMovers,
+      catalyst_feed_status: bundle.enrichment.catalystFeedStatus,
+    },
   };
 }
+
+export type { AmPriorSessionRadarLeader, AmCurrentPremarketMover, CatalystFeedStatus };
 
 export function readMaterialState(snapshot: unknown): AmMaterialState | null {
   if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;

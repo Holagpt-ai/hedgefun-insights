@@ -23,6 +23,7 @@ import {
 import { decideAmGeneration } from "./am-decision.ts";
 import { rankHeadlines, type RawHeadline } from "../pre-market/headlines.ts";
 import { buildAmUserPrompt, PM_MAX_TOKENS, PM_SYSTEM, AM_MAX_TOKENS } from "./prompts.ts";
+import { amEvidenceFixture } from "./am-evidence-fixtures.ts";
 
 function idx(
   pct: Record<AmIndexSymbol, number>,
@@ -37,21 +38,7 @@ function idx(
 }
 
 function bundle(overrides: Partial<AmEvidenceBundle> = {}): AmEvidenceBundle {
-  return {
-    checkedAt: "2026-08-28T08:10:00.000Z",
-    indexes: idx({ SPY: 0.4, QQQ: 0.6, DIA: 0.2, IWM: -0.1 }),
-    headlines: [
-      { id: "h1", headline: "Fed signals patience on rates", source: "Wire", published_at: "2026-08-28T07:00:00.000Z", materiality: 60 },
-    ],
-    catalysts: [
-      { id: "c1", symbol: "NVDA", title: "NVIDIA announces next-generation data center GPU", event_date: "2026-08-28", event_type: "product_contract", source_name: "Wire" },
-    ],
-    earnings: [
-      { id: "e1", symbol: "AAPL", title: "AAPL reports before the open", event_date: "2026-08-28", time_of_day: "before_open" },
-    ],
-    continuationCarryovers: [],
-    ...overrides,
-  };
+  return amEvidenceFixture(overrides);
 }
 
 function cloneStateFrom(b: AmEvidenceBundle) {
@@ -473,12 +460,34 @@ Deno.test("17. PM token/prompt contract remains four-ETF-only", () => {
   assertEquals(PM_SYSTEM.includes("Overnight / Macro"), false);
 });
 
-Deno.test("AM V2 snapshot stores version/source/fingerprint without radar fields", () => {
-  const snap = buildAmV2Snapshot(bundle(), cloneStateFrom(bundle()));
+Deno.test("AM V2 snapshot stores enrichment metadata when present", () => {
+  const b = bundle({
+    enrichment: {
+      priorSessionRadarLeaders: [{
+        symbol: "NVDA",
+        trading_date: "2026-09-24",
+        context_scope: "prior_session",
+        data_source: "closed_session_snapshot",
+        session_volume: 1_000_000,
+        primary_scanner_event: "VOLUME_BURST",
+        promotion_primary_event: null,
+        radar_event_lifecycle: "ACTIVE",
+        participation_state: "ELEVATED",
+        time_adjusted_rvol: 2.1,
+        volume_velocity: 100,
+        volume_acceleration_pct: 5,
+        last_price: 120,
+        session_high: 121,
+      }],
+      currentPremarketMovers: [],
+      catalystFeedStatus: "verified",
+    },
+  });
+  const snap = buildAmV2Snapshot(b, cloneStateFrom(b));
   assertEquals(snap.version, AM_V2_VERSION);
   assertEquals(snap.source, AM_V2_SOURCE);
   assert(typeof snap.fingerprint === "string" && (snap.fingerprint as string).length > 0);
-  const json = JSON.stringify(snap);
-  assertEquals(json.includes("screener"), false);
-  assertEquals(json.includes("day_trade"), false);
+  const ie = snap.intelligence_enrichment as Record<string, unknown>;
+  assert(Array.isArray(ie.prior_session_radar_leaders));
+  assertEquals((ie.prior_session_radar_leaders as unknown[]).length, 1);
 });

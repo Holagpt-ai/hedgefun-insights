@@ -57,8 +57,9 @@ STRICT RULES:
 - No price targets. No predictions stated as facts. No "this stock will move".
 - No fabricated tickers, headlines, catalysts, or earnings.
 - No watchlist personalization. This brief is generic/shared.
-- Continuation carryovers are prior-session context only — not predictions.
-- No volume leaders or pre-market movers unless listed under CONTINUATION CARRYOVERS.
+- Continuation carryovers and PRIOR-SESSION RADAR blocks are prior-session qualification — not live detections or predictions.
+- CURRENT PREMARKET blocks are live pre-open context only; never describe them as yesterday's close.
+- No tickers beyond those explicitly listed in the user message.
 - If a section has no evidence in the user message, OMIT that section entirely. Do not fill empty space with generic commentary.
 - Do not mention missing sections.
 
@@ -77,6 +78,15 @@ Important confirmed events if available.
 
 ### Day-Two / Continuation Watch
 Prior-session carryovers (Power-Hour, Strong Close, After-Hours, Day-Two) when listed.
+
+### Prior-Session Radar Leaders
+Closed-session scanner leaders (participation / RVOL / promotion context) when listed — not live.
+
+### Current Pre-Market Movers
+Verified current pre-market price/gap/volume when listed under CURRENT PREMARKET.
+
+### Participation / Risk Notes
+Weak participation or risk flags only when supported by supplied scanner or continuation metrics.
 
 ### Into the Open
 2–3 evidence-grounded items traders should monitor, using only the supplied facts.
@@ -146,18 +156,63 @@ export function buildAmUserPrompt(bundle: AmEvidenceBundle): string {
 
   if (bundle.continuationCarryovers.length > 0) {
     parts.push("");
-    parts.push("CONTINUATION CARRYOVERS (prior session → next-session watch, factual only):");
+    parts.push("CONTINUATION CARRYOVERS (prior_session_qualification — not live detections):");
     for (const c of bundle.continuationCarryovers) {
       const labels = c.evidence_labels.length > 0 ? c.evidence_labels.join(", ") : "—";
       const rvol = c.rvol !== null ? ` rvol_5m=${c.rvol.toFixed(2)}` : "";
       const move = c.session_move_pct !== null
         ? ` move=${c.session_move_pct.toFixed(2)}%`
         : "";
+      const hod = c.close_distance_from_hod_pct !== null
+        ? ` close_vs_hod=${c.close_distance_from_hod_pct.toFixed(2)}%`
+        : "";
+      const ah = c.after_hours_extends === true ? " ah_extends=yes" : "";
+      const px = c.last_price !== null ? ` last=${c.last_price.toFixed(2)}` : "";
+      const reason = c.primary_reason ? ` reason=${c.primary_reason}` : "";
       parts.push(
-        `- [${c.key}] ${c.symbol} category=${c.source_category} from=${c.source_session_date}${rvol}${move} context=${labels}`,
+        `- [${c.key}] ${c.symbol} category=${c.source_category} from=${c.source_session_date}${rvol}${move}${px}${hod}${ah}${reason} evidence=${labels}`,
       );
     }
   }
+
+  const enrich = bundle.enrichment;
+  if (enrich.priorSessionRadarLeaders.length > 0) {
+    parts.push("");
+    parts.push("PRIOR-SESSION RADAR LEADERS (closed_session_snapshot — not live):");
+    for (const r of enrich.priorSessionRadarLeaders) {
+      const partsLine = [
+        `- ${r.symbol} session=${r.trading_date}`,
+        r.primary_scanner_event ? `event=${r.primary_scanner_event}` : null,
+        r.promotion_primary_event ? `promotion=${r.promotion_primary_event}` : null,
+        r.radar_event_lifecycle ? `lifecycle=${r.radar_event_lifecycle}` : null,
+        r.participation_state ? `participation=${r.participation_state}` : null,
+        r.time_adjusted_rvol !== null ? `time_adj_rvol=${r.time_adjusted_rvol.toFixed(2)}` : null,
+        r.volume_velocity !== null ? `vol_velocity=${r.volume_velocity.toFixed(2)}` : null,
+        r.volume_acceleration_pct !== null
+          ? `vol_accel=${r.volume_acceleration_pct.toFixed(1)}%`
+          : null,
+        r.session_volume !== null ? `session_vol=${Math.round(r.session_volume)}` : null,
+      ].filter(Boolean).join(" ");
+      parts.push(partsLine);
+    }
+  }
+
+  if (enrich.currentPremarketMovers.length > 0) {
+    parts.push("");
+    parts.push("CURRENT PREMARKET (live pre-open — distinct from prior-session blocks):");
+    for (const m of enrich.currentPremarketMovers) {
+      const gap = m.gap_pct !== null ? ` gap=${m.gap_pct.toFixed(2)}%` : "";
+      const px = m.price !== null ? ` price=${m.price.toFixed(2)}` : "";
+      const vol = m.volume !== null ? ` vol=${Math.round(m.volume)}` : "";
+      const rvol = m.participation_rvol !== null ? ` rvol=${m.participation_rvol.toFixed(2)}` : "";
+      parts.push(
+        `- ${m.symbol}${px}${gap}${vol}${rvol} updated_at=${m.updated_at ?? "—"}`,
+      );
+    }
+  }
+
+  parts.push("");
+  parts.push(`CATALYST_FEED_STATUS=${enrich.catalystFeedStatus}`);
 
   parts.push("");
   parts.push(

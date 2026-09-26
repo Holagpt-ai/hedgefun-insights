@@ -23,6 +23,13 @@ import {
   type AmEvidenceBundle,
   type AttributedCatalystRow,
 } from "../_shared/briefs/am-evidence.ts";
+import {
+  emptyEnrichment,
+  priorCompletedTradingDate,
+  resolveCatalystFeedStatus,
+  selectCurrentPremarketMovers,
+  selectPriorSessionRadarLeaders,
+} from "../_shared/briefs/am-enrichment.ts";
 import { decideAmGeneration, isAmV2Snapshot } from "../_shared/briefs/am-decision.ts";
 import {
   isInsideFinalPreopenRecoveryEnvelope,
@@ -475,8 +482,11 @@ serve(async (req) => {
 
     const newsLookback = new Date(sourceCheckedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
     const catalystFrom = etDateShift(etDate, -2);
+    const priorSessionDate = priorCompletedTradingDate(etDate, weekday);
+    const radarSelect =
+      "symbol, session_volume, primary_scanner_event, promotion_reason, radar_event_lifecycle, participation_state, time_adjusted_rvol, volume_velocity, volume_acceleration_pct, last_price, session_high";
 
-    const [newsRes, catRes, handoffRes] = await Promise.all([
+    const [newsRes, catRes, handoffRes, radarSnapRes, pmScrRes] = await Promise.all([
       admin
         .from("market_news")
         .select("id, headline, source, url, published_at, category, description")
@@ -496,12 +506,25 @@ serve(async (req) => {
       admin
         .from("late_session_continuation_handoffs")
         .select(
-          "symbol, source_session_date, source_category, evidence_labels, rvol, session_move_pct, source_timestamp",
+          "symbol, source_session_date, source_category, evidence_labels, rvol, session_move_pct, source_timestamp, last_price, close_distance_from_hod_pct, after_hours_extends",
         )
         .lte("valid_from_session_date", etDate)
         .gte("valid_through_session_date", etDate)
         .order("source_timestamp", { ascending: false })
         .limit(40),
+      admin
+        .from("radar_v22_closed_snapshot")
+        .select(radarSelect)
+        .eq("trading_date", priorSessionDate)
+        .eq("snapshot_kind", "closed_session")
+        .order("session_volume", { ascending: false, nullsFirst: false })
+        .limit(24),
+      admin
+        .from("screener_results")
+        .select("symbol, price, change_percent, volume, rvol_20d, updated_at")
+        .eq("tab_id", "day_trade_radar")
+        .order("volume", { ascending: false, nullsFirst: false })
+        .limit(24),
     ]);
 
     const optionalFailed = Boolean(newsRes.error || catRes.error || handoffRes.error);
@@ -520,6 +543,12 @@ serve(async (req) => {
     }
     if (handoffRes.error) {
       console.error("late_session handoffs fetch failed:", handoffRes.error.message);
+    }
+    if (radarSnapRes.error) {
+      console.error("radar closed snapshot fetch failed:", radarSnapRes.error.message);
+    }
+    if (pmScrRes.error) {
+      console.error("premarket screener fetch failed:", pmScrRes.error.message);
     }
 
     const ranked = rankHeadlines((newsRes.data ?? []) as never, AM_HEADLINE_RANK_POOL);
@@ -569,6 +598,23 @@ serve(async (req) => {
       ? []
       : selectContinuationCarryovers(handoffRes.data ?? []);
 
+    const priorSessionRadarLeaders = radarSnapRes.error
+      ? []
+      : selectPriorSessionRadarLeaders(
+        (radarSnapRes.data ?? []) as Array<Record<string, unknown>>,
+        priorSessionDate,
+      );
+    const currentPremarketMovers = pmScrRes.error
+      ? []
+      : selectCurrentPremarketMovers(
+        (pmScrRes.data ?? []) as Array<Record<string, unknown>>,
+        sourceCheckedAt.getTime(),
+      );
+    const catalystFeedStatus = resolveCatalystFeedStatus(
+      Boolean(catRes.error),
+      catalysts.length,
+    );
+
     const bundle: AmEvidenceBundle = {
       checkedAt: sourceCheckedAt.toISOString(),
       indexes: indexValidation.indexes,
@@ -576,6 +622,11 @@ serve(async (req) => {
       catalysts,
       earnings,
       continuationCarryovers,
+      enrichment: {
+        priorSessionRadarLeaders,
+        currentPremarketMovers,
+        catalystFeedStatus,
+      },
     };
     const incomingState = buildMaterialState(bundle);
     const decision = decideAmGeneration({
