@@ -29,10 +29,25 @@ export interface AiReadInput {
   radar_context?: {
     primary_event: string | null;
     primary_event_at: string | null;
+    promotion_primary_event?: string | null;
+    promotion_trigger_at?: string | null;
+    radar_event_lifecycle?: string | null;
     rvol_5m: number | null;
     volume_velocity: number | null;
     volume_acceleration_pct: number | null;
     distance_from_hod_pct: number | null;
+    participation?: {
+      time_adjusted_rvol: number | null;
+      volume_5m: number | null;
+      volume_15m: number | null;
+      volume_60m: number | null;
+      volume_velocity_5m: number | null;
+      volume_velocity_15m: number | null;
+      volume_velocity_60m: number | null;
+      dollar_volume_velocity_5m: number | null;
+      participation_state: string | null;
+      baseline_session_count: number | null;
+    } | null;
   } | null;
 }
 

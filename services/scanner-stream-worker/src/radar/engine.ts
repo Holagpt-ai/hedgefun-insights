@@ -50,6 +50,9 @@ import {
 import type { Tod5mBaselineCache } from "./tod-5m-baseline-cache.ts";
 import { createScannerEventBook } from "./scanner-event-book.ts";
 import type { ScannerEventBookSnapshot } from "./scanner-event-book.ts";
+import { createRadarEventBook } from "./radar-event-book.ts";
+import { computeParticipationForSymbol } from "./participation-metrics.ts";
+import type { ParticipationBaselineCache } from "./participation-baseline-cache.ts";
 import type { ScannerAlertFiring } from "../../../../supabase/functions/_shared/scanner-alerts/types.ts";
 import {
   mapCandidateRow,
@@ -208,10 +211,13 @@ export function createRadarEngine(opts: {
   config: RadarV22Config;
   exceptions?: CalendarExceptionRow[] | null;
   todBaselineCache?: Tod5mBaselineCache | null;
+  participationBaselineCache?: ParticipationBaselineCache | null;
 }): RadarEngine {
   const { config } = opts;
   const todBaselineCache = opts.todBaselineCache ?? null;
+  const participationBaselineCache = opts.participationBaselineCache ?? null;
   const scannerEventBook = createScannerEventBook();
+  const radarEventBook = createRadarEventBook();
   const book = createRadarBook(config);
   const sentinel = createMarketSentinel(config);
   const intel = createSessionIntelBook(config);
@@ -323,6 +329,8 @@ export function createRadarEngine(opts: {
     radarFirstSeenAtMs.clear();
     lifecycles.clear();
     scannerEventBook.clear();
+    radarEventBook.clear();
+    participationBaselineCache?.clear();
     lastEventEndMs = null;
     lastReceiveMs = null;
     feedStale = false;
@@ -590,6 +598,57 @@ export function createRadarEngine(opts: {
           primary: null,
           newlyActivated: [],
         };
+        const participation = computeParticipationForSymbol({
+          symbol,
+          tradingDate: boardDate,
+          eventNowMs: eventNow,
+          sessionKind: lastSessionKind ?? "closed",
+          sessionVolume: sessionVol,
+          bars: book.bars(symbol),
+          baselineCache: participationBaselineCache,
+          exceptions,
+          feedStale: false,
+          volumeAccelerationPct: metrics.volumeAccelerationPct,
+          isoFromMs,
+          lastBarEndMs: metrics.lastBarEndMs,
+        });
+        const radarEventSnap = radarEventBook.step(symbol, {
+          surveillanceDate: boardDate,
+          eventNowMs: eventNow,
+          emitEvents: isLiveSurveillanceKind(lastSessionKind ?? "closed"),
+          detect,
+          active,
+          sessionVolume: sessionVol,
+          lastPrice: metrics.lastPrice,
+          vol5s: metrics.vol5s,
+          vol15s: metrics.vol15s,
+          vol60s: metrics.vol60s,
+          volumeAccelerationPct: metrics.volumeAccelerationPct,
+          move15sPct: metrics.move15s.movePct,
+          move15Complete: metrics.move15s.complete,
+          sessionHigh: intelSnap?.sessionHigh ?? metrics.sessionHigh,
+          sessionVwap: intelSnap?.sessionVwap ?? metrics.sessionVwap,
+          vwapSide: intelSnap?.vwapSide ?? "unknown",
+          distanceFromHodPct: intelSnap?.hodDistance !== null &&
+              intelSnap?.hodDistance !== undefined
+            ? intelSnap.hodDistance * 100
+            : null,
+          freshnessAgeMs: intelSnap?.freshnessAgeMs ?? null,
+          participation: {
+            time_adjusted_rvol: participation.time_adjusted_rvol,
+            volume_5m: participation.volume_5m,
+            volume_15m: participation.volume_15m,
+            volume_60m: participation.volume_60m,
+            volume_velocity_5m: participation.volume_velocity_5m,
+            volume_velocity_15m: participation.volume_velocity_15m,
+            volume_velocity_60m: participation.volume_velocity_60m,
+            dollar_volume_velocity_5m: participation.dollar_volume_velocity_5m,
+            participation_state: participation.participation_state,
+            participation_baseline_session_count:
+              participation.participation_baseline_session_count,
+          },
+          isoFromMs,
+        });
         if (lastSessionKind === "market") {
           const openPx = intelSnap?.sessionOpen ?? null;
           const gapPercent = computeGapPercent(openPx, quote?.previousClose ?? null);
@@ -638,6 +697,12 @@ export function createRadarEngine(opts: {
           updatedAt,
           isoFromMs,
           scanner: scannerSnap,
+          radarEvent: {
+            lifecycle: radarEventSnap.lifecycle,
+            promotionReason: radarEventSnap.promotionReason,
+            persistableEvents: radarEventSnap.persistableEvents,
+          },
+          participation,
           previousSession: quote
             ? {
               regularClose: quote.regularClose,

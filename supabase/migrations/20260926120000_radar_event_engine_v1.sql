@@ -1,0 +1,2 @@
+-- Superseded by 20260926130000_intraday_participation_v1.sql (consolidated #1+#2 schema).
+-- Retained filename only for environments that already recorded this migration version.

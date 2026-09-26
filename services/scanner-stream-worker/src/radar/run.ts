@@ -6,6 +6,7 @@ import { isoFromMs } from "./time.ts";
 import { mergeRadarConfig, type RadarV22Config } from "./config.ts";
 import { createRadarEngine, persistableGeneration } from "./engine.ts";
 import { createTod5mBaselineCache } from "./tod-5m-baseline-cache.ts";
+import { createParticipationBaselineCache } from "./participation-baseline-cache.ts";
 import { createRadarBridge } from "../bridge.ts";
 import { type LeaseClient } from "./lease.ts";
 import {
@@ -89,7 +90,17 @@ export function startRadarV22(opts: {
     fetch: opts.fetch,
     exceptions: () => calendarExceptions,
   });
-  const engine = createRadarEngine({ config, exceptions: [], todBaselineCache });
+  const participationBaselineCache = createParticipationBaselineCache({
+    apiKey: opts.env.polygonApiKey,
+    fetch: opts.fetch,
+    exceptions: () => calendarExceptions,
+  });
+  const engine = createRadarEngine({
+    config,
+    exceptions: [],
+    todBaselineCache,
+    participationBaselineCache,
+  });
   const feedTracker = createFeedTelemetryTracker({
     provider: opts.env.marketDataProvider,
     configuredFeedMode: opts.env.marketDataFeedMode,
@@ -167,6 +178,11 @@ export function startRadarV22(opts: {
       // with whatever baselines are already verified.
       void todBaselineCache.warm(tapeSymbols, tradingDate).catch(() => {
         log("warn", "radar_tod_baseline_warm_failed", {
+          code: "baseline_unavailable",
+        });
+      });
+      void participationBaselineCache.warm(tapeSymbols, tradingDate).catch(() => {
+        log("warn", "radar_participation_baseline_warm_failed", {
           code: "baseline_unavailable",
         });
       });

@@ -23,6 +23,7 @@ import {
   CONTINUATION_HOD_TIERS,
   CONTINUATION_MAX_SPREAD_PCT,
   CONTINUATION_MIN_COVERAGE_PCT,
+  CONTINUATION_MIN_SESSION_VOLUME,
   CONTINUATION_MODEL_VERSION,
   CONTINUATION_POWER_HOUR_END_MS,
   CONTINUATION_POWER_HOUR_MIN_DOLLAR_VOLUME,
@@ -31,8 +32,10 @@ import {
   CONTINUATION_STRONG_CLOSE_MAX_HOD_DISTANCE_PCT,
   CONTINUATION_STRONG_CLOSE_MIN_DOLLAR_VOLUME,
   CONTINUATION_TOTAL_WEIGHT,
+  CONTINUATION_TIME_ADJUSTED_RVOL_STRONG,
   CONTINUATION_TRADE_QUALITY_TIERS,
   CONTINUATION_VELOCITY_SCORES,
+  CONTINUATION_VOLUME_ACCELERATION_QUALIFY_PCT,
   CONTINUATION_VWAP_SIGNAL_WEIGHTS,
   type ContinuationCategory,
   type ContinuationNumericTier,
@@ -218,7 +221,9 @@ function scoreTurnover(input: ContinuationInput): ContinuationComponentResult {
 
 function scoreRvol(input: ContinuationInput): ContinuationComponentResult {
   const maxScore = CONTINUATION_COMPONENT_WEIGHTS.rvol20d;
-  const rvol = input.rvol20d;
+  const rvol = isFiniteNumber(input.timeAdjustedRvol)
+    ? input.timeAdjustedRvol
+    : input.rvol20d;
   if (!isFiniteNumber(rvol) || rvol < 0) return unavailable(maxScore);
   return available(rvol, scoreExclusiveTiers(rvol, CONTINUATION_RVOL20D_TIERS), maxScore);
 }
@@ -254,6 +259,12 @@ function collectReasons(input: ContinuationInput, dollarVolume: number | null): 
   const turnover = resolveFloatTurnover(input);
   if (turnover !== null && turnover >= 1) reasons.push("FLOAT_ROTATION");
   if (isFiniteNumber(input.rvol20d) && input.rvol20d >= 5) reasons.push("STRONG_RVOL");
+  if (
+    isFiniteNumber(input.timeAdjustedRvol) &&
+    input.timeAdjustedRvol >= CONTINUATION_TIME_ADJUSTED_RVOL_STRONG
+  ) {
+    reasons.push("STRONG_RVOL");
+  }
   if (isFiniteNumber(input.tradeQualityScore) && input.tradeQualityLabel !== "INCOMPLETE" && input.tradeQualityScore >= 70) {
     reasons.push("HIGH_TRADE_QUALITY");
   }
@@ -269,20 +280,7 @@ function technicalBroken(input: ContinuationInput): boolean {
 }
 
 function afterHoursMaintainsStrength(input: ContinuationInput): ContinuationTriState {
-  const explicit = tri(input.afterHoursExtendsSession);
-  if (explicit !== "UNKNOWN") return explicit;
-  if (isPositiveFinite(input.price) && isPositiveFinite(input.sessionHigh)) {
-    if (input.price >= input.sessionHigh) return "TRUE";
-    const distance =
-      isFiniteNumber(input.distanceFromHodPct) && input.distanceFromHodPct >= 0
-        ? input.distanceFromHodPct
-        : ((input.sessionHigh - input.price) / input.sessionHigh) * 100;
-    if (Number.isFinite(distance) && distance <= CONTINUATION_AFTER_HOURS_MAINTAIN_HOD_PCT) {
-      return "TRUE";
-    }
-    return "FALSE";
-  }
-  return "UNKNOWN";
+  return tri(input.afterHoursExtendsSession);
 }
 
 function collectDisqualifiers(
@@ -302,6 +300,14 @@ function collectDisqualifiers(
       kind: "DISQUALIFIED",
       code: "CRITICAL_LOW_DOLLAR_VOLUME",
       message: "Dollar volume is below the critical minimum.",
+    });
+  }
+  const volume = input.currentSessionVolume;
+  if (isFiniteNumber(volume) && volume >= 0 && volume < CONTINUATION_MIN_SESSION_VOLUME) {
+    items.push({
+      kind: "DISQUALIFIED",
+      code: "CRITICAL_LOW_SESSION_VOLUME",
+      message: "Session volume is below the configured minimum.",
     });
   }
   if (isFiniteNumber(input.spreadPct) && input.spreadPct > CONTINUATION_MAX_SPREAD_PCT) {
@@ -347,11 +353,38 @@ function evaluateCategories(
     isFiniteNumber(input.distanceFromHodPct) &&
     input.distanceFromHodPct <= CONTINUATION_STRONG_CLOSE_MAX_HOD_DISTANCE_PCT;
 
+  const scannerPowerHourEvent =
+    input.scannerPrimaryEvent === "LATE_DAY_ACCELERATION" ||
+    input.scannerPrimaryEvent === "HOD_BREAK" ||
+    input.scannerPrimaryEvent === "HOD_MOMENTUM" ||
+    input.scannerPrimaryEvent === "RUNNING_UP" ||
+    input.scannerPrimaryEvent === "MOMENTUM_TRIGGER" ||
+    input.scannerPrimaryEvent === "RE_ACCELERATION" ||
+    input.scannerPrimaryEvent === "SECOND_LEG" ||
+    input.scannerPrimaryEvent === "NEW_HOD";
+  const participationSurge =
+    input.participationState?.trim().toUpperCase() === "SURGING" ||
+    input.participationState?.trim().toUpperCase() === "RISING";
+  const radarMomentum =
+    tri(input.radarHasReAcceleration) === "TRUE" ||
+    tri(input.radarHasSecondLeg) === "TRUE" ||
+    tri(input.radarHasNewHod) === "TRUE";
+  const tarvolOk =
+    isFiniteNumber(input.timeAdjustedRvol) &&
+    input.timeAdjustedRvol >= CONTINUATION_TIME_ADJUSTED_RVOL_STRONG;
+  const accelOk =
+    isFiniteNumber(input.volumeAccelerationPct) &&
+    input.volumeAccelerationPct >= CONTINUATION_VOLUME_ACCELERATION_QUALIFY_PCT;
   const powerHour =
     window.isPowerHour &&
-    (velocity === "STRONG" || velocity === "MODERATE") &&
     liquidityMet(dollarVolume, CONTINUATION_POWER_HOUR_MIN_DOLLAR_VOLUME) &&
-    !technicalBroken(input);
+    !technicalBroken(input) &&
+    ((velocity === "STRONG" || velocity === "MODERATE") ||
+      scannerPowerHourEvent ||
+      participationSurge ||
+      radarMomentum ||
+      tarvolOk ||
+      accelOk);
   results.push({
     category: "POWER_HOUR_MOMENTUM",
     qualified: powerHour,

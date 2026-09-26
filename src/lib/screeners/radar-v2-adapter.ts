@@ -138,6 +138,19 @@ export interface RadarV2CandidateRow {
   primary_scanner_event: string | null;
   primary_scanner_event_at: string | null;
   scanner_events: unknown;
+  promotion_reason?: unknown;
+  radar_event_lifecycle?: string | null;
+  radar_engine_events?: unknown;
+  time_adjusted_rvol?: number | null;
+  volume_5m?: number | null;
+  volume_15m?: number | null;
+  volume_60m?: number | null;
+  volume_velocity_5m?: number | null;
+  volume_velocity_15m?: number | null;
+  volume_velocity_60m?: number | null;
+  dollar_volume_velocity_5m?: number | null;
+  participation_state?: string | null;
+  participation_baseline_session_count?: number | null;
   session_high: number | null;
   session_low: number | null;
   distance_from_hod_pct: number | null;
@@ -441,6 +454,25 @@ export function mapCandidateToScreenerRow(
       : null,
     primary_scanner_event_at: row.primary_scanner_event_at ?? null,
     scanner_events: row.scanner_events ?? null,
+    promotion_reason: row.promotion_reason ?? null,
+    radar_event_lifecycle: row.radar_event_lifecycle ?? null,
+    time_adjusted_rvol: isFiniteNumber(row.time_adjusted_rvol) ? row.time_adjusted_rvol : null,
+    volume_5m: isFiniteNumber(row.volume_5m) ? row.volume_5m : null,
+    volume_15m: isFiniteNumber(row.volume_15m) ? row.volume_15m : null,
+    volume_60m: isFiniteNumber(row.volume_60m) ? row.volume_60m : null,
+    volume_velocity_5m: isFiniteNumber(row.volume_velocity_5m) ? row.volume_velocity_5m : null,
+    volume_velocity_15m: isFiniteNumber(row.volume_velocity_15m) ? row.volume_velocity_15m : null,
+    volume_velocity_60m: isFiniteNumber(row.volume_velocity_60m) ? row.volume_velocity_60m : null,
+    dollar_volume_velocity_5m: isFiniteNumber(row.dollar_volume_velocity_5m)
+      ? row.dollar_volume_velocity_5m
+      : null,
+    participation_state: typeof row.participation_state === "string"
+      ? row.participation_state
+      : null,
+    participation_baseline_session_count:
+      Number.isInteger(row.participation_baseline_session_count)
+        ? row.participation_baseline_session_count
+        : null,
     distance_from_hod_pct: isFiniteNumber(row.distance_from_hod_pct)
       ? row.distance_from_hod_pct
       : null,

@@ -45,6 +45,9 @@ import {
   candidatePreviousSessionFacts,
   type PreviousSessionQuoteInput,
 } from "../../../../src/lib/screeners/previous-session-facts.ts";
+import type { PromotionReason } from "../../../../src/lib/radar/radar-event-engine.ts";
+import { radarV22EventTypeFromEngine } from "../../../../src/lib/radar/radar-event-engine.ts";
+import type { IntradayParticipationSnapshot } from "../../../../src/lib/radar/intraday-participation.ts";
 
 export { REPLACE_RADAR_V2_RPC, RADAR_V22_CANDIDATE_CAP };
 
@@ -245,6 +248,20 @@ export function validateRadarV2Generation(input: ReplaceRadarV2Args): boolean {
     ) {
       return false;
     }
+    if (
+      row.radar_event_lifecycle !== null &&
+      row.radar_event_lifecycle !== undefined &&
+      typeof row.radar_event_lifecycle !== "string"
+    ) {
+      return false;
+    }
+    if (
+      row.radar_engine_events !== null &&
+      row.radar_engine_events !== undefined &&
+      !Array.isArray(row.radar_engine_events)
+    ) {
+      return false;
+    }
     if (!isRadarV22VwapSide(row.vwap_side)) return false;
     if (!isRadarV22FreshnessClass(row.freshness_class)) return false;
     if (typeof row.geometry_partial !== "boolean") return false;
@@ -358,6 +375,23 @@ export function buildRadarV2Events(opts: {
     add(row.symbol, "HOD_REJECTION", row.last_hod_reject_at);
     add(row.symbol, "VWAP_RECLAIM", row.last_vwap_reclaim_at);
     add(row.symbol, "VWAP_LOSS", row.last_vwap_loss_at);
+
+    const engineEvents = row.radar_engine_events;
+    if (Array.isArray(engineEvents)) {
+      for (const raw of engineEvents) {
+        if (raw === null || typeof raw !== "object") continue;
+        const rec = raw as Record<string, unknown>;
+        const typeRaw = rec.type ?? rec.event_type;
+        const atRaw = rec.eventAt ?? rec.event_at;
+        if (typeof typeRaw !== "string" || typeof atRaw !== "string") continue;
+        const mapped = radarV22EventTypeFromEngine(
+          typeRaw as Parameters<typeof radarV22EventTypeFromEngine>[0],
+        );
+        if (mapped === null || !isRadarV22EventType(mapped)) continue;
+        if (!isIsoTimestamp(atRaw)) continue;
+        add(row.symbol, mapped, atRaw);
+      }
+    }
   }
 
   for (const arch of opts.archived) {
@@ -552,6 +586,12 @@ export function mapCandidateRow(opts: {
     events: Array<{ type: string; triggered_at: string; active: boolean }>;
     primary: { type: string; triggered_at: string; active: boolean } | null;
   };
+  radarEvent?: {
+    lifecycle: string;
+    promotionReason: PromotionReason;
+    persistableEvents: Array<{ type: string; eventAt: string }>;
+  };
+  participation?: IntradayParticipationSnapshot | null;
   /**
    * Current enrichment quote for this surveillance date. Null when the symbol
    * has no quote in this generation. Not read from radar_v22_board.
@@ -636,6 +676,26 @@ export function mapCandidateRow(opts: {
     primary_scanner_event: opts.scanner?.primary?.type ?? null,
     primary_scanner_event_at: opts.scanner?.primary?.triggered_at ?? null,
     scanner_events: opts.scanner?.events ?? [],
+    promotion_reason: opts.radarEvent?.promotionReason ?? null,
+    radar_event_lifecycle: opts.radarEvent?.lifecycle ?? null,
+    radar_engine_events: opts.radarEvent?.persistableEvents ?? [],
+    time_adjusted_rvol: opts.participation?.time_adjusted_rvol ?? null,
+    volume_5m: opts.participation?.volume_5m ?? null,
+    volume_15m: opts.participation?.volume_15m ?? null,
+    volume_60m: opts.participation?.volume_60m ?? null,
+    volume_velocity_5m: opts.participation?.volume_velocity_5m ?? null,
+    volume_velocity_15m: opts.participation?.volume_velocity_15m ?? null,
+    volume_velocity_60m: opts.participation?.volume_velocity_60m ?? null,
+    dollar_volume_velocity_5m: opts.participation?.dollar_volume_velocity_5m ?? null,
+    participation_state: opts.participation?.participation_state ?? null,
+    participation_baseline_session_count:
+      opts.participation?.participation_baseline_session_count ?? null,
+    participation_calculated_at: opts.participation?.participation_calculated_at ?? null,
+    participation_source_as_of: opts.participation?.participation_source_as_of ?? null,
+    regular_session_close:
+      opts.previousSession?.regularClose != null && opts.previousSession.regularClose > 0
+        ? opts.previousSession.regularClose
+        : null,
     previous_close: previousSession.previous_close,
     prior_session_volume: previousSession.prior_session_volume,
     updated_at: opts.updatedAt,

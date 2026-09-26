@@ -746,3 +746,30 @@ Deno.test("lifecycle helper: first detect is DETECTED, second CONFIRMING, third 
   }).record;
   assertEquals(rec.phase, "ACTIVE");
 });
+
+Deno.test("rankBoard volume-first order is independent of event engine", () => {
+  const config = mergeRadarConfig();
+  const mk = (symbol: string, vol: number): RankedCandidate => ({
+    symbol,
+    lifecycle: "ACTIVE",
+    vol5s: 1_000,
+    vol15s: 2_000,
+    vol60s: vol,
+    dollarVol60s: vol * 10,
+    sessionVolume: vol,
+    acceleration5m: null,
+    freshnessAgeMs: 1_000,
+    lastPrice: 10,
+    changePercent: 5,
+    priorVolume: 100_000,
+    volumeRatio: vol / 100_000,
+    dayHigh: 11,
+    dayLow: 9,
+    sessionVwap: 10,
+    peakVol15: 2_000,
+    companyName: symbol,
+    providerAsOfMs: T0,
+  });
+  const ranked = rankBoard([mk("LOW", 50_000), mk("HIGH", 500_000)], config);
+  assertEquals(ranked[0]?.symbol, "HIGH");
+});

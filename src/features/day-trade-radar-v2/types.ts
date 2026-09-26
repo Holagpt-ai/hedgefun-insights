@@ -19,6 +19,18 @@ export interface RadarRankingFields {
   primary_scanner_event?: string | null;
   primary_scanner_event_at?: string | null;
   scanner_events?: unknown;
+  promotion_reason?: unknown;
+  radar_event_lifecycle?: string | null;
+  time_adjusted_rvol?: number | null;
+  volume_5m?: number | null;
+  volume_15m?: number | null;
+  volume_60m?: number | null;
+  volume_velocity_5m?: number | null;
+  participation_state?: string | null;
+  participation_baseline_session_count?: number | null;
+  volume_velocity_15m?: number | null;
+  volume_velocity_60m?: number | null;
+  dollar_volume_velocity_5m?: number | null;
   distance_from_hod_pct?: number | null;
   rolling_dollar_volume_60s?: number | null;
   session_vwap?: number | null;

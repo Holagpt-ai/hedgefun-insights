@@ -1,0 +1,1 @@
+-- Superseded by 0048_intraday_participation_v1.sql (consolidated #1+#2 schema).

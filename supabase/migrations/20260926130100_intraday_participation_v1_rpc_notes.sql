@@ -1,0 +1,1 @@
+-- Superseded by 20260926130200_scanner_intelligence_stack_replace_rpc_v1.sql.

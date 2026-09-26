@@ -116,6 +116,22 @@ function candidate(symbol: string, overrides: Partial<RadarV22CandidateRow> = {}
     primary_scanner_event: null,
     primary_scanner_event_at: null,
     scanner_events: [],
+    promotion_reason: null,
+    radar_event_lifecycle: null,
+    radar_engine_events: [],
+    time_adjusted_rvol: null,
+    volume_5m: null,
+    volume_15m: null,
+    volume_60m: null,
+    volume_velocity_5m: null,
+    volume_velocity_15m: null,
+    volume_velocity_60m: null,
+    dollar_volume_velocity_5m: null,
+    participation_state: null,
+    participation_baseline_session_count: null,
+    participation_calculated_at: null,
+    participation_source_as_of: null,
+    regular_session_close: null,
     session_high: 11,
     session_low: 9,
     distance_from_hod_pct: 9.09,
@@ -230,6 +246,28 @@ Deno.test("17-18. event insert is idempotent across retry", () => {
   store.apply(args([candidate("AAA")], events));
   assertEquals(store.events.length, count);
   assertEquals(new Set(store.events.map(eventKey)).size, count);
+});
+
+Deno.test("radar event engine discrete events merge into buildRadarV2Events", () => {
+  const at = "2026-09-26T15:00:00.000Z";
+  const events = buildRadarV2Events({
+    generationId: GEN,
+    tradingDate: DATE,
+    sessionKind: "market",
+    candidates: [
+      candidate("AAA", {
+        radar_engine_events: [
+          { type: "VOLUME_100K", eventAt: at },
+          { type: "MOMENTUM_TRIGGER", eventAt: at },
+        ],
+      }),
+    ],
+    sessionTransition: null,
+    sessionEventAt: null,
+    archived: [],
+  });
+  assertEquals(events.some((e) => e.event_type === "VOLUME_100K" && e.event_at === at), true);
+  assertEquals(events.some((e) => e.event_type === "MOMENTUM_TRIGGER" && e.event_at === at), true);
 });
 
 Deno.test("19-21. lifecycle, HOD, and VWAP events are represented", () => {

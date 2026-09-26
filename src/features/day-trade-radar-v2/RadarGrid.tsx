@@ -64,6 +64,10 @@ import {
   evaluateScreenerTriggerTime,
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
+import {
+  formatPromotionReasonTitle,
+  parsePromotionReason,
+} from "@/lib/radar/promotion-reason-display";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
@@ -191,10 +195,16 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
       return formatScreenerVolumeVelocity(row.vol_velocity);
     case "trigger_time": {
       const view = evaluateScreenerTriggerTime(row);
+      const promotionTitle = formatPromotionReasonTitle(
+        parsePromotionReason(row.promotion_reason),
+      );
+      const baseTitle = view.primary
+        ? `${triggerTypeLabel(view.primary.triggerType)} trigger`
+        : "Triggered unavailable";
       return (
         <TriggeredTimeCell
           triggeredAt={view.primary?.triggeredAt}
-          title={view.primary ? `${triggerTypeLabel(view.primary.triggerType)} trigger` : "Triggered unavailable"}
+          title={promotionTitle ?? baseTitle}
         />
       );
     }
@@ -325,15 +335,17 @@ export function RadarGrid({
                 {visibleColumns.map((columnId) => {
                   if (columnId === "trigger_time") {
                     const view = evaluateScreenerTriggerTime(row);
+                    const promotionTitle = formatPromotionReasonTitle(
+                      parsePromotionReason(row.promotion_reason),
+                    );
+                    const baseTitle = view.primary
+                      ? `${triggerTypeLabel(view.primary.triggerType, view.primary.eventKey)} trigger`
+                      : "Triggered unavailable";
                     return (
                       <td key={columnId} className="px-2 py-1.5 align-top">
                         <TriggeredTimeCell
                           triggeredAt={view.primary?.triggeredAt}
-                          title={
-                            view.primary
-                              ? `${triggerTypeLabel(view.primary.triggerType, view.primary.eventKey)} trigger`
-                              : "Triggered unavailable"
-                          }
+                          title={promotionTitle ?? baseTitle}
                         />
                       </td>
                     );

@@ -149,7 +149,19 @@ export const CONTINUATION_AFTER_HOURS_MIN_DOLLAR_VOLUME = 1_000_000;
 export const CONTINUATION_AFTER_HOURS_MAINTAIN_HOD_PCT = 3;
 export const CONTINUATION_DAY_TWO_MIN_DOLLAR_VOLUME = 3_000_000;
 export const CONTINUATION_CRITICAL_MIN_DOLLAR_VOLUME = 250_000;
+/** Minimum cumulative session shares before overnight handoff (Volume is king). */
+export const CONTINUATION_MIN_SESSION_VOLUME = 300_000;
 export const CONTINUATION_MAX_SPREAD_PCT = 8;
+
+/** Closing rejection = (HOD − close) / HOD as percent. */
+export const CONTINUATION_CLOSING_REJECTION_CAUTION_PCT = 3;
+export const CONTINUATION_CLOSING_REJECTION_DISQUALIFY_PCT = 8;
+
+/** After-hours extension below this percent vs regular close is not continuation. */
+export const CONTINUATION_AFTER_HOURS_EXTENSION_MIN_PCT = -2;
+
+export const CONTINUATION_TIME_ADJUSTED_RVOL_STRONG = 3;
+export const CONTINUATION_VOLUME_ACCELERATION_QUALIFY_PCT = 15;
 
 export const CONTINUATION_EXCLUDED_INSTRUMENT_TYPES = ["WARRANT", "RIGHT", "UNIT"] as const;
 

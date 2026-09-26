@@ -52,6 +52,15 @@ export const RADAR_V22_EVENT_TYPES = [
   "HOD_REJECTION",
   "VWAP_RECLAIM",
   "VWAP_LOSS",
+  "VOLUME_100K",
+  "VOLUME_500K",
+  "VOLUME_1M",
+  "MOMENTUM_TRIGGER",
+  "RE_ACCELERATION",
+  "PULLBACK",
+  "SECOND_LEG",
+  "HALT",
+  "RESUME",
   "SESSION_PM_RTH",
   "SESSION_RTH_AH",
 ] as const;
@@ -106,6 +115,25 @@ export type RadarV22CandidateRow = {
   primary_scanner_event: string | null;
   primary_scanner_event_at: string | null;
   scanner_events: unknown;
+  /** Radar Event Engine V1 promotion explanation (bounded JSON). */
+  promotion_reason: unknown;
+  radar_event_lifecycle: string | null;
+  /** Fired engine events [{type, event_at}] for discrete persistence. */
+  radar_engine_events: unknown;
+  time_adjusted_rvol: number | null;
+  volume_5m: number | null;
+  volume_15m: number | null;
+  volume_60m: number | null;
+  volume_velocity_5m: number | null;
+  volume_velocity_15m: number | null;
+  volume_velocity_60m: number | null;
+  dollar_volume_velocity_5m: number | null;
+  participation_state: string | null;
+  participation_baseline_session_count: number | null;
+  participation_calculated_at: string | null;
+  participation_source_as_of: string | null;
+  /** Verified regular-session close for AH extension (same trading date). */
+  regular_session_close: number | null;
   /**
    * Previous regular-session close recovered from day.c and the verified
    * regular-session move. Null when unverified or split-scale. Never 0.
