@@ -143,7 +143,13 @@ function Harness({
   const navigate = useNavigate();
   return (
     <>
-      <button type="button" onClick={() => navigate(nextUrl)}>
+      <button
+        type="button"
+        onClick={() => {
+          const url = new URL(nextUrl, "http://test.local");
+          navigate({ pathname: url.pathname, search: url.search });
+        }}
+      >
         harness-navigate
       </button>
       <AIAnalystChat isPro={isPro} userPlan={plan} userName={userName} />
@@ -176,7 +182,13 @@ function EntitlementHarness({
   return (
     <>
       <SymbolParamProbe />
-      <button type="button" onClick={() => navigate(nextUrl)}>
+      <button
+        type="button"
+        onClick={() => {
+          const url = new URL(nextUrl, "http://test.local");
+          navigate({ pathname: url.pathname, search: url.search });
+        }}
+      >
         harness-navigate
       </button>
       <button
@@ -745,6 +757,8 @@ describe("AI Analyst — ticker handoff", () => {
     expect(screen.getByText(/Analyze BBB/)).toBeInTheDocument();
     expect(screen.getByText(/Ticker · BBB/)).toBeInTheDocument();
 
+    await waitFor(() => expect(streamChatMock).toHaveBeenCalledTimes(2));
+
     // The superseded request also loses its conversation association.
     const second = streamChatMock.mock.calls[1][0] as StreamChatArgs;
     expect(second.conversationId).toBeUndefined();
@@ -924,13 +938,11 @@ describe("AI Analyst — attachment submission", () => {
     const quickScan = ANALYST_WORKFLOWS.find((workflow) => workflow.name === "Quick Scan")!;
 
     await act(async () => {
-      fireEvent.keyDown(textarea(), { key: "Enter", shiftKey: false });
+      fireEvent.click(workflowButton(/quick scan/i));
     });
-    await flush();
 
-    expect(streamChatMock).toHaveBeenCalledTimes(1);
-    const sent = streamChatMock.mock.calls[0][0] as StreamChatArgs;
-    expect(sent.messages[sent.messages.length - 1].content).toBe(quickScan.buildPrompt("AAA"));
+    expect(textarea().value).toBe(quickScan.buildPrompt("AAA"));
+    expect(streamChatMock).not.toHaveBeenCalled();
   });
 
   it("gives manually entered text precedence over the workflow fallback", async () => {

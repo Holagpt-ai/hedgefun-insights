@@ -80,6 +80,18 @@ vi.mock("@/components/pre-market/OpeningBellChecklist", () => ({
 }));
 vi.mock("@/components/pre-market/HeadlinesList", () => ({ HeadlinesList: () => null }));
 
+vi.mock("@/hooks/useAmInboxLateSessionHandoffs", () => ({
+  useAmInboxLateSessionHandoffs: () => ({
+    data: { asOfSessionDate: "2026-09-04", candidates: [], expiredCount: 0 },
+    isLoading: false,
+    isError: false,
+  }),
+}));
+
+vi.mock("@/components/pre-market/LateSessionHandoffsList", () => ({
+  LateSessionHandoffsList: () => null,
+}));
+
 import AMInbox from "@/pages/dashboard/AMInbox";
 
 const SYNCED = "2026-09-04T11:12:30.000Z";
