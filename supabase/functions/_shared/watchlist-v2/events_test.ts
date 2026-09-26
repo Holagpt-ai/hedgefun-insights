@@ -8,6 +8,7 @@ const TICKER = "AAPL";
 Deno.test("returns missing when input is null", async () => {
   const r = await mapNewsEvents(null, now, analyzedAt, TICKER);
   assertEquals(r.quality, "missing");
+  assertEquals(r.availability, "unavailable");
   assertEquals(r.events.length, 0);
 });
 

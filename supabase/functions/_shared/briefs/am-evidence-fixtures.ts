@@ -22,7 +22,7 @@ export function amEvidenceFixture(overrides: Partial<AmEvidenceBundle> = {}): Am
       { id: "h1", headline: "Fed signals patience on rates", source: "Wire", published_at: "2026-08-28T07:00:00.000Z", materiality: 60 },
     ],
     catalysts: [
-      { id: "c1", symbol: "NVDA", title: "NVIDIA announces next-generation data center GPU", event_date: "2026-08-28", event_type: "product_contract", source_name: "Wire" },
+      { id: "c1", symbol: "NVDA", title: "NVIDIA announces next-generation data center GPU", event_date: "2026-08-28", event_type: "product_contract", source_name: "Wire", taxonomy_v2: "PRODUCT_LAUNCH" },
     ],
     earnings: [
       { id: "e1", symbol: "AAPL", title: "AAPL reports before the open", event_date: "2026-08-28", time_of_day: "before_open" },

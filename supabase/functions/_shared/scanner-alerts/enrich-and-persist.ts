@@ -19,6 +19,10 @@ import {
 } from "../../radar-worker-bridge/historical-handlers.ts";
 import { FORWARD_OUTCOME_LIST_BY_EPISODES_RPC } from "../../radar-worker-bridge/forward-outcome-handlers.ts";
 import type { DbClient } from "../../radar-worker-bridge/handler.ts";
+import {
+  pickStrongestVerifiedCatalyst,
+  scannerCatalystSupportingFields,
+} from "../catalyst/intelligence-v2.ts";
 
 async function fetchAllForSecurity(
   db: DbClient,
@@ -60,19 +64,40 @@ async function resolveSecurityId(
 async function pickVerifiedCatalyst(
   db: DbClient,
   symbol: string,
-): Promise<{ id: string; event_type: string; title: string | null } | null> {
+): Promise<{
+  id: string;
+  event_type: string;
+  title: string | null;
+  taxonomy_v2: string | null;
+  freshness_class: string | null;
+} | null> {
   // deno-lint-ignore no-explicit-any
   const result = await (db.from("catalyst_events") as any)
-    .select("id, event_type, title")
+    .select(
+      "id, symbol, event_type, title, event_date, published_at, source_name, source_url, provider, verification_state, dedupe_key",
+    )
     .eq("symbol", symbol.toUpperCase())
     .eq("verification_state", "provider_reported")
     .order("published_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+    .limit(12);
   if (result.error || !result.data) return null;
-  const row = result.data as { id?: string; event_type?: string; title?: string | null };
+  const fetchedAt = new Date().toISOString();
+  const best = pickStrongestVerifiedCatalyst(
+    result.data as Array<Record<string, unknown>>,
+    symbol,
+    Date.parse(fetchedAt),
+  );
+  if (!best) return null;
+  const row = best as { id?: string; event_type?: string; title?: string | null };
   if (!row.id || !row.event_type) return null;
-  return { id: row.id, event_type: row.event_type, title: row.title ?? null };
+  const support = scannerCatalystSupportingFields(best, fetchedAt);
+  return {
+    id: row.id,
+    event_type: row.event_type,
+    title: row.title ?? null,
+    taxonomy_v2: support.catalyst_taxonomy_v2,
+    freshness_class: support.catalyst_freshness_class,
+  };
 }
 
 function repeatMoverLabelFromContext(

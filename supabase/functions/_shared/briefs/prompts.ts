@@ -141,7 +141,7 @@ export function buildAmUserPrompt(bundle: AmEvidenceBundle): string {
     parts.push("DIRECT CATALYSTS (bounded, ticker-specific):");
     for (const c of bundle.catalysts) {
       parts.push(
-        `- [${c.id}] ${c.symbol}: ${c.title} event_date=${c.event_date} type=${c.event_type}`,
+        `- [${c.id}] ${c.symbol}: ${c.title} event_date=${c.event_date} type=${c.event_type} taxonomy=${c.taxonomy_v2}`,
       );
     }
   }

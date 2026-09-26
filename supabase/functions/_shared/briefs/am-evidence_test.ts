@@ -222,7 +222,7 @@ Deno.test("10. new direct catalyst does regenerate", () => {
   const next = bundle({
     catalysts: [
       ...prev.catalysts,
-      { id: "c2", symbol: "TSLA", title: "Tesla unveils new robotaxi software", event_date: "2026-08-28", event_type: "product_contract", source_name: "Wire" },
+      { id: "c2", symbol: "TSLA", title: "Tesla unveils new robotaxi software", event_date: "2026-08-28", event_type: "product_contract", source_name: "Wire", taxonomy_v2: "PRODUCT_LAUNCH" },
     ],
   });
   const change = isMaterialChange(cloneStateFrom(prev), cloneStateFrom(next));

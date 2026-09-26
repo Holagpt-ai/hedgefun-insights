@@ -26,6 +26,7 @@ import type {
   AmPriorSessionRadarLeader,
   CatalystFeedStatus,
 } from "./am-enrichment.ts";
+import { mapToTaxonomyV2 } from "../catalyst/intelligence-v2.ts";
 
 export const AM_INDEX_SYMBOLS = ["SPY", "QQQ", "DIA", "IWM"] as const;
 export type AmIndexSymbol = (typeof AM_INDEX_SYMBOLS)[number];
@@ -71,6 +72,7 @@ export interface AmCatalystEvidence {
   event_date: string;
   event_type: string;
   source_name: string | null;
+  taxonomy_v2: string;
 }
 
 export interface AmEarningsEvidence {
@@ -268,6 +270,7 @@ export function selectDirectCatalysts(
       event_date: row.event_date,
       event_type: row.event_type,
       source_name: row.source_name ?? null,
+      taxonomy_v2: mapToTaxonomyV2(row.event_type, row.title),
     });
     if (out.length >= AM_DIRECT_CATALYST_LIMIT) break;
   }
@@ -485,6 +488,7 @@ export function buildAmV2Snapshot(
       title: c.title,
       event_date: c.event_date,
       event_type: c.event_type,
+      taxonomy_v2: c.taxonomy_v2,
     })),
     earnings: bundle.earnings.map((e) => ({
       id: e.id,

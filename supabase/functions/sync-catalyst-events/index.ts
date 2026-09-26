@@ -29,6 +29,7 @@ import {
   sanitizeFacts,
   sanitizeSummary,
 } from "../_shared/catalyst/sanitize.ts";
+import { intelligenceV2Facts } from "../_shared/catalyst/intelligence-v2.ts";
 
 type ReasonCode =
   | "AUTH_FAILED"
@@ -344,16 +345,28 @@ async function ingestPolygonNews(
   return { rows, reason: null };
 }
 
+function attachIntelligenceV2Facts(rows: CatalystEventRow[]): CatalystEventRow[] {
+  const fetchedAt = new Date().toISOString();
+  return rows.map((row) => ({
+    ...row,
+    facts: sanitizeFacts({
+      ...row.facts,
+      ...intelligenceV2Facts(row, fetchedAt),
+    }),
+  }));
+}
+
 async function upsertEvents(
   supabase: SbClient,
   rows: CatalystEventRow[],
   summary: CatalystSummary,
 ): Promise<boolean> {
   if (rows.length === 0) return true;
+  const stamped = attachIntelligenceV2Facts(rows);
   const CHUNK = 200;
   let anyErr = false;
-  for (let i = 0; i < rows.length; i += CHUNK) {
-    const chunk = rows.slice(i, i + CHUNK);
+  for (let i = 0; i < stamped.length; i += CHUNK) {
+    const chunk = stamped.slice(i, i + CHUNK);
     const { error, count } = await supabase
       .from("catalyst_events")
       .upsert(chunk as never[], { onConflict: "dedupe_key", count: "exact" });

@@ -154,9 +154,11 @@ export function selectCurrentPremarketMovers(
 export function resolveCatalystFeedStatus(
   queryError: boolean,
   directCatalystCount: number,
+  providerFailures?: readonly string[],
 ): CatalystFeedStatus {
   if (queryError) return "unavailable";
   if (directCatalystCount > 0) return "verified";
+  if (providerFailures && providerFailures.length > 0) return "unavailable";
   return "none";
 }
 

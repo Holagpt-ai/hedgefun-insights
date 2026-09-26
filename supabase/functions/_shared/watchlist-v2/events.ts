@@ -3,10 +3,13 @@
 
 import type { RecentEvent } from "./contract.ts";
 import { attributeSymbol } from "../catalyst/attribution.ts";
+import type { CatalystAvailability } from "../catalyst/intelligence-v2.ts";
 
 export interface MapNewsResult {
   events: RecentEvent[];
   quality: "ok" | "missing" | "none_qualifying";
+  /** Three-state catalyst availability for Watchlist (missing ≠ none). */
+  availability: CatalystAvailability;
 }
 
 function isNonEmptyStr(x: unknown): x is string {
@@ -58,8 +61,12 @@ export async function mapNewsEvents(
   ticker: string,
   companyName?: string | null,
 ): Promise<MapNewsResult> {
-  if (rawArticles === null) return { events: [], quality: "missing" };
-  if (!Array.isArray(rawArticles)) return { events: [], quality: "missing" };
+  if (rawArticles === null) {
+    return { events: [], quality: "missing", availability: "unavailable" };
+  }
+  if (!Array.isArray(rawArticles)) {
+    return { events: [], quality: "missing", availability: "unavailable" };
+  }
   const nowMs = now.getTime();
   const back = nowMs - 48 * 60 * 60 * 1000;
   const forward = nowMs + 5 * 60 * 1000;
@@ -111,6 +118,8 @@ export async function mapNewsEvents(
   const events = [...dedup.values()]
     .sort((a, b) => Date.parse(b.event_time) - Date.parse(a.event_time))
     .slice(0, 5);
-  if (events.length === 0) return { events, quality: "none_qualifying" };
-  return { events, quality: "ok" };
+  if (events.length === 0) {
+    return { events, quality: "none_qualifying", availability: "none" };
+  }
+  return { events, quality: "ok", availability: "verified" };
 }
