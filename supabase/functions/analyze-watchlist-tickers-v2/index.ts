@@ -16,7 +16,7 @@ import {
   type AlertCandidate, type AnalysisV2Payload, type Direction, type InputsQuality,
   type MarketSignal, type RecentEvent, type SessionType,
 } from "../_shared/watchlist-v2/contract.ts";
-import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
+import { resolveAnalysisSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import {
   assessSnapshot,
   effectiveSnapshotQuality, computeBasis, fetchWithOutcome, normalizeBars, STALE_MS,
@@ -65,6 +65,9 @@ import {
   fetchRadarScannerContext,
   radarContextReasonCodes,
 } from "../_shared/watchlist-v2/radar-context.ts";
+import {
+  deriveWatchlistMarketSignalSummary,
+} from "../_shared/watchlist-v2/market-signal-summary.ts";
 import {
   emitAnalyzerOutcomeLog,
   emptyAnalyzerOutcomeLog,
@@ -478,24 +481,20 @@ export async function handleRequest(req: Request): Promise<Response> {
       return Array.isArray(r.body) ? r.body as [] : [];
     },
   };
-  const session = await resolveSession(analyzedAt, marketStatus);
-  if (!session.ok) {
-    if (session.reason === "NON_TRADING_DAY") {
-      outcomeLog.outcome = "not_applicable";
-      outcomeLog.failure_reason = "NON_TRADING_DAY";
-      return finish(jsonResponse(422, { status: "not_applicable", reason: "NON_TRADING_DAY" }));
-    }
-    if (session.reason === "OUTSIDE_SESSION_WINDOW") {
-      outcomeLog.outcome = "not_applicable";
-      outcomeLog.failure_reason = "OUTSIDE_SESSION_WINDOW";
-      return finish(jsonResponse(422, { status: "not_applicable", reason: "OUTSIDE_SESSION_WINDOW" }));
-    }
+  const sessionRes = await resolveAnalysisSession(analyzedAt, marketStatus);
+  if (!sessionRes.ok) {
     outcomeLog.outcome = "unresolved";
     outcomeLog.failure_reason = "SESSION_UNRESOLVED";
     return finish(jsonResponse(503, { status: "unresolved", reason: "SESSION_UNRESOLVED" }));
   }
-  const sessionDate = session.session_date;
-  const sessionType = session.session_type;
+  const {
+    session_date: sessionDate,
+    session_type: sessionType,
+    et_now_minutes: sessionEtNowMinutes,
+    early_close_minutes: sessionEarlyCloseMinutes,
+    presentation: analysisPresentation,
+    session_display_label: sessionDisplayLabel,
+  } = sessionRes.session;
   outcomeLog.session = sessionType;
 
   // Step 6: create request row (FIRST database write)
@@ -621,7 +620,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     }
   }
   const rvolRes = computeRvol(
-    sessionType, sessionDate, session.et_now_minutes, basis.volume, baseline,
+    sessionType, sessionDate, sessionEtNowMinutes, basis.volume, baseline,
   );
   outcomeLog.rvol_available = rvolRes.rvol !== null;
 
@@ -662,6 +661,11 @@ export async function handleRequest(req: Request): Promise<Response> {
   reasonCodes.push(...radarContextReasonCodes(radarContext));
 
   const snapshotQuality = effectiveSnapshotQuality(snapshot, bars, analyzedAtMs);
+  const priorSessionVolume = snapshot.priorSessionVolume;
+  const volYdayRatio =
+    basis.volume !== null && priorSessionVolume !== null && priorSessionVolume > 0
+      ? basis.volume / priorSessionVolume
+      : null;
   const inputsQuality: InputsQuality = {
     snapshot: snapshotQuality,
     bars: barsQuality,
@@ -676,6 +680,11 @@ export async function handleRequest(req: Request): Promise<Response> {
     snapshot_ts_ms: snapshot.lastTradeTs,
     snapshot_timestamp_source: snapshot.timestampSource,
     earnings_date: null,
+    analysis_presentation: analysisPresentation,
+    session_display_label: sessionDisplayLabel,
+    scanner_intelligence: radarContext,
+    prior_session_volume: priorSessionVolume,
+    vol_yday_ratio: volYdayRatio,
   };
 
   const sufficiency = evaluateSufficiency({
@@ -853,6 +862,8 @@ export async function handleRequest(req: Request): Promise<Response> {
             key_levels: keyLevels, market_signals: marketSignals, recent_events: recentEvents,
             reason_codes: reasonCodes,
             radar_context: radarContext,
+            analysis_presentation: analysisPresentation,
+            session_display_label: sessionDisplayLabel,
           }, catalog);
           const result = await generateWatchlistAnalysis(created.adapter, { prompt, catalog });
           applyAiCallMeta(outcomeLog, result.meta, intended);
@@ -955,6 +966,39 @@ export async function handleRequest(req: Request): Promise<Response> {
   const sanitized = sanitizeUnavailableEvidence({
     direction, driverIds, marketSignals,
   });
+
+  inputsQuality.market_signal_summary = deriveWatchlistMarketSignalSummary({
+    direction,
+    change_pct: basis.change_pct,
+    price: basis.price,
+    rvol_class: rvolRes.rvol_class,
+    market_signals: sanitized.marketSignals,
+    radar_context: radarContext,
+  });
+  inputsQuality.verified_recent_event = (() => {
+    if (radarContext?.promotion_primary_event) {
+      return {
+        kind: "radar" as const,
+        title: radarContext.promotion_primary_event,
+        at: radarContext.promotion_trigger_at ?? radarContext.primary_event_at,
+      };
+    }
+    if (radarContext?.primary_event) {
+      return {
+        kind: "radar" as const,
+        title: radarContext.primary_event,
+        at: radarContext.primary_event_at,
+      };
+    }
+    const news = recentEvents[0];
+    if (news) {
+      return { kind: "news" as const, title: news.title, at: news.event_time };
+    }
+    if (earningsDate) {
+      return { kind: "earnings" as const, title: `Earnings ${earningsDate}`, at: null };
+    }
+    return null;
+  })();
 
   // Build payload
   const validThrough = computeValidThrough(analyzedAtMs, sessionType);

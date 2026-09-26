@@ -58,6 +58,13 @@ export interface InputsQuality {
   snapshot_age_ms?: number | null;
   snapshot_ts_ms?: number | null;
   snapshot_timestamp_source?: SnapshotTimestampSource | null;
+  analysis_presentation?: "live" | "last_completed";
+  session_display_label?: string;
+  market_signal_summary?: { label: string; rule_id: string };
+  scanner_intelligence?: Record<string, unknown> | null;
+  prior_session_volume?: number | null;
+  vol_yday_ratio?: number | null;
+  verified_recent_event?: { kind: string; title: string; at: string | null } | null;
 }
 
 const isObj = (x: unknown): x is Record<string, unknown> =>
@@ -201,6 +208,32 @@ export function parseInputsQuality(raw: unknown): InputsQuality {
   if (q.snapshot_timestamp_source === null) out.snapshot_timestamp_source = null;
   else if (isStr(q.snapshot_timestamp_source) && SNAPSHOT_SOURCES.has(q.snapshot_timestamp_source as SnapshotTimestampSource)) {
     out.snapshot_timestamp_source = q.snapshot_timestamp_source as SnapshotTimestampSource;
+  }
+  if (q.analysis_presentation === "live" || q.analysis_presentation === "last_completed") {
+    out.analysis_presentation = q.analysis_presentation;
+  }
+  if (isStr(q.session_display_label) && q.session_display_label.trim()) {
+    out.session_display_label = q.session_display_label.trim();
+  }
+  if (isObj(q.market_signal_summary) && isStr(q.market_signal_summary.label)) {
+    out.market_signal_summary = {
+      label: q.market_signal_summary.label as string,
+      rule_id: isStr(q.market_signal_summary.rule_id) ? q.market_signal_summary.rule_id : "",
+    };
+  }
+  if (q.scanner_intelligence === null) out.scanner_intelligence = null;
+  else if (isObj(q.scanner_intelligence)) out.scanner_intelligence = q.scanner_intelligence;
+  if (q.prior_session_volume === null) out.prior_session_volume = null;
+  else if (isFin(q.prior_session_volume) && q.prior_session_volume >= 0) out.prior_session_volume = q.prior_session_volume;
+  if (q.vol_yday_ratio === null) out.vol_yday_ratio = null;
+  else if (isFin(q.vol_yday_ratio) && q.vol_yday_ratio >= 0) out.vol_yday_ratio = q.vol_yday_ratio;
+  if (q.verified_recent_event === null) out.verified_recent_event = null;
+  else if (isObj(q.verified_recent_event) && isStr(q.verified_recent_event.title)) {
+    out.verified_recent_event = {
+      kind: isStr(q.verified_recent_event.kind) ? q.verified_recent_event.kind : "news",
+      title: q.verified_recent_event.title,
+      at: q.verified_recent_event.at === null ? null : isStr(q.verified_recent_event.at) ? q.verified_recent_event.at : null,
+    };
   }
   return out;
 }

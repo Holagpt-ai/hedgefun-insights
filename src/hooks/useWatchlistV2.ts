@@ -49,6 +49,13 @@ export interface V2Row {
   recentEvents: RecentEvent[];
   keyLevels: KeyLevels;
   inputsQuality: InputsQuality;
+  sessionDisplayLabel: string;
+  analysisPresentation: "live" | "last_completed" | null;
+  marketSignalSummary: { label: string; rule_id: string } | null;
+  priorSessionVolume: number | null;
+  volYdayRatio: number | null;
+  verifiedRecentEvent: { kind: string; title: string; at: string | null } | null;
+  scannerIntelligence: Record<string, unknown> | null;
   requestStatus: "pending" | "failed" | "succeeded" | "none";
   requestError: string | null;
   hasV2: boolean;
@@ -230,6 +237,13 @@ export function useWatchlistV2() {
           recentEvents: [],
           keyLevels: parseKeyLevels(null),
           inputsQuality: {},
+          sessionDisplayLabel: "",
+          analysisPresentation: null,
+          marketSignalSummary: null,
+          priorSessionVolume: null,
+          volYdayRatio: null,
+          verifiedRecentEvent: null,
+          scannerIntelligence: null,
           requestStatus,
           requestError,
           hasV2: false,
@@ -242,6 +256,7 @@ export function useWatchlistV2() {
           ? (raw.session_type as V2Session)
           : "rth";
       const rvolClass = isRvolClass(raw.rvol_class) ? raw.rvol_class : null;
+      const iq = parseInputsQuality(raw.inputs_quality);
 
       return {
         ticker: sym,
@@ -264,7 +279,14 @@ export function useWatchlistV2() {
         marketSignals: parseMarketSignals(raw.market_signals),
         recentEvents: parseRecentEvents(raw.recent_events),
         keyLevels: parseKeyLevels(raw.key_levels),
-        inputsQuality: parseInputsQuality(raw.inputs_quality),
+        inputsQuality: iq,
+        sessionDisplayLabel: iq.session_display_label ?? "",
+        analysisPresentation: iq.analysis_presentation ?? null,
+        marketSignalSummary: iq.market_signal_summary ?? null,
+        priorSessionVolume: iq.prior_session_volume ?? null,
+        volYdayRatio: iq.vol_yday_ratio ?? null,
+        verifiedRecentEvent: iq.verified_recent_event ?? null,
+        scannerIntelligence: iq.scanner_intelligence ?? null,
         requestStatus,
         requestError,
         hasV2: true,

@@ -189,6 +189,24 @@ export function WatchlistRowV2({
   })();
   const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
   const latestEvent = row.recentEvents[0] ?? null;
+  const verifiedEvent = row.verifiedRecentEvent;
+  const displaySessionLabel =
+    row.sessionDisplayLabel.trim() || sessionLabel(row.sessionType);
+  const marketSignalLabel = row.marketSignalSummary?.label ?? null;
+  const participationState =
+    row.scannerIntelligence &&
+    typeof row.scannerIntelligence === "object" &&
+    row.scannerIntelligence.participation &&
+    typeof (row.scannerIntelligence.participation as Record<string, unknown>).participation_state === "string"
+      ? String((row.scannerIntelligence.participation as Record<string, unknown>).participation_state)
+      : null;
+  const tarvol =
+    row.scannerIntelligence &&
+    typeof row.scannerIntelligence === "object" &&
+    row.scannerIntelligence.participation &&
+    typeof (row.scannerIntelligence.participation as Record<string, unknown>).time_adjusted_rvol === "number"
+      ? (row.scannerIntelligence.participation as Record<string, unknown>).time_adjusted_rvol as number
+      : null;
   const primarySignal = shownMarketSignals[0] ?? null;
 
   const dMove = dollarMove(row);
@@ -244,8 +262,17 @@ export function WatchlistRowV2({
                 {row.ticker}
               </Link>
               <Badge variant="outline" className="text-[10px] h-5 font-normal border-slate-300 dark:border-slate-600">
-                {sessionLabel(row.sessionType)}
+                {displaySessionLabel}
               </Badge>
+              {marketSignalLabel && (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] h-5 font-medium"
+                  title={`Market Signal · ${row.marketSignalSummary?.rule_id ?? ""}`}
+                >
+                  {marketSignalLabel}
+                </Badge>
+              )}
               {earnings && (
                 <span
                   className={cn(
@@ -341,6 +368,10 @@ export function WatchlistRowV2({
 
         {/* 3. Micro-chart — always on mobile stack; aligned on desktop */}
         <div className="min-w-0 w-full">
+          <p className="text-[9px] text-muted-foreground mb-0.5 truncate" title={displaySessionLabel}>
+            {displaySessionLabel}
+            {row.analysisPresentation === "last_completed" ? " · not live" : ""}
+          </p>
           <V2IntradayChart
             bars={row.intraday}
             height={tokens.chartH}
@@ -358,8 +389,18 @@ export function WatchlistRowV2({
             </span>
           </div>
           {tokens.showSecondaryMeta && (
-            <div className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums mt-0.5">
-              $Vol {dVol === null ? "—" : compactVol(dVol)}
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 tabular-nums mt-0.5 space-y-0.5">
+              <div>
+                YDAY vol {row.priorSessionVolume === null ? "—" : compactVol(row.priorSessionVolume)}
+                {" · "}
+                VOL/YDAY{" "}
+                {row.volYdayRatio === null ? "—" : `${row.volYdayRatio.toFixed(2)}×`}
+              </div>
+              <div>
+                TARVOL {tarvol === null ? "—" : tarvol.toFixed(2)}
+                {" · "}
+                Participation {participationState ?? "—"}
+              </div>
             </div>
           )}
           {row.rvol !== null ? (

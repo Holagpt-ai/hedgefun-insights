@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { classifyToday, etParts, extractEtOffset, isWeekend, resolveSession } from "./session.ts";
+import { classifyToday, etParts, extractEtOffset, isWeekend, resolveSession, resolveAnalysisSession } from "./session.ts";
 
 Deno.test("etParts extracts ET weekday+date", () => {
   // 2026-07-23 15:00 UTC = 11:00 ET (EDT summer)
@@ -64,6 +64,19 @@ Deno.test("resolveSession session_unresolved on missing offset", async () => {
   });
   assert(!r.ok);
   if (!r.ok) assertEquals(r.reason, "SESSION_UNRESOLVED");
+});
+
+Deno.test("resolveAnalysisSession uses last completed session on weekend", async () => {
+  const r = await resolveAnalysisSession(new Date("2026-09-26T17:00:00Z"), {
+    fetchNow: () => Promise.resolve({ serverTime: "2026-09-26T13:00:00-04:00" }),
+    fetchUpcoming: () => Promise.resolve([]),
+  });
+  assert(r.ok);
+  if (r.ok) {
+    assertEquals(r.session.presentation, "last_completed");
+    assertEquals(r.session.session_date, "2026-09-25");
+    assert(r.session.session_display_label.includes("Sep 25"));
+  }
 });
 
 Deno.test("resolveSession picks rth on normal weekday", async () => {

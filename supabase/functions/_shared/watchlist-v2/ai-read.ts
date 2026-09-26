@@ -26,6 +26,8 @@ export interface AiReadInput {
   market_signals: MarketSignal[];
   recent_events: RecentEvent[];
   reason_codes: string[];
+  analysis_presentation?: "live" | "last_completed";
+  session_display_label?: string;
   radar_context?: {
     primary_event: string | null;
     primary_event_at: string | null;
@@ -133,6 +135,8 @@ export function buildAiPrompt(input: AiReadInput, catalog: EvidenceCatalog): str
       source: e.source_name, event_time: e.event_time,
     })),
     reason_codes: input.reason_codes,
+    analysis_presentation: input.analysis_presentation ?? "live",
+    session_display_label: input.session_display_label ?? input.session_date,
     radar_context: input.radar_context ?? null,
     allowed_driver_ids: [...catalog.ids],
   };

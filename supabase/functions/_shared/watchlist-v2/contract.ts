@@ -79,6 +79,21 @@ export interface InputsQuality {
   snapshot_timestamp_source?: SnapshotTimestampSource | null;
   /** Optional fingerprint field so a later cycle can detect earnings-state change. */
   earnings_date?: string | null;
+  /** live = current surveillance session; last_completed = labeled historical session. */
+  analysis_presentation?: "live" | "last_completed";
+  session_display_label?: string;
+  market_signal_summary?: {
+    label: "BULLISH" | "MOMENTUM" | "NEUTRAL" | "WEAKENING" | "BEARISH" | "UNAVAILABLE";
+    rule_id: string;
+  };
+  scanner_intelligence?: Record<string, unknown> | null;
+  prior_session_volume?: number | null;
+  vol_yday_ratio?: number | null;
+  verified_recent_event?: {
+    kind: "radar" | "news" | "earnings";
+    title: string;
+    at: string | null;
+  } | null;
 }
 
 export interface AnalysisV2Payload {

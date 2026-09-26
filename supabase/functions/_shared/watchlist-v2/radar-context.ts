@@ -30,11 +30,16 @@ export async function fetchRadarScannerContext(
       select: (cols: string) => {
         eq: (col: string, val: string) => {
           eq: (col: string, val: string) => {
-            eq: (col: string, val: string) => {
+            eq?: (col: string, val: string) => {
               order: (col: string, opts: { ascending: boolean }) => {
                 limit: (n: number) => {
                   maybeSingle: () => Promise<{ data: Record<string, unknown> | null }>;
                 };
+              };
+            };
+            order?: (col: string, opts: { ascending: boolean }) => {
+              limit: (n: number) => {
+                maybeSingle: () => Promise<{ data: Record<string, unknown> | null }>;
               };
             };
           };
@@ -45,18 +50,62 @@ export async function fetchRadarScannerContext(
   ticker: string,
   sessionDate: string,
 ): Promise<RadarScannerContext | null> {
-  const { data } = await supabase
+  const cols =
+    "primary_scanner_event, primary_scanner_event_at, promotion_reason, radar_event_lifecycle, rvol_5m, volume_velocity, volume_acceleration_pct, distance_from_hod_pct, time_adjusted_rvol, volume_5m, volume_15m, volume_60m, volume_velocity_5m, volume_velocity_15m, volume_velocity_60m, dollar_volume_velocity_5m, participation_state, participation_baseline_session_count";
+
+  const live = await (supabase as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (a: string, b: string) => {
+          eq: (a2: string, b2: string) => {
+            eq: (a3: string, b3: string) => {
+              order: (col: string, opts: { ascending: boolean }) => {
+                limit: (n: number) => { maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> };
+              };
+            };
+          };
+        };
+      };
+    };
+  })
     .from("radar_v22_candidates")
-    .select(
-      "primary_scanner_event, primary_scanner_event_at, promotion_reason, radar_event_lifecycle, rvol_5m, volume_velocity, volume_acceleration_pct, distance_from_hod_pct, time_adjusted_rvol, volume_5m, volume_15m, volume_60m, volume_velocity_5m, volume_velocity_15m, volume_velocity_60m, dollar_volume_velocity_5m, participation_state, participation_baseline_session_count",
-    )
+    .select(cols)
     .eq("symbol", ticker)
     .eq("trading_date", sessionDate)
     .eq("session_kind", "market")
     .order("updated_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (!data) return null;
+  if (live.data) return mapRadarRow(live.data);
+
+  const snap = await (supabase as {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (a: string, b: string) => {
+          eq: (a2: string, b2: string) => {
+            eq: (a3: string, b3: string) => {
+              order: (col: string, opts: { ascending: boolean }) => {
+                limit: (n: number) => { maybeSingle: () => Promise<{ data: Record<string, unknown> | null }> };
+              };
+            };
+          };
+        };
+      };
+    };
+  })
+    .from("radar_v22_closed_snapshot")
+    .select(cols)
+    .eq("symbol", ticker)
+    .eq("trading_date", sessionDate)
+    .eq("snapshot_kind", "closed_session")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (snap.data) return mapRadarRow(snap.data);
+  return null;
+}
+
+function mapRadarRow(data: Record<string, unknown>): RadarScannerContext {
   const num = (v: unknown): number | null =>
     typeof v === "number" && Number.isFinite(v) ? v : null;
   const str = (v: unknown): string | null => (typeof v === "string" && v.trim() ? v : null);

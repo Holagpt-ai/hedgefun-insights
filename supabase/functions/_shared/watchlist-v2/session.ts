@@ -170,3 +170,102 @@ export async function resolveSession(
     early_close_minutes: earlyCloseMinutes,
   };
 }
+
+export type AnalysisPresentation = "live" | "last_completed";
+
+export type ResolvedAnalysisSession = {
+  session_type: SessionType;
+  session_date: string;
+  et_now_minutes: number;
+  early_close_minutes: number | null;
+  presentation: AnalysisPresentation;
+  session_display_label: string;
+};
+
+export function formatShortSessionDate(ymd: string): string {
+  const m = ymd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return ymd;
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  const names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const mon = names[month - 1] ?? m[2];
+  return `${mon} ${day}`;
+}
+
+/** Walk back calendar days (ET date strings) skipping Sat/Sun. */
+export function lastTradingDateOnOrBefore(reference: Date, includeReferenceDay: boolean): string {
+  let cursor = new Date(reference.getTime());
+  if (!includeReferenceDay) {
+    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+  }
+  for (let i = 0; i < 12; i++) {
+    const et = etParts(cursor);
+    if (!isWeekend(et.weekday)) return et.date;
+    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
+  }
+  return etParts(reference).date;
+}
+
+export function inferLastCompletedSessionDate(now: Date): string {
+  const et = etParts(now);
+  if (isWeekend(et.weekday)) {
+    return lastTradingDateOnOrBefore(now, false);
+  }
+  if (et.minutes < 4 * 60) {
+    return lastTradingDateOnOrBefore(now, false);
+  }
+  if (et.minutes >= 20 * 60) {
+    return et.date;
+  }
+  return lastTradingDateOnOrBefore(now, false);
+}
+
+export type AnalysisSessionResolution =
+  | { ok: true; session: ResolvedAnalysisSession }
+  | { ok: false; reason: "SESSION_UNRESOLVED" };
+
+/**
+ * Live session when inside the surveillance window; otherwise analyze the last
+ * completed session (weekend, overnight, or post-8pm ET).
+ */
+export async function resolveAnalysisSession(
+  now: Date,
+  fetcher: MarketStatusFetcher,
+): Promise<AnalysisSessionResolution> {
+  const live = await resolveSession(now, fetcher);
+  if (live.ok) {
+    const session_display_label =
+      live.session_type === "premarket"
+        ? "Pre-market"
+        : live.session_type === "postclose"
+          ? "After-hours"
+          : "Regular hours";
+    return {
+      ok: true,
+      session: {
+        session_type: live.session_type,
+        session_date: live.session_date,
+        et_now_minutes: live.et_now_minutes,
+        early_close_minutes: live.early_close_minutes,
+        presentation: "live",
+        session_display_label,
+      },
+    };
+  }
+  if (live.reason === "SESSION_UNRESOLVED") {
+    return { ok: false, reason: "SESSION_UNRESOLVED" };
+  }
+
+  const session_date = inferLastCompletedSessionDate(now);
+  return {
+    ok: true,
+    session: {
+      session_type: "postclose",
+      session_date,
+      et_now_minutes: 19 * 60 + 59,
+      early_close_minutes: null,
+      presentation: "last_completed",
+      session_display_label: `Last completed session — ${formatShortSessionDate(session_date)}`,
+    },
+  };
+}

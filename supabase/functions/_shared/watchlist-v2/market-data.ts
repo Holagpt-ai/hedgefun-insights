@@ -168,6 +168,7 @@ export interface SnapshotAssessment {
   lastTradeTs: number | null;
   timestampSource: SnapshotTimestampSource | null;
   priorClose: number | null;   // prevDay.c > 0 finite
+  priorSessionVolume: number | null; // prevDay.v >= 0
   dayClose: number | null;
   dayVolume: number | null;
   lastTradePrice: number | null;
@@ -182,6 +183,7 @@ const EMPTY_ASSESSMENT: SnapshotAssessment = {
   lastTradeTs: null,
   timestampSource: null,
   priorClose: null,
+  priorSessionVolume: null,
   dayClose: null,
   dayVolume: null,
   lastTradePrice: null,
@@ -233,6 +235,7 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
   const timestampSource = winner?.src ?? null;
 
   const priorC = typeof prevDay.c === "number" && Number.isFinite(prevDay.c) && prevDay.c > 0 ? prevDay.c : null;
+  const priorV = typeof prevDay.v === "number" && Number.isFinite(prevDay.v) && prevDay.v >= 0 ? prevDay.v : null;
   const dayC = typeof day.c === "number" && Number.isFinite(day.c) && day.c > 0 ? day.c : null;
   const dayV = typeof day.v === "number" && Number.isFinite(day.v) && day.v >= 0 ? day.v : null;
   const lastTradePrice = typeof lastTrade.p === "number" && Number.isFinite(lastTrade.p) && lastTrade.p > 0 ? lastTrade.p : null;
@@ -259,6 +262,7 @@ export function assessSnapshot(bodyRaw: unknown, now: Date): SnapshotAssessment 
     lastTradeTs: tsMs,
     timestampSource,
     priorClose: priorC,
+    priorSessionVolume: priorV,
     dayClose: dayC,
     dayVolume: dayV,
     lastTradePrice,
