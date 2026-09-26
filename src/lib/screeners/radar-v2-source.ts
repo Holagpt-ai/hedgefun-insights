@@ -35,6 +35,10 @@ import {
   recordRadarV2LoadDiagnostic,
   type RadarV2LoadDiagnostic,
 } from "@/lib/screeners/radar-v2-diagnostics";
+import {
+  resolveClosedSessionSnapshotDecision,
+  type RadarClosedSnapshotRow,
+} from "@/lib/screeners/radar-closed-snapshot";
 
 const FEED_SELECT =
   "state_key,session_kind,sentinel_enabled,candidate_count,v2_generation_id," +
@@ -78,6 +82,8 @@ const CANDIDATE_SELECT = [
   "last_hod_break_at",
 ].join(",");
 
+const CLOSED_SNAPSHOT_SELECT = `${CANDIDATE_SELECT},snapshot_kind,captured_at`;
+
 /** Bounded handshake attempts. Do not spin; three coherent-read tries is enough. */
 export const RADAR_V2_STABLE_READ_ATTEMPTS = 3;
 
@@ -94,6 +100,11 @@ export interface RadarV2StoreReader {
   readCandidatesByGeneration(
     generationId: string,
   ): Promise<{ rows: RadarV2CandidateRow[] | null; error: unknown }>;
+  /** Absent readers keep the closed session on the existing screener fallback. */
+  readClosedSnapshot?: () => Promise<{
+    rows: RadarClosedSnapshotRow[] | null;
+    error: unknown;
+  }>;
 }
 
 export interface LoadRadarV2Options {
@@ -141,7 +152,42 @@ function createSupabaseReader(): RadarV2StoreReader {
         error: null,
       };
     },
+    async readClosedSnapshot() {
+      const res = await db
+        .from("radar_v22_closed_snapshot")
+        .select(CLOSED_SNAPSHOT_SELECT)
+        .eq("snapshot_kind", "closed_session")
+        .limit(RADAR_V2_CANDIDATE_CAP);
+      if (res.error) return { rows: null, error: res.error };
+      return {
+        rows: (res.data ?? null) as unknown as RadarClosedSnapshotRow[] | null,
+        error: null,
+      };
+    },
   };
+}
+
+async function adoptClosedSessionSnapshot(
+  decision: RadarV2Decision,
+  tabId: string,
+  nowMs: number,
+  reader: RadarV2StoreReader,
+): Promise<RadarV2Decision> {
+  if (decision.reason !== "session_not_active:closed" || !reader.readClosedSnapshot) {
+    return decision;
+  }
+  try {
+    const read = await reader.readClosedSnapshot();
+    if (read.error || !read.rows) return decision;
+    return resolveClosedSessionSnapshotDecision({
+      liveDecision: decision,
+      tabId,
+      nowMs,
+      rows: read.rows,
+    }) ?? decision;
+  } catch {
+    return decision;
+  }
 }
 
 function fetchErrorResult(): RadarV2FetchResult {
@@ -276,6 +322,13 @@ export async function loadRadarV2Decision(
   const reader = options.reader ?? createSupabaseReader();
   const maxAttempts = options.maxAttempts ?? RADAR_V2_STABLE_READ_ATTEMPTS;
   const sleep = options.sleep ?? defaultSleep;
+  const publish = async (
+    decision: RadarV2Decision,
+    extra: Omit<RadarV2LoadDiagnostic, "reason" | "source" | "session">,
+  ) => recordAndReturn(
+    await adoptClosedSessionSnapshot(decision, tabId, nowMs, reader),
+    extra,
+  );
 
   let lastAttemptReason: string | null = null;
   let lastGenerationId: string | null = null;
@@ -294,7 +347,7 @@ export async function loadRadarV2Decision(
         session: null,
         view: null,
       };
-      return recordAndReturn(decision, {
+      return publish(decision, {
         attempts: attempt,
         generationId: lastGenerationId,
         declaredCandidateCount: lastDeclaredCount,
@@ -312,7 +365,7 @@ export async function loadRadarV2Decision(
         session: null,
         view: null,
       };
-      return recordAndReturn(decision, {
+      return publish(decision, {
         attempts: attempt,
         generationId: lastGenerationId,
         declaredCandidateCount: lastDeclaredCount,
@@ -334,7 +387,7 @@ export async function loadRadarV2Decision(
         tabId,
         nowMs,
       });
-      return recordAndReturn(decision, {
+      return publish(decision, {
         attempts: attempt,
         generationId: lastGenerationId,
         declaredCandidateCount: lastDeclaredCount,
@@ -375,7 +428,7 @@ export async function loadRadarV2Decision(
       break;
     }
 
-    return recordAndReturn(decision, {
+    return publish(decision, {
       attempts: attempt,
       generationId: lastGenerationId,
       declaredCandidateCount: lastDeclaredCount,
@@ -390,7 +443,7 @@ export async function loadRadarV2Decision(
     session: lastDecision?.session ?? null,
     view: null,
   };
-  return recordAndReturn(exhausted, {
+  return publish(exhausted, {
     attempts: maxAttempts,
     generationId: lastGenerationId,
     declaredCandidateCount: lastDeclaredCount,

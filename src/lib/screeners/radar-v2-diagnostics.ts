@@ -26,6 +26,7 @@ export const RADAR_V2_DECISION_REASONS = [
   "tab_not_radar_backed",
   "radar_v2_previous_session",
   "session_feed_mismatch",
+  "closed_session_snapshot",
 ] as const;
 
 export type RadarV2DecisionReason = (typeof RADAR_V2_DECISION_REASONS)[number];

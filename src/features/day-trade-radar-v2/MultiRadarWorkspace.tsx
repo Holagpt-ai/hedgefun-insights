@@ -18,6 +18,7 @@ import {
   type RadarPanelId,
   type MultiRadarWorkspaceState,
 } from "./multi-radar";
+import { CLOSED_RADAR_SNAPSHOT_STATUS } from "@/lib/screeners/radar-closed-snapshot";
 import { RadarPanelBoard } from "./RadarPanelBoard";
 import type { RadarRankedRow } from "./types";
 
@@ -39,6 +40,7 @@ export function MultiRadarWorkspace({
   nowMs,
   onSelect,
   onOpenDetails,
+  closedSnapshot = false,
 }: {
   rows: RadarRankedRow[];
   selectedSymbol: string | null;
@@ -47,6 +49,7 @@ export function MultiRadarWorkspace({
   nowMs: number;
   onSelect: (row: RadarRankedRow) => void;
   onOpenDetails: (row: RadarRankedRow) => void;
+  closedSnapshot?: boolean;
 }) {
   const isMobile = useIsMobile();
   const [workspace, setWorkspace] = useState<MultiRadarWorkspaceState>(defaultWorkspaceState);
@@ -89,6 +92,11 @@ export function MultiRadarWorkspace({
   return (
     <div data-testid="multi-radar-workspace" className="min-w-0 space-y-2 overflow-x-hidden">
       <div className="text-[11px] font-semibold tracking-wide text-muted-foreground">{workspace.desk}</div>
+      {closedSnapshot ? (
+        <p className="text-[11px] text-muted-foreground" data-testid="closed-radar-snapshot-status">
+          {CLOSED_RADAR_SNAPSHOT_STATUS}
+        </p>
+      ) : null}
       <HaltsRail />
       <ActiveSymbolRail
         symbol={selectedSymbol}
@@ -142,6 +150,7 @@ export function MultiRadarWorkspace({
               updatePanel(view.id, { columns: canonicalizePanelColumns(next) });
             }}
             onPriceBand={(priceBand: PennyPriceBandId) => updatePanel(view.id, { priceBand })}
+            closedSnapshot={closedSnapshot}
           />
         ))}
       </div>

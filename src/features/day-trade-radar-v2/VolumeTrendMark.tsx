@@ -1,3 +1,4 @@
+import { CLOSED_VOLUME_TREND_CONTEXT } from "@/lib/screeners/radar-closed-snapshot";
 import { mapVolumeTrend, type VolumeTrendLabel } from "./multi-radar";
 
 export type VolumeTrendMotion = "up" | "down" | "none";
@@ -24,14 +25,19 @@ function splitArrows(label: string): { text: string; arrows: string } {
 export function VolumeTrendMark({
   accelerationPct,
   className = "",
+  live = true,
 }: {
   accelerationPct: number | null | undefined;
   className?: string;
+  /** False after close: keep the last color, stop the arrow, and label the state. */
+  live?: boolean;
 }) {
   const trend = mapVolumeTrend(accelerationPct);
   const motion = volumeTrendMotion(trend.label);
   const { text, arrows } = splitArrows(trend.label);
-  const motionClass = motion === "up"
+  const motionClass = !live
+    ? ""
+    : motion === "up"
     ? "motion-safe:animate-volume-trend-up"
     : motion === "down"
     ? "motion-safe:animate-volume-trend-down"
@@ -40,12 +46,18 @@ export function VolumeTrendMark({
     <span
       title={trend.title}
       data-volume-trend={trend.label}
-      data-volume-motion={motion}
+      data-volume-motion={live ? motion : "none"}
+      data-volume-context={live ? "live" : "last-active"}
       className={`inline-flex items-baseline whitespace-nowrap font-semibold tracking-wide ${volumeTrendColorClass(trend.label)} ${className}`}
     >
       <span>{text}</span>
       {arrows ? (
         <span className={`inline-block ${motionClass}`}>{arrows}</span>
+      ) : null}
+      {!live && trend.label !== "—" ? (
+        <span className="ml-1 text-[10px] font-medium tracking-normal text-muted-foreground">
+          {CLOSED_VOLUME_TREND_CONTEXT}
+        </span>
       ) : null}
     </span>
   );

@@ -36,4 +36,16 @@ describe("Volume Trend presentation", () => {
     expect(steady.querySelector("span.inline-block")).toBeNull();
     expect(steady.className).not.toContain("animate-volume-trend");
   });
+
+  it("keeps closed-session color and drops the arrow motion", () => {
+    cleanup();
+    const view = render(<VolumeTrendMark accelerationPct={30} live={false} />);
+    const rising = within(view.container).getByTitle(/Volume rate/);
+    expect(rising).toHaveAttribute("data-volume-trend", "RISING ↑");
+    expect(rising).toHaveAttribute("data-volume-motion", "none");
+    expect(rising).toHaveAttribute("data-volume-context", "last-active");
+    expect(rising.className).toContain("text-green-600");
+    expect(rising.className).not.toContain("animate-volume-trend");
+    expect(rising.textContent).toContain("Last active state");
+  });
 });

@@ -27,6 +27,7 @@ export function DayTradeRadarV2({
   freeRowLimit,
   source = null,
   session = null,
+  closedSnapshot = false,
   repeatMoversLoadState = REPEAT_MOVERS_IDLE,
   onRepeatMoversRetry,
 }: DayTradeRadarV2Props) {
@@ -175,6 +176,7 @@ export function DayTradeRadarV2({
           nowMs={nowMs}
           onSelect={selectActive}
           onOpenDetails={openDetails}
+          closedSnapshot={closedSnapshot}
         />
       )}
 

@@ -57,6 +57,7 @@ function asTabView(
     nhl_baseline_status: null,
     tab_evaluation_evidence: null,
     market_feed: radar.view.market_feed ?? null,
+    closedSnapshot: radar.view.closedSnapshot === true,
   };
 }
 

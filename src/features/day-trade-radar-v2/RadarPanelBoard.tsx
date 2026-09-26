@@ -84,12 +84,14 @@ export function RadarPanelLeader({
   selected,
   onSelect,
   onOpenDetails,
+  closedSnapshot = false,
 }: {
   panel: RadarPanelId;
   row: RadarRankedRow | null;
   selected: boolean;
   onSelect: (row: RadarRankedRow) => void;
   onOpenDetails: (row: RadarRankedRow) => void;
+  closedSnapshot?: boolean;
 }) {
   const meta = panelMeta(panel);
   const symbols = row ? ([normalizeSymbol(row.symbol)].filter(Boolean) as string[]) : [];
@@ -147,7 +149,7 @@ export function RadarPanelLeader({
           <div className="text-[10px] text-muted-foreground">{speed ? speed.unit : "No recent tape"}</div>
         </div>
         <div className="flex items-center border-l border-border pl-3 text-sm" data-testid={`volume-trend-hero-${panel}`}>
-          <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} />
+          <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} live={!closedSnapshot} />
         </div>
       </div>
       <button type="button" className="h-8 rounded-md border border-border px-2 text-[12px] font-semibold" onClick={() => onOpenDetails(row)}>
@@ -185,6 +187,7 @@ export function RadarPanelBoard({
   onFilters,
   onToggleColumn,
   onPriceBand,
+  closedSnapshot = false,
 }: {
   panel: RadarPanelId;
   rows: RadarRankedRow[];
@@ -204,6 +207,7 @@ export function RadarPanelBoard({
   onFilters: (filters: PanelFilterDraft) => void;
   onToggleColumn: (id: PanelColumnId) => void;
   onPriceBand: (band: PennyPriceBandId) => void;
+  closedSnapshot?: boolean;
 }) {
   const meta = panelMeta(panel);
   const { add, isAdded, pendingSymbol } = useAddToWatchlist();
@@ -307,6 +311,7 @@ export function RadarPanelBoard({
         selected={leader !== null && selectedSymbol === leader.symbol}
         onSelect={onSelect}
         onOpenDetails={onOpenDetails}
+        closedSnapshot={closedSnapshot}
       />
       {layout === "table" ? (
       <div className="overflow-x-auto" data-testid={`panel-table-${panel}`}>
@@ -358,6 +363,7 @@ export function RadarPanelBoard({
                         add,
                         isAdded: isAdded(row.symbol),
                         pending: pendingSymbol === row.symbol,
+                        closedSnapshot,
                       })}
                     </td>
                   ))}
@@ -378,6 +384,7 @@ export function RadarPanelBoard({
             nowMs={nowMs}
             selected={selectedSymbol === row.symbol}
             onSelect={onSelect}
+            closedSnapshot={closedSnapshot}
           />
         ))}
       </div>
@@ -415,6 +422,7 @@ function renderCell(args: {
   add: (symbol: string) => void;
   isAdded: boolean;
   pending: boolean;
+  closedSnapshot: boolean;
 }): ReactNode {
   const { id, row } = args;
   if (id === "time") {
@@ -484,7 +492,7 @@ function renderCell(args: {
     );
   }
   if (id === "volume_trend") {
-    return <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} />;
+    return <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} live={!args.closedSnapshot} />;
   }
   if (id === "hod") return <span className="tabular-nums">{formatDeskHod(row)}</span>;
   if (id === "vwap") return <span>{formatDeskVwap(row)}</span>;
@@ -542,12 +550,14 @@ function MobilePanelCard({
   nowMs,
   selected,
   onSelect,
+  closedSnapshot,
 }: {
   panel: RadarPanelId;
   row: RadarRankedRow;
   nowMs: number;
   selected: boolean;
   onSelect: (row: RadarRankedRow) => void;
+  closedSnapshot: boolean;
 }) {
   const time = panelTime(panel, row);
   const age = panelAgeLabel(time.iso, nowMs);
@@ -572,7 +582,7 @@ function MobilePanelCard({
         <span>VOL/YDAY {formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}</span>
         <span>5m {formatScreenerRvol5m(row.rvol_5m)}</span>
         <span title={formatVolumeSpeedExact(row.vol_velocity)}>{formatVolumeSpeedCompact(row.vol_velocity)}</span>
-        <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} />
+        <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} live={!closedSnapshot} />
         <span>{formatDeskHod(row)}</span>
       </div>
     </button>

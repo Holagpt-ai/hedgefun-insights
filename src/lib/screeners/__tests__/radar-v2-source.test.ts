@@ -1,7 +1,12 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { isRadarRowAccessible } from "@/features/day-trade-radar-v2/radar-metrics";
 import { rankRadarRows } from "@/features/day-trade-radar-v2/radar-metrics";
-import { mapCandidateToScreenerRow, type RadarV2CandidateRow, type RadarV2FeedStateRow } from "@/lib/screeners/radar-v2-adapter";
+import {
+  mapCandidateToScreenerRow,
+  type RadarV2CandidateRow,
+  type RadarV2FeedStateRow,
+  type RadarV2ScreenerRow,
+} from "@/lib/screeners/radar-v2-adapter";
 import {
   peekRadarV2LoadDiagnostic,
   resetRadarV2LoadDiagnostic,
@@ -329,6 +334,34 @@ describe("Radar V2 source — stable-generation handshake (D11)", () => {
     expect(decision.source).toBe("fallback");
     expect(decision.reason).toBe("session_not_active:closed");
     expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("8b. closed session adopts the same-day snapshot and keeps live candidates unused", async () => {
+    const reader = queuedReader({
+      feeds: [
+        ok([feedRow({ session_kind: "closed", candidate_count: 0 })]),
+        ok([feedRow({ session_kind: "closed", candidate_count: 0 })]),
+      ],
+      cands: [ok([])],
+    });
+    reader.readClosedSnapshot = async () => ok([
+      {
+        ...candRow({
+          trading_date: "2026-09-03",
+          promoted_at: "2026-09-03T14:26:45.000Z",
+          volume_acceleration_pct: 41,
+        }),
+        snapshot_kind: "closed_session" as const,
+        captured_at: SYNCED,
+      },
+    ]);
+    const decision = await loadRadarV2Decision("day_trade_radar", NOW, { reader, sleep: noSleep });
+    expect(decision.source).toBe("radar-v2");
+    expect(decision.reason).toBe("closed_session_snapshot");
+    expect(decision.view?.closedSnapshot).toBe(true);
+    const closedRow = decision.view?.rows[0] as RadarV2ScreenerRow | undefined;
+    expect(closedRow?.promoted_at).toBe("2026-09-03T14:26:45.000Z");
+    expect(closedRow?.volume_acceleration_pct).toBe(41);
   });
 
   it("14. stable-generation handshake still works in market session", async () => {

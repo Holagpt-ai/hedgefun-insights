@@ -36,6 +36,7 @@ export default function Screeners() {
     marketFeed,
     source,
     session,
+    closedSnapshot,
     radarDiagnostic,
     truthState,
     repeatMoversLoadState,
@@ -108,6 +109,7 @@ export default function Screeners() {
           freeRowLimit={activeTab.freeRowLimit}
           source={source}
           session={session}
+          closedSnapshot={closedSnapshot}
           repeatMoversLoadState={repeatMoversLoadState}
           onRepeatMoversRetry={refetch}
         />

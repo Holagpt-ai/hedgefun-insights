@@ -164,6 +164,7 @@ export function useScreenerData(
   // session-aware copy (Radar V2 vs the verified screener_results path).
   const [source, setSource] = useState<ScreenerDataSource | null>(null);
   const [session, setSession] = useState<string | null>(null);
+  const [closedSnapshot, setClosedSnapshot] = useState(false);
   // Snapshot of the existing load diagnostic after each Radar V2 attempt.
   // Used only by the opt-in `?radarDebug=1` surface — not a second decision path.
   const [radarDiagnostic, setRadarDiagnostic] = useState<RadarV2LoadDiagnostic | null>(null);
@@ -282,6 +283,7 @@ export function useScreenerData(
         setMarketFeed(null);
         setSource(null);
         setSession(null);
+        setClosedSnapshot(false);
         setRadarDiagnostic(null);
         setTruthState(null);
         setNhlBaselineStatus(null);
@@ -402,6 +404,7 @@ export function useScreenerData(
           if (!cancelled) {
             setSource("radar-v2");
             setSession(resolved.session);
+            setClosedSnapshot(view.closedSnapshot === true);
           }
           applyView(view, soft, "radar-v2");
           return;
@@ -418,6 +421,7 @@ export function useScreenerData(
       if (!cancelled && !skipSoftUnavailable) {
         setSource("screener-results");
         setSession(null);
+        setClosedSnapshot(false);
       }
       applyView(view, soft, "screener-results");
     };
@@ -459,6 +463,7 @@ export function useScreenerData(
     marketFeed,
     source,
     session,
+    closedSnapshot,
     radarDiagnostic,
     truthState,
     nhlBaselineStatus,

@@ -184,6 +184,8 @@ export interface RadarV2ScreenerView {
   synced_at: string | null;
   provider_as_of_max: string | null;
   market_feed?: MarketFeedTelemetry | null;
+  /** True only for the explicit same-session closed snapshot. Never a live board. */
+  closedSnapshot?: boolean;
 }
 
 export function marketFeedTelemetryFromFeedRow(

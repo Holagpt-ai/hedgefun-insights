@@ -115,6 +115,8 @@ export interface ScreenerTabView {
   repeatMoversView?: RadarRepeatMoversView | null;
   /** Radar worker feed telemetry when available. */
   market_feed?: MarketFeedTelemetry | null;
+  /** Closed-session Radar snapshot, not the live candidate set. */
+  closedSnapshot?: boolean;
 }
 
 export interface GenerationFetchResult {

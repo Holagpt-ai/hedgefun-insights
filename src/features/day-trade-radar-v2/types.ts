@@ -98,6 +98,8 @@ export interface DayTradeRadarV2Props {
   source?: ScreenerDataSource | null;
   /** Accepted Radar V2 generation session_kind from the data layer. */
   session?: string | null;
+  /** Same-session closed snapshot. Live candidates stay empty after close. */
+  closedSnapshot?: boolean;
   /** Repeat Movers V2 view from enriched Radar payload (Discovery order preserved). */
   repeatMoversView?: RadarRepeatMoversView | null;
   /** Isolated Repeat Movers load lifecycle (must not gate Discovery). */
