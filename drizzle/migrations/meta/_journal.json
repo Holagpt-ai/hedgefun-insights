@@ -330,6 +330,13 @@
       "when": 1790430324092,
       "tag": "0046_radar_v22_closed_session_snapshot_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790444246855,
+      "tag": "0047_intraday_participation_v1",
+      "breakpoints": true
     }
   ]
 }
