@@ -5274,6 +5274,7 @@ export type Database = {
           acceleration_5m: number | null
           distance_from_hod_pct: number | null
           dollar_volume_60s: number
+          dollar_volume_velocity_5m: number | null
           freshness_age_ms: number | null
           freshness_class: string
           generation_id: string
@@ -5294,12 +5295,19 @@ export type Database = {
           lifecycle_entered_at: string | null
           move_15s_pct: number | null
           move_60s_pct: number | null
+          participation_baseline_session_count: number | null
+          participation_calculated_at: string | null
+          participation_source_as_of: string | null
+          participation_state: string | null
           previous_close: number | null
           primary_scanner_event: string | null
           primary_scanner_event_at: string | null
           prior_session_volume: number | null
           promoted_at: string | null
+          promotion_reason: Json | null
           provider_as_of: string | null
+          radar_engine_events: Json | null
+          radar_event_lifecycle: string | null
           rvol_5m: number | null
           scanner_events: Json | null
           session_high: number | null
@@ -5309,13 +5317,20 @@ export type Database = {
           session_vwap: number | null
           signal_status: string
           symbol: string
+          time_adjusted_rvol: number | null
           trading_date: string
           updated_at: string
+          volume_15m: number | null
           volume_15s: number
+          volume_5m: number | null
           volume_5s: number
+          volume_60m: number | null
           volume_60s: number
           volume_acceleration_pct: number | null
           volume_velocity: number | null
+          volume_velocity_15m: number | null
+          volume_velocity_5m: number | null
+          volume_velocity_60m: number | null
           vwap_partial: boolean
           vwap_side: string
         }
@@ -5323,6 +5338,7 @@ export type Database = {
           acceleration_5m?: number | null
           distance_from_hod_pct?: number | null
           dollar_volume_60s: number
+          dollar_volume_velocity_5m?: number | null
           freshness_age_ms?: number | null
           freshness_class: string
           generation_id: string
@@ -5343,12 +5359,19 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          participation_baseline_session_count?: number | null
+          participation_calculated_at?: string | null
+          participation_source_as_of?: string | null
+          participation_state?: string | null
           previous_close?: number | null
           primary_scanner_event?: string | null
           primary_scanner_event_at?: string | null
           prior_session_volume?: number | null
           promoted_at?: string | null
+          promotion_reason?: Json | null
           provider_as_of?: string | null
+          radar_engine_events?: Json | null
+          radar_event_lifecycle?: string | null
           rvol_5m?: number | null
           scanner_events?: Json | null
           session_high?: number | null
@@ -5358,13 +5381,20 @@ export type Database = {
           session_vwap?: number | null
           signal_status: string
           symbol: string
+          time_adjusted_rvol?: number | null
           trading_date: string
           updated_at: string
+          volume_15m?: number | null
           volume_15s: number
+          volume_5m?: number | null
           volume_5s: number
+          volume_60m?: number | null
           volume_60s: number
           volume_acceleration_pct?: number | null
           volume_velocity?: number | null
+          volume_velocity_15m?: number | null
+          volume_velocity_5m?: number | null
+          volume_velocity_60m?: number | null
           vwap_partial: boolean
           vwap_side: string
         }
@@ -5372,6 +5402,7 @@ export type Database = {
           acceleration_5m?: number | null
           distance_from_hod_pct?: number | null
           dollar_volume_60s?: number
+          dollar_volume_velocity_5m?: number | null
           freshness_age_ms?: number | null
           freshness_class?: string
           generation_id?: string
@@ -5392,12 +5423,19 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          participation_baseline_session_count?: number | null
+          participation_calculated_at?: string | null
+          participation_source_as_of?: string | null
+          participation_state?: string | null
           previous_close?: number | null
           primary_scanner_event?: string | null
           primary_scanner_event_at?: string | null
           prior_session_volume?: number | null
           promoted_at?: string | null
+          promotion_reason?: Json | null
           provider_as_of?: string | null
+          radar_engine_events?: Json | null
+          radar_event_lifecycle?: string | null
           rvol_5m?: number | null
           scanner_events?: Json | null
           session_high?: number | null
@@ -5407,13 +5445,20 @@ export type Database = {
           session_vwap?: number | null
           signal_status?: string
           symbol?: string
+          time_adjusted_rvol?: number | null
           trading_date?: string
           updated_at?: string
+          volume_15m?: number | null
           volume_15s?: number
+          volume_5m?: number | null
           volume_5s?: number
+          volume_60m?: number | null
           volume_60s?: number
           volume_acceleration_pct?: number | null
           volume_velocity?: number | null
+          volume_velocity_15m?: number | null
+          volume_velocity_5m?: number | null
+          volume_velocity_60m?: number | null
           vwap_partial?: boolean
           vwap_side?: string
         }
@@ -5425,6 +5470,7 @@ export type Database = {
           captured_at: string
           distance_from_hod_pct: number | null
           dollar_volume_60s: number
+          dollar_volume_velocity_5m: number | null
           freshness_age_ms: number | null
           freshness_class: string
           generation_id: string
@@ -5445,12 +5491,19 @@ export type Database = {
           lifecycle_entered_at: string | null
           move_15s_pct: number | null
           move_60s_pct: number | null
+          participation_baseline_session_count: number | null
+          participation_calculated_at: string | null
+          participation_source_as_of: string | null
+          participation_state: string | null
           previous_close: number | null
           primary_scanner_event: string | null
           primary_scanner_event_at: string | null
           prior_session_volume: number | null
           promoted_at: string | null
+          promotion_reason: Json | null
           provider_as_of: string | null
+          radar_engine_events: Json | null
+          radar_event_lifecycle: string | null
           rvol_5m: number | null
           scanner_events: Json | null
           session_high: number | null
@@ -5461,13 +5514,20 @@ export type Database = {
           signal_status: string
           snapshot_kind: string
           symbol: string
+          time_adjusted_rvol: number | null
           trading_date: string
           updated_at: string
+          volume_15m: number | null
           volume_15s: number
+          volume_5m: number | null
           volume_5s: number
+          volume_60m: number | null
           volume_60s: number
           volume_acceleration_pct: number | null
           volume_velocity: number | null
+          volume_velocity_15m: number | null
+          volume_velocity_5m: number | null
+          volume_velocity_60m: number | null
           vwap_partial: boolean
           vwap_side: string
         }
@@ -5476,6 +5536,7 @@ export type Database = {
           captured_at: string
           distance_from_hod_pct?: number | null
           dollar_volume_60s: number
+          dollar_volume_velocity_5m?: number | null
           freshness_age_ms?: number | null
           freshness_class: string
           generation_id: string
@@ -5496,12 +5557,19 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          participation_baseline_session_count?: number | null
+          participation_calculated_at?: string | null
+          participation_source_as_of?: string | null
+          participation_state?: string | null
           previous_close?: number | null
           primary_scanner_event?: string | null
           primary_scanner_event_at?: string | null
           prior_session_volume?: number | null
           promoted_at?: string | null
+          promotion_reason?: Json | null
           provider_as_of?: string | null
+          radar_engine_events?: Json | null
+          radar_event_lifecycle?: string | null
           rvol_5m?: number | null
           scanner_events?: Json | null
           session_high?: number | null
@@ -5512,13 +5580,20 @@ export type Database = {
           signal_status: string
           snapshot_kind?: string
           symbol: string
+          time_adjusted_rvol?: number | null
           trading_date: string
           updated_at: string
+          volume_15m?: number | null
           volume_15s: number
+          volume_5m?: number | null
           volume_5s: number
+          volume_60m?: number | null
           volume_60s: number
           volume_acceleration_pct?: number | null
           volume_velocity?: number | null
+          volume_velocity_15m?: number | null
+          volume_velocity_5m?: number | null
+          volume_velocity_60m?: number | null
           vwap_partial: boolean
           vwap_side: string
         }
@@ -5527,6 +5602,7 @@ export type Database = {
           captured_at?: string
           distance_from_hod_pct?: number | null
           dollar_volume_60s?: number
+          dollar_volume_velocity_5m?: number | null
           freshness_age_ms?: number | null
           freshness_class?: string
           generation_id?: string
@@ -5547,12 +5623,19 @@ export type Database = {
           lifecycle_entered_at?: string | null
           move_15s_pct?: number | null
           move_60s_pct?: number | null
+          participation_baseline_session_count?: number | null
+          participation_calculated_at?: string | null
+          participation_source_as_of?: string | null
+          participation_state?: string | null
           previous_close?: number | null
           primary_scanner_event?: string | null
           primary_scanner_event_at?: string | null
           prior_session_volume?: number | null
           promoted_at?: string | null
+          promotion_reason?: Json | null
           provider_as_of?: string | null
+          radar_engine_events?: Json | null
+          radar_event_lifecycle?: string | null
           rvol_5m?: number | null
           scanner_events?: Json | null
           session_high?: number | null
@@ -5563,13 +5646,20 @@ export type Database = {
           signal_status?: string
           snapshot_kind?: string
           symbol?: string
+          time_adjusted_rvol?: number | null
           trading_date?: string
           updated_at?: string
+          volume_15m?: number | null
           volume_15s?: number
+          volume_5m?: number | null
           volume_5s?: number
+          volume_60m?: number | null
           volume_60s?: number
           volume_acceleration_pct?: number | null
           volume_velocity?: number | null
+          volume_velocity_15m?: number | null
+          volume_velocity_5m?: number | null
+          volume_velocity_60m?: number | null
           vwap_partial?: boolean
           vwap_side?: string
         }
