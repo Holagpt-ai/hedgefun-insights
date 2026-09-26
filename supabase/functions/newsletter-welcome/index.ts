@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { BRAND, newsletterFromAddress } from "../_shared/brand.ts";
+import { BRAND } from "../_shared/brand.ts";
+import { resendNewsletterEnvelope } from "../_shared/email/sender-config.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -106,6 +107,10 @@ Deno.serve(async (req) => {
 
     const adminHtml = `<p>📬 New subscriber joined</p><p>Email: ${email}</p><p>Subscribed at ${new Date().toLocaleString("en-US", { timeZone: "America/New_York" })} ET</p>`;
 
+    const env = Deno.env.toObject();
+    const welcomeEnvelope = resendNewsletterEnvelope(env);
+    const adminEnvelope = resendNewsletterEnvelope(env, `${BRAND.name} Subscribers`);
+
     const welcomeRes = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -113,7 +118,8 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: newsletterFromAddress(),
+        from: welcomeEnvelope.from,
+        ...(welcomeEnvelope.reply_to ? { reply_to: welcomeEnvelope.reply_to } : {}),
         to: [email],
         subject: `You're in — ${BRAND.name} Market Bullets starts tomorrow 📈`,
         html: welcomeHtml,
@@ -137,7 +143,8 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: newsletterFromAddress(`${BRAND.name} Subscribers`),
+        from: adminEnvelope.from,
+        ...(adminEnvelope.reply_to ? { reply_to: adminEnvelope.reply_to } : {}),
         to: ["akacarlosacosta@gmail.com"],
         subject: `📬 New subscriber: ${email}`,
         html: adminHtml,

@@ -1,6 +1,13 @@
 /**
  * Edge-function brand config — keep in sync with src/config/brand.ts (public app).
  */
+import {
+  buildNewsletterFromAddress,
+  LEGACY_NEWSLETTER_SEND_DOMAIN,
+  resendNewsletterEnvelope,
+  TARGET_STOCKSIST_SEND_DOMAIN,
+} from "./email/sender-config.ts";
+
 export const BRAND = {
   name: "Stocksist",
   domain: "stocksist.com",
@@ -12,11 +19,16 @@ export const BRAND = {
   aiProductName: "Stocksist AI",
 } as const;
 
-/** Resend-verified sender domain until stocksist.com mail DNS is configured. */
-export const LEGACY_NEWSLETTER_SEND_DOMAIN = "send.hedgefun.fun";
+export {
+  buildNewsletterFromAddress,
+  LEGACY_NEWSLETTER_SEND_DOMAIN,
+  resendNewsletterEnvelope,
+  TARGET_STOCKSIST_SEND_DOMAIN,
+};
 
+/** @deprecated Prefer resendNewsletterEnvelope(Deno.env.toObject()) in edge functions. */
 export function newsletterFromAddress(
   displayName = `${BRAND.name} Market Bullets`,
 ): string {
-  return `${displayName} <newsletter@${LEGACY_NEWSLETTER_SEND_DOMAIN}>`;
+  return buildNewsletterFromAddress({}, displayName);
 }
