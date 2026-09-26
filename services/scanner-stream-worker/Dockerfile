@@ -8,6 +8,9 @@ COPY supabase/functions/_shared/screeners/baseline-exclusion-publish.ts ./supaba
 COPY supabase/functions/_shared/screeners/baseline-corporate-action.ts ./supabase/functions/_shared/screeners/baseline-corporate-action.ts
 COPY supabase/functions/_shared/radar-v22 ./supabase/functions/_shared/radar-v22
 COPY src/lib/screeners/previous-session-facts.ts ./src/lib/screeners/previous-session-facts.ts
+COPY src/lib/radar/radar-event-engine.ts ./src/lib/radar/radar-event-engine.ts
+COPY src/lib/radar/intraday-participation.ts ./src/lib/radar/intraday-participation.ts
+COPY src/config/intraday-participation.config.ts ./src/config/intraday-participation.config.ts
 COPY supabase/functions/_shared/scanner-alerts ./supabase/functions/_shared/scanner-alerts
 COPY supabase/functions/_shared/market-feed ./supabase/functions/_shared/market-feed
 WORKDIR /repo/services/scanner-stream-worker
