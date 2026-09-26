@@ -5419,6 +5419,162 @@ export type Database = {
         }
         Relationships: []
       }
+      radar_v22_closed_snapshot: {
+        Row: {
+          acceleration_5m: number | null
+          captured_at: string
+          distance_from_hod_pct: number | null
+          dollar_volume_60s: number
+          freshness_age_ms: number | null
+          freshness_class: string
+          generation_id: string
+          geometry_partial: boolean
+          last_acceleration_at: string | null
+          last_hod_attempt_at: string | null
+          last_hod_break_at: string | null
+          last_hod_reject_at: string | null
+          last_new_hod_at: string | null
+          last_price: number | null
+          last_price_at: string | null
+          last_price_move_at: string | null
+          last_volume_burst_at: string | null
+          last_vwap_cross_at: string | null
+          last_vwap_loss_at: string | null
+          last_vwap_reclaim_at: string | null
+          lifecycle: string
+          lifecycle_entered_at: string | null
+          move_15s_pct: number | null
+          move_60s_pct: number | null
+          previous_close: number | null
+          primary_scanner_event: string | null
+          primary_scanner_event_at: string | null
+          prior_session_volume: number | null
+          promoted_at: string | null
+          provider_as_of: string | null
+          rvol_5m: number | null
+          scanner_events: Json | null
+          session_high: number | null
+          session_kind: string
+          session_low: number | null
+          session_volume: number
+          session_vwap: number | null
+          signal_status: string
+          snapshot_kind: string
+          symbol: string
+          trading_date: string
+          updated_at: string
+          volume_15s: number
+          volume_5s: number
+          volume_60s: number
+          volume_acceleration_pct: number | null
+          volume_velocity: number | null
+          vwap_partial: boolean
+          vwap_side: string
+        }
+        Insert: {
+          acceleration_5m?: number | null
+          captured_at: string
+          distance_from_hod_pct?: number | null
+          dollar_volume_60s: number
+          freshness_age_ms?: number | null
+          freshness_class: string
+          generation_id: string
+          geometry_partial: boolean
+          last_acceleration_at?: string | null
+          last_hod_attempt_at?: string | null
+          last_hod_break_at?: string | null
+          last_hod_reject_at?: string | null
+          last_new_hod_at?: string | null
+          last_price?: number | null
+          last_price_at?: string | null
+          last_price_move_at?: string | null
+          last_volume_burst_at?: string | null
+          last_vwap_cross_at?: string | null
+          last_vwap_loss_at?: string | null
+          last_vwap_reclaim_at?: string | null
+          lifecycle: string
+          lifecycle_entered_at?: string | null
+          move_15s_pct?: number | null
+          move_60s_pct?: number | null
+          previous_close?: number | null
+          primary_scanner_event?: string | null
+          primary_scanner_event_at?: string | null
+          prior_session_volume?: number | null
+          promoted_at?: string | null
+          provider_as_of?: string | null
+          rvol_5m?: number | null
+          scanner_events?: Json | null
+          session_high?: number | null
+          session_kind: string
+          session_low?: number | null
+          session_volume: number
+          session_vwap?: number | null
+          signal_status: string
+          snapshot_kind?: string
+          symbol: string
+          trading_date: string
+          updated_at: string
+          volume_15s: number
+          volume_5s: number
+          volume_60s: number
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
+          vwap_partial: boolean
+          vwap_side: string
+        }
+        Update: {
+          acceleration_5m?: number | null
+          captured_at?: string
+          distance_from_hod_pct?: number | null
+          dollar_volume_60s?: number
+          freshness_age_ms?: number | null
+          freshness_class?: string
+          generation_id?: string
+          geometry_partial?: boolean
+          last_acceleration_at?: string | null
+          last_hod_attempt_at?: string | null
+          last_hod_break_at?: string | null
+          last_hod_reject_at?: string | null
+          last_new_hod_at?: string | null
+          last_price?: number | null
+          last_price_at?: string | null
+          last_price_move_at?: string | null
+          last_volume_burst_at?: string | null
+          last_vwap_cross_at?: string | null
+          last_vwap_loss_at?: string | null
+          last_vwap_reclaim_at?: string | null
+          lifecycle?: string
+          lifecycle_entered_at?: string | null
+          move_15s_pct?: number | null
+          move_60s_pct?: number | null
+          previous_close?: number | null
+          primary_scanner_event?: string | null
+          primary_scanner_event_at?: string | null
+          prior_session_volume?: number | null
+          promoted_at?: string | null
+          provider_as_of?: string | null
+          rvol_5m?: number | null
+          scanner_events?: Json | null
+          session_high?: number | null
+          session_kind?: string
+          session_low?: number | null
+          session_volume?: number
+          session_vwap?: number | null
+          signal_status?: string
+          snapshot_kind?: string
+          symbol?: string
+          trading_date?: string
+          updated_at?: string
+          volume_15s?: number
+          volume_5s?: number
+          volume_60s?: number
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
+          vwap_partial?: boolean
+          vwap_side?: string
+        }
+        Relationships: []
+      }
       radar_v22_events: {
         Row: {
           event_at: string
