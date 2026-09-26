@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
+import { AI_ANALYST_HISTORICAL_MEMORY_BOUNDS } from "@/config/ai-analyst-historical.config";
 import {
   assertHistoricalMemoryIsEvidenceOnly,
+  boundHistoricalMemoryFactsForProvider,
   buildHistoricalMemoryFromRepeatMoverContext,
   serializeHistoricalMemoryForPrompt,
   unavailableHistoricalMemory,
@@ -98,7 +100,36 @@ describe("AI Analyst historical memory", () => {
       buildHistoricalMemoryFromRepeatMoverContext(baseContext()),
     );
     expect(json).toContain('"historicalMemory"');
+    expect(json).toContain('"historicalProfile"');
+    expect(json.length).toBeLessThanOrEqual(AI_ANALYST_HISTORICAL_MEMORY_BOUNDS.maxSerializedChars);
     expect(json).not.toMatch(/probability|confidence|winRate/i);
+  });
+
+  it("maps observedForwardOutcomes on comparables when present", () => {
+    const memory = buildHistoricalMemoryFromRepeatMoverContext(baseContext({
+      comparableHistory: {
+        comparableEpisodeCount: 1,
+        closestComparableEpisodes: [{
+          ...baseContext().comparableHistory.closestComparableEpisodes[0]!,
+          observedForwardOutcomes: {
+            closeToCloseReturnPct: { D1: 2.5 },
+            highExcursionPct: {},
+            lowExcursionPct: {},
+            closePosition: {},
+            nextSession: null,
+          },
+        }],
+        mostRecentComparableEpisode: null,
+      },
+    }));
+    expect(memory.closestComparableEpisodes[0]?.observedForwardOutcomes?.closeToCloseReturnPct?.D1).toBe(2.5);
+  });
+
+  it("missing optional metrics stay null in memory, not zero-filled", () => {
+    const memory = unavailableHistoricalMemory("ZZZ");
+    expect(memory.episodeCount).toBeNull();
+    expect(memory.medianD1ReturnPct).toBeNull();
+    expect(boundHistoricalMemoryFactsForProvider(memory).additionalVerifiedEpisodesWithoutDetail).toBeNull();
   });
 
   it("repeatMoverContextToAnalystFacts delegates to full historical memory", () => {

@@ -1,3 +1,13 @@
+/** Deterministic caps for same-security historical evidence in AI Analyst requests. */
+export const AI_ANALYST_HISTORICAL_MEMORY_BOUNDS = {
+  /** Closest comparables already ranked by the historical engine (preserve order). */
+  maxComparableEpisodesInPrompt: 10,
+  /** Per-episode linked catalyst/event cap (matches episode linkage config). */
+  maxEventsPerComparableEpisode: 3,
+  /** Matches supabase/functions/chat/index.ts historical block slice. */
+  maxSerializedChars: 6000,
+} as const;
+
 /** Guardrails appended server-side when historicalMemory is present. */
 export const AI_ANALYST_HISTORICAL_MEMORY_GUARDRAILS = `HISTORICAL BEHAVIOR (Stocksist deterministic evidence):
 - Treat historicalMemory as descriptive same-security context, not a prediction.

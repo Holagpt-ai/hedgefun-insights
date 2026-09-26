@@ -1,4 +1,6 @@
+import { AI_ANALYST_HISTORICAL_MEMORY_BOUNDS } from "@/config/ai-analyst-historical.config";
 import type { EpisodeLinkedEventEvidence } from "@/lib/episode-event-linkage/episode-linked-event-evidence";
+import type { RepeatMoverForwardOutcomeEvidence } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { RepeatMoverIntradayEvidence } from "@/lib/intraday-reconstruction/intraday-reconstruction-types";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 
@@ -26,6 +28,7 @@ export interface HistoricalMemoryComparableEpisode {
   movePctDelta: number | null;
   historicalEvents: readonly EpisodeLinkedEventEvidence[];
   observedIntradayReconstruction: RepeatMoverIntradayEvidence | null;
+  observedForwardOutcomes: RepeatMoverForwardOutcomeEvidence | null;
 }
 
 /** Deterministic same-security historical evidence for AI Analyst. */
@@ -59,6 +62,10 @@ export interface HistoricalMemoryFacts {
   nextSessionPositiveContinuationRate: number | null;
   nextSessionNegativeContinuationRate: number | null;
   comparableEpisodeCount: number;
+  /** Closest comparables with episode-level detail included below (may be less than episodeCount). */
+  loadedComparableEpisodeDetailCount: number;
+  /** Verified episodes not expanded in closestComparableEpisodes when profile episodeCount exceeds loaded detail. */
+  additionalVerifiedEpisodesWithoutDetail: number | null;
   closestComparableEpisodes: HistoricalMemoryComparableEpisode[];
   mostRecentComparableEpisode: HistoricalMemoryComparableEpisode | null;
   profileComputedAt: string | null;
@@ -110,6 +117,8 @@ export function unavailableHistoricalMemory(symbol: string | null): HistoricalMe
     nextSessionPositiveContinuationRate: null,
     nextSessionNegativeContinuationRate: null,
     comparableEpisodeCount: 0,
+    loadedComparableEpisodeDetailCount: 0,
+    additionalVerifiedEpisodesWithoutDetail: null,
     closestComparableEpisodes: [],
     mostRecentComparableEpisode: null,
     profileComputedAt: null,
@@ -150,6 +159,49 @@ function mapComparable(
     movePctDelta: episode.similarity.movePctDelta,
     historicalEvents: episode.historicalEvents ?? [],
     observedIntradayReconstruction: episode.observedIntradayReconstruction ?? null,
+    observedForwardOutcomes: episode.observedForwardOutcomes ?? null,
+  };
+}
+
+function deriveEpisodeCountGap(
+  episodeCount: number | null,
+  loadedDetailCount: number,
+): number | null {
+  if (episodeCount === null) return null;
+  const gap = episodeCount - loadedDetailCount;
+  return gap > 0 ? gap : null;
+}
+
+/** Deterministic caps before provider / prompt serialization (preserve closest-first ordering). */
+export function boundHistoricalMemoryFactsForProvider(
+  memory: HistoricalMemoryFacts,
+): HistoricalMemoryFacts {
+  const maxEpisodes = AI_ANALYST_HISTORICAL_MEMORY_BOUNDS.maxComparableEpisodesInPrompt;
+  const maxEvents = AI_ANALYST_HISTORICAL_MEMORY_BOUNDS.maxEventsPerComparableEpisode;
+
+  const boundEpisode = (episode: HistoricalMemoryComparableEpisode): HistoricalMemoryComparableEpisode => ({
+    ...episode,
+    historicalEvents: episode.historicalEvents.slice(0, maxEvents),
+  });
+
+  const closestComparableEpisodes = memory.closestComparableEpisodes
+    .slice(0, maxEpisodes)
+    .map(boundEpisode);
+  const mostRecentComparableEpisode = memory.mostRecentComparableEpisode
+    ? boundEpisode(memory.mostRecentComparableEpisode)
+    : null;
+
+  const loadedComparableEpisodeDetailCount = closestComparableEpisodes.length;
+
+  return {
+    ...memory,
+    loadedComparableEpisodeDetailCount,
+    additionalVerifiedEpisodesWithoutDetail: deriveEpisodeCountGap(
+      memory.episodeCount,
+      loadedComparableEpisodeDetailCount,
+    ),
+    closestComparableEpisodes,
+    mostRecentComparableEpisode,
   };
 }
 
@@ -167,7 +219,9 @@ export function buildHistoricalMemoryFromRepeatMoverContext(
     ? mapComparable(context.comparableHistory.mostRecentComparableEpisode)
     : null;
 
-  return {
+  const loadedComparableEpisodeDetailCount = comparables.length;
+
+  const memory: HistoricalMemoryFacts = {
     contextLoaded: true,
     profileAvailable: profile.profileAvailable,
     securityId: context.securityId,
@@ -195,6 +249,11 @@ export function buildHistoricalMemoryFromRepeatMoverContext(
     nextSessionPositiveContinuationRate: profile.nextSessionPositiveContinuationRate,
     nextSessionNegativeContinuationRate: profile.nextSessionNegativeContinuationRate,
     comparableEpisodeCount: context.comparableHistory.comparableEpisodeCount,
+    loadedComparableEpisodeDetailCount,
+    additionalVerifiedEpisodesWithoutDetail: deriveEpisodeCountGap(
+      profile.episodeCount,
+      loadedComparableEpisodeDetailCount,
+    ),
     closestComparableEpisodes: comparables,
     mostRecentComparableEpisode: mostRecent,
     profileComputedAt: profile.computedAt,
@@ -216,18 +275,43 @@ export function buildHistoricalMemoryFromRepeatMoverContext(
     intradayGuardrail: HISTORICAL_MEMORY_INTRADAY_GUARDRAIL,
     assembledAt: context.assembledAt,
   };
+
+  return boundHistoricalMemoryFactsForProvider(memory);
 }
 
 export function serializeHistoricalMemoryForPrompt(
   memory: HistoricalMemoryFacts,
 ): string {
-  return JSON.stringify({
-    historicalMemory: memory,
-    guardrails: {
-      eventCausation: memory.eventCausationGuardrail,
-      intraday: memory.intradayGuardrail,
+  const bounded = boundHistoricalMemoryFactsForProvider(memory);
+  const payload = {
+    provenance: {
+      source: "stocksist_verified_historical_observations",
+      contextLoaded: bounded.contextLoaded,
+      profileAvailable: bounded.profileAvailable,
     },
-  });
+    historicalProfile: {
+      verifiedPriorMomentumEpisodeCount: bounded.episodeCount,
+      loadedComparableEpisodeDetailCount: bounded.loadedComparableEpisodeDetailCount,
+      additionalVerifiedEpisodesWithoutDetail: bounded.additionalVerifiedEpisodesWithoutDetail,
+      sampleSizeQuality: bounded.sampleSizeQuality,
+      sessionsObserved: bounded.sessionsObserved,
+      historyStartDate: bounded.historyStartDate,
+      historyEndDate: bounded.historyEndDate,
+      nextSessionPositiveContinuationRate: bounded.nextSessionPositiveContinuationRate,
+      nextSessionNegativeContinuationRate: bounded.nextSessionNegativeContinuationRate,
+    },
+    closestComparableEpisodes: bounded.closestComparableEpisodes,
+    mostRecentComparableEpisode: bounded.mostRecentComparableEpisode,
+    historicalMemory: bounded,
+    guardrails: {
+      eventCausation: bounded.eventCausationGuardrail,
+      intraday: bounded.intradayGuardrail,
+      dataHonesty:
+        "Null or missing fields mean unavailable verified data, not zero historical behavior.",
+    },
+  };
+  const serialized = JSON.stringify(payload);
+  return serialized.slice(0, AI_ANALYST_HISTORICAL_MEMORY_BOUNDS.maxSerializedChars);
 }
 
 const FORBIDDEN_PREDICTION_KEYS = [
