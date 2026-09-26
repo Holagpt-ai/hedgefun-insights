@@ -20,6 +20,7 @@ import {
 import { FORWARD_OUTCOME_LIST_BY_EPISODES_RPC } from "../../radar-worker-bridge/forward-outcome-handlers.ts";
 import type { DbClient } from "../../radar-worker-bridge/handler.ts";
 import {
+  type CatalystRowLike,
   pickStrongestVerifiedCatalyst,
   scannerCatalystSupportingFields,
 } from "../catalyst/intelligence-v2.ts";
@@ -83,7 +84,7 @@ async function pickVerifiedCatalyst(
   if (result.error || !result.data) return null;
   const fetchedAt = new Date().toISOString();
   const best = pickStrongestVerifiedCatalyst(
-    result.data as Array<Record<string, unknown>>,
+    result.data as unknown as Array<CatalystRowLike & { id?: string }>,
     symbol,
     Date.parse(fetchedAt),
   );
