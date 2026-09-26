@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { BRAND, newsletterFromAddress } from "../_shared/brand.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -112,9 +113,9 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "HedgeFun <newsletter@send.hedgefun.fun>",
+        from: newsletterFromAddress(),
         to: [email],
-        subject: "You're in — Stocksist Market Bullets starts tomorrow 📈",
+        subject: `You're in — ${BRAND.name} Market Bullets starts tomorrow 📈`,
         html: welcomeHtml,
         text: `Welcome to Stocksist Market Bullets!\n\nUnsubscribe: ${unsubscribeUrl}`,
       }),
@@ -136,7 +137,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "HedgeFun <newsletter@send.hedgefun.fun>",
+        from: newsletterFromAddress(`${BRAND.name} Subscribers`),
         to: ["akacarlosacosta@gmail.com"],
         subject: `📬 New subscriber: ${email}`,
         html: adminHtml,

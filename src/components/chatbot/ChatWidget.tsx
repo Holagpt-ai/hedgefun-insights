@@ -7,9 +7,10 @@ import { trackEvent } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { BRAND } from "@/config/brand";
 
 const WELCOME_MSG =
-  "Hi! I'm Stocksist AI. Ask me anything about stocks, ETFs, earnings, or market analysis. What's on your radar today?";
+  `Hi! I'm ${BRAND.aiProductName}. Ask me anything about stocks, ETFs, earnings, or market analysis. What's on your radar today?`;
 
 const SUGGESTED = [
   "What is a P/E ratio?",
@@ -137,7 +138,7 @@ export function ChatWidget() {
           <span className="text-[0.625rem] font-bold text-primary-foreground">S</span>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-foreground leading-none">Stocksist AI</p>
+          <p className="text-sm font-semibold text-foreground leading-none">{BRAND.aiProductName}</p>
           <p className="text-[0.625rem] text-muted-foreground">Powered by Gemini</p>
         </div>
         <button onClick={() => setOpen(false)} className="hidden md:block" aria-label="Close">

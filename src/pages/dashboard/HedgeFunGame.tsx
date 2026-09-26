@@ -96,7 +96,7 @@ const fmtFull = (n: number) =>
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 
-export default function HedgeFunGame() {
+export default function StocksistGame() {
   const { user } = useAuth();
   const navigate = useNavigate();
 

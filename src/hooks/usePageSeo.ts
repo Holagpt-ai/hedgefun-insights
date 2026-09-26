@@ -37,7 +37,7 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
       { property: "og:type", content: jsonLd?.["@type"] === "Article" ? "article" : "website" },
       { property: "og:url", content: currentUrl },
       { property: "og:image", content: image || `${BRAND.url}/og-share-card.png` },
-      { property: "og:image:alt", content: "Stocksist — Most traders never do this math. Illustrative arithmetic across 252 trading days; not a promise of results." },
+      { property: "og:image:alt", content: `${BRAND.name} — Most traders never do this math. Illustrative arithmetic across 252 trading days; not a promise of results.` },
     ];
 
     // Twitter parity

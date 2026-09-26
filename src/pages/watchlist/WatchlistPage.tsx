@@ -1,4 +1,5 @@
-import { useState, useCallback, useMemo, useRef } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
+import { BRAND } from "@/config/brand";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -869,9 +870,12 @@ const WatchlistPage = () => {
     return groups;
   }, [news]);
 
+  useEffect(() => {
+    document.title = `My AI Watchlist | ${BRAND.name}`;
+  }, []);
+
   return (
     <div>
-      <title>My AI Watchlist | HedgeFun</title>
       <IndexSparklineCards />
       <div className="w-full flex flex-col items-center border-b border-border bg-surface py-1">
         <AdBanner slot="top" />

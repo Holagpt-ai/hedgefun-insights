@@ -9,6 +9,6 @@ export const CHAT_SYSTEM_PROMPT_ID = "chat.system" as const;
 export const CHAT_SYSTEM_PROMPT_PLACEHOLDER: PromptDefinition = {
   id: CHAT_SYSTEM_PROMPT_ID,
   description:
-    "Placeholder for the HedgeFun AI chat system prompt. Not yet migrated.",
+    "Placeholder for the Stocksist AI chat system prompt. Not yet migrated.",
   defaultTier: "fast",
 };
