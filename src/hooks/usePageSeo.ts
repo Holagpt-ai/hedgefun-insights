@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { BRAND } from "@/config/brand";
+import { canonicalUrl } from "@/config/seo";
 
 interface SeoProps {
   title: string;
@@ -30,7 +31,9 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
     metaDesc.content = description;
 
     // OG tags
-    const currentUrl = canonical || window.location.href;
+    const currentUrl = canonical
+      ? (canonical.startsWith("http") ? canonical : canonicalUrl(canonical))
+      : canonicalUrl(window.location.pathname);
     const ogTags: { property: string; content: string }[] = [
       { property: "og:title", content: title },
       { property: "og:description", content: description },

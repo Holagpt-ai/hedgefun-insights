@@ -131,7 +131,7 @@
     <priority>0.6</priority>
   </url>
   <url>
-    <loc>https://stocksist.com/etf/screener</loc>
+    <loc>https://stocksist.com/etfs/screener</loc>
     <changefreq>weekly</changefreq>
     <priority>0.6</priority>
   </url>
@@ -149,5 +149,20 @@
     <loc>https://stocksist.com/stocks/lists</loc>
     <changefreq>weekly</changefreq>
     <priority>0.5</priority>
+  </url>
+  <url>
+    <loc>https://stocksist.com/methodology</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.4</priority>
+  </url>
+  <url>
+    <loc>https://stocksist.com/articles</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://stocksist.com/sitemap</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.3</priority>
   </url>
 </urlset>

@@ -6,10 +6,12 @@ import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScannerAlertToastListener } from "@/components/scanner-alerts/ScannerAlertToastListener";
+import { useRobotsNoIndex } from "@/hooks/useRobotsNoIndex";
 
 export default function DashboardLayout() {
   const { user, loading } = useAuth();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  useRobotsNoIndex(true);
 
   if (loading) {
     return (

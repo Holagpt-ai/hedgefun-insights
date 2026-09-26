@@ -3,5 +3,13 @@ Allow: /
 Disallow: /admin/
 Disallow: /account/
 Disallow: /auth/
+Disallow: /dashboard/
+Disallow: /login
+Disallow: /signup
+Disallow: /register
+Disallow: /sign-up
+Disallow: /reset-password
+Disallow: /unsubscribe
+Disallow: /.lovable/
 
 Sitemap: https://stocksist.com/sitemap.xml

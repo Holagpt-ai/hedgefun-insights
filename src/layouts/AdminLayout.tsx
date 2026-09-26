@@ -7,6 +7,7 @@ import {
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import AdminGuard from "@/components/admin/AdminGuard";
+import { useRobotsNoIndex } from "@/hooks/useRobotsNoIndex";
 
 const navItems = [
   { icon: LayoutDashboard, label: "Overview", path: "/admin" },
@@ -143,6 +144,7 @@ function AdminHeader() {
 
 export default function AdminLayout() {
   const [collapsed, setCollapsed] = useState(false);
+  useRobotsNoIndex(true);
 
   return (
     <AdminGuard>

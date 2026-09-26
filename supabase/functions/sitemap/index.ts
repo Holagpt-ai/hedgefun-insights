@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { SITEMAP_MAIN_PAGES } from "../_shared/seo/sitemap-main-pages.ts";
 
 const BASE = "https://stocksist.com";
 const HEADERS = {
@@ -39,42 +40,7 @@ serve(async (req) => {
     }
 
     if (type === "main") {
-      const pages = [
-        { path: "/", pri: "1.0", freq: "daily" },
-        { path: "/about", pri: "0.6", freq: "monthly" },
-        { path: "/contact", pri: "0.5", freq: "monthly" },
-        { path: "/terms", pri: "0.3", freq: "yearly" },
-        { path: "/privacy", pri: "0.3", freq: "yearly" },
-        { path: "/disclaimer", pri: "0.3", freq: "yearly" },
-        { path: "/faq", pri: "0.5", freq: "monthly" },
-        { path: "/affiliates", pri: "0.4", freq: "monthly" },
-        { path: "/pro", pri: "0.7", freq: "weekly" },
-        { path: "/news", pri: "0.8", freq: "daily" },
-        { path: "/trending", pri: "0.8", freq: "daily" },
-        { path: "/screener", pri: "0.7", freq: "daily" },
-        { path: "/earnings", pri: "0.7", freq: "daily" },
-        { path: "/watchlist", pri: "0.5", freq: "weekly" },
-        { path: "/stocks", pri: "0.8", freq: "daily" },
-        { path: "/chart", pri: "0.6", freq: "weekly" },
-        { path: "/tools", pri: "0.6", freq: "monthly" },
-        { path: "/newsletter", pri: "0.5", freq: "monthly" },
-        { path: "/markets/gainers", pri: "0.7", freq: "daily" },
-        { path: "/markets/losers", pri: "0.7", freq: "daily" },
-        { path: "/markets/active", pri: "0.7", freq: "daily" },
-        { path: "/markets/premarket", pri: "0.7", freq: "daily" },
-        { path: "/markets/after-hours", pri: "0.7", freq: "daily" },
-        { path: "/markets/heatmap", pri: "0.7", freq: "daily" },
-        { path: "/ipos/recent", pri: "0.6", freq: "daily" },
-        { path: "/ipos/calendar", pri: "0.6", freq: "daily" },
-        { path: "/ipos/statistics", pri: "0.5", freq: "weekly" },
-        { path: "/ipos/news", pri: "0.6", freq: "daily" },
-        { path: "/etf/screener", pri: "0.6", freq: "weekly" },
-        { path: "/stocks/analysts", pri: "0.5", freq: "weekly" },
-        { path: "/stocks/compare", pri: "0.6", freq: "weekly" },
-        { path: "/stocks/lists", pri: "0.5", freq: "weekly" },
-        { path: "/sitemap", pri: "0.3", freq: "monthly" },
-      ];
-      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${pages.map((p) => urlEntry(BASE + p.path, undefined, p.freq, p.pri)).join("\n")}\n</urlset>`;
+      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${SITEMAP_MAIN_PAGES.map((p) => urlEntry(BASE + p.path, undefined, p.freq, p.pri)).join("\n")}\n</urlset>`;
       return new Response(body, { headers: HEADERS });
     }
 

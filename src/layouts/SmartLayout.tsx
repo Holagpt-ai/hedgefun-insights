@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
+import { useRobotsNoIndex } from "@/hooks/useRobotsNoIndex";
 import { Header } from "@/components/layout/Header";
 import MarketTicker from "@/components/layout/MarketTicker";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
@@ -13,6 +14,8 @@ import { useAuth } from "@/contexts/AuthContext";
 export default function SmartLayout() {
   const { user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { pathname } = useLocation();
+  useRobotsNoIndex(pathname.startsWith("/account"));
 
   if (loading) {
     return (
