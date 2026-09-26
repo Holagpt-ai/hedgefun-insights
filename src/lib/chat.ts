@@ -19,6 +19,7 @@ export async function streamChat({
   attachment,
   systemContext,
   historicalMemory,
+  analystIntelligence,
   conversationId,
   signal,
   onDelta,
@@ -34,6 +35,8 @@ export async function streamChat({
   systemContext?: string;
   /** Deterministic same-security historical evidence (Repeat Movers). */
   historicalMemory?: object | null;
+  /** Symbol-scoped verified intelligence packet (Prompt #19). */
+  analystIntelligence?: object | null;
   conversationId?: string;
   signal?: AbortSignal;
   onDelta: (deltaText: string) => void;
@@ -74,6 +77,7 @@ export async function streamChat({
         attachment,
         systemContext,
         historicalMemory,
+        analystIntelligence,
         conversationId,
       }),
       signal: timeoutController.signal,

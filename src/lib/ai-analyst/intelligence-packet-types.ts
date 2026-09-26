@@ -1,0 +1,115 @@
+import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/historical-workflow-types";
+import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session-continuation-types";
+
+export interface AnalystKeyLevels {
+  vwap: number | null;
+  hod: number | null;
+  lod: number | null;
+  priorClose: number | null;
+  lastPrice: number | null;
+  pmHigh: number | null;
+  pmLow: number | null;
+  source: "radar_v22_candidates" | "watchlist_analysis_v2" | "unavailable";
+}
+
+export interface AnalystRadarEventRow {
+  eventType: string | null;
+  eventAt: string | null;
+  sessionKind: string | null;
+  tradingDate: string | null;
+}
+
+export interface AnalystRadarSnapshot {
+  available: boolean;
+  symbol: string;
+  tradingDate: string | null;
+  sessionKind: string | null;
+  lifecycle: string | null;
+  radarEventLifecycle: string | null;
+  promotionReason: string | null;
+  primaryScannerEvent: string | null;
+  primaryScannerEventAt: string | null;
+  participationState: string | null;
+  timeAdjustedRvol: number | null;
+  rvol5m: number | null;
+  volumeVelocity: number | null;
+  volumeAccelerationPct: number | null;
+  acceleration5m: number | null;
+  distanceFromHodPct: number | null;
+  keyLevels: AnalystKeyLevels;
+  recentEvents: AnalystRadarEventRow[];
+}
+
+export interface AnalystWatchlistSnapshot {
+  available: boolean;
+  ticker: string;
+  sessionDate: string | null;
+  sessionType: string | null;
+  direction: string | null;
+  rvol: number | null;
+  rvolClass: string | null;
+  changePct: number | null;
+  explanationExcerpt: string | null;
+  keyLevels: Record<string, unknown> | null;
+  marketSignals: Record<string, unknown> | null;
+  failureReason: string | null;
+}
+
+export interface AnalystCatalystRow {
+  eventType: string;
+  eventDate: string | null;
+  title: string | null;
+  publishedAt: string | null;
+  verificationState: string;
+}
+
+export interface AnalystJournalRow {
+  symbol: string;
+  side: string | null;
+  status: string | null;
+  setupTag: string | null;
+  entryDate: string | null;
+}
+
+export interface AnalystIntelligencePacket {
+  symbol: string;
+  handoffSource: string | null;
+  assembledAt: string;
+  VERIFIED_FACTS: {
+    symbol: string;
+    handoffSource: string | null;
+    workflowHandoff: HistoricalWorkflowContext | null;
+    catalystRows: AnalystCatalystRow[];
+    journalRows: AnalystJournalRow[];
+  };
+  HISTORICAL_EVIDENCE: {
+    workflowSummary: {
+      historicalContextAvailable: boolean;
+      comparableEpisodeCount: number;
+      mostRecentComparableDate: string | null;
+      sampleSizeQuality: string | null;
+      evidenceLabels: readonly string[];
+      note: string;
+    };
+    /** Full episode detail lives in separate historicalMemory payload. */
+    defersDetailedEpisodesToHistoricalMemory: true;
+  };
+  CURRENT_SESSION_EVIDENCE: {
+    radar: AnalystRadarSnapshot;
+    watchlist: AnalystWatchlistSnapshot;
+    priorSessionContinuation: LateSessionContinuationContext[];
+    temporalNote: string;
+  };
+  MODEL_INTERPRETATION: {
+    responseStructure: string;
+    dataHonesty: string;
+  };
+  unavailable: {
+    radar: boolean;
+    watchlist: boolean;
+    catalyst: boolean;
+    continuation: boolean;
+    keyLevels: boolean;
+    historicalDetail: boolean;
+  };
+}

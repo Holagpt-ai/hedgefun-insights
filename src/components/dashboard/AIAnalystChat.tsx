@@ -45,7 +45,8 @@ import {
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import { fetchAnalystHistoricalMemory } from "@/lib/ai-analyst/fetch-analyst-historical-memory";
 import type { HistoricalMemoryFacts } from "@/lib/ai-analyst/historical-memory";
-import { readPreloadedRepeatMoverContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { readPreloadedRepeatMoverContext, readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { fetchSymbolIntelligenceInputs } from "@/lib/ai-analyst/fetch-symbol-intelligence-inputs";
 
 // Only wording that the request path can actually stand behind.
 const STREAMING_STATUS_MESSAGES = [
@@ -683,6 +684,28 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         }
         if (!isCurrent()) return;
 
+        let analystIntelligence: object | undefined;
+        const activeSymbol = activeSymbolRef.current;
+        if (activeSymbol) {
+          try {
+            const workflow = readHistoricalWorkflowContext(activeSymbol);
+            const packet = await withTimeout(
+              fetchSymbolIntelligenceInputs(supabase, {
+                symbol: activeSymbol,
+                userId: user?.id ?? null,
+                handoffSource: workflow?.sourceSurface ?? null,
+              }),
+              DASHBOARD_CONTEXT_TIMEOUT_MS,
+              controller.signal,
+            );
+            if (packet && isCurrent()) analystIntelligence = packet;
+          } catch (intelErr) {
+            if (isAbortLike(intelErr)) throw intelErr;
+            // Symbol intelligence is best-effort — continue with dashboard + historical context.
+          }
+        }
+        if (!isCurrent()) return;
+
         let assistantContent = "";
 
         await streamChat({
@@ -693,6 +716,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
           attachment: attachmentRef.current ?? undefined,
           systemContext: systemContext || undefined,
           historicalMemory: historicalMemoryRef.current ?? undefined,
+          analystIntelligence,
           conversationId: conversationIdRef.current ?? undefined,
           signal: controller.signal,
           onConversationId: (id) => {
