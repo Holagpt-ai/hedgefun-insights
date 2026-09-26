@@ -3,7 +3,8 @@
 // Optional providers (news, earnings) degrade gracefully.
 
 import type { IntradayBar } from "./contract.ts";
-import { etParts } from "./session.ts";
+import { etParts, type AnalysisPresentation } from "./session.ts";
+import { MIN_BARS_FOR_AI } from "./sufficiency.ts";
 import { sanitize } from "./sanitize.ts";
 import {
   extractPolygonSnapshotFields,
@@ -159,6 +160,50 @@ export function effectiveSnapshotQuality(
     return "ok";
   }
   return "stale";
+}
+
+export interface SnapshotPresentationContext {
+  presentation: AnalysisPresentation;
+  /** Resolved analysis session date (ET YYYY-MM-DD). */
+  sessionDate: string;
+}
+
+/**
+ * Live analysis keeps wall-clock freshness ({@link effectiveSnapshotQuality}).
+ * Last-completed analysis accepts snapshots whose source timestamp belongs to
+ * {@link SnapshotPresentationContext.sessionDate}, even when wall-clock age exceeds
+ * {@link STALE_MS}.
+ */
+export function snapshotQualityForAnalysis(
+  snapshot: Pick<SnapshotAssessment, "quality" | "lastTradeTs">,
+  bars: readonly IntradayBar[],
+  nowMs: number,
+  ctx: SnapshotPresentationContext,
+): SnapshotAssessment["quality"] {
+  if (ctx.presentation === "live") {
+    return effectiveSnapshotQuality(snapshot, bars, nowMs);
+  }
+
+  if (snapshot.quality === "malformed") return "malformed";
+
+  const tsSession =
+    snapshot.lastTradeTs !== null ? etDateOf(snapshot.lastTradeTs) : null;
+
+  if (tsSession !== null && tsSession !== ctx.sessionDate) {
+    return "stale";
+  }
+
+  if (snapshot.quality === "missing") {
+    if (bars.length >= MIN_BARS_FOR_AI) {
+      const lastBar = bars[bars.length - 1];
+      if (etDateOf(lastBar.t) === ctx.sessionDate) return "ok";
+    }
+    return "missing";
+  }
+
+  if (tsSession === ctx.sessionDate) return "ok";
+
+  return snapshot.quality === "stale" ? "stale" : snapshot.quality;
 }
 
 export type SnapshotTimestampSource = "lastTrade" | "lastQuote" | "updated" | "min";

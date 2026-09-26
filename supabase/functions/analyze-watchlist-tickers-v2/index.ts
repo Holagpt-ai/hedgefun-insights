@@ -19,7 +19,7 @@ import {
 import { resolveAnalysisSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import {
   assessSnapshot,
-  effectiveSnapshotQuality, computeBasis, fetchWithOutcome, normalizeBars, STALE_MS,
+  snapshotQualityForAnalysis, computeBasis, fetchWithOutcome, normalizeBars, STALE_MS,
   type ProviderFailureKind, type ProviderTransportFailure,
 } from "../_shared/watchlist-v2/market-data.ts";
 import { computeKeyLevels, computeTransitionLevels } from "../_shared/watchlist-v2/levels.ts";
@@ -660,7 +660,10 @@ export async function handleRequest(req: Request): Promise<Response> {
   const radarContext = await fetchRadarScannerContext(supabase as unknown as Parameters<typeof fetchRadarScannerContext>[0], ticker, sessionDate);
   reasonCodes.push(...radarContextReasonCodes(radarContext));
 
-  const snapshotQuality = effectiveSnapshotQuality(snapshot, bars, analyzedAtMs);
+  const snapshotQuality = snapshotQualityForAnalysis(snapshot, bars, analyzedAtMs, {
+    presentation: analysisPresentation,
+    sessionDate,
+  });
   const priorSessionVolume = snapshot.priorSessionVolume;
   const volYdayRatio =
     basis.volume !== null && priorSessionVolume !== null && priorSessionVolume > 0

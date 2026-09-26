@@ -1,8 +1,10 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   assessSnapshot, classifyFetchFailure, computeBasis, fetchWithOutcome, normalizeBars,
+  snapshotQualityForAnalysis,
   STALE_MS,
 } from "./market-data.ts";
+import type { IntradayBar } from "./contract.ts";
 
 const sessionDate = "2026-07-23";
 // 10:00 ET → 14:00 UTC for a weekday in summer
@@ -238,6 +240,7 @@ Deno.test("computeBasis uses last bar price and cumulative volume", () => {
     lastTradeTs: t931,
     timestampSource: "lastTrade",
     priorClose: 99.5,
+    priorSessionVolume: 18_000,
     dayClose: 101,
     dayVolume: 20000,
     lastTradePrice: 101,
@@ -251,12 +254,117 @@ Deno.test("computeBasis uses last bar price and cumulative volume", () => {
   assert(b.change_pct !== null && Math.abs(b.change_pct - ((101 - 99.5) / 99.5 * 100)) < 1e-6);
 });
 
+// ── Last-completed session-aware snapshot quality ─────────────────────────
+
+const friSession = "2026-09-25";
+const friCloseEt = Date.parse("2026-09-25T20:00:00Z"); // ~16:00 ET
+const satMorning = new Date("2026-09-26T14:00:00Z");
+const sunMorning = new Date("2026-09-27T14:00:00Z");
+const friLateNight = new Date("2026-09-26T02:00:00Z"); // Fri 22:00 ET
+
+function friSnapshotBody(lastTradeMs: number) {
+  return {
+    ticker: {
+      ticker: "TSLA",
+      prevDay: { c: 240, v: 50_000_000 },
+      day: { c: 250, v: 60_000_000, vw: 248 },
+      lastTrade: { t: lastTradeMs, p: 250 },
+    },
+  };
+}
+
+function makeSessionBars(sessionDate: string, count: number, lastMs: number): IntradayBar[] {
+  const bars: IntradayBar[] = [];
+  for (let i = 0; i < count; i++) {
+    bars.push({
+      t: lastMs - (count - 1 - i) * 60_000,
+      o: 100, h: 101, l: 99, c: 100 + i * 0.01, v: 1000,
+    });
+  }
+  return normalizeBars(bars, sessionDate, new Date(lastMs + 60_000)).bars;
+}
+
+Deno.test("last_completed: Saturday accepts valid Friday close snapshot (wall-clock stale)", () => {
+  const assessed = assessSnapshot(friSnapshotBody(friCloseEt), satMorning);
+  assertEquals(assessed.quality, "stale");
+  const bars = makeSessionBars(friSession, 12, friCloseEt);
+  assertEquals(
+    snapshotQualityForAnalysis(assessed, bars, satMorning.getTime(), {
+      presentation: "last_completed",
+      sessionDate: friSession,
+    }),
+    "ok",
+  );
+});
+
+Deno.test("last_completed: Sunday accepts valid Friday snapshot", () => {
+  const assessed = assessSnapshot(friSnapshotBody(friCloseEt), sunMorning);
+  assertEquals(
+    snapshotQualityForAnalysis(assessed, makeSessionBars(friSession, 12, friCloseEt), sunMorning.getTime(), {
+      presentation: "last_completed",
+      sessionDate: friSession,
+    }),
+    "ok",
+  );
+});
+
+Deno.test("last_completed: overnight after close accepts same-day completed snapshot", () => {
+  const assessed = assessSnapshot(friSnapshotBody(friCloseEt), friLateNight);
+  assertEquals(assessed.quality, "stale");
+  assertEquals(
+    snapshotQualityForAnalysis(assessed, makeSessionBars(friSession, 12, friCloseEt), friLateNight.getTime(), {
+      presentation: "last_completed",
+      sessionDate: friSession,
+    }),
+    "ok",
+  );
+});
+
+Deno.test("last_completed: prior-prior session snapshot stays stale", () => {
+  const thuClose = Date.parse("2026-09-24T20:00:00Z");
+  const assessed = assessSnapshot(friSnapshotBody(thuClose), satMorning);
+  assertEquals(
+    snapshotQualityForAnalysis(assessed, makeSessionBars(friSession, 12, friCloseEt), satMorning.getTime(), {
+      presentation: "last_completed",
+      sessionDate: friSession,
+    }),
+    "stale",
+  );
+});
+
+Deno.test("live: weekend wall-clock stale snapshot stays stale", () => {
+  const assessed = assessSnapshot(friSnapshotBody(friCloseEt), satMorning);
+  assertEquals(
+    snapshotQualityForAnalysis(assessed, makeSessionBars(friSession, 12, friCloseEt), satMorning.getTime(), {
+      presentation: "live",
+      sessionDate: friSession,
+    }),
+    "stale",
+  );
+});
+
+Deno.test("live: RTH stale snapshot stays stale even when bars exist on session", () => {
+  const rthNow = new Date("2026-09-25T15:00:00Z");
+  const oldTrade = rthNow.getTime() - 2 * 60 * 60 * 1000;
+  const assessed = assessSnapshot(friSnapshotBody(oldTrade), rthNow);
+  assertEquals(assessed.quality, "stale");
+  const bars = makeSessionBars(friSession, 12, rthNow.getTime() - 50 * 60 * 1000);
+  assertEquals(
+    snapshotQualityForAnalysis(assessed, bars, rthNow.getTime(), {
+      presentation: "live",
+      sessionDate: friSession,
+    }),
+    "stale",
+  );
+});
+
 Deno.test("computeBasis rejects decimal-scale mismatch among corroborating fields", () => {
   const b = computeBasis([], {
     quality: "ok",
     lastTradeTs: t931,
     timestampSource: "lastTrade",
     priorClose: 97,
+    priorSessionVolume: 19_000,
     dayClose: 977,
     dayVolume: 20_000,
     lastTradePrice: 97.7,

@@ -21,6 +21,7 @@ Deno.test("45-minute stale threshold is unchanged", () => {
   assertEquals(STALE_MS, 45 * 60 * 1000);
   assert(src.includes("STALE_MS"));
   assertFalse(src.includes("STALE_MS ="));
+  assert(src.includes("snapshotQualityForAnalysis"));
 });
 
 Deno.test("SNAPSHOT_STALE still fails sufficiency before any AI caller", () => {
