@@ -1,3 +1,4 @@
+import { normalizePolygonTimestampToMs } from "./normalize-timestamp.ts";
 import type { QuoteDataLatency } from "./types.ts";
 
 export interface ParsedQuote {
@@ -28,15 +29,7 @@ export async function fetchPolygonSnapshotQuote(symbol: string, apiKey: string):
   if (typeof price !== "number" || !Number.isFinite(price) || price <= 0) return null;
 
   const tradeTs = t.lastTrade?.t ?? t.updated ?? null;
-  let observedAtMs = Date.now();
-  if (typeof tradeTs === "number") {
-    // Polygon emits nanosecond epoch timestamps; normalize to milliseconds.
-    observedAtMs = tradeTs > 1e14 ? Math.floor(tradeTs / 1e6) : tradeTs;
-  }
-  else if (typeof tradeTs === "string") {
-    const parsed = Date.parse(tradeTs);
-    if (Number.isFinite(parsed)) observedAtMs = parsed;
-  }
+  const observedAtMs = normalizePolygonTimestampToMs(tradeTs, Date.now());
 
   const latency: QuoteDataLatency = usingPrevDay ? "previous_close" : "live_delayed";
   const age = Date.now() - observedAtMs;

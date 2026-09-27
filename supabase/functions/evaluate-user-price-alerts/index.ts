@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { evaluatePriceAlert } from "../_shared/price-alerts/evaluate.ts";
 import { fetchPolygonSnapshotQuote } from "../_shared/price-alerts/fetch-quote.ts";
+import { observedAtMsToIso } from "../_shared/price-alerts/normalize-timestamp.ts";
 import type { PriceAlertCondition, QuoteDataLatency } from "../_shared/price-alerts/types.ts";
 
 const corsHeaders = {
@@ -123,7 +124,7 @@ serve(async (req) => {
         armed: outcome.nextArmed,
         status: outcome.nextStatus,
         last_quote_price: quoteRaw?.price ?? null,
-        last_quote_at: quoteRaw ? new Date(quoteRaw.observedAtMs).toISOString() : null,
+        last_quote_at: quoteRaw ? observedAtMsToIso(quoteRaw.observedAtMs) : null,
         data_latency: quoteRaw?.latency ?? "unavailable",
         market_context: quoteRaw?.rawContext ?? {},
       };
@@ -142,7 +143,7 @@ serve(async (req) => {
             threshold: row.threshold,
             observed_price: quote.price,
             observed_move_pct: outcome.observedMovePct,
-            quote_observed_at: quoteRaw ? new Date(quoteRaw.observedAtMs).toISOString() : null,
+            quote_observed_at: quoteRaw ? observedAtMsToIso(quoteRaw.observedAtMs) : null,
             data_latency: quoteRaw?.latency ?? "unavailable",
             market_context: {
               sessionNote: quoteRaw?.sessionNote ?? null,
