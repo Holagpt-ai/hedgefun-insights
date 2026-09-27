@@ -29,7 +29,10 @@ export async function fetchPolygonSnapshotQuote(symbol: string, apiKey: string):
 
   const tradeTs = t.lastTrade?.t ?? t.updated ?? null;
   let observedAtMs = Date.now();
-  if (typeof tradeTs === "number") observedAtMs = tradeTs;
+  if (typeof tradeTs === "number") {
+    // Polygon emits nanosecond epoch timestamps; normalize to milliseconds.
+    observedAtMs = tradeTs > 1e14 ? Math.floor(tradeTs / 1e6) : tradeTs;
+  }
   else if (typeof tradeTs === "string") {
     const parsed = Date.parse(tradeTs);
     if (Number.isFinite(parsed)) observedAtMs = parsed;
