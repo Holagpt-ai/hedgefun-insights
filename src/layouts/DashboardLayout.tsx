@@ -6,6 +6,7 @@ import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { ScannerAlertToastListener } from "@/components/scanner-alerts/ScannerAlertToastListener";
+import { PriceAlertToastListener } from "@/components/alerts/PriceAlertToastListener";
 import { useRobotsNoIndex } from "@/hooks/useRobotsNoIndex";
 
 export default function DashboardLayout() {
@@ -28,6 +29,7 @@ export default function DashboardLayout() {
   return (
     <>
       <ScannerAlertToastListener />
+      <PriceAlertToastListener />
       <Header onMenuToggle={() => setMobileNavOpen(true)} />
       <MarketTicker />
       <div className="flex">

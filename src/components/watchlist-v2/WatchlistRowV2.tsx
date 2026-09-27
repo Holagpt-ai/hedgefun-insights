@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   BarChart3,
+  Bell,
   BrainCircuit,
   BookOpen,
   Flame,
@@ -660,6 +661,11 @@ export function WatchlistRowV2({
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
               <Link to={`/dashboard/journal?symbol=${row.ticker}`}>
                 <BookOpen className="h-3.5 w-3.5 mr-1.5" /> Journal
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
+              <Link to={`/dashboard/alerts?symbol=${encodeURIComponent(row.ticker)}`}>
+                <Bell className="h-3.5 w-3.5 mr-1.5" /> Alert
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">

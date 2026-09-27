@@ -1,14 +1,10 @@
-// Price Alerts V1 — frontend-only preview config.
-// No backend, no delivery. All alerts live in localStorage.
+import type { PriceAlertCondition } from "@/lib/price-alerts/types";
 
+export type { PriceAlertCondition, PriceAlertRecurrence, PriceAlertStatus } from "@/lib/price-alerts/types";
+
+/** @deprecated Preview localStorage — legacy browser-only alerts. */
 export const PRICE_ALERTS_STORAGE_KEY = "stocksist_price_alerts_preview";
 export const LEGACY_PRICE_ALERTS_STORAGE_KEY = "hedgefun_price_alerts_preview";
-
-export type PriceAlertCondition =
-  | "price_above"
-  | "price_below"
-  | "percent_move_up"
-  | "percent_move_down";
 
 export interface PriceAlertConditionOption {
   value: PriceAlertCondition;
@@ -30,6 +26,7 @@ export const COMING_LATER_CONDITIONS: { label: string; note: string }[] = [
   { label: "Catalyst-driven", note: "Coming later" },
 ];
 
+/** UI view shape (maps from user_price_alerts). */
 export interface PriceAlert {
   id: string;
   symbol: string;
@@ -39,14 +36,17 @@ export interface PriceAlert {
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
+  lastTriggeredAt?: string | null;
+  lastQuotePrice?: number | null;
+  dataLatency?: string;
 }
 
 export const PRICE_ALERTS_COPY = {
-  previewBadge: "Preview mode",
-  previewBanner:
-    "Alerts are saved locally in this browser and are not delivered yet. Market data may be delayed. Verify prices before trading.",
+  dataBadge: "Delayed market data",
+  banner:
+    "Alerts use verified Polygon snapshots (typically delayed ~15 min). They fire on threshold crossings, not every tick. In-app notifications only in V1.",
   footerDisclaimer:
-    "Price alerts are a planning tool. Alerts may be delayed or unavailable until backend delivery is connected. Not financial advice.",
+    "Price alerts are deterministic thresholds on delayed data — not real-time execution signals. Not financial advice.",
 };
 
 export function conditionLabel(c: PriceAlertCondition): string {

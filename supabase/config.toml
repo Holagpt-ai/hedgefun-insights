@@ -51,6 +51,9 @@ verify_jwt = false
 [functions.refresh-market-data]
 verify_jwt = true
 
+[functions.evaluate-user-price-alerts]
+verify_jwt = true
+
 [functions.generate-daily-brief]
 verify_jwt = false
 

@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen, ExternalLink, LayoutDashboard } from "lucide-react";
+import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen, Bell, ExternalLink, LayoutDashboard } from "lucide-react";
 import TradingViewChart, { type OHLCVData } from "@/components/charts/TradingViewChart";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
@@ -375,6 +375,12 @@ export function RadarDetailPanel({
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
           >
             <BookOpen className="h-3.5 w-3.5" /> Journal
+          </Link>
+          <Link
+            to={`/dashboard/alerts?symbol=${encodeURIComponent(sym)}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
+          >
+            <Bell className="h-3.5 w-3.5" /> Price alert
           </Link>
           {/* Action Center does not consume ?symbol= — route only, no false claim. */}
           <Link

@@ -21,9 +21,18 @@ function StatusPill({ enabled }: { enabled: boolean }) {
       }
     >
       <span className={"h-1.5 w-1.5 rounded-full " + (enabled ? "bg-accent-blue" : "bg-muted-foreground/60")} />
-      {enabled ? "Preview · active" : "Disabled"}
+      {enabled ? "Active" : "Paused"}
     </span>
   );
+}
+
+function fmtTriggered(iso: string | null | undefined) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  } catch {
+    return iso;
+  }
 }
 
 function fmtDate(iso: string) {
@@ -47,7 +56,8 @@ export default function PriceAlertsTable({ alerts, onToggle, onEdit, onDelete }:
                 <th className="text-left px-4 py-2.5 font-medium">Condition</th>
                 <th className="text-left px-4 py-2.5 font-medium">Value</th>
                 <th className="text-left px-4 py-2.5 font-medium">Status</th>
-                <th className="text-left px-4 py-2.5 font-medium">Created</th>
+                <th className="text-left px-4 py-2.5 font-medium">Last triggered</th>
+                <th className="text-left px-4 py-2.5 font-medium">Last quote</th>
                 <th className="text-left px-4 py-2.5 font-medium">Note</th>
                 <th className="text-right px-4 py-2.5 font-medium">Actions</th>
               </tr>
@@ -59,7 +69,13 @@ export default function PriceAlertsTable({ alerts, onToggle, onEdit, onDelete }:
                   <td className="px-4 py-3 text-foreground">{conditionLabel(a.condition)}</td>
                   <td className="px-4 py-3 text-foreground">{formatAlertValue(a.condition, a.value)}</td>
                   <td className="px-4 py-3"><StatusPill enabled={a.enabled} /></td>
-                  <td className="px-4 py-3 text-muted-foreground">{fmtDate(a.createdAt)}</td>
+                  <td className="px-4 py-3 text-muted-foreground tabular-nums">{fmtTriggered(a.lastTriggeredAt)}</td>
+                  <td className="px-4 py-3 text-muted-foreground tabular-nums">
+                    {a.lastQuotePrice != null ? `$${a.lastQuotePrice.toFixed(2)}` : "—"}
+                    {a.dataLatency && a.dataLatency !== "unknown" ? (
+                      <span className="block text-[10px] uppercase tracking-wide">{a.dataLatency.replace("_", " ")}</span>
+                    ) : null}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground max-w-[220px] truncate" title={a.note ?? ""}>
                     {a.note ?? "—"}
                   </td>
@@ -90,7 +106,7 @@ export default function PriceAlertsTable({ alerts, onToggle, onEdit, onDelete }:
           </table>
         </div>
         <div className="border-t border-border bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground">
-          Preview — alerts are not delivered yet.
+          Quotes may be delayed; verify before trading.
         </div>
       </div>
 
@@ -107,7 +123,9 @@ export default function PriceAlertsTable({ alerts, onToggle, onEdit, onDelete }:
                 <div className="text-sm text-foreground mt-1">
                   {conditionLabel(a.condition)} · {formatAlertValue(a.condition, a.value)}
                 </div>
-                <div className="text-[11px] text-muted-foreground mt-0.5">Created {fmtDate(a.createdAt)}</div>
+                <div className="text-[11px] text-muted-foreground mt-0.5">
+                  Last triggered {fmtTriggered(a.lastTriggeredAt)}
+                </div>
                 {a.note && (
                   <div className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{a.note}</div>
                 )}
@@ -134,7 +152,7 @@ export default function PriceAlertsTable({ alerts, onToggle, onEdit, onDelete }:
           </div>
         ))}
         <p className="text-[11px] text-muted-foreground text-center pt-1">
-          Preview — alerts are not delivered yet.
+          Delayed data — not real-time.
         </p>
       </div>
     </div>

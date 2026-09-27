@@ -14,15 +14,17 @@ import {
   PRICE_ALERT_CONDITIONS, COMING_LATER_CONDITIONS, conditionUnit,
   type PriceAlert, type PriceAlertCondition,
 } from "@/config/price-alerts.config";
+import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   editing?: PriceAlert | null;
+  prefillSymbol?: string;
   onSave: (data: Omit<PriceAlert, "id" | "createdAt" | "updatedAt">, id?: string) => void;
 }
 
-export default function CreateAlertDrawer({ open, onOpenChange, editing, onSave }: Props) {
+export default function CreateAlertDrawer({ open, onOpenChange, editing, prefillSymbol, onSave }: Props) {
   const [symbol, setSymbol] = useState("");
   const [condition, setCondition] = useState<PriceAlertCondition>("price_above");
   const [value, setValue] = useState("");
@@ -39,7 +41,7 @@ export default function CreateAlertDrawer({ open, onOpenChange, editing, onSave 
         setNote(editing.note ?? "");
         setEnabled(editing.enabled);
       } else {
-        setSymbol("");
+        setSymbol(prefillSymbol ? prefillSymbol.toUpperCase() : "");
         setCondition("price_above");
         setValue("");
         setNote("");
@@ -47,11 +49,11 @@ export default function CreateAlertDrawer({ open, onOpenChange, editing, onSave 
       }
       setError(null);
     }
-  }, [open, editing]);
+  }, [open, editing, prefillSymbol]);
 
   const handleSave = () => {
-    const sym = symbol.trim().toUpperCase();
-    if (!sym) return setError("Symbol is required.");
+    const sym = normalizeHandoffSymbol(symbol);
+    if (!sym) return setError("Enter a valid ticker symbol.");
     if (!condition) return setError("Condition is required.");
     const num = Number(value);
     if (!Number.isFinite(num) || num <= 0) return setError("Value must be a positive number.");
@@ -71,7 +73,7 @@ export default function CreateAlertDrawer({ open, onOpenChange, editing, onSave 
         <SheetHeader>
           <SheetTitle>{editing ? "Edit price alert" : "Create price alert"}</SheetTitle>
           <SheetDescription>
-            Preview only. Alerts are saved locally in this browser and not delivered yet.
+            Alerts are saved to your account and evaluated on delayed market snapshots.
           </SheetDescription>
         </SheetHeader>
 

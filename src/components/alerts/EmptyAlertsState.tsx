@@ -13,10 +13,10 @@ export default function EmptyAlertsState({ onCreate }: Props) {
       </div>
       <h3 className="text-base font-semibold text-foreground mb-1">No price alerts yet.</h3>
       <p className="text-sm text-muted-foreground max-w-sm mb-1">
-        Create a preview alert to plan what you want to monitor.
+        Set a price or percent-move threshold on symbols you track.
       </p>
       <p className="text-xs text-muted-foreground max-w-sm mb-5">
-        Delivery is not connected yet — alerts are saved locally in this browser.
+        Alerts use delayed market snapshots and notify in-app when conditions cross.
       </p>
       <Button
         onClick={onCreate}
