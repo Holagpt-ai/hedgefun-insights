@@ -1326,6 +1326,159 @@ export type Database = {
           },
         ]
       }
+      ai_trader_watchlist_items: {
+        Row: {
+          asset_class: string
+          catalyst_refs: Json
+          confidence: number | null
+          context_snapshot_id: string | null
+          cooldown_until: string | null
+          created_at: string
+          current_priority: number
+          discovered_at: string
+          expires_at: string | null
+          id: string
+          last_evaluated_at: string
+          market_evidence_refs: Json
+          reason_codes: string[]
+          security_id: string | null
+          source: string
+          source_rank: number
+          source_session: string | null
+          state: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          asset_class?: string
+          catalyst_refs?: Json
+          confidence?: number | null
+          context_snapshot_id?: string | null
+          cooldown_until?: string | null
+          created_at?: string
+          current_priority: number
+          discovered_at: string
+          expires_at?: string | null
+          id?: string
+          last_evaluated_at: string
+          market_evidence_refs?: Json
+          reason_codes?: string[]
+          security_id?: string | null
+          source: string
+          source_rank: number
+          source_session?: string | null
+          state: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          asset_class?: string
+          catalyst_refs?: Json
+          confidence?: number | null
+          context_snapshot_id?: string | null
+          cooldown_until?: string | null
+          created_at?: string
+          current_priority?: number
+          discovered_at?: string
+          expires_at?: string | null
+          id?: string
+          last_evaluated_at?: string
+          market_evidence_refs?: Json
+          reason_codes?: string[]
+          security_id?: string | null
+          source?: string
+          source_rank?: number
+          source_session?: string | null
+          state?: string
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_watchlist_items_context_snapshot_id_fkey"
+            columns: ["context_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_context_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_watchlist_transitions: {
+        Row: {
+          actor_type: string
+          confidence: number | null
+          context_snapshot_id: string | null
+          created_at: string
+          evidence_ids: string[]
+          id: string
+          new_state: string
+          occurred_at: string
+          prior_state: string | null
+          reason_codes: string[]
+          session_id: string | null
+          source: string
+          source_rank: number | null
+          symbol: string
+          watchlist_item_id: string
+        }
+        Insert: {
+          actor_type: string
+          confidence?: number | null
+          context_snapshot_id?: string | null
+          created_at?: string
+          evidence_ids?: string[]
+          id?: string
+          new_state: string
+          occurred_at: string
+          prior_state?: string | null
+          reason_codes?: string[]
+          session_id?: string | null
+          source: string
+          source_rank?: number | null
+          symbol: string
+          watchlist_item_id: string
+        }
+        Update: {
+          actor_type?: string
+          confidence?: number | null
+          context_snapshot_id?: string | null
+          created_at?: string
+          evidence_ids?: string[]
+          id?: string
+          new_state?: string
+          occurred_at?: string
+          prior_state?: string | null
+          reason_codes?: string[]
+          session_id?: string | null
+          source?: string
+          source_rank?: number | null
+          symbol?: string
+          watchlist_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_watchlist_transitions_context_snapshot_id_fkey"
+            columns: ["context_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_context_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_trader_watchlist_transitions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_trader_watchlist_transitions_watchlist_item_id_fkey"
+            columns: ["watchlist_item_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_watchlist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_user_memory: {
         Row: {
           extensions: Json
