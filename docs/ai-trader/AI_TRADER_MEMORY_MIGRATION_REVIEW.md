@@ -12,6 +12,8 @@ Cursor owns authoring. Lovable / Lovable Cloud owns later production apply. Fron
 
 Corrected in place because repository evidence shows it is **not applied** (`AI_TRADER_SCHEMA_APPLY_MIGRATION = false`; no later local migration; Cursor has no authorized remote history).
 
+Final lifecycle commit: `c2704b2c1585f9f9ef0ef12f046036c87ae6f327`
+
 ## 2. Tables created
 
 - `ai_trader_accounts`

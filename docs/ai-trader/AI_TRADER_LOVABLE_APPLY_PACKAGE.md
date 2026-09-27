@@ -12,11 +12,13 @@ Cursor authored this package. Lovable / Lovable Cloud performs production schema
 
 ## 2. Commit containing the final migration
 
+`c2704b2c1585f9f9ef0ef12f046036c87ae6f327`
+
 GitHub `main` commit message:
 
 `fix(ai-trader): finalize memory schema lifecycle`
 
-Resolve the exact SHA from `origin/main` before apply. Do not apply a different file.
+Do not apply a different file.
 
 ## 3. Expected new tables
 
