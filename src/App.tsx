@@ -43,7 +43,8 @@ import Catalyst from "@/pages/dashboard/Catalyst";
 import PriceAlertsPage from "@/pages/dashboard/PriceAlertsPage";
 import DashboardNewsPage from "@/pages/dashboard/DashboardNewsPage";
 import CommunityWaitlistPage from "@/pages/dashboard/CommunityWaitlistPage";
-import StocksistGameWaitlistPage from "@/pages/dashboard/StocksistGameWaitlistPage";
+import AiTraderPage from "@/pages/dashboard/AiTraderPage";
+import { AI_TRADER_DASHBOARD_PATH, AI_TRADER_LEGACY_GAME_PATH } from "@/lib/ai-trader/operating-mode";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import StockDetail from "./pages/stocks/StockDetail";
@@ -256,7 +257,8 @@ const App = () => (
                     <Route path="coach" element={<CoachPage />} />
                     <Route path="settings" element={<SettingsPage />} />
                   </Route>
-                  <Route path="/dashboard/game" element={<StocksistGameWaitlistPage />} />
+                  <Route path={AI_TRADER_DASHBOARD_PATH} element={<AiTraderPage />} />
+                  <Route path={AI_TRADER_LEGACY_GAME_PATH} element={<Navigate to={AI_TRADER_DASHBOARD_PATH} replace />} />
                   <Route path="/dashboard/action-center" element={<ActionCenter />} />
                   <Route path="/dashboard/catalyst" element={<Catalyst />} />
                   <Route path="/dashboard/alerts" element={<PriceAlertsPage />} />
