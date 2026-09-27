@@ -351,6 +351,13 @@
       "when": 1790472869802,
       "tag": "0049_user_price_alerts_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1790515815274,
+      "tag": "0050_db_performance_hardening_v1",
+      "breakpoints": true
     }
   ]
 }
