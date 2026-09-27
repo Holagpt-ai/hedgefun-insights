@@ -7307,6 +7307,140 @@ export type Database = {
         }
         Relationships: []
       }
+      user_price_alert_triggers: {
+        Row: {
+          alert_id: string
+          condition_type: string
+          data_latency: string
+          delivery_channel: string
+          delivery_error: string | null
+          delivery_status: string
+          id: string
+          market_context: Json
+          observed_move_pct: number | null
+          observed_price: number
+          quote_observed_at: string | null
+          seen_at: string | null
+          symbol: string
+          threshold: number
+          triggered_at: string
+          user_id: string
+        }
+        Insert: {
+          alert_id: string
+          condition_type: string
+          data_latency: string
+          delivery_channel?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          id?: string
+          market_context?: Json
+          observed_move_pct?: number | null
+          observed_price: number
+          quote_observed_at?: string | null
+          seen_at?: string | null
+          symbol: string
+          threshold: number
+          triggered_at?: string
+          user_id: string
+        }
+        Update: {
+          alert_id?: string
+          condition_type?: string
+          data_latency?: string
+          delivery_channel?: string
+          delivery_error?: string | null
+          delivery_status?: string
+          id?: string
+          market_context?: Json
+          observed_move_pct?: number | null
+          observed_price?: number
+          quote_observed_at?: string | null
+          seen_at?: string | null
+          symbol?: string
+          threshold?: number
+          triggered_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_price_alert_triggers_alert_id_fkey"
+            columns: ["alert_id"]
+            isOneToOne: false
+            referencedRelation: "user_price_alerts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_price_alerts: {
+        Row: {
+          armed: boolean
+          condition_type: string
+          cooldown_minutes: number
+          created_at: string
+          data_latency: string
+          id: string
+          last_evaluated_at: string | null
+          last_observed_price: number | null
+          last_quote_at: string | null
+          last_quote_price: number | null
+          last_triggered_at: string | null
+          market_context: Json
+          note: string | null
+          recurrence: string
+          reference_price: number | null
+          status: string
+          symbol: string
+          threshold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          armed?: boolean
+          condition_type: string
+          cooldown_minutes?: number
+          created_at?: string
+          data_latency?: string
+          id?: string
+          last_evaluated_at?: string | null
+          last_observed_price?: number | null
+          last_quote_at?: string | null
+          last_quote_price?: number | null
+          last_triggered_at?: string | null
+          market_context?: Json
+          note?: string | null
+          recurrence?: string
+          reference_price?: number | null
+          status?: string
+          symbol: string
+          threshold: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          armed?: boolean
+          condition_type?: string
+          cooldown_minutes?: number
+          created_at?: string
+          data_latency?: string
+          id?: string
+          last_evaluated_at?: string | null
+          last_observed_price?: number | null
+          last_quote_at?: string | null
+          last_quote_price?: number | null
+          last_triggered_at?: string | null
+          market_context?: Json
+          note?: string | null
+          recurrence?: string
+          reference_price?: number | null
+          status?: string
+          symbol?: string
+          threshold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -7415,132 +7549,6 @@ export type Database = {
           smart_tags?: Json
           summary?: string
           ticker?: string
-        }
-        Relationships: []
-      }
-      user_price_alert_triggers: {
-        Row: {
-          alert_id: string
-          condition_type: string
-          data_latency: string
-          delivery_channel: string
-          delivery_error: string | null
-          delivery_status: string
-          id: string
-          market_context: Json
-          observed_move_pct: number | null
-          observed_price: number
-          quote_observed_at: string | null
-          seen_at: string | null
-          symbol: string
-          threshold: number
-          triggered_at: string
-          user_id: string
-        }
-        Insert: {
-          alert_id: string
-          condition_type: string
-          data_latency: string
-          delivery_channel?: string
-          delivery_error?: string | null
-          delivery_status?: string
-          id?: string
-          market_context?: Json
-          observed_move_pct?: number | null
-          observed_price: number
-          quote_observed_at?: string | null
-          seen_at?: string | null
-          symbol: string
-          threshold: number
-          triggered_at?: string
-          user_id: string
-        }
-        Update: {
-          alert_id?: string
-          condition_type?: string
-          data_latency?: string
-          delivery_channel?: string
-          delivery_error?: string | null
-          delivery_status?: string
-          id?: string
-          market_context?: Json
-          observed_move_pct?: number | null
-          observed_price?: number
-          quote_observed_at?: string | null
-          seen_at?: string | null
-          symbol?: string
-          threshold?: number
-          triggered_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      user_price_alerts: {
-        Row: {
-          armed: boolean
-          condition_type: string
-          cooldown_minutes: number
-          created_at: string
-          data_latency: string
-          id: string
-          last_evaluated_at: string | null
-          last_observed_price: number | null
-          last_quote_at: string | null
-          last_quote_price: number | null
-          last_triggered_at: string | null
-          market_context: Json
-          note: string | null
-          recurrence: string
-          reference_price: number | null
-          status: string
-          symbol: string
-          threshold: number
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          armed?: boolean
-          condition_type: string
-          cooldown_minutes?: number
-          created_at?: string
-          data_latency?: string
-          id?: string
-          last_evaluated_at?: string | null
-          last_observed_price?: number | null
-          last_quote_at?: string | null
-          last_quote_price?: number | null
-          last_triggered_at?: string | null
-          market_context?: Json
-          note?: string | null
-          recurrence?: string
-          reference_price?: number | null
-          status?: string
-          symbol: string
-          threshold: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          armed?: boolean
-          condition_type?: string
-          cooldown_minutes?: number
-          created_at?: string
-          data_latency?: string
-          id?: string
-          last_evaluated_at?: string | null
-          last_observed_price?: number | null
-          last_quote_at?: string | null
-          last_quote_price?: number | null
-          last_triggered_at?: string | null
-          market_context?: Json
-          note?: string | null
-          recurrence?: string
-          reference_price?: number | null
-          status?: string
-          symbol?: string
-          threshold?: number
-          updated_at?: string
-          user_id?: string
         }
         Relationships: []
       }
