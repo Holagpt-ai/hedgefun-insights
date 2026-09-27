@@ -344,6 +344,13 @@
       "when": 1790444398367,
       "tag": "0048_scanner_intelligence_stack_replace_rpc_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1790472869802,
+      "tag": "0049_user_price_alerts_v1",
+      "breakpoints": true
     }
   ]
 }
