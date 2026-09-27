@@ -331,6 +331,1001 @@ export type Database = {
           },
         ]
       }
+      ai_trader_accounts: {
+        Row: {
+          asset_class: string
+          asset_permissions: Json
+          broker_account_ref: string | null
+          broker_provider: string | null
+          created_at: string
+          currency: string
+          display_name: string | null
+          environment: string
+          id: string
+          starting_capital: number | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          asset_class?: string
+          asset_permissions?: Json
+          broker_account_ref?: string | null
+          broker_provider?: string | null
+          created_at?: string
+          currency?: string
+          display_name?: string | null
+          environment: string
+          id?: string
+          starting_capital?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          asset_class?: string
+          asset_permissions?: Json
+          broker_account_ref?: string | null
+          broker_provider?: string | null
+          created_at?: string
+          currency?: string
+          display_name?: string | null
+          environment?: string
+          id?: string
+          starting_capital?: number | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ai_trader_audit_events: {
+        Row: {
+          actor_type: string
+          broker_order_id: string | null
+          context_snapshot_id: string | null
+          created_at: string
+          critic_review_id: string | null
+          decision_id: string | null
+          event_type: string
+          id: string
+          occurred_at: string
+          order_intent_id: string | null
+          payload: Json
+          position_id: string | null
+          reflection_id: string | null
+          risk_decision_id: string | null
+          schema_version: string
+          session_id: string | null
+          trade_id: string | null
+          trade_plan_id: string | null
+        }
+        Insert: {
+          actor_type: string
+          broker_order_id?: string | null
+          context_snapshot_id?: string | null
+          created_at?: string
+          critic_review_id?: string | null
+          decision_id?: string | null
+          event_type: string
+          id?: string
+          occurred_at?: string
+          order_intent_id?: string | null
+          payload?: Json
+          position_id?: string | null
+          reflection_id?: string | null
+          risk_decision_id?: string | null
+          schema_version?: string
+          session_id?: string | null
+          trade_id?: string | null
+          trade_plan_id?: string | null
+        }
+        Update: {
+          actor_type?: string
+          broker_order_id?: string | null
+          context_snapshot_id?: string | null
+          created_at?: string
+          critic_review_id?: string | null
+          decision_id?: string | null
+          event_type?: string
+          id?: string
+          occurred_at?: string
+          order_intent_id?: string | null
+          payload?: Json
+          position_id?: string | null
+          reflection_id?: string | null
+          risk_decision_id?: string | null
+          schema_version?: string
+          session_id?: string | null
+          trade_id?: string | null
+          trade_plan_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_trader_context_snapshots: {
+        Row: {
+          asset_class: string
+          catalyst_refs: Json
+          context_hash: string
+          created_at: string
+          historical_refs: Json
+          id: string
+          market_session: string
+          market_state_json: Json
+          observed_at: string
+          operating_mode: string
+          quote_timestamp: string | null
+          schema_version: string
+          security_id: string | null
+          session_id: string | null
+          source_provenance: Json
+          stocksist_signals_json: Json
+          symbol: string
+        }
+        Insert: {
+          asset_class?: string
+          catalyst_refs?: Json
+          context_hash: string
+          created_at?: string
+          historical_refs?: Json
+          id?: string
+          market_session: string
+          market_state_json?: Json
+          observed_at: string
+          operating_mode: string
+          quote_timestamp?: string | null
+          schema_version: string
+          security_id?: string | null
+          session_id?: string | null
+          source_provenance?: Json
+          stocksist_signals_json?: Json
+          symbol: string
+        }
+        Update: {
+          asset_class?: string
+          catalyst_refs?: Json
+          context_hash?: string
+          created_at?: string
+          historical_refs?: Json
+          id?: string
+          market_session?: string
+          market_state_json?: Json
+          observed_at?: string
+          operating_mode?: string
+          quote_timestamp?: string | null
+          schema_version?: string
+          security_id?: string | null
+          session_id?: string | null
+          source_provenance?: Json
+          stocksist_signals_json?: Json
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_context_snapshots_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_counterfactuals: {
+        Row: {
+          alternative_action: string
+          alternative_entry: number | null
+          alternative_exit: number | null
+          alternative_stop: number | null
+          created_at: string
+          decision_id: string | null
+          estimated_outcome: Json
+          id: string
+          limitations: string
+          methodology: string
+          trade_id: string | null
+        }
+        Insert: {
+          alternative_action: string
+          alternative_entry?: number | null
+          alternative_exit?: number | null
+          alternative_stop?: number | null
+          created_at?: string
+          decision_id?: string | null
+          estimated_outcome?: Json
+          id?: string
+          limitations: string
+          methodology: string
+          trade_id?: string | null
+        }
+        Update: {
+          alternative_action?: string
+          alternative_entry?: number | null
+          alternative_exit?: number | null
+          alternative_stop?: number | null
+          created_at?: string
+          decision_id?: string | null
+          estimated_outcome?: Json
+          id?: string
+          limitations?: string
+          methodology?: string
+          trade_id?: string | null
+        }
+        Relationships: []
+      }
+      ai_trader_decision_evidence: {
+        Row: {
+          context_snapshot_id: string | null
+          created_at: string
+          decision_id: string
+          episode_id: string | null
+          id: string
+          relevance_inputs: Json
+          source_id: string
+          source_type: string
+          used_by_role: string | null
+        }
+        Insert: {
+          context_snapshot_id?: string | null
+          created_at?: string
+          decision_id: string
+          episode_id?: string | null
+          id?: string
+          relevance_inputs?: Json
+          source_id: string
+          source_type: string
+          used_by_role?: string | null
+        }
+        Update: {
+          context_snapshot_id?: string | null
+          created_at?: string
+          decision_id?: string
+          episode_id?: string | null
+          id?: string
+          relevance_inputs?: Json
+          source_id?: string
+          source_type?: string
+          used_by_role?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_decision_evidence_context_snapshot_id_fkey"
+            columns: ["context_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_context_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_trader_decision_evidence_episode_id_fkey"
+            columns: ["episode_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_episodes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_episodes: {
+        Row: {
+          asset_class: string
+          context_snapshot_id: string | null
+          created_at: string
+          decision_id: string | null
+          ended_at: string | null
+          entry_price: number | null
+          episode_type: string
+          exit_price: number | null
+          external_market_episode_id: string | null
+          feature_snapshot: Json
+          id: string
+          mae: number | null
+          market_regime: string | null
+          mfe: number | null
+          net_pnl: number | null
+          outcome: string | null
+          realized_pnl: number | null
+          security_id: string | null
+          session_date: string
+          setup_type: string | null
+          source_event_key: string | null
+          started_at: string
+          strategy_version_id: string | null
+          symbol: string
+          trade_id: string | null
+        }
+        Insert: {
+          asset_class?: string
+          context_snapshot_id?: string | null
+          created_at?: string
+          decision_id?: string | null
+          ended_at?: string | null
+          entry_price?: number | null
+          episode_type: string
+          exit_price?: number | null
+          external_market_episode_id?: string | null
+          feature_snapshot?: Json
+          id?: string
+          mae?: number | null
+          market_regime?: string | null
+          mfe?: number | null
+          net_pnl?: number | null
+          outcome?: string | null
+          realized_pnl?: number | null
+          security_id?: string | null
+          session_date: string
+          setup_type?: string | null
+          source_event_key?: string | null
+          started_at: string
+          strategy_version_id?: string | null
+          symbol: string
+          trade_id?: string | null
+        }
+        Update: {
+          asset_class?: string
+          context_snapshot_id?: string | null
+          created_at?: string
+          decision_id?: string | null
+          ended_at?: string | null
+          entry_price?: number | null
+          episode_type?: string
+          exit_price?: number | null
+          external_market_episode_id?: string | null
+          feature_snapshot?: Json
+          id?: string
+          mae?: number | null
+          market_regime?: string | null
+          mfe?: number | null
+          net_pnl?: number | null
+          outcome?: string | null
+          realized_pnl?: number | null
+          security_id?: string | null
+          session_date?: string
+          setup_type?: string | null
+          source_event_key?: string | null
+          started_at?: string
+          strategy_version_id?: string | null
+          symbol?: string
+          trade_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_episodes_context_snapshot_id_fkey"
+            columns: ["context_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_context_snapshots"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_trader_episodes_strategy_version_id_fkey"
+            columns: ["strategy_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_strategy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_model_assignments: {
+        Row: {
+          active_from: string
+          active_until: string | null
+          approved_by: string
+          approved_modes: string[]
+          created_at: string
+          evaluation_id: string | null
+          id: string
+          model: string
+          model_version: string
+          prompt_version: string
+          provider: string
+          role: string
+          schema_version: string
+        }
+        Insert: {
+          active_from: string
+          active_until?: string | null
+          approved_by: string
+          approved_modes?: string[]
+          created_at?: string
+          evaluation_id?: string | null
+          id?: string
+          model: string
+          model_version: string
+          prompt_version: string
+          provider: string
+          role: string
+          schema_version: string
+        }
+        Update: {
+          active_from?: string
+          active_until?: string | null
+          approved_by?: string
+          approved_modes?: string[]
+          created_at?: string
+          evaluation_id?: string | null
+          id?: string
+          model?: string
+          model_version?: string
+          prompt_version?: string
+          provider?: string
+          role?: string
+          schema_version?: string
+        }
+        Relationships: []
+      }
+      ai_trader_observations: {
+        Row: {
+          asset_class: string
+          context_snapshot_id: string | null
+          created_at: string
+          id: string
+          observation_type: string
+          observed_at: string
+          quality_score: number | null
+          retrieved_at: string | null
+          security_id: string | null
+          source: string
+          source_event_key: string | null
+          source_id: string | null
+          source_timestamp: string | null
+          source_type: string | null
+          symbol: string
+          value_json: Json
+          verification_state: string
+        }
+        Insert: {
+          asset_class?: string
+          context_snapshot_id?: string | null
+          created_at?: string
+          id?: string
+          observation_type: string
+          observed_at: string
+          quality_score?: number | null
+          retrieved_at?: string | null
+          security_id?: string | null
+          source: string
+          source_event_key?: string | null
+          source_id?: string | null
+          source_timestamp?: string | null
+          source_type?: string | null
+          symbol: string
+          value_json: Json
+          verification_state: string
+        }
+        Update: {
+          asset_class?: string
+          context_snapshot_id?: string | null
+          created_at?: string
+          id?: string
+          observation_type?: string
+          observed_at?: string
+          quality_score?: number | null
+          retrieved_at?: string | null
+          security_id?: string | null
+          source?: string
+          source_event_key?: string | null
+          source_id?: string | null
+          source_timestamp?: string | null
+          source_type?: string | null
+          symbol?: string
+          value_json?: Json
+          verification_state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_observations_context_snapshot_id_fkey"
+            columns: ["context_snapshot_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_context_snapshots"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_reflections: {
+        Row: {
+          confidence: number | null
+          created_at: string
+          decision_id: string | null
+          earliest_failure_signal: string | null
+          id: string
+          lessons: Json
+          model_provider: string | null
+          model_version: string | null
+          process_quality: string
+          prompt_version: string | null
+          reflection_type: string
+          schema_version: string
+          summary: string
+          trade_id: string | null
+          what_failed: Json
+          what_worked: Json
+        }
+        Insert: {
+          confidence?: number | null
+          created_at?: string
+          decision_id?: string | null
+          earliest_failure_signal?: string | null
+          id?: string
+          lessons?: Json
+          model_provider?: string | null
+          model_version?: string | null
+          process_quality: string
+          prompt_version?: string | null
+          reflection_type: string
+          schema_version?: string
+          summary: string
+          trade_id?: string | null
+          what_failed?: Json
+          what_worked?: Json
+        }
+        Update: {
+          confidence?: number | null
+          created_at?: string
+          decision_id?: string | null
+          earliest_failure_signal?: string | null
+          id?: string
+          lessons?: Json
+          model_provider?: string | null
+          model_version?: string | null
+          process_quality?: string
+          prompt_version?: string | null
+          reflection_type?: string
+          schema_version?: string
+          summary?: string
+          trade_id?: string | null
+          what_failed?: Json
+          what_worked?: Json
+        }
+        Relationships: []
+      }
+      ai_trader_regime_profiles: {
+        Row: {
+          behavior_summary: string | null
+          confidence: number | null
+          created_at: string
+          derived_metrics: Json
+          evidence_ids: string[]
+          generated_at: string
+          id: string
+          is_current: boolean
+          lookback_window: string
+          methodology_version: string
+          profile_version: string
+          regime_key: string
+          sample_size: number
+          supersedes_id: string | null
+        }
+        Insert: {
+          behavior_summary?: string | null
+          confidence?: number | null
+          created_at?: string
+          derived_metrics?: Json
+          evidence_ids: string[]
+          generated_at: string
+          id?: string
+          is_current?: boolean
+          lookback_window?: string
+          methodology_version?: string
+          profile_version: string
+          regime_key: string
+          sample_size: number
+          supersedes_id?: string | null
+        }
+        Update: {
+          behavior_summary?: string | null
+          confidence?: number | null
+          created_at?: string
+          derived_metrics?: Json
+          evidence_ids?: string[]
+          generated_at?: string
+          id?: string
+          is_current?: boolean
+          lookback_window?: string
+          methodology_version?: string
+          profile_version?: string
+          regime_key?: string
+          sample_size?: number
+          supersedes_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_regime_profiles_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_regime_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_reward_assessments: {
+        Row: {
+          created_at: string
+          decision_id: string | null
+          dimensions: Json
+          id: string
+          notes: string | null
+          process_quality: string
+          reflection_id: string | null
+          trade_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          decision_id?: string | null
+          dimensions?: Json
+          id?: string
+          notes?: string | null
+          process_quality: string
+          reflection_id?: string | null
+          trade_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          decision_id?: string | null
+          dimensions?: Json
+          id?: string
+          notes?: string | null
+          process_quality?: string
+          reflection_id?: string | null
+          trade_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_reward_assessments_reflection_id_fkey"
+            columns: ["reflection_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_reflections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_runtime: {
+        Row: {
+          active_risk_config_id: string | null
+          active_strategy_version_id: string | null
+          id: number
+          operating_mode: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          active_risk_config_id?: string | null
+          active_strategy_version_id?: string | null
+          id: number
+          operating_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          active_risk_config_id?: string | null
+          active_strategy_version_id?: string | null
+          id?: number
+          operating_mode?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_runtime_active_strategy_version_id_fkey"
+            columns: ["active_strategy_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_strategy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_sessions: {
+        Row: {
+          account_id: string | null
+          created_at: string
+          ended_at: string | null
+          id: string
+          model_assignment_id: string | null
+          operating_mode: string
+          risk_config_id: string | null
+          started_at: string | null
+          starting_equity: number | null
+          status: string
+          strategy_version_id: string | null
+          trading_date: string
+        }
+        Insert: {
+          account_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          model_assignment_id?: string | null
+          operating_mode: string
+          risk_config_id?: string | null
+          started_at?: string | null
+          starting_equity?: number | null
+          status: string
+          strategy_version_id?: string | null
+          trading_date: string
+        }
+        Update: {
+          account_id?: string | null
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          model_assignment_id?: string | null
+          operating_mode?: string
+          risk_config_id?: string | null
+          started_at?: string | null
+          starting_equity?: number | null
+          status?: string
+          strategy_version_id?: string | null
+          trading_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_sessions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_trader_sessions_model_assignment_id_fkey"
+            columns: ["model_assignment_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_model_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_trader_sessions_strategy_version_id_fkey"
+            columns: ["strategy_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_strategy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_setup_profiles: {
+        Row: {
+          behavior_summary: string | null
+          confidence: number | null
+          created_at: string
+          derived_metrics: Json
+          evidence_ids: string[]
+          expectancy: number | null
+          failure_signatures: Json
+          generated_at: string
+          id: string
+          is_current: boolean
+          lookback_window: string
+          median_mae: number | null
+          median_mfe: number | null
+          methodology_version: string
+          profile_version: string
+          profit_factor: number | null
+          regime_breakdown: Json
+          sample_size: number
+          setup_key: string
+          strategy_version_id: string | null
+          successful_conditions: Json
+          supersedes_id: string | null
+          win_rate: number | null
+        }
+        Insert: {
+          behavior_summary?: string | null
+          confidence?: number | null
+          created_at?: string
+          derived_metrics?: Json
+          evidence_ids: string[]
+          expectancy?: number | null
+          failure_signatures?: Json
+          generated_at: string
+          id?: string
+          is_current?: boolean
+          lookback_window?: string
+          median_mae?: number | null
+          median_mfe?: number | null
+          methodology_version?: string
+          profile_version: string
+          profit_factor?: number | null
+          regime_breakdown?: Json
+          sample_size: number
+          setup_key: string
+          strategy_version_id?: string | null
+          successful_conditions?: Json
+          supersedes_id?: string | null
+          win_rate?: number | null
+        }
+        Update: {
+          behavior_summary?: string | null
+          confidence?: number | null
+          created_at?: string
+          derived_metrics?: Json
+          evidence_ids?: string[]
+          expectancy?: number | null
+          failure_signatures?: Json
+          generated_at?: string
+          id?: string
+          is_current?: boolean
+          lookback_window?: string
+          median_mae?: number | null
+          median_mfe?: number | null
+          methodology_version?: string
+          profile_version?: string
+          profit_factor?: number | null
+          regime_breakdown?: Json
+          sample_size?: number
+          setup_key?: string
+          strategy_version_id?: string | null
+          successful_conditions?: Json
+          supersedes_id?: string | null
+          win_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_setup_profiles_strategy_version_id_fkey"
+            columns: ["strategy_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_strategy_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ai_trader_setup_profiles_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_setup_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_strategy_candidates: {
+        Row: {
+          candidate_version: string
+          created_at: string
+          hypothesis: string
+          id: string
+          parent_strategy_version_id: string | null
+          source_reflection_ids: string[]
+          status: string
+        }
+        Insert: {
+          candidate_version: string
+          created_at?: string
+          hypothesis: string
+          id?: string
+          parent_strategy_version_id?: string | null
+          source_reflection_ids?: string[]
+          status: string
+        }
+        Update: {
+          candidate_version?: string
+          created_at?: string
+          hypothesis?: string
+          id?: string
+          parent_strategy_version_id?: string | null
+          source_reflection_ids?: string[]
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_strategy_candidates_parent_strategy_version_id_fkey"
+            columns: ["parent_strategy_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_strategy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_strategy_versions: {
+        Row: {
+          allowed_modes: string[]
+          approved_at: string | null
+          approved_by: string | null
+          backtest_evaluation_id: string | null
+          configuration_hash: string
+          created_at: string
+          id: string
+          paper_evaluation_id: string | null
+          parent_version_id: string | null
+          shadow_evaluation_id: string | null
+          status: string
+          strategy_id: string
+          version: string
+        }
+        Insert: {
+          allowed_modes?: string[]
+          approved_at?: string | null
+          approved_by?: string | null
+          backtest_evaluation_id?: string | null
+          configuration_hash: string
+          created_at?: string
+          id?: string
+          paper_evaluation_id?: string | null
+          parent_version_id?: string | null
+          shadow_evaluation_id?: string | null
+          status: string
+          strategy_id: string
+          version: string
+        }
+        Update: {
+          allowed_modes?: string[]
+          approved_at?: string | null
+          approved_by?: string | null
+          backtest_evaluation_id?: string | null
+          configuration_hash?: string
+          created_at?: string
+          id?: string
+          paper_evaluation_id?: string | null
+          parent_version_id?: string | null
+          shadow_evaluation_id?: string | null
+          status?: string
+          strategy_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_strategy_versions_parent_version_id_fkey"
+            columns: ["parent_version_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_strategy_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ai_trader_symbol_profiles: {
+        Row: {
+          asset_class: string
+          behavior_summary: string | null
+          confidence: number | null
+          created_at: string
+          derived_metrics: Json
+          evidence_observation_ids: string[]
+          generated_at: string
+          id: string
+          is_current: boolean
+          lookback_window: string
+          methodology_version: string
+          profile_version: string
+          sample_size: number
+          security_id: string | null
+          supersedes_id: string | null
+          symbol: string
+        }
+        Insert: {
+          asset_class?: string
+          behavior_summary?: string | null
+          confidence?: number | null
+          created_at?: string
+          derived_metrics?: Json
+          evidence_observation_ids: string[]
+          generated_at: string
+          id?: string
+          is_current?: boolean
+          lookback_window: string
+          methodology_version?: string
+          profile_version: string
+          sample_size: number
+          security_id?: string | null
+          supersedes_id?: string | null
+          symbol: string
+        }
+        Update: {
+          asset_class?: string
+          behavior_summary?: string | null
+          confidence?: number | null
+          created_at?: string
+          derived_metrics?: Json
+          evidence_observation_ids?: string[]
+          generated_at?: string
+          id?: string
+          is_current?: boolean
+          lookback_window?: string
+          methodology_version?: string
+          profile_version?: string
+          sample_size?: number
+          security_id?: string | null
+          supersedes_id?: string | null
+          symbol?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_trader_symbol_profiles_supersedes_id_fkey"
+            columns: ["supersedes_id"]
+            isOneToOne: false
+            referencedRelation: "ai_trader_symbol_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_user_memory: {
         Row: {
           extensions: Json
@@ -7890,6 +8885,18 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
+      ai_trader_replace_regime_profile_v1: {
+        Args: { p_row: Json }
+        Returns: string
+      }
+      ai_trader_replace_setup_profile_v1: {
+        Args: { p_row: Json }
+        Returns: string
+      }
+      ai_trader_replace_symbol_profile_v1: {
+        Args: { p_row: Json }
+        Returns: string
+      }
       append_screener_52w_baseline_exclusions_v1: {
         Args: { p_exclusions: Json; p_generation_id: string }
         Returns: number
