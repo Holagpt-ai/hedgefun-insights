@@ -9,6 +9,7 @@ describe("BRAND config", () => {
     expect(BRAND.domain).toBe("stocksist.com");
     expect(BRAND.displayDomain).toBe("Stocksist.com");
     expect(BRAND.url).toBe("https://stocksist.com");
+    expect(BRAND.iconSrc).toBe("/brand/stocksist-icon-master.png");
     expect(BRAND.initials).toBe("S");
     expect(BRAND.supportEmail).toBe("info@stocksist.com");
     expect(BRAND.aiProductName).toBe("Stocksist AI");

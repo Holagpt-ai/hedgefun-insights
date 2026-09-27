@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { subscribeToNewsletter } from "@/lib/newsletter";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 
 function IPhoneMockup() {
@@ -25,9 +26,7 @@ function IPhoneMockup() {
 
           {/* Logo */}
           <div className="flex items-center justify-center gap-1.5 mb-3">
-            <div className="h-6 w-6 rounded bg-accent-blue flex items-center justify-center">
-              <span className="text-[8px] font-bold text-white">{BRAND.initials}</span>
-            </div>
+            <BrandMark size={24} decorative className="h-6 w-6 rounded-md" />
             <span className="font-bold text-[11px] text-foreground">{BRAND.name}</span>
           </div>
 
@@ -118,8 +117,9 @@ export default function NewsletterPage() {
     <div className="min-h-screen flex flex-col bg-background">
       {/* Minimal header */}
       <header className="h-14 border-b border-border flex items-center justify-between px-6 shrink-0">
-        <Link to="/" className="flex items-center font-bold text-lg text-foreground">
-          <img src="/logo.svg" alt="Stocksist" className="h-8 w-auto" />
+        <Link to="/" className="flex items-center gap-2 font-bold text-lg text-foreground">
+          <BrandMark size={32} decorative className="h-8 w-8 rounded-md" />
+          <span>{BRAND.name}</span>
         </Link>
         <button
           onClick={() => setAuthMode("login")}

@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageSeo } from "@/hooks/usePageSeo";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 
 import starlinkImg from "@/assets/articles/starlink-ipo.jpg";
@@ -349,11 +350,7 @@ export default function ArticlesPage() {
               </p>
 
               <div className="flex items-center gap-2">
-                <div className="h-7 w-7 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
-                  <span className="text-[0.5rem] font-bold text-primary-foreground">
-                    {BRAND.initials}
-                  </span>
-                </div>
+                <BrandMark size={28} decorative className="h-7 w-7 rounded-md" />
                 <div>
                   <p className="text-xs font-medium text-accent-blue leading-none">
                     {article.author ?? "Stocksist Team"}

@@ -7,6 +7,7 @@ export const BRAND = {
   domain: "stocksist.com",
   displayDomain: "Stocksist.com",
   url: "https://stocksist.com",
+  iconSrc: "/brand/stocksist-icon-master.png",
   initials: "S",
   tagline: "Your Edge In Every Market",
   supportEmail: "info@stocksist.com",

@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { BRAND } from "@/config/brand";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { resolveMarketClock } from "@/lib/market-calendar";
 
 const EXCHANGES = [
@@ -139,13 +139,6 @@ export function GlobalMarketClocks() {
   return (
     <>
       <style>{`
-        @keyframes hfGlobeSpin {
-          0%   { box-shadow: inset -12px 0 20px rgba(0,0,0,0.4), inset 5px 0 10px rgba(255,255,255,0.1); }
-          25%  { box-shadow: inset -3px 0 10px rgba(0,0,0,0.15), inset 3px 0 10px rgba(255,255,255,0.15); }
-          50%  { box-shadow: inset 12px 0 20px rgba(0,0,0,0.4), inset -5px 0 10px rgba(255,255,255,0.1); }
-          75%  { box-shadow: inset 3px 0 10px rgba(0,0,0,0.15), inset -3px 0 10px rgba(255,255,255,0.15); }
-          100% { box-shadow: inset -12px 0 20px rgba(0,0,0,0.4), inset 5px 0 10px rgba(255,255,255,0.1); }
-        }
         .global-clocks-row::-webkit-scrollbar { display: none; }
         .clock-row::-webkit-scrollbar { display: none; }
       `}</style>
@@ -159,45 +152,7 @@ export function GlobalMarketClocks() {
             className="fintech-card flex-shrink-0 flex items-center gap-2.5"
             style={{ minWidth: 140, height: cardH, minHeight: cardH, padding: "12px 16px" }}
           >
-            <div
-              className="flex-shrink-0"
-              style={{
-                width: 52,
-                height: 52,
-                borderRadius: "50%",
-                background: "#2563eb",
-                position: "relative",
-                overflow: "hidden",
-                animation: "hfGlobeSpin 8s linear infinite",
-              }}
-            >
-              <svg
-                width="52"
-                height="52"
-                viewBox="0 0 52 52"
-                style={{ position: "absolute", top: 0, left: 0, opacity: 0.45 }}
-              >
-                <line x1="0" y1="17" x2="52" y2="17" stroke="white" strokeWidth={0.8} />
-                <line x1="0" y1="35" x2="52" y2="35" stroke="white" strokeWidth={0.8} />
-                <ellipse cx="26" cy="26" rx="10" ry="25" fill="none" stroke="white" strokeWidth={0.8} />
-              </svg>
-              <span
-                style={{
-                  position: "absolute",
-                  top: "50%",
-                  left: "50%",
-                  transform: "translate(-50%, -50%)",
-                  color: "#fff",
-                  fontWeight: 900,
-                  fontSize: "1rem",
-                  letterSpacing: "0.04em",
-                  zIndex: 2,
-                  userSelect: "none",
-                }}
-              >
-                {BRAND.initials}
-              </span>
-            </div>
+            <BrandMark size={52} decorative className="h-[52px] w-[52px] rounded-md flex-shrink-0" />
             <div className="flex flex-col min-w-0">
               <span style={{ fontSize: "1.05rem", fontWeight: 800, color: "hsl(var(--text-primary))" }}>{localTime}</span>
               <span style={{ fontSize: "0.7rem", color: "hsl(var(--text-secondary))" }} className="truncate">{localDate}</span>

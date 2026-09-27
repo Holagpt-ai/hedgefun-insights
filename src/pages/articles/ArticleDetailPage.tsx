@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { toast } from "@/hooks/use-toast";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 
 /* ── Full Article Bodies ──────────────────────────── */
@@ -259,9 +260,7 @@ export default function ArticleDetailPage() {
       <div className="max-w-[720px] mx-auto px-4 sm:px-6 py-8">
         {/* Author + date + read time */}
         <div className="flex items-center gap-3 mb-8 pb-6 border-b border-border">
-          <div className="h-9 w-9 rounded-full bg-accent-blue flex items-center justify-center shrink-0">
-            <span className="text-xs font-bold text-primary-foreground">{BRAND.initials}</span>
-          </div>
+          <BrandMark size={36} decorative className="h-9 w-9 rounded-md" />
           <div className="flex-1">
             <p className="text-sm font-medium text-foreground">{article.author ?? "Stocksist Team"}</p>
             <p className="text-xs text-muted-foreground">{article.date} · {readTime}</p>

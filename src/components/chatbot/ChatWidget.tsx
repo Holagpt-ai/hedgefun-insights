@@ -7,6 +7,7 @@ import { trackEvent } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 
 const WELCOME_MSG =
@@ -134,9 +135,7 @@ export function ChatWidget() {
         <button onClick={() => setOpen(false)} className="md:hidden" aria-label="Close">
           <ArrowLeft className="h-5 w-5 text-foreground" />
         </button>
-        <div className="h-7 w-7 rounded-md bg-accent-blue flex items-center justify-center shrink-0">
-          <span className="text-[0.625rem] font-bold text-primary-foreground">S</span>
-        </div>
+        <BrandMark size={28} decorative className="h-7 w-7 rounded-md" />
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-foreground leading-none">{BRAND.aiProductName}</p>
           <p className="text-[0.625rem] text-muted-foreground">Powered by Gemini</p>

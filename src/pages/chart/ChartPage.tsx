@@ -14,6 +14,8 @@ import {
 import { searchTickers, EXCHANGE_LABELS, type SearchResult } from "@/lib/search-tickers";
 import { toast } from "sonner";
 import TradingViewChart, { type OHLCVData } from "@/components/charts/TradingViewChart";
+import { BrandMark } from "@/components/brand/BrandMark";
+import { BRAND } from "@/config/brand";
 
 const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
 
@@ -825,10 +827,8 @@ function ChartHeader({
         <Menu className="h-5 w-5" />
       </button>
       <div className="flex items-center gap-2 shrink-0 cursor-pointer" onClick={() => navigate("/")}>
-        <div className="h-7 w-7 rounded-md bg-accent-blue flex items-center justify-center">
-          <span className="text-xs font-bold text-primary-foreground">S</span>
-        </div>
-        <span className="hidden sm:block font-display text-base text-foreground font-semibold">Stocksist</span>
+        <BrandMark size={28} decorative className="h-7 w-7 rounded-md" />
+        <span className="hidden sm:block font-display text-base text-foreground font-semibold">{BRAND.name}</span>
       </div>
       <div ref={searchContainerRef} className="relative flex-1 max-w-[600px]">
         <form onSubmit={onSearchSubmit}>

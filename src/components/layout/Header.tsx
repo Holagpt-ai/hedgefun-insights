@@ -17,6 +17,7 @@ import { AuthModals } from "@/components/auth/AuthModals";
 import { trackEvent } from "@/lib/analytics";
 import { useEffect, useRef, useCallback } from "react";
 import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
+import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 import { getEffectiveLanguage } from "@/config/locale-v1.policy";
 import { useShowPublicLanguageToggle } from "@/hooks/useEffectiveLanguage";
@@ -122,9 +123,7 @@ export function Header({ onMenuToggle }: { onMenuToggle?: () => void }) {
         </button>
 
         <div className="flex items-center gap-2 shrink-0 md:w-[var(--sidebar-width)] cursor-pointer" onClick={() => navigate("/")}>
-          <div className="h-8 w-8 rounded-md bg-accent-blue flex items-center justify-center">
-            <span className="text-sm font-bold text-primary-foreground">{BRAND.initials}</span>
-          </div>
+          <BrandMark size={32} decorative className="h-8 w-8 rounded-md" />
           <span className="hidden md:block font-display text-lg text-foreground">{BRAND.name}</span>
         </div>
 
