@@ -47,6 +47,9 @@ describe("public SEO artifacts", () => {
     expect(html).toContain("Stocksist");
     expect(html).toContain('rel="canonical" href="https://stocksist.com/"');
     expect(html).toContain("google-site-verification");
+    expect(html).toContain("https://stocksist.com/brand/stocksist-icon-master.png");
+    expect(html).toContain("https://stocksist.com/og-share-card.png");
+    expect(html).not.toContain("logo.svg");
     expect(html.toLowerCase()).not.toContain("hedgefun");
   });
 });
