@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  AI_TRADER_DATABASE_TARGET,
   AI_TRADER_MEMORY_MIGRATION_FILENAME,
+  AI_TRADER_MUTABILITY_MATRIX,
   AI_TRADER_SCHEMA_APPLY_MIGRATION,
   AI_TRADER_SCHEMA_TABLES,
   schemaAllowsVectorColumns,
@@ -32,5 +34,10 @@ describe("AI Trader schema proposal", () => {
     expect(AI_TRADER_SCHEMA_TABLES.find((table) => table.name === "ai_trader_episodes")?.existingTableReuse).toMatch(
       /market_behavior_episodes/,
     );
+    expect(AI_TRADER_DATABASE_TARGET).toBe("EXISTING_STOCKSIST_LOVABLE_SUPABASE");
+    expect(AI_TRADER_SCHEMA_TABLES.find((table) => table.name === "ai_trader_sessions")?.mutability).toBe(
+      "controlled-lifecycle",
+    );
+    expect(AI_TRADER_MUTABILITY_MATRIX.every((row) => row.deleteAllowed === false)).toBe(true);
   });
 });

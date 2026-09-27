@@ -1,10 +1,16 @@
 # AI Trader memory foundation — migration review
 
-This file is the Sprint 2B review artifact. The SQL exists in Git. It has not been applied.
+Sprint 2B.1 lifecycle corrections. The SQL exists in Git. It has not been applied.
+
+Database decision: **use the existing Stocksist / Lovable Cloud Supabase**. Do not create a second project.
+
+Cursor owns authoring. Lovable / Lovable Cloud owns later production apply. Frontend remains Cursor → GitHub → Vercel.
 
 ## 1. Migration filename
 
 `supabase/migrations/20260927220000_ai_trader_memory_foundation_v1.sql`
+
+Corrected in place because repository evidence shows it is **not applied** (`AI_TRADER_SCHEMA_APPLY_MIGRATION = false`; no later local migration; Cursor has no authorized remote history).
 
 ## 2. Tables created
 
@@ -30,19 +36,19 @@ No Journal, Game, or user-watchlist tables are reused.
 
 ## 3. Functions / triggers
 
-Functions:
+Functions (INVOKER, `search_path = public`, not SECURITY DEFINER):
 
 - `ai_trader_reject_mutation()`
 - `ai_trader_allow_is_current_clear()`
+- `ai_trader_session_lifecycle_guard()`
+- `ai_trader_model_assignment_lifecycle_guard()`
+- `ai_trader_strategy_version_lifecycle_guard()`
+- `ai_trader_strategy_candidate_lifecycle_guard()`
 - `ai_trader_replace_symbol_profile_v1(jsonb)`
 - `ai_trader_replace_setup_profile_v1(jsonb)`
 - `ai_trader_replace_regime_profile_v1(jsonb)`
 
-Triggers:
-
-- UPDATE/DELETE rejected on append-only tables
-- Profile UPDATE allowed only to set `is_current = false`
-- Profile DELETE rejected
+Triggers: strict append-only UPDATE/DELETE reject on evidence tables; profile `is_current` clear-only; profile DELETE reject; lifecycle guards on sessions, model assignments, strategy versions, and strategy candidates.
 
 No promotion RPC. No broker/execution RPC. No generic CRUD RPC.
 
@@ -52,40 +58,50 @@ Every AI Trader table has RLS enabled.
 
 `anon` and `authenticated` receive no policies and no grants.
 
-`service_role` is granted table access. Service role bypasses RLS. RLS therefore does **not** protect against a compromised service credential. It only keeps PostgREST/browser clients off the base tables.
+`service_role` is granted table access. Service role bypasses RLS. RLS therefore does **not** protect against a compromised service credential.
 
 Profile replace functions are executable by `service_role` only.
 
-Public and subscriber UI must later read filtered server projections, not these tables.
+## 5. Mutability model
 
-## 5. Append-only enforcement
+See `AI_TRADER_MUTABILITY_MATRIX` in `src/lib/ai-trader/schema/schema-spec.ts`.
 
-Database-enforced for:
+Strict append-only: context snapshots, observations, episodes, decision evidence, reflections, counterfactuals, reward assessments, audit events.
 
-sessions, model assignments, strategy versions, context snapshots, observations, episodes, decision evidence, reflections, counterfactuals, strategy candidates, reward assessments, audit events.
+Versioned profiles: contents immutable; only `is_current` may be cleared; DELETE prohibited; replace RPCs are atomic.
 
-Application-convention plus limited DB enforcement for profiles: contents cannot change; only `is_current` may be cleared.
+Controlled lifecycle: sessions, model assignments, strategy versions, strategy candidates.
 
-`ai_trader_runtime` and `ai_trader_accounts` are mutable current-state tables.
+Mutable current state: `ai_trader_runtime`, `ai_trader_accounts`. Still denied to browser/client roles.
 
-## 6. Mutable / current-state tables
+## 6. Session lifecycle
 
-- `ai_trader_runtime` — singleton current mode/config pointers
-- `ai_trader_accounts` — book identity
-- Profile `is_current` flags via replace RPCs
+Statuses: `CREATED`, `ACTIVE`, `PAUSED`, `KILLED`, `CLOSED`, `FAILED`.
 
-Sessions remain the historical freeze. Runtime is not history.
+Transitions:
 
-## 7. Important indexes
+- CREATED → ACTIVE | FAILED
+- ACTIVE → PAUSED | KILLED | CLOSED | FAILED
+- PAUSED → ACTIVE | KILLED | CLOSED | FAILED
+- KILLED / CLOSED / FAILED: terminal, cannot reopen
 
-- Sessions `(account_id, trading_date)`
-- Context `(symbol, observed_at DESC)`
-- Observations `(symbol, observation_type, observed_at DESC)`
-- Episodes symbol/setup/regime/session and `started_at`
-- Profiles `(key, generated_at DESC)` plus partial unique current rows
-- Decision evidence `(decision_id)`
+Identity fields freeze after leaving CREATED. Lifecycle fields `status`, `started_at`, `ended_at` may change while legal.
 
-## 8. Profile-version transaction design
+## 7. Episode types
+
+`TRADE`, `PASS`, `WAIT`, `RISK_REJECTION`, `WATCHLIST_PROMOTION`, `WATCHLIST_REMOVAL`, `MISSED_OPPORTUNITY`, `EXECUTION_EVENT`, `MARKET_REFERENCE`.
+
+Generic `WATCHLIST` is removed.
+
+## 8. Model assignment / strategy lifecycle
+
+Model assignment identity is immutable. `active_until` may change NULL → timestamp once.
+
+Strategy version identity (`strategy_id`, `version`, `parent_version_id`, `configuration_hash`, `created_at`) is immutable. Trusted services may later update status/approval/evaluation/allowed_modes. AI-facing code cannot promote.
+
+Strategy candidates: AI adapter inserts `PROPOSED` only. Database may later store other statuses. **DATABASE CAPABILITY != AI AUTHORITY.**
+
+## 9. Profile-version transaction design
 
 Replace RPCs run in one Postgres function:
 
@@ -93,83 +109,42 @@ Replace RPCs run in one Postgres function:
 2. Clear `is_current` on that row
 3. Insert the new version with `supersedes_id` and `is_current = true`
 
-This is real DB atomicity. The TypeScript client does not fake a multi-statement transaction.
-
 Historical retrieval must use `generated_at <= asOf`, not `is_current`.
 
-## 9. Temporal retrieval design
+## 10. Temporal retrieval / context dedupe / idempotency
 
-Episode queries always include `started_at <= $asOf` and a `LIMIT`.
+Episode queries always include `started_at <= $asOf` and a `LIMIT` (8 similar, 3 failures).
 
 Profile queries always include `generated_at <= $asOf ORDER BY generated_at DESC LIMIT 1`.
 
-Failure examples are a separate query branch.
+Context: unique `(context_hash, schema_version)`; insert `ON CONFLICT DO NOTHING` then select existing id.
 
-## 10. Context snapshot dedupe
+Observations/episodes: optional unique `source_event_key`.
 
-Unique `(context_hash, schema_version)`.
+## 11. Numeric types
 
-Insert uses `ON CONFLICT DO NOTHING` then selects the existing id.
+Prices/P&L: `numeric(18,6)`. Capital/equity: `numeric(18,4)`. Confidence/rates: `numeric(8,6)`. Counts: `integer`. IDs: `uuid`.
 
-## 11. Idempotency design
-
-- Context: hash + schema version
-- Observations: optional unique `source_event_key`
-- Episodes: optional unique `source_event_key`
-
-No extra idempotency columns on reflections or rewards.
+Supabase often serializes `numeric` as strings. `parseNullableNumeric` keeps NULL, rejects non-finite/invalid values, and does not coerce decimals to integers. Real-money accounting may later need a decimal library.
 
 ## 12. Intentionally deferred tables
 
-- `ai_trader_model_evaluations` — `evaluation_id` is a nullable UUID, no FK
-- `ai_trader_risk_configs` — `risk_config_id` / `active_risk_config_id` are nullable UUIDs, no FK
-- `ai_trader_trades`, `ai_trader_decisions`, orders, positions, watchlist items — correlation UUIDs only
-- Sprint 2B requested session statuses `CREATED|ACTIVE|PAUSED|KILLED|CLOSED|FAILED` were **not** used. Sprint 2A remains `OPEN|CLOSED|ABORTED`
-- Sprint 2B requested episode types `WATCHLIST_REMOVAL|WATCHLIST_PROMOTION|MISSED_OPPORTUNITY|EXECUTION_EVENT` were **not** used. Sprint 2A remains `TRADE|PASS|WAIT|RISK_REJECTION|WATCHLIST|MARKET_REFERENCE`
+- `ai_trader_model_evaluations`
+- `ai_trader_risk_configs`
+- `ai_trader_trades`, `ai_trader_decisions`, orders, positions
 
-Those extra labels need an explicit later additive migration if product still wants them.
+Correlation UUIDs only. No placeholder trading tables.
 
-`memory_usefulness` was not added; Sprint 2A reflection contracts do not include it.
+## 13. Remote history
 
-## 13. Risks / assumptions
+Cursor cannot authoritatively inspect Lovable production migration history.
 
-- Symbol text is the V1 query key, matching Radar. `security_id` is nullable and has no FK until coverage is complete
-- `numeric` columns serialize through Supabase as strings; mappers parse with finite-number checks
-- Service role can still insert bad rows; promotion safety is adapter + later service auth, not a complete DB actor model
-- LIVE account environment does not change `ai_trader_runtime.operating_mode`
-- The app boots without this migration. Persistence runs only when an executor is invoked
+**REMOTE MIGRATION HISTORY REQUIRES LOVABLE PRODUCTION PREFLIGHT**
 
 ## 14. Exact apply command for later Sprint 2C
 
-Do **not** run this now.
+Do **not** run this from Cursor against production.
 
-```bash
-# After human review only. Targets the intended isolated/project database.
-supabase db push
-```
+Lovable / Lovable Cloud applies the exact reviewed file to the existing Stocksist Supabase after preflight. See `docs/ai-trader/AI_TRADER_LOVABLE_APPLY_PACKAGE.md`.
 
-Alternative when applying a single reviewed file through the existing 14-digit chain:
-
-```bash
-supabase migration up
-```
-
-Never apply through the Supabase dashboard SQL editor or Lovable.
-
-## Symbol / security identity
-
-V1 stores `symbol` plus optional `security_id`. No new security master. Later work may add an FK to `securities.security_id`.
-
-## Promotion protection
-
-Database CHECK allows the full candidate status set. The TypeScript adapter exposes only `insertProposedStrategyCandidate`. There is no `setStatus` API. Service authorization for human promotion is Sprint 2C+.
-
-## Sprint 2C type generation
-
-After the migration is applied:
-
-```bash
-# regenerate src/integrations/supabase/types.ts against the applied schema
-```
-
-Do not edit generated types before apply.
+Never apply through the Supabase dashboard SQL editor ad-hoc, and never via Lovable frontend Publish.

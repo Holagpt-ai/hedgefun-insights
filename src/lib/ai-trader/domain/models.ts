@@ -54,6 +54,17 @@ export interface AiTraderModelEvaluation {
 
 const LIVE_MONEY_MODES: readonly AiTraderOperatingMode[] = ["CONTROLLED_LIVE", "LIVE"];
 
+/** Assignment identity/configuration is immutable. Only activeUntil may close once. */
+export const MODEL_ASSIGNMENT_MUTABLE_FIELDS = ["activeUntil"] as const;
+
+export function canCloseModelAssignmentActiveUntil(
+  currentActiveUntil: string | null,
+  nextActiveUntil: string | null,
+): boolean {
+  if (nextActiveUntil === currentActiveUntil) return true;
+  return currentActiveUntil === null && nextActiveUntil !== null;
+}
+
 export function assignmentCoversRoleAt(
   assignment: AiTraderModelAssignment,
   role: AiTraderModelRole,

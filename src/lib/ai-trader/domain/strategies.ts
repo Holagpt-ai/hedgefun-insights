@@ -32,6 +32,32 @@ export interface AiTraderStrategyVersion {
   allowedModes: readonly AiTraderOperatingMode[];
 }
 
+/** Identity is immutable after insert. Trusted services may update lifecycle fields. AI may not. */
+export const STRATEGY_VERSION_IDENTITY_FIELDS = [
+  "strategyId",
+  "version",
+  "parentVersion",
+  "configurationHash",
+  "createdAt",
+] as const;
+
+export const STRATEGY_VERSION_LIFECYCLE_FIELDS = [
+  "status",
+  "approvedAt",
+  "approvedBy",
+  "backtestEvaluationId",
+  "shadowEvaluationId",
+  "paperEvaluationId",
+  "allowedModes",
+] as const;
+
+export function strategyVersionIdentityChanged(
+  current: AiTraderStrategyVersion,
+  next: AiTraderStrategyVersion,
+): boolean {
+  return STRATEGY_VERSION_IDENTITY_FIELDS.some((field) => current[field] !== next[field]);
+}
+
 export function strategyStatusAllowsLiveMoney(status: AiTraderStrategyStatus): boolean {
   return status === "APPROVED_CONTROLLED_LIVE";
 }

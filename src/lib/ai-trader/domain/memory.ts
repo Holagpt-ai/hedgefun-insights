@@ -9,7 +9,10 @@ export const EPISODE_TYPES = [
   "PASS",
   "WAIT",
   "RISK_REJECTION",
-  "WATCHLIST",
+  "WATCHLIST_PROMOTION",
+  "WATCHLIST_REMOVAL",
+  "MISSED_OPPORTUNITY",
+  "EXECUTION_EVENT",
   "MARKET_REFERENCE",
 ] as const;
 export type EpisodeType = (typeof EPISODE_TYPES)[number];

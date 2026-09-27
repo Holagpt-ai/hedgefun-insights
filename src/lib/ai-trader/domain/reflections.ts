@@ -20,7 +20,10 @@ export const REFLECTION_TYPES = [
   "PASS",
   "WAIT",
   "RISK_REJECTION",
-  "WATCHLIST",
+  "WATCHLIST_PROMOTION",
+  "WATCHLIST_REMOVAL",
+  "MISSED_OPPORTUNITY",
+  "EXECUTION_EVENT",
 ] as const;
 export type ReflectionType = (typeof REFLECTION_TYPES)[number];
 
@@ -88,3 +91,8 @@ export function processQualityFrom(processFollowed: boolean, outcomeFavorable: b
 export function canAiWriteCandidateStatus(status: StrategyCandidateStatus): boolean {
   return status === "PROPOSED";
 }
+
+/** Database can store later trusted statuses. AI generation may only insert PROPOSED. */
+export const STRATEGY_CANDIDATE_AI_INSERT_STATUS = "PROPOSED" as const;
+
+export const STRATEGY_CANDIDATE_LIFECYCLE_FIELDS = ["status"] as const;

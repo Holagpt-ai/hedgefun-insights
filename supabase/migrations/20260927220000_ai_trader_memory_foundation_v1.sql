@@ -1,11 +1,13 @@
--- AI Trader memory/domain foundation v1.
+-- AI Trader memory/domain foundation v1 (Sprint 2B.1 lifecycle corrections).
 -- WRITE ONLY. Do not apply in this sprint.
+-- Target: EXISTING Stocksist / Lovable Cloud Supabase. No second project.
 -- System book: no Journal, Game, or user-watchlist reuse.
 -- No pgvector. No embeddings. No credentials. No seed trades.
 
 CREATE OR REPLACE FUNCTION public.ai_trader_reject_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path TO public
 AS $$
 BEGIN
   RAISE EXCEPTION 'ai_trader append-only: %.% is immutable', TG_TABLE_SCHEMA, TG_TABLE_NAME;
@@ -15,6 +17,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.ai_trader_allow_is_current_clear()
 RETURNS trigger
 LANGUAGE plpgsql
+SET search_path TO public
 AS $$
 BEGIN
   IF NEW.id IS DISTINCT FROM OLD.id THEN
@@ -25,6 +28,115 @@ BEGIN
   END IF;
   IF to_jsonb(NEW) - 'is_current' IS DISTINCT FROM to_jsonb(OLD) - 'is_current' THEN
     RAISE EXCEPTION 'ai_trader profile contents are immutable after insert';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ai_trader_session_lifecycle_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO public
+AS $$
+DECLARE
+  legal boolean := false;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'ai_trader sessions cannot be deleted';
+  END IF;
+  IF NEW.id IS DISTINCT FROM OLD.id OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'ai_trader session id/created_at are immutable';
+  END IF;
+  IF OLD.status IN ('KILLED', 'CLOSED', 'FAILED') THEN
+    RAISE EXCEPTION 'ai_trader terminal session % cannot mutate', OLD.status;
+  END IF;
+  IF NEW.status IS DISTINCT FROM OLD.status THEN
+    legal := (OLD.status, NEW.status) IN (
+      ('CREATED', 'ACTIVE'),
+      ('CREATED', 'FAILED'),
+      ('ACTIVE', 'PAUSED'),
+      ('ACTIVE', 'KILLED'),
+      ('ACTIVE', 'CLOSED'),
+      ('ACTIVE', 'FAILED'),
+      ('PAUSED', 'ACTIVE'),
+      ('PAUSED', 'KILLED'),
+      ('PAUSED', 'CLOSED'),
+      ('PAUSED', 'FAILED')
+    );
+    IF NOT legal THEN
+      RAISE EXCEPTION 'ai_trader illegal session transition % → %', OLD.status, NEW.status;
+    END IF;
+  END IF;
+  IF OLD.status <> 'CREATED' THEN
+    IF NEW.trading_date IS DISTINCT FROM OLD.trading_date
+      OR NEW.operating_mode IS DISTINCT FROM OLD.operating_mode
+      OR NEW.account_id IS DISTINCT FROM OLD.account_id
+      OR NEW.strategy_version_id IS DISTINCT FROM OLD.strategy_version_id
+      OR NEW.model_assignment_id IS DISTINCT FROM OLD.model_assignment_id
+      OR NEW.risk_config_id IS DISTINCT FROM OLD.risk_config_id
+      OR NEW.starting_equity IS DISTINCT FROM OLD.starting_equity
+    THEN
+      RAISE EXCEPTION 'ai_trader session identity is frozen after leaving CREATED';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ai_trader_model_assignment_lifecycle_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO public
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'ai_trader model assignments cannot be deleted';
+  END IF;
+  IF NEW.active_until IS DISTINCT FROM OLD.active_until THEN
+    IF OLD.active_until IS NOT NULL OR NEW.active_until IS NULL THEN
+      RAISE EXCEPTION 'ai_trader active_until may close once from NULL to a timestamp';
+    END IF;
+  END IF;
+  IF to_jsonb(NEW) - 'active_until' IS DISTINCT FROM to_jsonb(OLD) - 'active_until' THEN
+    RAISE EXCEPTION 'ai_trader model assignment identity is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ai_trader_strategy_version_lifecycle_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO public
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'ai_trader strategy versions cannot be deleted';
+  END IF;
+  IF NEW.id IS DISTINCT FROM OLD.id
+    OR NEW.strategy_id IS DISTINCT FROM OLD.strategy_id
+    OR NEW.version IS DISTINCT FROM OLD.version
+    OR NEW.parent_version_id IS DISTINCT FROM OLD.parent_version_id
+    OR NEW.configuration_hash IS DISTINCT FROM OLD.configuration_hash
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at
+  THEN
+    RAISE EXCEPTION 'ai_trader strategy version identity is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.ai_trader_strategy_candidate_lifecycle_guard()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO public
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'ai_trader strategy candidates cannot be deleted';
+  END IF;
+  IF to_jsonb(NEW) - 'status' IS DISTINCT FROM to_jsonb(OLD) - 'status' THEN
+    RAISE EXCEPTION 'ai_trader strategy candidates may only change status';
   END IF;
   RETURN NEW;
 END;
@@ -68,6 +180,9 @@ CREATE TABLE public.ai_trader_strategy_versions (
   UNIQUE (strategy_id, version)
 );
 
+COMMENT ON TABLE public.ai_trader_strategy_versions IS
+  'Identity immutable. Trusted lifecycle updates allowed. AI cannot self-promote. DATABASE CAPABILITY != AI AUTHORITY.';
+
 CREATE TABLE public.ai_trader_model_assignments (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   role text NOT NULL CHECK (role IN (
@@ -86,6 +201,9 @@ CREATE TABLE public.ai_trader_model_assignments (
   approved_by text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+COMMENT ON TABLE public.ai_trader_model_assignments IS
+  'Identity immutable. active_until may change NULL → timestamp once. No seeded providers.';
 
 CREATE TABLE public.ai_trader_runtime (
   id smallint PRIMARY KEY CHECK (id = 1),
@@ -116,9 +234,12 @@ CREATE TABLE public.ai_trader_sessions (
   starting_equity numeric(18,4),
   started_at timestamptz,
   ended_at timestamptz,
-  status text NOT NULL CHECK (status IN ('OPEN', 'CLOSED', 'ABORTED')),
+  status text NOT NULL CHECK (status IN ('CREATED', 'ACTIVE', 'PAUSED', 'KILLED', 'CLOSED', 'FAILED')),
   created_at timestamptz NOT NULL DEFAULT now()
 );
+
+COMMENT ON TABLE public.ai_trader_sessions IS
+  'Controlled lifecycle. Identity freezes after leaving CREATED. Terminal statuses cannot reopen.';
 
 CREATE INDEX ai_trader_sessions_account_date_idx
   ON public.ai_trader_sessions (account_id, trading_date);
@@ -183,7 +304,9 @@ CREATE TABLE public.ai_trader_episodes (
   security_id uuid,
   session_date date NOT NULL,
   episode_type text NOT NULL CHECK (episode_type IN (
-    'TRADE', 'PASS', 'WAIT', 'RISK_REJECTION', 'WATCHLIST', 'MARKET_REFERENCE'
+    'TRADE', 'PASS', 'WAIT', 'RISK_REJECTION',
+    'WATCHLIST_PROMOTION', 'WATCHLIST_REMOVAL', 'MISSED_OPPORTUNITY',
+    'EXECUTION_EVENT', 'MARKET_REFERENCE'
   )),
   setup_type text,
   strategy_version_id uuid REFERENCES public.ai_trader_strategy_versions(id),
@@ -331,7 +454,8 @@ CREATE TABLE public.ai_trader_reflections (
   trade_id uuid,
   decision_id uuid,
   reflection_type text NOT NULL CHECK (reflection_type IN (
-    'TRADE', 'PASS', 'WAIT', 'RISK_REJECTION', 'WATCHLIST'
+    'TRADE', 'PASS', 'WAIT', 'RISK_REJECTION',
+    'WATCHLIST_PROMOTION', 'WATCHLIST_REMOVAL', 'MISSED_OPPORTUNITY', 'EXECUTION_EVENT'
   )),
   process_quality text NOT NULL CHECK (process_quality IN (
     'BAD_PROCESS_GOOD_OUTCOME',
@@ -448,22 +572,18 @@ CREATE INDEX ai_trader_audit_events_session_idx
 CREATE INDEX ai_trader_model_assignments_role_from_idx
   ON public.ai_trader_model_assignments (role, active_from DESC);
 
--- Append-only enforcement
+-- Strict append-only evidence. Lifecycle tables are NOT in this list.
 DO $$
 DECLARE
   t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'ai_trader_sessions',
-    'ai_trader_model_assignments',
-    'ai_trader_strategy_versions',
     'ai_trader_context_snapshots',
     'ai_trader_observations',
     'ai_trader_episodes',
     'ai_trader_decision_evidence',
     'ai_trader_reflections',
     'ai_trader_counterfactuals',
-    'ai_trader_strategy_candidates',
     'ai_trader_reward_assessments',
     'ai_trader_audit_events'
   ]
@@ -476,6 +596,22 @@ BEGIN
   END LOOP;
 END;
 $$;
+
+CREATE TRIGGER ai_trader_sessions_lifecycle
+  BEFORE UPDATE OR DELETE ON public.ai_trader_sessions
+  FOR EACH ROW EXECUTE FUNCTION public.ai_trader_session_lifecycle_guard();
+
+CREATE TRIGGER ai_trader_model_assignments_lifecycle
+  BEFORE UPDATE OR DELETE ON public.ai_trader_model_assignments
+  FOR EACH ROW EXECUTE FUNCTION public.ai_trader_model_assignment_lifecycle_guard();
+
+CREATE TRIGGER ai_trader_strategy_versions_lifecycle
+  BEFORE UPDATE OR DELETE ON public.ai_trader_strategy_versions
+  FOR EACH ROW EXECUTE FUNCTION public.ai_trader_strategy_version_lifecycle_guard();
+
+CREATE TRIGGER ai_trader_strategy_candidates_lifecycle
+  BEFORE UPDATE OR DELETE ON public.ai_trader_strategy_candidates
+  FOR EACH ROW EXECUTE FUNCTION public.ai_trader_strategy_candidate_lifecycle_guard();
 
 CREATE TRIGGER ai_trader_symbol_profiles_immutable
   BEFORE UPDATE ON public.ai_trader_symbol_profiles
@@ -504,6 +640,7 @@ CREATE TRIGGER ai_trader_regime_profiles_no_delete
 CREATE OR REPLACE FUNCTION public.ai_trader_replace_symbol_profile_v1(p_row jsonb)
 RETURNS uuid
 LANGUAGE plpgsql
+SET search_path TO public
 AS $$
 DECLARE
   v_id uuid;
@@ -550,6 +687,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.ai_trader_replace_setup_profile_v1(p_row jsonb)
 RETURNS uuid
 LANGUAGE plpgsql
+SET search_path TO public
 AS $$
 DECLARE
   v_id uuid;
@@ -608,6 +746,7 @@ $$;
 CREATE OR REPLACE FUNCTION public.ai_trader_replace_regime_profile_v1(p_row jsonb)
 RETURNS uuid
 LANGUAGE plpgsql
+SET search_path TO public
 AS $$
 DECLARE
   v_id uuid;
@@ -685,6 +824,10 @@ $$;
 
 REVOKE ALL ON FUNCTION public.ai_trader_reject_mutation() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.ai_trader_allow_is_current_clear() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_trader_session_lifecycle_guard() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_trader_model_assignment_lifecycle_guard() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_trader_strategy_version_lifecycle_guard() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.ai_trader_strategy_candidate_lifecycle_guard() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.ai_trader_replace_symbol_profile_v1(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.ai_trader_replace_setup_profile_v1(jsonb) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.ai_trader_replace_regime_profile_v1(jsonb) FROM PUBLIC, anon, authenticated;
