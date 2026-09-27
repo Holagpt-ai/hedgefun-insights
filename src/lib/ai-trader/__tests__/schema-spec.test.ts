@@ -5,6 +5,8 @@ import {
   AI_TRADER_MUTABILITY_MATRIX,
   AI_TRADER_SCHEMA_APPLY_MIGRATION,
   AI_TRADER_SCHEMA_TABLES,
+  AI_TRADER_WATCHLIST_APPLY_MIGRATION,
+  AI_TRADER_WATCHLIST_MIGRATION_FILENAME,
   schemaAllowsVectorColumns,
   schemaSpecAppliesMigration,
 } from "@/lib/ai-trader/schema/schema-spec";
@@ -39,5 +41,11 @@ describe("AI Trader schema proposal", () => {
       "controlled-lifecycle",
     );
     expect(AI_TRADER_MUTABILITY_MATRIX.every((row) => row.deleteAllowed === false)).toBe(true);
+    expect(AI_TRADER_WATCHLIST_APPLY_MIGRATION).toBe(false);
+    expect(AI_TRADER_WATCHLIST_MIGRATION_FILENAME).toBe(
+      "20260927230000_ai_trader_watchlist_foundation_v1.sql",
+    );
+    expect(names).toContain("ai_trader_watchlist_items");
+    expect(names).not.toContain("watchlists");
   });
 });

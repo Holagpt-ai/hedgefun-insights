@@ -20,6 +20,8 @@ export type RiskConfigurationId = string;
 export type RewardAssessmentId = string;
 export type CounterfactualId = string;
 export type StrategyCandidateId = string;
+export type WatchlistItemId = string;
+export type WatchlistTransitionId = string;
 
 export const AI_TRADER_ID_PREFIXES = {
   account: "acct",
@@ -43,6 +45,8 @@ export const AI_TRADER_ID_PREFIXES = {
   reward: "rwd",
   counterfactual: "cf",
   candidate: "cand",
+  watchlistItem: "wlitem",
+  watchlistTransition: "wltr",
 } as const;
 
 /** Stable FNV-1a of a canonically serialized value. Not a cryptographic hash. */

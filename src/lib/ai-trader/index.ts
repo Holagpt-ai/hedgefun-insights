@@ -24,3 +24,8 @@ export * from "@/lib/ai-trader/intelligence/trade-critic";
 export * from "@/lib/ai-trader/research/reflection-engine";
 export * from "@/lib/ai-trader/research/strategy-research";
 export * from "@/lib/ai-trader/schema/schema-spec";
+export * from "@/lib/ai-trader/domain/watchlist";
+export * from "@/lib/ai-trader/market/candidate";
+export * from "@/lib/ai-trader/market/intelligence-adapter";
+export * from "@/lib/ai-trader/market/candidate-filter";
+export * from "@/lib/ai-trader/market/watchlist-engine";

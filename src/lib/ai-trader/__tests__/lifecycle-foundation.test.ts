@@ -143,6 +143,7 @@ describe("AI Trader schema lifecycle", () => {
       "ai_trader_counterfactuals",
       "ai_trader_reward_assessments",
       "ai_trader_audit_events",
+      "ai_trader_watchlist_transitions",
     ]);
     expect(appendOnly.every((row) => row.allowedUpdateFields.length === 0 && row.deleteAllowed === false)).toBe(true);
     expect(sql).toContain("'ai_trader_context_snapshots'");

@@ -1,8 +1,13 @@
 export const AI_TRADER_SCHEMA_APPLY_MIGRATION = false;
-export const AI_TRADER_SCHEMA_VERSION = "sprint-2b.1-proposal";
+export const AI_TRADER_SCHEMA_VERSION = "sprint-3a-watchlist-proposal";
 export const AI_TRADER_MEMORY_MIGRATION_FILENAME =
   "20260927220000_ai_trader_memory_foundation_v1.sql";
+export const AI_TRADER_WATCHLIST_MIGRATION_FILENAME =
+  "20260927230000_ai_trader_watchlist_foundation_v1.sql";
+export const AI_TRADER_WATCHLIST_APPLY_MIGRATION = false;
 export const AI_TRADER_DATABASE_TARGET = "EXISTING_STOCKSIST_LOVABLE_SUPABASE" as const;
+export const AI_TRADER_LOVABLE_DRIZZLE_MEMORY_MIRROR =
+  "drizzle/migrations/0051_ai_trader_memory_foundation_v1.sql";
 
 export type SchemaMutability =
   | "strict-append-only"
@@ -193,6 +198,24 @@ export const AI_TRADER_SCHEMA_TABLES: readonly AiTraderSchemaTableSpec[] = [
     vectorSimilarityAppropriate: false,
     existingTableReuse: "none",
   },
+  {
+    name: "ai_trader_watchlist_items",
+    purpose: "Autonomous system-book watchlist current state. Not user watchlists.",
+    mutability: "mutable-current-state",
+    indexes: ["symbol unique", "state,source_rank"],
+    relationships: ["ai_trader_watchlist_transitions", "ai_trader_context_snapshots"],
+    vectorSimilarityAppropriate: false,
+    existingTableReuse: "none — not watchlists",
+  },
+  {
+    name: "ai_trader_watchlist_transitions",
+    purpose: "Append-only autonomous watchlist audit history.",
+    mutability: "strict-append-only",
+    indexes: ["watchlist_item_id,occurred_at"],
+    relationships: ["ai_trader_watchlist_items"],
+    vectorSimilarityAppropriate: false,
+    existingTableReuse: "none",
+  },
 ];
 
 export interface MutabilityMatrixRow {
@@ -331,6 +354,20 @@ export const AI_TRADER_MUTABILITY_MATRIX: readonly MutabilityMatrixRow[] = [
     deleteAllowed: false,
     dbEnforcement: "RLS/grants only; no credentials columns",
   },
+  {
+    table: "ai_trader_watchlist_items",
+    mutability: "mutable-current-state",
+    allowedUpdateFields: ["state", "last_evaluated_at", "current_priority", "source_rank", "reason_codes", "updated_at"],
+    deleteAllowed: false,
+    dbEnforcement: "ai_trader_watchlist_item_guard; identity frozen",
+  },
+  {
+    table: "ai_trader_watchlist_transitions",
+    mutability: "strict-append-only",
+    allowedUpdateFields: [],
+    deleteAllowed: false,
+    dbEnforcement: "ai_trader_reject_mutation UPDATE/DELETE",
+  },
 ];
 
 export function schemaSpecAppliesMigration(): false {
@@ -339,4 +376,8 @@ export function schemaSpecAppliesMigration(): false {
 
 export function schemaAllowsVectorColumns(): false {
   return false;
+}
+
+export function schemaAppliesWatchlistMigration(): false {
+  return AI_TRADER_WATCHLIST_APPLY_MIGRATION;
 }
