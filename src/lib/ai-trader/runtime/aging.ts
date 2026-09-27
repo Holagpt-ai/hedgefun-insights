@@ -1,5 +1,5 @@
 import type { AiTraderWatchlistItem } from "@/lib/ai-trader/domain/watchlist";
-import { SHADOW_RUNTIME_CONFIG } from "@/lib/ai-trader/runtime/config";
+import { cooldownUntilIso } from "@/lib/ai-trader/runtime/observation-policy";
 import type { WatchlistProposal } from "@/lib/ai-trader/market/watchlist-engine";
 
 export function applyCooldownExpiry(
@@ -28,5 +28,5 @@ export function applyCooldownExpiry(
 }
 
 export function cooldownUntilFrom(nowMs: number): string {
-  return new Date(nowMs + SHADOW_RUNTIME_CONFIG.cooldownDurationMs).toISOString();
+  return cooldownUntilIso(nowMs);
 }

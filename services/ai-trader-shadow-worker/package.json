@@ -1,0 +1,9 @@
+{
+  "name": "@stocksist/ai-trader-shadow-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node -e \"console.log('Shadow worker is not activated. Refusing to start.'); process.exit(1)\"",
+    "execute": "vite-node --config ../../vitest.config.ts src/main.ts"
+  }
+}

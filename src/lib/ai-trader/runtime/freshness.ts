@@ -1,5 +1,5 @@
 import type { MarketCandidate } from "@/lib/ai-trader/market/candidate";
-import { SHADOW_RUNTIME_CONFIG } from "@/lib/ai-trader/runtime/config";
+import { SHADOW_OBSERVATION_POLICY } from "@/lib/ai-trader/runtime/observation-policy";
 
 export type FreshnessRejection = "STALE_SOURCE_DATA" | "FUTURE_EVIDENCE" | "PRIOR_SESSION_NOT_CURRENT";
 
@@ -16,7 +16,7 @@ export function assessCandidateFreshness(
   if (observedAt) {
     const observedMs = Date.parse(observedAt);
     if (Number.isFinite(observedMs) && observedMs > cycleNowMs) return "FUTURE_EVIDENCE";
-    if (Number.isFinite(observedMs) && cycleNowMs - observedMs > SHADOW_RUNTIME_CONFIG.staleAfterMs) {
+    if (Number.isFinite(observedMs) && cycleNowMs - observedMs > SHADOW_OBSERVATION_POLICY.staleAfterMs) {
       return "STALE_SOURCE_DATA";
     }
   }

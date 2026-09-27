@@ -4,7 +4,7 @@ import {
   canTransitionWatchlistState,
   type AiTraderWatchlistItem,
 } from "@/lib/ai-trader/domain/watchlist";
-import { SHADOW_RUNTIME_CONFIG } from "@/lib/ai-trader/runtime/config";
+import { isHighPriorityObservation } from "@/lib/ai-trader/runtime/observation-policy";
 import type { WatchlistProposal } from "@/lib/ai-trader/market/watchlist-engine";
 
 /**
@@ -88,7 +88,7 @@ function nextOnBoardState(
   if (existing.state === "DISCOVERED") return "RESEARCHING";
   if (existing.state === "RESEARCHING") return "WATCHING";
   if (existing.state === "WATCHING") {
-    return sourceRank <= SHADOW_RUNTIME_CONFIG.highPriorityMaxSourceRank ? "HIGH_PRIORITY" : "WATCHING";
+    return isHighPriorityObservation(sourceRank) ? "HIGH_PRIORITY" : "WATCHING";
   }
   if (existing.state === "HIGH_PRIORITY") return "HIGH_PRIORITY";
   return assertSprint3AEngineState(existing.state);

@@ -5,6 +5,7 @@ import {
   type AiTraderWatchlistItem,
   type AiTraderWatchlistSprint3AState,
 } from "@/lib/ai-trader/domain/watchlist";
+import { isHighPriorityObservation } from "@/lib/ai-trader/runtime/observation-policy";
 
 export interface WatchlistProposal {
   symbol: string;
@@ -17,8 +18,6 @@ export interface WatchlistProposal {
   catalystRefs: readonly unknown[];
   marketEvidenceRefs: readonly unknown[];
 }
-
-const HIGH_PRIORITY_RANK_CEILING = 3;
 
 function proposeNextState(
   existing: AiTraderWatchlistItem | undefined,
@@ -39,7 +38,7 @@ function proposeNextState(
   if (existing.state === "DISCOVERED") return "RESEARCHING";
   if (existing.state === "RESEARCHING") return "WATCHING";
   if (existing.state === "WATCHING") {
-    return sourceRank <= HIGH_PRIORITY_RANK_CEILING ? "HIGH_PRIORITY" : "WATCHING";
+    return isHighPriorityObservation(sourceRank) ? "HIGH_PRIORITY" : "WATCHING";
   }
   if (existing.state === "HIGH_PRIORITY") return "HIGH_PRIORITY";
   return assertSprint3AEngineState(existing.state);

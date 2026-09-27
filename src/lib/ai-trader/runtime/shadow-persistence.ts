@@ -2,6 +2,13 @@ import type { AiTraderWatchlistItem } from "@/lib/ai-trader/domain/watchlist";
 import type { AiTraderObservation } from "@/lib/ai-trader/domain/memory";
 import type { WatchlistProposal } from "@/lib/ai-trader/market/watchlist-engine";
 
+export interface ShadowWatchlistChangeRequest extends WatchlistProposal {
+  cycleId: string;
+  policyVersion: string;
+  contextSnapshotId?: string | null;
+  sourceObservationIdentity?: string | null;
+}
+
 export interface ShadowWriteCounts {
   watchlistWrites: number;
   transitionWrites: number;
@@ -13,7 +20,10 @@ export interface ShadowWriteCounts {
 
 export interface ShadowPersistence {
   listWatchlistItems(): Promise<readonly AiTraderWatchlistItem[]>;
-  persistWatchlistChange(proposal: WatchlistProposal, occurredAt: string): Promise<"inserted" | "updated" | "unchanged" | "duplicate">;
+  persistWatchlistChange(
+    proposal: ShadowWatchlistChangeRequest,
+    occurredAt: string,
+  ): Promise<"inserted" | "updated" | "unchanged" | "duplicate" | "conflict">;
   upsertContextSnapshot(input: {
     symbol: string;
     observedAt: string;

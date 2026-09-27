@@ -1,8 +1,12 @@
 import type { AiTraderWatchlistItem, AiTraderWatchlistTransition } from "@/lib/ai-trader/domain/watchlist";
-import { assertSprint3AEngineState, canTransitionWatchlistState } from "@/lib/ai-trader/domain/watchlist";
+import { assertSprint3AEngineState } from "@/lib/ai-trader/domain/watchlist";
+import { buildWatchlistTransitionIdempotencyKey } from "@/lib/ai-trader/domain/watchlist-transition-rpc";
 import { isUndefinedTableError, MemoryPersistenceError, type SqlExecutor } from "@/lib/ai-trader/persistence/executor";
+import { applyWatchlistTransitionRpc } from "@/lib/ai-trader/persistence/watchlist-transition-rpc";
 import { parseNullableNumeric } from "@/lib/ai-trader/persistence/row-mappers";
 import type { WatchlistProposal } from "@/lib/ai-trader/market/watchlist-engine";
+import { cooldownUntilFrom } from "@/lib/ai-trader/runtime/aging";
+import { SHADOW_OBSERVATION_POLICY } from "@/lib/ai-trader/runtime/observation-policy";
 
 function jsonArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
@@ -60,80 +64,49 @@ export async function persistWatchlistProposal(
   executor: SqlExecutor,
   proposal: WatchlistProposal,
   occurredAt: string,
+  cycle?: { cycleId: string; policyVersion?: string; sourceObservationIdentity?: string | null },
 ): Promise<{ item: AiTraderWatchlistItem; transition: Pick<AiTraderWatchlistTransition, "newState"> }> {
   const nextState = assertSprint3AEngineState(proposal.nextState);
-  const existingRows = await run(
+  const result = await applyWatchlistTransitionRpc(executor, {
+    symbol: proposal.symbol,
+    newState: nextState,
+    expectedPriorState: proposal.priorState,
+    idempotencyKey: buildWatchlistTransitionIdempotencyKey({
+      symbol: proposal.symbol,
+      priorState: proposal.priorState,
+      newState: nextState,
+      cycleId: cycle?.cycleId ?? "unspecified-cycle",
+      policyVersion: cycle?.policyVersion ?? SHADOW_OBSERVATION_POLICY.version,
+      sourceObservationIdentity: cycle?.sourceObservationIdentity ?? null,
+    }),
+    occurredAt,
+    sourceRank: proposal.sourceRank,
+    source: proposal.source,
+    sourceSession: proposal.sourceSession,
+    reasonCodes: proposal.reasonCodes,
+    evidenceIds: [],
+    contextSnapshotId: null,
+    actorType: "SYSTEM",
+    catalystRefs: proposal.catalystRefs,
+    marketEvidenceRefs: proposal.marketEvidenceRefs,
+    cooldownUntil: nextState === "COOLDOWN" ? cooldownUntilFrom(Date.parse(occurredAt)) : null,
+  });
+  if (result.status === "CONFLICT") {
+    throw new MemoryPersistenceError("WATCHLIST_CONFLICT", result.message ?? "watchlist transition conflict");
+  }
+  if (result.status === "PROHIBITED_STATE") {
+    throw new MemoryPersistenceError("PROHIBITED_STATE", result.message ?? "prohibited watchlist state");
+  }
+  if (result.status === "INVALID_TRANSITION") {
+    throw new MemoryPersistenceError("INVALID_TRANSITION", result.message ?? "invalid watchlist transition");
+  }
+  if (result.status === "FAILED") {
+    throw new MemoryPersistenceError("RPC_NOT_APPLIED", result.message ?? "watchlist transition RPC failed");
+  }
+  const rows = await run(
     executor,
     `SELECT * FROM public.ai_trader_watchlist_items WHERE symbol = $1 LIMIT 1`,
     [proposal.symbol],
   );
-  const existing = existingRows[0] ? mapItem(existingRows[0]) : null;
-  if (existing && !canTransitionWatchlistState(existing.state, nextState) && existing.state !== nextState) {
-    throw new MemoryPersistenceError("NOT_SUPPORTED_YET", `Illegal watchlist transition ${existing.state} → ${nextState}`);
-  }
-
-  let itemRows: Record<string, unknown>[];
-  if (!existing) {
-    itemRows = await run(
-      executor,
-      `INSERT INTO public.ai_trader_watchlist_items (
-        symbol, state, discovered_at, last_evaluated_at, current_priority, source, source_rank,
-        source_session, catalyst_refs, market_evidence_refs, reason_codes
-      ) VALUES ($1,$2,$3,$3,$4,$5,$4,$6,$7,$8,$9)
-      RETURNING *`,
-      [
-        proposal.symbol,
-        nextState,
-        occurredAt,
-        proposal.sourceRank,
-        proposal.source,
-        proposal.sourceSession,
-        proposal.catalystRefs,
-        proposal.marketEvidenceRefs,
-        proposal.reasonCodes,
-      ],
-    );
-  } else {
-    itemRows = await run(
-      executor,
-      `UPDATE public.ai_trader_watchlist_items
-       SET state = $2, last_evaluated_at = $3, current_priority = $4, source = $5, source_rank = $4,
-           source_session = $6, catalyst_refs = $7, market_evidence_refs = $8, reason_codes = $9, updated_at = $3
-       WHERE id = $1
-       RETURNING *`,
-      [
-        existing.id,
-        nextState,
-        occurredAt,
-        proposal.sourceRank,
-        proposal.source,
-        proposal.sourceSession,
-        proposal.catalystRefs,
-        proposal.marketEvidenceRefs,
-        proposal.reasonCodes,
-      ],
-    );
-  }
-
-  await run(
-    executor,
-    `INSERT INTO public.ai_trader_watchlist_transitions (
-      watchlist_item_id, symbol, prior_state, new_state, occurred_at, reason_codes,
-      evidence_ids, source_rank, actor_type, source
-    ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
-    [
-      itemRows[0]?.id,
-      proposal.symbol,
-      proposal.priorState,
-      nextState,
-      occurredAt,
-      proposal.reasonCodes,
-      [],
-      proposal.sourceRank,
-      "SYSTEM",
-      proposal.source,
-    ],
-  );
-
-  return { item: mapItem(itemRows[0] ?? {}), transition: { newState: nextState } };
+  return { item: mapItem(rows[0] ?? {}), transition: { newState: nextState } };
 }

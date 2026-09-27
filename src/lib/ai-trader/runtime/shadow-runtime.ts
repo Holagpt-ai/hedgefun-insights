@@ -12,8 +12,11 @@ import { createSilentShadowLogger, type ShadowRuntimeLogger } from "@/lib/ai-tra
 import { resolveAiTraderMarketSession, resolveSurveillanceDate } from "@/lib/ai-trader/runtime/market-session-policy";
 import { observationSourceEventKey, buildRealObservations } from "@/lib/ai-trader/runtime/observation-builder";
 import { observationRuntimePermitted, offCycleSkipResult } from "@/lib/ai-trader/runtime/operating-mode-gate";
-import type { ShadowPersistence } from "@/lib/ai-trader/runtime/shadow-persistence";
+import { MemoryPersistenceError } from "@/lib/ai-trader/persistence/executor";
+import { SHADOW_OBSERVATION_POLICY } from "@/lib/ai-trader/runtime/observation-policy";
+import type { ShadowPersistence, ShadowWatchlistChangeRequest } from "@/lib/ai-trader/runtime/shadow-persistence";
 import { proposeShadowWatchlistChanges } from "@/lib/ai-trader/runtime/watchlist-policy";
+import type { WatchlistProposal } from "@/lib/ai-trader/market/watchlist-engine";
 
 export interface ShadowRuntimeDeps {
   readOperatingMode: () => Promise<AiTraderOperatingMode>;
@@ -23,6 +26,15 @@ export interface ShadowRuntimeDeps {
   resolveSession?: (nowMs: number) => AiTraderMarketSession;
   logger?: ShadowRuntimeLogger;
   workerId?: string;
+}
+
+function sourceObservationIdentity(proposal: WatchlistProposal): string {
+  const ref = proposal.marketEvidenceRefs[0];
+  if (ref && typeof ref === "object") {
+    const row = ref as Record<string, unknown>;
+    return [row.table, row.generationId, row.sourceRank].filter((part) => part != null && part !== "").join(":");
+  }
+  return `${proposal.source}:${proposal.sourceRank}`;
 }
 
 function emptyResult(cycleId: string, status: ShadowCycleResult["status"], reason?: string): ShadowCycleResult {
@@ -165,12 +177,35 @@ export function createAiTraderShadowRuntime(deps: ShadowRuntimeDeps) {
           if (proposal.nextState === "COOLDOWN") {
             proposal.reasonCodes = [...proposal.reasonCodes];
           }
-          const result = await deps.persistence.persistWatchlistChange(proposal, started.toISOString());
+          const request: ShadowWatchlistChangeRequest = {
+            ...proposal,
+            cycleId,
+            policyVersion: SHADOW_OBSERVATION_POLICY.version,
+            sourceObservationIdentity: sourceObservationIdentity(proposal),
+          };
+          const result = await deps.persistence.persistWatchlistChange(request, started.toISOString());
           if (result === "unchanged" || result === "duplicate") continue;
+          if (result === "conflict") {
+            errors.push({
+              scope: "CANDIDATE",
+              symbol: proposal.symbol,
+              code: "WATCHLIST_CONFLICT",
+              message: "stale expected watchlist state",
+            });
+            continue;
+          }
           transitionedCount += 1;
           if (proposal.nextState === "DISCOVERED" && proposal.priorState == null) discoveredCount += 1;
           if (proposal.nextState === "REMOVED") removedCount += 1;
         } catch (error) {
+          if (error instanceof MemoryPersistenceError && error.code === "RPC_NOT_APPLIED") {
+            return {
+              ...emptyResult(cycleId, "FAILED", "TRANSITION_RPC_UNAVAILABLE"),
+              observedCandidateCount: board.length,
+              eligibleCandidateCount: eligible.length,
+              errors: [{ scope: "SYSTEMIC", code: "TRANSITION_RPC_UNAVAILABLE", message: error.message }],
+            };
+          }
           errors.push({
             scope: "CANDIDATE",
             symbol: proposal.symbol,

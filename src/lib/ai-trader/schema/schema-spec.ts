@@ -5,6 +5,9 @@ export const AI_TRADER_MEMORY_MIGRATION_FILENAME =
 export const AI_TRADER_WATCHLIST_MIGRATION_FILENAME =
   "20260927230000_ai_trader_watchlist_foundation_v1.sql";
 export const AI_TRADER_WATCHLIST_APPLY_MIGRATION = false;
+export const AI_TRADER_WATCHLIST_TRANSITION_RPC_MIGRATION_FILENAME =
+  "20260928000000_ai_trader_watchlist_transition_rpc_v1.sql";
+export const AI_TRADER_WATCHLIST_TRANSITION_RPC_APPLY_MIGRATION = false;
 export const AI_TRADER_DATABASE_TARGET = "EXISTING_STOCKSIST_LOVABLE_SUPABASE" as const;
 export const AI_TRADER_LOVABLE_DRIZZLE_MEMORY_MIRROR =
   "drizzle/migrations/0051_ai_trader_memory_foundation_v1.sql";
@@ -380,4 +383,8 @@ export function schemaAllowsVectorColumns(): false {
 
 export function schemaAppliesWatchlistMigration(): false {
   return AI_TRADER_WATCHLIST_APPLY_MIGRATION;
+}
+
+export function schemaAppliesWatchlistTransitionRpc(): false {
+  return AI_TRADER_WATCHLIST_TRANSITION_RPC_APPLY_MIGRATION;
 }

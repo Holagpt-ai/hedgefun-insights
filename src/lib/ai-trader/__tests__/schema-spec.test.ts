@@ -7,7 +7,10 @@ import {
   AI_TRADER_SCHEMA_TABLES,
   AI_TRADER_WATCHLIST_APPLY_MIGRATION,
   AI_TRADER_WATCHLIST_MIGRATION_FILENAME,
+  AI_TRADER_WATCHLIST_TRANSITION_RPC_APPLY_MIGRATION,
+  AI_TRADER_WATCHLIST_TRANSITION_RPC_MIGRATION_FILENAME,
   schemaAllowsVectorColumns,
+  schemaAppliesWatchlistTransitionRpc,
   schemaSpecAppliesMigration,
 } from "@/lib/ai-trader/schema/schema-spec";
 
@@ -18,6 +21,7 @@ describe("AI Trader schema proposal", () => {
       "20260927220000_ai_trader_memory_foundation_v1.sql",
     );
     expect(schemaSpecAppliesMigration()).toBe(false);
+    expect(schemaAppliesWatchlistTransitionRpc()).toBe(false);
     expect(schemaAllowsVectorColumns()).toBe(false);
     expect(AI_TRADER_SCHEMA_TABLES.every((table) => table.vectorSimilarityAppropriate === false)).toBe(true);
   });
@@ -44,6 +48,10 @@ describe("AI Trader schema proposal", () => {
     expect(AI_TRADER_WATCHLIST_APPLY_MIGRATION).toBe(false);
     expect(AI_TRADER_WATCHLIST_MIGRATION_FILENAME).toBe(
       "20260927230000_ai_trader_watchlist_foundation_v1.sql",
+    );
+    expect(AI_TRADER_WATCHLIST_TRANSITION_RPC_APPLY_MIGRATION).toBe(false);
+    expect(AI_TRADER_WATCHLIST_TRANSITION_RPC_MIGRATION_FILENAME).toBe(
+      "20260928000000_ai_trader_watchlist_transition_rpc_v1.sql",
     );
     expect(names).toContain("ai_trader_watchlist_items");
     expect(names).not.toContain("watchlists");

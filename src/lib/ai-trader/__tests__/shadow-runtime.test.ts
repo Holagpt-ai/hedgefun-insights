@@ -285,6 +285,7 @@ describe("AI Trader shadow observation runtime", () => {
       sessionPolicyAvailable: true,
       persistence: createMemoryShadowPersistence(),
       operatingModeReadable: true,
+      transitionRpcPresent: true,
     }).status).toBe("READY");
     expect(evaluateShadowReadiness({
       runtimeSchemaPresent: false,
@@ -293,6 +294,7 @@ describe("AI Trader shadow observation runtime", () => {
       sessionPolicyAvailable: true,
       persistence: createMemoryShadowPersistence(),
       operatingModeReadable: true,
+      transitionRpcPresent: true,
     }).status).toBe("NOT_READY");
     expect(AI_TRADER_CURRENT_OPERATING_MODE).toBe("OFF");
     expect(AI_TRADER_SHELL_SNAPSHOT.statusCopy).toBe(AI_TRADER_OFF_COPY);

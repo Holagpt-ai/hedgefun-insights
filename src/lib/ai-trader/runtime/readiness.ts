@@ -9,6 +9,7 @@ export interface ShadowReadinessInput {
   sessionPolicyAvailable: boolean;
   persistence: ShadowPersistence | null;
   operatingModeReadable: boolean;
+  transitionRpcPresent: boolean;
 }
 
 export function evaluateShadowReadiness(input: ShadowReadinessInput): ShadowReadinessResult {
@@ -19,6 +20,7 @@ export function evaluateShadowReadiness(input: ShadowReadinessInput): ShadowRead
   if (!input.sessionPolicyAvailable) reasons.push("SESSION_POLICY_MISSING");
   if (!input.persistence) reasons.push("PERSISTENCE_MISSING");
   if (!input.operatingModeReadable) reasons.push("OPERATING_MODE_UNREADABLE");
+  if (!input.transitionRpcPresent) reasons.push("TRANSITION_RPC_MISSING");
   reasons.push("BROKER_NOT_REQUIRED");
   reasons.push("MODEL_NOT_REQUIRED");
   const blocking = reasons.filter((reason) => !reason.endsWith("_NOT_REQUIRED"));

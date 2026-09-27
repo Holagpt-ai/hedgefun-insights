@@ -1,4 +1,10 @@
-export type PersistenceCode = "NOT_SUPPORTED_YET" | "TABLES_NOT_APPLIED";
+export type PersistenceCode =
+  | "NOT_SUPPORTED_YET"
+  | "TABLES_NOT_APPLIED"
+  | "RPC_NOT_APPLIED"
+  | "WATCHLIST_CONFLICT"
+  | "INVALID_TRANSITION"
+  | "PROHIBITED_STATE";
 
 export class MemoryPersistenceError extends Error {
   readonly code: PersistenceCode;
@@ -22,4 +28,10 @@ export function isUndefinedTableError(error: unknown): boolean {
   const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
   const message = error instanceof Error ? error.message : String(error);
   return code === "42P01" || /relation .* does not exist/i.test(message);
+}
+
+export function isUndefinedFunctionError(error: unknown): boolean {
+  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  const message = error instanceof Error ? error.message : String(error);
+  return code === "42883" || /function .* does not exist/i.test(message);
 }
