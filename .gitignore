@@ -23,3 +23,8 @@ dist-ssr
 *.sln
 *.sw?
 *.tsbuildinfo
+
+# Local review / Supabase CLI ephemeral state (not part of product source)
+.shadow-review/
+supabase/.branches/
+supabase/.temp/

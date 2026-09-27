@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// HedgeFun Stock Screener — Filter Registry
+// Stocksist Stock Screener — Filter Registry
 // ─────────────────────────────────────────────────────────────────────────────
 // HOW TO ADD A NEW FILTER:
 //   1. Add a new FilterDef object to the FILTERS array below.

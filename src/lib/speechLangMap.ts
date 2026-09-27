@@ -1,4 +1,4 @@
-// Maps HedgeFun's internal language codes to BCP-47 speech recognition
+// Maps Stocksist internal language codes to BCP-47 speech recognition
 // language tags. Decoupled from LanguageContext's `Language` type so this
 // can grow independently — add a new key here when a language is added
 // to LanguageContext, no other changes required.

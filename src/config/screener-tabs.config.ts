@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// HedgeFun Dashboard Screeners — Tab Registry
+// Stocksist Dashboard Screeners — Tab Registry
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ColumnFormat =

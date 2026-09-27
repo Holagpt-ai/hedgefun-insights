@@ -1,4 +1,4 @@
-// Core domain types for HedgeFun
+// Core domain types for Stocksist
 
 export interface Stock {
   id: string;

@@ -1,4 +1,4 @@
-// Client-side streaming chat helper for HedgeFun AI
+// Client-side streaming chat helper for Stocksist AI
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
 /** Client-side ceiling for a single streamed analysis request (fetch + SSE body). */
