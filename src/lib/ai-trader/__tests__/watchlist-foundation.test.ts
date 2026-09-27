@@ -223,7 +223,7 @@ describe("AI Trader watchlist + market intelligence", () => {
     expect(drizzle).toContain("CREATE TABLE public.ai_trader_runtime");
     const types = readFileSync(join(repoRoot, "src/integrations/supabase/types.ts"), "utf8");
     expect(types).toContain("ai_trader_runtime");
-    expect(types).not.toContain("ai_trader_watchlist_items");
+    expect(types).toContain("ai_trader_watchlist_items");
     expect(AI_TRADER_CURRENT_OPERATING_MODE).toBe("OFF");
     expect(AI_TRADER_SHELL_SNAPSHOT.statusCopy).toBe(AI_TRADER_OFF_COPY);
     expect(AI_TRADER_SHELL_SNAPSHOT.watchlist).toEqual([]);
