@@ -10,6 +10,7 @@ import { StatusBadge } from "../components/StatusBadge";
 import { useJournalLang, useJournalT } from "../i18n";
 import { formatR, signedMoney } from "../lib/format";
 import { canCloseTrade } from "../lib/trade-actions";
+import { JournalTradeWorkflowLinks } from "../components/JournalTradeWorkflowLinks";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 import type { Outcome, TradeStatus } from "../calc/types";
@@ -77,13 +78,16 @@ export function TradesPage() {
               <TableCell className="tabular-nums">{microsToNumber(calc.remainingQuantity).toFixed(0)}</TableCell>
               <TableCell className={`tabular-nums ${calc.netRealizedPnl >= 0n ? "journal-gain" : "journal-loss"}`}>{signedMoney(calc.netRealizedPnl, lang)}</TableCell>
               <TableCell className="tabular-nums">{formatR(calc.rMultiple)}</TableCell>
-              <TableCell className="space-x-1">
+              <TableCell className="space-y-1 min-w-[11rem]">
+                <JournalTradeWorkflowLinks symbol={trade.symbol} />
+                <div className="flex flex-wrap gap-1">
                 <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/trades/${trade.id}`}>{t("trades.open")}</Link></Button>
                 <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/trades/${trade.id}`}>{t("trades.addExecution")}</Link></Button>
                 {canCloseTrade(calc.status) ? (
                   <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/trades/${trade.id}`}>{t("trades.close")}</Link></Button>
                 ) : null}
                 <Button asChild size="sm" variant="ghost"><Link to={`${JOURNAL_BASE}/daily-review/${trade.sessionDate}`}>{t("trades.review")}</Link></Button>
+                </div>
               </TableCell>
             </TableRow>
             {expanded === trade.id ? (

@@ -33,6 +33,7 @@ import { useJournalLang, useJournalT } from "../i18n";
 import { deleteOwnedTrade } from "../lib/delete-owned";
 import { formatR, money, signedMoney } from "../lib/format";
 import type { JournalLiveClient } from "../lib/live-client";
+import { JournalTradeWorkflowLinks } from "../components/JournalTradeWorkflowLinks";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
 
@@ -64,9 +65,10 @@ export function TradeDetailPage() {
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-lg font-bold">{trade.symbol}</h1>
-        <div className="flex items-center gap-2">
+        <JournalTradeWorkflowLinks symbol={trade.symbol} />
+        <div className="flex items-center gap-2 sm:ml-auto">
           <StatusBadge status={calc.status} outcome={calc.outcome} />
           {mode === "demo" ? null : (
             <Button
