@@ -1411,6 +1411,7 @@ export type Database = {
           created_at: string
           evidence_ids: string[]
           id: string
+          idempotency_key: string | null
           new_state: string
           occurred_at: string
           prior_state: string | null
@@ -1428,6 +1429,7 @@ export type Database = {
           created_at?: string
           evidence_ids?: string[]
           id?: string
+          idempotency_key?: string | null
           new_state: string
           occurred_at: string
           prior_state?: string | null
@@ -1445,6 +1447,7 @@ export type Database = {
           created_at?: string
           evidence_ids?: string[]
           id?: string
+          idempotency_key?: string | null
           new_state?: string
           occurred_at?: string
           prior_state?: string | null
@@ -9038,6 +9041,10 @@ export type Database = {
     }
     Functions: {
       _wl_v2_has_forbidden_key: { Args: { p_val: Json }; Returns: boolean }
+      ai_trader_apply_watchlist_transition_v1: {
+        Args: { p_row: Json }
+        Returns: Json
+      }
       ai_trader_replace_regime_profile_v1: {
         Args: { p_row: Json }
         Returns: string
