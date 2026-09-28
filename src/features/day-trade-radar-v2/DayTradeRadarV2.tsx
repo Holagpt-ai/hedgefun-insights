@@ -14,6 +14,7 @@ import { MultiRadarWorkspace } from "./MultiRadarWorkspace";
 import { RadarRepeatMoversSection } from "./RadarRepeatMoversSection";
 import { REPEAT_MOVERS_IDLE } from "@/lib/radar/repeat-movers-load-state";
 import { isRadarRowAccessible } from "./radar-metrics";
+import { buildDayTradeRadarOpportunityBoard } from "./day-trade-radar-opportunity";
 import type { RadarRankedRow } from "./types";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 
@@ -57,12 +58,7 @@ export function DayTradeRadarV2({
     return () => window.clearInterval(id);
   }, []);
 
-  const {
-    ranked,
-    selection,
-    activeRow,
-    selectRow,
-  } = useRadarSelection({
+  const { ranked, selection, activeRow, selectRow } = useRadarSelection({
     rows: selectionRows,
     status: resolved.status,
     isPro,
@@ -71,9 +67,16 @@ export function DayTradeRadarV2({
     traderLensBounds: { min: null, max: null },
   });
 
+  const opportunityBoard = useMemo(
+    () => buildDayTradeRadarOpportunityBoard(ranked, nowMs),
+    [ranked, nowMs],
+  );
+
+  const deskRows = opportunityBoard.topOpportunities;
+
   const lensRows = useMemo(
-    () => ranked.map((row, index) => ({ ...row, access_rank: index + 1 })),
-    [ranked],
+    () => deskRows.map((row, index) => ({ ...row, access_rank: index + 1 })),
+    [deskRows],
   );
 
   const activeAccessRank =
@@ -123,11 +126,13 @@ export function DayTradeRadarV2({
     if (resolved.status === "unavailable") {
       return "Screener data is temporarily unavailable. No unverified rows are being shown.";
     }
-    if (resolved.status === "empty" || (boardVisible && ranked.length === 0)) {
-      return "No qualifying movers yet.";
+    if (resolved.status === "empty" || (boardVisible && deskRows.length === 0)) {
+      return opportunityBoard.candidateUniverseCount > 0
+        ? "No qualifying Radar opportunities right now."
+        : "No qualifying movers yet.";
     }
     return null;
-  }, [resolved.status, boardVisible, ranked.length]);
+  }, [resolved.status, boardVisible, deskRows.length, opportunityBoard.candidateUniverseCount]);
 
   const detailPanel = (
     <RadarDetailPanel
@@ -145,7 +150,8 @@ export function DayTradeRadarV2({
     <div className="space-y-2">
       <RadarStatusRail
         status={resolved.status}
-        qualifyingCount={boardVisible ? ranked.length : 0}
+        qualifyingCount={boardVisible ? opportunityBoard.candidateUniverseCount : 0}
+        topOpportunityCount={boardVisible ? deskRows.length : 0}
         syncedAt={resolved.syncedAt}
         providerAsOfMax={resolved.providerAsOfMax}
         marketFeed={marketFeed}
@@ -167,9 +173,10 @@ export function DayTradeRadarV2({
         </div>
       )}
 
-      {boardVisible && ranked.length > 0 && (
+      {boardVisible && deskRows.length > 0 && (
         <MultiRadarWorkspace
-          rows={lensRows}
+          rows={ranked}
+          dayTradeRows={lensRows}
           selectedSymbol={pinnedSymbol}
           isPro={isPro}
           freeRowLimit={freeRowLimit}
@@ -180,7 +187,7 @@ export function DayTradeRadarV2({
         />
       )}
 
-      {boardVisible && ranked.length > 0 && (
+      {boardVisible && deskRows.length > 0 && (
         <RadarRepeatMoversSection
           loadState={repeatMoversLoadState}
           onRetry={onRepeatMoversRetry}
@@ -230,7 +237,7 @@ export function DayTradeRadarV2({
             onClick={() => navigate("/pro")}
             className="text-[12px] font-semibold text-accent-blue hover:underline"
           >
-            Unlock all {lensRows.length} results with Pro access →
+            Unlock all {opportunityBoard.candidateUniverseCount} detected candidates with Pro access →
           </button>
           <p className="text-xs text-muted-foreground text-center mt-2">
             Or go Unlimited for full access.
