@@ -8,7 +8,15 @@ import { toCanonicalUtcTimestamp } from "@/lib/screeners/trigger-time";
 import { formatCompactNumber, finiteMetric } from "@/lib/screeners/screener-metric-display";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import { RADAR_COLUMN_STORAGE_KEY } from "./radar-grid-columns";
+import {
+  DAY_TRADE_EMPTY_MESSAGE,
+  compareDayTradeOpportunity,
+  filterDayTradePanelRows,
+  qualifiesDayTradeMomentum,
+} from "./day-trade-strategy";
 import type { RadarRankedRow } from "./types";
+
+export { DAY_TRADE_EMPTY_MESSAGE, DAY_TRADE_RADAR_MAX_ROWS } from "./day-trade-strategy";
 
 export const MULTI_RADAR_DESK_NAME = "DAY TRADE DESK";
 export const MULTI_RADAR_STORAGE_KEY = "stocksist.day-trade-radar.workspace.v1";
@@ -196,7 +204,7 @@ const PANEL_META: Record<
 > = {
   day_trade: {
     title: "DAY TRADE",
-    subtitle: "Active stocks in play today",
+    subtitle: "Small-account long momentum · $2–$20 · Top 10",
     leaderLabel: "TOP LEADER",
     columns: DAY_TRADE_DEFAULT_COLUMNS,
   },
@@ -533,15 +541,26 @@ export function qualifyPanelRows(
   rows: readonly RadarRankedRow[],
   panel: RadarPanelId,
   band: PennyPriceBandId = "under_1",
+  nowMs = Date.now(),
 ): RadarRankedRow[] {
   if (panel === "breakouts") return rows.filter((row) => qualifiesBreakouts(row));
   if (panel === "penny") return rows.filter((row) => qualifiesPennyPrice(row.price, band));
+  if (panel === "day_trade") return filterDayTradePanelRows(rows, nowMs);
   return [...rows];
+}
+
+export function panelDisplayRank(panel: RadarPanelId, row: RadarRankedRow): number {
+  if (panel === "day_trade" && row.day_trade_rank != null) return row.day_trade_rank;
+  return row.rank;
 }
 
 export function sortPanelRows(rows: readonly RadarRankedRow[], panel: RadarPanelId, sort: PanelSortId): RadarRankedRow[] {
   const copy = [...rows];
   if (sort === "rank") {
+    if (panel === "day_trade") {
+      copy.sort((a, b) => panelDisplayRank(panel, a) - panelDisplayRank(panel, b));
+      return copy;
+    }
     copy.sort((a, b) => a.rank - b.rank);
     return copy;
   }
@@ -564,46 +583,26 @@ export function sortPanelRows(rows: readonly RadarRankedRow[], panel: RadarPanel
   return copy;
 }
 
-export function selectDayTradeLeader(rows: readonly RadarRankedRow[]): RadarRankedRow | null {
-  if (rows.length === 0) return null;
-  return [...rows].sort((a, b) => a.rank - b.rank)[0] ?? null;
+export function selectDayTradeLeader(
+  rows: readonly RadarRankedRow[],
+  nowMs = Date.now(),
+): RadarRankedRow | null {
+  const qualified = rows.filter(qualifiesDayTradeMomentum);
+  if (qualified.length === 0) return null;
+  return [...qualified].sort((a, b) => compareDayTradeOpportunity(a, b, nowMs))[0] ?? null;
 }
 
-/** Inclusive bands for the Day Trade Desk featured card only. */
-export const TRADABLE_LEADER_PREFERRED_BAND = { min: 2, max: 25 } as const;
-export const TRADABLE_LEADER_WIDENED_BAND = { min: 1, max: 30 } as const;
-
-function verifiedPriceInBand(
-  price: number | null | undefined,
-  band: { min: number; max: number },
-): boolean {
-  const n = finiteMetric(price);
-  return n !== null && n >= band.min && n <= band.max;
-}
-
-/**
- * Featured Day Trade Desk leader.
- * Keeps existing rank order inside each price band.
- * Does not reorder or hide the scanner rows.
- */
+/** Featured Day Trade Desk leader (#1 Day Trade opportunity). */
 export function selectTradableFeaturedLeader(
   rows: readonly RadarRankedRow[],
+  nowMs = Date.now(),
 ): RadarRankedRow | null {
-  if (rows.length === 0) return null;
-  const ranked = [...rows].sort((a, b) => a.rank - b.rank);
-  const preferred = ranked.find((row) =>
-    verifiedPriceInBand(row.price, TRADABLE_LEADER_PREFERRED_BAND)
-  );
-  if (preferred) return preferred;
-  const widened = ranked.find((row) =>
-    verifiedPriceInBand(row.price, TRADABLE_LEADER_WIDENED_BAND)
-  );
-  if (widened) return widened;
-  return ranked[0] ?? null;
+  return selectDayTradeLeader(rows, nowMs);
 }
 
 export function selectPennyLeader(rows: readonly RadarRankedRow[]): RadarRankedRow | null {
-  return selectDayTradeLeader(rows);
+  if (rows.length === 0) return null;
+  return [...rows].sort((a, b) => a.rank - b.rank)[0] ?? null;
 }
 
 export function selectBreakoutLeader(rows: readonly RadarRankedRow[]): RadarRankedRow | null {
@@ -623,8 +622,12 @@ export function selectBreakoutLeader(rows: readonly RadarRankedRow[]): RadarRank
   return ranked[0] ?? null;
 }
 
-export function selectPanelLeader(panel: RadarPanelId, rows: readonly RadarRankedRow[]): RadarRankedRow | null {
+export function selectPanelLeader(
+  panel: RadarPanelId,
+  rows: readonly RadarRankedRow[],
+  nowMs = Date.now(),
+): RadarRankedRow | null {
   if (panel === "breakouts") return selectBreakoutLeader(rows);
   if (panel === "penny") return selectPennyLeader(rows);
-  return selectTradableFeaturedLeader(rows);
+  return selectTradableFeaturedLeader(rows, nowMs);
 }

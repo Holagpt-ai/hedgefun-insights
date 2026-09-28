@@ -72,6 +72,8 @@ export interface LegacyConfirmationFields {
 export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, LegacyConfirmationFields, RadarHistoricalContextFields {
   /** Authoritative volume-first rank derived from verified backend order (1-based). */
   rank: number;
+  /** Day Trade panel rank (#1–#10) after strategy filter; independent of Radar rank. */
+  day_trade_rank?: number;
   /**
    * 1-based position within the currently visible Trader Lens view.
    * Free-plan unlocking uses this so the first visible rows stay usable.

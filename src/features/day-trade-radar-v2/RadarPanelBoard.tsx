@@ -47,6 +47,8 @@ import {
   formatVolumeSpeedExact,
   formatVolumeSpeedSpotlight,
   panelAgeLabel,
+  DAY_TRADE_EMPTY_MESSAGE,
+  panelDisplayRank,
   panelMeta,
   panelTime,
   type PanelColumnId,
@@ -372,7 +374,11 @@ export function RadarPanelBoard({
             })}
           </tbody>
         </table>
-        {rows.length === 0 ? <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">No qualifying names.</p> : null}
+        {rows.length === 0 ? (
+          <p className="px-3 py-6 text-center text-[12px] text-muted-foreground" data-testid={`panel-empty-${panel}`}>
+            {panel === "day_trade" ? DAY_TRADE_EMPTY_MESSAGE : "No qualifying names."}
+          </p>
+        ) : null}
       </div>
       ) : (
       <div className="space-y-2 p-2" data-testid={`panel-cards-${panel}`}>
@@ -433,7 +439,13 @@ function renderCell(args: {
       </div>
     );
   }
-  if (id === "rank") return <span className="tabular-nums font-semibold text-muted-foreground">{row.rank}</span>;
+  if (id === "rank") {
+    return (
+      <span className="tabular-nums font-semibold text-muted-foreground">
+        {panelDisplayRank(args.panel, row)}
+      </span>
+    );
+  }
   if (id === "symbol") {
     const signal = deskRowSignal(row, args.age);
     return (

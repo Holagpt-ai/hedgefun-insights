@@ -75,17 +75,17 @@ export function MultiRadarWorkspace({
   const views = useMemo(() => {
     return PANELS.map((id) => {
       const state = workspace.panels[id];
-      const qualified = qualifyPanelRows(rows, id, state.priceBand);
+      const qualified = qualifyPanelRows(rows, id, state.priceBand, nowMs);
       const filtered = qualified.filter((row) => rowMatchesPanelFilters(row, state.filters));
       const sorted = sortPanelRows(filtered, id, state.sort);
       return {
         id,
         rows: sorted,
-        leader: selectPanelLeader(id, filtered),
+        leader: selectPanelLeader(id, filtered, nowMs),
         state,
       };
     });
-  }, [rows, workspace]);
+  }, [rows, workspace, nowMs]);
 
   const visible = isMobile ? views.filter((view) => view.id === workspace.mobilePanel) : views;
 
