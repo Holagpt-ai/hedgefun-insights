@@ -372,6 +372,13 @@
       "when": 1790536784969,
       "tag": "0052_ai_trader_watchlist_foundation_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1790635564365,
+      "tag": "0053_ai_trader_watchlist_transition_rpc_v1",
+      "breakpoints": true
     }
   ]
 }
