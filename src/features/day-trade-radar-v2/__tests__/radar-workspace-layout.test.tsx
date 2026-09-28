@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import { DayTradeRadarV2 } from "../DayTradeRadarV2";
 import { RadarLeaderStrip } from "../RadarLeaderStrip";
-import type { RadarRankedRow } from "../types";
+import type { RadarRankedRow, RadarRankingFields } from "../types";
 
 vi.mock("@/hooks/useAddToWatchlist", () => ({
   useAddToWatchlist: () => ({
@@ -68,8 +68,9 @@ vi.mock("@/hooks/use-mobile", () => ({
 }));
 
 function row(
-  overrides: Partial<ScreenerResultRow> & Pick<ScreenerResultRow, "symbol" | "volume">,
-): ScreenerResultRow {
+  overrides: Partial<ScreenerResultRow & RadarRankingFields> &
+    Pick<ScreenerResultRow, "symbol" | "volume">,
+): ScreenerResultRow & RadarRankingFields {
   return {
     tab_id: "day_trade_radar",
     company_name: overrides.company_name ?? `${overrides.symbol} Corp`,

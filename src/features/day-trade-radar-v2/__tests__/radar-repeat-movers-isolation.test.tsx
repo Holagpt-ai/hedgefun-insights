@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
 import { historyContextLabel } from "../HistoricalBehavior";
+import type { RadarRankingFields } from "../types";
 import { DayTradeRadarV2 } from "../DayTradeRadarV2";
 import { RadarRepeatMoversSection } from "../RadarRepeatMoversSection";
 
@@ -68,8 +69,9 @@ vi.mock("@/hooks/use-mobile", () => ({
 }));
 
 function row(
-  overrides: Partial<ScreenerResultRow> & Pick<ScreenerResultRow, "symbol" | "volume">,
-): ScreenerResultRow {
+  overrides: Partial<ScreenerResultRow & RadarRankingFields> &
+    Pick<ScreenerResultRow, "symbol" | "volume">,
+): ScreenerResultRow & RadarRankingFields {
   return {
     tab_id: "day_trade_radar",
     company_name: overrides.company_name ?? `${overrides.symbol} Corp`,
