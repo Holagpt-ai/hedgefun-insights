@@ -3,6 +3,17 @@ import type { ScreenerDataSource } from "@/lib/screeners/screener-copy";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
 import type { RepeatMoversLoadState } from "@/lib/radar/repeat-movers-load-state";
+import type { DayTradeAttentionTier } from "@/config/day-trade-radar-opportunity.config";
+
+export interface DayTradeRadarOpportunityBreakdown {
+  volumeLiquidity: number;
+  momentum: number;
+  freshness: number;
+  hodStructure: number;
+  catalystEvent: number;
+  tradability: number;
+  historical: number;
+}
 
 /** Versioned ranking interface — future burst fields stay optional until verified. */
 export interface RadarRankingFields {
@@ -72,6 +83,13 @@ export interface LegacyConfirmationFields {
 export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, LegacyConfirmationFields, RadarHistoricalContextFields {
   /** Authoritative volume-first rank derived from verified backend order (1-based). */
   rank: number;
+  /** Volume-first discovery rank preserved when opportunity re-ranking is applied. */
+  volume_rank?: number;
+  /** Deterministic Top-10 opportunity composite (0–100 scale). */
+  opportunity_score?: number;
+  opportunity_breakdown?: DayTradeRadarOpportunityBreakdown;
+  /** PRIME / ACTIVE / WATCH — attention tier from opportunity rank, not a trade call. */
+  attention_tier?: DayTradeAttentionTier | null;
   /**
    * 1-based position within the currently visible Trader Lens view.
    * Free-plan unlocking uses this so the first visible rows stay usable.

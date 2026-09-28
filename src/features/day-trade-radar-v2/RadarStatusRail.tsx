@@ -2,6 +2,7 @@ import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import { MarketDataStatus } from "@/components/screener/MarketDataStatus";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import type { RadarEngineSource } from "./types";
+import { formatDayTradeRadarStatusSuffix } from "./day-trade-radar-opportunity";
 
 /**
  * Legacy / RTH-snapshot engine chips. Kept for source-state honesty tests.
@@ -73,6 +74,8 @@ export function formatHealthyRadarFeedLine(
 interface RadarStatusRailProps {
   status: ScreenerUiStatus;
   qualifyingCount: number;
+  /** Ranked Top-10 desk count (≤ qualifyingCount). */
+  topOpportunityCount?: number;
   syncedAt: string | null;
   providerAsOfMax: string | null;
   marketFeed?: MarketFeedTelemetry | null;
@@ -87,6 +90,7 @@ interface RadarStatusRailProps {
 export function RadarStatusRail({
   status,
   qualifyingCount,
+  topOpportunityCount = 0,
   syncedAt,
   providerAsOfMax,
   marketFeed = null,
@@ -99,7 +103,10 @@ export function RadarStatusRail({
 
   const suffix =
     qualifyingCount > 0 && (status === "available" || status === "stale")
-      ? `${qualifyingCount} Radar candidates`
+      ? formatDayTradeRadarStatusSuffix({
+          candidateUniverseCount: qualifyingCount,
+          topOpportunityCount,
+        })
       : null;
 
   if (abnormal) {

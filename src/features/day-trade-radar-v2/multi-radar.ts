@@ -626,5 +626,5 @@ export function selectBreakoutLeader(rows: readonly RadarRankedRow[]): RadarRank
 export function selectPanelLeader(panel: RadarPanelId, rows: readonly RadarRankedRow[]): RadarRankedRow | null {
   if (panel === "breakouts") return selectBreakoutLeader(rows);
   if (panel === "penny") return selectPennyLeader(rows);
-  return selectTradableFeaturedLeader(rows);
+  return selectDayTradeLeader(rows);
 }

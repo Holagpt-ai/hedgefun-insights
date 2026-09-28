@@ -240,7 +240,7 @@ describe("leaders and storage reset", () => {
       row({ symbol: "RICH", rank: 3, price: 40 }),
     ];
     expect(selectTradableFeaturedLeader(rows)?.symbol).toBe("TRADE");
-    expect(selectPanelLeader("day_trade", rows)?.symbol).toBe("TRADE");
+    expect(selectPanelLeader("day_trade", rows)?.symbol).toBe("PENNY");
     expect(selectPanelLeader("penny", rows)?.symbol).toBe("PENNY");
     expect(sortPanelRows(rows, "day_trade", "rank").map((item) => item.symbol)).toEqual([
       "PENNY",
