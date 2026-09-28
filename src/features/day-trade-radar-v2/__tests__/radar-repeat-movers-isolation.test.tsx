@@ -98,8 +98,18 @@ function row(
 }
 
 const BOARD = [
-  row({ symbol: "AEHL", volume: 5_000_000, price: 8.84, change_percent: 71.3 }),
-  row({ symbol: "HIGH", volume: 1_000_000, price: 15.2 }),
+  row({
+    symbol: "AEHL",
+    volume: 5_000_000,
+    price: 8.84,
+    change_percent: 71.3,
+    vol_velocity: 400_000,
+    rolling_volume_60s: 80_000,
+    freshness_class: "fresh",
+    volume_acceleration_pct: 80,
+    signal_status: "EXPLOSIVE",
+  }),
+  row({ symbol: "HIGH", volume: 1_000_000, price: 15.2, change_percent: 3 }),
 ];
 
 const emptyRepeatMoversView: RadarRepeatMoversView = {

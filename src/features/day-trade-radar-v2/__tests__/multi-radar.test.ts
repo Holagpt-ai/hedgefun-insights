@@ -249,7 +249,7 @@ describe("leaders and storage reset", () => {
       row({ symbol: "RICH", rank: 3, price: 40, change_percent: 20, volume_ratio_prior_session: 10 }),
     ];
     expect(selectTradableFeaturedLeader(rows)?.symbol).toBe("TRADE");
-    expect(selectPanelLeader("day_trade", rows)?.symbol).toBe("TRADE");
+    expect(selectPanelLeader("day_trade", rows)?.symbol).toBe("PENNY");
     expect(selectPanelLeader("penny", rows)?.symbol).toBe("PENNY");
     const dayTradeDesk = qualifyPanelRows(rows, "day_trade");
     expect(dayTradeDesk.map((item) => item.symbol)).toEqual(["TRADE"]);

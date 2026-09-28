@@ -34,6 +34,7 @@ function persist(state: MultiRadarWorkspaceState) {
 
 export function MultiRadarWorkspace({
   rows,
+  dayTradeRows,
   selectedSymbol,
   isPro,
   freeRowLimit,
@@ -43,6 +44,8 @@ export function MultiRadarWorkspace({
   closedSnapshot = false,
 }: {
   rows: RadarRankedRow[];
+  /** Opportunity-ranked Top-10 desk rows; when set, the Day Trade panel uses these instead of the full universe. */
+  dayTradeRows?: RadarRankedRow[];
   selectedSymbol: string | null;
   isPro: boolean;
   freeRowLimit: number;
@@ -75,7 +78,10 @@ export function MultiRadarWorkspace({
   const views = useMemo(() => {
     return PANELS.map((id) => {
       const state = workspace.panels[id];
-      const qualified = qualifyPanelRows(rows, id, state.priceBand, nowMs);
+      const qualified =
+        id === "day_trade" && dayTradeRows !== undefined
+          ? dayTradeRows
+          : qualifyPanelRows(rows, id, state.priceBand, nowMs);
       const filtered = qualified.filter((row) => rowMatchesPanelFilters(row, state.filters));
       const sorted = sortPanelRows(filtered, id, state.sort);
       return {
@@ -85,7 +91,7 @@ export function MultiRadarWorkspace({
         state,
       };
     });
-  }, [rows, workspace, nowMs]);
+  }, [rows, dayTradeRows, workspace, nowMs]);
 
   const visible = isMobile ? views.filter((view) => view.id === workspace.mobilePanel) : views;
 

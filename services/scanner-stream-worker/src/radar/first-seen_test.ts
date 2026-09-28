@@ -1,6 +1,8 @@
 import { assertEquals } from "jsr:@std/assert";
 import { rememberRadarFirstSeen } from "./first-seen.ts";
 
+/** promoted_at in persistence uses this clock — premarket ~04:00 ET clusters are first qualification. */
+
 Deno.test("first-seen stamps once and ignores later evaluation clocks", () => {
   const clock = new Map<string, number>();
   const first = rememberRadarFirstSeen(clock, "BENF", 1_700_000_000_000);

@@ -629,5 +629,6 @@ export function selectPanelLeader(
 ): RadarRankedRow | null {
   if (panel === "breakouts") return selectBreakoutLeader(rows);
   if (panel === "penny") return selectPennyLeader(rows);
-  return selectTradableFeaturedLeader(rows, nowMs);
+  if (rows.length === 0) return null;
+  return [...rows].sort((a, b) => panelDisplayRank("day_trade", a) - panelDisplayRank("day_trade", b))[0] ?? null;
 }
