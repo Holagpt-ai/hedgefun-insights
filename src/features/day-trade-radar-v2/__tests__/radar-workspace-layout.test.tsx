@@ -4,7 +4,7 @@ import { MemoryRouter } from "react-router-dom";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import { DayTradeRadarV2 } from "../DayTradeRadarV2";
 import { RadarLeaderStrip } from "../RadarLeaderStrip";
-import type { RadarRankedRow } from "../types";
+import type { RadarRankedRow, RadarRankingFields } from "../types";
 
 vi.mock("@/hooks/useAddToWatchlist", () => ({
   useAddToWatchlist: () => ({
@@ -68,8 +68,9 @@ vi.mock("@/hooks/use-mobile", () => ({
 }));
 
 function row(
-  overrides: Partial<ScreenerResultRow> & Pick<ScreenerResultRow, "symbol" | "volume">,
-): ScreenerResultRow {
+  overrides: Partial<ScreenerResultRow & RadarRankingFields> &
+    Pick<ScreenerResultRow, "symbol" | "volume">,
+): ScreenerResultRow & RadarRankingFields {
   return {
     tab_id: "day_trade_radar",
     company_name: overrides.company_name ?? `${overrides.symbol} Corp`,
@@ -98,9 +99,21 @@ function row(
 }
 
 const BOARD = [
-  row({ symbol: "PENNY", volume: 9_000_000, price: 0.8, day_low: 0.5, day_high: 1.2 }),
-  row({ symbol: "AEHL", volume: 5_000_000, price: 8.84, day_low: 5, day_high: 10, change_percent: 71.3 }),
-  row({ symbol: "HIGH", volume: 1_000_000, price: 15.2, day_low: 14, day_high: 16 }),
+  row({ symbol: "PENNY", volume: 9_000_000, price: 0.8, change_percent: 20, day_low: 0.5, day_high: 1.2 }),
+  row({
+    symbol: "AEHL",
+    volume: 5_000_000,
+    price: 8.84,
+    day_low: 5,
+    day_high: 10,
+    change_percent: 71.3,
+    vol_velocity: 400_000,
+    rolling_volume_60s: 80_000,
+    freshness_class: "fresh",
+    volume_acceleration_pct: 80,
+    signal_status: "EXPLOSIVE",
+  }),
+  row({ symbol: "HIGH", volume: 1_000_000, price: 15.2, change_percent: 3, day_low: 14, day_high: 16 }),
 ];
 
 function renderRadar() {
@@ -156,8 +169,8 @@ describe("Radar workspace layout", () => {
     expect(within(screen.getByTestId("active-symbol-rail")).getByText("PENNY")).toBeInTheDocument();
     expect(screen.getByTestId("panel-leader-penny")).toHaveAttribute("data-selected", "true");
     expect(
-      within(screen.getByTestId("radar-panel-day_trade")).queryByRole("row", { name: /PENNY/ }),
-    ).toBeNull();
+      within(screen.getByTestId("radar-panel-day_trade")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "PENNY"),
+    ).toBeUndefined();
     expect(within(screen.getByTestId("radar-panel-penny")).getAllByRole("row").find((row) => row.getAttribute("data-symbol") === "PENNY")).toHaveAttribute("data-selected", "true");
   });
 

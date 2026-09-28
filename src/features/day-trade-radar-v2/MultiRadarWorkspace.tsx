@@ -79,19 +79,19 @@ export function MultiRadarWorkspace({
     return PANELS.map((id) => {
       const state = workspace.panels[id];
       const qualified =
-        id === "day_trade" && dayTradeRows && dayTradeRows.length > 0
+        id === "day_trade" && dayTradeRows !== undefined
           ? dayTradeRows
-          : qualifyPanelRows(rows, id, state.priceBand);
+          : qualifyPanelRows(rows, id, state.priceBand, nowMs);
       const filtered = qualified.filter((row) => rowMatchesPanelFilters(row, state.filters));
       const sorted = sortPanelRows(filtered, id, state.sort);
       return {
         id,
         rows: sorted,
-        leader: selectPanelLeader(id, filtered),
+        leader: selectPanelLeader(id, filtered, nowMs),
         state,
       };
     });
-  }, [rows, dayTradeRows, workspace]);
+  }, [rows, dayTradeRows, workspace, nowMs]);
 
   const visible = isMobile ? views.filter((view) => view.id === workspace.mobilePanel) : views;
 

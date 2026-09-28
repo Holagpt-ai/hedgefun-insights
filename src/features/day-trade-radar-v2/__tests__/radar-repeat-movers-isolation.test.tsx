@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import type { RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
 import { historyContextLabel } from "../HistoricalBehavior";
+import type { RadarRankingFields } from "../types";
 import { DayTradeRadarV2 } from "../DayTradeRadarV2";
 import { RadarRepeatMoversSection } from "../RadarRepeatMoversSection";
 
@@ -68,8 +69,9 @@ vi.mock("@/hooks/use-mobile", () => ({
 }));
 
 function row(
-  overrides: Partial<ScreenerResultRow> & Pick<ScreenerResultRow, "symbol" | "volume">,
-): ScreenerResultRow {
+  overrides: Partial<ScreenerResultRow & RadarRankingFields> &
+    Pick<ScreenerResultRow, "symbol" | "volume">,
+): ScreenerResultRow & RadarRankingFields {
   return {
     tab_id: "day_trade_radar",
     company_name: overrides.company_name ?? `${overrides.symbol} Corp`,
@@ -98,8 +100,18 @@ function row(
 }
 
 const BOARD = [
-  row({ symbol: "AEHL", volume: 5_000_000, price: 8.84, change_percent: 71.3 }),
-  row({ symbol: "HIGH", volume: 1_000_000, price: 15.2 }),
+  row({
+    symbol: "AEHL",
+    volume: 5_000_000,
+    price: 8.84,
+    change_percent: 71.3,
+    vol_velocity: 400_000,
+    rolling_volume_60s: 80_000,
+    freshness_class: "fresh",
+    volume_acceleration_pct: 80,
+    signal_status: "EXPLOSIVE",
+  }),
+  row({ symbol: "HIGH", volume: 1_000_000, price: 15.2, change_percent: 3 }),
 ];
 
 const emptyRepeatMoversView: RadarRepeatMoversView = {

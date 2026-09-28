@@ -90,6 +90,8 @@ export interface LegacyConfirmationFields {
 export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, LegacyConfirmationFields, RadarHistoricalContextFields {
   /** Authoritative volume-first rank derived from verified backend order (1-based). */
   rank: number;
+  /** Day Trade panel rank (#1–#10) after strategy + opportunity ranking; independent of Radar volume rank. */
+  day_trade_rank?: number;
   /** Volume-first discovery rank preserved when opportunity re-ranking is applied. */
   volume_rank?: number;
   /** Deterministic Top-10 opportunity composite (0–100 scale). */

@@ -131,7 +131,7 @@ describe("Day Trade Radar opportunity desk V1.1", () => {
     expect(after.explain.reasons).toContain("volume_surge");
   });
 
-  it("rejects weak illiquid sub-$1 from main desk; allows exceptional sub-$1", () => {
+  it("rejects weak illiquid sub-$1 from main desk; five-pillar strategy excludes sub-$2 even when opportunity-strong", () => {
     const weak = rankRadarRows(
       [row({ symbol: "WEAKP", volume: 200_000, price: 0.18, vol_velocity: 1_000, rolling_volume_60s: 800 })],
       "available",
@@ -156,10 +156,11 @@ describe("Day Trade Radar opportunity desk V1.1", () => {
       "available",
     );
     const board = buildDayTradeRadarOpportunityBoard(strong, NOW);
-    expect(board.topOpportunities.some((r) => r.symbol === "STRONGP")).toBe(true);
+    expect(board.topOpportunities.some((r) => r.symbol === "STRONGP")).toBe(false);
+    expect(board.topOpportunities.some((r) => r.symbol === "MAIN")).toBe(true);
   });
 
-  it("penalizes expensive ordinary tape vs accessible comparable; allows exceptional expensive", () => {
+  it("penalizes expensive ordinary tape vs accessible comparable; strategy excludes >$20 even when momentum is exceptional", () => {
     const accessible = rankRadarRows(
       [
         row({
@@ -219,7 +220,8 @@ describe("Day Trade Radar opportunity desk V1.1", () => {
       "available",
     );
     const board = buildDayTradeRadarOpportunityBoard(exceptionalExpensive, NOW);
-    expect(board.topOpportunities[0]?.symbol).toBe("BIGCAP");
+    expect(board.topOpportunities.some((r) => r.symbol === "BIGCAP")).toBe(false);
+    expect(board.topOpportunities[0]?.symbol).toBe("SMALL");
   });
 
   it("cheap weak setup does not beat stronger liquid accessible setup", () => {

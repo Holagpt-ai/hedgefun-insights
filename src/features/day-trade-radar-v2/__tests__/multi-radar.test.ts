@@ -92,17 +92,19 @@ describe("multi-radar qualification", () => {
   ];
 
   it("keeps one radar universe and allows a name in more than one panel", () => {
-    const pennyBreakout = row({
+    const multiPanel = row({
       symbol: "BOTH",
       rank: 6,
-      price: 0.4,
+      price: 3,
+      change_percent: 15,
+      volume_ratio_prior_session: 8,
       primary_scanner_event: "VWAP_RECLAIM",
       scanner_events: [{ type: "VWAP_RECLAIM", triggered_at: BREAKOUT_AT, active: true }],
     });
-    const rows = [...universe, pennyBreakout];
+    const rows = [...universe, multiPanel];
     expect(qualifyPanelRows(rows, "day_trade").map((item) => item.symbol)).toContain("BOTH");
     expect(qualifyPanelRows(rows, "breakouts").map((item) => item.symbol)).toEqual(["BRK", "BOTH"]);
-    expect(qualifyPanelRows(rows, "penny").map((item) => item.symbol)).toEqual(["P99", "BOTH"]);
+    expect(qualifyPanelRows(rows, "penny").map((item) => item.symbol)).toEqual(["P99"]);
   });
 
   it("qualifies penny prices strictly under $1", () => {
@@ -210,10 +212,17 @@ describe("volume language", () => {
 });
 
 describe("leaders and storage reset", () => {
-  it("picks the best radar rank for day trade and event priority for breakouts", () => {
+  it("picks the strongest Day Trade opportunity and event priority for breakouts", () => {
+    const qualified = (overrides: Partial<RadarRankedRow> & Pick<RadarRankedRow, "symbol" | "rank">) =>
+      row({
+        price: 8,
+        change_percent: 15,
+        volume_ratio_prior_session: 10,
+        ...overrides,
+      });
     const rows = [
-      row({ symbol: "SLOW", rank: 2, vol_velocity: 10, volume: 9_000_000 }),
-      row({ symbol: "FAST", rank: 1, vol_velocity: 496_736, volume: 1_000 }),
+      qualified({ symbol: "SLOW", rank: 2, vol_velocity: 10, volume: 9_000_000 }),
+      qualified({ symbol: "FAST", rank: 1, vol_velocity: 496_736, volume: 1_000 }),
       row({
         symbol: "GAP",
         rank: 1,
@@ -232,50 +241,27 @@ describe("leaders and storage reset", () => {
     expect(selectBreakoutLeader(rows)?.symbol).toBe("HOD");
   });
 
-  it("features the highest-ranked $2–$25 name without reordering the desk", () => {
+  it("features the Day Trade #1 opportunity without widening price bands", () => {
     const rows = [
-      row({ symbol: "PENNY", rank: 1, price: 0.03 }),
-      row({ symbol: "WIDE", rank: 2, price: 1.25 }),
-      row({ symbol: "TRADE", rank: 4, price: 8.4 }),
-      row({ symbol: "RICH", rank: 3, price: 40 }),
+      row({ symbol: "PENNY", rank: 1, price: 0.03, change_percent: 20, volume_ratio_prior_session: 10 }),
+      row({ symbol: "WIDE", rank: 2, price: 1.25, change_percent: 20, volume_ratio_prior_session: 10 }),
+      row({ symbol: "TRADE", rank: 4, price: 8.4, change_percent: 20, vol_velocity: 400_000, volume_ratio_prior_session: 10 }),
+      row({ symbol: "RICH", rank: 3, price: 40, change_percent: 20, volume_ratio_prior_session: 10 }),
     ];
     expect(selectTradableFeaturedLeader(rows)?.symbol).toBe("TRADE");
     expect(selectPanelLeader("day_trade", rows)?.symbol).toBe("PENNY");
     expect(selectPanelLeader("penny", rows)?.symbol).toBe("PENNY");
-    expect(sortPanelRows(rows, "day_trade", "rank").map((item) => item.symbol)).toEqual([
-      "PENNY",
-      "WIDE",
-      "RICH",
-      "TRADE",
-    ]);
-    expect(rows.map((item) => item.rank)).toEqual([1, 2, 4, 3]);
+    const dayTradeDesk = qualifyPanelRows(rows, "day_trade");
+    expect(dayTradeDesk.map((item) => item.symbol)).toEqual(["TRADE"]);
+    expect(dayTradeDesk[0]?.day_trade_rank).toBe(1);
   });
 
-  it("falls back to $1–$30 and then to the highest rank", () => {
-    const widened = [
-      row({ symbol: "SUB", rank: 1, price: 0.4 }),
-      row({ symbol: "BAND", rank: 3, price: 1.5 }),
-      row({ symbol: "HIGH", rank: 2, price: 31 }),
-    ];
-    expect(selectTradableFeaturedLeader(widened)?.symbol).toBe("BAND");
-
-    const edges = [
-      row({ symbol: "LOW", rank: 2, price: 2 }),
-      row({ symbol: "HIGHEDGE", rank: 1, price: 25 }),
-    ];
-    expect(selectTradableFeaturedLeader(edges)?.symbol).toBe("HIGHEDGE");
-
+  it("returns null when no names meet Day Trade strategy", () => {
     const outside = [
-      row({ symbol: "TINY", rank: 1, price: 0.03 }),
-      row({ symbol: "EXPENSIVE", rank: 2, price: 80 }),
+      row({ symbol: "TINY", rank: 1, price: 0.03, change_percent: 20, volume_ratio_prior_session: 10 }),
+      row({ symbol: "EXPENSIVE", rank: 2, price: 80, change_percent: 20, volume_ratio_prior_session: 10 }),
     ];
-    expect(selectTradableFeaturedLeader(outside)?.symbol).toBe("TINY");
-
-    const missing = [
-      row({ symbol: "BLANK", rank: 1, price: null }),
-      row({ symbol: "OK", rank: 2, price: 12 }),
-    ];
-    expect(selectTradableFeaturedLeader(missing)?.symbol).toBe("OK");
+    expect(selectTradableFeaturedLeader(outside)).toBeNull();
   });
 
   it("resets legacy scanner column storage onto DAY TRADE DESK", () => {
