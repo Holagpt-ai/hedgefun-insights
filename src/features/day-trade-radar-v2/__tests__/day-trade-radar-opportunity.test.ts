@@ -1,19 +1,24 @@
 import { describe, expect, it } from "vitest";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
+import type { RadarRankingFields } from "../types";
+import { formatScreenerRvol5m } from "@/lib/screeners/screener-metric-display";
 import { rankRadarRows } from "../radar-metrics";
+import { selectPanelLeader } from "../multi-radar";
 import {
   buildDayTradeRadarOpportunityBoard,
   computeDayTradeRadarScore,
   formatDayTradeRadarStatusSuffix,
+  meetsDayTradeRadarEligibility,
   meetsDayTradeRadarLiquidityGate,
+  tradabilityFactor,
 } from "../day-trade-radar-opportunity";
-import { attentionTierForOpportunityRank } from "@/config/day-trade-radar-opportunity.config";
 
 const NOW = Date.parse("2026-09-16T15:00:00.000Z");
 
-function row(
-  overrides: Partial<ScreenerResultRow> & Pick<ScreenerResultRow, "symbol" | "volume">,
-): ScreenerResultRow {
+type RowInput = Partial<ScreenerResultRow & RadarRankingFields> &
+  Pick<ScreenerResultRow, "symbol" | "volume">;
+
+function row(overrides: RowInput): ScreenerResultRow & RadarRankingFields {
   return {
     tab_id: "day_trade_radar",
     company_name: overrides.symbol,
@@ -41,124 +46,327 @@ function row(
   };
 }
 
-describe("Day Trade Radar opportunity desk", () => {
-  it("ranks a cooling high-volume name below an accelerating active name", () => {
+function peersFrom(rows: ReturnType<typeof rankRadarRows>) {
+  return {
+    sessionVolumes: rows.map((r) => r.volume ?? 0),
+    volume60s: rows.map((r) => r.rolling_volume_60s ?? 0).filter((n) => n > 0),
+    velocities: rows.map((r) => r.vol_velocity ?? 0).filter((n) => n > 0),
+    dollar60s: [],
+    rvol5m: rows.map((r) => r.rvol_5m ?? 0).filter((n) => n > 0),
+    timeAdjustedRvol: [],
+    acceleration5m: rows.map((r) => r.acceleration_5m ?? 0).filter((n) => n > 0),
+  };
+}
+
+describe("Day Trade Radar opportunity desk V1.1", () => {
+  it("fresh surging lower session volume beats stale cooling high session volume", () => {
     const universe = rankRadarRows(
       [
         row({
           symbol: "STALEBIG",
-          volume: 13_900_000,
+          volume: 13_000_000,
           freshness_class: "cooling",
-          volume_acceleration_pct: -30,
-          rolling_volume_60s: 40_000,
-          vol_velocity: 3_000,
+          volume_acceleration_pct: -35,
+          rolling_volume_60s: 35_000,
+          vol_velocity: 130_000,
           distance_from_hod_pct: 8,
           signal_status: "COOLING",
           promoted_at: "2026-09-16T08:00:00.000Z",
         }),
         row({
-          symbol: "NOW",
-          volume: 4_000_000,
+          symbol: "SURGING",
+          volume: 3_000_000,
           freshness_class: "fresh",
-          volume_acceleration_pct: 80,
-          rolling_volume_60s: 120_000,
-          vol_velocity: 25_000,
-          acceleration_5m: 4,
-          distance_from_hod_pct: 0.4,
+          volume_acceleration_pct: 120,
+          rolling_volume_60s: 200_000,
+          vol_velocity: 200_000,
+          acceleration_5m: 3.5,
+          distance_from_hod_pct: 0.3,
           signal_status: "EXPLOSIVE",
-          primary_scanner_event: "VOLUME_BURST",
-          promoted_at: "2026-09-16T14:50:00.000Z",
+          promoted_at: "2026-09-16T14:55:00.000Z",
         }),
       ],
       "available",
     );
 
     const board = buildDayTradeRadarOpportunityBoard(universe, NOW);
-    expect(board.topOpportunities[0]?.symbol).toBe("NOW");
-    expect(board.topOpportunities[0]?.volume_rank).toBe(2);
-    expect(board.topOpportunities[0]?.rank).toBe(1);
+    expect(board.topOpportunities[0]?.symbol).toBe("SURGING");
+    const staleScore = computeDayTradeRadarScore(universe[0], peersFrom(universe), NOW);
+    const freshScore = computeDayTradeRadarScore(universe[1], peersFrom(universe), NOW);
+    expect(freshScore.total).toBeGreaterThan(staleScore.total);
+    expect(freshScore.explain.reasons.some((r) => r === "volume_surge" || r === "strong_current_participation")).toBe(true);
+    expect(staleScore.explain.penalties).toContain("cooling_momentum");
   });
 
-  it("does not force ten when fewer names qualify", () => {
-    const universe = rankRadarRows(
+  it("renewed acceleration can restore rank after cooling", () => {
+    const base = row({
+      symbol: "RENEW",
+      volume: 5_000_000,
+      rolling_volume_60s: 80_000,
+      vol_velocity: 8_000,
+      freshness_class: "cooling",
+      volume_acceleration_pct: -25,
+      signal_status: "COOLING",
+      promoted_at: "2026-09-16T07:00:00.000Z",
+    });
+    const cooled = rankRadarRows([base], "available");
+    const reactivated = rankRadarRows(
       [
         row({
-          symbol: "GOOD",
-          volume: 3_000_000,
-          rolling_volume_60s: 90_000,
-          vol_velocity: 12_000,
+          symbol: "RENEW",
+          volume: 5_000_000,
+          rolling_volume_60s: 190_000,
+          vol_velocity: 180_000,
+          freshness_class: "fresh",
+          volume_acceleration_pct: 95,
+          signal_status: "REACTIVATED",
+          promoted_at: "2026-09-16T14:58:00.000Z",
+        }),
+      ],
+      "available",
+    );
+    const before = computeDayTradeRadarScore(cooled[0], peersFrom(cooled), NOW);
+    const after = computeDayTradeRadarScore(reactivated[0], peersFrom(reactivated), NOW);
+    expect(after.total).toBeGreaterThan(before.total);
+    expect(after.explain.reasons).toContain("volume_surge");
+  });
+
+  it("rejects weak illiquid sub-$1 from main desk; allows exceptional sub-$1", () => {
+    const weak = rankRadarRows(
+      [row({ symbol: "WEAKP", volume: 200_000, price: 0.18, vol_velocity: 1_000, rolling_volume_60s: 800 })],
+      "available",
+    )[0];
+    expect(meetsDayTradeRadarEligibility(weak)).toBe(false);
+
+    const strong = rankRadarRows(
+      [
+        row({
+          symbol: "STRONGP",
+          volume: 13_000_000,
+          price: 0.32,
+          vol_velocity: 100_000,
+          rolling_volume_60s: 120_000,
+          rolling_dollar_volume_60s: 350_000,
+          freshness_class: "active",
+          volume_acceleration_pct: 60,
+          signal_status: "BUILDING",
+        }),
+        row({ symbol: "MAIN", volume: 4_000_000, price: 12, rolling_volume_60s: 50_000, vol_velocity: 10_000, freshness_class: "active", volume_acceleration_pct: 20, signal_status: "BUILDING" }),
+      ],
+      "available",
+    );
+    const board = buildDayTradeRadarOpportunityBoard(strong, NOW);
+    expect(board.topOpportunities.some((r) => r.symbol === "STRONGP")).toBe(true);
+  });
+
+  it("penalizes expensive ordinary tape vs accessible comparable; allows exceptional expensive", () => {
+    const accessible = rankRadarRows(
+      [
+        row({
+          symbol: "MID",
+          price: 15,
+          volume: 4_000_000,
+          rolling_volume_60s: 100_000,
+          vol_velocity: 20_000,
           freshness_class: "active",
           volume_acceleration_pct: 40,
           signal_status: "BUILDING",
         }),
+      ],
+      "available",
+    )[0];
+    const expensiveOrdinary = rankRadarRows(
+      [
+        {
+          ...accessible,
+          symbol: "EXPENSIVE",
+          price: 350,
+          volume: 4_000_000,
+        },
+      ],
+      "available",
+    )[0];
+    const peers = peersFrom([accessible, expensiveOrdinary]);
+    const midScore = computeDayTradeRadarScore(accessible, peers, NOW);
+    const expScore = computeDayTradeRadarScore(expensiveOrdinary, peers, NOW);
+    expect(tradabilityFactor(accessible)).toBeGreaterThan(tradabilityFactor(expensiveOrdinary));
+    expect(midScore.total).toBeGreaterThan(expScore.total);
+
+    const exceptionalExpensive = rankRadarRows(
+      [
         row({
-          symbol: "WEAK",
-          volume: 10_000,
-          rolling_volume_60s: 500,
-          vol_velocity: 100,
-          freshness_class: "stale",
-          volume_acceleration_pct: -40,
+          symbol: "BIGCAP",
+          price: 320,
+          volume: 8_000_000,
+          rolling_volume_60s: 250_000,
+          vol_velocity: 80_000,
+          volume_acceleration_pct: 110,
+          signal_status: "EXPLOSIVE",
+          freshness_class: "fresh",
+          distance_from_hod_pct: 0.2,
+        }),
+        row({
+          symbol: "SMALL",
+          price: 12,
+          volume: 2_000_000,
+          rolling_volume_60s: 40_000,
+          vol_velocity: 8_000,
+          volume_acceleration_pct: 15,
+          signal_status: "BUILDING",
+          freshness_class: "active",
         }),
       ],
       "available",
     );
-    const board = buildDayTradeRadarOpportunityBoard(universe, NOW);
-    expect(board.candidateUniverseCount).toBe(2);
-    expect(board.topOpportunities.length).toBeLessThanOrEqual(10);
-    expect(board.topOpportunities.every((r) => r.symbol !== "WEAK" || board.qualifiedCount > 1)).toBe(true);
+    const board = buildDayTradeRadarOpportunityBoard(exceptionalExpensive, NOW);
+    expect(board.topOpportunities[0]?.symbol).toBe("BIGCAP");
   });
 
-  it("caps at ten and assigns attention tiers", () => {
-    const many = rankRadarRows(
-      Array.from({ length: 20 }, (_, i) =>
+  it("cheap weak setup does not beat stronger liquid accessible setup", () => {
+    const universe = rankRadarRows(
+      [
+        row({ symbol: "CHEAP", price: 3, volume: 50_000, vol_velocity: 400, rolling_volume_60s: 400 }),
         row({
-          symbol: `S${i}`,
-          volume: 5_000_000 - i * 100_000,
-          rolling_volume_60s: 80_000 - i * 1_000,
-          vol_velocity: 15_000 - i * 200,
+          symbol: "LIQUID",
+          price: 14,
+          volume: 3_000_000,
+          vol_velocity: 15_000,
+          rolling_volume_60s: 85_000,
           freshness_class: "active",
           volume_acceleration_pct: 35,
           signal_status: "BUILDING",
         }),
-      ),
-      "available",
-    );
-    const board = buildDayTradeRadarOpportunityBoard(many, NOW);
-    expect(board.topOpportunities).toHaveLength(10);
-    expect(board.topOpportunities[0]?.attention_tier).toBe("PRIME");
-    expect(board.topOpportunities[2]?.attention_tier).toBe("PRIME");
-    expect(board.topOpportunities[3]?.attention_tier).toBe("ACTIVE");
-    expect(board.topOpportunities[9]?.attention_tier).toBe("WATCH");
-    expect(attentionTierForOpportunityRank(11)).toBeNull();
-  });
-
-  it("formats transparent candidate vs ranked copy", () => {
-    expect(
-      formatDayTradeRadarStatusSuffix({ candidateUniverseCount: 59, topOpportunityCount: 10 }),
-    ).toBe("59 candidates detected · 10 ranked for Radar");
-    expect(
-      formatDayTradeRadarStatusSuffix({ candidateUniverseCount: 4, topOpportunityCount: 4 }),
-    ).toBe("4 qualifying Radar opportunities");
-  });
-
-  it("keeps sub-$1 names off the main Top-10 desk (Penny panel uses the full universe)", () => {
-    const universe = rankRadarRows(
-      [
-        row({ symbol: "PENNY", volume: 9_000_000, price: 0.5, rolling_volume_60s: 100_000, vol_velocity: 20_000, freshness_class: "active", volume_acceleration_pct: 50, signal_status: "BUILDING" }),
-        row({ symbol: "MAIN", volume: 4_000_000, price: 8, rolling_volume_60s: 90_000, vol_velocity: 18_000, freshness_class: "active", volume_acceleration_pct: 45, signal_status: "BUILDING" }),
       ],
       "available",
     );
     const board = buildDayTradeRadarOpportunityBoard(universe, NOW);
-    expect(board.candidateUniverseCount).toBe(2);
-    expect(board.topOpportunities.every((r) => r.symbol !== "PENNY")).toBe(true);
-    expect(board.topOpportunities[0]?.symbol).toBe("MAIN");
+    expect(board.topOpportunities[0]?.symbol).toBe("LIQUID");
+    expect(board.topOpportunities.some((r) => r.symbol === "CHEAP")).toBe(false);
   });
 
-  it("liquidity gate rejects empty participation without exceptional session volume", () => {
-    const weak = rankRadarRows([row({ symbol: "X", volume: 20_000, rolling_volume_60s: 100 })], "available")[0];
+  it("uses verified catalyst in score when provided in context", () => {
+    const base = rankRadarRows(
+      [
+        row({
+          symbol: "AAA",
+          volume: 3_000_000,
+          rolling_volume_60s: 90_000,
+          vol_velocity: 15_000,
+          freshness_class: "active",
+          volume_acceleration_pct: 30,
+          signal_status: "BUILDING",
+        }),
+      ],
+      "available",
+    )[0];
+    const peers = peersFrom([base]);
+    const neutral = computeDayTradeRadarScore(base, peers, NOW);
+    const withCat = computeDayTradeRadarScore(base, peers, NOW, { verifiedCatalyst: "direct" });
+    expect(withCat.total).toBeGreaterThan(neutral.total);
+    expect(withCat.explain.reasons).toContain("verified_catalyst");
+  });
+
+  it("does not require catalyst for extraordinary tape", () => {
+    const tape = rankRadarRows(
+      [
+        row({
+          symbol: "TAPE",
+          volume: 5_000_000,
+          rolling_volume_60s: 150_000,
+          vol_velocity: 40_000,
+          volume_acceleration_pct: 90,
+          signal_status: "EXPLOSIVE",
+          freshness_class: "fresh",
+          distance_from_hod_pct: 0.4,
+        }),
+      ],
+      "available",
+    )[0];
+    const score = computeDayTradeRadarScore(tape, peersFrom([tape]), NOW);
+    expect(score.eligible).toBe(true);
+    expect(score.explain.components.catalystEvent).toBeLessThanOrEqual(50);
+  });
+
+  it("quality floor returns fewer than ten ranked names", () => {
+    const many = rankRadarRows(
+      [
+        ...Array.from({ length: 3 }, (_, i) =>
+          row({
+            symbol: `GOOD${i}`,
+            volume: 3_000_000 - i * 100_000,
+            rolling_volume_60s: 90_000,
+            vol_velocity: 12_000,
+            freshness_class: "active",
+            volume_acceleration_pct: 35,
+            signal_status: "BUILDING",
+          }),
+        ),
+        ...Array.from({ length: 20 }, (_, i) =>
+          row({
+            symbol: `WEAK${i}`,
+            volume: 2_000 + i,
+            rolling_volume_60s: 400,
+            vol_velocity: 400,
+            freshness_class: "stale",
+            volume_acceleration_pct: -30,
+            signal_status: "COOLING",
+          }),
+        ),
+      ],
+      "available",
+    );
+    const board = buildDayTradeRadarOpportunityBoard(many, NOW);
+    expect(board.candidateUniverseCount).toBe(23);
+    expect(board.qualifiedCount).toBeLessThan(10);
+    expect(board.topOpportunities.length).toBe(board.qualifiedCount);
+    expect(formatDayTradeRadarStatusSuffix({
+      candidateUniverseCount: 59,
+      topOpportunityCount: 7,
+    })).toBe("59 candidates detected · 7 ranked for Radar");
+  });
+
+  it("Top Leader equals opportunity rank #1", () => {
+    const universe = rankRadarRows(
+      [
+        row({ symbol: "VOL1", volume: 10_000_000, rolling_volume_60s: 50_000, vol_velocity: 5_000, freshness_class: "cooling", volume_acceleration_pct: -10, signal_status: "COOLING" }),
+        row({ symbol: "OPP1", volume: 4_000_000, rolling_volume_60s: 120_000, vol_velocity: 25_000, freshness_class: "fresh", volume_acceleration_pct: 70, signal_status: "EXPLOSIVE" }),
+      ],
+      "available",
+    );
+    const board = buildDayTradeRadarOpportunityBoard(universe, NOW);
+    const leader = selectPanelLeader("day_trade", board.topOpportunities);
+    expect(leader?.symbol).toBe(board.topOpportunities[0]?.symbol);
+    expect(leader?.rank).toBe(1);
+  });
+
+  it("rvol_5m null stays honest in display", () => {
+    expect(formatScreenerRvol5m(null)).toBe("—");
+    expect(formatScreenerRvol5m(2.4)).toBe("2.4×");
+  });
+
+  it("liquidity gate rejects 2K / 400 sh min weak tape", () => {
+    const weak = rankRadarRows([row({ symbol: "X", volume: 2_000, rolling_volume_60s: 400, vol_velocity: 400 })], "available")[0];
     expect(meetsDayTradeRadarLiquidityGate(weak)).toBe(false);
-    const score = computeDayTradeRadarScore(weak, { sessionVolumes: [20_000], volume60s: [100], velocities: [], dollar60s: [], rvol5m: [], timeAdjustedRvol: [] }, NOW);
-    expect(score.eligible).toBe(false);
+  });
+
+  it("promoted_at recency uses first-seen semantics (4:00 AM cluster = first qualification, not UI inference)", () => {
+    const early = rankRadarRows(
+      [
+        row({
+          symbol: "PRE",
+          volume: 5_000_000,
+          rolling_volume_60s: 90_000,
+          vol_velocity: 15_000,
+          promoted_at: "2026-09-16T08:00:05.000Z",
+          freshness_class: "cooling",
+          volume_acceleration_pct: -5,
+          signal_status: "COOLING",
+        }),
+      ],
+      "available",
+    )[0];
+    const score = computeDayTradeRadarScore(early, peersFrom([early]), NOW);
+    expect(score.explain.penalties).not.toContain("fabricated_trigger");
+    expect(score.explain.components.freshness).toBeLessThan(70);
   });
 });

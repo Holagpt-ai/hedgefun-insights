@@ -15,6 +15,13 @@ export interface DayTradeRadarOpportunityBreakdown {
   historical: number;
 }
 
+export interface DayTradeRadarOpportunityExplain {
+  components: DayTradeRadarOpportunityBreakdown;
+  weighted: DayTradeRadarOpportunityBreakdown;
+  reasons: string[];
+  penalties: string[];
+}
+
 /** Versioned ranking interface — future burst fields stay optional until verified. */
 export interface RadarRankingFields {
   radar_rank?: number;
@@ -88,6 +95,7 @@ export interface RadarRankedRow extends ScreenerResultRow, RadarRankingFields, L
   /** Deterministic Top-10 opportunity composite (0–100 scale). */
   opportunity_score?: number;
   opportunity_breakdown?: DayTradeRadarOpportunityBreakdown;
+  opportunity_explain?: DayTradeRadarOpportunityExplain;
   /** PRIME / ACTIVE / WATCH — attention tier from opportunity rank, not a trade call. */
   attention_tier?: DayTradeAttentionTier | null;
   /**
