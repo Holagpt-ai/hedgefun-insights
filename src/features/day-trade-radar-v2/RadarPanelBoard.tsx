@@ -57,6 +57,7 @@ import {
   type PennyPriceBandId,
   type RadarPanelId,
 } from "./multi-radar";
+import { formatDayTradeLeaderTiming } from "./day-trade-freshness";
 import type { RadarRankedRow } from "./types";
 
 const SORTS: { id: PanelSortId; label: string }[] = [
@@ -86,6 +87,7 @@ export function RadarPanelLeader({
   selected,
   onSelect,
   onOpenDetails,
+  nowMs,
   closedSnapshot = false,
 }: {
   panel: RadarPanelId;
@@ -93,6 +95,7 @@ export function RadarPanelLeader({
   selected: boolean;
   onSelect: (row: RadarRankedRow) => void;
   onOpenDetails: (row: RadarRankedRow) => void;
+  nowMs: number;
   closedSnapshot?: boolean;
 }) {
   const meta = panelMeta(panel);
@@ -104,6 +107,7 @@ export function RadarPanelLeader({
   const signal = deskRowSignal(row, null);
   const floatShares = floatState.getFloat(row.symbol);
   const catalyst = catalystMap?.get(row.symbol);
+  const leaderTiming = panel === "day_trade" ? formatDayTradeLeaderTiming(row, nowMs) : null;
   return (
     <div
       data-testid={`panel-leader-${panel}`}
@@ -116,6 +120,11 @@ export function RadarPanelLeader({
           {row.symbol}
         </button>
         {signal ? <div className="text-[10px] font-semibold uppercase text-foreground">{signal}</div> : null}
+        {leaderTiming ? (
+          <div className="text-[10px] text-muted-foreground tabular-nums" data-testid="day-trade-leader-timing">
+            {leaderTiming}
+          </div>
+        ) : null}
         <div className="flex gap-2 text-[13px] tabular-nums">
           <span>{formatRadarPrice(row.price)}</span>
           <HintedMetric
@@ -190,6 +199,7 @@ export function RadarPanelBoard({
   onToggleColumn,
   onPriceBand,
   closedSnapshot = false,
+  emptyMessage,
 }: {
   panel: RadarPanelId;
   rows: RadarRankedRow[];
@@ -210,8 +220,13 @@ export function RadarPanelBoard({
   onToggleColumn: (id: PanelColumnId) => void;
   onPriceBand: (band: PennyPriceBandId) => void;
   closedSnapshot?: boolean;
+  emptyMessage?: string;
 }) {
   const meta = panelMeta(panel);
+  const matchLabel =
+    panel === "day_trade"
+      ? `${rows.length} ${rows.length === 1 ? "match" : "matches"}`
+      : `${rows.length} matches`;
   const { add, isAdded, pendingSymbol } = useAddToWatchlist();
   const symbols = useMemo(() => {
     const out: string[] = [];
@@ -234,10 +249,18 @@ export function RadarPanelBoard({
       <header className="flex flex-wrap items-center gap-2 px-3 py-2">
         <div className="mr-auto">
           <div className="flex items-baseline gap-2">
-            <h2 className="text-[13px] font-semibold tracking-wide">{meta.title}</h2>
-            <span className="text-[11px] tabular-nums text-muted-foreground" data-testid={`panel-count-${panel}`}>
-              {rows.length} matches
-            </span>
+            <h2 className="text-[13px] font-semibold tracking-wide">
+              {panel === "day_trade" ? `${meta.title} · ${matchLabel}` : meta.title}
+            </h2>
+            {panel !== "day_trade" ? (
+              <span className="text-[11px] tabular-nums text-muted-foreground" data-testid={`panel-count-${panel}`}>
+                {matchLabel}
+              </span>
+            ) : (
+              <span className="sr-only" data-testid={`panel-count-${panel}`}>
+                {matchLabel}
+              </span>
+            )}
           </div>
           <p className="text-[11px] text-muted-foreground">{meta.subtitle}</p>
         </div>
@@ -307,14 +330,17 @@ export function RadarPanelBoard({
           </PopoverContent>
         </Popover>
       </header>
-      <RadarPanelLeader
-        panel={panel}
-        row={leader}
-        selected={leader !== null && selectedSymbol === leader.symbol}
-        onSelect={onSelect}
-        onOpenDetails={onOpenDetails}
-        closedSnapshot={closedSnapshot}
-      />
+      {leader ? (
+        <RadarPanelLeader
+          panel={panel}
+          row={leader}
+          selected={leader !== null && selectedSymbol === leader.symbol}
+          onSelect={onSelect}
+          onOpenDetails={onOpenDetails}
+          nowMs={nowMs}
+          closedSnapshot={closedSnapshot}
+        />
+      ) : null}
       {layout === "table" ? (
       <div className="overflow-x-auto" data-testid={`panel-table-${panel}`}>
         <table className="w-full text-[11.5px]">
@@ -376,7 +402,7 @@ export function RadarPanelBoard({
         </table>
         {rows.length === 0 ? (
           <p className="px-3 py-6 text-center text-[12px] text-muted-foreground" data-testid={`panel-empty-${panel}`}>
-            {panel === "day_trade" ? DAY_TRADE_EMPTY_MESSAGE : "No qualifying names."}
+            {emptyMessage ?? (panel === "day_trade" ? DAY_TRADE_EMPTY_MESSAGE : "No qualifying names.")}
           </p>
         ) : null}
       </div>

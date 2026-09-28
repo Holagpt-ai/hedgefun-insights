@@ -14,7 +14,8 @@ import { MultiRadarWorkspace } from "./MultiRadarWorkspace";
 import { RadarRepeatMoversSection } from "./RadarRepeatMoversSection";
 import { REPEAT_MOVERS_IDLE } from "@/lib/radar/repeat-movers-load-state";
 import { isRadarRowAccessible } from "./radar-metrics";
-import { buildDayTradeRadarOpportunityBoard } from "./day-trade-radar-opportunity";
+import { DAY_TRADE_EMPTY_MESSAGE } from "./day-trade-strategy";
+import { buildAuthoritativeDayTradeDesk } from "./day-trade-desk";
 import type { RadarRankedRow } from "./types";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 
@@ -68,7 +69,7 @@ export function DayTradeRadarV2({
   });
 
   const opportunityBoard = useMemo(
-    () => buildDayTradeRadarOpportunityBoard(ranked, nowMs),
+    () => buildAuthoritativeDayTradeDesk(ranked, nowMs),
     [ranked, nowMs],
   );
 
@@ -126,13 +127,11 @@ export function DayTradeRadarV2({
     if (resolved.status === "unavailable") {
       return "Screener data is temporarily unavailable. No unverified rows are being shown.";
     }
-    if (resolved.status === "empty" || (boardVisible && deskRows.length === 0)) {
-      return opportunityBoard.candidateUniverseCount > 0
-        ? "No qualifying Radar opportunities right now."
-        : "No qualifying movers yet.";
+    if (resolved.status === "empty" && opportunityBoard.candidateUniverseCount === 0) {
+      return "No qualifying movers yet.";
     }
     return null;
-  }, [resolved.status, boardVisible, deskRows.length, opportunityBoard.candidateUniverseCount]);
+  }, [resolved.status, opportunityBoard.candidateUniverseCount]);
 
   const detailPanel = (
     <RadarDetailPanel
@@ -173,10 +172,11 @@ export function DayTradeRadarV2({
         </div>
       )}
 
-      {boardVisible && deskRows.length > 0 && (
+      {boardVisible && opportunityBoard.candidateUniverseCount > 0 && (
         <MultiRadarWorkspace
           rows={ranked}
           dayTradeRows={lensRows}
+          dayTradeEmptyMessage={DAY_TRADE_EMPTY_MESSAGE}
           selectedSymbol={pinnedSymbol}
           isPro={isPro}
           freeRowLimit={freeRowLimit}
@@ -187,7 +187,7 @@ export function DayTradeRadarV2({
         />
       )}
 
-      {boardVisible && deskRows.length > 0 && (
+      {boardVisible && opportunityBoard.candidateUniverseCount > 0 && (
         <RadarRepeatMoversSection
           loadState={repeatMoversLoadState}
           onRetry={onRepeatMoversRetry}

@@ -3,7 +3,7 @@ import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import type { RadarRankingFields } from "../types";
 import { formatScreenerRvol5m } from "@/lib/screeners/screener-metric-display";
 import { rankRadarRows } from "../radar-metrics";
-import { selectPanelLeader } from "../multi-radar";
+import { authoritativeDayTradeLeader } from "../day-trade-desk";
 import {
   buildDayTradeRadarOpportunityBoard,
   computeDayTradeRadarScore,
@@ -336,7 +336,7 @@ describe("Day Trade Radar opportunity desk V1.1", () => {
       "available",
     );
     const board = buildDayTradeRadarOpportunityBoard(universe, NOW);
-    const leader = selectPanelLeader("day_trade", board.topOpportunities);
+    const leader = authoritativeDayTradeLeader(board.topOpportunities);
     expect(leader?.symbol).toBe(board.topOpportunities[0]?.symbol);
     expect(leader?.rank).toBe(1);
   });

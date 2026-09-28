@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ActiveSymbolRail } from "./ActiveSymbolRail";
 import { HaltsRail } from "./HaltsRail";
+import { authoritativeDayTradeLeader } from "./day-trade-desk";
+import { DAY_TRADE_RADAR_MAX_ROWS } from "./day-trade-strategy";
 import {
   canonicalizePanelColumns,
   defaultWorkspaceState,
@@ -35,6 +37,7 @@ function persist(state: MultiRadarWorkspaceState) {
 export function MultiRadarWorkspace({
   rows,
   dayTradeRows,
+  dayTradeEmptyMessage,
   selectedSymbol,
   isPro,
   freeRowLimit,
@@ -44,8 +47,9 @@ export function MultiRadarWorkspace({
   closedSnapshot = false,
 }: {
   rows: RadarRankedRow[];
-  /** Opportunity-ranked Top-10 desk rows; when set, the Day Trade panel uses these instead of the full universe. */
-  dayTradeRows?: RadarRankedRow[];
+  /** Authoritative Day Trade Top-10 (may be []). Never falls back to the Radar universe. */
+  dayTradeRows: readonly RadarRankedRow[];
+  dayTradeEmptyMessage?: string;
   selectedSymbol: string | null;
   isPro: boolean;
   freeRowLimit: number;
@@ -79,16 +83,21 @@ export function MultiRadarWorkspace({
     return PANELS.map((id) => {
       const state = workspace.panels[id];
       const qualified =
-        id === "day_trade" && dayTradeRows !== undefined
-          ? dayTradeRows
+        id === "day_trade"
+          ? dayTradeRows.slice(0, DAY_TRADE_RADAR_MAX_ROWS)
           : qualifyPanelRows(rows, id, state.priceBand, nowMs);
       const filtered = qualified.filter((row) => rowMatchesPanelFilters(row, state.filters));
       const sorted = sortPanelRows(filtered, id, state.sort);
+      const leader =
+        id === "day_trade"
+          ? authoritativeDayTradeLeader(dayTradeRows)
+          : selectPanelLeader(id, filtered, nowMs);
       return {
         id,
         rows: sorted,
-        leader: selectPanelLeader(id, filtered, nowMs),
+        leader,
         state,
+        emptyMessage: id === "day_trade" ? dayTradeEmptyMessage : undefined,
       };
     });
   }, [rows, dayTradeRows, workspace, nowMs]);
@@ -157,6 +166,7 @@ export function MultiRadarWorkspace({
             }}
             onPriceBand={(priceBand: PennyPriceBandId) => updatePanel(view.id, { priceBand })}
             closedSnapshot={closedSnapshot}
+            emptyMessage={view.emptyMessage}
           />
         ))}
       </div>

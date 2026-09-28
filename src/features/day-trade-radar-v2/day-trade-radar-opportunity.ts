@@ -29,6 +29,7 @@ import {
   type DayTradeAttentionTier,
 } from "@/config/day-trade-radar-opportunity.config";
 import { isFiniteNumber, parseTimestampMs } from "@/lib/screeners/contract";
+import { qualifiesDayTradeFreshness } from "./day-trade-freshness";
 import { qualifiesDayTradeMomentum } from "./day-trade-strategy";
 import { mapVolumeTrend } from "./multi-radar";
 import type {
@@ -501,7 +502,9 @@ export function buildDayTradeRadarOpportunityBoard(
     volume_rank: row.volume_rank ?? row.rank,
   }));
 
-  const strategyUniverse = withVolumeRank.filter(qualifiesDayTradeMomentum);
+  const strategyUniverse = withVolumeRank.filter(
+    (row) => qualifiesDayTradeMomentum(row) && qualifiesDayTradeFreshness(row, nowMs),
+  );
 
   const peers = buildPeerStats(strategyUniverse);
   const scored = strategyUniverse.map((row) => ({
