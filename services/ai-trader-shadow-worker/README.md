@@ -1,27 +1,47 @@
 # AI Trader Shadow worker
 
-This directory is a **future** deployment boundary.
+Trusted server process for the existing AI Trader Shadow runtime. It does not change `ai_trader_runtime.operating_mode`.
 
-Sprint 3C.1 authors a real bootstrap package. It does **not** deploy this worker, create a cron, or write `SHADOW` to production.
+While that mode is `OFF`, each cycle is `SKIPPED` / `OPERATING_MODE_OFF` and writes nothing.
 
-Runtime code lives in `src/lib/ai-trader/runtime/`.
+Runtime code lives in `src/lib/ai-trader/runtime/`. This package is orchestration only.
 
-## Do not start
+## Run
 
-`npm start` refuses on purpose.
+From this directory, after server environment is present:
 
-Invoke only from a trusted server after human activation review:
+```bash
+npm start
+```
 
-1. Apply `20260928000000_ai_trader_watchlist_transition_rpc_v1.sql` via Lovable (not Cursor).
-2. Confirm `evaluateShadowReadiness` is `READY`, including `transitionRpcPresent`.
-3. Set `AI_TRADER_SHADOW_WORKER_ALLOW_EXECUTE=1` only then.
-4. Call `runShadowWorkerBootstrap(deps, readiness, { allowExecute: true })`.
+`npm start` builds a Node bundle and runs it. Importing the module does not start a cycle.
 
-Required future env (never `VITE_*`):
+Required server environment (names only, never `VITE_*`):
 
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- one direct Postgres URL: `HISTORICAL_PRODUCTION_DATABASE_URL`, `LOVABLE_DB_MIGRATION_URL`, `SUPABASE_DB_URL`, or `DATABASE_URL`
 
-Uses the existing Stocksist Supabase. No second database.
+Optional:
 
-OFF mode: the cycle returns `SKIPPED` / `OPERATING_MODE_OFF` and writes nothing.
+- `AI_TRADER_SHADOW_WORKER_POLL_INTERVAL_MS` (default `60000`)
+- `AI_TRADER_SHADOW_WORKER_ID`
+- `AI_TRADER_SHADOW_WORKER_LOG_LEVEL` (`info` or `error`)
+- `AI_TRADER_SHADOW_WORKER_HEALTH_PORT` (default `8080`)
+- `AI_TRADER_SHADOW_WORKER_GIT_SHA`
+
+See `.env.example`. Do not commit values.
+
+## Deploy
+
+Fly app `stocksist-ai-trader-shadow-worker`, from the repository root:
+
+```bash
+fly deploy . --config services/ai-trader-shadow-worker/fly.toml --dockerfile services/ai-trader-shadow-worker/Dockerfile
+```
+
+Set the server environment with `fly secrets set`. Do not put secrets in `fly.toml`.
+
+Health: `GET /health` reports process status, database reachability, operating mode, readiness, and the last cycle disposition. It does not return credentials.
+
+This worker does not activate `SHADOW`, `PAPER`, `CONTROLLED_LIVE`, or `LIVE`.

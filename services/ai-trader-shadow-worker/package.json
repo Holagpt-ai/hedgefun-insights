@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node -e \"console.log('Shadow worker is not activated. Refusing to start.'); process.exit(1)\"",
-    "execute": "vite-node --config ../../vitest.config.ts src/main.ts"
+    "build": "node build.mjs",
+    "start": "node build.mjs && node dist/worker.mjs",
+    "dev": "vite-node --config ../../vitest.config.ts src/main.ts"
   }
 }

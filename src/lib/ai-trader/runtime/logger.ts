@@ -3,7 +3,18 @@ export interface ShadowRuntimeLogger {
   error(event: string, payload: Record<string, unknown>): void;
 }
 
-const FORBIDDEN_LOG_KEYS = ["apiKey", "apiSecret", "serviceRole", "authorization", "token", "chainOfThought"];
+const FORBIDDEN_LOG_KEYS = [
+  "apiKey",
+  "apiSecret",
+  "serviceRole",
+  "serviceRoleKey",
+  "supabaseServiceRoleKey",
+  "authorization",
+  "token",
+  "password",
+  "databaseUrl",
+  "chainOfThought",
+];
 
 export function sanitizeShadowLogPayload(payload: Record<string, unknown>): Record<string, unknown> {
   const next: Record<string, unknown> = {};
@@ -28,6 +39,18 @@ export function createConsoleShadowLogger(): ShadowRuntimeLogger {
     },
     error(event, payload) {
       console.error(JSON.stringify({ event, ...sanitizeShadowLogPayload(payload) }));
+    },
+  };
+}
+
+export function createLeveledShadowLogger(level: "info" | "error"): ShadowRuntimeLogger {
+  const consoleLogger = createConsoleShadowLogger();
+  return {
+    info(event, payload) {
+      if (level === "info") consoleLogger.info(event, payload);
+    },
+    error(event, payload) {
+      consoleLogger.error(event, payload);
     },
   };
 }

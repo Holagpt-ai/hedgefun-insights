@@ -8,11 +8,11 @@ Production writes must go through `ai_trader_apply_watchlist_transition_v1`.
 
 The TypeScript path no longer issues split item/transition statements.
 
-The RPC migration is authored and **not applied**:
+The production RPC is `public.ai_trader_apply_watchlist_transition_v1`.
 
 `supabase/migrations/20260928000000_ai_trader_watchlist_transition_rpc_v1.sql`
 
-Readiness is `NOT_READY` until `transitionRpcPresent` is true.
+The function comment still says `Not applied until Lovable review`. That wording is cosmetic and is not a reason to add another migration from this worker.
 
 ## Observation policy (`shadow-observation-v1`)
 
@@ -31,4 +31,4 @@ COOLDOWN expires after 24 hours → REMOVED.
 
 ## Worker
 
-`services/ai-trader-shadow-worker/` is a future package. Not deployed. `npm start` refuses. Import does nothing.
+`services/ai-trader-shadow-worker/` is the trusted server process. Operating mode stays `OFF` until a separate activation gate. OFF cycles are `SKIPPED` / `OPERATING_MODE_OFF` and do not write.

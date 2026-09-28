@@ -23,12 +23,12 @@ export function loadDotEnvFiles(): void {
 }
 
 /** Requires a direct Postgres URL for the Stocksist production project. */
-export function requireProductionDatabaseUrl(): string {
+export function requireProductionDatabaseUrl(env: NodeJS.Dict<string> = process.env): string {
   const url = (
-    process.env.HISTORICAL_PRODUCTION_DATABASE_URL
-    ?? process.env.LOVABLE_DB_MIGRATION_URL
-    ?? process.env.SUPABASE_DB_URL
-    ?? process.env.DATABASE_URL
+    env.HISTORICAL_PRODUCTION_DATABASE_URL
+    ?? env.LOVABLE_DB_MIGRATION_URL
+    ?? env.SUPABASE_DB_URL
+    ?? env.DATABASE_URL
     ?? ""
   ).trim();
   if (!url) {

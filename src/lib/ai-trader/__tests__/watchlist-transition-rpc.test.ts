@@ -229,6 +229,7 @@ describe("AI Trader watchlist transition RPC + shadow hardening", () => {
     const workerMain = readFileSync(join(repoRoot, "services/ai-trader-shadow-worker/src/main.ts"), "utf8");
     expect(workerMain).not.toMatch(/anthropic|openai|alpaca|broker/i);
     expect(workerMain).not.toContain("VITE_");
-    expect(workerMain).toContain("Import does nothing");
+    expect(workerMain).toContain("does not change operating mode");
+    expect(workerMain).toContain("OPERATING_MODE_OFF");
   });
 });
