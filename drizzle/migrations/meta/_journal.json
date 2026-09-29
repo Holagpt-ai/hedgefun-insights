@@ -379,6 +379,13 @@
       "when": 1790635564365,
       "tag": "0053_ai_trader_watchlist_transition_rpc_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1790726239786,
+      "tag": "0054_20260929193000_watchlist_ai_failure_codes",
+      "breakpoints": true
     }
   ]
 }
