@@ -30,7 +30,17 @@ import {
 } from "@/config/day-trade-radar-opportunity.config";
 import { isFiniteNumber, parseTimestampMs } from "@/lib/screeners/contract";
 import { qualifiesDayTradeFreshness } from "./day-trade-freshness";
-import { qualifiesDayTradeMomentum } from "./day-trade-strategy";
+import {
+  LEGACY_MOVE_MIN_PCT,
+  LEGACY_PRICE_MAX,
+  LEGACY_PRICE_MIN,
+} from "@/lib/screeners/legacy-confirmation";
+import {
+  evaluateDayTradeEligibility,
+  meetsDayTradeParticipation,
+  qualifiesDayTradeMomentum,
+} from "./day-trade-strategy";
+import { finiteMetric } from "@/lib/screeners/screener-metric-display";
 import { mapVolumeTrend } from "./multi-radar";
 import type {
   DayTradeRadarOpportunityBreakdown,
@@ -53,10 +63,30 @@ export interface DayTradeRadarOpportunityScore {
   ineligibleReason?: string;
 }
 
+export interface DayTradeCandidateGateAudit {
+  candidateUniverseCount: number;
+  missingPriceCount: number;
+  priceBelowMinCount: number;
+  priceAboveMaxCount: number;
+  missingMoveCount: number;
+  moveBelowMinimumCount: number;
+  missingParticipationCount: number;
+  participationBelowMinimumCount: number;
+  highFloatCount: number;
+  unknownFloatCount: number;
+  freshnessRejectedCount: number;
+  liquidityRejectedCount: number;
+  subDollarRejectedCount: number;
+  qualifiedStrategyCount: number;
+  qualifiedFreshCount: number;
+  rankedOpportunityCount: number;
+}
+
 export interface DayTradeRadarOpportunityBoard {
   candidateUniverseCount: number;
   qualifiedCount: number;
   topOpportunities: RadarRankedRow[];
+  gateAudit: DayTradeCandidateGateAudit;
 }
 
 const FRESHNESS_SCORE: Record<string, number> = {
@@ -469,6 +499,78 @@ export function computeDayTradeRadarScore(
   };
 }
 
+export function summarizeDayTradeCandidateGates(
+  rankedUniverse: readonly RadarRankedRow[],
+  nowMs: number,
+  rankedOpportunityCount = 0,
+): DayTradeCandidateGateAudit {
+  const audit: DayTradeCandidateGateAudit = {
+    candidateUniverseCount: rankedUniverse.length,
+    missingPriceCount: 0,
+    priceBelowMinCount: 0,
+    priceAboveMaxCount: 0,
+    missingMoveCount: 0,
+    moveBelowMinimumCount: 0,
+    missingParticipationCount: 0,
+    participationBelowMinimumCount: 0,
+    highFloatCount: 0,
+    unknownFloatCount: 0,
+    freshnessRejectedCount: 0,
+    liquidityRejectedCount: 0,
+    subDollarRejectedCount: 0,
+    qualifiedStrategyCount: 0,
+    qualifiedFreshCount: 0,
+    rankedOpportunityCount,
+  };
+
+  for (const row of rankedUniverse) {
+    const price = finiteMetric(row.price);
+    if (price === null) {
+      audit.missingPriceCount += 1;
+    } else {
+      if (price < LEGACY_PRICE_MIN) audit.priceBelowMinCount += 1;
+      if (price > LEGACY_PRICE_MAX) audit.priceAboveMaxCount += 1;
+    }
+
+    const move = finiteMetric(row.change_percent);
+    if (move === null) {
+      audit.missingMoveCount += 1;
+    } else if (move < LEGACY_MOVE_MIN_PCT) {
+      audit.moveBelowMinimumCount += 1;
+    }
+
+    const eligibility = evaluateDayTradeEligibility(row);
+    const participation = meetsDayTradeParticipation(row);
+    const hasParticipationMetric =
+      participation.classicRvol !== null ||
+      finiteMetric(row.volume_ratio_prior_session) !== null ||
+      finiteMetric(row.rvol_5m) !== null ||
+      finiteMetric(row.time_adjusted_rvol) !== null;
+    if (!hasParticipationMetric) {
+      audit.missingParticipationCount += 1;
+    } else if (!participation.pass) {
+      audit.participationBelowMinimumCount += 1;
+    }
+
+    if (eligibility.floatGate === "fail_high_float") audit.highFloatCount += 1;
+    if (eligibility.floatGate === "unknown") audit.unknownFloatCount += 1;
+
+    if (!meetsDayTradeRadarLiquidityGate(row)) audit.liquidityRejectedCount += 1;
+    if (!meetsSubDollarMainDeskBar(row)) audit.subDollarRejectedCount += 1;
+
+    if (qualifiesDayTradeMomentum(row)) {
+      audit.qualifiedStrategyCount += 1;
+      if (qualifiesDayTradeFreshness(row, nowMs)) {
+        audit.qualifiedFreshCount += 1;
+      } else {
+        audit.freshnessRejectedCount += 1;
+      }
+    }
+  }
+
+  return audit;
+}
+
 function compareOpportunity(
   a: { row: RadarRankedRow; score: DayTradeRadarOpportunityScore },
   b: { row: RadarRankedRow; score: DayTradeRadarOpportunityScore },
@@ -494,7 +596,12 @@ export function buildDayTradeRadarOpportunityBoard(
 ): DayTradeRadarOpportunityBoard {
   const candidateUniverseCount = rankedUniverse.length;
   if (candidateUniverseCount === 0) {
-    return { candidateUniverseCount: 0, qualifiedCount: 0, topOpportunities: [] };
+    return {
+      candidateUniverseCount: 0,
+      qualifiedCount: 0,
+      topOpportunities: [],
+      gateAudit: summarizeDayTradeCandidateGates(rankedUniverse, nowMs, 0),
+    };
   }
 
   const withVolumeRank = rankedUniverse.map((row) => ({
@@ -535,6 +642,7 @@ export function buildDayTradeRadarOpportunityBoard(
     candidateUniverseCount,
     qualifiedCount: qualified.length,
     topOpportunities: top,
+    gateAudit: summarizeDayTradeCandidateGates(rankedUniverse, nowMs, top.length),
   };
 }
 

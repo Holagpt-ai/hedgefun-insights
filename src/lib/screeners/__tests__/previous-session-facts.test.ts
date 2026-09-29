@@ -69,4 +69,16 @@ describe("candidate previous-session facts", () => {
     expect(facts.previous_close).toBe(8);
     expect(facts.previous_close).not.toBeCloseTo(fromLast, 6);
   });
+
+  it("persists verified prevDay.c during premarket when regular close is absent", () => {
+    const facts = candidatePreviousSessionFacts({
+      regularClose: null,
+      previousClose: 2.35,
+      changePercent: 0,
+      priorVolume: 94_000,
+      lastPrice: 2.71,
+    });
+    expect(facts.previous_close).toBe(2.35);
+    expect(facts.prior_session_volume).toBe(94_000);
+  });
 });

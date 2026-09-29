@@ -222,6 +222,35 @@ export function gapPercent(
 }
 
 /**
+ * Extended-session last from Polygon lastTrade.p, else minute close min.c.
+ * Never uses todaysChangePerc or day.c as a stand-in for the live last.
+ */
+export function extendedSessionLastPrice(t: PolygonTicker): number | null {
+  const lastTrade = safeNumber(t?.lastTrade?.p);
+  if (lastTrade !== null && lastTrade > 0) return lastTrade;
+  const minClose = safeNumber(t?.min?.c);
+  if (minClose !== null && minClose > 0) return minClose;
+  return null;
+}
+
+/**
+ * Move vs the prior regular-session official close (prevDay.c).
+ * During extended hours the last is extendedSessionLastPrice when available.
+ */
+export function changePercentVsPriorRegularClose(
+  lastPrice: number | null,
+  t: PolygonTicker,
+): number | null {
+  const prev = previousRegularClose(t);
+  if (lastPrice === null || !(lastPrice > 0) || prev === null || prev === 0) {
+    return null;
+  }
+  const pct = ((lastPrice - prev) / prev) * 100;
+  if (!Number.isFinite(pct)) return null;
+  return pct;
+}
+
+/**
  * Regular-session close from Polygon day.c only.
  * Never substitutes lastTrade / min / todaysChange fields.
  */
