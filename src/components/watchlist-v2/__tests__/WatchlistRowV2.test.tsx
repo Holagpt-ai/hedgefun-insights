@@ -105,14 +105,19 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
     expect(container.innerHTML).not.toMatch(/AI failed/i);
   });
 
-  it("shows market data age only from a real persisted timestamp", () => {
+  it("shows canonical trust state from a real persisted snapshot timestamp", () => {
     const ts = Date.now() - 12 * 60_000;
     const { getByText, container } = renderRow(row({
+      direction: "neutral",
+      failureReason: null,
+      explanation: "ok",
+      hasV2: true,
+      validThrough: new Date(Date.now() + 60 * 60_000).toISOString(),
       inputsQuality: { snapshot_ts_ms: ts },
     }));
-    expect(getByText("Market data 12m old")).toBeInTheDocument();
-    const missing = renderRow(row({ inputsQuality: {} }));
-    expect(missing.container.textContent).not.toMatch(/Market data /);
+    expect(getByText(/Fresh · updated 12m ago/i)).toBeInTheDocument();
+    const missing = renderRow(row({ inputsQuality: {}, hasV2: true, validThrough: new Date(Date.now() + 60_000).toISOString() }));
+    expect(missing.container.textContent).toMatch(/Unavailable/i);
     expect(container.textContent).not.toMatch(/estimated/i);
   });
 

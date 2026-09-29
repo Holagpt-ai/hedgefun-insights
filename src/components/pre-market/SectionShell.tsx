@@ -1,7 +1,13 @@
 import { ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { etTimestampLabel, relativeAge } from "@/lib/pre-market/builders";
+import { etTimestampLabel } from "@/lib/pre-market/builders";
+import {
+  formatMarketDataTrustLine,
+  PRE_MARKET_INDEX_STALE_MS,
+  resolvePreMarketSectionTrust,
+  trustStateTone,
+} from "@/lib/market-data/trust-states";
 import type { SectionEnvelope } from "@/types/pre-market";
 
 interface SectionShellProps<T> {
@@ -15,6 +21,7 @@ interface SectionShellProps<T> {
   children: ReactNode;
   /** Skip the built-in empty short-circuit (used by object-shaped sections). */
   renderWhenEmpty?: boolean;
+  staleAfterMs?: number;
 }
 
 export const REASON_TEXT: Record<string, string> = {
@@ -58,15 +65,22 @@ export function SectionHeading({
   );
 }
 
-export function FreshnessLine({ section }: { section: SectionEnvelope<unknown> | null }) {
+export function FreshnessLine({
+  section,
+  staleAfterMs = PRE_MARKET_INDEX_STALE_MS,
+}: {
+  section: SectionEnvelope<unknown> | null;
+  staleAfterMs?: number;
+}) {
   if (!section?.as_of) return null;
-  const age = relativeAge(section.as_of);
   const exact = etTimestampLabel(section.as_of);
   if (!exact) return null;
+  const nowMs = Date.now();
+  const trust = resolvePreMarketSectionTrust(section, staleAfterMs, nowMs);
+  const trustLine = formatMarketDataTrustLine(trust, section.as_of, nowMs);
   return (
-    <p className="text-[11px] text-muted-foreground">
-      {section.status === "stale" ? "Last available" : "As of"} {exact}
-      {age ? ` · ${age}` : ""}
+    <p className={`text-[11px] ${trustStateTone(trust)}`}>
+      {trustLine} · {exact}
     </p>
   );
 }
@@ -108,7 +122,16 @@ export function SectionEmpty({ message, reason }: { message: string; reason?: st
 }
 
 export function SectionShell<T>({
-  title, subtitle, section, loading, emptyMessage, onRetry, action, children, renderWhenEmpty,
+  title,
+  subtitle,
+  section,
+  loading,
+  emptyMessage,
+  onRetry,
+  action,
+  children,
+  renderWhenEmpty,
+  staleAfterMs,
 }: SectionShellProps<T>) {
   const isEmptyArray = Array.isArray(section?.data) && (section?.data as unknown[]).length === 0;
   return (
@@ -126,13 +149,15 @@ export function SectionShell<T>({
             <div className="rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-1.5 text-[11px] text-amber-600 dark:text-amber-400">
               {section.reason_code === "REFRESH_UNAVAILABLE"
                 ? (REASON_TEXT.REFRESH_UNAVAILABLE)
-                : "Stale source — shown as last available, not current."}
+                : "Stale — shown as last available, not current."}
             </div>
           )}
           {children}
         </>
       )}
-      {!loading && section && section.status !== "unavailable" && <FreshnessLine section={section} />}
+      {!loading && section && section.status !== "unavailable" && (
+        <FreshnessLine section={section} staleAfterMs={staleAfterMs} />
+      )}
     </section>
   );
 }

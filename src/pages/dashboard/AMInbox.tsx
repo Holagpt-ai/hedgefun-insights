@@ -43,6 +43,7 @@ import {
   isPmDebugEnabled,
   isRadarSessionMismatch,
 } from "@/lib/pre-market/pm-verify";
+import { PRE_MARKET_SCREENER_STALE_MS } from "@/lib/market-data/trust-states";
 
 export default function AMInbox() {
   const { profile } = useAuth();
@@ -258,6 +259,7 @@ export default function AMInbox() {
             section={volumeLeadersView.section}
             loading={volumeLeadersView.loading}
             emptyMessage={volumeLeadersView.emptyMessage}
+            staleAfterMs={PRE_MARKET_SCREENER_STALE_MS}
             onRetry={() => {
               ws.retry();
               radarVolumeLeaders.retry();
