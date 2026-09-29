@@ -36,7 +36,12 @@ import {
   createSessionIntelBook,
   type SessionIntelSnapshot,
 } from "./geometry.ts";
-import { computeGapPercent } from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
+import {
+  appendVolumeAccelerationEvent,
+  buildScannerEventEvidence,
+  computeGapPercent,
+  decorateScannerEvents,
+} from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
 import {
   emptyLifecycle,
   isBoardLifecycle,
@@ -649,35 +654,64 @@ export function createRadarEngine(opts: {
           },
           isoFromMs,
         });
-        if (lastSessionKind === "market") {
+        let persistedScannerEvents: unknown[] = scannerSnap.events;
+        let persistedPrimary = scannerSnap.primary;
+        if (
+          lastSessionKind === "pre-market" ||
+          lastSessionKind === "market" ||
+          lastSessionKind === "after-hours"
+        ) {
           const openPx = intelSnap?.sessionOpen ?? null;
           const gapPercent = computeGapPercent(openPx, quote?.previousClose ?? null);
+          const evalInput = {
+            eventNowMs: eventNow,
+            lastPrice: metrics.lastPrice,
+            move15sPct: metrics.move15s.movePct,
+            move60sPct: metrics.move60s.movePct,
+            move15Complete: metrics.move15s.complete,
+            move60Complete: metrics.move60s.complete,
+            volumeVelocity: metrics.volumeVelocity,
+            rvol5m: metrics.rvol5m,
+            volumeAccelerationPct: metrics.volumeAccelerationPct,
+            distanceFromHodPct: hodPct,
+            sessionVolume: sessionVol,
+            volumeRatioPrior: volRatio,
+            vol60s: metrics.vol60s,
+            vwapSide: intelSnap?.vwapSide ?? "unknown" as const,
+            lastHodBreakMs: intelSnap?.lastHodBreakMs ?? null,
+            lastVwapReclaimMs: intelSnap?.lastVwapReclaimMs ?? null,
+            lastVwapLossMs: intelSnap?.lastVwapLossMs ?? null,
+            previousClose: quote?.previousClose ?? null,
+            sessionOpen: openPx,
+            gapPercent,
+          };
           scannerSnap = scannerEventBook.step(
             symbol,
             eventNow,
-            {
-              eventNowMs: eventNow,
-              lastPrice: metrics.lastPrice,
-              move15sPct: metrics.move15s.movePct,
-              move60sPct: metrics.move60s.movePct,
-              move15Complete: metrics.move15s.complete,
-              move60Complete: metrics.move60s.complete,
-              volumeVelocity: metrics.volumeVelocity,
-              rvol5m: metrics.rvol5m,
-              volumeAccelerationPct: metrics.volumeAccelerationPct,
-              distanceFromHodPct: hodPct,
-              sessionVolume: sessionVol,
-              volumeRatioPrior: volRatio,
-              vol60s: metrics.vol60s,
-              vwapSide: intelSnap?.vwapSide ?? "unknown",
-              lastHodBreakMs: intelSnap?.lastHodBreakMs ?? null,
-              lastVwapReclaimMs: intelSnap?.lastVwapReclaimMs ?? null,
-              lastVwapLossMs: intelSnap?.lastVwapLossMs ?? null,
-              previousClose: quote?.previousClose ?? null,
-              sessionOpen: openPx,
-              gapPercent,
-            },
+            evalInput,
             isoFromMs,
+          );
+          persistedPrimary = scannerSnap.primary;
+          const dollarVolume = metrics.lastPrice !== null &&
+              Number.isFinite(metrics.lastPrice) &&
+              sessionVol > 0
+            ? metrics.lastPrice * sessionVol
+            : null;
+          const evidence = buildScannerEventEvidence({
+            eval: evalInput,
+            sessionRvol: participation.time_adjusted_rvol,
+            dollarVolume,
+            marketSession: lastSessionKind,
+            sourceTimestamp: metrics.lastBarEndMs !== null
+              ? isoFromMs(metrics.lastBarEndMs)
+              : null,
+          });
+          const detectedAt = isoFromMs(eventNow);
+          persistedScannerEvents = appendVolumeAccelerationEvent(
+            decorateScannerEvents(scannerSnap.events, evidence),
+            evalInput,
+            detectedAt,
+            evidence,
           );
         }
         v2Rows.push(mapCandidateRow({
@@ -696,7 +730,14 @@ export function createRadarEngine(opts: {
           phaseEnteredAtMs: stepped.record.phaseEnteredAtMs,
           updatedAt,
           isoFromMs,
-          scanner: scannerSnap,
+          scanner: {
+            events: persistedScannerEvents as Array<{
+              type: string;
+              triggered_at: string;
+              active: boolean;
+            }>,
+            primary: persistedPrimary,
+          },
           radarEvent: {
             lifecycle: radarEventSnap.lifecycle,
             promotionReason: radarEventSnap.promotionReason,

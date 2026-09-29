@@ -33,6 +33,8 @@ import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
 import { resolveVolumeLeadersView } from "@/lib/screeners/radar-v2-volume-leaders";
 import { peekRadarV2LoadDiagnostic } from "@/lib/screeners/radar-v2-diagnostics";
 import { LateSessionHandoffsList } from "@/components/pre-market/LateSessionHandoffsList";
+import { MorningOpportunityBoard } from "@/components/pre-market/MorningOpportunityBoard";
+import { buildMorningOpportunityBoard } from "@/lib/am-inbox/morning-opportunity-board";
 import { useAmInboxLateSessionHandoffs } from "@/hooks/useAmInboxLateSessionHandoffs";
 import {
   applyPresentedVolumeLeadersToChecklist,
@@ -91,6 +93,26 @@ export default function AMInbox() {
     candidates: [],
     expiredCount: 0,
   };
+
+  const morningBoard = useMemo(() => {
+    const radarView = radarVolumeLeaders.decision?.view ?? null;
+    return buildMorningOpportunityBoard({
+      radarRows: radarView?.rows ?? [],
+      radarSession: radarVolumeLeaders.decision?.session ?? null,
+      radarStatus: radarView?.status ?? null,
+      syncedAt: radarView?.synced_at ?? null,
+      providerAsOfMax: radarView?.provider_as_of_max ?? null,
+      marketFeed: radarView?.market_feed ?? null,
+      continuation: lateSessionView.candidates,
+      catalystSymbols: catalysts
+        .filter((row) => row.ticker_specific !== false)
+        .map((row) => row.symbol),
+    });
+  }, [
+    catalysts,
+    lateSessionView.candidates,
+    radarVolumeLeaders.decision,
+  ]);
 
   const checklistItems = useMemo(
     () =>
@@ -216,6 +238,11 @@ export default function AMInbox() {
               Workspace as of {etTimestampLabel(data.server_now)} · {relativeAge(data.server_now)}
             </p>
           )}
+
+          <MorningOpportunityBoard
+            model={morningBoard}
+            loading={premarketActive && radarVolumeLeaders.loading && lateSessionView.candidates.length === 0}
+          />
 
           {/* Market Pulse */}
           <SectionShell

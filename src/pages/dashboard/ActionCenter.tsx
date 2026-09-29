@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useMemo } from "react";
 import { ArrowRight } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,6 +13,7 @@ import { VolumeLeaders } from "@/components/action-center/VolumeLeaders";
 import { CatalystWatch } from "@/components/action-center/CatalystWatch";
 import { WatchlistSnapshot } from "@/components/action-center/WatchlistSnapshot";
 import { AM_AI_BRIEF_GATE_BODY, PM_AI_BRIEF_GATE_BODY } from "@/config/inbox.config";
+import { ScannerHandoffBanner, readScannerHandoffQuery } from "@/components/scanner-intelligence/ScannerHandoffBanner";
 
 const WORKFLOW_LINKS = [
   { title: "Pre-Market", desc: "Start the session with your pre-market setup.", route: "/dashboard/pre-market" },
@@ -36,6 +37,8 @@ export default function ActionCenter() {
   const { profile } = useAuth();
   const isPro = hasProAccess(profile?.plan);
   const ac = useActionCenter();
+  const [searchParams] = useSearchParams();
+  const handoff = readScannerHandoffQuery(searchParams);
 
   const leaderSymbols = useMemo(
     () => ac.leaders.map((l) => l.symbol.toUpperCase()),
@@ -56,6 +59,17 @@ export default function ActionCenter() {
           Real account data · Market feeds may be delayed
         </div>
       </div>
+
+      <ScannerHandoffBanner
+        matched={
+          handoff === null
+            ? null
+            : ac.loading.alerts || ac.loading.leaders
+              ? null
+              : ac.feed.some((item) => item.symbol.toUpperCase() === handoff.symbol) ||
+                ac.leaders.some((row) => row.symbol.toUpperCase() === handoff.symbol)
+        }
+      />
 
       {/* SECTION 1 — Current Market Brief */}
       <section aria-label="Current Market Brief">

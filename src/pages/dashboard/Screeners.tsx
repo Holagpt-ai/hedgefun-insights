@@ -14,6 +14,7 @@ import { isRadarDebugEnabled } from "@/lib/screeners/radar-v2-diagnostics";
 import { DayTradeRadarV2 } from "@/features/day-trade-radar-v2/DayTradeRadarV2";
 import { RadarDebugPanel } from "@/features/day-trade-radar-v2/RadarDebugPanel";
 import { MarketDataStatus } from "@/components/screener/MarketDataStatus";
+import { ScannerHandoffBanner, readScannerHandoffQuery } from "@/components/scanner-intelligence/ScannerHandoffBanner";
 
 const RADAR_BACKED_REFRESH_MS = 60_000;
 
@@ -22,6 +23,7 @@ export default function Screeners() {
   const isPro = hasProAccess(profile?.plan);
   const [searchParams] = useSearchParams();
   const radarDebug = isRadarDebugEnabled(searchParams);
+  const handoff = readScannerHandoffQuery(searchParams);
 
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
@@ -55,6 +57,16 @@ export default function Screeners() {
       <div className="space-y-1.5">
         <h1 className="text-xl md:text-2xl font-bold text-foreground">Screeners</h1>
       </div>
+
+      <ScannerHandoffBanner
+        matched={
+          handoff === null
+            ? null
+            : status === "loading"
+              ? null
+              : rows.some((row) => row.symbol.toUpperCase() === handoff.symbol)
+        }
+      />
 
       <div className="flex gap-1 border-b border-border overflow-x-auto pb-0.5">
         {SCREENER_TABS.map((tab) => {
