@@ -6,9 +6,11 @@ import {
   qualifyHodMomentum,
   qualifyLateDayAcceleration,
   qualifyRunningUp,
+  qualifyVolumeAcceleration,
   qualifyVolumeExplosion,
   qualifyVwapLoss,
   qualifyVwapReclaim,
+  buildScannerEventEvidence,
   type ScannerEventEvalInput,
 } from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
 import { createScannerEventBook } from "./scanner-event-book.ts";
@@ -101,6 +103,54 @@ Deno.test("VOLUME_EXPLOSION high RVOL + acceleration", () => {
     qualifyVolumeExplosion(base({ rvol5m: 5, volumeAccelerationPct: 40 })),
     true,
   );
+});
+
+Deno.test("VOLUME_ACCELERATION uses smoothed 5m acceleration and liquidity", () => {
+  assertEquals(qualifyVolumeAcceleration(base({ volumeAccelerationPct: 40 })), true);
+  assertEquals(qualifyVolumeAcceleration(base({ volumeAccelerationPct: 5 })), false);
+  assertEquals(qualifyVolumeAcceleration(base({ volumeAccelerationPct: null })), false);
+  assertEquals(
+    qualifyVolumeAcceleration(base({ volumeAccelerationPct: 40, vol60s: 100 })),
+    false,
+  );
+});
+
+Deno.test("HOD momentum rejects a thin print", () => {
+  assertEquals(
+    qualifyHodMomentum(base({ distanceFromHodPct: 0.2, vol60s: 1_000, volumeVelocity: 1_000 })),
+    false,
+  );
+});
+
+Deno.test("GAP_CONTINUATION requires active confirmation, not gap size alone", () => {
+  assertEquals(
+    qualifyGapContinuation(base({
+      gapPercent: 25,
+      move15sPct: -1,
+      move60sPct: -1,
+      rvol5m: 0.2,
+      volumeAccelerationPct: 0,
+    })),
+    false,
+  );
+});
+
+Deno.test("event evidence keeps unknown fields null", () => {
+  const evidence = buildScannerEventEvidence({
+    eval: base({ rvol5m: null, gapPercent: null }),
+    sessionRvol: null,
+    dollarVolume: null,
+    marketSession: "market",
+    sourceTimestamp: null,
+  });
+  assertEquals(evidence.rvol_5m, null);
+  assertEquals(evidence.session_rvol, null);
+  assertEquals(evidence.gap_pct, null);
+  assertEquals(evidence.dollar_volume, null);
+  assertEquals(evidence.catalyst_status, null);
+  assertEquals(evidence.float_shares, null);
+  assertEquals(evidence.confidence, null);
+  assertEquals(evidence.price, 5);
 });
 
 Deno.test("scanner event book lifecycle", () => {

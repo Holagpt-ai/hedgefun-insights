@@ -71,8 +71,18 @@ describe("Day Trade strategy eligibility", () => {
     expect(gate.eligible).toBe(true);
   });
 
-  it("rejects weak positive move below 10%", () => {
-    expect(qualifiesDayTradeMomentum(row({ symbol: "WEAK", rank: 1, change_percent: 9.9 }))).toBe(false);
+  it("scanner event does not rescue a name that fails Day Trade gates", () => {
+    expect(
+      qualifiesDayTradeMomentum(
+        row({
+          symbol: "EVENT",
+          rank: 1,
+          change_percent: 4,
+          primary_scanner_event: "VOLUME_EXPLOSION",
+          scanner_events: [{ type: "VOLUME_EXPLOSION", triggered_at: "2026-09-24T15:00:00.000Z", active: true }],
+        }),
+      ),
+    ).toBe(false);
   });
 
   it("rejects negative movers", () => {

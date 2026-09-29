@@ -71,6 +71,11 @@ export type ScannerEventConfig = {
   lateDayMinVelocity: number;
   lateDayMinAccelerationPct: number;
   lateDayMinMove60Pct: number;
+  /**
+   * Short-window acceleration event. Uses the existing 5m-vs-prior-5m
+   * acceleration metric (already smoothed). Not a new Day Trade gate.
+   */
+  volumeAccelerationMinPct: number;
   transitionPulseMs: number;
   eventCooldownMs: number;
 };
@@ -102,6 +107,7 @@ export const DEFAULT_SCANNER_EVENT_CONFIG: ScannerEventConfig = {
   lateDayMinVelocity: 35_000,
   lateDayMinAccelerationPct: 12,
   lateDayMinMove60Pct: 0.2,
+  volumeAccelerationMinPct: 25,
   transitionPulseMs: 15_000,
   eventCooldownMs: 5 * 60_000,
 };
@@ -383,4 +389,141 @@ export function computeGapPercent(
     return null;
   }
   return ((sessionOpen - previousClose) / previousClose) * 100;
+}
+
+/**
+ * Product names that already exist as persisted scanner types.
+ * HIGH_OF_DAY_MOMENTUM is HOD_MOMENTUM. VWAP_BREAK is VWAP_LOSS.
+ * VOLUME_ACCELERATION is derived from the smoothed 5m acceleration metric
+ * and stored on the event list. It is not a primary scanner type and is not
+ * an alert firing, because scanner_intelligence_alerts only accepts
+ * HOD_MOMENTUM, RUNNING_UP, and VOLUME_EXPLOSION.
+ */
+export const SCANNER_EVENT_PRODUCT_ALIASES = {
+  HIGH_OF_DAY_MOMENTUM: "HOD_MOMENTUM",
+  VWAP_BREAK: "VWAP_LOSS",
+} as const;
+
+export const DERIVED_VOLUME_ACCELERATION_EVENT = "VOLUME_ACCELERATION" as const;
+
+export type DerivedScannerEventType = typeof DERIVED_VOLUME_ACCELERATION_EVENT;
+
+export type IntelligenceEventType = ScannerEventType | DerivedScannerEventType;
+
+export function qualifyVolumeAcceleration(
+  input: ScannerEventEvalInput,
+  cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
+): boolean {
+  if (!liquidityOk(input, cfg)) return false;
+  return finite(input.volumeAccelerationPct) &&
+    input.volumeAccelerationPct >= cfg.volumeAccelerationMinPct;
+}
+
+export type ScannerEventEvidence = {
+  price: number | null;
+  volume: number | null;
+  dollar_volume: number | null;
+  rvol_5m: number | null;
+  session_rvol: number | null;
+  volume_velocity: number | null;
+  volume_acceleration: number | null;
+  vwap_relation: "above" | "below" | "unknown" | null;
+  distance_from_hod_pct: number | null;
+  gap_pct: number | null;
+  catalyst_status: "present" | "pending" | null;
+  float_shares: number | null;
+  market_session: string | null;
+  /** Null unless a caller has a real coverage ratio. Never a fabricated score. */
+  confidence: number | null;
+  evidence: readonly string[];
+  source_timestamp: string | null;
+};
+
+function numOrNull(value: number | null | undefined): number | null {
+  return finite(value) ? value : null;
+}
+
+export function buildScannerEventEvidence(input: {
+  eval: ScannerEventEvalInput;
+  sessionRvol: number | null;
+  dollarVolume: number | null;
+  marketSession: string | null;
+  sourceTimestamp: string | null;
+  floatShares?: number | null;
+  catalystStatus?: "present" | "pending" | null;
+}): ScannerEventEvidence {
+  const ev = input.eval;
+  const evidence: string[] = [];
+  if (positiveMove(ev, DEFAULT_SCANNER_EVENT_CONFIG)) evidence.push("short_window_price_up");
+  if (finite(ev.rvol5m)) evidence.push("rvol_5m_present");
+  if (finite(ev.volumeVelocity) && ev.volumeVelocity > 0) evidence.push("volume_velocity_present");
+  if (finite(ev.volumeAccelerationPct) && ev.volumeAccelerationPct > 0) {
+    evidence.push("volume_acceleration_present");
+  }
+  if (ev.vwapSide === "above" || ev.vwapSide === "below") evidence.push(`vwap_${ev.vwapSide}`);
+  if (finite(ev.distanceFromHodPct)) evidence.push("hod_distance_present");
+  if (finite(ev.gapPercent)) evidence.push("gap_present");
+
+  return {
+    price: numOrNull(ev.lastPrice),
+    volume: numOrNull(ev.sessionVolume),
+    dollar_volume: numOrNull(input.dollarVolume),
+    rvol_5m: numOrNull(ev.rvol5m),
+    session_rvol: numOrNull(input.sessionRvol),
+    volume_velocity: numOrNull(ev.volumeVelocity),
+    volume_acceleration: numOrNull(ev.volumeAccelerationPct),
+    vwap_relation: ev.vwapSide,
+    distance_from_hod_pct: numOrNull(ev.distanceFromHodPct),
+    gap_pct: numOrNull(ev.gapPercent),
+    catalyst_status: input.catalystStatus ?? null,
+    float_shares: numOrNull(input.floatShares),
+    market_session: input.marketSession,
+    confidence: null,
+    evidence,
+    source_timestamp: input.sourceTimestamp,
+  };
+}
+
+export type PersistedScannerIntelligenceEvent =
+  & Omit<ScannerEventSnapshot, "type">
+  & ScannerEventEvidence
+  & {
+    type: IntelligenceEventType;
+    event_type: IntelligenceEventType;
+  };
+
+export function decorateScannerEvents(
+  events: readonly ScannerEventSnapshot[],
+  evidence: ScannerEventEvidence,
+): PersistedScannerIntelligenceEvent[] {
+  return events.map((event) => ({
+    ...event,
+    ...evidence,
+    event_type: event.type,
+  }));
+}
+
+export function appendVolumeAccelerationEvent(
+  events: readonly PersistedScannerIntelligenceEvent[],
+  input: ScannerEventEvalInput,
+  triggeredAt: string | null,
+  evidence: ScannerEventEvidence,
+  cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
+): PersistedScannerIntelligenceEvent[] {
+  if (!triggeredAt) return [...events];
+  if (!qualifyVolumeAcceleration(input, cfg)) return [...events];
+  if (events.some((event) => event.type === DERIVED_VOLUME_ACCELERATION_EVENT)) {
+    return [...events];
+  }
+  return [
+    ...events,
+    {
+      type: DERIVED_VOLUME_ACCELERATION_EVENT,
+      event_type: DERIVED_VOLUME_ACCELERATION_EVENT,
+      triggered_at: triggeredAt,
+      active: true,
+      ...evidence,
+      evidence: [...evidence.evidence, "volume_acceleration_event"],
+    },
+  ];
 }
