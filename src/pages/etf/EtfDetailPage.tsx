@@ -16,7 +16,13 @@ import { EtfFundOverview } from "@/components/etf/EtfFundOverview";
 import { EtfPerformanceChart } from "@/components/etf/EtfPerformanceChart";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { resolveCurrentPrice, resolveMarketSession, estDate, estTime } from "@/lib/price-utils";
+import {
+  estDate,
+  estTime,
+  resolveMarketSession,
+  resolveStockHeaderPriceState,
+  stockHeaderSessionContext,
+} from "@/lib/price-utils";
 
 const TIME_RANGES = ["1D", "5D", "1M", "6M", "YTD", "1Y", "5Y", "MAX"] as const;
 
@@ -237,29 +243,18 @@ export default function EtfDetailPage() {
   }, [yearAggs, etfDetails, snapshot, etfRow]);
 
   const session = resolveMarketSession();
-  const prevClose = snapshot?.prevDay?.c ?? 0;
-  const dayClose = snapshot?.day?.c > 0 ? snapshot.day.c : 0;
-  const livePrice = snapshot?.min?.c > 0 ? snapshot.min.c : (snapshot?.lastTrade?.p > 0 ? snapshot.lastTrade.p : 0);
-  const fallbackPrice = resolveCurrentPrice(snapshot);
-
-  let mainPrice: number | null;
-  if (session === "pre-market") {
-    mainPrice = prevClose > 0 ? prevClose : (fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null));
-  } else if (session === "market" && dayClose === 0) {
-    mainPrice = fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null);
-  } else {
-    mainPrice = fallbackPrice > 0 ? fallbackPrice : (etfRow?.price ?? null);
-  }
-  const changePct = snapshot?.todaysChangePerc ?? etfRow?.change_percent ?? 0;
-  const changeAmt = snapshot?.todaysChange ?? (mainPrice && changePct ? (mainPrice * changePct / (100 + changePct)) : 0);
+  const header = resolveStockHeaderPriceState(snapshot, session);
+  const mainPrice = header.displayedPrice != null && header.displayedPrice > 0
+    ? header.displayedPrice
+    : (etfRow?.price ?? null);
+  const showMove = header.displayedPrice != null &&
+    header.displayedPrice > 0 &&
+    header.change != null &&
+    header.changePercent != null;
+  const changeAmt = header.change ?? 0;
+  const changePct = header.changePercent ?? 0;
   const positive = changePct >= 0;
-
-  // Extended-hours secondary line
-  const refPrice = session === "pre-market" ? prevClose : dayClose;
-  const ahPrice = livePrice > 0 ? livePrice : null;
-  const ahChange = ahPrice != null && refPrice > 0 ? ahPrice - refPrice : null;
-  const ahChangePct = ahChange != null && refPrice > 0 ? (ahChange / refPrice) * 100 : null;
-  const ahPositive = (ahChange ?? 0) >= 0;
+  const sessionContext = stockHeaderSessionContext(header);
 
   const stats: { label: string; value: string; color?: string }[] = [
     { label: "AUM", value: abbr(etfRow?.total_assets) },
@@ -318,7 +313,7 @@ export default function EtfDetailPage() {
                 <span className="text-[2rem] font-bold text-foreground tabular-nums">
                   {mainPrice != null ? `$${mainPrice.toFixed(2)}` : "—"}
                 </span>
-                {mainPrice != null && (
+                {showMove && (
                   <>
                     <span className={cn("text-sm font-semibold tabular-nums", positive ? "text-green" : "text-red")}>
                       {positive ? "+" : ""}{changeAmt.toFixed(2)}
@@ -331,15 +326,10 @@ export default function EtfDetailPage() {
               </div>
               {session === "market" ? (
                 <p className="text-xs text-muted-foreground mt-1">{estDate()}, {estTime()} EDT · Market open</p>
-              ) : (session === "pre-market" || session === "after-hours") && ahPrice != null && ahChange != null && ahChangePct != null ? (
-                <div className="flex items-center gap-1.5 mt-1 text-xs flex-wrap">
-                  <span className="text-muted-foreground">{session === "pre-market" ? "☀️ Pre-market:" : "🌙 After-hours:"}</span>
-                  <span className="tabular-nums font-medium text-foreground">${ahPrice.toFixed(2)}</span>
-                  <span className={cn("tabular-nums font-medium", ahPositive ? "price-positive" : "price-negative")}>
-                    {ahPositive ? "+" : ""}{ahChange.toFixed(2)} ({ahPositive ? "+" : ""}{ahChangePct.toFixed(2)}%)
-                  </span>
-                  <span className="text-muted-foreground">· {estDate()}, {estTime()} EDT</span>
-                </div>
+              ) : sessionContext ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {sessionContext} · {estDate()}, {estTime()} EDT
+                </p>
               ) : null}
               <p className="text-xs text-muted-foreground mt-1">Powered by Massive</p>
             </div>

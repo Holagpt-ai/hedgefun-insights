@@ -14,6 +14,8 @@ import {
   loadWorkspaceState,
   mapVolumeTrend,
   panelAgeLabel,
+  panelCountLabel,
+  panelHeading,
   pennyPanelTime,
   qualifiesBreakouts,
   qualifiesPennyPrice,
@@ -74,6 +76,16 @@ function memoryStore(seed: Record<string, string> = {}) {
     data,
   };
 }
+
+describe("panel count wording", () => {
+  it("calls penny rows candidates and keeps strategy matches", () => {
+    expect(panelHeading("penny", 17)).toBe("PENNY STOCKS · 17 candidates");
+    expect(panelCountLabel("penny", 1)).toBe("1 candidate");
+    expect(panelHeading("day_trade", 1)).toBe("DAY TRADE · 1 match");
+    expect(panelCountLabel("breakouts", 4)).toBe("4 matches");
+    expect(panelHeading("breakouts", 4)).toBe("BREAKOUTS");
+  });
+});
 
 describe("multi-radar qualification", () => {
   const universe = [

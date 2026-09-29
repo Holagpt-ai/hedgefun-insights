@@ -210,15 +210,23 @@ export function hasValidSessionOpen(
   return currentSessionOpen(t, extendedSession) !== null;
 }
 
-/** Gap % = (session open - prev close) / prev close * 100. */
+/**
+ * Gap % versus the prior official regular-session close.
+ * Regular session keeps the opening gap: (day.o - prevDay.c) / prevDay.c × 100.
+ * Extended sessions use the live extended print (lastTrade.p, else min.c),
+ * the same current price as MOVE, without treating MOVE qualification as a gap.
+ * Missing or non-positive inputs stay null. Never substitutes todaysChangePerc.
+ */
 export function gapPercent(
   t: PolygonTicker,
   extendedSession = false,
 ): number | null {
-  const open = currentSessionOpen(t, extendedSession);
+  const reference = extendedSession
+    ? extendedSessionLastPrice(t)
+    : currentSessionOpen(t, false);
   const prevClose = previousRegularClose(t);
-  if (open === null || prevClose === null || prevClose === 0) return null;
-  return Math.round(((open - prevClose) / prevClose) * 1000) / 10;
+  if (reference === null || prevClose === null || prevClose === 0) return null;
+  return Math.round(((reference - prevClose) / prevClose) * 1000) / 10;
 }
 
 /**

@@ -48,7 +48,9 @@ import {
   formatVolumeSpeedSpotlight,
   panelAgeLabel,
   DAY_TRADE_EMPTY_MESSAGE,
+  panelCountLabel,
   panelDisplayRank,
+  panelHeading,
   panelMeta,
   panelTime,
   type PanelColumnId,
@@ -223,10 +225,9 @@ export function RadarPanelBoard({
   emptyMessage?: string;
 }) {
   const meta = panelMeta(panel);
-  const matchLabel =
-    panel === "day_trade"
-      ? `${rows.length} ${rows.length === 1 ? "match" : "matches"}`
-      : `${rows.length} matches`;
+  const matchLabel = panelCountLabel(panel, rows.length);
+  const heading = panelHeading(panel, rows.length);
+  const countInTitle = panel === "day_trade" || panel === "penny";
   const { add, isAdded, pendingSymbol } = useAddToWatchlist();
   const symbols = useMemo(() => {
     const out: string[] = [];
@@ -250,14 +251,14 @@ export function RadarPanelBoard({
         <div className="mr-auto">
           <div className="flex items-baseline gap-2">
             <h2 className="text-[13px] font-semibold tracking-wide">
-              {panel === "day_trade" ? `${meta.title} · ${matchLabel}` : meta.title}
+              {heading}
             </h2>
-            {panel !== "day_trade" ? (
-              <span className="text-[11px] tabular-nums text-muted-foreground" data-testid={`panel-count-${panel}`}>
+            {countInTitle ? (
+              <span className="sr-only" data-testid={`panel-count-${panel}`}>
                 {matchLabel}
               </span>
             ) : (
-              <span className="sr-only" data-testid={`panel-count-${panel}`}>
+              <span className="text-[11px] tabular-nums text-muted-foreground" data-testid={`panel-count-${panel}`}>
                 {matchLabel}
               </span>
             )}

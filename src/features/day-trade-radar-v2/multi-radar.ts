@@ -226,6 +226,25 @@ export function panelMeta(id: RadarPanelId) {
   return PANEL_META[id];
 }
 
+/** Count wording. Penny rows are a price band, not a strategy match. */
+export function panelCountLabel(panel: RadarPanelId, count: number): string {
+  if (panel === "penny") {
+    return `${count} ${count === 1 ? "candidate" : "candidates"}`;
+  }
+  if (panel === "day_trade") {
+    return `${count} ${count === 1 ? "match" : "matches"}`;
+  }
+  return `${count} matches`;
+}
+
+export function panelHeading(panel: RadarPanelId, count: number): string {
+  const title = PANEL_META[panel].title;
+  if (panel === "day_trade" || panel === "penny") {
+    return `${title} · ${panelCountLabel(panel, count)}`;
+  }
+  return title;
+}
+
 export function defaultPanelState(id: RadarPanelId): PanelWorkspaceState {
   return {
     columns: [...PANEL_META[id].columns],

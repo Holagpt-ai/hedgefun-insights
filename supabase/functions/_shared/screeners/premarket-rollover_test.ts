@@ -34,13 +34,14 @@ Deno.test("rollover: 04:30 ET resolves pre-market extended session", () => {
   assertEquals(isExtendedSyncSession(kind), true);
 });
 
-Deno.test("rollover: min.o supplies gap when day.o missing in premarket", () => {
+Deno.test("rollover: premarket gap uses extended last, not minute open", () => {
   const t = ticker({ day: { o: undefined, c: 10.5, v: 97_000 } });
   assertEquals(gapPercent(t, false), null);
-  assertEquals(gapPercent(t, true), 2);
+  // min.o is 10.2 (2%). Extended last is min.c 10.5 (5.0%).
+  assertEquals(gapPercent(t, true), 5);
 });
 
-Deno.test("rollover: gappers evidence evaluated with min.o premarket open", () => {
+Deno.test("rollover: gappers evidence evaluated from premarket extended last", () => {
   const universe = [
     ticker({ day: { o: undefined, c: 10.5, v: 97_000 } }),
   ];
