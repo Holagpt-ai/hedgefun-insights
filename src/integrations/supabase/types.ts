@@ -1762,6 +1762,36 @@ export type Database = {
           },
         ]
       }
+      daily_brief_generation_state: {
+        Row: {
+          brief_date: string
+          brief_type: string
+          failed_at: string
+          failure_category: string
+          retryable: boolean
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          brief_date: string
+          brief_type: string
+          failed_at: string
+          failure_category: string
+          retryable: boolean
+          status: string
+          updated_at: string
+        }
+        Update: {
+          brief_date?: string
+          brief_type?: string
+          failed_at?: string
+          failure_category?: string
+          retryable?: boolean
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       daily_briefs: {
         Row: {
           brief_date: string
