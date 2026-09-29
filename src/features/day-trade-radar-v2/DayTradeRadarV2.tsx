@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRadarV22Board } from "@/hooks/useRadarV22Board";
 import { easternDate } from "@/lib/radar-v22";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { resolveDayTradeRadarSource } from "./radar-source-precedence";
-import type { DayTradeRadarV2Props } from "./types";
+import type { DayTradeRadarV2Props, RadarRankedRow } from "./types";
 import { useRadarSelection } from "./useRadarSelection";
 import { useRadarChartData } from "./useRadarChartData";
 import { RadarStatusRail } from "./RadarStatusRail";
@@ -15,8 +16,11 @@ import { RadarRepeatMoversSection } from "./RadarRepeatMoversSection";
 import { REPEAT_MOVERS_IDLE } from "@/lib/radar/repeat-movers-load-state";
 import { isRadarRowAccessible } from "./radar-metrics";
 import { DAY_TRADE_EMPTY_MESSAGE } from "./day-trade-strategy";
-import { buildAuthoritativeDayTradeDesk } from "./day-trade-desk";
-import type { RadarRankedRow } from "./types";
+import {
+  buildDayTradeDeskWithVerifiedFloat,
+  verifiedFloatFromLookupKey,
+  verifiedFloatLookupKey,
+} from "./day-trade-float-enrichment";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 
 export function DayTradeRadarV2({
@@ -68,9 +72,14 @@ export function DayTradeRadarV2({
     traderLensBounds: { min: null, max: null },
   });
 
+  const dayTradeFloat = useRadarFloatForSymbols(ranked.map((row) => row.symbol));
+  const floatLookupKey = verifiedFloatLookupKey(ranked, (symbol) => dayTradeFloat.getFloat(symbol));
   const opportunityBoard = useMemo(
-    () => buildAuthoritativeDayTradeDesk(ranked, nowMs),
-    [ranked, nowMs],
+    () =>
+      buildDayTradeDeskWithVerifiedFloat(ranked, nowMs, (symbol) =>
+        verifiedFloatFromLookupKey(floatLookupKey, symbol),
+      ),
+    [ranked, nowMs, floatLookupKey],
   );
 
   const deskRows = opportunityBoard.topOpportunities;

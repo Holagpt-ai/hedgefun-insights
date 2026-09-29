@@ -82,6 +82,63 @@ export function resolveClassicDayTradeRvol(row: RadarRankedRow): number | null {
   return resolveDailyRvol20d(row);
 }
 
+export type DayTradeParticipationSource =
+  | "rvol_20d"
+  | "volume_ratio_prior_session"
+  | "rvol_5m"
+  | "time_adjusted_rvol"
+  | "unavailable";
+
+export interface DayTradeParticipationFact {
+  source: DayTradeParticipationSource;
+  value: number | null;
+  pass: boolean;
+}
+
+/**
+ * First available participation fact, in gate order.
+ * Classic RVOL short-circuits later session and intraday metrics.
+ */
+export function resolveDayTradeParticipationFact(row: RadarRankedRow): DayTradeParticipationFact {
+  const classicRvol = resolveClassicDayTradeRvol(row);
+  if (classicRvol !== null) {
+    return {
+      source: "rvol_20d",
+      value: classicRvol,
+      pass: classicRvol >= DAY_TRADE_RVOL_MIN,
+    };
+  }
+
+  const volYday = finiteMetric(row.volume_ratio_prior_session);
+  if (volYday !== null) {
+    return {
+      source: "volume_ratio_prior_session",
+      value: volYday,
+      pass: volYday >= DAY_TRADE_RVOL_MIN,
+    };
+  }
+
+  const rvol5m = finiteMetric(row.rvol_5m);
+  if (rvol5m !== null) {
+    return {
+      source: "rvol_5m",
+      value: rvol5m,
+      pass: rvol5m >= DAY_TRADE_RVOL_MIN,
+    };
+  }
+
+  const timeAdjusted = finiteMetric(row.time_adjusted_rvol);
+  if (timeAdjusted !== null) {
+    return {
+      source: "time_adjusted_rvol",
+      value: timeAdjusted,
+      pass: timeAdjusted >= DAY_TRADE_RVOL_MIN,
+    };
+  }
+
+  return { source: "unavailable", value: null, pass: false };
+}
+
 /**
  * Participation gate: classic RVOL when available, else honest session / intraday metrics.
  * Does not fabricate classic RVOL from vol/yday.
@@ -89,27 +146,11 @@ export function resolveClassicDayTradeRvol(row: RadarRankedRow): number | null {
 export function meetsDayTradeParticipation(
   row: RadarRankedRow,
 ): { pass: boolean; classicRvol: number | null } {
-  const classicRvol = resolveClassicDayTradeRvol(row);
-  if (classicRvol !== null) {
-    return { pass: classicRvol >= DAY_TRADE_RVOL_MIN, classicRvol };
-  }
-
-  const volYday = finiteMetric(row.volume_ratio_prior_session);
-  if (volYday !== null) {
-    return { pass: volYday >= DAY_TRADE_RVOL_MIN, classicRvol: null };
-  }
-
-  const rvol5m = finiteMetric(row.rvol_5m);
-  if (rvol5m !== null) {
-    return { pass: rvol5m >= DAY_TRADE_RVOL_MIN, classicRvol: null };
-  }
-
-  const timeAdjusted = finiteMetric(row.time_adjusted_rvol);
-  if (timeAdjusted !== null) {
-    return { pass: timeAdjusted >= DAY_TRADE_RVOL_MIN, classicRvol: null };
-  }
-
-  return { pass: false, classicRvol: null };
+  const fact = resolveDayTradeParticipationFact(row);
+  return {
+    pass: fact.pass,
+    classicRvol: fact.source === "rvol_20d" ? fact.value : null,
+  };
 }
 
 export function evaluateDayTradeEligibility(row: RadarRankedRow): DayTradeEligibility {

@@ -28,6 +28,7 @@ import {
   YDAY_VOL_HEADER,
 } from "./scanner-metric-copy";
 import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
+import { displayedFloatForRadarPanel } from "./day-trade-float-enrichment";
 import {
   formatRadarMultiplier,
   formatRadarPercent,
@@ -107,7 +108,7 @@ export function RadarPanelLeader({
   if (!row) return null;
   const speed = formatVolumeSpeedSpotlight(row.vol_velocity);
   const signal = deskRowSignal(row, null);
-  const floatShares = floatState.getFloat(row.symbol);
+  const floatShares = displayedFloatForRadarPanel(panel, row, floatState.getFloat(row.symbol));
   const catalyst = catalystMap?.get(row.symbol);
   const leaderTiming = panel === "day_trade" ? formatDayTradeLeaderTiming(row, nowMs) : null;
   return (
@@ -383,7 +384,11 @@ export function RadarPanelBoard({
                         age,
                         timeIso: time.iso,
                         accessible,
-                        floatShares: floatState.getFloat(row.symbol),
+                        floatShares: displayedFloatForRadarPanel(
+                          panel,
+                          row,
+                          floatState.getFloat(row.symbol),
+                        ),
                         catalystPending: catalyst.isPending,
                         catalystEntry: catalyst.data?.get(row.symbol),
                         newsStatus: news.getStatus(row.symbol),
