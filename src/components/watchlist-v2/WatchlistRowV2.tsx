@@ -2,7 +2,12 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
-import { humanFailureReason, humanFailureReasonSecondary, isExpired, isExpectedUnavailableReason, formatMarketDataAge } from "@/lib/watchlist-v2/parsers";
+import { humanFailureReason, humanFailureReasonSecondary, isExpectedUnavailableReason } from "@/lib/watchlist-v2/parsers";
+import {
+  formatMarketDataTrustLine,
+  resolveWatchlistMarketDataTrust,
+  trustStateTone,
+} from "@/lib/market-data/trust-states";
 import {
   densityTokens,
   dollarMove,
@@ -165,7 +170,6 @@ export function WatchlistRowV2({
   const tokens = densityTokens(density);
   const dir = directionBadge(row.direction, row.failureReason);
   const DirIcon = dir.Icon;
-  const expired = row.hasV2 && isExpired(row.validThrough);
   const change = row.changePct;
   const changeColor =
     change === null
@@ -177,16 +181,28 @@ export function WatchlistRowV2({
   const isUnavailable = row.direction === "data_unavailable";
   const expectedUnavailable = isUnavailable && isExpectedUnavailableReason(row.failureReason);
   const providerFailed = row.requestStatus === "failed";
-  const marketDataAge = formatMarketDataAge(row.inputsQuality.snapshot_ts_ms);
   const unavailableSecondary = expectedUnavailable ? humanFailureReasonSecondary(row.failureReason) : null;
+  const snapshotIso = row.inputsQuality.snapshot_ts_ms
+    ? new Date(row.inputsQuality.snapshot_ts_ms).toISOString()
+    : null;
+  const marketDataTrust = resolveWatchlistMarketDataTrust({
+    hasV2: row.hasV2,
+    validThrough: row.validThrough,
+    snapshotTsMs: row.inputsQuality.snapshot_ts_ms,
+    analysisPresentation: row.inputsQuality.analysis_presentation ?? null,
+  });
+  const marketDataTrustLine = formatMarketDataTrustLine(
+    marketDataTrust,
+    snapshotIso,
+    Date.now(),
+  );
 
   const statusLine = (() => {
     if (row.requestStatus === "pending") return { text: "Analysis pending", tone: "text-amber-700 dark:text-amber-400" };
     if (row.requestStatus === "failed") return { text: "Update failed", tone: "text-red-600 dark:text-red-400" };
     if (!row.hasV2) return { text: "Awaiting first analysis", tone: "text-muted-foreground" };
     if (expectedUnavailable) return { text: "Auto-recheck enabled", tone: "text-slate-500 dark:text-slate-400" };
-    if (expired) return { text: "Snapshot stale", tone: "text-amber-700 dark:text-amber-400" };
-    return { text: "Current", tone: "text-muted-foreground" };
+    return { text: marketDataTrustLine, tone: trustStateTone(marketDataTrust) };
   })();
   const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
   const latestEvent = row.recentEvents[0] ?? null;
@@ -444,29 +460,19 @@ export function WatchlistRowV2({
                   : "No qualifying recent event"}
             </div>
           )}
-          {tokens.showUpdatedLine && (
-            <div className="flex items-center gap-2 mt-1 text-[10px] tabular-nums">
-              {row.analyzedAt && (
-                <span className="text-slate-500 dark:text-slate-400">
-                  Updated {formatRelative(row.analyzedAt)}
-                </span>
-              )}
-              <span className={statusLine.tone}>{statusLine.text}</span>
-              {marketDataAge && (
-                <span className="text-slate-400 dark:text-slate-500">{marketDataAge}</span>
-              )}
-            </div>
-          )}
-          {!tokens.showUpdatedLine && (statusLine.text !== "Current" || marketDataAge) && (
-            <div className="flex flex-wrap items-center gap-x-2 mt-0.5 text-[10px]">
-              {statusLine.text !== "Current" && (
-                <span className={statusLine.tone}>{statusLine.text}</span>
-              )}
-              {marketDataAge && (
-                <span className="text-slate-400 dark:text-slate-500">{marketDataAge}</span>
-              )}
-            </div>
-          )}
+          <div
+            className={cn(
+              "flex flex-wrap items-center gap-x-2 text-[10px] tabular-nums",
+              tokens.showUpdatedLine ? "mt-1" : "mt-0.5",
+            )}
+          >
+            {tokens.showUpdatedLine && row.analyzedAt && (
+              <span className="text-slate-500 dark:text-slate-400">
+                Updated {formatRelative(row.analyzedAt)}
+              </span>
+            )}
+            <span className={statusLine.tone}>{statusLine.text}</span>
+          </div>
         </div>
 
         {/* 6. Desktop controls */}

@@ -1,11 +1,12 @@
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
+import { formatSubSecondAge } from "@/lib/market-feed/telemetry";
 import {
-  deriveMarketFeedDisplayTier,
-  formatSubSecondAge,
-  marketFeedDisplayLabel,
-} from "@/lib/market-feed/telemetry";
+  formatMarketDataTrustLine,
+  resolveScreenerMarketDataTrust,
+  trustStateTone,
+} from "@/lib/market-data/trust-states";
 
 export function formatMarketDataAge(iso: string | null): string | null {
   if (!iso) return null;
@@ -26,25 +27,10 @@ export function formatMarketDataTimestamp(iso: string | null): string | null {
   });
 }
 
-function statusTone(
-  status: ScreenerUiStatus,
-  tier: ReturnType<typeof deriveMarketFeedDisplayTier>,
-): string {
-  if (tier === "streaming") return "text-emerald-600";
-  if (tier === "near_realtime") return "text-emerald-600";
-  if (tier === "delayed") return "text-muted-foreground";
-  if (tier === "stale" || status === "stale") return "text-amber-600";
-  if (status === "loading") return "text-muted-foreground";
-  return "text-muted-foreground";
-}
-
-function legacyStatusLabel(status: ScreenerUiStatus): string {
-  if (status === "available") return "Market data status";
-  if (status === "stale") return "Delayed snapshot";
+function loadingStatusLabel(status: ScreenerUiStatus): string | null {
   if (status === "loading") return "Loading market data";
-  if (status === "unavailable") return "Market data unavailable";
   if (status === "initializing") return "Market data initializing";
-  return "Market data status";
+  return null;
 }
 
 interface MarketDataStatusProps {
@@ -66,13 +52,17 @@ export function MarketDataStatus({
   className = "",
 }: MarketDataStatusProps) {
   const nowMs = Date.now();
-  const tier = marketFeed
-    ? deriveMarketFeedDisplayTier(marketFeed, nowMs)
-    : null;
-  const label = tier ? marketFeedDisplayLabel(tier) : legacyStatusLabel(status);
-  const updateIso = marketFeed?.last_message_at ?? syncedAt;
-  const updated = formatSubSecondAge(updateIso, nowMs) ??
-    formatMarketDataAge(syncedAt);
+  const loadingLabel = loadingStatusLabel(status);
+  const trust = resolveScreenerMarketDataTrust({
+    status,
+    syncedAt,
+    providerAsOfMax,
+    marketFeed,
+    nowMs,
+  });
+  const sourceIso = marketFeed?.last_message_at ?? syncedAt ?? providerAsOfMax ?? null;
+  const label = loadingLabel ??
+    formatMarketDataTrustLine(trust, sourceIso, nowMs);
   const marketTs = formatMarketDataTimestamp(
     marketFeed?.market_timestamp ?? providerAsOfMax,
   );
@@ -82,7 +72,7 @@ export function MarketDataStatus({
     : lagMs != null && lagMs >= 1_000
     ? `Market lag ${Math.round(lagMs / 1_000)}s`
     : null;
-  const tone = statusTone(status, tier ?? "unknown");
+  const tone = loadingLabel ? "text-muted-foreground" : trustStateTone(trust);
 
   return (
     <div
@@ -94,7 +84,6 @@ export function MarketDataStatus({
         <span>●</span>
       </span>
       <span>{label}</span>
-      {updated ? <span>· Updated {updated}</span> : null}
       {marketTs ? <span>· Last data {marketTs}</span> : null}
       {lagLabel ? <span>· {lagLabel}</span> : null}
       {suffix ? <span className="tabular-nums">· {suffix}</span> : null}
