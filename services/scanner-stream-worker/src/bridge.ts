@@ -23,7 +23,12 @@ export const LATENCY_BRIDGE_MAX_ATTEMPTS = 3;
 export const BULK_BASELINE_MAX_ATTEMPTS = 1;
 
 function maxAttemptsForAction(action: string): number {
-  if (action === "replace_52w_baseline") return BULK_BASELINE_MAX_ATTEMPTS;
+  if (
+    action === "replace_52w_baseline" ||
+    action === "replace_52w_baseline_with_exclusions"
+  ) {
+    return BULK_BASELINE_MAX_ATTEMPTS;
+  }
   return LATENCY_BRIDGE_MAX_ATTEMPTS;
 }
 
