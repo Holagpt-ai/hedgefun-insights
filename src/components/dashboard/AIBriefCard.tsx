@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, useCallback } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
+import { briefAccessState, presentStoredBriefFailure } from "@/lib/ai/brief-presentation";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBrief } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
@@ -52,8 +53,8 @@ type BriefState =
       ageSeconds: number;
       generationReason: string | null;
     }
-  | { kind: "notice"; message: string; refreshable: boolean; showAfterHoursCta?: boolean }
-  | { kind: "error"; message: string; refreshable: boolean };
+  | { kind: "notice"; message: string; refreshable: boolean; showAfterHoursCta?: boolean; statusLabel?: string }
+  | { kind: "error"; message: string; refreshable: boolean; statusLabel?: string };
 
 const REFRESHABLE_CODES = new Set([
   "brief_not_ready",
@@ -295,10 +296,30 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             });
             return;
           }
-          setState({ kind: "error", message: "Couldn't load the brief.", refreshable: true });
+          setState({
+            kind: "error",
+            message: "Temporarily unavailable",
+            refreshable: true,
+            statusLabel: "Temporarily unavailable",
+          });
           return;
         }
         const reason: string = typeof body?.reason === "string" ? body.reason : "";
+        const generationStatus = typeof body?.generation_status === "string" ? body.generation_status : null;
+        const stored = presentStoredBriefFailure({
+          reason,
+          generationStatus,
+          retryable: typeof body?.retryable === "boolean" ? body.retryable : null,
+        });
+        if (stored) {
+          setState({
+            kind: stored.retryControl ? "error" : "notice",
+            message: stored.message,
+            refreshable: stored.refreshable,
+            statusLabel: stored.statusLabel,
+          });
+          return;
+        }
         switch (reason) {
           case "brief_not_ready":
             if (briefType === "am") {
@@ -308,13 +329,24 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
                 message: next.message,
                 refreshable: next.refreshable,
                 showAfterHoursCta: next.showAfterHoursCta,
+                statusLabel: next.refreshable ? "Generating" : undefined,
               });
             } else {
-              setState({ kind: "notice", message: "The PM brief has not been released.", refreshable: true });
+              setState({
+                kind: "notice",
+                message: "The PM brief has not been released.",
+                refreshable: true,
+                statusLabel: "Generating",
+              });
             }
             return;
           case "pm_not_released":
-            setState({ kind: "notice", message: "The PM brief has not been released.", refreshable: true });
+            setState({
+              kind: "notice",
+              message: "The PM brief has not been released.",
+              refreshable: true,
+              statusLabel: "Generating",
+            });
             return;
           case "weekend_no_am_brief":
             if (briefType === "am") {
@@ -347,15 +379,34 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               kind: "notice",
               message: "Morning brief is updating. Check back shortly or refresh.",
               refreshable: true,
+              statusLabel: "Generating",
             });
             return;
           default:
-            setState({ kind: "error", message: "Couldn't load the brief.", refreshable: true });
+            setState({
+              kind: "error",
+              message: "Temporarily unavailable",
+              refreshable: true,
+              statusLabel: "Temporarily unavailable",
+            });
             return;
         }
       }
-      // 5xx / other
-      setState({ kind: "error", message: "Couldn't load the brief.", refreshable: true });
+      if (briefAccessState(resp.status) === "temporarily_unavailable") {
+        setState({
+          kind: "error",
+          message: "Temporarily unavailable",
+          refreshable: true,
+          statusLabel: "Temporarily unavailable",
+        });
+        return;
+      }
+      setState({
+        kind: "error",
+        message: "Temporarily unavailable",
+        refreshable: true,
+        statusLabel: "Temporarily unavailable",
+      });
     } catch (err) {
       if (err instanceof DOMException && err.name === "AbortError") {
         return;
@@ -363,7 +414,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       if ((err as { name?: string })?.name === "AbortError") {
         return;
       }
-      setState({ kind: "error", message: "Couldn't load the brief.", refreshable: true });
+      setState({
+        kind: "error",
+        message: "Temporarily unavailable",
+        refreshable: true,
+        statusLabel: "Temporarily unavailable",
+      });
     }
   }, [briefType]);
 
@@ -432,7 +488,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     switch (state.kind) {
       case "idle":
       case "loading":
-        return <p className="text-sm leading-relaxed text-foreground/80">Loading brief…</p>;
+        return <p className="text-sm leading-relaxed text-foreground/80" data-testid="brief-user-state">Generating</p>;
       case "unauth":
         return <p className="text-sm leading-relaxed text-foreground/80">Sign in to view</p>;
       case "upgrade":
@@ -479,6 +535,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       case "error":
         return (
           <div className="flex flex-col items-start gap-2">
+            {state.statusLabel && (
+              <p className="text-xs font-medium text-foreground" data-testid="brief-user-state">{state.statusLabel}</p>
+            )}
             <p className="whitespace-pre-line text-sm leading-relaxed text-foreground/80">{state.message}</p>
             {state.kind === "notice" && state.showAfterHoursCta && (
               <Link to="/dashboard/after-hours" className="text-xs font-medium text-accent-blue hover:underline">
@@ -490,7 +549,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
                 onClick={() => fetchBrief()}
                 className="text-xs font-medium text-accent-blue hover:underline"
               >
-                Check again
+                {state.kind === "error" ? "Retry available" : "Check again"}
               </button>
             )}
           </div>
@@ -518,7 +577,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   return (
     <div className="relative min-w-0 overflow-hidden rounded-lg border border-border bg-card p-6">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-semibold tracking-wide">{config.aiCardTitle}</h3>
+        <h3 className="text-sm font-semibold tracking-wide">
+          {config.aiCardTitle}
+          {state.kind === "available" && (
+            <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground" data-testid="brief-user-state">Ready</span>
+          )}
+        </h3>
         {timestampText && <span className="text-[11px] text-muted-foreground">{timestampText}</span>}
       </div>
       {renderBody()}

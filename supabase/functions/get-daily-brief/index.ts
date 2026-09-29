@@ -2,6 +2,10 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { validateBriefProvenance, type BriefRowLike } from "../_shared/briefs/provenance.ts";
 import {
+  parseGenerationState,
+  resolveBriefRead,
+} from "../_shared/briefs/generation-state.ts";
+import {
   readSnapshotGenerationWindow,
   resolveAmBriefFreshness,
 } from "../_shared/briefs/am-freshness.ts";
@@ -30,6 +34,39 @@ function json(body: unknown, status: number): Response {
 
 function unavailable(briefType: BriefType, reason: string): Response {
   return json({ available: false, brief_type: briefType, reason }, 200);
+}
+
+async function failureResponse(
+  admin: { from(table: string): {
+    select(columns: string): {
+      eq(column: string, value: string): {
+        eq(column: string, value: string): {
+          maybeSingle(): PromiseLike<{ data: unknown }>;
+        };
+      };
+    };
+  } },
+  briefType: BriefType,
+  briefDate: string,
+): Promise<Response | null> {
+  const { data } = await admin
+    .from("daily_brief_generation_state")
+    .select("brief_type, brief_date, status, failure_category, retryable, failed_at, updated_at")
+    .eq("brief_type", briefType)
+    .eq("brief_date", briefDate)
+    .maybeSingle();
+  const read = resolveBriefRead({ hasValidBrief: false, state: parseGenerationState(data) });
+  if (read.generation_status === "generating" || read.generation_status === "ready") return null;
+  return json({
+    available: false,
+    brief_type: briefType,
+    brief_date: briefDate,
+    reason: read.reason,
+    generation_status: read.generation_status,
+    failure_category: read.failure_category,
+    retryable: read.retryable,
+    failed_at: read.failed_at,
+  }, 200);
 }
 
 function etParts(now: Date = new Date()) {
@@ -172,10 +209,18 @@ serve(async (req) => {
         .eq("brief_type", "am")
         .eq("brief_date", et.date)
         .maybeSingle();
-      if (!row) return unavailable("am", "brief_not_ready");
+      if (!row) {
+        const failed = await failureResponse(admin, "am", et.date);
+        if (failed) return failed;
+        return json({ available: false, brief_type: "am", reason: "brief_not_ready", generation_status: "generating" }, 200);
+      }
       const v = validateProvenance(row as BriefRow, "am");
       // Legacy / corrupt rows: treat as not ready so dispatch can regenerate V2.
-      if (!v.ok) return unavailable("am", "brief_not_ready");
+      if (!v.ok) {
+        const failed = await failureResponse(admin, "am", et.date);
+        if (failed) return failed;
+        return json({ available: false, brief_type: "am", reason: "brief_not_ready", generation_status: "generating" }, 200);
+      }
       return json(
         {
           available: true,

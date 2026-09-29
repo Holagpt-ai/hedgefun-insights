@@ -145,7 +145,8 @@ export function buildAiPrompt(input: AiReadInput, catalog: EvidenceCatalog): str
 RULES:
 - Return JSON only. No markdown, no prose outside JSON.
 - NEVER invent numbers.
-- NEVER invent catalysts, technical signals, or certainty that is not in FACTS.
+- NEVER invent catalysts, prices, volume, technical signals, or certainty that is not in FACTS.
+- Mention a scanner event only when radar_context.primary_event is a stored non-null value. A URL or handoff label is not evidence.
 - If rvol is "unavailable", treat it as unavailable — never as 0 or as a neutral reading.
 - You may cite only verified ticker-specific catalysts in recent_events. If recent_events is empty, the explanation MUST include: "No verified ticker-specific catalyst available."
 - Distinguish observed facts from interpretation.

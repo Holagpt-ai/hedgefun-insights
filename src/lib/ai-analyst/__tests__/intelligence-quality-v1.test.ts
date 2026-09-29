@@ -253,4 +253,24 @@ describe("AI Analyst intelligence quality v1", () => {
   it("storage key constant unchanged for continuation handoffs", () => {
     expect(LATE_SESSION_HANDOFF_STORAGE_KEY).toBeTruthy();
   });
+
+  it("does not treat a URL event as evidence unless stored radar matches", () => {
+    const unmatched = buildAnalystIntelligencePacket({
+      symbol: "AAA",
+      claimedEvent: "RUNNING_UP",
+    });
+    expect(unmatched.VERIFIED_FACTS.confirmedScannerEvent).toBeNull();
+    const matched = buildAnalystIntelligencePacket({
+      symbol: "AAA",
+      radarCandidate,
+      claimedEvent: "HOD_BREAK",
+    });
+    expect(matched.VERIFIED_FACTS.confirmedScannerEvent).toBe("HOD_BREAK");
+    const aliasOnly = buildAnalystIntelligencePacket({
+      symbol: "AAA",
+      claimedEvent: "RUNNING_UP",
+      radarCandidate,
+    });
+    expect(aliasOnly.VERIFIED_FACTS.confirmedScannerEvent).toBeNull();
+  });
 });

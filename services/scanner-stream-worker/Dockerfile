@@ -1,5 +1,5 @@
-# Deno 2.3.0 is the first stable 2.x that reads lockfile version 5.
-FROM denoland/deno:2.3.0
+# CI tests this worker on Deno 2.9.4. Lockfile version 5 is readable by 2.3+ and 2.9.4.
+FROM denoland/deno:2.9.4
 WORKDIR /repo
 COPY services/scanner-stream-worker ./services/scanner-stream-worker
 COPY supabase/functions/_shared/markets ./supabase/functions/_shared/markets

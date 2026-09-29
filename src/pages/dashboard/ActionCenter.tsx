@@ -14,6 +14,7 @@ import { CatalystWatch } from "@/components/action-center/CatalystWatch";
 import { WatchlistSnapshot } from "@/components/action-center/WatchlistSnapshot";
 import { AM_AI_BRIEF_GATE_BODY, PM_AI_BRIEF_GATE_BODY } from "@/config/inbox.config";
 import { ScannerHandoffBanner, readScannerHandoffQuery } from "@/components/scanner-intelligence/ScannerHandoffBanner";
+import { selectActionCenterHandoffRows } from "@/lib/action-center/handoff-context";
 
 const WORKFLOW_LINKS = [
   { title: "Pre-Market", desc: "Start the session with your pre-market setup.", route: "/dashboard/pre-market" },
@@ -24,6 +25,36 @@ const WORKFLOW_LINKS = [
   { title: "Journal", desc: "Log what worked and what to improve.", route: "/dashboard/journal" },
   { title: "After-Hours", desc: "Review the close and prepare tomorrow's plan.", route: "/dashboard/after-hours" },
 ];
+
+function HandoffContext({
+  symbol,
+  feed,
+  leaders,
+  loading,
+}: {
+  symbol: string | null;
+  feed: { key: string; symbol: string; title: string; sourceLabel: string }[];
+  leaders: { symbol: string }[];
+  loading: boolean;
+}) {
+  if (!symbol || loading) return null;
+  const rows = selectActionCenterHandoffRows({ symbol, feed, leaders });
+  if (rows.length === 0) return null;
+  return (
+    <section aria-label="Handoff context" className="rounded-md border bg-card px-3 py-2">
+      <h2 className="text-xs font-semibold text-foreground">{symbol}</h2>
+      <ul className="mt-1 space-y-1">
+        {rows.slice(0, 5).map((row) => (
+          <li key={row.key} className="text-xs text-muted-foreground">
+            <span className="text-foreground">{row.source}</span>
+            {" · "}
+            {row.title}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 function SectionError({ label }: { label: string }) {
   return (
@@ -69,6 +100,12 @@ export default function ActionCenter() {
               : ac.feed.some((item) => item.symbol.toUpperCase() === handoff.symbol) ||
                 ac.leaders.some((row) => row.symbol.toUpperCase() === handoff.symbol)
         }
+      />
+      <HandoffContext
+        symbol={handoff?.symbol ?? null}
+        feed={ac.feed}
+        leaders={ac.leaders}
+        loading={handoff !== null && (ac.loading.alerts || ac.loading.leaders)}
       />
 
       {/* SECTION 1 — Current Market Brief */}

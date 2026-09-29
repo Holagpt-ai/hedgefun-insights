@@ -53,12 +53,14 @@ export async function callClaude(args: {
       }),
       signal: AbortSignal.timeout(ANTHROPIC_TIMEOUT_MS),
     });
-  } catch {
+  } catch (e) {
+    const name = e instanceof Error ? e.name : "";
+    const timedOut = name === "TimeoutError" || name === "AbortError";
     return {
       ok: false,
       outcome: "provider_error",
       httpStatus: null,
-      errorType: null,
+      errorType: timedOut ? "timeout" : "network",
       errorMessage: null,
       elapsed_ms: Date.now() - started,
     };

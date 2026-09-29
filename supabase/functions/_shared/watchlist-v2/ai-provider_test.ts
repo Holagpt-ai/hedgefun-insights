@@ -155,7 +155,7 @@ Deno.test("Anthropic failure does not invoke another provider", async () => {
   });
   const r = await generateWatchlistAnalysis(anthropic, { prompt: "facts", catalog });
   assertEquals(r.kind, "transport_failure");
-  assertEquals(anthropicCalls, 1);
+  assertEquals(anthropicCalls, 2);
   assertEquals(otherCalls, 0);
   void other;
 });
@@ -171,6 +171,68 @@ Deno.test("first malformed Anthropic output can be repaired on the single allowe
   assertEquals(calls, 2);
   assertEquals(r.kind, "ok");
   if (r.kind === "ok") assertEquals(r.meta.retry_count, 1);
+});
+
+Deno.test("provider 5xx retries the primary model once and does not hop unless a fallback adapter is passed", async () => {
+  let calls = 0;
+  const adapter = fakeAdapter("anthropic", async () => {
+    calls += 1;
+    return { kind: "transport_failure", code: "PROVIDER_ERROR", http_status: 500, failure_kind: "http_error" };
+  });
+  const r = await generateWatchlistAnalysis(adapter, { prompt: "facts", catalog });
+  assertEquals(calls, 2);
+  assertEquals(r.kind, "transport_failure");
+  assertEquals(r.meta.fallback, "off");
+});
+
+Deno.test("auth failure is not retried and does not use the fallback adapter", async () => {
+  let primary = 0;
+  let fallbackCalls = 0;
+  const anthropic = fakeAdapter("anthropic", async () => {
+    primary += 1;
+    return { kind: "transport_failure", code: "PROVIDER_ERROR", http_status: 401, failure_kind: "http_error" };
+  });
+  const fallback = fakeAdapter("qwen", async () => {
+    fallbackCalls += 1;
+    return { kind: "ok", rawText: VALID_JSON, http_status: 200 };
+  });
+  const r = await generateWatchlistAnalysis(anthropic, { prompt: "facts", catalog }, { fallback });
+  assertEquals(primary, 1);
+  assertEquals(fallbackCalls, 0);
+  assertEquals(r.kind, "transport_failure");
+  assertEquals(r.meta.fallback, "off");
+});
+
+Deno.test("approved fallback is used once after primary 5xx retries are exhausted", async () => {
+  let primary = 0;
+  let fallbackCalls = 0;
+  const anthropic = fakeAdapter("anthropic", async () => {
+    primary += 1;
+    return { kind: "transport_failure", code: "PROVIDER_ERROR", http_status: 503, failure_kind: "http_error" };
+  });
+  const fallback = fakeAdapter("qwen", async () => {
+    fallbackCalls += 1;
+    return { kind: "ok", rawText: VALID_JSON, http_status: 200 };
+  });
+  const r = await generateWatchlistAnalysis(anthropic, { prompt: "facts", catalog }, { fallback });
+  assertEquals(primary, 2);
+  assertEquals(fallbackCalls, 1);
+  assertEquals(r.kind, "ok");
+  assertEquals(r.meta.fallback, "used");
+  assertEquals(r.meta.provider, "qwen");
+});
+
+Deno.test("malformed JSON does not hop to the fallback provider", async () => {
+  let fallbackCalls = 0;
+  const anthropic = fakeAdapter("anthropic", async () => ({ kind: "ok", rawText: "not json", http_status: 200 }));
+  const fallback = fakeAdapter("qwen", async () => {
+    fallbackCalls += 1;
+    return { kind: "ok", rawText: VALID_JSON, http_status: 200 };
+  });
+  const r = await generateWatchlistAnalysis(anthropic, { prompt: "facts", catalog }, { fallback });
+  assertEquals(r.kind, "validation_failed");
+  assertEquals(fallbackCalls, 0);
+  assertEquals(r.meta.fallback, "off");
 });
 
 Deno.test("createAnthropicAdapter uses the existing Haiku model id", () => {
