@@ -1,5 +1,40 @@
 import { expectedVolumeRatio, isFiniteNumber, isPositiveFinite } from "@/lib/screeners/contract";
 
+export type SessionChangePercentSource =
+  | "provider"
+  | "calculated_from_prior_regular_close"
+  | "unavailable";
+
+export interface ResolvedSessionChangePercent {
+  change_percent: number | null;
+  change_percent_source: SessionChangePercentSource;
+}
+
+/**
+ * Canonical session move: prefer a verified provider field when present;
+ * otherwise derive from last vs the prior regular-session close.
+ */
+export function resolveSessionChangePercent(input: {
+  lastPrice: number | null | undefined;
+  previousRegularClose: number | null | undefined;
+  providerChangePercent?: number | null | undefined;
+}): ResolvedSessionChangePercent {
+  if (isFiniteNumber(input.providerChangePercent)) {
+    return {
+      change_percent: input.providerChangePercent,
+      change_percent_source: "provider",
+    };
+  }
+  const calculated = sessionMovePercent(input.lastPrice, input.previousRegularClose);
+  if (calculated !== null) {
+    return {
+      change_percent: calculated,
+      change_percent_source: "calculated_from_prior_regular_close",
+    };
+  }
+  return { change_percent: null, change_percent_source: "unavailable" };
+}
+
 /**
  * Recover the previous regular-session close from a verified price and a
  * change that was computed as (price - previousClose) / previousClose * 100.

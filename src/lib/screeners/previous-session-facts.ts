@@ -1,9 +1,9 @@
 /**
  * Verified previous-session facts persisted on radar_v22_candidates.
  *
- * previous_close is recovered from the screener regular-session pair:
- * regular close (day.c) and the verified regular-session move
- * (day.c - prevDay.c) / prevDay.c. It is never taken from the Radar last,
+ * previous_close prefers verified Polygon prevDay.c. When that is absent it
+ * may be recovered from the regular-session pair (day.c + verified move).
+ * It is never taken from the Radar last,
  * after-hours last, premarket last, open, VWAP, or a short-window move.
  *
  * prior_session_volume is the verified previous completed session total
@@ -49,6 +49,9 @@ function regularAndLastImplySplitScale(regularClose: number, lastPrice: number):
   return Math.abs(ratio - rounded) / rounded <= 0.03;
 }
 
+/** Max relative drift between provider prevDay.c and a regular-session recovery. */
+const PREVIOUS_CLOSE_RECOVERY_TOLERANCE = 0.005;
+
 export function candidatePreviousSessionFacts(
   input: PreviousSessionQuoteInput,
 ): PersistedPreviousSessionFacts {
@@ -56,10 +59,11 @@ export function candidatePreviousSessionFacts(
   const regular = positiveFinite(input.regularClose);
   const verifiedPrevious = positiveFinite(input.previousClose);
   const change = input.changePercent;
-  let previous: number | null = null;
+  let previous: number | null = verifiedPrevious;
+
   if (
+    previous === null &&
     regular !== null &&
-    verifiedPrevious !== null &&
     typeof change === "number" &&
     Number.isFinite(change)
   ) {
@@ -68,7 +72,24 @@ export function candidatePreviousSessionFacts(
       const recovered = regular / denominator;
       if (Number.isFinite(recovered) && recovered > 0) previous = recovered;
     }
+  } else if (
+    previous !== null &&
+    regular !== null &&
+    typeof change === "number" &&
+    Number.isFinite(change)
+  ) {
+    const denominator = 1 + change / 100;
+    if (Number.isFinite(denominator) && denominator > 0) {
+      const recovered = regular / denominator;
+      if (Number.isFinite(recovered) && recovered > 0) {
+        const relDrift = Math.abs(recovered - previous) / previous;
+        if (relDrift > PREVIOUS_CLOSE_RECOVERY_TOLERANCE) {
+          previous = null;
+        }
+      }
+    }
   }
+
   const last = positiveFinite(input.lastPrice);
   if (
     previous !== null &&

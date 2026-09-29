@@ -8,6 +8,7 @@ import {
   buildDayTradeRadarOpportunityBoard,
   computeDayTradeRadarScore,
   formatDayTradeRadarStatusSuffix,
+  summarizeDayTradeCandidateGates,
   meetsDayTradeRadarEligibility,
   meetsDayTradeRadarLiquidityGate,
   tradabilityFactor,
@@ -325,6 +326,22 @@ describe("Day Trade Radar opportunity desk V1.1", () => {
       candidateUniverseCount: 59,
       topOpportunityCount: 7,
     })).toBe("59 candidates detected · 7 ranked for Radar");
+  });
+
+  it("gate audit counts missing MOVE separately from move below +10%", () => {
+    const universe = rankRadarRows(
+      [
+        row({ symbol: "NOMOVE", volume: 5_000_000, change_percent: null }),
+        row({ symbol: "WEAK", volume: 5_000_000, change_percent: 5 }),
+        row({ symbol: "STRONG", volume: 5_000_000, change_percent: 15 }),
+      ],
+      "available",
+    );
+    const audit = summarizeDayTradeCandidateGates(universe, NOW);
+    expect(audit.candidateUniverseCount).toBe(3);
+    expect(audit.missingMoveCount).toBe(1);
+    expect(audit.moveBelowMinimumCount).toBe(1);
+    expect(audit.qualifiedStrategyCount).toBe(1);
   });
 
   it("Top Leader equals opportunity rank #1", () => {

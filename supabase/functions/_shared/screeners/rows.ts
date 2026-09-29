@@ -4,8 +4,10 @@
 // 52-week fields and range_event are populated only for New Highs/Lows.
 
 import {
+  changePercentVsPriorRegularClose,
   dayHighLow,
   dayVolume,
+  extendedSessionLastPrice,
   gapPercent,
   normalizeSymbol,
   parseProviderAsOf,
@@ -161,14 +163,23 @@ function baseRow(
   if (providerAsOf === null) {
     throw new Error("provider_freshness_unavailable");
   }
-  // Day-session contract: price and change_percent both from regular session.
-  // Never pair day.c with todaysChangePerc.
+  const extended = meta.extendedSession ?? false;
+  const regularPrice = regularClose(t);
+  const price = extended
+    ? extendedSessionLastPrice(t) ?? regularPrice
+    : regularPrice;
+  const change_percent = extended
+    ? changePercentVsPriorRegularClose(price, t)
+    : regularChangePercent(t);
+
+  // Regular session: price and change_percent both from day.c / prevDay.c.
+  // Extended session: last vs prior regular close — never todaysChangePerc.
   return {
     tab_id: tabId,
     symbol: sym,
     company_name: getName(sym),
-    price: regularClose(t),
-    change_percent: regularChangePercent(t),
+    price,
+    change_percent,
     volume: vol,
     avg_volume: null,
     rvol: null,
