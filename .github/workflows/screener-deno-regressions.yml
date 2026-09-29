@@ -26,11 +26,17 @@ concurrency:
 
 jobs:
   regressions:
-    name: Critical screener and worker tests
+    name: Critical screener tests
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - name: Install Node dependencies
+        run: npm ci --ignore-scripts
       - uses: denoland/setup-deno@v2
         with:
           deno-version: 2.9.4
