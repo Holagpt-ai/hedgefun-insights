@@ -5,6 +5,7 @@ import {
 import { listStoredLateSessionHandoffs } from "@/lib/am-inbox/late-session-handoff-storage";
 import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/historical-workflow-types";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { confirmStoredScannerEvent } from "@/lib/scanner-intelligence/confirmed-event";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import type {
   AnalystCatalystRow,
@@ -205,6 +206,7 @@ export function buildAnalystIntelligencePacket(input: {
   catalystRows?: AnalystCatalystRow[];
   journalRows?: AnalystJournalRow[];
   nowIso?: string;
+  claimedEvent?: string | null;
 }): AnalystIntelligencePacket {
   const symbol = normalizeHandoffSymbol(input.symbol) ?? input.symbol.trim().toUpperCase();
   const workflow = input.workflow ?? readHistoricalWorkflowContext(symbol);
@@ -215,6 +217,10 @@ export function buildAnalystIntelligencePacket(input: {
   const watchlist = buildWatchlistSnapshot(input.watchlistRow ?? null);
   if (watchlist.ticker === "") watchlist.ticker = symbol;
   const continuation = lateSessionHandoffsForSymbol(symbol);
+  const confirmedScannerEvent = confirmStoredScannerEvent(input.claimedEvent, [
+    radar.primaryScannerEvent,
+    ...radar.recentEvents.map((row) => row.eventType),
+  ]);
 
   const keyLevelsMissing =
     radar.keyLevels.source === "unavailable" ||
@@ -230,6 +236,7 @@ export function buildAnalystIntelligencePacket(input: {
       workflowHandoff: workflow,
       catalystRows,
       journalRows,
+      confirmedScannerEvent,
     },
     HISTORICAL_EVIDENCE: {
       workflowSummary: {
@@ -253,7 +260,7 @@ export function buildAnalystIntelligencePacket(input: {
     MODEL_INTERPRETATION: {
       responseStructure: AI_ANALYST_RESPONSE_STRUCTURE,
       dataHonesty:
-        "Null fields and available=false mean unavailable verified data. Do not substitute estimates or generic market commentary.",
+        "Null fields and available=false mean unavailable verified data. Do not substitute estimates or generic market commentary. confirmedScannerEvent is included only when a claimed handoff event matches stored radar data.",
     },
     unavailable: {
       radar: !radar.available,

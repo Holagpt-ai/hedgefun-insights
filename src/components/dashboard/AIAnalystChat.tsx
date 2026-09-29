@@ -183,6 +183,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   // Tracks the exact deep-link params already consumed. It resets as soon as the
   // URL is clean again, so a later ticker handoff is still processed.
   const handoffTokenRef = useRef<string | null>(null);
+  const claimedScannerEventRef = useRef<string | null>(null);
   // Mirror of `messages` so request payloads and stream updates never read a
   // stale render closure.
   const messagesRef = useRef<ChatMessage[]>([]);
@@ -694,6 +695,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                 symbol: activeSymbol,
                 userId: user?.id ?? null,
                 handoffSource: workflow?.sourceSurface ?? null,
+                claimedEvent: claimedScannerEventRef.current,
               }),
               DASHBOARD_CONTEXT_TIMEOUT_MS,
               controller.signal,
@@ -793,6 +795,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
   useEffect(() => {
     const rawSymbol = searchParams.get("symbol");
     const rawPrompt = searchParams.get("prompt");
+    const rawEvent = searchParams.get("event");
 
     if (rawSymbol === null && rawPrompt === null) {
       // URL is clean again — the next handoff is a genuinely new one.
@@ -805,7 +808,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
 
     // Guards against effect rerenders replaying the same handoff. It is not a
     // permanent latch: it is released above once the params are gone.
-    const token = `s:${rawSymbol ?? ""}|p:${rawPrompt ?? ""}`;
+    const token = `s:${rawSymbol ?? ""}|p:${rawPrompt ?? ""}|e:${rawEvent ?? ""}`;
     if (handoffTokenRef.current === token) return;
     // Claim before clearing the URL or submitting so Strict Mode / dep churn
     // cannot double-consume the same handoff.
@@ -828,6 +831,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         lastAttemptedPromptRef.current = "";
       }
       setActiveWorkflowSymbol(symbol);
+      claimedScannerEventRef.current = rawEvent;
 
       const synthesized = buildSymbolPrompt(symbol);
 

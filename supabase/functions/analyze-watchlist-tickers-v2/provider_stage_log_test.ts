@@ -17,20 +17,21 @@ Deno.test("diagnostic preserves stage, persisted code, status and failure kind",
   };
   for (const stage of STAGES) {
     const d = buildProviderFailureDiagnostic("aapl", stage, failure);
+    const aiStage = stage === "anthropic_ai" || stage === "watchlist_ai";
     assertEquals(d, {
-      ticker: "AAPL", provider_stage: stage, error_code: "PROVIDER_ERROR",
+      ticker: "AAPL", provider_stage: stage, error_code: aiStage ? "AI_AUTH" : "PROVIDER_ERROR",
       http_status: 401, failure_kind: "http_error",
     });
   }
 });
 
-Deno.test("diagnostic maps each persisted code unchanged", () => {
+Deno.test("diagnostic maps AI-stage failures separately from market-data codes", () => {
   const cases: Array<[ProviderTransportFailure, string, number | null]> = [
-    [{ kind: "transport_failure", code: "RATE_LIMITED", http_status: 429, failure_kind: "http_error" }, "RATE_LIMITED", 429],
-    [{ kind: "transport_failure", code: "PROVIDER_TIMEOUT", http_status: null, failure_kind: "timeout" }, "PROVIDER_TIMEOUT", null],
-    [{ kind: "transport_failure", code: "PROVIDER_TIMEOUT", http_status: null, failure_kind: "fetch_error" }, "PROVIDER_TIMEOUT", null],
-    [{ kind: "transport_failure", code: "PROVIDER_ERROR", http_status: 200, failure_kind: "invalid_json" }, "PROVIDER_ERROR", 200],
-    [{ kind: "transport_failure", code: "PROVIDER_ERROR", http_status: 500, failure_kind: "http_error" }, "PROVIDER_ERROR", 500],
+    [{ kind: "transport_failure", code: "RATE_LIMITED", http_status: 429, failure_kind: "http_error" }, "AI_RATE_LIMITED", 429],
+    [{ kind: "transport_failure", code: "PROVIDER_TIMEOUT", http_status: null, failure_kind: "timeout" }, "AI_TIMEOUT", null],
+    [{ kind: "transport_failure", code: "PROVIDER_TIMEOUT", http_status: null, failure_kind: "fetch_error" }, "AI_TIMEOUT", null],
+    [{ kind: "transport_failure", code: "PROVIDER_ERROR", http_status: 200, failure_kind: "invalid_json" }, "AI_PROVIDER_ERROR", 200],
+    [{ kind: "transport_failure", code: "PROVIDER_ERROR", http_status: 500, failure_kind: "http_error" }, "AI_PROVIDER_ERROR", 500],
   ];
   for (const [failure, code, status] of cases) {
     const d = buildProviderFailureDiagnostic("MSFT", "anthropic_ai", failure);
@@ -38,6 +39,10 @@ Deno.test("diagnostic maps each persisted code unchanged", () => {
     assertEquals(d.http_status, status);
     assertEquals(d.failure_kind, failure.failure_kind);
   }
+  const market = buildProviderFailureDiagnostic("MSFT", "polygon_snapshot", {
+    kind: "transport_failure", code: "PROVIDER_TIMEOUT", http_status: null, failure_kind: "timeout",
+  });
+  assertEquals(market.error_code, "PROVIDER_TIMEOUT");
 });
 
 Deno.test("diagnostic exposes only the allowed fields", () => {

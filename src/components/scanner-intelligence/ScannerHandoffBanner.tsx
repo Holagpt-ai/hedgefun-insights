@@ -29,7 +29,6 @@ export function ScannerHandoffBanner({
   return (
     <div className="rounded-md border border-border bg-card px-3 py-2 text-xs text-muted-foreground" data-testid="scanner-handoff-banner">
       <span className="font-medium text-foreground">{handoff.symbol}</span>
-      {handoff.eventLabel ? ` · ${handoff.eventLabel}` : ""}
       {" · "}
       {detail}
     </div>

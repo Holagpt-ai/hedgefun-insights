@@ -20,6 +20,7 @@ import {
   timeOfDayLabel,
 } from "@/lib/catalyst/parsers";
 import { catalystSourceBadge } from "@/lib/catalyst/presentation";
+import { buildCatalystTraderRead } from "@/lib/catalyst/trader-read";
 import { cn } from "@/lib/utils";
 
 interface CatalystEventCardProps {
@@ -129,6 +130,8 @@ export function CatalystEventCard({
   const showTitle = event.event_type !== "earnings" && event.title;
   const earningsResult = earningsResultBadge(event);
   const sourceBadge = catalystSourceBadge(event.provider);
+  const traderRead = buildCatalystTraderRead(event);
+  const longDescription = event.description && event.description.length > 220;
 
   return (
     <Card className={cn("p-4 space-y-3 transition-colors", isReviewed && "opacity-80")}>
@@ -178,10 +181,16 @@ export function CatalystEventCard({
               {event.title}
             </div>
           )}
-          {event.description && event.event_type !== "earnings" && (
+          {event.description && event.event_type !== "earnings" && !longDescription && (
             <div className="mt-1 text-[13px] text-muted-foreground leading-relaxed break-words">
               {event.description}
             </div>
+          )}
+          {event.description && event.event_type !== "earnings" && longDescription && (
+            <details className="mt-1 text-[13px] text-muted-foreground">
+              <summary className="cursor-pointer">Source text</summary>
+              <p className="mt-1 leading-relaxed break-words">{event.description}</p>
+            </details>
           )}
         </div>
         <div className="shrink-0 flex items-center gap-1">
@@ -211,6 +220,15 @@ export function CatalystEventCard({
           </Button>
         </div>
       </div>
+
+      <dl className="grid gap-1 text-[12px]" data-testid="catalyst-trader-read">
+        {traderRead.map((line) => (
+          <div key={line.label} className="grid grid-cols-[88px_1fr] gap-2">
+            <dt className="text-muted-foreground">{line.label}</dt>
+            <dd className="text-foreground/90">{line.text}</dd>
+          </div>
+        ))}
+      </dl>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-muted-foreground">
         <span className="tabular-nums text-foreground/80">{formatDate(event)}</span>

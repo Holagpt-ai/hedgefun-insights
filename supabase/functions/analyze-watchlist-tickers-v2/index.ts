@@ -33,6 +33,7 @@ import {
 import {
   buildAiPrompt, buildEvidenceCatalog,
 } from "../_shared/watchlist-v2/ai-read.ts";
+import { resolveApprovedWatchlistFallbackFromEnv } from "../_shared/watchlist-v2/ai-fallback.ts";
 import {
   createWatchlistAiAdapter,
   emitWatchlistAiCallLog,
@@ -92,6 +93,7 @@ const EARNINGS_HORIZON_DAYS = 3;
 
 type ErrorCode =
   | "RATE_LIMITED" | "PROVIDER_TIMEOUT" | "PROVIDER_ERROR"
+  | "AI_TIMEOUT" | "AI_RATE_LIMITED" | "AI_PROVIDER_ERROR" | "AI_AUTH"
   | "AI_VALIDATION_FAILED" | "UPSTREAM_ERROR" | "UNKNOWN";
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -291,7 +293,7 @@ export function buildProviderFailureDiagnostic(
   const diagnostic: ProviderFailureDiagnostic = {
     ticker: normalizeTicker(ticker) ?? "",
     provider_stage: stage,
-    error_code: mapTransportErr(failure.code),
+    error_code: persistedTransportCode(stage, failure),
     http_status: typeof failure.http_status === "number" ? failure.http_status : null,
     failure_kind: failure.failure_kind,
   };
@@ -868,7 +870,9 @@ export async function handleRequest(req: Request): Promise<Response> {
             analysis_presentation: analysisPresentation,
             session_display_label: sessionDisplayLabel,
           }, catalog);
-          const result = await generateWatchlistAnalysis(created.adapter, { prompt, catalog });
+          const result = await generateWatchlistAnalysis(created.adapter, { prompt, catalog }, {
+            fallback: resolveApprovedWatchlistFallbackFromEnv(),
+          });
           applyAiCallMeta(outcomeLog, result.meta, intended);
           emitWatchlistAiCallLog(result.meta, result.kind === "ok", intended);
           if (runId) {
@@ -1099,6 +1103,14 @@ function mapTransportErr(code: string): ErrorCode {
   if (code === "RATE_LIMITED") return "RATE_LIMITED";
   if (code === "PROVIDER_TIMEOUT") return "PROVIDER_TIMEOUT";
   return "PROVIDER_ERROR";
+}
+
+function persistedTransportCode(stage: ProviderStage, failure: ProviderTransportFailure): ErrorCode {
+  if (stage !== "anthropic_ai" && stage !== "watchlist_ai") return mapTransportErr(failure.code);
+  if (failure.code === "RATE_LIMITED" || failure.http_status === 429) return "AI_RATE_LIMITED";
+  if (failure.code === "PROVIDER_TIMEOUT") return "AI_TIMEOUT";
+  if (failure.http_status === 401 || failure.http_status === 403) return "AI_AUTH";
+  return "AI_PROVIDER_ERROR";
 }
 
 async function completeSkip(

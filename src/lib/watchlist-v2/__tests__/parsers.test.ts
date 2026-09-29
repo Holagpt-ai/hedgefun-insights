@@ -141,7 +141,10 @@ describe("humanFailureReason never exposes internal snapshot codes", () => {
   it("keeps provider and system errors distinct from expected unavailable states", () => {
     expect(humanFailureReason("RATE_LIMITED")).toBe("Rate limited by data provider.");
     expect(humanFailureReason("PROVIDER_ERROR")).toBe("Market data provider error.");
+    expect(humanFailureReason("AI_TIMEOUT")).toBe("AI analysis timed out. Retry available.");
+    expect(humanFailureReason("AI_PROVIDER_ERROR")).toBe("AI analysis is temporarily unavailable.");
     expect(humanFailureReason("AI_VALIDATION_FAILED")).toBe("AI response failed validation.");
+    expect(humanFailureReason("PROVIDER_TIMEOUT")).toBe("Market data provider timed out.");
     expect(humanFailureReason("UPSTREAM_ERROR")).toBe("Upstream service error.");
     expect(humanFailureReason("SNAPSHOT_STALE")).not.toMatch(/AI failed/i);
     expect(humanFailureReason("INSUFFICIENT_EVIDENCE")).not.toMatch(/AI failed/i);

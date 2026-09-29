@@ -47,7 +47,14 @@ import {
   buildAmUserPrompt,
   buildPmUserPrompt,
 } from "../_shared/briefs/prompts.ts";
-import { callClaudeWithRetry } from "./claude-retry.ts";
+import { briefProviderFailureBody, callClaudeWithRetry } from "./claude-retry.ts";
+import {
+  clearBriefGenerationState,
+  stateFromEvidenceReason,
+  stateFromPersistFailure,
+  stateFromProviderFailure,
+  writeBriefGenerationState,
+} from "../_shared/briefs/generation-state.ts";
 import {
   emitBriefTelemetry,
   maxIndexAgeMs,
@@ -229,6 +236,37 @@ serve(async (req) => {
 
     const admin = createClient(supabaseUrl, supabaseServiceKey);
 
+    const recordEvidenceFailure = async (reason: string) => {
+      await writeBriefGenerationState(admin, stateFromEvidenceReason({
+        briefType,
+        briefDate: etDate,
+        reason,
+        failedAt: new Date().toISOString(),
+      }));
+    };
+    const recordProviderFailure = async (generated: {
+      httpStatus: number | null;
+      outcome: "provider_error" | "parse_error";
+      errorType: string | null;
+    }) => {
+      const failedAt = new Date().toISOString();
+      await writeBriefGenerationState(admin, stateFromProviderFailure({
+        briefType,
+        briefDate: etDate,
+        httpStatus: generated.httpStatus,
+        outcome: generated.outcome,
+        errorType: generated.errorType,
+        failedAt,
+      }));
+      return failedAt;
+    };
+    const clearFailure = () => clearBriefGenerationState(admin, briefType, etDate);
+    const recordPersistFailure = () => writeBriefGenerationState(admin, stateFromPersistFailure({
+      briefType,
+      briefDate: etDate,
+      failedAt: new Date().toISOString(),
+    }));
+
     const etNow = etClock();
     const nowMinutesEt = etNow.minutes;
 
@@ -243,6 +281,7 @@ serve(async (req) => {
     // Unchanged: one generation per ET date; subsequent calls return the canonical row.
     if (briefType === "pm") {
       if (existingBrief) {
+        await clearFailure();
         return json(cachedBody(existingBrief), 200);
       }
 
@@ -263,6 +302,7 @@ serve(async (req) => {
           anthropic_error_type: null,
           anthropic_error_message: null,
         });
+        await recordEvidenceFailure("source_unavailable");
         return json(
           { available: false, reason: "source_unavailable", brief_type: briefType, brief_date: etDate },
           503,
@@ -279,6 +319,7 @@ serve(async (req) => {
       for (const sym of AM_INDEX_SYMBOLS) {
         const row = bySymbol.get(sym);
         if (!row) {
+          await recordEvidenceFailure("source_missing_symbol");
           return json(
             { available: false, reason: "source_missing_symbol", brief_type: briefType, brief_date: etDate },
             503,
@@ -287,18 +328,21 @@ serve(async (req) => {
         const cv = Number(row.current_value);
         const cp = Number(row.change_percent);
         if (!Number.isFinite(cv) || cv <= 0) {
+          await recordEvidenceFailure("source_invalid_price");
           return json(
             { available: false, reason: "source_invalid_price", brief_type: briefType, brief_date: etDate },
             503,
           );
         }
         if (!Number.isFinite(cp)) {
+          await recordEvidenceFailure("source_invalid_change");
           return json(
             { available: false, reason: "source_invalid_change", brief_type: briefType, brief_date: etDate },
             503,
           );
         }
         if (!row.updated_at) {
+          await recordEvidenceFailure("source_missing_updated_at");
           return json(
             { available: false, reason: "source_missing_updated_at", brief_type: briefType, brief_date: etDate },
             503,
@@ -314,9 +358,10 @@ serve(async (req) => {
             anthropic_http_status: null,
             anthropic_error_type: null,
             anthropic_error_message: null,
-        });
-        return json(
-          { available: false, reason: "source_stale", brief_type: briefType, brief_date: etDate },
+          });
+          await recordEvidenceFailure("source_stale");
+          return json(
+            { available: false, reason: "source_stale", brief_type: briefType, brief_date: etDate },
             503,
           );
         }
@@ -350,7 +395,9 @@ serve(async (req) => {
           anthropic_error_type: generated.errorType,
           anthropic_error_message: generated.errorMessage,
         });
-        return json({ error: "Upstream generation failed" }, 502);
+        const failure = briefProviderFailureBody(generated);
+        await recordProviderFailure(generated);
+        return json(failure.body, failure.status);
       }
 
       const marketSnapshot: Record<string, unknown> = {
@@ -395,7 +442,10 @@ serve(async (req) => {
             .eq("brief_type", briefType)
             .eq("brief_date", etDate)
             .maybeSingle();
-          if (canonical) return json(cachedBody(canonical), 200);
+          if (canonical) {
+            await clearFailure();
+            return json(cachedBody(canonical), 200);
+          }
         }
         console.error("insert failed:", insertErr.message);
         emitBriefTelemetry(startedAtMs, {
@@ -407,6 +457,7 @@ serve(async (req) => {
           anthropic_error_type: null,
           anthropic_error_message: null,
         });
+        await recordPersistFailure();
         return json({ error: "Persist failed" }, 500);
       }
 
@@ -419,6 +470,7 @@ serve(async (req) => {
         anthropic_error_type: null,
         anthropic_error_message: null,
       });
+      await clearFailure();
       return json(
         {
           id: inserted.id,
@@ -451,6 +503,7 @@ serve(async (req) => {
         anthropic_error_type: null,
         anthropic_error_message: null,
       });
+      await recordEvidenceFailure("source_unavailable");
       return json(
         { available: false, reason: "source_unavailable", brief_type: "am", brief_date: etDate },
         503,
@@ -469,6 +522,7 @@ serve(async (req) => {
         anthropic_error_type: null,
         anthropic_error_message: null,
       });
+      await recordEvidenceFailure(indexValidation.reason);
       return json(
         {
           available: false,
@@ -533,6 +587,7 @@ serve(async (req) => {
         "am optional evidence fetch failed; returning cached V2 brief",
         newsRes.error?.message ?? catRes.error?.message ?? "",
       );
+      await clearFailure();
       return json(cachedBody(existingBrief), 200);
     }
     if (newsRes.error) {
@@ -652,12 +707,14 @@ serve(async (req) => {
         anthropic_error_type: null,
         anthropic_error_message: null,
       });
+      await recordEvidenceFailure(decision.reason);
       return json(
         { available: false, reason: decision.reason, brief_type: "am", brief_date: etDate },
         503,
       );
     }
     if (decision.action === "return_cached" && existingBrief) {
+      await clearFailure();
       return json(cachedBody(existingBrief), 200);
     }
 
@@ -678,7 +735,9 @@ serve(async (req) => {
         anthropic_error_type: generated.errorType,
         anthropic_error_message: generated.errorMessage,
       });
-      return json({ error: "Upstream generation failed" }, 502);
+      const failure = briefProviderFailureBody(generated);
+      await recordProviderFailure(generated);
+      return json(failure.body, failure.status);
     }
 
     const persistWindow = resolvePersistedGenerationWindow(nowMinutesEt);
@@ -724,6 +783,7 @@ serve(async (req) => {
           anthropic_error_type: null,
           anthropic_error_message: null,
         });
+        await recordPersistFailure();
         return json({ error: "Persist failed" }, 500);
       }
       emitBriefTelemetry(startedAtMs, {
@@ -735,6 +795,7 @@ serve(async (req) => {
         anthropic_error_type: null,
         anthropic_error_message: null,
       });
+      await clearFailure();
       return json(
         {
           id: updated.id,
@@ -772,7 +833,10 @@ serve(async (req) => {
           .eq("brief_type", "am")
           .eq("brief_date", etDate)
           .maybeSingle();
-        if (canonical) return json(cachedBody(canonical), 200);
+        if (canonical) {
+          await clearFailure();
+          return json(cachedBody(canonical), 200);
+        }
       }
       console.error("insert failed:", insertErr.message);
       emitBriefTelemetry(startedAtMs, {
@@ -784,6 +848,7 @@ serve(async (req) => {
         anthropic_error_type: null,
         anthropic_error_message: null,
       });
+      await recordPersistFailure();
       return json({ error: "Persist failed" }, 500);
     }
 
@@ -796,6 +861,7 @@ serve(async (req) => {
       anthropic_error_type: null,
       anthropic_error_message: null,
     });
+    await clearFailure();
     return json(
       {
         id: inserted.id,

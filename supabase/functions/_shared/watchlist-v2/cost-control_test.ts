@@ -2,6 +2,8 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 import type { PriorAnalysis } from "./cost-control.ts";
 import {
   MATERIAL_CHANGE_THRESHOLDS,
+  TTL_MIN_OFFHOURS,
+  TTL_MIN_RTH,
   compareMaterialChange,
   computeValidThrough,
   decideAfterFacts,
@@ -14,6 +16,13 @@ import {
   resolveForceRefresh,
   shouldInsertHistory,
 } from "./cost-control.ts";
+
+Deno.test("cost-control thresholds stay at the existing gates", () => {
+  assertEquals(TTL_MIN_RTH, 10);
+  assertEquals(TTL_MIN_OFFHOURS, 30);
+  assertEquals(MATERIAL_CHANGE_THRESHOLDS.changePctAbs, 1.0);
+  assertEquals(MATERIAL_CHANGE_THRESHOLDS.volumeRelative, 0.25);
+});
 
 const NOW = new Date("2026-09-03T15:00:00.000Z");
 const VALID = "2026-09-03T15:10:00.000Z";

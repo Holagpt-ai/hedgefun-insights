@@ -81,6 +81,8 @@ export interface AnalystIntelligencePacket {
     workflowHandoff: HistoricalWorkflowContext | null;
     catalystRows: AnalystCatalystRow[];
     journalRows: AnalystJournalRow[];
+    /** Set only when a claimed handoff event matches stored radar data. */
+    confirmedScannerEvent: string | null;
   };
   HISTORICAL_EVIDENCE: {
     workflowSummary: {

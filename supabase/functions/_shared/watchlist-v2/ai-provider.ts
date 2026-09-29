@@ -7,6 +7,7 @@ import type { EvidenceCatalog } from "./ai-read.ts";
 import { makeAnthropicCaller, validateAiOutput, type AiReadResult } from "./ai-read.ts";
 import type { ProviderTransportFailure } from "./market-data.ts";
 import { LOG_PREFIX } from "./sanitize.ts";
+import { classifyHttpFailure, logAiRequest } from "../ai/normalized-failure.ts";
 
 export type WatchlistAiProviderId = "anthropic" | "qwen";
 
@@ -59,7 +60,7 @@ export interface WatchlistAiCallMeta {
   usage: WatchlistAiUsage;
   http_status: number | null;
   quality_issue: WatchlistAiQualityIssue | null;
-  fallback: "off";
+  fallback: "off" | "used";
 }
 
 export type WatchlistAiCallResult =
@@ -176,7 +177,7 @@ export function emitWatchlistAiCallLog(meta: WatchlistAiCallMeta, success: boole
     retry_count: meta.retry_count,
     http_status: meta.http_status,
     quality_issue: meta.quality_issue,
-    fallback: "off" as const,
+    fallback: meta.fallback,
   };
   console.log(`${LOG_PREFIX} ai_call ${JSON.stringify(payload)}`);
 }
@@ -187,37 +188,70 @@ function repairPrompt(original: string, reason: string): string {
 REPAIR: previous output was invalid (${reason}). Return ONLY the required JSON object with keys direction, explanation, driver_ids. No markdown.`;
 }
 
+function transportIsRetryable(failure: ProviderTransportFailure): boolean {
+  if (failure.http_status === 401 || failure.http_status === 403 || failure.http_status === 400) {
+    return false;
+  }
+  if (failure.code === "PROVIDER_TIMEOUT" || failure.code === "RATE_LIMITED") return true;
+  const status = failure.http_status;
+  return status === 429 || (status !== null && status >= 500);
+}
+
 export async function generateWatchlistAnalysis(
   adapter: WatchlistAiAdapter,
   input: WatchlistAiRequest,
-  options?: { maxRepairRetries?: number; nowMs?: () => number },
+  options?: { maxRepairRetries?: number; nowMs?: () => number; fallback?: WatchlistAiAdapter | null },
 ): Promise<WatchlistAiCallResult> {
   const maxRetries = options?.maxRepairRetries ?? WATCHLIST_AI_MAX_REPAIR_RETRIES;
   const nowMs = options?.nowMs ?? Date.now;
   const started = nowMs();
-  let retryCount = 0;
+  let repairCount = 0;
+  let transportRetries = 0;
+  let usingFallback = false;
+  let active = adapter;
   let lastUsage: WatchlistAiUsage = { input_tokens: null, output_tokens: null };
   let lastStatus: number | null = null;
   let prompt = input.prompt;
+  let attempt = 0;
 
   const meta = (
     quality_issue: WatchlistAiQualityIssue | null,
     extraUsage?: WatchlistAiUsage,
   ): WatchlistAiCallMeta => ({
-    provider: adapter.id,
-    model: adapter.model,
+    provider: active.id,
+    model: active.model,
     latency_ms: Math.max(0, nowMs() - started),
-    retry_count: retryCount,
+    retry_count: transportRetries + repairCount,
     usage: extraUsage ?? lastUsage,
     http_status: lastStatus,
     quality_issue,
-    fallback: "off",
+    fallback: usingFallback ? "used" : "off",
   });
 
   while (true) {
-    const raw = await adapter.complete(prompt);
+    attempt += 1;
+    const attemptStarted = nowMs();
+    const raw = await active.complete(prompt);
     lastStatus = raw.http_status ?? null;
     if (raw.usage) lastUsage = raw.usage;
+    const transportFailure = raw.kind === "transport_failure";
+    logAiRequest({
+      surface: "watchlist_v2",
+      provider: active.id,
+      model: active.model,
+      attempt,
+      fallbackUsed: usingFallback,
+      durationMs: Math.max(0, nowMs() - attemptStarted),
+      outcome: raw.kind,
+      schemaValid: null,
+      evidenceSufficient: true,
+      failureCategory: transportFailure
+        ? classifyHttpFailure({
+          httpStatus: raw.http_status ?? null,
+          timedOut: raw.code === "PROVIDER_TIMEOUT" || raw.http_status == null,
+        })
+        : null,
+    });
 
     if (raw.kind === "transport_failure") {
       const failure: ProviderTransportFailure = {
@@ -228,13 +262,24 @@ export async function generateWatchlistAnalysis(
         provider_error_type: raw.provider_error_type ?? null,
         provider_error_message: raw.provider_error_message ?? null,
       };
+      const retryable = transportIsRetryable(failure);
+      if (!usingFallback && retryable && transportRetries < maxRetries) {
+        transportRetries += 1;
+        continue;
+      }
+      if (!usingFallback && retryable && options?.fallback) {
+        usingFallback = true;
+        active = options.fallback;
+        prompt = input.prompt;
+        continue;
+      }
       const issue = classifyQualityIssue(failure);
       emitWatchlistAiQualityLog({
-        provider: adapter.id,
-        model: adapter.model,
+        provider: active.id,
+        model: active.model,
         issue: issue ?? "provider_error",
         reason: failure.code,
-        retry_count: retryCount,
+        retry_count: transportRetries + repairCount,
         http_status: failure.http_status,
       });
       return { ...failure, meta: meta(issue) };
@@ -242,15 +287,32 @@ export async function generateWatchlistAnalysis(
 
     const rawText = raw.rawText ?? "";
     const validated = validateAiOutput(rawText, input.catalog);
+    const schemaFailed = validated.kind !== "ok";
+    logAiRequest({
+      surface: "watchlist_v2",
+      provider: active.id,
+      model: active.model,
+      attempt,
+      fallbackUsed: usingFallback,
+      durationMs: Math.max(0, nowMs() - attemptStarted),
+      outcome: validated.kind,
+      schemaValid: !schemaFailed,
+      evidenceSufficient: true,
+      failureCategory: schemaFailed
+        ? (validated.kind === "validation_failed" && (validated.reason === "unparseable_json" || validated.reason === "not_object")
+          ? "MALFORMED_RESPONSE"
+          : "SCHEMA_VALIDATION")
+        : null,
+    });
     if (validated.kind === "ok") {
       const issue = classifyQualityIssue({ kind: "ok", explanation: validated.value.explanation });
       if (issue) {
         emitWatchlistAiQualityLog({
-          provider: adapter.id,
-          model: adapter.model,
+          provider: active.id,
+          model: active.model,
           issue,
           reason: issue,
-          retry_count: retryCount,
+          retry_count: transportRetries + repairCount,
           http_status: lastStatus,
         });
       }
@@ -266,18 +328,18 @@ export async function generateWatchlistAnalysis(
     }
     const issue = classifyQualityIssue(validated);
     emitWatchlistAiQualityLog({
-      provider: adapter.id,
-      model: adapter.model,
+      provider: active.id,
+      model: active.model,
       issue: issue ?? "parsing_failure",
       reason: validated.reason,
-      retry_count: retryCount,
+      retry_count: transportRetries + repairCount,
       http_status: lastStatus,
     });
 
-    if (retryCount >= maxRetries) {
+    if (repairCount >= maxRetries) {
       return { kind: "validation_failed", reason: validated.reason, meta: meta(issue) };
     }
-    retryCount += 1;
+    repairCount += 1;
     prompt = repairPrompt(input.prompt, validated.reason);
   }
 }
