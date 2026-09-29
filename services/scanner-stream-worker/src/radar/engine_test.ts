@@ -412,9 +412,32 @@ Deno.test("ARCHIVED after cooling window and low 60s activity", () => {
   engine.evaluate(T0 + 200, GEN);
   engine.evaluate(T0 + 300, GEN);
   engine.evaluate(T0 + 400, GEN);
-  const coolingAt = T0 + 400;
-  engine.evaluate(coolingAt + 6_000, GEN);
-  const archived = engine.evaluate(coolingAt + 7_000, GEN);
+  engine.evaluate(T0 + 500, GEN);
+  engine.evaluate(T0 + 600, GEN);
+  engine.evaluate(T0 + 700, GEN);
+  // rankLiveBoard uses lastEventEndMs, not wallNowMs — advance tape event time.
+  ingestSeconds(
+    engine,
+    "AAA",
+    T0 + 90_000,
+    5,
+    50,
+    10.08,
+    T0 + 90_000,
+    10.08,
+  );
+  engine.evaluate(T0 + 95_000, GEN);
+  ingestSeconds(
+    engine,
+    "AAA",
+    T0 + 95_000,
+    5,
+    50,
+    10.08,
+    T0 + 95_000,
+    10.08,
+  );
+  const archived = engine.evaluate(T0 + 100_000, GEN);
   assertEquals(archived.board.rows.length, 0);
   assertEquals(archived.board.archives.length >= 1, true);
   assertEquals(archived.board.archives[0]?.lifecycle, "ARCHIVED");
@@ -705,6 +728,9 @@ Deno.test("lifecycle helper: first detect is DETECTED, second CONFIRMING, third 
     move15s: { movePct: 0.4, complete: true },
     move60s: { movePct: 0.8, complete: true },
     acceleration5m: null,
+    rvol5m: null,
+    volumeVelocity: null,
+    volumeAccelerationPct: null,
     providerLagMs: 0,
     lastBarEndMs: T0,
     lastBarStartMs: T0 - 1000,

@@ -21,7 +21,7 @@ export function secondBarsToMinuteSlices(
     volume: bar.volume,
     dollarVolume: bar.dollarVolume > 0
       ? bar.dollarVolume
-      : (bar.close > 0 ? bar.close * bar.volume : 0),
+      : (bar.close != null && bar.close > 0 ? bar.close * bar.volume : 0),
     lateCorrected: bar.lateCorrected,
   }));
 }
