@@ -1,0 +1,45 @@
+name: Screener Deno regressions
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "supabase/functions/_shared/screeners/**"
+      - "supabase/functions/sync-screener-data/**"
+      - "src/lib/screeners/**"
+      - ".github/workflows/screener-deno-regressions.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - "supabase/functions/_shared/screeners/**"
+      - "supabase/functions/sync-screener-data/**"
+      - "src/lib/screeners/**"
+      - ".github/workflows/screener-deno-regressions.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: screener-deno-regressions-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regressions:
+    name: Critical screener and worker tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: 2.9.4
+      - name: Screener regression tests
+        run: >
+          deno test --frozen
+          supabase/functions/_shared/screeners/extended-session-move_test.ts
+          supabase/functions/_shared/screeners/gappers-premarket_test.ts
+          supabase/functions/_shared/screeners/premarket-rollover_test.ts
+          supabase/functions/_shared/screeners/evaluation-evidence_test.ts
+          supabase/functions/_shared/screeners/rows_test.ts
+          supabase/functions/_shared/screeners/selection_test.ts
