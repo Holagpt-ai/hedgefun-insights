@@ -8,6 +8,7 @@ import { makeAnthropicCaller, validateAiOutput, type AiReadResult } from "./ai-r
 import type { ProviderTransportFailure } from "./market-data.ts";
 import { LOG_PREFIX } from "./sanitize.ts";
 import { classifyHttpFailure, logAiRequest } from "../ai/normalized-failure.ts";
+import { failureCodeFromCategory } from "../ai/failure-codes.ts";
 
 export type WatchlistAiProviderId = "anthropic" | "qwen";
 
@@ -235,6 +236,12 @@ export async function generateWatchlistAnalysis(
     lastStatus = raw.http_status ?? null;
     if (raw.usage) lastUsage = raw.usage;
     const transportFailure = raw.kind === "transport_failure";
+    const transportCategory = transportFailure
+      ? classifyHttpFailure({
+        httpStatus: raw.http_status ?? null,
+        timedOut: raw.code === "PROVIDER_TIMEOUT" || raw.http_status == null,
+      })
+      : null;
     logAiRequest({
       surface: "watchlist_v2",
       provider: active.id,
@@ -245,12 +252,15 @@ export async function generateWatchlistAnalysis(
       outcome: raw.kind,
       schemaValid: null,
       evidenceSufficient: true,
-      failureCategory: transportFailure
-        ? classifyHttpFailure({
-          httpStatus: raw.http_status ?? null,
-          timedOut: raw.code === "PROVIDER_TIMEOUT" || raw.http_status == null,
+      failureCategory: transportCategory,
+      feature: "watchlist_v2",
+      triggerType: "analysis",
+      failureCode: transportCategory
+        ? failureCodeFromCategory(transportCategory, {
+          network: raw.code === "PROVIDER_ERROR" && raw.failure_kind === "fetch_error",
         })
         : null,
+      providerStatus: raw.http_status ?? null,
     });
 
     if (raw.kind === "transport_failure") {

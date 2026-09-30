@@ -60,6 +60,8 @@ import {
   maxIndexAgeMs,
   outcomeFromIndexReason,
 } from "./telemetry.ts";
+import { createAiRequestId } from "../_shared/ai/request-context.ts";
+import { failureCodeFromCategory } from "../_shared/ai/failure-codes.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -206,6 +208,14 @@ serve(async (req) => {
       return json({ error: "Invalid briefType" }, 400);
     }
     const startedAtMs = Date.now();
+    const requestId = createAiRequestId();
+    console.log(JSON.stringify({
+      event: "ai_generation_started",
+      request_id: requestId,
+      feature: "daily_brief",
+      brief_type: briefType,
+      trigger_type: "scheduled",
+    }));
 
     const parsedSchedule = parseMarketSchedule(payload.marketSchedule);
     if (parsedSchedule && "error" in parsedSchedule) {
@@ -384,6 +394,7 @@ serve(async (req) => {
         user: userPrompt,
         maxTokens: PM_MAX_TOKENS,
         model: PM_MODEL,
+        requestId,
       });
       if (!generated.ok) {
         emitBriefTelemetry(startedAtMs, {
@@ -724,6 +735,7 @@ serve(async (req) => {
       user: buildAmUserPrompt(bundle),
       maxTokens: AM_MAX_TOKENS,
       model: AM_MODEL,
+      requestId,
     });
     if (!generated.ok) {
       emitBriefTelemetry(startedAtMs, {

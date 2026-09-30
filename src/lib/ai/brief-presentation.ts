@@ -31,7 +31,7 @@ export function presentStoredBriefFailure(input: {
   generationStatus?: string | null;
   retryable?: boolean | null;
 }): {
-  statusLabel: "Insufficient evidence" | "Temporarily unavailable";
+  statusLabel: "Insufficient evidence" | "Temporarily unavailable" | "Retrying soon" | "Brief unavailable";
   message: string;
   refreshable: boolean;
   retryControl: boolean;
@@ -49,8 +49,10 @@ export function presentStoredBriefFailure(input: {
   if (status === "temporarily_unavailable" || reason === "temporarily_unavailable" || reason === "malformed_response") {
     const retryable = input.retryable === true;
     return {
-      statusLabel: "Temporarily unavailable",
-      message: "Temporarily unavailable",
+      statusLabel: retryable ? "Retrying soon" : "Brief unavailable",
+      message: retryable
+        ? "Brief unavailable — generation failed. You can retry shortly."
+        : "Brief unavailable — generation failed.",
       refreshable: retryable,
       retryControl: retryable,
     };
