@@ -8,6 +8,7 @@ import type { AmInboxLateSessionView } from "@/lib/am-inbox/late-session-continu
 const EMPTY_VIEW = (amSessionDate: string): AmInboxLateSessionView => ({
   asOfSessionDate: amSessionDate,
   candidates: [],
+  qualifiedCandidates: [],
   expiredCount: 0,
   funnel: {
     detectedCount: 0,

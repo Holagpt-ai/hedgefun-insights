@@ -64,6 +64,8 @@ describe("Late-session server persistence V1", () => {
       sourceTimestamp: "2026-09-21T20:00:00.000Z",
       sourceCategory: "DAY_TWO_WATCH",
       amSessionDate: "2026-09-23",
+      volume: 1_000_000,
+      rvol: 4,
     });
     const view = buildAmInboxLateSessionViewFromContexts("2026-09-23", [ctx]);
     expect(view.candidates).toHaveLength(1);

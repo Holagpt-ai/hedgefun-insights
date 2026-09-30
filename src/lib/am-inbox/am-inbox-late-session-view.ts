@@ -2,6 +2,7 @@ import type {
   AmInboxLateSessionCandidate,
   AmInboxLateSessionView,
   LateSessionContinuationContext,
+  LateSessionContinuationFunnel,
 } from "@/lib/am-inbox/late-session-continuation-types";
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
 import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/am-inbox/late-session-handoff-storage";
@@ -15,7 +16,48 @@ import {
 import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
 import { qualifiesLateSessionHandoffCandidate } from "@/lib/am-inbox/late-session-handoff-qualification";
 
-const CONTINUATION_PRIORITY_SCORE_FLOOR = 35;
+export const CONTINUATION_PRIORITY_SCORE_FLOOR = 35;
+
+export function isLateSessionPriorityCandidate(
+  entry: AmInboxLateSessionCandidate,
+): boolean {
+  return (
+    qualifiesLateSessionHandoffCandidate(entry) &&
+    computeAmInboxLateSessionPriorityScore(entry) >= CONTINUATION_PRIORITY_SCORE_FLOOR
+  );
+}
+
+export function buildLateSessionContinuationFunnel(
+  detected: readonly AmInboxLateSessionCandidate[],
+  collapsed: readonly AmInboxLateSessionCandidate[],
+): {
+  qualified: AmInboxLateSessionCandidate[];
+  priority: AmInboxLateSessionCandidate[];
+  qualifiedForViewAll: AmInboxLateSessionCandidate[];
+  funnel: LateSessionContinuationFunnel;
+} {
+  const qualified = collapsed.filter(qualifiesLateSessionHandoffCandidate);
+  const qualifiedRanked = rankAmInboxLateSessionCandidates(qualified);
+  const priority = qualifiedRanked.filter(isLateSessionPriorityCandidate);
+  const qualifiedNonPriority = qualifiedRanked.filter(
+    (entry) => !isLateSessionPriorityCandidate(entry),
+  );
+  const qualifiedForViewAll = [...priority, ...qualifiedNonPriority];
+  const priorityCount = priority.length;
+  const displayedCount = Math.min(priorityCount, AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
+
+  return {
+    qualified: qualifiedRanked,
+    priority,
+    qualifiedForViewAll,
+    funnel: {
+      detectedCount: detected.length,
+      qualifiedCount: qualified.length,
+      priorityCount,
+      displayedCount,
+    },
+  };
+}
 
 function mergeContextWithWorkflow(
   context: LateSessionContinuationContext,
@@ -121,24 +163,18 @@ export function buildAmInboxLateSessionViewFromContexts(
     persistLateSessionHandoff(merged.context);
   }
 
-  const candidates = collapseLateSessionCandidates(raw);
-  const qualifiedCount = candidates.filter(qualifiesLateSessionHandoffCandidate).length;
-  const priorityCount = candidates.filter(
-    (entry) =>
-      qualifiesLateSessionHandoffCandidate(entry) &&
-      computeAmInboxLateSessionPriorityScore(entry) >= CONTINUATION_PRIORITY_SCORE_FLOOR,
-  ).length;
+  const collapsed = collapseLateSessionCandidates(raw);
+  const { priority, qualifiedForViewAll, funnel } = buildLateSessionContinuationFunnel(
+    raw,
+    collapsed,
+  );
 
   return {
     asOfSessionDate: amSessionDate,
-    candidates,
+    candidates: priority,
+    qualifiedCandidates: qualifiedForViewAll,
     expiredCount,
-    funnel: {
-      detectedCount: raw.length,
-      qualifiedCount,
-      priorityCount,
-      displayedCount: Math.min(candidates.length, AM_INBOX_LATE_SESSION_VISIBLE_LIMIT),
-    },
+    funnel,
   };
 }
 

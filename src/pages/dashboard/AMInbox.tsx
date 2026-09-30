@@ -91,6 +91,7 @@ export default function AMInbox() {
   const lateSessionView = lateSessionQuery.data ?? {
     asOfSessionDate: etDate,
     candidates: [],
+    qualifiedCandidates: [],
     expiredCount: 0,
     funnel: {
       detectedCount: 0,
@@ -275,7 +276,8 @@ export default function AMInbox() {
             />
           </section>
 
-          {lateSessionView.candidates.length > 0 && (
+          {((lateSessionView.funnel?.qualifiedCount ?? 0) > 0 ||
+            (lateSessionView.qualifiedCandidates?.length ?? 0) > 0) && (
             <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
               <SectionHeading
                 title="Late-Session Continuation"
@@ -283,6 +285,7 @@ export default function AMInbox() {
               />
               <LateSessionHandoffsList
                 candidates={lateSessionView.candidates}
+                qualifiedCandidates={lateSessionView.qualifiedCandidates}
                 funnel={lateSessionView.funnel}
               />
             </section>
