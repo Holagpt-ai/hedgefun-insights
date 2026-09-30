@@ -92,7 +92,17 @@ describe("Day Trade strategy eligibility", () => {
   it("requires classic RVOL when baseline exists", () => {
     expect(
       qualifiesDayTradeMomentum(
-        row({ symbol: "LOWRVOL", rank: 1, volume: 2_000_000, avg_volume_20d: 1_000_000, rvol_20d: 2 }),
+        row({
+          symbol: "LOWRVOL",
+          rank: 1,
+          volume: 2_000_000,
+          avg_volume_20d: 1_000_000,
+          rvol_20d: 2,
+          volume_ratio_prior_session: 2,
+          prior_session_volume: 1_000_000,
+          rvol_5m: null,
+          time_adjusted_rvol: null,
+        }),
       ),
     ).toBe(false);
   });

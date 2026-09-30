@@ -27,7 +27,15 @@ import {
   YDAY_VOL_BLANK,
   YDAY_VOL_HEADER,
 } from "@/features/day-trade-radar-v2/scanner-metric-copy";
-import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
+import { previousCloseFromVerifiedMove, volumeVersusPriorSession } from "@/lib/screeners/session-move";
+import {
+  computeNhlDistancePct,
+  formatNhlDistanceLabel,
+} from "@/lib/screeners/nhl-distance";
+import {
+  assessGapTrust,
+  assessVolumeRatioPriorSessionTrust,
+} from "@/lib/screeners/screener-metric-trust";
 import { ScreenerFiltersControl } from "@/components/screener/ScreenerFiltersControl";
 import { useScreenerFilters } from "@/hooks/useScreenerFilters";
 import {
@@ -454,6 +462,22 @@ export function ScreenerTable({
       return formatScreenerVolumeAccelerationPct(pct);
     }
 
+    if (col.key === "nhl_distance") {
+      const distancePct = computeNhlDistancePct({
+        range_event: row.range_event,
+        high_52w: row.high_52w,
+        low_52w: row.low_52w,
+        day_high: row.day_high,
+        day_low: row.day_low,
+      });
+      const label = formatNhlDistanceLabel(row.range_event, distancePct);
+      return (
+        <span className="text-muted-foreground text-xs" title={label}>
+          {label}
+        </span>
+      );
+    }
+
     if (col.format === "unavailable") {
       return "—";
     }
@@ -471,6 +495,30 @@ export function ScreenerTable({
           title={view.primary ? `${triggerTypeLabel(view.primary.triggerType)} trigger` : "Triggered unavailable"}
         />
       );
+    }
+
+    if (col.key === "gap_percent") {
+      const text = formatScreenerMetric(row.gap_percent, "percent");
+      const prevClose = previousCloseFromVerifiedMove(row.price, row.change_percent);
+      const gapTrust = assessGapTrust({
+        gapPercent: row.gap_percent,
+        price: row.price,
+        previousClose: prevClose,
+      });
+      const title =
+        gapTrust.flag === "EXTREME_GAP_REVIEW"
+          ? gapTrust.possibleCorporateActionScale
+            ? "Extreme gap — possible reference-price scale mismatch; verify before trusting. Not a verified split/corp action."
+            : "Extreme gap — verify reference prices; raw gap shown for context."
+          : undefined;
+      if (title) {
+        return (
+          <span title={title}>
+            <HintedMetric text={text} blankHint={MOVE_BLANK} />
+          </span>
+        );
+      }
+      return <HintedMetric text={text} blankHint={MOVE_BLANK} />;
     }
 
     if (col.key === "change_percent") {
@@ -491,8 +539,13 @@ export function ScreenerTable({
     if (col.key === "volume_ratio_prior_session" && col.format === "multiplier") {
       const ratio = volumeVersusPriorSession(row.volume, row.prior_session_volume);
       if (ratio === null) return "—";
+      const trust = assessVolumeRatioPriorSessionTrust(ratio, row.prior_session_volume);
+      const title =
+        trust.trustFlag === "THIN_PRIOR_VOLUME_BASELINE"
+          ? "Raw Vol/Yday shown; thin prior-day baseline — use for context, not unbounded ranking."
+          : undefined;
       return (
-        <span className={volumeRatioBadgeClass(ratio)}>
+        <span className={volumeRatioBadgeClass(ratio)} title={title}>
           {formatScreenerMetric(ratio, col.format)}
         </span>
       );

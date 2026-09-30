@@ -46,12 +46,10 @@ export function dayTradeRejectionReasons(
   if (eligibility.floatGate === "fail_high_float") reasons.push("FLOAT_TOO_HIGH");
 
   const participation = meetsDayTradeParticipation(row);
-  const hasParticipation =
-    participation.classicRvol !== null ||
-    finiteMetric(row.volume_ratio_prior_session) !== null ||
-    finiteMetric(row.rvol_5m) !== null ||
-    finiteMetric(row.time_adjusted_rvol) !== null;
-  if (!hasParticipation) {
+  const anyParticipationAvailable = participation.evaluation.signals.some(
+    (signal) => signal.available,
+  );
+  if (!anyParticipationAvailable) {
     reasons.push("MISSING_REQUIRED_DATA");
   } else if (!participation.pass) {
     reasons.push("INSUFFICIENT_RVOL");

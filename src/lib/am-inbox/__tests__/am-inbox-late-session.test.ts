@@ -372,7 +372,12 @@ describe("AM Inbox late-session handoff V1", () => {
       }),
     );
     const view = buildAmInboxLateSessionView("2026-09-22");
-    expect(view.candidates.map((c) => c.context.symbol)).toEqual(["HIGH", "MID", "LOW"]);
+    expect(view.candidates.map((c) => c.context.symbol)).toEqual(["HIGH", "MID"]);
+    expect(view.qualifiedCandidates.map((c) => c.context.symbol)).toEqual([
+      "HIGH",
+      "MID",
+      "LOW",
+    ]);
   });
 
   it("does not change Discovery volume-first ranking when capturing handoffs", () => {

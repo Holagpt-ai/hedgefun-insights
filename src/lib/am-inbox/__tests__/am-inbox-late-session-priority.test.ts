@@ -28,6 +28,9 @@ function candidate(
     sourceCategory: ctxOverrides.sourceCategory ?? "DAY_TWO_WATCH",
     volume: ctxOverrides.volume ?? null,
     rvol: ctxOverrides.rvol ?? null,
+    rvolMetricKind: ctxOverrides.rvolMetricKind ?? null,
+    rvolBaselineVolume: ctxOverrides.rvolBaselineVolume ?? null,
+    rvolBaselineSampleSize: ctxOverrides.rvolBaselineSampleSize ?? null,
     dollarVolume: ctxOverrides.dollarVolume ?? null,
     closeDistanceFromHodPct: ctxOverrides.closeDistanceFromHodPct ?? null,
     catalystPresent: ctxOverrides.catalystPresent ?? null,
@@ -112,20 +115,24 @@ describe("AM Inbox late-session priority ranking", () => {
     expect(compareAmInboxLateSessionCandidates(highVolumePlain, weakRich)).toBeLessThan(0);
   });
 
-  it("uses extreme RVOL after volume and dollar volume match", () => {
-    const extremeRvol = candidate({
-      symbol: "RVOL",
+  it("uses confidence-aware ranking RVOL after volume and dollar volume match", () => {
+    const thinExtreme = candidate({
+      symbol: "THIN",
       volume: 5_000_000,
       dollarVolume: 25_000_000,
-      rvol: 25,
+      rvol: 1000,
     });
-    const moderateRvol = candidate({
-      symbol: "MID",
+    const robustModerate = candidate({
+      symbol: "ROBUST",
       volume: 5_000_000,
       dollarVolume: 25_000_000,
-      rvol: 3,
+      rvol: 30,
+      rvolMetricKind: "rvol_20d",
+      rvolBaselineVolume: 500_000,
+      rvolBaselineSampleSize: 12,
     });
-    expect(compareAmInboxLateSessionCandidates(extremeRvol, moderateRvol)).toBeLessThan(0);
+    expect(compareAmInboxLateSessionCandidates(robustModerate, thinExtreme)).toBeLessThan(0);
+    expect(thinExtreme.context.rvol).toBeGreaterThan(robustModerate.context.rvol!);
   });
 
   it("breaks ties on scanner event labels only after volume metrics match", () => {

@@ -5,6 +5,7 @@
 
 import { finiteMetric } from "@/lib/screeners/screener-metric-display";
 import { resolveDailyRvol20d } from "@/lib/screeners/screener-intelligence-fields";
+import { assessRvolConfidence } from "@/lib/screeners/rvol-confidence";
 import {
   LEGACY_MOVE_MIN_PCT,
   LEGACY_PRICE_MAX,
@@ -95,61 +96,151 @@ export interface DayTradeParticipationFact {
   pass: boolean;
 }
 
+export interface DayTradeParticipationSignal {
+  source: Exclude<DayTradeParticipationSource, "unavailable">;
+  value: number | null;
+  available: boolean;
+  trusted: boolean;
+  pass: boolean;
+}
+
+export interface DayTradeParticipationEvaluation {
+  signals: DayTradeParticipationSignal[];
+  pass: boolean;
+  /** Source that satisfied the gate when pass=true. */
+  winningSource: DayTradeParticipationSource | null;
+  winningValue: number | null;
+  availableSources: DayTradeParticipationSource[];
+}
+
+const INTRADAY_PASS_PRIORITY: readonly Exclude<
+  DayTradeParticipationSource,
+  "unavailable"
+>[] = ["rvol_5m", "time_adjusted_rvol", "rvol_20d", "volume_ratio_prior_session"];
+
+function participationSignalTrusted(
+  source: Exclude<DayTradeParticipationSource, "unavailable">,
+  row: RadarRankedRow,
+  value: number,
+): boolean {
+  if (source === "volume_ratio_prior_session") {
+    const prior = finiteMetric(row.prior_session_volume);
+    if (prior === null || !(prior > 0)) return false;
+    const assessed = assessRvolConfidence({
+      rawRvol: value,
+      baselineVolume: prior,
+      metricKind: "volume_ratio_prior",
+    });
+    return (
+      assessed.rvolConfidence === "HIGH" ||
+      assessed.rvolConfidence === "MEDIUM" ||
+      assessed.rvolConfidence === "LOW"
+    );
+  }
+  if (source === "rvol_20d") {
+    return finiteMetric(row.avg_volume_20d) !== null && finiteMetric(row.avg_volume_20d)! > 0;
+  }
+  return true;
+}
+
+function buildParticipationSignal(
+  source: Exclude<DayTradeParticipationSource, "unavailable">,
+  value: number | null,
+  row: RadarRankedRow,
+): DayTradeParticipationSignal {
+  if (value === null) {
+    return { source, value: null, available: false, trusted: false, pass: false };
+  }
+  const trusted = participationSignalTrusted(source, row, value);
+  const pass = trusted && value >= DAY_TRADE_RVOL_MIN;
+  return { source, value, available: true, trusted, pass };
+}
+
 /**
- * First available participation fact, in gate order.
- * Classic RVOL short-circuits later session and intraday metrics.
+ * Evaluates all participation sources. Passes when any trusted signal meets threshold.
+ */
+export function evaluateDayTradeParticipation(row: RadarRankedRow): DayTradeParticipationEvaluation {
+  const signals: DayTradeParticipationSignal[] = [
+    buildParticipationSignal("rvol_20d", resolveClassicDayTradeRvol(row), row),
+    buildParticipationSignal(
+      "volume_ratio_prior_session",
+      finiteMetric(row.volume_ratio_prior_session),
+      row,
+    ),
+    buildParticipationSignal("rvol_5m", finiteMetric(row.rvol_5m), row),
+    buildParticipationSignal(
+      "time_adjusted_rvol",
+      finiteMetric(row.time_adjusted_rvol),
+      row,
+    ),
+  ];
+
+  const availableSources = signals
+    .filter((s) => s.available)
+    .map((s) => s.source as DayTradeParticipationSource);
+
+  let passing: DayTradeParticipationSignal | null = null;
+  for (const source of INTRADAY_PASS_PRIORITY) {
+    const match = signals.find((s) => s.source === source && s.pass);
+    if (match) {
+      passing = match;
+      break;
+    }
+  }
+
+  return {
+    signals,
+    pass: passing !== null,
+    winningSource: passing?.source ?? null,
+    winningValue: passing?.value ?? null,
+    availableSources,
+  };
+}
+
+/**
+ * Primary participation fact for display/diagnostics.
+ * When passing, prefers the intraday source that cleared the gate.
  */
 export function resolveDayTradeParticipationFact(row: RadarRankedRow): DayTradeParticipationFact {
-  const classicRvol = resolveClassicDayTradeRvol(row);
-  if (classicRvol !== null) {
+  const evaluation = evaluateDayTradeParticipation(row);
+  if (evaluation.pass && evaluation.winningSource) {
     return {
-      source: "rvol_20d",
-      value: classicRvol,
-      pass: classicRvol >= DAY_TRADE_RVOL_MIN,
+      source: evaluation.winningSource,
+      value: evaluation.winningValue,
+      pass: true,
     };
   }
 
-  const volYday = finiteMetric(row.volume_ratio_prior_session);
-  if (volYday !== null) {
-    return {
-      source: "volume_ratio_prior_session",
-      value: volYday,
-      pass: volYday >= DAY_TRADE_RVOL_MIN,
-    };
-  }
-
-  const rvol5m = finiteMetric(row.rvol_5m);
-  if (rvol5m !== null) {
-    return {
-      source: "rvol_5m",
-      value: rvol5m,
-      pass: rvol5m >= DAY_TRADE_RVOL_MIN,
-    };
-  }
-
-  const timeAdjusted = finiteMetric(row.time_adjusted_rvol);
-  if (timeAdjusted !== null) {
-    return {
-      source: "time_adjusted_rvol",
-      value: timeAdjusted,
-      pass: timeAdjusted >= DAY_TRADE_RVOL_MIN,
-    };
+  for (const source of [
+    "rvol_20d",
+    "volume_ratio_prior_session",
+    "rvol_5m",
+    "time_adjusted_rvol",
+  ] as const) {
+    const signal = evaluation.signals.find((s) => s.source === source && s.available);
+    if (signal) {
+      return { source, value: signal.value, pass: false };
+    }
   }
 
   return { source: "unavailable", value: null, pass: false };
 }
 
 /**
- * Participation gate: classic RVOL when available, else honest session / intraday metrics.
+ * Participation gate: any trusted signal at/above threshold.
  * Does not fabricate classic RVOL from vol/yday.
  */
-export function meetsDayTradeParticipation(
-  row: RadarRankedRow,
-): { pass: boolean; classicRvol: number | null } {
-  const fact = resolveDayTradeParticipationFact(row);
+export function meetsDayTradeParticipation(row: RadarRankedRow): {
+  pass: boolean;
+  classicRvol: number | null;
+  evaluation: DayTradeParticipationEvaluation;
+} {
+  const evaluation = evaluateDayTradeParticipation(row);
+  const classic = evaluation.signals.find((s) => s.source === "rvol_20d");
   return {
-    pass: fact.pass,
-    classicRvol: fact.source === "rvol_20d" ? fact.value : null,
+    pass: evaluation.pass,
+    classicRvol: classic?.available ? classic.value : null,
+    evaluation,
   };
 }
 

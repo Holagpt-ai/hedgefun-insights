@@ -6,6 +6,8 @@ import type { BehaviorProfileSampleQuality } from "@/config/behavior-profile.con
 import type { RepeatMoverEvidenceLabel } from "@/config/repeat-mover.config";
 import type { SecurityId } from "@/types/security-identity";
 
+export type ContinuationRvolMetricKind = "rvol_20d" | "time_adjusted" | "rvol_5m";
+
 export type LateSessionHandoffExpiryState = "active" | "expired";
 
 export interface LateSessionContinuationContext {
@@ -17,7 +19,13 @@ export interface LateSessionContinuationContext {
   lastPrice: number | null;
   sessionMovePct: number | null;
   volume: number | null;
+  /** Raw RVOL ratio at capture (typically rvol_20d from screener/Radar). */
   rvol: number | null;
+  /** Metric kind for `rvol` when baseline metadata is present. */
+  rvolMetricKind?: ContinuationRvolMetricKind | null;
+  /** Historical/reference volume baseline for `rvol`, never current session volume. */
+  rvolBaselineVolume?: number | null;
+  rvolBaselineSampleSize?: number | null;
   dollarVolume: number | null;
   closeDistanceFromHodPct: number | null;
   afterHoursExtends: boolean | null;

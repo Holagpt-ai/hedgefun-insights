@@ -109,6 +109,8 @@ describe("multi-radar qualification", () => {
       rank: 6,
       price: 3,
       change_percent: 15,
+      volume: 800_000,
+      prior_session_volume: 100_000,
       volume_ratio_prior_session: 8,
       primary_scanner_event: "VWAP_RECLAIM",
       scanner_events: [{ type: "VWAP_RECLAIM", triggered_at: BREAKOUT_AT, active: true }],
@@ -229,12 +231,14 @@ describe("leaders and storage reset", () => {
       row({
         price: 8,
         change_percent: 15,
+        prior_session_volume: 500_000,
         volume_ratio_prior_session: 10,
+        rvol_5m: 8,
         ...overrides,
       });
     const rows = [
       qualified({ symbol: "SLOW", rank: 2, vol_velocity: 10, volume: 9_000_000 }),
-      qualified({ symbol: "FAST", rank: 1, vol_velocity: 496_736, volume: 1_000 }),
+      qualified({ symbol: "FAST", rank: 1, vol_velocity: 496_736, volume: 1_000, rvol_5m: 12 }),
       row({
         symbol: "GAP",
         rank: 1,
@@ -257,7 +261,16 @@ describe("leaders and storage reset", () => {
     const rows = [
       row({ symbol: "PENNY", rank: 1, price: 0.03, change_percent: 20, volume_ratio_prior_session: 10 }),
       row({ symbol: "WIDE", rank: 2, price: 1.25, change_percent: 20, volume_ratio_prior_session: 10 }),
-      row({ symbol: "TRADE", rank: 4, price: 8.4, change_percent: 20, vol_velocity: 400_000, volume_ratio_prior_session: 10 }),
+      row({
+        symbol: "TRADE",
+        rank: 4,
+        price: 8.4,
+        change_percent: 20,
+        vol_velocity: 400_000,
+        volume: 5_000_000,
+        prior_session_volume: 500_000,
+        volume_ratio_prior_session: 10,
+      }),
       row({ symbol: "RICH", rank: 3, price: 40, change_percent: 20, volume_ratio_prior_session: 10 }),
     ];
     expect(selectTradableFeaturedLeader(rows)?.symbol).toBe("TRADE");

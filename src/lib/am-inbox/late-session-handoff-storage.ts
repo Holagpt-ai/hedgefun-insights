@@ -6,6 +6,7 @@ import type {
   StoredLateSessionHandoff,
 } from "@/lib/am-inbox/late-session-continuation-types";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { resolveContinuationRvolCapture } from "@/lib/am-inbox/resolve-continuation-rvol-capture";
 import {
   evaluateScreenerContinuation,
   type ScreenerContinuationSource,
@@ -70,6 +71,8 @@ export function captureLateSessionHandoffsFromScreenerRows(
     const workflow = readHistoricalWorkflowContext(row.symbol);
     const primary = pickPrimaryLateSessionCategory(categories);
 
+    const rvolCapture = resolveContinuationRvolCapture(row);
+
     const context = buildLateSessionContinuationContext({
       symbol: row.symbol,
       securityId: input.securityIdBySymbol?.get(row.symbol.toUpperCase()) ?? workflow?.securityId ?? null,
@@ -79,7 +82,10 @@ export function captureLateSessionHandoffsFromScreenerRows(
       lastPrice: row.price ?? null,
       sessionMovePct: row.change_percent ?? null,
       volume: row.volume ?? null,
-      rvol: row.rvol_20d ?? null,
+      rvol: rvolCapture.rawRvol,
+      rvolMetricKind: rvolCapture.metricKind,
+      rvolBaselineVolume: rvolCapture.baselineVolume,
+      rvolBaselineSampleSize: rvolCapture.baselineSampleSize,
       dollarVolume: null,
       closeDistanceFromHodPct: row.close_distance_from_hod_pct ?? null,
       afterHoursExtends: row.after_hours_extends === "TRUE"

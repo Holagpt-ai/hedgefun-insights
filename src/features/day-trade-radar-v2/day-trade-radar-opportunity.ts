@@ -545,12 +545,10 @@ export function summarizeDayTradeCandidateGates(
 
     const eligibility = evaluateDayTradeEligibility(row);
     const participation = meetsDayTradeParticipation(row);
-    const hasParticipationMetric =
-      participation.classicRvol !== null ||
-      finiteMetric(row.volume_ratio_prior_session) !== null ||
-      finiteMetric(row.rvol_5m) !== null ||
-      finiteMetric(row.time_adjusted_rvol) !== null;
-    if (!hasParticipationMetric) {
+    const hasTrustedParticipation = participation.evaluation.signals.some(
+      (signal) => signal.available && signal.trusted,
+    );
+    if (!hasTrustedParticipation) {
       audit.missingParticipationCount += 1;
     } else if (!participation.pass) {
       audit.participationBelowMinimumCount += 1;
@@ -697,5 +695,5 @@ export function formatDayTradeQualificationBreakdown(
   if (!funnel) return null;
   const lines = formatRejectionSummaryCompact(funnel.rejectionSummary, 5);
   if (lines.length === 0) return null;
-  return lines.join(" · ");
+  return `${lines.join(" · ")}. Candidates may fail more than one qualification rule.`;
 }

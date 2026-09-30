@@ -16,6 +16,8 @@ import {
 import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
+import { overlayCanonicalIntradayMetrics } from "@/lib/screeners/screener-radar-intraday-overlay";
+import { isVerifiedRadarV2Decision } from "@/lib/screeners/radar-v2-soft-refresh";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
 import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
 import {
@@ -413,10 +415,26 @@ export function useScreenerData(
         lastVerifiedRadar = null;
       }
 
-      const view: ScreenerTabView = await loadVerifiedScreenerGeneration(
+      let view: ScreenerTabView = await loadVerifiedScreenerGeneration(
         fetchGenerationOnce,
         { nowMs: Date.now(), activeTabId: tabId },
       );
+      if (
+        (tabId === "gappers" || tabId === "new_highs_lows") &&
+        view.rows.length > 0
+      ) {
+        try {
+          const radarDecision = await loadRadarV2Decision("day_trade_radar", Date.now());
+          if (isVerifiedRadarV2Decision(radarDecision)) {
+            view = {
+              ...view,
+              rows: overlayCanonicalIntradayMetrics(view.rows, radarDecision.view.rows),
+            };
+          }
+        } catch {
+          // Intraday overlay is optional; screener_results rows remain authoritative.
+        }
+      }
       const skipSoftUnavailable = soft && view.status === "unavailable" && hasLoadedOnce;
       if (!cancelled && !skipSoftUnavailable) {
         setSource("screener-results");

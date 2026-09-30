@@ -1,6 +1,7 @@
 import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
 import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
 import type { ContinuationCategory } from "@/config/continuation.config";
+import { continuationRankingRvolFromContext } from "@/lib/am-inbox/continuation-rvol-ranking";
 
 const SCANNER_EVENT_PRIORITY: Readonly<Record<string, number>> = {
   "VOLUME EXPLOSION": 50,
@@ -10,6 +11,16 @@ const SCANNER_EVENT_PRIORITY: Readonly<Record<string, number>> = {
 function finiteOrZero(value: number | null | undefined): number {
   if (value === null || value === undefined || !Number.isFinite(value)) return 0;
   return value;
+}
+
+/** Liquidity-first term used for priority gating (matches score composition). */
+export function continuationVolumeKingComponent(
+  entry: AmInboxLateSessionCandidate,
+): number {
+  const { context } = entry;
+  const volume = finiteOrZero(context.volume);
+  const dollarVolume = finiteOrZero(context.dollarVolume);
+  return Math.log10(Math.max(volume, 1)) * 12 + Math.log10(Math.max(dollarVolume, 1)) * 14;
 }
 
 function bestCategoryRank(categories: readonly ContinuationCategory[]): number {
@@ -61,12 +72,12 @@ export function computeAmInboxLateSessionPriorityScore(entry: AmInboxLateSession
 
   const volume = finiteOrZero(context.volume);
   const dollarVolume = finiteOrZero(context.dollarVolume);
-  const rvol = finiteOrZero(context.rvol);
+  const rawRvol = context.rvol;
+  const rankingRvol = continuationRankingRvolFromContext(context);
 
-  const volumeKing =
-    Math.log10(Math.max(volume, 1)) * 12 + Math.log10(Math.max(dollarVolume, 1)) * 14;
+  const volumeKing = continuationVolumeKingComponent(entry);
 
-  const rvolPoints = Math.min(40, rvol * 4);
+  const rvolPoints = Math.min(40, rankingRvol * 4);
 
   const categoryPoints = bestCategoryRank(categories) * 10;
   const multiCategoryPoints = Math.min(8, categories.length * 2);
@@ -84,7 +95,7 @@ export function computeAmInboxLateSessionPriorityScore(entry: AmInboxLateSession
   const missingCoreMetrics =
     context.volume === null &&
     context.dollarVolume === null &&
-    context.rvol === null &&
+    rawRvol === null &&
     scannerPoints === 0;
 
   const missingPenalty = missingCoreMetrics ? 25 : 0;
@@ -113,7 +124,8 @@ export function compareAmInboxLateSessionCandidates(
   const dollarDiff = finiteOrZero(b.context.dollarVolume) - finiteOrZero(a.context.dollarVolume);
   if (dollarDiff !== 0) return dollarDiff;
 
-  const rvolDiff = finiteOrZero(b.context.rvol) - finiteOrZero(a.context.rvol);
+  const rvolDiff =
+    continuationRankingRvolFromContext(b.context) - continuationRankingRvolFromContext(a.context);
   if (rvolDiff !== 0) return rvolDiff;
 
   const scoreDiff =

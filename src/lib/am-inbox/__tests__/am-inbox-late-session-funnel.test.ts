@@ -23,7 +23,8 @@ function ctx(
     sourceCategory: "POWER_HOUR_MOMENTUM",
     volume: overrides.volume ?? 5_000_000,
     rvol: overrides.rvol ?? 8,
-    dollarVolume: overrides.dollarVolume ?? 50_000_000,
+    dollarVolume:
+      overrides.dollarVolume !== undefined ? overrides.dollarVolume : 50_000_000,
   });
 }
 
@@ -95,7 +96,9 @@ describe("AM Inbox late-session continuation funnel display", () => {
     expect(view.funnel.displayedCount).toBe(AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
     expect(view.candidates).toHaveLength(8);
     const defaultSlice = view.candidates.slice(0, AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
-    expect(defaultSlice.every(isLateSessionPriorityCandidate)).toBe(true);
+    expect(defaultSlice.every((entry) => isLateSessionPriorityCandidate(entry, view.candidates))).toBe(
+      true,
+    );
     expect(defaultSlice.map((c) => c.context.symbol)).toEqual([
       "P0",
       "P1",
@@ -125,7 +128,7 @@ describe("AM Inbox late-session continuation funnel display", () => {
     ]);
     expect(view.funnel.detectedCount).toBe(4);
     expect(view.funnel.qualifiedCount).toBe(3);
-    expect(view.funnel.priorityCount).toBe(3);
+    expect(view.funnel.priorityCount).toBe(2);
     expect(view.qualifiedCandidates).toHaveLength(3);
   });
 });
