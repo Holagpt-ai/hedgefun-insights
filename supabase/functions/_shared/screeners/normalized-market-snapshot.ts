@@ -46,7 +46,24 @@ export interface VerifiedPreviousCloseOverlay {
   symbol: string;
   previousClose: number;
   priorSessionVolume?: number | null;
-  source: "radar_v22_candidate" | "verified_session_fact";
+  source: "radar_v22_candidate" | "radar_v22_board" | "verified_session_fact";
+}
+
+export function previousCloseFromVerifiedMove(
+  price: number | null,
+  changePercent: number | null,
+): number | null {
+  if (
+    price === null || changePercent === null || !Number.isFinite(price) ||
+    !Number.isFinite(changePercent)
+  ) {
+    return null;
+  }
+  const denom = 1 + changePercent / 100;
+  if (!(denom > 0)) return null;
+  const previousClose = price / denom;
+  if (!Number.isFinite(previousClose) || !(previousClose > 0)) return null;
+  return previousClose;
 }
 
 function positiveFinite(value: unknown): number | null {

@@ -409,7 +409,9 @@ export function mapCandidateToScreenerRow(
     avg_volume_20d: null,
     rvol_20d: null,
     float_shares: null,
-    gap_percent: verifiedGapPercentFromRadarCandidate(row),
+    // Gap is a Gappers-tab field only; on other Radar tabs MOVE uses change_percent.
+    gap_percent:
+      tabId === "gappers" ? verifiedGapPercentFromRadarCandidate(row) : null,
     high_52w: null,
     low_52w: null,
     range_event: null,

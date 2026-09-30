@@ -314,6 +314,21 @@ export function dayHighLow(
 }
 
 /**
+ * Current session reference price for screener qualification.
+ * Extended sessions prefer the live extended last; regular sessions use day.c.
+ */
+export function currentSessionReferencePrice(
+  t: PolygonTicker,
+  extendedSession = false,
+): number | null {
+  if (extendedSession) {
+    const last = extendedSessionLastPrice(t);
+    if (last !== null) return last;
+  }
+  return regularClose(t);
+}
+
+/**
  * Shared volume-first selection:
  * 1. Reject invalid/missing symbol and non-positive volume
  * 2. Deduplicate by symbol (keep higher volume; symbol tie-break)

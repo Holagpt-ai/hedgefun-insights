@@ -463,7 +463,7 @@ export async function handleSyncScreenerData(
     loadVolumeBaselines(sb),
   ]);
   const nhlSelected = nhlBaseline.status === "available"
-    ? selectNewHighsLows(allTickers, nhlBaseline.quotes)
+    ? selectNewHighsLows(allTickers, nhlBaseline.quotes, undefined, extendedSession)
     : [];
   const nhlTickers = nhlSelected.map((item) => item.ticker);
   if (!allHaveProviderAsOf(nhlTickers, nowMs)) {

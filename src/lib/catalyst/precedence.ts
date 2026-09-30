@@ -4,6 +4,7 @@
  */
 
 import { EARNINGS_CALENDAR_PROVIDER } from "@/lib/pre-market/builders";
+import { catalystAuthorityMultiplierFromAttribution } from "@/lib/catalyst/relevance";
 
 export type CatalystPrecedenceTier = "primary" | "secondary";
 
@@ -203,27 +204,42 @@ export function detectPrimaryEventClass(text: string): PrimaryCatalystClass | nu
   return null;
 }
 
+function applyAttributionAuthority(
+  result: CatalystPrecedenceResult,
+  row: CatalystPrecedenceInput,
+): CatalystPrecedenceResult {
+  const multiplier = catalystAuthorityMultiplierFromAttribution({
+    attribution_class: row.attribution_class,
+    ticker_specific: row.ticker_specific,
+  });
+  if (result.classRank <= 0 || multiplier >= 1) return result;
+  return {
+    ...result,
+    classRank: Math.round(result.classRank * multiplier),
+  };
+}
+
 export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): CatalystPrecedenceResult {
   const text = catalystText(row);
   const marketAttention = looksLikeMarketAttention(row.title, row.event_type);
   const explicit = detectPrimaryEventClass(text);
 
   if (row.provider === EARNINGS_CALENDAR_PROVIDER && row.event_type === "earnings") {
-    return {
+    return applyAttributionAuthority({
       tier: "primary",
       primaryClass: "earnings_guidance",
       classRank: PRIMARY_CLASS_RANK.earnings_guidance,
       isMarketAttention: false,
-    };
+    }, row);
   }
 
   if (explicit) {
-    return {
+    return applyAttributionAuthority({
       tier: "primary",
       primaryClass: explicit,
       classRank: PRIMARY_CLASS_RANK[explicit],
       isMarketAttention: marketAttention,
-    };
+    }, row);
   }
 
   if (marketAttention || hasVagueNonEventEvidence(text)) {
@@ -246,45 +262,45 @@ export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): Cataly
 
   const mapped = EVENT_TYPE_PRIMARY[row.event_type];
   if (mapped) {
-    return {
+    return applyAttributionAuthority({
       tier: "primary",
       primaryClass: mapped,
       classRank: PRIMARY_CLASS_RANK[mapped],
       isMarketAttention: false,
-    };
+    }, row);
   }
 
   if (row.event_type === "corporate_action") {
     const financing = detectPrimaryEventClass(text) ??
       (/\b(?:offering|atm|pipe|convertible|warrant)\b/i.test(text) ? "financing_capital" : null);
     if (financing) {
-      return {
+      return applyAttributionAuthority({
         tier: "primary",
         primaryClass: financing,
         classRank: PRIMARY_CLASS_RANK[financing],
         isMarketAttention: false,
-      };
+      }, row);
     }
   }
 
   if (row.event_type === "product_contract") {
     const strategic = /\b(?:partnership|licensing|joint\s+venture|alliance|distribution)\b/i.test(text);
     if (strategic) {
-      return {
+      return applyAttributionAuthority({
         tier: "primary",
         primaryClass: "strategic_agreement",
         classRank: PRIMARY_CLASS_RANK.strategic_agreement,
         isMarketAttention: false,
-      };
+      }, row);
     }
   }
 
-  return {
+  return applyAttributionAuthority({
     tier: "secondary",
     primaryClass: null,
     classRank: 0,
     isMarketAttention: row.event_type === "company_news",
-  };
+  }, row);
 }
 
 function sourceConfidenceRank(row: CatalystPrecedenceInput): number {

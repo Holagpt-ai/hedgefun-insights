@@ -13,6 +13,7 @@ import {
   rankAmInboxLateSessionCandidates,
 } from "@/lib/am-inbox/am-inbox-late-session-priority";
 import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
+import { qualifiesLateSessionHandoffCandidate } from "@/lib/am-inbox/late-session-handoff-qualification";
 
 const CONTINUATION_PRIORITY_SCORE_FLOOR = 35;
 
@@ -121,8 +122,11 @@ export function buildAmInboxLateSessionViewFromContexts(
   }
 
   const candidates = collapseLateSessionCandidates(raw);
+  const qualifiedCount = candidates.filter(qualifiesLateSessionHandoffCandidate).length;
   const priorityCount = candidates.filter(
-    (entry) => computeAmInboxLateSessionPriorityScore(entry) >= CONTINUATION_PRIORITY_SCORE_FLOOR,
+    (entry) =>
+      qualifiesLateSessionHandoffCandidate(entry) &&
+      computeAmInboxLateSessionPriorityScore(entry) >= CONTINUATION_PRIORITY_SCORE_FLOOR,
   ).length;
 
   return {
@@ -131,7 +135,7 @@ export function buildAmInboxLateSessionViewFromContexts(
     expiredCount,
     funnel: {
       detectedCount: raw.length,
-      qualifiedCount: candidates.length,
+      qualifiedCount,
       priorityCount,
       displayedCount: Math.min(candidates.length, AM_INBOX_LATE_SESSION_VISIBLE_LIMIT),
     },

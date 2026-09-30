@@ -68,6 +68,18 @@ Deno.test("both boundaries in one session classify as both", () => {
   );
 });
 
+Deno.test("extended session uses live last when day.c is absent", () => {
+  const baseline = quote({ symbol: "PM", high_52w: 20, low_52w: 5 });
+  const t: PolygonTicker = {
+    ticker: "PM",
+    updated: 1_752_000_000_000_000_000,
+    day: { v: 2_000_000, h: 21, l: 9 },
+    prevDay: { c: 10, v: 100_000 },
+    lastTrade: { p: 12 },
+  };
+  assertEquals(classifyNewHighLow(t, baseline, true), "new_high");
+});
+
 Deno.test("missing baseline does not qualify", () => {
   assertEquals(
     classifyNewHighLow(ticker({ ticker: "DDD", high: 30, low: 1 }), null),

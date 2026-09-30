@@ -82,6 +82,25 @@ export function classifyCatalystRelevance(input: {
   };
 }
 
+/** Fast authority multiplier when persisted attribution metadata is already on the row. */
+export function catalystAuthorityMultiplierFromAttribution(input: {
+  attribution_class?: AttributionClass | string | null;
+  ticker_specific?: boolean | null;
+}): number {
+  switch (input.attribution_class) {
+    case "direct":
+      return 1;
+    case "provider_associated":
+      return input.ticker_specific ? 0.85 : 0.55;
+    case "sector_related":
+      return 0.35;
+    case "unverified":
+      return 0.15;
+    default:
+      return input.ticker_specific ? 0.85 : 0.35;
+  }
+}
+
 export function catalystRelevanceScoreWeight(relevance: CatalystRelevanceClass): number {
   switch (relevance) {
     case "DIRECT":
