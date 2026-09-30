@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildIntradayMetricDonorIndex,
   intradayOverlayObservationCoherent,
   overlayCanonicalIntradayMetrics,
+  selectCoherentIntradayDonorForTarget,
   SCREENER_INTRADAY_OVERLAY_MAX_SKEW_MS,
 } from "@/lib/screeners/screener-radar-intraday-overlay";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
@@ -95,12 +95,38 @@ describe("canonical intraday overlay", () => {
     expect(intradayOverlayObservationCoherent(target, donor)).toBe(false);
   });
 
-  it("selects the freshest donor for a symbol", () => {
-    const index = buildIntradayMetricDonorIndex([
+  it("selects target-coherent donor when global freshest is out of skew", () => {
+    const target = screenerRow({ provider_as_of: "2026-09-30T11:35:00.000Z" });
+    const donors = [
       {
         symbol: "ABC",
-        provider_as_of: "2026-09-30T14:00:00.000Z",
-        rvol_5m: 1,
+        provider_as_of: "2026-09-30T11:40:00.000Z",
+        rvol_5m: 4.4,
+        vol_velocity: null,
+        time_adjusted_rvol: null,
+        volume_acceleration_pct: null,
+      },
+      {
+        symbol: "ABC",
+        provider_as_of: "2026-09-30T12:11:00.000Z",
+        rvol_5m: 9.9,
+        vol_velocity: null,
+        time_adjusted_rvol: null,
+        volume_acceleration_pct: null,
+      },
+    ];
+    expect(selectCoherentIntradayDonorForTarget(target, donors)?.rvol_5m).toBe(4.4);
+    const [merged] = overlayCanonicalIntradayMetrics([target], donors);
+    expect((merged as { rvol_5m?: number | null }).rvol_5m).toBe(4.4);
+  });
+
+  it("selects freshest among multiple coherent donors", () => {
+    const target = screenerRow({ provider_as_of: "2026-09-30T14:00:00.000Z" });
+    const donor = selectCoherentIntradayDonorForTarget(target, [
+      {
+        symbol: "ABC",
+        provider_as_of: "2026-09-30T14:05:00.000Z",
+        rvol_5m: 3,
         vol_velocity: null,
         time_adjusted_rvol: null,
         volume_acceleration_pct: null,
@@ -114,7 +140,7 @@ describe("canonical intraday overlay", () => {
         volume_acceleration_pct: null,
       },
     ]);
-    expect(index.get("ABC")?.rvol_5m).toBe(9.9);
+    expect(donor?.rvol_5m).toBe(9.9);
   });
 
   it("does not overwrite existing rvol_5m on target", () => {

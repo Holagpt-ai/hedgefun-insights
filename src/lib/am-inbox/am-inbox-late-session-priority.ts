@@ -124,7 +124,8 @@ export function compareAmInboxLateSessionCandidates(
   const dollarDiff = finiteOrZero(b.context.dollarVolume) - finiteOrZero(a.context.dollarVolume);
   if (dollarDiff !== 0) return dollarDiff;
 
-  const rvolDiff = finiteOrZero(b.context.rvol) - finiteOrZero(a.context.rvol);
+  const rvolDiff =
+    continuationRankingRvolFromContext(b.context) - continuationRankingRvolFromContext(a.context);
   if (rvolDiff !== 0) return rvolDiff;
 
   const scoreDiff =
