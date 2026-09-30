@@ -13,12 +13,13 @@ import { LOG_PREFIX, sanitize } from "../_shared/watchlist-v2/sanitize.ts";
 import { resolveSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import { fetchWithOutcome } from "../_shared/watchlist-v2/market-data.ts";
 import { applyCursor, buildAnalysisScope, deriveUniqueTickers, type UniqueTicker } from "../_shared/watchlist-v2/batch.ts";
+import { WATCHLIST_BATCH_ANALYZER_INVOKE_TIMEOUT_MS } from "../_shared/watchlist-v2/execution-budget.ts";
 
 const MAX_TICKERS_PER_INVOCATION = 25;
 const MAX_CONCURRENCY = 5;
 const BUDGET_MS = 40_000;                 // execution-time budget
 const LEASE_SECONDS = 5 * 60;             // 5 min lease
-const ANALYZER_TIMEOUT_MS = 25_000;
+const ANALYZER_TIMEOUT_MS = WATCHLIST_BATCH_ANALYZER_INVOKE_TIMEOUT_MS;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

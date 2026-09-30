@@ -25,7 +25,8 @@ describe("brief reader states", () => {
       generationStatus: "temporarily_unavailable",
       retryable: true,
     });
-    expect(retryable?.statusLabel).toBe("Temporarily unavailable");
+    expect(retryable?.statusLabel).toBe("Retrying soon");
+    expect(retryable?.message).toContain("generation failed");
     expect(retryable?.retryControl).toBe(true);
     const auth = presentStoredBriefFailure({
       reason: "temporarily_unavailable",

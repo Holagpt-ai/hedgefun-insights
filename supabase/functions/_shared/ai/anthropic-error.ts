@@ -91,6 +91,7 @@ export function formatAnthropicHttpErrorLog(fields: {
   anthropic_error_type: string | null;
   elapsed_ms: number;
   stage?: string;
+  request_id?: string | null;
 }): string {
   return JSON.stringify({
     event: "anthropic_http_error",
@@ -98,5 +99,6 @@ export function formatAnthropicHttpErrorLog(fields: {
     http_status: fields.http_status,
     anthropic_error_type: fields.anthropic_error_type,
     elapsed_ms: fields.elapsed_ms,
+    request_id: fields.request_id ?? null,
   });
 }

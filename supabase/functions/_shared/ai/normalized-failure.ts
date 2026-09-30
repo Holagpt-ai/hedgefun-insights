@@ -50,6 +50,11 @@ export function logAiRequest(fields: {
   schemaValid: boolean | null;
   evidenceSufficient: boolean | null;
   failureCategory: AiFailureCategory | null;
+  requestId?: string | null;
+  feature?: string | null;
+  triggerType?: string | null;
+  failureCode?: string | null;
+  providerStatus?: number | null;
 }): void {
   console.log(JSON.stringify({
     event: "ai_request",
@@ -63,5 +68,10 @@ export function logAiRequest(fields: {
     schema_valid: fields.schemaValid,
     evidence_sufficient: fields.evidenceSufficient,
     failure_category: fields.failureCategory,
+    request_id: fields.requestId ?? null,
+    feature: fields.feature ?? null,
+    trigger_type: fields.triggerType ?? null,
+    failure_code: fields.failureCode ?? null,
+    provider_status: fields.providerStatus ?? null,
   }));
 }

@@ -40,7 +40,12 @@ import {
   generateWatchlistAnalysis,
   resolveWatchlistAiConfig,
   type WatchlistAiCallMeta,
+  type WatchlistTriggerType,
 } from "../_shared/watchlist-v2/ai-provider.ts";
+import {
+  resolveWatchlistProviderTimeoutMs,
+  resolveWatchlistTransportWallClockBudgetMs,
+} from "../_shared/watchlist-v2/execution-budget.ts";
 import {
   computeValidThrough,
   decideAfterFacts,
@@ -817,7 +822,14 @@ export async function handleRequest(req: Request): Promise<Response> {
         }));
       }
 
-      const created = createWatchlistAiAdapter(aiConfig);
+      const wlTriggerType: WatchlistTriggerType =
+        mode === "manual" ? "manual" : (runId ? "batch" : "trigger");
+      const providerTimeoutMs = resolveWatchlistProviderTimeoutMs({ triggerType: wlTriggerType });
+      const transportBudgetMs = resolveWatchlistTransportWallClockBudgetMs({ triggerType: wlTriggerType });
+      const created = createWatchlistAiAdapter(aiConfig, {
+        timeoutMs: providerTimeoutMs,
+        requestId,
+      });
       if (!created.ok) {
         outcomeLog.outcome = "failed";
         outcomeLog.failure_reason = "UPSTREAM_ERROR";
@@ -872,6 +884,10 @@ export async function handleRequest(req: Request): Promise<Response> {
           }, catalog);
           const result = await generateWatchlistAnalysis(created.adapter, { prompt, catalog }, {
             fallback: resolveApprovedWatchlistFallbackFromEnv(),
+            requestId,
+            triggerType: wlTriggerType,
+            providerTimeoutMs,
+            transportWallClockBudgetMs: transportBudgetMs,
           });
           applyAiCallMeta(outcomeLog, result.meta, intended);
           emitWatchlistAiCallLog(result.meta, result.kind === "ok", intended);

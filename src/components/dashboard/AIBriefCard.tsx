@@ -3,6 +3,15 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { briefAccessState, presentStoredBriefFailure } from "@/lib/ai/brief-presentation";
+import {
+  emptyLastGoodBriefCache,
+  getCachedBrief,
+  setCachedBrief,
+  shouldPreserveBriefOnRefreshFailure,
+  staleRefreshNotice,
+  type CachedBriefSnapshot,
+  type LastGoodBriefCache,
+} from "@/lib/ai/brief-refresh-state";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBrief } from "@/lib/ai/evidence";
 import { etTimestampLabel } from "@/lib/pre-market/builders";
@@ -52,6 +61,8 @@ type BriefState =
       supersededBy: AmGenerationWindow | null;
       ageSeconds: number;
       generationReason: string | null;
+      isRefreshing?: boolean;
+      refreshNotice?: string | null;
     }
   | { kind: "notice"; message: string; refreshable: boolean; showAfterHoursCta?: boolean; statusLabel?: string }
   | { kind: "error"; message: string; refreshable: boolean; statusLabel?: string };
@@ -157,6 +168,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   const [state, setState] = useState<BriefState>({ kind: "idle" });
   const [briefExpanded, setBriefExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const lastGoodBriefRef = useRef<LastGoodBriefCache>(emptyLastGoodBriefCache());
   const briefObserveRef = useRef({
     httpStatus: null as number | null,
     reason: null as string | null,
@@ -177,9 +189,15 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    setState({ kind: "loading" });
+    const prior = getCachedBrief(lastGoodBriefRef.current, briefType);
+    if (prior) {
+      setState({ kind: "available", ...prior, isRefreshing: true, refreshNotice: null });
+    } else {
+      setState({ kind: "loading" });
+    }
 
     try {
+      const clientRequestId = crypto.randomUUID();
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData.session;
       if (!session) {
@@ -195,7 +213,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             "Content-Type": "application/json",
             Authorization: `Bearer ${session.access_token}`,
           },
-          body: JSON.stringify({ briefType }),
+          body: JSON.stringify({ briefType, request_id: clientRequestId }),
           signal: ctrl.signal,
         },
       );
@@ -280,8 +298,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             briefObserveRef.current.ageSeconds = ageSeconds;
             briefObserveRef.current.generationReason = generationReason;
 
-            setState({
-              kind: "available",
+            const snapshot: CachedBriefSnapshot = {
               content: body.content,
               generatedAtEt: formatEt(body.generated_at),
               previousTradingDay: body.previous_trading_day,
@@ -293,6 +310,22 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               supersededBy,
               ageSeconds,
               generationReason,
+            };
+            setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
+            setState({
+              kind: "available",
+              ...snapshot,
+              isRefreshing: false,
+              refreshNotice: null,
+            });
+            return;
+          }
+          if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
+            setState({
+              kind: "available",
+              ...prior,
+              isRefreshing: false,
+              refreshNotice: staleRefreshNotice(prior.generatedAtEt),
             });
             return;
           }
@@ -312,6 +345,15 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           retryable: typeof body?.retryable === "boolean" ? body.retryable : null,
         });
         if (stored) {
+          if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
+            setState({
+              kind: "available",
+              ...prior,
+              isRefreshing: false,
+              refreshNotice: staleRefreshNotice(prior.generatedAtEt),
+            });
+            return;
+          }
           setState({
             kind: stored.retryControl ? "error" : "notice",
             message: stored.message,
@@ -383,6 +425,15 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             });
             return;
           default:
+            if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
+              setState({
+                kind: "available",
+                ...prior,
+                isRefreshing: false,
+                refreshNotice: staleRefreshNotice(prior.generatedAtEt),
+              });
+              return;
+            }
             setState({
               kind: "error",
               message: "Temporarily unavailable",
@@ -393,11 +444,29 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         }
       }
       if (briefAccessState(resp.status) === "temporarily_unavailable") {
+        if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
+          setState({
+            kind: "available",
+            ...prior,
+            isRefreshing: false,
+            refreshNotice: staleRefreshNotice(prior.generatedAtEt),
+          });
+          return;
+        }
         setState({
           kind: "error",
           message: "Temporarily unavailable",
           refreshable: true,
           statusLabel: "Temporarily unavailable",
+        });
+        return;
+      }
+      if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
+        setState({
+          kind: "available",
+          ...prior,
+          isRefreshing: false,
+          refreshNotice: staleRefreshNotice(prior.generatedAtEt),
         });
         return;
       }
@@ -511,6 +580,14 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       case "available":
         return (
           <div className="space-y-3">
+            {state.refreshNotice && (
+              <div
+                data-testid="brief-stale-refresh-notice"
+                className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground"
+              >
+                {state.refreshNotice}
+              </div>
+            )}
             {showAmArchiveNotice && (
               <div className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground">
                 <p className="whitespace-pre-line">{amArchiveNotice.message}</p>
@@ -569,7 +646,9 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         : `${timestampLabel} ${state.generatedAtEt}`
       : state.kind === "loading"
         ? "Updating..."
-        : null;
+        : state.kind === "available" && state.isRefreshing
+          ? "Retrying…"
+          : null;
 
   // isPro is presentation-only — no fetch gate, no blur overlay.
   void isPro;
@@ -579,8 +658,11 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-semibold tracking-wide">
           {config.aiCardTitle}
-          {state.kind === "available" && (
+          {state.kind === "available" && !state.isRefreshing && (
             <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground" data-testid="brief-user-state">Ready</span>
+          )}
+          {state.kind === "available" && state.isRefreshing && (
+            <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground" data-testid="brief-user-state">Retrying</span>
           )}
         </h3>
         {timestampText && <span className="text-[11px] text-muted-foreground">{timestampText}</span>}

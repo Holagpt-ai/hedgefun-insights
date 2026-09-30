@@ -6,7 +6,8 @@ import type { Direction, KeyLevels, MarketSignal, RecentEvent } from "./contract
 import { containsForbiddenKey } from "./contract.ts";
 import { classifyFetchFailure, type ProviderTransportFailure } from "./market-data.ts";
 import { LOG_PREFIX, sanitize } from "./sanitize.ts";
-import { readAnthropicErrorDetail } from "../ai/anthropic-error.ts";
+import { postAnthropicMessages, type FetchLike } from "../ai/anthropic-messages.ts";
+import { WATCHLIST_MANUAL_PROVIDER_TIMEOUT_MS } from "./execution-budget.ts";
 
 export interface EvidenceCatalog {
   /** Full set of allowed driver_ids, each carrying its stable prefix. */
@@ -214,6 +215,8 @@ export function validateAiOutput(rawText: string, catalog: EvidenceCatalog): AiR
 
 export const DEFAULT_ANTHROPIC_WATCHLIST_MODEL = "claude-haiku-4-5-20251001";
 export const WATCHLIST_ANTHROPIC_MAX_TOKENS = 512;
+/** Default when no runtime timeout is supplied (manual refresh envelope). */
+export const WATCHLIST_ANTHROPIC_TIMEOUT_MS = WATCHLIST_MANUAL_PROVIDER_TIMEOUT_MS;
 
 /** Messages request actually posted to Anthropic. No sampling, tools, or system field. */
 export function buildWatchlistAnthropicBody(model: string, prompt: string): {
@@ -231,69 +234,55 @@ export function buildWatchlistAnthropicBody(model: string, prompt: string): {
 export function makeAnthropicCaller(
   apiKey: string,
   model: string = DEFAULT_ANTHROPIC_WATCHLIST_MODEL,
+  runtime?: { timeoutMs?: number; requestId?: string; fetchImpl?: FetchLike },
 ): AiCaller {
+  const timeoutMs = runtime?.timeoutMs ?? WATCHLIST_ANTHROPIC_TIMEOUT_MS;
+  const requestId = runtime?.requestId;
+  const fetchImpl = runtime?.fetchImpl;
+
   async function callRaw(prompt: string): Promise<AiRawComplete> {
-    let res: Response;
-    try {
-      res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify(buildWatchlistAnthropicBody(model, prompt)),
-        signal: AbortSignal.timeout(20000),
-      });
-    } catch (e) {
-      console.warn("[wl-v2] anthropic transport error:", sanitize(e));
+    const posted = await postAnthropicMessages({
+      apiKey,
+      model,
+      maxTokens: WATCHLIST_ANTHROPIC_MAX_TOKENS,
+      user: prompt,
+      timeoutMs,
+      stage: "watchlist_v2",
+      requestId,
+      fetchImpl,
+    });
+    if (!posted.ok) {
+      if (posted.network) {
+        console.warn("[wl-v2] anthropic transport error: network");
+      }
+      const code = posted.httpStatus === 429
+        ? "RATE_LIMITED"
+        : posted.errorType === "timeout" || posted.httpStatus === null
+        ? "PROVIDER_TIMEOUT"
+        : "PROVIDER_ERROR";
+      const failure_kind = posted.errorType === "timeout"
+        ? "timeout"
+        : posted.network
+        ? classifyFetchFailure(new Error("network"))
+        : posted.outcome === "parse_error"
+        ? "invalid_json"
+        : "http_error";
       return {
         kind: "transport_failure",
-        code: "PROVIDER_TIMEOUT",
-        http_status: null,
-        failure_kind: classifyFetchFailure(e),
+        code,
+        http_status: posted.httpStatus,
+        failure_kind,
+        provider_error_type: posted.errorType,
+        provider_error_message: posted.errorMessage,
       };
     }
-    if (!res.ok) {
-      const detail = await readAnthropicErrorDetail(res);
-      console.error(`${LOG_PREFIX} anthropic_http_error ${sanitize(JSON.stringify({
-        http_status: res.status,
-        anthropic_error_type: detail.type,
-        anthropic_error_message: detail.message,
-      }), 400)}`);
-      return {
-        kind: "transport_failure",
-        code: res.status === 429 ? "RATE_LIMITED" : "PROVIDER_ERROR",
-        http_status: res.status,
-        failure_kind: "http_error",
-        provider_error_type: detail.type,
-        provider_error_message: detail.message,
-      };
-    }
-    let body: unknown;
-    try {
-      body = await res.json();
-    } catch {
-      return {
-        kind: "transport_failure",
-        code: "PROVIDER_ERROR",
-        http_status: res.status,
-        failure_kind: "invalid_json",
-      };
-    }
-    const b = body as {
-      content?: Array<{ text?: unknown }>;
-      usage?: { input_tokens?: unknown; output_tokens?: unknown };
-    } | null;
-    const rawText = b?.content?.[0]?.text;
-    const usage = {
-      input_tokens: typeof b?.usage?.input_tokens === "number" ? b.usage.input_tokens : null,
-      output_tokens: typeof b?.usage?.output_tokens === "number" ? b.usage.output_tokens : null,
+    const usage = posted.usage ?? { input_tokens: null, output_tokens: null };
+    return {
+      kind: "ok",
+      rawText: posted.text,
+      usage,
+      http_status: posted.httpStatus,
     };
-    if (typeof rawText !== "string") {
-      return { kind: "ok", rawText: "", usage, http_status: res.status };
-    }
-    return { kind: "ok", rawText, usage, http_status: res.status };
   }
 
   return {

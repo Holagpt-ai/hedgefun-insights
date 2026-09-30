@@ -9,6 +9,9 @@ import {
   readSnapshotGenerationWindow,
   resolveAmBriefFreshness,
 } from "../_shared/briefs/am-freshness.ts";
+import { failureCodeFromCategory } from "../_shared/ai/failure-codes.ts";
+import { resolveAiRequestId } from "../_shared/ai/request-context.ts";
+import type { AiFailureCategory } from "../_shared/ai/normalized-failure.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -48,6 +51,7 @@ async function failureResponse(
   } },
   briefType: BriefType,
   briefDate: string,
+  requestId: string,
 ): Promise<Response | null> {
   const { data } = await admin
     .from("daily_brief_generation_state")
@@ -57,6 +61,7 @@ async function failureResponse(
     .maybeSingle();
   const read = resolveBriefRead({ hasValidBrief: false, state: parseGenerationState(data) });
   if (read.generation_status === "generating" || read.generation_status === "ready") return null;
+  const failureCategory = read.failure_category as AiFailureCategory;
   return json({
     available: false,
     brief_type: briefType,
@@ -64,8 +69,12 @@ async function failureResponse(
     reason: read.reason,
     generation_status: read.generation_status,
     failure_category: read.failure_category,
+    failure_code: failureCodeFromCategory(failureCategory, {
+      persistence: read.reason === "temporarily_unavailable" && failureCategory === "UNKNOWN",
+    }),
     retryable: read.retryable,
     failed_at: read.failed_at,
+    request_id: requestId,
   }, 200);
 }
 
@@ -151,12 +160,13 @@ serve(async (req) => {
     }
 
     // Parse body
-    let body: { briefType?: string } = {};
+    let body: { briefType?: string; request_id?: string; requestId?: string } = {};
     try {
       body = await req.json();
     } catch {
       return json({ error: "Invalid JSON body" }, 400);
     }
+    const requestId = resolveAiRequestId(body);
     const briefType = body.briefType as BriefType | undefined;
     if (briefType !== "am" && briefType !== "pm") {
       return json({ error: "Invalid briefType" }, 400);
@@ -210,16 +220,28 @@ serve(async (req) => {
         .eq("brief_date", et.date)
         .maybeSingle();
       if (!row) {
-        const failed = await failureResponse(admin, "am", et.date);
+        const failed = await failureResponse(admin, "am", et.date, requestId);
         if (failed) return failed;
-        return json({ available: false, brief_type: "am", reason: "brief_not_ready", generation_status: "generating" }, 200);
+        return json({
+          available: false,
+          brief_type: "am",
+          reason: "brief_not_ready",
+          generation_status: "generating",
+          request_id: requestId,
+        }, 200);
       }
       const v = validateProvenance(row as BriefRow, "am");
       // Legacy / corrupt rows: treat as not ready so dispatch can regenerate V2.
       if (!v.ok) {
-        const failed = await failureResponse(admin, "am", et.date);
+        const failed = await failureResponse(admin, "am", et.date, requestId);
         if (failed) return failed;
-        return json({ available: false, brief_type: "am", reason: "brief_not_ready", generation_status: "generating" }, 200);
+        return json({
+          available: false,
+          brief_type: "am",
+          reason: "brief_not_ready",
+          generation_status: "generating",
+          request_id: requestId,
+        }, 200);
       }
       return json(
         {
@@ -230,6 +252,7 @@ serve(async (req) => {
           content: row.content,
           previous_trading_day: false,
           source_checked_at: v.sourceCheckedAt,
+          request_id: requestId,
           ...amFreshnessPayload(row as BriefRow, et),
         },
         200,

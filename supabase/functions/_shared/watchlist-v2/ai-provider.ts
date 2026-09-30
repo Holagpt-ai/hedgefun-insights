@@ -1,21 +1,27 @@
 // Watchlist V2 intelligence provider abstraction.
 // Analyzer code calls generateWatchlistAnalysis only.
 // Active provider: Anthropic Haiku. Automatic cross-provider fallback is OFF.
-// A dormant future-vendor sketch exists separately and is not constructed here.
 
 import type { EvidenceCatalog } from "./ai-read.ts";
 import { makeAnthropicCaller, validateAiOutput, type AiReadResult } from "./ai-read.ts";
 import type { ProviderTransportFailure } from "./market-data.ts";
 import { LOG_PREFIX } from "./sanitize.ts";
 import { classifyHttpFailure, logAiRequest } from "../ai/normalized-failure.ts";
+import { failureCodeFromCategory } from "../ai/failure-codes.ts";
+import {
+  AI_MAX_TRANSPORT_ATTEMPTS,
+  computeRetryDelayMs,
+  shouldRetryTransportFailure,
+} from "../ai/retry-policy.ts";
 
 export type WatchlistAiProviderId = "anthropic" | "qwen";
 
 export const DEFAULT_WATCHLIST_AI_PROVIDER: WatchlistAiProviderId = "anthropic";
 export const DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5-20251001";
 export const WATCHLIST_AI_MAX_REPAIR_RETRIES = 1;
-/** Automatic cross-provider fallback is OFF. Config cannot enable it in V1. */
 export const WATCHLIST_AI_FALLBACK_ENABLED = false;
+
+export type WatchlistTriggerType = "manual" | "trigger" | "batch";
 
 export type WatchlistAiQualityIssue =
   | "malformed_output"
@@ -86,6 +92,17 @@ export interface WatchlistAiAdapter {
   complete(prompt: string): Promise<WatchlistAiRawComplete>;
 }
 
+export interface WatchlistAnalysisOptions {
+  maxRepairRetries?: number;
+  nowMs?: () => number;
+  fallback?: WatchlistAiAdapter | null;
+  requestId?: string;
+  triggerType?: WatchlistTriggerType;
+  providerTimeoutMs?: number;
+  transportWallClockBudgetMs?: number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
 export function resolveWatchlistAiConfig(
   env: Record<string, string | undefined>,
 ): WatchlistAiConfig {
@@ -96,7 +113,6 @@ export function resolveWatchlistAiConfig(
   const fallbackRequested = (env.WATCHLIST_AI_FALLBACK ?? "off").trim().toLowerCase() === "on";
   return {
     provider,
-    // Anthropic stays on the existing Haiku id for this sprint.
     model: DEFAULT_ANTHROPIC_MODEL,
     anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() ?? "",
     fallbackEnabled: false,
@@ -188,22 +204,78 @@ function repairPrompt(original: string, reason: string): string {
 REPAIR: previous output was invalid (${reason}). Return ONLY the required JSON object with keys direction, explanation, driver_ids. No markdown.`;
 }
 
-function transportIsRetryable(failure: ProviderTransportFailure): boolean {
-  if (failure.http_status === 401 || failure.http_status === 403 || failure.http_status === 400) {
-    return false;
-  }
-  if (failure.code === "PROVIDER_TIMEOUT" || failure.code === "RATE_LIMITED") return true;
-  const status = failure.http_status;
-  return status === 429 || (status !== null && status >= 500);
+function logWatchlistAiRequest(input: {
+  attempt: number;
+  triggerType: WatchlistTriggerType;
+  requestId?: string;
+  adapter: WatchlistAiAdapter;
+  durationMs: number;
+  outcome: string;
+  schemaValid: boolean | null;
+  failureCategory: ReturnType<typeof classifyHttpFailure> | null;
+  httpStatus: number | null;
+  fallbackUsed: boolean;
+  transportFailure?: ProviderTransportFailure;
+}): void {
+  logAiRequest({
+    surface: "watchlist_v2",
+    provider: input.adapter.id,
+    model: input.adapter.model,
+    attempt: input.attempt,
+    fallbackUsed: input.fallbackUsed,
+    durationMs: input.durationMs,
+    outcome: input.outcome,
+    schemaValid: input.schemaValid,
+    evidenceSufficient: true,
+    failureCategory: input.failureCategory,
+    requestId: input.requestId ?? null,
+    feature: "watchlist_v2",
+    triggerType: input.triggerType,
+    failureCode: input.failureCategory
+      ? failureCodeFromCategory(input.failureCategory, {
+        network: input.transportFailure?.failure_kind === "fetch_error",
+      })
+      : null,
+    providerStatus: input.httpStatus,
+  });
+}
+
+function isTransientTransportFailure(failure: ProviderTransportFailure): boolean {
+  return shouldRetryTransportFailure({
+    httpStatus: failure.http_status,
+    timedOut: failure.code === "PROVIDER_TIMEOUT",
+    network: failure.failure_kind === "fetch_error",
+    outcome: "provider_error",
+    attempt: 1,
+    maxAttempts: AI_MAX_TRANSPORT_ATTEMPTS + 1,
+  });
+}
+
+function canRetryWithinBudget(input: {
+  startedMs: number;
+  nowMs: () => number;
+  delayMs: number;
+  providerTimeoutMs: number;
+  budgetMs: number | undefined;
+}): boolean {
+  if (input.budgetMs === undefined) return true;
+  const elapsed = input.nowMs() - input.startedMs;
+  return elapsed + input.delayMs + input.providerTimeoutMs <= input.budgetMs;
 }
 
 export async function generateWatchlistAnalysis(
   adapter: WatchlistAiAdapter,
   input: WatchlistAiRequest,
-  options?: { maxRepairRetries?: number; nowMs?: () => number; fallback?: WatchlistAiAdapter | null },
+  options?: WatchlistAnalysisOptions,
 ): Promise<WatchlistAiCallResult> {
-  const maxRetries = options?.maxRepairRetries ?? WATCHLIST_AI_MAX_REPAIR_RETRIES;
+  const maxRepairRetries = options?.maxRepairRetries ?? WATCHLIST_AI_MAX_REPAIR_RETRIES;
   const nowMs = options?.nowMs ?? Date.now;
+  const sleep = options?.sleep ?? ((ms: number) => new Promise((r) => setTimeout(r, ms)));
+  const triggerType = options?.triggerType ?? "manual";
+  const requestId = options?.requestId;
+  const providerTimeoutMs = options?.providerTimeoutMs ?? 20_000;
+  const transportBudgetMs = options?.transportWallClockBudgetMs;
+
   const started = nowMs();
   let repairCount = 0;
   let transportRetries = 0;
@@ -212,7 +284,7 @@ export async function generateWatchlistAnalysis(
   let lastUsage: WatchlistAiUsage = { input_tokens: null, output_tokens: null };
   let lastStatus: number | null = null;
   let prompt = input.prompt;
-  let attempt = 0;
+  let providerCallAttempt = 0;
 
   const meta = (
     quality_issue: WatchlistAiQualityIssue | null,
@@ -229,31 +301,14 @@ export async function generateWatchlistAnalysis(
   });
 
   while (true) {
-    attempt += 1;
+    providerCallAttempt += 1;
     const attemptStarted = nowMs();
     const raw = await active.complete(prompt);
     lastStatus = raw.http_status ?? null;
     if (raw.usage) lastUsage = raw.usage;
     const transportFailure = raw.kind === "transport_failure";
-    logAiRequest({
-      surface: "watchlist_v2",
-      provider: active.id,
-      model: active.model,
-      attempt,
-      fallbackUsed: usingFallback,
-      durationMs: Math.max(0, nowMs() - attemptStarted),
-      outcome: raw.kind,
-      schemaValid: null,
-      evidenceSufficient: true,
-      failureCategory: transportFailure
-        ? classifyHttpFailure({
-          httpStatus: raw.http_status ?? null,
-          timedOut: raw.code === "PROVIDER_TIMEOUT" || raw.http_status == null,
-        })
-        : null,
-    });
 
-    if (raw.kind === "transport_failure") {
+    if (transportFailure) {
       const failure: ProviderTransportFailure = {
         kind: "transport_failure",
         code: raw.code ?? "PROVIDER_ERROR",
@@ -262,17 +317,55 @@ export async function generateWatchlistAnalysis(
         provider_error_type: raw.provider_error_type ?? null,
         provider_error_message: raw.provider_error_message ?? null,
       };
-      const retryable = transportIsRetryable(failure);
-      if (!usingFallback && retryable && transportRetries < maxRetries) {
-        transportRetries += 1;
-        continue;
+      const transportCategory = classifyHttpFailure({
+        httpStatus: failure.http_status,
+        timedOut: failure.code === "PROVIDER_TIMEOUT" || failure.http_status === null,
+      });
+      logWatchlistAiRequest({
+        attempt: providerCallAttempt,
+        triggerType,
+        requestId,
+        adapter: active,
+        durationMs: Math.max(0, nowMs() - attemptStarted),
+        outcome: raw.kind,
+        schemaValid: null,
+        failureCategory: transportCategory,
+        httpStatus: failure.http_status,
+        fallbackUsed: usingFallback,
+        transportFailure: failure,
+      });
+
+      const retrySameProvider = shouldRetryTransportFailure({
+        httpStatus: failure.http_status,
+        timedOut: failure.code === "PROVIDER_TIMEOUT",
+        network: failure.failure_kind === "fetch_error",
+        outcome: "provider_error",
+        attempt: providerCallAttempt,
+        maxAttempts: AI_MAX_TRANSPORT_ATTEMPTS,
+      });
+
+      if (!usingFallback && retrySameProvider) {
+        const delayMs = computeRetryDelayMs(providerCallAttempt);
+        if (canRetryWithinBudget({
+          startedMs: started,
+          nowMs,
+          delayMs,
+          providerTimeoutMs,
+          budgetMs: transportBudgetMs,
+        })) {
+          transportRetries += 1;
+          await sleep(delayMs);
+          continue;
+        }
       }
-      if (!usingFallback && retryable && options?.fallback) {
+
+      if (!usingFallback && isTransientTransportFailure(failure) && options?.fallback) {
         usingFallback = true;
         active = options.fallback;
         prompt = input.prompt;
         continue;
       }
+
       const issue = classifyQualityIssue(failure);
       emitWatchlistAiQualityLog({
         provider: active.id,
@@ -288,22 +381,26 @@ export async function generateWatchlistAnalysis(
     const rawText = raw.rawText ?? "";
     const validated = validateAiOutput(rawText, input.catalog);
     const schemaFailed = validated.kind !== "ok";
-    logAiRequest({
-      surface: "watchlist_v2",
-      provider: active.id,
-      model: active.model,
-      attempt,
-      fallbackUsed: usingFallback,
+    const schemaCategory = schemaFailed
+      ? (validated.kind === "validation_failed"
+        && (validated.reason === "unparseable_json" || validated.reason === "not_object")
+        ? "MALFORMED_RESPONSE"
+        : "SCHEMA_VALIDATION")
+      : null;
+
+    logWatchlistAiRequest({
+      attempt: providerCallAttempt,
+      triggerType,
+      requestId,
+      adapter: active,
       durationMs: Math.max(0, nowMs() - attemptStarted),
       outcome: validated.kind,
       schemaValid: !schemaFailed,
-      evidenceSufficient: true,
-      failureCategory: schemaFailed
-        ? (validated.kind === "validation_failed" && (validated.reason === "unparseable_json" || validated.reason === "not_object")
-          ? "MALFORMED_RESPONSE"
-          : "SCHEMA_VALIDATION")
-        : null,
+      failureCategory: schemaCategory,
+      httpStatus: lastStatus,
+      fallbackUsed: usingFallback,
     });
+
     if (validated.kind === "ok") {
       const issue = classifyQualityIssue({ kind: "ok", explanation: validated.value.explanation });
       if (issue) {
@@ -336,7 +433,7 @@ export async function generateWatchlistAnalysis(
       http_status: lastStatus,
     });
 
-    if (repairCount >= maxRetries) {
+    if (repairCount >= maxRepairRetries) {
       return { kind: "validation_failed", reason: validated.reason, meta: meta(issue) };
     }
     repairCount += 1;
@@ -347,8 +444,13 @@ export async function generateWatchlistAnalysis(
 export function createAnthropicAdapter(input: {
   apiKey: string;
   model: string;
+  timeoutMs: number;
+  requestId?: string;
 }): WatchlistAiAdapter {
-  const caller = makeAnthropicCaller(input.apiKey, input.model);
+  const caller = makeAnthropicCaller(input.apiKey, input.model, {
+    timeoutMs: input.timeoutMs,
+    requestId: input.requestId,
+  });
   return {
     id: "anthropic",
     model: input.model,
@@ -371,6 +473,7 @@ export type CreateWatchlistAiResult =
 
 export function createWatchlistAiAdapter(
   config: WatchlistAiConfig,
+  runtime?: { timeoutMs: number; requestId?: string },
 ): CreateWatchlistAiResult {
   if (config.fallbackRequested) {
     console.warn(`${LOG_PREFIX} WATCHLIST_AI_FALLBACK ignored; automatic fallback is off`);
@@ -381,11 +484,16 @@ export function createWatchlistAiAdapter(
   if (!config.anthropicApiKey) {
     return { ok: false, reason: "missing_anthropic_key", config };
   }
+  if (!runtime?.timeoutMs || !Number.isFinite(runtime.timeoutMs)) {
+    return { ok: false, reason: "missing_provider_timeout", config };
+  }
   return {
     ok: true,
     adapter: createAnthropicAdapter({
       apiKey: config.anthropicApiKey,
       model: DEFAULT_ANTHROPIC_MODEL,
+      timeoutMs: runtime.timeoutMs,
+      requestId: runtime.requestId,
     }),
     config,
   };

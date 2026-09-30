@@ -14,6 +14,8 @@ export interface BriefTelemetry {
   anthropic_error_type: string | null;
   anthropic_error_message: string | null;
   elapsed_ms: number;
+  request_id?: string | null;
+  failure_code?: string | null;
 }
 
 export function maxIndexAgeMs(
@@ -43,6 +45,8 @@ export function formatBriefTelemetry(fields: BriefTelemetry): string {
     anthropic_error_type: fields.anthropic_error_type,
     anthropic_error_message: fields.anthropic_error_message,
     elapsed_ms: fields.elapsed_ms,
+    request_id: fields.request_id ?? null,
+    failure_code: fields.failure_code ?? null,
   });
 }
 
