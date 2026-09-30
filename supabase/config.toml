@@ -97,5 +97,20 @@ verify_jwt = false
 [functions.sync-sec-edgar-filings]
 verify_jwt = false
 
+[functions.sync-catalyst-sec]
+verify_jwt = false
+
+[functions.sync-catalyst-ir]
+verify_jwt = false
+
+[functions.sync-catalyst-company-events]
+verify_jwt = false
+
+[functions.sync-catalyst-news]
+verify_jwt = false
+
+[functions.sync-catalyst-reactions]
+verify_jwt = false
+
 [functions.get-pre-market-workspace]
 verify_jwt = false
