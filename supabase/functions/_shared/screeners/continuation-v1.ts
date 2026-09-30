@@ -5,6 +5,7 @@
  * Does not recompute Discovery Rank or invoke Trade Quality / filter engines.
  */
 
+import { assessRvolConfidence } from "./rvol-confidence.ts";
 import {
   CONTINUATION_AFTER_HOURS_END_INCLUSIVE_MS,
   CONTINUATION_AFTER_HOURS_MAINTAIN_HOD_PCT,
@@ -224,11 +225,17 @@ function scoreTurnover(input: ContinuationInput): ContinuationComponentResult {
 
 function scoreRvol(input: ContinuationInput): ContinuationComponentResult {
   const maxScore = CONTINUATION_COMPONENT_WEIGHTS.rvol20d;
-  const rvol = isFiniteNumber(input.timeAdjustedRvol)
+  const raw = isFiniteNumber(input.timeAdjustedRvol)
     ? input.timeAdjustedRvol
     : input.rvol20d;
-  if (!isFiniteNumber(rvol) || rvol < 0) return unavailable(maxScore);
-  return available(rvol, scoreExclusiveTiers(rvol, CONTINUATION_RVOL20D_TIERS), maxScore);
+  if (!isFiniteNumber(raw) || raw < 0) return unavailable(maxScore);
+  const rankingRvol = isFiniteNumber(input.timeAdjustedRvol)
+    ? (assessRvolConfidence({
+      rawRvol: raw,
+      metricKind: "time_adjusted",
+    }).rankingRvol ?? raw)
+    : raw;
+  return available(raw, scoreExclusiveTiers(rankingRvol, CONTINUATION_RVOL20D_TIERS), maxScore);
 }
 
 function scoreTradeQuality(input: ContinuationInput): ContinuationComponentResult {

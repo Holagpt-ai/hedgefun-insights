@@ -35,7 +35,7 @@ describe("LateSessionHandoffsList", () => {
 
     const list = screen.getByTestId("am-inbox-late-session-handoffs");
     expect(within(list).getAllByText(/^SYM\d{2}$/).length).toBe(6);
-    expect(screen.getByText(/Showing 6 of 65 priority continuation candidates/)).toBeTruthy();
+    expect(screen.getByText(/65 detected · 65 qualified · 65 priority · Showing top 6/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "View All (65)" })).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "View All (65)" }));

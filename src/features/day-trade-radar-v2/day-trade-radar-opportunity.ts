@@ -47,6 +47,9 @@ import type {
   DayTradeRadarOpportunityExplain,
   RadarRankedRow,
 } from "./types";
+import { buildDayTradeFunnelStats } from "./day-trade-qualification";
+import type { ScannerFunnelStats } from "@/lib/screeners/scanner-qualification-funnel";
+import { formatRejectionSummaryCompact } from "@/lib/screeners/scanner-qualification-funnel";
 
 export type VerifiedCatalystRankTier = "direct" | "scheduled" | "none";
 
@@ -87,6 +90,7 @@ export interface DayTradeRadarOpportunityBoard {
   qualifiedCount: number;
   topOpportunities: RadarRankedRow[];
   gateAudit: DayTradeCandidateGateAudit;
+  funnel: ScannerFunnelStats;
 }
 
 const FRESHNESS_SCORE: Record<string, number> = {
@@ -596,11 +600,19 @@ export function buildDayTradeRadarOpportunityBoard(
 ): DayTradeRadarOpportunityBoard {
   const candidateUniverseCount = rankedUniverse.length;
   if (candidateUniverseCount === 0) {
+    const emptyFunnel = buildDayTradeFunnelStats({
+      detected: [],
+      qualified: [],
+      priority: [],
+      displayed: [],
+      nowMs,
+    });
     return {
       candidateUniverseCount: 0,
       qualifiedCount: 0,
       topOpportunities: [],
       gateAudit: summarizeDayTradeCandidateGates(rankedUniverse, nowMs, 0),
+      funnel: emptyFunnel,
     };
   }
 
@@ -638,11 +650,23 @@ export function buildDayTradeRadarOpportunityBoard(
     };
   });
 
+  const strategyQualified = withVolumeRank.filter((row) =>
+    qualifiesDayTradeMomentum(row),
+  );
+  const funnel = buildDayTradeFunnelStats({
+    detected: withVolumeRank,
+    qualified: strategyQualified,
+    priority: qualified.map((entry) => entry.row),
+    displayed: top,
+    nowMs,
+  });
+
   return {
     candidateUniverseCount,
     qualifiedCount: qualified.length,
     topOpportunities: top,
     gateAudit: summarizeDayTradeCandidateGates(rankedUniverse, nowMs, top.length),
+    funnel,
   };
 }
 
@@ -650,14 +674,28 @@ export function formatDayTradeRadarStatusSuffix(input: {
   candidateUniverseCount: number;
   topOpportunityCount: number;
   qualifiedCount?: number;
+  funnel?: ScannerFunnelStats;
 }): string | null {
-  const { candidateUniverseCount, topOpportunityCount } = input;
+  const { candidateUniverseCount, topOpportunityCount, qualifiedCount, funnel } = input;
   if (candidateUniverseCount <= 0) return null;
+  const qualified =
+    qualifiedCount ??
+    funnel?.qualifiedCount ??
+    topOpportunityCount;
   if (topOpportunityCount <= 0) {
-    return `${candidateUniverseCount} candidates detected · 0 ranked opportunities`;
+    return `${candidateUniverseCount} detected · ${qualified} qualified`;
   }
-  if (candidateUniverseCount === topOpportunityCount) {
+  if (candidateUniverseCount === topOpportunityCount && qualified === topOpportunityCount) {
     return `${candidateUniverseCount} qualifying Radar opportunities`;
   }
-  return `${candidateUniverseCount} candidates detected · ${topOpportunityCount} ranked for Radar`;
+  return `${candidateUniverseCount} detected · ${qualified} qualified · ${topOpportunityCount} ranked for Radar`;
+}
+
+export function formatDayTradeQualificationBreakdown(
+  funnel: ScannerFunnelStats | undefined,
+): string | null {
+  if (!funnel) return null;
+  const lines = formatRejectionSummaryCompact(funnel.rejectionSummary, 5);
+  if (lines.length === 0) return null;
+  return lines.join(" · ");
 }

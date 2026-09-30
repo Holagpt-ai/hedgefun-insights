@@ -1,4 +1,7 @@
-import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
+import type {
+  AmInboxLateSessionCandidate,
+  LateSessionContinuationFunnel,
+} from "@/lib/am-inbox/late-session-continuation-types";
 import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import { TopNReveal } from "@/components/session-intelligence/TopNReveal";
@@ -70,31 +73,39 @@ function HandoffCard({ entry }: { entry: AmInboxLateSessionCandidate }) {
 
 export function LateSessionHandoffsList({
   candidates,
+  funnel,
   visibleLimit = AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
 }: {
   candidates: readonly AmInboxLateSessionCandidate[];
+  funnel?: LateSessionContinuationFunnel;
   visibleLimit?: number;
 }) {
   if (candidates.length === 0) return null;
 
-  const total = candidates.length;
+  const stats = funnel ?? {
+    detectedCount: candidates.length,
+    qualifiedCount: candidates.length,
+    priorityCount: candidates.length,
+    displayedCount: Math.min(candidates.length, visibleLimit),
+  };
 
   return (
     <TopNReveal items={candidates} limit={visibleLimit}>
       {(visible) => (
         <div className="flex flex-col gap-2" data-testid="am-inbox-late-session-handoffs">
+          <p className="text-[11px] text-muted-foreground">
+            {stats.detectedCount} detected · {stats.qualifiedCount} qualified ·{" "}
+            {stats.priorityCount} priority
+            {visible.length < stats.qualifiedCount
+              ? ` · Showing top ${visible.length}`
+              : null}
+          </p>
           {visible.map((entry) => (
             <HandoffCard
               key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}`}
               entry={entry}
             />
           ))}
-          {total > visibleLimit && (
-            <p className="text-[11px] text-muted-foreground">
-              Showing {visible.length} of {total} priority continuation{" "}
-              {total === 1 ? "candidate" : "candidates"}
-            </p>
-          )}
         </div>
       )}
     </TopNReveal>

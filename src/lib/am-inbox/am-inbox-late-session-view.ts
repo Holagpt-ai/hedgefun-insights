@@ -8,7 +8,13 @@ import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import type { ContinuationCategory } from "@/config/continuation.config";
 import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
-import { rankAmInboxLateSessionCandidates } from "@/lib/am-inbox/am-inbox-late-session-priority";
+import {
+  computeAmInboxLateSessionPriorityScore,
+  rankAmInboxLateSessionCandidates,
+} from "@/lib/am-inbox/am-inbox-late-session-priority";
+import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
+
+const CONTINUATION_PRIORITY_SCORE_FLOOR = 35;
 
 function mergeContextWithWorkflow(
   context: LateSessionContinuationContext,
@@ -115,11 +121,20 @@ export function buildAmInboxLateSessionViewFromContexts(
   }
 
   const candidates = collapseLateSessionCandidates(raw);
+  const priorityCount = candidates.filter(
+    (entry) => computeAmInboxLateSessionPriorityScore(entry) >= CONTINUATION_PRIORITY_SCORE_FLOOR,
+  ).length;
 
   return {
     asOfSessionDate: amSessionDate,
     candidates,
     expiredCount,
+    funnel: {
+      detectedCount: raw.length,
+      qualifiedCount: candidates.length,
+      priorityCount,
+      displayedCount: Math.min(candidates.length, AM_INBOX_LATE_SESSION_VISIBLE_LIMIT),
+    },
   };
 }
 

@@ -92,6 +92,12 @@ export default function AMInbox() {
     asOfSessionDate: etDate,
     candidates: [],
     expiredCount: 0,
+    funnel: {
+      detectedCount: 0,
+      qualifiedCount: 0,
+      priorityCount: 0,
+      displayedCount: 0,
+    },
   };
 
   const morningBoard = useMemo(() => {
@@ -275,7 +281,10 @@ export default function AMInbox() {
                 title="Late-Session Continuation"
                 subtitle="Priority opportunities from the prior session · volume-first ordering"
               />
-              <LateSessionHandoffsList candidates={lateSessionView.candidates} />
+              <LateSessionHandoffsList
+                candidates={lateSessionView.candidates}
+                funnel={lateSessionView.funnel}
+              />
             </section>
           )}
 

@@ -49,8 +49,16 @@ export interface AmInboxLateSessionCandidate {
   sourceCategories: readonly ContinuationCategory[];
 }
 
+export interface LateSessionContinuationFunnel {
+  detectedCount: number;
+  qualifiedCount: number;
+  priorityCount: number;
+  displayedCount: number;
+}
+
 export interface AmInboxLateSessionView {
   asOfSessionDate: string;
   candidates: readonly AmInboxLateSessionCandidate[];
   expiredCount: number;
+  funnel: LateSessionContinuationFunnel;
 }
