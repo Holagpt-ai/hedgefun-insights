@@ -91,7 +91,14 @@ export default function AMInbox() {
   const lateSessionView = lateSessionQuery.data ?? {
     asOfSessionDate: etDate,
     candidates: [],
+    qualifiedCandidates: [],
     expiredCount: 0,
+    funnel: {
+      detectedCount: 0,
+      qualifiedCount: 0,
+      priorityCount: 0,
+      displayedCount: 0,
+    },
   };
 
   const morningBoard = useMemo(() => {
@@ -269,13 +276,18 @@ export default function AMInbox() {
             />
           </section>
 
-          {lateSessionView.candidates.length > 0 && (
+          {((lateSessionView.funnel?.qualifiedCount ?? 0) > 0 ||
+            (lateSessionView.qualifiedCandidates?.length ?? 0) > 0) && (
             <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
               <SectionHeading
                 title="Late-Session Continuation"
                 subtitle="Priority opportunities from the prior session · volume-first ordering"
               />
-              <LateSessionHandoffsList candidates={lateSessionView.candidates} />
+              <LateSessionHandoffsList
+                candidates={lateSessionView.candidates}
+                qualifiedCandidates={lateSessionView.qualifiedCandidates}
+                funnel={lateSessionView.funnel}
+              />
             </section>
           )}
 

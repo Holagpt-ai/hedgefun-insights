@@ -8,7 +8,14 @@ import type { AmInboxLateSessionView } from "@/lib/am-inbox/late-session-continu
 const EMPTY_VIEW = (amSessionDate: string): AmInboxLateSessionView => ({
   asOfSessionDate: amSessionDate,
   candidates: [],
+  qualifiedCandidates: [],
   expiredCount: 0,
+  funnel: {
+    detectedCount: 0,
+    qualifiedCount: 0,
+    priorityCount: 0,
+    displayedCount: 0,
+  },
 });
 
 export function useAmInboxLateSessionHandoffs(amSessionDate: string) {

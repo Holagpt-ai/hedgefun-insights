@@ -5,11 +5,11 @@
 
 import { isCoherent52WeekRange } from "./baseline-corporate-action.ts";
 import {
+  currentSessionReferencePrice,
   dayHighLow,
   dayVolume,
   normalizeSymbol,
   type PolygonTicker,
-  regularClose,
   SCREENER_ROW_LIMIT,
   selectVolumeFirst,
 } from "./selection.ts";
@@ -55,12 +55,13 @@ export function isValidBaselineQuote(
 export function classifyNewHighLow(
   t: PolygonTicker,
   baseline: NhlBaselineQuote | null | undefined,
+  extendedSession = false,
 ): RangeEvent | null {
   const sym = normalizeSymbol(t?.ticker);
   if (!sym) return null;
   const vol = dayVolume(t);
   if (vol === null || !(vol > 0)) return null;
-  const price = regularClose(t);
+  const price = currentSessionReferencePrice(t, extendedSession);
   if (price === null || !(price > 0)) return null;
   if (!isValidBaselineQuote(baseline)) return null;
   if (normalizeSymbol(baseline.symbol) !== sym) return null;
@@ -80,6 +81,7 @@ export function selectNewHighsLows(
   universe: PolygonTicker[],
   baselines: ReadonlyMap<string, NhlBaselineQuote>,
   limit: number = SCREENER_ROW_LIMIT,
+  extendedSession = false,
 ): NhlClassification[] {
   if (baselines.size === 0) return [];
 
@@ -87,7 +89,7 @@ export function selectNewHighsLows(
   for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
-    if (classifyNewHighLow(t, baselines.get(sym)) === null) continue;
+    if (classifyNewHighLow(t, baselines.get(sym), extendedSession) === null) continue;
     qualified.push(t);
   }
 
@@ -96,7 +98,7 @@ export function selectNewHighsLows(
   for (const t of ordered) {
     const sym = normalizeSymbol(t.ticker)!;
     const baseline = baselines.get(sym)!;
-    const event = classifyNewHighLow(t, baseline);
+    const event = classifyNewHighLow(t, baseline, extendedSession);
     if (event === null) continue;
     out.push({
       ticker: t,

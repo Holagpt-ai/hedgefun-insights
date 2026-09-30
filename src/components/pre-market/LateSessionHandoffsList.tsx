@@ -1,7 +1,12 @@
-import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
+import { useState } from "react";
+import type {
+  AmInboxLateSessionCandidate,
+  LateSessionContinuationFunnel,
+} from "@/lib/am-inbox/late-session-continuation-types";
+import { isLateSessionPriorityCandidate } from "@/lib/am-inbox/am-inbox-late-session-view";
 import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
-import { TopNReveal } from "@/components/session-intelligence/TopNReveal";
+import { revealToggleLabel } from "@/lib/session-intelligence/reveal";
 import { PreMarketSymbolActions } from "./PreMarketSymbolActions";
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -16,7 +21,13 @@ function formatNum(value: number | null | undefined, digits = 1): string {
   return value.toFixed(digits);
 }
 
-function HandoffCard({ entry }: { entry: AmInboxLateSessionCandidate }) {
+function HandoffCard({
+  entry,
+  showQualifiedLabel,
+}: {
+  entry: AmInboxLateSessionCandidate;
+  showQualifiedLabel: boolean;
+}) {
   const { context } = entry;
   const categories = entry.sourceCategories.length > 0
     ? entry.sourceCategories
@@ -30,6 +41,11 @@ function HandoffCard({ entry }: { entry: AmInboxLateSessionCandidate }) {
     <div className="flex flex-col gap-2 rounded-xl border bg-card p-3">
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold">{context.symbol}</span>
+        {showQualifiedLabel ? (
+          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            Qualified · not priority
+          </span>
+        ) : null}
         {categories.map((cat) => (
           <span
             key={cat}
@@ -70,33 +86,62 @@ function HandoffCard({ entry }: { entry: AmInboxLateSessionCandidate }) {
 
 export function LateSessionHandoffsList({
   candidates,
+  qualifiedCandidates,
+  funnel,
   visibleLimit = AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
 }: {
   candidates: readonly AmInboxLateSessionCandidate[];
+  qualifiedCandidates?: readonly AmInboxLateSessionCandidate[];
+  funnel?: LateSessionContinuationFunnel;
   visibleLimit?: number;
 }) {
-  if (candidates.length === 0) return null;
+  const qualifiedPool = qualifiedCandidates ?? candidates;
+  const hasQualified = qualifiedPool.length > 0;
+  const hasPriority = candidates.length > 0;
 
-  const total = candidates.length;
+  if (!hasQualified && !hasPriority) return null;
+
+  const [expanded, setExpanded] = useState(false);
+
+  const stats = funnel ?? {
+    detectedCount: qualifiedPool.length,
+    qualifiedCount: qualifiedPool.length,
+    priorityCount: candidates.length,
+    displayedCount: Math.min(candidates.length, visibleLimit),
+  };
+
+  const defaultVisible = candidates.slice(0, visibleLimit);
+  const visible = expanded ? qualifiedPool : defaultVisible;
+  const canViewAllQualified = qualifiedPool.length > defaultVisible.length;
 
   return (
-    <TopNReveal items={candidates} limit={visibleLimit}>
-      {(visible) => (
-        <div className="flex flex-col gap-2" data-testid="am-inbox-late-session-handoffs">
-          {visible.map((entry) => (
-            <HandoffCard
-              key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}`}
-              entry={entry}
-            />
-          ))}
-          {total > visibleLimit && (
-            <p className="text-[11px] text-muted-foreground">
-              Showing {visible.length} of {total} priority continuation{" "}
-              {total === 1 ? "candidate" : "candidates"}
-            </p>
-          )}
-        </div>
+    <div className="flex flex-col gap-2" data-testid="am-inbox-late-session-handoffs">
+      <p className="text-[11px] text-muted-foreground">
+        {stats.detectedCount} detected · {stats.qualifiedCount} qualified ·{" "}
+        {stats.priorityCount} priority
+        {stats.priorityCount > defaultVisible.length
+          ? ` · Showing top ${defaultVisible.length}`
+          : null}
+      </p>
+      {visible.map((entry) => (
+        <HandoffCard
+          key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}`}
+          entry={entry}
+          showQualifiedLabel={expanded && !isLateSessionPriorityCandidate(entry)}
+        />
+      ))}
+      {canViewAllQualified && (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+          className="mt-2 text-xs font-medium text-accent-blue hover:underline"
+        >
+          {expanded
+            ? "Show Less"
+            : revealToggleLabel(false, qualifiedPool.length)}
+        </button>
       )}
-    </TopNReveal>
+    </div>
   );
 }

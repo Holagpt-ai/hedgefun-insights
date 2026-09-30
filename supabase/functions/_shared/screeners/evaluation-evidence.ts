@@ -29,6 +29,7 @@ import {
   type NhlClassification,
 } from "./new-highs-lows.ts";
 import {
+  currentSessionReferencePrice,
   dayHighLow,
   dayVolume,
   gapPercent,
@@ -36,7 +37,6 @@ import {
   isExplicitZeroPriorDayAggregate,
   normalizeSymbol,
   qualifiesGappers,
-  regularClose,
   TAB_QUALIFIERS,
   type PolygonTicker,
   type ScreenerTabId,
@@ -254,6 +254,7 @@ export function evaluateNhlEvidence(
   baselineStatus: NhlBaselineStatus,
   selected: readonly NhlClassification[],
   policyExclusions: PolicyExclusionEvidence = POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE,
+  extendedSession = false,
 ): NhlTabEvidence {
   const baseline_quote_count = baselines.size;
   const base = {
@@ -294,7 +295,7 @@ export function evaluateNhlEvidence(
     if (!sym) continue;
     const vol = dayVolume(t);
     if (vol === null || !(vol > 0)) continue;
-    const price = regularClose(t);
+    const price = currentSessionReferencePrice(t, extendedSession);
     if (price === null || !(price > 0)) continue;
     const range = dayHighLow(t);
     if (range.high === null || range.low === null) continue;
@@ -303,7 +304,9 @@ export function evaluateNhlEvidence(
     const baseline = baselines.get(sym);
     if (isValidBaselineQuote(baseline)) {
       evaluated_count += 1;
-      if (classifyNewHighLow(t, baseline) !== null) qualified_count += 1;
+      if (classifyNewHighLow(t, baseline, extendedSession) !== null) {
+        qualified_count += 1;
+      }
       continue;
     }
     if (policyExclusions.available && policyExclusions.symbols.has(sym)) {
@@ -460,6 +463,7 @@ export function buildTabEvaluationEvidence(input: {
       input.nhlBaselineStatus,
       input.nhlSelected,
       policyExclusions,
+      extendedSession,
     ),
   };
 }

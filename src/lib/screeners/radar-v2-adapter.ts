@@ -17,7 +17,8 @@
  *    session volume / prior_session_volume. Missing facts stay null (`—`).
  *  - Short-window moves (move_60s_pct / move_15s_pct) are never mapped into
  *    `change_percent`. They still contribute to volume-first tie-breaking.
- *  - Gap and 52w fields are not persisted here and stay null.
+ *  - Gap is derived only from persisted previous_close + last (honest pre-market gap).
+ *  - 52w fields are not persisted by Radar V2 and stay null unless enriched elsewhere.
  *  - Stale/unavailable Radar data is never shown as live; caller falls back.
  */
 
@@ -38,6 +39,7 @@ import {
   feedSessionMatchesConsumerClock,
   surveillanceTradingDateFromMs,
 } from "@/lib/screeners/screener-session";
+import { verifiedGapPercentFromRadarCandidate } from "@/lib/screeners/normalized-market-snapshot";
 
 /**
  * Radar-backed screener row: the standard row plus the OPTIONAL Radar ranking
@@ -407,7 +409,9 @@ export function mapCandidateToScreenerRow(
     avg_volume_20d: null,
     rvol_20d: null,
     float_shares: null,
-    gap_percent: null, // Gap is not derived from the persisted previous close.
+    // Gap is a Gappers-tab field only; on other Radar tabs MOVE uses change_percent.
+    gap_percent:
+      tabId === "gappers" ? verifiedGapPercentFromRadarCandidate(row) : null,
     high_52w: null,
     low_52w: null,
     range_event: null,

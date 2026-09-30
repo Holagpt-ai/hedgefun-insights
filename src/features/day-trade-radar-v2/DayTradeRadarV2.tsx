@@ -160,6 +160,7 @@ export function DayTradeRadarV2({
         status={resolved.status}
         qualifyingCount={boardVisible ? opportunityBoard.candidateUniverseCount : 0}
         topOpportunityCount={boardVisible ? deskRows.length : 0}
+        funnel={boardVisible ? opportunityBoard.funnel : undefined}
         syncedAt={resolved.syncedAt}
         providerAsOfMax={resolved.providerAsOfMax}
         marketFeed={marketFeed}

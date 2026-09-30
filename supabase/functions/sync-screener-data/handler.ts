@@ -36,6 +36,8 @@ import {
   type ScreenerResultRow,
 } from "../_shared/screeners/rows.ts";
 import { loadVolumeBaselines } from "../_shared/screeners/load-volume-baselines.ts";
+import { loadRadarPreviousCloseOverlay } from "../_shared/screeners/load-radar-previous-close-overlay.ts";
+import { overlayVerifiedPreviousCloseOnUniverse } from "../_shared/screeners/normalized-market-snapshot.ts";
 import type { VolumeBaselineQuote } from "../_shared/screeners/volume-baseline.ts";
 import {
   buildTabEvaluationEvidence,
@@ -406,11 +408,19 @@ export async function handleSyncScreenerData(
 
   // ── Volume-first tab selection before enrichment / freshness / DB ───────
   const nowMs = (deps.nowMs ?? (() => Date.now()))();
-  const dayTradeDiagnostics = allTickers.map((t) => evaluateDayTradeRadar(t, nowMs));
-  console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
-
   const sessionKind = resolveSyncSessionKind(nowMs);
   const extendedSession = isExtendedSyncSession(sessionKind);
+
+  if (extendedSession) {
+    const sbEarly = deps.createClient(supabaseUrl, serviceRole);
+    const previousCloseOverlay = await loadRadarPreviousCloseOverlay(sbEarly);
+    if (previousCloseOverlay.size > 0) {
+      allTickers = overlayVerifiedPreviousCloseOnUniverse(allTickers, previousCloseOverlay);
+    }
+  }
+
+  const dayTradeDiagnostics = allTickers.map((t) => evaluateDayTradeRadar(t, nowMs));
+  console.log(`[sync-screener-data] ${formatRadarRejectionLog(summarizeRadarDiagnostics(dayTradeDiagnostics))}`);
 
   const dayTradeSelected = selectForTab("day_trade_radar", allTickers);
   const gapperSelected = selectForTab("gappers", allTickers, undefined, {
@@ -453,7 +463,7 @@ export async function handleSyncScreenerData(
     loadVolumeBaselines(sb),
   ]);
   const nhlSelected = nhlBaseline.status === "available"
-    ? selectNewHighsLows(allTickers, nhlBaseline.quotes)
+    ? selectNewHighsLows(allTickers, nhlBaseline.quotes, undefined, extendedSession)
     : [];
   const nhlTickers = nhlSelected.map((item) => item.ticker);
   if (!allHaveProviderAsOf(nhlTickers, nowMs)) {

@@ -52,6 +52,7 @@ import { HistoryCell } from "@/features/day-trade-radar-v2/HistoricalBehavior";
 import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-context-types";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
+import { buildScannerTabEvidence } from "@/lib/screeners/scanner-tab-evidence";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -683,6 +684,7 @@ export function ScreenerTable({
                 : null;
             const shortFloat = evaluateScreenerShortFloat(row);
             const continuation = evaluateScreenerContinuation(row);
+            const tabEvidence = buildScannerTabEvidence(tab.id, row);
             return (
               <div
                 key={`${row.tab_id}-${row.symbol}`}
@@ -710,6 +712,9 @@ export function ScreenerTable({
                         <span className="text-muted-foreground">{String(company)}</span>
                       )}
                     </div>
+                    {tabEvidence ? (
+                      <p className="text-[10px] text-muted-foreground">{tabEvidence.primaryLabel}</p>
+                    ) : null}
                   </div>
                   {hasVerifiedRows && !blurred && (
                     <div className="inline-flex items-center gap-0.5 shrink-0">

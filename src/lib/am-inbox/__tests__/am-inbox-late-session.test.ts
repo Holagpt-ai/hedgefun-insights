@@ -287,6 +287,8 @@ describe("AM Inbox late-session handoff V1", () => {
         sourceSessionDate: "2026-09-21",
         sourceTimestamp: "2026-09-21T20:00:00.000Z",
         sourceCategory: "DAY_TWO_WATCH",
+        volume: 2_000_000,
+        rvol: 6,
       }),
     );
 
@@ -319,16 +321,20 @@ describe("AM Inbox late-session handoff V1", () => {
         sourceSessionDate: "2026-09-21",
         sourceTimestamp: "2026-09-21T20:00:00.000Z",
         sourceCategory: "AFTER_HOURS_CONTINUATION",
+        volume: 2_000_000,
+        rvol: 5,
       }),
       buildLateSessionContinuationContext({
         symbol: "SOLO",
         sourceSessionDate: "2026-09-21",
         sourceTimestamp: "2026-09-21T20:05:00.000Z",
         sourceCategory: "STRONG_CLOSE_NEAR_HOD",
+        volume: 2_000_000,
+        rvol: 5,
       }),
     ]);
-    expect(view.candidates).toHaveLength(1);
-    expect(view.candidates[0].sourceCategories).toEqual(
+    expect(view.qualifiedCandidates).toHaveLength(1);
+    expect(view.qualifiedCandidates[0].sourceCategories).toEqual(
       expect.arrayContaining(["AFTER_HOURS_CONTINUATION", "STRONG_CLOSE_NEAR_HOD"]),
     );
   });

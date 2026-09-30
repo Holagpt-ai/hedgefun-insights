@@ -49,8 +49,19 @@ export interface AmInboxLateSessionCandidate {
   sourceCategories: readonly ContinuationCategory[];
 }
 
+export interface LateSessionContinuationFunnel {
+  detectedCount: number;
+  qualifiedCount: number;
+  priorityCount: number;
+  displayedCount: number;
+}
+
 export interface AmInboxLateSessionView {
   asOfSessionDate: string;
+  /** Priority-ranked handoffs surfaced in the default Late-Session module. */
   candidates: readonly AmInboxLateSessionCandidate[];
+  /** Full qualified pool (priority first, then qualified non-priority) for View All. */
+  qualifiedCandidates: readonly AmInboxLateSessionCandidate[];
   expiredCount: number;
+  funnel: LateSessionContinuationFunnel;
 }

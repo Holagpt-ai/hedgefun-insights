@@ -2,7 +2,11 @@ import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import { MarketDataStatus } from "@/components/screener/MarketDataStatus";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import type { RadarEngineSource } from "./types";
-import { formatDayTradeRadarStatusSuffix } from "./day-trade-radar-opportunity";
+import {
+  formatDayTradeQualificationBreakdown,
+  formatDayTradeRadarStatusSuffix,
+} from "./day-trade-radar-opportunity";
+import type { ScannerFunnelStats } from "@/lib/screeners/scanner-qualification-funnel";
 
 /**
  * Legacy / RTH-snapshot engine chips. Kept for source-state honesty tests.
@@ -76,6 +80,7 @@ interface RadarStatusRailProps {
   qualifyingCount: number;
   /** Ranked Top-10 desk count (≤ qualifyingCount). */
   topOpportunityCount?: number;
+  funnel?: ScannerFunnelStats;
   syncedAt: string | null;
   providerAsOfMax: string | null;
   marketFeed?: MarketFeedTelemetry | null;
@@ -91,6 +96,7 @@ export function RadarStatusRail({
   status,
   qualifyingCount,
   topOpportunityCount = 0,
+  funnel,
   syncedAt,
   providerAsOfMax,
   marketFeed = null,
@@ -106,8 +112,11 @@ export function RadarStatusRail({
       ? formatDayTradeRadarStatusSuffix({
           candidateUniverseCount: qualifyingCount,
           topOpportunityCount,
+          funnel,
         })
       : null;
+
+  const qualificationBreakdown = formatDayTradeQualificationBreakdown(funnel);
 
   if (abnormal) {
     const title =
@@ -161,6 +170,12 @@ export function RadarStatusRail({
           suffix={suffix}
         />
       </div>
+      {qualificationBreakdown ? (
+        <details className="mt-1 text-[11px] text-muted-foreground">
+          <summary className="cursor-pointer select-none">View qualification breakdown</summary>
+          <p className="mt-1">{qualificationBreakdown}</p>
+        </details>
+      ) : null}
     </div>
   );
 }

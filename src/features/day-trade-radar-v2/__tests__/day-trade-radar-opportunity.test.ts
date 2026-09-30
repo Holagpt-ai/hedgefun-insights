@@ -325,7 +325,14 @@ describe("Day Trade Radar opportunity desk V1.1", () => {
     expect(formatDayTradeRadarStatusSuffix({
       candidateUniverseCount: 59,
       topOpportunityCount: 7,
-    })).toBe("59 candidates detected · 7 ranked for Radar");
+      funnel: {
+        detectedCount: 59,
+        qualifiedCount: 12,
+        priorityCount: 7,
+        displayedCount: 7,
+        rejectionSummary: { PRICE_BELOW_MIN: 16 },
+      },
+    })).toBe("59 detected · 12 qualified · 7 ranked for Radar");
   });
 
   it("gate audit counts missing MOVE separately from move below +10%", () => {

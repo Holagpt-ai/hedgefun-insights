@@ -45,7 +45,7 @@ describe("RadarStatusRail condensed trader presentation", () => {
     expect(screen.getByTestId("market-data-status")).toBeInTheDocument();
     expect(screen.getByText("Data Status")).toBeInTheDocument();
     expect(screen.queryByText(/15-minute delayed/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/128 candidates detected · 10 ranked for Radar/)).toBeInTheDocument();
+    expect(screen.getByText(/128 detected · 10 qualified · 10 ranked for Radar/)).toBeInTheDocument();
     expect(screen.queryByText("Radar V2 Sentinel")).not.toBeInTheDocument();
     expect(screen.queryByText("PRE-MARKET")).not.toBeInTheDocument();
     expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();
