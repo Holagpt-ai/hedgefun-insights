@@ -28,6 +28,8 @@ const catalog = buildEvidenceCatalog({
 
 const VALID_JSON = `{"direction":"bullish","explanation":"Held above VWAP with elevated volume.","driver_ids":["signal:s1"]}`;
 
+const TEST_ADAPTER_RUNTIME = { timeoutMs: 20_000 };
+
 function fakeAdapter(
   id: "anthropic" | "qwen",
   complete: WatchlistAiAdapter["complete"],
@@ -44,7 +46,7 @@ Deno.test("default config selects Anthropic Haiku and keeps fallback off", () =>
   assertEquals(cfg.fallbackEnabled, false);
   assertEquals(WATCHLIST_AI_FALLBACK_ENABLED, false);
   assertEquals(WATCHLIST_AI_MAX_REPAIR_RETRIES, 1);
-  const created = createWatchlistAiAdapter(cfg);
+  const created = createWatchlistAiAdapter(cfg, TEST_ADAPTER_RUNTIME);
   assertEquals(created.ok, true);
   if (created.ok) assertEquals(created.adapter.id, "anthropic");
 });
@@ -53,7 +55,7 @@ Deno.test("empty env without Qwen secrets still resolves to Anthropic", () => {
   const cfg = resolveWatchlistAiConfig({});
   assertEquals(cfg.provider, "anthropic");
   assertEquals(cfg.model, DEFAULT_ANTHROPIC_MODEL);
-  const created = createWatchlistAiAdapter(cfg);
+  const created = createWatchlistAiAdapter(cfg, TEST_ADAPTER_RUNTIME);
   assertEquals(created.ok, false);
   if (!created.ok) assertEquals(created.reason, "missing_anthropic_key");
 });
@@ -68,7 +70,7 @@ Deno.test("leftover Qwen env does not change the active Anthropic provider or mo
   });
   assertEquals(cfg.provider, "anthropic");
   assertEquals(cfg.model, DEFAULT_ANTHROPIC_MODEL);
-  const created = createWatchlistAiAdapter(cfg);
+  const created = createWatchlistAiAdapter(cfg, TEST_ADAPTER_RUNTIME);
   assertEquals(created.ok, true);
   if (created.ok) assertEquals(created.adapter.model, DEFAULT_ANTHROPIC_MODEL);
 });
@@ -79,7 +81,7 @@ Deno.test("explicit Qwen provider is disabled and does not construct a Qwen call
     ANTHROPIC_API_KEY: "sk-ant-present",
   });
   assertEquals(cfg.provider, "qwen");
-  const created = createWatchlistAiAdapter(cfg);
+  const created = createWatchlistAiAdapter(cfg, TEST_ADAPTER_RUNTIME);
   assertEquals(created.ok, false);
   if (!created.ok) assertEquals(created.reason, "provider_disabled");
 });
@@ -92,9 +94,75 @@ Deno.test("WATCHLIST_AI_FALLBACK=on still does not enable another provider", () 
   });
   assertEquals(cfg.fallbackEnabled, false);
   assertEquals(cfg.fallbackRequested, true);
-  const created = createWatchlistAiAdapter(cfg);
+  const created = createWatchlistAiAdapter(cfg, TEST_ADAPTER_RUNTIME);
   assertEquals(created.ok, true);
   if (created.ok) assertEquals(created.adapter.id, "anthropic");
+});
+
+Deno.test("transport retry uses shared backoff and succeeds within trigger budget", async () => {
+  const sleeps: number[] = [];
+  let calls = 0;
+  const adapter = fakeAdapter("anthropic", async () => {
+    calls += 1;
+    if (calls === 1) {
+      return {
+        kind: "transport_failure",
+        code: "RATE_LIMITED",
+        http_status: 429,
+        failure_kind: "http_error",
+      };
+    }
+    return {
+      kind: "ok",
+      rawText: VALID_JSON,
+      usage: { input_tokens: 1, output_tokens: 1 },
+      http_status: 200,
+    };
+  });
+  const r = await generateWatchlistAnalysis(adapter, { prompt: "facts", catalog }, {
+    requestId: "req-watchlist-retry-1",
+    triggerType: "batch",
+    providerTimeoutMs: 7_625,
+    transportWallClockBudgetMs: 25_000,
+    sleep: (ms) => {
+      sleeps.push(ms);
+      return Promise.resolve();
+    },
+  });
+  assertEquals(calls, 2);
+  assertEquals(sleeps.length, 1);
+  assertEquals(r.kind, "ok");
+});
+
+Deno.test("transport auth failure does not retry", async () => {
+  let calls = 0;
+  const adapter = fakeAdapter("anthropic", async () => {
+    calls += 1;
+    return {
+      kind: "transport_failure",
+      code: "PROVIDER_ERROR",
+      http_status: 401,
+      failure_kind: "http_error",
+    };
+  });
+  const r = await generateWatchlistAnalysis(adapter, { prompt: "facts", catalog });
+  assertEquals(calls, 1);
+  assertEquals(r.kind, "transport_failure");
+});
+
+Deno.test("schema repair retry stays separate from transport retry", async () => {
+  let calls = 0;
+  const adapter = fakeAdapter("anthropic", async () => {
+    calls += 1;
+    return {
+      kind: "ok",
+      rawText: calls === 1 ? "not-json" : VALID_JSON,
+      http_status: 200,
+    };
+  });
+  const r = await generateWatchlistAnalysis(adapter, { prompt: "facts", catalog });
+  assertEquals(calls, 2);
+  assertEquals(r.kind, "ok");
 });
 
 Deno.test("Anthropic adapter produces normalized valid Watchlist output", async () => {
@@ -237,6 +305,7 @@ Deno.test("malformed JSON does not hop to the fallback provider", async () => {
 
 Deno.test("createAnthropicAdapter uses the existing Haiku model id", () => {
   const adapter = createAnthropicAdapter({
+    timeoutMs: TEST_ADAPTER_RUNTIME.timeoutMs,
     apiKey: "sk-ant-test",
     model: DEFAULT_ANTHROPIC_MODEL,
   });

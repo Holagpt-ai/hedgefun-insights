@@ -309,3 +309,28 @@ Deno.test("radar context serializes inside the user prompt without extra API fie
   assert(parsed.messages[0].content.includes('"volume_acceleration_pct":null'));
   assert(!parsed.messages[0].content.includes("undefined"));
 });
+
+Deno.test("anthropic caller forwards the same requestId on every transport call", async () => {
+  const seen: string[] = [];
+  const originalError = console.error;
+  console.error = (msg: string) => {
+    if (typeof msg === "string" && msg.includes('"event":"anthropic_http_error"')) {
+      const parsed = JSON.parse(msg) as { request_id?: string | null };
+      seen.push(parsed.request_id ?? "");
+    }
+    originalError(msg);
+  };
+  try {
+    const caller = makeAnthropicCaller("test-key", DEFAULT_ANTHROPIC_WATCHLIST_MODEL, {
+      requestId: "wl-req-correlation-1",
+      timeoutMs: 5_000,
+      fetchImpl: () => Promise.resolve(new Response("{}", { status: 529 })),
+    });
+    await caller.callRaw("prompt-one");
+    await caller.callRaw("prompt-two");
+  } finally {
+    console.error = originalError;
+  }
+  assertEquals(seen.length, 2);
+  assertEquals(seen.every((id) => id === "wl-req-correlation-1"), true);
+});

@@ -4,9 +4,13 @@ import ReactMarkdown from "react-markdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { briefAccessState, presentStoredBriefFailure } from "@/lib/ai/brief-presentation";
 import {
+  emptyLastGoodBriefCache,
+  getCachedBrief,
+  setCachedBrief,
   shouldPreserveBriefOnRefreshFailure,
   staleRefreshNotice,
   type CachedBriefSnapshot,
+  type LastGoodBriefCache,
 } from "@/lib/ai/brief-refresh-state";
 import { supabase } from "@/integrations/supabase/client";
 import { summarizeBrief } from "@/lib/ai/evidence";
@@ -164,7 +168,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
   const [state, setState] = useState<BriefState>({ kind: "idle" });
   const [briefExpanded, setBriefExpanded] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-  const lastGoodBriefRef = useRef<CachedBriefSnapshot | null>(null);
+  const lastGoodBriefRef = useRef<LastGoodBriefCache>(emptyLastGoodBriefCache());
   const briefObserveRef = useRef({
     httpStatus: null as number | null,
     reason: null as string | null,
@@ -185,7 +189,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
     const ctrl = new AbortController();
     abortRef.current = ctrl;
 
-    const prior = lastGoodBriefRef.current;
+    const prior = getCachedBrief(lastGoodBriefRef.current, briefType);
     if (prior) {
       setState({ kind: "available", ...prior, isRefreshing: true, refreshNotice: null });
     } else {
@@ -307,7 +311,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               ageSeconds,
               generationReason,
             };
-            lastGoodBriefRef.current = snapshot;
+            setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
             setState({
               kind: "available",
               ...snapshot,
@@ -316,7 +320,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             });
             return;
           }
-          if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false)) {
+          if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
             setState({
               kind: "available",
               ...prior,
@@ -341,7 +345,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
           retryable: typeof body?.retryable === "boolean" ? body.retryable : null,
         });
         if (stored) {
-          if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false)) {
+          if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
             setState({
               kind: "available",
               ...prior,
@@ -421,7 +425,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
             });
             return;
           default:
-            if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false)) {
+            if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
               setState({
                 kind: "available",
                 ...prior,
@@ -440,7 +444,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         }
       }
       if (briefAccessState(resp.status) === "temporarily_unavailable") {
-        if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false)) {
+        if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
           setState({
             kind: "available",
             ...prior,
@@ -457,7 +461,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
         });
         return;
       }
-      if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false)) {
+      if (shouldPreserveBriefOnRefreshFailure(prior, resp.status, false, briefType, briefType)) {
         setState({
           kind: "available",
           ...prior,

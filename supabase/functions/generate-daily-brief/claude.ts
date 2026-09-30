@@ -2,10 +2,9 @@ import {
   postAnthropicMessages,
   type FetchLike,
 } from "../_shared/ai/anthropic-messages.ts";
+import { briefProviderAttemptTimeoutMs } from "../_shared/briefs/generator-execution-budget.ts";
 
 export type { FetchLike };
-
-const ANTHROPIC_TIMEOUT_MS = 50_000;
 
 export type ClaudeOk = {
   ok: true;
@@ -38,7 +37,7 @@ export async function callClaude(args: {
     maxTokens: args.maxTokens,
     user: args.user,
     system: args.system,
-    timeoutMs: ANTHROPIC_TIMEOUT_MS,
+    timeoutMs: briefProviderAttemptTimeoutMs(),
     stage: "generate_daily_brief",
     requestId: args.requestId,
     fetchImpl: args.fetchImpl,

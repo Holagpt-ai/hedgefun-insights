@@ -6,7 +6,8 @@ import type { Direction, KeyLevels, MarketSignal, RecentEvent } from "./contract
 import { containsForbiddenKey } from "./contract.ts";
 import { classifyFetchFailure, type ProviderTransportFailure } from "./market-data.ts";
 import { LOG_PREFIX, sanitize } from "./sanitize.ts";
-import { postAnthropicMessages } from "../ai/anthropic-messages.ts";
+import { postAnthropicMessages, type FetchLike } from "../ai/anthropic-messages.ts";
+import { WATCHLIST_MANUAL_PROVIDER_TIMEOUT_MS } from "./execution-budget.ts";
 
 export interface EvidenceCatalog {
   /** Full set of allowed driver_ids, each carrying its stable prefix. */
@@ -214,7 +215,8 @@ export function validateAiOutput(rawText: string, catalog: EvidenceCatalog): AiR
 
 export const DEFAULT_ANTHROPIC_WATCHLIST_MODEL = "claude-haiku-4-5-20251001";
 export const WATCHLIST_ANTHROPIC_MAX_TOKENS = 512;
-export const WATCHLIST_ANTHROPIC_TIMEOUT_MS = 20_000;
+/** Default when no runtime timeout is supplied (manual refresh envelope). */
+export const WATCHLIST_ANTHROPIC_TIMEOUT_MS = WATCHLIST_MANUAL_PROVIDER_TIMEOUT_MS;
 
 /** Messages request actually posted to Anthropic. No sampling, tools, or system field. */
 export function buildWatchlistAnthropicBody(model: string, prompt: string): {
@@ -232,15 +234,22 @@ export function buildWatchlistAnthropicBody(model: string, prompt: string): {
 export function makeAnthropicCaller(
   apiKey: string,
   model: string = DEFAULT_ANTHROPIC_WATCHLIST_MODEL,
+  runtime?: { timeoutMs?: number; requestId?: string; fetchImpl?: FetchLike },
 ): AiCaller {
+  const timeoutMs = runtime?.timeoutMs ?? WATCHLIST_ANTHROPIC_TIMEOUT_MS;
+  const requestId = runtime?.requestId;
+  const fetchImpl = runtime?.fetchImpl;
+
   async function callRaw(prompt: string): Promise<AiRawComplete> {
     const posted = await postAnthropicMessages({
       apiKey,
       model,
       maxTokens: WATCHLIST_ANTHROPIC_MAX_TOKENS,
       user: prompt,
-      timeoutMs: WATCHLIST_ANTHROPIC_TIMEOUT_MS,
+      timeoutMs,
       stage: "watchlist_v2",
+      requestId,
+      fetchImpl,
     });
     if (!posted.ok) {
       if (posted.network) {
