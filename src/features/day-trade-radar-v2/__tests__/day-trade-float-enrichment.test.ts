@@ -112,7 +112,7 @@ describe("Day Trade verified float enrichment", () => {
 });
 
 describe("Day Trade participation fact", () => {
-  it("uses volume_ratio_prior_session when classic RVOL is absent, even if later metrics would pass", () => {
+  it("passes participation via rvol_5m when cumulative classic and Vol/Yday are weak", () => {
     const fact = resolveDayTradeParticipationFact(
       row({
         symbol: "VOLY",
@@ -124,9 +124,9 @@ describe("Day Trade participation fact", () => {
         time_adjusted_rvol: 9,
       }),
     );
-    expect(fact.source).toBe("volume_ratio_prior_session");
-    expect(fact.value).toBe(3.6);
-    expect(fact.pass).toBe(false);
+    expect(fact.source).toBe("rvol_5m");
+    expect(fact.value).toBe(12);
+    expect(fact.pass).toBe(true);
   });
 
   it("uses classic rvol_20d before the displayed vol/yday ratio", () => {

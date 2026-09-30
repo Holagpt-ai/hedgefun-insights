@@ -11,20 +11,37 @@ import type { ContinuationCategory } from "@/config/continuation.config";
 import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
 import {
   computeAmInboxLateSessionPriorityScore,
+  continuationVolumeKingComponent,
   rankAmInboxLateSessionCandidates,
 } from "@/lib/am-inbox/am-inbox-late-session-priority";
 import { AM_INBOX_LATE_SESSION_VISIBLE_LIMIT } from "@/config/late-session-handoff.config";
 import { qualifiesLateSessionHandoffCandidate } from "@/lib/am-inbox/late-session-handoff-qualification";
+import {
+  CONTINUATION_PRIORITY_ABSOLUTE_FLOOR,
+  CONTINUATION_PRIORITY_MIN_VOLUME_KING,
+  resolveContinuationPriorityScoreCutoff,
+} from "@/config/continuation-priority.config";
 
-export const CONTINUATION_PRIORITY_SCORE_FLOOR = 35;
+/** @deprecated Use CONTINUATION_PRIORITY_ABSOLUTE_FLOOR + qualified percentile band. */
+export const CONTINUATION_PRIORITY_SCORE_FLOOR = CONTINUATION_PRIORITY_ABSOLUTE_FLOOR;
 
 export function isLateSessionPriorityCandidate(
   entry: AmInboxLateSessionCandidate,
+  qualifiedPool?: readonly AmInboxLateSessionCandidate[],
 ): boolean {
-  return (
-    qualifiesLateSessionHandoffCandidate(entry) &&
-    computeAmInboxLateSessionPriorityScore(entry) >= CONTINUATION_PRIORITY_SCORE_FLOOR
+  if (!qualifiesLateSessionHandoffCandidate(entry)) return false;
+  if (continuationVolumeKingComponent(entry) < CONTINUATION_PRIORITY_MIN_VOLUME_KING) {
+    return false;
+  }
+  const score = computeAmInboxLateSessionPriorityScore(entry);
+  if (score < CONTINUATION_PRIORITY_ABSOLUTE_FLOOR) return false;
+  if (!qualifiedPool || qualifiedPool.length === 0) {
+    return score >= CONTINUATION_PRIORITY_ABSOLUTE_FLOOR;
+  }
+  const cutoff = resolveContinuationPriorityScoreCutoff(
+    qualifiedPool.map((candidate) => computeAmInboxLateSessionPriorityScore(candidate)),
   );
+  return score >= cutoff;
 }
 
 export function buildLateSessionContinuationFunnel(
@@ -38,9 +55,11 @@ export function buildLateSessionContinuationFunnel(
 } {
   const qualified = collapsed.filter(qualifiesLateSessionHandoffCandidate);
   const qualifiedRanked = rankAmInboxLateSessionCandidates(qualified);
-  const priority = qualifiedRanked.filter(isLateSessionPriorityCandidate);
+  const priority = qualifiedRanked.filter((entry) =>
+    isLateSessionPriorityCandidate(entry, qualifiedRanked),
+  );
   const qualifiedNonPriority = qualifiedRanked.filter(
-    (entry) => !isLateSessionPriorityCandidate(entry),
+    (entry) => !isLateSessionPriorityCandidate(entry, qualifiedRanked),
   );
   const qualifiedForViewAll = [...priority, ...qualifiedNonPriority];
   const priorityCount = priority.length;

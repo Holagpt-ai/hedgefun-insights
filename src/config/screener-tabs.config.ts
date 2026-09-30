@@ -150,7 +150,7 @@ export const SCREENER_TABS: ScreenerTab[] = [
       { key: "volume", label: "TODAY VOL", format: "volume", align: "right" },
       { key: "high_52w", label: "Prior 52W High", format: "price", align: "right" },
       { key: "low_52w", label: "Prior 52W Low", format: "price", align: "right" },
-      { key: "nhl_distance", label: "Distance", format: "unavailable", align: "right" },
+      { key: "nhl_distance", label: "Distance", format: "text", align: "right" },
       { key: "catalyst_news", label: "Catalyst", format: "text", align: "left" },
       { key: "history", label: "HISTORY", format: "text", align: "left" },
       { key: "actions", label: "Actions", format: "text", align: "left" },

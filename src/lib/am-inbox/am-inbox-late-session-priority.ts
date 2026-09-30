@@ -1,6 +1,7 @@
 import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
 import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
 import type { ContinuationCategory } from "@/config/continuation.config";
+import { assessRvolConfidence } from "@/lib/screeners/rvol-confidence";
 
 const SCANNER_EVENT_PRIORITY: Readonly<Record<string, number>> = {
   "VOLUME EXPLOSION": 50,
@@ -10,6 +11,16 @@ const SCANNER_EVENT_PRIORITY: Readonly<Record<string, number>> = {
 function finiteOrZero(value: number | null | undefined): number {
   if (value === null || value === undefined || !Number.isFinite(value)) return 0;
   return value;
+}
+
+/** Liquidity-first term used for priority gating (matches score composition). */
+export function continuationVolumeKingComponent(
+  entry: AmInboxLateSessionCandidate,
+): number {
+  const { context } = entry;
+  const volume = finiteOrZero(context.volume);
+  const dollarVolume = finiteOrZero(context.dollarVolume);
+  return Math.log10(Math.max(volume, 1)) * 12 + Math.log10(Math.max(dollarVolume, 1)) * 14;
 }
 
 function bestCategoryRank(categories: readonly ContinuationCategory[]): number {
@@ -61,12 +72,19 @@ export function computeAmInboxLateSessionPriorityScore(entry: AmInboxLateSession
 
   const volume = finiteOrZero(context.volume);
   const dollarVolume = finiteOrZero(context.dollarVolume);
-  const rvol = finiteOrZero(context.rvol);
+  const rawRvol = context.rvol;
+  const rankingRvol =
+    rawRvol !== null && Number.isFinite(rawRvol) && rawRvol > 0
+      ? assessRvolConfidence({
+          rawRvol,
+          baselineVolume: context.volume,
+          metricKind: "time_adjusted",
+        }).rankingRvol ?? 0
+      : 0;
 
-  const volumeKing =
-    Math.log10(Math.max(volume, 1)) * 12 + Math.log10(Math.max(dollarVolume, 1)) * 14;
+  const volumeKing = continuationVolumeKingComponent(entry);
 
-  const rvolPoints = Math.min(40, rvol * 4);
+  const rvolPoints = Math.min(40, rankingRvol * 4);
 
   const categoryPoints = bestCategoryRank(categories) * 10;
   const multiCategoryPoints = Math.min(8, categories.length * 2);
@@ -84,7 +102,7 @@ export function computeAmInboxLateSessionPriorityScore(entry: AmInboxLateSession
   const missingCoreMetrics =
     context.volume === null &&
     context.dollarVolume === null &&
-    context.rvol === null &&
+    rawRvol === null &&
     scannerPoints === 0;
 
   const missingPenalty = missingCoreMetrics ? 25 : 0;
