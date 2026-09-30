@@ -131,7 +131,11 @@ function participationSignalTrusted(
       baselineVolume: prior,
       metricKind: "volume_ratio_prior",
     });
-    return assessed.rvolConfidence !== "INSUFFICIENT_HISTORY";
+    return (
+      assessed.rvolConfidence === "HIGH" ||
+      assessed.rvolConfidence === "MEDIUM" ||
+      assessed.rvolConfidence === "LOW"
+    );
   }
   if (source === "rvol_20d") {
     return finiteMetric(row.avg_volume_20d) !== null && finiteMetric(row.avg_volume_20d)! > 0;

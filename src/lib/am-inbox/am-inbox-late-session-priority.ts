@@ -1,7 +1,7 @@
 import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
 import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
 import type { ContinuationCategory } from "@/config/continuation.config";
-import { assessRvolConfidence } from "@/lib/screeners/rvol-confidence";
+import { continuationRankingRvolFromContext } from "@/lib/am-inbox/continuation-rvol-ranking";
 
 const SCANNER_EVENT_PRIORITY: Readonly<Record<string, number>> = {
   "VOLUME EXPLOSION": 50,
@@ -73,14 +73,7 @@ export function computeAmInboxLateSessionPriorityScore(entry: AmInboxLateSession
   const volume = finiteOrZero(context.volume);
   const dollarVolume = finiteOrZero(context.dollarVolume);
   const rawRvol = context.rvol;
-  const rankingRvol =
-    rawRvol !== null && Number.isFinite(rawRvol) && rawRvol > 0
-      ? assessRvolConfidence({
-          rawRvol,
-          baselineVolume: context.volume,
-          metricKind: "time_adjusted",
-        }).rankingRvol ?? 0
-      : 0;
+  const rankingRvol = continuationRankingRvolFromContext(context);
 
   const volumeKing = continuationVolumeKingComponent(entry);
 

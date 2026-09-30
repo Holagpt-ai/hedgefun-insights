@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { overlayCanonicalIntradayMetrics } from "@/lib/screeners/screener-radar-intraday-overlay";
+import {
+  buildIntradayMetricDonorIndex,
+  intradayOverlayObservationCoherent,
+  overlayCanonicalIntradayMetrics,
+  SCREENER_INTRADAY_OVERLAY_MAX_SKEW_MS,
+} from "@/lib/screeners/screener-radar-intraday-overlay";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 
 function screenerRow(partial: Partial<ScreenerResultRow>): ScreenerResultRow {
@@ -32,24 +37,87 @@ function screenerRow(partial: Partial<ScreenerResultRow>): ScreenerResultRow {
 }
 
 describe("canonical intraday overlay", () => {
-  it("gappers receives rvol_5m from radar donor on same session", () => {
-    const [merged] = overlayCanonicalIntradayMetrics(
-      [screenerRow({ symbol: "ABC" })],
-      [
-        {
-          symbol: "ABC",
-          provider_as_of: "2026-09-30T14:05:00.000Z",
-          rvol_5m: 6.2,
-          vol_velocity: null,
-          time_adjusted_rvol: null,
-          volume_acceleration_pct: null,
-        },
-      ],
-    );
+  it("overlays when same session and timestamps are within skew tolerance", () => {
+    const target = screenerRow({ symbol: "ABC" });
+    const donor = {
+      symbol: "ABC",
+      provider_as_of: "2026-09-30T14:05:00.000Z",
+      rvol_5m: 6.2,
+      vol_velocity: null,
+      time_adjusted_rvol: null,
+      volume_acceleration_pct: null,
+    };
+    expect(intradayOverlayObservationCoherent(target, donor)).toBe(true);
+    const [merged] = overlayCanonicalIntradayMetrics([target], [donor]);
     expect((merged as { rvol_5m?: number | null }).rvol_5m).toBe(6.2);
   });
 
-  it("volume spikes path keeps existing rvol_5m when already set", () => {
+  it("does not overlay when timestamps are 30+ minutes apart on the same date", () => {
+    const target = screenerRow({
+      provider_as_of: "2026-09-30T11:35:00.000Z",
+    });
+    const donor = {
+      symbol: "ABC",
+      provider_as_of: "2026-09-30T12:11:00.000Z",
+      rvol_5m: 6.2,
+      vol_velocity: null,
+      time_adjusted_rvol: null,
+      volume_acceleration_pct: null,
+    };
+    expect(intradayOverlayObservationCoherent(target, donor)).toBe(false);
+    const [merged] = overlayCanonicalIntradayMetrics([target], [donor]);
+    expect((merged as { rvol_5m?: number | null }).rvol_5m).toBeUndefined();
+  });
+
+  it("does not overlay across prior trading day", () => {
+    const target = screenerRow({ provider_as_of: "2026-09-30T14:00:00.000Z" });
+    const donor = {
+      symbol: "ABC",
+      provider_as_of: "2026-09-29T14:00:00.000Z",
+      rvol_5m: 6.2,
+      vol_velocity: null,
+      time_adjusted_rvol: null,
+      volume_acceleration_pct: null,
+    };
+    expect(intradayOverlayObservationCoherent(target, donor)).toBe(false);
+  });
+
+  it("fails closed when timestamps are missing", () => {
+    const target = screenerRow({ provider_as_of: "" });
+    const donor = {
+      symbol: "ABC",
+      provider_as_of: "2026-09-30T14:05:00.000Z",
+      rvol_5m: 6.2,
+      vol_velocity: null,
+      time_adjusted_rvol: null,
+      volume_acceleration_pct: null,
+    };
+    expect(intradayOverlayObservationCoherent(target, donor)).toBe(false);
+  });
+
+  it("selects the freshest donor for a symbol", () => {
+    const index = buildIntradayMetricDonorIndex([
+      {
+        symbol: "ABC",
+        provider_as_of: "2026-09-30T14:00:00.000Z",
+        rvol_5m: 1,
+        vol_velocity: null,
+        time_adjusted_rvol: null,
+        volume_acceleration_pct: null,
+      },
+      {
+        symbol: "ABC",
+        provider_as_of: "2026-09-30T14:10:00.000Z",
+        rvol_5m: 9.9,
+        vol_velocity: null,
+        time_adjusted_rvol: null,
+        volume_acceleration_pct: null,
+      },
+    ]);
+    expect(index.get("ABC")?.rvol_5m).toBe(9.9);
+  });
+
+  it("does not overwrite existing rvol_5m on target", () => {
     const base = screenerRow({ tab_id: "volume_spikes" }) as ScreenerResultRow & {
       rvol_5m: number;
     };
@@ -68,5 +136,9 @@ describe("canonical intraday overlay", () => {
       ],
     );
     expect((merged as { rvol_5m?: number | null }).rvol_5m).toBe(4.1);
+  });
+
+  it("documents overlay skew aligned to screener stale cadence", () => {
+    expect(SCREENER_INTRADAY_OVERLAY_MAX_SKEW_MS).toBe(20 * 60_000);
   });
 });

@@ -79,7 +79,16 @@ export function captureLateSessionHandoffsFromScreenerRows(
       lastPrice: row.price ?? null,
       sessionMovePct: row.change_percent ?? null,
       volume: row.volume ?? null,
-      rvol: row.rvol_20d ?? null,
+      rvol: row.rvol_20d ?? row.time_adjusted_rvol ?? row.rvol_5m ?? null,
+      rvolMetricKind: row.time_adjusted_rvol != null
+        ? "time_adjusted"
+        : row.rvol_20d != null
+          ? "rvol_20d"
+          : row.rvol_5m != null
+            ? "rvol_5m"
+            : null,
+      rvolBaselineVolume: row.avg_volume_20d ?? null,
+      rvolBaselineSampleSize: row.participation_baseline_session_count ?? null,
       dollarVolume: null,
       closeDistanceFromHodPct: row.close_distance_from_hod_pct ?? null,
       afterHoursExtends: row.after_hours_extends === "TRUE"

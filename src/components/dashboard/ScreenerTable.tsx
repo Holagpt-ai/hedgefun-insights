@@ -500,14 +500,16 @@ export function ScreenerTable({
     if (col.key === "gap_percent") {
       const text = formatScreenerMetric(row.gap_percent, "percent");
       const prevClose = previousCloseFromVerifiedMove(row.price, row.change_percent);
-      const gapFlag = assessGapTrust({
+      const gapTrust = assessGapTrust({
         gapPercent: row.gap_percent,
         price: row.price,
         previousClose: prevClose,
       });
       const title =
-        gapFlag === "EXTREME_GAP_REVIEW"
-          ? "Extreme gap — verify reference prices; raw gap shown for context."
+        gapTrust.flag === "EXTREME_GAP_REVIEW"
+          ? gapTrust.possibleCorporateActionScale
+            ? "Extreme gap — possible reference-price scale mismatch; verify before trusting. Not a verified split/corp action."
+            : "Extreme gap — verify reference prices; raw gap shown for context."
           : undefined;
       if (title) {
         return (

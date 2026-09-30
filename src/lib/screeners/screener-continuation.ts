@@ -26,6 +26,10 @@ export interface ScreenerContinuationSource {
   price?: number | null;
   volume?: number | null;
   rvol_20d?: number | null;
+  avg_volume_20d?: number | null;
+  time_adjusted_rvol?: number | null;
+  rvol_5m?: number | null;
+  participation_baseline_session_count?: number | null;
   change_percent?: number | null;
   gap_percent?: number | null;
   provider_as_of?: string | null;

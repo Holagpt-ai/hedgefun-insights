@@ -3,11 +3,21 @@
  * (Gappers / NHL) without changing rank order or refetching providers.
  */
 
-import { parseTimestampMs } from "@/lib/screeners/contract";
+import {
+  parseTimestampMs,
+  SCREENER_STALE_AFTER_MS,
+  type ScreenerResultRow,
+} from "@/lib/screeners/contract";
 import { easternDate } from "@/lib/radar-v22";
-import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import { finiteMetric } from "@/lib/screeners/screener-metric-display";
+
+/**
+ * Maximum provider_as_of skew allowed when overlaying Radar intraday metrics
+ * onto screener_results rows. Matches screener stale cadence (20 minutes).
+ * Observations more than this apart are treated as different snapshots.
+ */
+export const SCREENER_INTRADAY_OVERLAY_MAX_SKEW_MS = SCREENER_STALE_AFTER_MS;
 
 export type IntradayMetricDonor = Pick<
   RadarV2ScreenerRow,
@@ -25,15 +35,37 @@ function easternTradingDate(iso: string | null | undefined): string | null {
   return easternDate(ms);
 }
 
-function sameObservationSession(
+function providerSkewMs(
+  targetIso: string | null | undefined,
+  donorIso: string | null | undefined,
+): number | null {
+  const targetMs = parseTimestampMs(targetIso);
+  const donorMs = parseTimestampMs(donorIso);
+  if (targetMs === null || donorMs === null) return null;
+  return Math.abs(targetMs - donorMs);
+}
+
+/** Same ET session and provider timestamps within overlay skew tolerance. */
+export function intradayOverlayObservationCoherent(
   target: Pick<ScreenerResultRow, "provider_as_of">,
   donor: Pick<IntradayMetricDonor, "provider_as_of">,
 ): boolean {
-  const a = easternTradingDate(target.provider_as_of);
-  const b = easternTradingDate(donor.provider_as_of);
-  return a !== null && b !== null && a === b;
+  const targetDate = easternTradingDate(target.provider_as_of);
+  const donorDate = easternTradingDate(donor.provider_as_of);
+  if (!targetDate || !donorDate || targetDate !== donorDate) return false;
+
+  const skew = providerSkewMs(target.provider_as_of, donor.provider_as_of);
+  if (skew === null) return false;
+  return skew <= SCREENER_INTRADAY_OVERLAY_MAX_SKEW_MS;
 }
 
+function donorFreshnessMs(donor: IntradayMetricDonor): number {
+  return parseTimestampMs(donor.provider_as_of) ?? -Infinity;
+}
+
+/**
+ * One donor per symbol: freshest valid provider_as_of wins (not input order).
+ */
 export function buildIntradayMetricDonorIndex(
   donors: readonly IntradayMetricDonor[],
 ): Map<string, IntradayMetricDonor> {
@@ -41,7 +73,12 @@ export function buildIntradayMetricDonorIndex(
   for (const donor of donors) {
     const sym = donor.symbol?.trim().toUpperCase();
     if (!sym) continue;
-    index.set(sym, donor);
+    if (parseTimestampMs(donor.provider_as_of) === null) continue;
+
+    const prev = index.get(sym);
+    if (!prev || donorFreshnessMs(donor) > donorFreshnessMs(prev)) {
+      index.set(sym, donor);
+    }
   }
   return index;
 }
@@ -55,7 +92,7 @@ export function overlayCanonicalIntradayMetrics<T extends ScreenerResultRow>(
 
   return rows.map((row) => {
     const donor = index.get(row.symbol.trim().toUpperCase());
-    if (!donor || !sameObservationSession(row, donor)) return row;
+    if (!donor || !intradayOverlayObservationCoherent(row, donor)) return row;
 
     const extended = row as T & IntradayMetricDonor;
     const next = { ...extended };

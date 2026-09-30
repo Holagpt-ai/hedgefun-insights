@@ -1,6 +1,9 @@
 import type { LateSessionSourceCategory } from "@/config/late-session-handoff.config";
 import type { ContinuationCategory } from "@/config/continuation.config";
-import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session-continuation-types";
+import type {
+  ContinuationRvolMetricKind,
+  LateSessionContinuationContext,
+} from "@/lib/am-inbox/late-session-continuation-types";
 import {
   computeValidThroughSessionDate,
   firstAmSessionDateAfterSource,
@@ -33,6 +36,9 @@ export function buildLateSessionContinuationContext(input: {
   sessionMovePct?: number | null;
   volume?: number | null;
   rvol?: number | null;
+  rvolMetricKind?: ContinuationRvolMetricKind | null;
+  rvolBaselineVolume?: number | null;
+  rvolBaselineSampleSize?: number | null;
   dollarVolume?: number | null;
   closeDistanceFromHodPct?: number | null;
   afterHoursExtends?: boolean | null;
@@ -69,6 +75,9 @@ export function buildLateSessionContinuationContext(input: {
     sessionMovePct: input.sessionMovePct ?? null,
     volume: input.volume ?? null,
     rvol: input.rvol ?? null,
+    rvolMetricKind: input.rvolMetricKind ?? null,
+    rvolBaselineVolume: input.rvolBaselineVolume ?? null,
+    rvolBaselineSampleSize: input.rvolBaselineSampleSize ?? null,
     dollarVolume: input.dollarVolume ?? null,
     closeDistanceFromHodPct: input.closeDistanceFromHodPct ?? null,
     afterHoursExtends: input.afterHoursExtends ?? null,

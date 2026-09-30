@@ -110,4 +110,43 @@ describe("day trade multi-source participation", () => {
     expect(evaluateDayTradeEligibility(candidate).floatGate).toBe("fail_high_float");
     expect(dayTradeRejectionReasons(candidate, NOW)).toContain("FLOAT_TOO_HIGH");
   });
+
+  it("thin Vol/Yday alone does not independently qualify participation", () => {
+    const candidate = row({
+      prior_session_volume: 50,
+      volume: 5_000,
+      volume_ratio_prior_session: 100,
+      avg_volume_20d: null,
+      rvol_20d: null,
+      rvol_5m: null,
+      time_adjusted_rvol: null,
+    });
+    expect(evaluateDayTradeParticipation(candidate).pass).toBe(false);
+    expect(dayTradeRejectionReasons(candidate, NOW)).toContain("INSUFFICIENT_RVOL");
+  });
+
+  it("thin Vol/Yday with trusted rvol_5m qualifies via rvol_5m", () => {
+    const candidate = row({
+      prior_session_volume: 50,
+      volume: 5_000,
+      volume_ratio_prior_session: 100,
+      rvol_5m: 8,
+      time_adjusted_rvol: null,
+      avg_volume_20d: null,
+    });
+    const evaluation = evaluateDayTradeParticipation(candidate);
+    expect(evaluation.pass).toBe(true);
+    expect(evaluation.winningSource).toBe("rvol_5m");
+  });
+
+  it("robust Vol/Yday can qualify when confidence permits", () => {
+    const candidate = row({
+      prior_session_volume: 200_000,
+      volume: 1_600_000,
+      volume_ratio_prior_session: 8,
+      rvol_5m: null,
+      time_adjusted_rvol: null,
+    });
+    expect(evaluateDayTradeParticipation(candidate).pass).toBe(true);
+  });
 });

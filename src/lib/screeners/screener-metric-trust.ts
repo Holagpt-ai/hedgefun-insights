@@ -8,7 +8,13 @@ import { pricesImplyCorporateActionScale } from "@/lib/screeners/session-move";
 
 export type VolumeRatioTrustFlag = "THIN_PRIOR_VOLUME_BASELINE" | null;
 
-export type GapTrustFlag = "EXTREME_GAP_REVIEW" | null;
+export type GapTrustFlag = "EXTREME_GAP_REVIEW";
+
+export type GapTrustAssessment = {
+  flag: GapTrustFlag | null;
+  /** Heuristic only — not verified corporate-action metadata. */
+  possibleCorporateActionScale: boolean;
+};
 
 const EXTREME_GAP_REVIEW_ABS_PCT = 75;
 
@@ -41,16 +47,19 @@ export function assessGapTrust(input: {
   gapPercent: number | null | undefined;
   price: number | null | undefined;
   previousClose: number | null | undefined;
-}): GapTrustFlag {
+}): GapTrustAssessment {
   const gap = finiteMetric(input.gapPercent);
-  if (gap === null || Math.abs(gap) < EXTREME_GAP_REVIEW_ABS_PCT) return null;
-  if (
-    pricesImplyCorporateActionScale(
-      finiteMetric(input.price),
-      finiteMetric(input.previousClose),
-    )
-  ) {
-    return null;
+  const price = finiteMetric(input.price);
+  const previousClose = finiteMetric(input.previousClose);
+  if (gap === null || price === null || previousClose === null) {
+    return { flag: null, possibleCorporateActionScale: false };
   }
-  return "EXTREME_GAP_REVIEW";
+  if (Math.abs(gap) < EXTREME_GAP_REVIEW_ABS_PCT) {
+    return { flag: null, possibleCorporateActionScale: false };
+  }
+  const possibleCorporateActionScale = pricesImplyCorporateActionScale(price, previousClose);
+  return {
+    flag: "EXTREME_GAP_REVIEW",
+    possibleCorporateActionScale,
+  };
 }
