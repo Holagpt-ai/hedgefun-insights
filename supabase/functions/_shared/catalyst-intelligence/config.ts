@@ -41,3 +41,11 @@ export function botEnabledFlag(bot: BotId): string {
 
 /** AI enrichment is off unless this exact flag is true. */
 export const AI_ENRICHMENT_FLAG = "CATALYST_INTEL_AI_ENRICHMENT_ENABLED";
+
+/**
+ * Two gates. The env/config flag only opens the bot. Each source row still
+ * needs enabled = true. CATALYST_INTEL_SEC_ENABLED=true does not enable the
+ * seeded sec-latest-filings row while that row stays disabled.
+ */
+export const SOURCE_GATE_NOTE =
+  "Bot execution requires the env flag or catalyst_intel_bot_config.enabled, AND catalyst_intel_sources.enabled for each source. A true CATALYST_INTEL_SEC_ENABLED flag does not poll the SEC source while sec-latest-filings.enabled is false. Backoff must be expired and the poll interval must be due.";

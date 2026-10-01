@@ -1,14 +1,15 @@
 import type { CatalystSourceAdapter } from "./source-adapter.ts";
 import { backoffSeconds, MAX_ITEMS_PER_SOURCE } from "./config.ts";
 import { advanceForReaction, appendLifecycle } from "./lifecycle.ts";
+import { eventReferenceInstant, referencePriceAtOrBefore, type EventPriceBar } from "./event-bars.ts";
 import {
   assessMarketObservation,
+  preserveObservedMetrics,
   reactionFromAssessment,
 } from "./market-reaction.ts";
 import { isFixturePayload } from "./normalize.ts";
 import { applyScores, ingestCandidate } from "./pipeline.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
-import { selectDueSources } from "./source-registry.ts";
 import { SourceFetchError } from "./source-fetch.ts";
 import { emptyRun, formatRunLog, safeError } from "./telemetry.ts";
 import type {
@@ -39,12 +40,12 @@ export interface CollectorRunInput {
 export async function runCollectorBot(input: CollectorRunInput): Promise<RunTelemetry> {
   const wallStart = Date.now();
   const run = emptyRun(input.bot, crypto.randomUUID(), new Date(wallStart).toISOString());
-  const sources = selectDueSources(
-    await input.store.listSources({ sourceType: input.adapter.sourceType, enabledOnly: true }),
-    input.now,
-    input.batchLimit,
-    input.allowlist,
-  );
+  const sources = await input.store.listDueSources({
+    sourceType: input.adapter.sourceType,
+    now: input.now,
+    limit: input.batchLimit,
+    allowlist: input.allowlist,
+  });
   let ingestQueue = Promise.resolve();
   const ingestNext = <T>(fn: () => Promise<T>): Promise<T> => {
     const result = ingestQueue.then(fn, fn);
@@ -134,6 +135,7 @@ export interface ReactionRunInput {
   now: Date;
   batchLimit: number;
   loadObservation: (symbol: string) => Promise<MarketObservation | null>;
+  loadReferenceBars?: (symbol: string, eventAtIso: string) => Promise<EventPriceBar[]>;
   windowKind?: ReactionWindow;
   maxAgeMs?: number;
 }
@@ -152,20 +154,27 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         run.sourcesSuccessful += 1;
         continue;
       }
-      const observation = await input.loadObservation(ticker.ticker);
+      let observation = await input.loadObservation(ticker.ticker);
+      const eventAt = eventReferenceInstant(event);
+      if (observation && observation.referencePrice == null && eventAt && input.loadReferenceBars) {
+        const bars = await input.loadReferenceBars(ticker.ticker, eventAt);
+        const reference = referencePriceAtOrBefore(bars, Date.parse(eventAt));
+        observation = { ...observation, referencePrice: reference };
+      }
       const assessment = assessMarketObservation(observation, input.now, input.maxAgeMs);
       const existing = await input.store.getReaction(event.id, windowKind);
       if (assessment.availability !== "available" && existing?.availability === "available") {
         run.sourcesSuccessful += 1;
         continue;
       }
-      await input.store.upsertReaction(reactionFromAssessment(
+      const reaction = preserveObservedMetrics(reactionFromAssessment(
         event.id,
         windowKind,
         observation?.observedAt ?? null,
         assessment,
         existing?.id ?? crypto.randomUUID(),
-      ));
+      ), existing);
+      await input.store.upsertReaction(reaction);
       if (assessment.availability === "available") {
         event.reactionScore = assessment.reactionScore;
         const next = advanceForReaction(event.lifecycle, windowKind);

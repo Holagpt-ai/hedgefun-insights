@@ -1,6 +1,39 @@
 import { DEFAULT_REACTION_MAX_AGE_MS } from "./config.ts";
 import type { MarketObservation, ReactionRecord, ReactionWindow } from "./types.ts";
 
+export function pickLatestRadarRows(rows: readonly Record<string, unknown>[]): Record<string, unknown>[] {
+  const latest = new Map<string, { at: number; row: Record<string, unknown> }>();
+  for (const raw of rows) {
+    const symbol = typeof raw.symbol === "string" ? raw.symbol.toUpperCase() : "";
+    if (!symbol) continue;
+    const provider = Date.parse(typeof raw.provider_as_of === "string" ? raw.provider_as_of : "");
+    const updated = Date.parse(typeof raw.updated_at === "string" ? raw.updated_at : "");
+    const at = Number.isFinite(provider) ? provider : Number.isFinite(updated) ? updated : Number.NEGATIVE_INFINITY;
+    const prev = latest.get(symbol);
+    if (!prev || at >= prev.at) latest.set(symbol, { at, row: raw });
+  }
+  return [...latest.values()].map((entry) => entry.row);
+}
+
+/** Keep stored RVOL, VWAP, and velocity when a newer snapshot does not include them. */
+export function preserveObservedMetrics(next: ReactionRecord, existing: ReactionRecord | null): ReactionRecord {
+  if (!existing || existing.availability !== "available") return next;
+  const referencePrice = next.referencePrice ?? existing.referencePrice;
+  const currentPrice = next.currentPrice ?? existing.currentPrice;
+  return {
+    ...next,
+    referencePrice,
+    currentPrice,
+    percentMove: percentMove(referencePrice, currentPrice),
+    rvol5m: next.rvol5m ?? existing.rvol5m,
+    timeAdjustedRvol: next.timeAdjustedRvol ?? existing.timeAdjustedRvol,
+    volumeVelocity: next.volumeVelocity ?? existing.volumeVelocity,
+    volumeAcceleration: next.volumeAcceleration ?? existing.volumeAcceleration,
+    vwap: next.vwap ?? existing.vwap,
+    vwapSide: next.vwapSide ?? existing.vwapSide,
+  };
+}
+
 export interface ReactionAssessment {
   availability: ReactionRecord["availability"];
   referencePrice: number | null;

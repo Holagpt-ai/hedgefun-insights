@@ -22,27 +22,34 @@ function companyTokens(name: string): string[] {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().split(/\s+/).filter((t) => t.length >= 3);
 }
 
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 function textHasName(text: string, name: string): boolean {
   const tokens = companyTokens(name);
   if (tokens.length === 0) return false;
-  const hay = text.toLowerCase();
   const phrase = tokens.join(" ");
-  if (phrase.length >= 4 && hay.includes(phrase)) return true;
-  return false;
+  if (phrase.length < 4) return false;
+  const pattern = tokens.map(escapeRegExp).join("\\s+");
+  return new RegExp(`(?:^|[^a-z0-9])${pattern}(?:$|[^a-z0-9])`, "i").test(text);
 }
 
+const BARE_TICKER_STOP = new Set([
+  "ALL", "FOR", "THE", "AND", "CAN", "NOW", "NEW", "SEE", "LOW", "BIG",
+  "OUT", "ONE", "ANY", "HAS", "NOT", "BUT", "YOU", "OUR", "DAY", "MAY",
+  "ARE", "WAS", "HIS", "HER", "WHO", "HOW", "WHY", "TOO", "OLD", "HOT", "TOP",
+]);
+
 function mentionedTickers(text: string, companies: readonly CompanyRecord[]): string[] {
+  const universe = new Set(
+    companies.map((company) => normalizeTicker(company.ticker)).filter((ticker): ticker is string => !!ticker),
+  );
   const found = new Set<string>();
-  for (const company of companies) {
-    const ticker = normalizeTicker(company.ticker);
-    if (!ticker) continue;
-    const re = new RegExp(`\\$${ticker}\\b|\\(${ticker}\\)|\\b${ticker}\\b`, "i");
-    if (re.test(text)) found.add(ticker);
-  }
-  const cashtags = text.match(/\$([A-Z]{1,5})\b/g) ?? [];
-  for (const tag of cashtags) {
-    const ticker = normalizeTicker(tag.slice(1));
-    if (ticker) found.add(ticker);
+  for (const ticker of universe) {
+    if (new RegExp(`\\$${ticker}\\b|\\(${ticker}\\)`, "i").test(text)) found.add(ticker);
+    if (ticker.length < 3 || BARE_TICKER_STOP.has(ticker)) continue;
+    if (new RegExp(`(?:^|[^A-Za-z0-9])${escapeRegExp(ticker)}(?:$|[^A-Za-z0-9])`).test(text)) found.add(ticker);
   }
   return [...found];
 }

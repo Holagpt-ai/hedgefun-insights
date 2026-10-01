@@ -1,5 +1,6 @@
 import { attributeCandidate } from "./attribution.ts";
 import { classifyCandidate } from "./classification.ts";
+import { isUniqueConflict } from "./conflicts.ts";
 import { findDuplicateEvent } from "./dedupe.ts";
 import { evidenceRole } from "./evidence.ts";
 import { assessMateriality, timingUrgency } from "./impact.ts";
@@ -46,28 +47,11 @@ export async function ingestCandidate(
     return { status: "rejected", eventId: null, rawItemId: null };
   }
 
-  const existingRaw = candidate.raw.externalId
-    ? await store.findRawByExternal(candidate.raw.sourceId, candidate.raw.externalId)
-    : null;
-  const hashed = existingRaw ?? await store.findRawByHash(candidate.raw.sourceId, candidate.raw.contentHash);
-  if (hashed) {
-    const linked = await store.findEvidenceByRaw(hashed.id);
-    return { status: "duplicate", eventId: linked?.eventId ?? null, rawItemId: hashed.id };
+  const claimed = await claimRaw(store, candidate);
+  if (claimed.duplicate) {
+    return { status: "duplicate", eventId: claimed.duplicate.eventId, rawItemId: claimed.rawId };
   }
-
-  const rawId = crypto.randomUUID();
-  await store.insertRaw({
-    id: rawId,
-    sourceId: candidate.raw.sourceId,
-    externalId: candidate.raw.externalId,
-    canonicalUrl: candidate.raw.canonicalUrl,
-    contentHash: candidate.raw.contentHash,
-    publishedAt: candidate.raw.publishedAt,
-    discoveredAt: candidate.raw.discoveredAt,
-    title: candidate.title,
-    bodyExcerpt: candidate.summary,
-    metadata: boundedMetadata(candidate.raw.metadata),
-  });
+  const rawId = claimed.rawId;
 
   const attribution = attributeCandidate(candidate, {
     sourceTicker: ctx.source.ticker,
@@ -144,7 +128,15 @@ export async function ingestCandidate(
       lifecycleLog: log.filter((entry) => entry.from !== entry.to),
       scoreComponents: { explicit_product_update: classification.explicitProductUpdate },
     };
-    await store.insertEvent(event);
+    try {
+      await store.insertEvent(event);
+    } catch (err) {
+      if (!isUniqueConflict(err)) throw err;
+      const winner = await store.getEventByCanonicalKey(event.canonicalKey);
+      if (!winner) throw err;
+      event = winner;
+      created = false;
+    }
   } else {
     event = match;
     if (candidate.isAnnouncement) {
@@ -181,6 +173,7 @@ export async function ingestCandidate(
     eventId: event.id,
     rawItemId: rawId,
     sourceId: candidate.raw.sourceId,
+    authorityKey: ctx.source.authorityKey.trim() || "unknown",
     evidenceTier: candidate.evidenceTier,
     evidenceRole: evidenceRole(candidate.evidenceTier),
     canonicalUrl: candidate.raw.canonicalUrl,
@@ -188,7 +181,11 @@ export async function ingestCandidate(
     publishedAt: candidate.raw.publishedAt,
     conflict: false,
   };
-  await store.insertEvidence(evidenceRow);
+  try {
+    await store.insertEvidence(evidenceRow);
+  } catch (err) {
+    if (!isUniqueConflict(err)) throw err;
+  }
   await store.upsertTicker({
     id: crypto.randomUUID(),
     eventId: event.id,
@@ -255,6 +252,46 @@ function anchor(timing: { scheduledStart: string | null; scheduledDate: string |
   if (timing.scheduledStart) return timing.scheduledStart.slice(0, 16);
   if (timing.scheduledDate) return timing.scheduledDate;
   return hash.slice(0, 12);
+}
+
+async function claimRaw(
+  store: CatalystIntelStore,
+  candidate: NormalizedEventCandidate,
+): Promise<{ rawId: string; duplicate: EvidenceRecord | null }> {
+  const existing = await findRaw(store, candidate);
+  if (existing) {
+    const linked = await store.findEvidenceByRaw(existing.id);
+    return { rawId: existing.id, duplicate: linked };
+  }
+  const rawId = crypto.randomUUID();
+  try {
+    await store.insertRaw({
+      id: rawId,
+      sourceId: candidate.raw.sourceId,
+      externalId: candidate.raw.externalId,
+      canonicalUrl: candidate.raw.canonicalUrl,
+      contentHash: candidate.raw.contentHash,
+      publishedAt: candidate.raw.publishedAt,
+      discoveredAt: candidate.raw.discoveredAt,
+      title: candidate.title,
+      bodyExcerpt: candidate.summary,
+      metadata: boundedMetadata(candidate.raw.metadata),
+    });
+    return { rawId, duplicate: null };
+  } catch (err) {
+    if (!isUniqueConflict(err)) throw err;
+    const recovered = await findRaw(store, candidate);
+    if (!recovered) throw err;
+    const linked = await store.findEvidenceByRaw(recovered.id);
+    return { rawId: recovered.id, duplicate: linked };
+  }
+}
+
+async function findRaw(store: CatalystIntelStore, candidate: NormalizedEventCandidate) {
+  const byExternal = candidate.raw.externalId
+    ? await store.findRawByExternal(candidate.raw.sourceId, candidate.raw.externalId)
+    : null;
+  return byExternal ?? await store.findRawByHash(candidate.raw.sourceId, candidate.raw.contentHash);
 }
 
 function boundedMetadata(metadata: Record<string, unknown>): Record<string, unknown> {

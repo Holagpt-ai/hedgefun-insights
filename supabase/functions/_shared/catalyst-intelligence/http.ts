@@ -4,11 +4,12 @@ import { companyIrAdapter } from "./adapters/company-ir.ts";
 import { newsPrAdapter } from "./adapters/news-pr.ts";
 import { secFilingsAdapter } from "./adapters/sec.ts";
 import { aiEnrichmentEnabled } from "./ai-enrichment.ts";
-import { botEnabledFlag, GENERIC_USER_AGENT, readFlag } from "./config.ts";
+import { botEnabledFlag, GENERIC_USER_AGENT, readFlag, SOURCE_GATE_NOTE } from "./config.ts";
 import { observationFromRadarRow } from "./market-reaction.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
 import { runCollectorBot, runReactionBot } from "./run-bot.ts";
-import type { BotId, MarketObservation } from "./types.ts";
+import type { EventPriceBar } from "./event-bars.ts";
+import type { BotId, CompanyRecord, MarketObservation } from "./types.ts";
 
 export type EnvReader = (key: string) => string | undefined;
 
@@ -26,8 +27,11 @@ export interface IntelHandlerDeps {
   fetchImpl?: typeof fetch;
   now?: () => Date;
   loadObservation?: (symbol: string) => Promise<MarketObservation | null>;
+  loadReferenceBars?: (symbol: string, eventAtIso: string) => Promise<EventPriceBar[]>;
   cikMap?: ReadonlyMap<string, string[]>;
   loadCikMap?: () => Promise<ReadonlyMap<string, string[]>>;
+  companies?: readonly CompanyRecord[];
+  loadCompanies?: () => Promise<readonly CompanyRecord[]>;
 }
 
 export async function handleCatalystIntelRequest(req: Request, deps: IntelHandlerDeps): Promise<Response> {
@@ -54,7 +58,9 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
   if ("url" in body || "urls" in body) return json(400, { error: "VALIDATION_ERROR" });
 
   const flag = readFlag(deps.env(botEnabledFlag(deps.bot)));
-  if (flag === false) return json(200, { ok: true, status: "disabled", bot: deps.bot, ai_enrichment: false });
+  if (flag === false) {
+    return json(200, { ok: true, status: "disabled", bot: deps.bot, ai_enrichment: false, activation: SOURCE_GATE_NOTE });
+  }
 
   let store = deps.store ?? null;
   if (!store) {
@@ -68,7 +74,9 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
   if (!store) return json(500, { error: "VALIDATION_ERROR" });
   const config = await store.getBotConfig(deps.bot);
   const enabled = flag === true ? true : (config?.enabled ?? false);
-  if (!enabled) return json(200, { ok: true, status: "disabled", bot: deps.bot, ai_enrichment: false });
+  if (!enabled) {
+    return json(200, { ok: true, status: "disabled", bot: deps.bot, ai_enrichment: false, activation: SOURCE_GATE_NOTE });
+  }
 
   const userAgent = deps.bot === "sec"
     ? (deps.env("SEC_USER_AGENT") ?? "").trim()
@@ -96,8 +104,23 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
 
   if (deps.bot === "reactions") {
     const load = deps.loadObservation ?? (async () => null);
-    const run = await runReactionBot({ store, now, batchLimit, loadObservation: load });
-    return json(200, { ok: true, status: run.status, bot: deps.bot, ai_enrichment: ai, run: publicRun(run) });
+    const run = await runReactionBot({
+      store,
+      now,
+      batchLimit,
+      loadObservation: load,
+      loadReferenceBars: deps.loadReferenceBars,
+    });
+    return json(200, { ok: true, status: run.status, bot: deps.bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
+  }
+
+  let companies = deps.companies;
+  if (!companies && deps.loadCompanies) {
+    try {
+      companies = await deps.loadCompanies();
+    } catch {
+      return json(500, { error: "DATABASE_ERROR" });
+    }
   }
 
   const adapter = adapterFor(deps.bot);
@@ -113,8 +136,9 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
     allowlist,
     allowFixtures: false,
     cikMap,
+    companies,
   });
-  return json(200, { ok: true, status: run.status, bot: deps.bot, ai_enrichment: ai, run: publicRun(run) });
+  return json(200, { ok: true, status: run.status, bot: deps.bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
 }
 
 export function adapterFor(bot: BotId) {

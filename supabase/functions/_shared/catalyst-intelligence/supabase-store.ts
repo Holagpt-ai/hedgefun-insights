@@ -1,4 +1,5 @@
-import { observationFromRadarRow } from "./market-reaction.ts";
+import { mapDatabaseError } from "./conflicts.ts";
+import { observationFromRadarRow, pickLatestRadarRows } from "./market-reaction.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
 import type {
   BotConfig,
@@ -20,7 +21,10 @@ import type {
   VerificationState,
 } from "./types.ts";
 
-type Sb = { from(table: string): any };
+type Sb = {
+  from(table: string): any;
+  rpc(fn: string, args?: Record<string, unknown>): any;
+};
 
 export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
   loadMarketObservations(symbols: string[]): Promise<MarketObservation[]>;
@@ -32,10 +36,10 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       return mapBot(data as Record<string, unknown>);
     },
     async listSources(query) {
-      let request = supabase.from("catalyst_intel_sources").select("*");
+      let request = supabase.from("catalyst_intel_sources").select("*").order("source_key", { ascending: true });
       if (query.sourceType) request = request.eq("source_type", query.sourceType);
       if (query.enabledOnly) request = request.eq("enabled", true);
-      const { data, error } = await request.limit(500);
+      const { data, error } = await request;
       if (error || !data) return [];
       let rows = (data as Record<string, unknown>[]).map(mapSource);
       if (query.sourceKeys && query.sourceKeys.length > 0) {
@@ -43,6 +47,17 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
         rows = rows.filter((row) => allow.has(row.sourceKey) || allow.has(row.id));
       }
       return rows;
+    },
+    async listDueSources(input) {
+      const allow = input.allowlist && input.allowlist.length > 0 ? [...input.allowlist] : null;
+      const { data, error } = await supabase.rpc("catalyst_intel_due_sources", {
+        p_source_type: input.sourceType ?? null,
+        p_now: input.now.toISOString(),
+        p_limit: input.limit,
+        p_allow: allow,
+      });
+      if (error || !data) return [];
+      return (data as Record<string, unknown>[]).map(mapSource);
     },
     async saveSource(source) {
       const { error } = await supabase.from("catalyst_intel_sources").upsert(unmapSource(source));
@@ -62,7 +77,8 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
     },
     async insertRaw(item) {
       const { error } = await supabase.from("catalyst_intel_raw_items").insert(unmapRaw(item));
-      if (error) throw new Error("database");
+      const mapped = mapDatabaseError(error);
+      if (mapped) throw mapped;
     },
     async findEvidenceByRaw(rawItemId) {
       const { data } = await supabase.from("catalyst_intel_evidence").select("*").eq("raw_item_id", rawItemId).maybeSingle();
@@ -82,10 +98,15 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
     },
     async insertEvidence(row) {
       const { error } = await supabase.from("catalyst_intel_evidence").insert(unmapEvidence(row));
-      if (error) throw new Error("database");
+      const mapped = mapDatabaseError(error);
+      if (mapped) throw mapped;
     },
     async getEvent(id) {
       const { data } = await supabase.from("catalyst_intel_events").select("*").eq("id", id).maybeSingle();
+      return data ? mapEvent(data as Record<string, unknown>) : null;
+    },
+    async getEventByCanonicalKey(key) {
+      const { data } = await supabase.from("catalyst_intel_events").select("*").eq("canonical_key", key).maybeSingle();
       return data ? mapEvent(data as Record<string, unknown>) : null;
     },
     async listEventsForTicker(ticker) {
@@ -106,7 +127,8 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
     },
     async insertEvent(event) {
       const { error } = await supabase.from("catalyst_intel_events").insert(unmapEvent(event));
-      if (error) throw new Error("database");
+      const mapped = mapDatabaseError(error);
+      if (mapped) throw mapped;
     },
     async updateEvent(event) {
       const { error } = await supabase.from("catalyst_intel_events").update(unmapEvent(event)).eq("id", event.id);
@@ -134,20 +156,9 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
     },
     async loadMarketObservations(symbols: string[]) {
       if (symbols.length === 0) return [];
-      const { data, error } = await supabase
-        .from("radar_v22_candidates")
-        .select("symbol,last_price,session_high,session_low,session_volume,rvol_5m,time_adjusted_rvol,volume_velocity,volume_acceleration_pct,session_vwap,vwap_side,distance_from_hod_pct,dollar_volume_60s,provider_as_of,updated_at,freshness_class,volume_velocity_5m,volume_velocity_15m,volume_velocity_60m,float_turnover")
-        .in("symbol", symbols)
-        .limit(Math.min(500, symbols.length * 4));
+      const { data, error } = await supabase.rpc("catalyst_intel_latest_radar", { p_symbols: symbols });
       if (error) throw new Error("database");
-      const latest = new Map<string, { at: number; row: Record<string, unknown> }>();
-      for (const raw of (data ?? []) as Record<string, unknown>[]) {
-        const symbol = typeof raw.symbol === "string" ? raw.symbol : "";
-        const at = Date.parse(typeof raw.provider_as_of === "string" ? raw.provider_as_of : typeof raw.updated_at === "string" ? raw.updated_at : "");
-        const prev = latest.get(symbol);
-        if (!prev || (Number.isFinite(at) && at > prev.at)) latest.set(symbol, { at: Number.isFinite(at) ? at : 0, row: raw });
-      }
-      return [...latest.values()].map((entry) => observationFromRadarRow(entry.row));
+      return pickLatestRadarRows((data ?? []) as Record<string, unknown>[]).map(observationFromRadarRow);
     },
   };
 }
@@ -177,6 +188,7 @@ function mapSource(row: Record<string, unknown>): SourceRecord {
     enabled: row.enabled === true,
     priority: Number(row.priority ?? 0),
     evidenceTier: row.evidence_tier as EvidenceTier,
+    authorityKey: typeof row.authority_key === "string" ? row.authority_key : "unknown",
     lastSuccessAt: str(row.last_success_at),
     lastContentHash: str(row.last_content_hash),
     lastEtag: str(row.last_etag),
@@ -203,6 +215,7 @@ function unmapSource(source: SourceRecord): Record<string, unknown> {
     enabled: source.enabled,
     priority: source.priority,
     evidence_tier: source.evidenceTier,
+    authority_key: source.authorityKey,
     last_success_at: source.lastSuccessAt,
     last_content_hash: source.lastContentHash,
     last_etag: source.lastEtag,
@@ -314,6 +327,7 @@ function mapEvidence(row: Record<string, unknown>): EvidenceRecord {
     eventId: String(row.event_id),
     rawItemId: String(row.raw_item_id),
     sourceId: String(row.source_id),
+    authorityKey: typeof row.authority_key === "string" ? row.authority_key : "unknown",
     evidenceTier: row.evidence_tier as EvidenceTier,
     evidenceRole: row.evidence_role === "primary" ? "primary" : "secondary",
     canonicalUrl: str(row.canonical_url),
@@ -329,6 +343,7 @@ function unmapEvidence(row: EvidenceRecord): Record<string, unknown> {
     event_id: row.eventId,
     raw_item_id: row.rawItemId,
     source_id: row.sourceId,
+    authority_key: row.authorityKey,
     evidence_tier: row.evidenceTier,
     evidence_role: row.evidenceRole,
     canonical_url: row.canonicalUrl,

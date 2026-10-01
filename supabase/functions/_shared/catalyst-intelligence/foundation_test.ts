@@ -36,6 +36,7 @@ function source(partial: Partial<SourceRecord> & Pick<SourceRecord, "sourceType"
     enabled: partial.enabled ?? true,
     priority: partial.priority ?? 10,
     evidenceTier: partial.evidenceTier,
+    authorityKey: partial.authorityKey ?? partial.sourceKey ?? partial.sourceType.toLowerCase(),
     lastSuccessAt: partial.lastSuccessAt ?? null,
     lastContentHash: partial.lastContentHash ?? null,
     lastEtag: partial.lastEtag ?? null,
@@ -158,8 +159,9 @@ Deno.test("SEC filing maps CIK, keeps form 4 modest, and accession is idempotent
   assertEquals(store.rawItems().length, 3);
   const second = await run();
   assertEquals(second.eventsCreated, 0);
-  assertEquals(second.duplicates, 3);
+  assertEquals(second.duplicates, 2);
   assertEquals(store.events().length, 2);
+  assertEquals(store.rawItems().length, 3);
 });
 
 Deno.test("IR parses RSS and HTML and skips an unchanged page", async () => {
@@ -204,8 +206,8 @@ Deno.test("events parse JSON-LD and ICS without inventing a missing date", async
 Deno.test("news syndication merges and a different company event stays separate", async () => {
   const store = createMemoryStore();
   const body = (guid: string) => `<?xml version="1.0"?><rss><channel><item><title>Example Hood Markets names a new chief financial officer</title><link>https://news.example.test/${guid}</link><guid>${guid}</guid><pubDate>Wed, 30 Sep 2026 15:00:00 GMT</pubDate><description>The company appointed a chief financial officer.</description></item></channel></rss>`;
-  const wireA = source({ sourceKey: "wire-a", sourceType: "NEWS_PR", url: "https://news.example.test/a", evidenceTier: "TIER_2_STRONG_SECONDARY", ticker: "HOOD", feedFormat: "rss" });
-  const wireB = source({ sourceKey: "wire-b", sourceType: "NEWS_PR", url: "https://news.example.test/b", evidenceTier: "TIER_2_STRONG_SECONDARY", ticker: "HOOD", feedFormat: "rss" });
+  const wireA = source({ sourceKey: "wire-a", authorityKey: "reuters", sourceType: "NEWS_PR", url: "https://news.example.test/a", evidenceTier: "TIER_2_STRONG_SECONDARY", ticker: "HOOD", feedFormat: "rss" });
+  const wireB = source({ sourceKey: "wire-b", authorityKey: "businesswire", sourceType: "NEWS_PR", url: "https://news.example.test/b", evidenceTier: "TIER_2_STRONG_SECONDARY", ticker: "HOOD", feedFormat: "rss" });
   await store.saveSource(wireA);
   await store.saveSource(wireB);
   const fetchImpl = (url: string | URL | Request) => {

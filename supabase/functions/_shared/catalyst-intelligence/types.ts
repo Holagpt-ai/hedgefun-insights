@@ -141,6 +141,8 @@ export interface SourceRecord {
   enabled: boolean;
   priority: number;
   evidenceTier: EvidenceTier;
+  /** Independent publisher. Feed URL is not this identity. */
+  authorityKey: string;
   lastSuccessAt: string | null;
   lastContentHash: string | null;
   lastEtag: string | null;
@@ -268,6 +270,7 @@ export interface EvidenceRecord {
   eventId: string;
   rawItemId: string;
   sourceId: string;
+  authorityKey: string;
   evidenceTier: EvidenceTier;
   evidenceRole: "primary" | "secondary";
   canonicalUrl: string | null;

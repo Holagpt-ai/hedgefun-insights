@@ -53,6 +53,8 @@ CREATE TABLE IF NOT EXISTS public.catalyst_intel_sources (
   evidence_tier text NOT NULL CHECK (evidence_tier IN (
     'TIER_1_PRIMARY', 'TIER_2_STRONG_SECONDARY', 'TIER_3_DISCOVERY'
   )),
+  -- Independent publisher. Two feed URLs with the same key are one confirmation.
+  authority_key text NOT NULL CHECK (length(btrim(authority_key)) > 0),
   last_success_at timestamptz,
   last_content_hash text,
   last_etag text,
@@ -66,7 +68,7 @@ CREATE TABLE IF NOT EXISTS public.catalyst_intel_sources (
 );
 
 CREATE INDEX IF NOT EXISTS catalyst_intel_sources_due_idx
-  ON public.catalyst_intel_sources (source_type, enabled, priority DESC);
+  ON public.catalyst_intel_sources (source_type, enabled, priority DESC, last_success_at ASC NULLS FIRST, source_key);
 
 CREATE TRIGGER trg_catalyst_intel_sources_updated
   BEFORE UPDATE ON public.catalyst_intel_sources
@@ -85,6 +87,17 @@ CREATE TRIGGER trg_catalyst_intel_bot_config_updated
   BEFORE UPDATE ON public.catalyst_intel_bot_config
   FOR EACH ROW EXECUTE FUNCTION public.catalyst_intel_touch_updated_at();
 
+-- Activation is two layers. Both are required.
+-- 1. Global bot gate: CATALYST_INTEL_<BOT>_ENABLED or catalyst_intel_bot_config.enabled.
+--    true env overrides a disabled row. false env disables even if the row is enabled.
+--    Unset env uses the row. Seeded rows are disabled.
+-- 2. Source gate: catalyst_intel_sources.enabled, plus expired backoff and a due poll interval.
+--    CATALYST_INTEL_SEC_ENABLED=true is NOT sufficient while sec-latest-filings.enabled is false.
+--    Enable the source explicitly:
+--      UPDATE public.catalyst_intel_sources
+--      SET enabled = true
+--      WHERE source_key = 'sec-latest-filings';
+
 INSERT INTO public.catalyst_intel_bot_config
   (bot, enabled, batch_limit, concurrency, poll_interval_seconds)
 VALUES
@@ -96,10 +109,10 @@ VALUES
 ON CONFLICT (bot) DO NOTHING;
 
 -- One authoritative SEC latest-filings source. Disabled until an operator
--- enables the bot. This is configuration, not a catalyst event.
+-- enables BOTH the bot gate and this row. This is configuration, not a catalyst event.
 INSERT INTO public.catalyst_intel_sources (
   source_key, company_name, ticker, cik, source_type, url, hostname, feed_format,
-  poll_interval_seconds, enabled, priority, evidence_tier, metadata
+  poll_interval_seconds, enabled, priority, evidence_tier, authority_key, metadata
 ) VALUES (
   'sec-latest-filings',
   NULL,
@@ -113,8 +126,41 @@ INSERT INTO public.catalyst_intel_sources (
   false,
   100,
   'TIER_1_PRIMARY',
+  'sec',
   '{"checkpoint":{"start":0}}'::jsonb
 ) ON CONFLICT (source_key) DO NOTHING;
+
+-- Due selection stays in the database. Equal priority rotates by oldest
+-- success (never-run first) so a due source cannot sit forever past the batch limit.
+CREATE OR REPLACE FUNCTION public.catalyst_intel_due_sources(
+  p_source_type text,
+  p_now timestamptz,
+  p_limit integer,
+  p_allow text[]
+)
+RETURNS SETOF public.catalyst_intel_sources
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT s.*
+  FROM public.catalyst_intel_sources s
+  WHERE s.enabled
+    AND (p_source_type IS NULL OR s.source_type = p_source_type)
+    AND (s.backoff_until IS NULL OR s.backoff_until <= p_now)
+    AND (
+      s.last_success_at IS NULL
+      OR s.last_success_at + make_interval(secs => s.poll_interval_seconds) <= p_now
+    )
+    AND (
+      p_allow IS NULL
+      OR cardinality(p_allow) = 0
+      OR s.source_key = ANY (p_allow)
+      OR s.id::text = ANY (p_allow)
+    )
+  ORDER BY s.priority DESC, s.last_success_at ASC NULLS FIRST, s.source_key ASC
+  LIMIT GREATEST(LEAST(COALESCE(p_limit, 0), 200), 0);
+$$;
 
 CREATE TABLE IF NOT EXISTS public.catalyst_intel_runs (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -153,6 +199,9 @@ CREATE TABLE IF NOT EXISTS public.catalyst_intel_raw_items (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Cross-invocation idempotency is these unique keys, not a table lock.
+-- 23505 on raw, canonical_key, or evidence means resume the winning row.
+-- An unlinked raw item is retryable. A linked raw item is a duplicate.
 CREATE UNIQUE INDEX IF NOT EXISTS catalyst_intel_raw_source_external_uidx
   ON public.catalyst_intel_raw_items (source_id, external_id);
 
@@ -229,6 +278,7 @@ CREATE TABLE IF NOT EXISTS public.catalyst_intel_evidence (
   event_id uuid NOT NULL REFERENCES public.catalyst_intel_events(id),
   raw_item_id uuid NOT NULL REFERENCES public.catalyst_intel_raw_items(id),
   source_id uuid NOT NULL REFERENCES public.catalyst_intel_sources(id),
+  authority_key text NOT NULL CHECK (length(btrim(authority_key)) > 0),
   evidence_tier text NOT NULL CHECK (evidence_tier IN (
     'TIER_1_PRIMARY', 'TIER_2_STRONG_SECONDARY', 'TIER_3_DISCOVERY'
   )),
@@ -358,6 +408,26 @@ REVOKE ALL ON public.catalyst_intel_evidence FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.catalyst_intel_event_tickers FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.catalyst_intel_reactions FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.catalyst_intel_distribution FROM PUBLIC, anon, authenticated;
+
+-- Latest radar row per symbol. provider_as_of wins, then updated_at.
+-- Does not treat previous close or dollar volume as an event reference price.
+CREATE OR REPLACE FUNCTION public.catalyst_intel_latest_radar(p_symbols text[])
+RETURNS SETOF public.radar_v22_candidates
+LANGUAGE sql
+STABLE
+SET search_path = public
+AS $$
+  SELECT DISTINCT ON (c.symbol) c.*
+  FROM public.radar_v22_candidates c
+  WHERE c.symbol = ANY (p_symbols)
+  ORDER BY c.symbol, c.provider_as_of DESC NULLS LAST, c.updated_at DESC NULLS LAST;
+$$;
+
+REVOKE ALL ON FUNCTION public.catalyst_intel_due_sources(text, timestamptz, integer, text[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.catalyst_intel_due_sources(text, timestamptz, integer, text[]) TO service_role;
+
+REVOKE ALL ON FUNCTION public.catalyst_intel_latest_radar(text[]) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.catalyst_intel_latest_radar(text[]) TO service_role;
 
 GRANT ALL ON public.catalyst_intel_sources TO service_role;
 GRANT ALL ON public.catalyst_intel_bot_config TO service_role;

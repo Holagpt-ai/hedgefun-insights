@@ -1,3 +1,5 @@
+import { UniqueConflictError } from "./conflicts.ts";
+import { selectDueSources } from "./source-registry.ts";
 import type {
   BotConfig,
   BotId,
@@ -17,9 +19,17 @@ export interface SourceQuery {
   sourceKeys?: string[];
 }
 
+export interface DueSourceQuery {
+  sourceType?: SourceRecord["sourceType"];
+  now: Date;
+  limit: number;
+  allowlist?: readonly string[];
+}
+
 export interface CatalystIntelStore {
   getBotConfig(bot: BotId): Promise<BotConfig | null>;
   listSources(query: SourceQuery): Promise<SourceRecord[]>;
+  listDueSources(input: DueSourceQuery): Promise<SourceRecord[]>;
   saveSource(source: SourceRecord): Promise<void>;
   saveRun(run: RunTelemetry): Promise<void>;
   findRawByExternal(sourceId: string, externalId: string): Promise<RawItemRecord | null>;
@@ -31,6 +41,7 @@ export interface CatalystIntelStore {
   evidenceForHash(contentHash: string): Promise<EvidenceRecord[]>;
   insertEvidence(row: EvidenceRecord): Promise<void>;
   getEvent(id: string): Promise<CanonicalEvent | null>;
+  getEventByCanonicalKey(key: string): Promise<CanonicalEvent | null>;
   listEventsForTicker(ticker: string): Promise<CanonicalEvent[]>;
   listReactionCandidates(limit: number): Promise<CanonicalEvent[]>;
   insertEvent(event: CanonicalEvent): Promise<void>;
@@ -72,6 +83,10 @@ export function createMemoryStore(): CatalystIntelStore & {
         return true;
       }).map((row) => structuredClone(row));
     },
+    async listDueSources(input) {
+      const pool = sources.filter((source) => !input.sourceType || source.sourceType === input.sourceType);
+      return selectDueSources(pool, input.now, input.limit, input.allowlist).map((row) => structuredClone(row));
+    },
     async saveSource(source) {
       const index = sources.findIndex((row) => row.id === source.id);
       if (index >= 0) sources[index] = structuredClone(source);
@@ -89,6 +104,10 @@ export function createMemoryStore(): CatalystIntelStore & {
       return raw.find((row) => row.sourceId === sourceId && row.contentHash === contentHash) ?? null;
     },
     async insertRaw(item) {
+      const duplicate = raw.some((row) => row.sourceId === item.sourceId && (
+        (item.externalId != null && row.externalId === item.externalId) || row.contentHash === item.contentHash
+      ));
+      if (duplicate) throw new UniqueConflictError();
       raw.push(structuredClone(item));
     },
     async findEvidenceByRaw(rawItemId) {
@@ -104,10 +123,16 @@ export function createMemoryStore(): CatalystIntelStore & {
       return evidence.filter((row) => row.contentHash === contentHash).map((row) => structuredClone(row));
     },
     async insertEvidence(row) {
+      const duplicate = evidence.some((item) => item.eventId === row.eventId && item.rawItemId === row.rawItemId);
+      if (duplicate) throw new UniqueConflictError();
       evidence.push(structuredClone(row));
     },
     async getEvent(id) {
       const found = events.find((row) => row.id === id);
+      return found ? structuredClone(found) : null;
+    },
+    async getEventByCanonicalKey(key) {
+      const found = events.find((row) => row.canonicalKey === key);
       return found ? structuredClone(found) : null;
     },
     async listEventsForTicker(ticker) {
@@ -123,6 +148,9 @@ export function createMemoryStore(): CatalystIntelStore & {
         .map((row) => structuredClone(row));
     },
     async insertEvent(event) {
+      if (events.some((row) => row.id === event.id || row.canonicalKey === event.canonicalKey)) {
+        throw new UniqueConflictError();
+      }
       events.push(structuredClone(event));
     },
     async updateEvent(event) {

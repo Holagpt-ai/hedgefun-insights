@@ -19,6 +19,13 @@ export function selectDueSources(
       const elapsed = nowMs - Date.parse(source.lastSuccessAt);
       return elapsed >= source.pollIntervalSeconds * 1000;
     })
-    .sort((a, b) => b.priority - a.priority || a.sourceKey.localeCompare(b.sourceKey))
+    .sort((a, b) => {
+      const priority = b.priority - a.priority;
+      if (priority !== 0) return priority;
+      const aSuccess = a.lastSuccessAt ? Date.parse(a.lastSuccessAt) : Number.NEGATIVE_INFINITY;
+      const bSuccess = b.lastSuccessAt ? Date.parse(b.lastSuccessAt) : Number.NEGATIVE_INFINITY;
+      if (aSuccess !== bSuccess) return aSuccess - bSuccess;
+      return a.sourceKey.localeCompare(b.sourceKey);
+    })
     .slice(0, Math.max(0, limit));
 }
