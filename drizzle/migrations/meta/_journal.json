@@ -393,6 +393,13 @@
       "when": 1790726257191,
       "tag": "0055_20260929201000_daily_brief_generation_state",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1790870741834,
+      "tag": "0056_catalyst_intelligence_foundation_v1",
+      "breakpoints": true
     }
   ]
 }
