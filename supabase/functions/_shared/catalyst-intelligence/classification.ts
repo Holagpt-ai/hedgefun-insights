@@ -57,6 +57,12 @@ export function sameEventFamily(a: IntelEventType, b: IntelEventType): boolean {
   return FAMILIES.some((family) => family.includes(a) && family.includes(b));
 }
 
+/** Stable family id for a narrow dedupe lock. Not a content hash. */
+export function eventFamilyKey(eventType: IntelEventType): string {
+  const index = FAMILIES.findIndex((family) => family.includes(eventType));
+  return index >= 0 ? `f${index}` : eventType;
+}
+
 export function classifyCandidate(candidate: NormalizedEventCandidate): Classification {
   const form = typeof candidate.metadata.formType === "string"
     ? candidate.metadata.formType.toUpperCase()

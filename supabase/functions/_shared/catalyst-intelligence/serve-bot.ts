@@ -35,7 +35,7 @@ function serveBot(bot: BotId): void {
         for (const [cik, rows] of parsed) out.set(cik, rows.map((row: { ticker: string }) => row.ticker));
         return out;
       } : undefined,
-      loadCompanies: bot === "reactions" ? undefined : async () => {
+      loadCompanies: bot === "news" || bot === "ir" || bot === "events" ? async () => {
         const url = env("SUPABASE_URL") ?? "";
         const key = env("SUPABASE_SERVICE_ROLE_KEY") ?? "";
         if (!url || !key) throw new Error("missing_supabase");

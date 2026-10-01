@@ -358,6 +358,62 @@ CREATE TRIGGER trg_catalyst_intel_reactions_updated
   BEFORE UPDATE ON public.catalyst_intel_reactions
   FOR EACH ROW EXECUTE FUNCTION public.catalyst_intel_touch_updated_at();
 
+-- One guard row per ticker + event family + UTC day.
+-- This is not a table lock and the key does not include content hash.
+-- The holder re-reads dedupe candidates after the row is acquired.
+CREATE TABLE IF NOT EXISTS public.catalyst_intel_dedupe_guards (
+  lock_key text PRIMARY KEY,
+  holder uuid NOT NULL,
+  acquired_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION public.catalyst_intel_acquire_dedupe_lock(
+  p_lock_key text,
+  p_owner uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+DECLARE
+  tries integer := 0;
+BEGIN
+  IF p_lock_key IS NULL OR length(btrim(p_lock_key)) = 0 OR p_owner IS NULL THEN
+    RAISE EXCEPTION 'dedupe_lock_key_required';
+  END IF;
+  LOOP
+    DELETE FROM public.catalyst_intel_dedupe_guards
+    WHERE lock_key = p_lock_key
+      AND acquired_at < now() - interval '15 seconds';
+    BEGIN
+      INSERT INTO public.catalyst_intel_dedupe_guards (lock_key, holder)
+      VALUES (p_lock_key, p_owner);
+      RETURN;
+    EXCEPTION WHEN unique_violation THEN
+      tries := tries + 1;
+      IF tries > 40 THEN
+        RAISE EXCEPTION 'dedupe_lock_timeout';
+      END IF;
+      PERFORM pg_sleep(0.05);
+    END;
+  END LOOP;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.catalyst_intel_release_dedupe_lock(
+  p_lock_key text,
+  p_owner uuid
+)
+RETURNS void
+LANGUAGE plpgsql
+SET search_path = public
+AS $$
+BEGIN
+  DELETE FROM public.catalyst_intel_dedupe_guards
+  WHERE lock_key = p_lock_key AND holder = p_owner;
+END;
+$$;
+
 -- Service-role read model. observation rows stay queryable for review.
 -- distribution_status = 'ready' is the explicit gate for later product surfaces.
 CREATE OR REPLACE VIEW public.catalyst_intel_distribution AS
@@ -407,6 +463,7 @@ REVOKE ALL ON public.catalyst_intel_events FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.catalyst_intel_evidence FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.catalyst_intel_event_tickers FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.catalyst_intel_reactions FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.catalyst_intel_dedupe_guards FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON public.catalyst_intel_distribution FROM PUBLIC, anon, authenticated;
 
 -- Latest radar row per symbol. provider_as_of wins, then updated_at.
@@ -429,6 +486,12 @@ GRANT EXECUTE ON FUNCTION public.catalyst_intel_due_sources(text, timestamptz, i
 REVOKE ALL ON FUNCTION public.catalyst_intel_latest_radar(text[]) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.catalyst_intel_latest_radar(text[]) TO service_role;
 
+REVOKE ALL ON FUNCTION public.catalyst_intel_acquire_dedupe_lock(text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.catalyst_intel_acquire_dedupe_lock(text, uuid) TO service_role;
+
+REVOKE ALL ON FUNCTION public.catalyst_intel_release_dedupe_lock(text, uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.catalyst_intel_release_dedupe_lock(text, uuid) TO service_role;
+
 GRANT ALL ON public.catalyst_intel_sources TO service_role;
 GRANT ALL ON public.catalyst_intel_bot_config TO service_role;
 GRANT ALL ON public.catalyst_intel_runs TO service_role;
@@ -437,6 +500,7 @@ GRANT ALL ON public.catalyst_intel_events TO service_role;
 GRANT ALL ON public.catalyst_intel_evidence TO service_role;
 GRANT ALL ON public.catalyst_intel_event_tickers TO service_role;
 GRANT ALL ON public.catalyst_intel_reactions TO service_role;
+GRANT ALL ON public.catalyst_intel_dedupe_guards TO service_role;
 GRANT SELECT ON public.catalyst_intel_distribution TO service_role;
 
 ALTER TABLE public.catalyst_intel_sources ENABLE ROW LEVEL SECURITY;
@@ -447,3 +511,4 @@ ALTER TABLE public.catalyst_intel_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.catalyst_intel_evidence ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.catalyst_intel_event_tickers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.catalyst_intel_reactions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.catalyst_intel_dedupe_guards ENABLE ROW LEVEL SECURITY;

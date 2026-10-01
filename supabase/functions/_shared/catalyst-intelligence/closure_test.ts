@@ -1,9 +1,14 @@
 import { assert, assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { companyIrAdapter } from "./adapters/company-ir.ts";
 import { newsPrAdapter } from "./adapters/news-pr.ts";
+import { secFilingsAdapter } from "./adapters/sec.ts";
 import { attributeCandidate } from "./attribution.ts";
 import { buildCompanyUniverse } from "./company-universe.ts";
+import { DatabaseReadError } from "./conflicts.ts";
+import { logicalEventLockKey } from "./dedupe.ts";
 import { verifyEvidence } from "./evidence.ts";
 import { eventReferenceInstant, priceBarsFromPolygonAggs, referencePriceAtOrBefore } from "./event-bars.ts";
+import { handleCatalystIntelRequest } from "./http.ts";
 import { observationFromRadarRow, pickLatestRadarRows } from "./market-reaction.ts";
 import { ingestCandidate } from "./pipeline.ts";
 import { createMemoryStore } from "./persistence.ts";
@@ -439,6 +444,9 @@ Deno.test("migration keeps the two-layer gate and does not alter catalyst_events
   const storeSrc = await Deno.readTextFile(new URL("./supabase-store.ts", import.meta.url));
   assert(sql.includes("authority_key"));
   assert(sql.includes("catalyst_intel_due_sources"));
+  assert(sql.includes("catalyst_intel_acquire_dedupe_lock"));
+  assert(sql.includes("catalyst_intel_dedupe_guards"));
+  assert(sql.includes("GRANT EXECUTE ON FUNCTION public.catalyst_intel_acquire_dedupe_lock"));
   assert(sql.includes("last_success_at ASC NULLS FIRST"));
   assert(sql.includes("catalyst_intel_latest_radar"));
   assert(sql.includes("DISTINCT ON (c.symbol)"));
@@ -450,4 +458,261 @@ Deno.test("migration keeps the two-layer gate and does not alter catalyst_events
   assert(!storeSrc.includes(".limit(500)"));
   assert(storeSrc.includes("catalyst_intel_due_sources"));
   assert(storeSrc.includes("mapDatabaseError"));
+  assert(storeSrc.includes("throw new DatabaseReadError()"));
+});
+
+Deno.test("concurrent different hashes and titles still create one logical event", async () => {
+  const store = createMemoryStore();
+  const left = source({
+    id: "reuters",
+    sourceKey: "reuters-wire",
+    authorityKey: "reuters",
+    sourceType: "NEWS_PR",
+    url: "https://reuters.example.test/feed",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+  });
+  const right = source({
+    id: "businesswire",
+    sourceKey: "bw-wire",
+    authorityKey: "businesswire",
+    sourceType: "NEWS_PR",
+    url: "https://businesswire.example.test/feed",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+  });
+  const reutersTitle = "Example Hood Markets names a new chief financial officer";
+  const wireTitle = "Example Hood Markets appoints a new chief financial officer";
+  const lockA = logicalEventLockKey({ ticker: "HOOD", eventType: "EXECUTIVE_CHANGE", publishedAt: NOW.toISOString(), scheduledStart: null });
+  const lockB = logicalEventLockKey({ ticker: "HOOD", eventType: "EXECUTIVE_CHANGE", publishedAt: NOW.toISOString(), scheduledStart: null });
+  assertEquals(lockA, lockB);
+  assert(!lockA.includes("hash"));
+  await Promise.all([
+    ingestCandidate(store, candidate({
+      sourceId: left.id,
+      externalId: "reuters-cfo-1",
+      title: reutersTitle,
+      hash: "hash-reuters-cfo",
+      ticker: "HOOD",
+    }), { now: NOW, allowFixtures: false, source: left }),
+    ingestCandidate(store, candidate({
+      sourceId: right.id,
+      externalId: "bw-cfo-9",
+      title: wireTitle,
+      hash: "hash-businesswire-cfo",
+      ticker: "HOOD",
+    }), { now: NOW, allowFixtures: false, source: right }),
+  ]);
+  assertEquals(store.rawItems().length, 2);
+  assertEquals(new Set(store.rawItems().map((row) => row.contentHash)).size, 2);
+  assertEquals(new Set(store.rawItems().map((row) => row.canonicalUrl)).size, 2);
+  assertEquals(store.events().length, 1);
+  assertEquals((await store.listEvidence(store.events()[0].id)).length, 2);
+});
+
+Deno.test("stored event reference price is reused without another bar fetch", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    id: "rx-cost",
+    sourceType: "NEWS_PR",
+    url: "https://news.example.test/cost",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    authorityKey: "reuters",
+  });
+  await ingestCandidate(
+    store,
+    candidate({ sourceId: src.id, externalId: "cost", title: "Example Hood Markets names a new chief financial officer", hash: "cost-hash", ticker: "HOOD" }),
+    { now: NOW, allowFixtures: false, source: src },
+  );
+  let barCalls = 0;
+  const eventMs = NOW.getTime();
+  const observation = {
+    symbol: "HOOD",
+    observedAt: NOW.toISOString(),
+    freshness: "fresh" as const,
+    referencePrice: null,
+    currentPrice: 110,
+    intradayHigh: null,
+    intradayLow: null,
+    volume: 10,
+    dollarVolume: null,
+    rvol5m: 4,
+    timeAdjustedRvol: 1.2,
+    volumeVelocity: 9,
+    volumeAcceleration: null,
+    vwap: 108,
+    vwapSide: "above",
+    hodDistancePct: null,
+    floatTurnover: null,
+  };
+  await runReactionBot({
+    store,
+    now: NOW,
+    batchLimit: 5,
+    loadObservation: async () => observation,
+    loadReferenceBars: async () => {
+      barCalls += 1;
+      return [{ startMs: eventMs - 60_000, durationMs: 60_000, close: 100 }];
+    },
+  });
+  assertEquals(barCalls, 1);
+  assertEquals(store.reactions()[0].referencePrice, 100);
+  assertEquals(store.reactions()[0].percentMove, 10);
+  await runReactionBot({
+    store,
+    now: NOW,
+    batchLimit: 5,
+    loadObservation: async () => ({ ...observation, currentPrice: 120, rvol5m: null, volumeVelocity: null, vwap: null }),
+    loadReferenceBars: async () => {
+      barCalls += 1;
+      return [{ startMs: eventMs - 60_000, durationMs: 60_000, close: 50 }];
+    },
+  });
+  assertEquals(barCalls, 1);
+  assertEquals(store.reactions()[0].referencePrice, 100);
+  assertEquals(store.reactions()[0].currentPrice, 120);
+  assertEquals(store.reactions()[0].percentMove, 20);
+  assertEquals(store.reactions()[0].rvol5m, 4);
+  assertEquals(store.reactions()[0].volumeVelocity, 9);
+  assertEquals(store.reactions()[0].vwap, 108);
+});
+
+Deno.test("database read failures are not empty successful runs", async () => {
+  const secret = (key: string) => key === "SYNC_SECRET" ? "secret" : key === "CATALYST_INTEL_NEWS_ENABLED" ? "true" : undefined;
+  const dueStore = createMemoryStore();
+  dueStore.listDueSources = () => Promise.reject(new DatabaseReadError());
+  const due = await handleCatalystIntelRequest(new Request("https://example.test/bot", {
+    method: "POST",
+    headers: { Authorization: "Bearer secret" },
+  }), { bot: "news", env: secret, store: dueStore });
+  assertEquals(due.status, 500);
+  const dueBody = await due.json();
+  assertEquals(dueBody.error, "DATABASE_ERROR");
+  assertEquals(dueBody.status, "failed");
+  assert(dueBody.run.errors.some((error: { category: string }) => error.category === "database"));
+  assertEquals(dueBody.run.status, "failed");
+
+  const configStore = createMemoryStore();
+  configStore.getBotConfig = () => Promise.reject(new DatabaseReadError());
+  const configFailed = await handleCatalystIntelRequest(new Request("https://example.test/bot", {
+    method: "POST",
+    headers: { Authorization: "Bearer secret" },
+  }), {
+    bot: "news",
+    env: (key) => key === "SYNC_SECRET" ? "secret" : undefined,
+    store: configStore,
+  });
+  assertEquals(configFailed.status, 500);
+  const configBody = await configFailed.json();
+  assertEquals(configBody.error, "DATABASE_ERROR");
+  assertEquals(configBody.status, "failed");
+
+  const missing = await handleCatalystIntelRequest(new Request("https://example.test/bot", {
+    method: "POST",
+    headers: { Authorization: "Bearer secret" },
+  }), {
+    bot: "news",
+    env: (key) => key === "SYNC_SECRET" ? "secret" : undefined,
+    store: createMemoryStore(),
+  });
+  assertEquals(missing.status, 200);
+  const missingBody = await missing.json();
+  assertEquals(missingBody.status, "disabled");
+  assertEquals(missingBody.error, undefined);
+});
+
+Deno.test("company universe loads for news and unmapped company sources only", async () => {
+  const newsStore = createMemoryStore();
+  await newsStore.saveSource(source({
+    sourceKey: "news-feed",
+    sourceType: "NEWS_PR",
+    url: "https://news.example.test/feed",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    ticker: "HOOD",
+  }));
+  let newsLoads = 0;
+  await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store: newsStore,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response("", { status: 404 })),
+    batchLimit: 5,
+    loadCompanies: async () => {
+      newsLoads += 1;
+      return [];
+    },
+  });
+  assertEquals(newsLoads, 1);
+
+  const irStore = createMemoryStore();
+  await irStore.saveSource(source({
+    sourceKey: "ir-mapped",
+    sourceType: "COMPANY_IR",
+    url: "https://ir.example.test/feed",
+    evidenceTier: "TIER_1_PRIMARY",
+    ticker: "HOOD",
+  }));
+  let irLoads = 0;
+  await runCollectorBot({
+    bot: "ir",
+    adapter: companyIrAdapter,
+    store: irStore,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response("", { status: 404 })),
+    batchLimit: 5,
+    loadCompanies: async () => {
+      irLoads += 1;
+      return [];
+    },
+  });
+  assertEquals(irLoads, 0);
+
+  const unmapped = createMemoryStore();
+  await unmapped.saveSource(source({
+    sourceKey: "ir-open",
+    sourceType: "COMPANY_IR",
+    url: "https://ir.example.test/open",
+    evidenceTier: "TIER_1_PRIMARY",
+    ticker: null,
+  }));
+  let unmappedLoads = 0;
+  await runCollectorBot({
+    bot: "ir",
+    adapter: companyIrAdapter,
+    store: unmapped,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response("", { status: 404 })),
+    batchLimit: 5,
+    loadCompanies: async () => {
+      unmappedLoads += 1;
+      return [];
+    },
+  });
+  assertEquals(unmappedLoads, 1);
+
+  const secStore = createMemoryStore();
+  await secStore.saveSource(source({
+    sourceKey: "sec-feed",
+    sourceType: "SEC_FILINGS",
+    url: "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom",
+    evidenceTier: "TIER_1_PRIMARY",
+    feedFormat: "sec_atom",
+  }));
+  let secLoads = 0;
+  await runCollectorBot({
+    bot: "sec",
+    adapter: secFilingsAdapter,
+    store: secStore,
+    now: NOW,
+    userAgent: "Stocksist test@example.com",
+    fetchImpl: () => Promise.resolve(new Response("", { status: 404 })),
+    batchLimit: 5,
+    loadCompanies: async () => {
+      secLoads += 1;
+      return [];
+    },
+  });
+  assertEquals(secLoads, 0);
 });

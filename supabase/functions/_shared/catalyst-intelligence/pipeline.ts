@@ -1,7 +1,7 @@
 import { attributeCandidate } from "./attribution.ts";
 import { classifyCandidate } from "./classification.ts";
 import { isUniqueConflict } from "./conflicts.ts";
-import { findDuplicateEvent } from "./dedupe.ts";
+import { findDuplicateEvent, logicalEventLockKey } from "./dedupe.ts";
 import { evidenceRole } from "./evidence.ts";
 import { assessMateriality, timingUrgency } from "./impact.ts";
 import {
@@ -64,23 +64,32 @@ export async function ingestCandidate(
   if (attribution.status !== "resolved" || !attribution.ticker || !attribution.relation) {
     return { status: "unresolved", eventId: null, rawItemId: rawId };
   }
+  const ticker = attribution.ticker;
+  const relation = attribution.relation;
 
   const classification = classifyCandidate(candidate);
   const timing = normalizeTiming(candidate, ctx.now);
-  const pool = await loadPool(store, attribution.ticker, candidate.raw.canonicalUrl, candidate.raw.contentHash);
+  const lockKey = logicalEventLockKey({
+    ticker,
+    eventType: classification.eventType,
+    publishedAt: timing.publishedAt,
+    scheduledStart: timing.scheduledStart,
+  });
+  const at = ctx.now.toISOString();
+  const resolved = await store.withDedupeLock(lockKey, async () => {
+  const pool = await loadPool(store, ticker, candidate.raw.canonicalUrl, candidate.raw.contentHash);
   const evidenceMap = new Map<string, EvidenceRecord[]>();
   for (const event of pool) evidenceMap.set(event.id, await store.listEvidence(event.id));
   const match = findDuplicateEvent({
     title: candidate.title,
     eventType: classification.eventType,
-    ticker: attribution.ticker,
+    ticker,
     scheduledStart: timing.scheduledStart,
     publishedAt: timing.publishedAt,
     canonicalUrl: candidate.raw.canonicalUrl,
     contentHash: candidate.raw.contentHash,
   }, pool, evidenceMap);
 
-  const at = ctx.now.toISOString();
   let event: CanonicalEvent;
   let created = false;
   if (!match) {
@@ -101,7 +110,7 @@ export async function ingestCandidate(
     }
     event = {
       id: crypto.randomUUID(),
-      canonicalKey: `ci:${attribution.ticker}:${classification.eventType}:${anchor(timing, candidate.raw.contentHash)}`,
+      canonicalKey: `ci:${ticker}:${classification.eventType}:${anchor(timing, candidate.raw.contentHash)}`,
       title: candidate.title,
       summary: candidate.summary,
       announcementSummary: candidate.isAnnouncement ? candidate.summary : null,
@@ -189,8 +198,8 @@ export async function ingestCandidate(
   await store.upsertTicker({
     id: crypto.randomUUID(),
     eventId: event.id,
-    ticker: attribution.ticker,
-    relation: attribution.relation,
+    ticker,
+    relation,
     confidence: attribution.confidence,
     isPrimary: true,
     evidenceNote: attribution.note,
@@ -198,9 +207,10 @@ export async function ingestCandidate(
 
   const evidence = await store.listEvidence(event.id);
   applyScores(event, evidence, ctx.now);
-  if (created) await store.updateEvent(event);
-  else await store.updateEvent(event);
-  return { status: created ? "created" : "updated", eventId: event.id, rawItemId: rawId };
+  await store.updateEvent(event);
+  return { event, created };
+  });
+  return { status: resolved.created ? "created" : "updated", eventId: resolved.event.id, rawItemId: rawId };
 }
 
 export function applyScores(event: CanonicalEvent, evidence: readonly EvidenceRecord[], now: Date): void {

@@ -1,4 +1,4 @@
-import { mapDatabaseError } from "./conflicts.ts";
+import { DatabaseReadError, mapDatabaseError } from "./conflicts.ts";
 import { observationFromRadarRow, pickLatestRadarRows } from "./market-reaction.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
 import type {
@@ -32,7 +32,8 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
   return {
     async getBotConfig(bot) {
       const { data, error } = await supabase.from("catalyst_intel_bot_config").select("*").eq("bot", bot).maybeSingle();
-      if (error || !data) return null;
+      if (error) throw new DatabaseReadError();
+      if (!data) return null;
       return mapBot(data as Record<string, unknown>);
     },
     async listSources(query) {
@@ -40,7 +41,8 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       if (query.sourceType) request = request.eq("source_type", query.sourceType);
       if (query.enabledOnly) request = request.eq("enabled", true);
       const { data, error } = await request;
-      if (error || !data) return [];
+      if (error) throw new DatabaseReadError();
+      if (!data) return [];
       let rows = (data as Record<string, unknown>[]).map(mapSource);
       if (query.sourceKeys && query.sourceKeys.length > 0) {
         const allow = new Set(query.sourceKeys);
@@ -56,8 +58,8 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
         p_limit: input.limit,
         p_allow: allow,
       });
-      if (error || !data) return [];
-      return (data as Record<string, unknown>[]).map(mapSource);
+      if (error) throw new DatabaseReadError();
+      return ((data ?? []) as Record<string, unknown>[]).map(mapSource);
     },
     async saveSource(source) {
       const { error } = await supabase.from("catalyst_intel_sources").upsert(unmapSource(source));
@@ -68,11 +70,13 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       if (error) throw new Error("database");
     },
     async findRawByExternal(sourceId, externalId) {
-      const { data } = await supabase.from("catalyst_intel_raw_items").select("*").eq("source_id", sourceId).eq("external_id", externalId).maybeSingle();
+      const { data, error } = await supabase.from("catalyst_intel_raw_items").select("*").eq("source_id", sourceId).eq("external_id", externalId).maybeSingle();
+      if (error) throw new DatabaseReadError();
       return data ? mapRaw(data as Record<string, unknown>) : null;
     },
     async findRawByHash(sourceId, contentHash) {
-      const { data } = await supabase.from("catalyst_intel_raw_items").select("*").eq("source_id", sourceId).eq("content_hash", contentHash).maybeSingle();
+      const { data, error } = await supabase.from("catalyst_intel_raw_items").select("*").eq("source_id", sourceId).eq("content_hash", contentHash).maybeSingle();
+      if (error) throw new DatabaseReadError();
       return data ? mapRaw(data as Record<string, unknown>) : null;
     },
     async insertRaw(item) {
@@ -81,19 +85,23 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       if (mapped) throw mapped;
     },
     async findEvidenceByRaw(rawItemId) {
-      const { data } = await supabase.from("catalyst_intel_evidence").select("*").eq("raw_item_id", rawItemId).maybeSingle();
+      const { data, error } = await supabase.from("catalyst_intel_evidence").select("*").eq("raw_item_id", rawItemId).maybeSingle();
+      if (error) throw new DatabaseReadError();
       return data ? mapEvidence(data as Record<string, unknown>) : null;
     },
     async listEvidence(eventId) {
-      const { data } = await supabase.from("catalyst_intel_evidence").select("*").eq("event_id", eventId);
+      const { data, error } = await supabase.from("catalyst_intel_evidence").select("*").eq("event_id", eventId);
+      if (error) throw new DatabaseReadError();
       return ((data ?? []) as Record<string, unknown>[]).map(mapEvidence);
     },
     async evidenceForUrl(url) {
-      const { data } = await supabase.from("catalyst_intel_evidence").select("*").eq("canonical_url", url).limit(20);
+      const { data, error } = await supabase.from("catalyst_intel_evidence").select("*").eq("canonical_url", url).limit(20);
+      if (error) throw new DatabaseReadError();
       return ((data ?? []) as Record<string, unknown>[]).map(mapEvidence);
     },
     async evidenceForHash(contentHash) {
-      const { data } = await supabase.from("catalyst_intel_evidence").select("*").eq("content_hash", contentHash).limit(20);
+      const { data, error } = await supabase.from("catalyst_intel_evidence").select("*").eq("content_hash", contentHash).limit(20);
+      if (error) throw new DatabaseReadError();
       return ((data ?? []) as Record<string, unknown>[]).map(mapEvidence);
     },
     async insertEvidence(row) {
@@ -102,27 +110,32 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       if (mapped) throw mapped;
     },
     async getEvent(id) {
-      const { data } = await supabase.from("catalyst_intel_events").select("*").eq("id", id).maybeSingle();
+      const { data, error } = await supabase.from("catalyst_intel_events").select("*").eq("id", id).maybeSingle();
+      if (error) throw new DatabaseReadError();
       return data ? mapEvent(data as Record<string, unknown>) : null;
     },
     async getEventByCanonicalKey(key) {
-      const { data } = await supabase.from("catalyst_intel_events").select("*").eq("canonical_key", key).maybeSingle();
+      const { data, error } = await supabase.from("catalyst_intel_events").select("*").eq("canonical_key", key).maybeSingle();
+      if (error) throw new DatabaseReadError();
       return data ? mapEvent(data as Record<string, unknown>) : null;
     },
     async listEventsForTicker(ticker) {
-      const { data } = await supabase.from("catalyst_intel_event_tickers").select("event_id").eq("ticker", ticker).limit(100);
+      const { data, error } = await supabase.from("catalyst_intel_event_tickers").select("event_id").eq("ticker", ticker).limit(100);
+      if (error) throw new DatabaseReadError();
       const ids = ((data ?? []) as { event_id: string }[]).map((row) => row.event_id);
       if (ids.length === 0) return [];
       const events = await supabase.from("catalyst_intel_events").select("*").in("id", ids);
+      if (events.error) throw new DatabaseReadError();
       return ((events.data ?? []) as Record<string, unknown>[]).map(mapEvent);
     },
     async listReactionCandidates(limit) {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("catalyst_intel_events")
         .select("*")
         .in("lifecycle", ["scheduled", "approaching", "live", "announced", "reacting", "follow_through"])
         .order("priority_score", { ascending: false })
         .limit(limit);
+      if (error) throw new DatabaseReadError();
       return ((data ?? []) as Record<string, unknown>[]).map(mapEvent);
     },
     async insertEvent(event) {
@@ -135,7 +148,8 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       if (error) throw new Error("database");
     },
     async listTickers(eventId) {
-      const { data } = await supabase.from("catalyst_intel_event_tickers").select("*").eq("event_id", eventId);
+      const { data, error } = await supabase.from("catalyst_intel_event_tickers").select("*").eq("event_id", eventId);
+      if (error) throw new DatabaseReadError();
       return ((data ?? []) as Record<string, unknown>[]).map(mapTicker);
     },
     async upsertTicker(row) {
@@ -145,8 +159,25 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       if (error) throw new Error("database");
     },
     async getReaction(eventId, windowKind) {
-      const { data } = await supabase.from("catalyst_intel_reactions").select("*").eq("event_id", eventId).eq("window_kind", windowKind).maybeSingle();
+      const { data, error } = await supabase.from("catalyst_intel_reactions").select("*").eq("event_id", eventId).eq("window_kind", windowKind).maybeSingle();
+      if (error) throw new DatabaseReadError();
       return data ? mapReaction(data as Record<string, unknown>) : null;
+    },
+    async withDedupeLock(lockKey, task) {
+      const owner = crypto.randomUUID();
+      const acquired = await supabase.rpc("catalyst_intel_acquire_dedupe_lock", {
+        p_lock_key: lockKey,
+        p_owner: owner,
+      });
+      if (acquired?.error) throw new DatabaseReadError();
+      try {
+        return await task();
+      } finally {
+        await supabase.rpc("catalyst_intel_release_dedupe_lock", {
+          p_lock_key: lockKey,
+          p_owner: owner,
+        });
+      }
     },
     async upsertReaction(row) {
       const { error } = await supabase.from("catalyst_intel_reactions").upsert(unmapReaction(row), {

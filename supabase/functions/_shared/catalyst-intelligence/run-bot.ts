@@ -7,7 +7,8 @@ import {
   preserveObservedMetrics,
   reactionFromAssessment,
 } from "./market-reaction.ts";
-import { isFixturePayload } from "./normalize.ts";
+import { DatabaseReadError } from "./conflicts.ts";
+import { isFixturePayload, normalizeTicker } from "./normalize.ts";
 import { applyScores, ingestCandidate } from "./pipeline.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
 import { SourceFetchError } from "./source-fetch.ts";
@@ -33,6 +34,7 @@ export interface CollectorRunInput {
   allowlist?: string[];
   allowFixtures?: boolean;
   companies?: readonly CompanyRecord[];
+  loadCompanies?: () => Promise<readonly CompanyRecord[]>;
   cikMap?: ReadonlyMap<string, string[]>;
   itemLimit?: number;
 }
@@ -40,12 +42,31 @@ export interface CollectorRunInput {
 export async function runCollectorBot(input: CollectorRunInput): Promise<RunTelemetry> {
   const wallStart = Date.now();
   const run = emptyRun(input.bot, crypto.randomUUID(), new Date(wallStart).toISOString());
-  const sources = await input.store.listDueSources({
-    sourceType: input.adapter.sourceType,
-    now: input.now,
-    limit: input.batchLimit,
-    allowlist: input.allowlist,
-  });
+  let sources;
+  try {
+    sources = await input.store.listDueSources({
+      sourceType: input.adapter.sourceType,
+      now: input.now,
+      limit: input.batchLimit,
+      allowlist: input.allowlist,
+    });
+  } catch (err) {
+    if (err instanceof DatabaseReadError) return failDatabaseRun(input.store, run, wallStart);
+    throw err;
+  }
+  let companies = input.companies;
+  if (!companies && input.loadCompanies) {
+    const mappedBot = input.bot === "ir" || input.bot === "events";
+    const needsUniverse = (input.bot === "news" && sources.length > 0) ||
+      (mappedBot && sources.some((source) => !normalizeTicker(source.ticker)));
+    if (needsUniverse) {
+      try {
+        companies = await input.loadCompanies();
+      } catch (err) {
+        if (err instanceof DatabaseReadError || err instanceof Error) return failDatabaseRun(input.store, run, wallStart);
+      }
+    }
+  }
   let ingestQueue = Promise.resolve();
   const ingestNext = <T>(fn: () => Promise<T>): Promise<T> => {
     const result = ingestQueue.then(fn, fn);
@@ -61,7 +82,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       userAgent: input.userAgent,
       fetchImpl: input.fetchImpl ?? fetch,
       cikMap: input.cikMap,
-      companies: input.companies,
+      companies,
       itemLimit: input.itemLimit ?? MAX_ITEMS_PER_SOURCE,
       allowFixtures: input.allowFixtures === true,
       fetchState: {
@@ -95,7 +116,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
           now: input.now,
           allowFixtures: ctx.allowFixtures,
           source,
-          companies: input.companies,
+          companies,
           cikMap: input.cikMap,
         }));
         if (outcome.status === "created") run.eventsCreated += 1;
@@ -107,6 +128,11 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       await input.store.saveSource(source);
       run.sourcesSuccessful += 1;
     } catch (err) {
+      if (err instanceof DatabaseReadError) {
+        run.sourcesFailed += 1;
+        run.errors.push(safeError(source.id, "database", null, true, Date.now() - startedSource));
+        return;
+      }
       const known = err instanceof SourceFetchError ? err : null;
       source.failureCount += 1;
       source.backoffUntil = new Date(input.now.getTime() + backoffSeconds(source.failureCount) * 1000).toISOString();
@@ -124,7 +150,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
   });
   run.completedAt = new Date().toISOString();
   run.elapsedMs = Date.now() - wallStart;
-  run.status = "completed";
+  run.status = run.errors.some((error) => error.category === "database") ? "failed" : "completed";
   await input.store.saveRun(run);
   console.log(formatRunLog(run));
   return run;
@@ -143,7 +169,13 @@ export interface ReactionRunInput {
 export async function runReactionBot(input: ReactionRunInput): Promise<RunTelemetry> {
   const wallStart = Date.now();
   const run = emptyRun("reactions", crypto.randomUUID(), new Date(wallStart).toISOString());
-  const events = await input.store.listReactionCandidates(input.batchLimit);
+  let events;
+  try {
+    events = await input.store.listReactionCandidates(input.batchLimit);
+  } catch (err) {
+    if (err instanceof DatabaseReadError) return failDatabaseRun(input.store, run, wallStart);
+    throw err;
+  }
   const windowKind = input.windowKind ?? "point";
   for (const event of events) {
     run.sourcesAttempted += 1;
@@ -154,15 +186,20 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         run.sourcesSuccessful += 1;
         continue;
       }
+      const existing = await input.store.getReaction(event.id, windowKind);
       let observation = await input.loadObservation(ticker.ticker);
       const eventAt = eventReferenceInstant(event);
-      if (observation && observation.referencePrice == null && eventAt && input.loadReferenceBars) {
+      const storedReference = existing?.referencePrice != null && existing.referencePrice > 0
+        ? existing.referencePrice
+        : null;
+      if (observation && storedReference != null) {
+        observation = { ...observation, referencePrice: storedReference };
+      } else if (observation && observation.referencePrice == null && eventAt && input.loadReferenceBars) {
         const bars = await input.loadReferenceBars(ticker.ticker, eventAt);
         const reference = referencePriceAtOrBefore(bars, Date.parse(eventAt));
         observation = { ...observation, referencePrice: reference };
       }
       const assessment = assessMarketObservation(observation, input.now, input.maxAgeMs);
-      const existing = await input.store.getReaction(event.id, windowKind);
       if (assessment.availability !== "available" && existing?.availability === "available") {
         run.sourcesSuccessful += 1;
         continue;
@@ -197,7 +234,7 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
       run.sourcesFailed += 1;
       run.errors.push(safeError(
         event.id,
-        err instanceof SourceFetchError ? err.category : "market_data",
+        err instanceof DatabaseReadError ? "database" : err instanceof SourceFetchError ? err.category : "market_data",
         null,
         true,
         Date.now() - startedEvent,
@@ -206,9 +243,24 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
   }
   run.completedAt = new Date().toISOString();
   run.elapsedMs = Date.now() - wallStart;
-  run.status = "completed";
+  run.status = run.errors.some((error) => error.category === "database") ? "failed" : "completed";
   await input.store.saveRun(run);
   console.log(formatRunLog(run));
+  return run;
+}
+
+async function failDatabaseRun(store: CatalystIntelStore, run: RunTelemetry, wallStart: number): Promise<RunTelemetry> {
+  run.status = "failed";
+  run.sourcesFailed += 1;
+  run.completedAt = new Date().toISOString();
+  run.elapsedMs = Date.now() - wallStart;
+  run.errors.push(safeError(run.bot, "database", null, true, run.elapsedMs));
+  console.log(formatRunLog(run));
+  try {
+    await store.saveRun(run);
+  } catch {
+    // The read already failed. Keep the failed run visible to the caller.
+  }
   return run;
 }
 

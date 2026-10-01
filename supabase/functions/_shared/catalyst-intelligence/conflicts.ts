@@ -13,6 +13,14 @@ export function isUniqueConflict(error: unknown): boolean {
   return (error as { code?: string }).code === "23505";
 }
 
+/** A query failed. This is not an empty result. */
+export class DatabaseReadError extends Error {
+  constructor() {
+    super("database");
+    this.name = "DatabaseReadError";
+  }
+}
+
 export function mapDatabaseError(error: { code?: string } | null): Error | null {
   if (!error) return null;
   if (error.code === "23505") return new UniqueConflictError();

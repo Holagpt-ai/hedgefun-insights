@@ -48,6 +48,7 @@ export interface CatalystIntelStore {
   updateEvent(event: CanonicalEvent): Promise<void>;
   listTickers(eventId: string): Promise<TickerLink[]>;
   upsertTicker(row: TickerLink): Promise<void>;
+  withDedupeLock<T>(lockKey: string, task: () => Promise<T>): Promise<T>;
   getReaction(eventId: string, windowKind: ReactionWindow): Promise<ReactionRecord | null>;
   upsertReaction(row: ReactionRecord): Promise<void>;
 }
@@ -65,6 +66,7 @@ export function createMemoryStore(): CatalystIntelStore & {
   const tickers: TickerLink[] = [];
   const reactions: ReactionRecord[] = [];
   const configs = new Map<BotId, BotConfig>();
+  const lockTails = new Map<string, Promise<void>>();
 
   return {
     events: () => events.map((row) => structuredClone(row)),
@@ -170,6 +172,21 @@ export function createMemoryStore(): CatalystIntelStore & {
     async getReaction(eventId, windowKind) {
       const found = reactions.find((row) => row.eventId === eventId && row.windowKind === windowKind);
       return found ? structuredClone(found) : null;
+    },
+    async withDedupeLock(lockKey, task) {
+      const previous = lockTails.get(lockKey) ?? Promise.resolve();
+      let release: () => void = () => {};
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const tail = previous.then(() => gate, () => gate);
+      lockTails.set(lockKey, tail.then(() => undefined, () => undefined));
+      await previous;
+      try {
+        return await task();
+      } finally {
+        release();
+      }
     },
     async upsertReaction(row) {
       const index = reactions.findIndex((item) => item.eventId === row.eventId && item.windowKind === row.windowKind);

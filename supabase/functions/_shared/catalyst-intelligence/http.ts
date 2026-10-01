@@ -5,6 +5,7 @@ import { newsPrAdapter } from "./adapters/news-pr.ts";
 import { secFilingsAdapter } from "./adapters/sec.ts";
 import { aiEnrichmentEnabled } from "./ai-enrichment.ts";
 import { botEnabledFlag, GENERIC_USER_AGENT, readFlag, SOURCE_GATE_NOTE } from "./config.ts";
+import { DatabaseReadError } from "./conflicts.ts";
 import { observationFromRadarRow } from "./market-reaction.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
 import { runCollectorBot, runReactionBot } from "./run-bot.ts";
@@ -72,7 +73,13 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
     }
   }
   if (!store) return json(500, { error: "VALIDATION_ERROR" });
-  const config = await store.getBotConfig(deps.bot);
+  let config;
+  try {
+    config = await store.getBotConfig(deps.bot);
+  } catch (err) {
+    if (err instanceof DatabaseReadError) return json(500, { ok: false, error: "DATABASE_ERROR", status: "failed", bot: deps.bot });
+    throw err;
+  }
   const enabled = flag === true ? true : (config?.enabled ?? false);
   if (!enabled) {
     return json(200, { ok: true, status: "disabled", bot: deps.bot, ai_enrichment: false, activation: SOURCE_GATE_NOTE });
@@ -111,16 +118,7 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
       loadObservation: load,
       loadReferenceBars: deps.loadReferenceBars,
     });
-    return json(200, { ok: true, status: run.status, bot: deps.bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
-  }
-
-  let companies = deps.companies;
-  if (!companies && deps.loadCompanies) {
-    try {
-      companies = await deps.loadCompanies();
-    } catch {
-      return json(500, { error: "DATABASE_ERROR" });
-    }
+    return finishRun(deps.bot, ai, run);
   }
 
   const adapter = adapterFor(deps.bot);
@@ -136,9 +134,17 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
     allowlist,
     allowFixtures: false,
     cikMap,
-    companies,
+    companies: deps.companies,
+    loadCompanies: deps.loadCompanies,
   });
-  return json(200, { ok: true, status: run.status, bot: deps.bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
+  return finishRun(deps.bot, ai, run);
+}
+
+function finishRun(bot: BotId, ai: boolean, run: Parameters<typeof publicRun>[0] & { status: string }): Response {
+  if (run.status === "failed") {
+    return json(500, { ok: false, error: "DATABASE_ERROR", status: "failed", bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
+  }
+  return json(200, { ok: true, status: run.status, bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
 }
 
 export function adapterFor(bot: BotId) {
@@ -149,8 +155,9 @@ export function adapterFor(bot: BotId) {
   throw new Error("reactions have no source adapter");
 }
 
-function publicRun(run: { runId: string; sourcesAttempted: number; sourcesSuccessful: number; sourcesFailed: number; rawItemsSeen: number; newItems: number; duplicates: number; eventsCreated: number; eventsUpdated: number; eventsInvalidated: number; elapsedMs: number | null; errors: { sourceId: string; category: string; statusCode: number | null; retryable: boolean; elapsedMs: number }[] }) {
+function publicRun(run: { status: string; runId: string; sourcesAttempted: number; sourcesSuccessful: number; sourcesFailed: number; rawItemsSeen: number; newItems: number; duplicates: number; eventsCreated: number; eventsUpdated: number; eventsInvalidated: number; elapsedMs: number | null; errors: { sourceId: string; category: string; statusCode: number | null; retryable: boolean; elapsedMs: number }[] }) {
   return {
+    status: run.status,
     run_id: run.runId,
     sources_attempted: run.sourcesAttempted,
     sources_successful: run.sourcesSuccessful,
