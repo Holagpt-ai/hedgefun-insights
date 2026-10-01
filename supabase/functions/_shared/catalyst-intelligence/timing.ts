@@ -1,3 +1,4 @@
+import { RECENT_ANNOUNCEMENT_MS } from "./config.ts";
 import type { NormalizedEventCandidate, TimingBucket } from "./types.ts";
 
 export interface NormalizedTiming {
@@ -34,6 +35,8 @@ export function timingBucketForInstant(iso: string | null, now: Date): TimingBuc
   const when = Date.parse(iso);
   if (!Number.isFinite(when)) return "unknown";
   if (when - now.getTime() > 12 * 60 * 60 * 1000) return "scheduled_future";
+  const ageMs = now.getTime() - when;
+  if (ageMs >= 0 && ageMs <= 15 * 60 * 1000) return "immediate";
   const et = etParts(iso);
   if (!et) return "unknown";
   const open = 9 * 60 + 30;
@@ -41,7 +44,7 @@ export function timingBucketForInstant(iso: string | null, now: Date): TimingBuc
   if (et.weekday === 0 || et.weekday === 6) return "next_session";
   if (et.minutes < open) return "premarket";
   if (et.minutes >= close) return "after_hours";
-  if (when <= now.getTime() + 15 * 60 * 1000) return "immediate";
+  if (ageMs >= 0 && ageMs <= RECENT_ANNOUNCEMENT_MS) return "regular_session";
   return "regular_session";
 }
 

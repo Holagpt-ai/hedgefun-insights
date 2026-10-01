@@ -76,6 +76,9 @@ function deriveState(input: ScoreInput, priority: number): CatalystState {
     return "WATCH";
   }
   if (input.lifecycle === "announced" || input.lifecycle === "live" || input.lifecycle === "reacting") {
+    if (input.timingUrgency < 45) {
+      return input.materiality < 40 ? "INFORMATIONAL" : "WATCH";
+    }
     if (input.materiality >= 60 && input.evidenceConfidence >= 55 && input.timingUrgency >= 70) {
       return "IMMEDIATE";
     }

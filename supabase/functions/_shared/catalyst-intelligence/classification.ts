@@ -52,6 +52,30 @@ const FORM_CLASS: Record<string, { eventType: IntelEventType; subtype: string }>
 const EXPLICIT_PRODUCT_UPDATE =
   /\b(product updates?|strategy updates?|active[- ]traders?|product and strategy)\b/i;
 
+/** Executive speaking at a conference is not an executive-change catalyst. */
+export function isExecutiveAppearance(text: string): boolean {
+  const appearance =
+    /\b(to present|will present|to speak|will speak|to attend|will attend|present at|speak at|participate in|participate at|fireside chat)\b/i;
+  const venue = /\b(conference|summit|investor conference|communacopia|webcast|symposium)\b/i;
+  const role = /\b(ceo|cfo|chief executive|chief financial|management team|executive team)\b/i;
+  return (appearance.test(text) && venue.test(text)) || (role.test(text) && appearance.test(text));
+}
+
+const EXECUTIVE_CHANGE =
+  /\b(appointed|appoints|names|named|resigns|resigned|steps down|stepped down|retires|retired|succeeds|succeeded|replaces|replaced|departure of|termination of)\b/i;
+
+const EXECUTIVE_ROLE =
+  /\b(chief executive|chief financial|\bceo\b|\bcfo\b|chief operating|\bcoo\b)\b/i;
+
+const EARNINGS_RESULTS =
+  /\b(reports (its )?(first|second|third|fourth|q[1-4]|quarterly|annual|fiscal|full[- ]year).{0,25}(results|earnings)\b|\b(quarterly|annual|fiscal|q[1-4]|fourth quarter|full[- ]year).{0,20}(results|earnings)\b|\bearnings results\b|\bfinancial results for\b|\bannounced (its )?(q[1-4]|fourth quarter|full[- ]year|fiscal year).{0,20}(results|earnings)\b)/i;
+
+const EARNINGS_SCHEDULE =
+  /\b(announces date for|to report (its )?(q[1-4]|fourth quarter|results|earnings)|will report (its )?(q[1-4]|results|earnings)|scheduled to report (its )?(results|earnings|q[1-4]))\b/i;
+
+const GUIDANCE_SPECIFIC =
+  /\b(reaffirms|raises|lowers|updates|provides|issues) (its )?(guidance|outlook|forecast)\b|\b(guidance|outlook|forecast) (update|revision)\b/i;
+
 export function sameEventFamily(a: IntelEventType, b: IntelEventType): boolean {
   if (a === b) return true;
   return FAMILIES.some((family) => family.includes(a) && family.includes(b));
@@ -83,30 +107,49 @@ export function classifyCandidate(candidate: NormalizedEventCandidate): Classifi
 
 export function classifyText(text: string, subtype: string | null = null): Classification {
   const explicitProductUpdate = EXPLICIT_PRODUCT_UPDATE.test(text);
-  const rules: Array<{ type: IntelEventType; re: RegExp; subtype?: string }> = [
-    { type: "FDA_CLINICAL", re: /\b(fda|clinical trial|phase [123]|pdufa)\b/i },
-    { type: "M_AND_A", re: /\b(merger|acquire[sd]?|acquisition|takeover)\b/i },
-    { type: "DILUTION", re: /\b(dilution|dilutive)\b/i },
-    { type: "FINANCING", re: /\b(public offering|registered direct|prospectus|capital raise)\b/i },
-    { type: "GUIDANCE", re: /\b(guidance|outlook|forecast)\b/i },
-    { type: "EARNINGS", re: /\b(earnings|quarterly results|financial results)\b/i },
-    { type: "EXECUTIVE_CHANGE", re: /\b(chief executive|chief financial|\bceo\b|\bcfo\b|resigns|steps down|appointed)\b/i },
-    { type: "LEGAL", re: /\b(lawsuit|litigation|shareholder class)\b/i },
-    { type: "ANALYST_ACTION", re: /\b(upgrade[sd]?|downgrade[sd]?|price target|initiates coverage)\b/i },
-    { type: "CORPORATE_ACTION", re: /\b(dividend|stock split|buyback|repurchase)\b/i },
-    { type: "REGULATORY", re: /\b(regulator|regulatory approval|consent decree)\b/i },
-    { type: "PRODUCT_LAUNCH", re: /\b(launches|launch of|unveils|now available)\b/i },
-    { type: "PRODUCT_STRATEGY_EVENT", re: /\b(product summit|strategy (event|presentation|update)|investor day|capital markets day|active[- ]trader)\b/i },
-    { type: "INVESTOR_EVENT", re: /\b(analyst day|investor presentation|fireside chat)\b/i },
-    { type: "CONFERENCE", re: /\b(conference|keynote|webinar|user conference)\b/i },
-    { type: "PARTNERSHIP", re: /\b(partnership|collaboration|strategic alliance)\b/i },
-    { type: "CONTRACT", re: /\b(awarded a contract|wins contract|contract with)\b/i },
-    { type: "SEC_FILING", re: /\b(form 8-k|form 10-k|sec filing)\b/i },
-  ];
-  for (const rule of rules) {
-    if (rule.re.test(text)) {
-      return { eventType: rule.type, subtype: subtype ?? rule.subtype ?? null, explicitProductUpdate };
-    }
+  const finish = (eventType: IntelEventType, st: string | null = null): Classification => ({
+    eventType,
+    subtype: st ?? subtype,
+    explicitProductUpdate,
+  });
+
+  if (/\b(fda|clinical trial|phase [123]|pdufa)\b/i.test(text)) return finish("FDA_CLINICAL");
+  if (/\b(merger|acquire[sd]?|acquisition|takeover)\b/i.test(text)) return finish("M_AND_A");
+  if (/\b(dilution|dilutive)\b/i.test(text)) return finish("DILUTION");
+  if (/\b(public offering|registered direct|prospectus|capital raise)\b/i.test(text)) return finish("FINANCING");
+
+  if (isExecutiveAppearance(text)) return finish("CONFERENCE");
+
+  if (EARNINGS_RESULTS.test(text) || EARNINGS_SCHEDULE.test(text)) return finish("EARNINGS");
+
+  if (/\b(to host|hosts|hosting|will host) (its )?(investor day|capital markets day|analyst day)\b/i.test(text)) {
+    return finish("INVESTOR_EVENT");
   }
-  return { eventType: "OTHER_MATERIAL_EVENT", subtype, explicitProductUpdate };
+  if (/\b(investor day|capital markets day|analyst day)\b/i.test(text)) return finish("INVESTOR_EVENT");
+
+  if (GUIDANCE_SPECIFIC.test(text)) return finish("GUIDANCE");
+  if (/\b(guidance|outlook|forecast)\b/i.test(text) && !/\b(results|earnings)\b/i.test(text)) {
+    return finish("GUIDANCE");
+  }
+
+  if (EXECUTIVE_CHANGE.test(text) && EXECUTIVE_ROLE.test(text)) return finish("EXECUTIVE_CHANGE");
+
+  if (/\b(lawsuit|litigation|shareholder class)\b/i.test(text)) return finish("LEGAL");
+  if (/\b(upgrade[sd]?|downgrade[sd]?|price target|initiates coverage)\b/i.test(text)) return finish("ANALYST_ACTION");
+  if (/\b(dividend|stock split|buyback|repurchase)\b/i.test(text)) return finish("CORPORATE_ACTION");
+  if (/\b(regulator|regulatory approval|consent decree)\b/i.test(text)) return finish("REGULATORY");
+  if (/\b(launches|launch of|unveils|now available)\b/i.test(text)) return finish("PRODUCT_LAUNCH");
+
+  if (/\b(analyst day|investor presentation|fireside chat)\b/i.test(text)) return finish("INVESTOR_EVENT");
+
+  if (/\b(product summit|strategy (event|presentation|update)|active[- ]trader)\b/i.test(text)) {
+    return finish("PRODUCT_STRATEGY_EVENT");
+  }
+
+  if (/\b(conference|keynote|webinar|user conference)\b/i.test(text)) return finish("CONFERENCE");
+  if (/\b(partnership|collaboration|strategic alliance)\b/i.test(text)) return finish("PARTNERSHIP");
+  if (/\b(awarded a contract|wins contract|contract with)\b/i.test(text)) return finish("CONTRACT");
+  if (/\b(form 8-k|form 10-k|sec filing)\b/i.test(text)) return finish("SEC_FILING");
+
+  return finish("OTHER_MATERIAL_EVENT");
 }

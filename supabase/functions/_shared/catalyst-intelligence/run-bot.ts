@@ -278,8 +278,12 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
 function eventStillAhead(event: {
   lifecycle: string;
   scheduledStartAt: string | null;
+  scheduledDate: string | null;
   effectiveAt: string | null;
 }, now: Date): boolean {
+  const startMs = event.scheduledStartAt ? Date.parse(event.scheduledStartAt) : NaN;
+  if (Number.isFinite(startMs) && startMs > now.getTime()) return true;
+  if (event.scheduledDate && event.scheduledDate > now.toISOString().slice(0, 10)) return true;
   if (event.lifecycle !== "scheduled" && event.lifecycle !== "approaching") return false;
   const stamp = event.scheduledStartAt ?? event.effectiveAt;
   const ms = stamp ? Date.parse(stamp) : Number.NaN;

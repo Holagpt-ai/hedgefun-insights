@@ -10,6 +10,10 @@ export const MAX_REDIRECTS = 3;
 export const MAX_ITEMS_PER_SOURCE = 40;
 export const MAX_EXCERPT_CHARS = 1_500;
 export const DEFAULT_REACTION_MAX_AGE_MS = 15 * 60 * 1000;
+/** Publication within this window may receive immediate session urgency. */
+export const RECENT_ANNOUNCEMENT_MS = 72 * 60 * 60 * 1000;
+/** Older announcements taper to watch/informational urgency. */
+export const STALE_ANNOUNCEMENT_MS = 14 * 24 * 60 * 60 * 1000;
 export const GENERIC_USER_AGENT =
   "StocksistCatalystIntelligence/1.0 (+https://stocksist.com)";
 

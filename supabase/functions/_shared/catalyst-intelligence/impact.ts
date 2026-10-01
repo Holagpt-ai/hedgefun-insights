@@ -1,3 +1,4 @@
+import { RECENT_ANNOUNCEMENT_MS, STALE_ANNOUNCEMENT_MS } from "./config.ts";
 import type { Classification } from "./classification.ts";
 import type { IntelEventType } from "./types.ts";
 
@@ -54,20 +55,31 @@ export function timingUrgency(input: {
   lifecycle: string;
   scheduledStart: string | null;
   scheduledDate: string | null;
+  publishedAt: string | null;
   now: Date;
 }): number {
-  if (input.lifecycle === "live" || input.lifecycle === "announced" || input.bucket === "immediate") return 90;
-  if (input.lifecycle === "approaching") return 82;
+  const pubMs = input.publishedAt ? Date.parse(input.publishedAt) : NaN;
+  const pubAgeMs = Number.isFinite(pubMs) ? input.now.getTime() - pubMs : null;
+
   if (input.lifecycle === "reacting") return 88;
   if (input.lifecycle === "follow_through") return 70;
+  if (input.lifecycle === "approaching") return 82;
+
   const start = input.scheduledStart ? Date.parse(input.scheduledStart) : NaN;
-  if (Number.isFinite(start)) {
+  if (Number.isFinite(start) && start > input.now.getTime()) {
     const days = (start - input.now.getTime()) / 86_400_000;
     if (days <= 1) return 80;
     if (days <= 7) return 68;
     if (days <= 30) return 52;
     return 40;
   }
+  if (input.scheduledDate && input.scheduledDate > input.now.toISOString().slice(0, 10)) return 50;
+
+  if (pubAgeMs != null && pubAgeMs > STALE_ANNOUNCEMENT_MS) return 25;
+  if (pubAgeMs != null && pubAgeMs > RECENT_ANNOUNCEMENT_MS) return 35;
+
+  if (input.lifecycle === "live") return 90;
+  if (input.lifecycle === "announced" || input.bucket === "immediate") return 90;
   if (input.scheduledDate) return 50;
   if (input.bucket === "unknown") return 20;
   return 45;

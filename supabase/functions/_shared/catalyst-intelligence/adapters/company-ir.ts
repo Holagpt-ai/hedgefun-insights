@@ -7,6 +7,7 @@ import {
   parseSitemap,
   type ParsedFeedItem,
 } from "../feeds.ts";
+import { extractExplicitScheduledDates } from "../announcement-dates.ts";
 import { buildRawItem } from "../normalize.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { loadConfiguredSource } from "../source-fetch.ts";
@@ -57,18 +58,24 @@ async function discoverParsed(
 
 async function normalizeIr(item: RawSourceItem, ctx: SourceRunContext): Promise<NormalizedEventCandidate | null> {
   if (!item.title?.trim()) return null;
-  const scheduledStart = typeof item.metadata.scheduledStart === "string" ? item.metadata.scheduledStart : null;
-  const future = scheduledStart != null && Date.parse(scheduledStart) > ctx.now.getTime();
+  const text = `${item.title} ${item.summary ?? ""}`;
+  const extracted = extractExplicitScheduledDates(text, item.publishedAt);
+  const scheduledStart = typeof item.metadata.scheduledStart === "string"
+    ? item.metadata.scheduledStart
+    : extracted.scheduledStart;
+  const scheduledDate = typeof item.metadata.scheduledDate === "string"
+    ? item.metadata.scheduledDate
+    : extracted.scheduledDate;
   return {
     raw: item,
     title: item.title,
     summary: item.summary,
     suggestedType: null,
     subtype: null,
-    scheduledStart: future ? scheduledStart : null,
+    scheduledStart,
     scheduledEnd: typeof item.metadata.scheduledEnd === "string" ? item.metadata.scheduledEnd : null,
-    scheduledDate: typeof item.metadata.scheduledDate === "string" ? item.metadata.scheduledDate : null,
-    isAnnouncement: !future,
+    scheduledDate,
+    isAnnouncement: true,
     evidenceTier: ctx.source.evidenceTier,
     metadata: item.metadata,
   };

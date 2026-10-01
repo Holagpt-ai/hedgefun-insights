@@ -245,6 +245,7 @@ export function applyScores(event: CanonicalEvent, evidence: readonly EvidenceRe
     lifecycle: event.lifecycle,
     scheduledStart: event.scheduledStartAt,
     scheduledDate: event.scheduledDate,
+    publishedAt: event.sourcePublishedAt,
     now,
   });
   const scored = catalystPriority({
