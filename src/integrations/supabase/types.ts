@@ -1587,6 +1587,550 @@ export type Database = {
         }
         Relationships: []
       }
+      catalyst_intel_bot_config: {
+        Row: {
+          batch_limit: number
+          bot: string
+          concurrency: number
+          enabled: boolean
+          poll_interval_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          batch_limit?: number
+          bot: string
+          concurrency?: number
+          enabled?: boolean
+          poll_interval_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          batch_limit?: number
+          bot?: string
+          concurrency?: number
+          enabled?: boolean
+          poll_interval_seconds?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      catalyst_intel_dedupe_guards: {
+        Row: {
+          acquired_at: string
+          holder: string
+          lock_key: string
+        }
+        Insert: {
+          acquired_at?: string
+          holder: string
+          lock_key: string
+        }
+        Update: {
+          acquired_at?: string
+          holder?: string
+          lock_key?: string
+        }
+        Relationships: []
+      }
+      catalyst_intel_event_tickers: {
+        Row: {
+          confidence: number
+          created_at: string
+          event_id: string
+          evidence_note: string | null
+          id: string
+          is_primary: boolean
+          relation: string
+          ticker: string
+        }
+        Insert: {
+          confidence: number
+          created_at?: string
+          event_id: string
+          evidence_note?: string | null
+          id?: string
+          is_primary?: boolean
+          relation: string
+          ticker: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          event_id?: string
+          evidence_note?: string | null
+          id?: string
+          is_primary?: boolean
+          relation?: string
+          ticker?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalyst_intel_event_tickers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_distribution"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "catalyst_intel_event_tickers_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalyst_intel_events: {
+        Row: {
+          announcement_at: string | null
+          announcement_summary: string | null
+          attribution_confidence: number
+          canonical_key: string
+          catalyst_state: string
+          created_at: string
+          distribution_status: string
+          effective_at: string | null
+          event_subtype: string | null
+          event_type: string
+          evidence_confidence: number
+          first_discovered_at: string
+          id: string
+          lifecycle: string
+          lifecycle_log: Json
+          materiality: number
+          priority_score: number
+          reaction_score: number | null
+          scheduled_date: string | null
+          scheduled_end_at: string | null
+          scheduled_start_at: string | null
+          score_components: Json
+          source_published_at: string | null
+          summary: string | null
+          timing_bucket: string
+          timing_urgency: number
+          title: string
+          updated_at: string
+          verification_state: string
+        }
+        Insert: {
+          announcement_at?: string | null
+          announcement_summary?: string | null
+          attribution_confidence: number
+          canonical_key: string
+          catalyst_state: string
+          created_at?: string
+          distribution_status?: string
+          effective_at?: string | null
+          event_subtype?: string | null
+          event_type: string
+          evidence_confidence: number
+          first_discovered_at: string
+          id?: string
+          lifecycle: string
+          lifecycle_log?: Json
+          materiality: number
+          priority_score: number
+          reaction_score?: number | null
+          scheduled_date?: string | null
+          scheduled_end_at?: string | null
+          scheduled_start_at?: string | null
+          score_components?: Json
+          source_published_at?: string | null
+          summary?: string | null
+          timing_bucket: string
+          timing_urgency: number
+          title: string
+          updated_at?: string
+          verification_state: string
+        }
+        Update: {
+          announcement_at?: string | null
+          announcement_summary?: string | null
+          attribution_confidence?: number
+          canonical_key?: string
+          catalyst_state?: string
+          created_at?: string
+          distribution_status?: string
+          effective_at?: string | null
+          event_subtype?: string | null
+          event_type?: string
+          evidence_confidence?: number
+          first_discovered_at?: string
+          id?: string
+          lifecycle?: string
+          lifecycle_log?: Json
+          materiality?: number
+          priority_score?: number
+          reaction_score?: number | null
+          scheduled_date?: string | null
+          scheduled_end_at?: string | null
+          scheduled_start_at?: string | null
+          score_components?: Json
+          source_published_at?: string | null
+          summary?: string | null
+          timing_bucket?: string
+          timing_urgency?: number
+          title?: string
+          updated_at?: string
+          verification_state?: string
+        }
+        Relationships: []
+      }
+      catalyst_intel_evidence: {
+        Row: {
+          authority_key: string
+          canonical_url: string | null
+          content_hash: string
+          created_at: string
+          event_id: string
+          evidence_role: string
+          evidence_tier: string
+          id: string
+          published_at: string | null
+          raw_item_id: string
+          source_id: string
+        }
+        Insert: {
+          authority_key: string
+          canonical_url?: string | null
+          content_hash: string
+          created_at?: string
+          event_id: string
+          evidence_role: string
+          evidence_tier: string
+          id?: string
+          published_at?: string | null
+          raw_item_id: string
+          source_id: string
+        }
+        Update: {
+          authority_key?: string
+          canonical_url?: string | null
+          content_hash?: string
+          created_at?: string
+          event_id?: string
+          evidence_role?: string
+          evidence_tier?: string
+          id?: string
+          published_at?: string | null
+          raw_item_id?: string
+          source_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalyst_intel_evidence_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_distribution"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "catalyst_intel_evidence_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalyst_intel_evidence_raw_item_id_fkey"
+            columns: ["raw_item_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_raw_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "catalyst_intel_evidence_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalyst_intel_raw_items: {
+        Row: {
+          body_excerpt: string | null
+          canonical_url: string | null
+          content_hash: string
+          created_at: string
+          discovered_at: string
+          external_id: string | null
+          id: string
+          metadata: Json
+          published_at: string | null
+          source_id: string
+          title: string | null
+        }
+        Insert: {
+          body_excerpt?: string | null
+          canonical_url?: string | null
+          content_hash: string
+          created_at?: string
+          discovered_at: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json
+          published_at?: string | null
+          source_id: string
+          title?: string | null
+        }
+        Update: {
+          body_excerpt?: string | null
+          canonical_url?: string | null
+          content_hash?: string
+          created_at?: string
+          discovered_at?: string
+          external_id?: string | null
+          id?: string
+          metadata?: Json
+          published_at?: string | null
+          source_id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalyst_intel_raw_items_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalyst_intel_reactions: {
+        Row: {
+          availability: string
+          created_at: string
+          current_price: number | null
+          dollar_volume: number | null
+          event_id: string
+          float_turnover: number | null
+          hod_distance_pct: number | null
+          id: string
+          intraday_high: number | null
+          intraday_low: number | null
+          lod_distance_pct: number | null
+          observed_at: string | null
+          payload: Json
+          percent_move: number | null
+          reference_price: number | null
+          rvol_5m: number | null
+          time_adjusted_rvol: number | null
+          updated_at: string
+          volume: number | null
+          volume_acceleration: number | null
+          volume_velocity: number | null
+          vwap: number | null
+          vwap_side: string | null
+          window_kind: string
+        }
+        Insert: {
+          availability: string
+          created_at?: string
+          current_price?: number | null
+          dollar_volume?: number | null
+          event_id: string
+          float_turnover?: number | null
+          hod_distance_pct?: number | null
+          id?: string
+          intraday_high?: number | null
+          intraday_low?: number | null
+          lod_distance_pct?: number | null
+          observed_at?: string | null
+          payload?: Json
+          percent_move?: number | null
+          reference_price?: number | null
+          rvol_5m?: number | null
+          time_adjusted_rvol?: number | null
+          updated_at?: string
+          volume?: number | null
+          volume_acceleration?: number | null
+          volume_velocity?: number | null
+          vwap?: number | null
+          vwap_side?: string | null
+          window_kind: string
+        }
+        Update: {
+          availability?: string
+          created_at?: string
+          current_price?: number | null
+          dollar_volume?: number | null
+          event_id?: string
+          float_turnover?: number | null
+          hod_distance_pct?: number | null
+          id?: string
+          intraday_high?: number | null
+          intraday_low?: number | null
+          lod_distance_pct?: number | null
+          observed_at?: string | null
+          payload?: Json
+          percent_move?: number | null
+          reference_price?: number | null
+          rvol_5m?: number | null
+          time_adjusted_rvol?: number | null
+          updated_at?: string
+          volume?: number | null
+          volume_acceleration?: number | null
+          volume_velocity?: number | null
+          vwap?: number | null
+          vwap_side?: string | null
+          window_kind?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalyst_intel_reactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_distribution"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "catalyst_intel_reactions_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "catalyst_intel_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      catalyst_intel_runs: {
+        Row: {
+          bot: string
+          completed_at: string | null
+          duplicates: number
+          elapsed_ms: number | null
+          errors: Json
+          events_created: number
+          events_invalidated: number
+          events_updated: number
+          id: string
+          new_items: number
+          raw_items_seen: number
+          sources_attempted: number
+          sources_failed: number
+          sources_successful: number
+          started_at: string
+          status: string
+        }
+        Insert: {
+          bot: string
+          completed_at?: string | null
+          duplicates?: number
+          elapsed_ms?: number | null
+          errors?: Json
+          events_created?: number
+          events_invalidated?: number
+          events_updated?: number
+          id?: string
+          new_items?: number
+          raw_items_seen?: number
+          sources_attempted?: number
+          sources_failed?: number
+          sources_successful?: number
+          started_at: string
+          status?: string
+        }
+        Update: {
+          bot?: string
+          completed_at?: string | null
+          duplicates?: number
+          elapsed_ms?: number | null
+          errors?: Json
+          events_created?: number
+          events_invalidated?: number
+          events_updated?: number
+          id?: string
+          new_items?: number
+          raw_items_seen?: number
+          sources_attempted?: number
+          sources_failed?: number
+          sources_successful?: number
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      catalyst_intel_sources: {
+        Row: {
+          authority_key: string
+          backoff_until: string | null
+          cik: string | null
+          company_name: string | null
+          created_at: string
+          enabled: boolean
+          evidence_tier: string
+          failure_count: number
+          feed_format: string
+          hostname: string
+          id: string
+          last_content_hash: string | null
+          last_error_category: string | null
+          last_etag: string | null
+          last_modified: string | null
+          last_success_at: string | null
+          metadata: Json
+          poll_interval_seconds: number
+          priority: number
+          source_key: string
+          source_type: string
+          ticker: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          authority_key: string
+          backoff_until?: string | null
+          cik?: string | null
+          company_name?: string | null
+          created_at?: string
+          enabled?: boolean
+          evidence_tier: string
+          failure_count?: number
+          feed_format: string
+          hostname: string
+          id?: string
+          last_content_hash?: string | null
+          last_error_category?: string | null
+          last_etag?: string | null
+          last_modified?: string | null
+          last_success_at?: string | null
+          metadata?: Json
+          poll_interval_seconds?: number
+          priority?: number
+          source_key: string
+          source_type: string
+          ticker?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          authority_key?: string
+          backoff_until?: string | null
+          cik?: string | null
+          company_name?: string | null
+          created_at?: string
+          enabled?: boolean
+          evidence_tier?: string
+          failure_count?: number
+          feed_format?: string
+          hostname?: string
+          id?: string
+          last_content_hash?: string | null
+          last_error_category?: string | null
+          last_etag?: string | null
+          last_modified?: string | null
+          last_success_at?: string | null
+          metadata?: Json
+          poll_interval_seconds?: number
+          priority?: number
+          source_key?: string
+          source_type?: string
+          ticker?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
       catalyst_user_state: {
         Row: {
           created_at: string
@@ -9030,6 +9574,37 @@ export type Database = {
       }
     }
     Views: {
+      catalyst_intel_distribution: {
+        Row: {
+          announcement_at: string | null
+          catalyst_state: string | null
+          distribution_status: string | null
+          event_id: string | null
+          event_subtype: string | null
+          event_type: string | null
+          evidence_confidence: number | null
+          lifecycle: string | null
+          materiality: number | null
+          percent_move: number | null
+          priority_score: number | null
+          reaction_availability: string | null
+          reaction_observed_at: string | null
+          reaction_score: number | null
+          rvol_5m: number | null
+          scheduled_date: string | null
+          scheduled_start_at: string | null
+          score_components: Json | null
+          summary: string | null
+          ticker: string | null
+          timing_bucket: string | null
+          timing_urgency: number | null
+          title: string | null
+          verification_state: string | null
+          volume: number | null
+          volume_velocity: number | null
+        }
+        Relationships: []
+      }
       game_leaderboard_public: {
         Row: {
           display_name: string | null
@@ -9140,6 +9715,127 @@ export type Database = {
         }[]
       }
       behavior_profile_upsert_v1: { Args: { p_row: Json }; Returns: undefined }
+      catalyst_intel_acquire_dedupe_lock: {
+        Args: { p_lock_key: string; p_owner: string }
+        Returns: undefined
+      }
+      catalyst_intel_due_sources: {
+        Args: {
+          p_allow: string[]
+          p_limit: number
+          p_now: string
+          p_source_type: string
+        }
+        Returns: {
+          authority_key: string
+          backoff_until: string | null
+          cik: string | null
+          company_name: string | null
+          created_at: string
+          enabled: boolean
+          evidence_tier: string
+          failure_count: number
+          feed_format: string
+          hostname: string
+          id: string
+          last_content_hash: string | null
+          last_error_category: string | null
+          last_etag: string | null
+          last_modified: string | null
+          last_success_at: string | null
+          metadata: Json
+          poll_interval_seconds: number
+          priority: number
+          source_key: string
+          source_type: string
+          ticker: string | null
+          updated_at: string
+          url: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "catalyst_intel_sources"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      catalyst_intel_latest_radar: {
+        Args: { p_symbols: string[] }
+        Returns: {
+          acceleration_5m: number | null
+          distance_from_hod_pct: number | null
+          dollar_volume_60s: number
+          dollar_volume_velocity_5m: number | null
+          freshness_age_ms: number | null
+          freshness_class: string
+          generation_id: string
+          geometry_partial: boolean
+          last_acceleration_at: string | null
+          last_hod_attempt_at: string | null
+          last_hod_break_at: string | null
+          last_hod_reject_at: string | null
+          last_new_hod_at: string | null
+          last_price: number | null
+          last_price_at: string | null
+          last_price_move_at: string | null
+          last_volume_burst_at: string | null
+          last_vwap_cross_at: string | null
+          last_vwap_loss_at: string | null
+          last_vwap_reclaim_at: string | null
+          lifecycle: string
+          lifecycle_entered_at: string | null
+          move_15s_pct: number | null
+          move_60s_pct: number | null
+          participation_baseline_session_count: number | null
+          participation_calculated_at: string | null
+          participation_source_as_of: string | null
+          participation_state: string | null
+          previous_close: number | null
+          primary_scanner_event: string | null
+          primary_scanner_event_at: string | null
+          prior_session_volume: number | null
+          promoted_at: string | null
+          promotion_reason: Json | null
+          provider_as_of: string | null
+          radar_engine_events: Json | null
+          radar_event_lifecycle: string | null
+          rvol_5m: number | null
+          scanner_events: Json | null
+          session_high: number | null
+          session_kind: string
+          session_low: number | null
+          session_volume: number
+          session_vwap: number | null
+          signal_status: string
+          symbol: string
+          time_adjusted_rvol: number | null
+          trading_date: string
+          updated_at: string
+          volume_15m: number | null
+          volume_15s: number
+          volume_5m: number | null
+          volume_5s: number
+          volume_60m: number | null
+          volume_60s: number
+          volume_acceleration_pct: number | null
+          volume_velocity: number | null
+          volume_velocity_15m: number | null
+          volume_velocity_5m: number | null
+          volume_velocity_60m: number | null
+          vwap_partial: boolean
+          vwap_side: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "radar_v22_candidates"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      catalyst_intel_release_dedupe_lock: {
+        Args: { p_lock_key: string; p_owner: string }
+        Returns: undefined
+      }
       checkpoint_wl_v2_cursor: {
         Args: { p_cursor: string; p_run_id: string }
         Returns: undefined
