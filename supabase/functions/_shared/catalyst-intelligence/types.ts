@@ -341,10 +341,14 @@ export interface RunTelemetry {
   errors: SourceRunError[];
 }
 
+export type RawIngestDisposition = "inserted" | "existing_resumed" | "existing_linked";
+
 export interface IngestOutcome {
   status: "created" | "updated" | "duplicate" | "unresolved" | "rejected";
   eventId: string | null;
   rawItemId: string | null;
+  /** Set when a raw row was claimed; drives run new_items vs duplicates reporting. */
+  rawDisposition?: RawIngestDisposition;
 }
 
 export interface MarketObservation {

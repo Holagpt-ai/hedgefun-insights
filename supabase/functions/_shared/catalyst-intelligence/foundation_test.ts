@@ -159,7 +159,7 @@ Deno.test("SEC filing maps CIK, keeps form 4 modest, and accession is idempotent
   assertEquals(store.rawItems().length, 3);
   const second = await run();
   assertEquals(second.eventsCreated, 0);
-  assertEquals(second.duplicates, 2);
+  assertEquals(second.duplicates, 3);
   assertEquals(store.events().length, 2);
   assertEquals(store.rawItems().length, 3);
 });

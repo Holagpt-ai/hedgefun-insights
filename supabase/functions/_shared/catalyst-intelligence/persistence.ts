@@ -35,6 +35,7 @@ export interface CatalystIntelStore {
   findRawByExternal(sourceId: string, externalId: string): Promise<RawItemRecord | null>;
   findRawByHash(sourceId: string, contentHash: string): Promise<RawItemRecord | null>;
   insertRaw(item: RawItemRecord): Promise<void>;
+  mergeRawMetadata(rawItemId: string, patch: Record<string, unknown>): Promise<void>;
   findEvidenceByRaw(rawItemId: string): Promise<EvidenceRecord | null>;
   listEvidence(eventId: string): Promise<EvidenceRecord[]>;
   evidenceForUrl(url: string): Promise<EvidenceRecord[]>;
@@ -111,6 +112,14 @@ export function createMemoryStore(): CatalystIntelStore & {
       ));
       if (duplicate) throw new UniqueConflictError();
       raw.push(structuredClone(item));
+    },
+    async mergeRawMetadata(rawItemId, patch) {
+      const index = raw.findIndex((row) => row.id === rawItemId);
+      if (index < 0) return;
+      raw[index] = {
+        ...raw[index],
+        metadata: { ...raw[index].metadata, ...structuredClone(patch) },
+      };
     },
     async findEvidenceByRaw(rawItemId) {
       return evidence.find((row) => row.rawItemId === rawItemId) ?? null;

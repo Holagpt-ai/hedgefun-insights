@@ -84,6 +84,14 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       const mapped = mapDatabaseError(error);
       if (mapped) throw mapped;
     },
+    async mergeRawMetadata(rawItemId, patch) {
+      const { data, error: readError } = await supabase.from("catalyst_intel_raw_items").select("metadata").eq("id", rawItemId).maybeSingle();
+      if (readError) throw new DatabaseReadError();
+      if (!data) return;
+      const merged = { ...obj((data as Record<string, unknown>).metadata), ...patch };
+      const { error } = await supabase.from("catalyst_intel_raw_items").update({ metadata: merged }).eq("id", rawItemId);
+      if (error) throw new Error("database");
+    },
     async findEvidenceByRaw(rawItemId) {
       const { data, error } = await supabase.from("catalyst_intel_evidence").select("*").eq("raw_item_id", rawItemId).maybeSingle();
       if (error) throw new DatabaseReadError();

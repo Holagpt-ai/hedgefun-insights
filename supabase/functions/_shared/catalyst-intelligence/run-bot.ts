@@ -121,8 +121,10 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         }));
         if (outcome.status === "created") run.eventsCreated += 1;
         else if (outcome.status === "updated") run.eventsUpdated += 1;
-        else if (outcome.status === "duplicate") run.duplicates += 1;
-        if (outcome.rawItemId && outcome.status !== "duplicate") run.newItems += 1;
+        if (outcome.rawDisposition === "inserted") run.newItems += 1;
+        else if (outcome.rawDisposition === "existing_resumed" || outcome.rawDisposition === "existing_linked") {
+          run.duplicates += 1;
+        }
       }
       markSuccess(source, input.now, ctx.fetchState);
       await input.store.saveSource(source);

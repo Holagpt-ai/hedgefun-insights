@@ -1,3 +1,4 @@
+import { attributionDiagnostics } from "./attribution-reasons.ts";
 import { attributeCandidate } from "./attribution.ts";
 import { classifyCandidate } from "./classification.ts";
 import { isUniqueConflict } from "./conflicts.ts";
@@ -20,6 +21,7 @@ import type {
   IngestOutcome,
   LifecycleLogEntry,
   NormalizedEventCandidate,
+  RawIngestDisposition,
   SourceRecord,
 } from "./types.ts";
 import { verificationConfidence, verifyFromEvidence } from "./verification.ts";
@@ -48,8 +50,14 @@ export async function ingestCandidate(
   }
 
   const claimed = await claimRaw(store, candidate);
+  const rawDisposition = rawDispositionFromClaim(claimed);
   if (claimed.duplicate) {
-    return { status: "duplicate", eventId: claimed.duplicate.eventId, rawItemId: claimed.rawId };
+    return {
+      status: "duplicate",
+      eventId: claimed.duplicate.eventId,
+      rawItemId: claimed.rawId,
+      rawDisposition,
+    };
   }
   const rawId = claimed.rawId;
 
@@ -62,7 +70,14 @@ export async function ingestCandidate(
     companies: ctx.companies,
   });
   if (attribution.status !== "resolved" || !attribution.ticker || !attribution.relation) {
-    return { status: "unresolved", eventId: null, rawItemId: rawId };
+    const { unresolvedReason } = attributionDiagnostics(attribution);
+    if (unresolvedReason) {
+      await store.mergeRawMetadata(rawId, {
+        attribution_unresolved_reason: unresolvedReason,
+        attribution_note: attribution.note,
+      });
+    }
+    return { status: "unresolved", eventId: null, rawItemId: rawId, rawDisposition };
   }
   const ticker = attribution.ticker;
   const relation = attribution.relation;
@@ -208,7 +223,17 @@ export async function ingestCandidate(
   await store.updateEvent(event);
   return { event, created };
   });
-  return { status: resolved.created ? "created" : "updated", eventId: resolved.event.id, rawItemId: rawId };
+  return {
+    status: resolved.created ? "created" : "updated",
+    eventId: resolved.event.id,
+    rawItemId: rawId,
+    rawDisposition,
+  };
+}
+
+function rawDispositionFromClaim(claimed: { inserted: boolean; duplicate: EvidenceRecord | null }): RawIngestDisposition {
+  if (claimed.inserted) return "inserted";
+  return claimed.duplicate ? "existing_linked" : "existing_resumed";
 }
 
 export function applyScores(event: CanonicalEvent, evidence: readonly EvidenceRecord[], now: Date): void {
@@ -265,11 +290,11 @@ function anchor(timing: { scheduledStart: string | null; scheduledDate: string |
 async function claimRaw(
   store: CatalystIntelStore,
   candidate: NormalizedEventCandidate,
-): Promise<{ rawId: string; duplicate: EvidenceRecord | null }> {
+): Promise<{ rawId: string; duplicate: EvidenceRecord | null; inserted: boolean }> {
   const existing = await findRaw(store, candidate);
   if (existing) {
     const linked = await store.findEvidenceByRaw(existing.id);
-    return { rawId: existing.id, duplicate: linked };
+    return { rawId: existing.id, duplicate: linked, inserted: false };
   }
   const rawId = crypto.randomUUID();
   try {
@@ -285,13 +310,13 @@ async function claimRaw(
       bodyExcerpt: candidate.summary,
       metadata: boundedMetadata(candidate.raw.metadata),
     });
-    return { rawId, duplicate: null };
+    return { rawId, duplicate: null, inserted: true };
   } catch (err) {
     if (!isUniqueConflict(err)) throw err;
     const recovered = await findRaw(store, candidate);
     if (!recovered) throw err;
     const linked = await store.findEvidenceByRaw(recovered.id);
-    return { rawId: recovered.id, duplicate: linked };
+    return { rawId: recovered.id, duplicate: linked, inserted: false };
   }
 }
 

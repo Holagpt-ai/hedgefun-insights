@@ -1,3 +1,4 @@
+import type { UnresolvedAttributionReason } from "./attribution-reasons.ts";
 import type { CompanyRecord, NormalizedEventCandidate, TickerRelation } from "./types.ts";
 import { normalizeTicker } from "./normalize.ts";
 
@@ -7,6 +8,7 @@ export interface AttributionDecision {
   relation: TickerRelation | null;
   confidence: number;
   note: string;
+  unresolvedReason?: UnresolvedAttributionReason;
 }
 
 export interface AttributionContext {
@@ -95,7 +97,24 @@ export function attributeCandidate(
       };
     }
     if (unique.length > 1) {
-      return { status: "unresolved", ticker: null, relation: null, confidence: 0.2, note: "ambiguous_cik" };
+      return {
+        status: "unresolved",
+        ticker: null,
+        relation: null,
+        confidence: 0.2,
+        note: "ambiguous_cik",
+        unresolvedReason: "MULTIPLE_CIK_TICKERS",
+      };
+    }
+    if (unique.length === 0) {
+      return {
+        status: "unresolved",
+        ticker: null,
+        relation: null,
+        confidence: 0,
+        note: "cik_unmapped",
+        unresolvedReason: "NO_CIK_TICKER_MAPPING",
+      };
     }
   }
 
@@ -128,7 +147,14 @@ export function attributeCandidate(
     };
   }
   if (nameHits.size > 1) {
-    return { status: "unresolved", ticker: null, relation: null, confidence: 0.15, note: "ambiguous_alias" };
+    return {
+      status: "unresolved",
+      ticker: null,
+      relation: null,
+      confidence: 0.15,
+      note: "ambiguous_alias",
+      unresolvedReason: "AMBIGUOUS_COMPANY_ALIAS",
+    };
   }
 
   const mentions = mentionedTickers(text, companies);
@@ -142,7 +168,14 @@ export function attributeCandidate(
     };
   }
   if (mentions.length > 1) {
-    return { status: "unresolved", ticker: null, relation: null, confidence: 0.1, note: "ambiguous_mention" };
+    return {
+      status: "unresolved",
+      ticker: null,
+      relation: null,
+      confidence: 0.1,
+      note: "ambiguous_mention",
+      unresolvedReason: "AMBIGUOUS_TICKER_MENTION",
+    };
   }
 
   if (sourceTicker && ctx.sourceType === "NEWS_PR") {
@@ -155,5 +188,12 @@ export function attributeCandidate(
     };
   }
 
-  return { status: "unresolved", ticker: null, relation: null, confidence: 0, note: "no_attribution" };
+  return {
+    status: "unresolved",
+    ticker: null,
+    relation: null,
+    confidence: 0,
+    note: "no_attribution",
+    unresolvedReason: "NO_ATTRIBUTION",
+  };
 }
