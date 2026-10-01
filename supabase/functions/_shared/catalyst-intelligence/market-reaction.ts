@@ -65,6 +65,55 @@ export function percentMove(reference: number | null, current: number | null): n
   return ((current - reference) / reference) * 100;
 }
 
+/** Radar/session context is optional; event-time reference may exist without a live observation. */
+export function observationWithEventReference(
+  observation: MarketObservation | null,
+  symbol: string,
+  eventReferencePrice: number | null,
+): MarketObservation | null {
+  if (eventReferencePrice == null) return observation;
+  if (observation) return { ...observation, referencePrice: eventReferencePrice };
+  return {
+    symbol: symbol.toUpperCase(),
+    observedAt: null,
+    freshness: "unknown",
+    referencePrice: eventReferencePrice,
+    currentPrice: null,
+    intradayHigh: null,
+    intradayLow: null,
+    volume: null,
+    dollarVolume: null,
+    rvol5m: null,
+    timeAdjustedRvol: null,
+    volumeVelocity: null,
+    volumeAcceleration: null,
+    vwap: null,
+    vwapSide: null,
+    hodDistancePct: null,
+    floatTurnover: null,
+  };
+}
+
+/**
+ * Session metrics require a fresh Radar observation. Event reference price is
+ * persisted even when availability stays unavailable (no current price / score).
+ */
+export function assessReactionMarketContext(
+  observation: MarketObservation | null,
+  eventReferencePrice: number | null,
+  now: Date,
+  maxAgeMs = DEFAULT_REACTION_MAX_AGE_MS,
+): ReactionAssessment {
+  const merged = observationWithEventReference(observation, observation?.symbol ?? "", eventReferencePrice);
+  const assessment = assessMarketObservation(merged, now, maxAgeMs);
+  if (eventReferencePrice == null || assessment.referencePrice != null) return assessment;
+  return {
+    ...blank("unavailable"),
+    referencePrice: eventReferencePrice,
+    percentMove: percentMove(eventReferencePrice, finite(observation?.currentPrice ?? null)),
+  };
+}
+
 /**
  * Copies observed Radar/screener fields. Does not recompute RVOL, VWAP, or
  * volume velocity. Missing inputs stay null and are never coerced to zero.

@@ -3,7 +3,7 @@ import { backoffSeconds, MAX_ITEMS_PER_SOURCE } from "./config.ts";
 import { advanceForReaction, appendLifecycle, applyScheduleClock } from "./lifecycle.ts";
 import { eventReferenceInstant, referencePriceAtOrBefore, type EventPriceBar } from "./event-bars.ts";
 import {
-  assessMarketObservation,
+  assessReactionMarketContext,
   preserveObservedMetrics,
   reactionFromAssessment,
 } from "./market-reaction.ts";
@@ -211,19 +211,21 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         continue;
       }
       const existing = await input.store.getReaction(event.id, windowKind);
-      let observation = await input.loadObservation(ticker.ticker);
       const eventAt = eventReferenceInstant(event);
-      const storedReference = existing?.referencePrice != null && existing.referencePrice > 0
+      let eventReferencePrice = existing?.referencePrice != null && existing.referencePrice > 0
         ? existing.referencePrice
         : null;
-      if (observation && storedReference != null) {
-        observation = { ...observation, referencePrice: storedReference };
-      } else if (observation && observation.referencePrice == null && eventAt && input.loadReferenceBars) {
+      if (eventReferencePrice == null && eventAt && input.loadReferenceBars) {
         const bars = await input.loadReferenceBars(ticker.ticker, eventAt);
-        const reference = referencePriceAtOrBefore(bars, Date.parse(eventAt));
-        observation = { ...observation, referencePrice: reference };
+        eventReferencePrice = referencePriceAtOrBefore(bars, Date.parse(eventAt));
       }
-      const assessment = assessMarketObservation(observation, input.now, input.maxAgeMs);
+      const radarObservation = await input.loadObservation(ticker.ticker);
+      const assessment = assessReactionMarketContext(
+        radarObservation,
+        eventReferencePrice,
+        input.now,
+        input.maxAgeMs,
+      );
       if (assessment.availability !== "available" && existing?.availability === "available") {
         run.sourcesSuccessful += 1;
         continue;
@@ -231,7 +233,7 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
       const reaction = preserveObservedMetrics(reactionFromAssessment(
         event.id,
         windowKind,
-        observation?.observedAt ?? null,
+        radarObservation?.observedAt ?? null,
         assessment,
         existing?.id ?? crypto.randomUUID(),
       ), existing);
