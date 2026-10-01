@@ -40,7 +40,7 @@ function serveBot(bot: BotId): void {
         const key = env("SUPABASE_SERVICE_ROLE_KEY") ?? "";
         if (!url || !key) throw new Error("missing_supabase");
         return loadCompanyUniverse(createClient(url, key));
-      },
+      } : undefined,
       loadObservation: bot === "reactions" ? async (symbol: string): Promise<MarketObservation | null> => {
         const url = env("SUPABASE_URL") ?? "";
         const key = env("SUPABASE_SERVICE_ROLE_KEY") ?? "";
