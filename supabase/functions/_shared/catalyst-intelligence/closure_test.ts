@@ -53,16 +53,23 @@ function candidate(input: {
   title: string;
   hash?: string;
   ticker?: string;
+  publishedAt?: string;
+  scheduledStart?: string | null;
+  scheduledEnd?: string | null;
+  isAnnouncement?: boolean;
+  evidenceTier?: NormalizedEventCandidate["evidenceTier"];
+  sourceType?: NormalizedEventCandidate["raw"]["sourceType"];
 }): NormalizedEventCandidate {
   const hash = input.hash ?? "hash-apple-chip-01";
+  const publishedAt = input.publishedAt ?? NOW.toISOString();
   return {
     raw: {
       sourceId: input.sourceId,
-      sourceType: "NEWS_PR",
+      sourceType: input.sourceType ?? "NEWS_PR",
       externalId: input.externalId,
       canonicalUrl: `https://news.example.test/${input.externalId}`,
-      publishedAt: NOW.toISOString(),
-      discoveredAt: NOW.toISOString(),
+      publishedAt,
+      discoveredAt: publishedAt,
       title: input.title,
       summary: input.title,
       contentHash: hash,
@@ -72,11 +79,11 @@ function candidate(input: {
     summary: input.title,
     suggestedType: null,
     subtype: null,
-    scheduledStart: null,
-    scheduledEnd: null,
+    scheduledStart: input.scheduledStart ?? null,
+    scheduledEnd: input.scheduledEnd ?? null,
     scheduledDate: null,
-    isAnnouncement: true,
-    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    isAnnouncement: input.isAnnouncement ?? true,
+    evidenceTier: input.evidenceTier ?? "TIER_2_STRONG_SECONDARY",
     metadata: input.ticker ? { ticker: input.ticker } : {},
   };
 }
@@ -445,6 +452,8 @@ Deno.test("migration keeps the two-layer gate and does not alter catalyst_events
   assert(sql.includes("authority_key"));
   assert(sql.includes("catalyst_intel_due_sources"));
   assert(sql.includes("catalyst_intel_acquire_dedupe_lock"));
+  assert(sql.includes("interval '60 seconds'"));
+  assert(!sql.includes("interval '15 seconds'"));
   assert(sql.includes("catalyst_intel_dedupe_guards"));
   assert(sql.includes("GRANT EXECUTE ON FUNCTION public.catalyst_intel_acquire_dedupe_lock"));
   assert(sql.includes("last_success_at ASC NULLS FIRST"));
@@ -481,8 +490,8 @@ Deno.test("concurrent different hashes and titles still create one logical event
   });
   const reutersTitle = "Example Hood Markets names a new chief financial officer";
   const wireTitle = "Example Hood Markets appoints a new chief financial officer";
-  const lockA = logicalEventLockKey({ ticker: "HOOD", eventType: "EXECUTIVE_CHANGE", publishedAt: NOW.toISOString(), scheduledStart: null });
-  const lockB = logicalEventLockKey({ ticker: "HOOD", eventType: "EXECUTIVE_CHANGE", publishedAt: NOW.toISOString(), scheduledStart: null });
+  const lockA = logicalEventLockKey({ ticker: "HOOD", eventType: "EXECUTIVE_CHANGE" });
+  const lockB = logicalEventLockKey({ ticker: "HOOD", eventType: "EXECUTIVE_CHANGE" });
   assertEquals(lockA, lockB);
   assert(!lockA.includes("hash"));
   await Promise.all([
@@ -715,4 +724,135 @@ Deno.test("company universe loads for news and unmapped company sources only", a
     },
   });
   assertEquals(secLoads, 0);
+});
+
+Deno.test("cross-midnight sources share one logical event", async () => {
+  const store = createMemoryStore();
+  const late = "2026-09-30T23:59:59.000Z";
+  const early = "2026-10-01T00:00:02.000Z";
+  const lock = logicalEventLockKey({ ticker: "HOOD", eventType: "EXECUTIVE_CHANGE" });
+  assertEquals(lock, "evt:HOOD:f6");
+  assert(!lock.includes("hash"));
+  assert(!/\d{4}-\d{2}-\d{2}/.test(lock));
+  const reuters = source({
+    id: "reuters-midnight",
+    sourceKey: "reuters-midnight",
+    authorityKey: "reuters",
+    sourceType: "NEWS_PR",
+    url: "https://reuters.example.test/midnight",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+  });
+  const wire = source({
+    id: "businesswire-midnight",
+    sourceKey: "bw-midnight",
+    authorityKey: "businesswire",
+    sourceType: "NEWS_PR",
+    url: "https://businesswire.example.test/midnight",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+  });
+  await Promise.all([
+    ingestCandidate(store, candidate({
+      sourceId: reuters.id,
+      externalId: "reuters-midnight-cfo",
+      title: "Example Hood Markets names a new chief financial officer",
+      hash: "hash-midnight-reuters",
+      ticker: "HOOD",
+      publishedAt: late,
+    }), { now: new Date(early), allowFixtures: false, source: reuters }),
+    ingestCandidate(store, candidate({
+      sourceId: wire.id,
+      externalId: "bw-midnight-cfo",
+      title: "Example Hood Markets appoints a new chief financial officer",
+      hash: "hash-midnight-businesswire",
+      ticker: "HOOD",
+      publishedAt: early,
+    }), { now: new Date(early), allowFixtures: false, source: wire }),
+  ]);
+  assertEquals(store.rawItems().length, 2);
+  assertEquals(new Set(store.rawItems().map((row) => row.contentHash)).size, 2);
+  assertEquals(new Set(store.rawItems().map((row) => row.canonicalUrl)).size, 2);
+  assertEquals(store.events().length, 1);
+  assertEquals((await store.listEvidence(store.events()[0].id)).length, 2);
+});
+
+Deno.test("a future event is not treated as a reaction until it starts", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    id: "hood-summit",
+    sourceKey: "hood-events",
+    authorityKey: "hood-ir",
+    sourceType: "COMPANY_EVENTS",
+    url: "https://ir.example.test/summit",
+    evidenceTier: "TIER_1_PRIMARY",
+    ticker: "HOOD",
+    companyName: "Example Hood Markets",
+  });
+  const start = new Date(NOW.getTime() + 2 * 60 * 60 * 1000);
+  const end = new Date(NOW.getTime() + 4 * 60 * 60 * 1000);
+  await ingestCandidate(store, candidate({
+    sourceId: src.id,
+    externalId: "summit-1",
+    title: "Example Hood Markets to host an active trader product summit",
+    hash: "hash-summit",
+    scheduledStart: start.toISOString(),
+    scheduledEnd: end.toISOString(),
+    isAnnouncement: false,
+    evidenceTier: "TIER_1_PRIMARY",
+    sourceType: "COMPANY_EVENTS",
+  }), { now: NOW, allowFixtures: false, source: src });
+  let barCalls = 0;
+  const observation = {
+    symbol: "HOOD",
+    observedAt: NOW.toISOString(),
+    freshness: "fresh" as const,
+    referencePrice: null as number | null,
+    currentPrice: 110,
+    intradayHigh: 112,
+    intradayLow: 108,
+    volume: 1_000_000,
+    dollarVolume: null,
+    rvol5m: 6,
+    timeAdjustedRvol: null,
+    volumeVelocity: 4,
+    volumeAcceleration: null,
+    vwap: 109,
+    vwapSide: "above" as const,
+    hodDistancePct: null,
+    floatTurnover: null,
+  };
+  await runReactionBot({
+    store,
+    now: NOW,
+    batchLimit: 5,
+    loadObservation: async () => observation,
+    loadReferenceBars: async () => {
+      barCalls += 1;
+      return [{ startMs: start.getTime() - 60_000, durationMs: 60_000, close: 100 }];
+    },
+  });
+  const ahead = store.events()[0];
+  assertEquals(ahead.lifecycle, "approaching");
+  assertEquals(ahead.reactionScore, null);
+  assertEquals(ahead.catalystState, "UPCOMING");
+  assert(ahead.priorityScore > 0);
+  assertEquals(ahead.scoreComponents.reaction_score, null);
+  assertEquals(barCalls, 0);
+  assertEquals(store.reactions().length, 0);
+
+  await runReactionBot({
+    store,
+    now: start,
+    batchLimit: 5,
+    loadObservation: async () => ({ ...observation, observedAt: start.toISOString() }),
+    loadReferenceBars: async () => {
+      barCalls += 1;
+      return [{ startMs: start.getTime() - 60_000, durationMs: 60_000, close: 100 }];
+    },
+  });
+  const live = store.events()[0];
+  assert(live.lifecycleLog.some((entry) => entry.to === "live"));
+  assert(live.lifecycle === "live" || live.lifecycle === "reacting");
+  assert(live.reactionScore != null && live.reactionScore > 0);
+  assertEquals(barCalls, 1);
+  assertEquals(store.reactions().length, 1);
 });

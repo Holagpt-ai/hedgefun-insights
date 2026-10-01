@@ -14,18 +14,14 @@ export interface DedupeCandidate {
 
 /**
  * Lock scope for concurrent creators of one logical event.
- * Ticker, event family, and UTC day. Content hash is intentionally absent.
+ * Ticker and event family only. Content hash, source, and UTC day are absent
+ * so a report that crosses midnight still shares one lock.
  */
 export function logicalEventLockKey(input: {
   ticker: string;
   eventType: IntelEventType;
-  publishedAt: string | null;
-  scheduledStart: string | null;
 }): string {
-  const stamp = input.scheduledStart ?? input.publishedAt;
-  const ms = stamp ? Date.parse(stamp) : NaN;
-  const day = Number.isFinite(ms) ? new Date(ms).toISOString().slice(0, 10) : "undated";
-  return `evt:${input.ticker}:${eventFamilyKey(input.eventType)}:${day}`;
+  return `evt:${input.ticker}:${eventFamilyKey(input.eventType)}`;
 }
 
 const TITLE_SYNDICATION = 0.72;

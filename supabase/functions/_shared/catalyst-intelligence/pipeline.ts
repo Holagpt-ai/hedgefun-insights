@@ -72,8 +72,6 @@ export async function ingestCandidate(
   const lockKey = logicalEventLockKey({
     ticker,
     eventType: classification.eventType,
-    publishedAt: timing.publishedAt,
-    scheduledStart: timing.scheduledStart,
   });
   const at = ctx.now.toISOString();
   const resolved = await store.withDedupeLock(lockKey, async () => {

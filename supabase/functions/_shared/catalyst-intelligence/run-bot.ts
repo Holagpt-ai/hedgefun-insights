@@ -1,6 +1,6 @@
 import type { CatalystSourceAdapter } from "./source-adapter.ts";
 import { backoffSeconds, MAX_ITEMS_PER_SOURCE } from "./config.ts";
-import { advanceForReaction, appendLifecycle } from "./lifecycle.ts";
+import { advanceForReaction, appendLifecycle, applyScheduleClock } from "./lifecycle.ts";
 import { eventReferenceInstant, referencePriceAtOrBefore, type EventPriceBar } from "./event-bars.ts";
 import {
   assessMarketObservation,
@@ -181,6 +181,28 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
     run.sourcesAttempted += 1;
     const startedEvent = Date.now();
     try {
+      const clock = applyScheduleClock(event.lifecycle, {
+        scheduledStart: event.scheduledStartAt,
+        scheduledEnd: event.scheduledEndAt,
+        scheduledDate: event.scheduledDate,
+      }, input.now);
+      if (clock.lifecycle !== event.lifecycle) {
+        event.lifecycleLog = appendLifecycle(
+          event.lifecycleLog,
+          event.lifecycle,
+          clock.lifecycle,
+          input.now.toISOString(),
+          clock.reason ?? "schedule",
+        );
+        event.lifecycle = clock.lifecycle;
+        applyScores(event, await input.store.listEvidence(event.id), input.now);
+        await input.store.updateEvent(event);
+        run.eventsUpdated += 1;
+      }
+      if (eventStillAhead(event, input.now)) {
+        run.sourcesSuccessful += 1;
+        continue;
+      }
       const ticker = (await input.store.listTickers(event.id)).find((row) => row.isPrimary);
       if (!ticker) {
         run.sourcesSuccessful += 1;
@@ -247,6 +269,17 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
   await input.store.saveRun(run);
   console.log(formatRunLog(run));
   return run;
+}
+
+function eventStillAhead(event: {
+  lifecycle: string;
+  scheduledStartAt: string | null;
+  effectiveAt: string | null;
+}, now: Date): boolean {
+  if (event.lifecycle !== "scheduled" && event.lifecycle !== "approaching") return false;
+  const stamp = event.scheduledStartAt ?? event.effectiveAt;
+  const ms = stamp ? Date.parse(stamp) : Number.NaN;
+  return Number.isFinite(ms) && ms > now.getTime();
 }
 
 async function failDatabaseRun(store: CatalystIntelStore, run: RunTelemetry, wallStart: number): Promise<RunTelemetry> {

@@ -358,9 +358,10 @@ CREATE TRIGGER trg_catalyst_intel_reactions_updated
   BEFORE UPDATE ON public.catalyst_intel_reactions
   FOR EACH ROW EXECUTE FUNCTION public.catalyst_intel_touch_updated_at();
 
--- One guard row per ticker + event family + UTC day.
--- This is not a table lock and the key does not include content hash.
+-- One guard row per ticker + event family.
+-- This is not a table lock. The key does not include content hash, source, or UTC day.
 -- The holder re-reads dedupe candidates after the row is acquired.
+-- A stale row expires after 60 seconds. Release is still explicit.
 CREATE TABLE IF NOT EXISTS public.catalyst_intel_dedupe_guards (
   lock_key text PRIMARY KEY,
   holder uuid NOT NULL,
@@ -384,7 +385,7 @@ BEGIN
   LOOP
     DELETE FROM public.catalyst_intel_dedupe_guards
     WHERE lock_key = p_lock_key
-      AND acquired_at < now() - interval '15 seconds';
+      AND acquired_at < now() - interval '60 seconds';
     BEGIN
       INSERT INTO public.catalyst_intel_dedupe_guards (lock_key, holder)
       VALUES (p_lock_key, p_owner);
