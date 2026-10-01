@@ -322,6 +322,8 @@ export interface SourceRunError {
   statusCode: number | null;
   retryable: boolean;
   elapsedMs: number;
+  /** Structured run metrics (`category === "metrics"`) or diagnostics; stored in runs.errors jsonb. */
+  details?: Record<string, unknown>;
 }
 
 export interface RunTelemetry {
@@ -341,6 +343,8 @@ export interface RunTelemetry {
   elapsedMs: number | null;
   status: "running" | "completed" | "disabled" | "failed";
   errors: SourceRunError[];
+  /** Persisted inside runs.errors as a synthetic metrics row (no schema migration). */
+  observability?: Record<string, unknown>;
 }
 
 export type RawIngestDisposition = "inserted" | "existing_resumed" | "existing_linked";

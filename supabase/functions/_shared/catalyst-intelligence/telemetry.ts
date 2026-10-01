@@ -1,3 +1,4 @@
+import { serializeRunErrors } from "./run-observability.ts";
 import type { RunTelemetry, SourceRunError } from "./types.ts";
 
 export function emptyRun(bot: RunTelemetry["bot"], runId: string, startedAt: string): RunTelemetry {
@@ -46,8 +47,13 @@ export function formatRunLog(run: RunTelemetry): string {
     events_invalidated: run.eventsInvalidated,
     elapsed_ms: run.elapsedMs,
     status: run.status,
+    observability: run.observability ?? null,
     errors,
   });
+}
+
+export function runErrorsForPersistence(run: RunTelemetry): SourceRunError[] {
+  return serializeRunErrors(run);
 }
 
 export function safeError(sourceId: string, category: string, statusCode: number | null, retryable: boolean, elapsedMs: number): SourceRunError {

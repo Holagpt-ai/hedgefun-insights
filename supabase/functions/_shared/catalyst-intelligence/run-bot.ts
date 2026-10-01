@@ -1,7 +1,21 @@
 import type { CatalystSourceAdapter } from "./source-adapter.ts";
 import { backoffSeconds, MAX_ITEMS_PER_SOURCE } from "./config.ts";
 import { advanceForReaction, appendLifecycle, applyScheduleClock } from "./lifecycle.ts";
-import { eventReferenceInstant, referencePriceAtOrBefore, type EventPriceBar } from "./event-bars.ts";
+import { eventReferenceInstant, type EventPriceBar } from "./event-bars.ts";
+import {
+  legacyProvenanceIfNeeded,
+  readStoredProvenance,
+  resolvePolygonReference,
+  type ReferencePriceProvenance,
+} from "./reference-provenance.ts";
+import {
+  attachRunObservability,
+  emptyIngestObservability,
+  emptyReactionObservability,
+  ingestRejectionReason,
+  recordRejection,
+  type ReactionObservability,
+} from "./run-observability.ts";
 import {
   assessReactionMarketContext,
   preserveObservedMetrics,
@@ -17,6 +31,7 @@ import type {
   BotId,
   CompanyRecord,
   MarketObservation,
+  ReactionRecord,
   ReactionWindow,
   RunTelemetry,
   SourceRecord,
@@ -42,6 +57,7 @@ export interface CollectorRunInput {
 export async function runCollectorBot(input: CollectorRunInput): Promise<RunTelemetry> {
   const wallStart = Date.now();
   const run = emptyRun(input.bot, crypto.randomUUID(), new Date(wallStart).toISOString());
+  const ingestionObs = emptyIngestObservability();
   let sources;
   try {
     sources = await input.store.listDueSources({
@@ -107,11 +123,17 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       }
       for (const item of items) {
         run.rawItemsSeen += 1;
+        ingestionObs.items_encountered += 1;
         if ((item.metadata["x-stocksist-fixture"] === true || item.metadata.fixture === true) && !ctx.allowFixtures) {
+          recordRejection(ingestionObs, "fixture_disallowed");
           continue;
         }
         const candidate = await input.adapter.normalize(item, ctx);
-        if (!candidate) continue;
+        if (!candidate) {
+          recordRejection(ingestionObs, ingestRejectionReason(item, true));
+          continue;
+        }
+        ingestionObs.items_qualifying += 1;
         const outcome = await ingestNext(() => ingestCandidate(input.store, candidate, {
           now: input.now,
           allowFixtures: ctx.allowFixtures,
@@ -153,6 +175,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
   run.completedAt = new Date().toISOString();
   run.elapsedMs = Date.now() - wallStart;
   run.status = run.errors.some((error) => error.category === "database") ? "failed" : "completed";
+  attachRunObservability(run, { bot: input.bot, ingestion: ingestionObs });
   await input.store.saveRun(run);
   console.log(formatRunLog(run));
   return run;
@@ -171,6 +194,7 @@ export interface ReactionRunInput {
 export async function runReactionBot(input: ReactionRunInput): Promise<RunTelemetry> {
   const wallStart = Date.now();
   const run = emptyRun("reactions", crypto.randomUUID(), new Date(wallStart).toISOString());
+  const reactionObs = emptyReactionObservability();
   let events;
   try {
     events = await input.store.listReactionCandidates(input.batchLimit);
@@ -181,6 +205,7 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
   const windowKind = input.windowKind ?? "point";
   for (const event of events) {
     run.sourcesAttempted += 1;
+    reactionObs.events_evaluated += 1;
     const startedEvent = Date.now();
     try {
       const clock = applyScheduleClock(event.lifecycle, {
@@ -200,24 +225,44 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         applyScores(event, await input.store.listEvidence(event.id), input.now);
         await input.store.updateEvent(event);
         run.eventsUpdated += 1;
+        reactionObs.canonical_events_updated += 1;
       }
       if (eventStillAhead(event, input.now)) {
+        reactionObs.events_skipped_future += 1;
         run.sourcesSuccessful += 1;
         continue;
       }
       const ticker = (await input.store.listTickers(event.id)).find((row) => row.isPrimary);
       if (!ticker) {
+        reactionObs.events_skipped_no_primary_ticker += 1;
         run.sourcesSuccessful += 1;
         continue;
       }
+      reactionObs.events_processed += 1;
       const existing = await input.store.getReaction(event.id, windowKind);
       const eventAt = eventReferenceInstant(event);
       let eventReferencePrice = existing?.referencePrice != null && existing.referencePrice > 0
         ? existing.referencePrice
         : null;
-      if (eventReferencePrice == null && eventAt && input.loadReferenceBars) {
+      let newProvenance: ReferencePriceProvenance | null = null;
+      let referenceReused = false;
+      if (eventReferencePrice != null && existing) {
+        referenceReused = true;
+        reactionObs.reference_prices_reused += 1;
+      } else if (eventAt && input.loadReferenceBars) {
+        reactionObs.polygon_lookups_attempted += 1;
         const bars = await input.loadReferenceBars(ticker.ticker, eventAt);
-        eventReferencePrice = referencePriceAtOrBefore(bars, Date.parse(eventAt));
+        const resolved = resolvePolygonReference({
+          bars,
+          eventAtIso: eventAt,
+          ticker: ticker.ticker,
+          event,
+          resolvedAt: input.now,
+        });
+        eventReferencePrice = resolved.price;
+        newProvenance = resolved.provenance;
+        if (eventReferencePrice != null) reactionObs.polygon_reference_resolved += 1;
+        else reactionObs.polygon_reference_unavailable += 1;
       }
       const radarObservation = await input.loadObservation(ticker.ticker);
       const assessment = assessReactionMarketContext(
@@ -227,6 +272,7 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         input.maxAgeMs,
       );
       if (assessment.availability !== "available" && existing?.availability === "available") {
+        reactionObs.events_skipped_stale_preservation += 1;
         run.sourcesSuccessful += 1;
         continue;
       }
@@ -237,8 +283,19 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         assessment,
         existing?.id ?? crypto.randomUUID(),
       ), existing);
+      reaction.payload = buildReactionPayload(reaction, {
+        existing,
+        newProvenance,
+        referenceReused,
+        resolvedAt: input.now,
+      });
+      const reactionChange = classifyReactionWrite(existing, reaction);
+      if (reactionChange === "inserted") reactionObs.reaction_rows_inserted += 1;
+      else if (reactionChange === "updated") reactionObs.reaction_rows_updated += 1;
+      else reactionObs.reaction_rows_unchanged += 1;
       await input.store.upsertReaction(reaction);
       if (assessment.availability === "available") {
+        reactionObs.events_reaction_scored += 1;
         event.reactionScore = assessment.reactionScore;
         const next = advanceForReaction(event.lifecycle, windowKind);
         if (next !== event.lifecycle) {
@@ -254,6 +311,7 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         applyScores(event, await input.store.listEvidence(event.id), input.now);
         await input.store.updateEvent(event);
         run.eventsUpdated += 1;
+        reactionObs.canonical_events_updated += 1;
       }
       run.sourcesSuccessful += 1;
     } catch (err) {
@@ -270,9 +328,65 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
   run.completedAt = new Date().toISOString();
   run.elapsedMs = Date.now() - wallStart;
   run.status = run.errors.some((error) => error.category === "database") ? "failed" : "completed";
+  attachRunObservability(run, { bot: "reactions", reactions: reactionObs });
   await input.store.saveRun(run);
   console.log(formatRunLog(run));
   return run;
+}
+
+function buildReactionPayload(
+  reaction: ReactionRecord,
+  ctx: {
+    existing: ReactionRecord | null;
+    newProvenance: ReferencePriceProvenance | null;
+    referenceReused: boolean;
+    resolvedAt: Date;
+  },
+): Record<string, unknown> {
+  const payload = { ...reaction.payload };
+  if (ctx.newProvenance) {
+    payload.reference_provenance = ctx.newProvenance;
+    payload.reference_price_reused = false;
+  } else if (ctx.referenceReused && ctx.existing) {
+    const prior = readStoredProvenance(ctx.existing.payload ?? {});
+    if (prior) payload.reference_provenance = prior;
+    else {
+      const legacy = legacyProvenanceIfNeeded(reaction.referencePrice, ctx.existing.payload ?? {});
+      if (legacy) payload.reference_provenance = legacy;
+    }
+    payload.reference_price_reused = true;
+    payload.reference_reused_at = ctx.resolvedAt.toISOString();
+  } else if (reaction.referencePrice != null && reaction.referencePrice > 0 && !readStoredProvenance(payload)) {
+    const legacy = legacyProvenanceIfNeeded(reaction.referencePrice, payload);
+    if (legacy) payload.reference_provenance = legacy;
+  }
+  return payload;
+}
+
+function classifyReactionWrite(
+  existing: ReactionRecord | null,
+  next: ReactionRecord,
+): "inserted" | "updated" | "unchanged" {
+  if (!existing) return "inserted";
+  const comparable = [
+    existing.availability,
+    existing.referencePrice,
+    existing.currentPrice,
+    existing.percentMove,
+    existing.rvol5m,
+    existing.vwap,
+    JSON.stringify(existing.payload ?? {}),
+  ];
+  const comparableNext = [
+    next.availability,
+    next.referencePrice,
+    next.currentPrice,
+    next.percentMove,
+    next.rvol5m,
+    next.vwap,
+    JSON.stringify(next.payload ?? {}),
+  ];
+  return comparable.join("|") === comparableNext.join("|") ? "unchanged" : "updated";
 }
 
 function eventStillAhead(event: {

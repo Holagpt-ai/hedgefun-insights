@@ -197,7 +197,7 @@ export function parseIcsEvents(body: string): ParsedFeedItem[] {
       scheduledDate: start.date,
       metadata: start.timezone ? { timezone: start.timezone } : {},
     };
-  }).filter((item) => item.title);
+  });
 }
 
 function icsWhen(lines: Map<string, string>, key: string): { start: string | null; date: string | null; timezone: string | null } {

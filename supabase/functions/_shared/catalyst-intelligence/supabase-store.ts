@@ -1,4 +1,5 @@
 import { DatabaseReadError, mapDatabaseError } from "./conflicts.ts";
+import { runErrorsForPersistence } from "./telemetry.ts";
 import { observationFromRadarRow, pickLatestRadarRows } from "./market-reaction.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
 import type {
@@ -500,7 +501,7 @@ function unmapRun(run: RunTelemetry): Record<string, unknown> {
     events_invalidated: run.eventsInvalidated,
     elapsed_ms: run.elapsedMs,
     status: run.status,
-    errors: run.errors,
+    errors: runErrorsForPersistence(run),
   };
 }
 

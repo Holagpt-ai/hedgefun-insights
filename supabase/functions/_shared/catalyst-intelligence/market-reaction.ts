@@ -17,9 +17,20 @@ export function pickLatestRadarRows(rows: readonly Record<string, unknown>[]): R
 
 /** Keep stored RVOL, VWAP, and velocity when a newer snapshot does not include them. */
 export function preserveObservedMetrics(next: ReactionRecord, existing: ReactionRecord | null): ReactionRecord {
-  if (!existing || existing.availability !== "available") return next;
-  const referencePrice = next.referencePrice ?? existing.referencePrice;
-  const currentPrice = next.currentPrice ?? existing.currentPrice;
+  const referencePrice = next.referencePrice ?? existing?.referencePrice ?? null;
+  const currentPrice = next.currentPrice ?? existing?.currentPrice ?? null;
+  const payload = { ...(existing?.payload ?? {}), ...next.payload };
+  if (
+    existing?.referencePrice != null &&
+    existing.referencePrice > 0 &&
+    referencePrice === existing.referencePrice &&
+    typeof existing.payload?.reference_provenance === "object"
+  ) {
+    payload.reference_provenance = existing.payload.reference_provenance;
+  }
+  if (!existing || existing.availability !== "available") {
+    return { ...next, referencePrice, currentPrice, percentMove: percentMove(referencePrice, currentPrice), payload };
+  }
   return {
     ...next,
     referencePrice,
@@ -31,6 +42,7 @@ export function preserveObservedMetrics(next: ReactionRecord, existing: Reaction
     volumeAcceleration: next.volumeAcceleration ?? existing.volumeAcceleration,
     vwap: next.vwap ?? existing.vwap,
     vwapSide: next.vwapSide ?? existing.vwapSide,
+    payload,
   };
 }
 
