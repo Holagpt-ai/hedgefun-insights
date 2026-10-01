@@ -47,6 +47,9 @@ export interface CatalystIntelStore {
   listReactionCandidates(limit: number): Promise<CanonicalEvent[]>;
   insertEvent(event: CanonicalEvent): Promise<void>;
   updateEvent(event: CanonicalEvent): Promise<void>;
+  /** Updates the row only when `updated_at` still matches (returns false on conflict). */
+  updateEventIfUnchanged(event: CanonicalEvent, expectedUpdatedAt: string | null): Promise<boolean>;
+  listRawItemsForSource(sourceId: string): Promise<RawItemRecord[]>;
   listTickers(eventId: string): Promise<TickerLink[]>;
   upsertTicker(row: TickerLink): Promise<void>;
   withDedupeLock<T>(lockKey: string, task: () => Promise<T>): Promise<T>;
@@ -162,11 +165,30 @@ export function createMemoryStore(): CatalystIntelStore & {
       if (events.some((row) => row.id === event.id || row.canonicalKey === event.canonicalKey)) {
         throw new UniqueConflictError();
       }
-      events.push(structuredClone(event));
+      const row = structuredClone(event);
+      row.updatedAt = row.updatedAt ?? new Date().toISOString();
+      events.push(row);
     },
     async updateEvent(event) {
       const index = events.findIndex((row) => row.id === event.id);
-      if (index >= 0) events[index] = structuredClone(event);
+      if (index >= 0) {
+        const row = structuredClone(event);
+        row.updatedAt = new Date().toISOString();
+        events[index] = row;
+      }
+    },
+    async updateEventIfUnchanged(event, expectedUpdatedAt) {
+      const index = events.findIndex((row) => row.id === event.id);
+      if (index < 0) return false;
+      const current = events[index].updatedAt ?? null;
+      if (current !== expectedUpdatedAt) return false;
+      const row = structuredClone(event);
+      row.updatedAt = new Date().toISOString();
+      events[index] = row;
+      return true;
+    },
+    async listRawItemsForSource(sourceId) {
+      return raw.filter((row) => row.sourceId === sourceId).map((row) => structuredClone(row));
     },
     async listTickers(eventId) {
       return tickers.filter((row) => row.eventId === eventId).map((row) => structuredClone(row));

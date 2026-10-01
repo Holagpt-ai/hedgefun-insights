@@ -243,6 +243,8 @@ export interface CanonicalEvent {
   distributionStatus: "observation" | "ready";
   lifecycleLog: LifecycleLogEntry[];
   scoreComponents: Record<string, unknown>;
+  /** Row revision for optimistic concurrency (Supabase `updated_at`). */
+  updatedAt?: string | null;
 }
 
 export interface LifecycleLogEntry {

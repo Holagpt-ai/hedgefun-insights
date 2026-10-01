@@ -103,6 +103,9 @@ verify_jwt = false
 [functions.sync-catalyst-ir]
 verify_jwt = false
 
+[functions.sync-catalyst-reconcile]
+verify_jwt = false
+
 [functions.sync-catalyst-company-events]
 verify_jwt = false
 

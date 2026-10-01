@@ -155,6 +155,19 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       const { error } = await supabase.from("catalyst_intel_events").update(unmapEvent(event)).eq("id", event.id);
       if (error) throw new Error("database");
     },
+    async updateEventIfUnchanged(event, expectedUpdatedAt) {
+      let request = supabase.from("catalyst_intel_events").update(unmapEvent(event)).eq("id", event.id);
+      if (expectedUpdatedAt) request = request.eq("updated_at", expectedUpdatedAt);
+      else request = request.is("updated_at", null);
+      const { data, error } = await request.select("id").maybeSingle();
+      if (error) throw new Error("database");
+      return Boolean(data);
+    },
+    async listRawItemsForSource(sourceId) {
+      const { data, error } = await supabase.from("catalyst_intel_raw_items").select("*").eq("source_id", sourceId);
+      if (error) throw new DatabaseReadError();
+      return ((data ?? []) as Record<string, unknown>[]).map(mapRaw);
+    },
     async listTickers(eventId) {
       const { data, error } = await supabase.from("catalyst_intel_event_tickers").select("*").eq("event_id", eventId);
       if (error) throw new DatabaseReadError();
@@ -325,6 +338,7 @@ function mapEvent(row: Record<string, unknown>): CanonicalEvent {
     distributionStatus: row.distribution_status === "ready" ? "ready" : "observation",
     lifecycleLog: Array.isArray(row.lifecycle_log) ? row.lifecycle_log as CanonicalEvent["lifecycleLog"] : [],
     scoreComponents: obj(row.score_components),
+    updatedAt: str(row.updated_at),
   };
 }
 
