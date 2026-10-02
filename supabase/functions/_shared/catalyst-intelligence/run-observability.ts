@@ -19,6 +19,7 @@ export interface IngestObservability {
   canonical_events_enriched: number;
   continuation_remaining_items: number;
   resource_stop_reason: string | null;
+  last_progress_at: string | null;
 }
 
 export interface ReactionObservability {
@@ -53,6 +54,7 @@ export function emptyIngestObservability(): IngestObservability {
     canonical_events_enriched: 0,
     continuation_remaining_items: 0,
     resource_stop_reason: null,
+    last_progress_at: null,
   };
 }
 

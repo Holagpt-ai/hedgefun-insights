@@ -10,6 +10,8 @@ import {
 import { createMemoryStore } from "./persistence.ts";
 import { ingestCandidate } from "./pipeline.ts";
 import { runCollectorBot } from "./run-bot.ts";
+import { runRecoveryToken, runStaleRunRecovery } from "./run-recovery.ts";
+import { emptyRun } from "./telemetry.ts";
 import type { RunObservability } from "./run-observability.ts";
 import type { NormalizedEventCandidate, SourceRecord } from "./types.ts";
 
@@ -715,4 +717,162 @@ Deno.test("fully corrected attribution event is NO_CHANGE", async () => {
   assertEquals(result.item?.correctionStatus, "NO_CHANGE");
   assertEquals(JSON.stringify(await store.getEvent(seeded.eventId)), before);
   assertEquals((await store.listTickers(seeded.eventId)).length, 0);
+});
+
+Deno.test("NEWS name lookup does not scan the full universe per item", () => {
+  const rows = [
+    { ticker: "SYK", name: "Stryker Corporation" },
+    { ticker: "NBTX", name: "Nanobiotix SA" },
+  ];
+  for (let i = 0; i < 4_000; i++) rows.push({ ticker: `T${i.toString(36).toUpperCase()}`, name: `Harbor ${i} Holdings` });
+  const universe = buildCompanyUniverse(rows);
+  const index = buildAttributionIndex(universe);
+  const decision = attributeCandidate(newsCandidate("Stryker Corporation reports results", null), {
+    ...NEWS_CTX,
+    companies: universe,
+    attributionIndex: index,
+  });
+  assertEquals(decision.ticker, "SYK");
+  assert(index.lastNewsCandidateCount < 10);
+  const started = performance.now();
+  for (let i = 0; i < 8; i++) {
+    attributeCandidate(newsCandidate("Bonduelle announces quarterly results", "The company will host a call."), {
+      ...NEWS_CTX,
+      companies: universe,
+      attributionIndex: index,
+    });
+  }
+  assert(performance.now() - started < 250);
+});
+
+Deno.test("NEWS checkpoints continuation after the first item so a hard kill can resume", async () => {
+  const base = createMemoryStore();
+  let firstContinuation: number | null = null;
+  const store = {
+    ...base,
+    async saveSource(row: Parameters<typeof base.saveSource>[0]) {
+      const continuation = row.metadata.news_feed_continuation as { next_item_index?: number } | undefined;
+      if (firstContinuation == null && continuation?.next_item_index != null) {
+        firstContinuation = continuation.next_item_index;
+      }
+      return base.saveSource(row);
+    },
+    async saveRun(run: Parameters<typeof base.saveRun>[0]) {
+      return base.saveRun(run);
+    },
+  };
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/checkpoint",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+  await store.saveSource(src);
+  const body = rssFeed(20);
+  await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    batchLimit: 1,
+    companies: NEWS_UNIVERSE,
+    newsItemBudget: 1,
+    newsWallTimeMs: 60_000,
+  });
+  assertEquals(firstContinuation, 1);
+  const saved = (await store.listSources({}))[0];
+  assertEquals(saved.lastContentHash, null);
+  assertEquals((saved.metadata.news_feed_continuation as { next_item_index: number }).next_item_index, 1);
+
+  const second = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: new Date(NOW.getTime() + 60_000),
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    batchLimit: 1,
+    companies: NEWS_UNIVERSE,
+    newsItemBudget: 20,
+    newsWallTimeMs: 60_000,
+  });
+  assertEquals(second.rawItemsSeen, 19);
+  const done = (await store.listSources({}))[0];
+  assertEquals(done.metadata.news_feed_continuation, undefined);
+  assert(done.lastContentHash != null);
+  assertEquals(base.rawItems().length, 20);
+});
+
+Deno.test("stale running Catalyst run recovers without touching source failure count", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/stale",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+  });
+  src.failureCount = 0;
+  await store.saveSource(src);
+  const started = new Date(NOW.getTime() - 60 * 60 * 1000);
+  const run = emptyRun("news", "1759bb3f-e443-425f-a17f-73fdc3ab0a96", started.toISOString());
+  run.rawItemsSeen = 1;
+  run.newItems = 1;
+  await store.saveRun(run);
+  const fresh = emptyRun("news", crypto.randomUUID(), NOW.toISOString());
+  await store.saveRun(fresh);
+  const completed = emptyRun("news", crypto.randomUUID(), started.toISOString());
+  completed.status = "completed";
+  completed.completedAt = NOW.toISOString();
+  await store.saveRun(completed);
+
+  const dry = await runStaleRunRecovery(store, {
+    runId: run.runId,
+    dryRun: true,
+    apply: false,
+    now: NOW,
+  });
+  assertEquals(dry.recoveryStatus, "WOULD_RECOVER");
+  assertEquals(dry.proposedStatus, "failed");
+  assertEquals((await store.getRun(run.runId))?.status, "running");
+
+  const applied = await runStaleRunRecovery(store, {
+    runId: run.runId,
+    dryRun: false,
+    apply: true,
+    concurrencyToken: dry.concurrencyToken,
+    now: NOW,
+  });
+  assertEquals(applied.recoveryStatus, "RECOVERED");
+  const saved = await store.getRun(run.runId);
+  assertEquals(saved?.status, "failed");
+  assertEquals(saved?.startedAt, started.toISOString());
+  assertEquals(saved?.rawItemsSeen, 1);
+  assert(saved?.errors.some((error) => error.category === "stale_run_recovery"));
+  assertEquals((await store.listSources({}))[0].failureCount, 0);
+
+  const again = await runStaleRunRecovery(store, {
+    runId: run.runId,
+    dryRun: false,
+    apply: true,
+    concurrencyToken: runRecoveryToken(saved!),
+    now: NOW,
+  });
+  assertEquals(again.recoveryStatus, "NO_CHANGE");
+
+  const notStale = await runStaleRunRecovery(store, {
+    runId: fresh.runId,
+    dryRun: true,
+    apply: false,
+    now: NOW,
+  });
+  assertEquals(notStale.recoveryStatus, "NOT_STALE");
+
+  const done = await runStaleRunRecovery(store, {
+    runId: completed.runId,
+    dryRun: true,
+    apply: false,
+    now: NOW,
+  });
+  assertEquals(done.recoveryStatus, "NO_CHANGE");
 });

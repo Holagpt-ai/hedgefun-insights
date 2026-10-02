@@ -32,6 +32,7 @@ export interface CatalystIntelStore {
   listDueSources(input: DueSourceQuery): Promise<SourceRecord[]>;
   saveSource(source: SourceRecord): Promise<void>;
   saveRun(run: RunTelemetry): Promise<void>;
+  getRun(runId: string): Promise<RunTelemetry | null>;
   findRawByExternal(sourceId: string, externalId: string): Promise<RawItemRecord | null>;
   findRawByHash(sourceId: string, contentHash: string): Promise<RawItemRecord | null>;
   getRawItem(rawItemId: string): Promise<RawItemRecord | null>;
@@ -104,6 +105,10 @@ export function createMemoryStore(): CatalystIntelStore & {
       const index = runs.findIndex((row) => row.runId === run.runId);
       if (index >= 0) runs[index] = structuredClone(run);
       else runs.push(structuredClone(run));
+    },
+    async getRun(runId) {
+      const found = runs.find((row) => row.runId === runId);
+      return found ? structuredClone(found) : null;
     },
     async findRawByExternal(sourceId, externalId) {
       return raw.find((row) => row.sourceId === sourceId && row.externalId === externalId) ?? null;

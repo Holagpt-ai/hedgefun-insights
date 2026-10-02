@@ -70,6 +70,11 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       const { error } = await supabase.from("catalyst_intel_runs").upsert(unmapRun(run));
       if (error) throw new Error("database");
     },
+    async getRun(runId) {
+      const { data, error } = await supabase.from("catalyst_intel_runs").select("*").eq("id", runId).maybeSingle();
+      if (error) throw new DatabaseReadError();
+      return data ? mapRun(data as Record<string, unknown>) : null;
+    },
     async findRawByExternal(sourceId, externalId) {
       const { data, error } = await supabase.from("catalyst_intel_raw_items").select("*").eq("source_id", sourceId).eq("external_id", externalId).maybeSingle();
       if (error) throw new DatabaseReadError();
@@ -490,6 +495,47 @@ function unmapReaction(row: ReactionRecord): Record<string, unknown> {
     lod_distance_pct: row.lodDistancePct,
     float_turnover: row.floatTurnover,
     payload: row.payload,
+  };
+}
+
+function mapRun(row: Record<string, unknown>): RunTelemetry {
+  const storedErrors = Array.isArray(row.errors) ? row.errors as Record<string, unknown>[] : [];
+  const metrics = storedErrors.find((entry) => entry.category === "metrics" && entry.sourceId === "_observability");
+  const errors = storedErrors
+    .filter((entry) => !(entry.category === "metrics" && entry.sourceId === "_observability"))
+    .map((entry) => ({
+      sourceId: String(entry.sourceId ?? ""),
+      category: String(entry.category ?? "unknown"),
+      statusCode: typeof entry.statusCode === "number" ? entry.statusCode : null,
+      retryable: entry.retryable === true,
+      elapsedMs: typeof entry.elapsedMs === "number" ? entry.elapsedMs : 0,
+      details: entry.details && typeof entry.details === "object" && !Array.isArray(entry.details)
+        ? entry.details as Record<string, unknown>
+        : undefined,
+    }));
+  const status = row.status === "completed" || row.status === "disabled" || row.status === "failed" || row.status === "running"
+    ? row.status
+    : "failed";
+  return {
+    runId: String(row.id),
+    bot: String(row.bot) as BotId,
+    startedAt: String(row.started_at),
+    completedAt: str(row.completed_at),
+    sourcesAttempted: Number(row.sources_attempted ?? 0),
+    sourcesSuccessful: Number(row.sources_successful ?? 0),
+    sourcesFailed: Number(row.sources_failed ?? 0),
+    rawItemsSeen: Number(row.raw_items_seen ?? 0),
+    newItems: Number(row.new_items ?? 0),
+    duplicates: Number(row.duplicates ?? 0),
+    eventsCreated: Number(row.events_created ?? 0),
+    eventsUpdated: Number(row.events_updated ?? 0),
+    eventsInvalidated: Number(row.events_invalidated ?? 0),
+    elapsedMs: num(row.elapsed_ms),
+    status,
+    errors,
+    observability: metrics?.details && typeof metrics.details === "object" && !Array.isArray(metrics.details)
+      ? metrics.details as Record<string, unknown>
+      : undefined,
   };
 }
 

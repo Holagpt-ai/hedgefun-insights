@@ -214,6 +214,18 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
           run.duplicates += 1;
         }
         absoluteIndex += 1;
+        if (input.bot === "news" && feedHash) {
+          const paused = absoluteIndex < items.length;
+          source.metadata = writeNewsContinuation(source.metadata, paused ? {
+            feed_content_hash: feedHash,
+            next_item_index: absoluteIndex,
+            feed_item_count: items.length,
+          } : null);
+          ingestionObs.continuation_remaining_items = paused ? items.length - absoluteIndex : 0;
+          continuationComplete = !paused;
+          await input.store.saveSource(source);
+          await checkpointRun(input.store, run, ingestionObs, input.bot, wallStart);
+        }
       }
       if (input.bot === "news" && feedHash) {
         const paused = absoluteIndex < items.length;
@@ -548,6 +560,7 @@ async function checkpointRun(
   wallStart: number,
 ): Promise<void> {
   run.elapsedMs = Date.now() - wallStart;
+  ingestionObs.last_progress_at = new Date().toISOString();
   attachRunObservability(run, { bot, ingestion: ingestionObs });
   try {
     await store.saveRun(run);

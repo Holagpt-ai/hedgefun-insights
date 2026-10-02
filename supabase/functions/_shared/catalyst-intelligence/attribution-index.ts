@@ -49,8 +49,7 @@ export function legacyTextHasName(text: string, name: string): boolean {
 
 function containsWholePhrase(haystack: string, needle: string): boolean {
   if (!needle || needle.length < 4) return false;
-  const pattern = needle.split(/\s+/).map(escapeRegExp).join("\\s+");
-  return new RegExp(`(?:^|\\s)${pattern}(?:\\s|$)`).test(haystack);
+  return ` ${haystack} `.includes(` ${needle} `);
 }
 
 interface NewsNameProfile {
@@ -103,6 +102,8 @@ function findExplicitTickersInText(text: string, tickerSet: ReadonlySet<string>)
 
 export interface AttributionIndex {
   readonly companies: readonly CompanyRecord[];
+  /** Candidates examined by the last NEWS name lookup. Not a full-universe scan. */
+  lastNewsCandidateCount: number;
   /** SEC/IR and legacy paths: cashtag, parens, and bare ticker words (with stop list). */
   findMentionedTickers(text: string): string[];
   /** NEWS_PR only: cashtag, parens, and exchange-qualified tickers — no bare words. */
@@ -111,18 +112,34 @@ export interface AttributionIndex {
   findNewsNameTickers(title: string): Set<string>;
 }
 
+function addPosting(map: Map<string, string[]>, key: string, ticker: string): void {
+  const current = map.get(key);
+  if (!current) {
+    map.set(key, [ticker]);
+    return;
+  }
+  if (!current.includes(ticker)) current.push(ticker);
+}
+
 export function buildAttributionIndex(companies: readonly CompanyRecord[]): AttributionIndex {
   const tickerSet = new Set<string>();
-  const profiles: { ticker: string; profiles: NewsNameProfile[] }[] = [];
+  const exactPhrases = new Map<string, string[]>();
+  const tokenPostings = new Map<string, string[]>();
+  const profilesByTicker = new Map<string, NewsNameProfile[]>();
+  let lastNewsCandidateCount = 0;
   for (const company of companies) {
     const ticker = normalizeTicker(company.ticker);
     if (!ticker) continue;
     tickerSet.add(ticker);
     const names = [company.name, ...(company.aliases ?? [])];
-    profiles.push({
-      ticker,
-      profiles: names.map((name) => buildNewsProfiles(name)),
-    });
+    const profiles = names.map((name) => buildNewsProfiles(name));
+    profilesByTicker.set(ticker, profiles);
+    for (const profile of profiles) {
+      if (profile.exactPhrase.length >= 4) addPosting(exactPhrases, profile.exactPhrase, ticker);
+      for (const token of profile.meaningful) {
+        if (token.length >= 4) addPosting(tokenPostings, token, ticker);
+      }
+    }
   }
 
   function findNewsExplicitTickers(text: string): string[] {
@@ -154,17 +171,48 @@ export function buildAttributionIndex(companies: readonly CompanyRecord[]): Attr
   function findNewsNameTickers(title: string): Set<string> {
     const hits = new Set<string>();
     const titlePhrase = normalizePhrase(title);
-    const titleTokens = new Set(tokenize(title));
-    for (const row of profiles) {
-      if (row.profiles.some((profile) => newsProfileMatches(titlePhrase, titleTokens, profile))) {
-        hits.add(row.ticker);
+    const rawTokens = tokenize(title);
+    const titleTokens = new Set(rawTokens);
+    const windows = new Set<string>();
+    const maxWindow = Math.min(8, rawTokens.length);
+    for (let size = maxWindow; size >= 1; size -= 1) {
+      for (let i = 0; i + size <= rawTokens.length; i += 1) {
+        const window = rawTokens.slice(i, i + size).join(" ");
+        if (window.length < 4 || windows.has(window)) continue;
+        windows.add(window);
+        const owners = exactPhrases.get(window);
+        if (!owners) continue;
+        for (const ticker of owners) hits.add(ticker);
       }
+    }
+    if (hits.size > 0) {
+      lastNewsCandidateCount = hits.size;
+      return hits;
+    }
+    const meaningful = meaningfulNameTokens(title).filter((token) => token.length >= 4);
+    let rarest: string[] | null = null;
+    for (const token of meaningful) {
+      const posting = tokenPostings.get(token);
+      if (!posting || posting.length === 0) continue;
+      if (!rarest || posting.length < rarest.length) rarest = posting;
+    }
+    if (!rarest) {
+      lastNewsCandidateCount = 0;
+      return hits;
+    }
+    lastNewsCandidateCount = rarest.length;
+    for (const ticker of rarest) {
+      const profiles = profilesByTicker.get(ticker) ?? [];
+      if (profiles.some((profile) => newsProfileMatches(titlePhrase, titleTokens, profile))) hits.add(ticker);
     }
     return hits;
   }
 
   return {
     companies,
+    get lastNewsCandidateCount() {
+      return lastNewsCandidateCount;
+    },
     findMentionedTickers,
     findNewsExplicitTickers,
     findLegacyNameTickers,

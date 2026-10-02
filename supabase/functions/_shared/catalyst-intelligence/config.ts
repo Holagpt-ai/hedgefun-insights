@@ -12,6 +12,11 @@ export const MAX_ITEMS_PER_SOURCE = 40;
 export const NEWS_ITEMS_PER_INVOCATION = 8;
 /** Graceful exit before platform worker CPU limits during NEWS runs. */
 export const NEWS_WALL_TIME_MS = 24_000;
+/**
+ * A running Catalyst row older than this is eligible for stale-run recovery.
+ * Longer than a valid invocation (item wall guard is 24s; platform wall limits are minutes).
+ */
+export const RUN_STALE_AFTER_MS = 15 * 60 * 1000;
 export const MAX_EXCERPT_CHARS = 1_500;
 export const DEFAULT_REACTION_MAX_AGE_MS = 15 * 60 * 1000;
 /** Publication within this window may receive immediate session urgency. */

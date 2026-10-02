@@ -234,6 +234,31 @@ export function attributeCandidate(
 
   const companies = ctx.companies ?? index?.companies ?? [];
 
+  if (ctx.sourceType === "NEWS_PR") {
+    const explicit = index
+      ? index.findNewsExplicitTickers(fullText)
+      : buildAttributionIndex(companies).findNewsExplicitTickers(fullText);
+    if (explicit.length === 1) {
+      return {
+        status: "resolved",
+        ticker: explicit[0],
+        relation: "MENTION",
+        confidence: 0.55,
+        note: "news_explicit_ticker",
+      };
+    }
+    if (explicit.length > 1) {
+      return {
+        status: "unresolved",
+        ticker: null,
+        relation: null,
+        confidence: 0.1,
+        note: "ambiguous_mention",
+        unresolvedReason: "AMBIGUOUS_TICKER_MENTION",
+      };
+    }
+  }
+
   const nameHits = new Set<string>();
 
   if (ctx.sourceType === "NEWS_PR") {
@@ -305,9 +330,7 @@ export function attributeCandidate(
 
 
   const mentions = ctx.sourceType === "NEWS_PR"
-    ? (index
-      ? index.findNewsExplicitTickers(fullText)
-      : buildAttributionIndex(companies).findNewsExplicitTickers(fullText))
+    ? []
     : (index
       ? index.findMentionedTickers(fullText)
       : mentionedTickersLegacy(fullText, companies));
