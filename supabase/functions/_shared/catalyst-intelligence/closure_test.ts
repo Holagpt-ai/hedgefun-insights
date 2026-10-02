@@ -224,9 +224,11 @@ Deno.test("company universe attributes names and exact tickers without guessing"
   assertEquals(apple.status, "resolved");
   const nvda = attributeCandidate({ ...base, title: "NVIDIA unveils a new chip" }, ctx);
   assertEquals(nvda.ticker, "NVDA");
-  const exact = attributeCandidate({ ...base, title: "AAPL reports earnings" }, ctx);
+  const bareWord = attributeCandidate({ ...base, title: "AAPL reports earnings" }, ctx);
+  assertEquals(bareWord.status, "unresolved");
+  const exact = attributeCandidate({ ...base, title: "$AAPL reports earnings" }, ctx);
   assertEquals(exact.ticker, "AAPL");
-  assertEquals(exact.note, "ticker_mention");
+  assertEquals(exact.note, "news_explicit_ticker");
   const ambiguous = attributeCandidate({ ...base, title: "Apex announces a vague partnership" }, ctx);
   assertEquals(ambiguous.status, "unresolved");
   const multi = attributeCandidate({ ...base, title: "Apple and Microsoft announce a joint product" }, ctx);

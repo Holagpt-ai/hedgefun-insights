@@ -3,7 +3,10 @@ import { newsPrAdapter } from "./adapters/news-pr.ts";
 import { attributeCandidate } from "./attribution.ts";
 import { buildAttributionIndex } from "./attribution-index.ts";
 import { buildCompanyUniverse } from "./company-universe.ts";
-import { runAttributionCorrection } from "./attribution-correction.ts";
+import {
+  ATTRIBUTION_CORRECTION_RECHECK_FAILED,
+  runAttributionCorrection,
+} from "./attribution-correction.ts";
 import { createMemoryStore } from "./persistence.ts";
 import { ingestCandidate } from "./pipeline.ts";
 import { runCollectorBot } from "./run-bot.ts";
@@ -75,6 +78,10 @@ const NEWS_UNIVERSE = buildCompanyUniverse([
   { ticker: "SYK", name: "Stryker Corporation" },
   { ticker: "APX", name: "Apex Holdings" },
   { ticker: "APEX", name: "Apex Inc." },
+  { ticker: "FOR", name: "Forestar Group Inc." },
+  { ticker: "ALL", name: "Allstate Corporation" },
+  { ticker: "ARE", name: "Alexandria Real Estate Equities, Inc." },
+  { ticker: "NOW", name: "ServiceNow, Inc." },
 ]);
 
 const NEWS_CTX = {
@@ -115,6 +122,32 @@ Deno.test("NEWS ambiguous Apex names stay unresolved", () => {
   assertEquals(
     attributeCandidate(newsCandidate("Apex announces a vague partnership", null), NEWS_CTX).status,
     "unresolved",
+  );
+});
+
+Deno.test("NEWS bare prose words do not attribute tickers FOR ALL ARE NOW", () => {
+  for (const word of ["for", "all", "are", "now"] as const) {
+    const decision = attributeCandidate(
+      newsCandidate("Issuer update", `Results are strong ${word} the quarter ahead.`),
+      NEWS_CTX,
+    );
+    assertEquals(decision.status, "unresolved");
+    assert(decision.ticker !== word.toUpperCase());
+  }
+});
+
+Deno.test("NEWS explicit ticker syntax resolves SYK and MMM", () => {
+  assertEquals(
+    attributeCandidate(newsCandidate("Clinical update", "Shares of $SYK moved on the release."), NEWS_CTX).ticker,
+    "SYK",
+  );
+  assertEquals(
+    attributeCandidate(newsCandidate("Update (SYK)", null), NEWS_CTX).ticker,
+    "SYK",
+  );
+  assertEquals(
+    attributeCandidate(newsCandidate("Update", "NYSE: MMM noted in the wire copy."), NEWS_CTX).ticker,
+    "MMM",
   );
 });
 
@@ -307,7 +340,12 @@ Deno.test("attribution correction dry-run and apply remove wrong ticker without 
     now: NOW,
   });
   assertEquals(dry.item?.correctionStatus, "WOULD_CORRECT");
+  assertEquals(dry.item?.recheck?.previousTicker, "MMM");
+  assertEquals(dry.item?.recheck?.correctedStatus, "unresolved");
+  assertEquals(dry.item?.recheck?.correctedTicker, null);
   assert((await store.listTickers(wrongEventId)).some((row) => row.ticker === "MMM"));
+  const rawBeforeApply = JSON.stringify(await store.getRawItem(rawId));
+  const evidenceBeforeApply = JSON.stringify(await store.findEvidenceByRaw(rawId));
 
   const apply = await runAttributionCorrection(store, {
     scope: { rawItemId: rawId, eventId: wrongEventId, wrongTicker: "MMM" },
@@ -321,8 +359,8 @@ Deno.test("attribution correction dry-run and apply remove wrong ticker without 
   assertEquals(apply.item?.correctionStatus, "CORRECTED");
   assertEquals((await store.listTickers(wrongEventId)).some((row) => row.ticker === "MMM"), false);
   assertEquals((await store.getEvent(wrongEventId))?.lifecycle, "invalidated");
-  const rawAfter = await store.getRawItem(rawId);
-  assertEquals(rawAfter?.title, title);
+  assertEquals(JSON.stringify(await store.getRawItem(rawId)), rawBeforeApply);
+  assertEquals(JSON.stringify(await store.findEvidenceByRaw(rawId)), evidenceBeforeApply);
 
   const again = await runAttributionCorrection(store, {
     scope: { rawItemId: rawId, eventId: wrongEventId, wrongTicker: "MMM" },
@@ -334,4 +372,170 @@ Deno.test("attribution correction dry-run and apply remove wrong ticker without 
     now: NOW,
   });
   assertEquals(again.item?.correctionStatus, "NO_CHANGE");
+});
+
+Deno.test("attribution correction requires company universe for re-check", async () => {
+  const store = createMemoryStore();
+  const rawId = crypto.randomUUID();
+  const eventId = crypto.randomUUID();
+  await store.insertRaw({
+    id: rawId,
+    sourceId: "s",
+    externalId: "x",
+    canonicalUrl: null,
+    contentHash: "h",
+    publishedAt: NOW.toISOString(),
+    discoveredAt: NOW.toISOString(),
+    title: "Test",
+    bodyExcerpt: null,
+    metadata: {},
+  });
+  await store.insertEvent({
+    id: eventId,
+    canonicalKey: "ci:MMM:OTHER_MATERIAL_EVENT:test",
+    title: "Test",
+    summary: null,
+    announcementSummary: null,
+    eventType: "OTHER_MATERIAL_EVENT",
+    eventSubtype: null,
+    lifecycle: "announced",
+    catalystState: "WATCH",
+    firstDiscoveredAt: NOW.toISOString(),
+    sourcePublishedAt: NOW.toISOString(),
+    scheduledStartAt: null,
+    scheduledEndAt: null,
+    scheduledDate: null,
+    announcementAt: NOW.toISOString(),
+    effectiveAt: null,
+    timingBucket: "unknown",
+    verificationState: "UNVERIFIED",
+    evidenceConfidence: 50,
+    materiality: 50,
+    timingUrgency: 40,
+    reactionScore: null,
+    priorityScore: 40,
+    attributionConfidence: 0.72,
+    distributionStatus: "observation",
+    lifecycleLog: [],
+    scoreComponents: {},
+    updatedAt: NOW.toISOString(),
+  });
+  await store.insertEvidence({
+    id: crypto.randomUUID(),
+    eventId,
+    rawItemId: rawId,
+    sourceId: "s",
+    authorityKey: "globenewswire",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    evidenceRole: "secondary",
+    canonicalUrl: null,
+    contentHash: "h",
+    publishedAt: NOW.toISOString(),
+    conflict: false,
+  });
+  await store.upsertTicker({
+    id: crypto.randomUUID(),
+    eventId,
+    ticker: "MMM",
+    relation: "PRIMARY",
+    confidence: 0.72,
+    isPrimary: true,
+    evidenceNote: "alias_match",
+  });
+  const result = await runAttributionCorrection(store, {
+    scope: { rawItemId: rawId, eventId, wrongTicker: "MMM" },
+    dryRun: true,
+    apply: false,
+    now: NOW,
+  });
+  assertEquals(result.status, "VALIDATION_ERROR");
+  assertEquals(result.item?.error, "MISSING_COMPANY_UNIVERSE");
+});
+
+Deno.test("attribution correction apply refused when re-check still resolves wrong ticker", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://news.example.test/mmm-explicit",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+  });
+  await store.saveSource(src);
+  const title = "Wire copy";
+  const summary = "NYSE: MMM";
+  const rawId = crypto.randomUUID();
+  const eventId = crypto.randomUUID();
+  await store.insertRaw({
+    id: rawId,
+    sourceId: src.id,
+    externalId: "mmm-explicit",
+    canonicalUrl: null,
+    contentHash: "mmm-explicit",
+    publishedAt: NOW.toISOString(),
+    discoveredAt: NOW.toISOString(),
+    title,
+    bodyExcerpt: summary,
+    metadata: {},
+  });
+  await store.insertEvent({
+    id: eventId,
+    canonicalKey: "ci:MMM:OTHER_MATERIAL_EVENT:explicit",
+    title,
+    summary,
+    announcementSummary: summary,
+    eventType: "OTHER_MATERIAL_EVENT",
+    eventSubtype: null,
+    lifecycle: "announced",
+    catalystState: "WATCH",
+    firstDiscoveredAt: NOW.toISOString(),
+    sourcePublishedAt: NOW.toISOString(),
+    scheduledStartAt: null,
+    scheduledEndAt: null,
+    scheduledDate: null,
+    announcementAt: NOW.toISOString(),
+    effectiveAt: null,
+    timingBucket: "unknown",
+    verificationState: "UNVERIFIED",
+    evidenceConfidence: 50,
+    materiality: 50,
+    timingUrgency: 40,
+    reactionScore: null,
+    priorityScore: 40,
+    attributionConfidence: 0.72,
+    distributionStatus: "observation",
+    lifecycleLog: [],
+    scoreComponents: {},
+    updatedAt: NOW.toISOString(),
+  });
+  await store.insertEvidence({
+    id: crypto.randomUUID(),
+    eventId,
+    rawItemId: rawId,
+    sourceId: src.id,
+    authorityKey: "globenewswire",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    evidenceRole: "secondary",
+    canonicalUrl: null,
+    contentHash: "mmm-explicit",
+    publishedAt: NOW.toISOString(),
+    conflict: false,
+  });
+  await store.upsertTicker({
+    id: crypto.randomUUID(),
+    eventId,
+    ticker: "MMM",
+    relation: "PRIMARY",
+    confidence: 0.72,
+    isPrimary: true,
+    evidenceNote: "news_explicit_ticker",
+  });
+  const dry = await runAttributionCorrection(store, {
+    scope: { rawItemId: rawId, eventId, wrongTicker: "MMM" },
+    dryRun: true,
+    apply: false,
+    companies: NEWS_UNIVERSE,
+    source: src,
+    now: NOW,
+  });
+  assertEquals(dry.item?.error, ATTRIBUTION_CORRECTION_RECHECK_FAILED);
+  assert((await store.listTickers(eventId)).some((row) => row.ticker === "MMM"));
 });

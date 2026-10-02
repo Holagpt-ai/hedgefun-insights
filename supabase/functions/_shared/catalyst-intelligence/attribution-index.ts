@@ -81,9 +81,32 @@ function newsProfileMatches(titlePhrase: string, titleTokens: Set<string>, profi
   return false;
 }
 
+/** Supported exchange-qualified ticker syntax for NEWS_PR (deterministic, no fuzzy parsing). */
+const EXCHANGE_QUALIFIED_TICKER = /(?:NASDAQ|NYSE(?:\s+American)?)\s*:\s*([A-Za-z]{1,5})\b/gi;
+
+function findExplicitTickersInText(text: string, tickerSet: ReadonlySet<string>): string[] {
+  const found = new Set<string>();
+  for (const match of text.matchAll(/\$([A-Za-z]{1,5})\b/g)) {
+    const ticker = normalizeTicker(match[1]);
+    if (ticker && tickerSet.has(ticker)) found.add(ticker);
+  }
+  for (const match of text.matchAll(/\(([A-Za-z]{1,5})\)/g)) {
+    const ticker = normalizeTicker(match[1]);
+    if (ticker && tickerSet.has(ticker)) found.add(ticker);
+  }
+  for (const match of text.matchAll(EXCHANGE_QUALIFIED_TICKER)) {
+    const ticker = normalizeTicker(match[1]);
+    if (ticker && tickerSet.has(ticker)) found.add(ticker);
+  }
+  return [...found];
+}
+
 export interface AttributionIndex {
   readonly companies: readonly CompanyRecord[];
+  /** SEC/IR and legacy paths: cashtag, parens, and bare ticker words (with stop list). */
   findMentionedTickers(text: string): string[];
+  /** NEWS_PR only: cashtag, parens, and exchange-qualified tickers — no bare words. */
+  findNewsExplicitTickers(text: string): string[];
   findLegacyNameTickers(text: string): Set<string>;
   findNewsNameTickers(title: string): Set<string>;
 }
@@ -102,16 +125,12 @@ export function buildAttributionIndex(companies: readonly CompanyRecord[]): Attr
     });
   }
 
+  function findNewsExplicitTickers(text: string): string[] {
+    return findExplicitTickersInText(text, tickerSet);
+  }
+
   function findMentionedTickers(text: string): string[] {
-    const found = new Set<string>();
-    for (const match of text.matchAll(/\$([A-Za-z]{1,5})\b/g)) {
-      const ticker = normalizeTicker(match[1]);
-      if (ticker && tickerSet.has(ticker)) found.add(ticker);
-    }
-    for (const match of text.matchAll(/\(([A-Za-z]{1,5})\)/g)) {
-      const ticker = normalizeTicker(match[1]);
-      if (ticker && tickerSet.has(ticker)) found.add(ticker);
-    }
+    const found = new Set(findExplicitTickersInText(text, tickerSet));
     for (const word of text.split(/[^A-Za-z0-9]+/)) {
       if (!word) continue;
       const ticker = normalizeTicker(word);
@@ -144,5 +163,11 @@ export function buildAttributionIndex(companies: readonly CompanyRecord[]): Attr
     return hits;
   }
 
-  return { companies, findMentionedTickers, findLegacyNameTickers, findNewsNameTickers };
+  return {
+    companies,
+    findMentionedTickers,
+    findNewsExplicitTickers,
+    findLegacyNameTickers,
+    findNewsNameTickers,
+  };
 }

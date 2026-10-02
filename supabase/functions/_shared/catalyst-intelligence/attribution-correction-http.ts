@@ -1,5 +1,6 @@
 import { timingSafeMatch } from "../timing-safe.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
+import type { CompanyRecord } from "./types.ts";
 import { runAttributionCorrection, type AttributionCorrectionScope } from "./attribution-correction.ts";
 
 export type EnvReader = (key: string) => string | undefined;
@@ -14,6 +15,7 @@ export interface AttributionCorrectionHandlerDeps {
   env: EnvReader;
   store?: CatalystIntelStore;
   openStore?: () => Promise<CatalystIntelStore>;
+  loadCompanies?: () => Promise<readonly CompanyRecord[]>;
   now?: () => Date;
 }
 
@@ -68,6 +70,7 @@ export async function handleAttributionCorrectionRequest(
     dryRun,
     apply,
     concurrencyToken,
+    loadCompanies: deps.loadCompanies,
     now: deps.now?.(),
   });
 
