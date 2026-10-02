@@ -20,6 +20,10 @@ export interface IngestObservability {
   continuation_remaining_items: number;
   resource_stop_reason: string | null;
   last_progress_at: string | null;
+  sec_company_map_attempts?: number;
+  sec_company_map_retry_succeeded?: boolean;
+  sec_due_sources?: number;
+  atom_source_attempted?: boolean;
 }
 
 export interface ReactionObservability {

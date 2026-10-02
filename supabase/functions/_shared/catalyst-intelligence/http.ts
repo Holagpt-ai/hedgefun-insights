@@ -32,6 +32,7 @@ export interface IntelHandlerDeps {
   loadReferenceBars?: (symbol: string, eventAtIso: string) => Promise<EventPriceBar[]>;
   cikMap?: ReadonlyMap<string, string[]>;
   loadCikMap?: () => Promise<ReadonlyMap<string, string[]>>;
+  sleepFn?: (ms: number) => Promise<void>;
   companies?: readonly CompanyRecord[];
   loadCompanies?: () => Promise<readonly CompanyRecord[]>;
 }
@@ -89,7 +90,9 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
   const userAgent = deps.bot === "sec"
     ? (deps.env("SEC_USER_AGENT") ?? "").trim()
     : GENERIC_USER_AGENT;
-  if (deps.bot === "sec" && !userAgent) return json(400, { error: "VALIDATION_ERROR" });
+  if (deps.bot === "sec" && !userAgent) {
+    return json(400, { error: "VALIDATION_ERROR", message: "SEC_USER_AGENT is required" });
+  }
 
   const allowlist = typeof body.source_ids === "undefined"
     ? splitList(deps.env("CATALYST_INTEL_SOURCE_ALLOWLIST"))
@@ -99,16 +102,6 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
   if (batchLimit == null) return json(400, { error: "VALIDATION_ERROR" });
   const now = deps.now?.() ?? new Date();
   const ai = aiEnrichmentEnabled(deps.env);
-  let cikMap = deps.cikMap;
-  if (deps.bot === "sec" && !cikMap) {
-    if (!deps.loadCikMap) return json(400, { error: "VALIDATION_ERROR" });
-    try {
-      cikMap = await deps.loadCikMap();
-    } catch {
-      return json(502, { error: "PROVIDER_ERROR" });
-    }
-    if (!cikMap || cikMap.size === 0) return json(502, { error: "PROVIDER_ERROR" });
-  }
 
   if (deps.bot === "reactions") {
     const load = deps.loadObservation ?? (async () => null);
@@ -142,7 +135,8 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
     concurrency: config?.concurrency ?? 3,
     allowlist,
     allowFixtures: false,
-    cikMap,
+    cikMap: deps.cikMap,
+    sleepFn: deps.sleepFn,
     companies: deps.companies,
     loadCompanies: deps.loadCompanies,
   });
@@ -151,7 +145,16 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
 
 function finishRun(bot: BotId, ai: boolean, run: Parameters<typeof publicRun>[0] & { status: string }): Response {
   if (run.status === "failed") {
-    return json(500, { ok: false, error: "DATABASE_ERROR", status: "failed", bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
+    const providerDependency = run.errors.some((error) => error.category === "sec_provider_dependency_error");
+    return json(providerDependency ? 502 : 500, {
+      ok: false,
+      error: providerDependency ? "SEC_PROVIDER_DEPENDENCY_FAILURE" : "DATABASE_ERROR",
+      status: "failed",
+      bot,
+      ai_enrichment: ai,
+      activation: SOURCE_GATE_NOTE,
+      run: publicRun(run),
+    });
   }
   return json(200, { ok: true, status: run.status, bot, ai_enrichment: ai, activation: SOURCE_GATE_NOTE, run: publicRun(run) });
 }
@@ -200,8 +203,19 @@ function publicRun(run: {
       status_code: error.statusCode,
       retryable: error.retryable,
       elapsed_ms: error.elapsedMs,
+      ...(error.category === "sec_provider_dependency_error" ? { details: publicProviderDetails(error.details) } : {}),
     })),
   };
+}
+
+function publicProviderDetails(details: Record<string, unknown> | undefined): Record<string, unknown> | null {
+  if (!details) return null;
+  const allow = ["stage", "provider", "url_identifier", "error_type", "message", "attempt", "attempts", "due_sources", "atom_attempted"];
+  const out: Record<string, unknown> = {};
+  for (const key of allow) {
+    if (key in details) out[key] = details[key];
+  }
+  return out;
 }
 
 function json(status: number, body: unknown): Response {

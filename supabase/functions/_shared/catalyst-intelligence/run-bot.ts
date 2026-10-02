@@ -45,6 +45,7 @@ import { itemIngestDiagnostic, safeItemIdentity } from "./item-ingest-error.ts";
 import { isFixturePayload, normalizeTicker } from "./normalize.ts";
 import { applyScores, ingestCandidate } from "./pipeline.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
+import { loadSecCompanyTickerMap, type SecCompanyMapDiagnostic } from "./sec-company-map.ts";
 import { SourceFetchError } from "./source-fetch.ts";
 import { emptyRun, formatRunLog, safeError } from "./telemetry.ts";
 import type {
@@ -74,6 +75,7 @@ export interface CollectorRunInput {
   itemLimit?: number;
   newsItemBudget?: number;
   newsWallTimeMs?: number;
+  sleepFn?: (ms: number) => Promise<void>;
 }
 
 export async function runCollectorBot(input: CollectorRunInput): Promise<RunTelemetry> {
@@ -111,6 +113,26 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       }
     }
   }
+  let cikMap = input.cikMap;
+  if (input.bot === "sec" && sources.length === 0) {
+    ingestionObs.sec_company_map_attempts = 0;
+    ingestionObs.atom_source_attempted = false;
+  }
+  if (input.bot === "sec" && sources.length > 0 && !cikMap) {
+    const loaded = await loadSecCompanyTickerMap({
+      userAgent: input.userAgent,
+      fetchImpl: input.fetchImpl,
+      sleepFn: input.sleepFn,
+    });
+    ingestionObs.sec_company_map_attempts = loaded.ok ? loaded.attempts : loaded.diagnostic.attempts;
+    ingestionObs.sec_due_sources = sources.length;
+    if (!loaded.ok) {
+      ingestionObs.atom_source_attempted = false;
+      return failSecProviderRun(input.store, run, wallStart, loaded.diagnostic, sources.length, ingestionObs);
+    }
+    if (loaded.attempts > 1) ingestionObs.sec_company_map_retry_succeeded = true;
+    cikMap = loaded.map;
+  }
   const attributionIndex = companies && companies.length > 0 ? buildAttributionIndex(companies) : undefined;
   const newsItemBudget = input.newsItemBudget ?? NEWS_ITEMS_PER_INVOCATION;
   const newsWallTimeMs = input.newsWallTimeMs ?? NEWS_WALL_TIME_MS;
@@ -122,14 +144,15 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
   };
   await mapPool(sources, input.concurrency ?? 3, async (source) => {
     const startedSource = Date.now();
+    if (input.bot === "sec") ingestionObs.atom_source_attempted = true;
     run.sourcesAttempted += 1;
     const ctx = {
       now: input.now,
       source,
       userAgent: input.userAgent,
       fetchImpl: input.fetchImpl ?? fetch,
-      cikMap: input.cikMap,
       companies,
+      cikMap,
       itemLimit: input.itemLimit ?? MAX_ITEMS_PER_SOURCE,
       allowFixtures: input.allowFixtures === true,
       fetchState: {
@@ -198,7 +221,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
             allowFixtures: ctx.allowFixtures,
             source,
             companies,
-            cikMap: input.cikMap,
+            cikMap,
             attributionIndex,
           }));
         } catch (err) {
@@ -549,6 +572,45 @@ function eventStillAhead(event: {
   const stamp = event.scheduledStartAt ?? event.effectiveAt;
   const ms = stamp ? Date.parse(stamp) : Number.NaN;
   return Number.isFinite(ms) && ms > now.getTime();
+}
+
+async function failSecProviderRun(
+  store: CatalystIntelStore,
+  run: RunTelemetry,
+  wallStart: number,
+  diagnostic: SecCompanyMapDiagnostic,
+  dueSources: number,
+  ingestionObs: ReturnType<typeof emptyIngestObservability>,
+): Promise<RunTelemetry> {
+  run.status = "failed";
+  run.completedAt = new Date().toISOString();
+  run.elapsedMs = Date.now() - wallStart;
+  run.errors.push({
+    sourceId: "sec",
+    category: diagnostic.category,
+    statusCode: diagnostic.httpStatus,
+    retryable: diagnostic.retryable,
+    elapsedMs: run.elapsedMs,
+    details: {
+      stage: diagnostic.stage,
+      provider: diagnostic.provider,
+      url_identifier: diagnostic.urlIdentifier,
+      error_type: diagnostic.errorType,
+      message: diagnostic.message,
+      attempt: diagnostic.attempt,
+      attempts: diagnostic.attempts,
+      due_sources: dueSources,
+      atom_attempted: false,
+    },
+  });
+  attachRunObservability(run, { bot: "sec", ingestion: ingestionObs });
+  console.log(formatRunLog(run));
+  try {
+    await store.saveRun(run);
+  } catch {
+    // The dependency failure is already on the returned run.
+  }
+  return run;
 }
 
 async function failDatabaseRun(store: CatalystIntelStore, run: RunTelemetry, wallStart: number): Promise<RunTelemetry> {
