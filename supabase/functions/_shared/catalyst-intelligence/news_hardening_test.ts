@@ -357,8 +357,12 @@ Deno.test("attribution correction dry-run and apply remove wrong ticker without 
     now: NOW,
   });
   assertEquals(apply.item?.correctionStatus, "CORRECTED");
+  assertEquals(apply.item?.proposedVerificationState, "INVALIDATED");
+  const corrected = await store.getEvent(wrongEventId);
   assertEquals((await store.listTickers(wrongEventId)).some((row) => row.ticker === "MMM"), false);
-  assertEquals((await store.getEvent(wrongEventId))?.lifecycle, "invalidated");
+  assertEquals(corrected?.lifecycle, "invalidated");
+  assertEquals(corrected?.verificationState, "INVALIDATED");
+  assertEquals(corrected?.priorityScore, 0);
   assertEquals(JSON.stringify(await store.getRawItem(rawId)), rawBeforeApply);
   assertEquals(JSON.stringify(await store.findEvidenceByRaw(rawId)), evidenceBeforeApply);
 
@@ -538,4 +542,177 @@ Deno.test("attribution correction apply refused when re-check still resolves wro
   });
   assertEquals(dry.item?.error, ATTRIBUTION_CORRECTION_RECHECK_FAILED);
   assert((await store.listTickers(eventId)).some((row) => row.ticker === "MMM"));
+});
+
+const ASHTON_TITLE = "ASHTON WOODS USA L.L.C. ANNOUNCES QUARTERLY RESULTS CONFERENCE CALL";
+const ORIGINAL_CORRECTION = {
+  policy_version: "news-attribution-correction-v1",
+  raw_item_id: "raw-placeholder",
+  event_id: "event-placeholder",
+  removed_ticker: "MMM",
+  corrected_at: "2026-10-02T15:00:00.000Z",
+  reason: "attribution_rules_no_longer_support_ticker",
+  corrected_attribution_status: "unresolved",
+  corrected_attribution_ticker: null,
+  corrected_attribution_note: "no_attribution",
+  corrected_unresolved_reason: "NO_ATTRIBUTION",
+};
+
+async function seedIncompleteAshton(store: ReturnType<typeof createMemoryStore>, verification: "REPORTED" | "INVALIDATED") {
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://news.example.test/ashton-repair",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+  });
+  await store.saveSource(src);
+  const rawId = crypto.randomUUID();
+  const eventId = crypto.randomUUID();
+  const provenance = { ...ORIGINAL_CORRECTION, raw_item_id: rawId, event_id: eventId };
+  await store.insertRaw({
+    id: rawId,
+    sourceId: src.id,
+    externalId: "ashton-repair",
+    canonicalUrl: "https://www.globenewswire.com/news-release/ashton",
+    contentHash: "ashton-repair-hash",
+    publishedAt: NOW.toISOString(),
+    discoveredAt: NOW.toISOString(),
+    title: ASHTON_TITLE,
+    bodyExcerpt: "The company will host a conference call.",
+    metadata: {},
+  });
+  await store.insertEvent({
+    id: eventId,
+    canonicalKey: "ci:MMM:OTHER_MATERIAL_EVENT:ashton-repair",
+    title: ASHTON_TITLE,
+    summary: "The company will host a conference call.",
+    announcementSummary: "The company will host a conference call.",
+    eventType: "OTHER_MATERIAL_EVENT",
+    eventSubtype: null,
+    lifecycle: "invalidated",
+    catalystState: "INFORMATIONAL",
+    firstDiscoveredAt: NOW.toISOString(),
+    sourcePublishedAt: NOW.toISOString(),
+    scheduledStartAt: null,
+    scheduledEndAt: null,
+    scheduledDate: null,
+    announcementAt: NOW.toISOString(),
+    effectiveAt: null,
+    timingBucket: "unknown",
+    verificationState: verification,
+    evidenceConfidence: verification === "REPORTED" ? 55 : 0,
+    materiality: 50,
+    timingUrgency: 40,
+    reactionScore: null,
+    priorityScore: 0,
+    attributionConfidence: 0.72,
+    distributionStatus: "observation",
+    lifecycleLog: [{ from: "announced", to: "invalidated", at: NOW.toISOString(), reason: "attribution_correction" }],
+    scoreComponents: { attribution_correction: provenance },
+    updatedAt: NOW.toISOString(),
+  });
+  await store.insertEvidence({
+    id: crypto.randomUUID(),
+    eventId,
+    rawItemId: rawId,
+    sourceId: src.id,
+    authorityKey: "globenewswire",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    evidenceRole: "secondary",
+    canonicalUrl: "https://www.globenewswire.com/news-release/ashton",
+    contentHash: "ashton-repair-hash",
+    publishedAt: NOW.toISOString(),
+    conflict: false,
+  });
+  return { src, rawId, eventId, provenance };
+}
+
+Deno.test("incomplete attribution correction repairs REPORTED verification without recreating MMM", async () => {
+  const store = createMemoryStore();
+  const seeded = await seedIncompleteAshton(store, "REPORTED");
+  const rawBefore = JSON.stringify(await store.getRawItem(seeded.rawId));
+  const evidenceBefore = JSON.stringify(await store.findEvidenceByRaw(seeded.rawId));
+  const dry = await runAttributionCorrection(store, {
+    scope: { rawItemId: seeded.rawId, eventId: seeded.eventId, wrongTicker: "MMM" },
+    dryRun: true,
+    apply: false,
+    companies: NEWS_UNIVERSE,
+    source: seeded.src,
+    now: NOW,
+  });
+  assertEquals(dry.item?.correctionStatus, "WOULD_REPAIR");
+  assertEquals(dry.item?.proposedVerificationState, "INVALIDATED");
+  assertEquals(dry.item?.proposedLifecycle, "invalidated");
+  assertEquals(dry.item?.removedTickers, []);
+  assertEquals(dry.item?.recheck?.correctedStatus, "unresolved");
+  assertEquals(dry.item?.recheck?.correctedTicker, null);
+  assertEquals((await store.getEvent(seeded.eventId))?.verificationState, "REPORTED");
+  assertEquals(JSON.stringify(await store.getRawItem(seeded.rawId)), rawBefore);
+
+  const conflict = await runAttributionCorrection(store, {
+    scope: { rawItemId: seeded.rawId, eventId: seeded.eventId, wrongTicker: "MMM" },
+    dryRun: false,
+    apply: true,
+    concurrencyToken: "stale-token",
+    companies: NEWS_UNIVERSE,
+    source: seeded.src,
+    now: NOW,
+  });
+  assertEquals(conflict.item?.correctionStatus, "CONFLICT");
+  assertEquals((await store.getEvent(seeded.eventId))?.verificationState, "REPORTED");
+
+  const apply = await runAttributionCorrection(store, {
+    scope: { rawItemId: seeded.rawId, eventId: seeded.eventId, wrongTicker: "MMM" },
+    dryRun: false,
+    apply: true,
+    concurrencyToken: dry.item?.concurrencyToken ?? null,
+    companies: NEWS_UNIVERSE,
+    source: seeded.src,
+    now: NOW,
+  });
+  assertEquals(apply.item?.correctionStatus, "REPAIRED");
+  const repaired = await store.getEvent(seeded.eventId);
+  assertEquals(repaired?.verificationState, "INVALIDATED");
+  assertEquals(repaired?.lifecycle, "invalidated");
+  assertEquals(repaired?.priorityScore, 0);
+  assertEquals(repaired?.distributionStatus, "observation");
+  const provenance = repaired?.scoreComponents.attribution_correction as Record<string, unknown>;
+  assertEquals(provenance.removed_ticker, "MMM");
+  assertEquals(provenance.corrected_at, ORIGINAL_CORRECTION.corrected_at);
+  assertEquals(provenance.corrected_attribution_status, "unresolved");
+  const repair = provenance.verification_state_repair as Record<string, unknown>;
+  assertEquals(repair.from, "REPORTED");
+  assertEquals(repair.to, "INVALIDATED");
+  assertEquals(repair.reason, "incomplete_attribution_correction");
+  assert(repaired?.lifecycleLog.some((entry) => entry.reason === "verification_state_repair"));
+  assertEquals((await store.listTickers(seeded.eventId)).length, 0);
+  assertEquals(JSON.stringify(await store.getRawItem(seeded.rawId)), rawBefore);
+  assertEquals(JSON.stringify(await store.findEvidenceByRaw(seeded.rawId)), evidenceBefore);
+
+  const again = await runAttributionCorrection(store, {
+    scope: { rawItemId: seeded.rawId, eventId: seeded.eventId, wrongTicker: "MMM" },
+    dryRun: false,
+    apply: true,
+    concurrencyToken: apply.item?.concurrencyToken ?? null,
+    companies: NEWS_UNIVERSE,
+    source: seeded.src,
+    now: NOW,
+  });
+  assertEquals(again.item?.correctionStatus, "NO_CHANGE");
+});
+
+Deno.test("fully corrected attribution event is NO_CHANGE", async () => {
+  const store = createMemoryStore();
+  const seeded = await seedIncompleteAshton(store, "INVALIDATED");
+  const before = JSON.stringify(await store.getEvent(seeded.eventId));
+  const result = await runAttributionCorrection(store, {
+    scope: { rawItemId: seeded.rawId, eventId: seeded.eventId, wrongTicker: "MMM" },
+    dryRun: true,
+    apply: false,
+    companies: NEWS_UNIVERSE,
+    source: seeded.src,
+    now: NOW,
+  });
+  assertEquals(result.item?.correctionStatus, "NO_CHANGE");
+  assertEquals(JSON.stringify(await store.getEvent(seeded.eventId)), before);
+  assertEquals((await store.listTickers(seeded.eventId)).length, 0);
 });
