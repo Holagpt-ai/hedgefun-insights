@@ -1,4 +1,4 @@
-import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { assert, assertEquals, assertRejects } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { newsPrAdapter } from "./adapters/news-pr.ts";
 import { attributeCandidate } from "./attribution.ts";
 import { buildAttributionIndex } from "./attribution-index.ts";
@@ -7,6 +7,8 @@ import {
   ATTRIBUTION_CORRECTION_RECHECK_FAILED,
   runAttributionCorrection,
 } from "./attribution-correction.ts";
+import { ItemIngestError } from "./item-ingest-error.ts";
+import { readNewsContinuation } from "./news-continuation.ts";
 import { createMemoryStore } from "./persistence.ts";
 import { ingestCandidate } from "./pipeline.ts";
 import { runCollectorBot } from "./run-bot.ts";
@@ -875,4 +877,329 @@ Deno.test("stale running Catalyst run recovers without touching source failure c
     now: NOW,
   });
   assertEquals(done.recoveryStatus, "NO_CHANGE");
+});
+
+function gnwFeed(titles: string[]): string {
+  const items = titles.map((title, index) => `<item>
+<title>${title}</title>
+<link>https://www.globenewswire.com/news-release/${index}</link>
+<guid isPermaLink="false">gnw-${index}</guid>
+<pubDate>Wed, 01 Oct 2026 12:00:00 GMT</pubDate>
+<description>The company will host a call.</description>
+</item>`).join("\n");
+  return `<?xml version="1.0"?><rss version="2.0"><channel><title>GNW</title>${items}</channel></rss>`;
+}
+
+function gnwSource(): SourceRecord {
+  return source({
+    id: "src-gnw",
+    sourceKey: "globenewswire-earnings-rss",
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/earnings",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+}
+
+function immutableStore() {
+  const base = createMemoryStore();
+  const store = {
+    ...base,
+    async mergeRawMetadata(): Promise<void> {
+      throw new Error("database");
+    },
+  };
+  return { base, store };
+}
+
+async function seedFeedItem(store: ReturnType<typeof createMemoryStore>, src: SourceRecord, body: string) {
+  const item = (await newsPrAdapter.discover({
+    now: NOW,
+    source: src,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    itemLimit: 20,
+    allowFixtures: false,
+    fetchState: { unchanged: false, etag: null, lastModified: null, contentHash: null, checkpoint: null },
+  }))[0];
+  const rawId = "3ec9eddd-0000-4000-8000-000000000001";
+  await store.insertRaw({
+    id: rawId,
+    sourceId: item.sourceId,
+    externalId: item.externalId,
+    canonicalUrl: item.canonicalUrl,
+    contentHash: item.contentHash,
+    publishedAt: item.publishedAt,
+    discoveredAt: item.discoveredAt,
+    title: item.title,
+    bodyExcerpt: item.summary,
+    metadata: { seeded: "existing-unresolved" },
+  });
+  return { item, rawId };
+}
+
+Deno.test("NEWS existing unresolved raw is handled and left unchanged", async () => {
+  const { base, store } = immutableStore();
+  const src = gnwSource();
+  await store.saveSource(src);
+  const body = gnwFeed(["Bonduelle announces quarterly results"]);
+  const { item, rawId } = await seedFeedItem(base, src, body);
+  const before = JSON.stringify(await base.getRawItem(rawId));
+  const candidate = await newsPrAdapter.normalize(item, {
+    now: NOW,
+    source: src,
+    userAgent: "test",
+    fetchImpl: fetch,
+    itemLimit: 1,
+    allowFixtures: false,
+    fetchState: { unchanged: false, etag: null, lastModified: null, contentHash: null, checkpoint: null },
+  });
+  assert(candidate);
+  const outcome = await ingestCandidate(store, candidate, {
+    now: NOW,
+    allowFixtures: false,
+    source: src,
+    companies: NEWS_UNIVERSE,
+    attributionIndex: NEWS_CTX.attributionIndex,
+  });
+  assertEquals(outcome.status, "unresolved");
+  assertEquals(outcome.eventId, null);
+  assertEquals(outcome.rawDisposition, "existing_resumed");
+  assertEquals(base.rawItems().length, 1);
+  assertEquals(base.events().length, 0);
+  assertEquals(JSON.stringify(await base.getRawItem(rawId)), before);
+});
+
+Deno.test("NEWS existing raw linked to an event is an idempotent duplicate", async () => {
+  const store = createMemoryStore();
+  const src = gnwSource();
+  const candidate = newsCandidate("Stryker Corporation reports results", null);
+  candidate.raw.sourceId = src.id;
+  const ctx = {
+    now: NOW,
+    allowFixtures: false,
+    source: src,
+    companies: NEWS_UNIVERSE,
+    attributionIndex: NEWS_CTX.attributionIndex,
+  };
+  const first = await ingestCandidate(store, candidate, ctx);
+  assertEquals(first.status, "created");
+  const second = await ingestCandidate(store, candidate, ctx);
+  assertEquals(second.status, "duplicate");
+  assertEquals(second.rawDisposition, "existing_linked");
+  assertEquals(second.eventId, first.eventId);
+  assertEquals(store.rawItems().length, 1);
+  assertEquals(store.events().length, 1);
+});
+
+Deno.test("NEWS existing unresolved raw is idempotent across repeats", async () => {
+  const { base, store } = immutableStore();
+  const src = gnwSource();
+  const body = gnwFeed(["Bonduelle announces quarterly results"]);
+  const { item, rawId } = await seedFeedItem(base, src, body);
+  const candidate = await newsPrAdapter.normalize(item, {
+    now: NOW,
+    source: src,
+    userAgent: "test",
+    fetchImpl: fetch,
+    itemLimit: 1,
+    allowFixtures: false,
+    fetchState: { unchanged: false, etag: null, lastModified: null, contentHash: null, checkpoint: null },
+  });
+  assert(candidate);
+  const ctx = {
+    now: NOW,
+    allowFixtures: false,
+    source: src,
+    companies: NEWS_UNIVERSE,
+    attributionIndex: NEWS_CTX.attributionIndex,
+  };
+  const first = await ingestCandidate(store, candidate, ctx);
+  const snapshot = JSON.stringify(await base.getRawItem(rawId));
+  const second = await ingestCandidate(store, candidate, ctx);
+  assertEquals(first.status, "unresolved");
+  assertEquals(second.status, "unresolved");
+  assertEquals(first.rawDisposition, "existing_resumed");
+  assertEquals(second.rawDisposition, "existing_resumed");
+  assertEquals(base.rawItems().length, 1);
+  assertEquals(base.events().length, 0);
+  assertEquals(JSON.stringify(await base.getRawItem(rawId)), snapshot);
+});
+
+Deno.test("NEWS inconsistent evidence fails with an explicit diagnostic", async () => {
+  const store = createMemoryStore();
+  const src = gnwSource();
+  const body = gnwFeed(["Bonduelle announces quarterly results"]);
+  const { item, rawId } = await seedFeedItem(store, src, body);
+  await store.insertEvidence({
+    id: crypto.randomUUID(),
+    eventId: "missing-event",
+    rawItemId: rawId,
+    sourceId: src.id,
+    authorityKey: "globenewswire",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    evidenceRole: "secondary",
+    canonicalUrl: item.canonicalUrl,
+    contentHash: item.contentHash,
+    publishedAt: item.publishedAt,
+    conflict: false,
+  });
+  const candidate = await newsPrAdapter.normalize(item, {
+    now: NOW,
+    source: src,
+    userAgent: "test",
+    fetchImpl: fetch,
+    itemLimit: 1,
+    allowFixtures: false,
+    fetchState: { unchanged: false, etag: null, lastModified: null, contentHash: null, checkpoint: null },
+  });
+  assert(candidate);
+  const error = await assertRejects(
+    () => ingestCandidate(store, candidate, {
+      now: NOW,
+      allowFixtures: false,
+      source: src,
+      companies: NEWS_UNIVERSE,
+      attributionIndex: NEWS_CTX.attributionIndex,
+    }),
+    ItemIngestError,
+  );
+  assertEquals(error.stage, "inconsistent_linkage");
+  assertEquals(error.errorCode, "EVIDENCE_WITHOUT_EVENT");
+  assertEquals(store.events().length, 0);
+  assertEquals(store.rawItems().length, 1);
+});
+
+Deno.test("NEWS item ingest failure records diagnostics and does not advance the cursor", async () => {
+  const base = createMemoryStore();
+  const src = gnwSource();
+  await base.saveSource(src);
+  const store = {
+    ...base,
+    async insertRaw(): Promise<void> {
+      throw new ItemIngestError(
+        "attribution",
+        "FORCED_ITEM_FAILURE",
+        "failed SYNC_SECRET=abc Bearer tok.eyJaaaaaaaa.bbbbbbbb.cccccccc",
+      );
+    },
+  };
+  const body = gnwFeed(["Bonduelle announces quarterly results", "Second issuer announces quarterly results"]);
+  const run = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    batchLimit: 1,
+    companies: NEWS_UNIVERSE,
+    newsItemBudget: 8,
+  });
+  assertEquals(run.status, "completed");
+  assertEquals(run.sourcesFailed, 1);
+  assertEquals(run.sourcesSuccessful, 0);
+  const failure = run.errors.find((error) => error.category === "item_ingest_error");
+  assert(failure);
+  assertEquals(failure.details?.stage, "attribution");
+  assertEquals(failure.details?.error_code, "FORCED_ITEM_FAILURE");
+  assertEquals(failure.details?.item_index, 0);
+  assertEquals(failure.details?.source_key, "globenewswire-earnings-rss");
+  assertEquals(failure.details?.item_identity, "gnw-0");
+  const message = String(failure.details?.message ?? "");
+  assert(message.includes("failed"));
+  assert(!message.includes("SYNC_SECRET=abc"));
+  assert(!message.includes("Bearer tok"));
+  assert(!message.includes("eyJaaaaaaaa"));
+  const saved = (await base.listSources({}))[0];
+  assertEquals(readNewsContinuation(saved.metadata)?.next_item_index, 0);
+  assertEquals(saved.lastErrorCategory, "item_ingest_error");
+});
+
+Deno.test("NEWS fetch failure stays distinct from item ingest failure", async () => {
+  const store = createMemoryStore();
+  const src = gnwSource();
+  await store.saveSource(src);
+  const run = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response("nope", { status: 500 })),
+    batchLimit: 1,
+    companies: NEWS_UNIVERSE,
+  });
+  assertEquals(run.sourcesFailed, 1);
+  assertEquals(run.errors[0]?.category, "upstream");
+  assert(!run.errors.some((error) => error.category === "item_ingest_error"));
+  assertEquals(readNewsContinuation((await store.listSources({}))[0].metadata), null);
+});
+
+Deno.test("NEWS Bonduelle duplicate reaches the next item", async () => {
+  const { base, store } = immutableStore();
+  const src = gnwSource();
+  await store.saveSource(src);
+  const body = gnwFeed([
+    "Bonduelle announces quarterly results",
+    "Second issuer announces quarterly results",
+  ]);
+  const { rawId } = await seedFeedItem(base, src, body);
+  const before = JSON.stringify(await base.getRawItem(rawId));
+  const run = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    batchLimit: 1,
+    companies: NEWS_UNIVERSE,
+    newsItemBudget: 8,
+  });
+  assertEquals(run.sourcesFailed, 0);
+  assertEquals(run.sourcesSuccessful, 1);
+  assertEquals(run.duplicates, 1);
+  assertEquals(run.newItems, 1);
+  assertEquals(run.eventsCreated, 0);
+  assert(base.rawItems().some((row) => row.externalId === "gnw-1"));
+  assertEquals(JSON.stringify(await base.getRawItem(rawId)), before);
+  assertEquals(base.events().length, 0);
+});
+
+Deno.test("NEWS 20-item feed continues past a pre-existing unresolved raw", async () => {
+  const { base, store } = immutableStore();
+  const src = gnwSource();
+  await store.saveSource(src);
+  const titles = ["Bonduelle announces quarterly results"];
+  for (let index = 1; index < 20; index += 1) titles.push(`Issuer ${index} USA L.L.C. announces quarterly results`);
+  const body = gnwFeed(titles);
+  await seedFeedItem(base, src, body);
+  const run = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    batchLimit: 1,
+    companies: NEWS_UNIVERSE,
+  });
+  assertEquals(run.sourcesFailed, 0);
+  assertEquals(run.sourcesSuccessful, 1);
+  assertEquals(run.duplicates, 1);
+  assertEquals(run.newItems, 7);
+  assertEquals(run.eventsCreated, 0);
+  assertEquals(base.rawItems().length, 8);
+  assert(base.rawItems().some((row) => row.externalId === "gnw-1"));
+  const saved = (await base.listSources({}))[0];
+  const continuation = readNewsContinuation(saved.metadata);
+  assertEquals(continuation?.next_item_index, 8);
+  assertEquals(continuation?.feed_item_count, 20);
+  assert(continuation?.feed_content_hash);
+  assertEquals(saved.lastContentHash, null);
+  assertEquals(saved.failureCount, 0);
+  const obs = run.observability as RunObservability | undefined;
+  assertEquals(obs?.ingestion?.continuation_remaining_items, 12);
+  assertEquals(obs?.ingestion?.resource_stop_reason, "news_item_budget");
 });

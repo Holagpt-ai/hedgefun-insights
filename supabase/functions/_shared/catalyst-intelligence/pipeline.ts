@@ -3,6 +3,7 @@ import { attributionDiagnostics } from "./attribution-reasons.ts";
 import { attributeCandidate } from "./attribution.ts";
 import { classifyCandidate } from "./classification.ts";
 import { isUniqueConflict } from "./conflicts.ts";
+import { ItemIngestError } from "./item-ingest-error.ts";
 import { findDuplicateEvent, logicalEventLockKey } from "./dedupe.ts";
 import { evidenceRole } from "./evidence.ts";
 import { assessMateriality, timingUrgency } from "./impact.ts";
@@ -51,18 +52,6 @@ export async function ingestCandidate(
     return { status: "rejected", eventId: null, rawItemId: null };
   }
 
-  const claimed = await claimRaw(store, candidate);
-  const rawDisposition = rawDispositionFromClaim(claimed);
-  if (claimed.duplicate) {
-    return {
-      status: "duplicate",
-      eventId: claimed.duplicate.eventId,
-      rawItemId: claimed.rawId,
-      rawDisposition,
-    };
-  }
-  const rawId = claimed.rawId;
-
   const attribution = attributeCandidate(candidate, {
     sourceTicker: ctx.source.ticker,
     sourceCompanyName: ctx.source.companyName,
@@ -72,14 +61,44 @@ export async function ingestCandidate(
     companies: ctx.companies,
     attributionIndex: ctx.attributionIndex,
   });
-  if (attribution.status !== "resolved" || !attribution.ticker || !attribution.relation) {
-    const { unresolvedReason } = attributionDiagnostics(attribution);
-    if (unresolvedReason) {
-      await store.mergeRawMetadata(rawId, {
-        attribution_unresolved_reason: unresolvedReason,
-        attribution_note: attribution.note,
-      });
+  const unresolved = attribution.status !== "resolved" || !attribution.ticker || !attribution.relation;
+  const { unresolvedReason } = attributionDiagnostics(attribution);
+  const claimed = await claimRaw(
+    store,
+    candidate,
+    unresolved ? unresolvedRawMetadata(candidate.raw.metadata, unresolvedReason, attribution.note) : null,
+  );
+  const rawDisposition = rawDispositionFromClaim(claimed);
+  if (claimed.duplicate) {
+    const linkedEvent = await store.getEvent(claimed.duplicate.eventId);
+    if (!linkedEvent) {
+      throw new ItemIngestError(
+        "inconsistent_linkage",
+        "EVIDENCE_WITHOUT_EVENT",
+        "raw evidence references a missing canonical event",
+      );
     }
+    return {
+      status: "duplicate",
+      eventId: claimed.duplicate.eventId,
+      rawItemId: claimed.rawId,
+      rawDisposition,
+    };
+  }
+  const rawId = claimed.rawId;
+
+  if (unresolved) {
+    // Raw rows are append-only. An existing unresolved raw is already handled:
+    // leave it unchanged, create no event, and let continuation advance.
+    return {
+      status: "unresolved",
+      eventId: null,
+      rawItemId: rawId,
+      rawDisposition,
+      unresolvedReason: unresolvedReason ?? attribution.note,
+    };
+  }
+  if (!attribution.ticker || !attribution.relation) {
     return {
       status: "unresolved",
       eventId: null,
@@ -297,9 +316,21 @@ function anchor(timing: { scheduledStart: string | null; scheduledDate: string |
   return hash.slice(0, 12);
 }
 
+function unresolvedRawMetadata(
+  metadata: Record<string, unknown>,
+  unresolvedReason: string | null,
+  note: string,
+): Record<string, unknown> {
+  const next = boundedMetadata(metadata);
+  if (unresolvedReason) next.attribution_unresolved_reason = unresolvedReason;
+  if (note) next.attribution_note = note;
+  return next;
+}
+
 async function claimRaw(
   store: CatalystIntelStore,
   candidate: NormalizedEventCandidate,
+  insertMetadata: Record<string, unknown> | null,
 ): Promise<{ rawId: string; duplicate: EvidenceRecord | null; inserted: boolean }> {
   const existing = await findRaw(store, candidate);
   if (existing) {
@@ -318,7 +349,7 @@ async function claimRaw(
       discoveredAt: candidate.raw.discoveredAt,
       title: candidate.title,
       bodyExcerpt: candidate.summary,
-      metadata: boundedMetadata(candidate.raw.metadata),
+      metadata: insertMetadata ?? boundedMetadata(candidate.raw.metadata),
     });
     return { rawId, duplicate: null, inserted: true };
   } catch (err) {

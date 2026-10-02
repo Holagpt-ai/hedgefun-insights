@@ -29,6 +29,12 @@ export function formatRunLog(run: RunTelemetry): string {
     status_code: error.statusCode,
     retryable: error.retryable,
     elapsed_ms: error.elapsedMs,
+    source_key: error.details?.source_key ?? null,
+    item_index: error.details?.item_index ?? null,
+    item_identity: error.details?.item_identity ?? null,
+    stage: error.details?.stage ?? null,
+    error_code: error.details?.error_code ?? null,
+    message: error.details?.message ?? null,
   }));
   return JSON.stringify({
     component: "catalyst-intelligence",

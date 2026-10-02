@@ -41,6 +41,7 @@ import {
   reactionFromAssessment,
 } from "./market-reaction.ts";
 import { DatabaseReadError } from "./conflicts.ts";
+import { itemIngestDiagnostic, safeItemIdentity } from "./item-ingest-error.ts";
 import { isFixturePayload, normalizeTicker } from "./normalize.ts";
 import { applyScores, ingestCandidate } from "./pipeline.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
@@ -190,14 +191,43 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
           continue;
         }
         ingestionObs.items_qualifying += 1;
-        const outcome = await ingestNext(() => ingestCandidate(input.store, candidate, {
-          now: input.now,
-          allowFixtures: ctx.allowFixtures,
-          source,
-          companies,
-          cikMap: input.cikMap,
-          attributionIndex,
-        }));
+        let outcome;
+        try {
+          outcome = await ingestNext(() => ingestCandidate(input.store, candidate, {
+            now: input.now,
+            allowFixtures: ctx.allowFixtures,
+            source,
+            companies,
+            cikMap: input.cikMap,
+            attributionIndex,
+          }));
+        } catch (err) {
+          if (err instanceof DatabaseReadError) throw err;
+          const details = itemIngestDiagnostic(err, {
+            sourceKey: source.sourceKey,
+            itemIndex: absoluteIndex,
+            itemIdentity: safeItemIdentity(item),
+          });
+          source.failureCount += 1;
+          source.backoffUntil = new Date(input.now.getTime() + backoffSeconds(source.failureCount) * 1000).toISOString();
+          source.lastErrorCategory = "item_ingest_error";
+          if (input.bot === "news" && feedHash) {
+            source.metadata = writeNewsContinuation(source.metadata, {
+              feed_content_hash: feedHash,
+              next_item_index: absoluteIndex,
+              feed_item_count: items.length,
+            });
+            ingestionObs.continuation_remaining_items = Math.max(0, items.length - absoluteIndex);
+          }
+          await input.store.saveSource(source);
+          run.sourcesFailed += 1;
+          run.errors.push({
+            ...safeError(source.id, "item_ingest_error", null, true, Date.now() - startedSource),
+            details,
+          });
+          await checkpointRun(input.store, run, ingestionObs, input.bot, wallStart);
+          return;
+        }
         if (outcome.status === "created") {
           run.eventsCreated += 1;
           ingestionObs.canonical_events_created += 1;
@@ -268,6 +298,11 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       ));
     }
   });
+  // sourcesSuccessful: fetch and the item loop both finished. Duplicates and
+  // unresolved items are handled progress. sourcesFailed: fetch failed, or an
+  // item abort stopped the source. completed means orchestration finished.
+  // A nested source failure stays on run.errors unless the category is database.
+  // markSuccess on a later clean run clears failureCount, backoff, and lastErrorCategory.
   run.completedAt = new Date().toISOString();
   run.elapsedMs = Date.now() - wallStart;
   run.status = run.errors.some((error) => error.category === "database") ? "failed" : "completed";
