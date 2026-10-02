@@ -1,4 +1,5 @@
 import { parseJsonItems, parseRssOrAtom } from "../feeds.ts";
+import { applyGlobeNewswireTickerMetadata } from "../globenewswire-ticker.ts";
 import { buildRawItem } from "../normalize.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { loadConfiguredSource } from "../source-fetch.ts";
@@ -33,8 +34,11 @@ export const newsPrAdapter: CatalystSourceAdapter = {
   },
   async normalize(item, ctx) {
     if (!item.title?.trim()) return null;
+    const metadata = { ...item.metadata };
+    applyGlobeNewswireTickerMetadata(metadata, ctx.source, ctx.companies);
+    const raw = { ...item, metadata };
     return {
-      raw: item,
+      raw,
       title: item.title,
       summary: item.summary,
       suggestedType: null,
@@ -44,7 +48,7 @@ export const newsPrAdapter: CatalystSourceAdapter = {
       scheduledDate: null,
       isAnnouncement: true,
       evidenceTier: ctx.source.evidenceTier,
-      metadata: item.metadata,
+      metadata,
     } satisfies NormalizedEventCandidate;
   },
 };

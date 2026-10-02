@@ -66,7 +66,7 @@ export async function ingestCandidate(
   const claimed = await claimRaw(
     store,
     candidate,
-    unresolved ? unresolvedRawMetadata(candidate.raw.metadata, unresolvedReason, attribution.note) : null,
+    attributionInsertMetadata(candidate.raw.metadata, attribution, unresolved ? unresolvedReason : null),
   );
   const rawDisposition = rawDispositionFromClaim(claimed);
   if (claimed.duplicate) {
@@ -176,7 +176,10 @@ export async function ingestCandidate(
       attributionConfidence: attribution.confidence,
       distributionStatus: "observation",
       lifecycleLog: log.filter((entry) => entry.from !== entry.to),
-      scoreComponents: { explicit_product_update: classification.explicitProductUpdate },
+      scoreComponents: {
+        explicit_product_update: classification.explicitProductUpdate,
+        ...(attribution.trace ? { attribution_trace: boundedAttributionTrace(attribution.trace) } : {}),
+      },
     };
     try {
       await store.insertEvent(event);
@@ -316,15 +319,39 @@ function anchor(timing: { scheduledStart: string | null; scheduledDate: string |
   return hash.slice(0, 12);
 }
 
-function unresolvedRawMetadata(
+function attributionInsertMetadata(
   metadata: Record<string, unknown>,
+  attribution: { status: string; note: string; trace?: { method: string; matchBasis: string; matchedPhrase?: string | null; tickerPattern?: string | null; provider?: string | null } },
   unresolvedReason: string | null,
-  note: string,
 ): Record<string, unknown> {
   const next = boundedMetadata(metadata);
-  if (unresolvedReason) next.attribution_unresolved_reason = unresolvedReason;
-  if (note) next.attribution_note = note;
+  if (attribution.status !== "resolved" && unresolvedReason) {
+    next.attribution_unresolved_reason = unresolvedReason;
+    if (attribution.note) next.attribution_note = attribution.note;
+  }
+  const trace = boundedAttributionTrace(attribution.trace);
+  if (trace) {
+    next.attribution_method = trace.method;
+    next.attribution_match_basis = trace.match_basis;
+    if (trace.matched_phrase) next.attribution_matched_phrase = trace.matched_phrase;
+    if (trace.ticker_pattern) next.attribution_ticker_pattern = trace.ticker_pattern;
+    if (trace.provider) next.attribution_provider = trace.provider;
+  }
   return next;
+}
+
+function boundedAttributionTrace(
+  trace: { method: string; matchBasis: string; matchedPhrase?: string | null; tickerPattern?: string | null; provider?: string | null } | undefined,
+): Record<string, string> | null {
+  if (!trace) return null;
+  const out: Record<string, string> = {
+    method: trace.method,
+    match_basis: trace.matchBasis,
+  };
+  if (trace.matchedPhrase) out.matched_phrase = trace.matchedPhrase.slice(0, 80);
+  if (trace.tickerPattern) out.ticker_pattern = trace.tickerPattern;
+  if (trace.provider) out.provider = trace.provider;
+  return out;
 }
 
 async function claimRaw(

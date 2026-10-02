@@ -86,6 +86,8 @@ const NEWS_UNIVERSE = buildCompanyUniverse([
   { ticker: "ALL", name: "Allstate Corporation" },
   { ticker: "ARE", name: "Alexandria Real Estate Equities, Inc." },
   { ticker: "NOW", name: "ServiceNow, Inc." },
+  { ticker: "JYNT", name: "The Joint Corp." },
+  { ticker: "IART", name: "Integra LifeSciences Holdings Corporation" },
 ]);
 
 const NEWS_CTX = {
@@ -1202,4 +1204,247 @@ Deno.test("NEWS 20-item feed continues past a pre-existing unresolved raw", asyn
   const obs = run.observability as RunObservability | undefined;
   assertEquals(obs?.ingestion?.continuation_remaining_items, 12);
   assertEquals(obs?.ingestion?.resource_stop_reason, "news_item_budget");
+});
+
+const DUTCH_FORFARMERS = "ForFarmers N.V.: Joint venture ForFarmers en KPS Food Group in Polen afgerond";
+
+Deno.test("NEWS Joint venture headline never attributes The Joint Corp", () => {
+  const decision = attributeCandidate(newsCandidate(DUTCH_FORFARMERS, "The company will host a call."), NEWS_CTX);
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.ticker, null);
+  assertEquals(decision.unresolvedReason ?? "NO_ATTRIBUTION", "NO_ATTRIBUTION");
+  assert(decision.ticker !== "JYNT");
+});
+
+Deno.test("NEWS full The Joint Corp identity phrase resolves JYNT", () => {
+  const decision = attributeCandidate(
+    newsCandidate("The Joint Corp. Announces Quarterly Results", null),
+    NEWS_CTX,
+  );
+  assertEquals(decision.ticker, "JYNT");
+  assertEquals(decision.note, "news_name_match");
+  assertEquals(decision.trace?.matchedPhrase, "the joint corp");
+});
+
+Deno.test("NEWS single-token company later in a headline stays unresolved", () => {
+  const decision = attributeCandidate(
+    newsCandidate("Quarterly results improve after Stryker commentary", null),
+    NEWS_CTX,
+  );
+  assertEquals(decision.status, "unresolved");
+  assert(decision.ticker !== "SYK");
+});
+
+Deno.test("NEWS multiple company names in one headline fail closed", () => {
+  const decision = attributeCandidate(
+    newsCandidate("Acuity Brands and Stryker Corporation announce a partnership", null),
+    NEWS_CTX,
+  );
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.unresolvedReason, "AMBIGUOUS_COMPANY_ALIAS");
+});
+
+Deno.test("NEWS Stryker subject headline records the accepted phrase", () => {
+  const decision = attributeCandidate(newsCandidate("Stryker Corporation reports results", null), NEWS_CTX);
+  assertEquals(decision.ticker, "SYK");
+  assertEquals(decision.trace?.method, "news_name_match");
+  assertEquals(decision.trace?.matchBasis, "company_phrase");
+  assert(decision.trace?.matchedPhrase?.includes("stryker"));
+});
+
+function providerRss(title: string, categories: string): string {
+  return `<?xml version="1.0"?><rss version="2.0"><channel><item>
+<title>${title}</title>
+<link>https://www.globenewswire.com/news-release/provider</link>
+<guid>gnw-provider</guid>
+${categories}
+<description>Issuer update without a company-name subject.</description>
+</item></channel></rss>`;
+}
+
+async function providerDecision(title: string, categories: string, hostname = "www.globenewswire.com") {
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: `https://${hostname}/RssFeed/earnings`,
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    hostname,
+  });
+  const body = providerRss(title, categories);
+  const item = (await newsPrAdapter.discover({
+    now: NOW,
+    source: src,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    itemLimit: 1,
+    allowFixtures: false,
+    fetchState: { unchanged: false, etag: null, lastModified: null, contentHash: null, checkpoint: null },
+  }))[0];
+  const candidate = await newsPrAdapter.normalize(item, {
+    now: NOW,
+    source: src,
+    userAgent: "test",
+    fetchImpl: fetch,
+    itemLimit: 1,
+    allowFixtures: false,
+    companies: NEWS_UNIVERSE,
+    fetchState: { unchanged: false, etag: null, lastModified: null, contentHash: null, checkpoint: null },
+  });
+  assert(candidate);
+  return attributeCandidate(candidate, { ...NEWS_CTX, sourceType: "NEWS_PR" });
+}
+
+Deno.test("NEWS GlobeNewswire stock category resolves a unique universe ticker", async () => {
+  const decision = await providerDecision(
+    "Quarterly results update",
+    `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:SYK</category>`,
+  );
+  assertEquals(decision.ticker, "SYK");
+  assertEquals(decision.note, "provider_structured_ticker");
+  assertEquals(decision.trace?.provider, "globenewswire_stock_category");
+  assertEquals(decision.trace?.tickerPattern, "exchange_qualified");
+});
+
+Deno.test("NEWS malformed GlobeNewswire stock category stays unresolved", async () => {
+  const decision = await providerDecision(
+    "Quarterly results update",
+    `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:NOT A SYMBOL</category>`,
+  );
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.ticker, null);
+});
+
+Deno.test("NEWS conflicting GlobeNewswire symbols fail closed", async () => {
+  const decision = await providerDecision(
+    "Stryker Corporation reports results",
+    `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:SYK</category>
+     <category domain="https://www.globenewswire.com/rss/stock">NYSE:MMM</category>`,
+  );
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.unresolvedReason, "PROVIDER_TICKER_CONFLICT");
+  assertEquals(decision.ticker, null);
+});
+
+Deno.test("NEWS arbitrary RSS categories are not trusted as tickers", async () => {
+  const decision = await providerDecision(
+    "Quarterly results update",
+    `<category domain="https://www.globenewswire.com/rss/industry">NASDAQ:SYK</category>
+     <category>SYK</category>`,
+  );
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.ticker, null);
+});
+
+Deno.test("NEWS non-GlobeNewswire host ignores stock categories", async () => {
+  const decision = await providerDecision(
+    "Quarterly results update",
+    `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:SYK</category>`,
+    "news.example.test",
+  );
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.ticker, null);
+});
+
+Deno.test("NEWS JYNT correction re-check leaves the event unresolved", async () => {
+  const store = createMemoryStore();
+  const src = gnwSource();
+  const eventId = crypto.randomUUID();
+  const rawId = crypto.randomUUID();
+  await store.insertEvent({
+    id: eventId,
+    canonicalKey: "ci:jynt:false",
+    title: DUTCH_FORFARMERS,
+    summary: null,
+    announcementSummary: null,
+    eventType: "OTHER_MATERIAL_EVENT",
+    eventSubtype: null,
+    lifecycle: "announced",
+    catalystState: "WATCH",
+    firstDiscoveredAt: NOW.toISOString(),
+    sourcePublishedAt: NOW.toISOString(),
+    scheduledStartAt: null,
+    scheduledEndAt: null,
+    scheduledDate: null,
+    announcementAt: NOW.toISOString(),
+    effectiveAt: null,
+    timingBucket: "unknown",
+    verificationState: "REPORTED",
+    evidenceConfidence: 50,
+    materiality: 50,
+    timingUrgency: 40,
+    reactionScore: null,
+    priorityScore: 40,
+    attributionConfidence: 0.85,
+    distributionStatus: "observation",
+    lifecycleLog: [],
+    scoreComponents: {},
+    updatedAt: NOW.toISOString(),
+  });
+  await store.insertRaw({
+    id: rawId,
+    sourceId: src.id,
+    externalId: "forfarmers-dutch",
+    canonicalUrl: "https://www.globenewswire.com/news-release/forfarmers-dutch",
+    contentHash: "forfarmers-dutch",
+    publishedAt: NOW.toISOString(),
+    discoveredAt: NOW.toISOString(),
+    title: DUTCH_FORFARMERS,
+    bodyExcerpt: "The company will host a call.",
+    metadata: { seeded: true },
+  });
+  await store.insertEvidence({
+    id: crypto.randomUUID(),
+    eventId,
+    rawItemId: rawId,
+    sourceId: src.id,
+    authorityKey: "globenewswire",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    evidenceRole: "secondary",
+    canonicalUrl: "https://www.globenewswire.com/news-release/forfarmers-dutch",
+    contentHash: "forfarmers-dutch",
+    publishedAt: NOW.toISOString(),
+    conflict: false,
+  });
+  await store.upsertTicker({
+    id: crypto.randomUUID(),
+    eventId,
+    ticker: "JYNT",
+    relation: "PRIMARY",
+    confidence: 0.85,
+    isPrimary: true,
+    evidenceNote: "news_name_match",
+  });
+  const rawBefore = JSON.stringify(await store.getRawItem(rawId));
+  const evidenceBefore = JSON.stringify(await store.findEvidenceByRaw(rawId));
+  const dry = await runAttributionCorrection(store, {
+    scope: { rawItemId: rawId, eventId, wrongTicker: "JYNT" },
+    dryRun: true,
+    apply: false,
+    companies: NEWS_UNIVERSE,
+    source: src,
+    now: NOW,
+  });
+  assertEquals(dry.item?.correctionStatus, "WOULD_CORRECT");
+  assertEquals(dry.item?.recheck?.previousTicker, "JYNT");
+  assertEquals(dry.item?.recheck?.correctedStatus, "unresolved");
+  assertEquals(dry.item?.recheck?.correctedTicker, null);
+  assertEquals(dry.item?.recheck?.correctedUnresolvedReason, "NO_ATTRIBUTION");
+  assertEquals(dry.item?.proposedVerificationState, "INVALIDATED");
+  assertEquals(dry.item?.removedTickers, ["JYNT"]);
+  const apply = await runAttributionCorrection(store, {
+    scope: { rawItemId: rawId, eventId, wrongTicker: "JYNT" },
+    dryRun: false,
+    apply: true,
+    concurrencyToken: dry.item?.concurrencyToken ?? null,
+    companies: NEWS_UNIVERSE,
+    source: src,
+    now: NOW,
+  });
+  assertEquals(apply.item?.correctionStatus, "CORRECTED");
+  const corrected = await store.getEvent(eventId);
+  assertEquals(corrected?.lifecycle, "invalidated");
+  assertEquals(corrected?.verificationState, "INVALIDATED");
+  assertEquals(corrected?.priorityScore, 0);
+  assertEquals((await store.listTickers(eventId)).length, 0);
+  assertEquals(JSON.stringify(await store.getRawItem(rawId)), rawBefore);
+  assertEquals(JSON.stringify(await store.findEvidenceByRaw(rawId)), evidenceBefore);
 });

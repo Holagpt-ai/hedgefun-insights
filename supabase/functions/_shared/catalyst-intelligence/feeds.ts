@@ -1,3 +1,4 @@
+import { globeNewswireStockCategories } from "./globenewswire-ticker.ts";
 import { canonicalHttpsUrl, toIsoDate, toUtcIso } from "./normalize.ts";
 
 export interface ParsedFeedItem {
@@ -54,6 +55,7 @@ export function parseRssOrAtom(xml: string): ParsedFeedItem[] {
     const summary = tagText(block, "description") ?? tagText(block, "summary") ?? tagText(block, "content");
     const published = toUtcIso(tagText(block, "published") ?? tagText(block, "updated") ?? tagText(block, "pubDate"));
     const guid = tagText(block, "guid") ?? tagText(block, "id");
+    const stockCategories = globeNewswireStockCategories(block);
     return {
       externalId: guid,
       url: canonicalHttpsUrl(link),
@@ -63,7 +65,7 @@ export function parseRssOrAtom(xml: string): ParsedFeedItem[] {
       scheduledStart: null,
       scheduledEnd: null,
       scheduledDate: null,
-      metadata: {},
+      metadata: stockCategories.length > 0 ? { provider_stock_categories: stockCategories } : {},
     };
   }).filter((item) => item.title);
 }

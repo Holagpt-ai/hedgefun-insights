@@ -24,6 +24,17 @@ export interface AttributionDecision {
 
   unresolvedReason?: UnresolvedAttributionReason;
 
+  /** Safe attribution diagnostics. Short codes and phrases only. */
+  trace?: AttributionTrace;
+
+}
+
+export interface AttributionTrace {
+  method: string;
+  matchBasis: "company_phrase" | "explicit_ticker" | "provider_metadata" | "source_ticker" | "cik" | "none";
+  matchedPhrase?: string | null;
+  tickerPattern?: "cashtag" | "parentheses" | "exchange_qualified" | null;
+  provider?: string | null;
 }
 
 
@@ -210,34 +221,50 @@ export function attributeCandidate(
 
 
 
+  if (ctx.sourceType === "NEWS_PR" && candidate.metadata.provider_ticker_conflict === true) {
+    return {
+      status: "unresolved",
+      ticker: null,
+      relation: null,
+      confidence: 0,
+      note: "provider_ticker_conflict",
+      unresolvedReason: "PROVIDER_TICKER_CONFLICT",
+      trace: {
+        method: "provider_structured_ticker",
+        matchBasis: "provider_metadata",
+        provider: "globenewswire_stock_category",
+      },
+    };
+  }
+
   const metaTicker = normalizeTicker(candidate.metadata.ticker);
 
   if (metaTicker) {
-
+    const providerStructured = candidate.metadata.attribution_provider === "globenewswire_stock_category";
     return {
-
       status: "resolved",
-
       ticker: metaTicker,
-
       relation: "PRIMARY",
-
       confidence: 0.9,
-
-      note: "exact_ticker_metadata",
-
+      note: providerStructured ? "provider_structured_ticker" : "exact_ticker_metadata",
+      trace: providerStructured
+        ? {
+          method: "provider_structured_ticker",
+          matchBasis: "provider_metadata",
+          tickerPattern: "exchange_qualified",
+          provider: "globenewswire_stock_category",
+        }
+        : { method: "exact_ticker_metadata", matchBasis: "provider_metadata" },
     };
-
   }
 
 
 
   const companies = ctx.companies ?? index?.companies ?? [];
+  const newsIndex = ctx.sourceType === "NEWS_PR" ? (index ?? buildAttributionIndex(companies)) : null;
 
-  if (ctx.sourceType === "NEWS_PR") {
-    const explicit = index
-      ? index.findNewsExplicitTickers(fullText)
-      : buildAttributionIndex(companies).findNewsExplicitTickers(fullText);
+  if (ctx.sourceType === "NEWS_PR" && newsIndex) {
+    const explicit = newsIndex.findNewsExplicitTickers(fullText);
     if (explicit.length === 1) {
       return {
         status: "resolved",
@@ -245,6 +272,11 @@ export function attributeCandidate(
         relation: "MENTION",
         confidence: 0.55,
         note: "news_explicit_ticker",
+        trace: {
+          method: "news_explicit_ticker",
+          matchBasis: "explicit_ticker",
+          tickerPattern: newsIndex.lastNewsExplicitPattern,
+        },
       };
     }
     if (explicit.length > 1) {
@@ -263,7 +295,7 @@ export function attributeCandidate(
 
   if (ctx.sourceType === "NEWS_PR") {
 
-    const newsHits = index?.findNewsNameTickers(candidate.title) ?? findNewsNameTickersFallback(candidate.title, companies);
+    const newsHits = (newsIndex ?? findNewsNameIndex(candidate.title, companies)).findNewsNameTickers(candidate.title);
 
     for (const ticker of newsHits) nameHits.add(ticker);
 
@@ -290,18 +322,26 @@ export function attributeCandidate(
   if (nameHits.size === 1) {
 
     const note = ctx.sourceType === "NEWS_PR" ? "news_name_match" : "alias_match";
+    const ticker = [...nameHits][0];
+    const matchedPhrase = ctx.sourceType === "NEWS_PR"
+      ? (newsIndex ?? findNewsNameIndex(candidate.title, companies)).lastNewsAcceptedPhrase(ticker)
+      : null;
 
     return {
 
       status: "resolved",
 
-      ticker: [...nameHits][0],
+      ticker,
 
       relation: "PRIMARY",
 
       confidence: ctx.sourceType === "NEWS_PR" ? 0.85 : 0.72,
 
       note,
+
+      trace: ctx.sourceType === "NEWS_PR"
+        ? { method: "news_name_match", matchBasis: "company_phrase", matchedPhrase }
+        : { method: "alias_match", matchBasis: "company_phrase", matchedPhrase },
 
     };
 
@@ -415,12 +455,10 @@ export function attributeCandidate(
 
 
 
-function findNewsNameTickersFallback(title: string, companies: readonly CompanyRecord[]): Set<string> {
-
-  const index = buildAttributionIndex(companies);
-
-  return index.findNewsNameTickers(title);
-
+function findNewsNameIndex(title: string, companies: readonly CompanyRecord[]): AttributionIndex {
+  const built = buildAttributionIndex(companies);
+  built.findNewsNameTickers(title);
+  return built;
 }
 
 
