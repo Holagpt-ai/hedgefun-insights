@@ -1,3 +1,4 @@
+import type { AttributionIndex } from "./attribution-index.ts";
 import { attributionDiagnostics } from "./attribution-reasons.ts";
 import { attributeCandidate } from "./attribution.ts";
 import { classifyCandidate } from "./classification.ts";
@@ -32,6 +33,7 @@ export interface IngestContext {
   source: SourceRecord;
   companies?: readonly CompanyRecord[];
   cikMap?: ReadonlyMap<string, string[]>;
+  attributionIndex?: AttributionIndex;
 }
 
 export async function ingestCandidate(
@@ -68,6 +70,7 @@ export async function ingestCandidate(
     sourceType: ctx.source.sourceType,
     cikMap: ctx.cikMap,
     companies: ctx.companies,
+    attributionIndex: ctx.attributionIndex,
   });
   if (attribution.status !== "resolved" || !attribution.ticker || !attribution.relation) {
     const { unresolvedReason } = attributionDiagnostics(attribution);
@@ -77,7 +80,13 @@ export async function ingestCandidate(
         attribution_note: attribution.note,
       });
     }
-    return { status: "unresolved", eventId: null, rawItemId: rawId, rawDisposition };
+    return {
+      status: "unresolved",
+      eventId: null,
+      rawItemId: rawId,
+      rawDisposition,
+      unresolvedReason: unresolvedReason ?? attribution.note,
+    };
   }
   const ticker = attribution.ticker;
   const relation = attribution.relation;

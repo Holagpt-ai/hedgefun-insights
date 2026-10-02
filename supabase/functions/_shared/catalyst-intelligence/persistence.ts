@@ -34,6 +34,7 @@ export interface CatalystIntelStore {
   saveRun(run: RunTelemetry): Promise<void>;
   findRawByExternal(sourceId: string, externalId: string): Promise<RawItemRecord | null>;
   findRawByHash(sourceId: string, contentHash: string): Promise<RawItemRecord | null>;
+  getRawItem(rawItemId: string): Promise<RawItemRecord | null>;
   insertRaw(item: RawItemRecord): Promise<void>;
   mergeRawMetadata(rawItemId: string, patch: Record<string, unknown>): Promise<void>;
   findEvidenceByRaw(rawItemId: string): Promise<EvidenceRecord | null>;
@@ -52,6 +53,7 @@ export interface CatalystIntelStore {
   listRawItemsForSource(sourceId: string): Promise<RawItemRecord[]>;
   listTickers(eventId: string): Promise<TickerLink[]>;
   upsertTicker(row: TickerLink): Promise<void>;
+  deleteEventTicker(eventId: string, ticker: string): Promise<void>;
   withDedupeLock<T>(lockKey: string, task: () => Promise<T>): Promise<T>;
   getReaction(eventId: string, windowKind: ReactionWindow): Promise<ReactionRecord | null>;
   upsertReaction(row: ReactionRecord): Promise<void>;
@@ -108,6 +110,10 @@ export function createMemoryStore(): CatalystIntelStore & {
     },
     async findRawByHash(sourceId, contentHash) {
       return raw.find((row) => row.sourceId === sourceId && row.contentHash === contentHash) ?? null;
+    },
+    async getRawItem(rawItemId) {
+      const found = raw.find((row) => row.id === rawItemId);
+      return found ? structuredClone(found) : null;
     },
     async insertRaw(item) {
       const duplicate = raw.some((row) => row.sourceId === item.sourceId && (
@@ -199,6 +205,12 @@ export function createMemoryStore(): CatalystIntelStore & {
       );
       if (index >= 0) tickers[index] = structuredClone(row);
       else tickers.push(structuredClone(row));
+    },
+    async deleteEventTicker(eventId, ticker) {
+      const normalized = ticker.trim().toUpperCase();
+      for (let i = tickers.length - 1; i >= 0; i -= 1) {
+        if (tickers[i].eventId === eventId && tickers[i].ticker === normalized) tickers.splice(i, 1);
+      }
     },
     async getReaction(eventId, windowKind) {
       const found = reactions.find((row) => row.eventId === eventId && row.windowKind === windowKind);

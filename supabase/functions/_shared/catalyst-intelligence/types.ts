@@ -180,6 +180,8 @@ export interface FetchState {
   lastModified: string | null;
   contentHash: string | null;
   checkpoint: Record<string, unknown> | null;
+  /** When true, do not treat matching content hash / 304 as unchanged (NEWS continuation). */
+  forceFullFetch?: boolean;
 }
 
 export interface CompanyRecord {
@@ -355,6 +357,7 @@ export interface IngestOutcome {
   rawItemId: string | null;
   /** Set when a raw row was claimed; drives run new_items vs duplicates reporting. */
   rawDisposition?: RawIngestDisposition;
+  unresolvedReason?: string | null;
 }
 
 export interface MarketObservation {

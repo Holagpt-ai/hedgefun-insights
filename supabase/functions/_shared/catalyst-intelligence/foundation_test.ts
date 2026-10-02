@@ -276,7 +276,7 @@ Deno.test("attribution prefers direct, CIK, ticker, alias, and leaves ambiguity 
     sourceTicker: null, sourceCompanyName: null, sourceCik: null, sourceType: "NEWS_PR",
     companies: [{ ticker: "ACME", name: "Acme Robotics" }],
   });
-  assertEquals(alias.note, "alias_match");
+  assertEquals(alias.note, "news_name_match");
   assertEquals(alias.ticker, "ACME");
   const ambiguous = attributeCandidate({ ...base, title: "Acme Robotics and Acme Logistics signed nothing together" }, {
     sourceTicker: null, sourceCompanyName: null, sourceCik: null, sourceType: "NEWS_PR",

@@ -12,6 +12,13 @@ export interface IngestObservability {
   items_qualifying: number;
   items_rejected: number;
   rejection_reasons: Record<string, number>;
+  attribution_resolved: number;
+  attribution_unresolved: number;
+  unresolved_attribution_reasons: Record<string, number>;
+  canonical_events_created: number;
+  canonical_events_enriched: number;
+  continuation_remaining_items: number;
+  resource_stop_reason: string | null;
 }
 
 export interface ReactionObservability {
@@ -39,7 +46,19 @@ export function emptyIngestObservability(): IngestObservability {
     items_qualifying: 0,
     items_rejected: 0,
     rejection_reasons: {},
+    attribution_resolved: 0,
+    attribution_unresolved: 0,
+    unresolved_attribution_reasons: {},
+    canonical_events_created: 0,
+    canonical_events_enriched: 0,
+    continuation_remaining_items: 0,
+    resource_stop_reason: null,
   };
+}
+
+export function recordUnresolvedAttribution(obs: IngestObservability, reason: string): void {
+  obs.attribution_unresolved += 1;
+  obs.unresolved_attribution_reasons[reason] = (obs.unresolved_attribution_reasons[reason] ?? 0) + 1;
 }
 
 export function emptyReactionObservability(mode: ReactionObservability["mode"] = "live"): ReactionObservability {

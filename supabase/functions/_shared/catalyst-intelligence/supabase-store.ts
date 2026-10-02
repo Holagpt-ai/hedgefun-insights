@@ -80,6 +80,11 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       if (error) throw new DatabaseReadError();
       return data ? mapRaw(data as Record<string, unknown>) : null;
     },
+    async getRawItem(rawItemId) {
+      const { data, error } = await supabase.from("catalyst_intel_raw_items").select("*").eq("id", rawItemId).maybeSingle();
+      if (error) throw new DatabaseReadError();
+      return data ? mapRaw(data as Record<string, unknown>) : null;
+    },
     async insertRaw(item) {
       const { error } = await supabase.from("catalyst_intel_raw_items").insert(unmapRaw(item));
       const mapped = mapDatabaseError(error);
@@ -178,6 +183,10 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       const { error } = await supabase.from("catalyst_intel_event_tickers").upsert(unmapTicker(row), {
         onConflict: "event_id,ticker,relation",
       });
+      if (error) throw new Error("database");
+    },
+    async deleteEventTicker(eventId, ticker) {
+      const { error } = await supabase.from("catalyst_intel_event_tickers").delete().eq("event_id", eventId).eq("ticker", ticker.trim().toUpperCase());
       if (error) throw new Error("database");
     },
     async getReaction(eventId, windowKind) {

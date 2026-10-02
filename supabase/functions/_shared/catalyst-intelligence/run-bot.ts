@@ -1,5 +1,17 @@
 import type { CatalystSourceAdapter } from "./source-adapter.ts";
-import { backoffSeconds, LIVE_REACTION_MAX_AGE_MS, MAX_ITEMS_PER_SOURCE } from "./config.ts";
+import { buildAttributionIndex } from "./attribution-index.ts";
+import {
+  backoffSeconds,
+  LIVE_REACTION_MAX_AGE_MS,
+  MAX_ITEMS_PER_SOURCE,
+  NEWS_ITEMS_PER_INVOCATION,
+  NEWS_WALL_TIME_MS,
+} from "./config.ts";
+import {
+  continuationForFeed,
+  readNewsContinuation,
+  writeNewsContinuation,
+} from "./news-continuation.ts";
 import {
   isLiveReactionEligible,
   loadHistoricalBackfillCandidates,
@@ -20,6 +32,7 @@ import {
   emptyReactionObservability,
   ingestRejectionReason,
   recordRejection,
+  recordUnresolvedAttribution,
   type ReactionObservability,
 } from "./run-observability.ts";
 import {
@@ -58,12 +71,20 @@ export interface CollectorRunInput {
   loadCompanies?: () => Promise<readonly CompanyRecord[]>;
   cikMap?: ReadonlyMap<string, string[]>;
   itemLimit?: number;
+  newsItemBudget?: number;
+  newsWallTimeMs?: number;
 }
 
 export async function runCollectorBot(input: CollectorRunInput): Promise<RunTelemetry> {
   const wallStart = Date.now();
   const run = emptyRun(input.bot, crypto.randomUUID(), new Date(wallStart).toISOString());
   const ingestionObs = emptyIngestObservability();
+  try {
+    await input.store.saveRun(run);
+  } catch (err) {
+    if (err instanceof DatabaseReadError) return failDatabaseRun(input.store, run, wallStart);
+    throw err;
+  }
   let sources;
   try {
     sources = await input.store.listDueSources({
@@ -89,6 +110,9 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       }
     }
   }
+  const attributionIndex = companies && companies.length > 0 ? buildAttributionIndex(companies) : undefined;
+  const newsItemBudget = input.newsItemBudget ?? NEWS_ITEMS_PER_INVOCATION;
+  const newsWallTimeMs = input.newsWallTimeMs ?? NEWS_WALL_TIME_MS;
   let ingestQueue = Promise.resolve();
   const ingestNext = <T>(fn: () => Promise<T>): Promise<T> => {
     const result = ingestQueue.then(fn, fn);
@@ -113,6 +137,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         lastModified: null,
         contentHash: null,
         checkpoint: null,
+        forceFullFetch: input.bot === "news" && readNewsContinuation(source.metadata) != null,
       },
     };
     try {
@@ -121,22 +146,47 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         return;
       }
       const items = await input.adapter.discover(ctx);
-      if (ctx.fetchState.unchanged) {
-        markSuccess(source, input.now, ctx.fetchState);
+      const pendingNewsContinuation = input.bot === "news" && readNewsContinuation(source.metadata) != null;
+      if (ctx.fetchState.unchanged && !pendingNewsContinuation) {
+        markSuccess(source, input.now, ctx.fetchState, true);
         await input.store.saveSource(source);
         run.sourcesSuccessful += 1;
         return;
       }
-      for (const item of items) {
+      if (ctx.fetchState.unchanged && pendingNewsContinuation) {
+        ctx.fetchState.unchanged = false;
+        ctx.fetchState.forceFullFetch = true;
+      }
+      const feedHash = ctx.fetchState.contentHash;
+      const feedPlan = input.bot === "news" && feedHash
+        ? continuationForFeed(source.metadata, feedHash, items.length)
+        : { startIndex: 0, state: null };
+      const feedItems = items.slice(feedPlan.startIndex);
+      let absoluteIndex = feedPlan.startIndex;
+      let continuationComplete = feedPlan.startIndex >= items.length;
+      for (const item of feedItems) {
+        if (input.bot === "news") {
+          const consumedThisRun = absoluteIndex - feedPlan.startIndex;
+          if (consumedThisRun >= newsItemBudget) {
+            ingestionObs.resource_stop_reason = "news_item_budget";
+            break;
+          }
+          if (Date.now() - wallStart >= newsWallTimeMs) {
+            ingestionObs.resource_stop_reason = "news_wall_time";
+            break;
+          }
+        }
         run.rawItemsSeen += 1;
         ingestionObs.items_encountered += 1;
         if ((item.metadata["x-stocksist-fixture"] === true || item.metadata.fixture === true) && !ctx.allowFixtures) {
           recordRejection(ingestionObs, "fixture_disallowed");
+          absoluteIndex += 1;
           continue;
         }
         const candidate = await input.adapter.normalize(item, ctx);
         if (!candidate) {
           recordRejection(ingestionObs, ingestRejectionReason(item, true));
+          absoluteIndex += 1;
           continue;
         }
         ingestionObs.items_qualifying += 1;
@@ -146,16 +196,44 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
           source,
           companies,
           cikMap: input.cikMap,
+          attributionIndex,
         }));
-        if (outcome.status === "created") run.eventsCreated += 1;
-        else if (outcome.status === "updated") run.eventsUpdated += 1;
+        if (outcome.status === "created") {
+          run.eventsCreated += 1;
+          ingestionObs.canonical_events_created += 1;
+          ingestionObs.attribution_resolved += 1;
+        } else if (outcome.status === "updated") {
+          run.eventsUpdated += 1;
+          ingestionObs.canonical_events_enriched += 1;
+          ingestionObs.attribution_resolved += 1;
+        } else if (outcome.status === "unresolved") {
+          recordUnresolvedAttribution(ingestionObs, outcome.unresolvedReason ?? "NO_ATTRIBUTION");
+        }
         if (outcome.rawDisposition === "inserted") run.newItems += 1;
         else if (outcome.rawDisposition === "existing_resumed" || outcome.rawDisposition === "existing_linked") {
           run.duplicates += 1;
         }
+        absoluteIndex += 1;
       }
-      markSuccess(source, input.now, ctx.fetchState);
+      if (input.bot === "news" && feedHash) {
+        const paused = absoluteIndex < items.length;
+        if (paused) {
+          source.metadata = writeNewsContinuation(source.metadata, {
+            feed_content_hash: feedHash,
+            next_item_index: absoluteIndex,
+            feed_item_count: items.length,
+          });
+          ingestionObs.continuation_remaining_items = items.length - absoluteIndex;
+          continuationComplete = false;
+        } else {
+          source.metadata = writeNewsContinuation(source.metadata, null);
+          ingestionObs.continuation_remaining_items = 0;
+          continuationComplete = true;
+        }
+      }
+      markSuccess(source, input.now, ctx.fetchState, continuationComplete);
       await input.store.saveSource(source);
+      await checkpointRun(input.store, run, ingestionObs, input.bot, wallStart);
       run.sourcesSuccessful += 1;
     } catch (err) {
       if (err instanceof DatabaseReadError) {
@@ -444,7 +522,13 @@ async function failDatabaseRun(store: CatalystIntelStore, run: RunTelemetry, wal
 function markSuccess(
   source: SourceRecord,
   now: Date,
-  fetchState: { etag: string | null; lastModified: string | null; contentHash: string | null; checkpoint: Record<string, unknown> | null },
+  fetchState: {
+    etag: string | null;
+    lastModified: string | null;
+    contentHash: string | null;
+    checkpoint: Record<string, unknown> | null;
+  },
+  continuationComplete = true,
 ): void {
   source.lastSuccessAt = now.toISOString();
   source.failureCount = 0;
@@ -452,8 +536,24 @@ function markSuccess(
   source.lastErrorCategory = null;
   if (fetchState.etag) source.lastEtag = fetchState.etag;
   if (fetchState.lastModified) source.lastModified = fetchState.lastModified;
-  if (fetchState.contentHash) source.lastContentHash = fetchState.contentHash;
+  if (fetchState.contentHash && continuationComplete) source.lastContentHash = fetchState.contentHash;
   if (fetchState.checkpoint) source.metadata = { ...source.metadata, checkpoint: fetchState.checkpoint };
+}
+
+async function checkpointRun(
+  store: CatalystIntelStore,
+  run: RunTelemetry,
+  ingestionObs: ReturnType<typeof emptyIngestObservability>,
+  bot: BotId,
+  wallStart: number,
+): Promise<void> {
+  run.elapsedMs = Date.now() - wallStart;
+  attachRunObservability(run, { bot, ingestion: ingestionObs });
+  try {
+    await store.saveRun(run);
+  } catch {
+    // Best-effort progress persistence; final save still runs at end.
+  }
 }
 
 async function mapPool<T>(items: readonly T[], limit: number, fn: (item: T) => Promise<void>): Promise<void> {
