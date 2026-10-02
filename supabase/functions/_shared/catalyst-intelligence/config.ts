@@ -12,6 +12,9 @@ export const MAX_EXCERPT_CHARS = 1_500;
 export const DEFAULT_REACTION_MAX_AGE_MS = 15 * 60 * 1000;
 /** Publication within this window may receive immediate session urgency. */
 export const RECENT_ANNOUNCEMENT_MS = 72 * 60 * 60 * 1000;
+/** Live Reaction monitoring window (aligned with recent-announcement catalyst semantics). */
+export const LIVE_REACTION_MAX_AGE_MS = RECENT_ANNOUNCEMENT_MS;
+export const REACTION_ELIGIBILITY_POLICY_VERSION = "live-reaction-v1";
 /** Older announcements taper to watch/informational urgency. */
 export const STALE_ANNOUNCEMENT_MS = 14 * 24 * 60 * 60 * 1000;
 export const GENERIC_USER_AGENT =

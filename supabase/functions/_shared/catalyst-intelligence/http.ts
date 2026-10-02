@@ -8,6 +8,7 @@ import { botEnabledFlag, GENERIC_USER_AGENT, readFlag, SOURCE_GATE_NOTE } from "
 import { DatabaseReadError } from "./conflicts.ts";
 import { observationFromRadarRow } from "./market-reaction.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
+import { parseHistoricalBackfillScope, parseReactionRunMode } from "./reaction-eligibility.ts";
 import { runCollectorBot, runReactionBot } from "./run-bot.ts";
 import type { EventPriceBar } from "./event-bars.ts";
 import type { BotId, CompanyRecord, MarketObservation } from "./types.ts";
@@ -111,12 +112,20 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
 
   if (deps.bot === "reactions") {
     const load = deps.loadObservation ?? (async () => null);
+    const mode = parseReactionRunMode(body.mode);
+    let historicalBackfill;
+    if (mode === "historical_backfill") {
+      historicalBackfill = parseHistoricalBackfillScope(body);
+      if (!historicalBackfill) return json(400, { error: "VALIDATION_ERROR", message: "historical_backfill requires bounded event_ids or ticker with reference window" });
+    }
     const run = await runReactionBot({
       store,
       now,
       batchLimit,
       loadObservation: load,
       loadReferenceBars: deps.loadReferenceBars,
+      mode,
+      historicalBackfill,
     });
     return finishRun(deps.bot, ai, run);
   }
@@ -155,7 +164,22 @@ export function adapterFor(bot: BotId) {
   throw new Error("reactions have no source adapter");
 }
 
-function publicRun(run: { status: string; runId: string; sourcesAttempted: number; sourcesSuccessful: number; sourcesFailed: number; rawItemsSeen: number; newItems: number; duplicates: number; eventsCreated: number; eventsUpdated: number; eventsInvalidated: number; elapsedMs: number | null; errors: { sourceId: string; category: string; statusCode: number | null; retryable: boolean; elapsedMs: number }[] }) {
+function publicRun(run: {
+  status: string;
+  runId: string;
+  sourcesAttempted: number;
+  sourcesSuccessful: number;
+  sourcesFailed: number;
+  rawItemsSeen: number;
+  newItems: number;
+  duplicates: number;
+  eventsCreated: number;
+  eventsUpdated: number;
+  eventsInvalidated: number;
+  elapsedMs: number | null;
+  observability?: Record<string, unknown>;
+  errors: { sourceId: string; category: string; statusCode: number | null; retryable: boolean; elapsedMs: number; details?: Record<string, unknown> }[];
+}) {
   return {
     status: run.status,
     run_id: run.runId,
@@ -169,6 +193,7 @@ function publicRun(run: { status: string; runId: string; sourcesAttempted: numbe
     events_updated: run.eventsUpdated,
     events_invalidated: run.eventsInvalidated,
     elapsed_ms: run.elapsedMs,
+    observability: run.observability ?? null,
     errors: run.errors.map((error) => ({
       source_id: error.sourceId,
       category: error.category,

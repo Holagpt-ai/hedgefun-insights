@@ -1,5 +1,11 @@
 import type { CatalystSourceAdapter } from "./source-adapter.ts";
-import { backoffSeconds, MAX_ITEMS_PER_SOURCE } from "./config.ts";
+import { backoffSeconds, LIVE_REACTION_MAX_AGE_MS, MAX_ITEMS_PER_SOURCE } from "./config.ts";
+import {
+  isLiveReactionEligible,
+  loadHistoricalBackfillCandidates,
+  type HistoricalBackfillScope,
+  type ReactionRunMode,
+} from "./reaction-eligibility.ts";
 import { advanceForReaction, appendLifecycle, applyScheduleClock } from "./lifecycle.ts";
 import { eventReferenceInstant, type EventPriceBar } from "./event-bars.ts";
 import {
@@ -189,19 +195,30 @@ export interface ReactionRunInput {
   loadReferenceBars?: (symbol: string, eventAtIso: string) => Promise<EventPriceBar[]>;
   windowKind?: ReactionWindow;
   maxAgeMs?: number;
+  /** Default `live` for scheduled polling; historical enrichment requires explicit opt-in. */
+  mode?: ReactionRunMode;
+  historicalBackfill?: HistoricalBackfillScope;
+  liveMaxAgeMs?: number;
 }
 
 export async function runReactionBot(input: ReactionRunInput): Promise<RunTelemetry> {
   const wallStart = Date.now();
   const run = emptyRun("reactions", crypto.randomUUID(), new Date(wallStart).toISOString());
-  const reactionObs = emptyReactionObservability();
+  const mode = input.mode ?? "live";
+  const reactionObs = emptyReactionObservability(mode);
   let events;
   try {
-    events = await input.store.listReactionCandidates(input.batchLimit);
+    if (mode === "historical_backfill") {
+      if (!input.historicalBackfill) throw new Error("backfill_scope");
+      events = await loadHistoricalBackfillCandidates(input.store, input.historicalBackfill, input.batchLimit);
+    } else {
+      events = await input.store.listReactionCandidates(input.batchLimit);
+    }
   } catch (err) {
     if (err instanceof DatabaseReadError) return failDatabaseRun(input.store, run, wallStart);
     throw err;
   }
+  const liveMaxAgeMs = input.liveMaxAgeMs ?? LIVE_REACTION_MAX_AGE_MS;
   const windowKind = input.windowKind ?? "point";
   for (const event of events) {
     run.sourcesAttempted += 1;
@@ -235,6 +252,11 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
       const ticker = (await input.store.listTickers(event.id)).find((row) => row.isPrimary);
       if (!ticker) {
         reactionObs.events_skipped_no_primary_ticker += 1;
+        run.sourcesSuccessful += 1;
+        continue;
+      }
+      if (mode === "live" && !isLiveReactionEligible(event, input.now, liveMaxAgeMs)) {
+        reactionObs.events_skipped_historical += 1;
         run.sourcesSuccessful += 1;
         continue;
       }

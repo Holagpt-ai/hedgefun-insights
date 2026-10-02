@@ -15,8 +15,10 @@ export interface IngestObservability {
 }
 
 export interface ReactionObservability {
+  mode: "live" | "historical_backfill";
   events_evaluated: number;
   events_skipped_future: number;
+  events_skipped_historical: number;
   events_skipped_no_primary_ticker: number;
   events_skipped_stale_preservation: number;
   events_processed: number;
@@ -40,10 +42,12 @@ export function emptyIngestObservability(): IngestObservability {
   };
 }
 
-export function emptyReactionObservability(): ReactionObservability {
+export function emptyReactionObservability(mode: ReactionObservability["mode"] = "live"): ReactionObservability {
   return {
+    mode,
     events_evaluated: 0,
     events_skipped_future: 0,
+    events_skipped_historical: 0,
     events_skipped_no_primary_ticker: 0,
     events_skipped_stale_preservation: 0,
     events_processed: 0,
