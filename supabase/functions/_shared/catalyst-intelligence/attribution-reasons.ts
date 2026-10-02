@@ -7,6 +7,7 @@ export type UnresolvedAttributionReason =
   | "AMBIGUOUS_COMPANY_ALIAS"
   | "AMBIGUOUS_TICKER_MENTION"
   | "PROVIDER_TICKER_CONFLICT"
+  | "FOREIGN_PROVIDER_LISTING"
   | "NO_ATTRIBUTION";
 
 export function unresolvedAttributionReason(note: string): UnresolvedAttributionReason {

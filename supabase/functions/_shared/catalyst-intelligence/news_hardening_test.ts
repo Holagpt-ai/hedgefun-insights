@@ -8,6 +8,7 @@ import {
   runAttributionCorrection,
 } from "./attribution-correction.ts";
 import { ItemIngestError } from "./item-ingest-error.ts";
+import { sha256Hex } from "../catalyst/contract.ts";
 import { readNewsContinuation } from "./news-continuation.ts";
 import { createMemoryStore } from "./persistence.ts";
 import { ingestCandidate } from "./pipeline.ts";
@@ -88,6 +89,7 @@ const NEWS_UNIVERSE = buildCompanyUniverse([
   { ticker: "NOW", name: "ServiceNow, Inc." },
   { ticker: "JYNT", name: "The Joint Corp." },
   { ticker: "IART", name: "Integra LifeSciences Holdings Corporation" },
+  { ticker: "AGX", name: "Argan, Inc." },
 ]);
 
 const NEWS_CTX = {
@@ -1252,24 +1254,29 @@ Deno.test("NEWS Stryker subject headline records the accepted phrase", () => {
   assert(decision.trace?.matchedPhrase?.includes("stryker"));
 });
 
-function providerRss(title: string, categories: string): string {
+function providerRss(title: string, categories: string, description = "Issuer update without a company-name subject."): string {
   return `<?xml version="1.0"?><rss version="2.0"><channel><item>
 <title>${title}</title>
 <link>https://www.globenewswire.com/news-release/provider</link>
 <guid>gnw-provider</guid>
 ${categories}
-<description>Issuer update without a company-name subject.</description>
+<description>${description}</description>
 </item></channel></rss>`;
 }
 
-async function providerDecision(title: string, categories: string, hostname = "www.globenewswire.com") {
+async function providerDecision(
+  title: string,
+  categories: string,
+  hostname = "www.globenewswire.com",
+  description?: string,
+) {
   const src = source({
     sourceType: "NEWS_PR",
     url: `https://${hostname}/RssFeed/earnings`,
     evidenceTier: "TIER_2_STRONG_SECONDARY",
     hostname,
   });
-  const body = providerRss(title, categories);
+  const body = providerRss(title, categories, description);
   const item = (await newsPrAdapter.discover({
     now: NOW,
     source: src,
@@ -1447,4 +1454,262 @@ Deno.test("NEWS JYNT correction re-check leaves the event unresolved", async () 
   assertEquals((await store.listTickers(eventId)).length, 0);
   assertEquals(JSON.stringify(await store.getRawItem(rawId)), rawBefore);
   assertEquals(JSON.stringify(await store.findEvidenceByRaw(rawId)), evidenceBefore);
+});
+
+const ARGAN_FR = "ARGAN : REVENUS LOCATIFS EN HAUSSE DE + 5 %  SUR LES 9 PREMIERS MOIS DE 2026";
+const ARGAN_EN = "ARGAN: RENTAL INCOME UP +5%  OVER THE FIRST NINE MONTHS OF 2026";
+const PARIS_ARG = `<category domain="https://www.globenewswire.com/rss/stock">Paris:ARG</category>`;
+
+Deno.test("NEWS French ARGAN release with Paris:ARG never resolves AGX", async () => {
+  const decision = await providerDecision(ARGAN_FR, PARIS_ARG);
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.ticker, null);
+  assertEquals(decision.unresolvedReason, "FOREIGN_PROVIDER_LISTING");
+  assertEquals(decision.trace?.providerListing, "Paris:ARG");
+  assertEquals(decision.trace?.blockedUsCandidate, "AGX");
+});
+
+Deno.test("NEWS English ARGAN release with Paris:ARG never resolves AGX", async () => {
+  const decision = await providerDecision(ARGAN_EN, PARIS_ARG);
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.ticker, null);
+  assertEquals(decision.unresolvedReason, "FOREIGN_PROVIDER_LISTING");
+  assert(decision.ticker !== "AGX");
+});
+
+Deno.test("NEWS foreign listing blocks a same-name U.S. company", async () => {
+  const decision = await providerDecision("Argan announces quarterly results", PARIS_ARG);
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.trace?.blockedUsCandidate, "AGX");
+});
+
+Deno.test("NEWS ForFarmers Amsterdam listing stays unresolved and never JYNT", async () => {
+  const decision = await providerDecision(
+    "ForFarmers N.V.: Joint venture ForFarmers en KPS Food Group in Polen afgerond",
+    `<category domain="https://www.globenewswire.com/rss/stock">Amsterdam:FFARM</category>`,
+  );
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.unresolvedReason, "FOREIGN_PROVIDER_LISTING");
+  assert(decision.ticker !== "JYNT");
+});
+
+Deno.test("NEWS Nanobiotix dual listing resolves the supported U.S. ticker", async () => {
+  const decision = await providerDecision(
+    "NANOBIOTIX Announces the Appointment of Arnd Christ as Chief Financial Officer",
+    `<category domain="https://www.globenewswire.com/rss/stock">Paris:NANO</category>
+     <category domain="https://www.globenewswire.com/rss/stock">Nasdaq: NBTX</category>`,
+  );
+  assertEquals(decision.ticker, "NBTX");
+  assertEquals(decision.note, "provider_structured_ticker");
+});
+
+Deno.test("NEWS explicit U.S. ticker text wins over a foreign-only listing", async () => {
+  const decision = await providerDecision(
+    "Issuer update",
+    `<category domain="https://www.globenewswire.com/rss/stock">Paris:NANO</category>`,
+    "www.globenewswire.com",
+    "The release cites NASDAQ: NBTX in the body.",
+  );
+  assertEquals(decision.ticker, "NBTX");
+  assertEquals(decision.note, "news_explicit_ticker");
+});
+
+Deno.test("NEWS IART AYI and SYK provider categories still resolve", async () => {
+  assertEquals((await providerDecision("Quarterly results update", `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:IART</category>`)).ticker, "IART");
+  assertEquals((await providerDecision("Acuity Reports Fiscal 2026 Fourth-Quarter and Full-Year Results", `<category domain="https://www.globenewswire.com/rss/stock">NYSE:AYI</category>`)).ticker, "AYI");
+  assertEquals((await providerDecision("Stryker to announce third quarter 2026 financial results", `<category domain="https://www.globenewswire.com/rss/stock">NYSE:SYK</category>`)).ticker, "SYK");
+});
+
+Deno.test("NEWS foreign listing blocks an unrelated U.S. company-name collision", async () => {
+  const decision = await providerDecision("Stryker Corporation reports results", PARIS_ARG);
+  assertEquals(decision.status, "unresolved");
+  assertEquals(decision.unresolvedReason, "FOREIGN_PROVIDER_LISTING");
+  assertEquals(decision.trace?.blockedUsCandidate, "SYK");
+});
+
+Deno.test("NEWS malformed stock category does not block a real company-name match", async () => {
+  const blocked = await providerDecision(
+    "Quarterly results update",
+    `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:NOT A SYMBOL</category>`,
+  );
+  assertEquals(blocked.ticker, null);
+  assert(blocked.unresolvedReason !== "FOREIGN_PROVIDER_LISTING");
+  const named = await providerDecision(
+    "Stryker Corporation reports results",
+    `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:NOT A SYMBOL</category>`,
+  );
+  assertEquals(named.ticker, "SYK");
+  assertEquals(named.note, "news_name_match");
+});
+
+Deno.test("NEWS strong company-name identity still resolves without provider metadata", () => {
+  const decision = attributeCandidate(newsCandidate("Namib Minerals updates production", null), NEWS_CTX);
+  assertEquals(decision.ticker, "NAMM");
+  assertEquals(decision.note, "news_name_match");
+});
+
+Deno.test("NEWS arbitrary RSS categories are not trusted stock metadata", async () => {
+  const industry = await providerDecision(
+    "Stryker Corporation reports results",
+    `<category domain="https://www.globenewswire.com/rss/industry">Paris:ARG</category><category>Real Estate</category>`,
+  );
+  assertEquals(industry.ticker, "SYK");
+  assertEquals(industry.note, "news_name_match");
+  assert(industry.unresolvedReason !== "FOREIGN_PROVIDER_LISTING");
+});
+
+Deno.test("NEWS stored continuation at index 16 is not reset by attribution", async () => {
+  const store = createMemoryStore();
+  const src = gnwSource();
+  const titles = Array.from({ length: 20 }, (_, index) => `Issuer ${index} Holdings announces results`);
+  const body = gnwFeed(titles);
+  const hash = await sha256Hex(body);
+  src.metadata = {
+    news_feed_continuation: { feed_content_hash: hash, next_item_index: 16, feed_item_count: 20 },
+  };
+  await store.saveSource(src);
+  const run = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    batchLimit: 1,
+    companies: NEWS_UNIVERSE,
+    newsItemBudget: 1,
+  });
+  assertEquals(run.sourcesFailed, 0);
+  assertEquals(run.rawItemsSeen, 1);
+  assertEquals(store.rawItems().map((row) => row.externalId), ["gnw-16"]);
+  const continuation = readNewsContinuation((await store.listSources({}))[0].metadata);
+  assertEquals(continuation?.next_item_index, 17);
+  assertEquals(continuation?.feed_item_count, 20);
+  assertEquals(continuation?.feed_content_hash, hash);
+});
+
+Deno.test("NEWS AGX corrections for both ARGAN releases remove the ticker and invalidate", async () => {
+  const store = createMemoryStore();
+  const src = gnwSource();
+  const titles = [ARGAN_FR, ARGAN_EN];
+  const eventIds: string[] = [];
+  for (const title of titles) {
+    const eventId = crypto.randomUUID();
+    const rawId = crypto.randomUUID();
+    eventIds.push(eventId);
+    await store.insertEvent({
+      id: eventId,
+      canonicalKey: `ci:agx:${rawId}`,
+      title,
+      summary: null,
+      announcementSummary: null,
+      eventType: "OTHER_MATERIAL_EVENT",
+      eventSubtype: null,
+      lifecycle: "announced",
+      catalystState: "WATCH",
+      firstDiscoveredAt: NOW.toISOString(),
+      sourcePublishedAt: NOW.toISOString(),
+      scheduledStartAt: null,
+      scheduledEndAt: null,
+      scheduledDate: null,
+      announcementAt: NOW.toISOString(),
+      effectiveAt: null,
+      timingBucket: "unknown",
+      verificationState: "REPORTED",
+      evidenceConfidence: 50,
+      materiality: 50,
+      timingUrgency: 40,
+      reactionScore: null,
+      priorityScore: 40,
+      attributionConfidence: 0.85,
+      distributionStatus: "observation",
+      lifecycleLog: [],
+      scoreComponents: {},
+      updatedAt: NOW.toISOString(),
+    });
+    await store.insertRaw({
+      id: rawId,
+      sourceId: src.id,
+      externalId: title,
+      canonicalUrl: "https://www.globenewswire.com/news-release/argan",
+      contentHash: title,
+      publishedAt: "2026-10-01T15:45:00.000Z",
+      discoveredAt: NOW.toISOString(),
+      title,
+      bodyExcerpt: "Quarterly financial information",
+      metadata: { provider_stock_categories: ["Paris:ARG"] },
+    });
+    await store.insertEvidence({
+      id: crypto.randomUUID(),
+      eventId,
+      rawItemId: rawId,
+      sourceId: src.id,
+      authorityKey: "globenewswire",
+      evidenceTier: "TIER_2_STRONG_SECONDARY",
+      evidenceRole: "secondary",
+      canonicalUrl: "https://www.globenewswire.com/news-release/argan",
+      contentHash: title,
+      publishedAt: "2026-10-01T15:45:00.000Z",
+      conflict: false,
+    });
+    await store.upsertTicker({
+      id: crypto.randomUUID(),
+      eventId,
+      ticker: "AGX",
+      relation: "PRIMARY",
+      confidence: 0.85,
+      isPrimary: true,
+      evidenceNote: "news_name_match",
+    });
+    const rawBefore = JSON.stringify(await store.getRawItem(rawId));
+    const evidenceBefore = JSON.stringify(await store.findEvidenceByRaw(rawId));
+    const dry = await runAttributionCorrection(store, {
+      scope: { rawItemId: rawId, eventId, wrongTicker: "AGX" },
+      dryRun: true,
+      apply: false,
+      companies: NEWS_UNIVERSE,
+      source: src,
+      now: NOW,
+    });
+    assertEquals(dry.item?.correctionStatus, "WOULD_CORRECT");
+    assertEquals(dry.item?.recheck?.correctedStatus, "unresolved");
+    assertEquals(dry.item?.recheck?.correctedTicker, null);
+    assertEquals(dry.item?.recheck?.correctedUnresolvedReason, "FOREIGN_PROVIDER_LISTING");
+    const apply = await runAttributionCorrection(store, {
+      scope: { rawItemId: rawId, eventId, wrongTicker: "AGX" },
+      dryRun: false,
+      apply: true,
+      concurrencyToken: dry.item?.concurrencyToken ?? null,
+      companies: NEWS_UNIVERSE,
+      source: src,
+      now: NOW,
+    });
+    assertEquals(apply.item?.correctionStatus, "CORRECTED");
+    const corrected = await store.getEvent(eventId);
+    assert(corrected?.scoreComponents.attribution_correction != null);
+    assertEquals(corrected?.lifecycle, "invalidated");
+    assertEquals(corrected?.verificationState, "INVALIDATED");
+    assertEquals(corrected?.priorityScore, 0);
+    assertEquals((await store.listTickers(eventId)).length, 0);
+    assertEquals(JSON.stringify(await store.getRawItem(rawId)), rawBefore);
+    assertEquals(JSON.stringify(await store.findEvidenceByRaw(rawId)), evidenceBefore);
+  }
+  assertEquals(eventIds.length, 2);
+});
+
+Deno.test("NEWS invocation segment items keep legitimate tickers and drop ARGAN", async () => {
+  const segment = [
+    ["NANOBIOTIX annonce la nomination d’Arnd Christ au poste de directeur financier", `<category domain="https://www.globenewswire.com/rss/stock">Paris:NANO</category><category domain="https://www.globenewswire.com/rss/stock">Nasdaq: NBTX</category>`, "NBTX"],
+    ["Monument publie les résultats financiers de son quatrième trimestre et de son exercice fiscal 2026", `<category domain="https://www.globenewswire.com/rss/stock">TSX-V:MMY</category><category domain="https://www.globenewswire.com/rss/stock">Frankfurt:D7Q1.F</category>`, null],
+    ["Monument gibt Ergebnisse für das vierte Quartal und das Geschäftsjahr 2026 bekannt", `<category domain="https://www.globenewswire.com/rss/stock">TSX-V:MMY</category>`, null],
+    [ARGAN_FR, PARIS_ARG, null],
+    [ARGAN_EN, PARIS_ARG, null],
+    ["Rekstur Akureyrarbæjar er traustur", `<category domain="https://www.globenewswire.com/rss/stock">Iceland:AKU</category>`, null],
+    ["Namib Minerals Reports First-Half 2026 Financial Results and Provides Business Update", `<category domain="https://www.globenewswire.com/rss/stock">Nasdaq:NAMM</category>`, "NAMM"],
+    ["Stryker to announce third quarter 2026 financial results", `<category domain="https://www.globenewswire.com/rss/stock">NYSE:SYK</category>`, "SYK"],
+  ] as const;
+  for (const [title, categories, ticker] of segment) {
+    const decision = await providerDecision(title, categories);
+    assertEquals(decision.ticker, ticker);
+  }
 });

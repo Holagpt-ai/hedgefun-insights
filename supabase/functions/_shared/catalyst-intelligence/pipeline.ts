@@ -321,7 +321,7 @@ function anchor(timing: { scheduledStart: string | null; scheduledDate: string |
 
 function attributionInsertMetadata(
   metadata: Record<string, unknown>,
-  attribution: { status: string; note: string; trace?: { method: string; matchBasis: string; matchedPhrase?: string | null; tickerPattern?: string | null; provider?: string | null } },
+  attribution: { status: string; note: string; trace?: { method: string; matchBasis: string; matchedPhrase?: string | null; tickerPattern?: string | null; provider?: string | null; providerListing?: string | null; blockedUsCandidate?: string | null } },
   unresolvedReason: string | null,
 ): Record<string, unknown> {
   const next = boundedMetadata(metadata);
@@ -336,12 +336,14 @@ function attributionInsertMetadata(
     if (trace.matched_phrase) next.attribution_matched_phrase = trace.matched_phrase;
     if (trace.ticker_pattern) next.attribution_ticker_pattern = trace.ticker_pattern;
     if (trace.provider) next.attribution_provider = trace.provider;
+    if (trace.provider_listing) next.attribution_provider_listing = trace.provider_listing;
+    if (trace.blocked_us_candidate) next.attribution_blocked_us_candidate = trace.blocked_us_candidate;
   }
   return next;
 }
 
 function boundedAttributionTrace(
-  trace: { method: string; matchBasis: string; matchedPhrase?: string | null; tickerPattern?: string | null; provider?: string | null } | undefined,
+  trace: { method: string; matchBasis: string; matchedPhrase?: string | null; tickerPattern?: string | null; provider?: string | null; providerListing?: string | null; blockedUsCandidate?: string | null } | undefined,
 ): Record<string, string> | null {
   if (!trace) return null;
   const out: Record<string, string> = {
@@ -351,6 +353,8 @@ function boundedAttributionTrace(
   if (trace.matchedPhrase) out.matched_phrase = trace.matchedPhrase.slice(0, 80);
   if (trace.tickerPattern) out.ticker_pattern = trace.tickerPattern;
   if (trace.provider) out.provider = trace.provider;
+  if (trace.providerListing) out.provider_listing = trace.providerListing.slice(0, 80);
+  if (trace.blockedUsCandidate) out.blocked_us_candidate = trace.blockedUsCandidate;
   return out;
 }
 

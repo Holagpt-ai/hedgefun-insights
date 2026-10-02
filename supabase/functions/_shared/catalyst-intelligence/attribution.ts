@@ -6,6 +6,7 @@ import type { UnresolvedAttributionReason } from "./attribution-reasons.ts";
 
 import type { CompanyRecord, NormalizedEventCandidate, TickerRelation } from "./types.ts";
 
+import { classifyGlobeNewswireStockCategories } from "./globenewswire-ticker.ts";
 import { normalizeTicker } from "./normalize.ts";
 
 
@@ -35,6 +36,8 @@ export interface AttributionTrace {
   matchedPhrase?: string | null;
   tickerPattern?: "cashtag" | "parentheses" | "exchange_qualified" | null;
   provider?: string | null;
+  providerListing?: string | null;
+  blockedUsCandidate?: string | null;
 }
 
 
@@ -289,6 +292,45 @@ export function attributeCandidate(
         unresolvedReason: "AMBIGUOUS_TICKER_MENTION",
       };
     }
+    const listings = classifyGlobeNewswireStockCategories(providerStockCategories(candidate.metadata));
+    if (listings.outcome === "us_conflict") {
+      return {
+        status: "unresolved",
+        ticker: null,
+        relation: null,
+        confidence: 0,
+        note: "provider_ticker_conflict",
+        unresolvedReason: "PROVIDER_TICKER_CONFLICT",
+        trace: {
+          method: "provider_structured_ticker",
+          matchBasis: "provider_metadata",
+          provider: "globenewswire",
+        },
+      };
+    }
+    const storedListings = Array.isArray(candidate.metadata.provider_listings)
+      ? candidate.metadata.provider_listings.filter((value): value is string => typeof value === "string")
+      : [];
+    if (listings.outcome === "foreign_only" || candidate.metadata.provider_foreign_listing === true) {
+      const blockedHits = newsIndex.findNewsNameTickers(candidate.title);
+      const blockedUsCandidate = blockedHits.size === 1 ? [...blockedHits][0] : null;
+      const providerListing = (listings.foreignListings.length > 0 ? listings.foreignListings : storedListings).join(", ").slice(0, 80);
+      return {
+        status: "unresolved",
+        ticker: null,
+        relation: null,
+        confidence: 0,
+        note: "foreign_provider_listing",
+        unresolvedReason: "FOREIGN_PROVIDER_LISTING",
+        trace: {
+          method: "foreign_provider_listing",
+          matchBasis: "provider_metadata",
+          provider: "globenewswire",
+          providerListing,
+          blockedUsCandidate,
+        },
+      };
+    }
   }
 
   const nameHits = new Set<string>();
@@ -454,6 +496,12 @@ export function attributeCandidate(
 }
 
 
+
+function providerStockCategories(metadata: Record<string, unknown>): string[] {
+  const raw = metadata.provider_stock_categories;
+  if (!Array.isArray(raw)) return [];
+  return raw.filter((value): value is string => typeof value === "string");
+}
 
 function findNewsNameIndex(title: string, companies: readonly CompanyRecord[]): AttributionIndex {
   const built = buildAttributionIndex(companies);

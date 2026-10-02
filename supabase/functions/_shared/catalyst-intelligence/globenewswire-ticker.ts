@@ -25,32 +25,56 @@ export function globeNewswireStockCategories(block: string): string[] {
 }
 
 export type GlobeNewswireSymbolStatus = "none" | "unique" | "conflict" | "malformed";
+export type StockListingClass = "SUPPORTED_US_LISTING" | "FOREIGN_LISTING" | "INVALID_OR_NON_STOCK_METADATA";
+export type StockListingOutcome = "supported_us" | "foreign_only" | "us_conflict" | "none";
 
-/** US exchange symbols only. Non-US listings are ignored. Conflicting US symbols fail closed. */
+export interface ClassifiedStockListings {
+  usSymbols: string[];
+  foreignListings: string[];
+  outcome: StockListingOutcome;
+}
+
+/** Exchange:symbol values from the GlobeNewswire stock-category domain only. */
+export function classifyGlobeNewswireStockCategories(categories: readonly string[]): ClassifiedStockListings {
+  const usSymbols = new Set<string>();
+  const foreignListings: string[] = [];
+  for (const raw of categories) {
+    const classified = classifyStockCategory(raw);
+    if (classified.class === "SUPPORTED_US_LISTING" && classified.symbol) usSymbols.add(classified.symbol);
+    if (classified.class === "FOREIGN_LISTING" && classified.listing) foreignListings.push(classified.listing);
+  }
+  if (usSymbols.size > 1) return { usSymbols: [...usSymbols], foreignListings, outcome: "us_conflict" };
+  if (usSymbols.size === 1) return { usSymbols: [...usSymbols], foreignListings, outcome: "supported_us" };
+  if (foreignListings.length > 0) return { usSymbols: [], foreignListings, outcome: "foreign_only" };
+  return { usSymbols: [], foreignListings: [], outcome: "none" };
+}
+
+export function classifyStockCategory(raw: string): { class: StockListingClass; symbol: string | null; listing: string | null } {
+  const match = raw.trim().match(/^([A-Za-z][A-Za-z0-9 .'-]*?)\s*:\s*([A-Za-z0-9.-]+)$/);
+  if (!match) return { class: "INVALID_OR_NON_STOCK_METADATA", symbol: null, listing: null };
+  const exchange = match[1].trim().replace(/\s+/g, " ");
+  const symbol = match[2].trim().toUpperCase();
+  const listing = `${exchange}:${symbol}`;
+  if (US_EXCHANGE.test(exchange)) {
+    if (!US_SYMBOL.test(symbol)) return { class: "INVALID_OR_NON_STOCK_METADATA", symbol: null, listing: null };
+    return { class: "SUPPORTED_US_LISTING", symbol, listing };
+  }
+  if (exchange.length < 2 || !/^[A-Z0-9][A-Z0-9.-]{0,14}$/.test(symbol)) {
+    return { class: "INVALID_OR_NON_STOCK_METADATA", symbol: null, listing: null };
+  }
+  return { class: "FOREIGN_LISTING", symbol: null, listing };
+}
+
+/** US exchange symbols only. Foreign listings are reported separately. Conflicting US symbols fail closed. */
 export function parseGlobeNewswireUsSymbol(categories: readonly string[]): {
   status: GlobeNewswireSymbolStatus;
   symbol: string | null;
 } {
-  const symbols = new Set<string>();
-  let sawMalformedUs = false;
-  for (const raw of categories) {
-    const match = raw.trim().match(/^([A-Za-z][A-Za-z ]*?)\s*:\s*([A-Za-z0-9.-]+)$/);
-    if (!match) {
-      sawMalformedUs = true;
-      continue;
-    }
-    const exchange = match[1].trim();
-    const symbol = match[2].trim().toUpperCase();
-    if (!US_EXCHANGE.test(exchange)) continue;
-    if (!US_SYMBOL.test(symbol)) {
-      sawMalformedUs = true;
-      continue;
-    }
-    symbols.add(symbol);
-  }
-  if (symbols.size > 1) return { status: "conflict", symbol: null };
-  if (symbols.size === 1) return { status: "unique", symbol: [...symbols][0] };
-  if (sawMalformedUs) return { status: "malformed", symbol: null };
+  const classified = classifyGlobeNewswireStockCategories(categories);
+  if (classified.outcome === "us_conflict") return { status: "conflict", symbol: null };
+  if (classified.outcome === "supported_us") return { status: "unique", symbol: classified.usSymbols[0] ?? null };
+  const sawInvalid = categories.some((value) => classifyStockCategory(value).class === "INVALID_OR_NON_STOCK_METADATA");
+  if (classified.outcome === "none" && sawInvalid) return { status: "malformed", symbol: null };
   return { status: "none", symbol: null };
 }
 
@@ -64,14 +88,20 @@ export function applyGlobeNewswireTickerMetadata(
     ? metadata.provider_stock_categories.filter((value): value is string => typeof value === "string")
     : [];
   if (categories.length === 0) return;
-  const parsed = parseGlobeNewswireUsSymbol(categories);
-  if (parsed.status === "conflict") {
+  const parsed = classifyGlobeNewswireStockCategories(categories);
+  if (parsed.outcome === "us_conflict") {
     metadata.provider_ticker_conflict = true;
-    metadata.attribution_provider = "globenewswire_stock_category";
+    metadata.attribution_provider = "globenewswire";
     return;
   }
-  if (parsed.status !== "unique" || !parsed.symbol) return;
-  const ticker = normalizeTicker(parsed.symbol);
+  if (parsed.outcome === "foreign_only") {
+    metadata.provider_foreign_listing = true;
+    metadata.provider_listings = parsed.foreignListings.slice(0, 8);
+    metadata.attribution_provider = "globenewswire";
+    return;
+  }
+  if (parsed.outcome !== "supported_us") return;
+  const ticker = normalizeTicker(parsed.usSymbols[0]);
   if (!ticker || !companies) return;
   const owners = companies.filter((company) => normalizeTicker(company.ticker) === ticker);
   if (owners.length !== 1) return;
