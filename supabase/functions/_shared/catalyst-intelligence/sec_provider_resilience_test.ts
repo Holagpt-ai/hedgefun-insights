@@ -3,12 +3,29 @@ import { secFilingsAdapter } from "./adapters/sec.ts";
 import { handleCatalystIntelRequest } from "./http.ts";
 import { createMemoryStore } from "./persistence.ts";
 import { runCollectorBot } from "./run-bot.ts";
+import { SEC_COMPANY_MAP_MIN_ISSUERS } from "./sec-company-map.ts";
 import type { SourceRecord } from "./types.ts";
 
 const NOW = new Date("2026-10-02T22:40:00.000Z");
 const ATOM_URL = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom";
 const MAP_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
-const MAP_OK = JSON.stringify({ data: [[1, "Example Hood Markets", "HOOD", "Nasdaq"]] });
+
+function exchangeJson(rows: unknown[][]): string {
+  const data = rows.map((row) => [...row]);
+  const seen = new Set(data.map((row) => String(row[0]).replace(/\D/g, "").padStart(10, "0")));
+  let i = 0;
+  while (seen.size < SEC_COMPANY_MAP_MIN_ISSUERS) {
+    i += 1;
+    const cik = 400000 + i;
+    const padded = String(cik).padStart(10, "0");
+    if (seen.has(padded)) continue;
+    seen.add(padded);
+    data.push([cik, `Issuer ${cik}`, `Q${String(i).padStart(4, "0")}`, "Nasdaq"]);
+  }
+  return JSON.stringify({ data });
+}
+
+const MAP_OK = exchangeJson([[1, "Example Hood Markets", "HOOD", "Nasdaq"]]);
 const ATOM = `<?xml version="1.0"?><feed><entry>
 <title>8-K - EXAMPLE HOOD MARKETS (0000000001) (Issuer)</title>
 <link href="https://www.sec.gov/Archives/edgar/data/1/0000000001-26-000001-index.htm"/>
@@ -65,14 +82,12 @@ function env(userAgent: string | null = "Stocksist test@example.com") {
 
 function mapBody(step: MapStep): string {
   if (step === "multi") {
-    return JSON.stringify({
-      data: [
-        [1, "Example Hood Markets", "HOOD", "Nasdaq"],
-        [1, "Example Hood Markets", "AAPL", "Nasdaq"],
-      ],
-    });
+    return exchangeJson([
+      [1, "Example Hood Markets", "HOOD", "Nasdaq"],
+      [1, "Example Hood Markets", "AAPL", "Nasdaq"],
+    ]);
   }
-  if (step === "missing") return JSON.stringify({ data: [[2, "Other", "MSFT", "Nasdaq"]] });
+  if (step === "missing") return exchangeJson([[2, "Other", "MSFT", "Nasdaq"]]);
   if (step === "parse") return "{\"data\":";
   return MAP_OK;
 }
@@ -88,6 +103,12 @@ async function invoke(steps: MapStep[], options?: { userAgent?: string | null; s
   await store.saveSource(options?.source ?? source());
   const calls: string[] = [];
   let mapCalls = 0;
+  let cacheReads = 0;
+  const readCache = store.getProviderCache.bind(store);
+  store.getProviderCache = async (key) => {
+    cacheReads += 1;
+    return readCache(key);
+  };
   const fetchImpl = (url: string | URL | Request) => {
     const href = String(url);
     calls.push(href);
@@ -117,7 +138,7 @@ async function invoke(steps: MapStep[], options?: { userAgent?: string | null; s
     sleepFn: () => Promise.resolve(),
   });
   const body = await response.json();
-  return { store, response, body, calls, mapCalls, elapsed: Date.now() - started };
+  return { store, response, body, calls, mapCalls, cacheReads, elapsed: Date.now() - started };
 }
 
 function providerError(body: { run: { errors: Array<Record<string, unknown>> } }) {
@@ -258,6 +279,7 @@ Deno.test("SEC wake with no due source does not fetch the company map", async ()
   assertEquals(result.body.run.status, "completed");
   assertEquals(result.body.run.sources_attempted, 0);
   assertEquals(result.mapCalls, 0);
+  assertEquals(result.cacheReads, 0);
   assertEquals(result.calls.length, 0);
   assertEquals(result.body.run.observability.ingestion.sec_company_map_attempts, 0);
   assertEquals(result.body.run.observability.ingestion.atom_source_attempted, false);
@@ -282,20 +304,26 @@ Deno.test("unchanged SEC atom does not insert a second filing", async () => {
   const store = createMemoryStore();
   await store.saveSource(source());
   const fetchImpl = () => Promise.resolve(new Response(ATOM, { status: 200 }));
+  let mapCalls = 0;
   const run = () => runCollectorBot({
     bot: "sec",
     adapter: secFilingsAdapter,
     store,
     now: NOW,
     userAgent: "Stocksist test@example.com",
-    fetchImpl: (url) => String(url) === MAP_URL
-      ? Promise.resolve(new Response(MAP_OK, { status: 200, headers: { "content-type": "application/json" } }))
-      : fetchImpl(),
+    fetchImpl: (url) => {
+      if (String(url) === MAP_URL) {
+        mapCalls += 1;
+        return Promise.resolve(new Response(MAP_OK, { status: 200, headers: { "content-type": "application/json" } }));
+      }
+      return fetchImpl();
+    },
     batchLimit: 1,
     sleepFn: () => Promise.resolve(),
   });
   const first = await run();
   const second = await run();
+  assertEquals(mapCalls, 1);
   assertEquals(first.eventsCreated, 1);
   assertEquals(second.eventsCreated, 0);
   assertEquals(second.newItems, 0);

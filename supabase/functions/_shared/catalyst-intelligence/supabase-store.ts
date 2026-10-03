@@ -221,6 +221,30 @@ export function createSupabaseIntelStore(supabase: Sb): CatalystIntelStore & {
       });
       if (error) throw new Error("database");
     },
+    async getProviderCache(cacheKey) {
+      const { data, error } = await supabase
+        .from("catalyst_intel_provider_cache")
+        .select("cache_key,payload,refreshed_at")
+        .eq("cache_key", cacheKey)
+        .maybeSingle();
+      if (error) throw new DatabaseReadError();
+      if (!data) return null;
+      const row = data as Record<string, unknown>;
+      return {
+        cacheKey: String(row.cache_key),
+        payload: row.payload,
+        refreshedAt: String(row.refreshed_at),
+      };
+    },
+    async saveProviderCache(record) {
+      const { error } = await supabase.from("catalyst_intel_provider_cache").upsert({
+        cache_key: record.cacheKey,
+        payload: record.payload,
+        refreshed_at: record.refreshedAt,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "cache_key" });
+      if (error) throw new Error("database");
+    },
     async loadMarketObservations(symbols: string[]) {
       if (symbols.length === 0) return [];
       const { data, error } = await supabase.rpc("catalyst_intel_latest_radar", { p_symbols: symbols });

@@ -26,6 +26,12 @@ export interface DueSourceQuery {
   allowlist?: readonly string[];
 }
 
+export interface ProviderCacheRecord {
+  cacheKey: string;
+  payload: unknown;
+  refreshedAt: string;
+}
+
 export interface CatalystIntelStore {
   getBotConfig(bot: BotId): Promise<BotConfig | null>;
   listSources(query: SourceQuery): Promise<SourceRecord[]>;
@@ -58,6 +64,8 @@ export interface CatalystIntelStore {
   withDedupeLock<T>(lockKey: string, task: () => Promise<T>): Promise<T>;
   getReaction(eventId: string, windowKind: ReactionWindow): Promise<ReactionRecord | null>;
   upsertReaction(row: ReactionRecord): Promise<void>;
+  getProviderCache(cacheKey: string): Promise<ProviderCacheRecord | null>;
+  saveProviderCache(record: ProviderCacheRecord): Promise<void>;
 }
 
 export function createMemoryStore(): CatalystIntelStore & {
@@ -74,6 +82,7 @@ export function createMemoryStore(): CatalystIntelStore & {
   const reactions: ReactionRecord[] = [];
   const configs = new Map<BotId, BotConfig>();
   const lockTails = new Map<string, Promise<void>>();
+  const providerCache = new Map<string, ProviderCacheRecord>();
 
   return {
     events: () => events.map((row) => structuredClone(row)),
@@ -240,6 +249,13 @@ export function createMemoryStore(): CatalystIntelStore & {
       const index = reactions.findIndex((item) => item.eventId === row.eventId && item.windowKind === row.windowKind);
       if (index >= 0) reactions[index] = structuredClone(row);
       else reactions.push(structuredClone(row));
+    },
+    async getProviderCache(cacheKey) {
+      const row = providerCache.get(cacheKey);
+      return row ? structuredClone(row) : null;
+    },
+    async saveProviderCache(record) {
+      providerCache.set(record.cacheKey, structuredClone(record));
     },
   };
 }

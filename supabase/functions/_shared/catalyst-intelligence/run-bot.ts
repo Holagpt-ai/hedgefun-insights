@@ -33,6 +33,7 @@ import {
   ingestRejectionReason,
   recordRejection,
   recordUnresolvedAttribution,
+  type IngestObservability,
   type ReactionObservability,
 } from "./run-observability.ts";
 import {
@@ -45,7 +46,12 @@ import { itemIngestDiagnostic, safeItemIdentity } from "./item-ingest-error.ts";
 import { isFixturePayload, normalizeTicker } from "./normalize.ts";
 import { applyScores, ingestCandidate } from "./pipeline.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
-import { loadSecCompanyTickerMap, type SecCompanyMapDiagnostic } from "./sec-company-map.ts";
+import {
+  resolveSecCompanyTickerMap,
+  SEC_COMPANY_MAP_URL_ID,
+  type SecCompanyMapDiagnostic,
+  type SecCompanyMapResolution,
+} from "./sec-company-map.ts";
 import { SourceFetchError } from "./source-fetch.ts";
 import { emptyRun, formatRunLog, safeError } from "./telemetry.ts";
 import type {
@@ -119,19 +125,71 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
     ingestionObs.atom_source_attempted = false;
   }
   if (input.bot === "sec" && sources.length > 0 && !cikMap) {
-    const loaded = await loadSecCompanyTickerMap({
-      userAgent: input.userAgent,
-      fetchImpl: input.fetchImpl,
-      sleepFn: input.sleepFn,
-    });
-    ingestionObs.sec_company_map_attempts = loaded.ok ? loaded.attempts : loaded.diagnostic.attempts;
-    ingestionObs.sec_due_sources = sources.length;
-    if (!loaded.ok) {
-      ingestionObs.atom_source_attempted = false;
-      return failSecProviderRun(input.store, run, wallStart, loaded.diagnostic, sources.length, ingestionObs);
+    let resolved: SecCompanyMapResolution;
+    try {
+      resolved = await resolveSecCompanyTickerMap({
+        now: input.now,
+        userAgent: input.userAgent,
+        cache: input.store,
+        fetchImpl: input.fetchImpl,
+        sleepFn: input.sleepFn,
+      });
+    } catch (err) {
+      if (err instanceof DatabaseReadError || err instanceof Error) return failDatabaseRun(input.store, run, wallStart);
+      throw err;
     }
-    if (loaded.attempts > 1) ingestionObs.sec_company_map_retry_succeeded = true;
-    cikMap = loaded.map;
+    applySecMapObservability(ingestionObs, resolved);
+    ingestionObs.sec_due_sources = sources.length;
+    if (!resolved.ok || !resolved.map) {
+      ingestionObs.atom_source_attempted = false;
+      return failSecProviderRun(
+        input.store,
+        run,
+        wallStart,
+        resolved.diagnostic ?? {
+          category: "sec_provider_dependency_error",
+          stage: "company_ticker_map",
+          provider: "sec",
+          urlIdentifier: SEC_COMPANY_MAP_URL_ID,
+          httpStatus: resolved.httpStatus,
+          errorType: resolved.errorType ?? "parse",
+          retryable: false,
+          message: "SEC company ticker map unavailable",
+          attempt: resolved.attempts,
+          attempts: resolved.attempts,
+        },
+        sources.length,
+        ingestionObs,
+      );
+    }
+    if (resolved.source === "live_refresh" && resolved.attempts > 1) ingestionObs.sec_company_map_retry_succeeded = true;
+    if (resolved.source === "lkg_fallback" && resolved.diagnostic) {
+      run.errors.push({
+        sourceId: "sec-company-map",
+        category: resolved.diagnostic.category,
+        statusCode: resolved.diagnostic.httpStatus,
+        retryable: resolved.diagnostic.retryable,
+        elapsedMs: 0,
+        details: {
+          stage: resolved.diagnostic.stage,
+          provider: resolved.diagnostic.provider,
+          url_identifier: resolved.diagnostic.urlIdentifier,
+          error_type: resolved.diagnostic.errorType,
+          message: "company map refresh failed; last-known-good cache used",
+          attempt: resolved.diagnostic.attempt,
+          attempts: resolved.diagnostic.attempts,
+          due_sources: sources.length,
+          atom_attempted: true,
+          cache_state: resolved.state,
+          cache_age_seconds: resolved.ageSeconds,
+          map_source: resolved.source,
+          provider_condition: resolved.providerCondition,
+          refresh_attempted: true,
+          refreshed_at: resolved.refreshedAt,
+        },
+      });
+    }
+    cikMap = resolved.map;
   }
   const attributionIndex = companies && companies.length > 0 ? buildAttributionIndex(companies) : undefined;
   const newsItemBudget = input.newsItemBudget ?? NEWS_ITEMS_PER_INVOCATION;
@@ -574,6 +632,19 @@ function eventStillAhead(event: {
   return Number.isFinite(ms) && ms > now.getTime();
 }
 
+function applySecMapObservability(obs: IngestObservability, resolved: SecCompanyMapResolution): void {
+  obs.sec_company_map_attempts = resolved.attempts;
+  obs.sec_company_map_source = resolved.source;
+  obs.sec_company_map_state = resolved.state;
+  obs.sec_company_map_states = resolved.states;
+  obs.sec_company_map_age_seconds = resolved.ageSeconds;
+  obs.sec_company_map_refreshed_at = resolved.refreshedAt;
+  obs.sec_company_map_http_status = resolved.httpStatus;
+  obs.sec_company_map_provider_condition = resolved.providerCondition;
+  obs.sec_company_map_error_type = resolved.errorType;
+  obs.sec_company_map_refresh_attempted = resolved.refreshAttempted;
+}
+
 async function failSecProviderRun(
   store: CatalystIntelStore,
   run: RunTelemetry,
@@ -601,6 +672,12 @@ async function failSecProviderRun(
       attempts: diagnostic.attempts,
       due_sources: dueSources,
       atom_attempted: false,
+      cache_state: ingestionObs.sec_company_map_state ?? null,
+      cache_age_seconds: ingestionObs.sec_company_map_age_seconds ?? null,
+      map_source: ingestionObs.sec_company_map_source ?? null,
+      provider_condition: ingestionObs.sec_company_map_provider_condition ?? null,
+      refresh_attempted: ingestionObs.sec_company_map_refresh_attempted ?? false,
+      refreshed_at: ingestionObs.sec_company_map_refreshed_at ?? null,
     },
   });
   attachRunObservability(run, { bot: "sec", ingestion: ingestionObs });

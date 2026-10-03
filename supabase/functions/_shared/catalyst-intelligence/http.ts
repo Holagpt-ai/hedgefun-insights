@@ -210,7 +210,23 @@ function publicRun(run: {
 
 function publicProviderDetails(details: Record<string, unknown> | undefined): Record<string, unknown> | null {
   if (!details) return null;
-  const allow = ["stage", "provider", "url_identifier", "error_type", "message", "attempt", "attempts", "due_sources", "atom_attempted"];
+  const allow = [
+    "stage",
+    "provider",
+    "url_identifier",
+    "error_type",
+    "message",
+    "attempt",
+    "attempts",
+    "due_sources",
+    "atom_attempted",
+    "cache_state",
+    "cache_age_seconds",
+    "map_source",
+    "provider_condition",
+    "refresh_attempted",
+    "refreshed_at",
+  ];
   const out: Record<string, unknown> = {};
   for (const key of allow) {
     if (key in details) out[key] = details[key];

@@ -24,6 +24,15 @@ export interface IngestObservability {
   sec_company_map_retry_succeeded?: boolean;
   sec_due_sources?: number;
   atom_source_attempted?: boolean;
+  sec_company_map_source?: "cache" | "live_refresh" | "lkg_fallback" | null;
+  sec_company_map_state?: string | null;
+  sec_company_map_states?: string[];
+  sec_company_map_age_seconds?: number | null;
+  sec_company_map_refreshed_at?: string | null;
+  sec_company_map_http_status?: number | null;
+  sec_company_map_provider_condition?: string | null;
+  sec_company_map_error_type?: string | null;
+  sec_company_map_refresh_attempted?: boolean;
 }
 
 export interface ReactionObservability {
