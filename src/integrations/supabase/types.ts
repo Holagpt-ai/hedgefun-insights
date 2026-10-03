@@ -1847,6 +1847,27 @@ export type Database = {
           },
         ]
       }
+      catalyst_intel_provider_cache: {
+        Row: {
+          cache_key: string
+          payload: Json
+          refreshed_at: string
+          updated_at: string
+        }
+        Insert: {
+          cache_key: string
+          payload: Json
+          refreshed_at: string
+          updated_at?: string
+        }
+        Update: {
+          cache_key?: string
+          payload?: Json
+          refreshed_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       catalyst_intel_raw_items: {
         Row: {
           body_excerpt: string | null
