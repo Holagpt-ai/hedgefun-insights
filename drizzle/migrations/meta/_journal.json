@@ -400,6 +400,13 @@
       "when": 1790870741834,
       "tag": "0056_catalyst_intelligence_foundation_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1791032933541,
+      "tag": "0057_catalyst_intel_provider_cache_v1",
+      "breakpoints": true
     }
   ]
 }
