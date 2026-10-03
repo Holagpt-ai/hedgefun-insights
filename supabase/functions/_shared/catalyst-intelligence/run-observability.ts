@@ -33,6 +33,11 @@ export interface IngestObservability {
   sec_company_map_provider_condition?: string | null;
   sec_company_map_error_type?: string | null;
   sec_company_map_refresh_attempted?: boolean;
+  sec_filings_http_attempts?: number;
+  sec_filings_http_status?: number | null;
+  sec_filings_retry_after_seconds?: number | null;
+  sec_filings_backoff_seconds?: number | null;
+  sec_filings_rate_limit_floor_applied?: boolean;
 }
 
 export interface ReactionObservability {

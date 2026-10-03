@@ -6,6 +6,8 @@ import { FETCH_TIMEOUT_MS, MAX_REDIRECTS, MAX_RESPONSE_BYTES } from "./config.ts
 import type { SourceRunContext } from "./types.ts";
 
 export class SourceFetchError extends Error {
+  retryAfterSeconds: number | null = null;
+
   constructor(
     readonly category: string,
     readonly statusCode: number | null,

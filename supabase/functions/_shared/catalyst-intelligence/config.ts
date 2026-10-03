@@ -43,6 +43,44 @@ export function backoffSeconds(failureCount: number): number {
   return Math.min(3_600, 30 * 2 ** steps);
 }
 
+/** Source backoff stays in force. A provider Retry-After can only lengthen it, up to one hour. */
+export function providerBackoffSeconds(failureCount: number, retryAfterSeconds: number | null | undefined): number {
+  const calculated = backoffSeconds(failureCount);
+  const providerWait = nonNegativeSeconds(retryAfterSeconds);
+  if (providerWait === 0) return calculated;
+  return Math.min(3_600, Math.max(calculated, providerWait));
+}
+
+/** Quiet period after a Catalyst primary filings HTTP 429. Healthy wakes stay on the 5-minute cron. */
+export const SEC_FILINGS_RATE_LIMIT_QUIET_SECONDS = 600;
+
+/**
+ * Primary SEC filings 429 only:
+ * min(3600, max(calculated source backoff, Retry-After seconds or 0, 600)).
+ */
+export function secFilingsRateLimitBackoffSeconds(
+  failureCount: number,
+  retryAfterSeconds: number | null | undefined,
+): number {
+  return Math.min(
+    3_600,
+    Math.max(backoffSeconds(failureCount), nonNegativeSeconds(retryAfterSeconds), SEC_FILINGS_RATE_LIMIT_QUIET_SECONDS),
+  );
+}
+
+export function secFilingsRateLimitFloorApplied(
+  failureCount: number,
+  retryAfterSeconds: number | null | undefined,
+): boolean {
+  const withoutFloor = Math.min(3_600, Math.max(backoffSeconds(failureCount), nonNegativeSeconds(retryAfterSeconds)));
+  return secFilingsRateLimitBackoffSeconds(failureCount, retryAfterSeconds) > withoutFloor;
+}
+
+function nonNegativeSeconds(value: number | null | undefined): number {
+  if (value == null || !Number.isFinite(value)) return 0;
+  return Math.max(0, Math.ceil(value));
+}
+
 export function readFlag(value: string | undefined): boolean | null {
   if (value == null || value.trim() === "") return null;
   const t = value.trim().toLowerCase();

@@ -2,6 +2,9 @@ import type { CatalystSourceAdapter } from "./source-adapter.ts";
 import { buildAttributionIndex } from "./attribution-index.ts";
 import {
   backoffSeconds,
+  providerBackoffSeconds,
+  secFilingsRateLimitBackoffSeconds,
+  secFilingsRateLimitFloorApplied,
   LIVE_REACTION_MAX_AGE_MS,
   MAX_ITEMS_PER_SOURCE,
   NEWS_ITEMS_PER_INVOCATION,
@@ -57,6 +60,7 @@ import { emptyRun, formatRunLog, safeError } from "./telemetry.ts";
 import type {
   BotId,
   CompanyRecord,
+  FetchState,
   MarketObservation,
   ReactionRecord,
   ReactionWindow,
@@ -204,6 +208,14 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
     const startedSource = Date.now();
     if (input.bot === "sec") ingestionObs.atom_source_attempted = true;
     run.sourcesAttempted += 1;
+    const fetchState: FetchState = {
+      unchanged: false,
+      etag: null,
+      lastModified: null,
+      contentHash: null,
+      checkpoint: null,
+      forceFullFetch: input.bot === "news" && readNewsContinuation(source.metadata) != null,
+    };
     const ctx = {
       now: input.now,
       source,
@@ -213,14 +225,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       cikMap,
       itemLimit: input.itemLimit ?? MAX_ITEMS_PER_SOURCE,
       allowFixtures: input.allowFixtures === true,
-      fetchState: {
-        unchanged: false,
-        etag: null,
-        lastModified: null,
-        contentHash: null,
-        checkpoint: null,
-        forceFullFetch: input.bot === "news" && readNewsContinuation(source.metadata) != null,
-      },
+      fetchState,
     };
     try {
       if (isFixturePayload(source.metadata) && !input.allowFixtures) {
@@ -228,6 +233,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         return;
       }
       const items = await input.adapter.discover(ctx);
+      if (input.bot === "sec") recordSecFilingsFetch(ingestionObs, ctx.fetchState);
       const pendingNewsContinuation = input.bot === "news" && readNewsContinuation(source.metadata) != null;
       if (ctx.fetchState.unchanged && !pendingNewsContinuation) {
         markSuccess(source, input.now, ctx.fetchState, true);
@@ -366,17 +372,43 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       }
       const known = err instanceof SourceFetchError ? err : null;
       source.failureCount += 1;
-      source.backoffUntil = new Date(input.now.getTime() + backoffSeconds(source.failureCount) * 1000).toISOString();
+      const filingsRateLimit = input.bot === "sec" && known?.category === "provider_rate_limited";
+      const backoff = filingsRateLimit
+        ? secFilingsRateLimitBackoffSeconds(source.failureCount, known?.retryAfterSeconds)
+        : providerBackoffSeconds(source.failureCount, known?.retryAfterSeconds);
+      source.backoffUntil = new Date(input.now.getTime() + backoff * 1000).toISOString();
       source.lastErrorCategory = known?.category ?? "source_error";
+      if (input.bot === "sec") {
+        recordSecFilingsFetch(ingestionObs, ctx.fetchState);
+        ingestionObs.sec_filings_backoff_seconds = backoff;
+        if (filingsRateLimit) {
+          ingestionObs.sec_filings_rate_limit_floor_applied = secFilingsRateLimitFloorApplied(
+            source.failureCount,
+            known?.retryAfterSeconds,
+          );
+        }
+      }
       await input.store.saveSource(source);
       run.sourcesFailed += 1;
-      run.errors.push(safeError(
+      const sourceError = safeError(
         source.id,
         known?.category ?? "source_error",
         known?.statusCode ?? null,
         known?.retryable ?? false,
         Date.now() - startedSource,
-      ));
+      );
+      if (input.bot === "sec") {
+        sourceError.details = {
+          http_status: known?.statusCode ?? null,
+          retry_after_seconds: known?.retryAfterSeconds ?? null,
+          filings_http_attempts: ctx.fetchState.providerHttpAttempts ?? 0,
+          backoff_seconds: backoff,
+          rate_limit_floor_applied: filingsRateLimit
+            ? secFilingsRateLimitFloorApplied(source.failureCount, known?.retryAfterSeconds)
+            : false,
+        };
+      }
+      run.errors.push(sourceError);
     }
   });
   // sourcesSuccessful: fetch and the item loop both finished. Duplicates and
@@ -630,6 +662,15 @@ function eventStillAhead(event: {
   const stamp = event.scheduledStartAt ?? event.effectiveAt;
   const ms = stamp ? Date.parse(stamp) : Number.NaN;
   return Number.isFinite(ms) && ms > now.getTime();
+}
+
+function recordSecFilingsFetch(
+  obs: IngestObservability,
+  fetchState: { providerHttpAttempts?: number; providerHttpStatus?: number | null; providerRetryAfterSeconds?: number | null },
+): void {
+  obs.sec_filings_http_attempts = fetchState.providerHttpAttempts ?? 0;
+  obs.sec_filings_http_status = fetchState.providerHttpStatus ?? null;
+  obs.sec_filings_retry_after_seconds = fetchState.providerRetryAfterSeconds ?? null;
 }
 
 function applySecMapObservability(obs: IngestObservability, resolved: SecCompanyMapResolution): void {

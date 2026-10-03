@@ -182,6 +182,9 @@ export interface FetchState {
   checkpoint: Record<string, unknown> | null;
   /** When true, do not treat matching content hash / 304 as unchanged (NEWS continuation). */
   forceFullFetch?: boolean;
+  providerHttpAttempts?: number;
+  providerHttpStatus?: number | null;
+  providerRetryAfterSeconds?: number | null;
 }
 
 export interface CompanyRecord {

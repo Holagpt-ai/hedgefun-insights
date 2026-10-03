@@ -33,12 +33,19 @@ export const secFilingsAdapter: CatalystSourceAdapter = {
     const summary = emptySecSummary();
     const secFetch = createSecRequester(ctx.userAgent, summary, {
       fetchFn: ctx.fetchImpl,
+      nowMs: () => ctx.now.getTime(),
       sleepFn: ctx.fetchImpl === fetch ? undefined : async () => {},
+      retryRateLimit: false,
     });
     const result = await secFetch(ctx.source.url);
+    ctx.fetchState.providerHttpAttempts = summary.sec_requests;
+    ctx.fetchState.providerHttpStatus = result.status;
+    ctx.fetchState.providerRetryAfterSeconds = result.ok ? null : result.retryAfterSeconds;
     if (!result.ok) {
       const retryable = result.reason === "PROVIDER_TIMEOUT" || result.reason === "PROVIDER_RATE_LIMITED";
-      throw new SourceFetchError(result.reason.toLowerCase(), null, retryable);
+      const error = new SourceFetchError(result.reason.toLowerCase(), result.status, retryable);
+      error.retryAfterSeconds = result.retryAfterSeconds;
+      throw error;
     }
     const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(result.text));
     ctx.fetchState.contentHash = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");

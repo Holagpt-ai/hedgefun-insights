@@ -435,7 +435,23 @@ type FetchLike = typeof fetch;
 
 export type SecFetchResult =
   | { ok: true; status: number; text: string; json: unknown }
-  | { ok: false; reason: "PROVIDER_TIMEOUT" | "PROVIDER_RATE_LIMITED" | "PROVIDER_FORBIDDEN" | "PROVIDER_ERROR" };
+  | {
+    ok: false;
+    reason: "PROVIDER_TIMEOUT" | "PROVIDER_RATE_LIMITED" | "PROVIDER_FORBIDDEN" | "PROVIDER_ERROR";
+    status: number | null;
+    retryAfterSeconds: number | null;
+  };
+
+/** Retry-After as delta-seconds, or an HTTP-date relative to `nowMs`. Unusable values stay null. */
+export function parseSecRetryAfterSeconds(header: string | null, nowMs: number): number | null {
+  if (!header) return null;
+  const trimmed = header.trim();
+  if (!trimmed) return null;
+  if (/^\d+$/.test(trimmed)) return Number(trimmed);
+  const dateMs = Date.parse(trimmed);
+  if (!Number.isFinite(dateMs)) return null;
+  return Math.max(0, Math.ceil((dateMs - nowMs) / 1000));
+}
 
 function isTimeoutOrAbort(err: unknown): boolean {
   const name = (err as { name?: string } | null)?.name;
@@ -446,6 +462,11 @@ interface SecRequesterDeps {
   fetchFn?: FetchLike;
   nowMs?: () => number;
   sleepFn?: (ms: number) => Promise<void>;
+  /**
+   * Legacy EDGAR sync retries 429 inside the same call.
+   * Catalyst filings passes false so a 429 cannot multiply into more SEC requests.
+   */
+  retryRateLimit?: boolean;
 }
 
 export function createSecRequester(
@@ -483,27 +504,35 @@ export function createSecRequester(
           await sleepFn(SEC_BACKOFF_MS[attempt]);
           continue;
         }
-        return { ok: false, reason: timedOut ? "PROVIDER_TIMEOUT" : "PROVIDER_ERROR" };
+        return secFailure(timedOut ? "PROVIDER_TIMEOUT" : "PROVIDER_ERROR", null);
       }
 
       if (res.status === 429) {
-        if (attempt < SEC_BACKOFF_MS.length - 1) {
-          await sleepFn(SEC_BACKOFF_MS[attempt]);
-          continue;
+        const retryAfterSeconds = parseSecRetryAfterSeconds(res.headers.get("retry-after"), nowMs());
+        await res.body?.cancel().catch(() => undefined);
+        const stopForCatalyst = deps.retryRateLimit === false;
+        if (stopForCatalyst || attempt >= SEC_BACKOFF_MS.length - 1) {
+          return secFailure("PROVIDER_RATE_LIMITED", 429, retryAfterSeconds);
         }
-        return { ok: false, reason: "PROVIDER_RATE_LIMITED" };
+        await sleepFn(SEC_BACKOFF_MS[attempt]);
+        continue;
       }
       if (res.status === 403) {
-        return { ok: false, reason: "PROVIDER_FORBIDDEN" };
+        await res.body?.cancel().catch(() => undefined);
+        return secFailure("PROVIDER_FORBIDDEN", res.status);
       }
       if (res.status >= 500) {
+        await res.body?.cancel().catch(() => undefined);
         if (attempt < SEC_BACKOFF_MS.length - 1) {
           await sleepFn(SEC_BACKOFF_MS[attempt]);
           continue;
         }
-        return { ok: false, reason: "PROVIDER_ERROR" };
+        return secFailure("PROVIDER_ERROR", res.status);
       }
-      if (!res.ok) return { ok: false, reason: "PROVIDER_ERROR" };
+      if (!res.ok) {
+        await res.body?.cancel().catch(() => undefined);
+        return secFailure("PROVIDER_ERROR", res.status);
+      }
 
       const text = await res.text();
       let json: unknown = null;
@@ -514,6 +543,14 @@ export function createSecRequester(
       }
       return { ok: true, status: res.status, text, json };
     }
-    return { ok: false, reason: "PROVIDER_ERROR" };
+    return secFailure("PROVIDER_ERROR", null);
   };
+}
+
+function secFailure(
+  reason: "PROVIDER_TIMEOUT" | "PROVIDER_RATE_LIMITED" | "PROVIDER_FORBIDDEN" | "PROVIDER_ERROR",
+  status: number | null,
+  retryAfterSeconds: number | null = null,
+): SecFetchResult {
+  return { ok: false, reason, status, retryAfterSeconds };
 }

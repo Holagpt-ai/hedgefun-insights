@@ -204,8 +204,21 @@ function publicRun(run: {
       retryable: error.retryable,
       elapsed_ms: error.elapsedMs,
       ...(error.category === "sec_provider_dependency_error" ? { details: publicProviderDetails(error.details) } : {}),
+      ...(error.category === "provider_rate_limited" || error.category === "provider_timeout" || error.category === "provider_forbidden" || error.category === "provider_error"
+        ? { details: publicFilingsDetails(error.details) }
+        : {}),
     })),
   };
+}
+
+function publicFilingsDetails(details: Record<string, unknown> | undefined): Record<string, unknown> | null {
+  if (!details) return null;
+  const allow = ["http_status", "retry_after_seconds", "filings_http_attempts", "backoff_seconds", "rate_limit_floor_applied"];
+  const out: Record<string, unknown> = {};
+  for (const key of allow) {
+    if (key in details) out[key] = details[key];
+  }
+  return out;
 }
 
 function publicProviderDetails(details: Record<string, unknown> | undefined): Record<string, unknown> | null {
