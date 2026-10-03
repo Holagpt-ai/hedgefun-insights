@@ -3,6 +3,7 @@ import { companyEventsAdapter } from "./adapters/company-events.ts";
 import { companyIrAdapter } from "./adapters/company-ir.ts";
 import { newsPrAdapter } from "./adapters/news-pr.ts";
 import { secFilingsAdapter } from "./adapters/sec.ts";
+import { createSecFilingsTransport, readSecTransportMode } from "./sec-transport.ts";
 import { aiEnrichmentEnabled } from "./ai-enrichment.ts";
 import { botEnabledFlag, GENERIC_USER_AGENT, readFlag, SOURCE_GATE_NOTE } from "./config.ts";
 import { DatabaseReadError } from "./conflicts.ts";
@@ -124,13 +125,22 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
   }
 
   const adapter = adapterFor(deps.bot);
+  const rawFetch = deps.fetchImpl ?? fetch;
+  const fetchImpl = deps.bot === "sec"
+    ? createSecFilingsTransport({
+      mode: readSecTransportMode(deps.env),
+      fetchImpl: rawFetch,
+      gatewayBaseUrl: deps.env("SEC_GATEWAY_BASE_URL"),
+      gatewaySecret: deps.env("SEC_GATEWAY_SECRET"),
+    })
+    : rawFetch;
   const run = await runCollectorBot({
     bot: deps.bot,
     adapter,
     store,
     now,
     userAgent,
-    fetchImpl: deps.fetchImpl,
+    fetchImpl,
     batchLimit,
     concurrency: config?.concurrency ?? 3,
     allowlist,
