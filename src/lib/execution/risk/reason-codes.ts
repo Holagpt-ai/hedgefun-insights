@@ -1,0 +1,29 @@
+export const RISK_REASON_CODES = [
+  "APPROVED",
+  "TRADING_DISABLED",
+  "GLOBAL_KILL_SWITCH",
+  "STRATEGY_KILL_SWITCH",
+  "SYMBOL_KILL_SWITCH",
+  "STALE_MARKET_DATA",
+  "MARKET_HALTED",
+  "SYMBOL_NOT_ALLOWED",
+  "STRATEGY_NOT_ALLOWED",
+  "SPREAD_TOO_WIDE",
+  "INSUFFICIENT_LIQUIDITY",
+  "MAX_DAILY_LOSS",
+  "MAX_POSITION_RISK",
+  "MAX_POSITION_NOTIONAL",
+  "MAX_OPEN_POSITIONS",
+  "DUPLICATE_ORDER",
+  "SYMBOL_COOLDOWN",
+  "INSUFFICIENT_BUYING_POWER",
+  "INVALID_TRADE_INTENT",
+  "EXECUTION_MODE_OBSERVE",
+  "LIVE_EXECUTION_DISABLED",
+] as const;
+
+export type RiskReasonCode = (typeof RISK_REASON_CODES)[number];
+
+export function isRiskReasonCode(value: string): value is RiskReasonCode {
+  return (RISK_REASON_CODES as readonly string[]).includes(value);
+}
