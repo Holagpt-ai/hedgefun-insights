@@ -15,16 +15,18 @@ export function formatMarketDataAge(iso: string | null): string | null {
   return formatSubSecondAge(iso, Date.now());
 }
 
+/** Market-data “last available” timestamps always render in America/New_York (DST-safe). */
 export function formatMarketDataTimestamp(iso: string | null): string | null {
   if (!iso) return null;
   const ms = parseTimestampMs(iso);
   if (ms === null) return null;
-  return new Date(ms).toLocaleString(undefined, {
+  return `${new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  });
+  }).format(new Date(ms))} ET`;
 }
 
 function loadingStatusLabel(status: ScreenerUiStatus): string | null {
