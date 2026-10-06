@@ -115,6 +115,21 @@ describe("DST, midnight, and exact boundaries", () => {
     expect(resolveMarketSessionAt(summerMidnight)).toBe("closed");
   });
 
+  it("places exact extended-session boundaries in one session", () => {
+    const schedule = resolveSessionSchedule("2026-10-05", []);
+    const kind = (h: number, m: number, s: number, ms: number) =>
+      sessionKindAtMsOfDay(((h * 60 + m) * 60 + s) * 1000 + ms, schedule);
+    expect(kind(3, 59, 59, 999)).toBe("closed");
+    expect(kind(4, 0, 0, 0)).toBe("pre-market");
+    expect(kind(9, 29, 59, 999)).toBe("pre-market");
+    expect(kind(9, 30, 0, 0)).toBe("market");
+    expect(kind(15, 59, 59, 999)).toBe("market");
+    expect(kind(16, 0, 0, 0)).toBe("market");
+    expect(kind(19, 59, 59, 999)).toBe("after-hours");
+    expect(kind(20, 0, 0, 0)).toBe("after-hours");
+    expect(kind(20, 0, 0, 1)).toBe("closed");
+  });
+
   it("excludes the exact regular close and includes exact 20:00 ET", () => {
     const close = Date.parse("2026-08-12T20:00:00.000Z");
     const justAfterClose = Date.parse("2026-08-12T20:00:00.001Z");

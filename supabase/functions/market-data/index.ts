@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { emptyFloatRecord, resolveFloatProviderResult } from "../_shared/market-data/float.ts";
+import { polygonEquityTicker } from "../_shared/markets/polygon-symbol.ts";
 import {
   assembleRadarNewsResponse,
   finnhubDateWindow,
@@ -143,7 +144,16 @@ serve(async (req) => {
   try {
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type");
-    const ticker = searchParams.get("ticker")?.toUpperCase();
+    const tickerRaw = searchParams.get("ticker");
+    const ticker = tickerRaw == null || tickerRaw.trim() === ""
+      ? null
+      : polygonEquityTicker(tickerRaw);
+    if (tickerRaw != null && tickerRaw.trim() !== "" && ticker == null) {
+      return new Response(JSON.stringify({ error: "unsupported_symbol", reason_code: "SYMBOL_UNSUPPORTED" }), {
+        status: 400,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
 
     console.log("[market-data] type:", type, "POLYGON_KEY:", Deno.env.get("POLYGON_API_KEY") ? "KEY_PRESENT" : "KEY_MISSING");
 

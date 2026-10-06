@@ -16,7 +16,7 @@ import {
 import { isExpired } from "@/lib/watchlist-v2/parsers";
 import type { SectionEnvelope } from "@/types/pre-market";
 
-export type MarketDataTrustState = "FRESH" | "DELAYED" | "STALE" | "UNAVAILABLE";
+export type MarketDataTrustState = "FRESH" | "DELAYED" | "STALE" | "UNAVAILABLE" | "CLOSED";
 
 /** Generation snapshot stale boundary (existing screener contract). */
 export { SCREENER_STALE_AFTER_MS as SCREENER_GENERATION_STALE_AFTER_MS };
@@ -40,6 +40,8 @@ export function trustStateLabel(state: MarketDataTrustState): string {
       return "Stale";
     case "UNAVAILABLE":
       return "Unavailable";
+    case "CLOSED":
+      return "Closed";
   }
 }
 
@@ -85,6 +87,8 @@ export function trustStateTone(state: MarketDataTrustState): string {
     case "STALE":
       return "text-amber-700 dark:text-amber-400";
     case "UNAVAILABLE":
+      return "text-muted-foreground";
+    case "CLOSED":
       return "text-muted-foreground";
   }
 }
@@ -134,12 +138,12 @@ export function resolveWatchlistMarketDataTrust(input: {
 }): MarketDataTrustState {
   const nowMs = input.nowMs ?? Date.now();
   if (!input.hasV2) return "UNAVAILABLE";
-  if (isExpired(input.validThrough, new Date(nowMs))) return "STALE";
   const sourceMs = parseTrustSourceMs(input.snapshotTsMs ?? null);
   if (sourceMs === null) return "UNAVAILABLE";
+  if (input.analysisPresentation === "last_completed") return "CLOSED";
+  if (isExpired(input.validThrough, new Date(nowMs))) return "STALE";
   const ageMs = nowMs - sourceMs;
   if (ageMs > WATCHLIST_SNAPSHOT_STALE_MS) return "STALE";
-  if (input.analysisPresentation === "last_completed") return "DELAYED";
   return "FRESH";
 }
 

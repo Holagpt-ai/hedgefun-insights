@@ -5,7 +5,9 @@ import {
   getRegularCloseMins,
   isTradingDay,
   nextTradingDay,
+  previousTradingDay,
   resolveMarketClock,
+  tradingSessionDateForInstant,
 } from "@/lib/market-calendar";
 
 // ET = UTC-4 in summer (EDT), UTC-5 in winter (EST).
@@ -113,5 +115,15 @@ describe("market calendar", () => {
   it("formats ET time in 12-hour form", () => {
     expect(formatEt12h(getEtParts(et("2026-08-02T17:18:21Z")))).toBe("1:18:21 PM");
     expect(formatEt12h(getEtParts(et("2026-08-03T04:05:06Z")))).toBe("12:05:06 AM");
+  });
+
+  it("walks to the previous trading day across weekends, holidays, and DST", () => {
+    expect(previousTradingDay("2026-10-04").date).toBe("2026-10-02");
+    expect(previousTradingDay("2026-10-03").date).toBe("2026-10-02");
+    expect(previousTradingDay("2026-09-08").date).toBe("2026-09-04");
+    expect(previousTradingDay("2026-03-09").date).toBe("2026-03-06");
+    expect(tradingSessionDateForInstant("2026-10-05", 3 * 60)).toBe("2026-10-02");
+    expect(tradingSessionDateForInstant("2026-10-05", 4 * 60 + 15)).toBe("2026-10-05");
+    expect(tradingSessionDateForInstant("2026-10-05", 20 * 60 + 30)).toBe("2026-10-05");
   });
 });

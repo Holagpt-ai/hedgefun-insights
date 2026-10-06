@@ -88,7 +88,7 @@ describe("resolveWatchlistMarketDataTrust", () => {
     ).toBe("UNAVAILABLE");
   });
 
-  it("explicit last_completed presentation -> Delayed", () => {
+  it("last completed session is Closed even when the snapshot is older than the live stale window", () => {
     expect(
       resolveWatchlistMarketDataTrust({
         hasV2: true,
@@ -97,7 +97,16 @@ describe("resolveWatchlistMarketDataTrust", () => {
         analysisPresentation: "last_completed",
         nowMs: NOW,
       }),
-    ).toBe("DELAYED");
+    ).toBe("CLOSED");
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough,
+        snapshotTsMs: NOW - 3 * 24 * 60 * 60_000,
+        analysisPresentation: "last_completed",
+        nowMs: NOW,
+      }),
+    ).toBe("CLOSED");
   });
 });
 

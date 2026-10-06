@@ -140,6 +140,28 @@ export function nextTradingDay(date: string): { date: string; weekday: number; d
   return { date, weekday: 0, daysAhead: 0 };
 }
 
+/**
+ * Previous US equity session strictly before `date`.
+ * Walks calendar dates at UTC noon so DST cannot skip or repeat a day.
+ */
+export function previousTradingDay(date: string): { date: string; weekday: number; daysBack: number } {
+  const base = toUtcNoon(date);
+  for (let i = 1; i <= 15; i++) {
+    const cand = new Date(base.getTime() - i * 86400000);
+    const { date: d, weekday } = fromUtcNoon(cand);
+    if (isTradingDay(d, weekday)) return { date: d, weekday, daysBack: i };
+  }
+  return { date, weekday: 0, daysBack: 0 };
+}
+
+/** Last trading date on `date`, or the previous one when `date` is closed. */
+export function tradingSessionDateForInstant(date: string, minutesFromMidnight: number): string {
+  const weekday = fromUtcNoon(toUtcNoon(date)).weekday;
+  const trading = isTradingDay(date, weekday);
+  if (!trading || minutesFromMidnight < 4 * 60) return previousTradingDay(date).date;
+  return date;
+}
+
 export function getSession(id: MarketSessionId): MarketSession {
   return MARKET_SESSIONS.find((s) => s.id === id) ?? MARKET_SESSIONS[MARKET_SESSIONS.length - 1];
 }

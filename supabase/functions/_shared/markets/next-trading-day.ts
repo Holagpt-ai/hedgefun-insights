@@ -36,3 +36,44 @@ export function nextTradingDay(date: string): { date: string; weekday: number; d
   }
   return { date, weekday: 0, daysAhead: 0 };
 }
+
+export function isMarketHoliday(date: string): boolean {
+  return MARKET_HOLIDAYS.has(date);
+}
+
+/** Scheduled early closes: ET date -> regular-session close in minutes from ET midnight. */
+export const MARKET_EARLY_CLOSES: Readonly<Record<string, number>> = {
+  "2025-07-03": 780, "2025-11-28": 780, "2025-12-24": 780,
+  "2026-11-27": 780, "2026-12-24": 780,
+  "2027-07-02": 780, "2027-11-26": 780,
+};
+
+export function weekdayOfIsoDate(date: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const probe = toUtcNoon(date);
+  if (Number.isNaN(probe.getTime())) return null;
+  const parts = fromUtcNoon(probe);
+  return parts.date === date ? parts.weekday : null;
+}
+
+/**
+ * Previous US equity session strictly before `date`.
+ * Walks calendar dates at UTC noon so DST cannot skip or repeat a day.
+ */
+export function previousTradingDay(date: string): { date: string; weekday: number; daysBack: number } {
+  const base = toUtcNoon(date);
+  for (let i = 1; i <= 15; i++) {
+    const cand = new Date(base.getTime() - i * 86400000);
+    const parts = fromUtcNoon(cand);
+    if (isTradingDay(parts.date, parts.weekday)) {
+      return { date: parts.date, weekday: parts.weekday, daysBack: i };
+    }
+  }
+  return { date, weekday: weekdayOfIsoDate(date) ?? 0, daysBack: 0 };
+}
+
+export function lastTradingDateOnOrBeforeIso(date: string, includeReferenceDay: boolean): string {
+  const weekday = weekdayOfIsoDate(date);
+  if (includeReferenceDay && weekday !== null && isTradingDay(date, weekday)) return date;
+  return previousTradingDay(date).date;
+}
