@@ -15,7 +15,9 @@ export default function SmartLayout() {
   const { user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { pathname } = useLocation();
-  useRobotsNoIndex(pathname.startsWith("/account"));
+  useRobotsNoIndex(
+    pathname.startsWith("/account") || pathname === "/journal" || pathname.startsWith("/journal/"),
+  );
 
   if (loading) {
     return (

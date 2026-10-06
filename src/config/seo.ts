@@ -25,6 +25,7 @@ export const NOINDEX_PATH_PREFIXES = [
   "/sign-up",
   "/reset-password",
   "/unsubscribe",
+  "/journal",
   "/.lovable",
 ] as const;
 
@@ -77,6 +78,24 @@ export function canonicalUrl(pathname: string): string {
   const path = pathname.startsWith("/") ? pathname : `/${pathname}`;
   if (path === "/") return `${CANONICAL_ORIGIN}/`;
   return `${CANONICAL_ORIGIN}${path.replace(/\/+$/, "") || ""}`;
+}
+
+/**
+ * Absolute production canonical for indexable public routes.
+ * Returns null for noindex paths (dashboard, auth, legacy journal redirect, etc.).
+ */
+export function resolvePublicCanonical(
+  pathname: string,
+  explicitCanonical?: string,
+): string | null {
+  const path = pathname.split("?")[0] ?? pathname;
+  if (isNoindexPath(path)) return null;
+  if (explicitCanonical?.trim()) {
+    return explicitCanonical.startsWith("http")
+      ? explicitCanonical
+      : canonicalUrl(explicitCanonical);
+  }
+  return canonicalUrl(path);
 }
 
 export function pathAllowedInStaticSitemap(path: string): boolean {

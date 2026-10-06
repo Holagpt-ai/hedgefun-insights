@@ -8,6 +8,7 @@ import {
   canonicalUrl,
   isNoindexPath,
   pathAllowedInStaticSitemap,
+  resolvePublicCanonical,
 } from "@/config/seo";
 
 describe("seo config", () => {
@@ -19,7 +20,17 @@ describe("seo config", () => {
   it("marks dashboard and account as noindex paths", () => {
     expect(isNoindexPath("/dashboard/screeners")).toBe(true);
     expect(isNoindexPath("/account/billing")).toBe(true);
+    expect(isNoindexPath("/journal")).toBe(true);
     expect(isNoindexPath("/news")).toBe(false);
+  });
+
+  it("resolvePublicCanonical uses apex origin and skips private routes", () => {
+    expect(resolvePublicCanonical("/news")).toBe("https://stocksist.com/news");
+    expect(resolvePublicCanonical("/stocks/AAPL")).toBe("https://stocksist.com/stocks/AAPL");
+    expect(resolvePublicCanonical("/dashboard/screeners")).toBeNull();
+    expect(resolvePublicCanonical("/news", "https://stocksist.com/articles")).toBe(
+      "https://stocksist.com/articles",
+    );
   });
 
   it("static sitemap paths exclude dashboard and watchlist", () => {

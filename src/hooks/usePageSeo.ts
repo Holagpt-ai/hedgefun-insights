@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { BRAND } from "@/config/brand";
-import { canonicalUrl } from "@/config/seo";
+import { resolvePublicCanonical } from "@/config/seo";
 
 interface SeoProps {
   title: string;
@@ -30,15 +30,13 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
     }
     metaDesc.content = description;
 
-    // OG tags
-    const currentUrl = canonical
-      ? (canonical.startsWith("http") ? canonical : canonicalUrl(canonical))
-      : canonicalUrl(window.location.pathname);
+    const pathname = window.location.pathname;
+    const currentUrl = resolvePublicCanonical(pathname, canonical);
     const ogTags: { property: string; content: string }[] = [
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:type", content: jsonLd?.["@type"] === "Article" ? "article" : "website" },
-      { property: "og:url", content: currentUrl },
+      ...(currentUrl ? [{ property: "og:url", content: currentUrl }] : []),
       { property: "og:image", content: image || `${BRAND.url}/og-share-card.png` },
       { property: "og:image:alt", content: `${BRAND.name} — Most traders never do this math. Illustrative arithmetic across 252 trading days; not a promise of results.` },
     ];
@@ -77,13 +75,16 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
     // Canonical
     let canonicalEl = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     const prevCanonical = canonicalEl?.href;
-    if (canonical) {
+    if (currentUrl) {
       if (!canonicalEl) {
         canonicalEl = document.createElement("link");
         canonicalEl.rel = "canonical";
         document.head.appendChild(canonicalEl);
       }
-      canonicalEl.href = canonical;
+      canonicalEl.href = currentUrl;
+    } else if (canonicalEl) {
+      canonicalEl.remove();
+      canonicalEl = null;
     }
 
     // JSON-LD

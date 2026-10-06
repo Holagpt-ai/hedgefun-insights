@@ -10,6 +10,7 @@ Disallow: /register
 Disallow: /sign-up
 Disallow: /reset-password
 Disallow: /unsubscribe
+Disallow: /journal
 Disallow: /.lovable/
 
 Sitemap: https://stocksist.com/sitemap.xml
