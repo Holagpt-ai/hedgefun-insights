@@ -202,16 +202,16 @@ export async function safeFetch(input: {
 }
 
 export async function loadConfiguredSource(ctx: SourceRunContext): Promise<string | null> {
+  const forceFullFetch = ctx.fetchState.forceFullFetch === true;
   const fetched = await safeFetch({
     url: ctx.source.url,
     userAgent: ctx.userAgent,
     fetchImpl: ctx.fetchImpl,
-    etag: ctx.source.lastEtag,
-    lastModified: ctx.source.lastModified,
+    etag: forceFullFetch ? null : ctx.source.lastEtag,
+    lastModified: forceFullFetch ? null : ctx.source.lastModified,
   });
   ctx.fetchState.etag = fetched.etag;
   ctx.fetchState.lastModified = fetched.lastModified;
-  const forceFullFetch = ctx.fetchState.forceFullFetch === true;
   if (fetched.unchanged && !forceFullFetch) {
     ctx.fetchState.unchanged = true;
     ctx.fetchState.contentHash = ctx.source.lastContentHash;

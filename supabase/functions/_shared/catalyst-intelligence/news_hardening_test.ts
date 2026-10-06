@@ -1208,6 +1208,166 @@ Deno.test("NEWS 20-item feed continues past a pre-existing unresolved raw", asyn
   assertEquals(obs?.ingestion?.resource_stop_reason, "news_item_budget");
 });
 
+function gnwFeedWithEtagResponse(body: string, etag: string): Response {
+  return new Response(body, { status: 200, headers: { etag } });
+}
+
+function conditionalGnwFetch(body: string, etag: string): typeof fetch {
+  return (_url, init) => {
+    const headers = new Headers(init?.headers);
+    if (headers.get("If-None-Match") === etag) {
+      return Promise.resolve(new Response(null, { status: 304, statusText: "Not Modified" }));
+    }
+    return Promise.resolve(gnwFeedWithEtagResponse(body, etag));
+  };
+}
+
+Deno.test("NEWS 32-item feed drains across four bounded runs", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/thirty-two",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+  await store.saveSource(src);
+  const body = rssFeed(32);
+  const universe = buildCompanyUniverse([{ ticker: "MMM", name: "3M Company" }]);
+  const fetchImpl = () => Promise.resolve(new Response(body, { status: 200 }));
+  let totalSeen = 0;
+  for (let runIndex = 0; runIndex < 4; runIndex += 1) {
+    const run = await runCollectorBot({
+      bot: "news",
+      adapter: newsPrAdapter,
+      store,
+      now: new Date(NOW.getTime() + runIndex * 60_000),
+      userAgent: "test",
+      fetchImpl,
+      batchLimit: 1,
+      companies: universe,
+      newsItemBudget: 8,
+      newsWallTimeMs: 60_000,
+    });
+    assertEquals(run.sourcesFailed, 0);
+    totalSeen += run.rawItemsSeen;
+    const saved = (await store.listSources({}))[0];
+    const continuation = readNewsContinuation(saved.metadata);
+    if (runIndex < 3) {
+      assert(continuation != null, `run ${runIndex + 1} should retain continuation`);
+      assertEquals(continuation?.next_item_index, (runIndex + 1) * 8);
+      assertEquals(continuation?.feed_item_count, 32);
+      assertEquals(saved.lastContentHash, null);
+    } else {
+      assertEquals(continuation, null);
+      assert(saved.lastContentHash != null);
+    }
+  }
+  assertEquals(totalSeen, 32);
+});
+
+Deno.test("NEWS 304 between continuation runs does not erase local backlog", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/not-modified",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+  await store.saveSource(src);
+  const body = rssFeed(32);
+  const universe = buildCompanyUniverse([{ ticker: "MMM", name: "3M Company" }]);
+  const etag = '"gnw-earnings-v1"';
+  const first = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(gnwFeedWithEtagResponse(body, etag)),
+    batchLimit: 1,
+    companies: universe,
+    newsItemBudget: 8,
+    newsWallTimeMs: 60_000,
+  });
+  assertEquals(first.sourcesFailed, 0);
+  assertEquals(first.rawItemsSeen, 8);
+  const afterFirst = (await store.listSources({}))[0];
+  const cont1 = readNewsContinuation(afterFirst.metadata);
+  assertEquals(cont1?.next_item_index, 8);
+  assertEquals(cont1?.feed_item_count, 32);
+  assertEquals(afterFirst.lastEtag, etag);
+
+  const second = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: new Date(NOW.getTime() + 60_000),
+    userAgent: "test",
+    fetchImpl: conditionalGnwFetch(body, etag),
+    batchLimit: 1,
+    companies: universe,
+    newsItemBudget: 8,
+    newsWallTimeMs: 60_000,
+  });
+  assertEquals(second.sourcesFailed, 0);
+  assertEquals(second.rawItemsSeen, 8);
+  const afterSecond = (await store.listSources({}))[0];
+  const cont2 = readNewsContinuation(afterSecond.metadata);
+  assertEquals(cont2?.next_item_index, 16);
+  assertEquals(cont2?.feed_item_count, 32);
+  assertEquals(cont2?.feed_content_hash, cont1?.feed_content_hash);
+  assertEquals(afterSecond.lastContentHash, null);
+  const obs = second.observability as RunObservability | undefined;
+  assertEquals(obs?.ingestion?.continuation_remaining_items, 16);
+});
+
+Deno.test("NEWS fully drained feed stays stable on subsequent 304", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://news.example.test/RssFeed/drained",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+  await store.saveSource(src);
+  const body = rssFeed(4);
+  const universe = buildCompanyUniverse([{ ticker: "MMM", name: "3M Company" }]);
+  const etag = '"gnw-drained"';
+  await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: NOW,
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(gnwFeedWithEtagResponse(body, etag)),
+    batchLimit: 1,
+    companies: universe,
+    newsItemBudget: 8,
+    newsWallTimeMs: 60_000,
+  });
+  const drained = (await store.listSources({}))[0];
+  assertEquals(readNewsContinuation(drained.metadata), null);
+  assert(drained.lastContentHash != null);
+
+  const unchanged = await runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: new Date(NOW.getTime() + 60_000),
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(gnwFeedWithEtagResponse(body, etag)),
+    batchLimit: 1,
+    companies: universe,
+    newsItemBudget: 8,
+    newsWallTimeMs: 60_000,
+  });
+  assertEquals(unchanged.sourcesFailed, 0);
+  assertEquals(unchanged.rawItemsSeen, 0);
+  const stable = (await store.listSources({}))[0];
+  assertEquals(readNewsContinuation(stable.metadata), null);
+  assertEquals(stable.lastContentHash, drained.lastContentHash);
+});
+
 const DUTCH_FORFARMERS = "ForFarmers N.V.: Joint venture ForFarmers en KPS Food Group in Polen afgerond";
 
 Deno.test("NEWS Joint venture headline never attributes The Joint Corp", () => {
