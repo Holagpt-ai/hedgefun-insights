@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   mapAggregates,
+  radarChartCacheKey,
   radarChartEmptyCopy,
   radarChartIntervalLabel,
+  radarChartMarketState,
   radarChartSessionDate,
+  shouldPersistRadarChartCache,
   unwrapAggregateResults,
 } from "../radar-chart-data";
 
@@ -30,6 +33,26 @@ describe("radar aggregate mapping", () => {
   it("uses America/New_York session date from provider_as_of", () => {
     expect(radarChartSessionDate("2026-09-16T03:00:00.000Z")).toBe("2026-09-15");
     expect(radarChartSessionDate("2026-09-16T15:00:00.000Z")).toBe("2026-09-16");
+  });
+
+  it("requests the last completed session when the clock is closed", () => {
+    expect(radarChartSessionDate(null, Date.parse("2026-10-05T08:15:00.000Z"))).toBe("2026-10-05");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-05T13:29:00.000Z"))).toBe("2026-10-05");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-05T13:31:00.000Z"))).toBe("2026-10-05");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-05T19:30:00.000Z"))).toBe("2026-10-05");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-05T20:30:00.000Z"))).toBe("2026-10-05");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-06T00:30:00.000Z"))).toBe("2026-10-05");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-03T16:00:00.000Z"))).toBe("2026-10-02");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-04T18:00:00.000Z"))).toBe("2026-10-02");
+    expect(radarChartSessionDate(null, Date.parse("2026-10-05T07:00:00.000Z"))).toBe("2026-10-02");
+    expect(radarChartSessionDate(null, Date.parse("2026-09-07T18:00:00.000Z"))).toBe("2026-09-04");
+    expect(radarChartMarketState(Date.parse("2026-10-04T18:00:00.000Z"))).toBe("CLOSED");
+    expect(radarChartMarketState(Date.parse("2026-10-05T13:31:00.000Z"))).toBe("LIVE");
+    expect(shouldPersistRadarChartCache(0)).toBe(false);
+    expect(shouldPersistRadarChartCache(1)).toBe(true);
+    expect(radarChartCacheKey("AAPL", "2026-10-02", "1m")).not.toBe(radarChartCacheKey("MSFT", "2026-10-02", "1m"));
+    expect(radarChartCacheKey("AAPL", "2026-10-02", "1m")).not.toBe(radarChartCacheKey("AAPL", "2026-10-05", "1m"));
+    expect(radarChartCacheKey("AAPL", "2026-10-02", "1m")).not.toBe(radarChartCacheKey("AAPL", "2026-10-02", "5m"));
   });
 
   it("labels fallback interval truthfully", () => {

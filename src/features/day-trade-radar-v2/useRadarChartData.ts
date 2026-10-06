@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { getAggregates } from "@/lib/polygon";
 import {
+  intradayChartDiagnostic,
   mapAggregates,
+  radarChartCacheKey,
+  radarChartMarketState,
   radarChartSessionDate,
+  shouldPersistRadarChartCache,
   type RadarChartInterval,
 } from "./radar-chart-data";
 import type { RadarChartBar, RadarChartStatus } from "./types";
-
-function cacheKey(symbol: string, sessionDate: string, interval: RadarChartInterval): string {
-  return `${symbol}::${sessionDate}::${interval}`;
-}
 
 type CacheEntry = {
   bars: RadarChartBar[];
@@ -48,8 +48,8 @@ export function useRadarChartData(opts: {
     }
 
     const sessionDate = radarChartSessionDate(providerAsOfMax);
-    const minuteKey = cacheKey(symbol, sessionDate, "1m");
-    const fiveKey = cacheKey(symbol, sessionDate, "5m");
+    const minuteKey = radarChartCacheKey(symbol, sessionDate, "1m");
+    const fiveKey = radarChartCacheKey(symbol, sessionDate, "5m");
     const cached = chartCache.get(minuteKey) ?? chartCache.get(fiveKey);
     if (cached) {
       setBars(cached.bars);
@@ -70,7 +70,9 @@ export function useRadarChartData(opts: {
         if (requestId !== requestIdRef.current) return;
         const minuteMapped = mapAggregates(minutePayload);
         if (minuteMapped.bars.length > 0) {
-          chartCache.set(minuteKey, { ...minuteMapped, interval: "1m" });
+          if (shouldPersistRadarChartCache(minuteMapped.bars.length)) {
+            chartCache.set(minuteKey, { ...minuteMapped, interval: "1m" });
+          }
           setBars(minuteMapped.bars);
           setLatestBarIso(minuteMapped.latestBarIso);
           setInterval("1m");
@@ -83,10 +85,24 @@ export function useRadarChartData(opts: {
         const fiveMapped = mapAggregates(fivePayload);
         const used = fiveMapped.bars.length > 0 ? fiveMapped : minuteMapped;
         const usedInterval: RadarChartInterval = fiveMapped.bars.length > 0 ? "5m" : "1m";
-        chartCache.set(cacheKey(symbol, sessionDate, usedInterval), {
-          ...used,
-          interval: usedInterval,
-        });
+        if (shouldPersistRadarChartCache(used.bars.length)) {
+          chartCache.set(radarChartCacheKey(symbol, sessionDate, usedInterval), {
+            ...used,
+            interval: usedInterval,
+          });
+        } else {
+          const referenceMs = providerAsOfMax ? Date.parse(providerAsOfMax) : Number.NaN;
+          const closed = radarChartMarketState(Number.isFinite(referenceMs) ? referenceMs : Date.now()) === "CLOSED";
+          console.info(JSON.stringify(intradayChartDiagnostic({
+            symbol,
+            requestedDate: sessionDate,
+            providerStatus: "ok_empty",
+            barsReturned: 0,
+            cacheState: "skipped_empty",
+            closedSession: closed,
+            providerOk: true,
+          })));
+        }
         setBars(used.bars);
         setLatestBarIso(used.latestBarIso);
         setInterval(usedInterval);
