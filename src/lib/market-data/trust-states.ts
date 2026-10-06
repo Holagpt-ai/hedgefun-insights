@@ -14,6 +14,10 @@ import {
   type MarketFeedTelemetry,
 } from "@/lib/market-feed/telemetry";
 import { isExpired } from "@/lib/watchlist-v2/parsers";
+import {
+  isSnapshotFromExpectedLastSession,
+  isWatchlistClosedSurveillanceWindow,
+} from "@/lib/watchlist-v2/watchlist-snapshot-trust";
 import type { SectionEnvelope } from "@/types/pre-market";
 
 export type MarketDataTrustState = "FRESH" | "DELAYED" | "STALE" | "UNAVAILABLE" | "CLOSED";
@@ -134,6 +138,8 @@ export function resolveWatchlistMarketDataTrust(input: {
   validThrough: string | null | undefined;
   snapshotTsMs: number | null | undefined;
   analysisPresentation?: "live" | "last_completed" | null;
+  /** Analysis session date (ET YYYY-MM-DD) from stored Watchlist V2 row. */
+  analysisSessionDate?: string | null;
   nowMs?: number;
 }): MarketDataTrustState {
   const nowMs = input.nowMs ?? Date.now();
@@ -142,7 +148,20 @@ export function resolveWatchlistMarketDataTrust(input: {
   if (sourceMs === null) return "UNAVAILABLE";
   if (input.analysisPresentation === "last_completed") return "CLOSED";
   if (isExpired(input.validThrough, new Date(nowMs))) return "STALE";
+
   const ageMs = nowMs - sourceMs;
+  const closedSurveillance = isWatchlistClosedSurveillanceWindow(nowMs);
+  if (
+    closedSurveillance &&
+    isSnapshotFromExpectedLastSession({
+      snapshotMs: sourceMs,
+      analysisSessionDate: input.analysisSessionDate,
+      nowMs,
+    })
+  ) {
+    return "CLOSED";
+  }
+
   if (ageMs > WATCHLIST_SNAPSHOT_STALE_MS) return "STALE";
   return "FRESH";
 }

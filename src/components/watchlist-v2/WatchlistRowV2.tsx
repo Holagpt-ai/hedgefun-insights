@@ -193,6 +193,7 @@ export function WatchlistRowV2({
     validThrough: row.validThrough,
     snapshotTsMs: row.inputsQuality.snapshot_ts_ms,
     analysisPresentation: row.inputsQuality.analysis_presentation ?? null,
+    analysisSessionDate: row.sessionDate || null,
   });
   const marketDataTrustLine = formatMarketDataTrustLine(
     marketDataTrust,

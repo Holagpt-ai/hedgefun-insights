@@ -108,6 +108,124 @@ describe("resolveWatchlistMarketDataTrust", () => {
       }),
     ).toBe("CLOSED");
   });
+
+  // ── Session-aware closed-market freshness (Repair #9) ─────────────────────
+
+  const friSession = "2026-09-25";
+  const friCloseEt = Date.parse("2026-09-25T20:00:00Z"); // ~16:00 ET
+  const satMorning = Date.parse("2026-09-26T14:00:00Z");
+  const friLateNight = Date.parse("2026-09-26T02:00:00Z"); // Fri 22:00 ET
+  const thuSession = "2026-09-24";
+  const thuCloseEt = Date.parse("2026-09-24T20:00:00Z");
+  const holidayMidday = Date.parse("2026-07-03T16:00:00Z"); // Jul 3 holiday ~ noon ET
+  const priorSessionClose = Date.parse("2026-07-02T20:00:00Z"); // Jul 2 ~16:00 ET
+  const premarketStaleNow = Date.parse("2026-09-29T10:00:00Z"); // Tue ~06:00 ET
+  const afterHoursStaleNow = Date.parse("2026-09-29T22:00:00Z"); // Tue ~18:00 ET
+
+  const closedValidThrough = (nowMs: number) =>
+    new Date(nowMs + 60 * 60_000).toISOString();
+
+  it("CASE C — after market close: live presentation + last-session snapshot -> Closed (not Stale)", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: closedValidThrough(friLateNight),
+        snapshotTsMs: friCloseEt,
+        analysisPresentation: "live",
+        analysisSessionDate: friSession,
+        nowMs: friLateNight,
+      }),
+    ).toBe("CLOSED");
+  });
+
+  it("CASE D — weekend: Friday session snapshot -> Closed", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: closedValidThrough(satMorning),
+        snapshotTsMs: friCloseEt,
+        analysisPresentation: "live",
+        analysisSessionDate: friSession,
+        nowMs: satMorning,
+      }),
+    ).toBe("CLOSED");
+  });
+
+  it("CASE E — holiday: prior trading session snapshot -> Closed", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: closedValidThrough(holidayMidday),
+        snapshotTsMs: priorSessionClose,
+        analysisPresentation: "live",
+        analysisSessionDate: "2026-07-02",
+        nowMs: holidayMidday,
+      }),
+    ).toBe("CLOSED");
+  });
+
+  it("CASE F — closed window but snapshot predates expected session -> Stale", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: closedValidThrough(satMorning),
+        snapshotTsMs: thuCloseEt,
+        analysisPresentation: "live",
+        analysisSessionDate: thuSession,
+        nowMs: satMorning,
+      }),
+    ).toBe("STALE");
+  });
+
+  it("CASE G — premarket: quote older than stale window -> Stale", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: closedValidThrough(premarketStaleNow),
+        snapshotTsMs: premarketStaleNow - WATCHLIST_SNAPSHOT_STALE_MS - 1,
+        analysisPresentation: "live",
+        analysisSessionDate: "2026-09-29",
+        nowMs: premarketStaleNow,
+      }),
+    ).toBe("STALE");
+  });
+
+  it("CASE G — premarket: fresh quote -> Fresh", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: closedValidThrough(premarketStaleNow),
+        snapshotTsMs: premarketStaleNow - 5 * 60_000,
+        analysisPresentation: "live",
+        analysisSessionDate: "2026-09-29",
+        nowMs: premarketStaleNow,
+      }),
+    ).toBe("FRESH");
+  });
+
+  it("CASE H — after-hours: stale quote -> Stale", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: closedValidThrough(afterHoursStaleNow),
+        snapshotTsMs: afterHoursStaleNow - WATCHLIST_SNAPSHOT_STALE_MS - 1,
+        analysisPresentation: "live",
+        analysisSessionDate: "2026-09-29",
+        nowMs: afterHoursStaleNow,
+      }),
+    ).toBe("STALE");
+  });
+
+  it("CASE I — invalid snapshot timestamp -> Unavailable", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough,
+        snapshotTsMs: Number.NaN,
+        nowMs: NOW,
+      }),
+    ).toBe("UNAVAILABLE");
+  });
 });
 
 describe("resolvePreMarketSectionTrust", () => {
