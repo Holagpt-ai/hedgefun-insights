@@ -53,6 +53,10 @@ export interface ContinuationInput {
   /** Primary scanner event from Radar V2 when available (not fabricated). */
   scannerPrimaryEvent?: string | null;
   timeAdjustedRvol?: number | null;
+  /** Expected cumulative or TOD baseline volume when already known (never fabricated). */
+  rvolBaselineVolume?: number | null;
+  /** Participation / TOD baseline session count when available. */
+  rvolBaselineSampleSize?: number | null;
   volumeAccelerationPct?: number | null;
   participationState?: string | null;
   radarEventLifecycle?: string | null;

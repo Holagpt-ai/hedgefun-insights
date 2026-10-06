@@ -1,0 +1,78 @@
+import { assertEquals } from "jsr:@std/assert";
+import { v22CandidateToContinuationInput } from "./v22-to-continuation-input.ts";
+import type { RadarV22CandidateRow } from "../radar-v22/persistence-v2.ts";
+
+function row(overrides: Partial<RadarV22CandidateRow> = {}): RadarV22CandidateRow {
+  return {
+    generation_id: "11111111-1111-4111-8111-111111111111",
+    trading_date: "2026-08-12",
+    session_kind: "market",
+    symbol: "AAA",
+    lifecycle: "ACTIVE",
+    signal_status: "active",
+    last_price: 10,
+    last_price_at: "2026-08-12T19:30:00.000Z",
+    move_15s_pct: null,
+    move_60s_pct: null,
+    volume_5s: 0,
+    volume_15s: 0,
+    volume_60s: 0,
+    session_volume: 3_000_000,
+    dollar_volume_60s: 0,
+    acceleration_5m: null,
+    rvol_5m: 3,
+    volume_velocity: null,
+    volume_acceleration_pct: null,
+    session_high: 10,
+    session_low: 9,
+    distance_from_hod_pct: 0.5,
+    session_vwap: 9.9,
+    vwap_side: "above",
+    geometry_partial: false,
+    vwap_partial: false,
+    last_new_hod_at: null,
+    last_hod_attempt_at: null,
+    last_hod_break_at: null,
+    last_hod_reject_at: null,
+    last_vwap_cross_at: null,
+    last_vwap_reclaim_at: null,
+    last_vwap_loss_at: null,
+    freshness_class: "fresh",
+    freshness_age_ms: 0,
+    last_volume_burst_at: null,
+    last_price_move_at: null,
+    last_acceleration_at: null,
+    promoted_at: null,
+    lifecycle_entered_at: null,
+    provider_as_of: "2026-08-12T19:30:00.000Z",
+    primary_scanner_event: null,
+    primary_scanner_event_at: null,
+    scanner_events: [],
+    promotion_reason: null,
+    radar_event_lifecycle: null,
+    radar_engine_events: [],
+    time_adjusted_rvol: 3,
+    volume_5m: 300_000,
+    volume_15m: null,
+    volume_60m: null,
+    volume_velocity_5m: null,
+    volume_velocity_15m: null,
+    volume_velocity_60m: null,
+    dollar_volume_velocity_5m: null,
+    participation_state: "SURGING",
+    participation_baseline_session_count: 12,
+    participation_calculated_at: null,
+    participation_source_as_of: null,
+    regular_session_close: null,
+    previous_close: null,
+    prior_session_volume: null,
+    updated_at: "2026-08-12T19:30:00.000Z",
+    ...overrides,
+  };
+}
+
+Deno.test("v22 continuation input wires participation baseline for TARVOL confidence", () => {
+  const input = v22CandidateToContinuationInput(row());
+  assertEquals(input.rvolBaselineSampleSize, 12);
+  assertEquals(input.rvolBaselineVolume, 1_000_000);
+});

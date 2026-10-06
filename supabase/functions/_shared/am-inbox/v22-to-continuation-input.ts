@@ -12,6 +12,7 @@ import {
   computeClosingRejectionPct,
 } from "../screeners/continuation-derived-metrics.ts";
 import { computeDollarVolume, isFiniteNumber, isPositiveFinite } from "../screeners/screener-contract-lite.ts";
+import { impliedBaselineVolumeFromRatio } from "../screeners/continuation-rvol-confidence.ts";
 
 function triFromVwapSide(side: RadarV22CandidateRow["vwap_side"]): ContinuationTriState | null {
   if (side === "above") return "TRUE";
@@ -118,6 +119,14 @@ export function v22CandidateToContinuationInput(row: RadarV22CandidateRow): Cont
     volumeVelocity: resolveVolumeVelocity(row),
     rvol20d: row.time_adjusted_rvol ?? row.rvol_5m,
     timeAdjustedRvol: row.time_adjusted_rvol,
+    rvolBaselineSampleSize: isFiniteNumber(row.participation_baseline_session_count) &&
+        row.participation_baseline_session_count >= 0
+      ? Math.floor(row.participation_baseline_session_count)
+      : null,
+    rvolBaselineVolume: impliedBaselineVolumeFromRatio(
+      row.session_volume,
+      row.time_adjusted_rvol,
+    ) ?? impliedBaselineVolumeFromRatio(row.volume_5m, row.rvol_5m),
     volumeAccelerationPct: row.volume_acceleration_pct,
     participationState: row.participation_state,
     scannerPrimaryEvent: row.primary_scanner_event,
