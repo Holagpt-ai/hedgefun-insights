@@ -68,6 +68,7 @@ describe("LateSessionHandoffsList", () => {
             qualifiedCount: 42,
             priorityCount: 11,
             displayedCount: 6,
+            displayUsesQualifiedFallback: false,
           }}
         />
       </MemoryRouter>,
@@ -99,6 +100,7 @@ describe("LateSessionHandoffsList", () => {
             qualifiedCount: 42,
             priorityCount: 2,
             displayedCount: 2,
+            displayUsesQualifiedFallback: false,
           }}
         />
       </MemoryRouter>,

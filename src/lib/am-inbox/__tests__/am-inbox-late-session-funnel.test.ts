@@ -94,8 +94,8 @@ describe("AM Inbox late-session continuation funnel display", () => {
     const view = buildAmInboxLateSessionViewFromContexts("2026-09-22", contexts);
     expect(view.funnel.priorityCount).toBe(8);
     expect(view.funnel.displayedCount).toBe(AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
-    expect(view.candidates).toHaveLength(8);
-    const defaultSlice = view.candidates.slice(0, AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
+    expect(view.candidates).toHaveLength(AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
+    const defaultSlice = view.candidates;
     expect(defaultSlice.every((entry) => isLateSessionPriorityCandidate(entry, view.candidates))).toBe(
       true,
     );

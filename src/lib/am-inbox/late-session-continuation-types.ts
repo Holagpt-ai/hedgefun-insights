@@ -62,11 +62,13 @@ export interface LateSessionContinuationFunnel {
   qualifiedCount: number;
   priorityCount: number;
   displayedCount: number;
+  /** True when default list shows ranked qualified names because no priority band matched. */
+  displayUsesQualifiedFallback: boolean;
 }
 
 export interface AmInboxLateSessionView {
   asOfSessionDate: string;
-  /** Priority-ranked handoffs surfaced in the default Late-Session module. */
+  /** Default Late-Session module rows (priority band, or volume-ranked qualified fallback). */
   candidates: readonly AmInboxLateSessionCandidate[];
   /** Full qualified pool (priority first, then qualified non-priority) for View All. */
   qualifiedCandidates: readonly AmInboxLateSessionCandidate[];

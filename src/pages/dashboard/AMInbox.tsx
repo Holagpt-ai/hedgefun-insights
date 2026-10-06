@@ -98,6 +98,7 @@ export default function AMInbox() {
       qualifiedCount: 0,
       priorityCount: 0,
       displayedCount: 0,
+      displayUsesQualifiedFallback: false,
     },
   };
 

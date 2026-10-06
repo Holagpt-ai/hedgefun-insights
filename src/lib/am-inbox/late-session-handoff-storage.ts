@@ -11,6 +11,7 @@ import {
   evaluateScreenerContinuation,
   type ScreenerContinuationSource,
 } from "@/lib/screeners/screener-continuation";
+import { computeDollarVolume } from "@/lib/screeners/dollar-volume";
 import type { SecurityId } from "@/types/security-identity";
 
 function handoffKey(symbol: string, sourceSessionDate: string, category: string): string {
@@ -86,7 +87,7 @@ export function captureLateSessionHandoffsFromScreenerRows(
       rvolMetricKind: rvolCapture.metricKind,
       rvolBaselineVolume: rvolCapture.baselineVolume,
       rvolBaselineSampleSize: rvolCapture.baselineSampleSize,
-      dollarVolume: null,
+      dollarVolume: computeDollarVolume(row.price, row.volume),
       closeDistanceFromHodPct: row.close_distance_from_hod_pct ?? null,
       afterHoursExtends: row.after_hours_extends === "TRUE"
         ? true

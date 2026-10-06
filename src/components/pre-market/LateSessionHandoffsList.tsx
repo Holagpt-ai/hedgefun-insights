@@ -127,7 +127,9 @@ export function LateSessionHandoffsList({
         <HandoffCard
           key={`${entry.context.symbol}-${entry.context.sourceSessionDate}-${entry.context.sourceCategory}`}
           entry={entry}
-          showQualifiedLabel={expanded && !isLateSessionPriorityCandidate(entry)}
+          showQualifiedLabel={
+            !isLateSessionPriorityCandidate(entry, qualifiedPool)
+          }
         />
       ))}
       {canViewAllQualified && (

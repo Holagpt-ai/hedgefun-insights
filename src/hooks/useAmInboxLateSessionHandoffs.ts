@@ -10,12 +10,13 @@ const EMPTY_VIEW = (amSessionDate: string): AmInboxLateSessionView => ({
   candidates: [],
   qualifiedCandidates: [],
   expiredCount: 0,
-  funnel: {
-    detectedCount: 0,
-    qualifiedCount: 0,
-    priorityCount: 0,
-    displayedCount: 0,
-  },
+    funnel: {
+      detectedCount: 0,
+      qualifiedCount: 0,
+      priorityCount: 0,
+      displayedCount: 0,
+      displayUsesQualifiedFallback: false,
+    },
 });
 
 export function useAmInboxLateSessionHandoffs(amSessionDate: string) {

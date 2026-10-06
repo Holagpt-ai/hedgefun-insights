@@ -2,6 +2,7 @@ import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-co
 import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
 import type { ContinuationCategory } from "@/config/continuation.config";
 import { continuationRankingRvolFromContext } from "@/lib/am-inbox/continuation-rvol-ranking";
+import { resolveLateSessionDollarVolume } from "@/lib/am-inbox/late-session-liquidity";
 
 const SCANNER_EVENT_PRIORITY: Readonly<Record<string, number>> = {
   "VOLUME EXPLOSION": 50,
@@ -19,7 +20,7 @@ export function continuationVolumeKingComponent(
 ): number {
   const { context } = entry;
   const volume = finiteOrZero(context.volume);
-  const dollarVolume = finiteOrZero(context.dollarVolume);
+  const dollarVolume = finiteOrZero(resolveLateSessionDollarVolume(context));
   return Math.log10(Math.max(volume, 1)) * 12 + Math.log10(Math.max(dollarVolume, 1)) * 14;
 }
 
@@ -71,7 +72,7 @@ export function computeAmInboxLateSessionPriorityScore(entry: AmInboxLateSession
     entry.sourceCategories.length > 0 ? entry.sourceCategories : [context.sourceCategory];
 
   const volume = finiteOrZero(context.volume);
-  const dollarVolume = finiteOrZero(context.dollarVolume);
+  const effectiveDollarVolume = resolveLateSessionDollarVolume(context);
   const rawRvol = context.rvol;
   const rankingRvol = continuationRankingRvolFromContext(context);
 
@@ -94,7 +95,7 @@ export function computeAmInboxLateSessionPriorityScore(entry: AmInboxLateSession
 
   const missingCoreMetrics =
     context.volume === null &&
-    context.dollarVolume === null &&
+    effectiveDollarVolume === null &&
     rawRvol === null &&
     scannerPoints === 0;
 

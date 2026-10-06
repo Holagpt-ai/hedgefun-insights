@@ -51,6 +51,7 @@ export function buildLateSessionContinuationFunnel(
   qualified: AmInboxLateSessionCandidate[];
   priority: AmInboxLateSessionCandidate[];
   qualifiedForViewAll: AmInboxLateSessionCandidate[];
+  defaultDisplay: AmInboxLateSessionCandidate[];
   funnel: LateSessionContinuationFunnel;
 } {
   const qualified = collapsed.filter(qualifiesLateSessionHandoffCandidate);
@@ -63,17 +64,24 @@ export function buildLateSessionContinuationFunnel(
   );
   const qualifiedForViewAll = [...priority, ...qualifiedNonPriority];
   const priorityCount = priority.length;
-  const displayedCount = Math.min(priorityCount, AM_INBOX_LATE_SESSION_VISIBLE_LIMIT);
+  const displayUsesQualifiedFallback = priorityCount === 0 && qualifiedRanked.length > 0;
+  const defaultDisplay = (displayUsesQualifiedFallback ? qualifiedRanked : priority).slice(
+    0,
+    AM_INBOX_LATE_SESSION_VISIBLE_LIMIT,
+  );
+  const displayedCount = defaultDisplay.length;
 
   return {
     qualified: qualifiedRanked,
     priority,
     qualifiedForViewAll,
+    defaultDisplay,
     funnel: {
       detectedCount: detected.length,
       qualifiedCount: qualified.length,
       priorityCount,
       displayedCount,
+      displayUsesQualifiedFallback,
     },
   };
 }
@@ -183,14 +191,14 @@ export function buildAmInboxLateSessionViewFromContexts(
   }
 
   const collapsed = collapseLateSessionCandidates(raw);
-  const { priority, qualifiedForViewAll, funnel } = buildLateSessionContinuationFunnel(
+  const { defaultDisplay, qualifiedForViewAll, funnel } = buildLateSessionContinuationFunnel(
     raw,
     collapsed,
   );
 
   return {
     asOfSessionDate: amSessionDate,
-    candidates: priority,
+    candidates: defaultDisplay,
     qualifiedCandidates: qualifiedForViewAll,
     expiredCount,
     funnel,
