@@ -682,7 +682,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     sessionType,
     sessionDate,
     presentation: analysisPresentation,
-    providerStatus: barsR.kind === "ok" ? "ok" : barsR.kind,
+    providerStatus: barsR.kind === "ok" ? "ok" : (barsR as { kind: string }).kind,
     barsReturned: bars.length,
     cacheState: "none",
     reason: emptyReason ?? "ok",
