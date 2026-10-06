@@ -2,6 +2,18 @@
   "installCommand": "npm ci",
   "redirects": [
     {
+      "source": "/",
+      "has": [{ "type": "host", "value": "hedgefun.fun" }],
+      "destination": "https://stocksist.com/",
+      "permanent": true
+    },
+    {
+      "source": "/",
+      "has": [{ "type": "host", "value": "www.hedgefun.fun" }],
+      "destination": "https://stocksist.com/",
+      "permanent": true
+    },
+    {
       "source": "/:path*",
       "has": [{ "type": "host", "value": "hedgefun.fun" }],
       "destination": "https://stocksist.com/:path*",
