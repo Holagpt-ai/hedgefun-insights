@@ -1,10 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { mergeHistoricalContextBatchIntoRows } from "@/lib/radar/apply-radar-historical-context";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
 import {
   boundHistoricalMemoryFactsForProvider,
   buildHistoricalMemoryFromRepeatMoverContext,
 } from "@/lib/ai-analyst/historical-memory";
+import { fetchAnalystHistoricalMemory } from "@/lib/ai-analyst/fetch-analyst-historical-memory";
 import { unavailableRepeatMoverProfileSnapshot } from "@/lib/repeat-movers/get-repeat-mover-context";
 
 const SECURITY_ID = "11111111-1111-4111-8111-111111111111";
@@ -190,6 +191,84 @@ describe("coerceRepeatMoverContextForDisplay rich episode preservation", () => {
     for (const episode of bounded.closestComparableEpisodes) {
       expect(episode.historicalEvents.length).toBeLessThanOrEqual(3);
     }
+  });
+
+  it("preserves behavior profile continuation and forward-outcome aggregates for AI memory", () => {
+    const coerced = coerceRepeatMoverContextForDisplay({
+      securityId: SECURITY_ID,
+      currentSymbol: "XYZ",
+      currentContext: {
+        observedSymbol: "XYZ",
+        sessionDate: "2026-09-22",
+        movePct: 12.5,
+        volume: 900_000,
+        rvol: 3.8,
+        direction: "POSITIVE",
+        tier: "NOTABLE",
+      },
+      profile: {
+        profileAvailable: true,
+        sampleSizeQuality: "ADEQUATE",
+        sessionsObserved: 400,
+        episodeCount: 12,
+        nextSessionPositiveContinuationRate: 0.42,
+        nextSessionNegativeContinuationRate: 0.18,
+        medianD1ReturnPct: 1.8,
+        medianD5ReturnPct: -0.4,
+        positiveD1Pct: 0.55,
+        forwardOutcomeCoveragePctD1: 0.9,
+        observedNextSessionSampleSize: 10,
+      },
+      comparableHistory: {
+        comparableEpisodeCount: 1,
+        closestComparableEpisodes: [richBridgeEpisode()],
+      },
+      evidenceLabels: ["SIMILAR_PRIOR_EPISODES_FOUND"],
+    });
+    expect(coerced?.currentContext.movePct).toBe(12.5);
+    expect(coerced?.currentContext.rvol).toBe(3.8);
+    const memory = buildHistoricalMemoryFromRepeatMoverContext(coerced, "XYZ");
+    expect(memory.nextSessionPositiveContinuationRate).toBe(0.42);
+    expect(memory.medianD1ReturnPct).toBe(1.8);
+    expect(memory.observedNextSessionSampleSize).toBe(10);
+    expect(memory.forwardOutcomeCoveragePctD1).toBe(0.9);
+  });
+
+  it("fetchAnalystHistoricalMemory keeps rich profile after bridge coerce", async () => {
+    vi.stubEnv("VITE_SUPABASE_URL", "https://example.supabase.co");
+    const bridgePayload = {
+      securityId: SECURITY_ID,
+      currentSymbol: "XYZ",
+      profile: {
+        profileAvailable: true,
+        sampleSizeQuality: "LIMITED",
+        episodeCount: 2,
+        nextSessionPositiveContinuationRate: 0.5,
+        medianD1ReturnPct: 2.2,
+      },
+      comparableHistory: {
+        comparableEpisodeCount: 1,
+        closestComparableEpisodes: [richBridgeEpisode()],
+      },
+      evidenceLabels: ["SIMILAR_PRIOR_EPISODES_FOUND"],
+    };
+    const memory = await fetchAnalystHistoricalMemory({
+      symbol: "XYZ",
+      accessToken: "token",
+      fetchImpl: async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [{ symbol: "XYZ", securityId: SECURITY_ID, historicalContext: bridgePayload }],
+        }),
+      }) as Response,
+    });
+    expect(memory.contextLoaded).toBe(true);
+    expect(memory.sampleSizeQuality).toBe("LIMITED");
+    expect(memory.nextSessionPositiveContinuationRate).toBe(0.5);
+    expect(memory.medianD1ReturnPct).toBe(2.2);
+    expect(memory.closestComparableEpisodes[0]?.observedIntradayReconstruction?.closeVsHodPct).toBe(-8);
+    vi.unstubAllEnvs();
   });
 
   it("malformed bridge payload for one ticker coerces to null without breaking merge", () => {

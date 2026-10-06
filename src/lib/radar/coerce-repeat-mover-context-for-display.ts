@@ -1,3 +1,4 @@
+import { BEHAVIOR_PROFILE_SAMPLE_QUALITIES } from "@/config/behavior-profile.config";
 import { AI_ANALYST_HISTORICAL_MEMORY_BOUNDS } from "@/config/ai-analyst-historical.config";
 import { FORWARD_OUTCOME_SESSION_HORIZONS } from "@/config/forward-outcomes.config";
 import { INTRADAY_COMPLETENESS_STATES } from "@/config/intraday-reconstruction.config";
@@ -11,13 +12,14 @@ import { CORPORATE_EVENT_TYPES } from "@/config/security-intelligence.config";
 import type { EpisodeLinkedEventEvidence } from "@/lib/episode-event-linkage/episode-linked-event-evidence";
 import type { RepeatMoverForwardOutcomeEvidence } from "@/lib/forward-outcomes/forward-outcome-types";
 import type { RepeatMoverIntradayEvidence } from "@/lib/intraday-reconstruction/intraday-reconstruction-types";
+import { normalizeRepeatMoverCurrentContext } from "@/lib/repeat-movers/normalize-repeat-mover-context";
+import { unavailableRepeatMoverProfileSnapshot } from "@/lib/repeat-movers/get-repeat-mover-context";
 import type {
   RepeatMoverComparableEpisode,
   RepeatMoverComparableHistory,
   RepeatMoverContext,
   RepeatMoverProfileSnapshot,
 } from "@/types/repeat-mover";
-import { unavailableRepeatMoverProfileSnapshot } from "@/lib/repeat-movers/get-repeat-mover-context";
 
 const CORPORATE_EVENT_TYPE_SET = new Set<string>(CORPORATE_EVENT_TYPES);
 const TEMPORAL_RELATIONSHIP_SET = new Set<string>(EPISODE_TEMPORAL_RELATIONSHIPS);
@@ -30,6 +32,13 @@ function finiteOrNull(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function readSampleSizeQuality(value: unknown): RepeatMoverProfileSnapshot["sampleSizeQuality"] {
+  if (typeof value !== "string") return null;
+  return (BEHAVIOR_PROFILE_SAMPLE_QUALITIES as readonly string[]).includes(value)
+    ? value as RepeatMoverProfileSnapshot["sampleSizeQuality"]
+    : null;
+}
+
 function coerceProfile(raw: unknown): RepeatMoverProfileSnapshot | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Record<string, unknown>;
@@ -38,16 +47,42 @@ function coerceProfile(raw: unknown): RepeatMoverProfileSnapshot | null {
   return {
     ...base,
     profileAvailable: p.profileAvailable,
-    sampleSizeQuality:
-      typeof p.sampleSizeQuality === "string" ? p.sampleSizeQuality as RepeatMoverProfileSnapshot["sampleSizeQuality"] : null,
+    sampleSizeQuality: readSampleSizeQuality(p.sampleSizeQuality),
     sessionsObserved: finiteOrNull(p.sessionsObserved),
     episodeCount: finiteOrNull(p.episodeCount),
+    notableCount: finiteOrNull(p.notableCount),
+    significantCount: finiteOrNull(p.significantCount),
+    extremeCount: finiteOrNull(p.extremeCount),
+    positiveEpisodeCount: finiteOrNull(p.positiveEpisodeCount),
+    negativeEpisodeCount: finiteOrNull(p.negativeEpisodeCount),
+    mixedEpisodeCount: finiteOrNull(p.mixedEpisodeCount),
+    positiveEpisodePct: finiteOrNull(p.positiveEpisodePct),
+    negativeEpisodePct: finiteOrNull(p.negativeEpisodePct),
+    episodesPer30Sessions: finiteOrNull(p.episodesPer30Sessions),
+    episodesPer90Sessions: finiteOrNull(p.episodesPer90Sessions),
+    medianDaysBetweenEpisodes: finiteOrNull(p.medianDaysBetweenEpisodes),
+    positiveCloseUpperQuartilePct: finiteOrNull(p.positiveCloseUpperQuartilePct),
+    positiveCloseNearHighPct: finiteOrNull(p.positiveCloseNearHighPct),
+    negativeCloseNearLowPct: finiteOrNull(p.negativeCloseNearLowPct),
+    nextSessionPositiveContinuationRate: finiteOrNull(p.nextSessionPositiveContinuationRate),
+    nextSessionNegativeContinuationRate: finiteOrNull(p.nextSessionNegativeContinuationRate),
     historyStartDate: typeof p.historyStartDate === "string" ? p.historyStartDate : null,
     historyEndDate: typeof p.historyEndDate === "string" ? p.historyEndDate : null,
     computedAt: typeof p.computedAt === "string" ? p.computedAt : null,
     latestSourceHistoryDate: typeof p.latestSourceHistoryDate === "string" ? p.latestSourceHistoryDate : null,
+    latestEpisodeDateUsed: typeof p.latestEpisodeDateUsed === "string" ? p.latestEpisodeDateUsed : null,
     sourceDailyRowCount: finiteOrNull(p.sourceDailyRowCount),
     sourceEpisodeCount: finiteOrNull(p.sourceEpisodeCount),
+    episodesWithD1Outcome: finiteOrNull(p.episodesWithD1Outcome),
+    episodesWithD5Outcome: finiteOrNull(p.episodesWithD5Outcome),
+    forwardOutcomeCoveragePctD1: finiteOrNull(p.forwardOutcomeCoveragePctD1),
+    medianD1ReturnPct: finiteOrNull(p.medianD1ReturnPct),
+    medianD5ReturnPct: finiteOrNull(p.medianD5ReturnPct),
+    positiveD1Pct: finiteOrNull(p.positiveD1Pct),
+    negativeD1Pct: finiteOrNull(p.negativeD1Pct),
+    observedNextSessionSampleSize: finiteOrNull(p.observedNextSessionSampleSize),
+    observedNextSessionPositivePct: finiteOrNull(p.observedNextSessionPositivePct),
+    observedNextSessionNegativePct: finiteOrNull(p.observedNextSessionNegativePct),
   };
 }
 
@@ -240,30 +275,13 @@ export function coerceRepeatMoverContextForDisplay(raw: unknown): RepeatMoverCon
 
   const currentContextRaw = r.currentContext;
   const currentContext = currentContextRaw && typeof currentContextRaw === "object"
-    ? {
-      observedSymbol: typeof (currentContextRaw as Record<string, unknown>).observedSymbol === "string"
-        ? (currentContextRaw as Record<string, unknown>).observedSymbol as string
-        : null,
-      sessionDate: null,
-      movePct: null,
-      volume: null,
-      rvol: null,
-      dollarVolume: null,
-      direction: null,
-      tier: null,
-      recordedAt: null,
-    }
-    : {
-      observedSymbol: null,
-      sessionDate: null,
-      movePct: null,
-      volume: null,
-      rvol: null,
-      dollarVolume: null,
-      direction: null,
-      tier: null,
-      recordedAt: null,
-    };
+    ? normalizeRepeatMoverCurrentContext({
+      ...(currentContextRaw as Record<string, unknown>),
+      symbol: typeof r.currentSymbol === "string" ? r.currentSymbol : null,
+    })
+    : normalizeRepeatMoverCurrentContext({
+      observedSymbol: typeof r.currentSymbol === "string" ? r.currentSymbol : null,
+    });
 
   return {
     version: REPEAT_MOVER_VERSION,
