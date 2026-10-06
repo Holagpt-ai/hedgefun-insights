@@ -18,6 +18,7 @@ import {
   publishRadarV2Generation,
   publishRadarV2IfNeeded,
   RADAR_V22_CANDIDATE_CAP,
+  RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS,
   REPLACE_RADAR_V2_RPC,
   replaceArgsFromView,
   shouldPublishRadarV2,
@@ -724,8 +725,7 @@ Deno.test("churn 21-23. failed V2 write does not update fingerprint and retries"
   });
   assertEquals(first, { ok: false, code: "persist_failed" });
   assertEquals(calls, 1);
-  fail = false;
-  const retry = await publishRadarV2IfNeeded({
+  const duringCooldown = await publishRadarV2IfNeeded({
     flagEnabled: true,
     result: live,
     gate,
@@ -733,6 +733,19 @@ Deno.test("churn 21-23. failed V2 write does not update fingerprint and retries"
     checkpointMs: CHECKPOINT,
     generationId: GEN2,
     syncedAt: "2026-08-10T14:00:10.000Z",
+    rpc,
+  });
+  assertEquals(duringCooldown, "skipped");
+  assertEquals(calls, 1);
+  fail = false;
+  const retry = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: live,
+    gate,
+    wallNowMs: 16_000,
+    checkpointMs: CHECKPOINT,
+    generationId: GEN2,
+    syncedAt: "2026-08-10T14:00:16.000Z",
     rpc,
   });
   assertEquals(retry, { ok: true });
@@ -749,6 +762,61 @@ Deno.test("churn 21-23. failed V2 write does not update fingerprint and retries"
   });
   assertEquals(skipped, "skipped");
   assertEquals(calls, 2);
+});
+
+Deno.test("persist failure cooldown suppresses fingerprint churn retries", async () => {
+  let calls = 0;
+  const gate = createRadarV2WriteGate();
+  const rpc: RadarV2RpcFn = async () => {
+    calls += 1;
+    return { error: { message: "down" } };
+  };
+  const rowA = candidate("AAA", { last_price: 10 });
+  const rowB = candidate("AAA", { last_price: 11 });
+  const live = {
+    staleTransition: false,
+    liveSurveillance: true,
+    sessionReset: false,
+    persistEmpty: false,
+    sessionKind: "market",
+    sessionTransition: null,
+  };
+  await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: { ...live, persistenceV2: v2View([rowA]) },
+    gate,
+    wallNowMs: 0,
+    checkpointMs: 30_000,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  assertEquals(calls, 1);
+  const churn = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: { ...live, persistenceV2: v2View([rowB]) },
+    gate,
+    wallNowMs: 5_000,
+    checkpointMs: 30_000,
+    generationId: GEN2,
+    syncedAt: "2026-08-10T14:00:05.000Z",
+    rpc,
+  });
+  assertEquals(churn, "skipped");
+  assertEquals(calls, 1);
+  assertEquals(
+    gate.decide({
+      wallNowMs: RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS - 1,
+      checkpointMs: 30_000,
+      tradingDate: "2026-08-10",
+      sessionKind: "market",
+      candidates: [rowB],
+      events: [],
+      sessionTransition: null,
+      sessionReset: false,
+    }).reason,
+    "backoff",
+  );
 });
 
 Deno.test("churn 24-26. flag off skips RPC; V1 dual-write unaffected; failure isolated", async () => {

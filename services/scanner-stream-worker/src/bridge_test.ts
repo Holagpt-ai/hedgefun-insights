@@ -1,5 +1,8 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { createRadarBridge } from "./bridge.ts";
+import {
+  createRadarBridge,
+  RADAR_PUBLISH_BRIDGE_TIMEOUT_MS,
+} from "./bridge.ts";
 import { log, sanitizeLogValue } from "./log.ts";
 import type { FetchLike } from "./baseline/grouped.ts";
 
@@ -287,7 +290,7 @@ Deno.test("bridge retries share request_id and record action-level telemetry", a
       assertEquals(row.action, "publish_generation");
       assertEquals(row.outcome, "http_error");
       assertEquals(row.http_status, 503);
-      assertEquals(row.timeout_ms, 15_000);
+      assertEquals(row.timeout_ms, RADAR_PUBLISH_BRIDGE_TIMEOUT_MS);
       assertEquals(typeof row.elapsed_ms, "number");
       assertEquals(typeof row.payload_bytes, "number");
       assertEquals((row.payload_bytes as number) > 0, true);
@@ -449,6 +452,33 @@ const V2_ARGS = {
   p_last_provider_event_at: null,
   p_last_receive_at: null,
 };
+
+Deno.test("radar publish bridge actions use extended timeout budget", async () => {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (msg?: unknown) => {
+    lines.push(String(msg ?? ""));
+  };
+  try {
+    const fetchImpl = capturingFetch([], () =>
+      ok({ ok: true, result: { applied: true } })
+    );
+    const bridge = createRadarBridge({
+      bridgeUrl: BRIDGE_URL,
+      workerSecret: SECRET,
+      fetch: fetchImpl,
+    });
+    await bridge.radarV2Rpc(V2_ARGS);
+    const attemptsLogged = parseBridgeLogs(lines).filter((row) =>
+      row.msg === "bridge_request"
+    );
+    assertEquals(attemptsLogged.length, 1);
+    assertEquals(attemptsLogged[0].action, "publish_candidates_v2");
+    assertEquals(attemptsLogged[0].timeout_ms, RADAR_PUBLISH_BRIDGE_TIMEOUT_MS);
+  } finally {
+    console.log = original;
+  }
+});
 
 Deno.test("bridge publish_candidates_v2 applied=true is success", async () => {
   let attempts = 0;

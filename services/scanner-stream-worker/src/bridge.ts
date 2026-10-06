@@ -19,8 +19,23 @@ import { log } from "./log.ts";
 
 export const DEFAULT_BRIDGE_TIMEOUT_MS = 15_000;
 export const BASELINE_BRIDGE_TIMEOUT_MS = 60_000;
+/** Large JSON + replace_radar_v22_candidates_v1 can exceed the default bridge budget. */
+export const RADAR_PUBLISH_BRIDGE_TIMEOUT_MS = 60_000;
 export const LATENCY_BRIDGE_MAX_ATTEMPTS = 3;
 export const BULK_BASELINE_MAX_ATTEMPTS = 1;
+
+function bridgeTimeoutMsForAction(
+  action: string,
+  defaultTimeoutMs: number,
+): number {
+  if (
+    action === "publish_candidates_v2" ||
+    action === "publish_generation"
+  ) {
+    return RADAR_PUBLISH_BRIDGE_TIMEOUT_MS;
+  }
+  return defaultTimeoutMs;
+}
 
 function maxAttemptsForAction(action: string): number {
   if (
@@ -206,7 +221,7 @@ export function createRadarBridge(opts: {
   const post = (
     action: string,
     body: BridgeBody,
-    timeoutMs = defaultTimeout,
+    timeoutMs?: number,
   ) =>
     bridgePost({
       bridgeUrl: opts.bridgeUrl,
@@ -214,7 +229,8 @@ export function createRadarBridge(opts: {
       fetch: opts.fetch,
       action,
       body,
-      timeoutMs,
+      timeoutMs: timeoutMs ??
+        bridgeTimeoutMsForAction(action, defaultTimeout),
       sleep: opts.sleep,
     });
 

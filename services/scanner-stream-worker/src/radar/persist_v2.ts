@@ -865,7 +865,11 @@ export type RadarV2WriteReason =
   | "events"
   | "fingerprint"
   | "checkpoint"
+  | "backoff"
   | "skip";
+
+/** After a failed V2 RPC, suppress churn retries until cooldown elapses. */
+export const RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS = 15_000;
 
 export type RadarV2WriteDecision = {
   shouldWrite: boolean;
@@ -895,6 +899,7 @@ function isForcedSessionWrite(input: RadarV2ChurnInput): boolean {
 export type RadarV2WriteGate = {
   decide(input: RadarV2ChurnInput): RadarV2WriteDecision;
   markSuccess(decision: RadarV2WriteDecision, persistedAtMs: number): void;
+  markFailure(failedAtMs: number): void;
 };
 
 /**
@@ -905,6 +910,7 @@ export function createRadarV2WriteGate(): RadarV2WriteGate {
   let lastFingerprint: string | null = null;
   let lastEventKeys = new Set<string>();
   let lastSuccessMs: number | null = null;
+  let lastFailureMs: number | null = null;
 
   return {
     decide(input) {
@@ -923,6 +929,15 @@ export function createRadarV2WriteGate(): RadarV2WriteGate {
         fingerprint,
         eventKeys,
       });
+
+      if (
+        lastFailureMs !== null &&
+        input.wallNowMs - lastFailureMs <
+          RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS &&
+        !isForcedSessionWrite(input)
+      ) {
+        return decision(false, "backoff");
+      }
 
       if (lastFingerprint === null) return decision(true, "bootstrap");
       if (isForcedSessionWrite(input)) return decision(true, "session");
@@ -944,6 +959,10 @@ export function createRadarV2WriteGate(): RadarV2WriteGate {
       lastFingerprint = decision.fingerprint;
       lastEventKeys = new Set(decision.eventKeys);
       lastSuccessMs = persistedAtMs;
+      lastFailureMs = null;
+    },
+    markFailure(failedAtMs) {
+      lastFailureMs = failedAtMs;
     },
   };
 }
@@ -1014,6 +1033,8 @@ export async function publishRadarV2IfNeeded(opts: {
     const result = await publishRadarV2Generation(opts.rpc, args);
     if (result.ok && result.applied !== false) {
       opts.gate.markSuccess(decision, opts.wallNowMs);
+    } else if (!result.ok) {
+      opts.gate.markFailure(opts.wallNowMs);
     }
     return result;
   } catch {
