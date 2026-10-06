@@ -42,6 +42,15 @@ Deno.test("feed session must match clock during live pre-market", () => {
   assertEquals(feedSessionMatchesConsumerClock("after-hours", premarketMs), false);
 });
 
+Deno.test("surveillance date flips at 04:00:00.000 ET and not one millisecond earlier", () => {
+  const before = Date.parse("2026-10-05T07:59:59.999Z"); // 03:59:59.999 ET
+  const at = Date.parse("2026-10-05T08:00:00.000Z"); // 04:00:00.000 ET
+  const after = Date.parse("2026-10-05T08:00:01.000Z"); // 04:00:01 ET
+  assertEquals(surveillanceTradingDateFromMs(before), "2026-10-04");
+  assertEquals(surveillanceTradingDateFromMs(at), "2026-10-05");
+  assertEquals(surveillanceTradingDateFromMs(after), "2026-10-05");
+});
+
 Deno.test("closed overnight session does not apply live-session rejection", () => {
   const overnightMs = Date.parse("2026-09-24T06:00:00.000Z"); // 02:00 ET Sep 24
   const ahCloseMs = Date.parse("2026-09-24T00:00:00.000Z");
