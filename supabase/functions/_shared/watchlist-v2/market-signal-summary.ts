@@ -25,6 +25,8 @@ export type MarketSignalSummaryInput = {
   rvol_class: RvolClass | null;
   market_signals: MarketSignal[];
   radar_context: RadarScannerContext | null;
+  /** False when the snapshot/bars are stale, missing, or malformed. */
+  data_usable?: boolean;
 };
 
 function participationState(ctx: RadarScannerContext | null): string | null {
@@ -37,7 +39,7 @@ function hasSignal(ids: Set<string>, signals: MarketSignal[]): boolean {
 
 /**
  * Priority (first match wins):
- * 1. UNAVAILABLE — no price or direction data_unavailable
+ * 1. UNAVAILABLE — untrustworthy inputs, no price, or direction data_unavailable
  * 2. BEARISH — bearish direction OR (below VWAP and change ≤ -1%)
  * 3. WEAKENING — participation COOLING OR (neutral + change < 0)
  * 4. MOMENTUM — participation SURGING/RISING OR unusual RVOL OR (|change| ≥ 5% and elevated/unusual RVOL)
@@ -47,6 +49,9 @@ function hasSignal(ids: Set<string>, signals: MarketSignal[]): boolean {
 export function deriveWatchlistMarketSignalSummary(
   input: MarketSignalSummaryInput,
 ): WatchlistMarketSignalSummary {
+  if (input.data_usable === false) {
+    return { label: "UNAVAILABLE", rule_id: "unavailable_untrustworthy_inputs" };
+  }
   if (input.direction === "data_unavailable" || input.price === null) {
     return { label: "UNAVAILABLE", rule_id: "unavailable_no_price" };
   }

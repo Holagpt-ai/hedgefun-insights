@@ -41,6 +41,8 @@ export interface KeyLevels {
   premarket_high: number | null;
   premarket_low: number | null;
   prior_close: number | null;
+  hod_lod_scope?: "premarket" | "rth" | "session_to_date" | null;
+  vwap_scope?: "rth" | "session_to_date" | null;
 }
 
 export type SnapshotTimestampSource = "lastTrade" | "lastQuote" | "updated" | "min";
@@ -166,12 +168,16 @@ export function parseKeyLevels(raw: unknown): KeyLevels {
   const empty: KeyLevels = {
     vwap: null, hod: null, lod: null,
     premarket_high: null, premarket_low: null, prior_close: null,
+    hod_lod_scope: null, vwap_scope: null,
   };
   if (!isObj(raw)) return empty;
   const num = (k: string): number | null => {
     const v = (raw as Record<string, unknown>)[k];
     return isFin(v) && v > 0 ? v : null;
   };
+  const basis = isObj(raw.basis) ? raw.basis : null;
+  const hodScope = basis?.hod_lod_scope;
+  const vwapScope = basis?.vwap_scope;
   return {
     vwap: num("vwap"),
     hod: num("hod"),
@@ -179,6 +185,11 @@ export function parseKeyLevels(raw: unknown): KeyLevels {
     premarket_high: num("premarket_high"),
     premarket_low: num("premarket_low"),
     prior_close: num("prior_close"),
+    hod_lod_scope:
+      hodScope === "premarket" || hodScope === "rth" || hodScope === "session_to_date"
+        ? hodScope
+        : null,
+    vwap_scope: vwapScope === "rth" || vwapScope === "session_to_date" ? vwapScope : null,
   };
 }
 

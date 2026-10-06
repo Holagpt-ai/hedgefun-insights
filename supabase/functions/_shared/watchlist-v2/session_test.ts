@@ -1,5 +1,8 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { classifyToday, etParts, extractEtOffset, isWeekend, resolveSession, resolveAnalysisSession } from "./session.ts";
+import {
+  classifyToday, etParts, extractEtOffset, inferLastCompletedSessionDate, isWeekend,
+  resolveSession, resolveAnalysisSession, watchlistSessionBucket,
+} from "./session.ts";
 
 Deno.test("etParts extracts ET weekday+date", () => {
   // 2026-07-23 15:00 UTC = 11:00 ET (EDT summer)
@@ -76,6 +79,57 @@ Deno.test("resolveAnalysisSession uses last completed session on weekend", async
     assertEquals(r.session.presentation, "last_completed");
     assertEquals(r.session.session_date, "2026-09-25");
     assert(r.session.session_display_label.includes("Sep 25"));
+  }
+});
+
+Deno.test("inferLastCompletedSessionDate skips weekends, holidays, and pre-04:00", () => {
+  assertEquals(inferLastCompletedSessionDate(new Date("2026-10-03T16:00:00Z")), "2026-10-02");
+  assertEquals(inferLastCompletedSessionDate(new Date("2026-10-04T18:00:00Z")), "2026-10-02");
+  assertEquals(inferLastCompletedSessionDate(new Date("2026-10-05T07:00:00Z")), "2026-10-02");
+  assertEquals(inferLastCompletedSessionDate(new Date("2026-09-07T18:00:00Z")), "2026-09-04");
+  assertEquals(inferLastCompletedSessionDate(new Date("2026-09-08T07:00:00Z")), "2026-09-04");
+  assertEquals(inferLastCompletedSessionDate(new Date("2026-10-05T08:15:00Z")), "2026-10-05");
+  assertEquals(inferLastCompletedSessionDate(new Date("2026-10-06T00:30:00Z")), "2026-10-05");
+});
+
+Deno.test("resolveAnalysisSession uses Friday when Monday is a holiday", async () => {
+  let called = false;
+  const r = await resolveAnalysisSession(new Date("2026-09-07T18:00:00Z"), {
+    fetchNow: () => {
+      called = true;
+      return Promise.resolve({});
+    },
+    fetchUpcoming: () => Promise.resolve([]),
+  });
+  assertEquals(called, false);
+  assert(r.ok);
+  if (r.ok) {
+    assertEquals(r.session.presentation, "last_completed");
+    assertEquals(r.session.session_date, "2026-09-04");
+  }
+});
+
+Deno.test("watchlist minute buckets do not double-count 09:30 or 16:00", () => {
+  assertEquals(watchlistSessionBucket(3 * 60 + 59), "closed");
+  assertEquals(watchlistSessionBucket(4 * 60), "premarket");
+  assertEquals(watchlistSessionBucket(9 * 60 + 29), "premarket");
+  assertEquals(watchlistSessionBucket(9 * 60 + 30), "rth");
+  assertEquals(watchlistSessionBucket(15 * 60 + 59), "rth");
+  assertEquals(watchlistSessionBucket(16 * 60), "postclose");
+  assertEquals(watchlistSessionBucket(19 * 60 + 59), "postclose");
+  assertEquals(watchlistSessionBucket(20 * 60), "closed");
+});
+
+Deno.test("static early close is postclose after 13:00 ET when the provider lists no exception", async () => {
+  const r = await resolveSession(new Date("2026-11-27T19:00:00Z"), {
+    fetchNow: () => Promise.resolve({ serverTime: "2026-11-27T14:00:00-05:00" }),
+    fetchUpcoming: () => Promise.resolve([]),
+  });
+  assert(r.ok);
+  if (r.ok) {
+    assertEquals(r.session_type, "postclose");
+    assertEquals(r.early_close_minutes, 780);
+    assertEquals(r.session_date, "2026-11-27");
   }
 });
 

@@ -17,6 +17,8 @@ import {
   vwapDistance,
   type WatchlistDensity,
 } from "@/lib/watchlist-v2/metrics";
+import { presentWatchlistMarketSignal } from "@/lib/watchlist-v2/market-signal-summary";
+import { tickerToSlug } from "@/lib/ticker-utils";
 import { V2IntradayChart } from "./V2IntradayChart";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -27,6 +29,7 @@ import {
   BookOpen,
   Flame,
   LineChart,
+  Radar,
   RefreshCw,
   Trash2,
   ChevronDown,
@@ -206,10 +209,33 @@ export function WatchlistRowV2({
   })();
   const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
   const latestEvent = row.recentEvents[0] ?? null;
-  const verifiedEvent = row.verifiedRecentEvent;
+  const verifiedRadar =
+    row.verifiedRecentEvent?.kind === "radar" && row.verifiedRecentEvent.title.trim()
+      ? row.verifiedRecentEvent
+      : null;
   const displaySessionLabel =
     row.sessionDisplayLabel.trim() || sessionLabel(row.sessionType);
-  const marketSignalLabel = row.marketSignalSummary?.label ?? null;
+  const presentedSignal = presentWatchlistMarketSignal(row.marketSignalSummary, marketDataTrust);
+  const marketSignalLabel = presentedSignal?.label ?? null;
+  const closedSession = row.analysisPresentation === "last_completed" || marketDataTrust === "CLOSED";
+  const highLabel =
+    row.keyLevels.hod_lod_scope === "premarket"
+      ? "Premarket high"
+      : row.keyLevels.hod_lod_scope === "rth"
+        ? "Regular-session high"
+        : "Session high";
+  const lowLabel =
+    row.keyLevels.hod_lod_scope === "premarket"
+      ? "Premarket low"
+      : row.keyLevels.hod_lod_scope === "rth"
+        ? "Regular-session low"
+        : "Session low";
+  const vwapLabel =
+    row.keyLevels.vwap_scope === "rth"
+      ? "Regular-session VWAP"
+      : row.keyLevels.vwap_scope === "session_to_date"
+        ? "Session VWAP"
+        : "VWAP";
   const participationState =
     row.scannerIntelligence &&
     typeof row.scannerIntelligence === "object" &&
@@ -234,6 +260,7 @@ export function WatchlistRowV2({
 
   const rvolStatus = (() => {
     const r = row.inputsQuality.rvol;
+    if (closedSession) return "Not applicable";
     if (row.rvol !== null) return null;
     if (r === "not_applicable_session") return "Not applicable";
     if (r === "no_baseline" || r === "baseline_invalid" || r === "baseline_incompatible") {
@@ -244,6 +271,18 @@ export function WatchlistRowV2({
   })();
 
   const earningsUrgent = earnings?.kind === "upcoming";
+  const levelRows: Array<[string, number | null]> = [
+    [vwapLabel, row.keyLevels.vwap],
+    [highLabel, row.keyLevels.hod],
+    [lowLabel, row.keyLevels.lod],
+  ];
+  if (row.keyLevels.hod_lod_scope !== "premarket") {
+    levelRows.push(
+      ["Premarket high", row.keyLevels.premarket_high],
+      ["Premarket low", row.keyLevels.premarket_low],
+    );
+  }
+  levelRows.push(["Prior close", row.keyLevels.prior_close]);
 
   return (
     <div
@@ -269,8 +308,8 @@ export function WatchlistRowV2({
         <div className="min-w-0 flex items-start justify-between gap-2 lg:block">
           <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <Link
-                to={`/stocks/${row.ticker.toLowerCase()}`}
+                <Link
+                to={`/stocks/${tickerToSlug(row.ticker)}`}
                 className={cn(
                   "font-semibold tracking-wide hover:underline text-slate-900 dark:text-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 rounded-sm",
                   tokens.tickerClass,
@@ -285,9 +324,13 @@ export function WatchlistRowV2({
                 <Badge
                   variant="secondary"
                   className="text-[10px] h-5 font-medium"
-                  title={`Market Signal · ${row.marketSignalSummary?.rule_id ?? ""}`}
+                  title={
+                    presentedSignal?.scope === "last_completed"
+                      ? `Last completed session · ${presentedSignal.rule_id}`
+                      : `Market Signal · ${presentedSignal?.rule_id ?? ""}`
+                  }
                 >
-                  {marketSignalLabel}
+                  {presentedSignal?.scope === "last_completed" ? `${marketSignalLabel} · last session` : marketSignalLabel}
                 </Badge>
               )}
               {earnings && (
@@ -302,9 +345,14 @@ export function WatchlistRowV2({
                   {earnings.label}
                 </span>
               )}
+              {verifiedRadar && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-50 text-slate-700 border border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-600">
+                  Radar
+                </span>
+              )}
               {!earnings && latestEvent && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-50 text-cyan-900 border border-cyan-200 dark:bg-cyan-950/30 dark:text-cyan-300 dark:border-cyan-800">
-                  Catalyst
+                  News
                 </span>
               )}
             </div>
@@ -414,13 +462,15 @@ export function WatchlistRowV2({
                 {row.volYdayRatio === null ? "—" : `${row.volYdayRatio.toFixed(2)}×`}
               </div>
               <div>
-                TARVOL {tarvol === null ? "—" : tarvol.toFixed(2)}
+                {closedSession ? "Last session TARVOL" : "TARVOL"}{" "}
+                {tarvol === null ? "—" : tarvol.toFixed(2)}
                 {" · "}
-                Participation {participationState ?? "—"}
+                {closedSession ? "Last session participation" : "Participation"}{" "}
+                {participationState ?? (closedSession ? "not current" : "—")}
               </div>
             </div>
           )}
-          {row.rvol !== null ? (
+            {row.rvol !== null && !closedSession ? (
             <div className="mt-1">
               <div className="flex items-center gap-1.5">
                 <span className="text-[10px] text-slate-500 dark:text-slate-400">RVOL</span>
@@ -551,7 +601,20 @@ export function WatchlistRowV2({
 
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-              Verified Recent Event
+              Verified Radar
+            </div>
+            {!verifiedRadar ? (
+              <div className="text-xs text-muted-foreground mb-3">No verified Radar event</div>
+            ) : (
+              <div className="mb-3">
+                <div className="text-sm font-medium">{verifiedRadar.title}</div>
+                <div className="text-[11px] text-muted-foreground mt-1 tabular-nums">
+                  Stored Radar event{verifiedRadar.at ? ` · ${formatRelative(verifiedRadar.at)}` : ""}
+                </div>
+              </div>
+            )}
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+              Verified company event
             </div>
             {!latestEvent ? (
               <div className="text-xs text-muted-foreground">No qualifying recent event</div>
@@ -593,16 +656,7 @@ export function WatchlistRowV2({
               Objective Key Levels
             </div>
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
-              {(
-                [
-                  ["VWAP", row.keyLevels.vwap],
-                  ["HOD", row.keyLevels.hod],
-                  ["LOD", row.keyLevels.lod],
-                  ["PM High", row.keyLevels.premarket_high],
-                  ["PM Low", row.keyLevels.premarket_low],
-                  ["Prior Close", row.keyLevels.prior_close],
-                ] as const
-              ).map(([label, v]) => (
+              {levelRows.map(([label, v]) => (
                 <div key={label} className="flex justify-between">
                   <dt className={cn("text-muted-foreground", label === "VWAP" && "text-cyan-800 dark:text-cyan-300/90")}>
                     {label}
@@ -611,6 +665,14 @@ export function WatchlistRowV2({
                 </div>
               ))}
             </dl>
+            {!isUnavailable && row.explanation.trim() && (
+              <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-700/60">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-1">
+                  Analysis
+                </div>
+                <p className="text-xs text-slate-700 dark:text-slate-200 leading-relaxed">{row.explanation}</p>
+              </div>
+            )}
             {row.rvol === null && (
               <div className="text-[11px] text-muted-foreground mt-2">
                 {rvolStatus === "Not applicable"
@@ -655,18 +717,23 @@ export function WatchlistRowV2({
           {/* Workflow actions — primary on mobile live in drawer when dense */}
           <div className="md:col-span-3 flex flex-wrap gap-2 pt-2 border-t border-slate-200 dark:border-slate-700/60">
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/ai?symbol=${row.ticker}`}>
+              <Link to={`/dashboard/ai?symbol=${encodeURIComponent(row.ticker)}`}>
                 <BrainCircuit className="h-3.5 w-3.5 mr-1.5" /> AI Analyst
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/catalyst?symbol=${row.ticker}`}>
+              <Link to={`/dashboard/catalyst?symbol=${encodeURIComponent(row.ticker)}`}>
                 <Flame className="h-3.5 w-3.5 mr-1.5" /> Catalyst
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/dashboard/journal?symbol=${row.ticker}`}>
+              <Link to={`/dashboard/journal?symbol=${encodeURIComponent(row.ticker)}`}>
                 <BookOpen className="h-3.5 w-3.5 mr-1.5" /> Journal
+              </Link>
+            </Button>
+            <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
+              <Link to={`/dashboard/screeners?symbol=${encodeURIComponent(row.ticker)}`}>
+                <Radar className="h-3.5 w-3.5 mr-1.5" /> Screeners
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
@@ -675,12 +742,12 @@ export function WatchlistRowV2({
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/chart/${row.ticker}`}>
+              <Link to={`/chart/${encodeURIComponent(row.ticker)}`}>
                 <LineChart className="h-3.5 w-3.5 mr-1.5" /> Chart
               </Link>
             </Button>
             <Button asChild size="sm" variant="outline" className="h-8 text-xs min-h-8">
-              <Link to={`/stocks/${row.ticker.toLowerCase()}`}>
+              <Link to={`/stocks/${tickerToSlug(row.ticker)}`}>
                 <BarChart3 className="h-3.5 w-3.5 mr-1.5" /> Stock page
               </Link>
             </Button>

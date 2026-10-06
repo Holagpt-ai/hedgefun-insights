@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { deriveWatchlistMarketSignalSummary } from "@/lib/watchlist-v2/market-signal-summary";
+import { deriveWatchlistMarketSignalSummary, presentWatchlistMarketSignal } from "@/lib/watchlist-v2/market-signal-summary";
 import { parseInputsQuality, parseIntradayBars } from "@/lib/watchlist-v2/parsers";
 
 describe("Watchlist V2 completion", () => {
@@ -45,6 +45,32 @@ describe("Watchlist V2 completion", () => {
         participation_state: "SURGING",
       }).label,
     ).toBe("MOMENTUM");
+  });
+
+  it("stale inputs cannot produce a live market signal", () => {
+    expect(
+      deriveWatchlistMarketSignalSummary({
+        direction: "bullish",
+        change_pct: 8,
+        price: 10,
+        rvol_class: "unusual",
+        signal_ids: ["price_above_vwap"],
+        participation_state: "SURGING",
+        data_usable: false,
+      }),
+    ).toEqual({ label: "UNAVAILABLE", rule_id: "unavailable_untrustworthy_inputs" });
+    expect(
+      presentWatchlistMarketSignal(
+        { label: "MOMENTUM", rule_id: "participation_or_volume_momentum" },
+        "STALE",
+      ),
+    ).toBeNull();
+    expect(
+      presentWatchlistMarketSignal(
+        { label: "MOMENTUM", rule_id: "participation_or_volume_momentum" },
+        "CLOSED",
+      )?.scope,
+    ).toBe("last_completed");
   });
 
   it("market signal rules — bearish direction", () => {

@@ -1,6 +1,20 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { deriveWatchlistMarketSignalSummary } from "./market-signal-summary.ts";
 
+Deno.test("market signal unavailable when inputs are not trustworthy", () => {
+  const s = deriveWatchlistMarketSignalSummary({
+    direction: "bullish",
+    change_pct: 6,
+    price: 10,
+    rvol_class: "unusual",
+    market_signals: [],
+    radar_context: null,
+    data_usable: false,
+  });
+  assertEquals(s.label, "UNAVAILABLE");
+  assertEquals(s.rule_id, "unavailable_untrustworthy_inputs");
+});
+
 Deno.test("market signal unavailable without price", () => {
   const s = deriveWatchlistMarketSignalSummary({
     direction: "data_unavailable",

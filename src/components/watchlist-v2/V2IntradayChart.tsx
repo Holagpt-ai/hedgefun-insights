@@ -77,12 +77,13 @@ export function V2IntradayChart({
   }, [bars, height, vwap, priorClose]);
 
   if (!chart) {
+    const empty = bars.length === 0;
     return (
       <div
-        className={`flex items-center justify-center text-[10px] text-muted-foreground ${className}`}
+        className={`flex items-center justify-center text-[10px] text-muted-foreground text-center px-1 ${className}`}
         style={{ height }}
       >
-        Chart unavailable
+        {empty ? "No intraday bars for this session" : "Not enough bars for a chart"}
       </div>
     );
   }

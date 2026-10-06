@@ -18,6 +18,11 @@ import {
 } from "../_shared/watchlist-v2/contract.ts";
 import { resolveAnalysisSession, type MarketStatusFetcher } from "../_shared/watchlist-v2/session.ts";
 import {
+  classifyEmptyIntradayBars,
+  intradayRequestDiagnostic,
+} from "../_shared/watchlist-v2/intraday-diagnostics.ts";
+import { polygonEquityTicker } from "../_shared/markets/polygon-symbol.ts";
+import {
   assessSnapshot,
   snapshotQualityForAnalysis, computeBasis, fetchWithOutcome, normalizeBars, STALE_MS,
   type ProviderFailureKind, type ProviderTransportFailure,
@@ -561,11 +566,12 @@ export async function handleRequest(req: Request): Promise<Response> {
   }
 
   // Step 7: fetch providers
-  const snapshotUrl = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${polygonKey}`;
-  const barsUrl = `https://api.polygon.io/v2/aggs/ticker/${ticker}/range/1/minute/${sessionDate}/${sessionDate}?adjusted=true&sort=asc&limit=5000&apiKey=${polygonKey}`;
+  const providerTicker = polygonEquityTicker(ticker) ?? ticker;
+  const snapshotUrl = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/${encodeURIComponent(providerTicker)}?apiKey=${polygonKey}`;
+  const barsUrl = `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(providerTicker)}/range/1/minute/${sessionDate}/${sessionDate}?adjusted=true&sort=asc&limit=5000&apiKey=${polygonKey}`;
   const newsFrom = new Date(analyzedAtMs - 48 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const newsTo = analyzedAtIso.slice(0, 10);
-  const newsUrl = `https://finnhub.io/api/v1/company-news?symbol=${ticker}&from=${newsFrom}&to=${newsTo}&token=${finnhubKey}`;
+  const newsUrl = `https://finnhub.io/api/v1/company-news?symbol=${encodeURIComponent(providerTicker)}&from=${newsFrom}&to=${newsTo}&token=${finnhubKey}`;
 
   const [snapshotR, barsR, newsR, stockNameRes] = await Promise.all([
     fetchWithOutcome(snapshotUrl, 8000),
@@ -662,7 +668,31 @@ export async function handleRequest(req: Request): Promise<Response> {
   else if (bars.length < MIN_BARS_FOR_AI) barsQuality = "insufficient";
   else barsQuality = "ok";
 
+  const emptyReason = classifyEmptyIntradayBars({
+    presentation: analysisPresentation,
+    sessionType,
+    etMinutes: sessionEtNowMinutes,
+    rawCount: rawBarsCount,
+    keptCount: bars.length,
+    providerOk: barsR.kind === "ok",
+    providerDelayed: false,
+  });
+  const intradayDiagnostic = intradayRequestDiagnostic({
+    symbol: providerTicker,
+    sessionType,
+    sessionDate,
+    presentation: analysisPresentation,
+    providerStatus: barsR.kind === "ok" ? "ok" : barsR.kind,
+    barsReturned: bars.length,
+    cacheState: "none",
+    reason: emptyReason ?? "ok",
+  });
+  if (bars.length === 0) {
+    console.info(JSON.stringify({ event: "wl_v2_intraday", ...intradayDiagnostic }));
+  }
+
   const reasonCodes: string[] = [];
+  if (emptyReason && emptyReason !== "SESSION_CLOSED_USE_PRIOR") reasonCodes.push(emptyReason);
   if (newsR.kind === "transport_failure") reasonCodes.push(`news_${newsR.code.toLowerCase()}`);
   const radarContext = await fetchRadarScannerContext(supabase as unknown as Parameters<typeof fetchRadarScannerContext>[0], ticker, sessionDate);
   reasonCodes.push(...radarContextReasonCodes(radarContext));
@@ -997,6 +1027,7 @@ export async function handleRequest(req: Request): Promise<Response> {
     rvol_class: rvolRes.rvol_class,
     market_signals: sanitized.marketSignals,
     radar_context: radarContext,
+    data_usable: snapshotQuality === "ok",
   });
   inputsQuality.verified_recent_event = (() => {
     if (radarContext?.promotion_primary_event) {

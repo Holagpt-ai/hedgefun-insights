@@ -369,7 +369,17 @@ export function useWatchlistV2() {
     },
   });
 
-  const refresh = useCallback((ticker: string) => refreshMutation.mutate(ticker), [refreshMutation]);
+  const refresh = useCallback((ticker: string) => {
+    const upper = ticker.toUpperCase();
+    if (
+      refreshMutation.isPending &&
+      typeof refreshMutation.variables === "string" &&
+      refreshMutation.variables.toUpperCase() === upper
+    ) {
+      return;
+    }
+    refreshMutation.mutate(upper);
+  }, [refreshMutation]);
   const addSymbol = useCallback((s: string) => addMutation.mutate(s), [addMutation]);
   const removeSymbol = useCallback((s: string) => removeMutation.mutate(s), [removeMutation]);
 

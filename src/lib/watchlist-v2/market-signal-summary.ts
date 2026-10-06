@@ -50,7 +50,11 @@ export type MarketSignalSummaryInput = {
   rvol_class: RvolClass | null;
   signal_ids: string[];
   participation_state: string | null;
+  /** False when the snapshot/bars are stale, missing, or malformed. */
+  data_usable?: boolean;
 };
+
+export type WatchlistSignalTrust = "FRESH" | "DELAYED" | "STALE" | "UNAVAILABLE" | "CLOSED";
 
 function hasSignal(id: string, ids: string[]): boolean {
   return ids.includes(id);
@@ -59,6 +63,9 @@ function hasSignal(id: string, ids: string[]): boolean {
 export function deriveWatchlistMarketSignalSummary(
   input: MarketSignalSummaryInput,
 ): WatchlistMarketSignalSummary {
+  if (input.data_usable === false) {
+    return { label: "UNAVAILABLE", rule_id: "unavailable_untrustworthy_inputs" };
+  }
   if (input.direction === "data_unavailable" || input.price === null) {
     return { label: "UNAVAILABLE", rule_id: "unavailable_no_price" };
   }
@@ -95,4 +102,21 @@ export function deriveWatchlistMarketSignalSummary(
   }
 
   return { label: "NEUTRAL", rule_id: "neutral_default" };
+}
+
+/**
+ * Stored rollup is hidden when the current trust state is stale or unavailable.
+ * CLOSED keeps the last completed session's label and marks that scope.
+ */
+export function presentWatchlistMarketSignal(
+  summary: { label: string; rule_id: string } | null | undefined,
+  trust: WatchlistSignalTrust,
+): { label: string; rule_id: string; scope: "live" | "last_completed" } | null {
+  if (!summary || !summary.label || summary.label === "UNAVAILABLE") return null;
+  if (trust === "STALE" || trust === "UNAVAILABLE") return null;
+  return {
+    label: summary.label,
+    rule_id: summary.rule_id,
+    scope: trust === "CLOSED" ? "last_completed" : "live",
+  };
 }

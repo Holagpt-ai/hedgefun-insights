@@ -4,6 +4,14 @@
 
 import type { SessionType } from "./contract.ts";
 import { sanitize } from "./sanitize.ts";
+import {
+  isMarketHoliday,
+  lastTradingDateOnOrBeforeIso,
+  MARKET_EARLY_CLOSES,
+  previousTradingDay,
+  weekdayOfIsoDate,
+  isTradingDay,
+} from "../markets/next-trading-day.ts";
 
 export interface EtParts {
   date: string;      // YYYY-MM-DD (ET)
@@ -115,7 +123,7 @@ export async function resolveSession(
 ): Promise<SessionResolution> {
   const et = etParts(now);
 
-  if (isWeekend(et.weekday)) {
+  if (isWeekend(et.weekday) || isMarketHoliday(et.date)) {
     return { ok: false, reason: "NON_TRADING_DAY" };
   }
 
@@ -143,6 +151,9 @@ export async function resolveSession(
   if (cls.kind === "full_holiday") return { ok: false, reason: "NON_TRADING_DAY" };
 
   let earlyCloseMinutes: number | null = null;
+  if (cls.kind === "normal" && MARKET_EARLY_CLOSES[et.date] !== undefined) {
+    earlyCloseMinutes = MARKET_EARLY_CLOSES[et.date];
+  }
   if (cls.kind === "early_close") {
     const closeMs = Date.parse(cls.closeIso);
     if (!Number.isFinite(closeMs)) return { ok: false, reason: "SESSION_UNRESOLVED" };
@@ -192,32 +203,40 @@ export function formatShortSessionDate(ymd: string): string {
   return `${mon} ${day}`;
 }
 
-/** Walk back calendar days (ET date strings) skipping Sat/Sun. */
+/**
+ * Last equity session on or before the ET calendar date of `reference`.
+ * Skips weekends and the static holiday set. Date walk is UTC-noon, not
+ * "now minus 24 hours", so a DST transition cannot skip a session.
+ */
 export function lastTradingDateOnOrBefore(reference: Date, includeReferenceDay: boolean): string {
-  let cursor = new Date(reference.getTime());
-  if (!includeReferenceDay) {
-    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
-  }
-  for (let i = 0; i < 12; i++) {
-    const et = etParts(cursor);
-    if (!isWeekend(et.weekday)) return et.date;
-    cursor = new Date(cursor.getTime() - 24 * 60 * 60 * 1000);
-  }
-  return etParts(reference).date;
+  return lastTradingDateOnOrBeforeIso(etParts(reference).date, includeReferenceDay);
 }
 
+/**
+ * Date whose minute bars should be requested when the live window is closed.
+ * A trading day at or after 04:00 ET — including after 20:00 — keeps that date.
+ * Weekends, holidays, and the overnight window before 04:00 ET walk to the
+ * previous real session.
+ */
 export function inferLastCompletedSessionDate(now: Date): string {
   const et = etParts(now);
-  if (isWeekend(et.weekday)) {
-    return lastTradingDateOnOrBefore(now, false);
-  }
-  if (et.minutes < 4 * 60) {
-    return lastTradingDateOnOrBefore(now, false);
-  }
-  if (et.minutes >= 20 * 60) {
-    return et.date;
-  }
-  return lastTradingDateOnOrBefore(now, false);
+  const weekday = weekdayOfIsoDate(et.date);
+  const trading = weekday !== null && isTradingDay(et.date, weekday);
+  if (!trading || et.minutes < 4 * 60) return previousTradingDay(et.date).date;
+  return et.date;
+}
+
+/**
+ * Watchlist minute buckets. Seconds are truncated by {@link etParts}.
+ * 04:00 inclusive pre-market, 09:30 inclusive regular, 16:00 inclusive after-hours,
+ * 20:00 exclusive closed. This is coarser than the millisecond Radar clock,
+ * which treats 16:00:00.000 as still inside regular hours.
+ */
+export function watchlistSessionBucket(minutes: number): "closed" | "premarket" | "rth" | "postclose" {
+  if (!Number.isFinite(minutes) || minutes < 4 * 60 || minutes >= 20 * 60) return "closed";
+  if (minutes < 9 * 60 + 30) return "premarket";
+  if (minutes < 16 * 60) return "rth";
+  return "postclose";
 }
 
 export type AnalysisSessionResolution =
