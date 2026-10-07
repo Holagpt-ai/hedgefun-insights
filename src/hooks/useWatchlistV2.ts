@@ -313,6 +313,8 @@ export function useWatchlistV2() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["watchlist-v2", "analysis"] });
+    },
+    onSettled: () => {
       qc.invalidateQueries({ queryKey: ["watchlist-v2", "requests"] });
     },
     onError: (err: unknown) => {

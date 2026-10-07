@@ -4,6 +4,11 @@ import { Button } from "@/components/ui/button";
 import { workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import { usePaperTraderDashboard } from "@/hooks/usePaperTraderDashboard";
 import type { ExecutionMode } from "@/lib/execution/execution-mode";
+import {
+  formatOpportunityIntelLine,
+  formatRejectionSummary,
+} from "@/features/ai-trader/opportunity-display";
+import type { ShadowOpportunityRecord } from "@/lib/execution/shadow/shadow-opportunity";
 
 function fmtMoney(n: number): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -42,6 +47,57 @@ function SymbolLinks({ symbol }: { symbol: string }) {
 function modeLabel(mode: ExecutionMode): string {
   if (mode === "paper") return "PAPER MODE";
   return "OBSERVE MODE";
+}
+
+function modeHint(mode: ExecutionMode, executionEnabled: boolean): string {
+  if (mode === "observe") {
+    return "Observe mode logs radar opportunities and risk decisions without entering paper trades.";
+  }
+  if (!executionEnabled) {
+    return "Paper mode is selected — turn the paper engine on to simulate entries when signals pass risk.";
+  }
+  return "Paper mode is active — approved signals can create simulated positions (live broker remains disabled).";
+}
+
+function OpportunityMobileCard({ row }: { row: ShadowOpportunityRecord }) {
+  const move = row.signal.metadata?.move_pct as number | null | undefined;
+  const intel = formatOpportunityIntelLine(row.signal);
+  const risk = formatRejectionSummary(row.rejectionReasons);
+  return (
+    <div className="rounded-md border border-border/70 p-3 space-y-2 text-xs">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <div className="font-semibold text-sm">{row.signal.symbol}</div>
+          <div className="text-muted-foreground truncate max-w-[220px]" title={row.signal.thesisSummary ?? undefined}>
+            {row.signal.eventType ?? row.signal.thesisSummary ?? "—"}
+          </div>
+        </div>
+        <div className="text-right tabular-nums">
+          <div>{row.signal.triggerPrice.toFixed(2)}</div>
+          <div className={move != null && move >= 0 ? "text-emerald-600" : "text-red-600"}>{fmtPct(move ?? null)}</div>
+        </div>
+      </div>
+      <p className="text-muted-foreground leading-snug">{intel}</p>
+      <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-muted-foreground">
+        <span>Vol / RVOL</span>
+        <span className="text-foreground tabular-nums">
+          {row.signal.volume?.toLocaleString() ?? "—"} / {row.signal.rvol?.toFixed(1) ?? "—"}
+        </span>
+        <span>Stop / target</span>
+        <span className="text-foreground tabular-nums">
+          {row.plan.stopLossPrice?.toFixed(2) ?? "—"} / {row.plan.profitTargetPrice?.toFixed(2) ?? "—"}
+        </span>
+        <span>Risk</span>
+        <span className="text-foreground">{risk}</span>
+        <span>Paper</span>
+        <span className="text-foreground">{row.status}</span>
+      </div>
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <span className="text-muted-foreground">{fmtTime(row.signal.signalAt)}</span>
+        <SymbolLinks symbol={row.signal.symbol} />
+      </div>
+    </div>
+  );
 }
 
 export function PaperAiTraderDashboard() {
@@ -93,8 +149,11 @@ export function PaperAiTraderDashboard() {
           <p className="text-xs text-muted-foreground mt-0.5">
             Radar feed: {screenerStatus === "available" ? "connected" : screenerStatus}
           </p>
+          <p className="text-xs text-muted-foreground mt-2 rounded-md border border-border/60 bg-muted/30 px-2 py-1.5 max-w-2xl">
+            {modeHint(mode, executionEnabled)}
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           <Button variant={mode === "observe" ? "default" : "outline"} size="sm" onClick={() => setMode("observe")}>
             Observe
           </Button>
@@ -134,16 +193,26 @@ export function PaperAiTraderDashboard() {
       <div className="grid lg:grid-cols-3 gap-4">
         <section className="lg:col-span-2 rounded-lg border border-border bg-surface-card p-4 space-y-3">
           <h2 className="text-sm font-semibold">Opportunities</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs min-w-[720px]">
+          {shadows.length === 0 && (
+            <p className="text-xs text-muted-foreground py-2">
+              No opportunities yet. Waiting for Day Trade Radar signals.
+            </p>
+          )}
+          <div className="md:hidden space-y-2">
+            {shadows.map((row) => (
+              <OpportunityMobileCard key={row.recordedAt + row.signal.id} row={row} />
+            ))}
+          </div>
+          <div className="hidden md:block overflow-x-auto -mx-1 px-1">
+            <table className="w-full text-xs min-w-[860px]">
               <thead>
                 <tr className="text-muted-foreground text-left">
                   <th className="py-1 pr-2">Symbol</th>
-                  <th className="py-1 pr-2">Setup</th>
+                  <th className="py-1 pr-2">Setup / intel</th>
                   <th className="py-1 pr-2">Price</th>
                   <th className="py-1 pr-2">Move</th>
                   <th className="py-1 pr-2">Vol / RVOL</th>
-                  <th className="py-1 pr-2">Entry / stop / tgt</th>
+                  <th className="py-1 pr-2">Stop / target</th>
                   <th className="py-1 pr-2">Risk</th>
                   <th className="py-1 pr-2">Paper</th>
                   <th className="py-1 pr-2">Time</th>
@@ -151,35 +220,32 @@ export function PaperAiTraderDashboard() {
                 </tr>
               </thead>
               <tbody>
-                {shadows.length === 0 && (
-                  <tr>
-                    <td colSpan={10} className="py-4 text-muted-foreground">
-                      No opportunities yet. Waiting for Day Trade Radar signals.
-                    </td>
-                  </tr>
-                )}
                 {shadows.map((row) => {
                   const move = row.signal.metadata?.move_pct as number | null | undefined;
-                  const approved = row.rejectionReasons.length === 0;
+                  const intel = formatOpportunityIntelLine(row.signal);
+                  const risk = formatRejectionSummary(row.rejectionReasons);
                   return (
-                    <tr key={row.recordedAt + row.signal.id} className="border-t border-border/60">
+                    <tr key={row.recordedAt + row.signal.id} className="border-t border-border/60 align-top">
                       <td className="py-2 pr-2 font-medium">{row.signal.symbol}</td>
-                      <td className="py-2 pr-2 max-w-[140px] truncate" title={row.signal.thesisSummary ?? undefined}>
-                        {row.signal.eventType ?? row.signal.thesisSummary ?? "—"}
+                      <td className="py-2 pr-2 max-w-[220px]">
+                        <div className="truncate" title={row.signal.thesisSummary ?? undefined}>
+                          {row.signal.eventType ?? row.signal.thesisSummary ?? "—"}
+                        </div>
+                        <div className="text-[10px] text-muted-foreground mt-0.5 leading-snug">{intel}</div>
                       </td>
-                      <td className="py-2 pr-2">{row.signal.triggerPrice.toFixed(2)}</td>
-                      <td className="py-2 pr-2">{fmtPct(move ?? null)}</td>
-                      <td className="py-2 pr-2">
+                      <td className="py-2 pr-2 tabular-nums">{row.signal.triggerPrice.toFixed(2)}</td>
+                      <td className="py-2 pr-2 tabular-nums">{fmtPct(move ?? null)}</td>
+                      <td className="py-2 pr-2 tabular-nums">
                         {row.signal.volume?.toLocaleString() ?? "—"} / {row.signal.rvol?.toFixed(1) ?? "—"}
                       </td>
-                      <td className="py-2 pr-2">
-                        {row.plan.stopLossPrice?.toFixed(2)} / {row.plan.profitTargetPrice?.toFixed(2)}
+                      <td className="py-2 pr-2 tabular-nums">
+                        {row.plan.stopLossPrice?.toFixed(2) ?? "—"} / {row.plan.profitTargetPrice?.toFixed(2) ?? "—"}
                       </td>
-                      <td className="py-2 pr-2" title={row.rejectionReasons.join(", ") || "Approved"}>
-                        {approved ? "APPROVED" : row.rejectionReasons.join(", ")}
+                      <td className="py-2 pr-2 max-w-[160px]" title={risk}>
+                        <span className="line-clamp-2">{risk}</span>
                       </td>
                       <td className="py-2 pr-2">{row.status}</td>
-                      <td className="py-2 pr-2">{fmtTime(row.signal.signalAt)}</td>
+                      <td className="py-2 pr-2 whitespace-nowrap">{fmtTime(row.signal.signalAt)}</td>
                       <td className="py-2"><SymbolLinks symbol={row.signal.symbol} /></td>
                     </tr>
                   );

@@ -15,16 +15,16 @@ describe("PaperAiTraderDashboard", () => {
     expect(screen.getByText(/Paper equity/i)).toBeInTheDocument();
   });
 
-  it("shows paper status and symbol workflow links after demo signal", async () => {
+  it("explains observe vs paper mode and toggles paper engine", () => {
     render(
       <MemoryRouter>
         <PaperAiTraderDashboard />
       </MemoryRouter>,
     );
+    expect(screen.getByText(/Observe mode logs radar opportunities/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /^Paper$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Execution OFF/i }));
-    fireEvent.click(screen.getByRole("button", { name: /Ingest demo signal/i }));
-    expect(await screen.findByText(/PAPER_ENTERED|REJECTED|OBSERVING/)).toBeInTheDocument();
-    expect(screen.getAllByRole("link", { name: /Catalyst/i }).length).toBeGreaterThan(0);
+    expect(screen.getByText(/turn the paper engine on/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Paper engine OFF/i }));
+    expect(screen.getByText(/Paper mode is active/i)).toBeInTheDocument();
   });
 });

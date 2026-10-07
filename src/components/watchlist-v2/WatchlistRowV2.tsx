@@ -202,6 +202,7 @@ export function WatchlistRowV2({
   );
 
   const statusLine = (() => {
+    if (isRefreshing) return { text: "Updating analysis…", tone: "text-amber-700 dark:text-amber-400" };
     if (row.requestStatus === "pending") return { text: "Analysis pending", tone: "text-amber-700 dark:text-amber-400" };
     if (row.requestStatus === "failed") return { text: "Update failed", tone: "text-red-600 dark:text-red-400" };
     if (!row.hasV2) return { text: "Awaiting first analysis", tone: "text-muted-foreground" };
