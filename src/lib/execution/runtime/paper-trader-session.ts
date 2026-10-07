@@ -124,7 +124,7 @@ export class PaperTraderSession {
       executionEnabled: this.executionEnabled,
       startingCash: this.ledger.snapshot().startingCash,
       account: this.getAccount(),
-      shadowRecords: this.shadowRecords.slice(0, 100).map((r) => ({
+      shadowRecords: this.shadowRecords.slice(0, 150).map((r) => ({
         ...r,
         rejectionReasons: [...r.rejectionReasons],
       })),
@@ -133,7 +133,7 @@ export class PaperTraderSession {
         ...a,
         semantics: [...a.semantics],
       })),
-      events: this.eventLog.getEvents().slice(-80).map((e) => ({
+      events: this.eventLog.getEvents().slice(-150).map((e) => ({
         ...e,
         reasonCodes: [...e.reasonCodes],
         payload: { ...e.payload },
@@ -313,6 +313,10 @@ export class PaperTraderSession {
 
   getRecentEvents(limit = 30) {
     return this.eventLog.getEvents().slice(-limit).reverse();
+  }
+
+  getAllEvents() {
+    return this.eventLog.getEvents();
   }
 
   private buildRiskContext(mode: ExecutionMode, executionEnabled: boolean) {

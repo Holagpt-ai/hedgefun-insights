@@ -9,6 +9,7 @@ import {
   formatRejectionSummary,
 } from "@/features/ai-trader/opportunity-display";
 import type { ShadowOpportunityRecord } from "@/lib/execution/shadow/shadow-opportunity";
+import { AiTraderSessionReview } from "@/features/ai-trader/AiTraderSessionReview";
 
 function fmtMoney(n: number): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -304,6 +305,8 @@ export function PaperAiTraderDashboard() {
           )}
         </section>
       </div>
+
+      <AiTraderSessionReview key={tick} session={session} />
 
       <section className="rounded-lg border border-border bg-surface-card p-4">
         <h2 className="text-sm font-semibold mb-2">Event feed</h2>

@@ -13,6 +13,7 @@ describe("PaperAiTraderDashboard", () => {
     expect(screen.getByRole("heading", { name: /AI Trader/i })).toBeInTheDocument();
     expect(screen.getByText(/Live trading disabled/i)).toBeInTheDocument();
     expect(screen.getByText(/Paper equity/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /Session review/i })).toBeInTheDocument();
   });
 
   it("explains observe vs paper mode and toggles paper engine", () => {
