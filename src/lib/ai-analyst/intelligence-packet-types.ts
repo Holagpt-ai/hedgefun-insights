@@ -66,6 +66,9 @@ export interface AnalystCatalystRow {
   title: string | null;
   publishedAt: string | null;
   verificationState: string;
+  sourceName?: string | null;
+  attributionClass?: "direct" | "provider_associated" | "sector_related" | "unverified";
+  tickerSpecific?: boolean;
 }
 
 export interface AnalystJournalRow {
@@ -113,6 +116,9 @@ export interface AnalystIntelligencePacket {
     dataHonesty: string;
     catalystAnswerMode?: "CURRENT_CATALYST_FIRST";
     catalystAnswerGuidance?: string;
+    volumeLanguageRule?: string;
+    personalizationRule?: string;
+    noSpeculationRule?: string;
   };
   /** Present when the user asked a why-is-it-moving style question. */
   CURRENT_CATALYST_ANALYSIS?: CurrentCatalystAnalysis;

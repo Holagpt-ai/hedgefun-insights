@@ -37,7 +37,7 @@ export async function fetchSymbolIntelligenceInputs(
     supabase.from("watchlist_analysis_v2").select("*").eq("ticker", symbol).maybeSingle(),
     supabase
       .from("catalyst_events")
-      .select("event_type, event_date, title, published_at, verification_state")
+      .select("event_type, event_date, title, published_at, verification_state, source_name")
       .eq("symbol", symbol)
       .eq("verification_state", "provider_reported")
       .order("published_at", { ascending: false })
@@ -66,6 +66,9 @@ export async function fetchSymbolIntelligenceInputs(
     title: r.title,
     publishedAt: r.published_at,
     verificationState: r.verification_state,
+    sourceName: r.source_name ?? null,
+    attributionClass: "direct",
+    tickerSpecific: true,
   }));
 
   const journalRows: AnalystJournalRow[] = (journalRes.data ?? []).map((r) => ({

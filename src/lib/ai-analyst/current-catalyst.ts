@@ -3,6 +3,12 @@ import {
   type CatalystPrecedenceInput,
 } from "@/lib/catalyst/precedence";
 import type { AnalystCatalystRow } from "@/lib/ai-analyst/intelligence-packet-types";
+import {
+  CURRENT_CATALYST_NO_SPECULATION,
+  CURRENT_CATALYST_PERSONALIZATION,
+  CURRENT_CATALYST_RESPONSE_SECTIONS,
+  CURRENT_CATALYST_VOLUME_LANGUAGE,
+} from "@/lib/ai-analyst/catalyst-response-rules";
 
 export interface RankedCurrentCatalyst {
   title: string;
@@ -12,6 +18,20 @@ export interface RankedCurrentCatalyst {
   tier: "primary" | "secondary";
   primaryClass: string | null;
   classRank: number;
+  evidenceType: string;
+  source: string;
+  confidence: "verified" | "secondary";
+}
+
+export interface CatalystEvidenceItem {
+  headline: string;
+  eventType: string;
+  eventDate: string | null;
+  publishedAt: string | null;
+  evidenceType: string;
+  source: string;
+  tier: "primary" | "secondary";
+  confidence: "verified" | "secondary";
 }
 
 export interface CurrentCatalystAnalysis {
@@ -19,9 +39,19 @@ export interface CurrentCatalystAnalysis {
   verifiedPrimary: boolean;
   primaryCatalyst: RankedCurrentCatalyst | null;
   secondaryCatalysts: RankedCurrentCatalyst[];
+  rankedEvidence: CatalystEvidenceItem[];
   explicitNoVerifiedCatalyst: boolean;
   answerGuidance: string;
+  responseSections: string;
+  volumeLanguageRule: string;
+  personalizationRule: string;
+  retrievalAttempted: boolean;
 }
+
+const ANALYST_ACTION_PRIMARY = /\b(?:upgrade[sd]?|downgrade[sd]?|initiat(?:es|ed)|raise[sd]?|lower[sd]?|cut[s]?)\b.{0,40}\b(?:price\s+target|pt|rating|to\s+(?:buy|sell|hold|overweight|underweight|neutral))\b/i;
+
+const SECTOR_WIDE_HEADLINE =
+  /\b(?:sector|stocks?|shares?|chip stocks|semiconductors?|ai stocks|tech stocks)\b/i;
 
 function toPrecedenceInput(row: AnalystCatalystRow): CatalystPrecedenceInput {
   return {
@@ -30,9 +60,25 @@ function toPrecedenceInput(row: AnalystCatalystRow): CatalystPrecedenceInput {
     provider: "stocksist_catalyst",
     event_date: row.eventDate ?? "",
     published_at: row.publishedAt,
-    attribution_class: "direct",
-    ticker_specific: true,
+    source_name: row.sourceName ?? null,
+    attribution_class: row.attributionClass ?? "direct",
+    ticker_specific: row.tickerSpecific ?? true,
   };
+}
+
+function isSectorWideHeadline(title: string, symbol: string): boolean {
+  const upper = title.toUpperCase();
+  const sym = symbol.toUpperCase();
+  if (upper.includes(sym)) return false;
+  return SECTOR_WIDE_HEADLINE.test(title);
+}
+
+function isAnalystActionPrimary(row: AnalystCatalystRow, symbol: string): boolean {
+  if (row.eventType !== "analyst_action") return false;
+  const title = row.title ?? "";
+  if (!ANALYST_ACTION_PRIMARY.test(title)) return false;
+  const upper = title.toUpperCase();
+  return upper.includes(symbol.toUpperCase()) || /\b(?:price target|rating|upgrade|downgrade)\b/i.test(title);
 }
 
 export function rankCurrentCatalysts(
@@ -42,7 +88,16 @@ export function rankCurrentCatalysts(
   const ranked = rows
     .map((row) => {
       const input = toPrecedenceInput(row);
-      const precedence = classifyCatalystPrecedence(input);
+      let precedence = classifyCatalystPrecedence(input);
+      if (isSectorWideHeadline(row.title ?? "", symbol)) {
+        precedence = {
+          ...precedence,
+          tier: "secondary",
+          primaryClass: null,
+          classRank: 0,
+          isMarketAttention: true,
+        };
+      }
       return {
         title: row.title ?? "",
         eventType: row.eventType,
@@ -53,11 +108,14 @@ export function rankCurrentCatalysts(
         classRank: precedence.classRank,
         isMarketAttention: precedence.isMarketAttention,
         freshness: Date.parse(row.publishedAt ?? row.eventDate ?? "") || 0,
+        evidenceType: row.eventType,
+        source: row.sourceName ?? "stocksist_catalyst",
+        confidence: precedence.tier === "primary" && precedence.classRank > 0 ? "verified" as const : "secondary" as const,
       };
     })
     .sort((a, b) => {
-      const tierA = a.tier === "primary" && !a.isMarketAttention ? 0 : 1;
-      const tierB = b.tier === "primary" && !b.isMarketAttention ? 0 : 1;
+      const tierA = a.tier === "primary" && !a.isMarketAttention && a.classRank > 0 ? 0 : 1;
+      const tierB = b.tier === "primary" && !b.isMarketAttention && b.classRank > 0 ? 0 : 1;
       if (tierA !== tierB) return tierA - tierB;
       if (a.classRank !== b.classRank) return b.classRank - a.classRank;
       if (a.freshness !== b.freshness) return b.freshness - a.freshness;
@@ -67,28 +125,71 @@ export function rankCurrentCatalysts(
   return ranked.map(({ isMarketAttention: _ignore, freshness: _f, ...rest }) => rest);
 }
 
+function selectPrimaryCatalyst(
+  symbol: string,
+  rows: AnalystCatalystRow[],
+  ranked: RankedCurrentCatalyst[],
+): RankedCurrentCatalyst | null {
+  const primary = ranked.find((r) => r.tier === "primary" && r.classRank > 0) ?? null;
+  if (primary) return primary;
+
+  const analystRow = rows.find((r) => isAnalystActionPrimary(r, symbol));
+  if (!analystRow) return null;
+
+  return {
+    title: analystRow.title ?? "",
+    eventType: analystRow.eventType,
+    eventDate: analystRow.eventDate,
+    publishedAt: analystRow.publishedAt,
+    tier: "primary",
+    primaryClass: "analyst_action",
+    classRank: 40,
+    evidenceType: analystRow.eventType,
+    source: analystRow.sourceName ?? "stocksist_catalyst",
+    confidence: "verified",
+  };
+}
+
 export function buildCurrentCatalystAnalysis(
   symbol: string,
   rows: AnalystCatalystRow[],
 ): CurrentCatalystAnalysis {
   const ranked = rankCurrentCatalysts(symbol, rows);
-  const primary = ranked.find((r) => r.tier === "primary" && r.classRank > 0) ?? null;
-  const secondary = ranked.filter((r) => r !== primary).slice(0, 3);
+  const primary = selectPrimaryCatalyst(symbol, rows, ranked);
+  const secondary = ranked.filter((r) => r !== primary && r.title !== primary?.title).slice(0, 4);
   const verifiedPrimary = primary != null;
   const explicitNoVerifiedCatalyst = !verifiedPrimary;
 
+  const rankedEvidence: CatalystEvidenceItem[] = ranked.slice(0, 6).map((r) => ({
+    headline: r.title,
+    eventType: r.eventType,
+    eventDate: r.eventDate,
+    publishedAt: r.publishedAt,
+    evidenceType: r.evidenceType,
+    source: r.source,
+    tier: r.tier,
+    confidence: r.confidence,
+  }));
+
   const answerGuidance = verifiedPrimary
-    ? "Lead with PRIMARY CATALYST (verified event), then WHY MARKET CARES, then SECONDARY CONTEXT. "
-      + "Do not lead with sector, AI, or historical analogs when a verified primary catalyst exists."
-    : "State explicitly: No verified company-specific catalyst found. "
-      + "Then you may discuss sector, technical, or historical context without guessing a corporate cause.";
+    ? `Lead with PRIMARY CATALYST: "${primary!.title}". Then KEY DETAILS, WHY MARKET CARES, then SECONDARY CONTEXT. `
+      + "Do not lead with sector, AI, or historical analogs when this verified primary catalyst exists. "
+      + CURRENT_CATALYST_NO_SPECULATION
+    : "State explicitly: No confirmed company-specific catalyst was found in the available fresh sources yet. "
+      + "Then you may discuss sector, technical, or macro context as SECONDARY — do not guess a corporate cause. "
+      + CURRENT_CATALYST_NO_SPECULATION;
 
   return {
     movementQuestion: true,
     verifiedPrimary,
     primaryCatalyst: primary,
     secondaryCatalysts: secondary,
+    rankedEvidence,
     explicitNoVerifiedCatalyst,
     answerGuidance,
+    responseSections: CURRENT_CATALYST_RESPONSE_SECTIONS,
+    volumeLanguageRule: CURRENT_CATALYST_VOLUME_LANGUAGE,
+    personalizationRule: CURRENT_CATALYST_PERSONALIZATION,
+    retrievalAttempted: true,
   };
 }

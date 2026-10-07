@@ -27,7 +27,11 @@ import type {
   AnalystWatchlistSnapshot,
 } from "@/lib/ai-analyst/intelligence-packet-types";
 import { buildCurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
-import { isMovementCatalystQuestion } from "@/lib/ai-analyst/movement-question";
+import { classifyCurrentCatalystIntent } from "@/lib/ai-analyst/current-catalyst-intent";
+import {
+  CURRENT_CATALYST_NO_SPECULATION,
+  CURRENT_CATALYST_PERSONALIZATION,
+} from "@/lib/ai-analyst/catalyst-response-rules";
 
 export type RadarCandidateRow = {
   symbol: string;
@@ -240,9 +244,12 @@ export function buildAnalystIntelligencePacket(input: {
     ...radar.recentEvents.map((row) => row.eventType),
   ]);
 
+  const catalystIntent = classifyCurrentCatalystIntent(input.userQuestion ?? "");
+  const movementQuestion = catalystIntent.movementQuestion;
+
   const repeatMoverContext = readPreloadedRepeatMoverContext(symbol);
   const historicalMatchSummary =
-    repeatMoverContext && input.radarCandidate
+    !movementQuestion && repeatMoverContext && input.radarCandidate
       ? summarizeHistoricalMatches(
           rankHistoricalMatches(
             buildCurrentSetupFromRadarCandidate(input.radarCandidate),
@@ -255,10 +262,10 @@ export function buildAnalystIntelligencePacket(input: {
     radar.keyLevels.source === "unavailable" ||
     (radar.keyLevels.vwap == null && radar.keyLevels.hod == null && radar.keyLevels.lod == null);
 
-  const movementQuestion = isMovementCatalystQuestion(input.userQuestion ?? "");
   const currentCatalystAnalysis = movementQuestion
     ? buildCurrentCatalystAnalysis(symbol, catalystRows)
     : undefined;
+  const journalForPacket = movementQuestion ? [] : journalRows;
 
   return {
     symbol,
@@ -269,7 +276,7 @@ export function buildAnalystIntelligencePacket(input: {
       handoffSource: input.handoffSource ?? workflow?.sourceSurface ?? null,
       workflowHandoff: workflow,
       catalystRows,
-      journalRows,
+      journalRows: journalForPacket,
       confirmedScannerEvent,
     },
     HISTORICAL_EVIDENCE: {
@@ -294,7 +301,8 @@ export function buildAnalystIntelligencePacket(input: {
     },
     MODEL_INTERPRETATION: {
       responseStructure: movementQuestion
-        ? "For why-is-it-moving questions use: PRIMARY CATALYST / WHY MARKET CARES / SECONDARY CONTEXT."
+        ? currentCatalystAnalysis?.responseSections
+          ?? "PRIMARY CATALYST / KEY DETAILS / WHY MARKET CARES / SECONDARY CONTEXT / MARKET CONFIRMATION / CONFIDENCE."
         : AI_ANALYST_RESPONSE_STRUCTURE,
       dataHonesty:
         "Null fields and available=false mean unavailable verified data. Do not substitute estimates or generic market commentary. confirmedScannerEvent is included only when a claimed handoff event matches stored radar data.",
@@ -302,6 +310,9 @@ export function buildAnalystIntelligencePacket(input: {
         ? {
           catalystAnswerMode: "CURRENT_CATALYST_FIRST" as const,
           catalystAnswerGuidance: currentCatalystAnalysis.answerGuidance,
+          volumeLanguageRule: currentCatalystAnalysis.volumeLanguageRule,
+          personalizationRule: CURRENT_CATALYST_PERSONALIZATION,
+          noSpeculationRule: CURRENT_CATALYST_NO_SPECULATION,
         }
         : {}),
     },

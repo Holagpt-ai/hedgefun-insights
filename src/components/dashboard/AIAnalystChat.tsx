@@ -47,6 +47,10 @@ import { fetchAnalystHistoricalMemory } from "@/lib/ai-analyst/fetch-analyst-his
 import type { HistoricalMemoryFacts } from "@/lib/ai-analyst/historical-memory";
 import { readPreloadedRepeatMoverContext, readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { fetchSymbolIntelligenceInputs } from "@/lib/ai-analyst/fetch-symbol-intelligence-inputs";
+import {
+  classifyCurrentCatalystIntent,
+  resolveAnalystSymbolForQuestion,
+} from "@/lib/ai-analyst/current-catalyst-intent";
 
 // Only wording that the request path can actually stand behind.
 const STREAMING_STATUS_MESSAGES = [
@@ -444,7 +448,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
     return false;
   };
 
-  const fetchDashboardContext = useCallback(async (): Promise<string> => {
+  const fetchDashboardContext = useCallback(async (opts?: { omitUserPersonalization?: boolean }): Promise<string> => {
     try {
       const parts: string[] = [];
 
@@ -508,7 +512,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       }
 
       // ── User-specific data (auth required) ───────────────────────────────
-      if (user) {
+      if (user && !opts?.omitUserPersonalization) {
         const [tradesRes, watchlistRes] = await Promise.all([
           supabase
             .from("journal_trades")
@@ -646,10 +650,11 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
       };
 
       try {
+        const catalystIntent = classifyCurrentCatalystIntent(effectivePrompt);
         let systemContext = "";
         try {
           systemContext = await withTimeout(
-            fetchDashboardContext(),
+            fetchDashboardContext({ omitUserPersonalization: catalystIntent.isCurrentCatalyst }),
             DASHBOARD_CONTEXT_TIMEOUT_MS,
             controller.signal,
           );
@@ -686,13 +691,16 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
         if (!isCurrent()) return;
 
         let analystIntelligence: object | undefined;
-        const activeSymbol = activeSymbolRef.current;
-        if (activeSymbol) {
+        const intelligenceSymbol = resolveAnalystSymbolForQuestion({
+          activeSymbol: activeSymbolRef.current,
+          userQuestion: effectivePrompt,
+        });
+        if (intelligenceSymbol) {
           try {
-            const workflow = readHistoricalWorkflowContext(activeSymbol);
+            const workflow = readHistoricalWorkflowContext(intelligenceSymbol);
             const packet = await withTimeout(
               fetchSymbolIntelligenceInputs(supabase, {
-                symbol: activeSymbol,
+                symbol: intelligenceSymbol,
                 userId: user?.id ?? null,
                 handoffSource: workflow?.sourceSurface ?? null,
                 claimedEvent: claimedScannerEventRef.current,
