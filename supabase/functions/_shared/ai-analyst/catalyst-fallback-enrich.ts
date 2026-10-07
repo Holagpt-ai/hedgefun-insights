@@ -1,24 +1,16 @@
 /**
- * Deno mirror of src/lib/ai-analyst/current-catalyst-fallback.ts
- * Keep behavior aligned for chat preflight enrichment.
+ * Fresh catalyst search enrichment — deterministic selection (mirror src).
  */
 
-import { classifyCatalystPrecedence } from "../catalyst/precedence.ts";
 import { runBraveWebSearch, type BraveWebHit } from "./brave-search.ts";
-
-type CatalystRow = {
-  eventType: string;
-  eventDate: string | null;
-  title: string | null;
-  publishedAt: string | null;
-  verificationState: string;
-  sourceName?: string | null;
-  sourceUrl?: string | null;
-  officialSource?: boolean;
-  evidenceOrigin?: "stocksist_catalyst" | "fresh_web_search";
-  attributionClass?: "direct" | "provider_associated" | "sector_related" | "unverified";
-  tickerSpecific?: boolean;
-};
+import {
+  buildSelectionTrace,
+  mergeRowsDeterministic,
+  scoreCatalystRow,
+  selectPrimaryFromScored,
+  type CatalystRow,
+} from "./catalyst-selection.ts";
+import { inferEventTypeFromSearchEvidence } from "./catalyst-evidence-verification.ts";
 
 type AnalystPacket = Record<string, unknown>;
 
@@ -63,19 +55,11 @@ function isOfficialUrl(url: string): boolean {
   }
 }
 
-function inferEventType(text: string): string {
-  if (/\b8[-\s]?k\b/i.test(text)) return "sec_filing_news";
-  if (/\bearnings\b/i.test(text)) return "earnings";
-  if (/\b(?:upgrade|downgrade|price target)\b/i.test(text)) return "analyst_action";
-  return "company_news";
-}
-
 function normalizeHit(hit: BraveWebHit, symbol: string): CatalystRow {
   const title = hit.title?.trim() || "Search result";
-  const text = `${title} ${hit.snippet ?? ""}`;
   const official = isOfficialUrl(hit.url);
   return {
-    eventType: inferEventType(text),
+    eventType: inferEventTypeFromSearchEvidence(title, hit.snippet),
     eventDate: null,
     title,
     publishedAt: new Date().toISOString(),
@@ -89,53 +73,24 @@ function normalizeHit(hit: BraveWebHit, symbol: string): CatalystRow {
   };
 }
 
-function sectorWide(title: string, symbol: string): boolean {
-  const u = title.toUpperCase();
-  if (u.includes(symbol.toUpperCase())) return false;
-  return /\b(?:sector|stocks?|shares?|chip stocks|semiconductors?|ai stocks)\b/i.test(title);
-}
-
-function rankPrimary(symbol: string, rows: CatalystRow[]): { verifiedPrimary: boolean; primary: CatalystRow | null } {
-  let best: { row: CatalystRow; rank: number } | null = null;
-  for (const row of rows) {
-    if (sectorWide(row.title ?? "", symbol)) continue;
-    const precedence = classifyCatalystPrecedence({
-      title: row.title ?? "",
-      event_type: row.eventType,
-      provider: row.officialSource ? "official_company_ir" : "stocksist_catalyst",
-      event_date: row.eventDate ?? "",
-      published_at: row.publishedAt,
-      source_name: row.sourceName ?? null,
-      attribution_class: row.attributionClass ?? "direct",
-      ticker_specific: row.tickerSpecific ?? true,
-    });
-    if (precedence.tier !== "primary" || precedence.classRank <= 0) {
-      if (row.eventType === "analyst_action" && /\b(?:upgrade|downgrade|price target)\b/i.test(row.title ?? "")) {
-        const rank = 40 + (row.officialSource ? 10 : 0);
-        if (!best || rank > best.rank) best = { row, rank };
-      }
-      continue;
-    }
-    const rank = precedence.classRank + (row.officialSource ? 15 : 0);
-    if (!best || rank > best.rank) best = { row, rank };
-  }
-  return { verifiedPrimary: best != null, primary: best?.row ?? null };
-}
-
 function rebuildAnalysis(symbol: string, rows: CatalystRow[]) {
-  const { verifiedPrimary, primary } = rankPrimary(symbol, rows);
+  const scored = rows.map(scoreCatalystRow);
+  const primary = selectPrimaryFromScored(symbol, scored);
+  const verifiedPrimary = primary != null;
   return {
     movementQuestion: true,
     verifiedPrimary,
     primaryCatalyst: primary
       ? {
-        title: primary.title,
-        eventType: primary.eventType,
-        eventDate: primary.eventDate,
-        publishedAt: primary.publishedAt,
-        source: primary.sourceName,
-        sourceUrl: primary.sourceUrl ?? null,
-        officialSource: primary.officialSource ?? false,
+        title: primary.row.title,
+        eventType: primary.row.eventType,
+        eventDate: primary.row.eventDate,
+        publishedAt: primary.row.publishedAt,
+        source: primary.row.sourceName,
+        sourceUrl: primary.row.sourceUrl ?? null,
+        officialSource: primary.row.officialSource ?? false,
+        primaryClass: primary.precedence.primaryClass,
+        classRank: primary.precedence.classRank,
       }
       : null,
     explicitNoVerifiedCatalyst: !verifiedPrimary,
@@ -166,9 +121,18 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
     evidenceOrigin: "stocksist_catalyst" as const,
   }));
   const fromSearch = hits.map((h) => normalizeHit(h, symbol));
-  const merged = [...internal, ...fromSearch].slice(0, 12);
+  const merged = mergeRowsDeterministic(internal, fromSearch);
   const analysis = rebuildAnalysis(symbol, merged);
   const succeeded = analysis.verifiedPrimary === true;
+
+  const pipelineTrace = buildSelectionTrace({
+    symbol,
+    searchQueries: queries,
+    searchHitCount: hits.length,
+    internalRowCount: internal.length,
+    rows: merged,
+  });
+  console.log("[catalyst-pipeline]", JSON.stringify(pipelineTrace));
 
   const discovery = {
     attempted: true,

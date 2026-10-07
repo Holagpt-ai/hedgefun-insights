@@ -1,20 +1,15 @@
 import type { AnalystIntelligencePacket } from "@/lib/ai-analyst/intelligence-packet-types";
-import {
-  buildCurrentCatalystAnalysis,
-  type CurrentCatalystAnalysis,
-} from "@/lib/ai-analyst/current-catalyst";
+import { buildCurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
+import { mergeAndSelectCatalystEvidence } from "@/lib/ai-analyst/catalyst-selection";
 import type {
   AnalystCatalystRowWithProvenance,
   FreshCatalystDiscoveryMeta,
   WebSearchHit,
 } from "@/lib/ai-analyst/catalyst-search-types";
-function inferEventTypeFromText(text: string): string {
-  if (/\b8[-\s]?k\b/i.test(text)) return "sec_filing_news";
-  if (/\bearnings\b/i.test(text)) return "earnings";
-  if (/\b(?:upgrade|downgrade|price target)\b/i.test(text)) return "analyst_action";
-  if (/\b(?:investor day|analyst day|guidance)\b/i.test(text)) return "company_news";
-  return "company_news";
-}
+import {
+  extractExplicitMaterialFacts,
+  inferEventTypeFromSearchEvidence,
+} from "@/lib/ai-analyst/catalyst-evidence-verification";
 
 const OFFICIAL_SOURCE_HOST =
   /(?:^|\.)((?:investor|ir)\.[a-z0-9.-]+|sec\.gov|(?:www\.)?[a-z0-9-]+\.com\/(?:investor|ir|news\/press))/i;
@@ -77,8 +72,7 @@ export function normalizeWebSearchHit(
   symbol: string,
 ): AnalystCatalystRowWithProvenance {
   const title = hit.title?.trim() || "Untitled search result";
-  const text = `${title} ${hit.snippet ?? ""}`;
-  const eventType = inferEventTypeFromText(text);
+  const eventType = inferEventTypeFromSearchEvidence(title, hit.snippet);
   const official = isOfficialCompanySourceUrl(hit.url);
   return {
     eventType,
@@ -95,21 +89,6 @@ export function normalizeWebSearchHit(
   };
 }
 
-export function mergeCatalystRowsForAnalysis(
-  internal: readonly AnalystCatalystRowWithProvenance[],
-  fromSearch: readonly AnalystCatalystRowWithProvenance[],
-): AnalystCatalystRowWithProvenance[] {
-  const seen = new Set<string>();
-  const merged: AnalystCatalystRowWithProvenance[] = [];
-  for (const row of [...internal, ...fromSearch]) {
-    const key = `${row.sourceUrl ?? ""}|${row.title ?? ""}`.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(row);
-  }
-  return merged.slice(0, 12);
-}
-
 export function enrichPacketWithSearchEvidence(input: {
   packet: AnalystIntelligencePacket;
   searchHits: WebSearchHit[];
@@ -121,11 +100,18 @@ export function enrichPacketWithSearchEvidence(input: {
     evidenceOrigin: "stocksist_catalyst" as const,
   }));
   const fromSearch = input.searchHits.map((h) => normalizeWebSearchHit(h, symbol));
-  const merged = mergeCatalystRowsForAnalysis(internal, fromSearch);
-  const analysis: CurrentCatalystAnalysis = {
-    ...buildCurrentCatalystAnalysis(symbol, merged),
-    retrievalAttempted: true,
-  };
+  const { analysis: built, trace, mergedRows: merged } = mergeAndSelectCatalystEvidence({
+    symbol,
+    internal,
+    fromSearch,
+    searchQueries: input.discovery.searchQueries,
+    buildAnalysis: buildCurrentCatalystAnalysis,
+  });
+  const analysis = { ...built, retrievalAttempted: true };
+  if (typeof globalThis !== "undefined" && "process" in globalThis) {
+    // Server-side only; never included in client-facing packet fields.
+    console.debug?.("[catalyst-pipeline]", JSON.stringify(trace));
+  }
 
   const noCatalystAllowed =
     !analysis.verifiedPrimary && input.discovery.attempted && !input.discovery.succeeded;

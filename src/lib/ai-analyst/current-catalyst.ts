@@ -2,6 +2,11 @@ import {
   classifyCatalystPrecedence,
   type CatalystPrecedenceInput,
 } from "@/lib/catalyst/precedence";
+import {
+  scoreCatalystRow,
+  selectPrimaryFromScored,
+  sortScoredCandidates,
+} from "@/lib/ai-analyst/catalyst-selection";
 import type { AnalystCatalystRow } from "@/lib/ai-analyst/intelligence-packet-types";
 import {
   CURRENT_CATALYST_FORMATTING,
@@ -52,8 +57,6 @@ export interface CurrentCatalystAnalysis {
   retrievalAttempted: boolean;
 }
 
-const ANALYST_ACTION_PRIMARY = /\b(?:upgrade[sd]?|downgrade[sd]?|initiat(?:es|ed)|raise[sd]?|lower[sd]?|cut[s]?)\b.{0,40}\b(?:price\s+target|pt|rating|to\s+(?:buy|sell|hold|overweight|underweight|neutral))\b/i;
-
 const SECTOR_WIDE_HEADLINE =
   /\b(?:sector|stocks?|shares?|chip stocks|semiconductors?|ai stocks|tech stocks)\b/i;
 
@@ -76,14 +79,6 @@ function isSectorWideHeadline(title: string, symbol: string): boolean {
   const sym = symbol.toUpperCase();
   if (upper.includes(sym)) return false;
   return SECTOR_WIDE_HEADLINE.test(title);
-}
-
-function isAnalystActionPrimary(row: AnalystCatalystRow, symbol: string): boolean {
-  if (row.eventType !== "analyst_action") return false;
-  const title = row.title ?? "";
-  if (!ANALYST_ACTION_PRIMARY.test(title)) return false;
-  const upper = title.toUpperCase();
-  return upper.includes(symbol.toUpperCase()) || /\b(?:price target|rating|upgrade|downgrade)\b/i.test(title);
 }
 
 export function rankCurrentCatalysts(
@@ -132,27 +127,20 @@ export function rankCurrentCatalysts(
   return ranked.map(({ isMarketAttention: _ignore, freshness: _f, officialSource: _o, ...rest }) => rest);
 }
 
-function selectPrimaryCatalyst(
-  symbol: string,
-  rows: AnalystCatalystRow[],
-  ranked: RankedCurrentCatalyst[],
-): RankedCurrentCatalyst | null {
-  const primary = ranked.find((r) => r.tier === "primary" && r.classRank > 0) ?? null;
-  if (primary) return primary;
-
-  const analystRow = rows.find((r) => isAnalystActionPrimary(r, symbol));
-  if (!analystRow) return null;
-
+function primaryFromScored(symbol: string, rows: AnalystCatalystRow[]): RankedCurrentCatalyst | null {
+  const scored = rows.map(scoreCatalystRow);
+  const winner = selectPrimaryFromScored(symbol, scored);
+  if (!winner) return null;
   return {
-    title: analystRow.title ?? "",
-    eventType: analystRow.eventType,
-    eventDate: analystRow.eventDate,
-    publishedAt: analystRow.publishedAt,
+    title: winner.row.title ?? "",
+    eventType: winner.row.eventType,
+    eventDate: winner.row.eventDate,
+    publishedAt: winner.row.publishedAt,
     tier: "primary",
-    primaryClass: "analyst_action",
-    classRank: 40,
-    evidenceType: analystRow.eventType,
-    source: analystRow.sourceName ?? "stocksist_catalyst",
+    primaryClass: winner.precedence.primaryClass,
+    classRank: winner.precedence.classRank,
+    evidenceType: winner.row.eventType,
+    source: winner.row.sourceName ?? "stocksist_catalyst",
     confidence: "verified",
   };
 }
@@ -161,8 +149,23 @@ export function buildCurrentCatalystAnalysis(
   symbol: string,
   rows: AnalystCatalystRow[],
 ): CurrentCatalystAnalysis {
-  const ranked = rankCurrentCatalysts(symbol, rows);
-  const primary = selectPrimaryCatalyst(symbol, rows, ranked);
+  const scored = rows.map(scoreCatalystRow);
+  const ranked = [...scored]
+    .sort(sortScoredCandidates)
+    .map((s) => ({
+      title: s.row.title ?? "",
+      eventType: s.row.eventType,
+      eventDate: s.row.eventDate,
+      publishedAt: s.row.publishedAt,
+      tier: s.precedence.tier,
+      primaryClass: s.precedence.primaryClass,
+      classRank: s.precedence.classRank,
+      evidenceType: s.row.eventType,
+      source: s.row.sourceName ?? "stocksist_catalyst",
+      confidence:
+        s.precedence.tier === "primary" && s.precedence.classRank > 0 ? ("verified" as const) : ("secondary" as const),
+    }));
+  const primary = primaryFromScored(symbol, rows);
   const secondary = ranked.filter((r) => r !== primary && r.title !== primary?.title).slice(0, 4);
   const verifiedPrimary = primary != null;
   const explicitNoVerifiedCatalyst = !verifiedPrimary;

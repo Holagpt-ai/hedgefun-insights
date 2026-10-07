@@ -11,6 +11,7 @@ export type CatalystPrecedenceTier = "primary" | "secondary";
 export type PrimaryCatalystClass =
   | "fda_regulatory"
   | "clinical_results"
+  | "investor_day"
   | "earnings_guidance"
   | "acquisition_ma"
   | "contract_award"
@@ -21,6 +22,7 @@ export type PrimaryCatalystClass =
 export const PRIMARY_CLASS_RANK: Record<PrimaryCatalystClass, number> = {
   fda_regulatory: 90,
   clinical_results: 88,
+  investor_day: 87,
   earnings_guidance: 85,
   acquisition_ma: 84,
   contract_award: 82,
@@ -131,13 +133,18 @@ const PRIMARY_EVIDENCE: EvidenceRule[] = [
     ],
   },
   {
+    class: "investor_day",
+    patterns: [
+      /\b(?:investor day|capital markets day|analyst day)\b/i,
+      /\b(?:long-?term|financial)\s+(?:outlook|targets?)\b/i,
+    ],
+  },
+  {
     class: "strategic_agreement",
     patterns: [
       /\b(?:partnership|licensing|license\s+agreement|joint\s+venture|manufacturing\s+agreement|distribution\s+agreement)\b/i,
       /\b(?:collaboration|strategic\s+alliance|co-?development)\s+agreement\b/i,
       /\b(?:terminates?|ended)\s+(?:partnership|alliance|agreement)\b/i,
-      /\b(?:investor day|capital markets day|analyst day)\b/i,
-      /\b(?:revenue|financial)\s+targets?\b/i,
     ],
   },
 ];
@@ -164,7 +171,8 @@ export const MARKET_ATTENTION_TITLE: RegExp[] = [
   /\b(?:better|worse)\s+(?:stock|pick|buy)\b/i,
   /\b(?:momentum|value|growth)\s+stock\s+pick\b/i,
   /\b(?:wall\s+street|analyst)\s+(?:says|sees|expects)\b/i,
-  /\bwhy\s+.{0,60}\b(?:jumped|rose|fell|sold\s+off|moving|volatile)\b/i,
+  /\bwhy\s+.{0,60}\b(?:jumped|rose|rallied|fell|sold\s+off|moving|volatile)\b/i,
+  /\bearnings\s+beat\s+hopes\b/i,
   /\bstock\s+is\s+moving\b/i,
 ];
 
@@ -180,15 +188,20 @@ const EVENT_TYPE_PRIMARY: Partial<Record<string, PrimaryCatalystClass>> = {
   sec_filing_news: "sec_material",
   earnings: "earnings_guidance",
   product_contract: "contract_award",
+  investor_day: "investor_day",
 };
 
-const EVENT_TYPE_SECONDARY = new Set(["analyst_action", "legal"]);
+const EVENT_TYPE_SECONDARY = new Set(["analyst_action", "legal", "market_attention"]);
+
+const EXPLICIT_ANALYST_HEADLINE =
+  /\b(?:upgrade[sd]?|downgrade[sd]?|initiat(?:es|ed)|raise[sd]?|lower[sd]?|cut[s]?)\b.{0,40}\b(?:price\s+target|pt|rating|to\s+(?:buy|sell|hold|overweight|underweight|neutral))\b/i;
 
 function catalystText(row: CatalystPrecedenceInput): string {
   return `${row.title} ${row.description ?? ""}`.trim();
 }
 
 export function looksLikeMarketAttention(title: string, eventType?: string): boolean {
+  if (eventType === "analyst_action" && EXPLICIT_ANALYST_HEADLINE.test(title)) return false;
   if (eventType && EVENT_TYPE_SECONDARY.has(eventType)) return true;
   return MARKET_ATTENTION_TITLE.some((p) => p.test(title));
 }
@@ -254,11 +267,13 @@ export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): Cataly
   }
 
   if (EVENT_TYPE_SECONDARY.has(row.event_type)) {
+    const explicitAnalyst =
+      row.event_type === "analyst_action" && EXPLICIT_ANALYST_HEADLINE.test(row.title);
     return {
       tier: "secondary",
       primaryClass: null,
       classRank: 0,
-      isMarketAttention: true,
+      isMarketAttention: !explicitAnalyst,
     };
   }
 
