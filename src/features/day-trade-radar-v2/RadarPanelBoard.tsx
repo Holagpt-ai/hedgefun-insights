@@ -153,7 +153,7 @@ export function RadarPanelLeader({
         <Metric label="Catalyst" value={catalyst ? "Catalyst" : "No verified catalyst"} />
         <div>
           <div className="text-[10px] uppercase text-muted-foreground">HISTORY</div>
-          <HistoryCell context={row.historicalContext} />
+          <HistoryCell context={row.historicalContext} row={row} />
         </div>
       </div>
       <div className="ml-auto flex items-stretch gap-3 rounded-md border border-border bg-muted/50 px-3 py-2" data-testid={`volume-speed-hero-${panel}`}>
@@ -540,7 +540,7 @@ function renderCell(args: {
   }
   if (id === "hod") return <span className="tabular-nums">{formatDeskHod(row)}</span>;
   if (id === "vwap") return <span>{formatDeskVwap(row)}</span>;
-  if (id === "history") return args.accessible ? <HistoryCell context={row.historicalContext} /> : "—";
+  if (id === "history") return args.accessible ? <HistoryCell context={row.historicalContext} row={row} /> : "—";
   if (id === "catalyst") {
     if (!args.accessible) return "—";
     const display = resolveRadarNewsCellState({

@@ -431,7 +431,7 @@ export function RadarGrid({
                     return (
                       <td key={columnId} className="px-2 py-1.5">
                         {accessible ? (
-                          <HistoryCell context={row.historicalContext} />
+                          <HistoryCell context={row.historicalContext} row={row} />
                         ) : (
                           "—"
                         )}

@@ -3,6 +3,11 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { RepeatMoverComparableEpisode, RepeatMoverContext } from "@/types/repeat-mover";
+import type { RadarRankedRow } from "./types";
+import {
+  formatHistoricalMatchChip,
+  historicalMatchSummaryForRadarRow,
+} from "@/lib/historical-intelligence/radar-handoff";
 import { ScannerMetricHint } from "./ScannerMetricHint";
 import {
   comparableEpisodeFacts,
@@ -181,8 +186,10 @@ function HistoryEpisodeCard({ episode }: { episode: RepeatMoverComparableEpisode
 
 export function HistoryCell({
   context,
+  row,
 }: {
   context: RepeatMoverContext | null | undefined;
+  row?: RadarRankedRow | null;
 }) {
   if (context?.profile?.profileAvailable === false) {
     return (
@@ -196,6 +203,7 @@ export function HistoryCell({
     );
   }
   const label = historyContextLabel(context);
+  const matchChip = row ? formatHistoricalMatchChip(historicalMatchSummaryForRadarRow(row)) : null;
   if (!label || !context) {
     return (
       <ScannerMetricHint label={HISTORY_BLANK} className="text-muted-foreground">
@@ -203,9 +211,10 @@ export function HistoryCell({
       </ScannerMetricHint>
     );
   }
+  const visible = matchChip ? `${label} · ${matchChip}` : label;
   return (
     <HistoryDetailTrigger
-      visible={label}
+      visible={visible}
       hover={HISTORY_HEADER}
       className="text-[11px] font-medium text-accent-blue hover:underline"
     >

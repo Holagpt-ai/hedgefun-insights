@@ -234,7 +234,7 @@ export function RadarMobileCard({
         <ScannerFieldHelp fieldId="history" className="text-muted-foreground">
           History
         </ScannerFieldHelp>{" "}
-        <HistoryCell context={row.historicalContext} />
+        <HistoryCell context={row.historicalContext} row={row} />
         {" · "}
         Float {formatRadarContextVolume(floatShares)} · Turnover {formatFloatTurnover(turnover)}
         {" · "}
