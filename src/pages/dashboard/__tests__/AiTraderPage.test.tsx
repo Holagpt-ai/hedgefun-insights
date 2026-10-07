@@ -5,13 +5,29 @@ import AiTraderPage from "@/pages/dashboard/AiTraderPage";
 import {
   AI_TRADER_DASHBOARD_PATH,
   AI_TRADER_LEGACY_GAME_PATH,
-  AI_TRADER_OFF_COPY,
-  AI_TRADER_WAITING_COPY,
 } from "@/lib/ai-trader/operating-mode";
-import { AI_TRADER_WORKSPACE_TABS } from "@/lib/ai-trader/contracts";
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ profile: { plan: "free" } }),
+}));
+
+vi.mock("@/hooks/useScreenerData", () => ({
+  useScreenerData: () => ({
+    status: "available",
+    rows: [],
+    syncedAt: null,
+    providerAsOfMax: null,
+    marketFeed: null,
+    source: null,
+    session: null,
+    closedSnapshot: false,
+    radarDiagnostic: null,
+    truthState: null,
+    nhlBaselineStatus: null,
+    tabEvaluationEvidence: null,
+    repeatMoversView: null,
+    repeatMoversLoadState: "idle",
+  }),
 }));
 
 function renderAt(path: string) {
@@ -25,31 +41,28 @@ function renderAt(path: string) {
   );
 }
 
-describe("AiTraderPage", () => {
-  it("renders the OFF shell with every workspace tab and no trading evidence", () => {
+describe("AiTraderPage shadow dashboard", () => {
+  it("renders paper AI trader with observe default and live disabled", () => {
     renderAt(AI_TRADER_DASHBOARD_PATH);
 
     expect(screen.getByRole("heading", { name: "AI Trader" })).toBeInTheDocument();
-    expect(screen.getAllByText(AI_TRADER_OFF_COPY).length).toBeGreaterThan(0);
-    expect(screen.queryByText(AI_TRADER_WAITING_COPY)).not.toBeInTheDocument();
-    expect(screen.getByText("Not active")).toBeInTheDocument();
-    expect(screen.queryByText(/\$/)).not.toBeInTheDocument();
-
-    for (const tab of AI_TRADER_WORKSPACE_TABS) {
-      expect(screen.getByRole("tab", { name: tab })).toBeInTheDocument();
-    }
-
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Research" }));
-    expect(screen.getByText(/Pro includes AI Trader research/)).toBeInTheDocument();
-
-    fireEvent.mouseDown(screen.getByRole("tab", { name: "Watchlist" }));
-    expect(screen.getAllByText(AI_TRADER_OFF_COPY).length).toBeGreaterThan(0);
-    expect(screen.queryByText(AI_TRADER_WAITING_COPY)).not.toBeInTheDocument();
+    expect(screen.getByText("OBSERVE MODE")).toBeInTheDocument();
+    expect(screen.getByText("Live trading disabled")).toBeInTheDocument();
+    expect(screen.getByText("Paper engine OFF")).toBeInTheDocument();
+    expect(screen.getByText(/Radar feed: connected/i)).toBeInTheDocument();
   });
 
   it("redirects the legacy game path to AI Trader", () => {
     renderAt(AI_TRADER_LEGACY_GAME_PATH);
     expect(screen.getByRole("heading", { name: "AI Trader" })).toBeInTheDocument();
-    expect(screen.getAllByText(AI_TRADER_OFF_COPY).length).toBeGreaterThan(0);
+  });
+
+  it("allows toggling paper mode and kill switch without live controls", () => {
+    renderAt(AI_TRADER_DASHBOARD_PATH);
+    fireEvent.click(screen.getByRole("button", { name: "Paper" }));
+    expect(screen.getByText("PAPER MODE")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Activate kill switch" }));
+    expect(screen.getByText("ACTIVE")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /live/i })).not.toBeInTheDocument();
   });
 });

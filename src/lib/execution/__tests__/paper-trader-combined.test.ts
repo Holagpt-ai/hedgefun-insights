@@ -146,7 +146,7 @@ describe("PaperTraderSession end-to-end", () => {
     expect(session.getAccount().openPositions).toHaveLength(1);
 
     const dup = await session.processSignal(sig);
-    expect(dup.orchestratorResult.status).toBe("duplicate_intent");
+    expect(dup).toBeNull();
 
     const stats = session.getStatistics();
     expect(stats.openPositionCount).toBe(1);

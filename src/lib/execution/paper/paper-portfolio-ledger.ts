@@ -146,4 +146,15 @@ export class PaperPortfolioLedger {
   dailyRealizedPnl(): number {
     return this.closedTrades.reduce((s, t) => s + t.realizedPnl, 0);
   }
+
+  loadFromSnapshot(snapshot: PaperAccountSnapshot): void {
+    this.startingCash = snapshot.startingCash;
+    this.cash = snapshot.cash;
+    this.positions.clear();
+    for (const p of snapshot.openPositions) {
+      this.positions.set(p.symbol, { ...p });
+    }
+    this.closedTrades.length = 0;
+    this.closedTrades.push(...snapshot.closedTrades.map((t) => ({ ...t })));
+  }
 }

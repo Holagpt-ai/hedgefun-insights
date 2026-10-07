@@ -1,5 +1,8 @@
 import { ExecutionOrchestrator } from "@/lib/execution/orchestrator/execution-orchestrator";
-import { createInMemoryIntentDedupeStore } from "@/lib/execution/orchestrator/intent-dedupe-store";
+import {
+  createInMemoryIntentDedupeStore,
+  type IntentDedupeStore,
+} from "@/lib/execution/orchestrator/intent-dedupe-store";
 import { ExecutionRouter } from "@/lib/execution/router/execution-router";
 import { RiskGateway, DEFAULT_RISK_GATEWAY_LIMITS, type RiskGatewayLimits } from "@/lib/execution/risk/risk-gateway";
 import { createInMemoryKillSwitchStore, type KillSwitchStore } from "@/lib/execution/kill-switch/kill-switch-store";
@@ -19,6 +22,8 @@ import type { ShadowOpportunityRecord } from "@/lib/execution/shadow/shadow-oppo
 import type { TradeExecutionPlan } from "@/lib/execution/paper/trade-execution-plan";
 import type { PaperAccountSnapshot } from "@/lib/execution/paper/paper-account-types";
 import { computePaperStatistics, type PaperTradingStatistics } from "@/lib/execution/paper/paper-statistics";
+import type { PaperTraderPersistedState } from "@/lib/execution/runtime/paper-trader-persistence";
+import type { KillSwitchActivation } from "@/lib/execution/kill-switch/types";
 
 export interface PaperTraderSessionOptions {
   startingCash?: number;
@@ -26,6 +31,7 @@ export interface PaperTraderSessionOptions {
   executionEnabled?: boolean;
   limits?: RiskGatewayLimits;
   now?: () => number;
+  persisted?: PaperTraderPersistedState | null;
 }
 
 export class PaperTraderSession {
@@ -41,6 +47,9 @@ export class PaperTraderSession {
   private readonly now: () => number;
   private readonly shadowRecords: ShadowOpportunityRecord[] = [];
   private readonly plansBySymbol = new Map<string, TradeExecutionPlan>();
+  private readonly intentDedupeStore: IntentDedupeStore;
+  private readonly processedSignalIds = new Set<string>();
+  private readonly limits: RiskGatewayLimits;
 
   constructor(options: PaperTraderSessionOptions = {}) {
     this.now = options.now ?? (() => Date.now());
@@ -51,9 +60,10 @@ export class PaperTraderSession {
     this.paperBroker = new PaperBrokerAdapter({ now: this.now });
     this.ledger = new PaperPortfolioLedger(options.startingCash ?? 100_000);
 
+    this.limits = options.limits ?? { ...DEFAULT_RISK_GATEWAY_LIMITS, symbolCooldownMs: 0 };
     this.riskGateway = new RiskGateway({
       killSwitchStore: this.killSwitchStore,
-      limits: options.limits ?? { ...DEFAULT_RISK_GATEWAY_LIMITS, symbolCooldownMs: 0 },
+      limits: this.limits,
       now: this.now,
     });
 
@@ -64,11 +74,12 @@ export class PaperTraderSession {
       now: this.now,
     });
 
+    this.intentDedupeStore = createInMemoryIntentDedupeStore();
     this.orchestrator = new ExecutionOrchestrator({
       riskGateway: this.riskGateway,
       router,
       eventLog: this.eventLog,
-      intentDedupeStore: createInMemoryIntentDedupeStore(),
+      intentDedupeStore: this.intentDedupeStore,
       resolvePolicy: () => ({
         executionMode: this.mode,
         executionEnabled: this.executionEnabled,
@@ -76,6 +87,10 @@ export class PaperTraderSession {
       buildRiskContext: (_intent, policy) => this.buildRiskContext(policy.executionMode, policy.executionEnabled),
       now: this.now,
     });
+
+    if (options.persisted) {
+      this.applyPersistedState(options.persisted);
+    }
   }
 
   setMode(mode: ExecutionMode): void {
@@ -94,7 +109,82 @@ export class PaperTraderSession {
     return this.executionEnabled;
   }
 
-  async processSignal(signal: StocksistSignal): Promise<ShadowOpportunityRecord> {
+  hasSeenSignal(signalId: string): boolean {
+    return this.processedSignalIds.has(signalId);
+  }
+
+  getRiskLimits(): RiskGatewayLimits {
+    return { ...this.limits };
+  }
+
+  exportPersistedState(): PaperTraderPersistedState {
+    return {
+      version: 1,
+      mode: this.mode,
+      executionEnabled: this.executionEnabled,
+      startingCash: this.ledger.snapshot().startingCash,
+      account: this.getAccount(),
+      shadowRecords: this.shadowRecords.slice(0, 100).map((r) => ({
+        ...r,
+        rejectionReasons: [...r.rejectionReasons],
+      })),
+      processedSignalIds: [...this.processedSignalIds],
+      killSwitchActivations: this.killSwitchStore.getActivations().map((a) => ({
+        ...a,
+        semantics: [...a.semantics],
+      })),
+      events: this.eventLog.getEvents().slice(-80).map((e) => ({
+        ...e,
+        reasonCodes: [...e.reasonCodes],
+        payload: { ...e.payload },
+        metadata: { ...e.metadata },
+      })),
+    };
+  }
+
+  applyPersistedState(state: PaperTraderPersistedState): void {
+    this.mode = state.mode;
+    this.executionEnabled = state.executionEnabled;
+    this.ledger.loadFromSnapshot(state.account);
+    this.shadowRecords.length = 0;
+    this.shadowRecords.push(...state.shadowRecords);
+    this.processedSignalIds.clear();
+    for (const id of state.processedSignalIds) this.processedSignalIds.add(id);
+    for (const id of state.processedSignalIds) {
+      this.intentDedupeStore.markProcessed(`intent-${id}`);
+    }
+    this.killSwitchStore.clearAll();
+    for (const activation of state.killSwitchActivations) {
+      this.killSwitchStore.activate(activation as KillSwitchActivation);
+    }
+    for (const event of state.events) {
+      this.eventLog.append(event);
+    }
+  }
+
+  reset(startingCash = 100_000): void {
+    this.mode = DEFAULT_EXECUTION_MODE;
+    this.executionEnabled = false;
+    this.shadowRecords.length = 0;
+    this.processedSignalIds.clear();
+    this.intentDedupeStore.clear();
+    this.plansBySymbol.clear();
+    this.killSwitchStore.clearAll();
+    this.ledger.loadFromSnapshot({
+      startingCash,
+      cash: startingCash,
+      buyingPower: startingCash,
+      equity: startingCash,
+      realizedPnl: 0,
+      unrealizedPnl: 0,
+      openPositions: [],
+      closedTrades: [],
+    });
+  }
+
+  async processSignal(signal: StocksistSignal): Promise<ShadowOpportunityRecord | null> {
+    if (this.processedSignalIds.has(signal.id)) return null;
+    this.processedSignalIds.add(signal.id);
     this.paperBroker.setReferencePrice(signal.symbol, signal.triggerPrice);
     const intent = stocksistSignalToTradeIntent(signal);
     const plan = stocksistSignalToExecutionPlan(signal);
