@@ -150,4 +150,13 @@ describe("classifyWatchlistRefreshInvoke", () => {
     expect(shouldInvalidateAfterRefresh(outcome)).toBe(true);
     expect(toastSpecForRefreshOutcome(outcome)).toBeNull();
   });
+
+  it("treats HTTP 200 failed analysis payloads as errors", async () => {
+    const data = { status: "failed", request_id: "req-1", error_code: "AI_TIMEOUT" };
+    const outcome = await classifyWatchlistRefreshInvoke(data, null);
+    expect(outcome.kind).toBe("error");
+    if (outcome.kind !== "error") return;
+    expect(outcome.message).toMatch(/timed out/i);
+    expect(shouldInvalidateAfterRefresh(outcome)).toBe(false);
+  });
 });

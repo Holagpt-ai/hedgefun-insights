@@ -12,6 +12,7 @@ import {
 import { failureCodeFromCategory } from "../_shared/ai/failure-codes.ts";
 import { resolveAiRequestId } from "../_shared/ai/request-context.ts";
 import type { AiFailureCategory } from "../_shared/ai/normalized-failure.ts";
+import { maybeKickBriefGeneration } from "../_shared/briefs/on-demand-kick.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -154,6 +155,7 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const syncSecret = Deno.env.get("SYNC_SECRET") ?? "";
     if (!supabaseUrl || !anonKey || !serviceKey) {
       console.error("get-daily-brief: server_misconfigured");
       return json({ error: "Server misconfigured" }, 500);
@@ -222,6 +224,22 @@ serve(async (req) => {
       if (!row) {
         const failed = await failureResponse(admin, "am", et.date, requestId);
         if (failed) return failed;
+        const { data: genStateRow } = await admin
+          .from("daily_brief_generation_state")
+          .select("brief_type, brief_date, status, failure_category, retryable, failed_at, updated_at")
+          .eq("brief_type", "am")
+          .eq("brief_date", et.date)
+          .maybeSingle();
+        await maybeKickBriefGeneration({
+          supabaseUrl,
+          syncSecret,
+          publishableKey: anonKey,
+          briefType: "am",
+          briefDate: et.date,
+          nowMinutesEt: et.minutes,
+          hasValidBrief: false,
+          stateRow: genStateRow,
+        });
         return json({
           available: false,
           brief_type: "am",
@@ -235,6 +253,22 @@ serve(async (req) => {
       if (!v.ok) {
         const failed = await failureResponse(admin, "am", et.date, requestId);
         if (failed) return failed;
+        const { data: genStateRow } = await admin
+          .from("daily_brief_generation_state")
+          .select("brief_type, brief_date, status, failure_category, retryable, failed_at, updated_at")
+          .eq("brief_type", "am")
+          .eq("brief_date", et.date)
+          .maybeSingle();
+        await maybeKickBriefGeneration({
+          supabaseUrl,
+          syncSecret,
+          publishableKey: anonKey,
+          briefType: "am",
+          briefDate: et.date,
+          nowMinutesEt: et.minutes,
+          hasValidBrief: false,
+          stateRow: genStateRow,
+        });
         return json({
           available: false,
           brief_type: "am",

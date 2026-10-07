@@ -1,3 +1,5 @@
+import { humanFailureReason } from "@/lib/watchlist-v2/parsers";
+
 /** Client-only classification of `analyze-watchlist-tickers-v2` invoke results. */
 
 export const MARKET_CLOSED_TITLE = "Market session closed";
@@ -90,11 +92,36 @@ export function isNonTradingDayPayload(httpStatus: number | null, body: unknown)
   return parsed.status === "not_applicable" && parsed.reason === "NON_TRADING_DAY";
 }
 
+function bodyStatus(data: unknown): string | null {
+  const parsed = parseJsonBody(data);
+  if (!isRecord(parsed)) return null;
+  return typeof parsed.status === "string" ? parsed.status : null;
+}
+
+function failedPayloadMessage(data: unknown): string | null {
+  const parsed = parseJsonBody(data);
+  if (!isRecord(parsed)) return null;
+  if (parsed.status !== "failed") return null;
+  const code = typeof parsed.error_code === "string" ? parsed.error_code : "UNKNOWN";
+  return humanFailureReason(code);
+}
+
 export async function classifyWatchlistRefreshInvoke(
   data: unknown,
   error: unknown,
 ): Promise<WatchlistRefreshOutcome> {
-  if (!error) return { kind: "success", data };
+  if (!error) {
+    const failedMessage = failedPayloadMessage(data);
+    if (failedMessage) return { kind: "error", message: failedMessage };
+    const status = bodyStatus(data);
+    if (status === "succeeded" || status === "ok" || status == null) {
+      return { kind: "success", data };
+    }
+    if (status === "unresolved") {
+      return { kind: "success", data };
+    }
+    return { kind: "success", data };
+  }
 
   const httpStatus = httpStatusFromError(error);
   const fromData = parseJsonBody(data);
