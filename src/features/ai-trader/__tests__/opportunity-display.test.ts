@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatOpportunityIntelLine, formatRejectionSummary } from "@/features/ai-trader/opportunity-display";
+import {
+  formatOpportunityIntelLine,
+  formatObservationalRiskLabel,
+  formatRejectionSummary,
+} from "@/features/ai-trader/opportunity-display";
 import type { StocksistSignal } from "@/lib/execution/signal/stocksist-signal";
 
 describe("formatOpportunityIntelLine", () => {
@@ -62,6 +66,17 @@ describe("formatOpportunityIntelLine", () => {
 describe("formatRejectionSummary", () => {
   it("labels approved vs rejected", () => {
     expect(formatRejectionSummary([])).toBe("Approved");
-    expect(formatRejectionSummary(["MAX_EXPOSURE"])).toBe("MAX_EXPOSURE");
+    expect(formatRejectionSummary(["APPROVED"])).toBe("Approved");
+  });
+});
+
+describe("formatObservationalRiskLabel", () => {
+  it("shows WOULD APPROVE / WOULD REJECT for observe rows", () => {
+    expect(formatObservationalRiskLabel({ status: "APPROVED", rejectionReasons: ["APPROVED"] })).toBe(
+      "WOULD APPROVE",
+    );
+    expect(
+      formatObservationalRiskLabel({ status: "REJECTED", rejectionReasons: ["MAX_EXPOSURE"] }),
+    ).toMatch(/^WOULD REJECT/);
   });
 });

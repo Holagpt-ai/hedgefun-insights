@@ -38,7 +38,7 @@ describe("RiskGateway", () => {
     expect(decision.approvedQuantity).toBe(10);
   });
 
-  it("rejects in observe mode", () => {
+  it("evaluates observe mode with the same deterministic rules as paper", () => {
     const intent = buildCatalystMomentumTradeIntent({
       correlationId: "obs",
       triggerPrice: 12,
@@ -46,10 +46,10 @@ describe("RiskGateway", () => {
     });
     const decision = gateway.evaluate(
       intent,
-      buildPaperRiskContext({ mode: "observe", executionEnabled: true }),
+      buildPaperRiskContext({ mode: "observe", executionEnabled: false }),
     );
-    expect(decision.approved).toBe(false);
-    expect(decision.reasonCodes).toContain("EXECUTION_MODE_OBSERVE");
+    expect(decision.approved).toBe(true);
+    expect(decision.reasonCodes).toContain("APPROVED");
   });
 
   it("rejects when trading disabled", () => {

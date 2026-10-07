@@ -64,12 +64,14 @@ describe("real radar → StocksistSignal", () => {
 });
 
 describe("observe vs paper session paths", () => {
-  it("observe records shadow without fill when execution disabled", async () => {
+  it("observe evaluates risk without fill when execution disabled", async () => {
     const session = new PaperTraderSession({ mode: "observe", executionEnabled: false });
     const signal = radarRankedRowToStocksistSignal(baseRow(), "radar")!;
     await session.processSignal(signal);
     expect(session.getAccount().openPositions).toHaveLength(0);
-    expect(session.getShadowRecords()[0]?.status).toBe("OBSERVING");
+    expect(session.getAccount().cash).toBe(100_000);
+    const record = session.getShadowRecords()[0];
+    expect(record?.status === "APPROVED" || record?.rejectionReasons.includes("APPROVED")).toBe(true);
   });
 
   it("paper mode may enter when execution enabled", async () => {

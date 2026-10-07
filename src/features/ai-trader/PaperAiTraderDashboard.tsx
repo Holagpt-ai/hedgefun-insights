@@ -6,7 +6,7 @@ import { usePaperTraderDashboard } from "@/hooks/usePaperTraderDashboard";
 import type { ExecutionMode } from "@/lib/execution/execution-mode";
 import {
   formatOpportunityIntelLine,
-  formatRejectionSummary,
+  formatObservationalRiskLabel,
 } from "@/features/ai-trader/opportunity-display";
 import type { ShadowOpportunityRecord } from "@/lib/execution/shadow/shadow-opportunity";
 import { AiTraderSessionReview } from "@/features/ai-trader/AiTraderSessionReview";
@@ -63,7 +63,7 @@ function modeHint(mode: ExecutionMode, executionEnabled: boolean): string {
 function OpportunityMobileCard({ row }: { row: ShadowOpportunityRecord }) {
   const move = row.signal.metadata?.move_pct as number | null | undefined;
   const intel = formatOpportunityIntelLine(row.signal);
-  const risk = formatRejectionSummary(row.rejectionReasons);
+  const risk = formatObservationalRiskLabel(row);
   return (
     <div className="rounded-md border border-border/70 p-3 space-y-2 text-xs">
       <div className="flex items-start justify-between gap-2">
@@ -224,7 +224,7 @@ export function PaperAiTraderDashboard() {
                 {shadows.map((row) => {
                   const move = row.signal.metadata?.move_pct as number | null | undefined;
                   const intel = formatOpportunityIntelLine(row.signal);
-                  const risk = formatRejectionSummary(row.rejectionReasons);
+                  const risk = formatObservationalRiskLabel(row);
                   return (
                     <tr key={row.recordedAt + row.signal.id} className="border-t border-border/60 align-top">
                       <td className="py-2 pr-2 font-medium">{row.signal.symbol}</td>

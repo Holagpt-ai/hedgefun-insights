@@ -130,15 +130,11 @@ export class RiskGateway {
     const symbol = intent.symbol.trim().toUpperCase();
     const isExit = intent.side === "sell" || intent.intentType === "exit" || intent.intentType === "scale_out";
 
-    if (!ctx.policy.executionEnabled) {
+    const mode = ctx.policy.executionMode ?? DEFAULT_EXECUTION_MODE;
+    if (!ctx.policy.executionEnabled && mode !== "observe") {
       return reject(this.idFactory, intent, ["TRADING_DISABLED"], evaluatedAt);
     }
-
-    const mode = ctx.policy.executionMode ?? DEFAULT_EXECUTION_MODE;
-    if (mode === "observe") {
-      return reject(this.idFactory, intent, ["EXECUTION_MODE_OBSERVE"], evaluatedAt);
-    }
-    if (!executionModePermitsBrokerSubmission(mode)) {
+    if (!executionModePermitsBrokerSubmission(mode) && mode !== "observe") {
       return reject(this.idFactory, intent, ["LIVE_EXECUTION_DISABLED"], evaluatedAt);
     }
 

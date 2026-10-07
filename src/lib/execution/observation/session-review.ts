@@ -55,6 +55,7 @@ export function isRiskApproved(record: ShadowOpportunityRecord): boolean {
 }
 
 export function isRejectedOpportunity(record: ShadowOpportunityRecord): boolean {
+  if (record.status === "APPROVED") return false;
   if (record.status === "REJECTED") return true;
   if (record.rejectionReasons.length === 0) return false;
   return !isRiskApproved(record);

@@ -154,7 +154,7 @@ describe("PaperTraderSession end-to-end", () => {
     session.setMode("observe");
     session.setExecutionEnabled(true);
     const obs = await session.processSignal(sampleSignal({ id: "sig-obs", symbol: "AAA", suggestedQuantity: 1, triggerPrice: 5 }));
-    expect(obs.status).toBe("OBSERVING");
+    expect(obs.status).toBe("APPROVED");
 
     session.killSwitchStore.activate({
       scope: "GLOBAL",

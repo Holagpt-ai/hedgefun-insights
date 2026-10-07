@@ -192,7 +192,9 @@ export class PaperTraderSession {
 
     let status: ShadowOpportunityRecord["status"] = "OBSERVING";
     if (result.status === "completed") status = "PAPER_ENTERED";
-    else if (result.status === "observe_only") status = "OBSERVING";
+    else if (result.status === "observe_only" && result.reasonCodes.includes("APPROVED")) {
+      status = "APPROVED";
+    } else if (result.status === "observe_only") status = "OBSERVING";
     else if (result.status === "risk_rejected" || result.status === "live_unavailable") status = "REJECTED";
     else if (result.status === "duplicate_intent") status = "CLOSED";
     else if (result.status === "broker_failed") status = "REJECTED";

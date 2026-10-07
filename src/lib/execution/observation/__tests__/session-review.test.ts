@@ -83,7 +83,7 @@ describe("session review calculations", () => {
           metadata: { scannerEvent: "RUNNING_UP" },
         },
         rejectionReasons: ["APPROVED"],
-        status: "OBSERVING",
+        status: "APPROVED",
       }),
       shadow({
         signal: {

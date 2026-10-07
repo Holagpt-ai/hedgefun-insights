@@ -2,6 +2,8 @@ import { formatHistoricalMatchChip } from "@/lib/historical-intelligence/radar-h
 import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
 import { formatScreenerRvol5m } from "@/lib/screeners/screener-metric-display";
 import type { StocksistSignal } from "@/lib/execution/signal/stocksist-signal";
+import { labelRiskReason } from "@/lib/execution/observation/risk-reason-labels";
+import type { ShadowOpportunityRecord } from "@/lib/execution/shadow/shadow-opportunity";
 
 function num(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
@@ -51,5 +53,18 @@ export function formatOpportunityIntelLine(signal: StocksistSignal): string {
 
 export function formatRejectionSummary(reasons: readonly string[]): string {
   if (reasons.length === 0) return "Approved";
-  return reasons.join(", ");
+  if (reasons.includes("APPROVED")) return "Approved";
+  return reasons.map(labelRiskReason).join(", ");
+}
+
+export function formatObservationalRiskLabel(row: Pick<ShadowOpportunityRecord, "status" | "rejectionReasons">): string {
+  if (row.status === "PAPER_ENTERED" || row.status === "STOPPED" || row.status === "TARGET_HIT") {
+    return formatRejectionSummary(row.rejectionReasons);
+  }
+  if (row.status === "APPROVED" || row.rejectionReasons.includes("APPROVED")) {
+    return "WOULD APPROVE";
+  }
+  const reasons = row.rejectionReasons.filter((c) => c !== "APPROVED");
+  if (reasons.length === 0) return "WOULD REJECT";
+  return `WOULD REJECT — ${reasons.map(labelRiskReason).join(", ")}`;
 }

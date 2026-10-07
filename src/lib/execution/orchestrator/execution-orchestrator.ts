@@ -103,7 +103,8 @@ export class ExecutionOrchestrator {
       payload: { executionMode: policy.executionMode, executionEnabled: policy.executionEnabled },
     });
 
-    if (!policy.executionEnabled) {
+    // Paper engine OFF still blocks before risk. Observe always runs deterministic risk.
+    if (!policy.executionEnabled && policy.executionMode !== "observe") {
       return {
         ...base,
         status: "execution_disabled",
@@ -137,13 +138,31 @@ export class ExecutionOrchestrator {
     });
 
     if (!decision.approved) {
-      const observeOnly = decision.reasonCodes.includes("EXECUTION_MODE_OBSERVE");
       this.intentDedupeStore.markProcessed(intent.id);
       return {
         ...base,
-        status: observeOnly ? "observe_only" : "risk_rejected",
+        status: "risk_rejected",
         riskDecision: decision,
         reasonCodes: [...decision.reasonCodes],
+      };
+    }
+
+    if (policy.executionMode === "observe") {
+      this.intentDedupeStore.markProcessed(intent.id);
+      return {
+        ...base,
+        status: "observe_only",
+        riskDecision: decision,
+        reasonCodes: ["APPROVED"],
+      };
+    }
+
+    if (!policy.executionEnabled) {
+      return {
+        ...base,
+        status: "execution_disabled",
+        riskDecision: decision,
+        reasonCodes: ["TRADING_DISABLED"],
       };
     }
 

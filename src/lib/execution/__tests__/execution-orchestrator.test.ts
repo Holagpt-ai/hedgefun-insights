@@ -88,16 +88,17 @@ describe("ExecutionOrchestrator Sprint 1", () => {
     expect(second.reasonCodes).toContain("DUPLICATE_ORDER");
   });
 
-  it("CASE C — observe mode logs intent without broker submission", async () => {
-    const { orchestrator, log, paper } = buildStack({ mode: "observe", executionEnabled: true });
+  it("CASE C — observe mode runs risk and skips broker submission", async () => {
+    const { orchestrator, log, paper } = buildStack({ mode: "observe", executionEnabled: false });
     paper.setReferencePrice(SYNTH_HIGH_VOL_SYMBOL, 15);
 
     const result = await orchestrator.execute(intent);
     expect(result.status).toBe("observe_only");
+    expect(result.reasonCodes).toContain("APPROVED");
     expect(result.routerResult).toBeNull();
     const types = log.getByCorrelationId(intent.correlationId).map((e) => e.eventType);
     expect(types).toContain("INTENT_RECEIVED");
-    expect(types).toContain("RISK_REJECTED");
+    expect(types).toContain("RISK_APPROVED");
     expect(types).not.toContain("ORDER_SUBMITTED");
   });
 
