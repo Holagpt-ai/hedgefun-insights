@@ -85,10 +85,12 @@ describe("current catalyst ranking — general cases", () => {
     expect(ranked[1]?.title).toMatch(/sector momentum/i);
   });
 
-  it("F — volume language rule blocks institutional inference from volume alone", () => {
+  it("F — volume and institutional language rules block unsupported flow claims", () => {
     const analysis = buildCurrentCatalystAnalysis("MRVL", [investorDay]);
     expect(analysis.volumeLanguageRule).toMatch(/Do not infer institutional participation/i);
-    expect(analysis.volumeLanguageRule).toMatch(/elevated/i);
+    expect(analysis.institutionalLanguageRule).toMatch(/institutional rebalancing/i);
+    expect(analysis.institutionalLanguageRule).toMatch(/Investor Day often unlocks institutional participation/i);
+    expect(analysis.formattingRule).toMatch(/\$20B/i);
   });
 
   it("marks explicit no-verified-catalyst when only vague rows exist", () => {

@@ -29,6 +29,8 @@ import type {
 import { buildCurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
 import { classifyCurrentCatalystIntent } from "@/lib/ai-analyst/current-catalyst-intent";
 import {
+  CURRENT_CATALYST_FORMATTING,
+  CURRENT_CATALYST_INSTITUTIONAL_LANGUAGE,
   CURRENT_CATALYST_NO_SPECULATION,
   CURRENT_CATALYST_PERSONALIZATION,
 } from "@/lib/ai-analyst/catalyst-response-rules";
@@ -311,7 +313,9 @@ export function buildAnalystIntelligencePacket(input: {
           catalystAnswerMode: "CURRENT_CATALYST_FIRST" as const,
           catalystAnswerGuidance: currentCatalystAnalysis.answerGuidance,
           volumeLanguageRule: currentCatalystAnalysis.volumeLanguageRule,
-          personalizationRule: CURRENT_CATALYST_PERSONALIZATION,
+          institutionalLanguageRule: currentCatalystAnalysis.institutionalLanguageRule,
+          personalizationRule: currentCatalystAnalysis.personalizationRule,
+          formattingRule: CURRENT_CATALYST_FORMATTING,
           noSpeculationRule: CURRENT_CATALYST_NO_SPECULATION,
         }
         : {}),

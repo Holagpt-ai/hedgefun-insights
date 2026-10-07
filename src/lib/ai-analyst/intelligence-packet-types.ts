@@ -121,7 +121,9 @@ export interface AnalystIntelligencePacket {
     catalystAnswerMode?: "CURRENT_CATALYST_FIRST";
     catalystAnswerGuidance?: string;
     volumeLanguageRule?: string;
+    institutionalLanguageRule?: string;
     personalizationRule?: string;
+    formattingRule?: string;
     noSpeculationRule?: string;
     freshDiscoveryAttempted?: boolean;
     freshDiscoverySucceeded?: boolean;

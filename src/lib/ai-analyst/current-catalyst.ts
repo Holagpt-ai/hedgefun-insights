@@ -4,6 +4,8 @@ import {
 } from "@/lib/catalyst/precedence";
 import type { AnalystCatalystRow } from "@/lib/ai-analyst/intelligence-packet-types";
 import {
+  CURRENT_CATALYST_FORMATTING,
+  CURRENT_CATALYST_INSTITUTIONAL_LANGUAGE,
   CURRENT_CATALYST_NO_SPECULATION,
   CURRENT_CATALYST_PERSONALIZATION,
   CURRENT_CATALYST_RESPONSE_SECTIONS,
@@ -44,7 +46,9 @@ export interface CurrentCatalystAnalysis {
   answerGuidance: string;
   responseSections: string;
   volumeLanguageRule: string;
+  institutionalLanguageRule: string;
   personalizationRule: string;
+  formattingRule: string;
   retrievalAttempted: boolean;
 }
 
@@ -192,7 +196,9 @@ export function buildCurrentCatalystAnalysis(
     answerGuidance,
     responseSections: CURRENT_CATALYST_RESPONSE_SECTIONS,
     volumeLanguageRule: CURRENT_CATALYST_VOLUME_LANGUAGE,
+    institutionalLanguageRule: CURRENT_CATALYST_INSTITUTIONAL_LANGUAGE,
     personalizationRule: CURRENT_CATALYST_PERSONALIZATION,
+    formattingRule: CURRENT_CATALYST_FORMATTING,
     retrievalAttempted: true,
   };
 }
