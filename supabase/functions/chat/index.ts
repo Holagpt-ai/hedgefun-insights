@@ -7,6 +7,7 @@ import {
   readAnthropicErrorType,
 } from "../_shared/ai/anthropic-error.ts";
 import { buildMemoryExtractionPrompt } from "./memory-extraction.ts";
+import { enrichAnalystIntelligenceWithFreshCatalystSearch } from "../_shared/ai-analyst/catalyst-fallback-enrich.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,6 +53,8 @@ WHY IS IT MOVING / CURRENT CATALYST (when CURRENT_CATALYST_ANALYSIS or catalystA
 - If verifiedPrimary=true, the primaryCatalyst headline is the lead — investor day, guidance, earnings, SEC/IR beat generic AI/sector stories.
 - If explicitNoVerifiedCatalyst=true, say clearly that no confirmed company-specific catalyst was found in available fresh sources — then sector/macro may follow as secondary only.
 - Obey volumeLanguageRule and noSpeculationRule in MODEL_INTERPRETATION. Never use "could be / maybe / possibly" for corporate causes when retrieval was attempted.
+- When FRESH_CATALYST_DISCOVERY.attempted=true, Stocksist already ran a fresh catalyst web search — do not claim no search was attempted.
+- Only say no confirmed company-specific catalyst when explicitNoVerifiedCatalyst=true AND freshDiscoveryAttempted=true.
 - Obey personalizationRule — do not discuss the user's account, journal, or entries unless asked.
 - Do not infer institutional participation, institutional buying, or smart-money flow from raw share volume alone.
 
@@ -282,9 +285,20 @@ serve(async (req) => {
     }
 
     let intelligenceBlock = "";
+    let intelligencePayload = analystIntelligence;
     if (user && analystIntelligence && typeof analystIntelligence === "object" && !Array.isArray(analystIntelligence)) {
       try {
-        const serialized = JSON.stringify(analystIntelligence);
+        intelligencePayload = await enrichAnalystIntelligenceWithFreshCatalystSearch(
+          analystIntelligence as Record<string, unknown>,
+        );
+      } catch (enrichErr) {
+        console.error("[chat] catalyst enrich failed", enrichErr);
+        intelligencePayload = analystIntelligence;
+      }
+    }
+    if (user && intelligencePayload && typeof intelligencePayload === "object" && !Array.isArray(intelligencePayload)) {
+      try {
+        const serialized = JSON.stringify(intelligencePayload);
         intelligenceBlock =
           "\n\n<stocksist_analyst_intelligence note=\"Verified symbol intelligence. Null means unavailable — do not invent.\">\n" +
           serialized.slice(0, 4500) +

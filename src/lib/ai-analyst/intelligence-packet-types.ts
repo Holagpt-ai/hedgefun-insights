@@ -3,6 +3,7 @@ import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session
 import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
 import type { VolumeAccelerationState } from "@/config/scanner-intelligence-v2.config";
 import type { CurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
+import type { FreshCatalystDiscoveryMeta } from "@/lib/ai-analyst/catalyst-search-types";
 
 export interface AnalystKeyLevels {
   vwap: number | null;
@@ -67,6 +68,9 @@ export interface AnalystCatalystRow {
   publishedAt: string | null;
   verificationState: string;
   sourceName?: string | null;
+  sourceUrl?: string | null;
+  officialSource?: boolean;
+  evidenceOrigin?: "stocksist_catalyst" | "fresh_web_search";
   attributionClass?: "direct" | "provider_associated" | "sector_related" | "unverified";
   tickerSpecific?: boolean;
 }
@@ -119,9 +123,12 @@ export interface AnalystIntelligencePacket {
     volumeLanguageRule?: string;
     personalizationRule?: string;
     noSpeculationRule?: string;
+    freshDiscoveryAttempted?: boolean;
+    freshDiscoverySucceeded?: boolean;
   };
   /** Present when the user asked a why-is-it-moving style question. */
   CURRENT_CATALYST_ANALYSIS?: CurrentCatalystAnalysis;
+  FRESH_CATALYST_DISCOVERY?: FreshCatalystDiscoveryMeta;
   unavailable: {
     radar: boolean;
     watchlist: boolean;

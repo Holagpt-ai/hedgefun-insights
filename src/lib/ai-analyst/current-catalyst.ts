@@ -54,14 +54,15 @@ const SECTOR_WIDE_HEADLINE =
   /\b(?:sector|stocks?|shares?|chip stocks|semiconductors?|ai stocks|tech stocks)\b/i;
 
 function toPrecedenceInput(row: AnalystCatalystRow): CatalystPrecedenceInput {
+  const official = row.officialSource === true;
   return {
     title: row.title ?? "",
     event_type: row.eventType,
-    provider: "stocksist_catalyst",
+    provider: official ? "official_company_ir" : "stocksist_catalyst",
     event_date: row.eventDate ?? "",
     published_at: row.publishedAt,
     source_name: row.sourceName ?? null,
-    attribution_class: row.attributionClass ?? "direct",
+    attribution_class: row.attributionClass ?? (official ? "direct" : "direct"),
     ticker_specific: row.tickerSpecific ?? true,
   };
 }
@@ -111,18 +112,20 @@ export function rankCurrentCatalysts(
         evidenceType: row.eventType,
         source: row.sourceName ?? "stocksist_catalyst",
         confidence: precedence.tier === "primary" && precedence.classRank > 0 ? "verified" as const : "secondary" as const,
+        officialSource: row.officialSource === true,
       };
     })
     .sort((a, b) => {
       const tierA = a.tier === "primary" && !a.isMarketAttention && a.classRank > 0 ? 0 : 1;
       const tierB = b.tier === "primary" && !b.isMarketAttention && b.classRank > 0 ? 0 : 1;
       if (tierA !== tierB) return tierA - tierB;
+      if (a.officialSource !== b.officialSource) return (b.officialSource ? 1 : 0) - (a.officialSource ? 1 : 0);
       if (a.classRank !== b.classRank) return b.classRank - a.classRank;
       if (a.freshness !== b.freshness) return b.freshness - a.freshness;
       return (b.eventDate ?? "").localeCompare(a.eventDate ?? "");
     });
 
-  return ranked.map(({ isMarketAttention: _ignore, freshness: _f, ...rest }) => rest);
+  return ranked.map(({ isMarketAttention: _ignore, freshness: _f, officialSource: _o, ...rest }) => rest);
 }
 
 function selectPrimaryCatalyst(
