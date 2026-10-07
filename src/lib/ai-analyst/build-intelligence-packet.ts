@@ -6,6 +6,16 @@ import { listStoredLateSessionHandoffs } from "@/lib/am-inbox/late-session-hando
 import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/historical-workflow-types";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { confirmStoredScannerEvent } from "@/lib/scanner-intelligence/confirmed-event";
+import {
+  buildCurrentSetupFromRadarCandidate,
+  rankHistoricalMatches,
+} from "@/lib/historical-intelligence/historical-match-engine";
+import { summarizeHistoricalMatches } from "@/lib/historical-intelligence/historical-match-summary";
+import {
+  classifyVolumeAccelerationState,
+  volumeVelocityRatio,
+} from "@/lib/scanner-intelligence/volume-participation";
+import { readPreloadedRepeatMoverContext } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import type {
   AnalystCatalystRow,
@@ -135,6 +145,11 @@ export function buildRadarSnapshot(
     volumeAccelerationPct: candidate?.volume_acceleration_pct ?? null,
     acceleration5m: candidate?.acceleration_5m ?? null,
     distanceFromHodPct: candidate?.distance_from_hod_pct ?? null,
+    volumeAccelerationState: classifyVolumeAccelerationState(candidate?.volume_acceleration_pct),
+    volumeVelocityRatio: volumeVelocityRatio({
+      currentVelocity: candidate?.volume_velocity,
+      volumeAccelerationPct: candidate?.volume_acceleration_pct,
+    }),
     keyLevels: keyLevelsFromRadar(candidate),
     recentEvents: boundedEvents,
   };
@@ -222,6 +237,17 @@ export function buildAnalystIntelligencePacket(input: {
     ...radar.recentEvents.map((row) => row.eventType),
   ]);
 
+  const repeatMoverContext = readPreloadedRepeatMoverContext(symbol);
+  const historicalMatchSummary =
+    repeatMoverContext && input.radarCandidate
+      ? summarizeHistoricalMatches(
+          rankHistoricalMatches(
+            buildCurrentSetupFromRadarCandidate(input.radarCandidate),
+            repeatMoverContext,
+          ),
+        )
+      : null;
+
   const keyLevelsMissing =
     radar.keyLevels.source === "unavailable" ||
     (radar.keyLevels.vwap == null && radar.keyLevels.hod == null && radar.keyLevels.lod == null);
@@ -248,6 +274,7 @@ export function buildAnalystIntelligencePacket(input: {
         note: "Episode-level detail, forward outcomes, linked catalysts, and intraday reconstruction are in historicalMemory when contextLoaded=true.",
       },
       defersDetailedEpisodesToHistoricalMemory: true,
+      historicalMatchSummary,
     },
     CURRENT_SESSION_EVIDENCE: {
       radar,

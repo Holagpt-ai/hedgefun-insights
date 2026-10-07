@@ -1,5 +1,7 @@
 import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/historical-workflow-types";
 import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session-continuation-types";
+import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
+import type { VolumeAccelerationState } from "@/config/scanner-intelligence-v2.config";
 
 export interface AnalystKeyLevels {
   vwap: number | null;
@@ -36,6 +38,8 @@ export interface AnalystRadarSnapshot {
   volumeAccelerationPct: number | null;
   acceleration5m: number | null;
   distanceFromHodPct: number | null;
+  volumeAccelerationState: VolumeAccelerationState | null;
+  volumeVelocityRatio: number | null;
   keyLevels: AnalystKeyLevels;
   recentEvents: AnalystRadarEventRow[];
 }
@@ -95,6 +99,7 @@ export interface AnalystIntelligencePacket {
     };
     /** Full episode detail lives in separate historicalMemory payload. */
     defersDetailedEpisodesToHistoricalMemory: true;
+    historicalMatchSummary: HistoricalMatchSummary | null;
   };
   CURRENT_SESSION_EVIDENCE: {
     radar: AnalystRadarSnapshot;

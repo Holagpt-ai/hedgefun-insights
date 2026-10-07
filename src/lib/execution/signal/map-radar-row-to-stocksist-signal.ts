@@ -1,5 +1,12 @@
 import type { RadarRankedRow } from "@/features/day-trade-radar-v2/types";
 import type { StocksistSignal } from "@/lib/execution/signal/stocksist-signal";
+import { historicalMatchSummaryForRadarRow } from "@/lib/historical-intelligence/radar-handoff";
+import {
+  classifyVolumeAccelerationState,
+  resolveRowVolumeVelocity,
+  volumeVelocityRatio,
+} from "@/lib/scanner-intelligence/volume-participation";
+import { intelligenceEventLabel } from "@/lib/scanner-intelligence/event-model";
 
 export type StocksistSignalSource = "radar" | "catalyst" | "continuation";
 
@@ -85,6 +92,22 @@ export function radarRankedRowToStocksistSignal(
       day_trade_rank: row.day_trade_rank ?? null,
       move_pct: movePct,
       freshness: row.freshness_class ?? null,
+      scannerEvent: row.primary_scanner_event ?? null,
+      scannerEventLabel: intelligenceEventLabel(row.primary_scanner_event),
+      volumeVelocity: resolveRowVolumeVelocity(row),
+      volumeAccelerationPct: row.volume_acceleration_pct ?? null,
+      volumeAccelerationState: classifyVolumeAccelerationState(row.volume_acceleration_pct),
+      volumeVelocityRatio: volumeVelocityRatio({
+        currentVelocity: resolveRowVolumeVelocity(row),
+        volumeAccelerationPct: row.volume_acceleration_pct,
+      }),
+      rvol5m: row.rvol_5m ?? null,
+      vwapState: row.vwap_side ?? null,
+      hodState: row.primary_scanner_event?.includes("HOD")
+        ? row.primary_scanner_event
+        : row.distance_from_hod_pct ?? row.hod_distance_percent,
+      historicalMatchSummary: historicalMatchSummaryForRadarRow(row),
+      catalystReference: catalystId,
     },
   };
 }

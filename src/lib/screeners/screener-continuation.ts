@@ -18,6 +18,10 @@ import {
   type ScreenerMetricObservation,
 } from "@/lib/screeners/screener-data-quality";
 import { evaluateScreenerTradeQuality } from "@/lib/screeners/screener-trade-quality";
+import {
+  accelerationStateToContinuationVelocity,
+  classifyVolumeAccelerationState,
+} from "@/lib/scanner-intelligence/volume-participation";
 import type { DataFreshnessState } from "@/types/data-quality";
 import type { ContinuationInput, ContinuationResult, ContinuationTriState } from "@/types/continuation";
 
@@ -47,6 +51,8 @@ export interface ScreenerContinuationSource {
   close_distance_from_hod_pct?: number | null;
   after_hours_extends?: ContinuationTriState | null;
   continuation_catalyst_quality?: TradeQualityCatalystQuality | null;
+  volume_acceleration_pct?: number | null;
+  vol_velocity?: number | null;
 }
 
 export interface ScreenerContinuationOptions {
@@ -104,6 +110,13 @@ export function toContinuationInput(
   }
   if (row.late_session_volume_velocity) {
     input.volumeVelocity = row.late_session_volume_velocity;
+  } else {
+    const accelState = classifyVolumeAccelerationState(row.volume_acceleration_pct);
+    const derived = accelerationStateToContinuationVelocity(accelState);
+    if (derived) input.volumeVelocity = derived;
+  }
+  if (row.volume_acceleration_pct != null && Number.isFinite(row.volume_acceleration_pct)) {
+    input.volumeAccelerationPct = row.volume_acceleration_pct;
   }
   if (typeof row.close_distance_from_hod_pct === "number") {
     input.distanceFromHodPct = row.close_distance_from_hod_pct;
