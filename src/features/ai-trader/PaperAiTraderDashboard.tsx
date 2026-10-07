@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { Bot, ExternalLink, ShieldAlert } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import {
 } from "@/features/ai-trader/opportunity-display";
 import type { ShadowOpportunityRecord } from "@/lib/execution/shadow/shadow-opportunity";
 import { AiTraderSessionReview } from "@/features/ai-trader/AiTraderSessionReview";
+import { sortShadowOpportunitiesForDisplay } from "@/lib/execution/observation/opportunity-display-order";
 
 function fmtMoney(n: number): string {
   return n.toLocaleString(undefined, { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -118,7 +120,10 @@ export function PaperAiTraderDashboard() {
 
   const account = session.getAccount();
   const stats = session.getStatistics();
-  const shadows = session.getShadowRecords();
+  const shadows = useMemo(
+    () => sortShadowOpportunitiesForDisplay(session.getShadowRecords()),
+    [session, tick],
+  );
   const events = session.getRecentEvents(30);
   const limits = session.getRiskLimits();
   const ksActive = session.killSwitchStore.getActivations().length > 0;

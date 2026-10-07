@@ -4,6 +4,7 @@ import { computePaperStatistics, type PaperTradingStatistics } from "@/lib/execu
 import type { ShadowOpportunityRecord } from "@/lib/execution/shadow/shadow-opportunity";
 import type { StocksistSignal } from "@/lib/execution/signal/stocksist-signal";
 import { labelRiskReason } from "@/lib/execution/observation/risk-reason-labels";
+import { compareTimestampsOldestFirst } from "@/lib/execution/observation/opportunity-display-order";
 
 export interface SessionSummary {
   opportunities: number;
@@ -230,7 +231,7 @@ export function buildSymbolTimeline(
     }
   }
 
-  return entries.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+  return entries.sort((a, b) => compareTimestampsOldestFirst(a.timestamp, b.timestamp));
 }
 
 export function symbolsForTimeline(
