@@ -89,6 +89,8 @@ export function buildPaperRiskContext(input: {
       dailyRealizedPnl: 0,
       lastEntryBySymbol: {},
       pendingClientOrderIds: [],
+      grossExposure: 0,
+      positionQuantityBySymbol: {},
     },
     policy: {
       executionMode: input.mode,

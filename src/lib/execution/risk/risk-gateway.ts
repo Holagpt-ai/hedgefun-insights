@@ -12,6 +12,8 @@ import {
 export interface RiskGatewayLimits {
   maxOpenPositions: number;
   maxPositionNotional: number;
+  maxTradeNotional: number;
+  maxPortfolioExposure: number;
   maxDailyLoss: number;
   maxSpreadBps: number;
   symbolCooldownMs: number;
@@ -20,6 +22,8 @@ export interface RiskGatewayLimits {
 export const DEFAULT_RISK_GATEWAY_LIMITS: RiskGatewayLimits = {
   maxOpenPositions: 5,
   maxPositionNotional: 25_000,
+  maxTradeNotional: 10_000,
+  maxPortfolioExposure: 50_000,
   maxDailyLoss: 2_500,
   maxSpreadBps: 80,
   symbolCooldownMs: 60_000,
@@ -39,6 +43,8 @@ export interface RiskGatewayPortfolioContext {
   dailyRealizedPnl: number;
   lastEntryBySymbol: Readonly<Record<string, number>>;
   pendingClientOrderIds: readonly string[];
+  grossExposure: number;
+  positionQuantityBySymbol: Readonly<Record<string, number>>;
 }
 
 export interface RiskGatewayPolicyContext {
@@ -122,6 +128,7 @@ export class RiskGateway {
     }
 
     const symbol = intent.symbol.trim().toUpperCase();
+    const isExit = intent.side === "sell" || intent.intentType === "exit" || intent.intentType === "scale_out";
 
     if (!ctx.policy.executionEnabled) {
       return reject(this.idFactory, intent, ["TRADING_DISABLED"], evaluatedAt);
@@ -135,18 +142,20 @@ export class RiskGateway {
       return reject(this.idFactory, intent, ["LIVE_EXECUTION_DISABLED"], evaluatedAt);
     }
 
-    const ks = killSwitchBlocksNewEntries(this.killSwitchStore, {
-      strategyId: intent.strategyId,
-      symbol,
-    });
-    if (ks) {
-      const code: RiskReasonCode =
-        ks.scope === "GLOBAL"
-          ? "GLOBAL_KILL_SWITCH"
-          : ks.scope === "STRATEGY"
-            ? "STRATEGY_KILL_SWITCH"
-            : "SYMBOL_KILL_SWITCH";
-      return reject(this.idFactory, intent, [code], evaluatedAt);
+    if (!isExit) {
+      const ks = killSwitchBlocksNewEntries(this.killSwitchStore, {
+        strategyId: intent.strategyId,
+        symbol,
+      });
+      if (ks) {
+        const code: RiskReasonCode =
+          ks.scope === "GLOBAL"
+            ? "GLOBAL_KILL_SWITCH"
+            : ks.scope === "STRATEGY"
+              ? "STRATEGY_KILL_SWITCH"
+              : "SYMBOL_KILL_SWITCH";
+        return reject(this.idFactory, intent, [code], evaluatedAt);
+      }
     }
 
     if (ctx.market.symbolHalted) {
@@ -177,7 +186,7 @@ export class RiskGateway {
       return reject(this.idFactory, intent, ["MAX_DAILY_LOSS"], evaluatedAt);
     }
 
-    if (ctx.portfolio.openPositionCount >= this.limits.maxOpenPositions) {
+    if (!isExit && ctx.portfolio.openPositionCount >= this.limits.maxOpenPositions) {
       return reject(this.idFactory, intent, ["MAX_OPEN_POSITIONS"], evaluatedAt);
     }
 
@@ -186,16 +195,26 @@ export class RiskGateway {
       return reject(this.idFactory, intent, ["DUPLICATE_ORDER"], evaluatedAt);
     }
 
-    const lastEntry = ctx.portfolio.lastEntryBySymbol[symbol];
-    if (lastEntry != null && this.now() - lastEntry < this.limits.symbolCooldownMs) {
-      return reject(this.idFactory, intent, ["SYMBOL_COOLDOWN"], evaluatedAt);
+    if (!isExit) {
+      const lastEntry = ctx.portfolio.lastEntryBySymbol[symbol];
+      if (lastEntry != null && this.now() - lastEntry < this.limits.symbolCooldownMs) {
+        return reject(this.idFactory, intent, ["SYMBOL_COOLDOWN"], evaluatedAt);
+      }
     }
 
     const qty = intent.requestedQuantity ?? 0;
     const refPrice = intent.triggerPrice ?? 1;
     const notional = intent.requestedNotional ?? qty * refPrice;
-    if (notional > this.limits.maxPositionNotional) {
-      return reject(this.idFactory, intent, ["MAX_POSITION_NOTIONAL"], evaluatedAt);
+    if (!isExit) {
+      if (notional > this.limits.maxTradeNotional) {
+        return reject(this.idFactory, intent, ["MAX_TRADE_NOTIONAL"], evaluatedAt);
+      }
+      if (notional > this.limits.maxPositionNotional) {
+        return reject(this.idFactory, intent, ["MAX_POSITION_NOTIONAL"], evaluatedAt);
+      }
+      if (ctx.portfolio.grossExposure + notional > this.limits.maxPortfolioExposure) {
+        return reject(this.idFactory, intent, ["MAX_PORTFOLIO_EXPOSURE"], evaluatedAt);
+      }
     }
 
     const finalQty =
@@ -203,6 +222,14 @@ export class RiskGateway {
       Math.floor((intent.requestedNotional ?? 0) / Math.max(refPrice, 0.01));
     if (finalQty <= 0) {
       return reject(this.idFactory, intent, ["INVALID_TRADE_INTENT"], evaluatedAt);
+    }
+
+    if (isExit) {
+      const held = ctx.portfolio.positionQuantityBySymbol[symbol] ?? 0;
+      if (held < finalQty) {
+        return reject(this.idFactory, intent, ["INVALID_TRADE_INTENT"], evaluatedAt);
+      }
+      return approve(this.idFactory, intent, finalQty, evaluatedAt, intent.invalidationPrice);
     }
 
     const orderNotional = finalQty * refPrice;
