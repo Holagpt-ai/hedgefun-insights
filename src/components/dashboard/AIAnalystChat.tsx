@@ -696,6 +696,7 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
                 userId: user?.id ?? null,
                 handoffSource: workflow?.sourceSurface ?? null,
                 claimedEvent: claimedScannerEventRef.current,
+                userQuestion: effectivePrompt,
               }),
               DASHBOARD_CONTEXT_TIMEOUT_MS,
               controller.signal,

@@ -26,6 +26,8 @@ import type {
   AnalystRadarSnapshot,
   AnalystWatchlistSnapshot,
 } from "@/lib/ai-analyst/intelligence-packet-types";
+import { buildCurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
+import { isMovementCatalystQuestion } from "@/lib/ai-analyst/movement-question";
 
 export type RadarCandidateRow = {
   symbol: string;
@@ -222,6 +224,7 @@ export function buildAnalystIntelligencePacket(input: {
   journalRows?: AnalystJournalRow[];
   nowIso?: string;
   claimedEvent?: string | null;
+  userQuestion?: string | null;
 }): AnalystIntelligencePacket {
   const symbol = normalizeHandoffSymbol(input.symbol) ?? input.symbol.trim().toUpperCase();
   const workflow = input.workflow ?? readHistoricalWorkflowContext(symbol);
@@ -251,6 +254,11 @@ export function buildAnalystIntelligencePacket(input: {
   const keyLevelsMissing =
     radar.keyLevels.source === "unavailable" ||
     (radar.keyLevels.vwap == null && radar.keyLevels.hod == null && radar.keyLevels.lod == null);
+
+  const movementQuestion = isMovementCatalystQuestion(input.userQuestion ?? "");
+  const currentCatalystAnalysis = movementQuestion
+    ? buildCurrentCatalystAnalysis(symbol, catalystRows)
+    : undefined;
 
   return {
     symbol,
@@ -285,10 +293,19 @@ export function buildAnalystIntelligencePacket(input: {
         + "radar and watchlist blocks describe the current or last-completed Stocksist session snapshot.",
     },
     MODEL_INTERPRETATION: {
-      responseStructure: AI_ANALYST_RESPONSE_STRUCTURE,
+      responseStructure: movementQuestion
+        ? "For why-is-it-moving questions use: PRIMARY CATALYST / WHY MARKET CARES / SECONDARY CONTEXT."
+        : AI_ANALYST_RESPONSE_STRUCTURE,
       dataHonesty:
         "Null fields and available=false mean unavailable verified data. Do not substitute estimates or generic market commentary. confirmedScannerEvent is included only when a claimed handoff event matches stored radar data.",
+      ...(movementQuestion && currentCatalystAnalysis
+        ? {
+          catalystAnswerMode: "CURRENT_CATALYST_FIRST" as const,
+          catalystAnswerGuidance: currentCatalystAnalysis.answerGuidance,
+        }
+        : {}),
     },
+    ...(currentCatalystAnalysis ? { CURRENT_CATALYST_ANALYSIS: currentCatalystAnalysis } : {}),
     unavailable: {
       radar: !radar.available,
       watchlist: !watchlist.available,

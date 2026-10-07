@@ -137,6 +137,8 @@ const PRIMARY_EVIDENCE: EvidenceRule[] = [
       /\b(?:partnership|licensing|license\s+agreement|joint\s+venture|manufacturing\s+agreement|distribution\s+agreement)\b/i,
       /\b(?:collaboration|strategic\s+alliance|co-?development)\s+agreement\b/i,
       /\b(?:terminates?|ended)\s+(?:partnership|alliance|agreement)\b/i,
+      /\b(?:investor day|capital markets day|analyst day)\b/i,
+      /\b(?:revenue|financial)\s+targets?\b/i,
     ],
   },
 ];

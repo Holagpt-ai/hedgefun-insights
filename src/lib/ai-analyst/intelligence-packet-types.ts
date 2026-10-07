@@ -2,6 +2,7 @@ import type { HistoricalWorkflowContext } from "@/lib/historical-workflow/histor
 import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session-continuation-types";
 import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
 import type { VolumeAccelerationState } from "@/config/scanner-intelligence-v2.config";
+import type { CurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
 
 export interface AnalystKeyLevels {
   vwap: number | null;
@@ -110,7 +111,11 @@ export interface AnalystIntelligencePacket {
   MODEL_INTERPRETATION: {
     responseStructure: string;
     dataHonesty: string;
+    catalystAnswerMode?: "CURRENT_CATALYST_FIRST";
+    catalystAnswerGuidance?: string;
   };
+  /** Present when the user asked a why-is-it-moving style question. */
+  CURRENT_CATALYST_ANALYSIS?: CurrentCatalystAnalysis;
   unavailable: {
     radar: boolean;
     watchlist: boolean;

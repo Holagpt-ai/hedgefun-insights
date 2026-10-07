@@ -20,6 +20,7 @@ export async function fetchSymbolIntelligenceInputs(
     userId?: string | null;
     handoffSource?: string | null;
     claimedEvent?: string | null;
+    userQuestion?: string | null;
   },
 ): Promise<AnalystIntelligencePacket | null> {
   const symbol = normalizeHandoffSymbol(input.symbol);
@@ -84,5 +85,6 @@ export async function fetchSymbolIntelligenceInputs(
     catalystRows,
     journalRows,
     claimedEvent: input.claimedEvent,
+    userQuestion: input.userQuestion,
   });
 }
