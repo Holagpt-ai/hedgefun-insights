@@ -2,6 +2,8 @@ import type { StrategyState } from "@/lib/execution/strategy/states";
 import type { RiskReasonCode } from "@/lib/execution/risk/reason-codes";
 
 export const TRADING_EVENT_TYPES = [
+  "INTENT_RECEIVED",
+  "EXECUTION_COMPLETED",
   "SIGNAL_DISCOVERED",
   "SIGNAL_QUALIFIED",
   "STATE_CHANGED",

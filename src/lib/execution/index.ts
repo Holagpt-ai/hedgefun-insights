@@ -15,3 +15,5 @@ export * from "@/lib/execution/kill-switch/kill-switch-store";
 export * from "@/lib/execution/events/trading-event";
 export * from "@/lib/execution/events/trading-event-log";
 export * from "@/lib/execution/router/execution-router";
+export * from "@/lib/execution/orchestrator/intent-dedupe-store";
+export * from "@/lib/execution/orchestrator/execution-orchestrator";
