@@ -1,4 +1,4 @@
-import { fetchGenerateDailyBrief, type FetchLike } from "../../brief-dispatch/invoke-generator.ts";
+import { fetchGenerateDailyBrief, type FetchLike } from "./invoke-generator.ts";
 import { isAmEvaluationWindow } from "./am-window.ts";
 import {
   parseGenerationState,

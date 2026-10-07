@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import { isAmEvaluationWindow } from "../_shared/briefs/am-window.ts";
-import { fetchGenerateDailyBrief } from "./invoke-generator.ts";
+import { fetchGenerateDailyBrief } from "../_shared/briefs/invoke-generator.ts";
 import { relayGenerator, type BriefType } from "./relay.ts";
 
 const corsHeaders = {

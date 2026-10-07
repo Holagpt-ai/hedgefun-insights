@@ -1,4 +1,4 @@
-import { GENERATOR_INVOKE_TIMEOUT_MS } from "../_shared/briefs/generator-execution-budget.ts";
+import { GENERATOR_INVOKE_TIMEOUT_MS } from "./generator-execution-budget.ts";
 
 export { GENERATOR_INVOKE_TIMEOUT_MS };
 const RETRYABLE_STATUS = new Set([502, 503, 504]);
