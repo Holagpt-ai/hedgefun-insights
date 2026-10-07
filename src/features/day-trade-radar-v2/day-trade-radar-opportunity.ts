@@ -50,6 +50,11 @@ import type {
 import { buildDayTradeFunnelStats } from "./day-trade-qualification";
 import type { ScannerFunnelStats } from "@/lib/screeners/scanner-qualification-funnel";
 import { formatRejectionSummaryCompact } from "@/lib/screeners/scanner-qualification-funnel";
+import { historicalMatchSummaryForRadarRow } from "@/lib/historical-intelligence/radar-handoff";
+import {
+  classifyVolumeAccelerationState,
+  resolveRowVolumeVelocity,
+} from "@/lib/scanner-intelligence/volume-participation";
 
 export type VerifiedCatalystRankTier = "direct" | "scheduled" | "none";
 
@@ -243,6 +248,11 @@ function catalystEventFactor(row: RadarRankedRow, ctx?: DayTradeRadarScoreContex
 function historicalFactor(row: RadarRankedRow): number {
   const ctx = row.historicalContext;
   if (!ctx?.profile?.profileAvailable) return 0.2;
+  const summary = historicalMatchSummaryForRadarRow(row);
+  if (summary?.sampleQuality === "ADEQUATE" && summary.matchCount >= 2) {
+    const cont = summary.continuationRate ?? 0;
+    return clamp01(0.55 + cont * 0.35);
+  }
   const comparable = ctx.comparableHistory?.comparableEpisodeCount ?? 0;
   if (comparable >= 3) return 0.9;
   if (comparable >= 1) return 0.65;
@@ -270,10 +280,21 @@ function momentumFactor(row: RadarRankedRow): { score: number; trendLabel: strin
   const moveScore = clamp01(Math.max(move60, move15) / 8);
   const accel5 = finiteOrNull(row.acceleration_5m);
   const accelBoost = accel5 !== null && accel5 > 0 ? clamp01(accel5 / 5) * 0.12 : 0;
+  const accelState = classifyVolumeAccelerationState(row.volume_acceleration_pct);
+  const participationBoost =
+    accelState === "EXPLOSIVE"
+      ? 0.14
+      : accelState === "ACCELERATING"
+        ? 0.1
+        : accelState === "BUILDING"
+          ? 0.05
+          : 0;
   return {
     signal,
     trendLabel: trend,
-    score: clamp01(signalScore * 0.42 + trendScore * 0.38 + moveScore * 0.12 + accelBoost),
+    score: clamp01(
+      signalScore * 0.38 + trendScore * 0.34 + moveScore * 0.1 + accelBoost + participationBoost,
+    ),
   };
 }
 
@@ -283,7 +304,7 @@ function volumeLiquidityFactor(
 ): { score: number; sessionShare: number; nowParticipation: number } {
   const session = logNorm(finiteOrNull(row.volume), peers.sessionVolumes);
   const vol60 = logNorm(finiteOrNull(row.rolling_volume_60s), peers.volume60s);
-  const velocity = logNorm(finiteOrNull(row.vol_velocity), peers.velocities);
+  const velocity = logNorm(resolveRowVolumeVelocity(row), peers.velocities);
   const dollars = logNorm(finiteOrNull(row.rolling_dollar_volume_60s), peers.dollar60s);
   const rvol5 = logNorm(finiteOrNull(row.rvol_5m), peers.rvol5m);
   const timeAdj = logNorm(finiteOrNull(row.time_adjusted_rvol), peers.timeAdjustedRvol);
@@ -332,7 +353,7 @@ function buildPeerStats(rows: readonly RadarRankedRow[]): PeerStats {
     if (vol !== null && vol > 0) sessionVolumes.push(vol);
     const v60 = finiteOrNull(row.rolling_volume_60s);
     if (v60 !== null && v60 > 0) volume60s.push(v60);
-    const vel = finiteOrNull(row.vol_velocity);
+    const vel = resolveRowVolumeVelocity(row);
     if (vel !== null && vel > 0) velocities.push(vel);
     const d60 = finiteOrNull(row.rolling_dollar_volume_60s);
     if (d60 !== null && d60 > 0) dollar60s.push(d60);
