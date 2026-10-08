@@ -19,6 +19,7 @@ import {
   tierFromRequest,
 } from "./chat-policy.ts";
 import { logFailedChatRequest, runStreamingChatTurn, shouldPersistChatAnswer } from "./stream-orchestrator.ts";
+import { buildAnalystIntelligencePromptBlock } from "./analyst-intelligence-delivery.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -306,12 +307,11 @@ serve(async (req) => {
     }
     if (user && intelligencePayload && typeof intelligencePayload === "object" && !Array.isArray(intelligencePayload)) {
       try {
-        const serialized = JSON.stringify(intelligencePayload);
-        intelligenceBlock =
-          "\n\n<stocksist_analyst_intelligence note=\"Verified symbol intelligence. Null means unavailable — do not invent.\">\n" +
-          serialized.slice(0, 4500) +
-          "\n</stocksist_analyst_intelligence>";
-      } catch {
+        intelligenceBlock = buildAnalystIntelligencePromptBlock(
+          intelligencePayload as Record<string, unknown>,
+        );
+      } catch (deliveryErr) {
+        console.error("[chat] analyst intelligence delivery failed", deliveryErr);
         intelligenceBlock = "";
       }
     }
