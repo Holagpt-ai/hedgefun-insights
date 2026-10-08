@@ -86,6 +86,10 @@ export function ChatWidget() {
           assistantContent += delta;
           setMessages([...newMessages, { role: "assistant", content: assistantContent }]);
         },
+        onReset: () => {
+          assistantContent = "";
+          setMessages([...newMessages, { role: "assistant", content: "" }]);
+        },
         onDone: () => setLoading(false),
         onError: (err) => {
           setError(err);

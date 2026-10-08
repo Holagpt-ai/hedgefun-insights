@@ -747,12 +747,23 @@ export function AIAnalystChat({ isPro, userName, userPlan }: AIAnalystChatProps)
               last?.role === "assistant" ? [...prev.slice(0, -1), bubble] : [...prev, bubble]
             );
           },
+          onReset: () => {
+            if (!isCurrent()) return;
+            assistantContent = "";
+            const prev = messagesRef.current;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") commitMessages(prev.slice(0, -1));
+          },
           onDone: () => {
             if (!isCurrent()) return;
             applyAttachment(null);
           },
           onError: (code) => {
             if (!isCurrent()) return;
+            assistantContent = "";
+            const prev = messagesRef.current;
+            const last = prev[prev.length - 1];
+            if (last?.role === "assistant") commitMessages(prev.slice(0, -1));
             if (code === "DAILY_LIMIT_REACHED") {
               setLimitReached(true);
               return;

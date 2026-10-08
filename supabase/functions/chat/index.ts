@@ -8,6 +8,16 @@ import {
 } from "../_shared/ai/anthropic-error.ts";
 import { buildMemoryExtractionPrompt } from "./memory-extraction.ts";
 import { enrichAnalystIntelligenceWithFreshCatalystSearch } from "../_shared/ai-analyst/catalyst-fallback-enrich.ts";
+import {
+  isAnonymousSessionLimitReached,
+  isFreeDailyLimitReached,
+  maxTokensFor,
+  MODEL_OPUS,
+  modelAfterOpusCap,
+  resolveModel,
+  tierFromRequest,
+} from "./chat-policy.ts";
+import { logFailedChatRequest, runStreamingChatTurn, shouldPersistChatAnswer } from "./stream-orchestrator.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -65,35 +75,6 @@ CAPABILITIES: Technical analysis, financial metrics, market trends, trading conc
 WEB SEARCH: For ANY question about trading regulations, rules, or requirements — ALWAYS use the web_search tool before answering. CRITICAL: Your training data on regulations is likely outdated. Always search for recent changes first — search "PDT rule changes 2026" not "PDT rule minimum balance". Assume any regulation from training may have been amended or eliminated. Synthesize search results directly — never override search results with training data. Cite sources and add "verify with your broker" for all regulatory answers.
 
 PRICE/QUOTE DATA: For ANY question about a stock's open, close, high, low, current price, or today's price action — ALWAYS use the get_quote tool. Never estimate, guess, or recall a price from training data, and never use web_search for exact price data.`;
-
-const MODEL_HAIKU = "claude-haiku-4-5-20251001";
-const MODEL_SONNET = "claude-sonnet-4-6";
-const MODEL_OPUS = "claude-opus-4-8";
-
-type Tier = "fast" | "standard" | "deep";
-
-function tierFromRequest(model: unknown): Tier {
-  if (model === "fast" || model === "standard" || model === "deep") return model;
-  return "fast";
-}
-
-function maxTokensFor(modelId: string): number {
-  if (modelId === MODEL_OPUS) return 4096;
-  if (modelId === MODEL_SONNET) return 2048;
-  return 1024;
-}
-
-/**
- * Resolves the actual Anthropic model id from the requested tier and the user plan,
- * enforcing tier gating. Opus cap enforcement for PRO happens separately.
- */
-function resolveModel(tier: Tier, plan: string): string {
-  // Free / anonymous: always Haiku.
-  if (plan !== "pro" && plan !== "admin" && plan !== "unlimited") return MODEL_HAIKU;
-  if (tier === "fast") return MODEL_HAIKU;
-  if (tier === "standard") return MODEL_SONNET;
-  return MODEL_OPUS;
-}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -188,7 +169,7 @@ serve(async (req) => {
           .eq("entry_type", "ai_message")
           .eq("log_date", today);
 
-        if ((msgsToday ?? 0) >= 5) {
+        if (isFreeDailyLimitReached(msgsToday ?? 0)) {
           return new Response(
             JSON.stringify({ error: "DAILY_LIMIT_REACHED", limit: 5 }),
             { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -203,9 +184,7 @@ serve(async (req) => {
           .eq("entry_type", "ai_message")
           .eq("payload->>model", MODEL_OPUS)
           .eq("log_date", today);
-        if ((opusCount ?? 0) >= 20) {
-          resolvedModel = MODEL_SONNET;
-        }
+        resolvedModel = modelAfterOpusCap(userPlan, resolvedModel, opusCount ?? 0);
       }
       // unlimited / admin: no caps
     }
@@ -233,7 +212,7 @@ serve(async (req) => {
       const anonMessages = ((anonSession?.messages ?? []) as Array<{ role: string }>)
         .filter((m) => m.role === "user").length;
 
-      if (anonMessages >= 3) {
+      if (isAnonymousSessionLimitReached(anonMessages)) {
         return new Response(
           JSON.stringify({ error: "SIGNUP_PROMPT" }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -336,89 +315,25 @@ serve(async (req) => {
         "\n</user_dashboard_context>"
       : baseSystem) + catalystModeBlock + historicalBlock + intelligenceBlock;
 
-    // Agentic tool loop — PRO/admin/unlimited users with tools get a non-streaming
-    // first pass so Claude can call tools. Free/anonymous skip straight to streaming.
-    let streamingMessages = [...builtMessages];
+    // One streaming Anthropic request. A continuation is issued only after tools run.
     const isFirstTurn = !incomingConversationId;
     let activeConversationId: string | null = incomingConversationId ?? null;
     let toolUseBlocks: Array<{ type: string; name: string; id: string; input: Record<string, unknown> }> = [];
-
-    if (toolDefinitions.length > 0 && user) {
-      const firstPassStarted = Date.now();
-      const firstPassResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "x-api-key": ANTHROPIC_API_KEY,
-          "anthropic-version": "2023-06-01",
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          model: resolvedModel,
-          max_tokens: maxTokensFor(resolvedModel),
-          system: systemPrompt,
-          messages: builtMessages,
-          tools: toolDefinitions,
-          tool_choice: { type: "auto" },
-        }),
-      });
-
-      if (!firstPassResponse.ok) {
-        const errorType = await readAnthropicErrorType(firstPassResponse);
-        console.error(formatAnthropicHttpErrorLog({
-          http_status: firstPassResponse.status,
-          anthropic_error_type: errorType,
-          elapsed_ms: Date.now() - firstPassStarted,
-          stage: "first_pass",
-        }));
-        return new Response(JSON.stringify({ error: "AI service error" }), {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
-      const firstPassData = await firstPassResponse.json();
-      const firstPassContent = firstPassData.content ?? [];
-
-      // Check if Claude wants to use any tools
-      toolUseBlocks = firstPassContent.filter(
-        (block: { type: string }) => block.type === "tool_use"
-      );
-
-
-      if (toolUseBlocks.length > 0) {
-        // Execute tools and build second-pass messages
-        const toolsToExecute = toolUseBlocks;
-        const toolResults: Array<{ type: string; tool_use_id: string; content: string }> = [];
-
-        for (const toolBlock of toolsToExecute) {
-          console.log("[chat] tool_use:", toolBlock.name, JSON.stringify(toolBlock.input));
-          const result = await executeTool(
-            toolBlock.name,
-            user.id,
-            adminSupabase as unknown as Parameters<typeof executeTool>[2],
-            toolBlock.input ?? {}
-          );
-          toolResults.push({
-            type: "tool_result",
-            tool_use_id: toolBlock.id,
-            content: result.content,
-          });
-        }
-
-        // Append assistant tool-use turn + tool results to messages for second pass
-        streamingMessages = [
-          ...builtMessages,
-          { role: "assistant", content: firstPassContent },
-          { role: "user", content: toolResults },
-        ];
-      }
-      // If no tool_use blocks, streamingMessages stays as builtMessages — Claude
-      // decided no tool was needed; stream directly with original messages.
+    const includeTools = toolDefinitions.length > 0 && !!user;
+    const correlationId = crypto.randomUUID();
+    const answerStarted = Date.now();
+    const answerBody: Record<string, unknown> = {
+      model: resolvedModel,
+      max_tokens: maxTokensFor(resolvedModel),
+      system: systemPrompt,
+      messages: builtMessages,
+      stream: true,
+    };
+    if (includeTools) {
+      answerBody.tools = toolDefinitions;
+      answerBody.tool_choice = { type: "auto" };
     }
 
-    // Final streaming call — uses streamingMessages (may include tool results or
-    // may be identical to builtMessages for Free/anonymous/no-tool-needed paths).
-    const streamStarted = Date.now();
     const anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -426,28 +341,26 @@ serve(async (req) => {
         "anthropic-version": "2023-06-01",
         "content-type": "application/json",
       },
-      body: JSON.stringify({
-        model: resolvedModel,
-        max_tokens: maxTokensFor(resolvedModel),
-        system: systemPrompt,
-        messages: streamingMessages,
-        stream: true,
-      }),
+      body: JSON.stringify(answerBody),
     });
 
     if (!anthropicResponse.ok) {
+      const latencyMs = Date.now() - answerStarted;
       if (anthropicResponse.status === 429) {
+        logFailedChatRequest(correlationId, resolvedModel, "answer", latencyMs);
         return new Response(JSON.stringify({ error: "Rate limit exceeded, please try again later." }), {
           status: 429,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       const errorType = await readAnthropicErrorType(anthropicResponse);
+      logFailedChatRequest(correlationId, resolvedModel, "answer", latencyMs);
       console.error(formatAnthropicHttpErrorLog({
         http_status: anthropicResponse.status,
         anthropic_error_type: errorType,
-        elapsed_ms: Date.now() - streamStarted,
-        stage: "stream",
+        elapsed_ms: latencyMs,
+        stage: "answer",
+        request_id: correlationId,
       }));
       return new Response(JSON.stringify({ error: "AI service error" }), {
         status: 500,
@@ -459,49 +372,67 @@ serve(async (req) => {
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
     const encoder = new TextEncoder();
+    const authedUserId = user?.id ?? null;
+    let turnOk = false;
+    let continuationFailed = false;
 
     (async () => {
-      const reader = anthropicResponse.body!.getReader();
-      const decoder = new TextDecoder();
-
       try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          const text = decoder.decode(value, { stream: true });
-          for (const line of text.split("\n")) {
-            if (!line.startsWith("data: ")) continue;
-            const jsonStr = line.slice(6).trim();
-            if (jsonStr === "[DONE]") {
-              await writer.write(encoder.encode("data: [DONE]\n\n"));
-              break;
-            }
-            try {
-              const parsed = JSON.parse(jsonStr);
-              // Anthropic streams content_block_delta events
-              if (parsed.type === "content_block_delta" && parsed.delta?.text) {
-                const openAIChunk = {
-                  choices: [{ delta: { content: parsed.delta.text } }],
-                };
-                await writer.write(
-                  encoder.encode(`data: ${JSON.stringify(openAIChunk)}\n\n`)
-                );
-              }
-              if (parsed.type === "message_start") {
-                if (activeConversationId) {
-                  const idEvent = { type: "conversation_id", id: activeConversationId };
-                  await writer.write(encoder.encode(`data: ${JSON.stringify(idEvent)}\n\n`));
-                }
-              }
-              if (parsed.type === "message_stop") {
-                await writer.write(encoder.encode("data: [DONE]\n\n"));
-              }
-
-            } catch { /* partial JSON, skip */ }
-          }
-        }
+        const outcome = await runStreamingChatTurn({
+          initialResponse: anthropicResponse,
+          initialStartedAt: answerStarted,
+          apiKey: ANTHROPIC_API_KEY,
+          model: resolvedModel,
+          maxTokens: maxTokensFor(resolvedModel),
+          system: systemPrompt,
+          messages: builtMessages,
+          toolsEnabled: includeTools,
+          correlationId,
+          onMessageStart: async () => {
+            if (!activeConversationId) return;
+            const idEvent = { type: "conversation_id", id: activeConversationId };
+            await writer.write(encoder.encode(`data: ${JSON.stringify(idEvent)}\n\n`));
+          },
+          onText: async (text) => {
+            const openAIChunk = { choices: [{ delta: { content: text } }] };
+            await writer.write(encoder.encode(`data: ${JSON.stringify(openAIChunk)}\n\n`));
+          },
+          onDiscardProvisional: async () => {
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ type: "reset_assistant" })}\n\n`));
+          },
+          executeToolCall: async (call) => {
+            if (!authedUserId) return { content: "Tool execution is not available.", isError: true };
+            console.log("[chat] tool_use:", call.name);
+            return await executeTool(
+              call.name,
+              authedUserId,
+              adminSupabase as unknown as Parameters<typeof executeTool>[2],
+              call.input ?? {},
+            );
+          },
+        });
+        toolUseBlocks = outcome.toolUses.map((block) => ({
+          type: "tool_use",
+          name: block.name,
+          id: block.id,
+          input: block.input,
+        }));
+        turnOk = outcome.ok;
+        continuationFailed = outcome.continuationFailed;
+      } catch (e) {
+        const name = e instanceof Error ? e.name : "error";
+        if (name !== "StreamClientClosed") console.error("[chat] stream_failed", name);
       } finally {
-        writer.close();
+        try {
+          if (continuationFailed) {
+            await writer.write(encoder.encode(`data: ${JSON.stringify({ error: "AI service error" })}\n\n`));
+          } else if (turnOk) {
+            await writer.write(encoder.encode("data: [DONE]\n\n"));
+          }
+        } catch { /* client disconnected */ }
+        try {
+          await writer.close();
+        } catch { /* already closed */ }
       }
     })();
 
@@ -528,13 +459,22 @@ serve(async (req) => {
             if (!line.startsWith("data: ") || line.includes("[DONE]")) continue;
             try {
               const parsed = JSON.parse(line.slice(6));
+              if (parsed?.type === "reset_assistant") {
+                fullContent = "";
+                continue;
+              }
+              if (typeof parsed?.error === "string") {
+                fullContent = "";
+                turnOk = false;
+                continue;
+              }
               const content = parsed.choices?.[0]?.delta?.content;
               if (content) fullContent += content;
             } catch { /* partial JSON */ }
           }
         }
 
-        if (fullContent) {
+        if (shouldPersistChatAnswer(turnOk, fullContent)) {
           // A-2: Conversation history persistence (all authenticated users)
           if (user) {
             // Create conversation row if this is a new thread

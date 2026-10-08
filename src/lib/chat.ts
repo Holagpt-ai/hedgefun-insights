@@ -1,6 +1,40 @@
 // Client-side streaming chat helper for Stocksist AI
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
+export type ChatSseFrame =
+  | { kind: "done" }
+  | { kind: "error"; error: string }
+  | { kind: "reset" }
+  | { kind: "conversation"; id: string }
+  | { kind: "delta"; text: string }
+  | { kind: "ignore" }
+  | { kind: "malformed" };
+
+/** Classify one SSE data payload from the chat edge function. */
+export function interpretChatSseData(jsonStr: string): ChatSseFrame {
+  if (jsonStr === "[DONE]") return { kind: "done" };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonStr);
+  } catch {
+    return { kind: "malformed" };
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { kind: "ignore" };
+  const record = parsed as Record<string, unknown>;
+  if (typeof record.error === "string" && record.error.length > 0) {
+    return { kind: "error", error: record.error };
+  }
+  if (record.type === "reset_assistant") return { kind: "reset" };
+  if (record.type === "conversation_id" && typeof record.id === "string" && record.id.length > 0) {
+    return { kind: "conversation", id: record.id };
+  }
+  const choices = record.choices;
+  const first = Array.isArray(choices) ? choices[0] as { delta?: { content?: unknown } } | undefined : undefined;
+  const content = first?.delta?.content;
+  if (typeof content === "string" && content.length > 0) return { kind: "delta", text: content };
+  return { kind: "ignore" };
+}
+
 /** Client-side ceiling for a single streamed analysis request (fetch + SSE body). */
 export const CHAT_REQUEST_TIMEOUT_MS = 90_000;
 
@@ -26,6 +60,7 @@ export async function streamChat({
   onDone,
   onError,
   onConversationId,
+  onReset,
 }: {
   messages: ChatMessage[];
   sessionToken: string;
@@ -43,6 +78,8 @@ export async function streamChat({
   onDone: () => void;
   onError?: (error: string) => void;
   onConversationId?: (id: string) => void;
+  /** Drop assistant text already streamed because a tool call superseded it. */
+  onReset?: () => void;
 }) {
   const timeoutController = new AbortController();
   let timedOut = false;
@@ -123,24 +160,28 @@ export async function streamChat({
           if (!line.startsWith("data: ")) continue;
 
           const jsonStr = line.slice(6).trim();
-          if (jsonStr === "[DONE]") {
-            onDone();
-            return;
-          }
-
-          try {
-            const parsed = JSON.parse(jsonStr);
-            // A-2: capture conversation id emitted by edge function
-            if (parsed?.type === "conversation_id" && parsed.id) {
-              onConversationId?.(parsed.id);
-              continue;
-            }
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
-            if (content) onDelta(content);
-          } catch {
+          const frame = interpretChatSseData(jsonStr);
+          if (frame.kind === "malformed") {
             textBuffer = line + "\n" + textBuffer;
             break;
           }
+          if (frame.kind === "done") {
+            onDone();
+            return;
+          }
+          if (frame.kind === "error") {
+            onError?.(frame.error);
+            return;
+          }
+          if (frame.kind === "reset") {
+            onReset?.();
+            continue;
+          }
+          if (frame.kind === "conversation") {
+            onConversationId?.(frame.id);
+            continue;
+          }
+          if (frame.kind === "delta") onDelta(frame.text);
         }
       }
 

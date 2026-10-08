@@ -434,6 +434,36 @@ describe("AI Analyst — request lifecycle", () => {
     errorSpy.mockRestore();
   });
 
+  it("drops provisional tool commentary before showing the verified answer", async () => {
+    streamChatMock.mockImplementation(async (args) => {
+      args.onDelta("AAPL is probably $1.");
+      args.onReset?.();
+      args.onDelta("Apple (AAPL) last price is $190.");
+      args.onDone();
+    });
+
+    renderChat();
+    await typeAndSend("What is AAPL at?");
+    await flush();
+
+    expect(screen.queryByText(/probably \$1/)).not.toBeInTheDocument();
+    expect(screen.getByText(/last price is \$190/)).toBeInTheDocument();
+  });
+
+  it("a continuation error does not leave the partial answer in place", async () => {
+    streamChatMock.mockImplementation(async (args) => {
+      args.onDelta("Partial quote");
+      args.onError?.("AI service error");
+    });
+
+    renderChat();
+    await typeAndSend("Quote AAPL");
+    await flush();
+
+    expect(screen.queryByText(/Partial quote/)).not.toBeInTheDocument();
+    expect(screen.getByText(/couldn't be completed/i)).toBeInTheDocument();
+  });
+
   it("timeout clears the analyzing state when REQUEST_TIMEOUT is surfaced", async () => {
     streamChatMock.mockImplementation(async (args) => {
       args.onError?.(CHAT_REQUEST_TIMEOUT_ERROR);
