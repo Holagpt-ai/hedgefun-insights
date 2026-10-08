@@ -16,6 +16,8 @@ import {
   CURRENT_CATALYST_RESPONSE_SECTIONS,
   CURRENT_CATALYST_VOLUME_LANGUAGE,
 } from "@/lib/ai-analyst/catalyst-response-rules";
+import type { CatalystStructuredFact } from "@/lib/ai-analyst/catalyst-evidence-facts";
+import { CATALYST_VERIFIED_VS_INFERRED_GUIDANCE } from "@/lib/ai-analyst/catalyst-evidence-facts";
 
 export interface RankedCurrentCatalyst {
   title: string;
@@ -55,6 +57,13 @@ export interface CurrentCatalystAnalysis {
   personalizationRule: string;
   formattingRule: string;
   retrievalAttempted: boolean;
+  catalystEvidenceFacts: CatalystStructuredFact[];
+  verifiedVsInferredGuidance: string;
+  authoritativeContentFetch?: {
+    attempted: boolean;
+    urls: string[];
+    errors: string[];
+  };
 }
 
 const SECTOR_WIDE_HEADLINE =
@@ -203,5 +212,7 @@ export function buildCurrentCatalystAnalysis(
     personalizationRule: CURRENT_CATALYST_PERSONALIZATION,
     formattingRule: CURRENT_CATALYST_FORMATTING,
     retrievalAttempted: true,
+    catalystEvidenceFacts: [],
+    verifiedVsInferredGuidance: CATALYST_VERIFIED_VS_INFERRED_GUIDANCE,
   };
 }

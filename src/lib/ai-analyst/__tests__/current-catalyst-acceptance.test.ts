@@ -4,7 +4,7 @@ import { enrichPacketWithSearchEvidence } from "@/lib/ai-analyst/current-catalys
 
 /** Production-path acceptance: internal DB empty → fresh search discovers Investor Day. */
 describe("CURRENT_CATALYST acceptance — MRVL Oct 6 2026", () => {
-  it("MRVL? Why is it up this morning? discovers investor day via fresh search path", () => {
+  it("MRVL? Why is it up this morning? discovers investor day via fresh search path", async () => {
     const packet = buildAnalystIntelligencePacket({
       symbol: "MRVL",
       userQuestion: "MRVL? Why is it up this morning?",
@@ -35,7 +35,7 @@ describe("CURRENT_CATALYST acceptance — MRVL Oct 6 2026", () => {
 
     expect(packet.CURRENT_CATALYST_ANALYSIS?.verifiedPrimary).toBe(false);
 
-    const enriched = enrichPacketWithSearchEvidence({
+    const enriched = await enrichPacketWithSearchEvidence({
       packet,
       searchHits: [
         {
@@ -64,7 +64,7 @@ describe("CURRENT_CATALYST acceptance — MRVL Oct 6 2026", () => {
     expect(enriched.MODEL_INTERPRETATION.freshDiscoverySucceeded).toBe(true);
   });
 
-  it("prefers the Marvell Investor Day release over a vague Motley Fool earnings headline", () => {
+  it("prefers the Marvell Investor Day release over a vague Motley Fool earnings headline", async () => {
     const packet = buildAnalystIntelligencePacket({
       symbol: "MRVL",
       userQuestion: "Why was MRVL up on October 6, 2026?",
@@ -78,7 +78,7 @@ describe("CURRENT_CATALYST acceptance — MRVL Oct 6 2026", () => {
         sourceUrl: "https://www.fool.com/investing/2026/10/06/why-marvell-stock-was-up/",
       }],
     });
-    const enriched = enrichPacketWithSearchEvidence({
+    const enriched = await enrichPacketWithSearchEvidence({
       packet,
       searchHits: [{
         title: "Marvell Technology Investor Day — FY2028 $20B revenue outlook",
@@ -100,7 +100,7 @@ describe("CURRENT_CATALYST acceptance — MRVL Oct 6 2026", () => {
 });
 
 describe("CURRENT_CATALYST acceptance — additional catalyst types", () => {
-  function enrich(symbol: string, question: string, hits: Parameters<typeof enrichPacketWithSearchEvidence>[0]["searchHits"]) {
+  async function enrich(symbol: string, question: string, hits: Parameters<typeof enrichPacketWithSearchEvidence>[0]["searchHits"]) {
     const packet = buildAnalystIntelligencePacket({ symbol, userQuestion: question, catalystRows: [] });
     return enrichPacketWithSearchEvidence({
       packet,
@@ -109,8 +109,8 @@ describe("CURRENT_CATALYST acceptance — additional catalyst types", () => {
     });
   }
 
-  it("A — earnings/guidance from search", () => {
-    const out = enrich("ABC", "Why is ABC up today?", [{
+  it("A — earnings/guidance from search", async () => {
+    const out = await enrich("ABC", "Why is ABC up today?", [{
       title: "ABC Corp reports Q3 earnings beat and raises FY guidance",
       url: "https://investor.abccorp.com/press/q3-earnings",
       snippet: "EPS beat and guidance raised.",
@@ -118,8 +118,8 @@ describe("CURRENT_CATALYST acceptance — additional catalyst types", () => {
     expect(out.CURRENT_CATALYST_ANALYSIS?.primaryCatalyst?.title).toMatch(/earnings|guidance/i);
   });
 
-  it("B — analyst upgrade primary when no stronger event", () => {
-    const out = enrich("NVDA", "Why is NVDA up?", [{
+  it("B — analyst upgrade primary when no stronger event", async () => {
+    const out = await enrich("NVDA", "Why is NVDA up?", [{
       title: "Goldman Sachs upgrades NVDA to Buy, raises price target",
       url: "https://news.example.com/nvda-upgrade",
       snippet: "Analyst action.",
@@ -127,8 +127,8 @@ describe("CURRENT_CATALYST acceptance — additional catalyst types", () => {
     expect(out.CURRENT_CATALYST_ANALYSIS?.verifiedPrimary).toBe(true);
   });
 
-  it("C — SEC/company announcement", () => {
-    const out = enrich("XYZ", "Why is XYZ moving?", [{
+  it("C — SEC/company announcement", async () => {
+    const out = await enrich("XYZ", "Why is XYZ moving?", [{
       title: "XYZ files 8-K regarding material definitive agreement",
       url: "https://www.sec.gov/Archives/edgar/data/123/8k.htm",
       snippet: "SEC filing.",
@@ -136,8 +136,8 @@ describe("CURRENT_CATALYST acceptance — additional catalyst types", () => {
     expect(out.CURRENT_CATALYST_ANALYSIS?.verifiedPrimary).toBe(true);
   });
 
-  it("D — sector-only move stays unverified company catalyst", () => {
-    const out = enrich("MRVL", "Why is MRVL up?", [{
+  it("D — sector-only move stays unverified company catalyst", async () => {
+    const out = await enrich("MRVL", "Why is MRVL up?", [{
       title: "Chip stocks rise on AI optimism",
       url: "https://news.example.com/chip-sector",
       snippet: "Sector move.",

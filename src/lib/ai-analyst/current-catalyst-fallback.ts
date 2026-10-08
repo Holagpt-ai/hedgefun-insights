@@ -1,6 +1,6 @@
 import type { AnalystIntelligencePacket } from "@/lib/ai-analyst/intelligence-packet-types";
 import { buildCurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
-import { mergeAndSelectCatalystEvidence } from "@/lib/ai-analyst/catalyst-selection";
+import { mergeAndSelectCatalystEvidence, scoreCatalystRow, selectPrimaryFromScored } from "@/lib/ai-analyst/catalyst-selection";
 import type {
   AnalystCatalystRowWithProvenance,
   FreshCatalystDiscoveryMeta,
@@ -10,6 +10,11 @@ import {
   extractExplicitMaterialFacts,
   inferEventTypeFromSearchEvidence,
 } from "@/lib/ai-analyst/catalyst-evidence-verification";
+import {
+  attachEvidenceFactsToAnalysis,
+  enrichAuthoritativeCatalystFacts,
+  type AuthoritativeHtmlFetch,
+} from "@/lib/ai-analyst/catalyst-authoritative-enrich";
 import { catalystSessionDateFromQuestion } from "@/lib/ai-analyst/catalyst-session-date";
 
 const OFFICIAL_SOURCE_HOST =
@@ -93,11 +98,12 @@ export function normalizeWebSearchHit(
   };
 }
 
-export function enrichPacketWithSearchEvidence(input: {
+export async function enrichPacketWithSearchEvidence(input: {
   packet: AnalystIntelligencePacket;
   searchHits: WebSearchHit[];
   discovery: FreshCatalystDiscoveryMeta;
-}): AnalystIntelligencePacket {
+  fetchAuthoritativeHtml?: AuthoritativeHtmlFetch;
+}): Promise<AnalystIntelligencePacket> {
   const symbol = input.packet.symbol;
   const internal = (input.packet.VERIFIED_FACTS.catalystRows ?? []).map((r) => ({
     ...r,
@@ -111,7 +117,23 @@ export function enrichPacketWithSearchEvidence(input: {
     searchQueries: input.discovery.searchQueries,
     buildAnalysis: buildCurrentCatalystAnalysis,
   });
-  const analysis = { ...built, retrievalAttempted: true };
+  let analysis = { ...built, retrievalAttempted: true };
+  const primaryPick = selectPrimaryFromScored(symbol, merged.map(scoreCatalystRow));
+  const primaryRow = primaryPick?.row ?? null;
+  const authoritative = await enrichAuthoritativeCatalystFacts({
+    primaryRow: analysis.verifiedPrimary ? primaryRow : null,
+    supportingRows: merged,
+    fetchHtml: input.fetchAuthoritativeHtml,
+  });
+  analysis = attachEvidenceFactsToAnalysis(analysis, authoritative);
+  analysis = {
+    ...analysis,
+    authoritativeContentFetch: {
+      attempted: Boolean(input.fetchAuthoritativeHtml),
+      urls: authoritative.contentFetchedUrls,
+      errors: authoritative.fetchErrors,
+    },
+  };
   if (typeof globalThis !== "undefined" && "process" in globalThis) {
     // Server-side only; never included in client-facing packet fields.
     console.debug?.("[catalyst-pipeline]", JSON.stringify(trace));
