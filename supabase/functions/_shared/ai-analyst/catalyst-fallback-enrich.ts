@@ -3,6 +3,7 @@
  */
 
 import { runBraveWebSearch, type BraveWebHit } from "./brave-search.ts";
+import { catalystSessionDateFromQuestion } from "./catalyst-session-date.ts";
 import {
   buildSelectionTrace,
   mergeRowsDeterministic,
@@ -22,12 +23,12 @@ const COMPANY_NAME: Record<string, string> = {
   AMD: "AMD",
 };
 
-function shouldRun(packet: AnalystPacket): boolean {
+function discoverySkipReason(packet: AnalystPacket): string | null {
   const model = packet.MODEL_INTERPRETATION as Record<string, unknown> | undefined;
   const analysis = packet.CURRENT_CATALYST_ANALYSIS as Record<string, unknown> | undefined;
-  if (model?.catalystAnswerMode !== "CURRENT_CATALYST_FIRST") return false;
-  if (!analysis) return true;
-  return analysis.verifiedPrimary !== true;
+  if (model?.catalystAnswerMode !== "CURRENT_CATALYST_FIRST") return "not_current_catalyst_question";
+  if (analysis?.verifiedPrimary === true) return "verified_primary_sufficient";
+  return null;
 }
 
 function companyName(symbol: string): string | null {
@@ -43,13 +44,18 @@ function buildQueries(symbol: string, sessionDate: string): string[] {
   ];
 }
 
+const OFFICIAL_SOURCE_HOST =
+  /(?:^|\.)((?:investor|ir)\.[a-z0-9.-]+|sec\.gov|(?:www\.)?[a-z0-9-]+\.com\/(?:investor|ir|news\/press))/i;
+
 function isOfficialUrl(url: string): boolean {
   try {
-    const u = new URL(url);
-    const h = u.hostname.toLowerCase();
-    if (h.includes("sec.gov")) return true;
-    if (h.startsWith("investor.") || h.startsWith("ir.")) return true;
-    return /investor|ir|newsroom|press/i.test(url);
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes("sec.gov")) return true;
+    if (host.startsWith("investor.") || host.startsWith("ir.")) return true;
+    if (/\.(marvell|nvidia|apple|tesla|amd)\.com$/i.test(host) && /investor|ir|newsroom|press/i.test(url)) {
+      return true;
+    }
+    return OFFICIAL_SOURCE_HOST.test(url);
   } catch {
     return false;
   }
@@ -62,7 +68,7 @@ function normalizeHit(hit: BraveWebHit, symbol: string): CatalystRow {
     eventType: inferEventTypeFromSearchEvidence(title, hit.snippet),
     eventDate: null,
     title,
-    publishedAt: new Date().toISOString(),
+    publishedAt: null,
     verificationState: official ? "provider_reported" : "web_search_unverified",
     sourceName: official ? "official_company_source" : "web_search",
     sourceUrl: hit.url,
@@ -100,13 +106,21 @@ function rebuildAnalysis(symbol: string, rows: CatalystRow[]) {
 
 export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
   packet: AnalystPacket,
+  options?: { userQuestion?: string | null; now?: Date },
 ): Promise<AnalystPacket> {
-  if (!shouldRun(packet)) return packet;
-
+  const now = options?.now ?? new Date();
+  const sessionDate = catalystSessionDateFromQuestion(options?.userQuestion, now);
   const symbol = String(packet.symbol ?? "").trim().toUpperCase();
-  if (!symbol) return packet;
-
-  const sessionDate = new Date().toISOString().slice(0, 10);
+  const skip = discoverySkipReason(packet);
+  if (skip || !symbol) {
+    console.log("[catalyst-pipeline]", JSON.stringify({
+      skipped: true,
+      reason: !symbol ? "missing_symbol" : skip,
+      symbol,
+      sessionDate,
+    }));
+    return packet;
+  }
   const queries = buildQueries(symbol, sessionDate);
   const hits: BraveWebHit[] = [];
   for (const q of queries) {

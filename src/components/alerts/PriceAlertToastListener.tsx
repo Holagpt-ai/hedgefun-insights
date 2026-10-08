@@ -45,6 +45,7 @@ export function PriceAlertToastListener() {
     const candidates = filterPriceAlertToastCandidates(q.data, sessionSeenRef.current);
     for (const row of candidates) {
       sessionSeenRef.current.add(row.id);
+      markPriceAlertToastSeenInSession(row.id);
       const cond = row.condition_type as PriceAlertCondition;
       const title = `${row.symbol} — ${conditionLabel(cond)}`;
       const description = `Observed $${Number(row.observed_price).toFixed(2)} vs ${formatAlertValue(cond, Number(row.threshold))} (${row.data_latency})`;
@@ -64,11 +65,8 @@ export function PriceAlertToastListener() {
         .eq("id", row.id)
         .then(({ error: ackErr }) => {
           if (ackErr) {
-            sessionSeenRef.current.delete(row.id);
             console.error("[price-alert-toast] failed to persist seen_at", ackErr.message, row.id);
-            return;
           }
-          markPriceAlertToastSeenInSession(row.id);
         });
     }
   }, [q.data]);

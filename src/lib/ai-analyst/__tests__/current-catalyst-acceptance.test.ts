@@ -63,6 +63,40 @@ describe("CURRENT_CATALYST acceptance — MRVL Oct 6 2026", () => {
     expect(enriched.MODEL_INTERPRETATION.catalystAnswerMode).toBe("CURRENT_CATALYST_FIRST");
     expect(enriched.MODEL_INTERPRETATION.freshDiscoverySucceeded).toBe(true);
   });
+
+  it("prefers the Marvell Investor Day release over a vague Motley Fool earnings headline", () => {
+    const packet = buildAnalystIntelligencePacket({
+      symbol: "MRVL",
+      userQuestion: "Why was MRVL up on October 6, 2026?",
+      catalystRows: [{
+        eventType: "earnings",
+        eventDate: "2026-10-06",
+        title: "Why Marvell Stock Was Up Today",
+        publishedAt: "2026-10-06T13:00:00.000Z",
+        verificationState: "provider_reported",
+        sourceName: "The Motley Fool",
+        sourceUrl: "https://www.fool.com/investing/2026/10/06/why-marvell-stock-was-up/",
+      }],
+    });
+    const enriched = enrichPacketWithSearchEvidence({
+      packet,
+      searchHits: [{
+        title: "Marvell Technology Investor Day — FY2028 $20B revenue outlook",
+        url: "https://investor.marvell.com/news-events/press-releases/detail/2026/investor-day-outlook",
+        snippet: "Management presented a FY2028 $20 billion revenue outlook at Investor Day.",
+      }],
+      discovery: {
+        attempted: true,
+        succeeded: true,
+        searchQueries: ["MRVL Marvell investor day guidance news 2026-10-06"],
+        source: "brave_web_search",
+        error: null,
+      },
+    });
+    expect(enriched.CURRENT_CATALYST_ANALYSIS?.verifiedPrimary).toBe(true);
+    expect(enriched.CURRENT_CATALYST_ANALYSIS?.primaryCatalyst?.title).toMatch(/Investor Day/i);
+    expect(enriched.CURRENT_CATALYST_ANALYSIS?.primaryCatalyst?.title).toMatch(/FY2028|\$20/i);
+  });
 });
 
 describe("CURRENT_CATALYST acceptance — additional catalyst types", () => {

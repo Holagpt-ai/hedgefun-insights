@@ -33,6 +33,35 @@ describe("current catalyst fresh-search fallback", () => {
     expect(shouldRunFreshCatalystSearch(packet)).toBe(true);
   });
 
+  it("uses the date named in the question instead of the clock date", () => {
+    const q = buildCatalystSearchQueries({
+      symbol: "MRVL",
+      companyName: "Marvell",
+      userQuestion: "Why was MRVL up on October 6, 2026?",
+      now: new Date("2026-10-08T16:00:00.000Z"),
+    });
+    expect(q.some((line) => line.includes("2026-10-06"))).toBe(true);
+    expect(q.every((line) => !line.includes("2026-10-08"))).toBe(true);
+  });
+
+  it("runs fresh search when the only internal primary is a vague financial-media headline", () => {
+    const packet = buildAnalystIntelligencePacket({
+      symbol: "MRVL",
+      userQuestion: "Why was MRVL up on October 6, 2026?",
+      catalystRows: [{
+        eventType: "earnings",
+        eventDate: "2026-10-06",
+        title: "Why Marvell Stock Was Up Today",
+        publishedAt: "2026-10-06T14:00:00.000Z",
+        verificationState: "provider_reported",
+        sourceName: "The Motley Fool",
+        sourceUrl: "https://www.fool.com/investing/2026/10/06/why-marvell-stock-was-up/",
+      }],
+    });
+    expect(packet.CURRENT_CATALYST_ANALYSIS?.verifiedPrimary).toBe(false);
+    expect(shouldRunFreshCatalystSearch(packet)).toBe(true);
+  });
+
   it("builds catalyst-focused search queries without hard-coded tickers only", () => {
     const q = buildCatalystSearchQueries({ symbol: "XYZ", companyName: "Example Co", sessionDateIso: "2026-10-06T14:00:00Z" });
     expect(q.some((line) => line.includes("XYZ"))).toBe(true);

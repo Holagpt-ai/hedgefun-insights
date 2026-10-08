@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   dedupePriceAlertTriggersById,
   filterPriceAlertToastCandidates,
+  markPriceAlertToastSeenInSession,
+  readSeenPriceAlertToastIds,
   isPriceAlertToastPending,
   priceAlertToastSinceIso,
 } from "../toast-delivery";
@@ -72,6 +74,14 @@ describe("price alert toast delivery", () => {
   it("CASE H — session dedupe without durable seen_at: still eligible on empty session set", () => {
     const pending = row(1);
     expect(filterPriceAlertToastCandidates([pending], new Set())).toHaveLength(1);
+  });
+
+  it("shown alerts stay suppressed across refresh while seen_at is still null", () => {
+    sessionStorage.removeItem("stocksist-price-alert-toasts-v1");
+    markPriceAlertToastSeenInSession(id(1));
+    const reloaded = readSeenPriceAlertToastIds();
+    expect(filterPriceAlertToastCandidates([row(1)], reloaded)).toHaveLength(0);
+    expect(filterPriceAlertToastCandidates([row(2)], reloaded).map((r) => r.id)).toEqual([id(2)]);
   });
 
   it("CASE H — session marks in-flight; durable seen_at remains source of truth on reload", () => {
