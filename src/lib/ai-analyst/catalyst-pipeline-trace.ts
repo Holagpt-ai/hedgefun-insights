@@ -57,7 +57,9 @@ export function buildPipelineTrace(input: {
   }>;
   primaryTitle: string | null;
   primaryClass: string | null;
+  contentFetchedUrls?: ReadonlySet<string>;
 }): CatalystPipelineTrace {
+  const fetched = input.contentFetchedUrls ?? new Set<string>();
   const candidates: CatalystCandidateTrace[] = input.scored.map((s) => ({
     headline: s.row.title ?? "",
     domain: domainFromUrl(s.row.sourceUrl),
@@ -67,7 +69,7 @@ export function buildPipelineTrace(input: {
     verificationStatus: s.row.verificationState,
     inferredEventType: s.row.eventType,
     extractedFacts: extractExplicitMaterialFacts(s.row),
-    contentFetched: searchEvidenceUsesPageContentFetch(),
+    contentFetched: s.row.sourceUrl ? fetched.has(s.row.sourceUrl) : searchEvidenceUsesPageContentFetch(),
     precedenceTier: s.trace.precedenceTier,
     primaryClass: s.trace.primaryClass,
     classRank: s.trace.classRank,

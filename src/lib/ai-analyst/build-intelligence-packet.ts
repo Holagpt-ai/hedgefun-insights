@@ -317,6 +317,7 @@ export function buildAnalystIntelligencePacket(input: {
           personalizationRule: currentCatalystAnalysis.personalizationRule,
           formattingRule: CURRENT_CATALYST_FORMATTING,
           noSpeculationRule: CURRENT_CATALYST_NO_SPECULATION,
+          verifiedVsInferredGuidance: currentCatalystAnalysis.verifiedVsInferredGuidance,
         }
         : {}),
     },
