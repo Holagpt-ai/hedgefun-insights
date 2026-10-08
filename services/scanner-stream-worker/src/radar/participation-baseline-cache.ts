@@ -27,7 +27,11 @@ import {
   type CumulativeBaselineSnapshot,
 } from "../../../../src/lib/radar/intraday-participation.ts";
 import { radarSessionKindAtMsOfDay } from "./session.ts";
-import { RVOL_5M_FETCH_CONCURRENCY } from "./momentum-metrics.config.ts";
+import {
+  RVOL_5M_FAILURE_BACKOFF_MS,
+  RVOL_5M_FETCH_CONCURRENCY,
+  RVOL_5M_FETCH_TIMEOUT_MS,
+} from "./momentum-metrics.config.ts";
 
 type FetchLike = typeof fetch;
 
@@ -65,13 +69,17 @@ function tradingDatesLookback(tradingDate: string): string[] {
   return weekdayDatesInclusive(startIso, tradingDate).filter((d) => d < tradingDate);
 }
 
+type HistoryFetch =
+  | { ok: true; bars: PolygonAggBar[] }
+  | { ok: false };
+
 async function fetch5mHistory(
   symbol: string,
   fromDate: string,
   toDate: string,
   apiKey: string,
   fetchFn: FetchLike,
-): Promise<PolygonAggBar[]> {
+): Promise<HistoryFetch> {
   const url = new URL(
     `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/5/minute/${fromDate}/${toDate}`,
   );
@@ -79,10 +87,16 @@ async function fetch5mHistory(
   url.searchParams.set("sort", "asc");
   url.searchParams.set("limit", "50000");
   url.searchParams.set("apiKey", apiKey);
-  const res = await fetchFn(url.toString());
-  if (!res.ok) return [];
-  const json = await res.json() as { results?: PolygonAggBar[] };
-  return json.results ?? [];
+  try {
+    const res = await fetchFn(url.toString(), {
+      signal: AbortSignal.timeout(RVOL_5M_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) return { ok: false };
+    const json = await res.json() as { results?: PolygonAggBar[] };
+    return { ok: true, bars: json.results ?? [] };
+  } catch {
+    return { ok: false };
+  }
 }
 
 function finiteClose(c: number | undefined): c is number {
@@ -144,10 +158,13 @@ export function createParticipationBaselineCache(opts: {
   apiKey: string;
   fetch: FetchLike;
   exceptions: () => CalendarExceptionRow[] | null;
+  nowMs?: () => number;
 }): ParticipationBaselineCache {
   const entries = new Map<string, SymbolEntry>();
   const inFlight = new Map<string, Promise<void>>();
+  const retryAt = new Map<string, number>();
   let activeTradingDate: string | null = null;
+  const nowMs = opts.nowMs ?? (() => Date.now());
 
   function scheduleFor(ms: number): ResolvedSessionSchedule | null {
     return resolveScheduleAt(ms, opts.exceptions());
@@ -173,14 +190,20 @@ export function createParticipationBaselineCache(opts: {
     if (entries.has(key)) return;
     const dates = tradingDatesLookback(tradingDate);
     if (dates.length === 0) return;
-    const bars = await fetch5mHistory(
+    const fetched = await fetch5mHistory(
       sym,
       dates[0]!,
       dates[dates.length - 1]!,
       opts.apiKey,
       opts.fetch,
     );
-    const built = buildSessionCumulativeProfiles(bars, scheduleFor, tradingDate);
+    if (activeTradingDate !== tradingDate) return;
+    if (!fetched.ok) {
+      retryAt.set(key, nowMs() + RVOL_5M_FAILURE_BACKOFF_MS);
+      return;
+    }
+    retryAt.delete(key);
+    const built = buildSessionCumulativeProfiles(fetched.bars, scheduleFor, tradingDate);
     touch(key, {
       tradingDate,
       cumByDayKind: built.cumByDayKind,
@@ -193,6 +216,7 @@ export function createParticipationBaselineCache(opts: {
     clear() {
       entries.clear();
       inFlight.clear();
+      retryAt.clear();
       activeTradingDate = null;
     },
     get(symbol, tradingDate, sessionKind, msOfDay) {
@@ -227,6 +251,7 @@ export function createParticipationBaselineCache(opts: {
       if (activeTradingDate !== tradingDate) {
         entries.clear();
         inFlight.clear();
+        retryAt.clear();
         activeTradingDate = tradingDate;
       }
       const queue = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
@@ -236,12 +261,16 @@ export function createParticipationBaselineCache(opts: {
           const sym = queue[index++]!;
           const key = cacheKey(sym, tradingDate);
           if (entries.has(key)) continue;
+          const retry = retryAt.get(key);
+          if (retry !== undefined && nowMs() < retry) continue;
           const pending = inFlight.get(key);
           if (pending) {
             await pending;
             continue;
           }
-          const job = warmOne(sym, tradingDate).finally(() => inFlight.delete(key));
+          const job = warmOne(sym, tradingDate).finally(() => {
+            if (inFlight.get(key) === job) inFlight.delete(key);
+          });
           inFlight.set(key, job);
           await job;
         }

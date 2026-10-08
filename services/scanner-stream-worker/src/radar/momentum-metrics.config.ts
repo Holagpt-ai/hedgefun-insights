@@ -9,3 +9,9 @@ export const RVOL_5M_LOOKBACK_CALENDAR_DAYS = 30;
 
 /** Max concurrent Polygon history fetches for TOD baselines. */
 export const RVOL_5M_FETCH_CONCURRENCY = 4;
+
+/** One history request cannot hold a worker slot indefinitely. */
+export const RVOL_5M_FETCH_TIMEOUT_MS = 8_000;
+
+/** Provider failure stays a missing baseline, then may be retried. */
+export const RVOL_5M_FAILURE_BACKOFF_MS = 30_000;

@@ -57,6 +57,13 @@ function payloadBytes(body: string): number {
   return new TextEncoder().encode(body).length;
 }
 
+/** Where a failed bridge attempt came from. The function itself never returns 503. */
+export type BridgeFailureOrigin =
+  | "application"
+  | "platform"
+  | "transport"
+  | "timeout";
+
 function logBridgeAttempt(fields: {
   request_id: string;
   action: string;
@@ -66,12 +73,23 @@ function logBridgeAttempt(fields: {
   http_status: number | null;
   timeout_ms: number;
   payload_bytes: number;
+  failure_origin?: BridgeFailureOrigin | null;
 }): void {
   log(
     fields.outcome === "ok" ? "info" : "error",
     "bridge_request",
     fields,
   );
+}
+
+function parseBridgeJson(text: string): Record<string, unknown> | null {
+  if (text.trim() === "") return null;
+  try {
+    const parsed = JSON.parse(text) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
 }
 
 export type RadarBridge = {
@@ -118,6 +136,7 @@ async function bridgePost(
     const finish = (
       outcome: BridgeAttemptOutcome,
       httpStatus: number | null,
+      failureOrigin: BridgeFailureOrigin | null = null,
     ) => {
       logBridgeAttempt({
         request_id: requestId,
@@ -128,6 +147,7 @@ async function bridgePost(
         http_status: httpStatus,
         timeout_ms: opts.timeoutMs,
         payload_bytes: bytes,
+        failure_origin: failureOrigin,
       });
     };
 
@@ -150,11 +170,33 @@ async function bridgePost(
         return { ok: false as const, status: 401 };
       }
       if (isRetryableStatus(res.status)) {
-        finish("http_error", res.status);
+        const text = await res.text();
+        const parsed = parseBridgeJson(text);
+        // 502 + persist_failed is this function reporting a database rejection
+        // (including statement cancellation). Retrying that payload multiplies
+        // the same write. 503/504 with a non-application body are the platform
+        // gateway or an upstream transport failure and stay retryable.
+        const applicationRejected = res.status === 502 &&
+          parsed?.error === "persist_failed";
+        finish(
+          "http_error",
+          res.status,
+          applicationRejected ? "application" : "platform",
+        );
+        if (applicationRejected) {
+          log("error", "bridge_database_rejected", {
+            request_id: requestId,
+            action: opts.action,
+            http_status: res.status,
+            failure_origin: "application",
+            rpc_error_code: typeof parsed.code === "string" ? parsed.code : null,
+          });
+          return { ok: false as const, status: res.status };
+        }
         throw new RetryableError(res.status);
       }
       if (!res.ok) {
-        finish("http_error", res.status);
+        finish("http_error", res.status, "application");
         return { ok: false as const, status: res.status };
       }
       let parsed: unknown = null;
@@ -172,10 +214,10 @@ async function bridgePost(
     } catch (error) {
       if (error instanceof RetryableError) throw error;
       if (error instanceof Error && error.name === "AbortError") {
-        finish("timeout", null);
+        finish("timeout", null, "timeout");
         throw new RetryableError(504, "bridge_timeout");
       }
-      finish("transport_error", null);
+      finish("transport_error", null, "transport");
       throw new RetryableError(503, "bridge_unavailable");
     } finally {
       clearTimeout(timer);
@@ -191,11 +233,18 @@ async function bridgePost(
     });
   } catch (error) {
     const status = error instanceof RetryableError ? error.status : 503;
+    const origin: BridgeFailureOrigin = error instanceof RetryableError &&
+        error.message === "bridge_timeout"
+      ? "timeout"
+      : error instanceof RetryableError && error.message === "bridge_unavailable"
+      ? "transport"
+      : "platform";
     log("error", "bridge_unavailable", {
       code: "persist_failed",
       status,
       request_id: requestId,
       action: opts.action,
+      failure_origin: origin,
     });
     return { ok: false, status };
   }

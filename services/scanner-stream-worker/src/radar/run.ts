@@ -208,6 +208,7 @@ export function startRadarV22(opts: {
         generationId,
         syncedAt,
         rpc: rpcV2,
+        nowMs,
       });
       if (v2 !== "skipped" && !v2.ok) {
         log("error", "radar_persist_v2_failed", { code: v2.code });
@@ -249,6 +250,7 @@ export function startRadarV22(opts: {
       generationId,
       syncedAt,
       rpc: rpcV2,
+      nowMs,
     });
     if (v2 !== "skipped" && !v2.ok) {
       log("error", "radar_persist_v2_failed", { code: v2.code });

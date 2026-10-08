@@ -1321,6 +1321,157 @@ Deno.test("NEWS 304 between continuation runs does not erase local backlog", asy
   assertEquals(obs?.ingestion?.continuation_remaining_items, 16);
 });
 
+Deno.test("NEWS 40-item feed keeps its continuation through an unconditional 304", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/forty",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+  await store.saveSource(src);
+  const original = rssFeed(40);
+  const revised = rssFeed(40)
+    .replaceAll("gnw-", "gnw-next-")
+    .replaceAll("Issuer ", "Revised Issuer ");
+  let body = original;
+  let phase: "body" | "not-modified" = "body";
+  const fetchImpl: typeof fetch = () => {
+    if (phase === "not-modified") {
+      return Promise.resolve(new Response(null, { status: 304, statusText: "Not Modified" }));
+    }
+    return Promise.resolve(new Response(body, { status: 200, headers: { etag: '"feed-v1"' } }));
+  };
+  const universe = buildCompanyUniverse([{ ticker: "MMM", name: "3M Company" }]);
+  const runAt = (index: number) => runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: new Date(NOW.getTime() + index * 60_000),
+    userAgent: "test",
+    fetchImpl,
+    batchLimit: 1,
+    companies: universe,
+    newsItemBudget: 8,
+    newsWallTimeMs: 60_000,
+  });
+
+  let seen = 0;
+  let eventsCreated = 0;
+  const first = await runAt(0);
+  assertEquals(first.sourcesFailed, 0);
+  seen += first.rawItemsSeen;
+  eventsCreated += first.eventsCreated;
+  assertEquals(seen, 8);
+
+  phase = "not-modified";
+  const blocked = await runAt(1);
+  assertEquals(blocked.sourcesFailed, 0);
+  assertEquals(blocked.rawItemsSeen, 0);
+  const held = readNewsContinuation((await store.listSources({}))[0].metadata);
+  assertEquals(held?.next_item_index, 8);
+  assertEquals(held?.feed_item_count, 40);
+  const blockedObs = blocked.observability as RunObservability | undefined;
+  assertEquals(blockedObs?.ingestion?.continuation_remaining_items, 32);
+  assertEquals(blockedObs?.ingestion?.resource_stop_reason, "news_feed_unchanged");
+
+  phase = "body";
+  for (let index = 0; index < 4; index += 1) {
+    const run = await runAt(index + 2);
+    assertEquals(run.sourcesFailed, 0);
+    seen += run.rawItemsSeen;
+    eventsCreated += run.eventsCreated;
+  }
+  assertEquals(seen, 40);
+  assertEquals(eventsCreated, 0);
+  assertEquals(readNewsContinuation((await store.listSources({}))[0].metadata), null);
+  const ids = store.rawItems().map((row) => row.externalId);
+  assertEquals(ids.length, 40);
+  assertEquals(new Set(ids).size, 40);
+  assertEquals(store.events().length, 0);
+
+  phase = "not-modified";
+  const stable = await runAt(6);
+  assertEquals(stable.rawItemsSeen, 0);
+  assertEquals(store.rawItems().length, 40);
+
+  phase = "body";
+  body = revised;
+  const changed = await runAt(7);
+  assertEquals(changed.sourcesFailed, 0);
+  assertEquals(changed.rawItemsSeen, 8);
+  assertEquals(changed.eventsCreated, 0);
+  const restarted = readNewsContinuation((await store.listSources({}))[0].metadata);
+  assertEquals(restarted?.next_item_index, 8);
+  assertEquals(restarted?.feed_item_count, 40);
+  assert(store.rawItems().some((row) => row.externalId === "gnw-next-0"));
+  assertEquals(store.rawItems().filter((row) => row.externalId === "gnw-next-0").length, 1);
+  assertEquals(store.events().length, 0);
+});
+
+Deno.test("NEWS continuation persists one attributed press release and does not duplicate it", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/attributed",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+  await store.saveSource(src);
+  const items = [
+    ["gnw-unresolved-0", "Issuer 0 USA L.L.C. announces quarterly results"],
+    ["gnw-unresolved-1", "Issuer 1 USA L.L.C. announces quarterly results"],
+    ["gnw-stryker", "Stryker Corporation reports quarterly results"],
+    ["gnw-unresolved-2", "Issuer 2 USA L.L.C. announces quarterly results"],
+  ];
+  const body = `<?xml version="1.0"?><rss version="2.0"><channel><title>GNW</title>${
+    items.map(([guid, title], index) => `<item>
+<title>${title}</title>
+<link>https://www.globenewswire.com/news-release/${index}</link>
+<guid isPermaLink="false">${guid}</guid>
+<pubDate>Wed, 01 Oct 2026 12:00:00 GMT</pubDate>
+<description>The company will host a call.</description>
+</item>`).join("\n")
+  }</channel></rss>`;
+  const universe = buildCompanyUniverse([{ ticker: "SYK", name: "Stryker Corporation" }]);
+  const fetchImpl = () => Promise.resolve(new Response(body, { status: 200, headers: { etag: '"attributed-v1"' } }));
+  const runAt = (index: number) => runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: new Date(NOW.getTime() + index * 60_000),
+    userAgent: "test",
+    fetchImpl,
+    batchLimit: 1,
+    companies: universe,
+    newsItemBudget: 2,
+    newsWallTimeMs: 60_000,
+  });
+
+  const first = await runAt(0);
+  assertEquals(first.sourcesFailed, 0);
+  assertEquals(first.rawItemsSeen, 2);
+  assertEquals(first.eventsCreated, 0);
+  assertEquals(readNewsContinuation((await store.listSources({}))[0].metadata)?.next_item_index, 2);
+
+  const second = await runAt(1);
+  assertEquals(second.sourcesFailed, 0);
+  assertEquals(second.rawItemsSeen, 2);
+  assertEquals(second.eventsCreated, 1);
+  assertEquals(readNewsContinuation((await store.listSources({}))[0].metadata), null);
+  const created = store.events();
+  assertEquals(created.length, 1);
+  assertEquals((await store.listTickers(created[0].id)).some((row) => row.ticker === "SYK" && row.isPrimary), true);
+  assertEquals(store.rawItems().filter((row) => row.externalId?.startsWith("gnw-unresolved")).length, 3);
+
+  const retry = await runAt(2);
+  assertEquals(retry.sourcesFailed, 0);
+  assertEquals(retry.rawItemsSeen, 0);
+  assertEquals(retry.eventsCreated, 0);
+  assertEquals(store.events().length, 1);
+  assertEquals(store.rawItems().filter((row) => row.externalId === "gnw-stryker").length, 1);
+});
+
 Deno.test("NEWS fully drained feed stays stable on subsequent 304", async () => {
   const store = createMemoryStore();
   const src = source({

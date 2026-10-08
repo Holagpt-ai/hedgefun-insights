@@ -2,7 +2,9 @@ import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.t
 import type { WorkerEnv } from "../env.ts";
 import { mergeRadarConfig } from "./config.ts";
 import { computeMomentumMetrics, regularSessionBucketIndex } from "./momentum-metrics.ts";
+import { RVOL_5M_FAILURE_BACKOFF_MS } from "./momentum-metrics.config.ts";
 import { createTod5mBaselineCache } from "./tod-5m-baseline-cache.ts";
+import { createParticipationBaselineCache } from "./participation-baseline-cache.ts";
 import { startRadarV22 } from "./run.ts";
 import type { RadarWsHandle } from "./ws.ts";
 import type { SecondBar } from "./types.ts";
@@ -234,4 +236,77 @@ Deno.test("missing history leaves rvol null and a later cycle can enrich it", as
     todBaseline: baseline,
   });
   assert(after.rvol_5m !== null && after.rvol_5m > 0);
+});
+
+Deno.test("history failure stays missing, then a new session ignores the stale download", async () => {
+  const schedule = resolveScheduleAt(T0, []);
+  assert(schedule);
+  const bucket = regularSessionBucketIndex(T0, schedule);
+  assert(bucket !== null);
+  let now = 1_000;
+  let fetches = 0;
+  let mode: "down" | "bars" | "hold" = "down";
+  let releaseHold: (response: Response) => void = () => {};
+  const hold = new Promise<Response>((resolve) => {
+    releaseHold = resolve;
+  });
+  const prior = ["2026-09-17", "2026-09-18", "2026-09-21", "2026-09-22", "2026-09-23"]
+    .map((d) => ({ t: Date.parse(`${d}T18:30:00.000Z`), v: 500 }));
+  const cache = createTod5mBaselineCache({
+    apiKey: "k",
+    exceptions: () => [],
+    nowMs: () => now,
+    fetch: () => {
+      fetches += 1;
+      if (mode === "hold") return hold;
+      if (mode === "down") return Promise.resolve(new Response("no", { status: 503 }));
+      return Promise.resolve(new Response(JSON.stringify({ results: prior }), { status: 200 }));
+    },
+  });
+  await cache.warm(["AAA"], "2026-09-24");
+  assertEquals(cache.get("AAA", bucket), null);
+  await cache.warm(["AAA"], "2026-09-24");
+  assertEquals(fetches, 1);
+  now += RVOL_5M_FAILURE_BACKOFF_MS;
+  mode = "hold";
+  const stale = cache.warm(["AAA"], "2026-09-24");
+  await new Promise((r) => setTimeout(r, 20));
+  assertEquals(cache.get("AAA", bucket), null);
+  mode = "bars";
+  await cache.warm(["AAA"], "2026-09-25");
+  const current = cache.get("AAA", bucket);
+  assert(current);
+  releaseHold(new Response(JSON.stringify({
+    results: prior.map((bar) => ({ ...bar, v: 5_000 })),
+  }), { status: 200 }));
+  await stale;
+  assertEquals(cache.get("AAA", bucket)?.expectedVolume, current.expectedVolume);
+  assert(current.expectedVolume < 1_000);
+});
+
+Deno.test("participation history failure is not stored as zero volume", async () => {
+  let now = 1_000;
+  let fetches = 0;
+  let fail = true;
+  const cache = createParticipationBaselineCache({
+    apiKey: "k",
+    exceptions: () => [],
+    nowMs: () => now,
+    fetch: () => {
+      fetches += 1;
+      if (fail) return Promise.resolve(new Response("no", { status: 503 }));
+      return Promise.resolve(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    },
+  });
+  await cache.warm(["AAA"], "2026-09-26");
+  assertEquals(cache.get("AAA", "2026-09-26", "market", 14 * 3_600_000), null);
+  await cache.warm(["AAA"], "2026-09-26");
+  assertEquals(fetches, 1);
+  now += RVOL_5M_FAILURE_BACKOFF_MS;
+  fail = false;
+  await cache.warm(["AAA"], "2026-09-26");
+  assertEquals(fetches, 2);
+  assertEquals(cache.get("AAA", "2026-09-26", "market", 14 * 3_600_000), null);
+  await cache.warm(["AAA"], "2026-09-26");
+  assertEquals(fetches, 2);
 });

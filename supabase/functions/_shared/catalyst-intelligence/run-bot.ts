@@ -232,7 +232,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         run.sourcesSuccessful += 1;
         return;
       }
-      const items = await input.adapter.discover(ctx);
+      let items = await input.adapter.discover(ctx);
       if (input.bot === "sec") recordSecFilingsFetch(ingestionObs, ctx.fetchState);
       const pendingNewsContinuation = input.bot === "news" && readNewsContinuation(source.metadata) != null;
       if (ctx.fetchState.unchanged && !pendingNewsContinuation) {
@@ -244,6 +244,19 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       if (ctx.fetchState.unchanged && pendingNewsContinuation) {
         ctx.fetchState.unchanged = false;
         ctx.fetchState.forceFullFetch = true;
+        items = await input.adapter.discover(ctx);
+      }
+      if (pendingNewsContinuation && (ctx.fetchState.unchanged || items.length === 0)) {
+        const pending = readNewsContinuation(source.metadata);
+        ingestionObs.continuation_remaining_items = pending
+          ? Math.max(0, pending.feed_item_count - pending.next_item_index)
+          : 0;
+        ingestionObs.resource_stop_reason = "news_feed_unchanged";
+        markSuccess(source, input.now, ctx.fetchState, false);
+        await input.store.saveSource(source);
+        await checkpointRun(input.store, run, ingestionObs, input.bot, wallStart);
+        run.sourcesSuccessful += 1;
+        return;
       }
       const feedHash = ctx.fetchState.contentHash;
       const feedPlan = input.bot === "news" && feedHash

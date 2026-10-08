@@ -5,7 +5,9 @@ import {
   resolveScheduleAt,
 } from "../../../../supabase/functions/_shared/markets/session-schedule.ts";
 import {
+  RVOL_5M_FAILURE_BACKOFF_MS,
   RVOL_5M_FETCH_CONCURRENCY,
+  RVOL_5M_FETCH_TIMEOUT_MS,
   RVOL_5M_LOOKBACK_CALENDAR_DAYS,
   RVOL_5M_MIN_TOD_SAMPLES,
 } from "./momentum-metrics.config.ts";
@@ -24,6 +26,12 @@ export type Tod5mBaselineCache = {
 };
 
 type SymbolProfile = Map<number, { sum: number; count: number }>;
+
+type CachedProfile = { tradingDate: string; profile: SymbolProfile };
+
+type HistoryFetch =
+  | { ok: true; bars: PolygonAggBar[] }
+  | { ok: false };
 
 function tradingDatesLookback(tradingDate: string): string[] {
   const end = new Date(`${tradingDate}T12:00:00Z`);
@@ -57,7 +65,7 @@ async function fetch5mHistory(
   toDate: string,
   apiKey: string,
   fetchFn: FetchLike,
-): Promise<PolygonAggBar[]> {
+): Promise<HistoryFetch> {
   const url = new URL(
     `https://api.polygon.io/v2/aggs/ticker/${encodeURIComponent(symbol)}/range/5/minute/${fromDate}/${toDate}`,
   );
@@ -65,27 +73,38 @@ async function fetch5mHistory(
   url.searchParams.set("sort", "asc");
   url.searchParams.set("limit", "50000");
   url.searchParams.set("apiKey", apiKey);
-  const res = await fetchFn(url.toString());
-  if (!res.ok) return [];
-  const json = await res.json() as { results?: PolygonAggBar[] };
-  return json.results ?? [];
+  try {
+    const res = await fetchFn(url.toString(), {
+      signal: AbortSignal.timeout(RVOL_5M_FETCH_TIMEOUT_MS),
+    });
+    if (!res.ok) return { ok: false };
+    const json = await res.json() as { results?: PolygonAggBar[] };
+    return { ok: true, bars: json.results ?? [] };
+  } catch {
+    return { ok: false };
+  }
 }
 
 export function createTod5mBaselineCache(opts: {
   apiKey: string;
   fetch: FetchLike;
   exceptions: () => CalendarExceptionRow[] | null;
+  nowMs?: () => number;
 }): Tod5mBaselineCache {
-  const bySymbol = new Map<string, SymbolProfile>();
+  const bySymbol = new Map<string, CachedProfile>();
   const inFlight = new Map<string, Promise<void>>();
+  const retryAt = new Map<string, { tradingDate: string; at: number }>();
+  let activeTradingDate: string | null = null;
+  const nowMs = opts.nowMs ?? (() => Date.now());
 
   function scheduleFor(ms: number): ResolvedSessionSchedule | null {
     return resolveScheduleAt(ms, opts.exceptions());
   }
 
   function get(symbol: string, bucketIndex: number): TodBucketBaseline | null {
-    const profile = bySymbol.get(symbol);
-    if (!profile) return null;
+    const cached = bySymbol.get(symbol);
+    if (!cached || cached.tradingDate !== activeTradingDate) return null;
+    const profile = cached.profile;
     const entry = profile.get(bucketIndex);
     if (!entry || entry.count < RVOL_5M_MIN_TOD_SAMPLES) return null;
     const expectedVolume = entry.sum / entry.count;
@@ -98,27 +117,47 @@ export function createTod5mBaselineCache(opts: {
     if (dates.length === 0) return;
     const fromDate = dates[0]!;
     const toDate = dates[dates.length - 1]!;
-    const bars = await fetch5mHistory(symbol, fromDate, toDate, opts.apiKey, opts.fetch);
-    if (bars.length === 0) return;
-    const profile = buildProfileFromBars(bars, scheduleFor);
-    if (profile.size === 0) return;
-    bySymbol.set(symbol, profile);
+    const fetched = await fetch5mHistory(symbol, fromDate, toDate, opts.apiKey, opts.fetch);
+    if (activeTradingDate !== tradingDate) return;
+    if (!fetched.ok) {
+      retryAt.set(symbol, {
+        tradingDate,
+        at: nowMs() + RVOL_5M_FAILURE_BACKOFF_MS,
+      });
+      return;
+    }
+    retryAt.delete(symbol);
+    if (fetched.bars.length === 0) {
+      bySymbol.set(symbol, { tradingDate, profile: new Map() });
+      return;
+    }
+    const profile = buildProfileFromBars(fetched.bars, scheduleFor);
+    bySymbol.set(symbol, { tradingDate, profile });
   }
 
   async function warm(symbols: readonly string[], tradingDate: string): Promise<void> {
+    if (activeTradingDate !== tradingDate) {
+      bySymbol.clear();
+      inFlight.clear();
+      retryAt.clear();
+      activeTradingDate = tradingDate;
+    }
     const queue = [...new Set(symbols.map((s) => s.trim().toUpperCase()).filter(Boolean))];
     let index = 0;
     async function worker(): Promise<void> {
       while (index < queue.length) {
         const sym = queue[index++]!;
-        if (bySymbol.has(sym)) continue;
+        const cached = bySymbol.get(sym);
+        if (cached?.tradingDate === tradingDate) continue;
+        const failed = retryAt.get(sym);
+        if (failed?.tradingDate === tradingDate && nowMs() < failed.at) continue;
         const pending = inFlight.get(sym);
         if (pending) {
           await pending;
           continue;
         }
         const job = warmOne(sym, tradingDate).finally(() => {
-          inFlight.delete(sym);
+          if (inFlight.get(sym) === job) inFlight.delete(sym);
         });
         inFlight.set(sym, job);
         await job;

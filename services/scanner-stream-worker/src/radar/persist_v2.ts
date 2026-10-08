@@ -994,6 +994,8 @@ export async function publishRadarV2IfNeeded(opts: {
   generationId: string;
   syncedAt: string;
   rpc: RadarV2RpcFn;
+  /** Clock after the RPC returns. Cooldown starts then, not at eval start. */
+  nowMs?: () => number;
 }): Promise<"skipped" | PublishRadarResult> {
   if (!shouldPublishRadarV2(opts.flagEnabled, opts.result)) {
     return "skipped";
@@ -1034,7 +1036,7 @@ export async function publishRadarV2IfNeeded(opts: {
     if (result.ok && result.applied !== false) {
       opts.gate.markSuccess(decision, opts.wallNowMs);
     } else if (!result.ok) {
-      opts.gate.markFailure(opts.wallNowMs);
+      opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
     }
     return result;
   } catch {

@@ -212,9 +212,9 @@ export async function loadConfiguredSource(ctx: SourceRunContext): Promise<strin
   });
   ctx.fetchState.etag = fetched.etag;
   ctx.fetchState.lastModified = fetched.lastModified;
-  if (fetched.unchanged && !forceFullFetch) {
+  if (fetched.unchanged) {
     ctx.fetchState.unchanged = true;
-    ctx.fetchState.contentHash = ctx.source.lastContentHash;
+    if (!forceFullFetch) ctx.fetchState.contentHash = ctx.source.lastContentHash;
     return null;
   }
   const hash = await sha256Hex(fetched.body);

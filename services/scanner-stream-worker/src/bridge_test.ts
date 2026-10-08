@@ -503,6 +503,95 @@ Deno.test("bridge publish_candidates_v2 applied=true is success", async () => {
   assertEquals(attempts, 1);
 });
 
+Deno.test("application persist_failed is not retried and names the database", async () => {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (msg?: unknown) => {
+    lines.push(String(msg ?? ""));
+  };
+  let attempts = 0;
+  try {
+    const fetchImpl: FetchLike = async () => {
+      attempts += 1;
+      return new Response(JSON.stringify({
+        ok: false,
+        error: "persist_failed",
+        code: "57014",
+        detail: "canceling statement due to statement timeout",
+      }), { status: 502 });
+    };
+    const bridge = createRadarBridge({
+      bridgeUrl: BRIDGE_URL,
+      workerSecret: SECRET,
+      fetch: fetchImpl,
+      sleep: async () => {},
+    });
+    const published = await bridge.radarRpc({
+      p_generation_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      p_rows: [],
+      p_archive: [],
+      p_session_date: "2026-08-10",
+      p_synced_at: "2026-08-10T14:00:05.000Z",
+      p_status: "empty",
+      p_last_provider_event_at: null,
+    });
+    assertEquals(published.error?.message, "persist_failed");
+    assertEquals(attempts, 1);
+    const logs = parseBridgeLogs(lines);
+    const attempt = logs.find((row) => row.msg === "bridge_request");
+    assertEquals(attempt?.failure_origin, "application");
+    assertEquals(attempt?.http_status, 502);
+    const rejected = logs.find((row) => row.msg === "bridge_database_rejected");
+    assertEquals(rejected?.rpc_error_code, "57014");
+    assertEquals(rejected?.failure_origin, "application");
+    const dumped = lines.join("\n");
+    assertEquals(dumped.includes("canceling statement"), false);
+  } finally {
+    console.log = original;
+  }
+});
+
+Deno.test("platform 503 stays retryable and is not labeled an application rejection", async () => {
+  const lines: string[] = [];
+  const original = console.log;
+  console.log = (msg?: unknown) => {
+    lines.push(String(msg ?? ""));
+  };
+  let attempts = 0;
+  try {
+    const fetchImpl: FetchLike = async () => {
+      attempts += 1;
+      return new Response("upstream connect error", { status: 503 });
+    };
+    const bridge = createRadarBridge({
+      bridgeUrl: BRIDGE_URL,
+      workerSecret: SECRET,
+      fetch: fetchImpl,
+      sleep: async () => {},
+    });
+    const published = await bridge.radarRpc({
+      p_generation_id: "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeeee",
+      p_rows: [],
+      p_archive: [],
+      p_session_date: "2026-08-10",
+      p_synced_at: "2026-08-10T14:00:05.000Z",
+      p_status: "empty",
+      p_last_provider_event_at: null,
+    });
+    assertEquals(published.error?.message, "persist_failed");
+    assertEquals(attempts, 3);
+    const logs = parseBridgeLogs(lines);
+    const attemptsLogged = logs.filter((row) => row.msg === "bridge_request");
+    assertEquals(attemptsLogged.length, 3);
+    assertEquals(attemptsLogged.every((row) => row.failure_origin === "platform"), true);
+    const unavailable = logs.find((row) => row.msg === "bridge_unavailable");
+    assertEquals(unavailable?.failure_origin, "platform");
+    assertEquals(logs.some((row) => row.msg === "bridge_database_rejected"), false);
+  } finally {
+    console.log = original;
+  }
+});
+
 Deno.test("bridge publish_candidates_v2 stale_generation is success and is not retried", async () => {
   let attempts = 0;
   const fetchImpl = capturingFetch([], () => {
