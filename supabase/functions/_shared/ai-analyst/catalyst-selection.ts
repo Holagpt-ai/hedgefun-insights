@@ -9,6 +9,7 @@ import {
   type CatalystPrecedenceResult,
 } from "../catalyst/precedence.ts";
 import { rowQualifiesAsVerifiedPrimary } from "./catalyst-evidence-verification.ts";
+import { limitScoredCatalystCandidates } from "./catalyst-evidence-candidate-pool.ts";
 
 export type CatalystRow = {
   eventType: string;
@@ -78,6 +79,18 @@ export function scoreCatalystRow(row: CatalystRow) {
   if (explicitAnalyst && (row.verificationState === "provider_reported" || row.evidenceOrigin === "fresh_web_search")) {
     selectionScore = Math.max(selectionScore, 60);
   }
+  const title = row.title ?? "";
+  if (INVESTOR_DAY.test(title)) {
+    if (/\b(?:outlook|target|guidance|revenue|\$|\bfy\s*\d)/i.test(title)) {
+      selectionScore += 40;
+    }
+    if (
+      /\b(?:announc(?:es|ed|ing)|schedul(?:es|ed)|set for|to host|date for)\b/i.test(title)
+      && !/\$(?:\d|[bmt])|\boutlook\b|\btarget|\bguidance\b|\brevenue\b/i.test(title)
+    ) {
+      selectionScore -= 50;
+    }
+  }
   return { row, precedence, selectionScore, demotedReason };
 }
 
@@ -113,15 +126,7 @@ export function deterministicSortSearchRows<T extends { sourceUrl?: string | nul
 
 export function mergeRowsDeterministic(internal: CatalystRow[], fromSearch: CatalystRow[]): CatalystRow[] {
   const orderedSearch = deterministicSortSearchRows(fromSearch);
-  const seen = new Set<string>();
-  const merged: CatalystRow[] = [];
-  for (const row of [...internal, ...orderedSearch]) {
-    const key = `${row.sourceUrl ?? ""}|${row.title ?? ""}`.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(row);
-  }
-  return merged.slice(0, 12);
+  return limitScoredCatalystCandidates([...internal, ...orderedSearch]).rows;
 }
 
 export function buildSelectionTrace(input: {
@@ -130,7 +135,9 @@ export function buildSelectionTrace(input: {
   searchHitCount: number;
   internalRowCount: number;
   rows: CatalystRow[];
+  contentFetchedUrls?: readonly string[];
 }) {
+  const fetched = new Set(input.contentFetchedUrls ?? []);
   const scored = input.rows.map(scoreCatalystRow);
   const primary = selectPrimaryFromScored(input.symbol, scored);
   return {
@@ -148,7 +155,7 @@ export function buildSelectionTrace(input: {
       officialSource: s.row.officialSource === true,
       verificationStatus: s.row.verificationState,
       inferredEventType: s.row.eventType,
-      contentFetched: false,
+      contentFetched: s.row.sourceUrl ? fetched.has(s.row.sourceUrl) : false,
       precedenceTier: s.precedence.tier,
       primaryClass: s.precedence.primaryClass,
       classRank: s.precedence.classRank,

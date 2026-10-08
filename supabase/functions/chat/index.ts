@@ -59,7 +59,10 @@ ANALYST INTELLIGENCE (when analystIntelligence is provided):
 - Use evidence-aware confidence: strong / mixed / limited / unavailable.
 
 WHY IS IT MOVING / CURRENT CATALYST (when CURRENT_CATALYST_ANALYSIS or catalystAnswerMode=CURRENT_CATALYST_FIRST):
-- Use rankedEvidence and VERIFIED_FACTS.catalystRows before generic training knowledge or sector narratives.
+- Use rankedEvidence, catalystEvidenceFacts, and VERIFIED_FACTS.catalystRows before generic training knowledge or sector narratives.
+- catalystEvidenceFacts carries verified event figures with sourceUrl and verificationLevel — use only for KEY DETAILS when level is official_page, official_document, or attributed_secondary.
+- Do not state dollar guidance or fiscal targets unless they appear in catalystEvidenceFacts or verified primary source text in the packet.
+- Separate verified event facts (catalystEvidenceFacts) from market interpretation (WHY MARKET CARES).
 - Structure: PRIMARY CATALYST → KEY DETAILS → WHY MARKET CARES → SECONDARY CONTEXT → MARKET CONFIRMATION → CONFIDENCE/MISSING EVIDENCE.
 - If verifiedPrimary=true, the primaryCatalyst headline is the lead — investor day, guidance, earnings, SEC/IR beat generic AI/sector stories.
 - If explicitNoVerifiedCatalyst=true, say clearly that no confirmed company-specific catalyst was found in available fresh sources — then sector/macro may follow as secondary only.

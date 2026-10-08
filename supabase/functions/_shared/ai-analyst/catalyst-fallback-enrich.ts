@@ -12,6 +12,12 @@ import {
   type CatalystRow,
 } from "./catalyst-selection.ts";
 import { inferEventTypeFromSearchEvidence } from "./catalyst-evidence-verification.ts";
+import {
+  attachEvidenceFactsToAnalysis,
+  enrichAuthoritativeCatalystFacts,
+} from "./catalyst-authoritative-enrich.ts";
+import { fetchAuthoritativeHtml } from "./catalyst-authoritative-html-fetch.ts";
+import { CATALYST_VERIFIED_VS_INFERRED_GUIDANCE } from "./catalyst-evidence-facts.ts";
 
 type AnalystPacket = Record<string, unknown>;
 
@@ -136,7 +142,22 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
   }));
   const fromSearch = hits.map((h) => normalizeHit(h, symbol));
   const merged = mergeRowsDeterministic(internal, fromSearch);
-  const analysis = rebuildAnalysis(symbol, merged);
+  const primaryPick = selectPrimaryFromScored(symbol, merged.map(scoreCatalystRow));
+  let analysis: Record<string, unknown> = {
+    ...((packet.CURRENT_CATALYST_ANALYSIS as Record<string, unknown> | undefined) ?? {}),
+    ...rebuildAnalysis(symbol, merged),
+  };
+  const authoritative = await enrichAuthoritativeCatalystFacts({
+    primaryRow: primaryPick?.row ?? null,
+    supportingRows: merged,
+    fetchHtml: fetchAuthoritativeHtml,
+  });
+  if (analysis.verifiedPrimary === true) {
+    analysis = attachEvidenceFactsToAnalysis(analysis, authoritative);
+  } else {
+    analysis.catalystEvidenceFacts = [];
+    analysis.verifiedVsInferredGuidance = CATALYST_VERIFIED_VS_INFERRED_GUIDANCE;
+  }
   const succeeded = analysis.verifiedPrimary === true;
 
   const pipelineTrace = buildSelectionTrace({
@@ -145,6 +166,7 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
     searchHitCount: hits.length,
     internalRowCount: internal.length,
     rows: merged,
+    contentFetchedUrls: authoritative.contentFetchedUrls,
   });
   console.log("[catalyst-pipeline]", JSON.stringify(pipelineTrace));
 
