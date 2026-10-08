@@ -4,6 +4,13 @@ import type { AnalystCatalystRow } from "@/lib/ai-analyst/intelligence-packet-ty
 
 const INVESTOR_DAY = /\b(?:investor day|analyst day|capital markets day)\b/i;
 
+/** Concrete company event language. Vague "why the stock is up" copy does not qualify. */
+const ESTABLISHED_COMPANY_EVENT =
+  /\b(?:investor day|analyst day|capital markets day|8[-\s]?k|earnings\s+(?:beat|miss|results|report|release)|(?:raises?|updates?|cuts?)\s+(?:fy\s*)?guidance|fy\s*20\d{2}|\$\s*\d+(?:\.\d+)?\s*(?:billion|b)\b)\b/i;
+
+const FINANCIAL_MEDIA =
+  /motley\s*fool|\bfool\.com\b|seeking\s*alpha|seekingalpha\.com|benzinga|marketwatch|finance\.yahoo|zacks\.com/i;
+
 const EXPLICIT_ANALYST_PRIMARY =
   /\b(?:upgrade[sd]?|downgrade[sd]?|initiat(?:es|ed)|raise[sd]?|lower[sd]?|cut[s]?)\b.{0,40}\b(?:price\s+target|pt|rating|to\s+(?:buy|sell|hold|overweight|underweight|neutral))\b/i;
 
@@ -53,6 +60,22 @@ export function rowQualifiesAsVerifiedPrimary(
   }
 
   if (precedence.tier !== "primary" || precedence.classRank <= 0) return false;
+
+  const attribution = `${row.sourceName ?? ""} ${row.sourceUrl ?? ""} ${title}`;
+  if (
+    !row.officialSource
+    && FINANCIAL_MEDIA.test(attribution)
+    && !ESTABLISHED_COMPANY_EVENT.test(title)
+  ) {
+    return false;
+  }
+  if (
+    !row.officialSource
+    && (row.eventType === "earnings" || row.eventType === "earnings_guidance")
+    && !ESTABLISHED_COMPANY_EVENT.test(title)
+  ) {
+    return false;
+  }
 
   if (row.verificationState === "provider_reported") return true;
 

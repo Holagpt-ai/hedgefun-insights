@@ -6,6 +6,7 @@ import {
 import { persistHistoricalWorkflowHandoff } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
 import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
+import { readRadarHistoricalFacts } from "@/lib/ai-analyst/radar-historical-handoff";
 import { normalizeRadarSymbol } from "@/lib/radar/resolve-radar-security-id";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 
@@ -51,7 +52,7 @@ export async function fetchAnalystHistoricalMemory(input: {
 
   const url = radarHistoricalContextUrl();
   if (!url || !input.accessToken) {
-    return unavailableHistoricalMemory(symbol);
+    return readRadarHistoricalFacts(symbol) ?? unavailableHistoricalMemory(symbol);
   }
 
   try {
@@ -76,8 +77,10 @@ export async function fetchAnalystHistoricalMemory(input: {
         securityId: historicalContext.securityId,
       });
     }
-    return buildHistoricalMemoryFromRepeatMoverContext(historicalContext, symbol);
+    const fromNetwork = buildHistoricalMemoryFromRepeatMoverContext(historicalContext, symbol);
+    if (fromNetwork.contextLoaded) return fromNetwork;
+    return readRadarHistoricalFacts(symbol) ?? fromNetwork;
   } catch {
-    return unavailableHistoricalMemory(symbol);
+    return readRadarHistoricalFacts(symbol) ?? unavailableHistoricalMemory(symbol);
   }
 }

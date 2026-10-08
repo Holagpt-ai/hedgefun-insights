@@ -8,6 +8,10 @@ import {
   unavailableHistoricalMemory,
 } from "@/lib/ai-analyst/historical-memory";
 import { fetchAnalystHistoricalMemory } from "@/lib/ai-analyst/fetch-analyst-historical-memory";
+import {
+  persistRadarHistoricalContextForAnalyst,
+  readRadarHistoricalFacts,
+} from "@/lib/ai-analyst/radar-historical-handoff";
 import { repeatMoverContextToAnalystFacts } from "@/lib/ai-analyst/repeat-mover-evidence-facts";
 import { unavailableRepeatMoverProfileSnapshot } from "@/lib/repeat-movers/get-repeat-mover-context";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
@@ -139,6 +143,7 @@ describe("AI Analyst historical memory", () => {
   });
 
   it("fetch fails soft on bridge error", async () => {
+    sessionStorage.removeItem("stocksist-radar-historical-facts:XYZ");
     vi.stubEnv("VITE_SUPABASE_URL", "https://example.supabase.co");
     const memory = await fetchAnalystHistoricalMemory({
       symbol: "XYZ",
@@ -147,6 +152,23 @@ describe("AI Analyst historical memory", () => {
     });
     expect(memory.contextLoaded).toBe(false);
     expect(memory.symbol).toBe("XYZ");
+  });
+
+  it("keeps compact radar facts when the historical fetch fails", async () => {
+    persistRadarHistoricalContextForAnalyst("XYZ", baseContext());
+    const stored = readRadarHistoricalFacts("XYZ");
+    expect(stored?.contextLoaded).toBe(true);
+    expect(stored?.nextSessionPositiveContinuationRate).not.toBeUndefined();
+    vi.stubEnv("VITE_SUPABASE_URL", "https://example.supabase.co");
+    const memory = await fetchAnalystHistoricalMemory({
+      symbol: "XYZ",
+      accessToken: "token",
+      fetchImpl: async () => ({ ok: false, status: 502 } as Response),
+    });
+    expect(memory.contextLoaded).toBe(true);
+    expect(memory.comparableEpisodeCount).toBe(stored?.comparableEpisodeCount);
+    sessionStorage.removeItem("stocksist-radar-historical-facts:XYZ");
+    sessionStorage.removeItem("stocksist-radar-historical:XYZ");
   });
 
   it("reuses preloaded radar context without fetch", async () => {

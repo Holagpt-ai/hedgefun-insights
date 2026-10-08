@@ -8,6 +8,7 @@ import {
 } from "../_shared/ai/anthropic-error.ts";
 import { buildMemoryExtractionPrompt } from "./memory-extraction.ts";
 import { enrichAnalystIntelligenceWithFreshCatalystSearch } from "../_shared/ai-analyst/catalyst-fallback-enrich.ts";
+import { applyLoadedHistoricalMemory } from "../_shared/ai-analyst/historical-detail-availability.ts";
 import {
   isAnonymousSessionLimitReached,
   isFreeDailyLimitReached,
@@ -75,6 +76,24 @@ CAPABILITIES: Technical analysis, financial metrics, market trends, trading conc
 WEB SEARCH: For ANY question about trading regulations, rules, or requirements — ALWAYS use the web_search tool before answering. CRITICAL: Your training data on regulations is likely outdated. Always search for recent changes first — search "PDT rule changes 2026" not "PDT rule minimum balance". Assume any regulation from training may have been amended or eliminated. Synthesize search results directly — never override search results with training data. Cite sources and add "verify with your broker" for all regulatory answers.
 
 PRICE/QUOTE DATA: For ANY question about a stock's open, close, high, low, current price, or today's price action — ALWAYS use the get_quote tool. Never estimate, guess, or recall a price from training data, and never use web_search for exact price data.`;
+
+function latestUserQuestionText(messages: Array<{ role?: string; content?: unknown }>): string {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (message?.role !== "user") continue;
+    const content = message.content;
+    if (typeof content === "string") return content;
+    if (Array.isArray(content)) {
+      for (const part of content) {
+        if (part && typeof part === "object" && (part as { type?: string }).type === "text") {
+          const text = (part as { text?: unknown }).text;
+          if (typeof text === "string") return text;
+        }
+      }
+    }
+  }
+  return "";
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -271,6 +290,11 @@ serve(async (req) => {
       try {
         intelligencePayload = await enrichAnalystIntelligenceWithFreshCatalystSearch(
           analystIntelligence as Record<string, unknown>,
+          { userQuestion: latestUserQuestionText(builtMessages) },
+        );
+        intelligencePayload = applyLoadedHistoricalMemory(
+          intelligencePayload as Record<string, unknown>,
+          historicalMemory,
         );
       } catch (enrichErr) {
         console.error("[chat] catalyst enrich failed", enrichErr);

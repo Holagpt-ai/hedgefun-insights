@@ -31,4 +31,22 @@ describe("current catalyst intent", () => {
       }),
     ).toBe("MRVL");
   });
+
+  it("does not treat ordinary market wording as a ticker", () => {
+    expect(extractTickerFromCatalystQuestion("Why is the market down today?")).toBeNull();
+    expect(extractTickerFromCatalystQuestion("Why is it moving?")).toBeNull();
+    expect(extractTickerFromCatalystQuestion("What caused the selloff?")).toBeNull();
+  });
+
+  it("keeps explicit short tickers and symbol handoffs", () => {
+    expect(extractTickerFromCatalystQuestion("Why is F up today?")).toBe("F");
+    expect(extractTickerFromCatalystQuestion("IT? Why is it moving?")).toBe("IT");
+    expect(extractTickerFromCatalystQuestion("What is moving with $IT")).toBe("IT");
+    expect(
+      resolveAnalystSymbolForQuestion({
+        activeSymbol: "IT",
+        userQuestion: "Why is it moving?",
+      }),
+    ).toBe("IT");
+  });
 });

@@ -10,6 +10,7 @@ import {
   extractExplicitMaterialFacts,
   inferEventTypeFromSearchEvidence,
 } from "@/lib/ai-analyst/catalyst-evidence-verification";
+import { catalystSessionDateFromQuestion } from "@/lib/ai-analyst/catalyst-session-date";
 
 const OFFICIAL_SOURCE_HOST =
   /(?:^|\.)((?:investor|ir)\.[a-z0-9.-]+|sec\.gov|(?:www\.)?[a-z0-9-]+\.com\/(?:investor|ir|news\/press))/i;
@@ -54,10 +55,13 @@ export function buildCatalystSearchQueries(input: {
   symbol: string;
   companyName?: string | null;
   sessionDateIso?: string;
+  userQuestion?: string | null;
+  now?: Date;
 }): string[] {
   const symbol = input.symbol.trim().toUpperCase();
   const company = resolveCompanyName(symbol, input.companyName);
-  const date = input.sessionDateIso?.slice(0, 10) ?? new Date().toISOString().slice(0, 10);
+  const date = input.sessionDateIso?.slice(0, 10)
+    ?? catalystSessionDateFromQuestion(input.userQuestion, input.now ?? new Date());
   const queries = [
     `${symbol} ${company ?? ""} investor day guidance news ${date}`.replace(/\s+/g, " ").trim(),
     `${symbol} catalyst today ${date}`,
