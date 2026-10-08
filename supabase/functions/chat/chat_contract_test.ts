@@ -41,6 +41,7 @@ Deno.test("CURRENT_CATALYST evidence handling is unchanged", async () => {
   assert(src.includes("FRESH_CATALYST_DISCOVERY.attempted=true"));
   assert(src.includes("institutionalLanguageRule"));
   assert(src.includes("enrichAnalystIntelligenceWithFreshCatalystSearch"));
+  assert(src.includes("buildAnalystIntelligencePromptBlock"));
   assert(src.includes("CURRENT_CATALYST_MODE"));
   assertFalse(src.includes("MRVL"));
 });
