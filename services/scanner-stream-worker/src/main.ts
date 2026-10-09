@@ -4,6 +4,7 @@ import { log } from "./log.ts";
 import { createDailyCache, runBaselineJob } from "./baseline/builder.ts";
 import { createRadarBridge } from "./bridge.ts";
 import { runRadarLoop } from "./radar/runner.ts";
+import { buildCumulativeVolumeDiagnostic } from "./diagnostic/cumulative-volume.ts";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -77,6 +78,34 @@ async function main(): Promise<void> {
         return new Response("Method Not Allowed", { status: 405 });
       }
       return healthResponse(health.get(Date.now()));
+    }
+    if (url.pathname === "/diagnostic/cumulative-volume") {
+      if (req.method !== "GET") {
+        return new Response("Method Not Allowed", { status: 405 });
+      }
+      const secret = req.headers.get("x-radar-worker-secret");
+      if (secret !== env.radarWorkerSecret) {
+        return new Response(JSON.stringify({ error: "unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      const symbol = url.searchParams.get("symbol")?.trim().toUpperCase();
+      if (!symbol) {
+        return new Response(JSON.stringify({ error: "symbol_required" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      return buildCumulativeVolumeDiagnostic({
+        symbol,
+        polygonApiKey: env.polygonApiKey,
+      }).then((body) =>
+        new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        })
+      );
     }
     return new Response("Not Found", { status: 404 });
   });

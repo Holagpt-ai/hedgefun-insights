@@ -39,6 +39,11 @@ export type RadarV22Config = {
   promotionCap: number;
   /** Config-level hard cap; mergeRadarConfig also clamps to RADAR_PROMOTION_HARD_MAX. */
   promotionHardMax: number;
+  /**
+   * Additional Stage-2 RadarBook slots for Penny / Breakouts discovery outside
+   * the main promotion cap. Clamped so promoted + discovery ≤ HARD_MAX.
+   */
+  discoveryTrackCap: number;
   /** vol5 / expected5 from the preceding 60s-excluding-current-5s baseline. */
   sentinelBurst5Multiple: number;
   /** vol15 / expected15 from the preceding 60s-excluding-current-15s baseline. */
@@ -121,6 +126,7 @@ export const RADAR_V22_CONFIG: RadarV22Config = {
   sentinelTtlMs: 90_000,
   promotionCap: RADAR_PROMOTION_CAP_DEFAULT,
   promotionHardMax: RADAR_PROMOTION_HARD_MAX,
+  discoveryTrackCap: 48,
   sentinelBurst5Multiple: 4,
   sentinelBurst15Multiple: 4,
   sentinelBurst5MinPrecedingSeconds: 30,

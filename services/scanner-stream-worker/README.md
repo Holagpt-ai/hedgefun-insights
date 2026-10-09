@@ -97,4 +97,13 @@ The image entrypoint is `deno`. The container listens on `8080` and answers
 `GET /health` as soon as the HTTP server starts, including while the first
 baseline bootstrap is still running.
 
+### Volume validation diagnostic (read-only)
+
+`GET /diagnostic/cumulative-volume?symbol=TICKER` with header
+`x-radar-worker-secret: <RADAR_WORKER_SECRET>` compares Polygon snapshot
+`day.v` / `min.av` against the shared cumulative-session-volume resolver.
+Uses the worker's existing `POLYGON_API_KEY` (never returned in responses).
+Supabase Edge `market-data?type=snapshot` is an alternative when invoked with
+service auth, but the worker endpoint aligns with live ingest credentials.
+
 Send `SIGTERM` or `SIGINT` to stop the job loop, close the server, and exit 0.
