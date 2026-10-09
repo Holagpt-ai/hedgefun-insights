@@ -721,6 +721,7 @@ Deno.test("lifecycle helper: first detect is DETECTED, second CONFIRMING, third 
     vol60s: 120_000,
     dollarVol60s: 1,
     sessionVolume: 1,
+    providerAccumulatedVolume: null,
     sessionHigh: 11,
     sessionLow: 9,
     sessionVwap: 10,
