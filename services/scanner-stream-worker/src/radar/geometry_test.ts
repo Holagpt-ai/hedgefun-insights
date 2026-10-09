@@ -516,6 +516,7 @@ Deno.test("34-35. lifecycle cooling duration is event time, not wall", () => {
     vol60s: 100,
     dollarVol60s: 1,
     sessionVolume: 1,
+    providerAccumulatedVolume: null,
     sessionHigh: 11,
     sessionLow: 9,
     sessionVwap: 10,

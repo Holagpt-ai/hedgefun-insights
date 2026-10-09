@@ -254,10 +254,16 @@ export function createRadarBook(config: RadarV22Config): RadarBook {
         }, null)
         : null;
 
-      const sessionVolume = lastBar?.accumulatedVolume !== null &&
+      const providerAccumulatedVolume =
+        lastBar?.accumulatedVolume !== null &&
           lastBar?.accumulatedVolume !== undefined &&
+          Number.isFinite(lastBar.accumulatedVolume) &&
           lastBar.accumulatedVolume > 0
-        ? lastBar.accumulatedVolume
+          ? lastBar.accumulatedVolume
+          : null;
+
+      const sessionVolume = providerAccumulatedVolume !== null
+        ? providerAccumulatedVolume
         : (book?.sessionVolumeSum ?? 0);
 
       const sessionVwap = lastBar?.sessionVwap ??
@@ -279,6 +285,7 @@ export function createRadarBook(config: RadarV22Config): RadarBook {
         vol60s: vol60.total,
         dollarVol60s: dollar60.total,
         sessionVolume,
+        providerAccumulatedVolume,
         sessionHigh: book?.sessionHigh ?? quote?.dayHigh ?? null,
         sessionLow: book?.sessionLow ?? quote?.dayLow ?? null,
         sessionVwap: sessionVwap !== null && Number.isFinite(sessionVwap)

@@ -57,6 +57,7 @@ import { createScannerEventBook } from "./scanner-event-book.ts";
 import type { ScannerEventBookSnapshot } from "./scanner-event-book.ts";
 import { createRadarEventBook } from "./radar-event-book.ts";
 import { computeParticipationForSymbol } from "./participation-metrics.ts";
+import { resolveCumulativeSessionVolume } from "../../../../src/lib/radar/cumulative-session-volume.ts";
 import type { ParticipationBaselineCache } from "./participation-baseline-cache.ts";
 import type { ScannerAlertFiring } from "../../../../supabase/functions/_shared/scanner-alerts/types.ts";
 import {
@@ -587,9 +588,12 @@ export function createRadarEngine(opts: {
         isRadarV22SessionKind(lastSessionKind) &&
         v2Rows.length < 200
       ) {
-        const sessionVol = intelSnap !== null && intelSnap.sessionVolumeSum > 0
-          ? intelSnap.sessionVolumeSum
-          : metrics.sessionVolume;
+        const sessionVol = resolveCumulativeSessionVolume({
+          providerAccumulatedVolume: metrics.providerAccumulatedVolume,
+          metricsSessionVolume: metrics.sessionVolume,
+          geometrySessionVolumeSum: intelSnap?.sessionVolumeSum ?? null,
+          snapshotDayVolume: quote?.dayVolume ?? null,
+        }).volume;
         const priorVol = quote?.priorVolume ?? 0;
         const volRatio = priorVol > 0 && sessionVol > 0
           ? Math.round((sessionVol / priorVol) * 10) / 10
@@ -752,6 +756,7 @@ export function createRadarEngine(opts: {
               priorVolume: quote.priorVolume,
             }
             : null,
+          snapshotDayVolume: quote?.dayVolume ?? null,
         }));
         for (const ev of scannerSnap.newlyActivated) {
           v2ScannerFirings.push({

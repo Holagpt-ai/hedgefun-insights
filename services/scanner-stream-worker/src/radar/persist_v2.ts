@@ -48,6 +48,7 @@ import {
 import type { PromotionReason } from "../../../../src/lib/radar/radar-event-engine.ts";
 import { radarV22EventTypeFromEngine } from "../../../../src/lib/radar/radar-event-engine.ts";
 import type { IntradayParticipationSnapshot } from "../../../../src/lib/radar/intraday-participation.ts";
+import { resolveCumulativeSessionVolume } from "../../../../src/lib/radar/cumulative-session-volume.ts";
 
 export { REPLACE_RADAR_V2_RPC, RADAR_V22_CANDIDATE_CAP };
 
@@ -597,9 +598,17 @@ export function mapCandidateRow(opts: {
    * has no quote in this generation. Not read from radar_v22_board.
    */
   previousSession?: Omit<PreviousSessionQuoteInput, "lastPrice"> | null;
+  /** Polygon snapshot day.v when enrichment quote is available for this symbol. */
+  snapshotDayVolume?: number | null;
 }): RadarV22CandidateRow {
   const intel = opts.intel;
   const lastPrice = intel?.lastPrice ?? opts.metrics.lastPrice;
+  const cumulativeSession = resolveCumulativeSessionVolume({
+    providerAccumulatedVolume: opts.metrics.providerAccumulatedVolume,
+    metricsSessionVolume: opts.metrics.sessionVolume,
+    geometrySessionVolumeSum: intel?.sessionVolumeSum ?? null,
+    snapshotDayVolume: opts.snapshotDayVolume ?? null,
+  });
   const lastPriceAt = opts.metrics.lastBarEndMs !== null
     ? opts.isoFromMs(opts.metrics.lastBarEndMs)
     : null;
@@ -640,9 +649,7 @@ export function mapCandidateRow(opts: {
     volume_5s: opts.metrics.vol5s,
     volume_15s: opts.metrics.vol15s,
     volume_60s: opts.metrics.vol60s,
-    session_volume: intel !== null && intel.sessionVolumeSum > 0
-      ? intel.sessionVolumeSum
-      : opts.metrics.sessionVolume,
+    session_volume: cumulativeSession.volume,
     dollar_volume_60s: opts.metrics.dollarVol60s,
     acceleration_5m: opts.metrics.acceleration5m,
     rvol_5m: opts.metrics.rvol5m,
