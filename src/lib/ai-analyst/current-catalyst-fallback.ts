@@ -132,6 +132,8 @@ export async function enrichPacketWithSearchEvidence(input: {
       attempted: Boolean(input.fetchAuthoritativeHtml),
       urls: authoritative.contentFetchedUrls,
       errors: authoritative.fetchErrors,
+      attempts: authoritative.fetchAttempts,
+      deliveryStatus: authoritative.deliveryStatus,
     },
   };
   if (typeof globalThis !== "undefined" && "process" in globalThis) {

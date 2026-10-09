@@ -63,6 +63,14 @@ export interface CurrentCatalystAnalysis {
     attempted: boolean;
     urls: string[];
     errors: string[];
+    attempts?: Array<{
+      url: string;
+      httpStatus: number | null;
+      contentType: string | null;
+      factCount: number;
+      outcome: string;
+    }>;
+    deliveryStatus?: "facts_delivered" | "no_verifiable_facts" | "not_attempted";
   };
 }
 
