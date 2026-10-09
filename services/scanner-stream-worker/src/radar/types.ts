@@ -51,6 +51,8 @@ export type SymbolMetrics = {
   vol60s: number;
   dollarVol60s: number;
   sessionVolume: number;
+  /** Latest in-window bar `av` when present; null when provider cumulative is unavailable. */
+  providerAccumulatedVolume: number | null;
   sessionHigh: number | null;
   sessionLow: number | null;
   sessionVwap: number | null;

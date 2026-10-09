@@ -2,6 +2,7 @@ import {
   assert,
   assertEquals,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import type { SessionIntelSnapshot } from "./geometry.ts";
 import { mergeRadarConfig } from "./config.ts";
 import { createRadarEngine, persistableGeneration } from "./engine.ts";
 import { REPLACE_RADAR_RPC } from "./persist.ts";
@@ -1386,6 +1387,7 @@ function sessionMetrics(lastPrice: number): SymbolMetrics {
     vol60s: 3_000,
     dollarVol60s: 40_000,
     sessionVolume: 4_000,
+    providerAccumulatedVolume: null,
     sessionHigh: lastPrice,
     sessionLow: lastPrice,
     sessionVwap: lastPrice,
@@ -1489,5 +1491,60 @@ Deno.test("previous-session facts change the publish fingerprint", () => {
   );
   assertEquals(decision.shouldWrite, true);
   assertEquals(decision.reason, "fingerprint");
+});
+
+Deno.test("mapCandidateRow prefers provider av over partial geometry session volume", () => {
+  const metrics = sessionMetrics(5.77);
+  metrics.sessionVolume = 74_712_634;
+  metrics.providerAccumulatedVolume = 74_712_634;
+  const intel = {
+    sessionVolumeSum: 71_297,
+  } as SessionIntelSnapshot;
+  const row = mapCandidateRow({
+    generationId: GEN,
+    tradingDate: DATE,
+    sessionKind: "market",
+    symbol: "VEEA",
+    lifecycle: "ACTIVE",
+    metrics,
+    intel,
+    promotedAtMs: Date.parse(SYNC),
+    phaseEnteredAtMs: Date.parse(SYNC),
+    updatedAt: SYNC,
+    isoFromMs: (ms) => new Date(ms).toISOString(),
+    snapshotDayVolume: null,
+  });
+  assertEquals(row.session_volume, 74_712_634);
+});
+
+Deno.test("mapCandidateRow uses snapshot day volume when stream cumulative is unavailable", () => {
+  const metrics = sessionMetrics(2);
+  metrics.sessionVolume = 0;
+  metrics.providerAccumulatedVolume = null;
+  const row = mapCandidateRow({
+    generationId: GEN,
+    tradingDate: DATE,
+    sessionKind: "market",
+    symbol: "LATE",
+    lifecycle: "ACTIVE",
+    metrics,
+    intel: null,
+    promotedAtMs: Date.parse(SYNC),
+    phaseEnteredAtMs: Date.parse(SYNC),
+    updatedAt: SYNC,
+    isoFromMs: (ms) => new Date(ms).toISOString(),
+    snapshotDayVolume: 1_500_000,
+  });
+  assertEquals(row.session_volume, 1_500_000);
+});
+
+Deno.test("mapCandidateRow normalizes fractional prior session volume to whole shares", () => {
+  const row = mappedCandidate(10.15, {
+    regularClose: 10,
+    previousClose: 8,
+    changePercent: 25,
+    priorVolume: 4_670_041.396848,
+  });
+  assertEquals(row.prior_session_volume, 4_670_041);
 });
 

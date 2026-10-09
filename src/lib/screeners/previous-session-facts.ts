@@ -13,6 +13,8 @@
  * Missing or unverified inputs stay null. Zero is never stored as a stand-in.
  */
 
+import { normalizePriorSessionShareVolume } from "../radar/cumulative-session-volume.ts";
+
 export interface PreviousSessionQuoteInput {
   /** Polygon day.c. Zero means the enrichment quote had no verified regular close. */
   regularClose: number | null | undefined;
@@ -55,7 +57,7 @@ const PREVIOUS_CLOSE_RECOVERY_TOLERANCE = 0.005;
 export function candidatePreviousSessionFacts(
   input: PreviousSessionQuoteInput,
 ): PersistedPreviousSessionFacts {
-  const prior = positiveFinite(input.priorVolume);
+  const prior = normalizePriorSessionShareVolume(input.priorVolume);
   const regular = positiveFinite(input.regularClose);
   const verifiedPrevious = positiveFinite(input.previousClose);
   const change = input.changePercent;

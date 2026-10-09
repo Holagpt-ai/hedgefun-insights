@@ -20,6 +20,13 @@ function renderRail(
       status={status}
       qualifyingCount={128}
       topOpportunityCount={10}
+      funnel={{
+        detectedCount: 128,
+        qualifiedCount: 10,
+        priorityCount: 10,
+        displayedCount: 10,
+        rejectionSummary: {},
+      }}
       syncedAt="2026-09-03T13:12:30.000Z"
       providerAsOfMax="2026-09-03T12:57:30.000Z"
       engineSource={engineSource}
@@ -45,7 +52,7 @@ describe("RadarStatusRail condensed trader presentation", () => {
     expect(screen.getByTestId("market-data-status")).toBeInTheDocument();
     expect(screen.getByText("Data Status")).toBeInTheDocument();
     expect(screen.queryByText(/15-minute delayed/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/128 detected · 10 qualified · 10 ranked for Radar/)).toBeInTheDocument();
+    expect(screen.getByText(/128 detected · 10 Five Pillars passed · 10 on desk/)).toBeInTheDocument();
     expect(screen.queryByText("Radar V2 Sentinel")).not.toBeInTheDocument();
     expect(screen.queryByText("PRE-MARKET")).not.toBeInTheDocument();
     expect(screen.queryByText("$2–$20 ENTRY")).not.toBeInTheDocument();

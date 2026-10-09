@@ -70,6 +70,15 @@ describe("candidate previous-session facts", () => {
     expect(facts.previous_close).not.toBeCloseTo(fromLast, 6);
   });
 
+  it("normalizes fractional provider prior volume to whole shares", () => {
+    const facts = candidatePreviousSessionFacts({
+      ...verified,
+      priorVolume: 4_670_041.396848,
+      lastPrice: 10.15,
+    });
+    expect(facts.prior_session_volume).toBe(4_670_041);
+  });
+
   it("persists verified prevDay.c during premarket when regular close is absent", () => {
     const facts = candidatePreviousSessionFacts({
       regularClose: null,
