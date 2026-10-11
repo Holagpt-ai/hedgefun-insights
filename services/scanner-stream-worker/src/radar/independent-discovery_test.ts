@@ -69,6 +69,56 @@ Deno.test("penny outside main promotion cap uses discovery track without Five Pi
   assertEquals(engine.sentinelStats().promoted, 1);
 });
 
+Deno.test("discovery-only symbol never enters Top-20 promotion board rows", () => {
+  const engine = createRadarEngine({
+    config: mergeRadarConfig({
+      sentinelEnabled: true,
+      promotionCap: 1,
+      discoveryTrackCap: 4,
+    }),
+    exceptions: [],
+  });
+  engine.setUniverse(universe([quote("MAIN", 5), quote("PENNY", 0.8)]));
+  for (let i = 0; i < 70; i++) {
+    const s = T0 + i * 1_000;
+    engine.ingest(agg("MAIN", s, 20_000, 5), s);
+    engine.ingest(agg("PENNY", s, 20_000, 0.8), s);
+  }
+  const result = engine.evaluate(T0 + 80_000, GEN);
+  const boardSymbols = result.board.rows.map((row) => row.symbol);
+  assertEquals(boardSymbols.includes("PENNY"), false);
+  assertEquals(boardSymbols.includes("MAIN"), true);
+  assertEquals(engine.sentinelStats().promoted, 1);
+});
+
+Deno.test("discovery pressure does not change main promotion ordering", () => {
+  const engine = createRadarEngine({
+    config: mergeRadarConfig({
+      sentinelEnabled: true,
+      promotionCap: 2,
+      discoveryTrackCap: 4,
+    }),
+    exceptions: [],
+  });
+  engine.setUniverse(universe([
+    quote("AAA", 10),
+    quote("BBB", 10),
+    quote("PENNY", 0.7),
+  ]));
+  for (let i = 0; i < 70; i++) {
+    const s = T0 + i * 1_000;
+    engine.ingest(agg("AAA", s, 30_000 - i * 10, 10), s);
+    engine.ingest(agg("BBB", s, 20_000, 10), s);
+    engine.ingest(agg("PENNY", s, 50_000, 0.7), s);
+  }
+  const result = engine.evaluate(T0 + 80_000, GEN);
+  const boardSymbols = result.board.rows.map((row) => row.symbol);
+  assertEquals(engine.sentinelStats().promoted, 2);
+  assertEquals(boardSymbols[0], "AAA");
+  assertEquals(engine.isDiscoveryTracked("PENNY"), true);
+  assertEquals(engine.isPromoted("PENNY"), false);
+});
+
 Deno.test("breakout scanner events can persist for discovery-tracked symbol", () => {
   const engine = createRadarEngine({
     config: mergeRadarConfig({

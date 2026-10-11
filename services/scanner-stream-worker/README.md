@@ -102,7 +102,9 @@ baseline bootstrap is still running.
 `GET /diagnostic/cumulative-volume?symbol=TICKER` with header
 `x-radar-worker-secret: <RADAR_WORKER_SECRET>` compares Polygon snapshot
 `day.v` / `min.av` against the shared cumulative-session-volume resolver.
-Uses the worker's existing `POLYGON_API_KEY` (never returned in responses).
+Requires a valid uppercase ticker (`AAPL`, `BRK.B`), rejects unauthorized
+callers before Polygon, and rate-limits to 12 requests per minute per worker
+process. Uses the worker's existing `POLYGON_API_KEY` (never returned in responses).
 Supabase Edge `market-data?type=snapshot` is an alternative when invoked with
 service auth, but the worker endpoint aligns with live ingest credentials.
 
