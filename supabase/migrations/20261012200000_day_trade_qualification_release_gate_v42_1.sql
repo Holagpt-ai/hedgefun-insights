@@ -16,7 +16,7 @@ ALTER TABLE public.day_trade_qualification_state
   );
 
 CREATE OR REPLACE FUNCTION public.day_trade_qualification_state_upsert_v1(p_row jsonb)
-RETURNS boolean
+RETURNS void
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
@@ -129,8 +129,6 @@ BEGIN
   WHERE public.day_trade_qualification_state.last_market_data_ms IS NULL
      OR EXCLUDED.last_market_data_ms IS NULL
      OR EXCLUDED.last_market_data_ms >= public.day_trade_qualification_state.last_market_data_ms;
-
-  RETURN FOUND;
 END;
 $$;
 
