@@ -22,6 +22,8 @@ import { buildLateSessionHandoffUpsertsFromV22Candidates } from "../_shared/am-i
 import { parseScannerAlertFirings } from "../_shared/scanner-alerts/parse-firings.ts";
 import { persistScannerIntelligenceAlerts } from "../_shared/scanner-alerts/enrich-and-persist.ts";
 import type { RadarV22CandidateRow } from "../_shared/radar-v22/persistence-v2.ts";
+import { captureDayTradeQualificationFromV22 } from "../_shared/day-trade/capture-from-v22.ts";
+import type { QualificationDb } from "../_shared/day-trade/persist-qualification-lifecycle.ts";
 
 export const ACQUIRE_LEASE_RPC = "try_acquire_radar_v22_lease_v1";
 export const HEARTBEAT_LEASE_RPC = "heartbeat_radar_v22_lease_v1";
@@ -411,6 +413,22 @@ async function handleAction(
         }
       } catch {
         bridgeLog("scanner_alert_capture_failed", {
+          request_id: requestId,
+          action: "publish_candidates_v2",
+        });
+      }
+      try {
+        const candidates = Array.isArray(body.p_candidates)
+          ? body.p_candidates as RadarV22CandidateRow[]
+          : [];
+        await captureDayTradeQualificationFromV22({
+          db: db as unknown as QualificationDb,
+          sessionDate: body.p_trading_date,
+          generationId: body.p_generation_id,
+          candidates,
+        });
+      } catch {
+        bridgeLog("day_trade_qualification_capture_failed", {
           request_id: requestId,
           action: "publish_candidates_v2",
         });
