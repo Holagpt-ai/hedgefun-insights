@@ -6486,6 +6486,93 @@ export type Database = {
         }
         Relationships: []
       }
+      day_trade_qualification_state: {
+        Row: {
+          session_date: string
+          symbol: string
+          pillar_phase: string | null
+          first_qualified_at: string | null
+          last_qualified_at: string | null
+          grace_first_failure_at: string | null
+          grace_failure_count: number
+          pillar_expired_at: string | null
+          pillar_expiration_reason_codes: Json
+          ever_on_desk: boolean
+          currently_on_desk: boolean
+          first_desk_at: string | null
+          last_desk_at: string | null
+          last_desk_departure_at: string | null
+          last_desk_departure_reason: string | null
+          five_pillars_pass: boolean
+          monitoring_eligible: boolean
+          monitoring_data_status: string
+          pillar_outcomes: Json | null
+          monitored_price: number | null
+          monitored_volume: number | null
+          provider_as_of: string | null
+          prior_episodes: Json
+          last_snapshot_key: string | null
+          last_market_data_ms: number | null
+          updated_at: string
+        }
+        Insert: {
+          session_date: string
+          symbol: string
+          pillar_phase?: string | null
+          first_qualified_at?: string | null
+          last_qualified_at?: string | null
+          grace_first_failure_at?: string | null
+          grace_failure_count?: number
+          pillar_expired_at?: string | null
+          pillar_expiration_reason_codes?: Json
+          ever_on_desk?: boolean
+          currently_on_desk?: boolean
+          first_desk_at?: string | null
+          last_desk_at?: string | null
+          last_desk_departure_at?: string | null
+          last_desk_departure_reason?: string | null
+          five_pillars_pass?: boolean
+          monitoring_eligible?: boolean
+          monitoring_data_status?: string
+          pillar_outcomes?: Json | null
+          monitored_price?: number | null
+          monitored_volume?: number | null
+          provider_as_of?: string | null
+          prior_episodes?: Json
+          last_snapshot_key?: string | null
+          last_market_data_ms?: number | null
+          updated_at?: string
+        }
+        Update: {
+          session_date?: string
+          symbol?: string
+          pillar_phase?: string | null
+          first_qualified_at?: string | null
+          last_qualified_at?: string | null
+          grace_first_failure_at?: string | null
+          grace_failure_count?: number
+          pillar_expired_at?: string | null
+          pillar_expiration_reason_codes?: Json
+          ever_on_desk?: boolean
+          currently_on_desk?: boolean
+          first_desk_at?: string | null
+          last_desk_at?: string | null
+          last_desk_departure_at?: string | null
+          last_desk_departure_reason?: string | null
+          five_pillars_pass?: boolean
+          monitoring_eligible?: boolean
+          monitoring_data_status?: string
+          pillar_outcomes?: Json | null
+          monitored_price?: number | null
+          monitored_volume?: number | null
+          provider_as_of?: string | null
+          prior_episodes?: Json
+          last_snapshot_key?: string | null
+          last_market_data_ms?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       late_session_continuation_handoffs: {
         Row: {
           after_hours_extends: boolean | null
@@ -10216,6 +10303,14 @@ export type Database = {
       journal_save_trade_v1: { Args: { p_payload: Json }; Returns: Json }
       late_session_handoff_expire_stale_v1: {
         Args: { p_as_of_session_date: string }
+        Returns: number
+      }
+      day_trade_qualification_list_v1: {
+        Args: { p_session_date: string }
+        Returns: Database["public"]["Tables"]["day_trade_qualification_state"]["Row"][]
+      }
+      day_trade_qualification_apply_batch_v1: {
+        Args: { p_batch: Json }
         Returns: number
       }
       late_session_handoff_list_active_v1: {

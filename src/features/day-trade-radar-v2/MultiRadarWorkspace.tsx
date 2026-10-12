@@ -22,9 +22,15 @@ import {
 } from "./multi-radar";
 import { CLOSED_RADAR_SNAPSHOT_STATUS } from "@/lib/screeners/radar-closed-snapshot";
 import { RadarPanelBoard } from "./RadarPanelBoard";
+import type { DayTradeQualificationStateRow } from "@/lib/day-trade/qualification-lifecycle-client";
+import {
+  formatQualifiedMonitoringSubtitle,
+  mergeRankedRowWithQualificationState,
+  qualifiedPanelMetaLine,
+} from "@/lib/day-trade/build-qualified-panel-rows";
 import type { RadarRankedRow } from "./types";
 
-const PANELS: RadarPanelId[] = ["day_trade", "breakouts", "penny"];
+const PANELS: RadarPanelId[] = ["day_trade", "day_trade_qualified", "breakouts", "penny"];
 
 function persist(state: MultiRadarWorkspaceState) {
   try {
@@ -45,10 +51,16 @@ export function MultiRadarWorkspace({
   onSelect,
   onOpenDetails,
   closedSnapshot = false,
+  qualificationMonitoring = [],
+  qualificationLoadError = null,
+  onQualificationRetry,
 }: {
   rows: RadarRankedRow[];
   /** Authoritative Day Trade Top-10 (may be []). Never falls back to the Radar universe. */
   dayTradeRows: readonly RadarRankedRow[];
+  qualificationMonitoring?: readonly DayTradeQualificationStateRow[];
+  qualificationLoadError?: Error | null;
+  onQualificationRetry?: () => void;
   dayTradeEmptyMessage?: string;
   selectedSymbol: string | null;
   isPro: boolean;
@@ -80,27 +92,61 @@ export function MultiRadarWorkspace({
   };
 
   const views = useMemo(() => {
+    const rankedBySymbol = new Map(rows.map((row) => [row.symbol, row]));
     return PANELS.map((id) => {
       const state = workspace.panels[id];
       const qualified =
         id === "day_trade"
           ? dayTradeRows.slice(0, DAY_TRADE_RADAR_MAX_ROWS)
+          : id === "day_trade_qualified"
+          ? qualificationMonitoring.map((item, index) => {
+              const merged = mergeRankedRowWithQualificationState(
+                rankedBySymbol.get(item.symbol),
+                item,
+              );
+              return {
+                ...merged,
+                rank: index + 1,
+                access_rank: index + 1,
+                qualification_monitoring: true,
+                qualification_expired_at: item.pillar_expired_at,
+              } as RadarRankedRow;
+            })
           : qualifyPanelRows(rows, id, state.priceBand, nowMs);
       const filtered = qualified.filter((row) => rowMatchesPanelFilters(row, state.filters));
       const sorted = sortPanelRows(filtered, id, state.sort);
       const leader =
         id === "day_trade"
           ? authoritativeDayTradeLeader(dayTradeRows)
+          : id === "day_trade_qualified"
+          ? sorted[0] ?? null
           : selectPanelLeader(id, filtered, nowMs);
+      const qualifiedSubtitle =
+        id === "day_trade_qualified" && qualificationMonitoring[0]
+          ? formatQualifiedMonitoringSubtitle(qualificationMonitoring[0])
+          : undefined;
+      const qualifiedMeta =
+        id === "day_trade_qualified" && qualificationMonitoring[0]
+          ? qualifiedPanelMetaLine(qualificationMonitoring[0])
+          : undefined;
       return {
         id,
         rows: sorted,
         leader,
         state,
-        emptyMessage: id === "day_trade" ? dayTradeEmptyMessage : undefined,
+        emptyMessage:
+          id === "day_trade"
+            ? dayTradeEmptyMessage
+            : id === "day_trade_qualified"
+            ? sorted.length === 0
+              ? "No previously qualified names in monitoring."
+              : undefined
+            : undefined,
+        subtitleOverride: qualifiedSubtitle,
+        metaLine: qualifiedMeta,
       };
     });
-  }, [rows, dayTradeRows, workspace, nowMs]);
+  }, [rows, dayTradeRows, qualificationMonitoring, workspace, nowMs, dayTradeEmptyMessage]);
 
   const visible = isMobile ? views.filter((view) => view.id === workspace.mobilePanel) : views;
 
@@ -111,6 +157,19 @@ export function MultiRadarWorkspace({
         <p className="text-[11px] text-muted-foreground" data-testid="closed-radar-snapshot-status">
           {CLOSED_RADAR_SNAPSHOT_STATUS}
         </p>
+      ) : null}
+      {qualificationLoadError ? (
+        <div
+          className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-destructive"
+          data-testid="day-trade-qualified-load-error"
+        >
+          Monitoring data could not be loaded.{" "}
+          {onQualificationRetry ? (
+            <button type="button" className="underline font-semibold" onClick={onQualificationRetry}>
+              Retry
+            </button>
+          ) : null}
+        </div>
       ) : null}
       <HaltsRail />
       <ActiveSymbolRail
@@ -133,7 +192,11 @@ export function MultiRadarWorkspace({
               }`}
               onClick={() => setWorkspace((current) => ({ ...current, mobilePanel: id }))}
             >
-              {id === "penny" ? "Penny < $1" : panelMeta(id).title}
+              {id === "penny"
+                ? "Penny < $1"
+                : id === "day_trade_qualified"
+                ? "Qualified"
+                : panelMeta(id).title}
             </button>
           ))}
         </div>
@@ -167,6 +230,8 @@ export function MultiRadarWorkspace({
             onPriceBand={(priceBand: PennyPriceBandId) => updatePanel(view.id, { priceBand })}
             closedSnapshot={closedSnapshot}
             emptyMessage={view.emptyMessage}
+            subtitleOverride={"subtitleOverride" in view ? view.subtitleOverride : undefined}
+            metaLine={"metaLine" in view ? view.metaLine : undefined}
           />
         ))}
       </div>

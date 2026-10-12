@@ -22,6 +22,7 @@ import {
   verifiedFloatLookupKey,
 } from "./day-trade-float-enrichment";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
+import { useDayTradeQualificationMonitoring } from "@/hooks/useDayTradeQualificationMonitoring";
 
 export function DayTradeRadarV2({
   rows,
@@ -116,6 +117,8 @@ export function DayTradeRadarV2({
   const boardVisible =
     resolved.status === "available" || resolved.status === "stale";
 
+  const qualification = useDayTradeQualificationMonitoring(boardVisible);
+
   const openDetails = (row: RadarRankedRow) => {
     selectRow(row);
     setPinnedSymbol(row.symbol);
@@ -186,6 +189,9 @@ export function DayTradeRadarV2({
         <MultiRadarWorkspace
           rows={ranked}
           dayTradeRows={lensRows}
+          qualificationMonitoring={qualification.monitoring}
+          qualificationLoadError={qualification.error}
+          onQualificationRetry={qualification.retry}
           dayTradeEmptyMessage={DAY_TRADE_EMPTY_MESSAGE}
           selectedSymbol={pinnedSymbol}
           isPro={isPro}

@@ -55,6 +55,8 @@ import {
   type NhlBaselineStatus,
   selectNewHighsLows,
 } from "../_shared/screeners/new-highs-lows.ts";
+import { captureDayTradeQualificationFromSync } from "../_shared/day-trade/capture-from-sync.ts";
+import type { QualificationDb } from "../_shared/day-trade/persist-qualification-lifecycle.ts";
 
 const BASE = "https://api.polygon.io";
 export const REPLACE_GENERATION_RPC = "replace_screener_results_generation_v1";
@@ -612,6 +614,21 @@ export async function handleSyncScreenerData(
   }
 
   const bounds = providerAsOfBounds(allRows);
+
+  try {
+    const sessionDate = easternTradingDateFromMs(nowMs);
+    await captureDayTradeQualificationFromSync({
+      db: sb as unknown as QualificationDb,
+      sessionDate,
+      syncRunId,
+      nowMs,
+      dayTradeSymbols: dayTradeSelected.map((t) => String(t.ticker ?? "")),
+      allTickers,
+      volumeBaselines,
+    });
+  } catch {
+    console.log("[sync-screener-data] day_trade_qualification_lifecycle_capture_failed");
+  }
 
   return json({
     ok: true,
