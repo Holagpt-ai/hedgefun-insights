@@ -351,6 +351,24 @@ export function stepDayTradeQualificationLifecycle(
     return { state: next, events };
   }
 
+  // Same provider clock, different writer/snapshot: do not flip desk occupancy.
+  // First-ever complete desk seating is allowed so V22 can enter after an
+  // incomplete sync tick at the same market-data timestamp.
+  const sameMarketTick =
+    prev.lastMarketDataMs !== null &&
+    evaluation.marketDataMs === prev.lastMarketDataMs;
+  if (sameMarketTick) {
+    const firstCompleteEnter =
+      evaluation.deskObservationComplete &&
+      evaluation.onAuthoritativeDesk &&
+      !prev.everOnDesk &&
+      !prev.currentlyOnDesk;
+    if (!firstCompleteEnter) {
+      next.lastSnapshotKey = evaluation.snapshotKey;
+      return { state: next, events };
+    }
+  }
+
   const pillarBefore = next.pillarPhase;
   next = stepPillars(next, evaluation, events, prev.lastMarketDataMs);
   const requalifiedThisTick = pillarBefore === "EXPIRED" &&
