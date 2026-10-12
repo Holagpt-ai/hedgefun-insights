@@ -2384,6 +2384,99 @@ export type Database = {
         }
         Relationships: []
       }
+      day_trade_qualification_events: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          event_at: string
+          event_type: string
+          id: string
+          payload: Json
+          session_date: string
+          symbol: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          event_at: string
+          event_type: string
+          id?: string
+          payload?: Json
+          session_date: string
+          symbol: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          event_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          session_date?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
+      day_trade_qualification_state: {
+        Row: {
+          expiration_reason_codes: Json
+          expired_at: string | null
+          first_qualified_at: string | null
+          grace_failure_count: number
+          grace_first_failure_at: string | null
+          last_market_data_ms: number | null
+          last_qualified_at: string | null
+          last_snapshot_key: string | null
+          monitored_price: number | null
+          monitored_volume: number | null
+          phase: string | null
+          pillar_outcomes: Json | null
+          prior_episodes: Json
+          provider_as_of: string | null
+          session_date: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          expiration_reason_codes?: Json
+          expired_at?: string | null
+          first_qualified_at?: string | null
+          grace_failure_count?: number
+          grace_first_failure_at?: string | null
+          last_market_data_ms?: number | null
+          last_qualified_at?: string | null
+          last_snapshot_key?: string | null
+          monitored_price?: number | null
+          monitored_volume?: number | null
+          phase?: string | null
+          pillar_outcomes?: Json | null
+          prior_episodes?: Json
+          provider_as_of?: string | null
+          session_date: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          expiration_reason_codes?: Json
+          expired_at?: string | null
+          first_qualified_at?: string | null
+          grace_failure_count?: number
+          grace_first_failure_at?: string | null
+          last_market_data_ms?: number | null
+          last_qualified_at?: string | null
+          last_snapshot_key?: string | null
+          monitored_price?: number | null
+          monitored_volume?: number | null
+          phase?: string | null
+          pillar_outcomes?: Json | null
+          prior_episodes?: Json
+          provider_as_of?: string | null
+          session_date?: string
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       earnings_calendar: {
         Row: {
           actual_eps: number | null
@@ -9941,6 +10034,42 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      day_trade_qualification_event_insert_v1: {
+        Args: { p_row: Json }
+        Returns: boolean
+      }
+      day_trade_qualification_list_v1: {
+        Args: { p_session_date: string }
+        Returns: {
+          expiration_reason_codes: Json
+          expired_at: string | null
+          first_qualified_at: string | null
+          grace_failure_count: number
+          grace_first_failure_at: string | null
+          last_market_data_ms: number | null
+          last_qualified_at: string | null
+          last_snapshot_key: string | null
+          monitored_price: number | null
+          monitored_volume: number | null
+          phase: string | null
+          pillar_outcomes: Json | null
+          prior_episodes: Json
+          provider_as_of: string | null
+          session_date: string
+          symbol: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "day_trade_qualification_state"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      day_trade_qualification_state_upsert_v1: {
+        Args: { p_row: Json }
+        Returns: undefined
       }
       event_reaction_link_apply_batch_v1: {
         Args: { p_rows: Json }
