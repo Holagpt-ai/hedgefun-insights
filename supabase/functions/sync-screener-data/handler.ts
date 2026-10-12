@@ -20,7 +20,6 @@ import {
   normalizeSymbol,
   type PolygonTicker,
   selectForTab,
-  selectGainersLosersFromSnapshot,
 } from "../_shared/screeners/selection.ts";
 import {
   evaluateDayTradeRadar,
@@ -303,6 +302,9 @@ async function loadNhlBaseline(sb: DbClient): Promise<{
     if (loadedRowCount !== declaredSymbolCount) {
       return unavailableBaseline("initializing");
     }
+    if (quotes.size === 0) {
+      return unavailableBaseline("initializing");
+    }
 
     // Exclusion evidence is independent of quote validity. Malformed or
     // missing evidence must not invalidate an otherwise valid baseline.
@@ -432,14 +434,13 @@ export async function handleSyncScreenerData(
   const providerGainersLosers = [...gainers, ...losers];
   const gainersLosersUniverse = providerGainersLosers.length > 0
     ? providerGainersLosers
-    : extendedSession
-    ? selectGainersLosersFromSnapshot(allTickers, allTickers.length)
-    : [];
-  const gainersLosersSelected = providerGainersLosers.length > 0
-    ? selectForTab("gainers_losers", providerGainersLosers)
-    : extendedSession
-    ? selectGainersLosersFromSnapshot(allTickers)
-    : [];
+    : allTickers;
+  const gainersLosersSelected = selectForTab(
+    "gainers_losers",
+    gainersLosersUniverse,
+    undefined,
+    { extendedSession },
+  );
   const unusualSelected = selectForTab("unusual_volume", allTickers);
 
   const selectedAll = [
