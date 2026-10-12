@@ -158,10 +158,13 @@ export type SentinelStats = {
   live: number;
   promoted: number;
   cap: number;
+  discovery_tracked: number;
+  discovery_cap: number;
   evictions: number;
   promotionsTotal: number;
   demotionsTotal: number;
   capRejections: number;
+  discovery_cap_rejections: number;
   rssBytes: number | null;
 };
 

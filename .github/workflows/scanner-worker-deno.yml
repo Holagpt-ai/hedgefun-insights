@@ -33,3 +33,12 @@ jobs:
       - name: Scanner stream worker tests
         working-directory: services/scanner-stream-worker
         run: deno task test
+
+  docker-build:
+    name: Scanner stream worker Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build production Dockerfile (no push)
+        run: docker build -f services/scanner-stream-worker/Dockerfile -t scanner-stream-worker:ci .

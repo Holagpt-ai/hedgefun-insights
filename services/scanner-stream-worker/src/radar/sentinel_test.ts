@@ -325,7 +325,8 @@ Deno.test("10-11. Promotion count never exceeds configured cap", () => {
   assertEquals(stats.cap, 2);
   assert(stats.capRejections >= 1);
   assertEquals(engine.isPromoted("C3"), false);
-  assertEquals(engine.hasRadarBook("C3"), false);
+  assertEquals(engine.hasRadarBook("C3"), true);
+  assertEquals(engine.isDiscoveryTracked("C3"), true);
   assertEquals(engine.hasSentinel("C3"), true);
   assertEquals(engine.hasRadarBook("C1"), true);
   assertEquals(engine.hasRadarBook("C2"), true);

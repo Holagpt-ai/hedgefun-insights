@@ -33,6 +33,12 @@ import {
   promotionCapOf,
 } from "./sentinel.ts";
 import {
+  discoveryTrackPrefilter,
+  effectiveDiscoveryTrackCap,
+  rankDiscoveryCandidates,
+  scoreDiscoveryCandidate,
+} from "./discovery-track.ts";
+import {
   createSessionIntelBook,
   type SessionIntelSnapshot,
 } from "./geometry.ts";
@@ -178,6 +184,7 @@ export type RadarEngine = {
   memorySnapshot(): RadarMemorySnapshot;
   hasSentinel(symbol: string): boolean;
   isPromoted(symbol: string): boolean;
+  isDiscoveryTracked(symbol: string): boolean;
   hasRadarBook(symbol: string): boolean;
   bookBarCount(symbol: string): number;
   sessionIntel(symbol: string): SessionIntelSnapshot | null;
@@ -228,6 +235,7 @@ export function createRadarEngine(opts: {
   const sentinel = createMarketSentinel(config);
   const intel = createSessionIntelBook(config);
   const promoted = new Set<string>();
+  const discoveryTracked = new Set<string>();
   const promotedAtMs = new Map<string, number>();
   const radarFirstSeenAtMs = new Map<string, number>();
   const lifecycles = new Map<string, LifecycleRecord>();
@@ -255,7 +263,10 @@ export function createRadarEngine(opts: {
   let promotionsTotal = 0;
   let demotionsTotal = 0;
   let capRejections = 0;
+  let discoveryCapRejections = 0;
+  let discoveryPromotionsTotal = 0;
   const promotionCap = promotionCapOf(config);
+  const discoveryCap = effectiveDiscoveryTrackCap(config);
 
   function sessionDateAt(ms: number): string | null {
     return easternParts(ms)?.date ?? null;
@@ -331,6 +342,7 @@ export function createRadarEngine(opts: {
     sentinel.clear();
     intel.clear();
     promoted.clear();
+    discoveryTracked.clear();
     promotedAtMs.clear();
     radarFirstSeenAtMs.clear();
     lifecycles.clear();
@@ -348,7 +360,9 @@ export function createRadarEngine(opts: {
 
   function trackedSet(): Set<string> {
     if (config.sentinelEnabled) {
-      return new Set(promoted);
+      const tracked = new Set(promoted);
+      for (const symbol of discoveryTracked) tracked.add(symbol);
+      return tracked;
     }
     const tracked = new Set<string>(universe.keys());
     for (const [symbol, rec] of lifecycles) {
@@ -373,10 +387,14 @@ export function createRadarEngine(opts: {
   }
 
   function demote(symbol: string): boolean {
-    if (!promoted.has(symbol) && !book.trackedSymbols().includes(symbol)) {
+    if (
+      !promoted.has(symbol) && !discoveryTracked.has(symbol) &&
+      !book.trackedSymbols().includes(symbol)
+    ) {
       return false;
     }
     promoted.delete(symbol);
+    discoveryTracked.delete(symbol);
     promotedAtMs.delete(symbol);
     book.dropSymbol(symbol);
     intel.drop(symbol);
@@ -401,8 +419,55 @@ export function createRadarEngine(opts: {
     return true;
   }
 
+  function tryDiscoveryTrack(symbol: string): boolean {
+    if (promoted.has(symbol) || discoveryTracked.has(symbol)) {
+      return discoveryTracked.has(symbol);
+    }
+    const metrics = sentinel.metrics(symbol);
+    const quote = universe.get(symbol) ?? null;
+    if (!discoveryTrackPrefilter(metrics, quote, config)) return false;
+    if (discoveryTracked.size >= discoveryCap) {
+      discoveryCapRejections += 1;
+      return false;
+    }
+    discoveryTracked.add(symbol);
+    promotedAtMs.set(symbol, metrics?.lastEndMs ?? Date.now());
+    discoveryPromotionsTotal += 1;
+    return true;
+  }
+
+  function refreshDiscoveryTracks(eventNow: number): void {
+    if (!config.sentinelEnabled || discoveryCap <= 0) return;
+    const candidates = [];
+    for (const symbol of sentinel.symbols()) {
+      if (promoted.has(symbol)) continue;
+      const metrics = sentinel.metrics(symbol);
+      const quote = universe.get(symbol) ?? null;
+      if (!discoveryTrackPrefilter(metrics, quote, config)) continue;
+      if (!metrics) continue;
+      candidates.push({
+        symbol,
+        score: scoreDiscoveryCandidate(metrics),
+        lastEndMs: metrics.lastEndMs,
+      });
+    }
+    const ranked = rankDiscoveryCandidates(candidates);
+    const keep = new Set(ranked.slice(0, discoveryCap).map((c) => c.symbol));
+    for (const symbol of [...discoveryTracked]) {
+      if (!keep.has(symbol)) demote(symbol);
+    }
+    for (const entry of ranked) {
+      if (discoveryTracked.size >= discoveryCap) break;
+      if (promoted.has(entry.symbol) || discoveryTracked.has(entry.symbol)) {
+        continue;
+      }
+      tryDiscoveryTrack(entry.symbol);
+    }
+    void eventNow;
+  }
+
   function sweepStage2(eventNowMs: number): void {
-    for (const symbol of [...promoted]) {
+    for (const symbol of trackedSet()) {
       const rec = lifecycles.get(symbol);
       if (rec?.phase === "ARCHIVED") {
         demote(symbol);
@@ -427,10 +492,13 @@ export function createRadarEngine(opts: {
       live: sentinel.liveCount(),
       promoted: promoted.size,
       cap: promotionCap,
+      discovery_tracked: discoveryTracked.size,
+      discovery_cap: discoveryCap,
       evictions: sentinelEvictions,
       promotionsTotal,
       demotionsTotal,
       capRejections,
+      discovery_cap_rejections: discoveryCapRejections,
       rssBytes: rssBytes(),
     };
   }
@@ -513,12 +581,13 @@ export function createRadarEngine(opts: {
       sentinelEvictions += sentinel.evict(
         eventNow,
         config.sentinelTtlMs,
-        promoted,
+        trackedSet(),
       );
       sweepStage2(eventNow);
       for (const symbol of sentinel.takeDirty()) {
         tryPromote(symbol);
       }
+      refreshDiscoveryTracks(eventNow);
     }
 
     const candidates: RankedCandidate[] = [];
@@ -780,6 +849,7 @@ export function createRadarEngine(opts: {
       }
 
       if (!isBoardLifecycle(stepped.record.phase)) continue;
+      if (config.sentinelEnabled && !promoted.has(symbol)) continue;
       const lastPrice = metrics.lastPrice;
       if (lastPrice === null || !(lastPrice > 0)) continue;
       const sessionVolume = Math.max(
@@ -1145,7 +1215,10 @@ export function createRadarEngine(opts: {
 
       const already = promoted.has(event.sym);
       const nowPromoted = already || tryPromote(event.sym);
-      if (!nowPromoted) return sen;
+      if (!nowPromoted) {
+        tryDiscoveryTrack(event.sym);
+      }
+      if (!trackedSet().has(event.sym)) return sen;
 
       const tracked = trackedSet();
       const bookResult = book.ingest(raw, receiveMs, tracked);
@@ -1247,6 +1320,9 @@ export function createRadarEngine(opts: {
     },
     isPromoted(symbol) {
       return promoted.has(symbol);
+    },
+    isDiscoveryTracked(symbol) {
+      return discoveryTracked.has(symbol);
     },
     hasRadarBook(symbol) {
       return book.trackedSymbols().includes(symbol);

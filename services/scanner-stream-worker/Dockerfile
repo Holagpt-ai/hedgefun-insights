@@ -11,6 +11,7 @@ COPY src/lib/screeners/previous-session-facts.ts ./src/lib/screeners/previous-se
 COPY src/lib/radar/radar-event-engine.ts ./src/lib/radar/radar-event-engine.ts
 COPY src/lib/radar/intraday-participation.ts ./src/lib/radar/intraday-participation.ts
 COPY src/lib/radar/cumulative-session-volume.ts ./src/lib/radar/cumulative-session-volume.ts
+COPY supabase/functions/_shared/catalyst/contract.ts ./supabase/functions/_shared/catalyst/contract.ts
 COPY src/config/intraday-participation.config.ts ./src/config/intraday-participation.config.ts
 COPY supabase/functions/_shared/scanner-alerts ./supabase/functions/_shared/scanner-alerts
 COPY supabase/functions/_shared/market-feed ./supabase/functions/_shared/market-feed

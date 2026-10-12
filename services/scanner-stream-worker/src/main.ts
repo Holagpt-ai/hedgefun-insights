@@ -4,6 +4,12 @@ import { log } from "./log.ts";
 import { createDailyCache, runBaselineJob } from "./baseline/builder.ts";
 import { createRadarBridge } from "./bridge.ts";
 import { runRadarLoop } from "./radar/runner.ts";
+import {
+  createFixedWindowRateLimiter,
+  CUMULATIVE_VOLUME_DIAG_MAX_REQUESTS,
+  CUMULATIVE_VOLUME_DIAG_WINDOW_MS,
+  handleCumulativeVolumeDiagnostic,
+} from "./diagnostic/cumulative-volume-route.ts";
 
 const POLL_INTERVAL_MS = 60_000;
 
@@ -59,6 +65,11 @@ async function main(): Promise<void> {
   const abort = new AbortController();
   let running = true;
 
+  const cumulativeVolumeLimiter = createFixedWindowRateLimiter({
+    maxRequests: CUMULATIVE_VOLUME_DIAG_MAX_REQUESTS,
+    windowMs: CUMULATIVE_VOLUME_DIAG_WINDOW_MS,
+  });
+
   const server = Deno.serve({
     port: env.port,
     hostname: "0.0.0.0",
@@ -77,6 +88,12 @@ async function main(): Promise<void> {
         return new Response("Method Not Allowed", { status: 405 });
       }
       return healthResponse(health.get(Date.now()));
+    }
+    if (url.pathname === "/diagnostic/cumulative-volume") {
+      return handleCumulativeVolumeDiagnostic(req, {
+        radarWorkerSecret: env.radarWorkerSecret,
+        polygonApiKey: env.polygonApiKey,
+      }, cumulativeVolumeLimiter);
     }
     return new Response("Not Found", { status: 404 });
   });
