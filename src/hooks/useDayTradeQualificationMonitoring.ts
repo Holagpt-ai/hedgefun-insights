@@ -11,11 +11,13 @@ export function useDayTradeQualificationMonitoring(enabled = true): {
   monitoring: DayTradeQualificationStateRow[];
   isLoading: boolean;
   error: Error | null;
+  retry: () => void;
 } {
   const sessionDate = easternDate(Date.now());
   const [states, setStates] = useState<DayTradeQualificationStateRow[]>([]);
   const [isLoading, setIsLoading] = useState(enabled);
   const [error, setError] = useState<Error | null>(null);
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     if (!enabled || !sessionDate) {
@@ -24,19 +26,12 @@ export function useDayTradeQualificationMonitoring(enabled = true): {
     }
     let cancelled = false;
     const load = async () => {
-      try {
-        const rows = await fetchDayTradeQualificationStates(sessionDate);
-        if (!cancelled) {
-          setStates(rows);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err : new Error("qualification_load_failed"));
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
+      setIsLoading(true);
+      const result = await fetchDayTradeQualificationStates(sessionDate);
+      if (cancelled) return;
+      setStates(result.rows);
+      setError(result.error);
+      setIsLoading(false);
     };
     void load();
     const id = window.setInterval(() => void load(), 30_000);
@@ -44,12 +39,13 @@ export function useDayTradeQualificationMonitoring(enabled = true): {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [enabled, sessionDate]);
+  }, [enabled, sessionDate, reloadToken]);
 
   return {
     states,
     monitoring: monitoringStates(states),
     isLoading,
     error,
+    retry: () => setReloadToken((n) => n + 1),
   };
 }

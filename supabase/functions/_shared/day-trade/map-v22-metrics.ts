@@ -43,5 +43,14 @@ export function mapV22CandidateToDayTradeMetrics(
       ? Math.trunc(finite(row.session_volume)!)
       : null,
     provider_as_of: row.provider_as_of,
+    freshness_class: row.freshness_class,
+    vol_velocity: finite(row.volume_velocity),
+    rolling_volume_60s: finite(row.volume_60s),
+    volume_acceleration_pct: finite(row.volume_acceleration_pct),
+    participation_state: row.participation_state,
+    signal_status: row.signal_status,
+    primary_scanner_event_at: row.primary_scanner_event_at,
+    last_hod_break_at: row.last_hod_break_at,
+    promoted_at: row.promoted_at,
   };
 }

@@ -1,26 +1,31 @@
 import type { PolygonTicker } from "../screeners/selection.ts";
-import { normalizeSymbol } from "../screeners/selection.ts";
 import type { VolumeBaselineQuote } from "../screeners/volume-baseline.ts";
-import { advanceDayTradeQualificationLifecycle } from "./persist-qualification-lifecycle.ts";
-import type { QualificationDb } from "./persist-qualification-lifecycle.ts";
+import {
+  advanceDayTradeQualificationLifecycle,
+  type QualificationDb,
+} from "./persist-qualification-lifecycle.ts";
 import { mapPolygonToDayTradeMetrics } from "./map-polygon-metrics.ts";
+import {
+  listMonitoringRefreshSymbols,
+  metricsRowsForMonitoringRefresh,
+} from "./monitoring-refresh.ts";
 
 export async function captureDayTradeQualificationFromSync(input: {
   db: QualificationDb;
   sessionDate: string;
   syncRunId: string;
-  nowMs: number;
   dayTradeSymbols: readonly string[];
   allTickers: readonly PolygonTicker[];
   volumeBaselines: ReadonlyMap<string, VolumeBaselineQuote>;
 }): Promise<void> {
   const bySymbol = new Map<string, PolygonTicker>();
   for (const ticker of input.allTickers) {
-    const sym = normalizeSymbol(ticker.ticker);
+    const sym = typeof ticker.ticker === "string" ? ticker.ticker.trim().toUpperCase() : "";
     if (sym) bySymbol.set(sym, ticker);
   }
 
   const metricsRows = [];
+  const metricsPresent = new Set<string>();
   for (const raw of input.dayTradeSymbols) {
     const symbol = raw.trim().toUpperCase();
     const ticker = bySymbol.get(symbol);
@@ -31,15 +36,28 @@ export async function captureDayTradeQualificationFromSync(input: {
       rvol20d: baseline?.rvol_20d ?? null,
       avgVolume20d: baseline?.avg_volume_20d ?? null,
     });
-    if (mapped) metricsRows.push(mapped);
+    if (mapped) {
+      metricsRows.push(mapped);
+      metricsPresent.add(symbol);
+    }
   }
+
+  const refreshSymbols = await listMonitoringRefreshSymbols(
+    input.db,
+    input.sessionDate,
+    metricsPresent,
+  );
+  metricsRows.push(
+    ...metricsRowsForMonitoringRefresh({
+      symbols: refreshSymbols,
+      allTickers: input.allTickers,
+    }),
+  );
 
   await advanceDayTradeQualificationLifecycle({
     db: input.db,
     sessionDate: input.sessionDate,
     syncRunId: input.syncRunId,
-    nowMs: input.nowMs,
     metricsRows,
-    evaluable: true,
   });
 }

@@ -204,6 +204,7 @@ export function RadarPanelBoard({
   closedSnapshot = false,
   emptyMessage,
   subtitleOverride,
+  metaLine,
 }: {
   panel: RadarPanelId;
   rows: RadarRankedRow[];
@@ -226,6 +227,7 @@ export function RadarPanelBoard({
   closedSnapshot?: boolean;
   emptyMessage?: string;
   subtitleOverride?: string;
+  metaLine?: string;
 }) {
   const meta = panelMeta(panel);
   const matchLabel = panelCountLabel(panel, rows.length);
@@ -269,6 +271,11 @@ export function RadarPanelBoard({
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">{subtitle}</p>
+          {metaLine ? (
+            <p className="text-[10px] text-muted-foreground" data-testid={`panel-meta-${panel}`}>
+              {metaLine}
+            </p>
+          ) : null}
         </div>
         {panel === "penny" ? (
           <label className="text-[11px] text-muted-foreground">

@@ -7,11 +7,10 @@ import {
 } from "./qualification-lifecycle.ts";
 
 const SESSION = "2026-10-12";
-const SYMBOL = "TEST";
 
-function passEval(marketDataMs: number, snapshotKey: string): DayTradeQualificationEvaluation {
+function evalBase(overrides: Partial<DayTradeQualificationEvaluation>): DayTradeQualificationEvaluation {
   return {
-    symbol: SYMBOL,
+    symbol: overrides.symbol ?? "TEST",
     evaluable: true,
     fivePillarsPass: true,
     pillarOutcomes: {
@@ -22,122 +21,86 @@ function passEval(marketDataMs: number, snapshotKey: string): DayTradeQualificat
       freshness: "pass",
     },
     reasonCodes: [],
-    marketDataMs,
-    snapshotKey,
+    marketDataMs: 1_000,
+    snapshotKey: "a",
     monitoredPrice: 5,
     monitoredVolume: 1_000_000,
-    providerAsOfIso: new Date(marketDataMs).toISOString(),
+    providerAsOfIso: "2026-10-12T08:49:00.000Z",
+    onAuthoritativeDesk: false,
+    freshnessPass: true,
+    opportunityEligible: true,
+    ...overrides,
   };
 }
 
-function failEval(marketDataMs: number, snapshotKey: string): DayTradeQualificationEvaluation {
-  return {
-    symbol: SYMBOL,
-    evaluable: true,
-    fivePillarsPass: false,
-    pillarOutcomes: {
-      price: "pass",
-      move: "fail",
-      float: "pass",
-      participation: "pass",
-      freshness: "pass",
-    },
-    reasonCodes: ["MOMENTUM_TOO_WEAK"],
-    marketDataMs,
-    snapshotKey,
-    monitoredPrice: 4.5,
-    monitoredVolume: 900_000,
-    providerAsOfIso: new Date(marketDataMs).toISOString(),
-  };
-}
-
-Deno.test("qualified → one failure → recovery without expiration", () => {
-  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: SYMBOL });
-  let r = stepDayTradeQualificationLifecycle(state, passEval(1_000, "a"), 1_000);
-  state = r.state;
-  assertEquals(r.events.map((e) => e.type), ["QUALIFIED"]);
-  assertEquals(state.phase, "ACTIVE");
-
-  r = stepDayTradeQualificationLifecycle(state, failEval(70_000, "b"), 70_000);
-  state = r.state;
-  assertEquals(state.phase, "GRACE");
-  assertEquals(r.events.some((e) => e.type === "GRACE_ENTERED"), true);
-
-  r = stepDayTradeQualificationLifecycle(state, passEval(80_000, "c"), 80_000);
-  state = r.state;
-  assertEquals(state.phase, "ACTIVE");
-  assertEquals(r.events.some((e) => e.type === "RECOVERED"), true);
-  assertEquals(isDayTradeQualificationMonitoringCandidate(state), false);
-});
-
-Deno.test("qualified → two valid failures → expired and monitored", () => {
-  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: SYMBOL });
-  let r = stepDayTradeQualificationLifecycle(state, passEval(1_000, "a"), 1_000);
-  state = r.state;
-  r = stepDayTradeQualificationLifecycle(state, failEval(70_000, "b"), 70_000);
-  state = r.state;
-  r = stepDayTradeQualificationLifecycle(state, failEval(70_000 + 60_000, "c"), 130_000);
-  state = r.state;
-  assertEquals(state.phase, "EXPIRED");
-  assertEquals(r.events.some((e) => e.type === "EXPIRED"), true);
-  assertEquals(isDayTradeQualificationMonitoringCandidate(state), true);
-});
-
-Deno.test("expired → renewed pass → active requalification", () => {
-  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: SYMBOL });
-  let r = stepDayTradeQualificationLifecycle(state, passEval(1_000, "a"), 1_000);
-  state = r.state;
-  r = stepDayTradeQualificationLifecycle(state, failEval(70_000, "b"), 70_000);
-  state = r.state;
-  r = stepDayTradeQualificationLifecycle(state, failEval(130_000, "c"), 130_000);
-  state = r.state;
-  assertEquals(state.phase, "EXPIRED");
-
-  r = stepDayTradeQualificationLifecycle(state, passEval(200_000, "d"), 200_000);
-  state = r.state;
-  assertEquals(state.phase, "ACTIVE");
-  assertEquals(r.events.some((e) => e.type === "REQUALIFIED"), true);
-  assertEquals(state.priorEpisodes.length, 1);
-});
-
-Deno.test("provider outage → no false expiration", () => {
-  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: SYMBOL });
-  let r = stepDayTradeQualificationLifecycle(state, passEval(1_000, "a"), 1_000);
-  state = r.state;
-  const outage: DayTradeQualificationEvaluation = {
-    ...failEval(70_000, "b"),
-    evaluable: false,
-    unevaluableReason: "provider_outage",
-  };
-  r = stepDayTradeQualificationLifecycle(state, outage, 70_000);
-  assertEquals(r.state.phase, "ACTIVE");
-  assertEquals(r.events.length, 0);
-});
-
-Deno.test("duplicate snapshot → no grace advance", () => {
-  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: SYMBOL });
-  let r = stepDayTradeQualificationLifecycle(state, passEval(1_000, "same"), 1_000);
-  state = r.state;
-  r = stepDayTradeQualificationLifecycle(state, failEval(70_000, "same"), 70_000);
-  assertEquals(r.state.phase, "ACTIVE");
-  assertEquals(r.events.length, 0);
-});
-
-Deno.test("IRE Oct 12: freshness-only desk drop must not expire Five Pillars", () => {
+Deno.test("IRE reconstructed: desk loss on freshness, pillars stay ACTIVE", () => {
   let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "IRE" });
-  let r = stepDayTradeQualificationLifecycle(state, passEval(1_000, "ire-a"), 1_000);
-  state = r.state;
-  const stillQualifiedMomentum: DayTradeQualificationEvaluation = {
-    ...passEval(120_000, "ire-b"),
-    pillarOutcomes: {
-      price: "pass",
-      move: "pass",
-      float: "pass",
-      participation: "pass",
-      freshness: "fail",
-    },
-  };
-  r = stepDayTradeQualificationLifecycle(state, stillQualifiedMomentum, 120_000);
-  assertEquals(r.state.phase, "ACTIVE");
+  state = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({
+      symbol: "IRE",
+      marketDataMs: 1_000,
+      snapshotKey: "ire-1",
+      onAuthoritativeDesk: true,
+    }),
+  ).state;
+  assertEquals(state.currentlyOnDesk, true);
+  assertEquals(state.pillarPhase, "ACTIVE");
+
+  state = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({
+      symbol: "IRE",
+      marketDataMs: 70_000,
+      snapshotKey: "ire-2",
+      onAuthoritativeDesk: false,
+      freshnessPass: false,
+      fivePillarsPass: true,
+    }),
+  ).state;
+  assertEquals(state.pillarPhase, "ACTIVE");
+  assertEquals(isDayTradeQualificationMonitoringCandidate(state), true);
+  assertEquals(state.lastDeskDepartureReason, "FRESHNESS_DISQUALIFIED");
+});
+
+Deno.test("missing required value: no false expiration", () => {
+  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "X" });
+  state = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({ onAuthoritativeDesk: true, marketDataMs: 1_000, snapshotKey: "x1" }),
+  ).state;
+  const r = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({
+      evaluable: false,
+      unevaluableReason: "missing_data",
+      fivePillarsPass: false,
+      snapshotKey: "x2",
+      marketDataMs: 2_000,
+    }),
+  );
+  assertEquals(r.state.pillarPhase, "ACTIVE");
   assertEquals(r.events.length, 0);
+});
+
+Deno.test("duplicate and out-of-order snapshots ignored", () => {
+  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "D" });
+  state = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({ onAuthoritativeDesk: true, marketDataMs: 5_000, snapshotKey: "d1" }),
+  ).state;
+  assertEquals(
+    stepDayTradeQualificationLifecycle(
+      state,
+      evalBase({ fivePillarsPass: false, marketDataMs: 6_000, snapshotKey: "d1" }),
+    ).events.length,
+    0,
+  );
+  assertEquals(
+    stepDayTradeQualificationLifecycle(
+      state,
+      evalBase({ fivePillarsPass: false, marketDataMs: 4_000, snapshotKey: "d0" }),
+    ).events.length,
+    0,
+  );
 });

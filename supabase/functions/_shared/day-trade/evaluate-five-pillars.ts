@@ -20,6 +20,15 @@ export type DayTradeMetricsRow = {
   avg_volume_20d: number | null;
   volume: number | null;
   provider_as_of: string | null;
+  freshness_class?: string | null;
+  vol_velocity?: number | null;
+  rolling_volume_60s?: number | null;
+  volume_acceleration_pct?: number | null;
+  participation_state?: string | null;
+  signal_status?: string | null;
+  primary_scanner_event_at?: string | null;
+  last_hod_break_at?: string | null;
+  promoted_at?: string | null;
 };
 
 const PRICE_MIN = 2;
@@ -113,6 +122,26 @@ function momentumPass(outcomes: DayTradePillarOutcomes): boolean {
   );
 }
 
+export function assessMetricsEvaluability(
+  row: DayTradeMetricsRow,
+  marketDataMs: number,
+): { evaluable: boolean; unevaluableReason?: DayTradeQualificationEvaluation["unevaluableReason"] } {
+  if (!Number.isFinite(marketDataMs)) {
+    return { evaluable: false, unevaluableReason: "missing_data" };
+  }
+  if (!row.provider_as_of || !Number.isFinite(Date.parse(row.provider_as_of))) {
+    return { evaluable: false, unevaluableReason: "missing_data" };
+  }
+  const outcomes = pillarOutcomes(row);
+  if (outcomes.price === "unavailable" || outcomes.move === "unavailable") {
+    return { evaluable: false, unevaluableReason: "missing_data" };
+  }
+  if (outcomes.participation === "unavailable") {
+    return { evaluable: false, unevaluableReason: "missing_data" };
+  }
+  return { evaluable: true };
+}
+
 export function buildDayTradeQualificationEvaluation(input: {
   row: DayTradeMetricsRow;
   marketDataMs: number;
@@ -121,7 +150,7 @@ export function buildDayTradeQualificationEvaluation(input: {
   unevaluableReason?: DayTradeQualificationEvaluation["unevaluableReason"];
 }): DayTradeQualificationEvaluation {
   const outcomes = pillarOutcomes(input.row);
-  const pass = momentumPass(outcomes);
+  const pass = input.evaluable && momentumPass(outcomes);
   return {
     symbol: input.row.symbol.trim().toUpperCase(),
     evaluable: input.evaluable,
@@ -134,5 +163,14 @@ export function buildDayTradeQualificationEvaluation(input: {
     monitoredPrice: finite(input.row.price),
     monitoredVolume: finite(input.row.volume) !== null ? Math.trunc(finite(input.row.volume)!) : null,
     providerAsOfIso: input.row.provider_as_of,
+    onAuthoritativeDesk: false,
+    freshnessPass: false,
+    opportunityEligible: false,
   };
+}
+
+export function resolveMarketDataMs(providerAsOf: string | null): number | null {
+  if (!providerAsOf) return null;
+  const ms = Date.parse(providerAsOf);
+  return Number.isFinite(ms) ? ms : null;
 }

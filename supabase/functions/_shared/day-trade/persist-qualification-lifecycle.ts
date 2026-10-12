@@ -1,7 +1,10 @@
 import {
   buildDayTradeQualificationEvaluation,
+  resolveMarketDataMs,
   type DayTradeMetricsRow,
 } from "./evaluate-five-pillars.ts";
+import { assessMetricsEvaluability } from "./evaluate-five-pillars.ts";
+import { computeAuthoritativeDeskMembership } from "./desk-membership.ts";
 import {
   emptyQualificationEpisodeState,
   stepDayTradeQualificationLifecycle,
@@ -12,6 +15,14 @@ import {
 export const QUALIFICATION_STATE_UPSERT_RPC = "day_trade_qualification_state_upsert_v1";
 export const QUALIFICATION_EVENT_INSERT_RPC = "day_trade_qualification_event_insert_v1";
 export const QUALIFICATION_LIST_RPC = "day_trade_qualification_list_v1";
+export const QUALIFICATION_APPLY_BATCH_RPC = "day_trade_qualification_apply_batch_v1";
+
+export class QualificationPersistenceError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "QualificationPersistenceError";
+  }
+}
 
 export type QualificationDb = {
   rpc: (
@@ -24,17 +35,32 @@ export function stateRowToEpisode(row: Record<string, unknown>): DayTradeQualifi
   return {
     sessionDate: String(row.session_date),
     symbol: String(row.symbol),
-    phase: (row.phase as DayTradeQualificationEpisodeState["phase"]) ?? null,
+    pillarPhase: (row.pillar_phase as DayTradeQualificationEpisodeState["pillarPhase"]) ?? null,
     firstQualifiedAt: row.first_qualified_at ? String(row.first_qualified_at) : null,
     lastQualifiedAt: row.last_qualified_at ? String(row.last_qualified_at) : null,
     graceFirstFailureAt: row.grace_first_failure_at
       ? String(row.grace_first_failure_at)
       : null,
     graceFailureCount: Number(row.grace_failure_count ?? 0),
-    expiredAt: row.expired_at ? String(row.expired_at) : null,
-    expirationReasonCodes: Array.isArray(row.expiration_reason_codes)
-      ? (row.expiration_reason_codes as string[])
+    pillarExpiredAt: row.pillar_expired_at ? String(row.pillar_expired_at) : null,
+    pillarExpirationReasonCodes: Array.isArray(row.pillar_expiration_reason_codes)
+      ? (row.pillar_expiration_reason_codes as string[])
       : [],
+    everOnDesk: Boolean(row.ever_on_desk),
+    currentlyOnDesk: Boolean(row.currently_on_desk),
+    firstDeskAt: row.first_desk_at ? String(row.first_desk_at) : null,
+    lastDeskAt: row.last_desk_at ? String(row.last_desk_at) : null,
+    lastDeskDepartureAt: row.last_desk_departure_at
+      ? String(row.last_desk_departure_at)
+      : null,
+    lastDeskDepartureReason: row.last_desk_departure_reason
+      ? (String(row.last_desk_departure_reason) as DayTradeQualificationEpisodeState["lastDeskDepartureReason"])
+      : null,
+    fivePillarsPass: Boolean(row.five_pillars_pass),
+    monitoringEligible: Boolean(row.monitoring_eligible),
+    monitoringDataStatus:
+      (row.monitoring_data_status as DayTradeQualificationEpisodeState["monitoringDataStatus"]) ??
+        "UNAVAILABLE",
     pillarOutcomes: (row.pillar_outcomes as DayTradeQualificationEpisodeState["pillarOutcomes"]) ??
       null,
     monitoredPrice: row.monitored_price !== null && row.monitored_price !== undefined
@@ -58,13 +84,22 @@ export function episodeStateToRow(state: DayTradeQualificationEpisodeState): Rec
   return {
     session_date: state.sessionDate,
     symbol: state.symbol,
-    phase: state.phase,
+    pillar_phase: state.pillarPhase,
     first_qualified_at: state.firstQualifiedAt,
     last_qualified_at: state.lastQualifiedAt,
     grace_first_failure_at: state.graceFirstFailureAt,
     grace_failure_count: state.graceFailureCount,
-    expired_at: state.expiredAt,
-    expiration_reason_codes: state.expirationReasonCodes,
+    pillar_expired_at: state.pillarExpiredAt,
+    pillar_expiration_reason_codes: state.pillarExpirationReasonCodes,
+    ever_on_desk: state.everOnDesk,
+    currently_on_desk: state.currentlyOnDesk,
+    first_desk_at: state.firstDeskAt,
+    last_desk_at: state.lastDeskAt,
+    last_desk_departure_at: state.lastDeskDepartureAt,
+    last_desk_departure_reason: state.lastDeskDepartureReason,
+    five_pillars_pass: state.fivePillarsPass,
+    monitoring_eligible: state.monitoringEligible,
+    monitoring_data_status: state.monitoringDataStatus,
     pillar_outcomes: state.pillarOutcomes,
     monitored_price: state.monitoredPrice,
     monitored_volume: state.monitoredVolume,
@@ -80,7 +115,14 @@ export async function loadQualificationStatesForSession(
   sessionDate: string,
 ): Promise<Map<string, DayTradeQualificationEpisodeState>> {
   const res = await db.rpc(QUALIFICATION_LIST_RPC, { p_session_date: sessionDate });
-  if (res.error || !Array.isArray(res.data)) return new Map();
+  if (res.error) {
+    throw new QualificationPersistenceError(
+      `load_failed:${res.error.message}`,
+    );
+  }
+  if (!Array.isArray(res.data)) {
+    throw new QualificationPersistenceError("load_failed:invalid_response");
+  }
   const map = new Map<string, DayTradeQualificationEpisodeState>();
   for (const row of res.data as Record<string, unknown>[]) {
     const episode = stateRowToEpisode(row);
@@ -92,31 +134,35 @@ export async function loadQualificationStatesForSession(
 export function buildEvaluationFromMetrics(input: {
   row: DayTradeMetricsRow;
   syncRunId: string;
-  evaluable: boolean;
-  unevaluableReason?: DayTradeQualificationEvaluation["unevaluableReason"];
+  marketDataMs: number;
+  onAuthoritativeDesk: boolean;
+  freshnessPass: boolean;
+  opportunityEligible: boolean;
 }): DayTradeQualificationEvaluation {
-  const providerMs = input.row.provider_as_of
-    ? Date.parse(input.row.provider_as_of)
-    : Date.now();
-  const marketDataMs = Number.isFinite(providerMs) ? providerMs : Date.now();
   const snapshotKey = `${input.syncRunId}:${input.row.symbol}:${input.row.provider_as_of ?? "none"}`;
-  return buildDayTradeQualificationEvaluation({
+  const evaluable = assessMetricsEvaluability(input.row, input.marketDataMs);
+  const base = buildDayTradeQualificationEvaluation({
     row: input.row,
-    marketDataMs,
+    marketDataMs: input.marketDataMs,
     snapshotKey,
-    evaluable: input.evaluable,
-    unevaluableReason: input.unevaluableReason,
+    evaluable: evaluable.evaluable,
+    unevaluableReason: evaluable.unevaluableReason,
   });
+  return {
+    ...base,
+    onAuthoritativeDesk: input.onAuthoritativeDesk,
+    freshnessPass: input.freshnessPass,
+    opportunityEligible: input.opportunityEligible,
+  };
 }
 
 export async function persistQualificationAdvance(input: {
   db: QualificationDb;
   sessionDate: string;
-  nowMs: number;
   evaluations: readonly DayTradeQualificationEvaluation[];
   existing: Map<string, DayTradeQualificationEpisodeState>;
 }): Promise<{ symbolsUpdated: number; eventsRecorded: number }> {
-  let symbolsUpdated = 0;
+  const batch: Record<string, unknown>[] = [];
   let eventsRecorded = 0;
 
   for (const evaluation of input.evaluations) {
@@ -126,54 +172,62 @@ export async function persistQualificationAdvance(input: {
         sessionDate: input.sessionDate,
         symbol,
       });
-    const stepped = stepDayTradeQualificationLifecycle(prev, evaluation, input.nowMs);
-
-    await input.db.rpc(QUALIFICATION_STATE_UPSERT_RPC, {
-      p_row: episodeStateToRow(stepped.state),
-    });
-    symbolsUpdated += 1;
+    const stepped = stepDayTradeQualificationLifecycle(prev, evaluation);
     input.existing.set(symbol, stepped.state);
 
-    for (const event of stepped.events) {
-      const insertRes = await input.db.rpc(QUALIFICATION_EVENT_INSERT_RPC, {
-        p_row: {
-          session_date: input.sessionDate,
-          symbol,
-          event_type: event.type,
-          event_at: event.atIso,
-          dedupe_key: event.dedupeKey,
-          payload: event.payload ?? {},
-        },
-      });
-      if (!insertRes.error) eventsRecorded += 1;
-    }
+    batch.push({
+      state: episodeStateToRow(stepped.state),
+      events: stepped.events.map((event) => ({
+        session_date: input.sessionDate,
+        symbol,
+        event_type: event.type,
+        event_at: event.atIso,
+        dedupe_key: event.dedupeKey,
+        payload: event.payload ?? {},
+      })),
+    });
+    eventsRecorded += stepped.events.length;
   }
 
-  return { symbolsUpdated, eventsRecorded };
+  if (batch.length === 0) return { symbolsUpdated: 0, eventsRecorded: 0 };
+
+  const res = await input.db.rpc(QUALIFICATION_APPLY_BATCH_RPC, { p_batch: batch });
+  if (res.error) {
+    throw new QualificationPersistenceError(`apply_failed:${res.error.message}`);
+  }
+
+  return { symbolsUpdated: batch.length, eventsRecorded };
 }
 
 export async function advanceDayTradeQualificationLifecycle(input: {
   db: QualificationDb;
   sessionDate: string;
   syncRunId: string;
-  nowMs: number;
   metricsRows: readonly DayTradeMetricsRow[];
-  evaluable?: boolean;
-  unevaluableReason?: DayTradeQualificationEvaluation["unevaluableReason"];
-  /** Extra symbols to keep evaluating (monitoring / grace / active). */
   watchSymbols?: readonly string[];
 }): Promise<{ symbolsUpdated: number; eventsRecorded: number }> {
   const existing = await loadQualificationStatesForSession(input.db, input.sessionDate);
-  const evaluable = input.evaluable !== false;
 
   const symbolSet = new Set<string>();
   for (const row of input.metricsRows) symbolSet.add(row.symbol.trim().toUpperCase());
   for (const [sym, state] of existing) {
-    if (state.phase === "ACTIVE" || state.phase === "GRACE" || state.phase === "EXPIRED") {
+    if (state.monitoringEligible || state.currentlyOnDesk || state.pillarPhase) {
       symbolSet.add(sym);
     }
   }
   for (const sym of input.watchSymbols ?? []) symbolSet.add(sym.trim().toUpperCase());
+
+  const marketDataMsBySymbol = new Map<string, number>();
+  for (const row of input.metricsRows) {
+    const ms = resolveMarketDataMs(row.provider_as_of);
+    if (ms !== null) marketDataMsBySymbol.set(row.symbol.trim().toUpperCase(), ms);
+  }
+
+  const desk = computeAuthoritativeDeskMembership({
+    rows: input.metricsRows,
+    syncRunId: input.syncRunId,
+    marketDataMsBySymbol,
+  });
 
   const metricsBySymbol = new Map(
     input.metricsRows.map((row) => [row.symbol.trim().toUpperCase(), row]),
@@ -182,16 +236,24 @@ export async function advanceDayTradeQualificationLifecycle(input: {
   const evaluations: DayTradeQualificationEvaluation[] = [];
   for (const symbol of symbolSet) {
     const row = metricsBySymbol.get(symbol);
-    if (!row) {
-      if (existing.get(symbol)?.phase !== "EXPIRED") continue;
-      continue;
-    }
+    if (!row) continue;
+    const marketDataMs = marketDataMsBySymbol.get(symbol);
+    if (marketDataMs === undefined) continue;
+    const deskFacts = desk.bySymbol.get(symbol) ?? {
+      onAuthoritativeDesk: false,
+      fivePillarsPass: false,
+      freshnessPass: false,
+      opportunityEligible: false,
+      opportunityScore: 0,
+    };
     evaluations.push(
       buildEvaluationFromMetrics({
         row,
         syncRunId: input.syncRunId,
-        evaluable,
-        unevaluableReason: input.unevaluableReason,
+        marketDataMs,
+        onAuthoritativeDesk: deskFacts.onAuthoritativeDesk,
+        freshnessPass: deskFacts.freshnessPass,
+        opportunityEligible: deskFacts.opportunityEligible,
       }),
     );
   }
@@ -199,7 +261,6 @@ export async function advanceDayTradeQualificationLifecycle(input: {
   return persistQualificationAdvance({
     db: input.db,
     sessionDate: input.sessionDate,
-    nowMs: input.nowMs,
     evaluations,
     existing,
   });

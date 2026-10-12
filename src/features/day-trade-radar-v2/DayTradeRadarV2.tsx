@@ -190,6 +190,8 @@ export function DayTradeRadarV2({
           rows={ranked}
           dayTradeRows={lensRows}
           qualificationMonitoring={qualification.monitoring}
+          qualificationLoadError={qualification.error}
+          onQualificationRetry={qualification.retry}
           dayTradeEmptyMessage={DAY_TRADE_EMPTY_MESSAGE}
           selectedSymbol={pinnedSymbol}
           isPro={isPro}

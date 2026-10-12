@@ -1,38 +1,53 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
-export type DayTradeQualificationPhase = "ACTIVE" | "GRACE" | "EXPIRED";
+export type DayTradePillarPhase = "ACTIVE" | "GRACE" | "EXPIRED";
 
-export type DayTradeQualificationStateRow = {
-  session_date: string;
-  symbol: string;
-  phase: DayTradeQualificationPhase | null;
-  first_qualified_at: string | null;
-  last_qualified_at: string | null;
-  grace_first_failure_at: string | null;
-  grace_failure_count: number;
-  expired_at: string | null;
-  expiration_reason_codes: string[];
-  pillar_outcomes: Record<string, string> | null;
-  monitored_price: number | null;
-  monitored_volume: number | null;
-  provider_as_of: string | null;
-  prior_episodes: unknown[];
-  updated_at: string;
-};
+export type DeskDepartureReason =
+  | "PILLAR_EXPIRED"
+  | "FRESHNESS_DISQUALIFIED"
+  | "OPPORTUNITY_BELOW_THRESHOLD"
+  | "TOP10_DISPLACED"
+  | "DESK_SELECTION_EXCLUDED";
+
+export type DayTradeQualificationStateRow =
+  Database["public"]["Tables"]["day_trade_qualification_state"]["Row"];
+
+export type DayTradeQualificationListResult = DayTradeQualificationStateRow[];
 
 export async function fetchDayTradeQualificationStates(
   sessionDate: string,
-): Promise<DayTradeQualificationStateRow[]> {
-  const { data, error } = await supabase.rpc(
-    "day_trade_qualification_list_v1" as never,
-    { p_session_date: sessionDate } as never,
-  );
-  if (error || !Array.isArray(data)) return [];
-  return data as DayTradeQualificationStateRow[];
+): Promise<{ rows: DayTradeQualificationStateRow[]; error: Error | null }> {
+  const { data, error } = await supabase.rpc("day_trade_qualification_list_v1", {
+    p_session_date: sessionDate,
+  });
+  if (error) {
+    return { rows: [], error: new Error(error.message) };
+  }
+  return { rows: (data ?? []) as DayTradeQualificationStateRow[], error: null };
 }
 
 export function monitoringStates(
   rows: readonly DayTradeQualificationStateRow[],
 ): DayTradeQualificationStateRow[] {
-  return rows.filter((row) => row.phase === "EXPIRED" && row.expired_at && row.first_qualified_at);
+  return rows.filter(
+    (row) => row.ever_on_desk && !row.currently_on_desk && row.monitoring_eligible,
+  );
+}
+
+export function deskDepartureLabel(reason: DeskDepartureReason | null | string): string {
+  switch (reason) {
+    case "PILLAR_EXPIRED":
+      return "Five Pillars expired";
+    case "FRESHNESS_DISQUALIFIED":
+      return "Freshness disqualification";
+    case "OPPORTUNITY_BELOW_THRESHOLD":
+      return "Opportunity score below desk threshold";
+    case "TOP10_DISPLACED":
+      return "Top-10 displacement";
+    case "DESK_SELECTION_EXCLUDED":
+      return "Desk selection exclusion";
+    default:
+      return "Off desk";
+  }
 }

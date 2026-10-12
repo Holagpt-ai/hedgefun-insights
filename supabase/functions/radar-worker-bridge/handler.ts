@@ -425,7 +425,6 @@ async function handleAction(
           db: db as unknown as QualificationDb,
           sessionDate: body.p_trading_date,
           generationId: body.p_generation_id,
-          nowMs: Date.parse(body.p_synced_at),
           candidates,
         });
       } catch {

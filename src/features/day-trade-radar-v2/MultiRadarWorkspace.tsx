@@ -26,6 +26,7 @@ import type { DayTradeQualificationStateRow } from "@/lib/day-trade/qualificatio
 import {
   formatQualifiedMonitoringSubtitle,
   mergeRankedRowWithQualificationState,
+  qualifiedPanelMetaLine,
 } from "@/lib/day-trade/build-qualified-panel-rows";
 import type { RadarRankedRow } from "./types";
 
@@ -51,11 +52,15 @@ export function MultiRadarWorkspace({
   onOpenDetails,
   closedSnapshot = false,
   qualificationMonitoring = [],
+  qualificationLoadError = null,
+  onQualificationRetry,
 }: {
   rows: RadarRankedRow[];
   /** Authoritative Day Trade Top-10 (may be []). Never falls back to the Radar universe. */
   dayTradeRows: readonly RadarRankedRow[];
   qualificationMonitoring?: readonly DayTradeQualificationStateRow[];
+  qualificationLoadError?: Error | null;
+  onQualificationRetry?: () => void;
   dayTradeEmptyMessage?: string;
   selectedSymbol: string | null;
   isPro: boolean;
@@ -104,7 +109,7 @@ export function MultiRadarWorkspace({
                 rank: index + 1,
                 access_rank: index + 1,
                 qualification_monitoring: true,
-                qualification_expired_at: item.expired_at,
+                qualification_expired_at: item.pillar_expired_at,
               } as RadarRankedRow;
             })
           : qualifyPanelRows(rows, id, state.priceBand, nowMs);
@@ -117,8 +122,12 @@ export function MultiRadarWorkspace({
           ? sorted[0] ?? null
           : selectPanelLeader(id, filtered, nowMs);
       const qualifiedSubtitle =
-        id === "day_trade_qualified" && qualificationMonitoring[0]?.provider_as_of
-          ? formatQualifiedMonitoringSubtitle(qualificationMonitoring[0].provider_as_of)
+        id === "day_trade_qualified" && qualificationMonitoring[0]
+          ? formatQualifiedMonitoringSubtitle(qualificationMonitoring[0])
+          : undefined;
+      const qualifiedMeta =
+        id === "day_trade_qualified" && qualificationMonitoring[0]
+          ? qualifiedPanelMetaLine(qualificationMonitoring[0])
           : undefined;
       return {
         id,
@@ -134,6 +143,7 @@ export function MultiRadarWorkspace({
               : undefined
             : undefined,
         subtitleOverride: qualifiedSubtitle,
+        metaLine: qualifiedMeta,
       };
     });
   }, [rows, dayTradeRows, qualificationMonitoring, workspace, nowMs, dayTradeEmptyMessage]);
@@ -147,6 +157,19 @@ export function MultiRadarWorkspace({
         <p className="text-[11px] text-muted-foreground" data-testid="closed-radar-snapshot-status">
           {CLOSED_RADAR_SNAPSHOT_STATUS}
         </p>
+      ) : null}
+      {qualificationLoadError ? (
+        <div
+          className="rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-[11px] text-destructive"
+          data-testid="day-trade-qualified-load-error"
+        >
+          Monitoring data could not be loaded.{" "}
+          {onQualificationRetry ? (
+            <button type="button" className="underline font-semibold" onClick={onQualificationRetry}>
+              Retry
+            </button>
+          ) : null}
+        </div>
       ) : null}
       <HaltsRail />
       <ActiveSymbolRail
@@ -208,6 +231,7 @@ export function MultiRadarWorkspace({
             closedSnapshot={closedSnapshot}
             emptyMessage={view.emptyMessage}
             subtitleOverride={"subtitleOverride" in view ? view.subtitleOverride : undefined}
+            metaLine={"metaLine" in view ? view.metaLine : undefined}
           />
         ))}
       </div>
