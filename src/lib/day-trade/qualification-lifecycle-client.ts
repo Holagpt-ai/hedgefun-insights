@@ -28,12 +28,33 @@ export async function fetchDayTradeQualificationStates(
   return { rows: (data ?? []) as DayTradeQualificationStateRow[], error: null };
 }
 
+function asSymbolSet(
+  symbols?: ReadonlySet<string> | readonly string[],
+): ReadonlySet<string> {
+  if (!symbols) return new Set();
+  const list = Array.isArray(symbols) ? symbols : [...symbols];
+  return new Set(list.map((s) => s.trim().toUpperCase()));
+}
+
+/**
+ * Monitoring list: previously on the authoritative desk, currently off desk.
+ * `activeDeskSymbols` excludes names on the live Top-10 for the same snapshot
+ * so a symbol cannot appear on both panels at once.
+ */
 export function monitoringStates(
   rows: readonly DayTradeQualificationStateRow[],
+  activeDeskSymbols?: ReadonlySet<string> | readonly string[],
 ): DayTradeQualificationStateRow[] {
-  return rows.filter(
-    (row) => row.ever_on_desk && !row.currently_on_desk && row.monitoring_eligible,
-  );
+  const onDesk = asSymbolSet(activeDeskSymbols);
+  return rows.filter((row) => {
+    const symbol = row.symbol.trim().toUpperCase();
+    return (
+      row.ever_on_desk &&
+      !row.currently_on_desk &&
+      row.monitoring_eligible &&
+      !onDesk.has(symbol)
+    );
+  });
 }
 
 export function deskDepartureLabel(reason: DeskDepartureReason | null | string): string {

@@ -17,9 +17,11 @@
  *    session volume / prior_session_volume. Missing facts stay null (`—`).
  *  - Short-window moves (move_60s_pct / move_15s_pct) are never mapped into
  *    `change_percent`. They still contribute to volume-first tie-breaking.
- *  - Gap is derived only from persisted previous_close + last (honest pre-market gap).
+ *  - Gap is never mapped from Radar last−prev in regular session (no session_open).
+ *    Gappers stay on the screener_results path.
  *  - 52w fields are not persisted by Radar V2 and stay null unless enriched elsewhere.
  *  - Stale/unavailable Radar data is never shown as live; caller falls back.
+ *  - `provider_as_of` is the provider observation only — never `updated_at`.
  */
 
 import {
@@ -40,6 +42,11 @@ import {
   surveillanceTradingDateFromMs,
 } from "@/lib/screeners/screener-session";
 import { verifiedGapPercentFromRadarCandidate } from "@/lib/screeners/normalized-market-snapshot";
+import {
+  qualifyRadarCandidateForTab,
+  radarTabFallsBackWhenEmpty,
+  rankRadarCandidatesForTab,
+} from "@/lib/screeners/scanner-tab-qualification";
 
 /**
  * Radar-backed screener row: the standard row plus the OPTIONAL Radar ranking
@@ -76,9 +83,9 @@ export const RADAR_V2_ACTIVE_SESSIONS: ReadonlySet<RadarV2SessionKind> = new Set
 /**
  * Tabs that consume the Radar V2 candidate universe during an active session.
  *  - day_trade_radar : Radar-backed across pre-market, market, and after-hours.
- *  - volume_spikes   : partially Radar-backed (session/velocity volume evidence).
- *  - unusual_volume  : partially Radar-backed (velocity/anomaly evidence; no RVOL).
- *  - gainers_losers  : partially Radar-backed (short-window Radar move).
+ *  - volume_spikes   : short-window velocity / acceleration (not VOL/YDAY).
+ *  - unusual_volume  : cumulative session vs prior (≥4×) or time-adjusted RVOL.
+ *  - gainers_losers  : session MOVE vs previous regular close.
  *
  * Intentionally NOT Radar-backed in any session (kept on the existing path):
  *  - gappers        : no persisted prior-close → cannot compute honest gap.
@@ -369,20 +376,7 @@ export function qualifyCandidateForTab(
   row: RadarV2CandidateRow,
   tabId: string,
 ): boolean {
-  switch (tabId) {
-    case "day_trade_radar":
-      // Full Radar PM candidate universe.
-      return true;
-    case "volume_spikes":
-    case "unusual_volume":
-      // Real persisted volume evidence (session volume already validated > = 0).
-      return isFiniteNumber(row.session_volume) && (row.session_volume as number) > 0;
-    case "gainers_losers":
-      // Requires a valid available short-window price move (no prior-close fake).
-      return isFiniteNumber(row.move_60s_pct) || isFiniteNumber(row.move_15s_pct);
-    default:
-      return false;
-  }
+  return qualifyRadarCandidateForTab(row, tabId);
 }
 
 // ── Mapping to the existing ScreenerResultRow view model ─────────────────────
@@ -425,7 +419,7 @@ export function mapCandidateToScreenerRow(
     ),
     day_high: isPositiveFinite(row.session_high) ? row.session_high : null,
     day_low: isPositiveFinite(row.session_low) ? row.session_low : null,
-    provider_as_of: row.provider_as_of ?? row.updated_at,
+    provider_as_of: row.provider_as_of,
     sync_run_id: row.generation_id,
     updated_at: row.updated_at,
     // Radar ranking metadata carried through to the Day Trade Radar board.
@@ -620,11 +614,19 @@ export function buildRadarV2Decision(input: {
   const syncedAt = feed.v2_synced_at;
   const providerAsOfMax = feed.last_provider_event_at ?? null;
 
-  // Rank the whole (session-fenced) universe volume-first, then qualify per tab.
-  const ranked = rankRadarV2Candidates(sessionMatched);
+  // Rank the session-fenced universe with tab-specific comparators, then qualify.
+  const structurallyValid = rankRadarV2Candidates(sessionMatched);
+  const ranked = rankRadarCandidatesForTab(
+    structurallyValid,
+    tabId,
+    compareCandidatesVolumeFirst,
+  );
   const qualified = ranked.filter((c) => qualifyCandidateForTab(c, tabId));
 
   if (qualified.length === 0) {
+    if (radarTabFallsBackWhenEmpty(tabId)) {
+      return fallback("radar_v2_tab_evidence_unavailable", session);
+    }
     // Honest empty from a healthy Radar generation (no fake rows).
     return {
       source: "radar-v2",

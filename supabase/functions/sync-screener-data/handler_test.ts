@@ -412,7 +412,9 @@ Deno.test("handler: happy path volume-first + single replacement RPC", async () 
   assertEquals(body.sync_run_id, RUN_ID);
   assertEquals(body.synced_at, FIXED_ISO);
 
-  const rpcs = mutations.filter((m) => m.kind === "rpc") as Array<{
+  const rpcs = mutations.filter((m) =>
+    m.kind === "rpc" && (m as { fn?: string }).fn === REPLACE_GENERATION_RPC
+  ) as Array<{
     kind: "rpc";
     fn: string;
     args: {
@@ -549,7 +551,9 @@ Deno.test("handler: empty qualifying results still invoke empty replacement", as
   assertEquals(body.rows_inserted, 0);
   assertEquals(body.provider_as_of_min, null);
   assertEquals(body.provider_as_of_max, null);
-  const rpcs = mutations.filter((m) => m.kind === "rpc") as Array<{
+  const rpcs = mutations.filter((m) =>
+    m.kind === "rpc" && (m as { fn?: string }).fn === REPLACE_GENERATION_RPC
+  ) as Array<{
     kind: "rpc";
     args: { p_rows: ScreenerResultRow[] };
   }>;
@@ -844,7 +848,9 @@ Deno.test(
     );
     assertEquals(res.status, 200);
 
-    const rpcs = mutations.filter((m) => m.kind === "rpc") as Array<{
+    const rpcs = mutations.filter((m) =>
+      m.kind === "rpc" && (m as { fn?: string }).fn === REPLACE_GENERATION_RPC
+    ) as Array<{
       kind: "rpc";
       fn: string;
       args: { p_rows: ScreenerResultRow[] };

@@ -217,6 +217,21 @@ export function hasValidSessionOpen(
  * the same current price as MOVE, without treating MOVE qualification as a gap.
  * Missing or non-positive inputs stay null. Never substitutes todaysChangePerc.
  */
+/**
+ * Near-integer ≥2× scale between two prices is treated as a split/CA mismatch.
+ * Matches `regularAndLastImplySplitScale` in previous-session-facts.
+ */
+export function impliesSplitScale(a: number, b: number): boolean {
+  const hi = Math.max(a, b);
+  const lo = Math.min(a, b);
+  if (!(lo > 0) || !Number.isFinite(hi) || !Number.isFinite(lo)) return false;
+  const ratio = hi / lo;
+  if (!Number.isFinite(ratio) || ratio < 2) return false;
+  const rounded = Math.round(ratio);
+  if (rounded < 2) return false;
+  return Math.abs(ratio - rounded) / rounded <= 0.03;
+}
+
 export function gapPercent(
   t: PolygonTicker,
   extendedSession = false,
@@ -226,6 +241,8 @@ export function gapPercent(
     : currentSessionOpen(t, false);
   const prevClose = previousRegularClose(t);
   if (reference === null || prevClose === null || prevClose === 0) return null;
+  const regular = regularClose(t);
+  if (regular !== null && impliesSplitScale(regular, reference)) return null;
   return Math.round(((reference - prevClose) / prevClose) * 1000) / 10;
 }
 
@@ -438,29 +455,50 @@ export function selectForTab(
     const qualified = universe.filter((t) => qualifiesGappers(t, extendedSession));
     return selectVolumeFirst(qualified, limit);
   }
+  if (tabId === "gainers_losers") {
+    const qualify = TAB_QUALIFIERS[tabId];
+    const qualified = universe.filter(qualify);
+    return selectGainersLosersRanked(qualified, limit, { extendedSession });
+  }
   const qualify = TAB_QUALIFIERS[tabId];
   const qualified = universe.filter(qualify);
   return selectVolumeFirst(qualified, limit);
 }
 
-/** Gainers/losers from full snapshot when provider lists are empty (extended session). */
-export function selectGainersLosersFromSnapshot(
+function moverPercent(
+  t: PolygonTicker,
+  extendedSession: boolean,
+): number | null {
+  if (extendedSession) {
+    return changePercentVsPriorRegularClose(
+      currentSessionReferencePrice(t, true),
+      t,
+    );
+  }
+  return regularChangePercent(t);
+}
+
+/** Rank verified movers by |session MOVE|, then volume. Never fabricates %. */
+export function selectGainersLosersRanked(
   universe: PolygonTicker[],
   limit: number = SCREENER_ROW_LIMIT,
+  opts?: { extendedSession?: boolean },
 ): PolygonTicker[] {
-  const movers = universe.filter((t) => regularChangePercent(t) !== null);
+  const extendedSession = opts?.extendedSession ?? false;
   const bySymbol = new Map<string, PolygonTicker>();
-  for (const t of movers) {
+  for (const t of universe) {
     const sym = normalizeSymbol(t?.ticker);
     if (!sym) continue;
     const vol = dayVolume(t);
     if (vol === null || !(vol > 0)) continue;
+    const move = moverPercent(t, extendedSession);
+    if (move === null || move === 0) continue;
     bySymbol.set(sym, { ...t, ticker: sym });
   }
   return [...bySymbol.values()]
     .sort((a, b) => {
-      const ca = Math.abs(regularChangePercent(a)!);
-      const cb = Math.abs(regularChangePercent(b)!);
+      const ca = Math.abs(moverPercent(a, extendedSession)!);
+      const cb = Math.abs(moverPercent(b, extendedSession)!);
       if (cb !== ca) return cb - ca;
       const va = dayVolume(a)!;
       const vb = dayVolume(b)!;
@@ -468,4 +506,13 @@ export function selectGainersLosersFromSnapshot(
       return normalizeSymbol(a.ticker)! < normalizeSymbol(b.ticker)! ? -1 : 1;
     })
     .slice(0, Math.max(0, limit));
+}
+
+/** Gainers/losers from full snapshot when provider lists are empty. */
+export function selectGainersLosersFromSnapshot(
+  universe: PolygonTicker[],
+  limit: number = SCREENER_ROW_LIMIT,
+  opts?: { extendedSession?: boolean },
+): PolygonTicker[] {
+  return selectGainersLosersRanked(universe, limit, opts);
 }

@@ -1,6 +1,7 @@
 /** Batch 8 — volume participation + historical match bounds (deterministic). */
 
-export const RVOL_5M_MIN_TOD_SAMPLES = 8;
+/** Must match worker `momentum-metrics.config.ts` — never invent a 1.0 fallback. */
+export const RVOL_5M_MIN_TOD_SAMPLES = 5;
 
 export const VOLUME_ACCELERATION_STATES = [
   "NORMAL",

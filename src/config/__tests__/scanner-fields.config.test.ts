@@ -58,7 +58,6 @@ describe("scanner field registry", () => {
   it("registers future rvol / trigger fields as unavailable", () => {
     for (const id of [
       "short_float",
-      "rvol_5m",
       "market_cap",
       "latest_trigger",
       "catalyst_time",
@@ -66,6 +65,14 @@ describe("scanner field registry", () => {
       expect(getScannerField(id)?.availability).toBe("unavailable");
       expect(getScannerField(id)?.defaultVisible).toBe(false);
     }
+  });
+
+  it("registers 5-minute RVOL as source-dependent TOD evidence, not daily RVOL", () => {
+    const rvol5m = getScannerField("rvol_5m");
+    expect(rvol5m?.availability).toBe("source-dependent");
+    expect(rvol5m?.description).toMatch(/time-of-day/i);
+    expect(rvol5m?.description).toMatch(/Not daily RVOL/i);
+    expect(rvol5m?.source).toMatch(/regular session/i);
   });
 
   it("registers RVOL 20D and Dollar Volume with honest trader-intelligence copy", () => {

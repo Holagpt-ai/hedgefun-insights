@@ -16,6 +16,9 @@ import {
 
 export type RangeEvent = "new_high" | "new_low" | "both";
 
+/** Minimum completed sessions before a 52-week event is treated as verified. */
+export const NHL_VERIFIED_MIN_SESSIONS = 120;
+
 export type NhlBaselineQuote = {
   symbol: string;
   high_52w: number;
@@ -64,6 +67,7 @@ export function classifyNewHighLow(
   const price = currentSessionReferencePrice(t, extendedSession);
   if (price === null || !(price > 0)) return null;
   if (!isValidBaselineQuote(baseline)) return null;
+  if (baseline.sessions_observed < NHL_VERIFIED_MIN_SESSIONS) return null;
   if (normalizeSymbol(baseline.symbol) !== sym) return null;
 
   const range = dayHighLow(t);

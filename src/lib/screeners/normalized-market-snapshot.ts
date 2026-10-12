@@ -118,10 +118,18 @@ export function buildSnapshotFromRadarCandidate(
   };
 }
 
-/** Honest gap for Radar rows when previous close is persisted on the candidate. */
+/**
+ * Honest gap for Radar rows.
+ * Premarket / after-hours: last vs persisted previous regular close.
+ * Regular session: null — Radar does not persist session_open, so last−prev
+ * would relabel the session MOVE as a gap.
+ */
 export function verifiedGapPercentFromRadarCandidate(
   row: RadarV2CandidateRow,
+  sessionKind?: string | null,
 ): number | null {
+  const session = sessionKind ?? row.session_kind;
+  if (session !== "pre-market" && session !== "after-hours") return null;
   const price = isPositiveFinite(row.last_price) ? row.last_price : null;
   const previousClose = isPositiveFinite(row.previous_close) ? row.previous_close : null;
   return gapPercentFromVerifiedInputs(price, previousClose);

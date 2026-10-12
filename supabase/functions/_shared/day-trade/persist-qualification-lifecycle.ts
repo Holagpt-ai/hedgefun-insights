@@ -221,6 +221,11 @@ export async function advanceDayTradeQualificationLifecycle(input: {
   syncRunId: string;
   metricsRows: readonly DayTradeMetricsRow[];
   watchSymbols?: readonly string[];
+  /**
+   * True only when `metricsRows` is a complete desk generation (V22 candidate
+   * universe). Partial sync batches must not authorize desk enter/exit.
+   */
+  deskGenerationComplete?: boolean;
 }): Promise<{ symbolsUpdated: number; eventsRecorded: number }> {
   const existing = await loadQualificationStatesForSession(input.db, input.sessionDate);
 
@@ -282,7 +287,8 @@ export async function advanceDayTradeQualificationLifecycle(input: {
     }
     const marketDataMs = marketDataMsBySymbol.get(symbol);
     if (marketDataMs === undefined) continue;
-    const deskObservationComplete = desk.universeSymbols.has(symbol);
+    const deskObservationComplete =
+      input.deskGenerationComplete === true && desk.universeSymbols.has(symbol);
     const deskFacts = desk.bySymbol.get(symbol) ?? {
       onAuthoritativeDesk: false,
       fivePillarsPass: false,

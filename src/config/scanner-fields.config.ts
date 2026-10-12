@@ -505,7 +505,8 @@ export const SCANNER_FIELDS: readonly ScannerFieldDefinition[] = [
     id: "rvol_5m",
     label: "5-minute RVOL",
     shortLabel: "5m RVOL",
-    description: "Short-window relative volume / velocity versus a typical 5-minute baseline.",
+    description:
+      "Current 5-minute volume versus the historical time-of-day 5-minute baseline for the same regular-session bucket. Not daily RVOL and not VOL/YDAY. Null when the baseline is missing, the session is not regular hours, or the window is unavailable. Zero is a real zero.",
     whyItMatters: "5-minute RVOL can show whether the current burst is unusual even if daily RVOL is not yet extreme.",
     format: "multiplier",
     category: "radar",
@@ -514,7 +515,8 @@ export const SCANNER_FIELDS: readonly ScannerFieldDefinition[] = [
     defaultVisible: false,
     mobileVisible: false,
     tooltipEnabled: true,
-    availability: "unavailable",
+    availability: "source-dependent",
+    source: "Radar worker TOD 5-minute baseline (Polygon adjusted 5-minute aggregates, regular session only).",
   },
   {
     id: "spread",
