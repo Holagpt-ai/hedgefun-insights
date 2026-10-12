@@ -35,6 +35,7 @@ function tick(overrides: Partial<DayTradeQualificationEvaluation>): DayTradeQual
     onAuthoritativeDesk: false,
     freshnessPass: true,
     opportunityEligible: true,
+    deskObservationComplete: true,
     ...overrides,
   };
 }
@@ -202,6 +203,31 @@ describe("V42.1 lifecycle scenarios", () => {
         SESSION,
       ),
     ).rejects.toBeInstanceOf(QualificationPersistenceError);
+  });
+
+  it("grace pillar failure labels desk exit as PILLARS_IN_GRACE not PILLAR_EXPIRED", () => {
+    let s = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "G" });
+    s = stepDayTradeQualificationLifecycle(s, onDesk(1_000, "g1", "G")).state;
+    s = stepDayTradeQualificationLifecycle(
+      s,
+      tick({
+        symbol: "G",
+        marketDataMs: 70_000,
+        snapshotKey: "g2",
+        onAuthoritativeDesk: false,
+        fivePillarsPass: false,
+        reasonCodes: ["MOMENTUM_TOO_WEAK"],
+        pillarOutcomes: {
+          price: "pass",
+          move: "fail",
+          float: "pass",
+          participation: "pass",
+          freshness: "pass",
+        },
+      }),
+    ).state;
+    expect(s.pillarPhase).toBe("GRACE");
+    expect(s.lastDeskDepartureReason).toBe("PILLARS_IN_GRACE");
   });
 
   it("persistence round-trip preserves desk fields", () => {

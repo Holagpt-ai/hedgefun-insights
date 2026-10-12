@@ -1,18 +1,14 @@
 /**
- * Authoritative Day Trade desk membership (Top-10 opportunity desk).
- * Volume-first discovery ordering preserved via rank inputs.
+ * Authoritative Day Trade desk membership — delegates to canonical frontend desk path.
  */
 
-import { DAY_TRADE_RADAR_MIN_OPPORTUNITY_SCORE, DAY_TRADE_RADAR_TOP_N } from "../../../../src/config/day-trade-radar-opportunity.config.ts";
+import {
+  deskFactsFromMetrics,
+} from "../../../../src/lib/day-trade/canonical-desk-from-metrics.ts";
 import type { DayTradeMetricsRow } from "./evaluate-five-pillars.ts";
-import { buildDayTradeQualificationEvaluation } from "./evaluate-five-pillars.ts";
-import { assessMetricsEvaluability } from "./evaluate-five-pillars.ts";
-import { qualifiesFreshnessFromMetrics } from "./freshness-from-metrics.ts";
-import { scoreOpportunityFromMetrics } from "./opportunity-score-metrics.ts";
 
 export type DeskMembershipResult = {
   onDeskSymbols: Set<string>;
-  /** Per-symbol desk facts for lifecycle stepping. */
   bySymbol: Map<
     string,
     {
@@ -23,21 +19,29 @@ export type DeskMembershipResult = {
       opportunityScore: number;
     }
   >;
+  /** Symbols present in this desk-source batch (do not infer exit if absent). */
+  universeSymbols: Set<string>;
+  /** Shared market-data clock for canonical desk (max provider as-of in batch). */
+  deskMarketDataMs: number | null;
 };
 
 export function computeAuthoritativeDeskMembership(input: {
   rows: readonly DayTradeMetricsRow[];
-  syncRunId: string;
   marketDataMsBySymbol: ReadonlyMap<string, number>;
 }): DeskMembershipResult {
-  const scored: {
-    symbol: string;
-    score: number;
-    fivePillarsPass: boolean;
-    freshnessPass: boolean;
-    opportunityEligible: boolean;
-  }[] = [];
+  const universeSymbols = new Set(
+    input.rows.map((r) => r.symbol.trim().toUpperCase()),
+  );
+  let deskMarketDataMs: number | null = null;
+  for (const ms of input.marketDataMsBySymbol.values()) {
+    if (deskMarketDataMs === null || ms > deskMarketDataMs) deskMarketDataMs = ms;
+  }
+  if (deskMarketDataMs === null || input.rows.length === 0) {
+    return { onDeskSymbols: new Set(), bySymbol: new Map(), universeSymbols, deskMarketDataMs };
+  }
 
+  const facts = deskFactsFromMetrics(input.rows, deskMarketDataMs);
+  const onDeskSymbols = new Set<string>();
   const bySymbol = new Map<
     string,
     {
@@ -49,50 +53,13 @@ export function computeAuthoritativeDeskMembership(input: {
     }
   >();
 
-  for (const row of input.rows) {
-    const symbol = row.symbol.trim().toUpperCase();
-    const marketDataMs = input.marketDataMsBySymbol.get(symbol);
-    if (marketDataMs === undefined) continue;
-    const evaluable = assessMetricsEvaluability(row, marketDataMs);
-    if (!evaluable.evaluable) {
-      bySymbol.set(symbol, {
-        onAuthoritativeDesk: false,
-        fivePillarsPass: false,
-        freshnessPass: false,
-        opportunityEligible: false,
-        opportunityScore: 0,
-      });
-      continue;
-    }
-    const evaluation = buildDayTradeQualificationEvaluation({
-      row,
-      marketDataMs,
-      snapshotKey: `${input.syncRunId}:${symbol}:${row.provider_as_of ?? "none"}`,
-      evaluable: true,
-    });
-    const freshnessPass = qualifiesFreshnessFromMetrics(row, marketDataMs);
-    const { score, eligible } = scoreOpportunityFromMetrics(row, marketDataMs, freshnessPass);
-    const fivePillarsPass = evaluation.fivePillarsPass;
-    const opportunityEligible = eligible && score >= DAY_TRADE_RADAR_MIN_OPPORTUNITY_SCORE;
+  for (const [symbol, fact] of facts) {
+    if (fact.onAuthoritativeDesk) onDeskSymbols.add(symbol);
     bySymbol.set(symbol, {
-      onAuthoritativeDesk: false,
-      fivePillarsPass,
-      freshnessPass,
-      opportunityEligible,
-      opportunityScore: score,
+      ...fact,
+      opportunityScore: fact.onAuthoritativeDesk ? 1 : 0,
     });
-    if (fivePillarsPass && freshnessPass && opportunityEligible) {
-      scored.push({ symbol, score, fivePillarsPass, freshnessPass, opportunityEligible });
-    }
   }
 
-  scored.sort((a, b) => b.score - a.score);
-  const top = scored.slice(0, DAY_TRADE_RADAR_TOP_N);
-  const onDeskSymbols = new Set(top.map((t) => t.symbol));
-  for (const sym of onDeskSymbols) {
-    const prev = bySymbol.get(sym);
-    if (prev) bySymbol.set(sym, { ...prev, onAuthoritativeDesk: true });
-  }
-
-  return { onDeskSymbols, bySymbol };
+  return { onDeskSymbols, bySymbol, universeSymbols, deskMarketDataMs };
 }

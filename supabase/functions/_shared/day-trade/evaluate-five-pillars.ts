@@ -166,6 +166,7 @@ export function buildDayTradeQualificationEvaluation(input: {
     onAuthoritativeDesk: false,
     freshnessPass: false,
     opportunityEligible: false,
+    deskObservationComplete: true,
   };
 }
 

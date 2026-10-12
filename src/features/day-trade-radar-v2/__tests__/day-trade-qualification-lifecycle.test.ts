@@ -46,6 +46,7 @@ describe("day trade qualification lifecycle persistence", () => {
       onAuthoritativeDesk: true,
       freshnessPass: true,
       opportunityEligible: true,
+      deskObservationComplete: true,
     };
     state = stepDayTradeQualificationLifecycle(state, pass).state;
     const second = stepDayTradeQualificationLifecycle(state, {

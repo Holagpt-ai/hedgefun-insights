@@ -31,6 +31,8 @@ export type DayTradePillarOutcomes = {
 
 export type DayTradeQualificationEvaluation = {
   symbol: string;
+  /** When false, desk enter/exit transitions are skipped (incomplete/truncated source). */
+  deskObservationComplete: boolean;
   evaluable: boolean;
   unevaluableReason?:
     | "missing_data"
@@ -261,6 +263,12 @@ function stepDesk(
   const wasOnDesk = prev.currentlyOnDesk;
   const onDesk = evaluation.onAuthoritativeDesk;
 
+  if (!evaluation.deskObservationComplete) {
+    if (onDesk && wasOnDesk) next.lastDeskAt = atIso;
+    if (!onDesk && prev.everOnDesk) next.monitoringEligible = !next.currentlyOnDesk;
+    return next;
+  }
+
   if (onDesk && !wasOnDesk) {
     next.currentlyOnDesk = true;
     next.everOnDesk = true;
@@ -285,11 +293,11 @@ function stepDesk(
     next.currentlyOnDesk = false;
     next.lastDeskDepartureAt = atIso;
     const reason = classifyDeskDeparture({
+      pillarPhase: next.pillarPhase,
       fivePillarsPass: evaluation.fivePillarsPass,
       freshnessPass: evaluation.freshnessPass,
       opportunityEligible: evaluation.opportunityEligible,
       onAuthoritativeDesk: false,
-      pillarPhaseExpired: next.pillarPhase === "EXPIRED",
     });
     next.lastDeskDepartureReason = reason;
     next.monitoringEligible = true;
@@ -327,7 +335,9 @@ export function stepDayTradeQualificationLifecycle(
   };
 
   if (!evaluation.evaluable) {
-    if (evaluation.monitoredPrice !== null || evaluation.monitoredVolume !== null) {
+    if (prev.everOnDesk && (prev.monitoringEligible || !prev.currentlyOnDesk)) {
+      next.monitoringDataStatus = "UNAVAILABLE";
+    } else if (evaluation.monitoredPrice !== null || evaluation.monitoredVolume !== null) {
       next.monitoringDataStatus = prev.monitoringDataStatus === "LIVE" ? "STALE" : prev.monitoringDataStatus;
     }
     return { state: next, events };

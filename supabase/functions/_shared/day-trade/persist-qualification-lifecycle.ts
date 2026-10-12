@@ -138,6 +138,7 @@ export function buildEvaluationFromMetrics(input: {
   onAuthoritativeDesk: boolean;
   freshnessPass: boolean;
   opportunityEligible: boolean;
+  deskObservationComplete: boolean;
 }): DayTradeQualificationEvaluation {
   const snapshotKey = `${input.syncRunId}:${input.row.symbol}:${input.row.provider_as_of ?? "none"}`;
   const evaluable = assessMetricsEvaluability(input.row, input.marketDataMs);
@@ -153,6 +154,7 @@ export function buildEvaluationFromMetrics(input: {
     onAuthoritativeDesk: input.onAuthoritativeDesk,
     freshnessPass: input.freshnessPass,
     opportunityEligible: input.opportunityEligible,
+    deskObservationComplete: input.deskObservationComplete,
   };
 }
 
@@ -172,6 +174,13 @@ export async function persistQualificationAdvance(input: {
         sessionDate: input.sessionDate,
         symbol,
       });
+    if (
+      prev.lastMarketDataMs !== null &&
+      evaluation.evaluable &&
+      evaluation.marketDataMs < prev.lastMarketDataMs
+    ) {
+      continue;
+    }
     const stepped = stepDayTradeQualificationLifecycle(prev, evaluation);
     input.existing.set(symbol, stepped.state);
 
@@ -225,7 +234,6 @@ export async function advanceDayTradeQualificationLifecycle(input: {
 
   const desk = computeAuthoritativeDeskMembership({
     rows: input.metricsRows,
-    syncRunId: input.syncRunId,
     marketDataMsBySymbol,
   });
 
@@ -235,10 +243,39 @@ export async function advanceDayTradeQualificationLifecycle(input: {
 
   const evaluations: DayTradeQualificationEvaluation[] = [];
   for (const symbol of symbolSet) {
+    const prev = existing.get(symbol);
     const row = metricsBySymbol.get(symbol);
-    if (!row) continue;
+    if (!row) {
+      if (prev?.monitoringEligible || prev?.currentlyOnDesk) {
+        evaluations.push({
+          symbol,
+          deskObservationComplete: false,
+          evaluable: false,
+          unevaluableReason: "missing_data",
+          fivePillarsPass: prev.fivePillarsPass,
+          pillarOutcomes: prev.pillarOutcomes ?? {
+            price: "unavailable",
+            move: "unavailable",
+            float: "unavailable",
+            participation: "unavailable",
+            freshness: "unavailable",
+          },
+          reasonCodes: ["MISSING_REQUIRED_DATA"],
+          marketDataMs: prev.lastMarketDataMs ?? 0,
+          snapshotKey: prev.lastSnapshotKey ?? `${input.syncRunId}:${symbol}:missing`,
+          monitoredPrice: prev.monitoredPrice,
+          monitoredVolume: prev.monitoredVolume,
+          providerAsOfIso: prev.providerAsOfIso,
+          onAuthoritativeDesk: prev.currentlyOnDesk,
+          freshnessPass: prev.fivePillarsPass,
+          opportunityEligible: false,
+        });
+      }
+      continue;
+    }
     const marketDataMs = marketDataMsBySymbol.get(symbol);
     if (marketDataMs === undefined) continue;
+    const deskObservationComplete = desk.universeSymbols.has(symbol);
     const deskFacts = desk.bySymbol.get(symbol) ?? {
       onAuthoritativeDesk: false,
       fivePillarsPass: false,
@@ -246,14 +283,18 @@ export async function advanceDayTradeQualificationLifecycle(input: {
       opportunityEligible: false,
       opportunityScore: 0,
     };
+    const onDesk = deskObservationComplete
+      ? deskFacts.onAuthoritativeDesk
+      : (prev?.currentlyOnDesk ?? false);
     evaluations.push(
       buildEvaluationFromMetrics({
         row,
         syncRunId: input.syncRunId,
         marketDataMs,
-        onAuthoritativeDesk: deskFacts.onAuthoritativeDesk,
+        onAuthoritativeDesk: onDesk,
         freshnessPass: deskFacts.freshnessPass,
         opportunityEligible: deskFacts.opportunityEligible,
+        deskObservationComplete,
       }),
     );
   }

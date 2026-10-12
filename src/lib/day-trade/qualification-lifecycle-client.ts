@@ -5,6 +5,7 @@ export type DayTradePillarPhase = "ACTIVE" | "GRACE" | "EXPIRED";
 
 export type DeskDepartureReason =
   | "PILLAR_EXPIRED"
+  | "PILLARS_IN_GRACE"
   | "FRESHNESS_DISQUALIFIED"
   | "OPPORTUNITY_BELOW_THRESHOLD"
   | "TOP10_DISPLACED"
@@ -39,6 +40,8 @@ export function deskDepartureLabel(reason: DeskDepartureReason | null | string):
   switch (reason) {
     case "PILLAR_EXPIRED":
       return "Five Pillars expired";
+    case "PILLARS_IN_GRACE":
+      return "Five Pillars under review (grace)";
     case "FRESHNESS_DISQUALIFIED":
       return "Freshness disqualification";
     case "OPPORTUNITY_BELOW_THRESHOLD":
