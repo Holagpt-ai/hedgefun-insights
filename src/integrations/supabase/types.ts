@@ -2419,18 +2419,30 @@ export type Database = {
       }
       day_trade_qualification_state: {
         Row: {
+          currently_on_desk: boolean
+          ever_on_desk: boolean
           expiration_reason_codes: Json
           expired_at: string | null
+          first_desk_at: string | null
           first_qualified_at: string | null
+          five_pillars_pass: boolean
           grace_failure_count: number
           grace_first_failure_at: string | null
+          last_desk_at: string | null
+          last_desk_departure_at: string | null
+          last_desk_departure_reason: string | null
           last_market_data_ms: number | null
           last_qualified_at: string | null
           last_snapshot_key: string | null
           monitored_price: number | null
           monitored_volume: number | null
+          monitoring_data_status: string
+          monitoring_eligible: boolean
           phase: string | null
+          pillar_expiration_reason_codes: Json
+          pillar_expired_at: string | null
           pillar_outcomes: Json | null
+          pillar_phase: string | null
           prior_episodes: Json
           provider_as_of: string | null
           session_date: string
@@ -2438,18 +2450,30 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          currently_on_desk?: boolean
+          ever_on_desk?: boolean
           expiration_reason_codes?: Json
           expired_at?: string | null
+          first_desk_at?: string | null
           first_qualified_at?: string | null
+          five_pillars_pass?: boolean
           grace_failure_count?: number
           grace_first_failure_at?: string | null
+          last_desk_at?: string | null
+          last_desk_departure_at?: string | null
+          last_desk_departure_reason?: string | null
           last_market_data_ms?: number | null
           last_qualified_at?: string | null
           last_snapshot_key?: string | null
           monitored_price?: number | null
           monitored_volume?: number | null
+          monitoring_data_status?: string
+          monitoring_eligible?: boolean
           phase?: string | null
+          pillar_expiration_reason_codes?: Json
+          pillar_expired_at?: string | null
           pillar_outcomes?: Json | null
+          pillar_phase?: string | null
           prior_episodes?: Json
           provider_as_of?: string | null
           session_date: string
@@ -2457,18 +2481,30 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          currently_on_desk?: boolean
+          ever_on_desk?: boolean
           expiration_reason_codes?: Json
           expired_at?: string | null
+          first_desk_at?: string | null
           first_qualified_at?: string | null
+          five_pillars_pass?: boolean
           grace_failure_count?: number
           grace_first_failure_at?: string | null
+          last_desk_at?: string | null
+          last_desk_departure_at?: string | null
+          last_desk_departure_reason?: string | null
           last_market_data_ms?: number | null
           last_qualified_at?: string | null
           last_snapshot_key?: string | null
           monitored_price?: number | null
           monitored_volume?: number | null
+          monitoring_data_status?: string
+          monitoring_eligible?: boolean
           phase?: string | null
+          pillar_expiration_reason_codes?: Json
+          pillar_expired_at?: string | null
           pillar_outcomes?: Json | null
+          pillar_phase?: string | null
           prior_episodes?: Json
           provider_as_of?: string | null
           session_date?: string
@@ -10035,6 +10071,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      day_trade_qualification_apply_batch_v1: {
+        Args: { p_batch: Json }
+        Returns: number
+      }
       day_trade_qualification_event_insert_v1: {
         Args: { p_row: Json }
         Returns: boolean
@@ -10042,18 +10082,30 @@ export type Database = {
       day_trade_qualification_list_v1: {
         Args: { p_session_date: string }
         Returns: {
+          currently_on_desk: boolean
+          ever_on_desk: boolean
           expiration_reason_codes: Json
           expired_at: string | null
+          first_desk_at: string | null
           first_qualified_at: string | null
+          five_pillars_pass: boolean
           grace_failure_count: number
           grace_first_failure_at: string | null
+          last_desk_at: string | null
+          last_desk_departure_at: string | null
+          last_desk_departure_reason: string | null
           last_market_data_ms: number | null
           last_qualified_at: string | null
           last_snapshot_key: string | null
           monitored_price: number | null
           monitored_volume: number | null
+          monitoring_data_status: string
+          monitoring_eligible: boolean
           phase: string | null
+          pillar_expiration_reason_codes: Json
+          pillar_expired_at: string | null
           pillar_outcomes: Json | null
+          pillar_phase: string | null
           prior_episodes: Json
           provider_as_of: string | null
           session_date: string

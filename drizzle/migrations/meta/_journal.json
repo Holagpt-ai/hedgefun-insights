@@ -414,6 +414,13 @@
       "when": 1791827119275,
       "tag": "0058_day_trade_qualification_lifecycle_v42",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1791829623125,
+      "tag": "0059_day_trade_qualification_lifecycle_v42_1",
+      "breakpoints": true
     }
   ]
 }
