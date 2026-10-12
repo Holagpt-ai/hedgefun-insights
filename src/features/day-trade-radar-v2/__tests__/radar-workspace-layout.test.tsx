@@ -67,6 +67,15 @@ vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => isMobileState.value,
 }));
 
+vi.mock("@/hooks/useDayTradeQualificationMonitoring", () => ({
+  useDayTradeQualificationMonitoring: () => ({
+    states: [],
+    monitoring: [],
+    isLoading: false,
+    error: null,
+  }),
+}));
+
 function row(
   overrides: Partial<ScreenerResultRow & RadarRankingFields> &
     Pick<ScreenerResultRow, "symbol" | "volume">,
@@ -134,10 +143,11 @@ function renderRadar() {
 }
 
 describe("Radar workspace layout", () => {
-  it("stacks three desk panels and does not auto-select Core Momentum", () => {
+  it("stacks desk panels including Day Trade Qualified monitoring and does not auto-select Core Momentum", () => {
     renderRadar();
     expect(screen.getByText("DAY TRADE DESK")).toBeInTheDocument();
     expect(screen.getByTestId("radar-panel-day_trade")).toBeInTheDocument();
+    expect(screen.getByTestId("radar-panel-day_trade_qualified")).toBeInTheDocument();
     expect(screen.getByTestId("radar-panel-breakouts")).toBeInTheDocument();
     expect(screen.getByTestId("radar-panel-penny")).toBeInTheDocument();
     expect(screen.queryByLabelText("Trader Lens preset")).not.toBeInTheDocument();

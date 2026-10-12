@@ -20,7 +20,7 @@ export { DAY_TRADE_EMPTY_MESSAGE, DAY_TRADE_RADAR_MAX_ROWS } from "./day-trade-s
 
 export const MULTI_RADAR_DESK_NAME = "DAY TRADE DESK";
 export const MULTI_RADAR_STORAGE_KEY = "stocksist.day-trade-radar.workspace.v1";
-export const MULTI_RADAR_STORAGE_VERSION = 1;
+export const MULTI_RADAR_STORAGE_VERSION = 2;
 export const PANEL_NEW_WINDOW_MS = 3 * 60 * 1000;
 
 export const BREAKOUT_EVENT_TYPES = [
@@ -37,7 +37,7 @@ const BREAKOUT_PRIORITY = new Map<string, number>(
   BREAKOUT_EVENT_TYPES.map((type, index) => [type, index]),
 );
 
-export type RadarPanelId = "day_trade" | "breakouts" | "penny";
+export type RadarPanelId = "day_trade" | "day_trade_qualified" | "breakouts" | "penny";
 
 export type PennyPriceBandId = "under_1" | "band_1_2" | "band_2_5";
 
@@ -208,6 +208,12 @@ const PANEL_META: Record<
     leaderLabel: "TOP LEADER",
     columns: DAY_TRADE_DEFAULT_COLUMNS,
   },
+  day_trade_qualified: {
+    title: "DAY TRADE QUALIFIED",
+    subtitle: "Previously Qualified · Monitoring",
+    leaderLabel: "MONITORING",
+    columns: DAY_TRADE_DEFAULT_COLUMNS,
+  },
   breakouts: {
     title: "BREAKOUTS",
     subtitle: "Stocks attacking or crossing key intraday levels",
@@ -231,7 +237,7 @@ export function panelCountLabel(panel: RadarPanelId, count: number): string {
   if (panel === "penny") {
     return `${count} ${count === 1 ? "candidate" : "candidates"}`;
   }
-  if (panel === "day_trade") {
+  if (panel === "day_trade" || panel === "day_trade_qualified") {
     return `${count} ${count === 1 ? "match" : "matches"}`;
   }
   return `${count} matches`;
@@ -239,7 +245,7 @@ export function panelCountLabel(panel: RadarPanelId, count: number): string {
 
 export function panelHeading(panel: RadarPanelId, count: number): string {
   const title = PANEL_META[panel].title;
-  if (panel === "day_trade" || panel === "penny") {
+  if (panel === "day_trade" || panel === "day_trade_qualified" || panel === "penny") {
     return `${title} · ${panelCountLabel(panel, count)}`;
   }
   return title;
@@ -261,6 +267,7 @@ export function defaultWorkspaceState(): MultiRadarWorkspaceState {
     mobilePanel: "day_trade",
     panels: {
       day_trade: defaultPanelState("day_trade"),
+      day_trade_qualified: defaultPanelState("day_trade_qualified"),
       breakouts: defaultPanelState("breakouts"),
       penny: defaultPanelState("penny"),
     },
@@ -280,7 +287,12 @@ function isBandId(value: unknown): value is PennyPriceBandId {
 }
 
 function isPanelId(value: unknown): value is RadarPanelId {
-  return value === "day_trade" || value === "breakouts" || value === "penny";
+  return (
+    value === "day_trade" ||
+    value === "day_trade_qualified" ||
+    value === "breakouts" ||
+    value === "penny"
+  );
 }
 
 export function canonicalizePanelColumns(ids: readonly string[]): PanelColumnId[] {
@@ -324,7 +336,12 @@ export function parseWorkspaceState(raw: string | null | undefined): MultiRadarW
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return null;
     const record = parsed as Record<string, unknown>;
-    if (record.version !== MULTI_RADAR_STORAGE_VERSION) return null;
+    if (
+      record.version !== MULTI_RADAR_STORAGE_VERSION &&
+      record.version !== 1
+    ) {
+      return null;
+    }
     if (record.desk !== MULTI_RADAR_DESK_NAME) return null;
     const panels = record.panels;
     if (!panels || typeof panels !== "object") return null;
@@ -335,6 +352,10 @@ export function parseWorkspaceState(raw: string | null | undefined): MultiRadarW
       mobilePanel: isPanelId(record.mobilePanel) ? record.mobilePanel : "day_trade",
       panels: {
         day_trade: readPanelState("day_trade", panelRecord.day_trade),
+        day_trade_qualified: readPanelState(
+          "day_trade_qualified",
+          panelRecord.day_trade_qualified,
+        ),
         breakouts: readPanelState("breakouts", panelRecord.breakouts),
         penny: readPanelState("penny", panelRecord.penny),
       },

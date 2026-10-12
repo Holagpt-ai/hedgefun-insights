@@ -203,6 +203,7 @@ export function RadarPanelBoard({
   onPriceBand,
   closedSnapshot = false,
   emptyMessage,
+  subtitleOverride,
 }: {
   panel: RadarPanelId;
   rows: RadarRankedRow[];
@@ -224,11 +225,14 @@ export function RadarPanelBoard({
   onPriceBand: (band: PennyPriceBandId) => void;
   closedSnapshot?: boolean;
   emptyMessage?: string;
+  subtitleOverride?: string;
 }) {
   const meta = panelMeta(panel);
   const matchLabel = panelCountLabel(panel, rows.length);
   const heading = panelHeading(panel, rows.length);
-  const countInTitle = panel === "day_trade" || panel === "penny";
+  const countInTitle =
+    panel === "day_trade" || panel === "day_trade_qualified" || panel === "penny";
+  const subtitle = subtitleOverride ?? meta.subtitle;
   const { add, isAdded, pendingSymbol } = useAddToWatchlist();
   const symbols = useMemo(() => {
     const out: string[] = [];
@@ -264,7 +268,7 @@ export function RadarPanelBoard({
               </span>
             )}
           </div>
-          <p className="text-[11px] text-muted-foreground">{meta.subtitle}</p>
+          <p className="text-[11px] text-muted-foreground">{subtitle}</p>
         </div>
         {panel === "penny" ? (
           <label className="text-[11px] text-muted-foreground">
