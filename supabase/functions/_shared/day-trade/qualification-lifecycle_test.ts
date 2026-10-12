@@ -84,6 +84,55 @@ Deno.test("missing required value: no false expiration", () => {
   assertEquals(r.events.length, 0);
 });
 
+Deno.test("equal-ms dual writers cannot exit a seated name", () => {
+  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "FLK" });
+  state = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({
+      symbol: "FLK",
+      marketDataMs: 1_000,
+      snapshotKey: "sync:flk",
+      onAuthoritativeDesk: true,
+    }),
+  ).state;
+  const exit = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({
+      symbol: "FLK",
+      marketDataMs: 1_000,
+      snapshotKey: "v22:flk",
+      onAuthoritativeDesk: false,
+    }),
+  );
+  assertEquals(exit.events.length, 0);
+  assertEquals(exit.state.currentlyOnDesk, true);
+});
+
+Deno.test("incomplete observation cannot authorize a desk exit", () => {
+  let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "PRT" });
+  state = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({
+      symbol: "PRT",
+      marketDataMs: 1_000,
+      snapshotKey: "v22:1",
+      onAuthoritativeDesk: true,
+    }),
+  ).state;
+  const incomplete = stepDayTradeQualificationLifecycle(
+    state,
+    evalBase({
+      symbol: "PRT",
+      marketDataMs: 80_000,
+      snapshotKey: "sync:partial",
+      onAuthoritativeDesk: false,
+      deskObservationComplete: false,
+    }),
+  );
+  assertEquals(incomplete.events.length, 0);
+  assertEquals(incomplete.state.currentlyOnDesk, true);
+});
+
 Deno.test("duplicate and out-of-order snapshots ignored", () => {
   let state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "D" });
   state = stepDayTradeQualificationLifecycle(

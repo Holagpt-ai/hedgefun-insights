@@ -29,5 +29,6 @@ export async function captureDayTradeQualificationFromV22(input: {
     syncRunId: input.generationId,
     metricsRows,
     watchSymbols,
+    deskGenerationComplete: true,
   });
 }

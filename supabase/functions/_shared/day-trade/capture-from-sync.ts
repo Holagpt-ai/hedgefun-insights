@@ -65,5 +65,6 @@ export async function captureDayTradeQualificationFromSync(input: {
     sessionDate: input.sessionDate,
     syncRunId: input.syncRunId,
     metricsRows,
+    deskGenerationComplete: false,
   });
 }

@@ -92,8 +92,11 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "volume_spikes",
     label: "Volume Spikes",
     description:
-      "provider day volume at least 3× provider prior-day volume (may include extended-session activity); ranked by provider day volume.",
-    criteria: ["Provider day vol ≥3× prior day vol"],
+      "Short-window volume acceleration. Radar: verified 5-minute velocity or acceleration, ranked by high-activity participation then velocity. Fallback: provider day volume at least 3× prior-day volume, ranked by day volume.",
+    criteria: [
+      "Radar: positive session volume plus 5-minute velocity or acceleration",
+      "Fallback: provider day vol ≥3× prior day vol",
+    ],
     columns: [
       { key: "trigger_time", label: "Triggered", format: "trigger_time", align: "left" },
       { key: "discovery_rank", label: "Rank", format: "rank", align: "left" },
@@ -113,7 +116,8 @@ export const SCREENER_TABS: ScreenerTab[] = [
   {
     id: "gainers_losers",
     label: "Gainers / Losers",
-    description: "Provider-reported gainers and losers. Ranked by current volume.",
+    description:
+      "Session percentage move versus the previous regular-session close. Ranked by |MOVE| with volume as the tie-break. High-activity names (≥100k shares/min) stay ahead of thin prints.",
     criteria: [],
     columns: [
       { key: "trigger_time", label: "Triggered", format: "trigger_time", align: "left" },
@@ -134,9 +138,9 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "new_highs_lows",
     label: "New Highs / Lows",
     description:
-      "Current regular-session day high or low at or beyond a validated prior 52-week baseline. Ranked by current volume. Event type does not override volume.",
+      "Current regular-session day high or low at or beyond a validated prior 52-week baseline with at least 120 observed sessions. Ranked by current volume. Event type does not override volume. Incomplete history is never shown as a verified breakout.",
     criteria: [
-      "Prior 52-week baseline required",
+      "Prior 52-week baseline required (≥120 sessions)",
       "Day high ≥ prior 52W high or day low ≤ prior 52W low",
       "Positive current volume and price",
     ],
@@ -161,8 +165,11 @@ export const SCREENER_TABS: ScreenerTab[] = [
     id: "unusual_volume",
     label: "Unusual Volume",
     description:
-      "provider day volume at least 4× provider prior-day volume (may include extended-session activity); ranked by provider day volume.",
-    criteria: ["Provider day vol ≥4× prior day vol"],
+      "Unusual cumulative session volume versus a verified comparison baseline. Radar: VOL/YDAY ≥4× or time-adjusted RVOL ≥2×, ranked by high-activity participation then TARVOL/VOL/YDAY. Fallback: provider day volume at least 4× prior-day volume.",
+    criteria: [
+      "Radar: session vol / prior session ≥4×, or time-adjusted RVOL ≥2×",
+      "Fallback: provider day vol ≥4× prior day vol",
+    ],
     columns: [
       { key: "trigger_time", label: "Triggered", format: "trigger_time", align: "left" },
       { key: "discovery_rank", label: "Rank", format: "rank", align: "left" },

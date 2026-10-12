@@ -41,8 +41,8 @@ function candidate(overrides: Partial<RadarV2CandidateRow> = {}): RadarV2Candida
     dollar_volume_60s: 1_200_000,
     acceleration_5m: 0.5,
     rvol_5m: null,
-    volume_velocity: null,
-    volume_acceleration_pct: null,
+    volume_velocity: 80_000,
+    volume_acceleration_pct: 12,
     primary_scanner_event: null,
     primary_scanner_event_at: null,
     scanner_events: [],
@@ -432,18 +432,61 @@ describe("Radar V2 adapter — session integrity (Phase F / D12)", () => {
 
 describe("Radar V2 adapter — tab semantics (Phase E)", () => {
   it("15. per-tab qualification classifies rows on persisted fields only", () => {
-    const noMove = candidate({ symbol: "NM", move_60s_pct: null, move_15s_pct: null });
+    const noSessionMove = candidate({
+      symbol: "NM",
+      previous_close: null,
+      move_60s_pct: null,
+      move_15s_pct: null,
+    });
     const noVol = candidate({ symbol: "NV", session_volume: 0 });
+    const unusual = candidate({
+      symbol: "UNU",
+      session_volume: 800_000,
+      prior_session_volume: 100_000,
+      volume_velocity: null,
+      volume_acceleration_pct: null,
+    });
+    const gainer = candidate({
+      symbol: "GNR",
+      last_price: 12,
+      previous_close: 10,
+    });
 
     expect(qualifyCandidateForTab(candidate(), "day_trade_radar")).toBe(true);
-    expect(qualifyCandidateForTab(noMove, "day_trade_radar")).toBe(true);
+    expect(qualifyCandidateForTab(noSessionMove, "day_trade_radar")).toBe(true);
 
-    expect(qualifyCandidateForTab(candidate(), "gainers_losers")).toBe(true);
-    expect(qualifyCandidateForTab(noMove, "gainers_losers")).toBe(false);
+    expect(qualifyCandidateForTab(gainer, "gainers_losers")).toBe(true);
+    expect(qualifyCandidateForTab(noSessionMove, "gainers_losers")).toBe(false);
 
     expect(qualifyCandidateForTab(candidate(), "volume_spikes")).toBe(true);
     expect(qualifyCandidateForTab(noVol, "volume_spikes")).toBe(false);
-    expect(qualifyCandidateForTab(candidate(), "unusual_volume")).toBe(true);
+    expect(qualifyCandidateForTab(unusual, "unusual_volume")).toBe(true);
+    expect(qualifyCandidateForTab(candidate(), "unusual_volume")).toBe(false);
+  });
+
+  it("does not treat processing time as the provider observation", () => {
+    const row = mapCandidateToScreenerRow(
+      candidate({ provider_as_of: null, updated_at: SYNCED }),
+      "day_trade_radar",
+    );
+    expect(row.provider_as_of).toBeNull();
+    expect(row.updated_at).toBe(SYNCED);
+  });
+
+  it("falls back when Volume Spikes lack short-window evidence", () => {
+    const decision = buildRadarV2Decision({
+      feedRows: [feed()],
+      candidateRows: [
+        candidate({
+          volume_velocity: null,
+          volume_acceleration_pct: null,
+        }),
+      ],
+      tabId: "volume_spikes",
+      nowMs: NOW,
+    });
+    expect(decision.source).toBe("fallback");
+    expect(decision.reason).toBe("radar_v2_tab_evidence_unavailable");
   });
 
   it("non-Radar-backed tabs (gappers / new_highs_lows) always fall back", () => {

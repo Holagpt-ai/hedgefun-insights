@@ -22,7 +22,10 @@ import {
 } from "./multi-radar";
 import { CLOSED_RADAR_SNAPSHOT_STATUS } from "@/lib/screeners/radar-closed-snapshot";
 import { RadarPanelBoard } from "./RadarPanelBoard";
-import type { DayTradeQualificationStateRow } from "@/lib/day-trade/qualification-lifecycle-client";
+import {
+  monitoringStates,
+  type DayTradeQualificationStateRow,
+} from "@/lib/day-trade/qualification-lifecycle-client";
 import {
   formatQualifiedMonitoringSubtitle,
   mergeRankedRowWithQualificationState,
@@ -93,13 +96,17 @@ export function MultiRadarWorkspace({
 
   const views = useMemo(() => {
     const rankedBySymbol = new Map(rows.map((row) => [row.symbol, row]));
+    const activeDeskSymbols = new Set(
+      dayTradeRows.map((row) => row.symbol.trim().toUpperCase()),
+    );
+    const monitoringExclusive = monitoringStates(qualificationMonitoring, activeDeskSymbols);
     return PANELS.map((id) => {
       const state = workspace.panels[id];
       const qualified =
         id === "day_trade"
           ? dayTradeRows.slice(0, DAY_TRADE_RADAR_MAX_ROWS)
           : id === "day_trade_qualified"
-          ? qualificationMonitoring.map((item, index) => {
+          ? monitoringExclusive.map((item, index) => {
               const merged = mergeRankedRowWithQualificationState(
                 rankedBySymbol.get(item.symbol),
                 item,
@@ -122,12 +129,12 @@ export function MultiRadarWorkspace({
           ? sorted[0] ?? null
           : selectPanelLeader(id, filtered, nowMs);
       const qualifiedSubtitle =
-        id === "day_trade_qualified" && qualificationMonitoring[0]
-          ? formatQualifiedMonitoringSubtitle(qualificationMonitoring[0])
+        id === "day_trade_qualified" && monitoringExclusive[0]
+          ? formatQualifiedMonitoringSubtitle(monitoringExclusive[0])
           : undefined;
       const qualifiedMeta =
-        id === "day_trade_qualified" && qualificationMonitoring[0]
-          ? qualifiedPanelMetaLine(qualificationMonitoring[0])
+        id === "day_trade_qualified" && monitoringExclusive[0]
+          ? qualifiedPanelMetaLine(monitoringExclusive[0])
           : undefined;
       return {
         id,

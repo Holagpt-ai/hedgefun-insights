@@ -17,13 +17,25 @@ describe("normalized market snapshot", () => {
     expect(gapPercentFromVerifiedInputs(10, null)).toBeNull();
   });
 
-  it("derives radar gap from persisted previous close", () => {
+  it("derives radar gap from persisted previous close in pre-market only", () => {
     expect(
       verifiedGapPercentFromRadarCandidate({
         symbol: "ZZ",
         last_price: 3,
         previous_close: 2,
+        session_kind: "pre-market",
       } as Parameters<typeof verifiedGapPercentFromRadarCandidate>[0]),
     ).toBe(50);
+  });
+
+  it("does not relabel regular-session last-vs-prev as a gap", () => {
+    expect(
+      verifiedGapPercentFromRadarCandidate({
+        symbol: "ZZ",
+        last_price: 3,
+        previous_close: 2,
+        session_kind: "market",
+      } as Parameters<typeof verifiedGapPercentFromRadarCandidate>[0]),
+    ).toBeNull();
   });
 });

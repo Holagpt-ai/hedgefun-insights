@@ -230,6 +230,81 @@ describe("V42.1 lifecycle scenarios", () => {
     expect(s.lastDeskDepartureReason).toBe("PILLARS_IN_GRACE");
   });
 
+  it("equal market-data timestamp cannot exit then re-enter the desk", () => {
+    let s = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "FLK" });
+    s = stepDayTradeQualificationLifecycle(s, onDesk(1_000, "sync:flk", "FLK")).state;
+    const exit = stepDayTradeQualificationLifecycle(
+      s,
+      tick({
+        symbol: "FLK",
+        marketDataMs: 1_000,
+        snapshotKey: "v22:flk",
+        onAuthoritativeDesk: false,
+      }),
+    );
+    expect(exit.events.some((e) => e.type === "DESK_EXITED")).toBe(false);
+    expect(exit.state.currentlyOnDesk).toBe(true);
+    expect(isDayTradeQualificationMonitoringCandidate(exit.state)).toBe(false);
+  });
+
+  it("incomplete desk generation does not authorize an exit", () => {
+    let s = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "PRT" });
+    s = stepDayTradeQualificationLifecycle(s, onDesk(1_000, "v22:1", "PRT")).state;
+    const incomplete = stepDayTradeQualificationLifecycle(
+      s,
+      tick({
+        symbol: "PRT",
+        marketDataMs: 80_000,
+        snapshotKey: "sync:partial",
+        onAuthoritativeDesk: false,
+        deskObservationComplete: false,
+      }),
+    );
+    expect(incomplete.events.some((e) => e.type === "DESK_EXITED")).toBe(false);
+    expect(incomplete.state.currentlyOnDesk).toBe(true);
+    expect(isDayTradeQualificationMonitoringCandidate(incomplete.state)).toBe(false);
+  });
+
+  it("equal-ms complete observation can seat a name that never occupied the desk", () => {
+    const s = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "NEW" });
+    const first = stepDayTradeQualificationLifecycle(
+      s,
+      tick({
+        symbol: "NEW",
+        marketDataMs: 1_000,
+        snapshotKey: "sync:new",
+        onAuthoritativeDesk: false,
+        deskObservationComplete: false,
+      }),
+    );
+    expect(first.state.everOnDesk).toBe(false);
+    const seated = stepDayTradeQualificationLifecycle(
+      first.state,
+      onDesk(1_000, "v22:new", "NEW"),
+    );
+    expect(seated.events.some((e) => e.type === "DESK_ENTERED")).toBe(true);
+    expect(seated.state.currentlyOnDesk).toBe(true);
+  });
+
+  it("later market tick still allows legitimate re-entry", () => {
+    let s = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "LEG" });
+    s = stepDayTradeQualificationLifecycle(s, onDesk(1_000, "l1", "LEG")).state;
+    s = stepDayTradeQualificationLifecycle(
+      s,
+      tick({
+        symbol: "LEG",
+        marketDataMs: 80_000,
+        snapshotKey: "l2",
+        onAuthoritativeDesk: false,
+        freshnessPass: false,
+      }),
+    ).state;
+    expect(isDayTradeQualificationMonitoringCandidate(s)).toBe(true);
+    const back = stepDayTradeQualificationLifecycle(s, onDesk(140_000, "l3", "LEG"));
+    expect(back.events.some((e) => e.type === "DESK_REENTERED")).toBe(true);
+    expect(isDayTradeQualificationMonitoringCandidate(back.state)).toBe(false);
+  });
+
   it("persistence round-trip preserves desk fields", () => {
     const state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "IRE" });
     state.everOnDesk = true;

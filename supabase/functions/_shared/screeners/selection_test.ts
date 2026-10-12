@@ -657,3 +657,20 @@ Deno.test("metrics: explicit zero prior-day aggregate requires full OHLCV zeros"
     false,
   );
 });
+
+Deno.test("gainers/losers rank by |MOVE| then volume, not volume alone", () => {
+  const loud = ticker({
+    ticker: "LOUD",
+    volume: 9_000_000,
+    price: 10.2,
+    prevClose: 10,
+  });
+  const mover = ticker({
+    ticker: "MOVE",
+    volume: 2_000_000,
+    price: 14,
+    prevClose: 10,
+  });
+  const selected = selectForTab("gainers_losers", [loud, mover]);
+  assertEquals(selected.map((t) => t.ticker), ["MOVE", "LOUD"]);
+});

@@ -2,6 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   classifyNewHighLow,
   isValidBaselineQuote,
+  NHL_VERIFIED_MIN_SESSIONS,
   type NhlBaselineQuote,
   selectNewHighsLows,
 } from "./new-highs-lows.ts";
@@ -207,6 +208,16 @@ Deno.test("combined board is capped at 20 rows", () => {
   assertEquals(selected.length, 20);
   assertEquals(selected[0].ticker.ticker, "S24");
   assertEquals(selected[19].ticker.ticker, "S05");
+});
+
+Deno.test("thin 52-week history is not a verified breakout", () => {
+  const thin = quote({ symbol: "THIN", high_52w: 20, low_52w: 5, sessions_observed: 20 });
+  assertEquals(isValidBaselineQuote(thin), true);
+  assertEquals(thin.sessions_observed < NHL_VERIFIED_MIN_SESSIONS, true);
+  assertEquals(
+    classifyNewHighLow(ticker({ ticker: "THIN", high: 25, low: 10 }), thin),
+    null,
+  );
 });
 
 Deno.test("empty baseline map yields no inferred securities", () => {

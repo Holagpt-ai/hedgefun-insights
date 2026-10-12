@@ -136,3 +136,14 @@ Deno.test("gappers: split-scale 52w guard still rejects an incoherent baseline",
   };
   assertEquals(gapPercent(doubled, false), 100);
 });
+
+Deno.test("gappers: split-scale last vs regular close is not a gap", () => {
+  const split: PolygonTicker = {
+    ticker: "SPL",
+    day: { o: 20, c: 20, v: 1_000_000 },
+    prevDay: { c: 19, v: 100_000 },
+    lastTrade: { p: 10 },
+  };
+  assertEquals(gapPercent(split, false), Math.round(((20 - 19) / 19) * 1000) / 10);
+  assertEquals(gapPercent(split, true), null);
+});
