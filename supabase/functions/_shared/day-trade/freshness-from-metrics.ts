@@ -5,7 +5,7 @@ import {
   DAY_TRADE_FRESHNESS_MIN_ROLLING_60S,
   DAY_TRADE_FRESHNESS_RECENT_MS,
   DAY_TRADE_FRESHNESS_REACTIVATION_ACCEL_PCT,
-} from "../../../../src/config/day-trade-freshness.config.ts";
+} from "./freshness.config.ts";
 import type { DayTradeMetricsRow } from "./evaluate-five-pillars.ts";
 
 function finite(n: unknown): number | null {

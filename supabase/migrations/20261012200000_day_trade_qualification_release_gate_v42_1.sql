@@ -40,6 +40,9 @@ BEGIN
   INSERT INTO public.day_trade_qualification_state (
     session_date,
     symbol,
+    phase,
+    expired_at,
+    expiration_reason_codes,
     pillar_phase,
     first_qualified_at,
     last_qualified_at,
@@ -68,6 +71,9 @@ BEGIN
     v_session_date,
     v_symbol,
     nullif(p_row->>'pillar_phase', ''),
+    nullif(p_row->>'pillar_expired_at', '')::timestamptz,
+    coalesce(p_row->'pillar_expiration_reason_codes', '[]'::jsonb),
+    nullif(p_row->>'pillar_phase', ''),
     nullif(p_row->>'first_qualified_at', '')::timestamptz,
     nullif(p_row->>'last_qualified_at', '')::timestamptz,
     nullif(p_row->>'grace_first_failure_at', '')::timestamptz,
@@ -93,6 +99,9 @@ BEGIN
     now()
   )
   ON CONFLICT (session_date, symbol) DO UPDATE SET
+    phase = EXCLUDED.pillar_phase,
+    expired_at = EXCLUDED.pillar_expired_at,
+    expiration_reason_codes = EXCLUDED.pillar_expiration_reason_codes,
     pillar_phase = EXCLUDED.pillar_phase,
     first_qualified_at = EXCLUDED.first_qualified_at,
     last_qualified_at = EXCLUDED.last_qualified_at,

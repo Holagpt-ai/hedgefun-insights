@@ -621,7 +621,6 @@ export async function handleSyncScreenerData(
       db: sb as unknown as QualificationDb,
       sessionDate,
       syncRunId,
-      nowMs,
       dayTradeSymbols: dayTradeSelected.map((t) => String(t.ticker ?? "")),
       allTickers,
       volumeBaselines,

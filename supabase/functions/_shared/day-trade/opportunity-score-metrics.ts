@@ -1,4 +1,4 @@
-import { DAY_TRADE_RADAR_MIN_OPPORTUNITY_SCORE } from "../../../../src/config/day-trade-radar-opportunity.config.ts";
+import { DAY_TRADE_RADAR_MIN_OPPORTUNITY_SCORE } from "./radar-opportunity.config.ts";
 import type { DayTradeMetricsRow } from "./evaluate-five-pillars.ts";
 
 function finite(n: unknown): number | null {

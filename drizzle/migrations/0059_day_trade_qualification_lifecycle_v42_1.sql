@@ -1,15 +1,10 @@
--- Scanner V42.1: desk membership, monitoring admission, atomic apply batch.
+-- Scanner V42.1 (backward-compatible): additive pillar_* columns + desk/monitoring fields.
+-- Production may already have V42 legacy columns (phase, expired_at, expiration_reason_codes).
 
 ALTER TABLE public.day_trade_qualification_state
-  RENAME COLUMN phase TO pillar_phase;
-
-ALTER TABLE public.day_trade_qualification_state
-  RENAME COLUMN expired_at TO pillar_expired_at;
-
-ALTER TABLE public.day_trade_qualification_state
-  RENAME COLUMN expiration_reason_codes TO pillar_expiration_reason_codes;
-
-ALTER TABLE public.day_trade_qualification_state
+  ADD COLUMN IF NOT EXISTS pillar_phase text,
+  ADD COLUMN IF NOT EXISTS pillar_expired_at timestamptz,
+  ADD COLUMN IF NOT EXISTS pillar_expiration_reason_codes jsonb NOT NULL DEFAULT '[]'::jsonb,
   ADD COLUMN IF NOT EXISTS ever_on_desk boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS currently_on_desk boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS first_desk_at timestamptz,
@@ -20,13 +15,41 @@ ALTER TABLE public.day_trade_qualification_state
   ADD COLUMN IF NOT EXISTS monitoring_eligible boolean NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS monitoring_data_status text NOT NULL DEFAULT 'UNAVAILABLE';
 
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'day_trade_qualification_state'
+      AND column_name = 'phase'
+  ) THEN
+    UPDATE public.day_trade_qualification_state
+    SET
+      pillar_phase = COALESCE(pillar_phase, phase),
+      pillar_expired_at = COALESCE(pillar_expired_at, expired_at),
+      pillar_expiration_reason_codes = CASE
+        WHEN pillar_expiration_reason_codes IS NULL
+          OR pillar_expiration_reason_codes = '[]'::jsonb
+        THEN COALESCE(expiration_reason_codes, '[]'::jsonb)
+        ELSE pillar_expiration_reason_codes
+      END
+    WHERE pillar_phase IS NULL
+       OR pillar_expired_at IS NULL
+       OR pillar_expiration_reason_codes IS NULL
+       OR pillar_expiration_reason_codes = '[]'::jsonb;
+  END IF;
+END $$;
+
 ALTER TABLE public.day_trade_qualification_state
-  DROP CONSTRAINT IF EXISTS day_trade_qualification_state_phase_check;
+  DROP CONSTRAINT IF EXISTS day_trade_qualification_state_pillar_phase_check;
 
 ALTER TABLE public.day_trade_qualification_state
   ADD CONSTRAINT day_trade_qualification_state_pillar_phase_check CHECK (
     pillar_phase IS NULL OR pillar_phase IN ('ACTIVE', 'GRACE', 'EXPIRED')
   );
+
+ALTER TABLE public.day_trade_qualification_state
+  DROP CONSTRAINT IF EXISTS day_trade_qualification_state_desk_departure_reason_check;
 
 ALTER TABLE public.day_trade_qualification_state
   ADD CONSTRAINT day_trade_qualification_state_desk_departure_reason_check CHECK (
@@ -38,6 +61,9 @@ ALTER TABLE public.day_trade_qualification_state
       'DESK_SELECTION_EXCLUDED'
     )
   );
+
+ALTER TABLE public.day_trade_qualification_state
+  DROP CONSTRAINT IF EXISTS day_trade_qualification_state_monitoring_data_status_check;
 
 ALTER TABLE public.day_trade_qualification_state
   ADD CONSTRAINT day_trade_qualification_state_monitoring_data_status_check CHECK (
@@ -61,6 +87,10 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  v_pillar_phase text;
+  v_pillar_expired_at timestamptz;
+  v_pillar_expiration_reason_codes jsonb;
 BEGIN
   IF p_row IS NULL OR coalesce(nullif(p_row->>'symbol', ''), '') = '' THEN
     RAISE EXCEPTION 'symbol is required';
@@ -69,9 +99,16 @@ BEGIN
     RAISE EXCEPTION 'session_date is required';
   END IF;
 
+  v_pillar_phase := nullif(p_row->>'pillar_phase', '');
+  v_pillar_expired_at := nullif(p_row->>'pillar_expired_at', '')::timestamptz;
+  v_pillar_expiration_reason_codes := coalesce(p_row->'pillar_expiration_reason_codes', '[]'::jsonb);
+
   INSERT INTO public.day_trade_qualification_state (
     session_date,
     symbol,
+    phase,
+    expired_at,
+    expiration_reason_codes,
     pillar_phase,
     first_qualified_at,
     last_qualified_at,
@@ -99,13 +136,16 @@ BEGIN
   ) VALUES (
     (p_row->>'session_date')::date,
     upper(trim(p_row->>'symbol')),
-    nullif(p_row->>'pillar_phase', ''),
+    v_pillar_phase,
+    v_pillar_expired_at,
+    v_pillar_expiration_reason_codes,
+    v_pillar_phase,
     nullif(p_row->>'first_qualified_at', '')::timestamptz,
     nullif(p_row->>'last_qualified_at', '')::timestamptz,
     nullif(p_row->>'grace_first_failure_at', '')::timestamptz,
     coalesce((p_row->>'grace_failure_count')::integer, 0),
-    nullif(p_row->>'pillar_expired_at', '')::timestamptz,
-    coalesce(p_row->'pillar_expiration_reason_codes', '[]'::jsonb),
+    v_pillar_expired_at,
+    v_pillar_expiration_reason_codes,
     coalesce((p_row->>'ever_on_desk')::boolean, false),
     coalesce((p_row->>'currently_on_desk')::boolean, false),
     nullif(p_row->>'first_desk_at', '')::timestamptz,
@@ -125,6 +165,9 @@ BEGIN
     now()
   )
   ON CONFLICT (session_date, symbol) DO UPDATE SET
+    phase = EXCLUDED.pillar_phase,
+    expired_at = EXCLUDED.pillar_expired_at,
+    expiration_reason_codes = EXCLUDED.pillar_expiration_reason_codes,
     pillar_phase = EXCLUDED.pillar_phase,
     first_qualified_at = EXCLUDED.first_qualified_at,
     last_qualified_at = EXCLUDED.last_qualified_at,

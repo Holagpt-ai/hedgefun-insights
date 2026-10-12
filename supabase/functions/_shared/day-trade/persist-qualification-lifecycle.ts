@@ -35,17 +35,24 @@ export function stateRowToEpisode(row: Record<string, unknown>): DayTradeQualifi
   return {
     sessionDate: String(row.session_date),
     symbol: String(row.symbol),
-    pillarPhase: (row.pillar_phase as DayTradeQualificationEpisodeState["pillarPhase"]) ?? null,
+    pillarPhase: ((row.pillar_phase ?? row.phase) as DayTradeQualificationEpisodeState["pillarPhase"]) ??
+      null,
     firstQualifiedAt: row.first_qualified_at ? String(row.first_qualified_at) : null,
     lastQualifiedAt: row.last_qualified_at ? String(row.last_qualified_at) : null,
     graceFirstFailureAt: row.grace_first_failure_at
       ? String(row.grace_first_failure_at)
       : null,
     graceFailureCount: Number(row.grace_failure_count ?? 0),
-    pillarExpiredAt: row.pillar_expired_at ? String(row.pillar_expired_at) : null,
+    pillarExpiredAt: row.pillar_expired_at
+      ? String(row.pillar_expired_at)
+      : row.expired_at
+        ? String(row.expired_at)
+        : null,
     pillarExpirationReasonCodes: Array.isArray(row.pillar_expiration_reason_codes)
       ? (row.pillar_expiration_reason_codes as string[])
-      : [],
+      : Array.isArray(row.expiration_reason_codes)
+        ? (row.expiration_reason_codes as string[])
+        : [],
     everOnDesk: Boolean(row.ever_on_desk),
     currentlyOnDesk: Boolean(row.currently_on_desk),
     firstDeskAt: row.first_desk_at ? String(row.first_desk_at) : null,
