@@ -1,6 +1,6 @@
 import {
   DAY_TRADE_MONITORING_REFRESH_BATCH_SIZE,
-} from "../../../../src/config/day-trade-qualification-lifecycle.config.ts";
+} from "./qualification-lifecycle.config.ts";
 import type { PolygonTicker } from "../screeners/selection.ts";
 import { normalizeSymbol } from "../screeners/selection.ts";
 import type { DayTradeMetricsRow } from "./evaluate-five-pillars.ts";

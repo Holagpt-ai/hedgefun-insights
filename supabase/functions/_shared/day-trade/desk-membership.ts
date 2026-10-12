@@ -2,9 +2,7 @@
  * Authoritative Day Trade desk membership — delegates to canonical frontend desk path.
  */
 
-import {
-  deskFactsFromMetrics,
-} from "../../../../src/lib/day-trade/canonical-desk-from-metrics.ts";
+import { deskFactsFromMetrics } from "./canonical-desk-from-metrics.ts";
 import type { DayTradeMetricsRow } from "./evaluate-five-pillars.ts";
 
 export type DeskMembershipResult = {

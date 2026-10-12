@@ -29,6 +29,7 @@ function evalBase(overrides: Partial<DayTradeQualificationEvaluation>): DayTrade
     onAuthoritativeDesk: false,
     freshnessPass: true,
     opportunityEligible: true,
+    deskObservationComplete: true,
     ...overrides,
   };
 }

@@ -31,10 +31,16 @@ export async function captureDayTradeQualificationFromSync(input: {
     const ticker = bySymbol.get(symbol);
     if (!ticker) continue;
     const baseline = input.volumeBaselines.get(symbol);
+    const sessionVol = typeof ticker.day?.v === "number" ? ticker.day.v : null;
+    const avg20 = baseline?.avg_volume_20d ?? null;
+    const rvol20d =
+      sessionVol !== null && avg20 !== null && avg20 > 0
+        ? sessionVol / avg20
+        : null;
     const mapped = mapPolygonToDayTradeMetrics({
       ticker,
-      rvol20d: baseline?.rvol_20d ?? null,
-      avgVolume20d: baseline?.avg_volume_20d ?? null,
+      rvol20d,
+      avgVolume20d: avg20,
     });
     if (mapped) {
       metricsRows.push(mapped);

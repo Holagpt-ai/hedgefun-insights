@@ -5,7 +5,7 @@
 import {
   DAY_TRADE_QUALIFICATION_GRACE_MIN_MS,
   DAY_TRADE_QUALIFICATION_GRACE_REQUIRED_FAILURES,
-} from "../../../../src/config/day-trade-qualification-lifecycle.config.ts";
+} from "./qualification-lifecycle.config.ts";
 import type { DeskDepartureReason } from "./desk-departure.ts";
 import { classifyDeskDeparture } from "./desk-departure.ts";
 
