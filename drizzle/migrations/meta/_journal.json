@@ -428,6 +428,13 @@
       "when": 1791841986877,
       "tag": "0060_day_trade_qualification_release_gate_v42_1",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1791912135461,
+      "tag": "0061_radar_carryover_watch_v1",
+      "breakpoints": true
     }
   ]
 }
