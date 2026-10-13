@@ -305,6 +305,35 @@ describe("V42.1 lifecycle scenarios", () => {
     expect(isDayTradeQualificationMonitoringCandidate(back.state)).toBe(false);
   });
 
+  it("keeps grace until a second market-data failure is 60s later", () => {
+    let s = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "HOLD" });
+    s = stepDayTradeQualificationLifecycle(s, onDesk(1_000, "h1", "HOLD")).state;
+    expect(s.pillarPhase).toBe("ACTIVE");
+    const fail = (ms: number, key: string) =>
+      tick({
+        symbol: "HOLD",
+        marketDataMs: ms,
+        snapshotKey: key,
+        onAuthoritativeDesk: false,
+        fivePillarsPass: false,
+        pillarOutcomes: {
+          price: "fail",
+          move: "pass",
+          float: "pass",
+          participation: "pass",
+          freshness: "pass",
+        },
+        reasonCodes: ["price"],
+      });
+    s = stepDayTradeQualificationLifecycle(s, fail(2_000, "h2")).state;
+    expect(s.pillarPhase).toBe("GRACE");
+    s = stepDayTradeQualificationLifecycle(s, fail(32_000, "h3")).state;
+    expect(s.pillarPhase).toBe("GRACE");
+    expect(s.monitoringEligible).toBe(true);
+    s = stepDayTradeQualificationLifecycle(s, fail(63_000, "h4")).state;
+    expect(s.pillarPhase).toBe("EXPIRED");
+  });
+
   it("persistence round-trip preserves desk fields", () => {
     const state = emptyQualificationEpisodeState({ sessionDate: SESSION, symbol: "IRE" });
     state.everOnDesk = true;
