@@ -54,7 +54,8 @@ export function ScannerAlertToastListener() {
       seenRef.current.add(row.dedupe_key);
       toast(title, {
         description,
-        duration: 12_000,
+        duration: 8_000,
+        closeButton: true,
         action: {
           label: "View",
           onClick: () => {

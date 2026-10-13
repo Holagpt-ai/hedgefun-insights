@@ -17,6 +17,10 @@ import { isRadarV2BackedTab } from "@/lib/screeners/radar-v2-adapter";
 import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
 import { loadRadarV2Decision } from "@/lib/screeners/radar-v2-source";
 import { overlayCanonicalIntradayMetrics } from "@/lib/screeners/screener-radar-intraday-overlay";
+import {
+  restoreExtendedSessionGappers,
+  shouldRestoreGappersFromRadar,
+} from "@/lib/screeners/radar-gapper-restoration";
 import { isVerifiedRadarV2Decision } from "@/lib/screeners/radar-v2-soft-refresh";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
 import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
@@ -435,13 +439,43 @@ export function useScreenerData(
           // Intraday overlay is optional; screener_results rows remain authoritative.
         }
       }
+      let restoredSource: ScreenerDataSource | null = null;
+      let restoredSession: string | null = null;
+      if (tabId === "gappers" && shouldRestoreGappersFromRadar(view)) {
+        try {
+          const radarDecision = await loadRadarV2Decision("day_trade_radar", Date.now());
+          if (isVerifiedRadarV2Decision(radarDecision) && radarDecision.view) {
+            const restored = restoreExtendedSessionGappers({
+              session: radarDecision.session,
+              radarRows: radarDecision.view.rows,
+            });
+            if (restored) {
+              view = {
+                ...view,
+                status: restored.status,
+                rows: restored.rows,
+                synced_at: radarDecision.view.synced_at ?? view.synced_at,
+                provider_as_of_max: radarDecision.view.provider_as_of_max ?? view.provider_as_of_max,
+                tab_evaluation_evidence: {
+                  ...(view.tab_evaluation_evidence ?? {}),
+                  gappers: restored.evidence,
+                },
+              };
+              restoredSource = "radar-v2";
+              restoredSession = radarDecision.session;
+            }
+          }
+        } catch {
+          // A failed Radar read leaves the screener gap-input message in place.
+        }
+      }
       const skipSoftUnavailable = soft && view.status === "unavailable" && hasLoadedOnce;
       if (!cancelled && !skipSoftUnavailable) {
-        setSource("screener-results");
-        setSession(null);
+        setSource(restoredSource ?? "screener-results");
+        setSession(restoredSession);
         setClosedSnapshot(false);
       }
-      applyView(view, soft, "screener-results");
+      applyView(view, soft, restoredSource ?? "screener-results");
     };
 
     softReloadRef.current = () => {

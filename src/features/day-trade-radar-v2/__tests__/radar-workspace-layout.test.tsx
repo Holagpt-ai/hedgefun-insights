@@ -67,6 +67,10 @@ vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => isMobileState.value,
 }));
 
+vi.mock("@/hooks/useCarryoverWatch", () => ({
+  useCarryoverWatch: () => ({ loading: false, view: null }),
+}));
+
 vi.mock("@/hooks/useDayTradeQualificationMonitoring", () => ({
   useDayTradeQualificationMonitoring: () => ({
     states: [],

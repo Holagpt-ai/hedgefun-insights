@@ -114,8 +114,15 @@ export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDet
     <section className="min-w-0 space-y-2" data-testid="repeat-movers-view">
       <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="text-[12px] text-muted-foreground">
-          <span className="font-semibold text-foreground">{view.summary.repeatMoverCount}</span> repeat movers
-          {view.summary.limitedHistoryCount > 0 && <> · {view.summary.limitedHistoryCount} limited history</>}
+          {view.summary.totalRadarRows > 0 &&
+          view.summary.unavailableHistoryCount === view.summary.totalRadarRows ? (
+            <span>Repeat mover history is unavailable for this board.</span>
+          ) : (
+            <>
+              <span className="font-semibold text-foreground">{view.summary.repeatMoverCount}</span> repeat movers
+              {view.summary.limitedHistoryCount > 0 && <> · {view.summary.limitedHistoryCount} limited history</>}
+            </>
+          )}
         </div>
       </div>
 
@@ -139,7 +146,10 @@ export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDet
 
       {candidates.length === 0 ? (
         <div className="rounded-md border border-border bg-card px-4 py-8 text-center text-sm text-muted-foreground">
-          No repeat movers match this filter.
+          {view.summary.totalRadarRows > 0 &&
+          view.summary.unavailableHistoryCount === view.summary.totalRadarRows
+            ? "Repeat Movers history is unavailable, so no zero-match conclusion is shown."
+            : "No repeat movers match this filter."}
         </div>
       ) : (
         <>

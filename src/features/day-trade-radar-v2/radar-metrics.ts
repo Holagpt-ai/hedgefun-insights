@@ -9,6 +9,7 @@ import {
 import type { RadarRankedRow, RadarRankingFields, RadarSignalLabel, LegacyConfirmationFields } from "./types";
 import { isRadarCapabilityEnabled } from "./radar-capabilities";
 import { isRadarV22Signal } from "@/lib/radar-v22";
+import { isActionableScannerQuote } from "@/lib/screeners/scanner-tab-qualification";
 
 /**
  * Authoritative ranks from verified backend order (volume desc, symbol asc).
@@ -18,7 +19,8 @@ export function rankRadarRows(
   rows: readonly ScreenerResultRow[],
   status: ScreenerUiStatus,
 ): RadarRankedRow[] {
-  return rows.map((row, index) => {
+  const actionable = rows.filter((row) => isActionableScannerQuote(row.price, row.volume));
+  return actionable.map((row, index) => {
     const rank = index + 1;
     const ranking = row as ScreenerResultRow & RadarRankingFields & LegacyConfirmationFields;
     return {

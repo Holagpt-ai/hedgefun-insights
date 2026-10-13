@@ -8,6 +8,10 @@ import type { RadarRankingFields } from "../types";
 import { DayTradeRadarV2 } from "../DayTradeRadarV2";
 import { RadarRepeatMoversSection } from "../RadarRepeatMoversSection";
 
+vi.mock("@/hooks/useCarryoverWatch", () => ({
+  useCarryoverWatch: () => ({ loading: false, view: null }),
+}));
+
 vi.mock("@/hooks/useAddToWatchlist", () => ({
   useAddToWatchlist: () => ({
     add: vi.fn(),

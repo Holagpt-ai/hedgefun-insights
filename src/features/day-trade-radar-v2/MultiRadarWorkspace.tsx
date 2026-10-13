@@ -32,8 +32,9 @@ import {
   qualifiedPanelMetaLine,
 } from "@/lib/day-trade/build-qualified-panel-rows";
 import type { RadarRankedRow } from "./types";
+import { CarryoverWatchPanel } from "./CarryoverWatchPanel";
 
-const PANELS: RadarPanelId[] = ["day_trade", "day_trade_qualified", "breakouts", "penny"];
+const PANELS: RadarPanelId[] = ["day_trade", "day_trade_qualified", "breakouts", "penny", "carryover"];
 
 function persist(state: MultiRadarWorkspaceState) {
   try {
@@ -57,6 +58,7 @@ export function MultiRadarWorkspace({
   qualificationMonitoring = [],
   qualificationLoadError = null,
   onQualificationRetry,
+  livePanelsVisible = true,
 }: {
   rows: RadarRankedRow[];
   /** Authoritative Day Trade Top-10 (may be []). Never falls back to the Radar universe. */
@@ -72,6 +74,8 @@ export function MultiRadarWorkspace({
   onSelect: (row: RadarRankedRow) => void;
   onOpenDetails: (row: RadarRankedRow) => void;
   closedSnapshot?: boolean;
+  /** False when today's board is empty or unavailable. Carryover still renders. */
+  livePanelsVisible?: boolean;
 }) {
   const isMobile = useIsMobile();
   const [workspace, setWorkspace] = useState<MultiRadarWorkspaceState>(defaultWorkspaceState);
@@ -155,7 +159,10 @@ export function MultiRadarWorkspace({
     });
   }, [rows, dayTradeRows, qualificationMonitoring, workspace, nowMs, dayTradeEmptyMessage]);
 
-  const visible = isMobile ? views.filter((view) => view.id === workspace.mobilePanel) : views;
+  const panelIds = livePanelsVisible ? PANELS : (["carryover"] as RadarPanelId[]);
+  const activeMobile = panelIds.includes(workspace.mobilePanel) ? workspace.mobilePanel : "carryover";
+  const visible = (isMobile ? views.filter((view) => view.id === activeMobile) : views)
+    .filter((view) => panelIds.includes(view.id));
 
   return (
     <div data-testid="multi-radar-workspace" className="min-w-0 space-y-2 overflow-x-hidden">
@@ -187,15 +194,15 @@ export function MultiRadarWorkspace({
         }}
       />
       {isMobile ? (
-        <div role="tablist" aria-label="Radar panels" className="flex gap-1" data-testid="radar-mobile-tabs">
-          {PANELS.map((id) => (
+        <div role="tablist" aria-label="Radar panels" className="flex gap-1 overflow-x-auto pb-1" data-testid="radar-mobile-tabs">
+          {panelIds.map((id) => (
             <button
               key={id}
               type="button"
               role="tab"
-              aria-selected={workspace.mobilePanel === id}
-              className={`h-8 flex-1 rounded-md border px-2 text-[11px] font-semibold ${
-                workspace.mobilePanel === id ? "border-accent-blue bg-accent-blue text-white" : "border-border"
+              aria-selected={activeMobile === id}
+              className={`h-8 shrink-0 rounded-md border px-3 text-[11px] font-semibold ${
+                activeMobile === id ? "border-accent-blue bg-accent-blue text-white" : "border-border"
               }`}
               onClick={() => setWorkspace((current) => ({ ...current, mobilePanel: id }))}
             >
@@ -203,13 +210,17 @@ export function MultiRadarWorkspace({
                 ? "Penny < $1"
                 : id === "day_trade_qualified"
                 ? "Qualified"
+                : id === "carryover"
+                ? "Carryover"
                 : panelMeta(id).title}
             </button>
           ))}
         </div>
       ) : null}
       <div className={isMobile ? "space-y-2" : "flex flex-col gap-3"} data-testid={isMobile ? "radar-mobile-board" : "radar-desktop-stack"}>
-        {visible.map((view) => (
+        {visible.map((view) => view.id === "carryover" ? (
+          <CarryoverWatchPanel key={view.id} nowMs={nowMs} />
+        ) : (
           <RadarPanelBoard
             key={view.id}
             panel={view.id}
