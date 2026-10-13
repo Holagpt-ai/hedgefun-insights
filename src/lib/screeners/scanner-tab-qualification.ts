@@ -58,6 +58,14 @@ function hasPositiveSessionVolume(row: RadarTabCandidate): boolean {
   return isFiniteNumber(row.session_volume) && (row.session_volume as number) > 0;
 }
 
+/** Actionable cards require a positive price and positive volume. Zero is not a quote. */
+export function isActionableScannerQuote(
+  price: number | null | undefined,
+  volume: number | null | undefined,
+): boolean {
+  return isPositiveFinite(price) && isFiniteNumber(volume) && (volume as number) > 0;
+}
+
 /** Volume Spikes: short-window acceleration / velocity, not cumulative VOL/YDAY. */
 export function qualifiesRadarVolumeSpike(row: RadarTabCandidate): boolean {
   if (!hasPositiveSessionVolume(row)) return false;
@@ -89,6 +97,7 @@ export function qualifyRadarCandidateForTab(
   row: RadarTabCandidate,
   tabId: string,
 ): boolean {
+  if (!isActionableScannerQuote(row.last_price, row.session_volume)) return false;
   switch (tabId) {
     case "day_trade_radar":
       return true;

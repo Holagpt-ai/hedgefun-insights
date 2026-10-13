@@ -37,7 +37,12 @@ const BREAKOUT_PRIORITY = new Map<string, number>(
   BREAKOUT_EVENT_TYPES.map((type, index) => [type, index]),
 );
 
-export type RadarPanelId = "day_trade" | "day_trade_qualified" | "breakouts" | "penny";
+export type RadarPanelId =
+  | "day_trade"
+  | "day_trade_qualified"
+  | "breakouts"
+  | "penny"
+  | "carryover";
 
 export type PennyPriceBandId = "under_1" | "band_1_2" | "band_2_5";
 
@@ -226,6 +231,12 @@ const PANEL_META: Record<
     leaderLabel: "HOT PENNY",
     columns: PENNY_DEFAULT_COLUMNS,
   },
+  carryover: {
+    title: "PREVIOUS SESSION / CARRYOVER WATCH",
+    subtitle: "Historical prior session · not a current qualification",
+    leaderLabel: "PRIOR SESSION",
+    columns: DAY_TRADE_DEFAULT_COLUMNS,
+  },
 };
 
 export function panelMeta(id: RadarPanelId) {
@@ -236,6 +247,9 @@ export function panelMeta(id: RadarPanelId) {
 export function panelCountLabel(panel: RadarPanelId, count: number): string {
   if (panel === "penny") {
     return `${count} ${count === 1 ? "candidate" : "candidates"}`;
+  }
+  if (panel === "carryover") {
+    return `${count} historical`;
   }
   if (panel === "day_trade" || panel === "day_trade_qualified") {
     return `${count} ${count === 1 ? "match" : "matches"}`;
@@ -270,6 +284,7 @@ export function defaultWorkspaceState(): MultiRadarWorkspaceState {
       day_trade_qualified: defaultPanelState("day_trade_qualified"),
       breakouts: defaultPanelState("breakouts"),
       penny: defaultPanelState("penny"),
+      carryover: defaultPanelState("carryover"),
     },
   };
 }
@@ -291,7 +306,8 @@ function isPanelId(value: unknown): value is RadarPanelId {
     value === "day_trade" ||
     value === "day_trade_qualified" ||
     value === "breakouts" ||
-    value === "penny"
+    value === "penny" ||
+    value === "carryover"
   );
 }
 
@@ -358,6 +374,7 @@ export function parseWorkspaceState(raw: string | null | undefined): MultiRadarW
         ),
         breakouts: readPanelState("breakouts", panelRecord.breakouts),
         penny: readPanelState("penny", panelRecord.penny),
+        carryover: readPanelState("carryover", panelRecord.carryover),
       },
     };
   } catch {
@@ -464,6 +481,7 @@ export function pennyPanelTime(row: Pick<RadarRankedRow, "promoted_at" | "update
 export function panelTime(id: RadarPanelId, row: RadarRankedRow): PanelTimeView {
   if (id === "breakouts") return breakoutPanelTime(row);
   if (id === "penny") return pennyPanelTime(row);
+  if (id === "carryover") return { iso: null, source: "historical" };
   return dayTradePanelTime(row);
 }
 
@@ -484,7 +502,11 @@ export function mapVolumeTrend(accelerationPct: number | null | undefined): Volu
   const n = finiteMetric(accelerationPct);
   if (n === null) return { label: "—", title: "Volume trend unavailable" };
   const signed = `${n > 0 ? "+" : ""}${n.toFixed(1)}%`;
-  const title = `Volume rate is ${signed} versus the prior 5-minute window.`;
+  const historical =
+    n < 0
+      ? " Historical trigger remains. Current acceleration is negative."
+      : "";
+  const title = `Volume rate is ${signed} versus the prior 5-minute window.${historical}`;
   if (n <= -20) return { label: "COOLING ↓", title };
   if (n < 20) return { label: "STEADY", title };
   if (n < 50) return { label: "RISING ↑", title };
@@ -586,6 +608,7 @@ export function qualifyPanelRows(
   if (panel === "breakouts") return rows.filter((row) => qualifiesBreakouts(row));
   if (panel === "penny") return rows.filter((row) => qualifiesPennyPrice(row.price, band));
   if (panel === "day_trade") return filterDayTradePanelRows(rows, nowMs);
+  if (panel === "carryover") return [];
   return [...rows];
 }
 
@@ -669,6 +692,7 @@ export function selectPanelLeader(
 ): RadarRankedRow | null {
   if (panel === "breakouts") return selectBreakoutLeader(rows);
   if (panel === "penny") return selectPennyLeader(rows);
+  if (panel === "carryover") return null;
   if (rows.length === 0) return null;
   return [...rows].sort((a, b) => panelDisplayRank("day_trade", a) - panelDisplayRank("day_trade", b))[0] ?? null;
 }

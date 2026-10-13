@@ -64,6 +64,54 @@ function triggerTimestampValue(
   return createAuthoritativeValue(utc, options);
 }
 
+export function formatEtClock(iso: string | null | undefined): string | null {
+  const utc = toCanonicalUtcTimestamp(iso);
+  if (utc === null) return null;
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    timeZone: TRIGGER_TIME_DISPLAY_TIMEZONE,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date(utc)).replace(/[\u202f\u00a0]/g, " ");
+  return `${formatted} ET`;
+}
+
+/** True when the stored market-event clock is the 4:00:00–4:00:01 ET premarket open. */
+export function isPremarketOpenMarketStamp(iso: string | null | undefined): boolean {
+  const utc = toCanonicalUtcTimestamp(iso);
+  if (utc === null) return false;
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: TRIGGER_TIME_DISPLAY_TIMEZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(utc));
+  const read = (type: string) => Number(parts.find((part) => part.type === type)?.value);
+  return read("hour") === 4 && read("minute") === 0 && read("second") <= 1;
+}
+
+/**
+ * Market-event time, publication time, and an explicit refusal to treat a
+ * backdated open stamp as detection latency. Detection time is omitted when
+ * it was not stored.
+ */
+export function scannerTimeEvidenceTitle(input: {
+  marketEventAt: string | null | undefined;
+  publishedAt?: string | null | undefined;
+}): string {
+  const market = formatEtClock(input.marketEventAt);
+  if (!market) return "Time unavailable";
+  const parts = [`Market-event time ${market}`];
+  if (isPremarketOpenMarketStamp(input.marketEventAt)) {
+    parts.push("This matches the premarket open and is not a measured detection time.");
+  }
+  const published = formatEtClock(input.publishedAt);
+  if (published && published !== market) parts.push(`Published ${published}.`);
+  parts.push("Detection latency is not inferred from the market-event timestamp.");
+  return parts.join(" ");
+}
+
 export function formatTriggerTimePrimaryLine(iso: string | null | undefined): string {
   const utc = toCanonicalUtcTimestamp(iso);
   if (utc === null) return "—";
