@@ -61,7 +61,7 @@ export function episodeToFeatureSet(
     symbol,
     sessionDate: episode.sessionDate,
     setupCategory: `${episode.tier}/${episode.direction}`,
-    gapPct: null,
+    gapPct: episode.gapPct ?? null,
     movePct: episode.movePct,
     closePosition: episode.closePosition,
     sessionVolume: episode.volume,
@@ -73,7 +73,7 @@ export function episodeToFeatureSet(
       ? "reclaim_observed"
       : null,
     hodProximityPct: intraday?.closeVsHodPct ?? null,
-    floatTurnover: null,
+    floatTurnover: episode.floatTurnover ?? null,
     catalystType: linked?.eventType ?? null,
     catalystSummary: linked?.title ?? linked?.source ?? null,
     catalystEventAt: linked?.publishedAt ?? null,

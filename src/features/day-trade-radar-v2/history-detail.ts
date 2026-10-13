@@ -11,6 +11,13 @@ export interface HistoryDetailFact {
 }
 
 const HORIZONS = ["D1", "D2", "D3", "D5"] as const;
+const INTRADAY_FORWARD_LABELS: Record<string, string> = {
+  "5": "+5m",
+  "15": "+15m",
+  "30": "+30m",
+  "60": "+60m",
+  SESSION_CLOSE: "Session close",
+};
 
 function signedPercent(value: number | null | undefined): string | null {
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -81,6 +88,10 @@ export function comparableEpisodeFacts(episode: RepeatMoverComparableEpisode): H
   pushFact(facts, "Volume", positiveVolume(episode.volume));
   pushFact(facts, "Dollar volume", positiveDollars(episode.dollarVolume));
   pushFact(facts, "RVOL", rvolLabel(episode.rvol));
+  pushFact(facts, "Gap", signedPercent(episode.gapPct));
+  if (typeof episode.floatTurnover === "number" && Number.isFinite(episode.floatTurnover)) {
+    pushFact(facts, "Float turnover", `${(episode.floatTurnover * 100).toFixed(0)}% of float`);
+  }
   pushFact(facts, "Close in range", rangePosition(episode.closePosition));
   pushFact(facts, "Next session", signedPercent(episode.nextSessionMovePct));
   if (episode.nextSessionContinuation === true) {
@@ -90,6 +101,23 @@ export function comparableEpisodeFacts(episode: RepeatMoverComparableEpisode): H
   }
 
   const intraday = episode.observedIntradayReconstruction;
+  const postMomentum = intraday?.postMomentumForwardOutcomes;
+  if (postMomentum) {
+    for (const [horizonKey, window] of Object.entries(postMomentum)) {
+      if (!window) continue;
+      const label = INTRADAY_FORWARD_LABELS[horizonKey] ?? horizonKey;
+      if (window.availabilityState === "INSUFFICIENT_BARS" || window.availabilityState === "INVALID_REFERENCE") {
+        pushFact(facts, `${label} forward`, "Unavailable");
+        continue;
+      }
+      const partial = window.availabilityState === "PARTIAL_WINDOW" ? " (partial)" : "";
+      const mfe = signedPercent(window.maxFavorablePct);
+      pushFact(facts, `${label} MFE`, mfe ? `${mfe}${partial}` : null);
+      pushFact(facts, `${label} MAE`, signedPercent(window.maxAdversePct) ?? null);
+      pushFact(facts, `${label} return`, signedPercent(window.endReturnPct) ?? null);
+    }
+  }
+
   if (intraday) {
     pushFact(facts, "Peak time", clockLabel(intraday.hodAt));
     pushFact(facts, "Retracement", signedPercent(intraday.largestPullbackPct));

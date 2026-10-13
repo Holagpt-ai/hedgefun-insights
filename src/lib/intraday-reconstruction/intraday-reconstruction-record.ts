@@ -58,6 +58,7 @@ export function reconstructionFactsToPersistRow(
     halt_count: facts.haltCount,
     first_halt_at: facts.firstHaltAt,
     halt_data_available: facts.haltDataAvailable,
+    post_momentum_forward_outcomes: facts.postMomentumForwardOutcomes,
     quality: facts.completenessState === "COMPLETE" ? "DERIVED" : "PARTIAL",
     freshness: "UNKNOWN",
     provenance: "DERIVED",
@@ -100,5 +101,13 @@ export function mapPersistedRowToRepeatMoverEvidence(
       ? row.largest_volume_burst_at
       : null,
     completenessState: String(row.completeness_state ?? "UNAVAILABLE") as import("@/config/intraday-reconstruction.config").IntradayCompletenessState,
+    postMomentumForwardOutcomes: parsePostMomentumForwardOutcomes(row.post_momentum_forward_outcomes),
   };
+}
+
+function parsePostMomentumForwardOutcomes(
+  value: unknown,
+): import("@/lib/intraday-reconstruction/compute-post-momentum-forward-outcomes").PostMomentumForwardOutcomesByHorizon | null {
+  if (value == null || typeof value !== "object") return null;
+  return value as import("@/lib/intraday-reconstruction/compute-post-momentum-forward-outcomes").PostMomentumForwardOutcomesByHorizon;
 }

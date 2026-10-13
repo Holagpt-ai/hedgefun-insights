@@ -6,6 +6,7 @@ import {
   episodeMovePct,
   episodeSessionDate,
 } from "@/lib/behavior-profile/build-security-behavior-profile";
+import { sessionOpeningGapPct } from "@/lib/behavior-profile/session-opening-gap";
 import type { MarketBehaviorEpisode, SecurityDailyHistory } from "@/types/security-intelligence";
 import type { SecurityId } from "@/types/security-identity";
 
@@ -34,6 +35,8 @@ export interface ComparableHistoricalEpisodeEvidence {
   closePosition: number | null;
   nextSessionMovePct: number | null;
   nextSessionContinuation: boolean | null;
+  gapPct: number | null;
+  floatTurnover: number | null;
   similarity: ComparableEpisodeSimilarity;
 }
 
@@ -119,6 +122,8 @@ export function getComparableHistoricalEpisodes(input: {
       closePosition: position,
       nextSessionMovePct,
       nextSessionContinuation,
+      gapPct: sessionOpeningGapPct(daily),
+      floatTurnover: episode.floatTurnover,
       similarity: {
         sameDirection: referenceDirection === null || episode.direction === referenceDirection,
         movePctDelta: referenceMove !== null && move !== null

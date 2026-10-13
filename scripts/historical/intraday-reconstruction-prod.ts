@@ -74,11 +74,28 @@ async function main() {
     if (minuteFetch.error) providerErrors += 1;
     barsProcessed += minuteFetch.bars.length;
 
+    const episodeStartRaw = row.episode_start;
+    const episodeStartMs =
+      typeof episodeStartRaw === "string" ? Date.parse(episodeStartRaw) : Number.NaN;
+    const startPrice =
+      row.start_price == null || row.start_price === ""
+        ? null
+        : Number(row.start_price);
+    const highPrice =
+      row.high_price == null || row.high_price === ""
+        ? null
+        : Number(row.high_price);
+
     const { facts } = reconstructEpisodeIntraday({
       episodeId,
       securityId,
       sessionDate,
       direction: String(row.direction ?? "MIXED") as "POSITIVE" | "NEGATIVE" | "MIXED",
+      momentumReferenceTimestampMs: Number.isFinite(episodeStartMs) ? episodeStartMs : null,
+      momentumReferencePrice:
+        startPrice != null && Number.isFinite(startPrice) && startPrice > 0 ? startPrice : null,
+      momentumReferenceHigh:
+        highPrice != null && Number.isFinite(highPrice) && highPrice > 0 ? highPrice : null,
       dailyOpen: null,
       dailyHigh: null,
       dailyLow: null,

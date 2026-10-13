@@ -6,6 +6,7 @@ import { finiteMetric } from "@/lib/screeners/screener-metric-display";
 export interface CurrentSetupSnapshot {
   symbol: string;
   movePct: number | null;
+  gapPct: number | null;
   volume: number | null;
   rvol: number | null;
   rvol5m: number | null;
@@ -15,6 +16,7 @@ export interface CurrentSetupSnapshot {
   vwapSide: string | null;
   distanceFromHodPct: number | null;
   catalystCategory: string | null;
+  floatTurnover: number | null;
 }
 
 export interface HistoricalTopMatch {
@@ -50,8 +52,11 @@ function scoreEpisode(
     weight += w;
   };
 
-  add(0.22, pctSimilarity(current.movePct, features.movePct, 25));
-  add(0.18, pctSimilarity(finiteMetric(current.rvol), features.rvol, 8));
+  add(0.2, pctSimilarity(current.movePct, features.movePct, 25));
+  add(0.08, pctSimilarity(finiteMetric(current.gapPct), features.gapPct, 12));
+  add(0.16, pctSimilarity(finiteMetric(current.rvol), features.rvol, 8));
+  add(0.06, pctSimilarity(finiteMetric(current.volume), features.sessionVolume, 5_000_000));
+  add(0.05, pctSimilarity(finiteMetric(current.floatTurnover), features.floatTurnover, 2));
   add(0.12, pctSimilarity(finiteMetric(current.rvol5m), features.rvol5m, 6));
   add(0.12, pctSimilarity(finiteMetric(current.volumeVelocity), features.volumeVelocity, 80_000));
   add(
@@ -86,6 +91,7 @@ export function buildCurrentSetupFromRadarCandidate(row: {
   return {
     symbol: row.symbol.trim().toUpperCase(),
     movePct: null,
+    gapPct: null,
     volume: null,
     rvol: null,
     rvol5m: finiteMetric(row.rvol_5m),
@@ -95,12 +101,14 @@ export function buildCurrentSetupFromRadarCandidate(row: {
     vwapSide: null,
     distanceFromHodPct: finiteMetric(row.distance_from_hod_pct),
     catalystCategory: null,
+    floatTurnover: null,
   };
 }
 
 export function buildCurrentSetupFromRadarRow(row: {
   symbol: string;
   change_percent?: number | null;
+  gap_percent?: number | null;
   volume?: number | null;
   rvol?: number | null;
   rvol_5m?: number | null;
@@ -111,10 +119,12 @@ export function buildCurrentSetupFromRadarRow(row: {
   vwap_side?: string | null;
   distance_from_hod_pct?: number | null;
   hod_distance_percent?: number | null;
+  float_turnover?: number | null;
 }): CurrentSetupSnapshot {
   return {
     symbol: row.symbol.trim().toUpperCase(),
     movePct: finiteMetric(row.change_percent),
+    gapPct: finiteMetric(row.gap_percent),
     volume: finiteMetric(row.volume),
     rvol: finiteMetric(row.rvol),
     rvol5m: finiteMetric(row.rvol_5m),
@@ -126,6 +136,7 @@ export function buildCurrentSetupFromRadarRow(row: {
     distanceFromHodPct:
       finiteMetric(row.distance_from_hod_pct) ?? finiteMetric(row.hod_distance_percent),
     catalystCategory: null,
+    floatTurnover: finiteMetric(row.float_turnover),
   };
 }
 

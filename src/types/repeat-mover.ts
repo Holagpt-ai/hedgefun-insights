@@ -37,6 +37,8 @@ export interface RepeatMoverComparableEpisode {
   closePosition: number | null;
   nextSessionMovePct: number | null;
   nextSessionContinuation: boolean | null;
+  gapPct?: number | null;
+  floatTurnover?: number | null;
   /** Persisted forward-outcome facts when loaded (does not affect qualification). */
   observedForwardOutcomes?: RepeatMoverForwardOutcomeEvidence;
   /** Verified corporate/event evidence temporally associated with the episode (non-causal). */
