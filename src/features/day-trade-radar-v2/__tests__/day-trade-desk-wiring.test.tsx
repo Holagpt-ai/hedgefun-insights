@@ -33,6 +33,10 @@ vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
 vi.mock("@/hooks/use-mobile", () => ({
   useIsMobile: () => false,
 }));
+
+vi.mock("@/hooks/useCarryoverWatch", () => ({
+  useCarryoverWatch: () => ({ loading: false, view: null }),
+}));
 import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";

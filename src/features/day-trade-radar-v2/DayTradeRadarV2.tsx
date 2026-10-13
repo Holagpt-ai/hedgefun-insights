@@ -185,10 +185,10 @@ export function DayTradeRadarV2({
         </div>
       )}
 
-      {boardVisible && opportunityBoard.candidateUniverseCount > 0 && (
+      {resolved.status !== "loading" && (
         <MultiRadarWorkspace
-          rows={ranked}
-          dayTradeRows={lensRows}
+          rows={boardVisible ? ranked : []}
+          dayTradeRows={boardVisible ? lensRows : []}
           qualificationMonitoring={qualification.monitoring}
           qualificationLoadError={qualification.error}
           onQualificationRetry={qualification.retry}
@@ -200,6 +200,7 @@ export function DayTradeRadarV2({
           onSelect={selectActive}
           onOpenDetails={openDetails}
           closedSnapshot={closedSnapshot}
+          livePanelsVisible={boardVisible && opportunityBoard.candidateUniverseCount > 0}
         />
       )}
 
