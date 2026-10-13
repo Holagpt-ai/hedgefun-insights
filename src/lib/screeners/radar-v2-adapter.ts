@@ -43,6 +43,7 @@ import {
 } from "@/lib/screeners/screener-session";
 import { verifiedGapPercentFromRadarCandidate } from "@/lib/screeners/normalized-market-snapshot";
 import {
+  isActionableScannerQuote,
   qualifyRadarCandidateForTab,
   radarTabFallsBackWhenEmpty,
   rankRadarCandidatesForTab,
@@ -268,14 +269,14 @@ function normalizeSymbol(raw: unknown): string | null {
   return s;
 }
 
-/** A candidate is structurally valid if symbol is well-formed and volume is a real number. */
+/**
+ * Actionable candidate: well-formed symbol, positive last, and positive
+ * session volume. Zero or invalid quotes stay out of cards. Raw persistence
+ * can still hold them for diagnostics.
+ */
 export function isValidRadarV2Candidate(row: RadarV2CandidateRow): boolean {
   if (normalizeSymbol(row.symbol) === null) return false;
-  // Volume is king: session_volume must be a finite, non-negative number.
-  if (!isFiniteNumber(row.session_volume) || (row.session_volume as number) < 0) {
-    return false;
-  }
-  return true;
+  return isActionableScannerQuote(row.last_price, row.session_volume);
 }
 
 // ── Ranking: VOLUME IS KING ─────────────────────────────────────────────────

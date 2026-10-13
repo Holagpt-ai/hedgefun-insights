@@ -10,6 +10,8 @@ import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsFo
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { formatScreenerRvol5m } from "@/lib/screeners/screener-metric-display";
+import { rvol5mCellTitle } from "@/lib/scanner-intelligence/rvol-5m-availability";
+import { scannerTimeEvidenceTitle } from "@/lib/screeners/screener-trigger-time";
 import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -433,6 +435,7 @@ export function RadarPanelBoard({
             nowMs={nowMs}
             selected={selectedSymbol === row.symbol}
             onSelect={onSelect}
+            onOpenDetails={onOpenDetails}
             closedSnapshot={closedSnapshot}
           />
         ))}
@@ -477,7 +480,13 @@ function renderCell(args: {
   if (id === "time") {
     return (
       <div>
-        <TriggeredTimeCell triggeredAt={args.timeIso} title={args.timeIso ? "Panel entry" : "Time unavailable"} />
+        <TriggeredTimeCell
+          triggeredAt={args.timeIso}
+          title={scannerTimeEvidenceTitle({
+            marketEventAt: args.timeIso,
+            publishedAt: args.row.updated_at,
+          })}
+        />
         {args.age ? <div className="text-[10px] font-semibold text-accent-blue">{args.age}</div> : null}
       </div>
     );
@@ -538,7 +547,13 @@ function renderCell(args: {
       </span>
     );
   }
-  if (id === "rvol_5m") return <span className="tabular-nums">{formatScreenerRvol5m(row.rvol_5m)}</span>;
+  if (id === "rvol_5m") {
+    return (
+      <span className="tabular-nums" title={rvol5mCellTitle(row.rvol_5m)}>
+        {formatScreenerRvol5m(row.rvol_5m)}
+      </span>
+    );
+  }
   if (id === "volume_speed") {
     return (
       <span className="tabular-nums" title={formatVolumeSpeedExact(row.vol_velocity)}>
@@ -605,6 +620,7 @@ function MobilePanelCard({
   nowMs,
   selected,
   onSelect,
+  onOpenDetails,
   closedSnapshot,
 }: {
   panel: RadarPanelId;
@@ -612,34 +628,50 @@ function MobilePanelCard({
   nowMs: number;
   selected: boolean;
   onSelect: (row: RadarRankedRow) => void;
+  onOpenDetails: (row: RadarRankedRow) => void;
   closedSnapshot: boolean;
 }) {
   const time = panelTime(panel, row);
   const age = panelAgeLabel(time.iso, nowMs);
   return (
-    <button
-      type="button"
+    <div
       data-symbol={row.symbol}
       onClick={() => onSelect(row)}
       data-selected={selected ? "true" : undefined}
       className={`w-full rounded-md border border-border p-2 text-left ${selected ? SELECTED_ROW_CLASS : ""}`}
     >
       <div className="flex items-center justify-between gap-2">
-        <TriggeredTimeCell triggeredAt={time.iso} />
+        <TriggeredTimeCell
+          triggeredAt={time.iso}
+          title={scannerTimeEvidenceTitle({
+            marketEventAt: time.iso,
+            publishedAt: row.updated_at,
+          })}
+        />
         {age ? <span className="text-[10px] font-semibold text-accent-blue">{age}</span> : null}
       </div>
-      <div className="mt-1 flex items-baseline justify-between">
+      <div className="mt-1 flex items-baseline justify-between gap-2">
         <span className="font-semibold text-accent-blue">{row.symbol}</span>
-        <span className="tabular-nums">{formatRadarPrice(row.price)} <span className={moveClass(row.change_percent)}>{formatRadarPercent(row.change_percent)}</span></span>
+        <span className="tabular-nums whitespace-nowrap">{formatRadarPrice(row.price)} <span className={moveClass(row.change_percent)}>{formatRadarPercent(row.change_percent)}</span></span>
       </div>
       <div className="mt-1 grid grid-cols-2 gap-x-3 text-[11px] text-muted-foreground">
         <span>TODAY VOL {formatRadarVolume(row.volume)}</span>
         <span>VOL/YDAY {formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}</span>
-        <span>5m {formatScreenerRvol5m(row.rvol_5m)}</span>
+        <span title={rvol5mCellTitle(row.rvol_5m)}>5m {formatScreenerRvol5m(row.rvol_5m)}</span>
         <span title={formatVolumeSpeedExact(row.vol_velocity)}>{formatVolumeSpeedCompact(row.vol_velocity)}</span>
         <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} live={!closedSnapshot} />
         <span>{formatDeskHod(row)}</span>
       </div>
-    </button>
+      <button
+        type="button"
+        className="mt-2 text-[12px] font-semibold text-accent-blue"
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenDetails(row);
+        }}
+      >
+        Details
+      </button>
+    </div>
   );
 }

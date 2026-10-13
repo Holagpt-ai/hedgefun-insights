@@ -57,7 +57,7 @@ function nhlUnavailableCopy(): Pick<ScreenerTruthState, "title" | "explanation">
   return {
     title: "Baseline unavailable",
     explanation:
-      "The validated 52-week baseline is unavailable, so this screener could not be evaluated.",
+      "The published 52-week baseline is unavailable (screener_52w_baselines, 120-session minimum). New highs and lows were not evaluated, and no 52-week levels are estimated.",
   };
 }
 
@@ -115,6 +115,23 @@ function resolveNhlBaselineCoverageAdvisory(
     nhlEvidence.unresolved_count > 0
   ) {
     return `52-week coverage incomplete — ${nhlEvidence.unresolved_count} symbols unresolved. Results below are from symbols with valid baseline coverage.`;
+  }
+  return undefined;
+}
+
+function resolveGappersPartialAdvisory(
+  tabId: string,
+  rowCount: number,
+  evidence: ReturnType<typeof getTabEvaluationEvidence>,
+): string | undefined {
+  if (tabId !== "gappers" || rowCount <= 0) return undefined;
+  const gappers = evidence as GappersTabEvidence | null;
+  if (
+    gappers?.status === "evaluated" &&
+    typeof gappers.unresolved_gap_input_count === "number" &&
+    gappers.unresolved_gap_input_count > 0
+  ) {
+    return `Showing gaps from verified prior closes and the extended-session price. ${gappers.unresolved_gap_input_count} volume-active symbols still lack those inputs and are omitted.`;
   }
   return undefined;
 }
@@ -277,7 +294,8 @@ export function resolveScreenerTruthState(
   }
 
   if (status === "available" && rowCount > 0) {
-    const advisory = resolveNhlBaselineCoverageAdvisory(tabId, rowCount, evidence);
+    const advisory = resolveNhlBaselineCoverageAdvisory(tabId, rowCount, evidence)
+      ?? resolveGappersPartialAdvisory(tabId, rowCount, evidence);
     return {
       status,
       reason: "evaluated_with_results",

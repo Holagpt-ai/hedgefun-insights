@@ -51,3 +51,11 @@ export function assessRvol5mAvailability(input: Rvol5mAvailabilityInput): Rvol5m
   }
   return { kind: "unavailable", reason: "missing_baseline" };
 }
+
+export function rvol5mCellTitle(value: number | null | undefined): string {
+  const assessed = assessRvol5mAvailability({ rvol5m: value ?? null });
+  if (assessed.kind === "value" || assessed.kind === "valid_zero") {
+    return "5-minute RVOL versus the same regular-session clock window.";
+  }
+  return "5-minute RVOL unavailable. Daily volume and VOL/YDAY are not substitutes.";
+}

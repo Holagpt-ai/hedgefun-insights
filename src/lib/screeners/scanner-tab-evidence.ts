@@ -56,9 +56,17 @@ export function buildScannerTabEvidence(
       const accel = (row as ScreenerResultRow & { volume_acceleration_pct?: number | null })
         .volume_acceleration_pct;
       if (accel !== null && accel !== undefined && Number.isFinite(accel)) {
+        if (accel < 0) {
+          return {
+            tabId,
+            primaryLabel: `Historical volume spike · cooling ${accel.toFixed(0)}%`,
+            detail: "The trigger remains. Current 5-minute acceleration is negative.",
+          };
+        }
         return {
           tabId,
-          primaryLabel: `Volume acceleration ${accel.toFixed(0)}%`,
+          primaryLabel: `Accelerating ${accel.toFixed(0)}%`,
+          detail: "Current 5-minute volume rate is above the prior window.",
         };
       }
       if (row.volume_ratio_prior_session !== null) {
