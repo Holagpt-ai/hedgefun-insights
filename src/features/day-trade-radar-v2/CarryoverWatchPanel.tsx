@@ -97,7 +97,14 @@ export function CarryoverWatchPanel({ nowMs }: { nowMs: number }) {
             "Historical prior-session record. A previous-session pass does not qualify the current session."}
         </p>
         {view ? (
-          <p className="text-[11px] text-muted-foreground">Session {view.sessionLabel}</p>
+          <p className="text-[11px] text-muted-foreground">
+            Source session {view.sessionLabel} ({view.sessionDate})
+            {view.snapshotRecordedAtLabel
+              ? ` · snapshot recorded ${view.snapshotRecordedAtLabel}`
+              : view.status === "ready"
+                ? " · snapshot capture time unavailable"
+                : ""}
+          </p>
         ) : null}
       </div>
       <div className="space-y-2 p-2">

@@ -56,6 +56,7 @@ describe("carryover watch assembly", () => {
           session_kind: "after-hours",
           primary_scanner_event: "LATE_DAY_ACCELERATION",
           distance_from_hod_pct: 1.2,
+          captured_at: "2026-10-14T00:05:00.000Z",
         },
         {
           symbol: "ZERO",
@@ -90,6 +91,7 @@ describe("carryover watch assembly", () => {
     expect(view.candidates[1]?.classification).toBe("momentum_only");
     expect(view.historicalNotice).toMatch(/does not qualify the current session/);
     expect(view.candidates[0]?.handoffs.actionCenter).toContain("/dashboard/action-center");
+    expect(view.snapshotRecordedAtLabel).toMatch(/ET$/);
   });
 
   it("does not invent names when both historical sources are missing", () => {
