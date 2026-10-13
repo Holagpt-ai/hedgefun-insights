@@ -16,3 +16,16 @@ Deno.test("feed telemetry tracks latency and stale on disconnect", () => {
   tracker.setConnectionState("disconnected");
   assertEquals(tracker.snapshot(2_000_000).stale, true);
 });
+
+Deno.test("closed-market silence does not mark feed stale", () => {
+  const tracker = createFeedTelemetryTracker({
+    provider: "polygon",
+    configuredFeedMode: "auto",
+    messageStaleMs: 10_000,
+    tapeExpectedAt: () => false,
+  });
+  tracker.setConnectionState("subscribed");
+  tracker.noteMarketMessage(1_000_000, 1_000_000);
+  const snap = tracker.snapshot(1_500_000);
+  assertEquals(snap.stale, false);
+});

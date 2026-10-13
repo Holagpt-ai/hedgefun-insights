@@ -22,12 +22,14 @@ import {
 import { refreshEligibleUniverse } from "./snapshot.ts";
 import type { RadarConnectionState, RadarHealthSnapshot } from "./types.ts";
 import { createFeedTelemetryTracker } from "./feed-telemetry.ts";
+import { realtimeTapeExpectedAt } from "./session.ts";
 import { parseAggregateEvent } from "./parse.ts";
 import { createRadarSocket, type RadarWsConnect } from "./ws.ts";
 import type { EvaluateResult } from "./engine.ts";
 
 export type RadarHealthSink = {
   applyRadar(snapshot: RadarHealthSnapshot): void;
+  noteRadarPersistFailure?: (code: string) => void;
 };
 
 function interruptibleSleep(ms: number, signal: AbortSignal): Promise<void> {
@@ -104,7 +106,10 @@ export function startRadarV22(opts: {
   const feedTracker = createFeedTelemetryTracker({
     provider: opts.env.marketDataProvider,
     configuredFeedMode: opts.env.marketDataFeedMode,
+    tapeExpectedAt: (atMs) => realtimeTapeExpectedAt(atMs, calendarExceptions),
   });
+  let lastPersistFailedAt: string | null = null;
+  let lastPersistErrorCode: string | null = null;
   let leaseHeld = false;
   let connectionState: RadarConnectionState = "idle";
   let lastPublishedGeneration: string | null = null;
@@ -144,7 +149,16 @@ export function startRadarV22(opts: {
       cap_rejections: sentinel.capRejections,
       rss_bytes: sentinel.rssBytes,
       market_feed: feedTracker.snapshot(nowMs()),
+      last_persist_failed_at: lastPersistFailedAt,
+      last_persist_error_code: lastPersistErrorCode,
     };
+  }
+
+  function notePersistFailure(code: string): void {
+    lastPersistErrorCode = code;
+    lastPersistFailedAt = isoFromMs(nowMs()) ??
+      new Date(nowMs()).toISOString();
+    opts.health.noteRadarPersistFailure?.(code);
   }
 
   function attachFeedTelemetry(
@@ -211,7 +225,11 @@ export function startRadarV22(opts: {
         nowMs,
       });
       if (v2 !== "skipped" && !v2.ok) {
+        notePersistFailure(v2.code);
         log("error", "radar_persist_v2_failed", { code: v2.code });
+      } else if (v2 !== "skipped" && v2.ok) {
+        lastPersistErrorCode = null;
+        lastPersistFailedAt = null;
       }
       return;
     }
@@ -236,7 +254,10 @@ export function startRadarV22(opts: {
       });
       if (published.ok) {
         lastPublishedGeneration = generationId;
+        lastPersistErrorCode = null;
+        lastPersistFailedAt = null;
       } else {
+        notePersistFailure(published.code);
         log("error", "radar_persist_failed", { code: published.code });
       }
     }
@@ -253,7 +274,11 @@ export function startRadarV22(opts: {
       nowMs,
     });
     if (v2 !== "skipped" && !v2.ok) {
+      notePersistFailure(v2.code);
       log("error", "radar_persist_v2_failed", { code: v2.code });
+    } else if (v2 !== "skipped" && v2.ok) {
+      lastPersistErrorCode = null;
+      lastPersistFailedAt = null;
     }
 
     if (!result.published && !opts.env.radarPersistenceV2Enabled) {
