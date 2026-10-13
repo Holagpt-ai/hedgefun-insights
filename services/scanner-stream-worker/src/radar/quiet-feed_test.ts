@@ -93,6 +93,36 @@ Deno.test("active market + realtime silence falls back to delayed", async () => 
   assertEquals(urls[1], DELAYED);
 });
 
+Deno.test("closed session silence clears a prior delayed downgrade", async () => {
+  const urls: string[] = [];
+  let now = MARKET;
+  const socket = createRadarSocket({
+    feedMode: "auto",
+    apiKey: "secret-key",
+    config: socketConfig(),
+    silentMarketMs: 15,
+    realtimeProbeMs: 10_000,
+    nowMs: () => now,
+    exceptions: () => [],
+    sleep: () => Promise.resolve(),
+    connect: (url, handlers) => {
+      if (urls.length >= 2) now = OVERNIGHT;
+      return connectRecording(urls)(url, handlers);
+    },
+    onEvent: () => {},
+    onState: () => {},
+    onReconnect: () => {},
+    shouldRun: () => urls.length < 4,
+  });
+  socket.start();
+  await new Promise((r) => setTimeout(r, 200));
+  socket.stop();
+  assertEquals(urls[0], REALTIME);
+  assertEquals(urls[1], DELAYED);
+  assertEquals(urls[urls.length - 1], REALTIME);
+  assertEquals(socket.activeEndpoint(), "realtime");
+});
+
 Deno.test("closed overnight silence does not downgrade auto mode", async () => {
   const urls: string[] = [];
   const socket = createRadarSocket({

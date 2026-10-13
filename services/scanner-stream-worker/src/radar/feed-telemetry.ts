@@ -23,6 +23,8 @@ export function createFeedTelemetryTracker(opts: {
   provider: MarketDataProvider;
   configuredFeedMode: MarketDataFeedMode;
   messageStaleMs?: number;
+  /** When false, message silence is expected (closed market) and must not mark stale. */
+  tapeExpectedAt?: (nowMs: number) => boolean;
 }): FeedTelemetryTracker {
   let connectionState: MarketFeedConnectionState = "idle";
   let activeEndpoint: MassiveWsEndpoint = "delayed";
@@ -54,7 +56,9 @@ export function createFeedTelemetryTracker(opts: {
     },
     snapshot(nowMs) {
       const latency = computeLatencyMs(lastMarketEndMs, lastReceivedMs);
-      const staleByMessage = isFeedMessageStale(lastMessageMs, nowMs, staleMs);
+      const tapeExpected = opts.tapeExpectedAt?.(nowMs) ?? true;
+      const staleByMessage = tapeExpected &&
+        isFeedMessageStale(lastMessageMs, nowMs, staleMs);
       const staleByConn = connectionState === "disconnected" ||
         connectionState === "idle";
       return {

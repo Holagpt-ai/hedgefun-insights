@@ -181,6 +181,11 @@ export function createRadarSocket(opts: {
         return;
       }
       if (!tapeExpected(atMs) || !tapeExpected(silentArmedAt)) {
+        if (releaseStaleDowngrade(atMs)) {
+          if (opts.feedMode === "auto" && activeEndpoint === "delayed") {
+            handle?.close();
+          }
+        }
         armSilent();
         return;
       }

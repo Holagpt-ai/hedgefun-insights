@@ -226,7 +226,10 @@ async function main(): Promise<void> {
     env,
     fetch,
     loadExceptions,
-    health,
+    health: {
+      applyRadar: (snapshot) => health.applyRadar(snapshot),
+      noteRadarPersistFailure: (code) => health.markError(code, true),
+    },
     signal: abort.signal,
     lease: bridge.lease,
     rpc: bridge.radarRpc,

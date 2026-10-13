@@ -151,6 +151,8 @@ export type RadarHealthSnapshot = {
   cap_rejections: number;
   rss_bytes: number | null;
   market_feed?: MarketFeedTelemetry | null;
+  last_persist_failed_at?: string | null;
+  last_persist_error_code?: string | null;
 };
 
 export type SentinelStats = {
