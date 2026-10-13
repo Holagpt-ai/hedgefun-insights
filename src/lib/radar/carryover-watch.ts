@@ -55,6 +55,8 @@ export interface CarryoverWatchView {
   status: "ready" | "unavailable" | "empty";
   sessionDate: string;
   sessionLabel: string;
+  /** Latest snapshot capture time retained for this session, when stored. */
+  snapshotRecordedAtLabel: string | null;
   unavailableReason: string | null;
   sourceNote: string | null;
   pillarNote: string | null;
@@ -96,6 +98,7 @@ export function normalizeCarryoverSnapshotRow(raw: unknown): {
   sessionKind: string | null;
   scannerEvents: unknown;
   primaryEvent: string | null;
+  capturedAt: string | null;
 } | null {
   if (!raw || typeof raw !== "object") return null;
   const row = raw as Record<string, unknown>;
@@ -112,7 +115,24 @@ export function normalizeCarryoverSnapshotRow(raw: unknown): {
     sessionKind: text(row.session_kind),
     scannerEvents: row.scanner_events,
     primaryEvent: text(row.primary_scanner_event),
+    capturedAt: text(row.captured_at),
   };
+}
+
+function latestSnapshotCapturedAtLabel(
+  rows: readonly { capturedAt: string | null }[],
+): string | null {
+  let bestIso: string | null = null;
+  let bestMs = -Infinity;
+  for (const row of rows) {
+    const iso = row.capturedAt;
+    if (!iso) continue;
+    const ms = Date.parse(iso);
+    if (!Number.isFinite(ms) || ms <= bestMs) continue;
+    bestMs = ms;
+    bestIso = iso;
+  }
+  return bestIso ? formatEtClock(bestIso) : null;
 }
 
 export function normalizeCarryoverPillar(raw: unknown): CarryoverPillarRecord | null {
@@ -282,6 +302,7 @@ export function assembleCarryoverWatch(input: {
   const base = {
     sessionDate: input.sessionDate,
     sessionLabel: input.sessionLabel,
+    snapshotRecordedAtLabel: null as string | null,
     historicalNotice: CARRYOVER_HISTORICAL_NOTICE,
     pillarNote: input.pillarError
       ? "Five Pillars history could not be read for this session. Stored scanner rows are shown without a recomputed pillar pass."
@@ -294,9 +315,11 @@ export function assembleCarryoverWatch(input: {
   let sourceNote: string | null = null;
   if (carryover.length > 0) {
     sourceNote = "Loaded from the retained prior-session snapshot.";
+    base.snapshotRecordedAtLabel = latestSnapshotCapturedAtLabel(carryover);
   } else if (closed.length > 0) {
     sourceRows = closed;
     sourceNote = "Loaded from the closed-session snapshot still stored for this date.";
+    base.snapshotRecordedAtLabel = latestSnapshotCapturedAtLabel(closed);
   } else if (input.carryoverError && input.closedError) {
     return {
       ...base,

@@ -81,6 +81,7 @@ export function useCarryoverWatch(nowMs: number): {
           status: "unavailable",
           sessionDate: session.sessionDate,
           sessionLabel: session.sessionLabel,
+          snapshotRecordedAtLabel: null,
           unavailableReason:
             "Prior-session snapshot unavailable. The historical carryover source could not be read.",
           sourceNote: null,
