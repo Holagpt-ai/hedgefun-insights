@@ -22,7 +22,7 @@ function daily(partial: Partial<SecurityDailyHistory>): SecurityDailyHistory {
     computedAt: null,
     quality: "AUTHORITATIVE",
     freshness: "FRESH",
-    provenance: "TEST",
+    provenance: "INTERNAL",
     ...partial,
   };
 }
