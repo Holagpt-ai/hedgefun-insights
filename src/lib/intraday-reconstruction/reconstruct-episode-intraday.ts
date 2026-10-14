@@ -15,6 +15,7 @@ import type {
   EpisodeIntradayTimelineEvent,
   NormalizedIntradayBar,
 } from "@/lib/intraday-reconstruction/intraday-reconstruction-types";
+import { computePostMomentumForwardOutcomes } from "@/lib/intraday-reconstruction/compute-post-momentum-forward-outcomes";
 import { computeRegularSessionVwapSeries } from "@/lib/intraday-reconstruction/vwap";
 
 function pctChange(from: number, to: number): number | null {
@@ -155,6 +156,7 @@ export function reconstructEpisodeIntraday(
     firstHaltAt: null,
     haltDataAvailable: false,
     timeline,
+    postMomentumForwardOutcomes: null,
   });
 
   if (regBarsAvailable === 0) {
@@ -378,6 +380,14 @@ export function reconstructEpisodeIntraday(
     firstHaltAt: null,
     haltDataAvailable: false,
     timeline,
+    postMomentumForwardOutcomes: computePostMomentumForwardOutcomes({
+      direction: input.direction,
+      referenceTimestampMs: input.momentumReferenceTimestampMs ?? null,
+      referencePrice: input.momentumReferencePrice ?? null,
+      referenceHigh: input.momentumReferenceHigh ?? null,
+      bars: input.bars,
+      sessionCloseMs: closeAt,
+    }),
   };
 
   return { facts };

@@ -3,6 +3,7 @@ import type {
   IntradayCompletenessState,
   IntradayHodSessionPhase,
 } from "@/config/intraday-reconstruction.config";
+import type { PostMomentumForwardOutcomesByHorizon } from "@/lib/intraday-reconstruction/compute-post-momentum-forward-outcomes";
 import type { EpisodeEventType } from "@/config/security-intelligence.config";
 import type { SecurityId } from "@/types/security-identity";
 
@@ -29,6 +30,10 @@ export interface EpisodeIntradayReconstructionInput {
   dailyClose: number | null;
   dailyVolume: number | null;
   bars: readonly NormalizedIntradayBar[];
+  /** Episode momentum detection instant (ISO or ms) — post-outcome reference; no look-ahead. */
+  momentumReferenceTimestampMs?: number | null;
+  momentumReferencePrice?: number | null;
+  momentumReferenceHigh?: number | null;
   barGranularity: IntradayBarGranularity;
   source: string;
   sourceAsOf: string | null;
@@ -103,6 +108,7 @@ export interface EpisodeIntradayReconstructionFacts {
   firstHaltAt: string | null;
   haltDataAvailable: boolean;
   timeline: readonly EpisodeIntradayTimelineEvent[];
+  postMomentumForwardOutcomes: PostMomentumForwardOutcomesByHorizon | null;
 }
 
 /** Compact evidence for Repeat Movers / AI (no prediction fields). */
@@ -115,6 +121,7 @@ export interface RepeatMoverIntradayEvidence {
   vwapReclaimCount: number | null;
   largestVolumeBurstAt: string | null;
   completenessState: IntradayCompletenessState;
+  postMomentumForwardOutcomes?: PostMomentumForwardOutcomesByHorizon | null;
 }
 
 export interface EpisodeIntradayReconstructionResult {

@@ -133,6 +133,8 @@ function mapComparable(episode: ReturnType<typeof getComparableHistoricalEpisode
     closePosition: episode.closePosition,
     nextSessionMovePct: episode.nextSessionMovePct,
     nextSessionContinuation: episode.nextSessionContinuation,
+    gapPct: episode.gapPct,
+    floatTurnover: episode.floatTurnover,
     similarity: episode.similarity,
   };
 }
