@@ -435,6 +435,13 @@
       "when": 1791912135461,
       "tag": "0061_radar_carryover_watch_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1792018310295,
+      "tag": "0062_historical_intelligence_post_momentum_forward_v1",
+      "breakpoints": true
     }
   ]
 }
