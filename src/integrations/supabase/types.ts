@@ -2584,6 +2584,7 @@ export type Database = {
           momentum_leg_count: number | null
           move_open_to_hod_pct: number | null
           open_price: number | null
+          post_momentum_forward_outcomes: Json | null
           premarket_high: number | null
           premarket_low: number | null
           provenance: string
@@ -2643,6 +2644,7 @@ export type Database = {
           momentum_leg_count?: number | null
           move_open_to_hod_pct?: number | null
           open_price?: number | null
+          post_momentum_forward_outcomes?: Json | null
           premarket_high?: number | null
           premarket_low?: number | null
           provenance: string
@@ -2702,6 +2704,7 @@ export type Database = {
           momentum_leg_count?: number | null
           move_open_to_hod_pct?: number | null
           open_price?: number | null
+          post_momentum_forward_outcomes?: Json | null
           premarket_high?: number | null
           premarket_low?: number | null
           provenance?: string
@@ -10531,6 +10534,7 @@ export type Database = {
           momentum_leg_count: number | null
           move_open_to_hod_pct: number | null
           open_price: number | null
+          post_momentum_forward_outcomes: Json | null
           premarket_high: number | null
           premarket_low: number | null
           provenance: string
