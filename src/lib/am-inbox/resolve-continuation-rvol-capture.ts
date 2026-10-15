@@ -1,4 +1,5 @@
 import type { ContinuationRvolMetricKind } from "@/lib/am-inbox/late-session-continuation-types";
+import { impliedBaselineVolumeFromRatio } from "@/lib/screeners/continuation-rvol-confidence";
 import type { ScreenerContinuationSource } from "@/lib/screeners/screener-continuation";
 
 export interface ContinuationRvolCapture {
@@ -33,6 +34,8 @@ export type ContinuationRvolCaptureSource = Pick<
   | "avg_volume_20d"
   | "time_adjusted_rvol"
   | "rvol_5m"
+  | "volume"
+  | "volume_5m"
   | "participation_baseline_session_count"
 >;
 
@@ -63,7 +66,7 @@ export function resolveContinuationRvolCapture(
     return {
       rawRvol: timeAdjusted,
       metricKind: "time_adjusted",
-      baselineVolume: null,
+      baselineVolume: impliedBaselineVolumeFromRatio(row.volume, timeAdjusted),
       baselineSampleSize: positiveInteger(row.participation_baseline_session_count),
     };
   }
@@ -73,7 +76,7 @@ export function resolveContinuationRvolCapture(
     return {
       rawRvol: rvol5m,
       metricKind: "rvol_5m",
-      baselineVolume: null,
+      baselineVolume: impliedBaselineVolumeFromRatio(row.volume_5m, rvol5m),
       baselineSampleSize: positiveInteger(row.participation_baseline_session_count),
     };
   }

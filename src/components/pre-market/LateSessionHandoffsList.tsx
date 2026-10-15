@@ -95,13 +95,12 @@ export function LateSessionHandoffsList({
   funnel?: LateSessionContinuationFunnel;
   visibleLimit?: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const qualifiedPool = qualifiedCandidates ?? candidates;
   const hasQualified = qualifiedPool.length > 0;
   const hasPriority = candidates.length > 0;
 
   if (!hasQualified && !hasPriority) return null;
-
-  const [expanded, setExpanded] = useState(false);
 
   const stats = funnel ?? {
     detectedCount: qualifiedPool.length,
@@ -110,7 +109,13 @@ export function LateSessionHandoffsList({
     displayedCount: Math.min(candidates.length, visibleLimit),
   };
 
-  const defaultVisible = candidates.slice(0, visibleLimit);
+  const defaultVisible =
+    candidates.length > 0
+      ? candidates.slice(0, visibleLimit)
+      : (funnel?.displayUsesQualifiedFallback || (funnel?.priorityCount ?? 0) === 0) &&
+          qualifiedPool.length > 0
+        ? qualifiedPool.slice(0, visibleLimit)
+        : [];
   const visible = expanded ? qualifiedPool : defaultVisible;
   const canViewAllQualified = qualifiedPool.length > defaultVisible.length;
 

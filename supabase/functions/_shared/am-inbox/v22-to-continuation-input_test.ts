@@ -76,3 +76,15 @@ Deno.test("v22 continuation input wires participation baseline for TARVOL confid
   assertEquals(input.rvolBaselineSampleSize, 12);
   assertEquals(input.rvolBaselineVolume, 1_000_000);
 });
+
+Deno.test("v22 5m RVOL baseline uses volume_5m only when TARVOL absent", () => {
+  const input = v22CandidateToContinuationInput(
+    row({
+      time_adjusted_rvol: null,
+      rvol_5m: 5,
+      volume_5m: 500_000,
+      session_volume: 9_000_000,
+    }),
+  );
+  assertEquals(input.rvolBaselineVolume, 100_000);
+});

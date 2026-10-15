@@ -31,32 +31,47 @@ describe("resolveContinuationRvolCapture", () => {
     });
   });
 
-  it("time_adjusted only keeps baseline volume null", () => {
+  it("time_adjusted derives implied baseline from session volume", () => {
     expect(
       resolveContinuationRvolCapture({
-        time_adjusted_rvol: 7,
-        avg_volume_20d: 900_000,
-        participation_baseline_session_count: 8,
+        time_adjusted_rvol: 3,
+        volume: 3_000_000,
+        participation_baseline_session_count: 12,
       }),
     ).toEqual({
-      rawRvol: 7,
+      rawRvol: 3,
       metricKind: "time_adjusted",
-      baselineVolume: null,
-      baselineSampleSize: 8,
+      baselineVolume: 1_000_000,
+      baselineSampleSize: 12,
     });
   });
 
-  it("rvol_5m only keeps baseline volume null", () => {
+  it("rvol_5m does not substitute session volume when volume_5m is missing", () => {
     expect(
       resolveContinuationRvolCapture({
         rvol_5m: 5.5,
-        avg_volume_20d: 900_000,
+        volume: 5_000_000,
+        participation_baseline_session_count: 6,
+      }),
+    ).toMatchObject({
+      rawRvol: 5.5,
+      metricKind: "rvol_5m",
+      baselineVolume: null,
+      baselineSampleSize: 6,
+    });
+  });
+
+  it("rvol_5m derives implied baseline from short-window volume", () => {
+    expect(
+      resolveContinuationRvolCapture({
+        rvol_5m: 5.5,
+        volume_5m: 550_000,
         participation_baseline_session_count: 6,
       }),
     ).toEqual({
       rawRvol: 5.5,
       metricKind: "rvol_5m",
-      baselineVolume: null,
+      baselineVolume: 100_000,
       baselineSampleSize: 6,
     });
   });
@@ -80,6 +95,7 @@ describe("resolveContinuationRvolCapture", () => {
       rawRvol: 3,
       metricKind: "time_adjusted",
       baselineVolume: null,
+      baselineSampleSize: null,
     });
   });
 });
