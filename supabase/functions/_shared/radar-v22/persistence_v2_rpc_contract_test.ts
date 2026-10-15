@@ -12,7 +12,7 @@ const SCHEMA_MIGRATION_REL =
 const LOVABLE_FULL_MIGRATION_NAME =
   "20260902223843_d8af27c1-7f12-477f-9860-b301d6395d62.sql";
 const LATEST_RPC_MIGRATION_NAME =
-  "20260926130200_scanner_intelligence_stack_replace_rpc_v1.sql";
+  "20261015143000_radar_v22_replace_rpc_set_based_events_v1.sql";
 const LATEST_RPC_MIGRATION_REL =
   `../../../migrations/${LATEST_RPC_MIGRATION_NAME}`;
 const RPC_NAME = "replace_radar_v22_candidates_v1";
@@ -97,6 +97,20 @@ Deno.test("static: last_provider_event_at is non-regressive", async () => {
       "last_provider_event_at = COALESCE(\n      EXCLUDED.last_provider_event_at",
     ),
   );
+});
+
+Deno.test("static: events persist with set-based INSERT", async () => {
+  const body = functionBody(await loadRpc());
+  assert(body.includes("FROM jsonb_array_elements(p_events) AS ev(value)"));
+  assert(body.includes("ON CONFLICT (trading_date, session_kind, symbol, event_type, event_at) DO NOTHING"));
+  assertFalse(body.includes("INSERT INTO public.radar_v22_events (\n      trading_date, session_kind, symbol, event_type, event_at, generation_id, recorded_at\n    ) VALUES ("));
+});
+
+Deno.test("static: candidate delete scoped to trading date", async () => {
+  const body = functionBody(await loadRpc());
+  assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date = p_trading_date"));
+  assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date"));
+  assertFalse(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE true"));
 });
 
 Deno.test("static: security surface unchanged", async () => {

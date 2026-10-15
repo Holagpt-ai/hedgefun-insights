@@ -1,5 +1,5 @@
 import { CLOSED_VOLUME_TREND_CONTEXT } from "@/lib/screeners/radar-closed-snapshot";
-import { mapVolumeTrend, type VolumeTrendLabel } from "./multi-radar";
+import { mapVolumeTrend, resolveVolumeTrendForDisplay, type VolumeTrendLabel } from "./multi-radar";
 
 export type VolumeTrendMotion = "up" | "down" | "none";
 
@@ -24,15 +24,25 @@ function splitArrows(label: string): { text: string; arrows: string } {
 
 export function VolumeTrendMark({
   accelerationPct,
+  primaryScannerEventAt,
+  nowMs,
   className = "",
   live = true,
 }: {
   accelerationPct: number | null | undefined;
+  primaryScannerEventAt?: string | null;
+  nowMs?: number;
   className?: string;
   /** False after close: keep the last color, stop the arrow, and label the state. */
   live?: boolean;
 }) {
-  const trend = mapVolumeTrend(accelerationPct);
+  const trend = primaryScannerEventAt != null && nowMs != null
+    ? resolveVolumeTrendForDisplay({
+      accelerationPct,
+      primaryScannerEventAt,
+      nowMs,
+    })
+    : mapVolumeTrend(accelerationPct);
   const motion = volumeTrendMotion(trend.label);
   const { text, arrows } = splitArrows(trend.label);
   const motionClass = !live

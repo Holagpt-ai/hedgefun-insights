@@ -165,7 +165,12 @@ export function RadarPanelLeader({
           <div className="text-[10px] text-muted-foreground">{speed ? speed.unit : "No recent tape"}</div>
         </div>
         <div className="flex items-center border-l border-border pl-3 text-sm" data-testid={`volume-trend-hero-${panel}`}>
-          <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} live={!closedSnapshot} />
+          <VolumeTrendMark
+            accelerationPct={row.volume_acceleration_pct}
+            primaryScannerEventAt={row.primary_scanner_event_at}
+            nowMs={Date.now()}
+            live={!closedSnapshot}
+          />
         </div>
       </div>
       <button type="button" className="h-8 rounded-md border border-border px-2 text-[12px] font-semibold" onClick={() => onOpenDetails(row)}>
@@ -562,7 +567,14 @@ function renderCell(args: {
     );
   }
   if (id === "volume_trend") {
-    return <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} live={!args.closedSnapshot} />;
+    return (
+      <VolumeTrendMark
+        accelerationPct={row.volume_acceleration_pct}
+        primaryScannerEventAt={row.primary_scanner_event_at}
+        nowMs={Date.now()}
+        live={!args.closedSnapshot}
+      />
+    );
   }
   if (id === "hod") return <span className="tabular-nums">{formatDeskHod(row)}</span>;
   if (id === "vwap") return <span>{formatDeskVwap(row)}</span>;
@@ -659,7 +671,12 @@ function MobilePanelCard({
         <span>VOL/YDAY {formatRadarMultiplier(volumeVersusPriorSession(row.volume, row.prior_session_volume))}</span>
         <span title={rvol5mCellTitle(row.rvol_5m)}>5m {formatScreenerRvol5m(row.rvol_5m)}</span>
         <span title={formatVolumeSpeedExact(row.vol_velocity)}>{formatVolumeSpeedCompact(row.vol_velocity)}</span>
-        <VolumeTrendMark accelerationPct={row.volume_acceleration_pct} live={!closedSnapshot} />
+        <VolumeTrendMark
+          accelerationPct={row.volume_acceleration_pct}
+          primaryScannerEventAt={row.primary_scanner_event_at}
+          nowMs={Date.now()}
+          live={!closedSnapshot}
+        />
         <span>{formatDeskHod(row)}</span>
       </div>
       <button

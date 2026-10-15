@@ -4,6 +4,8 @@
  * Does not create a second scanner, rank, or market feed.
  */
 
+import { DAY_TRADE_FRESHNESS_RECENT_MS } from "@/config/day-trade-freshness.config";
+import { parseTimestampMs } from "@/lib/screeners/contract";
 import { toCanonicalUtcTimestamp } from "@/lib/screeners/trigger-time";
 import { formatCompactNumber, finiteMetric } from "@/lib/screeners/screener-metric-display";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
@@ -512,6 +514,30 @@ export function mapVolumeTrend(accelerationPct: number | null | undefined): Volu
   if (n < 50) return { label: "RISING ↑", title };
   if (n < 100) return { label: "SURGING ↑↑", title };
   return { label: "EXTREME ↑↑", title };
+}
+
+/** Separates historical scanner triggers from current 5m acceleration labels. */
+export function resolveVolumeTrendForDisplay(input: {
+  accelerationPct: number | null | undefined;
+  primaryScannerEventAt?: string | null;
+  nowMs: number;
+}): VolumeTrendView {
+  const base = mapVolumeTrend(input.accelerationPct);
+  const canonical = toCanonicalUtcTimestamp(input.primaryScannerEventAt ?? null);
+  const triggerMs = canonical ? parseTimestampMs(canonical) : null;
+  const triggerAgeMs = triggerMs === null ? null : Math.max(0, input.nowMs - triggerMs);
+  const staleTrigger =
+    triggerAgeMs !== null && triggerAgeMs > DAY_TRADE_FRESHNESS_RECENT_MS;
+  const bullish =
+    base.label === "RISING ↑" || base.label === "SURGING ↑↑" || base.label === "EXTREME ↑↑";
+  if (staleTrigger && bullish) {
+    return {
+      label: "STEADY",
+      title:
+        `${base.title} Primary scanner trigger is historical; elevated 5m acceleration does not imply fresh actionable momentum.`,
+    };
+  }
+  return base;
 }
 
 export function formatVolumeSpeedCompact(value: number | null | undefined): string {
