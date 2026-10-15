@@ -51,6 +51,13 @@ Deno.test("Intuit B: Investor Day announcement is investor event not product str
   assertEquals(classifyText(title).eventType, "INVESTOR_EVENT");
 });
 
+Deno.test("generic market commentary is not classified as earnings", () => {
+  const title = "Why XYZ stock is moving today: analysts weigh in on sector trends";
+  const result = classifyText(title);
+  assertEquals(result.eventType, "OTHER_MATERIAL_EVENT");
+  assertEquals(result.subtype, "market_commentary", "commentary headlines must not map to earnings");
+});
+
 Deno.test("Intuit C: quarterly/fiscal results classify as earnings not guidance", () => {
   const q4 = "Intuit Announces Fourth Quarter and Full Year Fiscal 2026 Results";
   const guidanceHeavy = "Intuit Reports Fourth Quarter Results and Raises Full-Year Guidance Outlook";
