@@ -41,6 +41,35 @@ async function listEligibleEpisodes(bridge: HistoricalBridgeClient): Promise<Arr
   return rows.slice(0, MAX_EPISODES);
 }
 
+/** List RPC returns episode ids only; momentum reference fields live on market_behavior_episodes. */
+async function enrichEpisodeMomentumReferences(
+  bridge: HistoricalBridgeClient,
+  candidates: readonly Record<string, unknown>[],
+): Promise<void> {
+  const bySecurity = new Map<string, Record<string, unknown>[]>();
+  for (const row of candidates) {
+    const securityId = String(row.security_id ?? "");
+    if (!securityId) continue;
+    const bucket = bySecurity.get(securityId) ?? [];
+    bucket.push(row);
+    bySecurity.set(securityId, bucket);
+  }
+
+  for (const [securityId, rows] of bySecurity) {
+    const episodeRows = await bridge.fetchAllRows("historical_list_episodes", { security_id: securityId });
+    const byEpisodeId = new Map(
+      episodeRows.map((episode) => [String(episode.episode_id), episode]),
+    );
+    for (const row of rows) {
+      const episode = byEpisodeId.get(String(row.episode_id));
+      if (!episode) continue;
+      row.episode_start = episode.episode_start;
+      row.start_price = episode.start_price;
+      row.high_price = episode.high_price;
+    }
+  }
+}
+
 async function main() {
   const started = Date.now();
   const bridge = new HistoricalBridgeClient(requireHistoricalBridgeConfig());
@@ -48,6 +77,7 @@ async function main() {
   const computedAt = new Date().toISOString();
 
   const candidates = await listEligibleEpisodes(bridge);
+  await enrichEpisodeMomentumReferences(bridge, candidates);
   let episodesReconstructed = 0;
   let complete = 0;
   let partial = 0;

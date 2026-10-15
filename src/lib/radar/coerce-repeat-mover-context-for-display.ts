@@ -179,6 +179,11 @@ function coerceObservedIntradayReconstruction(raw: unknown): RepeatMoverIntraday
     || !INTRADAY_COMPLETENESS_SET.has(source.completenessState)) {
     return undefined;
   }
+  const postMomentumForwardOutcomes =
+    source.postMomentumForwardOutcomes != null && typeof source.postMomentumForwardOutcomes === "object"
+      ? source.postMomentumForwardOutcomes as RepeatMoverIntradayEvidence["postMomentumForwardOutcomes"]
+      : undefined;
+
   return {
     completenessState: source.completenessState as RepeatMoverIntradayEvidence["completenessState"],
     hodAt: typeof source.hodAt === "string" ? source.hodAt : null,
@@ -189,6 +194,7 @@ function coerceObservedIntradayReconstruction(raw: unknown): RepeatMoverIntraday
     haltCount: finiteOrNull(source.haltCount),
     vwapReclaimCount: finiteOrNull(source.vwapReclaimCount),
     largestVolumeBurstAt: typeof source.largestVolumeBurstAt === "string" ? source.largestVolumeBurstAt : null,
+    ...(postMomentumForwardOutcomes !== undefined ? { postMomentumForwardOutcomes } : {}),
   };
 }
 
