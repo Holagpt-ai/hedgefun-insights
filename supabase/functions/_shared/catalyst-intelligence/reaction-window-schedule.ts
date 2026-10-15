@@ -15,6 +15,16 @@ const WINDOW_MIN_AGE_MS: Partial<Record<ReactionWindow, number>> = {
 
 export const DEFAULT_LIVE_REACTION_WINDOWS: readonly ReactionWindow[] = ["m5", "m15", "m30"];
 
+export function reactionWindowOffsetMs(window: ReactionWindow): number | null {
+  const minAge = WINDOW_MIN_AGE_MS[window];
+  return minAge == null ? null : minAge;
+}
+
+/** Windows scored from Polygon minute bars at event reference + offset (not live Radar snapshots). */
+export function isBarTimedReactionWindow(window: ReactionWindow): boolean {
+  return window === "m1" || window === "m5" || window === "m15" || window === "m30";
+}
+
 export function parseReactionWindows(value: unknown): ReactionWindow[] | null {
   if (value == null) return null;
   if (!Array.isArray(value)) return null;

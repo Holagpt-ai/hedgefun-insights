@@ -211,6 +211,50 @@ export function assessMarketObservation(
   };
 }
 
+/**
+ * Price move from event-time reference to a bar-aligned window close.
+ * Volume/session metrics stay unavailable (minute bars do not supply Radar RVOL).
+ */
+export function assessBarTimedWindowReaction(
+  eventReferencePrice: number | null,
+  windowPrice: number | null,
+): ReactionAssessment {
+  if (eventReferencePrice == null || !(eventReferencePrice > 0)) return blank("unavailable");
+  if (windowPrice == null || !(windowPrice > 0)) {
+    return {
+      ...blank("unavailable"),
+      referencePrice: eventReferencePrice,
+    };
+  }
+  const move = percentMove(eventReferencePrice, windowPrice);
+  const pricePart = move == null ? null : clamp(Math.abs(move) * 8);
+  const reactionScore = pricePart == null ? null : clamp(pricePart * 0.6);
+  return {
+    availability: "available",
+    referencePrice: eventReferencePrice,
+    currentPrice: windowPrice,
+    percentMove: move,
+    intradayHigh: null,
+    intradayLow: null,
+    volume: null,
+    dollarVolume: null,
+    rvol5m: null,
+    timeAdjustedRvol: null,
+    volumeVelocity: null,
+    volumeAcceleration: null,
+    vwap: null,
+    vwapSide: null,
+    hodDistancePct: null,
+    lodDistancePct: null,
+    floatTurnover: null,
+    reactionScore,
+    scoreComponents: {
+      price_component: pricePart,
+      measurement: "polygon_bar_window",
+    },
+  };
+}
+
 export function reactionFromAssessment(
   eventId: string,
   windowKind: ReactionWindow,

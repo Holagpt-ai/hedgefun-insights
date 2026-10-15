@@ -44,24 +44,18 @@ export function continuationForFeed(
     };
   }
   if (existing.feed_content_hash !== feedContentHash) {
-    const resumeIndex = existing.next_item_index;
-    const priorPending = resumeIndex < existing.feed_item_count;
-    if (priorPending && feedItemCount >= resumeIndex) {
-      return {
-        startIndex: resumeIndex,
-        state: {
-          feed_content_hash: feedContentHash,
-          next_item_index: resumeIndex,
-          feed_item_count: Math.max(feedItemCount, existing.feed_item_count),
-        },
-      };
-    }
     return {
       startIndex: 0,
       state: { feed_content_hash: feedContentHash, next_item_index: 0, feed_item_count: feedItemCount },
     };
   }
-  return { startIndex: existing.next_item_index, state: existing };
+  return {
+    startIndex: existing.next_item_index,
+    state: {
+      ...existing,
+      feed_item_count: Math.max(existing.feed_item_count, feedItemCount),
+    },
+  };
 }
 
 /** True when article-processing cursor still has unprocessed items for this feed snapshot. */

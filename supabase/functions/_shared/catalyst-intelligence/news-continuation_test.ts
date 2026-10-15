@@ -6,17 +6,17 @@ import {
   writeNewsContinuation,
 } from "./news-continuation.ts";
 
-Deno.test("news continuation resumes index when feed hash changes but backlog remains", () => {
+Deno.test("news continuation restarts at index zero when feed hash changes", () => {
   const metadata = writeNewsContinuation({}, {
     feed_content_hash: "hash-a",
     next_item_index: 16,
     feed_item_count: 40,
   });
-  const plan = continuationForFeed(metadata, "hash-b", 40);
-  assertEquals(plan.startIndex, 16);
+  const plan = continuationForFeed(metadata, "hash-b", 42);
+  assertEquals(plan.startIndex, 0);
   assertEquals(plan.state?.feed_content_hash, "hash-b");
-  assertEquals(plan.state?.next_item_index, 16);
-  assertEquals(plan.state?.feed_item_count, 40);
+  assertEquals(plan.state?.next_item_index, 0);
+  assertEquals(plan.state?.feed_item_count, 42);
 });
 
 Deno.test("news continuation resets when hash changes and prior drain was complete", () => {

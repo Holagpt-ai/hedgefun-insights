@@ -7,6 +7,7 @@ import {
   secFilingsRateLimitFloorApplied,
   LIVE_REACTION_MAX_AGE_MS,
   MAX_ITEMS_PER_SOURCE,
+  MAX_NEWS_ITEMS_PER_SOURCE,
   NEWS_ITEMS_PER_INVOCATION,
   NEWS_WALL_TIME_MS,
 } from "./config.ts";
@@ -24,10 +25,12 @@ import {
 } from "./reaction-eligibility.ts";
 import {
   DEFAULT_LIVE_REACTION_WINDOWS,
+  isBarTimedReactionWindow,
+  reactionWindowOffsetMs,
   reactionWindowsDueForEvent,
 } from "./reaction-window-schedule.ts";
 import { advanceForReaction, appendLifecycle, applyScheduleClock } from "./lifecycle.ts";
-import { eventReferenceInstant, type EventPriceBar } from "./event-bars.ts";
+import { eventReferenceInstant, referencePriceAtOrBefore, type EventPriceBar } from "./event-bars.ts";
 import {
   legacyProvenanceIfNeeded,
   readStoredProvenance,
@@ -45,6 +48,7 @@ import {
   type ReactionObservability,
 } from "./run-observability.ts";
 import {
+  assessBarTimedWindowReaction,
   assessReactionMarketContext,
   preserveObservedMetrics,
   reactionFromAssessment,
@@ -214,6 +218,14 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
     if (input.bot === "sec") ingestionObs.atom_source_attempted = true;
     run.sourcesAttempted += 1;
     const pendingNewsAtStart = input.bot === "news" ? readNewsContinuation(source.metadata) : null;
+    const pendingFeedCount = pendingNewsAtStart?.feed_item_count ?? 0;
+    const newsItemLimit = input.bot === "news"
+      ? Math.max(
+        input.itemLimit ?? MAX_ITEMS_PER_SOURCE,
+        MAX_NEWS_ITEMS_PER_SOURCE,
+        pendingFeedCount + 16,
+      )
+      : input.itemLimit ?? MAX_ITEMS_PER_SOURCE;
     const fetchState: FetchState = {
       unchanged: false,
       etag: null,
@@ -229,7 +241,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       fetchImpl: input.fetchImpl ?? fetch,
       companies,
       cikMap,
-      itemLimit: input.itemLimit ?? MAX_ITEMS_PER_SOURCE,
+      itemLimit: newsItemLimit,
       allowFixtures: input.allowFixtures === true,
       fetchState,
     };
@@ -265,6 +277,8 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         return;
       }
       const feedHash = ctx.fetchState.contentHash;
+      const priorContinuation = input.bot === "news" ? readNewsContinuation(source.metadata) : null;
+      const feedHashChanged = priorContinuation != null && priorContinuation.feed_content_hash !== feedHash;
       const feedPlan = input.bot === "news" && feedHash
         ? continuationForFeed(source.metadata, feedHash, items.length)
         : { startIndex: 0, state: null };
@@ -285,14 +299,14 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         run.sourcesSuccessful += 1;
         return;
       }
-      const feedItems = items.slice(feedPlan.startIndex);
       let absoluteIndex = feedPlan.startIndex;
+      let processedThisRun = 0;
       let continuationComplete = feedPlan.startIndex >= items.length &&
         !hasPendingNewsArticles(source.metadata, feedHash, items.length);
-      for (const item of feedItems) {
+      while (absoluteIndex < items.length) {
+        const item = items[absoluteIndex];
         if (input.bot === "news") {
-          const consumedThisRun = absoluteIndex - feedPlan.startIndex;
-          if (consumedThisRun >= newsItemBudget) {
+          if (processedThisRun >= newsItemBudget) {
             ingestionObs.resource_stop_reason = "news_item_budget";
             break;
           }
@@ -367,9 +381,16 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         else if (outcome.rawDisposition === "existing_resumed" || outcome.rawDisposition === "existing_linked") {
           run.duplicates += 1;
         }
+        if (input.bot === "news") {
+          const duplicate = outcome.rawDisposition === "existing_resumed" ||
+            outcome.rawDisposition === "existing_linked";
+          if (outcome.rawDisposition === "inserted" || (!feedHashChanged && duplicate)) {
+            processedThisRun += 1;
+          }
+        }
         absoluteIndex += 1;
         if (input.bot === "news" && feedHash) {
-          const feedItemCount = feedPlan.state?.feed_item_count ?? items.length;
+          const feedItemCount = items.length;
           const paused = absoluteIndex < feedItemCount;
           source.metadata = writeNewsContinuation(source.metadata, paused ? {
             feed_content_hash: feedHash,
@@ -383,7 +404,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         }
       }
       if (input.bot === "news" && feedHash) {
-        const feedItemCount = feedPlan.state?.feed_item_count ?? items.length;
+        const feedItemCount = items.length;
         const paused = absoluteIndex < feedItemCount;
         if (paused) {
           source.metadata = writeNewsContinuation(source.metadata, {
@@ -548,10 +569,13 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
       }
       reactionObs.events_processed += 1;
       const eventAt = eventReferenceInstant(event);
+      const eventMs = eventAt ? Date.parse(eventAt) : NaN;
       let sharedReferencePrice: number | null = null;
       let sharedProvenance: ReferencePriceProvenance | null = null;
+      let sharedBars: readonly EventPriceBar[] | null = null;
       let referenceLookupDone = false;
-      const radarObservation = await input.loadObservation(ticker.ticker);
+      const needsRadar = windowsDue.some((window) => !isBarTimedReactionWindow(window));
+      const radarObservation = needsRadar ? await input.loadObservation(ticker.ticker) : null;
       for (const activeWindow of windowsDue) {
         const existing = await input.store.getReaction(event.id, activeWindow);
         let eventReferencePrice = existing?.referencePrice != null && existing.referencePrice > 0
@@ -565,9 +589,9 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         } else if (!referenceLookupDone && eventAt && input.loadReferenceBars) {
           referenceLookupDone = true;
           reactionObs.polygon_lookups_attempted += 1;
-          const bars = await input.loadReferenceBars(ticker.ticker, eventAt);
+          sharedBars = await input.loadReferenceBars(ticker.ticker, eventAt);
           const resolved = resolvePolygonReference({
-            bars,
+            bars: sharedBars,
             eventAtIso: eventAt,
             ticker: ticker.ticker,
             event,
@@ -582,12 +606,26 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
           eventReferencePrice = sharedReferencePrice;
           newProvenance = sharedProvenance;
         }
-        const assessment = assessReactionMarketContext(
-          radarObservation,
-          eventReferencePrice,
-          input.now,
-          input.maxAgeMs,
-        );
+        let assessment;
+        let observedAt: string | null = null;
+        if (isBarTimedReactionWindow(activeWindow)) {
+          const offsetMs = reactionWindowOffsetMs(activeWindow);
+          const bars = sharedBars ?? [];
+          const windowMs = Number.isFinite(eventMs) && offsetMs != null ? eventMs + offsetMs : NaN;
+          const windowPrice = Number.isFinite(windowMs)
+            ? referencePriceAtOrBefore(bars, windowMs)
+            : null;
+          if (Number.isFinite(windowMs)) observedAt = new Date(windowMs).toISOString();
+          assessment = assessBarTimedWindowReaction(eventReferencePrice, windowPrice);
+        } else {
+          assessment = assessReactionMarketContext(
+            radarObservation,
+            eventReferencePrice,
+            input.now,
+            input.maxAgeMs,
+          );
+          observedAt = radarObservation?.observedAt ?? null;
+        }
         if (assessment.availability !== "available" && existing?.availability === "available") {
           reactionObs.events_skipped_stale_preservation += 1;
           continue;
@@ -595,7 +633,7 @@ export async function runReactionBot(input: ReactionRunInput): Promise<RunTeleme
         const reaction = preserveObservedMetrics(reactionFromAssessment(
           event.id,
           activeWindow,
-          radarObservation?.observedAt ?? null,
+          observedAt,
           assessment,
           existing?.id ?? crypto.randomUUID(),
         ), existing);
