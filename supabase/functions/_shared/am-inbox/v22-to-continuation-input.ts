@@ -123,10 +123,12 @@ export function v22CandidateToContinuationInput(row: RadarV22CandidateRow): Cont
         row.participation_baseline_session_count >= 0
       ? Math.floor(row.participation_baseline_session_count)
       : null,
-    rvolBaselineVolume: impliedBaselineVolumeFromRatio(
-      row.session_volume,
-      row.time_adjusted_rvol,
-    ) ?? impliedBaselineVolumeFromRatio(row.volume_5m, row.rvol_5m),
+    rvolBaselineVolume: row.time_adjusted_rvol !== null &&
+        row.time_adjusted_rvol !== undefined &&
+        Number.isFinite(row.time_adjusted_rvol) &&
+        row.time_adjusted_rvol > 0
+      ? impliedBaselineVolumeFromRatio(row.session_volume, row.time_adjusted_rvol)
+      : impliedBaselineVolumeFromRatio(row.volume_5m, row.rvol_5m),
     volumeAccelerationPct: row.volume_acceleration_pct,
     participationState: row.participation_state,
     scannerPrimaryEvent: row.primary_scanner_event,
