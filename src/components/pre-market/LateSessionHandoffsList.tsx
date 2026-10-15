@@ -95,13 +95,12 @@ export function LateSessionHandoffsList({
   funnel?: LateSessionContinuationFunnel;
   visibleLimit?: number;
 }) {
+  const [expanded, setExpanded] = useState(false);
   const qualifiedPool = qualifiedCandidates ?? candidates;
   const hasQualified = qualifiedPool.length > 0;
   const hasPriority = candidates.length > 0;
 
   if (!hasQualified && !hasPriority) return null;
-
-  const [expanded, setExpanded] = useState(false);
 
   const stats = funnel ?? {
     detectedCount: qualifiedPool.length,

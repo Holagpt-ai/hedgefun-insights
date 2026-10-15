@@ -110,10 +110,16 @@ export function toContinuationInput(
     input.rvol20d = rvol20d.value;
   }
   const timeAdjusted = row.time_adjusted_rvol;
-  if (timeAdjusted != null && Number.isFinite(timeAdjusted) && timeAdjusted > 0) {
+  const hasTarvol =
+    timeAdjusted != null && Number.isFinite(timeAdjusted) && timeAdjusted > 0;
+  if (hasTarvol) {
     input.timeAdjustedRvol = timeAdjusted;
     if (row.rvol_20d == null || !Number.isFinite(row.rvol_20d)) {
       input.rvol20d = timeAdjusted;
+    }
+    const tarvolBaseline = impliedBaselineVolumeFromRatio(row.volume, timeAdjusted);
+    if (tarvolBaseline !== null) {
+      input.rvolBaselineVolume = tarvolBaseline;
     }
   }
   if (row.volume != null && Number.isFinite(row.volume) && row.volume >= 0) {
@@ -123,14 +129,16 @@ export function toContinuationInput(
   if (sampleSize != null && Number.isInteger(sampleSize) && sampleSize >= 0) {
     input.rvolBaselineSampleSize = sampleSize;
   }
-  const avg20d = row.avg_volume_20d;
-  const impliedBaseline =
-    impliedBaselineVolumeFromRatio(row.volume, row.time_adjusted_rvol) ??
-    impliedBaselineVolumeFromRatio(row.volume_5m, row.rvol_5m);
-  if (avg20d != null && Number.isFinite(avg20d) && avg20d > 0) {
-    input.rvolBaselineVolume = avg20d;
-  } else if (impliedBaseline !== null) {
-    input.rvolBaselineVolume = impliedBaseline;
+  if (!hasTarvol) {
+    const avg20d = row.avg_volume_20d;
+    if (avg20d != null && Number.isFinite(avg20d) && avg20d > 0) {
+      input.rvolBaselineVolume = avg20d;
+    } else {
+      const fiveMinBaseline = impliedBaselineVolumeFromRatio(row.volume_5m, row.rvol_5m);
+      if (fiveMinBaseline !== null) {
+        input.rvolBaselineVolume = fiveMinBaseline;
+      }
+    }
   }
   if (row.participation_state?.trim()) {
     input.participationState = row.participation_state.trim();

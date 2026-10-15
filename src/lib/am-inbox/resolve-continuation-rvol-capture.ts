@@ -76,7 +76,7 @@ export function resolveContinuationRvolCapture(
     return {
       rawRvol: rvol5m,
       metricKind: "rvol_5m",
-      baselineVolume: impliedBaselineVolumeFromRatio(row.volume_5m ?? row.volume, rvol5m),
+      baselineVolume: impliedBaselineVolumeFromRatio(row.volume_5m, rvol5m),
       baselineSampleSize: positiveInteger(row.participation_baseline_session_count),
     };
   }

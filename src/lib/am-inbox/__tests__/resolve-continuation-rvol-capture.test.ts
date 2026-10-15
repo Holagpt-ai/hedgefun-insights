@@ -46,6 +46,21 @@ describe("resolveContinuationRvolCapture", () => {
     });
   });
 
+  it("rvol_5m does not substitute session volume when volume_5m is missing", () => {
+    expect(
+      resolveContinuationRvolCapture({
+        rvol_5m: 5.5,
+        volume: 5_000_000,
+        participation_baseline_session_count: 6,
+      }),
+    ).toMatchObject({
+      rawRvol: 5.5,
+      metricKind: "rvol_5m",
+      baselineVolume: null,
+      baselineSampleSize: 6,
+    });
+  });
+
   it("rvol_5m derives implied baseline from short-window volume", () => {
     expect(
       resolveContinuationRvolCapture({
