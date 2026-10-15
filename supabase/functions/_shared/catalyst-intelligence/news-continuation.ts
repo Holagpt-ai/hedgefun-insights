@@ -37,11 +37,39 @@ export function continuationForFeed(
   feedItemCount: number,
 ): { startIndex: number; state: NewsFeedContinuation | null } {
   const existing = readNewsContinuation(metadata);
-  if (!existing || existing.feed_content_hash !== feedContentHash) {
+  if (!existing) {
     return {
       startIndex: 0,
       state: { feed_content_hash: feedContentHash, next_item_index: 0, feed_item_count: feedItemCount },
     };
   }
-  return { startIndex: existing.next_item_index, state: existing };
+  if (existing.feed_content_hash !== feedContentHash) {
+    return {
+      startIndex: 0,
+      state: { feed_content_hash: feedContentHash, next_item_index: 0, feed_item_count: feedItemCount },
+    };
+  }
+  return {
+    startIndex: existing.next_item_index,
+    state: {
+      ...existing,
+      feed_item_count: Math.max(existing.feed_item_count, feedItemCount),
+    },
+  };
+}
+
+/** True when article-processing cursor still has unprocessed items for this feed snapshot. */
+export function hasPendingNewsArticles(
+  metadata: Record<string, unknown>,
+  feedContentHash: string | null,
+  parsedItemCount: number,
+): boolean {
+  const pending = readNewsContinuation(metadata);
+  if (!pending) return false;
+  if (feedContentHash && pending.feed_content_hash !== feedContentHash) {
+    return pending.next_item_index < pending.feed_item_count;
+  }
+  if (pending.next_item_index >= pending.feed_item_count) return false;
+  if (parsedItemCount >= pending.next_item_index) return pending.next_item_index < pending.feed_item_count;
+  return true;
 }

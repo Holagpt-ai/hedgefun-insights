@@ -8,6 +8,8 @@ export const MAX_RESPONSE_BYTES = 1_000_000;
 export const FETCH_TIMEOUT_MS = 8_000;
 export const MAX_REDIRECTS = 3;
 export const MAX_ITEMS_PER_SOURCE = 40;
+/** Allow modest feed growth (prepends) while draining NEWS continuation. */
+export const MAX_NEWS_ITEMS_PER_SOURCE = MAX_ITEMS_PER_SOURCE + 16;
 /** Bounded NEWS ingest per invocation (continuation resumes the rest). */
 export const NEWS_ITEMS_PER_INVOCATION = 8;
 /** Graceful exit before platform worker CPU limits during NEWS runs. */
