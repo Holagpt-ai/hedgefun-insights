@@ -56,6 +56,7 @@ export interface RepeatMoverComparableEpisode {
     vwapReclaimCount: number | null;
     largestVolumeBurstAt: string | null;
     completenessState: string;
+    postMomentumForwardOutcomes?: Record<string, unknown> | null;
   };
   similarity: {
     sameDirection: boolean;
