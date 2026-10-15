@@ -1,5 +1,7 @@
 import { hasProAccess } from "@/lib/entitlement";
 import { useMemo, useState } from "react";
+import { useCarryoverWatch } from "@/hooks/useCarryoverWatch";
+import { filterPmSessionSummaryAgainstCarryover } from "@/lib/inbox/pm-carryover-dedupe";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles, Newspaper, BookOpen, Star, Radar } from "lucide-react";
 import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
@@ -355,11 +357,16 @@ export default function PMInbox() {
     [catalystEvents],
   );
   const pmRadar = useRadarV2VolumeLeaders(fullPmWorkspace);
+  const carryover = useCarryoverWatch(Date.now());
   const pmSessionSummary = useMemo(() => {
     const view = pmRadar.decision?.view;
     if (!view?.rows?.length) return [];
-    return buildPmSessionSummaryRows(rankRadarRows(view.rows, view.status), 8);
-  }, [pmRadar.decision]);
+    const rows = buildPmSessionSummaryRows(rankRadarRows(view.rows, view.status), 8);
+    const carrySymbols = new Set(
+      (carryover.view?.candidates ?? []).map((c) => c.symbol.trim().toUpperCase()),
+    );
+    return filterPmSessionSummaryAgainstCarryover(rows, carrySymbols);
+  }, [pmRadar.decision, carryover.view?.candidates]);
 
   return (
     <div className="flex flex-col gap-6 p-4 md:p-6">

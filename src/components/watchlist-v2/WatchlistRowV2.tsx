@@ -194,10 +194,20 @@ export function WatchlistRowV2({
     snapshotTsMs: row.inputsQuality.snapshot_ts_ms,
     analysisPresentation: row.inputsQuality.analysis_presentation ?? null,
     analysisSessionDate: row.sessionDate || null,
+    intradayBars: row.intraday,
   });
+  const evidenceIso =
+    row.intraday.length > 0 && row.inputsQuality.snapshot_ts_ms
+      ? new Date(
+          Math.max(
+            row.inputsQuality.snapshot_ts_ms,
+            row.intraday[row.intraday.length - 1]?.t ?? row.inputsQuality.snapshot_ts_ms,
+          ),
+        ).toISOString()
+      : snapshotIso;
   const marketDataTrustLine = formatMarketDataTrustLine(
     marketDataTrust,
-    snapshotIso,
+    evidenceIso,
     Date.now(),
   );
 

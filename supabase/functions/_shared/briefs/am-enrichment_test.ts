@@ -83,10 +83,19 @@ Deno.test("3. prior vs current session labeling in AM user prompt", () => {
 Deno.test("4. current PM enrichment accepts fresh screener rows", () => {
   const now = Date.parse("2026-09-25T12:20:00Z");
   const movers = selectCurrentPremarketMovers([
-    { symbol: "aapl", price: 190, change_percent: 0.8, volume: 1000, updated_at: new Date(now - 5 * 60_000).toISOString() },
+    {
+      symbol: "aapl",
+      price: 190,
+      change_percent: 0.8,
+      volume: 1000,
+      rvol_5m: 1.4,
+      updated_at: new Date(now - 5 * 60_000).toISOString(),
+      provider_as_of: new Date(now - 5 * 60_000).toISOString(),
+    },
   ], now);
   assertEquals(movers.length, 1);
   assertEquals(movers[0]?.context_scope, "current_premarket");
+  assertEquals(movers[0]?.participation_rvol, 1.4);
 });
 
 Deno.test("5. missing PM data yields empty current movers", () => {

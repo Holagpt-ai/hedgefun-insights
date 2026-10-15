@@ -21,6 +21,8 @@ import {
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import type { SecurityId } from "@/types/security-identity";
+import { resolveSessionGapPercent, sessionGapEligible } from "@/lib/daily-intelligence/session-gap-evidence";
+import { GAPPER_MIN_ABS_PERCENT } from "@/lib/screeners/radar-gapper-restoration";
 
 export const MORNING_OPPORTUNITY_LIMIT = 5;
 
@@ -45,6 +47,8 @@ export type MorningRadarRow = {
   price?: number | null;
   volume?: number | null;
   gap_percent?: number | null;
+  /** Session move vs prior regular close (Radar / gappers restoration). */
+  change_percent?: number | null;
   float_shares?: number | null;
   provider_as_of?: string | null;
   updated_at?: string | null;
@@ -143,9 +147,24 @@ function hasMomentumEvent(events: readonly string[]): boolean {
   });
 }
 
-function premarketParticipation(row: MorningRadarRow): boolean {
+/** Confirmed Polygon pre-market — required for eventless gap/participation paths. */
+export function morningBoardConfirmedPremarket(polygonPremarketActive: boolean): boolean {
+  return polygonPremarketActive === true;
+}
+
+function positiveShortWindowOrSessionMove(row: MorningRadarRow): boolean {
   const move = finite(row.move_60s_pct) ?? finite(row.move_15s_pct);
-  if (move === null || !(move > 0)) return false;
+  if (move !== null && move > 0) return true;
+  const sessionMove = finite(row.change_percent);
+  return sessionMove !== null && sessionMove > 0;
+}
+
+function gapContinuationEligible(row: MorningRadarRow): boolean {
+  return sessionGapEligible(row, GAPPER_MIN_ABS_PERCENT);
+}
+
+function premarketParticipation(row: MorningRadarRow): boolean {
+  if (!positiveShortWindowOrSessionMove(row)) return false;
   const rvol = finite(row.rvol_5m);
   const accel = finite(row.volume_acceleration_pct);
   const velocity = finite(row.vol_velocity);
@@ -154,12 +173,17 @@ function premarketParticipation(row: MorningRadarRow): boolean {
     (velocity !== null && velocity >= MORNING_PREMARKET_MIN_VELOCITY);
 }
 
-function sectionForRadar(events: readonly string[], session: string | null, row: MorningRadarRow): MorningSectionId | null {
+function sectionForRadar(
+  events: readonly string[],
+  confirmedPremarket: boolean,
+  row: MorningRadarRow,
+): MorningSectionId | null {
   if (events.some((event) => canonicalIntelligenceEventType(event) === "GAP_CONTINUATION")) {
     return "gap_continuation";
   }
+  if (confirmedPremarket && gapContinuationEligible(row)) return "gap_continuation";
   if (hasMomentumEvent(events)) return "top_momentum";
-  if (session === "pre-market" && premarketParticipation(row)) return "premarket_continuation";
+  if (confirmedPremarket && premarketParticipation(row)) return "premarket_continuation";
   return null;
 }
 
@@ -184,6 +208,8 @@ function catalystStatus(
 export function buildMorningOpportunityBoard(input: {
   radarRows?: readonly MorningRadarRow[] | null;
   radarSession?: string | null;
+  /** Confirmed Polygon pre-market; keeps board aligned with Volume Leaders when Radar session lags. */
+  polygonPremarketActive?: boolean;
   radarStatus?: ScreenerUiStatus | null;
   syncedAt?: string | null;
   providerAsOfMax?: string | null;
@@ -196,6 +222,8 @@ export function buildMorningOpportunityBoard(input: {
   const catalystSymbols = new Set(
     (input.catalystSymbols ?? []).map((symbol) => symbol.trim().toUpperCase()).filter(Boolean),
   );
+  const confirmedPremarket = morningBoardConfirmedPremarket(input.polygonPremarketActive === true);
+
   const radarTrust = resolveScreenerMarketDataTrust({
     status: input.radarStatus ?? "unavailable",
     syncedAt: input.syncedAt,
@@ -212,7 +240,7 @@ export function buildMorningOpportunityBoard(input: {
     const volume = finite(row.volume);
     if (volume === null || volume < SCANNER_EVENT_MIN_SESSION_VOLUME) continue;
     const events = eventTypesOf(row);
-    const section = sectionForRadar(events, input.radarSession ?? null, row);
+    const section = sectionForRadar(events, confirmedPremarket, row);
     if (!section) continue;
     const eventType = strongestEvent(events);
     const price = finite(row.price);
@@ -228,7 +256,7 @@ export function buildMorningOpportunityBoard(input: {
       volume,
       dollarVolume: dollar,
       rvol5m: finite(row.rvol_5m),
-      gapPercent: finite(row.gap_percent),
+      gapPercent: resolveSessionGapPercent(row),
       distanceFromHodPct: finite(row.distance_from_hod_pct),
       vwapSide: row.vwap_side ?? null,
       catalystStatus: catalystStatus(symbol, catalystSymbols, null),

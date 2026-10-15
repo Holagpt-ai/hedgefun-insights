@@ -115,6 +115,14 @@ function sanitizeProviderError(msg: string): string {
   return String(msg).replace(/[A-Za-z0-9_\-]{20,}/g, "***");
 }
 
+function readCatalystFeedStatus(snapshot: unknown): string | null {
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) return null;
+  const enrichment = (snapshot as Record<string, unknown>).intelligence_enrichment;
+  if (!enrichment || typeof enrichment !== "object" || Array.isArray(enrichment)) return null;
+  const raw = (enrichment as Record<string, unknown>).catalyst_feed_status;
+  return raw === "verified" || raw === "none" || raw === "unavailable" ? raw : null;
+}
+
 function cachedBody(row: {
   id: string;
   brief_type: string;
@@ -132,6 +140,8 @@ function cachedBody(row: {
     content: row.content,
     cached: true,
     source_checked_at: snap.evidence_checked_at ?? snap.source_checked_at ?? row.generated_at,
+    catalyst_feed_status: readCatalystFeedStatus(row.market_snapshot),
+    market_snapshot: row.market_snapshot,
   };
 }
 
@@ -817,6 +827,8 @@ serve(async (req) => {
           content: updated.content,
           cached: false,
           source_checked_at: bundle.checkedAt,
+          catalyst_feed_status: catalystFeedStatus,
+          market_snapshot: marketSnapshot,
         },
         200,
       );
@@ -883,6 +895,8 @@ serve(async (req) => {
         content: inserted.content,
         cached: false,
         source_checked_at: bundle.checkedAt,
+        catalyst_feed_status: catalystFeedStatus,
+        market_snapshot: marketSnapshot,
       },
       200,
     );

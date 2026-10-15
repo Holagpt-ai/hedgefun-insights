@@ -45,6 +45,7 @@ export type CachedBriefSnapshot = {
   supersededBy: AmGenerationWindow | null;
   ageSeconds: number;
   generationReason: string | null;
+  catalystFeedStatus?: "verified" | "none" | "unavailable" | null;
 };
 
 export function staleRefreshNotice(generatedAtEt: string): string {

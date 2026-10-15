@@ -118,6 +118,83 @@ describe("morning opportunity board", () => {
     expect(board.emptyMessage).toBe("No qualifying movers yet");
   });
 
+  it("surfaces gappers-style session move without scanner_events during pre-market", () => {
+    const board = buildMorningOpportunityBoard({
+      radarRows: [
+        radar({
+          symbol: "GAPONLY",
+          volume: 2_500_000,
+          change_percent: 7.5,
+          scanner_events: [],
+          primary_scanner_event: null,
+        }),
+      ],
+      radarSession: "market",
+      polygonPremarketActive: true,
+      radarStatus: "available",
+    });
+    expect(board.sections.map((section) => section.id)).toEqual(["gap_continuation"]);
+    expect(board.sections[0]?.cards[0]?.symbol).toBe("GAPONLY");
+    expect(board.sections[0]?.cards[0]?.gapPercent).toBe(7.5);
+  });
+
+  it("allows premarket continuation from session move plus rvol when events are absent", () => {
+    const board = buildMorningOpportunityBoard({
+      radarRows: [
+        radar({
+          symbol: "PART",
+          volume: 1_200_000,
+          change_percent: 2.4,
+          rvol_5m: 1.5,
+          scanner_events: [],
+          primary_scanner_event: null,
+        }),
+      ],
+      radarSession: "pre-market",
+      polygonPremarketActive: true,
+      radarStatus: "available",
+    });
+    expect(board.sections.map((section) => section.id)).toEqual(["premarket_continuation"]);
+    expect(board.sections[0]?.cards[0]?.symbol).toBe("PART");
+  });
+
+  it("does not treat a large session gap as top momentum without scanner events", () => {
+    const board = buildMorningOpportunityBoard({
+      radarRows: [
+        radar({
+          symbol: "GAPONLY",
+          volume: 2_500_000,
+          change_percent: 8,
+          scanner_events: [],
+          primary_scanner_event: null,
+        }),
+      ],
+      radarSession: "pre-market",
+      polygonPremarketActive: true,
+      radarStatus: "available",
+    });
+    expect(board.sections.map((section) => section.id)).toEqual(["gap_continuation"]);
+    expect(board.sections.some((section) => section.id === "top_momentum")).toBe(false);
+  });
+
+  it("excludes eventless gap paths outside confirmed pre-market", () => {
+    const board = buildMorningOpportunityBoard({
+      radarRows: [
+        radar({
+          symbol: "OFF",
+          volume: 2_500_000,
+          change_percent: 8,
+          scanner_events: [],
+          primary_scanner_event: null,
+        }),
+      ],
+      radarSession: "pre-market",
+      polygonPremarketActive: false,
+      radarStatus: "available",
+    });
+    expect(board.emptyMessage).toBe("No qualifying movers yet");
+  });
+
   it("keeps unknown price and rvol null", () => {
     const board = buildMorningOpportunityBoard({
       continuation: [handoff("DAY2", "POWER_HOUR_MOMENTUM", 2_000_000, "2026-09-29")],
