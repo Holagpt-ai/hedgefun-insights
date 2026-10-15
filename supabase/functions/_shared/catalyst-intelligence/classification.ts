@@ -73,6 +73,13 @@ const EARNINGS_RESULTS =
 const EARNINGS_SCHEDULE =
   /\b(announces date for|to report (its )?(q[1-4]|fourth quarter|results|earnings)|will report (its )?(q[1-4]|results|earnings)|scheduled to report (its )?(results|earnings|q[1-4]))\b/i;
 
+/** Commentary on price action is not direct evidence of a corporate earnings release. */
+const MARKET_COMMENTARY =
+  /\b(shares (rise|rose|fall|fell|jump|jumped|drop|dropped|surge|surged|slide|slid)|stock (rises|rose|falls|fell|jumps|jumped|is moving)|in focus|what to watch|why .* (moved|jumped|fell|moving)|analysts? (say|said|see|expect|weigh in)|weigh(s)? in on)\b/i;
+
+const DIRECT_CORPORATE_EVENT =
+  /\b(announces|announced|reports (its )?(q[1-4]|fourth quarter|results|earnings)|will report|files (form )?8-k|merger|acquire[sd]?|acquisition|fda|clinical trial|public offering|registered direct|appointed|names (new )?ceo|wins contract|partnership with|guidance|outlook)\b/i;
+
 const GUIDANCE_SPECIFIC =
   /\b(reaffirms|raises|lowers|updates|provides|issues) (its )?(guidance|outlook|forecast)\b|\b(guidance|outlook|forecast) (update|revision)\b/i;
 
@@ -119,6 +126,10 @@ export function classifyText(text: string, subtype: string | null = null): Class
   if (/\b(public offering|registered direct|prospectus|capital raise)\b/i.test(text)) return finish("FINANCING");
 
   if (isExecutiveAppearance(text)) return finish("CONFERENCE");
+
+  if (MARKET_COMMENTARY.test(text) && !DIRECT_CORPORATE_EVENT.test(text)) {
+    return finish("OTHER_MATERIAL_EVENT", "market_commentary");
+  }
 
   if (EARNINGS_RESULTS.test(text) || EARNINGS_SCHEDULE.test(text)) return finish("EARNINGS");
 

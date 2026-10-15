@@ -10,6 +10,7 @@ import { DatabaseReadError } from "./conflicts.ts";
 import { observationFromRadarRow } from "./market-reaction.ts";
 import type { CatalystIntelStore } from "./persistence.ts";
 import { parseHistoricalBackfillScope, parseReactionRunMode } from "./reaction-eligibility.ts";
+import { parseReactionWindows } from "./reaction-window-schedule.ts";
 import { runCollectorBot, runReactionBot } from "./run-bot.ts";
 import type { EventPriceBar } from "./event-bars.ts";
 import type { BotId, CompanyRecord, MarketObservation } from "./types.ts";
@@ -120,6 +121,10 @@ export async function handleCatalystIntelRequest(req: Request, deps: IntelHandle
       loadReferenceBars: deps.loadReferenceBars,
       mode,
       historicalBackfill,
+      reactionWindows: parseReactionWindows(body.reaction_windows) ?? undefined,
+      windowKind: typeof body.window_kind === "string"
+        ? (body.window_kind.trim() as import("./types.ts").ReactionWindow)
+        : undefined,
     });
     return finishRun(deps.bot, ai, run);
   }
