@@ -13,6 +13,7 @@ import {
   formatVolumeSpeedSpotlight,
   loadWorkspaceState,
   mapVolumeTrend,
+  resolveVolumeTrendForDisplay,
   panelAgeLabel,
   panelCountLabel,
   panelHeading,
@@ -287,6 +288,18 @@ describe("leaders and storage reset", () => {
       row({ symbol: "EXPENSIVE", rank: 2, price: 80, change_percent: 20, volume_ratio_prior_session: 10 }),
     ];
     expect(selectTradableFeaturedLeader(outside)).toBeNull();
+  });
+
+  it("downgrades bullish volume trend when the scanner trigger is historical", () => {
+    const nowMs = Date.parse("2026-10-14T08:54:00.000Z");
+    const staleTrigger = "2026-10-14T04:00:00.000Z";
+    const view = resolveVolumeTrendForDisplay({
+      accelerationPct: 80,
+      primaryScannerEventAt: staleTrigger,
+      nowMs,
+    });
+    expect(view.label).toBe("STEADY");
+    expect(view.title).toMatch(/historical/i);
   });
 
   it("resets legacy scanner column storage onto DAY TRADE DESK", () => {

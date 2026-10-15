@@ -1,0 +1,2 @@
+-- Radar V2 replace RPC marker (Supabase source: 20261015143000_radar_v22_replace_rpc_set_based_events_v1.sql)
+-- Set-based event persistence + trading-date-scoped candidate delete.
