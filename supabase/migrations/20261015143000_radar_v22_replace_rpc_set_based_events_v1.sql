@@ -251,6 +251,10 @@ BEGIN
     IF v_inserted <> v_len THEN RAISE EXCEPTION 'insert count mismatch'; END IF;
   END IF;
 
+  -- Live readers resolve candidates by generation_id; retain only the active session date.
+  DELETE FROM public.radar_v22_candidates
+  WHERE trading_date < p_trading_date;
+
   FOR v_ev IN SELECT value FROM jsonb_array_elements(p_events)
   LOOP
     IF jsonb_typeof(v_ev) <> 'object' THEN RAISE EXCEPTION 'event must be an object'; END IF;

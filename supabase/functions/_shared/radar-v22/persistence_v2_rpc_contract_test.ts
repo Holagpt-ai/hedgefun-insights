@@ -109,6 +109,7 @@ Deno.test("static: events persist with set-based INSERT", async () => {
 Deno.test("static: candidate delete scoped to trading date", async () => {
   const body = functionBody(await loadRpc());
   assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date = p_trading_date"));
+  assert(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE trading_date < p_trading_date"));
   assertFalse(body.includes("DELETE FROM public.radar_v22_candidates\n  WHERE true"));
 });
 
