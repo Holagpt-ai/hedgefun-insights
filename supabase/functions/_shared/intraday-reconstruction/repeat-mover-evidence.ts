@@ -8,6 +8,7 @@ export type RepeatMoverIntradayEvidence = {
   vwapReclaimCount: number | null;
   largestVolumeBurstAt: string | null;
   completenessState: "COMPLETE" | "PARTIAL" | "DAILY_ONLY" | "UNAVAILABLE";
+  postMomentumForwardOutcomes?: Record<string, unknown> | null;
 };
 
 const VALID_COMPLETENESS = new Set<string>([
@@ -46,5 +47,9 @@ export function mapPersistedRowToRepeatMoverEvidence(
       ? row.largest_volume_burst_at
       : null,
     completenessState: completenessRaw as RepeatMoverIntradayEvidence["completenessState"],
+    postMomentumForwardOutcomes:
+      row.post_momentum_forward_outcomes != null && typeof row.post_momentum_forward_outcomes === "object"
+        ? row.post_momentum_forward_outcomes as Record<string, unknown>
+        : null,
   };
 }
