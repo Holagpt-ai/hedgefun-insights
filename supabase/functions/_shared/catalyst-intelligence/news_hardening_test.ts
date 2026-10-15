@@ -1321,6 +1321,70 @@ Deno.test("NEWS 304 between continuation runs does not erase local backlog", asy
   assertEquals(obs?.ingestion?.continuation_remaining_items, 16);
 });
 
+function rssFeedWithPrepended(prefixGuids: string[], baseCount: number): string {
+  const guids = [...prefixGuids, ...Array.from({ length: baseCount }, (_, index) => `gnw-${index}`)];
+  const items = guids.map((guid, index) => {
+    const title = index < prefixGuids.length
+      ? `Prepended issuer ${guid} announces quarterly results`
+      : `Issuer ${index - prefixGuids.length} USA L.L.C. announces quarterly results`;
+    return `<item>
+<title>${title}</title>
+<link>https://www.globenewswire.com/news-release/${guid}</link>
+<guid isPermaLink="false">${guid}</guid>
+<pubDate>Wed, 01 Oct 2026 12:00:00 GMT</pubDate>
+<description>The company will host a call.</description>
+</item>`;
+  }).join("\n");
+  return `<?xml version="1.0"?><rss version="2.0"><channel><title>GNW</title>${items}</channel></rss>`;
+}
+
+Deno.test("NEWS prepended items process after reorder without skipping or duplicating identities", async () => {
+  const store = createMemoryStore();
+  const src = source({
+    sourceType: "NEWS_PR",
+    url: "https://www.globenewswire.com/RssFeed/prepend-forty-two",
+    evidenceTier: "TIER_2_STRONG_SECONDARY",
+    feedFormat: "rss",
+  });
+  await store.saveSource(src);
+  let body = rssFeed(40);
+  const universe = buildCompanyUniverse([{ ticker: "MMM", name: "3M Company" }]);
+  const runAt = (index: number, feedBody: string) => runCollectorBot({
+    bot: "news",
+    adapter: newsPrAdapter,
+    store,
+    now: new Date(NOW.getTime() + index * 60_000),
+    userAgent: "test",
+    fetchImpl: () => Promise.resolve(new Response(feedBody, { status: 200 })),
+    batchLimit: 1,
+    companies: universe,
+    newsItemBudget: 8,
+    newsWallTimeMs: 60_000,
+    itemLimit: 50,
+  });
+
+  const first = await runAt(0, body);
+  assertEquals(first.sourcesFailed, 0);
+  assertEquals(first.rawItemsSeen, 8);
+  assertEquals(store.rawItems().length, 8);
+
+  body = rssFeedWithPrepended(["gnw-prepend-0", "gnw-prepend-1"], 40);
+  let totalUnique = new Set(store.rawItems().map((row) => row.externalId)).size;
+  for (let attempt = 0; attempt < 10 && totalUnique < 42; attempt += 1) {
+    const run = await runAt(attempt + 1, body);
+    assertEquals(run.sourcesFailed, 0);
+    totalUnique = new Set(store.rawItems().map((row) => row.externalId)).size;
+  }
+  assertEquals(totalUnique, 42);
+  const ids = store.rawItems().map((row) => row.externalId);
+  assertEquals(ids.length, 42);
+  assertEquals(new Set(ids).size, 42);
+  assert(ids.includes("gnw-prepend-0"));
+  assert(ids.includes("gnw-prepend-1"));
+  assert(ids.includes("gnw-39"));
+  assertEquals(readNewsContinuation((await store.listSources({}))[0].metadata), null);
+});
+
 Deno.test("NEWS 40-item feed keeps its continuation through an unconditional 304", async () => {
   const store = createMemoryStore();
   const src = source({

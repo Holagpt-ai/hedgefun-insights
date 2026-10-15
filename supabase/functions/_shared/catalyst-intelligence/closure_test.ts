@@ -448,6 +448,14 @@ Deno.test("latest radar generation wins and event bars set the reference price",
   assertEquals(empty.reactions()[0].currentPrice, 110);
 });
 
+Deno.test("migration due-sources treats news_feed_continuation as due", async () => {
+  const sql = await Deno.readTextFile(
+    new URL("../../../migrations/20261015180000_catalyst_intel_due_sources_news_continuation_v1.sql", import.meta.url),
+  );
+  assert(sql.includes("news_feed_continuation"));
+  assert(sql.includes("poll_interval_seconds"));
+});
+
 Deno.test("migration keeps the two-layer gate and does not alter catalyst_events", async () => {
   const sql = await Deno.readTextFile(new URL("../../../migrations/20260930120000_catalyst_intelligence_foundation_v1.sql", import.meta.url));
   const storeSrc = await Deno.readTextFile(new URL("./supabase-store.ts", import.meta.url));

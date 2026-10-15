@@ -3,7 +3,7 @@ import { applyGlobeNewswireTickerMetadata } from "../globenewswire-ticker.ts";
 import { buildRawItem } from "../normalize.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { loadConfiguredSource } from "../source-fetch.ts";
-import { MAX_ITEMS_PER_SOURCE } from "../config.ts";
+import { MAX_NEWS_ITEMS_PER_SOURCE } from "../config.ts";
 import type { NormalizedEventCandidate, RawSourceItem, SourceRunContext } from "../types.ts";
 
 export const newsPrAdapter: CatalystSourceAdapter = {
@@ -15,7 +15,7 @@ export const newsPrAdapter: CatalystSourceAdapter = {
     const format = ctx.source.feedFormat;
     const parsed = (format === "json" || body.trim().startsWith("{") || body.trim().startsWith("[")
       ? parseJsonItems(body)
-      : parseRssOrAtom(body)).slice(0, ctx.itemLimit || MAX_ITEMS_PER_SOURCE);
+      : parseRssOrAtom(body)).slice(0, ctx.itemLimit || MAX_NEWS_ITEMS_PER_SOURCE);
     const items: RawSourceItem[] = [];
     for (const item of parsed) {
       items.push(await buildRawItem({

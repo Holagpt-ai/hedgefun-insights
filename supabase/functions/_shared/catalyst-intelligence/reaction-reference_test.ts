@@ -154,6 +154,7 @@ Deno.test("reaction: Radar present and Polygon reference both apply", async () =
     store,
     now: REACTION_NOW,
     batchLimit: 5,
+    windowKind: "point",
     loadObservation: async () => observation,
     loadReferenceBars: async () => {
       polygonCalls += 1;
