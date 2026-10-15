@@ -6,6 +6,7 @@ import {
   resolveTimeAdjustedRvolConfidenceInput,
 } from "@/lib/screeners/continuation-rvol-confidence";
 import type { ContinuationInput } from "@/types/continuation";
+import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 
 const SESSION = "2026-08-12";
 const POWER_HOUR = "2026-08-12T19:30:00.000Z";
@@ -51,6 +52,28 @@ describe("continuation RVOL confidence wiring", () => {
     expect(result.components.rvol20d.score).toBe(4);
   });
 
+  it("C. screener adapter wires TARVOL 3.0x with baseline — ranking stays at or above 2x tier", () => {
+    const view = evaluateScreenerContinuation(
+      {
+        symbol: "TEST",
+        volume: 3_000_000,
+        time_adjusted_rvol: 3,
+        participation_baseline_session_count: 12,
+        provider_as_of: POWER_HOUR,
+        radar_trading_date: SESSION,
+        price: 10,
+        change_percent: 5,
+        close_distance_from_hod_pct: 0.8,
+        late_session_volume_velocity: "STRONG",
+        continuation_catalyst_quality: "STRONG",
+      },
+      { freshnessState: "FRESH" },
+    );
+    expect(view.result.components.rvol20d.rawValue).toBe(3);
+    expect(view.result.components.rvol20d.score).toBeGreaterThanOrEqual(2);
+    expect(view.result.components.rvol20d.score).toBe(4);
+  });
+
   it("B. without baseline facts, fail-closed dampening remains", () => {
     const stripped = powerHourBase({
       currentSessionVolume: null,
@@ -64,5 +87,12 @@ describe("continuation RVOL confidence wiring", () => {
 
     const result = evaluateContinuation(stripped);
     expect(result.components.rvol20d.score).toBeLessThan(4);
+  });
+
+  it("D. verified 3.0x TARVOL with baseline ranks at full 3x tier, not damped toward 2x", () => {
+    const wired = powerHourBase();
+    const assessed = assessRvolConfidence(resolveTimeAdjustedRvolConfidenceInput(wired)!);
+    expect(assessed.rankingRvol).toBeGreaterThanOrEqual(3);
+    expect(evaluateContinuation(wired).components.rvol20d.score).toBe(4);
   });
 });

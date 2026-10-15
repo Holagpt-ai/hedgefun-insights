@@ -12,6 +12,7 @@ import type { ContinuationCategory, ContinuationVelocityState } from "@/config/c
 import type { TradeQualityCatalystQuality } from "@/config/trade-quality.config";
 import { isUsableForScoring } from "@/lib/screeners/data-quality";
 import { evaluateContinuation } from "@/lib/screeners/continuation";
+import { impliedBaselineVolumeFromRatio } from "@/lib/screeners/continuation-rvol-confidence";
 import {
   toScreenerDollarVolumeValue,
   toScreenerRvol20dValue,
@@ -53,6 +54,11 @@ export interface ScreenerContinuationSource {
   continuation_catalyst_quality?: TradeQualityCatalystQuality | null;
   volume_acceleration_pct?: number | null;
   vol_velocity?: number | null;
+  volume_5m?: number | null;
+  participation_state?: string | null;
+  primary_scanner_event?: string | null;
+  radar_event_lifecycle?: string | null;
+  radar_engine_events?: unknown;
 }
 
 export interface ScreenerContinuationOptions {
@@ -102,6 +108,52 @@ export function toContinuationInput(
   }
   if (isUsableForScoring(rvol20d) && rvol20d.value !== null) {
     input.rvol20d = rvol20d.value;
+  }
+  const timeAdjusted = row.time_adjusted_rvol;
+  if (timeAdjusted != null && Number.isFinite(timeAdjusted) && timeAdjusted > 0) {
+    input.timeAdjustedRvol = timeAdjusted;
+    if (row.rvol_20d == null || !Number.isFinite(row.rvol_20d)) {
+      input.rvol20d = timeAdjusted;
+    }
+  }
+  if (row.volume != null && Number.isFinite(row.volume) && row.volume >= 0) {
+    input.currentSessionVolume = row.volume;
+  }
+  const sampleSize = row.participation_baseline_session_count;
+  if (sampleSize != null && Number.isInteger(sampleSize) && sampleSize >= 0) {
+    input.rvolBaselineSampleSize = sampleSize;
+  }
+  const avg20d = row.avg_volume_20d;
+  const impliedBaseline =
+    impliedBaselineVolumeFromRatio(row.volume, row.time_adjusted_rvol) ??
+    impliedBaselineVolumeFromRatio(row.volume_5m, row.rvol_5m);
+  if (avg20d != null && Number.isFinite(avg20d) && avg20d > 0) {
+    input.rvolBaselineVolume = avg20d;
+  } else if (impliedBaseline !== null) {
+    input.rvolBaselineVolume = impliedBaseline;
+  }
+  if (row.participation_state?.trim()) {
+    input.participationState = row.participation_state.trim();
+  }
+  if (row.primary_scanner_event?.trim()) {
+    input.scannerPrimaryEvent = row.primary_scanner_event.trim();
+  }
+  const lifecycle = row.radar_event_lifecycle?.trim().toUpperCase() ?? "";
+  const engineEvents = Array.isArray(row.radar_engine_events)
+    ? new Set(
+      row.radar_engine_events
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim().toUpperCase()),
+    )
+    : new Set<string>();
+  if (engineEvents.has("RE_ACCELERATION") || lifecycle.includes("RE_ACCELER")) {
+    input.radarHasReAcceleration = "TRUE";
+  }
+  if (engineEvents.has("SECOND_LEG") || lifecycle.includes("SECOND")) {
+    input.radarHasSecondLeg = "TRUE";
+  }
+  if (engineEvents.has("NEW_HOD") || lifecycle.includes("NEW_HOD")) {
+    input.radarHasNewHod = "TRUE";
   }
   if (tradeQuality.score !== null && tradeQuality.status !== "INCOMPLETE") {
     input.tradeQualityScore = tradeQuality.score;

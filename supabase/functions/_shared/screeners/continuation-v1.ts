@@ -370,7 +370,10 @@ function evaluateCategories(
     input.scannerPrimaryEvent === "MOMENTUM_TRIGGER" ||
     input.scannerPrimaryEvent === "RE_ACCELERATION" ||
     input.scannerPrimaryEvent === "SECOND_LEG" ||
-    input.scannerPrimaryEvent === "NEW_HOD";
+    input.scannerPrimaryEvent === "NEW_HOD" ||
+    input.scannerPrimaryEvent === "GAP_CONTINUATION" ||
+    input.scannerPrimaryEvent === "VOLUME_EXPLOSION" ||
+    input.scannerPrimaryEvent === "VWAP_RECLAIM";
   const participationSurge =
     input.participationState?.trim().toUpperCase() === "SURGING" ||
     input.participationState?.trim().toUpperCase() === "RISING";
