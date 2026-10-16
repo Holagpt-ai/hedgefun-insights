@@ -3,6 +3,7 @@
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
 import { isEarningsWithin7Days } from "@/lib/watchlist-v2/earnings";
+import { getEtParts, marketHolidayName, resolveMarketClock } from "@/lib/market-calendar";
 
 export type WatchlistFilter =
   | "all"
@@ -141,8 +142,14 @@ export function isHighVolume(row: V2Row): boolean | null {
   return null;
 }
 
+/** Verified catalyst evidence only — provider-reported news alone does not qualify. */
 export function hasFreshCatalyst(row: V2Row): boolean {
-  return row.hasV2 && row.recentEvents.length > 0;
+  if (!row.hasV2) return false;
+  const verified = row.verifiedRecentEvent;
+  if (verified?.kind === "radar" || verified?.kind === "earnings") {
+    return Boolean(verified.title?.trim());
+  }
+  return false;
 }
 
 export function isDataUnavailable(row: V2Row): boolean {
@@ -203,7 +210,12 @@ export function computeSummaryMetrics(
     { key: "high_rvol", label: "High RVOL", value: highRvol, filter: "high_volume" },
     { key: "near_hod", label: "Near HOD", value: nearHod, filter: "near_hod" },
     { key: "earnings_7d", label: "Earnings Within 7 Days", value: earnings7d, filter: "earnings" },
-    { key: "fresh_catalysts", label: "Fresh Verified Catalysts", value: freshCatalysts, filter: "catalysts" },
+    {
+      key: "fresh_catalysts",
+      label: "Fresh Verified Catalysts",
+      value: freshCatalysts,
+      filter: "catalysts",
+    },
   ];
 }
 
@@ -288,28 +300,14 @@ export function sortRows(
   return copy;
 }
 
-/** Current US equity session label from ET clock (header disclosure). */
+/** Session header uses exchange calendar (holidays/weekends), not weekday/time alone. */
 export function currentMarketSessionLabel(nowMs: number = Date.now()): string {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    weekday: "short",
-    hour: "numeric",
-    minute: "numeric",
-    hour12: false,
-  }).formatToParts(new Date(nowMs));
-  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? "0");
-  const mins = hour * 60 + minute;
-
-  if (weekday === "Sat" || weekday === "Sun") return "Weekend · Market closed";
-  // Pre-market 4:00–9:30 ET
-  if (mins >= 4 * 60 && mins < 9 * 60 + 30) return "Pre-market";
-  // RTH 9:30–16:00 ET
-  if (mins >= 9 * 60 + 30 && mins < 16 * 60) return "Regular hours";
-  // After-hours 16:00–20:00 ET
-  if (mins >= 16 * 60 && mins < 20 * 60) return "After-hours";
-  return "Market closed";
+  const clock = resolveMarketClock(new Date(nowMs));
+  const holiday = marketHolidayName(getEtParts(new Date(nowMs)).date);
+  if (!clock.isTradingDay) {
+    return holiday ? `Market closed · ${holiday}` : clock.label;
+  }
+  return clock.label;
 }
 
 export function rvolIntensityTier(rvol: number | null): "pending" | "normal" | "elevated" | "unusual" | "na" {

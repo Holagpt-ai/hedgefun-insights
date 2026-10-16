@@ -142,6 +142,8 @@ export function resolveWatchlistMarketDataTrust(input: {
   /** Analysis session date (ET YYYY-MM-DD) from stored Watchlist V2 row. */
   analysisSessionDate?: string | null;
   intradayBars?: readonly { t: number }[];
+  /** Stored provider disclosure (e.g. 15-minute delayed feed). */
+  feedDelayNote?: string | null;
   nowMs?: number;
 }): MarketDataTrustState {
   const nowMs = input.nowMs ?? Date.now();
@@ -164,6 +166,7 @@ export function resolveWatchlistMarketDataTrust(input: {
     return "CLOSED";
   }
 
+  let state: MarketDataTrustState;
   if (ageMs > WATCHLIST_SNAPSHOT_STALE_MS) {
     if (
       watchlistIntradayRelievesStaleSnapshot({
@@ -174,11 +177,21 @@ export function resolveWatchlistMarketDataTrust(input: {
         nowMs,
       })
     ) {
-      return "FRESH";
+      state = "FRESH";
+    } else {
+      state = "STALE";
     }
-    return "STALE";
+  } else {
+    state = "FRESH";
   }
-  return "FRESH";
+
+  const delayedFeed =
+    typeof input.feedDelayNote === "string" &&
+    /delayed/i.test(input.feedDelayNote.trim());
+  if (delayedFeed && state === "FRESH") {
+    return "DELAYED";
+  }
+  return state;
 }
 
 export function resolvePreMarketSectionTrust(

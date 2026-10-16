@@ -139,6 +139,26 @@ describe("WatchlistRowV2 data_unavailable contract", () => {
     expect(container.innerHTML).toContain("Above VWAP");
   });
 
+  it("labels delayed feed signals without implying live scope", () => {
+    const ts = Date.now() - 5 * 60_000;
+    const { getByText } = renderRow(
+      row({
+        direction: "bullish",
+        failureReason: null,
+        explanation: "ok",
+        marketSignalSummary: { label: "MOMENTUM", rule_id: "rule.momentum" },
+        inputsQuality: {
+          snapshot_ts_ms: ts,
+          feed_delay_note: "provider feed is 15-minute delayed",
+          analysis_presentation: "live",
+        },
+        analysisPresentation: "live",
+        validThrough: new Date(Date.now() + 60 * 60_000).toISOString(),
+      }),
+    );
+    expect(getByText(/MOMENTUM · delayed snapshot/i)).toBeInTheDocument();
+  });
+
   it("never renders raw driver_ids or evidence hashes, even when directional", () => {
     const { container } = renderRow(
       row({

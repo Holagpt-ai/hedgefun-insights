@@ -55,6 +55,19 @@ describe("resolveWatchlistMarketDataTrust", () => {
     ).toBe("FRESH");
   });
 
+  it("discloses delayed provider feed as Delayed instead of implying live access", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough,
+        snapshotTsMs: NOW - 6 * 60_000,
+        analysisPresentation: "live",
+        feedDelayNote: "provider feed is 15-minute delayed",
+        nowMs: NOW,
+      }),
+    ).toBe("DELAYED");
+  });
+
   it("expired valid_through -> Stale", () => {
     expect(
       resolveWatchlistMarketDataTrust({

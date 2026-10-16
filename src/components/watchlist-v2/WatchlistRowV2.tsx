@@ -4,10 +4,10 @@ import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
 import { humanFailureReason, humanFailureReasonSecondary, isExpectedUnavailableReason } from "@/lib/watchlist-v2/parsers";
 import {
-  formatMarketDataTrustLine,
   resolveWatchlistMarketDataTrust,
   trustStateTone,
 } from "@/lib/market-data/trust-states";
+import { buildWatchlistQuoteProvenance } from "@/lib/watchlist-v2/watchlist-quote-provenance";
 import {
   densityTokens,
   dollarMove,
@@ -17,7 +17,11 @@ import {
   vwapDistance,
   type WatchlistDensity,
 } from "@/lib/watchlist-v2/metrics";
-import { presentWatchlistMarketSignal } from "@/lib/watchlist-v2/market-signal-summary";
+import {
+  formatPresentedWatchlistSignalBadge,
+  presentWatchlistMarketSignal,
+  presentedWatchlistSignalTitle,
+} from "@/lib/watchlist-v2/market-signal-summary";
 import { tickerToSlug } from "@/lib/ticker-utils";
 import { V2IntradayChart } from "./V2IntradayChart";
 import { Badge } from "@/components/ui/badge";
@@ -185,9 +189,6 @@ export function WatchlistRowV2({
   const expectedUnavailable = isUnavailable && isExpectedUnavailableReason(row.failureReason);
   const providerFailed = row.requestStatus === "failed";
   const unavailableSecondary = expectedUnavailable ? humanFailureReasonSecondary(row.failureReason) : null;
-  const snapshotIso = row.inputsQuality.snapshot_ts_ms
-    ? new Date(row.inputsQuality.snapshot_ts_ms).toISOString()
-    : null;
   const marketDataTrust = resolveWatchlistMarketDataTrust({
     hasV2: row.hasV2,
     validThrough: row.validThrough,
@@ -195,12 +196,15 @@ export function WatchlistRowV2({
     analysisPresentation: row.inputsQuality.analysis_presentation ?? null,
     analysisSessionDate: row.sessionDate || null,
     intradayBars: row.intraday,
+    feedDelayNote: row.inputsQuality.feed_delay_note ?? null,
   });
-  const marketDataTrustLine = formatMarketDataTrustLine(
-    marketDataTrust,
-    snapshotIso,
-    Date.now(),
-  );
+  const quoteProvenance = buildWatchlistQuoteProvenance({
+    snapshotMs: row.inputsQuality.snapshot_ts_ms ?? null,
+    trust: marketDataTrust,
+    analysisPresentation: row.analysisPresentation,
+    analysisSessionDate: row.sessionDate || null,
+    intradayBars: row.intraday,
+  });
 
   const statusLine = (() => {
     if (isRefreshing) return { text: "Updating analysis…", tone: "text-amber-700 dark:text-amber-400" };
@@ -208,8 +212,15 @@ export function WatchlistRowV2({
     if (row.requestStatus === "failed") return { text: "Update failed", tone: "text-red-600 dark:text-red-400" };
     if (!row.hasV2) return { text: "Awaiting first analysis", tone: "text-muted-foreground" };
     if (expectedUnavailable) return { text: "Auto-recheck enabled", tone: "text-slate-500 dark:text-slate-400" };
-    return { text: marketDataTrustLine, tone: trustStateTone(marketDataTrust) };
+    const primary = quoteProvenance.quoteAsOfLabel
+      ? `${quoteProvenance.trustLine} · ${quoteProvenance.quoteAsOfLabel}`
+      : quoteProvenance.trustLine;
+    return { text: primary, tone: trustStateTone(marketDataTrust) };
   })();
+  const chartEvidenceLine =
+    quoteProvenance.intradayRelievesStaleSnapshot && quoteProvenance.chartEvidenceLabel
+      ? quoteProvenance.chartEvidenceLabel
+      : null;
   const shownMarketSignals = isUnavailable ? [] : row.marketSignals;
   const latestEvent = row.recentEvents[0] ?? null;
   const verifiedRadar =
@@ -219,7 +230,9 @@ export function WatchlistRowV2({
   const displaySessionLabel =
     row.sessionDisplayLabel.trim() || sessionLabel(row.sessionType);
   const presentedSignal = presentWatchlistMarketSignal(row.marketSignalSummary, marketDataTrust);
-  const marketSignalLabel = presentedSignal?.label ?? null;
+  const marketSignalLabel = presentedSignal
+    ? formatPresentedWatchlistSignalBadge(presentedSignal)
+    : null;
   const closedSession = row.analysisPresentation === "last_completed" || marketDataTrust === "CLOSED";
   const highLabel =
     row.keyLevels.hod_lod_scope === "premarket"
@@ -328,12 +341,12 @@ export function WatchlistRowV2({
                   variant="secondary"
                   className="text-[10px] h-5 font-medium"
                   title={
-                    presentedSignal?.scope === "last_completed"
-                      ? `Last completed session · ${presentedSignal.rule_id}`
-                      : `Market Signal · ${presentedSignal?.rule_id ?? ""}`
+                    presentedSignal
+                      ? presentedWatchlistSignalTitle(presentedSignal)
+                      : undefined
                   }
                 >
-                  {presentedSignal?.scope === "last_completed" ? `${marketSignalLabel} · last session` : marketSignalLabel}
+                  {marketSignalLabel}
                 </Badge>
               )}
               {earnings && (
@@ -525,6 +538,9 @@ export function WatchlistRowV2({
               </span>
             )}
             <span className={statusLine.tone}>{statusLine.text}</span>
+            {chartEvidenceLine ? (
+              <span className="text-slate-500 dark:text-slate-400">{chartEvidenceLine}</span>
+            ) : null}
           </div>
         </div>
 

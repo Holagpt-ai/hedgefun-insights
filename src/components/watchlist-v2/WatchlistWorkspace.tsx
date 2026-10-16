@@ -61,6 +61,8 @@ export function WatchlistWorkspace({ className }: Props) {
   const {
     isAuthenticated,
     isLoading,
+    watchlistQueryFailed,
+    analysisQueryFailed,
     rows,
     refresh,
     refreshingSymbol,
@@ -214,8 +216,30 @@ export function WatchlistWorkspace({ className }: Props) {
         onFilter={setFilter}
       />
 
+      {analysisQueryFailed && !isLoading ? (
+        <div
+          role="alert"
+          className="rounded-md border border-amber-200 dark:border-amber-900/60 bg-amber-50/80 dark:bg-amber-950/30 px-4 py-3 text-sm text-amber-900 dark:text-amber-200"
+        >
+          Some analysis rows could not be loaded. Symbol list is still available; try refreshing
+          the page.
+        </div>
+      ) : null}
+
       {isLoading ? (
         <LoadingShimmer />
+      ) : watchlistQueryFailed ? (
+        <div
+          role="alert"
+          className="rounded-md border border-red-200 dark:border-red-900/60 bg-red-50/80 dark:bg-red-950/30 px-4 py-12 text-center"
+        >
+          <div className="text-base font-medium text-red-900 dark:text-red-100 mb-1">
+            Could not load your watchlist
+          </div>
+          <div className="text-sm text-red-800/90 dark:text-red-200/90">
+            Check your connection and try again. This is not an empty watchlist.
+          </div>
+        </div>
       ) : rows.length === 0 ? (
         <div className="rounded-md border border-dashed border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-900 px-4 py-12 text-center">
           <div className="text-base font-medium text-slate-900 dark:text-slate-50 mb-1">

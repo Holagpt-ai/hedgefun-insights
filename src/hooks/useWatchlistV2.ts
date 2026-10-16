@@ -27,6 +27,7 @@ import {
   classifyWatchlistRefreshInvoke,
   toastSpecForRefreshError,
 } from "@/lib/watchlist-v2/refresh-response";
+import { resolveWatchlistRowRequestStatus } from "@/lib/watchlist-v2/watchlist-request-status";
 
 export interface V2Row {
   ticker: string;
@@ -97,8 +98,8 @@ export function useWatchlistV2() {
   // 2. V2 analysis rows for those tickers (public read policy exists; the
   //    surface is still gated to the user's own watchlist symbols).
   const analysisQuery = useQuery({
-    queryKey: ["watchlist-v2", "analysis", symbols],
-    enabled: symbols.length > 0,
+    queryKey: ["watchlist-v2", "analysis", userId, symbols],
+    enabled: !!userId && symbols.length > 0,
     staleTime: 15_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -112,8 +113,8 @@ export function useWatchlistV2() {
 
   // 3. Ticker company names from ticker_search (best-effort).
   const namesQuery = useQuery({
-    queryKey: ["watchlist-v2", "names", symbols],
-    enabled: symbols.length > 0,
+    queryKey: ["watchlist-v2", "names", userId, symbols],
+    enabled: !!userId && symbols.length > 0,
     staleTime: 5 * 60_000,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -144,7 +145,12 @@ export function useWatchlistV2() {
       if (error) throw error;
       const latest: Record<
         string,
-        { status: string; error_code: string | null; requested_at: string }
+        {
+          status: string;
+          error_code: string | null;
+          requested_at: string;
+          completed_at: string | null;
+        }
       > = {};
       for (const r of data ?? []) {
         const t = r.ticker.toUpperCase();
@@ -153,6 +159,7 @@ export function useWatchlistV2() {
             status: r.status,
             error_code: r.error_code,
             requested_at: r.requested_at,
+            completed_at: r.completed_at ?? null,
           };
         }
       }
@@ -196,6 +203,12 @@ export function useWatchlistV2() {
     };
   }, [userId, symbols, qc]);
 
+  useEffect(() => {
+    if (!userId) {
+      qc.removeQueries({ queryKey: ["watchlist-v2"] });
+    }
+  }, [userId, qc]);
+
   // Compose rows.
   const rows: V2Row[] = useMemo(() => {
     const analysisMap: Record<string, unknown> = {};
@@ -209,11 +222,14 @@ export function useWatchlistV2() {
     return symbols.map((sym) => {
       const raw = analysisMap[sym] as Record<string, unknown> | undefined;
       const req = reqMap[sym];
-      const requestStatus: V2Row["requestStatus"] =
-        req?.status === "pending" || req?.status === "failed" || req?.status === "succeeded"
-          ? req.status
-          : "none";
-      const requestError = req?.error_code ? humanFailureReason(req.error_code) : null;
+      const analyzedAt = typeof raw?.analyzed_at === "string" ? raw.analyzed_at : "";
+      const { requestStatus, requestError } = resolveWatchlistRowRequestStatus({
+        status: req?.status,
+        error_code: req?.error_code,
+        requested_at: req?.requested_at,
+        completed_at: req?.completed_at ?? undefined,
+        analyzedAt,
+      });
 
       if (!raw) {
         return {
@@ -385,11 +401,16 @@ export function useWatchlistV2() {
   const addSymbol = useCallback((s: string) => addMutation.mutate(s), [addMutation]);
   const removeSymbol = useCallback((s: string) => removeMutation.mutate(s), [removeMutation]);
 
+  const watchlistQueryFailed = watchlistQuery.isError;
+  const analysisQueryFailed = symbols.length > 0 && analysisQuery.isError;
+
   return {
     isAuthenticated: !!userId,
     isLoading:
       watchlistQuery.isLoading ||
       (symbols.length > 0 && (analysisQuery.isLoading || requestsQuery.isLoading)),
+    watchlistQueryFailed,
+    analysisQueryFailed,
     rows,
     refresh,
     isRefreshing: refreshMutation.isPending,
