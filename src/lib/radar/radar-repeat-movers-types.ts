@@ -30,6 +30,8 @@ export interface RadarRepeatMoverDisplayFacts {
   sampleQualityLabel: string | null;
   mostRecentComparableLabel: string | null;
   sessionsObservedLabel: string | null;
+  /** One-line outcome or outcome-confidence fact for compact Repeat Movers UI. */
+  compactOutcomeFact: string | null;
   lines: readonly string[];
 }
 

@@ -152,6 +152,26 @@ describe("Batch 10 — historical outcome integrity", () => {
     expect(summary.medianMae).toBeNull();
   });
 
+  it("dedupes before maxTopMatches so duplicate IDs do not displace distinct episodes", () => {
+    const episodes = [
+      episode({ episodeId: "dup", sessionDate: "2026-08-01", movePct: 12, rvol: 4 }),
+      episode({ episodeId: "dup", sessionDate: "2026-08-01", movePct: 12, rvol: 4 }),
+      episode({ episodeId: "dup", sessionDate: "2026-08-01", movePct: 12, rvol: 4 }),
+      episode({ episodeId: "e2", sessionDate: "2026-08-02", movePct: 11, rvol: 3.8 }),
+      episode({ episodeId: "e3", sessionDate: "2026-08-03", movePct: 11.5, rvol: 3.9 }),
+      episode({ episodeId: "e4", sessionDate: "2026-08-04", movePct: 10.5, rvol: 3.7 }),
+      episode({ episodeId: "e5", sessionDate: "2026-08-05", movePct: 10, rvol: 3.6 }),
+      episode({ episodeId: "e6", sessionDate: "2026-08-06", movePct: 9.5, rvol: 3.5 }),
+    ];
+    const top = rankHistoricalMatches(current, contextWithEpisodes(episodes));
+    expect(top).toHaveLength(5);
+    const ids = top.map((m) => m.episodeId);
+    expect(new Set(ids).size).toBe(5);
+    expect(ids.filter((id) => id === "dup")).toHaveLength(1);
+    expect(ids).toContain("e2");
+    expect(ids).toContain("e3");
+  });
+
   it("dedupes duplicate episode IDs", () => {
     const dup: HistoricalTopMatch = {
       episodeId: "dup",
@@ -200,12 +220,30 @@ describe("Batch 10 — evidence quality presentation", () => {
     expect(chip).toMatch(/Limited outcome history/);
   });
 
-  it("shows limited outcome history instead of unsupported continuation percent", () => {
+  it("shows limited outcome history when no outcomes are observed", () => {
     const episodes = [
-      episode({ episodeId: "e1", sessionDate: "2026-08-01", nextSessionContinuation: true }),
+      episode({ episodeId: "e1", sessionDate: "2026-08-01", nextSessionContinuation: null }),
     ];
     const summary = summarizeHistoricalMatches(rankHistoricalMatches(current, contextWithEpisodes(episodes)));
     expect(summary.continuationRate).toBeNull();
-    expect(formatHistoricalMatchChip(summary)).toMatch(/Limited outcome history/);
+    const chip = formatHistoricalMatchChip(summary)!;
+    expect(chip).toMatch(/Limited outcome history/);
+    expect(chip.match(/Limited outcome history/g)?.length).toBe(1);
+  });
+
+  it("does not repeat limited outcome history when continuation rate is unavailable", () => {
+    const episodes = [
+      episode({
+        episodeId: "e1",
+        sessionDate: "2026-08-01",
+        nextSessionContinuation: true,
+        nextSessionMovePct: 2,
+      }),
+    ];
+    const summary = summarizeHistoricalMatches(rankHistoricalMatches(current, contextWithEpisodes(episodes)));
+    const chip = formatHistoricalMatchChip(summary)!;
+    expect(chip).toMatch(/1 outcome/);
+    expect(chip).toMatch(/Cont\. rate unavailable/);
+    expect(chip).not.toMatch(/Limited outcome history.*Limited outcome history/);
   });
 });

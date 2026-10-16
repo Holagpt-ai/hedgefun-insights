@@ -48,10 +48,10 @@ export function formatHistoricalMatchChip(summary: HistoricalMatchSummary | null
   if (summary.continuationRate != null) {
     parts.push(`${Math.round(summary.continuationRate * 100)}% cont.`);
   } else if (
-    summary.matchCount > 0 &&
+    summary.outcomeObservedCount > 0 &&
     summary.continuationKnownCount < HISTORICAL_MATCH.minKnownOutcomesForRate
   ) {
-    parts.push("Limited outcome history");
+    parts.push("Cont. rate unavailable");
   }
   if (summary.sampleQuality === "LIMITED") parts.push("limited");
   if (summary.matchSimilarityQuality === "SPARSE") parts.push("sparse match");

@@ -2,6 +2,7 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { RadarRepeatMoverCandidate, RadarRepeatMoversView } from "@/lib/radar/radar-repeat-movers-types";
+import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
 import { RepeatMoversView } from "../RepeatMoversView";
 
 function candidate(symbol: string, rank: number, overrides: Partial<RadarRepeatMoverCandidate> = {}): RadarRepeatMoverCandidate {
@@ -36,6 +37,7 @@ function candidate(symbol: string, rank: number, overrides: Partial<RadarRepeatM
       sampleQualityLabel: "Robust History",
       mostRecentComparableLabel: "Most Recent: 2026-09-10",
       sessionsObservedLabel: "600 Sessions Observed",
+      compactOutcomeFact: null,
       lines: ["4 Similar Prior Moves", "8 Historical Episodes", "Robust History"],
     },
     workflowHandoffs: {
@@ -111,6 +113,67 @@ describe("RepeatMoversView", () => {
     expect(within(filters).queryByText(/Stale Profile/i)).not.toBeInTheDocument();
     fireEvent.click(within(filters).getByRole("button", { name: "Limited History" }));
     expect(onFilterChange).toHaveBeenCalledWith("limited_history");
+  });
+
+  it("shows a concise outcome fact on desktop and mobile when history is partially observed", () => {
+    const partialSummary = {
+      matchCount: 4,
+      outcomeObservedCount: 2,
+      continuationKnownCount: 1,
+      continuationSuccessCount: 1,
+      missingOutcomeCount: 2,
+      outcomeCoverageRate: 0.5,
+      continuationCount: 1,
+      continuationRate: null,
+      medianNextSessionReturn: 3.2,
+      medianMfe: null,
+      medianMae: null,
+      positiveOutcomeRate: 1,
+      sampleQuality: "ADEQUATE",
+      matchSimilarityQuality: "MODERATE",
+      outcomeConfidence: "LIMITED",
+      profileEpisodeCount: 8,
+      topMatches: [],
+      strongestComparableDates: ["2026-08-01"],
+    } satisfies HistoricalMatchSummary;
+
+    const withOutcomes = candidate("OUTC", 3, {
+      displayFacts: {
+        similarPriorMovesLabel: "4 Similar Prior Moves",
+        historicalEpisodesLabel: "8 Historical Episodes",
+        sampleQualityLabel: "Robust History",
+        mostRecentComparableLabel: "Most Recent: 2026-09-10",
+        sessionsObservedLabel: null,
+        compactOutcomeFact: "2 outcomes · median +3.2%",
+        lines: [
+          "4 Similar Prior Moves",
+          "8 Historical Episodes",
+          "2 with observed next-session outcomes",
+        ],
+      },
+      historicalMatchSummary: partialSummary,
+    });
+
+    const outcomeView: RadarRepeatMoversView = {
+      ...view,
+      repeatMovers: [withOutcomes],
+      candidates: [withOutcomes],
+      summary: { ...view.summary, repeatMoverCount: 1, totalRadarRows: 1 },
+    };
+
+    render(
+      <MemoryRouter>
+        <RepeatMoversView view={outcomeView} activeFilter="all" onFilterChange={vi.fn()} onOpenDetails={vi.fn()} />
+      </MemoryRouter>,
+    );
+
+    const section = screen.getByTestId("repeat-movers-view");
+    const desktop = section.querySelector(".md\\:block");
+    const mobile = section.querySelector(".md\\:hidden");
+    expect(desktop).not.toBeNull();
+    expect(mobile).not.toBeNull();
+    expect(within(desktop as HTMLElement).getByText("2 outcomes · median +3.2%")).toBeInTheDocument();
+    expect(within(mobile as HTMLElement).getByText("2 outcomes · median +3.2%")).toBeInTheDocument();
   });
 
   it("filters qualified rows without re-sorting", () => {

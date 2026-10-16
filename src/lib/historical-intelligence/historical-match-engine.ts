@@ -150,6 +150,13 @@ export function dedupeHistoricalTopMatches(matches: HistoricalTopMatch[]): Histo
   return [...byId.values()];
 }
 
+export function sortHistoricalTopMatches(matches: HistoricalTopMatch[]): HistoricalTopMatch[] {
+  return [...matches].sort((a, b) => {
+    if (b.similarityScore !== a.similarityScore) return b.similarityScore - a.similarityScore;
+    return a.episodeId.localeCompare(b.episodeId);
+  });
+}
+
 export function buildCurrentSetupFromRadarCandidate(row: {
   symbol: string;
   last_price?: number | null;
@@ -244,10 +251,9 @@ export function rankHistoricalMatches(
     };
   });
 
-  return dedupeHistoricalTopMatches(
-    scored
-      .filter((m) => m.similarityScore >= HISTORICAL_MATCH.minSimilarityScore)
-      .sort((a, b) => b.similarityScore - a.similarityScore)
-      .slice(0, HISTORICAL_MATCH.maxTopMatches),
+  const eligible = scored.filter((m) => m.similarityScore >= HISTORICAL_MATCH.minSimilarityScore);
+  return sortHistoricalTopMatches(dedupeHistoricalTopMatches(eligible)).slice(
+    0,
+    HISTORICAL_MATCH.maxTopMatches,
   );
 }
