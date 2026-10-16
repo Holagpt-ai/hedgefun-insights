@@ -142,14 +142,24 @@ export function isHighVolume(row: V2Row): boolean | null {
   return null;
 }
 
-/** Verified catalyst evidence only — provider-reported news alone does not qualify. */
-export function hasFreshCatalyst(row: V2Row): boolean {
+/** Max age for recorded radar/earnings context shown in summary (not verified corporate catalysts). */
+export const RECORDED_CONTEXT_MAX_AGE_MS = 7 * 86_400_000;
+
+/**
+ * Stored radar or earnings *context* with a verifiable observation time.
+ * Undated events, provider news, and unknown-age records do not qualify.
+ */
+export function hasRecordedRadarOrEarningsContext(
+  row: V2Row,
+  nowMs: number = Date.now(),
+): boolean {
   if (!row.hasV2) return false;
-  const verified = row.verifiedRecentEvent;
-  if (verified?.kind === "radar" || verified?.kind === "earnings") {
-    return Boolean(verified.title?.trim());
-  }
-  return false;
+  const recorded = row.verifiedRecentEvent;
+  if (!recorded?.title?.trim()) return false;
+  if (recorded.kind !== "radar" && recorded.kind !== "earnings") return false;
+  const atMs = Date.parse(recorded.at ?? "");
+  if (!Number.isFinite(atMs) || atMs <= 0 || atMs > nowMs) return false;
+  return nowMs - atMs <= RECORDED_CONTEXT_MAX_AGE_MS;
 }
 
 export function isDataUnavailable(row: V2Row): boolean {
@@ -157,7 +167,13 @@ export function isDataUnavailable(row: V2Row): boolean {
 }
 
 export interface SummaryMetric {
-  key: WatchlistFilter | "advancing" | "declining" | "high_rvol" | "earnings_7d" | "fresh_catalysts";
+  key:
+    | WatchlistFilter
+    | "advancing"
+    | "declining"
+    | "high_rvol"
+    | "earnings_7d"
+    | "recorded_context";
   label: string;
   /** null → display "—"; number is an honest count of evaluable matches. */
   value: number | null;
@@ -186,9 +202,7 @@ export function computeSummaryMetrics(
       ? null
       : decliningEval.filter((r) => (r.changePct as number) < 0).length;
   const highRvol =
-    rvolEval.length === 0
-      ? null
-      : rows.filter((r) => r.rvolClass === "elevated" || r.rvolClass === "unusual").length;
+    rvolEval.length === 0 ? null : rows.filter((r) => isHighVolume(r) === true).length;
   const nearHod =
     nearHodEval.length === 0
       ? null
@@ -199,10 +213,10 @@ export function computeSummaryMetrics(
       : rows.filter((r) =>
           isEarningsWithin7Days(earningsBySymbol.get(r.ticker.toUpperCase())),
         ).length;
-  const freshCatalysts =
+  const recordedContext =
     catalystEval.length === 0
       ? null
-      : catalystEval.filter(hasFreshCatalyst).length;
+      : catalystEval.filter((r) => hasRecordedRadarOrEarningsContext(r)).length;
 
   return [
     { key: "advancing", label: "Advancing", value: advancing, filter: "advancing" },
@@ -211,9 +225,9 @@ export function computeSummaryMetrics(
     { key: "near_hod", label: "Near HOD", value: nearHod, filter: "near_hod" },
     { key: "earnings_7d", label: "Earnings Within 7 Days", value: earnings7d, filter: "earnings" },
     {
-      key: "fresh_catalysts",
-      label: "Fresh Verified Catalysts",
-      value: freshCatalysts,
+      key: "recorded_context",
+      label: "Recorded Radar / Earnings Context",
+      value: recordedContext,
       filter: "catalysts",
     },
   ];
@@ -235,12 +249,10 @@ export function rowMatchesFilter(
       return row.changePct !== null && row.changePct < 0;
     case "high_volume":
       return isHighVolume(row) === true;
-    case "earnings": {
-      const b = earningsBySymbol.get(row.ticker.toUpperCase());
-      return !!b;
-    }
+    case "earnings":
+      return isEarningsWithin7Days(earningsBySymbol.get(row.ticker.toUpperCase()));
     case "catalysts":
-      return hasFreshCatalyst(row);
+      return hasRecordedRadarOrEarningsContext(row);
     case "near_hod":
       return isNearHod(row) === true;
     case "data_unavailable":

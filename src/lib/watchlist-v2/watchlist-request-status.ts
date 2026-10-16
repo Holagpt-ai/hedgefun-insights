@@ -21,11 +21,12 @@ export function resolveWatchlistRowRequestStatus(input: {
   }
 
   const completedMs = Date.parse(input.completed_at ?? "");
+  if (!Number.isFinite(completedMs)) {
+    return { requestStatus: "pending", requestError: null };
+  }
+
   const analyzedMs = Date.parse(input.analyzedAt ?? "");
-  if (
-    Number.isFinite(completedMs) &&
-    (!Number.isFinite(analyzedMs) || analyzedMs < completedMs)
-  ) {
+  if (!Number.isFinite(analyzedMs) || analyzedMs < completedMs) {
     return { requestStatus: "pending", requestError: null };
   }
 

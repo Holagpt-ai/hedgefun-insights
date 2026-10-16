@@ -18,7 +18,6 @@ import {
   isSnapshotFromExpectedLastSession,
   isWatchlistClosedSurveillanceWindow,
 } from "@/lib/watchlist-v2/watchlist-snapshot-trust";
-import { watchlistIntradayRelievesStaleSnapshot } from "@/lib/watchlist-v2/watchlist-quote-coherence";
 import type { SectionEnvelope } from "@/types/pre-market";
 
 export type MarketDataTrustState = "FRESH" | "DELAYED" | "STALE" | "UNAVAILABLE" | "CLOSED";
@@ -150,10 +149,12 @@ export function resolveWatchlistMarketDataTrust(input: {
   if (!input.hasV2) return "UNAVAILABLE";
   const snapshotMs = parseTrustSourceMs(input.snapshotTsMs ?? null);
   if (snapshotMs === null) return "UNAVAILABLE";
+  if (snapshotMs > nowMs) return "UNAVAILABLE";
   if (input.analysisPresentation === "last_completed") return "CLOSED";
   if (isExpired(input.validThrough, new Date(nowMs))) return "STALE";
 
   const ageMs = nowMs - snapshotMs;
+  if (ageMs < 0) return "UNAVAILABLE";
   const closedSurveillance = isWatchlistClosedSurveillanceWindow(nowMs);
   if (
     closedSurveillance &&
@@ -166,24 +167,8 @@ export function resolveWatchlistMarketDataTrust(input: {
     return "CLOSED";
   }
 
-  let state: MarketDataTrustState;
-  if (ageMs > WATCHLIST_SNAPSHOT_STALE_MS) {
-    if (
-      watchlistIntradayRelievesStaleSnapshot({
-        analysisPresentation: input.analysisPresentation ?? null,
-        analysisSessionDate: input.analysisSessionDate,
-        snapshotMs,
-        intradayBars: input.intradayBars ?? [],
-        nowMs,
-      })
-    ) {
-      state = "FRESH";
-    } else {
-      state = "STALE";
-    }
-  } else {
-    state = "FRESH";
-  }
+  const state: MarketDataTrustState =
+    ageMs > WATCHLIST_SNAPSHOT_STALE_MS ? "STALE" : "FRESH";
 
   const delayedFeed =
     typeof input.feedDelayNote === "string" &&

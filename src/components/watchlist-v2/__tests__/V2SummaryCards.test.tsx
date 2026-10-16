@@ -86,17 +86,11 @@ describe("WatchlistSummaryStrip / computeSummaryMetrics", () => {
       row({
         ticker: "D",
         hasV2: true,
-        recentEvents: [
-          {
-            event_id: "1",
-            event_type: "news",
-            title: "x",
-            event_time: "2026-01-01T00:00:00Z",
-            source_name: "s",
-            source_url: null,
-            verification_state: "provider_reported",
-          },
-        ],
+        verifiedRecentEvent: {
+          kind: "radar",
+          title: "MOMENTUM_TRIGGER",
+          at: new Date(Date.now() - 2 * 60 * 60_000).toISOString(),
+        },
       }),
     ];
     const earnings = new Map<string, EarningsBadge>([["A", earningsBadge("A")]]);
@@ -108,7 +102,7 @@ describe("WatchlistSummaryStrip / computeSummaryMetrics", () => {
     expect(byKey.high_rvol).toBe(1);
     expect(byKey.near_hod).toBe(1);
     expect(byKey.earnings_7d).toBe(1);
-    expect(byKey.fresh_catalysts).toBe(1);
+    expect(byKey.recorded_context).toBe(1);
   });
 
   it("renders — for unevaluable metrics and toggles filter on click", () => {
