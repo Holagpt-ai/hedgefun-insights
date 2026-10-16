@@ -4,16 +4,26 @@ import {
   readAccountToastHistory,
 } from "@/lib/notifications/account-toast-history";
 import { isAtOrAfterBaseline } from "@/lib/notifications/toast-notification-baseline";
+import {
+  dedupeScannerAlertsByCanonicalIdentity,
+  scannerAlertCanonicalToastKey,
+} from "@/lib/scanner-alerts/canonical-event-identity";
+import {
+  isPlausibleScannerAlertObservationMs,
+  parseObservationMs,
+  SCANNER_ALERT_TOAST_LOOKBACK_MS,
+} from "@/lib/scanner-alerts/observation-freshness";
+
+export { SCANNER_ALERT_TOAST_LOOKBACK_MS } from "@/lib/scanner-alerts/observation-freshness";
 
 const SESSION_STORAGE_PREFIX = "stocksist-scanner-alert-toasts-v1";
 const DURABLE_STORAGE_NAMESPACE = "stocksist-scanner-alert-toasts-v2";
-export const SCANNER_ALERT_TOAST_LOOKBACK_MS = 6 * 3600_000;
 export const SCANNER_ALERT_TOAST_BASELINE_NS = "stocksist-scanner-alert-toast-baseline-v1";
 const DURABLE_MAX_ENTRIES = 400;
 
-/** Stable toast identity: persisted alert row id (distinct events keep distinct ids). */
+/** Toast identity: canonical dedupe_key when valid, else persisted row id. */
 export function scannerAlertToastKey(row: { id: string; dedupe_key: string }): string {
-  return row.id.trim() || row.dedupe_key;
+  return scannerAlertCanonicalToastKey(row);
 }
 
 export function scannerAlertSessionStorageKey(userId: string): string {
@@ -27,14 +37,18 @@ export function scannerAlertDeliveryMs(row: { created_at?: string; event_at: str
 }
 
 export function scannerAlertObservationMs(row: { event_at: string }): number {
-  return Date.parse(row.event_at);
+  return parseObservationMs(row.event_at);
 }
 
+/** Live popup eligibility uses market observation time, not DB insert time. */
 export function shouldSurfaceScannerAlertToast(
   row: { created_at?: string; event_at: string },
   baselineMs: number,
+  nowMs = Date.now(),
 ): boolean {
-  return isAtOrAfterBaseline(scannerAlertDeliveryMs(row), baselineMs);
+  const observedMs = scannerAlertObservationMs(row);
+  if (!isPlausibleScannerAlertObservationMs(observedMs, nowMs)) return false;
+  return isAtOrAfterBaseline(observedMs, baselineMs);
 }
 
 export function readSeenScannerToastKeys(userId: string): Set<string> {
@@ -85,19 +99,23 @@ export function filterUnseenScannerAlerts<T extends { id: string; dedupe_key: st
   rows: T[],
   seen: Set<string>,
 ): T[] {
-  return rows.filter((row) => !seen.has(scannerAlertToastKey(row)));
+  return dedupeScannerAlertsByCanonicalIdentity(rows).filter(
+    (row) => !seen.has(scannerAlertToastKey(row)),
+  );
 }
 
 export function filterLiveScannerAlertToasts<
   T extends { id: string; dedupe_key: string; created_at?: string; event_at: string },
->(rows: T[], seen: Set<string>, baselineMs: number): T[] {
-  return filterUnseenScannerAlerts(rows, seen).filter((row) => shouldSurfaceScannerAlertToast(row, baselineMs));
+>(rows: T[], seen: Set<string>, baselineMs: number, nowMs = Date.now()): T[] {
+  return filterUnseenScannerAlerts(rows, seen).filter((row) =>
+    shouldSurfaceScannerAlertToast(row, baselineMs, nowMs),
+  );
 }
 
 export function filterScannerAlertToastBacklog<
   T extends { id: string; dedupe_key: string; created_at?: string; event_at: string },
->(rows: T[], seen: Set<string>, baselineMs: number): T[] {
+>(rows: T[], seen: Set<string>, baselineMs: number, nowMs = Date.now()): T[] {
   return filterUnseenScannerAlerts(rows, seen).filter(
-    (row) => !shouldSurfaceScannerAlertToast(row, baselineMs),
+    (row) => !shouldSurfaceScannerAlertToast(row, baselineMs, nowMs),
   );
 }

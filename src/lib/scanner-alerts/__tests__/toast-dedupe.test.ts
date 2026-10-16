@@ -16,15 +16,19 @@ describe("scanner alert toast dedupe", () => {
     localStorage.clear();
   });
 
-  it("dedupes by stable alert id", () => {
-    const row = { id: "alert-uuid-1", dedupe_key: "scanner_v1:2026-03-15:AAA:RUNNING_UP:x" };
+  it("dedupes by canonical dedupe_key when present", () => {
+    const canonical = "scanner_v1:2026-03-15:AAA:RUNNING_UP:2026-03-15T14:00:00.000Z";
+    const row = { id: "alert-uuid-1", dedupe_key: canonical };
     const key = scannerAlertToastKey(row);
     markScannerToastSeen("user-a", key);
     expect(readSeenScannerToastKeys("user-a").has(key)).toBe(true);
-    const rows = [row, { id: "alert-uuid-2", dedupe_key: "other" }];
-    const unseen = filterUnseenScannerAlerts(rows, readSeenScannerToastKeys("user-a"));
-    expect(unseen).toHaveLength(1);
-    expect(unseen[0].id).toBe("alert-uuid-2");
+    const duplicateRow = { id: "alert-uuid-2", dedupe_key: canonical };
+    const other = { id: "alert-uuid-3", dedupe_key: "legacy-key-without-canonical-shape" };
+    const unseen = filterUnseenScannerAlerts(
+      [row, duplicateRow, other],
+      readSeenScannerToastKeys("user-a"),
+    );
+    expect(unseen.map((r) => r.id)).toEqual(["alert-uuid-3"]);
   });
 
   it("allows a new event for the same symbol when id differs", () => {
@@ -62,7 +66,12 @@ describe("scanner alert toast dedupe", () => {
       event_at: "2026-10-06T20:05:00.000Z",
       created_at: "2026-10-06T20:05:01.000Z",
     };
-    expect(filterScannerAlertToastBacklog([backlog, live], new Set(), baselineMs).map((r) => r.id)).toEqual(["old"]);
-    expect(filterLiveScannerAlertToasts([backlog, live], new Set(), baselineMs).map((r) => r.id)).toEqual(["new"]);
+    const nowMs = Date.parse("2026-10-06T21:00:00.000Z");
+    expect(
+      filterScannerAlertToastBacklog([backlog, live], new Set(), baselineMs, nowMs).map((r) => r.id),
+    ).toEqual(["old"]);
+    expect(
+      filterLiveScannerAlertToasts([backlog, live], new Set(), baselineMs, nowMs).map((r) => r.id),
+    ).toEqual(["new"]);
   });
 });

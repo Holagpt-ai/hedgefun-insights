@@ -25,6 +25,23 @@ export function formatScannerAlertMetricLine(row: ScannerIntelligenceAlertRow): 
   return parts.join(" · ");
 }
 
+export function formatScannerAlertObservationLine(eventAt: string | null | undefined): string | null {
+  const ms = Date.parse(eventAt ?? "");
+  if (!Number.isFinite(ms)) return null;
+  try {
+    const when = new Date(ms).toLocaleString("en-US", {
+      timeZone: "America/New_York",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `Market observation: ${when} ET`;
+  } catch {
+    return null;
+  }
+}
+
 export function repeatMoverContextLine(row: ScannerIntelligenceAlertRow): string | null {
   const meta = row.metadata ?? {};
   const label = typeof meta.repeat_mover_label === "string"

@@ -19,6 +19,7 @@ import {
 } from "@/lib/scanner-alerts/toast-dedupe";
 import {
   formatScannerAlertMetricLine,
+  formatScannerAlertObservationLine,
   repeatMoverContextLine,
 } from "@/lib/scanner-alerts/format-scanner-alert-metrics";
 import type { ScannerIntelligenceAlertRow } from "@/types/scanner-intelligence-alert";
@@ -66,26 +67,31 @@ export function ScannerAlertToastListener() {
     const baselineMs = getToastNotificationBaselineMs(SCANNER_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
     if (!q.data?.length) return;
 
-    const backlog = filterScannerAlertToastBacklog(q.data, seenRef.current, baselineMs);
+    const backlog = filterScannerAlertToastBacklog(q.data, seenRef.current, baselineMs, nowMs);
     for (const row of backlog) {
       const toastKey = scannerAlertToastKey(row);
+      seenRef.current.add(toastKey);
       markScannerToastSeen(user.id, toastKey);
       markScannerToastSeenDurable(user.id, toastKey, nowMs);
-      seenRef.current.add(toastKey);
     }
 
-    const live = filterLiveScannerAlertToasts(q.data, seenRef.current, baselineMs);
+    const live = filterLiveScannerAlertToasts(q.data, seenRef.current, baselineMs, nowMs);
     for (const row of live.slice(0, 3)) {
       const toastKey = scannerAlertToastKey(row);
       const title = row.headline ||
         `${row.symbol} — ${formatScannerEventLabel(row.event_type) ?? row.event_type}`;
       const metrics = formatScannerAlertMetricLine(row);
       const repeat = repeatMoverContextLine(row);
-      const description = [metrics, repeat].filter(Boolean).join("\n");
+      const observation = formatScannerAlertObservationLine(row.event_at);
+      const description = [metrics, repeat, observation].filter(Boolean).join("\n");
+      seenRef.current.add(toastKey);
       markScannerToastSeen(user.id, toastKey);
       markScannerToastSeenDurable(user.id, toastKey, nowMs);
-      seenRef.current.add(toastKey);
-      const viewPath = scannerAlertToastViewPath(row);
+      const viewPath = scannerAlertToastViewPath({
+        symbol: row.symbol,
+        event_type: row.event_type,
+        event_at: row.event_at,
+      });
       toast(title, {
         description,
         duration: 8_000,

@@ -7,6 +7,7 @@ import {
 import { isAtOrAfterBaseline } from "@/lib/notifications/toast-notification-baseline";
 
 export const PRICE_ALERT_TOAST_LOOKBACK_MS = 24 * 3600_000;
+export const PRICE_ALERT_MAX_FUTURE_SKEW_MS = 5 * 60_000;
 export const PRICE_ALERT_TOAST_BASELINE_NS = "stocksist-price-alert-toast-baseline-v1";
 
 const SESSION_STORAGE_PREFIX = "stocksist-price-alert-toasts-v1";
@@ -38,13 +39,22 @@ export function priceAlertObservationMs(row: Pick<PriceAlertTriggerToastRow, "tr
   return Date.parse(row.triggered_at ?? "");
 }
 
+export function isPlausiblePriceAlertObservationMs(observationMs: number, nowMs: number): boolean {
+  if (!Number.isFinite(observationMs)) return false;
+  if (observationMs > nowMs + PRICE_ALERT_MAX_FUTURE_SKEW_MS) return false;
+  if (nowMs - observationMs > PRICE_ALERT_TOAST_LOOKBACK_MS) return false;
+  return true;
+}
+
 /** Live popup: pending, not yet seen locally, and observation is not pre-baseline backlog. */
 export function shouldSurfacePriceAlertToast(
   row: PriceAlertTriggerToastRow,
   baselineMs: number,
+  nowMs = Date.now(),
 ): boolean {
   if (!isPriceAlertToastPending(row)) return false;
   const observedMs = priceAlertObservationMs(row);
+  if (!isPlausiblePriceAlertObservationMs(observedMs, nowMs)) return false;
   return isAtOrAfterBaseline(observedMs, baselineMs);
 }
 
@@ -55,14 +65,15 @@ export function shouldSurfacePriceAlertToast(
 export function filterPriceAlertToastCandidates<T extends PriceAlertTriggerToastRow & { id: string }>(
   rows: T[],
   sessionSeenIds: ReadonlySet<string>,
-  options?: { baselineMs?: number },
+  options?: { baselineMs?: number; nowMs?: number },
 ): T[] {
   const deduped = dedupePriceAlertTriggersById(rows);
   const baselineMs = options?.baselineMs;
+  const nowMs = options?.nowMs ?? Date.now();
   return deduped.filter((row) => {
     if (sessionSeenIds.has(row.id)) return false;
     if (baselineMs == null) return isPriceAlertToastPending(row);
-    return shouldSurfacePriceAlertToast(row, baselineMs);
+    return shouldSurfacePriceAlertToast(row, baselineMs, nowMs);
   });
 }
 
@@ -71,12 +82,13 @@ export function filterPriceAlertToastBacklog<T extends PriceAlertTriggerToastRow
   rows: T[],
   sessionSeenIds: ReadonlySet<string>,
   baselineMs: number,
+  nowMs = Date.now(),
 ): T[] {
   const deduped = dedupePriceAlertTriggersById(rows);
   return deduped.filter((row) => {
     if (sessionSeenIds.has(row.id)) return false;
     if (!isPriceAlertToastPending(row)) return false;
-    return !shouldSurfacePriceAlertToast(row, baselineMs);
+    return !shouldSurfacePriceAlertToast(row, baselineMs, nowMs);
   });
 }
 

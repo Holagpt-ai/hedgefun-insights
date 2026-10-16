@@ -65,14 +65,17 @@ export function PriceAlertToastListener() {
     const baselineMs = getToastNotificationBaselineMs(PRICE_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
     if (!q.data?.length) return;
 
-    const backlog = filterPriceAlertToastBacklog(q.data, sessionSeenRef.current, baselineMs);
+    const backlog = filterPriceAlertToastBacklog(q.data, sessionSeenRef.current, baselineMs, nowMs);
     for (const row of backlog) {
       sessionSeenRef.current.add(row.id);
       markPriceAlertToastSeenInSession(user.id, row.id);
       markPriceAlertToastSeenDurable(user.id, row.id, nowMs);
     }
 
-    const candidates = filterPriceAlertToastCandidates(q.data, sessionSeenRef.current, { baselineMs });
+    const candidates = filterPriceAlertToastCandidates(q.data, sessionSeenRef.current, {
+      baselineMs,
+      nowMs,
+    });
     for (const row of candidates) {
       sessionSeenRef.current.add(row.id);
       markPriceAlertToastSeenInSession(user.id, row.id);
