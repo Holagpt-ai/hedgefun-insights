@@ -7,6 +7,7 @@ import type { BehaviorProfileSampleQuality } from "@/config/behavior-profile.con
 import type { RepeatMoverEvidenceLabel } from "@/config/repeat-mover.config";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 import type { SecurityId } from "@/types/security-identity";
+import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
 
 export type RadarHistoricalAvailabilityState = "UNAVAILABLE" | "LIMITED" | "AVAILABLE";
 
@@ -29,6 +30,8 @@ export interface RadarRepeatMoverDisplayFacts {
   sampleQualityLabel: string | null;
   mostRecentComparableLabel: string | null;
   sessionsObservedLabel: string | null;
+  /** One-line outcome or outcome-confidence fact for compact Repeat Movers UI. */
+  compactOutcomeFact: string | null;
   lines: readonly string[];
 }
 
@@ -73,6 +76,8 @@ export interface RadarRepeatMoverCandidate {
   workflowHandoffs: RadarRepeatMoverWorkflowHandoffs;
   profileComputedAt: string | null;
   latestSourceHistoryDate: string | null;
+  /** Comparable match statistics with outcome denominators (evidence only). */
+  historicalMatchSummary: HistoricalMatchSummary | null;
 }
 
 export interface RadarRepeatMoversViewSummary {

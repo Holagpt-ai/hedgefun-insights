@@ -39,6 +39,7 @@ import type { RadarChartInterval } from "./radar-chart-data";
 import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import { HistoricalBehaviorSection } from "./HistoricalBehavior";
+import { historicalMatchSummaryForRadarRow } from "@/lib/historical-intelligence/radar-handoff";
 
 interface RadarDetailPanelProps {
   row: RadarRankedRow | null;
@@ -242,7 +243,10 @@ export function RadarDetailPanel({
           />
         </div>
 
-        <HistoricalBehaviorSection context={row.historicalContext} />
+        <HistoricalBehaviorSection
+          context={row.historicalContext}
+          matchSummary={historicalMatchSummaryForRadarRow(row)}
+        />
 
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">

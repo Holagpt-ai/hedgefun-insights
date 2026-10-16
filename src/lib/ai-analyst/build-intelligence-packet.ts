@@ -257,6 +257,7 @@ export function buildAnalystIntelligencePacket(input: {
             buildCurrentSetupFromRadarCandidate(input.radarCandidate),
             repeatMoverContext,
           ),
+          { profileEpisodeCount: repeatMoverContext.profile.episodeCount ?? null },
         )
       : null;
 

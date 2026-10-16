@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { RadarRepeatMoverFilterId } from "@/config/radar-repeat-movers.config";
 import { applyRadarRepeatMoverFilter } from "@/lib/radar/build-radar-repeat-movers-view";
+import { visibleRepeatMoverFactLines } from "@/lib/radar/radar-repeat-mover-display-facts";
 import type {
   RadarRepeatMoverCandidate,
   RadarRepeatMoversView as RadarRepeatMoversViewData,
@@ -52,7 +53,7 @@ function CandidateBadges({ candidate }: { candidate: RadarRepeatMoverCandidate }
 }
 
 function CandidateFacts({ candidate }: { candidate: RadarRepeatMoverCandidate }) {
-  const facts = candidate.displayFacts.lines.slice(0, 2);
+  const facts = visibleRepeatMoverFactLines(candidate.displayFacts);
   if (facts.length === 0) return null;
   return (
     <div className="space-y-0.5 text-[11px] text-muted-foreground">

@@ -2,6 +2,7 @@ import { HISTORICAL_MATCH } from "@/config/scanner-intelligence-v2.config";
 import { episodeToFeatureSet, type HistoricalEpisodeFeatureSet } from "@/lib/historical-intelligence/episode-features";
 import type { RepeatMoverComparableEpisode, RepeatMoverContext } from "@/types/repeat-mover";
 import { finiteMetric } from "@/lib/screeners/screener-metric-display";
+import type { HistoricalMatchEvidenceQuality } from "@/lib/historical-intelligence/historical-match-summary";
 
 export interface CurrentSetupSnapshot {
   symbol: string;
@@ -29,53 +30,131 @@ export interface HistoricalTopMatch {
   mfe: number | null;
   mae: number | null;
   episodeId: string;
+  featuresCompared: number;
+  featuresWithBothSides: number;
+  matchEvidenceQuality: Exclude<HistoricalMatchEvidenceQuality, "INSUFFICIENT">;
 }
 
 function clamp01(n: number): number {
   return Math.max(0, Math.min(1, n));
 }
 
-function pctSimilarity(a: number | null, b: number | null, scale: number): number {
-  if (a === null || b === null) return 0.35;
+function pctSimilarity(a: number, b: number, scale: number): number {
   const delta = Math.abs(a - b);
   return clamp01(1 - delta / scale);
+}
+
+function matchEvidenceFromFeatures(
+  featuresWithBothSides: number,
+  score: number,
+): HistoricalTopMatch["matchEvidenceQuality"] {
+  if (featuresWithBothSides <= HISTORICAL_MATCH.sparseFeatureThreshold) return "SPARSE";
+  if (
+    featuresWithBothSides >= HISTORICAL_MATCH.minFeaturesForStrongMatch &&
+    score >= HISTORICAL_MATCH.minSimilarityScore
+  ) {
+    return "STRONG";
+  }
+  return "MODERATE";
 }
 
 function scoreEpisode(
   current: CurrentSetupSnapshot,
   features: HistoricalEpisodeFeatureSet,
-): number {
+): { score: number; featuresCompared: number; featuresWithBothSides: number } {
   let score = 0;
   let weight = 0;
-  const add = (w: number, s: number) => {
-    score += w * s;
+  let featuresCompared = 0;
+  let featuresWithBothSides = 0;
+
+  const addNumeric = (w: number, a: number | null, b: number | null, scale: number) => {
+    featuresCompared += 1;
+    if (a === null || b === null) return;
+    featuresWithBothSides += 1;
+    score += w * pctSimilarity(a, b, scale);
     weight += w;
   };
 
-  add(0.2, pctSimilarity(current.movePct, features.movePct, 25));
-  add(0.08, pctSimilarity(finiteMetric(current.gapPct), features.gapPct, 12));
-  add(0.16, pctSimilarity(finiteMetric(current.rvol), features.rvol, 8));
-  add(0.06, pctSimilarity(finiteMetric(current.volume), features.sessionVolume, 5_000_000));
-  add(0.05, pctSimilarity(finiteMetric(current.floatTurnover), features.floatTurnover, 2));
-  add(0.12, pctSimilarity(finiteMetric(current.rvol5m), features.rvol5m, 6));
-  add(0.12, pctSimilarity(finiteMetric(current.volumeVelocity), features.volumeVelocity, 80_000));
-  add(
+  addNumeric(0.2, current.movePct, features.movePct, 25);
+  addNumeric(0.08, finiteMetric(current.gapPct), features.gapPct, 12);
+  addNumeric(0.16, finiteMetric(current.rvol), features.rvol, 8);
+  addNumeric(0.06, finiteMetric(current.volume), features.sessionVolume, 5_000_000);
+  addNumeric(0.05, finiteMetric(current.floatTurnover), features.floatTurnover, 2);
+  addNumeric(0.12, finiteMetric(current.rvol5m), features.rvol5m, 6);
+  addNumeric(0.12, finiteMetric(current.volumeVelocity), features.volumeVelocity, 80_000);
+  addNumeric(
     0.1,
-    pctSimilarity(finiteMetric(current.volumeAccelerationPct), features.volumeAccelerationPct, 40),
+    finiteMetric(current.volumeAccelerationPct),
+    features.volumeAccelerationPct,
+    40,
   );
-  add(
+  addNumeric(
     0.08,
-    pctSimilarity(finiteMetric(current.distanceFromHodPct), features.hodProximityPct, 8),
+    finiteMetric(current.distanceFromHodPct),
+    features.hodProximityPct,
+    8,
   );
 
   if (current.scannerEvent && features.setupCategory) {
-    add(0.08, current.scannerEvent.length > 0 ? 0.7 : 0.3);
+    featuresCompared += 1;
+    featuresWithBothSides += 1;
+    const w = 0.08;
+    score += w * (current.scannerEvent.length > 0 ? 0.7 : 0.3);
+    weight += w;
   }
   if (current.catalystCategory && features.catalystType) {
-    add(0.1, current.catalystCategory === features.catalystType ? 1 : 0.45);
+    featuresCompared += 1;
+    featuresWithBothSides += 1;
+    const w = 0.1;
+    score += w * (current.catalystCategory === features.catalystType ? 1 : 0.45);
+    weight += w;
   }
 
-  return weight > 0 ? score / weight : 0;
+  return {
+    score: weight > 0 ? score / weight : 0,
+    featuresCompared,
+    featuresWithBothSides,
+  };
+}
+
+function normalizeSessionDate(value: string | null | undefined): string | null {
+  if (!value || typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return /^\d{4}-\d{2}-\d{2}$/.test(trimmed) ? trimmed : null;
+}
+
+/** Exclude current session and future-dated episodes from historical comparison. */
+export function filterComparableEpisodesForSession(
+  episodes: readonly RepeatMoverComparableEpisode[],
+  currentSessionDate: string | null | undefined,
+): RepeatMoverComparableEpisode[] {
+  const session = normalizeSessionDate(currentSessionDate);
+  if (!session) return [...episodes];
+  return episodes.filter((ep) => {
+    const epDate = normalizeSessionDate(ep.sessionDate);
+    if (!epDate) return true;
+    return epDate < session;
+  });
+}
+
+export function dedupeHistoricalTopMatches(matches: HistoricalTopMatch[]): HistoricalTopMatch[] {
+  const byId = new Map<string, HistoricalTopMatch>();
+  for (const match of matches) {
+    const key = match.episodeId.trim();
+    if (!key) continue;
+    const incumbent = byId.get(key);
+    if (!incumbent || match.similarityScore > incumbent.similarityScore) {
+      byId.set(key, match);
+    }
+  }
+  return [...byId.values()];
+}
+
+export function sortHistoricalTopMatches(matches: HistoricalTopMatch[]): HistoricalTopMatch[] {
+  return [...matches].sort((a, b) => {
+    if (b.similarityScore !== a.similarityScore) return b.similarityScore - a.similarityScore;
+    return a.episodeId.localeCompare(b.episodeId);
+  });
 }
 
 export function buildCurrentSetupFromRadarCandidate(row: {
@@ -144,14 +223,18 @@ export function rankHistoricalMatches(
   current: CurrentSetupSnapshot,
   context: RepeatMoverContext | null | undefined,
 ): HistoricalTopMatch[] {
-  const episodes = context?.comparableHistory?.closestComparableEpisodes ?? [];
+  const rawEpisodes = context?.comparableHistory?.closestComparableEpisodes ?? [];
+  const currentSessionDate = context?.currentContext?.sessionDate ?? null;
+  const episodes = filterComparableEpisodesForSession(rawEpisodes, currentSessionDate);
   const symbol = context?.currentSymbol ?? current.symbol;
+
   const scored = episodes.map((ep: RepeatMoverComparableEpisode) => {
     const features = episodeToFeatureSet(ep, symbol);
-    const similarityScore = scoreEpisode(current, features);
+    const scoredEpisode = scoreEpisode(current, features);
+    const similarityScore = Math.round(scoredEpisode.score * 100) / 100;
     return {
       date: features.sessionDate,
-      similarityScore: Math.round(similarityScore * 100) / 100,
+      similarityScore,
       setup: features.setupCategory,
       catalystType: features.catalystType,
       continuation: features.continuation,
@@ -159,11 +242,18 @@ export function rankHistoricalMatches(
       mfe: features.maxFavorableExcursionPct,
       mae: features.maxAdverseExcursionPct,
       episodeId: features.episodeId,
+      featuresCompared: scoredEpisode.featuresCompared,
+      featuresWithBothSides: scoredEpisode.featuresWithBothSides,
+      matchEvidenceQuality: matchEvidenceFromFeatures(
+        scoredEpisode.featuresWithBothSides,
+        similarityScore,
+      ),
     };
   });
 
-  return scored
-    .filter((m) => m.similarityScore >= HISTORICAL_MATCH.minSimilarityScore)
-    .sort((a, b) => b.similarityScore - a.similarityScore)
-    .slice(0, HISTORICAL_MATCH.maxTopMatches);
+  const eligible = scored.filter((m) => m.similarityScore >= HISTORICAL_MATCH.minSimilarityScore);
+  return sortHistoricalTopMatches(dedupeHistoricalTopMatches(eligible)).slice(
+    0,
+    HISTORICAL_MATCH.maxTopMatches,
+  );
 }
