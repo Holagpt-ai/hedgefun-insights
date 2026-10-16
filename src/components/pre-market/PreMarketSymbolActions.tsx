@@ -1,5 +1,9 @@
 import { Link } from "react-router-dom";
 import { Bot, CalendarClock, LayoutDashboard, LineChart, MoreHorizontal, NotebookPen, Star } from "lucide-react";
+import {
+  buildMarketEvidenceHandoff,
+  persistMarketEvidenceHandoff,
+} from "@/lib/daily-intelligence/market-evidence-handoff";
 import { touchWorkflowHandoff, workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import type { SecurityId } from "@/types/security-identity";
 import {
@@ -17,14 +21,30 @@ import {
 export function PreMarketSymbolActions({
   symbol,
   securityId = null,
+  marketEvidence = null,
 }: {
   symbol: string;
   securityId?: SecurityId | null;
+  marketEvidence?: Omit<
+    Parameters<typeof buildMarketEvidenceHandoff>[0],
+    "symbol" | "securityId" | "sourceSurface"
+  > | null;
 }) {
   const routes = workflowSymbolRoutes(symbol, { securityId });
   if (!routes) return null;
 
-  const touch = () => touchWorkflowHandoff(routes.symbol, "inbox");
+  const touch = () => {
+    touchWorkflowHandoff(routes.symbol, "inbox");
+    if (marketEvidence) {
+      const payload = buildMarketEvidenceHandoff({
+        symbol: routes.symbol,
+        securityId,
+        sourceSurface: "inbox",
+        ...marketEvidence,
+      });
+      if (payload) persistMarketEvidenceHandoff(payload);
+    }
+  };
 
   const primary = [
     { to: routes.ai, label: "AI Analyst", Icon: Bot },

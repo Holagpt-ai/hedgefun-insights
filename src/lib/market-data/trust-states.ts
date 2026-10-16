@@ -18,6 +18,7 @@ import {
   isSnapshotFromExpectedLastSession,
   isWatchlistClosedSurveillanceWindow,
 } from "@/lib/watchlist-v2/watchlist-snapshot-trust";
+import { watchlistIntradayRelievesStaleSnapshot } from "@/lib/watchlist-v2/watchlist-quote-coherence";
 import type { SectionEnvelope } from "@/types/pre-market";
 
 export type MarketDataTrustState = "FRESH" | "DELAYED" | "STALE" | "UNAVAILABLE" | "CLOSED";
@@ -140,21 +141,22 @@ export function resolveWatchlistMarketDataTrust(input: {
   analysisPresentation?: "live" | "last_completed" | null;
   /** Analysis session date (ET YYYY-MM-DD) from stored Watchlist V2 row. */
   analysisSessionDate?: string | null;
+  intradayBars?: readonly { t: number }[];
   nowMs?: number;
 }): MarketDataTrustState {
   const nowMs = input.nowMs ?? Date.now();
   if (!input.hasV2) return "UNAVAILABLE";
-  const sourceMs = parseTrustSourceMs(input.snapshotTsMs ?? null);
-  if (sourceMs === null) return "UNAVAILABLE";
+  const snapshotMs = parseTrustSourceMs(input.snapshotTsMs ?? null);
+  if (snapshotMs === null) return "UNAVAILABLE";
   if (input.analysisPresentation === "last_completed") return "CLOSED";
   if (isExpired(input.validThrough, new Date(nowMs))) return "STALE";
 
-  const ageMs = nowMs - sourceMs;
+  const ageMs = nowMs - snapshotMs;
   const closedSurveillance = isWatchlistClosedSurveillanceWindow(nowMs);
   if (
     closedSurveillance &&
     isSnapshotFromExpectedLastSession({
-      snapshotMs: sourceMs,
+      snapshotMs,
       analysisSessionDate: input.analysisSessionDate,
       nowMs,
     })
@@ -162,7 +164,20 @@ export function resolveWatchlistMarketDataTrust(input: {
     return "CLOSED";
   }
 
-  if (ageMs > WATCHLIST_SNAPSHOT_STALE_MS) return "STALE";
+  if (ageMs > WATCHLIST_SNAPSHOT_STALE_MS) {
+    if (
+      watchlistIntradayRelievesStaleSnapshot({
+        analysisPresentation: input.analysisPresentation ?? null,
+        analysisSessionDate: input.analysisSessionDate,
+        snapshotMs,
+        intradayBars: input.intradayBars ?? [],
+        nowMs,
+      })
+    ) {
+      return "FRESH";
+    }
+    return "STALE";
+  }
   return "FRESH";
 }
 

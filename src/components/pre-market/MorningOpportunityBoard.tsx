@@ -1,7 +1,12 @@
 import { Link } from "react-router-dom";
 import type { MorningOpportunityBoard as BoardModel, MorningOpportunityCard } from "@/lib/am-inbox/morning-opportunity-board";
+import {
+  buildMarketEvidenceHandoff,
+  persistMarketEvidenceHandoff,
+} from "@/lib/daily-intelligence/market-evidence-handoff";
 import { opportunityWorkflowPaths } from "@/lib/scanner-intelligence/workflow-routes";
 import { trustStateLabel } from "@/lib/market-data/trust-states";
+import { touchWorkflowHandoff } from "@/lib/historical-workflow/workflow-symbol-routes";
 
 function metric(value: number | null, digits = 1, suffix = ""): string {
   if (value === null || !Number.isFinite(value)) return "Unavailable";
@@ -23,6 +28,24 @@ function catalystLabel(status: MorningOpportunityCard["catalystStatus"]): string
 
 function Card({ card }: { card: MorningOpportunityCard }) {
   const routes = opportunityWorkflowPaths(card.symbol, card.eventType, card.securityId);
+  const persistEvidence = () => {
+    touchWorkflowHandoff(card.symbol, "inbox");
+    const payload = buildMarketEvidenceHandoff({
+      symbol: card.symbol,
+      securityId: card.securityId,
+      contextScope: card.continuationCategory ? "prior_session" : "current_session",
+      sessionDate: null,
+      sourceSurface: "morning_opportunity",
+      providerAsOf: card.asOf,
+      price: card.price,
+      volume: card.volume,
+      rvol5m: card.rvol5m,
+      gapPercent: card.gapPercent,
+      primaryScannerEvent: card.eventType,
+    });
+    if (payload) persistMarketEvidenceHandoff(payload);
+  };
+
   const links = routes
     ? [
       { href: routes.ai, label: "AI" },
@@ -56,6 +79,7 @@ function Card({ card }: { card: MorningOpportunityCard }) {
             <Link
               key={link.label}
               to={link.href}
+              onClick={persistEvidence}
               className="text-[10px] font-medium text-accent-blue hover:underline"
             >
               {link.label}

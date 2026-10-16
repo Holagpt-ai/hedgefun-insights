@@ -46,6 +46,7 @@ import {
   isRadarSessionMismatch,
 } from "@/lib/pre-market/pm-verify";
 import { PRE_MARKET_SCREENER_STALE_MS } from "@/lib/market-data/trust-states";
+import { amCatalystWatchNotice } from "@/lib/pre-market/am-catalyst-section-notice";
 
 export default function AMInbox() {
   const { profile } = useAuth();
@@ -76,6 +77,10 @@ export default function AMInbox() {
   });
 
   const catalysts = useMemo(() => data?.catalyst_watch.data ?? [], [data]);
+  const catalystWatchNotice = useMemo(
+    () => amCatalystWatchNotice(data?.catalyst_watch ?? null),
+    [data?.catalyst_watch],
+  );
 
   const trackedCount = useMemo(
     () =>
@@ -107,6 +112,7 @@ export default function AMInbox() {
     return buildMorningOpportunityBoard({
       radarRows: radarView?.rows ?? [],
       radarSession: radarVolumeLeaders.decision?.session ?? null,
+      polygonPremarketActive: premarketActive,
       radarStatus: radarView?.status ?? null,
       syncedAt: radarView?.synced_at ?? null,
       providerAsOfMax: radarView?.provider_as_of_max ?? null,
@@ -319,7 +325,10 @@ export default function AMInbox() {
           {/* Catalyst Watch — prioritized stories */}
           <SectionShell
             title="Catalyst Watch"
-            subtitle="Verified ticker-specific catalysts · sector news labeled separately"
+            subtitle={
+              catalystWatchNotice ??
+              "Verified ticker-specific catalysts · sector news labeled separately"
+            }
             section={data?.catalyst_watch ?? null}
             loading={loading}
             emptyMessage="No provider-reported catalysts in the current window."

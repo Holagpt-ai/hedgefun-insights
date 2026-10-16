@@ -15,6 +15,10 @@ import { WatchlistSnapshot } from "@/components/action-center/WatchlistSnapshot"
 import { AM_AI_BRIEF_GATE_BODY, PM_AI_BRIEF_GATE_BODY } from "@/config/inbox.config";
 import { ScannerHandoffBanner, readScannerHandoffQuery } from "@/components/scanner-intelligence/ScannerHandoffBanner";
 import { selectActionCenterHandoffRows } from "@/lib/action-center/handoff-context";
+import {
+  formatMarketEvidenceContextLine,
+  readMarketEvidenceHandoff,
+} from "@/lib/daily-intelligence/market-evidence-handoff";
 
 const WORKFLOW_LINKS = [
   { title: "Pre-Market", desc: "Start the session with your pre-market setup.", route: "/dashboard/pre-market" },
@@ -39,19 +43,30 @@ function HandoffContext({
 }) {
   if (!symbol || loading) return null;
   const rows = selectActionCenterHandoffRows({ symbol, feed, leaders });
-  if (rows.length === 0) return null;
+  const marketEvidence = readMarketEvidenceHandoff(symbol);
+  if (rows.length === 0 && !marketEvidence) return null;
   return (
     <section aria-label="Handoff context" className="rounded-md border bg-card px-3 py-2">
       <h2 className="text-xs font-semibold text-foreground">{symbol}</h2>
-      <ul className="mt-1 space-y-1">
-        {rows.slice(0, 5).map((row) => (
-          <li key={row.key} className="text-xs text-muted-foreground">
-            <span className="text-foreground">{row.source}</span>
-            {" · "}
-            {row.title}
-          </li>
-        ))}
-      </ul>
+      {marketEvidence ? (
+        <p
+          className="mt-1 text-[11px] text-muted-foreground"
+          data-testid="market-evidence-context"
+        >
+          {formatMarketEvidenceContextLine(marketEvidence)}
+        </p>
+      ) : null}
+      {rows.length > 0 ? (
+        <ul className="mt-1 space-y-1">
+          {rows.slice(0, 5).map((row) => (
+            <li key={row.key} className="text-xs text-muted-foreground">
+              <span className="text-foreground">{row.source}</span>
+              {" · "}
+              {row.title}
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }

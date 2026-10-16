@@ -194,6 +194,7 @@ export function WatchlistRowV2({
     snapshotTsMs: row.inputsQuality.snapshot_ts_ms,
     analysisPresentation: row.inputsQuality.analysis_presentation ?? null,
     analysisSessionDate: row.sessionDate || null,
+    intradayBars: row.intraday,
   });
   const marketDataTrustLine = formatMarketDataTrustLine(
     marketDataTrust,

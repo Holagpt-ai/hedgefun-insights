@@ -1,5 +1,6 @@
 import { hasProAccess } from "@/lib/entitlement";
 import { useMemo, useState } from "react";
+import { dedupePmSessionSummaryRows } from "@/lib/inbox/pm-session-summary-dedupe";
 import { useNavigate } from "react-router-dom";
 import { ArrowRight, ExternalLink, Sparkles, Newspaper, BookOpen, Star, Radar } from "lucide-react";
 import { useRadarV2VolumeLeaders } from "@/hooks/useRadarV2VolumeLeaders";
@@ -358,7 +359,8 @@ export default function PMInbox() {
   const pmSessionSummary = useMemo(() => {
     const view = pmRadar.decision?.view;
     if (!view?.rows?.length) return [];
-    return buildPmSessionSummaryRows(rankRadarRows(view.rows, view.status), 8);
+    const rows = buildPmSessionSummaryRows(rankRadarRows(view.rows, view.status), 8);
+    return dedupePmSessionSummaryRows(rows);
   }, [pmRadar.decision]);
 
   return (

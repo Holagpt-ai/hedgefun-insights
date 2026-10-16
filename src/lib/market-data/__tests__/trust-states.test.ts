@@ -77,6 +77,22 @@ describe("resolveWatchlistMarketDataTrust", () => {
     ).toBe("STALE");
   });
 
+  it("fresh session minute bars relieve a wall-clock stale snapshot during live presentation", () => {
+    const nowMs = Date.parse("2026-09-29T10:00:00.000Z");
+    const snapshotTsMs = nowMs - WATCHLIST_SNAPSHOT_STALE_MS - 60_000;
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: new Date(nowMs + 60 * 60_000).toISOString(),
+        snapshotTsMs,
+        analysisPresentation: "live",
+        analysisSessionDate: "2026-09-29",
+        intradayBars: [{ t: nowMs - 4 * 60_000 }],
+        nowMs,
+      }),
+    ).toBe("FRESH");
+  });
+
   it("missing snapshot -> Unavailable", () => {
     expect(
       resolveWatchlistMarketDataTrust({

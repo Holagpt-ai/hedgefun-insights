@@ -24,6 +24,11 @@ import {
   type AmGenerationWindow,
 } from "@/lib/pre-market/am-brief-freshness";
 import {
+  catalystFeedStatusLabel,
+  readCatalystFeedStatusFromBriefSnapshot,
+  type CatalystFeedStatus,
+} from "@/lib/pre-market/am-brief-evidence-meta";
+import {
   emitPmVerify,
   isPmDebugEnabled,
   mapAmBriefVerifyState,
@@ -61,6 +66,7 @@ type BriefState =
       supersededBy: AmGenerationWindow | null;
       ageSeconds: number;
       generationReason: string | null;
+      catalystFeedStatus?: CatalystFeedStatus | null;
       isRefreshing?: boolean;
       refreshNotice?: string | null;
     }
@@ -290,6 +296,12 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
                 : freshness.ageSeconds;
             const generationReason =
               typeof body.generation_reason === "string" ? body.generation_reason : null;
+            const catalystFeedStatus =
+              body.catalyst_feed_status === "verified" ||
+              body.catalyst_feed_status === "none" ||
+              body.catalyst_feed_status === "unavailable"
+                ? body.catalyst_feed_status
+                : readCatalystFeedStatusFromBriefSnapshot(body.market_snapshot);
 
             briefObserveRef.current.freshnessState = freshnessState;
             briefObserveRef.current.generationWindow = generationWindow;
@@ -310,11 +322,13 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               supersededBy,
               ageSeconds,
               generationReason,
+              catalystFeedStatus,
             };
             setCachedBrief(lastGoodBriefRef.current, briefType, snapshot);
             setState({
               kind: "available",
               ...snapshot,
+              catalystFeedStatus,
               isRefreshing: false,
               refreshNotice: null,
             });
@@ -601,6 +615,7 @@ export function AIBriefCard({ isPro, config, briefType }: AIBriefCardProps) {
               previousTradingDay={state.previousTradingDay}
               briefDateDisplay={state.briefDateDisplay}
               evidenceCutoff={state.evidenceCutoff}
+              catalystFeedStatus={briefType === "am" ? state.catalystFeedStatus : null}
               freshnessState={briefType === "am" ? state.freshnessState : undefined}
               generationWindow={briefType === "am" ? state.generationWindow : undefined}
               expanded={briefExpanded}
@@ -677,6 +692,7 @@ export function AvailableBrief({
   previousTradingDay,
   briefDateDisplay,
   evidenceCutoff,
+  catalystFeedStatus,
   freshnessState,
   generationWindow,
   expanded,
@@ -686,6 +702,7 @@ export function AvailableBrief({
   previousTradingDay: boolean;
   briefDateDisplay: string | null;
   evidenceCutoff: string | null;
+  catalystFeedStatus?: CatalystFeedStatus | null;
   freshnessState?: AmBriefFreshnessState;
   generationWindow?: AmGenerationWindow | null;
   expanded: boolean;
@@ -706,6 +723,11 @@ export function AvailableBrief({
       {cutoffLabel && (
         <div data-testid="evidence-cutoff" className="text-[11px] text-muted-foreground">
           Evidence through {cutoffLabel}
+        </div>
+      )}
+      {catalystFeedStatusLabel(catalystFeedStatus ?? null) && (
+        <div data-testid="catalyst-feed-status" className="text-[11px] text-muted-foreground">
+          {catalystFeedStatusLabel(catalystFeedStatus ?? null)}
         </div>
       )}
       {freshnessState === "stale" && generationWindow && (
