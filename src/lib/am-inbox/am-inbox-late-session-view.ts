@@ -7,8 +7,8 @@ import type {
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
 import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/am-inbox/late-session-handoff-storage";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { collapseLateSessionCandidates } from "@/lib/am-inbox/late-session-candidate-collapse";
 import type { ContinuationCategory } from "@/config/continuation.config";
-import { CONTINUATION_CATEGORY_PRIORITY } from "@/config/continuation.config";
 import {
   computeAmInboxLateSessionPriorityScore,
   continuationVolumeKingComponent,
@@ -118,56 +118,7 @@ function mergeContextWithWorkflow(
   };
 }
 
-function pickPrimaryCategory(categories: readonly ContinuationCategory[]): ContinuationCategory {
-  let best: ContinuationCategory = categories[0]!;
-  let bestRank = CONTINUATION_CATEGORY_PRIORITY[best] ?? 0;
-  for (const cat of categories) {
-    const rank = CONTINUATION_CATEGORY_PRIORITY[cat] ?? 0;
-    if (rank > bestRank) {
-      best = cat;
-      bestRank = rank;
-    }
-  }
-  return best;
-}
-
-/** One card per symbol per source session — highest-priority category wins. */
-export function collapseLateSessionCandidates(
-  entries: readonly AmInboxLateSessionCandidate[],
-): AmInboxLateSessionCandidate[] {
-  const byKey = new Map<string, AmInboxLateSessionCandidate>();
-  for (const entry of entries) {
-    const key = `${entry.context.symbol}:${entry.context.sourceSessionDate}`;
-    const prev = byKey.get(key);
-    if (!prev) {
-      byKey.set(key, entry);
-      continue;
-    }
-    const categories = [
-      ...prev.sourceCategories,
-      ...entry.sourceCategories,
-      prev.context.sourceCategory,
-      entry.context.sourceCategory,
-    ];
-    const unique = [...new Set(categories)] as ContinuationCategory[];
-    const primary = pickPrimaryCategory(unique);
-    const evidenceLabels = [
-      ...new Set([...prev.context.evidenceLabels, ...entry.context.evidenceLabels]),
-    ];
-    byKey.set(key, {
-      context: {
-        ...prev.context,
-        sourceCategory: primary,
-        evidenceLabels,
-        rvol: entry.context.rvol ?? prev.context.rvol,
-        sessionMovePct: entry.context.sessionMovePct ?? prev.context.sessionMovePct,
-      },
-      workflow: entry.workflow ?? prev.workflow,
-      sourceCategories: unique,
-    });
-  }
-  return rankAmInboxLateSessionCandidates([...byKey.values()]);
-}
+export { collapseLateSessionCandidates } from "@/lib/am-inbox/late-session-candidate-collapse";
 
 export function buildAmInboxLateSessionViewFromContexts(
   amSessionDate: string,

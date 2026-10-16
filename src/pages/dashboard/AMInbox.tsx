@@ -92,20 +92,17 @@ export default function AMInbox() {
   );
   const watchlistNotice = compactWatchlistNotice(marketStatus, trackedCount);
 
-  const lateSessionQuery = useAmInboxLateSessionHandoffs(etDate || data?.market_context.et_date || "");
-  const lateSessionView = lateSessionQuery.data ?? {
-    asOfSessionDate: etDate,
-    candidates: [],
-    qualifiedCandidates: [],
-    expiredCount: 0,
-    funnel: {
-      detectedCount: 0,
-      qualifiedCount: 0,
-      priorityCount: 0,
-      displayedCount: 0,
-      displayUsesQualifiedFallback: false,
-    },
-  };
+  const amSessionDate = etDate || data?.market_context.et_date || "";
+  const lateSessionQuery = useAmInboxLateSessionHandoffs(amSessionDate);
+  const lateSessionView =
+    lateSessionQuery.data?.asOfSessionDate === amSessionDate
+      ? lateSessionQuery.data
+      : undefined;
+  const lateSessionLoading =
+    !!amSessionDate &&
+    (lateSessionQuery.isLoading ||
+      (lateSessionQuery.isFetching && lateSessionView === undefined));
+  const showLateSessionSection = !!amSessionDate && !ws.isUnavailable;
 
   const morningBoard = useMemo(() => {
     const radarView = radarVolumeLeaders.decision?.view ?? null;
@@ -121,7 +118,7 @@ export default function AMInbox() {
       syncedAt: radarView?.synced_at ?? null,
       providerAsOfMax: radarView?.provider_as_of_max ?? null,
       marketFeed: radarView?.market_feed ?? null,
-      continuation: lateSessionView.candidates,
+      continuation: lateSessionView?.candidates ?? [],
       generationStale,
       catalystSymbols: catalysts
         .filter((row) => row.ticker_specific !== false)
@@ -129,7 +126,7 @@ export default function AMInbox() {
     });
   }, [
     catalysts,
-    lateSessionView.candidates,
+    lateSessionView?.candidates,
     radarVolumeLeaders.decision,
   ]);
 
@@ -260,7 +257,11 @@ export default function AMInbox() {
 
           <MorningOpportunityBoard
             model={morningBoard}
-            loading={premarketActive && radarVolumeLeaders.loading && lateSessionView.candidates.length === 0}
+            loading={
+              premarketActive &&
+              radarVolumeLeaders.loading &&
+              (lateSessionView?.candidates.length ?? 0) === 0
+            }
           />
 
           {/* Market Pulse */}
@@ -288,17 +289,19 @@ export default function AMInbox() {
             />
           </section>
 
-          {((lateSessionView.funnel?.qualifiedCount ?? 0) > 0 ||
-            (lateSessionView.qualifiedCandidates?.length ?? 0) > 0) && (
+          {showLateSessionSection && (
             <section className="flex min-w-0 flex-col gap-2" aria-label="Late-Session Continuation">
               <SectionHeading
                 title="Late-Session Continuation"
-                subtitle="Priority opportunities from the prior session · volume-first ordering"
+                subtitle="Prior-session captures · volume-first ordering · not live quotes"
               />
               <LateSessionHandoffsList
-                candidates={lateSessionView.candidates}
-                qualifiedCandidates={lateSessionView.qualifiedCandidates}
-                funnel={lateSessionView.funnel}
+                loading={lateSessionLoading}
+                error={lateSessionQuery.isError}
+                expiredCount={lateSessionView?.expiredCount ?? 0}
+                candidates={lateSessionView?.candidates ?? []}
+                qualifiedCandidates={lateSessionView?.qualifiedCandidates ?? []}
+                funnel={lateSessionView?.funnel}
               />
             </section>
           )}

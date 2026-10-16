@@ -18,10 +18,11 @@ const UNKNOWN_BASELINE_CONFIDENCE: RvolConfidenceState = "INSUFFICIENT_HISTORY";
  * Today that is usually persisted `rvol_20d` (session volume vs 20D average) from screener/Radar rows.
  * It is not current session volume and must not be used as RVOL baseline volume.
  */
+/** Returns null when persisted capture has no verified metric kind (never infer 20d/5m). */
 export function resolveContinuationRvolMetricKind(
   context: LateSessionContinuationContext,
-): ContinuationRvolMetricKind {
-  return context.rvolMetricKind ?? "rvol_20d";
+): ContinuationRvolMetricKind | null {
+  return context.rvolMetricKind ?? null;
 }
 
 export function continuationRankingRvolFromContext(
@@ -34,7 +35,7 @@ export function continuationRankingRvolFromContext(
   const baselineVolume = context.rvolBaselineVolume ?? null;
   const baselineSampleSize = context.rvolBaselineSampleSize ?? null;
 
-  if (baselineVolume === null && baselineSampleSize === null) {
+  if (metricKind === null || (baselineVolume === null && baselineSampleSize === null)) {
     return rankingRvolFromRaw(raw, UNKNOWN_BASELINE_CONFIDENCE);
   }
 

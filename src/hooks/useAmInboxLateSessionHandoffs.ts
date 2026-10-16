@@ -31,6 +31,11 @@ export function useAmInboxLateSessionHandoffs(amSessionDate: string) {
       const contexts = rows.map((row) => mapPersistedLateSessionRow(row, amSessionDate));
       return buildAmInboxLateSessionViewFromContexts(amSessionDate, contexts);
     },
-    placeholderData: (prev) => prev ?? EMPTY_VIEW(amSessionDate),
+    placeholderData: (previousData) => {
+      if (previousData?.asOfSessionDate === amSessionDate) return previousData;
+      return undefined;
+    },
   });
 }
+
+export { EMPTY_VIEW as emptyAmInboxLateSessionView };
