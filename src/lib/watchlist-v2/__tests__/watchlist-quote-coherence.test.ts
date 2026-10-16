@@ -63,6 +63,29 @@ describe("watchlist quote coherence", () => {
     ).toBe(false);
   });
 
+  it("does not relieve when presentation is null or undefined", () => {
+    const snapshotMs = now - WATCHLIST_SNAPSHOT_STALE_MS - 60_000;
+    const bars = [{ t: now - 5 * 60_000 }];
+    expect(
+      watchlistIntradayRelievesStaleSnapshot({
+        analysisPresentation: null,
+        analysisSessionDate: sessionDate,
+        snapshotMs,
+        intradayBars: bars,
+        nowMs: now,
+      }),
+    ).toBe(false);
+    expect(
+      watchlistIntradayRelievesStaleSnapshot({
+        analysisPresentation: undefined,
+        analysisSessionDate: sessionDate,
+        snapshotMs,
+        intradayBars: bars,
+        nowMs: now,
+      }),
+    ).toBe(false);
+  });
+
   it("uses snapshot timestamp only for quote display labeling", () => {
     const snapshotMs = now - 30 * 60_000;
     expect(watchlistQuoteDisplayTimestampMs(snapshotMs)).toBe(snapshotMs);

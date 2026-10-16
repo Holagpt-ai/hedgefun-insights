@@ -77,7 +77,7 @@ export function watchlistIntradayRelievesStaleSnapshot(input: {
   intradayBars: readonly { t: number }[];
   nowMs?: number;
 }): boolean {
-  if (input.analysisPresentation === "last_completed") return false;
+  if (input.analysisPresentation !== "live") return false;
   const nowMs = input.nowMs ?? Date.now();
   const snapshotMs = input.snapshotMs;
   if (snapshotMs === null || !Number.isFinite(snapshotMs)) return false;
