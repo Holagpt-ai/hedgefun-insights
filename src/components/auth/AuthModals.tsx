@@ -16,6 +16,7 @@ import { BRAND } from "@/config/brand";
 
 import { trackEvent } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
+import { sanitizeAuthRedirectPath } from "@/lib/auth/safe-auth-redirect";
 
 interface AuthModalsProps {
   mode: "login" | "signup" | null;
@@ -25,14 +26,8 @@ interface AuthModalsProps {
   redirectAfterAuth?: string;
 }
 
-function safeRedirectPath(path: string | undefined): string {
-  if (!path || !path.startsWith("/") || path.startsWith("//")) return "/dashboard";
-  if (path.startsWith("/login") || path.startsWith("/signup")) return "/dashboard";
-  return path;
-}
-
 export function AuthModals({ mode, onClose, onSwitch, redirectAfterAuth = "/dashboard" }: AuthModalsProps) {
-  const afterAuth = safeRedirectPath(redirectAfterAuth);
+  const afterAuth = sanitizeAuthRedirectPath(redirectAfterAuth);
   return (
     <>
       <Dialog open={mode === "signup"} onOpenChange={(o) => !o && onClose()}>

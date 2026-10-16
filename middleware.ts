@@ -1,12 +1,14 @@
+import { next } from "@vercel/functions";
 import {
   CANONICAL_SITE_ORIGIN,
   MIDDLEWARE_PUBLIC_META,
+  etfDetailSymbolFromPath,
   isNoindexPath,
-} from "./seo-boundaries.ts";
+  stockDetailSymbolFromPath,
+} from "./seo-boundaries";
 
 export const config = {
   matcher: [
-    "/",
     "/dashboard/:path*",
     "/admin/:path*",
     "/account/:path*",
@@ -20,8 +22,9 @@ export const config = {
     "/unsubscribe/:path*",
     "/journal",
     "/journal/:path*",
-    "/stocks/:ticker*",
-    "/etf/:ticker*",
+    "/stocks/:path*",
+    "/etf/:path*",
+    "/etfs/:path*",
     "/screener",
     "/earnings",
     "/ipos",
@@ -122,6 +125,7 @@ function escapeHtml(value: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Metadata-first HTML shell for crawlers; SPA hydrates client-side content. */
 function buildHtml(options: {
   title: string;
   description: string;
@@ -198,49 +202,48 @@ export default async function middleware(request: Request): Promise<Response> {
     return htmlResponse(html, { "X-Robots-Tag": "noindex, nofollow" });
   }
 
-  const canonicalUrl = `${SITE_URL}${pathname === "/" ? "/" : pathname.replace(/\/+$/, "") || "/"}`;
-
-  if (pathname.startsWith("/stocks/")) {
-    const ticker = pathname.replace("/stocks/", "").split("/")[0];
-    if (ticker) {
-      const [{ js, css }, companyName] = await Promise.all([
-        getAssets(url.origin),
-        getCompanyName(ticker.toUpperCase()),
-      ]);
-      const meta = buildStockMeta(ticker, companyName);
-      return htmlResponse(
-        buildHtml({
-          ...meta,
-          canonicalUrl,
-          js,
-          css,
-        }),
-      );
-    }
+  const stockSymbol = stockDetailSymbolFromPath(pathname);
+  if (stockSymbol) {
+    const canonicalUrl = `${SITE_URL}/stocks/${stockSymbol}`;
+    const [{ js, css }, companyName] = await Promise.all([
+      getAssets(url.origin),
+      getCompanyName(stockSymbol),
+    ]);
+    const meta = buildStockMeta(stockSymbol, companyName);
+    return htmlResponse(
+      buildHtml({
+        ...meta,
+        canonicalUrl,
+        js,
+        css,
+      }),
+    );
   }
 
-  if (pathname.startsWith("/etf/") && pathname.length > 5) {
-    const ticker = pathname.replace("/etf/", "").split("/")[0];
-    if (ticker) {
-      const [{ js, css }, companyName] = await Promise.all([
-        getAssets(url.origin),
-        getCompanyName(ticker.toUpperCase()),
-      ]);
-      const meta = buildEtfMeta(ticker, companyName);
-      return htmlResponse(
-        buildHtml({
-          ...meta,
-          canonicalUrl,
-          js,
-          css,
-        }),
-      );
-    }
+  const etfSymbol = etfDetailSymbolFromPath(pathname);
+  if (etfSymbol) {
+    const canonicalPath = pathname.startsWith("/etfs/")
+      ? `/etfs/${etfSymbol}`
+      : `/etf/${etfSymbol}`;
+    const canonicalUrl = `${SITE_URL}${canonicalPath}`;
+    const [{ js, css }, companyName] = await Promise.all([
+      getAssets(url.origin),
+      getCompanyName(etfSymbol),
+    ]);
+    const meta = buildEtfMeta(etfSymbol, companyName);
+    return htmlResponse(
+      buildHtml({
+        ...meta,
+        canonicalUrl,
+        js,
+        css,
+      }),
+    );
   }
 
-  const staticMeta = MIDDLEWARE_PUBLIC_META[pathname] ??
-    (pathname.startsWith("/ipos/") ? MIDDLEWARE_PUBLIC_META["/ipos"] : null);
+  const staticMeta = MIDDLEWARE_PUBLIC_META[pathname] ?? null;
   if (staticMeta) {
+    const canonicalUrl = `${SITE_URL}${pathname.replace(/\/+$/, "") || "/"}`;
     const { js, css } = await getAssets(url.origin);
     return htmlResponse(
       buildHtml({
@@ -252,5 +255,5 @@ export default async function middleware(request: Request): Promise<Response> {
     );
   }
 
-  return fetch(request);
+  return next();
 }

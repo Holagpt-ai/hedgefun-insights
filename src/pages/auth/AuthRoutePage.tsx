@@ -3,23 +3,17 @@ import { useRobotsNoIndex } from "@/hooks/useRobotsNoIndex";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { useAuth } from "@/contexts/AuthContext";
+import { sanitizeAuthRedirectPath } from "@/lib/auth/safe-auth-redirect";
 
 interface AuthRoutePageProps {
   defaultMode: "login" | "signup";
-}
-
-// Only allow same-origin relative paths for post-auth redirect.
-function safeNext(next: string | null): string {
-  if (!next) return "/dashboard";
-  if (!next.startsWith("/") || next.startsWith("//")) return "/dashboard";
-  return next;
 }
 
 export default function AuthRoutePage({ defaultMode }: AuthRoutePageProps) {
   useRobotsNoIndex(true);
   const { user, loading } = useAuth();
   const [searchParams] = useSearchParams();
-  const nextTarget = safeNext(searchParams.get("next"));
+  const nextTarget = sanitizeAuthRedirectPath(searchParams.get("next"));
   const [mode, setMode] = useState<"login" | "signup" | null>(defaultMode);
   const [closed, setClosed] = useState(false);
 

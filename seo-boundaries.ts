@@ -24,14 +24,90 @@ export function isNoindexPath(pathname: string): boolean {
   );
 }
 
+/** First segment under /stocks/ that are app routes, not ticker symbols. */
+export const STOCK_RESERVED_SEGMENTS = new Set([
+  "compare",
+  "lists",
+  "analysts",
+  "exchanges",
+  "industry",
+  "top-stocks",
+  "corporate-actions",
+]);
+
+export const ETF_LEGACY_RESERVED_SEGMENTS = new Set([
+  "screener",
+  "compare",
+  "list",
+  "provider",
+]);
+
+export const ETFS_RESERVED_SEGMENTS = new Set([
+  "screener",
+  "compare",
+  "top",
+]);
+
+const IPO_STATIC_PATHS = new Set([
+  "/ipos",
+  "/ipos/recent",
+  "/ipos/calendar",
+  "/ipos/statistics",
+  "/ipos/news",
+]);
+
+/** US ticker-like symbol (detail pages only). */
+export function isLikelyTickerSegment(segment: string): boolean {
+  const s = segment.trim();
+  if (!s || s.length > 12) return false;
+  return /^[A-Za-z][A-Za-z0-9.-]*$/.test(s);
+}
+
+export function stockDetailSymbolFromPath(pathname: string): string | null {
+  const path = pathname.split("?")[0] ?? pathname;
+  if (!path.startsWith("/stocks/")) return null;
+  const rest = path.slice("/stocks/".length);
+  const segment = rest.split("/")[0];
+  if (!segment) return null;
+  if (STOCK_RESERVED_SEGMENTS.has(segment.toLowerCase())) return null;
+  if (!isLikelyTickerSegment(segment)) return null;
+  if (rest.includes("/")) return null;
+  return segment.toUpperCase();
+}
+
+export function etfDetailSymbolFromPath(pathname: string): string | null {
+  const path = pathname.split("?")[0] ?? pathname;
+  if (path.startsWith("/etfs/")) {
+    const segment = path.slice("/etfs/".length).split("/")[0];
+    if (!segment || ETFS_RESERVED_SEGMENTS.has(segment.toLowerCase())) return null;
+    if (!isLikelyTickerSegment(segment)) return null;
+    if (path.slice("/etfs/".length).includes("/")) return null;
+    return segment.toUpperCase();
+  }
+  if (path.startsWith("/etf/")) {
+    const segment = path.slice("/etf/".length).split("/")[0];
+    if (!segment || ETF_LEGACY_RESERVED_SEGMENTS.has(segment.toLowerCase())) {
+      return null;
+    }
+    if (!isLikelyTickerSegment(segment)) return null;
+    if (path.slice("/etf/".length).includes("/")) return null;
+    return segment.toUpperCase();
+  }
+  return null;
+}
+
+export function isKnownIpoListingPath(pathname: string): boolean {
+  const path = pathname.split("?")[0] ?? pathname;
+  return IPO_STATIC_PATHS.has(path);
+}
+
 export const MIDDLEWARE_PUBLIC_META: Record<
   string,
   { title: string; description: string }
 > = {
-  "/": {
-    title: "Stocksist — Your Edge In Every Market",
-    description:
-      "Stock market data, news, screeners, and research tools for self-directed investors.",
+  "/stocks": {
+    title: "All Stocks — Browse US Equities | Stocksist",
+    description: "Browse US-listed stocks with quotes, news, and research on Stocksist.",
   },
   "/screener": {
     title: "Stock Screener — Filter & Find Stocks | Stocksist",
@@ -55,6 +131,14 @@ export const MIDDLEWARE_PUBLIC_META: Record<
   "/ipos/calendar": {
     title: "IPO Calendar — Upcoming Listings | Stocksist",
     description: "See scheduled and expected IPO listings on Stocksist.",
+  },
+  "/ipos/statistics": {
+    title: "IPO Statistics | Stocksist",
+    description: "IPO market statistics and trends on Stocksist.",
+  },
+  "/ipos/news": {
+    title: "IPO News | Stocksist",
+    description: "Latest IPO news and listing coverage on Stocksist.",
   },
   "/news": {
     title: "Stock Market News & Financial Analysis | Stocksist",
