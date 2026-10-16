@@ -87,3 +87,27 @@ function finiteOrNull(value: number | null | undefined): number | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null;
   return value;
 }
+
+/** Context-only label for Action Center / workflow surfaces (not a live quote). */
+export function formatMarketEvidenceContextLine(evidence: MarketEvidenceHandoff): string {
+  const scope =
+    evidence.contextScope === "prior_session" ? "Prior session context" : "Current session context";
+  const parts = [scope, evidence.sourceSurface.replace(/_/g, " ")];
+  if (evidence.primaryScannerEvent) parts.push(evidence.primaryScannerEvent);
+  if (evidence.providerAsOf) {
+    try {
+      parts.push(
+        `observed ${new Date(evidence.providerAsOf).toLocaleString("en-US", {
+          timeZone: "America/New_York",
+          month: "short",
+          day: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        })} ET`,
+      );
+    } catch {
+      parts.push(`observed ${evidence.providerAsOf}`);
+    }
+  }
+  return `Workflow context (not a live quote): ${parts.join(" · ")}`;
+}
