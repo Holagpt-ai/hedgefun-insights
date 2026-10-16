@@ -158,7 +158,7 @@ export function evaluateMorningRadarEligibility(
           ? "gap_continuation"
           : "premarket_participation";
     if (path === "momentum_event") {
-      reasons.push("Active scanner momentum event with qualifying session volume");
+      reasons.push("Recorded scanner momentum event with qualifying session volume");
     } else if (path === "gap_continuation") {
       reasons.push(
         events.some((e) => canonicalIntelligenceEventType(e) === "GAP_CONTINUATION")

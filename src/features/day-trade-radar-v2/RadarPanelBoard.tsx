@@ -11,8 +11,7 @@ import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { formatScreenerRvol5m } from "@/lib/screeners/screener-metric-display";
 import { rvol5mCellTitle } from "@/lib/scanner-intelligence/rvol-5m-availability";
-import { scannerTimeEvidenceTitle } from "@/lib/screeners/screener-trigger-time";
-import { buildParticipationTriggerEvidence } from "@/lib/scanner-intelligence/participation-trigger-evidence";
+import { buildRadarTriggerDisplayTitle } from "@/lib/scanner-intelligence/radar-trigger-evidence-title";
 import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -490,16 +489,18 @@ function renderCell(args: {
 }): ReactNode {
   const { id, row } = args;
   if (id === "time") {
-    const participation = buildParticipationTriggerEvidence(args.row, Date.now());
-    const marketTitle = scannerTimeEvidenceTitle({
+    const trigger = buildRadarTriggerDisplayTitle({
+      row: args.row,
+      nowMs: Date.now(),
+      includeMarketEventEvidence: true,
       marketEventAt: args.timeIso,
       publishedAt: args.row.updated_at,
     });
     return (
       <div>
         <TriggeredTimeCell
-          triggeredAt={args.timeIso}
-          title={`${marketTitle} ${participation.headline}. ${participation.detail}`}
+          triggeredAt={trigger.triggeredAt ?? args.timeIso}
+          title={trigger.title}
         />
         {args.age ? <div className="text-[10px] font-semibold text-accent-blue">{args.age}</div> : null}
       </div>
@@ -654,6 +655,13 @@ function MobilePanelCard({
 }) {
   const time = panelTime(panel, row);
   const age = panelAgeLabel(time.iso, nowMs);
+  const trigger = buildRadarTriggerDisplayTitle({
+    row,
+    nowMs,
+    includeMarketEventEvidence: true,
+    marketEventAt: time.iso,
+    publishedAt: row.updated_at,
+  });
   return (
     <div
       data-symbol={row.symbol}
@@ -663,11 +671,8 @@ function MobilePanelCard({
     >
       <div className="flex items-center justify-between gap-2">
         <TriggeredTimeCell
-          triggeredAt={time.iso}
-          title={scannerTimeEvidenceTitle({
-            marketEventAt: time.iso,
-            publishedAt: row.updated_at,
-          })}
+          triggeredAt={trigger.triggeredAt ?? time.iso}
+          title={trigger.title}
         />
         {age ? <span className="text-[10px] font-semibold text-accent-blue">{age}</span> : null}
       </div>

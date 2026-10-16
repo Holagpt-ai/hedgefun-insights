@@ -60,16 +60,8 @@ import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
 import { formatScreenerDollarVolume, formatScreenerRvol20d } from "@/lib/screeners/screener-metric-display";
 import { formatScreenerTradeQualityFromRow } from "@/lib/screeners/screener-trade-quality";
-import {
-  evaluateScreenerTriggerTime,
-  triggerTypeLabel,
-} from "@/lib/screeners/screener-trigger-time";
 import { resolveDisplayPriceEvidence } from "@/lib/market-data/display-price-evidence";
-import { buildParticipationTriggerEvidence } from "@/lib/scanner-intelligence/participation-trigger-evidence";
-import {
-  formatPromotionReasonTitle,
-  parsePromotionReason,
-} from "@/lib/radar/promotion-reason-display";
+import { buildRadarTriggerDisplayTitle } from "@/lib/scanner-intelligence/radar-trigger-evidence-title";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
@@ -196,19 +188,11 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
     case "vol_velocity":
       return formatScreenerVolumeVelocity(row.vol_velocity);
     case "trigger_time": {
-      const view = evaluateScreenerTriggerTime(row);
-      const promotionTitle = formatPromotionReasonTitle(
-        parsePromotionReason(row.promotion_reason),
-      );
-      const participation = buildParticipationTriggerEvidence(row, Date.now());
-      const baseTitle = view.primary
-        ? `${triggerTypeLabel(view.primary.triggerType)} trigger`
-        : "Triggered unavailable";
-      const title = promotionTitle ?? `${baseTitle}. ${participation.headline}. ${participation.detail}`;
+      const trigger = buildRadarTriggerDisplayTitle({ row, nowMs: Date.now() });
       return (
         <TriggeredTimeCell
-          triggeredAt={view.primary?.triggeredAt}
-          title={title}
+          triggeredAt={trigger.triggeredAt}
+          title={trigger.title}
         />
       );
     }
@@ -338,18 +322,12 @@ export function RadarGrid({
               >
                 {visibleColumns.map((columnId) => {
                   if (columnId === "trigger_time") {
-                    const view = evaluateScreenerTriggerTime(row);
-                    const promotionTitle = formatPromotionReasonTitle(
-                      parsePromotionReason(row.promotion_reason),
-                    );
-                    const baseTitle = view.primary
-                      ? `${triggerTypeLabel(view.primary.triggerType, view.primary.eventKey)} trigger`
-                      : "Triggered unavailable";
+                    const trigger = buildRadarTriggerDisplayTitle({ row, nowMs: Date.now() });
                     return (
                       <td key={columnId} className="px-2 py-1.5 align-top">
                         <TriggeredTimeCell
-                          triggeredAt={view.primary?.triggeredAt}
-                          title={promotionTitle ?? baseTitle}
+                          triggeredAt={trigger.triggeredAt}
+                          title={trigger.title}
                         />
                       </td>
                     );

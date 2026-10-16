@@ -33,7 +33,7 @@ const model: BoardModel = {
           asOf: "2026-09-29T13:00:00.000Z",
           continuationCategory: null,
           securityId: null,
-          qualificationSummary: "Active scanner momentum event with qualifying session volume",
+          qualificationSummary: "Recorded scanner momentum event with qualifying session volume",
         },
       ],
     },

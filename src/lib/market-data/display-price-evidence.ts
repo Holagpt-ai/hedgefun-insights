@@ -56,12 +56,20 @@ export function resolveDisplayPriceEvidence(input: {
     marketFeed: input.marketFeed ?? null,
     nowMs,
   });
-  const sourceMs = parseTrustSourceMs(input.observation.providerAsOf);
   const trustLine = formatMarketDataTrustLine(trust, input.observation.providerAsOf, nowMs);
   const clock = formatEtClock(input.observation.providerAsOf);
-  const note = clock
-    ? `${input.observation.sourceLabel}${input.observation.sessionLabel ? ` · ${input.observation.sessionLabel}` : ""} · ${clock}`
-    : `${input.observation.sourceLabel} · timestamp unavailable`;
+  const sessionSuffix = input.observation.sessionLabel
+    ? ` · ${input.observation.sessionLabel}`
+    : "";
+  let note: string;
+  if (!clock) {
+    note = `${input.observation.sourceLabel}${sessionSuffix} · timestamp unavailable · ${trustLine}`;
+  } else if (input.marketFeed) {
+    note = `${input.observation.sourceLabel}${sessionSuffix} · as of ${clock} ET · ${trustLine}`;
+  } else {
+    note =
+      `${input.observation.sourceLabel}${sessionSuffix} · as of ${clock} ET · ${trustLine} (snapshot provenance; not a live quote tier)`;
+  }
 
   return {
     price: finitePrice(input.observation.price),
