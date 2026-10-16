@@ -4,6 +4,7 @@ import { buildRawItem, toUtcIso } from "../normalize.ts";
 import {
   discoverSecFilingsPages,
   planSecIntelIngestBatch,
+  SecIntelPendingGapError,
 } from "../sec-intel-discovery.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { assertPublicHttpsUrl, SourceFetchError } from "../source-fetch.ts";
@@ -45,17 +46,28 @@ export const secFilingsAdapter: CatalystSourceAdapter = {
         checkpoint: null,
         continuation: null,
         batchComplete: true,
+        workloadStartIndex: 0,
+        successContentHash: null,
       };
       return [];
     }
-    const { batchEntries, patch } = planSecIntelIngestBatch({
+    let batchEntries;
+    let patch;
+    try {
+      ({ batchEntries, patch } = planSecIntelIngestBatch({
       entries: walk.entries,
       contentHash: walk.contentHash,
       proposedCheckpoint: walk.proposedCheckpoint,
       metadata: ctx.source.metadata,
       itemLimit: ctx.itemLimit || MAX_ITEMS_PER_SOURCE,
       filterForm: (form) => INTEL_SEC_FORMS.has(form),
-    });
+      }));
+    } catch (err) {
+      if (err instanceof SecIntelPendingGapError) {
+        throw new SourceFetchError("sec_intel_pending_gap", null, true);
+      }
+      throw err;
+    }
     ctx.fetchState.secIntelPatch = patch;
     ctx.fetchState.checkpoint = patch.checkpoint;
     const items: RawSourceItem[] = [];

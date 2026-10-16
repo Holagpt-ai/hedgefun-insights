@@ -193,6 +193,8 @@ export type PageWalkFail = {
     | "PROVIDER_ERROR";
   pagesFetched: number;
   entriesScanned: number;
+  httpStatus: number | null;
+  retryAfterSeconds: number | null;
 };
 
 export type PageWalkResult = PageWalkOk | PageWalkFail;
@@ -218,7 +220,14 @@ export async function walkLatestFilingsPages(
       ? initialPage0
       : await fetchPage(buildLatestFilingsAtomUrl(start));
     if (!res.ok) {
-      return { ok: false, reason: res.reason, pagesFetched, entriesScanned };
+      return {
+        ok: false,
+        reason: res.reason,
+        pagesFetched,
+        entriesScanned,
+        httpStatus: res.status,
+        retryAfterSeconds: res.retryAfterSeconds,
+      };
     }
     const pageEntries = parseLatestFilingsAtom(res.text);
     pagesFetched += 1;
@@ -226,12 +235,26 @@ export async function walkLatestFilingsPages(
 
     if (pageIndex === 0) {
       if (pageEntries.length === 0) {
-        return { ok: false, reason: "PROVIDER_ERROR", pagesFetched, entriesScanned };
+        return {
+          ok: false,
+          reason: "PROVIDER_ERROR",
+          pagesFetched,
+          entriesScanned,
+          httpStatus: res.status,
+          retryAfterSeconds: null,
+        };
       }
       page0Accessions = uniqueAccessionsInOrder(pageEntries);
       page0HeadUpdatedAt = pageEntries[0]?.accepted_at ?? null;
     } else if (pageEntries.length === 0) {
-      return { ok: false, reason: "CHECKPOINT_INCONSISTENT", pagesFetched, entriesScanned };
+      return {
+        ok: false,
+        reason: "CHECKPOINT_INCONSISTENT",
+        pagesFetched,
+        entriesScanned,
+        httpStatus: res.status,
+        retryAfterSeconds: null,
+      };
     }
 
     collected.push(...pageEntries);
@@ -263,5 +286,12 @@ export async function walkLatestFilingsPages(
     };
   }
 
-  return { ok: false, reason: "CHECKPOINT_GAP", pagesFetched, entriesScanned };
+  return {
+    ok: false,
+    reason: "CHECKPOINT_GAP",
+    pagesFetched,
+    entriesScanned,
+    httpStatus: null,
+    retryAfterSeconds: null,
+  };
 }

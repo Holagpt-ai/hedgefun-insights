@@ -17,7 +17,7 @@ import {
   readNewsContinuation,
   writeNewsContinuation,
 } from "./news-continuation.ts";
-import { writeSecIntelContinuation } from "./sec-intel-continuation.ts";
+import { readSecIntelContinuation, writeSecIntelContinuation } from "./sec-intel-continuation.ts";
 import {
   isLiveReactionEligible,
   loadHistoricalBackfillCandidates,
@@ -361,6 +361,22 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
             });
             ingestionObs.continuation_remaining_items = Math.max(0, items.length - absoluteIndex);
           }
+          if (input.bot === "sec" && ctx.fetchState.secIntelPatch) {
+            const secPatch = ctx.fetchState.secIntelPatch;
+            const pending = readSecIntelContinuation(source.metadata);
+            const workload = pending?.batch_accessions ?? secPatch.continuation?.batch_accessions;
+            const pendingCheckpoint = pending?.pending_checkpoint ??
+              secPatch.continuation?.pending_checkpoint;
+            if (workload && pendingCheckpoint) {
+              const resumeIndex = secPatch.workloadStartIndex + absoluteIndex;
+              source.metadata = writeSecIntelContinuation(source.metadata, {
+                page_content_hash: ctx.fetchState.contentHash ?? pending?.page_content_hash ?? "",
+                next_index: resumeIndex,
+                batch_accessions: workload,
+                pending_checkpoint: pendingCheckpoint,
+              });
+            }
+          }
           await input.store.saveSource(source);
           run.sourcesFailed += 1;
           run.errors.push({
@@ -429,6 +445,9 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
         source.metadata = writeSecIntelContinuation(source.metadata, secPatch.continuation);
         if (secPatch.batchComplete && secPatch.checkpoint) {
           source.metadata = { ...source.metadata, checkpoint: secPatch.checkpoint };
+        }
+        if (secPatch.batchComplete && secPatch.successContentHash) {
+          ctx.fetchState.contentHash = secPatch.successContentHash;
         }
         continuationComplete = secPatch.batchComplete;
       }

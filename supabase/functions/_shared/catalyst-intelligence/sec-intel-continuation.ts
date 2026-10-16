@@ -13,6 +13,18 @@ export interface SecFetchMetadataPatch {
   checkpoint: Record<string, unknown> | null;
   continuation: SecIntelContinuation | null;
   batchComplete: boolean;
+  /** Index in `batch_accessions` where this run's slice begins. */
+  workloadStartIndex: number;
+  /** When the batch completes, persist this hash so newer page-zero prepends remain discoverable. */
+  successContentHash: string | null;
+}
+
+export function accessionsMissingFromWalk(
+  accessions: readonly string[],
+  entries: readonly SecFeedEntry[],
+): string[] {
+  const found = new Set(entries.map((entry) => entry.accession_number));
+  return accessions.filter((acc) => !found.has(acc));
 }
 
 export function readSecIntelContinuation(

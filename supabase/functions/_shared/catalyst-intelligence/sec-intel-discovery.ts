@@ -13,6 +13,7 @@ import {
 } from "../sec-edgar/ingest.ts";
 import { MAX_ITEMS_PER_SOURCE } from "./config.ts";
 import {
+  accessionsMissingFromWalk,
   entriesInAccessionOrder,
   readSecIntelContinuation,
   type SecIntelContinuation,
@@ -26,6 +27,16 @@ import type { SourceRunContext } from "./types.ts";
 
 export type { SecEdgarCheckpoint as SecIntelCheckpoint };
 export { readSecIntelCheckpoint, checkpointMetadataRecord } from "./sec-intel-metadata.ts";
+
+export class SecIntelPendingGapError extends Error {
+  readonly missingAccessions: readonly string[];
+
+  constructor(missingAccessions: readonly string[]) {
+    super("sec_intel_pending_gap");
+    this.name = "SecIntelPendingGapError";
+    this.missingAccessions = missingAccessions;
+  }
+}
 
 export function buildSecIntelCheckpoint(input: {
   page0Accessions: readonly string[];
@@ -110,16 +121,20 @@ export async function discoverSecFilingsPages(
     assertHost(url);
     return await secFetch(url);
   };
-  const anchors = prior?.anchor_accessions ?? null;
-  const walk: PageWalkResult = await walkLatestFilingsPages(fetchPage, anchors, undefined, page0);
+  const walkAnchors = pending
+    ? pending.pending_checkpoint.anchor_accessions
+    : prior?.anchor_accessions ?? null;
+  const walk: PageWalkResult = await walkLatestFilingsPages(fetchPage, walkAnchors, undefined, page0);
   ctx.fetchState.providerHttpAttempts = summary.sec_requests;
   if (!walk.ok) {
+    if (walk.httpStatus != null) ctx.fetchState.providerHttpStatus = walk.httpStatus;
+    if (walk.retryAfterSeconds != null) ctx.fetchState.providerRetryAfterSeconds = walk.retryAfterSeconds;
     const retryable = walk.reason === "PROVIDER_TIMEOUT" || walk.reason === "PROVIDER_RATE_LIMITED";
     return {
       ok: false,
       reason: walk.reason,
       retryable,
-      retryAfterSeconds: null,
+      retryAfterSeconds: walk.retryAfterSeconds,
       secRequests: summary.sec_requests,
     };
   }
@@ -130,7 +145,7 @@ export async function discoverSecFilingsPages(
     page0HeadUpdatedAt: walk.page0HeadUpdatedAt,
     pagesFetched: walk.pagesFetched,
     nowIso,
-    prior,
+    prior: pending ? pending.pending_checkpoint : prior,
   });
 
   return {
@@ -154,6 +169,38 @@ export function planSecIntelIngestBatch(input: {
   batchEntries: SecFeedEntry[];
   patch: SecFetchMetadataPatch;
 } {
+  const limit = input.itemLimit > 0 ? input.itemLimit : MAX_ITEMS_PER_SOURCE;
+  const pending = readSecIntelContinuation(input.metadata);
+
+  if (pending) {
+    const workload = pending.batch_accessions;
+    const startIndex = pending.next_index;
+    const endIndex = Math.min(startIndex + limit, workload.length);
+    const sliceAccessions = workload.slice(startIndex, endIndex);
+    const missing = accessionsMissingFromWalk(sliceAccessions, input.entries);
+    if (missing.length > 0) {
+      throw new SecIntelPendingGapError(missing);
+    }
+    const batchEntries = entriesInAccessionOrder(input.entries, sliceAccessions);
+    const batchComplete = endIndex >= workload.length;
+    const continuation: SecIntelContinuation | null = batchComplete ? null : {
+      page_content_hash: pending.page_content_hash,
+      next_index: endIndex,
+      batch_accessions: workload,
+      pending_checkpoint: pending.pending_checkpoint,
+    };
+    return {
+      batchEntries,
+      patch: {
+        checkpoint: batchComplete ? checkpointMetadataRecord(pending.pending_checkpoint) : null,
+        continuation,
+        batchComplete,
+        workloadStartIndex: startIndex,
+        successContentHash: batchComplete ? pending.page_content_hash : null,
+      },
+    };
+  }
+
   const eligible = input.entries.filter((entry) => input.filterForm(entry.form_type));
   const seen = new Set<string>();
   const orderedEligible: SecFeedEntry[] = [];
@@ -163,15 +210,9 @@ export function planSecIntelIngestBatch(input: {
     orderedEligible.push(entry);
   }
   const batchAccessions = orderedEligible.map((e) => e.accession_number);
-  const limit = input.itemLimit > 0 ? input.itemLimit : MAX_ITEMS_PER_SOURCE;
-  const pending = readSecIntelContinuation(input.metadata);
-  let startIndex = 0;
-  if (pending && pending.page_content_hash === input.contentHash) {
-    startIndex = pending.next_index;
-  }
-  const endIndex = Math.min(startIndex + limit, batchAccessions.length);
+  const endIndex = Math.min(limit, batchAccessions.length);
   const batchComplete = endIndex >= batchAccessions.length;
-  const sliceAccessions = batchAccessions.slice(startIndex, endIndex);
+  const sliceAccessions = batchAccessions.slice(0, endIndex);
   const batchEntries = entriesInAccessionOrder(orderedEligible, sliceAccessions);
 
   let continuation: SecIntelContinuation | null = null;
@@ -190,6 +231,8 @@ export function planSecIntelIngestBatch(input: {
       checkpoint: batchComplete ? checkpointMetadataRecord(input.proposedCheckpoint) : null,
       continuation,
       batchComplete,
+      workloadStartIndex: 0,
+      successContentHash: batchComplete ? input.contentHash : null,
     },
   };
 }

@@ -57,7 +57,13 @@ Deno.test("applySecFetchMetadataToSource persists parseable checkpoint", () => {
   };
   applySecFetchMetadataToSource(
     source,
-    { checkpoint: { ...checkpoint }, continuation: null, batchComplete: true },
+    {
+      checkpoint: { ...checkpoint },
+      continuation: null,
+      batchComplete: true,
+      workloadStartIndex: 0,
+      successContentHash: "deadbeef",
+    },
     "2024-01-02T12:00:00Z",
     "deadbeef",
     true,

@@ -1,7 +1,13 @@
 import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { secFilingsAdapter } from "./adapters/sec.ts";
 import { MAX_ITEMS_PER_SOURCE } from "./config.ts";
-import { buildSecIntelCheckpoint, discoverSecFilingsPages, planSecIntelIngestBatch } from "./sec-intel-discovery.ts";
+import {
+  buildSecIntelCheckpoint,
+  discoverSecFilingsPages,
+  planSecIntelIngestBatch,
+  SecIntelPendingGapError,
+} from "./sec-intel-discovery.ts";
+import { buildLatestFilingsAtomUrl } from "../sec-edgar/ingest.ts";
 import {
   applySecFetchMetadataToSource,
   readSecIntelCheckpoint,
@@ -26,9 +32,9 @@ function atomEntry(i: number): string {
 </entry>`;
 }
 
-function atomBody(entryCount: number): string {
+function atomBody(entryCount: number, prepend?: string): string {
   const entries = Array.from({ length: entryCount }, (_, i) => atomEntry(i + 1)).join("");
-  return `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${entries}</feed>`;
+  return `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${prepend ?? ""}${entries}</feed>`;
 }
 
 function secSource(metadata: Record<string, unknown> = {}): SourceRecord {
@@ -72,7 +78,13 @@ Deno.test("SEC checkpoint metadata round-trips through markSuccess-shaped helper
   assert(readSecIntelCheckpoint(source.metadata));
   applySecFetchMetadataToSource(
     source,
-    { checkpoint: { ...checkpoint }, continuation: null, batchComplete: true },
+    {
+      checkpoint: { ...checkpoint },
+      continuation: null,
+      batchComplete: true,
+      workloadStartIndex: 0,
+      successContentHash: "abc123",
+    },
     "2024-01-02T12:10:00Z",
     "abc123",
     true,
@@ -162,6 +174,218 @@ Deno.test("SEC batch drains 45 eligible filings across two runs without losing c
   assert(checkpoint);
   assertEquals(store.rawItems().length, 45);
   assert(httpCalls >= 2);
+});
+
+Deno.test("SEC pending batch survives page-zero prepend and then ingests the new filing", async () => {
+  const store = createMemoryStore();
+  const src = secSource();
+  await store.saveSource(src);
+  const body45 = atomBody(45);
+  const newPrepended = atomEntry(46);
+  const body46 = atomBody(45, newPrepended);
+  let feedBody = body45;
+  const fetchImpl = () => Promise.resolve(new Response(feedBody, { status: 200 }));
+  const run = (now: Date) => runCollectorBot({
+    bot: "sec",
+    adapter: secFilingsAdapter,
+    store,
+    now,
+    userAgent: "Stocksist test@example.com",
+    fetchImpl,
+    batchLimit: MAX_ITEMS_PER_SOURCE,
+    cikMap: new Map([["0000000001", ["TST"]]]),
+  });
+  await run(new Date("2026-10-01T12:00:00.000Z"));
+  feedBody = body46;
+  const second = await run(new Date("2026-10-01T12:05:00.000Z"));
+  assertEquals(second.newItems, 5);
+  assertEquals(store.rawItems().length, 45);
+  const third = await run(new Date("2026-10-01T12:10:00.000Z"));
+  assertEquals(third.newItems, 1);
+  assertEquals(store.rawItems().length, 46);
+});
+
+Deno.test("planSecIntelIngestBatch resumes pending accessions when page hash and order change", () => {
+  const entries = Array.from({ length: 50 }, (_, i) => ({
+    accession_number: `0000000001-26-${String(i + 1).padStart(6, "0")}`,
+    form_type: "8-K",
+    filing_url: `https://www.sec.gov/Archives/edgar/data/1/x${i}`,
+    accepted_at: "2026-09-30T18:00:00Z",
+    filing_date: "2026-09-30",
+    cik: "0000000001",
+    company_name: `Example ${i + 1}`,
+    sec_items: [],
+    primary_document: null,
+  }));
+  const proposed = buildSecIntelCheckpoint({
+    page0Accessions: entries.slice(0, 5).map((e) => e.accession_number),
+    page0HeadUpdatedAt: "2026-09-30T18:00:00Z",
+    pagesFetched: 1,
+    nowIso: "2026-10-01T12:00:00.000Z",
+    prior: null,
+  });
+  const first = planSecIntelIngestBatch({
+    entries,
+    contentHash: "hash-a",
+    proposedCheckpoint: proposed,
+    metadata: {},
+    itemLimit: 40,
+    filterForm: (f) => f === "8-K",
+  });
+  const reordered = [...entries].reverse();
+  const second = planSecIntelIngestBatch({
+    entries: reordered,
+    contentHash: "hash-b",
+    proposedCheckpoint: proposed,
+    metadata: { sec_intel_continuation: first.patch.continuation },
+    itemLimit: 40,
+    filterForm: (f) => f === "8-K",
+  });
+  assertEquals(second.batchEntries.length, 10);
+  assertEquals(second.batchEntries[0].accession_number, "0000000001-26-000041");
+  assertEquals(second.patch.batchComplete, true);
+  assertEquals(second.patch.checkpoint?.anchor_accessions, proposed.anchor_accessions);
+});
+
+Deno.test("planSecIntelIngestBatch fails closed when pending accessions are missing from walk", () => {
+  const entries = Array.from({ length: 5 }, (_, i) => ({
+    accession_number: `0000000001-26-${String(i + 1).padStart(6, "0")}`,
+    form_type: "8-K",
+    filing_url: `https://www.sec.gov/Archives/edgar/data/1/x${i}`,
+    accepted_at: "2026-09-30T18:00:00Z",
+    filing_date: "2026-09-30",
+    cik: "0000000001",
+    company_name: "Example",
+    sec_items: [],
+    primary_document: null,
+  }));
+  const proposed = buildSecIntelCheckpoint({
+    page0Accessions: [entries[0].accession_number],
+    page0HeadUpdatedAt: "2026-09-30T18:00:00Z",
+    pagesFetched: 1,
+    nowIso: "2026-10-01T12:00:00.000Z",
+    prior: null,
+  });
+  const first = planSecIntelIngestBatch({
+    entries,
+    contentHash: "hash",
+    proposedCheckpoint: proposed,
+    metadata: {},
+    itemLimit: 2,
+    filterForm: (f) => f === "8-K",
+  });
+  assert(first.patch.continuation);
+  let threw = false;
+  try {
+    planSecIntelIngestBatch({
+      entries: entries.slice(0, 1),
+      contentHash: "hash-2",
+      proposedCheckpoint: proposed,
+      metadata: { sec_intel_continuation: first.patch.continuation },
+      itemLimit: 10,
+      filterForm: (f) => f === "8-K",
+    });
+  } catch (err) {
+    threw = err instanceof SecIntelPendingGapError;
+    if (err instanceof SecIntelPendingGapError) {
+      assert(err.missingAccessions.includes("0000000001-26-000003"));
+    }
+  }
+  assert(threw);
+});
+
+Deno.test("SEC discover propagates later-page 429 status and Retry-After", async () => {
+  const anchor = "0000000001-26-000150";
+  const checkpoint = buildSecIntelCheckpoint({
+    page0Accessions: ["0000000001-26-000001"],
+    page0HeadUpdatedAt: "2026-09-30T18:00:00Z",
+    pagesFetched: 1,
+    nowIso: "2026-10-01T12:00:00.000Z",
+    prior: null,
+  });
+  checkpoint.anchor_accessions = [anchor];
+  const page0Entries = Array.from({ length: 100 }, (_, i) => atomEntry(i + 1)).join("");
+  const page1Entry = `<entry>
+<title>8-K - EXAMPLE CO 150 (0000000001) (Issuer)</title>
+<link href="https://www.sec.gov/Archives/edgar/data/1/000000000126000150-index.htm"/>
+<id>urn:tag:sec.gov,2008:accession-number=${anchor}</id>
+<updated>2026-09-30T14:00:00-04:00</updated>
+<summary>Filed: 2026-09-30 AccNo: ${anchor}</summary>
+<category term="8-K"/>
+</entry>`;
+  const page0Body = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${page0Entries}</feed>`;
+  const page1Body = `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${page1Entry}</feed>`;
+  const requests: string[] = [];
+  const source = secSource({ checkpoint });
+  const fetchState: import("./types.ts").FetchState = {
+    unchanged: false,
+    etag: null,
+    lastModified: null,
+    contentHash: null,
+    checkpoint: null,
+  };
+  const ctx = {
+    now: new Date("2026-10-01T12:00:00.000Z"),
+    source,
+    userAgent: "Stocksist test@example.com",
+    fetchImpl: (url: string | URL | Request) => {
+      const href = String(url);
+      requests.push(href);
+      if (href.includes("start=0")) {
+        return Promise.resolve(new Response(page0Body, { status: 200 }));
+      }
+      if (href === buildLatestFilingsAtomUrl(100)) {
+        return Promise.resolve(new Response("slow", {
+          status: 429,
+          headers: { "retry-after": "900", "content-type": "text/plain" },
+        }));
+      }
+      return Promise.resolve(new Response(page1Body, { status: 200 }));
+    },
+    itemLimit: 40,
+    allowFixtures: false,
+    fetchState,
+  };
+  const result = await discoverSecFilingsPages(ctx, () => {});
+  assertEquals(result.ok, false);
+  if (result.ok) return;
+  assertEquals(result.reason, "PROVIDER_RATE_LIMITED");
+  assertEquals(result.retryAfterSeconds, 900);
+  assertEquals(fetchState.providerHttpStatus, 429);
+  assertEquals(fetchState.providerRetryAfterSeconds, 900);
+  assertEquals(result.secRequests, 2);
+  assertEquals(requests.filter((u) => u.includes("start=0")).length, 1);
+  assert(requests.some((u) => u.includes("start=100")));
+});
+
+Deno.test("SEC item ingest error preserves pending continuation index", async () => {
+  const store = createMemoryStore();
+  const src = secSource();
+  await store.saveSource(src);
+  const body = atomBody(45);
+  let insertCount = 0;
+  const baseInsert = store.insertRaw.bind(store);
+  store.insertRaw = async (item) => {
+    insertCount += 1;
+    if (insertCount === 3) throw new Error("simulated ingest failure");
+    return baseInsert(item);
+  };
+  const first = await runCollectorBot({
+    bot: "sec",
+    adapter: secFilingsAdapter,
+    store,
+    now: new Date("2026-10-01T12:00:00.000Z"),
+    userAgent: "Stocksist test@example.com",
+    fetchImpl: () => Promise.resolve(new Response(body, { status: 200 })),
+    batchLimit: MAX_ITEMS_PER_SOURCE,
+    cikMap: new Map([["0000000001", ["TST"]]]),
+  });
+  assertEquals(first.sourcesFailed, 1);
+  const saved = (await store.listSources({ sourceKeys: ["sec-integration"] }))[0];
+  const pending = readSecIntelContinuation(saved.metadata);
+  assert(pending);
+  assertEquals(pending.next_index, 2);
+  assertEquals(store.rawItems().length, 2);
 });
 
 Deno.test("SEC duplicate run does not recreate raw rows", async () => {
