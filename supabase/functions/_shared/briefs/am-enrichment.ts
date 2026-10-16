@@ -131,10 +131,18 @@ export function selectCurrentPremarketMovers(
     if (!updatedAt) continue;
     const age = nowMs - Date.parse(updatedAt);
     if (!Number.isFinite(age) || age < 0 || age > staleMs) continue;
+    const providerAsOf = str(row.provider_as_of);
+    if (providerAsOf) {
+      const providerAge = nowMs - Date.parse(providerAsOf);
+      if (!Number.isFinite(providerAge) || providerAge < 0 || providerAge > staleMs) continue;
+    }
     const price = finiteNum(row.price);
-    const gap = finiteNum(row.change_percent);
+    const gap = finiteNum(row.gap_percent) ?? finiteNum(row.change_percent);
     const volume = finiteNum(row.volume);
-    const rvol = finiteNum(row.rvol_20d);
+    const rvol =
+      finiteNum(row.rvol_5m) ??
+      finiteNum(row.time_adjusted_rvol) ??
+      finiteNum(row.rvol_20d);
     if (price === null && gap === null && volume === null) continue;
     seen.add(symbol);
     out.push({
