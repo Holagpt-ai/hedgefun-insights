@@ -11,12 +11,15 @@ import {
   SEC_COMPANY_MAP_CACHE_KEY,
   SEC_COMPANY_MAP_MIN_ISSUERS,
 } from "./sec-company-map.ts";
-import { parseSecRetryAfterSeconds } from "../sec-edgar/ingest.ts";
-import { parseCompanyTickersExchangeJson } from "../sec-edgar/ingest.ts";
+import {
+  parseCompanyTickersExchangeJson,
+  parseSecRetryAfterSeconds,
+  SEC_LATEST_FILINGS_ATOM_URL,
+} from "../sec-edgar/ingest.ts";
 import type { SourceRecord } from "./types.ts";
 
 const NOW = new Date("2026-10-03T15:00:00.000Z");
-const ATOM_URL = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&owner=exclude&count=100&start=0&output=atom";
+const ATOM_URL = SEC_LATEST_FILINGS_ATOM_URL;
 const MAP_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
 const USER_AGENT = "Stocksist filings-audit test@example.com";
 const ATOM = `<?xml version="1.0"?><feed><entry>

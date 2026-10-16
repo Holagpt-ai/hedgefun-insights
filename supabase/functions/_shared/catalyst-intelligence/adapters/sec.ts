@@ -1,11 +1,11 @@
-import {
-  createSecRequester,
-  emptySecSummary,
-  parseLatestFilingsAtom,
-  type SecFeedEntry,
-} from "../../sec-edgar/ingest.ts";
+import { type SecFeedEntry } from "../../sec-edgar/ingest.ts";
 import { MAX_ITEMS_PER_SOURCE } from "../config.ts";
 import { buildRawItem, toUtcIso } from "../normalize.ts";
+import {
+  discoverSecFilingsPages,
+  planSecIntelIngestBatch,
+  SecIntelPendingGapError,
+} from "../sec-intel-discovery.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { assertPublicHttpsUrl, SourceFetchError } from "../source-fetch.ts";
 import type { NormalizedEventCandidate, RawSourceItem, SourceRunContext } from "../types.ts";
@@ -16,6 +16,9 @@ export const INTEL_SEC_FORMS = new Set([
   "4", "4/A", "13D", "13D/A", "13G", "13G/A", "SC 13D", "SC 13G",
   "S-4", "S-4/A", "DEFM14A", "425",
 ]);
+
+/** Routine ownership/disclosure forms — ingested but not promoted as high-materiality catalysts. */
+export const ROUTINE_SEC_FORMS = new Set(["4", "4/A"]);
 
 function assertSecHost(url: string): void {
   const parsed = assertPublicHttpsUrl(url);
@@ -29,53 +32,66 @@ export const secFilingsAdapter: CatalystSourceAdapter = {
   id: "sec-filings",
   sourceType: "SEC_FILINGS",
   async discover(ctx) {
-    assertSecHost(ctx.source.url);
-    const summary = emptySecSummary();
-    const secFetch = createSecRequester(ctx.userAgent, summary, {
-      fetchFn: ctx.fetchImpl,
-      nowMs: () => ctx.now.getTime(),
-      sleepFn: ctx.fetchImpl === fetch ? undefined : async () => {},
-      retryRateLimit: false,
-    });
-    const result = await secFetch(ctx.source.url);
-    ctx.fetchState.providerHttpAttempts = summary.sec_requests;
-    ctx.fetchState.providerHttpStatus = result.status;
-    ctx.fetchState.providerRetryAfterSeconds = result.ok ? null : result.retryAfterSeconds;
-    if (!result.ok) {
-      const retryable = result.reason === "PROVIDER_TIMEOUT" || result.reason === "PROVIDER_RATE_LIMITED";
-      const error = new SourceFetchError(result.reason.toLowerCase(), result.status, retryable);
-      error.retryAfterSeconds = result.retryAfterSeconds;
+    const walk = await discoverSecFilingsPages(ctx, assertSecHost);
+    if (!walk.ok) {
+      const statusCode = ctx.fetchState.providerHttpStatus ?? null;
+      const error = new SourceFetchError(walk.reason.toLowerCase(), statusCode, walk.retryable);
+      error.retryAfterSeconds = walk.retryAfterSeconds;
       throw error;
     }
-    const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(result.text));
-    ctx.fetchState.contentHash = [...new Uint8Array(hash)].map((b) => b.toString(16).padStart(2, "0")).join("");
-    if (ctx.source.lastContentHash && ctx.source.lastContentHash === ctx.fetchState.contentHash) {
+    ctx.fetchState.providerHttpAttempts = walk.secRequests;
+    if (walk.unchanged) {
       ctx.fetchState.unchanged = true;
+      ctx.fetchState.secIntelPatch = {
+        checkpoint: null,
+        continuation: null,
+        batchComplete: true,
+        workloadStartIndex: 0,
+        successContentHash: null,
+      };
       return [];
     }
-    const entries = parseLatestFilingsAtom(result.text)
-      .filter((entry) => INTEL_SEC_FORMS.has(entry.form_type))
-      .slice(0, ctx.itemLimit || MAX_ITEMS_PER_SOURCE);
+    let batchEntries;
+    let patch;
+    try {
+      ({ batchEntries, patch } = planSecIntelIngestBatch({
+      entries: walk.entries,
+      contentHash: walk.contentHash,
+      proposedCheckpoint: walk.proposedCheckpoint,
+      metadata: ctx.source.metadata,
+      itemLimit: ctx.itemLimit || MAX_ITEMS_PER_SOURCE,
+      filterForm: (form) => INTEL_SEC_FORMS.has(form),
+      }));
+    } catch (err) {
+      if (err instanceof SecIntelPendingGapError) {
+        throw new SourceFetchError("sec_intel_pending_gap", null, true);
+      }
+      throw err;
+    }
+    ctx.fetchState.secIntelPatch = patch;
+    ctx.fetchState.checkpoint = patch.checkpoint;
     const items: RawSourceItem[] = [];
-    for (const entry of entries) items.push(await rawFromFiling(entry, ctx));
-    const start = Number((ctx.source.metadata.checkpoint as { start?: number } | undefined)?.start ?? 0);
-    ctx.fetchState.checkpoint = { start: entries.length > 0 ? start : 0, seen: entries.length };
+    for (const entry of batchEntries) items.push(await rawFromFiling(entry, ctx));
     return items;
   },
   async normalize(item, ctx) {
     if (!item.title) return null;
+    const formType = typeof item.metadata.formType === "string" ? item.metadata.formType : null;
     return {
       raw: item,
       title: item.title,
       summary: item.summary,
       suggestedType: null,
-      subtype: typeof item.metadata.formType === "string" ? item.metadata.formType : null,
+      subtype: formType,
       scheduledStart: null,
       scheduledEnd: null,
       scheduledDate: null,
       isAnnouncement: true,
       evidenceTier: ctx.source.evidenceTier,
-      metadata: item.metadata,
+      metadata: {
+        ...item.metadata,
+        routineSecFiling: formType ? ROUTINE_SEC_FORMS.has(formType) : false,
+      },
     } satisfies NormalizedEventCandidate;
   },
 };

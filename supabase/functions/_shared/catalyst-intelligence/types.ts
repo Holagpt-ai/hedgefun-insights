@@ -185,6 +185,7 @@ export interface FetchState {
   providerHttpAttempts?: number;
   providerHttpStatus?: number | null;
   providerRetryAfterSeconds?: number | null;
+  secIntelPatch?: import("./sec-intel-continuation.ts").SecFetchMetadataPatch;
 }
 
 export interface CompanyRecord {

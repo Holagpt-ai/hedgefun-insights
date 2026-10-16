@@ -7,6 +7,7 @@ import type { UnresolvedAttributionReason } from "./attribution-reasons.ts";
 import type { CompanyRecord, NormalizedEventCandidate, TickerRelation } from "./types.ts";
 
 import { classifyGlobeNewswireStockCategories } from "./globenewswire-ticker.ts";
+import { classifyText } from "./classification.ts";
 import { normalizeTicker } from "./normalize.ts";
 
 
@@ -458,6 +459,17 @@ export function attributeCandidate(
 
 
   if (sourceTicker && ctx.sourceType === "NEWS_PR") {
+    const commentary = classifyText(`${candidate.title}\n${candidate.summary ?? ""}`);
+    if (commentary.subtype === "market_commentary") {
+      return {
+        status: "unresolved",
+        ticker: null,
+        relation: null,
+        confidence: 0,
+        note: "commentary_without_attribution",
+        unresolvedReason: "NO_ATTRIBUTION",
+      };
+    }
 
     return {
 

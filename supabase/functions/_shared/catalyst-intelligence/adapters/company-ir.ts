@@ -8,6 +8,7 @@ import {
   type ParsedFeedItem,
 } from "../feeds.ts";
 import { extractExplicitScheduledDates } from "../announcement-dates.ts";
+import { resolveIrIsAnnouncement } from "../ir-announcement-semantics.ts";
 import { buildRawItem } from "../normalize.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { loadConfiguredSource } from "../source-fetch.ts";
@@ -66,6 +67,7 @@ async function normalizeIr(item: RawSourceItem, ctx: SourceRunContext): Promise<
   const scheduledDate = typeof item.metadata.scheduledDate === "string"
     ? item.metadata.scheduledDate
     : extracted.scheduledDate;
+  const hasExplicitSchedule = Boolean(scheduledStart || scheduledDate);
   return {
     raw: item,
     title: item.title,
@@ -75,7 +77,7 @@ async function normalizeIr(item: RawSourceItem, ctx: SourceRunContext): Promise<
     scheduledStart,
     scheduledEnd: typeof item.metadata.scheduledEnd === "string" ? item.metadata.scheduledEnd : null,
     scheduledDate,
-    isAnnouncement: true,
+    isAnnouncement: resolveIrIsAnnouncement(text, hasExplicitSchedule),
     evidenceTier: ctx.source.evidenceTier,
     metadata: item.metadata,
   };

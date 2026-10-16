@@ -48,7 +48,9 @@ function pagesFetch(pages: Record<number, string[] | "error">) {
   return async (url: string): Promise<SecFetchResult> => {
     const start = Number(new URL(url).searchParams.get("start") ?? "0");
     const page = pages[start];
-    if (page === "error") return { ok: false, reason: "PROVIDER_ERROR" };
+    if (page === "error") {
+      return { ok: false, reason: "PROVIDER_ERROR", status: 502, retryAfterSeconds: null };
+    }
     if (!page) return { ok: true, status: 200, text: feedXml([]), json: null };
     return { ok: true, status: 200, text: feedXml(page), json: null };
   };

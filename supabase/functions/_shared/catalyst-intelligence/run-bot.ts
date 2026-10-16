@@ -17,6 +17,7 @@ import {
   readNewsContinuation,
   writeNewsContinuation,
 } from "./news-continuation.ts";
+import { readSecIntelContinuation, writeSecIntelContinuation } from "./sec-intel-continuation.ts";
 import {
   isLiveReactionEligible,
   loadHistoricalBackfillCandidates,
@@ -218,6 +219,9 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
     if (input.bot === "sec") ingestionObs.atom_source_attempted = true;
     run.sourcesAttempted += 1;
     const pendingNewsAtStart = input.bot === "news" ? readNewsContinuation(source.metadata) : null;
+    const pendingSecAtStart = input.bot === "sec"
+      ? source.metadata.sec_intel_continuation != null
+      : false;
     const pendingFeedCount = pendingNewsAtStart?.feed_item_count ?? 0;
     const newsItemLimit = input.bot === "news"
       ? Math.max(
@@ -253,7 +257,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
       let items = await input.adapter.discover(ctx);
       if (input.bot === "sec") recordSecFilingsFetch(ingestionObs, ctx.fetchState);
       const pendingNewsContinuation = input.bot === "news" && readNewsContinuation(source.metadata) != null;
-      if (ctx.fetchState.unchanged && !pendingNewsContinuation) {
+      if (ctx.fetchState.unchanged && !pendingNewsContinuation && !pendingSecAtStart) {
         markSuccess(source, input.now, ctx.fetchState, true);
         await input.store.saveSource(source);
         run.sourcesSuccessful += 1;
@@ -357,6 +361,25 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
             });
             ingestionObs.continuation_remaining_items = Math.max(0, items.length - absoluteIndex);
           }
+          if (input.bot === "sec" && ctx.fetchState.secIntelPatch) {
+            const secPatch = ctx.fetchState.secIntelPatch;
+            const pending = readSecIntelContinuation(source.metadata);
+            const workload = pending?.batch_accessions ?? secPatch.continuation?.batch_accessions;
+            const pendingCheckpoint = pending?.pending_checkpoint ??
+              secPatch.continuation?.pending_checkpoint;
+            if (workload && pendingCheckpoint) {
+              const resumeIndex = secPatch.workloadStartIndex + absoluteIndex;
+              const batchOpenHash = pending?.page_content_hash ??
+                secPatch.continuation?.page_content_hash ??
+                "";
+              source.metadata = writeSecIntelContinuation(source.metadata, {
+                page_content_hash: batchOpenHash,
+                next_index: resumeIndex,
+                batch_accessions: workload,
+                pending_checkpoint: pendingCheckpoint,
+              });
+            }
+          }
           await input.store.saveSource(source);
           run.sourcesFailed += 1;
           run.errors.push({
@@ -419,6 +442,17 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
           ingestionObs.continuation_remaining_items = 0;
           continuationComplete = true;
         }
+      }
+      if (input.bot === "sec" && ctx.fetchState.secIntelPatch) {
+        const secPatch = ctx.fetchState.secIntelPatch;
+        source.metadata = writeSecIntelContinuation(source.metadata, secPatch.continuation);
+        if (secPatch.batchComplete && secPatch.checkpoint) {
+          source.metadata = { ...source.metadata, checkpoint: secPatch.checkpoint };
+        }
+        if (secPatch.batchComplete && secPatch.successContentHash) {
+          ctx.fetchState.contentHash = secPatch.successContentHash;
+        }
+        continuationComplete = secPatch.batchComplete;
       }
       markSuccess(source, input.now, ctx.fetchState, continuationComplete);
       await input.store.saveSource(source);

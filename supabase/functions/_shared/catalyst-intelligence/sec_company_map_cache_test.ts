@@ -10,11 +10,11 @@ import {
   SEC_COMPANY_MAP_MIN_ISSUERS,
   secCompanyMapRetryDelayMs,
 } from "./sec-company-map.ts";
-import { parseCompanyTickersExchangeJson } from "../sec-edgar/ingest.ts";
+import { parseCompanyTickersExchangeJson, SEC_LATEST_FILINGS_ATOM_URL } from "../sec-edgar/ingest.ts";
 import type { SourceRecord } from "./types.ts";
 
 const NOW = new Date("2026-10-02T22:40:00.000Z");
-const ATOM_URL = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom";
+const ATOM_URL = SEC_LATEST_FILINGS_ATOM_URL;
 const MAP_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
 const HOUR_MS = 3_600_000;
 const ATOM = `<?xml version="1.0"?><feed><entry>
@@ -492,7 +492,8 @@ Deno.test("direct collector reuse of a fresh cache does not download the map aga
   const second = await run();
   assertEquals(first.eventsCreated, 1);
   assertEquals(second.eventsCreated, 0);
-  assertEquals(second.duplicates, 1);
+  assertEquals(second.newItems, 0);
+  assertEquals(second.duplicates, 0);
   assertEquals(mapCalls, 1);
   assert(second.observability);
 });
