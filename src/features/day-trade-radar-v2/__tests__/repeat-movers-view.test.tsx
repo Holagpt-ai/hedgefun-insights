@@ -47,6 +47,7 @@ function candidate(symbol: string, rank: number, overrides: Partial<RadarRepeatM
     },
     profileComputedAt: "2026-09-22T12:00:00.000Z",
     latestSourceHistoryDate: "2026-09-20",
+    historicalMatchSummary: null,
     ...overrides,
   };
 }

@@ -6,8 +6,10 @@ import type { RepeatMoverComparableEpisode, RepeatMoverContext } from "@/types/r
 import type { RadarRankedRow } from "./types";
 import {
   formatHistoricalMatchChip,
+  formatHistoricalOutcomeDetail,
   historicalMatchSummaryForRadarRow,
 } from "@/lib/historical-intelligence/radar-handoff";
+import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
 import { ScannerMetricHint } from "./ScannerMetricHint";
 import {
   comparableEpisodeFacts,
@@ -129,13 +131,36 @@ function HistoryDetailTrigger({
   );
 }
 
-export function PriorMomentumHistory({ context }: { context: RepeatMoverContext }) {
+function HistoricalMatchOutcomeBlock({ summary }: { summary: HistoricalMatchSummary }) {
+  const lines = formatHistoricalOutcomeDetail(summary);
+  return (
+    <div className="space-y-1 border-b border-border pb-2">
+      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        Comparable outcome evidence
+      </div>
+      <ul className="space-y-0.5 text-[11px] text-muted-foreground">
+        {lines.map((line) => (
+          <li key={line}>{line}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function PriorMomentumHistory({
+  context,
+  matchSummary,
+}: {
+  context: RepeatMoverContext;
+  matchSummary?: HistoricalMatchSummary | null;
+}) {
   const count = verifiedPriorRunCount(context);
   if (count === null) return null;
   const copy = historyDetailCopy(context, count);
   const episodes = loadedComparableEpisodes(context);
   return (
     <div className="space-y-2">
+      {matchSummary ? <HistoricalMatchOutcomeBlock summary={matchSummary} /> : null}
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         Prior momentum history
       </div>
@@ -203,7 +228,8 @@ export function HistoryCell({
     );
   }
   const label = historyContextLabel(context);
-  const matchChip = row ? formatHistoricalMatchChip(historicalMatchSummaryForRadarRow(row)) : null;
+  const matchSummary = row ? historicalMatchSummaryForRadarRow(row) : null;
+  const matchChip = formatHistoricalMatchChip(matchSummary);
   if (!label || !context) {
     return (
       <ScannerMetricHint label={HISTORY_BLANK} className="text-muted-foreground">
@@ -218,7 +244,7 @@ export function HistoryCell({
       hover={HISTORY_HEADER}
       className="text-[11px] font-medium text-accent-blue hover:underline"
     >
-      <PriorMomentumHistory context={context} />
+      <PriorMomentumHistory context={context} matchSummary={matchSummary} />
     </HistoryDetailTrigger>
   );
 }
@@ -249,7 +275,13 @@ function ComparableEpisode({ episode }: { episode: RepeatMoverComparableEpisode 
   );
 }
 
-export function HistoricalBehaviorSection({ context }: { context: RepeatMoverContext | null | undefined }) {
+export function HistoricalBehaviorSection({
+  context,
+  matchSummary,
+}: {
+  context: RepeatMoverContext | null | undefined;
+  matchSummary?: HistoricalMatchSummary | null;
+}) {
   const profile = context?.profile;
   const available = profile?.profileAvailable === true;
   const metrics = available
@@ -289,6 +321,9 @@ export function HistoricalBehaviorSection({ context }: { context: RepeatMoverCon
                 </div>
               ))}
             </dl>
+          )}
+          {matchSummary && (
+            <HistoricalMatchOutcomeBlock summary={matchSummary} />
           )}
           {comparables.length > 0 && (
             <div className="min-w-0 pt-1">

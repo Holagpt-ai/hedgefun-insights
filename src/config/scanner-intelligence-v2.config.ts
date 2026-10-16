@@ -27,4 +27,12 @@ export const HISTORICAL_MATCH = {
   maxTopMatches: 5,
   minSimilarityScore: 0.35,
   limitedSampleThreshold: 3,
+  /** Minimum comparable episodes with both-side features for a strong similarity label. */
+  minFeaturesForStrongMatch: 4,
+  /** Below this count, a match is labeled sparse evidence. */
+  sparseFeatureThreshold: 2,
+  /** Minimum episodes with known continuation to show a continuation rate. */
+  minKnownOutcomesForRate: 2,
+  /** Minimum observed forward outcomes for adequate outcome confidence. */
+  minOutcomesForAdequateConfidence: 3,
 } as const;

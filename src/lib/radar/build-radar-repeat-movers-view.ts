@@ -18,6 +18,10 @@ import type {
 } from "@/lib/radar/radar-repeat-movers-types";
 import { unavailableRepeatMoverProfileSnapshot } from "@/lib/repeat-movers/get-repeat-mover-context";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
+import {
+  buildCurrentSetupFromRadarRow,
+} from "@/lib/historical-intelligence/historical-match-engine";
+import { historicalMatchSummaryFromContext } from "@/lib/historical-intelligence/radar-handoff";
 
 export interface BuildRadarRepeatMoversViewOptions {
   nowMs?: number;
@@ -44,6 +48,11 @@ function mapRowToRepeatMoverCandidate(
   const comparableEpisodeCount = context?.comparableHistory?.comparableEpisodeCount ?? 0;
   const mostRecentComparableDate =
     context?.comparableHistory?.mostRecentComparableEpisode?.sessionDate ?? null;
+
+  const historicalMatchSummary = historicalMatchSummaryFromContext(
+    buildCurrentSetupFromRadarRow(row),
+    context,
+  );
 
   const qualification = qualifyRadarRepeatMover({ historicalContext: context });
   const profileFreshness = deriveRepeatMoverProfileFreshness({ profile, nowMs });
@@ -82,7 +91,9 @@ function mapRowToRepeatMoverCandidate(
       profile,
       comparableEpisodeCount,
       mostRecentComparableDate,
+      historicalMatchSummary,
     }),
+    historicalMatchSummary,
     workflowHandoffs: buildRepeatMoverWorkflowHandoffs(
       row.symbol,
       row.securityId ?? context?.securityId ?? null,

@@ -1,6 +1,8 @@
 import type { BehaviorProfileSampleQuality } from "@/config/behavior-profile.config";
 import type { RadarRepeatMoverDisplayFacts } from "@/lib/radar/radar-repeat-movers-types";
 import type { RepeatMoverProfileSnapshot } from "@/types/repeat-mover";
+import type { HistoricalMatchSummary } from "@/lib/historical-intelligence/historical-match-summary";
+import { formatHistoricalOutcomeDetail } from "@/lib/historical-intelligence/radar-handoff";
 
 function formatCountLabel(count: number, singular: string, plural: string): string {
   return count === 1 ? `1 ${singular}` : `${count.toLocaleString("en-US")} ${plural}`;
@@ -21,6 +23,7 @@ export function buildRepeatMoverDisplayFacts(input: {
   profile: RepeatMoverProfileSnapshot;
   comparableEpisodeCount: number;
   mostRecentComparableDate: string | null;
+  historicalMatchSummary?: HistoricalMatchSummary | null;
 }): RadarRepeatMoverDisplayFacts {
   const similarPriorMovesLabel = input.comparableEpisodeCount > 0
     ? formatCountLabel(input.comparableEpisodeCount, "Similar Prior Move", "Similar Prior Moves")
@@ -42,10 +45,16 @@ export function buildRepeatMoverDisplayFacts(input: {
     ? `${sessions.toLocaleString("en-US")} Sessions Observed`
     : null;
 
+  const outcomeLines =
+    input.historicalMatchSummary != null
+      ? formatHistoricalOutcomeDetail(input.historicalMatchSummary).slice(0, 3)
+      : [];
+
   const lines = [
     similarPriorMovesLabel,
     historicalEpisodesLabel,
     sampleQualityLabel,
+    ...outcomeLines,
     mostRecentComparableLabel,
     sessionsObservedLabel,
   ].filter((line): line is string => Boolean(line));

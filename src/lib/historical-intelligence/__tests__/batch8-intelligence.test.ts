@@ -170,9 +170,10 @@ describe("Batch 8 historical match", () => {
       primary_scanner_event: "RUNNING_UP",
     } as RadarRankedRow);
     const top = rankHistoricalMatches(current, ctx);
-    const summary = summarizeHistoricalMatches(top);
+    const summary = summarizeHistoricalMatches(top, { profileEpisodeCount: ctx.profile.episodeCount });
     expect(summary.matchCount).toBeGreaterThan(0);
     expect(summary.sampleQuality).toBe("LIMITED");
+    expect(summary.continuationKnownCount).toBeGreaterThan(0);
   });
 });
 
