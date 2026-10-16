@@ -70,4 +70,17 @@ describe("public SEO artifacts", () => {
     expect(robots).toContain("Disallow: /login");
     expect(robots).toContain("Disallow: /account/");
   });
+
+  it("sitemap.xml is served via Vercel rewrite, not a static public file", () => {
+    const sitemapPath = join(process.cwd(), "public/sitemap.xml");
+    expect(() => readFileSync(sitemapPath, "utf8")).toThrow();
+    const vercel = JSON.parse(
+      readFileSync(join(process.cwd(), "vercel.json"), "utf8"),
+    ) as {
+      rewrites: { source: string; destination: string }[];
+    };
+    const sitemapRewrite = vercel.rewrites.find((r) => r.source === "/sitemap.xml");
+    expect(sitemapRewrite?.destination).toContain("/functions/v1/sitemap");
+    expect(sitemapRewrite?.destination).not.toMatch(/type=/);
+  });
 });

@@ -21,7 +21,7 @@ export const CANONICAL_ORIGIN = BRAND.url;
 /** Path prefixes that must not be indexed (robots + layout noindex). */
 export const NOINDEX_PATH_PREFIXES = SHARED_NOINDEX_PREFIXES;
 
-/** Minimal public routes for static sitemap fallback (production uses edge /sitemap.xml). */
+/** Public routes mirrored in Edge `?type=main` sitemap (production index at /sitemap.xml). */
 export const STATIC_SITEMAP_PATHS = [
   "/",
   "/about",
