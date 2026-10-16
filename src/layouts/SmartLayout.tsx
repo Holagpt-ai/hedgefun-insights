@@ -9,11 +9,13 @@ import { Footer } from "@/components/layout/Footer";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { MobileSidebarDrawer } from "@/components/layout/MobileSidebarDrawer";
 import { ChatWidget } from "@/components/chatbot/ChatWidget";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { useAuth } from "@/contexts/AuthContext";
 
 export default function SmartLayout() {
   const { user, loading } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const { pathname } = useLocation();
   useRobotsNoIndex(
     pathname.startsWith("/account") || pathname === "/journal" || pathname.startsWith("/journal/"),
@@ -28,22 +30,36 @@ export default function SmartLayout() {
   }
 
   if (user) {
-    // Authenticated: dashboard chrome (matches DashboardLayout)
     return (
       <>
-        <Header onMenuToggle={() => {}} />
+        <Header onMenuToggle={() => setMobileNavOpen(true)} />
         <MarketTicker />
         <div className="flex">
-          <DashboardSidebar />
+          <div className="hidden md:block">
+            <DashboardSidebar />
+          </div>
           <main className="flex-1 min-w-0">
             <Outlet />
           </main>
         </div>
+        <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+          <SheetContent
+            side="left"
+            className="p-0 w-[260px] md:hidden h-dvh flex flex-col overflow-y-auto overscroll-contain [&>button]:z-10"
+            onClick={(e) => {
+              const target = e.target as HTMLElement;
+              if (target.closest("a")) setMobileNavOpen(false);
+            }}
+          >
+            <div className="flex-1 min-h-0 pb-[env(safe-area-inset-bottom)]">
+              <DashboardSidebar forceExpanded />
+            </div>
+          </SheetContent>
+        </Sheet>
       </>
     );
   }
 
-  // Unauthenticated: public chrome (matches PublicLayout)
   return (
     <>
       <Header onMenuToggle={() => setMobileMenuOpen(true)} />

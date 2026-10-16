@@ -16,14 +16,18 @@ import { BRAND } from "@/config/brand";
 
 import { trackEvent } from "@/lib/analytics";
 import { toast } from "@/hooks/use-toast";
+import { sanitizeAuthRedirectPath } from "@/lib/auth/safe-auth-redirect";
 
 interface AuthModalsProps {
   mode: "login" | "signup" | null;
   onClose: () => void;
   onSwitch: (mode: "login" | "signup") => void;
+  /** Same-origin relative path after successful auth (default /dashboard). */
+  redirectAfterAuth?: string;
 }
 
-export function AuthModals({ mode, onClose, onSwitch }: AuthModalsProps) {
+export function AuthModals({ mode, onClose, onSwitch, redirectAfterAuth = "/dashboard" }: AuthModalsProps) {
+  const afterAuth = sanitizeAuthRedirectPath(redirectAfterAuth);
   return (
     <>
       <Dialog open={mode === "signup"} onOpenChange={(o) => !o && onClose()}>
@@ -32,7 +36,11 @@ export function AuthModals({ mode, onClose, onSwitch }: AuthModalsProps) {
             <DialogTitle>Create Account</DialogTitle>
             <DialogDescription>{`Join ${BRAND.name} to track stocks and get AI insights.`}</DialogDescription>
           </DialogHeader>
-          <SignUpForm onSuccess={onClose} onSwitchToLogin={() => onSwitch("login")} />
+          <SignUpForm
+            redirectAfterAuth={afterAuth}
+            onSuccess={onClose}
+            onSwitchToLogin={() => onSwitch("login")}
+          />
         </DialogContent>
       </Dialog>
 
@@ -42,14 +50,26 @@ export function AuthModals({ mode, onClose, onSwitch }: AuthModalsProps) {
             <DialogTitle>Log In</DialogTitle>
             <DialogDescription>{`Welcome back to ${BRAND.name}.`}</DialogDescription>
           </DialogHeader>
-          <LoginForm onSuccess={onClose} onSwitchToSignup={() => onSwitch("signup")} />
+          <LoginForm
+            redirectAfterAuth={afterAuth}
+            onSuccess={onClose}
+            onSwitchToSignup={() => onSwitch("signup")}
+          />
         </DialogContent>
       </Dialog>
     </>
   );
 }
 
-function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onSwitchToLogin: () => void }) {
+function SignUpForm({
+  redirectAfterAuth,
+  onSuccess,
+  onSwitchToLogin,
+}: {
+  redirectAfterAuth: string;
+  onSuccess: () => void;
+  onSwitchToLogin: () => void;
+}) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -70,7 +90,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
       password,
       options: {
         data: { full_name: fullName },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
+        emailRedirectTo: `${window.location.origin}${redirectAfterAuth}`,
       },
     });
     setLoading(false);
@@ -87,7 +107,7 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${window.location.origin}${redirectAfterAuth}`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',
@@ -145,7 +165,15 @@ function SignUpForm({ onSuccess, onSwitchToLogin }: { onSuccess: () => void; onS
   );
 }
 
-function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onSwitchToSignup: () => void }) {
+function LoginForm({
+  redirectAfterAuth,
+  onSuccess,
+  onSwitchToSignup,
+}: {
+  redirectAfterAuth: string;
+  onSuccess: () => void;
+  onSwitchToSignup: () => void;
+}) {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -161,7 +189,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
       toast({ title: error.message, variant: "destructive" });
     } else {
       trackEvent("login_success");
-      navigate("/dashboard");
+      navigate(redirectAfterAuth);
       onSuccess();
     }
   };
@@ -170,7 +198,7 @@ function LoginForm({ onSuccess, onSwitchToSignup }: { onSuccess: () => void; onS
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/dashboard`,
+        redirectTo: `${window.location.origin}${redirectAfterAuth}`,
         queryParams: {
           access_type: 'offline',
           prompt: 'consent',

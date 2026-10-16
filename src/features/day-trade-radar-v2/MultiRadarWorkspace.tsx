@@ -201,7 +201,7 @@ export function MultiRadarWorkspace({
               type="button"
               role="tab"
               aria-selected={activeMobile === id}
-              className={`h-8 shrink-0 rounded-md border px-3 text-[11px] font-semibold ${
+              className={`min-h-11 h-11 shrink-0 rounded-md border px-3 text-[11px] font-semibold ${
                 activeMobile === id ? "border-accent-blue bg-accent-blue text-white" : "border-border"
               }`}
               onClick={() => setWorkspace((current) => ({ ...current, mobilePanel: id }))}

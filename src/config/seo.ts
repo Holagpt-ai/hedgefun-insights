@@ -10,24 +10,16 @@
  */
 
 import { BRAND } from "@/config/brand";
+import {
+  CANONICAL_SITE_ORIGIN,
+  NOINDEX_PATH_PREFIXES as SHARED_NOINDEX_PREFIXES,
+  isNoindexPath as sharedIsNoindexPath,
+} from "../../seo-boundaries.ts";
 
 export const CANONICAL_ORIGIN = BRAND.url;
 
 /** Path prefixes that must not be indexed (robots + layout noindex). */
-export const NOINDEX_PATH_PREFIXES = [
-  "/dashboard",
-  "/admin",
-  "/account",
-  "/auth",
-  "/login",
-  "/signup",
-  "/register",
-  "/sign-up",
-  "/reset-password",
-  "/unsubscribe",
-  "/journal",
-  "/.lovable",
-] as const;
+export const NOINDEX_PATH_PREFIXES = SHARED_NOINDEX_PREFIXES;
 
 /** Minimal public routes for static sitemap fallback (production uses edge /sitemap.xml). */
 export const STATIC_SITEMAP_PATHS = [
@@ -68,10 +60,14 @@ export const STATIC_SITEMAP_PATHS = [
 ] as const;
 
 export function isNoindexPath(pathname: string): boolean {
-  const path = pathname.split("?")[0] ?? pathname;
-  return NOINDEX_PATH_PREFIXES.some(
-    (prefix) => path === prefix || path.startsWith(`${prefix}/`),
-  );
+  return sharedIsNoindexPath(pathname);
+}
+
+/** Keeps app canonical origin aligned with middleware / sitemap apex. */
+export function assertCanonicalOriginAligned(): void {
+  if (CANONICAL_ORIGIN !== CANONICAL_SITE_ORIGIN) {
+    throw new Error(`CANONICAL_ORIGIN must be ${CANONICAL_SITE_ORIGIN}`);
+  }
 }
 
 export function canonicalUrl(pathname: string): string {

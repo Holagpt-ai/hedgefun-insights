@@ -32,13 +32,27 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
 
     const pathname = window.location.pathname;
     const currentUrl = resolvePublicCanonical(pathname, canonical);
+    let robotsMeta = document.querySelector('meta[name="robots"]') as HTMLMetaElement | null;
+    const prevRobots = robotsMeta?.content;
+    if (!currentUrl) {
+      if (!robotsMeta) {
+        robotsMeta = document.createElement("meta");
+        robotsMeta.name = "robots";
+        document.head.appendChild(robotsMeta);
+      }
+      robotsMeta.content = "noindex,nofollow";
+    } else if (robotsMeta?.content === "noindex,nofollow") {
+      robotsMeta.remove();
+      robotsMeta = null;
+    }
+
     const ogTags: { property: string; content: string }[] = [
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:type", content: jsonLd?.["@type"] === "Article" ? "article" : "website" },
       ...(currentUrl ? [{ property: "og:url", content: currentUrl }] : []),
       { property: "og:image", content: image || `${BRAND.url}/og-share-card.png` },
-      { property: "og:image:alt", content: `${BRAND.name} — Most traders never do this math. Illustrative arithmetic across 252 trading days; not a promise of results.` },
+      { property: "og:image:alt", content: `${BRAND.name} — stock market data and research tools.` },
     ];
 
     // Twitter parity
@@ -96,6 +110,8 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
       document.head.appendChild(scriptEl);
     }
 
+    const addedRobotsNoindex = !currentUrl;
+
     return () => {
       document.title = prevTitle;
       if (metaDesc && prevDesc !== undefined) metaDesc.content = prevDesc;
@@ -103,6 +119,13 @@ export function usePageSeo({ title, description, canonical, jsonLd, image }: Seo
       if (scriptEl) scriptEl.remove();
       createdOgElements.forEach((el) => el.remove());
       createdTwitterElements.forEach((el) => el.remove());
+      if (addedRobotsNoindex && robotsMeta) {
+        if (prevRobots !== undefined) {
+          robotsMeta.content = prevRobots;
+        } else {
+          robotsMeta.remove();
+        }
+      }
     };
-  }, [title, description, canonical, jsonLd]);
+  }, [title, description, canonical, jsonLd, image]);
 }

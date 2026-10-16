@@ -111,6 +111,11 @@
     <priority>0.7</priority>
   </url>
   <url>
+    <loc>https://stocksist.com/markets/heatmap</loc>
+    <changefreq>daily</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://stocksist.com/ipos/recent</loc>
     <changefreq>daily</changefreq>
     <priority>0.6</priority>
