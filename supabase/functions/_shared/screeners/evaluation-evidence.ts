@@ -24,6 +24,7 @@ import { POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE } from "./baseline-coverage.ts";
 import {
   classifyNewHighLow,
   isValidBaselineQuote,
+  isVerifiedNhlBaseline,
   type NhlBaselineQuote,
   type NhlBaselineStatus,
   type NhlClassification,
@@ -302,7 +303,7 @@ export function evaluateNhlEvidence(
 
     eligible_count += 1;
     const baseline = baselines.get(sym);
-    if (isValidBaselineQuote(baseline)) {
+    if (isVerifiedNhlBaseline(baseline)) {
       evaluated_count += 1;
       if (classifyNewHighLow(t, baseline, extendedSession) !== null) {
         qualified_count += 1;

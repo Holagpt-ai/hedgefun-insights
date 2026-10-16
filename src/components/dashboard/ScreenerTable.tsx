@@ -30,6 +30,7 @@ import {
 import { previousCloseFromVerifiedMove, volumeVersusPriorSession } from "@/lib/screeners/session-move";
 import {
   computeNhlDistancePct,
+  computeNhlDistanceSides,
   formatNhlDistanceLabel,
 } from "@/lib/screeners/nhl-distance";
 import {
@@ -464,6 +465,13 @@ export function ScreenerTable({
     }
 
     if (col.key === "nhl_distance") {
+      const sides = computeNhlDistanceSides({
+        range_event: row.range_event,
+        high_52w: row.high_52w,
+        low_52w: row.low_52w,
+        day_high: row.day_high,
+        day_low: row.day_low,
+      });
       const distancePct = computeNhlDistancePct({
         range_event: row.range_event,
         high_52w: row.high_52w,
@@ -471,7 +479,7 @@ export function ScreenerTable({
         day_high: row.day_high,
         day_low: row.day_low,
       });
-      const label = formatNhlDistanceLabel(row.range_event, distancePct);
+      const label = formatNhlDistanceLabel(row.range_event, distancePct, sides);
       return (
         <span className="text-muted-foreground text-xs" title={label}>
           {label}

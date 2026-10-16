@@ -27,22 +27,26 @@ export function buildScannerTabEvidence(
     }
     case "new_highs_lows": {
       if (!row.range_event) return null;
-      const baseline =
-        row.range_event === "new_low"
-          ? row.low_52w
-          : row.high_52w;
       const event =
         row.range_event === "both"
           ? "New 52W high and low"
           : row.range_event === "new_high"
             ? "New 52W high"
             : "New 52W low";
-      const baselineText =
-        baseline !== null ? formatScreenerMetric(baseline, "price") : "—";
+      const highBase =
+        row.high_52w !== null ? formatScreenerMetric(row.high_52w, "price") : "—";
+      const lowBase =
+        row.low_52w !== null ? formatScreenerMetric(row.low_52w, "price") : "—";
+      const detail =
+        row.range_event === "both"
+          ? `Prior 52W high ${highBase} · prior 52W low ${lowBase}`
+          : row.range_event === "new_low"
+            ? `Prior 52W low ${lowBase}`
+            : `Prior 52W high ${highBase}`;
       return {
         tabId,
         primaryLabel: event,
-        detail: `Baseline ${baselineText}`,
+        detail,
       };
     }
     case "gainers_losers": {

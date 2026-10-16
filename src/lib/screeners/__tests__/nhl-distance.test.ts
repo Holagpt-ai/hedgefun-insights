@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   computeNhlDistancePct,
+  computeNhlDistanceSides,
   formatNhlDistanceLabel,
 } from "@/lib/screeners/nhl-distance";
 
@@ -29,15 +30,19 @@ describe("NHL distance from verified baseline", () => {
     expect(formatNhlDistanceLabel("new_low", pct)).toContain("below prior 52W low");
   });
 
-  it("both uses new-high distance semantics", () => {
-    const pct = computeNhlDistancePct({
+  it("both reports high and low side distances", () => {
+    const sides = computeNhlDistanceSides({
       range_event: "both",
       high_52w: 10,
       low_52w: 5,
       day_high: 10.5,
       day_low: 4.5,
     });
-    expect(pct).toBe(5);
+    expect(sides.highSidePct).toBe(5);
+    expect(sides.lowSidePct).toBe(-10);
+    const label = formatNhlDistanceLabel("both", 5, sides);
+    expect(label).toMatch(/above prior 52W high/);
+    expect(label).toMatch(/prior 52W low/);
   });
 
   it("missing baseline returns null", () => {
