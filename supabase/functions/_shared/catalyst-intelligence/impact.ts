@@ -29,6 +29,7 @@ const BASE: Record<IntelEventType, number> = {
 };
 
 const SUBTYPE_ADJUST: Record<string, number> = {
+  market_commentary: 18,
   "8-K": 62,
   "10-K": 46,
   "10-Q": 44,

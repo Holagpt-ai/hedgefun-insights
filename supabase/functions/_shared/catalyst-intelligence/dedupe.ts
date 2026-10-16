@@ -10,6 +10,7 @@ export interface DedupeCandidate {
   publishedAt: string | null;
   canonicalUrl: string | null;
   contentHash: string;
+  accessionNumber: string | null;
 }
 
 /**
@@ -38,7 +39,7 @@ function close(a: string | null, b: string | null, windowMs: number): boolean {
   return Math.abs(left - right) <= windowMs;
 }
 
-function scheduleConflict(a: string | null, b: string | null): boolean {
+export function scheduleConflict(a: string | null, b: string | null): boolean {
   if (!a || !b) return false;
   const left = Date.parse(a);
   const right = Date.parse(b);
@@ -61,6 +62,18 @@ export function findDuplicateEvent(
       return event;
     }
     if (evidence.some((row) => row.contentHash === candidate.contentHash)) return event;
+    if (candidate.accessionNumber) {
+      const acc = candidate.accessionNumber;
+      const accCompact = acc.replace(/-/g, "");
+      if (
+        evidence.some((row) => {
+          const url = row.canonicalUrl ?? "";
+          return url.includes(acc) || url.includes(accCompact);
+        })
+      ) {
+        return event;
+      }
+    }
   }
 
   if (!candidate.ticker) return null;

@@ -5,6 +5,7 @@ import { classifyCandidate } from "./classification.ts";
 import { isUniqueConflict } from "./conflicts.ts";
 import { ItemIngestError } from "./item-ingest-error.ts";
 import { findDuplicateEvent, logicalEventLockKey } from "./dedupe.ts";
+import { schedulesMateriallyConflict } from "./evidence-schedule-conflict.ts";
 import { evidenceRole } from "./evidence.ts";
 import { assessMateriality, timingUrgency } from "./impact.ts";
 import {
@@ -121,6 +122,9 @@ export async function ingestCandidate(
   const pool = await loadPool(store, ticker, candidate.raw.canonicalUrl, candidate.raw.contentHash);
   const evidenceMap = new Map<string, EvidenceRecord[]>();
   for (const event of pool) evidenceMap.set(event.id, await store.listEvidence(event.id));
+  const accessionNumber = typeof candidate.metadata.accession === "string"
+    ? candidate.metadata.accession
+    : null;
   const match = findDuplicateEvent({
     title: candidate.title,
     eventType: classification.eventType,
@@ -129,6 +133,7 @@ export async function ingestCandidate(
     publishedAt: timing.publishedAt,
     canonicalUrl: candidate.raw.canonicalUrl,
     contentHash: candidate.raw.contentHash,
+    accessionNumber,
   }, pool, evidenceMap);
 
   let event: CanonicalEvent;
@@ -221,18 +226,22 @@ export async function ingestCandidate(
     event.attributionConfidence = Math.max(event.attributionConfidence, attribution.confidence);
   }
 
+  const scheduleConflictEvidence = schedulesMateriallyConflict(
+    timing.scheduledStart ?? timing.scheduledDate,
+    event.scheduledStartAt ?? event.scheduledDate,
+  );
   const evidenceRow: EvidenceRecord = {
     id: crypto.randomUUID(),
     eventId: event.id,
     rawItemId: rawId,
     sourceId: candidate.raw.sourceId,
     authorityKey: ctx.source.authorityKey.trim() || "unknown",
-    evidenceTier: candidate.evidenceTier,
-    evidenceRole: evidenceRole(candidate.evidenceTier),
+    evidenceTier: effectiveEvidenceTier(candidate, classification),
+    evidenceRole: evidenceRole(effectiveEvidenceTier(candidate, classification)),
     canonicalUrl: candidate.raw.canonicalUrl,
     contentHash: candidate.raw.contentHash,
     publishedAt: candidate.raw.publishedAt,
-    conflict: false,
+    conflict: scheduleConflictEvidence,
   };
   try {
     await store.insertEvidence(evidenceRow);
@@ -260,6 +269,15 @@ export async function ingestCandidate(
     rawItemId: rawId,
     rawDisposition,
   };
+}
+
+function effectiveEvidenceTier(
+  candidate: NormalizedEventCandidate,
+  classification: ReturnType<typeof classifyCandidate>,
+): NormalizedEventCandidate["evidenceTier"] {
+  if (classification.subtype === "market_commentary") return "TIER_3_DISCOVERY";
+  if (candidate.metadata.routineSecFiling === true) return "TIER_3_DISCOVERY";
+  return candidate.evidenceTier;
 }
 
 function rawDispositionFromClaim(claimed: { inserted: boolean; duplicate: EvidenceRecord | null }): RawIngestDisposition {
