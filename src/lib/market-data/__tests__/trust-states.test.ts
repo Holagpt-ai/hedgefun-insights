@@ -55,6 +55,19 @@ describe("resolveWatchlistMarketDataTrust", () => {
     ).toBe("FRESH");
   });
 
+  it("discloses delayed provider feed as Delayed instead of implying live access", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough,
+        snapshotTsMs: NOW - 6 * 60_000,
+        analysisPresentation: "live",
+        feedDelayNote: "provider feed is 15-minute delayed",
+        nowMs: NOW,
+      }),
+    ).toBe("DELAYED");
+  });
+
   it("expired valid_through -> Stale", () => {
     expect(
       resolveWatchlistMarketDataTrust({
@@ -77,7 +90,7 @@ describe("resolveWatchlistMarketDataTrust", () => {
     ).toBe("STALE");
   });
 
-  it("fresh session minute bars relieve a wall-clock stale snapshot during live presentation", () => {
+  it("fresh session minute bars do not upgrade a wall-clock stale quote to Fresh", () => {
     const nowMs = Date.parse("2026-09-29T10:00:00.000Z");
     const snapshotTsMs = nowMs - WATCHLIST_SNAPSHOT_STALE_MS - 60_000;
     expect(
@@ -90,7 +103,48 @@ describe("resolveWatchlistMarketDataTrust", () => {
         intradayBars: [{ t: nowMs - 4 * 60_000 }],
         nowMs,
       }),
-    ).toBe("FRESH");
+    ).toBe("STALE");
+  });
+
+  it("future-dated snapshot -> Unavailable", () => {
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough,
+        snapshotTsMs: NOW + 60_000,
+        nowMs: NOW,
+      }),
+    ).toBe("UNAVAILABLE");
+  });
+
+  it("stale quote stays Stale with fresh bars and without delayed-feed note", () => {
+    const nowMs = Date.parse("2026-09-29T10:00:00.000Z");
+    const snapshotTsMs = nowMs - 50 * 60_000;
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: new Date(nowMs + 60 * 60_000).toISOString(),
+        snapshotTsMs,
+        analysisPresentation: "live",
+        analysisSessionDate: "2026-09-29",
+        intradayBars: [{ t: nowMs - 2 * 60_000 }],
+        nowMs,
+      }),
+    ).toBe("STALE");
+  });
+
+  it("recent quote with delayed-feed note -> Delayed (not Fresh)", () => {
+    const nowMs = Date.parse("2026-09-29T10:00:00.000Z");
+    expect(
+      resolveWatchlistMarketDataTrust({
+        hasV2: true,
+        validThrough: new Date(nowMs + 60 * 60_000).toISOString(),
+        snapshotTsMs: nowMs - 5 * 60_000,
+        analysisPresentation: "live",
+        feedDelayNote: "provider feed is 15-minute delayed",
+        nowMs,
+      }),
+    ).toBe("DELAYED");
   });
 
   it("missing snapshot -> Unavailable", () => {

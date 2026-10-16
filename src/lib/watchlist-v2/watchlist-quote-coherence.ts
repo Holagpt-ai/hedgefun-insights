@@ -67,8 +67,8 @@ export function latestCoherentIntradayBarMs(input: {
 }
 
 /**
- * When the stored snapshot timestamp is wall-clock stale but same-session minute bars
- * are fresh, trust can remain FRESH. Does not change which timestamp labels the quote.
+ * Same-session minute bars may support chart/session evidence in the UI only.
+ * Does not upgrade stored quote freshness or market-data trust.
  */
 export function watchlistIntradayRelievesStaleSnapshot(input: {
   analysisPresentation: "live" | "last_completed" | null | undefined;

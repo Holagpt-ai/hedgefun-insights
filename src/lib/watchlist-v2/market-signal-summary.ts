@@ -108,15 +108,39 @@ export function deriveWatchlistMarketSignalSummary(
  * Stored rollup is hidden when the current trust state is stale or unavailable.
  * CLOSED keeps the last completed session's label and marks that scope.
  */
+export type WatchlistMarketSignalScope = "live" | "delayed" | "last_completed";
+
 export function presentWatchlistMarketSignal(
   summary: { label: string; rule_id: string } | null | undefined,
   trust: WatchlistSignalTrust,
-): { label: string; rule_id: string; scope: "live" | "last_completed" } | null {
+): { label: string; rule_id: string; scope: WatchlistMarketSignalScope } | null {
   if (!summary || !summary.label || summary.label === "UNAVAILABLE") return null;
   if (trust === "STALE" || trust === "UNAVAILABLE") return null;
-  return {
-    label: summary.label,
-    rule_id: summary.rule_id,
-    scope: trust === "CLOSED" ? "last_completed" : "live",
-  };
+  if (trust === "CLOSED") {
+    return { label: summary.label, rule_id: summary.rule_id, scope: "last_completed" };
+  }
+  if (trust === "DELAYED") {
+    return { label: summary.label, rule_id: summary.rule_id, scope: "delayed" };
+  }
+  return { label: summary.label, rule_id: summary.rule_id, scope: "live" };
+}
+
+export function formatPresentedWatchlistSignalBadge(
+  presented: { label: string; scope: WatchlistMarketSignalScope },
+): string {
+  if (presented.scope === "last_completed") return `${presented.label} · last session`;
+  if (presented.scope === "delayed") return `${presented.label} · delayed snapshot`;
+  return presented.label;
+}
+
+export function presentedWatchlistSignalTitle(
+  presented: { label: string; rule_id: string; scope: WatchlistMarketSignalScope },
+): string {
+  if (presented.scope === "last_completed") {
+    return `Last completed session signal · ${presented.rule_id}`;
+  }
+  if (presented.scope === "delayed") {
+    return `Delayed market snapshot · not live · ${presented.rule_id}`;
+  }
+  return `Market signal · ${presented.rule_id}`;
 }

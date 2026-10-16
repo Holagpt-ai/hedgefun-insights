@@ -18,7 +18,6 @@ import {
   isSnapshotFromExpectedLastSession,
   isWatchlistClosedSurveillanceWindow,
 } from "@/lib/watchlist-v2/watchlist-snapshot-trust";
-import { watchlistIntradayRelievesStaleSnapshot } from "@/lib/watchlist-v2/watchlist-quote-coherence";
 import type { SectionEnvelope } from "@/types/pre-market";
 
 export type MarketDataTrustState = "FRESH" | "DELAYED" | "STALE" | "UNAVAILABLE" | "CLOSED";
@@ -142,16 +141,20 @@ export function resolveWatchlistMarketDataTrust(input: {
   /** Analysis session date (ET YYYY-MM-DD) from stored Watchlist V2 row. */
   analysisSessionDate?: string | null;
   intradayBars?: readonly { t: number }[];
+  /** Stored provider disclosure (e.g. 15-minute delayed feed). */
+  feedDelayNote?: string | null;
   nowMs?: number;
 }): MarketDataTrustState {
   const nowMs = input.nowMs ?? Date.now();
   if (!input.hasV2) return "UNAVAILABLE";
   const snapshotMs = parseTrustSourceMs(input.snapshotTsMs ?? null);
   if (snapshotMs === null) return "UNAVAILABLE";
+  if (snapshotMs > nowMs) return "UNAVAILABLE";
   if (input.analysisPresentation === "last_completed") return "CLOSED";
   if (isExpired(input.validThrough, new Date(nowMs))) return "STALE";
 
   const ageMs = nowMs - snapshotMs;
+  if (ageMs < 0) return "UNAVAILABLE";
   const closedSurveillance = isWatchlistClosedSurveillanceWindow(nowMs);
   if (
     closedSurveillance &&
@@ -164,21 +167,16 @@ export function resolveWatchlistMarketDataTrust(input: {
     return "CLOSED";
   }
 
-  if (ageMs > WATCHLIST_SNAPSHOT_STALE_MS) {
-    if (
-      watchlistIntradayRelievesStaleSnapshot({
-        analysisPresentation: input.analysisPresentation ?? null,
-        analysisSessionDate: input.analysisSessionDate,
-        snapshotMs,
-        intradayBars: input.intradayBars ?? [],
-        nowMs,
-      })
-    ) {
-      return "FRESH";
-    }
-    return "STALE";
+  const state: MarketDataTrustState =
+    ageMs > WATCHLIST_SNAPSHOT_STALE_MS ? "STALE" : "FRESH";
+
+  const delayedFeed =
+    typeof input.feedDelayNote === "string" &&
+    /delayed/i.test(input.feedDelayNote.trim());
+  if (delayedFeed && state === "FRESH") {
+    return "DELAYED";
   }
-  return "FRESH";
+  return state;
 }
 
 export function resolvePreMarketSectionTrust(

@@ -5,9 +5,11 @@ import {
   sortRows,
   rowMatchesFilter,
   computeSummaryMetrics,
+  hasRecordedRadarOrEarningsContext,
 } from "@/lib/watchlist-v2/metrics";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import { parseKeyLevels } from "@/lib/watchlist-v2/parsers";
+import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
 
 function row(overrides: Partial<V2Row>): V2Row {
   return {
@@ -92,5 +94,69 @@ describe("computeSummaryMetrics honesty", () => {
       new Map(),
     );
     expect(metrics.find((m) => m.key === "advancing")?.value).toBeNull();
+  });
+});
+
+describe("summary metric / filter alignment", () => {
+  it("high RVOL count matches numeric rvol fallback filter", () => {
+    const rows = [
+      row({ ticker: "HI", rvol: 1.75, rvolClass: null }),
+      row({ ticker: "LO", rvol: 1.1, rvolClass: "normal" }),
+    ];
+    const earnings = new Map<string, EarningsBadge>();
+    const highRvol = computeSummaryMetrics(rows, earnings).find((m) => m.key === "high_rvol")?.value;
+    const filtered = rows.filter((r) => rowMatchesFilter(r, "high_volume", earnings)).length;
+    expect(highRvol).toBe(1);
+    expect(filtered).toBe(highRvol);
+  });
+
+  it("earnings within 7 days excludes recent-only badges", () => {
+    const rows = [row({ ticker: "E1" }), row({ ticker: "E2" })];
+    const earnings = new Map<string, EarningsBadge>([
+      [
+        "E1",
+        {
+          kind: "upcoming",
+          sortMs: Date.now() + 86_400_000,
+          label: "Earnings Tomorrow",
+          event: {} as EarningsBadge["event"],
+        },
+      ],
+      [
+        "E2",
+        {
+          kind: "recent",
+          sortMs: Date.now() - 86_400_000,
+          label: "Reported 1d ago",
+          event: {} as EarningsBadge["event"],
+        },
+      ],
+    ]);
+    const count = computeSummaryMetrics(rows, earnings).find((m) => m.key === "earnings_7d")?.value;
+    const filtered = rows.filter((r) => rowMatchesFilter(r, "earnings", earnings)).length;
+    expect(count).toBe(1);
+    expect(filtered).toBe(count);
+  });
+
+  it("recorded context requires dated verified_recent_event", () => {
+    const nowMs = Date.parse("2026-07-24T19:00:00Z");
+    expect(
+      hasRecordedRadarOrEarningsContext(
+        row({ verifiedRecentEvent: { kind: "radar", title: "Trigger", at: null } }),
+        nowMs,
+      ),
+    ).toBe(false);
+    expect(
+      hasRecordedRadarOrEarningsContext(
+        row({
+          verifiedRecentEvent: {
+            kind: "earnings",
+            title: "Earnings 2026-07-24",
+            at: "2026-07-24T15:00:00Z",
+          },
+        }),
+        nowMs,
+      ),
+    ).toBe(true);
   });
 });
