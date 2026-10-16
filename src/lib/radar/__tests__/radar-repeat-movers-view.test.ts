@@ -319,7 +319,7 @@ describe("Radar Repeat Movers V2 view", () => {
     expect(handoffs.catalyst).toBe("/dashboard/catalyst?symbol=ABC");
     expect(handoffs.watchlist).toBe("/dashboard/watchlist?symbol=ABC");
     expect(handoffs.journal).toBe("/dashboard/journal?symbol=ABC");
-    expect(handoffs.actionCenter).toBe("/dashboard/action-center");
+    expect(handoffs.actionCenter).toContain("/dashboard/action-center?symbol=");
   });
 
   it("does not expose predictive fields on qualified candidates", () => {

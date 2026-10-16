@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import type { MorningOpportunityBoard as BoardModel, MorningOpportunityCard } from "@/lib/am-inbox/morning-opportunity-board";
 import {
   buildMarketEvidenceHandoff,
@@ -27,6 +28,7 @@ function catalystLabel(status: MorningOpportunityCard["catalystStatus"]): string
 }
 
 function Card({ card }: { card: MorningOpportunityCard }) {
+  const { user } = useAuth();
   const routes = opportunityWorkflowPaths(card.symbol, card.eventType, card.securityId);
   const persistEvidence = () => {
     touchWorkflowHandoff(card.symbol, "inbox");
@@ -42,6 +44,7 @@ function Card({ card }: { card: MorningOpportunityCard }) {
       rvol5m: card.rvol5m,
       gapPercent: card.gapPercent,
       primaryScannerEvent: card.eventType,
+      userId: user?.id,
     });
     if (payload) persistMarketEvidenceHandoff(payload);
   };

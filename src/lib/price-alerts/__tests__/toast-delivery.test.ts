@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import {
   dedupePriceAlertTriggersById,
   filterPriceAlertToastCandidates,
+  markPriceAlertToastSeenDurable,
   markPriceAlertToastSeenInSession,
+  mergePriceAlertToastSeenIds,
   readSeenPriceAlertToastIds,
   isPriceAlertToastPending,
   priceAlertToastSinceIso,
@@ -21,6 +23,11 @@ function row(n: number, overrides: Partial<{ delivery_status: string; seen_at: s
 }
 
 describe("price alert toast delivery", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    sessionStorage.clear();
+  });
+
   it("CASE A — first delivery: undelivered trigger is a toast candidate", () => {
     const candidates = filterPriceAlertToastCandidates([row(1)], new Set());
     expect(candidates).toHaveLength(1);
@@ -82,6 +89,14 @@ describe("price alert toast delivery", () => {
     const reloaded = readSeenPriceAlertToastIds();
     expect(filterPriceAlertToastCandidates([row(1)], reloaded)).toHaveLength(0);
     expect(filterPriceAlertToastCandidates([row(2)], reloaded).map((r) => r.id)).toEqual([id(2)]);
+  });
+
+  it("durable account history suppresses replay after a new browser session", () => {
+    markPriceAlertToastSeenDurable("user-1", id(1), Date.now());
+    sessionStorage.clear();
+    const merged = mergePriceAlertToastSeenIds("user-1");
+    expect(filterPriceAlertToastCandidates([row(1)], merged)).toHaveLength(0);
+    expect(filterPriceAlertToastCandidates([row(2)], merged).map((r) => r.id)).toEqual([id(2)]);
   });
 
   it("CASE H — session marks in-flight; durable seen_at remains source of truth on reload", () => {

@@ -3,10 +3,13 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { scannerAlertToastViewPath } from "@/lib/alerts/alert-workflow-navigation";
 import {
   filterUnseenScannerAlerts,
   markScannerToastSeen,
-  readSeenScannerToastKeys,
+  markScannerToastSeenDurable,
+  mergeScannerToastSeenKeys,
+  scannerAlertToastKey,
 } from "@/lib/scanner-alerts/toast-dedupe";
 import {
   formatScannerAlertMetricLine,
@@ -19,7 +22,15 @@ const POLL_MS = 45_000;
 
 export function ScannerAlertToastListener() {
   const { user } = useAuth();
-  const seenRef = useRef(readSeenScannerToastKeys());
+  const seenRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user?.id) {
+      seenRef.current = new Set();
+      return;
+    }
+    seenRef.current = mergeScannerToastSeenKeys(user.id);
+  }, [user?.id]);
 
   const q = useQuery({
     queryKey: ["scanner-alert-toasts", user?.id],
@@ -42,16 +53,19 @@ export function ScannerAlertToastListener() {
   });
 
   useEffect(() => {
-    if (!q.data?.length) return;
+    if (!user?.id || !q.data?.length) return;
     const unseen = filterUnseenScannerAlerts(q.data, seenRef.current);
     for (const row of unseen.slice(0, 3)) {
+      const toastKey = scannerAlertToastKey(row);
       const title = row.headline ||
         `${row.symbol} — ${formatScannerEventLabel(row.event_type) ?? row.event_type}`;
       const metrics = formatScannerAlertMetricLine(row);
       const repeat = repeatMoverContextLine(row);
       const description = [metrics, repeat].filter(Boolean).join("\n");
-      markScannerToastSeen(row.dedupe_key);
-      seenRef.current.add(row.dedupe_key);
+      markScannerToastSeen(toastKey);
+      markScannerToastSeenDurable(user.id, toastKey);
+      seenRef.current.add(toastKey);
+      const viewPath = scannerAlertToastViewPath(row);
       toast(title, {
         description,
         duration: 8_000,
@@ -59,12 +73,12 @@ export function ScannerAlertToastListener() {
         action: {
           label: "View",
           onClick: () => {
-            window.location.href = "/dashboard/action-center";
+            window.location.href = viewPath;
           },
         },
       });
     }
-  }, [q.data]);
+  }, [q.data, user?.id]);
 
   return null;
 }

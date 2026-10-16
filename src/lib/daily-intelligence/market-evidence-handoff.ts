@@ -19,7 +19,12 @@ export interface MarketEvidenceHandoff {
   gapPercent: number | null;
   primaryScannerEvent: string | null;
   handoffAt: string;
+  /** Signed-in account that stored this payload (prevents cross-account replay). */
+  userId?: string | null;
 }
+
+/** Context-only handoffs expire; they never replace live quotes. */
+export const MARKET_EVIDENCE_HANDOFF_MAX_AGE_MS = 24 * 3600_000;
 
 const STORAGE_PREFIX = "stocksist-market-evidence:";
 
@@ -38,7 +43,16 @@ export function persistMarketEvidenceHandoff(payload: MarketEvidenceHandoff): vo
   }
 }
 
-export function readMarketEvidenceHandoff(symbol: string): MarketEvidenceHandoff | null {
+export function readMarketEvidenceHandoff(
+  symbol: string,
+  options?: { userId?: string | null; nowMs?: number },
+): MarketEvidenceHandoff | null {
+  const parsed = readMarketEvidenceHandoffRaw(symbol);
+  if (!parsed) return null;
+  return validateMarketEvidenceHandoff(parsed, options);
+}
+
+function readMarketEvidenceHandoffRaw(symbol: string): MarketEvidenceHandoff | null {
   if (typeof sessionStorage === "undefined") return null;
   const normalized = normalizeHandoffSymbol(symbol);
   if (!normalized) return null;
@@ -49,6 +63,24 @@ export function readMarketEvidenceHandoff(symbol: string): MarketEvidenceHandoff
   } catch {
     return null;
   }
+}
+
+export function validateMarketEvidenceHandoff(
+  payload: MarketEvidenceHandoff,
+  options?: { userId?: string | null; nowMs?: number },
+): MarketEvidenceHandoff | null {
+  const symbol = normalizeHandoffSymbol(payload.symbol);
+  if (!symbol) return null;
+  const handoffMs = Date.parse(payload.handoffAt);
+  const nowMs = options?.nowMs ?? Date.now();
+  if (!Number.isFinite(handoffMs) || nowMs - handoffMs > MARKET_EVIDENCE_HANDOFF_MAX_AGE_MS) {
+    return null;
+  }
+  const expectedUser = options?.userId?.trim();
+  if (expectedUser && payload.userId && payload.userId !== expectedUser) {
+    return null;
+  }
+  return { ...payload, symbol };
 }
 
 export function buildMarketEvidenceHandoff(input: {
@@ -64,6 +96,7 @@ export function buildMarketEvidenceHandoff(input: {
   gapPercent?: number | null;
   primaryScannerEvent?: string | null;
   nowMs?: number;
+  userId?: string | null;
 }): MarketEvidenceHandoff | null {
   const symbol = normalizeHandoffSymbol(input.symbol);
   if (!symbol) return null;
@@ -80,6 +113,7 @@ export function buildMarketEvidenceHandoff(input: {
     gapPercent: finiteOrNull(input.gapPercent),
     primaryScannerEvent: input.primaryScannerEvent?.trim() || null,
     handoffAt: new Date(input.nowMs ?? Date.now()).toISOString(),
+    userId: input.userId?.trim() || null,
   };
 }
 

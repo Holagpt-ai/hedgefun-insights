@@ -45,7 +45,10 @@ function JournalShellInner() {
     if (raw === null) return;
     const symbol = validateSymbol(raw);
     if (symbol) {
-      navigate(`${JOURNAL_BASE}/trades/new?symbol=${encodeURIComponent(symbol)}`, { replace: true });
+      const qs = new URLSearchParams({ symbol });
+      const securityId = searchParams.get("securityId");
+      if (securityId?.trim()) qs.set("securityId", securityId.trim());
+      navigate(`${JOURNAL_BASE}/trades/new?${qs.toString()}`, { replace: true });
       return;
     }
     navigate({ pathname: window.location.pathname, search: "" }, { replace: true });

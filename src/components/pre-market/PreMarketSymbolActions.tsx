@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { Bot, CalendarClock, LayoutDashboard, LineChart, MoreHorizontal, NotebookPen, Star } from "lucide-react";
 import {
   buildMarketEvidenceHandoff,
@@ -30,6 +31,7 @@ export function PreMarketSymbolActions({
     "symbol" | "securityId" | "sourceSurface"
   > | null;
 }) {
+  const { user } = useAuth();
   const routes = workflowSymbolRoutes(symbol, { securityId });
   if (!routes) return null;
 
@@ -40,6 +42,7 @@ export function PreMarketSymbolActions({
         symbol: routes.symbol,
         securityId,
         sourceSurface: "inbox",
+        userId: user?.id,
         ...marketEvidence,
       });
       if (payload) persistMarketEvidenceHandoff(payload);

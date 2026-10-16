@@ -45,7 +45,7 @@ export function workflowSymbolRoutes(
     journal: `/dashboard/journal?${q}`,
     chart: base.chart,
     stock: base.stock,
-    actionCenter: "/dashboard/action-center",
+    actionCenter: `/dashboard/action-center?${q}`,
   };
 }
 

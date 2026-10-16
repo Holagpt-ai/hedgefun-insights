@@ -5,18 +5,28 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { conditionLabel, formatAlertValue } from "@/config/price-alerts.config";
 import type { PriceAlertCondition } from "@/lib/price-alerts/types";
+import { priceAlertToastViewPath } from "@/lib/alerts/alert-workflow-navigation";
 import {
   filterPriceAlertToastCandidates,
+  markPriceAlertToastSeenDurable,
   markPriceAlertToastSeenInSession,
+  mergePriceAlertToastSeenIds,
   priceAlertToastSinceIso,
-  readSeenPriceAlertToastIds,
 } from "@/lib/price-alerts/toast-delivery";
 
 const POLL_MS = 60_000;
 
 export function PriceAlertToastListener() {
   const { user } = useAuth();
-  const sessionSeenRef = useRef(readSeenPriceAlertToastIds());
+  const sessionSeenRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user?.id) {
+      sessionSeenRef.current = new Set();
+      return;
+    }
+    sessionSeenRef.current = mergePriceAlertToastSeenIds(user.id);
+  }, [user?.id]);
 
   const q = useQuery({
     queryKey: ["price-alert-toasts", user?.id],
@@ -41,21 +51,23 @@ export function PriceAlertToastListener() {
   });
 
   useEffect(() => {
-    if (!q.data?.length) return;
+    if (!user?.id || !q.data?.length) return;
     const candidates = filterPriceAlertToastCandidates(q.data, sessionSeenRef.current);
     for (const row of candidates) {
       sessionSeenRef.current.add(row.id);
       markPriceAlertToastSeenInSession(row.id);
+      markPriceAlertToastSeenDurable(user.id, row.id);
       const cond = row.condition_type as PriceAlertCondition;
       const title = `${row.symbol} — ${conditionLabel(cond)}`;
       const description = `Observed $${Number(row.observed_price).toFixed(2)} vs ${formatAlertValue(cond, Number(row.threshold))} (${row.data_latency})`;
+      const viewPath = priceAlertToastViewPath(row.symbol);
       toast(title, {
         description,
         duration: 14_000,
         action: {
-          label: "Alerts",
+          label: "View",
           onClick: () => {
-            window.location.href = "/dashboard/alerts";
+            window.location.href = viewPath;
           },
         },
       });
@@ -69,7 +81,7 @@ export function PriceAlertToastListener() {
           }
         });
     }
-  }, [q.data]);
+  }, [q.data, user?.id]);
 
   return null;
 }

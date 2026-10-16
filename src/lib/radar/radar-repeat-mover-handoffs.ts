@@ -16,7 +16,7 @@ export function buildRepeatMoverWorkflowHandoffs(
       catalyst: `/dashboard/catalyst${query}`,
       watchlist: `/dashboard/watchlist${query}`,
       journal: `/dashboard/journal${query}`,
-      actionCenter: "/dashboard/action-center",
+      actionCenter: `/dashboard/action-center${query}`,
     };
   }
   return {
