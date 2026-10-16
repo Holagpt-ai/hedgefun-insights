@@ -3,10 +3,19 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { scannerAlertToastViewPath } from "@/lib/alerts/alert-workflow-navigation";
 import {
-  filterUnseenScannerAlerts,
+  ensureToastNotificationBaselineMs,
+  getToastNotificationBaselineMs,
+} from "@/lib/notifications/toast-notification-baseline";
+import {
+  filterLiveScannerAlertToasts,
+  filterScannerAlertToastBacklog,
   markScannerToastSeen,
-  readSeenScannerToastKeys,
+  markScannerToastSeenDurable,
+  mergeScannerToastSeenKeys,
+  SCANNER_ALERT_TOAST_BASELINE_NS,
+  scannerAlertToastKey,
 } from "@/lib/scanner-alerts/toast-dedupe";
 import {
   formatScannerAlertMetricLine,
@@ -19,7 +28,16 @@ const POLL_MS = 45_000;
 
 export function ScannerAlertToastListener() {
   const { user } = useAuth();
-  const seenRef = useRef(readSeenScannerToastKeys());
+  const seenRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user?.id) {
+      seenRef.current = new Set();
+      return;
+    }
+    seenRef.current = mergeScannerToastSeenKeys(user.id);
+    ensureToastNotificationBaselineMs(SCANNER_ALERT_TOAST_BASELINE_NS, user.id, Date.now());
+  }, [user?.id]);
 
   const q = useQuery({
     queryKey: ["scanner-alert-toasts", user?.id],
@@ -42,16 +60,32 @@ export function ScannerAlertToastListener() {
   });
 
   useEffect(() => {
+    if (!user?.id) return;
+    const nowMs = Date.now();
+    seenRef.current = mergeScannerToastSeenKeys(user.id, nowMs);
+    const baselineMs = getToastNotificationBaselineMs(SCANNER_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
     if (!q.data?.length) return;
-    const unseen = filterUnseenScannerAlerts(q.data, seenRef.current);
-    for (const row of unseen.slice(0, 3)) {
+
+    const backlog = filterScannerAlertToastBacklog(q.data, seenRef.current, baselineMs);
+    for (const row of backlog) {
+      const toastKey = scannerAlertToastKey(row);
+      markScannerToastSeen(user.id, toastKey);
+      markScannerToastSeenDurable(user.id, toastKey, nowMs);
+      seenRef.current.add(toastKey);
+    }
+
+    const live = filterLiveScannerAlertToasts(q.data, seenRef.current, baselineMs);
+    for (const row of live.slice(0, 3)) {
+      const toastKey = scannerAlertToastKey(row);
       const title = row.headline ||
         `${row.symbol} — ${formatScannerEventLabel(row.event_type) ?? row.event_type}`;
       const metrics = formatScannerAlertMetricLine(row);
       const repeat = repeatMoverContextLine(row);
       const description = [metrics, repeat].filter(Boolean).join("\n");
-      markScannerToastSeen(row.dedupe_key);
-      seenRef.current.add(row.dedupe_key);
+      markScannerToastSeen(user.id, toastKey);
+      markScannerToastSeenDurable(user.id, toastKey, nowMs);
+      seenRef.current.add(toastKey);
+      const viewPath = scannerAlertToastViewPath(row);
       toast(title, {
         description,
         duration: 8_000,
@@ -59,12 +93,12 @@ export function ScannerAlertToastListener() {
         action: {
           label: "View",
           onClick: () => {
-            window.location.href = "/dashboard/action-center";
+            window.location.href = viewPath;
           },
         },
       });
     }
-  }, [q.data]);
+  }, [q.data, user?.id]);
 
   return null;
 }

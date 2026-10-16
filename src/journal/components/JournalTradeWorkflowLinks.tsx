@@ -27,7 +27,7 @@ export function JournalTradeWorkflowLinks({ symbol }: { symbol: string }) {
         <Star className="h-3 w-3" /> Watchlist
       </Link>
       <Link
-        to="/dashboard/screeners"
+        to={`/dashboard/screeners?symbol=${encodeURIComponent(routes.symbol)}`}
         onClick={touch}
         className={chipClass}
         aria-label="Screeners"

@@ -35,15 +35,17 @@ function HandoffContext({
   feed,
   leaders,
   loading,
+  userId,
 }: {
   symbol: string | null;
   feed: { key: string; symbol: string; title: string; sourceLabel: string }[];
   leaders: { symbol: string }[];
   loading: boolean;
+  userId?: string | null;
 }) {
   if (!symbol || loading) return null;
   const rows = selectActionCenterHandoffRows({ symbol, feed, leaders });
-  const marketEvidence = readMarketEvidenceHandoff(symbol);
+  const marketEvidence = readMarketEvidenceHandoff(symbol, { userId });
   if (rows.length === 0 && !marketEvidence) return null;
   return (
     <section aria-label="Handoff context" className="rounded-md border bg-card px-3 py-2">
@@ -80,7 +82,7 @@ function SectionError({ label }: { label: string }) {
 }
 
 export default function ActionCenter() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const isPro = hasProAccess(profile?.plan);
   const ac = useActionCenter();
   const [searchParams] = useSearchParams();
@@ -121,6 +123,7 @@ export default function ActionCenter() {
         feed={ac.feed}
         leaders={ac.leaders}
         loading={handoff !== null && (ac.loading.alerts || ac.loading.leaders)}
+        userId={user?.id}
       />
 
       {/* SECTION 1 — Current Market Brief */}

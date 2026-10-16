@@ -125,6 +125,7 @@ describe("Historical workflow integration V1", () => {
     const routes = workflowSymbolRoutes("ABC");
     expect(routes?.ai).toContain("securityId=");
     expect(routes?.journal).toContain("symbol=ABC");
+    expect(routes?.actionCenter).toContain("symbol=ABC");
   });
 
   it("reuses preloaded context in resolve without fetch", async () => {

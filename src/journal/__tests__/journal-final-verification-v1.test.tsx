@@ -110,8 +110,10 @@ describe("journal final verification v1", () => {
     expect(screen.getByLabelText(`AI Analyst for ${routes!.symbol}`).getAttribute("href")).toBe(routes!.ai);
     expect(screen.getByLabelText(`Catalyst for ${routes!.symbol}`).getAttribute("href")).toBe(routes!.catalyst);
     expect(screen.getByLabelText(`Watchlist for ${routes!.symbol}`).getAttribute("href")).toBe(routes!.watchlist);
-    expect(screen.getByLabelText("Screeners").getAttribute("href")).toBe("/dashboard/screeners");
-    expect(screen.getByLabelText("Action Center").getAttribute("href")).toBe("/dashboard/action-center");
+    expect(screen.getByLabelText("Screeners").getAttribute("href")).toBe(
+      `/dashboard/screeners?symbol=${encodeURIComponent(routes!.symbol)}`,
+    );
+    expect(screen.getByLabelText("Action Center").getAttribute("href")).toBe(routes!.actionCenter);
   });
 
   it("inbound journal handoff path matches workflow routes", () => {

@@ -102,7 +102,9 @@ export function NewTradePage() {
     }
     const next = new URLSearchParams(searchParams);
     next.delete("symbol");
-    setSearchParams(next, { replace: true });
+    if (next.toString() !== searchParams.toString()) {
+      setSearchParams(next, { replace: true });
+    }
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
