@@ -24,6 +24,7 @@ import { POLICY_EXCLUSION_EVIDENCE_UNAVAILABLE } from "./baseline-coverage.ts";
 import {
   classifyNewHighLow,
   isValidBaselineQuote,
+  isVerifiedNhlBaseline,
   type NhlBaselineQuote,
   type NhlBaselineStatus,
   type NhlClassification,
@@ -297,20 +298,27 @@ export function evaluateNhlEvidence(
     if (vol === null || !(vol > 0)) continue;
     const price = currentSessionReferencePrice(t, extendedSession);
     if (price === null || !(price > 0)) continue;
-    const range = dayHighLow(t);
-    if (range.high === null || range.low === null) continue;
 
     eligible_count += 1;
+
+    if (policyExclusions.available && policyExclusions.symbols.has(sym)) {
+      policy_excluded_count += 1;
+      continue;
+    }
+
+    const range = dayHighLow(t);
+    if (range.high === null || range.low === null) {
+      unresolved_count += 1;
+      unresolvedSymbols.push(sym);
+      continue;
+    }
+
     const baseline = baselines.get(sym);
-    if (isValidBaselineQuote(baseline)) {
+    if (isVerifiedNhlBaseline(baseline)) {
       evaluated_count += 1;
       if (classifyNewHighLow(t, baseline, extendedSession) !== null) {
         qualified_count += 1;
       }
-      continue;
-    }
-    if (policyExclusions.available && policyExclusions.symbols.has(sym)) {
-      policy_excluded_count += 1;
       continue;
     }
     if (baseline !== undefined) {

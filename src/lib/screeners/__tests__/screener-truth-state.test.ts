@@ -363,7 +363,7 @@ describe("screener truth-state resolver", () => {
     });
     expect(truth.showRows).toBe(true);
     expect(truth.advisory).toBe(
-      "52-week coverage incomplete — 6 symbols unresolved. Results below are from symbols with valid baseline coverage.",
+      "52-week coverage incomplete — 6 symbol(s) lack verified baseline history (120-session minimum) or other required inputs. Rows below are from fully evaluated symbols only.",
     );
   });
 

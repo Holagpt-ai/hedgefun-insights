@@ -11,8 +11,11 @@ import {
   NHL_DIAGNOSTIC_SYMBOL_CAP,
   type HistoricalCoverageEvidence,
 } from "./evaluation-evidence.ts";
-import { selectNewHighsLows } from "./new-highs-lows.ts";
-import type { NhlBaselineQuote } from "./new-highs-lows.ts";
+import {
+  NHL_VERIFIED_MIN_SESSIONS,
+  selectNewHighsLows,
+  type NhlBaselineQuote,
+} from "./new-highs-lows.ts";
 import type { PolygonTicker } from "./selection.ts";
 
 const ZERO_PREV = { o: 0, h: 0, l: 0, c: 0, v: 0 };
@@ -167,12 +170,12 @@ Deno.test("nhl: zero eligible snapshots is not evaluated", () => {
   assertEquals(evidence.reason, "baseline_coverage_empty");
 });
 
-Deno.test("nhl: missing day range excludes symbol from eligible_count", () => {
+Deno.test("nhl: missing day range counts as eligible unresolved coverage", () => {
   const baseline: NhlBaselineQuote = {
     symbol: "AAA",
     high_52w: 20,
     low_52w: 5,
-    sessions_observed: 30,
+    sessions_observed: NHL_VERIFIED_MIN_SESSIONS,
   };
   const evidence = evaluateNhlEvidence(
     [ticker("AAA", { day: { c: 10, v: 1_000_000 }, prevDay: { c: 9, v: 1 } })],
@@ -181,8 +184,37 @@ Deno.test("nhl: missing day range excludes symbol from eligible_count", () => {
     [],
   );
   assertEquals(evidence.status, "not_evaluated");
-  assertEquals(evidence.eligible_count, 0);
-  assertEquals(evidence.reason, "baseline_coverage_empty");
+  assertEquals(evidence.eligible_count, 1);
+  assertEquals(evidence.evaluated_count, 0);
+  assertEquals(evidence.unresolved_count, 1);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
+});
+
+Deno.test("nhl: missing day range plus evaluated non-breakout blocks validated zero", () => {
+  const baselineOk: NhlBaselineQuote = {
+    symbol: "OK",
+    high_52w: 20,
+    low_52w: 5,
+    sessions_observed: NHL_VERIFIED_MIN_SESSIONS,
+  };
+  const evidence = evaluateNhlEvidence(
+    [
+      ticker("NORANGE", { day: { c: 10, v: 1_000_000 }, prevDay: { c: 9, v: 1 } }),
+      ticker("OK", {
+        day: { c: 10, h: 12, l: 8, v: 900_000 },
+        prevDay: { c: 9, v: 1 },
+      }),
+    ],
+    new Map([["OK", baselineOk]]),
+    "available",
+    [],
+  );
+  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.eligible_count, 2);
+  assertEquals(evidence.evaluated_count, 1);
+  assertEquals(evidence.unresolved_count, 1);
+  assertEquals(evidence.qualified_count, 0);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
 });
 
 Deno.test("nhl: full eligible coverage with matching baseline is evaluated", () => {
@@ -190,7 +222,7 @@ Deno.test("nhl: full eligible coverage with matching baseline is evaluated", () 
     symbol: "AAA",
     high_52w: 20,
     low_52w: 5,
-    sessions_observed: 30,
+    sessions_observed: NHL_VERIFIED_MIN_SESSIONS,
   };
   const evidence = evaluateNhlEvidence(
     [ticker("AAA", { day: { c: 10, h: 12, l: 8, v: 1_000_000 }, prevDay: { c: 9, v: 1 } })],
@@ -210,7 +242,7 @@ Deno.test("nhl: partial eligible baseline match fails closed", () => {
     symbol: "AAA",
     high_52w: 20,
     low_52w: 5,
-    sessions_observed: 30,
+    sessions_observed: NHL_VERIFIED_MIN_SESSIONS,
   };
   const evidence = evaluateNhlEvidence(
     [
@@ -239,7 +271,7 @@ Deno.test("nhl: baseline unavailable is not evaluated", () => {
   assertEquals(evidence.baseline_status, "unavailable");
 });
 
-Deno.test("nhl: legitimate zero matches require evaluated coverage", () => {
+Deno.test("nhl: baseline with fewer than 120 sessions is unresolved not evaluated", () => {
   const baseline: NhlBaselineQuote = {
     symbol: "AAA",
     high_52w: 20,
@@ -252,8 +284,29 @@ Deno.test("nhl: legitimate zero matches require evaluated coverage", () => {
     "available",
     [],
   );
-  assertEquals(evidence.status, "evaluated");
+  assertEquals(evidence.status, "not_evaluated");
   assertEquals(evidence.eligible_count, 1);
+  assertEquals(evidence.evaluated_count, 0);
+  assertEquals(evidence.unresolved_count, 1);
+  assertEquals(evidence.qualified_count, 0);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
+});
+
+Deno.test("nhl: exactly 120 observed sessions allows verified evaluation", () => {
+  const baseline: NhlBaselineQuote = {
+    symbol: "AAA",
+    high_52w: 20,
+    low_52w: 5,
+    sessions_observed: 120,
+  };
+  const evidence = evaluateNhlEvidence(
+    [ticker("AAA", { day: { c: 10, h: 12, l: 8, v: 1_000_000 }, prevDay: { c: 9, v: 1 } })],
+    new Map([["AAA", baseline]]),
+    "available",
+    [],
+    exclusionEvidence([]),
+  );
+  assertEquals(evidence.status, "evaluated");
   assertEquals(evidence.evaluated_count, 1);
   assertEquals(evidence.qualified_count, 0);
 });

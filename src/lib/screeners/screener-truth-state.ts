@@ -114,7 +114,7 @@ function resolveNhlBaselineCoverageAdvisory(
     typeof nhlEvidence.unresolved_count === "number" &&
     nhlEvidence.unresolved_count > 0
   ) {
-    return `52-week coverage incomplete — ${nhlEvidence.unresolved_count} symbols unresolved. Results below are from symbols with valid baseline coverage.`;
+    return `52-week coverage incomplete — ${nhlEvidence.unresolved_count} symbol(s) lack verified baseline history (120-session minimum) or other required inputs. Rows below are from fully evaluated symbols only.`;
   }
   return undefined;
 }
@@ -203,8 +203,19 @@ function copyForReason(
             explanation:
               "Required evaluation inputs were unavailable, so this screener could not be verified.",
           };
-    case "evaluation_evidence_missing":
+    case "evaluation_evidence_missing": {
+      if (tabId === NHL_TAB_ID && evidence && "reason" in evidence) {
+        const nhl = evidence as NhlTabEvidence;
+        if (nhl.reason === "baseline_coverage_incomplete") {
+          return {
+            title: "Baseline coverage incomplete",
+            explanation:
+              "Some volume-active symbols lack verified 52-week baseline history (120 observed sessions minimum) or trustworthy day high/low inputs. This tab was not fully evaluated — no verified zero-match claim.",
+          };
+        }
+      }
       return evidenceMissingCopy();
+    }
     case "generation_unavailable":
       return tabId === NHL_TAB_ID
         ? nhlUnavailableCopy()

@@ -35,6 +35,14 @@ export type NhlClassification = {
   low_52w: number;
 };
 
+/** Baseline with enough observed sessions for verified 52-week breakout qualification. */
+export function isVerifiedNhlBaseline(
+  row: NhlBaselineQuote | null | undefined,
+): row is NhlBaselineQuote {
+  return isValidBaselineQuote(row) &&
+    row.sessions_observed >= NHL_VERIFIED_MIN_SESSIONS;
+}
+
 export function isValidBaselineQuote(
   row: NhlBaselineQuote | null | undefined,
 ): row is NhlBaselineQuote {
@@ -52,6 +60,17 @@ export function isValidBaselineQuote(
 }
 
 /**
+ * Session range used for NHL — always Polygon day.h/day.l (never last/min alone).
+ * Extended sync still requires a trustworthy day aggregate; live last alone
+ * cannot prove a 52-week crossing.
+ */
+export function nhlObservationDayRange(
+  t: PolygonTicker,
+): { high: number | null; low: number | null } {
+  return dayHighLow(t);
+}
+
+/**
  * Classify a snapshot against a validated prior baseline.
  * Exact high/low equality qualifies. Missing day range does not.
  */
@@ -66,11 +85,10 @@ export function classifyNewHighLow(
   if (vol === null || !(vol > 0)) return null;
   const price = currentSessionReferencePrice(t, extendedSession);
   if (price === null || !(price > 0)) return null;
-  if (!isValidBaselineQuote(baseline)) return null;
-  if (baseline.sessions_observed < NHL_VERIFIED_MIN_SESSIONS) return null;
+  if (!isVerifiedNhlBaseline(baseline)) return null;
   if (normalizeSymbol(baseline.symbol) !== sym) return null;
 
-  const range = dayHighLow(t);
+  const range = nhlObservationDayRange(t);
   if (range.high === null || range.low === null) return null;
 
   const isHigh = range.high >= baseline.high_52w;

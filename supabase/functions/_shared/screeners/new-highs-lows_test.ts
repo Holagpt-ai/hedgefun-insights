@@ -2,6 +2,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   classifyNewHighLow,
   isValidBaselineQuote,
+  isVerifiedNhlBaseline,
   NHL_VERIFIED_MIN_SESSIONS,
   type NhlBaselineQuote,
   selectNewHighsLows,
@@ -19,25 +20,31 @@ function quote(
   };
 }
 
-function ticker(partial: {
-  ticker: string;
-  volume?: number;
-  price?: number;
-  high?: number;
-  low?: number;
-}): PolygonTicker {
+function ticker(
+  partial: {
+    ticker: string;
+    volume?: number;
+    price?: number;
+    high?: number;
+    low?: number;
+    day?: PolygonTicker["day"];
+    prevDay?: PolygonTicker["prevDay"];
+    lastTrade?: PolygonTicker["lastTrade"];
+  },
+): PolygonTicker {
   const price = partial.price ?? 10;
   return {
     ticker: partial.ticker,
     updated: 1_752_000_000_000_000_000,
-    day: {
+    day: partial.day ?? {
       c: price,
       o: price,
       v: partial.volume ?? 1_000_000,
       h: partial.high ?? price,
       l: partial.low ?? price,
     },
-    prevDay: { c: price * 0.9, v: 100_000 },
+    prevDay: partial.prevDay ?? { c: price * 0.9, v: 100_000 },
+    ...(partial.lastTrade ? { lastTrade: partial.lastTrade } : {}),
   };
 }
 
@@ -213,11 +220,37 @@ Deno.test("combined board is capped at 20 rows", () => {
 Deno.test("thin 52-week history is not a verified breakout", () => {
   const thin = quote({ symbol: "THIN", high_52w: 20, low_52w: 5, sessions_observed: 20 });
   assertEquals(isValidBaselineQuote(thin), true);
+  assertEquals(isVerifiedNhlBaseline(thin), false);
   assertEquals(thin.sessions_observed < NHL_VERIFIED_MIN_SESSIONS, true);
   assertEquals(
     classifyNewHighLow(ticker({ ticker: "THIN", high: 25, low: 10 }), thin),
     null,
   );
+});
+
+Deno.test("exactly 120 observed sessions is verified for qualification", () => {
+  const baseline = quote({
+    symbol: "FULL",
+    high_52w: 20,
+    low_52w: 5,
+    sessions_observed: NHL_VERIFIED_MIN_SESSIONS,
+  });
+  assertEquals(isVerifiedNhlBaseline(baseline), true);
+  assertEquals(
+    classifyNewHighLow(ticker({ ticker: "FULL", high: 20, low: 8 }), baseline),
+    "new_high",
+  );
+});
+
+Deno.test("extended last above baseline without day high crossing does not qualify", () => {
+  const baseline = quote({ symbol: "PM", high_52w: 100, low_52w: 50, sessions_observed: 200 });
+  const t = ticker({
+    ticker: "PM",
+    day: { v: 2_000_000, h: 99, l: 90 },
+    prevDay: { c: 95, v: 100_000 },
+    lastTrade: { p: 105 },
+  });
+  assertEquals(classifyNewHighLow(t, baseline, true), null);
 });
 
 Deno.test("empty baseline map yields no inferred securities", () => {
