@@ -49,6 +49,7 @@ import type { PromotionReason } from "../../../../src/lib/radar/radar-event-engi
 import { radarV22EventTypeFromEngine } from "../../../../src/lib/radar/radar-event-engine.ts";
 import type { IntradayParticipationSnapshot } from "../../../../src/lib/radar/intraday-participation.ts";
 import { resolveCumulativeSessionVolume } from "../../../../src/lib/radar/cumulative-session-volume.ts";
+import { createRadarV2EventPublishQueue } from "./radar-v2-event-queue.ts";
 
 export { REPLACE_RADAR_V2_RPC, RADAR_V22_CANDIDATE_CAP };
 
@@ -877,18 +878,11 @@ export type RadarV2WriteReason =
 
 /** After a failed V2 RPC, suppress churn retries until cooldown elapses. */
 export const RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS = 15_000;
-/** Bounds RPC validation work when engine emits many idempotent event keys. */
-export const RADAR_V2_MAX_EVENTS_PER_PUBLISH = 256;
-
-export function trimRadarV2EventsForPublish(
-  events: RadarV22EventRow[],
-  maxEvents = RADAR_V2_MAX_EVENTS_PER_PUBLISH,
-): RadarV22EventRow[] {
-  if (events.length <= maxEvents) return events;
-  return [...events]
-    .sort((a, b) => Date.parse(b.event_at) - Date.parse(a.event_at))
-    .slice(0, maxEvents);
-}
+export {
+  createRadarV2EventPublishQueue,
+  RADAR_V2_MAX_EVENTS_PER_PUBLISH,
+  type RadarV2EventPublishQueue,
+} from "./radar-v2-event-queue.ts";
 
 export type RadarV2WriteDecision = {
   shouldWrite: boolean;
@@ -917,8 +911,15 @@ function isForcedSessionWrite(input: RadarV2ChurnInput): boolean {
 
 export type RadarV2WriteGate = {
   decide(input: RadarV2ChurnInput): RadarV2WriteDecision;
-  markSuccess(decision: RadarV2WriteDecision, persistedAtMs: number): void;
+  /** Stages only events not yet persisted (see `lastEventKeys`). */
+  stageIncoming(events: readonly RadarV22EventRow[]): void;
+  markSuccess(
+    decision: RadarV2WriteDecision,
+    persistedAtMs: number,
+    persistedEventKeys?: readonly string[],
+  ): void;
   markFailure(failedAtMs: number): void;
+  eventQueue: import("./radar-v2-event-queue.ts").RadarV2EventPublishQueue;
 };
 
 /**
@@ -930,15 +931,24 @@ export function createRadarV2WriteGate(): RadarV2WriteGate {
   let lastEventKeys = new Set<string>();
   let lastSuccessMs: number | null = null;
   let lastFailureMs: number | null = null;
+  const eventQueue = createRadarV2EventPublishQueue();
 
   return {
+    eventQueue,
+    stageIncoming(events) {
+      const novel = events.filter((ev) => !lastEventKeys.has(eventKey(ev)));
+      eventQueue.stageIncoming(novel);
+    },
     decide(input) {
       const fingerprint = fingerprintRadarV2Generation(
         input.tradingDate,
         input.sessionKind,
         input.candidates,
       );
-      const eventKeys = input.events.map(eventKey);
+      const pendingKeys = eventQueue.pendingKeys();
+      const eventKeys = pendingKeys.length > 0
+        ? pendingKeys
+        : input.events.map(eventKey);
       const decision = (
         shouldWrite: boolean,
         reason: RadarV2WriteReason,
@@ -958,6 +968,8 @@ export function createRadarV2WriteGate(): RadarV2WriteGate {
         return decision(false, "backoff");
       }
 
+      if (eventQueue.pendingCount() > 0) return decision(true, "events");
+
       if (lastFingerprint === null) return decision(true, "bootstrap");
       if (isForcedSessionWrite(input)) return decision(true, "session");
       if (eventKeys.some((key) => !lastEventKeys.has(key))) {
@@ -974,9 +986,11 @@ export function createRadarV2WriteGate(): RadarV2WriteGate {
       }
       return decision(false, "skip");
     },
-    markSuccess(decision, persistedAtMs) {
+    markSuccess(decision, persistedAtMs, persistedEventKeys) {
       lastFingerprint = decision.fingerprint;
-      lastEventKeys = new Set(decision.eventKeys);
+      const merged = new Set(lastEventKeys);
+      for (const key of persistedEventKeys ?? decision.eventKeys) merged.add(key);
+      lastEventKeys = merged;
       lastSuccessMs = persistedAtMs;
       lastFailureMs = null;
     },
@@ -1023,6 +1037,18 @@ export async function publishRadarV2IfNeeded(opts: {
     let view = opts.result.persistenceV2;
     const stale = resultFeedStale(opts.result) || view.feedStale;
     const transition = opts.result.sessionTransition;
+    if (isForcedSessionWrite({
+      wallNowMs: opts.wallNowMs,
+      checkpointMs: opts.checkpointMs,
+      tradingDate: view.tradingDate,
+      sessionKind: view.sessionKind,
+      candidates: view.candidates,
+      events: [],
+      sessionTransition: opts.result.sessionTransition,
+      sessionReset: opts.result.sessionReset,
+    })) {
+      opts.gate.eventQueue.reset();
+    }
     if (
       stale &&
       (transition === "soft_pm_rth" || transition === "soft_rth_ah") &&
@@ -1035,7 +1061,9 @@ export async function publishRadarV2IfNeeded(opts: {
       syncedAt: opts.syncedAt,
       view,
     });
-    args.p_events = trimRadarV2EventsForPublish(args.p_events);
+    opts.gate.stageIncoming(args.p_events);
+    const eventBatch = opts.gate.eventQueue.nextBatch();
+    args.p_events = eventBatch;
     args.p_candidates = args.p_candidates.map((row) => ({
       ...row,
       generation_id: opts.generationId,
@@ -1047,19 +1075,22 @@ export async function publishRadarV2IfNeeded(opts: {
       tradingDate: args.p_trading_date,
       sessionKind: args.p_session_kind,
       candidates: args.p_candidates,
-      events: args.p_events,
+      events: eventBatch,
       sessionTransition: opts.result.sessionTransition,
       sessionReset: opts.result.sessionReset,
     });
     if (!decision.shouldWrite) return "skipped";
     const result = await publishRadarV2Generation(opts.rpc, args);
     if (result.ok && result.applied !== false) {
-      opts.gate.markSuccess(decision, opts.wallNowMs);
+      const persistedKeys = eventBatch.map(eventKey);
+      opts.gate.eventQueue.confirmPersisted(eventBatch);
+      opts.gate.markSuccess(decision, opts.wallNowMs, persistedKeys);
     } else if (!result.ok) {
       opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
     }
     return result;
   } catch {
+    opts.gate.markFailure(opts.nowMs?.() ?? opts.wallNowMs);
     return { ok: false, code: "persist_failed" };
   }
 }

@@ -21,9 +21,9 @@ import {
   RADAR_V22_CANDIDATE_CAP,
   RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS,
   REPLACE_RADAR_V2_RPC,
+  RADAR_V2_MAX_EVENTS_PER_PUBLISH,
   replaceArgsFromView,
   shouldPublishRadarV2,
-  trimRadarV2EventsForPublish,
   validateRadarV2Generation,
   type PersistenceV2View,
   type RadarV2ChurnInput,
@@ -1377,7 +1377,7 @@ Deno.test("stale RPC result is success and does not mark write-gate success", as
   assertEquals(first, { ok: true, applied: false, reason: "stale_generation" });
   const retry = gate.decide(churnInput([candidate("AAA")], { wallNowMs: 5_000 }));
   assertEquals(retry.shouldWrite, true);
-  assertEquals(retry.reason, "bootstrap");
+  assertEquals(retry.reason, "events");
 });
 
 function sessionMetrics(lastPrice: number): SymbolMetrics {
@@ -1549,17 +1549,70 @@ Deno.test("mapCandidateRow normalizes fractional prior session volume to whole s
   assertEquals(row.prior_session_volume, 4_670_041);
 });
 
-Deno.test("trimRadarV2EventsForPublish keeps newest events under cap", () => {
-  const events = Array.from({ length: 300 }, (_, i) => ({
-    trading_date: DATE,
-    session_kind: "market" as const,
-    symbol: "AAA",
-    event_type: "DETECTED" as const,
-    event_at: new Date(Date.parse(SYNC) + i * 1000).toISOString(),
-    generation_id: GEN,
-  }));
-  const trimmed = trimRadarV2EventsForPublish(events);
-  assertEquals(trimmed.length, 256);
-  assertEquals(trimmed[0]?.event_at, events[events.length - 1]?.event_at);
+Deno.test("publishRadarV2IfNeeded flushes pending events across successful cycles", async () => {
+  const gate = createRadarV2WriteGate();
+  const candidates = Array.from({ length: 60 }, (_, i) =>
+    candidate(`S${String(i).padStart(2, "0")}`, {
+      lifecycle_entered_at: new Date(Date.parse(SYNC) + i * 1_000).toISOString(),
+      promoted_at: new Date(Date.parse(SYNC) + i * 1_000 + 1).toISOString(),
+    })
+  );
+  const live = {
+    staleTransition: false,
+    liveSurveillance: true,
+    sessionReset: false,
+    persistEmpty: false,
+    sessionKind: "market",
+    sessionTransition: null,
+    persistenceV2: v2View(candidates),
+  };
+  const staged = buildRadarV2Events({
+    generationId: GEN,
+    tradingDate: DATE,
+    sessionKind: "market",
+    candidates,
+    sessionTransition: null,
+    sessionEventAt: SYNC,
+    archived: [],
+  });
+  assert(staged.length > RADAR_V2_MAX_EVENTS_PER_PUBLISH);
+
+  let rpcCalls = 0;
+  const rpc: RadarV2RpcFn = async (args) => {
+    rpcCalls += 1;
+    assert(args.p_events.length > 0);
+    assert(args.p_events.length <= RADAR_V2_MAX_EVENTS_PER_PUBLISH);
+    if (rpcCalls === 1) {
+      assertEquals(args.p_events.length, RADAR_V2_MAX_EVENTS_PER_PUBLISH);
+    }
+    return { error: null };
+  };
+
+  const first = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: live,
+    gate,
+    wallNowMs: ET.rthMid,
+    checkpointMs: 30_000,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  assertEquals(first !== "skipped" && first.ok, true);
+  assertEquals(gate.eventQueue.pendingCount(), staged.length - RADAR_V2_MAX_EVENTS_PER_PUBLISH);
+
+  const second = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: live,
+    gate,
+    wallNowMs: ET.rthMid + 1_000,
+    checkpointMs: 30_000,
+    generationId: GEN2,
+    syncedAt: SYNC2,
+    rpc,
+  });
+  assertEquals(second !== "skipped" && second.ok, true);
+  assertEquals(gate.eventQueue.pendingCount(), 0);
+  assertEquals(rpcCalls, 2);
 });
 

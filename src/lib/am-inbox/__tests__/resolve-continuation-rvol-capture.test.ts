@@ -92,10 +92,26 @@ describe("resolveContinuationRvolCapture", () => {
         rvol_20d: 6,
         time_adjusted_rvol: 3,
       }),
-    ).toMatchObject({
-      rawRvol: 3,
-      metricKind: "time_adjusted",
+    ).toEqual({
+      rawRvol: null,
+      metricKind: null,
       baselineVolume: null,
+      baselineSampleSize: null,
+    });
+  });
+
+  it("uses verified daily rvol when time_adjusted lacks baseline proof", () => {
+    expect(
+      resolveContinuationRvolCapture({
+        time_adjusted_rvol: 3,
+        rvol_20d: 6,
+        avg_volume_20d: 500_000,
+        participation_baseline_session_count: 2,
+      }),
+    ).toEqual({
+      rawRvol: 6,
+      metricKind: "rvol_20d",
+      baselineVolume: 500_000,
       baselineSampleSize: null,
     });
   });

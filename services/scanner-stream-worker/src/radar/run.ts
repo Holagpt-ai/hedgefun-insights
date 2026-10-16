@@ -162,6 +162,26 @@ export function startRadarV22(opts: {
     opts.health.noteRadarPersistFailure?.(code);
   }
 
+  function tryClearPersistFailure(input: {
+    v2: Awaited<ReturnType<typeof publishRadarV2IfNeeded>>;
+    v1Attempted: boolean;
+    v1Ok: boolean;
+  }): void {
+    if (input.v1Attempted && !input.v1Ok) return;
+    const v2Enabled = opts.env.radarPersistenceV2Enabled;
+    if (v2Enabled) {
+      if (input.v2 !== "skipped" && input.v2.ok) {
+        lastPersistErrorCode = null;
+        lastPersistFailedAt = null;
+      }
+      return;
+    }
+    if (input.v1Attempted && input.v1Ok) {
+      lastPersistErrorCode = null;
+      lastPersistFailedAt = null;
+    }
+  }
+
   function attachFeedTelemetry(
     result: EvaluateResult,
     wallNow: number,
@@ -213,7 +233,6 @@ export function startRadarV22(opts: {
         p_last_provider_event_at: result.board.lastProviderEventAt,
         p_synced_at: syncedAt,
       });
-      pushHealth("stale");
       const v2 = await publishRadarV2IfNeeded({
         flagEnabled: opts.env.radarPersistenceV2Enabled,
         result,
@@ -228,10 +247,20 @@ export function startRadarV22(opts: {
       if (v2 !== "skipped" && !v2.ok) {
         notePersistFailure(v2.code);
         log("error", "radar_persist_v2_failed", { code: v2.code });
-      } else if (v2 !== "skipped" && v2.ok) {
-        lastPersistErrorCode = null;
-        lastPersistFailedAt = null;
+      } else {
+        tryClearPersistFailure({ v2, v1Attempted: false, v1Ok: true });
       }
+      pushHealth(
+        resolveRadarLoopHealth({
+          leaseHeld,
+          feedStale: true,
+          persistenceV2Enabled: opts.env.radarPersistenceV2Enabled,
+          v2,
+          v1Attempted: false,
+          v1Ok: true,
+          unresolvedPersistFailure: lastPersistErrorCode !== null,
+        }),
+      );
       return;
     }
     let v1PersistOk = true;
@@ -281,9 +310,12 @@ export function startRadarV22(opts: {
     if (v2 !== "skipped" && !v2.ok) {
       notePersistFailure(v2.code);
       log("error", "radar_persist_v2_failed", { code: v2.code });
-    } else if (v2 !== "skipped" && v2.ok) {
-      lastPersistErrorCode = null;
-      lastPersistFailedAt = null;
+    } else {
+      tryClearPersistFailure({
+        v2,
+        v1Attempted: result.published,
+        v1Ok: v1PersistOk,
+      });
     }
 
     if (!result.published && !opts.env.radarPersistenceV2Enabled) {
@@ -298,6 +330,7 @@ export function startRadarV22(opts: {
         v2,
         v1Attempted: result.published,
         v1Ok: v1PersistOk,
+        unresolvedPersistFailure: lastPersistErrorCode !== null,
       }),
     );
   };

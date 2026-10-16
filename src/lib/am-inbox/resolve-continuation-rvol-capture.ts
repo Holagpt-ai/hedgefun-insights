@@ -9,6 +9,9 @@ export interface ContinuationRvolCapture {
   baselineSampleSize: number | null;
 }
 
+/** Matches screener RVOL confidence medium-history floor. */
+const MIN_VERIFIED_PARTICIPATION_SAMPLES = 5;
+
 const EMPTY_CAPTURE: ContinuationRvolCapture = {
   rawRvol: null,
   metricKind: null,
@@ -52,22 +55,36 @@ export function resolveContinuationRvolCapture(
 ): ContinuationRvolCapture {
   const timeAdjusted = positiveFinite(row.time_adjusted_rvol);
   if (timeAdjusted !== null) {
-    return {
-      rawRvol: timeAdjusted,
-      metricKind: "time_adjusted",
-      baselineVolume: impliedBaselineVolumeFromRatio(row.volume, timeAdjusted),
-      baselineSampleSize: positiveInteger(row.participation_baseline_session_count),
-    };
+    const baselineVolume = impliedBaselineVolumeFromRatio(row.volume, timeAdjusted);
+    const baselineSampleSize = positiveInteger(row.participation_baseline_session_count);
+    const verified = baselineVolume !== null ||
+      (baselineSampleSize !== null &&
+        baselineSampleSize >= MIN_VERIFIED_PARTICIPATION_SAMPLES);
+    if (verified) {
+      return {
+        rawRvol: timeAdjusted,
+        metricKind: "time_adjusted",
+        baselineVolume,
+        baselineSampleSize,
+      };
+    }
   }
 
   const rvol5m = positiveFinite(row.rvol_5m);
   if (rvol5m !== null) {
-    return {
-      rawRvol: rvol5m,
-      metricKind: "rvol_5m",
-      baselineVolume: impliedBaselineVolumeFromRatio(row.volume_5m, rvol5m),
-      baselineSampleSize: positiveInteger(row.participation_baseline_session_count),
-    };
+    const baselineVolume = impliedBaselineVolumeFromRatio(row.volume_5m, rvol5m);
+    const baselineSampleSize = positiveInteger(row.participation_baseline_session_count);
+    const verified = baselineVolume !== null ||
+      (baselineSampleSize !== null &&
+        baselineSampleSize >= MIN_VERIFIED_PARTICIPATION_SAMPLES);
+    if (verified) {
+      return {
+        rawRvol: rvol5m,
+        metricKind: "rvol_5m",
+        baselineVolume,
+        baselineSampleSize,
+      };
+    }
   }
 
   const rvol20d = positiveFinite(row.rvol_20d);
