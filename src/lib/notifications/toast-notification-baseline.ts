@@ -1,28 +1,40 @@
-/** Per-account floor: notifications observed/delivered before this time are backlog, not live toasts. */
+/** Per-account floor for the current browser session (sessionStorage). */
 
 export function toastNotificationBaselineKey(storageNamespace: string, userId: string): string {
   return `${storageNamespace}:${userId.trim()}`;
 }
 
-/** Returns baseline ms; creates one on first access for this account in this browser. */
+/**
+ * Returns baseline ms for this account in the current browser session.
+ * Creates the floor on first access; survives reloads, resets on a new browser session.
+ */
 export function getToastNotificationBaselineMs(
   storageNamespace: string,
   userId: string,
   nowMs = Date.now(),
 ): number {
-  if (typeof localStorage === "undefined" || !userId.trim()) return nowMs;
+  if (typeof sessionStorage === "undefined" || !userId.trim()) return nowMs;
   const key = toastNotificationBaselineKey(storageNamespace, userId);
   try {
-    const raw = localStorage.getItem(key);
+    const raw = sessionStorage.getItem(key);
     if (raw) {
       const parsed = Number(raw);
       if (Number.isFinite(parsed)) return parsed;
     }
-    localStorage.setItem(key, String(nowMs));
+    sessionStorage.setItem(key, String(nowMs));
     return nowMs;
   } catch {
     return nowMs;
   }
+}
+
+/** Idempotent: call when authenticated listener activity starts (including before first query). */
+export function ensureToastNotificationBaselineMs(
+  storageNamespace: string,
+  userId: string,
+  nowMs = Date.now(),
+): number {
+  return getToastNotificationBaselineMs(storageNamespace, userId, nowMs);
 }
 
 export function isAtOrAfterBaseline(timestampMs: number, baselineMs: number): boolean {

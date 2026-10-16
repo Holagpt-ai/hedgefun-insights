@@ -6,7 +6,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { conditionLabel, formatAlertValue } from "@/config/price-alerts.config";
 import type { PriceAlertCondition } from "@/lib/price-alerts/types";
 import { priceAlertToastViewPath } from "@/lib/alerts/alert-workflow-navigation";
-import { getToastNotificationBaselineMs } from "@/lib/notifications/toast-notification-baseline";
+import {
+  ensureToastNotificationBaselineMs,
+  getToastNotificationBaselineMs,
+} from "@/lib/notifications/toast-notification-baseline";
 import {
   filterPriceAlertToastBacklog,
   filterPriceAlertToastCandidates,
@@ -30,6 +33,7 @@ export function PriceAlertToastListener() {
       return;
     }
     sessionSeenRef.current = mergePriceAlertToastSeenIds(user.id);
+    ensureToastNotificationBaselineMs(PRICE_ALERT_TOAST_BASELINE_NS, user.id, Date.now());
   }, [user?.id]);
 
   const q = useQuery({
@@ -55,10 +59,11 @@ export function PriceAlertToastListener() {
   });
 
   useEffect(() => {
-    if (!user?.id || !q.data?.length) return;
+    if (!user?.id) return;
     const nowMs = Date.now();
     sessionSeenRef.current = mergePriceAlertToastSeenIds(user.id, nowMs);
     const baselineMs = getToastNotificationBaselineMs(PRICE_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
+    if (!q.data?.length) return;
 
     const backlog = filterPriceAlertToastBacklog(q.data, sessionSeenRef.current, baselineMs);
     for (const row of backlog) {

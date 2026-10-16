@@ -4,7 +4,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { scannerAlertToastViewPath } from "@/lib/alerts/alert-workflow-navigation";
-import { getToastNotificationBaselineMs } from "@/lib/notifications/toast-notification-baseline";
+import {
+  ensureToastNotificationBaselineMs,
+  getToastNotificationBaselineMs,
+} from "@/lib/notifications/toast-notification-baseline";
 import {
   filterLiveScannerAlertToasts,
   filterScannerAlertToastBacklog,
@@ -33,6 +36,7 @@ export function ScannerAlertToastListener() {
       return;
     }
     seenRef.current = mergeScannerToastSeenKeys(user.id);
+    ensureToastNotificationBaselineMs(SCANNER_ALERT_TOAST_BASELINE_NS, user.id, Date.now());
   }, [user?.id]);
 
   const q = useQuery({
@@ -56,10 +60,11 @@ export function ScannerAlertToastListener() {
   });
 
   useEffect(() => {
-    if (!user?.id || !q.data?.length) return;
+    if (!user?.id) return;
     const nowMs = Date.now();
     seenRef.current = mergeScannerToastSeenKeys(user.id, nowMs);
     const baselineMs = getToastNotificationBaselineMs(SCANNER_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
+    if (!q.data?.length) return;
 
     const backlog = filterScannerAlertToastBacklog(q.data, seenRef.current, baselineMs);
     for (const row of backlog) {
