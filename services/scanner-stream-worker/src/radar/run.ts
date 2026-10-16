@@ -26,7 +26,11 @@ import { realtimeTapeExpectedAt } from "./session.ts";
 import { parseAggregateEvent } from "./parse.ts";
 import { createRadarSocket, type RadarWsConnect } from "./ws.ts";
 import type { EvaluateResult } from "./engine.ts";
-import { resolveRadarLoopHealth } from "./run-health.ts";
+import {
+  healthStatusOnWsSubscribed,
+  resolveRadarLoopHealth,
+  shouldClearPersistFailureTelemetry,
+} from "./run-health.ts";
 
 export type RadarHealthSink = {
   applyRadar(snapshot: RadarHealthSnapshot): void;
@@ -111,6 +115,8 @@ export function startRadarV22(opts: {
   });
   let lastPersistFailedAt: string | null = null;
   let lastPersistErrorCode: string | null = null;
+  /** Set on V1 RPC failure; cleared only on a later successful V1 publish. */
+  let v1RecoveryRequired = false;
   let leaseHeld = false;
   let connectionState: RadarConnectionState = "idle";
   let lastPublishedGeneration: string | null = null;
@@ -167,19 +173,19 @@ export function startRadarV22(opts: {
     v1Attempted: boolean;
     v1Ok: boolean;
   }): void {
-    if (input.v1Attempted && !input.v1Ok) return;
-    const v2Enabled = opts.env.radarPersistenceV2Enabled;
-    if (v2Enabled) {
-      if (input.v2 !== "skipped" && input.v2.ok) {
-        lastPersistErrorCode = null;
-        lastPersistFailedAt = null;
-      }
+    if (
+      !shouldClearPersistFailureTelemetry({
+        persistenceV2Enabled: opts.env.radarPersistenceV2Enabled,
+        v1RecoveryRequired,
+        v2: input.v2,
+        v1Attempted: input.v1Attempted,
+        v1Ok: input.v1Ok,
+      })
+    ) {
       return;
     }
-    if (input.v1Attempted && input.v1Ok) {
-      lastPersistErrorCode = null;
-      lastPersistFailedAt = null;
-    }
+    lastPersistErrorCode = null;
+    lastPersistFailedAt = null;
   }
 
   function attachFeedTelemetry(
@@ -258,7 +264,8 @@ export function startRadarV22(opts: {
           v2,
           v1Attempted: false,
           v1Ok: true,
-          unresolvedPersistFailure: lastPersistErrorCode !== null,
+          unresolvedPersistFailure: lastPersistErrorCode !== null ||
+            v1RecoveryRequired,
         }),
       );
       return;
@@ -285,12 +292,23 @@ export function startRadarV22(opts: {
       });
       v1PersistOk = published.ok;
       if (published.ok) {
+        v1RecoveryRequired = false;
         lastPublishedGeneration = generationId;
-        if (!opts.env.radarPersistenceV2Enabled) {
+        if (
+          !opts.env.radarPersistenceV2Enabled &&
+          shouldClearPersistFailureTelemetry({
+            persistenceV2Enabled: false,
+            v1RecoveryRequired: false,
+            v2: "skipped",
+            v1Attempted: true,
+            v1Ok: true,
+          })
+        ) {
           lastPersistErrorCode = null;
           lastPersistFailedAt = null;
         }
       } else {
+        v1RecoveryRequired = true;
         notePersistFailure(published.code);
         log("error", "radar_persist_failed", { code: published.code });
       }
@@ -330,7 +348,8 @@ export function startRadarV22(opts: {
         v2,
         v1Attempted: result.published,
         v1Ok: v1PersistOk,
-        unresolvedPersistFailure: lastPersistErrorCode !== null,
+        unresolvedPersistFailure: lastPersistErrorCode !== null ||
+          v1RecoveryRequired,
       }),
     );
   };
@@ -353,7 +372,13 @@ export function startRadarV22(opts: {
       onState: (state) => {
         connectionState = state;
         feedTracker.setConnectionState(state);
-        if (leaseHeld && state === "subscribed") pushHealth("running");
+        const subscribedHealth = healthStatusOnWsSubscribed({
+          leaseHeld,
+          connectionState: state,
+          unresolvedPersistFailure: lastPersistErrorCode !== null ||
+            v1RecoveryRequired,
+        });
+        if (subscribedHealth !== null) pushHealth(subscribedHealth);
         if (
           leaseHeld && (state === "disconnected" || state === "reconnecting")
         ) {

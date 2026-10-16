@@ -1,5 +1,9 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
-import { resolveRadarLoopHealth } from "./run-health.ts";
+import {
+  healthStatusOnWsSubscribed,
+  resolveRadarLoopHealth,
+  shouldClearPersistFailureTelemetry,
+} from "./run-health.ts";
 
 Deno.test("V2 persist failure reports degraded even when feed is fresh", () => {
   assertEquals(
@@ -103,6 +107,65 @@ Deno.test("stale feed reports stale when persistence is otherwise healthy", () =
       unresolvedPersistFailure: false,
     }),
     "stale",
+  );
+});
+
+Deno.test("WebSocket subscribed stays degraded when persistence failed", () => {
+  assertEquals(
+    healthStatusOnWsSubscribed({
+      leaseHeld: true,
+      connectionState: "subscribed",
+      unresolvedPersistFailure: true,
+    }),
+    "degraded",
+  );
+});
+
+Deno.test("WebSocket subscribed reports running without persist failure", () => {
+  assertEquals(
+    healthStatusOnWsSubscribed({
+      leaseHeld: true,
+      connectionState: "subscribed",
+      unresolvedPersistFailure: false,
+    }),
+    "running",
+  );
+});
+
+Deno.test("WebSocket non-subscribed does not override loop health", () => {
+  assertEquals(
+    healthStatusOnWsSubscribed({
+      leaseHeld: true,
+      connectionState: "reconnecting",
+      unresolvedPersistFailure: false,
+    }),
+    null,
+  );
+});
+
+Deno.test("V2 success does not clear telemetry while V1 recovery is required", () => {
+  assertEquals(
+    shouldClearPersistFailureTelemetry({
+      persistenceV2Enabled: true,
+      v1RecoveryRequired: true,
+      v2: { ok: true },
+      v1Attempted: false,
+      v1Ok: true,
+    }),
+    false,
+  );
+});
+
+Deno.test("V1 recovery clears telemetry after successful V1 publish with V2 ok", () => {
+  assertEquals(
+    shouldClearPersistFailureTelemetry({
+      persistenceV2Enabled: true,
+      v1RecoveryRequired: false,
+      v2: { ok: true },
+      v1Attempted: true,
+      v1Ok: true,
+    }),
+    true,
   );
 });
 

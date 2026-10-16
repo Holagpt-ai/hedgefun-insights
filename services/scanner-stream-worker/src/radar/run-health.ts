@@ -24,3 +24,31 @@ export function resolveRadarLoopHealth(input: {
   if (input.feedStale) return "stale";
   return "running";
 }
+
+/** WebSocket `subscribed` must not mask unresolved persistence failures. */
+export function healthStatusOnWsSubscribed(input: {
+  leaseHeld: boolean;
+  connectionState: "subscribed" | string;
+  unresolvedPersistFailure: boolean;
+}): RadarHealthSnapshot["status"] | null {
+  if (!input.leaseHeld || input.connectionState !== "subscribed") {
+    return null;
+  }
+  return input.unresolvedPersistFailure ? "degraded" : "running";
+}
+
+/** Clears shared persist-failure telemetry only when all required paths recovered. */
+export function shouldClearPersistFailureTelemetry(input: {
+  persistenceV2Enabled: boolean;
+  v1RecoveryRequired: boolean;
+  v2: PublishRadarResult | "skipped";
+  v1Attempted: boolean;
+  v1Ok: boolean;
+}): boolean {
+  if (input.v1RecoveryRequired) return false;
+  if (input.v1Attempted && !input.v1Ok) return false;
+  if (input.persistenceV2Enabled) {
+    return input.v2 !== "skipped" && input.v2.ok;
+  }
+  return input.v1Attempted && input.v1Ok;
+}

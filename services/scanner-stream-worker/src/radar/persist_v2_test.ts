@@ -1616,3 +1616,154 @@ Deno.test("publishRadarV2IfNeeded flushes pending events across successful cycle
   assertEquals(rpcCalls, 2);
 });
 
+function overflowLiveCandidates() {
+  return Array.from({ length: 60 }, (_, i) =>
+    candidate(`S${String(i).padStart(2, "0")}`, {
+      lifecycle_entered_at: new Date(Date.parse(SYNC) + i * 1_000).toISOString(),
+      promoted_at: new Date(Date.parse(SYNC) + i * 1_000 + 1).toISOString(),
+    })
+  );
+}
+
+Deno.test("publishRadarV2IfNeeded preserves pending events across PM→RTH transition", async () => {
+  const gate = createRadarV2WriteGate();
+  const candidates = overflowLiveCandidates();
+  const live = {
+    staleTransition: false,
+    liveSurveillance: true,
+    sessionReset: false,
+    persistEmpty: false,
+    sessionKind: "market",
+    sessionTransition: null,
+    persistenceV2: v2View(candidates),
+  };
+  let rpcCalls = 0;
+  const rpc: RadarV2RpcFn = async (args) => {
+    rpcCalls += 1;
+    if (rpcCalls === 1) {
+      assertEquals(args.p_events.length, RADAR_V2_MAX_EVENTS_PER_PUBLISH);
+      return { error: null };
+    }
+    assert(args.p_events.length > 0);
+    assert(args.p_events.every((ev) => ev.trading_date === DATE));
+    assert(args.p_candidates.every((row) => row.session_kind === "market"));
+    return { error: null };
+  };
+  const first = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: live,
+    gate,
+    wallNowMs: ET.rthMid,
+    checkpointMs: 30_000,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  assertEquals(first !== "skipped" && first.ok, true);
+  const pendingAfterFirst = gate.eventQueue.pendingCount();
+  assert(pendingAfterFirst > 0);
+
+  const transition = {
+    staleTransition: false,
+    liveSurveillance: true,
+    sessionReset: false,
+    persistEmpty: false,
+    sessionKind: "market",
+    sessionTransition: "soft_pm_rth" as const,
+    persistenceV2: v2View([], { sessionKind: "market" }),
+  };
+  const second = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: transition,
+    gate,
+    wallNowMs: ET.rthOpen + 1_000,
+    checkpointMs: 30_000,
+    generationId: GEN2,
+    syncedAt: SYNC2,
+    rpc,
+  });
+  assertEquals(second !== "skipped" && second.ok, true);
+  assertEquals(gate.eventQueue.pendingCount(), 0);
+  assertEquals(rpcCalls, 2);
+});
+
+Deno.test("publishRadarV2IfNeeded keeps pending through V2 failure then transition flush", async () => {
+  const gate = createRadarV2WriteGate();
+  const live = {
+    staleTransition: false,
+    liveSurveillance: true,
+    sessionReset: false,
+    persistEmpty: false,
+    sessionKind: "market",
+    sessionTransition: null,
+    persistenceV2: v2View(overflowLiveCandidates()),
+  };
+  let rpcCalls = 0;
+  let failSecond = true;
+  const rpc: RadarV2RpcFn = async (args) => {
+    rpcCalls += 1;
+    if (rpcCalls === 1) return { error: null };
+    if (failSecond) return { error: { message: "down" } };
+    assert(args.p_events.length > 0);
+    return { error: null };
+  };
+  await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: live,
+    gate,
+    wallNowMs: ET.rthMid,
+    checkpointMs: 30_000,
+    generationId: GEN,
+    syncedAt: SYNC,
+    rpc,
+  });
+  const pendingBeforeFail = gate.eventQueue.pendingCount();
+  assert(pendingBeforeFail > 0);
+
+  const failed = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: live,
+    gate,
+    wallNowMs: ET.rthMid + 1_000,
+    checkpointMs: 30_000,
+    generationId: GEN2,
+    syncedAt: SYNC2,
+    rpc,
+  });
+  assertEquals(failed, { ok: false, code: "persist_failed" });
+  assertEquals(gate.eventQueue.pendingCount(), pendingBeforeFail);
+
+  const skipped = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: live,
+    gate,
+    wallNowMs: ET.rthMid + 5_000,
+    checkpointMs: 30_000,
+    generationId: GEN2,
+    syncedAt: SYNC2,
+    rpc,
+  });
+  assertEquals(skipped, "skipped");
+  assertEquals(rpcCalls, 2);
+
+  failSecond = false;
+  const transition = {
+    ...live,
+    sessionTransition: "soft_rth_ah" as const,
+    persistenceV2: v2View([], { sessionKind: "after-hours" }),
+  };
+  const flushed = await publishRadarV2IfNeeded({
+    flagEnabled: true,
+    result: transition,
+    gate,
+    wallNowMs: ET.rthMid + RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS + 1_000,
+    checkpointMs: 30_000,
+    generationId: GEN3,
+    syncedAt: SYNC3,
+    rpc,
+  });
+  assertEquals(flushed !== "skipped" && flushed.ok, true);
+  assertEquals(gate.eventQueue.pendingCount(), 0);
+  assertEquals(rpcCalls, 3);
+});
+

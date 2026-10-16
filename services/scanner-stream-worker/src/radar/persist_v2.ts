@@ -1037,18 +1037,6 @@ export async function publishRadarV2IfNeeded(opts: {
     let view = opts.result.persistenceV2;
     const stale = resultFeedStale(opts.result) || view.feedStale;
     const transition = opts.result.sessionTransition;
-    if (isForcedSessionWrite({
-      wallNowMs: opts.wallNowMs,
-      checkpointMs: opts.checkpointMs,
-      tradingDate: view.tradingDate,
-      sessionKind: view.sessionKind,
-      candidates: view.candidates,
-      events: [],
-      sessionTransition: opts.result.sessionTransition,
-      sessionReset: opts.result.sessionReset,
-    })) {
-      opts.gate.eventQueue.reset();
-    }
     if (
       stale &&
       (transition === "soft_pm_rth" || transition === "soft_rth_ah") &&
