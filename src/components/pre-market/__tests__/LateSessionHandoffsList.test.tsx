@@ -156,6 +156,31 @@ describe("LateSessionHandoffsList", () => {
     expect(screen.getByText(/5 detected · 5 qualified · 0 priority/)).toBeTruthy();
   });
 
+  it("renders capture timestamp once without duplicate ET suffix", () => {
+    const ctx = buildLateSessionContinuationContext({
+      symbol: "TS",
+      sourceSessionDate: "2026-09-21",
+      sourceTimestamp: "2026-09-21T20:00:00.000Z",
+      sourceCategory: "POWER_HOUR_MOMENTUM",
+      volume: 5_000_000,
+      rvol: 3,
+      rvolMetricKind: "rvol_20d",
+    });
+    const candidates = [
+      { context: ctx, workflow: null, sourceCategories: ["POWER_HOUR_MOMENTUM"] as const },
+    ];
+
+    render(
+      <MemoryRouter>
+        <LateSessionHandoffsList candidates={candidates} qualifiedCandidates={candidates} />
+      </MemoryRouter>,
+    );
+
+    const cardText = screen.getByText("TS").closest("div")?.parentElement?.textContent ?? "";
+    expect(cardText).toMatch(/Captured session 2026-09-21 · .+ ET/);
+    expect(cardText).not.toMatch(/ET ET/);
+  });
+
   it("keeps symbol workflow actions on each card", () => {
     const candidates = makePriorityCandidates(1);
     render(

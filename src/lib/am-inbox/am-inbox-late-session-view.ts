@@ -7,6 +7,7 @@ import type {
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
 import { listStoredLateSessionHandoffs, persistLateSessionHandoff } from "@/lib/am-inbox/late-session-handoff-storage";
 import { readHistoricalWorkflowContext } from "@/lib/historical-workflow/workflow-handoff-storage";
+import { enrichHandoffContextFromHistoricalWorkflow } from "@/lib/am-inbox/late-session-workflow-handoff";
 import { collapseLateSessionCandidates } from "@/lib/am-inbox/late-session-candidate-collapse";
 import type { ContinuationCategory } from "@/config/continuation.config";
 import {
@@ -98,22 +99,13 @@ function mergeContextWithWorkflow(
   if (expiry.expiryState === "expired") return null;
 
   const workflow = readHistoricalWorkflowContext(context.symbol);
-  return {
-    context: {
-      ...context,
-      ...expiry,
-      securityId: context.securityId ?? workflow?.securityId ?? null,
-      historicalContextAvailable:
-        workflow?.historicalContextAvailable ?? context.historicalContextAvailable,
-      evidenceLabels: workflow?.evidenceLabels ?? context.evidenceLabels,
-      sampleSizeQuality: workflow?.sampleSizeQuality ?? context.sampleSizeQuality,
-      comparableEpisodeCount:
-        workflow?.comparableEpisodeCount ?? context.comparableEpisodeCount,
-      mostRecentComparableDate:
-        workflow?.mostRecentComparableDate ?? context.mostRecentComparableDate,
-      profileFreshness: workflow?.profileFreshness ?? context.profileFreshness,
-    },
+  const enriched = enrichHandoffContextFromHistoricalWorkflow(
+    { ...context, ...expiry },
     workflow,
+  );
+  return {
+    context: enriched.context,
+    workflow: enriched.workflow,
     sourceCategories: [context.sourceCategory] as readonly ContinuationCategory[],
   };
 }
@@ -126,7 +118,6 @@ export function buildAmInboxLateSessionViewFromContexts(
 ): AmInboxLateSessionView {
   const raw: AmInboxLateSessionCandidate[] = [];
   let expiredCount = 0;
-  const seen = new Set<string>();
 
   for (const context of contexts) {
     const merged = mergeContextWithWorkflow(context, amSessionDate);
@@ -134,14 +125,13 @@ export function buildAmInboxLateSessionViewFromContexts(
       expiredCount += 1;
       continue;
     }
-    const key = `${merged.context.symbol}:${merged.context.sourceSessionDate}:${merged.context.sourceCategory}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
     raw.push(merged);
-    persistLateSessionHandoff(merged.context);
   }
 
   const collapsed = collapseLateSessionCandidates(raw);
+  for (const entry of collapsed) {
+    persistLateSessionHandoff(entry.context);
+  }
   const { defaultDisplay, qualifiedForViewAll, funnel } = buildLateSessionContinuationFunnel(
     raw,
     collapsed,

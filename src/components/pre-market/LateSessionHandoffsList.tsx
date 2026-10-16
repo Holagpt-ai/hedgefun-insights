@@ -62,7 +62,7 @@ function HandoffCard({
         ))}
         <span className="text-[10px] text-muted-foreground">
           Captured session {context.sourceSessionDate}
-          {captureEt ? ` · ${captureEt} ET` : ""}
+          {captureEt ? ` · ${captureEt}` : ""}
         </span>
       </div>
       <p className="text-[10px] text-muted-foreground">
