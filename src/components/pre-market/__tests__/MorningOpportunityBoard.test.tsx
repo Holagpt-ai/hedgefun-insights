@@ -1,4 +1,8 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: null }),
+}));
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { MorningOpportunityBoard } from "@/components/pre-market/MorningOpportunityBoard";
@@ -29,6 +33,7 @@ const model: BoardModel = {
           asOf: "2026-09-29T13:00:00.000Z",
           continuationCategory: null,
           securityId: null,
+          qualificationSummary: "Recorded scanner momentum event with qualifying session volume",
         },
       ],
     },

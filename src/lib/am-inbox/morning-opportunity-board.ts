@@ -8,94 +8,51 @@
 
 import type { AmInboxLateSessionCandidate } from "@/lib/am-inbox/late-session-continuation-types";
 import {
-  MOMENTUM_EVENT_TYPES,
-  SCANNER_EVENT_MIN_SESSION_VOLUME,
+  evaluateMorningContinuationEligibility,
+  evaluateMorningRadarEligibility,
+  morningBoardConfirmedPremarket,
+  resolveMorningOpportunityEmptyMessage,
+} from "@/lib/am-inbox/morning-opportunity-eligibility";
+import {
+  MORNING_EMPTY_MESSAGE,
+  MORNING_OPPORTUNITY_LIMIT,
+  MORNING_SECTION_ORDER,
+  type MorningOpportunityBoard,
+  type MorningOpportunityCard,
+  type MorningRadarRow,
+  type MorningSectionId,
+} from "@/lib/am-inbox/morning-opportunity-types";
+import {
   canonicalIntelligenceEventType,
   intelligenceEventLabel,
 } from "@/lib/scanner-intelligence/event-model";
 import { compareEventUrgency } from "@/lib/scanner-intelligence/event-urgency";
 import {
   resolveScreenerMarketDataTrust,
-  type MarketDataTrustState,
 } from "@/lib/market-data/trust-states";
 import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import type { SecurityId } from "@/types/security-identity";
-import { resolveSessionGapPercent, sessionGapEligible } from "@/lib/daily-intelligence/session-gap-evidence";
-import { GAPPER_MIN_ABS_PERCENT } from "@/lib/screeners/radar-gapper-restoration";
+import { resolveSessionGapPercent } from "@/lib/daily-intelligence/session-gap-evidence";
 
-export const MORNING_OPPORTUNITY_LIMIT = 5;
+export type {
+  MorningOpportunityBoard,
+  MorningOpportunityCard,
+  MorningOpportunitySection,
+  MorningRadarRow,
+  MorningSectionId,
+} from "@/lib/am-inbox/morning-opportunity-types";
 
-/** Mirrors scanner-events.ts participation gates used only for board membership. */
-export const MORNING_PREMARKET_MIN_RVOL_5M = 1.25;
-export const MORNING_PREMARKET_MIN_ACCELERATION_PCT = 15;
-export const MORNING_PREMARKET_MIN_VELOCITY = 25_000;
+export {
+  MORNING_EMPTY_MESSAGE,
+  MORNING_OPPORTUNITY_LIMIT,
+  MORNING_PREMARKET_MIN_ACCELERATION_PCT,
+  MORNING_PREMARKET_MIN_RVOL_5M,
+  MORNING_PREMARKET_MIN_VELOCITY,
+  MORNING_SECTION_ORDER,
+} from "@/lib/am-inbox/morning-opportunity-types";
 
-export const MORNING_SECTION_ORDER = [
-  { id: "top_momentum", title: "Top Momentum" },
-  { id: "premarket_continuation", title: "Premarket Continuation" },
-  { id: "gap_continuation", title: "Gap Continuation" },
-  { id: "day_two_watch", title: "Day-Two Watch" },
-] as const;
-
-export type MorningSectionId = (typeof MORNING_SECTION_ORDER)[number]["id"];
-
-export const MORNING_EMPTY_MESSAGE = "No qualifying movers yet";
-
-export type MorningRadarRow = {
-  symbol: string;
-  price?: number | null;
-  volume?: number | null;
-  gap_percent?: number | null;
-  /** Session move vs prior regular close (Radar / gappers restoration). */
-  change_percent?: number | null;
-  float_shares?: number | null;
-  provider_as_of?: string | null;
-  updated_at?: string | null;
-  primary_scanner_event?: string | null;
-  primary_scanner_event_at?: string | null;
-  scanner_events?: unknown;
-  rvol_5m?: number | null;
-  time_adjusted_rvol?: number | null;
-  vol_velocity?: number | null;
-  volume_acceleration_pct?: number | null;
-  rolling_dollar_volume_60s?: number | null;
-  distance_from_hod_pct?: number | null;
-  vwap_side?: string | null;
-  move_60s_pct?: number | null;
-  move_15s_pct?: number | null;
-};
-
-export type MorningOpportunityCard = {
-  symbol: string;
-  section: MorningSectionId;
-  eventType: string | null;
-  eventLabel: string | null;
-  detectedAt: string | null;
-  price: number | null;
-  volume: number | null;
-  dollarVolume: number | null;
-  rvol5m: number | null;
-  gapPercent: number | null;
-  distanceFromHodPct: number | null;
-  vwapSide: string | null;
-  catalystStatus: "present" | "pending" | "none";
-  trust: MarketDataTrustState;
-  asOf: string | null;
-  continuationCategory: string | null;
-  securityId: SecurityId | null;
-};
-
-export type MorningOpportunitySection = {
-  id: MorningSectionId;
-  title: string;
-  cards: MorningOpportunityCard[];
-};
-
-export type MorningOpportunityBoard = {
-  sections: MorningOpportunitySection[];
-  emptyMessage: typeof MORNING_EMPTY_MESSAGE | null;
-};
+export { morningBoardConfirmedPremarket } from "@/lib/am-inbox/morning-opportunity-eligibility";
 
 type Draft = MorningOpportunityCard & {
   events: string[];
@@ -140,53 +97,6 @@ function strongestEvent(events: readonly string[]): string | null {
   return null;
 }
 
-function hasMomentumEvent(events: readonly string[]): boolean {
-  return events.some((event) => {
-    const type = canonicalIntelligenceEventType(event);
-    return type !== null && (MOMENTUM_EVENT_TYPES as readonly string[]).includes(type);
-  });
-}
-
-/** Confirmed Polygon pre-market — required for eventless gap/participation paths. */
-export function morningBoardConfirmedPremarket(polygonPremarketActive: boolean): boolean {
-  return polygonPremarketActive === true;
-}
-
-function positiveShortWindowOrSessionMove(row: MorningRadarRow): boolean {
-  const move = finite(row.move_60s_pct) ?? finite(row.move_15s_pct);
-  if (move !== null && move > 0) return true;
-  const sessionMove = finite(row.change_percent);
-  return sessionMove !== null && sessionMove > 0;
-}
-
-function gapContinuationEligible(row: MorningRadarRow): boolean {
-  return sessionGapEligible(row, GAPPER_MIN_ABS_PERCENT);
-}
-
-function premarketParticipation(row: MorningRadarRow): boolean {
-  if (!positiveShortWindowOrSessionMove(row)) return false;
-  const rvol = finite(row.rvol_5m);
-  const accel = finite(row.volume_acceleration_pct);
-  const velocity = finite(row.vol_velocity);
-  return (rvol !== null && rvol >= MORNING_PREMARKET_MIN_RVOL_5M) ||
-    (accel !== null && accel >= MORNING_PREMARKET_MIN_ACCELERATION_PCT) ||
-    (velocity !== null && velocity >= MORNING_PREMARKET_MIN_VELOCITY);
-}
-
-function sectionForRadar(
-  events: readonly string[],
-  confirmedPremarket: boolean,
-  row: MorningRadarRow,
-): MorningSectionId | null {
-  if (events.some((event) => canonicalIntelligenceEventType(event) === "GAP_CONTINUATION")) {
-    return "gap_continuation";
-  }
-  if (confirmedPremarket && gapContinuationEligible(row)) return "gap_continuation";
-  if (hasMomentumEvent(events)) return "top_momentum";
-  if (confirmedPremarket && premarketParticipation(row)) return "premarket_continuation";
-  return null;
-}
-
 function continuationSection(entry: AmInboxLateSessionCandidate): MorningSectionId {
   const categories = entry.sourceCategories.length > 0
     ? entry.sourceCategories
@@ -208,7 +118,6 @@ function catalystStatus(
 export function buildMorningOpportunityBoard(input: {
   radarRows?: readonly MorningRadarRow[] | null;
   radarSession?: string | null;
-  /** Confirmed Polygon pre-market; keeps board aligned with Volume Leaders when Radar session lags. */
   polygonPremarketActive?: boolean;
   radarStatus?: ScreenerUiStatus | null;
   syncedAt?: string | null;
@@ -217,6 +126,7 @@ export function buildMorningOpportunityBoard(input: {
   continuation?: readonly AmInboxLateSessionCandidate[] | null;
   catalystSymbols?: readonly string[] | null;
   nowMs?: number;
+  generationStale?: boolean;
 }): MorningOpportunityBoard {
   const nowMs = input.nowMs ?? Date.now();
   const catalystSymbols = new Set(
@@ -235,20 +145,18 @@ export function buildMorningOpportunityBoard(input: {
   const drafts = new Map<string, Draft>();
 
   for (const row of input.radarRows ?? []) {
-    const symbol = row.symbol?.trim().toUpperCase();
-    if (!symbol) continue;
-    const volume = finite(row.volume);
-    if (volume === null || volume < SCANNER_EVENT_MIN_SESSION_VOLUME) continue;
+    const eligibility = evaluateMorningRadarEligibility(row, confirmedPremarket);
+    if (!eligibility.accepted || !eligibility.section) continue;
+    const symbol = eligibility.symbol;
     const events = eventTypesOf(row);
-    const section = sectionForRadar(events, confirmedPremarket, row);
-    if (!section) continue;
     const eventType = strongestEvent(events);
     const price = finite(row.price);
+    const volume = finite(row.volume)!;
     const dollar = finite(row.rolling_dollar_volume_60s) ??
       (price !== null ? price * volume : null);
     drafts.set(symbol, {
       symbol,
-      section,
+      section: eligibility.section,
       eventType,
       eventLabel: intelligenceEventLabel(eventType),
       detectedAt: row.primary_scanner_event_at ?? row.provider_as_of ?? row.updated_at ?? null,
@@ -264,17 +172,20 @@ export function buildMorningOpportunityBoard(input: {
       asOf: row.provider_as_of ?? input.syncedAt ?? null,
       continuationCategory: null,
       securityId: null,
+      qualificationSummary: eligibility.reasons[0] ?? null,
       events,
       continuationUrgency: 0,
     });
   }
 
+  let continuationQualified = 0;
   for (const entry of input.continuation ?? []) {
-    if (entry.context.expiryState === "expired") continue;
-    const symbol = entry.context.symbol.trim().toUpperCase();
-    if (!symbol) continue;
+    const eligibility = evaluateMorningContinuationEligibility(entry);
+    if (!eligibility.accepted || !eligibility.section) continue;
+    continuationQualified += 1;
+    const symbol = eligibility.symbol;
     const existing = drafts.get(symbol);
-    const section = existing?.section ?? continuationSection(entry);
+    const section = existing?.section ?? eligibility.section;
     const categories = entry.sourceCategories.length > 0
       ? entry.sourceCategories
       : [entry.context.sourceCategory];
@@ -294,6 +205,7 @@ export function buildMorningOpportunityBoard(input: {
         rvol5m: existing.rvol5m ?? finite(entry.context.rvol),
         distanceFromHodPct: existing.distanceFromHodPct ?? finite(entry.context.closeDistanceFromHodPct),
         continuationUrgency,
+        qualificationSummary: existing.qualificationSummary ?? eligibility.reasons[0] ?? null,
       });
       continue;
     }
@@ -315,6 +227,7 @@ export function buildMorningOpportunityBoard(input: {
       asOf: entry.context.sourceTimestamp,
       continuationCategory: categories[0] ?? entry.context.sourceCategory,
       securityId: entry.context.securityId,
+      qualificationSummary: eligibility.reasons[0] ?? null,
       events: [],
       continuationUrgency,
     });
@@ -340,11 +253,22 @@ export function buildMorningOpportunityBoard(input: {
   const sections = MORNING_SECTION_ORDER.map((section) => ({
     id: section.id,
     title: section.title,
-    cards: ranked.filter((card) => card.section === section.id),
+    cards: ranked.filter((card) => card.section === section.id).map(({ events, continuationUrgency, ...card }) => card),
   })).filter((section) => section.cards.length > 0);
+
+  const emptyMessage = sections.length === 0
+    ? resolveMorningOpportunityEmptyMessage({
+      radarRows: input.radarRows,
+      radarStatus: input.radarStatus,
+      polygonPremarketActive: input.polygonPremarketActive,
+      radarTrust,
+      generationStale: input.generationStale,
+      continuationQualified,
+    })
+    : null;
 
   return {
     sections,
-    emptyMessage: sections.length === 0 ? MORNING_EMPTY_MESSAGE : null,
+    emptyMessage,
   };
 }

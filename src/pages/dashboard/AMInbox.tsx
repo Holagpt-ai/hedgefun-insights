@@ -109,6 +109,10 @@ export default function AMInbox() {
 
   const morningBoard = useMemo(() => {
     const radarView = radarVolumeLeaders.decision?.view ?? null;
+    const generationStale =
+      radarView?.status === "stale" ||
+      (radarView?.synced_at != null &&
+        Date.now() - Date.parse(radarView.synced_at) > PRE_MARKET_SCREENER_STALE_MS);
     return buildMorningOpportunityBoard({
       radarRows: radarView?.rows ?? [],
       radarSession: radarVolumeLeaders.decision?.session ?? null,
@@ -118,6 +122,7 @@ export default function AMInbox() {
       providerAsOfMax: radarView?.provider_as_of_max ?? null,
       marketFeed: radarView?.market_feed ?? null,
       continuation: lateSessionView.candidates,
+      generationStale,
       catalystSymbols: catalysts
         .filter((row) => row.ticker_specific !== false)
         .map((row) => row.symbol),

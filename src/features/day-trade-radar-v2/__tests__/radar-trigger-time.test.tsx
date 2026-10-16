@@ -40,6 +40,13 @@ vi.mock("@/hooks/useRecentProviderNewsForSymbols", () => ({
   }),
 }));
 
+function triggerCellTitle(clockText: string): string {
+  const clock = screen.getByText(clockText);
+  const host = clock.closest("[title]");
+  expect(host).toBeTruthy();
+  return host?.getAttribute("title") ?? "";
+}
+
 function ranked(overrides: Partial<RadarRankedRow> = {}): RadarRankedRow {
   return {
     tab_id: "day_trade_radar",
@@ -90,8 +97,47 @@ describe("Radar Triggered presentation", () => {
     expect(screen.getByRole("columnheader", { name: /Triggered/ })).toBeInTheDocument();
     expect(screen.getByText("9:42:00 AM")).toBeInTheDocument();
     expect(screen.getByText("09/21/26 ET")).toBeInTheDocument();
-    expect(screen.getByTitle("Discovery trigger")).toBeInTheDocument();
+    const title = triggerCellTitle("9:42:00 AM");
+    expect(title).toMatch(/Discovery trigger/);
+    expect(title).toMatch(/Last observed|Historical|participation/i);
     expect(screen.queryByText("NEW")).not.toBeInTheDocument();
+  });
+
+  it("includes promotion reason and participation evidence in the visible trigger title", () => {
+    render(
+      <MemoryRouter>
+        <RadarGrid
+          rows={[
+            ranked({
+              promoted_at: "2026-09-21T13:42:00.000Z",
+              primary_scanner_event: "VOLUME_EXPLOSION",
+              primary_scanner_event_at: "2026-09-21T08:00:00.000Z",
+              participation_state: "COOLING",
+              volume_acceleration_pct: -12,
+              promotion_reason: {
+                version: "v1",
+                primaryEvent: {
+                  type: "VOLUME_EXPLOSION",
+                  eventAt: "2026-09-21T08:00:00.000Z",
+                },
+                supportingEvents: [],
+                triggerTimestamp: null,
+              },
+            }),
+          ]}
+          selectedSymbol="AAA"
+          isPro
+          freeRowLimit={3}
+          onSelect={() => {}}
+          visibleColumns={["trigger_time", "symbol"]}
+        />
+      </MemoryRouter>,
+    );
+    const title = triggerCellTitle("4:00:00 AM");
+    expect(title).toMatch(/Promotion: VOLUME EXPLOSION/);
+    expect(title).toMatch(/Historical/i);
+    expect(title).toMatch(/Last observed COOLING/i);
+    expect(title).not.toMatch(/\bnow\b/i);
   });
 
   it("16. mobile card renders Triggered before rank", () => {
@@ -107,7 +153,7 @@ describe("Radar Triggered presentation", () => {
       </MemoryRouter>,
     );
     expect(screen.getByText("10:17:00 AM")).toBeInTheDocument();
-    expect(screen.getByTitle("Discovery trigger")).toBeInTheDocument();
+    expect(triggerCellTitle("10:17:00 AM")).toMatch(/Discovery trigger/);
   });
 
   it("17. unavailable Triggered displays —", () => {
