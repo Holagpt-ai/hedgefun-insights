@@ -61,6 +61,7 @@ import type { RadarHistoricalContextFields } from "@/lib/radar/radar-historical-
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
 import { buildScannerTabEvidence } from "@/lib/screeners/scanner-tab-evidence";
+import { resolveDisplayPriceEvidence } from "@/lib/market-data/display-price-evidence";
 
 interface ScreenerTableProps {
   tab: ScreenerTab;
@@ -519,6 +520,23 @@ export function ScreenerTable({
         );
       }
       return <HintedMetric text={text} blankHint={MOVE_BLANK} />;
+    }
+
+    if (col.key === "price") {
+      const evidence = resolveDisplayPriceEvidence({
+        observation: {
+          price: row.price,
+          providerAsOf: row.provider_as_of ?? null,
+          sourceLabel: `Screener · ${row.tab_id}`,
+        },
+        status,
+      });
+      const title = `${evidence.trustLine}. ${evidence.note ?? ""}`.trim();
+      return (
+        <span className="tabular-nums" title={title}>
+          {formatScreenerMetric(row.price, "price")}
+        </span>
+      );
     }
 
     if (col.key === "change_percent") {

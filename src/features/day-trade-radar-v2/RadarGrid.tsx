@@ -64,6 +64,8 @@ import {
   evaluateScreenerTriggerTime,
   triggerTypeLabel,
 } from "@/lib/screeners/screener-trigger-time";
+import { resolveDisplayPriceEvidence } from "@/lib/market-data/display-price-evidence";
+import { buildParticipationTriggerEvidence } from "@/lib/scanner-intelligence/participation-trigger-evidence";
 import {
   formatPromotionReasonTitle,
   parsePromotionReason,
@@ -198,13 +200,15 @@ function renderMetricCell(columnId: RadarColumnId, row: RadarRankedRow): ReactNo
       const promotionTitle = formatPromotionReasonTitle(
         parsePromotionReason(row.promotion_reason),
       );
+      const participation = buildParticipationTriggerEvidence(row, Date.now());
       const baseTitle = view.primary
         ? `${triggerTypeLabel(view.primary.triggerType)} trigger`
         : "Triggered unavailable";
+      const title = promotionTitle ?? `${baseTitle}. ${participation.headline}. ${participation.detail}`;
       return (
         <TriggeredTimeCell
           triggeredAt={view.primary?.triggeredAt}
-          title={promotionTitle ?? baseTitle}
+          title={title}
         />
       );
     }
@@ -395,9 +399,18 @@ export function RadarGrid({
                     );
                   }
                   if (columnId === "price_move") {
+                    const priceEvidence = resolveDisplayPriceEvidence({
+                      observation: {
+                        price: row.price,
+                        providerAsOf: row.provider_as_of ?? null,
+                        sourceLabel: "Day Trade Radar",
+                        sessionLabel: null,
+                      },
+                    });
+                    const priceTitle = `${priceEvidence.trustLine}. ${priceEvidence.note ?? ""}`.trim();
                     return (
                       <td key={columnId} className="px-2 py-1.5 text-right tabular-nums">
-                        <div>{formatRadarPrice(row.price)}</div>
+                        <div title={priceTitle}>{formatRadarPrice(row.price)}</div>
                         <div className={moveClass(row.change_percent)}>
                           <HintedMetric
                             text={formatRadarPercent(row.change_percent)}

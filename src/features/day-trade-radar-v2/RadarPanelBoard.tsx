@@ -12,6 +12,7 @@ import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { formatScreenerRvol5m } from "@/lib/screeners/screener-metric-display";
 import { rvol5mCellTitle } from "@/lib/scanner-intelligence/rvol-5m-availability";
 import { scannerTimeEvidenceTitle } from "@/lib/screeners/screener-trigger-time";
+import { buildParticipationTriggerEvidence } from "@/lib/scanner-intelligence/participation-trigger-evidence";
 import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
@@ -489,14 +490,16 @@ function renderCell(args: {
 }): ReactNode {
   const { id, row } = args;
   if (id === "time") {
+    const participation = buildParticipationTriggerEvidence(args.row, Date.now());
+    const marketTitle = scannerTimeEvidenceTitle({
+      marketEventAt: args.timeIso,
+      publishedAt: args.row.updated_at,
+    });
     return (
       <div>
         <TriggeredTimeCell
           triggeredAt={args.timeIso}
-          title={scannerTimeEvidenceTitle({
-            marketEventAt: args.timeIso,
-            publishedAt: args.row.updated_at,
-          })}
+          title={`${marketTitle} ${participation.headline}. ${participation.detail}`}
         />
         {args.age ? <div className="text-[10px] font-semibold text-accent-blue">{args.age}</div> : null}
       </div>

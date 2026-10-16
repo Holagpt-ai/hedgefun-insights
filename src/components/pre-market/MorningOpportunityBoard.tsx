@@ -72,6 +72,9 @@ function Card({ card }: { card: MorningOpportunityCard }) {
         {card.eventLabel ?? (card.continuationCategory ? card.continuationCategory.split("_").join(" ") : "Continuation")}
         {card.detectedAt ? ` · ${card.detectedAt}` : ""}
       </p>
+      {card.qualificationSummary ? (
+        <p className="text-[10px] text-muted-foreground">{card.qualificationSummary}</p>
+      ) : null}
       <p className="text-[11px] tabular-nums text-muted-foreground">
         Vol {volumeLabel(card.volume)} · 5m RVOL {metric(card.rvol5m, 2)} · HOD {metric(card.distanceFromHodPct, 2, "%")}
       </p>

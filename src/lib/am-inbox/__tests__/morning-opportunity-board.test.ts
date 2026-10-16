@@ -44,11 +44,14 @@ describe("morning opportunity board", () => {
     const board = buildMorningOpportunityBoard({
       radarRows: [radar({ symbol: "QUIET", volume: 2_000_000 })],
       radarSession: "pre-market",
+      polygonPremarketActive: true,
       radarStatus: "available",
       continuation: [],
     });
     expect(board.sections).toEqual([]);
-    expect(board.emptyMessage).toBe("No qualifying movers yet");
+    expect(board.emptyMessage).toBe(
+      "High-volume names present — none meet momentum, gap, or premarket participation rules",
+    );
   });
 
   it("groups real momentum, gap, and day-two names and omits empty sections", () => {
@@ -192,7 +195,9 @@ describe("morning opportunity board", () => {
       polygonPremarketActive: false,
       radarStatus: "available",
     });
-    expect(board.emptyMessage).toBe("No qualifying movers yet");
+    expect(board.emptyMessage).toBe(
+      "No qualifying movers yet — confirmed pre-market is required for gap and participation paths",
+    );
   });
 
   it("keeps unknown price and rvol null", () => {
