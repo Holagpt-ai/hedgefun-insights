@@ -117,21 +117,25 @@ describe("price alert toast delivery", () => {
 
   it("baseline suppresses pre-session backlog but allows live observations", () => {
     const baselineMs = Date.parse("2026-10-06T20:00:00.000Z");
+    const nowMs = Date.parse("2026-10-06T21:00:00.000Z");
     const backlogRow = row(1, { triggered_at: "2026-10-06T18:00:00.000Z" });
     const liveRow = row(2, { triggered_at: "2026-10-06T20:05:00.000Z" });
-    expect(filterPriceAlertToastBacklog([backlogRow, liveRow], new Set(), baselineMs).map((r) => r.id)).toEqual([
-      id(1),
-    ]);
     expect(
-      filterPriceAlertToastCandidates([backlogRow, liveRow], new Set(), { baselineMs }).map((r) => r.id),
+      filterPriceAlertToastBacklog([backlogRow, liveRow], new Set(), baselineMs, nowMs).map((r) => r.id),
+    ).toEqual([id(1)]);
+    expect(
+      filterPriceAlertToastCandidates([backlogRow, liveRow], new Set(), { baselineMs, nowMs }).map((r) => r.id),
     ).toEqual([id(2)]);
   });
 
   it("allows a fresh event for the same symbol when id differs", () => {
     const baselineMs = Date.parse("2026-10-06T20:00:00.000Z");
+    const nowMs = Date.parse("2026-10-06T21:00:00.000Z");
     const seen = new Set([id(1)]);
     const next = row(2, { triggered_at: "2026-10-06T20:10:00.000Z" });
-    expect(filterPriceAlertToastCandidates([row(1), next], seen, { baselineMs }).map((r) => r.id)).toEqual([id(2)]);
+    expect(
+      filterPriceAlertToastCandidates([row(1), next], seen, { baselineMs, nowMs }).map((r) => r.id),
+    ).toEqual([id(2)]);
   });
 
   it("CASE H — session marks in-flight; durable seen_at remains source of truth on reload", () => {
@@ -149,5 +153,16 @@ describe("price alert toast delivery", () => {
   it("priceAlertToastSinceIso uses 24h lookback", () => {
     const now = Date.parse("2026-10-06T20:00:00.000Z");
     expect(priceAlertToastSinceIso(now)).toBe("2026-10-05T20:00:00.000Z");
+  });
+
+  it("rejects future-dated trigger observations from live popup eligibility", () => {
+    const nowMs = Date.parse("2026-10-06T20:00:00.000Z");
+    const baselineMs = nowMs;
+    const future = row(1, {
+      triggered_at: new Date(nowMs + 3600_000).toISOString(),
+    });
+    expect(
+      filterPriceAlertToastCandidates([future], new Set(), { baselineMs, nowMs }),
+    ).toHaveLength(0);
   });
 });
