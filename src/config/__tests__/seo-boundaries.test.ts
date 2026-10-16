@@ -53,10 +53,19 @@ describe("seo-boundaries", () => {
     }
   });
 
-  it("static fallback sitemap includes heatmap", () => {
-    const xml = readFileSync(join(process.cwd(), "public/sitemap.xml"), "utf8");
-    expect(xml).toContain("https://stocksist.com/markets/heatmap");
-    expect(xml).not.toContain("/ipos/SYMBOL");
+  it("does not ship a static public/sitemap.xml (Vercel rewrite serves Edge index)", () => {
+    const sitemapPath = join(process.cwd(), "public/sitemap.xml");
+    expect(() => readFileSync(sitemapPath, "utf8")).toThrow();
+    const vercel = JSON.parse(
+      readFileSync(join(process.cwd(), "vercel.json"), "utf8"),
+    ) as {
+      rewrites: { source: string; destination: string }[];
+    };
+    const rewrite = vercel.rewrites.find((r) => r.source === "/sitemap.xml");
+    expect(rewrite?.destination).toBe(
+      "https://zcjptaolpumhtlwhlemq.supabase.co/functions/v1/sitemap",
+    );
+    expect(STATIC_SITEMAP_PATHS.includes("/markets/heatmap" as never)).toBe(true);
   });
 
   it("homepage is not synthesized by middleware matcher", () => {
