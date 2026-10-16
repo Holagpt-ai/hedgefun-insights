@@ -1,5 +1,4 @@
 import {
-  parseLoadedCheckpoint,
   walkLatestFilingsPages,
   type PageWalkResult,
   type SecEdgarCheckpoint,
@@ -12,23 +11,29 @@ import {
   type SecFetchResult,
   type SecFeedEntry,
 } from "../sec-edgar/ingest.ts";
+import { MAX_ITEMS_PER_SOURCE } from "./config.ts";
+import {
+  entriesInAccessionOrder,
+  readSecIntelContinuation,
+  type SecIntelContinuation,
+} from "./sec-intel-continuation.ts";
+import {
+  checkpointMetadataRecord,
+  readSecIntelCheckpoint,
+} from "./sec-intel-metadata.ts";
+import type { SecFetchMetadataPatch } from "./sec-intel-continuation.ts";
 import type { SourceRunContext } from "./types.ts";
 
-export type SecIntelCheckpoint = SecEdgarCheckpoint;
-
-export function readSecIntelCheckpoint(metadata: Record<string, unknown>): SecIntelCheckpoint | null {
-  const raw = metadata.sec_edgar_intel ?? metadata.checkpoint;
-  const parsed = parseLoadedCheckpoint(raw);
-  return parsed.ok ? parsed.checkpoint : null;
-}
+export type { SecEdgarCheckpoint as SecIntelCheckpoint };
+export { readSecIntelCheckpoint, checkpointMetadataRecord } from "./sec-intel-metadata.ts";
 
 export function buildSecIntelCheckpoint(input: {
   page0Accessions: readonly string[];
   page0HeadUpdatedAt: string | null;
   pagesFetched: number;
   nowIso: string;
-  prior: SecIntelCheckpoint | null;
-}): SecIntelCheckpoint {
+  prior: SecEdgarCheckpoint | null;
+}): SecEdgarCheckpoint {
   const revision = input.prior ? input.prior.revision + 1 : 0;
   return {
     stream_key: SEC_EDGAR_STREAM_KEY,
@@ -50,8 +55,15 @@ export async function discoverSecFilingsPages(
   ctx: SourceRunContext,
   assertHost: (url: string) => void,
 ): Promise<
-  | { ok: true; entries: SecFeedEntry[]; checkpoint: SecIntelCheckpoint; contentHash: string; unchanged: boolean }
-  | { ok: false; reason: string; retryable: boolean; retryAfterSeconds: number | null }
+  | {
+    ok: true;
+    entries: SecFeedEntry[];
+    proposedCheckpoint: SecEdgarCheckpoint;
+    contentHash: string;
+    unchanged: boolean;
+    secRequests: number;
+  }
+  | { ok: false; reason: string; retryable: boolean; retryAfterSeconds: number | null; secRequests: number }
 > {
   assertHost(ctx.source.url);
   const summary = emptySecSummary();
@@ -64,7 +76,8 @@ export async function discoverSecFilingsPages(
 
   const page0Url = buildLatestFilingsAtomUrl(0);
   const page0 = await secFetch(page0Url);
-  ctx.fetchState.providerHttpAttempts = summary.sec_requests;
+  const secRequestsAfterPage0 = summary.sec_requests;
+  ctx.fetchState.providerHttpAttempts = secRequestsAfterPage0;
   ctx.fetchState.providerHttpStatus = page0.status;
   ctx.fetchState.providerRetryAfterSeconds = page0.ok ? null : page0.retryAfterSeconds;
   if (!page0.ok) {
@@ -74,19 +87,22 @@ export async function discoverSecFilingsPages(
       reason: page0.reason,
       retryable,
       retryAfterSeconds: page0.retryAfterSeconds,
+      secRequests: secRequestsAfterPage0,
     };
   }
 
   const contentHash = await hashPageText(page0.text);
   ctx.fetchState.contentHash = contentHash;
   const prior = readSecIntelCheckpoint(ctx.source.metadata);
-  if (ctx.source.lastContentHash && ctx.source.lastContentHash === contentHash && prior) {
+  const pending = readSecIntelContinuation(ctx.source.metadata);
+  if (ctx.source.lastContentHash && ctx.source.lastContentHash === contentHash && prior && !pending) {
     return {
       ok: true,
       entries: [],
-      checkpoint: prior,
+      proposedCheckpoint: prior,
       contentHash,
       unchanged: true,
+      secRequests: secRequestsAfterPage0,
     };
   }
 
@@ -95,14 +111,21 @@ export async function discoverSecFilingsPages(
     return await secFetch(url);
   };
   const anchors = prior?.anchor_accessions ?? null;
-  const walk: PageWalkResult = await walkLatestFilingsPages(fetchPage, anchors);
+  const walk: PageWalkResult = await walkLatestFilingsPages(fetchPage, anchors, undefined, page0);
+  ctx.fetchState.providerHttpAttempts = summary.sec_requests;
   if (!walk.ok) {
     const retryable = walk.reason === "PROVIDER_TIMEOUT" || walk.reason === "PROVIDER_RATE_LIMITED";
-    return { ok: false, reason: walk.reason, retryable, retryAfterSeconds: null };
+    return {
+      ok: false,
+      reason: walk.reason,
+      retryable,
+      retryAfterSeconds: null,
+      secRequests: summary.sec_requests,
+    };
   }
 
   const nowIso = ctx.now.toISOString();
-  const checkpoint = buildSecIntelCheckpoint({
+  const proposedCheckpoint = buildSecIntelCheckpoint({
     page0Accessions: walk.page0Accessions,
     page0HeadUpdatedAt: walk.page0HeadUpdatedAt,
     pagesFetched: walk.pagesFetched,
@@ -113,12 +136,60 @@ export async function discoverSecFilingsPages(
   return {
     ok: true,
     entries: walk.entries,
-    checkpoint,
+    proposedCheckpoint,
     contentHash,
     unchanged: false,
+    secRequests: summary.sec_requests,
   };
 }
 
-export function checkpointForMetadata(checkpoint: SecIntelCheckpoint): Record<string, unknown> {
-  return { sec_edgar_intel: checkpoint, checkpoint };
+export function planSecIntelIngestBatch(input: {
+  entries: readonly SecFeedEntry[];
+  contentHash: string;
+  proposedCheckpoint: SecEdgarCheckpoint;
+  metadata: Record<string, unknown>;
+  itemLimit: number;
+  filterForm: (formType: string) => boolean;
+}): {
+  batchEntries: SecFeedEntry[];
+  patch: SecFetchMetadataPatch;
+} {
+  const eligible = input.entries.filter((entry) => input.filterForm(entry.form_type));
+  const seen = new Set<string>();
+  const orderedEligible: SecFeedEntry[] = [];
+  for (const entry of eligible) {
+    if (seen.has(entry.accession_number)) continue;
+    seen.add(entry.accession_number);
+    orderedEligible.push(entry);
+  }
+  const batchAccessions = orderedEligible.map((e) => e.accession_number);
+  const limit = input.itemLimit > 0 ? input.itemLimit : MAX_ITEMS_PER_SOURCE;
+  const pending = readSecIntelContinuation(input.metadata);
+  let startIndex = 0;
+  if (pending && pending.page_content_hash === input.contentHash) {
+    startIndex = pending.next_index;
+  }
+  const endIndex = Math.min(startIndex + limit, batchAccessions.length);
+  const batchComplete = endIndex >= batchAccessions.length;
+  const sliceAccessions = batchAccessions.slice(startIndex, endIndex);
+  const batchEntries = entriesInAccessionOrder(orderedEligible, sliceAccessions);
+
+  let continuation: SecIntelContinuation | null = null;
+  if (!batchComplete) {
+    continuation = {
+      page_content_hash: input.contentHash,
+      next_index: endIndex,
+      batch_accessions: batchAccessions,
+      pending_checkpoint: input.proposedCheckpoint,
+    };
+  }
+
+  return {
+    batchEntries,
+    patch: {
+      checkpoint: batchComplete ? checkpointMetadataRecord(input.proposedCheckpoint) : null,
+      continuation,
+      batchComplete,
+    },
+  };
 }

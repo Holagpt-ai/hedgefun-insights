@@ -2,8 +2,8 @@ import { type SecFeedEntry } from "../../sec-edgar/ingest.ts";
 import { MAX_ITEMS_PER_SOURCE } from "../config.ts";
 import { buildRawItem, toUtcIso } from "../normalize.ts";
 import {
-  checkpointForMetadata,
   discoverSecFilingsPages,
+  planSecIntelIngestBatch,
 } from "../sec-intel-discovery.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { assertPublicHttpsUrl, SourceFetchError } from "../source-fetch.ts";
@@ -33,21 +33,33 @@ export const secFilingsAdapter: CatalystSourceAdapter = {
   async discover(ctx) {
     const walk = await discoverSecFilingsPages(ctx, assertSecHost);
     if (!walk.ok) {
-      const error = new SourceFetchError(walk.reason.toLowerCase(), null, walk.retryable);
+      const statusCode = ctx.fetchState.providerHttpStatus ?? null;
+      const error = new SourceFetchError(walk.reason.toLowerCase(), statusCode, walk.retryable);
       error.retryAfterSeconds = walk.retryAfterSeconds;
       throw error;
     }
+    ctx.fetchState.providerHttpAttempts = walk.secRequests;
     if (walk.unchanged) {
       ctx.fetchState.unchanged = true;
-      ctx.fetchState.checkpoint = checkpointForMetadata(walk.checkpoint);
+      ctx.fetchState.secIntelPatch = {
+        checkpoint: null,
+        continuation: null,
+        batchComplete: true,
+      };
       return [];
     }
-    const entries = walk.entries
-      .filter((entry) => INTEL_SEC_FORMS.has(entry.form_type))
-      .slice(0, ctx.itemLimit || MAX_ITEMS_PER_SOURCE);
+    const { batchEntries, patch } = planSecIntelIngestBatch({
+      entries: walk.entries,
+      contentHash: walk.contentHash,
+      proposedCheckpoint: walk.proposedCheckpoint,
+      metadata: ctx.source.metadata,
+      itemLimit: ctx.itemLimit || MAX_ITEMS_PER_SOURCE,
+      filterForm: (form) => INTEL_SEC_FORMS.has(form),
+    });
+    ctx.fetchState.secIntelPatch = patch;
+    ctx.fetchState.checkpoint = patch.checkpoint;
     const items: RawSourceItem[] = [];
-    for (const entry of entries) items.push(await rawFromFiling(entry, ctx));
-    ctx.fetchState.checkpoint = checkpointForMetadata(walk.checkpoint);
+    for (const entry of batchEntries) items.push(await rawFromFiling(entry, ctx));
     return items;
   },
   async normalize(item, ctx) {

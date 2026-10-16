@@ -201,6 +201,7 @@ export async function walkLatestFilingsPages(
   fetchPage: (url: string) => Promise<SecFetchResult>,
   anchors: readonly string[] | null,
   maxPages = SEC_LATEST_FILINGS_MAX_PAGES,
+  initialPage0: Extract<SecFetchResult, { ok: true }> | null = null,
 ): Promise<PageWalkResult> {
   const collected: SecFeedEntry[] = [];
   let pagesFetched = 0;
@@ -213,7 +214,9 @@ export async function walkLatestFilingsPages(
   for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
     if (bootstrap && pageIndex > 0) break;
     const start = pageIndex * SEC_LATEST_FILINGS_PAGE_SIZE;
-    const res = await fetchPage(buildLatestFilingsAtomUrl(start));
+    const res = pageIndex === 0 && initialPage0
+      ? initialPage0
+      : await fetchPage(buildLatestFilingsAtomUrl(start));
     if (!res.ok) {
       return { ok: false, reason: res.reason, pagesFetched, entriesScanned };
     }

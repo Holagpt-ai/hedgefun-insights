@@ -4,10 +4,11 @@ import { handleCatalystIntelRequest } from "./http.ts";
 import { createMemoryStore } from "./persistence.ts";
 import { runCollectorBot } from "./run-bot.ts";
 import { SEC_COMPANY_MAP_MIN_ISSUERS } from "./sec-company-map.ts";
+import { SEC_LATEST_FILINGS_ATOM_URL } from "../sec-edgar/ingest.ts";
 import type { SourceRecord } from "./types.ts";
 
 const NOW = new Date("2026-10-02T22:40:00.000Z");
-const ATOM_URL = "https://www.sec.gov/cgi-bin/browse-edgar?action=getcurrent&output=atom";
+const ATOM_URL = SEC_LATEST_FILINGS_ATOM_URL;
 const MAP_URL = "https://www.sec.gov/files/company_tickers_exchange.json";
 
 function exchangeJson(rows: unknown[][]): string {
@@ -327,7 +328,7 @@ Deno.test("unchanged SEC atom does not insert a second filing", async () => {
   assertEquals(first.eventsCreated, 1);
   assertEquals(second.eventsCreated, 0);
   assertEquals(second.newItems, 0);
-  assertEquals(second.duplicates, 1);
+  assertEquals(second.duplicates, 0);
   assertEquals(store.rawItems().length, 1);
   assertEquals(store.events().length, 1);
 });
