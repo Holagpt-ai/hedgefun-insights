@@ -9,7 +9,8 @@ import {
   scannerAlertCanonicalToastKey,
 } from "@/lib/scanner-alerts/canonical-event-identity";
 import {
-  isPlausibleScannerAlertObservationMs,
+  isValidScannerAlertObservationMs,
+  isWithinScannerLivePopupAgeMs,
   parseObservationMs,
   SCANNER_ALERT_TOAST_LOOKBACK_MS,
 } from "@/lib/scanner-alerts/observation-freshness";
@@ -47,8 +48,47 @@ export function shouldSurfaceScannerAlertToast(
   nowMs = Date.now(),
 ): boolean {
   const observedMs = scannerAlertObservationMs(row);
-  if (!isPlausibleScannerAlertObservationMs(observedMs, nowMs)) return false;
+  if (!isValidScannerAlertObservationMs(observedMs, nowMs)) return false;
+  if (!isWithinScannerLivePopupAgeMs(observedMs, nowMs)) return false;
   return isAtOrAfterBaseline(observedMs, baselineMs);
+}
+
+/**
+ * Expand seen keys with legacy row-id aliases from the current fetch batch.
+ * Pre-release clients stored row.id; canonical keys must honor those acknowledgments.
+ */
+export function expandScannerToastSeenAliases<
+  T extends { id: string; dedupe_key: string },
+>(rows: readonly T[], seen: ReadonlySet<string>): Set<string> {
+  const expanded = new Set(seen);
+  const canonicalFromLegacy = new Map<string, string>();
+  for (const row of rows) {
+    const id = row.id?.trim() ?? "";
+    const canonical = scannerAlertToastKey(row);
+    if (id) canonicalFromLegacy.set(id, canonical);
+    if (id && expanded.has(id)) expanded.add(canonical);
+  }
+  for (const key of expanded) {
+    const canonical = canonicalFromLegacy.get(key);
+    if (canonical) expanded.add(canonical);
+  }
+  for (const row of rows) {
+    const canonical = scannerAlertToastKey(row);
+    if (expanded.has(canonical)) {
+      const id = row.id?.trim() ?? "";
+      if (id) expanded.add(id);
+    }
+  }
+  return expanded;
+}
+
+export function isScannerAlertToastSeen(
+  row: { id: string; dedupe_key: string },
+  seen: ReadonlySet<string>,
+): boolean {
+  const id = row.id?.trim() ?? "";
+  const canonical = scannerAlertToastKey(row);
+  return seen.has(canonical) || (id !== "" && seen.has(id));
 }
 
 export function readSeenScannerToastKeys(userId: string): Set<string> {
@@ -99,8 +139,9 @@ export function filterUnseenScannerAlerts<T extends { id: string; dedupe_key: st
   rows: T[],
   seen: Set<string>,
 ): T[] {
+  const expandedSeen = expandScannerToastSeenAliases(rows, seen);
   return dedupeScannerAlertsByCanonicalIdentity(rows).filter(
-    (row) => !seen.has(scannerAlertToastKey(row)),
+    (row) => !isScannerAlertToastSeen(row, expandedSeen),
   );
 }
 

@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   filterLiveScannerAlertToasts,
   filterScannerAlertToastBacklog,
+  expandScannerToastSeenAliases,
   filterUnseenScannerAlerts,
   markScannerToastSeen,
   markScannerToastSeenDurable,
@@ -45,6 +46,20 @@ describe("scanner alert toast dedupe", () => {
     expect(readSeenScannerToastKeys("user-b").has("key-1")).toBe(false);
   });
 
+  it("writes canonical keys while honoring legacy row-id acknowledgments", () => {
+    const canonical = "scanner_v1:2026-03-15:AAA:RUNNING_UP:2026-03-15T14:00:00.000Z";
+    markScannerToastSeen("user-a", canonical);
+    const key = readSeenScannerToastKeys("user-a");
+    expect(key.has(canonical)).toBe(true);
+    expect(key.has("legacy-row-id")).toBe(false);
+    const rows = [
+      { id: "legacy-row-id", dedupe_key: canonical, event_at: "2026-03-15T14:00:00.000Z" },
+    ];
+    const expanded = expandScannerToastSeenAliases(rows, new Set(["legacy-row-id"]));
+    expect(expanded.has(canonical)).toBe(true);
+    expect(filterUnseenScannerAlerts(rows, expanded)).toHaveLength(0);
+  });
+
   it("simulates cross-tab durable merge for the same alert id", () => {
     markScannerToastSeenDurable("user-1", "alert-1", Date.now());
     const merged = mergeScannerToastSeenKeys("user-1");
@@ -63,8 +78,8 @@ describe("scanner alert toast dedupe", () => {
     const live = {
       id: "new",
       dedupe_key: "k-new",
-      event_at: "2026-10-06T20:05:00.000Z",
-      created_at: "2026-10-06T20:05:01.000Z",
+      event_at: "2026-10-06T20:40:00.000Z",
+      created_at: "2026-10-06T20:40:01.000Z",
     };
     const nowMs = Date.parse("2026-10-06T21:00:00.000Z");
     expect(

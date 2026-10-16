@@ -9,6 +9,7 @@ import {
   getToastNotificationBaselineMs,
 } from "@/lib/notifications/toast-notification-baseline";
 import {
+  expandScannerToastSeenAliases,
   filterLiveScannerAlertToasts,
   filterScannerAlertToastBacklog,
   markScannerToastSeen,
@@ -63,7 +64,10 @@ export function ScannerAlertToastListener() {
   useEffect(() => {
     if (!user?.id) return;
     const nowMs = Date.now();
-    seenRef.current = mergeScannerToastSeenKeys(user.id, nowMs);
+    seenRef.current = expandScannerToastSeenAliases(
+      q.data ?? [],
+      mergeScannerToastSeenKeys(user.id, nowMs),
+    );
     const baselineMs = getToastNotificationBaselineMs(SCANNER_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
     if (!q.data?.length) return;
 
