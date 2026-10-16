@@ -2,19 +2,20 @@ import { describe, expect, it } from "vitest";
 import { resolveContinuationRvolCapture } from "@/lib/am-inbox/resolve-continuation-rvol-capture";
 
 describe("resolveContinuationRvolCapture", () => {
-  it("prefers rvol_20d tuple when ratio and avg_volume_20d both exist", () => {
+  it("prefers time_adjusted over daily rvol when both are present", () => {
     const capture = resolveContinuationRvolCapture({
       rvol_20d: 6,
       avg_volume_20d: 500_000,
-      time_adjusted_rvol: 12,
+      time_adjusted_rvol: 3,
+      volume: 3_000_000,
       rvol_5m: 9,
       participation_baseline_session_count: 10,
     });
     expect(capture).toEqual({
-      rawRvol: 6,
-      metricKind: "rvol_20d",
-      baselineVolume: 500_000,
-      baselineSampleSize: null,
+      rawRvol: 3,
+      metricKind: "time_adjusted",
+      baselineVolume: 1_000_000,
+      baselineSampleSize: 10,
     });
   });
 

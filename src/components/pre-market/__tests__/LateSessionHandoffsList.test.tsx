@@ -1,4 +1,8 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { id: "test-user" } }),
+}));
 import * as lateSessionView from "@/lib/am-inbox/am-inbox-late-session-view";
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
@@ -110,6 +114,46 @@ describe("LateSessionHandoffsList", () => {
     expect(within(list).getAllByText(/^PRI\d{2}$/).length).toBe(2);
     expect(screen.queryByText(/Showing top/)).toBeNull();
     expect(screen.queryByRole("button", { name: /View All/ })).toBeNull();
+  });
+
+  it("renders qualified fallback when priority is zero but funnel requests it", () => {
+    vi.spyOn(lateSessionView, "isLateSessionPriorityCandidate").mockReturnValue(false);
+    const qualified = [
+      makeQualifiedNonPriority(),
+      {
+        ...makeQualifiedNonPriority(),
+        context: buildLateSessionContinuationContext({
+          symbol: "VOLKING",
+          sourceSessionDate: "2026-09-21",
+          sourceTimestamp: "2026-09-21T20:00:00.000Z",
+          sourceCategory: "STRONG_CLOSE_NEAR_HOD",
+          volume: 900_000,
+          rvol: 4,
+          dollarVolume: null,
+        }),
+        sourceCategories: ["STRONG_CLOSE_NEAR_HOD"] as const,
+      },
+    ] as AmInboxLateSessionCandidate[];
+
+    render(
+      <MemoryRouter>
+        <LateSessionHandoffsList
+          candidates={qualified}
+          qualifiedCandidates={qualified}
+          funnel={{
+            detectedCount: 5,
+            qualifiedCount: 5,
+            priorityCount: 0,
+            displayedCount: 2,
+            displayUsesQualifiedFallback: true,
+          }}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByText("QUALONLY")).toBeTruthy();
+    expect(screen.getByText("VOLKING")).toBeTruthy();
+    expect(screen.getByText(/5 detected · 5 qualified · 0 priority/)).toBeTruthy();
   });
 
   it("keeps symbol workflow actions on each card", () => {

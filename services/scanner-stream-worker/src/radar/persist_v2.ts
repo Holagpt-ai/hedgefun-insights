@@ -877,6 +877,18 @@ export type RadarV2WriteReason =
 
 /** After a failed V2 RPC, suppress churn retries until cooldown elapses. */
 export const RADAR_V2_PERSIST_FAILURE_COOLDOWN_MS = 15_000;
+/** Bounds RPC validation work when engine emits many idempotent event keys. */
+export const RADAR_V2_MAX_EVENTS_PER_PUBLISH = 256;
+
+export function trimRadarV2EventsForPublish(
+  events: RadarV22EventRow[],
+  maxEvents = RADAR_V2_MAX_EVENTS_PER_PUBLISH,
+): RadarV22EventRow[] {
+  if (events.length <= maxEvents) return events;
+  return [...events]
+    .sort((a, b) => Date.parse(b.event_at) - Date.parse(a.event_at))
+    .slice(0, maxEvents);
+}
 
 export type RadarV2WriteDecision = {
   shouldWrite: boolean;
@@ -1023,6 +1035,7 @@ export async function publishRadarV2IfNeeded(opts: {
       syncedAt: opts.syncedAt,
       view,
     });
+    args.p_events = trimRadarV2EventsForPublish(args.p_events);
     args.p_candidates = args.p_candidates.map((row) => ({
       ...row,
       generation_id: opts.generationId,

@@ -23,6 +23,7 @@ import {
   REPLACE_RADAR_V2_RPC,
   replaceArgsFromView,
   shouldPublishRadarV2,
+  trimRadarV2EventsForPublish,
   validateRadarV2Generation,
   type PersistenceV2View,
   type RadarV2ChurnInput,
@@ -1546,5 +1547,19 @@ Deno.test("mapCandidateRow normalizes fractional prior session volume to whole s
     priorVolume: 4_670_041.396848,
   });
   assertEquals(row.prior_session_volume, 4_670_041);
+});
+
+Deno.test("trimRadarV2EventsForPublish keeps newest events under cap", () => {
+  const events = Array.from({ length: 300 }, (_, i) => ({
+    trading_date: DATE,
+    session_kind: "market" as const,
+    symbol: "AAA",
+    event_type: "DETECTED" as const,
+    event_at: new Date(Date.parse(SYNC) + i * 1000).toISOString(),
+    generation_id: GEN,
+  }));
+  const trimmed = trimRadarV2EventsForPublish(events);
+  assertEquals(trimmed.length, 256);
+  assertEquals(trimmed[0]?.event_at, events[events.length - 1]?.event_at);
 });
 

@@ -42,25 +42,14 @@ export type ContinuationRvolCaptureSource = Pick<
 /**
  * Selects one internally consistent RVOL tuple for late-session handoff capture.
  *
- * Precedence:
- * 1. rvol_20d when both ratio and avg_volume_20d baseline exist
- * 2. time_adjusted_rvol (intraday participation sample count when present)
- * 3. rvol_5m (intraday participation sample count when present)
+ * Precedence (same-session continuation — intraday before daily):
+ * 1. time_adjusted_rvol with implied session baseline when present
+ * 2. rvol_5m with 5m window baseline when present
+ * 3. rvol_20d when both ratio and avg_volume_20d baseline exist
  */
 export function resolveContinuationRvolCapture(
   row: ContinuationRvolCaptureSource,
 ): ContinuationRvolCapture {
-  const rvol20d = positiveFinite(row.rvol_20d);
-  const avg20d = positiveFinite(row.avg_volume_20d);
-  if (rvol20d !== null && avg20d !== null) {
-    return {
-      rawRvol: rvol20d,
-      metricKind: "rvol_20d",
-      baselineVolume: avg20d,
-      baselineSampleSize: null,
-    };
-  }
-
   const timeAdjusted = positiveFinite(row.time_adjusted_rvol);
   if (timeAdjusted !== null) {
     return {
@@ -78,6 +67,17 @@ export function resolveContinuationRvolCapture(
       metricKind: "rvol_5m",
       baselineVolume: impliedBaselineVolumeFromRatio(row.volume_5m, rvol5m),
       baselineSampleSize: positiveInteger(row.participation_baseline_session_count),
+    };
+  }
+
+  const rvol20d = positiveFinite(row.rvol_20d);
+  const avg20d = positiveFinite(row.avg_volume_20d);
+  if (rvol20d !== null && avg20d !== null) {
+    return {
+      rawRvol: rvol20d,
+      metricKind: "rvol_20d",
+      baselineVolume: avg20d,
+      baselineSampleSize: null,
     };
   }
 

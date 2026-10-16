@@ -26,6 +26,7 @@ import { realtimeTapeExpectedAt } from "./session.ts";
 import { parseAggregateEvent } from "./parse.ts";
 import { createRadarSocket, type RadarWsConnect } from "./ws.ts";
 import type { EvaluateResult } from "./engine.ts";
+import { resolveRadarLoopHealth } from "./run-health.ts";
 
 export type RadarHealthSink = {
   applyRadar(snapshot: RadarHealthSnapshot): void;
@@ -233,6 +234,7 @@ export function startRadarV22(opts: {
       }
       return;
     }
+    let v1PersistOk = true;
     if (result.published) {
       const persist = persistableGeneration(result);
       const published = await publishRadarGeneration(rpc, {
@@ -252,10 +254,13 @@ export function startRadarV22(opts: {
         p_status: persist.status,
         p_last_provider_event_at: result.board.lastProviderEventAt,
       });
+      v1PersistOk = published.ok;
       if (published.ok) {
         lastPublishedGeneration = generationId;
-        lastPersistErrorCode = null;
-        lastPersistFailedAt = null;
+        if (!opts.env.radarPersistenceV2Enabled) {
+          lastPersistErrorCode = null;
+          lastPersistFailedAt = null;
+        }
       } else {
         notePersistFailure(published.code);
         log("error", "radar_persist_failed", { code: published.code });
@@ -285,7 +290,16 @@ export function startRadarV22(opts: {
       pushHealth(leaseHeld ? "running" : "degraded");
       return;
     }
-    pushHealth(result.board.feedStale ? "stale" : "running");
+    pushHealth(
+      resolveRadarLoopHealth({
+        leaseHeld,
+        feedStale: result.board.feedStale,
+        persistenceV2Enabled: opts.env.radarPersistenceV2Enabled,
+        v2,
+        v1Attempted: result.published,
+        v1Ok: v1PersistOk,
+      }),
+    );
   };
 
   const startSocket = () => {
