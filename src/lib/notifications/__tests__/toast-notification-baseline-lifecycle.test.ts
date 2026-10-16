@@ -32,7 +32,7 @@ describe("toast notification baseline lifecycle", () => {
     };
     expect(baselineMs).toBe(sessionStart);
     expect(
-      filterPriceAlertToastCandidates([newAlert], new Set(), { baselineMs }).map((r) => r.id),
+      filterPriceAlertToastCandidates([newAlert], new Set(), { baselineMs, nowMs: 5_000 }).map((r) => r.id),
     ).toEqual(["a1"]);
   });
 
@@ -44,7 +44,9 @@ describe("toast notification baseline lifecycle", () => {
       seen_at: null,
       triggered_at: new Date(12_000).toISOString(),
     };
-    expect(filterPriceAlertToastCandidates([live], new Set(), { baselineMs }).map((r) => r.id)).toEqual(["live"]);
+    expect(
+      filterPriceAlertToastCandidates([live], new Set(), { baselineMs, nowMs: 12_000 }).map((r) => r.id),
+    ).toEqual(["live"]);
   });
 
   it("price: new browser session suppresses old backlog", () => {
@@ -57,8 +59,8 @@ describe("toast notification baseline lifecycle", () => {
       seen_at: null,
       triggered_at: new Date(15_000).toISOString(),
     };
-    expect(filterPriceAlertToastBacklog([old], new Set(), baselineMs).map((r) => r.id)).toEqual(["old"]);
-    expect(filterPriceAlertToastCandidates([old], new Set(), { baselineMs })).toHaveLength(0);
+    expect(filterPriceAlertToastBacklog([old], new Set(), baselineMs, 20_000).map((r) => r.id)).toEqual(["old"]);
+    expect(filterPriceAlertToastCandidates([old], new Set(), { baselineMs, nowMs: 20_000 })).toHaveLength(0);
   });
 
   it("scanner: new browser session suppresses historic delivery backlog", () => {
@@ -76,12 +78,12 @@ describe("toast notification baseline lifecycle", () => {
       event_at: new Date(21_000).toISOString(),
       created_at: new Date(21_100).toISOString(),
     };
-    expect(filterScannerAlertToastBacklog([historic, fresh], new Set(), baselineMs).map((r) => r.id)).toEqual([
-      "hist",
-    ]);
-    expect(filterLiveScannerAlertToasts([historic, fresh], new Set(), baselineMs).map((r) => r.id)).toEqual([
-      "fresh",
-    ]);
+    expect(
+      filterScannerAlertToastBacklog([historic, fresh], new Set(), baselineMs, 20_000).map((r) => r.id),
+    ).toEqual(["hist"]);
+    expect(
+      filterLiveScannerAlertToasts([historic, fresh], new Set(), baselineMs, 20_000).map((r) => r.id),
+    ).toEqual(["fresh"]);
   });
 
   it("account switch uses independent session floors", () => {

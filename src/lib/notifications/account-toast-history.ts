@@ -2,6 +2,23 @@
 
 export type AccountToastHistoryEntry = { k: string; at: number };
 
+const memoryFallbackByStorageKey = new Map<string, Set<string>>();
+
+function memoryKey(storageNamespace: string, userId: string): string {
+  return `${storageNamespace}:${userId.trim()}`;
+}
+
+function readMemoryFallback(storageNamespace: string, userId: string): Set<string> {
+  return new Set(memoryFallbackByStorageKey.get(memoryKey(storageNamespace, userId)) ?? []);
+}
+
+function markMemoryFallback(storageNamespace: string, userId: string, toastKey: string): void {
+  const key = memoryKey(storageNamespace, userId);
+  const set = memoryFallbackByStorageKey.get(key) ?? new Set<string>();
+  set.add(toastKey);
+  memoryFallbackByStorageKey.set(key, set);
+}
+
 function storageKeyForUser(storageNamespace: string, userId: string): string {
   return `${storageNamespace}:${userId.trim()}`;
 }
@@ -43,7 +60,10 @@ export function readAccountToastHistory(
   userId: string,
   input: { nowMs?: number; maxAgeMs: number; maxEntries: number },
 ): Set<string> {
-  return new Set(readAccountToastHistoryEntries(storageNamespace, userId, input).map((e) => e.k));
+  const fromStorage = new Set(
+    readAccountToastHistoryEntries(storageNamespace, userId, input).map((e) => e.k),
+  );
+  return mergeToastSeenSets(fromStorage, readMemoryFallback(storageNamespace, userId));
 }
 
 export function markAccountToastHistory(
@@ -63,7 +83,7 @@ export function markAccountToastHistory(
   try {
     localStorage.setItem(key, JSON.stringify(trimmed));
   } catch {
-    // quota / privacy mode
+    markMemoryFallback(storageNamespace, userId, toastKey);
   }
 }
 

@@ -11,4 +11,14 @@ describe("alert workflow navigation", () => {
       "/dashboard/action-center?symbol=XYZ&event=RUNNING_UP",
     );
   });
+
+  it("preserves source event timestamp in navigation when provided", () => {
+    const path = scannerAlertToastViewPath({
+      symbol: "XYZ",
+      event_type: "RUNNING_UP",
+      event_at: "2026-10-06T14:05:00.000Z",
+    });
+    expect(path).toContain("event=RUNNING_UP");
+    expect(path).toContain(encodeURIComponent("2026-10-06T14:05:00.000Z"));
+  });
 });

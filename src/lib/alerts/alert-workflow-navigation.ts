@@ -9,12 +9,20 @@ export function priceAlertToastViewPath(symbol: string): string {
   return `/dashboard/action-center?symbol=${encodeURIComponent(trimmed)}`;
 }
 
+function appendQueryParam(path: string, key: string, value: string): string {
+  const join = path.includes("?") ? "&" : "?";
+  return `${path}${join}${key}=${encodeURIComponent(value)}`;
+}
+
 /** Scanner intelligence toast → Action Center with event identity when known. */
 export function scannerAlertToastViewPath(input: {
   symbol: string;
   event_type: string;
+  event_at?: string | null;
 }): string {
   const paths = opportunityWorkflowPaths(input.symbol, input.event_type);
-  if (paths) return paths.action_center;
-  return priceAlertToastViewPath(input.symbol);
+  let path = paths?.action_center ?? priceAlertToastViewPath(input.symbol);
+  const at = input.event_at?.trim();
+  if (at) path = appendQueryParam(path, "event_at", at);
+  return path;
 }

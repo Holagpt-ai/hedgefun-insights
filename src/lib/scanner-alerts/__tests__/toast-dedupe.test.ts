@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import {
   filterLiveScannerAlertToasts,
   filterScannerAlertToastBacklog,
+  expandScannerToastSeenAliases,
   filterUnseenScannerAlerts,
   markScannerToastSeen,
   markScannerToastSeenDurable,
@@ -16,15 +17,19 @@ describe("scanner alert toast dedupe", () => {
     localStorage.clear();
   });
 
-  it("dedupes by stable alert id", () => {
-    const row = { id: "alert-uuid-1", dedupe_key: "scanner_v1:2026-03-15:AAA:RUNNING_UP:x" };
+  it("dedupes by canonical dedupe_key when present", () => {
+    const canonical = "scanner_v1:2026-03-15:AAA:RUNNING_UP:2026-03-15T14:00:00.000Z";
+    const row = { id: "alert-uuid-1", dedupe_key: canonical };
     const key = scannerAlertToastKey(row);
     markScannerToastSeen("user-a", key);
     expect(readSeenScannerToastKeys("user-a").has(key)).toBe(true);
-    const rows = [row, { id: "alert-uuid-2", dedupe_key: "other" }];
-    const unseen = filterUnseenScannerAlerts(rows, readSeenScannerToastKeys("user-a"));
-    expect(unseen).toHaveLength(1);
-    expect(unseen[0].id).toBe("alert-uuid-2");
+    const duplicateRow = { id: "alert-uuid-2", dedupe_key: canonical };
+    const other = { id: "alert-uuid-3", dedupe_key: "legacy-key-without-canonical-shape" };
+    const unseen = filterUnseenScannerAlerts(
+      [row, duplicateRow, other],
+      readSeenScannerToastKeys("user-a"),
+    );
+    expect(unseen.map((r) => r.id)).toEqual(["alert-uuid-3"]);
   });
 
   it("allows a new event for the same symbol when id differs", () => {
@@ -39,6 +44,20 @@ describe("scanner alert toast dedupe", () => {
   it("does not leak session seen keys across accounts", () => {
     markScannerToastSeen("user-a", "key-1");
     expect(readSeenScannerToastKeys("user-b").has("key-1")).toBe(false);
+  });
+
+  it("writes canonical keys while honoring legacy row-id acknowledgments", () => {
+    const canonical = "scanner_v1:2026-03-15:AAA:RUNNING_UP:2026-03-15T14:00:00.000Z";
+    markScannerToastSeen("user-a", canonical);
+    const key = readSeenScannerToastKeys("user-a");
+    expect(key.has(canonical)).toBe(true);
+    expect(key.has("legacy-row-id")).toBe(false);
+    const rows = [
+      { id: "legacy-row-id", dedupe_key: canonical, event_at: "2026-03-15T14:00:00.000Z" },
+    ];
+    const expanded = expandScannerToastSeenAliases(rows, new Set(["legacy-row-id"]));
+    expect(expanded.has(canonical)).toBe(true);
+    expect(filterUnseenScannerAlerts(rows, expanded)).toHaveLength(0);
   });
 
   it("simulates cross-tab durable merge for the same alert id", () => {
@@ -59,10 +78,15 @@ describe("scanner alert toast dedupe", () => {
     const live = {
       id: "new",
       dedupe_key: "k-new",
-      event_at: "2026-10-06T20:05:00.000Z",
-      created_at: "2026-10-06T20:05:01.000Z",
+      event_at: "2026-10-06T20:40:00.000Z",
+      created_at: "2026-10-06T20:40:01.000Z",
     };
-    expect(filterScannerAlertToastBacklog([backlog, live], new Set(), baselineMs).map((r) => r.id)).toEqual(["old"]);
-    expect(filterLiveScannerAlertToasts([backlog, live], new Set(), baselineMs).map((r) => r.id)).toEqual(["new"]);
+    const nowMs = Date.parse("2026-10-06T21:00:00.000Z");
+    expect(
+      filterScannerAlertToastBacklog([backlog, live], new Set(), baselineMs, nowMs).map((r) => r.id),
+    ).toEqual(["old"]);
+    expect(
+      filterLiveScannerAlertToasts([backlog, live], new Set(), baselineMs, nowMs).map((r) => r.id),
+    ).toEqual(["new"]);
   });
 });
