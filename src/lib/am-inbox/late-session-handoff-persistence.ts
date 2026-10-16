@@ -6,6 +6,11 @@ import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expir
 import type { RadarRepeatMoverProfileFreshnessState } from "@/lib/radar/radar-repeat-movers-types";
 import type { SecurityId } from "@/types/security-identity";
 
+/**
+ * Production handoff rows persist `rvol` without metric kind/baseline columns.
+ * Optional follow-up (requires approved migration): rvol_metric_kind, rvol_baseline_volume,
+ * rvol_baseline_sample_size — until then, mapPersistedLateSessionRow keeps kind null.
+ */
 export type PersistedLateSessionHandoffRow = {
   id: string;
   security_id: string | null;
@@ -61,7 +66,11 @@ export function mapPersistedLateSessionRow(
     lastPrice: readNumber(row.last_price),
     sessionMovePct: readNumber(row.session_move_pct),
     volume: readNumber(row.volume),
+    /** Untyped persisted ratio — do not set rvolMetricKind without schema metadata. */
     rvol: readNumber(row.rvol),
+    rvolMetricKind: null,
+    rvolBaselineVolume: null,
+    rvolBaselineSampleSize: null,
     dollarVolume: readNumber(row.dollar_volume),
     closeDistanceFromHodPct: readNumber(row.close_distance_from_hod_pct),
     afterHoursExtends: row.after_hours_extends,

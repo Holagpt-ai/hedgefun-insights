@@ -48,6 +48,21 @@ describe("continuation ranking RVOL from context", () => {
     expect(unknown).toBe(rankingRvolFromRaw(1000, "INSUFFICIENT_HISTORY"));
   });
 
+  it("does not infer 20d metric kind for untyped persisted captures", () => {
+    const untyped = buildLateSessionContinuationContext({
+      symbol: "TEST",
+      sourceSessionDate: "2026-09-21",
+      sourceTimestamp: "2026-09-21T20:00:00.000Z",
+      sourceCategory: "POWER_HOUR_MOMENTUM",
+      volume: 5_000_000,
+      rvol: 1000,
+      rvolMetricKind: null,
+    });
+    expect(continuationRankingRvolFromContext(untyped)).toBe(
+      rankingRvolFromRaw(1000, "INSUFFICIENT_HISTORY"),
+    );
+  });
+
   it("never uses current session volume as RVOL baseline", () => {
     const withSessionVolumeOnly = continuationRankingRvolFromContext(
       ctx({ rvol: 1000, volume: 8_000_000, rvolBaselineVolume: null }),
