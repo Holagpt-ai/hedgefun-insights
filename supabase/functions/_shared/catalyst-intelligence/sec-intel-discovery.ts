@@ -121,10 +121,21 @@ export async function discoverSecFilingsPages(
     assertHost(url);
     return await secFetch(url);
   };
-  const walkAnchors = pending
-    ? pending.pending_checkpoint.anchor_accessions
-    : prior?.anchor_accessions ?? null;
-  const walk: PageWalkResult = await walkLatestFilingsPages(fetchPage, walkAnchors, undefined, page0);
+  const itemLimit = ctx.itemLimit || MAX_ITEMS_PER_SOURCE;
+  const requiredSlice = pending
+    ? pending.batch_accessions.slice(
+      pending.next_index,
+      Math.min(pending.next_index + itemLimit, pending.batch_accessions.length),
+    )
+    : null;
+  const walkAnchors = pending ? null : prior?.anchor_accessions ?? null;
+  const walk: PageWalkResult = await walkLatestFilingsPages(
+    fetchPage,
+    walkAnchors,
+    undefined,
+    page0,
+    requiredSlice,
+  );
   ctx.fetchState.providerHttpAttempts = summary.sec_requests;
   if (!walk.ok) {
     if (walk.httpStatus != null) ctx.fetchState.providerHttpStatus = walk.httpStatus;

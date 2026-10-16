@@ -369,8 +369,11 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
               secPatch.continuation?.pending_checkpoint;
             if (workload && pendingCheckpoint) {
               const resumeIndex = secPatch.workloadStartIndex + absoluteIndex;
+              const batchOpenHash = pending?.page_content_hash ??
+                secPatch.continuation?.page_content_hash ??
+                "";
               source.metadata = writeSecIntelContinuation(source.metadata, {
-                page_content_hash: ctx.fetchState.contentHash ?? pending?.page_content_hash ?? "",
+                page_content_hash: batchOpenHash,
                 next_index: resumeIndex,
                 batch_accessions: workload,
                 pending_checkpoint: pendingCheckpoint,

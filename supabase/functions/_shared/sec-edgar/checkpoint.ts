@@ -75,6 +75,15 @@ export function pageContainsAnyAnchor(
   return pageAccessions.some((acc) => wanted.has(acc));
 }
 
+export function accessionsPresentInEntries(
+  entries: readonly SecFeedEntry[],
+  required: readonly string[],
+): boolean {
+  if (required.length === 0) return true;
+  const found = new Set(entries.map((entry) => entry.accession_number));
+  return required.every((acc) => found.has(acc));
+}
+
 export function parseRevision(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && Number.isSafeInteger(raw)) {
     return raw;
@@ -204,6 +213,7 @@ export async function walkLatestFilingsPages(
   anchors: readonly string[] | null,
   maxPages = SEC_LATEST_FILINGS_MAX_PAGES,
   initialPage0: Extract<SecFetchResult, { ok: true }> | null = null,
+  requiredAccessions: readonly string[] | null = null,
 ): Promise<PageWalkResult> {
   const collected: SecFeedEntry[] = [];
   let pagesFetched = 0;
@@ -211,7 +221,8 @@ export async function walkLatestFilingsPages(
   let page0Accessions: string[] = [];
   let page0HeadUpdatedAt: string | null = null;
 
-  const bootstrap = anchors === null;
+  const pendingSliceMode = requiredAccessions != null && requiredAccessions.length > 0;
+  const bootstrap = anchors === null && !pendingSliceMode;
 
   for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
     if (bootstrap && pageIndex > 0) break;
@@ -258,8 +269,21 @@ export async function walkLatestFilingsPages(
     }
 
     collected.push(...pageEntries);
+    const deduped = dedupeEntriesByAccession(collected);
+    if (pendingSliceMode && accessionsPresentInEntries(deduped, requiredAccessions!)) {
+      return {
+        ok: true,
+        checkpointStatus: "boundary_reached",
+        boundaryReached: false,
+        pagesFetched,
+        entriesScanned,
+        page0Accessions,
+        page0HeadUpdatedAt,
+        entries: deduped,
+      };
+    }
     const accessions = uniqueAccessionsInOrder(pageEntries);
-    if (!bootstrap && pageContainsAnyAnchor(accessions, anchors ?? [])) {
+    if (!pendingSliceMode && !bootstrap && pageContainsAnyAnchor(accessions, anchors ?? [])) {
       return {
         ok: true,
         checkpointStatus: "boundary_reached",
@@ -268,9 +292,33 @@ export async function walkLatestFilingsPages(
         entriesScanned,
         page0Accessions,
         page0HeadUpdatedAt,
-        entries: dedupeEntriesByAccession(collected),
+        entries: deduped,
       };
     }
+  }
+
+  if (pendingSliceMode) {
+    const deduped = dedupeEntriesByAccession(collected);
+    if (accessionsPresentInEntries(deduped, requiredAccessions!)) {
+      return {
+        ok: true,
+        checkpointStatus: "boundary_reached",
+        boundaryReached: false,
+        pagesFetched,
+        entriesScanned,
+        page0Accessions,
+        page0HeadUpdatedAt,
+        entries: deduped,
+      };
+    }
+    return {
+      ok: false,
+      reason: "CHECKPOINT_GAP",
+      pagesFetched,
+      entriesScanned,
+      httpStatus: null,
+      retryAfterSeconds: null,
+    };
   }
 
   if (bootstrap) {

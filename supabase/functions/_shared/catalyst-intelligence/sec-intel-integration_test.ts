@@ -4,12 +4,14 @@ import { MAX_ITEMS_PER_SOURCE } from "./config.ts";
 import {
   buildSecIntelCheckpoint,
   discoverSecFilingsPages,
+  hashPageText,
   planSecIntelIngestBatch,
   SecIntelPendingGapError,
 } from "./sec-intel-discovery.ts";
 import { buildLatestFilingsAtomUrl } from "../sec-edgar/ingest.ts";
 import {
   applySecFetchMetadataToSource,
+  checkpointMetadataRecord,
   readSecIntelCheckpoint,
 } from "./sec-intel-metadata.ts";
 import { readSecIntelContinuation } from "./sec-intel-continuation.ts";
@@ -35,6 +37,15 @@ function atomEntry(i: number): string {
 function atomBody(entryCount: number, prepend?: string): string {
   const entries = Array.from({ length: entryCount }, (_, i) => atomEntry(i + 1)).join("");
   return `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${prepend ?? ""}${entries}</feed>`;
+}
+
+function atomBodyRange(fromInclusive: number, count: number): string {
+  const entries = Array.from({ length: count }, (_, i) => atomEntry(fromInclusive + i)).join("");
+  return `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${entries}</feed>`;
+}
+
+function accessionFor(n: number): string {
+  return `0000000001-26-${String(n).padStart(6, "0")}`;
 }
 
 function secSource(metadata: Record<string, unknown> = {}): SourceRecord {
@@ -356,6 +367,150 @@ Deno.test("SEC discover propagates later-page 429 status and Retry-After", async
   assertEquals(result.secRequests, 2);
   assertEquals(requests.filter((u) => u.includes("start=0")).length, 1);
   assert(requests.some((u) => u.includes("start=100")));
+});
+
+Deno.test("SEC pending batch drains 150 filings across SEC page boundaries", async () => {
+  const prior = buildSecIntelCheckpoint({
+    page0Accessions: [accessionFor(1)],
+    page0HeadUpdatedAt: "2026-09-30T18:00:00Z",
+    pagesFetched: 2,
+    nowIso: "2026-10-01T10:00:00.000Z",
+    prior: null,
+  });
+  prior.anchor_accessions = [accessionFor(151)];
+  const anchorOnly = `<entry>
+<title>3 - EXAMPLE CO ANCHOR (0000000001) (Issuer)</title>
+<link href="https://www.sec.gov/Archives/edgar/data/1/000000000126000151-index.htm"/>
+<id>urn:tag:sec.gov,2008:accession-number=${accessionFor(151)}</id>
+<updated>2026-09-30T14:00:00-04:00</updated>
+<summary>Filed: 2026-09-30 AccNo: ${accessionFor(151)}</summary>
+<category term="3"/>
+</entry>`;
+  const pageBodies = new Map<number, string>([
+    [0, atomBodyRange(1, 100)],
+    [100, atomBodyRange(101, 50)],
+    [200, `<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom">${anchorOnly}</feed>`],
+  ]);
+  const store = createMemoryStore();
+  const src = secSource({ checkpoint: checkpointMetadataRecord(prior) });
+  src.pollIntervalSeconds = 0;
+  await store.saveSource(src);
+  let sawSecondPageDuringPending = false;
+  let runOffsetMs = 0;
+  const fetchImpl = (url: string | URL | Request) => {
+    const href = String(url);
+    const start = Number(new URL(href).searchParams.get("start") ?? "0");
+    const body = pageBodies.get(start) ?? atomBodyRange(1, 0);
+    return Promise.resolve(new Response(body, { status: 200 }));
+  };
+  const run = async () => {
+    const hadPending = readSecIntelContinuation(
+      (await store.listSources({ sourceKeys: ["sec-integration"] }))[0]?.metadata ?? {},
+    ) != null;
+    const calls: string[] = [];
+    const wrappedFetch = (url: string | URL | Request) => {
+      calls.push(String(url));
+      return fetchImpl(url);
+    };
+    runOffsetMs += 60_000;
+    const telemetry = await runCollectorBot({
+      bot: "sec",
+      adapter: secFilingsAdapter,
+      store,
+      now: new Date(Date.parse("2026-10-01T12:00:00.000Z") + runOffsetMs),
+      userAgent: "Stocksist test@example.com",
+      fetchImpl: wrappedFetch,
+      batchLimit: MAX_ITEMS_PER_SOURCE,
+      cikMap: new Map([["0000000001", ["TST"]]]),
+    });
+    if (hadPending && calls.some((u) => u.includes("start=100"))) {
+      sawSecondPageDuringPending = true;
+    }
+    return telemetry;
+  };
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const result = await run();
+    assertEquals(result.sourcesAttempted, 1);
+    assertEquals(result.errors.some((e) => e.category === "sec_intel_pending_gap"), false);
+    const pending = readSecIntelContinuation(
+      (await store.listSources({ sourceKeys: ["sec-integration"] }))[0]?.metadata ?? {},
+    );
+    if (!pending) break;
+  }
+  assertEquals(store.rawItems().length, 150);
+  assert(sawSecondPageDuringPending);
+  assertEquals(readSecIntelContinuation(
+    (await store.listSources({ sourceKeys: ["sec-integration"] }))[0].metadata,
+  ), null);
+});
+
+Deno.test("SEC ingest error after feed prepend keeps batch-open hash for catch-up", async () => {
+  const store = createMemoryStore();
+  const src = secSource();
+  await store.saveSource(src);
+  const body45 = atomBody(45);
+  const hash45 = await hashPageText(body45);
+  const body46 = atomBody(45, atomEntry(46));
+  let feedBody = body45;
+  await runCollectorBot({
+    bot: "sec",
+    adapter: secFilingsAdapter,
+    store,
+    now: new Date("2026-10-01T12:00:00.000Z"),
+    userAgent: "Stocksist test@example.com",
+    fetchImpl: () => Promise.resolve(new Response(feedBody, { status: 200 })),
+    batchLimit: MAX_ITEMS_PER_SOURCE,
+    cikMap: new Map([["0000000001", ["TST"]]]),
+  });
+  feedBody = body46;
+  let failOnce = true;
+  const baseInsert = store.insertRaw.bind(store);
+  store.insertRaw = async (item) => {
+    if (failOnce) {
+      failOnce = false;
+      throw new Error("simulated ingest failure");
+    }
+    return baseInsert(item);
+  };
+  const failed = await runCollectorBot({
+    bot: "sec",
+    adapter: secFilingsAdapter,
+    store,
+    now: new Date("2026-10-01T12:05:00.000Z"),
+    userAgent: "Stocksist test@example.com",
+    fetchImpl: () => Promise.resolve(new Response(feedBody, { status: 200 })),
+    batchLimit: MAX_ITEMS_PER_SOURCE,
+    cikMap: new Map([["0000000001", ["TST"]]]),
+  });
+  assertEquals(failed.sourcesFailed, 1);
+  const afterFail = (await store.listSources({ sourceKeys: ["sec-integration"] }))[0];
+  const pendingAfterFail = readSecIntelContinuation(afterFail.metadata);
+  assert(pendingAfterFail);
+  assertEquals(pendingAfterFail.page_content_hash, hash45);
+  store.insertRaw = baseInsert;
+  await runCollectorBot({
+    bot: "sec",
+    adapter: secFilingsAdapter,
+    store,
+    now: new Date("2026-10-01T12:06:00.000Z"),
+    userAgent: "Stocksist test@example.com",
+    fetchImpl: () => Promise.resolve(new Response(feedBody, { status: 200 })),
+    batchLimit: MAX_ITEMS_PER_SOURCE,
+    cikMap: new Map([["0000000001", ["TST"]]]),
+  });
+  assertEquals(store.rawItems().length, 45);
+  const catchUp = await runCollectorBot({
+    bot: "sec",
+    adapter: secFilingsAdapter,
+    store,
+    now: new Date("2026-10-01T12:10:00.000Z"),
+    userAgent: "Stocksist test@example.com",
+    fetchImpl: () => Promise.resolve(new Response(feedBody, { status: 200 })),
+    batchLimit: MAX_ITEMS_PER_SOURCE,
+    cikMap: new Map([["0000000001", ["TST"]]]),
+  });
+  assertEquals(catchUp.newItems, 1);
+  assertEquals(store.rawItems().length, 46);
 });
 
 Deno.test("SEC item ingest error preserves pending continuation index", async () => {
