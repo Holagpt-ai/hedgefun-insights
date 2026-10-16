@@ -6,13 +6,17 @@ import { useAuth } from "@/contexts/AuthContext";
 import { conditionLabel, formatAlertValue } from "@/config/price-alerts.config";
 import type { PriceAlertCondition } from "@/lib/price-alerts/types";
 import { priceAlertToastViewPath } from "@/lib/alerts/alert-workflow-navigation";
+import { getToastNotificationBaselineMs } from "@/lib/notifications/toast-notification-baseline";
 import {
+  filterPriceAlertToastBacklog,
   filterPriceAlertToastCandidates,
   markPriceAlertToastSeenDurable,
   markPriceAlertToastSeenInSession,
   mergePriceAlertToastSeenIds,
+  PRICE_ALERT_TOAST_BASELINE_NS,
   priceAlertToastSinceIso,
 } from "@/lib/price-alerts/toast-delivery";
+import { formatPriceAlertToastDescription } from "@/lib/price-alerts/toast-presentation";
 
 const POLL_MS = 60_000;
 
@@ -52,14 +56,30 @@ export function PriceAlertToastListener() {
 
   useEffect(() => {
     if (!user?.id || !q.data?.length) return;
-    const candidates = filterPriceAlertToastCandidates(q.data, sessionSeenRef.current);
+    const nowMs = Date.now();
+    sessionSeenRef.current = mergePriceAlertToastSeenIds(user.id, nowMs);
+    const baselineMs = getToastNotificationBaselineMs(PRICE_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
+
+    const backlog = filterPriceAlertToastBacklog(q.data, sessionSeenRef.current, baselineMs);
+    for (const row of backlog) {
+      sessionSeenRef.current.add(row.id);
+      markPriceAlertToastSeenInSession(user.id, row.id);
+      markPriceAlertToastSeenDurable(user.id, row.id, nowMs);
+    }
+
+    const candidates = filterPriceAlertToastCandidates(q.data, sessionSeenRef.current, { baselineMs });
     for (const row of candidates) {
       sessionSeenRef.current.add(row.id);
-      markPriceAlertToastSeenInSession(row.id);
-      markPriceAlertToastSeenDurable(user.id, row.id);
+      markPriceAlertToastSeenInSession(user.id, row.id);
+      markPriceAlertToastSeenDurable(user.id, row.id, nowMs);
       const cond = row.condition_type as PriceAlertCondition;
       const title = `${row.symbol} — ${conditionLabel(cond)}`;
-      const description = `Observed $${Number(row.observed_price).toFixed(2)} vs ${formatAlertValue(cond, Number(row.threshold))} (${row.data_latency})`;
+      const description = formatPriceAlertToastDescription({
+        observedPrice: Number(row.observed_price),
+        thresholdLabel: formatAlertValue(cond, Number(row.threshold)),
+        dataLatency: row.data_latency,
+        triggeredAt: row.triggered_at,
+      });
       const viewPath = priceAlertToastViewPath(row.symbol);
       toast(title, {
         description,

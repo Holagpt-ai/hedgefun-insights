@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   dedupePriceAlertTriggersById,
+  filterPriceAlertToastBacklog,
   filterPriceAlertToastCandidates,
   markPriceAlertToastSeenDurable,
   markPriceAlertToastSeenInSession,
@@ -12,12 +13,16 @@ import {
 
 const id = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
-function row(n: number, overrides: Partial<{ delivery_status: string; seen_at: string | null }> = {}) {
+function row(
+  n: number,
+  overrides: Partial<{ delivery_status: string; seen_at: string | null; triggered_at: string }> = {},
+) {
   return {
     id: id(n),
     delivery_status: "delivered",
     seen_at: null as string | null,
     symbol: "AAPL",
+    triggered_at: "2026-10-06T20:00:00.000Z",
     ...overrides,
   };
 }
@@ -84,9 +89,8 @@ describe("price alert toast delivery", () => {
   });
 
   it("shown alerts stay suppressed across refresh while seen_at is still null", () => {
-    sessionStorage.removeItem("stocksist-price-alert-toasts-v1");
-    markPriceAlertToastSeenInSession(id(1));
-    const reloaded = readSeenPriceAlertToastIds();
+    markPriceAlertToastSeenInSession("user-a", id(1));
+    const reloaded = readSeenPriceAlertToastIds("user-a");
     expect(filterPriceAlertToastCandidates([row(1)], reloaded)).toHaveLength(0);
     expect(filterPriceAlertToastCandidates([row(2)], reloaded).map((r) => r.id)).toEqual([id(2)]);
   });
@@ -97,6 +101,37 @@ describe("price alert toast delivery", () => {
     const merged = mergePriceAlertToastSeenIds("user-1");
     expect(filterPriceAlertToastCandidates([row(1)], merged)).toHaveLength(0);
     expect(filterPriceAlertToastCandidates([row(2)], merged).map((r) => r.id)).toEqual([id(2)]);
+  });
+
+  it("does not leak session seen ids across accounts", () => {
+    markPriceAlertToastSeenInSession("user-a", id(1));
+    expect(readSeenPriceAlertToastIds("user-b").has(id(1))).toBe(false);
+    expect(mergePriceAlertToastSeenIds("user-b").has(id(1))).toBe(false);
+  });
+
+  it("simulates another tab via refreshed durable merge for the same id", () => {
+    markPriceAlertToastSeenDurable("user-1", id(1), Date.now());
+    const tabB = mergePriceAlertToastSeenIds("user-1");
+    expect(filterPriceAlertToastCandidates([row(1)], tabB)).toHaveLength(0);
+  });
+
+  it("baseline suppresses pre-session backlog but allows live observations", () => {
+    const baselineMs = Date.parse("2026-10-06T20:00:00.000Z");
+    const backlogRow = row(1, { triggered_at: "2026-10-06T18:00:00.000Z" });
+    const liveRow = row(2, { triggered_at: "2026-10-06T20:05:00.000Z" });
+    expect(filterPriceAlertToastBacklog([backlogRow, liveRow], new Set(), baselineMs).map((r) => r.id)).toEqual([
+      id(1),
+    ]);
+    expect(
+      filterPriceAlertToastCandidates([backlogRow, liveRow], new Set(), { baselineMs }).map((r) => r.id),
+    ).toEqual([id(2)]);
+  });
+
+  it("allows a fresh event for the same symbol when id differs", () => {
+    const baselineMs = Date.parse("2026-10-06T20:00:00.000Z");
+    const seen = new Set([id(1)]);
+    const next = row(2, { triggered_at: "2026-10-06T20:10:00.000Z" });
+    expect(filterPriceAlertToastCandidates([row(1), next], seen, { baselineMs }).map((r) => r.id)).toEqual([id(2)]);
   });
 
   it("CASE H — session marks in-flight; durable seen_at remains source of truth on reload", () => {

@@ -2,19 +2,23 @@
 
 export type AccountToastHistoryEntry = { k: string; at: number };
 
-export function readAccountToastHistory(
+function storageKeyForUser(storageNamespace: string, userId: string): string {
+  return `${storageNamespace}:${userId.trim()}`;
+}
+
+export function readAccountToastHistoryEntries(
   storageNamespace: string,
   userId: string,
   input: { nowMs?: number; maxAgeMs: number; maxEntries: number },
-): Set<string> {
-  if (typeof localStorage === "undefined" || !userId.trim()) return new Set();
+): AccountToastHistoryEntry[] {
+  if (typeof localStorage === "undefined" || !userId.trim()) return [];
   const nowMs = input.nowMs ?? Date.now();
-  const key = `${storageNamespace}:${userId.trim()}`;
+  const key = storageKeyForUser(storageNamespace, userId);
   try {
     const raw = localStorage.getItem(key);
-    if (!raw) return new Set();
+    if (!raw) return [];
     const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return new Set();
+    if (!Array.isArray(parsed)) return [];
     const entries: AccountToastHistoryEntry[] = [];
     for (const item of parsed) {
       if (!item || typeof item !== "object") continue;
@@ -28,10 +32,18 @@ export function readAccountToastHistory(
     if (trimmed.length !== parsed.length) {
       localStorage.setItem(key, JSON.stringify(trimmed));
     }
-    return new Set(trimmed.map((e) => e.k));
+    return trimmed;
   } catch {
-    return new Set();
+    return [];
   }
+}
+
+export function readAccountToastHistory(
+  storageNamespace: string,
+  userId: string,
+  input: { nowMs?: number; maxAgeMs: number; maxEntries: number },
+): Set<string> {
+  return new Set(readAccountToastHistoryEntries(storageNamespace, userId, input).map((e) => e.k));
 }
 
 export function markAccountToastHistory(
@@ -42,13 +54,14 @@ export function markAccountToastHistory(
 ): void {
   if (typeof localStorage === "undefined" || !userId.trim() || !toastKey.trim()) return;
   const nowMs = input.nowMs ?? Date.now();
-  const storageKey = `${storageNamespace}:${userId.trim()}`;
-  const seen = readAccountToastHistory(storageNamespace, userId, input);
-  seen.add(toastKey);
-  const entries: AccountToastHistoryEntry[] = [...seen].map((k) => ({ k, at: nowMs }));
-  const trimmed = entries.slice(-input.maxEntries);
+  const key = storageKeyForUser(storageNamespace, userId);
+  const existing = readAccountToastHistoryEntries(storageNamespace, userId, input);
+  const byKey = new Map(existing.map((entry) => [entry.k, entry]));
+  byKey.set(toastKey, { k: toastKey, at: nowMs });
+  const merged = [...byKey.values()].filter((entry) => nowMs - entry.at <= input.maxAgeMs);
+  const trimmed = merged.slice(-input.maxEntries);
   try {
-    localStorage.setItem(storageKey, JSON.stringify(trimmed));
+    localStorage.setItem(key, JSON.stringify(trimmed));
   } catch {
     // quota / privacy mode
   }

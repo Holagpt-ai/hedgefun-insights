@@ -4,11 +4,14 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { scannerAlertToastViewPath } from "@/lib/alerts/alert-workflow-navigation";
+import { getToastNotificationBaselineMs } from "@/lib/notifications/toast-notification-baseline";
 import {
-  filterUnseenScannerAlerts,
+  filterLiveScannerAlertToasts,
+  filterScannerAlertToastBacklog,
   markScannerToastSeen,
   markScannerToastSeenDurable,
   mergeScannerToastSeenKeys,
+  SCANNER_ALERT_TOAST_BASELINE_NS,
   scannerAlertToastKey,
 } from "@/lib/scanner-alerts/toast-dedupe";
 import {
@@ -54,16 +57,28 @@ export function ScannerAlertToastListener() {
 
   useEffect(() => {
     if (!user?.id || !q.data?.length) return;
-    const unseen = filterUnseenScannerAlerts(q.data, seenRef.current);
-    for (const row of unseen.slice(0, 3)) {
+    const nowMs = Date.now();
+    seenRef.current = mergeScannerToastSeenKeys(user.id, nowMs);
+    const baselineMs = getToastNotificationBaselineMs(SCANNER_ALERT_TOAST_BASELINE_NS, user.id, nowMs);
+
+    const backlog = filterScannerAlertToastBacklog(q.data, seenRef.current, baselineMs);
+    for (const row of backlog) {
+      const toastKey = scannerAlertToastKey(row);
+      markScannerToastSeen(user.id, toastKey);
+      markScannerToastSeenDurable(user.id, toastKey, nowMs);
+      seenRef.current.add(toastKey);
+    }
+
+    const live = filterLiveScannerAlertToasts(q.data, seenRef.current, baselineMs);
+    for (const row of live.slice(0, 3)) {
       const toastKey = scannerAlertToastKey(row);
       const title = row.headline ||
         `${row.symbol} — ${formatScannerEventLabel(row.event_type) ?? row.event_type}`;
       const metrics = formatScannerAlertMetricLine(row);
       const repeat = repeatMoverContextLine(row);
       const description = [metrics, repeat].filter(Boolean).join("\n");
-      markScannerToastSeen(toastKey);
-      markScannerToastSeenDurable(user.id, toastKey);
+      markScannerToastSeen(user.id, toastKey);
+      markScannerToastSeenDurable(user.id, toastKey, nowMs);
       seenRef.current.add(toastKey);
       const viewPath = scannerAlertToastViewPath(row);
       toast(title, {

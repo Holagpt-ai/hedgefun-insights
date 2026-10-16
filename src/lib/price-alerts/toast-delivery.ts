@@ -4,10 +4,12 @@ import {
   mergeToastSeenSets,
   readAccountToastHistory,
 } from "@/lib/notifications/account-toast-history";
+import { isAtOrAfterBaseline } from "@/lib/notifications/toast-notification-baseline";
 
 export const PRICE_ALERT_TOAST_LOOKBACK_MS = 24 * 3600_000;
+export const PRICE_ALERT_TOAST_BASELINE_NS = "stocksist-price-alert-toast-baseline-v1";
 
-const SESSION_STORAGE_KEY = "stocksist-price-alert-toasts-v1";
+const SESSION_STORAGE_PREFIX = "stocksist-price-alert-toasts-v1";
 const DURABLE_STORAGE_NAMESPACE = "stocksist-price-alert-toasts-v2";
 const DURABLE_MAX_ENTRIES = 400;
 
@@ -15,7 +17,12 @@ export type PriceAlertTriggerToastRow = {
   id: string;
   delivery_status: string;
   seen_at: string | null;
+  triggered_at?: string;
 };
+
+export function priceAlertSessionStorageKey(userId: string): string {
+  return `${SESSION_STORAGE_PREFIX}:${userId.trim()}`;
+}
 
 export function priceAlertToastSinceIso(nowMs: number): string {
   return new Date(nowMs - PRICE_ALERT_TOAST_LOOKBACK_MS).toISOString();
@@ -26,6 +33,21 @@ export function isPriceAlertToastPending(row: PriceAlertTriggerToastRow): boolea
   return row.delivery_status === "delivered" && row.seen_at == null;
 }
 
+/** Market observation time (not toast delivery time). */
+export function priceAlertObservationMs(row: Pick<PriceAlertTriggerToastRow, "triggered_at">): number {
+  return Date.parse(row.triggered_at ?? "");
+}
+
+/** Live popup: pending, not yet seen locally, and observation is not pre-baseline backlog. */
+export function shouldSurfacePriceAlertToast(
+  row: PriceAlertTriggerToastRow,
+  baselineMs: number,
+): boolean {
+  if (!isPriceAlertToastPending(row)) return false;
+  const observedMs = priceAlertObservationMs(row);
+  return isAtOrAfterBaseline(observedMs, baselineMs);
+}
+
 /**
  * Triggers that should surface as a popup: undelivered-to-user (seen_at null),
  * with session + durable dedupe while seen_at persistence is in flight or failed.
@@ -33,11 +55,29 @@ export function isPriceAlertToastPending(row: PriceAlertTriggerToastRow): boolea
 export function filterPriceAlertToastCandidates<T extends PriceAlertTriggerToastRow & { id: string }>(
   rows: T[],
   sessionSeenIds: ReadonlySet<string>,
+  options?: { baselineMs?: number },
 ): T[] {
   const deduped = dedupePriceAlertTriggersById(rows);
-  return deduped.filter(
-    (row) => isPriceAlertToastPending(row) && !sessionSeenIds.has(row.id),
-  );
+  const baselineMs = options?.baselineMs;
+  return deduped.filter((row) => {
+    if (sessionSeenIds.has(row.id)) return false;
+    if (baselineMs == null) return isPriceAlertToastPending(row);
+    return shouldSurfacePriceAlertToast(row, baselineMs);
+  });
+}
+
+/** Pending rows that should be marked seen locally without a popup (historical backlog). */
+export function filterPriceAlertToastBacklog<T extends PriceAlertTriggerToastRow & { id: string }>(
+  rows: T[],
+  sessionSeenIds: ReadonlySet<string>,
+  baselineMs: number,
+): T[] {
+  const deduped = dedupePriceAlertTriggersById(rows);
+  return deduped.filter((row) => {
+    if (sessionSeenIds.has(row.id)) return false;
+    if (!isPriceAlertToastPending(row)) return false;
+    return !shouldSurfacePriceAlertToast(row, baselineMs);
+  });
 }
 
 export function dedupePriceAlertTriggersById<T extends { id: string }>(rows: T[]): T[] {
@@ -51,9 +91,10 @@ export function dedupePriceAlertTriggersById<T extends { id: string }>(rows: T[]
   return out;
 }
 
-export function readSeenPriceAlertToastIds(): Set<string> {
+export function readSeenPriceAlertToastIds(userId: string): Set<string> {
+  if (!userId.trim()) return new Set();
   try {
-    const raw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const raw = sessionStorage.getItem(priceAlertSessionStorageKey(userId));
     if (!raw) return new Set();
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return new Set();
@@ -72,14 +113,18 @@ export function readDurableSeenPriceAlertToastIds(userId: string, nowMs = Date.n
 }
 
 export function mergePriceAlertToastSeenIds(userId: string, nowMs = Date.now()): Set<string> {
-  return mergeToastSeenSets(readSeenPriceAlertToastIds(), readDurableSeenPriceAlertToastIds(userId, nowMs));
+  return mergeToastSeenSets(
+    readSeenPriceAlertToastIds(userId),
+    readDurableSeenPriceAlertToastIds(userId, nowMs),
+  );
 }
 
-export function markPriceAlertToastSeenInSession(triggerId: string): void {
-  const seen = readSeenPriceAlertToastIds();
+export function markPriceAlertToastSeenInSession(userId: string, triggerId: string): void {
+  if (!userId.trim()) return;
+  const seen = readSeenPriceAlertToastIds(userId);
   seen.add(triggerId);
   const trimmed = [...seen].slice(-200);
-  sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(trimmed));
+  sessionStorage.setItem(priceAlertSessionStorageKey(userId), JSON.stringify(trimmed));
 }
 
 /** Persist acknowledgment locally even when seen_at update fails or the tab reloads. */
