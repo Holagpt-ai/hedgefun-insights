@@ -34,7 +34,7 @@ serve(async (req) => {
 
   try {
     if (type === "index") {
-      const children = ["main", "stocks", "etfs", "ipos"];
+      const children = ["main", "stocks", "etfs"];
       const body = `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${children.map((c) => `<sitemap><loc>${esc(fnUrl + "?type=" + c)}</loc></sitemap>`).join("\n")}\n</sitemapindex>`;
       return new Response(body, { headers: HEADERS });
     }
@@ -83,16 +83,6 @@ serve(async (req) => {
       }
       const urls = etfs.map((r) =>
         urlEntry(`${BASE}/etf/${esc(r.symbol)}`, r.updated_at?.substring(0, 10), "weekly", "0.6")
-      );
-      const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
-      return new Response(body, { headers: HEADERS });
-    }
-
-    if (type === "ipos") {
-      const { data, error } = await sb.from("ipo_list").select("symbol, created_at").not("symbol", "is", null).order("ipo_date", { ascending: false });
-      if (error) throw error;
-      const urls = (data || []).filter((r) => r.symbol).map((r) =>
-        urlEntry(`${BASE}/ipos/${esc(r.symbol!)}`, r.created_at?.substring(0, 10), "monthly", "0.4")
       );
       const body = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join("\n")}\n</urlset>`;
       return new Response(body, { headers: HEADERS });
