@@ -62,5 +62,12 @@ describe("public SEO artifacts", () => {
     expect(html).toContain("https://stocksist.com/og-share-card.png");
     expect(html).not.toContain("logo.svg");
     expect(html.toLowerCase()).not.toContain("hedgefun");
+    expect(html.toLowerCase()).not.toContain("real-time stock prices");
+  });
+
+  it("robots.txt disallows login and account paths", () => {
+    const robots = readFileSync(join(process.cwd(), "public/robots.txt"), "utf8");
+    expect(robots).toContain("Disallow: /login");
+    expect(robots).toContain("Disallow: /account/");
   });
 });

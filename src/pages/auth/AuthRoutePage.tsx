@@ -30,6 +30,7 @@ export default function AuthRoutePage({ defaultMode }: AuthRoutePageProps) {
   return (
     <AuthModals
       mode={mode}
+      redirectAfterAuth={nextTarget}
       onClose={() => setClosed(true)}
       onSwitch={setMode}
     />

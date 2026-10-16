@@ -1,41 +1,60 @@
-// middleware.ts
+import {
+  CANONICAL_SITE_ORIGIN,
+  MIDDLEWARE_PUBLIC_META,
+  isNoindexPath,
+} from "./seo-boundaries.ts";
+
 export const config = {
   matcher: [
+    "/",
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/account/:path*",
+    "/auth/:path*",
+    "/login",
+    "/signup",
+    "/register",
+    "/sign-up",
+    "/reset-password",
+    "/unsubscribe",
+    "/unsubscribe/:path*",
+    "/journal",
+    "/journal/:path*",
     "/stocks/:ticker*",
     "/etf/:ticker*",
     "/screener",
     "/earnings",
     "/ipos",
+    "/ipos/:path*",
     "/news",
+    "/trending",
+    "/articles",
+    "/articles/:path*",
+    "/tools",
+    "/tools/:path*",
+    "/markets/:path*",
+    "/about",
+    "/contact",
+    "/terms",
+    "/privacy",
+    "/disclaimer",
+    "/faq",
+    "/affiliates",
+    "/pro",
+    "/newsletter",
+    "/chart",
+    "/methodology",
+    "/sitemap",
+    "/etfs/screener",
+    "/stocks/analysts",
+    "/stocks/compare",
+    "/stocks/lists",
   ],
 };
 
 const BRAND_NAME = "Stocksist";
-const SITE_URL = "https://stocksist.com";
-const OG_IMAGE_URL = "https://stocksist.com/og-share-card.png";
-
-const STATIC_META: Record<string, { title: string; description: string }> = {
-  "/screener": {
-    title: `Stock Screener — Filter & Find Stocks | ${BRAND_NAME}`,
-    description: `Screen and filter thousands of stocks by price, volume, market cap, sector, and more on ${BRAND_NAME}.`,
-  },
-  "/earnings": {
-    title: `Earnings Calendar — Upcoming & Recent Reports | ${BRAND_NAME}`,
-    description: `Track upcoming and recent earnings reports, EPS estimates, and actual results for US stocks on ${BRAND_NAME}.`,
-  },
-  "/ipos": {
-    title: `IPO Calendar 2026 — Upcoming & Recent IPOs | ${BRAND_NAME}`,
-    description: `Track upcoming and recent IPOs, expected offer prices, listing dates, and post-IPO performance on ${BRAND_NAME}.`,
-  },
-  "/news": {
-    title: `Stock Market News & Financial Analysis | ${BRAND_NAME}`,
-    description: `Get the latest stock market news, earnings coverage, economic updates, and financial analysis on ${BRAND_NAME}.`,
-  },
-  "/etf": {
-    title: `ETF List — All ETF Symbols & Prices | ${BRAND_NAME}`,
-    description: `Browse all US-listed ETFs with real-time prices, performance, holdings, and sector data on ${BRAND_NAME}.`,
-  },
-};
+const SITE_URL = CANONICAL_SITE_ORIGIN;
+const OG_IMAGE_URL = `${SITE_URL}/og-share-card.png`;
 
 function buildStockMeta(ticker: string, companyName: string | null) {
   const t = ticker.toUpperCase();
@@ -72,7 +91,9 @@ async function getAssets(origin: string): Promise<{ js: string; css: string }> {
 }
 
 async function getCompanyName(ticker: string): Promise<string | null> {
-  const supabaseKey = process.env.VITE_SUPABASE_ANON_KEY;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY ??
+    process.env.VITE_SUPABASE_ANON_KEY ??
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!supabaseKey) return null;
 
   try {
@@ -84,7 +105,7 @@ async function getCompanyName(ticker: string): Promise<string | null> {
           Authorization: `Bearer ${supabaseKey}`,
         },
         signal: AbortSignal.timeout(2000),
-      }
+      },
     );
     if (!res.ok) return null;
     const rows = await res.json() as { name: string }[];
@@ -94,33 +115,54 @@ async function getCompanyName(ticker: string): Promise<string | null> {
   }
 }
 
-function buildHtml(
-  title: string,
-  description: string,
-  canonicalUrl: string,
-  js: string,
-  css: string
-): string {
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/"/g, "&quot;");
+}
+
+function buildHtml(options: {
+  title: string;
+  description: string;
+  canonicalUrl?: string | null;
+  robotsNoindex?: boolean;
+  js: string;
+  css: string;
+}): string {
+  const title = escapeHtml(options.title);
+  const description = escapeHtml(options.description);
   const ogImage = OG_IMAGE_URL;
+  const canonical = options.canonicalUrl
+    ? `<link rel="canonical" href="${escapeHtml(options.canonicalUrl)}" />`
+    : "";
+  const robots = options.robotsNoindex
+    ? `<meta name="robots" content="noindex,nofollow" />`
+    : "";
+  const ogUrl = options.canonicalUrl
+    ? `<meta property="og:url" content="${escapeHtml(options.canonicalUrl)}" />`
+    : "";
+
   return `<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    ${robots}
     <title>${title}</title>
     <meta name="description" content="${description}" />
     <meta property="og:title" content="${title}" />
     <meta property="og:description" content="${description}" />
     <meta property="og:image" content="${ogImage}" />
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="${canonicalUrl}" />
+    ${ogUrl}
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="${title}" />
     <meta name="twitter:description" content="${description}" />
     <meta name="twitter:image" content="${ogImage}" />
-    <link rel="canonical" href="${canonicalUrl}" />
-    <script type="module" crossorigin src="${js}"></script>
-    <link rel="stylesheet" crossorigin href="${css}" />
+    ${canonical}
+    <script type="module" crossorigin src="${options.js}"></script>
+    <link rel="stylesheet" crossorigin href="${options.css}" />
   </head>
   <body>
     <div id="root"></div>
@@ -128,12 +170,35 @@ function buildHtml(
 </html>`;
 }
 
+function htmlResponse(html: string, extraHeaders: Record<string, string> = {}): Response {
+  return new Response(html, {
+    status: 200,
+    headers: {
+      "content-type": "text/html; charset=utf-8",
+      "cache-control": "public, max-age=3600, s-maxage=3600",
+      ...extraHeaders,
+    },
+  });
+}
+
 export default async function middleware(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
-  const canonicalUrl = `${SITE_URL}${pathname}`;
 
-  let meta: { title: string; description: string } | null = null;
+  if (isNoindexPath(pathname)) {
+    const { js, css } = await getAssets(url.origin);
+    const html = buildHtml({
+      title: `${BRAND_NAME}`,
+      description: "Private Stocksist account area.",
+      robotsNoindex: true,
+      canonicalUrl: null,
+      js,
+      css,
+    });
+    return htmlResponse(html, { "X-Robots-Tag": "noindex, nofollow" });
+  }
+
+  const canonicalUrl = `${SITE_URL}${pathname === "/" ? "/" : pathname.replace(/\/+$/, "") || "/"}`;
 
   if (pathname.startsWith("/stocks/")) {
     const ticker = pathname.replace("/stocks/", "").split("/")[0];
@@ -142,47 +207,50 @@ export default async function middleware(request: Request): Promise<Response> {
         getAssets(url.origin),
         getCompanyName(ticker.toUpperCase()),
       ]);
-      meta = buildStockMeta(ticker, companyName);
-      const html = buildHtml(meta.title, meta.description, canonicalUrl, js, css);
-      return new Response(html, {
-        status: 200,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "public, max-age=3600, s-maxage=3600",
-        },
-      });
+      const meta = buildStockMeta(ticker, companyName);
+      return htmlResponse(
+        buildHtml({
+          ...meta,
+          canonicalUrl,
+          js,
+          css,
+        }),
+      );
     }
-  } else if (pathname.startsWith("/etf/") && pathname.length > 5) {
+  }
+
+  if (pathname.startsWith("/etf/") && pathname.length > 5) {
     const ticker = pathname.replace("/etf/", "").split("/")[0];
     if (ticker) {
       const [{ js, css }, companyName] = await Promise.all([
         getAssets(url.origin),
         getCompanyName(ticker.toUpperCase()),
       ]);
-      meta = buildEtfMeta(ticker, companyName);
-      const html = buildHtml(meta.title, meta.description, canonicalUrl, js, css);
-      return new Response(html, {
-        status: 200,
-        headers: {
-          "content-type": "text/html; charset=utf-8",
-          "cache-control": "public, max-age=3600, s-maxage=3600",
-        },
-      });
+      const meta = buildEtfMeta(ticker, companyName);
+      return htmlResponse(
+        buildHtml({
+          ...meta,
+          canonicalUrl,
+          js,
+          css,
+        }),
+      );
     }
-  } else {
-    meta = STATIC_META[pathname] ?? null;
   }
 
-  if (!meta) return new Response(null, { status: 200 });
+  const staticMeta = MIDDLEWARE_PUBLIC_META[pathname] ??
+    (pathname.startsWith("/ipos/") ? MIDDLEWARE_PUBLIC_META["/ipos"] : null);
+  if (staticMeta) {
+    const { js, css } = await getAssets(url.origin);
+    return htmlResponse(
+      buildHtml({
+        ...staticMeta,
+        canonicalUrl,
+        js,
+        css,
+      }),
+    );
+  }
 
-  const { js, css } = await getAssets(url.origin);
-  const html = buildHtml(meta.title, meta.description, canonicalUrl, js, css);
-
-  return new Response(html, {
-    status: 200,
-    headers: {
-      "content-type": "text/html; charset=utf-8",
-      "cache-control": "public, max-age=3600, s-maxage=3600",
-    },
-  });
+  return fetch(request);
 }

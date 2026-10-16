@@ -432,18 +432,24 @@ export function RadarPanelBoard({
       </div>
       ) : (
       <div className="space-y-2 p-2" data-testid={`panel-cards-${panel}`}>
-        {rows.map((row) => (
-          <MobilePanelCard
-            key={row.symbol}
-            panel={panel}
-            row={row}
-            nowMs={nowMs}
-            selected={selectedSymbol === row.symbol}
-            onSelect={onSelect}
-            onOpenDetails={onOpenDetails}
-            closedSnapshot={closedSnapshot}
-          />
-        ))}
+        {rows.length === 0 ? (
+          <p className="px-3 py-6 text-center text-[12px] text-muted-foreground" data-testid={`panel-empty-${panel}`}>
+            {emptyMessage ?? (panel === "day_trade" ? DAY_TRADE_EMPTY_MESSAGE : "No qualifying names.")}
+          </p>
+        ) : (
+          rows.map((row) => (
+            <MobilePanelCard
+              key={row.symbol}
+              panel={panel}
+              row={row}
+              nowMs={nowMs}
+              selected={selectedSymbol === row.symbol}
+              onSelect={onSelect}
+              onOpenDetails={onOpenDetails}
+              closedSnapshot={closedSnapshot}
+            />
+          ))
+        )}
       </div>
       )}
     </section>
