@@ -31,6 +31,7 @@ import { previousCloseFromVerifiedMove, volumeVersusPriorSession } from "@/lib/s
 import {
   computeNhlDistancePct,
   computeNhlDistanceSides,
+  formatNhlDistanceCompact,
   formatNhlDistanceLabel,
 } from "@/lib/screeners/nhl-distance";
 import {
@@ -754,6 +755,32 @@ export function ScreenerTable({
             const showEvent = colKeys.has("range_event");
             const showHigh52 = colKeys.has("high_52w");
             const showLow52 = colKeys.has("low_52w");
+            const showNhlDistance = colKeys.has("nhl_distance");
+            const nhlDistanceSides = showNhlDistance
+              ? computeNhlDistanceSides({
+                  range_event: row.range_event,
+                  high_52w: row.high_52w,
+                  low_52w: row.low_52w,
+                  day_high: row.day_high,
+                  day_low: row.day_low,
+                })
+              : null;
+            const nhlDistanceCompact = showNhlDistance && nhlDistanceSides
+              ? formatNhlDistanceCompact(row.range_event, nhlDistanceSides)
+              : null;
+            const nhlDistanceTitle = showNhlDistance && nhlDistanceSides
+              ? formatNhlDistanceLabel(
+                  row.range_event,
+                  computeNhlDistancePct({
+                    range_event: row.range_event,
+                    high_52w: row.high_52w,
+                    low_52w: row.low_52w,
+                    day_high: row.day_high,
+                    day_low: row.day_low,
+                  }),
+                  nhlDistanceSides,
+                )
+              : null;
             const useGap = colKeys.has("gap_percent");
             const useMove = colKeys.has("change_percent");
             const movementValue = useGap
@@ -948,6 +975,14 @@ export function ScreenerTable({
                     <div>
                       <span className="text-muted-foreground">Prior 52W Low </span>
                       <span className="font-medium">{formatScreenerMetric(row.low_52w, "price")}</span>
+                    </div>
+                  )}
+                  {nhlDistanceCompact && (
+                    <div>
+                      <span className="text-muted-foreground">Dist </span>
+                      <span className="font-medium" title={nhlDistanceTitle ?? undefined}>
+                        {nhlDistanceCompact}
+                      </span>
                     </div>
                   )}
                 </div>

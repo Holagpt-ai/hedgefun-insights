@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   computeNhlDistancePct,
   computeNhlDistanceSides,
+  formatNhlDistanceCompact,
   formatNhlDistanceLabel,
 } from "@/lib/screeners/nhl-distance";
 
@@ -55,6 +56,17 @@ describe("NHL distance from verified baseline", () => {
         day_low: 9,
       }),
     ).toBeNull();
+  });
+
+  it("compact formatter exposes both sides for mobile", () => {
+    const sides = computeNhlDistanceSides({
+      range_event: "both",
+      high_52w: 10,
+      low_52w: 5,
+      day_high: 10.5,
+      day_low: 4.5,
+    });
+    expect(formatNhlDistanceCompact("both", sides)).toBe("H +5.00% · L -10.00%");
   });
 
   it("zero denominator stays null", () => {

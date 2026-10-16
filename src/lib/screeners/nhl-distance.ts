@@ -93,3 +93,28 @@ export function formatNhlDistanceLabel(
   }
   return formatNhlDistancePct(distancePct);
 }
+
+/** Compact label for mobile screener cards; null when side data is unavailable. */
+export function formatNhlDistanceCompact(
+  rangeEvent: RangeEvent | null,
+  sides: { highSidePct: number | null; lowSidePct: number | null },
+): string | null {
+  if (!rangeEvent) return null;
+  if (rangeEvent === "both") {
+    const parts: string[] = [];
+    if (sides.highSidePct !== null) {
+      parts.push(`H +${Math.abs(sides.highSidePct).toFixed(2)}%`);
+    }
+    if (sides.lowSidePct !== null) {
+      parts.push(`L ${sides.lowSidePct.toFixed(2)}%`);
+    }
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+  if (rangeEvent === "new_high" && sides.highSidePct !== null) {
+    return `+${Math.abs(sides.highSidePct).toFixed(2)}% vs 52W H`;
+  }
+  if (rangeEvent === "new_low" && sides.lowSidePct !== null) {
+    return `${sides.lowSidePct.toFixed(2)}% vs 52W L`;
+  }
+  return null;
+}

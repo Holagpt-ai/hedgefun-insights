@@ -170,12 +170,12 @@ Deno.test("nhl: zero eligible snapshots is not evaluated", () => {
   assertEquals(evidence.reason, "baseline_coverage_empty");
 });
 
-Deno.test("nhl: missing day range excludes symbol from eligible_count", () => {
+Deno.test("nhl: missing day range counts as eligible unresolved coverage", () => {
   const baseline: NhlBaselineQuote = {
     symbol: "AAA",
     high_52w: 20,
     low_52w: 5,
-    sessions_observed: 30,
+    sessions_observed: NHL_VERIFIED_MIN_SESSIONS,
   };
   const evidence = evaluateNhlEvidence(
     [ticker("AAA", { day: { c: 10, v: 1_000_000 }, prevDay: { c: 9, v: 1 } })],
@@ -184,8 +184,37 @@ Deno.test("nhl: missing day range excludes symbol from eligible_count", () => {
     [],
   );
   assertEquals(evidence.status, "not_evaluated");
-  assertEquals(evidence.eligible_count, 0);
-  assertEquals(evidence.reason, "baseline_coverage_empty");
+  assertEquals(evidence.eligible_count, 1);
+  assertEquals(evidence.evaluated_count, 0);
+  assertEquals(evidence.unresolved_count, 1);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
+});
+
+Deno.test("nhl: missing day range plus evaluated non-breakout blocks validated zero", () => {
+  const baselineOk: NhlBaselineQuote = {
+    symbol: "OK",
+    high_52w: 20,
+    low_52w: 5,
+    sessions_observed: NHL_VERIFIED_MIN_SESSIONS,
+  };
+  const evidence = evaluateNhlEvidence(
+    [
+      ticker("NORANGE", { day: { c: 10, v: 1_000_000 }, prevDay: { c: 9, v: 1 } }),
+      ticker("OK", {
+        day: { c: 10, h: 12, l: 8, v: 900_000 },
+        prevDay: { c: 9, v: 1 },
+      }),
+    ],
+    new Map([["OK", baselineOk]]),
+    "available",
+    [],
+  );
+  assertEquals(evidence.status, "not_evaluated");
+  assertEquals(evidence.eligible_count, 2);
+  assertEquals(evidence.evaluated_count, 1);
+  assertEquals(evidence.unresolved_count, 1);
+  assertEquals(evidence.qualified_count, 0);
+  assertEquals(evidence.reason, "baseline_coverage_incomplete");
 });
 
 Deno.test("nhl: full eligible coverage with matching baseline is evaluated", () => {
