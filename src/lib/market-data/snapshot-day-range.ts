@@ -81,3 +81,42 @@ export function expectedTradingSessionDate(now = new Date()): string {
 export function priorTradingSessionDate(sessionDate: string): string {
   return previousTradingDay(sessionDate).date;
 }
+
+export interface SnapshotDayRangePresentation {
+  highLabel: string;
+  lowLabel: string;
+  dayRangeValue: string;
+}
+
+/** User-facing labels for stats tables — never conflate unverified with prior/current session. */
+export function presentSnapshotDayRange(view: SnapshotDayRangeView): SnapshotDayRangePresentation {
+  const { kind, high, low, observationSessionDate } = view;
+  if (high == null || low == null) {
+    return { highLabel: "High", lowLabel: "Low", dayRangeValue: "n/a" };
+  }
+
+  const rangeText = `$${low.toFixed(2)} - $${high.toFixed(2)}`;
+
+  if (kind === "current_session") {
+    return {
+      highLabel: "High",
+      lowLabel: "Low",
+      dayRangeValue: rangeText,
+    };
+  }
+
+  if (kind === "prior_session") {
+    const sessionNote = observationSessionDate ? ` · ${observationSessionDate}` : "";
+    return {
+      highLabel: "Prior session high",
+      lowLabel: "Prior session low",
+      dayRangeValue: `${rangeText} (prior session${sessionNote})`,
+    };
+  }
+
+  return {
+    highLabel: "High (unverified session date)",
+    lowLabel: "Low (unverified session date)",
+    dayRangeValue: `${rangeText} · Session date unverified`,
+  };
+}
