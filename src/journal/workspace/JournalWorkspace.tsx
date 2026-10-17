@@ -224,15 +224,17 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
           ? [fallbackLiveAccount]
           : [];
 
+  const liveAccountIds = useMemo(
+    () => ownedLiveAccounts.map((account) => account.id),
+    [ownedLiveAccounts],
+  );
+
   const effectiveFilters = useMemo(
     () =>
-      sanitizeLiveFilters(
-        filters,
-        accounts.map((account) => account.id),
-        mode,
-        { validateAccountIds: mode === "demo" || liveAccountsReady },
-      ),
-    [filters, accounts, mode, liveAccountsReady],
+      sanitizeLiveFilters(filters, liveAccountIds, mode, {
+        validateAccountIds: liveAccountsReady,
+      }),
+    [filters, liveAccountIds, mode, liveAccountsReady],
   );
 
   useEffect(() => {
@@ -252,12 +254,9 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
 
   const persistFilters = (next: FilterPrefs) => {
     if (!userId || filtersUserId !== userId) return;
-    const sanitized = sanitizeLiveFilters(
-      next,
-      accounts.map((account) => account.id),
-      mode,
-      { validateAccountIds: mode === "demo" || liveAccountsReady },
-    );
+    const sanitized = sanitizeLiveFilters(next, liveAccountIds, mode, {
+      validateAccountIds: liveAccountsReady,
+    });
     setFilters(sanitized);
     writeUserJson(FILTERS_KEY, userId, sanitized);
   };

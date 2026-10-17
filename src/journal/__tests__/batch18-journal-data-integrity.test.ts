@@ -102,6 +102,78 @@ describe("Batch 18 — Journal data integrity", () => {
     expect(next.accountId).toBe("acct-b");
   });
 
+  it("does not reset a live account selection against demo workspace account ids", () => {
+    const next = sanitizeLiveFilters(
+      { accountId: "acct-live-1", range: "mtd", asset: "all" },
+      ["demo-account-main"],
+      "demo",
+      { validateAccountIds: false },
+    );
+    expect(next.accountId).toBe("acct-live-1");
+  });
+
+  it("validates live account selection only against loaded live account ids", () => {
+    const kept = sanitizeLiveFilters(
+      { accountId: "acct-live-1", range: "mtd", asset: "all" },
+      ["acct-live-1"],
+      "demo",
+      { validateAccountIds: true },
+    );
+    expect(kept.accountId).toBe("acct-live-1");
+
+    const reset = sanitizeLiveFilters(
+      { accountId: "acct-live-1", range: "mtd", asset: "all" },
+      ["acct-other"],
+      "live",
+      { validateAccountIds: true },
+    );
+    expect(reset.accountId).toBe("all");
+  });
+
+  it("withholds aggregate reported timestamp when any account as-of is missing or mismatched", () => {
+    const missingAsOf = resolveReportedBalanceForScope(
+      [
+        { id: "a", name: "A", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 100, reportedAsOf: "2026-03-16T12:00:00.000Z" },
+        { id: "b", name: "B", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 50, reportedAsOf: null },
+      ],
+      "all",
+    );
+    expect(missingAsOf.reportedBalance).toBeNull();
+    expect(missingAsOf.reportedAsOf).toBeNull();
+
+    const mismatched = resolveReportedBalanceForScope(
+      [
+        { id: "a", name: "A", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 100, reportedAsOf: "2026-03-16T12:00:00.000Z" },
+        { id: "b", name: "B", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 50, reportedAsOf: "2026-03-17T12:00:00.000Z" },
+      ],
+      "all",
+    );
+    expect(mismatched.reportedBalance).toBeNull();
+    expect(mismatched.reportedAsOf).toBeNull();
+
+    const compatible = resolveReportedBalanceForScope(
+      [
+        { id: "a", name: "A", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 100, reportedAsOf: "2026-03-16T12:00:00.000Z" },
+        { id: "b", name: "B", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 50, reportedAsOf: "2026-03-16T12:00:00.000Z" },
+      ],
+      "all",
+    );
+    expect(compatible.reportedBalance).toBe(150);
+    expect(compatible.reportedAsOf).toBe("2026-03-16T12:00:00.000Z");
+  });
+
+  it("marks All Accounts reconciliation unavailable when aggregate reported evidence is incomplete", () => {
+    const view = resolveJournalEquityView({
+      beginningBalance: 10_000,
+      reportedBalance: null,
+      reportedAsOf: null,
+      realizedPnl: parseDecimal("0"),
+    });
+    expect(view.equityAvailable).toBe(true);
+    expect(view.reconciliationState.state).toBe("pending_review");
+    expect(view.reconciliationState.difference).toBeNull();
+  });
+
   it("uses ET calendar boundaries for today and week filters", () => {
     const mondayLateEt = new Date("2026-03-16T23:30:00.000Z"); // 7:30 PM ET
     expect(rangeBounds("today", mondayLateEt)).toEqual({ from: "2026-03-16", to: "2026-03-16" });

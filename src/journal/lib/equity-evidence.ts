@@ -46,6 +46,14 @@ export function resolveJournalEquityView(params: {
     realizedPnl: params.realizedPnl,
   });
 
+  if (reported == null) {
+    return {
+      equity,
+      equityAvailable: true,
+      reconciliationState: unavailableJournalReconciliation(null),
+    };
+  }
+
   return {
     equity,
     equityAvailable: true,

@@ -50,15 +50,18 @@ export function resolveReportedBalanceForScope(
     if (!allReported) {
       return { reportedBalance: null, reportedAsOf: null };
     }
-    const asOfValues = accounts.map((a) => a.reportedAsOf).filter((v): v is string => Boolean(v?.trim()));
+    const asOfValues = accounts.map((a) => a.reportedAsOf?.trim() ?? "");
+    if (!asOfValues.every(Boolean)) {
+      return { reportedBalance: null, reportedAsOf: null };
+    }
     const uniqueAsOf = new Set(asOfValues);
-    if (uniqueAsOf.size > 1) {
+    if (uniqueAsOf.size !== 1) {
       return { reportedBalance: null, reportedAsOf: null };
     }
     const reportedBalance = accounts.reduce((sum, a) => sum + (a.reportedBalance ?? 0), 0);
     return {
       reportedBalance,
-      reportedAsOf: asOfValues[0] ?? null,
+      reportedAsOf: asOfValues[0],
     };
   }
   const selected = accounts.find((a) => a.id === selectedAccountId);
