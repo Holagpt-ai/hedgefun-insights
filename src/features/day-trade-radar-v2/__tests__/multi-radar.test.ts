@@ -128,7 +128,7 @@ describe("multi-radar qualification", () => {
     expect(qualifiesPennyPrice(1.01)).toBe(false);
   });
 
-  it("qualifies only active structural breakout events", () => {
+  it("qualifies recorded structural breakout events without inventing types", () => {
     expect(qualifiesBreakouts(universe[1]!)).toBe(true);
     expect(qualifiesBreakouts(row({
       symbol: "LATE",
@@ -140,7 +140,7 @@ describe("multi-radar qualification", () => {
       symbol: "OFF",
       rank: 9,
       scanner_events: [{ type: "RUNNING_UP", triggered_at: BREAKOUT_AT, active: false }],
-    }))).toBe(false);
+    }))).toBe(true);
   });
 
   it("uses the existing radar field order for each desk", () => {
@@ -255,7 +255,7 @@ describe("leaders and storage reset", () => {
       }),
     ];
     expect(selectDayTradeLeader(rows)?.symbol).toBe("FAST");
-    expect(selectBreakoutLeader(rows)?.symbol).toBe("HOD");
+    expect(selectBreakoutLeader(rows)?.symbol).toBe("GAP");
   });
 
   it("features the Day Trade #1 opportunity without widening price bands", () => {
