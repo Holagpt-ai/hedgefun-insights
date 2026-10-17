@@ -17,7 +17,6 @@ import {
   isRadarV2ActiveSession,
   type RadarV2Decision,
 } from "@/lib/screeners/radar-v2-adapter";
-import { surveillanceTradingDateFromMs } from "@/lib/screeners/screener-session";
 import { formatEtClock } from "@/lib/screeners/screener-trigger-time";
 
 export const PM_SUMMARY_EVENT_TYPES = new Set([
@@ -51,7 +50,10 @@ export interface PmRadarBoardContext {
   statusMessage: string | null;
   sessionKind: string | null;
   generationId: string | null;
-  preservedPriorGeneration: boolean;
+  /** Stale, soft-preserved, or closed-session board — not live, may still be same trading date. */
+  preservedNotLive: boolean;
+  /** Radar row trading date differs from the applicable exchange session date. */
+  priorSessionEvidence: boolean;
 }
 
 function easternCalendarDateFromMs(ms: number): string | null {
@@ -75,8 +77,7 @@ export function resolvePmApplicableTradingDate(nowMs: number): {
   isTradingDay: boolean;
 } {
   const et = getEtParts(new Date(nowMs));
-  const surveillanceDate = surveillanceTradingDateFromMs(nowMs) ?? et.date;
-  const applicableTradingDate = tradingSessionDateForInstant(surveillanceDate, et.minutes);
+  const applicableTradingDate = tradingSessionDateForInstant(et.date, et.minutes);
   return {
     applicableTradingDate,
     consumerEtDate: et.date,
@@ -104,7 +105,8 @@ export function resolvePmRadarBoardContext(input: {
     statusMessage: null,
     sessionKind: null,
     generationId: null,
-    preservedPriorGeneration: false,
+    preservedNotLive: false,
+    priorSessionEvidence: false,
   };
 
   if (input.loading && !input.decision) {
@@ -120,7 +122,11 @@ export function resolvePmRadarBoardContext(input: {
         "Showing preserved Radar snapshot from the last verified refresh. This may not reflect the latest generation.",
       sessionKind: input.decision?.session ?? null,
       generationId: view?.rows[0]?.sync_run_id ?? null,
-      preservedPriorGeneration: true,
+      preservedNotLive: true,
+      priorSessionEvidence: pmBoardRowsArePriorSession(
+        view?.rows[0] as { radar_trading_date?: string | null } | undefined,
+        session.applicableTradingDate,
+      ),
     };
   }
 
@@ -138,6 +144,9 @@ export function resolvePmRadarBoardContext(input: {
 
   const view = decision.view;
   const generationId = view.rows[0]?.sync_run_id ?? null;
+  const firstRow = view.rows[0] as { radar_trading_date?: string | null } | undefined;
+  const rowDate = firstRow?.radar_trading_date ?? null;
+  const priorSession = pmBoardRowsArePriorSession(firstRow, session.applicableTradingDate);
 
   if (view.closedSnapshot === true) {
     return {
@@ -147,7 +156,8 @@ export function resolvePmRadarBoardContext(input: {
         "Closed-session Radar snapshot for historical review — not live current-session activity.",
       sessionKind: decision.session,
       generationId,
-      preservedPriorGeneration: true,
+      preservedNotLive: true,
+      priorSessionEvidence: priorSession,
     };
   }
 
@@ -159,7 +169,8 @@ export function resolvePmRadarBoardContext(input: {
         "Radar generation is stale. Preserved rows are shown for review, not as live current-session activity.",
       sessionKind: decision.session,
       generationId,
-      preservedPriorGeneration: true,
+      preservedNotLive: true,
+      priorSessionEvidence: priorSession,
     };
   }
 
@@ -180,7 +191,8 @@ export function resolvePmRadarBoardContext(input: {
         "US equity session is closed today. Radar rows are preserved for historical review, not as confirmed current PM highlights.",
       sessionKind: decision.session,
       generationId,
-      preservedPriorGeneration: true,
+      preservedNotLive: true,
+      priorSessionEvidence: priorSession,
     };
   }
 
@@ -191,20 +203,20 @@ export function resolvePmRadarBoardContext(input: {
       statusMessage: `Radar session "${decision.session ?? "unknown"}" is not an active trading session. Shown for review only.`,
       sessionKind: decision.session,
       generationId,
-      preservedPriorGeneration: true,
+      preservedNotLive: true,
+      priorSessionEvidence: priorSession,
     };
   }
 
-  const firstRow = view.rows[0] as { radar_trading_date?: string | null } | undefined;
-  const rowDate = firstRow?.radar_trading_date ?? null;
-  if (rowDate && rowDate !== session.applicableTradingDate) {
+  if (priorSession) {
     return {
       ...base,
       boardState: "preserved_snapshot",
       statusMessage: `Radar board is from session ${rowDate}; applicable trading date is ${session.applicableTradingDate}. Shown for review, not as live current-session activity.`,
       sessionKind: decision.session,
       generationId,
-      preservedPriorGeneration: true,
+      preservedNotLive: true,
+      priorSessionEvidence: true,
     };
   }
 
@@ -298,6 +310,30 @@ export function pmHighlightFreshnessLabel(freshness: PmHighlightFreshness): stri
     default:
       return "Recorded evidence";
   }
+}
+
+export function pmHighlightFreshnessLabelForContext(
+  freshness: PmHighlightFreshness,
+  context: Pick<PmRadarBoardContext, "boardState" | "preservedNotLive" | "priorSessionEvidence">,
+): string {
+  const base = pmHighlightFreshnessLabel(freshness);
+  if (
+    context.boardState === "preserved_snapshot" &&
+    context.preservedNotLive &&
+    !context.priorSessionEvidence &&
+    freshness !== "prior_session_snapshot"
+  ) {
+    return `${base} · preserved · not live`;
+  }
+  return base;
+}
+
+function pmBoardRowsArePriorSession(
+  firstRow: { radar_trading_date?: string | null } | undefined,
+  applicableTradingDate: string,
+): boolean {
+  const rowDate = firstRow?.radar_trading_date ?? null;
+  return Boolean(rowDate && rowDate !== applicableTradingDate);
 }
 
 export function resolvePmPrimaryEventObservation(

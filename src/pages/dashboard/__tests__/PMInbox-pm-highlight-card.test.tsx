@@ -28,6 +28,36 @@ function sampleRow(over: Partial<PmSessionSummaryRow> = {}): PmSessionSummaryRow
 }
 
 describe("PmSessionSummaryCard", () => {
+  it("renders preserved same-session copy without prior session wording", () => {
+    render(
+      <MemoryRouter>
+        <PmSessionSummaryCard
+          row={sampleRow({
+            freshness: "late_confirmed",
+            freshnessLabel: "Late-session recorded · preserved · not live",
+          })}
+        />
+      </MemoryRouter>,
+    );
+    const text = screen.getByTestId("pm-highlight-AAA").textContent ?? "";
+    expect(text).toContain("preserved · not live");
+    expect(text).not.toContain("Prior session");
+  });
+
+  it("shows prior session label only for prior-session evidence rows", () => {
+    render(
+      <MemoryRouter>
+        <PmSessionSummaryCard
+          row={sampleRow({
+            freshness: "prior_session_snapshot",
+            freshnessLabel: "Prior session snapshot",
+          })}
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("pm-highlight-AAA").textContent).toContain("Prior session snapshot");
+  });
+
   it("does not duplicate ET in observation time display", () => {
     render(
       <MemoryRouter>

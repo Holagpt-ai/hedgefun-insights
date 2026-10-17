@@ -14,7 +14,8 @@ function board(): PmRadarBoardContext {
     statusMessage: null,
     sessionKind: "market",
     generationId: "gen",
-    preservedPriorGeneration: false,
+    preservedNotLive: false,
+    priorSessionEvidence: false,
   };
 }
 

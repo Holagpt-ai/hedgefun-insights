@@ -1,7 +1,7 @@
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import {
   classifyPmPrimaryEventFreshness,
-  pmHighlightFreshnessLabel,
+  pmHighlightFreshnessLabelForContext,
   pmRadarBoardAllowsHighlightBuild,
   resolvePmPrimaryEventObservation,
   type PmHighlightFreshness,
@@ -66,7 +66,7 @@ export function buildPmSessionSummaryRows(
     });
     if (!freshness) continue;
 
-    if (context.preservedPriorGeneration) {
+    if (context.priorSessionEvidence) {
       freshness = "prior_session_snapshot";
     }
 
@@ -81,7 +81,7 @@ export function buildPmSessionSummaryRows(
       observationTimeEt: observation.atUtc ? formatEtClock(observation.atUtc) : null,
       sourceTradingSession: row.radar_trading_date ?? context.applicableTradingDate,
       freshness,
-      freshnessLabel: pmHighlightFreshnessLabel(freshness),
+      freshnessLabel: pmHighlightFreshnessLabelForContext(freshness, context),
       rvol5m: finiteOrNull(row.rvol_5m),
       volumeVelocity: finiteOrNull(row.vol_velocity),
       distanceFromHodPct: finiteOrNull(row.hod_distance_percent ?? row.distance_from_hod_pct),

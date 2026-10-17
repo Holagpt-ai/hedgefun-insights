@@ -22,7 +22,8 @@ function board(over: Partial<PmRadarBoardContext> = {}): PmRadarBoardContext {
     statusMessage: null,
     sessionKind: "market",
     generationId: "gen-1",
-    preservedPriorGeneration: false,
+    preservedNotLive: false,
+    priorSessionEvidence: false,
     ...over,
   };
 }
@@ -190,7 +191,8 @@ describe("Batch 17 — PM session intelligence", () => {
       decision: radarDecision({ status: "available", rows: [radarRow({})] }),
     });
     expect(ctx.boardState).toBe("preserved_snapshot");
-    expect(ctx.preservedPriorGeneration).toBe(true);
+    expect(ctx.preservedNotLive).toBe(true);
+    expect(ctx.priorSessionEvidence).toBe(false);
   });
 
   it("stale Radar view is preserved snapshot, not ready", () => {
@@ -201,7 +203,8 @@ describe("Batch 17 — PM session intelligence", () => {
       decision: radarDecision({ status: "stale", rows: [radarRow({})] }),
     });
     expect(ctx.boardState).toBe("preserved_snapshot");
-    expect(ctx.preservedPriorGeneration).toBe(true);
+    expect(ctx.preservedNotLive).toBe(true);
+    expect(ctx.priorSessionEvidence).toBe(false);
   });
 
   it("closed snapshot is preserved, not ready", () => {
@@ -226,7 +229,8 @@ describe("Batch 17 — PM session intelligence", () => {
       decision: radarDecision({ status: "available", rows: [radarRow({})] }),
     });
     expect(ctx.boardState).toBe("ready");
-    expect(ctx.preservedPriorGeneration).toBe(false);
+    expect(ctx.preservedNotLive).toBe(false);
+    expect(ctx.priorSessionEvidence).toBe(false);
   });
 
   it("Sunday consumer date never yields ready board for current highlights", () => {
@@ -258,10 +262,70 @@ describe("Batch 17 — PM session intelligence", () => {
     expect(resolved.applicableTradingDate).toBe("2025-12-31");
   });
 
-  it("session rollover before 4 AM ET uses exchange calendar, not raw surveillance Sunday", () => {
-    const early = Date.parse("2026-03-16T07:00:00.000Z"); // 3 AM ET Tuesday
-    const resolved = resolvePmApplicableTradingDate(early);
-    expect(resolved.applicableTradingDate).toBe("2026-03-13");
+  it("Tuesday 03:00 ET resolves to Monday exchange session (single rollover)", () => {
+    const tuesdayPreOpen = Date.parse("2026-03-17T07:00:00.000Z");
+    expect(resolvePmApplicableTradingDate(tuesdayPreOpen).applicableTradingDate).toBe("2026-03-16");
+  });
+
+  it("Monday 03:00 ET resolves to prior Friday exchange session", () => {
+    const mondayPreOpen = Date.parse("2026-03-16T07:00:00.000Z");
+    expect(resolvePmApplicableTradingDate(mondayPreOpen).applicableTradingDate).toBe("2026-03-13");
+  });
+
+  it("Saturday 03:00 ET resolves to prior Friday exchange session", () => {
+    const saturdayPreOpen = Date.parse("2026-03-14T07:00:00.000Z");
+    expect(resolvePmApplicableTradingDate(saturdayPreOpen).applicableTradingDate).toBe("2026-03-13");
+  });
+
+  it("Monday 10:00 ET during regular hours resolves to same trading day", () => {
+    const mondayRth = Date.parse("2026-03-16T14:00:00.000Z");
+    const resolved = resolvePmApplicableTradingDate(mondayRth);
+    expect(resolved.applicableTradingDate).toBe("2026-03-16");
+    expect(resolved.isTradingDay).toBe(true);
+  });
+
+  it("New Year's Day pre-4 AM resolves to prior exchange session", () => {
+    const nyePreOpen = Date.parse("2026-01-01T08:00:00.000Z"); // 3 AM ET
+    expect(resolvePmApplicableTradingDate(nyePreOpen).applicableTradingDate).toBe("2025-12-31");
+  });
+
+  it("stale same-session board keeps event freshness, not prior session label", () => {
+    const ctx = resolvePmRadarBoardContext({
+      loading: false,
+      nowMs: NOW_LATE,
+      observe: freshObserve(),
+      decision: radarDecision({ status: "stale", rows: [radarRow({})] }),
+    });
+    const rows = buildPmSessionSummaryRows([radarRow({})], ctx, 8);
+    expect(rows[0]?.freshness).toBe("late_confirmed");
+    expect(rows[0]?.freshnessLabel).toContain("preserved · not live");
+    expect(rows[0]?.freshnessLabel).not.toContain("Prior session");
+  });
+
+  it("prior-session board context flags row-date mismatch separately from stale preserve", () => {
+    const ctx = resolvePmRadarBoardContext({
+      loading: false,
+      nowMs: NOW_LATE,
+      observe: freshObserve(),
+      decision: radarDecision({
+        status: "available",
+        rows: [radarRow({ radar_trading_date: "2026-03-13" })],
+      }),
+    });
+    expect(ctx.priorSessionEvidence).toBe(true);
+    expect(ctx.preservedNotLive).toBe(true);
+    expect(ctx.statusMessage).toContain("2026-03-13");
+  });
+
+  it("prior-session evidence overrides highlight freshness label", () => {
+    const ctx = board({
+      boardState: "preserved_snapshot",
+      preservedNotLive: true,
+      priorSessionEvidence: true,
+    });
+    const rows = buildPmSessionSummaryRows([radarRow({})], ctx, 8);
+    expect(rows[0]?.freshness).toBe("prior_session_snapshot");
+    expect(rows[0]?.freshnessLabel).toBe("Prior session snapshot");
   });
 
   it("rejects malformed primary event timestamps in summary build", () => {
