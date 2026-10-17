@@ -2,6 +2,7 @@ import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display"
 import {
   classifyPmPrimaryEventFreshness,
   pmHighlightFreshnessLabel,
+  pmRadarBoardAllowsHighlightBuild,
   resolvePmPrimaryEventObservation,
   type PmHighlightFreshness,
   type PmRadarBoardContext,
@@ -46,6 +47,10 @@ export function buildPmSessionSummaryRows(
   context: PmRadarBoardContext,
   limit = 8,
 ): PmSessionSummaryRow[] {
+  if (!pmRadarBoardAllowsHighlightBuild(context.boardState)) {
+    return [];
+  }
+
   const candidates: PmSessionSummaryRow[] = [];
 
   for (const row of rows) {

@@ -8,8 +8,9 @@ import { buildPmSessionSummaryRows } from "@/lib/inbox/pm-session-summary";
 import { dedupePmSessionSummaryRows } from "@/lib/inbox/pm-session-summary-dedupe";
 import type { PmRadarBoardContext } from "@/lib/inbox/pm-session-summary";
 
-const APPLICABLE = "2026-03-15";
-const NOW_LATE = Date.parse("2026-03-15T20:30:00.000Z"); // 4:30 PM ET
+/** Monday — genuine US equity trading day (not Sunday 2026-03-15). */
+const APPLICABLE = "2026-03-16";
+const NOW_LATE = Date.parse("2026-03-16T20:30:00.000Z"); // 4:30 PM ET
 
 function board(over: Partial<PmRadarBoardContext> = {}): PmRadarBoardContext {
   return {
@@ -32,12 +33,45 @@ function radarRow(over: Record<string, unknown>) {
     rank: 1,
     volume: 2_000_000,
     primary_scanner_event: "RUNNING_UP",
-    primary_scanner_event_at: "2026-03-15T20:00:00.000Z",
+    primary_scanner_event_at: "2026-03-16T20:00:00.000Z",
     radar_trading_date: APPLICABLE,
+    sync_run_id: "gen-1",
     rvol_5m: 3.2,
     vol_velocity: 50_000,
     hod_distance_percent: 1.1,
     ...over,
+  };
+}
+
+function freshObserve() {
+  return {
+    lastSuccessfulRefreshAt: "2026-03-16T19:00:00.000Z",
+    preserved: false,
+    preserveReason: null,
+    previousGenerationId: null,
+    preservedSyncedAt: null,
+  };
+}
+
+function radarDecision(
+  view: {
+    status: "available" | "stale" | "empty";
+    rows: ReturnType<typeof radarRow>[];
+    synced_at?: string | null;
+    closedSnapshot?: boolean;
+  },
+) {
+  return {
+    source: "radar-v2" as const,
+    reason: "radar_v2_available",
+    session: "market",
+    view: {
+      status: view.status,
+      rows: view.rows as never[],
+      synced_at: view.synced_at ?? "2026-03-16T19:00:00.000Z",
+      provider_as_of_max: null,
+      closedSnapshot: view.closedSnapshot,
+    },
   };
 }
 
@@ -46,7 +80,7 @@ describe("Batch 17 — PM session intelligence", () => {
     expect(
       classifyPmPrimaryEventFreshness({
         eventType: "RUNNING_UP",
-        eventAtUtc: "2026-03-15T20:00:00.000Z",
+        eventAtUtc: "2026-03-16T20:00:00.000Z",
         radarTradingDate: APPLICABLE,
         applicableTradingDate: APPLICABLE,
         nowMs: NOW_LATE,
@@ -58,7 +92,19 @@ describe("Batch 17 — PM session intelligence", () => {
     expect(
       classifyPmPrimaryEventFreshness({
         eventType: "HOD_BREAK",
-        eventAtUtc: "2026-03-15T14:30:00.000Z",
+        eventAtUtc: "2026-03-16T14:30:00.000Z",
+        radarTradingDate: APPLICABLE,
+        applicableTradingDate: APPLICABLE,
+        nowMs: NOW_LATE,
+      }),
+    ).toBe("historical_same_session");
+  });
+
+  it("does not treat morning LATE_DAY_ACCELERATION as late confirmed", () => {
+    expect(
+      classifyPmPrimaryEventFreshness({
+        eventType: "LATE_DAY_ACCELERATION",
+        eventAtUtc: "2026-03-16T14:00:00.000Z",
         radarTradingDate: APPLICABLE,
         applicableTradingDate: APPLICABLE,
         nowMs: NOW_LATE,
@@ -70,7 +116,7 @@ describe("Batch 17 — PM session intelligence", () => {
     expect(
       classifyPmPrimaryEventFreshness({
         eventType: "HOD_BREAK",
-        eventAtUtc: "2026-03-16T14:30:00.000Z",
+        eventAtUtc: "2026-03-17T14:30:00.000Z",
         radarTradingDate: APPLICABLE,
         applicableTradingDate: APPLICABLE,
         nowMs: NOW_LATE,
@@ -79,7 +125,7 @@ describe("Batch 17 — PM session intelligence", () => {
     expect(
       classifyPmPrimaryEventFreshness({
         eventType: "HOD_BREAK",
-        eventAtUtc: "2026-03-15T23:00:00.000Z",
+        eventAtUtc: "2026-03-16T23:00:00.000Z",
         radarTradingDate: APPLICABLE,
         applicableTradingDate: APPLICABLE,
         nowMs: NOW_LATE,
@@ -135,26 +181,87 @@ describe("Batch 17 — PM session intelligence", () => {
       loading: false,
       nowMs: NOW_LATE,
       observe: {
-        lastSuccessfulRefreshAt: "2026-03-15T19:00:00.000Z",
+        lastSuccessfulRefreshAt: "2026-03-16T19:00:00.000Z",
         preserved: true,
         preserveReason: "radar_v2_fetch_threw",
         previousGenerationId: "old-gen",
-        preservedSyncedAt: "2026-03-15T18:00:00.000Z",
+        preservedSyncedAt: "2026-03-16T18:00:00.000Z",
       },
-      decision: {
-        source: "radar-v2",
-        reason: "ok",
-        session: "market",
-        view: {
-          status: "available",
-          rows: [radarRow({}) as never],
-          synced_at: "2026-03-15T19:00:00.000Z",
-          provider_as_of_max: null,
-        },
-      },
+      decision: radarDecision({ status: "available", rows: [radarRow({})] }),
     });
     expect(ctx.boardState).toBe("preserved_snapshot");
     expect(ctx.preservedPriorGeneration).toBe(true);
+  });
+
+  it("stale Radar view is preserved snapshot, not ready", () => {
+    const ctx = resolvePmRadarBoardContext({
+      loading: false,
+      nowMs: NOW_LATE,
+      observe: freshObserve(),
+      decision: radarDecision({ status: "stale", rows: [radarRow({})] }),
+    });
+    expect(ctx.boardState).toBe("preserved_snapshot");
+    expect(ctx.preservedPriorGeneration).toBe(true);
+  });
+
+  it("closed snapshot is preserved, not ready", () => {
+    const ctx = resolvePmRadarBoardContext({
+      loading: false,
+      nowMs: NOW_LATE,
+      observe: freshObserve(),
+      decision: radarDecision({
+        status: "available",
+        rows: [radarRow({})],
+        closedSnapshot: true,
+      }),
+    });
+    expect(ctx.boardState).toBe("preserved_snapshot");
+  });
+
+  it("verified available board with matching session is ready", () => {
+    const ctx = resolvePmRadarBoardContext({
+      loading: false,
+      nowMs: NOW_LATE,
+      observe: freshObserve(),
+      decision: radarDecision({ status: "available", rows: [radarRow({})] }),
+    });
+    expect(ctx.boardState).toBe("ready");
+    expect(ctx.preservedPriorGeneration).toBe(false);
+  });
+
+  it("Sunday consumer date never yields ready board for current highlights", () => {
+    const sundayMs = Date.parse("2026-03-15T20:30:00.000Z");
+    const ctx = resolvePmRadarBoardContext({
+      loading: false,
+      nowMs: sundayMs,
+      observe: freshObserve(),
+      decision: radarDecision({
+        status: "available",
+        rows: [radarRow({ radar_trading_date: "2026-03-13" })],
+      }),
+    });
+    expect(ctx.isTradingDay).toBe(false);
+    expect(ctx.boardState).toBe("preserved_snapshot");
+  });
+
+  it("normalizes applicable trading date on weekend to previous session", () => {
+    const sundayMs = Date.parse("2026-03-15T20:30:00.000Z");
+    const resolved = resolvePmApplicableTradingDate(sundayMs);
+    expect(resolved.applicableTradingDate).toBe("2026-03-13");
+    expect(resolved.isTradingDay).toBe(false);
+  });
+
+  it("normalizes New Year's Day to previous trading session", () => {
+    const holidayMs = Date.parse("2026-01-01T17:00:00.000Z");
+    const resolved = resolvePmApplicableTradingDate(holidayMs);
+    expect(resolved.isTradingDay).toBe(false);
+    expect(resolved.applicableTradingDate).toBe("2025-12-31");
+  });
+
+  it("session rollover before 4 AM ET uses exchange calendar, not raw surveillance Sunday", () => {
+    const early = Date.parse("2026-03-16T07:00:00.000Z"); // 3 AM ET Tuesday
+    const resolved = resolvePmApplicableTradingDate(early);
+    expect(resolved.applicableTradingDate).toBe("2026-03-13");
   });
 
   it("rejects malformed primary event timestamps in summary build", () => {
@@ -166,6 +273,11 @@ describe("Batch 17 — PM session intelligence", () => {
       ],
       board(),
     );
+    expect(rows).toHaveLength(0);
+  });
+
+  it("does not build highlights when board is unavailable", () => {
+    const rows = buildPmSessionSummaryRows([radarRow({})], board({ boardState: "unavailable" }));
     expect(rows).toHaveLength(0);
   });
 
@@ -182,12 +294,6 @@ describe("Batch 17 — PM session intelligence", () => {
     ).toBe("late_confirmed");
   });
 
-  it("resolvePmApplicableTradingDate respects surveillance roll before 4 AM ET", () => {
-    const early = Date.parse("2026-03-16T07:00:00.000Z"); // 3 AM ET on 3/16
-    const resolved = resolvePmApplicableTradingDate(early);
-    expect(resolved.applicableTradingDate).toBe("2026-03-15");
-  });
-
   it("dedupePmSessionSummaryRows prefers late_confirmed over historical for same symbol", () => {
     const out = dedupePmSessionSummaryRows([
       {
@@ -196,7 +302,7 @@ describe("Batch 17 — PM session intelligence", () => {
         volume: 1,
         primaryEvent: "HOD_BREAK",
         primaryEventLabel: "HOD",
-        observationTimeEt: "9:00 AM",
+        observationTimeEt: "9:00 AM ET",
         sourceTradingSession: APPLICABLE,
         freshness: "historical_same_session",
         freshnessLabel: "Earlier today · historical",
@@ -211,7 +317,7 @@ describe("Batch 17 — PM session intelligence", () => {
         volume: 1,
         primaryEvent: "LATE_DAY_ACCELERATION",
         primaryEventLabel: "Late Day",
-        observationTimeEt: "3:45 PM",
+        observationTimeEt: "3:45 PM ET",
         sourceTradingSession: APPLICABLE,
         freshness: "late_confirmed",
         freshnessLabel: "Late-session recorded",

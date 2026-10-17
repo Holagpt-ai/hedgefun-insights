@@ -5,10 +5,18 @@
 
 import { PM_GATE_THRESHOLD_MINS } from "@/config/inbox.config";
 import { buildRecordedBreakoutEvents } from "@/features/day-trade-radar-v2/breakout-event-evidence";
-import { getEtParts, getRegularCloseMins, isTradingDay } from "@/lib/market-calendar";
+import {
+  getEtParts,
+  getRegularCloseMins,
+  isTradingDay,
+  tradingSessionDateForInstant,
+} from "@/lib/market-calendar";
 import { isValidScannerAlertObservationMs, parseObservationMs } from "@/lib/scanner-alerts/observation-freshness";
 import type { RadarObserveSnapshot } from "@/lib/pre-market/pm-verify";
-import type { RadarV2Decision } from "@/lib/screeners/radar-v2-adapter";
+import {
+  isRadarV2ActiveSession,
+  type RadarV2Decision,
+} from "@/lib/screeners/radar-v2-adapter";
 import { surveillanceTradingDateFromMs } from "@/lib/screeners/screener-session";
 import { formatEtClock } from "@/lib/screeners/screener-trigger-time";
 
@@ -67,12 +75,17 @@ export function resolvePmApplicableTradingDate(nowMs: number): {
   isTradingDay: boolean;
 } {
   const et = getEtParts(new Date(nowMs));
-  const applicableTradingDate = surveillanceTradingDateFromMs(nowMs) ?? et.date;
+  const surveillanceDate = surveillanceTradingDateFromMs(nowMs) ?? et.date;
+  const applicableTradingDate = tradingSessionDateForInstant(surveillanceDate, et.minutes);
   return {
     applicableTradingDate,
     consumerEtDate: et.date,
     isTradingDay: isTradingDay(et.date, et.weekday),
   };
+}
+
+export function pmRadarBoardAllowsHighlightBuild(boardState: PmRadarHighlightsBoardState): boolean {
+  return boardState === "ready" || boardState === "preserved_snapshot";
 }
 
 export function resolvePmRadarBoardContext(input: {
@@ -124,15 +137,73 @@ export function resolvePmRadarBoardContext(input: {
   }
 
   const view = decision.view;
+  const generationId = view.rows[0]?.sync_run_id ?? null;
+
+  if (view.closedSnapshot === true) {
+    return {
+      ...base,
+      boardState: "preserved_snapshot",
+      statusMessage:
+        "Closed-session Radar snapshot for historical review — not live current-session activity.",
+      sessionKind: decision.session,
+      generationId,
+      preservedPriorGeneration: true,
+    };
+  }
+
+  if (view.status === "stale") {
+    return {
+      ...base,
+      boardState: "preserved_snapshot",
+      statusMessage:
+        "Radar generation is stale. Preserved rows are shown for review, not as live current-session activity.",
+      sessionKind: decision.session,
+      generationId,
+      preservedPriorGeneration: true,
+    };
+  }
+
+  if (!session.isTradingDay) {
+    if (!view.rows.length) {
+      return {
+        ...base,
+        boardState: "empty",
+        statusMessage: "No late-session scanner highlights while the US equity market is closed.",
+        sessionKind: decision.session,
+        generationId: null,
+      };
+    }
+    return {
+      ...base,
+      boardState: "preserved_snapshot",
+      statusMessage:
+        "US equity session is closed today. Radar rows are preserved for historical review, not as confirmed current PM highlights.",
+      sessionKind: decision.session,
+      generationId,
+      preservedPriorGeneration: true,
+    };
+  }
+
+  if (!isRadarV2ActiveSession(decision.session)) {
+    return {
+      ...base,
+      boardState: "preserved_snapshot",
+      statusMessage: `Radar session "${decision.session ?? "unknown"}" is not an active trading session. Shown for review only.`,
+      sessionKind: decision.session,
+      generationId,
+      preservedPriorGeneration: true,
+    };
+  }
+
   const firstRow = view.rows[0] as { radar_trading_date?: string | null } | undefined;
   const rowDate = firstRow?.radar_trading_date ?? null;
   if (rowDate && rowDate !== session.applicableTradingDate) {
     return {
       ...base,
       boardState: "preserved_snapshot",
-      statusMessage: `Radar board is from session ${rowDate}; current surveillance date is ${session.applicableTradingDate}. Shown for review, not as live current-session activity.`,
+      statusMessage: `Radar board is from session ${rowDate}; applicable trading date is ${session.applicableTradingDate}. Shown for review, not as live current-session activity.`,
       sessionKind: decision.session,
-      generationId: view.rows[0]?.sync_run_id ?? null,
+      generationId,
       preservedPriorGeneration: true,
     };
   }
@@ -147,11 +218,31 @@ export function resolvePmRadarBoardContext(input: {
     };
   }
 
+  if (view.status !== "available") {
+    return {
+      ...base,
+      boardState: "unavailable",
+      statusMessage: `Radar highlights unavailable (board status: ${view.status}).`,
+      sessionKind: decision.session,
+      generationId,
+    };
+  }
+
+  if (!view.synced_at?.trim() || !generationId?.trim()) {
+    return {
+      ...base,
+      boardState: "unavailable",
+      statusMessage: "Radar highlights unavailable (missing verified generation evidence).",
+      sessionKind: decision.session,
+      generationId,
+    };
+  }
+
   return {
     ...base,
     boardState: "ready",
     sessionKind: decision.session,
-    generationId: view.rows[0]?.sync_run_id ?? null,
+    generationId,
   };
 }
 
@@ -179,10 +270,6 @@ export function classifyPmPrimaryEventFreshness(input: {
   const eventDay = easternCalendarDateFromMs(ms);
   if (eventDay && eventDay !== input.applicableTradingDate) {
     return null;
-  }
-
-  if (type === "LATE_DAY_ACCELERATION") {
-    return "late_confirmed";
   }
 
   const etMins = etMinutesFromMs(ms);

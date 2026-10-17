@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildPmSessionSummaryRows, type PmRadarBoardContext } from "@/lib/inbox/pm-session-summary";
 
-const APPLICABLE = "2026-03-15";
-const NOW = Date.parse("2026-03-15T20:30:00.000Z");
+const APPLICABLE = "2026-03-16";
+const NOW = Date.parse("2026-03-16T20:30:00.000Z");
 
 function board(): PmRadarBoardContext {
   return {
@@ -27,7 +27,7 @@ describe("buildPmSessionSummaryRows", () => {
           rank: 1,
           volume: 1_000_000,
           primary_scanner_event: "RUNNING_UP",
-          primary_scanner_event_at: "2026-03-15T20:00:00.000Z",
+          primary_scanner_event_at: "2026-03-16T20:00:00.000Z",
           radar_trading_date: APPLICABLE,
           rvol_5m: 2.1,
         },
@@ -36,7 +36,7 @@ describe("buildPmSessionSummaryRows", () => {
           rank: 2,
           volume: 900_000,
           primary_scanner_event: "HOD_BREAK",
-          primary_scanner_event_at: "2026-03-15T20:05:00.000Z",
+          primary_scanner_event_at: "2026-03-16T20:05:00.000Z",
           radar_trading_date: APPLICABLE,
           rvol_5m: 3,
         },
@@ -45,7 +45,7 @@ describe("buildPmSessionSummaryRows", () => {
           rank: 3,
           volume: 800_000,
           primary_scanner_event: "LATE_DAY_ACCELERATION",
-          primary_scanner_event_at: "2026-03-15T20:10:00.000Z",
+          primary_scanner_event_at: "2026-03-16T20:10:00.000Z",
           radar_trading_date: APPLICABLE,
         },
         { symbol: "DDD", rank: 4, volume: 1, primary_scanner_event: null, radar_trading_date: APPLICABLE },
@@ -54,7 +54,7 @@ describe("buildPmSessionSummaryRows", () => {
           rank: 5,
           volume: 1,
           primary_scanner_event: "OTHER_EVENT",
-          primary_scanner_event_at: "2026-03-15T20:00:00.000Z",
+          primary_scanner_event_at: "2026-03-16T20:00:00.000Z",
           radar_trading_date: APPLICABLE,
         },
       ],

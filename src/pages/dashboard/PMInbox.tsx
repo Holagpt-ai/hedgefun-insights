@@ -183,13 +183,13 @@ function PmCatalystActivityCard({ event }: { event: CatalystEvent }) {
   );
 }
 
-function PmSessionSummaryCard({ row }: { row: PmSessionSummaryRow }) {
+export function PmSessionSummaryCard({ row }: { row: PmSessionSummaryRow }) {
   const navigate = useNavigate();
   const symbol = row.symbol;
   const btn =
     "inline-flex items-center justify-center h-6 w-6 rounded-md border border-border/60 text-muted-foreground hover:text-foreground hover:bg-muted/60 focus:outline-none focus-visible:ring-1 focus-visible:ring-accent-blue transition-colors";
   const detailParts: string[] = [];
-  if (row.observationTimeEt) detailParts.push(`${row.observationTimeEt} ET`);
+  if (row.observationTimeEt) detailParts.push(row.observationTimeEt);
   detailParts.push(row.freshnessLabel);
   if (row.sourceTradingSession) detailParts.push(`Session ${row.sourceTradingSession}`);
   if (row.rvol5m != null) detailParts.push(`5m RVOL ${row.rvol5m.toFixed(1)}×`);
@@ -382,7 +382,7 @@ export default function PMInbox() {
   const pmSessionSummary = useMemo(() => {
     const view = pmRadar.decision?.view;
     if (!view?.rows?.length) return [];
-    if (pmBoard.boardState === "unavailable") return [];
+    if (pmBoard.boardState === "unavailable" || pmBoard.boardState === "loading") return [];
     return buildPmSessionSummaryRows(rankRadarRows(view.rows, view.status), pmBoard, 8);
   }, [pmRadar.decision, pmBoard]);
 
