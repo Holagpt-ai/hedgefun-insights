@@ -14,6 +14,12 @@ import {
 import { searchTickers, EXCHANGE_LABELS, type SearchResult } from "@/lib/search-tickers";
 import { toast } from "sonner";
 import TradingViewChart, { type OHLCVData } from "@/components/charts/TradingViewChart";
+import {
+  intradayFallbackSessionDates,
+  resolveChartAggregateRequest,
+} from "@/lib/stock-chart/chart-ranges";
+import { normalizeAggregateBars, toOhlcvSeries, type NormalizedBar } from "@/lib/stock-chart/normalize-bars";
+import { createRequestFence } from "@/lib/stock-chart/request-fence";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
 
@@ -38,68 +44,25 @@ function fmtDate(d: Date): string {
 }
 
 function getDateRange(range: string) {
-  const now = new Date();
-  const to = fmtDate(now);
-  let from: string;
-  let multiplier = 1;
-  let timespan = "day";
+  const req = resolveChartAggregateRequest(range === "1W" ? "1W" : range);
+  return {
+    from: req.from,
+    to: req.to,
+    multiplier: req.multiplier,
+    timespan: req.timespan,
+    granularity: req.granularity,
+  };
+}
 
-  switch (range) {
-    case "1D": {
-      from = to;
-      multiplier = 5;
-      timespan = "minute";
-      break;
-    }
-    case "1W": {
-      const d = new Date(now);
-      d.setDate(d.getDate() - 7);
-      from = fmtDate(d);
-      multiplier = 30;
-      timespan = "minute";
-      break;
-    }
-    case "1M": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 1);
-      from = fmtDate(d);
-      multiplier = 1;
-      timespan = "hour";
-      break;
-    }
-    case "3M": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 3);
-      from = fmtDate(d);
-      break;
-    }
-    case "6M": {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 6);
-      from = fmtDate(d);
-      break;
-    }
-    case "YTD": from = `${now.getFullYear()}-01-01`; break;
-    case "1Y": {
-      const d = new Date(now);
-      d.setFullYear(d.getFullYear() - 1);
-      from = fmtDate(d);
-      break;
-    }
-    case "5Y": {
-      const d = new Date(now);
-      d.setFullYear(d.getFullYear() - 5);
-      from = fmtDate(d);
-      timespan = "week";
-      break;
-    }
-    default: {
-      const d = new Date(now);
-      d.setMonth(d.getMonth() - 6);
-      from = fmtDate(d);
-    }
-  }
-  return { from, to, multiplier, timespan };
+function normalizedBarsToChartPoints(bars: NormalizedBar[]): ChartPoint[] {
+  return bars.map((bar) => ({
+    date: new Date(bar.utcMs).toISOString(),
+    close: bar.close,
+    open: bar.open,
+    high: bar.high,
+    low: bar.low,
+    volume: bar.volume,
+  }));
 }
 
 function abbr(n: number): string {
@@ -147,13 +110,15 @@ export default function ChartPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [timeRange, setTimeRange] = useState("6M");
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
+  const [chartGranularity, setChartGranularity] = useState<"intraday" | "daily" | "weekly">("daily");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [tickerDetails, setTickerDetails] = useState<any>(null);
   const [snapshot, setSnapshot] = useState<any>(null);
   const [watchlist, setWatchlist] = useState<{ symbol: string }[]>([]);
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
-  const chartCacheRef = useRef<Map<string, { data: ChartPoint[]; ts: number }>>(new Map());
+  const chartCacheRef = useRef<Map<string, { data: ChartPoint[]; granularity: "intraday" | "daily" | "weekly"; ts: number }>>(new Map());
+  const tickerRequestFence = useRef(createRequestFence());
   // Chart view mode
   const [chartViewMode, setChartViewMode] = useState<ChartViewMode>("recharts");
   const [tvChartType, setTvChartType] = useState<TVChartType>("area");
@@ -198,13 +163,25 @@ export default function ChartPage() {
     setSearchHighlight(-1);
   }, [searchResults]);
 
-  // Fetch watchlist
+  // Fetch watchlist — scoped to active user; cleared on logout/switch
   useEffect(() => {
-    if (!user) return;
-    supabase.from("watchlists").select("symbol").eq("user_id", user.id).then(({ data }) => {
-      setWatchlist(data ?? []);
-    });
-  }, [user]);
+    if (!user?.id) {
+      setWatchlist([]);
+      return;
+    }
+    let cancelled = false;
+    const activeUserId = user.id;
+    supabase
+      .from("watchlists")
+      .select("symbol")
+      .eq("user_id", activeUserId)
+      .then(({ data }) => {
+        if (!cancelled) setWatchlist(data ?? []);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   // Fetch chart data with AbortController for proper cleanup on ticker change
   useEffect(() => {
@@ -215,6 +192,7 @@ export default function ChartPage() {
     const STALE_MS = 5 * 60_000;
     if (cached && Date.now() - cached.ts < STALE_MS) {
       setChartData(cached.data);
+      setChartGranularity(cached.granularity);
       setError("");
       setLoading(false);
       setHoveredPoint(null);
@@ -251,38 +229,27 @@ export default function ChartPage() {
 
     (async () => {
       try {
-        const { from, to, multiplier, timespan } = getDateRange(timeRange);
-        let results = await doFetch(from, to, multiplier, timespan);
+        const { from, to, multiplier, timespan, granularity } = getDateRange(timeRange);
+        let rawResults = await doFetch(from, to, multiplier, timespan);
 
-        // 1D fallback: if no data today (pre-market/weekend), try previous trading day
-        if (timeRange === "1D" && (!Array.isArray(results) || results.length === 0)) {
-          const yesterday = new Date();
-          // Go back up to 4 days to skip weekends
-          for (let i = 1; i <= 4; i++) {
-            const d = new Date();
-            d.setDate(d.getDate() - i);
-            const fallbackDate = fmtDate(d);
-            console.log(`[ChartPage] 1D fallback: trying ${fallbackDate}`);
-            results = await doFetch(fallbackDate, fallbackDate, 5, "minute");
-            if (Array.isArray(results) && results.length > 0) break;
+        if (timeRange === "1D" && (!Array.isArray(rawResults) || rawResults.length === 0)) {
+          for (const sessionDate of intradayFallbackSessionDates(new Date()).slice(1)) {
+            rawResults = await doFetch(sessionDate, sessionDate, multiplier, timespan);
+            if (Array.isArray(rawResults) && rawResults.length > 0) break;
           }
         }
 
         if (abortController.signal.aborted) return;
-        if (!Array.isArray(results) || results.length === 0) {
+        const bars = normalizeAggregateBars(rawResults);
+        if (bars.length === 0) {
           setError("Chart data temporarily unavailable. Please try again shortly.");
           setChartData([]);
+          setChartGranularity(granularity);
         } else {
-          const mapped = results.map((r: any) => ({
-            date: new Date(r.t).toISOString(),
-            close: r.c,
-            open: r.o,
-            high: r.h,
-            low: r.l,
-            volume: r.v,
-          }));
-          chartCacheRef.current.set(cacheKey, { data: mapped, ts: Date.now() });
+          const mapped = normalizedBarsToChartPoints(bars);
+          chartCacheRef.current.set(cacheKey, { data: mapped, granularity, ts: Date.now() });
           setChartData(mapped);
+          setChartGranularity(granularity);
         }
       } catch (err: any) {
         if (err.name === "AbortError") return;
@@ -296,9 +263,12 @@ export default function ChartPage() {
     return () => abortController.abort();
   }, [ticker, timeRange]);
 
-  // Fetch snapshot + details
+  // Fetch snapshot + details (ignore stale ticker responses)
   useEffect(() => {
     if (!ticker) return;
+    const generation = tickerRequestFence.current.bump();
+    setSnapshot(null);
+    setTickerDetails(null);
     const url1 = new URL(MARKET_DATA_URL);
     url1.searchParams.set("type", "snapshot");
     url1.searchParams.set("ticker", ticker);
@@ -313,6 +283,7 @@ export default function ChartPage() {
       fetch(url1.toString(), { headers }).then((r) => r.json()).catch(() => null),
       fetch(url2.toString(), { headers }).then((r) => r.json()).catch(() => null),
     ]).then(([snap, det]) => {
+      if (!tickerRequestFence.current.isCurrent(generation)) return;
       setSnapshot(snap);
       setTickerDetails(det?.results || det);
     });
@@ -379,19 +350,26 @@ export default function ChartPage() {
   const lastPoint = chartData[chartData.length - 1];
   const firstPoint = chartData[0];
   const currentPrice = lastPoint?.close ?? 0;
-  const priceChange = lastPoint && firstPoint ? lastPoint.close - firstPoint.open : 0;
-  const pctChange = firstPoint?.open ? (priceChange / firstPoint.open) * 100 : 0;
+  const priceChange =
+    lastPoint && firstPoint && firstPoint.open > 0 ? lastPoint.close - firstPoint.open : null;
+  const pctChange =
+    priceChange != null && firstPoint && firstPoint.open > 0
+      ? (priceChange / firstPoint.open) * 100
+      : null;
   const displayPoint = hoveredPoint || lastPoint;
 
   // Convert chartData to OHLCVData for TradingViewChart
-  const ohlcvData: OHLCVData[] = chartData.map((d) => ({
-    time: d.date.split("T")[0],
-    open: d.open,
-    high: d.high,
-    low: d.low,
-    close: d.close,
-    volume: d.volume,
-  }));
+  const ohlcvData: OHLCVData[] = toOhlcvSeries(
+    chartData.map((d) => ({
+      utcMs: Date.parse(d.date),
+      open: d.open,
+      high: d.high,
+      low: d.low,
+      close: d.close,
+      volume: d.volume,
+    })),
+    chartGranularity,
+  );
 
   const VIEW_OPTIONS: { type: TVChartType; label: string }[] = [
     { type: "area", label: "Area" },
@@ -631,7 +609,7 @@ export default function ChartPage() {
                   <TradingViewChart
                     data={ohlcvData}
                     ticker={ticker}
-                    isPositive={priceChange >= 0}
+                    isPositive={(priceChange ?? 0) >= 0}
                     height={600}
                     loading={false}
                     chartType={tvChartType}
@@ -662,9 +640,13 @@ export default function ChartPage() {
                   <div className="flex items-baseline gap-2 mb-1">
                     <span className="text-xl font-bold text-foreground">{ticker}</span>
                     <span className="text-lg font-semibold text-foreground">{currentPrice.toFixed(2)}</span>
-                    <span className={`text-lg font-medium ${priceChange >= 0 ? "text-green" : "text-red"}`}>
-                      {priceChange >= 0 ? "▲" : "▼"} {Math.abs(priceChange).toFixed(2)} ({priceChange >= 0 ? "+" : ""}{pctChange.toFixed(2)}%)
-                    </span>
+                    {priceChange != null && pctChange != null ? (
+                      <span className={`text-lg font-medium ${priceChange >= 0 ? "text-green" : "text-red"}`}>
+                        {priceChange >= 0 ? "▲" : "▼"} {Math.abs(priceChange).toFixed(2)} ({priceChange >= 0 ? "+" : ""}{pctChange.toFixed(2)}%)
+                      </span>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">Range change unavailable</span>
+                    )}
                   </div>
                   {displayPoint && (
                     <>

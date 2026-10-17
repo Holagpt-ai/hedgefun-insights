@@ -1,10 +1,12 @@
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  estDate,
-  estTime,
+  formatPriceObservationTime,
+  formatStockHeaderSessionLine,
+  PUBLIC_MARKET_DATA_DELAY_DISCLOSURE,
   resolveMarketSession,
   resolveStockHeaderPriceState,
+  stockHeaderPriceSourceLabel,
   stockHeaderSessionContext,
 } from "@/lib/price-utils";
 import StockCtaButtons from "@/components/stock/StockCtaButtons";
@@ -37,8 +39,12 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
   const exchange = details?.primary_exchange ?? "";
   const exchangeLabel = EXCHANGE_MAP[exchange] || exchange;
 
-  const session = resolveMarketSession();
+  const now = new Date();
+  const session = resolveMarketSession(now);
   const header = resolveStockHeaderPriceState(snapshot, session);
+  const observationLine = formatPriceObservationTime(snapshot, header.timestampSource, now);
+  const sourceLabel = stockHeaderPriceSourceLabel(header.timestampSource);
+  const sessionLine = formatStockHeaderSessionLine(now);
   const mainPrice = header.displayedPrice;
   const mainChange = header.change;
   const mainChangePct = header.changePercent;
@@ -79,15 +85,20 @@ export default function StockHeader({ snapshot, details, loading, ticker, isPreI
           IPO Filed — Not Yet Trading
         </div>
       )}
-      {!isPreIPO && session === "market" && (
+      {!isPreIPO && (
         <p className="text-[0.8125rem] text-muted-foreground mt-0.5">
-          {estDate()}, {estTime()} EDT · Market open
+          {sessionLine}
+          {sourceLabel && header.basis !== "official_close" ? ` · ${sourceLabel}` : ""}
         </p>
       )}
       {!isPreIPO && sessionContext && (
-        <p className="text-xs text-muted-foreground mt-1">
-          {sessionContext} · {estDate()}, {estTime()} EDT
-        </p>
+        <p className="text-xs text-muted-foreground mt-1">{sessionContext}</p>
+      )}
+      {!isPreIPO && observationLine && (
+        <p className="text-xs text-muted-foreground mt-0.5">{observationLine}</p>
+      )}
+      {!isPreIPO && (
+        <p className="text-[0.6875rem] text-muted-foreground mt-0.5">{PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}</p>
       )}
         </div>
         {!loading && (

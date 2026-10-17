@@ -5,6 +5,9 @@ import { slugToTicker } from "@/lib/ticker-utils";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { generateMetaTitle, generateMetaDescription } from "@/lib/agentic-seo";
 import { getTickerSnapshot, getTickerDetails, getTickerNews, getAggregates, getDividends, getSplits } from "@/lib/polygon";
+import { fetchChartAggregateBars } from "@/lib/stock-chart/fetch-aggregates";
+import { normalizeAggregateBars, toOhlcvSeries, chartSeriesMeta } from "@/lib/stock-chart/normalize-bars";
+import { resolveChartAggregateRequest } from "@/lib/stock-chart/chart-ranges";
 import { cn } from "@/lib/utils";
 import StockHeader from "@/components/stock/StockHeader";
 import StockStatsTable from "@/components/stock/StockStatsTable";
@@ -22,24 +25,6 @@ import { AdBanner } from "@/components/layout/AdBanner";
 
 const TABS = ["Overview", "Financials", "Statistics", "Forecast", "Chart", "News", "Dividends", "Splits"];
 
-function getDateRange(range: string) {
-  const to = new Date();
-  const toStr = to.toISOString().split("T")[0];
-  const d = new Date(to);
-  switch (range) {
-    case "1D": d.setDate(d.getDate() - 5); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
-    case "5D": d.setDate(d.getDate() - 14); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
-    case "1M": d.setMonth(d.getMonth() - 1); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
-    case "3M": d.setMonth(d.getMonth() - 3); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
-    case "6M": d.setMonth(d.getMonth() - 6); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
-    case "YTD": return { from: `${to.getFullYear()}-01-01`, to: toStr, multiplier: 1, timespan: "day" };
-    case "1Y": d.setFullYear(d.getFullYear() - 1); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
-    case "5Y": d.setFullYear(d.getFullYear() - 5); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "week" };
-    case "MAX": return { from: "2000-01-01", to: toStr, multiplier: 1, timespan: "month" };
-    default: d.setMonth(d.getMonth() - 1); return { from: d.toISOString().split("T")[0], to: toStr, multiplier: 1, timespan: "day" };
-  }
-}
-
 const StockDetail = () => {
   const { ticker: slug } = useParams<{ ticker: string }>();
   const ticker = slugToTicker(slug ?? "");
@@ -53,14 +38,14 @@ const StockDetail = () => {
     queryKey: ["snapshot", ticker],
     queryFn: () => getTickerSnapshot(ticker),
     enabled: !!ticker,
-    retry: 3, retryDelay: 2000,
+    retry: 1,
   });
 
   const { data: details, isLoading: detailsLoading } = useQuery({
     queryKey: ["details", ticker],
     queryFn: () => getTickerDetails(ticker),
     enabled: !!ticker,
-    retry: 3, retryDelay: 2000,
+    retry: 1,
   });
 
   usePageSeo({
@@ -72,60 +57,58 @@ const StockDetail = () => {
     queryKey: ["ticker-news", ticker],
     queryFn: () => getTickerNews(ticker, 10),
     enabled: !!ticker,
-    retry: 3, retryDelay: 2000,
+    retry: 1,
   });
 
   const { data: dividends, isLoading: dividendsLoading } = useQuery({
     queryKey: ["dividends", ticker],
     queryFn: () => getDividends(ticker, 20),
     enabled: !!ticker,
-    retry: 3, retryDelay: 2000,
+    retry: 1,
   });
 
   const { data: splits, isLoading: splitsLoading } = useQuery({
     queryKey: ["splits", ticker],
     queryFn: () => getSplits(ticker, 20),
     enabled: !!ticker,
-    retry: 3, retryDelay: 2000,
+    retry: 1,
   });
 
-  const yearRange = getDateRange("1Y");
-  const { data: yearAggs } = useQuery({
+  const yearRange = resolveChartAggregateRequest("1Y");
+  const { data: yearAggsRaw } = useQuery({
     queryKey: ["year-aggs", ticker],
-    queryFn: () => getAggregates(ticker, 1, "day", yearRange.from, yearRange.to),
+    queryFn: async () => {
+      const payload = await getAggregates(ticker, yearRange.multiplier, yearRange.timespan, yearRange.from, yearRange.to);
+      return normalizeAggregateBars(
+        Array.isArray(payload) ? payload : (payload as { results?: unknown[] })?.results ?? payload,
+      );
+    },
     enabled: !!ticker,
-    retry: 3, retryDelay: 2000,
+    retry: 1,
   });
 
-  const dateRange = getDateRange(timeRange);
-  const { data: chartData, isLoading: chartLoading } = useQuery({
-    queryKey: ["aggregates", ticker, timeRange],
-    queryFn: () => getAggregates(ticker, dateRange.multiplier, dateRange.timespan, dateRange.from, dateRange.to),
+  const { data: chartBundle, isLoading: chartLoading } = useQuery({
+    queryKey: ["chart-aggregates", ticker, timeRange],
+    queryFn: () => fetchChartAggregateBars(ticker, timeRange),
     enabled: !!ticker,
-    retry: 3, retryDelay: 2000,
+    retry: 1,
   });
+
+  const yearAggs = yearAggsRaw ?? [];
 
   const positive = (snapshot?.todaysChangePerc ?? 0) >= 0;
   const prevClose = snapshot?.prevDay?.c ?? null;
   const currentPrice = snapshot?.day?.c ?? snapshot?.prevDay?.c ?? null;
 
-  const ohlcvData: OHLCVData[] = (chartData ?? []).map((d: any) => ({
-    time: new Date(d.t).toISOString().split('T')[0],
-    open: d.o,
-    high: d.h,
-    low: d.l,
-    close: d.c,
-    volume: d.v,
-  }));
+  const chartMeta = chartBundle
+    ? chartSeriesMeta(chartBundle.bars, chartBundle.request.granularity, chartBundle.usesPriorSessionFallback)
+    : null;
 
-  const ohlcvYearData: OHLCVData[] = (yearAggs ?? []).map((d: any) => ({
-    time: new Date(d.t).toISOString().split('T')[0],
-    open: d.o,
-    high: d.h,
-    low: d.l,
-    close: d.c,
-    volume: d.v,
-  }));
+  const ohlcvData: OHLCVData[] = chartBundle
+    ? toOhlcvSeries(chartBundle.bars, chartBundle.request.granularity)
+    : [];
+
+  const ohlcvYearData: OHLCVData[] = toOhlcvSeries(yearAggs, "daily");
 
   const isPreIPO = (
     (!snapshot || (snapshot?.day?.c === 0 && snapshot?.day?.v === 0)) &&
@@ -134,7 +117,7 @@ const StockDetail = () => {
 
   return (
     <div className="flex flex-col">
-      <StockHeader snapshot={snapshot} details={details} loading={snapLoading} ticker={ticker} isPreIPO={isPreIPO} />
+      <StockHeader snapshot={snapshot} details={details} loading={snapLoading || detailsLoading} ticker={ticker} isPreIPO={isPreIPO} />
 
       <div className="border-b-2 border-border sticky top-header z-10 bg-surface-card px-4 overflow-x-auto">
         <div className="flex gap-0 min-w-max">
@@ -182,6 +165,12 @@ const StockDetail = () => {
                 ))}
               </div>
               {/* Chart */}
+              {chartMeta?.lastObservedAt && (
+                <p className="text-[0.6875rem] text-muted-foreground">
+                  Chart data as of {new Date(chartMeta.lastObservedAt).toLocaleString("en-US", { timeZone: "America/New_York", timeZoneName: "short" })}
+                  {chartMeta.usesPriorSessionFallback ? " · Prior regular session" : ""}
+                </p>
+              )}
               <TradingViewChart
                 data={ohlcvData}
                 ticker={ticker}
