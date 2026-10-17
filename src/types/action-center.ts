@@ -24,6 +24,7 @@ export interface ActionFeedItem {
   /** Scanner intelligence alert payload when source is scanner_intelligence_alert. */
   scannerAlertId?: string;
   scannerDedupeKey?: string;
+  timestampProvenance?: "market_observation" | "scheduled" | "recorded_unverified" | "database_record";
 }
 
 export interface WatchlistAlertRow {
@@ -73,6 +74,7 @@ export interface ScreenerLeader {
   volume: number | null;
   rvol: number | null;
   updated_at: string;
+  provider_as_of?: string | null;
 }
 
 export interface SummaryCounts {

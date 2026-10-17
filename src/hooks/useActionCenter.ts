@@ -14,11 +14,13 @@ import {
   buildActionFeed,
   buildFocusTasks,
   catalystWatchList,
+  countDistinctScannerAlertsForFocus,
   resolveBriefType,
   savedUnreviewedCount,
   summaryCounts,
   watchlistSnapshot,
 } from "@/lib/action-center/aggregate";
+import { selectFeedEligibleScannerAlerts } from "@/lib/action-center/feed-evidence";
 import type {
   OpenTradeRow,
   ScreenerLeader,
@@ -31,6 +33,13 @@ import type {
 } from "@/types/scanner-intelligence-alert";
 
 const REFRESH_MS = 60_000;
+
+export function actionCenterAnalysesQueryKey(
+  userId: string | null,
+  symbols: readonly string[],
+) {
+  return ["ac", "analyses", userId, symbols] as const;
+}
 
 export function useActionCenter() {
   const { user } = useAuth();
@@ -112,8 +121,8 @@ export function useActionCenter() {
 
   // 3. Watchlist V2 analyses.
   const analysesQ = useQuery({
-    queryKey: ["ac", "analyses", symbols],
-    enabled: symbols.length > 0,
+    queryKey: actionCenterAnalysesQueryKey(userId, symbols),
+    enabled: !!userId && symbols.length > 0,
     staleTime: REFRESH_MS,
     refetchOnWindowFocus: true,
     refetchInterval: REFRESH_MS,
@@ -159,7 +168,7 @@ export function useActionCenter() {
     queryFn: async (): Promise<ScreenerLeader[]> => {
       const { data, error } = await supabase
         .from("screener_results")
-        .select("symbol, company_name, price, change_percent, volume, rvol, updated_at")
+        .select("symbol, company_name, price, change_percent, volume, rvol, updated_at, provider_as_of")
         .eq("tab_id", "day_trade_radar")
         .order("volume", { ascending: false })
         .limit(10);
@@ -193,13 +202,27 @@ export function useActionCenter() {
   );
 
   const activeScannerAlerts = useMemo(
-    () => scannerAlerts.filter((a) => !dismissedScanner.has(a.id)),
-    [scannerAlerts, dismissedScanner],
+    () => selectFeedEligibleScannerAlerts(scannerAlerts, dismissedScanner, nowMs),
+    [scannerAlerts, dismissedScanner, nowMs],
+  );
+
+  const distinctScannerFocusCount = useMemo(
+    () => countDistinctScannerAlertsForFocus(scannerAlerts, dismissedScanner, nowMs),
+    [scannerAlerts, dismissedScanner, nowMs],
   );
 
   const summary = useMemo(
-    () => summaryCounts({ alerts, scannerAlerts: activeScannerAlerts, analyses, catalyst, openTrades, nowMs }),
-    [alerts, activeScannerAlerts, analyses, catalyst, openTrades, nowMs],
+    () =>
+      summaryCounts({
+        alerts,
+        scannerAlerts: activeScannerAlerts,
+        dismissedScannerAlertIds: dismissedScanner,
+        analyses,
+        catalyst,
+        openTrades,
+        nowMs,
+      }),
+    [alerts, activeScannerAlerts, dismissedScanner, analyses, catalyst, openTrades, nowMs],
   );
 
   const snapshot = useMemo(() => watchlistSnapshot(analyses, nowMs), [analyses, nowMs]);
@@ -227,9 +250,9 @@ export function useActionCenter() {
     () => buildFocusTasks({
       summary,
       savedUnreviewedCount: savedUnreviewed,
-      scannerAlertCount: activeScannerAlerts.length,
+      scannerAlertCount: distinctScannerFocusCount,
     }),
-    [summary, savedUnreviewed, activeScannerAlerts.length],
+    [summary, savedUnreviewed, distinctScannerFocusCount],
   );
 
   const catalystWatch = useMemo(() => catalystWatchList(catalyst, nowMs, 6), [catalyst, nowMs]);

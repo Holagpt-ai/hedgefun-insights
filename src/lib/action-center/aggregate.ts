@@ -10,10 +10,21 @@ import type {
   WatchlistSnapshot,
 } from "@/types/action-center";
 import type { ScannerIntelligenceAlertRow } from "@/types/scanner-intelligence-alert";
+import { scannerAlertCanonicalToastKey } from "@/lib/scanner-alerts/canonical-event-identity";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
 import { eventMomentMs, etStartOfDayMs, scheduledMomentMs } from "@/lib/catalyst/parsers";
 import { boundWatchlistAlertReason } from "@/lib/watchlist-v2/signal-assertion-provenance";
+import {
+  countDistinctScannerAlertsForFocus,
+  countWatchlistAlertsForSummary,
+  formatFeedTimestampLabel,
+  pickActionFeedBucket,
+  resolveScannerAlertFeedTimestamp,
+  resolveWatchlistAlertFeedTimestamp,
+  selectFeedEligibleScannerAlerts,
+  shouldSuppressWatchlistForScannerDuplicate,
+} from "@/lib/action-center/feed-evidence";
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
@@ -88,17 +99,27 @@ export function classifyCatalyst(
 export function summaryCounts(input: {
   alerts: WatchlistAlertRow[];
   scannerAlerts?: ScannerIntelligenceAlertRow[];
+  dismissedScannerAlertIds?: Set<string>;
   analyses: WatchlistAnalysisRow[];
   catalyst: CatalystEvent[];
   openTrades: OpenTradeRow[];
   nowMs: number;
 }): SummaryCounts {
-  const { alerts, scannerAlerts = [], analyses, catalyst, openTrades, nowMs } = input;
-  const cutoff = nowMs - 24 * HOUR;
-  const alertCount = alerts.filter((a) => {
-    const t = Date.parse(a.created_at);
-    return Number.isFinite(t) && t >= cutoff;
-  }).length;
+  const {
+    alerts,
+    scannerAlerts = [],
+    dismissedScannerAlertIds = new Set<string>(),
+    analyses,
+    catalyst,
+    openTrades,
+    nowMs,
+  } = input;
+  const alertCount = countWatchlistAlertsForSummary(
+    alerts,
+    scannerAlerts,
+    dismissedScannerAlertIds,
+    nowMs,
+  );
 
   const unusualTickers = new Set<string>();
   for (const r of analyses) {
@@ -151,18 +172,13 @@ function fmtEtDate(iso: string): string {
   } catch { return iso; }
 }
 
-function pickBucket(ms: number, nowMs: number, source: "recent" | "upcoming" | "open"): FeedBucket {
-  if (source === "open") return "open_position";
-  const todayStart = etStartOfDayMs(nowMs);
-  const isTodayEt = ms >= todayStart && ms < todayStart + DAY;
-
-  if (source === "recent") {
-    if (Math.abs(nowMs - ms) <= 6 * HOUR) return "now";
-    return "today";
-  }
-  // upcoming (scheduled catalyst)
-  if (isTodayEt) return "today";
-  return "upcoming";
+function pickBucket(
+  ms: number,
+  nowMs: number,
+  source: "recent" | "upcoming" | "open",
+  allowNowBucket = true,
+): FeedBucket {
+  return pickActionFeedBucket(ms, nowMs, source, allowNowBucket);
 }
 
 export function buildActionFeed(input: {
@@ -187,57 +203,60 @@ export function buildActionFeed(input: {
   } = input;
   const items: ActionFeedItem[] = [];
 
-  for (const s of scannerAlerts) {
-    if (dismissedScannerAlertIds.has(s.id)) continue;
-    const ms = Date.parse(s.event_at) || Date.parse(s.created_at);
-    if (!Number.isFinite(ms)) continue;
-    if (nowMs - ms > 24 * HOUR) continue;
+  const dedupedScanner = selectFeedEligibleScannerAlerts(
+    scannerAlerts,
+    dismissedScannerAlertIds,
+    nowMs,
+  );
+  const scannerCanonicalKeys = new Set(
+    dedupedScanner.map((row) => scannerAlertCanonicalToastKey(row)),
+  );
+
+  for (const s of dedupedScanner) {
+    const timing = resolveScannerAlertFeedTimestamp(s, nowMs);
+    if (!timing) continue;
     const eventLabel = formatScannerEventLabel(s.event_type) ?? s.event_type;
     items.push({
       key: `scanner:${s.id}`,
-      bucket: pickBucket(ms, nowMs, "recent"),
+      bucket: pickBucket(timing.sortMs, nowMs, "recent", timing.allowNowBucket),
       source: "scanner_intelligence_alert",
       symbol: s.symbol.toUpperCase(),
       title: s.headline || `${s.symbol} — ${eventLabel}`,
       detail: s.summary,
-      timestampMs: ms,
-      timestampLabel: fmtEt(new Date(ms).toISOString()),
+      timestampMs: timing.sortMs,
+      timestampLabel: formatFeedTimestampLabel(
+        timing.sortMs,
+        timing.provenance,
+        timing.insertedMs,
+      ),
       sourceLabel: "Scanner event",
       scannerAlertId: s.id,
       scannerDedupeKey: s.dedupe_key,
+      timestampProvenance: timing.provenance,
     });
   }
 
-  const scannerSymbolsRecent = new Set(
-    scannerAlerts
-      .filter((s) => !dismissedScannerAlertIds.has(s.id))
-      .map((s) => s.symbol.toUpperCase()),
-  );
-
   for (const a of alerts) {
-    const ms = Date.parse(a.event_time) || Date.parse(a.created_at);
-    if (!Number.isFinite(ms)) continue;
-    if (nowMs - ms > 24 * HOUR) continue;
-    const sym = a.ticker.toUpperCase();
-    if (
-      a.alert_type === "market_signal" &&
-      scannerSymbolsRecent.has(sym) &&
-      nowMs - ms <= 2 * HOUR
-    ) {
-      continue;
-    }
+    if (shouldSuppressWatchlistForScannerDuplicate(a, scannerCanonicalKeys)) continue;
+    const timing = resolveWatchlistAlertFeedTimestamp(a, nowMs);
+    if (!timing) continue;
     items.push({
       key: `alert:${a.id}`,
-      bucket: pickBucket(ms, nowMs, "recent"),
+      bucket: pickBucket(timing.sortMs, nowMs, "recent", timing.allowNowBucket),
       source: "watchlist_alert",
       symbol: a.ticker.toUpperCase(),
       title: humanAlertType(a.alert_type),
       detail: a.reason
         ? boundWatchlistAlertReason(a.reason, a.alert_type ?? "company_event")
         : null,
-      timestampMs: ms,
-      timestampLabel: fmtEt(new Date(ms).toISOString()),
+      timestampMs: timing.sortMs,
+      timestampLabel: formatFeedTimestampLabel(
+        timing.sortMs,
+        timing.provenance,
+        timing.insertedMs,
+      ),
       sourceLabel: "Watchlist alert",
+      timestampProvenance: timing.provenance,
     });
   }
 
@@ -256,8 +275,11 @@ export function buildActionFeed(input: {
       title: `Saved: ${e.title}`,
       detail: e.source_name ? `${e.source_name}` : null,
       timestampMs: c.ms,
-      timestampLabel: isUpcoming ? fmtEtDate(e.event_date) : fmtEt(e.published_at ?? new Date(c.ms).toISOString()),
-      sourceLabel: "Catalyst · Saved",
+      timestampLabel: isUpcoming
+        ? fmtEtDate(e.event_date)
+        : fmtEt(e.published_at ?? new Date(c.ms).toISOString()),
+      sourceLabel: "Catalyst · Saved · Provider-reported",
+      timestampProvenance: isUpcoming ? "scheduled" : "market_observation",
       eventId: e.id,
       sourceUrl: e.source_url,
     });
@@ -279,7 +301,8 @@ export function buildActionFeed(input: {
       detail: e.source_name || null,
       timestampMs: c.ms,
       timestampLabel: fmtEtDate(e.event_date),
-      sourceLabel: "Catalyst · Upcoming",
+      sourceLabel: "Catalyst · Upcoming · Provider-reported",
+      timestampProvenance: "scheduled",
       eventId: e.id,
       sourceUrl: e.source_url,
     });
@@ -313,11 +336,19 @@ export function buildActionFeed(input: {
     const bo = order.indexOf(b.bucket);
     if (ao !== bo) return ao - bo;
     // upcoming: nearest first (ascending); others: newest first (descending)
-    if (a.bucket === "upcoming") return a.timestampMs - b.timestampMs;
-    return b.timestampMs - a.timestampMs;
+    if (a.bucket === "upcoming") {
+      const byTime = a.timestampMs - b.timestampMs;
+      if (byTime !== 0) return byTime;
+      return a.key.localeCompare(b.key);
+    }
+    const byTime = b.timestampMs - a.timestampMs;
+    if (byTime !== 0) return byTime;
+    return a.key.localeCompare(b.key);
   });
   return items;
 }
+
+export { countDistinctScannerAlertsForFocus, countWatchlistAlertsForSummary };
 
 export function buildFocusTasks(input: {
   summary: SummaryCounts;

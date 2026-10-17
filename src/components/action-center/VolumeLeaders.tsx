@@ -2,19 +2,11 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Calendar } from "lucide-react";
 import type { ScreenerLeader } from "@/types/action-center";
 import type { CatalystEnrichmentEntry } from "@/hooks/useCatalystEnrichmentForSymbols";
+import {
+  resolveVolumeLeaderListSnapshotMeta,
+  resolveVolumeLeaderRowSnapshot,
+} from "@/lib/action-center/feed-evidence";
 import { SymbolActions } from "./SymbolActions";
-
-function ageLabel(iso: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "—";
-  const mins = Math.max(0, Math.round((Date.now() - t) / 60_000));
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const h = Math.round(mins / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.round(h / 24);
-  return `${d}d ago`;
-}
 
 function fmtNum(n: number | null | undefined, digits = 2): string {
   if (n === null || n === undefined || !Number.isFinite(n)) return "—";
@@ -25,10 +17,12 @@ export function VolumeLeaders({
   rows,
   loading = false,
   enrichment,
+  nowMs = Date.now(),
 }: {
   rows: ScreenerLeader[];
   loading?: boolean;
   enrichment?: Map<string, CatalystEnrichmentEntry>;
+  nowMs?: number;
 }) {
   if (loading && rows.length === 0) {
     return (
@@ -39,6 +33,7 @@ export function VolumeLeaders({
   }
   // Preserve the volume-desc order the hook already applied.
   const top = rows.slice(0, 5);
+  const snapshotMeta = resolveVolumeLeaderListSnapshotMeta(top, nowMs);
   if (top.length === 0) {
     return (
       <div className="rounded-xl border bg-card p-6 text-sm text-muted-foreground">
@@ -46,12 +41,6 @@ export function VolumeLeaders({
       </div>
     );
   }
-  const newest = top.reduce((max, r) => {
-    const t = Date.parse(r.updated_at);
-    return Number.isFinite(t) && t > max ? t : max;
-  }, 0);
-  const stale = newest > 0 && Date.now() - newest > 30 * 60_000;
-
   return (
     <div className="rounded-xl border bg-card overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b bg-muted/40">
@@ -59,8 +48,16 @@ export function VolumeLeaders({
           Screener leaders · sorted by volume
         </span>
         <div className="flex items-center gap-2">
-          <span className={`text-[10px] px-2 py-0.5 rounded-full ${stale ? "bg-amber-100 text-amber-800" : "bg-muted text-muted-foreground"}`}>
-            {stale ? "Delayed" : "Recent"} · {newest ? ageLabel(new Date(newest).toISOString()) : "—"}
+          <span
+            className={`text-[10px] px-2 py-0.5 rounded-full ${
+              snapshotMeta.priorSession || snapshotMeta.mixedAge
+                ? "bg-amber-100 text-amber-800"
+                : "bg-muted text-muted-foreground"
+            }`}
+            data-testid="volume-leaders-list-badge"
+            title={snapshotMeta.detailLabel}
+          >
+            {snapshotMeta.badgeLabel}
           </span>
           <Link to="/dashboard/screeners" className="text-xs font-medium text-accent-blue hover:underline inline-flex items-center gap-1">
             Open Screeners <ArrowRight className="h-3 w-3" />
@@ -70,11 +67,19 @@ export function VolumeLeaders({
       <ul className="divide-y">
         {top.map((r) => {
           const cat = enrichment?.get(r.symbol.toUpperCase());
+          const rowSnap = resolveVolumeLeaderRowSnapshot(r, nowMs);
           return (
             <li key={r.symbol} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="sm:w-40 shrink-0">
                 <div className="font-bold text-sm">{r.symbol}</div>
                 <div className="text-[11px] text-muted-foreground truncate">{r.company_name ?? ""}</div>
+                <div
+                  className="text-[10px] text-muted-foreground mt-0.5"
+                  title={rowSnap.detailLabel}
+                  data-testid={`volume-leader-row-snap-${r.symbol}`}
+                >
+                  {rowSnap.shortLabel}
+                </div>
                 {cat && (
                   <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
                     <Calendar className="h-2.5 w-2.5" />
