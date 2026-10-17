@@ -98,7 +98,14 @@ function trade(over: Partial<OpenTradeRow>): OpenTradeRow {
 describe("action-center aggregate", () => {
   it("1. summary counts use only qualifying real rows", () => {
     const s = summaryCounts({
-      alerts: [alert({ id: "a1" }), alert({ id: "a2", created_at: new Date(NOW - 30 * 3600_000).toISOString() })],
+      alerts: [
+        alert({ id: "a1" }),
+        alert({
+          id: "a2",
+          event_time: new Date(NOW - 30 * 3600_000).toISOString(),
+          created_at: new Date(NOW - 30 * 3600_000).toISOString(),
+        }),
+      ],
       analyses: [analysis({ rvol_class: "unusual" })],
       catalyst: [event({})],
       openTrades: [trade({}), trade({ id: "t2", status: "closed" })],
@@ -349,10 +356,17 @@ describe("action-center aggregate", () => {
     });
   });
 
-  it("suppresses watchlist market_signal when the same symbol has a scanner alert within 2h", () => {
+  it("suppresses watchlist market_signal only when canonical scanner identity matches", () => {
     const row = scannerAlert({ symbol: "AAA" });
     const feed = buildActionFeed({
-      alerts: [alert({ ticker: "AAA", alert_type: "market_signal" })],
+      alerts: [
+        alert({
+          ticker: "AAA",
+          alert_type: "market_signal",
+          dedupe_key: row.dedupe_key,
+        }),
+        alert({ id: "a2", ticker: "AAA", alert_type: "unusual_volume" }),
+      ],
       scannerAlerts: [row],
       dismissedScannerAlertIds: new Set(),
       catalyst: [],
@@ -361,15 +375,16 @@ describe("action-center aggregate", () => {
       openTrades: [],
       nowMs: NOW,
     });
-    expect(feed.filter((i) => i.source === "watchlist_alert")).toHaveLength(0);
+    expect(feed.filter((i) => i.source === "watchlist_alert")).toHaveLength(1);
     expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(1);
   });
 
   it("scanner intelligence alerts appear once in feed and respect dismiss set", () => {
     const row = scannerAlert({});
+    const dup = scannerAlert({ id: "s2" });
     const feed = buildActionFeed({
       alerts: [],
-      scannerAlerts: [row, row],
+      scannerAlerts: [row, dup],
       dismissedScannerAlertIds: new Set(),
       catalyst: [],
       savedEventIds: new Set(),
@@ -377,7 +392,7 @@ describe("action-center aggregate", () => {
       openTrades: [],
       nowMs: NOW,
     });
-    expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(2);
+    expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(1);
     const dismissed = buildActionFeed({
       alerts: [],
       scannerAlerts: [row],
