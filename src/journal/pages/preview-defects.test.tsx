@@ -26,6 +26,10 @@ vi.mock("@/contexts/LanguageContext", () => ({
   useLanguage: () => ({ language: "en", setLanguage: vi.fn(), t: (key: string) => key }),
 }));
 
+vi.mock("@/hooks/useEffectiveLanguage", () => ({
+  useEffectiveLanguage: () => "en",
+}));
+
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({ user: null }),
 }));
@@ -70,6 +74,7 @@ function demoWorkspace() {
     onLiveTradeSaved: async () => {},
     processScore: 78,
     equity: 54150n * 1_000_000n,
+    equityAvailable: true,
     reconciliationState: {
       derivedEquity: 0n,
       reportedBalance: null,

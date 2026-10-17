@@ -17,7 +17,8 @@ import { ComingSoonCard } from "../components/ComingSoonCard";
 import { HonestState } from "../components/HonestState";
 import { useJournalLang, useJournalT } from "../i18n";
 import { deleteOwnedAccount } from "../lib/delete-owned";
-import { SETTINGS_KEY, readJson, writeJson } from "../lib/storage";
+import { formatBalanceDisplay } from "../lib/equity-evidence";
+import { SETTINGS_KEY, readJson, readUserJson, writeJson, writeUserJson } from "../lib/storage";
 import { isUuid } from "../ledger/persist-contract";
 import { money } from "../lib/format";
 import type { JournalLiveClient } from "../lib/live-client";
@@ -32,14 +33,23 @@ export function SettingsPage() {
   const lang = useJournalLang();
   const [params, setParams] = useSearchParams();
   const section = params.get("section") ?? "profile";
-  const { dataQualityIssues, dataQualityCount, accounts, equity, reconciliationState, mode, refresh } = useJournalWorkspace();
+  const {
+    dataQualityIssues,
+    dataQualityCount,
+    accounts,
+    equity,
+    equityAvailable,
+    reconciliationState,
+    mode,
+    refresh,
+  } = useJournalWorkspace();
   const { user } = useAuth();
   const [accountToDelete, setAccountToDelete] = useState<{ id: string; name: string } | null>(null);
   const [confirmName, setConfirmName] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
-  const settings = readJson<Record<string, string>>(SETTINGS_KEY, {});
+  const settings = readUserJson<Record<string, string>>(SETTINGS_KEY, user?.id ?? null, {});
 
   const setSection = (value: string) => {
     const next = new URLSearchParams(params);
@@ -109,8 +119,8 @@ export function SettingsPage() {
           {accounts.map((account) => (
             <div key={account.id} className="journal-card p-3 text-sm space-y-2">
               <div className="font-semibold">{account.name}</div>
-              <div>{t("settings.reported")}: {account.reportedBalance} {account.baseCurrency}</div>
-              <div>{t("settings.derived")}: {money(equity, lang)}</div>
+              <div>{t("settings.reported")}: {formatBalanceDisplay(account.reportedBalance, lang)} {account.baseCurrency}</div>
+              <div>{t("settings.derived")}: {equityAvailable && equity != null ? money(equity, lang) : "—"}</div>
               <div className="text-xs text-muted-foreground">{reconciliationState.state}</div>
               {mode !== "demo" && isUuid(account.id) ? (
                 <Button
@@ -192,11 +202,13 @@ export function SettingsPage() {
 }
 
 function Field({ label, defaultValue, name }: { label: string; defaultValue: string; name: string }) {
+  const { user } = useAuth();
   return (
     <label className="text-xs font-semibold block space-y-1">
       <span>{label}</span>
       <Input defaultValue={defaultValue} name={name} onBlur={(e) => {
-        writeJson(SETTINGS_KEY, { ...readJson(SETTINGS_KEY, {}), [name]: e.target.value });
+        const prior = readUserJson<Record<string, string>>(SETTINGS_KEY, user?.id ?? null, {});
+        writeUserJson(SETTINGS_KEY, user?.id ?? null, { ...prior, [name]: e.target.value });
       }} />
     </label>
   );

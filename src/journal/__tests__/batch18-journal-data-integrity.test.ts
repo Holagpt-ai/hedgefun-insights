@@ -1,0 +1,93 @@
+import { describe, expect, it, vi } from "vitest";
+import { resolveJournalEquityView } from "../lib/equity-evidence";
+import {
+  DEFAULT_LIVE_FILTERS,
+  rangeBounds,
+  sanitizeLiveFilters,
+  userStorageKey,
+  writeUserJson,
+} from "../lib/storage";
+import { shouldApplyJournalLoad } from "../workspace/journal-load-fence";
+import { parseDecimal } from "../calc/decimal";
+
+describe("Batch 18 — Journal data integrity", () => {
+  it("rejects stale journal load after user switch", () => {
+    expect(shouldApplyJournalLoad("user-a", 1, "user-b", 1)).toBe(false);
+    expect(shouldApplyJournalLoad("user-a", 1, "user-a", 2)).toBe(false);
+    expect(shouldApplyJournalLoad("user-a", 2, "user-a", 2)).toBe(true);
+  });
+
+  it("keeps P&L metrics path separate from unavailable equity", () => {
+    const view = resolveJournalEquityView({
+      beginningBalance: null,
+      reportedBalance: null,
+      realizedPnl: parseDecimal("1250.50"),
+    });
+    expect(view.equityAvailable).toBe(false);
+    expect(view.equity).toBeNull();
+    expect(view.reconciliationState.state).toBe("missing_balance");
+  });
+
+  it("reconciles when beginning and reported balances exist", () => {
+    const realized = parseDecimal("150");
+    const view = resolveJournalEquityView({
+      beginningBalance: 10_000,
+      reportedBalance: 10_150,
+      reportedAsOf: "2026-03-16T20:00:00.000Z",
+      realizedPnl: realized,
+    });
+    expect(view.equityAvailable).toBe(true);
+    expect(view.reconciliationState.state).toBe("reconciled");
+  });
+
+  it("does not apply august demo range to live mode filters", () => {
+    const next = sanitizeLiveFilters(
+      { accountId: "all", range: "augustDemo", asset: "all" },
+      ["acct-1"],
+      "live",
+    );
+    expect(next.range).toBe(DEFAULT_LIVE_FILTERS.range);
+  });
+
+  it("resets missing account filter to all accounts", () => {
+    const next = sanitizeLiveFilters(
+      { accountId: "gone-account", range: "week", asset: "all" },
+      ["acct-1"],
+      "live",
+    );
+    expect(next.accountId).toBe("all");
+  });
+
+  it("uses ET calendar boundaries for today and week filters", () => {
+    const mondayLateEt = new Date("2026-03-16T23:30:00.000Z"); // 7:30 PM ET
+    expect(rangeBounds("today", mondayLateEt)).toEqual({ from: "2026-03-16", to: "2026-03-16" });
+    expect(rangeBounds("week", mondayLateEt).from).toBe("2026-03-16");
+
+    const sundayEt = new Date("2026-03-15T15:00:00.000Z");
+    expect(rangeBounds("week", sundayEt).from).toBe("2026-03-09");
+  });
+
+  it("scopes draft storage keys per authenticated user", () => {
+    expect(userStorageKey("stocksist-journal-trade-draft", "user-a")).toBe(
+      "stocksist-journal-trade-draft:user-a",
+    );
+    expect(userStorageKey("stocksist-journal-trade-draft", null)).toBeNull();
+  });
+
+  it("does not write previous-user draft under a new user key", () => {
+    const store = new Map<string, string>();
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+      },
+    });
+    writeUserJson("stocksist-journal-trade-draft", "user-a", { symbol: "AAA" });
+    writeUserJson("stocksist-journal-trade-draft", "user-b", { symbol: "BBB" });
+    expect(JSON.parse(store.get("stocksist-journal-trade-draft:user-a")!)).toEqual({ symbol: "AAA" });
+    expect(JSON.parse(store.get("stocksist-journal-trade-draft:user-b")!)).toEqual({ symbol: "BBB" });
+    vi.unstubAllGlobals();
+  });
+});

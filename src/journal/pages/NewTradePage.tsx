@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { calculatePosition, computePlannedRiskFromPlan, formatMoney, microsToNum
 import type { AssetClass, Direction, ExecutionAction, ExecutionInput, TradeInput } from "../calc/types";
 import { HonestState } from "../components/HonestState";
 import { useJournalLang, useJournalT } from "../i18n";
-import { DRAFT_KEY, readJson, writeJson } from "../lib/storage";
+import { DRAFT_KEY, readUserJson, writeUserJson } from "../lib/storage";
 import { saveTrade } from "../ledger/saveTrade";
 import { JOURNAL_BASE } from "../nav";
 import { useJournalWorkspace } from "../workspace/JournalWorkspace";
@@ -79,8 +79,12 @@ export function NewTradePage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const userId = user?.id ?? null;
   const { mode, accounts, onLiveTradeSaved } = useJournalWorkspace();
-  const [draft, setDraft] = useState<Draft>(() => (mode === "demo" ? emptyDraft() : readJson(DRAFT_KEY, emptyDraft())));
+  const draftOwnerRef = useRef<string | null>(userId);
+  const [draft, setDraft] = useState<Draft>(() =>
+    mode === "demo" ? emptyDraft() : readUserJson(DRAFT_KEY, userId, emptyDraft()),
+  );
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -108,9 +112,16 @@ export function NewTradePage() {
   }, [searchParams, setSearchParams]);
 
   useEffect(() => {
-    if (mode === "demo") return;
-    writeJson(DRAFT_KEY, draft);
-  }, [draft, mode]);
+    if (!userId || mode === "demo") return;
+    draftOwnerRef.current = userId;
+    setDraft(readUserJson(DRAFT_KEY, userId, emptyDraft()));
+  }, [userId, mode]);
+
+  useEffect(() => {
+    if (mode === "demo" || !userId) return;
+    if (draftOwnerRef.current !== userId) return;
+    writeUserJson(DRAFT_KEY, userId, draft);
+  }, [draft, mode, userId]);
 
   const trade = useMemo(() => toTrade(draft), [draft]);
   const preview = useMemo(() => calculatePosition(trade), [trade]);
@@ -158,7 +169,7 @@ export function NewTradePage() {
       setError(result.skipped === "demo" ? t("new.demoBlocked") : result.error ?? t("new.saveFailed"));
       return;
     }
-    writeJson(DRAFT_KEY, emptyDraft());
+    if (userId) writeUserJson(DRAFT_KEY, userId, emptyDraft());
     await onLiveTradeSaved();
     navigate(`${JOURNAL_BASE}/trades`);
   };

@@ -1,3 +1,4 @@
+import { getEtParts } from "@/lib/market-calendar";
 import { calculateTrade, validateSymbol } from "../calc";
 import { normalizeLegacyStatus, normalizeSetupTag } from "../ledger/persist-contract";
 import type { AssetClass, Direction, ExecutionInput, TradeInput } from "../calc/types";
@@ -28,35 +29,92 @@ export function readJson<T>(key: string, fallback: T): T {
 
 export function writeJson(key: string, value: unknown): void {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(key, JSON.stringify(value));
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {
+    // Quota / private mode — ignore without throwing.
+  }
+}
+
+export function userStorageKey(baseKey: string, userId: string | null | undefined): string | null {
+  if (!userId) return null;
+  return `${baseKey}:${userId}`;
+}
+
+export function readUserJson<T>(baseKey: string, userId: string | null | undefined, fallback: T): T {
+  const scoped = userStorageKey(baseKey, userId);
+  if (!scoped) return fallback;
+  return readJson(scoped, fallback);
+}
+
+export function writeUserJson(baseKey: string, userId: string | null | undefined, value: unknown): void {
+  const scoped = userStorageKey(baseKey, userId);
+  if (!scoped) return;
+  writeJson(scoped, value);
 }
 
 export interface FilterPrefs {
   accountId: string;
-  range: "augustDemo" | "mtd" | "week" | "month" | "ytd" | "all";
+  range: "augustDemo" | "today" | "mtd" | "week" | "month" | "ytd" | "all";
   asset: "all" | AssetClass;
 }
 
+/** Demo workspace default — August range only applies in demo mode. */
 export const DEFAULT_FILTERS: FilterPrefs = {
   accountId: "all",
   range: "augustDemo",
   asset: "all",
 };
 
+/** Live authenticated Journal default. */
+export const DEFAULT_LIVE_FILTERS: FilterPrefs = {
+  accountId: "all",
+  range: "mtd",
+  asset: "all",
+};
+
+export function sanitizeLiveFilters(
+  filters: FilterPrefs,
+  accountIds: readonly string[],
+  mode: "demo" | "live" | "empty",
+): FilterPrefs {
+  let next = filters;
+  if (mode !== "demo" && next.range === "augustDemo") {
+    next = { ...next, range: DEFAULT_LIVE_FILTERS.range };
+  }
+  if (next.accountId !== "all" && !accountIds.includes(next.accountId)) {
+    next = { ...next, accountId: "all" };
+  }
+  return next;
+}
+
+function shiftEtDate(isoDate: string, days: number): string {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  const base = new Date(Date.UTC(year, month - 1, day));
+  base.setUTCDate(base.getUTCDate() + days);
+  return base.toISOString().slice(0, 10);
+}
+
+/** Exchange-local ET session dates for Journal trade filters. */
 export function rangeBounds(range: FilterPrefs["range"], now = new Date()): { from: string; to: string } {
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
   if (range === "augustDemo") return { from: "2026-08-01", to: "2026-08-31" };
   if (range === "all") return { from: "1970-01-01", to: "9999-12-31" };
-  const to = iso(now);
+
+  const et = getEtParts(now);
+  const to = et.date;
+
+  if (range === "today") return { from: to, to };
+
   if (range === "week") {
-    const from = new Date(now);
-    from.setDate(now.getDate() - ((now.getDay() + 6) % 7));
-    return { from: iso(from), to };
+    const mondayOffset = et.weekday === 0 ? 6 : et.weekday - 1;
+    return { from: shiftEtDate(to, -mondayOffset), to };
   }
+
   if (range === "month" || range === "mtd") {
-    return { from: `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`, to };
+    return { from: `${to.slice(0, 7)}-01`, to };
   }
-  return { from: `${now.getUTCFullYear()}-01-01`, to };
+
+  return { from: `${to.slice(0, 4)}-01-01`, to };
 }
 
 export interface LegacyJournalTradeRow {

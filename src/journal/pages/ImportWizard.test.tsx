@@ -30,6 +30,10 @@ vi.mock("@/contexts/LanguageContext", () => ({
   useLanguage: () => ({ language: "en", setLanguage: vi.fn(), t: (key: string) => key }),
 }));
 
+vi.mock("@/hooks/useEffectiveLanguage", () => ({
+  useEffectiveLanguage: () => "en",
+}));
+
 vi.mock("../workspace/JournalWorkspace", () => ({
   useJournalWorkspace: () => workspaceMock.current,
 }));

@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -14,8 +15,6 @@ import {
   averageProcessScore,
   calculateTrade,
   dailyMetrics,
-  derivedJournalEquity,
-  reconcileBalances,
   type AggregateMetrics,
   type DailyMetric,
   type TradeCalculation,
@@ -27,18 +26,31 @@ import {
   DEMO_MISSING_REVIEWS,
   DEMO_WORKSPACE_LABEL,
 } from "../demo/august-fixtures";
+import {
+  enrichLiveAccountsWithUserPrefs,
+  resolveBeginningBalanceForScope,
+  resolveReportedBalanceForScope,
+} from "../lib/account-enrichment";
+import { resolveJournalEquityView } from "../lib/equity-evidence";
 import { inRange, sessionOf } from "../lib/format";
 import { loadJournalGraph } from "../ledger/loadTrades";
 import {
-  DEFAULT_FILTERS,
+  DEFAULT_LIVE_FILTERS,
   FILTERS_KEY,
   HIDE_DEMO_KEY,
   isDemoTradeId,
   rangeBounds,
   readJson,
+  readUserJson,
+  sanitizeLiveFilters,
   writeJson,
+  writeUserJson,
   type FilterPrefs,
 } from "../lib/storage";
+import {
+  nextJournalLoadGeneration,
+  shouldApplyJournalLoad,
+} from "./journal-load-fence";
 
 export type JournalMode = "demo" | "live" | "empty";
 
@@ -47,9 +59,9 @@ export interface JournalAccount {
   name: string;
   type: string;
   baseCurrency: string;
-  beginningBalance: number;
-  reportedBalance: number;
-  reportedAsOf: string;
+  beginningBalance: number | null;
+  reportedBalance: number | null;
+  reportedAsOf: string | null;
 }
 
 export interface DataQualityIssue {
@@ -81,8 +93,9 @@ interface JournalWorkspaceValue {
   refresh: () => Promise<void>;
   onLiveTradeSaved: () => Promise<void>;
   processScore: number | null;
-  equity: bigint;
-  reconciliationState: ReturnType<typeof reconcileBalances>;
+  equity: bigint | null;
+  equityAvailable: boolean;
+  reconciliationState: ReturnType<typeof resolveJournalEquityView>["reconciliationState"];
   missingReviews: Set<string>;
   demoLabel: typeof DEMO_WORKSPACE_LABEL;
 }
@@ -91,27 +104,57 @@ const JournalWorkspaceContext = createContext<JournalWorkspaceValue | null>(null
 
 export function JournalWorkspaceProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const loadGenerationRef = useRef(0);
+
   const [liveTrades, setLiveTrades] = useState<TradeInput[]>([]);
   const [liveAccounts, setLiveAccounts] = useState<JournalAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demoHidden, setDemoHidden] = useState(() => readJson<boolean>(HIDE_DEMO_KEY, false));
-  const [filters, setFilters] = useState<FilterPrefs>(() => readJson(FILTERS_KEY, DEFAULT_FILTERS));
+  const [filters, setFilters] = useState<FilterPrefs>(() => DEFAULT_LIVE_FILTERS);
+
+  useEffect(() => {
+    if (!userId) {
+      setFilters(DEFAULT_LIVE_FILTERS);
+      return;
+    }
+    const stored = readUserJson(FILTERS_KEY, userId, DEFAULT_LIVE_FILTERS);
+    setFilters(sanitizeLiveFilters(stored, [], "live"));
+  }, [userId]);
 
   const loadLive = useCallback(async () => {
-    if (!user) {
+    const expectedUserId = userId;
+    const expectedGeneration = loadGenerationRef.current;
+
+    if (!expectedUserId) {
       setLiveTrades([]);
       setLiveAccounts([]);
       setLoading(false);
+      setError(null);
       return;
     }
+
     setLoading(true);
     setError(null);
+
     const result = await loadJournalGraph({
       mode: "live",
-      userId: user.id,
+      userId: expectedUserId,
       client: supabase as never,
     });
+
+    if (
+      !shouldApplyJournalLoad(
+        expectedUserId,
+        expectedGeneration,
+        userId,
+        loadGenerationRef.current,
+      )
+    ) {
+      return;
+    }
+
     if (!result.ok) {
       setError(result.error ?? "Journal data could not be loaded.");
       setLiveTrades([]);
@@ -119,14 +162,25 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
       setLoading(false);
       return;
     }
+
     setLiveTrades(result.trades.filter((trade) => !isDemoTradeId(trade.id)));
-    setLiveAccounts(result.accounts);
+    setLiveAccounts(
+      enrichLiveAccountsWithUserPrefs(
+        result.accounts.map((account) => ({ ...account })),
+        expectedUserId,
+      ),
+    );
     setLoading(false);
-  }, [user]);
+  }, [userId]);
 
   useEffect(() => {
+    loadGenerationRef.current = nextJournalLoadGeneration(loadGenerationRef.current);
+    setLiveTrades([]);
+    setLiveAccounts([]);
+    setError(null);
+    setLoading(Boolean(userId));
     void loadLive();
-  }, [loadLive]);
+  }, [userId, loadLive]);
 
   const mode: JournalMode = useMemo(() => {
     if (liveTrades.length > 0) return "live";
@@ -135,32 +189,70 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   }, [liveTrades.length, demoHidden]);
 
   const allTrades = mode === "demo" ? AUGUST_DEMO_TRADES : liveTrades;
+
   const fallbackLiveAccount: JournalAccount = {
     id: "live-default",
     name: "Primary",
     type: "personal",
     baseCurrency: "USD",
-    beginningBalance: 0,
-    reportedBalance: 0,
-    reportedAsOf: new Date().toISOString(),
+    beginningBalance: null,
+    reportedBalance: null,
+    reportedAsOf: null,
   };
+
   const accounts: readonly JournalAccount[] =
     mode === "demo" ? DEMO_ACCOUNTS : liveAccounts.length > 0 ? liveAccounts : [fallbackLiveAccount];
 
+  const effectiveFilters = useMemo(
+    () =>
+      sanitizeLiveFilters(
+        filters,
+        accounts.map((account) => account.id),
+        mode,
+      ),
+    [filters, accounts, mode],
+  );
+
+  useEffect(() => {
+    if (
+      effectiveFilters.accountId !== filters.accountId ||
+      effectiveFilters.range !== filters.range
+    ) {
+      setFilters(effectiveFilters);
+      if (userId) writeUserJson(FILTERS_KEY, userId, effectiveFilters);
+    }
+  }, [effectiveFilters, filters.accountId, filters.range, userId]);
+
   const persistFilters = (next: FilterPrefs) => {
-    setFilters(next);
-    writeJson(FILTERS_KEY, next);
+    const sanitized = sanitizeLiveFilters(
+      next,
+      accounts.map((account) => account.id),
+      mode,
+    );
+    setFilters(sanitized);
+    if (userId) writeUserJson(FILTERS_KEY, userId, sanitized);
   };
 
-  const { from, to } = rangeBounds(mode === "demo" && filters.range === "augustDemo" ? "augustDemo" : filters.range);
+  const activeRange =
+    mode === "demo" && effectiveFilters.range === "augustDemo"
+      ? "augustDemo"
+      : effectiveFilters.range === "augustDemo"
+        ? DEFAULT_LIVE_FILTERS.range
+        : effectiveFilters.range;
+
+  const { from, to } = rangeBounds(activeRange);
 
   const trades = useMemo(() => {
     return allTrades.filter((trade) => {
-      if (filters.accountId !== "all" && trade.accountId !== filters.accountId) return false;
-      if (filters.asset !== "all" && trade.assetClass !== filters.asset) return false;
+      if (effectiveFilters.accountId !== "all" && trade.accountId !== effectiveFilters.accountId) {
+        return false;
+      }
+      if (effectiveFilters.asset !== "all" && trade.assetClass !== effectiveFilters.asset) {
+        return false;
+      }
       return inRange(sessionOf(trade), from, to);
     });
-  }, [allTrades, filters.accountId, filters.asset, from, to]);
+  }, [allTrades, effectiveFilters.accountId, effectiveFilters.asset, from, to]);
 
   const calculations = useMemo(() => trades.map(calculateTrade), [trades]);
   const metrics = useMemo(() => aggregateTrades(trades), [trades]);
@@ -184,16 +276,13 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
 
   const dataQualityCount = dataQualityIssues.reduce((sum, issue) => sum + issue.count, 0);
 
-  const selectedAccount = accounts.find((account) => account.id === filters.accountId) ?? accounts[0];
-  const equity = derivedJournalEquity({
-    beginningBalance: selectedAccount?.beginningBalance ?? 0,
-    cashFlows: [],
+  const beginningBalance = resolveBeginningBalanceForScope(accounts, effectiveFilters.accountId);
+  const reported = resolveReportedBalanceForScope(accounts, effectiveFilters.accountId);
+  const equityView = resolveJournalEquityView({
+    beginningBalance,
+    reportedBalance: reported.reportedBalance,
+    reportedAsOf: reported.reportedAsOf,
     realizedPnl: metrics.netPnl,
-  });
-  const reconciliationState = reconcileBalances({
-    derivedEquity: equity,
-    reportedBalance: selectedAccount?.reportedBalance ?? null,
-    reportedAsOf: selectedAccount?.reportedAsOf,
   });
 
   const hideDemo = () => {
@@ -208,7 +297,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   const onLiveTradeSaved = async () => {
     writeJson(HIDE_DEMO_KEY, true);
     setDemoHidden(true);
-    persistFilters({ ...filters, range: "all", accountId: "all" });
+    persistFilters({ ...effectiveFilters, range: "all", accountId: "all" });
     await loadLive();
   };
 
@@ -221,12 +310,12 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     calculations,
     metrics,
     daily,
-    selectedAccountId: filters.accountId,
-    range: filters.range,
-    asset: filters.asset,
-    setAccountId: (accountId) => persistFilters({ ...filters, accountId }),
-    setRange: (range) => persistFilters({ ...filters, range }),
-    setAsset: (asset) => persistFilters({ ...filters, asset }),
+    selectedAccountId: effectiveFilters.accountId,
+    range: activeRange,
+    asset: effectiveFilters.asset,
+    setAccountId: (accountId) => persistFilters({ ...effectiveFilters, accountId }),
+    setRange: (range) => persistFilters({ ...effectiveFilters, range }),
+    setAsset: (asset) => persistFilters({ ...effectiveFilters, asset }),
     accounts,
     dataQualityCount,
     dataQualityIssues,
@@ -236,8 +325,9 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     refresh: loadLive,
     onLiveTradeSaved,
     processScore,
-    equity,
-    reconciliationState,
+    equity: equityView.equity,
+    equityAvailable: equityView.equityAvailable,
+    reconciliationState: equityView.reconciliationState,
     missingReviews: mode === "demo" ? DEMO_MISSING_REVIEWS : new Set<string>(),
     demoLabel: DEMO_WORKSPACE_LABEL,
   };
