@@ -25,19 +25,17 @@ export const MULTI_RADAR_STORAGE_KEY = "stocksist.day-trade-radar.workspace.v1";
 export const MULTI_RADAR_STORAGE_VERSION = 2;
 export const PANEL_NEW_WINDOW_MS = 3 * 60 * 1000;
 
-export const BREAKOUT_EVENT_TYPES = [
-  "HOD_BREAK",
-  "HOD_MOMENTUM",
-  "RUNNING_UP",
-  "VWAP_RECLAIM",
-  "GAP_CONTINUATION",
-] as const;
-
-export type BreakoutEventType = (typeof BREAKOUT_EVENT_TYPES)[number];
-
-const BREAKOUT_PRIORITY = new Map<string, number>(
-  BREAKOUT_EVENT_TYPES.map((type, index) => [type, index]),
-);
+export {
+  BREAKOUT_EVENT_TYPES,
+  BREAKOUT_PRIORITY,
+  type BreakoutEventType,
+} from "./breakout-event-evidence";
+import {
+  BREAKOUT_PRIORITY,
+  buildRecordedBreakoutEvents,
+  compareBreakoutLeaderVolumeFirst,
+  toScannerEventRecords,
+} from "./breakout-event-evidence";
 
 export type RadarPanelId =
   | "day_trade"
@@ -187,11 +185,8 @@ export interface MultiRadarWorkspaceState {
   panels: Record<RadarPanelId, PanelWorkspaceState>;
 }
 
-export interface ScannerEventRecord {
-  type: string;
-  triggeredAt: string | null;
-  active: boolean;
-}
+export type { ScannerEventRecord } from "./breakout-event-evidence";
+import type { ScannerEventRecord } from "./breakout-event-evidence";
 
 export type VolumeTrendLabel = "COOLING ↓" | "STEADY" | "RISING ↑" | "SURGING ↑↑" | "EXTREME ↑↑";
 
@@ -422,26 +417,34 @@ export function parseScannerEvents(raw: unknown): ScannerEventRecord[] {
   return out;
 }
 
-export function activeBreakoutEvents(row: Pick<RadarRankedRow, "scanner_events" | "primary_scanner_event" | "primary_scanner_event_at" | "last_hod_break_at">): ScannerEventRecord[] {
-  const fromList = parseScannerEvents(row.scanner_events).filter(
-    (event) => event.active && BREAKOUT_PRIORITY.has(event.type),
+export function activeBreakoutEvents(
+  row: Pick<
+    RadarRankedRow,
+    | "scanner_events"
+    | "primary_scanner_event"
+    | "primary_scanner_event_at"
+    | "last_hod_break_at"
+    | "radar_trading_date"
+  >,
+  nowMs = Date.now(),
+): ScannerEventRecord[] {
+  return toScannerEventRecords(
+    buildRecordedBreakoutEvents(row, nowMs).filter((event) => event.active),
   );
-  const primary = row.primary_scanner_event;
-  if (primary && BREAKOUT_PRIORITY.has(primary)) {
-    const already = fromList.some((event) => event.type === primary);
-    if (!already) {
-      fromList.push({
-        type: primary,
-        triggeredAt: toCanonicalUtcTimestamp(row.primary_scanner_event_at ?? null),
-        active: true,
-      });
-    }
-  }
-  return fromList;
 }
 
-export function qualifiesBreakouts(row: Pick<RadarRankedRow, "scanner_events" | "primary_scanner_event" | "primary_scanner_event_at" | "last_hod_break_at">): boolean {
-  return activeBreakoutEvents(row).length > 0;
+export function qualifiesBreakouts(
+  row: Pick<
+    RadarRankedRow,
+    | "scanner_events"
+    | "primary_scanner_event"
+    | "primary_scanner_event_at"
+    | "last_hod_break_at"
+    | "radar_trading_date"
+  >,
+  nowMs = Date.now(),
+): boolean {
+  return buildRecordedBreakoutEvents(row, nowMs).length > 0;
 }
 
 function earliestIso(values: Array<string | null | undefined>): string | null {
@@ -460,13 +463,19 @@ export function dayTradePanelTime(row: Pick<RadarRankedRow, "promoted_at" | "upd
 
 /** First qualifying breakout timestamp. Independent of Day Trade promotion. */
 export function breakoutPanelTime(
-  row: Pick<RadarRankedRow, "scanner_events" | "primary_scanner_event" | "primary_scanner_event_at" | "last_hod_break_at" | "promoted_at" | "updated_at">,
+  row: Pick<
+    RadarRankedRow,
+    | "scanner_events"
+    | "primary_scanner_event"
+    | "primary_scanner_event_at"
+    | "last_hod_break_at"
+    | "radar_trading_date"
+    | "promoted_at"
+    | "updated_at"
+  >,
+  nowMs = Date.now(),
 ): PanelTimeView {
-  const events = activeBreakoutEvents(row);
-  const stamps = events.map((event) => event.triggeredAt);
-  if (events.some((event) => event.type === "HOD_BREAK")) {
-    stamps.push(toCanonicalUtcTimestamp(row.last_hod_break_at ?? null));
-  }
+  const stamps = buildRecordedBreakoutEvents(row, nowMs).map((event) => event.triggeredAtUtc);
   const iso = earliestIso(stamps);
   return { iso, source: iso ? "breakout_event" : "unavailable" };
 }
@@ -631,7 +640,7 @@ export function qualifyPanelRows(
   band: PennyPriceBandId = "under_1",
   nowMs = Date.now(),
 ): RadarRankedRow[] {
-  if (panel === "breakouts") return rows.filter((row) => qualifiesBreakouts(row));
+  if (panel === "breakouts") return rows.filter((row) => qualifiesBreakouts(row, nowMs));
   if (panel === "penny") return rows.filter((row) => qualifiesPennyPrice(row.price, band));
   if (panel === "day_trade") return filterDayTradePanelRows(rows, nowMs);
   if (panel === "carryover") return [];
@@ -694,20 +703,13 @@ export function selectPennyLeader(rows: readonly RadarRankedRow[]): RadarRankedR
   return [...rows].sort((a, b) => a.rank - b.rank)[0] ?? null;
 }
 
-export function selectBreakoutLeader(rows: readonly RadarRankedRow[]): RadarRankedRow | null {
-  if (rows.length === 0) return null;
-  const ranked = [...rows].sort((a, b) => {
-    const aEvents = activeBreakoutEvents(a);
-    const bEvents = activeBreakoutEvents(b);
-    const aPriority = Math.min(...aEvents.map((event) => BREAKOUT_PRIORITY.get(event.type) ?? 99));
-    const bPriority = Math.min(...bEvents.map((event) => BREAKOUT_PRIORITY.get(event.type) ?? 99));
-    if (aPriority !== bPriority) return aPriority - bPriority;
-    const aTime = breakoutPanelTime(a).iso ?? "";
-    const bTime = breakoutPanelTime(b).iso ?? "";
-    if (aTime !== bTime) return bTime.localeCompare(aTime);
-    if (a.rank !== b.rank) return a.rank - b.rank;
-    return (finiteMetric(b.volume) ?? -1) - (finiteMetric(a.volume) ?? -1);
-  });
+export function selectBreakoutLeader(
+  rows: readonly RadarRankedRow[],
+  nowMs = Date.now(),
+): RadarRankedRow | null {
+  const qualified = rows.filter((row) => qualifiesBreakouts(row, nowMs));
+  if (qualified.length === 0) return null;
+  const ranked = [...qualified].sort((a, b) => compareBreakoutLeaderVolumeFirst(a, b, nowMs));
   return ranked[0] ?? null;
 }
 
@@ -716,7 +718,7 @@ export function selectPanelLeader(
   rows: readonly RadarRankedRow[],
   nowMs = Date.now(),
 ): RadarRankedRow | null {
-  if (panel === "breakouts") return selectBreakoutLeader(rows);
+  if (panel === "breakouts") return selectBreakoutLeader(rows, nowMs);
   if (panel === "penny") return selectPennyLeader(rows);
   if (panel === "carryover") return null;
   if (rows.length === 0) return null;

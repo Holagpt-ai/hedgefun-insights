@@ -39,6 +39,8 @@ import type { RadarChartInterval } from "./radar-chart-data";
 import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import { HistoricalBehaviorSection } from "./HistoricalBehavior";
+import { BreakoutMomentumEvidence } from "./BreakoutMomentumEvidence";
+import { qualifiesBreakouts } from "./multi-radar";
 import { historicalMatchSummaryForRadarRow } from "@/lib/historical-intelligence/radar-handoff";
 
 interface RadarDetailPanelProps {
@@ -51,6 +53,7 @@ interface RadarDetailPanelProps {
   chartInterval?: RadarChartInterval | null;
   onCloseMobile?: () => void;
   mobile?: boolean;
+  nowMs?: number;
 }
 
 function Metric({
@@ -88,6 +91,7 @@ export function RadarDetailPanel({
   chartInterval = null,
   onCloseMobile,
   mobile = false,
+  nowMs = Date.now(),
 }: RadarDetailPanelProps) {
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const symbols = row ? [normalizeSymbol(row.symbol)].filter(Boolean) as string[] : [];
@@ -242,6 +246,10 @@ export function RadarDetailPanel({
             className={moveClass(row.move_60s_pct)}
           />
         </div>
+
+        {qualifiesBreakouts(row, nowMs) ? (
+          <BreakoutMomentumEvidence row={row} nowMs={nowMs} />
+        ) : null}
 
         <HistoricalBehaviorSection
           context={row.historicalContext}

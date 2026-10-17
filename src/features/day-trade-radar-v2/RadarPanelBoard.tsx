@@ -63,6 +63,7 @@ import {
   type RadarPanelId,
 } from "./multi-radar";
 import { formatDayTradeLeaderTiming } from "./day-trade-freshness";
+import { BreakoutMomentumEvidence } from "./BreakoutMomentumEvidence";
 import type { RadarRankedRow } from "./types";
 
 const SORTS: { id: PanelSortId; label: string }[] = [
@@ -94,6 +95,7 @@ export function RadarPanelLeader({
   onOpenDetails,
   nowMs,
   closedSnapshot = false,
+  featuredLeader = false,
 }: {
   panel: RadarPanelId;
   row: RadarRankedRow | null;
@@ -102,6 +104,7 @@ export function RadarPanelLeader({
   onOpenDetails: (row: RadarRankedRow) => void;
   nowMs: number;
   closedSnapshot?: boolean;
+  featuredLeader?: boolean;
 }) {
   const meta = panelMeta(panel);
   const symbols = row ? ([normalizeSymbol(row.symbol)].filter(Boolean) as string[]) : [];
@@ -176,6 +179,11 @@ export function RadarPanelLeader({
       <button type="button" className="h-8 rounded-md border border-border px-2 text-[12px] font-semibold" onClick={() => onOpenDetails(row)}>
         Details
       </button>
+      {panel === "breakouts" ? (
+        <div className="w-full basis-full">
+          <BreakoutMomentumEvidence row={row} nowMs={nowMs} featuredLeader={featuredLeader} />
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -359,6 +367,7 @@ export function RadarPanelBoard({
           onOpenDetails={onOpenDetails}
           nowMs={nowMs}
           closedSnapshot={closedSnapshot}
+          featuredLeader
         />
       ) : null}
       {layout === "table" ? (
