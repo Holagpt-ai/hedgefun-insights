@@ -35,6 +35,7 @@ import { resolveJournalEquityView } from "../lib/equity-evidence";
 import { inRange, sessionOf } from "../lib/format";
 import { loadJournalGraph } from "../ledger/loadTrades";
 import {
+  DEFAULT_FILTERS,
   DEFAULT_LIVE_FILTERS,
   FILTERS_KEY,
   HIDE_DEMO_KEY,
@@ -115,6 +116,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   const [demoHidden, setDemoHidden] = useState(() => readJson<boolean>(HIDE_DEMO_KEY, false));
   const [filters, setFilters] = useState<FilterPrefs>(DEFAULT_LIVE_FILTERS);
   const [filtersUserId, setFiltersUserId] = useState<string | null>(null);
+  const [demoDisplayFilters, setDemoDisplayFilters] = useState<FilterPrefs>(DEFAULT_FILTERS);
 
   const [trackedUserId, setTrackedUserId] = useState<string | null>(userId);
   if (userId !== trackedUserId) {
@@ -229,58 +231,80 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     [ownedLiveAccounts],
   );
 
-  const effectiveFilters = useMemo(
+  const demoAccountIds = useMemo(() => DEMO_ACCOUNTS.map((account) => account.id), []);
+
+  const liveFilterMode: "live" | "empty" = ownedLiveTrades.length > 0 ? "live" : "empty";
+
+  const liveEffectiveFilters = useMemo(
     () =>
-      sanitizeLiveFilters(filters, liveAccountIds, mode, {
+      sanitizeLiveFilters(filters, liveAccountIds, liveFilterMode, {
         validateAccountIds: liveAccountsReady,
       }),
-    [filters, liveAccountIds, mode, liveAccountsReady],
+    [filters, liveAccountIds, liveFilterMode, liveAccountsReady],
   );
+
+  const demoEffectiveFilters = useMemo(
+    () =>
+      sanitizeLiveFilters(demoDisplayFilters, demoAccountIds, "demo", {
+        validateAccountIds: true,
+      }),
+    [demoDisplayFilters, demoAccountIds],
+  );
+
+  const displayFilters = mode === "demo" ? demoEffectiveFilters : liveEffectiveFilters;
 
   useEffect(() => {
     if (!userId || filtersUserId !== userId) return;
     if (
-      effectiveFilters.accountId === filters.accountId &&
-      effectiveFilters.range === filters.range &&
-      effectiveFilters.asset === filters.asset
+      liveEffectiveFilters.accountId === filters.accountId &&
+      liveEffectiveFilters.range === filters.range &&
+      liveEffectiveFilters.asset === filters.asset
     ) {
       return;
     }
-    setFilters(effectiveFilters);
-    if (liveAccountsReady || effectiveFilters.range !== filters.range) {
-      writeUserJson(FILTERS_KEY, userId, effectiveFilters);
+    setFilters(liveEffectiveFilters);
+    if (liveAccountsReady || liveEffectiveFilters.range !== filters.range) {
+      writeUserJson(FILTERS_KEY, userId, liveEffectiveFilters);
     }
-  }, [effectiveFilters, filters, userId, filtersUserId, liveAccountsReady]);
+  }, [liveEffectiveFilters, filters, userId, filtersUserId, liveAccountsReady]);
 
-  const persistFilters = (next: FilterPrefs) => {
+  const persistLiveFilters = (next: FilterPrefs) => {
     if (!userId || filtersUserId !== userId) return;
-    const sanitized = sanitizeLiveFilters(next, liveAccountIds, mode, {
+    const sanitized = sanitizeLiveFilters(next, liveAccountIds, liveFilterMode, {
       validateAccountIds: liveAccountsReady,
     });
     setFilters(sanitized);
     writeUserJson(FILTERS_KEY, userId, sanitized);
   };
 
+  const persistDemoDisplayFilters = (next: FilterPrefs) => {
+    setDemoDisplayFilters(
+      sanitizeLiveFilters(next, demoAccountIds, "demo", { validateAccountIds: true }),
+    );
+  };
+
   const activeRange =
-    mode === "demo" && effectiveFilters.range === "augustDemo"
-      ? "augustDemo"
-      : effectiveFilters.range === "augustDemo"
+    mode === "demo"
+      ? displayFilters.range === "augustDemo"
+        ? "augustDemo"
+        : displayFilters.range
+      : displayFilters.range === "augustDemo"
         ? DEFAULT_LIVE_FILTERS.range
-        : effectiveFilters.range;
+        : displayFilters.range;
 
   const { from, to } = rangeBounds(activeRange);
 
   const trades = useMemo(() => {
     return allTrades.filter((trade) => {
-      if (effectiveFilters.accountId !== "all" && trade.accountId !== effectiveFilters.accountId) {
+      if (displayFilters.accountId !== "all" && trade.accountId !== displayFilters.accountId) {
         return false;
       }
-      if (effectiveFilters.asset !== "all" && trade.assetClass !== effectiveFilters.asset) {
+      if (displayFilters.asset !== "all" && trade.assetClass !== displayFilters.asset) {
         return false;
       }
       return inRange(sessionOf(trade), from, to);
     });
-  }, [allTrades, effectiveFilters.accountId, effectiveFilters.asset, from, to]);
+  }, [allTrades, displayFilters.accountId, displayFilters.asset, from, to]);
 
   const calculations = useMemo(() => trades.map(calculateTrade), [trades]);
   const metrics = useMemo(() => aggregateTrades(trades), [trades]);
@@ -304,8 +328,8 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
 
   const dataQualityCount = dataQualityIssues.reduce((sum, issue) => sum + issue.count, 0);
 
-  const beginningBalance = resolveBeginningBalanceForScope(accounts, effectiveFilters.accountId);
-  const reported = resolveReportedBalanceForScope(accounts, effectiveFilters.accountId);
+  const beginningBalance = resolveBeginningBalanceForScope(accounts, displayFilters.accountId);
+  const reported = resolveReportedBalanceForScope(accounts, displayFilters.accountId);
   const equityView = resolveJournalEquityView({
     beginningBalance,
     reportedBalance: reported.reportedBalance,
@@ -325,7 +349,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   const onLiveTradeSaved = async () => {
     writeJson(HIDE_DEMO_KEY, true);
     setDemoHidden(true);
-    persistFilters({ ...effectiveFilters, range: "all", accountId: "all" });
+    persistLiveFilters({ ...liveEffectiveFilters, range: "all", accountId: "all" });
     await loadLive();
   };
 
@@ -338,12 +362,30 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
     calculations,
     metrics,
     daily,
-    selectedAccountId: effectiveFilters.accountId,
+    selectedAccountId: displayFilters.accountId,
     range: activeRange,
-    asset: effectiveFilters.asset,
-    setAccountId: (accountId) => persistFilters({ ...effectiveFilters, accountId }),
-    setRange: (range) => persistFilters({ ...effectiveFilters, range }),
-    setAsset: (asset) => persistFilters({ ...effectiveFilters, asset }),
+    asset: displayFilters.asset,
+    setAccountId: (accountId) => {
+      if (mode === "demo") {
+        persistDemoDisplayFilters({ ...demoEffectiveFilters, accountId });
+        return;
+      }
+      persistLiveFilters({ ...liveEffectiveFilters, accountId });
+    },
+    setRange: (range) => {
+      if (mode === "demo") {
+        persistDemoDisplayFilters({ ...demoEffectiveFilters, range });
+        return;
+      }
+      persistLiveFilters({ ...liveEffectiveFilters, range });
+    },
+    setAsset: (asset) => {
+      if (mode === "demo") {
+        persistDemoDisplayFilters({ ...demoEffectiveFilters, asset });
+        return;
+      }
+      persistLiveFilters({ ...liveEffectiveFilters, asset });
+    },
     accounts,
     dataQualityCount,
     dataQualityIssues,

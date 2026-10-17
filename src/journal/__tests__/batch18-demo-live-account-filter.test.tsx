@@ -25,14 +25,13 @@ vi.mock("@/hooks/useEffectiveLanguage", () => ({
 }));
 
 function Probe() {
-  const { mode, selectedAccountId, demoHidden, hideDemo, refresh, allTrades, trades } =
+  const { mode, selectedAccountId, demoHidden, hideDemo, refresh, trades, setAccountId } =
     useJournalWorkspace();
   return (
     <div>
       <span data-testid="mode">{mode}</span>
       <span data-testid="account">{selectedAccountId}</span>
       <span data-testid="demo-hidden">{String(demoHidden)}</span>
-      <span data-testid="demo-trade-count">{allTrades.length}</span>
       <span data-testid="filtered-trade-count">{trades.length}</span>
       <button type="button" onClick={() => hideDemo()}>
         hide-demo
@@ -40,8 +39,15 @@ function Probe() {
       <button type="button" onClick={() => void refresh()}>
         refresh
       </button>
+      <button type="button" onClick={() => setAccountId("demo-account-main")}>
+        pick-demo-account
+      </button>
     </div>
   );
+}
+
+function readPersistedLiveAccountId(): string {
+  return JSON.parse(window.localStorage.getItem("stocksist-journal-filters:user-live")!).accountId;
 }
 
 describe("Batch 18 — live account filter across demo workspace", () => {
@@ -71,7 +77,7 @@ describe("Batch 18 — live account filter across demo workspace", () => {
     authMock.current = { user: { id: "user-live" } };
   });
 
-  it("preserves a valid saved live account while demo data is visible with zero live trades", async () => {
+  it("shows demo trades while preserving the saved live account for later restoration", async () => {
     render(
       <JournalWorkspaceProvider>
         <Probe />
@@ -80,11 +86,21 @@ describe("Batch 18 — live account filter across demo workspace", () => {
 
     await waitFor(() => {
       expect(screen.getByTestId("mode").textContent).toBe("demo");
-      expect(screen.getByTestId("account").textContent).toBe("acct-live-1");
+      expect(Number(screen.getByTestId("filtered-trade-count").textContent)).toBeGreaterThan(0);
     });
 
-    expect(Number(screen.getByTestId("demo-trade-count").textContent)).toBeGreaterThan(0);
-    expect(Number(screen.getByTestId("filtered-trade-count").textContent)).toBe(0);
+    expect(readPersistedLiveAccountId()).toBe("acct-live-1");
+
+    await act(async () => {
+      screen.getByRole("button", { name: "pick-demo-account" }).click();
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("account").textContent).toBe("demo-account-main");
+      expect(Number(screen.getByTestId("filtered-trade-count").textContent)).toBeGreaterThan(0);
+    });
+
+    expect(readPersistedLiveAccountId()).toBe("acct-live-1");
 
     await act(async () => {
       screen.getByRole("button", { name: "hide-demo" }).click();
@@ -103,8 +119,6 @@ describe("Batch 18 — live account filter across demo workspace", () => {
       expect(screen.getByTestId("account").textContent).toBe("acct-live-1");
     });
 
-    expect(JSON.parse(window.localStorage.getItem("stocksist-journal-filters:user-live")!).accountId).toBe(
-      "acct-live-1",
-    );
+    expect(readPersistedLiveAccountId()).toBe("acct-live-1");
   });
 });
