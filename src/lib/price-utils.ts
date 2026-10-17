@@ -3,6 +3,16 @@
  * Single source of truth for current-price fallback chains and market-session detection.
  */
 
+import {
+  getEtParts,
+  marketHolidayName,
+  resolveMarketClock,
+} from "@/lib/market-calendar";
+import { polygonSnapshotFieldToMs } from "@/lib/market-data/polygon-snapshot-timestamps";
+
+/** Development policy: public research surfaces use a delayed provider feed. */
+export const PUBLIC_MARKET_DATA_DELAY_DISCLOSURE = "15-minute delayed market data";
+
 /** Resolve the best available price from a Polygon snapshot/ticker object. */
 export function resolveCurrentPrice(ticker: any): number {
   const dayClose = ticker?.day?.c;
@@ -17,22 +27,22 @@ export function resolveCurrentPrice(ticker: any): number {
   return 0;
 }
 
-/** Determine the current US equity market session based on Eastern Time. */
-export function resolveMarketSession(): "pre-market" | "market" | "after-hours" | "closed" {
-  const now = new Date();
-  const etStr = now.toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    hour12: false,
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-  const [h, m] = etStr.split(":").map(Number);
-  const mins = h * 60 + m;
+export type MarketSessionLabel = "pre-market" | "market" | "after-hours" | "closed";
 
-  if (mins >= 240 && mins < 570) return "pre-market";
-  if (mins >= 570 && mins <= 960) return "market";
-  if (mins >= 961 && mins <= 1200) return "after-hours";
+function mapClockSession(sessionId: string): MarketSessionLabel {
+  if (sessionId === "pre-market") return "pre-market";
+  if (sessionId === "market") return "market";
+  if (sessionId === "after-hours") return "after-hours";
   return "closed";
+}
+
+/** Calendar-aware US equity session (weekends/holidays stay closed). */
+export function resolveMarketSession(now = new Date()): MarketSessionLabel {
+  return mapClockSession(resolveMarketClock(now).sessionId);
+}
+
+export function resolveMarketClockState(now = new Date()) {
+  return resolveMarketClock(now);
 }
 
 /** Build a human-readable session price label (e.g. "After-hours: $650.09 −0.25 (−0.04%)"). */
@@ -51,8 +61,8 @@ export function resolveSessionLabel(
 }
 
 /** Get Eastern-Time formatted date string. */
-export function estDate(): string {
-  return new Date().toLocaleDateString("en-US", {
+export function estDate(now = new Date()): string {
+  return now.toLocaleDateString("en-US", {
     timeZone: "America/New_York",
     month: "short",
     day: "numeric",
@@ -61,13 +71,96 @@ export function estDate(): string {
 }
 
 /** Get Eastern-Time formatted time string. */
-export function estTime(): string {
-  return new Date().toLocaleTimeString("en-US", {
+export function estTime(now = new Date()): string {
+  return now.toLocaleTimeString("en-US", {
     timeZone: "America/New_York",
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   });
+}
+
+/** EST or EDT for America/New_York at `now`. */
+export function estTimezoneAbbr(now = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    timeZoneName: "short",
+  }).formatToParts(now);
+  return parts.find((p) => p.type === "timeZoneName")?.value ?? "ET";
+}
+
+export function formatStockHeaderSessionLine(now = new Date()): string {
+  const clock = resolveMarketClock(now);
+  const tz = estTimezoneAbbr(now);
+  const et = getEtParts(now);
+  const holiday = marketHolidayName(et.date);
+  if (!clock.isTradingDay) {
+    if (holiday) return `${holiday} · Market closed · ${clock.etTimeStr} ${tz}`;
+    if (et.weekday === 0 || et.weekday === 6) return `Weekend · Market closed · ${clock.etTimeStr} ${tz}`;
+    return `Market closed · ${clock.etTimeStr} ${tz}`;
+  }
+  if (clock.sessionId === "market") {
+    return `${clock.etTimeStr} ${tz} · ${clock.label}`;
+  }
+  return `${clock.label} · ${clock.etTimeStr} ${tz}`;
+}
+
+const SOURCE_LABEL: Record<Exclude<StockHeaderTimestampSource, null>, string> = {
+  lastTrade: "Last trade",
+  min: "Minute aggregate",
+  day: "Daily aggregate",
+  prevDay: "Previous close",
+};
+
+/** Human label for the snapshot field that supplied the displayed price. */
+export function stockHeaderPriceSourceLabel(source: StockHeaderTimestampSource): string | null {
+  if (!source) return null;
+  return SOURCE_LABEL[source];
+}
+
+function parseObservationMs(
+  snapshot: unknown,
+  source: StockHeaderTimestampSource,
+  nowMs: number,
+): number | null {
+  const tick = asRecord(snapshot);
+  if (!tick) return null;
+  if (source === "lastTrade") {
+    return polygonSnapshotFieldToMs(asRecord(tick.lastTrade)?.t, "lastTrade", nowMs);
+  }
+  if (source === "min") {
+    const min = asRecord(tick.min);
+    return (
+      polygonSnapshotFieldToMs(min?.t, "minAggregate", nowMs)
+      ?? polygonSnapshotFieldToMs(min?.e, "minAggregate", nowMs)
+    );
+  }
+  if (source === "day") {
+    return polygonSnapshotFieldToMs(asRecord(tick.day)?.t, "dayAggregate", nowMs);
+  }
+  if (source === "prevDay") {
+    return polygonSnapshotFieldToMs(asRecord(tick.prevDay)?.t, "prevDayAggregate", nowMs);
+  }
+  return null;
+}
+
+/** Price observation time when provider timestamp exists — never conflated with wall clock. */
+export function formatPriceObservationTime(
+  snapshot: unknown,
+  source: StockHeaderTimestampSource,
+  now = new Date(),
+): string | null {
+  const ms = parseObservationMs(snapshot, source, now.getTime());
+  if (ms === null) return null;
+  const observed = new Date(ms);
+  return `As of ${observed.toLocaleString("en-US", {
+    timeZone: "America/New_York",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  })} · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`;
 }
 
 export type StockHeaderSession = ReturnType<typeof resolveMarketSession>;

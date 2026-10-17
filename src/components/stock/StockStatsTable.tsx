@@ -1,4 +1,8 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  classifySnapshotDayRange,
+  presentSnapshotDayRange,
+} from "@/lib/market-data/snapshot-day-range";
 import { resolveCurrentPrice } from "@/lib/price-utils";
 
 function formatMarketCap(val: number | null): string {
@@ -71,8 +75,8 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
   let week52High: number | null = null;
   let week52Low: number | null = null;
   if (yearAggs && Array.isArray(yearAggs) && yearAggs.length > 0) {
-    week52High = Math.max(...yearAggs.map((r: any) => r.h));
-    week52Low = Math.min(...yearAggs.map((r: any) => r.l));
+    week52High = Math.max(...yearAggs.map((r: { high?: number; h?: number }) => r.high ?? r.h ?? 0));
+    week52Low = Math.min(...yearAggs.map((r: { low?: number; l?: number }) => r.low ?? r.l ?? Number.POSITIVE_INFINITY));
   }
 
   // Dividends
@@ -82,12 +86,11 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     : "n/a";
   const exDivDate = divArray.length > 0 ? formatDate(divArray[0]?.ex_dividend_date) : "n/a";
 
-  // Day range with fallbacks
-  const dayLow = (snapshot?.day?.l > 0 ? snapshot.day.l : null) ?? snapshot?.min?.l ?? snapshot?.prevDay?.l ?? null;
-  const dayHigh = (snapshot?.day?.h > 0 ? snapshot.day.h : null) ?? snapshot?.min?.h ?? snapshot?.prevDay?.h ?? null;
-  const dayRange = dayLow != null && dayHigh != null
-    ? `$${dayLow.toFixed(2)} - $${dayHigh.toFixed(2)}`
-    : "n/a";
+  const dayRangeView = classifySnapshotDayRange(snapshot);
+  const dayRangePresentation = presentSnapshotDayRange(dayRangeView);
+  const dayLow = dayRangeView.low;
+  const dayHigh = dayRangeView.high;
+  const dayRange = dayRangePresentation.dayRangeValue;
 
   // Open with fallback
   const openPrice = (snapshot?.day?.o > 0 ? snapshot.day.o : null) ?? snapshot?.prevDay?.o ?? null;
@@ -116,8 +119,14 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     { label: "Volume", value: formatVolume(volume || null) },
     { label: "Open", value: formatPrice(snapshot?.day?.o ?? null) },
     { label: "Previous Close", value: formatPrice(snapshot?.prevDay?.c) },
-    { label: "High", value: formatPrice(snapshot?.day?.h ?? null) },
-    { label: "Low", value: formatPrice(snapshot?.day?.l ?? null) },
+    {
+      label: dayRangePresentation.highLabel,
+      value: formatPrice(dayHigh),
+    },
+    {
+      label: dayRangePresentation.lowLabel,
+      value: formatPrice(dayLow),
+    },
     { label: "Day's Range", value: dayRange },
     { label: "52-Week Range", value: week52Range },
     { label: "Beta", value: "n/a", pro: true },
