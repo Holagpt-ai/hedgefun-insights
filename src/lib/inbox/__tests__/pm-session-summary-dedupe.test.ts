@@ -6,11 +6,17 @@ function row(symbol: string, rank: number): PmSessionSummaryRow {
   return {
     symbol,
     rank,
+    volume: 1_000_000,
     primaryEvent: "RUNNING_UP",
     primaryEventLabel: "Running Up",
+    observationTimeEt: "3:45 PM",
+    sourceTradingSession: "2026-03-15",
+    freshness: "late_confirmed",
+    freshnessLabel: "Late-session recorded",
     rvol5m: 2,
     volumeVelocity: null,
     distanceFromHodPct: null,
+    participationNote: null,
   };
 }
 
