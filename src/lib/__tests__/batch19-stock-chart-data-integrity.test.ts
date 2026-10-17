@@ -14,6 +14,15 @@ import {
   toOhlcvSeries,
 } from "@/lib/stock-chart/normalize-bars";
 import { createRequestFence } from "@/lib/stock-chart/request-fence";
+import { formatChartDataDisclosure } from "@/lib/stock-chart/chart-disclosure";
+import {
+  polygonSnapshotFieldToMs,
+  PROVIDER_FUTURE_SKEW_MS,
+} from "@/lib/market-data/polygon-snapshot-timestamps";
+import {
+  classifySnapshotDayRange,
+  expectedTradingSessionDate,
+} from "@/lib/market-data/snapshot-day-range";
 
 describe("Batch 19 — intraday chart integrity", () => {
   it("keeps multiple intraday bars on one date as distinct UTC timestamps", () => {
@@ -88,14 +97,59 @@ describe("Batch 19 — quote provenance and session labels", () => {
   });
 
   it("formats observation time only when provider timestamp exists", () => {
+    const tradeMs = Date.parse("2026-03-16T12:00:00.000Z");
     const withTs = formatPriceObservationTime(
-      { lastTrade: { p: 11, t: Date.parse("2026-03-16T12:00:00.000Z") } },
+      { lastTrade: { p: 11, t: tradeMs * 1_000_000 } },
       "lastTrade",
+      new Date(tradeMs),
     );
     expect(withTs).toMatch(/As of/);
     expect(withTs).toMatch(/15-minute delayed/);
 
     expect(formatPriceObservationTime({ lastTrade: { p: 11 } }, "lastTrade")).toBeNull();
+  });
+
+  it("normalizes nanosecond last-trade and millisecond aggregate timestamps", () => {
+    const now = Date.parse("2026-03-16T15:00:00.000Z");
+    const tradeMs = Date.parse("2026-03-16T14:00:00.000Z");
+    expect(polygonSnapshotFieldToMs(tradeMs * 1_000_000, "lastTrade", now)).toBe(tradeMs);
+    expect(polygonSnapshotFieldToMs(tradeMs, "lastTrade", now)).toBe(tradeMs);
+    expect(polygonSnapshotFieldToMs(tradeMs, "dayAggregate", now)).toBe(tradeMs);
+  });
+
+  it("rejects implausibly future-dated observations", () => {
+    const now = Date.parse("2026-03-16T15:00:00.000Z");
+    const future = now + PROVIDER_FUTURE_SKEW_MS + 60_000;
+    expect(polygonSnapshotFieldToMs(future, "lastTrade", now)).toBeNull();
+  });
+
+  it("does not treat provider updated time as day aggregate observation", () => {
+    const now = Date.parse("2026-03-16T15:00:00.000Z");
+    const updatedNs = now * 1_000_000;
+    expect(
+      formatPriceObservationTime({ day: { c: 10, h: 11, l: 9 }, updated: updatedNs }, "day", new Date(now)),
+    ).toBeNull();
+  });
+
+  it("labels Monday premarket day bars from Friday as prior session", () => {
+    const mondayPremarket = new Date("2026-03-16T12:00:00.000Z"); // 8:00 AM ET
+    const fridayMs = Date.parse("2026-03-13T21:00:00.000Z");
+    expect(expectedTradingSessionDate(mondayPremarket)).toBe("2026-03-16");
+    const view = classifySnapshotDayRange(
+      { day: { h: 12, l: 10, t: fridayMs } },
+      mondayPremarket,
+    );
+    expect(view.kind).toBe("prior_session");
+    expect(view.high).toBe(12);
+  });
+
+  it("discloses previous-session fallback on 1D charts", () => {
+    const line = formatChartDataDisclosure({
+      granularity: "intraday",
+      lastObservedAt: "2026-03-13T21:00:00.000Z",
+      usesPriorSessionFallback: true,
+    });
+    expect(line).toMatch(/Previous regular session/);
   });
 
   it("classifies weekends and holidays as closed", () => {

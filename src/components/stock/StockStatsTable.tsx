@@ -1,5 +1,6 @@
 import { Skeleton } from "@/components/ui/skeleton";
-import { resolveCurrentPrice, resolveMarketSession } from "@/lib/price-utils";
+import { classifySnapshotDayRange } from "@/lib/market-data/snapshot-day-range";
+import { resolveCurrentPrice } from "@/lib/price-utils";
 
 function formatMarketCap(val: number | null): string {
   if (!val || val <= 0) return "n/a";
@@ -82,23 +83,17 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     : "n/a";
   const exDivDate = divArray.length > 0 ? formatDate(divArray[0]?.ex_dividend_date) : "n/a";
 
-  const session = resolveMarketSession();
-  const hasCurrentSessionDay =
-    session !== "closed" && (snapshot?.day?.v > 0 || snapshot?.day?.h > 0 || snapshot?.day?.l > 0);
-  const dayLow = hasCurrentSessionDay
-    ? ((snapshot?.day?.l > 0 ? snapshot.day.l : null) ?? snapshot?.min?.l ?? null)
-    : null;
-  const dayHigh = hasCurrentSessionDay
-    ? ((snapshot?.day?.h > 0 ? snapshot.day.h : null) ?? snapshot?.min?.h ?? null)
-    : null;
-  const prevLow = snapshot?.prevDay?.l > 0 ? snapshot.prevDay.l : null;
-  const prevHigh = snapshot?.prevDay?.h > 0 ? snapshot.prevDay.h : null;
+  const dayRangeView = classifySnapshotDayRange(snapshot);
+  const dayLow = dayRangeView.low;
+  const dayHigh = dayRangeView.high;
   const dayRange =
     dayLow != null && dayHigh != null
-      ? `$${dayLow.toFixed(2)} - $${dayHigh.toFixed(2)}`
-      : prevLow != null && prevHigh != null
-        ? `$${prevLow.toFixed(2)} - $${prevHigh.toFixed(2)} (prior session)`
-        : "n/a";
+      ? dayRangeView.kind === "current_session"
+        ? `$${dayLow.toFixed(2)} - $${dayHigh.toFixed(2)}`
+        : `$${dayLow.toFixed(2)} - $${dayHigh.toFixed(2)} (prior session${
+            dayRangeView.observationSessionDate ? ` · ${dayRangeView.observationSessionDate}` : ""
+          })`
+      : "n/a";
 
   // Open with fallback
   const openPrice = (snapshot?.day?.o > 0 ? snapshot.day.o : null) ?? snapshot?.prevDay?.o ?? null;
@@ -128,12 +123,12 @@ export default function StockStatsTable({ snapshot, details, dividends, yearAggs
     { label: "Open", value: formatPrice(snapshot?.day?.o ?? null) },
     { label: "Previous Close", value: formatPrice(snapshot?.prevDay?.c) },
     {
-      label: hasCurrentSessionDay ? "High" : "Prior session high",
-      value: formatPrice(hasCurrentSessionDay ? snapshot?.day?.h ?? null : snapshot?.prevDay?.h ?? null),
+      label: dayRangeView.kind === "current_session" ? "High" : "Prior session high",
+      value: formatPrice(dayHigh),
     },
     {
-      label: hasCurrentSessionDay ? "Low" : "Prior session low",
-      value: formatPrice(hasCurrentSessionDay ? snapshot?.day?.l ?? null : snapshot?.prevDay?.l ?? null),
+      label: dayRangeView.kind === "current_session" ? "Low" : "Prior session low",
+      value: formatPrice(dayLow),
     },
     { label: "Day's Range", value: dayRange },
     { label: "52-Week Range", value: week52Range },

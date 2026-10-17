@@ -8,6 +8,7 @@ import {
   marketHolidayName,
   resolveMarketClock,
 } from "@/lib/market-calendar";
+import { polygonSnapshotFieldToMs } from "@/lib/market-data/polygon-snapshot-timestamps";
 
 /** Development policy: public research surfaces use a delayed provider feed. */
 export const PUBLIC_MARKET_DATA_DELAY_DISCLOSURE = "15-minute delayed market data";
@@ -117,24 +118,28 @@ export function stockHeaderPriceSourceLabel(source: StockHeaderTimestampSource):
   return SOURCE_LABEL[source];
 }
 
-function parseObservationMs(snapshot: unknown, source: StockHeaderTimestampSource): number | null {
+function parseObservationMs(
+  snapshot: unknown,
+  source: StockHeaderTimestampSource,
+  nowMs: number,
+): number | null {
   const tick = asRecord(snapshot);
   if (!tick) return null;
   if (source === "lastTrade") {
-    const t = asRecord(tick.lastTrade)?.t;
-    return typeof t === "number" && Number.isFinite(t) ? t : null;
+    return polygonSnapshotFieldToMs(asRecord(tick.lastTrade)?.t, "lastTrade", nowMs);
   }
   if (source === "min") {
-    const t = asRecord(tick.min)?.t ?? asRecord(tick.min)?.e;
-    return typeof t === "number" && Number.isFinite(t) ? t : null;
+    const min = asRecord(tick.min);
+    return (
+      polygonSnapshotFieldToMs(min?.t, "minAggregate", nowMs)
+      ?? polygonSnapshotFieldToMs(min?.e, "minAggregate", nowMs)
+    );
   }
   if (source === "day") {
-    const t = asRecord(tick.day)?.t ?? tick.updated;
-    return typeof t === "number" && Number.isFinite(t) ? t : null;
+    return polygonSnapshotFieldToMs(asRecord(tick.day)?.t, "dayAggregate", nowMs);
   }
   if (source === "prevDay") {
-    const t = asRecord(tick.prevDay)?.t;
-    return typeof t === "number" && Number.isFinite(t) ? t : null;
+    return polygonSnapshotFieldToMs(asRecord(tick.prevDay)?.t, "prevDayAggregate", nowMs);
   }
   return null;
 }
@@ -145,7 +150,7 @@ export function formatPriceObservationTime(
   source: StockHeaderTimestampSource,
   now = new Date(),
 ): string | null {
-  const ms = parseObservationMs(snapshot, source);
+  const ms = parseObservationMs(snapshot, source, now.getTime());
   if (ms === null) return null;
   const observed = new Date(ms);
   return `As of ${observed.toLocaleString("en-US", {

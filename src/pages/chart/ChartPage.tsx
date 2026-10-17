@@ -4,8 +4,8 @@ import { Search, ChevronLeft, Menu, X, TrendingUp, Pencil, Plus, Type, ChevronDo
 import { Button } from "@/components/ui/button";
 import { AuthModals } from "@/components/auth/AuthModals";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOwnedWatchlist } from "@/hooks/useOwnedWatchlist";
 import { useTheme } from "@/contexts/ThemeContext";
-import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -18,7 +18,8 @@ import {
   intradayFallbackSessionDates,
   resolveChartAggregateRequest,
 } from "@/lib/stock-chart/chart-ranges";
-import { normalizeAggregateBars, toOhlcvSeries, type NormalizedBar } from "@/lib/stock-chart/normalize-bars";
+import { formatChartDataDisclosure, type ChartDisplayMeta } from "@/lib/stock-chart/chart-disclosure";
+import { chartSeriesMeta, normalizeAggregateBars, toOhlcvSeries, type NormalizedBar } from "@/lib/stock-chart/normalize-bars";
 import { createRequestFence } from "@/lib/stock-chart/request-fence";
 import { BrandMark } from "@/components/brand/BrandMark";
 import { BRAND } from "@/config/brand";
@@ -115,9 +116,21 @@ export default function ChartPage() {
   const [error, setError] = useState("");
   const [tickerDetails, setTickerDetails] = useState<any>(null);
   const [snapshot, setSnapshot] = useState<any>(null);
-  const [watchlist, setWatchlist] = useState<{ symbol: string }[]>([]);
+  const { watchlist } = useOwnedWatchlist(user?.id);
+  const [chartDisplayMeta, setChartDisplayMeta] = useState<ChartDisplayMeta | null>(null);
   const [hoveredPoint, setHoveredPoint] = useState<ChartPoint | null>(null);
-  const chartCacheRef = useRef<Map<string, { data: ChartPoint[]; granularity: "intraday" | "daily" | "weekly"; ts: number }>>(new Map());
+  const chartCacheRef = useRef<
+    Map<
+      string,
+      {
+        data: ChartPoint[];
+        granularity: "intraday" | "daily" | "weekly";
+        usesPriorSessionFallback: boolean;
+        lastObservedAt: string | null;
+        ts: number;
+      }
+    >
+  >(new Map());
   const tickerRequestFence = useRef(createRequestFence());
   // Chart view mode
   const [chartViewMode, setChartViewMode] = useState<ChartViewMode>("recharts");
@@ -163,26 +176,6 @@ export default function ChartPage() {
     setSearchHighlight(-1);
   }, [searchResults]);
 
-  // Fetch watchlist — scoped to active user; cleared on logout/switch
-  useEffect(() => {
-    if (!user?.id) {
-      setWatchlist([]);
-      return;
-    }
-    let cancelled = false;
-    const activeUserId = user.id;
-    supabase
-      .from("watchlists")
-      .select("symbol")
-      .eq("user_id", activeUserId)
-      .then(({ data }) => {
-        if (!cancelled) setWatchlist(data ?? []);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [user?.id]);
-
   // Fetch chart data with AbortController for proper cleanup on ticker change
   useEffect(() => {
     if (!ticker) return;
@@ -193,6 +186,11 @@ export default function ChartPage() {
     if (cached && Date.now() - cached.ts < STALE_MS) {
       setChartData(cached.data);
       setChartGranularity(cached.granularity);
+      setChartDisplayMeta({
+        granularity: cached.granularity,
+        lastObservedAt: cached.lastObservedAt,
+        usesPriorSessionFallback: cached.usesPriorSessionFallback,
+      });
       setError("");
       setLoading(false);
       setHoveredPoint(null);
@@ -203,6 +201,7 @@ export default function ChartPage() {
 
     // Reset all chart state for the new ticker
     setChartData([]);
+    setChartDisplayMeta(null);
     setError("");
     setLoading(true);
     setHoveredPoint(null);
@@ -231,25 +230,43 @@ export default function ChartPage() {
       try {
         const { from, to, multiplier, timespan, granularity } = getDateRange(timeRange);
         let rawResults = await doFetch(from, to, multiplier, timespan);
+        let usesPriorSessionFallback = false;
 
         if (timeRange === "1D" && (!Array.isArray(rawResults) || rawResults.length === 0)) {
           for (const sessionDate of intradayFallbackSessionDates(new Date()).slice(1)) {
             rawResults = await doFetch(sessionDate, sessionDate, multiplier, timespan);
-            if (Array.isArray(rawResults) && rawResults.length > 0) break;
+            if (Array.isArray(rawResults) && rawResults.length > 0) {
+              usesPriorSessionFallback = true;
+              break;
+            }
           }
         }
 
         if (abortController.signal.aborted) return;
         const bars = normalizeAggregateBars(rawResults);
+        const seriesMeta = chartSeriesMeta(bars, granularity, usesPriorSessionFallback);
+        const displayMeta: ChartDisplayMeta = {
+          granularity,
+          lastObservedAt: seriesMeta.lastObservedAt,
+          usesPriorSessionFallback,
+        };
         if (bars.length === 0) {
           setError("Chart data temporarily unavailable. Please try again shortly.");
           setChartData([]);
           setChartGranularity(granularity);
+          setChartDisplayMeta(displayMeta);
         } else {
           const mapped = normalizedBarsToChartPoints(bars);
-          chartCacheRef.current.set(cacheKey, { data: mapped, granularity, ts: Date.now() });
+          chartCacheRef.current.set(cacheKey, {
+            data: mapped,
+            granularity,
+            usesPriorSessionFallback,
+            lastObservedAt: seriesMeta.lastObservedAt,
+            ts: Date.now(),
+          });
           setChartData(mapped);
           setChartGranularity(granularity);
+          setChartDisplayMeta(displayMeta);
         }
       } catch (err: any) {
         if (err.name === "AbortError") return;
@@ -359,6 +376,8 @@ export default function ChartPage() {
   const displayPoint = hoveredPoint || lastPoint;
 
   // Convert chartData to OHLCVData for TradingViewChart
+  const chartDisclosure = formatChartDataDisclosure(chartDisplayMeta);
+
   const ohlcvData: OHLCVData[] = toOhlcvSeries(
     chartData.map((d) => ({
       utcMs: Date.parse(d.date),
@@ -605,6 +624,9 @@ export default function ChartPage() {
               </div>
             ) : chartViewMode === "tradingview" ? (
               <div className="h-full flex flex-col">
+                {chartDisclosure ? (
+                  <p className="text-[0.6875rem] text-muted-foreground px-3 pt-2 shrink-0">{chartDisclosure}</p>
+                ) : null}
                 <div className="flex-1 min-h-0 p-2">
                   <TradingViewChart
                     data={ohlcvData}
@@ -635,6 +657,9 @@ export default function ChartPage() {
               </div>
             ) : (
               <div className="h-full flex flex-col">
+                {chartDisclosure ? (
+                  <p className="text-[0.6875rem] text-muted-foreground px-3 pt-2 shrink-0 relative z-10">{chartDisclosure}</p>
+                ) : null}
                 {/* OHLCV Overlay */}
                 <div className="absolute top-3 left-3 z-10">
                   <div className="flex items-baseline gap-2 mb-1">
