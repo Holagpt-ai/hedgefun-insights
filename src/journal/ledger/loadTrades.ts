@@ -38,9 +38,9 @@ export interface LoadedJournalAccount {
   name: string;
   type: string;
   baseCurrency: string;
-  beginningBalance: number;
-  reportedBalance: number;
-  reportedAsOf: string;
+  beginningBalance: number | null;
+  reportedBalance: number | null;
+  reportedAsOf: string | null;
 }
 
 export interface LoadJournalResult {
@@ -88,9 +88,9 @@ function toAccounts(rows: CanonicalAccountRow[]): LoadedJournalAccount[] {
     name: row.name,
     type: row.account_type || "personal",
     baseCurrency: row.base_currency || "USD",
-    beginningBalance: 0,
-    reportedBalance: 0,
-    reportedAsOf: new Date().toISOString(),
+    beginningBalance: null,
+    reportedBalance: null,
+    reportedAsOf: null,
   }));
 }
 

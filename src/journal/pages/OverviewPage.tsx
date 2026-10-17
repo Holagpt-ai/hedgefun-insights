@@ -14,7 +14,7 @@ export function OverviewPage() {
   const navigate = useNavigate();
   const {
     mode, loading, error, refresh, trades, metrics, daily, calculations,
-    processScore, equity, reconciliationState, dataQualityCount, missingReviews, showDemo, demoHidden,
+    processScore, equity, equityAvailable, reconciliationState, dataQualityCount, missingReviews, showDemo, demoHidden,
   } = useJournalWorkspace();
 
   if (loading) return <HonestState kind="loading" />;
@@ -56,7 +56,7 @@ export function OverviewPage() {
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">
         <KpiCard label={t("kpi.netPnl")} value={signedMoney(metrics.netPnl, lang)} sampleSize={metrics.sampleSize} definition={t("def.netPnl")} tone={tone} state={metrics.calculationState} onDrillDown={() => navigate(`${JOURNAL_BASE}/trades`)} />
-        <KpiCard label={t("kpi.equity")} value={money(equity, lang)} sampleSize={metrics.sampleSize} definition={t("def.equity")} onDrillDown={() => navigate(`${JOURNAL_BASE}/settings?section=accounts`)} />
+        <KpiCard label={t("kpi.equity")} value={equityAvailable && equity != null ? money(equity, lang) : "—"} sampleSize={metrics.sampleSize} definition={t("def.equity")} onDrillDown={() => navigate(`${JOURNAL_BASE}/settings?section=accounts`)} />
         <KpiCard label={t("kpi.profitFactor")} value={ratio(metrics.profitFactor)} sampleSize={metrics.sampleSize} definition={t("def.profitFactor")} />
         <KpiCard label={t("kpi.expectancy")} value={metrics.expectancyDollars != null ? signedMoney(metrics.expectancyDollars, lang) : "—"} sampleSize={metrics.sampleSize} definition={t("def.expectancy")} />
         <KpiCard label={t("kpi.averageR")} value={formatAverageR(metrics.averageR)} sampleSize={metrics.sampleSize} definition={t("def.averageR")} />

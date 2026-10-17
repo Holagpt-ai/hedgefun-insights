@@ -29,6 +29,7 @@ export function JournalContextBar() {
         </SelectTrigger>
         <SelectContent>
           {mode === "demo" ? <SelectItem value="augustDemo">{t("range.augustDemo")}</SelectItem> : null}
+          <SelectItem value="today">{t("range.today")}</SelectItem>
           <SelectItem value="week">{t("range.week")}</SelectItem>
           <SelectItem value="mtd">{t("range.mtd")}</SelectItem>
           <SelectItem value="month">{t("range.month")}</SelectItem>
