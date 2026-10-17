@@ -9,7 +9,8 @@ import {
   dedupeScannerAlertsForActionFeed,
   pickActionFeedBucket,
   resolveScannerAlertFeedTimestamp,
-  resolveVolumeLeaderSnapshotMeta,
+  resolveVolumeLeaderListSnapshotMeta,
+  resolveVolumeLeaderRowSnapshot,
   shouldSuppressWatchlistForScannerDuplicate,
 } from "@/lib/action-center/feed-evidence";
 import { selectActionCenterHandoffRows } from "@/lib/action-center/handoff-context";
@@ -72,7 +73,7 @@ function watchlist(over: Partial<WatchlistAlertRow> = {}): WatchlistAlertRow {
 describe("Batch 16 — Action Center evidence integrity", () => {
   it("dedupes duplicate scanner DB rows with one canonical event", () => {
     const rows = [scanner({ id: "a" }), scanner({ id: "b" })];
-    expect(dedupeScannerAlertsForActionFeed(rows)).toHaveLength(1);
+    expect(dedupeScannerAlertsForActionFeed(rows, NOW)).toHaveLength(1);
   });
 
   it("keeps two genuine same-symbol scanner events at different times", () => {
@@ -83,7 +84,7 @@ describe("Batch 16 — Action Center evidence integrity", () => {
         "scanner_v1:2026-03-15:AAA:RUNNING_UP:2026-03-15T16:00:00.000Z",
       event_at: "2026-03-15T16:00:00.000Z",
     });
-    expect(dedupeScannerAlertsForActionFeed([first, second])).toHaveLength(2);
+    expect(dedupeScannerAlertsForActionFeed([first, second], NOW)).toHaveLength(2);
   });
 
   it("does not suppress watchlist unusual_volume when scanner exists for same ticker", () => {
@@ -142,18 +143,92 @@ describe("Batch 16 — Action Center evidence integrity", () => {
     ).toBeNull();
   });
 
-  it("labels prior-session volume leaders without implying live freshness", () => {
-    const meta = resolveVolumeLeaderSnapshotMeta(
+  it("labels mixed-age volume leader lists explicitly", () => {
+    const meta = resolveVolumeLeaderListSnapshotMeta(
       [
-        {
-          provider_as_of: "2026-03-14T20:00:00.000Z",
-          updated_at: "2026-03-15T17:00:00.000Z",
-        },
+        { provider_as_of: "2026-03-14T20:00:00.000Z" },
+        { provider_as_of: "2026-03-15T17:55:00.000Z" },
       ],
       NOW,
     );
-    expect(meta.priorSession).toBe(true);
-    expect(meta.badgeLabel).toContain("Prior session");
+    expect(meta.mixedAge).toBe(true);
+    expect(meta.badgeLabel).toBe("Mixed-age snapshots");
+    expect(resolveVolumeLeaderRowSnapshot({ provider_as_of: "2026-03-14T20:00:00.000Z" }, NOW).kind).toBe(
+      "prior_session",
+    );
+  });
+
+  it("dismisses entire canonical scanner group when one DB row id is dismissed", () => {
+    const siblingA = scanner({ id: "row-a" });
+    const siblingB = scanner({ id: "row-b" });
+    const dismissed = new Set(["row-a"]);
+    const feed = buildActionFeed({
+      alerts: [],
+      scannerAlerts: [siblingA, siblingB],
+      dismissedScannerAlertIds: dismissed,
+      catalyst: [],
+      savedEventIds: new Set(),
+      reviewedEventIds: new Set(),
+      openTrades: [],
+      nowMs: NOW,
+    });
+    expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(0);
+    expect(countDistinctScannerAlertsForFocus([siblingA, siblingB], dismissed, NOW)).toBe(0);
+  });
+
+  it("keeps linked Watchlist alert when scanner duplicate is invalid but valid sibling exists", () => {
+    const invalid = scanner({
+      id: "bad",
+      event_at: new Date(NOW + 2 * 3600_000).toISOString(),
+    });
+    const valid = scanner({
+      id: "good",
+      event_at: "2026-03-15T17:30:00.000Z",
+    });
+    const feed = buildActionFeed({
+      alerts: [
+        watchlist({
+          id: "wl",
+          alert_type: "market_signal",
+          dedupe_key: CANONICAL,
+        }),
+      ],
+      scannerAlerts: [invalid, valid],
+      dismissedScannerAlertIds: new Set(),
+      catalyst: [],
+      savedEventIds: new Set(),
+      reviewedEventIds: new Set(),
+      openTrades: [],
+      nowMs: NOW,
+    });
+    expect(feed.filter((i) => i.source === "watchlist_alert")).toHaveLength(0);
+    expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(1);
+  });
+
+  it("shows Watchlist when only invalid scanner row shares canonical key", () => {
+    const invalid = scanner({
+      id: "bad",
+      event_at: "not-a-date",
+      created_at: new Date(NOW).toISOString(),
+    });
+    const feed = buildActionFeed({
+      alerts: [
+        watchlist({
+          id: "wl",
+          alert_type: "market_signal",
+          dedupe_key: CANONICAL,
+        }),
+      ],
+      scannerAlerts: [invalid],
+      dismissedScannerAlertIds: new Set(),
+      catalyst: [],
+      savedEventIds: new Set(),
+      reviewedEventIds: new Set(),
+      openTrades: [],
+      nowMs: NOW,
+    });
+    expect(feed.filter((i) => i.source === "scanner_intelligence_alert")).toHaveLength(0);
+    expect(feed.filter((i) => i.source === "watchlist_alert")).toHaveLength(1);
   });
 
   it("aligns summary watchlist count and focus scanner count with feed predicates", () => {
@@ -168,7 +243,8 @@ describe("Batch 16 — Action Center evidence integrity", () => {
     const scannerRows = [scanner({ id: "a" }), scanner({ id: "b" })];
     const summary = summaryCounts({
       alerts,
-      scannerAlerts: dedupeScannerAlertsForActionFeed(scannerRows),
+      scannerAlerts: scannerRows,
+      dismissedScannerAlertIds: new Set(),
       analyses: [],
       catalyst: [],
       openTrades: [],

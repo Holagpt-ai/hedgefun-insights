@@ -20,7 +20,7 @@ import {
   summaryCounts,
   watchlistSnapshot,
 } from "@/lib/action-center/aggregate";
-import { dedupeScannerAlertsForActionFeed } from "@/lib/action-center/feed-evidence";
+import { selectFeedEligibleScannerAlerts } from "@/lib/action-center/feed-evidence";
 import type {
   OpenTradeRow,
   ScreenerLeader,
@@ -202,8 +202,8 @@ export function useActionCenter() {
   );
 
   const activeScannerAlerts = useMemo(
-    () => dedupeScannerAlertsForActionFeed(scannerAlerts.filter((a) => !dismissedScanner.has(a.id))),
-    [scannerAlerts, dismissedScanner],
+    () => selectFeedEligibleScannerAlerts(scannerAlerts, dismissedScanner, nowMs),
+    [scannerAlerts, dismissedScanner, nowMs],
   );
 
   const distinctScannerFocusCount = useMemo(

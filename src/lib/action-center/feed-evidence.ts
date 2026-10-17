@@ -49,13 +49,61 @@ function easternCalendarDate(ms: number): string {
   }).format(new Date(ms));
 }
 
+export function buildDismissedScannerCanonicalKeys(
+  allRows: readonly ScannerIntelligenceAlertRow[],
+  dismissedIds: ReadonlySet<string>,
+): Set<string> {
+  const keys = new Set<string>();
+  for (const row of allRows) {
+    if (dismissedIds.has(row.id)) {
+      keys.add(scannerAlertCanonicalToastKey(row));
+    }
+  }
+  return keys;
+}
+
+/** One dismissed DB row suppresses every row sharing that canonical scanner event. */
+export function filterScannerAlertsExcludingDismissedCanonicalGroups(
+  rows: readonly ScannerIntelligenceAlertRow[],
+  allRowsForDismissMapping: readonly ScannerIntelligenceAlertRow[],
+  dismissedIds: ReadonlySet<string>,
+): ScannerIntelligenceAlertRow[] {
+  const dismissedKeys = buildDismissedScannerCanonicalKeys(allRowsForDismissMapping, dismissedIds);
+  if (dismissedKeys.size === 0) return [...rows];
+  return rows.filter((row) => !dismissedKeys.has(scannerAlertCanonicalToastKey(row)));
+}
+
 export function dedupeScannerAlertsForActionFeed(
   rows: readonly ScannerIntelligenceAlertRow[],
+  nowMs = Date.now(),
 ): ScannerIntelligenceAlertRow[] {
-  const sorted = [...rows].sort(
-    (a, b) => parseObservationMs(b.event_at) - parseObservationMs(a.event_at),
+  const eligible = rows
+    .map((row) => ({
+      row,
+      timing: resolveScannerAlertFeedTimestamp(row, nowMs),
+    }))
+    .filter(
+      (
+        item,
+      ): item is { row: ScannerIntelligenceAlertRow; timing: ResolvedFeedTimestamp } =>
+        item.timing !== null,
+    );
+  const sorted = eligible.sort((a, b) => b.timing.sortMs - a.timing.sortMs);
+  return dedupeScannerAlertsByCanonicalIdentity(sorted.map((item) => item.row));
+}
+
+/** Feed-visible scanner alerts after canonical dismiss groups and timestamp validation. */
+export function selectFeedEligibleScannerAlerts(
+  scannerAlerts: readonly ScannerIntelligenceAlertRow[],
+  dismissedIds: ReadonlySet<string>,
+  nowMs: number,
+): ScannerIntelligenceAlertRow[] {
+  const active = filterScannerAlertsExcludingDismissedCanonicalGroups(
+    scannerAlerts,
+    scannerAlerts,
+    dismissedIds,
   );
-  return dedupeScannerAlertsByCanonicalIdentity(sorted);
+  return dedupeScannerAlertsForActionFeed(active, nowMs);
 }
 
 export function resolveScannerAlertFeedTimestamp(
@@ -141,11 +189,13 @@ export function shouldSuppressWatchlistForScannerDuplicate(
   return scannerCanonicalKeys.has(link);
 }
 
-export function buildScannerCanonicalKeySet(
+export function buildDisplayedScannerCanonicalKeySet(
   scannerAlerts: readonly ScannerIntelligenceAlertRow[],
+  dismissedIds: ReadonlySet<string>,
+  nowMs: number,
 ): Set<string> {
   return new Set(
-    dedupeScannerAlertsForActionFeed(scannerAlerts).map((row) =>
+    selectFeedEligibleScannerAlerts(scannerAlerts, dismissedIds, nowMs).map((row) =>
       scannerAlertCanonicalToastKey(row),
     ),
   );
@@ -156,9 +206,7 @@ export function countDistinctScannerAlertsForFocus(
   dismissedIds: ReadonlySet<string>,
   nowMs: number,
 ): number {
-  const active = scannerAlerts.filter((row) => !dismissedIds.has(row.id));
-  const deduped = dedupeScannerAlertsForActionFeed(active);
-  return deduped.filter((row) => resolveScannerAlertFeedTimestamp(row, nowMs) !== null).length;
+  return selectFeedEligibleScannerAlerts(scannerAlerts, dismissedIds, nowMs).length;
 }
 
 export function countWatchlistAlertsForSummary(
@@ -167,8 +215,10 @@ export function countWatchlistAlertsForSummary(
   dismissedScannerIds: ReadonlySet<string>,
   nowMs: number,
 ): number {
-  const scannerKeys = buildScannerCanonicalKeySet(
-    scannerAlerts.filter((row) => !dismissedScannerIds.has(row.id)),
+  const scannerKeys = buildDisplayedScannerCanonicalKeySet(
+    scannerAlerts,
+    dismissedScannerIds,
+    nowMs,
   );
   let count = 0;
   for (const alert of alerts) {
@@ -239,65 +289,142 @@ export interface VolumeLeaderSnapshotMeta {
   badgeLabel: string;
   detailLabel: string;
   priorSession: boolean;
+  mixedAge: boolean;
 }
 
-export function resolveVolumeLeaderSnapshotMeta(
-  rows: ReadonlyArray<{ provider_as_of?: string | null; updated_at?: string | null }>,
+export type VolumeLeaderMarketAge =
+  | "current_session"
+  | "prior_session"
+  | "unverified"
+  | "invalid_future";
+
+type ScreenerLeaderLike = { provider_as_of?: string | null };
+
+export interface VolumeLeaderRowSnapshot {
+  kind: VolumeLeaderMarketAge;
+  shortLabel: string;
+  detailLabel: string;
+}
+
+export function resolveVolumeLeaderRowSnapshot(
+  row: ScreenerLeaderLike,
+  nowMs: number,
+): VolumeLeaderRowSnapshot {
+  const raw = row.provider_as_of?.trim() ?? "";
+  if (!raw) {
+    return {
+      kind: "unverified",
+      shortLabel: "Snap unverified",
+      detailLabel: "Market snapshot time unverified",
+    };
+  }
+  const ms = parseObservationMs(raw);
+  if (!isValidScannerAlertObservationMs(ms, nowMs)) {
+    return {
+      kind: "invalid_future",
+      shortLabel: "Snap invalid",
+      detailLabel: "Market snapshot timestamp invalid or future-dated",
+    };
+  }
+  const todayEt = easternCalendarDate(nowMs);
+  const snapEt = easternCalendarDate(ms);
+  if (snapEt !== todayEt) {
+    return {
+      kind: "prior_session",
+      shortLabel: `Prior ${snapEt}`,
+      detailLabel: `Prior-session market snapshot (${snapEt})`,
+    };
+  }
+  const ageMins = Math.max(0, Math.round((nowMs - ms) / 60_000));
+  return {
+    kind: "current_session",
+    shortLabel: ageMins > 30 ? `Delayed ${ageMins}m` : `${ageMins}m snap`,
+    detailLabel: `Current-session market snapshot · ${ageMins}m ago`,
+  };
+}
+
+export function resolveVolumeLeaderListSnapshotMeta(
+  rows: ReadonlyArray<ScreenerLeaderLike>,
   nowMs: number,
 ): VolumeLeaderSnapshotMeta {
-  let marketMs: number | null = null;
-  let syncMs: number | null = null;
-  for (const row of rows) {
-    const provider = parseObservationMs(row.provider_as_of ?? null);
-    if (Number.isFinite(provider) && (marketMs === null || provider > marketMs)) {
-      marketMs = provider;
-    }
-    const updated = parseObservationMs(row.updated_at ?? null);
-    if (Number.isFinite(updated) && (syncMs === null || updated > syncMs)) {
-      syncMs = updated;
-    }
-  }
-
-  const referenceMs = marketMs ?? syncMs;
-  if (referenceMs === null) {
+  if (rows.length === 0) {
     return {
       badgeLabel: "Snapshot unverified",
       detailLabel: "Snapshot time unverified",
       priorSession: false,
+      mixedAge: false,
     };
   }
 
-  const todayEt = easternCalendarDate(nowMs);
-  const snapshotEt = easternCalendarDate(referenceMs);
-  const priorSession = snapshotEt !== todayEt;
-  const ageMins = Math.max(0, Math.round((nowMs - referenceMs) / 60_000));
+  const rowSnapshots = rows.map((row) => resolveVolumeLeaderRowSnapshot(row, nowMs));
+  const kinds = new Set(rowSnapshots.map((snap) => snap.kind));
 
-  if (marketMs !== null) {
-    const marketLabel = new Date(marketMs).toLocaleString("en-US", {
-      timeZone: "America/New_York",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    if (priorSession) {
-      return {
-        badgeLabel: `Prior session · ${snapshotEt}`,
-        detailLabel: `Market snapshot ${marketLabel} ET (${snapshotEt})`,
-        priorSession: true,
-      };
-    }
-    const delayed = ageMins > 30;
+  if (kinds.size > 1) {
     return {
-      badgeLabel: delayed ? `Delayed · ${ageMins}m` : `Snapshot · ${ageMins}m`,
-      detailLabel: `Market snapshot ${marketLabel} ET`,
-      priorSession: false,
+      badgeLabel: "Mixed-age snapshots",
+      detailLabel: "Rows span different market snapshot ages. See per-symbol labels.",
+      priorSession: rowSnapshots.some((snap) => snap.kind === "prior_session"),
+      mixedAge: true,
     };
   }
 
+  const onlyKind = rowSnapshots[0]?.kind ?? "unverified";
+  if (onlyKind === "unverified") {
+    return {
+      badgeLabel: "Snapshot unverified",
+      detailLabel: "Market snapshot time unverified for all listed symbols",
+      priorSession: false,
+      mixedAge: false,
+    };
+  }
+  if (onlyKind === "invalid_future") {
+    return {
+      badgeLabel: "Snapshot invalid",
+      detailLabel: "Market snapshot timestamps invalid or future-dated",
+      priorSession: false,
+      mixedAge: false,
+    };
+  }
+  if (onlyKind === "prior_session") {
+    const dates = rows
+      .map((row) => {
+        const ms = parseObservationMs(row.provider_as_of ?? null);
+        return Number.isFinite(ms) ? easternCalendarDate(ms) : null;
+      })
+      .filter(Boolean);
+    const label = dates[0] ?? "prior";
+    return {
+      badgeLabel: `Prior session · ${label}`,
+      detailLabel: "All listed symbols use prior-session market snapshots",
+      priorSession: true,
+      mixedAge: false,
+    };
+  }
+
+  let oldestMs = Number.POSITIVE_INFINITY;
+  for (const row of rows) {
+    const ms = parseObservationMs(row.provider_as_of ?? null);
+    if (Number.isFinite(ms)) oldestMs = Math.min(oldestMs, ms);
+  }
+  const ageMins =
+    Number.isFinite(oldestMs) && oldestMs !== Number.POSITIVE_INFINITY
+      ? Math.max(0, Math.round((nowMs - oldestMs) / 60_000))
+      : null;
   return {
-    badgeLabel: priorSession ? `Prior session · ${snapshotEt}` : "DB sync",
-    detailLabel: "Snapshot time unverified · database sync only",
-    priorSession,
+    badgeLabel: ageMins === null ? "Snapshot unverified" : `Snapshot · oldest ${ageMins}m`,
+    detailLabel:
+      ageMins === null
+        ? "Current-session snapshot age unavailable"
+        : `Current-session snapshots span up to ${ageMins}m (oldest listed symbol)`,
+    priorSession: false,
+    mixedAge: false,
   };
+}
+
+/** @deprecated Use resolveVolumeLeaderListSnapshotMeta — never certifies freshness from DB updated_at. */
+export function resolveVolumeLeaderSnapshotMeta(
+  rows: ReadonlyArray<ScreenerLeaderLike>,
+  nowMs: number,
+): VolumeLeaderSnapshotMeta {
+  return resolveVolumeLeaderListSnapshotMeta(rows, nowMs);
 }

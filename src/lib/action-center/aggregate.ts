@@ -10,19 +10,19 @@ import type {
   WatchlistSnapshot,
 } from "@/types/action-center";
 import type { ScannerIntelligenceAlertRow } from "@/types/scanner-intelligence-alert";
+import { scannerAlertCanonicalToastKey } from "@/lib/scanner-alerts/canonical-event-identity";
 import { formatScannerEventLabel } from "@/lib/screeners/scanner-events-display";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
 import { eventMomentMs, etStartOfDayMs, scheduledMomentMs } from "@/lib/catalyst/parsers";
 import { boundWatchlistAlertReason } from "@/lib/watchlist-v2/signal-assertion-provenance";
 import {
-  buildScannerCanonicalKeySet,
   countDistinctScannerAlertsForFocus,
   countWatchlistAlertsForSummary,
-  dedupeScannerAlertsForActionFeed,
   formatFeedTimestampLabel,
   pickActionFeedBucket,
   resolveScannerAlertFeedTimestamp,
   resolveWatchlistAlertFeedTimestamp,
+  selectFeedEligibleScannerAlerts,
   shouldSuppressWatchlistForScannerDuplicate,
 } from "@/lib/action-center/feed-evidence";
 
@@ -203,9 +203,14 @@ export function buildActionFeed(input: {
   } = input;
   const items: ActionFeedItem[] = [];
 
-  const activeScanner = scannerAlerts.filter((s) => !dismissedScannerAlertIds.has(s.id));
-  const dedupedScanner = dedupeScannerAlertsForActionFeed(activeScanner);
-  const scannerCanonicalKeys = buildScannerCanonicalKeySet(activeScanner);
+  const dedupedScanner = selectFeedEligibleScannerAlerts(
+    scannerAlerts,
+    dismissedScannerAlertIds,
+    nowMs,
+  );
+  const scannerCanonicalKeys = new Set(
+    dedupedScanner.map((row) => scannerAlertCanonicalToastKey(row)),
+  );
 
   for (const s of dedupedScanner) {
     const timing = resolveScannerAlertFeedTimestamp(s, nowMs);
