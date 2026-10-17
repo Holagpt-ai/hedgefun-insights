@@ -73,13 +73,19 @@ function easternDateFromUtc(iso: string): string | null {
   }).format(new Date(ms));
 }
 
+function isMissingTriggerTimestamp(raw: string | null | undefined): boolean {
+  if (raw === null || raw === undefined) return true;
+  if (typeof raw !== "string") return true;
+  return raw.trim().length === 0;
+}
+
 export function classifyBreakoutEventFreshness(input: {
   triggeredAtUtc: string | null;
   nowMs: number;
   radarTradingDate?: string | null;
   active: boolean;
 }): BreakoutEventFreshness {
-  if (!input.triggeredAtUtc) return input.active ? "unverified" : "unverified";
+  if (!input.triggeredAtUtc) return "unverified";
   const ms = Date.parse(input.triggeredAtUtc);
   if (!Number.isFinite(ms)) return "invalid";
   if (ms > input.nowMs + MAX_FUTURE_SKEW_MS) return "invalid";
@@ -102,7 +108,12 @@ function normalizeRawEvent(
 ): NormalizedBreakoutEvent | null {
   const canonicalType = canonicalIntelligenceEventType(typeRaw) ?? typeRaw.trim().toUpperCase();
   if (!canonicalType || !BREAKOUT_TYPE_SET.has(canonicalType)) return null;
-  const triggeredAtUtc = toCanonicalUtcTimestamp(triggeredAtRaw ?? null);
+  const missingTime = isMissingTriggerTimestamp(triggeredAtRaw);
+  let triggeredAtUtc: string | null = null;
+  if (!missingTime) {
+    triggeredAtUtc = toCanonicalUtcTimestamp(triggeredAtRaw);
+    if (triggeredAtUtc === null) return null;
+  }
   const freshness = classifyBreakoutEventFreshness({
     triggeredAtUtc,
     nowMs,
@@ -223,31 +234,51 @@ export function breakoutSessionVolume(row: Pick<RadarRankedRow, "volume">): numb
   return finiteMetric(row.volume);
 }
 
-export function compareBreakoutLeaderVolumeFirst(a: RadarRankedRow, b: RadarRankedRow, nowMs = Date.now()): number {
-  const aVol = breakoutSessionVolume(a);
-  const bVol = breakoutSessionVolume(b);
+export interface BreakoutLeaderCompareContext {
+  maxPositiveSessionVolume: number;
+}
 
-  if (aVol !== null && bVol !== null && aVol > 0 && bVol > 0) {
-    const hi = Math.max(aVol, bVol);
-    const lo = Math.min(aVol, bVol);
-    if (lo > 0 && hi / lo >= BREAKOUT_VOLUME_DOMINANCE_RATIO) {
-      return bVol - aVol;
+export function buildBreakoutLeaderCompareContext(
+  rows: readonly Pick<RadarRankedRow, "volume">[],
+): BreakoutLeaderCompareContext {
+  let maxPositiveSessionVolume = 0;
+  for (const candidate of rows) {
+    const vol = breakoutSessionVolume(candidate);
+    if (vol !== null && vol > 0 && vol > maxPositiveSessionVolume) {
+      maxPositiveSessionVolume = vol;
     }
-  } else if (aVol !== null && bVol === null) return -1;
-  else if (aVol === null && bVol !== null) return 1;
+  }
+  return { maxPositiveSessionVolume };
+}
 
-  const aRecent = recentActiveBreakoutEvents(a, nowMs);
-  const bRecent = recentActiveBreakoutEvents(b, nowMs);
-  const aEvents = aRecent.length ? aRecent : buildRecordedBreakoutEvents(a, nowMs);
-  const bEvents = bRecent.length ? bRecent : buildRecordedBreakoutEvents(b, nowMs);
-  const aPriority = aEvents.length
-    ? Math.min(...aEvents.map((event) => BREAKOUT_PRIORITY.get(event.type) ?? 99))
-    : 99;
-  const bPriority = bEvents.length
-    ? Math.min(...bEvents.map((event) => BREAKOUT_PRIORITY.get(event.type) ?? 99))
-    : 99;
+/** True when positive session volume exists elsewhere and this row cannot compete on liquidity. */
+export function isBreakoutVolumeDominated(
+  volume: number | null,
+  maxPositiveSessionVolume: number,
+): boolean {
+  if (maxPositiveSessionVolume <= 0) return false;
+  if (volume === null || volume <= 0) return true;
+  return maxPositiveSessionVolume >= BREAKOUT_VOLUME_DOMINANCE_RATIO * volume;
+}
+
+function breakoutLeaderEventPriority(row: RadarRankedRow, nowMs: number): number {
+  const recent = recentActiveBreakoutEvents(row, nowMs);
+  const events = recent.length ? recent : buildRecordedBreakoutEvents(row, nowMs);
+  if (events.length === 0) return 99;
+  return Math.min(...events.map((event) => BREAKOUT_PRIORITY.get(event.type) ?? 99));
+}
+
+function compareBreakoutLeaderWithinComparablePool(
+  a: RadarRankedRow,
+  b: RadarRankedRow,
+  nowMs: number,
+): number {
+  const aPriority = breakoutLeaderEventPriority(a, nowMs);
+  const bPriority = breakoutLeaderEventPriority(b, nowMs);
   if (aPriority !== bPriority) return aPriority - bPriority;
 
+  const aVol = breakoutSessionVolume(a);
+  const bVol = breakoutSessionVolume(b);
   const volDiff = (bVol ?? -1) - (aVol ?? -1);
   if (volDiff !== 0) return volDiff;
 
@@ -262,16 +293,49 @@ export function compareBreakoutLeaderVolumeFirst(a: RadarRankedRow, b: RadarRank
   return a.symbol.localeCompare(b.symbol);
 }
 
+export function compareBreakoutLeaderVolumeFirst(
+  a: RadarRankedRow,
+  b: RadarRankedRow,
+  nowMs: number,
+  ctx: BreakoutLeaderCompareContext,
+): number {
+  const aVol = breakoutSessionVolume(a);
+  const bVol = breakoutSessionVolume(b);
+  const aDominated = isBreakoutVolumeDominated(aVol, ctx.maxPositiveSessionVolume);
+  const bDominated = isBreakoutVolumeDominated(bVol, ctx.maxPositiveSessionVolume);
+  if (aDominated !== bDominated) return aDominated ? 1 : -1;
+
+  return compareBreakoutLeaderWithinComparablePool(a, b, nowMs);
+}
+
 export function formatBreakoutLeaderExplanation(
   leader: RadarRankedRow,
   nowMs = Date.now(),
+  qualifiedPeers: readonly RadarRankedRow[] = [],
 ): string {
   const vol = breakoutSessionVolume(leader);
   const events = buildRecordedBreakoutEvents(leader, nowMs);
   const primary = events.at(-1);
   const label = primary?.label ?? "Breakout event";
-  const volPart = vol === null ? "volume unavailable" : `${Math.round(vol).toLocaleString("en-US")} session shares`;
-  return `Featured by verified session volume (${volPart}), then event urgency. Primary recorded event: ${label}.`;
+  const volPart =
+    vol === null || vol <= 0
+      ? "volume unavailable or zero"
+      : `${Math.round(vol).toLocaleString("en-US")} session shares`;
+  const ctx = buildBreakoutLeaderCompareContext(qualifiedPeers.length ? qualifiedPeers : [leader]);
+  const leaderDominated = isBreakoutVolumeDominated(vol, ctx.maxPositiveSessionVolume);
+  const otherNonDominated = qualifiedPeers.filter(
+    (peer) =>
+      peer.symbol !== leader.symbol &&
+      !isBreakoutVolumeDominated(breakoutSessionVolume(peer), ctx.maxPositiveSessionVolume),
+  );
+
+  if (ctx.maxPositiveSessionVolume > 0 && !leaderDominated && otherNonDominated.length > 0) {
+    return `Featured among comparable-liquidity breakouts (${volPart}) by event urgency. Primary recorded event: ${label}.`;
+  }
+  if (ctx.maxPositiveSessionVolume > 0 && !leaderDominated) {
+    return `Featured by verified session volume (${volPart}), then event urgency. Primary recorded event: ${label}.`;
+  }
+  return `Featured by recorded breakout evidence (${volPart}); event urgency and Radar rank applied. Primary recorded event: ${label}.`;
 }
 
 export function formatBreakoutFreshnessBadge(freshness: BreakoutEventFreshness): string {

@@ -33,6 +33,7 @@ export {
 import {
   BREAKOUT_PRIORITY,
   buildRecordedBreakoutEvents,
+  buildBreakoutLeaderCompareContext,
   compareBreakoutLeaderVolumeFirst,
   toScannerEventRecords,
 } from "./breakout-event-evidence";
@@ -709,7 +710,8 @@ export function selectBreakoutLeader(
 ): RadarRankedRow | null {
   const qualified = rows.filter((row) => qualifiesBreakouts(row, nowMs));
   if (qualified.length === 0) return null;
-  const ranked = [...qualified].sort((a, b) => compareBreakoutLeaderVolumeFirst(a, b, nowMs));
+  const ctx = buildBreakoutLeaderCompareContext(qualified);
+  const ranked = [...qualified].sort((a, b) => compareBreakoutLeaderVolumeFirst(a, b, nowMs, ctx));
   return ranked[0] ?? null;
 }
 

@@ -10,10 +10,12 @@ export function BreakoutMomentumEvidence({
   row,
   nowMs,
   featuredLeader = false,
+  breakoutLeaderPeers,
 }: {
   row: RadarRankedRow;
   nowMs: number;
   featuredLeader?: boolean;
+  breakoutLeaderPeers?: readonly RadarRankedRow[];
 }) {
   if (!qualifiesBreakouts(row, nowMs)) {
     return (
@@ -35,7 +37,9 @@ export function BreakoutMomentumEvidence({
   return (
     <div className="space-y-2" data-testid="breakout-momentum-evidence">
       {featuredLeader ? (
-        <p className="text-[11px] text-muted-foreground">{formatBreakoutLeaderExplanation(row, nowMs)}</p>
+        <p className="text-[11px] text-muted-foreground">
+          {formatBreakoutLeaderExplanation(row, nowMs, breakoutLeaderPeers)}
+        </p>
       ) : null}
       <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
         Recorded momentum sequence

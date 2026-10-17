@@ -96,6 +96,7 @@ export function RadarPanelLeader({
   nowMs,
   closedSnapshot = false,
   featuredLeader = false,
+  breakoutLeaderPeers,
 }: {
   panel: RadarPanelId;
   row: RadarRankedRow | null;
@@ -105,6 +106,7 @@ export function RadarPanelLeader({
   nowMs: number;
   closedSnapshot?: boolean;
   featuredLeader?: boolean;
+  breakoutLeaderPeers?: readonly RadarRankedRow[];
 }) {
   const meta = panelMeta(panel);
   const symbols = row ? ([normalizeSymbol(row.symbol)].filter(Boolean) as string[]) : [];
@@ -181,7 +183,12 @@ export function RadarPanelLeader({
       </button>
       {panel === "breakouts" ? (
         <div className="w-full basis-full">
-          <BreakoutMomentumEvidence row={row} nowMs={nowMs} featuredLeader={featuredLeader} />
+          <BreakoutMomentumEvidence
+            row={row}
+            nowMs={nowMs}
+            featuredLeader={featuredLeader}
+            breakoutLeaderPeers={breakoutLeaderPeers}
+          />
         </div>
       ) : null}
     </div>
@@ -368,6 +375,7 @@ export function RadarPanelBoard({
           nowMs={nowMs}
           closedSnapshot={closedSnapshot}
           featuredLeader
+          breakoutLeaderPeers={panel === "breakouts" ? rows : undefined}
         />
       ) : null}
       {layout === "table" ? (

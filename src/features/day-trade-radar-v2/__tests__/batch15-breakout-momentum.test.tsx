@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import type { RadarRankedRow } from "../types";
 import {
   BREAKOUT_VOLUME_DOMINANCE_RATIO,
+  buildBreakoutLeaderCompareContext,
   buildRecordedBreakoutEvents,
   compareBreakoutLeaderVolumeFirst,
 } from "../breakout-event-evidence";
@@ -65,8 +66,58 @@ describe("Batch 15 — volume-first breakout leadership", () => {
       primary_scanner_event: "HOD_BREAK",
       scanner_events: [{ type: "HOD_BREAK", triggered_at: RECENT, active: true }],
     });
-    expect(compareBreakoutLeaderVolumeFirst(highVol, lowHod, NOW)).toBeLessThan(0);
+    const ctx = buildBreakoutLeaderCompareContext([highVol, lowHod]);
+    expect(compareBreakoutLeaderVolumeFirst(highVol, lowHod, NOW, ctx)).toBeLessThan(0);
     expect(selectBreakoutLeader([lowHod, highVol], NOW)?.symbol).toBe("LIQ");
+  });
+
+  it("selects the same featured leader for all input permutations (1M/2M/4M cycle)", () => {
+    const a = row({
+      symbol: "A",
+      rank: 1,
+      volume: 1_000_000,
+      scanner_events: [{ type: "HOD_BREAK", triggered_at: RECENT, active: true }],
+    });
+    const b = row({
+      symbol: "B",
+      rank: 2,
+      volume: 2_000_000,
+      scanner_events: [{ type: "RUNNING_UP", triggered_at: RECENT, active: true }],
+    });
+    const c = row({
+      symbol: "C",
+      rank: 3,
+      volume: 4_000_000,
+      scanner_events: [{ type: "GAP_CONTINUATION", triggered_at: RECENT, active: true }],
+    });
+    const permutations = [
+      [a, b, c],
+      [a, c, b],
+      [b, a, c],
+      [b, c, a],
+      [c, a, b],
+      [c, b, a],
+    ];
+    for (const candidates of permutations) {
+      expect(selectBreakoutLeader(candidates, NOW)?.symbol).toBe("B");
+    }
+    expect(BREAKOUT_VOLUME_DOMINANCE_RATIO).toBe(3);
+  });
+
+  it("never features zero-volume HOD over a positive-volume qualified breakout", () => {
+    const zeroHod = row({
+      symbol: "ZERO",
+      rank: 1,
+      volume: 0,
+      scanner_events: [{ type: "HOD_BREAK", triggered_at: RECENT, active: true }],
+    });
+    const liquidGap = row({
+      symbol: "LIQ",
+      rank: 2,
+      volume: 2_000_000,
+      scanner_events: [{ type: "GAP_CONTINUATION", triggered_at: RECENT, active: true }],
+    });
+    expect(selectBreakoutLeader([zeroHod, liquidGap], NOW)?.symbol).toBe("LIQ");
   });
 
   it("uses event priority within comparable liquidity", () => {
@@ -120,6 +171,26 @@ describe("Batch 15 — event sequence and freshness", () => {
     expect(events.map((event) => event.type)).toEqual(["RUNNING_UP", "HOD_BREAK"]);
     expect(events[0]?.freshness).toBe("historical");
     expect(events[1]?.freshness).toBe("recent");
+  });
+
+  it("rejects malformed nonempty timestamps but keeps genuinely missing-time evidence", () => {
+    const malformedOnly = row({
+      symbol: "BAD",
+      rank: 1,
+      scanner_events: [{ type: "HOD_BREAK", triggered_at: "garbage", active: true }],
+    });
+    expect(buildRecordedBreakoutEvents(malformedOnly, NOW)).toEqual([]);
+    expect(qualifiesBreakouts(malformedOnly, NOW)).toBe(false);
+
+    const missingTime = row({
+      symbol: "OK",
+      rank: 2,
+      scanner_events: [{ type: "RUNNING_UP", active: true }],
+    });
+    const missingEvents = buildRecordedBreakoutEvents(missingTime, NOW);
+    expect(missingEvents).toHaveLength(1);
+    expect(missingEvents[0]?.freshness).toBe("unverified");
+    expect(qualifiesBreakouts(missingTime, NOW)).toBe(true);
   });
 
   it("rejects future timestamps and keeps inactive recorded events qualified", () => {
