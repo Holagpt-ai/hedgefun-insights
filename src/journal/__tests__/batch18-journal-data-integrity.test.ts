@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { resolveJournalEquityView } from "../lib/equity-evidence";
+import { resolveJournalEquityView, unavailableJournalReconciliation } from "../lib/equity-evidence";
+import { resolveReportedBalanceForScope } from "../lib/account-enrichment";
 import {
   DEFAULT_LIVE_FILTERS,
   rangeBounds,
@@ -25,7 +26,39 @@ describe("Batch 18 — Journal data integrity", () => {
     });
     expect(view.equityAvailable).toBe(false);
     expect(view.equity).toBeNull();
-    expect(view.reconciliationState.state).toBe("missing_balance");
+    expect(view.reconciliationState.state).toBe("pending_review");
+  });
+
+  it("does not reconcile missing beginning balance against zero derived equity", () => {
+    const view = resolveJournalEquityView({
+      beginningBalance: null,
+      reportedBalance: 10_000,
+      reportedAsOf: "2026-03-16T20:00:00.000Z",
+      realizedPnl: parseDecimal("250"),
+    });
+    expect(view.reconciliationState.state).toBe("pending_review");
+    expect(view.reconciliationState.difference).toBeNull();
+    expect(unavailableJournalReconciliation(10_000).state).toBe("pending_review");
+  });
+
+  it("requires complete reported coverage for All Accounts reconciliation scope", () => {
+    const partial = resolveReportedBalanceForScope(
+      [
+        { id: "a", name: "A", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 100, reportedAsOf: "2026-03-16T12:00:00.000Z" },
+        { id: "b", name: "B", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: null, reportedAsOf: null },
+      ],
+      "all",
+    );
+    expect(partial.reportedBalance).toBeNull();
+
+    const selected = resolveReportedBalanceForScope(
+      [
+        { id: "a", name: "A", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: 100, reportedAsOf: "2026-03-16T12:00:00.000Z" },
+        { id: "b", name: "B", type: "personal", baseCurrency: "USD", beginningBalance: null, reportedBalance: null, reportedAsOf: null },
+      ],
+      "a",
+    );
+    expect(selected.reportedBalance).toBe(100);
   });
 
   it("reconciles when beginning and reported balances exist", () => {
@@ -49,13 +82,24 @@ describe("Batch 18 — Journal data integrity", () => {
     expect(next.range).toBe(DEFAULT_LIVE_FILTERS.range);
   });
 
-  it("resets missing account filter to all accounts", () => {
+  it("resets missing account filter to all accounts when validation is enabled", () => {
     const next = sanitizeLiveFilters(
       { accountId: "gone-account", range: "week", asset: "all" },
       ["acct-1"],
       "live",
+      { validateAccountIds: true },
     );
     expect(next.accountId).toBe("all");
+  });
+
+  it("preserves saved account filter while account ids are not yet loaded", () => {
+    const next = sanitizeLiveFilters(
+      { accountId: "acct-b", range: "week", asset: "all" },
+      [],
+      "live",
+      { validateAccountIds: false },
+    );
+    expect(next.accountId).toBe("acct-b");
   });
 
   it("uses ET calendar boundaries for today and week filters", () => {

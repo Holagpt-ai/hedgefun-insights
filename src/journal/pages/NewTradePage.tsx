@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -81,12 +81,18 @@ export function NewTradePage() {
   const { user } = useAuth();
   const userId = user?.id ?? null;
   const { mode, accounts, onLiveTradeSaved } = useJournalWorkspace();
-  const draftOwnerRef = useRef<string | null>(userId);
-  const [draft, setDraft] = useState<Draft>(() =>
-    mode === "demo" ? emptyDraft() : readUserJson(DRAFT_KEY, userId, emptyDraft()),
-  );
+  const draftOwnerRef = useRef<string | null>(null);
+  const [draftUserId, setDraftUserId] = useState<string | null>(userId);
+  const [draftReady, setDraftReady] = useState(false);
+  const [draft, setDraft] = useState<Draft>(() => emptyDraft());
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  if (userId !== draftUserId) {
+    setDraftUserId(userId);
+    setDraftReady(false);
+    setDraft(emptyDraft());
+  }
 
   // Consume ?symbol= whenever a new handoff arrives. Invalid values never
   // populate the draft. Only the symbol field is written — other draft inputs stay.
@@ -111,17 +117,23 @@ export function NewTradePage() {
     }
   }, [searchParams, setSearchParams]);
 
-  useEffect(() => {
-    if (!userId || mode === "demo") return;
+  useLayoutEffect(() => {
+    if (mode === "demo" || !userId) {
+      draftOwnerRef.current = null;
+      setDraft(emptyDraft());
+      setDraftReady(true);
+      return;
+    }
     draftOwnerRef.current = userId;
     setDraft(readUserJson(DRAFT_KEY, userId, emptyDraft()));
+    setDraftReady(true);
   }, [userId, mode]);
 
   useEffect(() => {
-    if (mode === "demo" || !userId) return;
+    if (mode === "demo" || !userId || !draftReady) return;
     if (draftOwnerRef.current !== userId) return;
     writeUserJson(DRAFT_KEY, userId, draft);
-  }, [draft, mode, userId]);
+  }, [draft, mode, userId, draftReady]);
 
   const trade = useMemo(() => toTrade(draft), [draft]);
   const preview = useMemo(() => calculatePosition(trade), [trade]);

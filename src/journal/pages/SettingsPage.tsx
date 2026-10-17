@@ -1,5 +1,5 @@
 import { useSearchParams } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -18,7 +18,7 @@ import { HonestState } from "../components/HonestState";
 import { useJournalLang, useJournalT } from "../i18n";
 import { deleteOwnedAccount } from "../lib/delete-owned";
 import { formatBalanceDisplay } from "../lib/equity-evidence";
-import { SETTINGS_KEY, readJson, readUserJson, writeJson, writeUserJson } from "../lib/storage";
+import { SETTINGS_KEY, readUserJson, writeUserJson } from "../lib/storage";
 import { isUuid } from "../ledger/persist-contract";
 import { money } from "../lib/format";
 import type { JournalLiveClient } from "../lib/live-client";
@@ -49,8 +49,6 @@ export function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [accountMessage, setAccountMessage] = useState<string | null>(null);
   const [accountError, setAccountError] = useState<string | null>(null);
-  const settings = readUserJson<Record<string, string>>(SETTINGS_KEY, user?.id ?? null, {});
-
   const setSection = (value: string) => {
     const next = new URLSearchParams(params);
     if (value === "profile") next.delete("section");
@@ -76,11 +74,7 @@ export function SettingsPage() {
         ))}
       </div>
       {section === "profile" || !SECTIONS.includes(section as typeof SECTIONS[number]) ? (
-        <div className="journal-card p-3 space-y-2 max-w-md">
-          <Field label={t("onboarding.timezone")} defaultValue={settings.timezone ?? "America/New_York"} name="timezone" />
-          <Field label={t("onboarding.tone")} defaultValue={settings.tone ?? "analytical"} name="tone" />
-          <Save />
-        </div>
+        <ProfileSettingsFields key={user?.id ?? "anonymous"} userId={user?.id ?? null} />
       ) : null}
       {section === "ai-memory" ? (
         <div className="space-y-2">
@@ -189,11 +183,7 @@ export function SettingsPage() {
         </div>
       ) : null}
       {section === "risk" ? (
-        <div className="journal-card p-3 space-y-2 max-w-md">
-          <Field label={t("onboarding.maxLoss")} defaultValue={settings.maxLoss ?? ""} name="maxLoss" />
-          <Field label={t("onboarding.maxTrades")} defaultValue={settings.maxTrades ?? ""} name="maxTrades" />
-          <Save />
-        </div>
+        <RiskSettingsFields key={`risk-${user?.id ?? "anonymous"}`} userId={user?.id ?? null} />
       ) : null}
       {section === "privacy" ? <p className="text-sm">{t("onboarding.privacy")}</p> : null}
       {section === "deletion" ? <p className="text-sm">{t("settings.deleteHint")}</p> : null}
@@ -201,15 +191,104 @@ export function SettingsPage() {
   );
 }
 
-function Field({ label, defaultValue, name }: { label: string; defaultValue: string; name: string }) {
-  const { user } = useAuth();
+function ProfileSettingsFields({ userId }: { userId: string | null }) {
+  const t = useJournalT();
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    readUserJson(SETTINGS_KEY, userId, {}),
+  );
+
+  useEffect(() => {
+    setValues(readUserJson(SETTINGS_KEY, userId, {}));
+  }, [userId]);
+
+  const saveField = (name: string, value: string) => {
+    const ownerId = userId;
+    if (!ownerId) return;
+    const prior = readUserJson<Record<string, string>>(SETTINGS_KEY, ownerId, {});
+    writeUserJson(SETTINGS_KEY, ownerId, { ...prior, [name]: value });
+  };
+
+  return (
+    <div className="journal-card p-3 space-y-2 max-w-md">
+      <Field
+        label={t("onboarding.timezone")}
+        name="timezone"
+        value={values.timezone ?? "America/New_York"}
+        onChange={(value) => setValues((current) => ({ ...current, timezone: value }))}
+        onBlur={(value) => saveField("timezone", value)}
+      />
+      <Field
+        label={t("onboarding.tone")}
+        name="tone"
+        value={values.tone ?? "analytical"}
+        onChange={(value) => setValues((current) => ({ ...current, tone: value }))}
+        onBlur={(value) => saveField("tone", value)}
+      />
+      <Save />
+    </div>
+  );
+}
+
+function RiskSettingsFields({ userId }: { userId: string | null }) {
+  const t = useJournalT();
+  const [values, setValues] = useState<Record<string, string>>(() =>
+    readUserJson(SETTINGS_KEY, userId, {}),
+  );
+
+  useEffect(() => {
+    setValues(readUserJson(SETTINGS_KEY, userId, {}));
+  }, [userId]);
+
+  const saveField = (name: string, value: string) => {
+    const ownerId = userId;
+    if (!ownerId) return;
+    const prior = readUserJson<Record<string, string>>(SETTINGS_KEY, ownerId, {});
+    writeUserJson(SETTINGS_KEY, ownerId, { ...prior, [name]: value });
+  };
+
+  return (
+    <div className="journal-card p-3 space-y-2 max-w-md">
+      <Field
+        label={t("onboarding.maxLoss")}
+        name="maxLoss"
+        value={values.maxLoss ?? ""}
+        onChange={(value) => setValues((current) => ({ ...current, maxLoss: value }))}
+        onBlur={(value) => saveField("maxLoss", value)}
+      />
+      <Field
+        label={t("onboarding.maxTrades")}
+        name="maxTrades"
+        value={values.maxTrades ?? ""}
+        onChange={(value) => setValues((current) => ({ ...current, maxTrades: value }))}
+        onBlur={(value) => saveField("maxTrades", value)}
+      />
+      <Save />
+    </div>
+  );
+}
+
+function Field({
+  label,
+  name,
+  value,
+  onChange,
+  onBlur,
+}: {
+  label: string;
+  name: string;
+  value: string;
+  onChange: (value: string) => void;
+  onBlur: (value: string) => void;
+}) {
   return (
     <label className="text-xs font-semibold block space-y-1">
       <span>{label}</span>
-      <Input defaultValue={defaultValue} name={name} onBlur={(e) => {
-        const prior = readUserJson<Record<string, string>>(SETTINGS_KEY, user?.id ?? null, {});
-        writeUserJson(SETTINGS_KEY, user?.id ?? null, { ...prior, [name]: e.target.value });
-      }} />
+      <Input
+        name={name}
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        onBlur={(event) => onBlur(event.target.value)}
+      />
     </label>
   );
 }

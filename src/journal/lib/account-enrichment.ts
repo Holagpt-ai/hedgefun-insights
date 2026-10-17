@@ -43,14 +43,22 @@ export function resolveReportedBalanceForScope(
   selectedAccountId: string,
 ): { reportedBalance: number | null; reportedAsOf: string | null } {
   if (selectedAccountId === "all") {
-    const withReport = accounts.filter((a) => a.reportedBalance != null);
-    if (withReport.length !== 1) {
+    if (accounts.length === 0) {
       return { reportedBalance: null, reportedAsOf: null };
     }
-    const only = withReport[0]!;
+    const allReported = accounts.every((a) => a.reportedBalance != null);
+    if (!allReported) {
+      return { reportedBalance: null, reportedAsOf: null };
+    }
+    const asOfValues = accounts.map((a) => a.reportedAsOf).filter((v): v is string => Boolean(v?.trim()));
+    const uniqueAsOf = new Set(asOfValues);
+    if (uniqueAsOf.size > 1) {
+      return { reportedBalance: null, reportedAsOf: null };
+    }
+    const reportedBalance = accounts.reduce((sum, a) => sum + (a.reportedBalance ?? 0), 0);
     return {
-      reportedBalance: only.reportedBalance,
-      reportedAsOf: only.reportedAsOf,
+      reportedBalance,
+      reportedAsOf: asOfValues[0] ?? null,
     };
   }
   const selected = accounts.find((a) => a.id === selectedAccountId);

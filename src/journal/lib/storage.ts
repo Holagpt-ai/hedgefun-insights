@@ -77,12 +77,18 @@ export function sanitizeLiveFilters(
   filters: FilterPrefs,
   accountIds: readonly string[],
   mode: "demo" | "live" | "empty",
+  options?: { validateAccountIds?: boolean },
 ): FilterPrefs {
   let next = filters;
   if (mode !== "demo" && next.range === "augustDemo") {
     next = { ...next, range: DEFAULT_LIVE_FILTERS.range };
   }
-  if (next.accountId !== "all" && !accountIds.includes(next.accountId)) {
+  const validateAccounts = options?.validateAccountIds ?? true;
+  if (
+    validateAccounts &&
+    next.accountId !== "all" &&
+    !accountIds.includes(next.accountId)
+  ) {
     next = { ...next, accountId: "all" };
   }
   return next;

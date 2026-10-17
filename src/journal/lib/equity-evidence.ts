@@ -1,7 +1,21 @@
+import { parseDecimal } from "../calc/decimal";
 import { derivedJournalEquity, reconcileBalances } from "../calc/reconciliation";
 import type { Micros } from "../calc/decimal";
 import type { ReconciliationResult } from "../calc/types";
 import type { CashLedgerEntry } from "../calc/reconciliation";
+
+export function unavailableJournalReconciliation(reportedBalance: number | null): ReconciliationResult {
+  const reportedMicros =
+    reportedBalance != null && Number.isFinite(reportedBalance)
+      ? parseDecimal(reportedBalance)
+      : null;
+  return {
+    derivedEquity: 0n,
+    reportedBalance: reportedMicros,
+    difference: null,
+    state: "pending_review",
+  };
+}
 
 export interface JournalEquityView {
   equity: Micros | null;
@@ -22,11 +36,7 @@ export function resolveJournalEquityView(params: {
     return {
       equity: null,
       equityAvailable: false,
-      reconciliationState: reconcileBalances({
-        derivedEquity: 0n,
-        reportedBalance: reported,
-        reportedAsOf: params.reportedAsOf ?? null,
-      }),
+      reconciliationState: unavailableJournalReconciliation(reported),
     };
   }
 

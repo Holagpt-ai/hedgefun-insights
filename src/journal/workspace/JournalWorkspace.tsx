@@ -109,31 +109,44 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
 
   const [liveTrades, setLiveTrades] = useState<TradeInput[]>([]);
   const [liveAccounts, setLiveAccounts] = useState<JournalAccount[]>([]);
+  const [dataOwnerId, setDataOwnerId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [demoHidden, setDemoHidden] = useState(() => readJson<boolean>(HIDE_DEMO_KEY, false));
-  const [filters, setFilters] = useState<FilterPrefs>(() => DEFAULT_LIVE_FILTERS);
+  const [filters, setFilters] = useState<FilterPrefs>(DEFAULT_LIVE_FILTERS);
+  const [filtersUserId, setFiltersUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!userId) {
-      setFilters(DEFAULT_LIVE_FILTERS);
-      return;
-    }
-    const stored = readUserJson(FILTERS_KEY, userId, DEFAULT_LIVE_FILTERS);
-    setFilters(sanitizeLiveFilters(stored, [], "live"));
-  }, [userId]);
+  const [trackedUserId, setTrackedUserId] = useState<string | null>(userId);
+  if (userId !== trackedUserId) {
+    setTrackedUserId(userId);
+    setLiveTrades([]);
+    setLiveAccounts([]);
+    setDataOwnerId(null);
+    setLoading(Boolean(userId));
+    setError(null);
+    loadGenerationRef.current = nextJournalLoadGeneration(loadGenerationRef.current);
+  }
+
+  if (userId !== filtersUserId) {
+    setFiltersUserId(userId);
+    setFilters(
+      userId ? readUserJson(FILTERS_KEY, userId, DEFAULT_LIVE_FILTERS) : DEFAULT_LIVE_FILTERS,
+    );
+  }
 
   const loadLive = useCallback(async () => {
     const expectedUserId = userId;
-    const expectedGeneration = loadGenerationRef.current;
-
     if (!expectedUserId) {
       setLiveTrades([]);
       setLiveAccounts([]);
+      setDataOwnerId(null);
       setLoading(false);
       setError(null);
       return;
     }
+
+    const expectedGeneration = nextJournalLoadGeneration(loadGenerationRef.current);
+    loadGenerationRef.current = expectedGeneration;
 
     setLoading(true);
     setError(null);
@@ -159,6 +172,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
       setError(result.error ?? "Journal data could not be loaded.");
       setLiveTrades([]);
       setLiveAccounts([]);
+      setDataOwnerId(null);
       setLoading(false);
       return;
     }
@@ -170,25 +184,26 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
         expectedUserId,
       ),
     );
+    setDataOwnerId(expectedUserId);
     setLoading(false);
   }, [userId]);
 
   useEffect(() => {
-    loadGenerationRef.current = nextJournalLoadGeneration(loadGenerationRef.current);
-    setLiveTrades([]);
-    setLiveAccounts([]);
-    setError(null);
-    setLoading(Boolean(userId));
     void loadLive();
   }, [userId, loadLive]);
 
+  const liveDataReady = dataOwnerId === userId && userId != null;
+  const ownedLiveTrades = liveDataReady ? liveTrades : [];
+  const ownedLiveAccounts = liveDataReady ? liveAccounts : [];
+  const liveAccountsReady = liveDataReady && !loading;
+
   const mode: JournalMode = useMemo(() => {
-    if (liveTrades.length > 0) return "live";
+    if (ownedLiveTrades.length > 0) return "live";
     if (!demoHidden) return "demo";
     return "empty";
-  }, [liveTrades.length, demoHidden]);
+  }, [ownedLiveTrades.length, demoHidden]);
 
-  const allTrades = mode === "demo" ? AUGUST_DEMO_TRADES : liveTrades;
+  const allTrades = mode === "demo" ? AUGUST_DEMO_TRADES : ownedLiveTrades;
 
   const fallbackLiveAccount: JournalAccount = {
     id: "live-default",
@@ -201,7 +216,13 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
   };
 
   const accounts: readonly JournalAccount[] =
-    mode === "demo" ? DEMO_ACCOUNTS : liveAccounts.length > 0 ? liveAccounts : [fallbackLiveAccount];
+    mode === "demo"
+      ? DEMO_ACCOUNTS
+      : ownedLiveAccounts.length > 0
+        ? ownedLiveAccounts
+        : liveAccountsReady
+          ? [fallbackLiveAccount]
+          : [];
 
   const effectiveFilters = useMemo(
     () =>
@@ -209,28 +230,36 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
         filters,
         accounts.map((account) => account.id),
         mode,
+        { validateAccountIds: mode === "demo" || liveAccountsReady },
       ),
-    [filters, accounts, mode],
+    [filters, accounts, mode, liveAccountsReady],
   );
 
   useEffect(() => {
+    if (!userId || filtersUserId !== userId) return;
     if (
-      effectiveFilters.accountId !== filters.accountId ||
-      effectiveFilters.range !== filters.range
+      effectiveFilters.accountId === filters.accountId &&
+      effectiveFilters.range === filters.range &&
+      effectiveFilters.asset === filters.asset
     ) {
-      setFilters(effectiveFilters);
-      if (userId) writeUserJson(FILTERS_KEY, userId, effectiveFilters);
+      return;
     }
-  }, [effectiveFilters, filters.accountId, filters.range, userId]);
+    setFilters(effectiveFilters);
+    if (liveAccountsReady || effectiveFilters.range !== filters.range) {
+      writeUserJson(FILTERS_KEY, userId, effectiveFilters);
+    }
+  }, [effectiveFilters, filters, userId, filtersUserId, liveAccountsReady]);
 
   const persistFilters = (next: FilterPrefs) => {
+    if (!userId || filtersUserId !== userId) return;
     const sanitized = sanitizeLiveFilters(
       next,
       accounts.map((account) => account.id),
       mode,
+      { validateAccountIds: mode === "demo" || liveAccountsReady },
     );
     setFilters(sanitized);
-    if (userId) writeUserJson(FILTERS_KEY, userId, sanitized);
+    writeUserJson(FILTERS_KEY, userId, sanitized);
   };
 
   const activeRange =
@@ -303,7 +332,7 @@ export function JournalWorkspaceProvider({ children }: { children: ReactNode }) 
 
   const value: JournalWorkspaceValue = {
     mode,
-    loading,
+    loading: Boolean(userId) && (loading || !liveDataReady),
     error,
     allTrades,
     trades,
