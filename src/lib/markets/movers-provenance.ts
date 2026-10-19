@@ -48,11 +48,15 @@ export type MoversObservationFreshness =
   | "unverified"
   | "mixed";
 
+export type SessionDateMode = "unverified" | "homogeneous_current" | "homogeneous_prior" | "mixed";
+
 export interface MoversListProvenance {
   sessionLine: string;
   observationLine: string | null;
   observationTimeUnavailable: boolean;
   observationMixed: boolean;
+  observationPartiallyUntimed: boolean;
+  sessionDateMode: SessionDateMode;
   universeTitle: string | null;
   universeDetail: string | null;
   delayDisclosure: string;
@@ -61,67 +65,109 @@ export interface MoversListProvenance {
   isPriorSession: boolean;
 }
 
-function dominantSessionDate(movers: CanonicalMover[]): string | null {
-  const counts = new Map<string, number>();
-  for (const m of movers) {
-    if (!m.session_date) continue;
-    counts.set(m.session_date, (counts.get(m.session_date) ?? 0) + 1);
-  }
-  let best: string | null = null;
-  let bestCount = 0;
-  for (const [date, count] of counts) {
-    if (count > bestCount) {
-      best = date;
-      bestCount = count;
-    }
-  }
-  return best;
+function validMovers(movers: CanonicalMover[]): CanonicalMover[] {
+  return movers.filter((m) => m.valid);
 }
 
 function hasUnverifiedSessionDate(movers: CanonicalMover[]): boolean {
   return movers.some((m) => m.valid && m.session_date_unverified);
 }
 
-function listHasPriorRegularEvidence(movers: CanonicalMover[], nowMs: number): boolean {
-  const reference = referenceTradingSessionDate(nowMs);
-  for (const m of movers) {
-    if (!m.valid) continue;
-    if (m.session === "regular" && m.session_date && m.session_date !== reference) return true;
-    if (m.session !== "regular" && m.session_date) {
-      const etToday = etSessionDate(nowMs);
-      if (m.session_date !== etToday) return true;
-    }
+function referenceSessionDateForMoverSession(moverSession: MoverSession, nowMs: number): string {
+  if (moverSession === "regular") return referenceTradingSessionDate(nowMs);
+  return etSessionDate(nowMs);
+}
+
+function isPriorSessionDate(date: string, moverSession: MoverSession, nowMs: number): boolean {
+  return date !== referenceSessionDateForMoverSession(moverSession, nowMs);
+}
+
+export function summarizeSessionDates(
+  movers: CanonicalMover[],
+  moverSession: MoverSession,
+  nowMs: number,
+): {
+  mode: SessionDateMode;
+  dominantDate: string | null;
+  isPriorHomogeneous: boolean;
+} {
+  const dated = validMovers(movers).filter((m) => m.session_date);
+  if (dated.length === 0) {
+    return { mode: "unverified", dominantDate: null, isPriorHomogeneous: false };
   }
-  return false;
+  const counts = new Map<string, number>();
+  for (const m of dated) {
+    const d = m.session_date as string;
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
+  const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  if (entries.length > 1) {
+    return { mode: "mixed", dominantDate: entries[0][0], isPriorHomogeneous: false };
+  }
+  const onlyDate = entries[0][0];
+  const prior = isPriorSessionDate(onlyDate, moverSession, nowMs);
+  return {
+    mode: prior ? "homogeneous_prior" : "homogeneous_current",
+    dominantDate: onlyDate,
+    isPriorHomogeneous: prior,
+  };
 }
 
 export function summarizeListObservationTimes(
   movers: CanonicalMover[],
-): { line: string | null; unavailable: boolean; mixed: boolean } {
+): {
+  line: string | null;
+  unavailable: boolean;
+  mixed: boolean;
+  partiallyUntimed: boolean;
+} {
+  const rows = validMovers(movers);
   const timed: number[] = [];
-  for (const m of movers) {
-    if (!m.valid) continue;
+  let untimedCount = 0;
+  for (const m of rows) {
     const ms = observationMsFromIso(m.provider_as_of);
-    if (ms !== null) timed.push(ms);
+    if (ms !== null && !m.observation_time_unavailable) {
+      timed.push(ms);
+    } else {
+      untimedCount += 1;
+    }
   }
+
   if (timed.length === 0) {
-    return { line: null, unavailable: true, mixed: false };
+    return { line: null, unavailable: true, mixed: false, partiallyUntimed: false };
   }
+
   timed.sort((a, b) => a - b);
   const oldest = timed[0];
   const newest = timed[timed.length - 1];
-  const allSame = newest - oldest <= 60_000;
-  if (allSame) {
+  const timesSpanMixed = newest - oldest > 60_000;
+
+  if (untimedCount > 0) {
+    const timedPart = timesSpanMixed
+      ? `Verified observations from ${formatMoverObservationEt(oldest)} through ${formatMoverObservationEt(newest)}`
+      : `Some symbols verified as of ${formatMoverObservationEt(newest)}`;
     return {
-      line: `As of ${formatMoverObservationEt(newest)} · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`,
+      line: `${timedPart}; other symbols lack verified observation times · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`,
       unavailable: false,
-      mixed: false,
+      mixed: true,
+      partiallyUntimed: true,
     };
   }
+
+  if (timesSpanMixed) {
+    return {
+      line: `Observations from ${formatMoverObservationEt(oldest)} through ${formatMoverObservationEt(newest)} · prices vary by symbol · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`,
+      unavailable: false,
+      mixed: true,
+      partiallyUntimed: false,
+    };
+  }
+
   return {
-    line: `Observations from ${formatMoverObservationEt(oldest)} through ${formatMoverObservationEt(newest)} · prices vary by symbol · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`,
+    line: `As of ${formatMoverObservationEt(newest)} · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`,
     unavailable: false,
-    mixed: true,
+    mixed: false,
+    partiallyUntimed: false,
   };
 }
 
@@ -136,14 +182,14 @@ function universeCopy(universe: MoverUniverseKind): { title: string | null; deta
 }
 
 function classifyFreshness(
-  movers: CanonicalMover[],
-  nowMs: number,
+  sessionSummary: ReturnType<typeof summarizeSessionDates>,
+  observation: ReturnType<typeof summarizeListObservationTimes>,
   moverSession: MoverSession,
-  observation: { unavailable: boolean; mixed: boolean },
+  nowMs: number,
 ): MoversObservationFreshness {
-  if (observation.mixed) return "mixed";
-  if (listHasPriorRegularEvidence(movers, nowMs)) return "prior_session";
-  if (observation.unavailable || hasUnverifiedSessionDate(movers)) return "unverified";
+  if (sessionSummary.mode === "mixed" || observation.mixed) return "mixed";
+  if (observation.unavailable || sessionSummary.mode === "unverified") return "unverified";
+  if (sessionSummary.mode === "homogeneous_prior") return "prior_session";
   const clock = resolveMarketSession(new Date(nowMs));
   if (clock === "closed" && moverSession === "regular") return "delayed_snapshot";
   return "current_session";
@@ -159,31 +205,36 @@ export function summarizeMoversListProvenance(
   },
 ): MoversListProvenance {
   const nowMs = opts.nowMs ?? Date.now();
-  const sessionDate = dominantSessionDate(movers);
+  const sessionSummary = summarizeSessionDates(movers, opts.moverSession, nowMs);
   const observation = summarizeListObservationTimes(movers);
-  const reference = referenceTradingSessionDate(nowMs);
-  const isPriorSession = listHasPriorRegularEvidence(movers, nowMs)
-    || Boolean(sessionDate && sessionDate !== reference && opts.moverSession === "regular");
   const universe = universeCopy(opts.universe);
   if (opts.premarket) {
     universe.detail = PREMARKET_CANDIDATE_UNIVERSE_DETAIL;
   }
-  const freshness = classifyFreshness(movers, nowMs, opts.moverSession, observation);
+  const freshness = classifyFreshness(sessionSummary, observation, opts.moverSession, nowMs);
+
   let sessionLine = formatStockHeaderSessionLine(new Date(nowMs));
-  if (isPriorSession && sessionDate) {
-    sessionLine = `Prior source session · ${sessionDate} · ${sessionLine}`;
-  } else if (hasUnverifiedSessionDate(movers)) {
+  if (sessionSummary.mode === "homogeneous_prior" && sessionSummary.dominantDate) {
+    sessionLine = `Prior source session · ${sessionSummary.dominantDate} · ${sessionLine}`;
+  } else if (sessionSummary.mode === "mixed") {
+    sessionLine = `Mixed source sessions · ${sessionLine}`;
+  } else if (sessionSummary.mode === "unverified" || hasUnverifiedSessionDate(movers)) {
     sessionLine = `Source session unverified · ${sessionLine}`;
   }
+
+  const isPriorSession = sessionSummary.mode === "homogeneous_prior";
+
   return {
     sessionLine,
     observationLine: observation.line,
     observationTimeUnavailable: observation.unavailable,
     observationMixed: observation.mixed,
+    observationPartiallyUntimed: observation.partiallyUntimed,
+    sessionDateMode: sessionSummary.mode,
     universeTitle: universe.title,
     universeDetail: universe.detail,
     delayDisclosure: PUBLIC_MARKET_DATA_DELAY_DISCLOSURE,
-    sessionDate,
+    sessionDate: sessionSummary.dominantDate,
     freshness,
     isPriorSession,
   };

@@ -50,6 +50,7 @@ export interface MoverRow {
   changePercent: number;
   volume: number | null;
   priceObservationLine?: string | null;
+  priceObservationTimeUnavailable?: boolean;
 }
 
 const TIME_TABS = ["Today"];
@@ -237,7 +238,7 @@ export function MoversTable({
               ) : provenance.observationTimeUnavailable ? (
                 <span>Provider observation time unavailable</span>
               ) : null}
-              {provenance.observationMixed && (
+              {(provenance.observationMixed || provenance.observationPartiallyUntimed) && (
                 <span>Hover a price for symbol-level observation time.</span>
               )}
             </div>

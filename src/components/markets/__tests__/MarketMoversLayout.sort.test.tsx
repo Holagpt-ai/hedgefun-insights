@@ -22,6 +22,7 @@ function row(overrides: Partial<MoverRow> & Pick<MoverRow, "symbol">): MoverRow 
     changePercent: 5,
     volume: 1_000_000,
     priceObservationLine: null,
+    priceObservationTimeUnavailable: false,
     ...overrides,
   };
 }

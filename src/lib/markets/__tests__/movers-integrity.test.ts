@@ -52,6 +52,7 @@ function baseMover(overrides: Partial<CanonicalMover> = {}): CanonicalMover {
     provider_as_of: new Date(NOW).toISOString(),
     observation_basis: "day_aggregate",
     session_date_unverified: false,
+    observation_time_unavailable: false,
     id: "a",
     ...overrides,
   };

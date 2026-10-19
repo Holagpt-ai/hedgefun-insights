@@ -15,8 +15,10 @@ import {
 import { shouldExcludeHomepageMover } from "./mover-universe";
 import {
   formatMoverObservationLine,
+  formatMoverObservationUnavailable,
   observationMsFromIso,
   referenceTradingSessionDate,
+  resolveDisplayedPriceSource,
   resolvePolygonMoverSourceEvidence,
   type MoverObservationBasis,
 } from "./movers-observation";
@@ -82,6 +84,7 @@ export interface RawMoverInput {
   instrumentType?: unknown;
   observationBasis?: MoverObservationBasis | null;
   sessionDateUnverified?: boolean;
+  observationTimeUnavailable?: boolean;
   nowMs?: number;
 }
 
@@ -101,6 +104,7 @@ export interface CanonicalMover {
   provider_as_of: string | null;
   observation_basis: MoverObservationBasis | null;
   session_date_unverified: boolean;
+  observation_time_unavailable: boolean;
   id: string | null;
 }
 
@@ -113,6 +117,7 @@ export interface MoverListRow {
   /** Null when provider volume is missing — never coerced to zero for display. */
   volume: number | null;
   priceObservationLine: string | null;
+  priceObservationTimeUnavailable: boolean;
 }
 
 export function etSessionDate(ms: number = Date.now()): string {
@@ -254,6 +259,7 @@ function fail(
     provider_as_of: isoOrNull(input.providerAsOf),
     observation_basis: input.observationBasis ?? null,
     session_date_unverified: Boolean(input.sessionDateUnverified),
+    observation_time_unavailable: Boolean(input.observationTimeUnavailable),
     id: typeof input.id === "string" ? input.id : null,
   };
 }
@@ -409,6 +415,7 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
     provider_as_of: asOf,
     observation_basis: input.observationBasis ?? null,
     session_date_unverified: Boolean(input.sessionDateUnverified),
+    observation_time_unavailable: Boolean(input.observationTimeUnavailable),
     id: typeof input.id === "string" ? input.id : null,
   };
 }
@@ -450,6 +457,7 @@ export function moverFromExtendedObservation(
     source: input.source ?? SOURCE_AFTER_HOURS_FEED,
     observationBasis: "extended_feed",
     sessionDateUnverified: isoOrNull(input.providerAsOf) === null,
+    observationTimeUnavailable: isoOrNull(input.providerAsOf) === null,
     id: input.id,
     nowMs,
   });
@@ -500,7 +508,13 @@ export function moverFromPolygonTicker(
   }
 
   const providerPct = finiteOrNull(raw.todaysChangePerc ?? raw.change_percent ?? raw.changePercent);
-  const sourceEvidence = resolvePolygonMoverSourceEvidence(session, { day, min, lastTrade }, nowMs);
+  const displayedSource = resolveDisplayedPriceSource(session, lastTradePrice, minuteClose, dayClose);
+  const sourceEvidence = resolvePolygonMoverSourceEvidence(
+    session,
+    { day, min, lastTrade },
+    nowMs,
+    displayedSource,
+  );
   const sessionDate = sourceEvidence.sessionDate;
   const providerAsOfForValidation =
     sourceEvidence.providerAsOfMs !== null
@@ -556,6 +570,7 @@ export function moverFromPolygonTicker(
     instrumentType,
     observationBasis: sourceEvidence.basis,
     sessionDateUnverified: sourceEvidence.sessionDateUnverified,
+    observationTimeUnavailable: sourceEvidence.observationTimeUnavailable,
     nowMs,
   });
 }
@@ -589,10 +604,15 @@ export function toMoverListRow(mover: CanonicalMover): MoverListRow | null {
     return null;
   }
   const obsMs = observationMsFromIso(mover.provider_as_of);
+  const basis = mover.observation_basis;
+  const priceObservationTimeUnavailable =
+    mover.observation_time_unavailable || (basis !== null && obsMs === null);
   const priceObservationLine =
-    obsMs !== null && mover.observation_basis
-      ? formatMoverObservationLine(obsMs, mover.observation_basis)
-      : null;
+    obsMs !== null && basis
+      ? formatMoverObservationLine(obsMs, basis)
+      : basis && priceObservationTimeUnavailable
+        ? formatMoverObservationUnavailable(basis)
+        : null;
   return {
     symbol: mover.symbol,
     name: mover.name,
@@ -601,6 +621,7 @@ export function toMoverListRow(mover: CanonicalMover): MoverListRow | null {
     changePercent: mover.change_percent,
     volume: mover.volume !== null && mover.volume >= 0 ? mover.volume : null,
     priceObservationLine,
+    priceObservationTimeUnavailable,
   };
 }
 
