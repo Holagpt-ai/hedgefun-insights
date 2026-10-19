@@ -1,6 +1,11 @@
 import { useState, useMemo } from "react";
 import { resolveMarketSession } from "@/lib/price-utils";
 import { currentMoversEmptyMessage } from "@/lib/markets/movers-integrity";
+import {
+  moversFetchErrorMessage,
+  moversSuccessfulEmptyMessage,
+  type MoversListProvenance,
+} from "@/lib/markets/movers-provenance";
 import { useNavigate } from "react-router-dom";
 import {
   useReactTable,
@@ -43,7 +48,9 @@ export interface MoverRow {
   price: number;
   change: number;
   changePercent: number;
-  volume: number;
+  volume: number | null;
+  priceObservationLine?: string | null;
+  priceObservationTimeUnavailable?: boolean;
 }
 
 const TIME_TABS = ["Today"];
@@ -53,6 +60,10 @@ interface TableProps {
   sectionTitle: string;
   rows: MoverRow[];
   isLoading: boolean;
+  isError?: boolean;
+  isFetchEmpty?: boolean;
+  premarket?: boolean;
+  provenance?: MoversListProvenance;
   refetch?: () => void;
   defaultSortDesc?: boolean;
   defaultSort?: MoversDefaultSort;
@@ -64,6 +75,10 @@ export function MoversTable({
   sectionTitle,
   rows,
   isLoading,
+  isError = false,
+  isFetchEmpty = false,
+  premarket = false,
+  provenance,
   refetch,
   defaultSortDesc = true,
   defaultSort,
@@ -119,8 +134,11 @@ export function MoversTable({
         accessorKey: "price",
         header: "Price",
         size: 90,
-        cell: ({ getValue }) => (
-          <span className="text-[0.875rem] tabular-nums text-right block text-foreground">
+        cell: ({ getValue, row }) => (
+          <span
+            className="text-[0.875rem] tabular-nums text-right block text-foreground"
+            title={row.original.priceObservationLine ?? undefined}
+          >
             ${getValue<number>().toFixed(2)}
           </span>
         ),
@@ -171,10 +189,10 @@ export function MoversTable({
         sortingFn: (rowA, rowB, columnId) =>
           compareMoverVolume(rowA.getValue(columnId), rowB.getValue(columnId)),
         cell: ({ getValue }) => {
-          const v = getValue<number>();
+          const v = getValue<number | null>();
           return (
             <span className="text-[0.875rem] tabular-nums text-right block text-foreground">
-              {Number.isFinite(v) && v >= 0 ? v.toLocaleString() : "—"}
+              {v !== null && Number.isFinite(v) && v >= 0 ? v.toLocaleString() : "—"}
             </span>
           );
         },
@@ -195,7 +213,7 @@ export function MoversTable({
     initialState: { pagination: { pageSize: 20 } },
   });
 
-  const today = new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const marketClosed = resolveMarketSession() === "closed";
 
   const handleViewTab = (t: string) => {
     if (t !== "Overview") {
@@ -212,7 +230,19 @@ export function MoversTable({
         <div className="flex items-center gap-2">
           <h2 className="text-[1.125rem] font-bold text-foreground">{sectionTitle}</h2>
           <Info className="h-4 w-4 text-muted-foreground" />
-          <span className="text-[0.8125rem] text-muted-foreground">Updated {today}</span>
+          {provenance && (
+            <div className="flex min-w-0 flex-col gap-0.5 text-[0.8125rem] text-muted-foreground">
+              <span>{provenance.sessionLine}</span>
+              {provenance.observationLine ? (
+                <span>{provenance.observationLine}</span>
+              ) : provenance.observationTimeUnavailable ? (
+                <span>Provider observation time unavailable</span>
+              ) : null}
+              {(provenance.observationMixed || provenance.observationPartiallyUntimed) && (
+                <span>Hover a price for symbol-level observation time.</span>
+              )}
+            </div>
+          )}
         </div>
         <div className={MOVERS_TOOLBAR_CLASS}>
           <div className="relative min-w-0 flex-1 sm:flex-none">
@@ -225,7 +255,15 @@ export function MoversTable({
               className="h-8 w-full max-w-full pl-8 pr-2 text-[0.8125rem] rounded border border-border bg-background sm:w-[120px]"
             />
           </div>
-          <Button variant="outline" size="sm" className="text-[0.8125rem] h-8 gap-1">Indicators</Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-[0.8125rem] h-8 gap-1"
+            disabled
+            title="Indicators are not available on market mover tables"
+          >
+            Indicators
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -235,8 +273,24 @@ export function MoversTable({
           >
             Screener →
           </Button>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0"><Download className="h-3.5 w-3.5" /></Button>
-          <Button variant="outline" size="sm" className="h-8 w-8 p-0"><MoreVertical className="h-3.5 w-3.5" /></Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            disabled
+            title="Export is not available on market mover tables"
+          >
+            <Download className="h-3.5 w-3.5" />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-8 w-8 p-0"
+            disabled
+            title="More actions are not available on market mover tables"
+          >
+            <MoreVertical className="h-3.5 w-3.5" />
+          </Button>
         </div>
       </div>
 
@@ -268,14 +322,17 @@ export function MoversTable({
           ))}
         </div>
       ) : filtered.length === 0 ? (() => {
-        const s = resolveMarketSession();
-        const showEmpty = s === "closed";
+        const emptyCopy = search
+          ? currentMoversEmptyMessage({ hasSearchQuery: true, marketClosed })
+          : isError
+            ? moversFetchErrorMessage()
+            : isFetchEmpty
+              ? moversSuccessfulEmptyMessage({ marketClosed, premarket })
+              : currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed });
         return (
           <div className="py-12 text-center">
-            <p className="text-muted-foreground mb-3">
-              {currentMoversEmptyMessage({ hasSearchQuery: Boolean(search), marketClosed: showEmpty })}
-            </p>
-            {refetch && (
+            <p className="text-muted-foreground mb-3">{emptyCopy}</p>
+            {refetch && isError && (
               <Button variant="outline" size="sm" onClick={() => refetch()} className="gap-2">
                 <RefreshCw className="h-3.5 w-3.5" /> Try again
               </Button>
@@ -367,6 +424,10 @@ export function MoversTable({
         </div>
         <Button variant="outline" size="sm" onClick={() => table.nextPage()} disabled={!table.getCanNextPage()} className="text-[0.8125rem] h-8">Next →</Button>
       </div>
+
+      {provenance?.universeDetail && (
+        <p className="mt-3 text-xs text-muted-foreground">{provenance.universeDetail}</p>
+      )}
     </div>
   );
 }
@@ -377,6 +438,10 @@ export function MarketMoversPage({
   sectionTitle,
   rows,
   isLoading,
+  isError,
+  isFetchEmpty,
+  premarket,
+  provenance,
   refetch,
   defaultSortDesc,
   defaultSort,
@@ -427,6 +492,10 @@ export function MarketMoversPage({
           sectionTitle={sectionTitle}
           rows={rows}
           isLoading={isLoading}
+          isError={isError}
+          isFetchEmpty={isFetchEmpty}
+          premarket={premarket}
+          provenance={provenance}
           refetch={refetch}
           defaultSortDesc={defaultSortDesc}
           defaultSort={defaultSort}

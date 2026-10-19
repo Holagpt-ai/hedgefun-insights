@@ -1,18 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { getTopGainers, getTopLosers } from "@/lib/polygon";
-import { classifyTrackedAfterHoursMovers, type SnapshotTicker } from "@/lib/market-session";
 import { resolveMarketSession } from "@/lib/price-utils";
 import { MarketMoversPage } from "@/components/markets/MarketMoversLayout";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
-import {
-  mapPolygonMovers,
-  moverFromExtendedObservation,
-  polygonTickersFromResponse,
-  selectCanonicalCurrentMovers,
-  toMoverListRow,
-  SOURCE_POLYGON,
-} from "@/lib/markets/movers-integrity";
+import { fetchPublicLosersRows } from "@/lib/markets/movers-page-fetch";
+import { delayedMarketMoversSeoDescription } from "@/lib/markets/movers-provenance";
+import { etSessionDate } from "@/lib/markets/movers-integrity";
 
 function getTitle(): { page: string; section: string } {
   const session = resolveMarketSession();
@@ -25,35 +18,11 @@ function getTitle(): { page: string; section: string } {
 
 export default function LosersPage() {
   const session = resolveMarketSession();
+  const sessionDate = etSessionDate();
 
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["top-losers-page", session],
-    queryFn: async () => {
-      if (session === "after-hours") {
-        const [gainRes, lossRes] = await Promise.all([getTopGainers(), getTopLosers()]);
-        const gainers = polygonTickersFromResponse(gainRes) as SnapshotTicker[];
-        const losers = polygonTickersFromResponse(lossRes) as SnapshotTicker[];
-        const classified = classifyTrackedAfterHoursMovers([...gainers, ...losers]);
-        const validated = classified.losers.map((r) =>
-          moverFromExtendedObservation({
-            symbol: r.symbol,
-            name: r.name,
-            extendedLast: r.extended_last,
-            regularClose: r.regular_close,
-            volume: r.volume,
-            changePercent: r.changePercent,
-            source: SOURCE_POLYGON,
-          }),
-        );
-        return selectCanonicalCurrentMovers(validated, { sort: "percent_asc" })
-          .map(toMoverListRow)
-          .filter((r): r is NonNullable<typeof r> => r !== null);
-      }
-
-      const res = await getTopLosers();
-      const mappedSession = session === "pre-market" ? "premarket" : "regular";
-      return mapPolygonMovers(res, mappedSession, { sort: "percent_asc" }).rows;
-    },
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
+    queryKey: ["top-losers-page", session, sessionDate],
+    queryFn: () => fetchPublicLosersRows(session),
     staleTime: 60_000,
     retry: 3,
     retryDelay: 2000,
@@ -63,15 +32,18 @@ export default function LosersPage() {
 
   usePageSeo({
     title: `Top Stock Losers Today | ${BRAND.name}`,
-    description: `See today's biggest losing stocks with real-time price and percentage change data on ${BRAND.name}.`,
+    description: delayedMarketMoversSeoDescription("today's biggest losing stocks", BRAND.name),
   });
 
   return (
     <MarketMoversPage
       pageTitle={titles.page}
       sectionTitle={titles.section}
-      rows={data ?? []}
+      rows={data?.rows ?? []}
+      provenance={data?.provenance}
       isLoading={isLoading}
+      isError={isError}
+      isFetchEmpty={isSuccess && (data?.rows.length ?? 0) === 0}
       refetch={refetch}
       defaultSortDesc={false}
       colorMode="red"

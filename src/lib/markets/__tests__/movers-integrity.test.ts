@@ -50,6 +50,9 @@ function baseMover(overrides: Partial<CanonicalMover> = {}): CanonicalMover {
     session_date: TODAY,
     source: SOURCE_POLYGON,
     provider_as_of: new Date(NOW).toISOString(),
+    observation_basis: "day_aggregate",
+    session_date_unverified: false,
+    observation_time_unavailable: false,
     id: "a",
     ...overrides,
   };
@@ -423,11 +426,15 @@ describe("market movers integrity", () => {
     expect(toMoverListRow(winners[0])?.symbol).toBe("AAA");
   });
 
-  it("tags movers with the ET session date, not the UTC date, around midnight UTC", () => {
-    const etEvening = Date.parse("2026-08-27T03:30:00.000Z"); // 23:30 ET on Aug 26
-    expect(etSessionDate(etEvening)).toBe("2026-08-26");
-    const m = moverFromPolygonTicker(ticker({ lastTrade: { p: 21, t: etEvening }, updated: etEvening }), "regular", etEvening);
-    expect(m.session_date).toBe("2026-08-26");
+  it("uses the UTC daily bar date for regular-session source dates", () => {
+    const dayBarMs = Date.parse("2026-08-27T04:00:00.000Z");
+    const m = moverFromPolygonTicker(
+      ticker({ day: { c: 21, v: 1_000_000, t: dayBarMs }, prevDay: { c: 20 }, lastTrade: { p: 21, t: dayBarMs } }),
+      "regular",
+      dayBarMs,
+    );
+    expect(m.session_date).toBe("2026-08-27");
+    expect(m.observation_basis).toBe("day_aggregate");
   });
 
   it("rejects a provider timestamp too far in the future", () => {
@@ -489,6 +496,30 @@ describe("market movers integrity", () => {
     }, NOW);
     expect(cached.valid).toBe(false);
     expect(cached.reason).toBe("missing_corroboration");
+  });
+
+  it("ranks unknown volume after verified volume including zero", () => {
+    const zero = moverFromPolygonTicker(ticker({
+      ticker: "ZERO",
+      day: { c: 10, v: 0 },
+      prevDay: { c: 10 },
+    }), "regular", NOW);
+    const missing = moverFromPolygonTicker(ticker({
+      ticker: "UNK",
+      day: { c: 11 },
+      prevDay: { c: 10 },
+    }), "regular", NOW);
+    missing.volume = null;
+    const high = moverFromPolygonTicker(ticker({
+      ticker: "HIV",
+      day: { c: 12, v: 9_000_000 },
+      prevDay: { c: 10 },
+    }), "regular", NOW);
+    const ordered = selectCanonicalCurrentMovers([zero, missing, high], {
+      sessionDate: TODAY,
+      sort: "volume_desc",
+    });
+    expect(ordered.map((r) => r.symbol)).toEqual(["HIV", "ZERO", "UNK"]);
   });
 
   it("preserves volume-first ordering for most-active lists", () => {
