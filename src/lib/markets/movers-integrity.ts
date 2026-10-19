@@ -13,6 +13,13 @@ import {
   validateQuote,
 } from "../quotes/integrity";
 import { shouldExcludeHomepageMover } from "./mover-universe";
+import {
+  formatMoverObservationLine,
+  observationMsFromIso,
+  referenceTradingSessionDate,
+  resolvePolygonMoverSourceEvidence,
+  type MoverObservationBasis,
+} from "./movers-observation";
 
 export type MoverSession = "regular" | "premarket" | "afterhours";
 
@@ -73,6 +80,8 @@ export interface RawMoverInput {
   adjustedClose?: unknown;
   unadjustedClose?: unknown;
   instrumentType?: unknown;
+  observationBasis?: MoverObservationBasis | null;
+  sessionDateUnverified?: boolean;
   nowMs?: number;
 }
 
@@ -90,6 +99,8 @@ export interface CanonicalMover {
   session_date: string | null;
   source: string;
   provider_as_of: string | null;
+  observation_basis: MoverObservationBasis | null;
+  session_date_unverified: boolean;
   id: string | null;
 }
 
@@ -101,6 +112,7 @@ export interface MoverListRow {
   changePercent: number;
   /** Null when provider volume is missing — never coerced to zero for display. */
   volume: number | null;
+  priceObservationLine: string | null;
 }
 
 export function etSessionDate(ms: number = Date.now()): string {
@@ -240,6 +252,8 @@ function fail(
     session_date: typeof input.sessionDate === "string" ? input.sessionDate : null,
     source: sourceFrom(input.source),
     provider_as_of: isoOrNull(input.providerAsOf),
+    observation_basis: input.observationBasis ?? null,
+    session_date_unverified: Boolean(input.sessionDateUnverified),
     id: typeof input.id === "string" ? input.id : null,
   };
 }
@@ -355,7 +369,18 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
         return fail(input, symbol, "stale_reference");
       }
       if (nowMs - asOfMs > STALE_REFERENCE_MS) {
-        return fail(input, symbol, "stale_reference");
+        const sourceSession =
+          typeof input.sessionDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate)
+            ? input.sessionDate
+            : null;
+        const allowPriorSessionDayBar =
+          input.session === "regular"
+          && input.observationBasis === "day_aggregate"
+          && sourceSession !== null
+          && sourceSession !== referenceTradingSessionDate(nowMs);
+        if (!allowPriorSessionDayBar) {
+          return fail(input, symbol, "stale_reference");
+        }
       }
     }
   }
@@ -382,6 +407,8 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
     session_date: sessionDate,
     source: sourceFrom(input.source),
     provider_as_of: asOf,
+    observation_basis: input.observationBasis ?? null,
+    session_date_unverified: Boolean(input.sessionDateUnverified),
     id: typeof input.id === "string" ? input.id : null,
   };
 }
@@ -415,8 +442,14 @@ export function moverFromExtendedObservation(
     volume: input.volume,
     providerAsOf: input.providerAsOf,
     session: "afterhours",
-    sessionDate: etSessionDate(nowMs),
+    sessionDate: (() => {
+      const iso = isoOrNull(input.providerAsOf);
+      const ms = observationMsFromIso(iso);
+      return ms !== null ? etSessionDate(ms) : null;
+    })(),
     source: input.source ?? SOURCE_AFTER_HOURS_FEED,
+    observationBasis: "extended_feed",
+    sessionDateUnverified: isoOrNull(input.providerAsOf) === null,
     id: input.id,
     nowMs,
   });
@@ -467,7 +500,12 @@ export function moverFromPolygonTicker(
   }
 
   const providerPct = finiteOrNull(raw.todaysChangePerc ?? raw.change_percent ?? raw.changePercent);
-  const sessionDate = etSessionDate(nowMs);
+  const sourceEvidence = resolvePolygonMoverSourceEvidence(session, { day, min, lastTrade }, nowMs);
+  const sessionDate = sourceEvidence.sessionDate;
+  const providerAsOfForValidation =
+    sourceEvidence.providerAsOfMs !== null
+      ? new Date(sourceEvidence.providerAsOfMs).toISOString()
+      : null;
 
   if (session === "regular" && dayClose !== null && dayClose > 0 && current === dayClose && providerPct !== null && prevClose !== null && prevClose > 0) {
     const dayPct = canonicalChangePercent(dayClose, prevClose);
@@ -487,7 +525,7 @@ export function moverFromPolygonTicker(
           session,
           sessionDate,
           source: SOURCE_POLYGON,
-          providerAsOf: extracted?.quoteTimestamp ?? lastTrade.t ?? raw.updated,
+          providerAsOf: providerAsOfForValidation,
         }, normalizeSymbol(extracted?.symbol ?? raw.ticker ?? raw.symbol), "session_mismatch");
       }
     }
@@ -511,11 +549,13 @@ export function moverFromPolygonTicker(
     dayClose,
     vwap: extracted?.vwap,
     volume: finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v),
-    providerAsOf: extracted?.quoteTimestamp ?? lastTrade.t ?? raw.updated,
+    providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,
     source: SOURCE_POLYGON,
     instrumentType,
+    observationBasis: sourceEvidence.basis,
+    sessionDateUnverified: sourceEvidence.sessionDateUnverified,
     nowMs,
   });
 }
@@ -548,6 +588,11 @@ export function toMoverListRow(mover: CanonicalMover): MoverListRow | null {
   if (!mover.valid || !mover.symbol || mover.price === null || mover.change === null || mover.change_percent === null) {
     return null;
   }
+  const obsMs = observationMsFromIso(mover.provider_as_of);
+  const priceObservationLine =
+    obsMs !== null && mover.observation_basis
+      ? formatMoverObservationLine(obsMs, mover.observation_basis)
+      : null;
   return {
     symbol: mover.symbol,
     name: mover.name,
@@ -555,6 +600,7 @@ export function toMoverListRow(mover: CanonicalMover): MoverListRow | null {
     change: mover.change,
     changePercent: mover.change_percent,
     volume: mover.volume !== null && mover.volume >= 0 ? mover.volume : null,
+    priceObservationLine,
   };
 }
 
@@ -645,13 +691,13 @@ export function selectCanonicalCurrentMovers(
 export function mapPolygonMoversDetailed(
   raw: unknown,
   session: MoverSession,
-  opts?: { nowMs?: number; sort?: MoverSort },
+  opts?: { nowMs?: number; sort?: MoverSort; filterSessionDate?: string },
 ): { rows: MoverListRow[]; movers: CanonicalMover[]; rejected: number } {
   const nowMs = opts?.nowMs ?? Date.now();
   const tickers = Array.isArray(raw) ? raw : polygonTickersFromResponse(raw);
   const validated = tickers.map((t) => moverFromPolygonTicker(t, session, nowMs));
   const winners = selectCanonicalCurrentMovers(validated, {
-    sessionDate: etSessionDate(nowMs),
+    sessionDate: opts?.filterSessionDate,
     sort: opts?.sort,
   });
   const rows = winners.map(toMoverListRow).filter((r): r is MoverListRow => r !== null);
@@ -697,10 +743,10 @@ export function moversForAi(rows: CanonicalMover[]): CanonicalMover[] {
   return rows.filter((r) => r.valid && r.price !== null && r.change_percent !== null);
 }
 
-export function mapAfterHoursFeed(
+export function mapAfterHoursFeedDetailed(
   rows: unknown[],
   opts?: { nowMs?: number; sort?: MoverSort },
-): MoverListRow[] {
+): { rows: MoverListRow[]; movers: CanonicalMover[] } {
   const nowMs = opts?.nowMs ?? Date.now();
   const validated = rows.map((raw) => {
     if (!isPlainObject(raw)) return fail({ symbol: null }, null, "malformed_symbol");
@@ -716,10 +762,16 @@ export function mapAfterHoursFeed(
       source: raw.source ?? SOURCE_AFTER_HOURS_FEED,
     }, nowMs);
   });
-  return selectCanonicalCurrentMovers(validated, {
-    sessionDate: etSessionDate(nowMs),
-    sort: opts?.sort,
-  }).map(toMoverListRow).filter((r): r is MoverListRow => r !== null);
+  const movers = selectCanonicalCurrentMovers(validated, { sort: opts?.sort });
+  const listRows = movers.map(toMoverListRow).filter((r): r is MoverListRow => r !== null);
+  return { rows: listRows, movers };
+}
+
+export function mapAfterHoursFeed(
+  rows: unknown[],
+  opts?: { nowMs?: number; sort?: MoverSort },
+): MoverListRow[] {
+  return mapAfterHoursFeedDetailed(rows, opts).rows;
 }
 
 export function currentMoversEmptyMessage(opts: {
@@ -758,10 +810,7 @@ export function presentCanonicalMovers(
   let filtered = movers;
   if (category === "gainer") filtered = movers.filter((m) => (m.change_percent ?? 0) > 0);
   if (category === "loser") filtered = movers.filter((m) => (m.change_percent ?? 0) < 0);
-  const winners = selectCanonicalCurrentMovers(filtered, {
-    sessionDate: etSessionDate(nowMs),
-    sort,
-  });
+  const winners = selectCanonicalCurrentMovers(filtered, { sort });
   const rows = winners
     .slice(0, Math.max(1, limit))
     .filter((m) => m.symbol && m.price !== null && m.change_percent !== null)

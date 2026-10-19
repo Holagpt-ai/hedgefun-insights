@@ -50,6 +50,8 @@ function baseMover(overrides: Partial<CanonicalMover> = {}): CanonicalMover {
     session_date: TODAY,
     source: SOURCE_POLYGON,
     provider_as_of: new Date(NOW).toISOString(),
+    observation_basis: "day_aggregate",
+    session_date_unverified: false,
     id: "a",
     ...overrides,
   };
@@ -423,11 +425,15 @@ describe("market movers integrity", () => {
     expect(toMoverListRow(winners[0])?.symbol).toBe("AAA");
   });
 
-  it("tags movers with the ET session date, not the UTC date, around midnight UTC", () => {
-    const etEvening = Date.parse("2026-08-27T03:30:00.000Z"); // 23:30 ET on Aug 26
-    expect(etSessionDate(etEvening)).toBe("2026-08-26");
-    const m = moverFromPolygonTicker(ticker({ lastTrade: { p: 21, t: etEvening }, updated: etEvening }), "regular", etEvening);
-    expect(m.session_date).toBe("2026-08-26");
+  it("uses the UTC daily bar date for regular-session source dates", () => {
+    const dayBarMs = Date.parse("2026-08-27T04:00:00.000Z");
+    const m = moverFromPolygonTicker(
+      ticker({ day: { c: 21, v: 1_000_000, t: dayBarMs }, prevDay: { c: 20 }, lastTrade: { p: 21, t: dayBarMs } }),
+      "regular",
+      dayBarMs,
+    );
+    expect(m.session_date).toBe("2026-08-27");
+    expect(m.observation_basis).toBe("day_aggregate");
   });
 
   it("rejects a provider timestamp too far in the future", () => {

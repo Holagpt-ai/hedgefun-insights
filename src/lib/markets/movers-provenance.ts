@@ -5,15 +5,21 @@
 
 import {
   PUBLIC_MARKET_DATA_DELAY_DISCLOSURE,
-  estTimezoneAbbr,
   formatStockHeaderSessionLine,
   resolveMarketSession,
 } from "@/lib/price-utils";
+import { getEtParts, tradingSessionDateForInstant } from "@/lib/market-calendar";
+import { dailyAggregateBarDate } from "@/lib/etf/snapshot-volume";
 import {
   etSessionDate,
   type CanonicalMover,
   type MoverSession,
 } from "./movers-integrity";
+import {
+  formatMoverObservationEt,
+  observationMsFromIso,
+  referenceTradingSessionDate,
+} from "./movers-observation";
 
 export const MOST_ACTIVE_TRACKED_UNIVERSE_TITLE = "Most Active Among Tracked Movers";
 
@@ -39,34 +45,20 @@ export type MoversObservationFreshness =
   | "prior_session"
   | "delayed_snapshot"
   | "historical"
-  | "unverified";
+  | "unverified"
+  | "mixed";
 
 export interface MoversListProvenance {
   sessionLine: string;
   observationLine: string | null;
   observationTimeUnavailable: boolean;
+  observationMixed: boolean;
   universeTitle: string | null;
   universeDetail: string | null;
   delayDisclosure: string;
   sessionDate: string | null;
   freshness: MoversObservationFreshness;
   isPriorSession: boolean;
-}
-
-function maxProviderAsOf(movers: CanonicalMover[]): string | null {
-  let bestMs = 0;
-  let bestIso: string | null = null;
-  for (const m of movers) {
-    const iso = m.provider_as_of;
-    if (!iso) continue;
-    const ms = Date.parse(iso);
-    if (!Number.isFinite(ms)) continue;
-    if (ms >= bestMs) {
-      bestMs = ms;
-      bestIso = iso;
-    }
-  }
-  return bestIso;
 }
 
 function dominantSessionDate(movers: CanonicalMover[]): string | null {
@@ -86,21 +78,51 @@ function dominantSessionDate(movers: CanonicalMover[]): string | null {
   return best;
 }
 
-function formatObservationLine(iso: string | null, nowMs: number): { line: string | null; unavailable: boolean } {
-  if (!iso) return { line: null, unavailable: true };
-  const ms = Date.parse(iso);
-  if (!Number.isFinite(ms)) return { line: null, unavailable: true };
-  const tz = estTimezoneAbbr(new Date(nowMs));
-  const observed = new Date(ms);
-  const line = `As of ${observed.toLocaleString("en-US", {
-    timeZone: "America/New_York",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZoneName: "short",
-  })} ${tz} · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`;
-  return { line, unavailable: false };
+function hasUnverifiedSessionDate(movers: CanonicalMover[]): boolean {
+  return movers.some((m) => m.valid && m.session_date_unverified);
+}
+
+function listHasPriorRegularEvidence(movers: CanonicalMover[], nowMs: number): boolean {
+  const reference = referenceTradingSessionDate(nowMs);
+  for (const m of movers) {
+    if (!m.valid) continue;
+    if (m.session === "regular" && m.session_date && m.session_date !== reference) return true;
+    if (m.session !== "regular" && m.session_date) {
+      const etToday = etSessionDate(nowMs);
+      if (m.session_date !== etToday) return true;
+    }
+  }
+  return false;
+}
+
+export function summarizeListObservationTimes(
+  movers: CanonicalMover[],
+): { line: string | null; unavailable: boolean; mixed: boolean } {
+  const timed: number[] = [];
+  for (const m of movers) {
+    if (!m.valid) continue;
+    const ms = observationMsFromIso(m.provider_as_of);
+    if (ms !== null) timed.push(ms);
+  }
+  if (timed.length === 0) {
+    return { line: null, unavailable: true, mixed: false };
+  }
+  timed.sort((a, b) => a - b);
+  const oldest = timed[0];
+  const newest = timed[timed.length - 1];
+  const allSame = newest - oldest <= 60_000;
+  if (allSame) {
+    return {
+      line: `As of ${formatMoverObservationEt(newest)} · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`,
+      unavailable: false,
+      mixed: false,
+    };
+  }
+  return {
+    line: `Observations from ${formatMoverObservationEt(oldest)} through ${formatMoverObservationEt(newest)} · prices vary by symbol · ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE}`,
+    unavailable: false,
+    mixed: true,
+  };
 }
 
 function universeCopy(universe: MoverUniverseKind): { title: string | null; detail: string | null } {
@@ -114,15 +136,15 @@ function universeCopy(universe: MoverUniverseKind): { title: string | null; deta
 }
 
 function classifyFreshness(
-  sessionDate: string | null,
+  movers: CanonicalMover[],
   nowMs: number,
   moverSession: MoverSession,
-  hasObservation: boolean,
+  observation: { unavailable: boolean; mixed: boolean },
 ): MoversObservationFreshness {
-  const today = etSessionDate(nowMs);
-  if (sessionDate && sessionDate !== today) return "prior_session";
+  if (observation.mixed) return "mixed";
+  if (listHasPriorRegularEvidence(movers, nowMs)) return "prior_session";
+  if (observation.unavailable || hasUnverifiedSessionDate(movers)) return "unverified";
   const clock = resolveMarketSession(new Date(nowMs));
-  if (!hasObservation) return "unverified";
   if (clock === "closed" && moverSession === "regular") return "delayed_snapshot";
   return "current_session";
 }
@@ -138,23 +160,26 @@ export function summarizeMoversListProvenance(
 ): MoversListProvenance {
   const nowMs = opts.nowMs ?? Date.now();
   const sessionDate = dominantSessionDate(movers);
-  const asOf = maxProviderAsOf(movers);
-  const { line, unavailable } = formatObservationLine(asOf, nowMs);
-  const today = etSessionDate(nowMs);
-  const isPriorSession = Boolean(sessionDate && sessionDate !== today);
+  const observation = summarizeListObservationTimes(movers);
+  const reference = referenceTradingSessionDate(nowMs);
+  const isPriorSession = listHasPriorRegularEvidence(movers, nowMs)
+    || Boolean(sessionDate && sessionDate !== reference && opts.moverSession === "regular");
   const universe = universeCopy(opts.universe);
   if (opts.premarket) {
     universe.detail = PREMARKET_CANDIDATE_UNIVERSE_DETAIL;
   }
-  const freshness = classifyFreshness(sessionDate, nowMs, opts.moverSession, !unavailable);
+  const freshness = classifyFreshness(movers, nowMs, opts.moverSession, observation);
   let sessionLine = formatStockHeaderSessionLine(new Date(nowMs));
   if (isPriorSession && sessionDate) {
-    sessionLine = `Prior session · ${sessionDate} · ${sessionLine}`;
+    sessionLine = `Prior source session · ${sessionDate} · ${sessionLine}`;
+  } else if (hasUnverifiedSessionDate(movers)) {
+    sessionLine = `Source session unverified · ${sessionLine}`;
   }
   return {
     sessionLine,
-    observationLine: line,
-    observationTimeUnavailable: unavailable,
+    observationLine: observation.line,
+    observationTimeUnavailable: observation.unavailable,
+    observationMixed: observation.mixed,
     universeTitle: universe.title,
     universeDetail: universe.detail,
     delayDisclosure: PUBLIC_MARKET_DATA_DELAY_DISCLOSURE,
@@ -183,4 +208,14 @@ export function moversSuccessfulEmptyMessage(opts: {
 
 export function delayedMarketMoversSeoDescription(category: string, brandName: string): string {
   return `See ${category} on ${brandName} using ${DELAYED_MARKET_DATA_SEO_PHRASE}. Lists show validated provider snapshots, not every listed stock.`;
+}
+
+/** Exported for tests — Friday UTC day bar vs Monday premarket reference. */
+export function regularDayBarSessionDate(dayBarMs: number): string {
+  return dailyAggregateBarDate(dayBarMs);
+}
+
+export function tradingReferenceSessionDate(nowMs: number): string {
+  const et = getEtParts(new Date(nowMs));
+  return tradingSessionDateForInstant(et.date, et.minutes);
 }

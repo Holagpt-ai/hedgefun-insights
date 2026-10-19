@@ -21,6 +21,7 @@ function row(overrides: Partial<MoverRow> & Pick<MoverRow, "symbol">): MoverRow 
     change: 1,
     changePercent: 5,
     volume: 1_000_000,
+    priceObservationLine: null,
     ...overrides,
   };
 }
@@ -236,10 +237,10 @@ describe("Most Active page wiring and /movers/active", () => {
     expect(src).toContain("fetchPublicMostActiveRows");
   });
 
-  it("leaves /movers/active volume-first and independent of MarketMoversLayout", () => {
+  it("wires /movers routes through shared session-aware fetch helpers", () => {
     const src = readFileSync(resolve("src/pages/movers/MoversPage.tsx"), "utf8");
-    expect(src).toContain('if (type === "active") return "volume_desc"');
-    expect(src).not.toContain("MarketMoversLayout");
-    expect(src).not.toContain("defaultSortForMoverKind");
+    expect(src).toContain("fetchLegacyMoversRoute");
+    expect(src).toContain('queryKey: ["movers", type, clockSession, sessionDate]');
+    expect(src).not.toContain("getTopGainers");
   });
 });

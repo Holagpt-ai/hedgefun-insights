@@ -49,6 +49,7 @@ export interface MoverRow {
   change: number;
   changePercent: number;
   volume: number | null;
+  priceObservationLine?: string | null;
 }
 
 const TIME_TABS = ["Today"];
@@ -132,8 +133,11 @@ export function MoversTable({
         accessorKey: "price",
         header: "Price",
         size: 90,
-        cell: ({ getValue }) => (
-          <span className="text-[0.875rem] tabular-nums text-right block text-foreground">
+        cell: ({ getValue, row }) => (
+          <span
+            className="text-[0.875rem] tabular-nums text-right block text-foreground"
+            title={row.original.priceObservationLine ?? undefined}
+          >
             ${getValue<number>().toFixed(2)}
           </span>
         ),
@@ -233,6 +237,9 @@ export function MoversTable({
               ) : provenance.observationTimeUnavailable ? (
                 <span>Provider observation time unavailable</span>
               ) : null}
+              {provenance.observationMixed && (
+                <span>Hover a price for symbol-level observation time.</span>
+              )}
             </div>
           )}
         </div>

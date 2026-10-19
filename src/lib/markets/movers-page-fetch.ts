@@ -5,7 +5,9 @@
 import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { classifyTrackedAfterHoursMovers, type SnapshotTicker } from "@/lib/market-session";
 import { resolveMarketSession, type MarketSessionLabel } from "@/lib/price-utils";
+import { supabase } from "@/integrations/supabase/client";
 import {
+  mapAfterHoursFeedDetailed,
   mapPolygonMoversDetailed,
   mapTrackedMostActiveMovers,
   moverFromExtendedObservation,
@@ -142,4 +144,64 @@ export async function fetchPremarketLosersRows(nowMs = Date.now()): Promise<Move
     premarket: true,
   });
   return { rows, provenance };
+}
+
+const AFTER_HOURS_ROW_LIMIT = 41;
+
+async function fetchAfterHoursFeedRows(nowMs: number): Promise<MoversPageQueryResult> {
+  const { data: stateRows, error: stateError } = await supabase
+    .from("after_hours_feed_state")
+    .select("state_key,generation_id,status")
+    .eq("state_key", "current")
+    .limit(1);
+  if (stateError) throw new Error(stateError.message);
+
+  const gen = (stateRows ?? [])[0]?.generation_id;
+  if (!gen) {
+    return {
+      rows: [],
+      provenance: summarizeMoversListProvenance([], {
+        nowMs,
+        universe: "after_hours_feed",
+        moverSession: "afterhours",
+      }),
+    };
+  }
+
+  const { data: resultRows, error: rowsError } = await supabase
+    .from("after_hours_mover_results")
+    .select("generation_id,side,rank,symbol,company_name,extended_last,regular_close,change_percent,volume,provider_as_of")
+    .eq("generation_id", gen)
+    .order("side", { ascending: true })
+    .order("rank", { ascending: true })
+    .limit(AFTER_HOURS_ROW_LIMIT);
+  if (rowsError) throw new Error(rowsError.message);
+
+  const { rows, movers } = mapAfterHoursFeedDetailed(resultRows ?? [], { nowMs, sort: "percent_desc" });
+  const provenance = summarizeMoversListProvenance(movers, {
+    nowMs,
+    universe: "after_hours_feed",
+    moverSession: "afterhours",
+  });
+  return { rows, provenance };
+}
+
+/** Legacy `/movers/:type` alias — same session rules as `/markets/*`. */
+export async function fetchLegacyMoversRoute(
+  type: string,
+  clockSession: MarketSessionLabel = resolveMarketSession(),
+): Promise<MoversPageQueryResult> {
+  if (type === "afterhours") {
+    return fetchAfterHoursFeedRows(Date.now());
+  }
+  if (type === "premarket") {
+    return fetchPremarketGainersRows();
+  }
+  if (type === "active") {
+    return fetchPublicMostActiveRows(clockSession);
+  }
+  if (type === "losers") {
+    return fetchPublicLosersRows(clockSession);
+  }
+  return fetchPublicGainersRows(clockSession);
 }

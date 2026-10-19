@@ -104,17 +104,24 @@ describe("Batch 21 — market movers public integrity", () => {
     expect(rows[0].volume).toBe(500);
   });
 
-  it("marks prior-session movers after ET session rollover", () => {
-    const prior = moverFromPolygonTicker(ticker({ ticker: "OLD" }), "regular", NOW);
-    prior.session_date = PRIOR;
+  it("marks prior-session movers from stale provider day bars after rollover", () => {
+    const fridayBarMs = Date.parse("2026-08-28T20:00:00.000Z");
+    const mondayPremarketMs = Date.parse("2026-08-31T12:00:00.000Z");
+    const prior = moverFromPolygonTicker(ticker({
+      ticker: "OLD",
+      day: { c: 21, v: 1_000_000, t: fridayBarMs },
+      prevDay: { c: 20 },
+      lastTrade: { p: 21, t: fridayBarMs },
+    }), "regular", mondayPremarketMs);
+    expect(prior.session_date).toBe("2026-08-28");
     const summary = summarizeMoversListProvenance([prior], {
-      nowMs: NOW,
+      nowMs: mondayPremarketMs,
       universe: "top_gainers",
       moverSession: "regular",
     });
     expect(summary.isPriorSession).toBe(true);
     expect(summary.freshness).toBe("prior_session");
-    expect(summary.sessionLine).toMatch(/Prior session/);
+    expect(summary.sessionLine).toMatch(/Prior source session/);
   });
 
   it("bounds premarket empty retries per lifecycle", () => {
@@ -133,7 +140,11 @@ describe("Batch 21 — market movers public integrity", () => {
   });
 
   it("shows provider as-of when timestamps exist and avoids browser-only updated today", () => {
-    const mover = moverFromPolygonTicker(ticker({ ticker: "TS" }), "regular", NOW);
+    const mover = moverFromPolygonTicker(
+      ticker({ ticker: "TS", day: { c: 21, v: 1_000_000, t: NOW }, prevDay: { c: 20 }, lastTrade: { p: 21, t: NOW } }),
+      "regular",
+      NOW,
+    );
     const summary = summarizeMoversListProvenance([mover], {
       nowMs: NOW,
       universe: "top_gainers",
@@ -164,11 +175,24 @@ describe("Batch 21 — market movers public integrity", () => {
     expect(line).toMatch(/Labor Day|Market closed/i);
   });
 
-  it("aligns homepage and market page fetch helpers", () => {
+  it("aligns homepage, market pages, and legacy movers routes on shared fetch", () => {
     const home = readFileSync(resolve("src/components/home/MoversTable.tsx"), "utf8");
     const gainers = readFileSync(resolve("src/pages/markets/GainersPage.tsx"), "utf8");
+    const legacy = readFileSync(resolve("src/pages/movers/MoversPage.tsx"), "utf8");
     expect(home).toContain("fetchPublicGainersRows");
     expect(gainers).toContain("fetchPublicGainersRows");
+    expect(legacy).toContain("fetchLegacyMoversRoute");
+    expect(legacy).toContain("sessionDate");
+  });
+
+  it("maps identical polygon fixtures the same way for market and legacy gainers paths", () => {
+    const payload = [
+      ticker({ ticker: "SAME", day: { c: 21, v: 1_000_000, t: NOW }, prevDay: { c: 20 } }),
+    ];
+    const market = mapPolygonMoversDetailed(payload, "regular", { nowMs: NOW, sort: "percent_desc" });
+    const legacy = mapPolygonMoversDetailed(payload, "regular", { nowMs: NOW, sort: "percent_desc" });
+    expect(legacy.rows).toEqual(market.rows);
+    expect(legacy.movers[0]?.session_date).toBe(market.movers[0]?.session_date);
   });
 
   it("avoids unsupported real-time SEO on mover market pages", () => {
