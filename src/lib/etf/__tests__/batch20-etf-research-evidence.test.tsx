@@ -14,7 +14,14 @@ import { fetchChartAggregateBars } from "@/lib/stock-chart/fetch-aggregates";
 import { normalizeAggregateBars, toOhlcvSeries, type NormalizedBar } from "@/lib/stock-chart/normalize-bars";
 import { buildEtfStatGrid, buildFundDetailRows, formatReportedAum } from "@/lib/etf/fund-metrics";
 import { classifySnapshotDayVolume, dailyAggregateBarDate } from "@/lib/etf/snapshot-volume";
-import { largestInternalTradingGap, observedPriceRange } from "@/lib/etf/price-performance";
+import {
+  hasAdequateDailySessionCoverage,
+  largestInternalTradingGap,
+  listTradingSessionDates,
+  MIN_TOTAL_TRADING_SESSION_COVERAGE,
+  observedPriceRange,
+  tradingSessionCoverageRatio,
+} from "@/lib/etf/price-performance";
 import {
   isSyntheticWeightLadder,
   presentEtfHoldings,
@@ -114,6 +121,17 @@ function dailyHistoryForTradingDays(from: string, to: string, close = 100): Norm
     cursor = shiftIsoDate(cursor, 1);
   }
   return bars;
+}
+
+function everyNthTradingSessionHistory(from: string, to: string, step: number): NormalizedBar[] {
+  const all = dailyHistoryForTradingDays(from, to);
+  if (all.length === 0) return [];
+  return all.filter((_, index) => index % step === 0 || index === all.length - 1);
+}
+
+function omitEveryNthTradingSession(from: string, to: string, omitEvery: number): NormalizedBar[] {
+  const all = dailyHistoryForTradingDays(from, to);
+  return all.filter((_, index) => (index + 1) % omitEvery !== 0);
 }
 
 const MARCH_16 = new Date("2026-03-16T15:00:00.000Z");
@@ -668,11 +686,34 @@ describe("Batch 20 — fund metrics", () => {
     ];
     expect(observedPriceRange(gappedHistory, MARCH_16, "1993-01-22")?.coverage).toBe("observed_window");
 
+    const sparseRegular = everyNthTradingSessionHistory("2025-03-17", "2026-03-16", 8);
+    const sparseDates = sparseRegular.map((bar) => new Date(bar.utcMs).toISOString().slice(0, 10));
+    expect(largestInternalTradingGap(sparseDates)).toBeLessThanOrEqual(7);
+    expect(tradingSessionCoverageRatio(sparseDates) ?? 0).toBeLessThan(MIN_TOTAL_TRADING_SESSION_COVERAGE);
+    expect(hasAdequateDailySessionCoverage(sparseDates)).toBe(false);
+    expect(observedPriceRange(sparseRegular, MARCH_16, "1993-01-22")?.coverage).toBe("observed_window");
+
+    const belowTotalCoverage = omitEveryNthTradingSession("2025-03-17", "2026-03-16", 20);
+    const belowDates = belowTotalCoverage.map((bar) => new Date(bar.utcMs).toISOString().slice(0, 10));
+    expect(tradingSessionCoverageRatio(belowDates) ?? 1).toBeLessThan(MIN_TOTAL_TRADING_SESSION_COVERAGE);
+    expect(observedPriceRange(belowTotalCoverage, MARCH_16, "1993-01-22")?.coverage).toBe("observed_window");
+
+    const aboveTotalCoverage = omitEveryNthTradingSession("2025-03-17", "2026-03-16", 50);
+    const aboveDates = aboveTotalCoverage.map((bar) => new Date(bar.utcMs).toISOString().slice(0, 10));
+    expect(tradingSessionCoverageRatio(aboveDates) ?? 0).toBeGreaterThanOrEqual(MIN_TOTAL_TRADING_SESSION_COVERAGE);
+    expect(hasAdequateDailySessionCoverage(aboveDates)).toBe(true);
+
     const fullYearBars = dailyHistoryForTradingDays("2025-03-17", "2026-03-16");
     const full = observedPriceRange(fullYearBars, MARCH_16, "1993-01-22");
     expect(full?.coverage).toBe("fifty_two_week");
+    expect(observedPriceRange(aboveTotalCoverage, MARCH_16, "1993-01-22")?.coverage).toBe("fifty_two_week");
 
     const inceptionBars = dailyHistoryForTradingDays("2026-01-02", "2026-03-16");
+    const inceptionDates = inceptionBars.map((bar) => new Date(bar.utcMs).toISOString().slice(0, 10));
+    expect(listTradingSessionDates(inceptionDates[0], inceptionDates[inceptionDates.length - 1]).length).toBe(
+      inceptionDates.length,
+    );
+    expect(tradingSessionCoverageRatio(inceptionDates)).toBe(1);
     const sinceLaunch = observedPriceRange(inceptionBars, MARCH_16, "2026-01-02");
     expect(sinceLaunch?.coverage).toBe("since_inception");
     const inceptionStats = buildEtfStatGrid({

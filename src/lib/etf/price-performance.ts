@@ -15,6 +15,11 @@ export type PerformancePeriod = (typeof PERFORMANCE_PERIODS)[number];
 const MAX_BOUNDARY_GAP_DAYS = 7;
 /** Max missing US equity sessions allowed between consecutive daily observations. */
 const MAX_INTERNAL_TRADING_GAP = 7;
+/**
+ * Minimum share of eligible US equity sessions observed between the first and last bar.
+ * Used with the consecutive-gap guard so sparse every-Nth-session feeds cannot claim 52W extrema.
+ */
+export const MIN_TOTAL_TRADING_SESSION_COVERAGE = 0.98;
 
 export interface PeriodPriceReturn {
   period: PerformancePeriod;
@@ -253,9 +258,23 @@ export function largestInternalTradingGap(sortedSessionDates: string[]): number 
   return worst;
 }
 
+/** Observed sessions ÷ eligible exchange sessions from first through last observation (inclusive). */
+export function tradingSessionCoverageRatio(sortedSessionDates: string[]): number | null {
+  const unique = [...new Set(sortedSessionDates)].sort();
+  if (unique.length === 0) return null;
+  const expected = listTradingSessionDates(unique[0], unique[unique.length - 1]);
+  if (expected.length === 0) return null;
+  const observed = new Set(unique);
+  const matched = expected.filter((sessionDate) => observed.has(sessionDate)).length;
+  return matched / expected.length;
+}
+
 export function hasAdequateDailySessionCoverage(sortedSessionDates: string[]): boolean {
-  return sortedSessionDates.length >= 2
-    && largestInternalTradingGap(sortedSessionDates) <= MAX_INTERNAL_TRADING_GAP;
+  const unique = [...new Set(sortedSessionDates)].sort();
+  if (unique.length < 2) return false;
+  const coverageRatio = tradingSessionCoverageRatio(unique);
+  if (coverageRatio === null || coverageRatio < MIN_TOTAL_TRADING_SESSION_COVERAGE) return false;
+  return largestInternalTradingGap(unique) <= MAX_INTERNAL_TRADING_GAP;
 }
 
 function parseInceptionIso(value: string | null | undefined): string | null {
