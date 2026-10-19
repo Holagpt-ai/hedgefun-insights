@@ -223,6 +223,51 @@ export function selectEnrichmentEntries(
   return bySym;
 }
 
+function shouldReplaceRecent(prev: CatalystEnrichmentEntry, next: CatalystEnrichmentEntry, nowMs: number): boolean {
+  const prevScore = enrichmentSelectionScore(prev, nowMs);
+  const nextScore = enrichmentSelectionScore(next, nowMs);
+  if (nextScore !== prevScore) return nextScore > prevScore;
+  return next.event.id < prev.event.id;
+}
+
+/**
+ * Market Pulse only: best recent (72h) event per symbol. Upcoming scheduled rows
+ * are ignored so earnings calendars cannot mask a fresh qualifying announcement.
+ * Does not change screener enrichment (`selectEnrichmentEntries`).
+ */
+export function selectRecentEnrichmentEntries(
+  events: readonly CatalystEvent[],
+  requestedSymbols: readonly string[],
+  nowMs: number,
+): Map<string, CatalystEnrichmentEntry> {
+  const wanted = new Set(normalizeEnrichmentSymbols(requestedSymbols));
+  const bySym = new Map<string, CatalystEnrichmentEntry>();
+
+  for (const raw of events) {
+    const sym = normalizeSymbol(raw.symbol);
+    if (!sym || !wanted.has(sym)) continue;
+
+    const classified = classifyEnrichmentEvent(raw, nowMs);
+    if (!classified || classified.kind !== "recent") continue;
+
+    const precedenceInput = toPrecedenceInput(raw);
+    if (looksLikeMarketAttention(precedenceInput.title, precedenceInput.event_type)) continue;
+    const text = `${precedenceInput.title} ${precedenceInput.description ?? ""}`;
+    if (hasVagueNonEventEvidence(text)) continue;
+
+    const candidate: CatalystEnrichmentEntry = {
+      event: raw,
+      kind: "recent",
+      sortMs: classified.sortMs,
+    };
+    const prev = bySym.get(sym);
+    if (!prev || shouldReplaceRecent(prev, candidate, nowMs)) {
+      bySym.set(sym, candidate);
+    }
+  }
+  return bySym;
+}
+
 /**
  * After a capped batch response, return requested symbols that did not appear
  * in the payload. Callers re-query these individually when the batch was full,

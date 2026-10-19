@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import type { CatalystEvent } from "@/types/catalyst";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import { classifyEnrichmentEvent } from "@/lib/catalyst/enrichment";
+import { selectRecentEnrichmentEntries } from "@/lib/catalyst/enrichment";
 import {
   attachMarketPulseCatalystContext,
   MARKET_PULSE_CAUSATION_DISCLAIMER,
@@ -159,7 +160,31 @@ describe("Batch 23 — market pulse catalyst integration", () => {
     expect(pulse).not.toMatch(/Reason for movement/i);
     expect(pulse).not.toMatch(/AI verified/i);
     expect(pulse).not.toContain('from("market_news")');
-    expect(pulse).toContain("useCatalystEnrichmentForSymbols");
+    expect(pulse).toContain("useMarketPulseCatalystEnrichment");
+  });
+
+  it("resolves verified catalyst when recent row wins over upcoming screener selection", () => {
+    const upcomingEarnings = evt({
+      id: "earn-up",
+      symbol: "DUAL",
+      event_type: "earnings",
+      event_date: "2026-09-10",
+      event_time: "2026-09-10T13:00:00.000Z",
+      published_at: "2026-08-01T12:00:00.000Z",
+      title: "DUAL earnings",
+    });
+    const recentNews = evt({
+      id: "contract",
+      symbol: "DUAL",
+      title: "DUAL announces new contract with federal agency",
+      published_at: "2026-08-27T14:00:00.000Z",
+      event_date: "2026-08-27",
+    });
+    const map = selectRecentEnrichmentEntries([upcomingEarnings, recentNews], ["DUAL"], NOW);
+    const item = basePulseItem("DUAL");
+    const enriched = attachMarketPulseCatalystContext([item], map, NOW);
+    expect(enriched[0]?.movementContext).toBe("verified_movement_with_event");
+    expect(enriched[0]?.verifiedCatalyst?.eventId).toBe("contract");
   });
 
   it("preserves stock detail and catalyst navigation handoffs", () => {

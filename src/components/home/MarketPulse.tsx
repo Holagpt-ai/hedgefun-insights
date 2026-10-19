@@ -4,7 +4,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { useHomepagePublicMovers } from "@/hooks/useHomepagePublicMovers";
-import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useMarketPulseCatalystEnrichment } from "@/hooks/useMarketPulseCatalystEnrichment";
 import {
   attachMarketPulseCatalystContext,
   MARKET_PULSE_CAUSATION_DISCLAIMER,
@@ -147,7 +147,7 @@ export function MarketPulse() {
 
   const pulseSymbols = useMemo(() => baseItems.map((i) => i.symbol), [baseItems]);
 
-  const catalystQuery = useCatalystEnrichmentForSymbols(pulseSymbols);
+  const catalystQuery = useMarketPulseCatalystEnrichment(pulseSymbols);
 
   const enrichedItems = useMemo(() => {
     if (baseItems.length === 0) return [];

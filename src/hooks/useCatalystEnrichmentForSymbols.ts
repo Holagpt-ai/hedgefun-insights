@@ -5,6 +5,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { CatalystEvent } from "@/types/catalyst";
+import { CATALYST_EVENT_SELECT_FIELDS } from "@/lib/catalyst/catalyst-event-select-fields";
+import { hydrateCatalystEvents } from "@/lib/catalyst/catalyst-event-verification";
 import {
   batchHitRowLimit,
   chunkSymbols,
@@ -18,9 +20,6 @@ import {
 
 export type { CatalystEnrichmentEntry };
 
-const CATALYST_SELECT =
-  "id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, description, source_name, source_url, provider, related_symbols, facts, published_at";
-
 async function fetchCatalystRowsForSymbols(
   symbols: string[],
   recentFrom: string,
@@ -31,7 +30,7 @@ async function fetchCatalystRowsForSymbols(
   if (symbols.length === 0) return [];
   const { data, error } = await supabase
     .from("catalyst_events")
-    .select(CATALYST_SELECT)
+    .select(CATALYST_EVENT_SELECT_FIELDS)
     .eq("verification_state", "provider_reported")
     .in("symbol", symbols)
     .or(
@@ -93,7 +92,7 @@ export async function fetchCatalystEventsForEnrichment(
     }
   }
 
-  return collected;
+  return hydrateCatalystEvents(collected);
 }
 
 export function useCatalystEnrichmentForSymbols(symbols: string[]) {
