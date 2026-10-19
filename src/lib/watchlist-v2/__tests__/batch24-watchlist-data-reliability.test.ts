@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { dedupeWatchlistSymbolRows } from "@/lib/watchlist-v2/watchlist-persistence";
 import { appendWatchlistDelayDisclosure } from "@/lib/watchlist-v2/watchlist-market-disclosure";
 import { rowHasCatalystContext, rowMatchesFilter } from "@/lib/watchlist-v2/metrics";
+import { watchlistPriceObservationMs } from "@/lib/watchlist-v2/watchlist-catalyst-context";
 import { parseKeyLevels } from "@/lib/watchlist-v2/parsers";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { MarketPulseVerifiedCatalyst } from "@/lib/markets/market-pulse-contract";
@@ -57,6 +58,13 @@ describe("Batch 24 — watchlist data reliability", () => {
   it("appends site-wide delayed-data disclosure on fresh watchlist quotes", () => {
     const line = appendWatchlistDelayDisclosure("Fresh · Quote as of 10:00 AM ET", "FRESH");
     expect(line).toContain(PUBLIC_MARKET_DATA_DELAY_DISCLOSURE);
+  });
+
+  it("uses snapshot_ts_ms for watchlist price observation reference", () => {
+    expect(watchlistPriceObservationMs(v2Row({ inputsQuality: {} }))).toBeNull();
+    expect(
+      watchlistPriceObservationMs(v2Row({ inputsQuality: { snapshot_ts_ms: 1_777_000_000_000 } })),
+    ).toBe(1_777_000_000_000);
   });
 
   it("includes verified Stocksist catalyst in catalyst filter", () => {

@@ -1,5 +1,4 @@
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
-import { observationMsFromIso } from "@/lib/markets/movers-observation";
 import { resolveVerifiedCatalystForPulse } from "@/lib/markets/market-pulse-catalyst";
 import type {
   MarketPulseSessionEvidence,
@@ -13,16 +12,14 @@ function sessionEvidenceFromRow(row: V2Row): MarketPulseSessionEvidence {
   return "unverified";
 }
 
-function observationMsForRow(row: V2Row, nowMs: number): number | null {
+/**
+ * Provider quote observation time from Watchlist analysis contract (`snapshot_ts_ms` only).
+ * Does not treat analysis expiry, validThrough, or clock now as price observations.
+ */
+export function watchlistPriceObservationMs(row: V2Row): number | null {
   const snap = row.inputsQuality.snapshot_ts_ms;
   if (typeof snap === "number" && Number.isFinite(snap) && snap > 0) return snap;
-  const analyzed = observationMsFromIso(row.analyzedAt);
-  if (analyzed !== null) return analyzed;
-  if (row.validThrough) {
-    const vt = Date.parse(row.validThrough);
-    if (Number.isFinite(vt)) return vt;
-  }
-  return nowMs;
+  return null;
 }
 
 export function resolveWatchlistVerifiedCatalyst(
@@ -33,9 +30,10 @@ export function resolveWatchlistVerifiedCatalyst(
   return resolveVerifiedCatalystForPulse({
     symbol: row.ticker,
     entry,
-    observationMs: observationMsForRow(row, nowMs),
+    observationMs: watchlistPriceObservationMs(row),
     sessionEvidence: sessionEvidenceFromRow(row),
     nowMs,
+    requirePriceObservationMs: true,
   });
 }
 
