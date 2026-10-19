@@ -179,7 +179,10 @@ describe("Batch 21 — market movers public integrity", () => {
     const home = readFileSync(resolve("src/components/home/MoversTable.tsx"), "utf8");
     const gainers = readFileSync(resolve("src/pages/markets/GainersPage.tsx"), "utf8");
     const legacy = readFileSync(resolve("src/pages/movers/MoversPage.tsx"), "utf8");
-    expect(home).toContain("fetchPublicGainersRows");
+    expect(home).toContain("useHomepagePublicMovers");
+    expect(readFileSync(resolve("src/hooks/useHomepagePublicMovers.ts"), "utf8")).toContain(
+      "fetchHomepagePublicMoversBundle",
+    );
     expect(gainers).toContain("fetchPublicGainersRows");
     expect(legacy).toContain("fetchLegacyMoversRoute");
     expect(legacy).toContain("sessionDate");

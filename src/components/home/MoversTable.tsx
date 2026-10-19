@@ -1,4 +1,3 @@
-import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
@@ -9,8 +8,8 @@ import {
   moversFetchErrorMessage,
   moversSuccessfulEmptyMessage,
 } from "@/lib/markets/movers-provenance";
-import { fetchPublicGainersRows, fetchPublicLosersRows } from "@/lib/markets/movers-page-fetch";
-import { etSessionDate, type MoverListRow } from "@/lib/markets/movers-integrity";
+import { useHomepagePublicMovers } from "@/hooks/useHomepagePublicMovers";
+import type { MoverListRow } from "@/lib/markets/movers-integrity";
 
 function MoversTable({
   title,
@@ -129,24 +128,16 @@ function MoversTable({
 }
 
 export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
-  const session = resolveMarketSession();
-  const sessionDate = etSessionDate();
-  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
-    queryKey: ["top-gainers", session, sessionDate],
-    queryFn: () => fetchPublicGainersRows(session),
-    staleTime: 60_000,
-    retry: 3,
-    retryDelay: 2000,
-  });
+  const { data, isLoading, isError, isSuccess, refetch } = useHomepagePublicMovers();
 
   return (
     <MoversTable
       title={title}
       linkTo="/markets/gainers"
-      data={data?.rows}
+      data={data?.gainers.rows}
       isLoading={isLoading}
       isError={isError}
-      isFetchEmpty={isSuccess && (data?.rows.length ?? 0) === 0}
+      isFetchEmpty={isSuccess && (data?.gainers.rows.length ?? 0) === 0}
       type="gainers"
       refetch={refetch}
     />
@@ -154,24 +145,16 @@ export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
 }
 
 export function TopLosersTable({ title = "Top Losers" }: { title?: string }) {
-  const session = resolveMarketSession();
-  const sessionDate = etSessionDate();
-  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
-    queryKey: ["top-losers", session, sessionDate],
-    queryFn: () => fetchPublicLosersRows(session),
-    staleTime: 60_000,
-    retry: 3,
-    retryDelay: 2000,
-  });
+  const { data, isLoading, isError, isSuccess, refetch } = useHomepagePublicMovers();
 
   return (
     <MoversTable
       title={title}
       linkTo="/markets/losers"
-      data={data?.rows}
+      data={data?.losers.rows}
       isLoading={isLoading}
       isError={isError}
-      isFetchEmpty={isSuccess && (data?.rows.length ?? 0) === 0}
+      isFetchEmpty={isSuccess && (data?.losers.rows.length ?? 0) === 0}
       type="losers"
       refetch={refetch}
     />
