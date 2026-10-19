@@ -2,6 +2,8 @@
 
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
+import { hasVerifiedStocksistCatalyst } from "@/lib/watchlist-v2/watchlist-catalyst-context";
+import type { MarketPulseVerifiedCatalyst } from "@/lib/markets/market-pulse-contract";
 import { isEarningsWithin7Days } from "@/lib/watchlist-v2/earnings";
 import { getEtParts, marketHolidayName, resolveMarketClock } from "@/lib/market-calendar";
 
@@ -180,9 +182,18 @@ export interface SummaryMetric {
   filter?: WatchlistFilter;
 }
 
+export function rowHasCatalystContext(
+  row: V2Row,
+  verifiedCatalystBySymbol: ReadonlyMap<string, MarketPulseVerifiedCatalyst> = new Map(),
+): boolean {
+  if (hasVerifiedStocksistCatalyst(row.ticker, verifiedCatalystBySymbol)) return true;
+  return hasRecordedRadarOrEarningsContext(row);
+}
+
 export function computeSummaryMetrics(
   rows: V2Row[],
   earningsBySymbol: Map<string, EarningsBadge>,
+  verifiedCatalystBySymbol: ReadonlyMap<string, MarketPulseVerifiedCatalyst> = new Map(),
 ): SummaryMetric[] {
   const advancingEval = rows.filter((r) => r.changePct !== null);
   const decliningEval = advancingEval;
@@ -216,7 +227,7 @@ export function computeSummaryMetrics(
   const recordedContext =
     catalystEval.length === 0
       ? null
-      : catalystEval.filter((r) => hasRecordedRadarOrEarningsContext(r)).length;
+      : catalystEval.filter((r) => rowHasCatalystContext(r, verifiedCatalystBySymbol)).length;
 
   return [
     { key: "advancing", label: "Advancing", value: advancing, filter: "advancing" },
@@ -226,7 +237,7 @@ export function computeSummaryMetrics(
     { key: "earnings_7d", label: "Earnings Within 7 Days", value: earnings7d, filter: "earnings" },
     {
       key: "recorded_context",
-      label: "Recorded Radar / Earnings Context",
+      label: "Verified / Recorded Catalyst Context",
       value: recordedContext,
       filter: "catalysts",
     },
@@ -237,6 +248,7 @@ export function rowMatchesFilter(
   row: V2Row,
   filter: WatchlistFilter,
   earningsBySymbol: Map<string, EarningsBadge>,
+  verifiedCatalystBySymbol: ReadonlyMap<string, MarketPulseVerifiedCatalyst> = new Map(),
 ): boolean {
   switch (filter) {
     case "all":
@@ -252,7 +264,7 @@ export function rowMatchesFilter(
     case "earnings":
       return isEarningsWithin7Days(earningsBySymbol.get(row.ticker.toUpperCase()));
     case "catalysts":
-      return hasRecordedRadarOrEarningsContext(row);
+      return rowHasCatalystContext(row, verifiedCatalystBySymbol);
     case "near_hod":
       return isNearHod(row) === true;
     case "data_unavailable":

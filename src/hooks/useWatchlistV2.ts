@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import {
   toastSpecForRefreshError,
 } from "@/lib/watchlist-v2/refresh-response";
 import { resolveWatchlistRowRequestStatus } from "@/lib/watchlist-v2/watchlist-request-status";
+import { dedupeWatchlistSymbolRows } from "@/lib/watchlist-v2/watchlist-persistence";
 
 export interface V2Row {
   ticker: string;
@@ -75,6 +76,8 @@ export function useWatchlistV2() {
     queryKey: ["watchlist-v2", "symbols", userId],
     enabled: !!userId,
     staleTime: 30_000,
+    retry: 2,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("watchlists")
@@ -82,11 +85,12 @@ export function useWatchlistV2() {
         .eq("user_id", userId!)
         .order("added_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((r) => ({
+      const mapped = (data ?? []).map((r) => ({
         id: r.id,
         symbol: (r.symbol ?? "").toUpperCase(),
         added_at: r.added_at,
       }));
+      return dedupeWatchlistSymbolRows(mapped);
     },
   });
 
@@ -101,6 +105,8 @@ export function useWatchlistV2() {
     queryKey: ["watchlist-v2", "analysis", userId, symbols],
     enabled: !!userId && symbols.length > 0,
     staleTime: 15_000,
+    retry: 2,
+    placeholderData: keepPreviousData,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("watchlist_analysis_v2")

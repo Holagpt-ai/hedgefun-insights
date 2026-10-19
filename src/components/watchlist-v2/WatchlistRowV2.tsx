@@ -2,6 +2,9 @@ import { Link } from "react-router-dom";
 import { useState } from "react";
 import type { V2Row } from "@/hooks/useWatchlistV2";
 import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
+import { appendWatchlistDelayDisclosure } from "@/lib/watchlist-v2/watchlist-market-disclosure";
+import { MARKET_PULSE_CAUSATION_DISCLAIMER } from "@/lib/markets/market-pulse-catalyst";
+import type { MarketPulseVerifiedCatalyst } from "@/lib/markets/market-pulse-contract";
 import { humanFailureReason, humanFailureReasonSecondary, isExpectedUnavailableReason } from "@/lib/watchlist-v2/parsers";
 import {
   resolveWatchlistMarketDataTrust,
@@ -52,6 +55,7 @@ interface Props {
   isRefreshing: boolean;
   density?: WatchlistDensity;
   earnings?: EarningsBadge | null;
+  verifiedCatalyst?: MarketPulseVerifiedCatalyst | null;
 }
 
 const num = (n: number | null, digits = 2) =>
@@ -171,6 +175,7 @@ export function WatchlistRowV2({
   isRefreshing,
   density = "compact",
   earnings = null,
+  verifiedCatalyst = null,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showDiag, setShowDiag] = useState(false);
@@ -215,7 +220,10 @@ export function WatchlistRowV2({
     const primary = quoteProvenance.quoteAsOfLabel
       ? `${quoteProvenance.trustLine} · ${quoteProvenance.quoteAsOfLabel}`
       : quoteProvenance.trustLine;
-    return { text: primary, tone: trustStateTone(marketDataTrust) };
+    return {
+      text: appendWatchlistDelayDisclosure(primary, marketDataTrust),
+      tone: trustStateTone(marketDataTrust),
+    };
   })();
   const chartEvidenceLine =
     quoteProvenance.intradayRelievesStaleSnapshot && quoteProvenance.chartEvidenceLabel
@@ -359,6 +367,11 @@ export function WatchlistRowV2({
                   )}
                 >
                   {earnings.label}
+                </span>
+              )}
+              {verifiedCatalyst && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-900 border border-violet-200 dark:bg-violet-950/30 dark:text-violet-300 dark:border-violet-800">
+                  Verified event
                 </span>
               )}
               {verifiedRadar && (
@@ -633,7 +646,38 @@ export function WatchlistRowV2({
               </div>
             )}
             <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
-              Verified company event
+              Verified Stocksist catalyst
+            </div>
+            {!verifiedCatalyst ? (
+              <div className="text-xs text-muted-foreground mb-3">No verified catalyst event linked</div>
+            ) : (
+              <div className="mb-3">
+                <div className="text-sm font-medium">{verifiedCatalyst.title}</div>
+                <div className="text-[11px] text-muted-foreground mt-1">
+                  {verifiedCatalyst.sourceName}
+                  {verifiedCatalyst.eventTimingLine ? ` · ${verifiedCatalyst.eventTimingLine}` : null}
+                </div>
+                <p className="text-[10px] leading-snug text-muted-foreground mt-1">{MARKET_PULSE_CAUSATION_DISCLAIMER}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-1 mt-2 text-xs">
+                  {verifiedCatalyst.sourceUrl && (
+                    <a
+                      href={verifiedCatalyst.sourceUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-cyan-700 dark:text-cyan-400 hover:underline inline-flex items-center gap-1"
+                    >
+                      Source
+                      <ExternalLink className="h-3 w-3" aria-hidden />
+                    </a>
+                  )}
+                  <Link to={verifiedCatalyst.catalystPath} className="text-cyan-700 dark:text-cyan-400 hover:underline">
+                    Catalyst workspace
+                  </Link>
+                </div>
+              </div>
+            )}
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400 mb-2">
+              Analysis recent event
             </div>
             {!latestEvent ? (
               <div className="text-xs text-muted-foreground">No qualifying recent event</div>
