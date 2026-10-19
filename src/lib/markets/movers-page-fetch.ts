@@ -15,6 +15,7 @@ import {
   selectCanonicalCurrentMovers,
   toMoverListRow,
   SOURCE_POLYGON,
+  type CanonicalMover,
   type MoverListRow,
   type MoverSession,
 } from "./movers-integrity";
@@ -32,7 +33,15 @@ export function clockSessionToMoverSession(session: MarketSessionLabel): MoverSe
 
 export interface MoversPageQueryResult {
   rows: MoverListRow[];
+  movers: CanonicalMover[];
   provenance: MoversListProvenance;
+}
+
+export function homepagePublicMoversQueryKey(
+  session: MarketSessionLabel,
+  sessionDate: string,
+): readonly ["homepage-public-movers", MarketSessionLabel, string] {
+  return ["homepage-public-movers", session, sessionDate] as const;
 }
 
 async function afterHoursSideRows(
@@ -71,7 +80,7 @@ async function fetchAfterHoursTracked(
     universe: "tracked_gainers_losers",
     moverSession: "afterhours",
   });
-  return { rows, provenance };
+  return { rows, movers, provenance };
 }
 
 async function fetchPolygonSide(
@@ -90,7 +99,7 @@ async function fetchPolygonSide(
     moverSession,
     premarket: session === "pre-market",
   });
-  return { rows, provenance };
+  return { rows, movers, provenance };
 }
 
 export async function fetchPublicGainersRows(session = resolveMarketSession()): Promise<MoversPageQueryResult> {
@@ -119,7 +128,33 @@ export async function fetchPublicMostActiveRows(session = resolveMarketSession()
     universe: "tracked_gainers_losers",
     moverSession,
   });
-  return { rows, provenance };
+  return { rows, movers, provenance };
+}
+
+export async function fetchHomepagePublicMoversBundle(
+  session: MarketSessionLabel = resolveMarketSession(),
+): Promise<{
+  gainers: MoversPageQueryResult;
+  losers: MoversPageQueryResult;
+  combinedProvenance: MoversListProvenance;
+  fetchedAtMs: number;
+}> {
+  const nowMs = Date.now();
+  const [gainers, losers] = await Promise.all([
+    fetchPublicGainersRows(session),
+    fetchPublicLosersRows(session),
+  ]);
+  const moverSession = clockSessionToMoverSession(session);
+  const combinedProvenance = summarizeMoversListProvenance(
+    [...gainers.movers, ...losers.movers],
+    {
+      nowMs,
+      universe: "tracked_gainers_losers",
+      moverSession,
+      premarket: session === "pre-market",
+    },
+  );
+  return { gainers, losers, combinedProvenance, fetchedAtMs: nowMs };
 }
 
 export async function fetchPremarketGainersRows(nowMs = Date.now()): Promise<MoversPageQueryResult> {
@@ -131,7 +166,7 @@ export async function fetchPremarketGainersRows(nowMs = Date.now()): Promise<Mov
     moverSession: "premarket",
     premarket: true,
   });
-  return { rows, provenance };
+  return { rows, movers, provenance };
 }
 
 export async function fetchPremarketLosersRows(nowMs = Date.now()): Promise<MoversPageQueryResult> {
@@ -143,7 +178,7 @@ export async function fetchPremarketLosersRows(nowMs = Date.now()): Promise<Move
     moverSession: "premarket",
     premarket: true,
   });
-  return { rows, provenance };
+  return { rows, movers, provenance };
 }
 
 const AFTER_HOURS_ROW_LIMIT = 41;
@@ -160,6 +195,7 @@ async function fetchAfterHoursFeedRows(nowMs: number): Promise<MoversPageQueryRe
   if (!gen) {
     return {
       rows: [],
+      movers: [],
       provenance: summarizeMoversListProvenance([], {
         nowMs,
         universe: "after_hours_feed",
@@ -183,7 +219,7 @@ async function fetchAfterHoursFeedRows(nowMs: number): Promise<MoversPageQueryRe
     universe: "after_hours_feed",
     moverSession: "afterhours",
   });
-  return { rows, provenance };
+  return { rows, movers, provenance };
 }
 
 /** Legacy `/movers/:type` alias — same session rules as `/markets/*`. */

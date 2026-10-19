@@ -1,6 +1,7 @@
 import MarketTicker from "@/components/layout/MarketTicker";
 import { IndexSparklineCards } from "@/components/home/IndexSparklineCards";
 import { GlobalMarketClocks } from "@/components/home/GlobalMarketClocks";
+import { MarketPulse } from "@/components/home/MarketPulse";
 import { AiTraderLivePreview } from "@/components/home/AiTraderLivePreview";
 import { HeroSearch } from "@/components/home/HeroSearch";
 import { ToolGrid } from "@/components/home/ToolGrid";
@@ -28,6 +29,8 @@ const Index = () => {
 
       {/* 14A2 — Global Market Clocks */}
       <GlobalMarketClocks />
+
+      <MarketPulse />
 
       <AiTraderLivePreview />
 
