@@ -48,7 +48,12 @@ export type MoversObservationFreshness =
   | "unverified"
   | "mixed";
 
-export type SessionDateMode = "unverified" | "homogeneous_current" | "homogeneous_prior" | "mixed";
+export type SessionDateMode =
+  | "unverified"
+  | "homogeneous_current"
+  | "homogeneous_prior"
+  | "mixed"
+  | "partially_unverified";
 
 export interface MoversListProvenance {
   sessionLine: string;
@@ -69,8 +74,8 @@ function validMovers(movers: CanonicalMover[]): CanonicalMover[] {
   return movers.filter((m) => m.valid);
 }
 
-function hasUnverifiedSessionDate(movers: CanonicalMover[]): boolean {
-  return movers.some((m) => m.valid && m.session_date_unverified);
+function hasVerifiedSessionEvidence(m: CanonicalMover): boolean {
+  return Boolean(m.session_date && !m.session_date_unverified);
 }
 
 function referenceSessionDateForMoverSession(moverSession: MoverSession, nowMs: number): string {
@@ -91,19 +96,38 @@ export function summarizeSessionDates(
   dominantDate: string | null;
   isPriorHomogeneous: boolean;
 } {
-  const dated = validMovers(movers).filter((m) => m.session_date);
-  if (dated.length === 0) {
+  const rows = validMovers(movers);
+  if (rows.length === 0) {
     return { mode: "unverified", dominantDate: null, isPriorHomogeneous: false };
   }
+
+  const verified = rows.filter(hasVerifiedSessionEvidence);
+  const missingEvidenceCount = rows.length - verified.length;
+
+  if (verified.length === 0) {
+    return { mode: "unverified", dominantDate: null, isPriorHomogeneous: false };
+  }
+
   const counts = new Map<string, number>();
-  for (const m of dated) {
+  for (const m of verified) {
     const d = m.session_date as string;
     counts.set(d, (counts.get(d) ?? 0) + 1);
   }
   const entries = [...counts.entries()].sort((a, b) => b[1] - a[1]);
-  if (entries.length > 1) {
-    return { mode: "mixed", dominantDate: entries[0][0], isPriorHomogeneous: false };
+  const dominantDate = entries[0]?.[0] ?? null;
+
+  if (missingEvidenceCount > 0) {
+    return {
+      mode: entries.length > 1 ? "mixed" : "partially_unverified",
+      dominantDate,
+      isPriorHomogeneous: false,
+    };
   }
+
+  if (entries.length > 1) {
+    return { mode: "mixed", dominantDate, isPriorHomogeneous: false };
+  }
+
   const onlyDate = entries[0][0];
   const prior = isPriorSessionDate(onlyDate, moverSession, nowMs);
   return {
@@ -187,7 +211,9 @@ function classifyFreshness(
   moverSession: MoverSession,
   nowMs: number,
 ): MoversObservationFreshness {
-  if (sessionSummary.mode === "mixed" || observation.mixed) return "mixed";
+  if (sessionSummary.mode === "mixed" || sessionSummary.mode === "partially_unverified" || observation.mixed) {
+    return "mixed";
+  }
   if (observation.unavailable || sessionSummary.mode === "unverified") return "unverified";
   if (sessionSummary.mode === "homogeneous_prior") return "prior_session";
   const clock = resolveMarketSession(new Date(nowMs));
@@ -218,7 +244,9 @@ export function summarizeMoversListProvenance(
     sessionLine = `Prior source session · ${sessionSummary.dominantDate} · ${sessionLine}`;
   } else if (sessionSummary.mode === "mixed") {
     sessionLine = `Mixed source sessions · ${sessionLine}`;
-  } else if (sessionSummary.mode === "unverified" || hasUnverifiedSessionDate(movers)) {
+  } else if (sessionSummary.mode === "partially_unverified") {
+    sessionLine = `Partial source-session evidence · ${sessionLine}`;
+  } else if (sessionSummary.mode === "unverified") {
     sessionLine = `Source session unverified · ${sessionLine}`;
   }
 
