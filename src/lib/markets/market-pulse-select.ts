@@ -13,10 +13,8 @@ import {
 import type {
   MarketPulseDirection,
   MarketPulseIntelligenceRecord,
-  MarketPulseRelatedHeadline,
   MarketPulseSessionEvidence,
 } from "./market-pulse-contract";
-import { matchExplicitSymbolHeadline } from "./market-pulse-news";
 
 export interface MarketPulseSelectInput {
   gainers: CanonicalMover[];
@@ -24,7 +22,6 @@ export interface MarketPulseSelectInput {
   provenance: MoversListProvenance;
   nowMs?: number;
   config?: Partial<MarketPulseConfig>;
-  headlines?: unknown[];
 }
 
 function verifiedVolume(volume: number | null | undefined): number | null {
@@ -74,7 +71,6 @@ function toRecord(
   direction: MarketPulseDirection,
   sessionEvidence: MarketPulseSessionEvidence,
   config: MarketPulseConfig,
-  headline: MarketPulseRelatedHeadline | null,
   nowMs: number,
 ): MarketPulseIntelligenceRecord | null {
   const row = toMoverListRow(m);
@@ -94,9 +90,11 @@ function toRecord(
     sessionEvidence,
     eventIdentity: currentMoverIdentity(m) ?? `${m.symbol}|${m.session ?? "_"}|${m.session_date ?? "_"}`,
     stockDetailPath: `/stocks/${m.symbol.toLowerCase()}`,
-    relatedHeadline: headline,
-    catalystEvidenceUrl: headline?.url ?? null,
-    catalystEvidenceAt: headline?.publishedAt ?? null,
+    movementContext: "verified_movement_unexplained",
+    verifiedCatalyst: null,
+    relatedHeadline: null,
+    catalystEvidenceUrl: null,
+    catalystEvidenceAt: null,
     aiExplanationText: null,
     aiVerificationState: "disabled",
     observationFreshnessMs: obsMs !== null ? nowMs - obsMs : null,
@@ -107,8 +105,6 @@ export function selectMarketPulseItems(input: MarketPulseSelectInput): MarketPul
   const config = { ...MARKET_PULSE_DEFAULT_CONFIG, ...input.config };
   const nowMs = input.nowMs ?? Date.now();
   const sessionEvidence = sessionEvidenceFromProvenance(input.provenance);
-  const headlines = input.headlines ?? [];
-
   const candidates: Array<{ mover: CanonicalMover; direction: MarketPulseDirection; score: number }> = [];
 
   for (const m of input.gainers) {
@@ -130,8 +126,7 @@ export function selectMarketPulseItems(input: MarketPulseSelectInput): MarketPul
     const identity = currentMoverIdentity(mover);
     if (!identity || seen.has(identity)) continue;
     seen.add(identity);
-    const headline = matchExplicitSymbolHeadline(mover.symbol ?? "", headlines);
-    const record = toRecord(mover, direction, sessionEvidence, config, headline, nowMs);
+    const record = toRecord(mover, direction, sessionEvidence, config, nowMs);
     if (record) items.push(record);
     if (items.length >= config.maxItems) break;
   }

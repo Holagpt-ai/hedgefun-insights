@@ -14,6 +14,25 @@ export type MarketPulseSessionEvidence =
   | "unverified"
   | "delayed_snapshot";
 
+/** Verified price change vs documented catalyst vs no linked catalyst evidence. */
+export type MarketPulseMovementContext =
+  | "verified_movement_with_event"
+  | "verified_movement_unexplained";
+
+export interface MarketPulseVerifiedCatalyst {
+  label: "Verified event";
+  eventId: string;
+  title: string;
+  sourceName: string;
+  sourceUrl: string | null;
+  eventDate: string;
+  publishedAt: string | null;
+  eventTimingLine: string | null;
+  catalystPath: string;
+  /** Always false in Batch 23 — causation requires separate authoritative evidence. */
+  causationEstablished: false;
+}
+
 /** Optional AI fields remain null/disabled until a grounded enrichment service is approved. */
 export interface MarketPulseIntelligenceRecord {
   symbol: string;
@@ -28,6 +47,9 @@ export interface MarketPulseIntelligenceRecord {
   sessionEvidence: MarketPulseSessionEvidence;
   eventIdentity: string;
   stockDetailPath: string;
+  movementContext: MarketPulseMovementContext;
+  verifiedCatalyst: MarketPulseVerifiedCatalyst | null;
+  /** Deprecated for Batch 23 homepage — catalyst records replace market_news headline matching. */
   relatedHeadline: MarketPulseRelatedHeadline | null;
   catalystEvidenceUrl: string | null;
   catalystEvidenceAt: string | null;

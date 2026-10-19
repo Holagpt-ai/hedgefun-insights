@@ -1,11 +1,15 @@
 import { useMemo } from "react";
-import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
 import { useHomepagePublicMovers } from "@/hooks/useHomepagePublicMovers";
+import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import {
+  attachMarketPulseCatalystContext,
+  MARKET_PULSE_CAUSATION_DISCLAIMER,
+  MARKET_PULSE_UNEXPLAINED_COPY,
+} from "@/lib/markets/market-pulse-catalyst";
 import {
   marketPulseDelayDisclosure,
   marketPulseUniverseDisclosure,
@@ -13,7 +17,6 @@ import {
 } from "@/lib/markets/market-pulse-select";
 import { moversFetchErrorMessage, moversSuccessfulEmptyMessage } from "@/lib/markets/movers-provenance";
 import { resolveMarketSession } from "@/lib/price-utils";
-import { MARKET_HEADLINE_CANDIDATE_POOL } from "@/lib/news/market-headline-quality";
 import type { MarketPulseIntelligenceRecord } from "@/lib/markets/market-pulse-contract";
 
 function formatVolume(volume: number | null): string {
@@ -21,9 +24,24 @@ function formatVolume(volume: number | null): string {
   return volume.toLocaleString();
 }
 
-function PulseRow({ item }: { item: MarketPulseIntelligenceRecord }) {
+function movementHeadline(item: MarketPulseIntelligenceRecord): string {
+  const dir = item.direction === "up" ? "upward" : "downward";
+  if (item.movementLabel.toLowerCase().includes("sharp")) {
+    return `Significant ${dir} movement`;
+  }
+  return `Notable ${dir} movement`;
+}
+
+function PulseRow({
+  item,
+  catalystLookupComplete,
+}: {
+  item: MarketPulseIntelligenceRecord;
+  catalystLookupComplete: boolean;
+}) {
   const navigate = useNavigate();
   const positive = item.direction === "up";
+  const catalyst = item.verifiedCatalyst;
 
   return (
     <article
@@ -43,12 +61,18 @@ function PulseRow({ item }: { item: MarketPulseIntelligenceRecord }) {
               {item.symbol}
             </button>
             <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              {item.movementLabel}
+              {movementHeadline(item)}
             </span>
           </div>
           <p className="mt-1 text-sm text-foreground tabular-nums">
-            <span className={cn("font-semibold", positive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400")}>
-              {positive ? "+" : ""}{item.changePercent.toFixed(2)}%
+            <span
+              className={cn(
+                "font-semibold",
+                positive ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400",
+              )}
+            >
+              {positive ? "+" : ""}
+              {item.changePercent.toFixed(2)}%
             </span>
             <span className="text-muted-foreground"> · </span>
             <span>{formatVolume(item.volume)} shares traded</span>
@@ -57,28 +81,49 @@ function PulseRow({ item }: { item: MarketPulseIntelligenceRecord }) {
           </p>
           {item.observationLine ? (
             <p className="mt-1 text-[0.6875rem] leading-snug text-muted-foreground" title={item.observationLine}>
-              Market observation: {item.observationLine}
+              Verified movement · {item.observationLine}
             </p>
           ) : item.observationTimeUnavailable ? (
             <p className="mt-1 text-[0.6875rem] text-muted-foreground">
-              Market observation: time unavailable · {marketPulseDelayDisclosure()}
+              Verified movement · time unavailable · {marketPulseDelayDisclosure()}
             </p>
-          ) : null}
-          {item.relatedHeadline && (
-            <p className="mt-2 text-xs text-muted-foreground">
-              <span className="font-medium text-foreground/80">{item.relatedHeadline.label}:</span>{" "}
-              <a
-                href={item.relatedHeadline.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-accent-blue hover:underline"
-              >
-                {item.relatedHeadline.headline}
-              </a>
-              {item.relatedHeadline.source && (
-                <span className="text-muted-foreground"> · {item.relatedHeadline.source}</span>
-              )}
-            </p>
+          ) : (
+            <p className="mt-1 text-[0.6875rem] text-muted-foreground">Verified movement · {marketPulseDelayDisclosure()}</p>
+          )}
+
+          {catalyst ? (
+            <div className="mt-2 space-y-1 rounded-sm border border-border/50 bg-muted/10 px-2 py-2">
+              <p className="text-xs text-foreground">
+                <span className="font-medium">{catalyst.label}:</span> {catalyst.title}
+              </p>
+              <p className="text-[0.6875rem] text-muted-foreground">
+                {catalyst.sourceName}
+                {catalyst.eventTimingLine ? ` · ${catalyst.eventTimingLine}` : null}
+              </p>
+              <p className="text-[0.6875rem] leading-snug text-muted-foreground">{MARKET_PULSE_CAUSATION_DISCLAIMER}</p>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 pt-1 text-xs">
+                {catalyst.sourceUrl && (
+                  <a
+                    href={catalyst.sourceUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-accent-blue hover:underline"
+                  >
+                    Source article
+                  </a>
+                )}
+                <Link to={catalyst.catalystPath} className="text-accent-blue hover:underline">
+                  Catalyst workspace
+                </Link>
+                <Link to={item.stockDetailPath} className="text-accent-blue hover:underline">
+                  Stock detail
+                </Link>
+              </div>
+            </div>
+          ) : catalystLookupComplete ? (
+            <p className="mt-2 text-xs text-muted-foreground">{MARKET_PULSE_UNEXPLAINED_COPY}</p>
+          ) : (
+            <Skeleton className="mt-2 h-10 w-full max-w-md rounded-sm" />
           )}
         </div>
       </div>
@@ -90,20 +135,28 @@ export function MarketPulse() {
   const moversQuery = useHomepagePublicMovers();
   const marketClosed = resolveMarketSession() === "closed";
 
-  const headlinesQuery = useQuery({
-    queryKey: ["market-pulse-headlines"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("market_news")
-        .select("*")
-        .order("published_at", { ascending: false })
-        .limit(MARKET_HEADLINE_CANDIDATE_POOL);
-      if (error) throw error;
-      return data ?? [];
-    },
-    staleTime: 120_000,
-    retry: 2,
-  });
+  const baseItems = useMemo(() => {
+    if (!moversQuery.data) return [];
+    return selectMarketPulseItems({
+      gainers: moversQuery.data.gainers.movers,
+      losers: moversQuery.data.losers.movers,
+      provenance: moversQuery.data.combinedProvenance,
+      nowMs: moversQuery.data.fetchedAtMs,
+    });
+  }, [moversQuery.data]);
+
+  const pulseSymbols = useMemo(() => baseItems.map((i) => i.symbol), [baseItems]);
+
+  const catalystQuery = useCatalystEnrichmentForSymbols(pulseSymbols);
+
+  const enrichedItems = useMemo(() => {
+    if (baseItems.length === 0) return [];
+    const nowMs = moversQuery.data?.fetchedAtMs ?? Date.now();
+    return attachMarketPulseCatalystContext(baseItems, catalystQuery.data, nowMs);
+  }, [baseItems, catalystQuery.data, moversQuery.data?.fetchedAtMs]);
+
+  const catalystLookupComplete =
+    pulseSymbols.length === 0 || catalystQuery.isSuccess || catalystQuery.isError;
 
   const model = useMemo(() => {
     if (moversQuery.isLoading) return { status: "loading" as const, items: [] };
@@ -111,15 +164,7 @@ export function MarketPulse() {
     const bundle = moversQuery.data;
     if (!bundle) return { status: "loading" as const, items: [] };
 
-    const items = selectMarketPulseItems({
-      gainers: bundle.gainers.movers,
-      losers: bundle.losers.movers,
-      provenance: bundle.combinedProvenance,
-      nowMs: bundle.fetchedAtMs,
-      headlines: headlinesQuery.data ?? [],
-    });
-
-    if (items.length === 0) {
+    if (enrichedItems.length === 0) {
       return {
         status: "empty" as const,
         items: [],
@@ -129,16 +174,13 @@ export function MarketPulse() {
 
     return {
       status: "ready" as const,
-      items,
+      items: enrichedItems,
       provenance: bundle.combinedProvenance,
     };
-  }, [moversQuery.isLoading, moversQuery.isError, moversQuery.data, headlinesQuery.data]);
+  }, [moversQuery.isLoading, moversQuery.isError, moversQuery.data, enrichedItems]);
 
   return (
-    <section
-      aria-labelledby="market-pulse-heading"
-      className="px-4 py-4"
-    >
+    <section aria-labelledby="market-pulse-heading" className="px-4 py-4">
       <div className="rounded-lg border border-border bg-gradient-to-b from-muted/30 to-background p-4 shadow-sm">
         <div className="mb-3 flex flex-col gap-1 border-b border-border/60 pb-3">
           <h2 id="market-pulse-heading" className="text-base font-bold tracking-tight text-foreground md:text-lg">
@@ -179,7 +221,11 @@ export function MarketPulse() {
         ) : (
           <div className="flex flex-col gap-2">
             {model.items.map((item) => (
-              <PulseRow key={item.eventIdentity} item={item} />
+              <PulseRow
+                key={item.eventIdentity}
+                item={item}
+                catalystLookupComplete={catalystLookupComplete}
+              />
             ))}
           </div>
         )}
