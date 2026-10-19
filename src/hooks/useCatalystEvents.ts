@@ -7,10 +7,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { CatalystEvent, CatalystUserStateRow } from "@/types/catalyst";
 import { useAuth } from "@/contexts/AuthContext";
+import { CATALYST_EVENT_SELECT_FIELDS } from "@/lib/catalyst/catalyst-event-select-fields";
+import { hydrateCatalystEvents } from "@/lib/catalyst/catalyst-event-verification";
 import { catalystEventsFetchWindow } from "@/lib/catalyst/parsers";
-
-const CATALYST_SELECT =
-  "id, dedupe_key, symbol, company_name, event_type, verification_state, event_date, event_time, time_of_day, title, description, source_name, source_url, provider, related_symbols, facts, published_at";
 
 interface UseCatalystEventsArgs {
   symbol?: string | null;
@@ -51,7 +50,7 @@ export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
       // in [now−recentDays … now+upcomingDays].
       let q = supabase
         .from("catalyst_events")
-        .select(CATALYST_SELECT)
+        .select(CATALYST_EVENT_SELECT_FIELDS)
         .eq("verification_state", "provider_reported")
         .or(
           `and(published_at.gte.${recentFromIso}),and(event_date.gte.${eventDateFrom},event_date.lte.${upcomingTo})`,
@@ -63,7 +62,7 @@ export function useCatalystEvents(args: UseCatalystEventsArgs = {}) {
 
       const { data, error } = await q;
       if (error) throw new Error(error.message);
-      return (data ?? []) as CatalystEvent[];
+      return hydrateCatalystEvents((data ?? []) as CatalystEvent[]);
     },
   });
 }

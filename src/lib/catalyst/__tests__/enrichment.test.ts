@@ -12,9 +12,11 @@ import {
   eventDateInFetchWindow,
   normalizeEnrichmentSymbols,
   selectEnrichmentEntries,
+  selectRecentEnrichmentEntries,
   enrichmentSelectionScore,
   symbolsMissingFromPayload,
 } from "@/lib/catalyst/enrichment";
+import { CATALYST_EVENT_SELECT_FIELDS } from "@/lib/catalyst/catalyst-event-select-fields";
 import { scheduledMomentMs } from "@/lib/catalyst/parsers";
 
 const NOW = Date.parse("2026-07-30T16:00:00.000Z");
@@ -353,6 +355,39 @@ describe("XRX date-boundary: retain recent scheduled earnings", () => {
     );
     expect(map.get("USEA")?.kind).toBe("upcoming");
     expect(map.get("USEA")?.event.title).toBe("USEA near earnings");
+  });
+});
+
+describe("selectRecentEnrichmentEntries (Market Pulse)", () => {
+  it("selects recent announcements when upcoming earnings would win screener enrichment", () => {
+    const upcomingEarnings = evt({
+      id: "earn-up",
+      symbol: "DUAL",
+      event_type: "earnings",
+      event_date: "2026-09-10",
+      event_time: "2026-09-10T13:00:00.000Z",
+      published_at: "2026-08-01T12:00:00.000Z",
+      title: "DUAL earnings",
+    });
+    const recentNews = evt({
+      id: "contract",
+      symbol: "DUAL",
+      event_type: "product_contract",
+      title: "DUAL announces new contract with federal agency",
+      published_at: "2026-07-30T14:00:00.000Z",
+      event_date: "2026-07-30",
+      attribution_class: "direct",
+      ticker_specific: true,
+    });
+    const pulse = selectRecentEnrichmentEntries([upcomingEarnings, recentNews], ["DUAL"], NOW);
+    expect(pulse.get("DUAL")?.kind).toBe("recent");
+    expect(pulse.get("DUAL")?.event.id).toBe("contract");
+  });
+});
+
+describe("catalyst event select fields", () => {
+  it("includes facts for verification hydration", () => {
+    expect(CATALYST_EVENT_SELECT_FIELDS).toContain("facts");
   });
 });
 

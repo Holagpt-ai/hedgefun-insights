@@ -96,6 +96,7 @@ describe("Batch 22 — market pulse", () => {
     });
     expect(items[0]?.aiExplanationText).toBeNull();
     expect(items[0]?.aiVerificationState).toBe("disabled");
+    expect(items[0]?.movementContext).toBe("verified_movement_unexplained");
   });
 
   it("deduplicates the same ticker event identity", () => {
