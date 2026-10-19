@@ -203,10 +203,15 @@ export default function EtfDetailPage() {
                   {quote.priorSession && (
                     <p className="text-xs text-muted-foreground mt-1">Previous session price</p>
                   )}
+                  {quote.observationTimeUnavailable && (
+                    <p className="text-xs text-muted-foreground mt-1">Observation time unavailable</p>
+                  )}
                   {quote.observationLine && (
                     <p className="text-xs text-muted-foreground mt-1">{quote.observationLine}</p>
                   )}
-                  <p className="text-xs text-muted-foreground mt-1">{quote.delayDisclosure}</p>
+                  {!quote.observationLine && (
+                    <p className="text-xs text-muted-foreground mt-1">{quote.delayDisclosure}</p>
+                  )}
                 </>
               )}
               {quote.status === "database_fallback" && (
@@ -289,7 +294,7 @@ export default function EtfDetailPage() {
             )}
             {!historyPending && (
               <p className="text-xs text-muted-foreground -mt-4 mb-6">
-                52-week high/low and YTD use daily price history. They are not dividend-adjusted total returns.
+                YTD return and high/low labels follow verified daily price history coverage. They are not dividend-adjusted total returns.
               </p>
             )}
 

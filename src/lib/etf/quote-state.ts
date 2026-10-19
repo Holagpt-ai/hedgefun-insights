@@ -28,6 +28,7 @@ export type EtfQuotePresentation =
       sessionLine: string;
       sessionContext: string | null;
       observationLine: string | null;
+      observationTimeUnavailable: boolean;
       sourceLabel: string | null;
       priorSession: boolean;
       delayDisclosure: string;
@@ -149,7 +150,10 @@ export function presentEtfQuote(input: {
       : header.timestampSource === "day" || header.timestampSource === "prevDay"
         ? new Date(observedMs).toISOString().slice(0, 10)
         : getEtParts(new Date(observedMs)).date;
-    const priorSession = header.timestampSource === "prevDay" || (observedDate !== null && observedDate < today);
+    const observationLine = formatPriceObservationTime(input.snapshot, header.timestampSource, now);
+    const observationTimeUnavailable = observationLine === null && header.timestampSource !== null;
+    const priorSession = header.timestampSource === "prevDay"
+      || (observedDate !== null && observedDate < today);
     return {
       status: "snapshot",
       price: snapshotPrice,
@@ -157,7 +161,8 @@ export function presentEtfQuote(input: {
       changePercent: move?.changePercent ?? null,
       sessionLine: formatStockHeaderSessionLine(now),
       sessionContext: stockHeaderSessionContext(header),
-      observationLine: formatPriceObservationTime(input.snapshot, header.timestampSource, now),
+      observationLine,
+      observationTimeUnavailable,
       sourceLabel: stockHeaderPriceSourceLabel(header.timestampSource),
       priorSession,
       delayDisclosure,

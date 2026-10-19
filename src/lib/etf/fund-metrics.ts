@@ -4,9 +4,11 @@
  * and a row timestamp is never treated as a fresh market observation.
  */
 
+import { formatSessionDate } from "@/lib/market-calendar";
 import type { NormalizedBar } from "@/lib/stock-chart/normalize-bars";
 import { descriptiveProfile } from "./descriptive-profile";
-import { fiftyTwoWeekPrices, formatPriceReturn, priceReturnForPeriod } from "./price-performance";
+import { formatPriceReturn, observedPriceRange, priceReturnForPeriod } from "./price-performance";
+import { classifySnapshotDayVolume } from "./snapshot-volume";
 
 export const UNAVAILABLE = "Unavailable";
 
@@ -93,9 +95,25 @@ export interface EtfReportedRecord {
   updated_at?: string | null;
 }
 
-export function sessionVolume(snapshot: unknown): number | null {
-  const day = asRecord(asRecord(snapshot)?.day);
-  return finitePositive(day?.v);
+function formatCoverageSpan(fromDate: string, toDate: string): string {
+  return `${formatSessionDate(fromDate)} – ${formatSessionDate(toDate)}`;
+}
+
+function priceRangeStatLabels(range: NonNullable<ReturnType<typeof observedPriceRange>>): {
+  highLabel: string;
+  lowLabel: string;
+} {
+  if (range.coverage === "fifty_two_week") {
+    return { highLabel: "52W High", lowLabel: "52W Low" };
+  }
+  if (range.coverage === "since_inception") {
+    return { highLabel: "High since inception", lowLabel: "Low since inception" };
+  }
+  const span = formatCoverageSpan(range.fromDate, range.toDate);
+  return {
+    highLabel: `Observed high · ${span}`,
+    lowLabel: `Observed low · ${span}`,
+  };
 }
 
 export function buildEtfStatGrid(input: {
@@ -108,23 +126,50 @@ export function buildEtfStatGrid(input: {
   const now = input.now ?? new Date();
   const aum = formatReportedAum(input.record?.total_assets);
   const expense = formatReportedExpenseRatio(input.record?.expense_ratio);
-  const range = input.history ? fiftyTwoWeekPrices(input.history, now) : null;
+  const inceptionIso = input.listDate ?? input.record?.inception_date ?? null;
+  const priceRange = input.history ? observedPriceRange(input.history, now, inceptionIso) : null;
+  const rangeLabels = priceRange ? priceRangeStatLabels(priceRange) : null;
   const ytd = input.history ? priceReturnForPeriod(input.history, "YTD", now) : null;
-  const liveVolume = formatShareVolume(sessionVolume(input.snapshot));
+  const volumeView = classifySnapshotDayVolume(input.snapshot, now);
   const reportedVolume = formatShareVolume(input.record?.volume);
   const inception = formatInceptionDate(input.listDate) ?? formatInceptionDate(input.record?.inception_date);
 
   const ytdValue = ytd ? formatPriceReturn(ytd.displayPercent) : UNAVAILABLE;
   const ytdTone = ytd && ytd.displayPercent > 0 ? "up" : ytd && ytd.displayPercent < 0 ? "down" : undefined;
 
+  let volumeStat: DisplayStat;
+  if (volumeView?.kind === "current_session") {
+    volumeStat = {
+      label: "Session volume",
+      value: formatShareVolume(volumeView.volume) ?? UNAVAILABLE,
+    };
+  } else if (volumeView?.kind === "prior_session") {
+    const sessionNote = volumeView.observationSessionDate
+      ? ` · ${volumeView.observationSessionDate}`
+      : "";
+    volumeStat = {
+      label: `Prior session volume${sessionNote}`,
+      value: formatShareVolume(volumeView.volume) ?? UNAVAILABLE,
+    };
+  } else {
+    volumeStat = {
+      label: "Reported volume",
+      value: reportedVolume ?? UNAVAILABLE,
+    };
+  }
+
   return [
     { label: "Reported AUM", value: aum ?? UNAVAILABLE },
     { label: "Expense ratio", value: expense ?? UNAVAILABLE },
-    { label: "52W High", value: formatPx(range?.high ?? null) },
-    { label: "52W Low", value: formatPx(range?.low ?? null) },
-    liveVolume
-      ? { label: "Session volume", value: liveVolume }
-      : { label: "Reported volume", value: reportedVolume ?? UNAVAILABLE },
+    {
+      label: rangeLabels?.highLabel ?? "52W High",
+      value: formatPx(priceRange?.high ?? null),
+    },
+    {
+      label: rangeLabels?.lowLabel ?? "52W Low",
+      value: formatPx(priceRange?.low ?? null),
+    },
+    volumeStat,
     { label: "Avg volume", value: UNAVAILABLE },
     { label: "YTD price return", value: ytdValue, tone: ytdTone },
     { label: "Inception date", value: inception ?? UNAVAILABLE },

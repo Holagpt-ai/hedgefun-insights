@@ -196,20 +196,19 @@ export function buildEtfPerformance(
   };
 }
 
-export function fiftyTwoWeekPrices(
-  bars: NormalizedBar[],
-  now = new Date(),
-): { high: number; low: number } | null {
-  const asOf = etAsOfDate(now);
-  const start = addDays(asOf, -365);
-  const window = usableBars(bars).filter((bar) => {
-    const date = sessionDate(bar);
-    return date >= start && date <= asOf;
-  });
-  if (window.length === 0) return null;
-  const latest = window[window.length - 1];
-  if (daysBetween(sessionDate(latest), asOf) > MAX_BOUNDARY_GAP_DAYS) return null;
+export type ObservedPriceRangeCoverage = "fifty_two_week" | "since_inception" | "observed_window";
 
+export interface ObservedPriceRange {
+  coverage: ObservedPriceRangeCoverage;
+  high: number;
+  low: number;
+  fromDate: string;
+  toDate: string;
+  inceptionDate?: string;
+}
+
+function computeWindowHighLow(window: NormalizedBar[]): { high: number; low: number } | null {
+  if (window.length === 0) return null;
   let high = Number.NEGATIVE_INFINITY;
   let low = Number.POSITIVE_INFINITY;
   for (const bar of window) {
@@ -222,6 +221,84 @@ export function fiftyTwoWeekPrices(
   }
   if (!Number.isFinite(high) || !Number.isFinite(low) || high < low) return null;
   return { high, low };
+}
+
+function parseInceptionIso(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const date = value.trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return date;
+}
+
+/**
+ * High/low extremes with coverage that matches the label.
+ * Full-year labels require an observation near the 52-week window start.
+ */
+export function observedPriceRange(
+  bars: NormalizedBar[],
+  now = new Date(),
+  inceptionDate: string | null = null,
+): ObservedPriceRange | null {
+  const asOf = etAsOfDate(now);
+  const start52 = addDays(asOf, -365);
+  const window = usableBars(bars).filter((bar) => {
+    const date = sessionDate(bar);
+    return date >= start52 && date <= asOf;
+  });
+  if (window.length === 0) return null;
+
+  const latest = window[window.length - 1];
+  if (daysBetween(sessionDate(latest), asOf) > MAX_BOUNDARY_GAP_DAYS) return null;
+
+  const extremes = computeWindowHighLow(window);
+  if (!extremes) return null;
+
+  const earliestDate = sessionDate(window[0]);
+  const latestDate = sessionDate(latest);
+  const inception = parseInceptionIso(inceptionDate);
+
+  if (daysBetween(start52, earliestDate) <= MAX_BOUNDARY_GAP_DAYS) {
+    return {
+      coverage: "fifty_two_week",
+      high: extremes.high,
+      low: extremes.low,
+      fromDate: earliestDate,
+      toDate: latestDate,
+    };
+  }
+
+  if (
+    inception
+    && earliestDate >= inception
+    && daysBetween(inception, earliestDate) <= MAX_BOUNDARY_GAP_DAYS
+  ) {
+    return {
+      coverage: "since_inception",
+      high: extremes.high,
+      low: extremes.low,
+      fromDate: earliestDate,
+      toDate: latestDate,
+      inceptionDate: inception,
+    };
+  }
+
+  return {
+    coverage: "observed_window",
+    high: extremes.high,
+    low: extremes.low,
+    fromDate: earliestDate,
+    toDate: latestDate,
+  };
+}
+
+/** @deprecated Use observedPriceRange — only returns values when full 52-week coverage is verified. */
+export function fiftyTwoWeekPrices(
+  bars: NormalizedBar[],
+  now = new Date(),
+): { high: number; low: number } | null {
+  const range = observedPriceRange(bars, now, null);
+  if (!range || range.coverage !== "fifty_two_week") return null;
+  return { high: range.high, low: range.low };
 }
 
 export async function loadEtfDailyBars(symbol: string, now = new Date()): Promise<NormalizedBar[]> {
