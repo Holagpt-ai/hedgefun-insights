@@ -1,4 +1,9 @@
-import { getEtParts, tradingSessionDateForInstant } from "@/lib/market-calendar";
+import {
+  getEtParts,
+  isTradingDay,
+  resolveMarketClock,
+  tradingSessionDateForInstant,
+} from "@/lib/market-calendar";
 import { polygonSnapshotFieldToMs } from "@/lib/market-data/polygon-snapshot-timestamps";
 
 export type SnapshotDayVolumeKind = "current_session" | "prior_session" | "unverified";
@@ -20,6 +25,17 @@ function positiveVolume(value: unknown): number | null {
   return n;
 }
 
+/** Polygon daily aggregate bar-start dates use the UTC calendar date (Batch 19 day-bar contract). */
+export function dailyAggregateBarDate(dayObsMs: number): string {
+  return new Date(dayObsMs).toISOString().slice(0, 10);
+}
+
+function isLiveEquitySession(now: Date): boolean {
+  const et = getEtParts(now);
+  if (!isTradingDay(et.date, et.weekday)) return false;
+  return resolveMarketClock(now).sessionId !== "closed";
+}
+
 /** Classify snapshot day volume before labeling it current-session participation. */
 export function classifySnapshotDayVolume(snapshot: unknown, now = new Date()): SnapshotDayVolumeView | null {
   const day = asRecord(asRecord(snapshot)?.day);
@@ -28,12 +44,12 @@ export function classifySnapshotDayVolume(snapshot: unknown, now = new Date()): 
 
   const nowMs = now.getTime();
   const et = getEtParts(now);
-  const expectedSessionDate = tradingSessionDateForInstant(et.date, et.minutes);
+  const referenceSessionDate = tradingSessionDateForInstant(et.date, et.minutes);
   const dayObsMs = polygonSnapshotFieldToMs(day?.t, "dayAggregate", nowMs);
 
   if (dayObsMs !== null) {
-    const observationSessionDate = getEtParts(new Date(dayObsMs)).date;
-    if (observationSessionDate === expectedSessionDate) {
+    const observationSessionDate = dailyAggregateBarDate(dayObsMs);
+    if (isLiveEquitySession(now) && observationSessionDate === referenceSessionDate) {
       return { kind: "current_session", volume, observationSessionDate };
     }
     return { kind: "prior_session", volume, observationSessionDate };

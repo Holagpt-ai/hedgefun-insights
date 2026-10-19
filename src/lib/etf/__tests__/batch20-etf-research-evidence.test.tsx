@@ -6,15 +6,15 @@ import { EtfFundOverview } from "@/components/etf/EtfFundOverview";
 import { EtfHoldingsSection } from "@/components/etf/EtfHoldingsSection";
 import { EtfPerformanceChart } from "@/components/etf/EtfPerformanceChart";
 import { EtfSectorBreakdown } from "@/components/etf/EtfSectorBreakdown";
-import { getEtParts, previousTradingDay } from "@/lib/market-calendar";
+import { getEtParts, isTradingDay, previousTradingDay } from "@/lib/market-calendar";
 import { estTimezoneAbbr } from "@/lib/price-utils";
 import { resolveChartAggregateRequest } from "@/lib/stock-chart/chart-ranges";
 import { formatChartDataDisclosure } from "@/lib/stock-chart/chart-disclosure";
 import { fetchChartAggregateBars } from "@/lib/stock-chart/fetch-aggregates";
 import { normalizeAggregateBars, toOhlcvSeries, type NormalizedBar } from "@/lib/stock-chart/normalize-bars";
 import { buildEtfStatGrid, buildFundDetailRows, formatReportedAum } from "@/lib/etf/fund-metrics";
-import { classifySnapshotDayVolume } from "@/lib/etf/snapshot-volume";
-import { observedPriceRange } from "@/lib/etf/price-performance";
+import { classifySnapshotDayVolume, dailyAggregateBarDate } from "@/lib/etf/snapshot-volume";
+import { largestInternalTradingGap, observedPriceRange } from "@/lib/etf/price-performance";
 import {
   isSyntheticWeightLadder,
   presentEtfHoldings,
@@ -96,6 +96,24 @@ function daily(date: string, close: number, high = close + 1, low = close - 0.5)
     close,
     volume: 1_000,
   };
+}
+
+function shiftIsoDate(iso: string, days: number): string {
+  const [year, month, day] = iso.split("-").map(Number);
+  return new Date(Date.UTC(year, month - 1, day + days)).toISOString().slice(0, 10);
+}
+
+function dailyHistoryForTradingDays(from: string, to: string, close = 100): NormalizedBar[] {
+  const bars: NormalizedBar[] = [];
+  let cursor = from;
+  while (cursor <= to) {
+    const weekday = new Date(`${cursor}T12:00:00.000Z`).getUTCDay();
+    if (isTradingDay(cursor, weekday)) {
+      bars.push(daily(cursor, close + bars.length * 0.01, close + 5, close - 5));
+    }
+    cursor = shiftIsoDate(cursor, 1);
+  }
+  return bars;
 }
 
 const MARCH_16 = new Date("2026-03-16T15:00:00.000Z");
@@ -513,15 +531,16 @@ describe("Batch 20 — chart timestamps and quote provenance", () => {
     expect(missingTimestamp.status === "snapshot" && missingTimestamp.observationLine).toBeNull();
 
     const mondayPremarket = new Date("2026-03-16T12:00:00.000Z");
-    const fridayVolumeMs = Date.parse("2026-03-13T21:00:00.000Z");
+    const fridayUtcMidnightMs = Date.parse("2026-03-13T00:00:00.000Z");
+    expect(dailyAggregateBarDate(fridayUtcMidnightMs)).toBe("2026-03-13");
     const priorVolume = classifySnapshotDayVolume(
-      { day: { v: 2_500_000, t: fridayVolumeMs } },
+      { day: { v: 2_500_000, t: fridayUtcMidnightMs } },
       mondayPremarket,
     );
     expect(priorVolume?.kind).toBe("prior_session");
     const mondayStats = buildEtfStatGrid({
       record: { volume: 8_000_000 },
-      snapshot: { day: { v: 2_500_000, t: fridayVolumeMs } },
+      snapshot: { day: { v: 2_500_000, t: fridayUtcMidnightMs } },
       history: ytdBars(),
       listDate: "1993-01-22",
       now: mondayPremarket,
@@ -529,12 +548,27 @@ describe("Batch 20 — chart timestamps and quote provenance", () => {
     expect(mondayStats.find((stat) => stat.label.startsWith("Prior session volume"))?.value).toBe("2.5M");
     expect(mondayStats.some((stat) => stat.label === "Session volume")).toBe(false);
 
-    const currentVolumeMs = Date.parse("2026-03-16T15:00:00.000Z");
+    const mondayUtcMidnightMs = Date.parse("2026-03-16T00:00:00.000Z");
+    expect(dailyAggregateBarDate(mondayUtcMidnightMs)).toBe("2026-03-16");
     const currentVolume = classifySnapshotDayVolume(
-      { day: { v: 1_200_000, t: currentVolumeMs } },
+      { day: { v: 1_200_000, t: mondayUtcMidnightMs } },
       now,
     );
     expect(currentVolume?.kind).toBe("current_session");
+
+    const saturday = new Date("2026-10-17T15:00:00.000Z");
+    const weekendVolume = classifySnapshotDayVolume(
+      { day: { v: 900_000, t: Date.parse("2026-10-16T00:00:00.000Z") } },
+      saturday,
+    );
+    expect(weekendVolume?.kind).toBe("prior_session");
+
+    const laborDayClosed = new Date("2026-09-07T15:00:00.000Z");
+    const holidayVolume = classifySnapshotDayVolume(
+      { day: { v: 800_000, t: Date.parse("2026-09-04T00:00:00.000Z") } },
+      laborDayClosed,
+    );
+    expect(holidayVolume?.kind).toBe("prior_session");
   });
 
   it("distinguishes a database fallback and an unavailable quote from a snapshot", () => {
@@ -620,17 +654,25 @@ describe("Batch 20 — fund metrics", () => {
     expect(partialStats.some((stat) => stat.label === "52W High")).toBe(false);
     expect(partialStats.some((stat) => stat.label.startsWith("Observed high"))).toBe(true);
 
-    const fullYearBars = [
+    const endpointOnlyBars = [
       daily("2025-03-17", 100, 105, 95),
       daily("2026-03-16", 120, 130, 90),
     ];
+    expect(largestInternalTradingGap(["2025-03-17", "2026-03-16"])).toBeGreaterThan(7);
+    const sparseEndpoints = observedPriceRange(endpointOnlyBars, MARCH_16, "1993-01-22");
+    expect(sparseEndpoints?.coverage).toBe("observed_window");
+
+    const gappedHistory = [
+      ...dailyHistoryForTradingDays("2025-03-17", "2025-03-31"),
+      ...dailyHistoryForTradingDays("2026-03-01", "2026-03-16"),
+    ];
+    expect(observedPriceRange(gappedHistory, MARCH_16, "1993-01-22")?.coverage).toBe("observed_window");
+
+    const fullYearBars = dailyHistoryForTradingDays("2025-03-17", "2026-03-16");
     const full = observedPriceRange(fullYearBars, MARCH_16, "1993-01-22");
     expect(full?.coverage).toBe("fifty_two_week");
 
-    const inceptionBars = [
-      daily("2026-01-02", 80, 85, 75),
-      daily("2026-03-16", 120, 130, 90),
-    ];
+    const inceptionBars = dailyHistoryForTradingDays("2026-01-02", "2026-03-16");
     const sinceLaunch = observedPriceRange(inceptionBars, MARCH_16, "2026-01-02");
     expect(sinceLaunch?.coverage).toBe("since_inception");
     const inceptionStats = buildEtfStatGrid({
@@ -640,7 +682,8 @@ describe("Batch 20 — fund metrics", () => {
       listDate: "2026-01-02",
       now: MARCH_16,
     });
-    expect(inceptionStats.find((stat) => stat.label === "High since inception")?.value).toBe("$130.00");
+    const inceptionHigh = Math.max(...inceptionBars.map((bar) => bar.high));
+    expect(inceptionStats.find((stat) => stat.label === "High since inception")?.value).toBe(`$${inceptionHigh.toFixed(2)}`);
   });
 
   it("shows reported fields and leaves unverified ratios unavailable", () => {

@@ -4,7 +4,7 @@
  * separate observed series has the same valid start and end.
  */
 
-import { getEtParts } from "@/lib/market-calendar";
+import { getEtParts, isTradingDay } from "@/lib/market-calendar";
 import { getAggregates } from "@/lib/polygon";
 import { normalizeAggregateBars, type NormalizedBar } from "@/lib/stock-chart/normalize-bars";
 
@@ -13,6 +13,8 @@ export type PerformancePeriod = (typeof PERFORMANCE_PERIODS)[number];
 
 /** Weekend plus a holiday closure. Wider gaps are not a period boundary. */
 const MAX_BOUNDARY_GAP_DAYS = 7;
+/** Max missing US equity sessions allowed between consecutive daily observations. */
+const MAX_INTERNAL_TRADING_GAP = 7;
 
 export interface PeriodPriceReturn {
   period: PerformancePeriod;
@@ -223,6 +225,39 @@ function computeWindowHighLow(window: NormalizedBar[]): { high: number; low: num
   return { high, low };
 }
 
+function utcWeekday(isoDate: string): number {
+  return new Date(`${isoDate}T12:00:00.000Z`).getUTCDay();
+}
+
+/** US equity sessions between `from` and `to`, inclusive, using the normalized daily bar date contract. */
+export function listTradingSessionDates(from: string, to: string): string[] {
+  if (from > to) return [];
+  const sessions: string[] = [];
+  let cursor = from;
+  while (cursor <= to) {
+    if (isTradingDay(cursor, utcWeekday(cursor))) sessions.push(cursor);
+    cursor = addDays(cursor, 1);
+  }
+  return sessions;
+}
+
+/** Largest run of eligible sessions missing between consecutive observed daily bars. */
+export function largestInternalTradingGap(sortedSessionDates: string[]): number {
+  if (sortedSessionDates.length < 2) return Number.POSITIVE_INFINITY;
+  let worst = 0;
+  for (let index = 1; index < sortedSessionDates.length; index += 1) {
+    const span = listTradingSessionDates(sortedSessionDates[index - 1], sortedSessionDates[index]);
+    const missingBetween = Math.max(0, span.length - 2);
+    worst = Math.max(worst, missingBetween);
+  }
+  return worst;
+}
+
+export function hasAdequateDailySessionCoverage(sortedSessionDates: string[]): boolean {
+  return sortedSessionDates.length >= 2
+    && largestInternalTradingGap(sortedSessionDates) <= MAX_INTERNAL_TRADING_GAP;
+}
+
 function parseInceptionIso(value: string | null | undefined): string | null {
   if (typeof value !== "string") return null;
   const date = value.trim().slice(0, 10);
@@ -256,6 +291,18 @@ export function observedPriceRange(
   const earliestDate = sessionDate(window[0]);
   const latestDate = sessionDate(latest);
   const inception = parseInceptionIso(inceptionDate);
+  const observedSessionDates = window.map((bar) => sessionDate(bar));
+  const continuousCoverage = hasAdequateDailySessionCoverage(observedSessionDates);
+
+  const partialRange = (): ObservedPriceRange => ({
+    coverage: "observed_window",
+    high: extremes.high,
+    low: extremes.low,
+    fromDate: earliestDate,
+    toDate: latestDate,
+  });
+
+  if (!continuousCoverage) return partialRange();
 
   if (daysBetween(start52, earliestDate) <= MAX_BOUNDARY_GAP_DAYS) {
     return {
@@ -282,13 +329,7 @@ export function observedPriceRange(
     };
   }
 
-  return {
-    coverage: "observed_window",
-    high: extremes.high,
-    low: extremes.low,
-    fromDate: earliestDate,
-    toDate: latestDate,
-  };
+  return partialRange();
 }
 
 /** @deprecated Use observedPriceRange — only returns values when full 52-week coverage is verified. */
