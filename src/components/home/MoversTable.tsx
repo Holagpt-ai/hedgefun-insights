@@ -1,35 +1,32 @@
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { Skeleton } from "@/components/ui/skeleton";
 import { trackEvent } from "@/lib/analytics";
 import { cn } from "@/lib/utils";
 import { RefreshCw } from "lucide-react";
 import { resolveMarketSession } from "@/lib/price-utils";
 import {
-  currentMoversEmptyMessage,
-  mapPolygonMovers,
-  type MoverListRow,
-  type MoverSession,
-} from "@/lib/markets/movers-integrity";
-
-function toMoverSession(session: ReturnType<typeof resolveMarketSession>): MoverSession {
-  if (session === "pre-market") return "premarket";
-  if (session === "after-hours") return "afterhours";
-  return "regular";
-}
+  moversFetchErrorMessage,
+  moversSuccessfulEmptyMessage,
+} from "@/lib/markets/movers-provenance";
+import { fetchPublicGainersRows, fetchPublicLosersRows } from "@/lib/markets/movers-page-fetch";
+import { etSessionDate, type MoverListRow } from "@/lib/markets/movers-integrity";
 
 function MoversTable({
   title,
   linkTo,
   data,
   isLoading,
+  isError,
+  isFetchEmpty,
   refetch,
 }: {
   title: string;
   linkTo: string;
   data: MoverListRow[] | undefined;
   isLoading: boolean;
+  isError?: boolean;
+  isFetchEmpty?: boolean;
   type: "gainers" | "losers";
   refetch?: () => void;
 }) {
@@ -66,9 +63,13 @@ function MoversTable({
           <div>
             <RefreshCw className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
             <p className="text-[0.875rem] text-muted-foreground">
-              {currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed })}
+              {isError
+                ? moversFetchErrorMessage()
+                : isFetchEmpty
+                  ? moversSuccessfulEmptyMessage({ marketClosed })
+                  : moversSuccessfulEmptyMessage({ marketClosed })}
             </p>
-            {refetch && (
+            {refetch && isError && (
               <button
                 onClick={() => refetch()}
                 className="mt-2 text-[0.8125rem] text-accent-blue hover:underline"
@@ -129,12 +130,10 @@ function MoversTable({
 
 export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
   const session = resolveMarketSession();
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["top-gainers", session],
-    queryFn: async () => {
-      const raw = await getTopGainers();
-      return mapPolygonMovers(raw, toMoverSession(session), { sort: "percent_desc" }).rows;
-    },
+  const sessionDate = etSessionDate();
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
+    queryKey: ["top-gainers", session, sessionDate],
+    queryFn: () => fetchPublicGainersRows(session),
     staleTime: 60_000,
     retry: 3,
     retryDelay: 2000,
@@ -144,8 +143,10 @@ export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
     <MoversTable
       title={title}
       linkTo="/markets/gainers"
-      data={data}
+      data={data?.rows}
       isLoading={isLoading}
+      isError={isError}
+      isFetchEmpty={isSuccess && (data?.rows.length ?? 0) === 0}
       type="gainers"
       refetch={refetch}
     />
@@ -154,12 +155,10 @@ export function TopGainersTable({ title = "Top Gainers" }: { title?: string }) {
 
 export function TopLosersTable({ title = "Top Losers" }: { title?: string }) {
   const session = resolveMarketSession();
-  const { data, isLoading, refetch } = useQuery({
-    queryKey: ["top-losers", session],
-    queryFn: async () => {
-      const raw = await getTopLosers();
-      return mapPolygonMovers(raw, toMoverSession(session), { sort: "percent_asc" }).rows;
-    },
+  const sessionDate = etSessionDate();
+  const { data, isLoading, isError, isSuccess, refetch } = useQuery({
+    queryKey: ["top-losers", session, sessionDate],
+    queryFn: () => fetchPublicLosersRows(session),
     staleTime: 60_000,
     retry: 3,
     retryDelay: 2000,
@@ -169,8 +168,10 @@ export function TopLosersTable({ title = "Top Losers" }: { title?: string }) {
     <MoversTable
       title={title}
       linkTo="/markets/losers"
-      data={data}
+      data={data?.rows}
       isLoading={isLoading}
+      isError={isError}
+      isFetchEmpty={isSuccess && (data?.rows.length ?? 0) === 0}
       type="losers"
       refetch={refetch}
     />

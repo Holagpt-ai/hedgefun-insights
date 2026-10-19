@@ -99,7 +99,8 @@ export interface MoverListRow {
   price: number;
   change: number;
   changePercent: number;
-  volume: number;
+  /** Null when provider volume is missing — never coerced to zero for display. */
+  volume: number | null;
 }
 
 export function etSessionDate(ms: number = Date.now()): string {
@@ -553,8 +554,18 @@ export function toMoverListRow(mover: CanonicalMover): MoverListRow | null {
     price: mover.price,
     change: mover.change,
     changePercent: mover.change_percent,
-    volume: mover.volume !== null && mover.volume >= 0 ? mover.volume : 0,
+    volume: mover.volume !== null && mover.volume >= 0 ? mover.volume : null,
   };
+}
+
+function compareVerifiedVolumeDesc(a: number | null, b: number | null): number {
+  const aKnown = a !== null && Number.isFinite(a) && a >= 0;
+  const bKnown = b !== null && Number.isFinite(b) && b >= 0;
+  if (!aKnown && !bKnown) return 0;
+  if (!aKnown) return 1;
+  if (!bKnown) return -1;
+  if (a !== b) return (b as number) - (a as number);
+  return 0;
 }
 
 function eventTimeMs(iso: string | null): number {
@@ -618,7 +629,7 @@ export function selectCanonicalCurrentMovers(
   const sort = opts?.sort ?? "percent_desc";
   winners.sort((a, b) => {
     if (sort === "volume_desc") {
-      const dv = (b.volume ?? 0) - (a.volume ?? 0);
+      const dv = compareVerifiedVolumeDesc(a.volume, b.volume);
       if (dv !== 0) return dv;
     } else {
       const pa = a.change_percent ?? 0;
@@ -631,20 +642,55 @@ export function selectCanonicalCurrentMovers(
   return winners;
 }
 
-export function mapPolygonMovers(
+export function mapPolygonMoversDetailed(
   raw: unknown,
   session: MoverSession,
   opts?: { nowMs?: number; sort?: MoverSort },
-): { rows: MoverListRow[]; rejected: number } {
+): { rows: MoverListRow[]; movers: CanonicalMover[]; rejected: number } {
   const nowMs = opts?.nowMs ?? Date.now();
-  const tickers = polygonTickersFromResponse(raw);
+  const tickers = Array.isArray(raw) ? raw : polygonTickersFromResponse(raw);
   const validated = tickers.map((t) => moverFromPolygonTicker(t, session, nowMs));
   const winners = selectCanonicalCurrentMovers(validated, {
     sessionDate: etSessionDate(nowMs),
     sort: opts?.sort,
   });
   const rows = winners.map(toMoverListRow).filter((r): r is MoverListRow => r !== null);
-  return { rows, rejected: validated.length - winners.length };
+  return { rows, movers: winners, rejected: validated.length - winners.length };
+}
+
+export function mapPolygonMovers(
+  raw: unknown,
+  session: MoverSession,
+  opts?: { nowMs?: number; sort?: MoverSort },
+): { rows: MoverListRow[]; rejected: number } {
+  const { rows, rejected } = mapPolygonMoversDetailed(raw, session, opts);
+  return { rows, rejected };
+}
+
+export function combineTrackedMoverSnapshots(gainersRaw: unknown, losersRaw: unknown): unknown[] {
+  return [
+    ...polygonTickersFromResponse(gainersRaw),
+    ...polygonTickersFromResponse(losersRaw),
+  ];
+}
+
+export function mapTrackedMostActiveMovers(
+  gainersRaw: unknown,
+  losersRaw: unknown,
+  session: MoverSession,
+  opts?: { nowMs?: number; limit?: number },
+): { rows: MoverListRow[]; movers: CanonicalMover[]; rejected: number } {
+  const combined = combineTrackedMoverSnapshots(gainersRaw, losersRaw);
+  const detailed = mapPolygonMoversDetailed(combined, session, {
+    nowMs: opts?.nowMs,
+    sort: "volume_desc",
+  });
+  const limit = opts?.limit ?? detailed.rows.length;
+  return {
+    rows: detailed.rows.slice(0, limit),
+    movers: detailed.movers.slice(0, limit),
+    rejected: detailed.rejected,
+  };
 }
 
 export function moversForAi(rows: CanonicalMover[]): CanonicalMover[] {

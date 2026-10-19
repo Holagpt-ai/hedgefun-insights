@@ -1,6 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getTopGainers, getTopLosers } from "@/lib/polygon";
 import { MoversTable } from "@/components/markets/MarketMoversLayout";
 import { MarketMoversTabBar } from "@/components/markets/MarketMoversTabBar";
 import { IndexSparklines } from "@/components/markets/IndexSparklines";
@@ -8,7 +7,13 @@ import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "@/hooks/use-toast";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
-import { mapPolygonMovers } from "@/lib/markets/movers-integrity";
+import { etSessionDate } from "@/lib/markets/movers-integrity";
+import {
+  fetchPremarketGainersRows,
+  fetchPremarketLosersRows,
+} from "@/lib/markets/movers-page-fetch";
+import { delayedMarketMoversSeoDescription } from "@/lib/markets/movers-provenance";
+import { canRetryEmptyPremarketFetch } from "@/lib/markets/movers-query-lifecycle";
 import {
   MOVERS_PAGE_INNER_CLASS,
   MOVERS_PAGE_SHELL_CLASS,
@@ -18,43 +23,58 @@ const TIME_TABS = ["Today"];
 
 export default function PremarketPage() {
   const [activeTime, setActiveTime] = useState("Today");
+  const sessionDate = etSessionDate();
+  const gEmptyRetries = useRef(0);
+  const lEmptyRetries = useRef(0);
 
-  const { data: gainersData, isLoading: gLoad, refetch: gRefetch } = useQuery({
-    queryKey: ["premarket-gainers"],
-    queryFn: async () => {
-      const res = await getTopGainers();
-      return mapPolygonMovers(res, "premarket", { sort: "percent_desc" }).rows;
-    },
+  useEffect(() => {
+    gEmptyRetries.current = 0;
+    lEmptyRetries.current = 0;
+  }, [sessionDate]);
+
+  const {
+    data: gainersPack,
+    isLoading: gLoad,
+    isError: gError,
+    isSuccess: gSuccess,
+    refetch: gRefetch,
+  } = useQuery({
+    queryKey: ["premarket-gainers", sessionDate],
+    queryFn: () => fetchPremarketGainersRows(),
     staleTime: 30_000,
     retry: 3,
     retryDelay: 3000,
   });
 
-  const { data: losersData, isLoading: lLoad, refetch: lRefetch } = useQuery({
-    queryKey: ["premarket-losers"],
-    queryFn: async () => {
-      const res = await getTopLosers();
-      return mapPolygonMovers(res, "premarket", { sort: "percent_asc" }).rows;
-    },
+  const {
+    data: losersPack,
+    isLoading: lLoad,
+    isError: lError,
+    isSuccess: lSuccess,
+    refetch: lRefetch,
+  } = useQuery({
+    queryKey: ["premarket-losers", sessionDate],
+    queryFn: () => fetchPremarketLosersRows(),
     staleTime: 30_000,
     retry: 3,
     retryDelay: 3000,
   });
 
-  // Auto-retry once after 2s if initial fetch returns empty
   useEffect(() => {
-    if (!gLoad && gainersData && gainersData.length === 0) {
-      const t = setTimeout(() => gRefetch(), 2000);
-      return () => clearTimeout(t);
-    }
-  }, [gLoad, gainersData, gRefetch]);
+    if (gLoad || gError || !gSuccess) return;
+    if ((gainersPack?.rows.length ?? 0) > 0) return;
+    if (!canRetryEmptyPremarketFetch(gEmptyRetries.current)) return;
+    gEmptyRetries.current += 1;
+    void gRefetch();
+  }, [gLoad, gError, gSuccess, gainersPack?.rows.length, gRefetch]);
 
   useEffect(() => {
-    if (!lLoad && losersData && losersData.length === 0) {
-      const t = setTimeout(() => lRefetch(), 2000);
-      return () => clearTimeout(t);
-    }
-  }, [lLoad, losersData, lRefetch]);
+    if (lLoad || lError || !lSuccess) return;
+    if ((losersPack?.rows.length ?? 0) > 0) return;
+    if (!canRetryEmptyPremarketFetch(lEmptyRetries.current)) return;
+    lEmptyRetries.current += 1;
+    void lRefetch();
+  }, [lLoad, lError, lSuccess, losersPack?.rows.length, lRefetch]);
 
   const handleTimeTab = (t: string) => {
     if (t !== "Today") {
@@ -66,7 +86,10 @@ export default function PremarketPage() {
 
   usePageSeo({
     title: `Pre-Market Stock Movers | ${BRAND.name}`,
-    description: `Track pre-market stock price movements, gainers, and losers before the market opens on ${BRAND.name}.`,
+    description: delayedMarketMoversSeoDescription(
+      "pre-market stock price movements, gainers, and losers",
+      BRAND.name,
+    ),
   });
 
   return (
@@ -100,8 +123,12 @@ export default function PremarketPage() {
 
         <MoversTable
           sectionTitle="Pre-Market Gainers"
-          rows={gainersData ?? []}
+          rows={gainersPack?.rows ?? []}
+          provenance={gainersPack?.provenance}
           isLoading={gLoad}
+          isError={gError}
+          isFetchEmpty={gSuccess && (gainersPack?.rows.length ?? 0) === 0}
+          premarket
           refetch={gRefetch}
           defaultSortDesc={true}
           colorMode="green"
@@ -111,15 +138,19 @@ export default function PremarketPage() {
 
         <MoversTable
           sectionTitle="Pre-Market Losers"
-          rows={losersData ?? []}
+          rows={losersPack?.rows ?? []}
+          provenance={losersPack?.provenance}
           isLoading={lLoad}
+          isError={lError}
+          isFetchEmpty={lSuccess && (losersPack?.rows.length ?? 0) === 0}
+          premarket
           refetch={lRefetch}
           defaultSortDesc={false}
           colorMode="red"
         />
 
         <p className="text-xs text-muted-foreground mt-4">
-          Data reflects latest available market activity. Dedicated premarket data requires an upgraded data plan.
+          {gainersPack?.provenance.delayDisclosure ?? "15-minute delayed market data"}. Dedicated premarket feeds are not enabled on this plan.
         </p>
 
         <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">

@@ -8,14 +8,19 @@ import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  currentMoversEmptyMessage,
   mapAfterHoursFeed,
   mapPolygonMovers,
-  polygonTickersFromResponse,
+  mapTrackedMostActiveMovers,
   type MoverListRow,
   type MoverSession,
   type MoverSort,
 } from "@/lib/markets/movers-integrity";
+import {
+  moversFetchErrorMessage,
+  moversSuccessfulEmptyMessage,
+  MOST_ACTIVE_TRACKED_UNIVERSE_DETAIL,
+  MOST_ACTIVE_TRACKED_UNIVERSE_TITLE,
+} from "@/lib/markets/movers-provenance";
 import { resolveMarketSession } from "@/lib/price-utils";
 import {
   MOVERS_PAGE_SHELL_CLASS,
@@ -26,7 +31,7 @@ import {
 const TYPE_MAP: Record<string, { title: string }> = {
   gainers: { title: "Top Gainers" },
   losers: { title: "Top Losers" },
-  active: { title: "Most Active" },
+  active: { title: MOST_ACTIVE_TRACKED_UNIVERSE_TITLE },
   premarket: { title: "Pre-Market Movers" },
   afterhours: { title: "After-Hours Movers" },
 };
@@ -73,11 +78,13 @@ async function fetchCanonicalMovers(type: string): Promise<MoverListRow[]> {
     return mapAfterHoursFeed(resultRows ?? [], { sort: "percent_desc" });
   }
 
-  const kinds: Array<"gainers" | "losers"> =
-    type === "losers" ? ["losers"] : type === "gainers" ? ["gainers"] : ["gainers", "losers"];
-  const payloads = await Promise.all(kinds.map((k) => (k === "gainers" ? getTopGainers() : getTopLosers())));
-  const combined = payloads.flatMap((p) => polygonTickersFromResponse(p));
-  return mapPolygonMovers(combined, sessionForType(type), { sort: sortForType(type) }).rows;
+  if (type === "active") {
+    const [gainers, losers] = await Promise.all([getTopGainers(), getTopLosers()]);
+    return mapTrackedMostActiveMovers(gainers, losers, sessionForType(type)).rows;
+  }
+
+  const res = await (type === "losers" ? getTopLosers() : getTopGainers());
+  return mapPolygonMovers(res, sessionForType(type), { sort: sortForType(type) }).rows;
 }
 
 const MoversPage = () => {
@@ -86,10 +93,12 @@ const MoversPage = () => {
   const config = TYPE_MAP[type] ?? TYPE_MAP.gainers;
   const marketClosed = resolveMarketSession() === "closed";
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, isError, isSuccess } = useQuery({
     queryKey: ["movers", type],
     queryFn: () => fetchCanonicalMovers(type),
     staleTime: 60_000,
+    retry: 3,
+    retryDelay: 2000,
   });
 
   usePageSeo({
@@ -122,7 +131,11 @@ const MoversPage = () => {
         <div className="space-y-2">{Array.from({ length: 10 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}</div>
       ) : rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          {currentMoversEmptyMessage({ hasSearchQuery: false, marketClosed })}
+          {isError
+            ? moversFetchErrorMessage()
+            : isSuccess
+              ? moversSuccessfulEmptyMessage({ marketClosed, premarket: type === "premarket" })
+              : moversSuccessfulEmptyMessage({ marketClosed, premarket: type === "premarket" })}
         </p>
       ) : (
         <div className={cn("fintech-card", MOVERS_TABLE_SCROLLER_CLASS)} role="region" aria-label={`${config.title} table`}>
@@ -145,12 +158,18 @@ const MoversPage = () => {
                   <td className={cn("px-2 py-2 text-right tabular-nums font-medium md:px-3", m.changePercent >= 0 ? "price-positive" : "price-negative")}>
                     {m.changePercent >= 0 ? "↑" : "↓"} {Math.abs(m.changePercent).toFixed(2)}%
                   </td>
-                  <td className="px-2 py-2 text-right tabular-nums md:px-3">{m.volume.toLocaleString()}</td>
+                  <td className="px-2 py-2 text-right tabular-nums md:px-3">
+                    {m.volume !== null && Number.isFinite(m.volume) ? m.volume.toLocaleString() : "—"}
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+      )}
+
+      {type === "active" && (
+        <p className="mt-3 text-xs text-muted-foreground">{MOST_ACTIVE_TRACKED_UNIVERSE_DETAIL}</p>
       )}
     </div>
   );

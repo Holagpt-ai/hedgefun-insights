@@ -491,6 +491,30 @@ describe("market movers integrity", () => {
     expect(cached.reason).toBe("missing_corroboration");
   });
 
+  it("ranks unknown volume after verified volume including zero", () => {
+    const zero = moverFromPolygonTicker(ticker({
+      ticker: "ZERO",
+      day: { c: 10, v: 0 },
+      prevDay: { c: 10 },
+    }), "regular", NOW);
+    const missing = moverFromPolygonTicker(ticker({
+      ticker: "UNK",
+      day: { c: 11 },
+      prevDay: { c: 10 },
+    }), "regular", NOW);
+    missing.volume = null;
+    const high = moverFromPolygonTicker(ticker({
+      ticker: "HIV",
+      day: { c: 12, v: 9_000_000 },
+      prevDay: { c: 10 },
+    }), "regular", NOW);
+    const ordered = selectCanonicalCurrentMovers([zero, missing, high], {
+      sessionDate: TODAY,
+      sort: "volume_desc",
+    });
+    expect(ordered.map((r) => r.symbol)).toEqual(["HIV", "ZERO", "UNK"]);
+  });
+
   it("preserves volume-first ordering for most-active lists", () => {
     const low = moverFromPolygonTicker(ticker({
       ticker: "LOWV",

@@ -233,7 +233,7 @@ describe("Most Active page wiring and /movers/active", () => {
     const src = readFileSync(resolve("src/pages/markets/ActivePage.tsx"), "utf8");
     expect(src).toContain('defaultSortForMoverKind("active")');
     expect(src).toContain('from "@/components/markets/movers-table-sort"');
-    expect(src).toContain('sort: "volume_desc"');
+    expect(src).toContain("fetchPublicMostActiveRows");
   });
 
   it("leaves /movers/active volume-first and independent of MarketMoversLayout", () => {
