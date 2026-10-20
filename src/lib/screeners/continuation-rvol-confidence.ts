@@ -44,3 +44,26 @@ export function resolveTimeAdjustedRvolConfidenceInput(
     baselineSampleSize,
   };
 }
+
+/**
+ * Selects RVOL confidence inputs for continuation scoring (TARVOL, then verified 20d, then 5m).
+ */
+export function resolveContinuationRvolConfidenceInput(
+  input: ContinuationInput,
+): RvolConfidenceInput | null {
+  const tarvol = resolveTimeAdjustedRvolConfidenceInput(input);
+  if (tarvol) return tarvol;
+
+  const raw20 = finitePositive(input.rvol20d);
+  const baseline20 = finitePositive(input.rvolBaselineVolume);
+  if (raw20 !== null && baseline20 !== null) {
+    return {
+      rawRvol: raw20,
+      metricKind: "rvol_20d",
+      baselineVolume: baseline20,
+      baselineSampleSize: finiteNonNegativeInt(input.rvolBaselineSampleSize),
+    };
+  }
+
+  return null;
+}

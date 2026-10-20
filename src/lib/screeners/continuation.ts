@@ -60,7 +60,7 @@ import type {
   ContinuationTriState,
 } from "@/types/continuation";
 import { assessRvolConfidence } from "@/lib/screeners/rvol-confidence";
-import { resolveTimeAdjustedRvolConfidenceInput } from "@/lib/screeners/continuation-rvol-confidence";
+import { resolveContinuationRvolConfidenceInput } from "@/lib/screeners/continuation-rvol-confidence";
 
 const EMPTY_WINDOW: ContinuationSessionWindow = {
   isPowerHour: false,
@@ -227,7 +227,7 @@ function scoreRvol(input: ContinuationInput): ContinuationComponentResult {
     ? input.timeAdjustedRvol
     : input.rvol20d;
   if (!isFiniteNumber(raw) || raw < 0) return unavailable(maxScore);
-  const confidenceInput = resolveTimeAdjustedRvolConfidenceInput(input);
+  const confidenceInput = resolveContinuationRvolConfidenceInput(input);
   const rankingRvol = confidenceInput
     ? (assessRvolConfidence(confidenceInput).rankingRvol ?? raw)
     : raw;

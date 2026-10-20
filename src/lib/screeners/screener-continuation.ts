@@ -25,6 +25,7 @@ import {
 } from "@/lib/scanner-intelligence/volume-participation";
 import type { DataFreshnessState } from "@/types/data-quality";
 import type { ContinuationInput, ContinuationResult, ContinuationTriState } from "@/types/continuation";
+import { parseRadarEngineEventTypes } from "@/lib/screeners/parse-radar-engine-events";
 
 export interface ScreenerContinuationSource {
   symbol: string;
@@ -147,13 +148,7 @@ export function toContinuationInput(
     input.scannerPrimaryEvent = row.primary_scanner_event.trim();
   }
   const lifecycle = row.radar_event_lifecycle?.trim().toUpperCase() ?? "";
-  const engineEvents = Array.isArray(row.radar_engine_events)
-    ? new Set(
-      row.radar_engine_events
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim().toUpperCase()),
-    )
-    : new Set<string>();
+  const engineEvents = parseRadarEngineEventTypes(row.radar_engine_events);
   if (engineEvents.has("RE_ACCELERATION") || lifecycle.includes("RE_ACCELER")) {
     input.radarHasReAcceleration = "TRUE";
   }

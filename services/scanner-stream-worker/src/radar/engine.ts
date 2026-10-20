@@ -44,8 +44,10 @@ import {
 } from "./geometry.ts";
 import {
   appendVolumeAccelerationEvent,
+  appendVwapMomentumDerivedEvents,
   buildScannerEventEvidence,
   computeGapPercent,
+  dedupeScannerIntelligenceEventsByType,
   decorateScannerEvents,
 } from "../../../../supabase/functions/_shared/radar-v22/scanner-events.ts";
 import {
@@ -754,6 +756,7 @@ export function createRadarEngine(opts: {
             lastHodBreakMs: intelSnap?.lastHodBreakMs ?? null,
             lastVwapReclaimMs: intelSnap?.lastVwapReclaimMs ?? null,
             lastVwapLossMs: intelSnap?.lastVwapLossMs ?? null,
+            vwapPartial: intelSnap?.vwapPartial === true,
             previousClose: quote?.previousClose ?? null,
             sessionOpen: openPx,
             gapPercent,
@@ -780,11 +783,19 @@ export function createRadarEngine(opts: {
               : null,
           });
           const detectedAt = isoFromMs(eventNow);
-          persistedScannerEvents = appendVolumeAccelerationEvent(
-            decorateScannerEvents(scannerSnap.events, evidence),
-            evalInput,
-            detectedAt,
-            evidence,
+          const decorated = decorateScannerEvents(scannerSnap.events, evidence);
+          persistedScannerEvents = dedupeScannerIntelligenceEventsByType(
+            appendVwapMomentumDerivedEvents(
+              appendVolumeAccelerationEvent(
+                decorated,
+                evalInput,
+                detectedAt,
+                evidence,
+              ),
+              evalInput,
+              detectedAt,
+              evidence,
+            ),
           );
         }
         v2Rows.push(mapCandidateRow({

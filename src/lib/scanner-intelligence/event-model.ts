@@ -28,6 +28,9 @@ export const INTELLIGENCE_EVENT_TYPES = [
   "VOLUME_EXPLOSION",
   "VWAP_LOSS",
   "VOLUME_ACCELERATION",
+  "VWAP_REJECTION",
+  "VWAP_HOLD",
+  "VWAP_BREAKDOWN",
 ] as const;
 
 export type IntelligenceEventType = (typeof INTELLIGENCE_EVENT_TYPES)[number];
@@ -51,6 +54,9 @@ export const INTELLIGENCE_EVENT_LABELS: Record<IntelligenceEventType, string> = 
   VOLUME_EXPLOSION: "Volume Explosion",
   VWAP_LOSS: "VWAP Break",
   VOLUME_ACCELERATION: "Volume Acceleration",
+  VWAP_REJECTION: "VWAP Rejection",
+  VWAP_HOLD: "VWAP Hold",
+  VWAP_BREAKDOWN: "VWAP Breakdown",
 };
 
 export function intelligenceEventLabel(value: string | null | undefined): string | null {

@@ -6,7 +6,7 @@
  */
 
 import { assessRvolConfidence } from "./rvol-confidence.ts";
-import { resolveTimeAdjustedRvolConfidenceInput } from "./continuation-rvol-confidence.ts";
+import { resolveContinuationRvolConfidenceInput } from "./continuation-rvol-confidence.ts";
 import {
   CONTINUATION_AFTER_HOURS_END_INCLUSIVE_MS,
   CONTINUATION_AFTER_HOURS_MAINTAIN_HOD_PCT,
@@ -230,7 +230,7 @@ function scoreRvol(input: ContinuationInput): ContinuationComponentResult {
     ? input.timeAdjustedRvol
     : input.rvol20d;
   if (!isFiniteNumber(raw) || raw < 0) return unavailable(maxScore);
-  const confidenceInput = resolveTimeAdjustedRvolConfidenceInput(input);
+  const confidenceInput = resolveContinuationRvolConfidenceInput(input);
   const rankingRvol = confidenceInput
     ? (assessRvolConfidence(confidenceInput).rankingRvol ?? raw)
     : raw;

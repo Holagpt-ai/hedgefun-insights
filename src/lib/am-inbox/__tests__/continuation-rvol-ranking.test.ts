@@ -42,10 +42,19 @@ describe("continuation ranking RVOL from context", () => {
     expect(thin).toBeLessThan(robust);
   });
 
-  it("uses conservative path when baseline metadata is unknown", () => {
-    const unknown = continuationRankingRvolFromContext(ctx({ rvol: 1000 }));
-    expect(unknown).toBeLessThan(1000);
-    expect(unknown).toBe(rankingRvolFromRaw(1000, "INSUFFICIENT_HISTORY"));
+  it("uses neutral medium authority when capture metadata is entirely absent", () => {
+    const untyped = buildLateSessionContinuationContext({
+      symbol: "TEST",
+      sourceSessionDate: "2026-09-21",
+      sourceTimestamp: "2026-09-21T20:00:00.000Z",
+      sourceCategory: "POWER_HOUR_MOMENTUM",
+      volume: 5_000_000,
+      rvol: 1000,
+      rvolMetricKind: null,
+    });
+    expect(continuationRankingRvolFromContext(untyped)).toBe(
+      rankingRvolFromRaw(1000, "MEDIUM"),
+    );
   });
 
   it("does not infer 20d metric kind for untyped persisted captures", () => {
@@ -59,7 +68,7 @@ describe("continuation ranking RVOL from context", () => {
       rvolMetricKind: null,
     });
     expect(continuationRankingRvolFromContext(untyped)).toBe(
-      rankingRvolFromRaw(1000, "INSUFFICIENT_HISTORY"),
+      rankingRvolFromRaw(1000, "MEDIUM"),
     );
   });
 

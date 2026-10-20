@@ -95,6 +95,10 @@ const CANDIDATE_SELECT = [
   "updated_at",
   "promoted_at",
   "last_hod_break_at",
+  "last_vwap_reclaim_at",
+  "last_vwap_loss_at",
+  "vwap_partial",
+  "geometry_partial",
 ].join(",");
 
 const CLOSED_SNAPSHOT_SELECT = `${CANDIDATE_SELECT},snapshot_kind,captured_at`;

@@ -7,6 +7,7 @@ COPY supabase/functions/_shared/screeners/selection.ts ./supabase/functions/_sha
 COPY supabase/functions/_shared/screeners/baseline-exclusion-publish.ts ./supabase/functions/_shared/screeners/baseline-exclusion-publish.ts
 COPY supabase/functions/_shared/screeners/baseline-corporate-action.ts ./supabase/functions/_shared/screeners/baseline-corporate-action.ts
 COPY supabase/functions/_shared/radar-v22 ./supabase/functions/_shared/radar-v22
+COPY supabase/functions/_shared/config ./supabase/functions/_shared/config
 COPY src/lib/screeners/previous-session-facts.ts ./src/lib/screeners/previous-session-facts.ts
 COPY src/lib/radar/radar-event-engine.ts ./src/lib/radar/radar-event-engine.ts
 COPY src/lib/radar/intraday-participation.ts ./src/lib/radar/intraday-participation.ts
