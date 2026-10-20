@@ -1,77 +1,105 @@
 /**
- * Command estimate for Upstash Redis Free (500,000 commands / month).
+ * Redis command estimate for Upstash Free (500,000 commands / month).
  *
- * Steady-state origin fill, verified client:
- *   GET + SET + INCR global + INCR client = 4
- * Each extra warm isolate pays one GET while its memory entry is cold.
- * EXPIRE is once per new quota key, not once per request.
- * Memory hits cost zero commands. Other market-data types cost zero.
+ * Live quotes and live charts are memory-cached and spend Redis only on an
+ * atomic INCR per Massive attempt. Closed aggregate windows may also GET/SET
+ * a shared payload. Per-IP counters are not used.
+ *
+ * A cold isolate does not add a Redis GET per request. Extra origin attempts
+ * stop at the shared cap, so request floods increase rejections rather than
+ * the command bill.
  */
 
+export const FREE_TIER_MONTHLY_COMMANDS = 500_000;
+
 export type RedisTrafficScenario = {
+  name: string;
   tradingDays: number;
   marketHoursPerDay: number;
+  eveningFraction: number;
   warmIsolates: number;
   hotSnapshotKeys: number;
   hotLiveAggregateKeys: number;
+  snapshotMemorySeconds: number;
+  liveAggregateMemorySeconds: number;
+  snapshotCapPerMinute: number;
+  aggregateCapPerMinute: number;
+  /** Fraction of origin attempts that retry once (429/5xx). */
+  retryFraction: number;
   closedAggregateRefreshesPerDay: number;
-  eveningFractionOfMarketLiveCommands: number;
-  distinctVerifiedIps: number;
-  liveServeWindowSeconds: number;
-  globalQuotaWindowSeconds: number;
-  clientQuotaWindowSeconds: number;
-  verifiedClients: boolean;
+  /** Extra Redis commands from timeouts before the circuit opens. */
+  timeoutCommandsPerDay: number;
 };
 
-export const NORMAL_REDIS_TRAFFIC: RedisTrafficScenario = {
+export const WARM_REDIS_TRAFFIC: RedisTrafficScenario = {
+  name: "warm",
   tradingDays: 22,
   marketHoursPerDay: 7,
+  eveningFraction: 0.15,
   warmIsolates: 2,
   hotSnapshotKeys: 8,
   hotLiveAggregateKeys: 4,
+  snapshotMemorySeconds: 30,
+  liveAggregateMemorySeconds: 60,
+  snapshotCapPerMinute: 18,
+  aggregateCapPerMinute: 8,
+  retryFraction: 0.05,
   closedAggregateRefreshesPerDay: 40,
-  eveningFractionOfMarketLiveCommands: 0.15,
-  distinctVerifiedIps: 5,
-  liveServeWindowSeconds: 120,
-  globalQuotaWindowSeconds: 60,
-  clientQuotaWindowSeconds: 300,
-  verifiedClients: true,
+  timeoutCommandsPerDay: 20,
+};
+
+export const COLD_REDIS_TRAFFIC: RedisTrafficScenario = {
+  ...WARM_REDIS_TRAFFIC,
+  name: "cold",
+  warmIsolates: 8,
+  retryFraction: 0.1,
+  timeoutCommandsPerDay: 80,
+};
+
+export const INCREASED_REDIS_TRAFFIC: RedisTrafficScenario = {
+  ...COLD_REDIS_TRAFFIC,
+  name: "increased",
+  hotSnapshotKeys: 24,
+  hotLiveAggregateKeys: 12,
+  closedAggregateRefreshesPerDay: 120,
+};
+
+export const DEGRADED_REDIS_TRAFFIC: RedisTrafficScenario = {
+  ...COLD_REDIS_TRAFFIC,
+  name: "degraded",
+  retryFraction: 0.25,
+  timeoutCommandsPerDay: 400,
 };
 
 export type RedisBudgetEstimate = {
   monthlyCommands: number;
-  monthlyCacheCommands: number;
-  monthlyExpireCommands: number;
-  commandsPerExtraHotKey: number;
-  commandsPerExtraIsolatePerHotKey: number;
+  headroomCommands: number;
+  capped: boolean;
+  uncappedAttemptCommands: number;
 };
 
 export function estimateMonthlyRedisCommands(input: RedisTrafficScenario): RedisBudgetEstimate {
-  const windowsPerMarketHour = 3600 / input.liveServeWindowSeconds;
-  const hotKeys = input.hotSnapshotKeys + input.hotLiveAggregateKeys;
-  const perKeyPerWindow = (input.verifiedClients ? 4 : 3) + Math.max(0, input.warmIsolates - 1);
-  const activeFactor = 1 + input.eveningFractionOfMarketLiveCommands;
-  const marketLive = hotKeys * windowsPerMarketHour * input.marketHoursPerDay * perKeyPerWindow;
-  const eveningLive = marketLive * input.eveningFractionOfMarketLiveCommands;
-  const closed = input.closedAggregateRefreshesPerDay * perKeyPerWindow;
-  const monthlyCache = (marketLive + eveningLive + closed) * input.tradingDays;
-
-  const activeMinutesPerDay = input.marketHoursPerDay * 60 * activeFactor;
-  const globalExpire = input.tradingDays * activeMinutesPerDay * (60 / input.globalQuotaWindowSeconds) * 2;
-  const clientWindowsPerDay = activeMinutesPerDay * (60 / input.clientQuotaWindowSeconds);
-  const clientExpire = input.verifiedClients
-    ? input.tradingDays * clientWindowsPerDay * input.distinctVerifiedIps * 2
-    : 0;
-
+  const activeMinutesPerDay = input.marketHoursPerDay * 60 * (1 + input.eveningFraction);
+  const activeMinutes = activeMinutesPerDay * input.tradingDays;
+  const snapshotAttemptsPerMinute = input.warmIsolates * input.hotSnapshotKeys * (60 / input.snapshotMemorySeconds);
+  const aggregateAttemptsPerMinute = input.warmIsolates * input.hotLiveAggregateKeys * (60 / input.liveAggregateMemorySeconds);
+  const uncappedAttemptsPerMinute = (snapshotAttemptsPerMinute + aggregateAttemptsPerMinute) * (1 + input.retryFraction);
+  const cappedAttemptsPerMinute = Math.min(
+    snapshotAttemptsPerMinute * (1 + input.retryFraction),
+    input.snapshotCapPerMinute,
+  ) + Math.min(
+    aggregateAttemptsPerMinute * (1 + input.retryFraction),
+    input.aggregateCapPerMinute,
+  );
+  const attemptCommands = cappedAttemptsPerMinute * activeMinutes;
+  const expireCommands = 2 * activeMinutes;
+  const closedPayloadCommands = input.closedAggregateRefreshesPerDay * input.tradingDays * 2;
+  const timeoutCommands = input.timeoutCommandsPerDay * input.tradingDays;
+  const monthlyCommands = Math.round(attemptCommands + expireCommands + closedPayloadCommands + timeoutCommands);
   return {
-    monthlyCommands: Math.round(monthlyCache + globalExpire + clientExpire),
-    monthlyCacheCommands: Math.round(monthlyCache),
-    monthlyExpireCommands: Math.round(globalExpire + clientExpire),
-    commandsPerExtraHotKey: Math.round(
-      input.tradingDays * windowsPerMarketHour * input.marketHoursPerDay * activeFactor * perKeyPerWindow,
-    ),
-    commandsPerExtraIsolatePerHotKey: Math.round(
-      input.tradingDays * windowsPerMarketHour * input.marketHoursPerDay * activeFactor,
-    ),
+    monthlyCommands,
+    headroomCommands: FREE_TIER_MONTHLY_COMMANDS - monthlyCommands,
+    capped: uncappedAttemptsPerMinute > cappedAttemptsPerMinute,
+    uncappedAttemptCommands: Math.round(uncappedAttemptsPerMinute * activeMinutes),
   };
 }

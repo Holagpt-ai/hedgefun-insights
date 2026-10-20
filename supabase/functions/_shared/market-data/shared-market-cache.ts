@@ -7,6 +7,7 @@
 import type { MarketDataClientIdentity } from "./client-identity.ts";
 import {
   byteLength,
+  cacheControlMaxAgeSeconds,
   decodeEnvelope,
   encodeEnvelope,
   envelopeServeMs,
@@ -17,6 +18,7 @@ import {
   type CachePayloadFacts,
   type MarketCacheEnvelope,
   type MarketCacheFreshness,
+  type MarketCacheSurface,
 } from "./market-cache-record.ts";
 import {
   LOCAL_QUOTA,
@@ -26,12 +28,23 @@ import {
   type QuotaDecision,
   type QuotaKind,
 } from "./distributed-quota.ts";
+import {
+  noteMemoryHit,
+  noteOriginFill,
+  noteQuotaDeny,
+  noteSharedHit,
+  noteUpstreamFailure,
+} from "./market-data-meters.ts";
 import { readUpstashRestConfig, SharedQuota, UpstashRestClient, type EnvLookup } from "./upstash-redis-rest.ts";
 
 export type SharedCacheStore = {
   get(key: string): Promise<string | null>;
   set(key: string, value: string, ttlSeconds: number): Promise<void>;
 };
+
+export type OriginLoad =
+  | { ok: true; payload: unknown }
+  | { ok: false; reason: "quota" | "upstream" };
 
 export type SharedMarketDataResult =
   | {
@@ -40,8 +53,10 @@ export type SharedMarketDataResult =
     freshness: MarketCacheFreshness;
     cache: "memory" | "shared" | "origin";
     sourceAsOfMs: number | null;
+    cacheAgeMs: number;
+    cacheControlMaxAgeSeconds: number;
   }
-  | { ok: false; error: "rate_limited"; retryAfterSeconds: number };
+  | { ok: false; error: "rate_limited" | "upstream_unavailable"; retryAfterSeconds: number };
 
 export type SharedMarketCacheDeps = {
   nowMs: () => number;
@@ -114,17 +129,24 @@ export async function resolveSharedMarketData(
     cacheKey: string | null;
     coalesceKey: string;
     closed: boolean;
+    /** Redis payload cache. Live quotes stay in memory so cold isolates do not GET on every request. */
+    sharePayload: boolean;
+    surface: MarketCacheSurface;
     identity: MarketDataClientIdentity;
-    loadOrigin: () => Promise<unknown>;
+    loadOrigin: (consumeAttempt: () => Promise<boolean>) => Promise<OriginLoad>;
     describe: (payload: unknown) => CachePayloadFacts;
   },
 ): Promise<SharedMarketDataResult> {
   const nowMs = deps.nowMs();
   if (input.cacheKey) {
     const memory = deps.l1.get(input.cacheKey, nowMs);
-    if (memory) return serve(memory, "memory", nowMs);
+    if (memory) {
+      noteMemoryHit();
+      return serve(memory, "memory", nowMs);
+    }
   }
   if (deps.latch.blocked(input.kind, input.identity, nowMs)) {
+    noteQuotaDeny();
     return limited();
   }
   const existing = deps.inflight.get(input.coalesceKey);
@@ -142,18 +164,21 @@ async function resolveMiss(
     kind: QuotaKind;
     cacheKey: string | null;
     closed: boolean;
+    sharePayload: boolean;
+    surface: MarketCacheSurface;
     identity: MarketDataClientIdentity;
-    loadOrigin: () => Promise<unknown>;
+    loadOrigin: (consumeAttempt: () => Promise<boolean>) => Promise<OriginLoad>;
     describe: (payload: unknown) => CachePayloadFacts;
   },
 ): Promise<SharedMarketDataResult> {
   const nowMs = deps.nowMs();
-  if (input.cacheKey && deps.shared) {
+  if (input.sharePayload && input.cacheKey && deps.shared) {
     try {
       const raw = await deps.shared.get(input.cacheKey);
       const envelope = raw ? decodeEnvelope(raw) : null;
       if (envelope && recordIsServable(envelope, nowMs)) {
         deps.l1.set(input.cacheKey, envelope);
+        noteSharedHit();
         return serve(envelope, "shared", nowMs);
       }
     } catch {
@@ -161,16 +186,25 @@ async function resolveMiss(
     }
   }
 
-  const decision = await deps.quota.consume(input.kind, input.identity, nowMs);
-  if (!decision.allowed) {
-    const limits = decision.backend === "shared" ? SHARED_QUOTA : LOCAL_QUOTA;
-    if (decision.scope === "global" || decision.scope === "client") {
-      deps.latch.trip(input.kind, input.identity, decision.scope, nowMs, limits);
+  const loaded = await input.loadOrigin(async () => {
+    const decision = await deps.quota.consume(input.kind, input.identity, deps.nowMs());
+    if (!decision.allowed) {
+      noteQuotaDeny();
+      const limits = decision.backend === "shared" ? SHARED_QUOTA : LOCAL_QUOTA;
+      if (decision.scope === "global" || decision.scope === "client") {
+        deps.latch.trip(input.kind, input.identity, decision.scope, deps.nowMs(), limits);
+      }
+      return false;
     }
-    return limited();
+    return true;
+  });
+  if (!loaded.ok) {
+    if (loaded.reason === "quota") return limited();
+    noteUpstreamFailure();
+    return { ok: false, error: "upstream_unavailable", retryAfterSeconds: 0 };
   }
 
-  const payload = await input.loadOrigin();
+  const payload = loaded.payload;
   const facts = input.describe(payload);
   const envelope: MarketCacheEnvelope = {
     v: 1,
@@ -179,12 +213,13 @@ async function resolveMiss(
     cachedAtMs: nowMs,
     closed: input.closed && !facts.empty,
     empty: facts.empty,
+    surface: input.surface,
   };
   if (facts.cacheable && input.cacheKey) {
     const encoded = encodeEnvelope(envelope);
     const bytes = byteLength(encoded);
     if (bytes <= MEMORY_CACHE_MAX_BYTES) deps.l1.set(input.cacheKey, envelope);
-    if (bytes <= SHARED_CACHE_MAX_BYTES && deps.shared) {
+    if (input.sharePayload && bytes <= SHARED_CACHE_MAX_BYTES && deps.shared) {
       const ttlSeconds = Math.ceil(envelopeServeMs(envelope) / 1000);
       try {
         await deps.shared.set(input.cacheKey, encoded, ttlSeconds);
@@ -193,6 +228,7 @@ async function resolveMiss(
       }
     }
   }
+  noteOriginFill();
   return serve(envelope, "origin", nowMs);
 }
 
@@ -201,12 +237,15 @@ function serve(
   cache: "memory" | "shared" | "origin",
   nowMs: number,
 ): SharedMarketDataResult {
+  const cacheAgeMs = Math.max(0, nowMs - envelope.cachedAtMs);
   return {
     ok: true,
     data: envelope.payload,
     freshness: freshnessLabel(envelope, nowMs),
     cache,
     sourceAsOfMs: envelope.sourceAsOfMs,
+    cacheAgeMs,
+    cacheControlMaxAgeSeconds: cacheControlMaxAgeSeconds(envelope, nowMs),
   };
 }
 

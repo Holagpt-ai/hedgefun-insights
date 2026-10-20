@@ -4,10 +4,9 @@
  */
 
 import type { MarketDataClientIdentity } from "./client-identity.ts";
+import { noteCircuitSkip, noteRedisCommands } from "./market-data-meters.ts";
 import {
-  clientQuotaKey,
   globalQuotaKey,
-  hashClientIp,
   LOCAL_QUOTA,
   MemoryQuota,
   quotaDecision,
@@ -97,11 +96,15 @@ export class UpstashRestClient {
 
   private async command(commands: string[][], pipeline: boolean, recordFailure = true): Promise<unknown[]> {
     const now = this.now();
-    if (now < this.openUntilMs) throw new Error("redis_unavailable");
+    if (now < this.openUntilMs) {
+      noteCircuitSkip();
+      throw new Error("redis_unavailable");
+    }
     const fetchImpl = this.opts.fetchImpl ?? fetch;
     const timeoutMs = this.opts.timeoutMs ?? 250;
     const endpoint = pipeline ? `${this.opts.url}/pipeline` : this.opts.url;
     const body = pipeline ? JSON.stringify(commands) : JSON.stringify(commands[0]);
+    noteRedisCommands(commands.length);
     try {
       const res = await fetchImpl(endpoint, {
         method: "POST",
@@ -168,13 +171,10 @@ export class SharedQuota {
     }
     try {
       const globalWindow = windowIdFor(nowMs, this.sharedLimits.windowSeconds);
-      const clientWindow = windowIdFor(nowMs, this.sharedLimits.clientWindowSeconds);
-      const clientKey = identity.status === "verified"
-        ? clientQuotaKey(kind, clientWindow, await hashClientIp(identity.ip))
-        : null;
+      void identity;
       const counts = await this.remote.increment({
         globalKey: globalQuotaKey(kind, globalWindow),
-        clientKey,
+        clientKey: null,
         globalExpireSeconds: this.sharedLimits.expireSeconds,
         clientExpireSeconds: this.sharedLimits.clientExpireSeconds,
       });

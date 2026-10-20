@@ -4,13 +4,18 @@
  */
 
 export const FRESH_MAX_AGE_MS = 30_000;
-export const LIVE_SERVE_MS = 120_000;
+/** Active quote tape. Not served past this age, and never labeled aging. */
+export const SNAPSHOT_SERVE_MS = 30_000;
+/** Live charts. Fresh for 30s, then aging until this boundary. */
+export const LIVE_AGGREGATE_SERVE_MS = 60_000;
 export const CLOSED_AGGREGATE_SERVE_MS = 6 * 60 * 60 * 1000;
 export const EMPTY_SERVE_MS = 30_000;
 export const SHARED_CACHE_MAX_BYTES = 96 * 1024;
 export const MEMORY_CACHE_MAX_BYTES = 256 * 1024;
 
 export type MarketCacheFreshness = "fresh" | "aging" | "closed";
+
+export type MarketCacheSurface = "quote" | "bars";
 
 export type MarketCacheEnvelope = {
   v: 1;
@@ -19,6 +24,7 @@ export type MarketCacheEnvelope = {
   cachedAtMs: number;
   closed: boolean;
   empty: boolean;
+  surface: MarketCacheSurface;
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -57,16 +63,26 @@ export function isClosedAggregateWindow(to: string, nowMs: number): boolean {
   return DATE_RE.test(to) && to < etCalendarDate(nowMs);
 }
 
-export function envelopeServeMs(envelope: { closed: boolean; empty: boolean }): number {
+export function envelopeServeMs(envelope: { closed: boolean; empty: boolean; surface?: MarketCacheSurface }): number {
   if (envelope.empty) return EMPTY_SERVE_MS;
   if (envelope.closed) return CLOSED_AGGREGATE_SERVE_MS;
-  return LIVE_SERVE_MS;
+  if (envelope.surface === "bars") return LIVE_AGGREGATE_SERVE_MS;
+  return SNAPSHOT_SERVE_MS;
 }
 
 export function freshnessLabel(envelope: MarketCacheEnvelope, nowMs: number): MarketCacheFreshness {
   if (envelope.closed && !envelope.empty) return "closed";
-  if (nowMs - envelope.cachedAtMs <= FRESH_MAX_AGE_MS) return "fresh";
+  const ageMs = Math.max(0, nowMs - envelope.cachedAtMs);
+  if (envelope.surface === "quote") return "fresh";
+  if (ageMs <= FRESH_MAX_AGE_MS) return "fresh";
   return "aging";
+}
+
+/** Remaining seconds a shared HTTP cache may store this response. */
+export function cacheControlMaxAgeSeconds(envelope: MarketCacheEnvelope, nowMs: number): number {
+  const remainMs = envelopeServeMs(envelope) - Math.max(0, nowMs - envelope.cachedAtMs);
+  if (remainMs <= 0) return 0;
+  return Math.floor(remainMs / 1000);
 }
 
 export function recordIsServable(envelope: MarketCacheEnvelope, nowMs: number): boolean {
@@ -87,6 +103,7 @@ export function decodeEnvelope(raw: string): MarketCacheEnvelope | null {
     if (!("payload" in parsed)) return null;
     const sourceAsOfMs = parsed.sourceAsOfMs;
     if (sourceAsOfMs != null && (typeof sourceAsOfMs !== "number" || !Number.isFinite(sourceAsOfMs))) return null;
+    const surface: MarketCacheSurface = parsed.surface === "bars" ? "bars" : "quote";
     return {
       v: 1,
       payload: parsed.payload,
@@ -94,6 +111,7 @@ export function decodeEnvelope(raw: string): MarketCacheEnvelope | null {
       cachedAtMs: parsed.cachedAtMs,
       closed: parsed.closed,
       empty: parsed.empty,
+      surface,
     };
   } catch {
     return null;
@@ -170,10 +188,14 @@ export function marketDataCacheHeaders(meta: {
   freshness: MarketCacheFreshness;
   cache: "memory" | "shared" | "origin";
   sourceAsOfMs: number | null;
+  cacheAgeMs: number;
+  cacheControlMaxAgeSeconds: number;
 }): Record<string, string> {
   const headers: Record<string, string> = {
     "X-Market-Data-Freshness": meta.freshness,
     "X-Market-Data-Cache": meta.cache,
+    "X-Market-Data-Cache-Age-Ms": String(Math.max(0, meta.cacheAgeMs)),
+    "Cache-Control": `public, max-age=${meta.cacheControlMaxAgeSeconds}`,
   };
   if (meta.sourceAsOfMs != null) {
     headers["X-Market-Data-Source-As-Of"] = new Date(meta.sourceAsOfMs).toISOString();

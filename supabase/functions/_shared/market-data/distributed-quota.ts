@@ -16,20 +16,21 @@ export type QuotaDecision = {
   backend: "shared" | "local-fallback";
 };
 
+/** Shared attempt caps. Sized so a saturated month stays under the Redis free tier. */
 export const SHARED_QUOTA = {
-  snapshotPerWindow: 60,
-  aggregatesPerWindow: 80,
-  clientPerWindow: 100,
+  snapshotPerWindow: 18,
+  aggregatesPerWindow: 8,
+  clientPerWindow: 0,
   windowSeconds: 60,
-  clientWindowSeconds: 300,
+  clientWindowSeconds: 60,
   expireSeconds: 120,
-  clientExpireSeconds: 600,
+  clientExpireSeconds: 120,
 } as const;
 
 export const LOCAL_QUOTA = {
-  snapshotPerWindow: 15,
-  aggregatesPerWindow: 15,
-  clientPerWindow: 10,
+  snapshotPerWindow: 6,
+  aggregatesPerWindow: 4,
+  clientPerWindow: 0,
   windowSeconds: 60,
   clientWindowSeconds: 60,
   expireSeconds: 120,
@@ -101,14 +102,9 @@ export class MemoryQuota {
     const globalCount = (this.counts.get(globalKey) ?? 0) + 1;
     this.counts.set(globalKey, globalCount);
     const globalLimit = kind === "snapshot" ? limits.snapshotPerWindow : limits.aggregatesPerWindow;
-    let clientCount: number | null = null;
-    if (identity.status === "verified") {
-      const clientWindow = windowIdFor(nowMs, limits.clientWindowSeconds);
-      const clientKey = `${kind}:${identity.ip}:${clientWindow}`;
-      clientCount = (this.counts.get(clientKey) ?? 0) + 1;
-      this.counts.set(clientKey, clientCount);
-    }
-    const decision = quotaDecision(globalCount, globalLimit, clientCount, limits.clientPerWindow);
+    // Identity is unverified, so every caller shares this global window.
+    void identity;
+    const decision = quotaDecision(globalCount, globalLimit, null, limits.clientPerWindow);
     return { ...decision, backend: "local-fallback" };
   }
 
@@ -126,28 +122,20 @@ export class MemoryQuota {
 
 export class QuotaLatch {
   private globalUntil = new Map<QuotaKind, number>();
-  private clientUntil = new Map<string, number>();
 
-  blocked(kind: QuotaKind, identity: MarketDataClientIdentity, nowMs: number): boolean {
-    if (nowMs < (this.globalUntil.get(kind) ?? 0)) return true;
-    if (identity.status !== "verified") return false;
-    return nowMs < (this.clientUntil.get(`${kind}:${identity.ip}`) ?? 0);
+  blocked(kind: QuotaKind, _identity: MarketDataClientIdentity, nowMs: number): boolean {
+    return nowMs < (this.globalUntil.get(kind) ?? 0);
   }
 
   trip(
     kind: QuotaKind,
-    identity: MarketDataClientIdentity,
+    _identity: MarketDataClientIdentity,
     scope: "global" | "client",
     nowMs: number,
     limits: QuotaLimits,
   ): void {
-    if (scope === "global") {
-      this.globalUntil.set(kind, windowEndMs(nowMs, limits.windowSeconds));
-      return;
-    }
-    if (identity.status === "verified") {
-      this.clientUntil.set(`${kind}:${identity.ip}`, windowEndMs(nowMs, limits.clientWindowSeconds));
-    }
+    if (scope !== "global") return;
+    this.globalUntil.set(kind, windowEndMs(nowMs, limits.windowSeconds));
   }
 }
 
