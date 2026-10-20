@@ -22,6 +22,15 @@ export function sessionGapEligible(
   return gap !== null && Math.abs(gap) >= minAbsPercent;
 }
 
+/** Up-gap continuation only — negative session gaps belong in losers, not Gap Continuation. */
+export function sessionUpGapContinuationEligible(
+  input: { gap_percent?: number | null; change_percent?: number | null },
+  minAbsPercent: number,
+): boolean {
+  const gap = resolveSessionGapPercent(input);
+  return gap !== null && gap >= minAbsPercent;
+}
+
 function finite(value: number | null | undefined): number | null {
   if (value === null || value === undefined || !Number.isFinite(value)) return null;
   return value;

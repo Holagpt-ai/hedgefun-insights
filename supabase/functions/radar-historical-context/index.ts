@@ -109,22 +109,27 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
+  if (!authHeader?.startsWith("Bearer ")) {
     return new Response(JSON.stringify({ error: "unauthorized" }), {
       status: 401,
       headers: JSON_HEADERS,
     });
   }
 
-  const userClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: authData, error: authError } = await userClient.auth.getUser();
-  if (authError || !authData.user) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
-      headers: JSON_HEADERS,
+  const bearer = authHeader.slice("Bearer ".length).trim();
+  const anonReadOnly = bearer === anonKey;
+
+  if (!anonReadOnly) {
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
     });
+    const { data: authData, error: authError } = await userClient.auth.getUser();
+    if (authError || !authData.user) {
+      return new Response(JSON.stringify({ error: "unauthorized" }), {
+        status: 401,
+        headers: JSON_HEADERS,
+      });
+    }
   }
 
   let body: unknown;

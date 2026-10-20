@@ -20,8 +20,8 @@ import { resolveMarketSession } from "@/lib/price-utils";
 import type { MarketPulseIntelligenceRecord } from "@/lib/markets/market-pulse-contract";
 
 function formatVolume(volume: number | null): string {
-  if (volume === null || !Number.isFinite(volume)) return "—";
-  return volume.toLocaleString();
+  if (volume === null || !Number.isFinite(volume) || volume <= 0) return "Volume unavailable";
+  return `${volume.toLocaleString()} shares traded`;
 }
 
 function movementHeadline(item: MarketPulseIntelligenceRecord): string {
@@ -75,7 +75,7 @@ function PulseRow({
               {item.changePercent.toFixed(2)}%
             </span>
             <span className="text-muted-foreground"> · </span>
-            <span>{formatVolume(item.volume)} shares traded</span>
+            <span>{formatVolume(item.volume)}</span>
             <span className="text-muted-foreground"> · </span>
             <span>${item.price.toFixed(2)}</span>
           </p>

@@ -23,6 +23,7 @@ import {
 } from "./day-trade-float-enrichment";
 import type { ScreenerResultRow } from "@/lib/screeners/contract";
 import { useDayTradeQualificationMonitoring } from "@/hooks/useDayTradeQualificationMonitoring";
+import { monitoringStates } from "@/lib/day-trade/qualification-lifecycle-client";
 
 export function DayTradeRadarV2({
   rows,
@@ -119,6 +120,11 @@ export function DayTradeRadarV2({
 
   const qualification = useDayTradeQualificationMonitoring(boardVisible);
 
+  const qualifiedMonitoringCount = useMemo(() => {
+    const deskSymbols = new Set(deskRows.map((row) => row.symbol.trim().toUpperCase()));
+    return monitoringStates(qualification.monitoring, deskSymbols).length;
+  }, [deskRows, qualification.monitoring]);
+
   const openDetails = (row: RadarRankedRow) => {
     selectRow(row);
     setPinnedSymbol(row.symbol);
@@ -163,6 +169,7 @@ export function DayTradeRadarV2({
         status={resolved.status}
         qualifyingCount={boardVisible ? opportunityBoard.candidateUniverseCount : 0}
         topOpportunityCount={boardVisible ? deskRows.length : 0}
+        qualifiedMonitoringCount={boardVisible ? qualifiedMonitoringCount : 0}
         funnel={boardVisible ? opportunityBoard.funnel : undefined}
         syncedAt={resolved.syncedAt}
         providerAsOfMax={resolved.providerAsOfMax}
