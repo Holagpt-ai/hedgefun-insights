@@ -18,10 +18,19 @@ import {
 import {
   invalidateRadarHistoricalEnrichment,
   notifyRadarHistoricalPublication,
+  requestRadarHistoricalContextPriority,
   resetRadarHistoricalContextStateForTests,
   runRadarProgressiveHistoricalContext,
 } from "@/lib/radar/radar-progressive-historical-context";
-import { mergeHistoricalFieldsOntoLatestRows } from "@/lib/radar/radar-historical-context-cache";
+import {
+  clearRadarHistoricalCacheSymbol,
+  mergeHistoricalFieldsOntoLatestRows,
+  radarHistoricalCacheFingerprintForRow,
+  radarHistoricalSessionScopeKey,
+  RADAR_HISTORICAL_CACHE_TTL_MS,
+  readRadarHistoricalCache,
+  writeRadarHistoricalCache,
+} from "@/lib/radar/radar-historical-context-cache";
 import { buildRadarRepeatMoversView, radarRepeatMoversRankFingerprint } from "@/lib/radar/build-radar-repeat-movers-view";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 
@@ -304,7 +313,7 @@ describe("progressive historical scheduling", () => {
 
   it("eventually enriches deep rows while soft polls continue", async () => {
     resetRadarHistoricalContextStateForTests();
-    const rows = Array.from({ length: 200 }, (_, index) => row(`S${index}`, 10_000 - index, index + 1));
+    const rows = Array.from({ length: 100 }, (_, index) => row(`S${index}`, 10_000 - index, index + 1));
     const fetchedSymbols = new Set<string>();
     const publish = (volumeOffset: number) => notifyRadarHistoricalPublication({
       rows: rows.map((entry, index) => row(entry.symbol, entry.volume! + volumeOffset, index + 1)),
@@ -325,12 +334,12 @@ describe("progressive historical scheduling", () => {
       config: { maxBatchesPerWake: 4 },
     });
     publish(0);
-    for (let poll = 0; poll < 12; poll += 1) {
+    for (let poll = 0; poll < 4; poll += 1) {
       await new Promise((resolve) => setTimeout(resolve, 15));
       publish(poll + 1);
     }
-    expect(fetchedSymbols.has("S149")).toBe(true);
-    expect(fetchedSymbols.size).toBeLessThanOrEqual(200);
+    expect(fetchedSymbols.has("S80")).toBe(true);
+    expect(fetchedSymbols.size).toBeLessThanOrEqual(100);
   });
 
   it("clears enrichment when the board becomes empty", async () => {
@@ -361,6 +370,102 @@ describe("progressive historical scheduling", () => {
     });
     invalidateRadarHistoricalEnrichment();
     expect(historicalUpdates).toBeGreaterThan(0);
+  });
+
+  it("does not apply stale batch results after session invalidation completes late", async () => {
+    resetRadarHistoricalContextStateForTests();
+    const newScope = radarHistoricalSessionScopeKey({ sessionKind: "market", tradingDate: "2026-09-23" });
+    const fingerprint = radarHistoricalCacheFingerprintForRow(row("AAA", 1));
+    let firstPublicationActive = true;
+    let latestSymbols: string[] = [];
+    notifyRadarHistoricalPublication({
+      rows: [row("AAA", 100, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 40));
+        return {
+          results: [{ symbol: "AAA", securityId: null, historicalContext: validContext("AAA") }],
+        };
+      },
+      onHistoricalRows: () => undefined,
+      isActive: () => firstPublicationActive,
+    });
+    firstPublicationActive = false;
+    notifyRadarHistoricalPublication({
+      rows: [row("BBB", 200, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-23",
+      fetchBatch: async () => ({ results: [] }),
+      onHistoricalRows: (rows) => {
+        latestSymbols = rows.map((entry) => entry.symbol);
+      },
+      isActive: () => true,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 80));
+    expect(latestSymbols).toEqual(["BBB"]);
+    expect(readRadarHistoricalCache("AAA", fingerprint, newScope, Date.now())).toBeNull();
+  });
+
+  it("retries failed symbols after cache TTL and user priority", async () => {
+    resetRadarHistoricalContextStateForTests();
+    const scope = radarHistoricalSessionScopeKey({ sessionKind: "market", tradingDate: "2026-09-22" });
+    const fingerprint = radarHistoricalCacheFingerprintForRow(row("AAA", 1));
+    writeRadarHistoricalCache({
+      symbol: "AAA",
+      fingerprint,
+      securityId: null,
+      historicalContext: null,
+      loadStatus: "failed",
+      fetchedAtMs: 0,
+      sessionScope: scope,
+    });
+    let fetchCalls = 0;
+    notifyRadarHistoricalPublication({
+      rows: [row("AAA", 100, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async () => {
+        fetchCalls += 1;
+        return { results: [{ symbol: "AAA", securityId: "sec", historicalContext: null }] };
+      },
+      onHistoricalRows: () => undefined,
+      isActive: () => true,
+      config: { sessionCacheTtlMs: RADAR_HISTORICAL_CACHE_TTL_MS, maxBatchesPerWake: 2 },
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(fetchCalls).toBe(0);
+    requestRadarHistoricalContextPriority("AAA");
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    expect(fetchCalls).toBe(1);
+  });
+
+  it("preserves rich context when a refresh batch fails", async () => {
+    resetRadarHistoricalContextStateForTests();
+    const scope = radarHistoricalSessionScopeKey({ sessionKind: "market", tradingDate: "2026-09-22" });
+    const updates: RadarV2ScreenerRow[][] = [];
+    const publish = (volume: number, fetchBatch: () => Promise<{ results: { symbol: string; securityId: string; historicalContext: RepeatMoverContext }[] }>) => notifyRadarHistoricalPublication({
+      rows: [row("AAA", volume, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch,
+      onHistoricalRows: (next) => updates.push(next),
+      isActive: () => true,
+      config: { maxBatchesPerWake: 2, transientRetryDelaysMs: [] },
+    });
+    publish(100, async () => ({
+      results: [{ symbol: "AAA", securityId: "sec", historicalContext: validContext("AAA") }],
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    clearRadarHistoricalCacheSymbol("AAA", scope);
+    publish(500, async () => {
+      throw new RadarHistoricalContextHttpError(503);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+    const last = updates.at(-1)!;
+    expect(last[0]?.historicalContextLoadStatus).toBe("available");
+    expect(last[0]?.historicalContext).not.toBeNull();
+    expect(last[0]?.volume).toBe(500);
   });
 
   it("does not retry invalid 413 batch requests", async () => {

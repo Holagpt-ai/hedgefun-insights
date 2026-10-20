@@ -206,6 +206,7 @@ export function useScreenerData(
     let hasLoadedOnce = false;
     let lastVerifiedRadar: RadarV2Decision | null = null;
     let repeatMoversEnrichmentStarted = false;
+    let radarPollGeneration = 0;
     const lastViewRef = { current: null as ScreenerTabView | null };
     const lastSourceRef = { current: null as ScreenerDataSource | null };
 
@@ -230,50 +231,72 @@ export function useScreenerData(
       ) {
         return;
       }
-      setStatus(view.status);
+      let nextView = view;
+      if (
+        soft
+        && hasLoadedOnce
+        && tabId === "day_trade_radar"
+        && lastViewRef.current?.rows?.length
+        && view.rows.length > 0
+      ) {
+        const priorRows = lastViewRef.current.rows as RadarV2ScreenerRow[];
+        const incomingRows = view.rows as RadarV2ScreenerRow[];
+        const priorTradingDate = priorRows[0]?.radar_trading_date ?? null;
+        const incomingTradingDate = incomingRows[0]?.radar_trading_date ?? null;
+        if (priorTradingDate && priorTradingDate === incomingTradingDate) {
+          nextView = {
+            ...view,
+            rows: mergeHistoricalFieldsOntoLatestRows(incomingRows, priorRows) as ScreenerResultRow[],
+            repeatMoversView: view.repeatMoversView ?? lastViewRef.current.repeatMoversView ?? undefined,
+          };
+        }
+      }
+      setStatus(nextView.status);
       setNhlBaselineStatus(view.nhl_baseline_status ?? null);
       setTabEvaluationEvidence(view.tab_evaluation_evidence ?? null);
-      setRepeatMoversView(view.repeatMoversView ?? null);
-      if (view.repeatMoversView) {
-        setRepeatMoversLoadState({ status: "ready", view: view.repeatMoversView });
+      setRepeatMoversView(nextView.repeatMoversView ?? null);
+      if (nextView.repeatMoversView) {
+        setRepeatMoversLoadState({ status: "ready", view: nextView.repeatMoversView });
+      } else if (soft && lastViewRef.current?.repeatMoversView) {
+        setRepeatMoversView(lastViewRef.current.repeatMoversView);
       }
-      lastViewRef.current = view;
+      lastViewRef.current = nextView;
       lastSourceRef.current = resolvedSource;
       setTruthState(
         resolveScreenerTruthState({
           tabId,
-          status: view.status,
-          rowCount: view.rows.length,
-          syncedAt: view.synced_at,
-          nhlBaselineStatus: view.nhl_baseline_status,
-          tabEvaluationEvidence: view.tab_evaluation_evidence,
+          status: nextView.status,
+          rowCount: nextView.rows.length,
+          syncedAt: nextView.synced_at,
+          nhlBaselineStatus: nextView.nhl_baseline_status,
+          tabEvaluationEvidence: nextView.tab_evaluation_evidence,
           source: resolvedSource,
         }),
       );
       if (
-        view.status === "available" ||
-        view.status === "stale" ||
-        view.status === "empty" ||
-        view.status === "initializing"
+        nextView.status === "available" ||
+        nextView.status === "stale" ||
+        nextView.status === "empty" ||
+        nextView.status === "initializing"
       ) {
-        setRows(view.rows);
-        setSyncedAt(view.synced_at);
-        setProviderAsOfMax(view.provider_as_of_max);
-        setMarketFeed(view.market_feed ?? null);
+        setRows(nextView.rows);
+        setSyncedAt(nextView.synced_at);
+        setProviderAsOfMax(nextView.provider_as_of_max);
+        setMarketFeed(nextView.market_feed ?? null);
         hasLoadedOnce = true;
       } else if (!soft) {
-        setRows(view.rows);
-        setSyncedAt(view.synced_at);
-        setProviderAsOfMax(view.provider_as_of_max);
-        setMarketFeed(view.market_feed ?? null);
+        setRows(nextView.rows);
+        setSyncedAt(nextView.synced_at);
+        setProviderAsOfMax(nextView.provider_as_of_max);
+        setMarketFeed(nextView.market_feed ?? null);
       }
 
       clearStaleTimer();
       if (
-        (view.status === "available" || view.status === "empty") &&
-        view.synced_at
+        (nextView.status === "available" || nextView.status === "empty") &&
+        nextView.synced_at
       ) {
-        const delay = msUntilStaleTransition(view.synced_at, Date.now());
+        const delay = msUntilStaleTransition(nextView.synced_at, Date.now());
         if (delay !== null) {
           staleTimer = setTimeout(() => {
             if (cancelled) return;
@@ -381,6 +404,7 @@ export function useScreenerData(
           applyView(view, soft, "radar-v2");
 
           if (tabId === "day_trade_radar" && view.rows.length > 0) {
+            const pollGeneration = ++radarPollGeneration;
             if (!cancelled && !repeatMoversEnrichmentStarted) {
               setRepeatMoversLoadState({ status: "loading" });
               repeatMoversEnrichmentStarted = true;
@@ -393,12 +417,14 @@ export function useScreenerData(
             } else {
               void (async () => {
                 const { data: sessionData } = await supabase.auth.getSession();
+                if (cancelled || pollGeneration !== radarPollGeneration) return;
                 const token = resolveRadarHistoricalContextAccessToken(
                   sessionData.session?.access_token,
                 );
-                const radarRows = view.rows as RadarV2ScreenerRow[];
+                const radarRows = (lastViewRef.current?.rows ?? view.rows) as RadarV2ScreenerRow[];
+                if (!radarRows.length) return;
                 const publishHistoricalRows = (historicalRows: RadarV2ScreenerRow[], _publicationSeq: number) => {
-                  if (cancelled || tabId !== "day_trade_radar") return;
+                  if (cancelled || tabId !== "day_trade_radar" || pollGeneration !== radarPollGeneration) return;
                   const latestRows = (lastViewRef.current?.rows ?? view.rows) as RadarV2ScreenerRow[];
                   if (!latestRows.length) return;
                   const mergedRows = mergeHistoricalFieldsOntoLatestRows(latestRows, historicalRows);
@@ -437,7 +463,7 @@ export function useScreenerData(
                     requests,
                   }),
                   onHistoricalRows: publishHistoricalRows,
-                  isActive: () => !cancelled && tabId === "day_trade_radar",
+                  isActive: () => !cancelled && tabId === "day_trade_radar" && pollGeneration === radarPollGeneration,
                   isHidden: () => pauseWhenHidden && typeof document !== "undefined" && document.hidden,
                 });
               })();

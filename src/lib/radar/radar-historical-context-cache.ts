@@ -2,19 +2,40 @@ import type { RadarHistoricalContextEnrichmentRequest } from "@/lib/radar/radar-
 import type { RadarHistoricalContextLoadStatus } from "@/lib/radar/radar-historical-context-types";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
+import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-mover-input";
 
-/** Material inputs for repeat-mover context. Excludes live price/volume polling fields. */
+function normalizeFingerprintTier(tier: string | null | undefined): string {
+  if (tier === "NOTABLE" || tier === "SIGNIFICANT" || tier === "EXTREME") return tier;
+  return "none";
+}
+
+/** Material inputs for repeat-mover context. Excludes live polling and securityId (validated separately). */
 export function radarHistoricalQueryFingerprint(
   request: Pick<
     RadarHistoricalContextEnrichmentRequest,
-    "symbol" | "securityId" | "sessionDate" | "tier"
+    "symbol" | "sessionDate" | "tier"
   >,
 ): string {
   const symbol = request.symbol.trim().toUpperCase();
-  const securityId = request.securityId?.trim() || "none";
   const sessionDate = request.sessionDate?.trim() || "none";
-  const tier = request.tier?.trim() || "none";
-  return `${symbol}|${securityId}|${sessionDate}|${tier}`;
+  const tier = normalizeFingerprintTier(request.tier);
+  return `${symbol}|${sessionDate}|${tier}`;
+}
+
+/** Canonical cache fingerprint for a Radar row (normalized tier, not raw signal_tier). */
+export function radarHistoricalCacheFingerprintForRow(row: RadarV2ScreenerRow): string {
+  return radarHistoricalQueryFingerprint(mapRadarEnrichmentRequest(row));
+}
+
+/** Canonical cache fingerprint for an enrichment request payload. */
+export function radarHistoricalCacheFingerprintForRequest(
+  request: RadarHistoricalContextEnrichmentRequest,
+): string {
+  return radarHistoricalQueryFingerprint({
+    symbol: request.symbol,
+    sessionDate: request.sessionDate ?? null,
+    tier: normalizeFingerprintTier(request.tier),
+  });
 }
 
 /** Session boundary for cache reuse (not tied to synced_at polling). */
@@ -56,6 +77,18 @@ function pruneCache(maxEntries: number): void {
   }
 }
 
+function lookupCacheEntry(
+  symbol: string,
+  fingerprint: string,
+  sessionScope: string,
+): RadarHistoricalCacheEntry | null {
+  const entry = cacheBySymbol.get(symbol.trim().toUpperCase());
+  if (!entry) return null;
+  if (entry.sessionScope !== sessionScope) return null;
+  if (entry.fingerprint !== fingerprint) return null;
+  return entry;
+}
+
 export function readRadarHistoricalCache(
   symbol: string,
   fingerprint: string,
@@ -63,16 +96,22 @@ export function readRadarHistoricalCache(
   nowMs: number,
   ttlMs = RADAR_HISTORICAL_CACHE_TTL_MS,
 ): RadarHistoricalCacheEntry | null {
-  const entry = cacheBySymbol.get(symbol.trim().toUpperCase());
+  const entry = lookupCacheEntry(symbol, fingerprint, sessionScope);
   if (!entry) return null;
-  if (entry.sessionScope !== sessionScope) return null;
-  if (entry.fingerprint !== fingerprint) return null;
   if (nowMs - entry.fetchedAtMs > ttlMs) return null;
   if (entry.loadStatus === "loading" || entry.loadStatus === "pending") {
     return null;
   }
   touchEntry(symbol.trim().toUpperCase(), entry);
   return entry;
+}
+
+export function clearRadarHistoricalCacheSymbol(symbol: string, sessionScope?: string): void {
+  const normalized = symbol.trim().toUpperCase();
+  const entry = cacheBySymbol.get(normalized);
+  if (!entry) return;
+  if (sessionScope && entry.sessionScope !== sessionScope) return;
+  cacheBySymbol.delete(normalized);
 }
 
 export function writeRadarHistoricalCache(entry: {
@@ -110,13 +149,7 @@ export function applyRadarHistoricalCacheToRows(input: {
 }): RadarV2ScreenerRow[] {
   const ttlMs = input.ttlMs ?? RADAR_HISTORICAL_CACHE_TTL_MS;
   return input.rows.map((row) => {
-    const request = {
-      symbol: row.symbol,
-      securityId: row.securityId ?? null,
-      sessionDate: row.radar_trading_date ?? null,
-      tier: row.signal_tier ?? null,
-    };
-    const fingerprint = radarHistoricalQueryFingerprint(request);
+    const fingerprint = radarHistoricalCacheFingerprintForRow(row);
     const cached = readRadarHistoricalCache(row.symbol, fingerprint, input.sessionScope, input.nowMs, ttlMs);
     if (!cached) {
       return {

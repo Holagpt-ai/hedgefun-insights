@@ -10,15 +10,16 @@ import {
 import { RADAR_HISTORICAL_CONTEXT_MAX_REQUESTS_PER_BATCH } from "@/lib/radar/radar-historical-context-bounds";
 import {
   applyRadarHistoricalCacheToRows,
+  clearRadarHistoricalCacheSymbol,
   mergeHistoricalFieldsOntoLatestRows,
-  radarHistoricalQueryFingerprint,
+  radarHistoricalCacheFingerprintForRequest,
+  radarHistoricalCacheFingerprintForRow,
   RADAR_HISTORICAL_CACHE_TTL_MS,
   readRadarHistoricalCache,
   writeRadarHistoricalCache,
   radarHistoricalSessionScopeKey,
   resetRadarHistoricalContextCacheForTests,
 } from "@/lib/radar/radar-historical-context-cache";
-import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-mover-input";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
 import {
   classifyHistoricalContextBatchResult,
@@ -66,7 +67,7 @@ type CoordinatorState = {
   publicationSeq: number;
   latestRows: RadarV2ScreenerRow[];
   historicalRows: RadarV2ScreenerRow[];
-  inFlight: Set<string>;
+  inFlight: Map<string, number>;
   runnerPromise: Promise<void> | null;
   diagnostics: RadarHistoricalProgressiveDiagnostics;
   deps: CoordinatorDeps | null;
@@ -78,7 +79,7 @@ const coordinator: CoordinatorState = {
   publicationSeq: 0,
   latestRows: [],
   historicalRows: [],
-  inFlight: new Set(),
+  inFlight: new Map(),
   runnerPromise: null,
   diagnostics: {
     completedBatches: 0,
@@ -97,6 +98,9 @@ export function requestRadarHistoricalContextPriority(symbol: string): void {
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return;
   userPrioritySymbols.add(normalized);
+  if (coordinator.sessionScope) {
+    clearRadarHistoricalCacheSymbol(normalized, coordinator.sessionScope);
+  }
   scheduleRunner();
 }
 
@@ -133,12 +137,21 @@ export function invalidateRadarHistoricalEnrichment(lifecycleId?: number): void 
   if (lifecycleId !== undefined) void lifecycleId;
 }
 
-function rowBySymbol(rows: readonly RadarV2ScreenerRow[]): Map<string, RadarV2ScreenerRow> {
-  return new Map(rows.map((row) => [row.symbol.toUpperCase(), row]));
+function isCoordinatorOwner(lifecycleId: number, sessionScope: string): boolean {
+  return lifecycleId === coordinator.lifecycleId && sessionScope === coordinator.sessionScope;
 }
 
-function fingerprintForRow(row: RadarV2ScreenerRow): string {
-  return radarHistoricalQueryFingerprint(mapRadarEnrichmentRequest(row));
+function releaseInFlightForBatch(batchRequests: RadarHistoricalContextEnrichmentRequest[], lifecycleId: number): void {
+  for (const request of batchRequests) {
+    const symbol = request.symbol.toUpperCase();
+    if (coordinator.inFlight.get(symbol) === lifecycleId) {
+      coordinator.inFlight.delete(symbol);
+    }
+  }
+}
+
+function rowBySymbol(rows: readonly RadarV2ScreenerRow[]): Map<string, RadarV2ScreenerRow> {
+  return new Map(rows.map((row) => [row.symbol.toUpperCase(), row]));
 }
 
 function symbolsNeedingFetch(
@@ -150,19 +163,10 @@ function symbolsNeedingFetch(
   return rows.filter((row) => {
     const symbol = row.symbol.toUpperCase();
     if (coordinator.inFlight.has(symbol)) return false;
-    const status = coordinator.historicalRows.find((entry) => entry.symbol.toUpperCase() === symbol)
-      ?.historicalContextLoadStatus;
-    if (
-      status === "available"
-      || status === "limited"
-      || status === "unavailable"
-      || status === "failed"
-    ) {
-      return false;
-    }
-    const fingerprint = fingerprintForRow(row);
+    const fingerprint = radarHistoricalCacheFingerprintForRow(row);
     const cached = readRadarHistoricalCache(symbol, fingerprint, sessionScope, nowMs, ttlMs);
-    return !cached;
+    if (cached) return false;
+    return true;
   });
 }
 
@@ -186,6 +190,7 @@ function rememberBatchResults(
   sessionScope: string,
   nowMs: number,
   priorHistorical: readonly RadarV2ScreenerRow[],
+  latestRows: readonly RadarV2ScreenerRow[],
 ): RadarV2ScreenerRow[] {
   const priorBySymbol = rowBySymbol(priorHistorical);
   const updates: RadarV2ScreenerRow[] = [];
@@ -201,26 +206,32 @@ function rememberBatchResults(
       });
     const historicalContext = coerced ?? prior?.historicalContext ?? null;
     if (loadStatus === "pending" || loadStatus === "loading") continue;
-    const fingerprint = radarHistoricalQueryFingerprint({
-      symbol: result.symbol,
-      securityId: result.securityId,
-      sessionDate: prior?.radar_trading_date ?? null,
-      tier: prior?.signal_tier ?? null,
+    const latest = latestRows.find((entry) => entry.symbol.toUpperCase() === symbol) ?? prior;
+    if (!latest) continue;
+    const resolvedSecurityId = result.securityId ?? latest.securityId ?? null;
+    if (
+      latest.securityId
+      && resolvedSecurityId
+      && latest.securityId !== resolvedSecurityId
+    ) {
+      continue;
+    }
+    const fingerprint = radarHistoricalCacheFingerprintForRow({
+      ...latest,
+      securityId: resolvedSecurityId,
     });
     writeRadarHistoricalCache({
       symbol: result.symbol,
       fingerprint,
-      securityId: result.securityId,
+      securityId: resolvedSecurityId,
       historicalContext,
       loadStatus,
       fetchedAtMs: nowMs,
       sessionScope,
     });
-    const latest = coordinator.latestRows.find((entry) => entry.symbol.toUpperCase() === symbol) ?? prior;
-    if (!latest) continue;
     updates.push({
       ...latest,
-      securityId: result.securityId ?? latest.securityId ?? null,
+      securityId: resolvedSecurityId,
       historicalContext,
       historicalContextLoadStatus: loadStatus,
     });
@@ -259,18 +270,22 @@ function sleep(ms: number): Promise<void> {
 
 async function runBatches(lifecycleId: number): Promise<void> {
   const deps = coordinator.deps;
-  if (!deps || !coordinator.sessionScope) return;
+  const sessionScopeAtStart = coordinator.sessionScope;
+  if (!deps || !sessionScopeAtStart) return;
   const config = { ...RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS, ...deps.config };
   let batchesStarted = 0;
 
-  while (deps.isActive() && lifecycleId === coordinator.lifecycleId) {
+  while (
+    deps.isActive()
+    && isCoordinatorOwner(lifecycleId, sessionScopeAtStart)
+  ) {
     if (config.pauseWhenHidden && deps.isHidden?.()) {
       await sleep(500);
       continue;
     }
     const pending = symbolsNeedingFetch(
       coordinator.latestRows,
-      coordinator.sessionScope,
+      sessionScopeAtStart,
       Date.now(),
       config.sessionCacheTtlMs,
     );
@@ -291,13 +306,13 @@ async function runBatches(lifecycleId: number): Promise<void> {
     if (batchRequests.length > RADAR_HISTORICAL_CONTEXT_MAX_REQUESTS_PER_BATCH) continue;
 
     for (const request of batchRequests) {
-      coordinator.inFlight.add(request.symbol.toUpperCase());
+      coordinator.inFlight.set(request.symbol.toUpperCase(), lifecycleId);
     }
 
     let response: RadarHistoricalContextBatchResponse | null = null;
     try {
       for (let attempt = 0; attempt <= config.transientRetryDelaysMs.length; attempt += 1) {
-        if (!deps.isActive() || lifecycleId !== coordinator.lifecycleId) break;
+        if (!deps.isActive() || !isCoordinatorOwner(lifecycleId, sessionScopeAtStart)) break;
         try {
           response = await deps.fetchBatch(batchRequests);
           break;
@@ -316,32 +331,41 @@ async function runBatches(lifecycleId: number): Promise<void> {
         }
       }
     } finally {
-      for (const request of batchRequests) {
-        coordinator.inFlight.delete(request.symbol.toUpperCase());
-      }
+      releaseInFlightForBatch(batchRequests, lifecycleId);
+    }
+
+    if (!isCoordinatorOwner(lifecycleId, sessionScopeAtStart) || !deps.isActive()) {
+      break;
     }
 
     const publicationSeqAtStart = coordinator.publicationSeq;
+    const latestRowsSnapshot = coordinator.latestRows;
+    const priorHistorical = coordinator.historicalRows.length > 0
+      ? coordinator.historicalRows
+      : latestRowsSnapshot;
+
     if (!response) {
       coordinator.diagnostics.failedBatches += 1;
       const failed = new Set(batchRequests.map((request) => request.symbol.toUpperCase()));
       const nowMs = Date.now();
       for (const request of batchRequests) {
-        const latest = coordinator.latestRows.find(
-          (entry) => entry.symbol.toUpperCase() === request.symbol.toUpperCase(),
+        const symbol = request.symbol.toUpperCase();
+        const latest = latestRowsSnapshot.find(
+          (entry) => entry.symbol.toUpperCase() === symbol,
         );
+        const prior = priorHistorical.find((entry) => entry.symbol.toUpperCase() === symbol);
         writeRadarHistoricalCache({
           symbol: request.symbol,
-          fingerprint: radarHistoricalQueryFingerprint(request),
+          fingerprint: radarHistoricalCacheFingerprintForRequest(request),
           securityId: request.securityId ?? latest?.securityId ?? null,
-          historicalContext: null,
+          historicalContext: prior?.historicalContext ?? latest?.historicalContext ?? null,
           loadStatus: "failed",
           fetchedAtMs: nowMs,
-          sessionScope: coordinator.sessionScope,
+          sessionScope: sessionScopeAtStart,
         });
       }
       coordinator.historicalRows = mergeHistoricalContextBatchIntoRows(
-        coordinator.historicalRows.length > 0 ? coordinator.historicalRows : coordinator.latestRows,
+        priorHistorical,
         { results: [] },
         { failedSymbols: failed },
       );
@@ -349,12 +373,13 @@ async function runBatches(lifecycleId: number): Promise<void> {
       const nowMs = Date.now();
       const batchHistorical = rememberBatchResults(
         response,
-        coordinator.sessionScope,
+        sessionScopeAtStart,
         nowMs,
-        coordinator.historicalRows.length > 0 ? coordinator.historicalRows : coordinator.latestRows,
+        priorHistorical,
+        latestRowsSnapshot,
       );
       coordinator.historicalRows = mergeHistoricalFieldsOntoLatestRows(
-        coordinator.historicalRows.length > 0 ? coordinator.historicalRows : coordinator.latestRows,
+        priorHistorical,
         batchHistorical,
       );
       coordinator.diagnostics.completedBatches += 1;
@@ -364,7 +389,7 @@ async function runBatches(lifecycleId: number): Promise<void> {
       }).length;
     }
 
-    if (lifecycleId === coordinator.lifecycleId && deps.isActive()) {
+    if (isCoordinatorOwner(lifecycleId, sessionScopeAtStart) && deps.isActive()) {
       deps.onHistoricalRows(
         mergeHistoricalFieldsOntoLatestRows(coordinator.latestRows, coordinator.historicalRows),
         publicationSeqAtStart,
@@ -373,20 +398,17 @@ async function runBatches(lifecycleId: number): Promise<void> {
     batchesStarted += 1;
   }
 
-  coordinator.runnerPromise = null;
-  const pendingAfterWake = symbolsNeedingFetch(
-    coordinator.latestRows,
-    coordinator.sessionScope,
-    Date.now(),
-    config.sessionCacheTtlMs,
-  );
-  if (
-    deps.isActive()
-    && lifecycleId === coordinator.lifecycleId
-    && pendingAfterWake.length > 0
-    && batchesStarted > 0
-  ) {
-    scheduleRunner();
+  if (isCoordinatorOwner(lifecycleId, sessionScopeAtStart)) {
+    coordinator.runnerPromise = null;
+    const pendingAfterWake = symbolsNeedingFetch(
+      coordinator.latestRows,
+      sessionScopeAtStart,
+      Date.now(),
+      config.sessionCacheTtlMs,
+    );
+    if (deps.isActive() && pendingAfterWake.length > 0 && batchesStarted > 0) {
+      scheduleRunner();
+    }
   }
 }
 
