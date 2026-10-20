@@ -399,7 +399,15 @@ export function useScreenerData(
                       || err instanceof RadarHistoricalContextResponseError
                       ? "service_http_error"
                       : "enrichment_failed";
-                  setRepeatMoversLoadState({ status: "unavailable", reason });
+                  try {
+                    const fallbackView = buildRadarRepeatMoversView(view.rows as RadarV2ScreenerRow[], {
+                      nowMs: Date.now(),
+                    });
+                    view = { ...view, repeatMoversView: fallbackView };
+                    setRepeatMoversLoadState({ status: "ready", view: fallbackView });
+                  } catch {
+                    setRepeatMoversLoadState({ status: "unavailable", reason });
+                  }
                 }
               }
             }

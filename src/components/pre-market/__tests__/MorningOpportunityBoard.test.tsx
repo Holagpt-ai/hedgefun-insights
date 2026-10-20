@@ -10,6 +10,8 @@ import type { MorningOpportunityBoard as BoardModel } from "@/lib/am-inbox/morni
 
 const model: BoardModel = {
   emptyMessage: null,
+  exclusionHints: [],
+  radarSessionLabel: "pre-market",
   sections: [
     {
       id: "top_momentum",
@@ -61,7 +63,14 @@ describe("MorningOpportunityBoard", () => {
   it("shows the empty message without sample symbols", () => {
     render(
       <MemoryRouter>
-        <MorningOpportunityBoard model={{ sections: [], emptyMessage: "No qualifying movers yet" }} />
+        <MorningOpportunityBoard
+          model={{
+            sections: [],
+            emptyMessage: "No qualifying movers yet",
+            exclusionHints: ["2 names: Volume only — no momentum, gap, or participation path"],
+            radarSessionLabel: "pre-market",
+          }}
+        />
       </MemoryRouter>,
     );
     expect(screen.getByText("No qualifying movers yet")).toBeInTheDocument();

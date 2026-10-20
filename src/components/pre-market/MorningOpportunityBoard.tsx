@@ -109,7 +109,19 @@ export function MorningOpportunityBoard({
     return (
       <section className="flex flex-col gap-1" aria-label="Morning Opportunity">
         <h2 className="text-sm font-semibold">Morning Opportunity</h2>
+        {model.radarSessionLabel ? (
+          <p className="text-[10px] text-muted-foreground">
+            Radar session: {model.radarSessionLabel} · observations may differ from other tabs
+          </p>
+        ) : null}
         <p className="text-xs text-muted-foreground">{model.emptyMessage}</p>
+        {model.exclusionHints.length > 0 ? (
+          <ul className="list-inside list-disc text-[11px] text-muted-foreground">
+            {model.exclusionHints.map((hint) => (
+              <li key={hint}>{hint}</li>
+            ))}
+          </ul>
+        ) : null}
       </section>
     );
   }
@@ -120,6 +132,7 @@ export function MorningOpportunityBoard({
         <h2 className="text-sm font-semibold">Morning Opportunity</h2>
         <p className="text-[11px] text-muted-foreground">
           Strongest qualifying names · volume first · event urgency second
+          {model.radarSessionLabel ? ` · ${model.radarSessionLabel}` : ""}
         </p>
       </div>
       {model.sections.map((section) => (

@@ -71,4 +71,7 @@ export type MorningOpportunitySection = {
 export type MorningOpportunityBoard = {
   sections: MorningOpportunitySection[];
   emptyMessage: string | null;
+  /** Defensible exclusion summaries when the board is empty but radar rows exist. */
+  exclusionHints: string[];
+  radarSessionLabel: string | null;
 };
