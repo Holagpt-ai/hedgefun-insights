@@ -10,8 +10,8 @@ import {
 
 export type { ContinuationRvolMetricKind };
 
-/** Unknown baseline: conservative ranking authority (never uses session volume as denominator). */
-const UNKNOWN_BASELINE_CONFIDENCE: RvolConfidenceState = "INSUFFICIENT_HISTORY";
+/** No persisted baseline metadata — use neutral authority (not INSUFFICIENT_HISTORY penalty). */
+const NEUTRAL_RANKING_CONFIDENCE: RvolConfidenceState = "MEDIUM";
 
 /**
  * Late-session `context.rvol` is the raw participation ratio captured at handoff time.
@@ -35,15 +35,15 @@ export function continuationRankingRvolFromContext(
   const baselineVolume = context.rvolBaselineVolume ?? null;
   const baselineSampleSize = context.rvolBaselineSampleSize ?? null;
 
-  if (metricKind === null || (baselineVolume === null && baselineSampleSize === null)) {
-    return rankingRvolFromRaw(raw, UNKNOWN_BASELINE_CONFIDENCE);
+  if (metricKind === null && baselineVolume === null && baselineSampleSize === null) {
+    return rankingRvolFromRaw(raw, NEUTRAL_RANKING_CONFIDENCE);
   }
 
   const assessed = assessRvolConfidence({
     rawRvol: raw,
     baselineVolume,
     baselineSampleSize,
-    metricKind,
+    metricKind: metricKind ?? "time_adjusted",
   });
-  return assessed.rankingRvol ?? rankingRvolFromRaw(raw, UNKNOWN_BASELINE_CONFIDENCE);
+  return assessed.rankingRvol ?? rankingRvolFromRaw(raw, NEUTRAL_RANKING_CONFIDENCE);
 }

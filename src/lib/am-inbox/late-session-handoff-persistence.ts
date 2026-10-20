@@ -5,6 +5,7 @@ import type { LateSessionContinuationContext } from "@/lib/am-inbox/late-session
 import { resolveLateSessionExpiryState } from "@/lib/am-inbox/late-session-expiry";
 import type { RadarRepeatMoverProfileFreshnessState } from "@/lib/radar/radar-repeat-movers-types";
 import type { SecurityId } from "@/types/security-identity";
+import { parseRvolCaptureFromEvidenceLabels } from "@/lib/am-inbox/rvol-capture-evidence";
 
 /**
  * Production handoff rows persist `rvol` without metric kind/baseline columns.
@@ -57,6 +58,7 @@ export function mapPersistedLateSessionRow(
     sourceCategory: row.source_category,
     amSessionDate,
   });
+  const rvolMeta = parseRvolCaptureFromEvidenceLabels(row.evidence_labels ?? []);
   return {
     securityId: (row.security_id as SecurityId | null) ?? null,
     symbol: row.symbol.trim().toUpperCase(),
@@ -66,11 +68,10 @@ export function mapPersistedLateSessionRow(
     lastPrice: readNumber(row.last_price),
     sessionMovePct: readNumber(row.session_move_pct),
     volume: readNumber(row.volume),
-    /** Untyped persisted ratio — do not set rvolMetricKind without schema metadata. */
     rvol: readNumber(row.rvol),
-    rvolMetricKind: null,
-    rvolBaselineVolume: null,
-    rvolBaselineSampleSize: null,
+    rvolMetricKind: rvolMeta.metricKind,
+    rvolBaselineVolume: rvolMeta.baselineVolume,
+    rvolBaselineSampleSize: rvolMeta.baselineSampleSize,
     dollarVolume: readNumber(row.dollar_volume),
     closeDistanceFromHodPct: readNumber(row.close_distance_from_hod_pct),
     afterHoursExtends: row.after_hours_extends,

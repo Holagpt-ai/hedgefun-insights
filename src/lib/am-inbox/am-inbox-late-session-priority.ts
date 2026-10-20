@@ -122,7 +122,9 @@ export function compareAmInboxLateSessionCandidates(
   const volDiff = finiteOrZero(b.context.volume) - finiteOrZero(a.context.volume);
   if (volDiff !== 0) return volDiff;
 
-  const dollarDiff = finiteOrZero(b.context.dollarVolume) - finiteOrZero(a.context.dollarVolume);
+  const dollarDiff =
+    finiteOrZero(resolveLateSessionDollarVolume(b.context)) -
+    finiteOrZero(resolveLateSessionDollarVolume(a.context));
   if (dollarDiff !== 0) return dollarDiff;
 
   const rvolDiff =

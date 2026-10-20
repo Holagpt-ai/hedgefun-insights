@@ -38,6 +38,9 @@ export const EVENT_URGENCY_POINTS: Record<IntelligenceEventType, number> = {
   LATE_DAY_ACCELERATION: 14,
   VWAP_RECLAIM: 12,
   VWAP_LOSS: 4,
+  VWAP_REJECTION: 8,
+  VWAP_HOLD: 10,
+  VWAP_BREAKDOWN: 6,
 };
 
 export const EVENT_STACK_BONUS = 6;

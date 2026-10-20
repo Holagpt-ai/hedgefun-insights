@@ -3,6 +3,12 @@
  */
 
 import { easternParts } from "../markets/session-schedule.ts";
+import {
+  VWAP_BREAKDOWN_MIN_MOVE60_PCT,
+  VWAP_HOLD_MIN_DURATION_MS,
+  VWAP_REJECTION_SEQUENCE_WINDOW_MS,
+  VWAP_TRANSITION_PULSE_MS,
+} from "../config/vwap-momentum.config.ts";
 
 export const SCANNER_EVENT_TYPES = [
   "HOD_BREAK",
@@ -131,6 +137,8 @@ export type ScannerEventEvalInput = {
   lastHodBreakMs: number | null;
   lastVwapReclaimMs: number | null;
   lastVwapLossMs: number | null;
+  /** When true, session VWAP is incomplete — suppress VWAP momentum qualification. */
+  vwapPartial?: boolean;
   previousClose: number | null;
   sessionOpen: number | null;
   gapPercent: number | null;
@@ -254,10 +262,15 @@ export function qualifyHodBreak(
   );
 }
 
+function vwapEvidenceOk(input: ScannerEventEvalInput): boolean {
+  return input.vwapPartial !== true && input.vwapSide !== "unknown";
+}
+
 export function qualifyVwapReclaim(
   input: ScannerEventEvalInput,
   cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
 ): boolean {
+  if (!vwapEvidenceOk(input)) return false;
   if (!liquidityOk(input, cfg)) return false;
   if (input.vwapSide !== "above") return false;
   if (
@@ -277,6 +290,7 @@ export function qualifyVwapLoss(
   input: ScannerEventEvalInput,
   cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
 ): boolean {
+  if (!vwapEvidenceOk(input)) return false;
   if (!finite(input.lastPrice) || !(input.lastPrice >= cfg.minPrice)) return false;
   if (input.vwapSide !== "below") return false;
   if (
@@ -405,8 +419,15 @@ export const SCANNER_EVENT_PRODUCT_ALIASES = {
 } as const;
 
 export const DERIVED_VOLUME_ACCELERATION_EVENT = "VOLUME_ACCELERATION" as const;
+export const DERIVED_VWAP_REJECTION_EVENT = "VWAP_REJECTION" as const;
+export const DERIVED_VWAP_HOLD_EVENT = "VWAP_HOLD" as const;
+export const DERIVED_VWAP_BREAKDOWN_EVENT = "VWAP_BREAKDOWN" as const;
 
-export type DerivedScannerEventType = typeof DERIVED_VOLUME_ACCELERATION_EVENT;
+export type DerivedScannerEventType =
+  | typeof DERIVED_VOLUME_ACCELERATION_EVENT
+  | typeof DERIVED_VWAP_REJECTION_EVENT
+  | typeof DERIVED_VWAP_HOLD_EVENT
+  | typeof DERIVED_VWAP_BREAKDOWN_EVENT;
 
 export type IntelligenceEventType = ScannerEventType | DerivedScannerEventType;
 
@@ -417,6 +438,53 @@ export function qualifyVolumeAcceleration(
   if (!liquidityOk(input, cfg)) return false;
   return finite(input.volumeAccelerationPct) &&
     input.volumeAccelerationPct >= cfg.volumeAccelerationMinPct;
+}
+
+/** Failed reclaim: recent reclaim followed by loss within sequence window, now below VWAP. */
+export function qualifyVwapRejection(
+  input: ScannerEventEvalInput,
+  cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
+): boolean {
+  if (!vwapEvidenceOk(input)) return false;
+  if (input.vwapSide !== "below") return false;
+  const reclaim = input.lastVwapReclaimMs;
+  const loss = input.lastVwapLossMs;
+  if (reclaim === null || loss === null || loss < reclaim) return false;
+  const age = input.eventNowMs - loss;
+  if (age < 0 || age > VWAP_REJECTION_SEQUENCE_WINDOW_MS) return false;
+  return recentPulse(loss, input.eventNowMs, cfg.transitionPulseMs) &&
+    (input.eventNowMs - reclaim) <= VWAP_REJECTION_SEQUENCE_WINDOW_MS;
+}
+
+/** Sustained acceptance above VWAP after reclaim (no fresh loss pulse). */
+export function qualifyVwapHold(
+  input: ScannerEventEvalInput,
+  cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
+): boolean {
+  if (!vwapEvidenceOk(input)) return false;
+  if (input.vwapSide !== "above") return false;
+  const reclaim = input.lastVwapReclaimMs;
+  if (reclaim === null) return false;
+  const holdAge = input.eventNowMs - reclaim;
+  if (holdAge < VWAP_HOLD_MIN_DURATION_MS) return false;
+  if (
+    input.lastVwapLossMs !== null &&
+    input.lastVwapLossMs > reclaim &&
+    recentPulse(input.lastVwapLossMs, input.eventNowMs, VWAP_TRANSITION_PULSE_MS)
+  ) {
+    return false;
+  }
+  return liquidityOk(input, cfg);
+}
+
+/** Credible VWAP loss with negative 60s follow-through. */
+export function qualifyVwapBreakdown(
+  input: ScannerEventEvalInput,
+  cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
+): boolean {
+  if (!qualifyVwapLoss(input, cfg)) return false;
+  return input.move60Complete && finite(input.move60sPct) &&
+    input.move60sPct <= VWAP_BREAKDOWN_MIN_MOVE60_PCT;
 }
 
 export type ScannerEventEvidence = {
@@ -492,6 +560,21 @@ export type PersistedScannerIntelligenceEvent =
     event_type: IntelligenceEventType;
   };
 
+/** One active row per intelligence type (newest triggered_at wins). */
+export function dedupeScannerIntelligenceEventsByType(
+  events: readonly PersistedScannerIntelligenceEvent[],
+): PersistedScannerIntelligenceEvent[] {
+  const byType = new Map<string, PersistedScannerIntelligenceEvent>();
+  for (const event of events) {
+    const key = event.type;
+    const prev = byType.get(key);
+    if (!prev || event.triggered_at > prev.triggered_at) {
+      byType.set(key, event);
+    }
+  }
+  return [...byType.values()];
+}
+
 export function decorateScannerEvents(
   events: readonly ScannerEventSnapshot[],
   evidence: ScannerEventEvidence,
@@ -503,6 +586,29 @@ export function decorateScannerEvents(
   }));
 }
 
+function appendDerivedEvent(
+  events: readonly PersistedScannerIntelligenceEvent[],
+  type: DerivedScannerEventType,
+  triggeredAt: string | null,
+  evidence: ScannerEventEvidence,
+  tag: string,
+  qualified: boolean,
+): PersistedScannerIntelligenceEvent[] {
+  if (!triggeredAt || !qualified) return [...events];
+  if (events.some((event) => event.type === type)) return [...events];
+  return [
+    ...events,
+    {
+      type,
+      event_type: type,
+      triggered_at: triggeredAt,
+      active: true,
+      ...evidence,
+      evidence: [...evidence.evidence, tag],
+    },
+  ];
+}
+
 export function appendVolumeAccelerationEvent(
   events: readonly PersistedScannerIntelligenceEvent[],
   input: ScannerEventEvalInput,
@@ -510,20 +616,46 @@ export function appendVolumeAccelerationEvent(
   evidence: ScannerEventEvidence,
   cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
 ): PersistedScannerIntelligenceEvent[] {
-  if (!triggeredAt) return [...events];
-  if (!qualifyVolumeAcceleration(input, cfg)) return [...events];
-  if (events.some((event) => event.type === DERIVED_VOLUME_ACCELERATION_EVENT)) {
-    return [...events];
-  }
-  return [
-    ...events,
-    {
-      type: DERIVED_VOLUME_ACCELERATION_EVENT,
-      event_type: DERIVED_VOLUME_ACCELERATION_EVENT,
-      triggered_at: triggeredAt,
-      active: true,
-      ...evidence,
-      evidence: [...evidence.evidence, "volume_acceleration_event"],
-    },
-  ];
+  return appendDerivedEvent(
+    events,
+    DERIVED_VOLUME_ACCELERATION_EVENT,
+    triggeredAt,
+    evidence,
+    "volume_acceleration_event",
+    qualifyVolumeAcceleration(input, cfg),
+  );
+}
+
+export function appendVwapMomentumDerivedEvents(
+  events: readonly PersistedScannerIntelligenceEvent[],
+  input: ScannerEventEvalInput,
+  triggeredAt: string | null,
+  evidence: ScannerEventEvidence,
+  cfg: ScannerEventConfig = DEFAULT_SCANNER_EVENT_CONFIG,
+): PersistedScannerIntelligenceEvent[] {
+  let next = appendDerivedEvent(
+    events,
+    DERIVED_VWAP_REJECTION_EVENT,
+    triggeredAt,
+    evidence,
+    "vwap_rejection_event",
+    qualifyVwapRejection(input, cfg),
+  );
+  next = appendDerivedEvent(
+    next,
+    DERIVED_VWAP_HOLD_EVENT,
+    triggeredAt,
+    evidence,
+    "vwap_hold_event",
+    qualifyVwapHold(input, cfg),
+  );
+  next = appendDerivedEvent(
+    next,
+    DERIVED_VWAP_BREAKDOWN_EVENT,
+    triggeredAt,
+    evidence,
+    "vwap_breakdown_event",
+    qualifyVwapBreakdown(input, cfg),
+  );
+  return dedupeScannerIntelligenceEventsByType(next);
 }
