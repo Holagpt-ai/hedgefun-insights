@@ -694,13 +694,18 @@ export function formatDayTradeRadarStatusSuffix(input: {
   topOpportunityCount: number;
   /** Five Pillars momentum pass count (funnel.qualifiedCount). */
   fivePillarsPassedCount?: number;
+  /** Off-desk qualified names on the monitoring tab (distinct from on-desk Top 10). */
+  qualifiedMonitoringCount?: number;
   funnel?: ScannerFunnelStats;
 }): string | null {
   const { candidateUniverseCount, topOpportunityCount, fivePillarsPassedCount, funnel } = input;
   if (candidateUniverseCount <= 0) return null;
   const fivePillars = fivePillarsPassedCount ?? funnel?.qualifiedCount ?? 0;
   const onDesk = topOpportunityCount;
-  return `${candidateUniverseCount} detected · ${fivePillars} Five Pillars passed · ${onDesk} on desk`;
+  const monitoring = input.qualifiedMonitoringCount ?? 0;
+  const monitoringPart =
+    monitoring > 0 ? ` · ${monitoring} qualified monitoring` : "";
+  return `${candidateUniverseCount} detected · ${fivePillars} Five Pillars passed · ${onDesk} on desk${monitoringPart}`;
 }
 
 export function formatDayTradeQualificationBreakdown(

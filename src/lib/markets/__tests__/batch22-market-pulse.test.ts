@@ -82,7 +82,7 @@ describe("Batch 22 — market pulse", () => {
     });
     const zeroRow = items.find((i) => i.symbol === "ZERO");
     const missRow = items.find((i) => i.symbol === "MISS");
-    expect(zeroRow?.volume).toBe(0);
+    expect(zeroRow?.volume).toBeNull();
     expect(missRow?.volume).toBeNull();
   });
 

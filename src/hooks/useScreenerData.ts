@@ -56,6 +56,25 @@ import {
 
 export type { ScreenerResultRow, ScreenerUiStatus };
 
+function mergeScreenerPublicationMetadata(
+  view: ScreenerTabView,
+  feedView: ScreenerTabView | null | undefined,
+): ScreenerTabView {
+  if (!feedView) return view;
+  return {
+    ...view,
+    nhl_baseline_status: feedView.nhl_baseline_status ?? view.nhl_baseline_status,
+    tab_evaluation_evidence:
+      feedView.tab_evaluation_evidence ?? view.tab_evaluation_evidence,
+  };
+}
+
+function radarHistoricalContextAccessToken(sessionToken: string | undefined): string | null {
+  if (sessionToken) return sessionToken;
+  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  return typeof anon === "string" && anon.length > 0 ? anon : null;
+}
+
 const ROW_SELECT = [
   "tab_id",
   "symbol",
@@ -345,7 +364,10 @@ export function useScreenerData(
                 boardRows,
               });
               if (withOverlay.source === "radar-v2" && withOverlay.view) {
-                view = withOverlay.view;
+                view = mergeScreenerPublicationMetadata(
+                  withOverlay.view,
+                  enrichmentContext?.tabView,
+                );
               }
             } catch {
               // Overlay is optional. A failed legacy read must not drop Sentinel.
@@ -354,7 +376,9 @@ export function useScreenerData(
           if (tabId === "day_trade_radar" && view.rows.length > 0) {
             if (!cancelled) setRepeatMoversLoadState({ status: "loading" });
             const { data: sessionData } = await supabase.auth.getSession();
-            const token = sessionData.session?.access_token;
+            const token = radarHistoricalContextAccessToken(
+              sessionData.session?.access_token,
+            );
             const edgeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-historical-context`;
             if (!token || !edgeUrl.includes("http")) {
               if (!cancelled) {

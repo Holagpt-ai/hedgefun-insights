@@ -10,7 +10,11 @@ import {
   MORNING_PREMARKET_MIN_RVOL_5M,
   MORNING_PREMARKET_MIN_VELOCITY,
 } from "@/lib/am-inbox/morning-opportunity-types";
-import { resolveSessionGapPercent, sessionGapEligible } from "@/lib/daily-intelligence/session-gap-evidence";
+import {
+  resolveSessionGapPercent,
+  sessionGapEligible,
+  sessionUpGapContinuationEligible,
+} from "@/lib/daily-intelligence/session-gap-evidence";
 import {
   MOMENTUM_EVENT_TYPES,
   SCANNER_EVENT_MIN_SESSION_VOLUME,
@@ -76,7 +80,7 @@ function positiveShortWindowOrSessionMove(row: MorningRadarRow): boolean {
 }
 
 function gapContinuationEligible(row: MorningRadarRow): boolean {
-  return sessionGapEligible(row, GAPPER_MIN_ABS_PERCENT);
+  return sessionUpGapContinuationEligible(row, GAPPER_MIN_ABS_PERCENT);
 }
 
 function premarketParticipation(row: MorningRadarRow): boolean {
@@ -95,7 +99,8 @@ function sectionForRadar(
   row: MorningRadarRow,
 ): MorningSectionId | null {
   if (events.some((event) => canonicalIntelligenceEventType(event) === "GAP_CONTINUATION")) {
-    return "gap_continuation";
+    if (sessionUpGapContinuationEligible(row, GAPPER_MIN_ABS_PERCENT)) return "gap_continuation";
+    return null;
   }
   if (confirmedPremarket && gapContinuationEligible(row)) return "gap_continuation";
   if (hasMomentumEvent(events)) return "top_momentum";

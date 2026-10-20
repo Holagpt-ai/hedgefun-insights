@@ -25,7 +25,7 @@ export interface MarketPulseSelectInput {
 }
 
 function verifiedVolume(volume: number | null | undefined): number | null {
-  if (volume === null || volume === undefined || !Number.isFinite(volume) || volume < 0) {
+  if (volume === null || volume === undefined || !Number.isFinite(volume) || volume <= 0) {
     return null;
   }
   return volume;

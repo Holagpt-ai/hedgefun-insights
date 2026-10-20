@@ -408,7 +408,7 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
     reference_price: reference,
     change: current - reference,
     change_percent: canonicalPct,
-    volume: volume !== null && volume >= 0 ? volume : null,
+    volume: volume !== null && volume > 0 ? volume : null,
     session: input.session ?? null,
     session_date: sessionDate,
     source: sourceFrom(input.source),
@@ -619,7 +619,7 @@ export function toMoverListRow(mover: CanonicalMover): MoverListRow | null {
     price: mover.price,
     change: mover.change,
     changePercent: mover.change_percent,
-    volume: mover.volume !== null && mover.volume >= 0 ? mover.volume : null,
+    volume: mover.volume !== null && mover.volume > 0 ? mover.volume : null,
     priceObservationLine,
     priceObservationTimeUnavailable,
   };

@@ -1,0 +1,2 @@
+-- Batch 27 marker (Supabase source: 20261020143000_radar_v22_replace_rpc_statement_timeout_v1.sql)
+-- ALTER FUNCTION replace_radar_v22_candidates_v1 SET statement_timeout = '120s';
