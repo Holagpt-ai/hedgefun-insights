@@ -60,6 +60,21 @@ function bridgeLog(msg: string, fields: BridgeLogFields): void {
   console.log(JSON.stringify({ msg, ...fields }));
 }
 
+/**
+ * Return the replace-RPC HTTP result without waiting for handoff/alert/qualification
+ * captures. Those must not extend the worker's publish timeout.
+ */
+export function deferBridgeWork(work: () => Promise<void>): Promise<void> {
+  const pending = work().catch(() => {
+    bridgeLog("publish_followup_failed", { request_id: null, action: "publish_candidates_v2" });
+  });
+  const waitUntil = (globalThis as {
+    EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void };
+  }).EdgeRuntime?.waitUntil;
+  if (typeof waitUntil === "function") waitUntil(pending);
+  return pending;
+}
+
 function readRequestId(body: Record<string, unknown>): string {
   const raw = body.request_id;
   if (typeof raw === "string") {
@@ -361,11 +376,15 @@ async function handleAction(
       if (typeof body.p_synced_at !== "string") {
         return json({ error: "invalid_body" }, 400);
       }
+      const generationId = body.p_generation_id;
+      const tradingDate = body.p_trading_date;
+      const sessionKind = body.p_session_kind;
+      const syncedAt = body.p_synced_at;
       const publishRes = await rpcResult(db, REPLACE_RADAR_V2_RPC, {
-        p_generation_id: body.p_generation_id,
-        p_trading_date: body.p_trading_date,
-        p_session_kind: body.p_session_kind,
-        p_synced_at: body.p_synced_at,
+        p_generation_id: generationId,
+        p_trading_date: tradingDate,
+        p_session_kind: sessionKind,
+        p_synced_at: syncedAt,
         p_candidates: body.p_candidates,
         p_events: body.p_events,
         p_sentinel_enabled: body.p_sentinel_enabled === true,
@@ -379,60 +398,62 @@ async function handleAction(
         p_feed_telemetry_stale: body.p_feed_telemetry_stale ?? null,
       }, rpcMeta);
       if (publishRes.status !== 200) return publishRes;
-      try {
-        const candidates = Array.isArray(body.p_candidates)
-          ? body.p_candidates as RadarV22CandidateRow[]
-          : [];
-        const upserts = buildLateSessionHandoffUpsertsFromV22Candidates({
-          tradingDate: body.p_trading_date,
-          sessionKind: body.p_session_kind as RadarV22CandidateRow["session_kind"],
-          syncedAt: body.p_synced_at,
-          candidates,
-        });
-        if (upserts.length > 0) {
-          await persistLateSessionHandoffRows(
-            db,
-            upserts,
-            (name, args) => rpcResult(db, name, args, rpcMeta),
-          );
+      deferBridgeWork(async () => {
+        try {
+          const candidates = Array.isArray(body.p_candidates)
+            ? body.p_candidates as RadarV22CandidateRow[]
+            : [];
+          const upserts = buildLateSessionHandoffUpsertsFromV22Candidates({
+            tradingDate,
+            sessionKind: sessionKind as RadarV22CandidateRow["session_kind"],
+            syncedAt,
+            candidates,
+          });
+          if (upserts.length > 0) {
+            await persistLateSessionHandoffRows(
+              db,
+              upserts,
+              (name, args) => rpcResult(db, name, args, rpcMeta),
+            );
+          }
+        } catch {
+          bridgeLog("late_session_capture_failed", {
+            request_id: requestId,
+            action: "publish_candidates_v2",
+          });
         }
-      } catch {
-        bridgeLog("late_session_capture_failed", {
-          request_id: requestId,
-          action: "publish_candidates_v2",
-        });
-      }
-      try {
-        const firings = parseScannerAlertFirings(body.p_scanner_firings);
-        if (firings.length > 0) {
-          await persistScannerIntelligenceAlerts(
-            db,
-            firings,
-            (name, args) => rpcResult(db, name, args, rpcMeta),
-          );
+        try {
+          const firings = parseScannerAlertFirings(body.p_scanner_firings);
+          if (firings.length > 0) {
+            await persistScannerIntelligenceAlerts(
+              db,
+              firings,
+              (name, args) => rpcResult(db, name, args, rpcMeta),
+            );
+          }
+        } catch {
+          bridgeLog("scanner_alert_capture_failed", {
+            request_id: requestId,
+            action: "publish_candidates_v2",
+          });
         }
-      } catch {
-        bridgeLog("scanner_alert_capture_failed", {
-          request_id: requestId,
-          action: "publish_candidates_v2",
-        });
-      }
-      try {
-        const candidates = Array.isArray(body.p_candidates)
-          ? body.p_candidates as RadarV22CandidateRow[]
-          : [];
-        await captureDayTradeQualificationFromV22({
-          db: db as unknown as QualificationDb,
-          sessionDate: body.p_trading_date,
-          generationId: body.p_generation_id,
-          candidates,
-        });
-      } catch {
-        bridgeLog("day_trade_qualification_capture_failed", {
-          request_id: requestId,
-          action: "publish_candidates_v2",
-        });
-      }
+        try {
+          const candidates = Array.isArray(body.p_candidates)
+            ? body.p_candidates as RadarV22CandidateRow[]
+            : [];
+          await captureDayTradeQualificationFromV22({
+            db: db as unknown as QualificationDb,
+            sessionDate: tradingDate,
+            generationId,
+            candidates,
+          });
+        } catch {
+          bridgeLog("day_trade_qualification_capture_failed", {
+            request_id: requestId,
+            action: "publish_candidates_v2",
+          });
+        }
+      });
       return publishRes;
     }
     case "set_feed_status": {
