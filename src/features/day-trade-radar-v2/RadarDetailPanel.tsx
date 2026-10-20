@@ -39,6 +39,7 @@ import type { RadarChartInterval } from "./radar-chart-data";
 import { radarChartEmptyCopy, radarChartIntervalLabel } from "./radar-chart-data";
 import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
 import { HistoricalBehaviorSection } from "./HistoricalBehavior";
+import { HistoricalIntelligenceSection } from "./HistoricalIntelligenceSection";
 import { BreakoutMomentumEvidence } from "./BreakoutMomentumEvidence";
 import { qualifiesBreakouts } from "./multi-radar";
 import { historicalMatchSummaryForRadarRow } from "@/lib/historical-intelligence/radar-handoff";
@@ -250,6 +251,12 @@ export function RadarDetailPanel({
         {qualifiesBreakouts(row, nowMs) ? (
           <BreakoutMomentumEvidence row={row} nowMs={nowMs} />
         ) : null}
+
+        <HistoricalIntelligenceSection
+          context={row.historicalContext}
+          matchSummary={historicalMatchSummaryForRadarRow(row)}
+          symbol={sym}
+        />
 
         <HistoricalBehaviorSection
           context={row.historicalContext}
