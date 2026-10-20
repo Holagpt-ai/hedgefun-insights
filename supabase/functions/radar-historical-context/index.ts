@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { authenticateRadarHistoricalContextRequest } from "../_shared/radar-historical-context/gateway-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -97,39 +98,52 @@ serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+  const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "";
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const workerSecret = Deno.env.get("RADAR_WORKER_SECRET") ?? "";
   const bridgeUrl = `${supabaseUrl.replace(/\/$/, "")}/functions/v1/radar-worker-bridge`;
 
-  if (!supabaseUrl || !anonKey || !serviceKey || !workerSecret) {
+  if (!supabaseUrl || !serviceKey || !workerSecret) {
     return new Response(JSON.stringify({ error: "internal_error" }), {
       status: 500,
       headers: JSON_HEADERS,
     });
   }
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) {
-    return new Response(JSON.stringify({ error: "unauthorized" }), {
-      status: 401,
+  const gatewayKey = anonKey || publishableKey;
+  if (!gatewayKey) {
+    return new Response(JSON.stringify({ error: "internal_error" }), {
+      status: 500,
       headers: JSON_HEADERS,
     });
   }
 
-  const bearer = authHeader.slice("Bearer ".length).trim();
-  const anonReadOnly = bearer === anonKey;
-
-  if (!anonReadOnly) {
-    const userClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: authData, error: authError } = await userClient.auth.getUser();
-    if (authError || !authData.user) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), {
-        status: 401,
-        headers: JSON_HEADERS,
+  const auth = await authenticateRadarHistoricalContextRequest({
+    supabaseUrl,
+    authorizationHeader: req.headers.get("Authorization"),
+    apikeyHeader: req.headers.get("apikey"),
+    anonKey,
+    publishableKey,
+    getUser: async (authorizationHeader) => {
+      const userClient = createClient(supabaseUrl, gatewayKey, {
+        global: {
+          headers: {
+            Authorization: authorizationHeader,
+            apikey: req.headers.get("apikey") ?? gatewayKey,
+          },
+        },
       });
-    }
+      const { data: authData, error: authError } = await userClient.auth.getUser();
+      if (authError || !authData.user?.id) return { userId: null };
+      return { userId: authData.user.id };
+    },
+  });
+
+  if (!auth) {
+    return new Response(JSON.stringify({ error: "unauthorized" }), {
+      status: 401,
+      headers: JSON_HEADERS,
+    });
   }
 
   let body: unknown;
