@@ -13,6 +13,10 @@ import { classifyAfterHoursExtendsSession, computeAfterHoursExtensionPct } from 
 import { isPositiveFinite } from "../screeners/screener-contract-lite.ts";
 import { SCANNER_EVENT_DISPLAY } from "../radar-v22/scanner-events.ts";
 import type { ContinuationResult } from "../screeners/continuation-types.ts";
+import {
+  encodeRvolCaptureEvidenceLabels,
+  resolveV22RvolCapture,
+} from "./rvol-capture-evidence.ts";
 
 export type LateSessionHandoffUpsertRow = Record<string, unknown>;
 
@@ -78,6 +82,8 @@ function buildUpsertRow(input: {
       (row.time_adjusted_rvol ?? 0) >= 3 ||
       (row.volume_velocity_5m ?? 0) >= 25_000,
   });
+  const rvolCapture = resolveV22RvolCapture(row);
+  const rvolEvidence = encodeRvolCaptureEvidenceLabels(rvolCapture);
   return {
     security_id: input.securityId,
     symbol: input.symbol.trim().toUpperCase(),
@@ -87,14 +93,17 @@ function buildUpsertRow(input: {
     last_price: row.last_price,
     session_move_pct: row.move_60s_pct,
     volume: row.session_volume,
-    rvol: row.time_adjusted_rvol ?? row.rvol_5m,
+    rvol: rvolCapture.rawRvol ?? row.time_adjusted_rvol ?? row.rvol_5m,
     dollar_volume: Number.isFinite(dollarVolume) ? dollarVolume : null,
     close_distance_from_hod_pct: row.distance_from_hod_pct,
     after_hours_extends: ahExtends === "TRUE" ? true : ahExtends === "FALSE" ? false : null,
     catalyst_present: null,
     float_turnover: null,
     historical_context_available: false,
-    evidence_labels: scannerEvidenceLabels(row, input.continuation),
+    evidence_labels: [
+      ...scannerEvidenceLabels(row, input.continuation),
+      ...rvolEvidence,
+    ],
     sample_size_quality: null,
     comparable_episode_count: null,
     most_recent_comparable_date: null,
