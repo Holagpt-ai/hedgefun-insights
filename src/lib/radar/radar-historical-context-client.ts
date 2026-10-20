@@ -28,18 +28,22 @@ export class RadarHistoricalContextResponseError extends Error {
 
 export async function fetchRadarHistoricalContextBatch(input: {
   url: string;
-  accessToken: string;
+  accessToken?: string | null;
   requests: readonly RadarHistoricalContextEnrichmentRequest[];
   fetchImpl?: typeof fetch;
 }): Promise<RadarHistoricalContextBatchResponse> {
   const fetchImpl = input.fetchImpl ?? fetch;
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  const token = input.accessToken?.trim();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+    headers.apikey = token;
+  }
   const res = await fetchImpl(input.url, {
     method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.accessToken}`,
-      apikey: input.accessToken,
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify({ requests: input.requests }),
   });
   if (!res.ok) {

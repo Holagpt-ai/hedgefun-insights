@@ -375,7 +375,7 @@ export function useScreenerData(
               sessionData.session?.access_token,
             );
             const edgeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-historical-context`;
-            if (!token || !edgeUrl.includes("http")) {
+            if (!edgeUrl.includes("http")) {
               if (!cancelled) {
                 setRepeatMoversLoadState({ status: "unavailable", reason: "no_session" });
               }

@@ -61,6 +61,26 @@ describe("fetchRadarHistoricalContextBatch", () => {
     expect(batch.results[0]?.historicalContext).toBeNull();
   });
 
+  it("omits Authorization when accessToken is not provided", async () => {
+    const fetchImpl = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({ results: [] }),
+    })) as unknown as typeof fetch;
+
+    await fetchRadarHistoricalContextBatch({
+      url: "https://example.test/radar-historical-context",
+      requests: [...requests],
+      fetchImpl,
+    });
+
+    const mockedFetch = vi.mocked(fetchImpl);
+    const init = mockedFetch.mock.calls[0]?.[1] as RequestInit;
+    const hdrs = init.headers as Record<string, string>;
+    expect(hdrs.Authorization).toBeUndefined();
+    expect(hdrs.apikey).toBeUndefined();
+  });
+
   it("HTTP 200 with invalid JSON rejects as response error", async () => {
     const fetchImpl = vi.fn(async () => ({
       ok: true,
