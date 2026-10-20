@@ -1,7 +1,7 @@
 import type { ScreenerResultRow, ScreenerUiStatus } from "@/lib/screeners/contract";
 import type { RadarRankedRow, RadarSignalLabel } from "@/features/day-trade-radar-v2/types";
 
-export const RADAR_V22_POLL_MS = 15_000;
+export const RADAR_V22_POLL_MS = 60_000;
 
 export type RadarV22FeedStatus = "available" | "empty" | "stale";
 

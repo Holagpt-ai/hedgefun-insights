@@ -45,7 +45,7 @@ export function DayTradeRadarV2({
   const [desktopDetailOpen, setDesktopDetailOpen] = useState(false);
   const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const v22 = useRadarV22Board();
+  const v22 = useRadarV22Board({ enabled: source !== "radar-v2" });
   const adoptedSessionRef = useRef<string | null>(null);
   const todayEt = easternDate(Date.now());
 

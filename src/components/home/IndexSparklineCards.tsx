@@ -26,6 +26,7 @@ export function IndexSparklineCards() {
       if (error) throw error;
       return data;
     },
+    staleTime: 60_000,
   });
 
   const today = new Date().toLocaleDateString("en-US", {

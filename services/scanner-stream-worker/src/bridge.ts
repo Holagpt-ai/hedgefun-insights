@@ -19,8 +19,12 @@ import { log } from "./log.ts";
 
 export const DEFAULT_BRIDGE_TIMEOUT_MS = 15_000;
 export const BASELINE_BRIDGE_TIMEOUT_MS = 60_000;
-/** Large JSON + replace_radar_v22_candidates_v1 can exceed the default bridge budget. */
-export const RADAR_PUBLISH_BRIDGE_TIMEOUT_MS = 60_000;
+/**
+ * Batch 27 set replace_radar_v22_candidates_v1 statement_timeout to 120s.
+ * The previous 60s client abort retried while Postgres was still applying,
+ * which showed up as failed-save bursts after that migration.
+ */
+export const RADAR_PUBLISH_BRIDGE_TIMEOUT_MS = 130_000;
 export const LATENCY_BRIDGE_MAX_ATTEMPTS = 3;
 export const BULK_BASELINE_MAX_ATTEMPTS = 1;
 

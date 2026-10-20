@@ -14,6 +14,7 @@ import {
   REPLACE_RADAR_RPC,
   RELEASE_LEASE_RPC,
   SET_RADAR_STATUS_RPC,
+  deferBridgeWork,
   type BridgeDeps,
   type DbClient,
   type DbQuery,
@@ -797,6 +798,45 @@ Deno.test("behavior profile: upsert forwards rpc", async () => {
   const out = await readJson(res);
   assertEquals(out.status, 200);
   assertEquals(out.body.ok, true);
+});
+
+Deno.test("deferBridgeWork returns before follow-up work finishes", async () => {
+  let finished = false;
+  const pending = deferBridgeWork(async () => {
+    await new Promise((r) => setTimeout(r, 30));
+    finished = true;
+  });
+  assertEquals(finished, false);
+  await pending;
+  assertEquals(finished, true);
+});
+
+Deno.test("publish_candidates_v2 HTTP success does not wait on slow follow-ups", async () => {
+  const db = new FakeDb();
+  db.rpcImpl = (fn) => {
+    if (fn === "replace_radar_v22_candidates_v1") {
+      return { data: { applied: true }, error: null };
+    }
+    return { data: true, error: null };
+  };
+  const started = Date.now();
+  const res = await handleRadarWorkerBridge(
+    post({
+      action: "publish_candidates_v2",
+      request_id: "req-v2-latency-1",
+      p_generation_id: "11111111-2222-3333-4444-555555555555",
+      p_trading_date: "2026-09-02",
+      p_session_kind: "regular",
+      p_synced_at: "2026-09-02T22:56:10.000Z",
+      p_candidates: [],
+      p_events: [],
+      p_sentinel_enabled: true,
+    }),
+    deps(db),
+  );
+  const elapsed = Date.now() - started;
+  assertEquals(res.status, 200);
+  assertEquals(elapsed < 50, true);
 });
 
 Deno.test("behavior profile: unknown action still rejected", async () => {

@@ -11,6 +11,7 @@ import {
   rankRadarV2Candidates,
   tabDisplayLimit,
   RADAR_V2_CANDIDATE_CAP,
+  RADAR_V2_STALE_AFTER_MS,
   type RadarV2CandidateRow,
   type RadarV2FeedStateRow,
 } from "@/lib/screeners/radar-v2-adapter";
@@ -275,7 +276,7 @@ describe("Radar V2 adapter — freshness & fallback (Phase G)", () => {
 
   it("3a. stale v2_synced_at falls back to the existing path (not shown as live)", () => {
     const decision = buildRadarV2Decision({
-      feedRows: [feed({ v2_synced_at: "2026-09-03T12:40:00.000Z" })], // >20m old
+      feedRows: [feed({ v2_synced_at: "2026-09-03T12:40:00.000Z" })], // >3m old
       candidateRows: [candidate()],
       tabId: "day_trade_radar",
       nowMs: NOW,
@@ -283,6 +284,27 @@ describe("Radar V2 adapter — freshness & fallback (Phase G)", () => {
     expect(decision.source).toBe("fallback");
     expect(decision.reason).toBe("radar_v2_stale");
     expect(decision.view).toBeNull();
+  });
+
+  it("3a2. failed-save window: 3 minutes of frozen v2_synced_at is stale, 90s is not", () => {
+    expect(RADAR_V2_STALE_AFTER_MS).toBe(3 * 60_000);
+    const justFresh = buildRadarV2Decision({
+      feedRows: [feed({ v2_synced_at: new Date(NOW - RADAR_V2_STALE_AFTER_MS).toISOString() })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(justFresh.source).toBe("radar-v2");
+    const stale = buildRadarV2Decision({
+      feedRows: [feed({
+        v2_synced_at: new Date(NOW - RADAR_V2_STALE_AFTER_MS - 1).toISOString(),
+      })],
+      candidateRows: [candidate()],
+      tabId: "day_trade_radar",
+      nowMs: NOW,
+    });
+    expect(stale.source).toBe("fallback");
+    expect(stale.reason).toBe("radar_v2_stale");
   });
 
   it("3b. legacy feed_stale=true does NOT gate V2 health when V2 fields are fresh", () => {
@@ -644,12 +666,12 @@ describe("Radar V2 adapter — handshake helpers (D11 / D14)", () => {
 });
 
 describe("Radar V2 adapter — V2 health gate (D8.1)", () => {
-  // >20m before NOW (13:12:57Z) is stale under the 20-minute threshold.
+  // >3m before NOW (13:12:57Z) is stale under the pipeline freshness threshold.
   const STALE_TS = "2026-09-03T12:40:00.000Z";
 
   it("0b. stale last_receive_at from prior surveillance date does not block fresh V2 sync", () => {
     const premarketNow = Date.parse("2026-09-24T10:30:00.000Z"); // 06:30 ET Sep 24
-    const freshSync = "2026-09-24T10:20:00.000Z";
+    const freshSync = "2026-09-24T10:28:00.000Z";
     const priorReceive = "2026-09-24T00:00:00.000Z"; // Sep 23 20:00 ET
     const decision = buildRadarV2Decision({
       feedRows: [
