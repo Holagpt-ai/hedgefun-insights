@@ -11,20 +11,25 @@ import {
   shouldCacheRadarNews,
   type ProviderNewsFetch,
 } from "../_shared/market-data/radar-news.ts";
+import { resolveMarketDataClientIdentity } from "../_shared/market-data/client-identity.ts";
+import { consumeInstanceRequestGuard } from "../_shared/market-data/instance-request-guard.ts";
+import { fetchMassive } from "../_shared/market-data/massive-fetch.ts";
+import { maybeLogMarketDataMeters, noteOtherDeny } from "../_shared/market-data/market-data-meters.ts";
 import {
-  AGGREGATES_CACHE_TTL_MS,
-  consumePublicMarketDataRateLimit,
-  dedupePublicMarketDataInflight,
-  getPublicMarketDataCached,
-  publicMarketDataClientKey,
-  setPublicMarketDataCached,
-  SNAPSHOT_CACHE_TTL_MS,
-} from "../_shared/market-data/public-request-guard.ts";
+  aggregateCacheKey,
+  describeAggregatePayload,
+  describeSnapshotPayload,
+  isClosedAggregateWindow,
+  marketDataCacheHeaders,
+  snapshotCacheKey,
+} from "../_shared/market-data/market-cache-record.ts";
+import { getSharedMarketCacheDeps, resolveSharedMarketData } from "../_shared/market-data/shared-market-cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Expose-Headers": "X-Market-Data-Freshness, X-Market-Data-Source-As-Of, X-Market-Data-Cache, X-Market-Data-Cache-Age-Ms",
 };
 
 const POLYGON_BASE = "https://api.polygon.io";
@@ -59,29 +64,35 @@ function polyUrl(path: string, params: Record<string, string> = {}): string {
   return url.toString();
 }
 
-// --- Retry helper for upstream API resilience ---
-async function fetchWithRetry(
-  url: string,
-  retries = 3,
-  delayMs = 500
-): Promise<Response> {
-  for (let i = 0; i < retries; i++) {
-    try {
-      const res = await fetch(url, {
-        signal: AbortSignal.timeout(8000),
-      });
-      if (res.ok) return res;
-      if (res.status === 429) {
-        await new Promise((r) => setTimeout(r, delayMs * 3));
-        continue;
+const OTHER_GUARDED_ROUTES = new Set([
+  "gainers",
+  "losers",
+  "details",
+  "float",
+  "news",
+  "radar-news",
+  "prev-close",
+  "dividends",
+  "splits",
+  "ipos",
+  "search",
+  "all-dividends",
+  "all-splits",
+]);
+
+async function fetchWithRetry(url: string, beforeExtraAttempt?: () => boolean): Promise<Response> {
+  let first = true;
+  const result = await fetchMassive(url, {
+    beforeAttempt: () => {
+      if (first) {
+        first = false;
+        return true;
       }
-      if (i === retries - 1) return res;
-    } catch (err) {
-      if (i === retries - 1) throw err;
-    }
-    await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
-  }
-  throw new Error("Max retries exceeded");
+      return beforeExtraAttempt ? beforeExtraAttempt() : true;
+    },
+  });
+  if (result.kind === "response") return result.response;
+  throw new Error(result.kind === "quota" ? "rate_limited" : "Max retries exceeded");
 }
 
 // --- In-memory cache (persists for edge function instance lifetime) ---
@@ -134,6 +145,29 @@ function lastSuccessOrUnavailable(cacheKey: string): unknown {
   return UNAVAILABLE_MOVERS;
 }
 
+function rateLimitedResponse(retryAfterSeconds: number): Response {
+  return new Response(JSON.stringify({ error: "rate_limited" }), {
+    status: 429,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Retry-After": String(retryAfterSeconds),
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
+function upstreamUnavailableResponse(): Response {
+  return new Response(JSON.stringify({ error: "upstream_unavailable" }), {
+    status: 502,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -165,19 +199,25 @@ serve(async (req) => {
     }
 
     console.log("[market-data] type:", type, "POLYGON_KEY:", Deno.env.get("POLYGON_API_KEY") ? "KEY_PRESENT" : "KEY_MISSING");
+    maybeLogMarketDataMeters(Date.now());
 
-    if (!consumePublicMarketDataRateLimit(publicMarketDataClientKey(req))) {
-      return new Response(JSON.stringify({ error: "rate_limited" }), {
-        status: 429,
-        headers: {
-          ...cors,
-          "Content-Type": "application/json",
-          "Retry-After": "60",
-        },
-      });
+    let extraAttempt: () => boolean = () => true;
+    if (type && OTHER_GUARDED_ROUTES.has(type)) {
+      if (!consumeInstanceRequestGuard(Date.now())) {
+        noteOtherDeny();
+        maybeLogMarketDataMeters(Date.now());
+        return rateLimitedResponse(60);
+      }
+      extraAttempt = () => {
+        const allowed = consumeInstanceRequestGuard(Date.now());
+        if (!allowed) noteOtherDeny();
+        return allowed;
+      };
     }
+    const fetchGuarded = (url: string) => fetchWithRetry(url, extraAttempt);
 
     let data: unknown;
+    let cacheHeaders: Record<string, string> = {};
 
     switch (type) {
       case "gainers":
@@ -193,7 +233,7 @@ serve(async (req) => {
         const endpoint = type === "gainers" ? "gainers" : "losers";
         let res: Response;
         try {
-          res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
+          res = await fetchGuarded(polyUrl(`/v2/snapshot/locale/us/markets/stocks/${endpoint}`));
         } catch {
           data = lastSuccessOrUnavailable(cacheKey);
           break;
@@ -239,7 +279,7 @@ serve(async (req) => {
         if (missing.length > 0) {
           const fetches = missing.slice(0, 10).map(async (sym: string) => {
             try {
-              const r = await fetchWithRetry(polyUrl(`/v3/reference/tickers/${sym}`));
+              const r = await fetchGuarded(polyUrl(`/v3/reference/tickers/${sym}`));
               if (r.ok) {
                 const j = await r.json();
                 if (j.results?.name) nameMap.set(sym, j.results.name);
@@ -292,23 +332,39 @@ serve(async (req) => {
       }
       case "snapshot": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const cacheKey = `snapshot:${ticker}`;
-        const cachedSnapshot = getPublicMarketDataCached(cacheKey, SNAPSHOT_CACHE_TTL_MS);
-        if (cachedSnapshot !== null) {
-          data = cachedSnapshot;
-          break;
-        }
-        data = await dedupePublicMarketDataInflight(cacheKey, async () => {
-          const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`));
-          const json = await res.json();
-          return json.ticker ?? null;
+        const resolved = await resolveSharedMarketData(getSharedMarketCacheDeps(), {
+          kind: "snapshot",
+          cacheKey: snapshotCacheKey(ticker),
+          coalesceKey: snapshotCacheKey(ticker),
+          closed: false,
+          sharePayload: false,
+          surface: "quote",
+          identity: resolveMarketDataClientIdentity(req),
+          describe: describeSnapshotPayload,
+          loadOrigin: async (consumeAttempt) => {
+            const fetched = await fetchMassive(
+              polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`),
+              { beforeAttempt: consumeAttempt },
+            );
+            if (fetched.kind === "quota") return { ok: false, reason: "quota" };
+            if (fetched.kind !== "response" || !fetched.response.ok) return { ok: false, reason: "upstream" };
+            const json = await fetched.response.json().catch(() => null);
+            if (json == null || typeof json !== "object") return { ok: false, reason: "upstream" };
+            return { ok: true, payload: (json as { ticker?: unknown }).ticker ?? null };
+          },
         });
-        if (data != null) setPublicMarketDataCached(cacheKey, data);
+        if (!resolved.ok) {
+          return resolved.error === "rate_limited"
+            ? rateLimitedResponse(resolved.retryAfterSeconds)
+            : upstreamUnavailableResponse();
+        }
+        data = resolved.data;
+        cacheHeaders = marketDataCacheHeaders(resolved);
         break;
       }
       case "details": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const res = await fetchWithRetry(polyUrl(`/v3/reference/tickers/${ticker}`));
+        const res = await fetchGuarded(polyUrl(`/v3/reference/tickers/${ticker}`));
         const json = await res.json();
         data = json.results ?? null;
         break;
@@ -322,7 +378,7 @@ serve(async (req) => {
           break;
         }
         try {
-          const res = await fetchWithRetry(polyUrl("/stocks/vX/float", { ticker }));
+          const res = await fetchGuarded(polyUrl("/stocks/vX/float", { ticker }));
           const json = res.ok ? await res.json().catch(() => null) : null;
           const result = resolveFloatProviderResult(ticker, { ok: res.ok, status: res.status }, json);
           data = result.data;
@@ -337,7 +393,7 @@ serve(async (req) => {
         const newsTicker = ticker ?? "";
         const params: Record<string, string> = { limit, order: "desc" };
         if (newsTicker) params.ticker = newsTicker;
-        const res = await fetchWithRetry(polyUrl("/v2/reference/news", params));
+        const res = await fetchGuarded(polyUrl("/v2/reference/news", params));
         const json = await res.json();
         data = json.results ?? [];
         break;
@@ -359,7 +415,7 @@ serve(async (req) => {
 
         const fetchNewsProvider = async (url: string): Promise<ProviderNewsFetch> => {
           try {
-            const res = await fetchWithRetry(url);
+            const res = await fetchGuarded(url);
             if (!res.ok) return { ok: false };
             const payload = await res.json().catch(() => null);
             if (payload == null) return { ok: false };
@@ -388,24 +444,44 @@ serve(async (req) => {
         const from = searchParams.get("from") ?? "";
         const to = searchParams.get("to") ?? "";
         if (!from || !to) return new Response(JSON.stringify({ error: "from and to required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const cacheKey = `aggregates:${ticker}:${multiplier}:${timespan}:${from}:${to}`;
-        const cachedAggs = getPublicMarketDataCached(cacheKey, AGGREGATES_CACHE_TTL_MS);
-        if (cachedAggs !== null) {
-          data = cachedAggs;
-          break;
-        }
-        const limit = timespan === "minute" ? "50000" : "365";
-        data = await dedupePublicMarketDataInflight(cacheKey, async () => {
-          const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit }));
-          const json = await res.json();
-          return json.results ?? [];
+        const cacheKey = aggregateCacheKey({ ticker, multiplier, timespan, from, to });
+        const nowMs = Date.now();
+        const closed = cacheKey != null && isClosedAggregateWindow(to, nowMs);
+        const resolved = await resolveSharedMarketData(getSharedMarketCacheDeps(), {
+          kind: "aggregates",
+          cacheKey,
+          coalesceKey: cacheKey ?? `agg:${ticker}:${multiplier}:${timespan}:${from}:${to}`,
+          closed,
+          sharePayload: closed,
+          surface: "bars",
+          identity: resolveMarketDataClientIdentity(req),
+          describe: describeAggregatePayload,
+          loadOrigin: async (consumeAttempt) => {
+            const limit = timespan === "minute" ? "50000" : "365";
+            const fetched = await fetchMassive(
+              polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit }),
+              { beforeAttempt: consumeAttempt },
+            );
+            if (fetched.kind === "quota") return { ok: false, reason: "quota" };
+            if (fetched.kind !== "response" || !fetched.response.ok) return { ok: false, reason: "upstream" };
+            const json = await fetched.response.json().catch(() => null);
+            if (json == null || typeof json !== "object") return { ok: false, reason: "upstream" };
+            const results = (json as { results?: unknown }).results;
+            return { ok: true, payload: Array.isArray(results) ? results : [] };
+          },
         });
-        if (Array.isArray(data)) setPublicMarketDataCached(cacheKey, data);
+        if (!resolved.ok) {
+          return resolved.error === "rate_limited"
+            ? rateLimitedResponse(resolved.retryAfterSeconds)
+            : upstreamUnavailableResponse();
+        }
+        data = resolved.data;
+        cacheHeaders = marketDataCacheHeaders(resolved);
         break;
       }
       case "prev-close": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/prev`));
+        const res = await fetchGuarded(polyUrl(`/v2/aggs/ticker/${ticker}/prev`));
         const json = await res.json();
         data = json.results?.[0] ?? null;
         break;
@@ -413,7 +489,7 @@ serve(async (req) => {
       case "dividends": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const divLimit = searchParams.get("limit") ?? "20";
-        const res = await fetchWithRetry(polyUrl(`/v3/reference/dividends`, { ticker, limit: divLimit, order: "desc" }));
+        const res = await fetchGuarded(polyUrl(`/v3/reference/dividends`, { ticker, limit: divLimit, order: "desc" }));
         const json = await res.json();
         data = json.results ?? [];
         break;
@@ -421,7 +497,7 @@ serve(async (req) => {
       case "splits": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
         const splitsLimit = searchParams.get("limit") ?? "20";
-        const res = await fetchWithRetry(polyUrl(`/v3/reference/splits`, { ticker, limit: splitsLimit, order: "desc" }));
+        const res = await fetchGuarded(polyUrl(`/v3/reference/splits`, { ticker, limit: splitsLimit, order: "desc" }));
         const json = await res.json();
         data = json.results ?? [];
         break;
@@ -439,7 +515,7 @@ serve(async (req) => {
           const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
           ipoParams.listing_date_gte = ninetyDaysAgo;
         }
-        const ipoRes = await fetchWithRetry(polyUrl("/vX/reference/ipos", ipoParams));
+        const ipoRes = await fetchGuarded(polyUrl("/vX/reference/ipos", ipoParams));
         const ipoJson = await ipoRes.json();
         data = (ipoJson.results ?? []).map((r: any) => ({
           symbol: r.ticker ?? null,
@@ -508,7 +584,7 @@ serve(async (req) => {
       }
       case "all-dividends": {
         const limit = searchParams.get("limit") ?? "50";
-        const res = await fetchWithRetry(polyUrl(`/vX/reference/dividends`, { limit, sort: "ex_dividend_date", order: "desc" }));
+        const res = await fetchGuarded(polyUrl(`/vX/reference/dividends`, { limit, sort: "ex_dividend_date", order: "desc" }));
         const json = await res.json();
         return new Response(JSON.stringify(json.results ?? []), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -516,7 +592,7 @@ serve(async (req) => {
       }
       case "all-splits": {
         const limit = searchParams.get("limit") ?? "50";
-        const res = await fetchWithRetry(polyUrl(`/vX/reference/splits`, { limit, sort: "execution_date", order: "desc" }));
+        const res = await fetchGuarded(polyUrl(`/vX/reference/splits`, { limit, sort: "execution_date", order: "desc" }));
         const json = await res.json();
         return new Response(JSON.stringify(json.results ?? []), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -527,7 +603,12 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify(data), {
-      headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+      headers: {
+        ...cors,
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=30",
+        ...cacheHeaders,
+      },
     });
   } catch (e) {
     console.error("market-data error:", e);
