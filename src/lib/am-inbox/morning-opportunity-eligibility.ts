@@ -19,6 +19,7 @@ import {
 import { GAPPER_MIN_ABS_PERCENT } from "@/lib/screeners/radar-gapper-restoration";
 import type { MarketDataTrustState } from "@/lib/market-data/trust-states";
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
+import { collectScannerEventTypes } from "@/lib/scanner-intelligence/scanner-event-handoff";
 
 export function morningBoardConfirmedPremarket(polygonPremarketActive: boolean): boolean {
   return polygonPremarketActive === true;
@@ -57,17 +58,7 @@ function finite(value: number | null | undefined): number | null {
 }
 
 function eventTypesOf(row: MorningRadarRow): string[] {
-  const out: string[] = [];
-  if (Array.isArray(row.scanner_events)) {
-    for (const item of row.scanner_events) {
-      if (!item || typeof item !== "object") continue;
-      const record = item as Record<string, unknown>;
-      if (record.active === false) continue;
-      if (typeof record.type === "string" && record.type.trim()) out.push(record.type);
-    }
-  }
-  if (row.primary_scanner_event) out.push(row.primary_scanner_event);
-  return out;
+  return collectScannerEventTypes(row);
 }
 
 function hasMomentumEvent(events: readonly string[]): boolean {
@@ -90,7 +81,7 @@ function gapContinuationEligible(row: MorningRadarRow): boolean {
 
 function premarketParticipation(row: MorningRadarRow): boolean {
   if (!positiveShortWindowOrSessionMove(row)) return false;
-  const rvol = finite(row.rvol_5m);
+  const rvol = finite(row.rvol_5m) ?? finite(row.time_adjusted_rvol);
   const accel = finite(row.volume_acceleration_pct);
   const velocity = finite(row.vol_velocity);
   return (rvol !== null && rvol >= MORNING_PREMARKET_MIN_RVOL_5M) ||
@@ -196,10 +187,10 @@ export function evaluateMorningRadarEligibility(
       reasons.push("No positive short-window or session move for participation");
     } else if (!premarketParticipation(row)) {
       rejectionCodes.push("MISSING_RVOL_PARTICIPATION");
-      const rvol = finite(row.rvol_5m);
+      const rvol = finite(row.rvol_5m) ?? finite(row.time_adjusted_rvol);
       reasons.push(
         rvol === null
-          ? "5-minute RVOL unavailable — participation cannot be verified yet"
+          ? "5-minute RVOL and time-adjusted RVOL unavailable — participation cannot be verified yet"
           : "RVOL, acceleration, and velocity below premarket participation minimums",
       );
     }

@@ -540,14 +540,25 @@ export function resolveVolumeTrendForDisplay(input: {
     triggerAgeMs !== null && triggerAgeMs > DAY_TRADE_FRESHNESS_RECENT_MS;
   const bullish =
     base.label === "RISING ↑" || base.label === "SURGING ↑↑" || base.label === "EXTREME ↑↑";
-  if (staleTrigger && bullish) {
+  const bearish = base.label === "COOLING ↓";
+  if (staleTrigger && (bullish || bearish)) {
     return {
       label: "STEADY",
       title:
-        `${base.title} Primary scanner trigger is historical; elevated 5m acceleration does not imply fresh actionable momentum.`,
+        `${base.title} Primary scanner trigger is historical; 5m acceleration at last observation does not imply a fresh actionable signal.`,
     };
   }
   return base;
+}
+
+export function isHistoricalPrimaryScannerTrigger(
+  primaryScannerEventAt: string | null | undefined,
+  nowMs: number,
+): boolean {
+  const canonical = toCanonicalUtcTimestamp(primaryScannerEventAt ?? null);
+  const triggerMs = canonical ? parseTimestampMs(canonical) : null;
+  const triggerAgeMs = triggerMs === null ? null : Math.max(0, nowMs - triggerMs);
+  return triggerAgeMs !== null && triggerAgeMs > DAY_TRADE_FRESHNESS_RECENT_MS;
 }
 
 export function formatVolumeSpeedCompact(value: number | null | undefined): string {

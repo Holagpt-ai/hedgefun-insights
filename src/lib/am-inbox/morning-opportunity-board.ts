@@ -34,6 +34,8 @@ import type { MarketFeedTelemetry } from "@/lib/market-feed/telemetry";
 import type { ScreenerUiStatus } from "@/lib/screeners/contract";
 import type { SecurityId } from "@/types/security-identity";
 import { resolveSessionGapPercent } from "@/lib/daily-intelligence/session-gap-evidence";
+import { summarizeMorningRadarExclusions } from "@/lib/am-inbox/morning-opportunity-exclusions";
+import { collectScannerEventTypes } from "@/lib/scanner-intelligence/scanner-event-handoff";
 
 export type {
   MorningOpportunityBoard,
@@ -65,17 +67,7 @@ function finite(value: number | null | undefined): number | null {
 }
 
 function eventTypesOf(row: MorningRadarRow): string[] {
-  const out: string[] = [];
-  if (Array.isArray(row.scanner_events)) {
-    for (const item of row.scanner_events) {
-      if (!item || typeof item !== "object") continue;
-      const record = item as Record<string, unknown>;
-      if (record.active === false) continue;
-      if (typeof record.type === "string" && record.type.trim()) out.push(record.type);
-    }
-  }
-  if (row.primary_scanner_event) out.push(row.primary_scanner_event);
-  return out;
+  return collectScannerEventTypes(row);
 }
 
 function strongestEvent(events: readonly string[]): string | null {
@@ -267,8 +259,20 @@ export function buildMorningOpportunityBoard(input: {
     })
     : null;
 
+  const exclusionHints =
+    sections.length === 0 && (input.radarRows?.length ?? 0) > 0
+      ? summarizeMorningRadarExclusions({
+        radarRows: input.radarRows,
+        polygonPremarketActive: input.polygonPremarketActive,
+      })
+      : [];
+
+  const radarSessionLabel = input.radarSession?.trim() || null;
+
   return {
     sections,
     emptyMessage,
+    exclusionHints,
+    radarSessionLabel,
   };
 }
