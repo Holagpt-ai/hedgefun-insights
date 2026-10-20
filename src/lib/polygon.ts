@@ -1,11 +1,9 @@
 // Client-side helpers to call market-data edge function
 const MARKET_DATA_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/market-data`;
+const marketDataInflight = new Map<string, Promise<unknown>>();
 
-async function fetchMarketData(params: Record<string, string>) {
-  const url = new URL(MARKET_DATA_URL);
-  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-
-  const res = await fetch(url.toString(), {
+async function fetchMarketDataOnce(url: string) {
+  const res = await fetch(url, {
     headers: {
       Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
       "Content-Type": "application/json",
@@ -19,6 +17,19 @@ async function fetchMarketData(params: Record<string, string>) {
   }
 
   return res.json();
+}
+
+async function fetchMarketData(params: Record<string, string>) {
+  const url = new URL(MARKET_DATA_URL);
+  Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
+  const key = url.toString();
+  const existing = marketDataInflight.get(key);
+  if (existing) return existing;
+  const pending = fetchMarketDataOnce(key).finally(() => {
+    marketDataInflight.delete(key);
+  });
+  marketDataInflight.set(key, pending);
+  return pending;
 }
 
 export async function getTopGainers() {

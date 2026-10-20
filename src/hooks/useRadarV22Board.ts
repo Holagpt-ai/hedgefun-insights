@@ -56,12 +56,14 @@ async function fetchV22Once(nowMs: number): Promise<RadarV22View> {
   );
 }
 
-export function useRadarV22Board() {
+export function useRadarV22Board(opts?: { enabled?: boolean }) {
+  const enabled = opts?.enabled ?? true;
   const [view, setView] = useState<RadarV22View>(() =>
     viewRadarV22Generation(null, null, easternDate(Date.now())),
   );
 
   useEffect(() => {
+    if (!enabled) return;
     let cancelled = false;
     const load = async () => {
       const next = await fetchV22Once(Date.now());
@@ -90,7 +92,7 @@ export function useRadarV22Board() {
       window.clearInterval(poll);
       void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [enabled]);
 
   return view;
 }

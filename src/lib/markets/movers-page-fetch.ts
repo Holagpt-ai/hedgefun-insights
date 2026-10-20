@@ -44,23 +44,27 @@ export function homepagePublicMoversQueryKey(
   return ["homepage-public-movers", session, sessionDate] as const;
 }
 
-async function afterHoursSideRows(
-  side: "gainers" | "losers",
-  nowMs: number,
-  sort: "percent_desc" | "percent_asc",
-): Promise<MoversPageQueryResult> {
-  return fetchAfterHoursTracked(side, nowMs, sort);
+async function fetchAfterHoursSnapshots(): Promise<{
+  gainers: SnapshotTicker[];
+  losers: SnapshotTicker[];
+}> {
+  const [gainRes, lossRes] = await Promise.all([getTopGainers(), getTopLosers()]);
+  return {
+    gainers: polygonTickersFromResponse(gainRes) as SnapshotTicker[],
+    losers: polygonTickersFromResponse(lossRes) as SnapshotTicker[],
+  };
 }
 
-async function fetchAfterHoursTracked(
+function mapAfterHoursTrackedSide(
+  snapshots: { gainers: SnapshotTicker[]; losers: SnapshotTicker[] },
   side: "gainers" | "losers",
   nowMs: number,
   sort: "percent_desc" | "percent_asc",
-): Promise<MoversPageQueryResult> {
-  const [gainRes, lossRes] = await Promise.all([getTopGainers(), getTopLosers()]);
-  const gainers = polygonTickersFromResponse(gainRes) as SnapshotTicker[];
-  const losers = polygonTickersFromResponse(lossRes) as SnapshotTicker[];
-  const classified = classifyTrackedAfterHoursMovers([...gainers, ...losers]);
+): MoversPageQueryResult {
+  const classified = classifyTrackedAfterHoursMovers([
+    ...snapshots.gainers,
+    ...snapshots.losers,
+  ]);
   const sourceRows = side === "gainers" ? classified.gainers : classified.losers;
   const validated = sourceRows.map((r) =>
     moverFromExtendedObservation({
@@ -81,6 +85,14 @@ async function fetchAfterHoursTracked(
     moverSession: "afterhours",
   });
   return { rows, movers, provenance };
+}
+
+async function fetchAfterHoursTracked(
+  side: "gainers" | "losers",
+  nowMs: number,
+  sort: "percent_desc" | "percent_asc",
+): Promise<MoversPageQueryResult> {
+  return mapAfterHoursTrackedSide(await fetchAfterHoursSnapshots(), side, nowMs, sort);
 }
 
 async function fetchPolygonSide(
@@ -105,7 +117,7 @@ async function fetchPolygonSide(
 export async function fetchPublicGainersRows(session = resolveMarketSession()): Promise<MoversPageQueryResult> {
   const nowMs = Date.now();
   if (session === "after-hours") {
-    return afterHoursSideRows("gainers", nowMs, "percent_desc");
+    return fetchAfterHoursTracked("gainers", nowMs, "percent_desc");
   }
   return fetchPolygonSide("gainers", session, nowMs);
 }
@@ -113,7 +125,7 @@ export async function fetchPublicGainersRows(session = resolveMarketSession()): 
 export async function fetchPublicLosersRows(session = resolveMarketSession()): Promise<MoversPageQueryResult> {
   const nowMs = Date.now();
   if (session === "after-hours") {
-    return afterHoursSideRows("losers", nowMs, "percent_asc");
+    return fetchAfterHoursTracked("losers", nowMs, "percent_asc");
   }
   return fetchPolygonSide("losers", session, nowMs);
 }
@@ -140,10 +152,18 @@ export async function fetchHomepagePublicMoversBundle(
   fetchedAtMs: number;
 }> {
   const nowMs = Date.now();
-  const [gainers, losers] = await Promise.all([
-    fetchPublicGainersRows(session),
-    fetchPublicLosersRows(session),
-  ]);
+  const [gainers, losers] = session === "after-hours"
+    ? await (async () => {
+      const snapshots = await fetchAfterHoursSnapshots();
+      return [
+        mapAfterHoursTrackedSide(snapshots, "gainers", nowMs, "percent_desc"),
+        mapAfterHoursTrackedSide(snapshots, "losers", nowMs, "percent_asc"),
+      ] as const;
+    })()
+    : await Promise.all([
+      fetchPublicGainersRows(session),
+      fetchPublicLosersRows(session),
+    ]);
   const moverSession = clockSessionToMoverSession(session);
   const combinedProvenance = summarizeMoversListProvenance(
     [...gainers.movers, ...losers.movers],

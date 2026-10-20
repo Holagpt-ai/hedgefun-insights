@@ -453,6 +453,11 @@ const V2_ARGS = {
   p_last_receive_at: null,
 };
 
+Deno.test("publish timeout covers the 120s RPC statement_timeout plus envelope", () => {
+  assertEquals(RADAR_PUBLISH_BRIDGE_TIMEOUT_MS >= 120_000, true);
+  assertEquals(RADAR_PUBLISH_BRIDGE_TIMEOUT_MS, 130_000);
+});
+
 Deno.test("radar publish bridge actions use extended timeout budget", async () => {
   const lines: string[] = [];
   const original = console.log;

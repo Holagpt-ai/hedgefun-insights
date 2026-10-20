@@ -64,8 +64,14 @@ export type RadarSocketController = {
 };
 
 export const DEFAULT_SILENT_MARKET_MS = 20_000;
-/** Retry realtime after a same-session delayed fallback, without a process restart. */
-export const DEFAULT_REALTIME_PROBE_MS = 60_000;
+/**
+ * Same-session realtime retry after a delayed fallback. Kept long so a healthy
+ * delayed tape is not interrupted every 20s/60s (production reconnect storms).
+ * Cancelled as soon as delayed A.* arrives; session-key change still retries.
+ */
+export const DEFAULT_REALTIME_PROBE_MS = 15 * 60_000;
+/** Overnight/weekend/holiday transport backoff. Do not use live reconnect cadence. */
+export const DEFAULT_CLOSED_SESSION_RECONNECT_MS = 5 * 60_000;
 
 export async function frameText(data: unknown): Promise<string> {
   if (typeof data === "string") return data;
@@ -159,6 +165,11 @@ export function createRadarSocket(opts: {
     }, realtimeProbeMs);
   }
 
+  function reconnectWaitMs(attempt: number): number {
+    if (!tapeExpected(nowMs())) return DEFAULT_CLOSED_SESSION_RECONNECT_MS;
+    return reconnectDelayMs(attempt, opts.config, random);
+  }
+
   function clearSilent(): void {
     if (silentTimer !== null) {
       clearTimeout(silentTimer);
@@ -194,7 +205,10 @@ export function createRadarSocket(opts: {
         feed_mode: opts.feedMode,
         silent_ms: silentMarketMs,
       });
-      if (activeEndpoint === "realtime" && opts.feedMode === "auto") {
+      if (opts.feedMode === "auto" && activeEndpoint === "delayed") {
+        // Delayed went quiet during a live session: retry realtime (transport).
+        clearDowngrade();
+      } else if (activeEndpoint === "realtime" && opts.feedMode === "auto") {
         authFailedOnRealtime = true;
         downgradedSessionKey = liveTapeSessionKey(atMs, exceptions());
         armProbe();
@@ -228,6 +242,7 @@ export function createRadarSocket(opts: {
       if (ev === "A") {
         sawMarket = true;
         clearSilent();
+        if (activeEndpoint === "delayed") clearProbe();
         opts.onEvent(item, receiveMs);
       }
       if (ev === "status") {
@@ -245,6 +260,10 @@ export function createRadarSocket(opts: {
             (opts.feedMode === "auto" || opts.feedMode === "realtime")
           ) {
             authFailedOnRealtime = true;
+            if (opts.feedMode === "auto") {
+              downgradedSessionKey = liveTapeSessionKey(nowMs(), exceptions());
+              armProbe();
+            }
             log("warn", "radar_ws_auth_failed_realtime", {
               feed_mode: opts.feedMode,
               status,
@@ -302,11 +321,12 @@ export function createRadarSocket(opts: {
       if (stopped || !opts.shouldRun()) break;
       attempt += 1;
       opts.onReconnect();
-      const delay = reconnectDelayMs(attempt, opts.config, random);
+      const delay = reconnectWaitMs(attempt);
       log("warn", "radar_ws_reconnect", {
         attempt,
         delay_ms: delay,
         endpoint: activeEndpoint,
+        tape_expected: tapeExpected(nowMs()),
       });
       await sleep(delay);
     }

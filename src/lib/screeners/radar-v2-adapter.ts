@@ -25,7 +25,6 @@
  */
 
 import {
-  SCREENER_STALE_AFTER_MS,
   MAX_TAB_ROWS,
   parseTimestampMs,
   isFiniteNumber,
@@ -108,11 +107,12 @@ export const RADAR_V2_CANDIDATE_CAP = 200;
 // ── Freshness ───────────────────────────────────────────────────────────────
 
 /**
- * Reuse the Screener staleness threshold. Massive tape is intentionally ~15 min
- * delayed; this threshold gates PIPELINE liveness (v2_synced_at), not provider
- * realtime. Nothing here claims "Live".
+ * Pipeline liveness (v2_synced_at / last_receive_at), not provider delay.
+ * Healthy V2 checkpoints at 30s, so 3 minutes is six missed checkpoints —
+ * long enough for a 120s RPC, short enough that a failed-save burst cannot
+ * keep last-good radar rows looking live for the 20-minute screener window.
  */
-export const RADAR_V2_STALE_AFTER_MS = SCREENER_STALE_AFTER_MS;
+export const RADAR_V2_STALE_AFTER_MS = 3 * 60_000;
 
 const SYMBOL_RE = /^[A-Z][A-Z0-9.-]*$/;
 

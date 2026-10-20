@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  RADAR_V22_POLL_MS,
   resolveRadarSource,
   viewRadarV22Generation,
   type RadarV22BoardRow,
@@ -177,6 +178,22 @@ describe("selected-symbol stability / Follow #1 with V2.2 signals", () => {
 });
 
 describe("no browser-side rolling calculations", () => {
+  it("legacy V22 board poll matches the 60s screener cadence and pauses when Radar V2 is authoritative", () => {
+    expect(RADAR_V22_POLL_MS).toBe(60_000);
+    const hook = readFileSync(resolve(process.cwd(), "src/hooks/useRadarV22Board.ts"), "utf8");
+    expect(hook).toContain("enabled");
+    const radar = readFileSync(
+      resolve(process.cwd(), "src/features/day-trade-radar-v2/DayTradeRadarV2.tsx"),
+      "utf8",
+    );
+    expect(radar).toContain("enabled: source !== \"radar-v2\"");
+    const indexes = readFileSync(
+      resolve(process.cwd(), "src/components/home/IndexSparklineCards.tsx"),
+      "utf8",
+    );
+    expect(indexes).toContain("staleTime: 60_000");
+  });
+
   it("Radar V2.2 client files do not subscribe to raw market events or compute rolling windows", () => {
     const files = [
       "src/hooks/useRadarV22Board.ts",

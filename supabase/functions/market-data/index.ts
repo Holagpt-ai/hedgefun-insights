@@ -11,6 +11,15 @@ import {
   shouldCacheRadarNews,
   type ProviderNewsFetch,
 } from "../_shared/market-data/radar-news.ts";
+import {
+  AGGREGATES_CACHE_TTL_MS,
+  consumePublicMarketDataRateLimit,
+  dedupePublicMarketDataInflight,
+  getPublicMarketDataCached,
+  publicMarketDataClientKey,
+  setPublicMarketDataCached,
+  SNAPSHOT_CACHE_TTL_MS,
+} from "../_shared/market-data/public-request-guard.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -157,6 +166,17 @@ serve(async (req) => {
 
     console.log("[market-data] type:", type, "POLYGON_KEY:", Deno.env.get("POLYGON_API_KEY") ? "KEY_PRESENT" : "KEY_MISSING");
 
+    if (!consumePublicMarketDataRateLimit(publicMarketDataClientKey(req))) {
+      return new Response(JSON.stringify({ error: "rate_limited" }), {
+        status: 429,
+        headers: {
+          ...cors,
+          "Content-Type": "application/json",
+          "Retry-After": "60",
+        },
+      });
+    }
+
     let data: unknown;
 
     switch (type) {
@@ -272,9 +292,18 @@ serve(async (req) => {
       }
       case "snapshot": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`));
-        const json = await res.json();
-        data = json.ticker ?? null;
+        const cacheKey = `snapshot:${ticker}`;
+        const cachedSnapshot = getPublicMarketDataCached(cacheKey, SNAPSHOT_CACHE_TTL_MS);
+        if (cachedSnapshot !== null) {
+          data = cachedSnapshot;
+          break;
+        }
+        data = await dedupePublicMarketDataInflight(cacheKey, async () => {
+          const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`));
+          const json = await res.json();
+          return json.ticker ?? null;
+        });
+        if (data != null) setPublicMarketDataCached(cacheKey, data);
         break;
       }
       case "details": {
@@ -359,10 +388,19 @@ serve(async (req) => {
         const from = searchParams.get("from") ?? "";
         const to = searchParams.get("to") ?? "";
         if (!from || !to) return new Response(JSON.stringify({ error: "from and to required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+        const cacheKey = `aggregates:${ticker}:${multiplier}:${timespan}:${from}:${to}`;
+        const cachedAggs = getPublicMarketDataCached(cacheKey, AGGREGATES_CACHE_TTL_MS);
+        if (cachedAggs !== null) {
+          data = cachedAggs;
+          break;
+        }
         const limit = timespan === "minute" ? "50000" : "365";
-        const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit }));
-        const json = await res.json();
-        data = json.results ?? [];
+        data = await dedupePublicMarketDataInflight(cacheKey, async () => {
+          const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit }));
+          const json = await res.json();
+          return json.results ?? [];
+        });
+        if (Array.isArray(data)) setPublicMarketDataCached(cacheKey, data);
         break;
       }
       case "prev-close": {
