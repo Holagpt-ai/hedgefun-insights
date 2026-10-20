@@ -117,3 +117,6 @@ verify_jwt = false
 
 [functions.get-pre-market-workspace]
 verify_jwt = false
+
+[functions.radar-historical-context]
+verify_jwt = false

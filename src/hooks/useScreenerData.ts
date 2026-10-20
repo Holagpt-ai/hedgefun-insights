@@ -24,6 +24,7 @@ import {
 import { isVerifiedRadarV2Decision } from "@/lib/screeners/radar-v2-soft-refresh";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
 import { fetchAndMergeRadarHistoricalContext } from "@/lib/radar/apply-radar-historical-context";
+import { resolveRadarHistoricalContextAccessToken } from "@/lib/radar/radar-historical-context-access";
 import {
   fetchRadarHistoricalContextBatch,
   RadarHistoricalContextHttpError,
@@ -67,12 +68,6 @@ function mergeScreenerPublicationMetadata(
     tab_evaluation_evidence:
       feedView.tab_evaluation_evidence ?? view.tab_evaluation_evidence,
   };
-}
-
-function radarHistoricalContextAccessToken(sessionToken: string | undefined): string | null {
-  if (sessionToken) return sessionToken;
-  const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
-  return typeof anon === "string" && anon.length > 0 ? anon : null;
 }
 
 const ROW_SELECT = [
@@ -376,7 +371,7 @@ export function useScreenerData(
           if (tabId === "day_trade_radar" && view.rows.length > 0) {
             if (!cancelled) setRepeatMoversLoadState({ status: "loading" });
             const { data: sessionData } = await supabase.auth.getSession();
-            const token = radarHistoricalContextAccessToken(
+            const token = resolveRadarHistoricalContextAccessToken(
               sessionData.session?.access_token,
             );
             const edgeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-historical-context`;

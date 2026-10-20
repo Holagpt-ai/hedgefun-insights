@@ -37,6 +37,7 @@ export async function fetchRadarHistoricalContextBatch(input: {
     method: "POST",
     headers: {
       Authorization: `Bearer ${input.accessToken}`,
+      apikey: input.accessToken,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({ requests: input.requests }),
