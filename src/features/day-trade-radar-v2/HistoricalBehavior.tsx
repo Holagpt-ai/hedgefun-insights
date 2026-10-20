@@ -216,6 +216,21 @@ export function HistoryCell({
   context: RepeatMoverContext | null | undefined;
   row?: RadarRankedRow | null;
 }) {
+  const loadStatus = row?.historicalContextLoadStatus;
+  if (loadStatus === "pending" || loadStatus === "loading") {
+    return (
+      <ScannerMetricHint label="Historical context loading" className="text-muted-foreground">
+        Loading…
+      </ScannerMetricHint>
+    );
+  }
+  if (loadStatus === "failed" && !context) {
+    return (
+      <ScannerMetricHint label="Historical context temporarily unavailable" className="text-muted-foreground">
+        Unavailable
+      </ScannerMetricHint>
+    );
+  }
   if (context?.profile?.profileAvailable === false) {
     return (
       <HistoryDetailTrigger

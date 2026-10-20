@@ -42,6 +42,7 @@ export default function Screeners() {
     radarDiagnostic,
     truthState,
     repeatMoversLoadState,
+    prioritizeHistoricalContext,
     refetch,
   } = useScreenerData(activeTabId, {
     refreshIntervalMs: isRadarBacked ? RADAR_BACKED_REFRESH_MS : undefined,
@@ -124,6 +125,7 @@ export default function Screeners() {
           closedSnapshot={closedSnapshot}
           repeatMoversLoadState={repeatMoversLoadState}
           onRepeatMoversRetry={refetch}
+          onPrioritizeHistoricalContext={prioritizeHistoricalContext}
         />
       ) : (
         <ScreenerTable

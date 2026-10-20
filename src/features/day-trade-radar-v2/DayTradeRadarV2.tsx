@@ -38,6 +38,7 @@ export function DayTradeRadarV2({
   closedSnapshot = false,
   repeatMoversLoadState = REPEAT_MOVERS_IDLE,
   onRepeatMoversRetry,
+  onPrioritizeHistoricalContext,
 }: DayTradeRadarV2Props) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -126,6 +127,7 @@ export function DayTradeRadarV2({
   }, [deskRows, qualification.monitoring]);
 
   const openDetails = (row: RadarRankedRow) => {
+    onPrioritizeHistoricalContext?.(row.symbol);
     selectRow(row);
     setPinnedSymbol(row.symbol);
     if (isMobile) setMobileDetailOpen(true);
@@ -133,6 +135,7 @@ export function DayTradeRadarV2({
   };
 
   const selectActive = (row: RadarRankedRow) => {
+    onPrioritizeHistoricalContext?.(row.symbol);
     selectRow(row);
     setPinnedSymbol(row.symbol);
   };
