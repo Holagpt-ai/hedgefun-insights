@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +28,13 @@ import {
   toastSpecForRefreshError,
 } from "@/lib/watchlist-v2/refresh-response";
 import { resolveWatchlistRowRequestStatus } from "@/lib/watchlist-v2/watchlist-request-status";
+import { dedupeWatchlistSymbolRows } from "@/lib/watchlist-v2/watchlist-persistence";
+import {
+  watchlistAnalysisPlaceholder,
+  watchlistAnalysisQueryKey,
+  watchlistSymbolsPlaceholder,
+  watchlistSymbolsQueryKey,
+} from "@/lib/watchlist-v2/watchlist-query-isolation";
 
 export interface V2Row {
   ticker: string;
@@ -72,9 +79,11 @@ export function useWatchlistV2() {
 
   // 1. User's watchlist symbols (RLS enforces ownership).
   const watchlistQuery = useQuery<WatchlistRow[]>({
-    queryKey: ["watchlist-v2", "symbols", userId],
+    queryKey: watchlistSymbolsQueryKey(userId),
     enabled: !!userId,
     staleTime: 30_000,
+    retry: 2,
+    placeholderData: watchlistSymbolsPlaceholder(userId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("watchlists")
@@ -82,11 +91,12 @@ export function useWatchlistV2() {
         .eq("user_id", userId!)
         .order("added_at", { ascending: false });
       if (error) throw error;
-      return (data ?? []).map((r) => ({
+      const mapped = (data ?? []).map((r) => ({
         id: r.id,
         symbol: (r.symbol ?? "").toUpperCase(),
         added_at: r.added_at,
       }));
+      return dedupeWatchlistSymbolRows(mapped);
     },
   });
 
@@ -98,16 +108,22 @@ export function useWatchlistV2() {
   // 2. V2 analysis rows for those tickers (public read policy exists; the
   //    surface is still gated to the user's own watchlist symbols).
   const analysisQuery = useQuery({
-    queryKey: ["watchlist-v2", "analysis", userId, symbols],
+    queryKey: watchlistAnalysisQueryKey(userId, symbols),
     enabled: !!userId && symbols.length > 0,
     staleTime: 15_000,
+    retry: 2,
+    placeholderData: watchlistAnalysisPlaceholder(userId, symbols),
     queryFn: async () => {
+      const wanted = new Set(symbols.map((s) => s.toUpperCase()));
       const { data, error } = await supabase
         .from("watchlist_analysis_v2")
         .select("*")
         .in("ticker", symbols);
       if (error) throw error;
-      return data ?? [];
+      return (data ?? []).filter((row) => {
+        const t = typeof row.ticker === "string" ? row.ticker.toUpperCase() : "";
+        return t && wanted.has(t);
+      });
     },
   });
 
@@ -203,10 +219,16 @@ export function useWatchlistV2() {
     };
   }, [userId, symbols, qc]);
 
+  const trackedUserIdRef = useRef<string | null>(null);
   useEffect(() => {
+    const prev = trackedUserIdRef.current;
+    if (prev !== null && prev !== userId) {
+      qc.removeQueries({ queryKey: ["watchlist-v2"] });
+    }
     if (!userId) {
       qc.removeQueries({ queryKey: ["watchlist-v2"] });
     }
+    trackedUserIdRef.current = userId;
   }, [userId, qc]);
 
   // Compose rows.

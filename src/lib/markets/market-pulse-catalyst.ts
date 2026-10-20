@@ -81,10 +81,13 @@ export function resolveVerifiedCatalystForPulse(input: {
   observationMs: number | null;
   sessionEvidence: MarketPulseSessionEvidence;
   nowMs: number;
+  /** When true, temporal eligibility requires a verified price observation timestamp. */
+  requirePriceObservationMs?: boolean;
 }): MarketPulseVerifiedCatalyst | null {
   const sym = normalizeSymbol(input.symbol);
   const entry = input.entry;
   if (!sym || !entry) return null;
+  if (input.requirePriceObservationMs && input.observationMs === null) return null;
 
   const event = entry.event;
   if (entry.kind !== "recent") return null;

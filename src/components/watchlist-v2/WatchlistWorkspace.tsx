@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import { useWatchlistV2 } from "@/hooks/useWatchlistV2";
-import { fetchCatalystEventsForEnrichment } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useWatchlistMarketIntelligence } from "@/hooks/useWatchlistMarketIntelligence";
 import { selectNearestEarnings, type EarningsBadge } from "@/lib/watchlist-v2/earnings";
+import { buildWatchlistCatalystMap } from "@/lib/watchlist-v2/watchlist-catalyst-context";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import {
   computeSummaryMetrics,
@@ -94,18 +94,14 @@ export function WatchlistWorkspace({ className }: Props) {
   const symbols = useMemo(() => rows.map((r) => r.ticker), [rows]);
   const tokens = densityTokens(density);
 
-  const earningsQuery = useQuery({
-    queryKey: ["watchlist-earnings", symbols],
-    enabled: isAuthenticated && symbols.length > 0,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const nowMs = Date.now();
-      const events = await fetchCatalystEventsForEnrichment(symbols, nowMs);
-      return selectNearestEarnings(events, symbols, nowMs);
-    },
-  });
+  const marketIntelQuery = useWatchlistMarketIntelligence(isAuthenticated ? symbols : []);
 
-  const earningsBySymbol: Map<string, EarningsBadge> = earningsQuery.data ?? new Map();
+  const earningsBySymbol: Map<string, EarningsBadge> = marketIntelQuery.data?.earnings ?? new Map();
+
+  const verifiedCatalystBySymbol = useMemo(
+    () => buildWatchlistCatalystMap(rows, marketIntelQuery.data?.recentCatalyst, Date.now()),
+    [rows, marketIntelQuery.data?.recentCatalyst],
+  );
 
   const rowRefs = useRef(new Map<string, HTMLDivElement | null>());
   const [highlighted, setHighlighted] = useState<string | null>(null);
@@ -140,7 +136,7 @@ export function WatchlistWorkspace({ className }: Props) {
 
   const filteredSorted = useMemo(() => {
     const q = search.trim().toUpperCase();
-    let list = rows.filter((r) => rowMatchesFilter(r, filter, earningsBySymbol));
+    let list = rows.filter((r) => rowMatchesFilter(r, filter, earningsBySymbol, verifiedCatalystBySymbol));
     if (q) {
       list = list.filter(
         (r) =>
@@ -149,11 +145,11 @@ export function WatchlistWorkspace({ className }: Props) {
       );
     }
     return sortRows(list, sort, earningsBySymbol);
-  }, [rows, filter, sort, search, earningsBySymbol]);
+  }, [rows, filter, sort, search, earningsBySymbol, verifiedCatalystBySymbol]);
 
   const summary = useMemo(
-    () => computeSummaryMetrics(rows, earningsBySymbol),
-    [rows, earningsBySymbol],
+    () => computeSummaryMetrics(rows, earningsBySymbol, verifiedCatalystBySymbol),
+    [rows, earningsBySymbol, verifiedCatalystBySymbol],
   );
 
   if (!isAuthenticated) {
@@ -276,6 +272,7 @@ export function WatchlistWorkspace({ className }: Props) {
                   isRefreshing={refreshingSymbol === row.ticker}
                   density={density}
                   earnings={earningsBySymbol.get(key) ?? null}
+                  verifiedCatalyst={verifiedCatalystBySymbol.get(key) ?? null}
                 />
               </div>
             );
