@@ -11,20 +11,22 @@ import {
   shouldCacheRadarNews,
   type ProviderNewsFetch,
 } from "../_shared/market-data/radar-news.ts";
+import { resolveMarketDataClientIdentity } from "../_shared/market-data/client-identity.ts";
 import {
-  AGGREGATES_CACHE_TTL_MS,
-  consumePublicMarketDataRateLimit,
-  dedupePublicMarketDataInflight,
-  getPublicMarketDataCached,
-  publicMarketDataClientKey,
-  setPublicMarketDataCached,
-  SNAPSHOT_CACHE_TTL_MS,
-} from "../_shared/market-data/public-request-guard.ts";
+  aggregateCacheKey,
+  describeAggregatePayload,
+  describeSnapshotPayload,
+  isClosedAggregateWindow,
+  marketDataCacheHeaders,
+  snapshotCacheKey,
+} from "../_shared/market-data/market-cache-record.ts";
+import { getSharedMarketCacheDeps, resolveSharedMarketData } from "../_shared/market-data/shared-market-cache.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Expose-Headers": "X-Market-Data-Freshness, X-Market-Data-Source-As-Of, X-Market-Data-Cache",
 };
 
 const POLYGON_BASE = "https://api.polygon.io";
@@ -134,6 +136,18 @@ function lastSuccessOrUnavailable(cacheKey: string): unknown {
   return UNAVAILABLE_MOVERS;
 }
 
+function rateLimitedResponse(retryAfterSeconds: number): Response {
+  return new Response(JSON.stringify({ error: "rate_limited" }), {
+    status: 429,
+    headers: {
+      ...corsHeaders,
+      "Content-Type": "application/json",
+      "Retry-After": String(retryAfterSeconds),
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -166,18 +180,8 @@ serve(async (req) => {
 
     console.log("[market-data] type:", type, "POLYGON_KEY:", Deno.env.get("POLYGON_API_KEY") ? "KEY_PRESENT" : "KEY_MISSING");
 
-    if (!consumePublicMarketDataRateLimit(publicMarketDataClientKey(req))) {
-      return new Response(JSON.stringify({ error: "rate_limited" }), {
-        status: 429,
-        headers: {
-          ...cors,
-          "Content-Type": "application/json",
-          "Retry-After": "60",
-        },
-      });
-    }
-
     let data: unknown;
+    let cacheHeaders: Record<string, string> = {};
 
     switch (type) {
       case "gainers":
@@ -292,18 +296,22 @@ serve(async (req) => {
       }
       case "snapshot": {
         if (!ticker) return new Response(JSON.stringify({ error: "ticker required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const cacheKey = `snapshot:${ticker}`;
-        const cachedSnapshot = getPublicMarketDataCached(cacheKey, SNAPSHOT_CACHE_TTL_MS);
-        if (cachedSnapshot !== null) {
-          data = cachedSnapshot;
-          break;
-        }
-        data = await dedupePublicMarketDataInflight(cacheKey, async () => {
-          const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`));
-          const json = await res.json();
-          return json.ticker ?? null;
+        const resolved = await resolveSharedMarketData(getSharedMarketCacheDeps(), {
+          kind: "snapshot",
+          cacheKey: snapshotCacheKey(ticker),
+          coalesceKey: snapshotCacheKey(ticker),
+          closed: false,
+          identity: resolveMarketDataClientIdentity(req),
+          describe: describeSnapshotPayload,
+          loadOrigin: async () => {
+            const res = await fetchWithRetry(polyUrl(`/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`));
+            const json = await res.json();
+            return json.ticker ?? null;
+          },
         });
-        if (data != null) setPublicMarketDataCached(cacheKey, data);
+        if (!resolved.ok) return rateLimitedResponse(resolved.retryAfterSeconds);
+        data = resolved.data;
+        cacheHeaders = marketDataCacheHeaders(resolved);
         break;
       }
       case "details": {
@@ -388,19 +396,25 @@ serve(async (req) => {
         const from = searchParams.get("from") ?? "";
         const to = searchParams.get("to") ?? "";
         if (!from || !to) return new Response(JSON.stringify({ error: "from and to required" }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
-        const cacheKey = `aggregates:${ticker}:${multiplier}:${timespan}:${from}:${to}`;
-        const cachedAggs = getPublicMarketDataCached(cacheKey, AGGREGATES_CACHE_TTL_MS);
-        if (cachedAggs !== null) {
-          data = cachedAggs;
-          break;
-        }
-        const limit = timespan === "minute" ? "50000" : "365";
-        data = await dedupePublicMarketDataInflight(cacheKey, async () => {
-          const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit }));
-          const json = await res.json();
-          return json.results ?? [];
+        const cacheKey = aggregateCacheKey({ ticker, multiplier, timespan, from, to });
+        const nowMs = Date.now();
+        const resolved = await resolveSharedMarketData(getSharedMarketCacheDeps(), {
+          kind: "aggregates",
+          cacheKey,
+          coalesceKey: cacheKey ?? `agg:${ticker}:${multiplier}:${timespan}:${from}:${to}`,
+          closed: cacheKey != null && isClosedAggregateWindow(to, nowMs),
+          identity: resolveMarketDataClientIdentity(req),
+          describe: describeAggregatePayload,
+          loadOrigin: async () => {
+            const limit = timespan === "minute" ? "50000" : "365";
+            const res = await fetchWithRetry(polyUrl(`/v2/aggs/ticker/${ticker}/range/${multiplier}/${timespan}/${from}/${to}`, { adjusted: "true", sort: "asc", limit }));
+            const json = await res.json();
+            return json.results ?? [];
+          },
         });
-        if (Array.isArray(data)) setPublicMarketDataCached(cacheKey, data);
+        if (!resolved.ok) return rateLimitedResponse(resolved.retryAfterSeconds);
+        data = resolved.data;
+        cacheHeaders = marketDataCacheHeaders(resolved);
         break;
       }
       case "prev-close": {
@@ -527,7 +541,12 @@ serve(async (req) => {
     }
 
     return new Response(JSON.stringify(data), {
-      headers: { ...cors, "Content-Type": "application/json", "Cache-Control": "public, max-age=30" },
+      headers: {
+        ...cors,
+        "Content-Type": "application/json",
+        "Cache-Control": "public, max-age=30",
+        ...cacheHeaders,
+      },
     });
   } catch (e) {
     console.error("market-data error:", e);
