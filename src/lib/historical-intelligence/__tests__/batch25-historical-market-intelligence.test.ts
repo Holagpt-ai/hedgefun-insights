@@ -155,4 +155,40 @@ describe("Batch 25 — historical market intelligence", () => {
     const model = buildHistoricalMarketIntelligence({ context: context(), symbol: "XYZ" });
     expect(model.delayDisclosure).toMatch(/15-minute delayed/i);
   });
+
+  it("does not label current-session volume as previous recorded volume", () => {
+    const ctx = context({
+      comparableHistory: {
+        comparableEpisodeCount: 0,
+        closestComparableEpisodes: [],
+        mostRecentComparableEpisode: null,
+      },
+      currentContext: {
+        ...context().currentContext,
+        volume: 99_000_000,
+        rvol: 12,
+      },
+    });
+    const model = buildHistoricalMarketIntelligence({ context: ctx, symbol: "XYZ" });
+    expect(model.lastAppearanceDate).toBe("2026-10-14");
+    expect(model.lastRecordedVolume).toBeNull();
+    expect(model.lastRecordedRvol).toBeNull();
+  });
+
+  it("uses profile latest episode date when comparables omit a newer appearance", () => {
+    const ctx = context({
+      profile: {
+        ...context().profile,
+        latestEpisodeDateUsed: "2026-10-17",
+      },
+      comparableHistory: {
+        comparableEpisodeCount: 1,
+        closestComparableEpisodes: [episode({ episodeId: "e-old", sessionDate: "2026-10-01" })],
+        mostRecentComparableEpisode: episode({ episodeId: "e-old", sessionDate: "2026-10-01" }),
+      },
+    });
+    const model = buildHistoricalMarketIntelligence({ context: ctx, symbol: "XYZ" });
+    expect(model.lastAppearanceDate).toBe("2026-10-17");
+    expect(model.lastRecordedVolume).toBeNull();
+  });
 });

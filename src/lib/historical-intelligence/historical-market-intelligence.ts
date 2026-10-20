@@ -67,6 +67,41 @@ function parseSessionMs(date: string | null | undefined): number {
   return Number.isFinite(ms) ? ms : Number.NEGATIVE_INFINITY;
 }
 
+function isSessionDate(value: string | null | undefined): value is string {
+  return typeof value === "string" && /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+}
+
+/** Prefer profile latest episode when comparables omit a more recent stored appearance. */
+function resolveLastAppearanceDate(
+  profile: RepeatMoverContext["profile"],
+  mostRecentComparable: RepeatMoverComparableEpisode | null,
+): string | null {
+  const profileDate = isSessionDate(profile.latestEpisodeDateUsed)
+    ? profile.latestEpisodeDateUsed.trim()
+    : null;
+  const comparableDate = isSessionDate(mostRecentComparable?.sessionDate)
+    ? mostRecentComparable!.sessionDate!.trim()
+    : null;
+  const profileMs = parseSessionMs(profileDate);
+  const comparableMs = parseSessionMs(comparableDate);
+  if (profileMs > comparableMs && profileDate) return profileDate;
+  if (comparableDate) return comparableDate;
+  return profileDate;
+}
+
+function volumeObservationForSession(
+  episodes: readonly RepeatMoverComparableEpisode[],
+  sessionDate: string | null,
+): { volume: number | null; rvol: number | null } {
+  if (!sessionDate) return { volume: null, rvol: null };
+  const match = episodes.find((ep) => ep.sessionDate?.trim() === sessionDate);
+  if (!match) return { volume: null, rvol: null };
+  return {
+    volume: typeof match.volume === "number" && Number.isFinite(match.volume) ? match.volume : null,
+    rvol: typeof match.rvol === "number" && Number.isFinite(match.rvol) ? match.rvol : null,
+  };
+}
+
 /** One episode per ET session date — repeated polls must not inflate counts. */
 export function dedupeEpisodesBySessionDate(
   episodes: readonly RepeatMoverComparableEpisode[],
@@ -215,12 +250,13 @@ export function buildHistoricalMarketIntelligence(input: {
       : null;
   const distinctSessionAppearances = distinctFromProfile ?? (episodes.length > 0 ? episodes.length : null);
 
-  const lastEpisode = episodes[0] ?? context.comparableHistory?.mostRecentComparableEpisode ?? null;
-  const lastAppearanceDate = lastEpisode?.sessionDate ?? profile.latestEpisodeDateUsed ?? null;
-
-  const lastRecordedVolume =
-    lastEpisode?.volume ?? context.currentContext?.volume ?? null;
-  const lastRecordedRvol = lastEpisode?.rvol ?? context.currentContext?.rvol ?? null;
+  const mostRecentComparable =
+    episodes[0] ?? context.comparableHistory?.mostRecentComparableEpisode ?? null;
+  const lastAppearanceDate = resolveLastAppearanceDate(profile, mostRecentComparable);
+  const { volume: lastRecordedVolume, rvol: lastRecordedRvol } = volumeObservationForSession(
+    episodes,
+    lastAppearanceDate,
+  );
 
   const momentumObservations: HistoricalMomentumObservation[] = episodes
     .filter((ep) => ep.movePct !== null || ep.rvol !== null || ep.volume !== null)
