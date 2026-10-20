@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { authenticateRadarHistoricalContextRequest } from "../_shared/radar-historical-context/gateway-auth.ts";
+import {
+  clientRateLimitKey,
+  consumePublicHistoricalContextRateLimit,
+} from "../_shared/radar-historical-context/rate-limit.ts";
+import {
+  parseHistoricalContextRequestBody,
+  RADAR_HISTORICAL_CONTEXT_MAX_REQUESTS,
+} from "../_shared/radar-historical-context/request-bounds.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,7 +22,7 @@ const JSON_HEADERS = {
   "Cache-Control": "private, no-store",
 };
 
-const MAX_REQUESTS = 20;
+const MAX_REQUESTS = RADAR_HISTORICAL_CONTEXT_MAX_REQUESTS;
 const CONCURRENCY = 3;
 const PER_REQUEST_TIMEOUT_MS = 2_500;
 const BATCH_TIMEOUT_MS = 8_000;
@@ -102,16 +110,9 @@ serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   const workerSecret = Deno.env.get("RADAR_WORKER_SECRET") ?? "";
   const bridgeUrl = `${supabaseUrl.replace(/\/$/, "")}/functions/v1/radar-worker-bridge`;
+  const authApiKey = anonKey || publishableKey || serviceKey;
 
   if (!supabaseUrl || !serviceKey || !workerSecret) {
-    return new Response(JSON.stringify({ error: "internal_error" }), {
-      status: 500,
-      headers: JSON_HEADERS,
-    });
-  }
-
-  const gatewayKey = anonKey || publishableKey;
-  if (!gatewayKey) {
     return new Response(JSON.stringify({ error: "internal_error" }), {
       status: 500,
       headers: JSON_HEADERS,
@@ -121,15 +122,13 @@ serve(async (req) => {
   const auth = await authenticateRadarHistoricalContextRequest({
     supabaseUrl,
     authorizationHeader: req.headers.get("Authorization"),
-    apikeyHeader: req.headers.get("apikey"),
-    anonKey,
-    publishableKey,
     getUser: async (authorizationHeader) => {
-      const userClient = createClient(supabaseUrl, gatewayKey, {
+      if (!authApiKey) return { userId: null };
+      const userClient = createClient(supabaseUrl, authApiKey, {
         global: {
           headers: {
             Authorization: authorizationHeader,
-            apikey: req.headers.get("apikey") ?? gatewayKey,
+            apikey: req.headers.get("apikey") ?? authApiKey,
           },
         },
       });
@@ -146,6 +145,13 @@ serve(async (req) => {
     });
   }
 
+  if (auth.mode === "public" && !consumePublicHistoricalContextRateLimit(clientRateLimitKey(req))) {
+    return new Response(JSON.stringify({ error: "rate_limited" }), {
+      status: 429,
+      headers: JSON_HEADERS,
+    });
+  }
+
   let body: unknown;
   try {
     body = await req.json();
@@ -153,10 +159,15 @@ serve(async (req) => {
     return new Response(JSON.stringify({ error: "invalid_body" }), { status: 400, headers: JSON_HEADERS });
   }
 
-  const requestsRaw = (body as Record<string, unknown>)?.requests;
-  if (!Array.isArray(requestsRaw)) {
-    return new Response(JSON.stringify({ error: "invalid_body" }), { status: 400, headers: JSON_HEADERS });
+  const parsedBody = parseHistoricalContextRequestBody(body);
+  if (!parsedBody.ok) {
+    const status = parsedBody.error === "batch_too_large" ? 413 : 400;
+    return new Response(JSON.stringify({ error: parsedBody.error }), {
+      status,
+      headers: JSON_HEADERS,
+    });
   }
+  const requestsRaw = parsedBody.requests;
 
   const requests = requestsRaw.slice(0, MAX_REQUESTS).map((raw) => {
     const row = raw as Record<string, unknown>;
