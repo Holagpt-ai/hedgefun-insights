@@ -133,7 +133,6 @@ export function peekRadarHistoricalProgressiveDiagnostics(): RadarHistoricalProg
 export function invalidateRadarHistoricalEnrichment(lifecycleId?: number): void {
   coordinator.lifecycleId += 1;
   coordinator.inFlight.clear();
-  coordinator.runnerPromise = null;
   if (lifecycleId !== undefined) void lifecycleId;
 }
 
@@ -268,13 +267,14 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function runBatches(lifecycleId: number): Promise<void> {
+async function runBatches(lifecycleId: number, runPromise: Promise<void>): Promise<void> {
   const deps = coordinator.deps;
   const sessionScopeAtStart = coordinator.sessionScope;
   if (!deps || !sessionScopeAtStart) return;
   const config = { ...RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS, ...deps.config };
   let batchesStarted = 0;
 
+  try {
   while (
     deps.isActive()
     && isCoordinatorOwner(lifecycleId, sessionScopeAtStart)
@@ -397,16 +397,17 @@ async function runBatches(lifecycleId: number): Promise<void> {
     }
     batchesStarted += 1;
   }
-
-  if (isCoordinatorOwner(lifecycleId, sessionScopeAtStart)) {
+  } finally {
+    if (coordinator.runnerPromise !== runPromise) return;
     coordinator.runnerPromise = null;
+    if (!coordinator.deps?.isActive() || !coordinator.sessionScope) return;
     const pendingAfterWake = symbolsNeedingFetch(
       coordinator.latestRows,
-      sessionScopeAtStart,
+      coordinator.sessionScope,
       Date.now(),
       config.sessionCacheTtlMs,
     );
-    if (deps.isActive() && pendingAfterWake.length > 0 && batchesStarted > 0) {
+    if (pendingAfterWake.length > 0 && batchesStarted > 0) {
       scheduleRunner();
     }
   }
@@ -415,7 +416,9 @@ async function runBatches(lifecycleId: number): Promise<void> {
 function scheduleRunner(): void {
   if (coordinator.runnerPromise || !coordinator.deps || !coordinator.sessionScope) return;
   const lifecycleId = coordinator.lifecycleId;
-  coordinator.runnerPromise = runBatches(lifecycleId);
+  let runPromise!: Promise<void>;
+  runPromise = runBatches(lifecycleId, runPromise);
+  coordinator.runnerPromise = runPromise;
 }
 
 export function notifyRadarHistoricalPublication(input: {

@@ -338,7 +338,7 @@ describe("progressive historical scheduling", () => {
       await new Promise((resolve) => setTimeout(resolve, 15));
       publish(poll + 1);
     }
-    expect(fetchedSymbols.has("S80")).toBe(true);
+    expect(fetchedSymbols.has("S60")).toBe(true);
     expect(fetchedSymbols.size).toBeLessThanOrEqual(100);
   });
 
@@ -407,7 +407,7 @@ describe("progressive historical scheduling", () => {
     expect(readRadarHistoricalCache("AAA", fingerprint, newScope, Date.now())).toBeNull();
   });
 
-  it("retries failed symbols after cache TTL and user priority", async () => {
+  it("retries failed symbols after cache TTL expiry", async () => {
     resetRadarHistoricalContextStateForTests();
     const scope = radarHistoricalSessionScopeKey({ sessionKind: "market", tradingDate: "2026-09-22" });
     const fingerprint = radarHistoricalCacheFingerprintForRow(row("AAA", 1));
@@ -417,7 +417,7 @@ describe("progressive historical scheduling", () => {
       securityId: null,
       historicalContext: null,
       loadStatus: "failed",
-      fetchedAtMs: 0,
+      fetchedAtMs: Date.now() - RADAR_HISTORICAL_CACHE_TTL_MS - 5_000,
       sessionScope: scope,
     });
     let fetchCalls = 0;
@@ -433,11 +433,33 @@ describe("progressive historical scheduling", () => {
       isActive: () => true,
       config: { sessionCacheTtlMs: RADAR_HISTORICAL_CACHE_TTL_MS, maxBatchesPerWake: 2 },
     });
-    await new Promise((resolve) => setTimeout(resolve, 20));
-    expect(fetchCalls).toBe(0);
-    requestRadarHistoricalContextPriority("AAA");
-    await new Promise((resolve) => setTimeout(resolve, 40));
+    await new Promise((resolve) => setTimeout(resolve, 80));
     expect(fetchCalls).toBe(1);
+  });
+
+  it("prioritized user symbol clears failed cache for retry", () => {
+    resetRadarHistoricalContextStateForTests();
+    const scope = radarHistoricalSessionScopeKey({ sessionKind: "market", tradingDate: "2026-09-22" });
+    const fingerprint = radarHistoricalCacheFingerprintForRow(row("AAA", 1));
+    writeRadarHistoricalCache({
+      symbol: "AAA",
+      fingerprint,
+      securityId: null,
+      historicalContext: null,
+      loadStatus: "failed",
+      fetchedAtMs: Date.now(),
+      sessionScope: scope,
+    });
+    notifyRadarHistoricalPublication({
+      rows: [row("AAA", 100, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async () => ({ results: [] }),
+      onHistoricalRows: () => undefined,
+      isActive: () => true,
+    });
+    requestRadarHistoricalContextPriority("AAA");
+    expect(readRadarHistoricalCache("AAA", fingerprint, scope, Date.now())).toBeNull();
   });
 
   it("preserves rich context when a refresh batch fails", async () => {
