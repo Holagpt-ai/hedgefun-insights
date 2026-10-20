@@ -11,18 +11,11 @@ import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-m
 import { buildPrioritizedHistoricalBatches } from "@/lib/radar/radar-historical-context-priority";
 import type { RadarHistoricalContextBatchResponse } from "@/lib/radar/radar-historical-context-client";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
-import type { RadarHistoricalContextLoadStatus } from "@/lib/radar/radar-historical-context-types";
-import type { RepeatMoverContext } from "@/types/repeat-mover";
-
-export function resolveHistoricalContextLoadStatus(
-  context: RepeatMoverContext | null,
-): RadarHistoricalContextLoadStatus {
-  if (!context) return "empty";
-  if (context.profile?.profileAvailable === false) return "unavailable";
-  const quality = context.profile?.sampleSizeQuality;
-  if (quality === "LIMITED" || quality === "INSUFFICIENT") return "limited";
-  return "available";
-}
+import {
+  classifyHistoricalContextBatchResult,
+  resolveHistoricalContextLoadStatus,
+} from "@/lib/radar/radar-historical-context-classify";
+export { resolveHistoricalContextLoadStatus } from "@/lib/radar/radar-historical-context-classify";
 
 export function markHistoricalContextRowsPending(
   rows: readonly RadarV2ScreenerRow[],
@@ -85,11 +78,15 @@ export function mergeHistoricalContextBatchIntoRows(
       };
     }
     const historicalContext = coerceRepeatMoverContextForDisplay(match.historicalContext);
+    const loadStatus = classifyHistoricalContextBatchResult({
+      historicalContext: match.historicalContext,
+      priorContext: row.historicalContext ?? null,
+    });
     return {
       ...row,
-      securityId: match.securityId,
-      historicalContext,
-      historicalContextLoadStatus: resolveHistoricalContextLoadStatus(historicalContext),
+      securityId: match.securityId ?? row.securityId ?? null,
+      historicalContext: historicalContext ?? row.historicalContext ?? null,
+      historicalContextLoadStatus: historicalContext ? resolveHistoricalContextLoadStatus(historicalContext) : loadStatus,
     };
   });
 }

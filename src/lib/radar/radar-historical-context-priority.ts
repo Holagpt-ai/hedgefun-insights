@@ -50,10 +50,9 @@ export function buildPrioritizedHistoricalBatches(input: {
   return chunkRadarHistoricalContextRequests(requests);
 }
 
-export function radarHistoricalBoardGenerationKey(input: {
-  syncedAt: string | null | undefined;
-  symbols: readonly string[];
-}): string {
-  const head = input.symbols.slice(0, 5).join(",");
-  return `${input.syncedAt ?? "none"}:${input.symbols.length}:${head}`;
+/** Publication token for merge guards — not used as a historical cache key. */
+export function radarHistoricalPublicationToken(input: {
+  publicationSeq: number;
+}): number {
+  return input.publicationSeq;
 }

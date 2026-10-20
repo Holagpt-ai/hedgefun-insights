@@ -1,20 +1,33 @@
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import type { RadarHistoricalContextEnrichmentRequest } from "@/lib/radar/radar-historical-context-types";
 import { mergeHistoricalContextBatchIntoRows } from "@/lib/radar/apply-radar-historical-context";
-import {
-  buildPrioritizedHistoricalBatches,
-  radarHistoricalBoardGenerationKey,
-} from "@/lib/radar/radar-historical-context-priority";
+import { buildPrioritizedHistoricalBatches } from "@/lib/radar/radar-historical-context-priority";
 import {
   fetchRadarHistoricalContextBatch,
   RadarHistoricalContextHttpError,
   type RadarHistoricalContextBatchResponse,
 } from "@/lib/radar/radar-historical-context-client";
 import { RADAR_HISTORICAL_CONTEXT_MAX_REQUESTS_PER_BATCH } from "@/lib/radar/radar-historical-context-bounds";
+import {
+  applyRadarHistoricalCacheToRows,
+  mergeHistoricalFieldsOntoLatestRows,
+  radarHistoricalQueryFingerprint,
+  RADAR_HISTORICAL_CACHE_TTL_MS,
+  readRadarHistoricalCache,
+  writeRadarHistoricalCache,
+  radarHistoricalSessionScopeKey,
+  resetRadarHistoricalContextCacheForTests,
+} from "@/lib/radar/radar-historical-context-cache";
+import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-mover-input";
+import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
+import {
+  classifyHistoricalContextBatchResult,
+  resolveHistoricalContextLoadStatus,
+} from "@/lib/radar/radar-historical-context-classify";
 
 export type RadarHistoricalProgressiveConfig = {
   maxConcurrentBatches: number;
-  maxBatchesPerRun: number;
+  maxBatchesPerWake: number;
   sessionCacheTtlMs: number;
   transientRetryDelaysMs: readonly number[];
   pauseWhenHidden: boolean;
@@ -22,9 +35,8 @@ export type RadarHistoricalProgressiveConfig = {
 
 export const RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS: RadarHistoricalProgressiveConfig = {
   maxConcurrentBatches: 1,
-  /** Cap optional background work started per board generation (not per refresh storm). */
-  maxBatchesPerRun: 12,
-  sessionCacheTtlMs: 5 * 60_000,
+  maxBatchesPerWake: 4,
+  sessionCacheTtlMs: RADAR_HISTORICAL_CACHE_TTL_MS,
   transientRetryDelaysMs: [750, 2_000],
   pauseWhenHidden: true,
 };
@@ -38,114 +50,68 @@ export type RadarHistoricalProgressiveDiagnostics = {
   symbolsPending: number;
 };
 
-type CachedSymbolEntry = {
-  securityId: string | null;
-  historicalContext: RadarV2ScreenerRow["historicalContext"];
-  loadStatus: RadarV2ScreenerRow["historicalContextLoadStatus"];
-  fetchedAtMs: number;
-  boardGeneration: string;
+type FetchBatch = (requests: RadarHistoricalContextEnrichmentRequest[]) => Promise<RadarHistoricalContextBatchResponse>;
+
+type CoordinatorDeps = {
+  fetchBatch: FetchBatch;
+  onHistoricalRows: (rows: RadarV2ScreenerRow[], publicationSeq: number) => void;
+  isActive: () => boolean;
+  isHidden?: () => boolean;
+  config?: Partial<RadarHistoricalProgressiveConfig>;
 };
 
-const symbolCache = new Map<string, CachedSymbolEntry>();
+type CoordinatorState = {
+  lifecycleId: number;
+  sessionScope: string | null;
+  publicationSeq: number;
+  latestRows: RadarV2ScreenerRow[];
+  historicalRows: RadarV2ScreenerRow[];
+  inFlight: Set<string>;
+  runnerPromise: Promise<void> | null;
+  diagnostics: RadarHistoricalProgressiveDiagnostics;
+  deps: CoordinatorDeps | null;
+};
+
+const coordinator: CoordinatorState = {
+  lifecycleId: 0,
+  sessionScope: null,
+  publicationSeq: 0,
+  latestRows: [],
+  historicalRows: [],
+  inFlight: new Set(),
+  runnerPromise: null,
+  diagnostics: {
+    completedBatches: 0,
+    failedBatches: 0,
+    pendingBatches: 0,
+    skippedBatches: 0,
+    symbolsLoaded: 0,
+    symbolsPending: 0,
+  },
+  deps: null,
+};
+
 let userPrioritySymbols = new Set<string>();
-let activeController: RadarProgressiveHistoricalContextController | null = null;
 
 export function requestRadarHistoricalContextPriority(symbol: string): void {
   const normalized = symbol.trim().toUpperCase();
   if (!normalized) return;
   userPrioritySymbols.add(normalized);
-  activeController?.reprioritize();
+  scheduleRunner();
 }
 
 export function resetRadarHistoricalContextStateForTests(): void {
-  symbolCache.clear();
+  resetRadarHistoricalContextCacheForTests();
+  coordinator.lifecycleId += 1;
+  coordinator.sessionScope = null;
+  coordinator.publicationSeq = 0;
+  coordinator.latestRows = [];
+  coordinator.historicalRows = [];
+  coordinator.inFlight.clear();
+  coordinator.runnerPromise = null;
+  coordinator.deps = null;
   userPrioritySymbols = new Set();
-  activeController = null;
-}
-
-export function peekRadarHistoricalProgressiveDiagnostics(): RadarHistoricalProgressiveDiagnostics | null {
-  return activeController?.diagnostics() ?? null;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function isTransientHttpStatus(status: number): boolean {
-  return status === 429 || status >= 500;
-}
-
-function shouldRetryHttp(status: number): boolean {
-  return status === 429 || (status >= 500 && status <= 599);
-}
-
-function mergeRowsWithCache(
-  rows: readonly RadarV2ScreenerRow[],
-  boardGeneration: string,
-  nowMs: number,
-  ttlMs: number,
-): RadarV2ScreenerRow[] {
-  return rows.map((row) => {
-    const cached = symbolCache.get(row.symbol.toUpperCase());
-    if (
-      !cached
-      || cached.boardGeneration !== boardGeneration
-      || nowMs - cached.fetchedAtMs > ttlMs
-    ) {
-      return {
-        ...row,
-        historicalContextLoadStatus: row.historicalContextLoadStatus ?? "pending",
-      };
-    }
-    return {
-      ...row,
-      securityId: cached.securityId,
-      historicalContext: cached.historicalContext,
-      historicalContextLoadStatus: cached.loadStatus,
-    };
-  });
-}
-
-function rememberCacheFromRows(rows: readonly RadarV2ScreenerRow[], boardGeneration: string, nowMs: number): void {
-  for (const row of rows) {
-    const status = row.historicalContextLoadStatus;
-    if (!status || status === "pending" || status === "loading" || status === "failed") continue;
-    symbolCache.set(row.symbol.toUpperCase(), {
-      securityId: row.securityId ?? null,
-      historicalContext: row.historicalContext ?? null,
-      loadStatus: status,
-      fetchedAtMs: nowMs,
-      boardGeneration,
-    });
-  }
-}
-
-function symbolsNeedingFetch(
-  rows: readonly RadarV2ScreenerRow[],
-  boardGeneration: string,
-  nowMs: number,
-  ttlMs: number,
-): RadarV2ScreenerRow[] {
-  return rows.filter((row) => {
-    const status = row.historicalContextLoadStatus;
-    if (status === "available" || status === "empty" || status === "limited" || status === "unavailable") {
-      return false;
-    }
-    const cached = symbolCache.get(row.symbol.toUpperCase());
-    if (
-      cached
-      && cached.boardGeneration === boardGeneration
-      && nowMs - cached.fetchedAtMs <= ttlMs
-      && cached.loadStatus !== "failed"
-    ) {
-      return false;
-    }
-    return true;
-  });
-}
-
-export class RadarProgressiveHistoricalContextController {
-  private diagnosticsState: RadarHistoricalProgressiveDiagnostics = {
+  coordinator.diagnostics = {
     completedBatches: 0,
     failedBatches: 0,
     pendingBatches: 0,
@@ -153,148 +119,332 @@ export class RadarProgressiveHistoricalContextController {
     symbolsLoaded: 0,
     symbolsPending: 0,
   };
-  private reprioritizeRequested = false;
+}
 
-  constructor(private readonly opts: {
-    fetchBatch: (requests: RadarHistoricalContextEnrichmentRequest[]) => Promise<RadarHistoricalContextBatchResponse>;
-    onRowsUpdated: (rows: RadarV2ScreenerRow[]) => void;
-    isCancelled: () => boolean;
-    isHidden?: () => boolean;
-    config?: Partial<RadarHistoricalProgressiveConfig>;
-  }) {}
+export function peekRadarHistoricalProgressiveDiagnostics(): RadarHistoricalProgressiveDiagnostics | null {
+  if (!coordinator.deps) return null;
+  return { ...coordinator.diagnostics };
+}
 
-  diagnostics(): RadarHistoricalProgressiveDiagnostics {
-    return { ...this.diagnosticsState };
-  }
+export function invalidateRadarHistoricalEnrichment(lifecycleId?: number): void {
+  coordinator.lifecycleId += 1;
+  coordinator.inFlight.clear();
+  coordinator.runnerPromise = null;
+  if (lifecycleId !== undefined) void lifecycleId;
+}
 
-  reprioritize(): void {
-    this.reprioritizeRequested = true;
-  }
+function rowBySymbol(rows: readonly RadarV2ScreenerRow[]): Map<string, RadarV2ScreenerRow> {
+  return new Map(rows.map((row) => [row.symbol.toUpperCase(), row]));
+}
 
-  async run(input: {
-    rows: readonly RadarV2ScreenerRow[];
-    syncedAt: string | null | undefined;
-  }): Promise<void> {
-    const config = { ...RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS, ...this.opts.config };
-    const boardGeneration = radarHistoricalBoardGenerationKey({
-      syncedAt: input.syncedAt,
-      symbols: input.rows.map((row) => row.symbol),
+function fingerprintForRow(row: RadarV2ScreenerRow): string {
+  return radarHistoricalQueryFingerprint(mapRadarEnrichmentRequest(row));
+}
+
+function symbolsNeedingFetch(
+  rows: readonly RadarV2ScreenerRow[],
+  sessionScope: string,
+  nowMs: number,
+  ttlMs: number,
+): RadarV2ScreenerRow[] {
+  return rows.filter((row) => {
+    const symbol = row.symbol.toUpperCase();
+    if (coordinator.inFlight.has(symbol)) return false;
+    const status = coordinator.historicalRows.find((entry) => entry.symbol.toUpperCase() === symbol)
+      ?.historicalContextLoadStatus;
+    if (
+      status === "available"
+      || status === "limited"
+      || status === "unavailable"
+      || status === "failed"
+    ) {
+      return false;
+    }
+    const fingerprint = fingerprintForRow(row);
+    const cached = readRadarHistoricalCache(symbol, fingerprint, sessionScope, nowMs, ttlMs);
+    return !cached;
+  });
+}
+
+function applyCacheToHistoricalRows(
+  latestRows: readonly RadarV2ScreenerRow[],
+  sessionScope: string,
+  nowMs: number,
+  ttlMs: number,
+): RadarV2ScreenerRow[] {
+  const cachedRows = applyRadarHistoricalCacheToRows({
+    rows: latestRows,
+    sessionScope,
+    nowMs,
+    ttlMs,
+  });
+  return mergeHistoricalFieldsOntoLatestRows(latestRows, cachedRows);
+}
+
+function rememberBatchResults(
+  batch: RadarHistoricalContextBatchResponse,
+  sessionScope: string,
+  nowMs: number,
+  priorHistorical: readonly RadarV2ScreenerRow[],
+): RadarV2ScreenerRow[] {
+  const priorBySymbol = rowBySymbol(priorHistorical);
+  const updates: RadarV2ScreenerRow[] = [];
+  for (const result of batch.results) {
+    const symbol = result.symbol.toUpperCase();
+    const prior = priorBySymbol.get(symbol);
+    const coerced = coerceRepeatMoverContextForDisplay(result.historicalContext);
+    const loadStatus = coerced
+      ? resolveHistoricalContextLoadStatus(coerced)
+      : classifyHistoricalContextBatchResult({
+        historicalContext: result.historicalContext,
+        priorContext: prior?.historicalContext ?? null,
+      });
+    const historicalContext = coerced ?? prior?.historicalContext ?? null;
+    if (loadStatus === "pending" || loadStatus === "loading") continue;
+    const fingerprint = radarHistoricalQueryFingerprint({
+      symbol: result.symbol,
+      securityId: result.securityId,
+      sessionDate: prior?.radar_trading_date ?? null,
+      tier: prior?.signal_tier ?? null,
     });
-    let merged = mergeRowsWithCache(input.rows, boardGeneration, Date.now(), config.sessionCacheTtlMs);
-    this.opts.onRowsUpdated(merged);
+    writeRadarHistoricalCache({
+      symbol: result.symbol,
+      fingerprint,
+      securityId: result.securityId,
+      historicalContext,
+      loadStatus,
+      fetchedAtMs: nowMs,
+      sessionScope,
+    });
+    const latest = coordinator.latestRows.find((entry) => entry.symbol.toUpperCase() === symbol) ?? prior;
+    if (!latest) continue;
+    updates.push({
+      ...latest,
+      securityId: result.securityId ?? latest.securityId ?? null,
+      historicalContext,
+      historicalContextLoadStatus: loadStatus,
+    });
+  }
+  return updates;
+}
 
-    const pendingRows = () => symbolsNeedingFetch(merged, boardGeneration, Date.now(), config.sessionCacheTtlMs);
+function publishHistorical(sessionScope: string, ttlMs: number): void {
+  if (!coordinator.deps) return;
+  const nowMs = Date.now();
+  const priorBySymbol = rowBySymbol(coordinator.historicalRows);
+  const cachedRows = applyCacheToHistoricalRows(
+    coordinator.latestRows,
+    sessionScope,
+    nowMs,
+    ttlMs,
+  );
+  coordinator.historicalRows = cachedRows.map((row) => {
+    const status = row.historicalContextLoadStatus;
+    if (status && status !== "pending" && status !== "loading") return row;
+    const prior = priorBySymbol.get(row.symbol.toUpperCase());
+    if (!prior?.historicalContextLoadStatus || prior.historicalContextLoadStatus === "pending") {
+      return row;
+    }
+    return mergeHistoricalFieldsOntoLatestRows([row], [prior])[0] ?? row;
+  });
+  coordinator.deps.onHistoricalRows(
+    mergeHistoricalFieldsOntoLatestRows(coordinator.latestRows, coordinator.historicalRows),
+    coordinator.publicationSeq,
+  );
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runBatches(lifecycleId: number): Promise<void> {
+  const deps = coordinator.deps;
+  if (!deps || !coordinator.sessionScope) return;
+  const config = { ...RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS, ...deps.config };
+  let batchesStarted = 0;
+
+  while (deps.isActive() && lifecycleId === coordinator.lifecycleId) {
+    if (config.pauseWhenHidden && deps.isHidden?.()) {
+      await sleep(500);
+      continue;
+    }
+    const pending = symbolsNeedingFetch(
+      coordinator.latestRows,
+      coordinator.sessionScope,
+      Date.now(),
+      config.sessionCacheTtlMs,
+    );
+    coordinator.diagnostics.symbolsPending = pending.length;
+    if (pending.length === 0) break;
+
     let batches = buildPrioritizedHistoricalBatches({
-      rows: pendingRows(),
+      rows: pending,
       userPrioritySymbols: [...userPrioritySymbols],
     });
-    this.diagnosticsState.pendingBatches = batches.length;
-    this.diagnosticsState.symbolsPending = pendingRows().length;
+    coordinator.diagnostics.pendingBatches = batches.length;
+    if (batches.length === 0 || batchesStarted >= config.maxBatchesPerWake) {
+      coordinator.diagnostics.skippedBatches += batches.length;
+      break;
+    }
 
-    let batchesStarted = 0;
-    while (batches.length > 0) {
-      if (this.opts.isCancelled()) return;
-      if (this.reprioritizeRequested) {
-        this.reprioritizeRequested = false;
-        batches = buildPrioritizedHistoricalBatches({
-          rows: pendingRows(),
-          userPrioritySymbols: [...userPrioritySymbols],
-        });
-        this.diagnosticsState.pendingBatches = batches.length;
-        continue;
-      }
-      if (config.pauseWhenHidden && this.opts.isHidden?.()) {
-        await sleep(500);
-        continue;
-      }
-      if (batchesStarted >= config.maxBatchesPerRun) {
-        this.diagnosticsState.skippedBatches += batches.length;
-        break;
-      }
+    const batchRequests = batches.shift()!;
+    if (batchRequests.length > RADAR_HISTORICAL_CONTEXT_MAX_REQUESTS_PER_BATCH) continue;
 
-      const batchRequests = batches.shift()!;
-      if (batchRequests.length > RADAR_HISTORICAL_CONTEXT_MAX_REQUESTS_PER_BATCH) {
-        this.diagnosticsState.skippedBatches += 1;
-        continue;
-      }
-      this.diagnosticsState.pendingBatches = batches.length;
-      const loadingSymbols = new Set(batchRequests.map((request) => request.symbol.toUpperCase()));
-      merged = mergeHistoricalContextBatchIntoRows(merged, { results: [] }, { loadingSymbols });
-      this.opts.onRowsUpdated(merged);
+    for (const request of batchRequests) {
+      coordinator.inFlight.add(request.symbol.toUpperCase());
+    }
 
-      let response: RadarHistoricalContextBatchResponse | null = null;
-      let lastStatus: number | null = null;
+    let response: RadarHistoricalContextBatchResponse | null = null;
+    try {
       for (let attempt = 0; attempt <= config.transientRetryDelaysMs.length; attempt += 1) {
-        if (this.opts.isCancelled()) return;
+        if (!deps.isActive() || lifecycleId !== coordinator.lifecycleId) break;
         try {
-          response = await this.opts.fetchBatch(batchRequests);
+          response = await deps.fetchBatch(batchRequests);
           break;
         } catch (error) {
           if (error instanceof RadarHistoricalContextHttpError) {
-            lastStatus = error.status;
-            if (error.status === 413 || error.status === 401 || error.status === 403) {
-              this.diagnosticsState.failedBatches += 1;
-              merged = mergeHistoricalContextBatchIntoRows(merged, { results: [] }, {
-                failedSymbols: loadingSymbols,
-              });
-              this.opts.onRowsUpdated(merged);
-              batchesStarted += 1;
-              response = null;
-              break;
-            }
-            if (shouldRetryHttp(error.status) && attempt < config.transientRetryDelaysMs.length) {
+            if (error.status === 413 || error.status === 401 || error.status === 403) break;
+            if ((error.status === 429 || error.status >= 500) && attempt < config.transientRetryDelaysMs.length) {
               await sleep(config.transientRetryDelaysMs[attempt] ?? 1_000);
               continue;
             }
-            this.diagnosticsState.failedBatches += 1;
-            merged = mergeHistoricalContextBatchIntoRows(merged, { results: [] }, {
-              failedSymbols: loadingSymbols,
-            });
-            this.opts.onRowsUpdated(merged);
-            batchesStarted += 1;
-            response = null;
-            break;
-          }
-          if (attempt < config.transientRetryDelaysMs.length) {
+          } else if (attempt < config.transientRetryDelaysMs.length) {
             await sleep(config.transientRetryDelaysMs[attempt] ?? 1_000);
             continue;
           }
-          this.diagnosticsState.failedBatches += 1;
-          merged = mergeHistoricalContextBatchIntoRows(merged, { results: [] }, {
-            failedSymbols: loadingSymbols,
-          });
-          this.opts.onRowsUpdated(merged);
-          batchesStarted += 1;
-          response = null;
           break;
         }
       }
-
-      if (response) {
-        merged = mergeHistoricalContextBatchIntoRows(merged, response);
-        rememberCacheFromRows(merged, boardGeneration, Date.now());
-        this.diagnosticsState.completedBatches += 1;
-        this.diagnosticsState.symbolsLoaded = merged.filter((row) => {
-          const status = row.historicalContextLoadStatus;
-          return status === "available" || status === "empty" || status === "limited" || status === "unavailable";
-        }).length;
-        this.opts.onRowsUpdated(merged);
-        batchesStarted += 1;
-      } else if (lastStatus !== null && !isTransientHttpStatus(lastStatus)) {
-        // Non-retryable HTTP already handled.
-      }
-
-      this.diagnosticsState.symbolsPending = pendingRows().length;
-      if (config.maxConcurrentBatches <= 1) {
-        await sleep(0);
+    } finally {
+      for (const request of batchRequests) {
+        coordinator.inFlight.delete(request.symbol.toUpperCase());
       }
     }
+
+    const publicationSeqAtStart = coordinator.publicationSeq;
+    if (!response) {
+      coordinator.diagnostics.failedBatches += 1;
+      const failed = new Set(batchRequests.map((request) => request.symbol.toUpperCase()));
+      const nowMs = Date.now();
+      for (const request of batchRequests) {
+        const latest = coordinator.latestRows.find(
+          (entry) => entry.symbol.toUpperCase() === request.symbol.toUpperCase(),
+        );
+        writeRadarHistoricalCache({
+          symbol: request.symbol,
+          fingerprint: radarHistoricalQueryFingerprint(request),
+          securityId: request.securityId ?? latest?.securityId ?? null,
+          historicalContext: null,
+          loadStatus: "failed",
+          fetchedAtMs: nowMs,
+          sessionScope: coordinator.sessionScope,
+        });
+      }
+      coordinator.historicalRows = mergeHistoricalContextBatchIntoRows(
+        coordinator.historicalRows.length > 0 ? coordinator.historicalRows : coordinator.latestRows,
+        { results: [] },
+        { failedSymbols: failed },
+      );
+    } else {
+      const nowMs = Date.now();
+      const batchHistorical = rememberBatchResults(
+        response,
+        coordinator.sessionScope,
+        nowMs,
+        coordinator.historicalRows.length > 0 ? coordinator.historicalRows : coordinator.latestRows,
+      );
+      coordinator.historicalRows = mergeHistoricalFieldsOntoLatestRows(
+        coordinator.historicalRows.length > 0 ? coordinator.historicalRows : coordinator.latestRows,
+        batchHistorical,
+      );
+      coordinator.diagnostics.completedBatches += 1;
+      coordinator.diagnostics.symbolsLoaded = coordinator.historicalRows.filter((row) => {
+        const status = row.historicalContextLoadStatus;
+        return status === "available" || status === "limited" || status === "unavailable";
+      }).length;
+    }
+
+    if (lifecycleId === coordinator.lifecycleId && deps.isActive()) {
+      deps.onHistoricalRows(
+        mergeHistoricalFieldsOntoLatestRows(coordinator.latestRows, coordinator.historicalRows),
+        publicationSeqAtStart,
+      );
+    }
+    batchesStarted += 1;
   }
+
+  coordinator.runnerPromise = null;
+  const pendingAfterWake = symbolsNeedingFetch(
+    coordinator.latestRows,
+    coordinator.sessionScope,
+    Date.now(),
+    config.sessionCacheTtlMs,
+  );
+  if (
+    deps.isActive()
+    && lifecycleId === coordinator.lifecycleId
+    && pendingAfterWake.length > 0
+    && batchesStarted > 0
+  ) {
+    scheduleRunner();
+  }
+}
+
+function scheduleRunner(): void {
+  if (coordinator.runnerPromise || !coordinator.deps || !coordinator.sessionScope) return;
+  const lifecycleId = coordinator.lifecycleId;
+  coordinator.runnerPromise = runBatches(lifecycleId);
+}
+
+export function notifyRadarHistoricalPublication(input: {
+  rows: readonly RadarV2ScreenerRow[];
+  sessionKind: string | null | undefined;
+  tradingDate: string | null | undefined;
+  fetchBatch: FetchBatch;
+  onHistoricalRows: (rows: RadarV2ScreenerRow[], publicationSeq: number) => void;
+  isActive: () => boolean;
+  isHidden?: () => boolean;
+  config?: Partial<RadarHistoricalProgressiveConfig>;
+}): void {
+  const sessionScope = radarHistoricalSessionScopeKey({
+    sessionKind: input.sessionKind,
+    tradingDate: input.tradingDate,
+  });
+  const config = { ...RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS, ...input.config };
+
+  if (input.rows.length === 0) {
+    invalidateRadarHistoricalEnrichment();
+    coordinator.sessionScope = null;
+    coordinator.latestRows = [];
+    coordinator.historicalRows = [];
+    return;
+  }
+
+  if (coordinator.sessionScope !== sessionScope) {
+    invalidateRadarHistoricalEnrichment();
+    coordinator.sessionScope = sessionScope;
+    coordinator.historicalRows = [];
+  }
+
+  coordinator.deps = {
+    fetchBatch: input.fetchBatch,
+    onHistoricalRows: input.onHistoricalRows,
+    isActive: input.isActive,
+    isHidden: input.isHidden,
+    config,
+  };
+  coordinator.publicationSeq += 1;
+  coordinator.latestRows = [...input.rows];
+
+  publishHistorical(sessionScope, config.sessionCacheTtlMs);
+  scheduleRunner();
 }
 
 export async function runRadarProgressiveHistoricalContext(input: {
   rows: readonly RadarV2ScreenerRow[];
   syncedAt: string | null | undefined;
+  sessionKind?: string | null;
+  tradingDate?: string | null;
   edgeUrl: string;
   accessToken: string | null | undefined;
   onRowsUpdated: (rows: RadarV2ScreenerRow[]) => void;
@@ -303,22 +453,24 @@ export async function runRadarProgressiveHistoricalContext(input: {
   fetchImpl?: typeof fetch;
   config?: Partial<RadarHistoricalProgressiveConfig>;
 }): Promise<void> {
-  const controller = new RadarProgressiveHistoricalContextController({
+  notifyRadarHistoricalPublication({
+    rows: input.rows,
+    sessionKind: input.sessionKind ?? null,
+    tradingDate: input.tradingDate ?? input.rows[0]?.radar_trading_date ?? null,
     fetchBatch: (requests) => fetchRadarHistoricalContextBatch({
       url: input.edgeUrl,
       accessToken: input.accessToken,
       requests,
       fetchImpl: input.fetchImpl,
     }),
-    onRowsUpdated: input.onRowsUpdated,
-    isCancelled: input.isCancelled,
+    onHistoricalRows: (rows) => input.onRowsUpdated(rows),
+    isActive: () => !input.isCancelled(),
     isHidden: input.isHidden,
     config: input.config,
   });
-  activeController = controller;
-  try {
-    await controller.run({ rows: input.rows, syncedAt: input.syncedAt });
-  } finally {
-    if (activeController === controller) activeController = null;
+  for (let i = 0; i < 50 && !input.isCancelled(); i += 1) {
+    if (!coordinator.runnerPromise) break;
+    await coordinator.runnerPromise;
+    await sleep(5);
   }
 }

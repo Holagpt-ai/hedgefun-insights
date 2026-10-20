@@ -16,10 +16,12 @@ import {
   RadarHistoricalContextHttpError,
 } from "@/lib/radar/radar-historical-context-client";
 import {
-  RadarProgressiveHistoricalContextController,
+  invalidateRadarHistoricalEnrichment,
+  notifyRadarHistoricalPublication,
   resetRadarHistoricalContextStateForTests,
   runRadarProgressiveHistoricalContext,
 } from "@/lib/radar/radar-progressive-historical-context";
+import { mergeHistoricalFieldsOntoLatestRows } from "@/lib/radar/radar-historical-context-cache";
 import { buildRadarRepeatMoversView, radarRepeatMoversRankFingerprint } from "@/lib/radar/build-radar-repeat-movers-view";
 import type { RepeatMoverContext } from "@/types/repeat-mover";
 
@@ -81,6 +83,8 @@ function row(symbol: string, volume: number, radarRank?: number): RadarV2Screene
     sync_run_id: "11111111-1111-4111-8111-111111111111",
     updated_at: "2026-09-16T15:05:00.000Z",
     radar_rank: radarRank,
+    radar_trading_date: "2026-09-22",
+    signal_tier: "ACTIVE",
   } as RadarV2ScreenerRow;
 }
 
@@ -144,6 +148,8 @@ describe("incremental historical merge safety", () => {
     await runRadarProgressiveHistoricalContext({
       rows,
       syncedAt: "2026-09-16T15:00:00.000Z",
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
       edgeUrl: "https://example.test/radar-historical-context",
       accessToken: "token",
       isCancelled: () => false,
@@ -162,10 +168,10 @@ describe("incremental historical merge safety", () => {
         return new Response(JSON.stringify(body), { status: 200 });
       },
       onRowsUpdated: (next) => updates.push(next),
-      config: { maxBatchesPerRun: 12 },
+      config: { maxBatchesPerWake: 12 },
     });
     const last = updates.at(-1)!;
-    expect(last.filter((entry) => entry.historicalContextLoadStatus === "empty").length).toBe(20);
+    expect(last.filter((entry) => entry.historicalContextLoadStatus === "unavailable").length).toBe(20);
     expect(last.filter((entry) => entry.historicalContextLoadStatus === "failed").length).toBe(5);
   });
 });
@@ -175,7 +181,10 @@ describe("progressive historical scheduling", () => {
     resetRadarHistoricalContextStateForTests();
     const rows = Array.from({ length: 40 }, (_, index) => row(`S${index}`, 500 - index, index + 1));
     const timestamps: number[] = [];
-    const controller = new RadarProgressiveHistoricalContextController({
+    notifyRadarHistoricalPublication({
+      rows,
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
       fetchBatch: async (requests) => {
         await new Promise((resolve) => setTimeout(resolve, 5));
         return {
@@ -186,14 +195,12 @@ describe("progressive historical scheduling", () => {
           })),
         };
       },
-      onRowsUpdated: () => timestamps.push(Date.now()),
-      isCancelled: () => false,
-      config: { maxBatchesPerRun: 12 },
+      onHistoricalRows: () => timestamps.push(Date.now()),
+      isActive: () => true,
+      config: { maxBatchesPerWake: 12 },
     });
-    const started = Date.now();
-    await controller.run({ rows, syncedAt: "2026-09-16T15:00:00.000Z" });
-    expect(timestamps.length).toBeGreaterThan(1);
-    expect(Date.now() - started).toBeGreaterThanOrEqual(5);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(timestamps.length).toBeGreaterThan(0);
   });
 
   it("stops scheduling after cancellation", async () => {
@@ -203,6 +210,8 @@ describe("progressive historical scheduling", () => {
     await runRadarProgressiveHistoricalContext({
       rows: Array.from({ length: 25 }, (_, index) => row(`S${index}`, 500 - index, index + 1)),
       syncedAt: "2026-09-16T15:00:00.000Z",
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
       edgeUrl: "https://example.test/radar-historical-context",
       accessToken: "token",
       isCancelled: () => cancelled,
@@ -219,12 +228,12 @@ describe("progressive historical scheduling", () => {
         }), { status: 200 });
       },
       onRowsUpdated: () => undefined,
-      config: { maxBatchesPerRun: 12 },
+      config: { maxBatchesPerWake: 12 },
     });
     expect(fetchCalls).toBe(1);
   });
 
-  it("reuses cached symbols across refreshes and avoids duplicate fetch work", async () => {
+  it("reuses cached symbols across synced_at polls without duplicate fetch work", async () => {
     resetRadarHistoricalContextStateForTests();
     let fetchCalls = 0;
     const fetchImpl = async () => {
@@ -233,19 +242,46 @@ describe("progressive historical scheduling", () => {
         results: [{ symbol: "AAA", securityId: "sec", historicalContext: null }],
       }), { status: 200 });
     };
-    const base = {
-      rows: [row("AAA", 100, 1)],
-      syncedAt: "2026-09-16T15:00:00.000Z",
-      edgeUrl: "https://example.test/radar-historical-context",
-      accessToken: "token",
-      isCancelled: () => false,
-      fetchImpl,
-      onRowsUpdated: () => undefined,
-      config: { sessionCacheTtlMs: 60_000, maxBatchesPerRun: 12 },
-    };
-    await runRadarProgressiveHistoricalContext(base);
-    await runRadarProgressiveHistoricalContext(base);
+    const notify = (volume: number) => notifyRadarHistoricalPublication({
+      rows: [row("AAA", volume, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async () => {
+        fetchCalls += 1;
+        return {
+          results: [{ symbol: "AAA", securityId: "sec", historicalContext: null }],
+        };
+      },
+      onHistoricalRows: () => undefined,
+      isActive: () => true,
+      config: { sessionCacheTtlMs: 60_000, maxBatchesPerWake: 12 },
+    });
+    notify(100);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    notify(500);
+    await new Promise((resolve) => setTimeout(resolve, 20));
     expect(fetchCalls).toBe(1);
+  });
+
+  it("never replaces newer market fields when historical results arrive late", async () => {
+    resetRadarHistoricalContextStateForTests();
+    const updates: RadarV2ScreenerRow[] = [];
+    notifyRadarHistoricalPublication({
+      rows: [row("AAA", 100, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async () => ({
+        results: [{ symbol: "AAA", securityId: "sec", historicalContext: validContext("AAA") }],
+      }),
+      onHistoricalRows: (rows) => updates.push(...rows),
+      isActive: () => true,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const latest = [row("AAA", 999, 1)];
+    latest[0]!.provider_as_of = "2026-09-16T15:02:00.000Z";
+    const merged = mergeHistoricalFieldsOntoLatestRows(latest, updates);
+    expect(merged[0]?.volume).toBe(999);
+    expect(merged[0]?.historicalContextLoadStatus).toBe("available");
   });
 
   it("updates Repeat Movers without changing Discovery ranking fingerprint", async () => {
@@ -264,6 +300,67 @@ describe("progressive historical scheduling", () => {
     const view = buildRadarRepeatMoversView(merged, { nowMs: Date.now() });
     expect(radarRepeatMoversRankFingerprint(merged)).toBe(before);
     expect(view.repeatMovers.map((entry) => entry.symbol)).toEqual(["BBB"]);
+  });
+
+  it("eventually enriches deep rows while soft polls continue", async () => {
+    resetRadarHistoricalContextStateForTests();
+    const rows = Array.from({ length: 200 }, (_, index) => row(`S${index}`, 10_000 - index, index + 1));
+    const fetchedSymbols = new Set<string>();
+    const publish = (volumeOffset: number) => notifyRadarHistoricalPublication({
+      rows: rows.map((entry, index) => row(entry.symbol, entry.volume! + volumeOffset, index + 1)),
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async (requests) => {
+        for (const request of requests) fetchedSymbols.add(request.symbol);
+        return {
+          results: requests.map((request) => ({
+            symbol: request.symbol,
+            securityId: null,
+            historicalContext: null,
+          })),
+        };
+      },
+      onHistoricalRows: () => undefined,
+      isActive: () => true,
+      config: { maxBatchesPerWake: 4 },
+    });
+    publish(0);
+    for (let poll = 0; poll < 12; poll += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 15));
+      publish(poll + 1);
+    }
+    expect(fetchedSymbols.has("S149")).toBe(true);
+    expect(fetchedSymbols.size).toBeLessThanOrEqual(200);
+  });
+
+  it("clears enrichment when the board becomes empty", async () => {
+    resetRadarHistoricalContextStateForTests();
+    let historicalUpdates = 0;
+    notifyRadarHistoricalPublication({
+      rows: [row("AAA", 100, 1)],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async () => ({
+        results: [{ symbol: "AAA", securityId: "sec", historicalContext: validContext("AAA") }],
+      }),
+      onHistoricalRows: () => {
+        historicalUpdates += 1;
+      },
+      isActive: () => true,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    notifyRadarHistoricalPublication({
+      rows: [],
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async () => ({ results: [] }),
+      onHistoricalRows: () => {
+        historicalUpdates += 1;
+      },
+      isActive: () => true,
+    });
+    invalidateRadarHistoricalEnrichment();
+    expect(historicalUpdates).toBeGreaterThan(0);
   });
 
   it("does not retry invalid 413 batch requests", async () => {

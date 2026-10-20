@@ -24,10 +24,13 @@ import {
 import { isVerifiedRadarV2Decision } from "@/lib/screeners/radar-v2-soft-refresh";
 import { resolveRadarBackedScreenerLoad } from "@/lib/screeners/radar-v2-screener-load";
 import { resolveRadarHistoricalContextAccessToken } from "@/lib/radar/radar-historical-context-access";
+import { mergeHistoricalFieldsOntoLatestRows } from "@/lib/radar/radar-historical-context-cache";
 import {
+  invalidateRadarHistoricalEnrichment,
+  notifyRadarHistoricalPublication,
   requestRadarHistoricalContextPriority,
-  runRadarProgressiveHistoricalContext,
 } from "@/lib/radar/radar-progressive-historical-context";
+import { fetchRadarHistoricalContextBatch } from "@/lib/radar/radar-historical-context-client";
 import type { RadarV2ScreenerRow } from "@/lib/screeners/radar-v2-adapter";
 import { persistHistoricalWorkflowHandoff } from "@/lib/historical-workflow/workflow-handoff-storage";
 import { buildRadarRepeatMoversView } from "@/lib/radar/build-radar-repeat-movers-view";
@@ -202,7 +205,7 @@ export function useScreenerData(
     let pollTimer: ReturnType<typeof setInterval> | null = null;
     let hasLoadedOnce = false;
     let lastVerifiedRadar: RadarV2Decision | null = null;
-    let historicalGeneration = 0;
+    let repeatMoversEnrichmentStarted = false;
     const lastViewRef = { current: null as ScreenerTabView | null };
     const lastSourceRef = { current: null as ScreenerDataSource | null };
 
@@ -309,6 +312,8 @@ export function useScreenerData(
         setTabEvaluationEvidence(null);
         setRepeatMoversView(null);
         setRepeatMoversLoadState(REPEAT_MOVERS_IDLE);
+        repeatMoversEnrichmentStarted = false;
+        invalidateRadarHistoricalEnrichment();
         hasLoadedOnce = false;
       }
 
@@ -376,8 +381,10 @@ export function useScreenerData(
           applyView(view, soft, "radar-v2");
 
           if (tabId === "day_trade_radar" && view.rows.length > 0) {
-            const generation = ++historicalGeneration;
-            if (!cancelled) setRepeatMoversLoadState({ status: "loading" });
+            if (!cancelled && !repeatMoversEnrichmentStarted) {
+              setRepeatMoversLoadState({ status: "loading" });
+              repeatMoversEnrichmentStarted = true;
+            }
             const edgeUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/radar-historical-context`;
             if (!edgeUrl.includes("http")) {
               if (!cancelled) {
@@ -389,9 +396,13 @@ export function useScreenerData(
                 const token = resolveRadarHistoricalContextAccessToken(
                   sessionData.session?.access_token,
                 );
-                const publishHistoricalRows = (enrichedRows: RadarV2ScreenerRow[]) => {
-                  if (cancelled || generation !== historicalGeneration) return;
-                  for (const row of enrichedRows) {
+                const radarRows = view.rows as RadarV2ScreenerRow[];
+                const publishHistoricalRows = (historicalRows: RadarV2ScreenerRow[], _publicationSeq: number) => {
+                  if (cancelled || tabId !== "day_trade_radar") return;
+                  const latestRows = (lastViewRef.current?.rows ?? view.rows) as RadarV2ScreenerRow[];
+                  if (!latestRows.length) return;
+                  const mergedRows = mergeHistoricalFieldsOntoLatestRows(latestRows, historicalRows);
+                  for (const row of mergedRows) {
                     if (row.symbol && row.historicalContext) {
                       persistHistoricalWorkflowHandoff(row.historicalContext, {
                         symbol: row.symbol,
@@ -402,7 +413,7 @@ export function useScreenerData(
                   }
                   let repeatMoversView = lastViewRef.current?.repeatMoversView ?? null;
                   try {
-                    repeatMoversView = buildRadarRepeatMoversView(enrichedRows, { nowMs: Date.now() });
+                    repeatMoversView = buildRadarRepeatMoversView(mergedRows, { nowMs: Date.now() });
                     recordRadarRepeatMoversView(repeatMoversView);
                     setRepeatMoversLoadState({ status: "ready", view: repeatMoversView });
                   } catch {
@@ -410,31 +421,35 @@ export function useScreenerData(
                   }
                   const nextView: ScreenerTabView = {
                     ...(lastViewRef.current ?? view),
-                    rows: enrichedRows as ScreenerResultRow[],
+                    rows: mergedRows as ScreenerResultRow[],
                     repeatMoversView: repeatMoversView ?? undefined,
                   };
                   applyView(nextView, true, "radar-v2");
                 };
 
-                try {
-                  await runRadarProgressiveHistoricalContext({
-                    rows: view.rows as RadarV2ScreenerRow[],
-                    syncedAt: view.synced_at,
-                    edgeUrl,
+                notifyRadarHistoricalPublication({
+                  rows: radarRows,
+                  sessionKind: resolved.session,
+                  tradingDate: radarRows[0]?.radar_trading_date ?? null,
+                  fetchBatch: (requests) => fetchRadarHistoricalContextBatch({
+                    url: edgeUrl,
                     accessToken: token,
-                    isCancelled: () => cancelled || generation !== historicalGeneration,
-                    isHidden: () => pauseWhenHidden && typeof document !== "undefined" && document.hidden,
-                    onRowsUpdated: publishHistoricalRows,
-                  });
-                } catch {
-                  if (!cancelled && generation === historicalGeneration) {
-                    setRepeatMoversLoadState({ status: "unavailable", reason: "enrichment_failed" });
-                  }
-                }
+                    requests,
+                  }),
+                  onHistoricalRows: publishHistoricalRows,
+                  isActive: () => !cancelled && tabId === "day_trade_radar",
+                  isHidden: () => pauseWhenHidden && typeof document !== "undefined" && document.hidden,
+                });
               })();
             }
           } else if (tabId === "day_trade_radar") {
-            if (!cancelled) setRepeatMoversLoadState(REPEAT_MOVERS_IDLE);
+            if (!cancelled) {
+              setRepeatMoversLoadState(REPEAT_MOVERS_IDLE);
+              invalidateRadarHistoricalEnrichment();
+              repeatMoversEnrichmentStarted = false;
+            }
+          } else {
+            invalidateRadarHistoricalEnrichment();
           }
           return;
         }
@@ -521,6 +536,7 @@ export function useScreenerData(
 
     return () => {
       cancelled = true;
+      invalidateRadarHistoricalEnrichment();
       clearStaleTimer();
       if (pollTimer !== null) clearInterval(pollTimer);
     };

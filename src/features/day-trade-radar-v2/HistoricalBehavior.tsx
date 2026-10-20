@@ -224,7 +224,7 @@ export function HistoryCell({
       </ScannerMetricHint>
     );
   }
-  if (loadStatus === "failed" && !context) {
+  if ((loadStatus === "failed" || loadStatus === "unavailable") && !context) {
     return (
       <ScannerMetricHint label="Historical context temporarily unavailable" className="text-muted-foreground">
         Unavailable
