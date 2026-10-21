@@ -21,6 +21,22 @@ export const HISTORICAL_CATCHUP_LIMITS = {
   maxEmptyResolutionBatches: 1,
 } as const;
 
+/** Hard ceilings — env values above these are rejected (fail closed). */
+export const HISTORICAL_CATCHUP_LIMITS_CEILING = {
+  maxBatchesPerRun: 20,
+  maxSymbolsPerRun: 5_000,
+  maxProviderRequestsPerRun: 10_000,
+  maxNoProgressBatches: 10,
+  maxEmptyResolutionBatches: 5,
+} as const;
+
+export class HistoricalCatchupLimitsError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HistoricalCatchupLimitsError";
+  }
+}
+
 export type HistoricalCatchupLimits = {
   maxBatchesPerRun: number;
   maxSymbolsPerRun: number;
@@ -29,31 +45,64 @@ export type HistoricalCatchupLimits = {
   maxEmptyResolutionBatches: number;
 };
 
+function parseStrictLimit(
+  envName: string,
+  raw: string | undefined,
+  fallback: number,
+  ceiling: number,
+): number {
+  const trimmed = raw?.trim();
+  if (!trimmed) return fallback;
+  if (!/^\d+$/.test(trimmed)) {
+    throw new HistoricalCatchupLimitsError(`${envName} must be a positive integer (got ${JSON.stringify(raw)})`);
+  }
+  const n = Number.parseInt(trimmed, 10);
+  if (n < 1) {
+    throw new HistoricalCatchupLimitsError(`${envName} must be >= 1 (got ${n})`);
+  }
+  if (n > ceiling) {
+    throw new HistoricalCatchupLimitsError(`${envName} exceeds ceiling ${ceiling} (got ${n})`);
+  }
+  return n;
+}
+
 export function readHistoricalCatchupLimitsFromEnv(
   env: { get(name: string): string | undefined } = {
     get: (name) => process.env[name],
   },
 ): HistoricalCatchupLimits {
-  const int = (name: string, fallback: number) => {
-    const raw = env.get(name)?.trim();
-    if (!raw) return fallback;
-    const n = Number.parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 ? n : fallback;
-  };
   return {
-    maxBatchesPerRun: int("HISTORICAL_CATCHUP_MAX_BATCHES", HISTORICAL_CATCHUP_LIMITS.maxBatchesPerRun),
-    maxSymbolsPerRun: int("HISTORICAL_CATCHUP_MAX_SYMBOLS", HISTORICAL_CATCHUP_LIMITS.maxSymbolsPerRun),
-    maxProviderRequestsPerRun: int(
+    maxBatchesPerRun: parseStrictLimit(
+      "HISTORICAL_CATCHUP_MAX_BATCHES",
+      env.get("HISTORICAL_CATCHUP_MAX_BATCHES"),
+      HISTORICAL_CATCHUP_LIMITS.maxBatchesPerRun,
+      HISTORICAL_CATCHUP_LIMITS_CEILING.maxBatchesPerRun,
+    ),
+    maxSymbolsPerRun: parseStrictLimit(
+      "HISTORICAL_CATCHUP_MAX_SYMBOLS",
+      env.get("HISTORICAL_CATCHUP_MAX_SYMBOLS"),
+      HISTORICAL_CATCHUP_LIMITS.maxSymbolsPerRun,
+      HISTORICAL_CATCHUP_LIMITS_CEILING.maxSymbolsPerRun,
+    ),
+    maxProviderRequestsPerRun: parseStrictLimit(
       "HISTORICAL_CATCHUP_MAX_PROVIDER_REQUESTS",
+      env.get("HISTORICAL_CATCHUP_MAX_PROVIDER_REQUESTS"),
       HISTORICAL_CATCHUP_LIMITS.maxProviderRequestsPerRun,
+      HISTORICAL_CATCHUP_LIMITS_CEILING.maxProviderRequestsPerRun,
     ),
-    maxNoProgressBatches: int(
+    maxNoProgressBatches: parseStrictLimit(
       "HISTORICAL_CATCHUP_MAX_NO_PROGRESS_BATCHES",
+      env.get("HISTORICAL_CATCHUP_MAX_NO_PROGRESS_BATCHES"),
       HISTORICAL_CATCHUP_LIMITS.maxNoProgressBatches,
+      HISTORICAL_CATCHUP_LIMITS_CEILING.maxNoProgressBatches,
     ),
-    maxEmptyResolutionBatches: int(
+    maxEmptyResolutionBatches: parseStrictLimit(
       "HISTORICAL_CATCHUP_MAX_EMPTY_RESOLUTION_BATCHES",
+      env.get("HISTORICAL_CATCHUP_MAX_EMPTY_RESOLUTION_BATCHES"),
       HISTORICAL_CATCHUP_LIMITS.maxEmptyResolutionBatches,
+      HISTORICAL_CATCHUP_LIMITS_CEILING.maxEmptyResolutionBatches,
     ),
   };
 }
+
+export const HISTORICAL_CATCHUP_PREFLIGHT_ENV = "HISTORICAL_CATCHUP_PREFLIGHT_ONLY";

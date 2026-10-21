@@ -4,6 +4,15 @@ import {
   readHistoricalCatchupLimitsFromEnv,
   type HistoricalCatchupLimits,
 } from "@/config/historical-catchup.config";
+import {
+  catchUpRolloutEventName,
+  resolveCatchUpRolloutOutcome,
+  type CatchUpStopReason,
+} from "@/lib/historical-backfill/catch-up-rollout-outcome";
+import {
+  isProviderBudgetExhausted,
+  ProviderRequestBudget,
+} from "@/lib/historical-backfill/provider-request-budget";
 import { HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE } from "@/config/historical-backfill.config";
 import { symbolCoverageCurrentThroughTarget } from "@/lib/historical-backfill/catch-up-eligibility";
 import {
@@ -76,6 +85,7 @@ function logEvent(payload: Record<string, unknown>): void {
 }
 
 async function polygon(
+  budget: ProviderRequestBudget,
   counters: ProviderCounters,
   logs: RequestLog[],
   kind: RequestLog["kind"],
@@ -83,6 +93,7 @@ async function polygon(
   params: Record<string, string>,
   key: string,
 ): Promise<Record<string, unknown>> {
+  budget.consumeBeforeRequest();
   const url = new URL(`https://api.polygon.io${path}`);
   for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
   url.searchParams.set("apiKey", key);
@@ -140,12 +151,13 @@ async function resolveSymbol(
   key: string,
   identity: HistoricalIdentityRepository,
   recordedAt: string,
+  budget: ProviderRequestBudget,
   counters: ProviderCounters,
   logs: RequestLog[],
   rolloutDateTo: string,
 ): Promise<SecurityId | null> {
-  const details = await polygon(counters, logs, "reference", `/v3/reference/tickers/${symbol}`, {}, key);
-  const events = await polygon(counters, logs, "events", `/vX/reference/tickers/${symbol}/events`, {}, key);
+  const details = await polygon(budget, counters, logs, "reference", `/v3/reference/tickers/${symbol}`, {}, key);
+  const events = await polygon(budget, counters, logs, "events", `/vX/reference/tickers/${symbol}/events`, {}, key);
   const row = details.results && typeof details.results === "object" ? details.results as Record<string, unknown> : null;
   if (!row || details.status === "NOT_FOUND" || row.ticker == null) return null;
   const listDate = typeof row.list_date === "string" ? row.list_date.slice(0, 10) : null;
@@ -190,6 +202,7 @@ async function resolveSymbol(
 function createEngine(
   persistence: HistoricalPersistence,
   key: string,
+  budget: ProviderRequestBudget,
   counters: ProviderCounters,
   logs: RequestLog[],
 ) {
@@ -207,13 +220,14 @@ function createEngine(
     fetchAggregates: async (ticker, multiplier, timespan, from, to) => {
       if (timespan !== "day" || multiplier !== 1) throw new Error("refused non-daily aggregate request");
       if (from < PRODUCTION_DATE_FROM) throw new Error("refused daily request before entitlement");
-      return polygon(counters, logs, "daily", `/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`, {
+      return polygon(budget, counters, logs, "daily", `/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`, {
         adjusted: "true",
         sort: "asc",
         limit: "50000",
       }, key);
     },
     fetchNextPage: async (nextUrl) => {
+      budget.consumeBeforeRequest();
       const url = new URL(nextUrl);
       if (!url.searchParams.get("apiKey")) url.searchParams.set("apiKey", key);
       const response = await fetch(url);
@@ -236,6 +250,7 @@ function createEngine(
     provider: adapter,
     config,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+    providerRequestBudget: budget,
   });
 }
 
@@ -243,56 +258,64 @@ function episodesWritten(stats: BackfillJobStats): number {
   return stats.episodesByTier.NOTABLE + stats.episodesByTier.SIGNIFICANT + stats.episodesByTier.EXTREME;
 }
 
-async function runJobToCompletion(
-  engine: HistoricalBackfillEngine,
-  jobId: string,
-): Promise<BackfillJobStats> {
-  const recordedAt = new Date().toISOString();
-  let stats = await engine.stats(jobId, recordedAt);
-  while (stats.state === "RUNNING") {
-    try {
-      stats = await engine.runBatch(jobId, new Date().toISOString());
-    } catch (error) {
-      if (error instanceof HistoricalFactConflictError) {
-        throw new Error(`historical fact conflict: ${error.message}`);
-      }
-      throw error;
-    }
-    if (stats.state === "PAUSED" || stats.state === "FAILED") break;
-  }
-  return stats;
+export interface ResumeInterruptedJobsResult {
+  /** When true, do not start new catch-up batches in this Fly process. */
+  blockNewJobs: boolean;
+  stopReason: CatchUpStopReason;
+  interruptedJobId: string | null;
 }
 
-async function resumeInterruptedJobs(
+export async function resumeInterruptedJobs(
   engine: HistoricalBackfillEngine,
   persistence: HistoricalPersistence,
   dateFrom: string,
   dateTo: string,
-): Promise<void> {
-  while (true) {
-    const interrupted = await persistence.rollout.findInterruptedJob(dateFrom, dateTo);
-    if (!interrupted) return;
-    const started = Date.now();
-    if (interrupted.state === "PAUSED" || interrupted.state === "FAILED") {
-      const resumed = await engine.resume(interrupted.jobId, new Date().toISOString());
-      if (!resumed.ok) throw new Error(`resume blocked: ${resumed.reason}`);
-    }
-    const stats = await runJobToCompletion(engine, interrupted.jobId);
-    logEvent({
-      event: "batch_complete",
-      jobId: interrupted.jobId,
-      resumed: interrupted.state !== "RUNNING",
-      state: stats.state,
-      securitiesProcessed: stats.securitiesProcessed,
-      rowsWritten: stats.rowsWritten,
-      episodesWritten: episodesWritten(stats),
-      providerErrors: stats.providerErrors,
-      elapsedMs: Date.now() - started,
-    });
-    if (stats.state !== "COMPLETE") {
-      throw new Error(`job ${interrupted.jobId} blocked in state ${stats.state}`);
-    }
+  limits: HistoricalCatchupLimits,
+  counters: ProviderCounters,
+  budget: ProviderRequestBudget,
+): Promise<ResumeInterruptedJobsResult> {
+  const interrupted = await persistence.rollout.findInterruptedJob(dateFrom, dateTo);
+  if (!interrupted) {
+    return { blockNewJobs: false, stopReason: "none", interruptedJobId: null };
   }
+  const started = Date.now();
+  if (interrupted.state === "PAUSED" || interrupted.state === "FAILED") {
+    const resumed = await engine.resume(interrupted.jobId, new Date().toISOString());
+    if (!resumed.ok) throw new Error(`resume blocked: ${resumed.reason}`);
+  }
+  const stats = await advanceJobWithinFlyLimits(engine, interrupted.jobId, limits, counters, budget);
+  logEvent({
+    event: "batch_complete",
+    jobId: interrupted.jobId,
+    resumed: interrupted.state !== "RUNNING",
+    state: stats.state,
+    securitiesProcessed: stats.securitiesProcessed,
+    rowsWritten: stats.rowsWritten,
+    episodesWritten: episodesWritten(stats),
+    providerErrors: stats.providerErrors,
+    elapsedMs: Date.now() - started,
+  });
+  if (stats.state === "FAILED") {
+    throw new Error(`interrupted job ${interrupted.jobId} failed`);
+  }
+  if (stats.state === "PAUSED") {
+    return {
+      blockNewJobs: true,
+      stopReason: "job_paused",
+      interruptedJobId: interrupted.jobId,
+    };
+  }
+  if (stats.state === "RUNNING") {
+    const budgetExhausted = budget.used >= limits.maxProviderRequestsPerRun;
+    return {
+      blockNewJobs: true,
+      stopReason: budgetExhausted || providerRequestTotal(counters) >= limits.maxProviderRequestsPerRun
+        ? "provider_request_limit"
+        : "interrupted_job_incomplete",
+      interruptedJobId: interrupted.jobId,
+    };
+  }
+  return { blockNewJobs: false, stopReason: "none", interruptedJobId: null };
 }
 
 export interface ProductionRolloutResult {
@@ -302,6 +325,9 @@ export interface ProductionRolloutResult {
   symbolsSkipped: number;
   provider: ProviderCounters;
   runtimeMs: number;
+  outcome: "complete" | "partial";
+  stopReason: CatchUpStopReason;
+  eligibleSymbolsRemaining: number;
 }
 
 export const PRODUCTION_CONNECTIVITY_JOB_ID = "0ab000ee-6f58-4e21-ba68-4a095a97f584";
@@ -333,13 +359,20 @@ export async function runHistoricalBackfillConnectivityCheck(options: {
       });
       if (!checkpoint.ok) throw new Error(`connectivity checkpoint blocked: ${checkpoint.reason}`);
     } else if (job.state === "PAUSED" || job.state === "FAILED") {
-      const engine = createEngine(persistence, requirePolygonKey(), {
+      const counters: ProviderCounters = {
         dailyRequests: 0,
         referenceRequests: 0,
         http403: 0,
         http429: 0,
         nextPages: 0,
-      }, []);
+      };
+      const engine = createEngine(
+        persistence,
+        requirePolygonKey(),
+        new ProviderRequestBudget(1),
+        counters,
+        [],
+      );
       const resumed = await engine.resume(jobId, new Date().toISOString());
       if (!resumed.ok) throw new Error(`connectivity resume blocked: ${resumed.reason}`);
       const restored = await persistence.intelligence.transitionBackfillJob(jobId, {
@@ -401,11 +434,13 @@ async function advanceJobWithinFlyLimits(
   jobId: string,
   limits: HistoricalCatchupLimits,
   counters: ProviderCounters,
+  budget: ProviderRequestBudget,
 ): Promise<BackfillJobStats> {
   const recordedAt = new Date().toISOString();
   let stats = await engine.stats(jobId, recordedAt);
   while (
     stats.state === "RUNNING"
+    && budget.remaining > 0
     && providerRequestTotal(counters) < limits.maxProviderRequestsPerRun
   ) {
     try {
@@ -427,6 +462,37 @@ export interface HistoricalCatchUpRolloutOptions {
   targetSession?: string | null;
   now?: Date;
   limits?: HistoricalCatchupLimits;
+}
+
+/** Validates target date and limits without historical writes or provider catch-up. */
+export async function runHistoricalCatchUpPreflight(
+  options: HistoricalCatchUpRolloutOptions = {},
+): Promise<{
+  targetSession: string;
+  completedSession: string;
+  limits: HistoricalCatchupLimits;
+}> {
+  if (options.loadLocalEnv) loadDotEnvFiles();
+  const targetResolved = resolveHistoricalCatchUpTargetSession({
+    envValue: process.env[HISTORICAL_CATCHUP_TARGET_ENV],
+    explicitTarget: options.targetSession,
+    now: options.now,
+  });
+  if (targetResolved.ok === false) {
+    throw new Error(targetResolved.error);
+  }
+  const limits = options.limits ?? readHistoricalCatchupLimitsFromEnv();
+  logEvent({
+    event: "catch_up_preflight_ok",
+    targetSession: targetResolved.targetSession,
+    completedSession: targetResolved.completedSession,
+    limits,
+  });
+  return {
+    targetSession: targetResolved.targetSession,
+    completedSession: targetResolved.completedSession,
+    limits,
+  };
 }
 
 export async function runHistoricalCatchUpRollout(
@@ -457,7 +523,8 @@ export async function runHistoricalCatchUpRollout(
     nextPages: 0,
   };
   const logs: RequestLog[] = [];
-  const engine = createEngine(persistence, key, counters, logs);
+  const budget = new ProviderRequestBudget(limits.maxProviderRequestsPerRun);
+  const engine = createEngine(persistence, key, budget, counters, logs);
 
   logEvent({
     event: "catch_up_start",
@@ -467,7 +534,28 @@ export async function runHistoricalCatchUpRollout(
     limits,
   });
 
-  await resumeInterruptedJobs(engine, persistence, dateFrom, targetSession);
+  let stopReason: CatchUpStopReason = "none";
+  let blockedInterruptedJobId: string | null = null;
+
+  const resumeResult = await resumeInterruptedJobs(
+    engine,
+    persistence,
+    dateFrom,
+    targetSession,
+    limits,
+    counters,
+    budget,
+  );
+  if (resumeResult.blockNewJobs) {
+    stopReason = resumeResult.stopReason;
+    blockedInterruptedJobId = resumeResult.interruptedJobId;
+    logEvent({
+      event: "catch_up_stop",
+      reason: stopReason,
+      jobId: blockedInterruptedJobId,
+      counters,
+    });
+  }
 
   let batchesRun = 0;
   let symbolsAttempted = 0;
@@ -476,12 +564,11 @@ export async function runHistoricalCatchUpRollout(
   let noProgressBatches = 0;
   let emptyResolutionBatches = 0;
 
-  while (batchesRun < limits.maxBatchesPerRun && symbolsAttempted < limits.maxSymbolsPerRun) {
-    if (providerRequestTotal(counters) >= limits.maxProviderRequestsPerRun) {
-      logEvent({ event: "catch_up_stop", reason: "provider_request_limit", counters });
-      break;
-    }
-
+  while (
+    !blockedInterruptedJobId
+    && batchesRun < limits.maxBatchesPerRun
+    && symbolsAttempted < limits.maxSymbolsPerRun
+  ) {
     const complete = await loadCatchUpCompleteSymbols(persistence, dateFrom, targetSession);
     const eligible = await persistence.rollout.loadEligibleSymbols(complete, PRODUCTION_CANARY_SYMBOLS);
     if (eligible.length === 0) break;
@@ -496,24 +583,37 @@ export async function runHistoricalCatchUpRollout(
     const batchStarted = Date.now();
     const recordedAt = new Date().toISOString();
     const securityIds: SecurityId[] = [];
+    let resolutionStopped = false;
     for (const symbol of batchSymbols) {
       symbolsAttempted += 1;
-      const id = await resolveSymbol(
-        symbol,
-        key,
-        identity,
-        recordedAt,
-        counters,
-        logs,
-        targetSession,
-      );
-      if (id) {
-        securityIds.push(id);
-        symbolsResolved += 1;
-      } else {
-        symbolsSkipped += 1;
+      try {
+        const id = await resolveSymbol(
+          symbol,
+          key,
+          identity,
+          recordedAt,
+          budget,
+          counters,
+          logs,
+          targetSession,
+        );
+        if (id) {
+          securityIds.push(id);
+          symbolsResolved += 1;
+        } else {
+          symbolsSkipped += 1;
+        }
+      } catch (error) {
+        if (isProviderBudgetExhausted(error)) {
+          stopReason = "provider_request_limit";
+          resolutionStopped = true;
+          logEvent({ event: "catch_up_stop", reason: stopReason, counters, phase: "symbol_resolution" });
+          break;
+        }
+        throw error;
       }
     }
+    if (resolutionStopped) break;
     if (securityIds.length === 0) {
       emptyResolutionBatches += 1;
       logEvent({ event: "batch_skipped", batch: batchNumber, reason: "no_resolvable_identities" });
@@ -534,7 +634,7 @@ export async function runHistoricalCatchUpRollout(
       providerStarts,
     });
     if (!started.ok) throw new Error(started.reason);
-    const stats = await advanceJobWithinFlyLimits(engine, started.record.jobId, limits, counters);
+    const stats = await advanceJobWithinFlyLimits(engine, started.record.jobId, limits, counters, budget);
     batchesRun += 1;
 
     if (stats.rowsWritten === 0 && stats.state === "COMPLETE") {
@@ -559,26 +659,52 @@ export async function runHistoricalCatchUpRollout(
       throw new Error(`batch ${batchNumber} failed`);
     }
     if (stats.state === "PAUSED") {
-      logEvent({ event: "catch_up_stop", reason: "job_paused", jobId: started.record.jobId });
+      stopReason = "job_paused";
+      blockedInterruptedJobId = started.record.jobId;
+      logEvent({ event: "catch_up_stop", reason: stopReason, jobId: started.record.jobId });
       break;
     }
     if (stats.state === "RUNNING") {
-      logEvent({ event: "catch_up_stop", reason: "fly_run_limits", jobId: started.record.jobId });
+      stopReason = budget.used >= limits.maxProviderRequestsPerRun
+        ? "provider_request_limit"
+        : "fly_run_limits";
+      blockedInterruptedJobId = started.record.jobId;
+      logEvent({ event: "catch_up_stop", reason: stopReason, jobId: started.record.jobId });
       break;
     }
     if (noProgressBatches >= limits.maxNoProgressBatches) {
-      logEvent({ event: "catch_up_stop", reason: "no_progress", batch: batchNumber });
+      stopReason = "no_progress";
+      logEvent({ event: "catch_up_stop", reason: stopReason, batch: batchNumber });
       break;
     }
   }
 
+  const completeSymbols = await loadCatchUpCompleteSymbols(persistence, dateFrom, targetSession);
+  const eligibleRemaining = (await persistence.rollout.loadEligibleSymbols(
+    completeSymbols,
+    PRODUCTION_CANARY_SYMBOLS,
+  )).length;
+  const interruptedStill = blockedInterruptedJobId
+    ?? (await persistence.rollout.findInterruptedJob(dateFrom, targetSession))?.jobId
+    ?? null;
+
+  const outcome = resolveCatchUpRolloutOutcome({
+    stopReason,
+    eligibleSymbolsRemaining: eligibleRemaining,
+    interruptedJobId: interruptedStill,
+  });
+  const eventName = catchUpRolloutEventName(outcome);
   logEvent({
-    event: "rollout_complete",
+    event: eventName,
+    outcome,
+    stopReason,
     targetSession,
     batchesRun,
     symbolsAttempted,
     symbolsResolved,
     symbolsSkipped,
+    eligibleSymbolsRemaining: eligibleRemaining,
+    interruptedJobId: interruptedStill,
     provider: counters,
     elapsedMs: Date.now() - startedAt,
   });
@@ -590,6 +716,9 @@ export async function runHistoricalCatchUpRollout(
     symbolsSkipped,
     provider: counters,
     runtimeMs: Date.now() - startedAt,
+    outcome,
+    stopReason,
+    eligibleSymbolsRemaining: eligibleRemaining,
   };
 }
 

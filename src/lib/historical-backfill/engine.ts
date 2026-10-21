@@ -15,6 +15,10 @@ import { detectDailyEpisode } from "@/lib/historical-backfill/episode-detector";
 import { addCalendarDays, etSessionBounds, isBackfillDate } from "@/lib/historical-backfill/dates";
 import { createRollingDailyRvol } from "@/lib/historical-backfill/historical-rvol";
 import { normalizeDailyBar } from "@/lib/historical-backfill/normalize-daily-bar";
+import {
+  isProviderBudgetExhausted,
+  type ProviderRequestBudget,
+} from "@/lib/historical-backfill/provider-request-budget";
 import { withBoundedRetry } from "@/lib/historical-backfill/retry";
 import type { SecurityIdentityStore } from "@/lib/security-identity/security-identity";
 import type { SecurityIntelligenceStore } from "@/lib/security-intelligence/security-intelligence";
@@ -88,6 +92,7 @@ export interface HistoricalBackfillEngineOptions {
   config?: Partial<HistoricalBackfillConfig>;
   sleep?: (ms: number) => Promise<void>;
   timings?: BackfillLoopTimings;
+  providerRequestBudget?: ProviderRequestBudget;
 }
 
 export class HistoricalBackfillEngine {
@@ -97,6 +102,7 @@ export class HistoricalBackfillEngine {
   private readonly config: HistoricalBackfillConfig;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly timings: BackfillLoopTimings;
+  private readonly providerRequestBudget?: ProviderRequestBudget;
   private inFlight = 0;
 
   constructor(options: HistoricalBackfillEngineOptions) {
@@ -106,6 +112,7 @@ export class HistoricalBackfillEngine {
     this.config = historicalBackfillConfig(options.config);
     this.sleep = options.sleep ?? (async () => undefined);
     this.timings = options.timings ?? emptyBackfillLoopTimings();
+    this.providerRequestBudget = options.providerRequestBudget;
   }
 
   async start(input: {
@@ -157,7 +164,15 @@ export class HistoricalBackfillEngine {
     if (job.state !== "FAILED" && job.state !== "PAUSED") {
       return { ok: false as const, reason: "job is not paused or failed" };
     }
-    return this.intelligence.transitionBackfillJob(jobId, { to: "RUNNING", recordedAt });
+    return this.intelligence.transitionBackfillJob(jobId, {
+      to: "RUNNING",
+      recordedAt,
+      cursorDate: job.cursorDate,
+      cursorToken: job.cursorToken,
+      processedCount: job.processedCount,
+      errorCount: job.errorCount,
+      metadata: job.metadata,
+    });
   }
 
   async runBatch(jobId: string, recordedAt: string): Promise<BackfillJobStats> {
@@ -177,7 +192,7 @@ export class HistoricalBackfillEngine {
           cursorToken: token(checkpoint),
           processedCount: checkpoint.securitiesProcessed,
           errorCount: checkpoint.providerErrors,
-          metadata: { securityIds, checkpoint },
+          metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
         });
         break;
       }
@@ -200,8 +215,21 @@ export class HistoricalBackfillEngine {
         const providerStarted = performance.now();
         try {
           result = await this.fetchDaily(securityId, segment);
-        } catch {
+        } catch (error) {
           this.timings.providerMs += performance.now() - providerStarted;
+          if (isProviderBudgetExhausted(error)) {
+            await this.intelligence.recordBackfillCheckpoint(jobId, {
+              to: "RUNNING",
+              recordedAt,
+              cursorDate: checkpoint.lastSuccessfulChunkFrom,
+              cursorToken: token(checkpoint),
+              processedCount: checkpoint.securitiesProcessed,
+              errorCount: checkpoint.providerErrors,
+              metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
+            });
+            failed = true;
+            break;
+          }
           checkpoint = { ...checkpoint, providerErrors: checkpoint.providerErrors + 1 };
           await this.intelligence.transitionBackfillJob(jobId, {
             to: "FAILED",
@@ -210,7 +238,7 @@ export class HistoricalBackfillEngine {
             cursorToken: token(checkpoint),
             processedCount: checkpoint.securitiesProcessed,
             errorCount: checkpoint.providerErrors,
-            metadata: { securityIds, checkpoint },
+            metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
           });
           failed = true;
           break;
@@ -225,7 +253,7 @@ export class HistoricalBackfillEngine {
             cursorToken: token(checkpoint),
             processedCount: checkpoint.securitiesProcessed,
             errorCount: checkpoint.providerErrors,
-            metadata: { securityIds, checkpoint },
+            metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
           });
           failed = true;
           break;
@@ -246,7 +274,7 @@ export class HistoricalBackfillEngine {
         cursorToken: token(checkpoint),
         processedCount: checkpoint.securitiesProcessed,
         errorCount: checkpoint.providerErrors,
-        metadata: { securityIds, checkpoint },
+        metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
       }));
       this.timings.persistenceMs += performance.now() - checkpointStarted;
       const refreshed = await this.intelligence.getJob(jobId);
@@ -256,6 +284,7 @@ export class HistoricalBackfillEngine {
     if (latest?.state === "RUNNING") {
       const done = readCheckpoint(latest.metadata, securityIds.length, latest.dateFrom);
       if (done.securityIndex >= securityIds.length && (done.coverage === null || done.coverage === "SUPPORTED")) {
+        const doneStarts = readProviderStarts(latest.metadata);
         await this.intelligence.transitionBackfillJob(jobId, {
           to: "COMPLETE",
           recordedAt,
@@ -263,7 +292,7 @@ export class HistoricalBackfillEngine {
           cursorToken: token(done),
           processedCount: done.securitiesProcessed,
           errorCount: done.providerErrors,
-          metadata: { securityIds, checkpoint: done },
+          metadata: backfillJobMetadata(securityIds, done, doneStarts),
         });
       }
     }
@@ -323,6 +352,7 @@ export class HistoricalBackfillEngine {
           retryCount: this.config.retryCount,
           retryBackoffMs: this.config.retryBackoffMs,
           sleep: this.sleep,
+          beforeAttempt: () => this.providerRequestBudget?.consumeBeforeRequest(),
         },
       );
     } finally {
@@ -591,6 +621,14 @@ function advance(
     lastSuccessfulSecurityIndex: nextIndex,
     lastSuccessfulChunkFrom: resetFrom,
   };
+}
+
+export function backfillJobMetadata(
+  securityIds: readonly string[],
+  checkpoint: BackfillCheckpoint,
+  providerStarts: Readonly<Record<string, string>>,
+): Record<string, unknown> {
+  return { securityIds, checkpoint, providerStarts: sanitizeProviderStarts(providerStarts) };
 }
 
 function sanitizeProviderStarts(

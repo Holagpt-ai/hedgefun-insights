@@ -26,6 +26,21 @@ Set on Fly before scaling the job (fail-closed if missing or invalid):
 
 - `HISTORICAL_CATCHUP_TARGET_SESSION` — last session date to backfill through (U.S. trading day, ≤ last completed session)
 
+### Preflight (no historical processing)
+
+Validate target date and limit env without catch-up writes:
+
+```bash
+fly secrets set -a stocksist-historical-backfill-job \
+  HISTORICAL_CATCHUP_TARGET_SESSION='YYYY-MM-DD' \
+  HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1
+fly scale count 1 --process-group backfill -a stocksist-historical-backfill-job
+fly secrets unset -a stocksist-historical-backfill-job HISTORICAL_CATCHUP_PREFLIGHT_ONLY
+fly scale count 0 --process-group backfill -a stocksist-historical-backfill-job
+```
+
+Expect `catch_up_preflight_ok` in logs. Unset preflight before an authorized catch-up run.
+
 Optional per-run caps: `HISTORICAL_CATCHUP_MAX_BATCHES`, `HISTORICAL_CATCHUP_MAX_SYMBOLS`, `HISTORICAL_CATCHUP_MAX_PROVIDER_REQUESTS`, `HISTORICAL_CATCHUP_MAX_NO_PROGRESS_BATCHES`.
 
 See `docs/historical-intelligence/batch33-catchup-runbook.md`.

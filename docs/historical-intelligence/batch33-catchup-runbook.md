@@ -13,7 +13,19 @@ This runbook covers **daily backfill catch-up** via `stocksist-historical-backfi
 | Upstash | Confirm Lovable secrets include Upstash Redis URL/token (names only in logs). Verify worker logs show `shared_cache=upstash` when available — do not expose values. |
 | Target date | Set **`HISTORICAL_CATCHUP_TARGET_SESSION=YYYY-MM-DD`** on Fly (validated trading day ≤ last completed U.S. session; fail-closed). |
 
-**STOP — Checkpoint A:** Migration applied and bridge deployed; target date chosen and validated in a dry log line (`catch_up_start` shows `targetSession`).
+**STOP — Checkpoint A:** Migration applied and bridge deployed; target date and limits validated **without historical writes**:
+
+```bash
+fly secrets set -a stocksist-historical-backfill-job \
+  HISTORICAL_CATCHUP_TARGET_SESSION='YYYY-MM-DD' \
+  HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1
+fly scale count 1 --process-group backfill -a stocksist-historical-backfill-job
+# Expect log event catch_up_preflight_ok (not catch_up_start)
+fly secrets unset -a stocksist-historical-backfill-job HISTORICAL_CATCHUP_PREFLIGHT_ONLY
+fly scale count 0 --process-group backfill -a stocksist-historical-backfill-job
+```
+
+Connectivity checks (`HISTORICAL_BACKFILL_CONNECTIVITY_ONLY=1`) remain separate from target validation.
 
 ## Daily catch-up — Fly one-shot job
 
@@ -38,7 +50,7 @@ Optional limits (defaults in `src/config/historical-catchup.config.ts`):
 ### Pilot scope and stopping conditions
 
 - Pilot: low symbol cap (e.g. 50–100), monitor `batch_complete` / `catch_up_stop` JSON logs.
-- Stop scaling when: `rollout_complete`, `catch_up_stop` reason `provider_request_limit` / `no_progress` / `job_paused`, batch `FAILED`, or empty eligible queue.
+- Stop scaling when: `rollout_complete` (eligible queue empty and no interrupted jobs), or `catch_up_partial_stop` / `catch_up_stop` (limits, paused job, or remaining work). **Do not** treat `catch_up_partial_stop` as full completion — scale up again after review.
 - Provider budget: default 2500 requests per Fly process; adjust via env if needed.
 
 ### Rollback

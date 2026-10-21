@@ -4,11 +4,14 @@ export async function withBoundedRetry<T>(
     retryCount: number;
     retryBackoffMs: number;
     sleep: (ms: number) => Promise<void>;
+    /** Invoked immediately before each attempt (including retries). */
+    beforeAttempt?: () => void;
   },
 ): Promise<T> {
   const attempts = options.retryCount + 1;
   let lastError: unknown;
   for (let attempt = 0; attempt < attempts; attempt += 1) {
+    options.beforeAttempt?.();
     try {
       return await operation();
     } catch (error) {
