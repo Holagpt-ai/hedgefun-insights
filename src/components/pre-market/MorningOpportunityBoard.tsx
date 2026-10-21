@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import type { SymbolCatalystPlatformContext } from "@/lib/catalyst/catalyst-platform-context";
 import type { MorningOpportunityBoard as BoardModel, MorningOpportunityCard } from "@/lib/am-inbox/morning-opportunity-board";
 import {
   buildMarketEvidenceHandoff,
   persistMarketEvidenceHandoff,
+  verifiedCatalystHandoffFields,
 } from "@/lib/daily-intelligence/market-evidence-handoff";
 import { opportunityWorkflowPaths } from "@/lib/scanner-intelligence/workflow-routes";
 import { trustStateLabel } from "@/lib/market-data/trust-states";
@@ -22,12 +24,19 @@ function volumeLabel(value: number | null): string {
 }
 
 function catalystLabel(status: MorningOpportunityCard["catalystStatus"]): string {
-  if (status === "present") return "Catalyst present";
-  if (status === "none") return "None verified";
-  return "Catalyst pending";
+  if (status === "verified") return "Verified catalyst";
+  if (status === "none") return "No verified catalyst";
+  if (status === "unavailable") return "Catalyst intel unavailable";
+  return "Checking catalyst intel…";
 }
 
-function Card({ card }: { card: MorningOpportunityCard }) {
+function Card({
+  card,
+  platform,
+}: {
+  card: MorningOpportunityCard;
+  platform?: SymbolCatalystPlatformContext | null;
+}) {
   const { user } = useAuth();
   const routes = opportunityWorkflowPaths(card.symbol, card.eventType, card.securityId);
   const persistEvidence = () => {
@@ -44,6 +53,7 @@ function Card({ card }: { card: MorningOpportunityCard }) {
       rvol5m: card.rvol5m,
       gapPercent: card.gapPercent,
       primaryScannerEvent: card.eventType,
+      ...verifiedCatalystHandoffFields(platform),
       userId: user?.id,
     });
     if (payload) persistMarketEvidenceHandoff(payload);
@@ -100,9 +110,11 @@ function Card({ card }: { card: MorningOpportunityCard }) {
 export function MorningOpportunityBoard({
   model,
   loading = false,
+  platformBySymbol,
 }: {
   model: BoardModel;
   loading?: boolean;
+  platformBySymbol?: Map<string, SymbolCatalystPlatformContext>;
 }) {
   if (loading && model.sections.length === 0) return null;
   if (model.emptyMessage) {
@@ -142,7 +154,11 @@ export function MorningOpportunityBoard({
           </h3>
           <div className="flex flex-col gap-2 md:flex-row">
             {section.cards.map((card) => (
-              <Card key={`${section.id}-${card.symbol}`} card={card} />
+              <Card
+                key={`${section.id}-${card.symbol}`}
+                card={card}
+                platform={platformBySymbol?.get(card.symbol.toUpperCase())}
+              />
             ))}
           </div>
         </div>

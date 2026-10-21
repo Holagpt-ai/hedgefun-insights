@@ -2,7 +2,30 @@
  * Compact market-evidence payload for cross-workflow handoffs (sessionStorage).
  */
 
+import type { SymbolCatalystPlatformContext } from "@/lib/catalyst/catalyst-platform-context";
+import type { CatalystAvailability } from "@/lib/catalyst/intelligence-v2";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
+
+export function verifiedCatalystHandoffFields(
+  platform?: SymbolCatalystPlatformContext | null,
+): {
+  catalystAvailability: CatalystAvailability | null;
+  catalystEventId: string | null;
+  catalystHeadline: string | null;
+} {
+  if (platform?.availability !== "verified" || !platform.enrichment) {
+    return {
+      catalystAvailability: null,
+      catalystEventId: null,
+      catalystHeadline: null,
+    };
+  }
+  return {
+    catalystAvailability: "verified",
+    catalystEventId: platform.enrichment.event.id?.trim() || null,
+    catalystHeadline: platform.enrichment.event.title?.trim() || null,
+  };
+}
 
 export type MarketEvidenceContextScope = "current_session" | "prior_session";
 
@@ -18,6 +41,9 @@ export interface MarketEvidenceHandoff {
   rvol5m: number | null;
   gapPercent: number | null;
   primaryScannerEvent: string | null;
+  catalystAvailability?: CatalystAvailability | null;
+  catalystEventId?: string | null;
+  catalystHeadline?: string | null;
   handoffAt: string;
   /** Signed-in account that stored this payload (prevents cross-account replay). */
   userId?: string | null;
@@ -95,6 +121,9 @@ export function buildMarketEvidenceHandoff(input: {
   rvol5m?: number | null;
   gapPercent?: number | null;
   primaryScannerEvent?: string | null;
+  catalystAvailability?: CatalystAvailability | null;
+  catalystEventId?: string | null;
+  catalystHeadline?: string | null;
   nowMs?: number;
   userId?: string | null;
 }): MarketEvidenceHandoff | null {
@@ -112,6 +141,9 @@ export function buildMarketEvidenceHandoff(input: {
     rvol5m: finiteOrNull(input.rvol5m),
     gapPercent: finiteOrNull(input.gapPercent),
     primaryScannerEvent: input.primaryScannerEvent?.trim() || null,
+    catalystAvailability: input.catalystAvailability ?? null,
+    catalystEventId: input.catalystEventId?.trim() || null,
+    catalystHeadline: input.catalystHeadline?.trim() || null,
     handoffAt: new Date(input.nowMs ?? Date.now()).toISOString(),
     userId: input.userId?.trim() || null,
   };
@@ -128,6 +160,9 @@ export function formatMarketEvidenceContextLine(evidence: MarketEvidenceHandoff)
     evidence.contextScope === "prior_session" ? "Prior session context" : "Current session context";
   const parts = [scope, evidence.sourceSurface.replace(/_/g, " ")];
   if (evidence.primaryScannerEvent) parts.push(evidence.primaryScannerEvent);
+  if (evidence.catalystAvailability === "verified" && evidence.catalystHeadline) {
+    parts.push(`verified catalyst: ${evidence.catalystHeadline}`);
+  }
   if (evidence.providerAsOf) {
     try {
       parts.push(

@@ -4,7 +4,7 @@ import { BookOpen, Newspaper, Plus, Check, Loader2, Sparkles } from "lucide-reac
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
-import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
@@ -15,7 +15,8 @@ import { buildRadarTriggerDisplayTitle } from "@/lib/scanner-intelligence/radar-
 import { TriggeredTimeCell } from "@/components/screener/TriggeredTimeCell";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
-import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
+import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import { HistoryCell } from "./HistoricalBehavior";
 import { VolumeTrendMark } from "./VolumeTrendMark";
 import { HintedMetric, ScannerMetricHint } from "./ScannerMetricHint";
@@ -110,7 +111,7 @@ export function RadarPanelLeader({
 }) {
   const meta = panelMeta(panel);
   const symbols = row ? ([normalizeSymbol(row.symbol)].filter(Boolean) as string[]) : [];
-  const { data: catalystMap } = useCatalystEnrichmentForSymbols(symbols);
+  const { data: catalystMap, platformBySymbol } = useCatalystPlatformContextForSymbols(symbols);
   const floatState = useRadarFloatForSymbols(symbols);
   if (!row) return null;
   const speed = formatVolumeSpeedSpotlight(row.vol_velocity);
@@ -267,7 +268,7 @@ export function RadarPanelBoard({
     }
     return out;
   }, [rows, isPro, freeRowLimit]);
-  const catalyst = useCatalystEnrichmentForSymbols(symbols);
+  const catalyst = useCatalystPlatformContextForSymbols(symbols);
   const floatState = useRadarFloatForSymbols(symbols);
   const news = useRecentProviderNewsForSymbols(symbols);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -426,6 +427,8 @@ export function RadarPanelBoard({
                         ),
                         catalystPending: catalyst.isPending,
                         catalystEntry: catalyst.data?.get(row.symbol),
+                        catalystPlatform: catalyst.platformBySymbol.get(row.symbol.toUpperCase()),
+                        catalystUnavailable: catalyst.isError,
                         newsStatus: news.getStatus(row.symbol),
                         recent: news.getHeadline(row.symbol),
                         onOpenDetails,
@@ -496,6 +499,8 @@ function renderCell(args: {
   floatShares: number | null;
   catalystPending: boolean;
   catalystEntry: CatalystEnrichmentEntry | undefined;
+  catalystPlatform?: import("@/lib/catalyst/catalyst-platform-context").SymbolCatalystPlatformContext;
+  catalystUnavailable?: boolean;
   newsStatus: RadarNewsSymbolStatus;
   recent: RecentProviderHeadline | undefined;
   onOpenDetails: (row: RadarRankedRow) => void;
@@ -608,13 +613,14 @@ function renderCell(args: {
   if (id === "history") return args.accessible ? <HistoryCell context={row.historicalContext} row={row} /> : "—";
   if (id === "catalyst") {
     if (!args.accessible) return "—";
-    const display = resolveRadarNewsCellState({
+    const display = resolveRadarNewsCellStateWithPlatform({
       symbol: row.symbol,
+      platform: args.catalystPlatform,
       catalyst: args.catalystEntry,
       recent: args.recent,
       newsStatus: args.newsStatus,
       catalystPending: args.catalystPending && !args.catalystEntry,
-      catalystUnavailable: false,
+      catalystUnavailable: args.catalystUnavailable,
     });
     if (display.level === "none") return <span className="text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</span>;
     if (display.level === "catalyst") return <span>{display.category}</span>;

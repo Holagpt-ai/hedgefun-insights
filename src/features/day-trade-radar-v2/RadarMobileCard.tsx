@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen } from "lucide-react";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
-import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
@@ -34,7 +34,8 @@ import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
 import { AdaptiveDayRangeBar } from "./AdaptiveDayRangeBar";
 import { RadarActionTooltip } from "./RadarActionTooltip";
 import { computeFloatTurnover, formatFloatTurnover } from "./float-turnover";
-import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
+import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import { formatScreenerDollarVolume } from "@/lib/screeners/screener-metric-display";
 import {
   evaluateScreenerTriggerTime,
@@ -72,16 +73,19 @@ export function RadarMobileCard({
     isPending: catalystPending,
     isFetching: catalystFetching,
     isError: catalystError,
-  } = useCatalystEnrichmentForSymbols(symbols);
+    platformBySymbol,
+  } = useCatalystPlatformContextForSymbols(symbols);
   const floatState = useRadarFloatForSymbols(symbols);
   const newsState = useRecentProviderNewsForSymbols(symbols);
   const catalystCheckPending =
     symbols.length > 0 && (catalystPending || (catalystFetching && !catalystMap));
-  const entry = catalystMap?.get(sym);
+  const symKey = sym.toUpperCase();
+  const entry = catalystMap?.get(symKey);
   const floatShares = floatState.getFloat(sym);
   const turnover = computeFloatTurnover(row.volume, floatShares);
-  const news = resolveRadarNewsCellState({
+  const news = resolveRadarNewsCellStateWithPlatform({
     symbol: sym,
+    platform: platformBySymbol.get(symKey),
     catalyst: entry,
     recent: newsState.getHeadline(sym),
     newsStatus: newsState.getStatus(sym),
