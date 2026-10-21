@@ -21,6 +21,7 @@ export const RADAR_BRIDGE_ACTIONS = [
   "historical_apply_episode_batch",
   "historical_find_interrupted_job",
   "historical_rollout_backfilled_symbols",
+  "historical_rollout_symbols_current_through",
   "historical_get_job",
   "historical_create_job",
   "historical_update_job",
