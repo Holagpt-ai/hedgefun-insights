@@ -3,6 +3,7 @@
 
 import { sha256Hex } from "../catalyst/contract.ts";
 import { FETCH_TIMEOUT_MS, MAX_REDIRECTS, MAX_RESPONSE_BYTES } from "./config.ts";
+import { safeFetchWithRetry } from "./provider-retry.ts";
 import type { SourceRunContext } from "./types.ts";
 
 export class SourceFetchError extends Error {
@@ -158,7 +159,13 @@ export async function safeFetch(input: {
     }
 
     if (res.status === 429 || res.status >= 500) {
-      throw new SourceFetchError("upstream", res.status, true);
+      const err = new SourceFetchError("upstream", res.status, true);
+      if (res.status === 429) {
+        const header = res.headers.get("retry-after");
+        const seconds = header ? Number(header) : NaN;
+        if (Number.isFinite(seconds) && seconds >= 0) err.retryAfterSeconds = seconds;
+      }
+      throw err;
     }
     if (!res.ok) throw new SourceFetchError("upstream", res.status, false);
 
@@ -203,7 +210,7 @@ export async function safeFetch(input: {
 
 export async function loadConfiguredSource(ctx: SourceRunContext): Promise<string | null> {
   const forceFullFetch = ctx.fetchState.forceFullFetch === true;
-  const fetched = await safeFetch({
+  const fetched = await safeFetchWithRetry({
     url: ctx.source.url,
     userAgent: ctx.userAgent,
     fetchImpl: ctx.fetchImpl,

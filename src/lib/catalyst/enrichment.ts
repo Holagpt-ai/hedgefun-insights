@@ -9,6 +9,10 @@ import {
   type CatalystPrecedenceInput,
 } from "@/lib/catalyst/precedence";
 import {
+  passesDirectCatalystVerificationGuard,
+  passesRecentEnrichmentGuard,
+} from "@/lib/catalyst/catalyst-verification-guards";
+import {
   eventMomentMs,
   normalizeSymbol,
   scheduledMomentMs,
@@ -203,6 +207,7 @@ export function selectEnrichmentEntries(
 
     const classified = classifyEnrichmentEvent(raw, nowMs);
     if (!classified) continue;
+    if (!passesDirectCatalystVerificationGuard(raw, nowMs)) continue;
 
     const precedenceInput = toPrecedenceInput(raw);
     if (looksLikeMarketAttention(precedenceInput.title, precedenceInput.event_type)) continue;
@@ -249,6 +254,7 @@ export function selectRecentEnrichmentEntries(
 
     const classified = classifyEnrichmentEvent(raw, nowMs);
     if (!classified || classified.kind !== "recent") continue;
+    if (!passesRecentEnrichmentGuard(raw, nowMs)) continue;
 
     const precedenceInput = toPrecedenceInput(raw);
     if (looksLikeMarketAttention(precedenceInput.title, precedenceInput.event_type)) continue;
