@@ -15,6 +15,7 @@ export const HISTORICAL_DAILY_BATCH_RPC = "historical_apply_daily_batch";
 export const HISTORICAL_EPISODE_BATCH_RPC = "historical_apply_episode_batch";
 export const HISTORICAL_INTERRUPTED_JOB_RPC = "historical_find_interrupted_backfill_job";
 export const HISTORICAL_BACKFILLED_SYMBOLS_RPC = "historical_rollout_backfilled_symbols";
+export const HISTORICAL_SYMBOLS_CURRENT_THROUGH_RPC = "historical_rollout_symbols_current_through";
 
 export const SECURITIES_TABLE = "securities";
 export const SYMBOL_HISTORY_TABLE = "security_symbol_history";
@@ -235,6 +236,15 @@ export async function handleHistoricalAction(
         p_date_from: dateFrom,
         p_date_to: dateTo,
         p_min_sessions: minSessions,
+      });
+    }
+    case "historical_rollout_symbols_current_through": {
+      const dateFrom = readDate(body.p_date_from);
+      const dateTo = readDate(body.p_date_to);
+      if (!dateFrom || !dateTo) return jsonResponse({ error: "invalid_body" }, 400);
+      return await rpcResult(HISTORICAL_SYMBOLS_CURRENT_THROUGH_RPC, {
+        p_date_from: dateFrom,
+        p_date_to: dateTo,
       });
     }
     case "historical_get_job": {

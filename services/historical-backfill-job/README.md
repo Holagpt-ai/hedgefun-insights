@@ -18,6 +18,18 @@ When both bridge credentials and a direct Postgres URL are set, **bridge wins**.
 
 Apply migration `0010_historical_backfill_supabase_rpc_v1.sql` on production and deploy the updated **`radar-worker-bridge`** before the backfill worker.
 
+Batch 33 catch-up additionally requires migration `20261021183000_historical_catchup_eligibility_v1.sql` and bridge RPC `historical_rollout_symbols_current_through`.
+
+## Catch-up target (required)
+
+Set on Fly before scaling the job (fail-closed if missing or invalid):
+
+- `HISTORICAL_CATCHUP_TARGET_SESSION` — last session date to backfill through (U.S. trading day, ≤ last completed session)
+
+Optional per-run caps: `HISTORICAL_CATCHUP_MAX_BATCHES`, `HISTORICAL_CATCHUP_MAX_SYMBOLS`, `HISTORICAL_CATCHUP_MAX_PROVIDER_REQUESTS`, `HISTORICAL_CATCHUP_MAX_NO_PROGRESS_BATCHES`.
+
+See `docs/historical-intelligence/batch33-catchup-runbook.md`.
+
 ## Deploy (does not start the job)
 
 ```bash

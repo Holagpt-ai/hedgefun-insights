@@ -5,7 +5,7 @@
 import { createServer } from "node:http";
 import {
   runHistoricalBackfillConnectivityCheck,
-  runProductionHistoricalRollout,
+  runHistoricalCatchUpRollout,
 } from "@/lib/historical-backfill/production-rollout";
 
 const port = Number(process.env.PORT ?? "8080");
@@ -18,7 +18,7 @@ server.listen(port, "0.0.0.0");
 const connectivityOnly = process.env.HISTORICAL_BACKFILL_CONNECTIVITY_ONLY === "1";
 const runner = connectivityOnly
   ? runHistoricalBackfillConnectivityCheck({ loadLocalEnv: false })
-  : runProductionHistoricalRollout({ loadLocalEnv: false });
+  : runHistoricalCatchUpRollout({ loadLocalEnv: false });
 
 runner
   .then((result) => {

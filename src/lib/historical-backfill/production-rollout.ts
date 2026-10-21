@@ -1,4 +1,15 @@
+import {
+  HISTORICAL_CATCHUP_TARGET_ENV,
+  HISTORICAL_ROLLOUT_ANCHOR_SESSION,
+  readHistoricalCatchupLimitsFromEnv,
+  type HistoricalCatchupLimits,
+} from "@/config/historical-catchup.config";
 import { HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE } from "@/config/historical-backfill.config";
+import { symbolCoverageCurrentThroughTarget } from "@/lib/historical-backfill/catch-up-eligibility";
+import {
+  resolveProviderStartDate,
+  validateHistoricalCatchUpTargetSession,
+} from "@/lib/historical-backfill/production-target-date";
 import { historicalBackfillConfig } from "@/config/historical-backfill.config";
 import { HistoricalBackfillEngine } from "@/lib/historical-backfill/engine";
 import { createPolygonDailyAdapter } from "@/lib/historical-backfill/polygon-daily-adapter";
@@ -18,12 +29,27 @@ export const PRODUCTION_CANARY_SYMBOLS = new Set([
   "INTC", "OGN", "NWL", "AMD", "APA", "ALK", "AOS", "BEN", "BBY", "FMC",
 ]);
 export const PRODUCTION_DATE_FROM = HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE;
-export const PRODUCTION_DATE_TO = "2026-09-18";
+/** @deprecated Use validated catch-up target — kept for tests referencing the Sep 2026 pilot. */
+export const PRODUCTION_DATE_TO = HISTORICAL_ROLLOUT_ANCHOR_SESSION;
 const FULL_SPAN_DAYS = 2000;
 const FIRST_BATCH = 100;
 const NEXT_BATCH = 500;
-/** Sessions below this count are treated as incomplete for rollout skip logic. */
-const MIN_COMPLETED_SESSIONS = 1200;
+
+export function resolveHistoricalCatchUpTargetSession(input: {
+  envValue?: string | null;
+  explicitTarget?: string | null;
+  now?: Date;
+}): { ok: true; targetSession: string; completedSession: string } | { ok: false; error: string } {
+  const raw = input.explicitTarget?.trim() || input.envValue?.trim() || "";
+  const validated = validateHistoricalCatchUpTargetSession({
+    raw,
+    now: input.now ?? new Date(),
+  });
+  if (validated.ok === false) {
+    return { ok: false, error: `${validated.reason}: ${validated.detail}` };
+  }
+  return validated;
+}
 
 interface ProviderCounters {
   dailyRequests: number;
@@ -116,6 +142,7 @@ async function resolveSymbol(
   recordedAt: string,
   counters: ProviderCounters,
   logs: RequestLog[],
+  rolloutDateTo: string,
 ): Promise<SecurityId | null> {
   const details = await polygon(counters, logs, "reference", `/v3/reference/tickers/${symbol}`, {}, key);
   const events = await polygon(counters, logs, "events", `/vX/reference/tickers/${symbol}/events`, {}, key);
@@ -126,7 +153,7 @@ async function resolveSymbol(
   const usableListDate = listDate !== null && listYear >= 1970 && listYear <= 2100 ? listDate : null;
   const effectiveDate = usableListDate && usableListDate <= PRODUCTION_DATE_FROM ? usableListDate : PRODUCTION_DATE_FROM;
   const inWindowChanges = tickerChanges(events).filter((change) =>
-    change.date > PRODUCTION_DATE_FROM && change.date <= PRODUCTION_DATE_TO,
+    change.date > PRODUCTION_DATE_FROM && change.date <= rolloutDateTo,
   );
   const locale = typeof row.locale === "string" ? row.locale.toUpperCase() : null;
   const resolved = await identity.resolve({
@@ -236,9 +263,14 @@ async function runJobToCompletion(
   return stats;
 }
 
-async function resumeInterruptedJobs(engine: HistoricalBackfillEngine, persistence: HistoricalPersistence): Promise<void> {
+async function resumeInterruptedJobs(
+  engine: HistoricalBackfillEngine,
+  persistence: HistoricalPersistence,
+  dateFrom: string,
+  dateTo: string,
+): Promise<void> {
   while (true) {
-    const interrupted = await persistence.rollout.findInterruptedJob(PRODUCTION_DATE_FROM, PRODUCTION_DATE_TO);
+    const interrupted = await persistence.rollout.findInterruptedJob(dateFrom, dateTo);
     if (!interrupted) return;
     const started = Date.now();
     if (interrupted.state === "PAUSED" || interrupted.state === "FAILED") {
@@ -327,12 +359,96 @@ export async function runHistoricalBackfillConnectivityCheck(options: {
   }
 }
 
-export async function runProductionHistoricalRollout(options: { loadLocalEnv?: boolean } = {}): Promise<ProductionRolloutResult> {
+function providerRequestTotal(counters: ProviderCounters): number {
+  return counters.dailyRequests + counters.referenceRequests;
+}
+
+async function loadCatchUpCompleteSymbols(
+  persistence: HistoricalPersistence,
+  dateFrom: string,
+  targetSession: string,
+): Promise<Set<string>> {
+  const coverage = await persistence.rollout.loadSymbolSessionCoverage(dateFrom, targetSession);
+  return new Set(
+    coverage
+      .filter((row) => symbolCoverageCurrentThroughTarget(row, targetSession))
+      .map((row) => row.symbol),
+  );
+}
+
+async function buildProviderStarts(
+  intelligence: HistoricalPersistence["intelligence"],
+  securityIds: readonly SecurityId[],
+  globalDateFrom: string,
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const securityId of securityIds) {
+    const rows = await intelligence.listDailyHistory(securityId);
+    let latest: string | null = null;
+    for (const row of rows) {
+      if (!latest || row.sessionDate > latest) latest = row.sessionDate;
+    }
+    out[securityId] = resolveProviderStartDate({
+      globalDateFrom,
+      latestStoredSession: latest,
+    });
+  }
+  return out;
+}
+
+async function advanceJobWithinFlyLimits(
+  engine: HistoricalBackfillEngine,
+  jobId: string,
+  limits: HistoricalCatchupLimits,
+  counters: ProviderCounters,
+): Promise<BackfillJobStats> {
+  const recordedAt = new Date().toISOString();
+  let stats = await engine.stats(jobId, recordedAt);
+  while (
+    stats.state === "RUNNING"
+    && providerRequestTotal(counters) < limits.maxProviderRequestsPerRun
+  ) {
+    try {
+      stats = await engine.runBatch(jobId, new Date().toISOString());
+    } catch (error) {
+      if (error instanceof HistoricalFactConflictError) {
+        throw new Error(`historical fact conflict: ${error.message}`);
+      }
+      throw error;
+    }
+    if (stats.state === "PAUSED" || stats.state === "FAILED") break;
+  }
+  return stats;
+}
+
+export interface HistoricalCatchUpRolloutOptions {
+  loadLocalEnv?: boolean;
+  /** Explicit target session (tests). Otherwise HISTORICAL_CATCHUP_TARGET_SESSION is required. */
+  targetSession?: string | null;
+  now?: Date;
+  limits?: HistoricalCatchupLimits;
+}
+
+export async function runHistoricalCatchUpRollout(
+  options: HistoricalCatchUpRolloutOptions = {},
+): Promise<ProductionRolloutResult> {
   if (options.loadLocalEnv) loadDotEnvFiles();
+  const targetResolved = resolveHistoricalCatchUpTargetSession({
+    envValue: process.env[HISTORICAL_CATCHUP_TARGET_ENV],
+    explicitTarget: options.targetSession,
+    now: options.now,
+  });
+  if (targetResolved.ok === false) {
+    throw new Error(targetResolved.error);
+  }
+  const targetSession = targetResolved.targetSession;
+  const dateFrom = PRODUCTION_DATE_FROM;
+  const limits = options.limits ?? readHistoricalCatchupLimitsFromEnv();
+
   const startedAt = Date.now();
   const key = requirePolygonKey();
   const persistence = createHistoricalPersistence(options);
-  const { identity } = persistence;
+  const { identity, intelligence } = persistence;
   const counters: ProviderCounters = {
     dailyRequests: 0,
     referenceRequests: 0,
@@ -343,22 +459,38 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
   const logs: RequestLog[] = [];
   const engine = createEngine(persistence, key, counters, logs);
 
-  await resumeInterruptedJobs(engine, persistence);
+  logEvent({
+    event: "catch_up_start",
+    targetSession,
+    completedSession: targetResolved.completedSession,
+    transport: persistence.transport,
+    limits,
+  });
+
+  await resumeInterruptedJobs(engine, persistence, dateFrom, targetSession);
 
   let batchesRun = 0;
   let symbolsAttempted = 0;
   let symbolsResolved = 0;
   let symbolsSkipped = 0;
+  let noProgressBatches = 0;
+  let emptyResolutionBatches = 0;
 
-  while (true) {
-    const backfilled = await persistence.rollout.loadBackfilledSymbols(
-      PRODUCTION_DATE_FROM,
-      PRODUCTION_DATE_TO,
-      MIN_COMPLETED_SESSIONS,
-    );
-    const eligible = await persistence.rollout.loadEligibleSymbols(backfilled, PRODUCTION_CANARY_SYMBOLS);
+  while (batchesRun < limits.maxBatchesPerRun && symbolsAttempted < limits.maxSymbolsPerRun) {
+    if (providerRequestTotal(counters) >= limits.maxProviderRequestsPerRun) {
+      logEvent({ event: "catch_up_stop", reason: "provider_request_limit", counters });
+      break;
+    }
+
+    const complete = await loadCatchUpCompleteSymbols(persistence, dateFrom, targetSession);
+    const eligible = await persistence.rollout.loadEligibleSymbols(complete, PRODUCTION_CANARY_SYMBOLS);
     if (eligible.length === 0) break;
-    const size = batchesRun === 0 ? FIRST_BATCH : NEXT_BATCH;
+
+    const remainingSymbolBudget = limits.maxSymbolsPerRun - symbolsAttempted;
+    const size = Math.min(
+      batchesRun === 0 ? FIRST_BATCH : NEXT_BATCH,
+      remainingSymbolBudget,
+    );
     const batchSymbols = eligible.slice(0, size);
     const batchNumber = batchesRun + 1;
     const batchStarted = Date.now();
@@ -366,7 +498,15 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
     const securityIds: SecurityId[] = [];
     for (const symbol of batchSymbols) {
       symbolsAttempted += 1;
-      const id = await resolveSymbol(symbol, key, identity, recordedAt, counters, logs);
+      const id = await resolveSymbol(
+        symbol,
+        key,
+        identity,
+        recordedAt,
+        counters,
+        logs,
+        targetSession,
+      );
       if (id) {
         securityIds.push(id);
         symbolsResolved += 1;
@@ -375,19 +515,34 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
       }
     }
     if (securityIds.length === 0) {
-      throw new Error(`batch ${batchNumber} had no resolvable identities`);
+      emptyResolutionBatches += 1;
+      logEvent({ event: "batch_skipped", batch: batchNumber, reason: "no_resolvable_identities" });
+      if (emptyResolutionBatches >= limits.maxEmptyResolutionBatches) {
+        throw new Error(`batch ${batchNumber} had no resolvable identities`);
+      }
+      continue;
     }
 
+    const providerStarts = await buildProviderStarts(intelligence, securityIds, dateFrom);
     const started = await engine.start({
       securities: securityIds.map((securityId) => ({ securityId })),
-      completedSessionDate: PRODUCTION_DATE_TO,
-      dateFrom: PRODUCTION_DATE_FROM,
-      dateTo: PRODUCTION_DATE_TO,
+      completedSessionDate: targetSession,
+      dateFrom,
+      dateTo: targetSession,
       recordedAt,
+      jobType: "SECURITY_DAILY_HISTORY_CATCHUP",
+      providerStarts,
     });
     if (!started.ok) throw new Error(started.reason);
-    const stats = await runJobToCompletion(engine, started.record.jobId);
+    const stats = await advanceJobWithinFlyLimits(engine, started.record.jobId, limits, counters);
     batchesRun += 1;
+
+    if (stats.rowsWritten === 0 && stats.state === "COMPLETE") {
+      noProgressBatches += 1;
+    } else {
+      noProgressBatches = 0;
+    }
+
     logEvent({
       event: "batch_complete",
       batch: batchNumber,
@@ -399,13 +554,27 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
       providerErrors: stats.providerErrors,
       elapsedMs: Date.now() - batchStarted,
     });
-    if (stats.state !== "COMPLETE") {
-      throw new Error(`batch ${batchNumber} blocked in state ${stats.state}`);
+
+    if (stats.state === "FAILED") {
+      throw new Error(`batch ${batchNumber} failed`);
+    }
+    if (stats.state === "PAUSED") {
+      logEvent({ event: "catch_up_stop", reason: "job_paused", jobId: started.record.jobId });
+      break;
+    }
+    if (stats.state === "RUNNING") {
+      logEvent({ event: "catch_up_stop", reason: "fly_run_limits", jobId: started.record.jobId });
+      break;
+    }
+    if (noProgressBatches >= limits.maxNoProgressBatches) {
+      logEvent({ event: "catch_up_stop", reason: "no_progress", batch: batchNumber });
+      break;
     }
   }
 
   logEvent({
     event: "rollout_complete",
+    targetSession,
     batchesRun,
     symbolsAttempted,
     symbolsResolved,
@@ -422,4 +591,11 @@ export async function runProductionHistoricalRollout(options: { loadLocalEnv?: b
     provider: counters,
     runtimeMs: Date.now() - startedAt,
   };
+}
+
+/** @deprecated Use runHistoricalCatchUpRollout — requires HISTORICAL_CATCHUP_TARGET_SESSION. */
+export async function runProductionHistoricalRollout(
+  options: HistoricalCatchUpRolloutOptions = {},
+): Promise<ProductionRolloutResult> {
+  return runHistoricalCatchUpRollout(options);
 }
