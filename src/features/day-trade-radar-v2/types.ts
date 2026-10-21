@@ -146,6 +146,8 @@ export interface DayTradeRadarV2Props {
   repeatMoversLoadState?: RepeatMoversLoadState;
   /** Soft refresh to retry Repeat Movers enrichment after failure. */
   onRepeatMoversRetry?: () => void;
+  /** Prioritize historical-context fetch for a user-selected symbol. */
+  onPrioritizeHistoricalContext?: (symbol: string) => void;
 }
 
 /** Engine/source designation shown in the Day Trade Radar status rail. */
