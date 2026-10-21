@@ -65,6 +65,11 @@ export default function DashboardHome() {
         </p>
       </section>
 
+      <p className="text-sm text-muted-foreground rounded-lg border bg-muted/20 px-3 py-2">
+        Pick up where you left off: open Screeners, Catalyst, or Watchlist from Quick Access below.
+        Symbol links from public stock research preserve your ticker when you sign in.
+      </p>
+
       {/* Quick Access */}
       <section>
         <h2 className="text-lg font-semibold mb-3">Quick Access</h2>

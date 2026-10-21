@@ -10,6 +10,9 @@ import { MarketNews } from "@/components/home/MarketNews";
 import { RecentIpos, UpcomingIpos } from "@/components/home/IpoTables";
 import Disclaimer from "@/components/layout/Disclaimer";
 import { resolveMarketSession } from "@/lib/price-utils";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
+import { marketPulseDelayDisclosure } from "@/lib/markets/market-pulse-select";
 
 function useSessionMoversLabels() {
   const session = resolveMarketSession();
@@ -21,6 +24,11 @@ function useSessionMoversLabels() {
 
 const Index = () => {
   const labels = useSessionMoversLabels();
+  usePageSeo({
+    title: `${BRAND.name} — Market pulse, stock research & trading dashboard`,
+    description: `Discover session movers, research individual stocks, and continue into the Stocksist dashboard. ${marketPulseDelayDisclosure()}`,
+    canonical: "/",
+  });
   return (
     <div className="flex flex-col">
       <MarketTicker />

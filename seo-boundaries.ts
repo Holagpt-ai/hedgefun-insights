@@ -14,6 +14,7 @@ export const NOINDEX_PATH_PREFIXES = [
   "/reset-password",
   "/unsubscribe",
   "/journal",
+  "/watchlist",
   "/.lovable",
 ] as const;
 
