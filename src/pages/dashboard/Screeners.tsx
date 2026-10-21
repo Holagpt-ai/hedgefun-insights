@@ -24,6 +24,13 @@ export default function Screeners() {
   const [searchParams] = useSearchParams();
   const radarDebug = isRadarDebugEnabled(searchParams);
   const handoff = readScannerHandoffQuery(searchParams);
+  const focusHistorical = searchParams.get("focus") === "historical";
+  const historicalEntryDeepLink =
+    handoff && focusHistorical
+      ? { symbol: handoff.symbol, focusHistorical: true as const }
+      : handoff
+        ? { symbol: handoff.symbol }
+        : null;
 
   const [activeTabId, setActiveTabId] = useState(DEFAULT_SCREENER_TAB_ID);
   const activeTab = getScreenerTabById(activeTabId) ?? SCREENER_TABS[0];
@@ -126,6 +133,7 @@ export default function Screeners() {
           repeatMoversLoadState={repeatMoversLoadState}
           onRepeatMoversRetry={refetch}
           onPrioritizeHistoricalContext={prioritizeHistoricalContext}
+          historicalEntryDeepLink={historicalEntryDeepLink}
         />
       ) : (
         <ScreenerTable

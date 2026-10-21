@@ -148,6 +148,12 @@ export interface DayTradeRadarV2Props {
   onRepeatMoversRetry?: () => void;
   /** Prioritize historical-context fetch for a user-selected symbol. */
   onPrioritizeHistoricalContext?: (symbol: string) => void;
+  /** Deep link from stock detail / repeat movers (symbol must match a board row when opened). */
+  historicalEntryDeepLink?: {
+    symbol: string;
+    focusHistorical?: boolean;
+    episodeId?: string | null;
+  } | null;
 }
 
 /** Engine/source designation shown in the Day Trade Radar status rail. */

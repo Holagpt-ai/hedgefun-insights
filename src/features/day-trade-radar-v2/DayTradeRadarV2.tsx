@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRadarV22Board } from "@/hooks/useRadarV22Board";
@@ -39,12 +40,15 @@ export function DayTradeRadarV2({
   repeatMoversLoadState = REPEAT_MOVERS_IDLE,
   onRepeatMoversRetry,
   onPrioritizeHistoricalContext,
+  historicalEntryDeepLink = null,
 }: DayTradeRadarV2Props) {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
   const [desktopDetailOpen, setDesktopDetailOpen] = useState(false);
   const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null);
+  const [historicalExplorerEpisodeId, setHistoricalExplorerEpisodeId] = useState<string | null>(null);
+  const [historicalDeepLinkMissSymbol, setHistoricalDeepLinkMissSymbol] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const v22 = useRadarV22Board({ enabled: source !== "radar-v2" });
   const adoptedSessionRef = useRef<string | null>(null);
@@ -126,10 +130,11 @@ export function DayTradeRadarV2({
     return monitoringStates(qualification.monitoring, deskSymbols).length;
   }, [deskRows, qualification.monitoring]);
 
-  const openDetails = (row: RadarRankedRow) => {
+  const openDetails = (row: RadarRankedRow, options?: { episodeId?: string | null }) => {
     onPrioritizeHistoricalContext?.(row.symbol);
     selectRow(row);
     setPinnedSymbol(row.symbol);
+    setHistoricalExplorerEpisodeId(options?.episodeId ?? null);
     if (isMobile) setMobileDetailOpen(true);
     else setDesktopDetailOpen(true);
   };
@@ -154,6 +159,32 @@ export function DayTradeRadarV2({
     return null;
   }, [resolved.status, opportunityBoard.candidateUniverseCount]);
 
+  const consumedHistoricalDeepLinkKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (!historicalEntryDeepLink?.symbol || resolved.status === "loading") return;
+    const key = [
+      historicalEntryDeepLink.symbol,
+      historicalEntryDeepLink.episodeId ?? "",
+      historicalEntryDeepLink.focusHistorical ? "1" : "0",
+    ].join("|");
+    if (consumedHistoricalDeepLinkKey.current === key) return;
+    const target = historicalEntryDeepLink.symbol.trim().toUpperCase();
+    const match = ranked.find((row) => row.symbol.trim().toUpperCase() === target);
+    if (!match) {
+      consumedHistoricalDeepLinkKey.current = key;
+      setHistoricalDeepLinkMissSymbol(target);
+      return;
+    }
+    consumedHistoricalDeepLinkKey.current = key;
+    setHistoricalDeepLinkMissSymbol(null);
+    openDetails(match, { episodeId: historicalEntryDeepLink.episodeId ?? null });
+    if (historicalEntryDeepLink.focusHistorical) {
+      window.requestAnimationFrame(() => {
+        document.getElementById("historical-episode-explorer")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    }
+  }, [historicalEntryDeepLink, resolved.status, ranked, isMobile]);
+
   const detailPanel = (
     <RadarDetailPanel
       row={freeBlocked ? null : activeRow}
@@ -163,11 +194,43 @@ export function DayTradeRadarV2({
       latestBarIso={freeBlocked ? null : latestBarIso}
       chartError={freeBlocked ? null : errorMessage}
       chartInterval={freeBlocked ? null : interval}
+      historicalExplorerEpisodeId={historicalExplorerEpisodeId}
     />
   );
 
+  const deepLinkMissRoutes = historicalDeepLinkMissSymbol
+    ? workflowSymbolRoutes(historicalDeepLinkMissSymbol)
+    : null;
+
   return (
     <div className="space-y-2">
+      {historicalDeepLinkMissSymbol && historicalEntryDeepLink && (
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground"
+          data-testid="historical-deep-link-unavailable"
+        >
+          <p className="font-semibold">
+            {historicalDeepLinkMissSymbol} is not on the active Day Trade Radar board.
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            Historical Episode Explorer opens from a qualifying radar row for the current session. No episode was
+            synthesized for this symbol.
+          </p>
+          {deepLinkMissRoutes && (
+            <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+              <Link to={deepLinkMissRoutes.catalyst} className="font-medium text-accent-blue hover:underline">
+                Catalyst
+              </Link>
+              <Link to={deepLinkMissRoutes.watchlist} className="font-medium text-accent-blue hover:underline">
+                Watchlist
+              </Link>
+              <Link to={deepLinkMissRoutes.journal} className="font-medium text-accent-blue hover:underline">
+                Journal
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
       <RadarStatusRail
         status={resolved.status}
         qualifyingCount={boardVisible ? opportunityBoard.candidateUniverseCount : 0}
@@ -218,9 +281,9 @@ export function DayTradeRadarV2({
         <RadarRepeatMoversSection
           loadState={repeatMoversLoadState}
           onRetry={onRepeatMoversRetry}
-          onOpenDetails={(symbol) => {
+          onOpenDetails={(symbol, options) => {
             const match = lensRows.find((r) => r.symbol === symbol);
-            if (match) openDetails(match);
+            if (match) openDetails(match, options);
           }}
         />
       )}
@@ -252,6 +315,7 @@ export function DayTradeRadarV2({
               chartInterval={interval}
               mobile
               onCloseMobile={() => setMobileDetailOpen(false)}
+              historicalExplorerEpisodeId={historicalExplorerEpisodeId}
             />
           )}
         </>

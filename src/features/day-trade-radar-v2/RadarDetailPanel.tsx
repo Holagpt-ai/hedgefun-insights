@@ -44,6 +44,7 @@ import { HistoricalIntelligenceSection } from "./HistoricalIntelligenceSection";
 import { BreakoutMomentumEvidence } from "./BreakoutMomentumEvidence";
 import { qualifiesBreakouts } from "./multi-radar";
 import { historicalMatchSummaryForRadarRow } from "@/lib/historical-intelligence/radar-handoff";
+import { HistoricalEpisodeExplorer } from "./HistoricalEpisodeExplorer";
 
 interface RadarDetailPanelProps {
   row: RadarRankedRow | null;
@@ -56,6 +57,7 @@ interface RadarDetailPanelProps {
   onCloseMobile?: () => void;
   mobile?: boolean;
   nowMs?: number;
+  historicalExplorerEpisodeId?: string | null;
 }
 
 function Metric({
@@ -94,6 +96,7 @@ export function RadarDetailPanel({
   onCloseMobile,
   mobile = false,
   nowMs = Date.now(),
+  historicalExplorerEpisodeId = null,
 }: RadarDetailPanelProps) {
   const { add: addToWatchlist, isAdded, pendingSymbol } = useAddToWatchlist();
   const symbols = row ? [normalizeSymbol(row.symbol)].filter(Boolean) as string[] : [];
@@ -265,6 +268,13 @@ export function RadarDetailPanel({
         <HistoricalBehaviorSection
           context={row.historicalContext}
           matchSummary={historicalMatchSummaryForRadarRow(row)}
+        />
+
+        <HistoricalEpisodeExplorer
+          symbol={sym}
+          context={row.historicalContext}
+          matchSummary={historicalMatchSummaryForRadarRow(row)}
+          initialEpisodeId={historicalExplorerEpisodeId}
         />
 
         <div className="space-y-2">

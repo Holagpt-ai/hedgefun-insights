@@ -104,7 +104,11 @@ interface RepeatMoversViewProps {
   view: RadarRepeatMoversViewData;
   activeFilter: RadarRepeatMoverFilterId;
   onFilterChange: (filter: RadarRepeatMoverFilterId) => void;
-  onOpenDetails: (symbol: string) => void;
+  onOpenDetails: (symbol: string, options?: { episodeId?: string | null }) => void;
+}
+
+function topComparableEpisodeId(candidate: RadarRepeatMoverCandidate): string | null {
+  return candidate.historicalContext?.comparableHistory?.closestComparableEpisodes?.[0]?.episodeId ?? null;
 }
 
 export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDetails }: RepeatMoversViewProps) {
@@ -171,6 +175,19 @@ export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDet
                 <div className="min-w-0 space-y-1">
                   <CandidateFacts candidate={candidate} />
                   <WorkflowActions candidate={candidate} />
+                  {topComparableEpisodeId(candidate) ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 h-7 text-[11px]"
+                      onClick={() =>
+                        onOpenDetails(candidate.symbol, { episodeId: topComparableEpisodeId(candidate) })
+                      }
+                    >
+                      Explore historical episode
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -187,6 +204,19 @@ export function RepeatMoversView({ view, activeFilter, onFilterChange, onOpenDet
                 <div className="mt-2"><CandidateMetrics candidate={candidate} /></div>
                 <div className="mt-2"><CandidateFacts candidate={candidate} /></div>
                 <div className="mt-1.5"><WorkflowActions candidate={candidate} /></div>
+                {topComparableEpisodeId(candidate) ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 h-7 w-full text-[11px]"
+                    onClick={() =>
+                      onOpenDetails(candidate.symbol, { episodeId: topComparableEpisodeId(candidate) })
+                    }
+                  >
+                    Explore historical episode
+                  </Button>
+                ) : null}
               </article>
             ))}
           </div>

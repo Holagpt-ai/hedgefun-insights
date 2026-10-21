@@ -41,12 +41,20 @@ export function HistoricalIntelligenceSection({
         <h3 className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
           Historical Activity
         </h3>
-        <Link
-          to={`/stocks/${slug}`}
-          className="text-[11px] font-medium text-accent-blue hover:underline"
-        >
-          Stock detail
-        </Link>
+        <div className="flex flex-wrap gap-2">
+          <a
+            href="#historical-episode-explorer"
+            className="text-[11px] font-medium text-accent-blue hover:underline"
+          >
+            Episode explorer
+          </a>
+          <Link
+            to={`/stocks/${slug}`}
+            className="text-[11px] font-medium text-accent-blue hover:underline"
+          >
+            Stock detail
+          </Link>
+        </div>
       </div>
       <p className="text-[10px] text-muted-foreground">{model.limitationLine}</p>
 
