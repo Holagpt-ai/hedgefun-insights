@@ -68,7 +68,7 @@ type CoordinatorState = {
   latestRows: RadarV2ScreenerRow[];
   historicalRows: RadarV2ScreenerRow[];
   inFlight: Map<string, number>;
-  runnerPromise: Promise<void> | null;
+  runnerPromise: Promise<number> | null;
   diagnostics: RadarHistoricalProgressiveDiagnostics;
   deps: CoordinatorDeps | null;
 };
@@ -267,14 +267,13 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function runBatches(lifecycleId: number, runPromise: Promise<void>): Promise<void> {
+async function runBatches(lifecycleId: number): Promise<number> {
   const deps = coordinator.deps;
   const sessionScopeAtStart = coordinator.sessionScope;
-  if (!deps || !sessionScopeAtStart) return;
+  if (!deps || !sessionScopeAtStart) return 0;
   const config = { ...RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS, ...deps.config };
   let batchesStarted = 0;
 
-  try {
   while (
     deps.isActive()
     && isCoordinatorOwner(lifecycleId, sessionScopeAtStart)
@@ -397,10 +396,26 @@ async function runBatches(lifecycleId: number, runPromise: Promise<void>): Promi
     }
     batchesStarted += 1;
   }
-  } finally {
+
+  return batchesStarted;
+}
+
+function scheduleRunner(): void {
+  if (coordinator.runnerPromise || !coordinator.deps || !coordinator.sessionScope) return;
+  const lifecycleId = coordinator.lifecycleId;
+  const sessionScopeAtSchedule = coordinator.sessionScope;
+  const config = { ...RADAR_HISTORICAL_PROGRESSIVE_DEFAULTS, ...coordinator.deps.config };
+  const runPromise = runBatches(lifecycleId);
+  coordinator.runnerPromise = runPromise;
+  void runPromise.then((batchesStarted) => {
     if (coordinator.runnerPromise !== runPromise) return;
     coordinator.runnerPromise = null;
-    if (!coordinator.deps?.isActive() || !coordinator.sessionScope) return;
+    if (
+      !coordinator.deps?.isActive()
+      || coordinator.sessionScope !== sessionScopeAtSchedule
+    ) {
+      return;
+    }
     const pendingAfterWake = symbolsNeedingFetch(
       coordinator.latestRows,
       coordinator.sessionScope,
@@ -410,15 +425,11 @@ async function runBatches(lifecycleId: number, runPromise: Promise<void>): Promi
     if (pendingAfterWake.length > 0 && batchesStarted > 0) {
       scheduleRunner();
     }
-  }
-}
-
-function scheduleRunner(): void {
-  if (coordinator.runnerPromise || !coordinator.deps || !coordinator.sessionScope) return;
-  const lifecycleId = coordinator.lifecycleId;
-  let runPromise!: Promise<void>;
-  runPromise = runBatches(lifecycleId, runPromise);
-  coordinator.runnerPromise = runPromise;
+  }).catch(() => {
+    if (coordinator.runnerPromise === runPromise) {
+      coordinator.runnerPromise = null;
+    }
+  });
 }
 
 export function notifyRadarHistoricalPublication(input: {

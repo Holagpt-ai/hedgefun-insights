@@ -490,6 +490,37 @@ describe("progressive historical scheduling", () => {
     expect(last[0]?.volume).toBe(500);
   });
 
+  it("restarts runner across multiple batch cycles for 150+ symbols", async () => {
+    resetRadarHistoricalContextStateForTests();
+    const rows = Array.from({ length: 160 }, (_, index) => row(`S${index}`, 5_000 - index, index + 1));
+    let fetchCalls = 0;
+    const fetchedSymbols = new Set<string>();
+    notifyRadarHistoricalPublication({
+      rows,
+      sessionKind: "market",
+      tradingDate: "2026-09-22",
+      fetchBatch: async (requests) => {
+        fetchCalls += 1;
+        for (const request of requests) fetchedSymbols.add(request.symbol);
+        return {
+          results: requests.map((request) => ({
+            symbol: request.symbol,
+            securityId: null,
+            historicalContext: null,
+          })),
+        };
+      },
+      onHistoricalRows: () => undefined,
+      isActive: () => true,
+      config: { maxBatchesPerWake: 4 },
+    });
+    for (let i = 0; i < 20; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    expect(fetchCalls).toBeGreaterThan(4);
+    expect(fetchedSymbols.size).toBeGreaterThanOrEqual(150);
+  });
+
   it("does not retry invalid 413 batch requests", async () => {
     let calls = 0;
     await expect(
