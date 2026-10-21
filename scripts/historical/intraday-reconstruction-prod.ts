@@ -6,12 +6,18 @@
 import { applyIntradayReconstructionBatch } from "@/lib/intraday-reconstruction/bridge-intraday-batch";
 import { reconstructEpisodeIntraday } from "@/lib/intraday-reconstruction/reconstruct-episode-intraday";
 import { fetchPolygonMinuteBarsForSession } from "@/lib/intraday-reconstruction/polygon-minute-fetch";
+import {
+  classifyIntradayOutcome,
+  readIntradayCatchupLimitsFromEnv,
+} from "@/lib/historical-backfill/intraday-catchup";
 import { HistoricalBridgeClient, requireHistoricalBridgeConfig } from "@/lib/persistence/historical-bridge-client";
 import type { SecurityId } from "@/types/security-identity";
 
-const PAGE_LIMIT = Number(process.env.INTRADAY_RECON_PAGE_LIMIT ?? 25);
-const MAX_EPISODES = Number(process.env.INTRADAY_RECON_MAX_EPISODES ?? 10_000);
-const INCLUDE_RECONSTRUCTED = process.env.INTRADAY_RECON_INCLUDE_EXISTING === "1";
+const limits = readIntradayCatchupLimitsFromEnv();
+const PAGE_LIMIT = limits.pageLimit;
+const MAX_EPISODES = limits.maxEpisodesPerRun;
+const INCLUDE_RECONSTRUCTED = limits.includeExisting;
+const MAX_PROVIDER_ERRORS = limits.maxProviderErrors;
 
 function requirePolygonApiKey(): string {
   const key = (process.env.POLYGON_API_KEY ?? "").trim();
@@ -87,6 +93,10 @@ async function main() {
   let barsProcessed = 0;
 
   for (const row of candidates) {
+    if (providerErrors >= MAX_PROVIDER_ERRORS) {
+      console.log(JSON.stringify({ msg: "intraday_reconstruction_stop", reason: "provider_error_limit", providerErrors }));
+      break;
+    }
     const episodeId = String(row.episode_id);
     const securityId = String(row.security_id) as SecurityId;
     const sessionDate = String(row.session_date).slice(0, 10);
@@ -141,9 +151,10 @@ async function main() {
 
     await applyIntradayReconstructionBatch({ bridge, factsRows: [facts] });
     episodesReconstructed += 1;
-    if (facts.completenessState === "COMPLETE") complete += 1;
-    else if (facts.completenessState === "PARTIAL") partial += 1;
-    else if (facts.completenessState === "DAILY_ONLY") dailyOnly += 1;
+    const bucket = classifyIntradayOutcome(facts.completenessState);
+    if (bucket === "complete") complete += 1;
+    else if (bucket === "partial") partial += 1;
+    else if (bucket === "daily_only") dailyOnly += 1;
     else unavailable += 1;
   }
 

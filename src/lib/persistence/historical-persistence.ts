@@ -1,3 +1,4 @@
+import type { SymbolSessionCoverage } from "@/lib/historical-backfill/catch-up-eligibility";
 import type { Sql } from "postgres";
 import type { HistoricalIdentityPort, HistoricalIntelligencePort } from "@/lib/historical-backfill/engine";
 import {
@@ -34,7 +35,9 @@ export interface HistoricalPersistence {
 
 export interface HistoricalRolloutQueries {
   findInterruptedJob(dateFrom: string, dateTo: string): Promise<{ jobId: string; state: string } | null>;
+  /** @deprecated Full-span min session count — insufficient for incremental catch-up. */
   loadBackfilledSymbols(dateFrom: string, dateTo: string, minSessions: number): Promise<Set<string>>;
+  loadSymbolSessionCoverage(dateFrom: string, dateTo: string): Promise<readonly SymbolSessionCoverage[]>;
   loadEligibleSymbols(backfilled: Set<string>, canarySymbols: ReadonlySet<string>): Promise<string[]>;
 }
 
@@ -91,6 +94,25 @@ function postgresRolloutQueries(sql: Sql): HistoricalRolloutQueries {
       `;
       return new Set(rows.map((row) => row.symbol));
     },
+    async loadSymbolSessionCoverage(dateFrom, dateTo) {
+      const rows = await sql<{ symbol: string; latest_session: string | null; session_count: number }[]>`
+        select
+          s.current_symbol as symbol,
+          max(h.session_date)::text as latest_session,
+          count(*)::int as session_count
+        from public.securities s
+        inner join public.security_daily_history h
+          on h.security_id = s.security_id
+         and h.session_date >= ${dateFrom}
+         and h.session_date <= ${dateTo}
+        group by s.security_id, s.current_symbol
+      `;
+      return rows.map((row) => ({
+        symbol: row.symbol,
+        latestSession: row.latest_session,
+        sessionCount: row.session_count,
+      }));
+    },
     async loadEligibleSymbols(backfilled, canarySymbols) {
       const rows = await sql<{ symbol: string }[]>`
         select symbol from public.ticker_search
@@ -124,6 +146,18 @@ function bridgeRolloutQueries(bridge: HistoricalBridgeClient): HistoricalRollout
       });
       const rows = Array.isArray(res.result) ? res.result as Record<string, unknown>[] : [];
       return new Set(rows.map((row) => String(row.symbol)).filter(Boolean));
+    },
+    async loadSymbolSessionCoverage(dateFrom, dateTo) {
+      const res = await bridge.call("historical_rollout_symbols_current_through", {
+        p_date_from: dateFrom,
+        p_date_to: dateTo,
+      });
+      const rows = Array.isArray(res.result) ? res.result as Record<string, unknown>[] : [];
+      return rows.map((row) => ({
+        symbol: String(row.symbol),
+        latestSession: row.latest_session ? String(row.latest_session).slice(0, 10) : null,
+        sessionCount: typeof row.session_count === "number" ? row.session_count : Number(row.session_count ?? 0),
+      }));
     },
     async loadEligibleSymbols(backfilled, canarySymbols) {
       const rows = await bridge.fetchAllRows("historical_list_eligible_symbols", {});

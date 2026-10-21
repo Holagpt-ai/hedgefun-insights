@@ -15,6 +15,7 @@ import { detectDailyEpisode } from "@/lib/historical-backfill/episode-detector";
 import { addCalendarDays, etSessionBounds, isBackfillDate } from "@/lib/historical-backfill/dates";
 import { createRollingDailyRvol } from "@/lib/historical-backfill/historical-rvol";
 import { normalizeDailyBar } from "@/lib/historical-backfill/normalize-daily-bar";
+import { isProviderBudgetExhausted } from "@/lib/historical-backfill/provider-request-budget";
 import { withBoundedRetry } from "@/lib/historical-backfill/retry";
 import type { SecurityIdentityStore } from "@/lib/security-identity/security-identity";
 import type { SecurityIntelligenceStore } from "@/lib/security-intelligence/security-intelligence";
@@ -115,6 +116,8 @@ export class HistoricalBackfillEngine {
     dateTo?: string;
     recordedAt: string;
     jobType?: string;
+    /** Per-security provider fetch start (day after latest stored session when set). */
+    providerStarts?: Readonly<Record<string, string>>;
   }) {
     if (this.config.maxConcurrentProviderRequests < 1) {
       return { ok: false as const, reason: "maxConcurrentProviderRequests must be positive" };
@@ -131,12 +134,13 @@ export class HistoricalBackfillEngine {
     if (input.securities.length === 0) return { ok: false as const, reason: "eligible universe is empty" };
     const securityIds = input.securities.map((security) => security.securityId);
     const checkpoint = emptyCheckpoint(securityIds.length, dateFrom);
+    const providerStarts = sanitizeProviderStarts(input.providerStarts);
     const created = await this.intelligence.createBackfillJob({
       jobType: input.jobType ?? "SECURITY_DAILY_HISTORY",
       dateFrom,
       dateTo,
       recordedAt: input.recordedAt,
-      metadata: { securityIds, checkpoint },
+      metadata: { securityIds, checkpoint, providerStarts },
     });
     if (!created.ok) return created;
     return this.intelligence.transitionBackfillJob(created.record.jobId, {
@@ -144,7 +148,7 @@ export class HistoricalBackfillEngine {
       recordedAt: input.recordedAt,
       cursorDate: dateFrom,
       cursorToken: token(checkpoint),
-      metadata: { securityIds, checkpoint },
+      metadata: { securityIds, checkpoint, providerStarts },
     });
   }
 
@@ -154,13 +158,22 @@ export class HistoricalBackfillEngine {
     if (job.state !== "FAILED" && job.state !== "PAUSED") {
       return { ok: false as const, reason: "job is not paused or failed" };
     }
-    return this.intelligence.transitionBackfillJob(jobId, { to: "RUNNING", recordedAt });
+    return this.intelligence.transitionBackfillJob(jobId, {
+      to: "RUNNING",
+      recordedAt,
+      cursorDate: job.cursorDate,
+      cursorToken: job.cursorToken,
+      processedCount: job.processedCount,
+      errorCount: job.errorCount,
+      metadata: job.metadata,
+    });
   }
 
   async runBatch(jobId: string, recordedAt: string): Promise<BackfillJobStats> {
     const job = await this.intelligence.getJob(jobId);
     if (!job || job.state !== "RUNNING") return this.stats(jobId, recordedAt);
     const securityIds = readSecurityIds(job.metadata);
+    const providerStarts = readProviderStarts(job.metadata);
     let checkpoint = readCheckpoint(job.metadata, securityIds.length, job.dateFrom);
     let chunks = 0;
     while (chunks < this.config.maxChunksPerRun && job.state === "RUNNING") {
@@ -173,11 +186,20 @@ export class HistoricalBackfillEngine {
           cursorToken: token(checkpoint),
           processedCount: checkpoint.securitiesProcessed,
           errorCount: checkpoint.providerErrors,
-          metadata: { securityIds, checkpoint },
+          metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
         });
         break;
       }
       const securityId = securityIds[checkpoint.securityIndex];
+      const chunkFrom = effectiveProviderChunkFrom(
+        securityId,
+        checkpoint.nextChunkFrom,
+        job.dateFrom,
+        providerStarts,
+      );
+      if (chunkFrom !== checkpoint.nextChunkFrom) {
+        checkpoint = { ...checkpoint, nextChunkFrom: chunkFrom };
+      }
       const chunkTo = minDate(addCalendarDays(checkpoint.nextChunkFrom, this.config.dateChunkDays - 1), job.dateTo);
       const history = await this.identity.listHistory(securityId);
       const segments = symbolSegments(history, checkpoint.nextChunkFrom, chunkTo);
@@ -187,8 +209,21 @@ export class HistoricalBackfillEngine {
         const providerStarted = performance.now();
         try {
           result = await this.fetchDaily(securityId, segment);
-        } catch {
+        } catch (error) {
           this.timings.providerMs += performance.now() - providerStarted;
+          if (isProviderBudgetExhausted(error)) {
+            await this.intelligence.recordBackfillCheckpoint(jobId, {
+              to: "RUNNING",
+              recordedAt,
+              cursorDate: checkpoint.lastSuccessfulChunkFrom,
+              cursorToken: token(checkpoint),
+              processedCount: checkpoint.securitiesProcessed,
+              errorCount: checkpoint.providerErrors,
+              metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
+            });
+            failed = true;
+            break;
+          }
           checkpoint = { ...checkpoint, providerErrors: checkpoint.providerErrors + 1 };
           await this.intelligence.transitionBackfillJob(jobId, {
             to: "FAILED",
@@ -197,7 +232,7 @@ export class HistoricalBackfillEngine {
             cursorToken: token(checkpoint),
             processedCount: checkpoint.securitiesProcessed,
             errorCount: checkpoint.providerErrors,
-            metadata: { securityIds, checkpoint },
+            metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
           });
           failed = true;
           break;
@@ -212,7 +247,7 @@ export class HistoricalBackfillEngine {
             cursorToken: token(checkpoint),
             processedCount: checkpoint.securitiesProcessed,
             errorCount: checkpoint.providerErrors,
-            metadata: { securityIds, checkpoint },
+            metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
           });
           failed = true;
           break;
@@ -223,7 +258,7 @@ export class HistoricalBackfillEngine {
         this.timings.persistenceMs += performance.now() - started - (this.accountedComputeMs() - accounted);
       }
       if (failed) break;
-      checkpoint = advance(checkpoint, chunkTo, job.dateFrom, job.dateTo);
+      checkpoint = advance(checkpoint, chunkTo, job.dateFrom, job.dateTo, securityIds, providerStarts);
       chunks += 1;
       const checkpointStarted = performance.now();
       await this.inWriteStep(() => this.intelligence.recordBackfillCheckpoint(jobId, {
@@ -233,7 +268,7 @@ export class HistoricalBackfillEngine {
         cursorToken: token(checkpoint),
         processedCount: checkpoint.securitiesProcessed,
         errorCount: checkpoint.providerErrors,
-        metadata: { securityIds, checkpoint },
+        metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
       }));
       this.timings.persistenceMs += performance.now() - checkpointStarted;
       const refreshed = await this.intelligence.getJob(jobId);
@@ -243,6 +278,7 @@ export class HistoricalBackfillEngine {
     if (latest?.state === "RUNNING") {
       const done = readCheckpoint(latest.metadata, securityIds.length, latest.dateFrom);
       if (done.securityIndex >= securityIds.length && (done.coverage === null || done.coverage === "SUPPORTED")) {
+        const doneStarts = readProviderStarts(latest.metadata);
         await this.intelligence.transitionBackfillJob(jobId, {
           to: "COMPLETE",
           recordedAt,
@@ -250,7 +286,7 @@ export class HistoricalBackfillEngine {
           cursorToken: token(done),
           processedCount: done.securitiesProcessed,
           errorCount: done.providerErrors,
-          metadata: { securityIds, checkpoint: done },
+          metadata: backfillJobMetadata(securityIds, done, doneStarts),
         });
       }
     }
@@ -554,6 +590,8 @@ function advance(
   chunkTo: string,
   dateFrom: string,
   dateTo: string,
+  securityIds: readonly string[],
+  providerStarts: Readonly<Record<string, string>>,
 ): BackfillCheckpoint {
   const nextFrom = addCalendarDays(chunkTo, 1);
   if (nextFrom <= dateTo) {
@@ -564,14 +602,54 @@ function advance(
       lastSuccessfulChunkFrom: nextFrom,
     };
   }
+  const nextIndex = checkpoint.securityIndex + 1;
+  const nextSecurityId = securityIds[nextIndex];
+  const providerStart = nextSecurityId ? providerStarts[nextSecurityId] : undefined;
+  const resetFrom = providerStart && isBackfillDate(providerStart) ? providerStart : dateFrom;
   return {
     ...checkpoint,
-    securityIndex: checkpoint.securityIndex + 1,
-    nextChunkFrom: dateFrom,
+    securityIndex: nextIndex,
+    nextChunkFrom: resetFrom,
     securitiesProcessed: checkpoint.securitiesProcessed + 1,
-    lastSuccessfulSecurityIndex: checkpoint.securityIndex + 1,
-    lastSuccessfulChunkFrom: dateFrom,
+    lastSuccessfulSecurityIndex: nextIndex,
+    lastSuccessfulChunkFrom: resetFrom,
   };
+}
+
+export function backfillJobMetadata(
+  securityIds: readonly string[],
+  checkpoint: BackfillCheckpoint,
+  providerStarts: Readonly<Record<string, string>>,
+): Record<string, unknown> {
+  return { securityIds, checkpoint, providerStarts: sanitizeProviderStarts(providerStarts) };
+}
+
+function sanitizeProviderStarts(
+  raw: Readonly<Record<string, string>> | undefined,
+): Record<string, string> {
+  if (!raw) return {};
+  const out: Record<string, string> = {};
+  for (const [securityId, date] of Object.entries(raw)) {
+    if (typeof date === "string" && isBackfillDate(date)) out[securityId] = date;
+  }
+  return out;
+}
+
+function readProviderStarts(metadata: Record<string, unknown> | null): Record<string, string> {
+  if (!metadata || !isRecord(metadata.providerStarts)) return {};
+  return sanitizeProviderStarts(metadata.providerStarts as Record<string, string>);
+}
+
+function effectiveProviderChunkFrom(
+  securityId: string,
+  checkpointFrom: string,
+  jobDateFrom: string,
+  providerStarts: Readonly<Record<string, string>>,
+): string {
+  const override = providerStarts[securityId];
+  if (!override || !isBackfillDate(override)) return checkpointFrom;
+  const floor = override > jobDateFrom ? override : jobDateFrom;
+  return floor > checkpointFrom ? floor : checkpointFrom;
 }
 
 function minDate(left: string, right: string): string {

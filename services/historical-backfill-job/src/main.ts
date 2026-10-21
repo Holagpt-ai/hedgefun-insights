@@ -3,9 +3,11 @@
  * Secrets: RADAR_BRIDGE_URL, RADAR_WORKER_SECRET, POLYGON_API_KEY (optional HISTORICAL_PRODUCTION_DATABASE_URL for local).
  */
 import { createServer } from "node:http";
+import { HISTORICAL_CATCHUP_PREFLIGHT_ENV } from "@/config/historical-catchup.config";
 import {
   runHistoricalBackfillConnectivityCheck,
-  runProductionHistoricalRollout,
+  runHistoricalCatchUpPreflight,
+  runHistoricalCatchUpRollout,
 } from "@/lib/historical-backfill/production-rollout";
 
 const port = Number(process.env.PORT ?? "8080");
@@ -16,14 +18,19 @@ const server = createServer((_request, response) => {
 server.listen(port, "0.0.0.0");
 
 const connectivityOnly = process.env.HISTORICAL_BACKFILL_CONNECTIVITY_ONLY === "1";
+const preflightOnly = process.env[HISTORICAL_CATCHUP_PREFLIGHT_ENV] === "1";
 const runner = connectivityOnly
   ? runHistoricalBackfillConnectivityCheck({ loadLocalEnv: false })
-  : runProductionHistoricalRollout({ loadLocalEnv: false });
+  : preflightOnly
+    ? runHistoricalCatchUpPreflight({ loadLocalEnv: false })
+    : runHistoricalCatchUpRollout({ loadLocalEnv: false });
 
 runner
   .then((result) => {
     if (connectivityOnly) {
       console.log(JSON.stringify({ event: "connectivity_ok", ...result }));
+    } else if (preflightOnly) {
+      console.log(JSON.stringify({ event: "catch_up_preflight_ok", ...result }));
     }
     server.close();
     process.exit(0);
