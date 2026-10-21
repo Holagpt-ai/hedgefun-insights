@@ -3,6 +3,7 @@
 
 import { sha256Hex } from "../catalyst/contract.ts";
 import { FETCH_TIMEOUT_MS, MAX_REDIRECTS, MAX_RESPONSE_BYTES } from "./config.ts";
+import { parseRetryAfterSeconds } from "./retry-after-policy.ts";
 import type { SourceRunContext } from "./types.ts";
 
 export class SourceFetchError extends Error {
@@ -105,7 +106,9 @@ export async function safeFetch(input: {
   lastModified?: string | null;
   timeoutMs?: number;
   maxBytes?: number;
+  nowMs?: number;
 }): Promise<SafeFetchResult> {
+  const nowMs = input.nowMs ?? Date.now();
   const fetchImpl = input.fetchImpl ?? fetch;
   const timeoutMs = input.timeoutMs ?? FETCH_TIMEOUT_MS;
   const maxBytes = input.maxBytes ?? MAX_RESPONSE_BYTES;
@@ -129,6 +132,7 @@ export async function safeFetch(input: {
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (err) {
+      if (err instanceof SourceFetchError) throw err;
       const name = (err as { name?: string } | null)?.name;
       if (name === "TimeoutError" || name === "AbortError") {
         throw new SourceFetchError("timeout", null, true);
@@ -158,7 +162,11 @@ export async function safeFetch(input: {
     }
 
     if (res.status === 429 || res.status >= 500) {
-      throw new SourceFetchError("upstream", res.status, true);
+      const err = new SourceFetchError("upstream", res.status, true);
+      if (res.status === 429) {
+        err.retryAfterSeconds = parseRetryAfterSeconds(res.headers.get("retry-after"), nowMs);
+      }
+      throw err;
     }
     if (!res.ok) throw new SourceFetchError("upstream", res.status, false);
 
@@ -203,7 +211,8 @@ export async function safeFetch(input: {
 
 export async function loadConfiguredSource(ctx: SourceRunContext): Promise<string | null> {
   const forceFullFetch = ctx.fetchState.forceFullFetch === true;
-  const fetched = await safeFetch({
+  const { safeFetchWithRetry } = await import("./provider-retry.ts");
+  const fetched = await safeFetchWithRetry({
     url: ctx.source.url,
     userAgent: ctx.userAgent,
     fetchImpl: ctx.fetchImpl,

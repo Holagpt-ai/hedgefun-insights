@@ -65,6 +65,13 @@ import {
   type SecCompanyMapDiagnostic,
   type SecCompanyMapResolution,
 } from "./sec-company-map.ts";
+import {
+  circuitBreakerDecision,
+  markHalfOpenProbe,
+  recordCircuitFailure,
+  recordCircuitSuccess,
+  summarizeSourceOperationalState,
+} from "./circuit-breaker.ts";
 import { SourceFetchError } from "./source-fetch.ts";
 import { emptyRun, formatRunLog, safeError } from "./telemetry.ts";
 import type {
@@ -216,6 +223,16 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
   };
   await mapPool(sources, input.concurrency ?? 3, async (source) => {
     const startedSource = Date.now();
+    const nowMs = input.now.getTime();
+    const circuit = circuitBreakerDecision(source, nowMs);
+    if (!circuit.allow) {
+      run.errors.push({
+        ...safeError(source.id, circuit.reason ?? "circuit_open", null, true, 0),
+        details: summarizeSourceOperationalState(source, nowMs),
+      });
+      return;
+    }
+    if (circuit.state === "half_open") markHalfOpenProbe(source, nowMs);
     if (input.bot === "sec") ingestionObs.atom_source_attempted = true;
     run.sourcesAttempted += 1;
     const pendingNewsAtStart = input.bot === "news" ? readNewsContinuation(source.metadata) : null;
@@ -482,6 +499,7 @@ export async function runCollectorBot(input: CollectorRunInput): Promise<RunTele
           );
         }
       }
+      recordCircuitFailure(source, input.now.getTime(), known?.retryable ?? false);
       await input.store.saveSource(source);
       run.sourcesFailed += 1;
       const sourceError = safeError(
@@ -890,6 +908,7 @@ function markSuccess(
   source.failureCount = 0;
   source.backoffUntil = null;
   source.lastErrorCategory = null;
+  recordCircuitSuccess(source);
   if (fetchState.etag) source.lastEtag = fetchState.etag;
   if (fetchState.lastModified) source.lastModified = fetchState.lastModified;
   if (fetchState.contentHash && continuationComplete) source.lastContentHash = fetchState.contentHash;
