@@ -250,7 +250,6 @@ function createEngine(
     provider: adapter,
     config,
     sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
-    providerRequestBudget: budget,
   });
 }
 

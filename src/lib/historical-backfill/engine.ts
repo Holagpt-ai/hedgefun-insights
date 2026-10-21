@@ -15,10 +15,7 @@ import { detectDailyEpisode } from "@/lib/historical-backfill/episode-detector";
 import { addCalendarDays, etSessionBounds, isBackfillDate } from "@/lib/historical-backfill/dates";
 import { createRollingDailyRvol } from "@/lib/historical-backfill/historical-rvol";
 import { normalizeDailyBar } from "@/lib/historical-backfill/normalize-daily-bar";
-import {
-  isProviderBudgetExhausted,
-  type ProviderRequestBudget,
-} from "@/lib/historical-backfill/provider-request-budget";
+import { isProviderBudgetExhausted } from "@/lib/historical-backfill/provider-request-budget";
 import { withBoundedRetry } from "@/lib/historical-backfill/retry";
 import type { SecurityIdentityStore } from "@/lib/security-identity/security-identity";
 import type { SecurityIntelligenceStore } from "@/lib/security-intelligence/security-intelligence";
@@ -92,7 +89,6 @@ export interface HistoricalBackfillEngineOptions {
   config?: Partial<HistoricalBackfillConfig>;
   sleep?: (ms: number) => Promise<void>;
   timings?: BackfillLoopTimings;
-  providerRequestBudget?: ProviderRequestBudget;
 }
 
 export class HistoricalBackfillEngine {
@@ -102,7 +98,6 @@ export class HistoricalBackfillEngine {
   private readonly config: HistoricalBackfillConfig;
   private readonly sleep: (ms: number) => Promise<void>;
   private readonly timings: BackfillLoopTimings;
-  private readonly providerRequestBudget?: ProviderRequestBudget;
   private inFlight = 0;
 
   constructor(options: HistoricalBackfillEngineOptions) {
@@ -112,7 +107,6 @@ export class HistoricalBackfillEngine {
     this.config = historicalBackfillConfig(options.config);
     this.sleep = options.sleep ?? (async () => undefined);
     this.timings = options.timings ?? emptyBackfillLoopTimings();
-    this.providerRequestBudget = options.providerRequestBudget;
   }
 
   async start(input: {
@@ -352,7 +346,6 @@ export class HistoricalBackfillEngine {
           retryCount: this.config.retryCount,
           retryBackoffMs: this.config.retryBackoffMs,
           sleep: this.sleep,
-          beforeAttempt: () => this.providerRequestBudget?.consumeBeforeRequest(),
         },
       );
     } finally {

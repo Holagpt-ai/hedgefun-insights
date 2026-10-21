@@ -124,10 +124,12 @@ describe("Batch 33.1 release-safety", () => {
       identity,
       intelligence,
       provider: {
-        fetchDailyBars: async (request) => supported([bar(request.dateFrom)]),
+        fetchDailyBars: async (request) => {
+          budget.consumeBeforeRequest();
+          return supported([bar(request.dateFrom)]);
+        },
       },
       config: { dateChunkDays: 1, maxChunksPerRun: 5, retryCount: 1, retryBackoffMs: 0 },
-      providerRequestBudget: budget,
       sleep: async () => undefined,
     });
 
@@ -209,10 +211,12 @@ describe("Batch 33.1 release-safety", () => {
       identity,
       intelligence,
       provider: {
-        fetchDailyBars: async (request) => supported([bar(request.dateFrom)]),
+        fetchDailyBars: async (request) => {
+          budget.consumeBeforeRequest();
+          return supported([bar(request.dateFrom)]);
+        },
       },
       config: { dateChunkDays: 1, maxChunksPerRun: 5, retryCount: 0 },
-      providerRequestBudget: budget,
     });
     const started = await engine.start({
       securities: [{ securityId }],
@@ -235,7 +239,7 @@ describe("Batch 33.1 release-safety", () => {
         loadEligibleSymbols: async () => [],
       },
       close: async () => undefined,
-    } as HistoricalPersistence;
+    } as unknown as HistoricalPersistence;
 
     const limits = { ...HISTORICAL_CATCHUP_LIMITS, maxProviderRequestsPerRun: 1 };
     const result = await resumeInterruptedJobs(
