@@ -17,10 +17,11 @@ import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { EarningsCardsGrid } from "@/components/dashboard/EarningsCardsGrid";
 import { NewsSection } from "@/components/dashboard/NewsSection";
 import { useCatalystEvents } from "@/hooks/useCatalystEvents";
+import { PM_CATALYST_ACTIVITY_CANDIDATE_LIMIT } from "@/lib/catalyst/pm-catalyst-activity";
 import {
-  PM_CATALYST_ACTIVITY_CANDIDATE_LIMIT,
-  selectPmCatalystActivity,
-} from "@/lib/catalyst/pm-catalyst-activity";
+  selectPmInboxVerifiedCatalystActivity,
+  pmInboxCatalystSectionState,
+} from "@/lib/inbox/pm-inbox-catalyst-intelligence";
 import { EVENT_TYPE_LABEL, timeOfDayLabel } from "@/lib/catalyst/parsers";
 import type { CatalystEvent } from "@/types/catalyst";
 import {
@@ -365,9 +366,14 @@ export default function PMInbox() {
     enabled: fullPmWorkspace,
   });
   const catalystActivity = useMemo(
-    () => selectPmCatalystActivity(catalystEvents ?? [], Date.now()),
+    () => selectPmInboxVerifiedCatalystActivity(catalystEvents ?? [], Date.now()),
     [catalystEvents],
   );
+  const catalystSectionAvailability = pmInboxCatalystSectionState({
+    loading: catalystLoading,
+    error: catalystError,
+    verifiedCount: catalystActivity.length,
+  });
   const pmRadar = useRadarV2VolumeLeaders(fullPmWorkspace);
   const pmBoard = useMemo(
     () =>
@@ -565,9 +571,9 @@ export default function PMInbox() {
               <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
                 Catalyst activity is unavailable right now.
               </div>
-            ) : catalystActivity.length === 0 ? (
+            ) : catalystSectionAvailability === "none" ? (
               <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground">
-                No provider-reported catalyst activity for today.
+                No verified catalyst activity for today. Scheduled or unverified rows are not shown here.
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

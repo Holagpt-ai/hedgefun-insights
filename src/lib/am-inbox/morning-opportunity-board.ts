@@ -36,6 +36,8 @@ import type { SecurityId } from "@/types/security-identity";
 import { resolveSessionGapPercent } from "@/lib/daily-intelligence/session-gap-evidence";
 import { summarizeMorningRadarExclusions } from "@/lib/am-inbox/morning-opportunity-exclusions";
 import { collectScannerEventTypes } from "@/lib/scanner-intelligence/scanner-event-handoff";
+import type { SymbolCatalystPlatformContext } from "@/lib/catalyst/catalyst-platform-context";
+import { resolveMorningCatalystIntelStatus } from "@/lib/am-inbox/am-inbox-catalyst-intelligence";
 
 export type {
   MorningOpportunityBoard,
@@ -97,14 +99,21 @@ function continuationSection(entry: AmInboxLateSessionCandidate): MorningSection
   return onlyDayTwo ? "day_two_watch" : "premarket_continuation";
 }
 
-function catalystStatus(
+function catalystStatusForSymbol(
   symbol: string,
   catalystSymbols: ReadonlySet<string>,
   explicit: boolean | null,
-): "present" | "pending" | "none" {
-  if (explicit === true || catalystSymbols.has(symbol)) return "present";
-  if (explicit === false) return "none";
-  return "pending";
+  platformBySymbol: ReadonlyMap<string, SymbolCatalystPlatformContext> | undefined,
+  catalystIntelPending: boolean,
+  catalystIntelError: boolean,
+): MorningOpportunityCard["catalystStatus"] {
+  return resolveMorningCatalystIntelStatus({
+    platform: platformBySymbol?.get(symbol),
+    catalystIntelPending,
+    catalystIntelError,
+    legacySymbolHint: catalystSymbols.has(symbol),
+    legacyExplicit: explicit,
+  });
 }
 
 export function buildMorningOpportunityBoard(input: {
@@ -117,6 +126,9 @@ export function buildMorningOpportunityBoard(input: {
   marketFeed?: MarketFeedTelemetry | null;
   continuation?: readonly AmInboxLateSessionCandidate[] | null;
   catalystSymbols?: readonly string[] | null;
+  platformBySymbol?: ReadonlyMap<string, SymbolCatalystPlatformContext> | null;
+  catalystIntelPending?: boolean;
+  catalystIntelError?: boolean;
   nowMs?: number;
   generationStale?: boolean;
 }): MorningOpportunityBoard {
@@ -124,6 +136,9 @@ export function buildMorningOpportunityBoard(input: {
   const catalystSymbols = new Set(
     (input.catalystSymbols ?? []).map((symbol) => symbol.trim().toUpperCase()).filter(Boolean),
   );
+  const platformBySymbol = input.platformBySymbol ?? undefined;
+  const catalystIntelPending = input.catalystIntelPending === true;
+  const catalystIntelError = input.catalystIntelError === true;
   const confirmedPremarket = morningBoardConfirmedPremarket(input.polygonPremarketActive === true);
 
   const radarTrust = resolveScreenerMarketDataTrust({
@@ -159,7 +174,14 @@ export function buildMorningOpportunityBoard(input: {
       gapPercent: resolveSessionGapPercent(row),
       distanceFromHodPct: finite(row.distance_from_hod_pct),
       vwapSide: row.vwap_side ?? null,
-      catalystStatus: catalystStatus(symbol, catalystSymbols, null),
+      catalystStatus: catalystStatusForSymbol(
+        symbol,
+        catalystSymbols,
+        null,
+        platformBySymbol,
+        catalystIntelPending,
+        catalystIntelError,
+      ),
       trust: radarTrust,
       asOf: row.provider_as_of ?? input.syncedAt ?? null,
       continuationCategory: null,
@@ -193,7 +215,14 @@ export function buildMorningOpportunityBoard(input: {
         ...existing,
         continuationCategory: categories[0] ?? existing.continuationCategory,
         securityId: entry.context.securityId ?? existing.securityId,
-        catalystStatus: catalystStatus(symbol, catalystSymbols, entry.context.catalystPresent),
+        catalystStatus: catalystStatusForSymbol(
+          symbol,
+          catalystSymbols,
+          entry.context.catalystPresent,
+          platformBySymbol,
+          catalystIntelPending,
+          catalystIntelError,
+        ),
         rvol5m: existing.rvol5m ?? finite(entry.context.rvol),
         distanceFromHodPct: existing.distanceFromHodPct ?? finite(entry.context.closeDistanceFromHodPct),
         continuationUrgency,
@@ -214,7 +243,14 @@ export function buildMorningOpportunityBoard(input: {
       gapPercent: null,
       distanceFromHodPct: finite(entry.context.closeDistanceFromHodPct),
       vwapSide: null,
-      catalystStatus: catalystStatus(symbol, catalystSymbols, entry.context.catalystPresent),
+      catalystStatus: catalystStatusForSymbol(
+        symbol,
+        catalystSymbols,
+        entry.context.catalystPresent,
+        platformBySymbol,
+        catalystIntelPending,
+        catalystIntelError,
+      ),
       trust: entry.context.sourceTimestamp ? "DELAYED" : "UNAVAILABLE",
       asOf: entry.context.sourceTimestamp,
       continuationCategory: categories[0] ?? entry.context.sourceCategory,
@@ -230,14 +266,14 @@ export function buildMorningOpportunityBoard(input: {
       symbol: a.symbol,
       volume: a.volume,
       events: a.events,
-      catalystPresent: a.catalystStatus === "present" ? true : null,
+      catalystPresent: a.catalystStatus === "verified" ? true : null,
       continuationUrgency: a.continuationUrgency,
     },
     {
       symbol: b.symbol,
       volume: b.volume,
       events: b.events,
-      catalystPresent: b.catalystStatus === "present" ? true : null,
+      catalystPresent: b.catalystStatus === "verified" ? true : null,
       continuationUrgency: b.continuationUrgency,
     },
   )).slice(0, MORNING_OPPORTUNITY_LIMIT);

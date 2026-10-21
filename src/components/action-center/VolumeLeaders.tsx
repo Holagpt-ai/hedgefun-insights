@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Calendar } from "lucide-react";
 import type { ScreenerLeader } from "@/types/action-center";
 import type { CatalystEnrichmentEntry } from "@/hooks/useCatalystEnrichmentForSymbols";
+import type { SymbolCatalystPlatformContext } from "@/lib/catalyst/catalyst-platform-context";
+import { resolveVolumeLeaderCatalystIntel } from "@/lib/action-center/action-center-catalyst-intelligence";
 import {
   resolveVolumeLeaderListSnapshotMeta,
   resolveVolumeLeaderRowSnapshot,
@@ -17,11 +19,17 @@ export function VolumeLeaders({
   rows,
   loading = false,
   enrichment,
+  platformBySymbol,
+  catalystPending = false,
+  catalystError = false,
   nowMs = Date.now(),
 }: {
   rows: ScreenerLeader[];
   loading?: boolean;
   enrichment?: Map<string, CatalystEnrichmentEntry>;
+  platformBySymbol?: Map<string, SymbolCatalystPlatformContext>;
+  catalystPending?: boolean;
+  catalystError?: boolean;
   nowMs?: number;
 }) {
   if (loading && rows.length === 0) {
@@ -66,7 +74,14 @@ export function VolumeLeaders({
       </div>
       <ul className="divide-y">
         {top.map((r) => {
-          const cat = enrichment?.get(r.symbol.toUpperCase());
+          const sym = r.symbol.toUpperCase();
+          const platform = platformBySymbol?.get(sym);
+          const cat = enrichment?.get(sym);
+          const intel = resolveVolumeLeaderCatalystIntel({
+            platform,
+            pending: catalystPending && !platform,
+            error: catalystError,
+          });
           const rowSnap = resolveVolumeLeaderRowSnapshot(r, nowMs);
           return (
             <li key={r.symbol} className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -80,14 +95,23 @@ export function VolumeLeaders({
                 >
                   {rowSnap.shortLabel}
                 </div>
-                {cat && (
+                {intel.availability === "verified" && intel.title && (
                   <div className="mt-1 inline-flex items-center gap-1 text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-full px-2 py-0.5">
                     <Calendar className="h-2.5 w-2.5" />
-                    <span className="truncate max-w-[10rem]">
-                      {cat.kind === "upcoming" ? "Upcoming: " : "Recent: "}
-                      {cat.event.title}
+                    <span className="truncate max-w-[10rem]" title={intel.evidenceLine ?? undefined}>
+                      {intel.kind === "upcoming" ? "Upcoming: " : "Verified: "}
+                      {intel.title}
                     </span>
                   </div>
+                )}
+                {intel.availability === "pending" && (
+                  <div className="mt-1 text-[10px] text-muted-foreground">Catalyst check pending</div>
+                )}
+                {intel.availability === "unavailable" && (
+                  <div className="mt-1 text-[10px] text-muted-foreground">Catalyst intel unavailable</div>
+                )}
+                {intel.availability === "none" && cat && (
+                  <div className="mt-1 text-[10px] text-muted-foreground">No verified catalyst</div>
                 )}
               </div>
               <div className="flex-1 grid grid-cols-3 sm:grid-cols-4 gap-2 text-xs">

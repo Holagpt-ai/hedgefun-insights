@@ -54,7 +54,7 @@ export type MorningOpportunityCard = {
   gapPercent: number | null;
   distanceFromHodPct: number | null;
   vwapSide: string | null;
-  catalystStatus: "present" | "pending" | "none";
+  catalystStatus: "verified" | "none" | "unavailable" | "pending";
   trust: MarketDataTrustState;
   asOf: string | null;
   continuationCategory: string | null;

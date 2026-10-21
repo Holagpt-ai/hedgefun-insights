@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { hasProAccess } from "@/lib/entitlement";
 import { AIBriefCard } from "@/components/dashboard/AIBriefCard";
 import { useActionCenter } from "@/hooks/useActionCenter";
-import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { SummaryCards } from "@/components/action-center/SummaryCards";
 import { ActionFeed } from "@/components/action-center/ActionFeed";
 import { TodaysFocus } from "@/components/action-center/TodaysFocus";
@@ -92,7 +92,7 @@ export default function ActionCenter() {
     () => ac.leaders.map((l) => l.symbol.toUpperCase()),
     [ac.leaders],
   );
-  const enrichmentQ = useCatalystEnrichmentForSymbols(leaderSymbols);
+  const enrichmentQ = useCatalystPlatformContextForSymbols(leaderSymbols);
 
   const briefLabel = ac.briefType === "am" ? "Pre-Market" : "After-Hours";
 
@@ -191,6 +191,12 @@ export default function ActionCenter() {
           rows={ac.leaders}
           loading={ac.loading.leaders}
           enrichment={enrichmentQ.data}
+          platformBySymbol={enrichmentQ.platformBySymbol}
+          catalystPending={
+            leaderSymbols.length > 0 &&
+            (enrichmentQ.isPending || (enrichmentQ.isFetching && !enrichmentQ.data))
+          }
+          catalystError={enrichmentQ.isError}
         />
       </section>
 

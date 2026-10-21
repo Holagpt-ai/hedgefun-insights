@@ -34,7 +34,9 @@ import { resolveVolumeLeadersView } from "@/lib/screeners/radar-v2-volume-leader
 import { peekRadarV2LoadDiagnostic } from "@/lib/screeners/radar-v2-diagnostics";
 import { LateSessionHandoffsList } from "@/components/pre-market/LateSessionHandoffsList";
 import { MorningOpportunityBoard } from "@/components/pre-market/MorningOpportunityBoard";
+import { collectMorningBoardEnrichmentSymbols } from "@/lib/am-inbox/am-inbox-catalyst-intelligence";
 import { buildMorningOpportunityBoard } from "@/lib/am-inbox/morning-opportunity-board";
+import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useAmInboxLateSessionHandoffs } from "@/hooks/useAmInboxLateSessionHandoffs";
 import {
   applyPresentedVolumeLeadersToChecklist,
@@ -104,6 +106,22 @@ export default function AMInbox() {
       (lateSessionQuery.isFetching && lateSessionView === undefined));
   const showLateSessionSection = !!amSessionDate && !ws.isUnavailable;
 
+  const morningBoardSymbols = useMemo(() => {
+    const radarView = radarVolumeLeaders.decision?.view ?? null;
+    return collectMorningBoardEnrichmentSymbols({
+      radarSymbols: radarView?.rows?.map((row) => row.symbol),
+      continuationSymbols: lateSessionView?.candidates?.map((entry) => entry.context.symbol),
+      catalystWatchSymbols: catalysts
+        .filter((row) => row.ticker_specific !== false)
+        .map((row) => row.symbol),
+    });
+  }, [catalysts, lateSessionView?.candidates, radarVolumeLeaders.decision]);
+  const morningCatalystIntel = useCatalystPlatformContextForSymbols(morningBoardSymbols);
+  const morningCatalystPending =
+    morningBoardSymbols.length > 0 &&
+    (morningCatalystIntel.isPending ||
+      (morningCatalystIntel.isFetching && !morningCatalystIntel.data));
+
   const morningBoard = useMemo(() => {
     const radarView = radarVolumeLeaders.decision?.view ?? null;
     const generationStale =
@@ -123,11 +141,18 @@ export default function AMInbox() {
       catalystSymbols: catalysts
         .filter((row) => row.ticker_specific !== false)
         .map((row) => row.symbol),
+      platformBySymbol: morningCatalystIntel.platformBySymbol,
+      catalystIntelPending: morningCatalystPending,
+      catalystIntelError: morningCatalystIntel.isError,
     });
   }, [
     catalysts,
     lateSessionView?.candidates,
     radarVolumeLeaders.decision,
+    morningCatalystIntel.platformBySymbol,
+    morningCatalystIntel.isError,
+    morningCatalystPending,
+    premarketActive,
   ]);
 
   const checklistItems = useMemo(
@@ -257,6 +282,7 @@ export default function AMInbox() {
 
           <MorningOpportunityBoard
             model={morningBoard}
+            platformBySymbol={morningCatalystIntel.platformBySymbol}
             loading={
               premarketActive &&
               radarVolumeLeaders.loading &&

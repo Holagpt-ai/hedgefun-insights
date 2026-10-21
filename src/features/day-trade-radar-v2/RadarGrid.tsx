@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen } from "lucide-react";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
-import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
+import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
@@ -64,7 +64,8 @@ import { resolveDisplayPriceEvidence } from "@/lib/market-data/display-price-evi
 import { buildRadarTriggerDisplayTitle } from "@/lib/scanner-intelligence/radar-trigger-evidence-title";
 import { evaluateScreenerShortFloat } from "@/lib/screeners/screener-short-float";
 import { evaluateScreenerContinuation } from "@/lib/screeners/screener-continuation";
-import { NO_VERIFIED_NEWS_COPY, resolveRadarNewsCellState } from "./radar-news-display";
+import { resolveRadarNewsCellStateWithPlatform } from "./radar-catalyst-platform";
+import { NO_VERIFIED_NEWS_COPY } from "./radar-news-display";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RadarNewsSymbolStatus, RecentProviderHeadline } from "@/lib/market-data/recent-news";
 import { HistoryCell } from "./HistoricalBehavior";
@@ -86,6 +87,7 @@ function NewsCatalystCell({
   newsStatus,
   catalyst,
   recent,
+  platform,
 }: {
   symbol: string;
   catalystPending: boolean;
@@ -93,9 +95,11 @@ function NewsCatalystCell({
   newsStatus: RadarNewsSymbolStatus;
   catalyst: CatalystEnrichmentEntry | undefined;
   recent: RecentProviderHeadline | undefined;
+  platform?: import("@/lib/catalyst/catalyst-platform-context").SymbolCatalystPlatformContext;
 }) {
-  const display = resolveRadarNewsCellState({
+  const display = resolveRadarNewsCellStateWithPlatform({
     symbol,
+    platform,
     catalyst,
     recent,
     newsStatus,
@@ -235,10 +239,11 @@ export function RadarGrid({
 
   const {
     data: catalystMap,
+    platformBySymbol,
     isPending: catalystPending,
     isFetching: catalystFetching,
     isError: catalystError,
-  } = useCatalystEnrichmentForSymbols(symbols);
+  } = useCatalystPlatformContextForSymbols(symbols);
   const floatState = useRadarFloatForSymbols(symbols);
   const newsState = useRecentProviderNewsForSymbols(symbols);
 
@@ -505,6 +510,7 @@ export function RadarGrid({
                             catalystUnavailable={!!catalystError && !catalystMap?.get(sym)}
                             newsStatus={newsState.getStatus(sym)}
                             catalyst={catalystMap?.get(sym)}
+                            platform={platformBySymbol.get(sym)}
                             recent={newsState.getHeadline(sym)}
                           />
                         ) : (

@@ -1,4 +1,10 @@
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
+import {
+  buildSymbolCatalystPlatformContext,
+  resolveSymbolCatalystAvailability,
+  type SymbolCatalystPlatformContext,
+} from "@/lib/catalyst/catalyst-platform-context";
+import type { CatalystAvailability } from "@/lib/catalyst/intelligence-v2";
 import { resolveVerifiedCatalystForPulse } from "@/lib/markets/market-pulse-catalyst";
 import type {
   MarketPulseSessionEvidence,
@@ -50,6 +56,30 @@ export function buildWatchlistCatalystMap(
     if (verified) out.set(sym, verified);
   }
   return out;
+}
+
+export function resolveWatchlistPlatformContext(
+  row: V2Row,
+  entry: CatalystEnrichmentEntry | undefined,
+  opts: { queryError?: boolean; nowMs?: number } = {},
+): SymbolCatalystPlatformContext {
+  const nowMs = opts.nowMs ?? Date.now();
+  const symbol = row.ticker.trim().toUpperCase();
+  const availability = resolveSymbolCatalystAvailability({
+    queryError: opts.queryError === true,
+    entry,
+    nowMs,
+  });
+  return buildSymbolCatalystPlatformContext({ symbol, entry, availability, nowMs });
+}
+
+export function watchlistCatalystAvailabilityLabel(
+  availability: CatalystAvailability | "pending",
+): string {
+  if (availability === "verified") return "Verified catalyst";
+  if (availability === "unavailable") return "Catalyst intel unavailable";
+  if (availability === "pending") return "Checking catalyst intel…";
+  return "No verified catalyst";
 }
 
 export function hasVerifiedStocksistCatalyst(
