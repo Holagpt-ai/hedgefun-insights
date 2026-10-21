@@ -48,15 +48,14 @@ Deno.test("circuit opens after consecutive retryable failures", () => {
 
 Deno.test("circuit half-open probe after cooldown", () => {
   const row = source();
-  const opened = 5_000_000;
-  recordCircuitFailure(row, opened, true);
-  recordCircuitFailure(row, opened + 1, true);
-  recordCircuitFailure(row, opened + 2, true);
-  recordCircuitFailure(row, opened + 3, true);
-  recordCircuitFailure(row, opened + 4, true);
-  const duringOpen = circuitBreakerDecision(row, opened + 1000);
+  const base = 5_000_000;
+  for (let i = 0; i < CIRCUIT_FAILURE_THRESHOLD; i += 1) {
+    recordCircuitFailure(row, base + i, true);
+  }
+  const openedAt = base + CIRCUIT_FAILURE_THRESHOLD - 1;
+  const duringOpen = circuitBreakerDecision(row, openedAt + 1_000);
   assertEquals(duringOpen.allow, false);
-  const afterCooldown = circuitBreakerDecision(row, opened + CIRCUIT_COOLDOWN_MS + 1);
+  const afterCooldown = circuitBreakerDecision(row, openedAt + CIRCUIT_COOLDOWN_MS + 1);
   assertEquals(afterCooldown.allow, true);
   assertEquals(afterCooldown.state, "half_open");
 });
