@@ -18,6 +18,23 @@ export function resolveRadarNewsCellStateWithPlatform(opts: {
   nowMs?: number;
 }): RadarNewsDisplay {
   const platform = opts.platform;
+  if (opts.catalystPending) {
+    if (platform?.availability === "verified" && platform.enrichment) {
+      return resolveRadarNewsDisplay(
+        opts.symbol,
+        platform.enrichment,
+        opts.recent,
+        opts.nowMs,
+      );
+    }
+    if (platform?.availability === "unavailable" || opts.catalystUnavailable) {
+      if (opts.recent?.title && opts.recent.publishedAt) {
+        return resolveRadarNewsDisplay(opts.symbol, undefined, opts.recent, opts.nowMs);
+      }
+      return { level: "unavailable" };
+    }
+    return { level: "pending" };
+  }
   if (platform?.availability === "unavailable" || opts.catalystUnavailable) {
     if (opts.recent?.title && opts.recent.publishedAt) {
       return resolveRadarNewsDisplay(opts.symbol, undefined, opts.recent, opts.nowMs);

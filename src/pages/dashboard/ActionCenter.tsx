@@ -192,10 +192,7 @@ export default function ActionCenter() {
           loading={ac.loading.leaders}
           enrichment={enrichmentQ.data}
           platformBySymbol={enrichmentQ.platformBySymbol}
-          catalystPending={
-            leaderSymbols.length > 0 &&
-            (enrichmentQ.isPending || (enrichmentQ.isFetching && !enrichmentQ.data))
-          }
+          catalystPending={enrichmentQ.enrichmentPending}
           catalystError={enrichmentQ.isError}
         />
       </section>

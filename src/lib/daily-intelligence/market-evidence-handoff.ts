@@ -2,8 +2,30 @@
  * Compact market-evidence payload for cross-workflow handoffs (sessionStorage).
  */
 
+import type { SymbolCatalystPlatformContext } from "@/lib/catalyst/catalyst-platform-context";
 import type { CatalystAvailability } from "@/lib/catalyst/intelligence-v2";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
+
+export function verifiedCatalystHandoffFields(
+  platform?: SymbolCatalystPlatformContext | null,
+): {
+  catalystAvailability: CatalystAvailability | null;
+  catalystEventId: string | null;
+  catalystHeadline: string | null;
+} {
+  if (platform?.availability !== "verified" || !platform.enrichment) {
+    return {
+      catalystAvailability: null,
+      catalystEventId: null,
+      catalystHeadline: null,
+    };
+  }
+  return {
+    catalystAvailability: "verified",
+    catalystEventId: platform.enrichment.event.id?.trim() || null,
+    catalystHeadline: platform.enrichment.event.title?.trim() || null,
+  };
+}
 
 export type MarketEvidenceContextScope = "current_session" | "prior_session";
 

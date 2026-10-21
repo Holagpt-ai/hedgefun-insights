@@ -14,8 +14,8 @@ export function resolveMorningCatalystIntelStatus(input: {
   const availability = input.platform?.availability;
   if (availability === "verified") return "verified";
   if (availability === "unavailable") return "unavailable";
-  if (availability === "none") return "none";
   if (input.catalystIntelPending) return "pending";
+  if (availability === "none") return "none";
   if (input.legacyExplicit === false) return "none";
   if (input.legacyExplicit === true || input.legacySymbolHint) return "pending";
   return "none";

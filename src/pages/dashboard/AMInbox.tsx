@@ -117,10 +117,7 @@ export default function AMInbox() {
     });
   }, [catalysts, lateSessionView?.candidates, radarVolumeLeaders.decision]);
   const morningCatalystIntel = useCatalystPlatformContextForSymbols(morningBoardSymbols);
-  const morningCatalystPending =
-    morningBoardSymbols.length > 0 &&
-    (morningCatalystIntel.isPending ||
-      (morningCatalystIntel.isFetching && !morningCatalystIntel.data));
+  const morningCatalystPending = morningCatalystIntel.enrichmentPending;
 
   const morningBoard = useMemo(() => {
     const radarView = radarVolumeLeaders.decision?.view ?? null;

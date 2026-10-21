@@ -79,7 +79,7 @@ export function VolumeLeaders({
           const cat = enrichment?.get(sym);
           const intel = resolveVolumeLeaderCatalystIntel({
             platform,
-            pending: catalystPending && !platform,
+            pending: catalystPending,
             error: catalystError,
           });
           const rowSnap = resolveVolumeLeaderRowSnapshot(r, nowMs);

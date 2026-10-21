@@ -5,6 +5,7 @@ import type { MorningOpportunityBoard as BoardModel, MorningOpportunityCard } fr
 import {
   buildMarketEvidenceHandoff,
   persistMarketEvidenceHandoff,
+  verifiedCatalystHandoffFields,
 } from "@/lib/daily-intelligence/market-evidence-handoff";
 import { opportunityWorkflowPaths } from "@/lib/scanner-intelligence/workflow-routes";
 import { trustStateLabel } from "@/lib/market-data/trust-states";
@@ -52,9 +53,7 @@ function Card({
       rvol5m: card.rvol5m,
       gapPercent: card.gapPercent,
       primaryScannerEvent: card.eventType,
-      catalystAvailability: card.catalystStatus === "verified" ? "verified" : platform?.availability ?? null,
-      catalystEventId: platform?.enrichment?.event.id ?? null,
-      catalystHeadline: platform?.enrichment?.event.title ?? null,
+      ...verifiedCatalystHandoffFields(platform),
       userId: user?.id,
     });
     if (payload) persistMarketEvidenceHandoff(payload);

@@ -23,7 +23,27 @@ export function resolveVolumeLeaderCatalystIntel(input: {
       evidenceLine: "Catalyst intel unavailable",
     };
   }
-  if (input.pending && !input.platform) {
+  const availability = input.platform?.availability;
+  if (input.pending) {
+    if (availability === "verified" && input.platform?.enrichment) {
+      const entry = input.platform.enrichment;
+      return {
+        availability: "verified",
+        title: entry.event.title?.trim() || null,
+        kind: entry.kind,
+        href: input.platform.catalystPath,
+        evidenceLine: "Provider-reported catalyst (not a price cause claim)",
+      };
+    }
+    if (availability === "unavailable") {
+      return {
+        availability: "unavailable",
+        title: null,
+        kind: null,
+        href: input.platform?.catalystPath ?? null,
+        evidenceLine: "Catalyst intel unavailable",
+      };
+    }
     return {
       availability: "pending",
       title: null,
@@ -32,14 +52,14 @@ export function resolveVolumeLeaderCatalystIntel(input: {
       evidenceLine: null,
     };
   }
-  const availability = input.platform?.availability ?? "none";
-  if (availability !== "verified" || !input.platform?.enrichment) {
+  const resolved = availability ?? "none";
+  if (resolved !== "verified" || !input.platform?.enrichment) {
     return {
-      availability,
+      availability: resolved,
       title: null,
       kind: null,
       href: input.platform?.catalystPath ?? null,
-      evidenceLine: availability === "none" ? "No verified catalyst" : null,
+      evidenceLine: resolved === "none" ? "No verified catalyst" : null,
     };
   }
   const entry = input.platform.enrichment;
