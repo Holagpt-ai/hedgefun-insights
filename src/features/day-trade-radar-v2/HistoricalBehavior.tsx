@@ -317,8 +317,15 @@ export function HistoricalBehaviorSection({
 
   return (
     <section className="space-y-2" data-testid="historical-behavior">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-        Historical Behavior
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          Historical Behavior
+        </div>
+        {comparables.length > 0 ? (
+          <a href="#historical-episode-explorer" className="text-[11px] font-medium text-accent-blue hover:underline">
+            Episode replay
+          </a>
+        ) : null}
       </div>
       {!available ? (
         <p className="text-[12px] text-muted-foreground">Historical behavior not available yet.</p>

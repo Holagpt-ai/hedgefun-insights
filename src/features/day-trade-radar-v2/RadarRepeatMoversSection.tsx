@@ -50,7 +50,7 @@ export function RadarRepeatMoversSection({
 }: {
   loadState: RepeatMoversLoadState;
   onRetry?: () => void;
-  onOpenDetails: (symbol: string) => void;
+  onOpenDetails: (symbol: string, options?: { episodeId?: string | null }) => void;
 }) {
   const [activeFilter, setActiveFilter] = useState<RadarRepeatMoverFilterId>("all");
   const [renderFailed, setRenderFailed] = useState(false);

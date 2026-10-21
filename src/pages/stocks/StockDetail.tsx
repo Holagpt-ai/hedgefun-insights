@@ -23,6 +23,7 @@ import StockDividendsTab from "@/components/stock/StockDividendsTab";
 import StockSplitsTab from "@/components/stock/StockSplitsTab";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { StockPublicIntelligence } from "@/components/stock/StockPublicIntelligence";
+import { StockHistoricalRadarLink } from "@/components/stock/StockHistoricalRadarLink";
 import { buildStockDetailJsonLd, stockDetailCanonicalPath } from "@/lib/seo/stock-json-ld";
 import { trackPublicStockResearch } from "@/lib/analytics/public-events";
 
@@ -160,6 +161,7 @@ const StockDetail = () => {
             observationMs={null}
             observationLabel={null}
           />
+          <StockHistoricalRadarLink ticker={ticker} />
           {/* Two-column layout: stats left, chart right */}
           <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-6 items-start">
             {/* Left: Stats Table */}
