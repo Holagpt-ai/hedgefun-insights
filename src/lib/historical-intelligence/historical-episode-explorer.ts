@@ -34,7 +34,10 @@ export type HistoricalEpisodeReplayMode =
   | "insufficient";
 
 export interface HistoricalEpisodeMatchRationale {
-  knownAtEventLines: string[];
+  /** Similarity qualifiers available without implying full-session outcome knowledge. */
+  eventTimeEvidenceLines: string[];
+  /** Recorded episode/session aggregates — not timed to the momentum trigger. */
+  fullSessionHistoricalLines: string[];
   observedAfterwardLines: string[];
 }
 
@@ -52,7 +55,10 @@ export interface HistoricalEpisodeExplorerModel {
   floatTurnover: number | null;
   momentumEventLabel: string;
   replayMode: HistoricalEpisodeReplayMode;
+  /** Chronological replay only — every step has a validated non-future timestamp. */
   replaySteps: HistoricalEpisodeReplayStep[];
+  /** Stored facts without a valid observation timestamp (excluded from scrubber replay). */
+  undatedSummaryFacts: readonly string[];
   matchRationale: HistoricalEpisodeMatchRationale;
   catalystEvents: readonly EpisodeLinkedEventEvidence[];
   postMomentumOutcomes: PostMomentumForwardOutcomesByHorizon | null;
@@ -81,6 +87,14 @@ function rejectFutureTimestamp(ms: number | null, nowMs: number): number | null 
   return ms;
 }
 
+/** Parsed ET observation time suitable for chronological replay, or null if invalid/future. */
+export function validatedReplayEventMs(
+  iso: string | null | undefined,
+  nowMs: number,
+): number | null {
+  return rejectFutureTimestamp(parseMs(iso), nowMs);
+}
+
 function timelineEventLabel(eventType: string): string {
   return eventType
     .split("_")
@@ -93,7 +107,8 @@ function stepFromTimelineEvent(
   event: EpisodeIntradayTimelineEvent,
   nowMs: number,
 ): HistoricalEpisodeReplayStep | null {
-  const eventAtMs = rejectFutureTimestamp(parseMs(event.eventAt), nowMs);
+  const eventAtMs = validatedReplayEventMs(event.eventAt, nowMs);
+  if (eventAtMs === null) return null;
   const phase: HistoricalReplayPhase =
     event.eventType === "CLOSE" || event.eventType === "AFTER_HOURS_EXTENSION"
       ? "observed_afterward"
@@ -113,18 +128,19 @@ function stepFromTimelineEvent(
 function stepsFromCompactIntraday(
   episode: RepeatMoverComparableEpisode,
   nowMs: number,
-): HistoricalEpisodeReplayStep[] {
+): { steps: HistoricalEpisodeReplayStep[]; undatedFacts: string[] } {
   const intraday = episode.observedIntradayReconstruction;
-  if (!intraday) return [];
+  if (!intraday) return { steps: [], undatedFacts: [] };
   const steps: HistoricalEpisodeReplayStep[] = [];
-  const push = (
+  const undatedFacts: string[] = [];
+  const pushTimed = (
     id: string,
     iso: string | null,
     label: string,
     phase: HistoricalReplayPhase,
   ) => {
-    const eventAtMs = rejectFutureTimestamp(parseMs(iso), nowMs);
-    if (!eventAtMs) return;
+    const eventAtMs = validatedReplayEventMs(iso, nowMs);
+    if (eventAtMs === null) return;
     steps.push({
       id,
       phase,
@@ -136,21 +152,14 @@ function stepsFromCompactIntraday(
       volume: null,
     });
   };
-  push(`${episode.episodeId}-volume-burst`, intraday.largestVolumeBurstAt, "Volume acceleration (recorded)", "market_observation");
-  push(`${episode.episodeId}-hod`, intraday.hodAt, "High-of-day observation (recorded)", "market_observation");
+  pushTimed(`${episode.episodeId}-volume-burst`, intraday.largestVolumeBurstAt, "Volume acceleration (recorded)", "market_observation");
+  pushTimed(`${episode.episodeId}-hod`, intraday.hodAt, "High-of-day observation (recorded)", "market_observation");
   if (intraday.vwapReclaimCount != null && intraday.vwapReclaimCount > 0) {
-    steps.push({
-      id: `${episode.episodeId}-vwap-reclaims`,
-      phase: "market_observation",
-      eventAt: null,
-      eventAtMs: null,
-      label: "VWAP reclaim events (count recorded)",
-      detail: `${intraday.vwapReclaimCount} reclaim(s) in stored reconstruction`,
-      price: null,
-      volume: null,
-    });
+    undatedFacts.push(
+      `${intraday.vwapReclaimCount} VWAP reclaim event(s) recorded in stored reconstruction (timestamp not stored)`,
+    );
   }
-  return steps;
+  return { steps, undatedFacts };
 }
 
 function stepsFromCatalystEvents(
@@ -160,7 +169,8 @@ function stepsFromCatalystEvents(
 ): HistoricalEpisodeReplayStep[] {
   if (!events?.length) return [];
   return events.flatMap((ev, index) => {
-    const eventAtMs = rejectFutureTimestamp(parseMs(ev.publishedAt), nowMs);
+    const eventAtMs = validatedReplayEventMs(ev.publishedAt, nowMs);
+    if (eventAtMs === null) return [];
     const phase: HistoricalReplayPhase =
       ev.temporalRelationship === "EVENT_FOLLOWS_EPISODE"
         ? "observed_afterward"
@@ -183,12 +193,16 @@ function stepsFromCatalystEvents(
 function stepsFromPostMomentum(
   outcomes: PostMomentumForwardOutcomesByHorizon | null | undefined,
   episodeId: string,
+  nowMs: number,
 ): HistoricalEpisodeReplayStep[] {
   if (!outcomes) return [];
   const steps: HistoricalEpisodeReplayStep[] = [];
   for (const [horizonKey, window] of Object.entries(outcomes)) {
     if (!window) continue;
     const label = FORWARD_LABELS[horizonKey] ?? horizonKey;
+    const anchorIso = window.windowEndTimestamp ?? window.referenceTimestamp;
+    const eventAtMs = validatedReplayEventMs(anchorIso, nowMs);
+    if (eventAtMs === null) continue;
     if (
       window.availabilityState === "INSUFFICIENT_BARS"
       || window.availabilityState === "INVALID_REFERENCE"
@@ -196,8 +210,8 @@ function stepsFromPostMomentum(
       steps.push({
         id: `${episodeId}-fwd-${horizonKey}-na`,
         phase: "observed_afterward",
-        eventAt: window.windowEndTimestamp,
-        eventAtMs: parseMs(window.windowEndTimestamp),
+        eventAt: anchorIso,
+        eventAtMs,
         label,
         detail: "Outcome window unavailable in stored bars",
         price: null,
@@ -213,8 +227,8 @@ function stepsFromPostMomentum(
     steps.push({
       id: `${episodeId}-fwd-${horizonKey}`,
       phase: "observed_afterward",
-      eventAt: window.windowEndTimestamp ?? window.referenceTimestamp,
-      eventAtMs: parseMs(window.windowEndTimestamp ?? window.referenceTimestamp),
+      eventAt: anchorIso,
+      eventAtMs,
       label,
       detail: parts.length > 0 ? parts.join(" · ") : "Recorded forward observation",
       price: null,
@@ -238,18 +252,35 @@ function readStoredTimeline(
 export function buildEpisodeMatchRationale(
   episode: RepeatMoverComparableEpisode,
 ): HistoricalEpisodeMatchRationale {
-  const knownAtEventLines: string[] = [];
-  if (episode.rvol != null) knownAtEventLines.push(`RVOL ${episode.rvol.toFixed(1)}× at episode`);
-  if (episode.volume != null) knownAtEventLines.push(`Session volume ${episode.volume.toLocaleString()}`);
-  if (episode.gapPct != null) knownAtEventLines.push(`Gap ${episode.gapPct > 0 ? "+" : ""}${episode.gapPct.toFixed(1)}%`);
-  if (episode.floatTurnover != null) {
-    knownAtEventLines.push(`Float turnover ${(episode.floatTurnover * 100).toFixed(0)}%`);
+  const eventTimeEvidenceLines: string[] = [];
+  if (episode.similarity.sameDirection) {
+    eventTimeEvidenceLines.push("Same direction as current session");
   }
-  if (episode.movePct != null) knownAtEventLines.push(`Move ${episode.movePct > 0 ? "+" : ""}${episode.movePct.toFixed(1)}%`);
-  if (episode.similarity.sameDirection) knownAtEventLines.push("Same direction as current session");
-  if (episode.similarity.sameTier) knownAtEventLines.push("Same episode tier classification");
+  if (episode.similarity.sameTier) {
+    eventTimeEvidenceLines.push("Same episode tier classification");
+  }
   if (episode.similarity.movePctDelta != null) {
-    knownAtEventLines.push(`Move delta vs current ${episode.similarity.movePctDelta.toFixed(1)} pts`);
+    eventTimeEvidenceLines.push(`Move delta vs current ${episode.similarity.movePctDelta.toFixed(1)} pts`);
+  }
+
+  const fullSessionHistoricalLines: string[] = [];
+  if (episode.sessionDate) {
+    fullSessionHistoricalLines.push(`Historical session ${episode.sessionDate}`);
+  }
+  if (episode.rvol != null) {
+    fullSessionHistoricalLines.push(`Session RVOL ${episode.rvol.toFixed(1)}× (full session record)`);
+  }
+  if (episode.volume != null) {
+    fullSessionHistoricalLines.push(`Session volume ${episode.volume.toLocaleString()} (full session record)`);
+  }
+  if (episode.gapPct != null) {
+    fullSessionHistoricalLines.push(`Gap ${episode.gapPct > 0 ? "+" : ""}${episode.gapPct.toFixed(1)}% (session context)`);
+  }
+  if (episode.floatTurnover != null) {
+    fullSessionHistoricalLines.push(`Float turnover ${(episode.floatTurnover * 100).toFixed(0)}% (session record)`);
+  }
+  if (episode.movePct != null) {
+    fullSessionHistoricalLines.push(`Session move ${episode.movePct > 0 ? "+" : ""}${episode.movePct.toFixed(1)}% (full session record)`);
   }
 
   const observedAfterwardLines: string[] = [];
@@ -269,7 +300,7 @@ export function buildEpisodeMatchRationale(
     }
   }
 
-  return { knownAtEventLines, observedAfterwardLines };
+  return { eventTimeEvidenceLines, fullSessionHistoricalLines, observedAfterwardLines };
 }
 
 export function buildHistoricalEpisodeExplorerModel(input: {
@@ -283,16 +314,25 @@ export function buildHistoricalEpisodeExplorerModel(input: {
   const timeline = readStoredTimeline(episode);
   let replayMode: HistoricalEpisodeReplayMode = "insufficient";
   const replaySteps: HistoricalEpisodeReplayStep[] = [];
+  const undatedSummaryFacts: string[] = [];
 
   if (timeline?.length) {
-    replayMode = "stored_timeline";
     for (const event of timeline) {
       const step = stepFromTimelineEvent(event, nowMs);
       if (step) replaySteps.push(step);
     }
+    if (replaySteps.length > 0) replayMode = "stored_timeline";
+    const vwapCount = episode.observedIntradayReconstruction?.vwapReclaimCount;
+    if (vwapCount != null && vwapCount > 0) {
+      undatedSummaryFacts.push(
+        `${vwapCount} VWAP reclaim event(s) recorded in stored reconstruction (timestamp not stored)`,
+      );
+    }
   } else {
+    const compact = stepsFromCompactIntraday(episode, nowMs);
+    replaySteps.push(...compact.steps);
+    undatedSummaryFacts.push(...compact.undatedFacts);
     replaySteps.push(
-      ...stepsFromCompactIntraday(episode, nowMs),
       ...stepsFromCatalystEvents(episode.historicalEvents, episode.episodeId, nowMs),
     );
     if (replaySteps.length > 0) replayMode = "observation_timeline";
@@ -302,15 +342,11 @@ export function buildHistoricalEpisodeExplorerModel(input: {
     ...stepsFromPostMomentum(
       episode.observedIntradayReconstruction?.postMomentumForwardOutcomes,
       episode.episodeId,
+      nowMs,
     ),
   );
 
-  replaySteps.sort((a, b) => {
-    if (a.eventAtMs != null && b.eventAtMs != null) return a.eventAtMs - b.eventAtMs;
-    if (a.eventAtMs != null) return -1;
-    if (b.eventAtMs != null) return 1;
-    return a.label.localeCompare(b.label);
-  });
+  replaySteps.sort((a, b) => a.eventAtMs! - b.eventAtMs!);
 
   const momentumEventLabel = episode.tier
     ? `${episode.tier.replace(/_/g, " ")} momentum episode`
@@ -331,6 +367,7 @@ export function buildHistoricalEpisodeExplorerModel(input: {
     momentumEventLabel,
     replayMode,
     replaySteps,
+    undatedSummaryFacts,
     matchRationale: buildEpisodeMatchRationale(episode),
     catalystEvents: episode.historicalEvents ?? [],
     postMomentumOutcomes: episode.observedIntradayReconstruction?.postMomentumForwardOutcomes ?? null,

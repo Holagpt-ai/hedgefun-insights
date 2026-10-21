@@ -124,13 +124,27 @@ function EpisodeDetail({ model }: { model: HistoricalEpisodeExplorerModel }) {
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2">
+      <div className="grid gap-3 md:grid-cols-3">
         <div>
           <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Why this episode matched (evidence at episode)
+            Event-time match evidence
+          </h4>
+          {model.matchRationale.eventTimeEvidenceLines.length === 0 ? (
+            <p className="mt-1 text-[11px] text-muted-foreground">No separate event-time qualifiers recorded.</p>
+          ) : (
+            <ul className="mt-1 list-inside list-disc text-[11px] text-muted-foreground">
+              {model.matchRationale.eventTimeEvidenceLines.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+        <div>
+          <h4 className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+            Full-session historical facts
           </h4>
           <ul className="mt-1 list-inside list-disc text-[11px] text-muted-foreground">
-            {model.matchRationale.knownAtEventLines.map((line) => (
+            {model.matchRationale.fullSessionHistoricalLines.map((line) => (
               <li key={line}>{line}</li>
             ))}
           </ul>
@@ -196,6 +210,13 @@ function EpisodeDetail({ model }: { model: HistoricalEpisodeExplorerModel }) {
             </label>
           )}
         </div>
+        {model.undatedSummaryFacts.length > 0 && (
+          <ul className="list-inside list-disc text-[11px] text-muted-foreground">
+            {model.undatedSummaryFacts.map((fact) => (
+              <li key={fact}>{fact}</li>
+            ))}
+          </ul>
+        )}
         {steps.length === 0 ? (
           <p className="text-[11px] text-muted-foreground">
             No chronological replay points are stored for this episode. Outcome facts may still appear in comparable summaries.

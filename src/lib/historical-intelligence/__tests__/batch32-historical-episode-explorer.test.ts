@@ -3,6 +3,7 @@ import {
   buildEpisodeMatchRationale,
   buildHistoricalEpisodeExplorerModel,
   listHistoricalExplorerEpisodes,
+  validatedReplayEventMs,
 } from "@/lib/historical-intelligence/historical-episode-explorer";
 import type { RepeatMoverIntradayEvidence } from "@/lib/intraday-reconstruction/intraday-reconstruction-types";
 import type { RepeatMoverComparableEpisode, RepeatMoverContext } from "@/types/repeat-mover";
@@ -126,11 +127,66 @@ describe("Batch 32 historical episode explorer", () => {
       nowMs: NOW,
     });
     expect(model.replayMode).toBe("observation_timeline");
-    const times = model.replaySteps
-      .map((s) => s.eventAtMs)
-      .filter((ms): ms is number => ms != null);
+    expect(model.replaySteps.every((s) => s.eventAtMs != null)).toBe(true);
+    const times = model.replaySteps.map((s) => s.eventAtMs!);
     expect(times).toEqual([...times].sort((a, b) => a - b));
+    expect(model.undatedSummaryFacts.some((f) => /VWAP reclaim/i.test(f))).toBe(true);
+    expect(model.replaySteps.some((s) => /VWAP reclaim/i.test(s.label))).toBe(false);
+  });
+
+  it("excludes 2099 and invalid timestamps from replay entirely", () => {
+    expect(validatedReplayEventMs("2099-01-01T12:00:00.000Z", NOW)).toBeNull();
+    expect(validatedReplayEventMs("not-a-valid-date", NOW)).toBeNull();
+
+    const model = buildHistoricalEpisodeExplorerModel({
+      episode: baseEpisode({
+        observedIntradayReconstruction: intradayEvidence({
+          hodAt: "2099-01-01T12:00:00.000Z",
+          largestVolumeBurstAt: "2026-08-15T18:30:00.000Z",
+        }),
+        historicalEvents: [{
+          title: "Future headline",
+          publishedAt: "2099-06-01T10:00:00.000Z",
+          source: "test",
+          eventType: "NEWS",
+          temporalRelationship: "EVENT_PRECEDES_EPISODE",
+        } as never],
+      }),
+      symbol: "MOVE",
+      nowMs: NOW,
+    });
+    expect(model.replaySteps).toHaveLength(1);
+    expect(model.replaySteps[0]?.label).toMatch(/Volume acceleration/i);
     expect(model.replaySteps.some((s) => s.eventAt?.startsWith("2099"))).toBe(false);
+  });
+
+  it("drops timeline events with invalid timestamps without leaving null-timed steps", () => {
+    const model = buildHistoricalEpisodeExplorerModel({
+      episode: baseEpisode({
+        observedIntradayReconstruction: intradayEvidence({
+          timeline: [
+            {
+              episodeEventId: "bad",
+              eventType: "HOD",
+              eventAt: "2099-01-01T12:00:00.000Z",
+              price: 99,
+              volume: null,
+            },
+            {
+              episodeEventId: "good",
+              eventType: "VOLUME_ACCELERATION",
+              eventAt: "2026-08-15T14:05:00.000Z",
+              price: 10,
+              volume: 1,
+            },
+          ],
+        }),
+      }),
+      symbol: "MOVE",
+      nowMs: NOW,
+    });
+    expect(model.replaySteps).toHaveLength(1);
+    expect(model.replaySteps[0]?.id).toBe("good");
   });
 
   it("uses stored timeline when present without fabricating prices", () => {
@@ -162,9 +218,13 @@ describe("Batch 32 historical episode explorer", () => {
     expect(model.replaySteps.filter((s) => s.price != null)).toHaveLength(2);
   });
 
-  it("keeps next-session outcomes out of known-at-event match rationale", () => {
+  it("separates event-time evidence, full-session facts, and forward outcomes", () => {
     const rationale = buildEpisodeMatchRationale(baseEpisode());
-    expect(rationale.knownAtEventLines.some((l) => /next session/i.test(l))).toBe(false);
+    expect(rationale.eventTimeEvidenceLines.some((l) => /next session/i.test(l))).toBe(false);
+    expect(rationale.eventTimeEvidenceLines.some((l) => /RVOL/i.test(l))).toBe(false);
+    expect(rationale.eventTimeEvidenceLines.some((l) => /Session volume/i.test(l))).toBe(false);
+    expect(rationale.fullSessionHistoricalLines.some((l) => /Session RVOL/i.test(l))).toBe(true);
+    expect(rationale.fullSessionHistoricalLines.some((l) => /Session move/i.test(l))).toBe(true);
     expect(rationale.observedAfterwardLines.some((l) => /next session/i.test(l))).toBe(true);
   });
 

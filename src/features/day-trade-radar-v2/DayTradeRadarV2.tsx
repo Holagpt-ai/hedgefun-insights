@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useRadarFloatForSymbols } from "@/hooks/useRadarFloatForSymbols";
 import { useRadarV22Board } from "@/hooks/useRadarV22Board";
@@ -47,6 +48,7 @@ export function DayTradeRadarV2({
   const [desktopDetailOpen, setDesktopDetailOpen] = useState(false);
   const [pinnedSymbol, setPinnedSymbol] = useState<string | null>(null);
   const [historicalExplorerEpisodeId, setHistoricalExplorerEpisodeId] = useState<string | null>(null);
+  const [historicalDeepLinkMissSymbol, setHistoricalDeepLinkMissSymbol] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const v22 = useRadarV22Board({ enabled: source !== "radar-v2" });
   const adoptedSessionRef = useRef<string | null>(null);
@@ -168,8 +170,13 @@ export function DayTradeRadarV2({
     if (consumedHistoricalDeepLinkKey.current === key) return;
     const target = historicalEntryDeepLink.symbol.trim().toUpperCase();
     const match = ranked.find((row) => row.symbol.trim().toUpperCase() === target);
-    if (!match) return;
+    if (!match) {
+      consumedHistoricalDeepLinkKey.current = key;
+      setHistoricalDeepLinkMissSymbol(target);
+      return;
+    }
     consumedHistoricalDeepLinkKey.current = key;
+    setHistoricalDeepLinkMissSymbol(null);
     openDetails(match, { episodeId: historicalEntryDeepLink.episodeId ?? null });
     if (historicalEntryDeepLink.focusHistorical) {
       window.requestAnimationFrame(() => {
@@ -191,8 +198,39 @@ export function DayTradeRadarV2({
     />
   );
 
+  const deepLinkMissRoutes = historicalDeepLinkMissSymbol
+    ? workflowSymbolRoutes(historicalDeepLinkMissSymbol)
+    : null;
+
   return (
     <div className="space-y-2">
+      {historicalDeepLinkMissSymbol && historicalEntryDeepLink && (
+        <div
+          className="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[13px] text-foreground"
+          data-testid="historical-deep-link-unavailable"
+        >
+          <p className="font-semibold">
+            {historicalDeepLinkMissSymbol} is not on the active Day Trade Radar board.
+          </p>
+          <p className="mt-1 text-muted-foreground">
+            Historical Episode Explorer opens from a qualifying radar row for the current session. No episode was
+            synthesized for this symbol.
+          </p>
+          {deepLinkMissRoutes && (
+            <div className="mt-2 flex flex-wrap gap-2 text-[12px]">
+              <Link to={deepLinkMissRoutes.catalyst} className="font-medium text-accent-blue hover:underline">
+                Catalyst
+              </Link>
+              <Link to={deepLinkMissRoutes.watchlist} className="font-medium text-accent-blue hover:underline">
+                Watchlist
+              </Link>
+              <Link to={deepLinkMissRoutes.journal} className="font-medium text-accent-blue hover:underline">
+                Journal
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
       <RadarStatusRail
         status={resolved.status}
         qualifyingCount={boardVisible ? opportunityBoard.candidateUniverseCount : 0}
