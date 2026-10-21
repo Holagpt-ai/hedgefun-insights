@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Outlet, Navigate } from "react-router-dom";
+import { Outlet, Navigate, useLocation } from "react-router-dom";
+import { buildLoginPath, currentReturnPath } from "@/lib/auth/auth-return-url";
 import { Header } from "@/components/layout/Header";
 import MarketTicker from "@/components/layout/MarketTicker";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
@@ -11,6 +12,7 @@ import { useRobotsNoIndex } from "@/hooks/useRobotsNoIndex";
 
 export default function DashboardLayout() {
   const { user, loading } = useAuth();
+  const location = useLocation();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   useRobotsNoIndex(true);
 
@@ -23,7 +25,7 @@ export default function DashboardLayout() {
   }
 
   if (!user) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to={buildLoginPath(currentReturnPath(location))} replace />;
   }
 
   return (

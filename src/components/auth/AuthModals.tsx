@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { BRAND } from "@/config/brand";
 
 import { trackEvent } from "@/lib/analytics";
+import { trackAuthDestinationRestored } from "@/lib/analytics/public-events";
 import { toast } from "@/hooks/use-toast";
 import { sanitizeAuthRedirectPath } from "@/lib/auth/safe-auth-redirect";
 
@@ -189,6 +190,7 @@ function LoginForm({
       toast({ title: error.message, variant: "destructive" });
     } else {
       trackEvent("login_success");
+      trackAuthDestinationRestored({ destination: redirectAfterAuth, source: "login_form" });
       navigate(redirectAfterAuth);
       onSuccess();
     }

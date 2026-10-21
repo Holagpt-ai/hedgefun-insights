@@ -1,4 +1,6 @@
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { trackAuthHandoff, trackPublicDashboardCta } from "@/lib/analytics/public-events";
+import { publicWorkflowHref } from "@/lib/public/public-workflow-links";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Plus, Copy } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -19,7 +21,13 @@ export default function StockCtaButtons({ ticker }: Props) {
     console.log('[watchlist-add] user:', user?.id, 'symbol:', ticker);
 
     if (!user?.id) {
-      toast.error("Sign in to save stocks to your watchlist");
+      const dest = publicWorkflowHref(ticker, "watchlist", false);
+      if (dest) {
+        trackAuthHandoff({ mode: "login", returnPath: dest, source: "stock_detail_watchlist" });
+        navigate(dest);
+      } else {
+        toast.error("Sign in to save stocks to your watchlist");
+      }
       return;
     }
 
@@ -45,8 +53,11 @@ export default function StockCtaButtons({ ticker }: Props) {
     toast.success(`${ticker.toUpperCase()} added to watchlist`);
   };
 
+  const watchlistHref = publicWorkflowHref(ticker, "watchlist", !!user);
+  const catalystHref = publicWorkflowHref(ticker, "catalyst", !!user);
+
   return (
-    <div className="flex flex-row gap-2">
+    <div className="flex flex-row flex-wrap gap-2">
       <Button
         onClick={() => navigate(`/chart/${ticker}`)}
       >
@@ -69,6 +80,34 @@ export default function StockCtaButtons({ ticker }: Props) {
         <Copy className="w-4 h-4 mr-1.5" />
         Compare
       </Button>
+      {catalystHref && (
+        <Button variant="outline" className="border-accent-blue text-accent-blue hover:bg-accent-blue/10" asChild>
+          <Link
+            to={catalystHref}
+            onClick={() => trackPublicDashboardCta({
+              symbol: ticker,
+              destination: "catalyst",
+              authenticated: !!user,
+            })}
+          >
+            Catalyst
+          </Link>
+        </Button>
+      )}
+      {!user && watchlistHref && (
+        <Button variant="ghost" className="text-xs text-muted-foreground" asChild>
+          <Link
+            to={watchlistHref}
+            onClick={() => trackAuthHandoff({
+              mode: "login",
+              returnPath: watchlistHref,
+              source: "stock_detail_cta",
+            })}
+          >
+            Sign in for full workspace
+          </Link>
+        </Button>
+      )}
     </div>
   );
 }

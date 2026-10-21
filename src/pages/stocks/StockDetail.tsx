@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { slugToTicker } from "@/lib/ticker-utils";
@@ -22,6 +22,9 @@ import StockForecastTab from "@/components/stock/StockForecastTab";
 import StockDividendsTab from "@/components/stock/StockDividendsTab";
 import StockSplitsTab from "@/components/stock/StockSplitsTab";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { StockPublicIntelligence } from "@/components/stock/StockPublicIntelligence";
+import { buildStockDetailJsonLd, stockDetailCanonicalPath } from "@/lib/seo/stock-json-ld";
+import { trackPublicStockResearch } from "@/lib/analytics/public-events";
 
 const TABS = ["Overview", "Financials", "Statistics", "Forecast", "Chart", "News", "Dividends", "Splits"];
 
@@ -51,7 +54,20 @@ const StockDetail = () => {
   usePageSeo({
     title: generateMetaTitle(ticker, details?.name),
     description: generateMetaDescription(ticker, details?.name),
+    canonical: stockDetailCanonicalPath(ticker),
+    jsonLd: ticker
+      ? buildStockDetailJsonLd({
+        symbol: ticker,
+        name: details?.name,
+        exchange: details?.primary_exchange ?? undefined,
+      })
+      : undefined,
   });
+
+  useEffect(() => {
+    if (!ticker) return;
+    trackPublicStockResearch({ symbol: ticker, source: "stock_detail" });
+  }, [ticker]);
 
   const { data: news } = useQuery({
     queryKey: ["ticker-news", ticker],
@@ -139,6 +155,11 @@ const StockDetail = () => {
 
       {activeTab === "Overview" && (
         <div className="px-4 py-4 space-y-6">
+          <StockPublicIntelligence
+            ticker={ticker}
+            observationMs={null}
+            observationLabel={null}
+          />
           {/* Two-column layout: stats left, chart right */}
           <div className="grid grid-cols-1 lg:grid-cols-[45%_55%] gap-6 items-start">
             {/* Left: Stats Table */}

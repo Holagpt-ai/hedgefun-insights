@@ -23,6 +23,7 @@ describe("seo-boundaries", () => {
   it("marks auth and dashboard paths as noindex", () => {
     expect(isNoindexPath("/login")).toBe(true);
     expect(isNoindexPath("/dashboard/screeners")).toBe(true);
+    expect(isNoindexPath("/watchlist")).toBe(true);
     expect(isNoindexPath("/news")).toBe(false);
   });
 

@@ -3,6 +3,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { trackEvent } from "@/lib/analytics";
+import { useAuth } from "@/contexts/AuthContext";
+import { trackPublicDashboardCta, trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
+import { publicWorkflowHref } from "@/lib/public/public-workflow-links";
 import { useHomepagePublicMovers } from "@/hooks/useHomepagePublicMovers";
 import { useMarketPulseCatalystEnrichment } from "@/hooks/useMarketPulseCatalystEnrichment";
 import {
@@ -40,8 +43,11 @@ function PulseRow({
   catalystLookupComplete: boolean;
 }) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const authenticated = !!user;
   const positive = item.direction === "up";
   const catalyst = item.verifiedCatalyst;
+  const catalystHref = publicWorkflowHref(item.symbol, "catalyst", authenticated);
 
   return (
     <article
@@ -54,6 +60,11 @@ function PulseRow({
               type="button"
               onClick={() => {
                 trackEvent("stock_search", { ticker: item.symbol, source: "market_pulse" });
+                trackPublicDiscoveryNav({
+                  from: "market_pulse",
+                  to: "stock_detail",
+                  symbol: item.symbol,
+                });
                 navigate(item.stockDetailPath);
               }}
               className="font-mono text-sm font-bold text-accent-blue hover:underline"
@@ -112,9 +123,19 @@ function PulseRow({
                     Source article
                   </a>
                 )}
-                <Link to={catalyst.catalystPath} className="text-accent-blue hover:underline">
-                  Catalyst workspace
-                </Link>
+                {catalystHref && (
+                  <Link
+                    to={catalystHref}
+                    className="text-accent-blue hover:underline"
+                    onClick={() => trackPublicDashboardCta({
+                      symbol: item.symbol,
+                      destination: "catalyst",
+                      authenticated,
+                    })}
+                  >
+                    {authenticated ? "Catalyst workspace" : "Sign in · Catalyst"}
+                  </Link>
+                )}
                 <Link to={item.stockDetailPath} className="text-accent-blue hover:underline">
                   Stock detail
                 </Link>
