@@ -4,6 +4,8 @@ Human-controlled sequence. Do not skip steps.
 
 This package does **not** deploy the function, apply the checkpoint migration, set production secrets, apply cron, or write live rows.
 
+**Batch 36:** See `batch36-production-activation-package.md` for the gated production sequence and `docs/release/batch36-sec-prerequisite-verification.md` for Postgres-backed prerequisite evidence (`scripts/ops/batch36-readonly-prereq.ts`).
+
 The SQL file under `supabase/migrations` is executable by future migration tooling.
 The comment "artifact only" / "not yet applied" means it has not yet been applied to production; it does **not** make the SQL inert.
 
@@ -57,7 +59,7 @@ Missing body or missing `mode` is `dry_run`. Unknown keys and unknown modes are 
 
 ## Read-only verification SQL
 
-Do not run these against production in this sprint.
+Run only with approved read-only production access after Gate E (or prerequisite verification per Batch 36). Do not mutate rows.
 
 ```sql
 -- Checkpoint table present + RLS
