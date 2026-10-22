@@ -67,27 +67,52 @@ function mapIdentifier(row: Record<string, unknown>): SecurityReferenceIdentifie
   };
 }
 
+type IdentityBridgeState = {
+  securities: Security[];
+  history: SecuritySymbolHistory[];
+  identifiers: SecurityReferenceIdentifier[];
+};
+
 export class BridgeSecurityIdentityRepository {
+  /** In-process cache — avoids re-paginating full identity tables on every resolve (Fly catch-up). */
+  private identityState: IdentityBridgeState | null = null;
+
   constructor(
     private readonly bridge: HistoricalBridgeClient,
     private readonly createId: () => SecurityId = () => crypto.randomUUID(),
   ) {}
 
-  private async loadAll() {
+  private async loadAllFromBridge(): Promise<IdentityBridgeState> {
     const securities = (await this.bridge.fetchAllRows("historical_list_securities", {})).map(mapSecurity);
     const history = (await this.bridge.fetchAllRows("historical_list_symbol_history", {})).map(mapHistory);
     const identifiers = (await this.bridge.fetchAllRows("historical_list_reference_identifiers", {})).map(mapIdentifier);
     return { securities, history, identifiers };
   }
 
+  private async currentState(): Promise<IdentityBridgeState> {
+    if (!this.identityState) {
+      this.identityState = await this.loadAllFromBridge();
+    }
+    return this.identityState;
+  }
+
+  private snapshotStore(store: SecurityIdentityStore): IdentityBridgeState {
+    return {
+      securities: [...store.listSecurities()],
+      history: [...store.listHistory()],
+      identifiers: [...store.listIdentifiers()],
+    };
+  }
+
   async resolve(observation: SecurityIdentityObservation): Promise<IdentityResolution> {
-    const before = await this.loadAll();
+    const before = await this.currentState();
     const store = new SecurityIdentityStore(this.createId);
     store.loadState(before);
     const result = store.resolve(observation);
     if (!result.securityId) return result;
     const payload = buildIdentityApplyPayload(before, store);
     await this.bridge.call("historical_identity_apply_diff", payload);
+    this.identityState = this.snapshotStore(store);
     return result;
   }
 
