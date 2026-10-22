@@ -1,4 +1,5 @@
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
+import { buildSymbolCatalystPlatformMap } from "@/lib/catalyst/build-symbol-catalyst-platform-map";
 import {
   buildSymbolCatalystPlatformContext,
   resolveSymbolCatalystAvailability,
@@ -87,4 +88,37 @@ export function hasVerifiedStocksistCatalyst(
   catalystBySymbol: ReadonlyMap<string, MarketPulseVerifiedCatalyst>,
 ): boolean {
   return catalystBySymbol.has(symbol.trim().toUpperCase());
+}
+
+export type WatchlistCatalystIntelStatus = "verified" | "none" | "unavailable" | "pending";
+
+/** Aligns Watchlist catalyst UX with Radar / AM Inbox platform availability contracts. */
+export function resolveWatchlistCatalystIntelStatus(input: {
+  platform?: SymbolCatalystPlatformContext | null;
+  catalystIntelPending?: boolean;
+  catalystIntelError?: boolean;
+}): WatchlistCatalystIntelStatus {
+  if (input.catalystIntelError) return "unavailable";
+  const availability = input.platform?.availability;
+  if (availability === "verified") return "verified";
+  if (availability === "unavailable") return "unavailable";
+  if (input.catalystIntelPending) return "pending";
+  if (availability === "none") return "none";
+  return "none";
+}
+
+export function buildWatchlistPlatformContextMap(input: {
+  symbols: readonly string[];
+  enrichment?: Map<string, CatalystEnrichmentEntry> | undefined;
+  queryError?: boolean;
+  queryPending?: boolean;
+  nowMs?: number;
+}): Map<string, SymbolCatalystPlatformContext> {
+  return buildSymbolCatalystPlatformMap({
+    symbols: input.symbols,
+    enrichment: input.enrichment,
+    queryError: input.queryError,
+    queryPending: input.queryPending,
+    nowMs: input.nowMs,
+  });
 }

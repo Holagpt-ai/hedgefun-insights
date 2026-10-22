@@ -3,7 +3,11 @@ import { Link, useSearchParams } from "react-router-dom";
 import { useWatchlistV2 } from "@/hooks/useWatchlistV2";
 import { useWatchlistMarketIntelligence } from "@/hooks/useWatchlistMarketIntelligence";
 import { selectNearestEarnings, type EarningsBadge } from "@/lib/watchlist-v2/earnings";
-import { buildWatchlistCatalystMap } from "@/lib/watchlist-v2/watchlist-catalyst-context";
+import {
+  buildWatchlistCatalystMap,
+  buildWatchlistPlatformContextMap,
+} from "@/lib/watchlist-v2/watchlist-catalyst-context";
+import { isCatalystEnrichmentQueryPending } from "@/lib/catalyst/catalyst-enrichment-load-state";
 import { normalizeHandoffSymbol } from "@/lib/watchlist-v2/handoff";
 import {
   computeSummaryMetrics,
@@ -98,9 +102,26 @@ export function WatchlistWorkspace({ className }: Props) {
 
   const earningsBySymbol: Map<string, EarningsBadge> = marketIntelQuery.data?.earnings ?? new Map();
 
+  const catalystIntelPending = isCatalystEnrichmentQueryPending({
+    symbolCount: symbols.length,
+    isPending: marketIntelQuery.isPending,
+    isFetching: marketIntelQuery.isFetching,
+    hasData: marketIntelQuery.data !== undefined,
+  });
+
   const verifiedCatalystBySymbol = useMemo(
     () => buildWatchlistCatalystMap(rows, marketIntelQuery.data?.recentCatalyst, Date.now()),
     [rows, marketIntelQuery.data?.recentCatalyst],
+  );
+
+  const platformBySymbol = useMemo(
+    () => buildWatchlistPlatformContextMap({
+      symbols,
+      enrichment: marketIntelQuery.data?.recentCatalyst,
+      queryError: marketIntelQuery.isError,
+      queryPending: catalystIntelPending,
+    }),
+    [symbols, marketIntelQuery.data?.recentCatalyst, marketIntelQuery.isError, catalystIntelPending],
   );
 
   const rowRefs = useRef(new Map<string, HTMLDivElement | null>());
@@ -273,6 +294,9 @@ export function WatchlistWorkspace({ className }: Props) {
                   density={density}
                   earnings={earningsBySymbol.get(key) ?? null}
                   verifiedCatalyst={verifiedCatalystBySymbol.get(key) ?? null}
+                  catalystPlatform={platformBySymbol.get(key) ?? null}
+                  catalystIntelPending={catalystIntelPending}
+                  catalystIntelError={marketIntelQuery.isError}
                 />
               </div>
             );
