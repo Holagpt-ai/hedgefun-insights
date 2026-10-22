@@ -190,6 +190,27 @@ describe("historical_identity_apply_diff integration", () => {
     expect(security[0].current_symbol).toBe("META");
   });
 
+  it("rejects conflicting symbol history for the same listing key", async () => {
+    const securityId = crypto.randomUUID();
+    const store = new SecurityIdentityStore(() => securityId);
+    store.loadState({ securities: [], history: [], identifiers: [] });
+    store.resolve(observation());
+    const payload = buildIdentityApplyPayload({ history: [], identifiers: [] }, store);
+    await applyDiff(payload);
+
+    const conflict = structuredClone(payload);
+    conflict.p_history_inserts = conflict.p_history_inserts.map((row) => ({
+      ...row,
+      effective_to: "2026-01-01",
+    }));
+    await expect(applyDiff(conflict)).rejects.toThrow(/conflicting symbol history/);
+
+    const history = await sql<{ n: string }[]>`
+      select count(*)::text as n from public.security_symbol_history where security_id = ${securityId}
+    `;
+    expect(history[0].n).toBe("1");
+  });
+
   it("does not duplicate rows when the same observation is applied twice", async () => {
     const securityId = crypto.randomUUID();
     const store = new SecurityIdentityStore(() => securityId);

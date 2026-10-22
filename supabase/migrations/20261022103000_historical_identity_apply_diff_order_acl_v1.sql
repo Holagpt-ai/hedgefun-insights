@@ -1,5 +1,23 @@
 -- Batch 33.4: close open symbol-history rows before inserting successors (one-open-symbol index).
+-- Idempotent symbol-history inserts keyed by listing identity (match or reject conflicts).
 -- Preserves function signature, validation, and transactional behavior.
+
+CREATE OR REPLACE FUNCTION public.historical_symbol_history_facts_match(
+  p_existing public.security_symbol_history,
+  p_row jsonb
+)
+RETURNS boolean
+LANGUAGE sql
+IMMUTABLE
+AS $$
+  SELECT
+    p_existing.effective_to IS NOT DISTINCT FROM nullif(p_row->>'effective_to', '')::date
+    AND p_existing.source IS NOT DISTINCT FROM nullif(p_row->>'source', '')::text
+    AND p_existing.source_as_of IS NOT DISTINCT FROM nullif(p_row->>'source_as_of', '')::timestamptz
+    AND p_existing.provenance::text IS NOT DISTINCT FROM p_row->>'provenance'
+    AND p_existing.observed_at IS NOT DISTINCT FROM nullif(p_row->>'observed_at', '')::timestamptz
+    AND p_existing.fetched_at IS NOT DISTINCT FROM nullif(p_row->>'fetched_at', '')::timestamptz;
+$$;
 
 CREATE OR REPLACE FUNCTION public.historical_identity_apply_diff(
   p_securities jsonb,
@@ -14,6 +32,7 @@ SET search_path = public
 AS $$
 DECLARE
   item jsonb;
+  existing_history public.security_symbol_history%ROWTYPE;
 BEGIN
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(p_securities, '[]'::jsonb)) AS t(value)
   LOOP
@@ -58,22 +77,34 @@ BEGIN
 
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(p_history_inserts, '[]'::jsonb)) AS t(value)
   LOOP
-    INSERT INTO public.security_symbol_history (
-      history_id, security_id, symbol, exchange, effective_from, effective_to,
-      source, source_as_of, provenance, observed_at, fetched_at
-    ) VALUES (
-      coalesce(nullif(item->>'history_id', '')::uuid, gen_random_uuid()),
-      (item->>'security_id')::uuid,
-      item->>'symbol',
-      nullif(item->>'exchange', '')::text,
-      (item->>'effective_from')::date,
-      nullif(item->>'effective_to', '')::date,
-      nullif(item->>'source', '')::text,
-      nullif(item->>'source_as_of', '')::timestamptz,
-      item->>'provenance',
-      nullif(item->>'observed_at', '')::timestamptz,
-      nullif(item->>'fetched_at', '')::timestamptz
-    );
+    SELECT * INTO existing_history
+    FROM public.security_symbol_history
+    WHERE security_id = (item->>'security_id')::uuid
+      AND symbol = item->>'symbol'
+      AND coalesce(exchange, '') = coalesce(nullif(item->>'exchange', '')::text, '')
+      AND effective_from = (item->>'effective_from')::date;
+    IF FOUND THEN
+      IF NOT public.historical_symbol_history_facts_match(existing_history, item) THEN
+        RAISE EXCEPTION 'conflicting symbol history for securityId, symbol, exchange, and effectiveFrom';
+      END IF;
+    ELSE
+      INSERT INTO public.security_symbol_history (
+        history_id, security_id, symbol, exchange, effective_from, effective_to,
+        source, source_as_of, provenance, observed_at, fetched_at
+      ) VALUES (
+        coalesce(nullif(item->>'history_id', '')::uuid, gen_random_uuid()),
+        (item->>'security_id')::uuid,
+        item->>'symbol',
+        nullif(item->>'exchange', '')::text,
+        (item->>'effective_from')::date,
+        nullif(item->>'effective_to', '')::date,
+        nullif(item->>'source', '')::text,
+        nullif(item->>'source_as_of', '')::timestamptz,
+        item->>'provenance',
+        nullif(item->>'observed_at', '')::timestamptz,
+        nullif(item->>'fetched_at', '')::timestamptz
+      );
+    END IF;
   END LOOP;
 
   FOR item IN SELECT value FROM jsonb_array_elements(coalesce(p_identifier_inserts, '[]'::jsonb)) AS t(value)
