@@ -8532,6 +8532,42 @@ export type Database = {
         }
         Relationships: []
       }
+      sec_edgar_sync_state: {
+        Row: {
+          anchor_accessions: Json
+          anchor_observed_at: string
+          created_at: string
+          head_updated_at: string | null
+          last_success_at: string
+          pages_fetched: number
+          revision: number
+          stream_key: string
+          updated_at: string
+        }
+        Insert: {
+          anchor_accessions: Json
+          anchor_observed_at: string
+          created_at?: string
+          head_updated_at?: string | null
+          last_success_at: string
+          pages_fetched?: number
+          revision?: number
+          stream_key: string
+          updated_at?: string
+        }
+        Update: {
+          anchor_accessions?: Json
+          anchor_observed_at?: string
+          created_at?: string
+          head_updated_at?: string | null
+          last_success_at?: string
+          pages_fetched?: number
+          revision?: number
+          stream_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       securities: {
         Row: {
           active: boolean
