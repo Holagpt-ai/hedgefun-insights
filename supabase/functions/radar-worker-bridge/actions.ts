@@ -19,6 +19,7 @@ export const RADAR_BRIDGE_ACTIONS = [
   "historical_identity_apply_diff",
   "historical_apply_daily_batch",
   "historical_apply_episode_batch",
+  "historical_apply_coverage_gap_batch",
   "historical_find_interrupted_job",
   "historical_rollout_backfilled_symbols",
   "historical_rollout_symbols_current_through",
