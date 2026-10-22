@@ -5,7 +5,7 @@ import {
   etfDetailSymbolFromPath,
   isNoindexPath,
   stockDetailSymbolFromPath,
-} from "./seo-boundaries";
+} from "./seo-boundaries.js";
 
 export const config = {
   matcher: [
