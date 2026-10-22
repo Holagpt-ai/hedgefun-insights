@@ -315,6 +315,52 @@ describe("Historical backfill engine V1", () => {
     });
   });
 
+  it("16b. provider entitlement timeframe records a gap and continues", async () => {
+    const { identity, securityId } = listedSecurity();
+    const intelligence = createSecurityIntelligenceStore();
+    const engine = new HistoricalBackfillEngine({
+      identity,
+      intelligence,
+      provider: {
+        fetchDailyBars: async (request) => ({
+          coverage: "UNAVAILABLE",
+          bars: [],
+          source: "fixture",
+          sourceAsOf: null,
+          fetchedAt: null,
+          error: "Your plan doesn't include this data timeframe",
+          complete: false,
+          failureKind: "PROVIDER_ENTITLEMENT_TIMEFRAME",
+          providerDiagnostics: {
+            httpStatus: 403,
+            providerStatus: "NOT_AUTHORIZED",
+            providerMessage: "Your plan doesn't include this data timeframe",
+            requestId: "req-1",
+          },
+        }),
+      },
+      config: { retryCount: 0, dateChunkDays: 2000 },
+    });
+    const started = await engine.start({
+      securities: [{ securityId }],
+      completedSessionDate: "2024-06-03",
+      dateFrom: "2021-09-01",
+      dateTo: "2024-06-03",
+      recordedAt: RECORDED,
+    });
+    if (!started.ok) throw new Error(started.reason);
+    const stats = await engine.runBatch(started.record.jobId, LATER);
+    expect(stats.state).toBe("COMPLETE");
+    expect(intelligence.listDailyHistory()).toHaveLength(0);
+    expect(intelligence.listCoverageGaps(securityId)).toHaveLength(1);
+    expect(intelligence.listCoverageGaps(securityId)[0]).toMatchObject({
+      restrictionReason: "PROVIDER_ENTITLEMENT_TIMEFRAME",
+      coverageState: "ENTITLEMENT_RESTRICTED",
+      dateFrom: "2021-09-01",
+      dateTo: "2024-06-03",
+    });
+  });
+
   it("16. partial provider coverage is not marked complete", async () => {
     const { identity, securityId } = listedSecurity();
     const intelligence = createSecurityIntelligenceStore();
@@ -364,7 +410,7 @@ describe("Historical backfill engine V1", () => {
         for (let cursor = from; cursor <= to; cursor = addCalendarDays(cursor, 1)) {
           results.push({ t: Date.parse(`${cursor}T00:00:00.000Z`), o: 10, h: 11, l: 9, c: 10, v: 100 });
         }
-        return { results };
+        return { httpStatus: 200, body: { results, status: "OK" } };
       },
     });
     const chunked = await adapter.fetchDailyBars({
@@ -381,17 +427,25 @@ describe("Historical backfill engine V1", () => {
 
     const paged = createPolygonDailyAdapter({
       fetchAggregates: async () => ({
-        results: Array.from({ length: 365 }, (_, index) => ({
-          t: Date.parse(`${addCalendarDays("2020-01-01", index)}T00:00:00.000Z`),
-          o: 10, h: 11, l: 9, c: 10, v: 1,
-        })),
-        next_url: "page-2",
+        httpStatus: 200,
+        body: {
+          results: Array.from({ length: 365 }, (_, index) => ({
+            t: Date.parse(`${addCalendarDays("2020-01-01", index)}T00:00:00.000Z`),
+            o: 10, h: 11, l: 9, c: 10, v: 1,
+          })),
+          next_url: "page-2",
+          status: "OK",
+        },
       }),
       fetchNextPage: async () => ({
-        results: Array.from({ length: 10 }, (_, index) => ({
-          t: Date.parse(`${addCalendarDays("2021-01-01", index)}T00:00:00.000Z`),
-          o: 10, h: 11, l: 9, c: 10, v: 1,
-        })),
+        httpStatus: 200,
+        body: {
+          results: Array.from({ length: 10 }, (_, index) => ({
+            t: Date.parse(`${addCalendarDays("2021-01-01", index)}T00:00:00.000Z`),
+            o: 10, h: 11, l: 9, c: 10, v: 1,
+          })),
+          status: "OK",
+        },
       }),
     });
     const pages = await paged.fetchDailyBars({
@@ -412,13 +466,16 @@ describe("Historical backfill engine V1", () => {
         expect(from).toBe("2021-09-22");
         expect(to).toBe("2026-09-18");
         return {
-          status: "OK",
-          queryCount: 2,
-          resultsCount: 2,
-          results: [
-            { t: Date.parse("2021-09-22T00:00:00.000Z"), o: 10, h: 11, l: 9, c: 10, v: 100 },
-            { t: Date.parse("2026-09-18T00:00:00.000Z"), o: 10, h: 11, l: 9, c: 12, v: 100 },
-          ],
+          httpStatus: 200,
+          body: {
+            status: "OK",
+            queryCount: 2,
+            resultsCount: 2,
+            results: [
+              { t: Date.parse("2021-09-22T00:00:00.000Z"), o: 10, h: 11, l: 9, c: 10, v: 100 },
+              { t: Date.parse("2026-09-18T00:00:00.000Z"), o: 10, h: 11, l: 9, c: 12, v: 100 },
+            ],
+          },
         };
       },
     });
@@ -438,7 +495,7 @@ describe("Historical backfill engine V1", () => {
       verifiedEarliestDailyDate: "2021-09-22",
       fetchAggregates: async () => {
         blockedCalls += 1;
-        return { results: [] };
+        return { httpStatus: 200, body: { results: [], status: "OK" } };
       },
     });
     const tooEarly = await blocked.fetchDailyBars({

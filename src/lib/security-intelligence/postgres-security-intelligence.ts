@@ -6,6 +6,7 @@ import {
   createSecurityIntelligenceStore,
   type BackfillJobInput,
   type BackfillTransitionInput,
+  type CoverageGapInput,
   type DailyHistoryInput,
   type EpisodeInput,
 } from "@/lib/security-intelligence/security-intelligence";
@@ -14,6 +15,7 @@ import type {
   MarketBehaviorEpisode,
   SecurityBackfillJob,
   SecurityDailyHistory,
+  SecurityHistoricalCoverageGap,
 } from "@/types/security-intelligence";
 
 type Db = Sql | TransactionSql;
@@ -183,6 +185,7 @@ export class PostgresSecurityIntelligenceRepository {
   private readonly episodeCache = new Map<string, MarketBehaviorEpisode[]>();
   private readonly pendingDaily: SecurityDailyHistory[] = [];
   private readonly pendingEpisodes: MarketBehaviorEpisode[] = [];
+  private readonly pendingCoverageGaps: SecurityHistoricalCoverageGap[] = [];
   readonly writeProfile: HistoricalWriteProfile = {
     transactions: 0,
     dailyInsertStatements: 0,
@@ -213,11 +216,22 @@ export class PostgresSecurityIntelligenceRepository {
       } catch (error) {
         this.pendingDaily.length = 0;
         this.pendingEpisodes.length = 0;
+        this.pendingCoverageGaps.length = 0;
         this.dailyCache.clear();
         this.episodeCache.clear();
         throw error;
       }
     }))) as T;
+  }
+
+  async upsertCoverageGap(input: CoverageGapInput): Promise<IntelligenceWriteResult<SecurityHistoricalCoverageGap>> {
+    const probed = createSecurityIntelligenceStore().upsertCoverageGap(input);
+    if (!probed.ok) return probed;
+    this.pendingCoverageGaps.push(probed.record);
+    if (!this.txContext.getStore() || this.pendingCoverageGaps.length >= this.batchSize) {
+      await this.flushCoverageGaps();
+    }
+    return probed;
   }
 
   async upsertDailyHistory(input: DailyHistoryInput): Promise<IntelligenceWriteResult<SecurityDailyHistory>> {
@@ -422,6 +436,30 @@ export class PostgresSecurityIntelligenceRepository {
   private async flushPending(): Promise<void> {
     await this.flushDaily();
     await this.flushEpisodes();
+    await this.flushCoverageGaps();
+  }
+
+  private async flushCoverageGaps(): Promise<void> {
+    if (this.pendingCoverageGaps.length === 0) return;
+    const queued = this.pendingCoverageGaps.splice(0, this.pendingCoverageGaps.length);
+    for (const group of chunks(queued, this.batchSize)) {
+      const payload = group.map((row) => ({
+        security_id: row.securityId,
+        observed_symbol: row.observedSymbol,
+        date_from: row.dateFrom,
+        date_to: row.dateTo,
+        provider: row.provider,
+        restriction_reason: row.restrictionReason,
+        coverage_state: row.coverageState,
+        provider_request_id: row.providerRequestId ?? "",
+        provider_status: row.providerStatus ?? "",
+        provider_message: row.providerMessage ?? "",
+        observed_at: row.observedAt,
+        backfill_job_id: row.backfillJobId ?? "",
+        resolution_state: row.resolutionState,
+      }));
+      await this.db()`select public.historical_apply_coverage_gap_batch(${this.db().json(payload)}::jsonb)`;
+    }
   }
 
   private async flushDaily(): Promise<void> {

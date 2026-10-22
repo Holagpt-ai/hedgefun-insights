@@ -27,6 +27,8 @@ export const HISTORICAL_BACKFILL_DEFAULTS = {
    * start before verified daily entitlement.
    */
   verifiedEarliestDailyDate: null as string | null,
+  /** Optional provider plan floor; pre-window segments are recorded as entitlement gaps. */
+  providerEntitlementFloor: null as string | null,
   maxConcurrentProviderRequests: 1,
   retryCount: 3,
   retryBackoffMs: 500,
@@ -55,6 +57,7 @@ export type HistoricalBackfillConfig = {
   securityBatchSize: number;
   dateChunkDays: number;
   verifiedEarliestDailyDate: string | null;
+  providerEntitlementFloor: string | null;
   maxConcurrentProviderRequests: number;
   retryCount: number;
   retryBackoffMs: number;

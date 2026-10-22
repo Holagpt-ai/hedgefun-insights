@@ -44,7 +44,10 @@ function redact(message: string): string {
   return message.replaceAll(apiKey!, "[redacted]");
 }
 
-async function providerFetch(url: string, kind: "daily" | "reference"): Promise<unknown> {
+async function providerFetch(
+  url: string,
+  kind: "daily" | "reference",
+): Promise<{ httpStatus: number; body: unknown }> {
   let attempt = 0;
   for (;;) {
     attempt += 1;
@@ -73,7 +76,7 @@ async function providerFetch(url: string, kind: "daily" | "reference"): Promise<
       throw new Error(`provider status ${res.status}`);
     }
     if (kind === "daily") health.pages += 1;
-    return await res.json();
+    return { httpStatus: res.status, body: await res.json() };
   }
 }
 

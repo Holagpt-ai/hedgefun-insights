@@ -6,6 +6,11 @@
  */
 
 import { chunkInclusiveDates, utcDateFromUnixMs } from "@/lib/historical-backfill/dates";
+import {
+  classifyPolygonAggregateResponse,
+  sanitizeProviderDiagnostics,
+  type ProviderFailureKind,
+} from "@/lib/historical-backfill/provider-failure";
 import type {
   DailyBarsRequest,
   DailyBarsResult,
@@ -14,13 +19,18 @@ import type {
   ProviderDailyBar,
 } from "@/types/historical-backfill";
 
+export interface PolygonAggregateFetchResult {
+  httpStatus: number;
+  body: unknown;
+}
+
 export interface PolygonAggregateFetch {
-  (ticker: string, multiplier: number, timespan: string, from: string, to: string): Promise<unknown>;
+  (ticker: string, multiplier: number, timespan: string, from: string, to: string): Promise<PolygonAggregateFetchResult>;
 }
 
 export interface PolygonDailyAdapterOptions {
   fetchAggregates: PolygonAggregateFetch;
-  fetchNextPage?: (nextUrl: string) => Promise<unknown>;
+  fetchNextPage?: (nextUrl: string) => Promise<PolygonAggregateFetchResult>;
   /**
    * When omitted, the requested from/to span is one provider call.
    * Set this to the conservative fallback when a provider must be chunked.
@@ -57,6 +67,7 @@ export function parsePolygonAggregatePage(payload: unknown): ParsedPage {
   const error = typeof payload.error === "string" ? payload.error : null;
   const nextPageToken = typeof payload.next_url === "string" && payload.next_url.length > 0 ? payload.next_url : null;
   const providerStatus = typeof payload.status === "string" ? payload.status : null;
+  const providerMessage = typeof payload.message === "string" ? payload.message : null;
   const results = Array.isArray(payload.results) ? payload.results : [];
   const bars: ProviderDailyBar[] = [];
   for (const row of results) {
@@ -80,9 +91,13 @@ export function parsePolygonAggregatePage(payload: unknown): ParsedPage {
   let pageError = error;
   if (providerStatus === "NOT_AUTHORIZED") {
     pageCoverage = "UNAVAILABLE";
-    pageError = pageError ?? "provider plan does not include this data timeframe";
+    pageError = pageError ?? providerMessage ?? "provider not authorized";
   }
   return { bars, nextPageToken, truncated, coverage: pageCoverage, error: pageError };
+}
+
+function providerTransportError(kind: ProviderFailureKind, httpStatus: number): Error {
+  return new Error(`provider transport failure ${kind} HTTP ${httpStatus}`);
 }
 
 export function createPolygonDailyAdapter(options: PolygonDailyAdapterOptions): HistoricalMarketDataProvider {
@@ -101,6 +116,8 @@ export function createPolygonDailyAdapter(options: PolygonDailyAdapterOptions): 
           fetchedAt: options.fetchedAt ?? null,
           error: `daily request starts before verified entitlement ${earliest}`,
           complete: false,
+          failureKind: null,
+          providerDiagnostics: null,
         };
       }
       const chunks = maxDays == null
@@ -109,6 +126,8 @@ export function createPolygonDailyAdapter(options: PolygonDailyAdapterOptions): 
       const bars: ProviderDailyBar[] = [];
       let coverage: ProviderCoverage = "SUPPORTED";
       let error: string | null = null;
+      let failureKind: ProviderFailureKind | null = null;
+      let providerDiagnostics: ReturnType<typeof sanitizeProviderDiagnostics> | null = null;
       for (const chunk of chunks) {
         let nextPageToken: string | null = null;
         let page = 0;
@@ -119,7 +138,7 @@ export function createPolygonDailyAdapter(options: PolygonDailyAdapterOptions): 
             error = "provider page limit reached";
             break;
           }
-          const payload = nextPageToken
+          const fetched = nextPageToken
             ? await options.fetchNextPage?.(nextPageToken)
             : await options.fetchAggregates(request.symbol, 1, "day", chunk.dateFrom, chunk.dateTo);
           if (nextPageToken && !options.fetchNextPage) {
@@ -127,14 +146,30 @@ export function createPolygonDailyAdapter(options: PolygonDailyAdapterOptions): 
             error = "provider returned another page but no page fetcher is configured";
             break;
           }
-          const parsed = parsePolygonAggregatePage(payload);
+          if (!fetched) {
+            coverage = "UNAVAILABLE";
+            error = "provider page fetch missing";
+            break;
+          }
+          const classified = classifyPolygonAggregateResponse(fetched.httpStatus, fetched.body);
+          if (classified === "PROVIDER_RATE_LIMIT" || classified === "PROVIDER_RETRYABLE") {
+            throw providerTransportError(classified, fetched.httpStatus);
+          }
+          if (classified) {
+            failureKind = classified;
+            providerDiagnostics = sanitizeProviderDiagnostics(fetched.httpStatus, fetched.body);
+            coverage = "UNAVAILABLE";
+            error = providerDiagnostics.providerMessage ?? classified;
+            break;
+          }
+          const parsed = parsePolygonAggregatePage(fetched.body);
           bars.push(...parsed.bars);
           if (parsed.coverage && parsed.coverage !== "SUPPORTED") coverage = parsed.coverage;
           if (parsed.error) error = parsed.error;
           if (parsed.truncated) coverage = coverage === "SUPPORTED" ? "PARTIAL" : coverage;
           nextPageToken = parsed.nextPageToken;
-        } while (nextPageToken && coverage === "SUPPORTED");
-        if (coverage !== "SUPPORTED") break;
+        } while (nextPageToken && coverage === "SUPPORTED" && !failureKind);
+        if (coverage !== "SUPPORTED" || failureKind) break;
       }
       return {
         coverage,
@@ -143,7 +178,9 @@ export function createPolygonDailyAdapter(options: PolygonDailyAdapterOptions): 
         sourceAsOf: options.sourceAsOf ?? null,
         fetchedAt: options.fetchedAt ?? null,
         error,
-        complete: coverage === "SUPPORTED",
+        complete: coverage === "SUPPORTED" && !failureKind,
+        failureKind,
+        providerDiagnostics,
       };
     },
   };

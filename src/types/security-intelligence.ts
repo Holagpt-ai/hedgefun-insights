@@ -129,6 +129,51 @@ export interface SecurityEpisodeEvent {
   createdAt: string;
 }
 
+export const HISTORICAL_COVERAGE_GAP_RESTRICTION_REASONS = [
+  "PROVIDER_ENTITLEMENT_TIMEFRAME",
+  "CONFIG_ENTITLEMENT_FLOOR",
+  "PROVIDER_NOT_AUTHORIZED_OTHER",
+  "PROVIDER_UNAVAILABLE",
+] as const;
+
+export type HistoricalCoverageGapRestrictionReason =
+  (typeof HISTORICAL_COVERAGE_GAP_RESTRICTION_REASONS)[number];
+
+export const HISTORICAL_COVERAGE_GAP_STATES = [
+  "ENTITLEMENT_RESTRICTED",
+  "PROVIDER_UNAVAILABLE",
+] as const;
+
+export type HistoricalCoverageGapState = (typeof HISTORICAL_COVERAGE_GAP_STATES)[number];
+
+export const HISTORICAL_COVERAGE_GAP_RESOLUTION_STATES = [
+  "OPEN",
+  "FILLED",
+  "SUPERSEDED",
+] as const;
+
+export type HistoricalCoverageGapResolutionState =
+  (typeof HISTORICAL_COVERAGE_GAP_RESOLUTION_STATES)[number];
+
+export interface SecurityHistoricalCoverageGap {
+  gapId: string;
+  securityId: SecurityId;
+  observedSymbol: string;
+  dateFrom: string;
+  dateTo: string;
+  provider: string;
+  restrictionReason: HistoricalCoverageGapRestrictionReason;
+  coverageState: HistoricalCoverageGapState;
+  providerRequestId: string | null;
+  providerStatus: string | null;
+  providerMessage: string | null;
+  observedAt: string;
+  backfillJobId: string | null;
+  resolutionState: HistoricalCoverageGapResolutionState;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface SecurityBackfillJob {
   jobId: string;
   jobType: string;

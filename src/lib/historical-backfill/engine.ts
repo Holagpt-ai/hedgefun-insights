@@ -15,8 +15,11 @@ import { detectDailyEpisode } from "@/lib/historical-backfill/episode-detector";
 import { addCalendarDays, etSessionBounds, isBackfillDate } from "@/lib/historical-backfill/dates";
 import { createRollingDailyRvol } from "@/lib/historical-backfill/historical-rvol";
 import { normalizeDailyBar } from "@/lib/historical-backfill/normalize-daily-bar";
+import { planSegmentWithEntitlementFloor } from "@/lib/historical-backfill/entitlement-segments";
+import { isRecoverableEntitlementFailure } from "@/lib/historical-backfill/provider-failure";
 import { isProviderBudgetExhausted } from "@/lib/historical-backfill/provider-request-budget";
 import { withBoundedRetry } from "@/lib/historical-backfill/retry";
+import type { CoverageGapInput } from "@/lib/security-intelligence/security-intelligence";
 import type { SecurityIdentityStore } from "@/lib/security-identity/security-identity";
 import type { SecurityIntelligenceStore } from "@/lib/security-intelligence/security-intelligence";
 import { parseTimestampMs } from "@/lib/screeners/contract";
@@ -49,6 +52,7 @@ export interface HistoricalIntelligencePort {
   putEpisode(input: Parameters<SecurityIntelligenceStore["putEpisode"]>[0]): MaybePromise<ReturnType<SecurityIntelligenceStore["putEpisode"]>>;
   listDailyHistory(securityId?: string): MaybePromise<readonly SecurityDailyHistory[]>;
   listEpisodes(securityId?: string): MaybePromise<readonly MarketBehaviorEpisode[]>;
+  upsertCoverageGap(input: CoverageGapInput): MaybePromise<ReturnType<SecurityIntelligenceStore["upsertCoverageGap"]>>;
   transaction?<T>(fn: () => Promise<T>): Promise<T>;
 }
 
@@ -204,16 +208,45 @@ export class HistoricalBackfillEngine {
       const history = await this.identity.listHistory(securityId);
       const segments = symbolSegments(history, checkpoint.nextChunkFrom, chunkTo);
       let failed = false;
-      for (const segment of segments) {
-        let result: DailyBarsResult;
-        const providerStarted = performance.now();
-        try {
-          result = await this.fetchDaily(securityId, segment);
-        } catch (error) {
-          this.timings.providerMs += performance.now() - providerStarted;
-          if (isProviderBudgetExhausted(error)) {
-            await this.intelligence.recordBackfillCheckpoint(jobId, {
-              to: "RUNNING",
+      segmentLoop: for (const segment of segments) {
+        const planned = planSegmentWithEntitlementFloor(
+          segment,
+          this.config.providerEntitlementFloor,
+        );
+        for (const step of planned) {
+          if (step.kind === "config_entitlement_gap") {
+            await this.inWriteStep(() => this.recordCoverageGap(jobId, securityId, {
+              observedSymbol: step.symbol,
+              dateFrom: step.dateFrom,
+              dateTo: step.dateTo,
+              restrictionReason: "CONFIG_ENTITLEMENT_FLOOR",
+              recordedAt,
+            }));
+            continue;
+          }
+          const fetchSegment = step.segment;
+          let result: DailyBarsResult;
+          const providerStarted = performance.now();
+          try {
+            result = await this.fetchDaily(securityId, fetchSegment);
+          } catch (error) {
+            this.timings.providerMs += performance.now() - providerStarted;
+            if (isProviderBudgetExhausted(error)) {
+              await this.intelligence.recordBackfillCheckpoint(jobId, {
+                to: "RUNNING",
+                recordedAt,
+                cursorDate: checkpoint.lastSuccessfulChunkFrom,
+                cursorToken: token(checkpoint),
+                processedCount: checkpoint.securitiesProcessed,
+                errorCount: checkpoint.providerErrors,
+                metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
+              });
+              failed = true;
+              break segmentLoop;
+            }
+            checkpoint = { ...checkpoint, providerErrors: checkpoint.providerErrors + 1 };
+            await this.intelligence.transitionBackfillJob(jobId, {
+              to: "FAILED",
               recordedAt,
               cursorDate: checkpoint.lastSuccessfulChunkFrom,
               cursorToken: token(checkpoint),
@@ -222,40 +255,41 @@ export class HistoricalBackfillEngine {
               metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
             });
             failed = true;
-            break;
+            break segmentLoop;
           }
-          checkpoint = { ...checkpoint, providerErrors: checkpoint.providerErrors + 1 };
-          await this.intelligence.transitionBackfillJob(jobId, {
-            to: "FAILED",
-            recordedAt,
-            cursorDate: checkpoint.lastSuccessfulChunkFrom,
-            cursorToken: token(checkpoint),
-            processedCount: checkpoint.securitiesProcessed,
-            errorCount: checkpoint.providerErrors,
-            metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
-          });
-          failed = true;
-          break;
+          this.timings.providerMs += performance.now() - providerStarted;
+          if (isRecoverableEntitlementFailure(result.failureKind)) {
+            await this.inWriteStep(() => this.recordCoverageGap(jobId, securityId, {
+              observedSymbol: fetchSegment.symbol,
+              dateFrom: fetchSegment.dateFrom,
+              dateTo: fetchSegment.dateTo,
+              restrictionReason: "PROVIDER_ENTITLEMENT_TIMEFRAME",
+              recordedAt,
+              providerDiagnostics: result.providerDiagnostics,
+            }));
+            continue;
+          }
+          if (result.coverage !== "SUPPORTED" || !result.complete) {
+            checkpoint = { ...checkpoint, coverage: result.coverage, providerErrors: checkpoint.providerErrors + 1 };
+            await this.intelligence.transitionBackfillJob(jobId, {
+              to: "PAUSED",
+              recordedAt,
+              cursorDate: checkpoint.lastSuccessfulChunkFrom,
+              cursorToken: token(checkpoint),
+              processedCount: checkpoint.securitiesProcessed,
+              errorCount: checkpoint.providerErrors,
+              metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
+            });
+            failed = true;
+            break segmentLoop;
+          }
+          const accounted = this.accountedComputeMs();
+          const started = performance.now();
+          checkpoint = await this.inWriteStep(() =>
+            this.applyBars(securityId, fetchSegment.symbol, history, result, recordedAt, checkpoint),
+          );
+          this.timings.persistenceMs += performance.now() - started - (this.accountedComputeMs() - accounted);
         }
-        this.timings.providerMs += performance.now() - providerStarted;
-        if (result.coverage !== "SUPPORTED" || !result.complete) {
-          checkpoint = { ...checkpoint, coverage: result.coverage, providerErrors: checkpoint.providerErrors + 1 };
-          await this.intelligence.transitionBackfillJob(jobId, {
-            to: "PAUSED",
-            recordedAt,
-            cursorDate: checkpoint.lastSuccessfulChunkFrom,
-            cursorToken: token(checkpoint),
-            processedCount: checkpoint.securitiesProcessed,
-            errorCount: checkpoint.providerErrors,
-            metadata: backfillJobMetadata(securityIds, checkpoint, providerStarts),
-          });
-          failed = true;
-          break;
-        }
-        const accounted = this.accountedComputeMs();
-        const started = performance.now();
-        checkpoint = await this.inWriteStep(() => this.applyBars(securityId, segment.symbol, history, result, recordedAt, checkpoint));
-        this.timings.persistenceMs += performance.now() - started - (this.accountedComputeMs() - accounted);
       }
       if (failed) break;
       checkpoint = advance(checkpoint, chunkTo, job.dateFrom, job.dateTo, securityIds, providerStarts);
@@ -323,6 +357,35 @@ export class HistoricalBackfillEngine {
       deepReconstruction: checkpoint.deepReconstruction,
       elapsedMs: started !== null && now !== null ? Math.max(0, now - started) : null,
     };
+  }
+
+  private async recordCoverageGap(
+    jobId: string,
+    securityId: string,
+    input: {
+      observedSymbol: string;
+      dateFrom: string;
+      dateTo: string;
+      restrictionReason: "CONFIG_ENTITLEMENT_FLOOR" | "PROVIDER_ENTITLEMENT_TIMEFRAME";
+      recordedAt: string;
+      providerDiagnostics?: DailyBarsResult["providerDiagnostics"];
+    },
+  ): Promise<void> {
+    const saved = await this.intelligence.upsertCoverageGap({
+      securityId,
+      observedSymbol: input.observedSymbol,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      provider: "polygon-aggregates",
+      restrictionReason: input.restrictionReason,
+      coverageState: "ENTITLEMENT_RESTRICTED",
+      providerRequestId: input.providerDiagnostics?.requestId ?? null,
+      providerStatus: input.providerDiagnostics?.providerStatus ?? null,
+      providerMessage: input.providerDiagnostics?.providerMessage ?? null,
+      observedAt: input.recordedAt,
+      backfillJobId: jobId,
+    });
+    if (!saved.ok) throw new Error(`coverage gap persist failed: ${saved.reason}`);
   }
 
   private async fetchDaily(

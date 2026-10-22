@@ -38,10 +38,17 @@ import type {
   IntelligenceWriteFailure,
   IntelligenceWriteResult,
   IntelligenceWriteSuccess,
+  HistoricalCoverageGapRestrictionReason,
+  HistoricalCoverageGapState,
   MarketBehaviorEpisode,
   SecurityBackfillJob,
   SecurityDailyHistory,
   SecurityEpisodeEvent,
+  SecurityHistoricalCoverageGap,
+} from "@/types/security-intelligence";
+import {
+  HISTORICAL_COVERAGE_GAP_RESTRICTION_REASONS,
+  HISTORICAL_COVERAGE_GAP_STATES,
 } from "@/types/security-intelligence";
 import type { SecurityId } from "@/types/security-identity";
 
@@ -180,6 +187,22 @@ function newId(createId: () => string, supplied?: string | null): string | null 
   return requiredId(supplied);
 }
 
+export interface CoverageGapInput {
+  gapId?: string | null;
+  securityId: SecurityId;
+  observedSymbol: string;
+  dateFrom: string;
+  dateTo: string;
+  provider: string;
+  restrictionReason: HistoricalCoverageGapRestrictionReason;
+  coverageState: HistoricalCoverageGapState;
+  providerRequestId?: string | null;
+  providerStatus?: string | null;
+  providerMessage?: string | null;
+  observedAt: string;
+  backfillJobId?: string | null;
+}
+
 export interface DailyHistoryInput extends EvidenceInput {
   securityId: SecurityId;
   sessionDate: string;
@@ -309,6 +332,7 @@ export class SecurityIntelligenceStore {
   private readonly outcomes = new Map<string, ForwardOutcome>();
   private readonly episodeEvents = new Map<string, SecurityEpisodeEvent>();
   private readonly jobs = new Map<string, SecurityBackfillJob>();
+  private readonly coverageGaps = new Map<string, SecurityHistoricalCoverageGap>();
   private readonly createId: () => string;
 
   constructor(createId: () => string = () => crypto.randomUUID()) {
@@ -330,6 +354,11 @@ export class SecurityIntelligenceStore {
 
   listEpisodes(securityId?: string): readonly MarketBehaviorEpisode[] {
     const rows = [...this.episodes.values()];
+    return securityId === undefined ? rows : rows.filter((row) => row.securityId === securityId);
+  }
+
+  listCoverageGaps(securityId?: string): readonly SecurityHistoricalCoverageGap[] {
+    const rows = [...this.coverageGaps.values()];
     return securityId === undefined ? rows : rows.filter((row) => row.securityId === securityId);
   }
 
@@ -372,6 +401,27 @@ export class SecurityIntelligenceStore {
     const id = requiredId(securityId);
     if (!id) return null;
     return this.daily.get(`${id}|${sessionDate}`) ?? null;
+  }
+
+  upsertCoverageGap(input: CoverageGapInput): IntelligenceWriteResult<SecurityHistoricalCoverageGap> {
+    const built = this.buildCoverageGap(input);
+    if (!built.ok) return fail(built.reason);
+    const existing = this.coverageGaps.get(built.key);
+    if (existing) {
+      const updated: SecurityHistoricalCoverageGap = {
+        ...existing,
+        providerRequestId: built.record.providerRequestId,
+        providerStatus: built.record.providerStatus,
+        providerMessage: built.record.providerMessage,
+        observedAt: built.record.observedAt,
+        backfillJobId: built.record.backfillJobId,
+        updatedAt: built.record.updatedAt,
+      };
+      this.coverageGaps.set(built.key, updated);
+      return { ...ok(updated), noop: true };
+    }
+    this.coverageGaps.set(built.key, built.record);
+    return ok(built.record);
   }
 
   putEpisode(input: EpisodeInput): IntelligenceWriteResult<MarketBehaviorEpisode> {
@@ -726,6 +776,79 @@ export class SecurityIntelligenceStore {
     };
     this.jobs.set(jobId, next);
     return ok(next);
+  }
+
+  private coverageGapIdentityKey(input: {
+    securityId: string;
+    observedSymbol: string;
+    dateFrom: string;
+    dateTo: string;
+    restrictionReason: HistoricalCoverageGapRestrictionReason;
+    coverageState: HistoricalCoverageGapState;
+  }): string {
+    return [
+      input.securityId,
+      input.observedSymbol,
+      input.dateFrom,
+      input.dateTo,
+      input.restrictionReason,
+      input.coverageState,
+    ].join("|");
+  }
+
+  private buildCoverageGap(
+    input: CoverageGapInput,
+  ): { ok: true; key: string; record: SecurityHistoricalCoverageGap; reason?: never } | IntelligenceWriteFailure {
+    const securityId = requiredId(input.securityId);
+    if (!securityId) return fail("invalid securityId");
+    const observedSymbol = optionalSymbol(input.observedSymbol);
+    if (!observedSymbol.ok || !observedSymbol.value) return fail(observedSymbol.reason);
+    if (!isCalendarDate(input.dateFrom) || !isCalendarDate(input.dateTo)) return fail("invalid coverage gap dates");
+    if (input.dateFrom > input.dateTo) return fail("coverage gap dateFrom after dateTo");
+    const restrictionReason = asEnum(input.restrictionReason, HISTORICAL_COVERAGE_GAP_RESTRICTION_REASONS);
+    if (!restrictionReason) return fail("invalid coverage gap restrictionReason");
+    const coverageState = asEnum(input.coverageState, HISTORICAL_COVERAGE_GAP_STATES);
+    if (!coverageState) return fail("invalid coverage gap coverageState");
+    const provider = blankToNull(input.provider);
+    if (!provider) return fail("invalid coverage gap provider");
+    const observedAt = timestamp(input.observedAt, "observedAt");
+    if (!observedAt.ok || observedAt.iso === null) return fail("invalid observedAt");
+    const gapId = newId(this.createId, input.gapId);
+    if (!gapId) return fail("invalid gapId");
+    const backfillJobId = input.backfillJobId == null || input.backfillJobId === ""
+      ? null
+      : requiredId(input.backfillJobId);
+    if (input.backfillJobId != null && input.backfillJobId !== "" && !backfillJobId) {
+      return fail("invalid backfillJobId");
+    }
+    const key = this.coverageGapIdentityKey({
+      securityId,
+      observedSymbol: observedSymbol.value,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      restrictionReason,
+      coverageState,
+    });
+    const now = observedAt.iso;
+    const record: SecurityHistoricalCoverageGap = {
+      gapId,
+      securityId,
+      observedSymbol: observedSymbol.value,
+      dateFrom: input.dateFrom,
+      dateTo: input.dateTo,
+      provider,
+      restrictionReason,
+      coverageState,
+      providerRequestId: blankToNull(input.providerRequestId),
+      providerStatus: blankToNull(input.providerStatus),
+      providerMessage: blankToNull(input.providerMessage),
+      observedAt: now,
+      backfillJobId,
+      resolutionState: "OPEN",
+      createdAt: now,
+      updatedAt: now,
+    };
+    return { ok: true, key, record };
   }
 
   private buildDailyHistory(

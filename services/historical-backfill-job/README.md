@@ -9,6 +9,8 @@ Production Fly transport uses the existing Lovable Cloud **`radar-worker-bridge`
 - `RADAR_BRIDGE_URL` — HTTPS URL for `radar-worker-bridge` on project `zcjptaolpumhtlwhlemq`
 - `RADAR_WORKER_SECRET` — same shared secret as the Radar worker
 - `POLYGON_API_KEY`
+- `HISTORICAL_PROVIDER_ENTITLEMENT_FLOOR_DATE` (optional) — validated against Polygon before catch-up; pre-window intervals are recorded as coverage gaps, not skipped silently
+- `HISTORICAL_PROVIDER_ENTITLEMENT_PROBE_SYMBOL` (optional, default `SPY`) — control symbol for floor validation only
 
 Optional local/dev only:
 
