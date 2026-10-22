@@ -8,6 +8,11 @@ export const HISTORICAL_CATCHUP_TARGET_ENV = "HISTORICAL_CATCHUP_TARGET_SESSION"
 /** Prior production rollout anchor (Sep 2026 pilot). Not a silent default at runtime. */
 export const HISTORICAL_ROLLOUT_ANCHOR_SESSION = "2026-09-18";
 
+/** Default first eligibility tranche when {@link HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE_ENV} is unset. */
+export const HISTORICAL_CATCHUP_DEFAULT_ELIGIBILITY_BATCH_SIZE = 100;
+
+export const HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE_ENV = "HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE";
+
 export const HISTORICAL_CATCHUP_LIMITS = {
   /** Max symbol batches started in one Fly process. */
   maxBatchesPerRun: 3,
@@ -64,6 +69,27 @@ function parseStrictLimit(
     throw new HistoricalCatchupLimitsError(`${envName} exceeds ceiling ${ceiling} (got ${n})`);
   }
   return n;
+}
+
+export function readHistoricalCatchupEligibilityBatchSizeFromEnv(
+  env: { get(name: string): string | undefined } = {
+    get: (name) => process.env[name],
+  },
+): number {
+  return parseStrictLimit(
+    HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE_ENV,
+    env.get(HISTORICAL_CATCHUP_ELIGIBILITY_BATCH_SIZE_ENV),
+    HISTORICAL_CATCHUP_DEFAULT_ELIGIBILITY_BATCH_SIZE,
+    HISTORICAL_CATCHUP_LIMITS_CEILING.maxSymbolsPerRun,
+  );
+}
+
+/** First eligibility tranche capped by per-run symbol limit (Batch 33.7). */
+export function effectiveEligibilityBatchSize(
+  configuredBatchSize: number,
+  maxSymbolsPerRun: number,
+): number {
+  return Math.min(configuredBatchSize, maxSymbolsPerRun);
 }
 
 export function readHistoricalCatchupLimitsFromEnv(

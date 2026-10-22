@@ -1,6 +1,8 @@
 import {
   HISTORICAL_CATCHUP_TARGET_ENV,
   HISTORICAL_ROLLOUT_ANCHOR_SESSION,
+  effectiveEligibilityBatchSize,
+  readHistoricalCatchupEligibilityBatchSizeFromEnv,
   readHistoricalCatchupLimitsFromEnv,
   readHistoricalCatchupResumeOnlyFromEnv,
   type HistoricalCatchupLimits,
@@ -45,8 +47,21 @@ export const PRODUCTION_DATE_FROM = HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE;
 /** @deprecated Use validated catch-up target — kept for tests referencing the Sep 2026 pilot. */
 export const PRODUCTION_DATE_TO = HISTORICAL_ROLLOUT_ANCHOR_SESSION;
 const FULL_SPAN_DAYS = 2000;
-const FIRST_BATCH = 100;
-const NEXT_BATCH = 500;
+const SUBSEQUENT_ELIGIBILITY_BATCH_SIZE = 500;
+
+/** Exported for tests — symbols selected from the head of the eligible list per batch. */
+export function resolveEligibilityTrancheSize(input: {
+  batchesRun: number;
+  eligibilityBatchSize: number;
+  limits: HistoricalCatchupLimits;
+  symbolsAttempted: number;
+}): number {
+  const remainingSymbolBudget = input.limits.maxSymbolsPerRun - input.symbolsAttempted;
+  const tranche = input.batchesRun === 0
+    ? effectiveEligibilityBatchSize(input.eligibilityBatchSize, input.limits.maxSymbolsPerRun)
+    : SUBSEQUENT_ELIGIBILITY_BATCH_SIZE;
+  return Math.min(tranche, remainingSymbolBudget);
+}
 
 export function resolveHistoricalCatchUpTargetSession(input: {
   envValue?: string | null;
@@ -670,6 +685,7 @@ export async function runHistoricalCatchUpPreflight(
   targetSession: string;
   completedSession: string;
   limits: HistoricalCatchupLimits;
+  eligibilityBatchSize: number;
 }> {
   if (options.loadLocalEnv) loadDotEnvFiles();
   const targetResolved = resolveHistoricalCatchUpTargetSession({
@@ -681,6 +697,7 @@ export async function runHistoricalCatchUpPreflight(
     throw new Error(targetResolved.error);
   }
   const limits = options.limits ?? readHistoricalCatchupLimitsFromEnv();
+  const eligibilityBatchSize = readHistoricalCatchupEligibilityBatchSizeFromEnv();
   const entitlement = readHistoricalEntitlementConfigFromEnv();
   if (entitlement.floorDate) {
     const key = requirePolygonKey();
@@ -703,12 +720,18 @@ export async function runHistoricalCatchUpPreflight(
     targetSession: targetResolved.targetSession,
     completedSession: targetResolved.completedSession,
     limits,
+    eligibilityBatchSize,
+    effectiveEligibilityBatchSize: effectiveEligibilityBatchSize(
+      eligibilityBatchSize,
+      limits.maxSymbolsPerRun,
+    ),
     entitlementFloor: entitlement.floorDate,
   });
   return {
     targetSession: targetResolved.targetSession,
     completedSession: targetResolved.completedSession,
     limits,
+    eligibilityBatchSize,
   };
 }
 
@@ -989,6 +1012,7 @@ export async function runHistoricalCatchUpRollout(
   const targetSession = targetResolved.targetSession;
   const dateFrom = PRODUCTION_DATE_FROM;
   const limits = options.limits ?? readHistoricalCatchupLimitsFromEnv();
+  const eligibilityBatchSize = readHistoricalCatchupEligibilityBatchSizeFromEnv();
 
   const startedAt = Date.now();
   const key = requirePolygonKey();
@@ -1015,6 +1039,11 @@ export async function runHistoricalCatchUpRollout(
     completedSession: targetResolved.completedSession,
     transport: persistence.transport,
     limits,
+    eligibilityBatchSize,
+    effectiveEligibilityBatchSize: effectiveEligibilityBatchSize(
+      eligibilityBatchSize,
+      limits.maxSymbolsPerRun,
+    ),
     entitlementFloor: providerEntitlementFloor,
   });
 
@@ -1057,11 +1086,12 @@ export async function runHistoricalCatchUpRollout(
     const eligible = await persistence.rollout.loadEligibleSymbols(complete, PRODUCTION_CANARY_SYMBOLS);
     if (eligible.length === 0) break;
 
-    const remainingSymbolBudget = limits.maxSymbolsPerRun - symbolsAttempted;
-    const size = Math.min(
-      batchesRun === 0 ? FIRST_BATCH : NEXT_BATCH,
-      remainingSymbolBudget,
-    );
+    const size = resolveEligibilityTrancheSize({
+      batchesRun,
+      eligibilityBatchSize,
+      limits,
+      symbolsAttempted,
+    });
     const batchSymbols = eligible.slice(0, size);
     const batchNumber = batchesRun + 1;
     const batchStarted = Date.now();
