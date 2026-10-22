@@ -106,3 +106,50 @@ export function readHistoricalCatchupLimitsFromEnv(
 }
 
 export const HISTORICAL_CATCHUP_PREFLIGHT_ENV = "HISTORICAL_CATCHUP_PREFLIGHT_ONLY";
+
+/** When set to 1, resume an existing interrupted job only — no new eligibility batches (Batch 33.6). */
+export const HISTORICAL_CATCHUP_RESUME_ONLY_ENV = "HISTORICAL_CATCHUP_RESUME_ONLY";
+
+/** Required when {@link HISTORICAL_CATCHUP_RESUME_ONLY_ENV} is enabled — exact backfill job UUID. */
+export const HISTORICAL_CATCHUP_RESUME_JOB_ID_ENV = "HISTORICAL_CATCHUP_RESUME_JOB_ID";
+
+export class HistoricalCatchupResumeOnlyError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "HistoricalCatchupResumeOnlyError";
+  }
+}
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function readHistoricalCatchupResumeOnlyFromEnv(
+  env: { get(name: string): string | undefined } = {
+    get: (name) => process.env[name],
+  },
+): { enabled: boolean; jobId: string | null } {
+  const enabled = env.get(HISTORICAL_CATCHUP_RESUME_ONLY_ENV)?.trim() === "1";
+  if (!enabled) {
+    return { enabled: false, jobId: null };
+  }
+  const rawJobId = env.get(HISTORICAL_CATCHUP_RESUME_JOB_ID_ENV)?.trim() ?? "";
+  if (!rawJobId) {
+    throw new HistoricalCatchupResumeOnlyError(
+      `${HISTORICAL_CATCHUP_RESUME_JOB_ID_ENV} is required when ${HISTORICAL_CATCHUP_RESUME_ONLY_ENV}=1`,
+    );
+  }
+  if (!UUID_RE.test(rawJobId)) {
+    throw new HistoricalCatchupResumeOnlyError(
+      `${HISTORICAL_CATCHUP_RESUME_JOB_ID_ENV} must be a UUID (got ${JSON.stringify(rawJobId)})`,
+    );
+  }
+  return { enabled: true, jobId: rawJobId };
+}
+
+export function isHistoricalCatchupResumeOnlyEnabled(
+  env: { get(name: string): string | undefined } = {
+    get: (name) => process.env[name],
+  },
+): boolean {
+  return env.get(HISTORICAL_CATCHUP_RESUME_ONLY_ENV)?.trim() === "1";
+}
