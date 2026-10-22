@@ -33,7 +33,11 @@ import {
   type HistoricalIdentityRepository,
   type HistoricalPersistence,
 } from "@/lib/persistence/historical-persistence";
-import { HistoricalBridgeClient, requireHistoricalBridgeConfig } from "@/lib/persistence/historical-bridge-client";
+import {
+  HistoricalBridgeClient,
+  RetryableBridgeError,
+  requireHistoricalBridgeConfig,
+} from "@/lib/persistence/historical-bridge-client";
 import { HistoricalFactConflictError } from "@/lib/security-intelligence/postgres-security-intelligence";
 import type { SecurityType } from "@/config/security-identity.config";
 import type { BackfillJobStats } from "@/types/historical-backfill";
@@ -124,6 +128,13 @@ export function sanitizeIdentityPersistenceError(error: unknown): {
   constraintName: string | null;
   errorMessage: string;
 } {
+  if (error instanceof RetryableBridgeError) {
+    return {
+      errorCode: "bridge_retry_exhausted",
+      constraintName: null,
+      errorMessage: `bridge_retry_exhausted status=${error.status}`,
+    };
+  }
   const raw = error instanceof Error ? error.message : String(error);
   let errorCode: string | null = null;
   let constraintName: string | null = null;

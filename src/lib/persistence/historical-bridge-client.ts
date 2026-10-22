@@ -14,7 +14,7 @@ export class HistoricalBridgeError extends Error {
   }
 }
 
-class RetryableBridgeError extends Error {
+export class RetryableBridgeError extends Error {
   constructor(readonly status: number) {
     super("retryable");
     this.name = "RetryableBridgeError";
