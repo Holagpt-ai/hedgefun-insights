@@ -84,6 +84,74 @@ function logEvent(payload: Record<string, unknown>): void {
   console.log(JSON.stringify({ ts: new Date().toISOString(), ...payload }));
 }
 
+export type IdentityResolutionStage = "initial_resolve" | "ticker_change";
+
+export class IdentityResolutionPersistenceError extends Error {
+  readonly stage: IdentityResolutionStage;
+  readonly symbol: string;
+  readonly cause: unknown;
+
+  constructor(cause: unknown, meta: { stage: IdentityResolutionStage; symbol: string }) {
+    super(cause instanceof Error ? cause.message : "identity persistence failed");
+    this.name = "IdentityResolutionPersistenceError";
+    this.stage = meta.stage;
+    this.symbol = meta.symbol;
+    this.cause = cause;
+  }
+}
+
+export function sanitizeIdentityPersistenceError(error: unknown): {
+  errorCode: string | null;
+  constraintName: string | null;
+  errorMessage: string;
+} {
+  const raw = error instanceof Error ? error.message : String(error);
+  let errorCode: string | null = null;
+  let constraintName: string | null = null;
+  if (error && typeof error === "object") {
+    const row = error as Record<string, unknown>;
+    if (typeof row.code === "string") errorCode = row.code;
+    if (typeof row.constraint === "string") constraintName = row.constraint;
+  }
+  const constraintMatch = /constraint "([^"]+)"/i.exec(raw);
+  if (!constraintName && constraintMatch) constraintName = constraintMatch[1];
+  const errorMessage = raw
+    .replace(/Bearer\s+\S+/gi, "Bearer [redacted]")
+    .replace(/apikey=[^&\s]+/gi, "apikey=[redacted]")
+    .slice(0, 500);
+  return { errorCode, constraintName, errorMessage };
+}
+
+function logIdentityResolutionFailure(input: {
+  symbol: string;
+  symbolIndex: number;
+  symbolsAttempted: number;
+  targetSession: string;
+  stage: IdentityResolutionStage;
+  providerRequestsUsed: number;
+  providerRequestsMax: number;
+  backfillJobCreated: boolean;
+  error: unknown;
+}): void {
+  const sanitized = sanitizeIdentityPersistenceError(
+    input.error instanceof IdentityResolutionPersistenceError ? input.error.cause : input.error,
+  );
+  logEvent({
+    event: "catch_up_identity_resolution_failed",
+    symbol: input.symbol,
+    symbolIndex: input.symbolIndex,
+    symbolsAttempted: input.symbolsAttempted,
+    targetSession: input.targetSession,
+    identityResolutionStage: input.stage,
+    providerRequestsUsed: input.providerRequestsUsed,
+    providerRequestsMax: input.providerRequestsMax,
+    backfillJobCreated: input.backfillJobCreated,
+    errorCode: sanitized.errorCode,
+    constraintName: sanitized.constraintName,
+    errorMessage: sanitized.errorMessage,
+  });
+}
+
 async function polygon(
   budget: ProviderRequestBudget,
   counters: ProviderCounters,
@@ -168,33 +236,42 @@ async function resolveSymbol(
     change.date > PRODUCTION_DATE_FROM && change.date <= rolloutDateTo,
   );
   const locale = typeof row.locale === "string" ? row.locale.toUpperCase() : null;
-  const resolved = await identity.resolve({
-    symbol,
-    exchange: typeof row.primary_exchange === "string" ? row.primary_exchange : null,
-    effectiveDate,
-    issuerName: typeof row.name === "string" ? row.name : null,
-    securityType: securityType(row.type),
-    country: locale === "US" ? "US" : locale && /^[A-Z]{2}$/.test(locale) ? locale : null,
-    adrStatus: securityType(row.type) === "ADR" ? "ADR" : "NOT_ADR",
-    compositeFigi: typeof row.composite_figi === "string" ? row.composite_figi : null,
-    figi: typeof row.share_class_figi === "string" ? row.share_class_figi : null,
-    cik: typeof row.cik === "string" ? row.cik : null,
-    source: "polygon-reference",
-    provenance: "PROVIDER",
-    recordedAt,
-  });
-  if (resolved.status !== "RESOLVED" || !resolved.securityId) return null;
-  for (const change of inWindowChanges) {
-    if (change.ticker === symbol) continue;
-    await identity.resolve({
-      symbol: change.ticker,
+  let resolved;
+  try {
+    resolved = await identity.resolve({
+      symbol,
       exchange: typeof row.primary_exchange === "string" ? row.primary_exchange : null,
-      effectiveDate: change.date,
+      effectiveDate,
+      issuerName: typeof row.name === "string" ? row.name : null,
+      securityType: securityType(row.type),
+      country: locale === "US" ? "US" : locale && /^[A-Z]{2}$/.test(locale) ? locale : null,
+      adrStatus: securityType(row.type) === "ADR" ? "ADR" : "NOT_ADR",
       compositeFigi: typeof row.composite_figi === "string" ? row.composite_figi : null,
-      source: "polygon-reference-events",
+      figi: typeof row.share_class_figi === "string" ? row.share_class_figi : null,
+      cik: typeof row.cik === "string" ? row.cik : null,
+      source: "polygon-reference",
       provenance: "PROVIDER",
       recordedAt,
     });
+  } catch (error) {
+    throw new IdentityResolutionPersistenceError(error, { stage: "initial_resolve", symbol });
+  }
+  if (resolved.status !== "RESOLVED" || !resolved.securityId) return null;
+  for (const change of inWindowChanges) {
+    if (change.ticker === symbol) continue;
+    try {
+      await identity.resolve({
+        symbol: change.ticker,
+        exchange: typeof row.primary_exchange === "string" ? row.primary_exchange : null,
+        effectiveDate: change.date,
+        compositeFigi: typeof row.composite_figi === "string" ? row.composite_figi : null,
+        source: "polygon-reference-events",
+        provenance: "PROVIDER",
+        recordedAt,
+      });
+    } catch (error) {
+      throw new IdentityResolutionPersistenceError(error, { stage: "ticker_change", symbol: change.ticker });
+    }
   }
   return resolved.securityId;
 }
@@ -583,7 +660,8 @@ export async function runHistoricalCatchUpRollout(
     const recordedAt = new Date().toISOString();
     const securityIds: SecurityId[] = [];
     let resolutionStopped = false;
-    for (const symbol of batchSymbols) {
+    for (let symbolIndex = 0; symbolIndex < batchSymbols.length; symbolIndex += 1) {
+      const symbol = batchSymbols[symbolIndex]!;
       symbolsAttempted += 1;
       try {
         const id = await resolveSymbol(
@@ -608,6 +686,19 @@ export async function runHistoricalCatchUpRollout(
           resolutionStopped = true;
           logEvent({ event: "catch_up_stop", reason: stopReason, counters, phase: "symbol_resolution" });
           break;
+        }
+        if (error instanceof IdentityResolutionPersistenceError) {
+          logIdentityResolutionFailure({
+            symbol: error.symbol,
+            symbolIndex: symbolIndex + 1,
+            symbolsAttempted,
+            targetSession,
+            stage: error.stage,
+            providerRequestsUsed: providerRequestTotal(counters),
+            providerRequestsMax: limits.maxProviderRequestsPerRun,
+            backfillJobCreated: batchesRun > 0 || blockedInterruptedJobId !== null,
+            error,
+          });
         }
         throw error;
       }
