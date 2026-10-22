@@ -13,17 +13,33 @@ This runbook covers **daily backfill catch-up** via `stocksist-historical-backfi
 | Upstash | Confirm Lovable secrets include Upstash Redis URL/token (names only in logs). Verify worker logs show `shared_cache=upstash` when available — do not expose values. |
 | Target date | Set **`HISTORICAL_CATCHUP_TARGET_SESSION=YYYY-MM-DD`** on Fly (validated trading day ≤ last completed U.S. session; fail-closed). |
 
-**STOP — Checkpoint A:** Migration applied and bridge deployed; target date and limits validated **without historical writes**:
+**STOP — Checkpoint A1:** Migration applied and bridge deployed; authenticated read-only RPC smoke test passes.
 
-```bash
-fly secrets set -a stocksist-historical-backfill-job \
-  HISTORICAL_CATCHUP_TARGET_SESSION='YYYY-MM-DD' \
-  HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1
-fly scale count 1 --process-group backfill -a stocksist-historical-backfill-job
-# Expect log event catch_up_preflight_ok (not catch_up_start)
-fly secrets unset -a stocksist-historical-backfill-job HISTORICAL_CATCHUP_PREFLIGHT_ONLY
-fly scale count 0 --process-group backfill -a stocksist-historical-backfill-job
-```
+**STOP — Checkpoint A2:** Fly image + non-writing preflight (below). **Do not unset `HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1`** until a separately authorized pilot (Checkpoint B).
+
+### A2 safe sequence (preflight only)
+
+1. Confirm **`min_machines_running = 0`**, **`auto_stop_machines = "off"`**, and **`[[restart]] policy = "never"`** for process `backfill` in `fly.historical-backfill.toml` match Fly (`fly config show` after deploy). Never deploy with `min_machines_running = 1` on a one-shot job. Proxy must not stop the VM while the worker runs; Fly must not auto-restart the machine after exit (manual `fly scale count 0` / intentional scale-up only).
+2. Set guards **before** deploy or any machine start:
+   ```bash
+   fly secrets set -a stocksist-historical-backfill-job \
+     HISTORICAL_CATCHUP_TARGET_SESSION='YYYY-MM-DD' \
+     HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1
+   ```
+   Ensure `HISTORICAL_BACKFILL_CONNECTIVITY_ONLY` is **not** set.
+3. **`fly deploy --config fly.historical-backfill.toml`** — updates the image/config on existing machines; with `min_machines_running = 0` it must **not** leave a writer running. Verify with `fly machines list` (state `stopped` or no machines).
+4. Run preflight once:
+   ```bash
+   fly scale count 1 --process-group backfill -a stocksist-historical-backfill-job
+   fly machine start <id> -a stocksist-historical-backfill-job   # if machine exists but stopped
+   fly logs -a stocksist-historical-backfill-job
+   ```
+   Expect **`catch_up_preflight_ok`** only (no `catch_up_start`, no provider/bridge writes from catch-up).
+5. Shutdown (keep preflight secret):
+   ```bash
+   fly scale count 0 --process-group backfill -a stocksist-historical-backfill-job
+   ```
+   Confirm **zero** machines. Leave **`HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1`** in place until Checkpoint B.
 
 Connectivity checks (`HISTORICAL_BACKFILL_CONNECTIVITY_ONLY=1`) remain separate from target validation.
 
@@ -31,8 +47,8 @@ Connectivity checks (`HISTORICAL_BACKFILL_CONNECTIVITY_ONLY=1`) remain separate 
 
 ### Deploy vs scale
 
-- **`fly deploy --config fly.historical-backfill.toml`** — ship new worker image (Batch 33 code). Does not run backfill.
-- **`fly scale count 1 --process-group backfill`** — starts one process that runs `runHistoricalCatchUpRollout` once, then exits when limits or queue empty.
+- **`fly deploy --config fly.historical-backfill.toml`** — ship new worker image only when preflight guard (or explicit pilot authorization) is already set. Does **not** replace a deliberate **`fly scale count 0`** shutdown by itself.
+- **`fly scale count 1` / `fly machine start`** — runs the entrypoint once (preflight, connectivity, or catch-up depending on secrets). **`fly scale count 0`** destroys machines; the next run creates a new machine.
 
 Optional limits (defaults in `src/config/historical-catchup.config.ts`):
 
@@ -43,15 +59,90 @@ Optional limits (defaults in `src/config/historical-catchup.config.ts`):
 
 1. **Resume interrupted job** — On start, the worker calls `resumeInterruptedJobs` for jobs in `RUNNING` / `PAUSED` / `FAILED` with the **same** `date_from` / `date_to` as the current target. Completed jobs are never selected.
 2. **New extended range** — Set a higher `HISTORICAL_CATCHUP_TARGET_SESSION`. Eligibility uses **latest stored session ≥ target**, not min session count alone. Symbols already current are skipped.
-3. **Fly restart mid catch-up** — If the process stops while a batch job is still `RUNNING`, scale to 1 again: resume path continues that job; if the prior run hit Fly per-run provider/batch limits, the job stays `RUNNING` and the next scale-up advances it without resetting completed jobs.
+3. **Manual resume after stop** — With **`[[restart]] policy = "never"`**, Fly does **not** auto-restart the machine after success or failure (avoids unbounded retry loops on a bounded pilot). If the process stops while a batch job is still `RUNNING`, an operator may **deliberately** `fly scale count 1` again: resume path continues that job; if the prior run hit per-run provider/batch limits, the job stays `RUNNING` and the next scale-up advances it without resetting completed jobs.
 
-**STOP — Checkpoint B:** Pilot scale-up authorized (e.g. first batch only via low `HISTORICAL_CATCHUP_MAX_SYMBOLS`).
+## Checkpoint B — Bounded daily pilot (authorization required; do not run until approved)
 
-### Pilot scope and stopping conditions
+**Prepared pilot (not executed):** target session **`2026-10-20`**, **`HISTORICAL_CATCHUP_MAX_SYMBOLS=10`**, **`HISTORICAL_CATCHUP_MAX_BATCHES=1`**, **`HISTORICAL_CATCHUP_MAX_PROVIDER_REQUESTS=100`**.
 
-- Pilot: low symbol cap (e.g. 50–100), monitor `batch_complete` / `catch_up_stop` JSON logs.
-- Stop scaling when: `rollout_complete` (eligible queue empty and no interrupted jobs), or `catch_up_partial_stop` / `catch_up_stop` (limits, paused job, or remaining work). **Do not** treat `catch_up_partial_stop` as full completion — scale up again after review.
-- Provider budget: default 2500 requests per Fly process; adjust via env if needed.
+**Out of scope for this Fly app:** intraday reconstruction (`scripts/historical/intraday-reconstruction-prod.ts`), `stocksist-radar-v22-worker`, and any Edge/Lovable deploy. The historical entrypoint only runs `runHistoricalCatchUpPreflight`, connectivity check, or `runHistoricalCatchUpRollout` — never intraday scripts.
+
+### Pre-launch verification (zero machines)
+
+```bash
+fly machines list -a stocksist-historical-backfill-job          # expect: no machines
+fly secrets list -a stocksist-historical-backfill-job           # expect: PREFLIGHT_ONLY staged/deployed
+```
+
+### Staged secrets with zero machines
+
+- **`fly secrets set`** / **`fly secrets unset`** update the app’s pending secret release. With **no machines**, `fly secrets list` often shows **`Staged`** — there is nothing running to patch in place.
+- **`fly secrets deploy`** applies staged secrets to **existing** machines only. With **zero machines**, it may **error or be unusable**; **do not** treat deploy as required before the first machine of a run.
+- A **new** machine from **`fly scale count 1`** receives the **current app secret release** at creation. **`Staged` does not mean “absent on the next machine”** — assume the next VM gets whatever names/values are in that pending release until you verify otherwise.
+- **Never log secret values.** Use `fly secrets list` (names and status only).
+
+### Safe transition: preflight → execution (machines must stay at zero until launch)
+
+**STOP — human authorization** before step 1.
+
+1. Confirm **`fly machines list`** is empty and **`fly secrets list`** still includes **`HISTORICAL_CATCHUP_PREFLIGHT_ONLY`** (preflight guard active while idle). If machines exist or preflight is already unset, **stop** — do not launch a writer.
+2. **Only after explicit pilot authorization**, remove preflight and set **pilot caps** while machines remain at zero:
+   ```bash
+   fly secrets unset -a stocksist-historical-backfill-job HISTORICAL_CATCHUP_PREFLIGHT_ONLY
+   fly secrets set -a stocksist-historical-backfill-job \
+     HISTORICAL_CATCHUP_TARGET_SESSION='2026-10-20' \
+     HISTORICAL_CATCHUP_MAX_SYMBOLS=10 \
+     HISTORICAL_CATCHUP_MAX_BATCHES=1 \
+     HISTORICAL_CATCHUP_MAX_PROVIDER_REQUESTS=100
+   ```
+   Ensure **`HISTORICAL_BACKFILL_CONNECTIVITY_ONLY`** is unset. Avoid repeated `set`/`unset` loops unless correcting a mistake.
+3. **Preflight checklist (names only, no values):**
+   ```bash
+   fly secrets list -a stocksist-historical-backfill-job
+   ```
+   Expect: **`HISTORICAL_CATCHUP_TARGET_SESSION`**, pilot cap env names, bridge/Polygon names; **must not** list **`HISTORICAL_CATCHUP_PREFLIGHT_ONLY`**. Status may be **`Staged`** with zero machines — that is OK.
+4. **If checklist fails or secret state is uncertain, do not scale up.**
+5. **Launch one shot** (creates a machine with the pending release; **skip `fly secrets deploy`** when machine count is zero):
+   ```bash
+   fly scale count 1 --process-group backfill -a stocksist-historical-backfill-job
+   fly logs -a stocksist-historical-backfill-job
+   ```
+   After the machine exists, optional: `fly machine status <id>` and confirm restart policy **`no`** / **`never`** (matches `[[restart]] policy = "never"` in TOML after deploy).
+
+### Expected logs (execution mode)
+
+| Event | Meaning |
+|-------|---------|
+| `catch_up_start` | Catch-up entered (must **not** appear during preflight) |
+| `batch_complete` | One batch finished or resumed job advanced |
+| `catch_up_partial_stop` | Expected for bounded pilot (limits or remaining eligible work) |
+| `rollout_complete` | Full queue caught up — **unlikely** on first 10-symbol pilot |
+| `catch_up_preflight_ok` | **Must not** appear if preflight guard was removed correctly |
+
+**Stopping conditions (do not restart without review):** `catch_up_stop` with `provider_request_limit`, `job_paused`, `no_progress`; batch `FAILED`; or process exit non-zero.
+
+### Interruption and shutdown
+
+- **Platform auto-restart:** disabled (`policy = "never"`). A failed pilot must **not** spin up again without operator action.
+- **Deliberate resume:** after review, scale to 1 again; worker resumes interrupted `RUNNING`/`PAUSED`/`FAILED` job for the same target (see resume rules above).
+- **End pilot:**
+  ```bash
+  fly scale count 0 --process-group backfill -a stocksist-historical-backfill-job
+  fly machines list -a stocksist-historical-backfill-job
+  ```
+- **Re-arm preflight** before any accidental scale-up (with zero machines, `set` alone is enough; deploy only if machines exist and need an in-place refresh):
+  ```bash
+  fly secrets set -a stocksist-historical-backfill-job HISTORICAL_CATCHUP_PREFLIGHT_ONLY=1
+  fly secrets list -a stocksist-historical-backfill-job   # confirm PREFLIGHT_ONLY present
+  ```
+
+### Bounded post-run verification (read-only)
+
+- Bridge/SQL: sample symbols from logs — `latest_session` moves toward **`2026-10-20`** for touched names; symbols already current were **`symbolsSkipped`**.
+- No change to scanner tables/generations (`stocksist-radar-v22-worker` untouched).
+- Episode rows: new sessions only; no destructive migration or delete.
+
+**STOP — Checkpoint C:** After pilot review, authorize wider caps or continuation batches.
 
 ### Rollback
 
