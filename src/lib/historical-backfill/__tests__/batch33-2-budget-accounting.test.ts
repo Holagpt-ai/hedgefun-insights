@@ -35,7 +35,7 @@ describe("Batch 33.2 provider budget accounting", () => {
       fetchAggregates: async () => {
         budget.consumeBeforeRequest();
         httpCalls += 1;
-        return { status: "OK", results: [polygonBar("2026-09-19")] };
+        return { httpStatus: 200, body: { status: "OK", results: [polygonBar("2026-09-19")] } };
       },
     });
     const identity = createSecurityIdentityStore();
@@ -78,15 +78,18 @@ describe("Batch 33.2 provider budget accounting", () => {
         budget.consumeBeforeRequest();
         httpCalls += 1;
         return {
-          status: "OK",
-          results: [polygonBar("2026-09-19")],
-          next_url: "https://api.polygon.io/v2/next",
+          httpStatus: 200,
+          body: {
+            status: "OK",
+            results: [polygonBar("2026-09-19")],
+            next_url: "https://api.polygon.io/v2/next",
+          },
         };
       },
       fetchNextPage: async () => {
         budget.consumeBeforeRequest();
         httpCalls += 1;
-        return { status: "OK", results: [polygonBar("2026-09-20")] };
+        return { httpStatus: 200, body: { status: "OK", results: [polygonBar("2026-09-20")] } };
       },
     });
     await provider.fetchDailyBars({
@@ -109,7 +112,7 @@ describe("Batch 33.2 provider budget accounting", () => {
         budget.consumeBeforeRequest();
         httpCalls += 1;
         if (httpCalls === 1) throw new Error("provider daily HTTP 429");
-        return { status: "OK", results: [polygonBar("2026-09-19")] };
+        return { httpStatus: 200, body: { status: "OK", results: [polygonBar("2026-09-19")] } };
       },
     });
     const identity = createSecurityIdentityStore();

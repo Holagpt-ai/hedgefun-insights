@@ -14,6 +14,8 @@ import {
   ProviderRequestBudget,
 } from "@/lib/historical-backfill/provider-request-budget";
 import { HISTORICAL_VERIFIED_EARLIEST_DAILY_DATE } from "@/config/historical-backfill.config";
+import { readHistoricalEntitlementConfigFromEnv } from "@/config/historical-entitlement.config";
+import { validateProviderEntitlementFloor } from "@/lib/historical-backfill/entitlement-floor-validation";
 import { symbolCoverageCurrentThroughTarget } from "@/lib/historical-backfill/catch-up-eligibility";
 import {
   resolveProviderStartDate,
@@ -152,6 +154,11 @@ function logIdentityResolutionFailure(input: {
   });
 }
 
+interface PolygonHttpResponse {
+  httpStatus: number;
+  body: Record<string, unknown>;
+}
+
 async function polygon(
   budget: ProviderRequestBudget,
   counters: ProviderCounters,
@@ -160,7 +167,7 @@ async function polygon(
   path: string,
   params: Record<string, string>,
   key: string,
-): Promise<Record<string, unknown>> {
+): Promise<PolygonHttpResponse> {
   budget.consumeBeforeRequest();
   const url = new URL(`https://api.polygon.io${path}`);
   for (const [name, value] of Object.entries(params)) url.searchParams.set(name, value);
@@ -183,7 +190,7 @@ async function polygon(
   if (response.status === 429 || response.status >= 500) {
     throw new Error(`provider ${kind} HTTP ${response.status}`);
   }
-  return json ?? {};
+  return { httpStatus: response.status, body: json ?? {} };
 }
 
 function securityType(value: unknown): SecurityType {
@@ -224,8 +231,10 @@ async function resolveSymbol(
   logs: RequestLog[],
   rolloutDateTo: string,
 ): Promise<SecurityId | null> {
-  const details = await polygon(budget, counters, logs, "reference", `/v3/reference/tickers/${symbol}`, {}, key);
-  const events = await polygon(budget, counters, logs, "events", `/vX/reference/tickers/${symbol}/events`, {}, key);
+  const detailsRes = await polygon(budget, counters, logs, "reference", `/v3/reference/tickers/${symbol}`, {}, key);
+  const eventsRes = await polygon(budget, counters, logs, "events", `/vX/reference/tickers/${symbol}/events`, {}, key);
+  const details = detailsRes.body;
+  const events = eventsRes.body;
   const row = details.results && typeof details.results === "object" ? details.results as Record<string, unknown> : null;
   if (!row || details.status === "NOT_FOUND" || row.ticker == null) return null;
   const listDate = typeof row.list_date === "string" ? row.list_date.slice(0, 10) : null;
@@ -276,12 +285,40 @@ async function resolveSymbol(
   return resolved.securityId;
 }
 
+async function validateEntitlementConfigForRollout(
+  key: string,
+  budget: ProviderRequestBudget,
+  counters: ProviderCounters,
+  logs: RequestLog[],
+): Promise<string | null> {
+  const entitlement = readHistoricalEntitlementConfigFromEnv();
+  if (!entitlement.floorDate) return null;
+  await validateProviderEntitlementFloor(entitlement, async (symbol, sessionDate) => {
+    const res = await polygon(
+      budget,
+      counters,
+      logs,
+      "daily",
+      `/v2/aggs/ticker/${symbol}/range/1/day/${sessionDate}/${sessionDate}`,
+      { adjusted: "true", sort: "asc", limit: "50000" },
+      key,
+    );
+    return {
+      httpStatus: res.httpStatus,
+      providerStatus: typeof res.body.status === "string" ? res.body.status : null,
+      providerMessage: typeof res.body.message === "string" ? res.body.message : null,
+    };
+  });
+  return entitlement.floorDate;
+}
+
 function createEngine(
   persistence: HistoricalPersistence,
   key: string,
   budget: ProviderRequestBudget,
   counters: ProviderCounters,
   logs: RequestLog[],
+  providerEntitlementFloor: string | null,
 ) {
   const { identity, intelligence } = persistence;
   const config = historicalBackfillConfig({
@@ -291,17 +328,19 @@ function createEngine(
     retryCount: 2,
     retryBackoffMs: 400,
     verifiedEarliestDailyDate: PRODUCTION_DATE_FROM,
+    providerEntitlementFloor,
   });
   const adapter = createPolygonDailyAdapter({
     verifiedEarliestDailyDate: PRODUCTION_DATE_FROM,
     fetchAggregates: async (ticker, multiplier, timespan, from, to) => {
       if (timespan !== "day" || multiplier !== 1) throw new Error("refused non-daily aggregate request");
       if (from < PRODUCTION_DATE_FROM) throw new Error("refused daily request before entitlement");
-      return polygon(budget, counters, logs, "daily", `/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`, {
+      const res = await polygon(budget, counters, logs, "daily", `/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`, {
         adjusted: "true",
         sort: "asc",
         limit: "50000",
       }, key);
+      return { httpStatus: res.httpStatus, body: res.body };
     },
     fetchNextPage: async (nextUrl) => {
       budget.consumeBeforeRequest();
@@ -318,7 +357,10 @@ function createEngine(
       if (response.status === 403) counters.http403 += 1;
       if (response.status === 429) counters.http429 += 1;
       if (typeof json.next_url === "string") counters.nextPages += 1;
-      return json;
+      if (response.status === 429 || response.status >= 500) {
+        throw new Error(`provider daily_page HTTP ${response.status}`);
+      }
+      return { httpStatus: response.status, body: json };
     },
   });
   return new HistoricalBackfillEngine({
@@ -448,6 +490,7 @@ export async function runHistoricalBackfillConnectivityCheck(options: {
         new ProviderRequestBudget(1),
         counters,
         [],
+        null,
       );
       const resumed = await engine.resume(jobId, new Date().toISOString());
       if (!resumed.ok) throw new Error(`connectivity resume blocked: ${resumed.reason}`);
@@ -558,11 +601,29 @@ export async function runHistoricalCatchUpPreflight(
     throw new Error(targetResolved.error);
   }
   const limits = options.limits ?? readHistoricalCatchupLimitsFromEnv();
+  const entitlement = readHistoricalEntitlementConfigFromEnv();
+  if (entitlement.floorDate) {
+    const key = requirePolygonKey();
+    const counters: ProviderCounters = {
+      dailyRequests: 0,
+      referenceRequests: 0,
+      http403: 0,
+      http429: 0,
+      nextPages: 0,
+    };
+    await validateEntitlementConfigForRollout(
+      key,
+      new ProviderRequestBudget(4),
+      counters,
+      [],
+    );
+  }
   logEvent({
     event: "catch_up_preflight_ok",
     targetSession: targetResolved.targetSession,
     completedSession: targetResolved.completedSession,
     limits,
+    entitlementFloor: entitlement.floorDate,
   });
   return {
     targetSession: targetResolved.targetSession,
@@ -600,7 +661,8 @@ export async function runHistoricalCatchUpRollout(
   };
   const logs: RequestLog[] = [];
   const budget = new ProviderRequestBudget(limits.maxProviderRequestsPerRun);
-  const engine = createEngine(persistence, key, budget, counters, logs);
+  const providerEntitlementFloor = await validateEntitlementConfigForRollout(key, budget, counters, logs);
+  const engine = createEngine(persistence, key, budget, counters, logs, providerEntitlementFloor);
 
   logEvent({
     event: "catch_up_start",
@@ -608,6 +670,7 @@ export async function runHistoricalCatchUpRollout(
     completedSession: targetResolved.completedSession,
     transport: persistence.transport,
     limits,
+    entitlementFloor: providerEntitlementFloor,
   });
 
   let stopReason: CatchUpStopReason = "none";

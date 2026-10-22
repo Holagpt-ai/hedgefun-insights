@@ -13,6 +13,7 @@ export const HISTORICAL_PAGE_MAX = 500;
 export const HISTORICAL_IDENTITY_APPLY_RPC = "historical_identity_apply_diff";
 export const HISTORICAL_DAILY_BATCH_RPC = "historical_apply_daily_batch";
 export const HISTORICAL_EPISODE_BATCH_RPC = "historical_apply_episode_batch";
+export const HISTORICAL_COVERAGE_GAP_BATCH_RPC = "historical_apply_coverage_gap_batch";
 export const HISTORICAL_INTERRUPTED_JOB_RPC = "historical_find_interrupted_backfill_job";
 export const HISTORICAL_BACKFILLED_SYMBOLS_RPC = "historical_rollout_backfilled_symbols";
 export const HISTORICAL_SYMBOLS_CURRENT_THROUGH_RPC = "historical_rollout_symbols_current_through";
@@ -215,6 +216,11 @@ export async function handleHistoricalAction(
       const rows = readJsonArray(body.p_rows);
       if (rows === null) return jsonResponse({ error: "invalid_body" }, 400);
       return await rpcResult(HISTORICAL_EPISODE_BATCH_RPC, { p_rows: rows });
+    }
+    case "historical_apply_coverage_gap_batch": {
+      const rows = readJsonArray(body.p_rows);
+      if (rows === null) return jsonResponse({ error: "invalid_body" }, 400);
+      return await rpcResult(HISTORICAL_COVERAGE_GAP_BATCH_RPC, { p_rows: rows });
     }
     case "historical_find_interrupted_job": {
       const dateFrom = readDate(body.p_date_from);

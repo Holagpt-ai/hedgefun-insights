@@ -2,6 +2,23 @@ import type { DataValue } from "@/types/data-quality";
 import type { EpisodeDirection, EpisodeTier } from "@/config/security-intelligence.config";
 import type { SecurityId } from "@/types/security-identity";
 
+export const PROVIDER_FAILURE_KINDS = [
+  "PROVIDER_ENTITLEMENT_TIMEFRAME",
+  "PROVIDER_NOT_AUTHORIZED_OTHER",
+  "PROVIDER_UNAVAILABLE",
+  "PROVIDER_RATE_LIMIT",
+  "PROVIDER_RETRYABLE",
+] as const;
+
+export type ProviderFailureKind = (typeof PROVIDER_FAILURE_KINDS)[number];
+
+export interface SanitizedProviderDiagnostics {
+  httpStatus: number | null;
+  providerStatus: string | null;
+  providerMessage: string | null;
+  requestId: string | null;
+}
+
 export const PROVIDER_COVERAGE_STATES = [
   "SUPPORTED",
   "PARTIAL",
@@ -39,6 +56,9 @@ export interface DailyBarsResult {
   fetchedAt: string | null;
   error: string | null;
   complete: boolean;
+  /** Set when the provider response maps to a classified failure mode. */
+  failureKind?: ProviderFailureKind | null;
+  providerDiagnostics?: SanitizedProviderDiagnostics | null;
 }
 
 /**

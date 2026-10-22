@@ -71,7 +71,7 @@ async function polygon(kind: RequestLog["kind"], symbol: string, path: string, p
   if (response.status === 429 || response.status >= 500) {
     throw new Error(`${kind} ${symbol} HTTP ${response.status}`);
   }
-  return json ?? {};
+  return { httpStatus: response.status, body: json ?? {} };
 }
 
 function securityType(value: unknown): SecurityType {
@@ -113,8 +113,10 @@ async function main() {
   const securityIds = new Map<string, SecurityId>();
 
   for (const symbol of SYMBOLS) {
-    const details = await polygon("reference", symbol, `/v3/reference/tickers/${symbol}`, {}, key);
-    const events = await polygon("events", symbol, `/vX/reference/tickers/${symbol}/events`, {}, key);
+    const detailsRes = await polygon("reference", symbol, `/v3/reference/tickers/${symbol}`, {}, key);
+    const eventsRes = await polygon("events", symbol, `/vX/reference/tickers/${symbol}/events`, {}, key);
+    const details = detailsRes.body;
+    const events = eventsRes.body;
     const row = details.results && typeof details.results === "object" ? details.results as Record<string, unknown> : null;
     if (!row || details.status === "NOT_FOUND" || row.ticker == null) {
       throw new Error(`${symbol} could not be resolved from provider reference`);
@@ -207,7 +209,10 @@ async function main() {
         next: typeof json.next_url === "string",
         error: typeof json.error === "string" ? json.error : null,
       });
-      return json;
+      if (response.status === 429 || response.status >= 500) {
+        throw new Error(`daily_page ${symbol} HTTP ${response.status}`);
+      }
+      return { httpStatus: response.status, body: json };
     },
   });
 
