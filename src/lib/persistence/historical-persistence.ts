@@ -168,7 +168,10 @@ function bridgeRolloutQueries(bridge: HistoricalBridgeClient): HistoricalRollout
   };
 }
 
-export function createHistoricalPersistence(options: { loadLocalEnv?: boolean } = {}): HistoricalPersistence {
+export function createHistoricalPersistence(
+  options: { loadLocalEnv?: boolean; persistenceOverride?: HistoricalPersistence } = {},
+): HistoricalPersistence {
+  if (options.persistenceOverride) return options.persistenceOverride;
   if (options.loadLocalEnv) loadDotEnvFiles();
   const transport = resolveHistoricalPersistenceTransport();
   if (transport === "bridge") {

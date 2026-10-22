@@ -2,6 +2,7 @@ import {
   HISTORICAL_CATCHUP_TARGET_ENV,
   HISTORICAL_ROLLOUT_ANCHOR_SESSION,
   readHistoricalCatchupLimitsFromEnv,
+  readHistoricalCatchupResumeOnlyFromEnv,
   type HistoricalCatchupLimits,
 } from "@/config/historical-catchup.config";
 import {
@@ -35,6 +36,7 @@ import { HistoricalFactConflictError } from "@/lib/security-intelligence/postgre
 import type { SecurityType } from "@/config/security-identity.config";
 import type { BackfillJobStats } from "@/types/historical-backfill";
 import type { SecurityId } from "@/types/security-identity";
+import type { SecurityBackfillJob } from "@/types/security-intelligence";
 
 export const PRODUCTION_CANARY_SYMBOLS = new Set([
   "INTC", "OGN", "NWL", "AMD", "APA", "ALK", "AOS", "BEN", "BBY", "FMC",
@@ -383,6 +385,62 @@ export interface ResumeInterruptedJobsResult {
   interruptedJobId: string | null;
 }
 
+export async function resumeInterruptedJobById(
+  engine: HistoricalBackfillEngine,
+  persistence: HistoricalPersistence,
+  jobId: string,
+  limits: HistoricalCatchupLimits,
+  counters: ProviderCounters,
+  budget: ProviderRequestBudget,
+): Promise<ResumeInterruptedJobsResult & { stats: BackfillJobStats }> {
+  const job = await persistence.intelligence.getJob(jobId);
+  if (!job) {
+    throw new Error(`interrupted job ${jobId} not found`);
+  }
+  const started = Date.now();
+  if (job.state === "PAUSED" || job.state === "FAILED") {
+    const resumed = await engine.resume(jobId, new Date().toISOString());
+    if (!resumed.ok) throw new Error(`resume blocked: ${resumed.reason}`);
+  } else if (job.state !== "RUNNING") {
+    throw new Error(`interrupted job ${jobId} is not resumable (state=${job.state})`);
+  }
+  const stats = await advanceJobWithinFlyLimits(engine, jobId, limits, counters, budget);
+  logEvent({
+    event: "batch_complete",
+    jobId,
+    resumed: job.state !== "RUNNING",
+    state: stats.state,
+    securitiesProcessed: stats.securitiesProcessed,
+    rowsWritten: stats.rowsWritten,
+    episodesWritten: episodesWritten(stats),
+    providerErrors: stats.providerErrors,
+    elapsedMs: Date.now() - started,
+  });
+  if (stats.state === "FAILED") {
+    throw new Error(`interrupted job ${jobId} failed`);
+  }
+  if (stats.state === "PAUSED") {
+    return {
+      blockNewJobs: true,
+      stopReason: "job_paused",
+      interruptedJobId: jobId,
+      stats,
+    };
+  }
+  if (stats.state === "RUNNING") {
+    const budgetExhausted = budget.used >= limits.maxProviderRequestsPerRun;
+    return {
+      blockNewJobs: true,
+      stopReason: budgetExhausted || providerRequestTotal(counters) >= limits.maxProviderRequestsPerRun
+        ? "provider_request_limit"
+        : "interrupted_job_incomplete",
+      interruptedJobId: jobId,
+      stats,
+    };
+  }
+  return { blockNewJobs: false, stopReason: "none", interruptedJobId: null, stats };
+}
+
 export async function resumeInterruptedJobs(
   engine: HistoricalBackfillEngine,
   persistence: HistoricalPersistence,
@@ -396,44 +454,19 @@ export async function resumeInterruptedJobs(
   if (!interrupted) {
     return { blockNewJobs: false, stopReason: "none", interruptedJobId: null };
   }
-  const started = Date.now();
-  if (interrupted.state === "PAUSED" || interrupted.state === "FAILED") {
-    const resumed = await engine.resume(interrupted.jobId, new Date().toISOString());
-    if (!resumed.ok) throw new Error(`resume blocked: ${resumed.reason}`);
-  }
-  const stats = await advanceJobWithinFlyLimits(engine, interrupted.jobId, limits, counters, budget);
-  logEvent({
-    event: "batch_complete",
-    jobId: interrupted.jobId,
-    resumed: interrupted.state !== "RUNNING",
-    state: stats.state,
-    securitiesProcessed: stats.securitiesProcessed,
-    rowsWritten: stats.rowsWritten,
-    episodesWritten: episodesWritten(stats),
-    providerErrors: stats.providerErrors,
-    elapsedMs: Date.now() - started,
-  });
-  if (stats.state === "FAILED") {
-    throw new Error(`interrupted job ${interrupted.jobId} failed`);
-  }
-  if (stats.state === "PAUSED") {
-    return {
-      blockNewJobs: true,
-      stopReason: "job_paused",
-      interruptedJobId: interrupted.jobId,
-    };
-  }
-  if (stats.state === "RUNNING") {
-    const budgetExhausted = budget.used >= limits.maxProviderRequestsPerRun;
-    return {
-      blockNewJobs: true,
-      stopReason: budgetExhausted || providerRequestTotal(counters) >= limits.maxProviderRequestsPerRun
-        ? "provider_request_limit"
-        : "interrupted_job_incomplete",
-      interruptedJobId: interrupted.jobId,
-    };
-  }
-  return { blockNewJobs: false, stopReason: "none", interruptedJobId: null };
+  const result = await resumeInterruptedJobById(
+    engine,
+    persistence,
+    interrupted.jobId,
+    limits,
+    counters,
+    budget,
+  );
+  return {
+    blockNewJobs: result.blockNewJobs,
+    stopReason: result.stopReason,
+    interruptedJobId: result.interruptedJobId,
+  };
 }
 
 export interface ProductionRolloutResult {
@@ -453,8 +486,12 @@ export const PRODUCTION_CONNECTIVITY_JOB_ID = "0ab000ee-6f58-4e21-ba68-4a095a97f
 export async function runHistoricalBackfillConnectivityCheck(options: {
   loadLocalEnv?: boolean;
   jobId?: string;
+  persistenceOverride?: HistoricalPersistence;
 } = {}): Promise<{ transport: string; jobId: string; jobState: string | null }> {
-  const persistence = createHistoricalPersistence(options);
+  const persistence = createHistoricalPersistence({
+    loadLocalEnv: options.loadLocalEnv,
+    persistenceOverride: options.persistenceOverride,
+  });
   const jobId = options.jobId ?? PRODUCTION_CONNECTIVITY_JOB_ID;
   try {
     const job = await persistence.intelligence.getJob(jobId);
@@ -575,12 +612,55 @@ async function advanceJobWithinFlyLimits(
   return stats;
 }
 
+export type ResumeOnlyTerminalEvent =
+  | "resume_only_complete"
+  | "resume_only_paused"
+  | "resume_only_failed"
+  | "resume_only_noop";
+
+export type ResumeOnlyRefusalReason =
+  | "job_missing"
+  | "already_complete"
+  | "date_range_mismatch"
+  | "not_resumable";
+
+export interface ResumeOnlyRunMetrics {
+  cursorToken: string | null;
+  processedCount: number;
+  rowsWritten: number;
+  episodesWritten: number;
+  coverageGapsRecorded: number | null;
+}
+
+export interface HistoricalCatchUpResumeOnlyResult {
+  terminalEvent: ResumeOnlyTerminalEvent;
+  jobId: string;
+  startingCursor: string | null;
+  endingCursor: string | null;
+  finalJobState: string;
+  securitiesProcessedDuringRun: number;
+  dailyRowsWrittenDuringRun: number;
+  episodesWrittenDuringRun: number;
+  coverageGapsRecordedDuringRun: number | null;
+  providerDailyRequests: number;
+  providerReferenceRequests: number;
+  stopReason: CatchUpStopReason | ResumeOnlyRefusalReason | "none";
+  eligibilityJobCreated: false;
+  runtimeMs: number;
+}
+
 export interface HistoricalCatchUpRolloutOptions {
   loadLocalEnv?: boolean;
   /** Explicit target session (tests). Otherwise HISTORICAL_CATCHUP_TARGET_SESSION is required. */
   targetSession?: string | null;
   now?: Date;
   limits?: HistoricalCatchupLimits;
+  /** Test hook — bypass bridge/postgres wiring. */
+  persistenceOverride?: HistoricalPersistence;
+  /** Test hook — explicit resume job id (overrides env when resume-only). */
+  resumeJobId?: string | null;
+  /** Test hook — bypass Polygon adapter wiring. */
+  engineOverride?: HistoricalBackfillEngine;
 }
 
 /** Validates target date and limits without historical writes or provider catch-up. */
@@ -632,6 +712,268 @@ export async function runHistoricalCatchUpPreflight(
   };
 }
 
+function episodesFromJobMetadata(job: SecurityBackfillJob): number {
+  const checkpoint = job.metadata?.checkpoint;
+  if (!checkpoint || typeof checkpoint !== "object") return 0;
+  const tiers = (checkpoint as { episodesByTier?: Record<string, number> }).episodesByTier;
+  if (!tiers) return 0;
+  return (tiers.NOTABLE ?? 0) + (tiers.SIGNIFICANT ?? 0) + (tiers.EXTREME ?? 0);
+}
+
+function rowsWrittenFromJobMetadata(job: SecurityBackfillJob): number {
+  const checkpoint = job.metadata?.checkpoint;
+  if (!checkpoint || typeof checkpoint !== "object") return 0;
+  const rows = (checkpoint as { rowsWritten?: number }).rowsWritten;
+  return typeof rows === "number" ? rows : 0;
+}
+
+function snapshotResumeOnlyMetrics(
+  job: SecurityBackfillJob,
+  coverageGapsBefore: number | null,
+  coverageGapsAfter: number | null,
+): ResumeOnlyRunMetrics {
+  return {
+    cursorToken: job.cursorToken,
+    processedCount: job.processedCount,
+    rowsWritten: rowsWrittenFromJobMetadata(job),
+    episodesWritten: episodesFromJobMetadata(job),
+    coverageGapsRecorded:
+      coverageGapsBefore === null || coverageGapsAfter === null
+        ? null
+        : Math.max(0, coverageGapsAfter - coverageGapsBefore),
+  };
+}
+
+function countCoverageGapsIfSupported(
+  intelligence: HistoricalPersistence["intelligence"],
+): number | null {
+  const store = intelligence as { listCoverageGaps?: (securityId?: string) => readonly unknown[] };
+  if (typeof store.listCoverageGaps !== "function") return null;
+  return store.listCoverageGaps().length;
+}
+
+function logResumeOnlyTerminal(payload: {
+  event: ResumeOnlyTerminalEvent;
+  jobId: string;
+  startingCursor: string | null;
+  endingCursor: string | null;
+  finalJobState: string;
+  securitiesProcessedDuringRun: number;
+  dailyRowsWrittenDuringRun: number;
+  episodesWrittenDuringRun: number;
+  coverageGapsRecordedDuringRun: number | null;
+  providerDailyRequests: number;
+  providerReferenceRequests: number;
+  stopReason: CatchUpStopReason | ResumeOnlyRefusalReason | "none";
+}): void {
+  logEvent({
+    ...payload,
+    eligibilityJobCreated: false,
+  });
+}
+
+export async function runHistoricalCatchUpResumeOnly(
+  options: HistoricalCatchUpRolloutOptions = {},
+): Promise<HistoricalCatchUpResumeOnlyResult> {
+  if (options.loadLocalEnv) loadDotEnvFiles();
+  let jobId = options.resumeJobId?.trim() ?? "";
+  if (!jobId) {
+    jobId = readHistoricalCatchupResumeOnlyFromEnv().jobId ?? "";
+  }
+  if (!jobId) {
+    throw new Error("resume-only job id is required");
+  }
+
+  const targetResolved = resolveHistoricalCatchUpTargetSession({
+    envValue: process.env[HISTORICAL_CATCHUP_TARGET_ENV],
+    explicitTarget: options.targetSession,
+    now: options.now,
+  });
+  if (targetResolved.ok === false) {
+    throw new Error(targetResolved.error);
+  }
+  const targetSession = targetResolved.targetSession;
+  const dateFrom = PRODUCTION_DATE_FROM;
+  const limits = options.limits ?? readHistoricalCatchupLimitsFromEnv();
+  const startedAt = Date.now();
+
+  const persistence = createHistoricalPersistence({
+    loadLocalEnv: false,
+    persistenceOverride: options.persistenceOverride,
+  });
+
+  const finishNoop = async (
+    reason: ResumeOnlyRefusalReason,
+    finalJobState: string,
+    startingCursor: string | null,
+  ): Promise<HistoricalCatchUpResumeOnlyResult> => {
+    const result: HistoricalCatchUpResumeOnlyResult = {
+      terminalEvent: "resume_only_noop",
+      jobId,
+      startingCursor,
+      endingCursor: startingCursor,
+      finalJobState,
+      securitiesProcessedDuringRun: 0,
+      dailyRowsWrittenDuringRun: 0,
+      episodesWrittenDuringRun: 0,
+      coverageGapsRecordedDuringRun: 0,
+      providerDailyRequests: 0,
+      providerReferenceRequests: 0,
+      stopReason: reason,
+      eligibilityJobCreated: false,
+      runtimeMs: Date.now() - startedAt,
+    };
+    logResumeOnlyTerminal({
+      event: result.terminalEvent,
+      jobId: result.jobId,
+      startingCursor: result.startingCursor,
+      endingCursor: result.endingCursor,
+      finalJobState: result.finalJobState,
+      securitiesProcessedDuringRun: 0,
+      dailyRowsWrittenDuringRun: 0,
+      episodesWrittenDuringRun: 0,
+      coverageGapsRecordedDuringRun: 0,
+      providerDailyRequests: 0,
+      providerReferenceRequests: 0,
+      stopReason: reason,
+    });
+    await persistence.close();
+    return result;
+  };
+
+  try {
+    const jobBefore = await persistence.intelligence.getJob(jobId);
+    if (!jobBefore) {
+      return finishNoop("job_missing", "MISSING", null);
+    }
+    const startingCursor = jobBefore.cursorToken;
+    if (jobBefore.dateFrom !== dateFrom || jobBefore.dateTo !== targetSession) {
+      return finishNoop("date_range_mismatch", jobBefore.state, startingCursor);
+    }
+    if (jobBefore.state === "COMPLETE") {
+      return finishNoop("already_complete", jobBefore.state, startingCursor);
+    }
+    if (jobBefore.state !== "PAUSED" && jobBefore.state !== "FAILED" && jobBefore.state !== "RUNNING") {
+      return finishNoop("not_resumable", jobBefore.state, startingCursor);
+    }
+
+    const counters: ProviderCounters = {
+      dailyRequests: 0,
+      referenceRequests: 0,
+      http403: 0,
+      http429: 0,
+      nextPages: 0,
+    };
+    const logs: RequestLog[] = [];
+    const budget = new ProviderRequestBudget(limits.maxProviderRequestsPerRun);
+    let providerEntitlementFloor: string | null = null;
+    let engine: HistoricalBackfillEngine;
+    if (options.engineOverride) {
+      engine = options.engineOverride;
+    } else {
+      const key = requirePolygonKey();
+      providerEntitlementFloor = await validateEntitlementConfigForRollout(key, budget, counters, logs);
+      engine = createEngine(persistence, key, budget, counters, logs, providerEntitlementFloor);
+    }
+
+    logEvent({
+      event: "catch_up_start",
+      mode: "resume_only",
+      targetSession,
+      completedSession: targetResolved.completedSession,
+      transport: persistence.transport,
+      limits,
+      entitlementFloor: providerEntitlementFloor,
+      jobId,
+    });
+
+    const gapsBefore = countCoverageGapsIfSupported(persistence.intelligence);
+    const metricsBefore = snapshotResumeOnlyMetrics(jobBefore, gapsBefore, gapsBefore);
+
+    let resumeResult: ResumeInterruptedJobsResult & { stats: BackfillJobStats };
+    try {
+      resumeResult = await resumeInterruptedJobById(
+        engine,
+        persistence,
+        jobId,
+        limits,
+        counters,
+        budget,
+      );
+    } catch (error) {
+      const jobAfter = await persistence.intelligence.getJob(jobId);
+      const gapsAfter = countCoverageGapsIfSupported(persistence.intelligence);
+      const metricsAfter = jobAfter
+        ? snapshotResumeOnlyMetrics(jobAfter, gapsBefore, gapsAfter)
+        : metricsBefore;
+      logResumeOnlyTerminal({
+        event: "resume_only_failed",
+        jobId,
+        startingCursor,
+        endingCursor: metricsAfter.cursorToken,
+        finalJobState: jobAfter?.state ?? "FAILED",
+        securitiesProcessedDuringRun: Math.max(0, metricsAfter.processedCount - metricsBefore.processedCount),
+        dailyRowsWrittenDuringRun: Math.max(0, metricsAfter.rowsWritten - metricsBefore.rowsWritten),
+        episodesWrittenDuringRun: Math.max(0, metricsAfter.episodesWritten - metricsBefore.episodesWritten),
+        coverageGapsRecordedDuringRun: metricsAfter.coverageGapsRecorded,
+        providerDailyRequests: counters.dailyRequests,
+        providerReferenceRequests: counters.referenceRequests,
+        stopReason: "none",
+      });
+      throw error;
+    }
+
+    const jobAfter = await persistence.intelligence.getJob(jobId);
+    if (!jobAfter) {
+      throw new Error(`resume-only job ${jobId} disappeared after run`);
+    }
+    const gapsAfter = countCoverageGapsIfSupported(persistence.intelligence);
+    const metricsAfter = snapshotResumeOnlyMetrics(jobAfter, gapsBefore, gapsAfter);
+
+    const terminalEvent: ResumeOnlyTerminalEvent = resumeResult.stats.state === "COMPLETE"
+      ? "resume_only_complete"
+      : "resume_only_paused";
+
+    const result: HistoricalCatchUpResumeOnlyResult = {
+      terminalEvent,
+      jobId,
+      startingCursor,
+      endingCursor: metricsAfter.cursorToken,
+      finalJobState: jobAfter.state,
+      securitiesProcessedDuringRun: Math.max(0, metricsAfter.processedCount - metricsBefore.processedCount),
+      dailyRowsWrittenDuringRun: Math.max(0, metricsAfter.rowsWritten - metricsBefore.rowsWritten),
+      episodesWrittenDuringRun: Math.max(0, metricsAfter.episodesWritten - metricsBefore.episodesWritten),
+      coverageGapsRecordedDuringRun: metricsAfter.coverageGapsRecorded,
+      providerDailyRequests: counters.dailyRequests,
+      providerReferenceRequests: counters.referenceRequests,
+      stopReason: resumeResult.stopReason,
+      eligibilityJobCreated: false,
+      runtimeMs: Date.now() - startedAt,
+    };
+
+    logResumeOnlyTerminal({
+      event: result.terminalEvent,
+      jobId: result.jobId,
+      startingCursor: result.startingCursor,
+      endingCursor: result.endingCursor,
+      finalJobState: result.finalJobState,
+      securitiesProcessedDuringRun: result.securitiesProcessedDuringRun,
+      dailyRowsWrittenDuringRun: result.dailyRowsWrittenDuringRun,
+      episodesWrittenDuringRun: result.episodesWrittenDuringRun,
+      coverageGapsRecordedDuringRun: result.coverageGapsRecordedDuringRun,
+      providerDailyRequests: result.providerDailyRequests,
+      providerReferenceRequests: result.providerReferenceRequests,
+      stopReason: result.stopReason,
+    });
+
+    await persistence.close();
+    return result;
+  } catch (error) {
+    await persistence.close();
+    throw error;
+  }
+}
+
 export async function runHistoricalCatchUpRollout(
   options: HistoricalCatchUpRolloutOptions = {},
 ): Promise<ProductionRolloutResult> {
@@ -650,7 +992,10 @@ export async function runHistoricalCatchUpRollout(
 
   const startedAt = Date.now();
   const key = requirePolygonKey();
-  const persistence = createHistoricalPersistence(options);
+  const persistence = createHistoricalPersistence({
+    loadLocalEnv: options.loadLocalEnv,
+    persistenceOverride: options.persistenceOverride,
+  });
   const { identity, intelligence } = persistence;
   const counters: ProviderCounters = {
     dailyRequests: 0,

@@ -3,10 +3,14 @@
  * Secrets: RADAR_BRIDGE_URL, RADAR_WORKER_SECRET, POLYGON_API_KEY (optional HISTORICAL_PRODUCTION_DATABASE_URL for local).
  */
 import { createServer } from "node:http";
-import { HISTORICAL_CATCHUP_PREFLIGHT_ENV } from "@/config/historical-catchup.config";
+import {
+  HISTORICAL_CATCHUP_PREFLIGHT_ENV,
+  isHistoricalCatchupResumeOnlyEnabled,
+} from "@/config/historical-catchup.config";
 import {
   runHistoricalBackfillConnectivityCheck,
   runHistoricalCatchUpPreflight,
+  runHistoricalCatchUpResumeOnly,
   runHistoricalCatchUpRollout,
 } from "@/lib/historical-backfill/production-rollout";
 
@@ -19,11 +23,14 @@ server.listen(port, "0.0.0.0");
 
 const connectivityOnly = process.env.HISTORICAL_BACKFILL_CONNECTIVITY_ONLY === "1";
 const preflightOnly = process.env[HISTORICAL_CATCHUP_PREFLIGHT_ENV] === "1";
+const resumeOnly = !preflightOnly && isHistoricalCatchupResumeOnlyEnabled();
 const runner = connectivityOnly
   ? runHistoricalBackfillConnectivityCheck({ loadLocalEnv: false })
   : preflightOnly
     ? runHistoricalCatchUpPreflight({ loadLocalEnv: false })
-    : runHistoricalCatchUpRollout({ loadLocalEnv: false });
+    : resumeOnly
+      ? runHistoricalCatchUpResumeOnly({ loadLocalEnv: false })
+      : runHistoricalCatchUpRollout({ loadLocalEnv: false });
 
 runner
   .then((result) => {
@@ -31,6 +38,8 @@ runner
       console.log(JSON.stringify({ event: "connectivity_ok", ...result }));
     } else if (preflightOnly) {
       console.log(JSON.stringify({ event: "catch_up_preflight_ok", ...result }));
+    } else if (resumeOnly && result && typeof result === "object" && "terminalEvent" in result) {
+      console.log(JSON.stringify({ event: result.terminalEvent, ...result }));
     }
     server.close();
     process.exit(0);
