@@ -470,6 +470,13 @@
       "when": 1792671878993,
       "tag": "0066_historical_identity_apply_diff_order_acl_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1792682205365,
+      "tag": "0067_historical_coverage_gaps_v1",
+      "breakpoints": true
     }
   ]
 }

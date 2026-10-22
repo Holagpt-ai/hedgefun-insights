@@ -8983,6 +8983,78 @@ export type Database = {
           },
         ]
       }
+      security_historical_coverage_gaps: {
+        Row: {
+          backfill_job_id: string | null
+          coverage_state: string
+          created_at: string
+          date_from: string
+          date_to: string
+          gap_id: string
+          observed_at: string
+          observed_symbol: string
+          provider: string
+          provider_message: string | null
+          provider_request_id: string | null
+          provider_status: string | null
+          resolution_state: string
+          restriction_reason: string
+          security_id: string
+          updated_at: string
+        }
+        Insert: {
+          backfill_job_id?: string | null
+          coverage_state: string
+          created_at?: string
+          date_from: string
+          date_to: string
+          gap_id?: string
+          observed_at: string
+          observed_symbol: string
+          provider: string
+          provider_message?: string | null
+          provider_request_id?: string | null
+          provider_status?: string | null
+          resolution_state?: string
+          restriction_reason: string
+          security_id: string
+          updated_at?: string
+        }
+        Update: {
+          backfill_job_id?: string | null
+          coverage_state?: string
+          created_at?: string
+          date_from?: string
+          date_to?: string
+          gap_id?: string
+          observed_at?: string
+          observed_symbol?: string
+          provider?: string
+          provider_message?: string | null
+          provider_request_id?: string | null
+          provider_status?: string | null
+          resolution_state?: string
+          restriction_reason?: string
+          security_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_historical_coverage_gaps_backfill_job_id_fkey"
+            columns: ["backfill_job_id"]
+            isOneToOne: false
+            referencedRelation: "security_backfill_jobs"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "security_historical_coverage_gaps_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
       security_reference_identifiers: {
         Row: {
           fetched_at: string | null
@@ -10452,6 +10524,10 @@ export type Database = {
       heartbeat_radar_v22_lease_v1: {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
+      }
+      historical_apply_coverage_gap_batch: {
+        Args: { p_rows: Json }
+        Returns: undefined
       }
       historical_apply_daily_batch: {
         Args: { p_rows: Json }
