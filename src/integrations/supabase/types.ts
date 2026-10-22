@@ -10490,6 +10490,21 @@ export type Database = {
           symbol: string
         }[]
       }
+      historical_rollout_symbols_current_through: {
+        Args: { p_date_from: string; p_date_to: string }
+        Returns: {
+          latest_session: string
+          session_count: number
+          symbol: string
+        }[]
+      }
+      historical_symbol_history_facts_match: {
+        Args: {
+          p_existing: Database["public"]["Tables"]["security_symbol_history"]["Row"]
+          p_row: Json
+        }
+        Returns: boolean
+      }
       intraday_episode_event_apply_batch_v1: {
         Args: { p_rows: Json }
         Returns: Json
