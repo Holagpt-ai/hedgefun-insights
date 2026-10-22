@@ -5,6 +5,11 @@ import type { EarningsBadge } from "@/lib/watchlist-v2/earnings";
 import { appendWatchlistDelayDisclosure } from "@/lib/watchlist-v2/watchlist-market-disclosure";
 import { MARKET_PULSE_CAUSATION_DISCLAIMER } from "@/lib/markets/market-pulse-catalyst";
 import type { MarketPulseVerifiedCatalyst } from "@/lib/markets/market-pulse-contract";
+import type { SymbolCatalystPlatformContext } from "@/lib/catalyst/catalyst-platform-context";
+import {
+  resolveWatchlistCatalystIntelStatus,
+  watchlistCatalystAvailabilityLabel,
+} from "@/lib/watchlist-v2/watchlist-catalyst-context";
 import { humanFailureReason, humanFailureReasonSecondary, isExpectedUnavailableReason } from "@/lib/watchlist-v2/parsers";
 import {
   resolveWatchlistMarketDataTrust,
@@ -56,6 +61,9 @@ interface Props {
   density?: WatchlistDensity;
   earnings?: EarningsBadge | null;
   verifiedCatalyst?: MarketPulseVerifiedCatalyst | null;
+  catalystPlatform?: SymbolCatalystPlatformContext | null;
+  catalystIntelPending?: boolean;
+  catalystIntelError?: boolean;
 }
 
 const num = (n: number | null, digits = 2) =>
@@ -176,6 +184,9 @@ export function WatchlistRowV2({
   density = "compact",
   earnings = null,
   verifiedCatalyst = null,
+  catalystPlatform = null,
+  catalystIntelPending = false,
+  catalystIntelError = false,
 }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [showDiag, setShowDiag] = useState(false);
@@ -649,7 +660,15 @@ export function WatchlistRowV2({
               Verified Stocksist catalyst
             </div>
             {!verifiedCatalyst ? (
-              <div className="text-xs text-muted-foreground mb-3">No verified catalyst event linked</div>
+              <div className="text-xs text-muted-foreground mb-3">
+                {watchlistCatalystAvailabilityLabel(
+                  resolveWatchlistCatalystIntelStatus({
+                    platform: catalystPlatform,
+                    catalystIntelPending,
+                    catalystIntelError,
+                  }),
+                )}
+              </div>
             ) : (
               <div className="mb-3">
                 <div className="text-sm font-medium">{verifiedCatalyst.title}</div>
