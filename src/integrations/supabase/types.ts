@@ -8532,12 +8532,74 @@ export type Database = {
         }
         Relationships: []
       }
+      sec_edgar_sync_lease: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          holder_id: string
+          stream_key: string
+        }
+        Insert: {
+          acquired_at: string
+          expires_at: string
+          holder_id: string
+          stream_key: string
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          holder_id?: string
+          stream_key?: string
+        }
+        Relationships: []
+      }
+      sec_edgar_sync_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_code: string | null
+          finished_at: string
+          id: string
+          mode: string
+          started_at: string
+          status: string
+          stream_key: string
+          summary: Json
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          error_code?: string | null
+          finished_at: string
+          id?: string
+          mode: string
+          started_at: string
+          status: string
+          stream_key: string
+          summary?: Json
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_code?: string | null
+          finished_at?: string
+          id?: string
+          mode?: string
+          started_at?: string
+          status?: string
+          stream_key?: string
+          summary?: Json
+        }
+        Relationships: []
+      }
       sec_edgar_sync_state: {
         Row: {
           anchor_accessions: Json
           anchor_observed_at: string
+          consecutive_failures: number
           created_at: string
           head_updated_at: string | null
+          ingestion_paused: boolean
           last_success_at: string
           pages_fetched: number
           revision: number
@@ -8547,8 +8609,10 @@ export type Database = {
         Insert: {
           anchor_accessions: Json
           anchor_observed_at: string
+          consecutive_failures?: number
           created_at?: string
           head_updated_at?: string | null
+          ingestion_paused?: boolean
           last_success_at: string
           pages_fetched?: number
           revision?: number
@@ -8558,8 +8622,10 @@ export type Database = {
         Update: {
           anchor_accessions?: Json
           anchor_observed_at?: string
+          consecutive_failures?: number
           created_at?: string
           head_updated_at?: string | null
+          ingestion_paused?: boolean
           last_success_at?: string
           pages_fetched?: number
           revision?: number
@@ -10869,6 +10935,10 @@ export type Database = {
         Args: { p_holder_id: string }
         Returns: undefined
       }
+      release_sec_edgar_sync_lease_v1: {
+        Args: { p_holder_id: string; p_stream_key: string }
+        Returns: boolean
+      }
       release_watchlist_v2_ticker_lease: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -11024,6 +11094,14 @@ export type Database = {
       }
       try_acquire_screener_52w_baseline_run_lease_v1: {
         Args: { p_holder_id: string; p_ttl_ms: number }
+        Returns: boolean
+      }
+      try_acquire_sec_edgar_sync_lease_v1: {
+        Args: {
+          p_holder_id: string
+          p_stream_key: string
+          p_ttl_seconds?: number
+        }
         Returns: boolean
       }
       try_screener_bar_numeric: { Args: { p_raw: string }; Returns: number }
