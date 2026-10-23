@@ -52,6 +52,7 @@ import {
 } from "../_shared/pre-market/contract.ts";
 import { boundWatchlistUserFacingText } from "../_shared/watchlist-v2/signal-assertion-provenance.ts";
 import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
+import { CATALYST_FEED_VERIFICATION_STATE } from "../_shared/catalyst/catalyst-feed-eligibility.ts";
 import { compareCatalystPrecedence } from "../_shared/catalyst/precedence.ts";
 import { consolidateRiskFlags, type RawRiskItem } from "../_shared/pre-market/risk-flags.ts";
 import { FEED_SYNC_UNAVAILABLE, rankHeadlines } from "../_shared/pre-market/headlines.ts";
@@ -198,7 +199,7 @@ serve(async (req) => {
     userClient.from("watchlists").select("symbol").eq("user_id", userId),
     userClient.from("catalyst_events")
       .select("id, dedupe_key, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, source_url, published_at, updated_at, facts, related_symbols, provider_article_id")
-      .eq("verification_state", "provider_reported")
+      .eq("verification_state", CATALYST_FEED_VERIFICATION_STATE)
       .gte("event_date", catalystFrom)
       .lte("event_date", et.date)
       .order("event_date", { ascending: false })

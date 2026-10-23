@@ -1,7 +1,7 @@
 // sync-sec-edgar-filings handler — V1C paging + accession-anchor checkpoint.
+// Gate I: single-flight lease, run telemetry, pause/failure counters.
 // FACT-ONLY ingestion. Default mode is dry_run. Write requires both
 // an authenticated {"mode":"write"} request and SEC_EDGAR_WRITE_ENABLED=true.
-// Endpoints, paging, owner filter, and checkpoint are server-fixed.
 
 import { timingSafeMatch } from "../_shared/timing-safe.ts";
 import {
@@ -9,7 +9,9 @@ import {
   isSecEdgarWriteEnabled,
   parseSecSyncRequestBody,
   sanitizeActivationSummary,
+  SEC_SYNC_LEASE_TTL_SECONDS,
   SEC_SYNC_MAX_BODY_BYTES,
+  SEC_SYNC_MAX_RUN_DURATION_MS,
   shouldSkipSecDiscoveryForMarketHoliday,
   type CheckpointStatusLabel,
   type SecActivationSummary,
@@ -28,7 +30,7 @@ import {
   createSecRequester,
   emptySecSummary,
   parseCompanyTickersExchangeJson,
-  partitionNewRows,
+  partitionSecIngestRows,
   SEC_COMPANY_TICKERS_EXCHANGE_URL,
   SEC_INCLUDED_FORMS,
   SEC_LATEST_FILINGS_PAGE_SIZE,
@@ -37,12 +39,20 @@ import {
   type SecFetchResult,
   type SecSyncSummary,
 } from "../_shared/sec-edgar/ingest.ts";
+import {
+  buildSecRunRecord,
+  logSecRunTelemetry,
+  newRunId,
+  type SecRunStatus,
+} from "../_shared/sec-edgar/run-telemetry.ts";
 
 export type ReasonCode =
   | "AUTH_FAILED"
   | "METHOD_NOT_ALLOWED"
   | "VALIDATION_ERROR"
   | "WRITE_DISABLED"
+  | "LEASE_BUSY"
+  | "INGESTION_PAUSED"
   | "CHECKPOINT_GAP"
   | "CHECKPOINT_INCONSISTENT"
   | "CHECKPOINT_CONFLICT"
@@ -72,11 +82,21 @@ export function respondError(status: number, code: ReasonCode): Response {
 
 export type EnvReader = (key: string) => string | undefined;
 
+export type SecSyncControl = {
+  consecutive_failures: number;
+  ingestion_paused: boolean;
+};
+
 export interface SecEdgarStore {
-  findExistingDedupeKeys(keys: string[]): Promise<Set<string> | null>;
+  findExistingDedupeKeys(keys: string[]): Promise<Map<string, string> | null>;
   insertNewRows(rows: Record<string, unknown>[]): Promise<number | null>;
   loadCheckpoint(streamKey: string): Promise<LoadCheckpointResult>;
   saveCheckpoint(request: CheckpointSaveRequest): Promise<CheckpointSaveResult>;
+  tryAcquireLease(holderId: string, ttlSeconds: number): Promise<boolean | null>;
+  releaseLease(holderId: string): Promise<void>;
+  loadSyncControl(): Promise<SecSyncControl | null>;
+  recordSyncRun(record: ReturnType<typeof buildSecRunRecord>): Promise<void>;
+  noteSyncRunOutcome(success: boolean): Promise<number | null>;
 }
 
 export type HandlerDeps = {
@@ -97,7 +117,7 @@ function log(code: ReasonCode | "OK", summary?: SecActivationSummary): void {
   }
   const s = sanitizeActivationSummary(summary);
   console.log(
-    `[sec-edgar-sync] ${code} mode=${s.mode} checkpoint_status=${s.checkpoint_status} pages_fetched=${s.pages_fetched} entries_scanned=${s.entries_scanned} rows_validated=${s.rows_validated} rows_existing=${s.rows_existing} rows_would_insert=${s.rows_would_insert} rows_upserted=${s.rows_upserted} sec_requests=${s.sec_requests}`,
+    `[sec-edgar-sync] ${code} mode=${s.mode} run_status=${s.run_status} checkpoint_status=${s.checkpoint_status} pages_fetched=${s.pages_fetched} entries_scanned=${s.entries_scanned} rows_validated=${s.rows_validated} rows_skipped_invalidated=${s.rows_skipped_invalidated} sec_requests=${s.sec_requests} consecutive_failures=${s.consecutive_failures}`,
   );
 }
 
@@ -115,8 +135,10 @@ export function resetSecEdgarCikCacheForTests(): void {
 async function loadCikMap(
   secFetch: (url: string) => Promise<SecFetchResult>,
   nowMs: () => number,
+  deadlineMs: number,
 ): Promise<CikTickerMap | { error: ReasonCode }> {
   const now = nowMs();
+  if (now >= deadlineMs) return { error: "PROVIDER_TIMEOUT" };
   if (cikCache.payload && (now - cikCache.loadedAtMs) < CIK_CACHE_TTL_MS) {
     return cikCache.payload;
   }
@@ -142,9 +164,23 @@ function toSummary(
     rowsWouldInsert: number;
     formsFound: Record<string, number>;
   },
+  run: {
+    runId: string;
+    runStatus: SecRunStatus;
+    startedAtMs: number;
+    finishedAtMs: number;
+    consecutiveFailures: number;
+    providerErrorCode?: string | null;
+  },
 ): SecActivationSummary {
   return sanitizeActivationSummary({
     mode,
+    run_id: run.runId,
+    run_status: run.runStatus,
+    started_at: new Date(run.startedAtMs).toISOString(),
+    finished_at: new Date(run.finishedAtMs).toISOString(),
+    duration_ms: Math.max(0, run.finishedAtMs - run.startedAtMs),
+    consecutive_failures: run.consecutiveFailures,
     checkpoint_present: extra.checkpointPresent,
     checkpoint_status: extra.checkpointStatus,
     checkpoint_boundary_reached: extra.boundaryReached,
@@ -160,11 +196,66 @@ function toSummary(
     rows_would_insert: extra.rowsWouldInsert,
     rows_upserted: ingest.rows_upserted,
     rows_skipped_existing: ingest.rows_skipped_existing,
+    rows_skipped_invalidated: ingest.rows_skipped_invalidated,
     rows_rejected: ingest.rows_rejected,
     rows_attribution_unattributed: ingest.rows_attribution_unattributed,
     sec_requests: ingest.sec_requests,
     forms_found: extra.formsFound,
+    provider_error_code: run.providerErrorCode ?? null,
   });
+}
+
+type RunEmitArgs = {
+  mode: SecSyncMode;
+  runId: string;
+  startedAtMs: number;
+  ingest: SecSyncSummary;
+  runStatus: SecRunStatus;
+  consecutiveFailures: number;
+  errorCode: ReasonCode | "OK" | null;
+  providerErrorCode?: string | null;
+  extra: Parameters<typeof toSummary>[2];
+};
+
+async function emitRun(
+  store: SecEdgarStore,
+  nowMs: () => number,
+  args: RunEmitArgs,
+): Promise<SecActivationSummary> {
+  const finishedAtMs = nowMs();
+  const countsAsFailure = args.runStatus === "error";
+  let consecutiveFailures = args.consecutiveFailures;
+  if (args.runStatus === "ok") {
+    const next = await store.noteSyncRunOutcome(true);
+    if (next !== null) consecutiveFailures = next;
+  } else if (countsAsFailure) {
+    const next = await store.noteSyncRunOutcome(false);
+    if (next !== null) consecutiveFailures = next;
+  }
+
+  const summary = toSummary(args.mode, args.ingest, args.extra, {
+    runId: args.runId,
+    runStatus: args.runStatus,
+    startedAtMs: args.startedAtMs,
+    finishedAtMs,
+    consecutiveFailures,
+    providerErrorCode: args.providerErrorCode,
+  });
+
+  const record = buildSecRunRecord({
+    runId: args.runId,
+    streamKey: SEC_EDGAR_STREAM_KEY,
+    mode: args.mode,
+    status: args.runStatus,
+    startedAtMs: args.startedAtMs,
+    finishedAtMs,
+    errorCode: args.errorCode === "OK" ? null : args.errorCode,
+    summary,
+  });
+  logSecRunTelemetry(record);
+  await store.recordSyncRun(record);
+  log(args.errorCode ?? "OK", summary);
+  return summary;
 }
 
 export async function handleSyncSecEdgarFilings(
@@ -223,28 +314,89 @@ export async function handleSyncSecEdgarFilings(
 
   shouldSkipSecDiscoveryForMarketHoliday(true);
 
+  const runId = newRunId();
+  const nowMs = deps.nowMs ?? (() => Date.now());
+  const startedAtMs = nowMs();
+  const deadlineMs = startedAtMs + SEC_SYNC_MAX_RUN_DURATION_MS;
   const ingest = emptySecSummary();
   const secFetch = createSecRequester(secUserAgent.trim(), ingest, {
     fetchFn: deps.fetchFn,
   });
-  const nowMs = deps.nowMs ?? (() => Date.now());
+
+  let leaseHeld = false;
+  let consecutiveFailures = 0;
+
+  const emptyExtra = {
+    checkpointPresent: false,
+    checkpointStatus: "absent" as CheckpointStatusLabel,
+    boundaryReached: false,
+    pagesFetched: 0,
+    entriesScanned: 0,
+    rowsExisting: 0,
+    rowsWouldInsert: 0,
+    formsFound: {} as Record<string, number>,
+  };
 
   try {
+    const control = await deps.store.loadSyncControl();
+    if (control === null) {
+      log("DATABASE_ERROR");
+      return respondError(500, "DATABASE_ERROR");
+    }
+    consecutiveFailures = control.consecutive_failures;
+
+    if (mode === "write" && control.ingestion_paused) {
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "paused",
+        consecutiveFailures,
+        errorCode: "INGESTION_PAUSED",
+        extra: emptyExtra,
+      });
+      return respondError(409, "INGESTION_PAUSED");
+    }
+
+    const leased = await deps.store.tryAcquireLease(runId, SEC_SYNC_LEASE_TTL_SECONDS);
+    if (leased === null) {
+      log("DATABASE_ERROR");
+      return respondError(500, "DATABASE_ERROR");
+    }
+    if (!leased) {
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "lease_busy",
+        consecutiveFailures,
+        errorCode: "LEASE_BUSY",
+        extra: emptyExtra,
+      });
+      return respondError(409, "LEASE_BUSY");
+    }
+    leaseHeld = true;
+
     const loaded = await deps.store.loadCheckpoint(SEC_EDGAR_STREAM_KEY);
     if (!loaded.ok) {
       const loadReason = loaded.reason === "CHECKPOINT_INCONSISTENT"
         ? "CHECKPOINT_INCONSISTENT"
         : "DATABASE_ERROR";
-      log(loadReason, toSummary(mode, ingest, {
-        checkpointPresent: false,
-        checkpointStatus: loadReason === "CHECKPOINT_INCONSISTENT" ? "inconsistent" : "absent",
-        boundaryReached: false,
-        pagesFetched: 0,
-        entriesScanned: 0,
-        rowsExisting: 0,
-        rowsWouldInsert: 0,
-        formsFound: {},
-      }));
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: loadReason,
+        extra: {
+          ...emptyExtra,
+          checkpointStatus: loadReason === "CHECKPOINT_INCONSISTENT" ? "inconsistent" : "absent",
+        },
+      });
       return respondError(loadReason === "CHECKPOINT_INCONSISTENT" ? 409 : 500, loadReason);
     }
 
@@ -253,11 +405,38 @@ export async function handleSyncSecEdgarFilings(
     if (loaded.checkpoint) {
       const parsed = parseLoadedCheckpoint(loaded.checkpoint);
       if (!parsed.ok) {
-        log("CHECKPOINT_INCONSISTENT");
+        await emitRun(deps.store, nowMs, {
+          mode,
+          runId,
+          startedAtMs,
+          ingest,
+          runStatus: "error",
+          consecutiveFailures,
+          errorCode: "CHECKPOINT_INCONSISTENT",
+          extra: { ...emptyExtra, checkpointStatus: "inconsistent" },
+        });
         return respondError(409, "CHECKPOINT_INCONSISTENT");
       }
       anchors = parsed.checkpoint.anchor_accessions;
       expectedRevision = parsed.checkpoint.revision;
+    }
+
+    if (nowMs() >= deadlineMs) {
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: "PROVIDER_TIMEOUT",
+        providerErrorCode: "PROVIDER_TIMEOUT",
+        extra: {
+          ...emptyExtra,
+          checkpointPresent: anchors !== null,
+        },
+      });
+      return respondError(504, "PROVIDER_TIMEOUT");
     }
 
     const walk = await walkLatestFilingsPages(secFetch, anchors);
@@ -269,12 +448,17 @@ export async function handleSyncSecEdgarFilings(
       entriesScanned: walk.entriesScanned,
     };
     if (!walk.ok) {
-      log(walk.reason, toSummary(mode, ingest, {
-        ...walkMeta,
-        rowsExisting: 0,
-        rowsWouldInsert: 0,
-        formsFound: {},
-      }));
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: walk.reason,
+        providerErrorCode: walk.reason.startsWith("PROVIDER_") ? walk.reason : null,
+        extra: { ...walkMeta, rowsExisting: 0, rowsWouldInsert: 0, formsFound: {} },
+      });
       const status = walk.reason === "CHECKPOINT_GAP" || walk.reason === "CHECKPOINT_INCONSISTENT"
         ? 409
         : 502;
@@ -283,24 +467,38 @@ export async function handleSyncSecEdgarFilings(
 
     const nextAnchors = normalizeAnchorAccessions(walk.page0Accessions);
     if (nextAnchors === null) {
-      log("CHECKPOINT_INCONSISTENT", toSummary(mode, ingest, {
-        ...walkMeta,
-        checkpointStatus: "inconsistent",
-        rowsExisting: 0,
-        rowsWouldInsert: 0,
-        formsFound: {},
-      }));
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: "CHECKPOINT_INCONSISTENT",
+        extra: {
+          ...walkMeta,
+          checkpointStatus: "inconsistent",
+          rowsExisting: 0,
+          rowsWouldInsert: 0,
+          formsFound: {},
+        },
+      });
       return respondError(409, "CHECKPOINT_INCONSISTENT");
     }
 
-    const cikMap = await loadCikMap(secFetch, nowMs);
+    const cikMap = await loadCikMap(secFetch, nowMs, deadlineMs);
     if (!(cikMap instanceof Map)) {
-      log(cikMap.error, toSummary(mode, ingest, {
-        ...walkMeta,
-        rowsExisting: 0,
-        rowsWouldInsert: 0,
-        formsFound: {},
-      }));
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: cikMap.error,
+        providerErrorCode: cikMap.error.startsWith("PROVIDER_") ? cikMap.error : null,
+        extra: { ...walkMeta, rowsExisting: 0, rowsWouldInsert: 0, formsFound: {} },
+      });
       return respondError(502, cikMap.error);
     }
 
@@ -310,28 +508,44 @@ export async function handleSyncSecEdgarFilings(
       SEC_INCLUDED_FORMS,
     );
 
-    const existing = await deps.store.findExistingDedupeKeys(rows.map((r) => r.dedupe_key));
-    if (existing === null) {
-      log("DATABASE_ERROR", toSummary(mode, ingest, {
-        ...walkMeta,
-        rowsExisting: 0,
-        rowsWouldInsert: 0,
-        formsFound,
-      }));
+    const existingByKey = await deps.store.findExistingDedupeKeys(rows.map((r) => r.dedupe_key));
+    if (existingByKey === null) {
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: "DATABASE_ERROR",
+        extra: { ...walkMeta, rowsExisting: 0, rowsWouldInsert: 0, formsFound },
+      });
       return respondError(500, "DATABASE_ERROR");
     }
-    const { existing: skipped, incoming } = partitionNewRows(rows, existing);
+    const { existing: skipped, incoming, skippedInvalidated } = partitionSecIngestRows(
+      rows,
+      existingByKey,
+    );
     ingest.rows_skipped_existing += skipped.length;
+    ingest.rows_skipped_invalidated += skippedInvalidated;
 
     if (mode === "dry_run") {
-      const safe = toSummary(mode, ingest, {
-        ...walkMeta,
-        checkpointStatus: anchors === null ? "absent" : walk.checkpointStatus,
-        rowsExisting: skipped.length,
-        rowsWouldInsert: incoming.length,
-        formsFound,
+      const safe = await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "ok",
+        consecutiveFailures,
+        errorCode: "OK",
+        extra: {
+          ...walkMeta,
+          checkpointStatus: anchors === null ? "absent" : walk.checkpointStatus,
+          rowsExisting: skipped.length,
+          rowsWouldInsert: incoming.length,
+          formsFound,
+        },
       });
-      log("OK", safe);
       return respondJson(200, safe);
     }
 
@@ -339,12 +553,21 @@ export async function handleSyncSecEdgarFilings(
       ? 0
       : await deps.store.insertNewRows(incoming as unknown as Record<string, unknown>[]);
     if (inserted === null) {
-      log("DATABASE_ERROR", toSummary(mode, ingest, {
-        ...walkMeta,
-        rowsExisting: skipped.length,
-        rowsWouldInsert: incoming.length,
-        formsFound,
-      }));
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: "DATABASE_ERROR",
+        extra: {
+          ...walkMeta,
+          rowsExisting: skipped.length,
+          rowsWouldInsert: incoming.length,
+          formsFound,
+        },
+      });
       return respondError(500, "DATABASE_ERROR");
     }
     ingest.rows_upserted += inserted;
@@ -363,39 +586,59 @@ export async function handleSyncSecEdgarFilings(
       },
     });
     if (!saved.ok) {
-      const failed = toSummary(mode, ingest, {
-        ...walkMeta,
-        checkpointStatus: saved.reason === "CHECKPOINT_CONFLICT" ? "conflict" : "write_failed",
-        rowsExisting: skipped.length,
-        rowsWouldInsert: incoming.length,
-        formsFound,
+      await emitRun(deps.store, nowMs, {
+        mode,
+        runId,
+        startedAtMs,
+        ingest,
+        runStatus: "error",
+        consecutiveFailures,
+        errorCode: saved.reason,
+        extra: {
+          ...walkMeta,
+          checkpointStatus: saved.reason === "CHECKPOINT_CONFLICT" ? "conflict" : "write_failed",
+          rowsExisting: skipped.length,
+          rowsWouldInsert: incoming.length,
+          formsFound,
+        },
       });
-      log(saved.reason, failed);
       return respondError(
         saved.reason === "CHECKPOINT_CONFLICT" ? 409 : 500,
         saved.reason,
       );
     }
 
-    const safe = toSummary(mode, ingest, {
-      ...walkMeta,
-      rowsExisting: skipped.length,
-      rowsWouldInsert: incoming.length,
-      formsFound,
+    const safe = await emitRun(deps.store, nowMs, {
+      mode,
+      runId,
+      startedAtMs,
+      ingest,
+      runStatus: "ok",
+      consecutiveFailures,
+      errorCode: "OK",
+      extra: {
+        ...walkMeta,
+        rowsExisting: skipped.length,
+        rowsWouldInsert: incoming.length,
+        formsFound,
+      },
     });
-    log("OK", safe);
     return respondJson(200, safe);
   } catch {
-    log("UNKNOWN", toSummary(mode, ingest, {
-      checkpointPresent: false,
-      checkpointStatus: "absent",
-      boundaryReached: false,
-      pagesFetched: 0,
-      entriesScanned: 0,
-      rowsExisting: 0,
-      rowsWouldInsert: 0,
-      formsFound: {},
-    }));
+    await emitRun(deps.store, nowMs, {
+      mode,
+      runId,
+      startedAtMs,
+      ingest,
+      runStatus: "error",
+      consecutiveFailures,
+      errorCode: "UNKNOWN",
+      extra: emptyExtra,
+    }).catch(() => undefined);
     return respondError(500, "UNKNOWN");
+  } finally {
+    if (leaseHeld) {
+      await deps.store.releaseLease(runId).catch(() => undefined);
+    }
   }
 }

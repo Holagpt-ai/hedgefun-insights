@@ -4,6 +4,7 @@
 // Session/calendar hardening reuses the locked Watchlist V2 implementation
 // (`_shared/watchlist-v2/session.ts`) read-only; it is never modified here.
 
+import { isEligibleCatalystFeedRow } from "../catalyst/catalyst-feed-eligibility.ts";
 import {
   classifyToday,
   extractEtOffset,
@@ -284,7 +285,9 @@ export function sortByVolumeDesc<T extends { volume: number | null; change_pct?:
 // ------------------------------------------------------------------ catalyst
 
 export function isProviderReported(row: { verification_state?: unknown }): boolean {
-  return row.verification_state === "provider_reported";
+  return isEligibleCatalystFeedRow(
+    typeof row.verification_state === "string" ? row.verification_state : null,
+  );
 }
 
 /** Deduplicate on dedupe_key when present, else id. */

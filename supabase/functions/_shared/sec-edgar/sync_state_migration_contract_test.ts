@@ -20,3 +20,18 @@ Deno.test("sec_edgar_sync_state migration is service-role only and does not sche
   assertFalse(sql.includes("CREATE POLICY"));
   assertFalse(sql.includes("GRANT SELECT"));
 });
+
+const GATE_I_MIGRATION_REL = "../../../migrations/20261024103000_sec_edgar_recurring_ingestion_v1.sql";
+
+Deno.test("Gate I recurring ingestion migration adds lease, runs, pause counters, no cron", async () => {
+  const sql = (await Deno.readTextFile(new URL(GATE_I_MIGRATION_REL, import.meta.url)))
+    .replaceAll("\r\n", "\n");
+  assert(sql.includes("sec_edgar_sync_lease"));
+  assert(sql.includes("sec_edgar_sync_runs"));
+  assert(sql.includes("consecutive_failures"));
+  assert(sql.includes("ingestion_paused"));
+  assert(sql.includes("try_acquire_sec_edgar_sync_lease_v1"));
+  assert(sql.includes("REVOKE ALL ON FUNCTION public.try_acquire_sec_edgar_sync_lease_v1"));
+  assert(sql.includes("GRANT EXECUTE ON FUNCTION public.try_acquire_sec_edgar_sync_lease_v1"));
+  assertFalse(sql.includes("cron.schedule"));
+});
