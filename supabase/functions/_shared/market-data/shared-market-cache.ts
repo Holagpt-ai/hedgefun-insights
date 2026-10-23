@@ -129,7 +129,7 @@ export async function resolveSharedMarketData(
     cacheKey: string | null;
     coalesceKey: string;
     closed: boolean;
-    /** Redis payload cache. Live quotes stay in memory so cold isolates do not GET on every request. */
+    /** Redis payload cache on L1 miss only (warm isolates still serve memory without a GET). */
     sharePayload: boolean;
     surface: MarketCacheSurface;
     identity: MarketDataClientIdentity;
