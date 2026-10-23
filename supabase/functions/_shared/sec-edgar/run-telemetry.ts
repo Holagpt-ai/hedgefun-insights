@@ -62,6 +62,10 @@ export function logSecRunTelemetry(record: SecRunRecord): void {
       rows_skipped_invalidated: s.rows_skipped_invalidated,
       sec_requests: s.sec_requests,
       consecutive_failures: s.consecutive_failures,
+      ingestion_paused: s.ingestion_paused,
+      auto_pause_applied: s.auto_pause_applied,
+      checkpoint_revision: s.checkpoint_revision,
+      last_success_at: s.last_success_at,
     }),
   );
 }

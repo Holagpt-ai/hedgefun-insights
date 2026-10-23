@@ -11,10 +11,12 @@ import {
   type CheckpointSaveRequest,
   type SecEdgarCheckpoint,
 } from "../_shared/sec-edgar/checkpoint.ts";
+import { applySecSyncRunOutcome } from "../_shared/sec-edgar/sync-outcome.ts";
 import {
   handleSyncSecEdgarFilings,
   resetSecEdgarCikCacheForTests,
   type SecEdgarStore,
+  type SecSyncControl,
 } from "./handler.ts";
 
 const SYNC_SECRET = "test-sync-secret";
@@ -100,9 +102,12 @@ function memoryStore(
     loadFrozenAbsent?: boolean;
     leaseBusy?: boolean;
     ingestionPaused?: boolean;
+    failurePauseThreshold?: number;
+    sharedControl?: SecSyncControl;
     shared?: { row: SecEdgarCheckpoint | null };
   } = {},
 ): SecEdgarStore & {
+  control: SecSyncControl;
   inserts: Record<string, unknown>[][];
   saves: SecEdgarCheckpoint[];
   loads: number;
@@ -116,7 +121,14 @@ function memoryStore(
   let loads = 0;
   let finds = 0;
   let runs = 0;
+  const controlBox: SecSyncControl = opts.sharedControl ?? {
+    consecutive_failures: 0,
+    ingestion_paused: opts.ingestionPaused === true,
+    failure_pause_threshold: opts.failurePauseThreshold ?? 3,
+    last_success_at: null,
+  };
   return {
+    control: controlBox,
     inserts,
     saves,
     get loads() {
@@ -141,14 +153,23 @@ function memoryStore(
     },
     tryAcquireLease: async () => (opts.leaseBusy ? false : true),
     releaseLease: async () => {},
-    loadSyncControl: async () => ({
-      consecutive_failures: 0,
-      ingestion_paused: opts.ingestionPaused === true,
-    }),
+    loadSyncControl: async () => ({ ...controlBox }),
     recordSyncRun: async () => {
       runs += 1;
     },
-    noteSyncRunOutcome: async (success) => (success ? 0 : 1),
+    noteSyncRunOutcome: async (success) => {
+      const out = applySecSyncRunOutcome(
+        {
+          consecutive_failures: controlBox.consecutive_failures,
+          ingestion_paused: controlBox.ingestion_paused,
+          failure_pause_threshold: controlBox.failure_pause_threshold,
+        },
+        success,
+      );
+      controlBox.consecutive_failures = out.consecutive_failures;
+      controlBox.ingestion_paused = out.ingestion_paused;
+      return out;
+    },
     insertNewRows: async (rows) => {
       if (opts.insertFails) return null;
       inserts.push(rows);
@@ -565,4 +586,46 @@ Deno.test("successful run records telemetry fields", async () => {
   assert(typeof json.run_id === "string" && json.run_id.length > 0);
   assert(json.duration_ms >= 0);
   assertEquals(store.runs, 1);
+});
+
+Deno.test("three qualifying failures auto-pause ingestion", async () => {
+  const store = memoryStore();
+  const fetch = fetchByStart({ 0: "error" });
+  for (let i = 0; i < 3; i++) {
+    const { res } = await invoke('{"mode":"write"}', {
+      env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+      store,
+      fetch,
+    });
+    assertEquals(res.status, 502);
+  }
+  assertEquals(store.control.ingestion_paused, true);
+  assertEquals(store.control.consecutive_failures, 3);
+});
+
+Deno.test("successful run resets failures but leaves pause latched", async () => {
+  const store = memoryStore({
+    sharedControl: {
+      consecutive_failures: 2,
+      ingestion_paused: true,
+      failure_pause_threshold: 3,
+      last_success_at: null,
+    },
+  });
+  const { res, json } = await invoke('{"mode":"dry_run"}', { store });
+  assertEquals(res.status, 200);
+  assertEquals(json.consecutive_failures, 0);
+  assertEquals(json.ingestion_paused, true);
+  assertEquals(store.control.consecutive_failures, 0);
+  assertEquals(store.control.ingestion_paused, true);
+});
+
+Deno.test("lease busy does not increment consecutive failures", async () => {
+  const store = memoryStore({ leaseBusy: true });
+  await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store,
+  });
+  assertEquals(store.control.consecutive_failures, 0);
+  assertEquals(store.control.ingestion_paused, false);
 });

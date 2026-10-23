@@ -144,20 +144,36 @@ function createSupabaseStore(supabase: SbClient): SecEdgarStore {
     async loadSyncControl() {
       const { data, error } = await supabase
         .from("sec_edgar_sync_state")
-        .select("consecutive_failures, ingestion_paused")
+        .select("consecutive_failures, ingestion_paused, failure_pause_threshold, last_success_at")
         .eq("stream_key", SEC_EDGAR_STREAM_KEY)
         .maybeSingle();
       if (error) return null;
       if (!data) {
-        return { consecutive_failures: 0, ingestion_paused: false };
+        return {
+          consecutive_failures: 0,
+          ingestion_paused: false,
+          failure_pause_threshold: 3,
+          last_success_at: null,
+        };
       }
-      const row = data as { consecutive_failures?: unknown; ingestion_paused?: unknown };
+      const row = data as {
+        consecutive_failures?: unknown;
+        ingestion_paused?: unknown;
+        failure_pause_threshold?: unknown;
+        last_success_at?: unknown;
+      };
       const cf = typeof row.consecutive_failures === "number" && row.consecutive_failures >= 0
         ? Math.floor(row.consecutive_failures)
         : 0;
+      const threshold = typeof row.failure_pause_threshold === "number" &&
+          row.failure_pause_threshold >= 1 && row.failure_pause_threshold <= 20
+        ? Math.floor(row.failure_pause_threshold)
+        : 3;
       return {
         consecutive_failures: cf,
         ingestion_paused: row.ingestion_paused === true,
+        failure_pause_threshold: threshold,
+        last_success_at: typeof row.last_success_at === "string" ? row.last_success_at : null,
       };
     },
     async recordSyncRun(record: SecRunRecord) {
@@ -177,31 +193,19 @@ function createSupabaseStore(supabase: SbClient): SecEdgarStore {
       }
     },
     async noteSyncRunOutcome(success) {
-      const nowIso = new Date().toISOString();
-      if (success) {
-        const { error } = await supabase
-          .from("sec_edgar_sync_state")
-          .update({ consecutive_failures: 0, updated_at: nowIso })
-          .eq("stream_key", SEC_EDGAR_STREAM_KEY);
-        if (error) return null;
-        return 0;
-      }
-      const { data, error: readErr } = await supabase
-        .from("sec_edgar_sync_state")
-        .select("consecutive_failures")
-        .eq("stream_key", SEC_EDGAR_STREAM_KEY)
-        .maybeSingle();
-      if (readErr) return null;
-      const prev = typeof (data as { consecutive_failures?: unknown } | null)?.consecutive_failures === "number"
-        ? Math.floor((data as { consecutive_failures: number }).consecutive_failures)
-        : 0;
-      const next = prev + 1;
-      const { error: writeErr } = await supabase
-        .from("sec_edgar_sync_state")
-        .update({ consecutive_failures: next, updated_at: nowIso })
-        .eq("stream_key", SEC_EDGAR_STREAM_KEY);
-      if (writeErr) return null;
-      return next;
+      const { data, error } = await supabase.rpc("apply_sec_edgar_sync_run_outcome_v1", {
+        p_stream_key: SEC_EDGAR_STREAM_KEY,
+        p_success: success,
+      });
+      if (error || !data || typeof data !== "object") return null;
+      const row = data as Record<string, unknown>;
+      return {
+        consecutive_failures: typeof row.consecutive_failures === "number"
+          ? Math.floor(row.consecutive_failures)
+          : 0,
+        ingestion_paused: row.ingestion_paused === true,
+        auto_pause_applied: row.auto_pause_applied === true,
+      };
     },
   };
 }
