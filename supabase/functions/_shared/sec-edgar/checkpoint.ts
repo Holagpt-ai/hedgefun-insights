@@ -75,6 +75,15 @@ export function pageContainsAnyAnchor(
   return pageAccessions.some((acc) => wanted.has(acc));
 }
 
+export function accessionsPresentInEntries(
+  entries: readonly SecFeedEntry[],
+  required: readonly string[],
+): boolean {
+  if (required.length === 0) return true;
+  const found = new Set(entries.map((entry) => entry.accession_number));
+  return required.every((acc) => found.has(acc));
+}
+
 export function parseRevision(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isInteger(raw) && raw >= 0 && Number.isSafeInteger(raw)) {
     return raw;
@@ -193,6 +202,8 @@ export type PageWalkFail = {
     | "PROVIDER_ERROR";
   pagesFetched: number;
   entriesScanned: number;
+  httpStatus: number | null;
+  retryAfterSeconds: number | null;
 };
 
 export type PageWalkResult = PageWalkOk | PageWalkFail;
@@ -201,6 +212,8 @@ export async function walkLatestFilingsPages(
   fetchPage: (url: string) => Promise<SecFetchResult>,
   anchors: readonly string[] | null,
   maxPages = SEC_LATEST_FILINGS_MAX_PAGES,
+  initialPage0: Extract<SecFetchResult, { ok: true }> | null = null,
+  requiredAccessions: readonly string[] | null = null,
 ): Promise<PageWalkResult> {
   const collected: SecFeedEntry[] = [];
   let pagesFetched = 0;
@@ -208,14 +221,24 @@ export async function walkLatestFilingsPages(
   let page0Accessions: string[] = [];
   let page0HeadUpdatedAt: string | null = null;
 
-  const bootstrap = anchors === null;
+  const pendingSliceMode = requiredAccessions != null && requiredAccessions.length > 0;
+  const bootstrap = anchors === null && !pendingSliceMode;
 
   for (let pageIndex = 0; pageIndex < maxPages; pageIndex += 1) {
     if (bootstrap && pageIndex > 0) break;
     const start = pageIndex * SEC_LATEST_FILINGS_PAGE_SIZE;
-    const res = await fetchPage(buildLatestFilingsAtomUrl(start));
+    const res = pageIndex === 0 && initialPage0
+      ? initialPage0
+      : await fetchPage(buildLatestFilingsAtomUrl(start));
     if (!res.ok) {
-      return { ok: false, reason: res.reason, pagesFetched, entriesScanned };
+      return {
+        ok: false,
+        reason: res.reason,
+        pagesFetched,
+        entriesScanned,
+        httpStatus: res.status,
+        retryAfterSeconds: res.retryAfterSeconds,
+      };
     }
     const pageEntries = parseLatestFilingsAtom(res.text);
     pagesFetched += 1;
@@ -223,17 +246,44 @@ export async function walkLatestFilingsPages(
 
     if (pageIndex === 0) {
       if (pageEntries.length === 0) {
-        return { ok: false, reason: "PROVIDER_ERROR", pagesFetched, entriesScanned };
+        return {
+          ok: false,
+          reason: "PROVIDER_ERROR",
+          pagesFetched,
+          entriesScanned,
+          httpStatus: res.status,
+          retryAfterSeconds: null,
+        };
       }
       page0Accessions = uniqueAccessionsInOrder(pageEntries);
       page0HeadUpdatedAt = pageEntries[0]?.accepted_at ?? null;
     } else if (pageEntries.length === 0) {
-      return { ok: false, reason: "CHECKPOINT_INCONSISTENT", pagesFetched, entriesScanned };
+      return {
+        ok: false,
+        reason: "CHECKPOINT_INCONSISTENT",
+        pagesFetched,
+        entriesScanned,
+        httpStatus: res.status,
+        retryAfterSeconds: null,
+      };
     }
 
     collected.push(...pageEntries);
+    const deduped = dedupeEntriesByAccession(collected);
+    if (pendingSliceMode && accessionsPresentInEntries(deduped, requiredAccessions!)) {
+      return {
+        ok: true,
+        checkpointStatus: "boundary_reached",
+        boundaryReached: false,
+        pagesFetched,
+        entriesScanned,
+        page0Accessions,
+        page0HeadUpdatedAt,
+        entries: deduped,
+      };
+    }
     const accessions = uniqueAccessionsInOrder(pageEntries);
-    if (!bootstrap && pageContainsAnyAnchor(accessions, anchors ?? [])) {
+    if (!pendingSliceMode && !bootstrap && pageContainsAnyAnchor(accessions, anchors ?? [])) {
       return {
         ok: true,
         checkpointStatus: "boundary_reached",
@@ -242,9 +292,33 @@ export async function walkLatestFilingsPages(
         entriesScanned,
         page0Accessions,
         page0HeadUpdatedAt,
-        entries: dedupeEntriesByAccession(collected),
+        entries: deduped,
       };
     }
+  }
+
+  if (pendingSliceMode) {
+    const deduped = dedupeEntriesByAccession(collected);
+    if (accessionsPresentInEntries(deduped, requiredAccessions!)) {
+      return {
+        ok: true,
+        checkpointStatus: "boundary_reached",
+        boundaryReached: false,
+        pagesFetched,
+        entriesScanned,
+        page0Accessions,
+        page0HeadUpdatedAt,
+        entries: deduped,
+      };
+    }
+    return {
+      ok: false,
+      reason: "CHECKPOINT_GAP",
+      pagesFetched,
+      entriesScanned,
+      httpStatus: null,
+      retryAfterSeconds: null,
+    };
   }
 
   if (bootstrap) {
@@ -260,5 +334,12 @@ export async function walkLatestFilingsPages(
     };
   }
 
-  return { ok: false, reason: "CHECKPOINT_GAP", pagesFetched, entriesScanned };
+  return {
+    ok: false,
+    reason: "CHECKPOINT_GAP",
+    pagesFetched,
+    entriesScanned,
+    httpStatus: null,
+    retryAfterSeconds: null,
+  };
 }
