@@ -47,6 +47,7 @@ import {
 } from "./market-data-meters.ts";
 import {
   MemoryMarketCache,
+  resetMarketDataEntitlementCacheForTests,
   resolveSharedMarketData,
   type OriginLoad,
   type SharedMarketCacheDeps,
@@ -112,6 +113,8 @@ Deno.test("quote tape is 30s and live charts age only until 60s", () => {
     sourceAsOfMs: 1_700_000_000_000,
     cacheAgeMs: 45_000,
     cacheControlMaxAgeSeconds: 15,
+    providerDelay: "unknown",
+    marketSession: "market",
   });
   assertEquals(headers["X-Market-Data-Freshness"], "aging");
   assertEquals(headers["X-Market-Data-Cache-Age-Ms"], "45000");

@@ -35,7 +35,25 @@ import {
   noteSharedHit,
   noteUpstreamFailure,
 } from "./market-data-meters.ts";
+import {
+  classifyProviderDelay,
+  readMarketDataEntitlementDelayMinutes,
+  resolveUsEquityMarketSession,
+} from "./market-data-provenance.ts";
 import { readUpstashRestConfig, SharedQuota, UpstashRestClient, type EnvLookup } from "./upstash-redis-rest.ts";
+
+let entitlementDelayMinutes: number | null | undefined;
+
+function providerDelayClass(sourceAsOfMs: number | null, nowMs: number): import("./market-data-provenance.ts").ProviderDelayClass {
+  if (entitlementDelayMinutes === undefined) {
+    entitlementDelayMinutes = readMarketDataEntitlementDelayMinutes();
+  }
+  return classifyProviderDelay(entitlementDelayMinutes, sourceAsOfMs, nowMs);
+}
+
+export function resetMarketDataEntitlementCacheForTests(): void {
+  entitlementDelayMinutes = undefined;
+}
 
 export type SharedCacheStore = {
   get(key: string): Promise<string | null>;
@@ -55,6 +73,8 @@ export type SharedMarketDataResult =
     sourceAsOfMs: number | null;
     cacheAgeMs: number;
     cacheControlMaxAgeSeconds: number;
+    providerDelay: import("./market-data-provenance.ts").ProviderDelayClass;
+    marketSession: import("./market-data-provenance.ts").UsEquityMarketSession;
   }
   | { ok: false; error: "rate_limited" | "upstream_unavailable"; retryAfterSeconds: number };
 
@@ -145,24 +165,42 @@ export async function resolveSharedMarketData(
       return serve(memory, "memory", nowMs);
     }
   }
-  if (deps.latch.blocked(input.kind, input.identity, nowMs)) {
-    noteQuotaDeny();
-    return limited();
-  }
+
   const existing = deps.inflight.get(input.coalesceKey);
   if (existing) return existing;
-  const pending = resolveMiss(deps, input).finally(() => {
+
+  const pending = resolveAfterMemoryMiss(deps, input).finally(() => {
     deps.inflight.delete(input.coalesceKey);
   });
   deps.inflight.set(input.coalesceKey, pending);
   return pending;
 }
 
-async function resolveMiss(
+async function readSharedPayload(
+  deps: SharedMarketCacheDeps,
+  input: { sharePayload: boolean; cacheKey: string | null },
+  nowMs: number,
+): Promise<MarketCacheEnvelope | null> {
+  if (!input.sharePayload || !input.cacheKey || !deps.shared) return null;
+  try {
+    const raw = await deps.shared.get(input.cacheKey);
+    const envelope = raw ? decodeEnvelope(raw) : null;
+    if (envelope && recordIsServable(envelope, nowMs)) {
+      deps.l1.set(input.cacheKey, envelope);
+      return envelope;
+    }
+  } catch {
+    // Shared cache is optional. Origin remains bounded by quota.
+  }
+  return null;
+}
+
+async function resolveAfterMemoryMiss(
   deps: SharedMarketCacheDeps,
   input: {
     kind: QuotaKind;
     cacheKey: string | null;
+    coalesceKey: string;
     closed: boolean;
     sharePayload: boolean;
     surface: MarketCacheSurface;
@@ -172,18 +210,15 @@ async function resolveMiss(
   },
 ): Promise<SharedMarketDataResult> {
   const nowMs = deps.nowMs();
-  if (input.sharePayload && input.cacheKey && deps.shared) {
-    try {
-      const raw = await deps.shared.get(input.cacheKey);
-      const envelope = raw ? decodeEnvelope(raw) : null;
-      if (envelope && recordIsServable(envelope, nowMs)) {
-        deps.l1.set(input.cacheKey, envelope);
-        noteSharedHit();
-        return serve(envelope, "shared", nowMs);
-      }
-    } catch {
-      // Shared cache is optional. Origin remains bounded by local quota.
-    }
+  const sharedEnvelope = await readSharedPayload(deps, input, nowMs);
+  if (sharedEnvelope) {
+    noteSharedHit();
+    return serve(sharedEnvelope, "shared", nowMs);
+  }
+
+  if (deps.latch.blocked(input.kind, input.identity, nowMs)) {
+    noteQuotaDeny();
+    return limited();
   }
 
   const loaded = await input.loadOrigin(async () => {
@@ -238,14 +273,17 @@ function serve(
   nowMs: number,
 ): SharedMarketDataResult {
   const cacheAgeMs = Math.max(0, nowMs - envelope.cachedAtMs);
+  const sourceAsOfMs = envelope.sourceAsOfMs;
   return {
     ok: true,
     data: envelope.payload,
     freshness: freshnessLabel(envelope, nowMs),
     cache,
-    sourceAsOfMs: envelope.sourceAsOfMs,
+    sourceAsOfMs,
     cacheAgeMs,
     cacheControlMaxAgeSeconds: cacheControlMaxAgeSeconds(envelope, nowMs),
+    providerDelay: providerDelayClass(sourceAsOfMs, nowMs),
+    marketSession: resolveUsEquityMarketSession(nowMs),
   };
 }
 
