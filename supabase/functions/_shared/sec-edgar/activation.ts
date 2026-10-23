@@ -3,6 +3,10 @@
 
 export const SEC_SYNC_MAX_BODY_BYTES = 256;
 export const SEC_EDGAR_WRITE_ENABLED_VALUE = "true";
+/** Wall-clock budget for one sync invocation (SEC walk + DB). */
+export const SEC_SYNC_MAX_RUN_DURATION_MS = 120_000;
+/** Lease TTL while a run holds the single-flight lock. */
+export const SEC_SYNC_LEASE_TTL_SECONDS = 900;
 
 export type SecSyncMode = "dry_run" | "write";
 
@@ -83,6 +87,12 @@ export type CheckpointStatusLabel =
 
 export interface SecActivationSummary {
   mode: SecSyncMode;
+  run_id: string;
+  run_status: "ok" | "error" | "lease_busy" | "paused" | "write_disabled";
+  started_at: string;
+  finished_at: string;
+  duration_ms: number;
+  consecutive_failures: number;
   checkpoint_present: boolean;
   checkpoint_status: CheckpointStatusLabel;
   checkpoint_boundary_reached: boolean;
@@ -98,10 +108,12 @@ export interface SecActivationSummary {
   rows_would_insert: number;
   rows_upserted: number;
   rows_skipped_existing: number;
+  rows_skipped_invalidated: number;
   rows_rejected: number;
   rows_attribution_unattributed: number;
   sec_requests: number;
   forms_found: Record<string, number>;
+  provider_error_code: string | null;
 }
 
 export function sanitizeActivationSummary(input: SecActivationSummary): SecActivationSummary {
@@ -121,8 +133,25 @@ export function sanitizeActivationSummary(input: SecActivationSummary): SecActiv
       status === "write_failed"
       ? status
       : "absent";
+  const runStatus = input.run_status;
+  const safeRunStatus: SecActivationSummary["run_status"] =
+    runStatus === "ok" || runStatus === "error" || runStatus === "lease_busy" ||
+      runStatus === "paused" || runStatus === "write_disabled"
+      ? runStatus
+      : "error";
+  const providerErr = input.provider_error_code;
+  const safeProviderErr =
+    typeof providerErr === "string" && providerErr.length > 0 && providerErr.length <= 32
+      ? providerErr
+      : null;
   return {
     mode: input.mode === "write" ? "write" : "dry_run",
+    run_id: typeof input.run_id === "string" && input.run_id.length > 0 ? input.run_id : "unknown",
+    run_status: safeRunStatus,
+    started_at: typeof input.started_at === "string" ? input.started_at : "",
+    finished_at: typeof input.finished_at === "string" ? input.finished_at : "",
+    duration_ms: nn(input.duration_ms),
+    consecutive_failures: nn(input.consecutive_failures),
     checkpoint_present: input.checkpoint_present === true,
     checkpoint_status: safeStatus,
     checkpoint_boundary_reached: input.checkpoint_boundary_reached === true,
@@ -138,9 +167,11 @@ export function sanitizeActivationSummary(input: SecActivationSummary): SecActiv
     rows_would_insert: nn(input.rows_would_insert),
     rows_upserted: nn(input.rows_upserted),
     rows_skipped_existing: nn(input.rows_skipped_existing),
+    rows_skipped_invalidated: nn(input.rows_skipped_invalidated),
     rows_rejected: nn(input.rows_rejected),
     rows_attribution_unattributed: nn(input.rows_attribution_unattributed),
     sec_requests: nn(input.sec_requests),
     forms_found: forms,
+    provider_error_code: safeProviderErr,
   };
 }

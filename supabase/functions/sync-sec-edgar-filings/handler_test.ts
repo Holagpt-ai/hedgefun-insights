@@ -90,6 +90,7 @@ function fetchByStart(pages: Record<number, string | "error"> = { 0: PAGE0 }) {
 function memoryStore(
   opts: {
     existing?: string[];
+    existingStates?: Record<string, string>;
     checkpoint?: SecEdgarCheckpoint | null;
     insertFails?: boolean;
     saveFails?: boolean;
@@ -97,6 +98,8 @@ function memoryStore(
     loadFails?: boolean;
     loadInconsistent?: boolean;
     loadFrozenAbsent?: boolean;
+    leaseBusy?: boolean;
+    ingestionPaused?: boolean;
     shared?: { row: SecEdgarCheckpoint | null };
   } = {},
 ): SecEdgarStore & {
@@ -104,6 +107,7 @@ function memoryStore(
   saves: SecEdgarCheckpoint[];
   loads: number;
   finds: number;
+  runs: number;
   current(): SecEdgarCheckpoint | null;
 } {
   const inserts: Record<string, unknown>[][] = [];
@@ -111,6 +115,7 @@ function memoryStore(
   const box = opts.shared ?? { row: opts.checkpoint ?? null };
   let loads = 0;
   let finds = 0;
+  let runs = 0;
   return {
     inserts,
     saves,
@@ -120,11 +125,30 @@ function memoryStore(
     get finds() {
       return finds;
     },
+    get runs() {
+      return runs;
+    },
     current: () => box.row,
     findExistingDedupeKeys: async (keys) => {
       finds += 1;
-      return new Set(keys.filter((k) => (opts.existing ?? []).includes(k)));
+      const map = new Map<string, string>();
+      for (const k of keys) {
+        if ((opts.existing ?? []).includes(k)) {
+          map.set(k, opts.existingStates?.[k] ?? "provider_reported");
+        }
+      }
+      return map;
     },
+    tryAcquireLease: async () => (opts.leaseBusy ? false : true),
+    releaseLease: async () => {},
+    loadSyncControl: async () => ({
+      consecutive_failures: 0,
+      ingestion_paused: opts.ingestionPaused === true,
+    }),
+    recordSyncRun: async () => {
+      runs += 1;
+    },
+    noteSyncRunOutcome: async (success) => (success ? 0 : 1),
     insertNewRows: async (rows) => {
       if (opts.insertFails) return null;
       inserts.push(rows);
@@ -491,4 +515,54 @@ Deno.test("checkpoint conflict after Catalyst insert remains dedupe-safe", async
   assertEquals(store.inserts.length, 1);
   assertEquals(store.saves.length, 0);
   assertEquals(store.current(), null);
+});
+
+Deno.test("attribution_invalidated dedupe keys are skipped and counted", async () => {
+  const key = secDedupeKey(NVDA_ACC, "NVDA");
+  const store = memoryStore({
+    existing: [key],
+    existingStates: { [key]: "attribution_invalidated" },
+    checkpoint: checkpoint([NVDA_ACC]),
+  });
+  const { res, json } = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    store,
+  });
+  assertEquals(res.status, 200);
+  assertEquals(json.rows_skipped_invalidated, 1);
+  assertEquals(json.rows_existing, 1);
+  assertEquals(store.inserts.length, 0);
+});
+
+Deno.test("lease busy returns LEASE_BUSY without SEC fetch", async () => {
+  const fetch = fetchByStart();
+  const store = memoryStore({ leaseBusy: true });
+  const { res, json } = await invoke('{"mode":"dry_run"}', { fetch, store });
+  assertEquals(res.status, 409);
+  assertEquals(json.error, "LEASE_BUSY");
+  assertEquals(fetch.urls.length, 0);
+  assertEquals(store.runs, 1);
+});
+
+Deno.test("ingestion paused blocks write mode before provider calls", async () => {
+  const fetch = fetchByStart();
+  const store = memoryStore({ ingestionPaused: true });
+  const { res, json } = await invoke('{"mode":"write"}', {
+    env: { SEC_EDGAR_WRITE_ENABLED: "true" },
+    fetch,
+    store,
+  });
+  assertEquals(res.status, 409);
+  assertEquals(json.error, "INGESTION_PAUSED");
+  assertEquals(fetch.urls.length, 0);
+  assertEquals(store.loads, 0);
+});
+
+Deno.test("successful run records telemetry fields", async () => {
+  const { res, json, store } = await invoke('{"mode":"dry_run"}');
+  assertEquals(res.status, 200);
+  assertEquals(json.run_status, "ok");
+  assert(typeof json.run_id === "string" && json.run_id.length > 0);
+  assert(json.duration_ms >= 0);
+  assertEquals(store.runs, 1);
 });
