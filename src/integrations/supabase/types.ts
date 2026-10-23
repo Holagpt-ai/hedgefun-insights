@@ -8568,6 +8568,45 @@ export type Database = {
         }
         Relationships: []
       }
+      sec_v1c_remediation_audit: {
+        Row: {
+          action: string
+          applied_at: string
+          batch_id: string
+          dedupe_key: string
+          facts_patch: Json
+          id: string
+          new_verification_state: string
+          policy_version: string
+          previous_verification_state: string
+          reason: string
+        }
+        Insert: {
+          action: string
+          applied_at?: string
+          batch_id: string
+          dedupe_key: string
+          facts_patch?: Json
+          id?: string
+          new_verification_state: string
+          policy_version: string
+          previous_verification_state: string
+          reason: string
+        }
+        Update: {
+          action?: string
+          applied_at?: string
+          batch_id?: string
+          dedupe_key?: string
+          facts_patch?: Json
+          id?: string
+          new_verification_state?: string
+          policy_version?: string
+          previous_verification_state?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       securities: {
         Row: {
           active: boolean
@@ -10161,6 +10200,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_sec_v1c_attribution_invalidation: {
+        Args: { p_dry_run?: boolean; p_items: Json; p_policy_version: string }
+        Returns: Json
+      }
       behavior_profile_list_candidates_v1: {
         Args: { p_after_security_id: string; p_limit: number }
         Returns: {
@@ -10917,6 +10960,10 @@ export type Database = {
       restate_screener_legacy_low: {
         Args: { p_legacy_low: number; p_session_low: number }
         Returns: number
+      }
+      rollback_sec_v1c_attribution_invalidation: {
+        Args: { p_batch_id: string; p_dry_run?: boolean }
+        Returns: Json
       }
       scanner_intelligence_alert_upsert_v1: {
         Args: { p_row: Json }
