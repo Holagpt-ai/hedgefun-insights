@@ -246,7 +246,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.apply_sec_v1c_attribution_invalidation(jsonb, text, boolean) FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.rollback_sec_v1c_attribution_invalidation(uuid, boolean) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.apply_sec_v1c_attribution_invalidation(jsonb, text, boolean) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.rollback_sec_v1c_attribution_invalidation(uuid, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.apply_sec_v1c_attribution_invalidation(jsonb, text, boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.rollback_sec_v1c_attribution_invalidation(uuid, boolean) TO service_role;
