@@ -44,7 +44,7 @@ ORDER BY published_at DESC;
 1. Deploy **`sync-sec-edgar-filings`** Edge function (no migration, no write-flag change).
 2. Optional: deploy **`market-data`** only if bundled in same release (not required for this fix).
 3. Run **`dry_run`** sync and confirm `rows_attribution_unattributed` > 0 for known multi-ticker 424B2 samples while `rows_validated` no longer multiplies per CIK.
-4. Execute remediation allowlist in a separate approved change set.
+4. Execute remediation allowlist in a separate approved change set (Gate H — `docs/sec-edgar/remediation/gate-h-remediation-runbook.md`).
 
 ## Unchanged
 
