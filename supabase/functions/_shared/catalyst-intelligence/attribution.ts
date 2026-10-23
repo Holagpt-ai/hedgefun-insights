@@ -9,6 +9,10 @@ import type { CompanyRecord, NormalizedEventCandidate, TickerRelation } from "./
 import { classifyGlobeNewswireStockCategories } from "./globenewswire-ticker.ts";
 import { classifyText } from "./classification.ts";
 import { normalizeTicker } from "./normalize.ts";
+import {
+  resolveSecFilingAttribution,
+  secFeedEntryFromMetadata,
+} from "../sec-edgar/sec-filing-attribution.ts";
 
 
 
@@ -158,69 +162,73 @@ export function attributeCandidate(
     : ctx.sourceCik;
 
   if (cik && ctx.cikMap) {
+    const listed = (ctx.cikMap.get(cik) ?? []).map((t) => normalizeTicker(t)).filter((t): t is string => !!t);
+    const unique = [...new Set(listed)];
 
-    const mapped = (ctx.cikMap.get(cik) ?? []).map((t) => normalizeTicker(t)).filter((t): t is string => !!t);
-
-    const unique = [...new Set(mapped)];
+    if (ctx.sourceType === "SEC_FILINGS") {
+      const entry = secFeedEntryFromMetadata(
+        candidate.metadata,
+        cik,
+        candidate.raw.publishedAt,
+        candidate.raw.canonicalUrl,
+      );
+      if (entry) {
+        const mapped = unique.map((ticker) => ({ ticker, exchange: null }));
+        const attribution = resolveSecFilingAttribution(entry, mapped);
+        if (attribution.targets.length === 1) {
+          return {
+            status: "resolved",
+            ticker: attribution.targets[0].ticker,
+            relation: "PRIMARY",
+            confidence: 0.95,
+            note: "sec_filing_attribution",
+            trace: {
+              method: "sec_filing_attribution",
+              matchBasis: "cik",
+            },
+          };
+        }
+        const note = attribution.reason === "UNMAPPED_CIK"
+          ? "cik_unmapped"
+          : "ambiguous_cik";
+        return {
+          status: "unresolved",
+          ticker: null,
+          relation: null,
+          confidence: 0.2,
+          note,
+          unresolvedReason: note === "cik_unmapped" ? "NO_CIK_TICKER_MAPPING" : "MULTIPLE_CIK_TICKERS",
+        };
+      }
+    }
 
     if (unique.length === 1) {
-
       return {
-
         status: "resolved",
-
         ticker: unique[0],
-
         relation: "PRIMARY",
-
         confidence: 0.95,
-
         note: "cik_mapping",
-
       };
-
     }
-
     if (unique.length > 1) {
-
       return {
-
         status: "unresolved",
-
         ticker: null,
-
         relation: null,
-
         confidence: 0.2,
-
         note: "ambiguous_cik",
-
         unresolvedReason: "MULTIPLE_CIK_TICKERS",
-
       };
-
     }
-
-    if (unique.length === 0) {
-
-      return {
-
-        status: "unresolved",
-
-        ticker: null,
-
-        relation: null,
-
-        confidence: 0,
-
-        note: "cik_unmapped",
-
-        unresolvedReason: "NO_CIK_TICKER_MAPPING",
-
-      };
-
-    }
-
+    return {
+      status: "unresolved",
+      ticker: null,
+      relation: null,
+      confidence: 0,
+      note: "cik_unmapped",
+      unresolvedReason: "NO_CIK_TICKER_MAPPING",
+    };
   }
 
 

@@ -99,6 +99,7 @@ export interface SecActivationSummary {
   rows_upserted: number;
   rows_skipped_existing: number;
   rows_rejected: number;
+  rows_attribution_unattributed: number;
   sec_requests: number;
   forms_found: Record<string, number>;
 }
@@ -138,6 +139,7 @@ export function sanitizeActivationSummary(input: SecActivationSummary): SecActiv
     rows_upserted: nn(input.rows_upserted),
     rows_skipped_existing: nn(input.rows_skipped_existing),
     rows_rejected: nn(input.rows_rejected),
+    rows_attribution_unattributed: nn(input.rows_attribution_unattributed),
     sec_requests: nn(input.sec_requests),
     forms_found: forms,
   };
