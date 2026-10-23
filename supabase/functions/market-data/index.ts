@@ -29,7 +29,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Expose-Headers": "X-Market-Data-Freshness, X-Market-Data-Source-As-Of, X-Market-Data-Cache, X-Market-Data-Cache-Age-Ms",
+  "Access-Control-Expose-Headers": "X-Market-Data-Freshness, X-Market-Data-Cache-Freshness, X-Market-Data-Source-As-Of, X-Market-Data-Cache, X-Market-Data-Cache-Age-Ms, X-Market-Data-Provider-Delay, X-Market-Data-Market-Session",
 };
 
 const POLYGON_BASE = "https://api.polygon.io";

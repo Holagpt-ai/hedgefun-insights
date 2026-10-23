@@ -3,6 +3,8 @@
  * The HTTP body stays the existing payload. Freshness is a label beside it.
  */
 
+import { marketDataProvenanceHeaders } from "./market-data-provenance.ts";
+
 export const FRESH_MAX_AGE_MS = 30_000;
 /** Active quote tape. Not served past this age, and never labeled aging. */
 export const SNAPSHOT_SERVE_MS = 30_000;
@@ -190,15 +192,16 @@ export function marketDataCacheHeaders(meta: {
   sourceAsOfMs: number | null;
   cacheAgeMs: number;
   cacheControlMaxAgeSeconds: number;
+  providerDelay: import("./market-data-provenance.ts").ProviderDelayClass;
+  marketSession: import("./market-data-provenance.ts").UsEquityMarketSession;
 }): Record<string, string> {
-  const headers: Record<string, string> = {
-    "X-Market-Data-Freshness": meta.freshness,
-    "X-Market-Data-Cache": meta.cache,
-    "X-Market-Data-Cache-Age-Ms": String(Math.max(0, meta.cacheAgeMs)),
-    "Cache-Control": `public, max-age=${meta.cacheControlMaxAgeSeconds}`,
-  };
-  if (meta.sourceAsOfMs != null) {
-    headers["X-Market-Data-Source-As-Of"] = new Date(meta.sourceAsOfMs).toISOString();
-  }
-  return headers;
+  return marketDataProvenanceHeaders({
+    cacheFreshness: meta.freshness,
+    cache: meta.cache,
+    sourceAsOfMs: meta.sourceAsOfMs,
+    cacheAgeMs: meta.cacheAgeMs,
+    cacheControlMaxAgeSeconds: meta.cacheControlMaxAgeSeconds,
+    providerDelay: meta.providerDelay,
+    marketSession: meta.marketSession,
+  });
 }
