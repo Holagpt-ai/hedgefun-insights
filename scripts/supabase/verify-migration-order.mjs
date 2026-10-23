@@ -3,6 +3,7 @@ import {
   validateMigrationOrdering,
   validateNewMigrationFilename,
 } from "./migration-order.mjs";
+import { verifySecV1cRemediationRpcAcl } from "./verify-sec-v1c-remediation-rpc-acl.mjs";
 
 const candidate = process.argv[2] ?? null;
 
@@ -16,6 +17,14 @@ if (!order.ok) {
 console.log(
   `Supabase migration ordering ok (${order.fileCount} files, max prefix ${order.maxTimestamp ?? "n/a"})`,
 );
+
+const secAcl = verifySecV1cRemediationRpcAcl();
+if (!secAcl.ok) {
+  console.error("SEC V1C remediation RPC ACL verification FAILED:");
+  for (const line of secAcl.errors) console.error(`  - ${line}`);
+  process.exit(1);
+}
+console.log("SEC V1C remediation RPC ACL verification ok");
 
 if (candidate) {
   const next = validateNewMigrationFilename(candidate);
