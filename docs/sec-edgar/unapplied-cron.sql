@@ -1,43 +1,32 @@
 -- DO NOT APPLY from Cursor / CI.
--- Gate I draft: vault-backed pg_cron → sync-sec-edgar-filings.
--- Requires migration 20261024103000_sec_edgar_recurring_ingestion_v1.sql and Edge deploy.
--- Pattern follows 20260720201554_w2r1_convert_crons_to_vault.sql (net.http_post + vault secret).
+-- Gate I.3 production schedule draft for sync-sec-edgar-filings.
+-- Requires migrations 20261024103000 + 20261024153000 and Edge deploy.
+-- SEC_EDGAR_WRITE_ENABLED and vault SYNC_SECRET must be configured before activation.
 
--- Preconditions:
---   SEC_EDGAR_WRITE_ENABLED=true on Edge (only when ops approves writes)
---   SYNC_SECRET in vault; cron body MUST include {"mode":"write"} for writes
---   Single-flight lease prevents overlapping runs at */5 cadence
+-- Cadence: every 30 minutes UTC; ET weekday/window enforced in SQL (DST-safe).
+-- Single-flight lease prevents overlapping runs at the same tick.
 
--- Example (replace placeholders; unschedule names must be unique per environment):
+-- SELECT cron.unschedule('sync-sec-edgar-filings-weekday-et');
 
--- SELECT cron.unschedule('sync-sec-edgar-filings-weekday-est-day');
 -- SELECT cron.schedule(
---   'sync-sec-edgar-filings-weekday-est-day',
---   '*/5 9-23 * * 1-5',
---   $$
---   SELECT net.http_post(
---     url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'SUPABASE_URL') || '/functions/v1/sync-sec-edgar-filings',
---     headers := jsonb_build_object(
---       'Content-Type', 'application/json',
---       'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'SYNC_SECRET')
---     ),
---     body := '{"mode":"write"}'::jsonb
---   ) AS request_id;
---   $$
+--   'sync-sec-edgar-filings-weekday-et',
+--   '*/30 * * * *',
+--   $cmd$
+--   SELECT CASE
+--     WHEN public.sec_edgar_sync_cron_should_invoke_v1() THEN
+--       net.http_post(
+--         url := (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'SUPABASE_URL' LIMIT 1)
+--           || '/functions/v1/sync-sec-edgar-filings',
+--         headers := jsonb_build_object(
+--           'Content-Type', 'application/json',
+--           'Authorization', 'Bearer ' || (SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'SYNC_SECRET' LIMIT 1)
+--         ),
+--         body := '{"mode":"write"}'::jsonb
+--       )
+--     ELSE NULL
+--   END AS request_id;
+--   $cmd$
 -- );
 
--- Weekday EST late window (UTC 0–2, Tue–Sat for Mon–Fri ET evening):
--- SELECT cron.schedule(
---   'sync-sec-edgar-filings-weekday-est-late',
---   '*/5 0-2 * * 2-6',
---   $$ /* same http_post body */ $$
--- );
-
--- Weekday EDT sketches (see overlap-and-cadence.md):
---   Day:   '*/5 8-23 * * 1-5'
---   Late:  '*/5 0-1 * * 2-6'
-
--- Weekend: prefer disabled or */30 until weekday stability is proven.
-
--- Dry-run cron (optional ops validation only — no checkpoint advance in dry_run):
--- body := '{}'::jsonb
+-- Disable: SELECT cron.unschedule('sync-sec-edgar-filings-weekday-et');
+-- Manual resume after auto-pause (service_role): SELECT resume_sec_edgar_ingestion_v1('issuer_direct_latest_filings');

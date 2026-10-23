@@ -93,6 +93,10 @@ export interface SecActivationSummary {
   finished_at: string;
   duration_ms: number;
   consecutive_failures: number;
+  ingestion_paused: boolean;
+  auto_pause_applied: boolean;
+  checkpoint_revision: number | null;
+  last_success_at: string | null;
   checkpoint_present: boolean;
   checkpoint_status: CheckpointStatusLabel;
   checkpoint_boundary_reached: boolean;
@@ -152,6 +156,13 @@ export function sanitizeActivationSummary(input: SecActivationSummary): SecActiv
     finished_at: typeof input.finished_at === "string" ? input.finished_at : "",
     duration_ms: nn(input.duration_ms),
     consecutive_failures: nn(input.consecutive_failures),
+    ingestion_paused: input.ingestion_paused === true,
+    auto_pause_applied: input.auto_pause_applied === true,
+    checkpoint_revision: typeof input.checkpoint_revision === "number" &&
+        Number.isInteger(input.checkpoint_revision) && input.checkpoint_revision >= 0
+      ? input.checkpoint_revision
+      : null,
+    last_success_at: typeof input.last_success_at === "string" ? input.last_success_at : null,
     checkpoint_present: input.checkpoint_present === true,
     checkpoint_status: safeStatus,
     checkpoint_boundary_reached: input.checkpoint_boundary_reached === true,
