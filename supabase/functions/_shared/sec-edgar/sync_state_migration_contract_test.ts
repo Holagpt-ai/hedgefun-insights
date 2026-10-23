@@ -35,3 +35,17 @@ Deno.test("Gate I recurring ingestion migration adds lease, runs, pause counters
   assert(sql.includes("GRANT EXECUTE ON FUNCTION public.try_acquire_sec_edgar_sync_lease_v1"));
   assertFalse(sql.includes("cron.schedule"));
 });
+
+const GATE_I3_MIGRATION_REL = "../../../migrations/20261024153000_sec_edgar_ingestion_circuit_breaker_v1.sql";
+
+Deno.test("Gate I.3 circuit breaker migration adds threshold, resume RPC, ET cron guard", async () => {
+  const sql = (await Deno.readTextFile(new URL(GATE_I3_MIGRATION_REL, import.meta.url)))
+    .replaceAll("\r\n", "\n");
+  assert(sql.includes("failure_pause_threshold"));
+  assert(sql.includes("apply_sec_edgar_sync_run_outcome_v1"));
+  assert(sql.includes("resume_sec_edgar_ingestion_v1"));
+  assert(sql.includes("sec_edgar_sync_cron_should_invoke_v1"));
+  assert(sql.includes("REVOKE ALL ON FUNCTION public.resume_sec_edgar_ingestion_v1"));
+  assert(sql.includes("GRANT EXECUTE ON FUNCTION public.apply_sec_edgar_sync_run_outcome_v1"));
+  assertFalse(sql.includes("cron.schedule"));
+});
