@@ -491,6 +491,13 @@
       "when": 1792789862656,
       "tag": "0069_sec_edgar_recurring_ingestion_v1",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1792796198923,
+      "tag": "0070_sec_edgar_ingestion_circuit_breaker_v1",
+      "breakpoints": true
     }
   ]
 }
