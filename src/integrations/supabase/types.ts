@@ -8598,8 +8598,11 @@ export type Database = {
           anchor_observed_at: string
           consecutive_failures: number
           created_at: string
+          failure_pause_threshold: number
           head_updated_at: string | null
+          ingestion_pause_reason: string | null
           ingestion_paused: boolean
+          ingestion_paused_at: string | null
           last_success_at: string
           pages_fetched: number
           revision: number
@@ -8611,8 +8614,11 @@ export type Database = {
           anchor_observed_at: string
           consecutive_failures?: number
           created_at?: string
+          failure_pause_threshold?: number
           head_updated_at?: string | null
+          ingestion_pause_reason?: string | null
           ingestion_paused?: boolean
+          ingestion_paused_at?: string | null
           last_success_at: string
           pages_fetched?: number
           revision?: number
@@ -8624,8 +8630,11 @@ export type Database = {
           anchor_observed_at?: string
           consecutive_failures?: number
           created_at?: string
+          failure_pause_threshold?: number
           head_updated_at?: string | null
+          ingestion_pause_reason?: string | null
           ingestion_paused?: boolean
+          ingestion_paused_at?: string | null
           last_success_at?: string
           pages_fetched?: number
           revision?: number
@@ -10266,6 +10275,10 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_sec_edgar_sync_run_outcome_v1: {
+        Args: { p_stream_key: string; p_success: boolean }
+        Returns: Json
+      }
       apply_sec_v1c_attribution_invalidation: {
         Args: { p_dry_run?: boolean; p_items: Json; p_policy_version: string }
         Returns: Json
@@ -11031,6 +11044,10 @@ export type Database = {
         Args: { p_legacy_low: number; p_session_low: number }
         Returns: number
       }
+      resume_sec_edgar_ingestion_v1: {
+        Args: { p_stream_key: string }
+        Returns: boolean
+      }
       rollback_sec_v1c_attribution_invalidation: {
         Args: { p_batch_id: string; p_dry_run?: boolean }
         Returns: Json
@@ -11043,6 +11060,7 @@ export type Database = {
         Args: { p_ratio: number }
         Returns: number
       }
+      sec_edgar_sync_cron_should_invoke_v1: { Args: never; Returns: boolean }
       set_radar_v22_feed_status_v1: {
         Args: {
           p_last_provider_event_at: string
