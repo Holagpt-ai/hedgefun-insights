@@ -61,6 +61,7 @@ export interface SecSyncSummary {
   rows_validated: number;
   rows_upserted: number;
   rows_skipped_existing: number;
+  rows_skipped_invalidated: number;
   rows_rejected: number;
   rows_attribution_unattributed: number;
   sec_requests: number;
@@ -75,6 +76,7 @@ export function emptySecSummary(): SecSyncSummary {
     rows_validated: 0,
     rows_upserted: 0,
     rows_skipped_existing: 0,
+    rows_skipped_invalidated: 0,
     rows_rejected: 0,
     rows_attribution_unattributed: 0,
     sec_requests: 0,
@@ -92,6 +94,7 @@ export function sanitizeSecSummary(input: SecSyncSummary): SecSyncSummary {
     rows_validated: nn(input.rows_validated),
     rows_upserted: nn(input.rows_upserted),
     rows_skipped_existing: nn(input.rows_skipped_existing),
+    rows_skipped_invalidated: nn(input.rows_skipped_invalidated),
     rows_rejected: nn(input.rows_rejected),
     rows_attribution_unattributed: nn(input.rows_attribution_unattributed),
     sec_requests: nn(input.sec_requests),
@@ -379,6 +382,26 @@ export function partitionNewRows<T extends { dedupe_key: string }>(
     else incoming.push(row);
   }
   return { existing, incoming };
+}
+
+/** Gate H / Gate I: treat attribution_invalidated rows as immovable dedupe anchors. */
+export function partitionSecIngestRows<T extends { dedupe_key: string }>(
+  rows: readonly T[],
+  existingByKey: ReadonlyMap<string, string>,
+): { existing: T[]; incoming: T[]; skippedInvalidated: number } {
+  const existing: T[] = [];
+  const incoming: T[] = [];
+  let skippedInvalidated = 0;
+  for (const row of rows) {
+    const state = existingByKey.get(row.dedupe_key);
+    if (state === undefined) {
+      incoming.push(row);
+      continue;
+    }
+    existing.push(row);
+    if (state === "attribution_invalidated") skippedInvalidated += 1;
+  }
+  return { existing, incoming, skippedInvalidated };
 }
 
 export function toCatalystRowsFromSec(
