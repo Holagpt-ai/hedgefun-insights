@@ -2,12 +2,16 @@
 
 export type MarketDataFreshness = "fresh" | "aging" | "closed";
 
+export type ProviderDelayClass = "realtime" | "delayed" | "unknown";
+
 export type MarketDataClientMeta = {
   freshness: MarketDataFreshness;
   cache: string;
   sourceAsOfMs: number | null;
   cacheAgeMs: number;
   maxAgeSeconds: number;
+  providerDelay: ProviderDelayClass;
+  marketSession: string | null;
 };
 
 export type CachedMarketDataEntry<T> = {
@@ -35,7 +39,13 @@ export function readMarketDataResponseMeta(
   response: Response,
   fallbackMaxAgeSeconds: number,
 ): MarketDataClientMeta {
-  const freshness = parseFreshness(response.headers.get("X-Market-Data-Freshness"));
+  const freshness = parseFreshness(
+    response.headers.get("X-Market-Data-Cache-Freshness")
+      ?? response.headers.get("X-Market-Data-Freshness"),
+  );
+  const delayRaw = response.headers.get("X-Market-Data-Provider-Delay");
+  const providerDelay: ProviderDelayClass =
+    delayRaw === "realtime" || delayRaw === "delayed" ? delayRaw : "unknown";
   const cache = response.headers.get("X-Market-Data-Cache") ?? "unknown";
   const cacheAgeHeader = response.headers.get("X-Market-Data-Cache-Age-Ms");
   const cacheAgeMs = cacheAgeHeader != null && Number.isFinite(Number(cacheAgeHeader))
@@ -50,6 +60,8 @@ export function readMarketDataResponseMeta(
     sourceAsOfMs: sourceAsOfMs != null && Number.isFinite(sourceAsOfMs) ? sourceAsOfMs : null,
     cacheAgeMs,
     maxAgeSeconds,
+    providerDelay,
+    marketSession: response.headers.get("X-Market-Data-Market-Session"),
   };
 }
 

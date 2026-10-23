@@ -20,6 +20,8 @@ describe("market-data client session cache", () => {
       sourceAsOfMs: null,
       cacheAgeMs: 0,
       maxAgeSeconds: 30,
+      providerDelay: "unknown",
+      marketSession: null,
     }, 1_000);
 
     expect(readMarketDataClientCache(key, 20_000)?.body).toEqual({ ticker: "AAPL" });
@@ -41,5 +43,21 @@ describe("market-data client session cache", () => {
     expect(meta.cacheAgeMs).toBe(45_000);
     expect(meta.maxAgeSeconds).toBe(15);
     expect(meta.sourceAsOfMs).toBe(Date.parse("2026-10-20T14:00:00.000Z"));
+    expect(meta.providerDelay).toBe("unknown");
+  });
+
+  it("reads cache-freshness and provider-delay headers", () => {
+    const response = new Response("{}", {
+      headers: {
+        "X-Market-Data-Cache-Freshness": "fresh",
+        "X-Market-Data-Provider-Delay": "delayed",
+        "X-Market-Data-Market-Session": "market",
+        "Cache-Control": "public, max-age=30",
+      },
+    });
+    const meta = readMarketDataResponseMeta(response, 30);
+    expect(meta.freshness).toBe("fresh");
+    expect(meta.providerDelay).toBe("delayed");
+    expect(meta.marketSession).toBe("market");
   });
 });
