@@ -1,13 +1,13 @@
 /**
  * Redis command estimate for Upstash Free (500,000 commands / month).
  *
- * Live quotes and live charts are memory-cached and spend Redis only on an
- * atomic INCR per Massive attempt. Closed aggregate windows may also GET/SET
- * a shared payload. Per-IP counters are not used.
+ * Live quotes and live charts are memory-cached and spend Redis on an atomic INCR per
+ * Massive attempt. Shared live payloads may also GET/SET on an L1 miss (see
+ * REDIS_COMMAND_BUDGET.md). Closed aggregate windows GET/SET a shared payload.
+ * Per-IP counters are not used.
  *
- * A cold isolate does not add a Redis GET per request. Extra origin attempts
- * stop at the shared cap, so request floods increase rejections rather than
- * the command bill.
+ * A cold isolate does not add a Redis GET per frontend request. Extra origin attempts
+ * stop at the shared cap, so request floods increase rejections rather than INCRs.
  */
 
 export const FREE_TIER_MONTHLY_COMMANDS = 500_000;
@@ -81,14 +81,14 @@ export type RedisBudgetEstimate = {
 export function estimateMonthlyRedisCommands(input: RedisTrafficScenario): RedisBudgetEstimate {
   const activeMinutesPerDay = input.marketHoursPerDay * 60 * (1 + input.eveningFraction);
   const activeMinutes = activeMinutesPerDay * input.tradingDays;
-  const snapshotAttemptsPerMinute = input.warmIsolates * input.hotSnapshotKeys * (60 / input.snapshotMemorySeconds);
-  const aggregateAttemptsPerMinute = input.warmIsolates * input.hotLiveAggregateKeys * (60 / input.liveAggregateMemorySeconds);
-  const uncappedAttemptsPerMinute = (snapshotAttemptsPerMinute + aggregateAttemptsPerMinute) * (1 + input.retryFraction);
+  const snapshotRefreshPerMinute = input.hotSnapshotKeys * (60 / input.snapshotMemorySeconds);
+  const aggregateRefreshPerMinute = input.hotLiveAggregateKeys * (60 / input.liveAggregateMemorySeconds);
+  const uncappedAttemptsPerMinute = (snapshotRefreshPerMinute + aggregateRefreshPerMinute) * (1 + input.retryFraction);
   const cappedAttemptsPerMinute = Math.min(
-    snapshotAttemptsPerMinute * (1 + input.retryFraction),
+    snapshotRefreshPerMinute * (1 + input.retryFraction),
     input.snapshotCapPerMinute,
   ) + Math.min(
-    aggregateAttemptsPerMinute * (1 + input.retryFraction),
+    aggregateRefreshPerMinute * (1 + input.retryFraction),
     input.aggregateCapPerMinute,
   );
   const attemptCommands = cappedAttemptsPerMinute * activeMinutes;

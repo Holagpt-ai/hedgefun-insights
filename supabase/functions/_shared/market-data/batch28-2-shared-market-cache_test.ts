@@ -120,6 +120,27 @@ Deno.test("quote tape is 30s and live charts age only until 60s", () => {
   assertEquals(decodeEnvelope(encodeEnvelope(quote))?.surface, "quote");
 });
 
+Deno.test("another isolate reuses a shared live quote without a second origin", async () => {
+  const now = { ms: 1_000_000 };
+  const shared = new RecordingCache();
+  let origins = 0;
+  const consume = async () => ({ allowed: true, scope: "ok" as const, backend: "shared" as const });
+  const loadOrigin = async (consumeAttempt: () => Promise<boolean>): Promise<OriginLoad> => {
+    if (!(await consumeAttempt())) return { ok: false, reason: "quota" };
+    origins += 1;
+    return { ok: true, payload: { ticker: "AAPL", updated: 1_728_000_000_000_000_000 } };
+  };
+  const input = { ...quoteInput(loadOrigin), sharePayload: true };
+  const first = await resolveSharedMarketData(depsWith(now, shared, consume), input);
+  assert(first.ok);
+  assertEquals(first.cache, "origin");
+  assertEquals(shared.sets, 1);
+  const second = await resolveSharedMarketData(depsWith(now, shared, consume), input);
+  assert(second.ok);
+  assertEquals(second.cache, "shared");
+  assertEquals(origins, 1);
+});
+
 Deno.test("memory serves a fresh quote and does not keep it past 30s", async () => {
   const now = { ms: 1_000_000 };
   const shared = new RecordingCache();
@@ -161,12 +182,12 @@ Deno.test("live charts can be aging and closed charts use the shared payload cac
     cacheKey: "mkt:v1:agg:AAPL:1:minute:2026-10-20:2026-10-20",
     coalesceKey: "live",
     surface: "bars",
-    sharePayload: false,
+    sharePayload: true,
     describe: () => ({ cacheable: true, empty: false, sourceAsOfMs: 1_728_000_000_000 }),
   });
   assert(live.ok);
   assertEquals(live.freshness, "fresh");
-  assertEquals(shared.sets, 0);
+  assertEquals(shared.sets, 1);
   now.ms += 45_000;
   const aging = await resolveSharedMarketData(deps, {
     ...quoteInput(async () => ({ ok: true, payload: [] })),
@@ -174,7 +195,7 @@ Deno.test("live charts can be aging and closed charts use the shared payload cac
     cacheKey: "mkt:v1:agg:AAPL:1:minute:2026-10-20:2026-10-20",
     coalesceKey: "live",
     surface: "bars",
-    sharePayload: false,
+    sharePayload: true,
     describe: () => ({ cacheable: true, empty: false, sourceAsOfMs: null }),
   });
   assert(aging.ok);
@@ -199,7 +220,7 @@ Deno.test("live charts can be aging and closed charts use the shared payload cac
   assert(closed.ok);
   assertEquals(closed.freshness, "closed");
   assertEquals(closed.data, [{ t: 1_735_689_600_000, c: 10 }]);
-  assertEquals(shared.ttls[0], 6 * 60 * 60);
+  assert(shared.ttls.includes(6 * 60 * 60));
 });
 
 Deno.test("provider failures are not cached as empty quotes", async () => {
@@ -374,8 +395,8 @@ Deno.test("Redis credentials stay server-side", async () => {
   assertFalse(index.includes("VITE_UPSTASH"));
   assertFalse(index.includes("UPSTASH_REDIS_REST_TOKEN"));
   assert(index.includes("consumeInstanceRequestGuard"));
-  assert(index.includes("sharePayload: false"));
-  assert(index.includes("sharePayload: closed"));
+  assert(index.includes("sharePayload: true"));
+  assert(index.includes("sharePayload: cacheKey != null"));
   assertFalse(rest.includes("VITE_"));
   assertFalse(client.includes("UPSTASH"));
 });
@@ -387,14 +408,13 @@ Deno.test("warm, cold, increased, and degraded Redis budgets keep free-tier head
     assert(estimate.headroomCommands > 100_000, scenario.name);
     assert(estimate.monthlyCommands < FREE_TIER_MONTHLY_COMMANDS);
   }
-  const warm = estimateMonthlyRedisCommands(WARM_REDIS_TRAFFIC);
-  const cold = estimateMonthlyRedisCommands(COLD_REDIS_TRAFFIC);
-  assert(cold.capped);
-  assert(cold.uncappedAttemptCommands > cold.monthlyCommands);
-  assertEquals(estimateMonthlyRedisCommands(WARM_REDIS_TRAFFIC).monthlyCommands, 299_728);
-  assertEquals(estimateMonthlyRedisCommands(COLD_REDIS_TRAFFIC).monthlyCommands, 301_048);
+  const increased = estimateMonthlyRedisCommands(INCREASED_REDIS_TRAFFIC);
+  assert(increased.capped);
+  assert(increased.uncappedAttemptCommands > increased.monthlyCommands);
+  assertEquals(estimateMonthlyRedisCommands(WARM_REDIS_TRAFFIC).monthlyCommands, 246_598);
+  assertEquals(estimateMonthlyRedisCommands(COLD_REDIS_TRAFFIC).monthlyCommands, 258_544);
   assertEquals(estimateMonthlyRedisCommands(INCREASED_REDIS_TRAFFIC).monthlyCommands, 304_568);
-  assertEquals(estimateMonthlyRedisCommands(DEGRADED_REDIS_TRAFFIC).monthlyCommands, 308_088);
+  assertEquals(estimateMonthlyRedisCommands(DEGRADED_REDIS_TRAFFIC).monthlyCommands, 276_210);
 });
 
 Deno.test("meter log is bounded to one line per minute", () => {
