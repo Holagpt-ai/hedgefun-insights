@@ -2,7 +2,9 @@
 
 Upstash database `stocksist-market-cache` (AWS us-east-1, Free): **500,000 commands / month**, 250 MB.
 
-Live quotes and live charts do not use a Redis payload read on every request. A warm isolate serves them from memory (quotes 30 seconds, live charts 60 seconds). Redis is an atomic `INCR` per actual Massive attempt, plus one `EXPIRE` when that minute's counter is created. Closed aggregate windows may also `GET`/`SET` a shared payload because those refreshes are rare. Per-IP keys are not written.
+Live quotes and live charts are **memory-first** (quotes 30 seconds, live charts 60 seconds). On an **L1 miss**, the Edge function may `GET` a shared Redis payload before spending an upstream attempt; after a successful origin fill it `SET`s the envelope with the same TTL window. A warm isolate never hits Redis on every frontend request. Redis also runs an atomic `INCR` per actual Massive attempt, plus one `EXPIRE` when that minute's counter is created. Per-IP keys are not written.
+
+The browser `polygon.ts` helper adds a session cache keyed by URL and honors `Cache-Control` / `X-Market-Data-*` headers so repeat visitors do not re-invoke Edge for the same symbol inside the serve window.
 
 The shared caps are **18 snapshot attempts/minute** and **8 aggregate attempts/minute**, including 429 and 5xx retries. Traffic above the cap is rejected. It does not keep spending commands.
 
@@ -12,10 +14,10 @@ Active window: 22 trading days, 7 market hours, plus evening traffic equal to 15
 
 | Scenario | What changes | Monthly commands | Headroom |
 | --- | --- | --- | --- |
-| Warm | 2 isolates, 8 quote symbols, 4 live charts, 5% retries | 299,728 | 200,272 |
-| Cold | 8 short-lived isolates, 10% retries | 301,048 | 198,952 |
+| Warm | 8 hot quote keys, 4 live charts, shared payload on L1 miss, 5% retries | 246,598 | 253,402 |
+| Cold | warm traffic plus higher timeout noise | 258,544 | 241,456 |
 | Increased tickers and charts | 24 quote symbols, 12 live charts, 120 closed refreshes/day | 304,568 | 195,432 |
-| Redis timeouts | cold traffic plus 400 timed-out commands/day before the circuit opens | 308,088 | 191,912 |
+| Redis timeouts | cold traffic plus 400 timed-out commands/day before the circuit opens | 276,210 | 223,790 |
 
 Exact figures come from `estimateMonthlyRedisCommands`. Each of these stays under **400,000** commands, leaving more than **100,000** commands of headroom. The cold and increased rows are capped: the uncapped attempt count is higher, and the extra attempts become `429` responses instead of Redis commands.
 
