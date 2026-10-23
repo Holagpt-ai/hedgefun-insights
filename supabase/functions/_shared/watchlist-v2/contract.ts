@@ -1,6 +1,8 @@
 // Contract types + runtime validators for Watchlist V2. No `as` casts used as proof.
 // Recursive forbidden-key scanner enforces the permanent scoreless rule.
 
+import { isEligibleCatalystFeedRow } from "../catalyst/catalyst-feed-eligibility.ts";
+
 export const CONTRACT_VERSION = 2 as const;
 export const TICKER_RE = /^[A-Z][A-Z0-9.-]{0,14}$/;
 
@@ -299,7 +301,9 @@ function validateRecentEvent(e: unknown): e is RecentEvent {
   if (!isISO(e.event_time)) return false;
   if (!isNonEmptyStr(e.source_name)) return false;
   if (e.source_url !== null && !(typeof e.source_url === "string" && (e.source_url as string).startsWith("https://"))) return false;
-  if (e.verification_state !== "provider_reported") return false;
+  if (!isEligibleCatalystFeedRow(
+    typeof e.verification_state === "string" ? e.verification_state : null,
+  )) return false;
   if (!isISO(e.ingested_at)) return false;
   return true;
 }

@@ -1,3 +1,4 @@
+import { CATALYST_FEED_VERIFICATION_STATE } from "../catalyst/catalyst-feed-eligibility.ts";
 import { assembleRepeatMoverContext } from "../repeat-movers/assemble-repeat-mover-context.ts";
 import type { RepeatMoverContextInput } from "../repeat-movers/types.ts";
 import { attachForwardOutcomesToComparables } from "../forward-outcomes/attach-comparables.ts";
@@ -78,7 +79,7 @@ async function pickVerifiedCatalyst(
       "id, symbol, event_type, title, event_date, published_at, source_name, source_url, provider, verification_state, dedupe_key",
     )
     .eq("symbol", symbol.toUpperCase())
-    .eq("verification_state", "provider_reported")
+    .eq("verification_state", CATALYST_FEED_VERIFICATION_STATE)
     .order("published_at", { ascending: false })
     .limit(12);
   if (result.error || !result.data) return null;

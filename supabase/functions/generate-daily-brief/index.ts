@@ -2,6 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 import { timingSafeMatchAny } from "../_shared/timing-safe.ts";
 import { attributeSymbol } from "../_shared/catalyst/attribution.ts";
+import { CATALYST_FEED_VERIFICATION_STATE } from "../_shared/catalyst/catalyst-feed-eligibility.ts";
 import { rankHeadlines } from "../_shared/pre-market/headlines.ts";
 import {
   etDateShift,
@@ -573,7 +574,7 @@ serve(async (req) => {
         .select(
           "id, symbol, company_name, provider, event_type, verification_state, event_date, event_time, time_of_day, title, source_name, published_at, updated_at, related_symbols",
         )
-        .eq("verification_state", "provider_reported")
+        .eq("verification_state", CATALYST_FEED_VERIFICATION_STATE)
         .gte("event_date", catalystFrom)
         .lte("event_date", etDate)
         .order("event_date", { ascending: false })

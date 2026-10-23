@@ -8,6 +8,7 @@ import {
   parseLatestFilingsAtom,
   parseSecAtomCompanyName,
   partitionNewRows,
+  partitionSecIngestRows,
   secDedupeKey,
   toCatalystRowsFromSec,
 } from "./ingest.ts";
@@ -196,6 +197,23 @@ Deno.test("partitionNewRows skips existing dedupe keys and keeps only new rows",
   assertEquals(existing.length, 1);
   assertEquals(existing[0]?.dedupe_key, existingKey);
   assertEquals(incoming.map((r) => r.dedupe_key), [newKey]);
+});
+
+Deno.test("partitionSecIngestRows counts attribution_invalidated without re-ingest", () => {
+  const invalidatedKey = secDedupeKey("0001045810-26-000001", "NVDA");
+  const newKey = secDedupeKey("0000002222-26-000100", "ALPHA");
+  const rows = [
+    { dedupe_key: invalidatedKey },
+    { dedupe_key: newKey },
+  ];
+  const existing = new Map<string, string>([
+    [invalidatedKey, "attribution_invalidated"],
+  ]);
+  const { existing: skipped, incoming, skippedInvalidated } = partitionSecIngestRows(rows, existing);
+  assertEquals(skipped.length, 1);
+  assertEquals(incoming.length, 1);
+  assertEquals(incoming[0]?.dedupe_key, newKey);
+  assertEquals(skippedInvalidated, 1);
 });
 
 Deno.test("extractSecItems keeps explicit Item X.XX identifiers only", () => {
