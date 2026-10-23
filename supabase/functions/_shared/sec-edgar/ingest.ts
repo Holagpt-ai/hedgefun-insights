@@ -4,6 +4,7 @@ import {
   isValidTicker,
   nonEmptyTrimmed,
 } from "../catalyst/contract.ts";
+import { resolveSecFilingAttribution } from "./sec-filing-attribution.ts";
 
 export const SEC_LATEST_FILINGS_PAGE_SIZE = 100;
 export const SEC_LATEST_FILINGS_OWNER = "exclude";
@@ -61,6 +62,7 @@ export interface SecSyncSummary {
   rows_upserted: number;
   rows_skipped_existing: number;
   rows_rejected: number;
+  rows_attribution_unattributed: number;
   sec_requests: number;
 }
 
@@ -74,6 +76,7 @@ export function emptySecSummary(): SecSyncSummary {
     rows_upserted: 0,
     rows_skipped_existing: 0,
     rows_rejected: 0,
+    rows_attribution_unattributed: 0,
     sec_requests: 0,
   };
 }
@@ -90,6 +93,7 @@ export function sanitizeSecSummary(input: SecSyncSummary): SecSyncSummary {
     rows_upserted: nn(input.rows_upserted),
     rows_skipped_existing: nn(input.rows_skipped_existing),
     rows_rejected: nn(input.rows_rejected),
+    rows_attribution_unattributed: nn(input.rows_attribution_unattributed),
     sec_requests: nn(input.sec_requests),
   };
 }
@@ -343,7 +347,11 @@ export function secDedupeKey(accessionNumber: string, symbol: string): string {
 }
 
 // SEC ingestion stores FACTS only. No directional or market interpretation.
-function secFacts(entry: SecFeedEntry, exchange: string | null): Record<string, unknown> {
+function secFacts(
+  entry: SecFeedEntry,
+  exchange: string | null,
+  attribution: ReturnType<typeof resolveSecFilingAttribution>,
+): Record<string, unknown> {
   return {
     source_kind: "sec_filing",
     form_type: entry.form_type,
@@ -355,6 +363,8 @@ function secFacts(entry: SecFeedEntry, exchange: string | null): Record<string, 
     primary_document: entry.primary_document,
     sec_items: entry.sec_items,
     exchange,
+    attribution_level: attribution.level,
+    attribution_reason: attribution.reason,
   };
 }
 
@@ -392,8 +402,14 @@ export function toCatalystRowsFromSec(
     }
     summary.mapped_issuers += 1;
 
+    const attribution = resolveSecFilingAttribution(entry, mapped);
+    if (attribution.targets.length === 0) {
+      summary.rows_attribution_unattributed += 1;
+      continue;
+    }
+
     const related = mapped.map((m) => m.ticker);
-    for (const target of mapped) {
+    for (const target of attribution.targets) {
       const dedupe = secDedupeKey(entry.accession_number, target.ticker);
       if (seen.has(dedupe)) continue;
       seen.add(dedupe);
@@ -422,7 +438,7 @@ export function toCatalystRowsFromSec(
         provider: "sec_edgar",
         provider_article_id: entry.accession_number,
         related_symbols: related.filter((t) => t !== target.ticker),
-        facts: secFacts(entry, target.exchange),
+        facts: secFacts(entry, target.exchange, attribution),
         published_at: entry.accepted_at,
       });
       summary.rows_validated += 1;

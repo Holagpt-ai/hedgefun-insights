@@ -108,7 +108,6 @@ Deno.test("toCatalystRowsFromSec maps forms, rejects irrelevant, skips unmapped,
     keys,
     [
       secDedupeKey("0000002222-26-000100", "ALPHA"),
-      secDedupeKey("0000002222-26-000100", "ALPHA.A"),
       secDedupeKey("0000003333-26-000010", "AMND"),
       secDedupeKey("0001045810-26-000001", "NVDA"),
     ].sort(),
@@ -121,7 +120,8 @@ Deno.test("toCatalystRowsFromSec maps forms, rejects irrelevant, skips unmapped,
   assertEquals(summary.feed_entries_read, 6);
   assertEquals(summary.relevant_forms_found, 5);
   assertEquals(summary.unmapped_issuers, 1);
-  assertEquals(summary.rows_validated, 4);
+  assertEquals(summary.rows_validated, 3);
+  assertEquals(summary.rows_attribution_unattributed, 0);
   assert(summary.rows_rejected >= 1);
 });
 
