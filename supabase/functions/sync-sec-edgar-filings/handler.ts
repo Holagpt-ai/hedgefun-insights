@@ -161,6 +161,7 @@ function toSummary(
     rows_upserted: ingest.rows_upserted,
     rows_skipped_existing: ingest.rows_skipped_existing,
     rows_rejected: ingest.rows_rejected,
+    rows_attribution_unattributed: ingest.rows_attribution_unattributed,
     sec_requests: ingest.sec_requests,
     forms_found: extra.formsFound,
   });
