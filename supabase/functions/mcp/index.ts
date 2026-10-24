@@ -765,6 +765,11 @@ function polygonTickersFromResponse(res) {
   if (isPlainObject3(res) && Array.isArray(res.tickers)) return res.tickers;
   return [];
 }
+function polygonSnapshotVolume(day, min) {
+  const raw = finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v);
+  if (raw === null || raw === 0) return null;
+  return raw;
+}
 function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
   if (!isPlainObject3(raw)) {
     return fail2({ symbol: null }, null, "malformed_symbol");
@@ -828,7 +833,7 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
     minuteClose,
     dayClose,
     vwap: extracted?.vwap,
-    volume: finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v),
+    volume: polygonSnapshotVolume(day, min),
     providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,

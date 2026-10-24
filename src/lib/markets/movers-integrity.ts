@@ -470,6 +470,19 @@ export function polygonTickersFromResponse(res: unknown): unknown[] {
 }
 
 /**
+ * Polygon day/min volume fields use 0 when cumulative volume is unavailable.
+ * That is not the same as a verified zero-share session count from cache/RPC.
+ */
+export function polygonSnapshotVolume(
+  day: Record<string, unknown>,
+  min: Record<string, unknown>,
+): number | null {
+  const raw = finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v);
+  if (raw === null || raw === 0) return null;
+  return raw;
+}
+
+/**
  * Map a Polygon snapshot ticker (or market-data enrichment) into a validated mover.
  * Regular session uses day close vs previous regular close — never todaysChangePerc
  * as the displayed percent.
@@ -562,7 +575,7 @@ export function moverFromPolygonTicker(
     minuteClose,
     dayClose,
     vwap: extracted?.vwap,
-    volume: finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v),
+    volume: polygonSnapshotVolume(day, min),
     providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,

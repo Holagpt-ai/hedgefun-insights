@@ -2,7 +2,31 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
+## 2026-10-24 — Scanner live-market acceptance & reliability V1
+
+**Status:** reliability fix + acceptance report on branch `cursor/scanner-live-market-acceptance-v1`. No Fly/Edge deploy.
+
+**Parent:** `origin/main` **`b735073b`** (PR #168 merged; Vercel manifest `index-Drz78K0e.js`).
+
+**Pull request:** _(open after push)_
+
+### Findings
+
+- **CONDITIONAL PASS** — scanner/radar **contracts and tests** green; **not** full live RTH acceptance (Saturday; no provider telemetry pulled).
+- **ISS-020 fixed in git:** Polygon snapshot volume `0` → missing; verified zero from cache/RPC still sorts before unknown.
+
+### Validation
+
+- Batch 26/27, movers-integrity, scanner qualification, radar news, integrity — pass; typecheck + build pass.
+
+### Next session (RTH)
+
+- Read-only capture: worker board generation timestamps, promotion/cooling counts, premarket vs regular session labels.
+- **ISS-015** Lovable `chat` deploy when approved.
+
 ## 2026-10-24 — Momentum Radar + Catalyst Discovery V2
+
+**Status:** **Merged** to `main` as **`b735073b`** (PR #168). Vercel deployed (`index-Drz78K0e.js` observed).
 
 **Status:** implementation on branch `cursor/momentum-radar-catalyst-discovery-v2`. No Fly deploy, Edge deploy, migration, or SEC/cron change.
 

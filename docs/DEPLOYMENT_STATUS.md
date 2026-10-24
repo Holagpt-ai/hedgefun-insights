@@ -10,12 +10,23 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 | Image tag | `registry.fly.io/stocksist-radar-v22-worker:deployment-01M5CRQST4MR22JBA8AJK972H2` |
 | Digest | `sha256:47ff670c6cbefc43ff01cc87c2e1387f20f4c21a734b45558e7b4a35b901979e` |
 | Git SHA in image | **Unverified** (Fly deployment tag only) |
-| Parity vs `main` `ce68e0d8` worker logic | **PASS** — no ranking / qualification behavior delta in the worker Docker COPY set; redeploy **not required** for scanner logic |
-| Momentum Radar + Catalyst Discovery V2 | **SPA-only** (Vercel after merge); Fly unchanged |
+| Parity vs `main` `b735073b` worker logic | **PASS** — no ranking / qualification behavior delta in the worker Docker COPY set; redeploy **not required** for scanner logic |
+
+## Vercel SPA (2026-10-24)
+
+| Field | Value |
+| --- | --- |
+| GitHub `main` | **`b735073b`** — PR #168 Momentum Radar + Catalyst Discovery V2 **merged** |
+| Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
+| Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
+
+## Scanner live-market acceptance V1
+
+Contract report: `docs/release/scanner-live-market-acceptance-v1.md`. **Full RTH acceptance pending** next trading session. Follow-up reliability PR may land Polygon volume fix (ISS-020).
 
 ## Scanner + catalyst integration V1
 
-Merged to `main` as **`ce68e0d8`** (PR #167). Vercel production asset hash moves only after Vercel builds that commit.
+Merged to `main` as **`ce68e0d8`** (PR #167).
 
 ## AI Analyst V2 — `chat` Edge activation (2026-10-24)
 

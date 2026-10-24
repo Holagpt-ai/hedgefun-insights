@@ -499,27 +499,24 @@ describe("market movers integrity", () => {
   });
 
   it("ranks unknown volume after verified volume including zero", () => {
-    const zero = moverFromPolygonTicker(ticker({
-      ticker: "ZERO",
-      day: { c: 10, v: 0 },
-      prevDay: { c: 10 },
-    }), "regular", NOW);
-    const missing = moverFromPolygonTicker(ticker({
-      ticker: "UNK",
-      day: { c: 11 },
-      prevDay: { c: 10 },
-    }), "regular", NOW);
-    missing.volume = null;
-    const high = moverFromPolygonTicker(ticker({
-      ticker: "HIV",
-      day: { c: 12, v: 9_000_000 },
-      prevDay: { c: 10 },
-    }), "regular", NOW);
+    const zero = baseMover({ symbol: "ZERO", volume: 0 });
+    const missing = baseMover({ symbol: "UNK", volume: null });
+    const high = baseMover({ symbol: "HIV", volume: 9_000_000 });
     const ordered = selectCanonicalCurrentMovers([zero, missing, high], {
       sessionDate: TODAY,
       sort: "volume_desc",
     });
     expect(ordered.map((r) => r.symbol)).toEqual(["HIV", "ZERO", "UNK"]);
+  });
+
+  it("treats Polygon snapshot day.v=0 as missing volume, not verified zero", () => {
+    const mover = moverFromPolygonTicker(
+      ticker({ ticker: "NWGL", day: { c: 0.27, v: 0 }, prevDay: { c: 0.12 } }),
+      "regular",
+      NOW,
+    );
+    expect(mover.valid).toBe(true);
+    expect(mover.volume).toBeNull();
   });
 
   it("preserves volume-first ordering for most-active lists", () => {
