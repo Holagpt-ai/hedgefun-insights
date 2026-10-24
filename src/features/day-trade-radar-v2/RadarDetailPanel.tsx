@@ -5,6 +5,7 @@ import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
+import { workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { parseTimestampMs } from "@/lib/screeners/contract";
 import { volumeVersusPriorSession } from "@/lib/screeners/session-move";
@@ -124,6 +125,7 @@ export function RadarDetailPanel({
   const already = isAdded(sym);
   const pending = pendingSymbol === sym;
   const symKey = sym.toUpperCase();
+  const workflowRoutes = workflowSymbolRoutes(sym);
   const entry = catalystMap?.get(symKey);
   const news = resolveRadarNewsCellStateWithPlatform({
     symbol: sym,
@@ -415,9 +417,8 @@ export function RadarDetailPanel({
           >
             <Bell className="h-3.5 w-3.5" /> Price alert
           </Link>
-          {/* Action Center does not consume ?symbol= — route only, no false claim. */}
           <Link
-            to="/dashboard/action-center"
+            to={workflowRoutes?.actionCenter ?? `/dashboard/action-center?symbol=${encodeURIComponent(sym)}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
           >
             <LayoutDashboard className="h-3.5 w-3.5" /> Action Center

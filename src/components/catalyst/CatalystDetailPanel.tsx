@@ -6,9 +6,9 @@ import { CatalystHandoffs } from "@/components/catalyst/CatalystHandoffs";
 import { CatalystHistoricalBehavior } from "@/components/catalyst/CatalystHistoricalBehavior";
 import { formatCatalystTimestamp } from "@/components/catalyst/CatalystEventRow";
 import {
-  CATALYST_CATEGORY_LABEL,
   catalystCategoryBadgeClass,
-  liveEventCategory,
+  catalystDisplayCategoryFromEvent,
+  catalystDisplayLabelFromEvent,
 } from "@/lib/catalyst/catalyst-event-visuals";
 import {
   catalystFreshness,
@@ -17,7 +17,7 @@ import {
 import { CatalystSecProvenance } from "@/components/catalyst/CatalystSecProvenance";
 import { buildCatalystTraderRead } from "@/lib/catalyst/trader-read";
 import { isSecEdgarCatalystRow } from "@/lib/catalyst/sec-edgar-events";
-import { EVENT_TYPE_LABEL, formatEpsValue, formatSurprisePct } from "@/lib/catalyst/parsers";
+import { formatEpsValue, formatSurprisePct } from "@/lib/catalyst/parsers";
 import type { CatalystEvent } from "@/types/catalyst";
 import { cn } from "@/lib/utils";
 
@@ -48,7 +48,20 @@ export function CatalystDetailPanel({
   nowMs,
 }: CatalystDetailPanelProps) {
   if (!event) return null;
-  const category = liveEventCategory(event.event_type);
+  const category = catalystDisplayCategoryFromEvent({
+    event_type: event.event_type,
+    provider: event.provider,
+    title: event.title,
+    description: event.description,
+    facts: event.facts,
+  });
+  const categoryLabel = catalystDisplayLabelFromEvent({
+    event_type: event.event_type,
+    provider: event.provider,
+    title: event.title,
+    description: event.description,
+    facts: event.facts,
+  });
   const freshness = catalystFreshness(event.published_at, nowMs);
   const facts = event.facts ?? {};
   const estimate = formatEpsValue(facts.estimate_eps);
@@ -75,7 +88,7 @@ export function CatalystDetailPanel({
                 catalystCategoryBadgeClass(category),
               )}
             >
-              {EVENT_TYPE_LABEL[event.event_type] ?? CATALYST_CATEGORY_LABEL[category]}
+              {categoryLabel}
             </Badge>
           </SheetTitle>
           {event.company_name && (

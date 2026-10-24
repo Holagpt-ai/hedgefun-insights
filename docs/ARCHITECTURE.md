@@ -69,6 +69,18 @@ The dashboard still calls `chat`. For a current-catalyst question, the client pa
 
 General questions use the same `chat` function. The priority catalyst block is added only when the packet is in current-catalyst mode. This path does not write Postgres, does not change scanner ranking, and does not change SEC ingestion. Production chat behavior changes only after an approved deploy of `chat`.
 
+## Scanner, Radar, and catalyst surfacing
+
+Volume-first ranking and Radar promotion stay on market momentum. The Fly scanner worker (`services/scanner-stream-worker`) does not fetch catalyst rows for rank or promotion; shared contract `supabase/functions/_shared/radar-v22/scanner-catalyst-surfacing.ts` documents client-side enrichment only.
+
+Verified catalyst copy on Screeners, Day Trade Radar, and the Catalyst tab uses:
+
+- `src/lib/catalyst/enrichment.ts` for per-symbol selection, SEC freshness gates, and invalidated-row exclusion.
+- `catalystDisplayCategoryFromEvent()` / `catalystDisplayLabelFromEvent()` for SEC EDGAR taxonomy (8-K items, offerings, and so on) instead of generic `sec_filing_news` labels.
+- Catalyst tab filters in `src/lib/catalyst/catalyst-filters.ts`, including an **SEC EDGAR** provider chip that does not raise the global feed fetch limit.
+
+Symbol handoffs from Radar to Action Center use `workflowSymbolRoutes()` so `?symbol=` (and optional `securityId`) persist across Screeners → Catalyst → AI Analyst → Watchlist → Journal → Action Center.
+
 ## What is not in this repo
 
 A separate Next.js SEO stack is described in `src/config/seo.ts` and is not part of this Vite app. Do not duplicate programmatic SEO pages here.

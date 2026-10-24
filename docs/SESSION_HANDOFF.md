@@ -2,6 +2,43 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
+## 2026-10-24 — Scanner + catalyst intelligence integration V1
+
+**Status:** implementation on branch `cursor/scanner-catalyst-integration-v1`. No Edge deploy, migration, SEC ingestion/cron change, or Fly worker deploy.
+
+**Parent:** `origin/main` through PR #166 (`e41f3236` edge release docs on `main`).
+
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/167
+
+**Head SHA:** `51dffd5a`
+
+### Delivered in git
+
+- WS1: SEC taxonomy-aware catalyst labels on Screeners (`ScreenerTable`), Radar news cells (`radar-news-display`), and Catalyst rows/detail.
+- WS2: Catalyst tab **SEC EDGAR** filter plus category filters driven by `catalystDisplayCategoryFromEvent`; invalidated rows stay excluded via `isEligibleCatalystFeedEvent`.
+- WS3: Shared `scanner-catalyst-surfacing` contract; worker `rank.ts` references client-only enrichment (no catalyst in rank loop).
+- WS4: Market movers preserve verified zero volume before unknown volume (`movers-integrity.ts`).
+- WS5: Radar `ActiveSymbolRail` and `RadarDetailPanel` Action Center links use `workflowSymbolRoutes`.
+
+### Validation (local)
+
+- `npm run typecheck` — pass
+- `npm run build` — pass (`index-ov5py1ii.js`)
+- Vitest: movers-integrity, catalyst-filters, scanner-radar-catalyst-parity, radar-news-display, sec-edgar-events, catalyst-tab-v1 — pass
+- `npm run test:integrity` — 5 pass; `npm run integrity` — 0 errors, 125 routes
+
+### Deploy state
+
+- **Vercel SPA:** not deployed from this branch until merge + Vercel build.
+- **Fly scanner worker:** unchanged; optional image rebuild only after merge if ops wants parity with new shared contract file in the worker bundle.
+- **Supabase Edge / chat:** unchanged; **ISS-015** stays open.
+
+### Next approved batch
+
+1. Merge scanner PR and confirm Vercel production asset hash moves.
+2. Read-only Fly digest vs `main` worker source (ISS-003 bundle).
+3. Lovable Cloud **`chat`-only** deploy for ISS-015 when rollback metadata is captured.
+
 ## 2026-10-24 — Final continuity alignment (Edge release docs)
 
 **Status:** documentation only. No Edge deploy, migration, cron, DNS, or secret change.
