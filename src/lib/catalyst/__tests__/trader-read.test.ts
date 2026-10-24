@@ -35,7 +35,7 @@ describe("catalyst trader read", () => {
     expect(lines[1]?.text).toContain("SEC");
     expect(lines[1]?.text).toContain("Ticker-specific");
     expect(lines[1]?.text).toContain("The filing lists a customer agreement.");
-    expect(lines[2]?.text).toContain("2026-09-26");
+    expect(lines[2]?.text).toMatch(/Filing date|SEC accepted|Published/);
     expect(JSON.stringify(lines)).not.toMatch(/score|RUNNING_UP|market reaction/i);
   });
 
@@ -48,8 +48,8 @@ describe("catalyst trader read", () => {
       ticker_specific: null,
       facts: {},
     }));
-    expect(lines.find((line) => line.label === "Evidence")?.text).toBe("SEC · Provider reported");
-    expect(lines.find((line) => line.label === "Timing")?.text).toBe("2026-09-26");
+    expect(lines.find((line) => line.label === "Evidence")?.text).toBe("SEC filing · SEC · Provider reported");
+    expect(lines.find((line) => line.label === "Timing")?.text).toMatch(/Filing date 2026-09-26/);
     expect(lines.some((line) => line.label === "Market Reaction" as string)).toBe(false);
   });
 });

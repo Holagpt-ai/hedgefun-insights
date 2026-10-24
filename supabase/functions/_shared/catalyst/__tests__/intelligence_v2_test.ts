@@ -34,6 +34,7 @@ Deno.test("1. source normalization maps legacy event_type to taxonomy", () => {
   assertEquals(mapToTaxonomyV2("earnings", "Q3 earnings beat"), "EARNINGS");
   assertEquals(mapToTaxonomyV2("earnings", "Company raises full-year guidance"), "GUIDANCE");
   assertEquals(mapToTaxonomyV2("sec_filing_news", "Files 8-K"), "SEC_FILING");
+  assertEquals(mapToTaxonomyV2("sec_filing_news", "Offering", null, { form_type: "424B5" }), "OFFERING");
   assertEquals(mapToTaxonomyV2("fda_biotech", "PDUFA date"), "FDA_REGULATORY");
   assertEquals(mapToTaxonomyV2("merger_acquisition", "To acquire"), "M_AND_A");
 });
@@ -141,4 +142,17 @@ Deno.test("sync facts helper stores v2 metadata", () => {
   const facts = intelligenceV2Facts(row(), FETCHED);
   assertEquals(facts.v2_taxonomy, "EARNINGS");
   assert(facts.v2_fetched_at);
+});
+
+Deno.test("SEC EDGAR rows skip stale scanner surfacing", () => {
+  const support = scannerCatalystSupportingFields({
+    symbol: "Z",
+    title: "Z filed Form 8-K",
+    event_type: "sec_filing_news",
+    verification_state: "provider_reported",
+    event_date: "2026-05-01",
+    published_at: "2026-05-01T12:00:00.000Z",
+    provider: "sec_edgar",
+  }, FETCHED);
+  assertEquals(support.catalyst_verified, false);
 });
