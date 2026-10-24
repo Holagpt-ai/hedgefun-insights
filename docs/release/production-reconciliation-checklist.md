@@ -12,15 +12,14 @@ Use after merging the recovery PR into `main`. Does **not** auto-run deploys.
 ## Lovable (preview sync — not DNS)
 
 1. Republish or sync Lovable from **`main`**, not from stale `cursor/chat-single-pass-v1`.
-2. After merge, reset or fast-forward `cursor/chat-single-pass-v1` to `main` so preview matches production code.
+2. Align `cursor/chat-single-pass-v1` with `main` using a **non-destructive merge** (see PR #161 release gate — do not reset or force-push).
 3. Treat `*.lovable.app` as preview until Vercel production is verified.
 
-## Backend (Lovable apply — out of band for this PR)
+## Backend (Gate I.3 — already live)
 
-These ship in repo but require separate Lovable approval; **do not** apply from Cursor in this batch:
+Gate I.3 migration and `sync-sec-edgar-filings` Edge deployment are **already activated in production**. Merging PR #161 **does not** require reapplying that migration or redeploying that function.
 
-- `supabase/migrations/20261024153000_sec_edgar_ingestion_circuit_breaker_v1.sql` (Gate I.3)
-- Redeploy `sync-sec-edgar-filings` when migration is applied
+This PR only **aligns `main` git history** with code that is already live on the integration/Lovable path for Gate I.3. Do **not** run duplicate apply or redeploy steps unless a separate ops audit shows drift.
 
 No SEC cron activation, write-gate changes, or jobs 50/36/37/52 in this checklist.
 
