@@ -1,12 +1,33 @@
 # Deployment status
 
-Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. The production asset hash was read with `npm run integrity -- --remote` (`GET https://stocksist.com/asset-manifest.json`). No Vercel, Supabase, Fly, or Lovable API was called. No authenticated deploy screen was opened.
+Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Cursor attempted local Supabase CLI calls without a personal access token; that path is not the default production operator model.
+
+## AI Analyst V2 — `chat` Edge activation (2026-10-24)
+
+Authorized scope: deploy **`chat` only** from **`1072343455023afc1cb1fbd9007258e80308dd75`** (PR #164) to project **`zcjptaolpumhtlwhlemq`**.
+
+| Field | Value |
+| --- | --- |
+| Result | **BLOCKED** — deploy not executed |
+| Source SHA (approved) | `1072343455023afc1cb1fbd9007258e80308dd75` |
+| Source parity | **Confirmed** — `origin/main` matches approved SHA; `supabase/functions/chat` and required `supabase/functions/_shared/ai-analyst/*` present at that commit (includes `analyst-intelligence-delivery.ts` and recovery shared modules). Workspace chat paths match `origin/main`. Archived branch `cursor/chat-single-pass-v1` was not used. |
+| Previous `chat` version / deploy id | **UNKNOWN** — not read from Lovable Cloud / managed Supabase; no rollback id captured |
+| New `chat` version / deploy id | **N/A** — no deploy |
+| Deployment timestamp | **N/A** |
+| Secrets check | **Not verified in Lovable Cloud this session.** Required names for this function (no values read): `ANTHROPIC_API_KEY`, `BRAVE_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`. |
+| Auth / entitlements | **Unchanged in git** — `[functions.chat] verify_jwt = false`; handler auth and plan limits unchanged at `10723434`. |
+| Pre-deploy tests (local, merge tree) | `deno check supabase/functions/chat/index.ts` at `10723434` — **pass** |
+| Production smoke (pre-deploy) | `OPTIONS` `/functions/v1/chat` → **200**, CORS `Access-Control-Allow-Origin: *`, expected allow-headers |
+| Post-deploy tests | **Not run** — no new revision deployed |
+| Error logs | **Not queried** — use Lovable Cloud managed Supabase logs for production |
+
+**Unblock (Lovable Cloud):** from Lovable Cloud, record the current production `chat` version or deploy id for rollback, confirm required secrets exist, then deploy **`chat` only** from git **`10723434`** with no source edits (standard Supabase bundle includes `_shared/ai-analyst` imports). Post-deploy validation per the activation runbook. Roll back by redeploying the saved previous `chat` revision through Lovable Cloud. Do not ask the user to obtain a personal Supabase access token unless Lovable Cloud explicitly cannot perform the step and the gap is documented.
 
 ## Confirmed this session
 
 | Surface | Observation |
 | --- | --- |
-| GitHub `main` | `03449198a44a0d0cf8befda7e47ed4f6f6abd443` — PR #163 project memory. Re-read with `git rev-parse origin/main` during the analyst recovery. Parent of that commit remains `63957b31` (PR #162). |
+| GitHub `main` | `1072343455023afc1cb1fbd9007258e80308dd75` — PR #164 AI Analyst catalyst evidence recovery (merged 2026-10-24). Vercel Production deployment for this SHA succeeded earlier the same day. |
 | Repo | `https://github.com/Holagpt-ai/hedgefun-insights` |
 | Vercel config in git | `vercel.json` installs with `npm ci`, redirects the legacy host and `www.stocksist.com` to `https://stocksist.com`, rewrites `/sitemap.xml` to the Supabase `sitemap` function, and SPA-falls back every other path |
 | Production asset manifest | `{"js":"/assets/index-CpDXxxyv.js"}` style response; observed js `/assets/index-CpDXxxyv.js`. The manifest has no git SHA |

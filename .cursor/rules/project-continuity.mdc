@@ -15,8 +15,8 @@ Update `docs/ARCHITECTURE.md` when a change alters routes, services, or data flo
 
 Before ending a session that changed the repo, update `docs/SESSION_HANDOFF.md` and `docs/CHANGELOG.md` with SHAs, PRs, and the next approved batch.
 
-Do not apply production migrations, Edge deploys, DNS, cron, or secret changes unless the user explicitly asks.
+Do not apply production migrations, Edge deploys, DNS, cron, or secret changes unless the user explicitly asks. When approved, production Supabase work runs through **Lovable Cloud** (project `zcjptaolpumhtlwhlemq`); do not default to personal Supabase accounts or `SUPABASE_ACCESS_TOKEN`.
 
 Run `npm run integrity` after navigation, SEO, brand, or generated MCP edits.
 
-Canonical product domain is `https://stocksist.com`. GitHub `main` is the source of truth.
+Canonical product domain is `https://stocksist.com`. GitHub `main` is the authoritative application source. Supabase production operations are managed in Lovable Cloud.

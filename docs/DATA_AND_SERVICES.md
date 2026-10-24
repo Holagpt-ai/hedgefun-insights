@@ -1,6 +1,8 @@
 # Data and services
 
-Postgres, Auth, and Edge Functions belong to Supabase project `zcjptaolpumhtlwhlemq`. Schema changes ship as timestamped files in `supabase/migrations/`. Production apply state is not stored in git. See `docs/DEPLOYMENT_STATUS.md`.
+Postgres, Auth, and Edge Functions belong to Supabase project **`zcjptaolpumhtlwhlemq`**, which is **managed within Lovable Cloud**. Schema changes ship as timestamped files in `supabase/migrations/` in git; **production apply and Edge deploy execution** are Lovable Cloud responsibilities. Cursor owns the repo source, tests, and PRs to GitHub `main`. Production apply state is not stored in git. See `docs/DEPLOYMENT_STATUS.md`.
+
+Do not default to personal Supabase dashboard or CLI access for production. If a management action is needed in production, route it through Lovable Cloud and report any capability gap explicitly.
 
 `drizzle/migrations/` mirrors selected changes for alternate tooling. It is not the production history (`docs/migration-drizzle-supabase-notes.md`).
 
