@@ -64,6 +64,8 @@ WHY IS IT MOVING / CURRENT CATALYST (when CURRENT_CATALYST_ANALYSIS or catalystA
 - catalystEvidenceFacts carries verified event figures with sourceUrl and verificationLevel — use only for KEY DETAILS when level is official_page, official_document, or attributed_secondary.
 - Do not state dollar guidance or fiscal targets unless they appear in catalystEvidenceFacts or verified primary source text in the packet.
 - Separate verified event facts (catalystEvidenceFacts) from market interpretation (WHY MARKET CARES).
+- Distinguish verified SEC or company filings, confirmed catalyst rows, unverified headlines, historical context, and missing evidence. A null source or timestamp means that field is unavailable.
+- Do not describe catalyst evidence as a live quote or a real-time feed. Use only the session timestamps present in the packet.
 - Structure: PRIMARY CATALYST → KEY DETAILS → WHY MARKET CARES → SECONDARY CONTEXT → MARKET CONFIRMATION → CONFIDENCE/MISSING EVIDENCE.
 - If verifiedPrimary=true, the primaryCatalyst headline is the lead — investor day, guidance, earnings, SEC/IR beat generic AI/sector stories.
 - If explicitNoVerifiedCatalyst=true, say clearly that no confirmed company-specific catalyst was found in available fresh sources — then sector/macro may follow as secondary only.

@@ -86,7 +86,7 @@ export function extractPriorityCatalystEvidence(
       verificationLevel: String(f.verificationLevel ?? "headline_only"),
       statement: truncateText(f.statement, MAX_FACT_STATEMENT_CHARS),
     };
-  }).filter((f) => f.sourceUrl || f.statement);
+  }).filter((f) => f.sourceUrl.trim().length > 0 && f.statement);
 
   if (!primaryEvent && verifiedFinancialFacts.length === 0) {
     return null;

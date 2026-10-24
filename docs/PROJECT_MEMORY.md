@@ -2,7 +2,7 @@
 
 Canonical constraints for Stocksist. Batch runbooks under `docs/` stay the detailed history. This file is the short version agents must keep true.
 
-Baseline for this memory: GitHub `main` at `63957b319be959888af59410bd36c58cce45fb6d` (PR #162), inspected 2026-10-24.
+Baseline for this memory: parent `origin/main` `03449198` (PR #163), with the AI Analyst catalyst recovery on this change set. Inspected 2026-10-24.
 
 ## Product
 
@@ -15,20 +15,35 @@ Baseline for this memory: GitHub `main` at `63957b319be959888af59410bd36c58cce45
 
 - GitHub `main` is the authoritative source. Lovable preview hosts are not a second production line.
 - Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. PR #162 is on `main`. That integration branch was then merged forward and its file contents match `main`. Use it for Lovable sync.
-- Archived recovery branch: `cursor/chat-single-pass-v1`. Keep it only as the source for the analyst catalyst port below. Its large git divergence is historical and is not the current Lovable or production sync state.
-- `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. Prefer a reviewed port from the archived recovery branch onto current `main`.
+- Archived recovery branch: `cursor/chat-single-pass-v1`. It is the source of the analyst commits below. Its large git divergence is historical and is not the current Lovable or production sync state. Do not merge it.
+- `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. This recovery used the archived-branch versions.
 
-## Recovery candidates that must not be dropped
+## Recovered analyst catalyst evidence
 
-These changes are **absent from `main`** and preserved on the archived recovery branch `origin/cursor/chat-single-pass-v1`:
+Ported from `cursor/chat-single-pass-v1` onto current `main` by cherry-pick, then tightened so a wrong ticker, a stale event, or a missing source cannot become a confirmed catalyst.
 
-| Commit | Subject |
+| Source commit | Subject |
 | --- | --- |
 | `68c88114` | feat(ai-analyst): catalyst evidence depth v2 for CURRENT_CATALYST |
 | `2f22387b` | fix(chat): prioritize catalyst evidence in bounded analyst intelligence delivery |
 | `ed75aa71` | fix(ai-analyst): improve catalyst source recovery and financial fact extraction |
 
-`main` does not contain `supabase/functions/chat/analyst-intelligence-delivery.ts`. The archived recovery branch differs from `main` by 22 files under `src/lib/ai-analyst/`, `supabase/functions/_shared/ai-analyst/`, and `supabase/functions/chat/` (+2288 / −74). Port those files after review. Do not restore that branch's copy of `supabase/functions/mcp/index.ts`; PR #162 on `main` is the canonical generated bundle.
+Decisions kept with the port:
+
+- Client modules in `src/lib/ai-analyst/` and the Deno copies in `supabase/functions/_shared/ai-analyst/` stay separate. Change both when the evidence rules change.
+- `supabase/functions/chat/analyst-intelligence-delivery.ts` bounds the chat packet at 4500 characters. Priority facts need a source URL and a statement. Lower-priority rows shrink first. If even the minimal packet exceeds the budget, chat omits the intelligence block.
+- An official or ticker-specific web hit must name the asked symbol or its known company in the title, snippet, or a non-SEC host. A `sec.gov` URL counts only when the title or snippet names that symbol or company.
+- Events older than 45 days versus the date named in the question, or the radar trading date when the question names none, are historical context. They are not the current primary.
+- Known company names used for that match are Marvell, NVIDIA, Apple, Tesla, and AMD, plus host and title text.
+- Scanner ranking, database schema, the MCP bundle, and SEC ingestion were not changed.
+
+Remaining limits:
+
+- This change does not deploy `chat`. Production chat keeps the previously deployed function until an approved Edge deploy.
+- Dollar figures are extracted only from explicit text near a fiscal-year token. Headline-only evidence is not verified guidance.
+- The prompt tells the model the packet is not a live quote or a real-time feed.
+
+Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 on `main` is the canonical generated bundle.
 
 ## Data and deploy ownership
 

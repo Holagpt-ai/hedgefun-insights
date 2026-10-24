@@ -10,6 +10,7 @@ import {
 } from "../catalyst/precedence.ts";
 import { rowQualifiesAsVerifiedPrimary } from "./catalyst-evidence-verification.ts";
 import { limitScoredCatalystCandidates } from "./catalyst-evidence-candidate-pool.ts";
+import { isHistoricalCatalystDate } from "./catalyst-session-date.ts";
 
 export type CatalystRow = {
   eventType: string;
@@ -105,9 +106,15 @@ export function sortScoredCandidates(
   return (a.row.sourceUrl ?? "").localeCompare(b.row.sourceUrl ?? "");
 }
 
-export function selectPrimaryFromScored(_symbol: string, scored: ReturnType<typeof scoreCatalystRow>[]) {
+export function selectPrimaryFromScored(
+  _symbol: string,
+  scored: ReturnType<typeof scoreCatalystRow>[],
+  options?: { asOfDate?: string | null },
+) {
+  const asOfDate = options?.asOfDate ?? null;
   const sorted = [...scored].sort(sortScoredCandidates);
   return sorted.find((s) => {
+    if (isHistoricalCatalystDate(s.row.eventDate ?? s.row.publishedAt, asOfDate)) return false;
     if (!rowQualifiesAsVerifiedPrimary(s.row, s.precedence)) return false;
     if (s.row.eventType === "analyst_action") return true;
     return s.selectionScore > 0 && s.precedence.classRank > 0;

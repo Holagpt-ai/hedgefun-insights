@@ -3,7 +3,7 @@
  */
 
 import { runBraveWebSearch, type BraveWebHit } from "./brave-search.ts";
-import { catalystSessionDateFromQuestion } from "./catalyst-session-date.ts";
+import { catalystSessionDateFromQuestion, isHistoricalCatalystDate } from "./catalyst-session-date.ts";
 import {
   buildSelectionTrace,
   mergeRowsDeterministic,
@@ -41,8 +41,9 @@ function primaryRowFromAnalysis(
   symbol: string,
   analysis: Record<string, unknown> | undefined,
   merged: CatalystRow[],
+  asOfDate: string | null,
 ): CatalystRow | null {
-  const pick = selectPrimaryFromScored(symbol, merged.map(scoreCatalystRow));
+  const pick = selectPrimaryFromScored(symbol, merged.map(scoreCatalystRow), { asOfDate });
   if (pick?.row) return pick.row;
   const primary = analysis?.primaryCatalyst as Record<string, unknown> | undefined;
   if (!primary?.title) return null;
@@ -89,9 +90,31 @@ function isOfficialUrl(url: string): boolean {
   }
 }
 
+function hitMatchesAskedSymbol(symbol: string, title: string, snippet: string | null | undefined, url: string): boolean {
+  const upper = `${title} ${snippet ?? ""}`.toUpperCase();
+  const asked = symbol.toUpperCase();
+  const company = companyName(asked);
+  if (asked && upper.includes(asked)) return true;
+  if (company && upper.includes(company.toUpperCase())) return true;
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "sec.gov" || host.endsWith(".sec.gov")) return false;
+    const compactHost = host.replace(/[^a-z0-9]/g, "");
+    if (asked.length >= 2 && compactHost.includes(asked.toLowerCase())) return true;
+    if (company) {
+      const stem = company.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (stem.length >= 4 && compactHost.includes(stem)) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 function normalizeHit(hit: BraveWebHit, symbol: string): CatalystRow {
   const title = hit.title?.trim() || "Search result";
-  const official = isOfficialUrl(hit.url);
+  const matched = hitMatchesAskedSymbol(symbol, title, hit.snippet, hit.url);
+  const official = matched && isOfficialUrl(hit.url);
   return {
     eventType: inferEventTypeFromSearchEvidence(title, hit.snippet),
     eventDate: null,
@@ -102,15 +125,18 @@ function normalizeHit(hit: BraveWebHit, symbol: string): CatalystRow {
     sourceUrl: hit.url,
     officialSource: official,
     evidenceOrigin: "fresh_web_search",
-    attributionClass: official ? "direct" : "provider_associated",
-    tickerSpecific: title.toUpperCase().includes(symbol) || official,
+    attributionClass: official ? "direct" : matched ? "provider_associated" : "unverified",
+    tickerSpecific: matched,
   };
 }
 
-function rebuildAnalysis(symbol: string, rows: CatalystRow[]) {
+function rebuildAnalysis(symbol: string, rows: CatalystRow[], asOfDate: string | null) {
   const scored = rows.map(scoreCatalystRow);
-  const primary = selectPrimaryFromScored(symbol, scored);
+  const primary = selectPrimaryFromScored(symbol, scored, { asOfDate });
   const verifiedPrimary = primary != null;
+  const historicalContextOnly = !verifiedPrimary && rows.some((row) =>
+    isHistoricalCatalystDate(row.eventDate ?? row.publishedAt, asOfDate)
+  );
   return {
     movementQuestion: true,
     verifiedPrimary,
@@ -129,6 +155,7 @@ function rebuildAnalysis(symbol: string, rows: CatalystRow[]) {
       : null,
     explicitNoVerifiedCatalyst: !verifiedPrimary,
     retrievalAttempted: true,
+    historicalContextOnly,
   };
 }
 
@@ -173,11 +200,11 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
     ? { ...priorAnalysis }
     : {
       ...((priorAnalysis) ?? {}),
-      ...rebuildAnalysis(symbol, merged),
+      ...rebuildAnalysis(symbol, merged, sessionDate),
     };
 
   const primaryRow = analysis.verifiedPrimary === true
-    ? primaryRowFromAnalysis(symbol, analysis, merged)
+    ? primaryRowFromAnalysis(symbol, analysis, merged, sessionDate)
     : null;
 
   const authoritative = await enrichAuthoritativeCatalystFacts({
@@ -246,6 +273,9 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
       freshDiscoverySucceeded: succeeded,
       catalystAnswerGuidance: succeeded
         ? "Fresh web search supplemented internal catalyst data. Lead with verified primary catalyst from ranked evidence."
+        : analysis.historicalContextOnly === true
+        ? "The only company events in this packet are older than the session and are historical context. "
+          + "State that no confirmed current catalyst was found."
         : "Internal Stocksist catalyst data and fresh web search did not verify a company-specific primary catalyst. "
           + "State clearly that no confirmed company-specific catalyst was found in the available fresh sources.",
     },

@@ -10,6 +10,7 @@ import { buildPipelineTrace, type CatalystPipelineTrace } from "@/lib/ai-analyst
 import type { CurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
 import type { AnalystCatalystRowWithProvenance } from "@/lib/ai-analyst/catalyst-search-types";
 import { limitScoredCatalystCandidates } from "@/lib/ai-analyst/catalyst-evidence-candidate-pool";
+import { isHistoricalCatalystDate } from "@/lib/ai-analyst/catalyst-session-date";
 
 const INVESTOR_DAY = /\b(?:investor day|analyst day|capital markets day)\b/i;
 
@@ -108,9 +109,15 @@ export function sortScoredCandidates(a: ScoredCatalystRow, b: ScoredCatalystRow)
   return (a.row.sourceUrl ?? "").localeCompare(b.row.sourceUrl ?? "");
 }
 
-export function selectPrimaryFromScored(symbol: string, scored: ScoredCatalystRow[]): ScoredCatalystRow | null {
+export function selectPrimaryFromScored(
+  symbol: string,
+  scored: ScoredCatalystRow[],
+  options?: { asOfDate?: string | null },
+): ScoredCatalystRow | null {
+  const asOfDate = options?.asOfDate ?? null;
   const sorted = [...scored].sort(sortScoredCandidates);
   return sorted.find((s) => {
+    if (isHistoricalCatalystDate(s.row.eventDate ?? s.row.publishedAt, asOfDate)) return false;
     if (!rowQualifiesAsVerifiedPrimary(s.row, s.precedence)) return false;
     if (s.row.eventType === "analyst_action") return true;
     return s.selectionScore > 0 && s.precedence.classRank > 0;

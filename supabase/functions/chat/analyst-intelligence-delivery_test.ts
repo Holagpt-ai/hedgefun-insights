@@ -143,6 +143,29 @@ Deno.test("delivery bundle stays valid JSON under budget", () => {
   JSON.parse(serialized);
 });
 
+Deno.test("unsourced financial facts are omitted from the priority block", () => {
+  const bundle = buildAnalystIntelligenceDeliveryBundle({
+    symbol: "MRVL",
+    MODEL_INTERPRETATION: { catalystAnswerMode: "CURRENT_CATALYST_FIRST" },
+    CURRENT_CATALYST_ANALYSIS: {
+      primaryCatalyst: {
+        title: "Marvell Investor Day",
+        eventDate: "2026-10-06",
+        sourceUrl: "https://investor.marvell.com/day",
+      },
+      catalystEvidenceFacts: [{
+        category: "revenue_guidance",
+        statement: "Stated total company revenue target $20B for FY2028.",
+        amountLabel: "$20B",
+        sourceUrl: "",
+        verificationLevel: "headline_only",
+      }],
+    },
+  });
+  assertEquals(bundle.priorityCatalystEvidence?.verifiedFinancialFacts.length ?? 0, 0);
+  assertEquals(bundle.priorityCatalystEvidence?.symbol, "MRVL");
+});
+
 Deno.test("no verified facts yields null priority block without fabrication", () => {
   const bundle = buildAnalystIntelligenceDeliveryBundle({
     symbol: "AAA",

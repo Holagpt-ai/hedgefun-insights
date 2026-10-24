@@ -4,14 +4,14 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Project intelligence V1: repository memory, architecture docs, issue register, session handoff, and `npm run integrity` (PR #163).
-- PR #163 docs distinguish active Lovable branch `cursor/lovable-sync-from-main-20261024` from archived recovery branch `cursor/chat-single-pass-v1`, and record the historical Gate I.3 activation (cron job 52, 22 inserted records).
-- No product behavior change.
+- Recover AI Analyst Catalyst Evidence Depth V2, bounded chat catalyst delivery, and financial-fact extraction from `68c88114`, `2f22387b`, and `ed75aa71`. Official attribution now requires the asked symbol, events older than 45 days stay historical context, and priority facts need a source URL. Closes ISS-001 in git. `chat` is not deployed (ISS-015).
+- Record October 24 Vercel findings as reported investigation items: 42 npm vulnerabilities (3 critical, 25 high, 13 moderate, 1 low), a production JS bundle of about 3.45 MB, a deprecated Vercel Edge middleware runtime, and outdated Browserslist data (ISS-016 through ISS-019). These are not confirmed production exploits.
 
-## main through 63957b31 (2026-10-24)
+## main through 03449198 (2026-10-24)
 
 | SHA | What landed |
 | --- | --- |
+| `03449198` | PR #163. Project memory, architecture docs, issue register, session handoff, integrity checks, Lovable branch roles, and the historical Gate I.3 activation record. |
 | `63957b31` | PR #162. Lovable-generated MCP artifacts aligned with the reviewed integration tip. |
 | `ed3a3728` | PR #161. `main` reconciled with Catalyst V2.1 and Gate I.3 integration, including SEC circuit-breaker migration `20261024153000`. |
 | `d835f704` | PR #156. Gate I SEC EDGAR recurring ingestion lease, telemetry, and dedupe. |
@@ -31,6 +31,6 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 Earlier scanner, watchlist, journal, and screener releases are on `main` below those commits. Use `git log origin/main` for the full list. Feature presence is summarized in `docs/SESSION_HANDOFF.md`.
 
-## Not on main
+## Superseded recovery copies
 
-AI Analyst Catalyst Evidence Depth V2 and chat catalyst delivery remain only on archived recovery branch `origin/cursor/chat-single-pass-v1` (`68c88114`, `2f22387b`, `ed75aa71`) and, in a smaller form, on `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`). See `docs/PROJECT_MEMORY.md`. Active Lovable integration is `cursor/lovable-sync-from-main-20261024`, which matches `main` in file contents.
+`origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower copy of the same analyst work. This recovery used the archived-branch versions from `cursor/chat-single-pass-v1`. That archived branch was not merged. Active Lovable integration remains `cursor/lovable-sync-from-main-20261024`.

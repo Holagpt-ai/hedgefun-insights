@@ -2,14 +2,14 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` `63957b319be959888af59410bd36c58cce45fb6d`, 2026-10-24.
+Baseline: parent `origin/main` `03449198`, 2026-10-24. ISS-001 is closed by the catalyst evidence recovery on this change set.
 
 ## Confirmed
 
 | ID | Item | Evidence |
 | --- | --- | --- |
-| ISS-001 | AI Analyst Catalyst Evidence Depth V2, chat catalyst delivery, and the follow-up source-recovery change are not on `main` | Commits `68c88114`, `2f22387b`, and `ed75aa71` on archived recovery branch `origin/cursor/chat-single-pass-v1`. `analyst-intelligence-delivery.ts` is absent from `origin/main`. Parallel branch `origin/cursor/catalyst-evidence-depth-v2` at `c3bb034a`. |
-| ISS-002 | Registered navigation has no broken route | `npm run integrity` on 2026-10-24: 0 errors, 125 routes. Coverage is the nav file list in `scripts/integrity/lib/navigation.mjs`, not every link in the app. |
+| ISS-002 | Registered navigation has no broken route | `npm run integrity` on 2026-10-24 after the analyst recovery: 0 errors, 0 warnings, 125 routes. Coverage is the nav file list in `scripts/integrity/lib/navigation.mjs`, not every link in the app. |
+| ISS-015 | Production `chat` does not yet run the recovered catalyst delivery | This recovery does not deploy Edge Functions. Live `chat` revision was not queried (ISS-003). Behavior changes only after an approved deploy of `chat` and its `_shared/ai-analyst` imports. |
 
 ## Reported
 
@@ -19,6 +19,10 @@ Baseline: `origin/main` `63957b319be959888af59410bd36c58cce45fb6d`, 2026-10-24.
 | ISS-005 | Batch 34 still records migration apply and Edge version status as unknown | `docs/release/batch34-production-release-manifest.md`. Not refreshed against production. |
 | ISS-006 | Catalyst source activation was planned and not executed in Batch 34 | `docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`. |
 | ISS-007 | AI Analyst generation and streaming failures were explicitly deferred in Batch 34 | Same manifest, section on remaining work. Not retested here. |
+| ISS-016 | October 24 Vercel deployment reported 42 npm vulnerabilities: 3 critical, 25 high, 13 moderate, 1 low | Deployment report only. Not re-audited here and not a confirmed production exploit. Do not run `npm audit fix --force`. |
+| ISS-017 | Production JavaScript bundle is large, about 3.45 MB | October 24 Vercel report. This session's local production build wrote `index-BjQutdyt.js` at 3,456.14 kB and Vite warned that a chunk exceeds 500 kB. Size finding only, not a confirmed exploit. |
+| ISS-018 | Vercel Edge middleware runtime is deprecated | Reported by the October 24 deployment. The runtime was not changed or re-investigated here. Not a confirmed exploit. |
+| ISS-019 | Browserslist data is outdated | This session's production build printed that caniuse-lite data is 16 months old. Not updated in this batch. |
 
 ## Deferred
 
@@ -42,4 +46,5 @@ Baseline: `origin/main` `63957b319be959888af59410bd36c58cce45fb6d`, 2026-10-24.
 
 - MCP server id `hedgefun-mcp` with public title `Stocksist Market Data`. Leave the generated bundle on the PR #162 contents.
 - `cursor/lovable-sync-from-main-20261024` is the active Lovable integration branch and matches `main` in file contents after PR #162.
-- `cursor/chat-single-pass-v1` is the archived recovery branch for ISS-001. Its old divergence is not a current production synchronization problem.
+- `cursor/chat-single-pass-v1` remains archived. The analyst commits were cherry-picked; the branch was not merged. Its old divergence is not a current production synchronization problem.
+- ISS-001 is closed in `docs/CHANGELOG.md`. The recovered code is in git. Production chat still waits on ISS-015.
