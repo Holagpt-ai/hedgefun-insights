@@ -11,9 +11,24 @@ Baseline for this memory: parent `origin/main` `03449198` (PR #163), with the AI
 - Legacy hostname redirects are declared in `vercel.json`. Do not advertise that host as a canonical origin.
 - Lovable preview hosts are not production. `src/integrations/supabase/previewAuthStorage.ts` may list them for preview auth only.
 
+## Platform ownership
+
+**Supabase is managed within Lovable Cloud.** Project id: `zcjptaolpumhtlwhlemq`.
+
+| Surface | Owner | Role |
+| --- | --- | --- |
+| Application source | **GitHub `main`** | Authoritative code, migrations in git, Edge Function source, tests, PRs |
+| Supabase production | **Lovable Cloud** | Managed Postgres, Auth, Edge deploy execution, migration apply, secrets, logs, backend configuration |
+| Public web | **Vercel** | `https://stocksist.com` SPA hosting |
+| Backend implementation | **Cursor** (in repo) | Write and review `supabase/migrations/`, `supabase/functions/`, shared modules, and tests; merge to `main` |
+
+Route production Supabase operations through **Lovable Cloud first**. Do not instruct the user to create or use a separate Supabase account or obtain a personal **`SUPABASE_ACCESS_TOKEN`** by default. If Lovable lacks a needed management capability, report the exact limitation instead of assuming direct Supabase dashboard or CLI access.
+
+Merging to `main` updates git only. Production Supabase state changes when Lovable Cloud (or an explicitly approved ops path) deploys or applies work from `main`.
+
 ## Source of truth
 
-- GitHub `main` is the authoritative source. Lovable preview hosts are not a second production line.
+- GitHub `main` is the authoritative **application** source. Lovable preview hosts are not a second production line.
 - Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. PR #162 is on `main`. That integration branch was then merged forward and its file contents match `main`. Use it for Lovable sync.
 - Archived recovery branch: `cursor/chat-single-pass-v1`. It is the source of the analyst commits below. Its large git divergence is historical and is not the current Lovable or production sync state. Do not merge it.
 - `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`) is a narrower parallel of the same analyst work. This recovery used the archived-branch versions.
@@ -47,8 +62,9 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 ## Data and deploy ownership
 
-- Production schema history is `supabase/migrations/`, applied outside Cursor. `drizzle/migrations/` is a mirror, not a second production log. See `docs/migration-drizzle-supabase-notes.md`.
-- Merging to `main` updates git only. Vercel, Supabase Edge, Fly, cron, and secrets move only in an approved ops step.
+- Production schema history is `supabase/migrations/`. **Apply** migrations through Lovable Cloud (managed Supabase), not by ad hoc Cursor CLI against production. `drizzle/migrations/` is a mirror, not a second production log. See `docs/migration-drizzle-supabase-notes.md`.
+- Vercel production follows GitHub `main` via the normal Vercel Git integration. Fly workers, SEC cron, and non-Supabase infra move only in an approved ops step.
+- Edge Function **source** lives in git; **production deploy** of those functions is a Lovable Cloud responsibility unless a batch explicitly assigns another approved executor.
 - Never delete or rewrite an applied Supabase migration. Add a corrective migration.
 - Generated MCP output stays generator-owned (`scripts/mcp-edge-validate.mjs`).
 

@@ -2,6 +2,18 @@
 
 Stocksist work starts from GitHub `main` in `Holagpt-ai/hedgefun-insights`. The public product is Stocksist at `https://stocksist.com`.
 
+## Supabase and Lovable Cloud
+
+**Supabase is managed within Lovable Cloud.** Project id: `zcjptaolpumhtlwhlemq`.
+
+| Responsibility | Owner |
+| --- | --- |
+| Backend code, migrations (files), Edge Function source, tests, Git, PRs | Cursor / GitHub `main` |
+| Production Supabase: deploy Edge Functions, apply migrations, secrets, logs, backend config | Lovable Cloud |
+| Public frontend hosting | Vercel (`https://stocksist.com`) |
+
+Route production Supabase operations through **Lovable Cloud first**. Do not instruct the user to create a separate Supabase account or obtain a personal **`SUPABASE_ACCESS_TOKEN`** by default. If Lovable lacks a needed capability, report the exact limitation instead of assuming external Supabase access.
+
 ## Session start
 
 Read these before changing code:
@@ -31,7 +43,7 @@ Update `docs/SESSION_HANDOFF.md` and add an entry to `docs/CHANGELOG.md` with:
 
 ## Restrictions that stay in force until a later batch says otherwise
 
-- No production migrations, Edge deploys, DNS edits, cron changes, or secret changes.
+- No production migrations, Edge deploys, DNS edits, cron changes, or secret changes from Cursor unless the user explicitly asks. When deploy or apply is approved, execution belongs in **Lovable Cloud**, not ad hoc personal Supabase CLI against production.
 - Do not merge pull requests unless the user asks.
 - Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. It matches `main` in file contents after PR #162.
 - Archived recovery branch: `cursor/chat-single-pass-v1`. Port the reviewed analyst catalyst files from it. Do not merge that branch, and do not treat its old divergence as a production sync failure.
@@ -47,4 +59,4 @@ npm run test:integrity
 npm run integrity
 ```
 
-`npm run integrity -- --remote` compares `dist/asset-manifest.json` with the public `https://stocksist.com/asset-manifest.json`. It does not prove which git SHA Vercel built. Authenticated Vercel, Supabase, Fly, and Lovable checks are out of scope unless the task says to run them.
+`npm run integrity -- --remote` compares `dist/asset-manifest.json` with the public `https://stocksist.com/asset-manifest.json`. It does not prove which git SHA Vercel built. Authenticated Vercel, Fly, and Lovable Cloud checks are out of scope unless the task says to run them. Production Supabase state is observed through Lovable Cloud when needed, not personal Supabase dashboard access by default.
