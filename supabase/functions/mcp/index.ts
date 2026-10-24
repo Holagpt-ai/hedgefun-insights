@@ -376,6 +376,104 @@ function shouldExcludeHomepageMover(input) {
   return null;
 }
 
+// src/lib/markets/movers-observation.ts
+import { getEtParts, tradingSessionDateForInstant } from "npm:@/lib/market-calendar";
+import { dailyAggregateBarDate } from "npm:@/lib/etf/snapshot-volume";
+import { polygonSnapshotFieldToMs } from "npm:@/lib/market-data/polygon-snapshot-timestamps";
+import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "npm:@/lib/price-utils";
+function isPlainObject2(x) {
+  return x !== null && typeof x === "object" && !Array.isArray(x);
+}
+function positivePrice(value) {
+  return value !== null && Number.isFinite(value) && value > 0;
+}
+function referenceTradingSessionDate(nowMs) {
+  const et = getEtParts(new Date(nowMs));
+  return tradingSessionDateForInstant(et.date, et.minutes);
+}
+function resolveDisplayedPriceSource(session, lastTradePrice, minuteClose, dayClose) {
+  if (session === "regular") {
+    return positivePrice(dayClose) ? "day_close" : null;
+  }
+  if (positivePrice(lastTradePrice)) return "last_trade";
+  if (positivePrice(minuteClose)) return "minute_close";
+  return null;
+}
+function resolvePolygonMoverSourceEvidence(session, raw, nowMs, displayed) {
+  const day = isPlainObject2(raw.day) ? raw.day : {};
+  const min = isPlainObject2(raw.min) ? raw.min : {};
+  const lastTrade = isPlainObject2(raw.lastTrade) ? raw.lastTrade : {};
+  if (displayed === "day_close") {
+    const dayObsMs = polygonSnapshotFieldToMs(day.t, "dayAggregate", nowMs);
+    if (dayObsMs !== null) {
+      return {
+        sessionDate: dailyAggregateBarDate(dayObsMs),
+        providerAsOfMs: dayObsMs,
+        basis: "day_aggregate",
+        sessionDateUnverified: false,
+        observationTimeUnavailable: false
+      };
+    }
+    return {
+      sessionDate: null,
+      providerAsOfMs: null,
+      basis: "day_aggregate",
+      sessionDateUnverified: true,
+      observationTimeUnavailable: true
+    };
+  }
+  if (displayed === "last_trade") {
+    const lastTradeMs = polygonSnapshotFieldToMs(lastTrade.t, "lastTrade", nowMs);
+    if (lastTradeMs !== null) {
+      return {
+        sessionDate: etSessionDate(lastTradeMs),
+        providerAsOfMs: lastTradeMs,
+        basis: "last_trade",
+        sessionDateUnverified: false,
+        observationTimeUnavailable: false
+      };
+    }
+    return {
+      sessionDate: null,
+      providerAsOfMs: null,
+      basis: "last_trade",
+      sessionDateUnverified: true,
+      observationTimeUnavailable: true
+    };
+  }
+  if (displayed === "minute_close") {
+    const minuteMs = polygonSnapshotFieldToMs(min.t, "minAggregate", nowMs) ?? polygonSnapshotFieldToMs(min.e, "minAggregate", nowMs);
+    if (minuteMs !== null) {
+      return {
+        sessionDate: etSessionDate(minuteMs),
+        providerAsOfMs: minuteMs,
+        basis: "minute_aggregate",
+        sessionDateUnverified: false,
+        observationTimeUnavailable: false
+      };
+    }
+    return {
+      sessionDate: null,
+      providerAsOfMs: null,
+      basis: "minute_aggregate",
+      sessionDateUnverified: true,
+      observationTimeUnavailable: true
+    };
+  }
+  return {
+    sessionDate: null,
+    providerAsOfMs: null,
+    basis: null,
+    sessionDateUnverified: true,
+    observationTimeUnavailable: true
+  };
+}
+function observationMsFromIso(iso) {
+  if (!iso) return null;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? ms : null;
+}
+
 // src/lib/markets/movers-integrity.ts
 var SOURCE_POLYGON = "polygon";
 var SOURCE_MARKET_MOVERS_CACHE = "market_movers";
@@ -504,6 +602,9 @@ function fail2(input, symbol, reason) {
     session_date: typeof input.sessionDate === "string" ? input.sessionDate : null,
     source: sourceFrom(input.source),
     provider_as_of: isoOrNull(input.providerAsOf),
+    observation_basis: input.observationBasis ?? null,
+    session_date_unverified: Boolean(input.sessionDateUnverified),
+    observation_time_unavailable: Boolean(input.observationTimeUnavailable),
     id: typeof input.id === "string" ? input.id : null
   };
 }
@@ -598,7 +699,11 @@ function validateMover(input) {
         return fail2(input, symbol, "stale_reference");
       }
       if (nowMs - asOfMs > STALE_REFERENCE_MS) {
-        return fail2(input, symbol, "stale_reference");
+        const sourceSession = typeof input.sessionDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(input.sessionDate) ? input.sessionDate : null;
+        const allowPriorSessionDayBar = input.session === "regular" && input.observationBasis === "day_aggregate" && sourceSession !== null && sourceSession !== referenceTradingSessionDate(nowMs);
+        if (!allowPriorSessionDayBar) {
+          return fail2(input, symbol, "stale_reference");
+        }
       }
     }
   }
@@ -616,15 +721,18 @@ function validateMover(input) {
     reference_price: reference,
     change: current - reference,
     change_percent: canonicalPct,
-    volume: volume !== null && volume >= 0 ? volume : null,
+    volume: volume !== null && volume > 0 ? volume : null,
     session: input.session ?? null,
     session_date: sessionDate,
     source: sourceFrom(input.source),
     provider_as_of: asOf,
+    observation_basis: input.observationBasis ?? null,
+    session_date_unverified: Boolean(input.sessionDateUnverified),
+    observation_time_unavailable: Boolean(input.observationTimeUnavailable),
     id: typeof input.id === "string" ? input.id : null
   };
 }
-function isPlainObject2(x) {
+function isPlainObject3(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
 }
 function moverFromExtendedObservation(input, nowMs = Date.now()) {
@@ -639,26 +747,33 @@ function moverFromExtendedObservation(input, nowMs = Date.now()) {
     volume: input.volume,
     providerAsOf: input.providerAsOf,
     session: "afterhours",
-    sessionDate: etSessionDate(nowMs),
+    sessionDate: (() => {
+      const iso = isoOrNull(input.providerAsOf);
+      const ms = observationMsFromIso(iso);
+      return ms !== null ? etSessionDate(ms) : null;
+    })(),
     source: input.source ?? SOURCE_AFTER_HOURS_FEED,
+    observationBasis: "extended_feed",
+    sessionDateUnverified: isoOrNull(input.providerAsOf) === null,
+    observationTimeUnavailable: isoOrNull(input.providerAsOf) === null,
     id: input.id,
     nowMs
   });
 }
 function polygonTickersFromResponse(res) {
   if (Array.isArray(res)) return res;
-  if (isPlainObject2(res) && Array.isArray(res.tickers)) return res.tickers;
+  if (isPlainObject3(res) && Array.isArray(res.tickers)) return res.tickers;
   return [];
 }
 function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
-  if (!isPlainObject2(raw)) {
+  if (!isPlainObject3(raw)) {
     return fail2({ symbol: null }, null, "malformed_symbol");
   }
   const extracted = extractPolygonSnapshotFields(raw, raw.ticker ?? raw.symbol);
-  const lastTrade = isPlainObject2(raw.lastTrade) ? raw.lastTrade : {};
-  const min = isPlainObject2(raw.min) ? raw.min : {};
-  const day = isPlainObject2(raw.day) ? raw.day : {};
-  const prevDay = isPlainObject2(raw.prevDay) ? raw.prevDay : {};
+  const lastTrade = isPlainObject3(raw.lastTrade) ? raw.lastTrade : {};
+  const min = isPlainObject3(raw.min) ? raw.min : {};
+  const day = isPlainObject3(raw.day) ? raw.day : {};
+  const prevDay = isPlainObject3(raw.prevDay) ? raw.prevDay : {};
   const lastTradePrice = finiteOrNull(lastTrade.p);
   const minuteClose = finiteOrNull(min.c);
   const dayClose = finiteOrNull(day.c);
@@ -676,7 +791,15 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
     reference = dayClose;
   }
   const providerPct = finiteOrNull(raw.todaysChangePerc ?? raw.change_percent ?? raw.changePercent);
-  const sessionDate = etSessionDate(nowMs);
+  const displayedSource = resolveDisplayedPriceSource(session, lastTradePrice, minuteClose, dayClose);
+  const sourceEvidence = resolvePolygonMoverSourceEvidence(
+    session,
+    { day, min, lastTrade },
+    nowMs,
+    displayedSource
+  );
+  const sessionDate = sourceEvidence.sessionDate;
+  const providerAsOfForValidation = sourceEvidence.providerAsOfMs !== null ? new Date(sourceEvidence.providerAsOfMs).toISOString() : null;
   if (session === "regular" && dayClose !== null && dayClose > 0 && current === dayClose && providerPct !== null && prevClose !== null && prevClose > 0) {
     const dayPct = canonicalChangePercent(dayClose, prevClose);
     const extPrice = (lastTradePrice !== null && lastTradePrice > 0 ? lastTradePrice : null) ?? (minuteClose !== null && minuteClose > 0 ? minuteClose : null);
@@ -689,7 +812,7 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
           session,
           sessionDate,
           source: SOURCE_POLYGON,
-          providerAsOf: extracted?.quoteTimestamp ?? lastTrade.t ?? raw.updated
+          providerAsOf: providerAsOfForValidation
         }, normalizeSymbol(extracted?.symbol ?? raw.ticker ?? raw.symbol), "session_mismatch");
       }
     }
@@ -697,7 +820,7 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
   const instrumentType = typeof raw.instrument_type === "string" ? raw.instrument_type : typeof raw.type === "string" ? raw.type : null;
   return validateMover({
     symbol: extracted?.symbol ?? raw.ticker ?? raw.symbol,
-    name: raw.name ?? (isPlainObject2(raw.details) ? raw.details.name : null),
+    name: raw.name ?? (isPlainObject3(raw.details) ? raw.details.name : null),
     price: current,
     referencePrice: reference,
     providerPercent: providerPct,
@@ -706,13 +829,25 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
     dayClose,
     vwap: extracted?.vwap,
     volume: finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v),
-    providerAsOf: extracted?.quoteTimestamp ?? lastTrade.t ?? raw.updated,
+    providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,
     source: SOURCE_POLYGON,
     instrumentType,
+    observationBasis: sourceEvidence.basis,
+    sessionDateUnverified: sourceEvidence.sessionDateUnverified,
+    observationTimeUnavailable: sourceEvidence.observationTimeUnavailable,
     nowMs
   });
+}
+function compareVerifiedVolumeDesc(a, b) {
+  const aKnown = a !== null && Number.isFinite(a) && a >= 0;
+  const bKnown = b !== null && Number.isFinite(b) && b >= 0;
+  if (!aKnown && !bKnown) return 0;
+  if (!aKnown) return 1;
+  if (!bKnown) return -1;
+  if (a !== b) return b - a;
+  return 0;
 }
 function eventTimeMs(iso) {
   if (!iso) return 0;
@@ -760,7 +895,7 @@ function selectCanonicalCurrentMovers(rows, opts) {
   const sort = opts?.sort ?? "percent_desc";
   winners.sort((a, b) => {
     if (sort === "volume_desc") {
-      const dv = (b.volume ?? 0) - (a.volume ?? 0);
+      const dv = compareVerifiedVolumeDesc(a.volume, b.volume);
       if (dv !== 0) return dv;
     } else {
       const pa = a.change_percent ?? 0;
@@ -779,10 +914,7 @@ function presentCanonicalMovers(movers, category, limit = 10, nowMs = Date.now()
   let filtered = movers;
   if (category === "gainer") filtered = movers.filter((m) => (m.change_percent ?? 0) > 0);
   if (category === "loser") filtered = movers.filter((m) => (m.change_percent ?? 0) < 0);
-  const winners = selectCanonicalCurrentMovers(filtered, {
-    sessionDate: etSessionDate(nowMs),
-    sort
-  });
+  const winners = selectCanonicalCurrentMovers(filtered, { sort });
   const rows = winners.slice(0, Math.max(1, limit)).filter((m) => m.symbol && m.price !== null && m.change_percent !== null).map((m) => ({
     symbol: m.symbol,
     name: m.name,
@@ -804,7 +936,7 @@ var UNAVAILABLE = {
   unavailable: true,
   freshness: "unavailable"
 };
-function isPlainObject3(x) {
+function isPlainObject4(x) {
   return x !== null && typeof x === "object" && !Array.isArray(x);
 }
 function reasonFromHttpStatus(status) {
@@ -827,10 +959,10 @@ function parseMarketDataPayload(status, body) {
   if (!Number.isFinite(status) || status < 200 || status >= 300) {
     return { ...UNAVAILABLE, reason: reasonFromHttpStatus(status) };
   }
-  if (isPlainObject3(body) && body.status === "ERROR") {
+  if (isPlainObject4(body) && body.status === "ERROR") {
     return { ...UNAVAILABLE, reason: "upstream_error" };
   }
-  if (isPlainObject3(body) && (body.freshness === "last_success" || body.status === "stale")) {
+  if (isPlainObject4(body) && (body.freshness === "last_success" || body.status === "stale")) {
     if (!Array.isArray(body.tickers)) {
       return { ...UNAVAILABLE, reason: "missing_evidence" };
     }
@@ -841,7 +973,7 @@ function parseMarketDataPayload(status, body) {
       reason: "last_success"
     };
   }
-  if (Array.isArray(body) || isPlainObject3(body) && Array.isArray(body.tickers)) {
+  if (Array.isArray(body) || isPlainObject4(body) && Array.isArray(body.tickers)) {
     return {
       tickers: polygonTickersFromResponse(body),
       unavailable: false,
