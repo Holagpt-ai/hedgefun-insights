@@ -8,7 +8,9 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Parent:** `origin/main` through PR #166 (`e41f3236` edge release docs on `main`).
 
-**Pull request:** _(open after push — see CHANGELOG for SHA)_
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/167
+
+**Head SHA:** `51dffd5a`
 
 ### Delivered in git
 
