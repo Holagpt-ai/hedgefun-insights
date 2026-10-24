@@ -125,6 +125,18 @@ export function catalystDisplayCategoryFromEvent(input: {
   return liveEventCategory(input.event_type);
 }
 
+/** Display label for scanner, radar, and Catalyst tab rows (SEC taxonomy-aware). */
+export function catalystDisplayLabelFromEvent(input: {
+  event_type: CatalystEventType;
+  provider?: string | null;
+  title?: string;
+  description?: string | null;
+  facts?: Record<string, unknown> | null;
+}): string {
+  const category = catalystDisplayCategoryFromEvent(input);
+  return CATALYST_CATEGORY_LABEL[category];
+}
+
 const HISTORICAL_TYPE_CATEGORY: Partial<Record<CorporateEventType, CatalystDisplayCategory>> = {
   EARNINGS: "EARNINGS",
   GUIDANCE: "GUIDANCE",

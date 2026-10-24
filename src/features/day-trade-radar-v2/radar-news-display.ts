@@ -1,4 +1,4 @@
-import { EVENT_TYPE_LABEL } from "@/lib/catalyst/parsers";
+import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
 import type { RecentProviderHeadline, RadarNewsSymbolStatus } from "@/lib/market-data/recent-news";
@@ -49,8 +49,13 @@ export function resolveRadarNewsDisplay(
   nowMs: number = Date.now(),
 ): RadarNewsDisplay {
   if (catalyst?.event) {
-    const category =
-      EVENT_TYPE_LABEL[catalyst.event.event_type as keyof typeof EVENT_TYPE_LABEL] ?? "Catalyst";
+    const category = catalystDisplayLabelFromEvent({
+      event_type: catalyst.event.event_type,
+      provider: catalyst.event.provider,
+      title: catalyst.event.title,
+      description: catalyst.event.description,
+      facts: catalyst.event.facts,
+    });
     const title = catalyst.event.title?.trim() || category;
     const publishedAt = catalyst.event.published_at ?? null;
     return {

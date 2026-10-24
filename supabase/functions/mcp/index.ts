@@ -721,7 +721,7 @@ function validateMover(input) {
     reference_price: reference,
     change: current - reference,
     change_percent: canonicalPct,
-    volume: volume !== null && volume > 0 ? volume : null,
+    volume: volume !== null && Number.isFinite(volume) && volume >= 0 ? volume : null,
     session: input.session ?? null,
     session_date: sessionDate,
     source: sourceFrom(input.source),

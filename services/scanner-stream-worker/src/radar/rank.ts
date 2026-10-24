@@ -1,4 +1,8 @@
+import { RADAR_CATALYST_SURFACING } from "../../../../supabase/functions/_shared/radar-v22/scanner-catalyst-surfacing.ts";
 import type { RadarV22Config } from "./config.ts";
+
+/** @see RADAR_CATALYST_SURFACING — rank must not consume catalyst signals. */
+void RADAR_CATALYST_SURFACING;
 import type { RadarV22BoardLifecycle } from "../../../../supabase/functions/_shared/radar-v22/types.ts";
 import type { RankedCandidate } from "./types.ts";
 

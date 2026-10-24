@@ -27,13 +27,13 @@ import {
   watchlistCatalystCounts,
   watchlistCatalystEmptyMessage,
 } from "@/lib/catalyst/presentation";
-import { liveEventCategory } from "@/lib/catalyst/catalyst-event-visuals";
 import {
   CATALYST_CATEGORY_FILTERS,
   CATALYST_CATEGORY_FILTER_LABEL,
   CATALYST_RECENCY_FILTERS,
   CATALYST_RECENCY_FILTER_LABEL,
-  matchesCatalystCategoryFilter,
+  isEligibleCatalystFeedEvent,
+  matchesCatalystFeedCategoryFilter,
   matchesCatalystRecencyFilter,
   type CatalystCategoryFilter,
   type CatalystRecencyFilter,
@@ -157,7 +157,7 @@ export default function Catalyst() {
   }, [userState]);
 
   const events = useMemo<CatalystEvent[]>(
-    () => (rawEvents ?? []).filter((event) => event.verification_state === "provider_reported"),
+    () => (rawEvents ?? []).filter((event) => isEligibleCatalystFeedEvent(event)),
     [rawEvents],
   );
   const nowMs = Date.now();
@@ -166,7 +166,7 @@ export default function Catalyst() {
   const feedEvents = useMemo(() => {
     const searchFilter = normalizeSymbol(searchInput.trim().toUpperCase());
     const filtered = events.filter((e) => {
-      if (!matchesCatalystCategoryFilter(categoryFilter, liveEventCategory(e.event_type))) return false;
+      if (!matchesCatalystFeedCategoryFilter(categoryFilter, e)) return false;
       if (workflow === "watchlist" && !watchlistSymbols.has(e.symbol)) return false;
       if (workflow === "saved" && !savedByEvent.has(e.id)) return false;
       if (workflow === "reviewed" && !reviewedByEvent.has(e.id)) return false;

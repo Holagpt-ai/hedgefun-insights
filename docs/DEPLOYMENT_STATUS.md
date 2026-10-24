@@ -2,6 +2,15 @@
 
 Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
+## Scanner + catalyst integration V1 (pending merge)
+
+| Surface | State |
+| --- | --- |
+| Git branch | `cursor/scanner-catalyst-integration-v1` — SPA-only changes + shared radar contract comment file copied into worker build context |
+| Vercel `stocksist.com` | **Not updated** until PR merges and Vercel builds `main` |
+| Fly Radar worker | **Not redeployed** this batch; ranking behavior unchanged |
+| Supabase Edge | **Unchanged** |
+
 ## AI Analyst V2 — `chat` Edge activation (2026-10-24)
 
 Authorized scope: deploy **`chat` only** from **`1072343455023afc1cb1fbd9007258e80308dd75`** (PR #164) to project **`zcjptaolpumhtlwhlemq`**.

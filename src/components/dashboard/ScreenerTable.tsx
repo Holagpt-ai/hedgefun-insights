@@ -5,7 +5,8 @@ import { ScreenerTab, ColumnFormat, ScreenerColumn } from "@/config/screener-tab
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystEnrichmentForSymbols } from "@/hooks/useCatalystEnrichmentForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
-import { EVENT_TYPE_LABEL, normalizeSymbol } from "@/lib/catalyst/parsers";
+import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
+import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import {
   formatDayRange,
   formatRangeEvent,
@@ -347,7 +348,13 @@ export function ScreenerTable({
         </span>
       );
     }
-    const label = EVENT_TYPE_LABEL[entry.event.event_type];
+    const label = catalystDisplayLabelFromEvent({
+      event_type: entry.event.event_type,
+      provider: entry.event.provider,
+      title: entry.event.title,
+      description: entry.event.description,
+      facts: entry.event.facts,
+    });
     const kindLabel = entry.kind === "upcoming" ? "Upcoming" : "Recent";
     const href = catalystSymbolHref(sym) ?? `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`;
     return (
