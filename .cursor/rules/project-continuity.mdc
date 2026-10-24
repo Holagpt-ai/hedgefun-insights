@@ -1,0 +1,22 @@
+---
+description: Session continuity for Stocksist project memory
+alwaysApply: true
+---
+
+# Stocksist session continuity
+
+At the start of a Stocksist session, read:
+
+1. `docs/PROJECT_MEMORY.md`
+2. `docs/SESSION_HANDOFF.md`
+3. `docs/ISSUE_REGISTER.md`
+
+Update `docs/ARCHITECTURE.md` when a change alters routes, services, or data flow.
+
+Before ending a session that changed the repo, update `docs/SESSION_HANDOFF.md` and `docs/CHANGELOG.md` with SHAs, PRs, and the next approved batch.
+
+Do not apply production migrations, Edge deploys, DNS, cron, or secret changes unless the user explicitly asks.
+
+Run `npm run integrity` after navigation, SEO, brand, or generated MCP edits.
+
+Canonical product domain is `https://stocksist.com`. GitHub `main` is the source of truth.
