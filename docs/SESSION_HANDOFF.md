@@ -10,7 +10,7 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Branch:** `cursor/project-intelligence-continuity-v1`.
 
-**Pull request:** recorded in git history after this file is updated with the PR URL.
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/163
 
 ### Completed
 

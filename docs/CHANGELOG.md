@@ -4,7 +4,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Project intelligence V1: repository memory, architecture docs, issue register, session handoff, and `npm run integrity`.
+- Project intelligence V1: repository memory, architecture docs, issue register, session handoff, and `npm run integrity` (PR #163).
 - No product behavior change.
 
 ## main through 63957b31 (2026-10-24)
