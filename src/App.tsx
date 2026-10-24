@@ -40,6 +40,14 @@ import {
   LazyJournalTrades,
   LazyPMInbox,
   LazyScreeners,
+  LazyStockDetail,
+  LazyScreener,
+  LazyMoversPage,
+  LazyWatchlistPage,
+  LazyEtfDetailPage,
+  LazyArticleDetailPage,
+  LazyNewsPage,
+  LazyEarningsPage,
 } from "@/lazyPages";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
@@ -60,20 +68,14 @@ import AiTraderPage from "@/pages/dashboard/AiTraderPage";
 import { AI_TRADER_DASHBOARD_PATH, AI_TRADER_LEGACY_GAME_PATH } from "@/lib/ai-trader/operating-mode";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import StockDetail from "./pages/stocks/StockDetail";
 import AllStocksPage from "./pages/stocks/AllStocksPage";
-import Screener from "./pages/Screener";
-import MoversPage from "./pages/movers/MoversPage";
 import { RecentIposPage, UpcomingIposPage } from "./pages/ipos/IpoPages";
 import IpoStatisticsPage from "./pages/ipos/IpoStatisticsPage";
 import IpoNewsPage from "./pages/ipos/IpoNewsPage";
 import IpoScreenerPage from "./pages/ipos/IpoScreenerPage";
-import EarningsPage from "./pages/earnings/EarningsPage";
-import WatchlistPage from "./pages/watchlist/WatchlistV2Page";
 import ProPage from "./pages/pro/ProPage";
 import AccountPage from "./pages/account/AccountPage";
 import BillingPage from "./pages/account/BillingPage";
-import NewsPage from "./pages/news/NewsPage";
 import StubPage from "./pages/stubs/StubPage";
 import StockExchangesPage from "./pages/stocks/StockExchangesPage";
 import StockComparePage from "./pages/stocks/StockComparePage";
@@ -89,7 +91,6 @@ import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
 import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
 import EtfMainPage from "./pages/etf/EtfMainPage";
-import EtfDetailPage from "./pages/etf/EtfDetailPage";
 import TrendingPage from "./pages/trending/TrendingPage";
 import ChartLandingPage from "./pages/chart/ChartLandingPage";
 import GainersPage from "./pages/markets/GainersPage";
@@ -115,7 +116,6 @@ import CagrCalculatorPage from "./pages/tools/CagrCalculatorPage";
 import DividendCalculatorPage from "./pages/tools/DividendCalculatorPage";
 import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
 import ArticlesPage from "./pages/articles/ArticlesPage";
-import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import AuthRoutePage from "./pages/auth/AuthRoutePage";
@@ -150,10 +150,10 @@ const App = () => (
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<Index />} />
                   <Route path="/stocks" element={<AllStocksPage />} />
-                  <Route path="/stocks/:ticker" element={<StockDetail />} />
-                  <Route path="/screener" element={<Screener />} />
-                  <Route path="/movers/:type" element={<MoversPage />} />
-                  <Route path="/movers" element={<MoversPage />} />
+                  <Route path="/stocks/:ticker" element={<LazyStockDetail />} />
+                  <Route path="/screener" element={<LazyScreener />} />
+                  <Route path="/movers/:type" element={<LazyMoversPage />} />
+                  <Route path="/movers" element={<LazyMoversPage />} />
                   <Route path="/ipos/recent" element={<RecentIposPage />} />
                   <Route path="/ipos/calendar" element={<UpcomingIposPage />} />
                   <Route path="/ipos/statistics" element={<IpoStatisticsPage />} />
@@ -161,9 +161,9 @@ const App = () => (
                   <Route path="/ipos/screener" element={<IpoScreenerPage />} />
                   <Route path="/ipos/upcoming" element={<UpcomingIposPage />} />
                   <Route path="/ipos" element={<RecentIposPage />} />
-                  <Route path="/earnings" element={<EarningsPage />} />
+                  <Route path="/earnings" element={<LazyEarningsPage />} />
                   <Route path="/pro" element={<ProPage />} />
-                  <Route path="/news" element={<NewsPage />} />
+                  <Route path="/news" element={<LazyNewsPage />} />
                   <Route path="/stocks/exchanges" element={<StockExchangesPage />} />
                   <Route path="/stocks/compare" element={<StockComparePage />} />
                   <Route path="/stocks/industry" element={<IndustryPage />} />
@@ -183,9 +183,9 @@ const App = () => (
                   <Route path="/etf/compare" element={<EtfComparePage />} />
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
-                  <Route path="/etf/:symbol" element={<EtfDetailPage />} />
+                  <Route path="/etf/:symbol" element={<LazyEtfDetailPage />} />
                   <Route path="/etfs/top" element={<EtfTopPage />} />
-                  <Route path="/etfs/:symbol" element={<EtfDetailPage />} />
+                  <Route path="/etfs/:symbol" element={<LazyEtfDetailPage />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<TrendingPage />} />
                   <Route path="/markets/gainers" element={<GainersPage />} />
@@ -195,7 +195,7 @@ const App = () => (
                   <Route path="/markets/after-hours" element={<AfterHoursPage />} />
                   <Route path="/markets/heatmap" element={<LazyHeatmapPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
-                  <Route path="/articles/:slug" element={<ArticleDetailPage />} />
+                  <Route path="/articles/:slug" element={<LazyArticleDetailPage />} />
                   <Route path="/chart" element={<ChartLandingPage />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
@@ -224,7 +224,7 @@ const App = () => (
                   <Route path="/register" element={<Navigate to="/signup" replace />} />
                   <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
                   {/* Public Watchlist shell — never dashboard sidebar */}
-                  <Route path="/watchlist" element={<WatchlistPage />} />
+                  <Route path="/watchlist" element={<LazyWatchlistPage />} />
                 </Route>
 
                 {/* Dashboard routes */}

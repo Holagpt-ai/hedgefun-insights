@@ -2,7 +2,9 @@
 
 **Baseline audit:** 42 vulnerabilities (3 critical, 25 high, 13 moderate, 1 low) — reported October Vercel deploy.  
 **After `npm audit fix` (no `--force`):** 21 vulnerabilities (2 critical, 7 high, 12 moderate).  
-**After `react-router-dom@6.30.6`:** same 21 count; router open-redirect class partially mitigated within v6 line.
+**After `react-router-dom@6.30.6` (PR #170):** same 21 count; router open-redirect class partially mitigated within v6 line.
+
+**After Batch 171 (PR #171):** **20** vulnerabilities (**0 critical**, 7 high, 13 moderate) — `npm.overrides.tinypool@2.2.0`, `vite@5.4.21`, `vitest@3.2.7`, `@vercel/functions@3.10.3`. Clears critical `tinypool` / `vitest` chain without a Vitest major upgrade.
 
 ## Resolved or mitigated (non-breaking)
 

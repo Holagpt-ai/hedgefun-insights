@@ -77,6 +77,10 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 - Further SEC schedule, write-gate, or function changes. Gate I.3 activation already happened (see `docs/DEPLOYMENT_STATUS.md`). `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule.
 - Catalyst source enablement (`docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`)
 
+## Approved next batches (2026-10-24 master reset)
+
+See `docs/release/next-approved-batches.md`: **172** Catalyst Source Coverage V1, **173** Watchlist/Historical Handoff Integrity, **174** Monday Live Scanner Acceptance, **175** Continuation & Inbox Acceptance. Lovable October 24 warning classifications: `docs/release/lovable-october24-warning-register.md`.
+
 ## How to avoid another full audit
 
 Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTER.md`. Update those when a decision, defect, or deploy fact changes. `npm run integrity` covers navigation, sitemap/canonical agreement, brand hosts, MCP artifact agreement, and `origin/main` divergence. It does not replace an ops query of Vercel, Supabase, or Fly.

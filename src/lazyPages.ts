@@ -104,3 +104,13 @@ export const LazyAdminSettings = lazy(() => import("@/pages/admin/AdminSettingsP
 /** Charting and heatmap (heavy chart libraries). */
 export const LazyChartPage = lazy(() => import("@/pages/chart/ChartPage"));
 export const LazyHeatmapPage = lazy(() => import("@/pages/markets/HeatmapPage"));
+
+/** Public research routes (charts, screeners, long-tail SEO). */
+export const LazyStockDetail = lazy(() => import("@/pages/stocks/StockDetail"));
+export const LazyScreener = lazy(() => import("@/pages/Screener"));
+export const LazyMoversPage = lazy(() => import("@/pages/movers/MoversPage"));
+export const LazyWatchlistPage = lazy(() => import("@/pages/watchlist/WatchlistV2Page"));
+export const LazyEtfDetailPage = lazy(() => import("@/pages/etf/EtfDetailPage"));
+export const LazyArticleDetailPage = lazy(() => import("@/pages/articles/ArticleDetailPage"));
+export const LazyNewsPage = lazy(() => import("@/pages/news/NewsPage"));
+export const LazyEarningsPage = lazy(() => import("@/pages/earnings/EarningsPage"));
