@@ -76,7 +76,7 @@ async function pickVerifiedCatalyst(
   // deno-lint-ignore no-explicit-any
   const result = await (db.from("catalyst_events") as any)
     .select(
-      "id, symbol, event_type, title, event_date, published_at, source_name, source_url, provider, verification_state, dedupe_key",
+      "id, symbol, event_type, title, event_date, event_time, published_at, source_name, source_url, provider, verification_state, dedupe_key, facts, description",
     )
     .eq("symbol", symbol.toUpperCase())
     .eq("verification_state", CATALYST_FEED_VERIFICATION_STATE)

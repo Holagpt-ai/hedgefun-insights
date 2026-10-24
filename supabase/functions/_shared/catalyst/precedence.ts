@@ -5,6 +5,7 @@
  */
 
 import { EARNINGS_CALENDAR_PROVIDER } from "../pre-market/contract.ts";
+import { classifySecFilingTaxonomy } from "./sec-edgar-events.ts";
 
 export type CatalystPrecedenceTier = "primary" | "secondary";
 
@@ -43,6 +44,7 @@ export interface CatalystPrecedenceInput {
   source_name?: string | null;
   attribution_class?: "direct" | "provider_associated" | "sector_related" | "unverified";
   ticker_specific?: boolean;
+  facts?: Record<string, unknown> | null;
 }
 
 export interface CatalystPrecedenceResult {
@@ -237,6 +239,23 @@ export function classifyCatalystPrecedence(
       tier: "primary",
       primaryClass: "earnings_guidance",
       classRank: PRIMARY_CLASS_RANK.earnings_guidance,
+      isMarketAttention: false,
+    };
+  }
+
+  if (row.provider === "sec_edgar" && row.event_type === "sec_filing_news") {
+    const tax = classifySecFilingTaxonomy(row.title, row.description, row.facts);
+    const primaryClass: PrimaryCatalystClass = tax === "OFFERING"
+      ? "financing_capital"
+      : tax === "M_AND_A"
+      ? "acquisition_ma"
+      : tax === "EARNINGS" || tax === "GUIDANCE"
+      ? "earnings_guidance"
+      : "sec_material";
+    return {
+      tier: "primary",
+      primaryClass,
+      classRank: PRIMARY_CLASS_RANK[primaryClass],
       isMarketAttention: false,
     };
   }

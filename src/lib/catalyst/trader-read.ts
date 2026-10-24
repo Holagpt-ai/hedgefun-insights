@@ -1,5 +1,6 @@
 import type { CatalystEvent, CatalystEventType } from "@/types/catalyst";
 import { EVENT_TYPE_LABEL, formatSurprisePct, timeOfDayLabel } from "@/lib/catalyst/parsers";
+import { buildSecEdgarTraderLines, isSecEdgarCatalystRow } from "@/lib/catalyst/sec-edgar-events";
 
 export interface CatalystTraderLine {
   label: "Catalyst" | "Evidence" | "Timing";
@@ -19,6 +20,7 @@ type CatalystReadInput = Pick<
   | "time_of_day"
   | "facts"
   | "ticker_specific"
+  | "provider"
 >;
 
 function eventLabel(eventType: string): string {
@@ -31,6 +33,26 @@ function eventLabel(eventType: string): string {
  * Omits market reaction, risk, scanner events, and any score — those are not on the event.
  */
 export function buildCatalystTraderRead(event: CatalystReadInput): CatalystTraderLine[] {
+  if (isSecEdgarCatalystRow(event.provider)) {
+    const sec = buildSecEdgarTraderLines(event, Date.now());
+    const title = event.title?.trim();
+    const evidence: string[] = [sec.filingType];
+    if (event.source_name?.trim()) evidence.push(event.source_name.trim());
+    if (event.verification_state === "provider_reported") evidence.push("Provider reported");
+    if (event.ticker_specific === true) evidence.push("Ticker-specific");
+    const description = event.description?.trim();
+    if (description) {
+      evidence.push(description.length > 160 ? `${description.slice(0, 157).trim()}...` : description);
+    }
+    const signalText = sec.signals.filter((s) => s.available).map((s) => s.label).join(" · ");
+    if (signalText) evidence.push(signalText);
+    return [
+      { label: "Catalyst", text: title || sec.filingType },
+      { label: "Evidence", text: evidence.join(" · ") },
+      { label: "Timing", text: sec.timingLine },
+    ];
+  }
+
   const lines: CatalystTraderLine[] = [];
   const title = event.title?.trim();
   lines.push({
