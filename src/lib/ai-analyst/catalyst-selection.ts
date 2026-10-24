@@ -9,6 +9,8 @@ import type { AnalystCatalystRow } from "@/lib/ai-analyst/intelligence-packet-ty
 import { buildPipelineTrace, type CatalystPipelineTrace } from "@/lib/ai-analyst/catalyst-pipeline-trace";
 import type { CurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
 import type { AnalystCatalystRowWithProvenance } from "@/lib/ai-analyst/catalyst-search-types";
+import { limitScoredCatalystCandidates } from "@/lib/ai-analyst/catalyst-evidence-candidate-pool";
+import { isHistoricalCatalystDate } from "@/lib/ai-analyst/catalyst-session-date";
 
 const INVESTOR_DAY = /\b(?:investor day|analyst day|capital markets day)\b/i;
 
@@ -82,6 +84,19 @@ export function scoreCatalystRow(row: AnalystCatalystRow): ScoredCatalystRow {
     selectionScore = Math.max(selectionScore, 60);
   }
 
+  const title = row.title ?? "";
+  if (INVESTOR_DAY.test(title)) {
+    if (/\b(?:outlook|target|guidance|revenue|\$|\bfy\s*\d)/i.test(title)) {
+      selectionScore += 40;
+    }
+    if (
+      /\b(?:announc(?:es|ed|ing)|schedul(?:es|ed)|set for|to host|date for)\b/i.test(title)
+      && !/\$(?:\d|[bmt])|\boutlook\b|\btarget|\bguidance\b|\brevenue\b/i.test(title)
+    ) {
+      selectionScore -= 50;
+    }
+  }
+
   return { row, precedence, selectionScore, demotedReason };
 }
 
@@ -94,9 +109,15 @@ export function sortScoredCandidates(a: ScoredCatalystRow, b: ScoredCatalystRow)
   return (a.row.sourceUrl ?? "").localeCompare(b.row.sourceUrl ?? "");
 }
 
-export function selectPrimaryFromScored(symbol: string, scored: ScoredCatalystRow[]): ScoredCatalystRow | null {
+export function selectPrimaryFromScored(
+  symbol: string,
+  scored: ScoredCatalystRow[],
+  options?: { asOfDate?: string | null },
+): ScoredCatalystRow | null {
+  const asOfDate = options?.asOfDate ?? null;
   const sorted = [...scored].sort(sortScoredCandidates);
   return sorted.find((s) => {
+    if (isHistoricalCatalystDate(s.row.eventDate ?? s.row.publishedAt, asOfDate)) return false;
     if (!rowQualifiesAsVerifiedPrimary(s.row, s.precedence)) return false;
     if (s.row.eventType === "analyst_action") return true;
     return s.selectionScore > 0 && s.precedence.classRank > 0;
@@ -158,17 +179,10 @@ export function mergeAndSelectCatalystEvidence(input: {
   buildAnalysis: (symbol: string, rows: AnalystCatalystRow[]) => CurrentCatalystAnalysis;
 }): ReturnType<typeof runDeterministicCatalystSelection> {
   const orderedSearch = deterministicSortSearchRows(input.fromSearch);
-  const seen = new Set<string>();
-  const merged: AnalystCatalystRowWithProvenance[] = [];
-  for (const row of [...input.internal, ...orderedSearch]) {
-    const key = `${row.sourceUrl ?? ""}|${row.title ?? ""}`.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push(row);
-  }
+  const { rows: limited } = limitScoredCatalystCandidates([...input.internal, ...orderedSearch]);
   return runDeterministicCatalystSelection({
     symbol: input.symbol,
-    rows: merged.slice(0, 12),
+    rows: limited,
     searchQueries: input.searchQueries,
     searchHitCount: input.fromSearch.length,
     internalRowCount: input.internal.length,

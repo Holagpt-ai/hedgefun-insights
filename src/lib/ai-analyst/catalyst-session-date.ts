@@ -38,10 +38,8 @@ function isoDate(year: number, month: number, day: number): string | null {
   return `${year}-${mm}-${dd}`;
 }
 
-export function catalystSessionDateFromQuestion(
-  question: string | null | undefined,
-  now: Date = new Date(),
-): string {
+/** Date explicitly named in the question. Null when the question does not name one. */
+export function explicitCatalystSessionDate(question: string | null | undefined): string | null {
   const text = question ?? "";
   const iso = text.match(/\b(20\d{2})-(\d{2})-(\d{2})\b/);
   if (iso) {
@@ -56,5 +54,26 @@ export function catalystSessionDateFromQuestion(
     const parsed = month ? isoDate(Number(named[3]), month, Number(named[2])) : null;
     if (parsed) return parsed;
   }
-  return now.toISOString().slice(0, 10);
+  return null;
+}
+
+export function catalystSessionDateFromQuestion(
+  question: string | null | undefined,
+  now: Date = new Date(),
+): string {
+  return explicitCatalystSessionDate(question) ?? now.toISOString().slice(0, 10);
+}
+
+/** Events older than this, relative to the session date, are historical context. */
+export const HISTORICAL_CATALYST_AFTER_DAYS = 45;
+
+export function isHistoricalCatalystDate(
+  eventDate: string | null | undefined,
+  asOfDate: string | null | undefined,
+): boolean {
+  if (!eventDate || !asOfDate) return false;
+  const event = Date.parse(`${eventDate.slice(0, 10)}T00:00:00Z`);
+  const asOf = Date.parse(`${asOfDate.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(event) || !Number.isFinite(asOf)) return false;
+  return (asOf - event) / 86_400_000 > HISTORICAL_CATALYST_AFTER_DAYS;
 }

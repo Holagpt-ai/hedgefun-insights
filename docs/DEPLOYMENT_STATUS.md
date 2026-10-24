@@ -6,7 +6,7 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 
 | Surface | Observation |
 | --- | --- |
-| GitHub `main` | `63957b319be959888af59410bd36c58cce45fb6d` — `63957b31` Sync Lovable-generated artifacts (#162), parent `ed3a3728` Catalyst V2.1 and Gate I.3 reconcile (#161) |
+| GitHub `main` | `03449198a44a0d0cf8befda7e47ed4f6f6abd443` — PR #163 project memory. Re-read with `git rev-parse origin/main` during the analyst recovery. Parent of that commit remains `63957b31` (PR #162). |
 | Repo | `https://github.com/Holagpt-ai/hedgefun-insights` |
 | Vercel config in git | `vercel.json` installs with `npm ci`, redirects the legacy host and `www.stocksist.com` to `https://stocksist.com`, rewrites `/sitemap.xml` to the Supabase `sitemap` function, and SPA-falls back every other path |
 | Production asset manifest | `{"js":"/assets/index-CpDXxxyv.js"}` style response; observed js `/assets/index-CpDXxxyv.js`. The manifest has no git SHA |
@@ -22,7 +22,7 @@ A local `npm run build` of this tree also wrote `index-ACjVgNSC.js`. That hash d
 | Branch | Role |
 | --- | --- |
 | `cursor/lovable-sync-from-main-20261024` | Active integration branch. PR #162 is merged to `main`. This branch was merged forward afterward and its file contents match `main`. |
-| `cursor/chat-single-pass-v1` | Archived recovery branch. It still holds the AI Analyst catalyst port candidates. Its older divergence from `main` is not a current production or Lovable synchronization problem. |
+| `cursor/chat-single-pass-v1` | Archived recovery source for the analyst commits. Those commits are cherry-picked onto the catalyst evidence recovery. The branch itself was not merged. Its older divergence from `main` is not a current production or Lovable synchronization problem. |
 
 Lovable was not opened in this session. Preview hosts remain preview.
 

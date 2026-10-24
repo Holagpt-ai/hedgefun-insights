@@ -45,6 +45,17 @@ Radar and historical jobs call `radar-worker-bridge` with `RADAR_WORKER_SECRET`.
 | Journal | `src/journal/` |
 | Homepage | `src/pages/Index.tsx` |
 
+## Chat catalyst contract
+
+`chat` builds its system prompt in `supabase/functions/chat/index.ts`. Current-catalyst packets go through `buildAnalystIntelligencePromptBlock` in `supabase/functions/chat/analyst-intelligence-delivery.ts`.
+
+- The packet is symbol-aware. Priority facts without both `sourceUrl` and `statement` are dropped.
+- Serialized intelligence JSON is capped at 4500 characters (`ANALYST_INTELLIGENCE_MAX_CHARS`), matching `src/config/ai-analyst-intelligence.config.ts`.
+- The prompt separates verified filings, confirmed catalyst rows, unverified headlines, historical context, and missing evidence. It tells the model not to describe the packet as a real-time feed.
+- If the bounded packet cannot be built, `chat` logs the error and sends an empty intelligence block.
+- Non-catalyst prompts keep the existing chat path. The priority block is omitted unless the packet is in current-catalyst mode.
+- This repository change does not deploy `chat`. Production behavior changes only after an approved Edge deploy of `chat` and the `_shared/ai-analyst` modules it imports.
+
 ## Gates
 
 - SEC scheduled ingestion was historically activated as cron job 52. See `docs/DEPLOYMENT_STATUS.md`. `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule. An app merge does not reapply it.

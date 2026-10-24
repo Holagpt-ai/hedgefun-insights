@@ -2,6 +2,57 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
+## 2026-10-24 — AI Analyst catalyst evidence recovery
+
+**Status:** implementation port onto current `main`. No merge. No Edge deploy, migration, database write, SEC ingestion change, cron change, secret change, DNS change, or real-time-feed upgrade.
+
+**Parent:** `origin/main` `03449198` (PR #163).
+
+**Branch:** `cursor/ai-analyst-catalyst-evidence-depth-v2`.
+
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/164
+
+**Source commits:** `68c88114`, `2f22387b`, `ed75aa71` on archived `cursor/chat-single-pass-v1`. Cherry-picked, then tightened. The archived branch was not merged.
+
+### Recovered
+
+- Catalyst Evidence Depth V2: structured facts, authoritative HTML fetch, candidate pool, and investor-day score adjustments.
+- Bounded chat delivery: `analyst-intelligence-delivery.ts` replaces a blind 4500-character slice and keeps sourced priority facts.
+- Source recovery and financial fact extraction from explicit fiscal-year text.
+- Additional guards: official attribution requires the asked symbol or company; events older than 45 days are historical context; priority facts need a source URL and a statement; the chat prompt forbids treating the packet as a real-time feed.
+
+### Left unchanged
+
+- Volume-first scanner ranking, Catalyst V2.1 page behavior, Watchlist, Action Center, Historical Intelligence, and SEC event validation.
+- Database schema, MCP bundle, SEC cron, and the generated MCP handler.
+- AI Trader, broker integration, and billing.
+
+### Validation
+
+- `npm run typecheck` passed.
+- `npm run build` passed. Local asset `index-BjQutdyt.js` is 3,456.14 kB. Browserslist warned that its data is 16 months old.
+- Vitest: 122 passed across AI Analyst catalyst tests, chat SSE, and `AIAnalystChat`.
+- Deno: 15 passed (`analyst-intelligence-delivery_test.ts`, `chat_contract_test.ts`, `chat-policy_test.ts`) plus 2 session-date tests. Contract tests need `--allow-read`.
+- `npm run test:integrity`: 5 passed. `npm run integrity`: 0 errors, 0 warnings, 125 routes.
+
+### Limits
+
+- Production `chat` is unchanged until an approved Edge deploy (ISS-015).
+- Company-name matching covers MRVL, NVDA, AAPL, TSLA, and AMD, plus host and title text.
+- Financial extraction only pairs amounts with a nearby fiscal-year token. Headline-only evidence is not verified guidance.
+- Live SEC checkpoint, Vercel git SHA, Edge revisions, and Fly digests were not re-queried.
+
+### Next approved batch
+
+Read-only production parity, then a targeted investigation of the October 24 Vercel findings.
+
+- Compare the Vercel production SHA, Edge function versions (including whether `chat` predates this recovery), and Fly image digests with `main`.
+- Investigate ISS-016 through ISS-019: the reported npm advisory counts, the ~3.45 MB bundle, the deprecated Edge middleware runtime, and the outdated Browserslist data.
+- Do not run `npm audit fix --force`.
+- Do not deploy `chat`, MCP, or scanner workers, and do not change cron, secrets, or DNS, unless a separate approval names that step.
+
+Still deferred: real-time feed upgrades, AI Trader, broker work, and billing go-live.
+
 ## 2026-10-24 — Project intelligence and continuity V1
 
 **Status:** documentation and integrity tooling only. No application behavior change. No production migration, Edge deploy, DNS, cron, or secret change.
@@ -45,6 +96,8 @@ The warning is the local production build hash `index-ACjVgNSC.js` differing fro
 `npm run typecheck` and `npm run build` passed. `npm run test:integrity` passed (5 tests).
 
 ### Next approved batch
+
+Completed by the catalyst evidence recovery at the top of this file.
 
 Port AI Analyst Catalyst Evidence Depth V2 and the chat catalyst-delivery changes onto current `main`.
 

@@ -16,6 +16,9 @@ import {
   CURRENT_CATALYST_RESPONSE_SECTIONS,
   CURRENT_CATALYST_VOLUME_LANGUAGE,
 } from "@/lib/ai-analyst/catalyst-response-rules";
+import type { CatalystStructuredFact } from "@/lib/ai-analyst/catalyst-evidence-facts";
+import { CATALYST_VERIFIED_VS_INFERRED_GUIDANCE } from "@/lib/ai-analyst/catalyst-evidence-facts";
+import { isHistoricalCatalystDate } from "@/lib/ai-analyst/catalyst-session-date";
 
 export interface RankedCurrentCatalyst {
   title: string;
@@ -27,6 +30,7 @@ export interface RankedCurrentCatalyst {
   classRank: number;
   evidenceType: string;
   source: string;
+  sourceUrl: string | null;
   confidence: "verified" | "secondary";
 }
 
@@ -37,6 +41,7 @@ export interface CatalystEvidenceItem {
   publishedAt: string | null;
   evidenceType: string;
   source: string;
+  sourceUrl: string | null;
   tier: "primary" | "secondary";
   confidence: "verified" | "secondary";
 }
@@ -55,6 +60,21 @@ export interface CurrentCatalystAnalysis {
   personalizationRule: string;
   formattingRule: string;
   retrievalAttempted: boolean;
+  catalystEvidenceFacts: CatalystStructuredFact[];
+  verifiedVsInferredGuidance: string;
+  authoritativeContentFetch?: {
+    attempted: boolean;
+    urls: string[];
+    errors: string[];
+    attempts?: Array<{
+      url: string;
+      httpStatus: number | null;
+      contentType: string | null;
+      factCount: number;
+      outcome: string;
+    }>;
+    deliveryStatus?: "facts_delivered" | "no_verifiable_facts" | "not_attempted";
+  };
 }
 
 const SECTOR_WIDE_HEADLINE =
@@ -110,6 +130,7 @@ export function rankCurrentCatalysts(
         freshness: Date.parse(row.publishedAt ?? row.eventDate ?? "") || 0,
         evidenceType: row.eventType,
         source: row.sourceName ?? "stocksist_catalyst",
+        sourceUrl: row.sourceUrl ?? null,
         confidence: precedence.tier === "primary" && precedence.classRank > 0 ? "verified" as const : "secondary" as const,
         officialSource: row.officialSource === true,
       };
@@ -127,9 +148,13 @@ export function rankCurrentCatalysts(
   return ranked.map(({ isMarketAttention: _ignore, freshness: _f, officialSource: _o, ...rest }) => rest);
 }
 
-function primaryFromScored(symbol: string, rows: AnalystCatalystRow[]): RankedCurrentCatalyst | null {
+function primaryFromScored(
+  symbol: string,
+  rows: AnalystCatalystRow[],
+  asOfDate?: string | null,
+): RankedCurrentCatalyst | null {
   const scored = rows.map(scoreCatalystRow);
-  const winner = selectPrimaryFromScored(symbol, scored);
+  const winner = selectPrimaryFromScored(symbol, scored, { asOfDate });
   if (!winner) return null;
   return {
     title: winner.row.title ?? "",
@@ -141,6 +166,7 @@ function primaryFromScored(symbol: string, rows: AnalystCatalystRow[]): RankedCu
     classRank: winner.precedence.classRank,
     evidenceType: winner.row.eventType,
     source: winner.row.sourceName ?? "stocksist_catalyst",
+    sourceUrl: winner.row.sourceUrl ?? null,
     confidence: "verified",
   };
 }
@@ -148,6 +174,7 @@ function primaryFromScored(symbol: string, rows: AnalystCatalystRow[]): RankedCu
 export function buildCurrentCatalystAnalysis(
   symbol: string,
   rows: AnalystCatalystRow[],
+  options?: { asOfDate?: string | null },
 ): CurrentCatalystAnalysis {
   const scored = rows.map(scoreCatalystRow);
   const ranked = [...scored]
@@ -162,10 +189,15 @@ export function buildCurrentCatalystAnalysis(
       classRank: s.precedence.classRank,
       evidenceType: s.row.eventType,
       source: s.row.sourceName ?? "stocksist_catalyst",
+      sourceUrl: s.row.sourceUrl ?? null,
       confidence:
         s.precedence.tier === "primary" && s.precedence.classRank > 0 ? ("verified" as const) : ("secondary" as const),
     }));
-  const primary = primaryFromScored(symbol, rows);
+  const asOfDate = options?.asOfDate ?? null;
+  const primary = primaryFromScored(symbol, rows, asOfDate);
+  const historicalContextOnly = !primary && rows.some((row) =>
+    isHistoricalCatalystDate(row.eventDate ?? row.publishedAt, asOfDate)
+  );
   const secondary = ranked.filter((r) => r !== primary && r.title !== primary?.title).slice(0, 4);
   const verifiedPrimary = primary != null;
   const explicitNoVerifiedCatalyst = !verifiedPrimary;
@@ -177,6 +209,7 @@ export function buildCurrentCatalystAnalysis(
     publishedAt: r.publishedAt,
     evidenceType: r.evidenceType,
     source: r.source,
+    sourceUrl: r.sourceUrl,
     tier: r.tier,
     confidence: r.confidence,
   }));
@@ -184,6 +217,10 @@ export function buildCurrentCatalystAnalysis(
   const answerGuidance = verifiedPrimary
     ? `Lead with PRIMARY CATALYST: "${primary!.title}". Then KEY DETAILS, WHY MARKET CARES, then SECONDARY CONTEXT. `
       + "Do not lead with sector, AI, or historical analogs when this verified primary catalyst exists. "
+      + CURRENT_CATALYST_NO_SPECULATION
+    : historicalContextOnly
+    ? "The only company events in this packet are older than the session and are historical context. "
+      + "State that no confirmed current catalyst was found. Do not present the older event as today's cause. "
       + CURRENT_CATALYST_NO_SPECULATION
     : "State explicitly: No confirmed company-specific catalyst was found in the available fresh sources yet. "
       + "Then you may discuss sector, technical, or macro context as SECONDARY — do not guess a corporate cause. "
@@ -203,5 +240,7 @@ export function buildCurrentCatalystAnalysis(
     personalizationRule: CURRENT_CATALYST_PERSONALIZATION,
     formattingRule: CURRENT_CATALYST_FORMATTING,
     retrievalAttempted: true,
+    catalystEvidenceFacts: [],
+    verifiedVsInferredGuidance: CATALYST_VERIFIED_VS_INFERRED_GUIDANCE,
   };
 }

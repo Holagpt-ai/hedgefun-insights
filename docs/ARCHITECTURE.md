@@ -50,9 +50,21 @@ Fly stocksist-ai-trader-shadow-worker
 | Public page | Vercel rewrite to `index.html`, except `/sitemap.xml` which rewrites to the `sitemap` Edge Function |
 | Dashboard screeners | Client reads Radar/screener data exposed through Edge and Postgres |
 | Catalyst page | Client reads catalyst intelligence already stored by sync functions |
-| AI Analyst | Client calls `chat` |
+| AI Analyst | Client calls `chat`. Current-catalyst questions attach a bounded evidence packet; other questions use the same function without that priority block |
 | Watchlist | `get-watchlist-data` and watchlist analysis functions |
 | Pre-market / after-hours | `get-pre-market-workspace`, `get-daily-brief`, inbox pages |
+
+## AI Analyst catalyst evidence
+
+The dashboard still calls `chat`. For a current-catalyst question, the client packet and the Edge fresh-search path classify evidence before the model sees it:
+
+- Verified SEC or company filings and confirmed catalyst rows can lead the answer when they match the asked symbol and are current for the session.
+- Unverified headlines stay secondary.
+- Events older than 45 days are historical context, not today's cause.
+- A missing source, timestamp, or figure stays null. The prompt says null means unavailable.
+- `supabase/functions/chat/analyst-intelligence-delivery.ts` keeps the serialized packet at or under 4500 characters and keeps sourced priority facts ahead of lower-priority rows.
+
+General questions use the same `chat` function. The priority catalyst block is added only when the packet is in current-catalyst mode. This path does not write Postgres, does not change scanner ranking, and does not change SEC ingestion. Production chat behavior changes only after an approved deploy of `chat`.
 
 ## What is not in this repo
 

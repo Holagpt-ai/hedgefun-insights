@@ -1,6 +1,6 @@
 import type { AnalystIntelligencePacket } from "@/lib/ai-analyst/intelligence-packet-types";
 import { buildCurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
-import { mergeAndSelectCatalystEvidence } from "@/lib/ai-analyst/catalyst-selection";
+import { mergeAndSelectCatalystEvidence, scoreCatalystRow, selectPrimaryFromScored } from "@/lib/ai-analyst/catalyst-selection";
 import type {
   AnalystCatalystRowWithProvenance,
   FreshCatalystDiscoveryMeta,
@@ -10,6 +10,11 @@ import {
   extractExplicitMaterialFacts,
   inferEventTypeFromSearchEvidence,
 } from "@/lib/ai-analyst/catalyst-evidence-verification";
+import {
+  attachEvidenceFactsToAnalysis,
+  enrichAuthoritativeCatalystFacts,
+  type AuthoritativeHtmlFetch,
+} from "@/lib/ai-analyst/catalyst-authoritative-enrich";
 import { catalystSessionDateFromQuestion } from "@/lib/ai-analyst/catalyst-session-date";
 
 const OFFICIAL_SOURCE_HOST =
@@ -71,13 +76,46 @@ export function buildCatalystSearchQueries(input: {
   return [...new Set(queries)];
 }
 
+/** Official hosts count only when the hit also names the asked symbol or its company. */
+export function searchHitMatchesAskedSymbol(input: {
+  symbol: string;
+  title: string;
+  snippet?: string | null;
+  url: string;
+}): boolean {
+  const symbol = input.symbol.trim().toUpperCase();
+  const company = resolveCompanyName(symbol);
+  const upper = `${input.title} ${input.snippet ?? ""}`.toUpperCase();
+  if (symbol && upper.includes(symbol)) return true;
+  if (company && upper.includes(company.toUpperCase())) return true;
+  try {
+    const host = new URL(input.url).hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "sec.gov" || host.endsWith(".sec.gov")) return false;
+    const compactHost = host.replace(/[^a-z0-9]/g, "");
+    if (symbol.length >= 2 && compactHost.includes(symbol.toLowerCase())) return true;
+    if (company) {
+      const stem = company.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (stem.length >= 4 && compactHost.includes(stem)) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 export function normalizeWebSearchHit(
   hit: WebSearchHit,
   symbol: string,
 ): AnalystCatalystRowWithProvenance {
   const title = hit.title?.trim() || "Untitled search result";
   const eventType = inferEventTypeFromSearchEvidence(title, hit.snippet);
-  const official = isOfficialCompanySourceUrl(hit.url);
+  const matched = searchHitMatchesAskedSymbol({
+    symbol,
+    title,
+    snippet: hit.snippet,
+    url: hit.url,
+  });
+  const official = matched && isOfficialCompanySourceUrl(hit.url);
   return {
     eventType,
     eventDate: hit.publishedAt?.slice(0, 10) ?? null,
@@ -87,31 +125,51 @@ export function normalizeWebSearchHit(
     sourceName: official ? "official_company_source" : "web_search",
     sourceUrl: hit.url,
     officialSource: official,
-    attributionClass: official ? "direct" : "provider_associated",
-    tickerSpecific: title.toUpperCase().includes(symbol.toUpperCase()) || official,
+    attributionClass: official ? "direct" : matched ? "provider_associated" : "unverified",
+    tickerSpecific: matched,
     evidenceOrigin: "fresh_web_search",
   };
 }
 
-export function enrichPacketWithSearchEvidence(input: {
+export async function enrichPacketWithSearchEvidence(input: {
   packet: AnalystIntelligencePacket;
   searchHits: WebSearchHit[];
   discovery: FreshCatalystDiscoveryMeta;
-}): AnalystIntelligencePacket {
+  fetchAuthoritativeHtml?: AuthoritativeHtmlFetch;
+}): Promise<AnalystIntelligencePacket> {
   const symbol = input.packet.symbol;
   const internal = (input.packet.VERIFIED_FACTS.catalystRows ?? []).map((r) => ({
     ...r,
     evidenceOrigin: "stocksist_catalyst" as const,
   }));
   const fromSearch = input.searchHits.map((h) => normalizeWebSearchHit(h, symbol));
+  const asOfDate = input.packet.CURRENT_SESSION_EVIDENCE.radar.tradingDate;
   const { analysis: built, trace, mergedRows: merged } = mergeAndSelectCatalystEvidence({
     symbol,
     internal,
     fromSearch,
     searchQueries: input.discovery.searchQueries,
-    buildAnalysis: buildCurrentCatalystAnalysis,
+    buildAnalysis: (asked, rows) => buildCurrentCatalystAnalysis(asked, rows, { asOfDate }),
   });
-  const analysis = { ...built, retrievalAttempted: true };
+  let analysis = { ...built, retrievalAttempted: true };
+  const primaryPick = selectPrimaryFromScored(symbol, merged.map(scoreCatalystRow), { asOfDate });
+  const primaryRow = primaryPick?.row ?? null;
+  const authoritative = await enrichAuthoritativeCatalystFacts({
+    primaryRow: analysis.verifiedPrimary ? primaryRow : null,
+    supportingRows: merged,
+    fetchHtml: input.fetchAuthoritativeHtml,
+  });
+  analysis = attachEvidenceFactsToAnalysis(analysis, authoritative);
+  analysis = {
+    ...analysis,
+    authoritativeContentFetch: {
+      attempted: Boolean(input.fetchAuthoritativeHtml),
+      urls: authoritative.contentFetchedUrls,
+      errors: authoritative.fetchErrors,
+      attempts: authoritative.fetchAttempts,
+      deliveryStatus: authoritative.deliveryStatus,
+    },
+  };
   if (typeof globalThis !== "undefined" && "process" in globalThis) {
     // Server-side only; never included in client-facing packet fields.
     console.debug?.("[catalyst-pipeline]", JSON.stringify(trace));
