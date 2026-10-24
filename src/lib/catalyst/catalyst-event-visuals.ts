@@ -5,6 +5,8 @@
 import type { CorporateEventType } from "@/config/security-intelligence.config";
 import type { EpisodeTemporalRelationship } from "@/config/episode-event-linkage.config";
 import type { CatalystEventType } from "@/types/catalyst";
+import { classifySecFilingTaxonomy } from "@/lib/catalyst/sec-edgar-events";
+import type { CatalystTaxonomyV2 } from "@/lib/catalyst/intelligence-v2";
 
 export const CATALYST_DISPLAY_CATEGORIES = [
   "EARNINGS",
@@ -78,6 +80,49 @@ const LIVE_TYPE_CATEGORY: Record<CatalystEventType, CatalystDisplayCategory> = {
 
 export function liveEventCategory(type: CatalystEventType): CatalystDisplayCategory {
   return LIVE_TYPE_CATEGORY[type] ?? "OTHER_VERIFIED_EVENT";
+}
+
+function taxonomyToDisplayCategory(tax: CatalystTaxonomyV2): CatalystDisplayCategory {
+  switch (tax) {
+    case "EARNINGS":
+      return "EARNINGS";
+    case "GUIDANCE":
+      return "GUIDANCE";
+    case "SEC_FILING":
+      return "SEC_FILING";
+    case "OFFERING":
+      return "OFFERING";
+    case "FDA_REGULATORY":
+      return "FDA_REGULATORY";
+    case "CONTRACT_PARTNERSHIP":
+      return "PARTNERSHIP";
+    case "M_AND_A":
+      return "M_AND_A";
+    case "MANAGEMENT":
+      return "MANAGEMENT";
+    case "LEGAL":
+      return "LEGAL";
+    case "PRODUCT_LAUNCH":
+      return "PARTNERSHIP";
+    default:
+      return "OTHER_VERIFIED_EVENT";
+  }
+}
+
+/** SEC rows use form/items taxonomy; others use legacy event_type mapping. */
+export function catalystDisplayCategoryFromEvent(input: {
+  event_type: CatalystEventType;
+  provider?: string | null;
+  title?: string;
+  description?: string | null;
+  facts?: Record<string, unknown> | null;
+}): CatalystDisplayCategory {
+  if (input.provider === "sec_edgar" && input.event_type === "sec_filing_news") {
+    return taxonomyToDisplayCategory(
+      classifySecFilingTaxonomy(input.title ?? "", input.description, input.facts),
+    );
+  }
+  return liveEventCategory(input.event_type);
 }
 
 const HISTORICAL_TYPE_CATEGORY: Partial<Record<CorporateEventType, CatalystDisplayCategory>> = {

@@ -4,6 +4,7 @@
  */
 
 import type { CatalystEventType } from "@/types/catalyst";
+import { classifySecFilingTaxonomy } from "@/lib/catalyst/sec-edgar-events";
 
 export type CatalystTaxonomyV2 =
   | "EARNINGS"
@@ -34,19 +35,57 @@ export interface CatalystRowLike {
   event_type: CatalystEventType | string;
   verification_state?: string;
   event_date: string;
+  event_time?: string | null;
   published_at?: string | null;
   provider?: string | null;
+  description?: string | null;
+  facts?: Record<string, unknown> | null;
+}
+
+export const FRESHNESS_BREAKING_MS = 6 * 60 * 60 * 1000;
+export const FRESHNESS_CURRENT_MS = 72 * 60 * 60 * 1000;
+export const FRESHNESS_PRIOR_SESSION_MS = 7 * 24 * 60 * 60 * 1000;
+
+function eventMomentMs(row: CatalystRowLike): number | null {
+  if (row.published_at) {
+    const t = Date.parse(row.published_at);
+    if (Number.isFinite(t)) return t;
+  }
+  if (row.event_time) {
+    const t = Date.parse(row.event_time);
+    if (Number.isFinite(t)) return t;
+  }
+  if (row.event_date) {
+    const t = Date.parse(`${row.event_date}T12:00:00.000Z`);
+    if (Number.isFinite(t)) return t;
+  }
+  return null;
+}
+
+export function classifyFreshnessV2(row: CatalystRowLike, nowMs: number): CatalystFreshnessClass {
+  const m = eventMomentMs(row);
+  if (m === null) return "historical";
+  const age = nowMs - m;
+  if (age < 0) return "current";
+  if (age <= FRESHNESS_BREAKING_MS) return "breaking";
+  if (age <= FRESHNESS_CURRENT_MS) return "current";
+  if (age <= FRESHNESS_PRIOR_SESSION_MS) return "prior_session";
+  if (age <= 30 * 24 * 60 * 60 * 1000) return "historical";
+  return "stale_for_display";
 }
 
 export function mapToTaxonomyV2(
   eventType: string,
   title: string,
   description?: string | null,
+  facts?: Record<string, unknown> | null,
 ): CatalystTaxonomyV2 {
   const text = `${title} ${description ?? ""}`;
   if (eventType === "fda_biotech") return "FDA_REGULATORY";
   if (eventType === "merger_acquisition") return "M_AND_A";
-  if (eventType === "sec_filing_news") return "SEC_FILING";
+  if (eventType === "sec_filing_news") {
+    return classifySecFilingTaxonomy(title, description, facts);
+  }
   if (eventType === "legal") return "LEGAL";
   if (eventType === "earnings") {
     return /\b(?:guidance|outlook|forecast)\b/i.test(text) ? "GUIDANCE" : "EARNINGS";

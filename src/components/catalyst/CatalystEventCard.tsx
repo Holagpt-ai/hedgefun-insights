@@ -21,6 +21,12 @@ import {
 } from "@/lib/catalyst/parsers";
 import { catalystSourceBadge } from "@/lib/catalyst/presentation";
 import { buildCatalystTraderRead } from "@/lib/catalyst/trader-read";
+import {
+  buildSecRelevanceSignals,
+  isSecEdgarCatalystRow,
+  secAttributionConfidence,
+  secFilingTypeLabel,
+} from "@/lib/catalyst/sec-edgar-events";
 import { cn } from "@/lib/utils";
 
 interface CatalystEventCardProps {
@@ -132,6 +138,23 @@ export function CatalystEventCard({
   const sourceBadge = catalystSourceBadge(event.provider);
   const traderRead = buildCatalystTraderRead(event);
   const longDescription = event.description && event.description.length > 220;
+  const isSec = isSecEdgarCatalystRow(event.provider);
+  const secAttribution = isSec ? secAttributionConfidence(event.facts) : null;
+  const secSignals = isSec
+    ? buildSecRelevanceSignals(
+      {
+        symbol: event.symbol,
+        title: event.title,
+        event_type: event.event_type,
+        event_date: event.event_date,
+        event_time: event.event_time,
+        published_at: event.published_at,
+        provider: event.provider,
+        facts: event.facts,
+      },
+      Date.now(),
+    ).filter((s) => s.available)
+    : [];
 
   return (
     <Card className={cn("p-4 space-y-3 transition-colors", isReviewed && "opacity-80")}>
@@ -168,6 +191,16 @@ export function CatalystEventCard({
             {event.verification_state === "provider_reported" && (
               <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
                 Provider Reported
+              </Badge>
+            )}
+            {isSec && (
+              <Badge variant="outline" className="text-[10px] uppercase tracking-wide">
+                {secFilingTypeLabel(event.facts)}
+              </Badge>
+            )}
+            {secAttribution && secAttribution.confidence !== "unavailable" && (
+              <Badge variant="outline" className="text-[10px] tracking-wide text-muted-foreground">
+                {secAttribution.statusLabel}
               </Badge>
             )}
             {isReviewed && (
@@ -220,6 +253,14 @@ export function CatalystEventCard({
           </Button>
         </div>
       </div>
+
+      {isSec && secSignals.length > 0 && (
+        <ul className="text-[11px] text-muted-foreground space-y-0.5" data-testid="sec-relevance-signals">
+          {secSignals.map((signal) => (
+            <li key={signal.id}>{signal.label}</li>
+          ))}
+        </ul>
+      )}
 
       <dl className="grid gap-1 text-[12px]" data-testid="catalyst-trader-read">
         {traderRead.map((line) => (
@@ -287,6 +328,16 @@ export function CatalystEventCard({
         <Button asChild variant="ghost" size="sm" className="gap-1">
           <Link to={`/dashboard/watchlist?symbol=${encodeURIComponent(event.symbol)}`}>
             Open Watchlist
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" size="sm" className="gap-1">
+          <Link to={`/dashboard/screeners?symbol=${encodeURIComponent(event.symbol)}`}>
+            Screeners
+          </Link>
+        </Button>
+        <Button asChild variant="ghost" size="sm" className="gap-1">
+          <Link to={`/dashboard/action-center?symbol=${encodeURIComponent(event.symbol)}`}>
+            Action Center
           </Link>
         </Button>
         <Button asChild variant="ghost" size="sm" className="gap-1">
