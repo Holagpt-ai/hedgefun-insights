@@ -20,9 +20,18 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 | Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
 | Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
 
+## Open PRs (GitHub verified 2026-10-24)
+
+| PR | Branch | State | Notes |
+| --- | --- | --- | --- |
+| [#169](https://github.com/Holagpt-ai/hedgefun-insights/pull/169) | `cursor/scanner-live-market-acceptance-v1` | **OPEN** | Polygon volume fix (ISS-020); acceptance report |
+| [#170](https://github.com/Holagpt-ai/hedgefun-insights/pull/170) | `cursor/security-performance-monday-v1` | **OPEN** (after push) | Security, bundle split, Monday runbook; stacks #169 until merged |
+
+Production Vercel manifest unchanged until merges deploy: **`index-Drz78K0e.js`**.
+
 ## Scanner live-market acceptance V1
 
-Contract report: `docs/release/scanner-live-market-acceptance-v1.md`. **Full RTH acceptance pending** next trading session. Follow-up reliability PR may land Polygon volume fix (ISS-020).
+Contract report: `docs/release/scanner-live-market-acceptance-v1.md`. **Full RTH acceptance pending** Monday 2026-10-26 ET per `docs/release/monday-scanner-acceptance-2026-10-26.md`. Polygon volume fix in PR #169 (ISS-020).
 
 ## Scanner + catalyst integration V1
 
