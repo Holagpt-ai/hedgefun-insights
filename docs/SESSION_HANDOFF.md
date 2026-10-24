@@ -8,7 +8,9 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Parent:** `origin/main` **`b735073b`** (PR #168 merged; Vercel manifest `index-Drz78K0e.js`).
 
-**Pull request:** _(open after push)_
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/169
+
+**Head SHA:** `b7e6201e`
 
 ### Findings
 
