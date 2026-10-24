@@ -156,7 +156,10 @@ export default function Catalyst() {
     return m;
   }, [userState]);
 
-  const events = useMemo<CatalystEvent[]>(() => rawEvents ?? [], [rawEvents]);
+  const events = useMemo<CatalystEvent[]>(
+    () => (rawEvents ?? []).filter((event) => event.verification_state === "provider_reported"),
+    [rawEvents],
+  );
   const nowMs = Date.now();
 
   // Live feed first: category / workflow / symbol filters never wait on history.

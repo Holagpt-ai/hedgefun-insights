@@ -5,6 +5,10 @@
 
 import type { CatalystEventType } from "./contract.ts";
 import { isHttpsUrl, normalizeTitleForHash } from "./contract.ts";
+import {
+  classifySecFilingTaxonomy,
+  isEligibleSecEdgarForScannerSurfacing,
+} from "./sec-edgar-events.ts";
 
 /** Normalized taxonomy (single system; maps from legacy event_type + title). */
 export type CatalystTaxonomyV2 =
@@ -47,6 +51,7 @@ export interface CatalystRowLike {
   provider?: string | null;
   description?: string | null;
   updated_at?: string | null;
+  facts?: Record<string, unknown> | null;
 }
 
 export interface CatalystProvenanceV2 {
@@ -92,11 +97,14 @@ export function mapToTaxonomyV2(
   eventType: string,
   title: string,
   description?: string | null,
+  facts?: Record<string, unknown> | null,
 ): CatalystTaxonomyV2 {
   const text = `${title} ${description ?? ""}`;
   if (eventType === "fda_biotech") return "FDA_REGULATORY";
   if (eventType === "merger_acquisition") return "M_AND_A";
-  if (eventType === "sec_filing_news") return "SEC_FILING";
+  if (eventType === "sec_filing_news") {
+    return classifySecFilingTaxonomy(title, description, facts);
+  }
   if (eventType === "legal") return "LEGAL";
   if (eventType === "analyst_action") return "OTHER_VERIFIED";
   if (eventType === "product_contract") {
@@ -162,7 +170,7 @@ export function buildProvenanceV2(
   fetchedAtIso: string,
   nowMs: number = Date.parse(fetchedAtIso),
 ): CatalystProvenanceV2 {
-  const taxonomy_v2 = mapToTaxonomyV2(row.event_type, row.title, row.description);
+  const taxonomy_v2 = mapToTaxonomyV2(row.event_type, row.title, row.description, row.facts);
   return {
     source_name: row.source_name ?? null,
     source_url: row.source_url && isHttpsUrl(row.source_url) ? row.source_url : null,
@@ -283,7 +291,8 @@ export function pickStrongestVerifiedCatalyst<T extends CatalystRowLike>(
   const candidates = dedupeCatalystRows(
     rows.filter((r) =>
       r.verification_state === "provider_reported" &&
-      r.symbol.trim().toUpperCase() === sym
+      r.symbol.trim().toUpperCase() === sym &&
+      isEligibleSecEdgarForScannerSurfacing(r, nowMs)
     ),
     nowMs,
   );
@@ -314,7 +323,11 @@ export function scannerCatalystSupportingFields(
   catalyst_freshness_class: CatalystFreshnessClass | null;
   catalyst_source_name: string | null;
 } {
-  if (!row || row.verification_state !== "provider_reported") {
+  if (
+    !row ||
+    row.verification_state !== "provider_reported" ||
+    !isEligibleSecEdgarForScannerSurfacing(row, Date.parse(fetchedAtIso))
+  ) {
     return {
       catalyst_verified: false,
       catalyst_taxonomy_v2: null,

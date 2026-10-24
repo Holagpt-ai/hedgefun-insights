@@ -5,6 +5,7 @@
 
 import { EARNINGS_CALENDAR_PROVIDER } from "@/lib/pre-market/builders";
 import { catalystAuthorityMultiplierFromAttribution } from "@/lib/catalyst/relevance";
+import { classifySecFilingTaxonomy } from "@/lib/catalyst/sec-edgar-events";
 
 export type CatalystPrecedenceTier = "primary" | "secondary";
 
@@ -42,6 +43,7 @@ export interface CatalystPrecedenceInput {
   source_name?: string | null;
   attribution_class?: "direct" | "provider_associated" | "sector_related" | "unverified";
   ticker_specific?: boolean;
+  facts?: Record<string, unknown> | null;
 }
 
 export interface CatalystPrecedenceResult {
@@ -244,6 +246,23 @@ export function classifyCatalystPrecedence(row: CatalystPrecedenceInput): Cataly
       tier: "primary",
       primaryClass: "earnings_guidance",
       classRank: PRIMARY_CLASS_RANK.earnings_guidance,
+      isMarketAttention: false,
+    }, row);
+  }
+
+  if (row.provider === "sec_edgar" && row.event_type === "sec_filing_news") {
+    const tax = classifySecFilingTaxonomy(row.title, row.description, row.facts);
+    const primaryClass: PrimaryCatalystClass = tax === "OFFERING"
+      ? "financing_capital"
+      : tax === "M_AND_A"
+      ? "acquisition_ma"
+      : tax === "EARNINGS" || tax === "GUIDANCE"
+      ? "earnings_guidance"
+      : "sec_material";
+    return applyAttributionAuthority({
+      tier: "primary",
+      primaryClass,
+      classRank: PRIMARY_CLASS_RANK[primaryClass],
       isMarketAttention: false,
     }, row);
   }

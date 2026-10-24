@@ -17,6 +17,7 @@ import {
   normalizeSymbol,
   scheduledMomentMs,
 } from "@/lib/catalyst/parsers";
+import { isEligibleSecEdgarForScannerSurfacing } from "@/lib/catalyst/sec-edgar-events";
 
 export interface CatalystEnrichmentEntry {
   event: CatalystEvent;
@@ -121,9 +122,25 @@ export function classifyEnrichmentEvent(
     published_at?: string | null;
     event_time?: string | null;
     event_date?: string | null;
+    provider?: string | null;
+    verification_state?: string | null;
+    symbol?: string;
+    title?: string;
+    event_type?: string;
+    facts?: Record<string, unknown> | null;
   },
   nowMs: number,
 ): { kind: "upcoming" | "recent"; sortMs: number } | null {
+  if (row.provider === "sec_edgar") {
+    if (row.verification_state !== "provider_reported") return null;
+    if (!isEligibleSecEdgarForScannerSurfacing(row as Parameters<typeof isEligibleSecEdgarForScannerSurfacing>[0], nowMs)) {
+      return null;
+    }
+    const pub = publishedRecentSortMs(row);
+    if (pub === null || pub > nowMs) return null;
+    return { kind: "recent", sortMs: pub };
+  }
+
   const scheduled = scheduledMomentMs(row);
   if (scheduled !== null) {
     if (scheduled >= nowMs && scheduled <= nowMs + ENRICHMENT_UPCOMING_MS) {
@@ -157,6 +174,7 @@ function toPrecedenceInput(event: CatalystEvent): CatalystPrecedenceInput {
     source_name: event.source_name ?? null,
     attribution_class: event.attribution_class,
     ticker_specific: event.ticker_specific,
+    facts: event.facts,
   };
 }
 
@@ -204,6 +222,7 @@ export function selectEnrichmentEntries(
   for (const raw of events) {
     const sym = normalizeSymbol(raw.symbol);
     if (!sym || !wanted.has(sym)) continue;
+    if (raw.verification_state && raw.verification_state !== "provider_reported") continue;
 
     const classified = classifyEnrichmentEvent(raw, nowMs);
     if (!classified) continue;
