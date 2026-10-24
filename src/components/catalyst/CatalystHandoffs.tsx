@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { LayoutGrid, NotebookPen, Radar, Sparkles, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { catalystSymbolWorkflowHref } from "@/lib/catalyst/sec-edgar-events";
 import { buildRepeatMoverWorkflowHandoffs } from "@/lib/radar/radar-repeat-mover-handoffs";
 import type { SecurityId } from "@/types/security-identity";
 
@@ -16,12 +17,12 @@ export function CatalystHandoffs({
     { to: routes.aiAnalyst, label: "Ask AI", icon: Sparkles },
     { to: routes.watchlist, label: "Add to Watchlist", icon: Star },
     { to: routes.journal, label: "Open Journal", icon: NotebookPen },
-    { to: "/dashboard/screeners", label: "View in Screeners", icon: LayoutGrid },
-    { to: routes.actionCenter, label: "Action Center", icon: Radar },
+    { to: catalystSymbolWorkflowHref(symbol, "screeners"), label: "View in Screeners", icon: LayoutGrid },
+    { to: catalystSymbolWorkflowHref(symbol, "action"), label: "Action Center", icon: Radar },
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5" data-testid="catalyst-handoffs">
       {actions.map((action) => (
         <Button
           key={action.label}

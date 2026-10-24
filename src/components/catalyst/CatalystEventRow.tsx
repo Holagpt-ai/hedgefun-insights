@@ -14,6 +14,7 @@ import {
 } from "@/lib/catalyst/catalyst-historical-facts";
 import { EVENT_TYPE_LABEL, timeOfDayLabel } from "@/lib/catalyst/parsers";
 import { CatalystHandoffs } from "@/components/catalyst/CatalystHandoffs";
+import { CatalystSecProvenance } from "@/components/catalyst/CatalystSecProvenance";
 import type { CatalystEvent } from "@/types/catalyst";
 import { cn } from "@/lib/utils";
 
@@ -131,6 +132,8 @@ export function CatalystEventRow({
             {!freshness.stale && <span className="tabular-nums">{freshness.label}</span>}
             {historyLoading && !summary.available && <span>Historical context loading…</span>}
           </div>
+
+          <CatalystSecProvenance event={event} nowMs={nowMs} variant="compact" />
         </div>
 
         <div className="flex shrink-0 items-center gap-0.5">
