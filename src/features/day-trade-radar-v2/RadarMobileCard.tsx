@@ -276,13 +276,15 @@ export function RadarMobileCard({
             <span className="text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</span>
           ) : news.level === "recent" ? (
             <span className="text-muted-foreground" title={news.title}>
-              Recent News
+              Unverified news
               {news.source || news.ageLabel ? ` · ${[news.source, news.ageLabel].filter(Boolean).join(" · ")}` : ""}
               {` · ${news.title}`}
             </span>
           ) : (
             <span className="text-muted-foreground" title={news.title}>
-              Verified Catalyst · {news.category}
+              {news.association === "historical_context" ? "Historical catalyst context" : "Verified catalyst"}
+              {` · ${news.category}`}
+              {news.sourceAttribution ? ` · ${news.sourceAttribution}` : ""}
               {news.ageLabel ? ` · ${news.ageLabel}` : ""}
               {news.title ? ` · ${news.title}` : ""}
             </span>

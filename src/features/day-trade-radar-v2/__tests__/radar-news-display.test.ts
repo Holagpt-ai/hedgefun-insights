@@ -39,6 +39,7 @@ describe("Radar news / catalyst hierarchy", () => {
       expect(display.title).toMatch(/\$22M defense contract/);
       expect(display.category).toBe("Partnership");
       expect(display.ageLabel).toBe("9h ago");
+      expect(display.association).toBe("confirmed_current");
     }
   });
 

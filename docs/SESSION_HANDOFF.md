@@ -2,6 +2,37 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
+## 2026-10-24 — Momentum Radar + Catalyst Discovery V2
+
+**Status:** implementation on branch `cursor/momentum-radar-catalyst-discovery-v2`. No Fly deploy, Edge deploy, migration, or SEC/cron change.
+
+**Parent:** `origin/main` `ce68e0d8` (PR #167).
+
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/168
+
+**Head SHA:** `c4087071`
+
+### Delivered in git
+
+- WS1: Catalyst **Market-moving** filter, **Market-moving priority** sort, symbol-scoped fetch order; SEC EDGAR filter preserved.
+- WS2: Radar catalyst association labels (confirmed current / historical context / unverified news / unavailable) with source attribution on verified rows.
+- WS3: `momentumWorkflowRoutes()` — Radar, Catalyst, Screeners, AI Analyst, Watchlist, Journal, Action Center handoffs.
+- WS4: No worker or fetch-limit changes; volume-first ranking unchanged.
+- WS5: Fly worker v45 digest parity PASS documented; ISS-003 split (Fly verified, Vercel/Edge still reported).
+
+### Validation (local)
+
+- `npm run typecheck`, `npm run build` (`index-CQaOVVNS.js`), focused Vitest, `npm run test:integrity`, `npm run integrity` — pass.
+
+### Deploy
+
+- **Vercel SPA** required after merge. **Fly worker redeploy not required** (parity PASS vs `ce68e0d8`).
+
+### Next approved batch
+
+1. Merge V2 PR; confirm Vercel asset hash.
+2. Lovable Cloud **`chat`-only** deploy (ISS-015) when rollback metadata exists.
+
 ## 2026-10-24 — Scanner + catalyst intelligence integration V1
 
 **Status:** implementation on branch `cursor/scanner-catalyst-integration-v1`. No Edge deploy, migration, SEC ingestion/cron change, or Fly worker deploy.

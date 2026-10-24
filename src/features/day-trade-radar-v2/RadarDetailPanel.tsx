@@ -1,10 +1,11 @@
 import { Link } from "react-router-dom";
-import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen, Bell, ExternalLink, LayoutDashboard } from "lucide-react";
+import { Plus, Check, Loader2, Newspaper, Sparkles, BookOpen, Bell, ExternalLink, LayoutDashboard, LayoutGrid } from "lucide-react";
 import TradingViewChart, { type OHLCVData } from "@/components/charts/TradingViewChart";
 import { useAddToWatchlist } from "@/hooks/useAddToWatchlist";
 import { useCatalystPlatformContextForSymbols } from "@/hooks/useCatalystPlatformContextForSymbols";
 import { useRecentProviderNewsForSymbols } from "@/hooks/useRecentProviderNewsForSymbols";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
+import { momentumWorkflowRoutes } from "@/lib/catalyst/momentum-workflow-routes";
 import { workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
 import { normalizeSymbol } from "@/lib/catalyst/parsers";
 import { parseTimestampMs } from "@/lib/screeners/contract";
@@ -125,7 +126,8 @@ export function RadarDetailPanel({
   const already = isAdded(sym);
   const pending = pendingSymbol === sym;
   const symKey = sym.toUpperCase();
-  const workflowRoutes = workflowSymbolRoutes(sym);
+  const momentumRoutes = momentumWorkflowRoutes(sym);
+  const sessionRoutes = workflowSymbolRoutes(sym);
   const entry = catalystMap?.get(symKey);
   const news = resolveRadarNewsCellStateWithPlatform({
     symbol: sym,
@@ -346,14 +348,14 @@ export function RadarDetailPanel({
                 className="block text-[12px] hover:underline"
               >
                 <span className="text-muted-foreground">
-                  Recent News · {[news.source, news.ageLabel].filter(Boolean).join(" · ")} ·{" "}
+                  Unverified news · {[news.source, news.ageLabel].filter(Boolean).join(" · ")} ·{" "}
                 </span>
                 {news.title}
               </a>
             ) : (
               <div className="text-[12px]">
                 <span className="text-muted-foreground">
-                  Recent News · {[news.source, news.ageLabel].filter(Boolean).join(" · ")} ·{" "}
+                  Unverified news · {[news.source, news.ageLabel].filter(Boolean).join(" · ")} ·{" "}
                 </span>
                 {news.title}
               </div>
@@ -364,7 +366,12 @@ export function RadarDetailPanel({
               className="block text-[12px] hover:underline"
             >
               <span className="text-muted-foreground">
-                Verified Catalyst · {news.category}
+                {news.association === "historical_context"
+                  ? "Historical catalyst context"
+                  : "Verified catalyst"}
+                {" · "}
+                {news.category}
+                {news.sourceAttribution ? ` · ${news.sourceAttribution}` : ""}
                 {news.ageLabel ? ` · ${news.ageLabel}` : ""} ·{" "}
               </span>
               {news.title}
@@ -391,22 +398,25 @@ export function RadarDetailPanel({
             Watchlist
           </button>
           <Link
-            to={
-              catalystSymbolHref(sym) ??
-              `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`
-            }
+            to={momentumRoutes?.catalyst ?? `/dashboard/catalyst?symbol=${encodeURIComponent(sym)}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
           >
             <Newspaper className="h-3.5 w-3.5" /> Catalyst
           </Link>
           <Link
-            to={`/dashboard/ai?symbol=${encodeURIComponent(sym)}`}
+            to={momentumRoutes?.screeners ?? `/dashboard/screeners?symbol=${encodeURIComponent(sym)}`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
+          >
+            <LayoutGrid className="h-3.5 w-3.5" /> Screeners
+          </Link>
+          <Link
+            to={momentumRoutes?.ai ?? `/dashboard/ai?symbol=${encodeURIComponent(sym)}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
           >
             <Sparkles className="h-3.5 w-3.5" /> AI Analyst
           </Link>
           <Link
-            to={`/dashboard/journal?symbol=${encodeURIComponent(sym)}`}
+            to={momentumRoutes?.journal ?? `/dashboard/journal?symbol=${encodeURIComponent(sym)}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
           >
             <BookOpen className="h-3.5 w-3.5" /> Journal
@@ -418,7 +428,7 @@ export function RadarDetailPanel({
             <Bell className="h-3.5 w-3.5" /> Price alert
           </Link>
           <Link
-            to={workflowRoutes?.actionCenter ?? `/dashboard/action-center?symbol=${encodeURIComponent(sym)}`}
+            to={momentumRoutes?.actionCenter ?? sessionRoutes?.actionCenter ?? `/dashboard/action-center?symbol=${encodeURIComponent(sym)}`}
             className="inline-flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-[12px] font-medium hover:bg-muted"
           >
             <LayoutDashboard className="h-3.5 w-3.5" /> Action Center

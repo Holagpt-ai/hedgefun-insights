@@ -4,6 +4,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- Momentum Radar + Catalyst Discovery V2: market-moving Catalyst filters and priority sort, Radar catalyst association labels (current vs historical vs unverified news), momentum workflow routes, Fly worker v45 parity recorded (ISS-003 partial). Vercel SPA deploy pending. **ISS-015** open.
 - Scanner + catalyst intelligence integration V1: SEC taxonomy labels on Screeners and Radar, Catalyst tab **SEC EDGAR** filter and `matchesCatalystFeedCategoryFilter`, verified zero volume preserved in market-mover ordering, Radar/Action Center symbol handoffs, and documented worker/client catalyst boundary. Vercel SPA deploy pending; Fly worker image unchanged. **ISS-015** remains open.
 - Edge Function release and rollback procedure for Lovable Cloud (`docs/release/edge-function-release-lovable.md`); git SHA on `main` is distinguished from live Supabase Edge revision. **ISS-015** remains open.
 - Recover AI Analyst Catalyst Evidence Depth V2, bounded chat catalyst delivery, and financial-fact extraction from `68c88114`, `2f22387b`, and `ed75aa71`. Official attribution now requires the asked symbol, events older than 45 days stay historical context, and priority facts need a source URL. Closes ISS-001 in git. `chat` is not deployed (ISS-015).

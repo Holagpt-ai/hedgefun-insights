@@ -119,7 +119,7 @@ function NewsCatalystCell({
     const meta = [display.source, display.ageLabel].filter(Boolean).join(" · ");
     const body = (
       <div className="flex max-w-[220px] flex-col items-start gap-0.5" title={display.title}>
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Recent News</span>
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Unverified news</span>
         {meta ? <span className="text-[10px] text-muted-foreground">{meta}</span> : null}
         <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
       </div>
@@ -137,7 +137,13 @@ function NewsCatalystCell({
       </a>
     );
   }
-  const catalystMeta = [display.category, display.ageLabel].filter(Boolean).join(" · ");
+  const catalystMeta = [display.category, display.sourceAttribution, display.ageLabel]
+    .filter(Boolean)
+    .join(" · ");
+  const catalystHeading =
+    display.association === "historical_context"
+      ? "Historical catalyst context"
+      : "Verified catalyst";
   return (
     <Link
       to={display.href}
@@ -145,7 +151,7 @@ function NewsCatalystCell({
       className="inline-flex max-w-[220px] flex-col items-start gap-0.5 hover:underline"
       title={display.title}
     >
-      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Verified Catalyst</span>
+      <span className="text-[10px] uppercase tracking-wide text-muted-foreground">{catalystHeading}</span>
       {catalystMeta ? <span className="text-[10px] text-muted-foreground">{catalystMeta}</span> : null}
       <span className="max-w-full truncate text-[12px] text-foreground">{display.title}</span>
     </Link>
