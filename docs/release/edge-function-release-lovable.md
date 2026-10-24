@@ -23,7 +23,7 @@ If step 2 or 3 cannot be completed and no recoverable previous revision is ident
 1. Sync Lovable from **`cursor/lovable-sync-from-main-20261024`** after it contains the approved `main` commits (integration branch carries Lovable-generated files plus `main`).
 2. Deploy **only** the functions named in the batch (e.g. **`chat` only** for AI Analyst V2). Supabase bundles transitive `supabase/functions/_shared/**` imports automatically; do not deploy shared paths as separate functions.
 3. Do not change secrets, cron, migrations, or unrelated functions unless the batch says so.
-4. After deploy, record **new** version id, deploy timestamp, and source SHA Lovable used.
+4. After deploy, record **new** version id, deploy timestamp, and source SHA Lovable used. Treat the platform version id as the live revision; the git SHA is provenance only.
 
 ## Post-deploy verification (minimal)
 

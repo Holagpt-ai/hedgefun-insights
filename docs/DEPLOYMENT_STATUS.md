@@ -1,31 +1,43 @@
 # Deployment status
 
-Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin`. Production Supabase is managed in **Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`.
+Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
-## AI Analyst V2 — `chat` Edge activation
+## AI Analyst V2 — `chat` Edge activation (2026-10-24)
+
+Authorized scope: deploy **`chat` only** from **`1072343455023afc1cb1fbd9007258e80308dd75`** (PR #164) to project **`zcjptaolpumhtlwhlemq`**.
 
 | Field | Value |
 | --- | --- |
-| Result | **BLOCKED** — production `chat` not deployed from approved source |
-| Approved source SHA | `1072343455023afc1cb1fbd9007258e80308dd75` (PR #164) |
-| Previous production `chat` version id | **UNKNOWN** — not captured in Lovable Cloud this session |
-| Rollback package | **Not established** — see edge release doc; deploy must not proceed without Lovable-recorded previous revision |
-| Tracker | **ISS-015** remains open until Lovable deploy + verification |
+| Result | **BLOCKED** — deploy not executed |
+| Source SHA (approved) | `1072343455023afc1cb1fbd9007258e80308dd75` |
+| Source parity | **Confirmed** — `origin/main` matches approved SHA; `supabase/functions/chat` and required `supabase/functions/_shared/ai-analyst/*` present at that commit (includes `analyst-intelligence-delivery.ts` and recovery shared modules). Workspace chat paths match `origin/main`. Archived branch `cursor/chat-single-pass-v1` was not used. |
+| Previous `chat` version / deploy id | **UNKNOWN** — not read from Lovable Cloud / managed Supabase; no rollback id captured |
+| New `chat` version / deploy id | **N/A** — no deploy |
+| Deployment timestamp | **N/A** |
+| Secrets check | **Not verified in Lovable Cloud this session.** Required names for this function (no values read): `ANTHROPIC_API_KEY`, `BRAVE_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY`. |
+| Auth / entitlements | **Unchanged in git** — `[functions.chat] verify_jwt = false`; handler auth and plan limits unchanged at `10723434`. |
+| Pre-deploy tests (local, merge tree) | `deno check supabase/functions/chat/index.ts` at `10723434` — **pass** |
+| Production smoke (pre-deploy) | `OPTIONS` `/functions/v1/chat` → **200**, CORS `Access-Control-Allow-Origin: *`, expected allow-headers |
+| Post-deploy tests | **Not run** — no new revision deployed |
+| Error logs | **Not queried** — use Lovable Cloud managed Supabase logs for production |
+| Tracker | **ISS-015** remains open until Lovable Cloud deploy and verification pass |
+
+**Unblock (Lovable Cloud):** follow `docs/release/edge-function-release-lovable.md`. Record the current production `chat` **version id** (not git SHA alone) for rollback, confirm required secrets exist, then deploy **`chat` only** from approved source **`10723434`** with no source edits. Roll back by redeploying the saved previous revision through Lovable Cloud.
 
 ## Lovable integration branch sync (2026-10-24)
 
 | Field | Value |
 | --- | --- |
 | Branch | `cursor/lovable-sync-from-main-20261024` |
-| Action | Non-destructive merge of `origin/main` (`10723434`) plus remote Lovable tip (`763abbe1`); preserved Lovable-generated `bun.lock` |
-| AI Analyst V2 in branch | **Confirmed** — `analyst-intelligence-delivery.ts` and `_shared/ai-analyst` recovery modules present |
-| Pending on `main` | PR #165 Lovable Cloud ownership docs (`b28aaaa2`) — merge to `main` then forward-merge into integration branch |
+| Integration tip (pre–forward merge) | `bf67bc38` — contains `main` through `10723434` plus Lovable-generated `bun.lock` |
+| After PR #165 | `main` at `9e1a9538`; forward-merge `main` into the integration branch after continuity docs land |
+| AI Analyst V2 in integration branch | **Confirmed** — `analyst-intelligence-delivery.ts` and `_shared/ai-analyst` recovery modules |
 
 ## Confirmed this session
 
 | Surface | Observation |
 | --- | --- |
-| GitHub `main` | `1072343455023afc1cb1fbd9007258e80308dd75` — PR #164 AI Analyst catalyst recovery (merged 2026-10-24). Vercel Production succeeded for this SHA. |
+| GitHub `main` | `9e1a95388557456f4ca33404bb53eced0cd6d9ae` — PR #165 Lovable Cloud Supabase ownership (merged 2026-10-24). Includes PR #164 AI Analyst catalyst recovery at `10723434`. |
 | Repo | `https://github.com/Holagpt-ai/hedgefun-insights` |
 | Vercel config in git | `vercel.json` installs with `npm ci`, redirects the legacy host and `www.stocksist.com` to `https://stocksist.com`, rewrites `/sitemap.xml` to the Supabase `sitemap` function, and SPA-falls back every other path |
 | Production asset manifest | `{"js":"/assets/index-CpDXxxyv.js"}` style response; observed js `/assets/index-CpDXxxyv.js`. The manifest has no git SHA |
@@ -40,7 +52,7 @@ A local `npm run build` of this tree also wrote `index-ACjVgNSC.js`. That hash d
 
 | Branch | Role |
 | --- | --- |
-| `cursor/lovable-sync-from-main-20261024` | Active integration branch. PR #162 is merged to `main`. This branch was merged forward afterward and its file contents match `main`. |
+| `cursor/lovable-sync-from-main-20261024` | Active integration branch. Forward-merge `main` after each ownership or continuity doc merge; carries Lovable-generated files (e.g. `bun.lock`) plus `main` application source. |
 | `cursor/chat-single-pass-v1` | Archived recovery source for the analyst commits. Those commits are cherry-picked onto the catalyst evidence recovery. The branch itself was not merged. Its older divergence from `main` is not a current production or Lovable synchronization problem. |
 
 Lovable was not opened in this session. Preview hosts remain preview.

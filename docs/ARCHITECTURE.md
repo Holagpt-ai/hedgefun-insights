@@ -1,12 +1,12 @@
 # Architecture
 
-Stocksist is a Vite React SPA with a Supabase backend and a few long-running Fly workers. Production web traffic is served by Vercel at `https://stocksist.com`.
+Stocksist is a Vite React SPA with a Supabase backend and a few long-running Fly workers. Production web traffic is served by Vercel at `https://stocksist.com`. The Supabase project (`zcjptaolpumhtlwhlemq`) is **managed in Lovable Cloud**; GitHub `main` holds the authoritative backend source.
 
 ```text
-Browser (Vercel SPA)
-  -> Supabase Auth
+Browser (Vercel SPA — stocksist.com)
+  -> Supabase Auth (Lovable Cloud / project zcjptaolpumhtlwhlemq)
   -> Supabase Edge Functions (market data, screeners, catalyst, SEC, watchlist, chat, sitemap, MCP)
-  -> Postgres (supabase/migrations)
+  -> Postgres (schema from supabase/migrations in git; apply via Lovable Cloud)
 
 Fly stocksist-radar-v22-worker
   -> Massive / Polygon feed
@@ -36,7 +36,10 @@ Fly stocksist-ai-trader-shadow-worker
 
 ## Backend
 
-- Supabase project id in repo config: `zcjptaolpumhtlwhlemq` (`supabase/config.toml`).
+- Supabase project id in repo config: `zcjptaolpumhtlwhlemq` (`supabase/config.toml`). Production Supabase operations (deploy Edge Functions, apply migrations, secrets, logs) run through **Lovable Cloud**, not a separate personal Supabase account by default.
+- **Cursor / GitHub:** backend code, migrations as files, Edge Function source, tests, and PRs to `main`.
+- **Lovable Cloud:** executes production Supabase deploys and configuration against that project.
+- **Vercel:** hosts the public SPA at `https://stocksist.com`.
 - Edge Functions live in `supabase/functions/`. Shared code is `supabase/functions/_shared/`.
 - The Radar worker image is `services/scanner-stream-worker` (`fly.radar.toml`). It publishes the 52-week baseline and, while it holds the lease, the Radar V2.2 board. It does not hold the service-role key.
 - Historical catch-up is `services/historical-backfill-job` (`fly.historical-backfill.toml`).
