@@ -6,9 +6,9 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Status:** PR open on `cursor/batch171-security-performance-v2`. Parent **`dd490ae5`** (`main` after #169/#170).
 
-**Pull request:** _(create on push)_
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/171
 
-**Head SHA:** _(set after commit)_
+**Head SHA:** `30a9e3ab`
 
 ### Delivered
 
