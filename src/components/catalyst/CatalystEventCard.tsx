@@ -21,8 +21,8 @@ import {
 } from "@/lib/catalyst/parsers";
 import { catalystSourceBadge } from "@/lib/catalyst/presentation";
 import { buildCatalystTraderRead } from "@/lib/catalyst/trader-read";
+import { CatalystSecProvenance } from "@/components/catalyst/CatalystSecProvenance";
 import {
-  buildSecRelevanceSignals,
   isSecEdgarCatalystRow,
   secAttributionConfidence,
   secFilingTypeLabel,
@@ -140,21 +140,6 @@ export function CatalystEventCard({
   const longDescription = event.description && event.description.length > 220;
   const isSec = isSecEdgarCatalystRow(event.provider);
   const secAttribution = isSec ? secAttributionConfidence(event.facts) : null;
-  const secSignals = isSec
-    ? buildSecRelevanceSignals(
-      {
-        symbol: event.symbol,
-        title: event.title,
-        event_type: event.event_type,
-        event_date: event.event_date,
-        event_time: event.event_time,
-        published_at: event.published_at,
-        provider: event.provider,
-        facts: event.facts,
-      },
-      Date.now(),
-    ).filter((s) => s.available)
-    : [];
 
   return (
     <Card className={cn("p-4 space-y-3 transition-colors", isReviewed && "opacity-80")}>
@@ -254,13 +239,7 @@ export function CatalystEventCard({
         </div>
       </div>
 
-      {isSec && secSignals.length > 0 && (
-        <ul className="text-[11px] text-muted-foreground space-y-0.5" data-testid="sec-relevance-signals">
-          {secSignals.map((signal) => (
-            <li key={signal.id}>{signal.label}</li>
-          ))}
-        </ul>
-      )}
+      <CatalystSecProvenance event={event} nowMs={Date.now()} variant="full" />
 
       <dl className="grid gap-1 text-[12px]" data-testid="catalyst-trader-read">
         {traderRead.map((line) => (

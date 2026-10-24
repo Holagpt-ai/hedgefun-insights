@@ -14,6 +14,9 @@ import {
   catalystFreshness,
   type CatalystHistoricalSummary,
 } from "@/lib/catalyst/catalyst-historical-facts";
+import { CatalystSecProvenance } from "@/components/catalyst/CatalystSecProvenance";
+import { buildCatalystTraderRead } from "@/lib/catalyst/trader-read";
+import { isSecEdgarCatalystRow } from "@/lib/catalyst/sec-edgar-events";
 import { EVENT_TYPE_LABEL, formatEpsValue, formatSurprisePct } from "@/lib/catalyst/parsers";
 import type { CatalystEvent } from "@/types/catalyst";
 import { cn } from "@/lib/utils";
@@ -52,6 +55,8 @@ export function CatalystDetailPanel({
   const actual = formatEpsValue(facts.actual_eps);
   const surprise = formatSurprisePct(facts.surprise_percent);
   const hasMarketFacts = Boolean(estimate || actual || surprise);
+  const isSec = isSecEdgarCatalystRow(event.provider);
+  const traderRead = isSec ? buildCatalystTraderRead(event) : [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -94,13 +99,25 @@ export function CatalystDetailPanel({
             <span className="tabular-nums">{freshness.label}</span>
           </div>
 
-          {event.source_url && (
+          {isSec ? (
+            <>
+              <CatalystSecProvenance event={event} nowMs={nowMs} variant="full" />
+              <dl className="grid gap-1 text-[12px]" data-testid="catalyst-trader-read">
+                {traderRead.map((line) => (
+                  <div key={line.label} className="grid grid-cols-[88px_1fr] gap-2">
+                    <dt className="text-muted-foreground">{line.label}</dt>
+                    <dd className="min-w-0 break-words text-foreground/90">{line.text}</dd>
+                  </div>
+                ))}
+              </dl>
+            </>
+          ) : event.source_url ? (
             <Button asChild variant="outline" size="sm" className="h-7 gap-1 px-2 text-[11px]">
               <a href={event.source_url} target="_blank" rel="noopener noreferrer">
                 <ExternalLink className="h-3 w-3" /> View Source
               </a>
             </Button>
-          )}
+          ) : null}
 
           <section className="space-y-2">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">

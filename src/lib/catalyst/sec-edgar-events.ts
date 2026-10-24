@@ -274,3 +274,84 @@ export function catalystSymbolWorkflowHref(
       return `/dashboard/action-center?symbol=${s}`;
   }
 }
+
+/** Format stored SEC timestamps for display. Unparseable values are shown raw. */
+export function formatSecDisplayTimestamp(
+  value: string | null | undefined,
+  mode: "date" | "datetime",
+): string | null {
+  if (!value || !value.trim()) return null;
+  const raw = value.trim();
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? `${raw}T00:00:00.000Z` : raw;
+  const ms = Date.parse(iso);
+  if (!Number.isFinite(ms)) return raw;
+  if (mode === "date") {
+    return new Date(ms).toLocaleDateString("en-US", {
+      timeZone: "UTC",
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
+  }
+  return new Date(ms).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  });
+}
+
+export interface SecProvenanceView {
+  formLabel: string;
+  formType: string | null;
+  itemsLabel: string;
+  itemsAvailable: boolean;
+  filingDate: string | null;
+  filingDateLabel: string;
+  acceptedAt: string | null;
+  acceptedAtLabel: string;
+  attribution: { confidence: SecAttributionConfidence; statusLabel: string };
+  sourceUrl: string | null;
+  sourceName: string;
+  verifiedSignals: SecRelevanceSignal[];
+}
+
+/**
+ * Honest SEC provenance for the live Catalyst page.
+ * Filing date and SEC acceptance stay separate; missing values are labeled unavailable.
+ * Does not invent sentiment, materiality, or market reaction.
+ */
+export function buildSecProvenanceView(
+  event: CatalystRowLike & {
+    facts?: Record<string, unknown> | null;
+    source_url?: string | null;
+    source_name?: string | null;
+  },
+  nowMs: number,
+): SecProvenanceView {
+  const parsed = parseSecEdgarFacts(event.facts);
+  const filingFormatted = formatSecDisplayTimestamp(parsed.filing_date, "date");
+  const acceptedFormatted = formatSecDisplayTimestamp(parsed.accepted_at, "datetime");
+  return {
+    formLabel: secFilingTypeLabel(event.facts),
+    formType: parsed.form_type,
+    itemsLabel: parsed.sec_items.length > 0
+      ? `Items ${parsed.sec_items.join(", ")}`
+      : "Item-level detail not in feed summary",
+    itemsAvailable: parsed.sec_items.length > 0,
+    filingDate: parsed.filing_date,
+    filingDateLabel: parsed.filing_date
+      ? `Filing date ${filingFormatted ?? parsed.filing_date}`
+      : "Filing date unavailable",
+    acceptedAt: parsed.accepted_at,
+    acceptedAtLabel: parsed.accepted_at
+      ? `SEC accepted ${acceptedFormatted ?? parsed.accepted_at}`
+      : "SEC acceptance time unavailable",
+    attribution: secAttributionConfidence(event.facts),
+    sourceUrl: event.source_url?.trim() ? event.source_url.trim() : null,
+    sourceName: event.source_name?.trim() || "SEC EDGAR",
+    verifiedSignals: buildSecRelevanceSignals(event, nowMs).filter((signal) => signal.available),
+  };
+}

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSecProvenanceView,
   buildSecRelevanceSignals,
   catalystSymbolWorkflowHref,
   classifySecFilingTaxonomy,
@@ -98,6 +99,30 @@ describe("SEC EDGAR catalyst integration", () => {
   it("exposes symbol-aware workflow hrefs", () => {
     expect(catalystSymbolWorkflowHref("aaa", "catalyst")).toBe("/dashboard/catalyst?symbol=AAA");
     expect(catalystSymbolWorkflowHref("aaa", "ai")).toContain("/dashboard/ai?symbol=AAA");
+    expect(catalystSymbolWorkflowHref("aaa", "screeners")).toBe("/dashboard/screeners?symbol=AAA");
+    expect(catalystSymbolWorkflowHref("aaa", "action")).toBe("/dashboard/action-center?symbol=AAA");
+  });
+
+  it("keeps filing date and SEC acceptance separate and honest when missing", () => {
+    const complete = buildSecProvenanceView(secEvent(), NOW);
+    expect(complete.filingDate).toBe("2026-10-22");
+    expect(complete.acceptedAt).toBe("2026-10-23T16:00:00.000Z");
+    expect(complete.filingDateLabel).toContain("Filing date");
+    expect(complete.acceptedAtLabel).toContain("SEC accepted");
+    expect(complete.itemsLabel).toBe("Items 2.02");
+    expect(complete.verifiedSignals.some((s) => s.id === "market_reaction")).toBe(false);
+
+    const missing = buildSecProvenanceView(
+      secEvent({
+        facts: { form_type: "8-K" },
+        source_url: null,
+      }),
+      NOW,
+    );
+    expect(missing.filingDateLabel).toBe("Filing date unavailable");
+    expect(missing.acceptedAtLabel).toBe("SEC acceptance time unavailable");
+    expect(missing.sourceUrl).toBeNull();
+    expect(missing.attribution.statusLabel).toBe("Attribution not available");
   });
 
   it("dedupes by dedupe_key when selecting enrichment", () => {
