@@ -33,7 +33,8 @@ Update `docs/SESSION_HANDOFF.md` and add an entry to `docs/CHANGELOG.md` with:
 
 - No production migrations, Edge deploys, DNS edits, cron changes, or secret changes.
 - Do not merge pull requests unless the user asks.
-- Do not merge `cursor/chat-single-pass-v1` or any other stale Lovable branch into `main`. Port reviewed files instead.
+- Active Lovable integration branch: `cursor/lovable-sync-from-main-20261024`. It matches `main` in file contents after PR #162.
+- Archived recovery branch: `cursor/chat-single-pass-v1`. Port the reviewed analyst catalyst files from it. Do not merge that branch, and do not treat its old divergence as a production sync failure.
 - Real-time feed upgrades, AI Trader, broker integration, and billing go-live stay deferred.
 - `supabase/functions/mcp/index.ts` is generated. Change `src/lib/mcp/` and use the existing emitter. Do not hand-edit the bundle.
 

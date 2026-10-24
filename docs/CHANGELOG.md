@@ -5,6 +5,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 ## Unreleased
 
 - Project intelligence V1: repository memory, architecture docs, issue register, session handoff, and `npm run integrity` (PR #163).
+- PR #163 docs distinguish active Lovable branch `cursor/lovable-sync-from-main-20261024` from archived recovery branch `cursor/chat-single-pass-v1`, and record the historical Gate I.3 activation (cron job 52, 22 inserted records).
 - No product behavior change.
 
 ## main through 63957b31 (2026-10-24)
@@ -32,4 +33,4 @@ Earlier scanner, watchlist, journal, and screener releases are on `main` below t
 
 ## Not on main
 
-AI Analyst Catalyst Evidence Depth V2 and chat catalyst delivery remain only on `origin/cursor/chat-single-pass-v1` (`68c88114`, `2f22387b`, `ed75aa71`) and, in a smaller form, on `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`). See `docs/PROJECT_MEMORY.md`.
+AI Analyst Catalyst Evidence Depth V2 and chat catalyst delivery remain only on archived recovery branch `origin/cursor/chat-single-pass-v1` (`68c88114`, `2f22387b`, `ed75aa71`) and, in a smaller form, on `origin/cursor/catalyst-evidence-depth-v2` (`c3bb034a`). See `docs/PROJECT_MEMORY.md`. Active Lovable integration is `cursor/lovable-sync-from-main-20261024`, which matches `main` in file contents.

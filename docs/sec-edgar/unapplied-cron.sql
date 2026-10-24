@@ -1,4 +1,7 @@
 -- DO NOT APPLY from Cursor / CI.
+-- Leftover draft only. Production scheduled ingestion was already activated as cron job 52.
+-- A subsequent scheduled run inserted 22 records and advanced the checkpoint.
+-- This file is not a live-state record. Do not reschedule it.
 -- Gate I.3 production schedule draft for sync-sec-edgar-filings.
 -- Requires migrations 20261024103000 + 20261024153000 and Edge deploy.
 -- SEC_EDGAR_WRITE_ENABLED and vault SYNC_SECRET must be configured before activation.

@@ -21,10 +21,10 @@ Existing area checklists still apply when the batch touches them:
 ## After merge
 
 1. Confirm Vercel Production built `main`. Compare `https://stocksist.com/asset-manifest.json` with the previous hash. The manifest does not contain a git SHA; record the deployment SHA from Vercel when someone is looking at it.
-2. Sync Lovable from `main`. Do not publish from `cursor/chat-single-pass-v1`.
+2. Sync Lovable from `main` or the active integration branch `cursor/lovable-sync-from-main-20261024` when that branch matches `main`. `cursor/chat-single-pass-v1` is an archived recovery branch, not the preview line.
 3. Deploy Edge Functions or Fly images only when that batch lists the exact functions and the git SHA. Merging the app does not deploy them.
 4. Apply Supabase migrations only through the approved Supabase process, in timestamp order, and only when the batch says to. Never rewrite an applied migration.
-5. Leave SEC cron, `SEC_EDGAR_WRITE_ENABLED`, and `SEC_TRANSPORT_MODE` unchanged unless the SEC batch says to change them.
+5. Leave the historically activated SEC schedule (cron job 52), `SEC_EDGAR_WRITE_ENABLED`, and `SEC_TRANSPORT_MODE` unchanged unless a later SEC batch says to change them. Do not reapply the Gate I.3 migration or redeploy `sync-sec-edgar-filings` from an unrelated PR.
 
 ## Integrity command
 

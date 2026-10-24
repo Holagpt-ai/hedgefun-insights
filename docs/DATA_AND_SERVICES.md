@@ -45,11 +45,11 @@ Radar and historical jobs call `radar-worker-bridge` with `RADAR_WORKER_SECRET`.
 | Journal | `src/journal/` |
 | Homepage | `src/pages/Index.tsx` |
 
-## Gates that exist in git and are not turned on by an app merge
+## Gates
 
-- SEC weekday cron draft: `docs/sec-edgar/unapplied-cron.sql`
-- SEC write flag and ingestion pause: `docs/sec-edgar/gate-i3-activation-readiness.md`
-- Catalyst source rows stay off until the activation sequence is approved
-- SEC gateway transport stays off until `SEC_TRANSPORT_MODE=gateway` is set on `sync-catalyst-sec`
+- SEC scheduled ingestion was historically activated as cron job 52. See `docs/DEPLOYMENT_STATUS.md`. `docs/sec-edgar/unapplied-cron.sql` is a leftover draft, not the live schedule. An app merge does not reapply it.
+- `docs/sec-edgar/gate-i3-activation-readiness.md` is the pre-activation procedure. It is not a current live-state reading.
+- Catalyst source rows stay off until the activation sequence is approved.
+- SEC gateway transport stays off until `SEC_TRANSPORT_MODE=gateway` is set on `sync-catalyst-sec`.
 
-This repository does not record which of those flags are set in the live project.
+Current pause flags, the write flag, and the latest SEC checkpoint were not re-read for this record.

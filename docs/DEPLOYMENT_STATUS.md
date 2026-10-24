@@ -17,25 +17,43 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 
 A local `npm run build` of this tree also wrote `index-ACjVgNSC.js`. That hash differs from production `index-CpDXxxyv.js`. The difference does not identify the deployed git SHA: the manifest has no SHA, and Vercel can inline environment values that a local build does not have.
 
+## Lovable branches
+
+| Branch | Role |
+| --- | --- |
+| `cursor/lovable-sync-from-main-20261024` | Active integration branch. PR #162 is merged to `main`. This branch was merged forward afterward and its file contents match `main`. |
+| `cursor/chat-single-pass-v1` | Archived recovery branch. It still holds the AI Analyst catalyst port candidates. Its older divergence from `main` is not a current production or Lovable synchronization problem. |
+
+Lovable was not opened in this session. Preview hosts remain preview.
+
+## Gate I.3 — historical production activation
+
+Previously completed, and recorded here without a new live query:
+
+- Circuit-breaker migration applied.
+- `sync-sec-edgar-filings` Edge Function deployed.
+- SEC scheduled ingestion activated as cron job 52.
+- A subsequent scheduled run inserted 22 records and advanced the checkpoint.
+
+That record is historical verification. PR #163 did not re-read the live database, the Edge deployment, cron job 52, or the current checkpoint. Current pause flags and the latest run are therefore not re-verified here. Do not reapply the migration, redeploy the function, or change the schedule from this document.
+
+`docs/sec-edgar/gate-i3-activation-readiness.md` still reads as a pre-activation procedure. `docs/sec-edgar/unapplied-cron.sql` remains a commented draft. Neither file is the live-state record.
+
 ## Reported, not rechecked
 
 | Item | Where it was stated | This session |
 | --- | --- | --- |
-| Gate I.3 migration and `sync-sec-edgar-filings` already live; PR #161 does not require a redeploy | `docs/release/production-reconciliation-checklist.md` | Not queried in Supabase |
-| Gate I.3 circuit breaker still needs an activation procedure; writes and cron were not enabled from Cursor | `docs/sec-edgar/gate-i3-activation-readiness.md` | The migration file `20261024153000_sec_edgar_ingestion_circuit_breaker_v1.sql` is on `main`. Live pause flags, write flag, and cron were not read |
 | Batch 34 migration and Edge deploy map unknown | `docs/release/batch34-production-release-manifest.md` | Not refreshed |
 | Historical backfill image deployed, then scaled to 0 machines after checkpoint C3.5 | same manifest | Fly was not queried |
 | Radar worker image versus `main` unknown | same manifest | Fly was not queried |
-| Lovable should sync from `main`, not `cursor/chat-single-pass-v1` | production reconciliation checklist | Lovable was not opened |
 
 Treat those rows as operations memory, not as a fresh production audit.
 
-## Branch divergence confirmed in git
+## Other git branches
 
 | Branch | Versus `origin/main` on 2026-10-24 |
 | --- | --- |
-| `origin/cursor/chat-single-pass-v1` | 83 commits not in `main`, 160 commits from `main` missing on the branch. Tree diff is large and deletes current `main` work. Do not merge. |
-| `origin/cursor/catalyst-evidence-depth-v2` | Two analyst/chat commits (`115329bb`, `c3bb034a`). Not contained in `main`. Smaller than the Lovable-branch copies of the same feature. |
+| `origin/cursor/catalyst-evidence-depth-v2` | Two analyst/chat commits (`115329bb`, `c3bb034a`). Not contained in `main`. Smaller than the archived recovery branch's copies of the same feature. |
 
 ## Fly app names in git
 

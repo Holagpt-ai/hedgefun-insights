@@ -38,7 +38,7 @@ npm run integrity
 
 Production migrations, Edge Function deploys, Fly deploys, DNS, cron, and secrets are separate approved operations. Merging a pull request does not perform them. See [docs/RELEASE_GATES.md](docs/RELEASE_GATES.md) and [docs/DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md).
 
-Lovable can edit this repo, but preview hosts are not production. Sync Lovable from `main` after a merge. The Lovable project id is not recorded in this repository.
+Lovable can edit this repo, but preview hosts are not production. The active integration branch is `cursor/lovable-sync-from-main-20261024`. After PR #162 it was merged forward and its files match `main`. Sync from `main`. The Lovable project id is not recorded in this repository.
 
 ## Integrity
 
