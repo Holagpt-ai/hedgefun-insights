@@ -2,6 +2,26 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
+## 2026-10-24 — Final continuity alignment (Edge release docs)
+
+**Status:** documentation only. No Edge deploy, migration, cron, DNS, or secret change.
+
+**GitHub `main`:** `9e1a95388557456f4ca33404bb53eced0cd6d9ae` (PR #165 merged).
+
+**Delivered on `main` (via follow-up doc PR):** `docs/release/edge-function-release-lovable.md`, release-gate link, deployment and issue-register updates. Git SHA ≠ live Edge revision until Lovable Cloud confirms deploy.
+
+**Lovable integration branch:** after the doc PR merges, forward-merge `origin/main` into `cursor/lovable-sync-from-main-20261024` (no force-push).
+
+**Next approved ops step:** Lovable Cloud **`chat`-only** deploy from approved source `10723434` per edge release doc. **ISS-015** stays open until verified.
+
+**Next approved product batch:** read-only production parity (Vercel SHA, Lovable Edge version ids, Fly digests), then scanner-focused work — Radar worker image parity with `main` and ISS-016–ISS-019 bundle investigation (no `npm audit fix --force`).
+
+## 2026-10-24 — Lovable source alignment and Edge release safety
+
+**Status:** integration branch synced to `10723434` at `bf67bc38`; edge release doc initially landed only on integration branch, now ported to `main` via continuity PR.
+
+**Edge rollback:** `docs/release/edge-function-release-lovable.md`.
+
 ## 2026-10-24 — AI Analyst catalyst evidence recovery
 
 **Status:** implementation port onto current `main`. No merge. No Edge deploy, migration, database write, SEC ingestion change, cron change, secret change, DNS change, or real-time-feed upgrade.

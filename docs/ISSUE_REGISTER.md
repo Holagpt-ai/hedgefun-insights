@@ -2,14 +2,14 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: parent `origin/main` `03449198`, 2026-10-24. ISS-001 is closed by the catalyst evidence recovery on this change set.
+Baseline: `origin/main` `9e1a9538` (PR #165 Lovable Cloud ownership), 2026-10-24. ISS-001 is closed by the catalyst evidence recovery on `main`. **ISS-015** remains open until production `chat` deploy is verified.
 
 ## Confirmed
 
 | ID | Item | Evidence |
 | --- | --- | --- |
 | ISS-002 | Registered navigation has no broken route | `npm run integrity` on 2026-10-24 after the analyst recovery: 0 errors, 0 warnings, 125 routes. Coverage is the nav file list in `scripts/integrity/lib/navigation.mjs`, not every link in the app. |
-| ISS-015 | Production `chat` does not yet run the recovered catalyst delivery | This recovery does not deploy Edge Functions. Live `chat` revision was not queried (ISS-003). Behavior changes only after an approved deploy of `chat` and its `_shared/ai-analyst` imports. |
+| ISS-015 | Production `chat` does not yet run the recovered catalyst delivery | Approved source on `main` (`10723434`). Live Edge revision is not assumed to match git. Follow `docs/release/edge-function-release-lovable.md`; capture Lovable Cloud version id before deploy. Behavior changes only after Lovable Cloud deploy of `chat` and verification. |
 
 ## Reported
 
