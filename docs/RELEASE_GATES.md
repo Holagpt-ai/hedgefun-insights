@@ -13,6 +13,7 @@ An application pull request and a production change are different approvals.
 
 Existing area checklists still apply when the batch touches them:
 
+- `docs/release/edge-function-release-lovable.md` — Edge deploy capture, rollback, and Lovable Cloud execution (git SHA is not the live revision until Lovable confirms deploy)
 - `docs/release/production-reconciliation-checklist.md`
 - `docs/sec-edgar/gate-i3-activation-readiness.md`
 - `docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`
