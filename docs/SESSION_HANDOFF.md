@@ -10,6 +10,8 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Branch:** `cursor/ai-analyst-catalyst-evidence-depth-v2`.
 
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/164
+
 **Source commits:** `68c88114`, `2f22387b`, `ed75aa71` on archived `cursor/chat-single-pass-v1`. Cherry-picked, then tightened. The archived branch was not merged.
 
 ### Recovered
