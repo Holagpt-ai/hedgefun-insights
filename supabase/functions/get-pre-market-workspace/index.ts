@@ -462,7 +462,7 @@ serve(async (req) => {
     event_type: string; verification_state: string;
     event_date: string; event_time: string | null; time_of_day: string | null;
     title: string; source_name: string | null; source_url: string | null;
-    published_at: string | null; updated_at: string | null; facts: unknown;
+    published_at: string | null; updated_at: string | null; facts: Record<string, unknown> | null;
     attribution_class: "direct" | "provider_associated" | "sector_related" | "unverified";
     attribution_reason: string;
     ticker_specific: boolean;
@@ -520,7 +520,7 @@ serve(async (req) => {
         source_url: isHttpsUrl(r.source_url) ? r.source_url : null,
         published_at: published,
         updated_at: updated,
-        facts: r.facts ?? null,
+        facts: (r.facts ?? null) as Record<string, unknown> | null,
         attribution_class: attr.class,
         attribution_reason: attr.reason,
         ticker_specific: attr.ticker_specific,

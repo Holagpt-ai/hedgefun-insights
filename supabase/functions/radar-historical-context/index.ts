@@ -59,7 +59,7 @@ async function mapWithConcurrency<T, R>(
 }
 
 async function resolveSecurityId(
-  db: ReturnType<typeof createClient>,
+  db: ReturnType<typeof createClient<any>>,
   symbol: string,
 ): Promise<string | null> {
   const res = await db.from("securities")
