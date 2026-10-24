@@ -14,6 +14,8 @@
     "test:watch": "vitest",
     "verify:migrations": "node scripts/supabase/verify-migration-order.mjs",
     "typecheck": "tsc -b --noEmit",
+    "integrity": "node scripts/integrity/check.mjs",
+    "test:integrity": "node --test scripts/integrity/check.test.mjs",
     "radar:am-shadow": "vite-node --config vitest.config.ts src/lib/radar-am-shadow/run-live.ts"
   },
   "dependencies": {
