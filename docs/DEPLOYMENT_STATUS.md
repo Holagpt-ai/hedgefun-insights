@@ -1,4 +1,4 @@
-# Deployment status
+﻿# Deployment status
 
 Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
@@ -16,13 +16,19 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 
 | Field | Value |
 | --- | --- |
-| GitHub `main` | **`b735073b`** — PR #168 Momentum Radar + Catalyst Discovery V2 **merged** |
+| GitHub `main` | **`58aed1b1`** — PR #169 scanner live-market acceptance **merged** (includes PR #168 `b735073b`) |
 | Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
 | Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
 
+## Open PR (GitHub)
+
+| PR | Branch | State | Notes |
+| --- | --- | --- | --- |
+| [#170](https://github.com/Holagpt-ai/hedgefun-insights/pull/170) | `cursor/security-performance-monday-v1` | **OPEN** | Security, bundle split, Monday runbook; merge after alignment with `58aed1b1` |
+
 ## Scanner live-market acceptance V1
 
-Contract report: `docs/release/scanner-live-market-acceptance-v1.md`. **Full RTH acceptance pending** next trading session. Follow-up reliability PR may land Polygon volume fix (ISS-020).
+Contract report: `docs/release/scanner-live-market-acceptance-v1.md`. Polygon volume fix on **`main`** (`58aed1b1`, ISS-020). **Full RTH acceptance pending** Monday 2026-10-26 ET per `docs/release/monday-scanner-acceptance-2026-10-26.md`.
 
 ## Scanner + catalyst integration V1
 

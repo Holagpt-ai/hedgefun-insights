@@ -1,16 +1,38 @@
-# Session handoff
+﻿# Session handoff
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
+## 2026-10-24 — Security, performance & Monday readiness V1
+
+**Status:** PR **#170 OPEN** on `cursor/security-performance-monday-v1`, aligned to `origin/main` **`58aed1b1`** (PR #169 merged). No Fly/Edge/migrations.
+
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/170
+
+**Head SHA:** `59d4075c` (after merge with `58aed1b1`)
+
+### Delivered in git (PR #170 only vs `58aed1b1`)
+
+- **ISS-016:** `npm audit fix` without `--force` (42 → 21); `react-router-dom@6.30.6`; `docs/release/npm-security-remediation-2026-10-24.md`.
+- **ISS-017:** `src/lazyPages.ts`, route `Suspense` / lazy loading (~2,656 kB entry chunk vs ~3,461 kB baseline).
+- **ISS-018:** Middleware deferred — `docs/release/vercel-middleware-runtime-2026-10-24.md`.
+- **ISS-019:** Browserslist/caniuse-lite refresh.
+- **WS5:** `docs/release/monday-scanner-acceptance-2026-10-26.md`, `npm run ops:monday-scanner-acceptance`.
+
+### Next
+
+1. Merge **#170**; confirm Vercel manifest.
+2. **Monday 2026-10-26 ET** read-only scanner acceptance.
+3. **ISS-015** Lovable `chat` when approved.
+
 ## 2026-10-24 — Scanner live-market acceptance & reliability V1
 
-**Status:** reliability fix + acceptance report on branch `cursor/scanner-live-market-acceptance-v1`. No Fly/Edge deploy.
+**Status:** **Merged** to `main` as **`58aed1b1`** (PR #169). No Fly/Edge deploy from that PR.
 
-**Parent:** `origin/main` **`b735073b`** (PR #168 merged; Vercel manifest `index-Drz78K0e.js`).
+**Parent:** `origin/main` **`b735073b`** (PR #168).
 
 **Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/169
 
-**Head SHA:** `b7e6201e`
+**Head SHA:** `58aed1b1`
 
 ### Findings
 

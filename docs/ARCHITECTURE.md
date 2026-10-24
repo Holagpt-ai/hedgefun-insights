@@ -1,4 +1,4 @@
-# Architecture
+﻿# Architecture
 
 Stocksist is a Vite React SPA with a Supabase backend and a few long-running Fly workers. Production web traffic is served by Vercel at `https://stocksist.com`. The Supabase project (`zcjptaolpumhtlwhlemq`) is **managed in Lovable Cloud**; GitHub `main` holds the authoritative backend source.
 
@@ -27,6 +27,7 @@ Fly stocksist-ai-trader-shadow-worker
 ## Frontend
 
 - Entry: `src/App.tsx` (React Router 6). Layouts: public, dashboard, smart (auth-aware), admin, standalone chart and newsletter.
+- Heavy dashboard routes load via `React.lazy` exports in `src/lazyPages.ts` with `Suspense` and `RouteLoadingFallback` in `App.tsx` (Screeners, Catalyst, AI Analyst, journal subtree, admin, chart, heatmap, inboxes, Action Center). Auth and entitlement wrappers stay on the route tree; lazy loading only defers JS download.
 - Brand and canonical origin: `src/config/brand.ts`, `seo-boundaries.ts`, `src/config/seo.ts`.
 - Screeners and Radar UI read worker output and Edge helpers under `src/lib/screeners/` and `src/lib/radar/`.
 - Catalyst UI: `src/pages/dashboard/Catalyst.tsx` and `src/lib/catalyst/`.
