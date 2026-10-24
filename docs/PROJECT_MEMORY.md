@@ -81,6 +81,12 @@ Do not restore that branch's copy of `supabase/functions/mcp/index.ts`. PR #162 
 
 Each session reads this file, `docs/SESSION_HANDOFF.md`, and `docs/ISSUE_REGISTER.md`. Update those when a decision, defect, or deploy fact changes. `npm run integrity` covers navigation, sitemap/canonical agreement, brand hosts, MCP artifact agreement, and `origin/main` divergence. It does not replace an ops query of Vercel, Supabase, or Fly.
 
+## Scanner volume contract (movers)
+
+- Polygon snapshot `day.v=0` means **volume unavailable**, not verified zero session liquidity (`polygonSnapshotVolume` in `src/lib/markets/movers-integrity.ts`).
+- Verified zero from cache/RPC still ranks **before** unknown volume in volume-first lists.
+- Live regular-session acceptance is documented in `docs/release/scanner-live-market-acceptance-v1.md`; do not claim RTH acceptance from weekend or replay-only checks.
+
 ## Evidence labels
 
 Use these words in handoffs and the issue register:

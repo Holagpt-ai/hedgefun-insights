@@ -91,6 +91,10 @@ Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catal
 
 Production Fly worker **`stocksist-radar-v22-worker` v45** (digest `sha256:47ff670c…`) matches approved worker behavior on `main` through `ce68e0d8`; image git SHA is not labeled by Fly.
 
+Market movers: Polygon snapshot `day.v=0` is treated as **missing** volume (`polygonSnapshotVolume` in `movers-integrity.ts`). Verified zero from cache/RPC still sorts before unknown volume.
+
+Live-market acceptance report: `docs/release/scanner-live-market-acceptance-v1.md`.
+
 ## What is not in this repo
 
 A separate Next.js SEO stack is described in `src/config/seo.ts` and is not part of this Vite app. Do not duplicate programmatic SEO pages here.
