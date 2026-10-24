@@ -1,4 +1,4 @@
-# Architecture
+﻿# Architecture
 
 Stocksist is a Vite React SPA with a Supabase backend and a few long-running Fly workers. Production web traffic is served by Vercel at `https://stocksist.com`. The Supabase project (`zcjptaolpumhtlwhlemq`) is **managed in Lovable Cloud**; GitHub `main` holds the authoritative backend source.
 
