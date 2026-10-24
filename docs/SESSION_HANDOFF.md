@@ -8,7 +8,9 @@ Update this file at the end of a session. The next session should be able to sta
 
 **Parent:** `origin/main` `ce68e0d8` (PR #167).
 
-**Pull request:** _(open after push)_
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/168
+
+**Head SHA:** `c4087071`
 
 ### Delivered in git
 
