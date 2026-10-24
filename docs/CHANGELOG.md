@@ -4,6 +4,7 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
+- Lovable integration branch synced with `main` (`10723434`) plus Lovable tip; Edge release and rollback procedure documented for Lovable Cloud (`docs/release/edge-function-release-lovable.md`). PR #165 Lovable ownership docs pending merge.
 - Recover AI Analyst Catalyst Evidence Depth V2, bounded chat catalyst delivery, and financial-fact extraction from `68c88114`, `2f22387b`, and `ed75aa71`. Official attribution now requires the asked symbol, events older than 45 days stay historical context, and priority facts need a source URL. Closes ISS-001 in git. `chat` is not deployed (ISS-015).
 - Record October 24 Vercel findings as reported investigation items: 42 npm vulnerabilities (3 critical, 25 high, 13 moderate, 1 low), a production JS bundle of about 3.45 MB, a deprecated Vercel Edge middleware runtime, and outdated Browserslist data (ISS-016 through ISS-019). These are not confirmed production exploits.
 

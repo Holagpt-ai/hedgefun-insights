@@ -2,6 +2,20 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
+## 2026-10-24 — Lovable source alignment and Edge release safety
+
+**Status:** documentation and integration-branch sync only. No Edge deploy, migration, cron, DNS, or secret change.
+
+**GitHub `main`:** `1072343455023afc1cb1fbd9007258e80308dd75`.
+
+**Documentation PR:** https://github.com/Holagpt-ai/hedgefun-insights/pull/165 (Lovable Cloud Supabase ownership, commit `b28aaaa2`) — **open**, not merged to `main` at handoff time.
+
+**Lovable integration branch:** `cursor/lovable-sync-from-main-20261024` — merged `origin/main` and preserved Lovable tip; pushed after typecheck/build. Head SHA recorded in `docs/DEPLOYMENT_STATUS.md` after push.
+
+**Edge rollback:** `docs/release/edge-function-release-lovable.md` — capture version id in Lovable Cloud before deploy; git SHA ≠ live Edge revision; missing rollback metadata = BLOCKED.
+
+**Next approved step:** Merge PR #165, forward-merge to integration branch, then Lovable Cloud **`chat`-only** deploy from `10723434` per edge release doc. **ISS-015** stays open until verified.
+
 ## 2026-10-24 — AI Analyst catalyst evidence recovery
 
 **Status:** implementation port onto current `main`. No merge. No Edge deploy, migration, database write, SEC ingestion change, cron change, secret change, DNS change, or real-time-feed upgrade.

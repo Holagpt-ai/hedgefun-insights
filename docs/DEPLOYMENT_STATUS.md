@@ -1,12 +1,31 @@
 # Deployment status
 
-Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. The production asset hash was read with `npm run integrity -- --remote` (`GET https://stocksist.com/asset-manifest.json`). No Vercel, Supabase, Fly, or Lovable API was called. No authenticated deploy screen was opened.
+Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin`. Production Supabase is managed in **Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`.
+
+## AI Analyst V2 — `chat` Edge activation
+
+| Field | Value |
+| --- | --- |
+| Result | **BLOCKED** — production `chat` not deployed from approved source |
+| Approved source SHA | `1072343455023afc1cb1fbd9007258e80308dd75` (PR #164) |
+| Previous production `chat` version id | **UNKNOWN** — not captured in Lovable Cloud this session |
+| Rollback package | **Not established** — see edge release doc; deploy must not proceed without Lovable-recorded previous revision |
+| Tracker | **ISS-015** remains open until Lovable deploy + verification |
+
+## Lovable integration branch sync (2026-10-24)
+
+| Field | Value |
+| --- | --- |
+| Branch | `cursor/lovable-sync-from-main-20261024` |
+| Action | Non-destructive merge of `origin/main` (`10723434`) plus remote Lovable tip (`763abbe1`); preserved Lovable-generated `bun.lock` |
+| AI Analyst V2 in branch | **Confirmed** — `analyst-intelligence-delivery.ts` and `_shared/ai-analyst` recovery modules present |
+| Pending on `main` | PR #165 Lovable Cloud ownership docs (`b28aaaa2`) — merge to `main` then forward-merge into integration branch |
 
 ## Confirmed this session
 
 | Surface | Observation |
 | --- | --- |
-| GitHub `main` | `03449198a44a0d0cf8befda7e47ed4f6f6abd443` — PR #163 project memory. Re-read with `git rev-parse origin/main` during the analyst recovery. Parent of that commit remains `63957b31` (PR #162). |
+| GitHub `main` | `1072343455023afc1cb1fbd9007258e80308dd75` — PR #164 AI Analyst catalyst recovery (merged 2026-10-24). Vercel Production succeeded for this SHA. |
 | Repo | `https://github.com/Holagpt-ai/hedgefun-insights` |
 | Vercel config in git | `vercel.json` installs with `npm ci`, redirects the legacy host and `www.stocksist.com` to `https://stocksist.com`, rewrites `/sitemap.xml` to the Supabase `sitemap` function, and SPA-falls back every other path |
 | Production asset manifest | `{"js":"/assets/index-CpDXxxyv.js"}` style response; observed js `/assets/index-CpDXxxyv.js`. The manifest has no git SHA |
