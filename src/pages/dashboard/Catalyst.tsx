@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Radar, Search, X, Loader2, AlertTriangle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,15 @@ import {
   type WorkflowFilter,
   isFuture,
   isRecent,
-  makeComparator,
   normalizeSymbol,
 } from "@/lib/catalyst/parsers";
+import {
+  CATALYST_FEED_SORT_LABEL,
+  CATALYST_FEED_SORT_MODES,
+  compareCatalystFeedEvents,
+  type CatalystFeedSortMode,
+} from "@/lib/catalyst/catalyst-discovery-priority";
+import { momentumWorkflowRoutes } from "@/lib/catalyst/momentum-workflow-routes";
 import {
   watchlistCatalystCounts,
   watchlistCatalystEmptyMessage,
@@ -107,6 +113,7 @@ export default function Catalyst() {
   }, [rawSymbol, activeSymbol, searchParams, setSearchParams]);
 
   const [categoryFilter, setCategoryFilter] = useState<CatalystCategoryFilter>("all");
+  const [feedSortMode, setFeedSortMode] = useState<CatalystFeedSortMode>("priority");
   const [recencyFilter, setRecencyFilter] = useState<CatalystRecencyFilter>("any");
   const [workflow, setWorkflow] = useState<WorkflowFilter>("all");
   const [searchInput, setSearchInput] = useState("");
@@ -117,6 +124,7 @@ export default function Catalyst() {
     recentDays: 3,
     upcomingDays: 30,
     limit: 500,
+    eventDateOrder: activeSymbol ? "desc" : "asc",
   });
   const { data: userState } = useCatalystUserState();
   const { data: lastSync } = useCatalystLastSync();
@@ -173,8 +181,8 @@ export default function Catalyst() {
       if (searchFilter && e.symbol !== searchFilter) return false;
       return true;
     });
-    return filtered.sort(makeComparator(false, nowMs));
-  }, [events, categoryFilter, workflow, watchlistSymbols, savedByEvent, reviewedByEvent, searchInput, nowMs]);
+    return filtered.sort((a, b) => compareCatalystFeedEvents(a, b, feedSortMode, nowMs));
+  }, [events, categoryFilter, feedSortMode, workflow, watchlistSymbols, savedByEvent, reviewedByEvent, searchInput, nowMs]);
 
   // Historical context is enriched asynchronously and fails soft.
   const enrichSymbols = useMemo(() => {
@@ -280,13 +288,29 @@ export default function Catalyst() {
       </div>
 
       {activeSymbol && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-md border border-border bg-muted/40 px-3 py-2">
           <div className="text-[13px]">
             Showing events for <span className="font-semibold">{activeSymbol}</span>
           </div>
-          <Button variant="ghost" size="sm" onClick={clearSymbolFilter} className="gap-1">
-            <X className="h-3.5 w-3.5" /> Clear Filter
-          </Button>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {(() => {
+              const routes = momentumWorkflowRoutes(activeSymbol);
+              if (!routes) return null;
+              return (
+                <>
+                  <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
+                    <Link to={routes.momentumRadar}>Momentum Radar</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="sm" className="h-7 text-[11px]">
+                    <Link to={routes.ai}>AI Analyst</Link>
+                  </Button>
+                </>
+              );
+            })()}
+            <Button variant="ghost" size="sm" onClick={clearSymbolFilter} className="gap-1">
+              <X className="h-3.5 w-3.5" /> Clear Filter
+            </Button>
+          </div>
         </div>
       )}
 
@@ -315,6 +339,17 @@ export default function Catalyst() {
           {CATALYST_RECENCY_FILTERS.map((f) => (
             <FilterChip key={f} active={recencyFilter === f} onClick={() => setRecencyFilter(f)}>
               {CATALYST_RECENCY_FILTER_LABEL[f]}
+            </FilterChip>
+          ))}
+        </FilterRow>
+        <FilterRow>
+          {CATALYST_FEED_SORT_MODES.map((mode) => (
+            <FilterChip
+              key={mode}
+              active={feedSortMode === mode}
+              onClick={() => setFeedSortMode(mode)}
+            >
+              {CATALYST_FEED_SORT_LABEL[mode]}
             </FilterChip>
           ))}
         </FilterRow>

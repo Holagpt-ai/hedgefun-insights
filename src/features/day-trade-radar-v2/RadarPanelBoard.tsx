@@ -624,7 +624,7 @@ function renderCell(args: {
     });
     if (display.level === "none") return <span className="text-muted-foreground">{NO_VERIFIED_NEWS_COPY}</span>;
     if (display.level === "catalyst") return <span>{display.category}</span>;
-    if (display.level === "recent") return <span>Company News</span>;
+    if (display.level === "recent") return <span>Unverified news</span>;
     return <span className="text-muted-foreground">—</span>;
   }
   if (id === "actions") {

@@ -1,6 +1,11 @@
 import { catalystDisplayLabelFromEvent } from "@/lib/catalyst/catalyst-event-visuals";
 import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
 import type { CatalystEnrichmentEntry } from "@/lib/catalyst/enrichment";
+import {
+  formatCatalystSourceAttribution,
+  resolveRadarCatalystAssociation,
+  type RadarCatalystAssociation,
+} from "@/lib/catalyst/radar-momentum-catalyst-context";
 import type { RecentProviderHeadline, RadarNewsSymbolStatus } from "@/lib/market-data/recent-news";
 
 export type { RadarNewsSymbolStatus };
@@ -13,6 +18,8 @@ export type RadarNewsDisplay =
       href: string;
       publishedAt: string | null;
       ageLabel: string | null;
+      association: RadarCatalystAssociation;
+      sourceAttribution: string | null;
     }
   | {
       level: "recent";
@@ -65,6 +72,8 @@ export function resolveRadarNewsDisplay(
       href: catalystSymbolHref(symbol) ?? `/dashboard/catalyst?symbol=${encodeURIComponent(symbol)}`,
       publishedAt,
       ageLabel: formatRadarNewsAge(publishedAt, nowMs),
+      association: resolveRadarCatalystAssociation(catalyst, nowMs),
+      sourceAttribution: formatCatalystSourceAttribution(catalyst.event),
     };
   }
   if (recent?.title && recent.publishedAt) {

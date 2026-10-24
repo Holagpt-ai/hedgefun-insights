@@ -4,10 +4,12 @@ import {
   catalystDisplayCategoryFromEvent,
   type CatalystDisplayCategory,
 } from "@/lib/catalyst/catalyst-event-visuals";
+import { isHighSignalCatalystEvent } from "@/lib/catalyst/catalyst-discovery-priority";
 import type { CatalystEvent } from "@/types/catalyst";
 
 export const CATALYST_CATEGORY_FILTERS = [
   "all",
+  "high_signal",
   "sec_edgar",
   "earnings",
   "sec_filings",
@@ -21,6 +23,7 @@ export type CatalystCategoryFilter = (typeof CATALYST_CATEGORY_FILTERS)[number];
 
 export const CATALYST_CATEGORY_FILTER_LABEL: Record<CatalystCategoryFilter, string> = {
   all: "All",
+  high_signal: "Market-moving",
   sec_edgar: "SEC EDGAR",
   earnings: "Earnings",
   sec_filings: "SEC Filings",
@@ -31,7 +34,7 @@ export const CATALYST_CATEGORY_FILTER_LABEL: Record<CatalystCategoryFilter, stri
 };
 
 const FILTER_CATEGORIES: Record<
-  Exclude<CatalystCategoryFilter, "all" | "other" | "sec_edgar">,
+  Exclude<CatalystCategoryFilter, "all" | "other" | "sec_edgar" | "high_signal">,
   readonly CatalystDisplayCategory[]
 > = {
   earnings: ["EARNINGS", "GUIDANCE"],
@@ -46,7 +49,7 @@ export function matchesCatalystCategoryFilter(
   category: CatalystDisplayCategory,
 ): boolean {
   if (filter === "all") return true;
-  if (filter === "sec_edgar") return false;
+  if (filter === "sec_edgar" || filter === "high_signal") return false;
   if (filter === "other") {
     return !Object.values(FILTER_CATEGORIES).some((list) => list.includes(category));
   }
@@ -69,6 +72,7 @@ export function matchesCatalystFeedCategoryFilter(
   event: CatalystEvent,
 ): boolean {
   if (filter === "sec_edgar") return event.provider === "sec_edgar";
+  if (filter === "high_signal") return isHighSignalCatalystEvent(event);
   return matchesCatalystCategoryFilter(filter, catalystFeedCategoryForEvent(event));
 }
 

@@ -1,6 +1,5 @@
 import { Link } from "react-router-dom";
-import { catalystSymbolHref } from "@/lib/catalyst/enrichment";
-import { workflowSymbolRoutes } from "@/lib/historical-workflow/workflow-symbol-routes";
+import { momentumWorkflowRoutes } from "@/lib/catalyst/momentum-workflow-routes";
 
 export function ActiveSymbolRail({
   symbol,
@@ -10,7 +9,7 @@ export function ActiveSymbolRail({
   onDetails: () => void;
 }) {
   const linkClass = "rounded-md border border-border px-2 py-1 text-[11px] font-semibold hover:bg-muted";
-  const workflowRoutes = symbol ? workflowSymbolRoutes(symbol) : null;
+  const workflowRoutes = symbol ? momentumWorkflowRoutes(symbol) : null;
   return (
     <div
       data-testid="active-symbol-rail"
@@ -26,14 +25,20 @@ export function ActiveSymbolRail({
           <Link className={linkClass} to={`/dashboard/ai?symbol=${encodeURIComponent(symbol)}`}>
             AI Analyst
           </Link>
-          <Link className={linkClass} to={catalystSymbolHref(symbol) ?? `/dashboard/catalyst?symbol=${encodeURIComponent(symbol)}`}>
+          <Link className={linkClass} to={workflowRoutes.catalyst}>
             Catalyst
           </Link>
-          <Link className={linkClass} to={`/dashboard/watchlist?symbol=${encodeURIComponent(symbol)}`}>
+          <Link className={linkClass} to={workflowRoutes.screeners}>
+            Screeners
+          </Link>
+          <Link className={linkClass} to={workflowRoutes.watchlist}>
             Watchlist
           </Link>
-          <Link className={linkClass} to={`/dashboard/journal?symbol=${encodeURIComponent(symbol)}`}>
+          <Link className={linkClass} to={workflowRoutes.journal}>
             Journal
+          </Link>
+          <Link className={linkClass} to={workflowRoutes.ai}>
+            AI Analyst
           </Link>
           <Link
             className={linkClass}

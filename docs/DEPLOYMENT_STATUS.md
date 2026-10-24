@@ -2,14 +2,20 @@
 
 Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
 
-## Scanner + catalyst integration V1 (pending merge)
+## Fly `stocksist-radar-v22-worker` (read-only parity, 2026-10-24)
 
-| Surface | State |
+| Field | Value |
 | --- | --- |
-| Git branch | `cursor/scanner-catalyst-integration-v1` — SPA-only changes + shared radar contract comment file copied into worker build context |
-| Vercel `stocksist.com` | **Not updated** until PR merges and Vercel builds `main` |
-| Fly Radar worker | **Not redeployed** this batch; ranking behavior unchanged |
-| Supabase Edge | **Unchanged** |
+| Release | **v45** (complete, 2026-10-20T13:42:08Z) |
+| Image tag | `registry.fly.io/stocksist-radar-v22-worker:deployment-01M5CRQST4MR22JBA8AJK972H2` |
+| Digest | `sha256:47ff670c6cbefc43ff01cc87c2e1387f20f4c21a734b45558e7b4a35b901979e` |
+| Git SHA in image | **Unverified** (Fly deployment tag only) |
+| Parity vs `main` `ce68e0d8` worker logic | **PASS** — no ranking / qualification behavior delta in the worker Docker COPY set; redeploy **not required** for scanner logic |
+| Momentum Radar + Catalyst Discovery V2 | **SPA-only** (Vercel after merge); Fly unchanged |
+
+## Scanner + catalyst integration V1
+
+Merged to `main` as **`ce68e0d8`** (PR #167). Vercel production asset hash moves only after Vercel builds that commit.
 
 ## AI Analyst V2 — `chat` Edge activation (2026-10-24)
 

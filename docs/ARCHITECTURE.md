@@ -81,6 +81,16 @@ Verified catalyst copy on Screeners, Day Trade Radar, and the Catalyst tab uses:
 
 Symbol handoffs from Radar to Action Center use `workflowSymbolRoutes()` so `?symbol=` (and optional `securityId`) persist across Screeners → Catalyst → AI Analyst → Watchlist → Journal → Action Center.
 
+### Momentum Radar + catalyst discovery (V2)
+
+Catalyst tab discovery uses existing `catalyst_events` rows only (`catalyst-discovery-priority.ts`): **Market-moving** category filter, **Market-moving priority** vs **Newest** sort, and preserved **SEC EDGAR** provider filter. No fetch limit increase.
+
+Radar news cells distinguish **verified catalyst** vs **historical catalyst context** vs **unverified news** vs unavailable (`radar-momentum-catalyst-context.ts`, `radar-news-display.ts`). Association is display-only and does not affect scanner rank or promotion.
+
+Trader discovery routes: `momentumWorkflowRoutes()` links Radar/Screeners, Catalyst, AI Analyst, Watchlist, Journal, and Action Center with `?symbol=`.
+
+Production Fly worker **`stocksist-radar-v22-worker` v45** (digest `sha256:47ff670c…`) matches approved worker behavior on `main` through `ce68e0d8`; image git SHA is not labeled by Fly.
+
 ## What is not in this repo
 
 A separate Next.js SEO stack is described in `src/config/seo.ts` and is not part of this Vite app. Do not duplicate programmatic SEO pages here.

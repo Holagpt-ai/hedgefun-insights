@@ -2,20 +2,21 @@
 
 Keep this list short. Move an item to `docs/CHANGELOG.md` when it is fixed. Labels: **confirmed** (checked this session against `main` or a command), **reported** (older doc, not rechecked), **deferred** (intentionally not in progress).
 
-Baseline: `origin/main` `9e1a9538` (PR #165 Lovable Cloud ownership), 2026-10-24. ISS-001 is closed by the catalyst evidence recovery on `main`. **ISS-015** remains open until production `chat` deploy is verified.
+Baseline: `origin/main` `ce68e0d8` (PR #167 scanner + catalyst integration V1), 2026-10-24. ISS-001 is closed by the catalyst evidence recovery on `main`. **ISS-015** remains open until production `chat` deploy is verified.
 
 ## Confirmed
 
 | ID | Item | Evidence |
 | --- | --- | --- |
 | ISS-002 | Registered navigation has no broken route | `npm run integrity` on 2026-10-24 after the analyst recovery: 0 errors, 0 warnings, 125 routes. Coverage is the nav file list in `scripts/integrity/lib/navigation.mjs`, not every link in the app. |
+| ISS-003 (Fly radar worker) | Live `stocksist-radar-v22-worker` release **v45** matches approved scanner **behavior** on `main` through `ce68e0d8` | Read-only Fly check 2026-10-24: image `deployment-01M5CRQST4MR22JBA8AJK972H2`, digest `sha256:47ff670c6cbefc43ff01cc87c2e1387f20f4c21a734b45558e7b4a35b901979e`. Worker Docker COPY set diff vs `8f354261` (v45-era `main`) is doc-only / unused modules — **PASS**, redeploy not required for ranking parity. **Exact git SHA baked into the image is unverified** (Fly tag is not a commit). |
 | ISS-015 | Production `chat` does not yet run the recovered catalyst delivery | Approved source on `main` (`10723434`). Live Edge revision is not assumed to match git. Follow `docs/release/edge-function-release-lovable.md`; capture Lovable Cloud version id before deploy. Behavior changes only after Lovable Cloud deploy of `chat` and verification. |
 
 ## Reported
 
 | ID | Item | Why it is not confirmed |
 | --- | --- | --- |
-| ISS-003 | Production git SHA for Vercel, Edge Functions, and Fly images is unknown | Asset manifest has hashes only. Live js was `index-CpDXxxyv.js`. No deploy API was queried. |
+| ISS-003 (Vercel + Edge) | Production git SHA for Vercel SPA and Supabase Edge functions is unknown | Asset manifest has hashes only. Fly radar portion verified separately (see Confirmed). Edge version ids not read from Lovable Cloud. |
 | ISS-005 | Batch 34 still records migration apply and Edge version status as unknown | `docs/release/batch34-production-release-manifest.md`. Not refreshed against production. |
 | ISS-006 | Catalyst source activation was planned and not executed in Batch 34 | `docs/catalyst-intelligence/batch34-catalyst-activation-sequence.md`. |
 | ISS-007 | AI Analyst generation and streaming failures were explicitly deferred in Batch 34 | Same manifest, section on remaining work. Not retested here. |
