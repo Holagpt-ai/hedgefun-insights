@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -2384,6 +2384,135 @@ export type Database = {
         }
         Relationships: []
       }
+      day_trade_qualification_events: {
+        Row: {
+          created_at: string
+          dedupe_key: string
+          event_at: string
+          event_type: string
+          id: string
+          payload: Json
+          session_date: string
+          symbol: string
+        }
+        Insert: {
+          created_at?: string
+          dedupe_key: string
+          event_at: string
+          event_type: string
+          id?: string
+          payload?: Json
+          session_date: string
+          symbol: string
+        }
+        Update: {
+          created_at?: string
+          dedupe_key?: string
+          event_at?: string
+          event_type?: string
+          id?: string
+          payload?: Json
+          session_date?: string
+          symbol?: string
+        }
+        Relationships: []
+      }
+      day_trade_qualification_state: {
+        Row: {
+          currently_on_desk: boolean
+          ever_on_desk: boolean
+          expiration_reason_codes: Json
+          expired_at: string | null
+          first_desk_at: string | null
+          first_qualified_at: string | null
+          five_pillars_pass: boolean
+          grace_failure_count: number
+          grace_first_failure_at: string | null
+          last_desk_at: string | null
+          last_desk_departure_at: string | null
+          last_desk_departure_reason: string | null
+          last_market_data_ms: number | null
+          last_qualified_at: string | null
+          last_snapshot_key: string | null
+          monitored_price: number | null
+          monitored_volume: number | null
+          monitoring_data_status: string
+          monitoring_eligible: boolean
+          phase: string | null
+          pillar_expiration_reason_codes: Json
+          pillar_expired_at: string | null
+          pillar_outcomes: Json | null
+          pillar_phase: string | null
+          prior_episodes: Json
+          provider_as_of: string | null
+          session_date: string
+          symbol: string
+          updated_at: string
+        }
+        Insert: {
+          currently_on_desk?: boolean
+          ever_on_desk?: boolean
+          expiration_reason_codes?: Json
+          expired_at?: string | null
+          first_desk_at?: string | null
+          first_qualified_at?: string | null
+          five_pillars_pass?: boolean
+          grace_failure_count?: number
+          grace_first_failure_at?: string | null
+          last_desk_at?: string | null
+          last_desk_departure_at?: string | null
+          last_desk_departure_reason?: string | null
+          last_market_data_ms?: number | null
+          last_qualified_at?: string | null
+          last_snapshot_key?: string | null
+          monitored_price?: number | null
+          monitored_volume?: number | null
+          monitoring_data_status?: string
+          monitoring_eligible?: boolean
+          phase?: string | null
+          pillar_expiration_reason_codes?: Json
+          pillar_expired_at?: string | null
+          pillar_outcomes?: Json | null
+          pillar_phase?: string | null
+          prior_episodes?: Json
+          provider_as_of?: string | null
+          session_date: string
+          symbol: string
+          updated_at?: string
+        }
+        Update: {
+          currently_on_desk?: boolean
+          ever_on_desk?: boolean
+          expiration_reason_codes?: Json
+          expired_at?: string | null
+          first_desk_at?: string | null
+          first_qualified_at?: string | null
+          five_pillars_pass?: boolean
+          grace_failure_count?: number
+          grace_first_failure_at?: string | null
+          last_desk_at?: string | null
+          last_desk_departure_at?: string | null
+          last_desk_departure_reason?: string | null
+          last_market_data_ms?: number | null
+          last_qualified_at?: string | null
+          last_snapshot_key?: string | null
+          monitored_price?: number | null
+          monitored_volume?: number | null
+          monitoring_data_status?: string
+          monitoring_eligible?: boolean
+          phase?: string | null
+          pillar_expiration_reason_codes?: Json
+          pillar_expired_at?: string | null
+          pillar_outcomes?: Json | null
+          pillar_phase?: string | null
+          prior_episodes?: Json
+          provider_as_of?: string | null
+          session_date?: string
+          symbol?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       earnings_calendar: {
         Row: {
           actual_eps: number | null
@@ -2455,6 +2584,7 @@ export type Database = {
           momentum_leg_count: number | null
           move_open_to_hod_pct: number | null
           open_price: number | null
+          post_momentum_forward_outcomes: Json | null
           premarket_high: number | null
           premarket_low: number | null
           provenance: string
@@ -2514,6 +2644,7 @@ export type Database = {
           momentum_leg_count?: number | null
           move_open_to_hod_pct?: number | null
           open_price?: number | null
+          post_momentum_forward_outcomes?: Json | null
           premarket_high?: number | null
           premarket_low?: number | null
           provenance: string
@@ -2573,6 +2704,7 @@ export type Database = {
           momentum_leg_count?: number | null
           move_open_to_hod_pct?: number | null
           open_price?: number | null
+          post_momentum_forward_outcomes?: Json | null
           premarket_high?: number | null
           premarket_low?: number | null
           provenance?: string
@@ -6486,93 +6618,6 @@ export type Database = {
         }
         Relationships: []
       }
-      day_trade_qualification_state: {
-        Row: {
-          session_date: string
-          symbol: string
-          pillar_phase: string | null
-          first_qualified_at: string | null
-          last_qualified_at: string | null
-          grace_first_failure_at: string | null
-          grace_failure_count: number
-          pillar_expired_at: string | null
-          pillar_expiration_reason_codes: Json
-          ever_on_desk: boolean
-          currently_on_desk: boolean
-          first_desk_at: string | null
-          last_desk_at: string | null
-          last_desk_departure_at: string | null
-          last_desk_departure_reason: string | null
-          five_pillars_pass: boolean
-          monitoring_eligible: boolean
-          monitoring_data_status: string
-          pillar_outcomes: Json | null
-          monitored_price: number | null
-          monitored_volume: number | null
-          provider_as_of: string | null
-          prior_episodes: Json
-          last_snapshot_key: string | null
-          last_market_data_ms: number | null
-          updated_at: string
-        }
-        Insert: {
-          session_date: string
-          symbol: string
-          pillar_phase?: string | null
-          first_qualified_at?: string | null
-          last_qualified_at?: string | null
-          grace_first_failure_at?: string | null
-          grace_failure_count?: number
-          pillar_expired_at?: string | null
-          pillar_expiration_reason_codes?: Json
-          ever_on_desk?: boolean
-          currently_on_desk?: boolean
-          first_desk_at?: string | null
-          last_desk_at?: string | null
-          last_desk_departure_at?: string | null
-          last_desk_departure_reason?: string | null
-          five_pillars_pass?: boolean
-          monitoring_eligible?: boolean
-          monitoring_data_status?: string
-          pillar_outcomes?: Json | null
-          monitored_price?: number | null
-          monitored_volume?: number | null
-          provider_as_of?: string | null
-          prior_episodes?: Json
-          last_snapshot_key?: string | null
-          last_market_data_ms?: number | null
-          updated_at?: string
-        }
-        Update: {
-          session_date?: string
-          symbol?: string
-          pillar_phase?: string | null
-          first_qualified_at?: string | null
-          last_qualified_at?: string | null
-          grace_first_failure_at?: string | null
-          grace_failure_count?: number
-          pillar_expired_at?: string | null
-          pillar_expiration_reason_codes?: Json
-          ever_on_desk?: boolean
-          currently_on_desk?: boolean
-          first_desk_at?: string | null
-          last_desk_at?: string | null
-          last_desk_departure_at?: string | null
-          last_desk_departure_reason?: string | null
-          five_pillars_pass?: boolean
-          monitoring_eligible?: boolean
-          monitoring_data_status?: string
-          pillar_outcomes?: Json | null
-          monitored_price?: number | null
-          monitored_volume?: number | null
-          provider_as_of?: string | null
-          prior_episodes?: Json
-          last_snapshot_key?: string | null
-          last_market_data_ms?: number | null
-          updated_at?: string
-        }
-        Relationships: []
-      }
       late_session_continuation_handoffs: {
         Row: {
           after_hours_extends: boolean | null
@@ -7277,6 +7322,210 @@ export type Database = {
           session_volume?: number
           session_vwap?: number | null
           signal_status?: string
+          symbol?: string
+          time_adjusted_rvol?: number | null
+          trading_date?: string
+          updated_at?: string
+          volume_15m?: number | null
+          volume_15s?: number
+          volume_5m?: number | null
+          volume_5s?: number
+          volume_60m?: number | null
+          volume_60s?: number
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
+          volume_velocity_15m?: number | null
+          volume_velocity_5m?: number | null
+          volume_velocity_60m?: number | null
+          vwap_partial?: boolean
+          vwap_side?: string
+        }
+        Relationships: []
+      }
+      radar_v22_carryover_snapshot: {
+        Row: {
+          acceleration_5m: number | null
+          archived_at: string
+          captured_at: string
+          distance_from_hod_pct: number | null
+          dollar_volume_60s: number
+          dollar_volume_velocity_5m: number | null
+          freshness_age_ms: number | null
+          freshness_class: string
+          generation_id: string
+          geometry_partial: boolean
+          last_acceleration_at: string | null
+          last_hod_attempt_at: string | null
+          last_hod_break_at: string | null
+          last_hod_reject_at: string | null
+          last_new_hod_at: string | null
+          last_price: number | null
+          last_price_at: string | null
+          last_price_move_at: string | null
+          last_volume_burst_at: string | null
+          last_vwap_cross_at: string | null
+          last_vwap_loss_at: string | null
+          last_vwap_reclaim_at: string | null
+          lifecycle: string
+          lifecycle_entered_at: string | null
+          move_15s_pct: number | null
+          move_60s_pct: number | null
+          participation_baseline_session_count: number | null
+          participation_calculated_at: string | null
+          participation_source_as_of: string | null
+          participation_state: string | null
+          previous_close: number | null
+          primary_scanner_event: string | null
+          primary_scanner_event_at: string | null
+          prior_session_volume: number | null
+          promoted_at: string | null
+          promotion_reason: Json | null
+          provider_as_of: string | null
+          radar_engine_events: Json | null
+          radar_event_lifecycle: string | null
+          rvol_5m: number | null
+          scanner_events: Json | null
+          session_high: number | null
+          session_kind: string
+          session_low: number | null
+          session_volume: number
+          session_vwap: number | null
+          signal_status: string
+          snapshot_kind: string
+          symbol: string
+          time_adjusted_rvol: number | null
+          trading_date: string
+          updated_at: string
+          volume_15m: number | null
+          volume_15s: number
+          volume_5m: number | null
+          volume_5s: number
+          volume_60m: number | null
+          volume_60s: number
+          volume_acceleration_pct: number | null
+          volume_velocity: number | null
+          volume_velocity_15m: number | null
+          volume_velocity_5m: number | null
+          volume_velocity_60m: number | null
+          vwap_partial: boolean
+          vwap_side: string
+        }
+        Insert: {
+          acceleration_5m?: number | null
+          archived_at?: string
+          captured_at: string
+          distance_from_hod_pct?: number | null
+          dollar_volume_60s: number
+          dollar_volume_velocity_5m?: number | null
+          freshness_age_ms?: number | null
+          freshness_class: string
+          generation_id: string
+          geometry_partial: boolean
+          last_acceleration_at?: string | null
+          last_hod_attempt_at?: string | null
+          last_hod_break_at?: string | null
+          last_hod_reject_at?: string | null
+          last_new_hod_at?: string | null
+          last_price?: number | null
+          last_price_at?: string | null
+          last_price_move_at?: string | null
+          last_volume_burst_at?: string | null
+          last_vwap_cross_at?: string | null
+          last_vwap_loss_at?: string | null
+          last_vwap_reclaim_at?: string | null
+          lifecycle: string
+          lifecycle_entered_at?: string | null
+          move_15s_pct?: number | null
+          move_60s_pct?: number | null
+          participation_baseline_session_count?: number | null
+          participation_calculated_at?: string | null
+          participation_source_as_of?: string | null
+          participation_state?: string | null
+          previous_close?: number | null
+          primary_scanner_event?: string | null
+          primary_scanner_event_at?: string | null
+          prior_session_volume?: number | null
+          promoted_at?: string | null
+          promotion_reason?: Json | null
+          provider_as_of?: string | null
+          radar_engine_events?: Json | null
+          radar_event_lifecycle?: string | null
+          rvol_5m?: number | null
+          scanner_events?: Json | null
+          session_high?: number | null
+          session_kind: string
+          session_low?: number | null
+          session_volume: number
+          session_vwap?: number | null
+          signal_status: string
+          snapshot_kind?: string
+          symbol: string
+          time_adjusted_rvol?: number | null
+          trading_date: string
+          updated_at: string
+          volume_15m?: number | null
+          volume_15s: number
+          volume_5m?: number | null
+          volume_5s: number
+          volume_60m?: number | null
+          volume_60s: number
+          volume_acceleration_pct?: number | null
+          volume_velocity?: number | null
+          volume_velocity_15m?: number | null
+          volume_velocity_5m?: number | null
+          volume_velocity_60m?: number | null
+          vwap_partial: boolean
+          vwap_side: string
+        }
+        Update: {
+          acceleration_5m?: number | null
+          archived_at?: string
+          captured_at?: string
+          distance_from_hod_pct?: number | null
+          dollar_volume_60s?: number
+          dollar_volume_velocity_5m?: number | null
+          freshness_age_ms?: number | null
+          freshness_class?: string
+          generation_id?: string
+          geometry_partial?: boolean
+          last_acceleration_at?: string | null
+          last_hod_attempt_at?: string | null
+          last_hod_break_at?: string | null
+          last_hod_reject_at?: string | null
+          last_new_hod_at?: string | null
+          last_price?: number | null
+          last_price_at?: string | null
+          last_price_move_at?: string | null
+          last_volume_burst_at?: string | null
+          last_vwap_cross_at?: string | null
+          last_vwap_loss_at?: string | null
+          last_vwap_reclaim_at?: string | null
+          lifecycle?: string
+          lifecycle_entered_at?: string | null
+          move_15s_pct?: number | null
+          move_60s_pct?: number | null
+          participation_baseline_session_count?: number | null
+          participation_calculated_at?: string | null
+          participation_source_as_of?: string | null
+          participation_state?: string | null
+          previous_close?: number | null
+          primary_scanner_event?: string | null
+          primary_scanner_event_at?: string | null
+          prior_session_volume?: number | null
+          promoted_at?: string | null
+          promotion_reason?: Json | null
+          provider_as_of?: string | null
+          radar_engine_events?: Json | null
+          radar_event_lifecycle?: string | null
+          rvol_5m?: number | null
+          scanner_events?: Json | null
+          session_high?: number | null
+          session_kind?: string
+          session_low?: number | null
+          session_volume?: number
+          session_vwap?: number | null
+          signal_status?: string
+          snapshot_kind?: string
           symbol?: string
           time_adjusted_rvol?: number | null
           trading_date?: string
@@ -8283,6 +8532,156 @@ export type Database = {
         }
         Relationships: []
       }
+      sec_edgar_sync_lease: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          holder_id: string
+          stream_key: string
+        }
+        Insert: {
+          acquired_at: string
+          expires_at: string
+          holder_id: string
+          stream_key: string
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          holder_id?: string
+          stream_key?: string
+        }
+        Relationships: []
+      }
+      sec_edgar_sync_runs: {
+        Row: {
+          created_at: string
+          duration_ms: number
+          error_code: string | null
+          finished_at: string
+          id: string
+          mode: string
+          started_at: string
+          status: string
+          stream_key: string
+          summary: Json
+        }
+        Insert: {
+          created_at?: string
+          duration_ms: number
+          error_code?: string | null
+          finished_at: string
+          id?: string
+          mode: string
+          started_at: string
+          status: string
+          stream_key: string
+          summary?: Json
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number
+          error_code?: string | null
+          finished_at?: string
+          id?: string
+          mode?: string
+          started_at?: string
+          status?: string
+          stream_key?: string
+          summary?: Json
+        }
+        Relationships: []
+      }
+      sec_edgar_sync_state: {
+        Row: {
+          anchor_accessions: Json
+          anchor_observed_at: string
+          consecutive_failures: number
+          created_at: string
+          failure_pause_threshold: number
+          head_updated_at: string | null
+          ingestion_pause_reason: string | null
+          ingestion_paused: boolean
+          ingestion_paused_at: string | null
+          last_success_at: string
+          pages_fetched: number
+          revision: number
+          stream_key: string
+          updated_at: string
+        }
+        Insert: {
+          anchor_accessions: Json
+          anchor_observed_at: string
+          consecutive_failures?: number
+          created_at?: string
+          failure_pause_threshold?: number
+          head_updated_at?: string | null
+          ingestion_pause_reason?: string | null
+          ingestion_paused?: boolean
+          ingestion_paused_at?: string | null
+          last_success_at: string
+          pages_fetched?: number
+          revision?: number
+          stream_key: string
+          updated_at?: string
+        }
+        Update: {
+          anchor_accessions?: Json
+          anchor_observed_at?: string
+          consecutive_failures?: number
+          created_at?: string
+          failure_pause_threshold?: number
+          head_updated_at?: string | null
+          ingestion_pause_reason?: string | null
+          ingestion_paused?: boolean
+          ingestion_paused_at?: string | null
+          last_success_at?: string
+          pages_fetched?: number
+          revision?: number
+          stream_key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      sec_v1c_remediation_audit: {
+        Row: {
+          action: string
+          applied_at: string
+          batch_id: string
+          dedupe_key: string
+          facts_patch: Json
+          id: string
+          new_verification_state: string
+          policy_version: string
+          previous_verification_state: string
+          reason: string
+        }
+        Insert: {
+          action: string
+          applied_at?: string
+          batch_id: string
+          dedupe_key: string
+          facts_patch?: Json
+          id?: string
+          new_verification_state: string
+          policy_version: string
+          previous_verification_state: string
+          reason: string
+        }
+        Update: {
+          action?: string
+          applied_at?: string
+          batch_id?: string
+          dedupe_key?: string
+          facts_patch?: Json
+          id?: string
+          new_verification_state?: string
+          policy_version?: string
+          previous_verification_state?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       securities: {
         Row: {
           active: boolean
@@ -8727,6 +9126,78 @@ export type Database = {
           },
           {
             foreignKeyName: "security_episode_events_security_id_fkey"
+            columns: ["security_id"]
+            isOneToOne: false
+            referencedRelation: "securities"
+            referencedColumns: ["security_id"]
+          },
+        ]
+      }
+      security_historical_coverage_gaps: {
+        Row: {
+          backfill_job_id: string | null
+          coverage_state: string
+          created_at: string
+          date_from: string
+          date_to: string
+          gap_id: string
+          observed_at: string
+          observed_symbol: string
+          provider: string
+          provider_message: string | null
+          provider_request_id: string | null
+          provider_status: string | null
+          resolution_state: string
+          restriction_reason: string
+          security_id: string
+          updated_at: string
+        }
+        Insert: {
+          backfill_job_id?: string | null
+          coverage_state: string
+          created_at?: string
+          date_from: string
+          date_to: string
+          gap_id?: string
+          observed_at: string
+          observed_symbol: string
+          provider: string
+          provider_message?: string | null
+          provider_request_id?: string | null
+          provider_status?: string | null
+          resolution_state?: string
+          restriction_reason: string
+          security_id: string
+          updated_at?: string
+        }
+        Update: {
+          backfill_job_id?: string | null
+          coverage_state?: string
+          created_at?: string
+          date_from?: string
+          date_to?: string
+          gap_id?: string
+          observed_at?: string
+          observed_symbol?: string
+          provider?: string
+          provider_message?: string | null
+          provider_request_id?: string | null
+          provider_status?: string | null
+          resolution_state?: string
+          restriction_reason?: string
+          security_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "security_historical_coverage_gaps_backfill_job_id_fkey"
+            columns: ["backfill_job_id"]
+            isOneToOne: false
+            referencedRelation: "security_backfill_jobs"
+            referencedColumns: ["job_id"]
+          },
+          {
+            foreignKeyName: "security_historical_coverage_gaps_security_id_fkey"
             columns: ["security_id"]
             isOneToOne: false
             referencedRelation: "securities"
@@ -9804,6 +10275,14 @@ export type Database = {
         }
         Returns: Json
       }
+      apply_sec_edgar_sync_run_outcome_v1: {
+        Args: { p_stream_key: string; p_success: boolean }
+        Returns: Json
+      }
+      apply_sec_v1c_attribution_invalidation: {
+        Args: { p_dry_run?: boolean; p_items: Json; p_policy_version: string }
+        Returns: Json
+      }
       behavior_profile_list_candidates_v1: {
         Args: { p_after_security_id: string; p_limit: number }
         Returns: {
@@ -10029,6 +10508,58 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      day_trade_qualification_apply_batch_v1: {
+        Args: { p_batch: Json }
+        Returns: number
+      }
+      day_trade_qualification_event_insert_v1: {
+        Args: { p_row: Json }
+        Returns: boolean
+      }
+      day_trade_qualification_list_v1: {
+        Args: { p_session_date: string }
+        Returns: {
+          currently_on_desk: boolean
+          ever_on_desk: boolean
+          expiration_reason_codes: Json
+          expired_at: string | null
+          first_desk_at: string | null
+          first_qualified_at: string | null
+          five_pillars_pass: boolean
+          grace_failure_count: number
+          grace_first_failure_at: string | null
+          last_desk_at: string | null
+          last_desk_departure_at: string | null
+          last_desk_departure_reason: string | null
+          last_market_data_ms: number | null
+          last_qualified_at: string | null
+          last_snapshot_key: string | null
+          monitored_price: number | null
+          monitored_volume: number | null
+          monitoring_data_status: string
+          monitoring_eligible: boolean
+          phase: string | null
+          pillar_expiration_reason_codes: Json
+          pillar_expired_at: string | null
+          pillar_outcomes: Json | null
+          pillar_phase: string | null
+          prior_episodes: Json
+          provider_as_of: string | null
+          session_date: string
+          symbol: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "day_trade_qualification_state"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      day_trade_qualification_state_upsert_v1: {
+        Args: { p_row: Json }
+        Returns: undefined
+      }
       event_reaction_link_apply_batch_v1: {
         Args: { p_rows: Json }
         Returns: Json
@@ -10152,6 +10683,10 @@ export type Database = {
         Args: { p_holder_id: string; p_lease_key: string; p_ttl_ms: number }
         Returns: boolean
       }
+      historical_apply_coverage_gap_batch: {
+        Args: { p_rows: Json }
+        Returns: undefined
+      }
       historical_apply_daily_batch: {
         Args: { p_rows: Json }
         Returns: undefined
@@ -10188,6 +10723,21 @@ export type Database = {
         Returns: {
           symbol: string
         }[]
+      }
+      historical_rollout_symbols_current_through: {
+        Args: { p_date_from: string; p_date_to: string }
+        Returns: {
+          latest_session: string
+          session_count: number
+          symbol: string
+        }[]
+      }
+      historical_symbol_history_facts_match: {
+        Args: {
+          p_existing: Database["public"]["Tables"]["security_symbol_history"]["Row"]
+          p_row: Json
+        }
+        Returns: boolean
       }
       intraday_episode_event_apply_batch_v1: {
         Args: { p_rows: Json }
@@ -10233,6 +10783,7 @@ export type Database = {
           momentum_leg_count: number | null
           move_open_to_hod_pct: number | null
           open_price: number | null
+          post_momentum_forward_outcomes: Json | null
           premarket_high: number | null
           premarket_low: number | null
           provenance: string
@@ -10303,14 +10854,6 @@ export type Database = {
       journal_save_trade_v1: { Args: { p_payload: Json }; Returns: Json }
       late_session_handoff_expire_stale_v1: {
         Args: { p_as_of_session_date: string }
-        Returns: number
-      }
-      day_trade_qualification_list_v1: {
-        Args: { p_session_date: string }
-        Returns: Database["public"]["Tables"]["day_trade_qualification_state"]["Row"][]
-      }
-      day_trade_qualification_apply_batch_v1: {
-        Args: { p_batch: Json }
         Returns: number
       }
       late_session_handoff_list_active_v1: {
@@ -10405,6 +10948,10 @@ export type Database = {
         Args: { p_holder_id: string }
         Returns: undefined
       }
+      release_sec_edgar_sync_lease_v1: {
+        Args: { p_holder_id: string; p_stream_key: string }
+        Returns: boolean
+      }
       release_watchlist_v2_ticker_lease: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -10497,6 +11044,14 @@ export type Database = {
         Args: { p_legacy_low: number; p_session_low: number }
         Returns: number
       }
+      resume_sec_edgar_ingestion_v1: {
+        Args: { p_stream_key: string }
+        Returns: boolean
+      }
+      rollback_sec_v1c_attribution_invalidation: {
+        Args: { p_batch_id: string; p_dry_run?: boolean }
+        Returns: Json
+      }
       scanner_intelligence_alert_upsert_v1: {
         Args: { p_row: Json }
         Returns: undefined
@@ -10505,6 +11060,7 @@ export type Database = {
         Args: { p_ratio: number }
         Returns: number
       }
+      sec_edgar_sync_cron_should_invoke_v1: { Args: never; Returns: boolean }
       set_radar_v22_feed_status_v1: {
         Args: {
           p_last_provider_event_at: string
@@ -10556,6 +11112,14 @@ export type Database = {
       }
       try_acquire_screener_52w_baseline_run_lease_v1: {
         Args: { p_holder_id: string; p_ttl_ms: number }
+        Returns: boolean
+      }
+      try_acquire_sec_edgar_sync_lease_v1: {
+        Args: {
+          p_holder_id: string
+          p_stream_key: string
+          p_ttl_seconds?: number
+        }
         Returns: boolean
       }
       try_screener_bar_numeric: { Args: { p_raw: string }; Returns: number }
