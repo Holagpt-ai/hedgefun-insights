@@ -69,7 +69,7 @@ describe("current catalyst fresh-search fallback", () => {
     expect(q.every((line) => !line.includes("MRVL"))).toBe(true);
   });
 
-  it("official IR source outranks secondary headline for same theme", () => {
+  it("official IR source outranks secondary headline for same theme", async () => {
     const official = normalizeWebSearchHit({
       title: "Marvell Technology Group Ltd. Investor Day 2026 — financial outlook",
       url: "https://investor.marvell.com/news-events/press-releases/investor-day-2026",
@@ -88,7 +88,7 @@ describe("current catalyst fresh-search fallback", () => {
       userQuestion: "MRVL? Why is it up this morning?",
       catalystRows: [],
     });
-    const enriched = enrichPacketWithSearchEvidence({
+    const enriched = await enrichPacketWithSearchEvidence({
       packet,
       searchHits: [
         {
@@ -109,13 +109,13 @@ describe("current catalyst fresh-search fallback", () => {
     expect(enriched.FRESH_CATALYST_DISCOVERY?.succeeded).toBe(true);
   });
 
-  it("sector-only search hits do not fabricate a company primary", () => {
+  it("sector-only search hits do not fabricate a company primary", async () => {
     const packet = buildAnalystIntelligencePacket({
       symbol: "MRVL",
       userQuestion: "Why is MRVL up today?",
       catalystRows: [],
     });
-    const enriched = enrichPacketWithSearchEvidence({
+    const enriched = await enrichPacketWithSearchEvidence({
       packet,
       searchHits: [{
         title: "AI chip stocks rally on sector momentum",
@@ -128,13 +128,13 @@ describe("current catalyst fresh-search fallback", () => {
     expect(enriched.MODEL_INTERPRETATION.catalystAnswerGuidance).toMatch(/no confirmed company-specific catalyst/i);
   });
 
-  it("search unavailable still allows honest no-catalyst guidance", () => {
+  it("search unavailable still allows honest no-catalyst guidance", async () => {
     const packet = buildAnalystIntelligencePacket({
       symbol: "MRVL",
       userQuestion: "Why is MRVL up today?",
       catalystRows: [],
     });
-    const enriched = enrichPacketWithSearchEvidence({
+    const enriched = await enrichPacketWithSearchEvidence({
       packet,
       searchHits: [],
       discovery: { attempted: true, succeeded: false, searchQueries: ["q"], source: null, error: "no_hits" },

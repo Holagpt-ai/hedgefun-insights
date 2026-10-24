@@ -19,6 +19,7 @@ import {
   tierFromRequest,
 } from "./chat-policy.ts";
 import { logFailedChatRequest, runStreamingChatTurn, shouldPersistChatAnswer } from "./stream-orchestrator.ts";
+import { buildAnalystIntelligencePromptBlock } from "./analyst-intelligence-delivery.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -59,7 +60,12 @@ ANALYST INTELLIGENCE (when analystIntelligence is provided):
 - Use evidence-aware confidence: strong / mixed / limited / unavailable.
 
 WHY IS IT MOVING / CURRENT CATALYST (when CURRENT_CATALYST_ANALYSIS or catalystAnswerMode=CURRENT_CATALYST_FIRST):
-- Use rankedEvidence and VERIFIED_FACTS.catalystRows before generic training knowledge or sector narratives.
+- Use rankedEvidence, catalystEvidenceFacts, and VERIFIED_FACTS.catalystRows before generic training knowledge or sector narratives.
+- catalystEvidenceFacts carries verified event figures with sourceUrl and verificationLevel — use only for KEY DETAILS when level is official_page, official_document, or attributed_secondary.
+- Do not state dollar guidance or fiscal targets unless they appear in catalystEvidenceFacts or verified primary source text in the packet.
+- Separate verified event facts (catalystEvidenceFacts) from market interpretation (WHY MARKET CARES).
+- Distinguish verified SEC or company filings, confirmed catalyst rows, unverified headlines, historical context, and missing evidence. A null source or timestamp means that field is unavailable.
+- Do not describe catalyst evidence as a live quote or a real-time feed. Use only the session timestamps present in the packet.
 - Structure: PRIMARY CATALYST → KEY DETAILS → WHY MARKET CARES → SECONDARY CONTEXT → MARKET CONFIRMATION → CONFIDENCE/MISSING EVIDENCE.
 - If verifiedPrimary=true, the primaryCatalyst headline is the lead — investor day, guidance, earnings, SEC/IR beat generic AI/sector stories.
 - If explicitNoVerifiedCatalyst=true, say clearly that no confirmed company-specific catalyst was found in available fresh sources — then sector/macro may follow as secondary only.
@@ -303,12 +309,11 @@ serve(async (req) => {
     }
     if (user && intelligencePayload && typeof intelligencePayload === "object" && !Array.isArray(intelligencePayload)) {
       try {
-        const serialized = JSON.stringify(intelligencePayload);
-        intelligenceBlock =
-          "\n\n<stocksist_analyst_intelligence note=\"Verified symbol intelligence. Null means unavailable — do not invent.\">\n" +
-          serialized.slice(0, 4500) +
-          "\n</stocksist_analyst_intelligence>";
-      } catch {
+        intelligenceBlock = buildAnalystIntelligencePromptBlock(
+          intelligencePayload as Record<string, unknown>,
+        );
+      } catch (deliveryErr) {
+        console.error("[chat] analyst intelligence delivery failed", deliveryErr);
         intelligenceBlock = "";
       }
     }

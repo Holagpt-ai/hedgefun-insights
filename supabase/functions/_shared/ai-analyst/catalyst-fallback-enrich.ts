@@ -3,7 +3,7 @@
  */
 
 import { runBraveWebSearch, type BraveWebHit } from "./brave-search.ts";
-import { catalystSessionDateFromQuestion } from "./catalyst-session-date.ts";
+import { catalystSessionDateFromQuestion, isHistoricalCatalystDate } from "./catalyst-session-date.ts";
 import {
   buildSelectionTrace,
   mergeRowsDeterministic,
@@ -12,6 +12,12 @@ import {
   type CatalystRow,
 } from "./catalyst-selection.ts";
 import { inferEventTypeFromSearchEvidence } from "./catalyst-evidence-verification.ts";
+import {
+  attachEvidenceFactsToAnalysis,
+  enrichAuthoritativeCatalystFacts,
+} from "./catalyst-authoritative-enrich.ts";
+import { fetchAuthoritativeContent } from "./catalyst-authoritative-html-fetch.ts";
+import { CATALYST_VERIFIED_VS_INFERRED_GUIDANCE } from "./catalyst-evidence-facts.ts";
 
 type AnalystPacket = Record<string, unknown>;
 
@@ -23,12 +29,35 @@ const COMPANY_NAME: Record<string, string> = {
   AMD: "AMD",
 };
 
-function discoverySkipReason(packet: AnalystPacket): string | null {
+function catalystModeSkip(packet: AnalystPacket): "none" | "not_current_catalyst_question" | "search_only" {
   const model = packet.MODEL_INTERPRETATION as Record<string, unknown> | undefined;
   const analysis = packet.CURRENT_CATALYST_ANALYSIS as Record<string, unknown> | undefined;
   if (model?.catalystAnswerMode !== "CURRENT_CATALYST_FIRST") return "not_current_catalyst_question";
-  if (analysis?.verifiedPrimary === true) return "verified_primary_sufficient";
-  return null;
+  if (analysis?.verifiedPrimary === true) return "search_only";
+  return "none";
+}
+
+function primaryRowFromAnalysis(
+  symbol: string,
+  analysis: Record<string, unknown> | undefined,
+  merged: CatalystRow[],
+  asOfDate: string | null,
+): CatalystRow | null {
+  const pick = selectPrimaryFromScored(symbol, merged.map(scoreCatalystRow), { asOfDate });
+  if (pick?.row) return pick.row;
+  const primary = analysis?.primaryCatalyst as Record<string, unknown> | undefined;
+  if (!primary?.title) return null;
+  return {
+    eventType: "company_news",
+    eventDate: typeof primary.eventDate === "string" ? primary.eventDate : null,
+    title: String(primary.title),
+    publishedAt: typeof primary.publishedAt === "string" ? primary.publishedAt : null,
+    verificationState: "provider_reported",
+    sourceName: typeof primary.source === "string" ? primary.source : null,
+    sourceUrl: typeof primary.sourceUrl === "string" ? primary.sourceUrl : null,
+    officialSource: primary.officialSource === true,
+    evidenceOrigin: "stocksist_catalyst",
+  };
 }
 
 function companyName(symbol: string): string | null {
@@ -61,9 +90,31 @@ function isOfficialUrl(url: string): boolean {
   }
 }
 
+function hitMatchesAskedSymbol(symbol: string, title: string, snippet: string | null | undefined, url: string): boolean {
+  const upper = `${title} ${snippet ?? ""}`.toUpperCase();
+  const asked = symbol.toUpperCase();
+  const company = companyName(asked);
+  if (asked && upper.includes(asked)) return true;
+  if (company && upper.includes(company.toUpperCase())) return true;
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, "");
+    if (host === "sec.gov" || host.endsWith(".sec.gov")) return false;
+    const compactHost = host.replace(/[^a-z0-9]/g, "");
+    if (asked.length >= 2 && compactHost.includes(asked.toLowerCase())) return true;
+    if (company) {
+      const stem = company.toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (stem.length >= 4 && compactHost.includes(stem)) return true;
+    }
+  } catch {
+    return false;
+  }
+  return false;
+}
+
 function normalizeHit(hit: BraveWebHit, symbol: string): CatalystRow {
   const title = hit.title?.trim() || "Search result";
-  const official = isOfficialUrl(hit.url);
+  const matched = hitMatchesAskedSymbol(symbol, title, hit.snippet, hit.url);
+  const official = matched && isOfficialUrl(hit.url);
   return {
     eventType: inferEventTypeFromSearchEvidence(title, hit.snippet),
     eventDate: null,
@@ -74,15 +125,18 @@ function normalizeHit(hit: BraveWebHit, symbol: string): CatalystRow {
     sourceUrl: hit.url,
     officialSource: official,
     evidenceOrigin: "fresh_web_search",
-    attributionClass: official ? "direct" : "provider_associated",
-    tickerSpecific: title.toUpperCase().includes(symbol) || official,
+    attributionClass: official ? "direct" : matched ? "provider_associated" : "unverified",
+    tickerSpecific: matched,
   };
 }
 
-function rebuildAnalysis(symbol: string, rows: CatalystRow[]) {
+function rebuildAnalysis(symbol: string, rows: CatalystRow[], asOfDate: string | null) {
   const scored = rows.map(scoreCatalystRow);
-  const primary = selectPrimaryFromScored(symbol, scored);
+  const primary = selectPrimaryFromScored(symbol, scored, { asOfDate });
   const verifiedPrimary = primary != null;
+  const historicalContextOnly = !verifiedPrimary && rows.some((row) =>
+    isHistoricalCatalystDate(row.eventDate ?? row.publishedAt, asOfDate)
+  );
   return {
     movementQuestion: true,
     verifiedPrimary,
@@ -101,6 +155,7 @@ function rebuildAnalysis(symbol: string, rows: CatalystRow[]) {
       : null,
     explicitNoVerifiedCatalyst: !verifiedPrimary,
     retrievalAttempted: true,
+    historicalContextOnly,
   };
 }
 
@@ -111,22 +166,15 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
   const now = options?.now ?? new Date();
   const sessionDate = catalystSessionDateFromQuestion(options?.userQuestion, now);
   const symbol = String(packet.symbol ?? "").trim().toUpperCase();
-  const skip = discoverySkipReason(packet);
-  if (skip || !symbol) {
+  const skipMode = catalystModeSkip(packet);
+  if (skipMode === "not_current_catalyst_question" || !symbol) {
     console.log("[catalyst-pipeline]", JSON.stringify({
       skipped: true,
-      reason: !symbol ? "missing_symbol" : skip,
+      reason: !symbol ? "missing_symbol" : skipMode,
       symbol,
       sessionDate,
     }));
     return packet;
-  }
-  const queries = buildQueries(symbol, sessionDate);
-  const hits: BraveWebHit[] = [];
-  for (const q of queries) {
-    const batch = await runBraveWebSearch(q, 4);
-    hits.push(...batch);
-    if (hits.length >= 10) break;
   }
 
   const verified = packet.VERIFIED_FACTS as { catalystRows?: CatalystRow[] } | undefined;
@@ -134,26 +182,80 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
     ...r,
     evidenceOrigin: "stocksist_catalyst" as const,
   }));
+
+  const queries = skipMode === "search_only" ? [] : buildQueries(symbol, sessionDate);
+  const hits: BraveWebHit[] = [];
+  if (skipMode !== "search_only") {
+    for (const q of queries) {
+      const batch = await runBraveWebSearch(q, 4);
+      hits.push(...batch);
+      if (hits.length >= 10) break;
+    }
+  }
+
   const fromSearch = hits.map((h) => normalizeHit(h, symbol));
   const merged = mergeRowsDeterministic(internal, fromSearch);
-  const analysis = rebuildAnalysis(symbol, merged);
+  const priorAnalysis = packet.CURRENT_CATALYST_ANALYSIS as Record<string, unknown> | undefined;
+  let analysis: Record<string, unknown> = skipMode === "search_only" && priorAnalysis
+    ? { ...priorAnalysis }
+    : {
+      ...((priorAnalysis) ?? {}),
+      ...rebuildAnalysis(symbol, merged, sessionDate),
+    };
+
+  const primaryRow = analysis.verifiedPrimary === true
+    ? primaryRowFromAnalysis(symbol, analysis, merged, sessionDate)
+    : null;
+
+  const authoritative = await enrichAuthoritativeCatalystFacts({
+    primaryRow,
+    supportingRows: merged,
+    fetchContent: fetchAuthoritativeContent,
+  });
+
+  if (analysis.verifiedPrimary === true) {
+    analysis = attachEvidenceFactsToAnalysis(analysis, authoritative);
+  } else {
+    analysis.catalystEvidenceFacts = [];
+    analysis.verifiedVsInferredGuidance = CATALYST_VERIFIED_VS_INFERRED_GUIDANCE;
+    analysis.authoritativeContentFetch = {
+      attempted: false,
+      urls: [],
+      errors: [],
+      attempts: [],
+      deliveryStatus: "not_attempted",
+    };
+  }
   const succeeded = analysis.verifiedPrimary === true;
 
-  const pipelineTrace = buildSelectionTrace({
-    symbol,
-    searchQueries: queries,
-    searchHitCount: hits.length,
-    internalRowCount: internal.length,
-    rows: merged,
-  });
+  const pipelineTrace = {
+    ...buildSelectionTrace({
+      symbol,
+      searchQueries: queries,
+      searchHitCount: hits.length,
+      internalRowCount: internal.length,
+      rows: merged,
+      contentFetchedUrls: authoritative.contentFetchedUrls,
+    }),
+    authoritativeRecovery: {
+      deliveryStatus: authoritative.deliveryStatus,
+      factCount: authoritative.facts.length,
+      attempts: authoritative.fetchAttempts.map((a) => ({
+        url: a.url,
+        httpStatus: a.httpStatus,
+        outcome: a.outcome,
+        factCount: a.factCount,
+      })),
+    },
+  };
   console.log("[catalyst-pipeline]", JSON.stringify(pipelineTrace));
 
   const discovery = {
     attempted: true,
     succeeded,
     searchQueries: queries,
-    source: hits.length > 0 ? "brave_web_search" as const : null,
-    error: hits.length === 0 ? "no_hits" : null,
+    source: hits.length > 0 ? "brave_web_search" as const : skipMode === "search_only" ? null : null,
+    error: skipMode === "search_only" ? null : hits.length === 0 ? "no_hits" : null,
   };
 
   const model = (packet.MODEL_INTERPRETATION ?? {}) as Record<string, unknown>;
@@ -171,6 +273,9 @@ export async function enrichAnalystIntelligenceWithFreshCatalystSearch(
       freshDiscoverySucceeded: succeeded,
       catalystAnswerGuidance: succeeded
         ? "Fresh web search supplemented internal catalyst data. Lead with verified primary catalyst from ranked evidence."
+        : analysis.historicalContextOnly === true
+        ? "The only company events in this packet are older than the session and are historical context. "
+          + "State that no confirmed current catalyst was found."
         : "Internal Stocksist catalyst data and fresh web search did not verify a company-specific primary catalyst. "
           + "State clearly that no confirmed company-specific catalyst was found in the available fresh sources.",
     },

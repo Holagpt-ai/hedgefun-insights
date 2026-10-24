@@ -27,6 +27,7 @@ import type {
   AnalystWatchlistSnapshot,
 } from "@/lib/ai-analyst/intelligence-packet-types";
 import { buildCurrentCatalystAnalysis } from "@/lib/ai-analyst/current-catalyst";
+import { explicitCatalystSessionDate } from "@/lib/ai-analyst/catalyst-session-date";
 import { classifyCurrentCatalystIntent } from "@/lib/ai-analyst/current-catalyst-intent";
 import {
   CURRENT_CATALYST_FORMATTING,
@@ -265,8 +266,9 @@ export function buildAnalystIntelligencePacket(input: {
     radar.keyLevels.source === "unavailable" ||
     (radar.keyLevels.vwap == null && radar.keyLevels.hod == null && radar.keyLevels.lod == null);
 
+  const evidenceAsOfDate = explicitCatalystSessionDate(input.userQuestion) ?? radar.tradingDate;
   const currentCatalystAnalysis = movementQuestion
-    ? buildCurrentCatalystAnalysis(symbol, catalystRows)
+    ? buildCurrentCatalystAnalysis(symbol, catalystRows, { asOfDate: evidenceAsOfDate })
     : undefined;
   const journalForPacket = movementQuestion ? [] : journalRows;
 
@@ -318,6 +320,7 @@ export function buildAnalystIntelligencePacket(input: {
           personalizationRule: currentCatalystAnalysis.personalizationRule,
           formattingRule: CURRENT_CATALYST_FORMATTING,
           noSpeculationRule: CURRENT_CATALYST_NO_SPECULATION,
+          verifiedVsInferredGuidance: currentCatalystAnalysis.verifiedVsInferredGuidance,
         }
         : {}),
     },

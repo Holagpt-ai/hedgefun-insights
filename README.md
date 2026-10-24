@@ -1,73 +1,45 @@
-# Welcome to your Lovable project
+# Stocksist
 
-## Project info
+Stocksist (`https://stocksist.com`) is the market-intelligence workspace in this repository. The app is a Vite + React + TypeScript SPA. Supabase supplies Postgres, Auth, and Edge Functions. Vercel serves the production frontend. Fly hosts the Radar worker, historical backfill job, and SEC egress gateway.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+GitHub `main` on [Holagpt-ai/hedgefun-insights](https://github.com/Holagpt-ai/hedgefun-insights) is the source of truth. The repository name still says Hedgefun; the public brand is Stocksist. The legacy hostname listed in `vercel.json` redirects to the apex domain.
 
-## How can I edit this code?
+## Start here
 
-There are several ways of editing your application.
+Development agents should read, in order:
 
-**Use Lovable**
+1. [docs/PROJECT_MEMORY.md](docs/PROJECT_MEMORY.md)
+2. [docs/SESSION_HANDOFF.md](docs/SESSION_HANDOFF.md)
+3. [docs/ISSUE_REGISTER.md](docs/ISSUE_REGISTER.md)
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Architecture, routes, data services, deployment status, and release gates live under `docs/`. [AGENTS.md](AGENTS.md) is the working agreement for code changes.
 
-Changes made via Lovable will be committed automatically to this repo.
+## Local development
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+Requirements: Node.js and npm.
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+npm ci
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+Checks used before a pull request:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```sh
+npm run typecheck
+npm run build
+npm run test:integrity
+npm run integrity
+```
 
-**Use GitHub Codespaces**
+`npm test` runs the Vitest suite and is much larger. Use it for the product area you changed.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Deploy boundaries
 
-## What technologies are used for this project?
+Production migrations, Edge Function deploys, Fly deploys, DNS, cron, and secrets are separate approved operations. Merging a pull request does not perform them. See [docs/RELEASE_GATES.md](docs/RELEASE_GATES.md) and [docs/DEPLOYMENT_STATUS.md](docs/DEPLOYMENT_STATUS.md).
 
-This project is built with:
+Lovable can edit this repo, but preview hosts are not production. The active integration branch is `cursor/lovable-sync-from-main-20261024`. After PR #162 it was merged forward and its files match `main`. Sync from `main`. The Lovable project id is not recorded in this repository.
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+## Integrity
 
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+`npm run integrity` checks registered navigation targets, sitemap and canonical agreement, public brand hosts, MCP generated-artifact agreement, and git divergence from `origin/main`. It does not call Vercel, Supabase, Fly, or Lovable. `npm run integrity -- --remote` fetches the public production asset manifest only.
