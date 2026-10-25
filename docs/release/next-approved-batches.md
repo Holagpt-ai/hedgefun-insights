@@ -1,12 +1,21 @@
 # Next approved product batches
 
-Register updated 2026-10-24 after Batch **171** (master reset). Numbers are product batch ids, not GitHub PR numbers.
+Register updated **2026-10-25** after **`main` `788b1b93`** (PR **#175** / Batch 176 merged). Product batch ids are not always GitHub PR numbers.
 
-| Batch | Name | Scope (summary) |
+| Batch | Name | Status |
 | --- | --- | --- |
-| **172** | Catalyst Source Coverage V1 | **Merged** (#172 → `93a3c35d`); Edge deploy + source enablement still per batch34 |
-| **173** | Watchlist / Historical Handoff Integrity | **In PR** — `docs/historical-intelligence/batch173-watchlist-handoff-integrity-v1.md` |
-| **174** | Monday Live Scanner Acceptance | **2026-10-26 ET** read-only live evidence per `docs/release/monday-scanner-acceptance-2026-10-26.md` |
-| **175** | Continuation & Inbox Acceptance | Late-session continuation, AM/PM inbox handoff, promotion/cooling read-only capture |
+| **171** | Security & performance V2 | **Merged** → `88de0ae8` |
+| **172** | Catalyst Source Coverage V1 | **Merged** → `93a3c35d` |
+| **173** | Watchlist / historical handoff integrity | **Merged** → `28cbcc9e` (supersedes the earlier **177** watchlist-only plan) |
+| **174** | Monday live scanner acceptance | **PR #174 OPEN** — pre-session docs; complete ET-window evidence on **2026-10-26** |
+| **175** | Continuation & inbox acceptance | **Pending** — after Batch 174 Monday sign-off |
+| **176** | Catalyst intel distribution bridge V1 | **Merged** — PR **#175** → **`788b1b93`**; activation still gated (**ISS-006**) |
+| **177** | Lovable forward-sync & continuity | **In progress / ops** — forward-merge `main` into `cursor/lovable-sync-from-main-20261024`; original standalone watchlist batch **177** scope **superseded by Batch 173** |
+| **178** | Post-Monday scanner follow-up | **Pending** — depends on Batch **174** findings |
+| **179** | — | **Pending** (not scheduled in git) |
+| **180** | — | **Pending** (not scheduled in git) |
+| **181** | — | **Pending** (not scheduled in git) |
 
-**Ops gate (parallel):** ISS-015 Lovable **`chat`-only** deploy when previous revision id is recoverable (`docs/release/edge-function-release-lovable.md`).
+**Ops gate (parallel):** **ISS-015** — Lovable **`chat`-only** Edge deploy when previous revision id is recoverable (`docs/release/edge-function-release-lovable.md`). **Blocked.**
+
+Original ten Lovable scanner warnings: `docs/release/lovable-scanner-reliability-warnings.md`. npm/deploy findings: ISS-016 through ISS-019.
