@@ -21,11 +21,15 @@ import {
   Select, SelectTrigger, SelectValue, SelectContent, SelectItem,
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { tickerToSlug } from "@/lib/ticker-utils";
 import { AdBanner } from "@/components/layout/AdBanner";
 import { toast } from "sonner";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import { BRAND } from "@/config/brand";
+import { useAuth } from "@/contexts/AuthContext";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
+import { publicStockDetailPath, publicWatchlistEntryHref } from "@/lib/public/public-workflow-links";
+import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
+import { trackEvent } from "@/lib/analytics";
 
 /* ── seed data (used if DB returns nothing) ── */
 const SEED: TrendingStock[] = [
@@ -73,6 +77,7 @@ const TABS = ["Overview", "Performance", "Dividends", "Price", "Profile"];
 
 export default function TrendingPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Overview");
@@ -131,7 +136,11 @@ export default function TrendingPage() {
           const t = getValue<string>();
           return (
             <button
-              onClick={() => navigate(`/stocks/${tickerToSlug(t)}`)}
+              onClick={() => {
+                trackEvent("stock_search", { ticker: t });
+                trackPublicDiscoveryNav({ from: "trending", to: "stock_detail", symbol: t });
+                navigate(publicStockDetailPath(t));
+              }}
               className="text-primary font-bold hover:underline text-[0.875rem]"
             >
               {t}
@@ -221,7 +230,7 @@ export default function TrendingPage() {
 
   usePageSeo({
     title: `Trending Stocks — Most Searched & Watched | ${BRAND.name}`,
-    description: `See which stocks investors are searching and watching most on ${BRAND.name} right now.`,
+    description: `See which stocks investors are researching most on ${BRAND.name}. Price and volume columns use ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()} when shown.`,
   });
 
   return (
@@ -407,7 +416,8 @@ export default function TrendingPage() {
 
                 {/* Updated timestamp */}
                 <p className="text-[0.8125rem] text-muted-foreground mt-2">
-                  Updated: {dateStr}, 8:30 AM EDT. Stocks are sorted by pageviews according to Plausible Analytics.
+                  Updated: {dateStr}, 8:30 AM EDT. Rankings reflect on-site research activity; % change and volume use{" "}
+                  {PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()} when shown. View counts come from Plausible Analytics.
                 </p>
 
                 {/* Back to top */}
@@ -429,7 +439,11 @@ export default function TrendingPage() {
               { title: `${BRAND.name} Pro`, desc: "Upgrade now for unlimited access to all data and tools.", route: "/pro" },
               { title: "Market Newsletter", desc: "Get a daily email with the top market news in bullet point format.", route: "/newsletter" },
               { title: "Stock Screener", desc: "Filter, sort and analyze all stocks to find your next investment.", route: "/screener" },
-              { title: "Watchlists", desc: "Keep track of all your favorite stocks in real-time.", route: "/watchlist" },
+              {
+                title: "Watchlists",
+                desc: "Save symbols in your Stocksist dashboard watchlist (sign in required).",
+                route: publicWatchlistEntryHref(Boolean(user)),
+              },
             ].map((card) => (
               <button
                 key={card.title}

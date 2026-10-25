@@ -13,8 +13,15 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { searchTickers, EXCHANGE_LABELS, TYPE_LABELS, type SearchResult } from "@/lib/search-tickers";
+import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { AdBanner } from "@/components/layout/AdBanner";
+import { trackEvent } from "@/lib/analytics";
+import { trackPublicDiscoveryNav } from "@/lib/analytics/public-events";
+import { publicInstrumentDetailPath } from "@/lib/public/public-workflow-links";
+import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
+import { usePageSeo } from "@/hooks/usePageSeo";
+import { BRAND } from "@/config/brand";
 
 const PAGE_SIZE = 25;
 type BrowseRow = { symbol: string; name: string; exchange: string | null; type: string | null };
@@ -29,6 +36,11 @@ export default function SymbolLookupPage() {
   const [totalCount, setTotalCount] = useState(0);
   const navigate = useNavigate();
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  usePageSeo({
+    title: `Symbol Lookup | ${BRAND.name}`,
+    description: `Search tickers by company or fund name. Quotes on linked research pages use ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()}.`,
+  });
 
   // Browse mode: paginated list from ticker_search table
   const fetchBrowse = async (p: number) => {
@@ -72,11 +84,24 @@ export default function SymbolLookupPage() {
   const isSearchMode = query.trim().length > 0;
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
 
-  const renderRow = (symbol: string, name: string, exchange: string | null, type: string | null) => (
+  const openInstrument = (symbol: string, type: string | null) => {
+    const dest = publicInstrumentDetailPath(symbol, type);
+    if (!dest) return;
+    trackEvent("stock_search", { ticker: symbol });
+    trackPublicDiscoveryNav({ from: "symbol_lookup", to: dest.startsWith("/etf/") ? "etf_detail" : "stock_detail", symbol });
+    navigate(dest);
+  };
+
+  const renderRow = (symbol: string, name: string, exchange: string | null, type: string | null) => {
+    const dest = publicInstrumentDetailPath(symbol, type);
+    return (
     <tr
       key={symbol}
-      className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer transition-colors"
-      onClick={() => navigate(`/stocks/${symbol.toLowerCase()}`)}
+      className={cn(
+        "border-b border-border last:border-0 transition-colors",
+        dest ? "hover:bg-muted/30 cursor-pointer" : "opacity-80",
+      )}
+      onClick={() => openInstrument(symbol, type)}
     >
       <td className="table-cell px-4 py-2.5 font-semibold text-primary">{symbol}</td>
       <td className="table-cell px-4 py-2.5 text-foreground">{name}</td>
@@ -94,6 +119,7 @@ export default function SymbolLookupPage() {
       </td>
     </tr>
   );
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-6">

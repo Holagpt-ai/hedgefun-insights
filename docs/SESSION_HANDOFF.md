@@ -2,24 +2,23 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
-## 2026-10-25 — Batch 179: Public website & conversion V1
+## 2026-10-25 — Batch 180: Public navigation & UX integrity V1
 
-**Status:** Implementation complete on `cursor/batch179-public-website-conversion-v1`; PR open (awaiting merge).
+**Status:** Implementation on `cursor/batch180-public-nav-ux-v1`; PR open (awaiting merge).
 
 ### GitHub `main`
 
-**`1002c682159645f48d7d0bcd301ac37805bc3a6e`** — PR **#176** (continuity register after Batch 176 + Lovable forward-sync) merged.
+**`dc42cfe56248b940a2dcb28b81cb5bbb810911b2`** — PR **#177** / Batch **179** merged; Vercel production deploy **SUCCESS**.
 
 ### PR / batch register (canonical)
 
 | Item | State |
 | --- | --- |
-| PR **#175** / Batch **176** | **Merged** at `788b1b93` |
-| PR **#176** / continuity | **Merged** at `1002c682` |
+| PR **#177** / Batch **179** | **Merged** at `dc42cfe5` |
 | PR **#174** / Batch **174** | **OPEN** — Monday acceptance |
-| Batch **179** | **PR open** — public discovery → stock detail → auth handoff |
+| Batch **180** | **PR open** — trending/heatmap/IPO screener/symbol lookup nav + copy |
 | Batch **175**, **178** | **Pending** — after Batch 174 |
-| Batches **180–181** | **Pending** |
+| Batch **181** | **Pending** |
 
 ### Issues
 
@@ -28,9 +27,9 @@ Update this file at the end of a session. The next session should be able to sta
 
 ### Next
 
-1. Review / merge Batch **179** PR.
+1. Review / merge Batch **180** PR.
 2. Complete Batch **174** during **2026-10-26 ET**.
-3. Lovable Cloud: forward-sync integration branch after doc merges as needed.
+3. Lovable Cloud: forward-sync integration branch as needed after merges.
 
 ## Earlier sessions
 

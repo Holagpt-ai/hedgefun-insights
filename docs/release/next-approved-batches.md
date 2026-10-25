@@ -1,6 +1,6 @@
 # Next approved product batches
 
-Register updated **2026-10-25** after **`main` `1002c682`** (PR **#176** continuity merge). Product batch ids are not always GitHub PR numbers.
+Register updated **2026-10-25** after **`main` `dc42cfe5`** (PR **#177** / Batch 179 merged). Product batch ids are not always GitHub PR numbers.
 
 | Batch | Name | Status |
 | --- | --- | --- |
@@ -12,8 +12,8 @@ Register updated **2026-10-25** after **`main` `1002c682`** (PR **#176** continu
 | **176** | Catalyst intel distribution bridge V1 | **Merged** — PR **#175** → **`788b1b93`**; activation still gated (**ISS-006**) |
 | **177** | Lovable forward-sync & continuity | **Merged / ops** — PR **#176** → **`1002c682`**; integration branch may forward-sync normally |
 | **178** | Post-Monday scanner follow-up | **Pending** — depends on Batch **174** findings |
-| **179** | Public website & conversion V1 | **In progress** — PR open from `cursor/batch179-public-website-conversion-v1` |
-| **180** | — | **Pending** (not scheduled in git) |
+| **179** | Public website & conversion V1 | **Merged** — PR **#177** → **`dc42cfe5`**; Vercel SUCCESS |
+| **180** | Public navigation & UX integrity V1 | **In progress** — PR open from `cursor/batch180-public-nav-ux-v1` |
 | **181** | — | **Pending** (not scheduled in git) |
 
 **Ops gate (parallel):** **ISS-015** — Lovable **`chat`-only** Edge deploy when previous revision id is recoverable (`docs/release/edge-function-release-lovable.md`). **Blocked.**
