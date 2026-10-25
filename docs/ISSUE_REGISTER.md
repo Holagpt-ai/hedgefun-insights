@@ -25,7 +25,7 @@ Original ten Lovable scanner warnings (historical, not the active backlog): `doc
 | ISS-003 (Vercel SPA) | Production manifest vs latest merge | Manifest has no git SHA; refresh after #170/#171 Vercel deploy. |
 | ISS-003 (Edge) | Production Edge revision ids unknown | Not read from Lovable Cloud. |
 | ISS-005 | Batch 34 migration/Edge status unknown | Not refreshed against production. |
-| ISS-006 | Catalyst source activation not executed in production | Batch 172 merged (adapter metadata + client contract); **intel → `catalyst_events` upsert still deferred**; no `enabled` flags or Edge deploy. |
+| ISS-006 | Catalyst intel → public distribution | **Batch 176:** eligibility, projection, idempotent `intel:v1:` dedupe, dry-run batch writer in git (`distribution-*`). **Production activation pending** — no Edge deploy, no writes, no cron; source enablement still separate. |
 | ISS-007 | AI Analyst streaming failures deferred in Batch 34 | Not retested here. |
 
 ## Deferred

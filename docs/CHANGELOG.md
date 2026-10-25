@@ -4,7 +4,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch 173 Watchlist & Historical Handoff Integrity V1: symbol/securityId guards on Radar→workflow→AI Analyst client handoffs; regression tests. No Edge or chat changes.
+- Batch 176 Catalyst intelligence distribution bridge V1: eligibility, public projection, idempotent dedupe, disabled-by-default dry-run writer. No migration, Edge deploy, or production writes. **ISS-006** activation still pending.
+- Batch 173 Watchlist & Historical Handoff Integrity V1 merged (PR #173 → `28cbcc9e`): symbol/securityId handoff guards; regression tests. No Edge or chat changes.
 
 ## 2026-10-25
 
