@@ -23,3 +23,12 @@ export function heatmapUniverseDetail(stockCount: number): string {
 export function heatmapPageSeoDescription(): string {
   return `Sector treemap of large-cap U.S. listed stocks by market cap (up to ${HEATMAP_UNIVERSE_STOCK_LIMIT.toLocaleString()} names). Session change colors use ${PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase()}.`;
 }
+
+/** Footer caption under the treemap (size/color legend preserved). */
+export function heatmapFooterCaption(stockCount: number): string {
+  const shown =
+    stockCount > 0
+      ? `${Math.min(stockCount, HEATMAP_UNIVERSE_STOCK_LIMIT).toLocaleString()} market-cap-ranked U.S. stocks with sector tags`
+      : `Up to ${HEATMAP_UNIVERSE_STOCK_LIMIT.toLocaleString()} market-cap-ranked U.S. stocks with sector tags`;
+  return `${shown}, grouped by sector and industry. Size represents market cap, color represents relative performance.`;
+}

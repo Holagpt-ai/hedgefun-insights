@@ -51,6 +51,23 @@ export function latestTrendingDataTimestamp(rows: TrendingTableRow[] | null | un
   return max;
 }
 
+function formatEasternRowUpdate(iso: string): { stamp: string; tzLabel: string } | null {
+  const when = new Date(iso);
+  if (!Number.isFinite(when.getTime())) return null;
+  const stamp = when.toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "America/New_York",
+  });
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    timeZoneName: "short",
+  }).formatToParts(when);
+  const rawTz = parts.find((p) => p.type === "timeZoneName")?.value ?? "ET";
+  const tzLabel = rawTz === "EST" || rawTz === "EDT" ? rawTz : "ET";
+  return { stamp, tzLabel };
+}
+
 export function formatTrendingDataFootnote(latestUpdatedAt: string | null): string {
   const delay = PUBLIC_MARKET_DATA_DELAY_DISCLOSURE.toLowerCase();
   const ranking = "Sorted by reported share volume from the Stocksist stocks database (not site visitor analytics).";
@@ -58,14 +75,11 @@ export function formatTrendingDataFootnote(latestUpdatedAt: string | null): stri
   if (!latestUpdatedAt) {
     return `${ranking} ${fields}`;
   }
-  const when = new Date(latestUpdatedAt);
-  const stamp = Number.isFinite(when.getTime())
-    ? when.toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short", timeZone: "America/New_York" })
-    : null;
-  if (!stamp) {
+  const eastern = formatEasternRowUpdate(latestUpdatedAt);
+  if (!eastern) {
     return `${ranking} ${fields}`;
   }
-  return `${ranking} Newest row update (ET): ${stamp} EDT. ${fields}`;
+  return `${ranking} Newest row update: ${eastern.stamp} ${eastern.tzLabel}. ${fields}`;
 }
 
 export function trendingPageSeoTitle(brandName: string): string {

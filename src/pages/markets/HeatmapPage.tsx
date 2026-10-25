@@ -14,6 +14,7 @@ import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
 import { toast } from "sonner";
 import { usePageSeo } from "@/hooks/usePageSeo";
 import {
+  heatmapFooterCaption,
   heatmapPageSeoDescription,
   heatmapUniverseDetail,
   heatmapUniverseHeading,
@@ -375,7 +376,7 @@ function HeatmapPage() {
 
         {/* Caption */}
         <p className="text-[0.8125rem] mt-3 mb-6" style={{ color: "hsl(var(--text-muted))" }}>
-          S&P500 stock performance by sector and industry. Size represents market cap, color represents relative performance.
+          {heatmapFooterCaption(loadedStockCount)}
         </p>
 
         <div className="w-full flex flex-col items-center border-t border-border bg-surface py-1 mt-8">

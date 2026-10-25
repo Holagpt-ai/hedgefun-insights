@@ -8,6 +8,7 @@ import {
 import { stockDetailCanonicalPath } from "@/lib/seo/stock-json-ld";
 import { PUBLIC_MARKET_DATA_DELAY_DISCLOSURE } from "@/lib/price-utils";
 import {
+  heatmapFooterCaption,
   heatmapUniverseHeading,
   heatmapUniverseDetail,
 } from "@/lib/markets/heatmap-universe-label";
@@ -79,11 +80,15 @@ describe("Batch 180 — data honesty (trending & heatmap)", () => {
     expect(seo.toLowerCase()).not.toMatch(/plausible|pageview/);
   });
 
-  it("footnote uses real updated_at when provided and omits fixed clock times", () => {
-    const note = formatTrendingDataFootnote("2026-10-25T14:00:00.000Z");
-    expect(note).toMatch(/volume/i);
-    expect(note).not.toMatch(/8:30/i);
-    expect(note).not.toMatch(/plausible/i);
+  it("footnote uses real updated_at with computed EST/EDT, not a hardcoded EDT suffix", () => {
+    const summer = formatTrendingDataFootnote("2026-10-25T14:00:00.000Z");
+    expect(summer).toMatch(/volume/i);
+    expect(summer).toMatch(/Newest row update:/);
+    expect(summer).toMatch(/\bEDT\b/);
+    expect(summer).not.toMatch(/\(ET\):.*EDT/);
+    expect(summer).not.toMatch(/8:30/i);
+    const winter = formatTrendingDataFootnote("2026-01-15T15:00:00.000Z");
+    expect(winter).toMatch(/\bEST\b/);
     expect(formatTrendingDataFootnote(null)).not.toMatch(/8:30/i);
   });
 
@@ -92,6 +97,16 @@ describe("Batch 180 — data honesty (trending & heatmap)", () => {
     expect(heading.toLowerCase()).not.toMatch(/s&p 500|s&p500/);
     expect(heading).toMatch(/500/);
     expect(heatmapUniverseDetail(500).toLowerCase()).toMatch(/not an official s&p 500/i);
+  });
+
+  it("heatmap footer caption has no S&P 500 claim and keeps size/color legend", () => {
+    const caption = heatmapFooterCaption(500);
+    expect(caption.toLowerCase()).not.toMatch(/s&p\s*500/);
+    expect(caption).toMatch(/market-cap-ranked/i);
+    expect(caption).toMatch(/Size represents market cap, color represents relative performance/);
+    const page = readFileSync(resolve(process.cwd(), "src/pages/markets/HeatmapPage.tsx"), "utf8");
+    expect(page).not.toMatch(/S&P500 stock performance/i);
+    expect(page).toMatch(/heatmapFooterCaption/);
   });
 
   it("TrendingPage source has no SEED fallback or random view fabrication", () => {
