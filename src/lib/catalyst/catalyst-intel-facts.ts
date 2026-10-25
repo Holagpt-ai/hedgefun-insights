@@ -79,6 +79,8 @@ export function readIntelFactsFromEvent(event: CatalystEvent): {
   materiality: number | null;
   ingestedAt: string | null;
   securityId: string | null;
+  providerTickerConflict: boolean;
+  earningsDisposition: string | null;
 } {
   const facts = isRecord(event.facts) ? event.facts : {};
   return {
@@ -87,6 +89,8 @@ export function readIntelFactsFromEvent(event: CatalystEvent): {
     materiality: readIntelMateriality(facts),
     ingestedAt: readString(facts, "ingested_at") ?? readString(facts, "intel_ingested_at"),
     securityId: readString(facts, "security_id") ?? readString(facts, "securityId"),
+    providerTickerConflict: facts.provider_ticker_conflict === true,
+    earningsDisposition: readString(facts, "earnings_disposition"),
   };
 }
 

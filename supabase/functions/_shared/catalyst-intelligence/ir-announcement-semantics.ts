@@ -6,6 +6,18 @@ const EARNINGS_RESULTS =
 const EARNINGS_SCHEDULE =
   /\b(announces date for|to report (its )?(q[1-4]|fourth quarter|results|earnings)|will report (its )?(q[1-4]|results|earnings)|scheduled to report (its )?(results|earnings|q[1-4]))\b/i;
 
+export type IrEarningsDisposition = "results_reported" | "schedule_announced" | null;
+
+/** Distinguish reported earnings from a schedule-only or date-announcement disclosure. */
+export function classifyIrEarningsDisposition(text: string): IrEarningsDisposition {
+  if (/\bannounces date for\b/i.test(text) || /\bwill report\b/i.test(text) || /\bscheduled to report\b/i.test(text)) {
+    return "schedule_announced";
+  }
+  if (EARNINGS_RESULTS.test(text)) return "results_reported";
+  if (EARNINGS_SCHEDULE.test(text)) return "schedule_announced";
+  return null;
+}
+
 const ANNOUNCEMENT_VERBS =
   /\b(announces|announced|launches|launched|unveils|files (form )?8-k|merger|acquire[sd]?|partnership|guidance|outlook|to present|will present|will host|hosts|hosting|reports (its )?(q[1-4]|results|earnings))\b/i;
 

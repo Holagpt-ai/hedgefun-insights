@@ -16,7 +16,7 @@ Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-p
 
 | Field | Value |
 | --- | --- |
-| GitHub `main` | **`dd490ae5`** — PRs **#169** (scanner reliability) and **#170** (security/performance/Monday runbook) **merged** |
+| GitHub `main` | **`88de0ae8`** — PR **#171** (security V2 + continuity) **merged**; Vercel production deploy **succeeded** |
 | Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
 | Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
 

@@ -47,7 +47,10 @@ export function passesDirectCatalystVerificationGuard(event: CatalystEvent, nowM
   }
   if (event.ticker_specific === false) return false;
 
-  const { verification } = readIntelFactsFromEvent(event);
+  const intel = readIntelFactsFromEvent(event);
+  if (intel.providerTickerConflict) return false;
+
+  const { verification } = intel;
   if (verification && BLOCKED_VERIFICATION.has(verification)) return false;
 
   if (isFutureScheduledOnly(event, nowMs)) return false;

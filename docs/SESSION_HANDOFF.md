@@ -2,43 +2,35 @@
 
 Update this file at the end of a session. The next session should be able to start from this page plus `docs/PROJECT_MEMORY.md` and `docs/ISSUE_REGISTER.md`.
 
-## 2026-10-24 — Batch 171: Targeted security & performance V2
+## 2026-10-25 — Batch 172: Catalyst Source Coverage V1
 
-**Status:** PR open on `cursor/batch171-security-performance-v2`. Parent **`dd490ae5`** (`main` after #169/#170).
+**Status:** PR open on `cursor/batch172-catalyst-source-coverage-v1`. Parent **`88de0ae8`** (PR #171 merged; Vercel production deploy succeeded).
 
-**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/171
+**Pull request:** https://github.com/Holagpt-ai/hedgefun-insights/pull/172
 
-**Head SHA:** `effa77dc`
+**Head SHA:** `72c7c120`
 
-### Delivered
+### Delivered in git
 
-- **WS1:** `tinypool@2.2.0` npm override (clears critical vitest chain); pin `vite@5.4.21`, `vitest@3.2.7`, `@vercel/functions@3.10.3`; audit **21 → 20**, **0 critical**.
-- **WS2:** Lazy public routes (stock detail, screener, movers, watchlist, ETF detail, articles, news, earnings) via `lazyPages.ts`.
-- **WS3:** PRs #169/#170 recorded merged. Original ten Lovable scanner warnings are historical in `docs/release/lovable-scanner-reliability-warnings.md` (not npm LOV ids). npm/build findings stay on ISS-015–ISS-019. Monday acceptance unchanged (Batch 174).
-- **WS4:** `docs/release/next-approved-batches.md` (172–175); issue register + deployment status updated.
+- IR/events adapter metadata: earnings disposition, source identity, undated publish flag.
+- Client `source-evidence-contract.ts`, verification guards for provider ticker conflicts, evidence graph extensions.
+- Tests: `batch172-source-coverage.test.ts`, Deno IR semantics.
+- Doc: `docs/catalyst-intelligence/batch172-source-coverage-v1.md`.
 
-### Validation
+### Not done (by policy)
 
-- `npm run typecheck`, `npm run build`, `test:integrity`, `integrity`, movers-integrity + batch26/27 — run before merge.
+- Edge deploy, source enablement, provider purchases, **ISS-015** chat.
 
 ### Next
 
-1. Merge Batch 171 PR; confirm Vercel manifest.
+1. Merge Batch 172; Lovable Edge deploy when approved.
 2. **Batch 174** — Monday 2026-10-26 ET scanner acceptance (read-only).
-3. **ISS-015** — `chat` deploy when Lovable rollback id exists.
+3. **Batch 173** — Watchlist/historical handoff integrity.
 
-## 2026-10-24 — Security, performance & Monday readiness V1
+## 2026-10-24 — Batch 171: Targeted security & performance V2
 
-**Status:** **Merged** (PR **#170** → `main` through `dd490ae5`).
-
-- npm audit 42→21; route lazy loading ~2,656 kB entry; Browserslist refresh; Monday runbook + ops script.
-
-## 2026-10-24 — Scanner live-market acceptance & reliability V1
-
-**Status:** **Merged** (PR **#169**, `58aed1b1`).
-
-- Polygon volume fix (ISS-020); acceptance report; live RTH deferred to Batch 174.
+**Status:** **Merged** (PR #171 → `88de0ae8`). Vercel production deploy **succeeded**.
 
 ## Earlier sessions
 
-See `docs/CHANGELOG.md` for PR #167–#168 momentum/catalyst work and analyst recovery history.
+See `docs/CHANGELOG.md` for PRs #167–#170 scanner/catalyst/security history.

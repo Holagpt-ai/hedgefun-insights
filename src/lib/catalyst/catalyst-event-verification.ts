@@ -49,6 +49,11 @@ export function hydrateCatalystEventVerification(event: CatalystEvent): Catalyst
     };
   }
 
+  if (facts.provider_ticker_conflict === true) {
+    attribution_class = "unverified";
+    ticker_specific = false;
+  }
+
   if (attribution_class === null || ticker_specific === null) {
     const attr = attributeSymbol({
       title: event.title,

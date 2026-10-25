@@ -8,6 +8,8 @@ import {
   parseRssOrAtom,
   type ParsedFeedItem,
 } from "../feeds.ts";
+import { classifyIrEarningsDisposition } from "../ir-announcement-semantics.ts";
+import { classifyText } from "../classification.ts";
 import { buildRawItem } from "../normalize.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { loadConfiguredSource } from "../source-fetch.ts";
@@ -46,18 +48,28 @@ export const companyEventsAdapter: CatalystSourceAdapter = {
     if (!item.title?.trim()) return null;
     const scheduledStart = typeof item.metadata.scheduledStart === "string" ? item.metadata.scheduledStart : null;
     const scheduledDate = typeof item.metadata.scheduledDate === "string" ? item.metadata.scheduledDate : null;
+    const text = `${item.title} ${item.summary ?? ""}`;
+    const classification = classifyText(text);
+    const earningsDisposition = classifyIrEarningsDisposition(text);
+    const publishedAt = item.publishedAt?.trim() ? item.publishedAt : null;
     return {
       raw: item,
       title: item.title,
       summary: item.summary,
-      suggestedType: null,
-      subtype: null,
+      suggestedType: classification.eventType,
+      subtype: classification.subtype,
       scheduledStart,
       scheduledEnd: typeof item.metadata.scheduledEnd === "string" ? item.metadata.scheduledEnd : null,
       scheduledDate,
       isAnnouncement: false,
       evidenceTier: ctx.source.evidenceTier,
-      metadata: item.metadata,
+      metadata: {
+        ...item.metadata,
+        ...(earningsDisposition ? { earnings_disposition: earningsDisposition } : {}),
+        ...(publishedAt ? {} : { published_at_unavailable: true }),
+        calendar_only: true,
+        source_identity: ctx.source.hostname || ctx.source.id,
+      },
     } satisfies NormalizedEventCandidate;
   },
 };
