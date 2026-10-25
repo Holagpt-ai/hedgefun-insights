@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
-import { LayoutGrid, NotebookPen, Radar, Sparkles, Star } from "lucide-react";
+import { LayoutGrid, NotebookPen, Radar, Sparkles, Star, TrendingUp } from "lucide-react";
+import { momentumWorkflowRoutes } from "@/lib/catalyst/momentum-workflow-routes";
 import { Button } from "@/components/ui/button";
 import { catalystSymbolWorkflowHref } from "@/lib/catalyst/sec-edgar-events";
 import { buildRepeatMoverWorkflowHandoffs } from "@/lib/radar/radar-repeat-mover-handoffs";
@@ -13,12 +14,14 @@ export function CatalystHandoffs({
   securityId?: SecurityId | null;
 }) {
   const routes = buildRepeatMoverWorkflowHandoffs(symbol, securityId ?? null);
+  const momentum = momentumWorkflowRoutes(symbol);
   const actions = [
+    { to: momentum?.momentumRadar ?? catalystSymbolWorkflowHref(symbol, "screeners"), label: "Momentum Radar", icon: TrendingUp },
     { to: routes.aiAnalyst, label: "Ask AI", icon: Sparkles },
     { to: routes.watchlist, label: "Add to Watchlist", icon: Star },
     { to: routes.journal, label: "Open Journal", icon: NotebookPen },
-    { to: catalystSymbolWorkflowHref(symbol, "screeners"), label: "View in Screeners", icon: LayoutGrid },
-    { to: catalystSymbolWorkflowHref(symbol, "action"), label: "Action Center", icon: Radar },
+    { to: momentum?.screeners ?? catalystSymbolWorkflowHref(symbol, "screeners"), label: "Screeners", icon: LayoutGrid },
+    { to: routes.actionCenter, label: "Action Center", icon: Radar },
   ];
 
   return (

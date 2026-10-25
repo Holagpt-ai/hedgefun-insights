@@ -280,7 +280,10 @@ describe("coerceRepeatMoverContextForDisplay rich episode preservation", () => {
           {
             symbol: "GOOD",
             securityId: SECURITY_ID,
-            historicalContext: baseBridgePayload(richBridgeEpisode()) as never,
+            historicalContext: {
+              ...baseBridgePayload(richBridgeEpisode()),
+              currentSymbol: "GOOD",
+            } as never,
           },
         ],
       },

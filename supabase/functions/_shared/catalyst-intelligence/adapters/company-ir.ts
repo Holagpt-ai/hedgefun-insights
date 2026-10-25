@@ -8,7 +8,7 @@ import {
   type ParsedFeedItem,
 } from "../feeds.ts";
 import { extractExplicitScheduledDates } from "../announcement-dates.ts";
-import { resolveIrIsAnnouncement } from "../ir-announcement-semantics.ts";
+import { classifyIrEarningsDisposition, resolveIrIsAnnouncement } from "../ir-announcement-semantics.ts";
 import { buildRawItem } from "../normalize.ts";
 import type { CatalystSourceAdapter } from "../source-adapter.ts";
 import { loadConfiguredSource } from "../source-fetch.ts";
@@ -68,6 +68,8 @@ async function normalizeIr(item: RawSourceItem, ctx: SourceRunContext): Promise<
     ? item.metadata.scheduledDate
     : extracted.scheduledDate;
   const hasExplicitSchedule = Boolean(scheduledStart || scheduledDate);
+  const earningsDisposition = classifyIrEarningsDisposition(text);
+  const publishedAt = item.publishedAt?.trim() ? item.publishedAt : null;
   return {
     raw: item,
     title: item.title,
@@ -79,7 +81,12 @@ async function normalizeIr(item: RawSourceItem, ctx: SourceRunContext): Promise<
     scheduledDate,
     isAnnouncement: resolveIrIsAnnouncement(text, hasExplicitSchedule),
     evidenceTier: ctx.source.evidenceTier,
-    metadata: item.metadata,
+    metadata: {
+      ...item.metadata,
+      ...(earningsDisposition ? { earnings_disposition: earningsDisposition } : {}),
+      ...(publishedAt ? {} : { published_at_unavailable: true }),
+      source_identity: ctx.source.hostname || ctx.source.id,
+    },
   };
 }
 

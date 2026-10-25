@@ -408,7 +408,7 @@ export function validateMover(input: RawMoverInput): CanonicalMover {
     reference_price: reference,
     change: current - reference,
     change_percent: canonicalPct,
-    volume: volume !== null && volume > 0 ? volume : null,
+    volume: volume !== null && Number.isFinite(volume) && volume >= 0 ? volume : null,
     session: input.session ?? null,
     session_date: sessionDate,
     source: sourceFrom(input.source),
@@ -467,6 +467,19 @@ export function polygonTickersFromResponse(res: unknown): unknown[] {
   if (Array.isArray(res)) return res;
   if (isPlainObject(res) && Array.isArray(res.tickers)) return res.tickers;
   return [];
+}
+
+/**
+ * Polygon day/min volume fields use 0 when cumulative volume is unavailable.
+ * That is not the same as a verified zero-share session count from cache/RPC.
+ */
+export function polygonSnapshotVolume(
+  day: Record<string, unknown>,
+  min: Record<string, unknown>,
+): number | null {
+  const raw = finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v);
+  if (raw === null || raw === 0) return null;
+  return raw;
 }
 
 /**
@@ -562,7 +575,7 @@ export function moverFromPolygonTicker(
     minuteClose,
     dayClose,
     vwap: extracted?.vwap,
-    volume: finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v),
+    volume: polygonSnapshotVolume(day, min),
     providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,
@@ -619,7 +632,7 @@ export function toMoverListRow(mover: CanonicalMover): MoverListRow | null {
     price: mover.price,
     change: mover.change,
     changePercent: mover.change_percent,
-    volume: mover.volume !== null && mover.volume > 0 ? mover.volume : null,
+    volume: mover.volume !== null && Number.isFinite(mover.volume) && mover.volume >= 0 ? mover.volume : null,
     priceObservationLine,
     priceObservationTimeUnavailable,
   };

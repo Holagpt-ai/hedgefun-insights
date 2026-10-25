@@ -1,6 +1,38 @@
-# Deployment status
+﻿# Deployment status
 
 Checked 2026-10-24 from this workspace. Git SHAs below were read with `git rev-parse` after `git fetch origin main`. **Supabase production is managed in Lovable Cloud** (project `zcjptaolpumhtlwhlemq`). Edge deploy safety: `docs/release/edge-function-release-lovable.md`. **Git SHA on `main` is not the live Supabase Edge revision** until Lovable Cloud records a deploy.
+
+## Fly `stocksist-radar-v22-worker` (read-only parity, 2026-10-24)
+
+| Field | Value |
+| --- | --- |
+| Release | **v45** (complete, 2026-10-20T13:42:08Z) |
+| Image tag | `registry.fly.io/stocksist-radar-v22-worker:deployment-01M5CRQST4MR22JBA8AJK972H2` |
+| Digest | `sha256:47ff670c6cbefc43ff01cc87c2e1387f20f4c21a734b45558e7b4a35b901979e` |
+| Git SHA in image | **Unverified** (Fly deployment tag only) |
+| Parity vs `main` `b735073b` worker logic | **PASS** — no ranking / qualification behavior delta in the worker Docker COPY set; redeploy **not required** for scanner logic |
+
+## Vercel SPA (2026-10-24)
+
+| Field | Value |
+| --- | --- |
+| GitHub `main` | **`88de0ae8`** — PR **#171** (security V2 + continuity) **merged**; Vercel production deploy **succeeded** |
+| Production manifest | `{"js":"/assets/index-Drz78K0e.js","css":"/assets/index-lw4f8LSH.css"}` (read from `https://stocksist.com/asset-manifest.json`) |
+| Git SHA on manifest | **None** — hash change indicates deploy; does not prove commit alone |
+
+## Open PR (GitHub)
+
+| PR | Branch | State | Notes |
+| --- | --- | --- | --- |
+| Batch 171 | `cursor/batch171-security-performance-v2` | **OPEN** (after push) | Security V2 + public lazy routes + backlog reset docs |
+
+## Scanner live-market acceptance V1
+
+Contract report: `docs/release/scanner-live-market-acceptance-v1.md`. Polygon volume fix on **`main`** (`58aed1b1`, ISS-020). **Full RTH acceptance pending** Monday 2026-10-26 ET per `docs/release/monday-scanner-acceptance-2026-10-26.md`.
+
+## Scanner + catalyst integration V1
+
+Merged to `main` as **`ce68e0d8`** (PR #167).
 
 ## AI Analyst V2 — `chat` Edge activation (2026-10-24)
 

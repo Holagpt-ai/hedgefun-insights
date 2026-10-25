@@ -721,7 +721,7 @@ function validateMover(input) {
     reference_price: reference,
     change: current - reference,
     change_percent: canonicalPct,
-    volume: volume !== null && volume > 0 ? volume : null,
+    volume: volume !== null && Number.isFinite(volume) && volume >= 0 ? volume : null,
     session: input.session ?? null,
     session_date: sessionDate,
     source: sourceFrom(input.source),
@@ -764,6 +764,11 @@ function polygonTickersFromResponse(res) {
   if (Array.isArray(res)) return res;
   if (isPlainObject3(res) && Array.isArray(res.tickers)) return res.tickers;
   return [];
+}
+function polygonSnapshotVolume(day, min) {
+  const raw = finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v);
+  if (raw === null || raw === 0) return null;
+  return raw;
 }
 function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
   if (!isPlainObject3(raw)) {
@@ -828,7 +833,7 @@ function moverFromPolygonTicker(raw, session, nowMs = Date.now()) {
     minuteClose,
     dayClose,
     vwap: extracted?.vwap,
-    volume: finiteOrNull(day.v) ?? finiteOrNull(min.av) ?? finiteOrNull(min.v),
+    volume: polygonSnapshotVolume(day, min),
     providerAsOf: providerAsOfForValidation,
     session,
     sessionDate,

@@ -3,16 +3,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import {
-  CATALYST_CATEGORY_LABEL,
   catalystCategoryBadgeClass,
-  liveEventCategory,
+  catalystDisplayCategoryFromEvent,
+  catalystDisplayLabelFromEvent,
 } from "@/lib/catalyst/catalyst-event-visuals";
 import {
   catalystFreshness,
   catalystHistoricalBadgeLabel,
   type CatalystHistoricalSummary,
 } from "@/lib/catalyst/catalyst-historical-facts";
-import { EVENT_TYPE_LABEL, timeOfDayLabel } from "@/lib/catalyst/parsers";
+import { timeOfDayLabel } from "@/lib/catalyst/parsers";
 import { CatalystHandoffs } from "@/components/catalyst/CatalystHandoffs";
 import { CatalystSecProvenance } from "@/components/catalyst/CatalystSecProvenance";
 import type { CatalystEvent } from "@/types/catalyst";
@@ -65,7 +65,20 @@ export function CatalystEventRow({
   disabled,
   nowMs,
 }: CatalystEventRowProps) {
-  const category = liveEventCategory(event.event_type);
+  const category = catalystDisplayCategoryFromEvent({
+    event_type: event.event_type,
+    provider: event.provider,
+    title: event.title,
+    description: event.description,
+    facts: event.facts,
+  });
+  const categoryLabel = catalystDisplayLabelFromEvent({
+    event_type: event.event_type,
+    provider: event.provider,
+    title: event.title,
+    description: event.description,
+    facts: event.facts,
+  });
   const freshness = catalystFreshness(event.published_at, nowMs);
   const historyBadge = catalystHistoricalBadgeLabel(summary);
 
@@ -102,7 +115,7 @@ export function CatalystEventRow({
                 catalystCategoryBadgeClass(category),
               )}
             >
-              {EVENT_TYPE_LABEL[event.event_type] ?? CATALYST_CATEGORY_LABEL[category]}
+              {categoryLabel}
             </Badge>
             {historyBadge && (
               <Badge

@@ -1,3 +1,5 @@
+/** Read-model snapshot for intel dashboards. Public feed projection: `distribution-projection.ts` + `distribution-bridge.ts`. */
+
 import type {
   CanonicalEvent,
   DistributionRecord,

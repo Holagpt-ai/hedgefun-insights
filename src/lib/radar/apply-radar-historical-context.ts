@@ -10,12 +10,37 @@ import type { RadarHistoricalContextConfig } from "@/config/radar-historical-con
 import { mapRadarEnrichmentRequest } from "@/lib/radar/map-radar-row-to-repeat-mover-input";
 import { buildPrioritizedHistoricalBatches } from "@/lib/radar/radar-historical-context-priority";
 import type { RadarHistoricalContextBatchResponse } from "@/lib/radar/radar-historical-context-client";
+import {
+  handoffIdentity,
+  repeatMoverContextMatchesHandoff,
+} from "@/lib/historical-workflow/historical-handoff-identity";
 import { coerceRepeatMoverContextForDisplay } from "@/lib/radar/coerce-repeat-mover-context-for-display";
+import type { RepeatMoverContext } from "@/types/repeat-mover";
+import type { SecurityId } from "@/types/security-identity";
 import {
   classifyHistoricalContextBatchResult,
   resolveHistoricalContextLoadStatus,
 } from "@/lib/radar/radar-historical-context-classify";
 export { resolveHistoricalContextLoadStatus } from "@/lib/radar/radar-historical-context-classify";
+
+function batchResultSecurityIdConflicts(
+  rowSecurityId: SecurityId | null | undefined,
+  matchSecurityId: SecurityId | null | undefined,
+): boolean {
+  if (!rowSecurityId || !matchSecurityId) return false;
+  return rowSecurityId !== matchSecurityId;
+}
+
+function validatedRepeatMoverContextForRow(
+  symbol: string,
+  context: RepeatMoverContext | null | undefined,
+  expectedSecurityId: SecurityId | null,
+): RepeatMoverContext | null {
+  if (!context) return null;
+  const identity = handoffIdentity(symbol, expectedSecurityId);
+  if (!identity || !repeatMoverContextMatchesHandoff(identity, context)) return null;
+  return context;
+}
 
 export function markHistoricalContextRowsPending(
   rows: readonly RadarV2ScreenerRow[],
@@ -77,16 +102,52 @@ export function mergeHistoricalContextBatchIntoRows(
         historicalContextLoadStatus: row.historicalContextLoadStatus ?? "pending",
       };
     }
-    const historicalContext = coerceRepeatMoverContextForDisplay(match.historicalContext);
-    const loadStatus = classifyHistoricalContextBatchResult({
-      historicalContext: match.historicalContext,
-      priorContext: row.historicalContext ?? null,
-    });
+    const securityIdConflict = batchResultSecurityIdConflicts(row.securityId, match.securityId);
+    const rowExpectedSecurityId = row.securityId ?? null;
+    const incomingExpectedSecurityId = row.securityId ?? match.securityId ?? null;
+    let coercedIncoming = coerceRepeatMoverContextForDisplay(match.historicalContext);
+    if (
+      coercedIncoming
+      && match.securityId
+      && coercedIncoming.securityId !== match.securityId
+    ) {
+      coercedIncoming = null;
+    }
+    const incomingContext = securityIdConflict
+      ? null
+      : validatedRepeatMoverContextForRow(symbol, coercedIncoming, incomingExpectedSecurityId);
+    const validatedPrior = validatedRepeatMoverContextForRow(
+      symbol,
+      row.historicalContext ?? null,
+      rowExpectedSecurityId,
+    );
+    const historicalContext = incomingContext ?? validatedPrior ?? null;
+
+    let historicalContextLoadStatus = row.historicalContextLoadStatus ?? "pending";
+    if (incomingContext) {
+      historicalContextLoadStatus = resolveHistoricalContextLoadStatus(incomingContext);
+    } else if (validatedPrior) {
+      historicalContextLoadStatus =
+        row.historicalContextLoadStatus
+        ?? resolveHistoricalContextLoadStatus(validatedPrior);
+    } else if (match.historicalContext != null || securityIdConflict) {
+      historicalContextLoadStatus = "unavailable";
+    } else {
+      historicalContextLoadStatus = classifyHistoricalContextBatchResult({
+        historicalContext: match.historicalContext,
+        priorContext: null,
+      });
+    }
+
+    const nextSecurityId = securityIdConflict
+      ? row.securityId ?? null
+      : match.securityId ?? row.securityId ?? null;
+
     return {
       ...row,
-      securityId: match.securityId ?? row.securityId ?? null,
-      historicalContext: historicalContext ?? row.historicalContext ?? null,
-      historicalContextLoadStatus: historicalContext ? resolveHistoricalContextLoadStatus(historicalContext) : loadStatus,
+      securityId: nextSecurityId,
+      historicalContext,
+      historicalContextLoadStatus,
     };
   });
 }

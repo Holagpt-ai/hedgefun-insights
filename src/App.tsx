@@ -1,5 +1,54 @@
+import { Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { RouteLoadingFallback } from "@/components/utils/RouteLoadingFallback";
+import {
+  LazyActionCenter,
+  LazyAdminAlerts,
+  LazyAdminAnalytics,
+  LazyAdminDashboard,
+  LazyAdminMarket,
+  LazyAdminNews,
+  LazyAdminSeo,
+  LazyAdminSettings,
+  LazyAdminSubscriptions,
+  LazyAdminUsers,
+  LazyAIAnalyst,
+  LazyAMInbox,
+  LazyCatalyst,
+  LazyChartPage,
+  LazyHeatmapPage,
+  LazyJournalAnalytics,
+  LazyJournalCalendar,
+  LazyJournalCoach,
+  LazyJournalDailyReview,
+  LazyJournalLegacyRedirect,
+  LazyJournalNewTrade,
+  LazyJournalNotebook,
+  LazyJournalNotebookEntry,
+  LazyJournalOnboarding,
+  LazyJournalOverview,
+  LazyJournalPlaybookDetail,
+  LazyJournalPlaybooks,
+  LazyJournalReportBuilder,
+  LazyJournalReportSchedule,
+  LazyJournalReports,
+  LazyJournalSavedReport,
+  LazyJournalSettings,
+  LazyJournalShell,
+  LazyJournalTradeDetail,
+  LazyJournalTrades,
+  LazyPMInbox,
+  LazyScreeners,
+  LazyStockDetail,
+  LazyScreener,
+  LazyMoversPage,
+  LazyWatchlistPage,
+  LazyEtfDetailPage,
+  LazyArticleDetailPage,
+  LazyNewsPage,
+  LazyEarningsPage,
+} from "@/lazyPages";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,35 +60,7 @@ import AdminLayout from "@/layouts/AdminLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import SmartLayout from "@/layouts/SmartLayout";
 import DashboardHome from "@/pages/dashboard/DashboardHome";
-import AMInbox from "@/pages/dashboard/AMInbox";
-import PMInbox from "@/pages/dashboard/PMInbox";
-import Screeners from "@/pages/dashboard/Screeners";
-import AIAnalyst from "@/pages/dashboard/AIAnalyst";
 import DashboardWatchlistPage from "@/pages/dashboard/DashboardWatchlistPage";
-import {
-  JournalShell,
-  OverviewPage,
-  CalendarPage,
-  DailyReviewPage,
-  TradesPage,
-  NewTradePage,
-  TradeDetailPage,
-  NotebookPage,
-  NotebookEntryPage,
-  PlaybooksPage,
-  PlaybookDetailPage,
-  ReportsPage,
-  ReportBuilderPage,
-  SavedReportPage,
-  ReportSchedulePage,
-  AnalyticsPage,
-  CoachPage,
-  OnboardingPage,
-  SettingsPage,
-  JournalLegacyRedirect,
-} from "@/journal";
-import ActionCenter from "@/pages/dashboard/ActionCenter";
-import Catalyst from "@/pages/dashboard/Catalyst";
 import PriceAlertsPage from "@/pages/dashboard/PriceAlertsPage";
 import DashboardNewsPage from "@/pages/dashboard/DashboardNewsPage";
 import CommunityWaitlistPage from "@/pages/dashboard/CommunityWaitlistPage";
@@ -47,29 +68,14 @@ import AiTraderPage from "@/pages/dashboard/AiTraderPage";
 import { AI_TRADER_DASHBOARD_PATH, AI_TRADER_LEGACY_GAME_PATH } from "@/lib/ai-trader/operating-mode";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
-import StockDetail from "./pages/stocks/StockDetail";
 import AllStocksPage from "./pages/stocks/AllStocksPage";
-import Screener from "./pages/Screener";
-import MoversPage from "./pages/movers/MoversPage";
 import { RecentIposPage, UpcomingIposPage } from "./pages/ipos/IpoPages";
 import IpoStatisticsPage from "./pages/ipos/IpoStatisticsPage";
 import IpoNewsPage from "./pages/ipos/IpoNewsPage";
 import IpoScreenerPage from "./pages/ipos/IpoScreenerPage";
-import EarningsPage from "./pages/earnings/EarningsPage";
-import WatchlistPage from "./pages/watchlist/WatchlistV2Page";
 import ProPage from "./pages/pro/ProPage";
 import AccountPage from "./pages/account/AccountPage";
 import BillingPage from "./pages/account/BillingPage";
-import NewsPage from "./pages/news/NewsPage";
-import AdminDashboard from "./pages/admin/AdminDashboard";
-import AdminUsersPage from "./pages/admin/AdminUsersPage";
-import AdminSubscriptionsPage from "./pages/admin/AdminSubscriptionsPage";
-import AdminAnalyticsPage from "./pages/admin/AdminAnalyticsPage";
-import AdminNewsPage from "./pages/admin/AdminNewsPage";
-import AdminMarketPage from "./pages/admin/AdminMarketPage";
-import AdminSeoPage from "./pages/admin/AdminSeoPage";
-import AdminAlertsPage from "./pages/admin/AdminAlertsPage";
-import AdminSettingsPage from "./pages/admin/AdminSettingsPage";
 import StubPage from "./pages/stubs/StubPage";
 import StockExchangesPage from "./pages/stocks/StockExchangesPage";
 import StockComparePage from "./pages/stocks/StockComparePage";
@@ -85,16 +91,13 @@ import EtfComparePage from "./pages/etf/EtfComparePage";
 import EtfNewLaunchesPage from "./pages/etf/EtfNewLaunchesPage";
 import EtfProvidersPage from "./pages/etf/EtfProvidersPage";
 import EtfMainPage from "./pages/etf/EtfMainPage";
-import EtfDetailPage from "./pages/etf/EtfDetailPage";
 import TrendingPage from "./pages/trending/TrendingPage";
-import ChartPage from "./pages/chart/ChartPage";
 import ChartLandingPage from "./pages/chart/ChartLandingPage";
 import GainersPage from "./pages/markets/GainersPage";
 import LosersPage from "./pages/markets/LosersPage";
 import ActivePage from "./pages/markets/ActivePage";
 import PremarketPage from "./pages/markets/PremarketPage";
 import AfterHoursPage from "./pages/markets/AfterHoursPage";
-import HeatmapPage from "./pages/markets/HeatmapPage";
 import NewsletterPage from "./pages/newsletter/NewsletterPage";
 import UnsubscribePage from "@/pages/newsletter/UnsubscribePage";
 import ToolsPage from "./pages/tools/ToolsPage";
@@ -113,7 +116,6 @@ import CagrCalculatorPage from "./pages/tools/CagrCalculatorPage";
 import DividendCalculatorPage from "./pages/tools/DividendCalculatorPage";
 import SymbolLookupPage from "./pages/tools/SymbolLookupPage";
 import ArticlesPage from "./pages/articles/ArticlesPage";
-import ArticleDetailPage from "./pages/articles/ArticleDetailPage";
 import ScrollToTop from "./components/utils/ScrollToTop";
 import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import AuthRoutePage from "./pages/auth/AuthRoutePage";
@@ -139,6 +141,7 @@ const App = () => (
             <BrowserRouter>
               <RouteChangeTracker />
               <ScrollToTop />
+              <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
                 {/* OAuth consent route — outside PublicLayout so it renders standalone */}
                 <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
@@ -147,10 +150,10 @@ const App = () => (
                 <Route element={<PublicLayout />}>
                   <Route path="/" element={<Index />} />
                   <Route path="/stocks" element={<AllStocksPage />} />
-                  <Route path="/stocks/:ticker" element={<StockDetail />} />
-                  <Route path="/screener" element={<Screener />} />
-                  <Route path="/movers/:type" element={<MoversPage />} />
-                  <Route path="/movers" element={<MoversPage />} />
+                  <Route path="/stocks/:ticker" element={<LazyStockDetail />} />
+                  <Route path="/screener" element={<LazyScreener />} />
+                  <Route path="/movers/:type" element={<LazyMoversPage />} />
+                  <Route path="/movers" element={<LazyMoversPage />} />
                   <Route path="/ipos/recent" element={<RecentIposPage />} />
                   <Route path="/ipos/calendar" element={<UpcomingIposPage />} />
                   <Route path="/ipos/statistics" element={<IpoStatisticsPage />} />
@@ -158,9 +161,9 @@ const App = () => (
                   <Route path="/ipos/screener" element={<IpoScreenerPage />} />
                   <Route path="/ipos/upcoming" element={<UpcomingIposPage />} />
                   <Route path="/ipos" element={<RecentIposPage />} />
-                  <Route path="/earnings" element={<EarningsPage />} />
+                  <Route path="/earnings" element={<LazyEarningsPage />} />
                   <Route path="/pro" element={<ProPage />} />
-                  <Route path="/news" element={<NewsPage />} />
+                  <Route path="/news" element={<LazyNewsPage />} />
                   <Route path="/stocks/exchanges" element={<StockExchangesPage />} />
                   <Route path="/stocks/compare" element={<StockComparePage />} />
                   <Route path="/stocks/industry" element={<IndustryPage />} />
@@ -180,9 +183,9 @@ const App = () => (
                   <Route path="/etf/compare" element={<EtfComparePage />} />
                   <Route path="/etf/list/new" element={<EtfNewLaunchesPage />} />
                   <Route path="/etf/provider" element={<EtfProvidersPage />} />
-                  <Route path="/etf/:symbol" element={<EtfDetailPage />} />
+                  <Route path="/etf/:symbol" element={<LazyEtfDetailPage />} />
                   <Route path="/etfs/top" element={<EtfTopPage />} />
-                  <Route path="/etfs/:symbol" element={<EtfDetailPage />} />
+                  <Route path="/etfs/:symbol" element={<LazyEtfDetailPage />} />
                   <Route path="/etfs/compare" element={<StubPage title="ETF Comparison" description="Side-by-side comparison of up to 4 ETFs across all key metrics." />} />
                   <Route path="/trending" element={<TrendingPage />} />
                   <Route path="/markets/gainers" element={<GainersPage />} />
@@ -190,9 +193,9 @@ const App = () => (
                   <Route path="/markets/active" element={<ActivePage />} />
                   <Route path="/markets/premarket" element={<PremarketPage />} />
                   <Route path="/markets/after-hours" element={<AfterHoursPage />} />
-                  <Route path="/markets/heatmap" element={<HeatmapPage />} />
+                  <Route path="/markets/heatmap" element={<LazyHeatmapPage />} />
                   <Route path="/articles" element={<ArticlesPage />} />
-                  <Route path="/articles/:slug" element={<ArticleDetailPage />} />
+                  <Route path="/articles/:slug" element={<LazyArticleDetailPage />} />
                   <Route path="/chart" element={<ChartLandingPage />} />
                   
                   <Route path="/tools" element={<ToolsPage />} />
@@ -221,46 +224,46 @@ const App = () => (
                   <Route path="/register" element={<Navigate to="/signup" replace />} />
                   <Route path="/sign-up" element={<Navigate to="/signup" replace />} />
                   {/* Public Watchlist shell — never dashboard sidebar */}
-                  <Route path="/watchlist" element={<WatchlistPage />} />
+                  <Route path="/watchlist" element={<LazyWatchlistPage />} />
                 </Route>
 
                 {/* Dashboard routes */}
                 <Route element={<DashboardLayout />}>
                   <Route path="/dashboard" element={<DashboardHome />} />
-                  <Route path="/dashboard/pre-market" element={<AMInbox />} />
-                  <Route path="/dashboard/after-hours" element={<PMInbox />} />
+                  <Route path="/dashboard/pre-market" element={<LazyAMInbox />} />
+                  <Route path="/dashboard/after-hours" element={<LazyPMInbox />} />
                   <Route path="/dashboard/am" element={<Navigate to="/dashboard/pre-market" replace />} />
                   <Route path="/dashboard/pm" element={<Navigate to="/dashboard/after-hours" replace />} />
-                  <Route path="/dashboard/screeners" element={<Screeners />} />
-                  <Route path="/dashboard/ai" element={<AIAnalyst />} />
+                  <Route path="/dashboard/screeners" element={<LazyScreeners />} />
+                  <Route path="/dashboard/ai" element={<LazyAIAnalyst />} />
                   <Route path="/dashboard/watchlist" element={<DashboardWatchlistPage />} />
-                  <Route path="/dashboard/journal" element={<JournalShell />}>
-                    <Route index element={<OverviewPage />} />
-                    <Route path="onboarding" element={<OnboardingPage />} />
-                    <Route path="calendar" element={<CalendarPage />} />
-                    <Route path="daily-review" element={<DailyReviewPage />} />
-                    <Route path="daily-review/:date" element={<DailyReviewPage />} />
-                    <Route path="trades" element={<TradesPage />} />
-                    <Route path="trades/new" element={<NewTradePage />} />
-                    <Route path="trades/:tradeId" element={<TradeDetailPage />} />
-                    <Route path="notebook" element={<NotebookPage />} />
-                    <Route path="notebook/new" element={<NotebookEntryPage />} />
-                    <Route path="notebook/:entryId" element={<NotebookEntryPage />} />
-                    <Route path="playbooks" element={<PlaybooksPage />} />
-                    <Route path="playbooks/:playbookId" element={<PlaybookDetailPage />} />
-                    <Route path="reports" element={<ReportsPage />} />
-                    <Route path="reports/new" element={<ReportBuilderPage />} />
-                    <Route path="reports/:reportId" element={<SavedReportPage />} />
-                    <Route path="reports/:reportId/schedule" element={<ReportSchedulePage />} />
-                    <Route path="analytics" element={<AnalyticsPage />} />
-                    <Route path="analytics/:analysisId" element={<AnalyticsPage />} />
-                    <Route path="coach" element={<CoachPage />} />
-                    <Route path="settings" element={<SettingsPage />} />
+                  <Route path="/dashboard/journal" element={<LazyJournalShell />}>
+                    <Route index element={<LazyJournalOverview />} />
+                    <Route path="onboarding" element={<LazyJournalOnboarding />} />
+                    <Route path="calendar" element={<LazyJournalCalendar />} />
+                    <Route path="daily-review" element={<LazyJournalDailyReview />} />
+                    <Route path="daily-review/:date" element={<LazyJournalDailyReview />} />
+                    <Route path="trades" element={<LazyJournalTrades />} />
+                    <Route path="trades/new" element={<LazyJournalNewTrade />} />
+                    <Route path="trades/:tradeId" element={<LazyJournalTradeDetail />} />
+                    <Route path="notebook" element={<LazyJournalNotebook />} />
+                    <Route path="notebook/new" element={<LazyJournalNotebookEntry />} />
+                    <Route path="notebook/:entryId" element={<LazyJournalNotebookEntry />} />
+                    <Route path="playbooks" element={<LazyJournalPlaybooks />} />
+                    <Route path="playbooks/:playbookId" element={<LazyJournalPlaybookDetail />} />
+                    <Route path="reports" element={<LazyJournalReports />} />
+                    <Route path="reports/new" element={<LazyJournalReportBuilder />} />
+                    <Route path="reports/:reportId" element={<LazyJournalSavedReport />} />
+                    <Route path="reports/:reportId/schedule" element={<LazyJournalReportSchedule />} />
+                    <Route path="analytics" element={<LazyJournalAnalytics />} />
+                    <Route path="analytics/:analysisId" element={<LazyJournalAnalytics />} />
+                    <Route path="coach" element={<LazyJournalCoach />} />
+                    <Route path="settings" element={<LazyJournalSettings />} />
                   </Route>
                   <Route path={AI_TRADER_DASHBOARD_PATH} element={<AiTraderPage />} />
                   <Route path={AI_TRADER_LEGACY_GAME_PATH} element={<Navigate to={AI_TRADER_DASHBOARD_PATH} replace />} />
-                  <Route path="/dashboard/action-center" element={<ActionCenter />} />
-                  <Route path="/dashboard/catalyst" element={<Catalyst />} />
+                  <Route path="/dashboard/action-center" element={<LazyActionCenter />} />
+                  <Route path="/dashboard/catalyst" element={<LazyCatalyst />} />
                   <Route path="/dashboard/alerts" element={<PriceAlertsPage />} />
                   <Route path="/dashboard/news" element={<DashboardNewsPage />} />
                   <Route path="/dashboard/community" element={<CommunityWaitlistPage />} />
@@ -268,14 +271,14 @@ const App = () => (
 
                 {/* Smart routes — dashboard chrome if authed, public chrome if not */}
                 <Route element={<SmartLayout />}>
-                  <Route path="/journal" element={<JournalLegacyRedirect />} />
+                  <Route path="/journal" element={<LazyJournalLegacyRedirect />} />
                   <Route path="/account" element={<AccountPage />} />
                   <Route path="/account/billing" element={<BillingPage />} />
                   <Route path="/support" element={<SupportPage />} />
                 </Route>
 
                 {/* Chart routes — standalone layout */}
-                <Route path="/chart/:ticker" element={<ChartPage />} />
+                <Route path="/chart/:ticker" element={<LazyChartPage />} />
 
                 {/* Newsletter — standalone layout */}
                 <Route path="/newsletter" element={<NewsletterPage />} />
@@ -283,19 +286,20 @@ const App = () => (
 
                 {/* Admin routes */}
                 <Route element={<AdminLayout />}>
-                  <Route path="/admin" element={<AdminDashboard />} />
-                  <Route path="/admin/users" element={<AdminUsersPage />} />
-                  <Route path="/admin/subscriptions" element={<AdminSubscriptionsPage />} />
-                  <Route path="/admin/analytics" element={<AdminAnalyticsPage />} />
-                  <Route path="/admin/news" element={<AdminNewsPage />} />
-                  <Route path="/admin/market" element={<AdminMarketPage />} />
-                  <Route path="/admin/seo" element={<AdminSeoPage />} />
-                  <Route path="/admin/alerts" element={<AdminAlertsPage />} />
-                  <Route path="/admin/settings" element={<AdminSettingsPage />} />
+                  <Route path="/admin" element={<LazyAdminDashboard />} />
+                  <Route path="/admin/users" element={<LazyAdminUsers />} />
+                  <Route path="/admin/subscriptions" element={<LazyAdminSubscriptions />} />
+                  <Route path="/admin/analytics" element={<LazyAdminAnalytics />} />
+                  <Route path="/admin/news" element={<LazyAdminNews />} />
+                  <Route path="/admin/market" element={<LazyAdminMarket />} />
+                  <Route path="/admin/seo" element={<LazyAdminSeo />} />
+                  <Route path="/admin/alerts" element={<LazyAdminAlerts />} />
+                  <Route path="/admin/settings" element={<LazyAdminSettings />} />
                 </Route>
 
                 <Route path="*" element={<NotFound />} />
               </Routes>
+              </Suspense>
             </BrowserRouter>
           </TooltipProvider>
         </AuthProvider>
