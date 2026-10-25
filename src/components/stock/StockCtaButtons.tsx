@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { trackAuthHandoff, trackPublicDashboardCta } from "@/lib/analytics/public-events";
-import { publicWorkflowHref } from "@/lib/public/public-workflow-links";
+import { publicChartPath, publicWorkflowHref } from "@/lib/public/public-workflow-links";
 import { Button } from "@/components/ui/button";
 import { ExternalLink, Plus, Copy } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -55,11 +55,13 @@ export default function StockCtaButtons({ ticker }: Props) {
 
   const watchlistHref = publicWorkflowHref(ticker, "watchlist", !!user);
   const catalystHref = publicWorkflowHref(ticker, "catalyst", !!user);
+  const chartPath = publicChartPath(ticker);
 
   return (
     <div className="flex flex-row flex-wrap gap-2">
       <Button
-        onClick={() => navigate(`/chart/${ticker}`)}
+        disabled={!chartPath}
+        onClick={() => chartPath && navigate(chartPath)}
       >
         <ExternalLink className="w-4 h-4 mr-1.5" />
         Full Chart

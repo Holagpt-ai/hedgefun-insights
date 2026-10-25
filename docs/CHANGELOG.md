@@ -4,7 +4,8 @@ Application history below is a map of `main`, not a claim that each merge was de
 
 ## Unreleased
 
-- Batch 177 Lovable forward-sync & continuity alignment: integration branch forward-merge to `e4801e81`; continuity register **171–181**; no Lovable publish.
+- Batch 179 Public website & conversion V1 (PR pending): canonical stock detail links, auth-gated historical Radar and watchlist handoffs, delayed-data copy on homepage/stock SEO, regression tests in `batch179-public-conversion.test.ts`.
+- Batch 177 Lovable forward-sync & continuity alignment: integration branch forward-merge to `e4801e81`; PR **#176** merged at **`1002c682`**; no Lovable publish from Cursor.
 
 ## 2026-10-25
 
